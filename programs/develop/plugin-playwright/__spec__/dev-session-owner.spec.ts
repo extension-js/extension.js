@@ -2,11 +2,9 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {
-  createPlaywrightMetadataWriter,
-  detectLiveDevSessionOwner
-} from '../index'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {detectLiveDevSessionOwner} from '../index'
+import {contractPath, makeWriter} from './helpers/contract'
 
 const makeTempFolder = trackTempFolders()
 
@@ -22,6 +20,27 @@ function writeReadyFixture(overrides: Record<string, unknown> = {}): string {
       runId: 'f3a9',
       instanceId: 'alpha',
       ...overrides
+    })
+  )
+
+  return readyPath
+}
+
+// A contract another dev session wrote, under projectDir, for browser.
+function writeLiveSession(
+  projectDir: string,
+  browser: string,
+  contract: Record<string, unknown>
+) {
+  const readyPath = contractPath(projectDir, browser)
+  fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  fs.writeFileSync(
+    readyPath,
+    JSON.stringify({
+      command: 'dev',
+      status: 'ready',
+      pid: process.ppid,
+      ...contract
     })
   )
 
@@ -93,35 +112,17 @@ describe('the notice about another dev session on the same target', () => {
 
   it('prints once although the dev server and its plugin each open a writer', () => {
     const projectDir = makeTempFolder('extjs-owner-')
-    const readyPath = path.join(
-      projectDir,
-      'dist',
-      'extension-js',
-      'chromium-owner-notice',
-      'ready.json'
-    )
-    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
-    fs.writeFileSync(
-      readyPath,
-      JSON.stringify({
-        command: 'dev',
-        status: 'ready',
-        pid: process.ppid,
-        runId: 'owner-notice-run'
-      })
-    )
+    const browser = 'chromium-owner-notice'
+    writeLiveSession(projectDir, browser, {runId: 'owner-notice-run'})
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     const options = {
-      packageJsonDir: projectDir,
-      browser: 'chromium-owner-notice',
-      command: 'dev' as const,
-      distPath: path.join(projectDir, 'dist', 'chromium-owner-notice'),
+      browser,
       manifestPath: path.join(projectDir, 'manifest.json')
     }
-    createPlaywrightMetadataWriter(options)
-    createPlaywrightMetadataWriter(options)
+    makeWriter(projectDir, options)
+    makeWriter(projectDir, options)
 
     const notices = warn.mock.calls
       .map((call) => String(call[0]))
@@ -130,39 +131,21 @@ describe('the notice about another dev session on the same target', () => {
     expect(notices[0]).toContain(
       'Another dev session is already writing dist/chromium-owner-notice'
     )
-
-    fs.rmSync(projectDir, {recursive: true, force: true})
   })
 
   it('prints although both sessions asked for distinct instance ids', () => {
     const projectDir = makeTempFolder('extjs-owner-')
-    const readyPath = path.join(
-      projectDir,
-      'dist',
-      'extension-js',
-      'chromium-owner-ids',
-      'ready.json'
-    )
-    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
-    fs.writeFileSync(
-      readyPath,
-      JSON.stringify({
-        command: 'dev',
-        status: 'ready',
-        pid: process.ppid,
-        runId: 'owner-ids-run',
-        instanceId: 'alpha',
-        instanceExplicit: true
-      })
-    )
+    const browser = 'chromium-owner-ids'
+    writeLiveSession(projectDir, browser, {
+      runId: 'owner-ids-run',
+      instanceId: 'alpha',
+      instanceExplicit: true
+    })
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    createPlaywrightMetadataWriter({
-      packageJsonDir: projectDir,
-      browser: 'chromium-owner-ids',
-      command: 'dev' as const,
-      distPath: path.join(projectDir, 'dist', 'chromium-owner-ids'),
+    makeWriter(projectDir, {
+      browser,
       manifestPath: path.join(projectDir, 'manifest.json'),
       instanceId: 'beta',
       instanceExplicit: true
@@ -173,8 +156,6 @@ describe('the notice about another dev session on the same target', () => {
       .filter((line) => line.includes('owner-ids-run'))
     expect(notices).toHaveLength(1)
     expect(notices[0]).toContain('one session per browser')
-
-    fs.rmSync(projectDir, {recursive: true, force: true})
   })
 })
 
@@ -183,32 +164,17 @@ describe("the notice about a live dev session owning another command's target", 
 
   function liveDevProject(browser: string) {
     const projectDir = makeTempFolder('extjs-owner-')
-    const readyPath = path.join(
-      projectDir,
-      'dist',
-      'extension-js',
-      browser,
-      'ready.json'
-    )
-    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
-    fs.writeFileSync(
-      readyPath,
-      JSON.stringify({
-        command: 'dev',
-        status: 'ready',
-        pid: process.ppid,
-        runId: 'foreign-owner-run',
-        distPath: path.join(projectDir, 'dist', browser)
-      })
-    )
+    writeLiveSession(projectDir, browser, {
+      runId: 'foreign-owner-run',
+      distPath: path.join(projectDir, 'dist', browser)
+    })
 
     return projectDir
   }
 
   function buildNotices(projectDir: string, browser: string, distPath: string) {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    createPlaywrightMetadataWriter({
-      packageJsonDir: projectDir,
+    makeWriter(projectDir, {
       browser,
       command: 'build',
       distPath,
@@ -231,8 +197,6 @@ describe("the notice about a live dev session owning another command's target", 
     )
     expect(notices).toHaveLength(1)
     expect(notices[0]).toContain('The output dir is shared')
-
-    fs.rmSync(projectDir, {recursive: true, force: true})
   })
 
   it('stays quiet when the build writes another folder', () => {
@@ -245,7 +209,5 @@ describe("the notice about a live dev session owning another command's target", 
       path.join(projectDir, 'build', browser)
     )
     expect(notices).toEqual([])
-
-    fs.rmSync(projectDir, {recursive: true, force: true})
   })
 })

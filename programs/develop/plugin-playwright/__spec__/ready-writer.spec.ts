@@ -4,11 +4,26 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {chromiumExtensionId} from '../../lib/extension-id'
 import {
-  createPlaywrightMetadataWriter,
   getSessionRunId,
   stampReadyDistExtensionId,
   stampReadyKnownExtensionId
 } from '../index'
+import {
+  makeWriter as makeProjectWriter,
+  patchContract,
+  readContract,
+  stampReadyBrowserExited,
+  stampReadyBrowserLaunch,
+  stampReadyBrowserLaunchFailed,
+  stampReadyBrowserUpNotAttached,
+  stampReadyCdpFault,
+  stampReadyCdpPort,
+  stampReadyExtensionId,
+  stampReadyExtensionLoadRefused,
+  stampReadyRdpPort,
+  stampReadyWebDriver,
+  writeManifest
+} from './helpers/contract'
 
 const KEY =
   'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAu1SU1LfVLPHCozMxH2Mo4lgOEePzNm0tRgeLezV6ffAt0gunVTLw7onLRnrq0/IzW7yWR7QkrmBL7jTKEn5u+qKhbwKfBstIs+bMY2Zkp18gnTxKLxoS2tFczGkPLPgizskuemMghRniWaoLcyehkd3qqGElvW/VDL5AaWTg0nLVkjRo9z+40RQzuVaE8AkAFmxZzow3x+VJYKdjykkJ0iT9wCS0DRTXu269V264Vf/3jvredZiKRkgwlL9xNAwxXFg0x/XFw005UWVRIkdgcKWTjpBP2dPwVZ4WWC+9aGVd+Gyn1o0CLelf4rEjGoXbAAEgAqeGUxrcIlbjXfbcmwIDAQAB'
@@ -24,29 +39,23 @@ describe('ready.json writer preservation', () => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const makeWriter = () =>
-    createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'dev',
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
+  const makeWriter = () => makeProjectWriter(tmp)
 
   it('preserves launcher-stamped browserExitedAt/browserExitCode across recompiles', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.browserExitedAt = '2026-07-12T00:00:00.000Z'
-    ready.browserExitCode = 21
-    ready.browserExitSignal = 'SIGTRAP'
-    ready.cdpPort = 9223
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyBrowserExited(writer.readyPath, {
+      browserExitedAt: '2026-07-12T00:00:00.000Z',
+      browserExitCode: 21,
+      browserExitSignal: 'SIGTRAP'
+    })
+
+    stampReadyCdpPort(writer.readyPath, 9223)
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('ready')
     expect(after.browserExitedAt).toBe('2026-07-12T00:00:00.000Z')
     expect(after.browserExitCode).toBe(21)
@@ -58,20 +67,19 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.status = 'error'
-    ready.code = 'browser_exited'
-    ready.message =
-      'the chromium process exited (code 0) before the extension loaded, nothing is running'
-
-    ready.browserExitedAt = '2026-07-12T00:00:00.000Z'
-    ready.browserExitCode = 0
-    ready.browserExitSignal = null
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyBrowserExited(writer.readyPath, {
+      status: 'error',
+      code: 'browser_exited',
+      message:
+        'the chromium process exited (code 0) before the extension loaded, nothing is running',
+      browserExitedAt: '2026-07-12T00:00:00.000Z',
+      browserExitCode: 0,
+      browserExitSignal: null
+    })
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('error')
     expect(after.code).toBe('browser_exited')
     expect(after.message).toMatch(/before the extension loaded/)
@@ -82,19 +90,18 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.status = 'error'
-    ready.code = 'browser_launch_failed'
-    ready.message =
-      'the chromium process could not start (spawn /x/chrome EACCES), nothing is running'
-
-    ready.browserLaunchFailedAt = '2026-07-12T00:00:00.000Z'
-    ready.browserLaunchFailedReason = 'spawn /x/chrome EACCES'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyBrowserLaunchFailed(writer.readyPath, {
+      status: 'error',
+      code: 'browser_launch_failed',
+      message:
+        'the chromium process could not start (spawn /x/chrome EACCES), nothing is running',
+      browserLaunchFailedAt: '2026-07-12T00:00:00.000Z',
+      browserLaunchFailedReason: 'spawn /x/chrome EACCES'
+    })
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('error')
     expect(after.code).toBe('browser_launch_failed')
     expect(after.message).toMatch(/could not start/)
@@ -106,28 +113,26 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.rdpPort = 9224
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyRdpPort(writer.readyPath, 9224)
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(after.rdpPort).toBe(9224)
+    expect(readContract(writer.readyPath).rdpPort).toBe(9224)
   })
 
   it('preserves the launcher-stamped CDP fault across recompiles', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.cdpFaultCode = 'E_CDP_TIMEOUT'
-    ready.cdpFaultMessage = 'ensureLoaded timeout (10000ms)'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyCdpFault(
+      writer.readyPath,
+      'E_CDP_TIMEOUT',
+      'ensureLoaded timeout (10000ms)'
+    )
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('ready')
     expect(after.cdpFaultCode).toBe('E_CDP_TIMEOUT')
     expect(after.cdpFaultMessage).toBe('ensureLoaded timeout (10000ms)')
@@ -137,14 +142,14 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.webdriverPort = 61234
-    ready.webdriverSessionId = 'E3A9-webdriver-writer'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyWebDriver(writer.readyPath, {
+      webdriverPort: 61234,
+      webdriverSessionId: 'E3A9-webdriver-writer'
+    })
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.webdriverPort).toBe(61234)
     expect(after.webdriverSessionId).toBe('E3A9-webdriver-writer')
   })
@@ -153,14 +158,13 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.webdriverUnavailableReason = 'Allow Remote Automation is off'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyWebDriver(writer.readyPath, {
+      webdriverUnavailableReason: 'Allow Remote Automation is off'
+    })
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(after.webdriverUnavailableReason).toBe(
+    expect(readContract(writer.readyPath).webdriverUnavailableReason).toBe(
       'Allow Remote Automation is off'
     )
   })
@@ -169,8 +173,7 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.profilePath = path.join(
+    const profilePath = path.join(
       tmp,
       'dist',
       'extension-js',
@@ -178,14 +181,12 @@ describe('ready.json writer preservation', () => {
       'chromium-profile',
       'brave-Crimson-panda'
     )
-
-    ready.browserPid = 4242
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyBrowserLaunch(writer.readyPath, {profilePath, browserPid: 4242})
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(after.profilePath).toBe(ready.profilePath)
+    const after = readContract(writer.readyPath)
+    expect(after.profilePath).toBe(profilePath)
     expect(after.browserPid).toBe(4242)
   })
 
@@ -193,7 +194,7 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.pid).toBe(process.pid)
     expect(ready.pidStartedAt).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/
@@ -201,7 +202,8 @@ describe('ready.json writer preservation', () => {
 
     expect(
       Math.abs(
-        Date.parse(ready.pidStartedAt) - (Date.now() - process.uptime() * 1000)
+        Date.parse(String(ready.pidStartedAt)) -
+          (Date.now() - process.uptime() * 1000)
       )
     ).toBeLessThan(5000)
   })
@@ -210,16 +212,16 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.browserPid = 4242
-    ready.browserStartedAt = '2026-07-12T00:00:01.000Z'
-    ready.launcherPid = 4241
-    ready.launcherStartedAt = '2026-07-12T00:00:00.000Z'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyBrowserLaunch(writer.readyPath, {
+      browserPid: 4242,
+      browserStartedAt: '2026-07-12T00:00:01.000Z',
+      launcherPid: 4241,
+      launcherStartedAt: '2026-07-12T00:00:00.000Z'
+    })
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.browserPid).toBe(4242)
     expect(after.browserStartedAt).toBe('2026-07-12T00:00:01.000Z')
     expect(after.launcherPid).toBe(4241)
@@ -230,7 +232,7 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.runId).toBe(getSessionRunId(tmp, 'chromium'))
     // A different browser is a different session identity.
     expect(getSessionRunId(tmp, 'firefox')).not.toBe(ready.runId)
@@ -241,7 +243,7 @@ describe('ready.json writer preservation', () => {
     writer.writeReady()
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect('browserExitedAt' in after).toBe(false)
     expect('browserExitCode' in after).toBe(false)
     expect('profilePath' in after).toBe(false)
@@ -252,75 +254,52 @@ describe('ready.json writer preservation', () => {
 
   it('derives the extension id from the emitted dist once it exists', () => {
     const distPath = path.join(tmp, 'dist', 'chromium')
-    fs.mkdirSync(distPath, {recursive: true})
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0'})
-    )
+    writeManifest(distPath, {name: 'Fixture', version: '1.0.0'})
 
     const writer = makeWriter()
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(after.extensionId).toBe(chromiumExtensionId(distPath))
+    expect(readContract(writer.readyPath).extensionId).toBe(
+      chromiumExtensionId(distPath)
+    )
   })
 
   it('derives the declared gecko id for a firefox session', () => {
-    const distPath = path.join(tmp, 'dist', 'firefox')
-    fs.mkdirSync(distPath, {recursive: true})
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({
-        name: 'Fixture',
-        version: '1.0.0',
-        browser_specific_settings: {gecko: {id: 'fixture@extension.js'}}
-      })
-    )
-
-    const writer = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'firefox',
-      command: 'dev',
-      distPath,
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
+    writeManifest(path.join(tmp, 'dist', 'firefox'), {
+      name: 'Fixture',
+      version: '1.0.0',
+      browser_specific_settings: {gecko: {id: 'fixture@extension.js'}}
     })
+
+    const writer = makeProjectWriter(tmp, {browser: 'firefox'})
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(after.extensionId).toBe('fixture@extension.js')
+    expect(readContract(writer.readyPath).extensionId).toBe(
+      'fixture@extension.js'
+    )
   })
 
   // Safari has no dist-derivable id (identity is the appex bundle id the
   // packager assigns), so ready.json must not carry a chromium hash for it.
   it('never derives a chromium id for a safari session', () => {
-    const distPath = path.join(tmp, 'dist', 'safari')
-    fs.mkdirSync(distPath, {recursive: true})
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0'})
-    )
+    writeManifest(path.join(tmp, 'dist', 'safari'), {
+      name: 'Fixture',
+      version: '1.0.0'
+    })
 
-    const writer = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
+    const writer = makeProjectWriter(tmp, {
       browser: 'safari',
-      command: 'build',
-      distPath,
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
+      command: 'build'
     })
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect('extensionId' in after).toBe(false)
+    expect('extensionId' in readContract(writer.readyPath)).toBe(false)
   })
 
   it('backfills a packager-known extension id for safari, first stamp wins', () => {
-    const distPath = path.join(tmp, 'dist', 'safari')
-    const writer = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
+    const writer = makeProjectWriter(tmp, {
       browser: 'safari',
-      command: 'build',
-      distPath,
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
+      command: 'build'
     })
     writer.writeReady()
 
@@ -330,33 +309,30 @@ describe('ready.json writer preservation', () => {
       'dev.extensionjs.Fixture.Extension'
     )
 
-    const stamped = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(stamped.extensionId).toBe('dev.extensionjs.Fixture.Extension')
+    expect(readContract(writer.readyPath).extensionId).toBe(
+      'dev.extensionjs.Fixture.Extension'
+    )
 
     stampReadyKnownExtensionId(tmp, 'safari', 'com.example.other.Extension')
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(after.extensionId).toBe('dev.extensionjs.Fixture.Extension')
+    expect(readContract(writer.readyPath).extensionId).toBe(
+      'dev.extensionjs.Fixture.Extension'
+    )
   })
 
   it('keeps a launcher-confirmed extension id over the derived one across recompiles', () => {
-    const distPath = path.join(tmp, 'dist', 'chromium')
-    fs.mkdirSync(distPath, {recursive: true})
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0'})
-    )
+    writeManifest(path.join(tmp, 'dist', 'chromium'), {
+      name: 'Fixture',
+      version: '1.0.0'
+    })
 
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.extensionId = 'glocgelajdejkheibpdooiagpkkbfmhe'
-    ready.extensionIdSource = 'browser'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionId(writer.readyPath, 'glocgelajdejkheibpdooiagpkkbfmhe')
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.extensionId).toBe('glocgelajdejkheibpdooiagpkkbfmhe')
     expect(after.extensionIdSource).toBe('browser')
   })
@@ -364,88 +340,60 @@ describe('ready.json writer preservation', () => {
   it('recomputes a derived id when the manifest key changes mid-session', () => {
     const distPath = path.join(tmp, 'dist', 'chromium')
 
-    const writeDist = (manifest: Record<string, unknown>) => {
-      fs.mkdirSync(distPath, {recursive: true})
-      fs.writeFileSync(
-        path.join(distPath, 'manifest.json'),
-        JSON.stringify({name: 'Fixture', version: '1.0.0', ...manifest})
-      )
-    }
-
-    const readId = () =>
-      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')) as {
-        extensionId?: string
-        extensionIdSource?: string
-      }
+    const writeDist = (manifest: Record<string, unknown>) =>
+      writeManifest(distPath, {name: 'Fixture', version: '1.0.0', ...manifest})
 
     writeDist({})
     const writer = makeWriter()
     writer.writeReady()
-    const pathHashed = readId()
+    const pathHashed = readContract(writer.readyPath)
     expect(pathHashed.extensionIdSource).toBe('derived')
 
     writeDist({key: KEY})
     writer.writeReady()
-    const keyed = readId()
+    const keyed = readContract(writer.readyPath)
     expect(keyed.extensionId).toBe(chromiumExtensionId(distPath))
     expect(keyed.extensionId).not.toBe(pathHashed.extensionId)
     expect(keyed.extensionIdSource).toBe('derived')
 
     writeDist({})
     writer.writeReady()
-    expect(readId().extensionId).toBe(pathHashed.extensionId)
+    expect(readContract(writer.readyPath).extensionId).toBe(
+      pathHashed.extensionId
+    )
   })
 
   it('corrects the id a one-shot build read off the previous dist', () => {
     const distPath = path.join(tmp, 'dist', 'chromium')
-    fs.mkdirSync(distPath, {recursive: true})
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0'})
-    )
+    writeManifest(distPath, {name: 'Fixture', version: '1.0.0'})
 
-    const writer = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'build',
-      distPath,
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
+    const writer = makeProjectWriter(tmp, {command: 'build'})
     writer.writeReady()
-    const stale = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const stale = readContract(writer.readyPath)
 
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0', key: KEY})
-    )
+    writeManifest(distPath, {name: 'Fixture', version: '1.0.0', key: KEY})
 
     stampReadyDistExtensionId(tmp, 'chromium', distPath)
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.extensionId).toBe(chromiumExtensionId(distPath))
     expect(after.extensionId).not.toBe(stale.extensionId)
   })
 
   it('never lets a derivation replace a browser-confirmed id', () => {
     const distPath = path.join(tmp, 'dist', 'chromium')
-    fs.mkdirSync(distPath, {recursive: true})
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0'})
-    )
+    writeManifest(distPath, {name: 'Fixture', version: '1.0.0'})
 
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.extensionId = 'glocgelajdejkheibpdooiagpkkbfmhe'
-    ready.extensionIdSource = 'browser'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionId(writer.readyPath, 'glocgelajdejkheibpdooiagpkkbfmhe')
 
     stampReadyDistExtensionId(tmp, 'chromium', distPath)
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(after.extensionId).toBe('glocgelajdejkheibpdooiagpkkbfmhe')
+    expect(readContract(writer.readyPath).extensionId).toBe(
+      'glocgelajdejkheibpdooiagpkkbfmhe'
+    )
   })
 
   it('stamps runtime:"attached"/executorAttachedAt once and preserves it across recompiles', () => {
@@ -453,19 +401,18 @@ describe('ready.json writer preservation', () => {
     writer.writeReady()
 
     writer.stampExecutorAttached()
-    const stamped = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const stamped = readContract(writer.readyPath)
     expect(stamped.runtime).toBe('attached')
     expect(typeof stamped.executorAttachedAt).toBe('string')
     const firstStamp = stamped.executorAttachedAt
 
     writer.writeReady()
-    const afterCompile = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const afterCompile = readContract(writer.readyPath)
     expect(afterCompile.runtime).toBe('attached')
     expect(afterCompile.executorAttachedAt).toBe(firstStamp)
 
     writer.stampExecutorAttached()
-    const afterReattach = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(afterReattach.executorAttachedAt).toBe(firstStamp)
+    expect(readContract(writer.readyPath).executorAttachedAt).toBe(firstStamp)
   })
 
   it('stamps the Safari extension base from the producer origin and keeps it across recompiles', () => {
@@ -473,10 +420,7 @@ describe('ready.json writer preservation', () => {
     writer.writeReady()
 
     writer.stampExecutorAttached({origin: 'http://127.0.0.1:3000'})
-    expect(
-      'extensionBaseUrl' in
-        JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ).toBe(false)
+    expect('extensionBaseUrl' in readContract(writer.readyPath)).toBe(false)
 
     writer.stampExecutorAttached({
       origin: 'safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345'
@@ -484,23 +428,23 @@ describe('ready.json writer preservation', () => {
 
     writer.writeReady()
 
-    expect(
-      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')).extensionBaseUrl
-    ).toBe('safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345/')
+    expect(readContract(writer.readyPath).extensionBaseUrl).toBe(
+      'safari-web-extension://3F2A9C10-1B2C-4D5E-8F90-ABCDEF012345/'
+    )
   })
 
   it('an attach clears the browser-up-not-attached note, a recompile keeps it', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const held = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    held.browserUpNotAttachedAt = '2026-10-23T00:00:00.000Z'
-    held.browserUpNotAttachedWaitMs = 15000
-    held.browserUpNotAttachedHint = 'Chrome is up, but nothing connected'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(held))
+    stampReadyBrowserUpNotAttached(writer.readyPath, {
+      browserUpNotAttachedAt: '2026-10-23T00:00:00.000Z',
+      browserUpNotAttachedWaitMs: 15000,
+      browserUpNotAttachedHint: 'Chrome is up, but nothing connected'
+    })
 
     writer.writeReady()
-    const afterCompile = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const afterCompile = readContract(writer.readyPath)
     expect(afterCompile.browserUpNotAttachedAt).toBe('2026-10-23T00:00:00.000Z')
     expect(afterCompile.browserUpNotAttachedWaitMs).toBe(15000)
     expect(afterCompile.browserUpNotAttachedHint).toBe(
@@ -508,21 +452,22 @@ describe('ready.json writer preservation', () => {
     )
 
     writer.stampExecutorAttached()
-    const attached = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const attached = readContract(writer.readyPath)
     expect(attached.runtime).toBe('attached')
     expect('browserUpNotAttachedAt' in attached).toBe(false)
     expect('browserUpNotAttachedWaitMs' in attached).toBe(false)
     expect('browserUpNotAttachedHint' in attached).toBe(false)
 
     writer.writeReady()
-    const later = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect('browserUpNotAttachedAt' in later).toBe(false)
+    expect('browserUpNotAttachedAt' in readContract(writer.readyPath)).toBe(
+      false
+    )
   })
 
   it('does not invent the runtime signal before the SW attaches', () => {
     const writer = makeWriter()
     writer.writeReady()
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect('runtime' in after).toBe(false)
     expect('executorAttachedAt' in after).toBe(false)
   })
@@ -531,13 +476,12 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.cdpPort = 9223
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyCdpPort(writer.readyPath, 9223)
+    const ready = readContract(writer.readyPath)
 
     writer.writeShutdown()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('stopped')
     expect(after.code).toBe('shutdown')
     expect(after.cdpPort).toBe(9223)
@@ -549,13 +493,13 @@ describe('ready.json writer preservation', () => {
     writer.writeReady()
     writer.stampExecutorAttached()
 
-    const attached = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const attached = readContract(writer.readyPath)
     expect(attached.runtime).toBe('attached')
     expect(typeof attached.executorAttachedAt).toBe('string')
 
     writer.stampExecutorDetached()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.runtime).toBe('detached')
     expect(typeof after.executorDetachedAt).toBe('string')
     // The attach time stays as provenance: it did connect once.
@@ -570,7 +514,7 @@ describe('ready.json writer preservation', () => {
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.runtime).toBe('detached')
     expect(typeof after.executorDetachedAt).toBe('string')
   })
@@ -583,7 +527,7 @@ describe('ready.json writer preservation', () => {
 
     writer.stampExecutorAttached()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.runtime).toBe('attached')
     expect('executorDetachedAt' in after).toBe(false)
   })
@@ -594,7 +538,7 @@ describe('ready.json writer preservation', () => {
 
     writer.stampExecutorDetached()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect('runtime' in after).toBe(false)
     expect('executorDetachedAt' in after).toBe(false)
   })
@@ -604,7 +548,7 @@ describe('ready.json writer preservation', () => {
     writer.writeReady()
     writer.writeShutdown('the preview session ended')
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('stopped')
     expect(after.message).toBe('the preview session ended')
   })
@@ -629,26 +573,24 @@ describe('ready.json writer preservation', () => {
     first.writeError('compile_error', 'late')
     first.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(next.readyPath, 'utf-8'))
+    const after = readContract(next.readyPath)
     expect(after.status).toBe('starting')
     expect(after.code).toBeUndefined()
 
     next.writeShutdown()
-    expect(JSON.parse(fs.readFileSync(next.readyPath, 'utf-8')).status).toBe(
-      'stopped'
-    )
+    expect(readContract(next.readyPath).status).toBe('stopped')
   })
 
   it('writeStarting from the same run keeps startedAt', () => {
     const writer = makeWriter()
     writer.writeStarting()
     writer.writeReady()
-    const first = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const first = readContract(writer.readyPath)
 
     const next = makeWriter()
     next.writeStarting()
 
-    const after = JSON.parse(fs.readFileSync(next.readyPath, 'utf-8'))
+    const after = readContract(next.readyPath)
     expect(after.status).toBe('starting')
     expect(after.startedAt).toBe(first.startedAt)
   })
@@ -658,14 +600,12 @@ describe('ready.json writer preservation', () => {
     writer.writeReady()
     writer.stampExecutorAttached()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.runId = 'another-run'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    patchContract(writer.readyPath, {runId: 'another-run'})
 
     writer.writeShutdown()
     writer.stampExecutorDetached()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('ready')
     expect(after.runtime).toBe('attached')
     expect('executorDetachedAt' in after).toBe(false)
@@ -674,17 +614,10 @@ describe('ready.json writer preservation', () => {
   it('a build writer never rewrites a LIVE dev session contract', () => {
     const devWriter = makeWriter()
     devWriter.writeReady()
-    const ready = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
-    ready.pid = process.ppid
-    fs.writeFileSync(devWriter.readyPath, JSON.stringify(ready))
+    patchContract(devWriter.readyPath, {pid: process.ppid})
+    const ready = readContract(devWriter.readyPath)
 
-    const buildWriter = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'build',
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
+    const buildWriter = makeProjectWriter(tmp, {command: 'build'})
     buildWriter.writeStarting()
     buildWriter.writeReady()
     buildWriter.appendEvent({
@@ -694,7 +627,7 @@ describe('ready.json writer preservation', () => {
       browser: 'chromium'
     })
 
-    const after = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
+    const after = readContract(devWriter.readyPath)
     expect(after.command).toBe('dev')
     expect(after.pid).toBe(process.ppid)
     expect(after.runId).toBe(ready.runId)
@@ -704,20 +637,12 @@ describe('ready.json writer preservation', () => {
   it('a build writer takes over a DEAD dev session contract normally', () => {
     const devWriter = makeWriter()
     devWriter.writeReady()
-    const ready = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
-    ready.pid = 99999999
-    fs.writeFileSync(devWriter.readyPath, JSON.stringify(ready))
+    patchContract(devWriter.readyPath, {pid: 99999999})
 
-    const buildWriter = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'build',
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
+    const buildWriter = makeProjectWriter(tmp, {command: 'build'})
     buildWriter.writeStarting()
 
-    const after = JSON.parse(fs.readFileSync(devWriter.readyPath, 'utf-8'))
+    const after = readContract(devWriter.readyPath)
     expect(after.command).toBe('build')
     expect(after.pid).toBe(process.pid)
   })
@@ -728,18 +653,18 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.status = 'error'
-    ready.code = 'extension_load_refused'
-    ready.message = 'Chrome refused to load the extension at /dist/chrome'
-    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
-    ready.extensionLoadRefusedReason = 'Variable $2$ used but not defined.'
-    ready.extensionLoadRefusedCause = 'the cause the manifest shows'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionLoadRefused(writer.readyPath, {
+      status: 'error',
+      code: 'extension_load_refused',
+      message: 'Chrome refused to load the extension at /dist/chrome',
+      extensionLoadRefusedAt: '2026-07-24T00:00:00.000Z',
+      extensionLoadRefusedReason: 'Variable $2$ used but not defined.',
+      extensionLoadRefusedCause: 'the cause the manifest shows'
+    })
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('error')
     expect(after.code).toBe('extension_load_refused')
     expect(after.extensionLoadRefusedReason).toBe(
@@ -752,29 +677,26 @@ describe('ready.json writer preservation', () => {
 
   // The id read off the dist is a forecast of what the browser would assign.
   it('publishes no derived id for an extension the browser refused', () => {
-    const distPath = path.join(tmp, 'dist', 'chromium')
-    fs.mkdirSync(distPath, {recursive: true})
-    fs.writeFileSync(
-      path.join(distPath, 'manifest.json'),
-      JSON.stringify({manifest_version: 3, name: 'x', version: '1'})
-    )
+    writeManifest(path.join(tmp, 'dist', 'chromium'), {
+      manifest_version: 3,
+      name: 'x',
+      version: '1'
+    })
 
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(ready.extensionIdSource).toBe('derived')
+    expect(readContract(writer.readyPath).extensionIdSource).toBe('derived')
 
-    ready.status = 'error'
-    ready.code = 'extension_load_refused'
-    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
-    delete ready.extensionId
-    delete ready.extensionIdSource
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionLoadRefused(writer.readyPath, {
+      status: 'error',
+      code: 'extension_load_refused',
+      extensionLoadRefusedAt: '2026-07-24T00:00:00.000Z'
+    })
 
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.extensionId).toBeUndefined()
     expect(after.extensionIdSource).toBeUndefined()
   })
@@ -783,15 +705,15 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
-    ready.extensionLoadRefusedReason = 'TypeError'
-    ready.extensionLoadRefusedCause = 'the cause the manifest shows'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionLoadRefused(writer.readyPath, {
+      extensionLoadRefusedAt: '2026-07-24T00:00:00.000Z',
+      extensionLoadRefusedReason: 'TypeError',
+      extensionLoadRefusedCause: 'the cause the manifest shows'
+    })
 
     writer.writeShutdown()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('stopped')
     expect(after.extensionLoadRefusedReason).toBe('TypeError')
     expect(after.extensionLoadRefusedCause).toBe('the cause the manifest shows')
@@ -800,12 +722,12 @@ describe('ready.json writer preservation', () => {
   it('preserves compiledAt when a later writer in the same run omits it', () => {
     const writer = makeWriter()
     writer.writeReady('2026-08-15T12:00:00.000Z')
-    const first = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const first = readContract(writer.readyPath)
 
     const next = makeWriter()
     next.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(next.readyPath, 'utf-8'))
+    const after = readContract(next.readyPath)
     expect(after.compiledAt).toBe('2026-08-15T12:00:00.000Z')
     expect(after.startedAt).toBe(first.startedAt)
   })
@@ -815,16 +737,16 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
-    ready.extensionLoadRefusedReason = 'stale reason'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionLoadRefused(writer.readyPath, {
+      extensionLoadRefusedAt: '2026-07-24T00:00:00.000Z',
+      extensionLoadRefusedReason: 'stale reason'
+    })
 
     const nextRun = makeWriter()
     nextRun.writeStarting()
     nextRun.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(nextRun.readyPath, 'utf-8'))
+    const after = readContract(nextRun.readyPath)
     expect(after.status).toBe('ready')
     expect(after.code).toBeUndefined()
     expect(after.extensionLoadRefusedAt).toBeUndefined()
@@ -836,17 +758,17 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.status = 'error'
-    ready.code = 'extension_load_refused'
-    ready.message = 'Chrome refused to load the extension at /dist/chromium'
-    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
-    ready.extensionLoadRefusedReason = 'Variable $2$ used but not defined.'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionLoadRefused(writer.readyPath, {
+      status: 'error',
+      code: 'extension_load_refused',
+      message: 'Chrome refused to load the extension at /dist/chromium',
+      extensionLoadRefusedAt: '2026-07-24T00:00:00.000Z',
+      extensionLoadRefusedReason: 'Variable $2$ used but not defined.'
+    })
 
     writer.stampExecutorAttached()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('ready')
     expect(after.code).toBeUndefined()
     expect(after.message).toBeUndefined()
@@ -861,16 +783,16 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.status = 'error'
-    ready.code = 'extension_load_refused'
-    ready.extensionLoadRefusedAt = '2026-07-24T00:00:00.000Z'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    stampReadyExtensionLoadRefused(writer.readyPath, {
+      status: 'error',
+      code: 'extension_load_refused',
+      extensionLoadRefusedAt: '2026-07-24T00:00:00.000Z'
+    })
 
     writer.stampExecutorAttached()
     writer.writeReady()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('ready')
     expect(after.code).toBeUndefined()
     expect(after.extensionLoadRefusedAt).toBeUndefined()
@@ -882,15 +804,15 @@ describe('ready.json writer preservation', () => {
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.status = 'error'
-    ready.code = 'compile_failed'
-    ready.message = 'build broke'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    patchContract(writer.readyPath, {
+      status: 'error',
+      code: 'compile_failed',
+      message: 'build broke'
+    })
 
     writer.stampExecutorAttached()
 
-    const after = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const after = readContract(writer.readyPath)
     expect(after.status).toBe('error')
     expect(after.code).toBe('compile_failed')
     expect(after.message).toBe('build broke')
@@ -908,50 +830,39 @@ describe('ready.json names the extension the browser loaded', () => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const writeManifest = (dir: string, name: string, version: string) => {
-    fs.mkdirSync(dir, {recursive: true})
-    fs.writeFileSync(
-      path.join(dir, 'manifest.json'),
-      JSON.stringify({manifest_version: 3, name, version})
-    )
-  }
-
   it('reads name and version from the dist, not the edited source', () => {
-    const distPath = path.join(tmp, 'dist', 'chromium')
-    const srcDir = path.join(tmp, 'src')
-    writeManifest(distPath, 'Built Name', '1.0.0')
-    writeManifest(srcDir, 'Edited Name', '9.9.9')
-
-    const writer = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'preview',
-      distPath,
-      manifestPath: path.join(srcDir, 'manifest.json')
+    writeManifest(path.join(tmp, 'dist', 'chromium'), {
+      manifest_version: 3,
+      name: 'Built Name',
+      version: '1.0.0'
     })
+
+    writeManifest(path.join(tmp, 'src'), {
+      manifest_version: 3,
+      name: 'Edited Name',
+      version: '9.9.9'
+    })
+
+    const writer = makeProjectWriter(tmp, {command: 'preview'})
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.extensionName).toBe('Built Name')
     expect(ready.extensionVersion).toBe('1.0.0')
   })
 
   it('falls back to the source manifest when the dist has none', () => {
-    const distPath = path.join(tmp, 'dist', 'chromium')
-    const srcDir = path.join(tmp, 'src')
-    fs.mkdirSync(distPath, {recursive: true})
-    writeManifest(srcDir, 'Source Only', '2.0.0')
-
-    const writer = createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'preview',
-      distPath,
-      manifestPath: path.join(srcDir, 'manifest.json')
+    fs.mkdirSync(path.join(tmp, 'dist', 'chromium'), {recursive: true})
+    writeManifest(path.join(tmp, 'src'), {
+      manifest_version: 3,
+      name: 'Source Only',
+      version: '2.0.0'
     })
+
+    const writer = makeProjectWriter(tmp, {command: 'preview'})
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.extensionName).toBe('Source Only')
     expect(ready.extensionVersion).toBe('2.0.0')
   })

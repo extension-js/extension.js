@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {createPlaywrightMetadataWriter} from '../index'
+import {makeWriter as makeProjectWriter} from './helpers/contract'
 
 const MAX_EVENTS_BYTES = 8 * 1024 * 1024
 const MAX_EVENT_BYTES = 64 * 1024
@@ -18,14 +18,7 @@ describe('events.ndjson budget and rotation', () => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const makeWriter = () =>
-    createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'dev',
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
+  const makeWriter = () => makeProjectWriter(tmp)
 
   const failingCompile = (errorBytes: number) => ({
     type: 'compile_error' as const,
