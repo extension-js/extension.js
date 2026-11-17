@@ -742,6 +742,21 @@ export function addonLintUnusable(
   )
 }
 
+// Another install stood in for a copy that threw, which changes the version
+// in use, so the copy that failed and the one that loaded are both named.
+export function optionalCopyFellBack(
+  dependencyId: string,
+  failed: {copy: string; why: string}[],
+  usedCopy: string
+) {
+  const broken = failed.map(({copy, why}) => `${copy} (${why})`).join(', ')
+
+  return (
+    `${getLoggingPrefix('warn')} ${dependencyId} could not be loaded from ${broken}. ` +
+    `The copy at ${usedCopy} is used instead. Install ${dependencyId} in the project to choose the copy yourself.`
+  )
+}
+
 export function addonLintFailedDebug(reason: string) {
   return `${getLoggingPrefix('debug')} addon-lint failed=true reason="${reason}"`
 }

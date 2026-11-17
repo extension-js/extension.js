@@ -10,7 +10,8 @@ import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
 import {resolveDevelopInstallRoot} from './develop-context'
-import {CODES, debugLine, prefix} from './messaging'
+import * as messages from './messages'
+import {CODES, debugLine, humanLine, prefix} from './messaging'
 import type {
   OptionalDependencyContract,
   OptionalDependencyVerificationRule
@@ -412,13 +413,16 @@ function firstLineOf(error: unknown): string {
   return text.split('\n')[0].trim().replace(/\.$/, '')
 }
 
+type FailedCopy = {copy: string; error: unknown}
+
 // The reason travels with the error as its cause, so a caller can say why
 // the package is unusable without parsing the readable line.
 function optionalLoadError(
   input: EnsureLoadInput<AnyModule>,
   resolvedPath: string,
   loadError: unknown,
-  brokenProjectCopy: boolean
+  headline: string,
+  action: 'Install' | 'Reinstall'
 ) {
   const installSpecs = input.installDependencies || [input.dependencyId]
   const diagnostics = {
@@ -440,75 +444,152 @@ function optionalLoadError(
       formatResolverError({
         integration: input.integration,
         dependencyId: input.dependencyId,
-        headline: brokenProjectCopy
-          ? `${input.dependencyId} at ${resolvedPath} could not be loaded: ${firstLineOf(loadError)}.`
-          : `${input.dependencyId} could not be loaded after it resolved.`,
+        headline,
         installSpecs,
         projectPath: input.projectPath,
         diagnostics,
-        action: brokenProjectCopy ? 'Reinstall' : 'Install'
+        action
       })
     ),
-    {cause: loadError}
+    {cause: loadError, resolvedPath}
   )
+}
+
+// An adapter that rejects the module knows the shape and not the file, so
+// the copy it was handed is named on what it throws.
+function adaptLoadedModule<T>(
+  input: EnsureLoadInput<T>,
+  loaded: AnyModule,
+  copy: string
+): T {
+  if (!input.moduleAdapter) return loaded
+
+  try {
+    return input.moduleAdapter(loaded)
+  } catch (error) {
+    if (error && typeof error === 'object' && !('resolvedPath' in error)) {
+      Object.assign(error, {resolvedPath: copy})
+    }
+
+    throw error
+  }
+}
+
+const reportedFallbacks = new Set<string>()
+
+// A stand-in copy is said once per process, since a broken copy fails the
+// same way on every load of a session.
+function reportFallbackCopy(
+  dependencyId: string,
+  failed: FailedCopy[],
+  usedCopy: string
+): void {
+  const line = messages.optionalCopyFellBack(
+    dependencyId,
+    failed.map(({copy, error}) => ({copy, why: firstLineOf(error)})),
+    usedCopy
+  )
+
+  if (reportedFallbacks.has(line)) return
+
+  reportedFallbacks.add(line)
+  humanLine(line)
 }
 
 function loadResolvedOptionalModule<T>(
   input: EnsureLoadInput<T>,
   resolvedPath: string
 ): T {
-  let loaded: AnyModule
-  let didLoad = false
-  let lastLoadError: unknown
-
   // The copy the project resolves is the one the project asked for. When it
   // is broken that is the answer, and no other install stands in for it.
   const projectCopy = tryResolveWithBase(input.dependencyId, input.projectPath)
 
   if (projectCopy) {
+    let loaded: AnyModule
+
     try {
       // Asked by name from the project, which is how the path was resolved.
       loaded = createRequire(packageJsonPath(input.projectPath))(
         input.dependencyId
       )
     } catch (error) {
-      throw optionalLoadError(input, projectCopy, error, true)
+      throw optionalLoadError(
+        input,
+        projectCopy,
+        error,
+        `${input.dependencyId} at ${projectCopy} could not be loaded: ${firstLineOf(error)}.`,
+        'Reinstall'
+      )
     }
 
-    return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+    return adaptLoadedModule(input, loaded, projectCopy)
   }
 
-  for (const basePath of getResolutionBases(input.projectPath)) {
-    const req = createRequire(packageJsonPath(basePath))
-    const candidateModuleIds = [input.dependencyId, resolvedPath]
+  const requirers: NodeJS.Require[] = getResolutionBases(input.projectPath).map(
+    (basePath) => createRequire(packageJsonPath(basePath))
+  )
 
-    for (const candidateModuleId of candidateModuleIds) {
+  if (typeof require === 'function') requirers.push(require)
+
+  const failed: FailedCopy[] = []
+  const tried = new Set<string>()
+  let lastResolveError: unknown
+
+  // Each distinct copy is loaded once, so one that throws runs its side
+  // effects once and is named when another copy stands in for it.
+  for (const req of requirers) {
+    for (const candidateModuleId of [input.dependencyId, resolvedPath]) {
+      let copy: string
+
+      try {
+        copy = req.resolve(candidateModuleId)
+      } catch (error) {
+        lastResolveError = error
+        continue
+      }
+
+      if (tried.has(copy)) continue
+
+      tried.add(copy)
+
+      let loaded: AnyModule
+
       try {
         loaded = req(candidateModuleId)
-        didLoad = true
-        break
       } catch (error) {
-        lastLoadError = error
+        failed.push({copy, error})
+        continue
       }
-    }
 
-    if (didLoad) break
-  }
+      if (failed.length > 0) {
+        reportFallbackCopy(input.dependencyId, failed, copy)
+      }
 
-  if (!didLoad) {
-    try {
-      loaded = require(resolvedPath)
-      didLoad = true
-    } catch (directRequireError) {
-      lastLoadError = directRequireError
+      return adaptLoadedModule(input, loaded, copy)
     }
   }
 
-  if (!didLoad) {
-    throw optionalLoadError(input, resolvedPath, lastLoadError, false)
+  if (failed.length === 0) {
+    throw optionalLoadError(
+      input,
+      resolvedPath,
+      lastResolveError,
+      `${input.dependencyId} could not be loaded after it resolved.`,
+      'Install'
+    )
   }
 
-  return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+  const causes = failed
+    .map(({copy, error}) => `${copy} (${firstLineOf(error)})`)
+    .join(', ')
+
+  throw optionalLoadError(
+    input,
+    failed[0].copy,
+    failed[0].error,
+    `${input.dependencyId} could not be loaded after it resolved: ${causes}.`,
+    'Install'
+  )
 }
 
 export async function ensureOptionalModuleLoaded<T = AnyModule>(

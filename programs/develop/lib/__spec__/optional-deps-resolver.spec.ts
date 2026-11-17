@@ -3,6 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
+const stripAnsi = (text: string) => text.replace(/\x1b\[[0-9;]*m/g, '')
+
 let developInstallRoot: string | undefined
 
 vi.mock('../develop-context', () => ({
@@ -46,6 +48,7 @@ describe('optional-deps-resolver', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     delete process.env.EXTENSION_JS_PACKAGE_MANAGER
     delete process.env.EXTENSION_VERBOSE
     fs.rmSync(projectPath, {recursive: true, force: true})
@@ -315,6 +318,116 @@ throw new Error('project-copy-broken.\\nRequire stack:\\n- index.js')`
         dependencyId
       })
     ).resolves.toEqual({from: 'another-install'})
+  })
+
+  // A second install outside the project: the folder the command runs in.
+  function installOutsideProject(dependencyId: string, source: string) {
+    const cwdPath = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'tmp-extjs-cwd-'))
+    )
+
+    auxPaths.push(cwdPath)
+    writeJson(path.join(cwdPath, 'package.json'), {name: 'runs-here'})
+    createPackage(cwdPath, dependencyId, source)
+    vi.spyOn(process, 'cwd').mockReturnValue(cwdPath)
+
+    return path.join(cwdPath, 'node_modules', ...dependencyId.split('/'))
+  }
+
+  it('says which copy failed, why, and which one is used when another install stands in', async () => {
+    const dependencyId = '@extjs-test/falls-back'
+    const ranFile = path.join(runtimePath, 'ran.txt')
+
+    createPackage(
+      runtimePath,
+      dependencyId,
+      `require('node:fs').appendFileSync(${JSON.stringify(ranFile)}, 'ran\\n')
+throw new Error('runtime-copy-broken.\\nRequire stack:\\n- index.js')`
+    )
+
+    const brokenEntry = path.join(
+      fs.realpathSync(runtimePath),
+      'node_modules',
+      ...dependencyId.split('/'),
+      'index.js'
+    )
+    const usedEntry = path.join(
+      installOutsideProject(
+        dependencyId,
+        'module.exports = {from: "the-folder-it-runs-in"}'
+      ),
+      'index.js'
+    )
+    const printed = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    const {ensureOptionalModuleLoaded, loadOptionalModuleWithoutInstall} =
+      await import('../optional-deps-resolver')
+    const input = {integration: 'Vue', projectPath, dependencyId}
+
+    await expect(ensureOptionalModuleLoaded(input)).resolves.toEqual({
+      from: 'the-folder-it-runs-in'
+    })
+
+    const lines = () =>
+      printed.mock.calls
+        .map((call) => stripAnsi(String(call[0])))
+        .filter((line) => line.includes(dependencyId))
+
+    expect(lines()).toHaveLength(1)
+    expect(lines()[0]).toContain(
+      `${dependencyId} could not be loaded from ${brokenEntry} (runtime-copy-broken). ` +
+        `The copy at ${usedEntry} is used instead.`
+    )
+
+    // The broken copy runs once per load, and the line is said once.
+    expect(fs.readFileSync(ranFile, 'utf8')).toBe('ran\n')
+    expect(loadOptionalModuleWithoutInstall(input)).toEqual({
+      from: 'the-folder-it-runs-in'
+    })
+
+    expect(lines()).toHaveLength(1)
+  })
+
+  it('lists every copy and its cause when each install outside the project throws', async () => {
+    const dependencyId = '@extjs-test/broken-everywhere'
+    process.env.EXTENSION_JS_PACKAGE_MANAGER = 'npm'
+
+    createPackage(
+      runtimePath,
+      dependencyId,
+      "throw new Error('runtime-copy-broken\\nRequire stack:\\n- index.js')"
+    )
+
+    const runtimeEntry = path.join(
+      fs.realpathSync(runtimePath),
+      'node_modules',
+      ...dependencyId.split('/'),
+      'index.js'
+    )
+    const cwdEntry = path.join(
+      installOutsideProject(dependencyId, "throw new Error('cwd-copy-broken')"),
+      'index.js'
+    )
+    const printed = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    const {ensureOptionalModuleLoaded, loadOptionalModuleWithoutInstall} =
+      await import('../optional-deps-resolver')
+    const input = {integration: 'Vue', projectPath, dependencyId}
+    const coded = expect.objectContaining({
+      code: 'E_OPTIONAL_DEP_LOAD',
+      message:
+        `[Vue] ${dependencyId} could not be loaded after it resolved: ` +
+        `${runtimeEntry} (runtime-copy-broken), ${cwdEntry} (cwd-copy-broken). ` +
+        `Install it with: npm install -D ${dependencyId}`,
+      resolvedPath: runtimeEntry,
+      cause: expect.objectContaining({
+        message: expect.stringContaining('runtime-copy-broken')
+      })
+    })
+
+    await expect(ensureOptionalModuleLoaded(input)).rejects.toEqual(coded)
+    expect(() => loadOptionalModuleWithoutInstall(input)).toThrow(coded)
+    expect(printed).not.toHaveBeenCalled()
   })
 
   it('treats install-root rules as resolved when the project package.json declares the dependency', async () => {
