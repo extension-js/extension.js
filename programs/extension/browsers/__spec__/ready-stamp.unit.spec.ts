@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   claimReadyPath,
+  clearReadyCdpPort,
   describeLaunchFailure,
   launchFailureCode,
   readReadyExecutorAttached,
@@ -816,5 +817,47 @@ describe('stampReadyExtensionBaseUrl', () => {
     expect(
       'extensionBaseUrl' in JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ).toBe(false)
+  })
+})
+
+describe('clearReadyCdpPort', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-clear-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('takes the port off the record of the run that named it and keeps the rest', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-1', status: 'ready', cdpPort: 9222})
+    )
+
+    clearReadyCdpPort(outputPath, 'run-1')
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf8'))).toEqual({
+      runId: 'run-1',
+      status: 'ready'
+    })
+  })
+
+  it('leaves the port a later run wrote', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-2', status: 'ready', cdpPort: 9223})
+    )
+
+    clearReadyCdpPort(outputPath, 'run-1')
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf8')).cdpPort).toBe(9223)
   })
 })

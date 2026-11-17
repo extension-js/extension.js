@@ -32,6 +32,8 @@ import {
   isDebug
 } from '../../../helpers/messaging'
 import {expectedGeckoExtensionId} from '../../browsers-lib/banner'
+import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
+import {claimDebugPortNear} from '../../browsers-lib/debug-port-claim'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {scanSystem} from '../../browsers-lib/locator-env'
 import * as messages from '../../browsers-lib/messages'
@@ -80,11 +82,9 @@ import {
   buildBrowserLaunchRequest,
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
-import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {
   classifyBinaryProvenance,
   deriveDebugPortWithInstance,
-  findAvailablePortNear,
   removeManagedEphemeralProfile
 } from '../../browsers-lib/shared-utils'
 import {
@@ -729,7 +729,10 @@ export class FirefoxLaunchPlugin {
       this.host.port,
       this.host.instanceId
     )
-    const debugPort = await findAvailablePortNear(desiredDebugPort)
+    // Held until Firefox is seen on the port or the launch gives up, so a
+    // session starting at the same moment is handed the next port.
+    const portClaim = await claimDebugPortNear(desiredDebugPort)
+    const debugPort = portClaim.port
     setInstancePorts(this.host.instanceId, {rdpPort: debugPort})
 
     const effectiveInstanceId: string | undefined = this.host.instanceId
@@ -774,6 +777,7 @@ export class FirefoxLaunchPlugin {
       )
 
       this.stampNoBrowserLaunched(DRY_RUN_NO_BROWSER)
+      portClaim.release()
 
       return
     }
@@ -829,6 +833,8 @@ export class FirefoxLaunchPlugin {
           runId: this.launchRunId
         }
       )
+
+      portClaim.release()
 
       let ctrl: Awaited<ReturnType<typeof setupRdpAfterLaunch>> | undefined
 

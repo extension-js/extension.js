@@ -38,6 +38,10 @@ import {
 } from '../../browsers-lib/binary-env-override'
 import {isSystemLocatedChromiumFork} from '../../browsers-lib/browser-family'
 import {
+  claimDebugPortNear,
+  type DebugPortClaim
+} from '../../browsers-lib/debug-port-claim'
+import {
   type InstallableTarget,
   offerManagedInstall
 } from '../../browsers-lib/first-run-install'
@@ -63,6 +67,7 @@ import {
 import {wasTerminatedByUs} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
+  clearReadyCdpPort,
   describeLaunchFailure,
   launchFailureCode,
   readReadyExecutorAttached,
@@ -130,6 +135,8 @@ interface ChromiumRunOptions {
   enableCdpPostLaunch?: boolean
   // The run-only command that owns the session, named when the browser exits.
   sessionCommand?: 'preview' | 'start'
+  // The port a run-only session claimed before it printed its card.
+  debugPortClaim?: DebugPortClaim
 }
 
 interface LaunchDoneStats {
@@ -1229,7 +1236,11 @@ export class ChromiumLaunchPlugin {
       this.options.port,
       this.options.instanceId
     )
-    const freePort = await utils.findAvailablePortNear(desiredPort)
+    // Held until the browser is seen on the port or the launch gives up, so
+    // a session starting at the same moment is handed the next port.
+    const portClaim =
+      opts?.debugPortClaim ?? (await claimDebugPortNear(desiredPort))
+    const freePort = portClaim.port
 
     const selectedPort = freePort
 
@@ -1256,6 +1267,27 @@ export class ChromiumLaunchPlugin {
       !enableCdp &&
       chromiumConfig.some((flag) => flag.startsWith('--remote-debugging-'))
 
+    const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
+    const closeHandlerOutputPath =
+      getExtensionOutputPath(
+        compilation,
+        chromiumConfig.find((flag: string) =>
+          flag.startsWith('--load-extension=')
+        )
+      ) || undefined
+    const launchRunId = readReadyRunId(closeHandlerOutputPath)
+
+    // A run-only session put its port on the record before its card, which
+    // is taken back when this launch turns out to open no port at all.
+    if (
+      opts?.debugPortClaim &&
+      !chromiumConfig.some((flag) =>
+        flag.startsWith('--remote-debugging-port=')
+      )
+    ) {
+      clearReadyCdpPort(closeHandlerOutputPath, launchRunId)
+    }
+
     try {
       await maybePrintLaunchBanner({
         compilation,
@@ -1280,17 +1312,10 @@ export class ChromiumLaunchPlugin {
         messages.binarySourceLabel(binaryProvenance, browser, binaryPinnedBy)
       )
 
+      portClaim.release()
+
       return
     }
-
-    const usePipe = chromiumConfig.includes('--remote-debugging-pipe')
-    const closeHandlerOutputPath =
-      getExtensionOutputPath(
-        compilation,
-        chromiumConfig.find((flag: string) =>
-          flag.startsWith('--load-extension=')
-        )
-      ) || undefined
 
     this.closeHandlerContext = {
       command:
@@ -1298,7 +1323,7 @@ export class ChromiumLaunchPlugin {
           ? 'dev'
           : opts?.sessionCommand || 'preview',
       extensionOutputPath: closeHandlerOutputPath,
-      runId: readReadyRunId(closeHandlerOutputPath)
+      runId: launchRunId
     }
 
     const child = await this.launchWithDirectSpawn(
@@ -1515,6 +1540,8 @@ export class ChromiumLaunchPlugin {
         }
       }
 
+      portClaim.release()
+
       await this.reportReadyWhenAttached({
         compilation,
         enableCdp,
@@ -1523,6 +1550,8 @@ export class ChromiumLaunchPlugin {
         profilePath: launchProfilePath
       })
     } catch (error) {
+      portClaim.release()
+
       // A dead CDP wire means no reload delivery for the whole session,
       // always tell the user (previously author-mode-only, i.e. silent).
       const message = String(error && (error as Error).message)

@@ -9,24 +9,28 @@
 import * as fs from 'node:fs'
 import {CODES, hasChannelPrefix} from '../helpers/messaging'
 import {printProdBannerOnce} from './browsers-lib/banner'
-import {builtBackgroundNamesRegistration} from './browsers-lib/built-boot-registrations'
 import {
   isChromiumBrowser,
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
+import {builtBackgroundNamesRegistration} from './browsers-lib/built-boot-registrations'
+import {claimDebugPortNear} from './browsers-lib/debug-port-claim'
 import {browserNeverStarted} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {
   claimReadyPath,
+  clearReadyCdpPort,
   describeLaunchFailure,
   launchFailureCode,
   readReadyRunId,
-  stampReadyBrowserLaunchFailed
+  stampReadyBrowserLaunchFailed,
+  stampReadyCdpPort
 } from './browsers-lib/ready-stamp'
 import {
   buildBrowserLaunchRequest,
   resolveStartingUrl
 } from './browsers-lib/runtime-options'
+import {deriveDebugPortWithInstance} from './browsers-lib/shared-utils'
 import {
   isVersionProbeTimeout,
   probeChromiumBinaryVersion,
@@ -337,10 +341,27 @@ export async function runOnlyPreviewBrowser(
     // No reload wiring here, only the load check that tells the contract
     // whether the browser took the guest. Chromium forks route here too.
     const ctx = createChromiumContext()
-    const launcher = new ChromiumLaunchPlugin(
-      buildPreviewChromiumOptions(opts),
-      ctx
-    )
+    const chromiumOptions = buildPreviewChromiumOptions(opts)
+    const launcher = new ChromiumLaunchPlugin(chromiumOptions, ctx)
+    // A reader waits for the card, so the port is claimed and on the record
+    // before it prints. The launch clears it if the browser opens none.
+    const debugPortClaim = opts.dryRun
+      ? undefined
+      : await claimDebugPortNear(
+          deriveDebugPortWithInstance(
+            chromiumOptions.port,
+            chromiumOptions.instanceId
+          )
+        )
+
+    if (debugPortClaim) {
+      stampReadyCdpPort(
+        opts.outPath,
+        debugPortClaim.port,
+        readReadyRunId(opts.outPath)
+      )
+    }
+
     // Identity before the launch: the card is the header for the session, not
     // a summary trailing the browser it describes.
     await printProdBannerOnce(bannerOptions)
@@ -348,9 +369,16 @@ export async function runOnlyPreviewBrowser(
     try {
       await launcher.runOnce(compilationLike, {
         enableCdpPostLaunch: false,
-        sessionCommand: opts.command
+        sessionCommand: opts.command,
+        debugPortClaim
       })
     } catch (error) {
+      debugPortClaim?.release()
+
+      if (!launcher.spawnedBrowser) {
+        clearReadyCdpPort(opts.outPath, readReadyRunId(opts.outPath))
+      }
+
       throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
     }
 

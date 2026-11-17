@@ -61,7 +61,7 @@ describe('runOnlyPreviewBrowser', () => {
         }),
         errors: []
       }),
-      {enableCdpPostLaunch: false}
+      expect.objectContaining({enableCdpPostLaunch: false})
     )
 
     expect(printProdBannerOnce).toHaveBeenCalledWith({
@@ -72,6 +72,56 @@ describe('runOnlyPreviewBrowser', () => {
       readyPath: undefined,
       browserVersionLine: undefined
     })
+  })
+
+  it('names the debugging port on the run record before the card prints, and hands the same port to the launch', async () => {
+    const fs = await import('node:fs')
+    const os = await import('node:os')
+    const path = await import('node:path')
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-port-'))
+    const outPath = path.join(dir, 'dist', 'chrome')
+    const readyPath = path.join(
+      dir,
+      'dist',
+      'extension-js',
+      'chrome',
+      'ready.json'
+    )
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-1', command: 'preview', status: 'starting'})
+    )
+
+    let portAtCard: unknown
+    printProdBannerOnce.mockImplementationOnce(async () => {
+      portAtCard = JSON.parse(fs.readFileSync(readyPath, 'utf8')).cdpPort
+
+      return true
+    })
+
+    try {
+      await runOnlyPreviewBrowser({
+        browser: 'chrome',
+        outPath,
+        readyPath,
+        contextDir: dir,
+        extensionsToLoad: [outPath]
+      })
+
+      const launch = chromiumRunOnce.mock.calls[0] as unknown as [
+        unknown,
+        {debugPortClaim: {port: number; release(): void}}
+      ]
+
+      expect(typeof portAtCard).toBe('number')
+      expect(launch[1].debugPortClaim.port).toBe(portAtCard)
+
+      launch[1].debugPortClaim.release()
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
   })
 
   // Shell-script fixture: not executable on Windows, posix-only case.
