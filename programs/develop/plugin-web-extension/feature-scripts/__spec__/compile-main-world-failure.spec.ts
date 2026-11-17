@@ -39,7 +39,13 @@ async function build(main: string, withStep: boolean) {
   fs.writeFileSync(at('content/main.js'), main)
 
   return new Promise<{
-    errors: Array<{name: string; message: string; module: string}>
+    errors: Array<{
+      code: string
+      message: string
+      module: string
+      file: string
+    }>
+    headers: string[]
     warnings: number
     emitted: string[]
   }>((resolve, reject) => {
@@ -71,10 +77,16 @@ async function build(main: string, withStep: boolean) {
 
         resolve({
           errors: (json.errors || []).map((e) => ({
-            name: String(e.name || ''),
+            code: String(e.code || ''),
             message: e.message,
-            module: String(e.moduleName || '')
+            module: String(e.moduleName || ''),
+            file: String(e.file || '')
           })),
+          // The line the bundler opens each error with in its own report.
+          headers: stats
+            .toString({all: false, errors: true, colors: false})
+            .split('\n')
+            .filter((line) => line.startsWith('ERROR in')),
           warnings: (json.warnings || []).length,
           emitted: (fs.readdirSync(at('dist'), {recursive: true}) as string[])
             .map((entry) => String(entry).split(path.sep).join('/'))
@@ -93,20 +105,27 @@ describe('a MAIN world group whose child compilation fails', () => {
     expect(parent.errors.map(({module}) => module)).toEqual([
       './content/main.js'
     ])
+
+    expect(parent.headers).toEqual(['ERROR in ./content/main.js'])
   })
 
-  it('forwards the child error once, unframed and without its module', async () => {
-    // Pins today's behavior. Ledger 1384, MAIN world child failure.
+  it('forwards the child error once, under the file the parent would name', async () => {
     const child = await build('const = 1\n', true)
 
     expect(child.errors).toHaveLength(1)
-    expect(child.errors[0].module).toBe('')
+    expect(child.headers).toEqual(['ERROR in ./content/main.js'])
+    // The parent has no module of the child to name, so the file says it.
+    expect(child.errors[0]).toMatchObject({
+      code: 'ModuleParseError',
+      module: '',
+      file: './content/main.js'
+    })
+
+    // One frame, the parent's: the one the child drew is not kept inside it.
     expect(child.errors[0].message).toMatch(
-      /^ {2}\u00d7 Module parse failed:\n/
+      /^ {2}\u00d7 Module parse failed:\n {2}\u2502 \u2570\u2500\u25b6 {3}\u00d7 JavaScript parse error: Unexpected token `=`/
     )
 
-    expect(child.errors[0].message).toContain('Unexpected token `=`')
-    expect(child.errors[0].message).not.toContain('content/main.js')
     expect(child.errors[0].message).not.toContain('MAIN world')
     expect(child.warnings).toBe(0)
     // The parent still writes the bundle the child produced.
@@ -116,16 +135,14 @@ describe('a MAIN world group whose child compilation fails', () => {
     ])
   })
 
-  it('forwards an unresolved import of the child once, naming the folder only', async () => {
-    // Pins today's behavior. Ledger 1384, MAIN world child failure.
+  it('forwards an unresolved import of the child once, under the importing file', async () => {
     const child = await build('import "./missing.js"\n', true)
 
     expect(child.errors).toHaveLength(1)
-    expect(child.errors[0].module).toBe('')
+    expect(child.headers).toEqual(['ERROR in ./content/main.js'])
+    expect(child.errors[0].file).toBe('./content/main.js')
     expect(child.errors[0].message).toMatch(
       /^ {2}\u00d7 Module not found: Can't resolve '\.\/missing\.js' in '/
     )
-
-    expect(child.errors[0].message).not.toContain('main.js')
   })
 })
