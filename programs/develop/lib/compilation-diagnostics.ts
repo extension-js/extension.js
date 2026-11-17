@@ -9,7 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {MAX_SUMMARY_WARNINGS} from './build-summary'
-import {type DiagnosticContext, diagnosticCode} from './diagnostic-code'
+import {
+  codeForSeverity,
+  type DiagnosticContext,
+  diagnosticCode,
+  type WarningCode
+} from './diagnostic-code'
 import {toMachineText} from './machine-text'
 import type {Diagnostic, ErrorCode} from './messaging'
 
@@ -21,6 +26,12 @@ export interface CompilationLike {
   chunkGraph?: {
     getChunkModules?: (chunk: unknown) => Iterable<{resource?: unknown}>
   }
+}
+
+// A warning names its W_ code here while `code` keeps the name it shipped
+// under, so a reader of either one matches through the 4.x line.
+export interface CodedDiagnostic extends Diagnostic {
+  warningCode?: WarningCode
 }
 
 interface CompilerIssue {
@@ -74,7 +85,7 @@ export function toDiagnostic(
   severity: Diagnostic['severity'],
   root?: string,
   context: DiagnosticContext = {}
-): Diagnostic {
+): CodedDiagnostic {
   const error = (
     issue && typeof issue === 'object' ? issue : {}
   ) as CompilerIssue
@@ -82,7 +93,8 @@ export function toDiagnostic(
     typeof issue === 'string'
       ? toMachineText(issue, root)
       : toMachineText(error.message, root)
-  const code = diagnosticCode(issue, context)
+  const found = diagnosticCode(issue, context)
+  const coded = found ? codeForSeverity(found, severity) : undefined
   const file = fileOf(error, root)
   const line = finite(error.loc?.start?.line)
   const column = finite(error.loc?.start?.column)
@@ -92,7 +104,8 @@ export function toDiagnostic(
       : undefined
 
   return {
-    ...(code ? {code} : {}),
+    ...(coded ? {code: coded.code} : {}),
+    ...(coded?.warningCode ? {warningCode: coded.warningCode} : {}),
     message,
     ...(file ? {file} : {}),
     ...(line !== undefined ? {line} : {}),
@@ -135,7 +148,7 @@ function contentScriptResources(
 export function compilationDiagnostics(
   input: unknown,
   root?: string
-): {details: Diagnostic[]; truncated: boolean} {
+): {details: CodedDiagnostic[]; truncated: boolean} {
   const compilation = input as CompilationLike | null | undefined
   const base = root ?? compilation?.compiler?.context
   const context = {contentScripts: contentScriptResources(compilation)}
@@ -161,8 +174,10 @@ export function warningCodes(input: unknown): Map<string, ErrorCode> {
   const codes = new Map<string, ErrorCode>()
 
   for (const issue of compilation?.warnings ?? []) {
-    const code = diagnosticCode(issue)
-    if (!code) continue
+    const found = diagnosticCode(issue)
+    if (!found) continue
+
+    const {code} = codeForSeverity(found, 'warning')
 
     const message =
       issue && typeof issue === 'object'

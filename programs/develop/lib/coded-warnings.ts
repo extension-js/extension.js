@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {codeForSeverity} from './diagnostic-code'
 import type {ErrorCode} from './messaging'
 
 // A warning the run carries on past, in the shape the envelope's warnings
@@ -13,7 +14,7 @@ import type {ErrorCode} from './messaging'
 const pending: string[] = []
 
 export function recordCodedWarning(code: ErrorCode, text: string): void {
-  const line = `${code}: ${text}`
+  const line = `${codeForSeverity(code, 'warning').code}: ${text}`
 
   if (!pending.includes(line)) pending.push(line)
 }

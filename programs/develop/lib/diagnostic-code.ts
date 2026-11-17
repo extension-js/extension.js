@@ -8,6 +8,42 @@
 
 import {CODES, type ErrorCode} from './messaging'
 
+export type WarningCode = Extract<ErrorCode, `W_${string}`>
+
+// What a consumer reads once the severity is known: the name the diagnostic
+// ships under, and for a warning the documented W_ name beside it.
+export interface SeverityCode {
+  code: ErrorCode
+  warningCode?: WarningCode
+}
+
+// Warnings that shipped under an E_ name before the warning class existed.
+// A reader matching that name keeps matching through 4.x, and 5.0 drops it.
+export const DEPRECATED_WARNING_NAMES: Partial<Record<WarningCode, ErrorCode>> =
+  {
+    [CODES.W_MANAGED_DEP_CONFLICT]: CODES.E_MANAGED_DEP_CONFLICT,
+    [CODES.W_TYPES_EMIT]: CODES.E_TYPES_EMIT,
+    [CODES.W_MODULE_NOT_FOUND]: CODES.E_MODULE_NOT_FOUND,
+    [CODES.W_ENTRY_NOT_FOUND]: CODES.E_ENTRY_NOT_FOUND,
+    [CODES.W_ASSET_MISSING]: CODES.E_ASSET_MISSING,
+    [CODES.W_SCRIPT_DEP_MISSING]: CODES.E_SCRIPT_DEP_MISSING,
+    [CODES.W_CSS_PARSE]: CODES.E_CSS_PARSE,
+    [CODES.W_CSS_PREPROCESSOR_MISSING]: CODES.E_CSS_PREPROCESSOR_MISSING,
+    [CODES.W_CSS_DEAD_REF]: CODES.E_CSS_DEAD_REF,
+    [CODES.W_POLYFILL_NOT_FOUND]: CODES.E_POLYFILL_NOT_FOUND,
+    [CODES.W_LOCALES_LAYOUT]: CODES.E_LOCALES_LAYOUT,
+    [CODES.W_PROD_LOOPBACK_ORIGIN]: CODES.E_PROD_LOOPBACK_ORIGIN,
+    [CODES.W_NO_ENTRYPOINTS]: CODES.E_NO_ENTRYPOINTS,
+    [CODES.W_REMOTE_RESOURCE_BLOCKED]: CODES.E_REMOTE_RESOURCE_BLOCKED,
+    [CODES.W_PERF_BUDGET]: CODES.E_PERF_BUDGET,
+    [CODES.W_ENV_NO_MATCH]: CODES.E_ENV_NO_MATCH,
+    [CODES.W_LAUNCH_SKIPPED_COMPILE_ERRORS]:
+      CODES.E_LAUNCH_SKIPPED_COMPILE_ERRORS,
+    [CODES.W_UNINSTALL_NOOP]: CODES.E_UNINSTALL_NOOP,
+    [CODES.W_PORT_IN_USE]: CODES.E_PORT_IN_USE,
+    [CODES.W_LOGS_STREAM_GAP]: CODES.E_LOGS_STREAM_GAP
+  }
+
 export interface DiagnosticContext {
   contentScripts?: ReadonlySet<string>
 }
@@ -26,7 +62,7 @@ interface IssueLike {
 export const NAMED_CODES: Record<string, ErrorCode> = {
   WARInvalidMatchPattern: CODES.E_WAR_INVALID,
   WARStringEntryInMv3: CODES.E_WAR_INVALID,
-  WARPatternLeavesRoot: CODES.E_WAR_INVALID,
+  WARPatternLeavesRoot: CODES.W_WAR_INVALID,
   LocalesLayoutWarning: CODES.E_LOCALES_LAYOUT,
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,
@@ -63,16 +99,62 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   NodeBuiltinNotAvailable: CODES.E_MODULE_NOT_FOUND,
   RemoteResourceBlocked: CODES.E_REMOTE_RESOURCE_BLOCKED,
   ReservedScriptsFolder: CODES.E_RESERVED_FOLDER,
-  ScriptsFolderEntryOnlyImported: CODES.E_RESERVED_FOLDER,
+  ScriptsFolderEntryOnlyImported: CODES.W_RESERVED_FOLDER,
   CssPreprocessorMissing: CODES.E_CSS_PREPROCESSOR_MISSING,
   CssDeadRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
   BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
   ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
   ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
-  ManifestFatalShapeWarning: CODES.E_MANIFEST_INVALID,
+  ManifestFatalShapeWarning: CODES.W_MANIFEST_INVALID,
   MainWorldScriptCompileFailed: CODES.E_COMPILE,
-  ContentScriptDevServerRuntimeWarning: CODES.E_INTERNAL
+  ContentScriptDevServerRuntimeWarning: CODES.W_INTERNAL,
+  SpecialFoldersRemoval: CODES.E_RESTART_REQUIRED,
+  HtmlEntrypointChanged: CODES.E_RESTART_REQUIRED,
+  EnvFileChange: CODES.W_RESTART_REQUIRED,
+  ProjectConfigChange: CODES.W_RESTART_REQUIRED,
+  SpecialFoldersChange: CODES.W_RESTART_REQUIRED,
+  MainWorldRegistrationChange: CODES.W_RESTART_REQUIRED,
+  PublicFolderAppearedWarning: CODES.W_RESTART_REQUIRED,
+  JSONInvalidSyntax: CODES.E_JSON_INVALID,
+  DNRInvalidRuleset: CODES.E_JSON_INVALID,
+  DNRInvalidRule: CODES.E_JSON_INVALID,
+  ManagedSchemaInvalid: CODES.E_JSON_INVALID,
+  EnvValueBreaksJsonAsset: CODES.E_JSON_INVALID,
+  DNRRuleShapeIssue: CODES.W_JSON_INVALID,
+  DNRDuplicateRuleId: CODES.W_JSON_INVALID,
+  DNRRegexChromeCannotCompile: CODES.W_JSON_INVALID,
+  PublicOutputCollision: CODES.E_PROJECT_LAYOUT,
+  IncludeFilesError: CODES.E_PROJECT_LAYOUT,
+  PublicFolderShadowedWarning: CODES.W_PROJECT_LAYOUT,
+  PublicLayoutWarning: CODES.W_PROJECT_LAYOUT,
+  ExcludeFilesWarning: CODES.W_PROJECT_LAYOUT,
+  NamespaceImportReadAsValue: CODES.E_ASSET_IMPORT_SHAPE,
+  ManifestV2OnChromiumWarning: CODES.W_MANIFEST_COMPAT,
+  ManifestLegacyWarning: CODES.W_MANIFEST_COMPAT,
+  ManifestHostPermissionWarning: CODES.W_MANIFEST_COMPAT,
+  ManifestDescriptionWarning: CODES.W_STORE_READINESS,
+  AmoDataCollectionWarning: CODES.W_STORE_READINESS,
+  UndeclaredPermissionWarning: CODES.W_PERMISSION_MISMATCH,
+  ContentScriptHostAccessWarning: CODES.W_PERMISSION_MISMATCH,
+  DevInjectedPermissionWarning: CODES.W_PERMISSION_MISMATCH,
+  DevInjectedHostWarning: CODES.W_PERMISSION_MISMATCH,
+  DevPromotedOptionalPermissionWarning: CODES.W_PERMISSION_MISMATCH,
+  DevPromotedOptionalHostWarning: CODES.W_PERMISSION_MISMATCH,
+  GeckoUnsupportedApiWarning: CODES.W_API_UNSUPPORTED,
+  GeckoCallbackFormWarning: CODES.W_API_UNSUPPORTED,
+  SafariUnsupportedApiWarning: CODES.W_API_UNSUPPORTED,
+  BrowserGlobalWithoutPolyfillWarning: CODES.W_API_UNSUPPORTED,
+  UnreachableWebAccessibleResourceWarning: CODES.W_WAR_EXPOSURE,
+  PageNamedNotExposedWarning: CODES.W_WAR_EXPOSURE,
+  InjectedScriptResourceExposedWarning: CODES.W_WAR_EXPOSURE,
+  CssUnplacedImport: CODES.W_CSS_NOT_APPLIED,
+  InjectedSheetImportKept: CODES.W_CSS_NOT_APPLIED,
+  PublicInjectedSheetImportIgnored: CODES.W_CSS_NOT_APPLIED,
+  PublicInjectedSheetPageRelativeTarget: CODES.W_CSS_NOT_APPLIED,
+  EnvPublicSecretName: CODES.W_ENV_SECRET_PUBLIC,
+  MissingBuildConstantWarning: CODES.W_BUILD_CONSTANT_UNDEFINED,
+  UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
 }
 
 // The bundler wraps what a loader threw or emitted under one of these names
@@ -164,4 +246,41 @@ export function diagnosticCode(
   if (isLateCssImport(err)) return CODES.E_CSS_PARSE
 
   return undefined
+}
+
+function hasCode(name: string): name is ErrorCode {
+  return Object.prototype.hasOwnProperty.call(CODES, name)
+}
+
+// A class with errors and warnings spells both the same after the prefix.
+function twin(code: ErrorCode, prefix: 'E_' | 'W_'): ErrorCode | undefined {
+  const name = prefix + code.slice(2)
+
+  return hasCode(name) ? name : undefined
+}
+
+export function warningCodeOf(code: ErrorCode): WarningCode | undefined {
+  const name = code.startsWith('W_') ? code : twin(code, 'W_')
+
+  return name as WarningCode | undefined
+}
+
+// The one place a class meets its severity. A warning that shipped as E_
+// keeps that name in `code`, and one born after the class carries W_ there.
+export function codeForSeverity(
+  code: ErrorCode,
+  severity: 'error' | 'warning'
+): SeverityCode {
+  if (severity === 'error') {
+    return {code: code.startsWith('W_') ? (twin(code, 'E_') ?? code) : code}
+  }
+
+  const warningCode = warningCodeOf(code)
+
+  if (!warningCode) return {code}
+
+  return {
+    code: DEPRECATED_WARNING_NAMES[warningCode] ?? warningCode,
+    warningCode
+  }
 }
