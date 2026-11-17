@@ -19,15 +19,18 @@ const WATCH_COMMANDS = ['dev', 'start', 'preview']
 const BROWSER_COMMANDS = [...WATCH_COMMANDS, 'build']
 
 // One run of `extension <command> <flags>`, opted in, against the fake sender.
+// `resolved` is what the command hands over once it has picked its browsers.
 async function sentProperties(
   command: string,
   flags: string[],
-  mark: 'outcome' | 'failure' = 'outcome'
+  options: {resolved?: string[]; mark?: 'outcome' | 'failure'} = {}
 ): Promise<Record<string, unknown>> {
   const box = sandbox({env: {EXTENSION_TELEMETRY: '1'}})
   const {cli} = cliRun(box, {argv: ['node', 'extension', command, ...flags]})
 
-  if (mark === 'failure') {
+  if (options.resolved) cli.noteBrowsers(options.resolved)
+
+  if (options.mark === 'failure') {
     cli.markCommandFailure(command, {code: 'E_ARGS', exitCode: 1})
   } else if (WATCH_COMMANDS.includes(command)) {
     cli.markCommandSessionStart(command)
@@ -44,58 +47,53 @@ async function sentProperties(
   return rows[0].properties
 }
 
-// What the CLI's own family lists make of each name, fork and binary.
-const CLASSIFIED: Array<[string[], string | undefined]> = [
-  [['--browser', 'chrome'], 'chrome'],
-  [['--browser=edge'], 'edge'],
-  [['--browser', 'firefox'], 'firefox'],
-  [['--browser', 'safari'], 'safari'],
-  [['--browser', 'chromium'], 'chromium-based'],
-  [['--browser', 'chromium-based'], 'chromium-based'],
-  [['--browser', 'brave'], 'chromium-based'],
-  [['--browser', 'opera'], 'chromium-based'],
-  [['--browser', 'vivaldi'], 'chromium-based'],
-  [['--browser', 'yandex'], 'chromium-based'],
-  [['--browser', 'gecko-based'], 'gecko-based'],
-  [['--browser', 'firefox-based'], 'gecko-based'],
-  [['--browser', 'waterfox'], 'gecko-based'],
-  [['--browser', 'librewolf'], 'gecko-based'],
-  [['--browser', 'zen'], 'gecko-based'],
-  [['--browser', 'floorp'], 'gecko-based'],
+// What the CLI's own family lists make of each resolved name and binary flag.
+const CLASSIFIED: Array<[string[], string[], string | undefined]> = [
+  [['chrome'], [], 'chrome'],
+  [['edge'], [], 'edge'],
+  [['firefox'], [], 'firefox'],
+  [['safari'], [], 'safari'],
+  // The default, and the same name from a flag or the config file.
+  [['chromium'], [], 'chromium-based'],
+  [['chromium-based'], [], 'chromium-based'],
+  [['brave'], [], 'chromium-based'],
+  [['opera'], [], 'chromium-based'],
+  [['vivaldi'], [], 'chromium-based'],
+  [['yandex'], [], 'chromium-based'],
+  [['gecko-based'], [], 'gecko-based'],
+  [['firefox-based'], [], 'gecko-based'],
+  [['waterfox'], [], 'gecko-based'],
+  [['librewolf'], [], 'gecko-based'],
+  [['zen'], [], 'gecko-based'],
+  [['floorp'], [], 'gecko-based'],
   // A custom binary is its engine family, never the path and never the name.
   [
-    ['--browser', 'chrome', '--chromium-binary', '/opt/acme/private-chrome'],
+    ['chrome'],
+    ['--chromium-binary', '/opt/acme/private-chrome'],
     'chromium-based'
   ],
-  [
-    ['--browser', 'chromium-based', '--chromium-binary=/opt/acme/thorium'],
-    'chromium-based'
-  ],
-  [
-    ['--browser', 'firefox', '--gecko-binary', '/opt/acme/private-fox'],
-    'gecko-based'
-  ],
-  [
-    ['--browser', 'firefox', '--firefox-binary', '/opt/acme/private-fox'],
-    'gecko-based'
-  ],
+  [['chromium'], ['--chromium-binary=/opt/acme/thorium'], 'chromium-based'],
+  [['firefox'], ['--gecko-binary', '/opt/acme/private-fox'], 'gecko-based'],
+  [['firefox'], ['--firefox-binary', '/opt/acme/private-fox'], 'gecko-based'],
   // A binary of the other engine is not the one the run launches.
-  [['--browser', 'firefox', '--chromium-binary', '/opt/acme/x'], 'firefox'],
-  [['--browser', 'edge', '--gecko-binary', '/opt/acme/x'], 'edge'],
-  // Names with no word in the list, several browsers, or none typed.
-  [['--browser', 'webkit-based'], undefined],
-  [['--browser', 'chromium-emulator'], undefined],
-  [['--browser', 'chrome,firefox'], undefined],
-  [['--browser', 'all'], undefined],
-  [['--browser', '/Applications/Acme Browser.app'], undefined],
-  [['--browser', 'Chrome'], undefined],
-  [['--chromium-binary', '/opt/acme/private-chrome'], undefined],
-  [[], undefined]
+  [['firefox'], ['--chromium-binary', '/opt/acme/x'], 'firefox'],
+  [['edge'], ['--gecko-binary', '/opt/acme/x'], 'edge'],
+  // Names with no word in the list, several browsers, or none.
+  [['webkit-based'], [], undefined],
+  [['chromium-emulator'], [], undefined],
+  [['chrome', 'firefox'], [], undefined],
+  [['chrome', 'edge', 'firefox'], [], undefined],
+  [['/Applications/Acme Browser.app'], [], undefined],
+  [['Chrome'], [], undefined],
+  [[''], [], undefined],
+  [[], [], undefined]
 ]
 
 describe.each(BROWSER_COMMANDS)('the browser on a %s row', (command) => {
-  it.each(CLASSIFIED)('%j sends %s', async (flags, expected) => {
-    const properties = await sentProperties(command, flags)
+  it.each(
+    CLASSIFIED
+  )('resolved %j with %j sends %s', async (resolved, flags, expected) => {
+    const properties = await sentProperties(command, flags, {resolved})
 
     if (expected === undefined) {
       expect(properties).not.toHaveProperty('browser')
@@ -107,18 +105,24 @@ describe.each(BROWSER_COMMANDS)('the browser on a %s row', (command) => {
     expect(JSON.stringify(properties)).not.toContain('Acme')
   })
 
-  it('rides on a failure row too', async () => {
-    const properties = await sentProperties(
-      command,
-      ['--browser', 'brave'],
-      'failure'
-    )
+  it('rides on a failure row once the browser is resolved', async () => {
+    const properties = await sentProperties(command, [], {
+      resolved: ['brave'],
+      mark: 'failure'
+    })
 
     expect(properties).toMatchObject({
       browser: 'chromium-based',
       code: 'E_ARGS',
       exit_code: 1
     })
+  })
+
+  // The flag alone resolves nothing: the config file or a refusal may differ.
+  it('is absent from a failure that came before a browser was resolved', async () => {
+    expect(
+      await sentProperties(command, ['--browser', 'firefox'], {mark: 'failure'})
+    ).not.toHaveProperty('browser')
   })
 })
 
@@ -227,12 +231,11 @@ describe('the browser property is one of six words or absent', () => {
     })
   })
 
-  it('drops any other value typed after --browser', async () => {
+  it('drops any other value a command resolved', async () => {
     for (const value of [...HOSTILE, ...arbitraryValues(60)]) {
-      const properties = await sentProperties('dev', [
-        '--browser',
-        String(value)
-      ])
+      const properties = await sentProperties('dev', [], {
+        resolved: [String(value)]
+      })
       const sent = properties.browser
 
       expect(
@@ -248,7 +251,7 @@ describe('the browser property is one of six words or absent', () => {
     'telemetry',
     'doctor',
     'unknown'
-  ])('is not sent on %s, which launches no browser of its own', async (command) => {
+  ])('is not sent on %s, which resolves no browser for the run', async (command) => {
     expect(
       await sentProperties(command, ['--browser', 'firefox'])
     ).not.toHaveProperty('browser')
@@ -306,7 +309,8 @@ describe('the starter on a create row', () => {
 
   it('sends the default on a failed create too', async () => {
     expect(
-      (await sentProperties('create', ['my-extension'], 'failure')).template
+      (await sentProperties('create', ['my-extension'], {mark: 'failure'}))
+        .template
     ).toBe('typescript')
   })
 

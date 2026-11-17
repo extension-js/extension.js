@@ -30,7 +30,13 @@ let commandConfig: unknown = {}
 let preflight = PREFLIGHT_OK
 let build: () => Promise<unknown> = async () => undefined
 
+// What the command told telemetry about the browsers of the run.
+const notedBrowsers: string[][] = []
+
 const deps: BuildDeps = {
+  noteBrowsers: (resolved) => {
+    notedBrowsers.push([...resolved])
+  },
   loadDevelop: async () => ({
     extensionBuild: async (...call: EngineCall) => {
       builds.push(call)
@@ -79,6 +85,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  notedBrowsers.length = 0
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
 
@@ -631,5 +638,38 @@ describe('extension build', () => {
         Object.keys(real).sort()
       )
     })
+  })
+})
+
+describe('extension build tells telemetry which browsers it resolved', () => {
+  it.each<[string, string[], unknown, string[]]>([
+    ['the default, with no flag and no config', [], {}, ['chromium']],
+    ['the one the config file names', [], {browser: 'firefox'}, ['firefox']],
+    [
+      'the flag over the config file',
+      ['--browser', 'edge'],
+      {browser: 'firefox'},
+      ['edge']
+    ],
+    [
+      'every browser of a list',
+      ['--browser', 'chrome,firefox'],
+      {},
+      ['chrome', 'firefox']
+    ]
+  ])('%s', async (_name, argv, config, expected) => {
+    commandConfig = config
+
+    await run(['build', PROJECT, ...argv])
+
+    expect(notedBrowsers).toEqual([expected])
+  })
+
+  it('tells nothing for a run refused before a browser is resolved', async () => {
+    commandConfig = {browser: 'firefox'}
+
+    expect(await run(['build', PROJECT, '--output', 'xml'])).toBe(1)
+    expect(notedBrowsers).toEqual([])
+    expect(configReads).toEqual([])
   })
 })

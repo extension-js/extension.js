@@ -136,22 +136,15 @@ export function telemetryBrowserWord(
   return undefined
 }
 
-const BROWSER_COMMANDS: ReadonlySet<string> = new Set([
-  'dev',
-  'start',
-  'preview',
-  'build'
-])
-
-// Read from the typed --browser only. A list of browsers is one run and one
-// row, so it sends nothing, and so does a run that typed no browser.
+// The browsers a command resolved, from the flag, the config file or the
+// default. Several browsers are one run and one row, so they send nothing.
 export function telemetryBrowser(
-  command: string,
+  resolved: readonly string[] | undefined,
   argv: string[]
 ): TelemetryBrowser | undefined {
-  if (!BROWSER_COMMANDS.has(command)) return undefined
+  if (!resolved || resolved.length !== 1) return undefined
 
-  const word = telemetryBrowserWord(readArgValue(argv, ['--browser', '-b']))
+  const word = telemetryBrowserWord(resolved[0])
   if (!word) return undefined
 
   // A custom binary is known by its engine alone, whatever name was typed.
@@ -188,7 +181,8 @@ type InstallReaders = {
 function commandContextWith(
   readers: InstallReaders,
   command: string,
-  argv: string[]
+  argv: string[],
+  resolvedBrowsers?: readonly string[]
 ): TelemetryCommandContext {
   // Whether the first-run download offer converts, on whichever command made
   // it. Four fixed outcomes and a managed browser name, never a path.
@@ -203,7 +197,7 @@ function commandContextWith(
       }
     : {}
 
-  const browser = telemetryBrowser(command, argv)
+  const browser = telemetryBrowser(resolvedBrowsers, argv)
   if (browser) return {...installContext, browser}
   if (command !== 'create') return installContext
 
@@ -296,6 +290,8 @@ export interface TelemetryCli {
   getConsent(): TelemetryConsent
   getStatus(): TelemetryStatus
   reset(): TelemetryReset
+  // Called by a command once it knows which browsers the run targets.
+  noteBrowsers(resolved: readonly string[]): void
   invokedCommand(): string
   resolveInvokedCommand(argv: string[], valuedFlags: ReadonlySet<string>): void
   setConsent(value: 'enabled' | 'disabled'): {ok: boolean; path: string | null}
@@ -338,6 +334,7 @@ export function createTelemetryCli(
     kit
   )
 
+  let resolvedBrowsers: readonly string[] | undefined
   let tracked = false
   let sessionStarted = false
   let sessionReady = false
@@ -421,7 +418,7 @@ export function createTelemetryCli(
       success: true,
       version,
       session: 'started',
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
 
     // Sent now, not queued. Holding it for the exit is the defect being fixed.
@@ -441,7 +438,7 @@ export function createTelemetryCli(
       success: true,
       version,
       session: 'ready',
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
 
     void telemetry.flush()
@@ -457,7 +454,7 @@ export function createTelemetryCli(
       command,
       success: true,
       version,
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
   }
 
@@ -475,7 +472,7 @@ export function createTelemetryCli(
       version,
       ...(code ? {code} : {}),
       ...(exitCode === undefined ? {} : {exit_code: exitCode}),
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
   }
 
@@ -544,6 +541,9 @@ export function createTelemetryCli(
     getConsent: () => consent,
     getStatus,
     reset,
+    noteBrowsers: (resolved) => {
+      resolvedBrowsers = [...resolved]
+    },
     invokedCommand: () => invoked,
     resolveInvokedCommand: (nextArgv, valuedFlags) => {
       invoked = detectInvokedCommand(nextArgv, valuedFlags)
@@ -571,6 +571,11 @@ export function getTelemetryConsent(): TelemetryConsent {
 
 export function getTelemetryStatus(): TelemetryStatus {
   return telemetryCli.getStatus()
+}
+
+// A row sent before this call, or by a run that never makes it, has no browser.
+export function noteRunBrowsers(resolved: readonly string[]): void {
+  telemetryCli.noteBrowsers(resolved)
 }
 
 export function resetTelemetry(): TelemetryReset {

@@ -86,13 +86,13 @@ Three consequences worth stating plainly:
 Nothing extra is collected here. `session` is a single word, `started` or `ready`, attached to
 an event that was already being sent.
 
-`dev`, `start`, `preview` and `build` add one property when the run named a single browser with `--browser`:
+`dev`, `start`, `preview` and `build` add one property when the run targets a single browser, whether it came from `--browser`, from `extension.config.js` or from the default:
 
 | property  | value                                                                        |
 | --------- | ---------------------------------------------------------------------------- |
 | `browser` | `chrome`, `edge`, `firefox`, `safari`, `chromium-based` or `gecko-based`, or absent |
 
-Those six words are the only values `browser` can take. `chromium` and a named Chromium fork (Brave, Opera, Vivaldi, Yandex) are sent as `chromium-based`. A named Gecko fork (Waterfox, LibreWolf, Zen, Floorp) and `firefox-based` are sent as `gecko-based`. A run with `--chromium-binary` is sent as `chromium-based` and a run with `--gecko-binary` or `--firefox-binary` as `gecko-based`, whatever name was typed, so a binary path, a product name and a version are never sent. The property is absent when no `--browser` was typed, when several browsers were named in one run (`--browser chrome,firefox` or `all`), and for `webkit-based`, `chromium-emulator` or any value outside the list.
+Those six words are the only values `browser` can take. `chromium` and a named Chromium fork (Brave, Opera, Vivaldi, Yandex) are sent as `chromium-based`. A named Gecko fork (Waterfox, LibreWolf, Zen, Floorp) and `firefox-based` are sent as `gecko-based`. A run with `--chromium-binary` is sent as `chromium-based` and a run with `--gecko-binary` or `--firefox-binary` as `gecko-based`, whatever name was typed, so a binary path, a product name and a version are never sent. The property is absent when a run targets several browsers (`--browser chrome,firefox` or `all`), for `webkit-based`, `chromium-emulator` or any value outside the list, and on a failure that happened before the command picked its browser.
 
 When a run offers to download a managed browser, the command's event carries the outcome so
 the offer can be told apart from a dead end:
