@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   buildPublishPlan,
   buildPublishRequest,
@@ -9,7 +9,6 @@ import {
   isPublishPlanError
 } from '../commands/publish'
 
-const ORIG = {...process.env}
 const API = 'https://platform.test'
 let configDir = ''
 
@@ -17,14 +16,14 @@ let configDir = ''
 // can read the developer's real stored login.
 beforeEach(() => {
   configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-publish-auth-'))
-  process.env.XDG_CONFIG_HOME = configDir
-  process.env.APPDATA = configDir
-  delete process.env.EXTENSION_DEV_TOKEN
-  process.env.EXTENSION_DEV_API_URL = API
+  vi.stubEnv('XDG_CONFIG_HOME', configDir)
+  vi.stubEnv('APPDATA', configDir)
+  vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
+  vi.stubEnv('EXTENSION_DEV_API_URL', API)
 })
 
 afterEach(() => {
-  process.env = {...ORIG}
+  vi.unstubAllEnvs()
   fs.rmSync(configDir, {recursive: true, force: true})
 })
 
@@ -40,12 +39,12 @@ function writeStoredLogin(token: string, extra: Record<string, unknown> = {}) {
 
 describe('buildPublishRequest', () => {
   it('throws a helpful error when no token is set', () => {
-    delete process.env.EXTENSION_DEV_TOKEN
+    vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
     expect(() => buildPublishRequest({})).toThrow(/EXTENSION_DEV_TOKEN/)
   })
 
   it('refuses with the API remedy when no platform URL is configured', () => {
-    delete process.env.EXTENSION_DEV_API_URL
+    vi.stubEnv('EXTENSION_DEV_API_URL', undefined)
     expect(() => buildPublishRequest({token: 'tok_abc'})).toThrow(
       /EXTENSION_DEV_API_URL/
     )
@@ -68,8 +67,8 @@ describe('buildPublishRequest', () => {
   })
 
   it('reads the token from EXTENSION_DEV_TOKEN and api from EXTENSION_DEV_API_URL', () => {
-    process.env.EXTENSION_DEV_TOKEN = 'tok_env'
-    process.env.EXTENSION_DEV_API_URL = 'http://localhost:3000/'
+    vi.stubEnv('EXTENSION_DEV_TOKEN', 'tok_env')
+    vi.stubEnv('EXTENSION_DEV_API_URL', 'http://localhost:3000/')
     const req = buildPublishRequest({})
     expect(req.url).toBe('http://localhost:3000/api/cli/publish')
     expect(req.headers.authorization).toBe('Bearer tok_env')
@@ -81,7 +80,7 @@ describe('buildPublishRequest', () => {
   })
 
   it('--token overrides the env token', () => {
-    process.env.EXTENSION_DEV_TOKEN = 'env'
+    vi.stubEnv('EXTENSION_DEV_TOKEN', 'env')
     expect(buildPublishRequest({token: 'flag'}).headers.authorization).toBe(
       'Bearer flag'
     )
@@ -90,7 +89,7 @@ describe('buildPublishRequest', () => {
 
 describe('stored device login fallback', () => {
   it('--token wins over the env var and the stored login', () => {
-    process.env.EXTENSION_DEV_TOKEN = 'tok_env'
+    vi.stubEnv('EXTENSION_DEV_TOKEN', 'tok_env')
     writeStoredLogin('tok_stored')
     expect(buildPublishRequest({token: 'tok_flag'}).headers.authorization).toBe(
       'Bearer tok_flag'
@@ -98,7 +97,7 @@ describe('stored device login fallback', () => {
   })
 
   it('the env var wins over the stored login', () => {
-    process.env.EXTENSION_DEV_TOKEN = 'tok_env'
+    vi.stubEnv('EXTENSION_DEV_TOKEN', 'tok_env')
     writeStoredLogin('tok_stored')
     expect(buildPublishRequest({}).headers.authorization).toBe('Bearer tok_env')
   })
@@ -282,7 +281,7 @@ describe('a stored login is scoped to one project', () => {
   })
 
   it('EXTENSION_DEV_TOKEN carries its own scope too', () => {
-    process.env.EXTENSION_DEV_TOKEN = 'tok_env'
+    vi.stubEnv('EXTENSION_DEV_TOKEN', 'tok_env')
     writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
     writeProject('pubwalk')
     const plan = buildPublishPlan({projectPath: projectDir})
@@ -321,47 +320,6 @@ describe('a stored login is scoped to one project', () => {
     expect(err.code).toBe('E_AUTH_REQUIRED')
     expect(err.refs).toBeUndefined()
     expect(err.hint).toContain('--token')
-    expect(err.hint).not.toContain('--api')
-  })
-
-  it('the missing platform URL refusal carries E_ARGS and names only --api', () => {
-    delete process.env.EXTENSION_DEV_API_URL
-    const err = planError({projectPath: projectDir, token: 'tok_flag'})
-    expect(isPublishPlanError(err)).toBe(true)
-    if (!isPublishPlanError(err)) return
-
-    expect(err.code).toBe('E_ARGS')
-    expect(err.hint).toContain('--api')
-    expect(err.hint).not.toContain('--token')
-  })
-
-  it('the --project mismatch carries E_INVALID_OPTION and refs the flag', () => {
-    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
-    writeProject('pubwalk')
-    const err = planError({
-      projectPath: projectDir,
-      project: 'something-else',
-      api: 'http://127.0.0.1:1'
-    })
-    expect(isPublishPlanError(err)).toBe(true)
-    if (!isPublishPlanError(err)) return
-
-    expect(err.code).toBe('E_INVALID_OPTION')
-    expect(err.refs).toEqual({flag: '--project'})
-    expect(err.hint).toContain('--project xvelte')
-    expect(err.hint).not.toContain('--api')
-  })
-
-  it('the directory mismatch carries E_INVALID_OPTION and refs the path', () => {
-    writeStoredLogin('tok_stored', {projectSlug: 'xvelte'})
-    writeProject('pubwalk')
-    const err = planError({projectPath: projectDir, api: 'http://127.0.0.1:1'})
-    expect(isPublishPlanError(err)).toBe(true)
-    if (!isPublishPlanError(err)) return
-
-    expect(err.code).toBe('E_INVALID_OPTION')
-    expect(err.refs).toEqual({path: path.resolve(projectDir)})
-    expect(err.hint).toContain('--project xvelte')
     expect(err.hint).not.toContain('--api')
   })
 

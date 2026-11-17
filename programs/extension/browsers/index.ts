@@ -278,8 +278,8 @@ async function launchFirefox(
     launchRequest as unknown as Parameters<typeof launcher.runOnce>[1]
   )
 
-  // Resolve the RDP controller created during launch; in dry-run/VITEST paths
-  // none is created and reload/logging degrade to no-ops.
+  // Resolve the RDP controller created during launch; a dry run creates
+  // none and reload/logging degrade to no-ops.
   const rdpController = ctx.getController?.()
 
   return {

@@ -304,7 +304,7 @@ describe('runDevWaitMode', () => {
     expect(result.results[0]?.status).toBe('ready')
   })
 
-  it('supports json format and timeout normalization', async () => {
+  it('supports json format and the default timeout', async () => {
     const projectDir = createProject()
     const readyDir = join(projectDir, 'dist', 'extension-js', 'chromium')
     mkdirSync(readyDir, {recursive: true})
@@ -325,12 +325,26 @@ describe('runDevWaitMode', () => {
     const result = await runDevWaitMode({
       pathOrRemoteUrl: projectDir,
       browsers: ['chromium'],
-      waitTimeout: 'invalid',
       waitFormat: 'json'
     })
 
     expect(result.format).toBe('json')
     expect(result.timeoutMs).toBe(60000)
+  })
+
+  it('refuses a timeout that is not a whole number of milliseconds', async () => {
+    const refusal = runDevWaitMode({
+      pathOrRemoteUrl: createProject(),
+      browsers: ['chromium'],
+      waitTimeout: 'invalid',
+      waitFormat: 'json'
+    })
+
+    await expect(refusal).rejects.toMatchObject({
+      code: 'E_INVALID_OPTION',
+      message:
+        '--wait-timeout got "invalid". Use a whole number of milliseconds, such as 10000.'
+    })
   })
 
   it('treats freshness as a fixed window, independent of --wait-timeout', () => {

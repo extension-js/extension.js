@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
-import {resolveNoBrowser} from '../no-browser'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {resolveNoBrowser} from '../no-browser'
 
 const makeTempFolder = trackTempFolders()
 
@@ -22,7 +22,7 @@ function projectWith(config: string | null): string {
 
 describe('resolveNoBrowser', () => {
   afterEach(() => {
-    delete process.env.EXTENSION_CLI_NO_BROWSER
+    vi.unstubAllEnvs()
   })
 
   it('reads commands.dev.noBrowser from the file config', async () => {
@@ -42,7 +42,7 @@ describe('resolveNoBrowser', () => {
   })
 
   it('lets the flag win regardless of the file', async () => {
-    process.env.EXTENSION_CLI_NO_BROWSER = '1'
+    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', '1')
     const dir = projectWith(
       'export default {commands: {dev: {noBrowser: false}}}'
     )

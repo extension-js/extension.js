@@ -1,6 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {registerActCommands} from '../commands/act'
+import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const session = {
   result: {ok: false, error: {}} as any,
@@ -26,55 +29,37 @@ const OPEN_TABS = [
   {id: 8, url: 'moz-extension://uuid/pages/welcome.html', active: true}
 ]
 
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    readReadyContract: () => session.readyDocument,
-    readReadyContractDocument: () => session.readyDocument,
-    readControlToken: () => 'tok-1',
-    BridgeController: class {
-      async connect() {}
-      async command(command: {op?: string}) {
-        bridgeCommands.push(command)
+const loadBridge = async () => ({
+  readReadyContract: () => session.readyDocument,
+  readReadyContractDocument: () => session.readyDocument,
+  readControlToken: () => 'tok-1',
+  BridgeController: class {
+    async connect() {}
+    async command(command: {op?: string}) {
+      bridgeCommands.push(command)
 
-        return command.op === 'tabs.query'
-          ? {ok: true, value: OPEN_TABS}
-          : session.result
-      }
-      close() {
-        controllerCloses++
-      }
+      return command.op === 'tabs.query'
+        ? {ok: true, value: OPEN_TABS}
+        : session.result
     }
-  }))
-}))
-
-vi.mock(
-  '../browsers/run-firefox/rdp/evaluate-extension-document',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('../browsers/run-firefox/rdp/evaluate-extension-document')
-      >()
-
-    return {
-      ...actual,
-      evaluateExtensionDocument: async (options: Record<string, unknown>) => {
-        protocolCalls.push(options)
-
-        return protocolOutcome
-      },
-      evaluateTabDocument: async (options: Record<string, unknown>) => {
-        tabCalls.push(options)
-        expect(controllerCloses, 'the controller closed too early').toBe(0)
-
-        return tabOutcome
-      }
+    close() {
+      controllerCloses++
     }
   }
-)
+})
 
-import {registerActCommands} from '../commands/act'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
-import {trackTempFolders} from './helpers/temp-folders'
+// Stand-ins for the debugger-protocol reads, which need a live Firefox.
+const evaluateGecko = (async (options: Record<string, unknown>) => {
+  protocolCalls.push(options)
+
+  return protocolOutcome
+}) as never
+const evaluateGeckoTab = (async (options: Record<string, unknown>) => {
+  tabCalls.push(options)
+  expect(controllerCloses, 'the controller closed too early').toBe(0)
+
+  return tabOutcome
+}) as never
 
 const makeTempFolder = trackTempFolders()
 
@@ -116,7 +101,17 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const run = (argv: string[]) => runCli(makeProgram(registerActCommands), argv)
+const run = (argv: string[]) =>
+  runCli(
+    makeProgram((program) =>
+      registerActCommands(program, {
+        loadBridge,
+        evaluateGecko,
+        evaluateGeckoTab
+      })
+    ),
+    argv
+  )
 
 const frame = () => JSON.parse(String(logSpy.mock.calls[0][0]))
 
@@ -288,7 +283,9 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
 
     expect(protocolCalls).toHaveLength(0)
     expect(frame().error.code).toBe('E_CONTROL_UNAVAILABLE')
-    expect(String(frame().error.hint)).toMatch(/idle|suspend/i)
+    expect(frame().error.hint).toBe(
+      'Firefox suspends an MV3 event page when it goes idle, and a suspended page has nothing to evaluate in. Wake the extension first, by opening one of its surfaces or triggering one of its listeners, then evaluate again.'
+    )
   })
 
   it('gives no idle event page advice when nothing ever connected', async () => {
@@ -619,5 +616,218 @@ describe("eval on a Gecko web page the site's own policy locks down", () => {
 
     expect(tabCalls).toHaveLength(0)
     expect(frame().error.hint).toContain('content-script world')
+  })
+})
+
+// A Firefox start session had no relay in its production pages, so a page the
+// bridge cannot reach is read over the debugger, the way eval already is.
+const NOT_OPEN = {
+  ok: false,
+  error: {
+    name: 'Unsupported',
+    message:
+      "surface 'options' is not open (open it first: extension open options)",
+    engine: 'firefox',
+    code: 'surface_not_open'
+  }
+}
+
+const SNAPSHOT = {
+  url: 'moz-extension://uuid/options/index.html',
+  title: 'Options 974',
+  summary: {htmlLength: 120, scriptCount: 1, styleCount: 0}
+}
+
+function optionsDist() {
+  const dist = makeTempFolder('extjs-gecko-inspect-')
+  fs.writeFileSync(
+    path.join(dist, 'manifest.json'),
+    JSON.stringify({options_ui: {page: 'options/index.html'}})
+  )
+
+  session.readyDocument = {...session.readyDocument, distPath: dist}
+
+  return dist
+}
+
+describe('inspect on a Gecko extension page the bridge cannot reach', () => {
+  it('reads the page over the debugger and answers the snapshot', async () => {
+    const dist = optionsDist()
+    session.result = NOT_OPEN
+    protocolOutcome = {ok: true, value: SNAPSHOT}
+
+    expect(
+      await run([
+        'inspect',
+        dist,
+        '--browser',
+        'firefox',
+        '--context',
+        'options',
+        '--include',
+        'summary,html',
+        '--output',
+        'json'
+      ])
+    ).toBe(0)
+
+    expect(protocolCalls).toHaveLength(1)
+    expect(protocolCalls[0]).toMatchObject({
+      rdpPort: 9222,
+      extensionId: 'repro@extension.js',
+      context: 'options',
+      pagePath: 'options/index.html'
+    })
+
+    expect(String(protocolCalls[0].expression)).toContain('outerHTML')
+    expect(frame()).toMatchObject({ok: true, value: SNAPSHOT})
+  })
+
+  it('keeps the bridge refusal when the debugger cannot read the page either', async () => {
+    const dist = optionsDist()
+    session.result = NOT_OPEN
+    protocolOutcome = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no document', engine: 'firefox'}
+    }
+
+    expect(
+      await run([
+        'inspect',
+        dist,
+        '--browser',
+        'firefox',
+        '--context',
+        'options',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frame().error.code).toBe('E_TARGET_NOT_FOUND')
+  })
+
+  // With no page in the manifest there is nothing to open, so neither route
+  // may answer "not open" and send the caller to open it.
+  it('says the manifest declares no such page instead of asking to open it', async () => {
+    const dist = optionsDist()
+    session.result = {
+      ok: false,
+      error: {name: 'Unavailable', message: 'no executor connected'}
+    }
+
+    for (const command of ['inspect', 'eval']) {
+      logSpy.mockClear()
+
+      expect(
+        await run([
+          command,
+          ...(command === 'eval' ? ['1+1'] : []),
+          dist,
+          '--browser',
+          'firefox',
+          '--context',
+          'sidebar',
+          '--output',
+          'json'
+        ])
+      ).toBe(1)
+
+      expect(protocolCalls, command).toHaveLength(0)
+      expect(frame().error, command).toMatchObject({
+        name: 'Unsupported',
+        code: 'E_TARGET_NOT_FOUND',
+        message:
+          'the manifest declares no sidebar page: it has no side_panel.default_path or sidebar_action.default_panel',
+        hint: `Add side_panel.default_path or sidebar_action.default_panel to manifest.json and point it at the page, then run extension ${command} --context sidebar again.`
+      })
+    }
+  })
+
+  it('keeps the producer refusal for an undeclared page free of the idle hint', async () => {
+    session.readyDocument = {...session.readyDocument, rdpPort: 0}
+    session.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'the manifest declares no devtools page: it has no devtools_page',
+        engine: 'firefox',
+        code: 'surface_not_declared'
+      }
+    }
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        '--browser',
+        'firefox',
+        '--context',
+        'devtools',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frame().error.code).toBe('E_TARGET_NOT_FOUND')
+    expect(frame().error.hint).toBe(
+      'Add devtools_page to manifest.json and point it at the page, then run extension eval --context devtools again.'
+    )
+  })
+
+  it('never opens the Gecko debugger for a Chromium session', async () => {
+    const dist = optionsDist()
+    session.result = NOT_OPEN
+
+    expect(
+      await run([
+        'inspect',
+        dist,
+        '--browser',
+        'chrome',
+        '--context',
+        'options',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(protocolCalls).toHaveLength(0)
+    expect(frame().error).toMatchObject({
+      code: 'E_TARGET_NOT_FOUND',
+      message: NOT_OPEN.error.message
+    })
+  })
+})
+
+describe('a refused injection in a tab that exists', () => {
+  it('is not reported as a missing target', async () => {
+    session.result = {
+      ok: false,
+      error: {
+        name: 'InjectionRefused',
+        message: 'Missing host permission for the tab',
+        engine: 'firefox',
+        code: 'injection_refused'
+      }
+    }
+
+    expect(
+      await run([
+        'inspect',
+        '--browser',
+        'firefox',
+        '--context',
+        'page',
+        '--tab',
+        '8',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frame().error.code).toBe('E_COMMAND_UNSUPPORTED_FOR_TARGET')
+    expect(frame().error.message).toContain('Missing host permission')
   })
 })

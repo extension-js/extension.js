@@ -24,6 +24,22 @@ export function stubProcessExit() {
   }) as never)
 }
 
+// Every variable a command action writes on the real process. Stubbed unset,
+// so vi.unstubAllEnvs puts back exactly what the file started with.
+const ENV_A_COMMAND_WRITES = [
+  'EXTENSION_OUTPUT',
+  'EXTENSION_DEBUG',
+  'EXTENSION_AUTHOR_MODE',
+  'EXTENSION_VERBOSE',
+  'EXTENSION_CLI_NO_BROWSER',
+  'EXTENSION_CLI_CARD_KEYS',
+  'EXTJS_LIGHT'
+]
+
+export function stubCommandEnv() {
+  for (const name of ENV_A_COMMAND_WRITES) vi.stubEnv(name, undefined)
+}
+
 export async function runCli(
   program: Command,
   argv: string[]

@@ -197,9 +197,10 @@ export function findLiveBrowserPid(input: {
   return (roots[0] || candidates[0]).pid
 }
 
-// Signal 0 probes without sending anything. EPERM still means the pid exists.
+// The one liveness probe of this folder. Signal 0 sends nothing: EPERM is a
+// live process of another user, and only ESRCH says the pid is gone.
 export function isPidAlive(pid: number | null | undefined): boolean {
-  if (!pid || !Number.isFinite(pid)) return false
+  if (!pid || !Number.isInteger(pid) || pid <= 0) return false
 
   try {
     process.kill(pid, 0)

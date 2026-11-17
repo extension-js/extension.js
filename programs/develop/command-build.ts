@@ -30,6 +30,7 @@ import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {codedError} from './lib/coded-error'
 import {
+  outsideCodedWarnings,
   recordCodedWarning,
   takeCodedWarnings,
   withCodedWarnings
@@ -72,7 +73,8 @@ import {
   claimCardKey,
   debugLine,
   holdHumanLines,
-  isDebug
+  isDebug,
+  isMachineOutput
 } from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
@@ -355,6 +357,9 @@ async function runBuild(
   // Whoever imports the build keeps the NODE_ENV they started it with.
   const nodeEnvBefore = process.env.NODE_ENV
   let nodeEnvChanged = false
+  // Finding the project and its browser comes before any build work, and a
+  // refusal there is the whole answer: under machine output the frame has it.
+  let findingProject = true
 
   try {
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
@@ -383,6 +388,8 @@ async function runBuild(
       buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
       buildOptions?.safariBinary
     )
+
+    findingProject = false
 
     await ensureDevelopArtifacts()
 
@@ -584,10 +591,8 @@ async function runBuild(
       }
     })
 
-    const allPluginsButBrowserRunners = baseConfig.plugins?.filter((plugin) => {
+    const buildPlugins = baseConfig.plugins?.filter((plugin) => {
       const name = plugin?.constructor.name
-
-      if (name === 'plugin-browsers') return false
 
       return !(liveDevSession && name === 'plugin-playwright')
     })
@@ -604,7 +609,7 @@ async function runBuild(
     )
     const userConfig = userExtensionConfig({
       ...baseConfig,
-      plugins: allPluginsButBrowserRunners
+      plugins: buildPlugins
     })
 
     const compilerConfig = applySplitChunksGuard(userConfig)
@@ -1063,13 +1068,15 @@ async function runBuild(
         }
       }
 
-      // The bundler calls back from its own thread hop, so the callback is
-      // bound to this build's scope to read the warnings recorded in it.
-      compiler.run(
-        AsyncResource.bind((err, stats) => {
+      // The bundler starts outside this build's scope and calls back from its
+      // own thread hop, so the callback is bound to read this build's warnings.
+      const settled = AsyncResource.bind(
+        (err: Error | null, stats: Parameters<typeof settle>[1]) => {
           settle(err, stats).catch(reject)
-        })
+        }
       )
+
+      outsideCodedWarnings(() => compiler.run(settled))
     })
 
     // The packager reads the folder the bundler actually emitted into, which
@@ -1116,13 +1123,16 @@ async function runBuild(
     }
 
     return summary
-  } catch (error) {
+  } catch (thrown) {
     if (stagingDistPath) removeStagingDir(stagingDistPath)
 
-    const alreadyReported =
-      error instanceof Error && reportedBuildFailures.has(error)
+    // The line below and every caller read the message of the failure, so a
+    // thrown value with none is wrapped before it is printed and passed on.
+    const error = readableFailure(thrown)
 
-    if (!alreadyReported) {
+    const frameCarriesIt = findingProject && isMachineOutput()
+
+    if (!frameCarriesIt && !reportedBuildFailures.has(error)) {
       if (isDebug()) {
         console.error(error)
       } else {
@@ -1143,6 +1153,20 @@ async function runBuild(
 
     await closeCompiler(compilerToClose)
   }
+}
+
+function readableFailure(thrown: unknown): Error {
+  try {
+    if (thrown instanceof Error && typeof thrown.message === 'string') {
+      return thrown
+    }
+  } catch {
+    // Ignore
+  }
+
+  return Object.assign(new Error(messages.thrownValueText(thrown)), {
+    cause: thrown
+  })
 }
 
 function hasDeclaredCode(error: unknown): boolean {

@@ -99,6 +99,49 @@ describe('build: a config hook that throws (real rspack)', () => {
   }, 120_000)
 })
 
+// A plugin can throw anything, and the failure line is built from what it
+// threw, so a value with no message to read used to end the build unsaid.
+describe('build: a thrown value with no readable message (real rspack)', () => {
+  const plugin = (thrown: string) =>
+    'module.exports = {config: (config) => {\n' +
+    `  config.plugins.push({apply() {\n    ${thrown}\n  }})\n` +
+    '  return config\n}}\n'
+
+  it.each([
+    [
+      'an object that cannot become a string',
+      'throw Object.create(null)',
+      'A value that is not an Error was thrown: {}.'
+    ],
+    [
+      'an Error whose message throws when read',
+      "const error = new Error('x')\n" +
+        "    Object.defineProperty(error, 'message', {get() { throw new Error('unreadable') }})\n" +
+        '    throw error',
+      'A value that cannot be read was thrown.'
+    ]
+  ])(
+    'prints %s once and rejects with an Error that wraps it',
+    async (_label, thrown, said) => {
+      const root = project(['https://example.com/*'], plugin(thrown))
+
+      const built = await build(root, {silent: true})
+
+      expect(built.stderr.split('\n').map(plain)).toEqual([
+        said,
+        'Build failed with 1 error.'
+      ])
+
+      expect(built.failure).toBeInstanceOf(Error)
+      expect(built.failure?.message).toBe(said)
+      // Compared by hand: a matcher would read the message that throws.
+      expect(typeof built.failure?.cause).toBe('object')
+      expect(built.failure?.cause === built.failure).toBe(false)
+    },
+    120_000
+  )
+})
+
 describe('build: a silent build keeps its warnings off stderr (real rspack)', () => {
   const loopback = ['https://example.com/*', 'http://localhost:4322/*']
 

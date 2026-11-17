@@ -1,13 +1,8 @@
-import {spawn} from 'node:child_process'
 import {chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
+import {framesIn, runCli as spawnCli} from '../helpers/run-cli'
 
 interface Frame {
   ok: boolean
@@ -18,54 +13,15 @@ interface Frame {
 
 // dev keeps serving after a launch it could not make, so its run ends once
 // the failure frame is out. start and preview end by themselves.
-function runCli(args: string[], untilFailure: boolean) {
-  return new Promise<Frame[]>((resolvePromise, reject) => {
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      NO_COLOR: '1',
-      FORCE_COLOR: '0',
-      EXTENSION_ENV: 'test',
-      EXTENSION_TELEMETRY: '0'
-    }
-    delete env.VITEST
-    delete env.VITEST_WORKER_ID
-
-    const child = spawn(process.execPath, [cliBin, ...args], {
-      cwd: cliRoot,
-      stdio: ['ignore', 'pipe', 'ignore'],
-      env,
-      detached: true
-    })
-    let stdout = ''
-
-    const stop = () => {
-      try {
-        if (child.pid) process.kill(-child.pid, 'SIGKILL')
-      } catch {
-        // Already gone
-      }
-    }
-
-    const timer = setTimeout(() => {
-      stop()
-      reject(new Error(`CLI did not report: ${args.join(' ')}\n${stdout}`))
-    }, 100_000)
-
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk.toString()
-      if (untilFailure && stdout.includes('"ok":false')) stop()
-    })
-
-    child.on('close', () => {
-      clearTimeout(timer)
-      resolvePromise(
-        stdout
-          .split('\n')
-          .filter((line) => line.trim().startsWith('{'))
-          .map((line) => JSON.parse(line) as Frame)
-      )
-    })
+async function runCli(args: string[], untilFailure: boolean) {
+  const run = await spawnCli(args, {
+    timeoutMs: 100_000,
+    until: untilFailure
+      ? (output) => output.stdout.includes('"ok":false')
+      : undefined
   })
+
+  return framesIn<Frame>(run.stdout)
 }
 
 // The stand-ins lean on posix permission bits and shell scripts.
@@ -92,10 +48,6 @@ describe.skipIf(process.platform === 'win32')(
       pins['not executable'] = join(bin, 'unrunnable')
       writeFileSync(pins['not executable'], 'not a browser\n')
       chmodSync(pins['not executable'], 0o644)
-
-      pins['silent on --version'] = join(bin, 'silent')
-      writeFileSync(pins['silent on --version'], '#!/bin/sh\nexec sleep 600\n')
-      chmodSync(pins['silent on --version'], 0o755)
     })
 
     afterAll(() => {
@@ -105,11 +57,9 @@ describe.skipIf(process.platform === 'win32')(
     const cases: Array<[string, string, string, string]> = []
 
     for (const command of ['start', 'dev', 'preview']) {
-      for (const cause of [
-        'missing',
-        'not executable',
-        'silent on --version'
-      ]) {
+      // A pin that runs and never answers costs the probe's 10 seconds, so
+      // browser-version-probe.contract.spec.ts reads it from one run each.
+      for (const cause of ['missing', 'not executable']) {
         cases.push([command, cause, 'chrome', '--chromium-binary'])
       }
 

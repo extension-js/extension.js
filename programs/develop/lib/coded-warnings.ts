@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {AsyncLocalStorage} from 'node:async_hooks'
+import {AsyncLocalStorage, AsyncResource} from 'node:async_hooks'
 import type {ErrorCode} from './messaging'
 
 // A warning the run carries on past, in the shape the envelope's warnings
@@ -14,6 +14,9 @@ import type {ErrorCode} from './messaging'
 const pending: string[] = []
 const scopes = new AsyncLocalStorage<string[]>()
 let activeBuilds = 0
+
+// Bound while no scope is open, so whatever it calls sees none.
+const outsideScopes = AsyncResource.bind(<T>(run: () => T): T => run())
 
 export function recordCodedWarning(code: ErrorCode, text: string): void {
   const line = `${code}: ${text}`
@@ -43,4 +46,10 @@ export async function withCodedWarnings<T>(run: () => Promise<T>): Promise<T> {
   } finally {
     activeBuilds -= 1
   }
+}
+
+// Bun 1.2.0 crashes when the bundler starts inside an async scope, and the
+// bundler's hooks never see the scope on any runtime, so it starts outside.
+export function outsideCodedWarnings<T>(run: () => T): T {
+  return outsideScopes(run) as T
 }
