@@ -56,18 +56,35 @@ function privateRegistry(value: string | undefined): string | undefined {
   }
 }
 
+export type CorepackRegistryOrigin = {
+  registry: string
+  from: 'npm_config_registry' | '.npmrc'
+}
+
+// The registry Extension.js hands Corepack, and where it read it. Nothing
+// when the user already set COREPACK_NPM_REGISTRY or the registry is public.
+export function corepackRegistryOrigin(
+  source: Env,
+  projectDir: string
+): CorepackRegistryOrigin | undefined {
+  if (readEnv(source, 'COREPACK_NPM_REGISTRY')) return undefined
+
+  // The environment outranks the project file, as it does for the manager.
+  const fromEnv = readEnv(source, 'npm_config_registry')
+  const registry = privateRegistry(fromEnv || readNpmrcRegistry(projectDir))
+
+  return registry
+    ? {registry, from: fromEnv ? 'npm_config_registry' : '.npmrc'}
+    : undefined
+}
+
 // Corepack reads neither .npmrc nor npm_config_registry, only its own
 // variable, so a pinned project still fetched its manager from npmjs.org.
 export function corepackRegistryEnv(
   source: Env,
   projectDir: string
 ): Record<string, string> {
-  if (readEnv(source, 'COREPACK_NPM_REGISTRY')) return {}
+  const origin = corepackRegistryOrigin(source, projectDir)
 
-  // The environment outranks the project file, as it does for the manager.
-  const registry = privateRegistry(
-    readEnv(source, 'npm_config_registry') || readNpmrcRegistry(projectDir)
-  )
-
-  return registry ? {COREPACK_NPM_REGISTRY: registry} : {}
+  return origin ? {COREPACK_NPM_REGISTRY: origin.registry} : {}
 }
