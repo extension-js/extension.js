@@ -1,4 +1,5 @@
 import * as path from 'node:path'
+import {pathToFileURL} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import {
   browserArtifactsDir,
@@ -71,7 +72,14 @@ describe('where the session contract lives', () => {
   })
 
   it('gives the paths the repository scripts derive on their own', async () => {
-    const scripts = await import('../../../../scripts/lib/session-contract.mjs')
+    const scripts = (await import(
+      pathToFileURL(
+        path.resolve(__dirname, '../../../../scripts/lib/session-contract.mjs')
+      ).href
+    )) as Record<
+      'sessionArtifactsDir' | 'readyContractPath',
+      (projectDir: string, browser: string) => string
+    >
 
     for (const browser of ['chrome', 'firefox', 'safari']) {
       expect(scripts.sessionArtifactsDir(project, browser)).toBe(
