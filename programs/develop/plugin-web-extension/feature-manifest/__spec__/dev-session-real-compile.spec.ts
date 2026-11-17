@@ -236,3 +236,79 @@ describe('the source scans of a dev session', () => {
     }
   }, 120_000)
 })
+
+describe('the dev additions a dev session records', () => {
+  function manifestChanges(stats: Stats): string[] {
+    return (devAdditionsOf(stats.compilation) || [])
+      .filter((entry) => entry.kind === 'manifest_change')
+      .map((entry) => entry.value)
+  }
+
+  it('names the looser policy, the opened connect list and the kept background', async () => {
+    const session = await devSession(
+      project(
+        {
+          manifest_version: 2,
+          background: {scripts: ['background.js'], persistent: false},
+          externally_connectable: {matches: ['https://example.com/*']}
+        },
+        {'background.js': 'console.log("background")\n'}
+      )
+    )
+
+    try {
+      expect(session.first.hasErrors()).toBe(false)
+      expect(manifestChanges(session.first)).toEqual([
+        "content_security_policy 'unsafe-eval'",
+        'externally_connectable.ids *',
+        'background.persistent true'
+      ])
+
+      const written = JSON.parse(
+        fs.readFileSync(path.join(session.distPath, 'manifest.json'), 'utf8')
+      )
+
+      expect(written.content_security_policy).toContain("'unsafe-eval'")
+      expect(written.externally_connectable.ids).toEqual(['*'])
+      expect(written.background.persistent).toBe(true)
+    } finally {
+      await session.close()
+    }
+  }, 120_000)
+
+  it('names the background it adds to a manifest that declares none', async () => {
+    const session = await devSession(
+      project(
+        {
+          manifest_version: 3,
+          action: {default_popup: 'popup.html'}
+        },
+        {'popup.html': '<!doctype html><html><body>popup</body></html>\n'}
+      )
+    )
+
+    try {
+      expect(session.first.hasErrors()).toBe(false)
+      expect(manifestChanges(session.first)).toEqual([
+        'background.service_worker background/service_worker.js'
+      ])
+    } finally {
+      await session.close()
+    }
+  }, 120_000)
+
+  it('names none of them for a manifest dev leaves as it is', async () => {
+    const session = await devSession(
+      project(
+        {manifest_version: 3, background: {service_worker: 'background.js'}},
+        {'background.js': 'console.log("background")\n'}
+      )
+    )
+
+    try {
+      expect(manifestChanges(session.first)).toEqual([])
+    } finally {
+      await session.close()
+    }
+  }, 120_000)
+})

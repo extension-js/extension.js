@@ -11,6 +11,7 @@ export interface DevAddition {
     | 'permission'
     | 'host_permission'
     | 'web_accessible_resource'
+    | 'manifest_change'
     | 'browser_flag'
     | 'browser_preference'
   value: string

@@ -7,6 +7,111 @@ import {
 import {listDevManifestAdditions} from '../apply-dev-defaults-lib/dev-additions'
 
 describe('listDevManifestAdditions', () => {
+  const changes = (
+    source: Parameters<typeof listDevManifestAdditions>[0],
+    dev: Parameters<typeof listDevManifestAdditions>[1]
+  ) =>
+    listDevManifestAdditions(source, dev)
+      .filter((entry) => entry.kind === 'manifest_change')
+      .map((entry) => entry.value)
+
+  it('names eval when dev adds it to the pages policy', () => {
+    const dev = "script-src 'self' 'unsafe-eval' blob: filesystem:; "
+
+    expect(changes({}, {content_security_policy: dev})).toEqual([
+      "content_security_policy 'unsafe-eval'"
+    ])
+
+    expect(
+      changes(
+        {content_security_policy: "script-src 'self' 'unsafe-eval'"},
+        {content_security_policy: dev}
+      )
+    ).toEqual([])
+
+    // The WebAssembly keyword is another source, and dev does not add eval
+    // to a Manifest V3 policy.
+    expect(
+      changes(
+        {},
+        {
+          content_security_policy: {
+            extension_pages: "script-src 'self' 'wasm-unsafe-eval'"
+          }
+        }
+      )
+    ).toEqual([])
+  })
+
+  it('names the connect list dev opens, and not one the author opened', () => {
+    const matches = ['https://a.example/*']
+
+    expect(
+      changes(
+        {externally_connectable: {matches}},
+        {externally_connectable: {matches, ids: ['*']}}
+      )
+    ).toEqual(['externally_connectable.ids *'])
+
+    expect(
+      changes(
+        {externally_connectable: {matches, ids: ['*']}},
+        {externally_connectable: {matches, ids: ['*']}}
+      )
+    ).toEqual([])
+  })
+
+  it('names an event page dev keeps alive, and not the default it restates', () => {
+    const scripts = ['background/scripts.js']
+
+    expect(
+      changes(
+        {background: {scripts, persistent: false}},
+        {background: {scripts, persistent: true}}
+      )
+    ).toEqual(['background.persistent true'])
+
+    expect(
+      changes(
+        {background: {scripts}},
+        {background: {scripts, persistent: true}}
+      )
+    ).toEqual([])
+  })
+
+  it('names the background dev adds in the shape it took', () => {
+    expect(
+      changes(
+        {},
+        {background: {service_worker: 'background/service_worker.js'}}
+      )
+    ).toEqual(['background.service_worker background/service_worker.js'])
+
+    expect(
+      changes(
+        {background: {}},
+        {background: {scripts: ['background/script.js'], persistent: true}}
+      )
+    ).toEqual(['background.scripts background/script.js'])
+  })
+
+  it('gives every change a reason', () => {
+    const additions = listDevManifestAdditions(
+      {
+        background: {scripts: ['a.js'], persistent: false},
+        externally_connectable: {matches: ['https://a.example/*']}
+      },
+      {
+        content_security_policy: "script-src 'self' 'unsafe-eval'",
+        background: {scripts: ['a.js'], persistent: true},
+        externally_connectable: {matches: ['https://a.example/*'], ids: ['*']}
+      }
+    )
+
+    expect(additions).toHaveLength(3)
+    expect(additions.every((entry) => entry.reason.length > 0)).toBe(true)
+  })
+
   it('names each permission, host and resource the dev manifest gained', () => {
     const additions = listDevManifestAdditions(
       {
