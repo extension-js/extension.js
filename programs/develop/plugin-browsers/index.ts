@@ -18,9 +18,9 @@ import {
   dispatchReload,
   type ReloadBroker,
   type ReloadInstruction,
+  readBootRegistrations,
   readContentScriptCount,
   readContentScriptDigests,
-  readBootRegistrations,
   readContentScriptFiles,
   readDevBuild,
   readWebAccessibleResources,
@@ -141,6 +141,9 @@ export interface RunnerPlugin {
   readonly emitter: BuildEmitter
   extensionsToLoad: string[]
   apply(compiler: Compiler): void
+  // Present on a plugin that says when its launcher came back, which is what
+  // lets a held ready contract stop waiting for launch stamps.
+  setLaunchSettledListener?(listener: () => void): void
 }
 
 export interface BrowsersPluginOptions {
@@ -185,6 +188,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   private emulatorViewerUrl: string | undefined
   private instanceId: string | undefined
   private readyListener: (() => void) | undefined
+  private launchSettledListener: (() => void) | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
   // The content script files the manifest named when the browser last read
@@ -246,6 +250,20 @@ export class BrowsersPlugin implements RunnerPlugin {
   // loaded. A session the browser refused says so only once a retry loads it.
   setReadyListener(listener: () => void): void {
     this.readyListener = listener
+  }
+
+  // The dev server asks to hear when the launcher came back, with a browser
+  // or without one, so its ready contract stops waiting for launch stamps.
+  setLaunchSettledListener(listener: () => void): void {
+    this.launchSettledListener = listener
+  }
+
+  private announceLaunchSettled(): void {
+    try {
+      this.launchSettledListener?.()
+    } catch {
+      // Best-effort: a listener must never break the compile loop.
+    }
   }
 
   private announceReady(): void {
@@ -427,8 +445,11 @@ export class BrowsersPlugin implements RunnerPlugin {
             })
           }
 
+          this.announceLaunchSettled()
           this.announceReady()
         } catch (error) {
+          this.announceLaunchSettled()
+
           // No browser came up, so the next compile must try the launch again.
           if (!this.controller) this.isFirstCompile = true
 

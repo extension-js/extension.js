@@ -541,6 +541,7 @@ export async function devServer(
       setEmulatorViewerUrl?: (url: string) => void
       setInstanceId?: (instanceId: string) => void
       setReadyListener?: (listener: () => void) => void
+      setLaunchSettledListener?: (listener: () => void) => void
       wakeBackground?: () => Promise<boolean>
     }
   }
@@ -965,8 +966,15 @@ export async function devServer(
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath,
     readyAwaitsRdpPort: Boolean(extendedOptions.browsersPlugin),
+    readyAwaitsCdpPort:
+      typeof launchedPlugin?.setLaunchSettledListener === 'function',
     readyAwaitsExecutor
   })
+
+  launchedPlugin?.setLaunchSettledListener?.(() =>
+    metadata.settleBrowserLaunch()
+  )
+
   stampExecutorAttached = (attached) => metadata.stampExecutorAttached(attached)
   stampExecutorDetached = () => metadata.stampExecutorDetached()
   stampReload = (kind, label) => metadata.stampReload(kind, label)

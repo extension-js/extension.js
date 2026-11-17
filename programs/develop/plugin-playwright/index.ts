@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {
+  isChromiumBasedBrowser,
   isEmulatorBrowser,
   isGeckoBasedBrowser,
   isWebkitBasedBrowser
@@ -205,6 +206,9 @@ type WriterOptions = {
   // A dev session that takes act verbs, with a launch ahead: ready waits a
   // bounded time for the background's first hello.
   readyAwaitsExecutor?: boolean
+  // A Chromium dev session with a launch ahead: ready waits for the launcher
+  // to stamp the browser and its CDP port, or to say the launch is over.
+  readyAwaitsCdpPort?: boolean
 }
 
 type PluginOptions = {
@@ -226,6 +230,7 @@ type PluginOptions = {
   launchFollows?: boolean
   readyAwaitsRdpPort?: boolean
   readyAwaitsExecutor?: boolean
+  readyAwaitsCdpPort?: boolean
 }
 
 // How long a held ready waits for the first hello. An extension that never
@@ -344,6 +349,10 @@ export function getSessionRunId(
 // Writers of one run are told apart by the epoch their writeStarting opened:
 // a compiler torn down after its successor opened no longer owns the document.
 const writerEpochByMetadataDir = new Map<string, number>()
+
+// The runs whose launcher came back, by contract path and run. A session
+// holds two writers, and the one that compiles has to hear the other.
+const settledLaunches = new Set<string>()
 
 // The dev server and its compiler plugin each open a writer on the same run,
 // so the other session is noticed twice and told of once.
@@ -731,15 +740,31 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     options.command === 'dev' &&
     isGeckoBasedBrowser(options.browser)
 
-  // A Gecko compile is also held for the debugger port, and the end of one
-  // wait must not let ready out ahead of the other.
+  const awaitsCdpPort =
+    options.readyAwaitsCdpPort === true &&
+    options.command === 'dev' &&
+    isChromiumBasedBrowser(options.browser) &&
+    !isEmulatorBrowser(options.browser)
+
+  const launchKey = `${readyPath}\n${base.runId}`
+
+  // The port the launcher stamps after the browser process, the fault that
+  // stands in for it, or the launcher's word that nothing more is coming.
+  const cdpPortSettled = (prev: Record<string, unknown> | undefined) =>
+    settledLaunches.has(launchKey) ||
+    typeof prev?.cdpPort === 'number' ||
+    typeof prev?.cdpFaultCode === 'string'
+
+  // A compile is also held for the debugger port, and the end of one wait
+  // must not let ready out ahead of the other.
   const isHeldReady = (prev: Record<string, unknown>) =>
     prev.status === 'starting' &&
     typeof prev.compiledAt === 'string' &&
     !prev.code &&
     (!awaitsRdpPort ||
       typeof prev.rdpPort === 'number' ||
-      typeof prev.rdpPortError === 'string')
+      typeof prev.rdpPortError === 'string') &&
+    (!awaitsCdpPort || cdpPortSettled(prev))
 
   // The wait ran out with nothing connected, so the compile goes ready the
   // way it did before and a reader finds no attach stamp beside it.
@@ -1095,7 +1120,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       }
     }
 
-    if (heldForRdpPort) payload.status = 'starting'
+    // A Chromium dev compile ends before the launcher has a browser, so a
+    // reader who took ready here would find no pid, binary or port to use.
+    const heldForCdpPort =
+      payload.status === 'ready' &&
+      awaitsCdpPort &&
+      !cdpPortSettled(sameRun ? prev : undefined)
+
+    if (heldForRdpPort || heldForCdpPort) payload.status = 'starting'
 
     writeJsonAtomic(readyPath, payload)
   }
@@ -1242,6 +1274,25 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         // Ignore
       }
     },
+    // The launcher came back, with a browser or without one, so a compile
+    // held for what it stamps goes ready with whatever the launch left.
+    settleBrowserLaunch() {
+      settledLaunches.add(launchKey)
+
+      const prev = readContract()
+      if (!prev || prev.runId !== base.runId) return
+      if (typeof prev.awaitingExecutorSince === 'string') return
+      if (!isHeldReady(prev)) return
+
+      prev.status = 'ready'
+      prev.ts = nowISO()
+
+      try {
+        writeJsonAtomic(readyPath, prev)
+      } catch {
+        // Ignore
+      }
+    },
     // Stamp the runtime-attached signal on first SW connect; read-modify-write and
     // idempotent so reconnects don't disturb status or launcher-stamped fields.
     stampExecutorAttached(attached?: {origin?: string}) {
@@ -1331,7 +1382,8 @@ export class PlaywrightPlugin {
       logsPath: options.logsPath,
       managedExtensionDirs: options.managedExtensionDirs,
       readyAwaitsRdpPort: options.readyAwaitsRdpPort === true,
-      readyAwaitsExecutor: options.readyAwaitsExecutor === true
+      readyAwaitsExecutor: options.readyAwaitsExecutor === true,
+      readyAwaitsCdpPort: options.readyAwaitsCdpPort === true
     })
   }
 

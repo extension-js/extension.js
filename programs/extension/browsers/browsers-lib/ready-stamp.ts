@@ -98,7 +98,7 @@ function isForeignRun(ready: unknown, runId: string | undefined): boolean {
   return typeof owner === 'string' && owner !== '' && owner !== runId
 }
 
-// A dev session's compile leaves a Gecko contract at starting until the
+// A dev session's compile leaves the contract at starting until the
 // launcher knows the debugger port, so a reader never takes ready without it.
 // The port, or the reason there is none, is what turns it ready, unless the
 // dev server is still holding it for the background's first hello.
@@ -181,9 +181,13 @@ export function stampReadyCdpPort(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (isForeignRun(ready, runId) || ready.cdpPort === cdpPort) return
+    if (isForeignRun(ready, runId)) return
+
+    const held = ready.command === 'dev' && ready.status === 'starting'
+    if (ready.cdpPort === cdpPort && !held) return
 
     ready.cdpPort = cdpPort
+    promoteHeldDevReady(ready)
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -736,6 +740,9 @@ export function stampReadyCdpFault(
     ready.cdpFaultMessage =
       String(detail || '').trim() || 'the CDP wire failed after launch'
 
+    // The browser is up with no port to name, which is all a held dev
+    // contract was waiting to learn.
+    promoteHeldDevReady(ready)
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort, never block launch on this
