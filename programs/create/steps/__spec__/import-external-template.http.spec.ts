@@ -18,6 +18,7 @@ import {
 import {
   InsecureTemplateUrlError,
   importExternalTemplate,
+  isRefusedHttpTemplateUrl,
   refuseHttpRedirect,
   type TemplateClone,
   type TemplateFetch
@@ -100,6 +101,35 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     expect(fs.existsSync(projectPath)).toBe(false)
     expect(error.message).toContain('plain HTTP')
     expect(error.message).toContain('EXTENSION_ALLOW_HTTP_TEMPLATE=true')
+  })
+
+  it.each([
+    'true',
+    '1',
+    'TRUE',
+    ' 1 '
+  ])('allows a plain http URL when EXTENSION_ALLOW_HTTP_TEMPLATE is "%s"', (value) => {
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = value
+
+    expect(isRefusedHttpTemplateUrl('http://example.com/template.zip')).toBe(
+      false
+    )
+  })
+
+  it.each([
+    'false',
+    '0',
+    ''
+  ])('still refuses a plain http URL when EXTENSION_ALLOW_HTTP_TEMPLATE is "%s"', (value) => {
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = value
+
+    expect(isRefusedHttpTemplateUrl('http://example.com/template.zip')).toBe(
+      true
+    )
+
+    expect(isRefusedHttpTemplateUrl('https://example.com/template.zip')).toBe(
+      false
+    )
   })
 
   it('scaffolds from a plain http ZIP URL when EXTENSION_ALLOW_HTTP_TEMPLATE=true', async () => {
