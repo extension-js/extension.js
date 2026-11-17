@@ -1,15 +1,16 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {type Compiler, EntryPlugin} from '@rspack/core'
+import * as vm from 'node:vm'
+import {type Compiler, type Configuration, EntryPlugin} from '@rspack/core'
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
 import {EnvPlugin} from '../env'
+import {processModuleRequest, processModuleSource} from '../process-module'
 import {
   compile,
   makeTempRoot,
   messagesOf,
   removeTempRoots,
-  runScript,
   writeFiles
 } from './helpers/real-compile'
 
@@ -58,8 +59,8 @@ function project(entries: Record<string, string> = ENTRIES): string {
 interface BuildOptions {
   mode: Mode
   entries?: string[]
-  processShimPath?: string
   plugins?: Array<{apply: (compiler: Compiler) => void}>
+  configure?: (config: Configuration) => void
 }
 
 async function build(root: string, options: BuildOptions) {
@@ -75,13 +76,7 @@ async function build(root: string, options: BuildOptions) {
     outputPath,
     mode: options.mode,
     entry: Object.fromEntries(names.map((name) => [name, `./${name}.js`])),
-    plugins: [
-      new EnvPlugin({
-        browser: 'chrome',
-        processShimPath: options.processShimPath
-      }),
-      ...(options.plugins || [])
-    ],
+    plugins: [new EnvPlugin({browser: 'chrome'}), ...(options.plugins || [])],
     // The ids and the minifier follow the real config, so the bytes do too.
     configure: (config) => {
       config.optimization = {
@@ -89,6 +84,8 @@ async function build(root: string, options: BuildOptions) {
         minimize: options.mode === 'production',
         moduleIds: options.mode === 'production' ? 'natural' : 'deterministic'
       }
+
+      options.configure?.(config)
     }
   })
 
@@ -102,20 +99,53 @@ async function build(root: string, options: BuildOptions) {
   }
 }
 
+interface Run {
+  logs: string[] | string
+  // What the script left on the global object, beyond the console it was given.
+  globals: string[]
+}
+
 // The context has no process global, so every answer comes from the bundle.
-async function run(file: string): Promise<string[] | string> {
+async function run(file: string): Promise<Run> {
+  const logs: string[] = []
+  const context = vm.createContext({
+    console: {
+      log: (...args: unknown[]) => logs.push(args.map(String).join(' '))
+    }
+  })
+  const globals = () =>
+    Object.keys(context).filter((name) => name !== 'console')
+
   try {
-    const logs = runScript(file)
+    vm.runInContext(fs.readFileSync(file, 'utf8'), context, {filename: file})
     await new Promise((resolve) => setImmediate(resolve))
 
-    return logs
+    return {logs, globals: globals()}
   } catch (error) {
-    return `throws ${(error as Error).name}: ${(error as Error).message}`
+    return {
+      logs: `throws ${(error as Error).name}: ${(error as Error).message}`,
+      globals: globals()
+    }
+  }
+}
+
+const logsOf = async (file: string) => (await run(file)).logs
+
+function publicEnv(mode: Mode, extra: Record<string, string> = {}) {
+  return {
+    EXTENSION_PUBLIC_X: 'x',
+    ...extra,
+    EXTENSION_PUBLIC_BROWSER: 'chrome',
+    EXTENSION_PUBLIC_MODE: mode,
+    EXTENSION_BROWSER: 'chrome',
+    EXTENSION_MODE: mode,
+    BROWSER: 'chrome',
+    MODE: mode
   }
 }
 
 const built = {} as Record<Mode, Awaited<ReturnType<typeof build>>>
-const results = {} as Record<Mode, Record<string, string[] | string>>
+const results = {} as Record<Mode, Record<string, Run>>
 
 beforeAll(async () => {
   // The shell running the suite must not leak a value into what is asserted.
@@ -139,39 +169,40 @@ afterAll(() => {
 })
 
 describe.each(MODES)('process in a %s bundle', (mode) => {
+  const logs = (name: string) => results[mode][name].logs
+
   it('builds every access pattern without an error or a warning', () => {
     expect(built[mode].errors).toEqual([])
     expect(built[mode].warnings).toEqual([])
   })
 
   it('inlines a dotted read, at the cost of the literal itself', () => {
-    expect(results[mode].dotted).toEqual(['x'])
-    expect(results[mode].none).toEqual(['none'])
+    expect(logs('dotted')).toEqual(['x'])
+    expect(logs('none')).toEqual(['none'])
     expect(built[mode].bytes('dotted')).toEqual(built[mode].bytes('literal'))
   })
 
   it('answers the members a browser bundle reads off process', () => {
-    expect(results[mode].typeof).toEqual(['object'])
-    expect(results[mode].platform).toEqual(['browser'])
-    expect(results[mode].cwd).toEqual(['/'])
-    expect(results[mode].nextTick).toEqual(['sync', 'tick 1 2'])
-    expect(results[mode].mutate).toEqual(['x'])
-    expect(results[mode].members).toEqual([
+    expect(logs('typeof')).toEqual(['object'])
+    expect(logs('platform')).toEqual(['browser'])
+    expect(logs('cwd')).toEqual(['/'])
+    expect(logs('nextTick')).toEqual(['sync', 'tick 1 2'])
+    expect(logs('mutate')).toEqual(['x'])
+    expect(logs('members')).toEqual([
       JSON.stringify([[], '', {}, 'browser', true, 'browser', 0, 0, null, []]),
       Array.from({length: 9}, () => 'undefined').join()
     ])
   })
 
-  // Pins today's behavior. Ledger 1394 D1.
-  it('gives a whole-object process.env read none of the public values', () => {
-    expect(results[mode].dynamic).toEqual(['undefined'])
-    expect(results[mode].destructure).toEqual(['undefined'])
-    expect(results[mode].whole).toEqual(['{}'])
-    expect(results[mode].parity).toEqual(['false'])
+  it('gives a whole-object process.env read the keys import.meta.env has', () => {
+    expect(logs('dynamic')).toEqual(['x'])
+    expect(logs('destructure')).toEqual(['x'])
+    expect(logs('whole')).toEqual([JSON.stringify(publicEnv(mode))])
+    expect(logs('parity')).toEqual(['true'])
   })
 
   it('never carries a variable that is not public', () => {
-    expect(results[mode].secret).toEqual(['undefined undefined undefined'])
+    expect(logs('secret')).toEqual(['undefined undefined undefined'])
 
     for (const name of Object.keys(ENTRIES)) {
       const bundle = built[mode].bytes(name)
@@ -180,9 +211,79 @@ describe.each(MODES)('process in a %s bundle', (mode) => {
       expect(bundle.includes('plain')).toBe(false)
     }
   })
+
+  it('leaves nothing on the global object and runs under a strict CSP', () => {
+    for (const name of Object.keys(ENTRIES)) {
+      const bundle = built[mode].bytes(name).toString()
+
+      expect(results[mode][name].globals).toEqual([])
+      expect(bundle).not.toMatch(/\beval\s*\(|\bFunction\s*\(/)
+    }
+  })
+
+  it('adds the module once, and only to a bundle that reads process', () => {
+    const cost =
+      built[mode].bytes('platform').length - built[mode].bytes('none').length
+
+    expect(built[mode].bytes('dotted').includes('nextTick')).toBe(false)
+    expect(
+      built[mode].bytes('platform').toString().split('nextTick')
+    ).toHaveLength(2)
+
+    expect(cost).toBeGreaterThan(0)
+    expect(cost).toBeLessThan(mode === 'production' ? 1024 : 2048)
+  })
 })
 
-describe('process in a child compiler', () => {
+describe('process across the files of one build', () => {
+  it.each(
+    MODES
+  )('hands a %s service worker, content script and page equal objects', async (mode) => {
+    const read =
+      'console.log(JSON.stringify([process.env, Object.keys(process), process.platform, process.cwd()]))\n'
+    const root = project({
+      'background/service_worker': read,
+      'content_scripts/content-0': read,
+      'action/index': read
+    })
+    const names = [
+      'background/service_worker',
+      'content_scripts/content-0',
+      'action/index'
+    ]
+    const result = await build(root, {mode, entries: names})
+    const answers = await Promise.all(
+      names.map((name) => logsOf(result.file(name)))
+    )
+
+    expect(result.errors).toEqual([])
+    expect(answers[0]).toEqual([
+      JSON.stringify([
+        publicEnv(mode),
+        Object.keys(moduleExports(publicEnv(mode))),
+        'browser',
+        '/'
+      ])
+    ])
+
+    expect(answers[1]).toEqual(answers[0])
+    expect(answers[2]).toEqual(answers[0])
+  })
+
+  it.each(
+    MODES
+  )('shares one object between the modules of a %s bundle', async (mode) => {
+    const root = project({
+      page: "import './writer.js'\nimport './reader.js'\n",
+      writer: "process.env.SHARED = 'written'\n",
+      reader: "const key = 'SHARED'\nconsole.log(process.env[key])\n"
+    })
+    const result = await build(root, {mode, entries: ['page']})
+
+    expect(result.errors).toEqual([])
+    expect(await logsOf(result.file('page'))).toEqual(['written'])
+  })
+
   it.each(MODES)('answers a %s child compile the same way', async (mode) => {
     const root = project({
       none: ENTRIES.none,
@@ -210,69 +311,108 @@ describe('process in a child compiler', () => {
     })
 
     expect(result.errors).toEqual([])
-    // Pins today's behavior. Ledger 1394 D1.
-    expect(await run(result.file('child'))).toEqual(['browser x undefined'])
+    expect(await run(result.file('child'))).toEqual({
+      logs: ['browser x x'],
+      globals: []
+    })
   })
 })
 
-describe('process when the shim file is not where the plugin looks', () => {
-  const missing = (root: string) => path.join(root, 'no-such-shim.cjs')
+// Runs the generated module on its own and returns what it exports.
+function moduleExports(env: Record<string, string>): Record<string, unknown> {
+  const module = {exports: {}}
+  new Function('module', processModuleSource(env))(module)
 
-  // Pins today's behavior. Ledger 1394 D2.
-  it('emits a development script that does not parse for a write to process.env', async () => {
-    const root = project()
-    const result = await build(root, {
-      mode: 'development',
-      entries: ['mutate'],
-      processShimPath: missing(root)
-    })
+  return module.exports
+}
 
-    expect(result.errors).toEqual([])
-    expect(result.bytes('mutate').toString()).toContain("{}.FOO = 'x'")
-    expect(await run(result.file('mutate'))).toBe(
-      "throws SyntaxError: Unexpected token '.'"
-    )
-  })
+describe('process with values that fight the encoding', () => {
+  const hostile =
+    'a"b\'c<d>%41%ZZ#e?f!g\nh\u00e9\u2028\\i&j+k l;m=n`o$' +
+    '{p}</script> logo.svg style.css \ud83d\ude00'
 
-  // Pins today's behavior. Ledger 1394 D2.
-  it('fails the production build for a write to process.env', async () => {
-    const root = project()
-    const result = await build(root, {
-      mode: 'production',
-      entries: ['mutate'],
-      processShimPath: missing(root)
-    })
-
-    expect(result.errors).toHaveLength(1)
-    expect(result.errors[0]).toContain('Chunk minification failed')
-    expect(fs.existsSync(result.file('mutate'))).toBe(false)
-  })
-
-  // Pins today's behavior. Ledger 1394 D3.
   it.each(
     MODES
-  )('says nothing in %s and answers with a smaller object', async (mode) => {
+  )('carries a hostile value whole in %s, past a rule that matches by name', async (mode) => {
+    vi.stubEnv('EXTENSION_PUBLIC_HOSTILE', hostile)
+
+    try {
+      const root = project({
+        hostile:
+          "const key = 'EXTENSION_PUBLIC_HOSTILE'\nconsole.log(JSON.stringify([process.env[key], import.meta.env[key], process.env.EXTENSION_PUBLIC_HOSTILE]))\n"
+      })
+      const result = await build(root, {
+        mode,
+        entries: ['hostile'],
+        // A project's own loose rule must not take the module for an asset.
+        configure: (config) => {
+          config.module = {
+            rules: [
+              {test: /\.svg/, type: 'asset/resource'},
+              {test: /\.css/, type: 'asset/source'}
+            ]
+          }
+        }
+      })
+
+      expect(result.errors).toEqual([])
+      expect(result.warnings).toEqual([])
+      expect(await logsOf(result.file('hostile'))).toEqual([
+        JSON.stringify([hostile, hostile, hostile])
+      ])
+    } finally {
+      vi.stubEnv('EXTENSION_PUBLIC_HOSTILE', undefined)
+    }
+  })
+
+  it('writes source that is plain ASCII and a request that is plain base64', () => {
+    const env = publicEnv('development', {EXTENSION_PUBLIC_HOSTILE: hostile})
+    const source = processModuleSource(env)
+    const [head, body] = processModuleRequest(env).split(',')
+
+    expect(source).toMatch(/^[\x20-\x7e]+$/)
+    expect(source).not.toContain('</script>')
+    expect(moduleExports(env).env).toEqual(env)
+    expect(head).toBe('data:application/node;base64')
+    expect(body).toMatch(/^[A-Za-z0-9+/]+=*$/)
+    expect(Buffer.from(body, 'base64').toString()).toBe(source)
+  })
+})
+
+describe('process in source maps', () => {
+  it.each([
+    ['development', 'cheap-module-source-map'],
+    ['production', 'source-map']
+  ] as const)('names the %s module by its request and no folder of this machine', async (mode, devtool) => {
     const root = project()
     const result = await build(root, {
       mode,
-      entries: ['platform', 'cwd', 'nextTick', 'members'],
-      processShimPath: missing(root)
+      entries: ['dynamic'],
+      configure: (config) => {
+        config.devtool = devtool
+      }
     })
+    const map = fs.readFileSync(`${result.file('dynamic')}.map`, 'utf8')
+    const {sources, sourcesContent} = JSON.parse(map) as {
+      sources: string[]
+      sourcesContent: string[]
+    }
+    const request = processModuleRequest(publicEnv(mode))
 
     expect(result.errors).toEqual([])
-    expect(result.warnings).toEqual([])
-    expect(await run(result.file('platform'))).toEqual(['browser'])
-    expect(await run(result.file('nextTick'))).toEqual([
-      'sync',
-      'tick undefined undefined'
+    expect(sources.filter((source) => source.startsWith('data:'))).toEqual([
+      request
     ])
 
-    expect(await run(result.file('cwd'))).toMatch(
-      /^throws TypeError: .*cwd is not a function$/
+    expect(sourcesContent[sources.indexOf(request)]).toBe(
+      processModuleSource(publicEnv(mode))
     )
 
-    expect(await run(result.file('members'))).toMatch(
-      /^throws TypeError: .*umask is not a function$/
-    )
+    for (const text of [map, result.bytes('dynamic').toString()]) {
+      expect(text).not.toContain(root)
+      expect(text).not.toContain(os.homedir())
+      expect(text).not.toContain(path.resolve(__dirname, '..', '..'))
+      expect(text).not.toContain('node_modules')
+    }
   })
 })

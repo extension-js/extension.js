@@ -44,8 +44,7 @@
   "types": "./dist/module.d.ts",
   "sideEffects": false,
   "files": [
-    "dist",
-    "runtime"
+    "dist"
   ],
   "name": "extension-develop",
   "version": "4.1.41",
