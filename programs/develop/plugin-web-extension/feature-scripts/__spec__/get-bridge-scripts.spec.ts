@@ -1,8 +1,9 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
+  getMainWorldBridgePairs,
   getMainWorldBridgeScripts,
   resolveMainWorldBridgeSourcePath
 } from '../steps/add-content-script-wrapper/get-bridge-scripts'
@@ -131,5 +132,37 @@ describe('main-world bridge helpers', () => {
     expect(
       Object.keys(getMainWorldBridgeScripts(manifestPath, 'firefox'))
     ).toEqual([])
+  })
+
+  it('gives no bridge and says nothing when the manifest does not parse', () => {
+    // Pins today's behavior. Ledger 1384 D8.
+    const manifestPath = path.join(
+      createTempDir('extjs-bridge-unparsed-'),
+      'manifest.json'
+    )
+    const main = JSON.stringify({
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['main.js'], world: 'MAIN'}
+      ]
+    })
+    const said = (['log', 'info', 'warn', 'error'] as const).map((name) =>
+      vi.spyOn(console, name).mockImplementation(() => {})
+    )
+
+    try {
+      fs.writeFileSync(manifestPath, main)
+      expect(Object.keys(getMainWorldBridgeScripts(manifestPath))).toEqual([
+        'content_scripts/content-1'
+      ])
+
+      // The same manifest cut short, as an editor leaves it mid-save.
+      fs.writeFileSync(manifestPath, main.slice(0, -2))
+      expect(getMainWorldBridgeScripts(manifestPath)).toEqual({})
+      expect(getMainWorldBridgePairs(manifestPath)).toEqual([])
+      expect(said.map((spy) => spy.mock.calls.length)).toEqual([0, 0, 0, 0])
+    } finally {
+      for (const spy of said) spy.mockRestore()
+    }
   })
 })
