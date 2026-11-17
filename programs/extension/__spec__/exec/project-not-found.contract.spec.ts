@@ -14,23 +14,20 @@ type ErrorFrame = {
   error: {code: string; message: string}
 }
 
-// Ledger 1375 N2: one mistake, a folder that is not there, comes back under
-// three statuses. Pinned as it is, to flip when one status is chosen.
+// One mistake, a folder that is not there, gets one answer on four commands:
+// a usage frame that names the folder, before any build or browser.
 describe('a project folder that does not exist', () => {
   // The CLI prints the path it resolved, which on macOS is under /private.
   const work = fs.realpathSync(makeTempFolder('extjs-no-project-'))
   const missing = path.join(work, 'nope-dir')
-  const message =
-    'Manifest file not found.\n' +
-    `NOT FOUND ${path.join(missing, 'manifest.json')}\n` +
-    'Ensure the path to your extension exists, then try again.'
+  const message = `No project folder at ${missing}.`
 
   it.each([
-    ['build', 'build-failed', []],
-    ['start', 'build-failed', ['--no-browser']],
-    ['dev', 'failed', ['--no-browser']],
-    ['preview', 'usage', ['--no-browser']]
-  ])('ledger 1375 N2: %s answers E_PROJECT_NOT_FOUND with status %s', async (command, status, flags) => {
+    ['build', []],
+    ['start', ['--no-browser']],
+    ['dev', ['--no-browser']],
+    ['preview', ['--no-browser']]
+  ])('%s answers E_PROJECT_NOT_FOUND as usage', async (command, flags) => {
     const run = await runCli(
       [command, 'nope-dir', ...flags, '--output', 'json'],
       {cwd: work}
@@ -40,7 +37,7 @@ describe('a project folder that does not exist', () => {
     expect(run.status, run.output).toBe(1)
     expect(run.stderr).toBe('')
     expect(frames).toHaveLength(1)
-    expect(frames[0]).toMatchObject({ok: false, command, status})
+    expect(frames[0]).toMatchObject({ok: false, command, status: 'usage'})
     expect(frames[0].error.code).toBe('E_PROJECT_NOT_FOUND')
     expect(frames[0].error.message.slice(0, message.length)).toBe(message)
   })

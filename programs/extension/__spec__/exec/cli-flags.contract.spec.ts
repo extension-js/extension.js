@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
-import {CLI_ROOT, everyLineAsFrame, runCli} from '../helpers/run-cli'
+import {everyLineAsFrame, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
@@ -116,74 +116,34 @@ describe('cli flags the help promises (built entry)', () => {
     })
   })
 
-  // Ledger 1375 N1: a value that is neither pretty nor json is taken as
-  // pretty. Pinned as it is: the build runs, exits 0 and prints prose.
-  it('ledger 1375 N1: build --output jsno builds, exits 0 and prints prose', async () => {
+  it('refuses build --output jsno on stderr and prints no build line', async () => {
     const run = await cli(['build', src, '--output', 'jsno'])
 
-    expect(run.status, run.output).toBe(0)
-    expect(run.stdout).not.toContain('"schema":1')
-    expect(run.stdout).toMatch(/cli-flags compiled in \d+ ms/)
-    expect(run.stdout).toContain('Extension built for production')
-    expect(run.stderr).toBe('')
+    expect(run.status, run.output).toBe(1)
+    expect(run.stdout).toBe('')
+    expect(run.stderr).toBe('⏵⏵⏵ --output got "jsno". Use pretty or json.\n')
   })
 
-  // Pins today's behavior. Ledger 1375 N5.
-  it('ledger 1375 N5: dev --port abc starts on 8080 with no requested port', async () => {
-    const isStarting = (frame: Record<string, unknown>) =>
-      frame.status === 'starting'
-    // The session never ends by itself, so the group is ended once it is up.
+  it('refuses dev --port abc with one usage frame and starts nothing', async () => {
     const run = await runCli(
       ['dev', src, '--port', 'abc', '--no-browser', '--output', 'json'],
-      {
-        cwd: root,
-        until: ({stdout}) => everyLineAsFrame(stdout).some(isStarting)
-      }
-    )
-    const frames = everyLineAsFrame(run.stdout)
-    const realRoot = fs.realpathSync(root)
-    const sessionDir = path.join(realRoot, 'dist', 'extension-js', 'chromium')
-    const {version} = JSON.parse(
-      fs.readFileSync(path.join(CLI_ROOT, 'package.json'), 'utf8')
+      {cwd: root}
     )
 
+    expect(run.status, run.output).toBe(1)
     expect(run.stderr).toBe('')
-    expect(frames.slice(0, 2)).toEqual([
+    expect(everyLineAsFrame(run.stdout)).toEqual([
       {
         schema: 1,
-        ok: true,
+        ok: false,
         command: 'dev',
-        status: 'started',
-        value: {
-          projectPath: src,
-          browser: 'chromium',
-          browsers: ['chromium'],
-          port: 8080,
-          pid: expect.any(Number),
-          noBrowser: true
+        status: 'usage',
+        value: null,
+        error: {
+          code: 'E_INVALID_OPTION',
+          message:
+            '--port got "abc". Use a whole number from 0 to 65535, such as 8080. 0 picks a free port.'
         },
-        error: null,
-        warnings: []
-      },
-      {
-        schema: 1,
-        ok: true,
-        command: 'dev',
-        status: 'starting',
-        value: {
-          command: 'dev',
-          browser: 'chromium',
-          distPath: path.join(realRoot, 'dist', 'chromium'),
-          pid: expect.any(Number),
-          port: 8080,
-          readyPath: path.join(sessionDir, 'ready.json'),
-          eventsPath: path.join(sessionDir, 'events.ndjson'),
-          runId: expect.any(String),
-          instanceId: expect.any(String),
-          toolchainVersion: version,
-          requestedPort: null
-        },
-        error: null,
         warnings: []
       }
     ])
@@ -243,12 +203,12 @@ describe('the deprecated --format alias', () => {
     expect(frame).toMatchObject({ok: false, command: 'dev', status: 'usage'})
     expect(frame.error).toEqual({
       code: 'E_INVALID_OPTION',
-      message: '--parent-pid expects a positive integer pid, got: abc'
+      message:
+        '--parent-pid got "abc". Use the process id to watch, in digits, such as 4242.'
     })
 
-    expect(run.stderr).toBe(
-      `${FORMAT_NOTICE}⏵⏵⏵ --parent-pid expects a positive integer pid, got: abc\n`
-    )
+    // The frame is the answer under json, so only the alias notice is prose.
+    expect(run.stderr).toBe(FORMAT_NOTICE)
   })
 })
 

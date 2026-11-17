@@ -129,8 +129,9 @@ describe('act --output json stdout drain contract (#79)', () => {
       })
 
       expect(frame.error.code).toBe('E_SESSION_NOT_FOUND')
-      // The human copy stays on stderr, and the MCP still matches it.
-      expect(result.stderr).toContain('No active control channel')
+      // The frame is the whole answer: the reason is in it and stderr is empty.
+      expect(frame.error.message).toContain('No active control channel')
+      expect(result.stderr).toBe('')
     } finally {
       rmSync(empty, {recursive: true, force: true})
     }

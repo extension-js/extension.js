@@ -26,6 +26,8 @@ const ERROR_STATUS_HINT =
   'Read the server output for the failure behind the ready contract.'
 const LOAD_REFUSED_HINT =
   'Fix what the browser names, then run the command again.'
+const PROFILE_LOCKED_HINT =
+  'Close the browser that has this profile open, or pass --profile <path> to use another one.'
 const REMOTE_MESSAGE =
   '--wait requires a local project path (remote URLs are not supported)'
 const REMOTE_HINT =
@@ -358,7 +360,7 @@ describe('dev --wait on a ready.json that names a failure', () => {
       'failed',
       ERROR_STATUS_HINT
     ],
-    ['profile_locked', 'E_PROFILE_LOCKED', 'failed', ERROR_STATUS_HINT],
+    ['profile_locked', 'E_PROFILE_LOCKED', 'failed', PROFILE_LOCKED_HINT],
     ['shutdown', 'E_SESSION_STOPPED', 'failed', ERROR_STATUS_HINT]
   ])('%s answers %s as %s', async (readyCode, code, status, hint) => {
     const {projectDir, readyPath} = createProject()
