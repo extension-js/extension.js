@@ -487,6 +487,53 @@ describe('optional install arguments per package manager', () => {
   })
 })
 
+describe('pnpm optional install output', () => {
+  const installDir = path.join(path.sep, 'toolchain', 'extension-develop')
+
+  it('drops --silent when the run is shown live', () => {
+    expect(
+      buildOptionalInstallArgs('pnpm', ['vue-loader'], installDir, true)
+    ).toEqual(['add', 'vue-loader', '--dir', installDir, '--save-optional'])
+  })
+
+  it('lets pnpm speak in development and keeps it silent otherwise', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({vue: '^3.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
+    const install = () =>
+      installInternalDependencies(
+        projectRoot,
+        recordingLogger().logger,
+        'pnpm',
+        undefined,
+        nothingResolves,
+        undefined,
+        runInstall
+      )
+
+    await install()
+    vi.stubEnv('EXTENSION_ENV', 'development')
+    await install()
+
+    const shared = [
+      'add',
+      'vue-loader',
+      '@vue/compiler-sfc',
+      '--dir',
+      developRoot,
+      '--save-optional'
+    ]
+    expect(installCalls).toEqual([
+      {
+        command: 'pnpm',
+        args: [...shared, '--silent'],
+        opts: {cwd: developRoot, stdio: 'pipe'}
+      },
+      {command: 'pnpm', args: shared, opts: {cwd: developRoot, stdio: 'tee'}}
+    ])
+  })
+})
+
 describe('installInternalDependencies', () => {
   it('refuses a package.json that exists but cannot be parsed, with one frame', async () => {
     const projectRoot = makeTempDir('extjs-project-')

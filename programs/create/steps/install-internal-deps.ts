@@ -21,7 +21,7 @@ import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
-import {failStep} from '../lib/utils'
+import {failStep, isEnvFlagOn} from '../lib/utils'
 
 const requireFromCreate = createRequire(import.meta.url)
 
@@ -244,7 +244,9 @@ export function optionalInstallManager(
 export function buildOptionalInstallArgs(
   pm: string,
   dependencies: string[],
-  installDir: string
+  installDir: string,
+  // True when the run is shown live, so the manager is left to speak.
+  showOutput = false
 ) {
   if (pm === 'yarn') {
     // The install already runs with cwd=installDir. Yarn Berry rejects
@@ -254,14 +256,14 @@ export function buildOptionalInstallArgs(
   }
 
   if (pm === 'pnpm') {
-    // Same convention as the project-deps installer: pnpm runs silent.
+    // pnpm runs silent unless the run is shown live.
     return [
       'add',
       ...dependencies,
       '--dir',
       installDir,
       '--save-optional',
-      '--silent'
+      ...(showOutput ? [] : ['--silent'])
     ]
   }
 
@@ -330,7 +332,12 @@ async function installOptionalDependencies(
   logger.log(messages.installingProjectIntegrations(plan.integrations))
 
   // One run for every integration: a package two of them share installs once.
-  const args = buildOptionalInstallArgs(pm, plan.dependencies, developRoot)
+  const args = buildOptionalInstallArgs(
+    pm,
+    plan.dependencies,
+    developRoot,
+    stdio === 'tee'
+  )
   // A runner that rejects never started the manager (a missing binary), so
   // it takes the frame the project install gives the same rejection.
   const result = await runInstall(pm, args, {
@@ -362,15 +369,6 @@ async function installOptionalDependencies(
   }
 }
 
-// Reads the flag the way the project install reads EXTENSION_SKIP_INSTALL.
-function isInternalInstallSkippedByEnv(): boolean {
-  const raw = String(process.env.EXTENSION_SKIP_INTERNAL_INSTALL ?? '')
-    .trim()
-    .toLowerCase()
-
-  return raw === '1' || raw === 'true'
-}
-
 export async function installInternalDependencies(
   projectPath: string,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
@@ -382,7 +380,7 @@ export async function installInternalDependencies(
   cwd: string = process.cwd(),
   runInstall: InstallRunner = runInstallCommand
 ) {
-  if (isInternalInstallSkippedByEnv()) return
+  if (isEnvFlagOn('EXTENSION_SKIP_INTERNAL_INSTALL')) return
 
   const developRoot = resolveDevelopRoot(projectPath, cwd)
   if (!developRoot) return
