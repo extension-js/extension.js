@@ -13,7 +13,7 @@
 
 ### What this folder owns
 
-- **Ports.** `port-manager.ts` picks the HTTP port on the bind host: the first free one of 20 starting at the requested port, or at 8080 when none is asked and holds it from before the compile until the server listens (`reserved-listen.ts`), because the port is baked into the build. A restart keeps the same port.
+- **Ports.** `port-manager.ts` picks the HTTP port on the bind host (the first free one of 20, starting at the requested port or at 8080) and holds it from before the compile until the server listens (`reserved-listen.ts`), because the port is baked into the build. A restart keeps the same port.
 - **One session per browser.** A live session that owns the same `ready.json` makes a second one fail with `E_SESSION_EXISTS`.
 - **The control bridge.** `control-bridge-start.ts` opens the WebSocket control server (`control-bridge/`) on the previous session's port when it can, else on a free one. When neither binds, the session says so and runs without reload.
 - **Hosts and headers.** `cors.ts` builds the allowed-hosts list from the connectable host, the emulator viewer and `--allowed-hosts`, reflects `Access-Control-Allow-Origin` for the session's own extension only, and replaces the stock host check with one that names the refused host and the fix.
