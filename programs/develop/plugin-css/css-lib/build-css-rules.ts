@@ -12,6 +12,7 @@ import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-res
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
+import type {PostCssRuleReader} from '../css-tools/postcss'
 import {createSassLoaderOptions} from '../css-tools/sass'
 
 // The request the bundler makes for an @import in a sheet it parses.
@@ -20,6 +21,8 @@ export const CSS_IMPORT_DEPENDENCY = 'css-import'
 export interface PreprocessorUsage {
   useSass?: boolean
   useLess?: boolean
+  // The compiler's one reader of the PostCSS config, shared by every rule.
+  postCss?: PostCssRuleReader
 }
 
 type PreprocessorLoader = 'sass-loader' | 'less-loader'
@@ -73,7 +76,7 @@ export async function buildCssRules(
   usage: PreprocessorUsage,
   opts: BuildCssRulesOptions
 ): Promise<RuleSetRule[]> {
-  const {useSass = true, useLess = true} = usage
+  const {useSass = true, useLess = true, postCss} = usage
   const {nonModuleType, issuer, issuerLayer, manifestPath, gecko} = opts
   const {dependency} = opts
   const {baseAttribute, baseScheme} = opts
@@ -160,6 +163,7 @@ export async function buildCssRules(
       const use = loader
         ? await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
+            postCss,
             loader: await resolvePreprocessorLoader(loader, projectPath),
             // commonStyleLoaders sets sourceMap from the mode for both.
             loaderOptions:
@@ -168,7 +172,8 @@ export async function buildCssRules(
                 : {}
           })
         : await commonStyleLoaders(projectPath, {
-            mode: mode as 'development' | 'production'
+            mode: mode as 'development' | 'production',
+            postCss
           })
 
       if (missingTool) {

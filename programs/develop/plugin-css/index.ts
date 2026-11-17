@@ -45,7 +45,10 @@ import {
   restoreVerbatimCssAssets
 } from './css-lib/verbatim-css'
 import {maybeUseLess} from './css-tools/less'
-import {findPostCssConfig} from './css-tools/postcss'
+import {
+  findPostCssConfig,
+  postCssReaderForOneCompiler
+} from './css-tools/postcss'
 import {maybeUseSass} from './css-tools/sass'
 import {getTailwindConfigFile} from './css-tools/tailwind'
 import {PUBLIC_ROOT_SCHEME} from './public-css-url-loader'
@@ -85,21 +88,21 @@ export class CssPlugin {
       baseScheme: extensionSchemeFor(String(this.browser))
     }
 
+    const usage = {
+      useSass: usingSass,
+      useLess: usingLess,
+      postCss: postCssReaderForOneCompiler()
+    }
+
     const loaders: RuleSetRule[] = [
       ...(await cssInContentScriptLoader(
         projectPath,
         manifestPath,
         mode,
-        {
-          useSass: usingSass,
-          useLess: usingLess
-        },
+        usage,
         this.browser
       )),
-      ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
-        useSass: usingSass,
-        useLess: usingLess
-      })),
+      ...(await cssInHtmlLoader(projectPath, mode, manifestPath, usage)),
       // Post, so it runs after the framework has scoped the block. The block
       // is imported for its effect alone, which sideEffects: false would drop.
       {

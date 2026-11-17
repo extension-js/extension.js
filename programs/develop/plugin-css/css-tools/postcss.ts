@@ -534,6 +534,29 @@ export function isUsingPostCss(projectPath: string): boolean {
   return false
 }
 
+export type PostCssRuleReader = (
+  projectPath: string,
+  opts: StyleLoaderOptions
+) => Promise<Record<string, AnyModule>>
+
+// One compiler builds 24 style rules from one config. Its reader loads the
+// config once per project and mode, and a new compiler starts a new reader.
+export function postCssReaderForOneCompiler(): PostCssRuleReader {
+  const read = new Map<string, Promise<Record<string, AnyModule>>>()
+
+  return (projectPath, opts) => {
+    const key = `${projectPath}\0${String(opts.mode || 'development')}`
+    let rule = read.get(key)
+
+    if (!rule) {
+      rule = maybeUsePostCss(projectPath, opts)
+      read.set(key, rule)
+    }
+
+    return rule
+  }
+}
+
 export async function maybeUsePostCss(
   projectPath: string,
   opts: StyleLoaderOptions
