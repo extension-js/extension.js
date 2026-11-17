@@ -139,8 +139,34 @@ function unparsed(
   )
 }
 
-const EXPORT_DEFAULT =
-  /^export(?:\s|\/\*[\s\S]*?\*\/|\/\/[^\n]*(?:\n|$))*default/
+// Reads `export`, then whitespace and comments, then `default`, in one pass.
+// A scan, not a pattern: a pattern here backtracks on a long run of comments.
+function exportDefaultKeywords(text: string): string | undefined {
+  if (!text.startsWith('export')) return undefined
+
+  let at = 'export'.length
+
+  while (at < text.length) {
+    if (/\s/.test(text[at])) {
+      at += 1
+    } else if (text.startsWith('/*', at)) {
+      const close = text.indexOf('*/', at + 2)
+      if (close === -1) return undefined
+
+      at = close + 2
+    } else if (text.startsWith('//', at)) {
+      const lineEnd = text.indexOf('\n', at)
+      at = lineEnd === -1 ? text.length : lineEnd + 1
+    } else {
+      break
+    }
+  }
+
+  return text.startsWith('default', at)
+    ? text.slice(0, at + 'default'.length)
+    : undefined
+}
+
 const DECLARATION =
   /^(?:FunctionDeclaration|ClassDeclaration|TSDeclareFunction)$/
 
@@ -219,14 +245,14 @@ export function readDefaultExport(
   for (const node of program.body) {
     if (node.type === 'ExportDefaultDeclaration') {
       const declaration = node.declaration as AstNode
-      const keywords = EXPORT_DEFAULT.exec(textOf(node))
+      const keywords = exportDefaultKeywords(textOf(node))
 
       // A default-exported interface is a type, with nothing to mount.
       if (!keywords || declaration.type === 'TSInterfaceDeclaration') continue
 
       found = true
-      const keywordsEnd = node.start + keywords[0].length
-      const lineBreaks = lineBreaksOf(keywords[0])
+      const keywordsEnd = node.start + keywords.length
+      const lineBreaks = lineBreaksOf(keywords)
       const declared = DECLARATION.test(declaration.type)
         ? nameOf(declaration.id)
         : undefined
