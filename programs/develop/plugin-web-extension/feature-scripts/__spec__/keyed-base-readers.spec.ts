@@ -9,7 +9,6 @@ import {
   extensionSchemeFor
 } from '../../../lib/extension-base-from-stack'
 import {toRuntimeStylesheetModule} from '../../../plugin-css/css-lib/inline-content-script-css'
-import AutoPublicPathRuntimeModule from '../../feature-chunk-loading/runtime-modules/auto-public-path'
 import PublicPathRuntimeModule from '../../feature-chunk-loading/runtime-modules/public-path'
 import {buildMainWorldBridgePairingSource} from '../scripts-lib/main-world-bridge-pairing'
 import {baseUriRuntimeSource} from '../steps/add-base-uri-runtime-module'
@@ -48,7 +47,7 @@ function baseUri(
   return (context.out as {b?: string}).b
 }
 
-// What a reload runtime module writes into a bundle.
+// What a runtime module writes into a bundle.
 function generated(module: unknown) {
   Object.assign(module as object, {
     chunk: {canBeInitial: () => true},
@@ -164,10 +163,10 @@ describe('the inline stylesheet module of a Gecko build', () => {
   })
 })
 
-describe('the reload runtime modules of a Gecko build', () => {
+describe('the public path module the chunk loader adds', () => {
   const webpack = rspack as unknown as typeof import('webpack')
 
-  it('read the attribute of their own extension and no shared name', () => {
+  it('reads the attribute of its own extension on a Gecko build', () => {
     const source = generated(PublicPathRuntimeModule(webpack, true, KEYED))
 
     expect(source).toContain(`getAttribute(${quoted(KEYED)})`)
@@ -176,26 +175,21 @@ describe('the reload runtime modules of a Gecko build', () => {
     expect(source).toContain('__extjsBase < "moz-extension://"')
   })
 
-  it('ask no runtime for the public path in a file that took its base', () => {
+  it('asks no runtime for the public path in a file that took its base', () => {
     const source = generated(PublicPathRuntimeModule(webpack, true, KEYED))
 
     expect(source).toContain('if (typeof __extjsTakenBase !== "string" && ')
     expect(source).toContain('__extjsRuntimePath < "moz-extension://"')
   })
 
-  it('keep every other browser off the global and off the Gecko scheme', () => {
-    for (const build of [
-      PublicPathRuntimeModule,
-      AutoPublicPathRuntimeModule
-    ]) {
-      const chromium = generated(build(webpack, false, KEYED))
+  it('stays off the global and off the Gecko scheme on every other browser', () => {
+    const chromium = generated(PublicPathRuntimeModule(webpack, false, KEYED))
 
-      expect(chromium).toContain(`getAttribute(${quoted(KEYED)})`)
-      expect(chromium).not.toContain(quoted(EXTENSION_BASE_ATTRIBUTE))
-      expect(chromium).not.toContain(EXTENSION_BASE_GLOBAL)
-      expect(chromium).not.toContain('__extjsTakenBase')
-      expect(chromium).not.toContain('moz-extension:')
-    }
+    expect(chromium).toContain(`getAttribute(${quoted(KEYED)})`)
+    expect(chromium).not.toContain(quoted(EXTENSION_BASE_ATTRIBUTE))
+    expect(chromium).not.toContain(EXTENSION_BASE_GLOBAL)
+    expect(chromium).not.toContain('__extjsTakenBase')
+    expect(chromium).not.toContain('moz-extension:')
   })
 })
 
@@ -265,7 +259,7 @@ describe('the base a file of any engine reads off the document', () => {
     }
   })
 
-  it('checks the scheme in the inline sheet and in every reload module', () => {
+  it('checks the scheme in the inline sheet and in the public path module', () => {
     for (const {scheme} of engines) {
       const gecko = scheme === 'moz-extension'
       const from = `< ${quoted(`${scheme}://`)}`
@@ -281,39 +275,16 @@ describe('the base a file of any engine reads off the document', () => {
       expect(sheet, scheme).toContain(`base ${from}`)
       expect(sheet, scheme).toContain(`getAttribute(${quoted(KEYED)})`)
 
-      for (const build of [
-        PublicPathRuntimeModule,
-        AutoPublicPathRuntimeModule
-      ]) {
-        const source = generated(build(webpack, gecko, KEYED, scheme))
+      const source = generated(
+        PublicPathRuntimeModule(webpack, gecko, KEYED, scheme)
+      )
 
-        expect(source, scheme).toContain(`__extjsBase ${from}`)
-        expect(source, scheme).toContain(`getAttribute(${quoted(KEYED)})`)
-        // The text has to be a script before anything else holds for it.
-        expect(() => new Function(source), scheme).not.toThrow()
-      }
-
-      for (const build of [
-        PublicPathRuntimeModule,
-        AutoPublicPathRuntimeModule
-      ]) {
-        expect(generated(build(webpack, gecko, KEYED, scheme))).toContain(
-          `base ${from}`
-        )
-      }
+      expect(source, scheme).toContain(`__extjsBase ${from}`)
+      expect(source, scheme).toContain(`base ${from}`)
+      expect(source, scheme).toContain(`getAttribute(${quoted(KEYED)})`)
+      // The text has to be a script before anything else holds for it.
+      expect(() => new Function(source), scheme).not.toThrow()
     }
-  })
-
-  it('keeps the script URL of its own engine and no other in an auto public path', () => {
-    const source = generated(
-      AutoPublicPathRuntimeModule(webpack, false, KEYED, 'safari-web-extension')
-    )
-
-    expect(source).toContain(
-      'String(scriptUrl).indexOf("safari-web-extension://") !== 0'
-    )
-
-    expect(source).not.toContain('chrome|moz')
   })
 })
 

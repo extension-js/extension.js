@@ -29,8 +29,8 @@ function target(manifestPath: string) {
   return new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'})
 }
 
-// What the target installs, read off an idle compiler: the taps it adds,
-// the public path it clears for rspack and the entries it leaves alone.
+// What the target installs, read off an idle compiler: the taps it adds
+// and the entries it leaves alone.
 function installed(
   manifestPath: string,
   mode: 'development' | 'production',
@@ -41,7 +41,6 @@ function installed(
 
   return {
     taps,
-    publicPath: compiler.options.output.publicPath,
     entry: compiler.options.entry
   }
 }
@@ -74,7 +73,6 @@ describe('SetupChunkLoadingTarget', () => {
         thisCompilation: ['NoDangerNamePlugin'],
         environment: ['WebExtensionPlugin']
       },
-      publicPath: '',
       entry: {}
     })
   })
@@ -107,7 +105,6 @@ describe('SetupChunkLoadingTarget', () => {
     const result = installed(manifestPath, 'production')
 
     expect(result.entry).toEqual({})
-    expect(result.publicPath).toBe('')
   })
 })
 

@@ -1,4 +1,3 @@
-import AutoPublicPathRuntimeModule from '../runtime-modules/auto-public-path'
 import {RuntimeGlobal} from '../runtime-modules/browser-runtime'
 import ChunkLoaderFallbackRuntimeModule from '../runtime-modules/chunk-loader-fallback'
 import LoadScriptRuntimeModule from '../runtime-modules/load-script'
@@ -8,7 +7,6 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
   private readonly pluginOptions: any
   private readonly options: any
   private readonly contentScriptsMeta: Record<string, any>
-  private rspackAutoPublicPath = false
   // A Gecko MAIN world file opens on the read that takes the base.
   private readonly gecko: boolean
   // The attribute this extension's bridge writes the base under.
@@ -35,14 +33,6 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
   }
 
   apply(compiler: any) {
-    if ('rspack' in compiler) {
-      const {output} = compiler.options
-      // rspack won't hide auto_public_path runtime module even we provided one
-      if (output.publicPath === undefined || output.publicPath === 'auto') {
-        output.publicPath = ''
-        this.rspackAutoPublicPath = true
-      }
-    }
     compiler.hooks.compilation.tap(
       WebExtensionChuckLoaderRuntimePlugin.name,
       (compilation: any) => {
@@ -81,39 +71,24 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
         WebExtensionChuckLoaderRuntimePlugin.name,
         (chunk: any, set: any) => {
           const {outputOptions} = compilation
-          const {publicPath, scriptType} = outputOptions
+          const {publicPath} = outputOptions
+
+          set.add(RuntimeGlobal)
+          const module: any = PublicPathRuntimeModule(
+            compiler.webpack,
+            this.gecko,
+            this.baseAttribute,
+            this.baseScheme
+          )
 
           if (
-            publicPath === 'auto' ||
-            (publicPath === '' && this.rspackAutoPublicPath)
+            typeof publicPath !== 'string' ||
+            /\[(full)?hash\]/.test(publicPath)
           ) {
-            const module = AutoPublicPathRuntimeModule(
-              compiler.webpack,
-              this.gecko,
-              this.baseAttribute,
-              this.baseScheme
-            )
-            set.add(RuntimeGlobal)
-            if (scriptType !== 'module') set.add(RuntimeGlobals.global)
-            compilation.addRuntimeModule(chunk, module)
-          } else {
-            set.add(RuntimeGlobal)
-            const module: any = PublicPathRuntimeModule(
-              compiler.webpack,
-              this.gecko,
-              this.baseAttribute,
-              this.baseScheme
-            )
-
-            if (
-              typeof publicPath !== 'string' ||
-              /\[(full)?hash\]/.test(publicPath)
-            ) {
-              module.fullHash = true
-            }
-
-            compilation.addRuntimeModule(chunk, module)
+            module.fullHash = true
           }
+
+          compilation.addRuntimeModule(chunk, module)
           return true
         }
       )

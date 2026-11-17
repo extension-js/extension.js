@@ -30,7 +30,7 @@ export function idleCompiler(
     mode,
     context: root,
     entry,
-    output: {path: path.join(root, 'dist')}
+    output: {path: path.join(root, 'dist'), publicPath: '/'}
   })
 }
 
@@ -53,7 +53,7 @@ export async function compileFiles(
         {import: [file.startsWith('data:') ? file : path.join(root, file)]}
       ])
     ),
-    output: {path: path.join(root, 'dist')},
+    output: {path: path.join(root, 'dist'), publicPath: '/'},
     plugins: [plugin]
   })
   const stats = await new Promise<import('@rspack/core').Stats>(
@@ -101,7 +101,7 @@ export async function compileIssues(
         {import: [path.join(root, file)]}
       ])
     ),
-    output: {path: path.join(root, 'dist')},
+    output: {path: path.join(root, 'dist'), publicPath: '/'},
     plugins
   })
   const stats = await new Promise<import('@rspack/core').Stats>(
