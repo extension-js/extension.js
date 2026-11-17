@@ -60,7 +60,7 @@ function ending(result: Partial<CommandResult> = {}): CommandResult {
 function tree(dir: string): string[] {
   return fs
     .readdirSync(dir, {recursive: true})
-    .map((entry) => String(entry))
+    .map((entry) => String(entry).split(path.sep).join('/'))
     .sort()
 }
 

@@ -126,7 +126,7 @@ const HALF_HOUR = 30 * 60_000
 function tree(dir: string): string[] {
   return fs
     .readdirSync(dir, {recursive: true})
-    .map((entry) => String(entry))
+    .map((entry) => String(entry).split(path.sep).join('/'))
     .sort()
 }
 

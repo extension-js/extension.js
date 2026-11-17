@@ -343,7 +343,12 @@ describe('runCommand with a real child', () => {
     it('ends a child that never exits once the timeout passes', async () => {
       const before = listeners()
 
-      const result = await start(IDLE, {timeoutMs: 150})
+      // taskkill takes longer to start than the short grace the other cases
+      // use, and the kill after the grace would end the child first.
+      const result = await start(IDLE, {
+        timeoutMs: 150,
+        ...(process.platform === 'win32' ? {graceMs: 5_000} : {})
+      })
 
       expect(result).toEqual({
         code: process.platform === 'win32' ? 1 : null,
