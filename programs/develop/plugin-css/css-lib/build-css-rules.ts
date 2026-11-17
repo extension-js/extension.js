@@ -161,13 +161,11 @@ export async function buildCssRules(
         ? await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
             loader: await resolvePreprocessorLoader(loader, projectPath),
+            // commonStyleLoaders sets sourceMap from the mode for both.
             loaderOptions:
               loader === 'sass-loader'
-                ? createSassLoaderOptions(
-                    projectPath,
-                    mode as 'development' | 'production'
-                  )
-                : {sourceMap: true}
+                ? createSassLoaderOptions(projectPath)
+                : {}
           })
         : await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production'
