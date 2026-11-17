@@ -144,7 +144,7 @@ afterAll(() => {
 beforeEach(skipWithoutDevelopDist)
 
 describe('the browser folder after the first compile of a dev session', () => {
-  it('holds only what that compile emitted and leaves its neighbours alone', async () => {
+  it('holds only what that compile emitted and leaves its neighbors alone', async () => {
     const root = scaffold()
     const dist = path.join(root, 'dist', 'chrome')
     const stale = plant(path.join(dist, 'deleted-between-sessions.txt'))
