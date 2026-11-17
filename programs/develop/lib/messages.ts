@@ -11,6 +11,7 @@ import type {Stats, StatsAsset} from '@rspack/core'
 import colors, {supportsColor} from 'pintor'
 import type {DevOptions, Manifest} from '../types'
 import type {BuildToolchain} from './build-toolchain'
+import type {InstallFailure} from './install-registry-failure'
 import {
   artifactNoun,
   type Channel,
@@ -241,6 +242,59 @@ export function projectInstallFallbackToNpm(pmName: string) {
   return (
     `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed.\n` +
     `Extension.js retries once with npm so the build can continue.`
+  )
+}
+
+function installFailureReason(failure: InstallFailure): string {
+  if (failure.kind === 'tarball-not-served') {
+    return `The registry lists ${fmt.code(failure.packageSpec)} but is not serving its tarball yet.`
+  }
+
+  if (failure.kind === 'version-not-listed') {
+    return `A dependency asks for ${fmt.code(failure.packageSpec)}, which the registry does not list yet.`
+  }
+
+  if (failure.kind === 'registry-unavailable') {
+    return `The registry did not answer the install (${failure.detail}).`
+  }
+
+  return 'The install failed.'
+}
+
+function secondsLabel(ms: number): string {
+  const seconds = Math.max(1, Math.round(ms / 1000))
+
+  return seconds === 1 ? '1 second' : `${seconds} seconds`
+}
+
+export function projectInstallRetry(
+  failure: InstallFailure,
+  delayMs: number,
+  attempt: number,
+  attempts: number
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${installFailureReason(failure)} ` +
+    `Retrying the install in ${secondsLabel(delayMs)} (attempt ${attempt} of ${attempts}).`
+  )
+}
+
+export function projectInstallRegistryNotReady(
+  failure: InstallFailure,
+  pmName: string,
+  attempts: number,
+  waitedMs: number
+) {
+  const cause =
+    failure.kind === 'registry-unavailable'
+      ? 'The registry is having trouble answering right now.'
+      : 'A new release takes a minute or two to reach the whole registry.'
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `${installFailureReason(failure)}\n` +
+    `${cause} Extension.js tried ${attempts} times over ${secondsLabel(waitedMs)}.\n` +
+    `Run the command again in a minute. The ${pmName} error is printed above.`
   )
 }
 

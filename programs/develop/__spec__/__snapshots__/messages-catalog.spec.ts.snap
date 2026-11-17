@@ -101,6 +101,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "productionLoopbackOriginsText: function(1)",
     "projectInstallFallbackToNpm: function(1)",
     "projectInstallInWorkspaceRoot: function(1)",
+    "projectInstallRegistryNotReady: function(4)",
+    "projectInstallRetry: function(4)",
     "projectInstallScriptsDisabled: function(1)",
     "remoteFetchTimedOut: function(2)",
     "remoteSourceDestinationTaken: function(2)",
