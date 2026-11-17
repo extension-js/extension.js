@@ -7,12 +7,9 @@
   "excludeFolders": [
     "node_modules",
     "_FUTURE",
-    "lab",
-    "seo",
     "scripts",
     "e2e-report",
     "test-results",
-    "UPSTREAM_BUG_repros",
     "programs/develop",
     "extensions"
   ],
