@@ -1,3 +1,4 @@
+import * as fs from 'node:fs'
 import {
   afterEach,
   beforeEach,
@@ -8,26 +9,6 @@ import {
   vi
 } from 'vitest'
 
-function notInstallableError(browser: string): Error {
-  const error = new Error(
-    `${browser} cannot be installed by Extension.js. This CLI never downloads it.`
-  )
-  error.name = 'BrowserNotInstallableError'
-  ;(error as Error & {code: string}).code = 'BROWSER_NOT_INSTALLABLE'
-
-  return error
-}
-
-function privilegeError(): Error {
-  const error = new Error(
-    'Edge needs a privileged interactive session on Linux. Run this command in a terminal where sudo can prompt for credentials.'
-  )
-  error.name = 'BrowserInstallPrivilegeError'
-  ;(error as Error & {code: string}).code = 'BROWSER_INSTALL_PRIVILEGE'
-
-  return error
-}
-
 function removedAll({browser, all}: {browser?: string; all?: boolean}) {
   const names = all
     ? ['chrome', 'chromium', 'edge', 'firefox']
@@ -36,25 +17,49 @@ function removedAll({browser, all}: {browser?: string; all?: boolean}) {
   return names.map((name) => ({
     browser: name,
     removed: true,
-    path: `/cache/${name}`
+    path: `/cache/${name}`,
+    outcome: 'removed' as const
   }))
 }
 
-vi.mock('extension-install', () => ({
-  extensionInstall: vi.fn(async () => {}),
-  extensionUninstall: vi.fn(
-    async (options: {browser?: string; all?: boolean}) => removedAll(options)
-  ),
-  getManagedBrowsersCacheRoot: vi.fn(() => '/cache/root'),
-  getManagedBrowserInstallDir: vi.fn((browser: string) => `/cache/${browser}`)
-}))
+// Only the calls that would download, delete or read this machine's cache are
+// faked. The error classes, the guards and the name rules are the real ones.
+vi.mock('extension-install', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('extension-install')>()
+
+  return {
+    ...actual,
+    extensionInstall: vi.fn(async () => {}),
+    extensionUninstall: vi.fn(
+      async (options: {browser?: string; all?: boolean}) => removedAll(options)
+    ),
+    getManagedBrowsersCacheRoot: vi.fn(() => '/cache/root'),
+    getManagedBrowserInstallDir: vi.fn((browser: string) => {
+      const real = actual.getManagedBrowserInstallDir(browser)
+
+      return `/cache/${real.split(/[\\/]/).pop()}`
+    })
+  }
+})
 
 import {
+  BrowserCacheRootError,
+  BrowserInstallBusyError,
+  BrowserInstallerNotFoundError,
+  BrowserInstallFailedError,
+  BrowserInstallForeignFolderError,
+  BrowserInstallPrivilegeError,
+  BrowserInstallTimeoutError,
+  BrowserNotInstallableError,
+  BrowserUninstallError,
   extensionInstall,
   extensionUninstall,
   getManagedBrowserInstallDir,
-  getManagedBrowsersCacheRoot
+  getManagedBrowsersCacheRoot,
+  isBrowserInstallPrivilegeError,
+  isBrowserNotInstallableError
 } from 'extension-install'
+import * as installPackage from 'extension-install'
 import {registerInstallCommand} from '../commands/install'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
@@ -73,6 +78,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.clearAllMocks()
+  vi.unstubAllEnvs()
 
   if (typeof prevOutput === 'undefined') {
     delete process.env.EXTENSION_OUTPUT
@@ -80,6 +86,27 @@ afterEach(() => {
     process.env.EXTENSION_OUTPUT = prevOutput
   }
 })
+
+function notInstallableError(browser: string): Error {
+  return new BrowserNotInstallableError(
+    `${browser} cannot be installed by Extension.js. This CLI never downloads it.`
+  )
+}
+
+function privilegeError(): Error {
+  return new BrowserInstallPrivilegeError(
+    'Edge needs a privileged interactive session on Linux. Run this command in a terminal where sudo can prompt for credentials.'
+  )
+}
+
+function installerNotFoundError(): Error {
+  return Object.assign(
+    new BrowserInstallerNotFoundError(
+      "Couldn't install Chrome. The package runner bunx wasn't found on this machine. Install Bun, or run this command through a package manager that is installed."
+    ),
+    {cause: Object.assign(new Error('spawn bunx ENOENT'), {code: 'ENOENT'})}
+  )
+}
 
 function run(argv: string[]) {
   return runCli(makeProgram(registerInstallCommand), argv)
@@ -183,7 +210,10 @@ describe('extension install', () => {
   })
 
   it('emits E_BROWSER_DOWNLOAD when the download fails', async () => {
-    vi.mocked(extensionInstall).mockRejectedValueOnce(new Error('404 from CDN'))
+    vi.mocked(extensionInstall).mockRejectedValueOnce(
+      new BrowserInstallFailedError('404 from CDN')
+    )
+
     expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
     const frame = wholeStdout()
     expect(frame).toMatchObject({
@@ -249,12 +279,213 @@ describe('extension install', () => {
   })
 
   it('prints a download failure without a stack in pretty mode', async () => {
-    vi.mocked(extensionInstall).mockRejectedValueOnce(new Error('404 from CDN'))
+    vi.mocked(extensionInstall).mockRejectedValueOnce(
+      new BrowserInstallFailedError('404 from CDN')
+    )
+
     expect(await run(['install', 'chrome'])).toBe(1)
     const printed = String(errorSpy.mock.calls[0][0])
     expect(printed).toMatch(/download/i)
     expect(printed).toContain('404 from CDN')
     expect(printed).not.toMatch(/at /)
+  })
+
+  it('recognizes an installer failure by its code from another module instance', async () => {
+    vi.mocked(extensionInstall).mockRejectedValueOnce(
+      Object.assign(new Error('exit code 7'), {code: 'BROWSER_INSTALL_FAILED'})
+    )
+
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    expect(wholeStdout().hint).toBe('Retry, or install chrome manually.')
+  })
+
+  const refusals = [
+    {
+      name: 'an installer stopped at the timeout',
+      error: () =>
+        new BrowserInstallTimeoutError(
+          "Couldn't install Chrome. The installer didn't finish within 30 minutes and was stopped. Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again.",
+          1_800_000
+        ),
+      packageCode: 'BROWSER_INSTALL_TIMEOUT',
+      code: 'E_BROWSER_INSTALL_TIMEOUT',
+      hint: 'Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again.'
+    },
+    {
+      name: 'another install that never let go of the browser folder',
+      error: () =>
+        new BrowserInstallBusyError(
+          "Couldn't install Chrome. Another install of Chrome (PID 41250) was still running after 30 minutes."
+        ),
+      packageCode: 'BROWSER_INSTALL_BUSY',
+      code: 'E_BROWSER_INSTALL_BUSY',
+      hint: 'Wait for the other install of this browser to finish, then run the install again.'
+    },
+    {
+      name: 'a cache root that is a file',
+      error: () =>
+        new BrowserCacheRootError(
+          "Couldn't install Chrome. The browser cache path /tmp/a-file is a file, not a folder."
+        ),
+      packageCode: 'BROWSER_CACHE_ROOT',
+      code: 'E_BROWSER_CACHE_NOT_WRITABLE',
+      hint: 'Set EXT_BROWSERS_CACHE_DIR to a folder Extension.js can write to.'
+    },
+    {
+      name: 'a browser folder that holds files of someone else',
+      error: () =>
+        new BrowserInstallForeignFolderError(
+          "Couldn't install Chrome. The folder /apps/Google/chrome holds files Extension.js didn't put there, so nothing in it was changed."
+        ),
+      packageCode: 'BROWSER_INSTALL_FOREIGN_FOLDER',
+      code: 'E_BROWSER_FOLDER_FOREIGN',
+      hint: 'Set EXT_BROWSERS_CACHE_DIR to a folder that only Extension.js uses.'
+    }
+  ]
+
+  it.each(
+    refusals
+  )('frames $name as $code with its own hint, never a download to retry', async ({
+    error,
+    code,
+    hint
+  }) => {
+    const thrown = error()
+    vi.mocked(extensionInstall).mockRejectedValueOnce(thrown)
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    const frame = wholeStdout()
+
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'install',
+      status: 'failed',
+      value: null
+    })
+
+    expect(frame.error).toMatchObject({code, message: thrown.message})
+    expect(frame.hint).toBe(hint)
+    expect(String(frame.hint)).not.toMatch(/retry|manually|download/i)
+  })
+
+  it.each(
+    refusals
+  )('prints $name as the installer worded it in pretty mode', async ({
+    error
+  }) => {
+    const thrown = error()
+    vi.mocked(extensionInstall).mockRejectedValueOnce(thrown)
+    expect(await run(['install', 'chrome'])).toBe(1)
+    expect(errorSpy.mock.calls).toEqual([[thrown.message]])
+  })
+
+  it.each(
+    refusals
+  )('recognizes $name by its code from another module instance', async ({
+    packageCode,
+    code
+  }) => {
+    vi.mocked(extensionInstall).mockRejectedValueOnce(
+      Object.assign(new Error('worded by the package'), {code: packageCode})
+    )
+
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    expect(wholeStdout().error?.code).toBe(code)
+  })
+
+  // An error the package gave no type is not known to be a failed download.
+  it('reports an error of no known kind in its own words, with no retry hint', async () => {
+    vi.mocked(extensionInstall).mockRejectedValue(
+      Object.assign(new Error('spawn pnpm EACCES'), {code: 'EACCES'})
+    )
+
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    const frame = wholeStdout()
+
+    expect(frame.error).toEqual(
+      expect.objectContaining({
+        code: 'E_BROWSER_DOWNLOAD',
+        message: 'spawn pnpm EACCES'
+      })
+    )
+
+    expect('hint' in frame).toBe(false)
+
+    expect(await run(['install', 'chrome'])).toBe(1)
+    expect(errorSpy.mock.calls).toEqual([['spawn pnpm EACCES']])
+    vi.mocked(extensionInstall).mockReset()
+    vi.mocked(extensionInstall).mockImplementation(async () => {})
+  })
+
+  it('frames a missing package runner as its own failure, with no retry hint', async () => {
+    vi.mocked(extensionInstall).mockRejectedValueOnce(installerNotFoundError())
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    const frame = wholeStdout()
+    expect(frame).toMatchObject({
+      schema: 1,
+      ok: false,
+      command: 'install',
+      status: 'failed',
+      value: null
+    })
+
+    expect(frame.error?.code).toBe('E_BROWSER_INSTALLER_NOT_FOUND')
+    expect(frame.error?.message).toContain(
+      "The package runner bunx wasn't found on this machine."
+    )
+
+    expect(frame.hint).toBe(
+      'Install the package runner the message names, or run this command through a package manager that is installed.'
+    )
+
+    expect(`${frame.hint} ${frame.error?.message}`).not.toMatch(
+      /retry|manually|download/i
+    )
+  })
+
+  it('prints a missing package runner as the installer worded it in pretty mode', async () => {
+    vi.mocked(extensionInstall).mockRejectedValueOnce(installerNotFoundError())
+    expect(await run(['install', 'chrome'])).toBe(1)
+    expect(errorSpy.mock.calls).toEqual([
+      [
+        "Couldn't install Chrome. The package runner bunx wasn't found on this machine. Install Bun, or run this command through a package manager that is installed."
+      ]
+    ])
+  })
+
+  it('recognizes a missing package runner by its code from another module instance', async () => {
+    vi.mocked(extensionInstall).mockRejectedValueOnce(
+      Object.assign(new Error("The package runner npx wasn't found."), {
+        code: 'BROWSER_INSTALLER_NOT_FOUND'
+      })
+    )
+
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    const frame = wholeStdout()
+    expect(frame.error?.code).toBe('E_BROWSER_INSTALLER_NOT_FOUND')
+    expect(String(frame.hint)).toMatch(/^Install the package runner/)
+  })
+
+  it('hands the installer no system Edge lookup of its own by default', async () => {
+    expect(await run(['install', 'edge'])).toBe(0)
+    expect(vi.mocked(extensionInstall).mock.calls[0][0]).not.toHaveProperty(
+      'systemEdge'
+    )
+  })
+
+  it('shows the installer no system Edge when the run is told to see none', async () => {
+    vi.stubEnv('EXTENSION_INTERNAL_SKIP_SYSTEM_BROWSERS', '1')
+    expect(await run(['install', 'edge'])).toBe(0)
+    expect(await run(['uninstall', 'edge'])).toBe(0)
+
+    for (const options of [
+      vi.mocked(extensionInstall).mock.calls[0][0],
+      vi.mocked(extensionUninstall).mock.calls[0][0]
+    ]) {
+      expect(options.systemEdge?.exists?.('/any/path')).toBe(false)
+      expect(options.systemEdge?.lookup?.('where', 'msedge')).toBe(null)
+      expect(options.systemEdge?.registry?.('HKLM\\any')).toBe(null)
+    }
   })
 
   it('emits E_UNSUPPORTED_BROWSER for an unknown name under --output json', async () => {
@@ -322,6 +553,50 @@ describe('extension install', () => {
     expect((frame.error as {code: string}).code).toBe(
       'E_BROWSER_NOT_INSTALLABLE'
     )
+  })
+
+  it('raises the refusals as the classes the package exports', () => {
+    expect(vi.isMockFunction(isBrowserNotInstallableError)).toBe(false)
+    expect(vi.isMockFunction(isBrowserInstallPrivilegeError)).toBe(false)
+    expect(notInstallableError('brave')).toMatchObject({
+      name: 'BrowserNotInstallableError',
+      code: 'BROWSER_NOT_INSTALLABLE'
+    })
+
+    expect(privilegeError()).toMatchObject({
+      name: 'BrowserInstallPrivilegeError',
+      code: 'BROWSER_INSTALL_PRIVILEGE'
+    })
+
+    expect(isBrowserNotInstallableError(notInstallableError('brave'))).toBe(
+      true
+    )
+
+    expect(isBrowserInstallPrivilegeError(privilegeError())).toBe(true)
+    expect(isBrowserNotInstallableError(privilegeError())).toBe(false)
+    expect(isBrowserInstallPrivilegeError(notInstallableError('brave'))).toBe(
+      false
+    )
+  })
+
+  it('maps a refusal the real name rules throw from inside the installer', async () => {
+    let refusal: unknown
+
+    try {
+      getManagedBrowserInstallDir('brave')
+    } catch (error) {
+      refusal = error
+    }
+
+    expect(isBrowserNotInstallableError(refusal)).toBe(true)
+    vi.mocked(extensionInstall).mockRejectedValueOnce(refusal)
+
+    expect(await run(['install', 'chrome', '--output', 'json'])).toBe(1)
+    expect(extensionInstall).toHaveBeenCalledTimes(1)
+    const frame = wholeStdout()
+    expect(frame.status).toBe('usage')
+    expect(frame.error?.code).toBe('E_BROWSER_NOT_INSTALLABLE')
+    expect(frame.error?.message).toContain('brave cannot be installed')
   })
 
   it('emits E_BROWSER_NOT_INSTALLABLE when install itself rejects a fork', async () => {
@@ -419,7 +694,14 @@ describe('extension uninstall', () => {
       value: {
         browsers: ['firefox'],
         all: false,
-        results: [{browser: 'firefox', removed: true, path: '/cache/firefox'}]
+        results: [
+          {
+            browser: 'firefox',
+            removed: true,
+            path: '/cache/firefox',
+            outcome: 'removed'
+          }
+        ]
       },
       error: null,
       warnings: []
@@ -432,15 +714,30 @@ describe('extension uninstall', () => {
       browsers: ['chrome', 'edge'],
       all: false,
       results: [
-        {browser: 'chrome', removed: true, path: '/cache/chrome'},
-        {browser: 'edge', removed: true, path: '/cache/edge'}
+        {
+          browser: 'chrome',
+          removed: true,
+          path: '/cache/chrome',
+          outcome: 'removed'
+        },
+        {
+          browser: 'edge',
+          removed: true,
+          path: '/cache/edge',
+          outcome: 'removed'
+        }
       ]
     })
   })
 
   it('warns E_UNINSTALL_NOOP with status noop when nothing matched', async () => {
     vi.mocked(extensionUninstall).mockResolvedValueOnce([
-      {browser: 'firefox', removed: false, path: '/cache/firefox'}
+      {
+        browser: 'firefox',
+        removed: false,
+        path: '/cache/firefox',
+        outcome: 'absent'
+      }
     ])
 
     expect(await run(['uninstall', 'firefox', '--output', 'json'])).toBe(0)
@@ -452,14 +749,47 @@ describe('extension uninstall', () => {
     ])
 
     expect((frame.value as {results: unknown[]}).results).toEqual([
-      {browser: 'firefox', removed: false, path: '/cache/firefox'}
+      {
+        browser: 'firefox',
+        removed: false,
+        path: '/cache/firefox',
+        outcome: 'absent'
+      }
     ])
+  })
+
+  it('reports a system Edge as not removed, exit 0, with the path it names', async () => {
+    const system = {
+      browser: 'edge',
+      removed: false,
+      path: '/cache/edge',
+      outcome: 'system' as const,
+      systemPath: '/usr/bin/microsoft-edge-stable'
+    }
+    vi.mocked(extensionUninstall).mockResolvedValueOnce([system])
+
+    expect(await run(['uninstall', 'edge', '--output', 'json'])).toBe(0)
+    const frame = wholeStdout()
+    expect(frame.ok).toBe(true)
+    expect(frame.status).toBe('noop')
+    expect(frame.error).toBe(null)
+    expect((frame.value as {results: unknown[]}).results).toEqual([system])
+
+    logSpy.mockClear()
+    vi.mocked(extensionUninstall).mockResolvedValueOnce([system])
+    expect(await run(['uninstall', 'edge'])).toBe(0)
+    expect(errorSpy).not.toHaveBeenCalled()
   })
 
   it('keeps status uninstalled when at least one target was removed', async () => {
     vi.mocked(extensionUninstall).mockResolvedValueOnce([
-      {browser: 'chrome', removed: true, path: '/cache/chrome'},
-      {browser: 'edge', removed: false, path: '/cache/edge'}
+      {
+        browser: 'chrome',
+        removed: true,
+        path: '/cache/chrome',
+        outcome: 'removed'
+      },
+      {browser: 'edge', removed: false, path: '/cache/edge', outcome: 'absent'}
     ])
 
     expect(await run(['uninstall', 'chrome,edge', '--output', 'json'])).toBe(0)
@@ -473,7 +803,14 @@ describe('extension uninstall', () => {
     vi.mocked(extensionUninstall).mockImplementationOnce(async () => {
       expect(process.env.EXTENSION_OUTPUT).toBe('json')
 
-      return [{browser: 'firefox', removed: true, path: '/cache/firefox'}]
+      return [
+        {
+          browser: 'firefox',
+          removed: true,
+          path: '/cache/firefox',
+          outcome: 'removed'
+        }
+      ]
     })
 
     expect(await run(['uninstall', 'firefox', '--output', 'json'])).toBe(0)
@@ -488,6 +825,56 @@ describe('extension uninstall', () => {
     expect(frame.status).toBe('failed')
     expect(frame.error?.code).toBe('E_BROWSER_UNINSTALL')
     expect(frame.error?.message).toContain('EBUSY')
+    expect(frame.value).toBe(null)
+  })
+
+  describe('when one target of several could not be removed', () => {
+    const results = [
+      {
+        browser: 'chrome',
+        removed: true,
+        path: '/cache/chrome',
+        outcome: 'removed' as const
+      },
+      {
+        browser: 'firefox',
+        removed: false,
+        path: '/cache/firefox',
+        outcome: 'failed' as const,
+        reason: 'EBUSY: resource busy or locked'
+      }
+    ]
+    const message =
+      "Couldn't remove Firefox. /cache/firefox is still there (EBUSY: resource busy or locked). Close any browser running from that folder, then run the uninstall again."
+
+    it('exits 1 with every outcome in the envelope, the removed one included', async () => {
+      vi.mocked(extensionUninstall).mockRejectedValueOnce(
+        new BrowserUninstallError(message, results)
+      )
+
+      expect(
+        await run(['uninstall', 'chrome,firefox', '--output', 'json'])
+      ).toBe(1)
+
+      expect(wholeStdout()).toEqual({
+        schema: 1,
+        ok: false,
+        command: 'uninstall',
+        status: 'failed',
+        value: {browsers: ['chrome', 'firefox'], all: false, results},
+        error: {code: 'E_BROWSER_UNINSTALL', message},
+        warnings: []
+      })
+    })
+
+    it('exits 1 and prints the one line that lists the failures in pretty mode', async () => {
+      vi.mocked(extensionUninstall).mockRejectedValueOnce(
+        new BrowserUninstallError(message, results)
+      )
+
+      expect(await run(['uninstall', '--all'])).toBe(1)
+      expect(errorSpy.mock.calls).toEqual([[message]])
+    })
   })
 
   it('uses the same three refusal codes as install for name errors', async () => {
@@ -510,5 +897,79 @@ describe('extension uninstall', () => {
     expect((wholeStdout().error as {code: string}).code).toBe(
       'E_UNSUPPORTED_BROWSER'
     )
+  })
+})
+
+// The classes are read off the package itself, so one added later has to
+// gain a code of its own here before it can ride on another's.
+describe('the code each package error class is framed as', () => {
+  type PackageError = new (message: string) => Error
+
+  const table = JSON.parse(
+    fs.readFileSync(new URL('./contract/codes.json', import.meta.url), 'utf8')
+  ) as {codes: Record<string, unknown>}
+
+  const classes = Object.entries(installPackage).filter(
+    ([name, value]) =>
+      /^Browser\w+Error$/.test(name) &&
+      typeof value === 'function' &&
+      value.prototype instanceof Error
+  ) as Array<[string, PackageError]>
+
+  async function codeOf(name: string, ErrorClass: PackageError) {
+    const thrown = new ErrorClass('worded by the package')
+    // Uninstall is the only command that can be handed this one.
+    const command = name === 'BrowserUninstallError' ? 'uninstall' : 'install'
+
+    logSpy.mockClear()
+    stdoutSpy.mockClear()
+
+    if (command === 'uninstall') {
+      vi.mocked(extensionUninstall).mockRejectedValueOnce(thrown)
+    } else {
+      vi.mocked(extensionInstall).mockRejectedValueOnce(thrown)
+    }
+
+    expect(await run([command, 'chrome', '--output', 'json'])).toBe(1)
+
+    return String(wholeStdout().error?.code)
+  }
+
+  it('reads every error class the package exports', () => {
+    expect(classes.map(([name]) => name)).toEqual(
+      expect.arrayContaining([
+        'BrowserCacheRootError',
+        'BrowserInstallBusyError',
+        'BrowserInstallerNotFoundError',
+        'BrowserInstallFailedError',
+        'BrowserInstallForeignFolderError',
+        'BrowserInstallPrivilegeError',
+        'BrowserInstallTimeoutError',
+        'BrowserNotInstallableError',
+        'BrowserUninstallError'
+      ])
+    )
+  })
+
+  it('gives each class a code from the table that no other class shares', async () => {
+    const classesByCode: Record<string, string[]> = {}
+
+    for (const [name, ErrorClass] of classes) {
+      const code = await codeOf(name, ErrorClass)
+
+      expect(code, `${name} reads as an internal error`).not.toBe('E_INTERNAL')
+      expect(
+        table.codes,
+        `${name} maps to unknown code ${code}`
+      ).toHaveProperty(code)
+
+      classesByCode[code] = [...(classesByCode[code] ?? []), name]
+    }
+
+    const shared = Object.entries(classesByCode)
+      .filter(([, names]) => names.length > 1)
+      .map(([code, names]) => `${code}: ${names.join(', ')}`)
+
+    expect(shared).toEqual([])
   })
 })

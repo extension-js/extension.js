@@ -12,6 +12,10 @@ Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
 // The soft form, so a spec that drives a child with telemetry ON still can.
 process.env.EXTENSION_TELEMETRY = '0'
 
+// No spec may be asked to download a browser, on a terminal or off one. A
+// child that copies this process's variables takes the same answer.
+process.env.EXTENSION_NO_INSTALL_PROMPT = '1'
+
 // This suite is a required gate too, so it takes create's loopback-only rule.
 // The catalog drift cases are the only specs here that leave loopback and they
 // run under their own flag.

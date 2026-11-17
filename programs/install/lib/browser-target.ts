@@ -20,6 +20,15 @@ export const BROWSER_ALIASES: Record<string, InstallBrowserTarget> = {
   'firefox-based': 'firefox'
 }
 
+// What `all` expands to, one cache folder each. The CLI keeps a twin of this
+// list, MANAGED_INSTALL_BINARIES, and the two must stay equal.
+export const ALL_BROWSER_TARGETS: readonly InstallBrowserTarget[] = [
+  'chrome',
+  'chromium',
+  'edge',
+  'firefox'
+]
+
 // Thrown when a vendor is known to the CLI (or any other name) but has no
 // managed install path. Callers under --output json map this to
 // E_BROWSER_NOT_INSTALLABLE so path discovery never escapes as a raw stack.
@@ -65,6 +74,180 @@ export function isBrowserInstallPrivilegeError(
       typeof error === 'object' &&
       ((error as {name?: string}).name === 'BrowserInstallPrivilegeError' ||
         (error as {code?: string}).code === 'BROWSER_INSTALL_PRIVILEGE')
+  )
+}
+
+// The compile target predates the Error cause option, so cause is assigned.
+export function withCause<T extends Error>(error: T, cause: unknown): T {
+  if (cause !== undefined) (error as {cause?: unknown}).cause = cause
+
+  return error
+}
+
+// Thrown when the package runner the install is handed to is not on this
+// machine. Nothing was downloaded, so it must not read as a failed download.
+export class BrowserInstallerNotFoundError extends Error {
+  readonly code = 'BROWSER_INSTALLER_NOT_FOUND' as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'BrowserInstallerNotFoundError'
+  }
+}
+
+export function isBrowserInstallerNotFoundError(
+  error: unknown
+): error is BrowserInstallerNotFoundError {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      ((error as {name?: string}).name === 'BrowserInstallerNotFoundError' ||
+        (error as {code?: string}).code === 'BROWSER_INSTALLER_NOT_FOUND')
+  )
+}
+
+function hasIdentity(error: unknown, name: string, code: string): boolean {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      ((error as {name?: string}).name === name ||
+        (error as {code?: string}).code === code)
+  )
+}
+
+// Thrown when the installer itself ended badly: a non-zero exit, a signal or
+// a download that left no browser. The one failure a retry can fix.
+export class BrowserInstallFailedError extends Error {
+  readonly code = 'BROWSER_INSTALL_FAILED' as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'BrowserInstallFailedError'
+  }
+}
+
+export function isBrowserInstallFailedError(
+  error: unknown
+): error is BrowserInstallFailedError {
+  return hasIdentity(
+    error,
+    'BrowserInstallFailedError',
+    'BROWSER_INSTALL_FAILED'
+  )
+}
+
+// Thrown when the installer was still running at the timeout and was stopped.
+export class BrowserInstallTimeoutError extends Error {
+  readonly code = 'BROWSER_INSTALL_TIMEOUT' as const
+  readonly timeoutMs: number
+
+  constructor(message: string, timeoutMs: number) {
+    super(message)
+    this.name = 'BrowserInstallTimeoutError'
+    this.timeoutMs = timeoutMs
+  }
+}
+
+export function isBrowserInstallTimeoutError(
+  error: unknown
+): error is BrowserInstallTimeoutError {
+  return hasIdentity(
+    error,
+    'BrowserInstallTimeoutError',
+    'BROWSER_INSTALL_TIMEOUT'
+  )
+}
+
+// Thrown when another install of the same browser still held the destination
+// after the whole wait. Nothing was started and nothing was removed.
+export class BrowserInstallBusyError extends Error {
+  readonly code = 'BROWSER_INSTALL_BUSY' as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'BrowserInstallBusyError'
+  }
+}
+
+export function isBrowserInstallBusyError(
+  error: unknown
+): error is BrowserInstallBusyError {
+  return hasIdentity(error, 'BrowserInstallBusyError', 'BROWSER_INSTALL_BUSY')
+}
+
+// Thrown when the cache root is a file or cannot be created, before anything
+// is downloaded.
+export class BrowserCacheRootError extends Error {
+  readonly code = 'BROWSER_CACHE_ROOT' as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'BrowserCacheRootError'
+  }
+}
+
+export function isBrowserCacheRootError(
+  error: unknown
+): error is BrowserCacheRootError {
+  return hasIdentity(error, 'BrowserCacheRootError', 'BROWSER_CACHE_ROOT')
+}
+
+// Thrown when the browser folder holds files the installers never write, so
+// it may be someone's data. Nothing in it is written or removed.
+export class BrowserInstallForeignFolderError extends Error {
+  readonly code = 'BROWSER_INSTALL_FOREIGN_FOLDER' as const
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'BrowserInstallForeignFolderError'
+  }
+}
+
+export function isBrowserInstallForeignFolderError(
+  error: unknown
+): error is BrowserInstallForeignFolderError {
+  return hasIdentity(
+    error,
+    'BrowserInstallForeignFolderError',
+    'BROWSER_INSTALL_FOREIGN_FOLDER'
+  )
+}
+
+export type UninstallOutcome = 'removed' | 'absent' | 'system' | 'failed'
+
+export interface UninstallResult {
+  browser: InstallBrowserTarget
+  removed: boolean
+  // The managed folder that was checked, whatever the outcome.
+  path: string
+  outcome: UninstallOutcome
+  // Why the folder is still there, when the outcome is failed.
+  reason?: string
+  // The binary Extension.js leaves alone, when the outcome is system.
+  systemPath?: string
+}
+
+// Thrown after every target was attempted, so results holds what was removed
+// beside what was not. Callers under --output json map it to E_BROWSER_UNINSTALL.
+export class BrowserUninstallError extends Error {
+  readonly code = 'BROWSER_UNINSTALL' as const
+  readonly results: UninstallResult[]
+
+  constructor(message: string, results: UninstallResult[]) {
+    super(message)
+    this.name = 'BrowserUninstallError'
+    this.results = results
+  }
+}
+
+export function isBrowserUninstallError(
+  error: unknown
+): error is BrowserUninstallError {
+  return Boolean(
+    error &&
+      typeof error === 'object' &&
+      ((error as {name?: string}).name === 'BrowserUninstallError' ||
+        (error as {code?: string}).code === 'BROWSER_UNINSTALL')
   )
 }
 

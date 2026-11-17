@@ -28,6 +28,8 @@ const windowsOnlyCasing = (localAppData: string) => ({
   USERPROFILE: path.dirname(path.dirname(localAppData)),
   SystemRoot: 'C:\\Windows',
   Path: 'C:\\Windows\\system32',
+  // This env drops the suite's own guard, and nothing found offers a download.
+  EXTENSION_NO_INSTALL_PROMPT: '1',
   FORCE_COLOR: '0',
   NO_COLOR: '1'
 })
