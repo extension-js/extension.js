@@ -237,11 +237,16 @@ export function computeExtensionsToLoad(
   const list: string[] = []
 
   try {
-    const devtoolsForBrowser = resolveBuiltInExtensionForBrowser({
-      baseDir,
-      packageName: 'extension-js-devtools',
-      browser
-    })
+    // The devtools companion serves a development session. A production
+    // build is loaded as it ships, with the theme alone beside it.
+    const devtoolsForBrowser =
+      mode === 'production'
+        ? undefined
+        : resolveBuiltInExtensionForBrowser({
+            baseDir,
+            packageName: 'extension-js-devtools',
+            browser
+          })
     const themeForBrowser = resolveBuiltInExtensionForBrowser({
       baseDir,
       packageName: 'extension-js-theme',

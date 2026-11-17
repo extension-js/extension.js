@@ -157,7 +157,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
 
     const list = computeExtensionsToLoad(
       root,
-      'production',
+      'development',
       'chrome',
       userOut,
       []
@@ -217,7 +217,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
 
     const list = computeExtensionsToLoad(
       path.join(root, 'programs', 'develop'),
-      'production',
+      'development',
       'chrome',
       userOut,
       []
@@ -230,7 +230,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     ])
   })
 
-  it('always includes built-in devtools + theme before user extension when available', () => {
+  it('loads devtools and the theme before the user extension in development, and the theme alone in production', () => {
     const root = tmpDir('extjs-builtins-always-')
     const userOut = path.join(root, 'dist', 'chrome')
     fs.mkdirSync(userOut, {recursive: true})
@@ -278,10 +278,14 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       'utf-8'
     )
 
-    for (const mode of ['development', 'production'] as const) {
-      const list = computeExtensionsToLoad(root, mode, 'chrome', userOut, [])
-      expect(list).toEqual([devtoolsForBrowser, themeForBrowser, userOut])
-    }
+    expect(
+      computeExtensionsToLoad(root, 'development', 'chrome', userOut, [])
+    ).toEqual([devtoolsForBrowser, themeForBrowser, userOut])
+
+    // A production build is loaded as it ships: no dev-only companion.
+    expect(
+      computeExtensionsToLoad(root, 'production', 'chrome', userOut, [])
+    ).toEqual([themeForBrowser, userOut])
   })
 
   it('leaves the built-in theme out for Opera and Yandex and keeps it for the other Chromium targets', () => {
