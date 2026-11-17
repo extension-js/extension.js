@@ -76,8 +76,7 @@ import {
   displayPath,
   getBuildDistPath,
   getDirs,
-  normalizeBrowser,
-  relativeToDir
+  normalizeBrowser
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {isSamePath} from './lib/real-path'
@@ -829,8 +828,7 @@ export async function extensionBuild(
           }
 
           for (const artifact of zipArtifacts) {
-            const zipDisplay =
-              relativeToDir(artifact.path, process.cwd()) || artifact.path
+            const zipDisplay = displayPath(artifact.path)
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
 
@@ -840,8 +838,7 @@ export async function extensionBuild(
 
           if (zipFailures.length > 0) {
             for (const failure of zipFailures) {
-              const failureDisplay =
-                relativeToDir(failure.path, process.cwd()) || failure.path
+              const failureDisplay = displayPath(failure.path)
               console.error(
                 messages.zipArtifactNotCreated(
                   failure.kind,
