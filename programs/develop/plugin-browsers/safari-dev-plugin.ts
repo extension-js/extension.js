@@ -12,10 +12,11 @@ import {
   classifyReloadFromSources,
   createChangedSourcesTracker,
   dispatchReload,
-  formatReloadContextLabel,
+  mergeReloadInstructions,
   type ReloadBroker,
   type ReloadInstruction,
-  readContentScriptCount
+  readContentScriptCount,
+  reloadSurvivingPackage
 } from '../plugin-reload'
 import {BuildEmitter, type RunnerPlugin} from './index'
 
@@ -37,79 +38,6 @@ type SafariPackageTarget = {
   outputPath: string
   contextDir: string
   instruction?: ReloadInstruction
-}
-
-function union(
-  previous: string[] | undefined,
-  next: string[] | undefined
-): string[] {
-  return [...new Set([...(previous || []), ...(next || [])])].sort()
-}
-
-// What is still worth sending once the package has landed. xcodebuild replaces
-// the appex under a running Safari, so the extension restarts on its own and a
-// full or service-worker reload would only restart what just started.
-// Content scripts are the exception: a restart does not re-inject them, so an
-// open tab keeps running the old code until this frame reaches it.
-export function reloadSurvivingPackage(
-  instruction: ReloadInstruction | undefined
-): ReloadInstruction | undefined {
-  if (!instruction) return undefined
-
-  // 'page' is notify-only, it restarts nothing and carries the announcement.
-  if (instruction.type === 'content-scripts' || instruction.type === 'page') {
-    return instruction
-  }
-
-  const entries = instruction.changedContentScriptEntries || []
-  if (entries.length === 0) return undefined
-
-  // A source shared by the background and a content script. The restart covers
-  // the background half, the open tabs still need the new content code.
-  return {
-    ...instruction,
-    type: 'content-scripts',
-    label: formatReloadContextLabel(
-      'content_script',
-      instruction.changedAssets || []
-    )
-  }
-}
-
-// A save burst collapses to one package, so its reloads collapse to one signal,
-// labeled by the newest content edit. Entries union across the burst, because
-// every content entry it touched still has to reach its open tabs.
-function mergeInstructions(
-  previous: ReloadInstruction | undefined,
-  next: ReloadInstruction | undefined
-): ReloadInstruction | undefined {
-  if (!previous) return next
-  if (!next) return previous
-
-  const entries = union(
-    previous.changedContentScriptEntries,
-    next.changedContentScriptEntries
-  )
-  const scriptFiles = union(
-    previous.changedScriptFiles,
-    next.changedScriptFiles
-  )
-
-  if (entries.length === 0) {
-    return scriptFiles.length > 0
-      ? {...next, changedScriptFiles: scriptFiles}
-      : next
-  }
-
-  // Keep the newest instruction that names content work, so the label points at
-  // a content edit rather than at a page edit that rode along with it.
-  const base = next.type === 'content-scripts' ? next : previous
-
-  return {
-    ...base,
-    changedContentScriptEntries: entries,
-    ...(scriptFiles.length > 0 ? {changedScriptFiles: scriptFiles} : {})
-  }
 }
 
 export class SafariDevPlugin implements RunnerPlugin {
@@ -203,7 +131,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       if (this.active) {
         this.pending = {
           ...target,
-          instruction: mergeInstructions(
+          instruction: mergeReloadInstructions(
             this.pending?.instruction,
             target.instruction
           )

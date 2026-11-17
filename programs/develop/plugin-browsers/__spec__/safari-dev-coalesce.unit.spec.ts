@@ -3,11 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {classifyReloadFromSources, type ReloadBroker} from '../../plugin-reload'
-import {
-  reloadSurvivingPackage,
-  SafariDevPlugin,
-  type SafariPackagerFn
-} from '../safari-dev-plugin'
+import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 beforeEach(() => {
@@ -421,71 +417,6 @@ describe('SafariDevPlugin undelivered reload after a package', () => {
     expect(sent).toHaveLength(1)
     expect(warn).not.toHaveBeenCalled()
     expect(String(log.mock.calls[0][0])).toContain('Reloading')
-  })
-})
-
-// The package restarts the extension by itself, so the only reload still worth
-// sending is the one a restart cannot deliver.
-describe('reloadSurvivingPackage', () => {
-  const CONTENT_ENTRY = 'content_scripts/content-0'
-
-  it('drops a full reload, which would restart what just started', () => {
-    expect(
-      reloadSurvivingPackage({
-        type: 'full',
-        changedAssets: ['src/manifest.json'],
-        label: 'extension (src/manifest.json)'
-      })
-    ).toBeUndefined()
-  })
-
-  it('drops a background-only service-worker reload', () => {
-    expect(
-      reloadSurvivingPackage({
-        type: 'service-worker',
-        changedAssets: ['src/background.js'],
-        label: 'service_worker (src/background.js)'
-      })
-    ).toBeUndefined()
-  })
-
-  it('keeps a content-scripts reload untouched', () => {
-    const instruction = {
-      type: 'content-scripts' as const,
-      changedContentScriptEntries: [CONTENT_ENTRY],
-      changedAssets: ['src/content/scripts.js'],
-      label: 'content_script (src/content/scripts.js)'
-    }
-    expect(reloadSurvivingPackage(instruction)).toEqual(instruction)
-  })
-
-  it('downgrades a shared background + content edit to its content half', () => {
-    expect(
-      reloadSurvivingPackage({
-        type: 'service-worker',
-        changedContentScriptEntries: [CONTENT_ENTRY],
-        changedAssets: ['src/shared.ts'],
-        label: 'service_worker + content_script (src/shared.ts)'
-      })
-    ).toEqual({
-      type: 'content-scripts',
-      changedContentScriptEntries: [CONTENT_ENTRY],
-      changedAssets: ['src/shared.ts'],
-      label: 'content_script (src/shared.ts)'
-    })
-  })
-
-  it('keeps a notify-only page instruction, which restarts nothing', () => {
-    const instruction = {
-      type: 'page' as const,
-      changedAssets: ['src/popup/index.js'],
-      label: 'popup page (src/popup/index.js)'
-    }
-    expect(reloadSurvivingPackage(instruction)).toEqual(instruction)
-  })
-
-  it('is a no-op for no instruction', () => {
-    expect(reloadSurvivingPackage(undefined)).toBeUndefined()
   })
 })
 

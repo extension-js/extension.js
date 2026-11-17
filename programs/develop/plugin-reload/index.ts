@@ -40,6 +40,10 @@ export {
   reloadForRewrittenContentScripts
 } from './classify-reload'
 export {
+  mergeReloadInstructions,
+  reloadSurvivingPackage
+} from './reload-after-package'
+export {
   type ChangedSourcesTracker,
   createChangedSourcesTracker,
   dispatchReload,
