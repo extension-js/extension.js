@@ -37,10 +37,6 @@ export function isUsingIntegration(name: string) {
   return `integration use=${name}`
 }
 
-export function youAreAllSet(name: string) {
-  return `${prefix('success')} ${name} is installed.`
-}
-
 export function missingSassDependency() {
   return [
     `${prefix('error')} Couldn't compile the Sass styles.`,
