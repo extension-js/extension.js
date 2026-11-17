@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import {
   mkdirSync,
   mkdtempSync,
@@ -7,14 +6,9 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
+import {startCli} from '../helpers/run-cli'
 
 const PNG_V1 = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
@@ -75,20 +69,6 @@ const COPIED: CopiedFile[] = [
     token: 'copied-watch-public-v2'
   }
 ]
-
-function cliEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0',
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0'
-  }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
-
-  return env
-}
 
 // Under load the first rebuild after ready took 8 to 35 seconds here, so the
 // waits are bounded by what a stuck session looks like, not by a usual run.
@@ -216,40 +196,24 @@ describe.skipIf(process.platform === 'win32')(
       writeProject(projectDir)
       const distDir = join(projectDir, 'dist', 'chrome')
 
-      const child = spawn(
-        process.execPath,
-        [
-          cliBin,
-          'dev',
-          projectDir,
-          '--browser',
-          'chrome',
-          '--no-browser',
-          '--output',
-          'json'
-        ],
-        {cwd: cliRoot, stdio: 'pipe', env: cliEnv()}
-      )
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-      child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-      const closed = new Promise<number | null>((resolvePromise) =>
-        child.once('close', (code) => resolvePromise(code))
-      )
+      const session = startCli([
+        'dev',
+        projectDir,
+        '--browser',
+        'chrome',
+        '--no-browser',
+        '--output',
+        'json'
+      ])
+      const frames = () => parseFrames(session.read().stdout)
       const recompiles = () =>
-        parseFrames(stdout).filter((frame) => frame.status === 'recompiled')
-          .length
+        frames().filter((frame) => frame.status === 'recompiled').length
 
-      await waitUntil(
-        () => parseFrames(stdout).some((frame) => frame.status === 'ready'),
-        READY_DEADLINE_MS
+      await session.waitFor(
+        () => frames().some((frame) => frame.status === 'ready'),
+        READY_DEADLINE_MS,
+        'the ready frame'
       )
-
-      expect(
-        parseFrames(stdout).map((frame) => frame.status),
-        stderr
-      ).toContain('ready')
 
       const recopied: string[] = []
 
@@ -268,16 +232,11 @@ describe.skipIf(process.platform === 'win32')(
         recopied.push(file.source)
       }
 
-      let exited = false
-      void closed.then(() => (exited = true))
-      child.kill('SIGINT')
+      await session.stop('SIGINT', EXIT_DEADLINE_MS)
 
-      if (!(await waitUntil(() => exited, EXIT_DEADLINE_MS))) {
-        child.kill('SIGKILL')
-        await closed
-      }
-
-      expect(recopied, stderr).toEqual(COPIED.map((file) => file.source))
+      expect(recopied, session.read().stderr).toEqual(
+        COPIED.map((file) => file.source)
+      )
     }, 480_000)
   }
 )

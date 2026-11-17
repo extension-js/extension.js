@@ -8,17 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import locateBrave from 'brave-location'
 import {getInstallGuidance as getChromeInstallGuidance} from 'chrome-location2'
-import locateChromium, {
-  getInstallGuidance as getChromiumInstallGuidance
-} from 'chromium-location'
-import locateEdge, {
-  getInstallGuidance as getEdgeInstallGuidance
-} from 'edge-location'
-import locateOpera from 'opera-location2'
-import locateVivaldi from 'vivaldi-location2'
-import locateYandex from 'yandex-location'
+import {getInstallGuidance as getChromiumInstallGuidance} from 'chromium-location'
+import {getInstallGuidance as getEdgeInstallGuidance} from 'edge-location'
 import {
   CODES,
   humanError,
@@ -32,19 +24,10 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../../browsers-lib/banner'
-import {
-  binaryOverrideNaming,
-  locateChromeIn
-} from '../../browsers-lib/binary-env-override'
+import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
 import {isSystemLocatedChromiumFork} from '../../browsers-lib/browser-family'
-import {
-  claimDebugPortNear,
-  type DebugPortClaim
-} from '../../browsers-lib/debug-port-claim'
-import {
-  type InstallableTarget,
-  offerManagedInstall
-} from '../../browsers-lib/first-run-install'
+import type {DebugPortClaim} from '../../browsers-lib/debug-port-claim'
+import type {InstallableTarget} from '../../browsers-lib/first-run-install'
 import * as instanceRegistry from '../../browsers-lib/instance-registry'
 import {locatorEnv, scanSystem} from '../../browsers-lib/locator-env'
 import {
@@ -69,10 +52,6 @@ import {
   type PinnedBinaryProblem,
   pinnedBinaryProblem
 } from '../../browsers-lib/pinned-binary'
-import {
-  gracefulTerminateChild,
-  wasTerminatedByUs
-} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   clearReadyCdpPort,
@@ -95,10 +74,7 @@ import {
   toExtensionLoadList
 } from '../../browsers-lib/runtime-options'
 import * as utils from '../../browsers-lib/shared-utils'
-import {
-  isVersionProbeTimeout,
-  probeChromiumBinaryVersion
-} from '../../browsers-lib/version-probe'
+import {isVersionProbeTimeout} from '../../browsers-lib/version-probe'
 import type {
   BrowserLogger,
   BrowserType,
@@ -106,7 +82,6 @@ import type {
 } from '../../browsers-types'
 import type {CDPExtensionController} from '../cdp/cdp-extension-controller'
 import {codedError, declaredCode} from '../cdp/coded-error'
-import {checkChromeRemoteDebugging} from '../cdp/discovery'
 import {startupPreferenceReport} from '../cdp/ensure-startup-new-tab'
 import {guardCdpPipe} from '../cdp/pipe-guard'
 import type {ChromiumContext} from '../chromium-context'
@@ -127,14 +102,16 @@ import {
 import {logChromiumDryRun} from './dry-run'
 import {getExtensionOutputPath} from './extension-output-path'
 import {chromiumForkInstallGuidance} from './fork-install-guidance'
-import {setupProcessSignalHandlers} from './process-handlers'
+import {
+  type ChromiumLaunchDependencies,
+  chromiumLaunchDefaults
+} from './launch-dependencies'
 import {
   isWslEnv,
   normalizeBinaryPathForWsl,
   preferRealChromeBinary,
   resolveWslLinuxBinary,
-  resolveWslWindowsBinary,
-  spawnChromiumProcess
+  resolveWslWindowsBinary
 } from './wsl-support'
 
 // Shape of the stats value the injected compiler hands to the done hook;
@@ -339,10 +316,15 @@ export class ChromiumLaunchPlugin {
     runId?: string
   } | null = null
 
+  private readonly deps: ChromiumLaunchDependencies
+
   constructor(
     private readonly options: ChromiumLaunchOptions,
-    private readonly ctx: ChromiumContext
-  ) {}
+    private readonly ctx: ChromiumContext,
+    deps: Partial<ChromiumLaunchDependencies> = {}
+  ) {
+    this.deps = {...chromiumLaunchDefaults, ...deps}
+  }
 
   // Whether a browser process came to exist, so a caller can tell a launch
   // that never spawned from a failure that followed a live browser.
@@ -481,8 +463,8 @@ export class ChromiumLaunchPlugin {
     compilation: CompilationLike,
     opts?: ChromiumRunOptions
   ) {
-    // A bad --chromium-binary is a pin error on every target. Check it
-    // before the VITEST dry-run shortcut so tests never see "not installed".
+    // A bad --chromium-binary is a pin error on every target, said before
+    // anything looks for a browser, so it never reads as "not installed".
     if (this.options?.chromiumBinary) {
       const requested = String(this.options.chromiumBinary)
       const normalizedEarly = normalizeBinaryPathForWsl(requested)
@@ -492,42 +474,7 @@ export class ChromiumLaunchPlugin {
       if (problem) throw invalidBinaryPinError(requested, problem)
     }
 
-    const inTestRunner = Boolean(
-      process.env.VITEST || process.env.VITEST_WORKER_ID
-    )
     const dryRun = Boolean(this.options?.dryRun)
-
-    // Specs never launch: without a dry run they get the bare placeholder,
-    // with one and no pin they get the real plan around a placeholder binary,
-    // since there is no browser to find inside the test runner.
-    if (inTestRunner && !dryRun) {
-      logChromiumDryRun(
-        this.options.browser,
-        this.options?.chromiumBinary
-          ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
-          : 'chromium-mock-binary',
-        []
-      )
-
-      return
-    }
-
-    // A pinned binary used to fall through to discovery, which probes the
-    // filesystem for real browsers and took minutes on a Windows runner.
-    if (inTestRunner && dryRun) {
-      this.printDryRunPlan(
-        compilation,
-        this.options?.chromiumBinary
-          ? normalizeBinaryPathForWsl(String(this.options.chromiumBinary))
-          : 'chromium-mock-binary',
-        undefined,
-        this.options?.chromiumBinary
-          ? messages.binarySourceLabel('pinned', this.options.browser)
-          : undefined
-      )
-
-      return
-    }
 
     const browser = this.options?.browser
 
@@ -586,8 +533,7 @@ export class ChromiumLaunchPlugin {
           return getEdgeInstallGuidance({
             steps: [
               {
-                summary:
-                  'Install Edge system-wide (the installer may ask for an administrator password)',
+                summary: messages.EDGE_SYSTEM_INSTALL_SUMMARY,
                 command: 'npx extension install edge'
               }
             ]
@@ -687,7 +633,7 @@ export class ChromiumLaunchPlugin {
         const env = {...process.env}
         delete env.PUPPETEER_CACHE_DIR
         systemBinary = normalizePath(
-          scanSystem(() => locateChromium({env})) || null
+          scanSystem(() => this.deps.locate.chromium(env)) || null
         )
       } catch {
         // Ignore
@@ -748,7 +694,7 @@ export class ChromiumLaunchPlugin {
     }
 
     const getBrowserVersionLine = (bin: string): Promise<string> =>
-      probeChromiumBinaryVersion(bin, String(browser || ''))
+      this.deps.probeVersion(bin, String(browser || ''))
 
     const managedCacheRoot =
       binariesResolver.computeBinariesBaseDir(compilation)
@@ -764,7 +710,7 @@ export class ChromiumLaunchPlugin {
       try {
         try {
           const env = managedEnvFor('chrome')
-          const located = scanSystem(() => locateChromeIn(env))
+          const located = scanSystem(() => this.deps.locate.chrome(env))
           if (!located) throw new Error(getInstallGuidanceText('chrome'))
 
           const normalized = normalizePath(located || null)
@@ -782,7 +728,9 @@ export class ChromiumLaunchPlugin {
           return null
         } catch (err) {
           const env = managedEnvFor('chrome')
-          let candidate: string | null = scanSystem(() => locateChromeIn(env))
+          let candidate: string | null = scanSystem(() =>
+            this.deps.locate.chrome(env)
+          )
           const normalized = normalizePath(candidate || null)
 
           if (normalized) {
@@ -828,15 +776,8 @@ export class ChromiumLaunchPlugin {
 
           if (!skipDetection) {
             try {
-              const locate =
-                browser === 'brave'
-                  ? locateBrave
-                  : browser === 'opera'
-                    ? locateOpera
-                    : browser === 'vivaldi'
-                      ? locateVivaldi
-                      : locateYandex
-              const located = scanSystem(() => locate(true, {env: process.env}))
+              const locate = this.deps.locate[browser]
+              const located = scanSystem(() => locate(process.env))
               const normalized = normalizePath(located || null)
 
               if (normalized && fs.existsSync(normalized)) {
@@ -862,7 +803,7 @@ export class ChromiumLaunchPlugin {
           if (!browserBinaryLocation && !skipDetection) {
             try {
               const env = managedEnvFor('chromium')
-              const p = scanSystem(() => locateChromium({env}))
+              const p = scanSystem(() => this.deps.locate.chromium(env))
               const normalized = normalizePath(p || null)
 
               if (normalized && typeof normalized === 'string') {
@@ -890,7 +831,7 @@ export class ChromiumLaunchPlugin {
 
           try {
             const env = managedEnvFor('edge')
-            const located = scanSystem(() => locateEdge({env}))
+            const located = scanSystem(() => this.deps.locate.edge(env))
             const normalized = normalizePath(located || null)
             browserBinaryLocation = normalized
 
@@ -989,10 +930,12 @@ export class ChromiumLaunchPlugin {
         const offerTarget: InstallableTarget | null =
           browser === 'chromium' || browser === 'chrome' ? 'chrome' : null
 
-        if (offerTarget && (await offerManagedInstall(offerTarget))) {
+        if (offerTarget && (await this.deps.offerInstall(offerTarget))) {
           const justInstalled = (): string | null => {
             try {
-              const located = locateChromeIn(managedEnvFor(offerTarget))
+              const located = this.deps.locate.chrome(
+                managedEnvFor(offerTarget)
+              )
 
               return normalizePath(located || null)
             } catch {
@@ -1273,7 +1216,11 @@ export class ChromiumLaunchPlugin {
               error.profileLockOwner
             )
           ),
-          {code: error.code, profileLockOwner: error.profileLockOwner}
+          // The ready contract keeps its own id. The CLI frames by this code.
+          {
+            code: CODES.E_PROFILE_LOCKED,
+            profileLockOwner: error.profileLockOwner
+          }
         )
       }
 
@@ -1287,7 +1234,7 @@ export class ChromiumLaunchPlugin {
     // Held until the browser is seen on the port or the launch gives up, so
     // a session starting at the same moment is handed the next port.
     const portClaim =
-      opts?.debugPortClaim ?? (await claimDebugPortNear(desiredPort))
+      opts?.debugPortClaim ?? (await this.deps.claimPort(desiredPort))
     const freePort = portClaim.port
 
     const selectedPort = freePort
@@ -1462,10 +1409,10 @@ export class ChromiumLaunchPlugin {
       let portReady = false
 
       for (let attempt = 0; attempt < 10; attempt++) {
-        portReady = await checkChromeRemoteDebugging(selectedPort)
+        portReady = await this.deps.portIsOpen(selectedPort)
         if (portReady) break
 
-        await new Promise((r) => setTimeout(r, 500))
+        await this.deps.sleep(500)
       }
 
       if (!portReady && isDebug()) {
@@ -1525,7 +1472,7 @@ export class ChromiumLaunchPlugin {
       // Full CDP wiring (dev + inspection). Run-only keeps to the load check
       // below, it has no reload to deliver.
       if (enableCdp) {
-        const mod = await import('./setup-cdp-after-launch')
+        const mod = await this.deps.loadCdpSetup()
         // Watchdog: a rejected extension at launch stalls startup behind a macOS modal
         // and the pipe handshake hangs forever; convert that silent wedge into a loud failure.
         const CDP_SETUP_TIMEOUT_MS = 45_000
@@ -1563,7 +1510,7 @@ export class ChromiumLaunchPlugin {
           )
         }
       } else if (verifyLoadOnly) {
-        const mod = await import('./setup-cdp-after-launch')
+        const mod = await this.deps.loadCdpSetup()
         // Same watchdog as above: a refusal modal can stall the handshake.
         const LOAD_CHECK_TIMEOUT_MS = 45_000
         guestLoadStatus = await Promise.race([
@@ -1617,7 +1564,7 @@ export class ChromiumLaunchPlugin {
 
       // The run ends on the predicted refusal below, whatever broke the wire.
       if (predictedRefusal) {
-        gracefulTerminateChild(child, this.options.browser)
+        this.deps.terminate(child, this.options.browser)
         this.endRefusedRun(compilation, predictedRefusal.extensionPath)
       }
 
@@ -1663,7 +1610,7 @@ export class ChromiumLaunchPlugin {
       verifyLoadOnly &&
       endsRunOnlyLaunch(Boolean(predictedRefusal), guestLoadStatus)
     ) {
-      gracefulTerminateChild(child, this.options.browser)
+      this.deps.terminate(child, this.options.browser)
       this.endRefusedRun(
         compilation,
         predictedRefusal?.extensionPath ?? sessionOutputPath
@@ -1733,10 +1680,10 @@ export class ChromiumLaunchPlugin {
     const graceMs = opts.graceMs ?? ATTACH_GRACE_MS
     const pollMs = opts.pollMs ?? ATTACH_POLL_MS
     const attached = () => readReadyExecutorAttached(outputPath, runId)
-    const deadline = Date.now() + graceMs
+    const deadline = this.deps.now() + graceMs
 
-    while (!this.browserGone && !attached() && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, pollMs))
+    while (!this.browserGone && !attached() && this.deps.now() < deadline) {
+      await this.deps.sleep(pollMs)
     }
 
     if (this.browserGone) return
@@ -1793,10 +1740,10 @@ export class ChromiumLaunchPlugin {
   ): Promise<void> {
     if (!child) return
 
-    const deadline = Date.now() + graceMs
+    const deadline = this.deps.now() + graceMs
 
-    while (!this.browserGone && Date.now() < deadline) {
-      await new Promise((resolve) => setTimeout(resolve, 50))
+    while (!this.browserGone && this.deps.now() < deadline) {
+      await this.deps.sleep(50)
     }
   }
 
@@ -1851,7 +1798,7 @@ export class ChromiumLaunchPlugin {
     const normalizedBinary = normalizeBinaryPathForWsl(binary)
 
     try {
-      const child = await spawnChromiumProcess({
+      const child = await this.deps.spawn({
         binary: normalizedBinary,
         launchArgs,
         stdio,
@@ -1927,7 +1874,7 @@ export class ChromiumLaunchPlugin {
 
         // An exit we didn't ask for means the browser died out from under a live
         // session. Say so loudly and stamp ready.json so automation sees it too.
-        if (!wasTerminatedByUs(child)) {
+        if (!this.deps.terminatedByUs(child)) {
           const beforeReady = !this.didReportReady
           this.browserGone = true
 
@@ -1968,7 +1915,7 @@ export class ChromiumLaunchPlugin {
         this.logger.error(messages.chromeProcessError(error))
       })
 
-      disposeSignalHandlers = setupProcessSignalHandlers(
+      disposeSignalHandlers = this.deps.watchSignals(
         this.options?.browser,
         child,
         () => {},
