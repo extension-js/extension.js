@@ -264,4 +264,161 @@ describe('an --out-dir the build must not replace', () => {
     expect(fs.existsSync(path.join(target, 'manifest.json'))).toBe(true)
     expect(fs.existsSync(path.join(target, 'stale.js'))).toBe(false)
   }, 120_000)
+
+  it('refuses a source folder inside the project that no build wrote', async () => {
+    const {root} = project()
+    const target = path.join(root, 'src', 'chrome')
+    fs.mkdirSync(target, {recursive: true})
+    fs.writeFileSync(path.join(target, 'adapter.ts'), 'PRECIOUS')
+
+    const {failure} = await build(root, {outDir: 'src'})
+
+    expect(failure?.code).toBe('E_INVALID_OPTION')
+    expect(plain(failure?.message)).toBe(
+      `--out-dir got src, and ${target} is inside the project and holds files no extension build wrote.\n` +
+        'The build replaces that folder, so nothing was deleted. Pass a folder that does not exist yet, or one a previous build wrote, which holds manifest.json.'
+    )
+
+    expect(fs.readFileSync(path.join(target, 'adapter.ts'), 'utf8')).toBe(
+      'PRECIOUS'
+    )
+  }, 120_000)
+
+  it('takes an empty folder as absent', async () => {
+    const {root} = project()
+    fs.mkdirSync(path.join(root, 'build', 'chrome'), {recursive: true})
+    fs.mkdirSync(path.join(root, 'dist', 'chrome'), {recursive: true})
+
+    const asked = await build(root, {outDir: 'build'})
+    const stock = await build(root)
+
+    expect(asked.failure).toBeUndefined()
+    expect(stock.failure).toBeUndefined()
+    expect(
+      fs.existsSync(path.join(root, 'build', 'chrome', 'manifest.json'))
+    ).toBe(true)
+
+    expect(
+      fs.existsSync(path.join(root, 'dist', 'chrome', 'manifest.json'))
+    ).toBe(true)
+  }, 120_000)
+})
+
+describe('the stock dist/<browser> the build must not replace', () => {
+  it('refuses a folder that no build wrote and keeps its files', async () => {
+    const {root} = project()
+    const target = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(target, {recursive: true})
+    fs.writeFileSync(path.join(target, 'SENTINEL.txt'), 'PRECIOUS')
+
+    const {failure} = await build(root)
+
+    expect(failure?.code).toBe('E_INVALID_OPTION')
+    expect(plain(failure?.message)).toBe(
+      `The build output folder ${target} holds files no extension build wrote.\n` +
+        'The build replaces that folder, so nothing was deleted. Move or delete it, or build beside it with --out-dir build.'
+    )
+
+    expect(fs.readFileSync(path.join(target, 'SENTINEL.txt'), 'utf8')).toBe(
+      'PRECIOUS'
+    )
+  }, 120_000)
+
+  it('replaces its own build, and one a failed build left untouched', async () => {
+    const {root} = project()
+    const target = path.join(root, 'dist', 'chrome')
+
+    expect((await build(root)).failure).toBeUndefined()
+    fs.writeFileSync(path.join(target, 'stale.js'), 'old')
+    fs.writeFileSync(path.join(root, 'background.js'), 'import "./gone.js"\n')
+
+    expect((await build(root)).failure?.code).toBe('E_COMPILE')
+    expect(fs.existsSync(path.join(target, 'stale.js'))).toBe(true)
+    expect(
+      fs
+        .readdirSync(path.join(root, 'dist'))
+        .filter((name) => name.startsWith('.extension-build-'))
+    ).toEqual([])
+
+    fs.writeFileSync(path.join(root, 'background.js'), 'console.log(2)\n')
+
+    expect((await build(root)).failure).toBeUndefined()
+    expect(fs.existsSync(path.join(target, 'manifest.json'))).toBe(true)
+    expect(fs.existsSync(path.join(target, 'stale.js'))).toBe(false)
+  }, 180_000)
+})
+
+describe('a folder that holds the session state', () => {
+  function withProfile(root: string) {
+    const profile = path.join(
+      root,
+      'dist',
+      'extension-js',
+      'profiles',
+      'Cookies'
+    )
+    fs.mkdirSync(path.dirname(profile), {recursive: true})
+    fs.writeFileSync(profile, 'PRECIOUS')
+
+    return profile
+  }
+
+  const listed = (dir: string) =>
+    fs.readdirSync(dir, {recursive: true}).map(String).sort()
+
+  it('is refused as a re-pointed output.path, with nothing under it touched', async () => {
+    const {root} = project(repoint('dist'))
+    const profile = withProfile(root)
+    const before = listed(path.join(root, 'dist'))
+
+    const {failure} = await build(root)
+
+    expect(failure?.code).toBe('E_INVALID_OPTION')
+    expect(plain(failure?.message)).toBe(
+      `output.path in the extension config resolves to ${path.join(root, 'dist')}, where Extension.js keeps session state and browser profiles.\n${OUTPUT_PATH_FIX}`
+    )
+
+    expect(fs.readFileSync(profile, 'utf8')).toBe('PRECIOUS')
+    expect(listed(path.join(root, 'dist'))).toEqual(before)
+  }, 120_000)
+
+  it('is refused as an --out-dir target, with nothing under it touched', async () => {
+    // The browser folder of this out dir is a link to the project's dist.
+    const {root} = project()
+    const profile = withProfile(root)
+    fs.mkdirSync(path.join(root, 'linked'))
+    fs.symlinkSync(
+      path.join(root, 'dist'),
+      path.join(root, 'linked', 'chrome'),
+      'dir'
+    )
+
+    const before = listed(path.join(root, 'dist'))
+
+    const {failure} = await build(root, {outDir: 'linked'})
+
+    expect(failure?.code).toBe('E_INVALID_OPTION')
+    expect(plain(failure?.message)).toBe(
+      `--out-dir got linked, which resolves to ${path.join(root, 'linked', 'chrome')}, where Extension.js keeps session state and browser profiles.\n${OUT_DIR_FIX}`
+    )
+
+    expect(fs.readFileSync(profile, 'utf8')).toBe('PRECIOUS')
+    expect(listed(path.join(root, 'dist'))).toEqual(before)
+    expect(
+      fs.lstatSync(path.join(root, 'linked', 'chrome')).isSymbolicLink()
+    ).toBe(true)
+  }, 120_000)
+
+  it('still takes dist as the out dir, since only dist/<browser> is replaced', async () => {
+    const {root} = project()
+    const profile = withProfile(root)
+
+    const {failure} = await build(root, {outDir: 'dist'})
+
+    expect(failure).toBeUndefined()
+    expect(fs.readFileSync(profile, 'utf8')).toBe('PRECIOUS')
+    expect(
+      fs.existsSync(path.join(root, 'dist', 'chrome', 'manifest.json'))
+    ).toBe(true)
+  }, 120_000)
 })

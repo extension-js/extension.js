@@ -19,7 +19,7 @@ export type ProtectedFolderKind = 'project' | 'cwd' | 'home' | 'session-state'
 export function protectedFolderAt(
   target: string,
   projectRoot: string,
-  options: {cwd?: boolean} = {}
+  options: {cwd?: boolean; replaced?: boolean} = {}
 ): ProtectedFolderKind | undefined {
   if (isSameOrInsidePath(target, projectRoot)) return 'project'
 
@@ -31,21 +31,27 @@ export function protectedFolderAt(
 
   if (home && isSameOrInsidePath(target, home)) return 'home'
 
-  if (isSameOrInsidePath(sessionArtifactsRootDir(projectRoot), target)) {
+  const sessionState = sessionArtifactsRootDir(projectRoot)
+
+  if (isSameOrInsidePath(sessionState, target)) return 'session-state'
+
+  // A folder the build empties takes the session state inside it along.
+  if (options.replaced !== false && isSameOrInsidePath(target, sessionState)) {
     return 'session-state'
   }
 
   return undefined
 }
 
-// Outside the project the only folder a build may replace is one an earlier
-// build wrote, and every build writes a manifest at its root.
-export function holdsForeignFiles(
-  target: string,
-  projectRoot: string
-): boolean {
-  if (isSameOrInsidePath(projectRoot, target)) return false
+// The only folder a build may replace is one an earlier build wrote, and
+// every build writes a manifest at its root. An empty folder holds nothing.
+export function holdsForeignFiles(target: string): boolean {
   if (!fs.existsSync(target)) return false
+  if (fs.existsSync(path.join(target, 'manifest.json'))) return false
 
-  return !fs.existsSync(path.join(target, 'manifest.json'))
+  try {
+    return fs.readdirSync(target).length > 0
+  } catch {
+    return true
+  }
 }

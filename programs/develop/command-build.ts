@@ -88,7 +88,7 @@ import {
   normalizeBrowser
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
-import {isSamePath} from './lib/real-path'
+import {isSameOrInsidePath, isSamePath} from './lib/real-path'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {
   browserDistDir,
@@ -206,7 +206,10 @@ function resolveOutDir(
   }
 
   const target = nodePath.join(base, browser)
-  const baseRefusal = protectedFolderAt(base, packageJsonDir, {cwd: false})
+  const baseRefusal = protectedFolderAt(base, packageJsonDir, {
+    cwd: false,
+    replaced: false
+  })
 
   if (baseRefusal) {
     throw codedError(
@@ -224,10 +227,15 @@ function resolveOutDir(
     )
   }
 
-  if (holdsForeignFiles(target, packageJsonDir)) {
+  if (holdsForeignFiles(target)) {
     throw codedError(
       CODES.E_INVALID_OPTION,
-      messages.buildOutDirInvalid(value, 'not-a-build', target)
+      messages.buildOutDirInvalid(
+        value,
+        'not-a-build',
+        target,
+        isSameOrInsidePath(packageJsonDir, target) ? 'inside' : 'outside'
+      )
     )
   }
 
@@ -409,6 +417,15 @@ async function runBuild(
       browser
     )
     distPath = getBuildDistPath(packageJsonDir, browser, outDir)
+
+    // The stock folder is replaced under the rule an asked one follows.
+    if (!outDir && holdsForeignFiles(distPath)) {
+      throw codedError(
+        CODES.E_INVALID_OPTION,
+        messages.buildOutputFolderForeign(distPath)
+      )
+    }
+
     // Assets are emitted into this staging sibling and a rename publishes it,
     // so an interrupted build can never leave a manifest without its pages.
     stagingDistPath = stagingDistPathFor(distPath)

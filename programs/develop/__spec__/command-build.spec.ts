@@ -1202,7 +1202,10 @@ describe('webpack/command-build', () => {
     })
     ;(fs.existsSync as any).mockImplementation(
       (p: fs.PathLike) =>
-        String(p).endsWith('node_modules') || String(p) === safariDist
+        String(p).endsWith('node_modules') ||
+        String(p) === safariDist ||
+        // An earlier build wrote this folder, so the build may replace it.
+        String(p) === path.join(safariDist, 'manifest.json')
     )
     ;(fs.readdirSync as any).mockReturnValue(['something'])
 

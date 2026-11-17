@@ -409,7 +409,8 @@ const PROTECTED_FOLDER_NAMES = {
 export function buildOutDirInvalid(
   value: string,
   reason: 'project-root' | 'not-a-build' | keyof typeof PROTECTED_FOLDER_NAMES,
-  resolved?: string
+  resolved?: string,
+  where: 'inside' | 'outside' = 'outside'
 ) {
   if (reason === 'project-root') {
     return (
@@ -420,7 +421,7 @@ export function buildOutDirInvalid(
 
   const why =
     reason === 'not-a-build'
-      ? `got ${fmt.code(value)}, and ${fmt.code(String(resolved))} is outside the project and holds files no extension build wrote`
+      ? `got ${fmt.code(value)}, and ${fmt.code(String(resolved))} is ${where} the project and holds files no extension build wrote`
       : `got ${fmt.code(value)}, which resolves to ${fmt.code(String(resolved))}, ${PROTECTED_FOLDER_NAMES[reason]}`
   const fix =
     reason === 'not-a-build'
@@ -428,6 +429,14 @@ export function buildOutDirInvalid(
       : `The build replaces ${fmt.code('<out-dir>/<browser>')}, so nothing was deleted. Pass a folder of its own such as ${fmt.code('--out-dir build')}.`
 
   return `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} ${why}.\n${fix}`
+}
+
+// The stock dist/<browser> holding something a build did not write.
+export function buildOutputFolderForeign(resolved: string) {
+  return (
+    `${getLoggingPrefix('error')} The build output folder ${fmt.code(resolved)} holds files no extension build wrote.\n` +
+    `The build replaces that folder, so nothing was deleted. Move or delete it, or build beside it with ${fmt.code('--out-dir build')}.`
+  )
 }
 
 // A config hook can point the bundler anywhere, and the bundler empties the
