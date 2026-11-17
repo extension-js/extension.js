@@ -679,7 +679,7 @@ async function runBuild(
     })()
     compilerToClose = compiler
     keepCodedWarningsOf(compiler)
-    printCompileLineLast(compiler.hooks.done)
+    printCompileLineLast(compiler.hooks?.done)
 
     let summary: BuildSummary = {
       browser,
@@ -1099,11 +1099,11 @@ async function runBuild(
         )
       }
 
-      const safari = await safariPackager(
-        displayDistPath,
-        'full',
-        safariIdentity
-      ).catch((packagerError: unknown) => {
+      let safari: Awaited<ReturnType<typeof safariPackager>>
+
+      try {
+        safari = await safariPackager(displayDistPath, 'full', safariIdentity)
+      } catch (packagerError) {
         // The packager prints a failed tool itself, with that tool's output.
         if (
           packagerError instanceof Error &&
@@ -1113,7 +1113,7 @@ async function runBuild(
         }
 
         throw packagerError
-      })
+      }
 
       // The app identity (and whether the bundle id was generated rather than
       // user-owned) was a human log line only. Fold it into the summary so a
@@ -1211,10 +1211,10 @@ function fatalFailure(thrown: unknown, projectRoot: string): Error {
 
 // The compile line is the receipt of a compile that went through, so it runs
 // after every other tap that can still fail the build.
-function printCompileLineLast(done: {
-  taps?: Array<{name?: string; stage?: number}>
-}): void {
-  const taps = done.taps
+function printCompileLineLast(
+  done: {taps?: Array<{name?: string; stage?: number}>} | undefined
+): void {
+  const taps = done?.taps
   if (!Array.isArray(taps)) return
 
   const at = taps.findIndex((tap) => tap?.name === COMPILE_LINE_TAP)

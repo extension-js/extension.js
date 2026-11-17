@@ -123,7 +123,7 @@ describe('build: a Safari packaging tool that fails (real rspack, real packager)
       silent: true,
       // The packager only looks for its tools on macOS, so the build runs
       // as the host it is and the packager alone sees a Mac.
-      safariPackager: async (...args) => {
+      safariPackager: async (...args: Parameters<typeof packager>) => {
         Object.defineProperty(process, 'platform', {value: 'darwin'})
         children.packaging = true
 
