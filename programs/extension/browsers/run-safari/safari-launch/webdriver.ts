@@ -8,6 +8,7 @@
 
 import * as http from 'node:http'
 import * as net from 'node:net'
+import {isPidAlive} from '../../browsers-lib/resolve-live-pid'
 import type {SafariPipelineTools, SafariWebDriverProcess} from './tools'
 
 const DRIVER_READY_MS = 5000
@@ -156,16 +157,6 @@ export async function closeSafariWebDriverSessions(): Promise<void> {
   await Promise.all([...activeSessions].map((session) => session.close()))
 }
 
-function processAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-
-    return true
-  } catch {
-    return false
-  }
-}
-
 // Safari's automation instance outlives both the deleted session and the
 // driver, so the one this session raised is quit by pid. Only pids that were
 // not there before the driver spawned qualify, a Safari the user had open
@@ -188,7 +179,7 @@ async function quitRaisedAutomation(
 
   const deadline = Date.now() + AUTOMATION_QUIT_MS
 
-  while (Date.now() < deadline && raised.some(processAlive)) {
+  while (Date.now() < deadline && raised.some(isPidAlive)) {
     await new Promise((resolve) => setTimeout(resolve, DRIVER_POLL_MS))
   }
 }

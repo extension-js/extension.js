@@ -1,7 +1,8 @@
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   FirefoxBinaryDetector,
-  isFirefoxHeadlessRequested
+  isFirefoxHeadlessRequested,
+  parseFlatpakBinary
 } from '../../run-firefox/firefox-launch/binary-detector'
 
 // The published ExtensionEnv augmentation makes the bundler-injected keys
@@ -22,88 +23,130 @@ afterEach(() => {
 })
 
 describe('FirefoxBinaryDetector.generateFirefoxArgs', () => {
-  it('includes -wait-for-browser on Windows', () => {
-    setPlatform('win32')
+  const FLATPAK = 'flatpak:org.mozilla.firefox'
+  const BINARY = '/usr/bin/firefox'
+  const PROFILE = '/tmp/profile'
 
-    const {args} = FirefoxBinaryDetector.generateFirefoxArgs(
-      'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
-      'C:\\tmp\\profile',
-      6000
-    )
+  it.each<{
+    title: string
+    platform: NodeJS.Platform
+    binary: string
+    port: number
+    extra?: string[]
+    headless?: boolean
+    plan: {binary: string; args: string[]}
+  }>([
+    {
+      title: 'a binary path off Windows',
+      platform: 'linux',
+      binary: BINARY,
+      port: 6000,
+      plan: {
+        binary: BINARY,
+        args: [
+          '--no-remote',
+          '--new-instance',
+          '-profile',
+          PROFILE,
+          '-start-debugger-server',
+          '6000',
+          '--foreground'
+        ]
+      }
+    },
+    {
+      title: 'a binary path on Windows, which waits for the browser',
+      platform: 'win32',
+      binary: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+      port: 6000,
+      plan: {
+        binary: 'C:\\Program Files\\Mozilla Firefox\\firefox.exe',
+        args: [
+          '--no-remote',
+          '--new-instance',
+          '-wait-for-browser',
+          '-profile',
+          PROFILE,
+          '-start-debugger-server',
+          '6000',
+          '--foreground'
+        ]
+      }
+    },
+    {
+      title: 'a headless run, which never raises a window',
+      platform: 'darwin',
+      binary: BINARY,
+      port: 6000,
+      headless: true,
+      plan: {
+        binary: BINARY,
+        args: [
+          '--no-remote',
+          '--new-instance',
+          '-headless',
+          '-profile',
+          PROFILE,
+          '-start-debugger-server',
+          '6000'
+        ]
+      }
+    },
+    {
+      title: 'a Flatpak reference, run through flatpak with the profile shared',
+      platform: 'linux',
+      binary: FLATPAK,
+      port: 6000,
+      extra: ['--safe-mode'],
+      plan: {
+        binary: 'flatpak',
+        args: [
+          'run',
+          `--filesystem=${PROFILE}`,
+          'org.mozilla.firefox',
+          '--no-remote',
+          '--new-instance',
+          '-profile',
+          PROFILE,
+          '-start-debugger-server',
+          '6000',
+          '--foreground',
+          '--safe-mode'
+        ]
+      }
+    },
+    {
+      title: 'a headless Flatpak run with no debugger port',
+      platform: 'linux',
+      binary: FLATPAK,
+      port: 0,
+      headless: true,
+      plan: {
+        binary: 'flatpak',
+        args: [
+          'run',
+          `--filesystem=${PROFILE}`,
+          'org.mozilla.firefox',
+          '--no-remote',
+          '--new-instance',
+          '-headless',
+          '-profile',
+          PROFILE
+        ]
+      }
+    }
+  ])('plans $title', ({platform, binary, port, extra, headless, plan}) => {
+    setPlatform(platform)
 
-    expect(args).toContain('-wait-for-browser')
-  })
-
-  it('does not include -wait-for-browser on non-Windows', () => {
-    setPlatform('linux')
-
-    const {args} = FirefoxBinaryDetector.generateFirefoxArgs(
-      '/usr/bin/firefox',
-      '/tmp/profile',
-      6000
-    )
-
-    expect(args).not.toContain('-wait-for-browser')
-  })
-
-  it('adds -headless when requested (before -profile), omits it otherwise', () => {
-    setPlatform('linux')
-
-    const headless = FirefoxBinaryDetector.generateFirefoxArgs(
-      '/usr/bin/firefox',
-      '/tmp/profile',
-      6000,
-      [],
-      true
-    ).args
-    expect(headless).toContain('-headless')
-    expect(headless.indexOf('-headless')).toBeLessThan(
-      headless.indexOf('-profile')
-    )
-
-    const headed = FirefoxBinaryDetector.generateFirefoxArgs(
-      '/usr/bin/firefox',
-      '/tmp/profile',
-      6000,
-      [],
-      false
-    ).args
-    expect(headed).not.toContain('-headless')
-  })
-
-  it('drops the window-raising --foreground when headless (focus-steal guard)', () => {
-    setPlatform('darwin')
-
-    const headless = FirefoxBinaryDetector.generateFirefoxArgs(
-      '/usr/bin/firefox',
-      '/tmp/profile',
-      6000,
-      [],
-      true
-    ).args
-    expect(headless).not.toContain('--foreground')
-
-    const headed = FirefoxBinaryDetector.generateFirefoxArgs(
-      '/usr/bin/firefox',
-      '/tmp/profile',
-      6000,
-      [],
-      false
-    ).args
-    expect(headed).toContain('--foreground')
-  })
-
-  it('adds -headless to the Flatpak arg form too', () => {
-    setPlatform('linux')
-    const {binary, args} = FirefoxBinaryDetector.generateFirefoxArgs(
-      'flatpak:org.mozilla.firefox',
-      '/tmp/profile',
-      6000,
-      [],
-      true
-    )
-    expect(binary).toBe('flatpak')
-    expect(args).toContain('-headless')
+    expect(
+      FirefoxBinaryDetector.generateFirefoxArgs(
+        binary,
+        PROFILE,
+        port,
+        extra,
+        headless
+      )
+    ).toEqual(plan)
   })
 })
 
@@ -129,5 +172,30 @@ describe('isFirefoxHeadlessRequested', () => {
     expect(isFirefoxHeadlessRequested(env({EXTENSION_HEADLESS: '0'}))).toBe(
       false
     )
+  })
+})
+
+describe('parseFlatpakBinary', () => {
+  it('parses a valid Flatpak reference', () => {
+    const result = parseFlatpakBinary('flatpak:org.mozilla.firefox')
+    expect(result).toEqual({appId: 'org.mozilla.firefox'})
+  })
+
+  it('parses Flatpak reference with extra whitespace', () => {
+    const result = parseFlatpakBinary('flatpak:  org.mozilla.firefox ')
+    expect(result).toEqual({appId: 'org.mozilla.firefox'})
+  })
+
+  it('returns null for a normal binary path', () => {
+    expect(parseFlatpakBinary('/usr/bin/firefox')).toBeNull()
+  })
+
+  it('returns null for an empty string', () => {
+    expect(parseFlatpakBinary('')).toBeNull()
+  })
+
+  it('returns null when prefix is present but appId is empty', () => {
+    expect(parseFlatpakBinary('flatpak:')).toBeNull()
+    expect(parseFlatpakBinary('flatpak:   ')).toBeNull()
   })
 })
