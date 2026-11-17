@@ -13,12 +13,12 @@ import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {extensionSchemeFor} from '../../../lib/extension-base-from-stack'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {getBackgroundEntryName} from '../../../plugin-web-extension/feature-chunk-loading/background-entry-name'
+import WebExtension from '../../../plugin-web-extension/feature-chunk-loading/chunk-loading-target'
 import {buildContentScriptsMeta} from '../../../plugin-web-extension/feature-chunk-loading/content-scripts-meta'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {extensionBaseAttributeFor} from '../../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {SetupBackgroundEntry} from './setup-background-entry'
-import WebExtension from './webpack-target-webextension-fork'
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string

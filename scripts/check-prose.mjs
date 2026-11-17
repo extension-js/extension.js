@@ -9,8 +9,7 @@ const EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|md|mdx|json|yml|yaml)$/
 
 // Paths where the character is data rather than prose.
 const EXCLUDED_PATHS = [
-  // Vendored third-party fork; not ours to restyle.
-  'webpack-target-webextension-fork',
+  // Derived from a third-party package, restyled in a later change.
   'feature-chunk-loading/steps/no-danger-name.ts',
   // This checker necessarily contains the character it searches for.
   'scripts/check-prose.mjs'
