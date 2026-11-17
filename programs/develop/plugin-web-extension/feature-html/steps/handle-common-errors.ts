@@ -42,7 +42,8 @@ function handleCantResolveError(
 
       // Resources from the manifest lib can come as undefined.
       if (resource) {
-        if (!fs.existsSync(resource as string)) return null
+        // One page without a file says nothing about the pages after it.
+        if (!fs.existsSync(resource as string)) continue
 
         const htmlAssets = getAssetsFromHtml(resource as string)
         const rawJsAssets = htmlAssets?.js || []
@@ -127,71 +128,34 @@ export class HandleCommonErrors {
   }
 
   apply(compiler: Compiler) {
-    compiler.hooks.compilation.tap(
+    // The top compilation only: a `compilation` tap is copied into every
+    // child compiler, which would run the same rewrite again per child.
+    compiler.hooks.thisCompilation.tap(
       'html:handle-common-errors',
       (compilation) => {
-        const hasProcessAssets = Boolean(compilation?.hooks?.processAssets?.tap)
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:handle-common-errors',
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+          },
+          () => {
+            const errs = [...compilation.errors]
+            errs.forEach((error, index) => {
+              // A page entry that is gone fails as "Module not found". The
+              // static files a page names are reported by the emit step.
+              const cantResolveError = handleCantResolveError(
+                this.includeList || {},
+                error as StatsError,
+                path.dirname(this.manifestPath)
+              )
 
-        if (hasProcessAssets) {
-          compilation.hooks.processAssets.tap(
-            {
-              name: 'html:handle-common-errors',
-              stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
-            },
-            () => {
-              const errs = [...compilation.errors]
-              errs.forEach((error, index) => {
-                // Handle "Module not found": entrypoints can't recompile at runtime. Static
-                // assets are covered by AddAssetsToCompilationPlugin instead.
-                const cantResolveError = handleCantResolveError(
-                  this.includeList || {},
-                  error as StatsError,
-                  path.dirname(this.manifestPath)
-                )
-
-                if (cantResolveError) {
-                  compilation.errors[index] = cantResolveError
-                }
-              })
-            }
-          )
-
-          return
-        }
-
-        // Fallback for minimal/mock compilations without processAssets hook
-        try {
-          const transformed = (compilation.errors || []).map((error) => {
-            const replaced = handleCantResolveError(
-              this.includeList || {},
-              error as unknown as StatsError,
-              path.dirname(this.manifestPath)
-            )
-
-            return replaced || error
-          })
-          compilation.errors = transformed
-        } catch {
-          // Ignore
-        }
+              if (cantResolveError) {
+                compilation.errors[index] = cantResolveError
+              }
+            })
+          }
+        )
       }
     )
-
-    if (compiler.hooks?.done?.tap) {
-      compiler.hooks.done.tap('html:handle-common-errors:done', (stats) => {
-        const compilation = stats.compilation as unknown as Compilation
-        const transformed = (compilation.errors || []).map((error) => {
-          const replaced = handleCantResolveError(
-            this.includeList || {},
-            error as unknown as StatsError,
-            path.dirname(this.manifestPath)
-          )
-
-          return replaced || error
-        })
-
-        compilation.errors = transformed
-      })
-    }
   }
 }
