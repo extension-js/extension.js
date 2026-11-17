@@ -293,7 +293,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
-    code: 'E_CSS_PARSE',
+    code: 'W_CSS_PARSE',
     label: 'a content script stylesheet that does not parse',
     files: {
       'manifest.json': mv3({
@@ -325,7 +325,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  "E_CSS_PARSE: The CSS in this file doesn't parse, so it was copied as-is.\nPATH a.css\nREASON Unclosed block\nBrowsers skip rules they can't parse, so the build kept going.\nPostCSS and Tailwind processing wasn't applied to this file.\nFix the CSS to re-enable processing."
+                  "W_CSS_PARSE: The CSS in this file doesn't parse, so it was copied as-is.\nPATH a.css\nREASON Unclosed block\nBrowsers skip rules they can't parse, so the build kept going.\nPostCSS and Tailwind processing wasn't applied to this file.\nFix the CSS to re-enable processing."
                 ],
                 toolchain: {
                   node: '<node>',
@@ -340,7 +340,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            "E_CSS_PARSE: The CSS in this file doesn't parse, so it was copied as-is.\nPATH a.css\nREASON Unclosed block\nBrowsers skip rules they can't parse, so the build kept going.\nPostCSS and Tailwind processing wasn't applied to this file.\nFix the CSS to re-enable processing."
+            "W_CSS_PARSE: The CSS in this file doesn't parse, so it was copied as-is.\nPATH a.css\nREASON Unclosed block\nBrowsers skip rules they can't parse, so the build kept going.\nPostCSS and Tailwind processing wasn't applied to this file.\nFix the CSS to re-enable processing."
           ]
         }
       ],
@@ -371,7 +371,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
-    code: 'E_CSS_DEAD_REF',
+    code: 'W_CSS_DEAD_REF',
     label: 'a stylesheet url() to a file that exists nowhere',
     files: {
       'manifest.json': mv3({
@@ -403,7 +403,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  "E_CSS_DEAD_REF: A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH a.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.\nSet EXTENSION_STRICT_REFS=true to make this a build error."
+                  "W_CSS_DEAD_REF: A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH a.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.\nSet EXTENSION_STRICT_REFS=true to make this a build error."
                 ],
                 toolchain: {
                   node: '<node>',
@@ -418,7 +418,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            "E_CSS_DEAD_REF: A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH a.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.\nSet EXTENSION_STRICT_REFS=true to make this a build error."
+            "W_CSS_DEAD_REF: A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH a.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.\nSet EXTENSION_STRICT_REFS=true to make this a build error."
           ]
         }
       ],
@@ -449,7 +449,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
-    code: 'E_PROD_LOOPBACK_ORIGIN',
+    code: 'W_PROD_LOOPBACK_ORIGIN',
     label: 'a production manifest that reaches localhost',
     files: {'manifest.json': mv3({host_permissions: ['http://localhost/*']})},
     args: [],
@@ -480,7 +480,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                   extension_js: '<version>'
                 },
                 warnings: [
-                  'E_PROD_LOOPBACK_ORIGIN: the production manifest reaches the local machine (http://localhost/* in host_permissions). Keep loopback origins to development with an $EXTENSION_PUBLIC_* placeholder and a .env.development value.'
+                  'W_PROD_LOOPBACK_ORIGIN: the production manifest reaches the local machine (http://localhost/* in host_permissions). Keep loopback origins to development with an $EXTENSION_PUBLIC_* placeholder and a .env.development value.'
                 ],
                 addon_lint: {
                   status: 'skipped',
@@ -491,7 +491,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            'E_PROD_LOOPBACK_ORIGIN: the production manifest reaches the local machine (http://localhost/* in host_permissions). Keep loopback origins to development with an $EXTENSION_PUBLIC_* placeholder and a .env.development value.'
+            'W_PROD_LOOPBACK_ORIGIN: the production manifest reaches the local machine (http://localhost/* in host_permissions). Keep loopback origins to development with an $EXTENSION_PUBLIC_* placeholder and a .env.development value.'
           ]
         }
       ],
@@ -516,7 +516,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
-    code: 'E_REMOTE_RESOURCE_BLOCKED',
+    code: 'W_REMOTE_RESOURCE_BLOCKED',
     label: 'a page that loads a remote script',
     files: {
       'manifest.json': mv3({action: {default_popup: 'popup.html'}}),
@@ -548,7 +548,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  'E_REMOTE_RESOURCE_BLOCKED: The page loads a remote <script>, which the MV3 CSP blocks.\nPATH popup.html\nGOT http://127.0.0.1:9/x.js\nBundle the script or self-host it instead.'
+                  'W_REMOTE_RESOURCE_BLOCKED: The page loads a remote <script>, which the MV3 CSP blocks.\nPATH popup.html\nGOT http://127.0.0.1:9/x.js\nBundle the script or self-host it instead.'
                 ],
                 toolchain: {
                   node: '<node>',
@@ -563,7 +563,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            'E_REMOTE_RESOURCE_BLOCKED: The page loads a remote <script>, which the MV3 CSP blocks.\nPATH popup.html\nGOT http://127.0.0.1:9/x.js\nBundle the script or self-host it instead.'
+            'W_REMOTE_RESOURCE_BLOCKED: The page loads a remote <script>, which the MV3 CSP blocks.\nPATH popup.html\nGOT http://127.0.0.1:9/x.js\nBundle the script or self-host it instead.'
           ]
         }
       ],
@@ -592,7 +592,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
-    code: 'E_LOCALES_LAYOUT',
+    code: 'W_LOCALES_LAYOUT',
     label: 'a locale folder with no messages.json',
     files: {
       'manifest.json': mv3({default_locale: 'en', name: '__MSG_n__'}),
@@ -623,7 +623,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  'E_LOCALES_LAYOUT: A locale folder has no messages.json file, so the build left it out.\nFOLDER _locales/fr\nStores reject a locale folder that has no messages.json file.\nAdd a messages.json file to ship the folder, or delete the folder to silence this warning.'
+                  'W_LOCALES_LAYOUT: A locale folder has no messages.json file, so the build left it out.\nFOLDER _locales/fr\nStores reject a locale folder that has no messages.json file.\nAdd a messages.json file to ship the folder, or delete the folder to silence this warning.'
                 ],
                 toolchain: {
                   node: '<node>',
@@ -638,7 +638,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            'E_LOCALES_LAYOUT: A locale folder has no messages.json file, so the build left it out.\nFOLDER _locales/fr\nStores reject a locale folder that has no messages.json file.\nAdd a messages.json file to ship the folder, or delete the folder to silence this warning.'
+            'W_LOCALES_LAYOUT: A locale folder has no messages.json file, so the build left it out.\nFOLDER _locales/fr\nStores reject a locale folder that has no messages.json file.\nAdd a messages.json file to ship the folder, or delete the folder to silence this warning.'
           ]
         }
       ],
@@ -668,7 +668,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
-    code: 'E_ENV_NO_MATCH',
+    code: 'W_ENV_NO_MATCH',
     label: 'an .env file that matches no browser or mode',
     files: {'manifest.json': mv3(), '.env.staging': 'EXTENSION_PUBLIC_A=1'},
     args: [],
@@ -695,7 +695,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  'E_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
+                  'W_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
                 ],
                 toolchain: {
                   node: '<node>',
@@ -710,7 +710,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            'E_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
+            'W_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
           ]
         }
       ],
@@ -737,7 +737,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
-    code: 'E_SCRIPT_DEP_MISSING',
+    code: 'W_SCRIPT_DEP_MISSING',
     label: 'a require() that resolves to nothing',
     files: {
       'manifest.json': mv3({background: {service_worker: 'bg.js'}}),
@@ -768,7 +768,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  "E_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module; the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
+                  "W_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module; the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
                 ],
                 toolchain: {
                   node: '<node>',
@@ -783,7 +783,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            "E_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module; the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
+            "W_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module; the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
           ]
         }
       ],

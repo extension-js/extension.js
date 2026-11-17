@@ -214,7 +214,7 @@ describe('lifecycle stream transitions', () => {
     stream.starting({requestedPort: 8080, port: 8081})
     const [frame] = parseFrames(lines)
     expect(frame.warnings).toEqual([
-      'E_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081'
+      'W_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081'
     ])
   })
 
@@ -788,12 +788,12 @@ describe('lifecycle stream warnings the run carries on past', () => {
   })
 
   it('carries what the setup steps recorded on the starting frame, once', () => {
-    recordCodedWarning(CODES.E_POLYFILL_NOT_FOUND, 'the polyfill is missing')
+    recordCodedWarning(CODES.W_POLYFILL_NOT_FOUND, 'the polyfill is missing')
     const first = makeStream()
     first.stream.starting({requestedPort: 8080, port: 8081})
     expect(parseFrames(first.lines)[0].warnings).toEqual([
-      'E_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081',
-      'E_POLYFILL_NOT_FOUND: the polyfill is missing'
+      'W_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081',
+      'W_POLYFILL_NOT_FOUND: the polyfill is missing'
     ])
 
     const second = makeStream()
@@ -808,7 +808,7 @@ describe('lifecycle stream warnings the run carries on past', () => {
     stream.compiled({assets: 2, durationMs: 3, entrypoints: 0})
     const frames = parseFrames(lines)
     expect(frames[0].warnings).toEqual([
-      'E_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
+      'W_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
     ])
 
     expect(frames[1].warnings).toEqual([])
@@ -823,7 +823,7 @@ describe('lifecycle stream warnings the run carries on past', () => {
     compiler.taps.done(fakeStats({assets: 0}))
     const frames = parseFrames(lines)
     expect(frames[0].warnings).toEqual([
-      'E_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
+      'W_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
     ])
 
     expect(frames[1].warnings).toEqual([])
@@ -837,7 +837,7 @@ describe('lifecycle stream warnings the run carries on past', () => {
     stream.compileFailed({output: 'boom later'})
     const frames = parseFrames(lines)
     expect(frames[0].warnings).toEqual([
-      'E_LAUNCH_SKIPPED_COMPILE_ERRORS: the browser launch is withheld until the compile succeeds'
+      'W_LAUNCH_SKIPPED_COMPILE_ERRORS: the browser launch is withheld until the compile succeeds'
     ])
 
     expect(frames[1].warnings).toEqual(frames[0].warnings)

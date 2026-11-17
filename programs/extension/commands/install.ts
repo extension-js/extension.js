@@ -592,7 +592,7 @@ export function registerInstallCommand(program: Command) {
           const warnings = removedAny
             ? []
             : [
-                `${CODES.E_UNINSTALL_NOOP}: Nothing to remove for ${results
+                `${CODES.W_UNINSTALL_NOOP}: Nothing to remove for ${results
                   .map((result) => result.browser)
                   .join(', ')}.`
               ]

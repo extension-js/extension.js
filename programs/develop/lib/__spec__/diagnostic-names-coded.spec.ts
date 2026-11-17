@@ -12,10 +12,7 @@ const developDir = path.resolve(
 
 // Names whose failure class has no code in the catalog yet, beside the code
 // each one waits for. A row moves to NAMED_CODES when its code lands.
-const AWAITING_CODE: Record<string, string> = {
-  // Set on a branch that has not landed, with a class of its own.
-  ManifestPersistFailed: 'E_OUTPUT_NOT_WRITABLE'
-}
+const AWAITING_CODE: Record<string, string> = {}
 
 // The name a diagnostic gets when its caller passes none. It spans every
 // failure class, so it stays uncoded until each caller names its own.

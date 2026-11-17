@@ -107,7 +107,7 @@ function codeLines(file: string, source: string): SourceLine[] {
   return source
     .split('\n')
     .map((text, index) => ({file, line: index + 1, text}))
-    .filter(({text}) => text.includes('E_'))
+    .filter(({text}) => /\b[EW]_[A-Z]/.test(text))
 }
 
 function emitSites(code: string, lines: SourceLine[]): SourceLine[] {
@@ -190,9 +190,12 @@ function validateEnvelope(frame: Record<string, unknown>): string[] {
             )
           }
 
-          if ('code' in detail && !/^E_[A-Z0-9_]+$/.test(String(detail.code))) {
+          if (
+            'code' in detail &&
+            !/^[EW]_[A-Z0-9_]+$/.test(String(detail.code))
+          ) {
             problems.push(
-              `error.details[${index}].code is not an E_ identifier`
+              `error.details[${index}].code is not an E_ or W_ identifier`
             )
           }
 
@@ -228,6 +231,15 @@ describe('the error-code table', () => {
       expect(entry.summary, `${code} has no summary`).toBeTruthy()
       if ('warn' in entry) expect(entry.warn).toBe(true)
       if ('reserved' in entry) expect(entry.reserved).toBe(true)
+    }
+  })
+
+  // The prefix alone tells a reader whether the run carried on.
+  it('marks every W_ code as a warning and no E_ code as one', () => {
+    for (const [code, entry] of Object.entries(table.codes)) {
+      expect(entry.warn === true, `${code} has the wrong warn flag`).toBe(
+        code.startsWith('W_')
+      )
     }
   })
 
@@ -373,8 +385,15 @@ describe('every declared code is emitted or marked reserved', () => {
     codeLines(path.relative(programsDir, file), fs.readFileSync(file, 'utf8'))
   )
 
+  // A warning of a class that can also fail gets its W_ name from the E_
+  // name at run time, so the E_ sites are its emit sites too.
   const emitted = new Set<string>(
-    Object.values(CODES).filter((code) => emitSites(code, lines).length > 0)
+    Object.values(CODES).filter(
+      (code) =>
+        emitSites(code, lines).length > 0 ||
+        (code.startsWith('W_') &&
+          emitSites(`E_${code.slice(2)}`, lines).length > 0)
+    )
   )
 
   const reserved = Object.entries(table.codes)

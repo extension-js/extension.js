@@ -92,6 +92,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   DNRRegexChromeCannotCompile: CODES.W_JSON_INVALID,
   PublicOutputCollision: CODES.E_PROJECT_LAYOUT,
   IncludeFilesError: CODES.E_PROJECT_LAYOUT,
+  ManifestPersistFailed: CODES.E_OUTPUT_NOT_WRITABLE,
   PublicFolderShadowedWarning: CODES.W_PROJECT_LAYOUT,
   PublicLayoutWarning: CODES.W_PROJECT_LAYOUT,
   ExcludeFilesWarning: CODES.W_PROJECT_LAYOUT,

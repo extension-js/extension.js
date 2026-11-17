@@ -883,7 +883,7 @@ async function runBuild(
                 new Error(
                   `${zipFailures.length} requested archive${zipFailures.length === 1 ? ' was' : 's were'} not created`
                 ),
-                {code: 'E_ZIP_SKIPPED'}
+                {code: CODES.E_ZIP_SKIPPED}
               )
             )
 

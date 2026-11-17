@@ -81,6 +81,7 @@ describe('diagnosticCode', () => {
     ['DNRRegexChromeCannotCompile', 'W_JSON_INVALID'],
     ['PublicOutputCollision', 'E_PROJECT_LAYOUT'],
     ['IncludeFilesError', 'E_PROJECT_LAYOUT'],
+    ['ManifestPersistFailed', 'E_OUTPUT_NOT_WRITABLE'],
     ['PublicFolderShadowedWarning', 'W_PROJECT_LAYOUT'],
     ['PublicLayoutWarning', 'W_PROJECT_LAYOUT'],
     ['ExcludeFilesWarning', 'W_PROJECT_LAYOUT'],
@@ -237,7 +238,8 @@ const ERRORS_ONLY = new Set<ErrorCode>([
   CODES.E_CONTENT_SCRIPT_SYNTAX,
   CODES.E_MANIFEST_NOT_FOUND,
   CODES.E_COMPILE,
-  CODES.E_ASSET_IMPORT_SHAPE
+  CODES.E_ASSET_IMPORT_SHAPE,
+  CODES.E_OUTPUT_NOT_WRITABLE
 ])
 
 const WARNING_NAMES = Object.values(CODES).filter((code) =>
@@ -256,6 +258,14 @@ describe('the warning class', () => {
 
     expect(codeForSeverity(CODES.E_JSON_INVALID, 'warning')).toBe(
       'W_JSON_INVALID'
+    )
+
+    expect(codeForSeverity(CODES.E_MODULE_NOT_FOUND, 'warning')).toBe(
+      'W_MODULE_NOT_FOUND'
+    )
+
+    expect(codeForSeverity(CODES.E_CSS_PREPROCESSOR_MISSING, 'warning')).toBe(
+      'W_CSS_PREPROCESSOR_MISSING'
     )
   })
 

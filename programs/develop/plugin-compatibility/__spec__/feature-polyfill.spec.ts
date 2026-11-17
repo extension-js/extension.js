@@ -1,10 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {takeCodedWarnings} from '../../lib/coded-warnings'
 import * as messages from '../../plugin-compatibility/compatibility-lib/messages'
 import {PolyfillPlugin} from '../feature-polyfill'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
@@ -56,7 +56,7 @@ describe('PolyfillPlugin', () => {
     )
 
     expect(takeCodedWarnings()).toEqual([
-      'E_POLYFILL_NOT_FOUND: webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
+      'W_POLYFILL_NOT_FOUND: webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
     ])
   })
 })
