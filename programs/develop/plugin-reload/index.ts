@@ -52,9 +52,10 @@ export {readBootRegistrations, readDevBuild}
 /**
  * ReloadPlugin owns the dev-only reload/HMR strategy end to end:
  *
- * - build-time injection of the reload runtime (SetupReloadStrategy and the
- *   vendored webpack-target-webextension fork), the SW scripts-replay shim,
- *   and the control-bridge producer/relay instrumentation
+ * - build-time injection of the reload runtime (SetupReloadStrategy, which
+ *   also applies plugin-web-extension's chunk loading target for a dev
+ *   session), the SW scripts-replay shim, and the control-bridge
+ *   producer/relay instrumentation
  * - the reload classifier and dispatch seam consumed by plugin-browsers'
  *   BrowsersPlugin and the dev server's `--no-browser` broadcast path
  *   (re-exported above from classify-reload.ts / reload-dispatch.ts)
