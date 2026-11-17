@@ -123,7 +123,7 @@ The `create` command adds four properties, so a broken advertised starter shows 
 - Dependency lists, permission lists, or freeform project identifiers
 - Environment variable values, filesystem paths, or machine-local URLs
 - Stack traces, error messages, or free-text error names
-- IP addresses. The project discards the request address at ingestion (`anonymize_ips`) and every payload sends `$ip: null` with `$geoip_disable: true`, so no location is derived from it either. Events sent before 2026-10-06 carried the request address.
+- IP addresses. The CLI sends `$ip: null` and `$geoip_disable: true` on every event, which ask the analytics service not to keep the request address or derive a location from it.
 
 ## Releases before 4.0
 
