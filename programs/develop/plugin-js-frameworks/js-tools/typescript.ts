@@ -203,21 +203,6 @@ export function getUserJsConfigFile(projectPath: string) {
   return undefined
 }
 
-export function getTypeScriptConfigOverrides(opts: {mode: DevOptions['mode']}) {
-  return {
-    compilerOptions: {
-      sourceMap: opts.mode === 'development',
-      skipLibCheck: true,
-      inlineSourceMap: false,
-      declarationMap: false,
-      noEmit: true,
-      incremental: true,
-      tsBuildInfoFile: path.join('./', 'node_modules', '.cache', 'tsbuildinfo')
-    },
-    exclude: ['node_modules', 'dist']
-  }
-}
-
 function writeTsConfig(projectPath: string) {
   // getUserTypeScriptConfigFile reads beside the nearest package.json, so
   // the scaffold must land there too: writing beside a nested manifest dir

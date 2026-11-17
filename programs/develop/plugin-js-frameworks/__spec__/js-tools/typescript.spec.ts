@@ -270,21 +270,6 @@ describe('typescript tools', () => {
     await expect(maybeUseTypeScript('/project')).resolves.toBe(true)
   })
 
-  it('getTypeScriptConfigOverrides toggles sourceMap by mode', async () => {
-    const {getTypeScriptConfigOverrides} = await import(
-      '../../js-tools/typescript'
-    )
-    expect(
-      getTypeScriptConfigOverrides({mode: 'development'}).compilerOptions
-        .sourceMap
-    ).toBe(true)
-
-    expect(
-      getTypeScriptConfigOverrides({mode: 'production'}).compilerOptions
-        .sourceMap
-    ).toBe(false)
-  })
-
   it('defaultTypeScriptConfig scaffolds a moduleResolution TypeScript 7 accepts', async () => {
     const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
     const {compilerOptions} = defaultTypeScriptConfig('/project')
