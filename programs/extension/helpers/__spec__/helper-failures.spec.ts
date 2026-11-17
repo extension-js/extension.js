@@ -125,15 +125,14 @@ describe('a config file that throws', () => {
   function projectWithThrowingConfig(): string {
     const dir = makeTempFolder('extjs-throwing-config-')
 
-    fs.writeFileSync(
-      path.join(dir, 'package.json'),
-      '{"name":"probe","type":"module"}'
-    )
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"probe"}')
 
+    // CommonJS on purpose: Node 22.12 leaves a stray rejection behind when a
+    // required ES module throws, and that fails the run, not the test.
     fs.writeFileSync(
       path.join(dir, 'extension.config.js'),
       "throw new Error('config boom')\n" +
-        "export default {commands: {dev: {noBrowser: true, browser: 'firefox'}}}\n"
+        "module.exports = {commands: {dev: {noBrowser: true, browser: 'firefox'}}}\n"
     )
 
     return dir
