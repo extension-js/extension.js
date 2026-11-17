@@ -73,7 +73,8 @@ describe('a watch session is counted when it starts', () => {
       is_ci: false,
       is_source_build: true,
       $ip: null,
-      $geoip_disable: true
+      $geoip_disable: true,
+      $process_person_profile: false
     })
   })
 

@@ -6,6 +6,7 @@ Extension.js collects a tiny amount of anonymous telemetry to understand which c
 - Three properties on every event: `command`, `success`, `version`
 - Opt-out, with notice on first run
 - Sampled and capped to stay well inside the PostHog free tier
+- Every event carries `$process_person_profile: false`, which asks the analytics service not to build a person profile for the anonymous ID
 
 ## What is collected
 

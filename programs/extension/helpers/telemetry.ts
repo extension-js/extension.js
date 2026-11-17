@@ -998,8 +998,8 @@ export class Telemetry {
         enforcedProps.deps_install_seconds = depsSeconds
       }
 
-      // A null $ip is not an opt out on the capture endpoint, the project
-      // drops the address at ingestion and this keeps GeoIP from reading it.
+      // $ip and $geoip_disable keep the request address and any location
+      // out, $process_person_profile keeps a per-machine profile from forming.
       const payload = {
         event,
         properties: {
@@ -1007,7 +1007,8 @@ export class Telemetry {
           ...this.common,
           app: this.app,
           $ip: null as unknown as undefined,
-          $geoip_disable: true
+          $geoip_disable: true,
+          $process_person_profile: false
         },
         distinct_id: this.anonId
       }
