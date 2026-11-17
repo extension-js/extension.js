@@ -7,11 +7,11 @@
 
 # plugin-wasm
 
-> WebAssembly defaults for Extension.js builds: async wasm, `.wasm` resolution, and runtime asset aliases.
+> WebAssembly defaults for Extension.js builds: `.wasm` resolution and runtime asset aliases.
 
 ### What it does
 
-- **Async wasm**: Enables `experiments.asyncWebAssembly` for the updated wasm spec.
+- **Async wasm**: Leaves `experiments.asyncWebAssembly` to rspack, which turns it on by default. Setting `experiments.asyncWebAssembly: false` from the `config` function in `extension.config.js` turns wasm modules off.
 - **Resolution**: Ensures `.wasm` is resolvable by default.
 - **Runtime aliases**: Injects stable aliases for wasm runtime assets (ffmpeg, tesseract, imagemagick).
 - **Alias safety**: Preserves existing user aliases and only fills missing defaults.
@@ -22,7 +22,6 @@
 
 |                                                                            | Feature                                                                 |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Async WebAssembly**<br/>Enables async wasm modules required by libs.  |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **.wasm resolution**<br/>Ensures `resolve.extensions` includes `.wasm`. |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Runtime aliases**<br/>Stable aliasing for wasm-related assets.        |
 

@@ -99,17 +99,8 @@ export class WasmPlugin {
     }
   }
 
-  private ensureWasmExperiments(compiler: Compiler) {
-    compiler.options.experiments = {
-      ...compiler.options.experiments,
-      // Keep wasm async module support on; required by updated wasm spec.
-      asyncWebAssembly: true
-    }
-  }
-
   public apply(compiler: Compiler): void {
     const projectRoot = String(compiler.options.context || process.cwd())
-    this.ensureWasmExperiments(compiler)
     this.ensureWasmResolution(compiler, projectRoot)
   }
 }

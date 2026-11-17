@@ -31,8 +31,7 @@ describe('a .wasm import through a real compile', () => {
     expect(await build.evaluate()).toEqual({answer: 42})
   })
 
-  it('overrides a user asyncWebAssembly false', async () => {
-    // Pins today's behavior. Ledger 1386 D8.
+  it('respects a user asyncWebAssembly false', async () => {
     const build = await compileFixture({
       files,
       plugins: [],
@@ -42,8 +41,15 @@ describe('a .wasm import through a real compile', () => {
       })
     })
 
-    expect(build.compiler.options.experiments.asyncWebAssembly).toBe(true)
-    expect(build.errors).toEqual([])
-    expect(await build.evaluate()).toEqual({answer: 42})
+    expect(build.compiler.options.experiments.asyncWebAssembly).toBe(false)
+    expect(build.errors).toHaveLength(1)
+    // With the experiment off rspack has no wasm rule and parses the bytes as JS.
+    expect(build.errors[0]).toContain(
+      "JavaScript parse error: Unexpected character '\\0'"
+    )
+
+    expect(build.errors[0]).toContain(
+      'You may need an appropriate loader to handle this file type.'
+    )
   })
 })

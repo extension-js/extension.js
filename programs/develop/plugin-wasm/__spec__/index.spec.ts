@@ -76,7 +76,7 @@ describe('WasmPlugin', () => {
     expect(compiler.options.resolve.alias[FFMPEG_CORE_JS]).toBe(localJs)
   })
 
-  it('enables async wasm, adds the .wasm extension, and keeps user aliases', () => {
+  it('leaves experiments to rspack, adds the .wasm extension, and keeps user aliases', () => {
     const projectRoot = makeTemp('extjs-wasm-defaults-')
     const compiler = createCompiler(projectRoot, {keepMe: '/user/alias'})
 
@@ -85,7 +85,7 @@ describe('WasmPlugin', () => {
       mode: 'development'
     }).apply(compiler)
 
-    expect(compiler.options.experiments.asyncWebAssembly).toBe(true)
+    expect(compiler.options.experiments).toEqual({})
     expect(compiler.options.resolve.extensions).toContain('.wasm')
     expect(compiler.options.resolve.alias.keepMe).toBe('/user/alias')
     expect(compiler.options.resolve.alias[FFMPEG_CORE_JS]).toBeUndefined()
