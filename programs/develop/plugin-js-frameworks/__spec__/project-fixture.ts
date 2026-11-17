@@ -40,7 +40,7 @@ export function writeFiles(root: string, files: Files) {
 // A project folder in the run's temp folder, realpath'd so the paths the
 // detectors return compare equal to the ones a case builds.
 export function makeProject(files: Files = {}): string {
-  const root = fs.realpathSync(
+  const root = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-frameworks-'))
   )
   roots.push(root)

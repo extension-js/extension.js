@@ -116,7 +116,7 @@ describe('React refresh and the background script in development', () => {
 
     expect(errors).toEqual([])
     expect(background).toContain('$RefreshReg$')
-    expect(background).toMatch(/client[\\/]reactRefresh\.js/)
+    expect(background).toMatch(/client[\\/]+reactRefresh\.js/)
     expect(background).not.toContain('reactRefreshEntry')
   })
 })
