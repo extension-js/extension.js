@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import parse from 'content-security-policy-parser'
+import {isGeckoBasedBrowser} from '../../../../lib/constants'
 import type {Manifest} from '../../../../types'
 
 function resolveV2Policy(policy: Manifest['content_security_policy']) {
@@ -24,8 +25,8 @@ function resolveV2Policy(policy: Manifest['content_security_policy']) {
 }
 
 function buildCSP(cspObject: Record<string, string[]>) {
-  const directives = Object.entries(cspObject).map(
-    ([directive, values]) => `${directive} ${values.join(' ')}`
+  const directives = Object.entries(cspObject).map(([directive, values]) =>
+    values.length ? `${directive} ${values.join(' ')}` : directive
   )
 
   return `${directives.join('; ')}; `
@@ -58,22 +59,40 @@ function devConnectSources(): string[] {
   return sources
 }
 
-function loosenConnectSrcForDev(csp: Map<string, string[]>) {
-  const devSources = devConnectSources()
-  const connectSrc = csp.get('connect-src')
-  const defaultSrc = csp.get('default-src')
+// 'none' is only valid alone: a directive that gains a source drops it,
+// or the browser reports the directive and ignores the keyword anyway.
+export function withAddedSources(current: string[], added: string[]) {
+  const sources = current.filter((source) => source.toLowerCase() !== "'none'")
 
-  if (connectSrc) {
-    for (const source of devSources) {
-      if (!connectSrc.includes(source)) connectSrc.push(source)
-    }
-
-    csp.set('connect-src', connectSrc)
-  } else if (defaultSrc) {
-    // No connect-src: connections fall back to default-src, extend a copy
-    // as an explicit connect-src instead of loosening default-src itself.
-    csp.set('connect-src', [...defaultSrc, ...devSources])
+  for (const source of added) {
+    if (!sources.includes(source)) sources.push(source)
   }
+
+  return sources
+}
+
+// An unset fetch directive reads default-src, so the dev copy starts from
+// it: what the author allowed stays allowed and nothing else is opened.
+function addDevSources(
+  csp: Map<string, string[]>,
+  directive: string,
+  added: string[],
+  whenNoPolicyCovers?: string[]
+) {
+  const current =
+    csp.get(directive) || csp.get('default-src') || whenNoPolicyCovers
+
+  if (current) csp.set(directive, withAddedSources(current, added))
+}
+
+// Firefox upgrades the loopback ws:// dial to TLS under this directive and
+// the dev server never answers it, so reload and control stay dark.
+function loosenConnectSrcForDev(csp: Map<string, string[]>, browser?: string) {
+  if (browser && isGeckoBasedBrowser(browser)) {
+    csp.delete('upgrade-insecure-requests')
+  }
+
+  addDevSources(csp, 'connect-src', devConnectSources())
 }
 
 type V3Policy = Record<string, unknown> & {extension_pages: string}
@@ -97,11 +116,11 @@ function keepSiblingSlots(
 
 // MV2 reads one string, so the dev policy is the loosened pages policy on
 // its own. The canonical manifest already folded an object to that string.
-export function patchV2CSP(manifest: Manifest): string {
-  return patchV2PagesPolicy(manifest)
+export function patchV2CSP(manifest: Manifest, browser?: string): string {
+  return patchV2PagesPolicy(manifest, browser)
 }
 
-function patchV2PagesPolicy(manifest: Manifest): string {
+function patchV2PagesPolicy(manifest: Manifest, browser?: string): string {
   const policy: string | undefined = resolveV2Policy(
     manifest.content_security_policy
   )
@@ -115,50 +134,23 @@ function patchV2PagesPolicy(manifest: Manifest): string {
 
   const csp = parse(policy)
 
-  if (!csp.get('script-src')) {
-    csp.set('script-src', ["'self'", "'unsafe-eval'", 'blob:', 'filesystem:'])
-  } else {
-    const scriptSrc = csp.get('script-src') || []
+  addDevSources(
+    csp,
+    'script-src',
+    ["'unsafe-eval'", 'blob:', 'filesystem:'],
+    ["'self'"]
+  )
 
-    if (!scriptSrc.includes("'unsafe-eval'")) {
-      scriptSrc.push("'unsafe-eval'")
-    }
+  addDevSources(csp, 'object-src', ['blob:', 'filesystem:'], ["'self'"])
 
-    if (!scriptSrc.includes('blob:')) {
-      scriptSrc.push('blob:')
-    }
-
-    if (!scriptSrc.includes('filesystem:')) {
-      scriptSrc.push('filesystem:')
-    }
-
-    csp.set('script-src', scriptSrc)
-  }
-
-  if (!csp.get('object-src')) {
-    csp.set('object-src', ["'self'", 'blob:', 'filesystem:'])
-  } else {
-    const objectSrc = csp.get('object-src') || []
-
-    if (!objectSrc.includes('blob:')) {
-      objectSrc.push('blob:')
-    }
-
-    if (!objectSrc.includes('filesystem:')) {
-      objectSrc.push('filesystem:')
-    }
-
-    csp.set('object-src', objectSrc)
-  }
-
-  loosenConnectSrcForDev(csp)
+  loosenConnectSrcForDev(csp, browser)
 
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
 
   return buildCSP(cspObject)
 }
 
-export function patchV3CSP(manifest: Manifest): V3Policy {
+export function patchV3CSP(manifest: Manifest, browser?: string): V3Policy {
   const policy = manifest.content_security_policy
 
   if (!policy) {
@@ -175,21 +167,16 @@ export function patchV3CSP(manifest: Manifest): V3Policy {
       ? policy
       : (policy as {extension_pages?: unknown}).extension_pages
   const csp = parse(typeof extensionPages === 'string' ? extensionPages : '')
-  const defaultDirectives = {
-    'script-src': ["'self'"],
-    'object-src': ["'self'"]
-  }
 
-  for (const directive in defaultDirectives) {
-    if (!csp.get(directive)) {
-      csp.set(
-        directive,
-        defaultDirectives[directive as keyof typeof defaultDirectives]
-      )
+  // Chrome refuses a pages policy that leaves scripts or objects uncovered.
+  // An author's default-src covers both, and a copy here would override it.
+  if (!csp.get('default-src')) {
+    for (const directive of ['script-src', 'object-src']) {
+      if (!csp.get(directive)) csp.set(directive, ["'self'"])
     }
   }
 
-  loosenConnectSrcForDev(csp)
+  loosenConnectSrcForDev(csp, browser)
 
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
   const extensionPagesPolicy = buildCSP(cspObject)
