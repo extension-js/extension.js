@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {Compilation, type Compiler, rspack} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
@@ -137,11 +137,7 @@ export class SpecialFoldersPlugin {
           {
             name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
             // Late enough that HTML and CSS assets exist to be scanned.
-            stage: (
-              compilation.constructor as unknown as {
-                PROCESS_ASSETS_STAGE_SUMMARIZE: number
-              }
-            ).PROCESS_ASSETS_STAGE_SUMMARIZE
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () =>
             // Root refs resolve from the EXTENSION root (the manifest dir),
@@ -205,11 +201,7 @@ export class SpecialFoldersPlugin {
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,
-              stage: (
-                compilation.constructor as unknown as {
-                  PROCESS_ASSETS_STAGE_PRE_PROCESS: number
-                }
-              ).PROCESS_ASSETS_STAGE_PRE_PROCESS
+              stage: Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS
             },
             () => {
               checkManifestInPublic(compilation, publicDir)
@@ -221,11 +213,7 @@ export class SpecialFoldersPlugin {
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:collisions`,
-              stage: (
-                compilation.constructor as unknown as {
-                  PROCESS_ASSETS_STAGE_REPORT: number
-                }
-              ).PROCESS_ASSETS_STAGE_REPORT
+              stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
             },
             () => {
               explainPublicOutputCollision(compilation, publicDir)
