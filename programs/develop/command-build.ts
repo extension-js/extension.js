@@ -72,7 +72,8 @@ import {
   claimCardKey,
   debugLine,
   holdHumanLines,
-  isDebug
+  isDebug,
+  isMachineOutput
 } from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
@@ -355,6 +356,9 @@ async function runBuild(
   // Whoever imports the build keeps the NODE_ENV they started it with.
   const nodeEnvBefore = process.env.NODE_ENV
   let nodeEnvChanged = false
+  // Finding the project and its browser comes before any build work, and a
+  // refusal there is the whole answer: under machine output the frame has it.
+  let findingProject = true
 
   try {
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
@@ -383,6 +387,8 @@ async function runBuild(
       buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
       buildOptions?.safariBinary
     )
+
+    findingProject = false
 
     await ensureDevelopArtifacts()
 
@@ -1121,7 +1127,9 @@ async function runBuild(
     // thrown value with none is wrapped before it is printed and passed on.
     const error = readableFailure(thrown)
 
-    if (!reportedBuildFailures.has(error)) {
+    const frameCarriesIt = findingProject && isMachineOutput()
+
+    if (!frameCarriesIt && !reportedBuildFailures.has(error)) {
       if (isDebug()) {
         console.error(error)
       } else {

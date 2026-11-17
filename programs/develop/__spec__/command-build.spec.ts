@@ -1724,5 +1724,37 @@ describe('webpack/command-build', () => {
       expect(errors).toContain('no manifest here')
       expect(errors).toContain('Build failed with 1 error.')
     })
+
+    it('leaves a project it cannot find to the frame under machine output', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const projectMod = await import('../lib/project')
+
+      vi.stubEnv('EXTENSION_OUTPUT', 'json')
+      ;(projectMod.getProjectStructure as any).mockRejectedValueOnce(
+        new Error('no manifest here')
+      )
+
+      await expect(
+        extensionBuild('/nowhere', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('no manifest here')
+
+      expect(printedErrors(localErrorSpy)).toBe('')
+
+      // Past the project lookup a failure keeps its lines on stderr.
+      ;(ensureArtifactsMod.ensureDevelopArtifacts as any).mockRejectedValueOnce(
+        new Error('boom')
+      )
+
+      await expect(
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('boom')
+
+      expect(printedErrors(localErrorSpy)).toContain('boom')
+      expect(printedErrors(localErrorSpy)).toContain(
+        'Build failed with 1 error.'
+      )
+    })
   })
 })
