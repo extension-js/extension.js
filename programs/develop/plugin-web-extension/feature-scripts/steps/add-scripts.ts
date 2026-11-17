@@ -66,7 +66,7 @@ export function createSequentialEntryModule(
   }
 
   const source = [
-    `/* extension.js sequential entry: ${feature} */`,
+    `/* Extension.js sequential entry: ${feature} */`,
     ...jsFiles.map(
       (entryImport) => `import ${JSON.stringify(String(entryImport))};`
     )
