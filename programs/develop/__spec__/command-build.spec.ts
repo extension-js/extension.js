@@ -1,3 +1,4 @@
+import {AsyncLocalStorage} from 'node:async_hooks'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -1327,6 +1328,32 @@ describe('webpack/command-build', () => {
 
     afterEach(() => {
       vi.unstubAllEnvs()
+    })
+
+    it('starts the bundler outside any async scope and settles inside it', async () => {
+      const callerScope = new AsyncLocalStorage<string>()
+      const seen: Record<string, string | undefined> = {}
+      const stats = {
+        hasErrors: () => false,
+        toJson: () => {
+          seen.settle = callerScope.getStore()
+
+          return {assets: [], warnings: [], errors: [], time: 1}
+        }
+      }
+      rspackMock.mockReturnValue({
+        run: (cb: any) => {
+          seen.run = callerScope.getStore()
+          cb(null, stats)
+        },
+        close: (cb: any) => cb?.()
+      })
+
+      await callerScope.run('caller', () =>
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      )
+
+      expect(seen).toEqual({run: undefined, settle: 'caller'})
     })
 
     it('rejects and removes the staging folder when reading the result throws', async () => {

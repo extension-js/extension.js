@@ -30,6 +30,7 @@ import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {codedError} from './lib/coded-error'
 import {
+  outsideCodedWarnings,
   recordCodedWarning,
   takeCodedWarnings,
   withCodedWarnings
@@ -1067,13 +1068,15 @@ async function runBuild(
         }
       }
 
-      // The bundler calls back from its own thread hop, so the callback is
-      // bound to this build's scope to read the warnings recorded in it.
-      compiler.run(
-        AsyncResource.bind((err, stats) => {
+      // The bundler starts outside this build's scope and calls back from its
+      // own thread hop, so the callback is bound to read this build's warnings.
+      const settled = AsyncResource.bind(
+        (err: Error | null, stats: Parameters<typeof settle>[1]) => {
           settle(err, stats).catch(reject)
-        })
+        }
       )
+
+      outsideCodedWarnings(() => compiler.run(settled))
     })
 
     // The packager reads the folder the bundler actually emitted into, which
