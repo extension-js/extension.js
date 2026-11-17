@@ -263,7 +263,7 @@ export class RdpTransport extends EventEmitter {
 
       this.active.delete(to)
       entry.deferred.reject(
-        new Error(`RDP request to "${to}" timed out after ${timeoutMs}ms`)
+        protocolError(`RDP request to "${to}" timed out after ${timeoutMs}ms`)
       )
 
       this.flush()

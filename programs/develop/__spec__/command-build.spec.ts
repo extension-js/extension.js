@@ -22,11 +22,9 @@ vi.mock('../lib/project', () => ({
 const SOME_OTHER_PLUGIN = {constructor: {name: 'OtherPlugin'}}
 
 vi.mock('../rspack-config', async () => {
-  const pluginBrowsersLike = {constructor: {name: 'plugin-browsers'}}
-
   return {
     default: vi.fn(() => ({
-      plugins: [pluginBrowsersLike, SOME_OTHER_PLUGIN],
+      plugins: [SOME_OTHER_PLUGIN],
       output: {}
     }))
   }
@@ -138,7 +136,7 @@ describe('webpack/command-build', () => {
     vi.restoreAllMocks()
   })
 
-  it('builds successfully, filters browser plugins, merges user config, and returns summary', async () => {
+  it('builds successfully, passes the plugins on, merges user config, and returns summary', async () => {
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
     })

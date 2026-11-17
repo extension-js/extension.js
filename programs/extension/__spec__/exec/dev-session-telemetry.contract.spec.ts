@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -10,30 +9,19 @@ import {
 } from 'node:fs'
 import http from 'node:http'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {freshCliHome, runCli, startCli} from '../helpers/run-cli'
 
 // `dev` never resolves `parseAsync` and dies from a signal, which Node answers
 // with no `beforeExit`, so a successful session used to report nothing at all.
 // This spawns the real CLI, waits for the session to come up, and reads the
 // collector while the process is still running.
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-
 interface CaptureEvent {
   event: string
   properties: Record<string, unknown>
   distinct_id: string
-}
-
-function cliBin(): string {
-  const cjs = join(cliRoot, 'dist', 'cli.cjs')
-  if (existsSync(cjs)) return cjs
-
-  return join(cliRoot, 'dist', 'cli.js')
 }
 
 function createFixture(): string {
@@ -67,9 +55,13 @@ function createFixture(): string {
 function startCaptureServer(): Promise<{
   port: number
   events: CaptureEvent[]
+  unread: string[]
   close: () => Promise<void>
 }> {
   const events: CaptureEvent[] = []
+  // A body that does not parse is kept, so "no failure was sent" can't pass
+  // on a batch the spec never read.
+  const unread: string[] = []
   const server = http.createServer((req, res) => {
     let body = ''
     req.on('data', (chunk) => (body += chunk))
@@ -79,7 +71,7 @@ function startCaptureServer(): Promise<{
           const parsed = JSON.parse(body) as {batch?: CaptureEvent[]}
           for (const event of parsed.batch ?? []) events.push(event)
         } catch {
-          // Ignore
+          unread.push(body)
         }
       }
 
@@ -95,6 +87,7 @@ function startCaptureServer(): Promise<{
       done({
         port,
         events,
+        unread,
         close: () =>
           new Promise<void>((closed) => {
             server.close(() => closed())
@@ -116,47 +109,6 @@ function auditRows(configHome: string): CaptureEvent[] {
     .map((line) => JSON.parse(line) as CaptureEvent)
 }
 
-function runToExit(
-  args: string[],
-  env: Record<string, string>
-): Promise<{status: number | null; stdout: string; stderr: string}> {
-  return new Promise((done) => {
-    const child = spawn(process.execPath, [cliBin(), ...args], {
-      cwd: cliRoot,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {...process.env, ...env}
-    })
-
-    let stdout = ''
-    let stderr = ''
-    child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-    child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-    child.on('close', (status) => done({status, stdout, stderr}))
-  })
-}
-
-function waitFor(
-  predicate: () => boolean,
-  timeoutMs: number,
-  label: string
-): Promise<void> {
-  const started = Date.now()
-
-  return new Promise((done, fail) => {
-    const tick = () => {
-      if (predicate()) return done()
-
-      if (Date.now() - started > timeoutMs) {
-        return fail(new Error(`timed out waiting for ${label}`))
-      }
-
-      setTimeout(tick, 100)
-    }
-
-    tick()
-  })
-}
-
 describe('a dev session reports itself while it is still running', () => {
   const cleanups: Array<() => Promise<void> | void> = []
 
@@ -171,52 +123,39 @@ describe('a dev session reports itself while it is still running', () => {
     const projectDir = createFixture()
     cleanups.push(() => rmSync(projectDir, {recursive: true, force: true}))
 
-    const configHome = mkdtempSync(join(tmpdir(), 'extjs-session-config-'))
-    cleanups.push(() => rmSync(configHome, {recursive: true, force: true}))
-
-    let output = ''
-    let closed = false
-    const child = spawn(
-      process.execPath,
-      [cliBin(), 'dev', projectDir, '--no-browser', '--browser=chromium'],
+    const home = freshCliHome()
+    const session = startCli(
+      ['dev', projectDir, '--no-browser', '--browser=chromium'],
       {
-        cwd: cliRoot,
-        stdio: 'pipe',
+        telemetry: true,
+        home,
         env: {
-          ...process.env,
-          NO_COLOR: '1',
-          EXTENSION_ENV: 'test',
           POSTHOG_HOST: `http://127.0.0.1:${server.port}`,
           EXTENSION_TELEMETRY: '1',
           EXTENSION_TELEMETRY_TIMEOUT_MS: '5000',
           // Zero, so an event that arrives proves the session row is never up
           // for sampling: the failure rate needs a matching denominator.
           EXTENSION_TELEMETRY_SAMPLE_RATE: '0',
-          XDG_CONFIG_HOME: configHome,
-          XDG_CACHE_HOME: configHome,
           npm_config_user_agent: 'pnpm/10.28.0 npm/? node/v23.8.0 darwin arm64'
         }
       }
     )
-    cleanups.push(() => {
-      if (!closed) child.kill('SIGKILL')
-    })
+    let closed = false
 
-    child.stdout.on('data', (chunk) => (output += chunk.toString()))
-    child.stderr.on('data', (chunk) => (output += chunk.toString()))
-    child.on('close', () => {
+    cleanups.push(() => session.killGroup())
+    void session.closed.then(() => {
       closed = true
     })
 
-    await waitFor(
-      () => output.includes('Watching for file changes.'),
+    await session.waitFor(
+      () => session.read().output.includes('Watching for file changes.'),
       90_000,
-      `the dev session to come up, output so far:\n${output}`
+      'the dev session to come up'
     )
 
     // Still running: nothing here waited for an exit, which is the whole point.
     // The ready row is the later of the two, so both are in once it lands.
-    await waitFor(
+    await session.waitFor(
       () => server.events.some((event) => event.properties.session === 'ready'),
       15_000,
       'the dev session events'
@@ -233,8 +172,9 @@ describe('a dev session reports itself while it is still running', () => {
     expect(started[0].event).toBe('command_executed')
     expect(started[0].properties.success).toBe(true)
     expect(started[0].properties.session).toBe('started')
-    expect(typeof started[0].properties.is_source_build).toBe('boolean')
-    expect(typeof started[0].properties.is_ci).toBe('boolean')
+    // The CLI runs from this checkout, and the child's env names no CI.
+    expect(started[0].properties.is_source_build).toBe(true)
+    expect(started[0].properties.is_ci).toBe(false)
     expect(started[0].properties.package_manager).toBe('pnpm')
 
     // No browser is launched here, so ready is the first clean compile.
@@ -249,11 +189,9 @@ describe('a dev session reports itself while it is still running', () => {
       Object.keys(started[0].properties).sort()
     )
 
-    child.kill('SIGINT')
-    await waitFor(() => closed, 20_000, 'the dev session to end').catch(() => {
-      // The exit path belongs to the dev server and the browser handlers. This
-      // spec is about the row, not about who ends the process.
-    })
+    // The exit path belongs to the dev server. This spec is about the rows,
+    // so a session that outlives the grace period is ended by its group.
+    await session.stop('SIGINT', 20_000)
 
     // A Ctrl-C is not a failure, and neither row is counted twice.
     const devEvents = server.events.filter(
@@ -267,6 +205,20 @@ describe('a dev session reports itself while it is still running', () => {
     expect(
       server.events.filter((event) => event.event === 'command_failed')
     ).toEqual([])
+
+    expect(server.unread).toEqual([])
+
+    // The audit log is written before each send, so a failure row the exit
+    // raced past the collector still shows here.
+    expect(
+      auditRows(home.configHome).map((row) => [
+        row.event,
+        row.properties.session
+      ])
+    ).toEqual([
+      ['command_executed', 'started'],
+      ['command_executed', 'ready']
+    ])
   }, 150_000)
 
   it('reports a session that died on a throwing config, in both outputs', async () => {
@@ -290,11 +242,13 @@ describe('a dev session reports itself while it is still running', () => {
       'Fix the config file, then run the command again.\n'
 
     for (const output of ['pretty', 'json'] as const) {
-      const configHome = mkdtempSync(join(tmpdir(), 'extjs-session-config-'))
-      cleanups.push(() => rmSync(configHome, {recursive: true, force: true}))
+      const home = freshCliHome()
+      const configHome = home.configHome
       server.events.length = 0
 
-      const run = await runToExit(
+      // The helper strips the runner's markers: inherited, VITEST turns
+      // develop's exit into a rejection and the run takes another path.
+      const run = await runCli(
         [
           'dev',
           projectDir,
@@ -303,18 +257,12 @@ describe('a dev session reports itself while it is still running', () => {
           ...(output === 'json' ? ['--output', 'json'] : [])
         ],
         {
-          NO_COLOR: '1',
-          // Node 22.12 warns on stderr when CommonJS loads an ES module; that
-          // line is Node's, not ours, and stderr is compared whole below.
-          NODE_NO_WARNINGS: '1',
-          EXTENSION_ENV: 'test',
-          POSTHOG_HOST: `http://127.0.0.1:${server.port}`,
-          EXTENSION_TELEMETRY: '1',
-          // Inherited, it turns develop's exit into a rejection and the run
-          // would take the top-level handler instead of the path under test.
-          VITEST: '',
-          XDG_CONFIG_HOME: configHome,
-          XDG_CACHE_HOME: configHome
+          telemetry: true,
+          home,
+          env: {
+            POSTHOG_HOST: `http://127.0.0.1:${server.port}`,
+            EXTENSION_TELEMETRY: '1'
+          }
         }
       )
 

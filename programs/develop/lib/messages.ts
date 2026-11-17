@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
 import colors, {supportsColor} from 'pintor'
 import type {DevOptions, Manifest} from '../types'
+import {stripLoaderWrapper} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import type {InstallFailure} from './install-registry-failure'
 import {
@@ -777,12 +778,6 @@ type LooseBuildWarning =
       chunkName?: unknown
     }
 
-// rspack wraps loader warnings in "Module Warning (from <loader path>):",
-// which only repeats what the Source line already says.
-function stripModuleWarningWrapper(message: string): string {
-  return message.replace(/^Module (?:Warning|Error) \(from [^)]*\):\s*/, '')
-}
-
 // eslint-disable-next-line no-control-regex
 const ANSI_CODES = /\u001b\[[0-9;]*m/g
 const WARNING_HEAD_MARKER =
@@ -812,7 +807,7 @@ function stripBundlerDecoration(message: string): string {
 }
 
 function cleanWarningText(message: string): string {
-  return stripModuleWarningWrapper(stripBundlerDecoration(message))
+  return stripLoaderWrapper(stripBundlerDecoration(message))
 }
 
 function getWarningMessage(warning: LooseBuildWarning): string {

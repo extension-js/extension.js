@@ -584,10 +584,8 @@ async function runBuild(
       }
     })
 
-    const allPluginsButBrowserRunners = baseConfig.plugins?.filter((plugin) => {
+    const buildPlugins = baseConfig.plugins?.filter((plugin) => {
       const name = plugin?.constructor.name
-
-      if (name === 'plugin-browsers') return false
 
       return !(liveDevSession && name === 'plugin-playwright')
     })
@@ -604,7 +602,7 @@ async function runBuild(
     )
     const userConfig = userExtensionConfig({
       ...baseConfig,
-      plugins: allPluginsButBrowserRunners
+      plugins: buildPlugins
     })
 
     const compilerConfig = applySplitChunksGuard(userConfig)

@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import postcss from 'postcss'
+import {toProjectRelativePath} from '../lib/resource-path'
 import * as messages from './css-lib/messages'
 import {
   registerVerbatimCss,
@@ -17,6 +18,7 @@ import {
 
 interface CssParseGuardLoaderContext {
   resourcePath: string
+  rootContext?: string
   _module?: {type?: unknown}
   async(): (err: Error | null, content?: string) => void
   emitWarning(warning: Error): void
@@ -50,7 +52,10 @@ export function pitch(this: CssParseGuardLoaderContext): void {
         this.emitWarning(
           Object.assign(
             new Error(
-              messages.cssParseErrorShippedVerbatim(this.resourcePath, error)
+              messages.cssParseErrorShippedVerbatim(
+                toProjectRelativePath(this.rootContext, this.resourcePath),
+                error
+              )
             ),
             {name: 'CssParseWarning'}
           )
