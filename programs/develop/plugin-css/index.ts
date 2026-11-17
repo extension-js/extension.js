@@ -220,11 +220,7 @@ export class CssPlugin {
   // the minimizer error-recovered into fewer rules than the browser would
   // keep ships unminified, with a warning naming what it dropped.
   private keepCssParityInProduction(compiler: Compiler) {
-    if (!compiler.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:parity`, (c) => {
-      if (!c?.hooks?.processAssets?.tap) return
-
       const beforeMinify = new Map<string, string>()
       c.hooks.processAssets.tap(
         {
@@ -277,11 +273,7 @@ export class CssPlugin {
   // A page sheet's url() to a file public/ owns left the loader chain behind
   // a scheme rspack does not request; the emitted sheet names the root path.
   private restorePublicRootRefs(compiler: Compiler) {
-    if (!compiler.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:public`, (c) => {
-      if (!c?.hooks?.processAssets?.tap) return
-
       c.hooks.processAssets.tap(
         {
           name: `${CssPlugin.name}:public-root-restore`,
@@ -320,15 +312,6 @@ export class CssPlugin {
       /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
     let compilation: import('@rspack/core').Compilation | null = null
     const warned = new Set<string>()
-
-    // Minimal/mock compilers in specs don't carry these hooks.
-    if (
-      !compiler.hooks?.thisCompilation?.tap ||
-      !(compiler.hooks as {normalModuleFactory?: {tap?: unknown}})
-        ?.normalModuleFactory?.tap
-    ) {
-      return
-    }
 
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:dead-url`, (c) => {
       compilation = c
@@ -425,8 +408,6 @@ export class CssPlugin {
   }
 
   public async apply(compiler: Compiler) {
-    // Parity first: a minimal compiler in a spec keeps one thisCompilation
-    // tap, and the dead-url guard is the one those specs exercise.
     this.keepCssParityInProduction(compiler)
     this.restorePublicRootRefs(compiler)
     this.tolerateDeadUrlRefs(compiler)
