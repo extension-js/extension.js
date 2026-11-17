@@ -6,6 +6,7 @@ import {getPreloadedEnvKeys} from '../../lib/config-loader'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {
   EnvPlugin,
+  getEnvFileLayers,
   IMPORT_META_URL_RUNTIME,
   importMetaUrlForEmitPath,
   toJsStringLiteral
@@ -103,7 +104,7 @@ afterAll(() => {
 })
 
 describe('EnvPlugin env file selection', () => {
-  it('picks the first env file that exists, in the family order', async () => {
+  it('lets the most specific env file that exists win, in the family order', async () => {
     const order = [
       '.env.chrome.development',
       '.env.chrome',
@@ -152,7 +153,7 @@ describe('EnvPlugin env file selection', () => {
     expect((await build(root, {mode: 'production'})).logs()).toEqual(['prod'])
   })
 
-  it('lets a genuine shell value outrank the selected env file and defaults', async () => {
+  it('lets a genuine shell value outrank an env file and the defaults', async () => {
     const root = project(
       {
         '.env.defaults':
@@ -174,7 +175,7 @@ describe('EnvPlugin env file selection', () => {
 
   // dotenv.config in the config loader mutates process.env, and the merge
   // treats process.env as the shell layer, so a preloaded key steps back.
-  it('keeps a preloaded .env.defaults key from outranking the selected env file', async () => {
+  it('keeps a preloaded .env.defaults key from outranking a stronger env file', async () => {
     const root = project({
       '.env.defaults': 'EXTENSION_PUBLIC_FOO=defFoo\n',
       '.env.chrome.development': 'EXTENSION_PUBLIC_FOO=envFoo\n'
@@ -235,8 +236,7 @@ describe('EnvPlugin env file selection', () => {
 })
 
 describe('EnvPlugin env file layers', () => {
-  // Pins today's behavior: one file is read, so a key only in .env is lost.
-  it('drops a key only in .env when .env.production also exists', async () => {
+  it('keeps a key only in .env when .env.production also exists', async () => {
     const root = project(
       {
         '.env':
@@ -247,8 +247,217 @@ describe('EnvPlugin env file layers', () => {
     )
 
     expect((await build(root, {mode: 'production'})).logs()).toEqual([
-      'production undefined'
+      'production dotenv-only'
     ])
+  })
+
+  // File N sets keys N and up, so key N is contested by every file up to N
+  // and reads the name of the file that won it.
+  it('merges every layer weakest first, key by key', async () => {
+    const weakestFirst = [
+      '.env.defaults',
+      '.env',
+      '.env.local',
+      '.env.development',
+      '.env.chromium-based',
+      '.env.chromium-based.development',
+      '.env.edge',
+      '.env.edge.development',
+      '.env.chromium',
+      '.env.chromium.development',
+      '.env.chrome',
+      '.env.chrome.development'
+    ]
+    const keys = weakestFirst.map((_, index) => `EXTENSION_PUBLIC_K${index}`)
+    const root = project(
+      {
+        '.env.production': keys
+          .map((key) => `${key}=.env.production\n`)
+          .join(''),
+        '.env.firefox': keys.map((key) => `${key}=.env.firefox\n`).join(''),
+        ...Object.fromEntries(
+          weakestFirst.map((file, index) => [
+            file,
+            keys
+              .slice(index)
+              .map((key) => `${key}=${file}\n`)
+              .join('')
+          ])
+        )
+      },
+      `console.log(${keys.map((key) => `process.env.${key}`).join(', ')})\n`
+    )
+
+    expect(getEnvFileLayers('chrome', 'development')).toEqual(weakestFirst)
+    expect((await build(root)).logs()).toEqual([weakestFirst.join(' ')])
+  })
+
+  it('reads the mode file of the running mode and never the other one', async () => {
+    const root = project(
+      {
+        '.env': 'EXTENSION_PUBLIC_FOO=dotenv\n',
+        '.env.development':
+          'EXTENSION_PUBLIC_FOO=development\nEXTENSION_PUBLIC_DEV=dev-only\n',
+        '.env.production':
+          'EXTENSION_PUBLIC_FOO=production\nEXTENSION_PUBLIC_PROD=prod-only\n'
+      },
+      'console.log(process.env.EXTENSION_PUBLIC_FOO, process.env.EXTENSION_PUBLIC_DEV, process.env.EXTENSION_PUBLIC_PROD)\n'
+    )
+
+    expect((await build(root)).logs()).toEqual([
+      'development dev-only undefined'
+    ])
+
+    expect((await build(root, {mode: 'production'})).logs()).toEqual([
+      'production undefined prod-only'
+    ])
+  })
+
+  it('lets a shell value outrank every layer', async () => {
+    const root = project({
+      '.env.defaults': 'EXTENSION_PUBLIC_FOO=defaults\n',
+      '.env': 'EXTENSION_PUBLIC_FOO=dotenv\n',
+      '.env.local': 'EXTENSION_PUBLIC_FOO=local\n',
+      '.env.development': 'EXTENSION_PUBLIC_FOO=development\n',
+      '.env.chrome.development': 'EXTENSION_PUBLIC_FOO=chrome\n'
+    })
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'shell')
+
+    expect((await build(root)).logs()).toEqual(['shell'])
+  })
+
+  it('fills JSON and HTML placeholders from the same layered values', async () => {
+    const root = project({
+      '.env.defaults': 'EXTENSION_PUBLIC_BASE=defaults\n',
+      '.env':
+        'EXTENSION_PUBLIC_FOO=dotenv\nEXTENSION_PUBLIC_ONLY=dotenv-only\n',
+      '.env.local': 'EXTENSION_PUBLIC_LOCAL=local\n',
+      '.env.production': 'EXTENSION_PUBLIC_FOO=production\n',
+      'manifest.json':
+        '{"a":"$EXTENSION_PUBLIC_BASE","b":"$EXTENSION_PUBLIC_ONLY","c":"$EXTENSION_PUBLIC_LOCAL","d":"$EXTENSION_PUBLIC_FOO"}',
+      'index.html':
+        '<p>$EXTENSION_PUBLIC_BASE $EXTENSION_PUBLIC_ONLY $EXTENSION_PUBLIC_LOCAL $EXTENSION_PUBLIC_FOO</p>'
+    })
+    const result = await build(root, {
+      mode: 'production',
+      copy: ['manifest.json', 'index.html']
+    })
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"a":"defaults","b":"dotenv-only","c":"local","d":"production"}'
+    )
+
+    expect(result.asset('index.html')).toBe(
+      '<p>defaults dotenv-only local production</p>'
+    )
+
+    expect(result.warnings).toEqual([])
+  })
+
+  it('warns about a private or secret-looking name from a weaker layer', async () => {
+    const root = project({
+      '.env':
+        'EXTENSION_SECRET_TOKEN=file-secret\nEXTENSION_PUBLIC_API_KEY=shipped-key\n',
+      '.env.production': 'EXTENSION_PUBLIC_FOO=production\n',
+      'manifest.json': '{"key":"$EXTENSION_SECRET_TOKEN"}'
+    })
+    const result = await build(root, {
+      mode: 'production',
+      copy: ['manifest.json']
+    })
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"key":"$EXTENSION_SECRET_TOKEN"}'
+    )
+
+    expect(result.warnings.map((warning) => warning.name)).toEqual([
+      'EnvPublicSecretName',
+      'EnvPrivatePlaceholder'
+    ])
+
+    expect(JSON.stringify(result.warnings)).not.toMatch(
+      /file-secret|shipped-key/
+    )
+  })
+
+  it('tracks each layer as a dependency, present or missing', async () => {
+    const root = project({'.env': 'EXTENSION_PUBLIC_FOO=dotenv\n'})
+    const dependencies = (result: Awaited<ReturnType<typeof build>>) => ({
+      file: [...result.stats.compilation.fileDependencies]
+        .filter((file) => path.basename(file).startsWith('.env'))
+        .map((file) => path.relative(root, file))
+        .sort(),
+      missing: [...result.stats.compilation.missingDependencies]
+        .filter((file) => path.basename(file).startsWith('.env'))
+        .map((file) => path.relative(root, file))
+        .sort()
+    })
+    const first = await build(root, {mode: 'production'})
+
+    expect(first.logs()).toEqual(['dotenv'])
+    expect(dependencies(first)).toEqual({
+      file: ['.env'],
+      missing: [
+        '.env.chrome',
+        '.env.chrome.production',
+        '.env.chromium',
+        '.env.chromium-based',
+        '.env.chromium-based.production',
+        '.env.chromium.production',
+        '.env.defaults',
+        '.env.edge',
+        '.env.edge.production',
+        '.env.local',
+        '.env.production'
+      ]
+    })
+
+    writeFiles(root, {'.env.local': 'EXTENSION_PUBLIC_FOO=local\n'})
+    const second = await build(root, {mode: 'production'})
+
+    expect(second.logs()).toEqual(['local'])
+    expect(dependencies(second).file).toEqual(['.env', '.env.local'])
+    expect(dependencies(second).missing).not.toContain('.env.local')
+  })
+
+  it('layers the workspace root files when the package has none', async () => {
+    const root = makeTempRoot('env-workspace-layers')
+    writeFiles(root, {
+      'pnpm-workspace.yaml': "packages: ['packages/*']\n",
+      '.env':
+        'EXTENSION_PUBLIC_FOO=rootDotenv\nEXTENSION_PUBLIC_ONLY=rootOnly\n',
+      '.env.development': 'EXTENSION_PUBLIC_FOO=rootDevelopment\n',
+      'packages/ext/manifest.json': '{}',
+      'packages/ext/background.js':
+        'console.log(process.env.EXTENSION_PUBLIC_FOO, process.env.EXTENSION_PUBLIC_ONLY)\n'
+    })
+
+    const context = path.join(root, 'packages', 'ext')
+    const result = await build(root, {context})
+
+    expect(result.logs()).toEqual(['rootDevelopment rootOnly'])
+    // A file written at either level later has to count as a change.
+    expect([...result.stats.compilation.missingDependencies]).toEqual(
+      expect.arrayContaining([
+        path.join(context, '.env.local'),
+        path.join(root, '.env.local')
+      ])
+    )
+  })
+
+  it('still asks for a rename only when no layer but the defaults matched', async () => {
+    const root = project({
+      '.env.defaults': 'EXTENSION_PUBLIC_FOO=defaults\n',
+      '.env.staging': 'EXTENSION_PUBLIC_FOO=staging\n'
+    })
+
+    expect((await build(root)).warnings.map((warning) => warning.name)).toEqual(
+      ['EnvNoMatchingFile']
+    )
+
+    writeFiles(root, {'.env': 'EXTENSION_PUBLIC_FOO=dotenv\n'})
+
+    expect((await build(root)).warnings).toEqual([])
   })
 })
 

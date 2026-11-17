@@ -58,8 +58,9 @@ export function zipPackagingSkipped(reason: string) {
   return `${prefix('debug')} zip      skipped=true reason="${reason}"`
 }
 
-export function envSelectedFile(envPath: string) {
-  return `${prefix('debug')} env      file=${envPath || 'none'}`
+// Weakest first, the order the files are merged in.
+export function envSelectedFile(envPaths: string[]) {
+  return `${prefix('debug')} env      files=${envPaths.join(',') || 'none'}`
 }
 
 export function envInjectedPublicVars(count: number) {

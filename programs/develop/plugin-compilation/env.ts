@@ -207,55 +207,48 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
   }
 }
 
-function resolveEnvPaths(projectPath: string, envFiles: string[]) {
-  const localEnvPath =
-    envFiles
-      .map((file) => path.join(projectPath, file))
-      .find((filePath) => fs.existsSync(filePath)) || ''
-  const localDefaultsPath = path.join(projectPath, '.env.defaults')
+const ENV_DEFAULTS_FILE = '.env.defaults'
 
-  if (localEnvPath) {
+// Every matching file of one folder is read, never one folder's files mixed
+// with another's. Only .env.defaults falls through from the workspace root.
+function resolveEnvLayers(projectPath: string, layerNames: string[]) {
+  const matchedIn = (dir: string) =>
+    layerNames
+      .filter((file) => file !== ENV_DEFAULTS_FILE)
+      .map((file) => path.join(dir, file))
+      .filter((filePath) => fs.existsSync(filePath))
+  const localDefaultsPath = path.join(projectPath, ENV_DEFAULTS_FILE)
+  const localMatched = matchedIn(projectPath)
+
+  if (localMatched.length > 0) {
     return {
-      envPath: localEnvPath,
-      defaultsPath: localDefaultsPath
+      envDir: projectPath,
+      defaultsPaths: [localDefaultsPath],
+      matchedPaths: localMatched
     }
   }
 
   const workspaceRoot = findNearestWorkspaceRoot(projectPath)
 
   if (workspaceRoot && workspaceRoot !== projectPath) {
-    const workspaceEnvPath =
-      envFiles
-        .map((file) => path.join(workspaceRoot, file))
-        .find((filePath) => fs.existsSync(filePath)) || ''
-    const workspaceDefaultsPath = path.join(workspaceRoot, '.env.defaults')
+    const workspaceDefaultsPath = path.join(workspaceRoot, ENV_DEFAULTS_FILE)
+    const workspaceMatched = matchedIn(workspaceRoot)
 
-    if (workspaceEnvPath || fs.existsSync(workspaceDefaultsPath)) {
+    if (workspaceMatched.length > 0 || fs.existsSync(workspaceDefaultsPath)) {
       return {
-        // .env.defaults is the always-merged layer and is deliberately not a
-        // selectable file, so a local one must not cancel the root search.
-        // A local one still wins over the root's for the keys it declares.
-        envPath: workspaceEnvPath,
-        defaultsPath: fs.existsSync(localDefaultsPath)
-          ? localDefaultsPath
-          : workspaceDefaultsPath,
-        fallbackDefaultsPath: fs.existsSync(localDefaultsPath)
-          ? workspaceDefaultsPath
-          : undefined
+        envDir: workspaceRoot,
+        // .env.defaults is the always-merged layer and matches no target, so
+        // a local one does not cancel the root search. It still wins by key.
+        defaultsPaths: [workspaceDefaultsPath, localDefaultsPath],
+        matchedPaths: workspaceMatched
       }
     }
   }
 
-  if (fs.existsSync(localDefaultsPath)) {
-    return {
-      envPath: localEnvPath,
-      defaultsPath: localDefaultsPath
-    }
-  }
-
   return {
-    envPath: '',
-    defaultsPath: localDefaultsPath
+    envDir: projectPath,
+    defaultsPaths: [localDefaultsPath],
+    matchedPaths: [] as string[]
   }
 }
 
@@ -287,6 +280,15 @@ export function getEnvFileCandidates(
     '.env.local',
     '.env'
   ]
+}
+
+// Weakest first: .env.defaults, then the candidates from last to first. It
+// mirrors the order the config loader preloads, so a build reads one environment.
+export function getEnvFileLayers(
+  browser: DevOptions['browser'],
+  mode: string
+): string[] {
+  return [ENV_DEFAULTS_FILE, ...getEnvFileCandidates(browser, mode).reverse()]
 }
 
 const KNOWN_ENV_MODES = new Set(['development', 'production', 'test', 'none'])
@@ -360,58 +362,58 @@ export class EnvPlugin {
     // Collect .env files by browser (family-wide) and mode. .env.example is
     // intentionally NOT included: placeholder values, never a real source.
     const envFiles = getEnvFileCandidates(this.browser, mode)
-
-    const {envPath, defaultsPath, fallbackDefaultsPath} = resolveEnvPaths(
+    const envLayers = getEnvFileLayers(this.browser, mode)
+    const {envDir, defaultsPaths, matchedPaths} = resolveEnvLayers(
       projectPath,
-      envFiles
+      envLayers
     )
 
     if (isDebug()) {
-      debugLine(messages.envSelectedFile(envPath))
+      debugLine(messages.envSelectedFile(matchedPaths))
     }
 
-    // Watch every path resolveEnvPaths consults, not only the one it picked,
-    // so creating a better match mid-session counts as a change as well.
+    // Watch every layer of each folder consulted, present or not, so writing
+    // a file that was missing mid-session counts as a change as well.
     if (projectPath && compiler.options.watchOptions) {
-      new WatchEnvFilesPlugin([
-        ...envFiles.map((file) => path.join(projectPath, file)),
-        path.join(projectPath, '.env.defaults'),
-        envPath,
-        defaultsPath,
-        fallbackDefaultsPath
-      ]).apply(compiler)
+      new WatchEnvFilesPlugin(
+        [...new Set([projectPath, envDir])].flatMap((dir) =>
+          envLayers.map((file) => path.join(dir, file))
+        )
+      ).apply(compiler)
     }
 
     // dotenv.parse (not .config) on purpose: .config mutates process.env, which
     // wins the merge, so the first build's values would leak into later builds.
-    const envVars = envPath ? dotenv.parse(fs.readFileSync(envPath)) : {}
-    const readDefaults = (filePath: string | undefined) =>
-      filePath && fs.existsSync(filePath)
-        ? dotenv.parse(fs.readFileSync(filePath))
-        : {}
-    const defaultsVars = {
-      ...readDefaults(fallbackDefaultsPath),
-      ...readDefaults(defaultsPath)
+    const fileVars: Record<string, string> = {}
+
+    // Later layers override earlier ones key by key, so the last file wins.
+    for (const filePath of [...defaultsPaths, ...matchedPaths]) {
+      if (!fs.existsSync(filePath)) continue
+
+      for (const [key, value] of Object.entries(
+        dotenv.parse(fs.readFileSync(filePath))
+      )) {
+        fileVars[key] = value
+      }
     }
 
     // process.env is the highest precedence layer because a shell or CI value
     // must win. Keys the config loader itself put there by reading a dotenv
     // file are not shell values, so they are dropped back to their file layer,
-    // otherwise .env.defaults would outrank the selected .env.<browser> file.
+    // otherwise .env.defaults would outrank a stronger .env.<browser> file.
     const preloadedKeys = getPreloadedEnvKeys()
     const systemEnv = Object.fromEntries(
       Object.entries(process.env).filter(([key]) => !preloadedKeys.has(key))
     )
 
     const combinedVars = {
-      ...defaultsVars,
-      ...envVars,
+      ...fileVars,
       ...systemEnv
     }
 
     // The project ships .env files but none match this browser and mode. A
     // file named for another target is skipped quietly, any other earns a warning.
-    if (!envPath && projectPath) {
+    if (matchedPaths.length === 0 && projectPath) {
       let presentEnvFiles: string[] = []
 
       try {
