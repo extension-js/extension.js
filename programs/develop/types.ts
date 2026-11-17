@@ -389,6 +389,10 @@ export interface PreviewOptions extends BrowserOptionsBase {
    */
   mode?: 'production'
   outputPath?: string
+  // Launch options the config file also takes. A value passed here wins.
+  browserFlags?: string[]
+  excludeBrowserFlags?: string[]
+  preferences?: Record<string, unknown>
   /**
    * Internal metadata command override used by start->preview delegation.
    * (Full command union so the WebpackConfigOptions intersection with
@@ -457,6 +461,10 @@ export interface PreviewOptions extends BrowserOptionsBase {
 export interface StartOptions extends BrowserOptionsBase {
   mode: 'production'
   polyfill?: boolean
+  // Launch options the config file also takes. A value passed here wins.
+  browserFlags?: string[]
+  excludeBrowserFlags?: string[]
+  preferences?: Record<string, unknown>
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
