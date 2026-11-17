@@ -292,10 +292,7 @@ function pushLayoutWarning(
   name: string,
   message: string
 ) {
-  const ErrorConstructor =
-    (compiler as {rspack?: {WebpackError?: typeof Error}} | undefined)?.rspack
-      ?.WebpackError || Error
-  const warning = new ErrorConstructor(message)
+  const warning = new compiler.rspack.WebpackError(message)
   warning.name = name
   if (!compilation.warnings) compilation.warnings = []
 

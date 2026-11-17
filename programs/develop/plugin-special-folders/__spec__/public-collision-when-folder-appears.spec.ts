@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 
@@ -81,8 +82,10 @@ function createFakeCompiler(projectRoot: string) {
 
   return {
     options: {mode: 'development', watchOptions: {}, context: projectRoot},
+    rspack,
     __internal__registerBuiltinPlugin: () => {},
     hooks: {
+      compilation: noop,
       thisCompilation: {
         tap: (_name: string, cb: (compilation: Compilation) => void) =>
           thisCompilation.push(cb)

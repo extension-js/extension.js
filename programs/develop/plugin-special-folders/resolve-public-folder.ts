@@ -14,10 +14,7 @@ function isUsableDir(candidate: string): boolean {
   try {
     if (!fs.existsSync(candidate)) return false
 
-    const stat = fs.statSync(candidate)
-
-    // A stat without the method (a files-only mock) still counts as a folder.
-    return typeof stat?.isDirectory === 'function' ? stat.isDirectory() : true
+    return fs.statSync(candidate).isDirectory()
   } catch {
     return false
   }
@@ -92,9 +89,7 @@ function isUsableFile(candidate: string): boolean {
   try {
     if (!fs.existsSync(candidate)) return false
 
-    const stat = fs.statSync(candidate)
-
-    return typeof stat?.isFile === 'function' ? stat.isFile() : true
+    return fs.statSync(candidate).isFile()
   } catch {
     return false
   }
