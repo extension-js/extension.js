@@ -21,6 +21,15 @@ export function failStep(frame: string, cause: unknown): Error {
   return error
 }
 
+// One reading for every on/off variable: 1 or true, any case, spaces ignored.
+export function isEnvFlagOn(name: string): boolean {
+  const raw = String(process.env[name] ?? '')
+    .trim()
+    .toLowerCase()
+
+  return raw === '1' || raw === 'true'
+}
+
 // A template directory can be a working checkout: this repo runs `dev` inside
 // the bundled one, and a new project must never inherit that build output or
 // the session state beside it. Nor its history: a copied `.git` would hand the
