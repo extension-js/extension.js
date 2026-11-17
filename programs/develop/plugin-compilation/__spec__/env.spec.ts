@@ -234,6 +234,24 @@ describe('EnvPlugin env file selection', () => {
   })
 })
 
+describe('EnvPlugin env file layers', () => {
+  // Pins today's behavior: one file is read, so a key only in .env is lost.
+  it('drops a key only in .env when .env.production also exists', async () => {
+    const root = project(
+      {
+        '.env':
+          'EXTENSION_PUBLIC_FOO=dotenv\nEXTENSION_PUBLIC_ONLY=dotenv-only\n',
+        '.env.production': 'EXTENSION_PUBLIC_FOO=production\n'
+      },
+      'console.log(process.env.EXTENSION_PUBLIC_FOO, process.env.EXTENSION_PUBLIC_ONLY)\n'
+    )
+
+    expect((await build(root, {mode: 'production'})).logs()).toEqual([
+      'production undefined'
+    ])
+  })
+})
+
 describe('EnvPlugin values in JavaScript', () => {
   it('gives JavaScript only EXTENSION_PUBLIC_* values and the build target', async () => {
     const root = project(
