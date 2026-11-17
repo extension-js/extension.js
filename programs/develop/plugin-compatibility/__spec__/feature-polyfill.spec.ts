@@ -102,4 +102,27 @@ describe('PolyfillPlugin', () => {
       'E_POLYFILL_NOT_FOUND: webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
     ])
   })
+
+  it('throws any other resolution failure instead of calling it not installed', () => {
+    const denied = Object.assign(new Error('EACCES: permission denied'), {
+      code: 'EACCES'
+    })
+    resolution.failWith = denied
+
+    const compiler = compilerAt(makeTempFolder('extjs-polyfill-denied-'))
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    expect(() => new PolyfillPlugin().apply(compiler)).toThrow(denied)
+    expect(warn).not.toHaveBeenCalled()
+    expect(takeCodedWarnings()).toEqual([])
+  })
+
+  it('throws a failure to wire the provider instead of calling it not installed', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const notACompiler = {options: {context: process.cwd()}} as Compiler
+
+    expect(() => new PolyfillPlugin().apply(notACompiler)).toThrow(TypeError)
+    expect(warn).not.toHaveBeenCalled()
+    expect(takeCodedWarnings()).toEqual([])
+  })
 })

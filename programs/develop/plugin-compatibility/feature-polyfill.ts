@@ -23,44 +23,54 @@ export class PolyfillPlugin {
   }
 
   apply(compiler: Compiler) {
+    let polyfillPath: string
+
     try {
       // Resolve the polyfill preferring the consumer project first: package
       // managers may hoist it to the project root, not under extension-develop.
-      const polyfillPath = cjsRequire.resolve(
+      polyfillPath = cjsRequire.resolve(
         'webextension-polyfill/dist/browser-polyfill.js',
         {
           paths: [compiler.options.context as string, __dirname].filter(Boolean)
         }
       )
-
-      const currentResolve = compiler.options.resolve || {}
-      const existingAlias = currentResolve.alias || {}
-
-      compiler.options.resolve = {
-        ...currentResolve,
-        alias: {
-          ...existingAlias,
-          // Use `$` to exactly match the package name
-          'webextension-polyfill$': polyfillPath
-        }
-      }
-
-      new rspack.ProvidePlugin({
-        browser: 'webextension-polyfill'
-      }).apply(compiler)
-
-      if (isDebug()) {
-        debugLine(
-          messages.compatibilityPolyfillEnabled(this.browser, polyfillPath)
-        )
-      }
     } catch (error) {
+      // Only a missing package turns the polyfill off. Any other failure is
+      // not "not installed", so it surfaces as the error it is.
+      if ((error as NodeJS.ErrnoException)?.code !== 'MODULE_NOT_FOUND') {
+        throw error
+      }
+
       recordCodedWarning(
         CODES.E_POLYFILL_NOT_FOUND,
         'webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
       )
 
       console.warn(messages.webextensionPolyfillNotFound())
+
+      return
+    }
+
+    const currentResolve = compiler.options.resolve || {}
+    const existingAlias = currentResolve.alias || {}
+
+    compiler.options.resolve = {
+      ...currentResolve,
+      alias: {
+        ...existingAlias,
+        // Use `$` to exactly match the package name
+        'webextension-polyfill$': polyfillPath
+      }
+    }
+
+    new rspack.ProvidePlugin({
+      browser: 'webextension-polyfill'
+    }).apply(compiler)
+
+    if (isDebug()) {
+      debugLine(
+        messages.compatibilityPolyfillEnabled(this.browser, polyfillPath)
+      )
     }
   }
 }
