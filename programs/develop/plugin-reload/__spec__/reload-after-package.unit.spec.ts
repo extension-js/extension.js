@@ -56,6 +56,20 @@ describe('reloadSurvivingPackage', () => {
     })
   })
 
+  it('labels the content half by its context alone when no source is named', () => {
+    expect(
+      reloadSurvivingPackage({
+        type: 'full',
+        changedContentScriptEntries: [CONTENT_ENTRY],
+        label: 'extension'
+      })
+    ).toEqual({
+      type: 'content-scripts',
+      changedContentScriptEntries: [CONTENT_ENTRY],
+      label: 'content_script'
+    })
+  })
+
   it('keeps a notify-only page instruction, which restarts nothing', () => {
     const instruction = {
       type: 'page' as const,

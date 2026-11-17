@@ -3,6 +3,8 @@ import {
   createLoadedContentScripts,
   type ReloadInstruction,
   readContentScriptDigests,
+  readContentScriptFiles,
+  reloadForRenamedContentScripts,
   reloadForRewrittenContentScripts
 } from '../classify-reload'
 
@@ -153,12 +155,131 @@ describe('createLoadedContentScripts', () => {
     expect(loaded.resolve(stub('blue'), EDIT)).toBe(EDIT)
   })
 
+  // A worker reload makes the browser read the manifest again, as a reload
+  // of the whole extension does.
+  it('takes a worker reload as the browser reading the renamed bundle', () => {
+    const loaded = createLoadedContentScripts({refreshInPlace: true})
+    const worker: ReloadInstruction = {
+      type: 'service-worker',
+      label: 'service_worker (src/background.ts)'
+    }
+    const renamed = 'content_scripts/content-0.bbbbbbbb.js'
+
+    loaded.noteLoaded(compile('red'))
+
+    expect(loaded.resolve(compile('red', renamed), worker)).toBe(worker)
+    expect(loaded.resolve(compile('red', renamed), EDIT)).toBe(EDIT)
+  })
+
   it('leaves an edit alone when nothing the manifest names changed', () => {
     const loaded = createLoadedContentScripts({refreshInPlace: true})
     loaded.noteLoaded(compile('red'))
 
     expect(loaded.resolve(compile('red'), EDIT)).toBe(EDIT)
     expect(loaded.resolve(compile('red'), undefined)).toBeUndefined()
+  })
+})
+
+describe('readContentScriptFiles', () => {
+  const manifest = (text: string | undefined) =>
+    ({
+      getAsset: (name: string) =>
+        name === 'manifest.json' && text !== undefined
+          ? {source: {source: () => text}}
+          : undefined
+    }) as never
+
+  it('reads the scripts and then the sheets of every group, in manifest order', () => {
+    expect(
+      readContentScriptFiles(
+        manifest(
+          JSON.stringify({
+            content_scripts: [
+              {js: ['a.js', 'b.js'], css: ['a.css']},
+              {css: ['c.css']},
+              {js: ['d.js', 7]}
+            ]
+          })
+        )
+      )
+    ).toEqual(['a.js', 'b.js', 'a.css', 'c.css', 'd.js'])
+  })
+
+  it('answers an empty list for a manifest that is missing, unreadable or names none', () => {
+    expect(readContentScriptFiles(manifest(undefined))).toEqual([])
+    expect(readContentScriptFiles(manifest('{not json'))).toEqual([])
+    expect(readContentScriptFiles(manifest('{"name": "x"}'))).toEqual([])
+    expect(
+      readContentScriptFiles(manifest('{"content_scripts": "all"}'))
+    ).toEqual([])
+  })
+})
+
+describe('reloadForRenamedContentScripts', () => {
+  const OTHER = 'content_scripts/content-0.bbbbbbbb.js'
+
+  it('reloads the extension under the label of the content edit that renamed the bundle', () => {
+    expect(reloadForRenamedContentScripts(EDIT, [BUNDLE], [OTHER])).toEqual({
+      ...EDIT,
+      type: 'full'
+    })
+  })
+
+  it('names the manifest when no source explains the new name', () => {
+    expect(
+      reloadForRenamedContentScripts(undefined, [BUNDLE], [OTHER])
+    ).toEqual({
+      type: 'full',
+      changedAssets: ['manifest.json'],
+      label: 'extension (manifest.json)'
+    })
+  })
+
+  it('names the extension, not the page, when a page edit rode along', () => {
+    const page: ReloadInstruction = {
+      type: 'page',
+      changedAssets: ['options/index.html'],
+      label: 'page (options/index.html)'
+    }
+
+    expect(reloadForRenamedContentScripts(page, [BUNDLE], [OTHER])).toEqual({
+      type: 'full',
+      changedAssets: ['options/index.html'],
+      label: 'extension (options/index.html)'
+    })
+  })
+
+  it('takes an added or a removed file as a rename', () => {
+    expect(
+      reloadForRenamedContentScripts(EDIT, [BUNDLE], [BUNDLE, SHEET])
+    ).toMatchObject({type: 'full'})
+
+    expect(reloadForRenamedContentScripts(EDIT, [BUNDLE], [])).toMatchObject({
+      type: 'full'
+    })
+  })
+
+  it('leaves an edit alone when the names and their order are the ones loaded', () => {
+    expect(
+      reloadForRenamedContentScripts(EDIT, [BUNDLE, SHEET], [BUNDLE, SHEET])
+    ).toBe(EDIT)
+
+    expect(
+      reloadForRenamedContentScripts(undefined, [BUNDLE], [BUNDLE])
+    ).toBeUndefined()
+  })
+
+  it('leaves a reload that already reads the manifest again as it is', () => {
+    const full: ReloadInstruction = {type: 'full', label: 'extension'}
+    const worker: ReloadInstruction = {
+      type: 'service-worker',
+      label: 'service_worker (src/background.ts)'
+    }
+
+    expect(reloadForRenamedContentScripts(full, [BUNDLE], [OTHER])).toBe(full)
+    expect(reloadForRenamedContentScripts(worker, [BUNDLE], [OTHER])).toBe(
+      worker
+    )
   })
 })
 
