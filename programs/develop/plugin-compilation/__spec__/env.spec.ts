@@ -19,6 +19,8 @@ import {
   writeFiles
 } from './helpers/real-compile'
 
+const stripAnsi = (value: string) => value.replace(/\x1b\[[0-9;]*m/g, '')
+
 const LOG_PUBLIC = 'console.log(process.env.EXTENSION_PUBLIC_FOO)\n'
 
 interface BuildOptions {
@@ -53,6 +55,10 @@ async function build(root: string, options: BuildOptions = {}) {
       name: error.name,
       file: (error as {file?: string}).file,
       message: error.message
+    })),
+    warnings: Array.from(stats.compilation.warnings, (warning) => ({
+      name: warning.name,
+      message: stripAnsi(warning.message)
     })),
     // Read from the compilation, so an asset held back by an error is visible.
     asset: (name: string) =>
@@ -498,22 +504,31 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
 })
 
 describe('EnvPlugin failure paths and leaks as they stand', () => {
-  // Pins today's behavior. Ledger 1388 D6.
-  it('templates a non-public shell value into .html and .json, never into JavaScript', async () => {
+  // Pins today's behavior.
+  it('templates a non-public shell or .env value into .html and .json, never into JavaScript', async () => {
     vi.stubEnv('EXTENSION_SECRET_X', 'shell-secret')
     const root = project(
       {
-        'manifest.json': '{"description":"$EXTENSION_SECRET_X"}',
-        'index.html': '<p>$EXTENSION_SECRET_X</p>'
+        '.env': 'EXTENSION_SECRET_TOKEN=file-secret\n',
+        'manifest.json':
+          '{"description":"$EXTENSION_SECRET_X","key":"$EXTENSION_SECRET_TOKEN"}',
+        'index.html': '<p>$EXTENSION_SECRET_X $EXTENSION_SECRET_TOKEN</p>'
       },
-      'console.log(process.env.EXTENSION_SECRET_X, import.meta.env.EXTENSION_SECRET_X)\n'
+      'console.log(process.env.EXTENSION_SECRET_X, import.meta.env.EXTENSION_SECRET_TOKEN)\n'
     )
-    const result = await build(root, {copy: ['manifest.json', 'index.html']})
+    const result = await build(root, {
+      mode: 'production',
+      copy: ['manifest.json', 'index.html']
+    })
 
-    expect(result.asset('manifest.json')).toBe('{"description":"shell-secret"}')
-    expect(result.asset('index.html')).toBe('<p>shell-secret</p>')
+    expect(result.asset('manifest.json')).toBe(
+      '{"description":"shell-secret","key":"file-secret"}'
+    )
+
+    expect(result.asset('index.html')).toBe('<p>shell-secret file-secret</p>')
+    expect(result.warnings).toEqual([])
     expect(result.logs()).toEqual(['undefined undefined'])
-    expect(result.asset('background.js')).not.toContain('shell-secret')
+    expect(result.asset('background.js')).not.toContain('secret')
   })
 
   // Pins today's behavior. Ledger 1388 D8.
