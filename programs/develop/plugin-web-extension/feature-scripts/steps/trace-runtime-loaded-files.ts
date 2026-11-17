@@ -31,6 +31,11 @@ import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
 import {isClassicScript} from '../../shared/classic-concat'
+import {
+  keepPagePath,
+  namesPagePath,
+  pageServedAtAuthoredPath
+} from '../../shared/kept-page-paths'
 import {getResolvedManifestFieldsData} from '../../shared/manifest-fields'
 import {
   createLocalImportResolver,
@@ -56,6 +61,10 @@ import {
   splitTopLevelArgs,
   unescapeStringBody
 } from './source-literals'
+import {
+  extractPathLiterals,
+  toRuntimePathReference
+} from './warn-unshipped-runtime-assets'
 
 export type {ImportedModule, ImportedModuleReader} from './source-literals'
 
@@ -181,6 +190,7 @@ const STANDARD_BACKGROUND_KEYS = new Set([
 // importScripts chains resolve against the worker URL, so depth only grows
 // through files importing further files, 8 hops is far beyond real usage.
 const MAX_TRACE_DEPTH = 8
+const SCRIPT_SRC = /<script\b[^>]*?\bsrc\s*=\s*(["'])([^"']+)\1/gi
 const SOURCE_SIBLING_EXTENSIONS = ['.ts', '.mts', '.tsx', '.jsx', '.mjs']
 const STYLESHEET_SIBLING_EXTENSIONS = ['.scss', '.sass', '.less']
 // Sources the compiler rewrites to .js: a runtime literal naming one asks the
@@ -268,6 +278,7 @@ interface ApplyContext {
 export class TraceRuntimeLoadedFiles {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
+  private readonly namingSources = new Map<string, string>()
 
   constructor(options: {
     manifestPath: string
@@ -307,6 +318,9 @@ export class TraceRuntimeLoadedFiles {
                 this.traceInjectedFilePayloads(run, only)
                 this.traceFetchedFiles(run, only)
                 this.traceGetURLFiles(run, only)
+                this.keepAuthoredPagePaths(run, only)
+                this.traceKeptPageFetches(run, only)
+                this.traceNamedFiles(run, only)
                 this.traceWebpackChunkSiblings(run, only)
                 const emitted = await run.flushCompiles()
                 if (emitted.length === 0) break
@@ -601,6 +615,104 @@ export class TraceRuntimeLoadedFiles {
     return outputs
   }
 
+  // Every page the build compiles away from the path its author wrote, with
+  // each compiled page that source feeds. The background page is not one.
+  private relocatedPageOutputs(manifestDir: string): Map<string, string[]> {
+    const relocated = new Map<string, string[]>()
+
+    try {
+      const pages = getResolvedManifestFieldsData({
+        manifestPath: this.manifestPath,
+        browser: this.browser
+      }).html as Record<string, string | undefined>
+
+      for (const [feature, source] of Object.entries(pages)) {
+        if (!source || feature === 'background/index') continue
+
+        const authored = unixify(path.relative(manifestDir, source))
+        const output = `${feature}.html`
+        if (authored.startsWith('..') || authored === output) continue
+
+        relocated.set(authored, [...(relocated.get(authored) ?? []), output])
+      }
+    } catch {
+      // A manifest the fields reader rejects moves no page.
+    }
+
+    return relocated
+  }
+
+  // A script that holds the path a page was written at compares it with
+  // sender.url or location, so the page has to open at that same path.
+  private keepAuthoredPagePaths(run: TraceRun, only?: Set<string>) {
+    const relocated = this.relocatedPageOutputs(run.manifestDir)
+    if (relocated.size === 0) return
+
+    for (const asset of run.jsAssets(only)) {
+      const text = run.textOf(asset)
+      const mentioned = [...relocated.keys()].filter((authored) =>
+        text.includes(authored)
+      )
+      if (mentioned.length === 0) continue
+
+      const literals = extractPathLiterals(blankComments(text))
+
+      for (const authored of mentioned) {
+        const literal = literals.find((value) => namesPagePath(value, authored))
+        if (!literal) continue
+
+        const outputs = relocated.get(authored) ?? []
+        if (!servePageAtAuthoredPath(run, authored, outputs)) continue
+
+        // Read once per session: a dev rebuild keeps the page the same way.
+        const mentionedIn =
+          this.namingSources.get(literal) ??
+          run.sourceNaming(literal) ??
+          asset.name
+
+        this.namingSources.set(literal, mentionedIn)
+
+        for (const output of outputs) {
+          if (!run.hasAsset(output)) continue
+
+          keepPagePath(run.compilation, {output, authored, mentionedIn})
+        }
+      }
+    }
+  }
+
+  // A kept page asks from the folder its author wrote it in, so a relative
+  // fetch in its scripts reads the layout of the source folder.
+  private traceKeptPageFetches(run: TraceRun, only?: Set<string>) {
+    if (run.servedPages.size === 0) return
+
+    const pages = run.pagesLoadingScripts()
+    const seen = run.seen.fetched
+
+    for (const asset of run.jsAssets(only)) {
+      const bases = (pages.get(asset.name) ?? []).filter((page) =>
+        run.servedPages.has(page)
+      )
+      if (bases.length === 0) continue
+
+      for (const literal of extractFetchedFileLiterals(run.textOf(asset))) {
+        for (const base of bases) {
+          const distRel = resolveExtensionPath(literal, base)
+          if (!distRel || seen.has(distRel)) continue
+
+          seen.add(distRel)
+
+          if (run.hasAsset(distRel)) continue
+          if (isFile(path.join(run.manifestDir, 'public', distRel))) continue
+
+          const abs = path.join(run.manifestDir, distRel)
+
+          if (isFile(abs)) run.emitCopy(abs, distRel)
+        }
+      }
+    }
+  }
+
   // The root paths web_accessible_resources files ship at: a sibling folder
   // file the WAR step emits later in the compilation is not missing.
   private webAccessibleOutputs(run: TraceRun): Set<string> {
@@ -646,6 +758,7 @@ export class TraceRuntimeLoadedFiles {
         : []
     )
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
+    const relocatedPages = this.relocatedPageOutputs(run.manifestDir)
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
     const pageSources = new Map(
@@ -662,6 +775,7 @@ export class TraceRuntimeLoadedFiles {
     type PendingScan =
       | {kind: 'js'; content: string; assetName: string; copied?: boolean}
       | {kind: 'html'; content: string; baseRel: string}
+      | {kind: 'css'; content: string; baseRel: string}
 
     let pending: PendingScan[] = run.jsAssets(only).map((asset) => ({
       kind: 'js' as const,
@@ -717,10 +831,10 @@ export class TraceRuntimeLoadedFiles {
                     )
                   : [])
               ]
-            : extractHtmlSubresourceLiterals(item.content).map((literal) => ({
-                literal,
-                baseRel: item.baseRel
-              }))
+            : (item.kind === 'html'
+                ? extractHtmlSubresourceLiterals(item.content)
+                : extractCssSubresourceLiterals(item.content)
+              ).map((literal) => ({literal, baseRel: item.baseRel}))
 
         const assetName = item.kind === 'js' ? item.assetName : item.baseRel
 
@@ -770,12 +884,12 @@ export class TraceRuntimeLoadedFiles {
           // it: its compiled markup names its script and sheet from the root.
           if (declaredSurfaces.has(distRel)) {
             const output = surfacePages.get(distRel)
-            const page =
-              output && output !== distRel && !run.hasAsset(distRel)
-                ? run.compilation.getAsset(output)
-                : undefined
 
-            if (page) run.compilation.emitAsset(distRel, page.source)
+            servePageAtAuthoredPath(
+              run,
+              distRel,
+              relocatedPages.get(distRel) ?? (output ? [output] : [])
+            )
 
             continue
           }
@@ -789,7 +903,7 @@ export class TraceRuntimeLoadedFiles {
             hasAsset: run.hasAsset
           })
           const copied = run.apply(plan, {
-            context: item.kind === 'html' ? 'html' : 'getURL',
+            context: item.kind === 'js' ? 'getURL' : 'html',
             onMissing: () => {
               shippedByWar ??= this.webAccessibleOutputs(run)
               if (shippedByWar.has(distRel)) return
@@ -861,6 +975,9 @@ export class TraceRuntimeLoadedFiles {
             })
           } else if (/\.html?$/i.test(distRel)) {
             next.push({kind: 'html', content: copied, baseRel: distRel})
+          } else if (/\.css$/i.test(distRel)) {
+            // A sheet copied as written still asks for its fonts and images.
+            next.push({kind: 'css', content: copied, baseRel: distRel})
           }
         }
       }
@@ -883,6 +1000,72 @@ export class TraceRuntimeLoadedFiles {
       )
 
       run.forgetText(ref.assetName)
+    }
+  }
+
+  // A path kept as a plain string and handed on to fetch or setIcon proves
+  // no call, yet it names a file the extension reads, so the file ships.
+  private traceNamedFiles(run: TraceRun, only?: Set<string>) {
+    const {manifestDir} = run
+    const seen = run.seen.named
+    const pages = run.pagesLoadingScripts()
+
+    for (const asset of run.jsAssets(only)) {
+      // A script in a web page resolves a relative path against the site,
+      // so only the root of the extension is a place it can mean.
+      const inWebPage =
+        asset.name.startsWith('content_scripts/') ||
+        asset.name.startsWith('scripts/')
+      const bases = inWebPage ? [] : (pages.get(asset.name) ?? [asset.name])
+
+      for (const literal of extractPathLiterals(
+        blankComments(run.textOf(asset))
+      )) {
+        const file = toRuntimePathReference(literal)?.file
+        if (!file?.includes('/')) continue
+
+        const targets = [
+          {distRel: file, sources: [path.join(manifestDir, file)]}
+        ]
+
+        for (const base of bases) {
+          const distRel = resolveExtensionPath(literal, base)
+          if (!distRel) continue
+
+          // A page the build moved asks from its new folder for a file the
+          // author placed next to the old one.
+          const entryDir = run.entrySourceDirs.get(
+            base.replace(/\.(?:js|html)$/i, '')
+          )
+
+          targets.push({
+            distRel,
+            sources: [
+              path.join(manifestDir, distRel),
+              ...(entryDir && !literal.startsWith('/')
+                ? [path.resolve(entryDir, literal)]
+                : [])
+            ]
+          })
+        }
+
+        for (const {distRel, sources: candidates} of targets) {
+          if (seen.has(distRel)) continue
+          if (run.hasAsset(distRel)) continue
+          if (isFile(path.join(manifestDir, 'public', distRel))) continue
+
+          const abs = candidates.find(
+            (candidate) =>
+              !path.relative(manifestDir, candidate).startsWith('..') &&
+              isFile(candidate) &&
+              !run.isNamedModule(candidate)
+          )
+          if (!abs) continue
+
+          seen.add(distRel)
+          run.emitCopy(abs, distRel)
+        }
+      }
     }
   }
 
@@ -1027,18 +1210,22 @@ class TraceRun {
     importScripts: new Set<string>(),
     injected: new Set<string>(),
     fetched: new Set<string>(),
-    getURL: new Set<string>()
+    getURL: new Set<string>(),
+    named: new Set<string>()
   }
   // Assets that execute in the worker's scope, so importScripts literals in
   // them resolve against the worker URL.
   readonly workerScope = new Set<string>([EMITTED_WORKER_PATH])
   readonly entrySourceDirs: Map<string, string>
   readonly hasAsset: (name: string) => boolean
+  // The compiled page each authored page path serves a copy of.
+  readonly servedPages = new Map<string, string>()
   private readonly queue = new Map<string, CompileRequest>()
   private readonly texts = new Map<string, string>()
   // Files the `exclude` config leaves out of this build. A literal that names
   // one is dead code on this browser, so the trace ships nothing for it.
   private readonly excluded: ReadonlySet<string>
+  private namedModules?: Set<string>
 
   constructor(
     readonly compilation: Compilation,
@@ -1081,6 +1268,74 @@ class TraceRun {
     }
 
     return found
+  }
+
+  // The project file and line that spell a string, so a build line names
+  // code the author can open and not a chunk the bundler named.
+  sourceNaming(literal: string): string | undefined {
+    const projectPath =
+      (this.compiler.options?.context as string | undefined) || this.manifestDir
+
+    try {
+      for (const file of this.compilation.fileDependencies ?? []) {
+        if (typeof file !== 'string' || !isLocalScriptSource(file)) continue
+
+        const text = readScriptText(file)
+        const at = text === undefined ? -1 : text.indexOf(literal)
+        if (text === undefined || at === -1) continue
+
+        const line = text.slice(0, at).split('\n').length
+
+        return `${unixify(path.relative(projectPath, file))}:${line}`
+      }
+    } catch {
+      // Ignore, a source that cannot be read names nothing
+    }
+
+    return undefined
+  }
+
+  // The pages each emitted script is loaded by, since a relative path in a
+  // script resolves against the page and not against the script.
+  pagesLoadingScripts(): Map<string, string[]> {
+    const pages = new Map<string, string[]>()
+
+    for (const asset of this.compilation.getAssets()) {
+      if (!/\.html?$/i.test(asset.name)) continue
+
+      const page = unixify(asset.name)
+      const markup = asset.source.source().toString()
+
+      for (const match of markup.matchAll(SCRIPT_SRC)) {
+        const script = resolveExtensionPath(match[2], page)
+        if (!script) continue
+
+        const loaders = pages.get(script) ?? []
+
+        if (!loaders.includes(page)) loaders.push(page)
+
+        pages.set(script, loaders)
+      }
+    }
+
+    return pages
+  }
+
+  // A development bundle names each module by its path, so there a string
+  // that names an imported file is the bundler's own and ships nothing.
+  isNamedModule(abs: string): boolean {
+    if (this.compiler.options?.mode !== 'development') return false
+
+    if (!this.namedModules) {
+      this.namedModules = new Set()
+
+      for (const module of this.compilation.modules ?? []) {
+        const resource = (module as {resource?: string}).resource
+        if (resource) this.namedModules.add(resource.split('?')[0])
+      }
+    }
+
+    return this.namedModules.has(abs)
   }
 
   // Every trace reads the same emitted scripts, and each read of an asset
@@ -1704,6 +1959,31 @@ function movedPageSourceBase(
   return sourceRel.replace(/^\.\//, '')
 }
 
+// Serves a compiled page at the path its author wrote too. Its markup names
+// its script and sheet from the root, so the copy loads the same files.
+function servePageAtAuthoredPath(
+  run: TraceRun,
+  authored: string,
+  outputs: string[]
+): string | undefined {
+  const served = run.servedPages.get(authored)
+  if (served) return served
+
+  const emitted = outputs.filter(
+    (output) => output !== authored && run.hasAsset(output)
+  )
+  if (emitted.length === 0 || run.hasAsset(authored)) return undefined
+
+  const output = pageServedAtAuthoredPath(emitted)
+  const page = run.compilation.getAsset(output)
+  if (!page) return undefined
+
+  run.compilation.emitAsset(authored, page.source)
+  run.servedPages.set(authored, output)
+
+  return output
+}
+
 function rewriteStringLiteral(
   compilation: Compilation,
   assetName: string,
@@ -1930,6 +2210,23 @@ export function extractRuntimeSurfaceLiterals(source: string): string[] {
         if (literal.trim()) literals.push(literal)
       }
     }
+  }
+
+  return literals
+}
+
+// Extract url() and @import targets from a stylesheet copied through by
+// getURL tracing, so the fonts and images it asks for ship with it.
+export function extractCssSubresourceLiterals(css: string): string[] {
+  const literals: string[] = []
+  const code = css.replace(/\/\*[\s\S]*?\*\//g, '')
+  const refRe =
+    /url\(\s*(?:(["'])([^"'\n]*)\1|([^"'()\s]+))\s*\)|@import\s+(["'])([^"'\n]+)\4/gi
+
+  for (const match of code.matchAll(refRe)) {
+    const literal = (match[2] ?? match[3] ?? match[5] ?? '').trim()
+
+    if (literal && !literal.startsWith('#')) literals.push(literal)
   }
 
   return literals
@@ -2357,7 +2654,7 @@ const SINGULAR_FILE_CONSTANT = new RegExp(
 
 // Cheap gate, so a source with no injection call is never tokenized.
 const INJECTION_CALL =
-  /\b(?:executeScript|insertCSS|removeCSS|registerContentScripts|updateContentScripts)\b/
+  /\b(?:executeScript|insertCSS|removeCSS|registerContentScripts|updateContentScripts|contentScripts|userScripts|messageDisplayScripts|composeScripts)\b/
 
 // Every path an injection call names, each marked with how it was read.
 function collectInjectedFiles(
@@ -2378,6 +2675,12 @@ function collectInjectedFiles(
     {
       callRe: /\b(?:registerContentScripts|updateContentScripts)\s*\(/g,
       arrayProps: ['js', 'css']
+    },
+    {
+      // These name each script as {file: "..."}, read like the singular one.
+      callRe:
+        /\b(?:contentScripts|userScripts|messageDisplayScripts|composeScripts)\s*\.\s*register\s*\(/g,
+      arrayProps: []
     }
   ]
   const constant = (value: string): PathEntry => ({value, viaConstant: true})

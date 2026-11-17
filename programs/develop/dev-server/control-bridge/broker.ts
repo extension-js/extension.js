@@ -14,6 +14,7 @@ import {
   type BootRegistrationsFrame,
   type BootRegistrationsOutcome,
   type BridgeEngine,
+  type BridgeRefusalCode,
   type BridgeRole,
   type BridgeTarget,
   CLOSE_BAD_HELLO,
@@ -27,6 +28,7 @@ import {
   type HelloFrame,
   type IncomingLogEvent,
   type LateReloadRestart,
+  REFUSAL_EXTENSION_LOAD_REFUSED,
   type ReadyFrame,
   type ReloadAckFrame,
   type ReloadAckOutcome,
@@ -83,6 +85,9 @@ export interface BridgeBrokerOptions {
   onReloadApplied?: (kind: string, label?: string) => void
   // A registration landed after the first page was let go without one.
   onLateBootRegistration?: (afterMs?: number) => void
+  // The reason the browser gave for refusing the extension, read off the
+  // ready contract at the time of asking. Null while no refusal stands.
+  readLoadRefusal?: () => string | null
   // The command that owns this session, so an answer that says to restart
   // names it. A start or preview session is not a dev session.
   sessionCommand?: BridgeSessionCommand
@@ -226,6 +231,30 @@ const EXECUTOR_ABSENT: Record<
   'browser-exited': (_secs, _engine, command = 'dev') =>
     'no executor connected: the browser exited and nothing reconnects on ' +
     `its own. Restart extension ${command} to relaunch it`
+}
+
+// The browser turned the extension away, so no background exists to dial
+// in. A dev session tries the load again per build, the others are run again.
+function executorAbsentLoadRefused(
+  reason: string,
+  engine: BridgeEngine | undefined,
+  command: BridgeSessionCommand
+): string {
+  const said = reason.trim()
+  const next =
+    command === 'dev'
+      ? 'Fix what it names and save, the dev session tries the load again ' +
+        'on the next build. If it stays refused, restart extension dev'
+      : `Fix what it names, build again and restart extension ${command}`
+
+  return (
+    'no executor connected: the browser refused to load this extension, so ' +
+    `no ${backgroundNoun(engine)} runs and no retry changes that. ` +
+    (said
+      ? `The browser said: ${/[.!?]$/.test(said) ? said : `${said}.`} `
+      : '') +
+    next
+  )
 }
 
 function executorAbsentNoControlPort(
@@ -396,6 +425,7 @@ export class BridgeBroker {
     (outcome: BootRegistrationsOutcome) => void
   >()
   private readonly onLateBootRegistration?: (afterMs?: number) => void
+  private readonly readLoadRefusal?: () => string | null
   // Verbs held while a woken background starts, answered on its hello.
   private readonly executorWaiters = new Set<() => void>()
   private readonly waking = new Set<string>()
@@ -458,6 +488,7 @@ export class BridgeBroker {
     this.wakeExecutor = options.wakeExecutor
     this.onReloadApplied = options.onReloadApplied
     this.onLateBootRegistration = options.onLateBootRegistration
+    this.readLoadRefusal = options.readLoadRefusal
     this.sessionCommand = options.sessionCommand ?? 'dev'
     this.now = options.now ?? (() => Date.now())
     this.setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
@@ -564,17 +595,14 @@ export class BridgeBroker {
 
       this.clearTimer(p.timer)
       this.pending.delete(cmdId)
-      this.settle(cmdId, p, {
-        name: 'Unavailable',
-        message: this.diagnoseExecutorAbsence()
-      })
+      this.settle(cmdId, p, this.absentExecutorError())
     }
   }
 
   private settle(
     cmdId: string,
     p: Pending,
-    error: {name: string; message: string}
+    error: NonNullable<ResultFrame['error']>
   ): void {
     const result: ResultFrame = {type: 'result', cmdId, ok: false, error}
     p.controller.send(result)
@@ -1311,6 +1339,38 @@ export class BridgeBroker {
     this.browserExitHow = how ?? null
   }
 
+  // A reader that throws is a contract nobody can read, not a refusal.
+  private loadRefusal(): string | null {
+    try {
+      return this.readLoadRefusal?.() ?? null
+    } catch {
+      return null
+    }
+  }
+
+  // What a verb with no executor is answered with. A refused extension has
+  // a code of its own, below a missing control port and a browser that exited.
+  private absentExecutorError(): NonNullable<ResultFrame['error']> {
+    const refusal =
+      this.controlPortUnavailable == null && !this.browserExitedAt
+        ? this.loadRefusal()
+        : null
+
+    if (refusal != null) {
+      return {
+        name: 'Unavailable',
+        message: executorAbsentLoadRefused(
+          refusal,
+          this.engine,
+          this.sessionCommand
+        ),
+        code: REFUSAL_EXTENSION_LOAD_REFUSED
+      }
+    }
+
+    return {name: 'Unavailable', message: this.diagnoseExecutorAbsence()}
+  }
+
   // Name WHY no producer is connected: no control port > the browser exited >
   // fresh stale-instance hello > nothing ever connected > a producer was here
   // and left.
@@ -1435,12 +1495,12 @@ export class BridgeBroker {
         ? (cmd.args.expression as string)
         : undefined
 
-    const deny = (name: string, message: string) => {
+    const deny = (name: string, message: string, code?: BridgeRefusalCode) => {
       const result: ResultFrame = {
         type: 'result',
         cmdId: cmd.cmdId,
         ok: false,
-        error: {name, message}
+        error: {name, message, ...(code ? {code} : {})}
       }
       controller.send(result)
       this.audit({
@@ -1498,7 +1558,8 @@ export class BridgeBroker {
     }
 
     if (!executor) {
-      deny('Unavailable', this.diagnoseExecutorAbsence())
+      const absent = this.absentExecutorError()
+      deny(absent.name, absent.message, absent.code)
 
       return
     }
@@ -1520,7 +1581,7 @@ export class BridgeBroker {
   private async wakeThenRoute(
     controller: BridgeConnection,
     cmd: CommandFrame,
-    deny: (name: string, message: string) => void,
+    deny: (name: string, message: string, code?: BridgeRefusalCode) => void,
     audit: {principal: string; exprHash?: string; expr?: string}
   ): Promise<void> {
     this.waking.add(cmd.cmdId)
@@ -1545,7 +1606,8 @@ export class BridgeBroker {
     if (!this.roles.has(controller)) return
 
     if (!executor) {
-      deny('Unavailable', this.diagnoseExecutorAbsence())
+      const absent = this.absentExecutorError()
+      deny(absent.name, absent.message, absent.code)
 
       return
     }

@@ -10,6 +10,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import * as messages from '../messages'
+import {
+  blankComments,
+  skipString,
+  skipTemplateExpression
+} from './source-literals'
 
 const ASSET_EXTENSIONS = new Set([
   '.png',
@@ -37,6 +42,28 @@ const ASSET_EXTENSIONS = new Set([
   '.wasm'
 ])
 
+const CODE_EXTENSIONS = new Set([
+  '.js',
+  '.cjs',
+  '.mjs',
+  '.jsx',
+  '.mjsx',
+  '.ts',
+  '.mts',
+  '.cts',
+  '.tsx',
+  '.mtsx',
+  '.vue',
+  '.svelte',
+  '.html',
+  '.htm',
+  '.css',
+  '.scss',
+  '.sass',
+  '.less',
+  '.map'
+])
+
 const SKIPPED_FOLDERS = new Set(['node_modules', 'dist', 'public'])
 const MAX_LITERAL_LENGTH = 200
 const MAX_FOLDERS_REPORTED = 10
@@ -59,6 +86,13 @@ function hasAssetExtension(name: string): boolean {
   return ASSET_EXTENSIONS.has(path.posix.extname(name).toLowerCase())
 }
 
+// Not code or markup, which the build compiles and never copies as named.
+function isDataFileName(name: string): boolean {
+  const extension = path.posix.extname(name).toLowerCase()
+
+  return /^\.[a-z0-9]{1,8}$/.test(extension) && !CODE_EXTENSIONS.has(extension)
+}
+
 function stripLeadingNavigation(literal: string): string {
   let rel = literal
 
@@ -73,15 +107,80 @@ function stripLeadingNavigation(literal: string): string {
 // is the text before the first `${`, which is the folder part of the path.
 export function extractPathLiterals(text: string): string[] {
   const found: string[] = []
-  const quoted = /(["'])((?:(?!\1)[^\\\n\r])*)\1|`([^`\\$\n\r]*)(?:\$\{|`)/g
 
-  for (const match of text.matchAll(quoted)) {
-    const value = match[2] ?? match[3]
+  readPathLiterals(text, 0, text.length, found)
 
+  return found
+}
+
+function readPathLiterals(
+  text: string,
+  from: number,
+  cap: number,
+  found: string[]
+) {
+  const keep = (value: string) => {
     if (value && value.length <= MAX_LITERAL_LENGTH) found.push(value)
   }
 
-  return found
+  for (let i = from; i < cap; i++) {
+    const quote = text[i]
+
+    if (quote === '`') {
+      // The whole template is stepped over, so the backtick that closes one
+      // is never read as the one that opens the next.
+      const end = skipString(text, i, cap)
+      if (end >= cap) continue
+
+      const head = /^[^\\$\n\r]*/.exec(text.slice(i + 1, end))?.[0] ?? ''
+      const headEnd = i + 1 + head.length
+
+      if (headEnd === end || text.startsWith('${', headEnd)) keep(head)
+
+      // Strings written inside an interpolation are read like any other.
+      for (let j = i + 1; j < end; j++) {
+        if (text[j] === '\\') {
+          j++
+        } else if (text.startsWith('${', j)) {
+          const close = skipTemplateExpression(text, j + 2, end)
+
+          readPathLiterals(text, j + 2, close, found)
+          j = close
+        }
+      }
+
+      i = end
+      continue
+    }
+
+    if (quote !== '"' && quote !== "'") continue
+
+    const end = quotedStringEnd(text, i, cap)
+    // An apostrophe in prose opens nothing, so the walk moves on by one.
+    if (end === -1) continue
+
+    const value = text.slice(i + 1, end)
+
+    if (!value.includes('\\')) keep(value)
+
+    i = end
+  }
+}
+
+// The index of the quote that closes the string opened at this index, or -1
+// when the line ends first.
+function quotedStringEnd(text: string, open: number, cap: number): number {
+  const quote = text[open]
+
+  for (let i = open + 1; i < cap; i++) {
+    const char = text[i]
+
+    if (char === '\n' || char === '\r') return -1
+    if (char === '\\') i++
+    else if (char === quote) return i
+  }
+
+  return -1
 }
 
 export function toRuntimePathReference(
@@ -105,7 +204,9 @@ export function toRuntimePathReference(
   const folder = lastSlash === -1 ? '' : rel.slice(0, lastSlash)
   const tail = rel.slice(lastSlash + 1)
 
-  if (tail && hasAssetExtension(tail)) {
+  // Inside a folder any data file counts, whatever its extension. At the
+  // root only known asset types do, since a bare dotted word is rarely a path.
+  if (tail && (hasAssetExtension(tail) || (folder && isDataFileName(tail)))) {
     return {literal, folder, namePrefix: tail, file: rel}
   }
 
@@ -258,7 +359,11 @@ export class WarnUnshippedRuntimeAssets {
       .filter((asset) => /\.(?:m?js|html?)$/i.test(asset.name))
       .map((asset) => ({
         assetName: asset.name.replace(/\\/g, '/'),
-        text: asset.source.source().toString()
+        // Comments and patterns hold quotes that pair up wrongly, so a
+        // script is read without them. Markup is read as written.
+        text: /\.m?js$/i.test(asset.name)
+          ? blankComments(asset.source.source().toString())
+          : asset.source.source().toString()
       }))
 
     const folders = findUnshippedFolders({

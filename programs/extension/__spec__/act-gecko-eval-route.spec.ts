@@ -320,6 +320,34 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
     expect(frame().error.hint).toBeUndefined()
   })
 
+  it('keeps a recorded load refusal and opens no debugger for it', async () => {
+    const message =
+      'no executor connected: the browser refused to load this extension, so no background page runs and no retry changes that. The browser said: background.service_worker is currently disabled. Fix what it names and save, the dev session tries the load again on the next build. If it stays refused, restart extension dev'
+
+    session.result = {
+      ok: false,
+      error: {name: 'Unavailable', message, code: 'extension_load_refused'}
+    }
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        '--browser',
+        'firefox',
+        '--context',
+        'background',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(protocolCalls).toHaveLength(0)
+    expect(frame().error.code).toBe('E_EXTENSION_LOAD_REFUSED')
+    expect(frame().error.message).toBe(message)
+    expect(frame().error.hint).toBeUndefined()
+  })
+
   it('leaves a refusal the protocol cannot help with alone', async () => {
     session.result = {
       ok: false,
@@ -370,6 +398,37 @@ describe('eval on a Gecko extension document the CSP locks down', () => {
       context: 'popup',
       pagePath: 'action/index.html'
     })
+  })
+
+  it('names the background page the session emitted', async () => {
+    const dist = makeTempFolder('extjs-gecko-eval-')
+    fs.writeFileSync(
+      path.join(dist, 'manifest.json'),
+      JSON.stringify({background: {page: 'background/index.html'}})
+    )
+
+    session.readyDocument = {...session.readyDocument, distPath: dist}
+
+    expect(
+      await run([
+        'eval',
+        '1+1',
+        dist,
+        '--browser',
+        'firefox',
+        '--context',
+        'background',
+        '--output',
+        'json'
+      ])
+    ).toBe(0)
+
+    expect(protocolCalls[0]).toMatchObject({
+      context: 'background',
+      pagePath: 'background/index.html'
+    })
+
+    expect(frame()).toMatchObject({ok: true, value: 2})
   })
 
   it('needs a page path for a surface context and keeps the refusal without one', async () => {

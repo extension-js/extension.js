@@ -493,6 +493,46 @@ describe('extension doctor', () => {
     }
   })
 
+  it('names a load the browser refused on the contract row, never a wait', async () => {
+    const root = failedCompileProject({
+      code: 'extension_load_refused',
+      message: 'Chrome refused to load the extension at /proj/dist/chrome',
+      extensionLoadRefusedAt: '2026-11-16T20:27:28.524Z',
+      extensionLoadRefusedReason:
+        'Cannot install extension because it uses an unsupported manifest version.'
+    })
+    StubController.probeResult = {
+      ok: false,
+      error: {
+        name: 'Unavailable',
+        message:
+          'no executor connected: the browser refused to load this extension',
+        code: 'extension_load_refused'
+      }
+    }
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'chrome'}))
+
+      expect(r['ready-contract'].status).toBe('fail')
+      expect(r['ready-contract'].detail).toBe(
+        "contract status is 'error', the browser refused to load the " +
+          'extension: Cannot install extension because it uses an ' +
+          'unsupported manifest version'
+      )
+
+      expect(r['ready-contract'].remediation).toMatch(
+        /tries the load again on the next build/
+      )
+
+      expect(r['ready-contract'].remediation).not.toMatch(/wait for it/)
+      expect(r.executor.status).toBe('fail')
+      expect(r.executor.detail).toContain('refused to load this extension')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   it('never grace-warns a session in error, even one that is not a compile failure', async () => {
     const root = failedCompileProject({
       code: 'browser_launch_failed',

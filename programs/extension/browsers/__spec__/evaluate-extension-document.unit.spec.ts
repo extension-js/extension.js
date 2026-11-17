@@ -1,5 +1,8 @@
 import EventEmitter from 'node:events'
+import fs from 'node:fs'
 import net from 'node:net'
+import os from 'node:os'
+import path from 'node:path'
 import vm from 'node:vm'
 import {describe, expect, it} from 'vitest'
 import {MAX_RESULT_BYTES} from '../browsers-lib/eval-result-cap'
@@ -10,6 +13,7 @@ import {
   evaluateThroughWatcher,
   extensionDocumentPagePath,
   inspectSnapshotExpression,
+  installedBackgroundPagePath,
   isExtensionDocumentContext,
   POLL_EXPRESSION,
   pickDocumentFrame,
@@ -27,6 +31,12 @@ const UUID = 'moz-extension://6ce00885-f57b-408f-9c84-c69710a93bc1'
 const BACKGROUND_FRAME = {
   url: `${UUID}/_generated_background_page.html`,
   consoleActor: 'console-background',
+  isFallbackExtensionDocument: false
+}
+
+const BACKGROUND_PAGE_FRAME = {
+  url: `${UUID}/background/index.html`,
+  consoleActor: 'console-background-page',
   isFallbackExtensionDocument: false
 }
 
@@ -201,6 +211,106 @@ describe('the Gecko extension-document evaluator', () => {
         'background'
       )
     ).toBe('mv2')
+  })
+
+  it('reads the background page out of the manifest and nothing for scripts', () => {
+    expect(
+      extensionDocumentPagePath(
+        {background: {page: './background/index.html'}},
+        'background'
+      )
+    ).toBe('background/index.html')
+
+    expect(
+      extensionDocumentPagePath(
+        {'firefox:background': {page: 'bg/index.html'}},
+        'background'
+      )
+    ).toBe('bg/index.html')
+
+    expect(
+      extensionDocumentPagePath(
+        {background: {scripts: ['background/scripts.js']}},
+        'background'
+      )
+    ).toBeUndefined()
+
+    expect(
+      extensionDocumentPagePath(
+        {
+          background: {
+            service_worker: 'background/service_worker.js',
+            scripts: ['background/scripts.js']
+          }
+        },
+        'background'
+      )
+    ).toBeUndefined()
+  })
+
+  it('picks a background page by the path the manifest names', () => {
+    expect(
+      pickDocumentFrame(
+        [FALLBACK_FRAME, NEWTAB_FRAME, BACKGROUND_PAGE_FRAME],
+        'background',
+        'background/index.html'
+      )
+    ).toBe('console-background-page')
+
+    expect(
+      pickDocumentFrame(
+        [{url: `${UUID}/bg/main.html?x=1#y`, consoleActor: 'named'}],
+        'background',
+        'bg/main.html'
+      )
+    ).toBe('named')
+
+    expect(
+      pickDocumentFrame([BACKGROUND_PAGE_FRAME], 'background')
+    ).toBeUndefined()
+
+    expect(
+      pickDocumentFrame(
+        [{url: `${UUID}/options/index.html`, consoleActor: 'options'}],
+        'background',
+        'background/index.html'
+      )
+    ).toBeUndefined()
+  })
+
+  it('still picks the generated background document when a page is named', () => {
+    expect(
+      pickDocumentFrame(
+        [FALLBACK_FRAME, BACKGROUND_FRAME],
+        'background',
+        'background/index.html'
+      )
+    ).toBe('console-background')
+  })
+
+  it('reads the background page of an installed add-on folder', () => {
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bg-page-'))
+
+    try {
+      expect(installedBackgroundPagePath(folder)).toBeUndefined()
+
+      fs.writeFileSync(
+        path.join(folder, 'manifest.json'),
+        JSON.stringify({background: {page: 'background/index.html'}})
+      )
+
+      expect(installedBackgroundPagePath(folder)).toBe('background/index.html')
+
+      fs.writeFileSync(
+        path.join(folder, 'manifest.json'),
+        JSON.stringify({background: {scripts: ['background/scripts.js']}})
+      )
+
+      expect(installedBackgroundPagePath(folder)).toBeUndefined()
+      expect(installedBackgroundPagePath(undefined)).toBeUndefined()
+    } finally {
+      fs.rmSync(folder, {recursive: true, force: true})
+    }
   })
 
   it('matches a surface document by its page path, query and hash aside', () => {
@@ -413,6 +523,19 @@ describe('the Gecko extension-document evaluator', () => {
       'watchTargets',
       'unwatchTargets'
     ])
+  })
+
+  it('evaluates in a background page the manifest names', async () => {
+    const client = new FakeRdpClient({
+      frames: [FALLBACK_FRAME, BACKGROUND_PAGE_FRAME]
+    })
+
+    expect(await run(client, {pagePath: 'background/index.html'})).toEqual({
+      ok: true,
+      value: 2
+    })
+
+    expect(client.evaluated[0].consoleActor).toBe('console-background-page')
   })
 
   it('evaluates in an open surface document by its page path', async () => {
