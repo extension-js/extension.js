@@ -63,7 +63,7 @@ describe('toDiagnostic', () => {
   })
 
   it('names a module by its path inside the project, in forward slashes', () => {
-    const root = fs.realpathSync(makeTempFolder('extjs-diagnostics-'))
+    const root = fs.realpathSync.native(makeTempFolder('extjs-diagnostics-'))
     const resource = path.join(root, 'src', 'pages', 'a.ts')
 
     expect(
@@ -72,7 +72,7 @@ describe('toDiagnostic', () => {
   })
 
   it('names it the same way when the root is a link to where it sits', () => {
-    const base = fs.realpathSync(makeTempFolder('extjs-diagnostics-'))
+    const base = fs.realpathSync.native(makeTempFolder('extjs-diagnostics-'))
     const real = path.join(base, 'real')
     const linked = path.join(base, 'linked')
 
@@ -89,7 +89,7 @@ describe('toDiagnostic', () => {
   })
 
   it('leaves a module outside the project, or with no root, as it came', () => {
-    const root = fs.realpathSync(makeTempFolder('extjs-diagnostics-'))
+    const root = fs.realpathSync.native(makeTempFolder('extjs-diagnostics-'))
     const outside = path.join(path.dirname(root), 'elsewhere', 'a.ts')
 
     expect(
@@ -146,7 +146,7 @@ describe('toDiagnostic', () => {
 
 describe('compilationDiagnostics', () => {
   it('lists errors before warnings, relative to the compiler context', () => {
-    const root = fs.realpathSync(makeTempFolder('extjs-diagnostics-'))
+    const root = fs.realpathSync.native(makeTempFolder('extjs-diagnostics-'))
 
     expect(
       compilationDiagnostics({
@@ -171,7 +171,7 @@ describe('compilationDiagnostics', () => {
   })
 
   it('prefers the root it is given over the compiler context', () => {
-    const root = fs.realpathSync(makeTempFolder('extjs-diagnostics-'))
+    const root = fs.realpathSync.native(makeTempFolder('extjs-diagnostics-'))
     const resource = path.join(root, 'app', 'a.js')
 
     expect(
@@ -241,7 +241,7 @@ describe('compilationDiagnostics', () => {
   // The chunk graph of a real compile is what tells a content script's syntax
   // failure from the same failure in a background script.
   it('codes a real syntax failure only under a content_scripts entry', async () => {
-    const root = fs.realpathSync(makeTempFolder('extjs-diagnostics-'))
+    const root = fs.realpathSync.native(makeTempFolder('extjs-diagnostics-'))
 
     fs.writeFileSync(path.join(root, 'content.js'), 'const = 1\n')
     fs.writeFileSync(path.join(root, 'background.js'), 'const = 2\n')
