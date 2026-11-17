@@ -150,7 +150,12 @@ describe('unsolicited RDP packets', () => {
 
     mock.sockets[0].destroy()
 
-    await expect(connecting).rejects.toThrow()
+    await expect(connecting).rejects.toMatchObject({
+      code: 'E_BROWSER_CONNECTION_CLOSED',
+      message: expect.stringContaining(
+        'The Firefox messaging channel closed unexpectedly.'
+      )
+    })
   })
 
   it('finds the addons actor with a single getRoot and no retry sleep', async () => {

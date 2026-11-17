@@ -101,6 +101,58 @@ describe('install-runner runInstall', () => {
     })
   })
 
+  it('tee writes each stream through as it arrives and still captures it', async () => {
+    const {spawn, calls} = fakeSpawn(() => ({
+      exit: 1,
+      stdout: 'resolving\n',
+      stderr: 'npm error code E404\n'
+    }))
+    const shown: string[] = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk) => {
+      shown.push(`out:${String(chunk)}`)
+
+      return true
+    })
+
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      shown.push(`err:${String(chunk)}`)
+
+      return true
+    })
+
+    const result = await runInstall('npm', ['install'], {
+      cwd: os.tmpdir(),
+      stdio: 'tee',
+      spawn
+    }).finally(() => vi.restoreAllMocks())
+
+    expect(result).toEqual({
+      code: 1,
+      stdout: 'resolving\n',
+      stderr: 'npm error code E404\n'
+    })
+
+    expect(shown).toEqual(['out:resolving\n', 'err:npm error code E404\n'])
+    // Stdin stays the terminal's, the way a plain inherit left it.
+    expect(calls[0].options.stdio).toEqual(['inherit', 'pipe', 'pipe'])
+  })
+
+  it('pipe captures the streams and shows nothing', async () => {
+    const {spawn} = fakeSpawn(() => ({exit: 0, stdout: 'quiet\n'}))
+    const write = vi.spyOn(process.stdout, 'write').mockReturnValue(true)
+
+    const result = await runInstall('npm', ['install'], {
+      cwd: os.tmpdir(),
+      stdio: 'pipe',
+      spawn
+    })
+    const shown = write.mock.calls.length
+    vi.restoreAllMocks()
+
+    expect(result.stdout).toBe('quiet\n')
+    expect(shown).toBe(0)
+  })
+
   it('rejects with the spawn error when the binary is missing', async () => {
     vi.useFakeTimers()
     const {spawn, calls} = fakeSpawn((command) => ({

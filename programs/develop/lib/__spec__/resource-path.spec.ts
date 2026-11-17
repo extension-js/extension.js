@@ -7,6 +7,7 @@ import {
   canonicalizeResourcePath,
   forgetResolvedModuleFolders,
   isResourceUnderDirs,
+  toProjectRelativePath,
   toResourceKey
 } from '../resource-path'
 
@@ -174,5 +175,31 @@ describe('lib/resource-path', () => {
     expect(canonicalizeResourcePath(resource)).toBe(
       path.join(target, 'scripts.ts')
     )
+  })
+})
+
+describe('toProjectRelativePath', () => {
+  it('names a file under the project by its path from the root', () => {
+    const {root, realResource} = makeProjectWithSymlinkedView()
+
+    expect(toProjectRelativePath(root, realResource)).toBe(
+      'real-src/content/scripts.ts'
+    )
+  })
+
+  it('reads a symlinked view of the file as the same path', () => {
+    const {realSrc, linkedResource} = makeProjectWithSymlinkedView()
+
+    expect(toProjectRelativePath(realSrc, linkedResource)).toBe(
+      'content/scripts.ts'
+    )
+  })
+
+  it('leaves a file outside the project as given', () => {
+    const {contentDir, realResource} = makeProjectWithSymlinkedView()
+    const outside = path.join(path.dirname(contentDir), 'other.css')
+
+    expect(toProjectRelativePath(contentDir, outside)).toBe(outside)
+    expect(toProjectRelativePath(undefined, realResource)).toBe(realResource)
   })
 })

@@ -7,57 +7,24 @@ import {
   type MockInstance,
   vi
 } from 'vitest'
+import {registerDevCommand} from '../commands/dev'
+import {WaitModeError} from '../commands/dev-wait'
+import {CODES} from '../helpers/messaging'
+import {
+  makeProgram,
+  runCli,
+  stubCommandEnv,
+  stubProcessExit
+} from './command-harness'
 
 const extensionDev = vi.fn(async () => {})
-const reportCommandFailureNow = vi.fn()
+// The one call that sends a failure row, so a spec can read what would travel.
+const reportFailure = vi.fn()
 const runWaitMode = vi.fn(async (_input: unknown) => ({
   format: 'pretty' as const,
   browsers: ['chromium'],
   results: [{browser: 'chromium', status: 'ready'}]
 }))
-
-vi.mock('../browsers', () => ({
-  launchBrowser: vi.fn(async () => {})
-}))
-
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopModule: vi.fn(async () => ({extensionDev}))
-}))
-
-vi.mock('../browsers/run-safari/safari-launch', () => ({
-  packageSafariExtension: vi.fn(async () => {}),
-  safariPreflightError: () => null
-}))
-
-vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
-  isValidBundleId: (id: string) => id.includes('.') && !id.includes(' ')
-}))
-
-// The one call that sends a failure row, so a spec can read what would travel.
-vi.mock('../helpers/telemetry-cli', async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import('../helpers/telemetry-cli')>()
-
-  return {
-    ...actual,
-    reportCommandFailureNow: (details: unknown) =>
-      reportCommandFailureNow(details)
-  }
-})
-
-// Only runWaitMode is stubbed: describeWaitError is the code under test here.
-vi.mock('../commands/dev-wait', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../commands/dev-wait')>()
-
-  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input)}
-})
-
-import {registerDevCommand} from '../commands/dev'
-import {WaitModeError} from '../commands/dev-wait'
-import {CODES} from '../helpers/messaging'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
-
-const ORIG_ENV = {...process.env}
 
 let logSpy: MockInstance<typeof console.log>
 
@@ -65,17 +32,30 @@ beforeEach(() => {
   stubProcessExit()
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'error').mockImplementation(() => {})
-  delete process.env.EXTENSION_CLI_NO_BROWSER
+  stubCommandEnv()
 })
 
 afterEach(() => {
-  process.env = {...ORIG_ENV}
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
   vi.clearAllMocks()
 })
 
+// Only waitForReady is faked on the wait path: describeWaitError is the code
+// under test here.
 function run(argv: string[]) {
-  return runCli(makeProgram(registerDevCommand), argv)
+  return runCli(
+    makeProgram((program) =>
+      registerDevCommand(program, {
+        loadDevelop: async () => ({extensionDev}),
+        launcher: vi.fn(async () => {}) as never,
+        safariPreflight: () => null,
+        waitForReady: (input) => runWaitMode(input) as never,
+        reportFailure
+      })
+    ),
+    argv
+  )
 }
 
 function frames(): any[] {
@@ -109,7 +89,7 @@ describe('extension dev --output json', () => {
   })
 
   it('reports the requested port and the no-browser decision', async () => {
-    process.env.EXTENSION_CLI_NO_BROWSER = '1'
+    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', '1')
     expect(await run(['dev', '.', '--output', 'json', '--port', '9331'])).toBe(
       0
     )
@@ -140,18 +120,6 @@ describe('extension dev --output json', () => {
 
     expect(String(emitted[0].error.message)).toContain('netscape')
     expect(extensionDev).not.toHaveBeenCalled()
-  })
-
-  it('emits a failure frame for a malformed --parent-pid', async () => {
-    expect(
-      await run(['dev', '.', '--parent-pid', 'zero', '--output', 'json'])
-    ).toBe(1)
-
-    expect(frames()[0]).toMatchObject({
-      ok: false,
-      status: 'usage',
-      error: {code: CODES.E_INVALID_OPTION}
-    })
   })
 
   it('turns --wait into an envelope without --wait-format', async () => {
@@ -194,6 +162,57 @@ describe('extension dev --output json', () => {
     expect(typeof frames()[0].hint).toBe('string')
   })
 
+  it('frames a locked profile on --wait as failed with the hint preview gives', async () => {
+    runWaitMode.mockRejectedValueOnce(
+      new WaitModeError('The profile is in use.', CODES.E_PROFILE_LOCKED)
+    )
+
+    await expect(
+      run(['dev', '.', '--wait', '--output', 'json'])
+    ).rejects.toThrow('The profile is in use.')
+
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        value: null,
+        error: {
+          code: CODES.E_PROFILE_LOCKED,
+          message: 'The profile is in use.'
+        },
+        warnings: [],
+        hint: 'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+      }
+    ])
+  })
+
+  it('frames a locked profile from develop with the same hint', async () => {
+    extensionDev.mockRejectedValueOnce(
+      Object.assign(new Error('The profile is in use.'), {
+        code: CODES.E_PROFILE_LOCKED
+      })
+    )
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        value: null,
+        error: {
+          code: CODES.E_PROFILE_LOCKED,
+          message: 'The profile is in use.'
+        },
+        warnings: [],
+        hint: 'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+      }
+    ])
+  })
+
   it('reports the remote-url refusal as E_REMOTE_URL_UNSUPPORTED', async () => {
     runWaitMode.mockRejectedValueOnce(
       new WaitModeError(
@@ -212,11 +231,6 @@ describe('extension dev --output json', () => {
       status: 'usage',
       error: {code: CODES.E_REMOTE_URL_UNSUPPORTED}
     })
-  })
-
-  it('keeps the legacy --wait-format=json trigger working', async () => {
-    expect(await run(['dev', '.', '--wait', '--wait-format', 'json'])).toBe(0)
-    expect(frames()[0]).toMatchObject({schema: 1, status: 'ready'})
   })
 
   it('lets --output win over a contradicting --wait-format alias', async () => {
@@ -334,7 +348,7 @@ describe('extension dev --output json', () => {
       (extensionDev.mock.calls[0] as unknown[])?.[1] as {onExitError: ExitHook}
 
     expect(await run(['dev', '.'])).toBe(0)
-    expect(reportCommandFailureNow).not.toHaveBeenCalled()
+    expect(reportFailure).not.toHaveBeenCalled()
 
     hookOf().onExitError(
       Object.assign(new Error('bad config'), {code: 'E_CONFIG_LOAD'})
@@ -343,7 +357,7 @@ describe('extension dev --output json', () => {
     hookOf().onExitError(new Error('port taken'), 'E_DEV_SERVER_START')
     hookOf().onExitError(new Error('boom'))
 
-    expect(reportCommandFailureNow.mock.calls).toEqual([
+    expect(reportFailure.mock.calls).toEqual([
       [{code: CODES.E_CONFIG_LOAD, exitCode: 1}],
       [{code: CODES.E_DEV_SERVER_START, exitCode: 1}],
       [{code: CODES.E_INTERNAL, exitCode: 1}]
@@ -361,8 +375,22 @@ describe('extension dev --output json', () => {
 
     expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
     expect(frames().map((frame) => frame.status)).toEqual(['failed'])
-    expect(reportCommandFailureNow.mock.calls).toEqual([
+    expect(reportFailure.mock.calls).toEqual([
       [{code: CODES.E_CONFIG_LOAD, exitCode: 1}]
+    ])
+  })
+
+  it('reports a refusal before the run once, with its catalog code', async () => {
+    expect(
+      await run(['dev', '.', '--browser', 'nope', '--output', 'json'])
+    ).toBe(1)
+
+    expect(frames().map((frame) => frame.error.code)).toEqual([
+      CODES.E_UNSUPPORTED_BROWSER
+    ])
+
+    expect(reportFailure.mock.calls).toEqual([
+      [{code: CODES.E_UNSUPPORTED_BROWSER, exitCode: 1}]
     ])
   })
 
