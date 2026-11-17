@@ -1,39 +1,25 @@
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {isSourceCheckout, Telemetry} from '../telemetry'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
+import {isSourceCheckout, type TelemetryDeps} from '../telemetry'
+import {readRows, useTelemetrySandbox} from './telemetry-sandbox'
 
-const makeTempFolder = trackTempFolders()
+const sandbox = useTelemetrySandbox()
 
-const originalEnv = {...process.env}
+function auditedProperties(
+  version: string,
+  deps: Partial<TelemetryDeps> = {},
+  env: Record<string, string> = {}
+): Record<string, unknown> {
+  const box = sandbox({env, deps})
 
-function restoreEnv() {
-  for (const key of Object.keys(process.env)) {
-    if (!(key in originalEnv)) delete process.env[key]
-  }
+  box.telemetry({version}).track('command_executed', {
+    command: 'create',
+    success: true,
+    version
+  })
 
-  for (const [key, value] of Object.entries(originalEnv)) {
-    process.env[key] = value
-  }
-}
-
-let home = ''
-
-beforeEach(() => {
-  home = makeTempFolder('extjs-source-build-')
-  process.env.XDG_CONFIG_HOME = home
-  process.env.XDG_CACHE_HOME = home
-})
-
-afterEach(restoreEnv)
-
-function auditedProperties(): Record<string, unknown> {
-  const auditFile = path.join(home, 'extensionjs', 'telemetry', 'events.jsonl')
-  const lines = fs.readFileSync(auditFile, 'utf8').trim().split('\n')
-
-  return JSON.parse(lines[lines.length - 1]).properties
+  return readRows(path.join(box.configDir, 'events.jsonl')).at(-1)
+    ?.properties as Record<string, unknown>
 }
 
 describe('a run from a clone is not a run from an install', () => {
@@ -79,48 +65,49 @@ describe('a run from a clone is not a run from an install', () => {
     expect(isSourceCheckout(undefined as unknown as string)).toBe(true)
   })
 
-  it('rides on every event as a boolean beside is_ci', () => {
-    const telemetry = new Telemetry({app: 'extension', version: '4.0.24'})
-    telemetry.track('command_executed', {
-      command: 'create',
-      success: true,
-      version: '4.0.24'
-    })
+  it.each([
+    ['/home/dev/app/node_modules/extension/dist', false],
+    ['/home/dev/extension.js/programs/extension/dist', true]
+  ])('rides on every event: %s is_source_build=%s', (sourceDir, expected) => {
+    expect(auditedProperties('4.0.24', {sourceDir}).is_source_build).toBe(
+      expected
+    )
+  })
 
-    const properties = auditedProperties()
-    expect(typeof properties.is_source_build).toBe('boolean')
-    expect(typeof properties.is_ci).toBe('boolean')
+  it.each([
+    [{CI: '1'}, true],
+    [{}, false]
+  ])('marks is_ci from the CI detector: %j gives %s', (env, expected) => {
+    expect(auditedProperties('4.0.24', {}, env).is_ci).toBe(expected)
   })
 
   it('carries no path, no user and no field beyond the audited list', () => {
-    const telemetry = new Telemetry({app: 'extension', version: '4.0.24'})
-    telemetry.track('command_executed', {
+    const box = sandbox({deps: {platform: 'win32'}})
+    box.telemetry({version: '4.0.24'}).track('command_executed', {
       command: 'create',
       success: true,
       version: '4.0.24'
     })
 
-    const properties = auditedProperties()
-    expect(Object.keys(properties).sort()).toEqual(
-      [
-        '$geoip_disable',
-        '$ip',
-        'app',
-        'arch',
-        'command',
-        'is_ci',
-        'is_source_build',
-        'node_major',
-        'os',
-        'package_manager',
-        'success',
-        'version'
-      ].sort()
-    )
+    const properties = readRows(path.join(box.configDir, 'events.jsonl'))[0]
+      .properties
 
-    const serialised = JSON.stringify(properties)
-    expect(serialised).not.toContain(os.homedir())
-    expect(serialised).not.toContain(path.sep + 'node_modules')
+    expect(properties).toEqual({
+      $geoip_disable: true,
+      $ip: null,
+      app: 'extension',
+      arch: process.arch,
+      command: 'create',
+      is_ci: false,
+      is_source_build: isSourceCheckout(__dirname),
+      node_major: Number(process.versions.node.split('.')[0]),
+      os: 'win32',
+      package_manager: 'unknown',
+      success: true,
+      version: '4.0.24'
+    })
+
+    expect(JSON.stringify(properties)).not.toContain(box.root)
   })
 })
 
@@ -132,25 +119,14 @@ describe('a run from a clone is not a run from an install', () => {
 describe('a published version survives the emitter intact', () => {
   it('does not truncate the canary version npm actually published', () => {
     const published = '4.0.19-canary.1785200797.ce99a79e'
-    expect(published).toHaveLength(33)
-    const telemetry = new Telemetry({app: 'extension', version: published})
-    telemetry.track('command_executed', {
-      command: 'create',
-      success: true,
-      version: published
-    })
 
-    expect(auditedProperties().version).toBe(published)
+    expect(published).toHaveLength(33)
+    expect(auditedProperties(published).version).toBe(published)
   })
 
   it('still bounds a version that is not a version at all', () => {
-    const telemetry = new Telemetry({app: 'extension', version: '4.0.24'})
-    telemetry.track('command_executed', {
-      command: 'create',
-      success: true,
-      version: 'x'.repeat(400)
-    })
-
-    expect(String(auditedProperties().version)).toHaveLength(64)
+    expect(String(auditedProperties('x'.repeat(400)).version)).toBe(
+      'x'.repeat(64)
+    )
   })
 })

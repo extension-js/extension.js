@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import type {Stats, StatsAsset} from '@rspack/core'
 import colors, {supportsColor} from 'pintor'
 import type {DevOptions, Manifest} from '../types'
+import {stripLoaderWrapper} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import type {InstallFailure} from './install-registry-failure'
 import {
@@ -238,13 +239,6 @@ export function projectInstallInWorkspaceRoot(
   )
 }
 
-export function projectInstallFallbackToNpm(pmName: string) {
-  return (
-    `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed.\n` +
-    `Extension.js retries once with npm so the build can continue.`
-  )
-}
-
 function installFailureReason(failure: InstallFailure): string {
   if (failure.kind === 'tarball-not-served') {
     return `The registry lists ${fmt.code(failure.packageSpec)} but is not serving its tarball yet.`
@@ -295,6 +289,92 @@ export function projectInstallRegistryNotReady(
     `${installFailureReason(failure)}\n` +
     `${cause} Extension.js tried ${attempts} times over ${secondsLabel(waitedMs)}.\n` +
     `Run the command again in a minute. The ${pmName} error is printed above.`
+  )
+}
+
+// Each setting is named the way the manager's own refusal names it.
+export function projectInstallReleaseTooYoung(
+  failure: Extract<InstallFailure, {kind: 'release-too-young'}>,
+  pmName: string
+) {
+  const isDeno = failure.manager === 'deno'
+  const spec = failure.packageSpec ? fmt.code(failure.packageSpec) : ''
+  const release = isDeno ? spec && `the newest release matching ${spec}` : spec
+  const rule = isDeno
+    ? 'Deno refuses releases younger than its minimum dependency age'
+    : `pnpm refuses releases younger than ${fmt.code('minimumReleaseAge')} allows`
+  const lift = isDeno
+    ? `set ${fmt.code('minimumDependencyAge')} in deno.json`
+    : `add the package to the ${fmt.code('minimumReleaseAgeExclude')} setting`
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `${rule}, and ${release || 'a release this project asks for'} is too young.\n` +
+    `Wait until the release is old enough, pin the previous version, or ${lift}.\n` +
+    `The ${pmName} error is printed above.`
+  )
+}
+
+// Only managers whose npm package was seen to ship the binary get a command.
+const MANAGER_INSTALL_STEP: Record<string, string> = {
+  pnpm: 'npm install -g pnpm',
+  yarn: 'npm install -g yarn'
+}
+
+export function projectInstallManagerNotFound(pmName: string) {
+  const command = MANAGER_INSTALL_STEP[pmName]
+  const step = command
+    ? `Install it with ${fmt.code(command)}, then run the command again.`
+    : pmName === 'npm'
+      ? 'It ships with Node.js, so reinstall Node.js, then run the command again.'
+      : `Install ${pmName}, then run the command again.`
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `This project installs with ${pmName}, but ${pmName} is not on PATH.\n` +
+    step
+  )
+}
+
+export function projectInstallManagerNotDownloaded(
+  failure: Extract<InstallFailure, {kind: 'manager-not-downloaded'}>,
+  pmName: string,
+  // Set only when Extension.js chose the registry Corepack asked.
+  registryReadFrom?: 'npm_config_registry' | '.npmrc'
+) {
+  const from = failure.registry ? ` from ${fmt.code(failure.registry)}` : ''
+  const detail = failure.detail ? ` (${failure.detail})` : ''
+  const origin =
+    registryReadFrom === '.npmrc'
+      ? "Extension.js pointed Corepack at that registry because the project's .npmrc names it.\n"
+      : registryReadFrom === 'npm_config_registry'
+        ? `Extension.js pointed Corepack at that registry because ${fmt.code('npm_config_registry')} names it.\n`
+        : ''
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `Corepack could not download ${pmName}${from}${detail}, so ${pmName} never started.\n` +
+    origin +
+    `Check that the registry serves ${pmName} and can be reached, or set ${fmt.code('COREPACK_NPM_REGISTRY')} to one that does.\n` +
+    `The Corepack error is printed above.`
+  )
+}
+
+// Only the project's own manager installs, so its failure is the last word.
+export function projectInstallFailed(
+  pmName: string,
+  exitCode: number | null | undefined,
+  reason?: string
+) {
+  const what =
+    typeof exitCode === 'number'
+      ? `${pmName} exited with code ${exitCode}. The ${pmName} error is printed above.`
+      : `${pmName} could not start${reason ? ` (${reason})` : ''}.`
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `${what}\n` +
+    `Fix it, or run ${fmt.code(`${pmName} install`)} yourself, then run the command again.`
   )
 }
 
@@ -643,12 +723,6 @@ type LooseBuildWarning =
       chunkName?: unknown
     }
 
-// rspack wraps loader warnings in "Module Warning (from <loader path>):",
-// which only repeats what the Source line already says.
-function stripModuleWarningWrapper(message: string): string {
-  return message.replace(/^Module (?:Warning|Error) \(from [^)]*\):\s*/, '')
-}
-
 // eslint-disable-next-line no-control-regex
 const ANSI_CODES = /\u001b\[[0-9;]*m/g
 const WARNING_HEAD_MARKER =
@@ -678,7 +752,7 @@ function stripBundlerDecoration(message: string): string {
 }
 
 function cleanWarningText(message: string): string {
-  return stripModuleWarningWrapper(stripBundlerDecoration(message))
+  return stripLoaderWrapper(stripBundlerDecoration(message))
 }
 
 function getWarningMessage(warning: LooseBuildWarning): string {

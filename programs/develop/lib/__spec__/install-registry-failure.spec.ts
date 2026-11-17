@@ -123,10 +123,6 @@ describe('classifyInstallFailure', () => {
       'a folder it may not write',
       "npm error code EACCES\nnpm error syscall mkdir\nnpm error Error: EACCES: permission denied, mkdir '/project/node_modules'"
     ],
-    [
-      "deno's minimum dependency age",
-      "error: Could not find npm package 'stubx-late' matching '^4.0.3'.\n\nA newer matching version was found, but it was not used because it was newer than the specified minimum dependency date."
-    ],
     ['an error nothing here names', 'Segmentation fault'],
     ['no output at all', '']
   ])('does not retry %s', (_label, output) => {
@@ -134,6 +130,61 @@ describe('classifyInstallFailure', () => {
       kind: 'permanent',
       retry: false
     })
+  })
+
+  it.each([
+    ['deno', 'direct', 'stubx-late@^4.0.3'],
+    ['deno', 'transitive', 'stubx-late@^4.0.3'],
+    ['pnpm', 'direct', 'stubx-late@4.0.3'],
+    ['pnpm', 'transitive', 'stubx-late@4.0.3'],
+    ['pnpm10', 'direct', 'stubx-late@4.0.3'],
+    ['pnpm10', 'transitive', 'stubx-late@4.0.3']
+  ])('names the age rule and never retries a release that is too young (%s, %s)', (manager, scenario, packageSpec) => {
+    expect(
+      classifyInstallFailure(captured(manager, `age-${scenario}`) || '', {
+        directDependencies: ['stubx-late']
+      })
+    ).toEqual({
+      kind: 'release-too-young',
+      retry: false,
+      manager: manager === 'deno' ? 'deno' : 'pnpm',
+      packageSpec
+    })
+  })
+
+  it.each([
+    ['corepack-pnpm-404', 'http://registry.test', 'HTTP 404'],
+    ['corepack-pnpm-latest-404', 'http://registry.test', 'HTTP 404'],
+    ['corepack-yarn-404', 'http://registry.test', 'HTTP 404'],
+    ['corepack-pnpm-refused', 'http://registry.test', undefined]
+  ])('reads a manager Corepack could not download, never as a registry to wait on (%s)', (capture, registry, detail) => {
+    expect(classifyInstallFailure(CAPTURED_INSTALL_FAILURES[capture])).toEqual({
+      kind: 'manager-not-downloaded',
+      retry: false,
+      registry,
+      ...(detail ? {detail} : {})
+    })
+  })
+
+  it('keeps the path of a registry that is not at the root of its host', () => {
+    expect(
+      classifyInstallFailure(
+        'Error: Server answered with HTTP 503 when performing the request to https://host.test/api/npm/all/@yarnpkg/cli-dist/4.5.0; for troubleshooting help, see https://github.com/nodejs/corepack#troubleshooting'
+      )
+    ).toEqual({
+      kind: 'manager-not-downloaded',
+      retry: false,
+      registry: 'https://host.test/api/npm/all',
+      detail: 'HTTP 503'
+    })
+  })
+
+  it('still names the age rule when the refusal carries no package', () => {
+    expect(
+      classifyInstallFailure(
+        'error: blocked by the minimum dependency age policy'
+      )
+    ).toEqual({kind: 'release-too-young', retry: false, manager: 'deno'})
   })
 
   it('reads the tarball 404 the public registry answered during a release', () => {
