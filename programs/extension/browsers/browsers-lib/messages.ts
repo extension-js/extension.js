@@ -315,14 +315,6 @@ export function bestEffortBannerPrintFailed(message: string) {
   return `${getLoggingPrefix('debug')} browser  banner=failed reason="${message}"`
 }
 
-export function firefoxRdpRuntimeCapabilitySummary(
-  state: 'available' | 'unavailable'
-) {
-  const reload = state === 'available' ? 'preserve-state' : 'reinstall'
-
-  return `${getLoggingPrefix('debug')} rdp      capability scripting=${state} reload=${reload}`
-}
-
 export function skippingBrowserLaunchDueToCompileErrors() {
   return `${getLoggingPrefix('warn')} Skipping the browser launch, the build has compile errors.`
 }

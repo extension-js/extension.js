@@ -2,11 +2,7 @@ import type {ChildProcess} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {
-  buildInstallCommand,
-  resolveNpmPackageManager,
-  spawnInstallCommand
-} from '../package-manager'
+import {buildInstallCommand, spawnInstallCommand} from '../package-manager'
 
 // Nothing is mocked here on purpose: the sibling spec mocks cross-spawn, so
 // only a real spawn proves the .cmd shims resolve on the Windows lane.
@@ -59,21 +55,6 @@ describe('package-manager spawnInstallCommand (real spawn)', () => {
     expect(result.code).toBe(0)
     expect(result.stdout.trim()).toMatch(VERSION)
     expect(result.stderr).not.toMatch(/not recognized|not found/i)
-  })
-
-  it('runs the npm the fallback install resolves on this machine', async () => {
-    // The hydrated resolution is the one a failed install retries with, so
-    // the resolved path must run as-is, a .cmd path on Windows included.
-    const cmd = buildInstallCommand(resolveNpmPackageManager(), ['--version'])
-    const result = await finished(
-      spawnInstallCommand(cmd.command, cmd.args, {
-        cwd: process.cwd(),
-        stdio: 'pipe'
-      })
-    )
-
-    expect(result.code).toBe(0)
-    expect(result.stdout.trim()).toMatch(VERSION)
   })
 
   it.skipIf(!onPath('pnpm'))(

@@ -97,7 +97,6 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "firefoxRdpReinjectNoDescriptor: function(2)",
     "firefoxRdpReinjectWatchTargetsFailed: function(2)",
     "firefoxRdpReinjectWatcherUnavailable: function(2)",
-    "firefoxRdpRuntimeCapabilitySummary: function(1)",
     "firstRunInstallDeclined: function(1)",
     "firstRunInstallFailed: function(2)",
     "firstRunInstallOffer: function(1)",
