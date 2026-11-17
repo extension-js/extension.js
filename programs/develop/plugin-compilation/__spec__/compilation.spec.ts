@@ -253,45 +253,15 @@ describe('CompilationPlugin on a real compiler', () => {
     })
   }
 
-  // Pins today's behavior. Ledger 1388 D3.
-  it('defines NODE_ENV itself even when optimization.nodeEnv is false', async () => {
+  // rspack's optimization.nodeEnv owns the define, so a project can turn it off.
+  it('leaves NODE_ENV undefined when optimization.nodeEnv is false', async () => {
     const root = scaffold('console.log(process.env.NODE_ENV)\n')
     await runCompiler(
       compilerFor(root, {command: 'build', mode: 'production', nodeEnv: false})
     )
 
     expect(runScript(path.join(root, 'dist/chrome/background.js'))).toEqual([
-      'production'
+      'undefined'
     ])
-  })
-
-  // Pins today's behavior. Ledger 1388 D3.
-  it('swallows a failure of its own NODE_ENV define', () => {
-    const root = scaffold()
-    const compiler = createCompiler({
-      context: root,
-      outputPath: path.join(root, 'dist', 'chrome')
-    }) as Compiler & {__internal__registerBuiltinPlugin: (p: unknown) => void}
-    const register = compiler.__internal__registerBuiltinPlugin.bind(compiler)
-    const refused: unknown[] = []
-
-    compiler.__internal__registerBuiltinPlugin = (plugin) => {
-      if (JSON.stringify(plugin).includes('process.env.NODE_ENV')) {
-        refused.push(plugin)
-
-        throw new Error('refused')
-      }
-
-      register(plugin)
-    }
-
-    expect(() =>
-      new CompilationPlugin({
-        manifestPath: path.join(root, 'manifest.json'),
-        command: 'build'
-      }).apply(compiler)
-    ).not.toThrow()
-
-    expect(refused).toHaveLength(1)
   })
 })

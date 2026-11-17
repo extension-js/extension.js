@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'node:path'
-import {type Compiler, DefinePlugin, type WebpackError} from '@rspack/core'
+import type {Compiler, WebpackError} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
 import {debugLine, isDebug} from '../lib/messaging'
@@ -120,24 +120,6 @@ export class CompilationPlugin {
 
       new WatchRealProjectPathPlugin().apply(compiler)
       new WarmAncestorWatchersPlugin().apply(compiler)
-    }
-
-    // Define NODE_ENV only under a real Rspack compiler; unit tests pass stubs
-    // without the internals builtin plugins require.
-    try {
-      const hasRspackInternals =
-        typeof (compiler as {__internal__registerBuiltinPlugin?: unknown})
-          .__internal__registerBuiltinPlugin === 'function'
-
-      if (hasRspackInternals) {
-        new DefinePlugin({
-          'process.env.NODE_ENV': JSON.stringify(
-            compiler.options.mode || 'development'
-          )
-        }).apply(compiler)
-      }
-    } catch {
-      // Ignore
     }
 
     // A zip is a shippable artifact: any build command may produce one,
