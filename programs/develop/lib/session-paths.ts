@@ -9,8 +9,8 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import * as messages from './messages'
+import {humanLine} from './messaging'
 
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
