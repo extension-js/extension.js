@@ -24,6 +24,9 @@ export type ProfileKind = 'system' | 'explicit' | 'managed'
 export interface ResolveProfileInput {
   rawProfile?: string | boolean
   managedBaseDir: string
+  // Where an earlier version kept this profile, read only while a kept
+  // profile still sits there and none exists at managedBaseDir.
+  earlierManagedBaseDir?: string
   useSystemProfile: boolean
   persistProfile?: boolean
   keepProfileChanges?: boolean
@@ -258,6 +261,16 @@ export function seedProfileFrom(source: string, dest: string): boolean {
   return true
 }
 
+const notedEarlierProfiles = new Set<string>()
+
+function hasEntries(dir: string): boolean {
+  try {
+    return fs.readdirSync(dir).length > 0
+  } catch {
+    return false
+  }
+}
+
 // Resolve (and materialize) the profile a run gets: default ephemeral, explicit
 // paths, false (system), copyFromProfile (seed), keepProfileChanges (persist).
 export function resolveProfileConfig(
@@ -302,6 +315,27 @@ export function resolveProfileConfig(
 
   if (persisted) {
     profilePath = path.join(managedBaseDir, 'dev')
+
+    const earlier = input.earlierManagedBaseDir
+      ? path.join(input.earlierManagedBaseDir, 'dev')
+      : undefined
+
+    // A kept profile holds the user's logins, so the one an earlier version
+    // left behind keeps being used until one exists at the documented place.
+    if (earlier && !hasEntries(profilePath) && hasEntries(earlier)) {
+      if (provision && !notedEarlierProfiles.has(earlier)) {
+        notedEarlierProfiles.add(earlier)
+        humanLine(
+          messages.keptProfileAtEarlierPath(
+            String(input.browser || 'chrome'),
+            earlier,
+            profilePath
+          )
+        )
+      }
+
+      profilePath = earlier
+    }
   } else {
     const human = uniqueNamesGenerator({
       dictionaries: [adjectives, ucColors, animals],

@@ -186,6 +186,69 @@ describe("a tab on the extension's own page, on Chromium", () => {
     expect(cdpCalls[0].url).toBe(CHROME_DEMO)
   })
 
+  it('evaluates there when the build has no scripting permission to inject with', async () => {
+    cdpOutcome = {ok: true, value: 'Probe Demo'}
+    session.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message:
+          'cannot inject into tab 6: this MV3 build\'s manifest has no "scripting" permission, so chrome.scripting is missing',
+        engine: 'chromium',
+        code: 'scripting_unavailable'
+      }
+    }
+
+    expect(
+      await run([
+        'eval',
+        'document.title',
+        '--browser',
+        'chrome',
+        '--context',
+        'page',
+        '--url',
+        'demo',
+        '--output',
+        'json'
+      ])
+    ).toBe(0)
+
+    expect(frame().ok).toBe(true)
+    expect(frame().value).toBe('Probe Demo')
+    expect(cdpCalls[0].url).toBe(CHROME_DEMO)
+  })
+
+  it('leaves a missing scripting permission on a web page alone', async () => {
+    session.result = {
+      ok: false,
+      error: {
+        name: 'Unsupported',
+        message: 'cannot inject into tab 5',
+        engine: 'chromium',
+        code: 'scripting_unavailable'
+      }
+    }
+
+    session.tabs = [{id: 5, url: 'https://example.com/', active: true}]
+
+    expect(
+      await run([
+        'eval',
+        '1',
+        '--browser',
+        'chrome',
+        '--context',
+        'page',
+        '--output',
+        'json'
+      ])
+    ).not.toBe(0)
+
+    expect(cdpCalls).toHaveLength(0)
+    expect(frame().error.hint).toBeUndefined()
+  })
+
   it('reports what the expression threw there as an eval failure', async () => {
     cdpOutcome = {
       ok: false,

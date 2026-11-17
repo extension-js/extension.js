@@ -24,6 +24,7 @@ import {
 } from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput} from '../helpers/output-flag'
+import {recordedLoadRefusal} from '../helpers/ready-contract-codes'
 import {
   describeRspackPeerConflicts,
   describeUnreadableDependencies,
@@ -119,6 +120,9 @@ export interface DoctorCheckResult {
   status: CheckStatus
   detail: string
   remediation?: string
+  // A row whose cause has a code of its own names it, so the frame reports
+  // that cause and not the family code of the check that met it.
+  code?: ErrorCode
   // Set to false on a skip that is no gap: the check has no meaning for the
   // kind of session diagnosed, so it leaves the pass count.
   applicable?: false
@@ -239,6 +243,13 @@ function isSessionDocument(document: Record<string, unknown>): boolean {
     typeof document.controlPort === 'number' &&
     Boolean(document.instanceId)
   )
+}
+
+// The reason a refused load recorded, without the period a sentence adds.
+function loadRefusalReason(
+  document: Record<string, unknown> | null | undefined
+): string {
+  return recordedLoadRefusal(document)
 }
 
 // A start or preview run that holds its browser open but has no control port:
@@ -530,6 +541,11 @@ export async function runDoctor(
 
   if (!ready) {
     const uncontrolled = receipt ? liveUncontrolledRun(document) : undefined
+    // A refused start or preview run exits and leaves a receipt that says why.
+    const refusedRun =
+      receipt && document.code === 'extension_load_refused'
+        ? productionCommand(document)
+        : undefined
 
     if (uncontrolled) {
       results.push({
@@ -542,6 +558,21 @@ export async function runDoctor(
         remediation:
           `Restart it with a control channel: extension ${uncontrolled.command} ` +
           `--browser=${browser} --allow-control (add --allow-eval for the eval verb)`
+      })
+    } else if (refusedRun) {
+      const reason = loadRefusalReason(document)
+
+      results.push({
+        check: 'ready-contract',
+        status: 'fail',
+        detail:
+          `the last extension ${refusedRun} run for ${browser} ended because ` +
+          `the browser refused to load the extension${reason ? `: ${reason}` : ''}`,
+        remediation:
+          'Fix what the browser names, then run the same command again: ' +
+          `extension ${refusedRun} --browser=${browser} --allow-control ` +
+          '(add --allow-eval for the eval verb)',
+        code: CODES.E_EXTENSION_LOAD_REFUSED
       })
     } else {
       results.push({
@@ -608,10 +639,7 @@ export async function runDoctor(
     })
   } else if (failure.code === 'extension_load_refused') {
     // The browser turned the extension away, which no wait ever changes.
-    const reason =
-      typeof failure.extensionLoadRefusedReason === 'string'
-        ? failure.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
-        : ''
+    const reason = loadRefusalReason(failure)
 
     results.push({
       check: 'ready-contract',
@@ -623,15 +651,27 @@ export async function runDoctor(
         ? `Fix what the browser names, build again and restart: ${restartCommand}`
         : 'Fix what the browser names and save, the dev session tries the ' +
           'load again on the next build. If it stays refused, restart it: ' +
-          restartCommand
+          restartCommand,
+      code: CODES.E_EXTENSION_LOAD_REFUSED
     })
   } else if (ready.status === 'stopped') {
     // A stopped contract is a session that ended. Waiting on it never helps.
+    // One the browser had refused would be refused again by a bare restart.
+    const refused = typeof failure.extensionLoadRefusedAt === 'string'
+    const reason = loadRefusalReason(failure)
+
     results.push({
       check: 'ready-contract',
       status: 'fail',
-      detail: `contract status is 'stopped', the ${sessionNoun} ended`,
-      remediation: `Start it again: ${restartCommand}`
+      detail:
+        `contract status is 'stopped', the ${sessionNoun} ended` +
+        (refused
+          ? ` after the browser refused to load the extension${reason ? `: ${reason}` : ''}`
+          : ''),
+      remediation: refused
+        ? `Fix what the browser names, then start it again: ${restartCommand}`
+        : `Start it again: ${restartCommand}`,
+      ...(refused ? {code: CODES.E_EXTENSION_LOAD_REFUSED} : {})
     })
   } else {
     // preview has no --wait flag, so its advice names the report instead.
@@ -866,7 +906,11 @@ export async function runDoctor(
           })
         } else if (isCompileFailure(failure)) {
           results.push(compileFailureResult())
-        } else if (isExecutorAttachGrace(ready)) {
+        } else if (
+          // A build with no background never attaches, however long the wait.
+          probe.error?.code !== 'no_background' &&
+          isExecutorAttachGrace(ready)
+        ) {
           results.push({
             check: 'executor',
             status: 'warn',
@@ -884,8 +928,11 @@ export async function runDoctor(
             status: 'fail',
             detail: probe.error?.message ?? 'no executor connected',
             remediation:
-              'The message above names the likely cause; retry shortly, ' +
-              `then reload the extension or restart the ${sessionNoun}`
+              probe.error?.code === 'no_background'
+                ? 'No retry helps: declare a background this browser runs, ' +
+                  `build again and restart the ${sessionNoun}`
+                : 'The message above names the likely cause; retry shortly, ' +
+                  `then reload the extension or restart the ${sessionNoun}`
           })
         }
       } catch (err) {
@@ -984,6 +1031,13 @@ export const DOCTOR_CHECK_CODES: Record<DoctorCheck, ErrorCode> = {
   browser: CODES.E_BROWSER_LAUNCH
 }
 
+// The first failing row decides the frame's code, its own when it names one.
+export function doctorFailureCode(row: DoctorCheckResult): ErrorCode {
+  return (
+    row.code || DOCTOR_CHECK_CODES[row.check] || CODES.E_DOCTOR_CHECKS_FAILED
+  )
+}
+
 export function registerDoctorCommand(program: Command): void {
   program
     .command('doctor')
@@ -1040,9 +1094,7 @@ export function registerDoctorCommand(program: Command): void {
               'doctor',
               'unhealthy',
               {
-                code:
-                  DOCTOR_CHECK_CODES[failed[0].check] ||
-                  CODES.E_DOCTOR_CHECKS_FAILED,
+                code: doctorFailureCode(failed[0]),
                 message: `${failed.length} of ${report.checks.length} doctor checks failed.`
               },
               {

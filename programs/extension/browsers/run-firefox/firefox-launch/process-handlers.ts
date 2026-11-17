@@ -29,6 +29,9 @@ interface FirefoxInstanceHandlers {
   // backstop has to reach it as well or it outlives the session.
   livePidRef: () => number | null
   cleanupInstance: () => Promise<void>
+  // Runs as the process ends, after the browser was killed, for what only
+  // a dead browser lets go of: its throwaway profile.
+  cleanupOnExit?: () => void
   isCleaningUp: boolean
 }
 
@@ -79,6 +82,12 @@ function forceKillAllOnExit(): void {
 
     if (livePid && livePid !== child?.pid) {
       forceKillPidOnExit(livePid, instance.browser)
+    }
+
+    try {
+      instance.cleanupOnExit?.()
+    } catch {
+      // Ignore
     }
   }
 }
@@ -139,13 +148,15 @@ export function setupFirefoxProcessHandlers(
   browser: FirefoxBrowserKind,
   childRef: () => ChildProcess | null,
   cleanupInstance: () => Promise<void>,
-  livePidRef: () => number | null = () => null
+  livePidRef: () => number | null = () => null,
+  cleanupOnExit?: () => void
 ): () => void {
   const instance: FirefoxInstanceHandlers = {
     browser,
     childRef,
     livePidRef,
     cleanupInstance,
+    cleanupOnExit,
     isCleaningUp: false
   }
 

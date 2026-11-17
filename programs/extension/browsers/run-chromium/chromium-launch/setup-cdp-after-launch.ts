@@ -115,7 +115,7 @@ function readLaunchTargets(
 }
 
 // Report a guest the browser threw away on every surface: stdout, logs and a
-// non-ready contract. The session stays up, the browser is still running.
+// non-ready contract. A run-only launch ends on it and prints its own block.
 function reportGuestLoadRefused(
   plugin: ChromiumPluginRuntime,
   extensionOutputPath: string,
@@ -123,11 +123,14 @@ function reportGuestLoadRefused(
   reason: string,
   runOnly = false
 ) {
-  if (!repeatsManifestV2Refusal(plugin.manifestV2RefusalSaid, reason)) {
-    humanError(
-      messages.chromiumExtensionLoadRefused(refusedPath, reason, {runOnly})
-    )
+  if (
+    !runOnly &&
+    !repeatsManifestV2Refusal(plugin.manifestV2RefusalSaid, reason)
+  ) {
+    humanError(messages.chromiumExtensionLoadRefused(refusedPath, reason))
   }
+
+  plugin.heldRefusalPredictions?.browserRefused()
 
   plugin.logSink?.({
     level: 'error',
@@ -178,7 +181,7 @@ export async function verifyGuestLoadAfterLaunch(
   plugin: ChromiumPluginRuntime,
   chromiumArgs: string[],
   pipeStreams?: {input: Readable; output: Writable}
-): Promise<void> {
+): Promise<'loaded' | 'refused' | 'unknown'> {
   const {
     extensionOutputPath,
     selectedExtensionPaths,
@@ -215,6 +218,10 @@ export async function verifyGuestLoadAfterLaunch(
     ({status: 'unknown'} as const)
   const guestPath = extensionOutputPath || selectedExtensionPaths[0] || ''
 
+  if (loadOutcome.status === 'loaded') {
+    plugin.heldRefusalPredictions?.browserLoaded()
+  }
+
   if (loadOutcome.status === 'unknown' && loadOutcome.unsupported) {
     humanWarn(messages.chromiumExtensionLoadUnconfirmed(guestPath))
   }
@@ -228,10 +235,17 @@ export async function verifyGuestLoadAfterLaunch(
       true
     )
 
-    return
+    return 'refused'
+  }
+
+  // The caller ends this run unless the guest loaded, so no page is opened.
+  if (plugin.loadRefusalEndsRun && loadOutcome.status !== 'loaded') {
+    return loadOutcome.status
   }
 
   await openStartingUrlAfterLoad(plugin, cdpExtensionController)
+
+  return loadOutcome.status
 }
 
 export async function setupCdpAfterLaunch(
@@ -316,6 +330,10 @@ export async function setupCdpAfterLaunch(
   const loadOutcome =
     (await cdpExtensionController.verifyGuestLoaded?.()) ??
     ({status: 'unknown'} as const)
+
+  if (loadOutcome.status === 'loaded') {
+    plugin.heldRefusalPredictions?.browserLoaded()
+  }
 
   if (loadOutcome.status === 'unknown' && loadOutcome.unsupported) {
     const unconfirmedPath =

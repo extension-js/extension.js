@@ -811,8 +811,10 @@ export default function webpackConfig(
       // The runtime stays inside each entry: a page loads its siblings from
       // the HTML, a background or content script loads nothing else.
       runtimeChunk: false,
-      moduleIds: 'deterministic',
-      chunkIds: 'deterministic'
+      // A hashed id is the hash of every loader path in the module request,
+      // so it follows where the CLI is installed. Production counts instead.
+      moduleIds: devOptions.mode === 'production' ? 'natural' : 'deterministic',
+      chunkIds: devOptions.mode === 'production' ? 'natural' : 'deterministic'
     },
     experiments: {
       css: true

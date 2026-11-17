@@ -467,6 +467,86 @@ describe('ManifestFieldsChangeDetector', () => {
     )
   })
 
+  it('restarts when a script keeps its path and moves to another entry', async () => {
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    mockFields = {
+      scripts: {'background/scripts': ['/bg.js']},
+      html: {},
+      icons: {},
+      json: {}
+    }
+
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'chrome'
+    } as any)
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    mockFields = {
+      scripts: {'background/service_worker': '/bg.js'},
+      html: {},
+      icons: {},
+      json: {}
+    }
+
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(errors).toHaveLength(0)
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reason: 'scripts',
+        pathChanged: '/bg.js',
+        manifestFieldBefore: 'background.scripts',
+        manifestField: 'background.service_worker'
+      })
+    )
+  })
+
+  it('names both manifest fields when no live session can restart for a moved script', async () => {
+    const errors: any[] = []
+    const compiler = makeCompiler(['/root/manifest.json'], errors)
+    mockFields = {
+      scripts: {'content_scripts/content-0': ['/a.js', '/b.js']},
+      html: {},
+      icons: {},
+      json: {}
+    }
+
+    const plugin = new ManifestFieldsChangeDetector({
+      manifestPath: '/root/manifest.json',
+      browser: 'chrome'
+    } as any)
+    plugin.apply(compiler as any)
+    await compiler._triggerWatchRun()
+
+    mockFields = {
+      scripts: {
+        'content_scripts/content-0': ['/a.js'],
+        'content_scripts/content-1': ['/b.js']
+      },
+      html: {},
+      icons: {},
+      json: {}
+    }
+
+    await compiler._triggerWatchRun()
+    compiler._triggerThisCompilation()
+
+    expect(errors).toHaveLength(1)
+    expect(String(errors[0].message)).toContain('content_scripts[0].js')
+    expect(String(errors[0].message)).toContain('content_scripts[1].js')
+  })
+
   it('carries a new manifest icon through a restart instead of an error', async () => {
     const errors: any[] = []
     const compiler = makeCompiler(['/root/manifest.json'], errors)

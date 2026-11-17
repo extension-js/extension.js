@@ -19,4 +19,31 @@ describe('the dev restart notice', () => {
     expect(line).toContain('AFTER content-restart-notice-after.js')
     expect(line).not.toContain(cwd)
   })
+
+  it('names both manifest fields when a script keeps its path and changes key', () => {
+    const cwd = process.cwd()
+    const line = devServerRestarting({
+      reason: 'scripts',
+      pathChanged: path.join(cwd, 'background.js'),
+      manifestFieldBefore: 'background.scripts',
+      manifestField: 'background.service_worker'
+    }).replace(ANSI, '')
+
+    expect(line.split('\n').slice(1)).toEqual([
+      'CHANGED background.js',
+      'BEFORE background.scripts',
+      'AFTER background.service_worker'
+    ])
+  })
+
+  it('keeps the field out of the notice when the path itself changed', () => {
+    const cwd = process.cwd()
+    const line = devServerRestarting({
+      reason: 'html',
+      manifestField: 'options_ui/page',
+      pathAfter: path.join(cwd, 'options.html')
+    }).replace(ANSI, '')
+
+    expect(line.split('\n').slice(1)).toEqual(['AFTER options.html'])
+  })
 })

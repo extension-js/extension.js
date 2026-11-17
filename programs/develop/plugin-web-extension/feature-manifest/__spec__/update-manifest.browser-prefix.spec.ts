@@ -323,6 +323,34 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
       expect(firefox.manifest_version).toBe(2)
     })
 
+    // Chrome 151 runs an integer above 3 as Manifest V3 in silence and
+    // Firefox refuses it, so the error says which, per target.
+    it.each([
+      ['chrome', 'Chromium loads a version above 3 as Manifest V3'],
+      ['firefox', 'Firefox does not load a manifest_version above 3']
+    ] as const)('refuses manifest_version 4 on a %s build and says what the browser does', (browser, sentence) => {
+      const errors: Error[] = []
+      runUpdateManifest({
+        mode: 'production',
+        browser,
+        manifest: {
+          name: 'x',
+          version: '1.0.0',
+          manifest_version: 4,
+          background: {scripts: ['background.js']}
+        },
+        errors
+      })
+
+      expect(errors).toHaveLength(1)
+      expect(errors[0].message).toContain(
+        'resolved manifest_version to 4, and the build takes only the integer 2 or 3'
+      )
+
+      expect(errors[0].message).toContain(sentence)
+      expect(errors[0].message).not.toContain('browsers load only')
+    })
+
     it('refuses a resolved manifest_version that is not 2 or 3', () => {
       const errors: Error[] = []
       runUpdateManifest({
@@ -334,7 +362,8 @@ describe('UpdateManifest (browser-prefixed background keys)', () => {
 
       expect(errors).toHaveLength(1)
       expect(errors[0].message).toContain('"3"')
-      expect(errors[0].message).toContain('only 2 or 3')
+      expect(errors[0].message).toContain('only the integer 2 or 3')
+      expect(errors[0].message).toContain('No browser loads that value')
     })
   })
 

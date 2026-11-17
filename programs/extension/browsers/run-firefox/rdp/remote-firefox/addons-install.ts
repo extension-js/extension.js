@@ -20,6 +20,15 @@ export type AddonInstallOutcome =
 
 // A rejection arrives as an RDP reply object carrying Gecko's own text; a
 // transport failure arrives as an Error. Only the former is a verdict.
+// Gecko answers on several lines and repeats the folder it was handed. Its
+// words stay, on one line, since rows and frames print the reason inline.
+export function addonRefusalOnOneLine(reason: string): string {
+  return reason
+    .replace(/^(\s*Could not install add-on) at '.*?':/s, '$1:')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
 export function classifyAddonInstallFailure(
   error: unknown
 ): AddonInstallOutcome {
@@ -31,7 +40,7 @@ export function classifyAddonInstallFailure(
     return {status: 'unknown'}
   }
 
-  const reason = String(reply.message || '').trim()
+  const reason = addonRefusalOnOneLine(String(reply.message || ''))
 
   return reason ? {status: 'refused', reason} : {status: 'unknown'}
 }

@@ -76,8 +76,7 @@ import {
   displayPath,
   getBuildDistPath,
   getDirs,
-  normalizeBrowser,
-  relativeToDir
+  normalizeBrowser
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {isSamePath} from './lib/real-path'
@@ -296,15 +295,6 @@ export async function extensionBuild(
       await ensureUserProjectDependencies(packageJsonDir)
     }
 
-    ensureTypeScriptConfig(manifestDir, {
-      manifestPath: projectStructure.manifestPath,
-      browser
-    })
-
-    if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir, packageJsonDir)
-    }
-
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [
       {rspack},
@@ -366,6 +356,7 @@ export async function extensionBuild(
     const foldersConfig =
       commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
     rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
+
     const specialFoldersData = getSpecialFoldersDataForProjectRoot(
       packageJsonDir,
       foldersConfig
@@ -388,6 +379,17 @@ export async function extensionBuild(
       packageJsonDir,
       (mergedBuildOptions as Partial<CommonWebpackOptions>).exclude
     )
+
+    // After the folders and exclude config, so this check reads the entries
+    // the compiler will and tsconfig.json never lands without its type file.
+    ensureTypeScriptConfig(manifestDir, {
+      manifestPath: projectStructure.manifestPath,
+      browser
+    })
+
+    if (isUsingTypeScript(manifestDir)) {
+      await generateExtensionTypes(manifestDir, packageJsonDir)
+    }
 
     const silent = Boolean(mergedBuildOptions.silent)
 
@@ -829,8 +831,7 @@ export async function extensionBuild(
           }
 
           for (const artifact of zipArtifacts) {
-            const zipDisplay =
-              relativeToDir(artifact.path, process.cwd()) || artifact.path
+            const zipDisplay = displayPath(artifact.path)
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
 
@@ -840,8 +841,7 @@ export async function extensionBuild(
 
           if (zipFailures.length > 0) {
             for (const failure of zipFailures) {
-              const failureDisplay =
-                relativeToDir(failure.path, process.cwd()) || failure.path
+              const failureDisplay = displayPath(failure.path)
               console.error(
                 messages.zipArtifactNotCreated(
                   failure.kind,
