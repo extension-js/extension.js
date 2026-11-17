@@ -1,4 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {ownExtensionPageBase, registerActCommands} from '../commands/act'
+import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
 const CHROME_ID = 'fddgkoildhakngagamnhmeehkmadmpaj'
 const CHROME_DEMO = `chrome-extension://${CHROME_ID}/pages/demo.html`
@@ -18,57 +20,37 @@ let cdpOutcome: unknown
 let rdpOutcome: unknown
 let controllerCloses = 0
 
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    readReadyContract: () => session.readyDocument,
-    readReadyContractDocument: () => session.readyDocument,
-    readControlToken: () => 'tok-1',
-    BridgeController: class {
-      async connect() {}
-      async command(command: {op?: string}) {
-        bridgeCommands.push(command)
+const loadBridge = async () => ({
+  readReadyContract: () => session.readyDocument,
+  readReadyContractDocument: () => session.readyDocument,
+  readControlToken: () => 'tok-1',
+  BridgeController: class {
+    async connect() {}
+    async command(command: {op?: string}) {
+      bridgeCommands.push(command)
 
-        return command.op === 'tabs.query'
-          ? {ok: true, value: session.tabs}
-          : session.result
-      }
-      close() {
-        controllerCloses++
-      }
+      return command.op === 'tabs.query'
+        ? {ok: true, value: session.tabs}
+        : session.result
     }
-  }))
-}))
-
-vi.mock('../browsers/run-chromium/cdp/evaluate-tab-document', () => ({
-  evaluateChromiumTabDocument: async (options: Record<string, unknown>) => {
-    cdpCalls.push(options)
-    expect(controllerCloses, 'the controller closed too early').toBe(0)
-
-    return cdpOutcome
-  }
-}))
-
-vi.mock(
-  '../browsers/run-firefox/rdp/evaluate-extension-document',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('../browsers/run-firefox/rdp/evaluate-extension-document')
-      >()
-
-    return {
-      ...actual,
-      evaluateTabDocument: async (options: Record<string, unknown>) => {
-        rdpCalls.push(options)
-
-        return rdpOutcome
-      }
+    close() {
+      controllerCloses++
     }
   }
-)
+})
 
-import {ownExtensionPageBase, registerActCommands} from '../commands/act'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
+// Stand-ins for the two debugger reads of a tab, which need a live browser.
+const evaluateChromiumTab = (async (options: Record<string, unknown>) => {
+  cdpCalls.push(options)
+  expect(controllerCloses, 'the controller closed too early').toBe(0)
+
+  return cdpOutcome
+}) as never
+const evaluateGeckoTab = (async (options: Record<string, unknown>) => {
+  rdpCalls.push(options)
+
+  return rdpOutcome
+}) as never
 
 const CHROMIUM_REFUSAL = {
   ok: false,
@@ -128,7 +110,17 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-const run = (argv: string[]) => runCli(makeProgram(registerActCommands), argv)
+const run = (argv: string[]) =>
+  runCli(
+    makeProgram((program) =>
+      registerActCommands(program, {
+        loadBridge,
+        evaluateChromiumTab,
+        evaluateGeckoTab
+      })
+    ),
+    argv
+  )
 
 const frame = () => JSON.parse(String(logSpy.mock.calls[0][0]))
 
@@ -243,7 +235,7 @@ describe("a tab on the extension's own page, on Chromium", () => {
         '--output',
         'json'
       ])
-    ).not.toBe(0)
+    ).toBe(1)
 
     expect(cdpCalls).toHaveLength(0)
     expect(frame().error.hint).toBeUndefined()

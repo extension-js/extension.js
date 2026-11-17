@@ -15,6 +15,20 @@ export type InstallFailure =
   | {kind: 'version-not-listed'; retry: boolean; packageSpec: string}
   // A reset, a timeout, a throttle or a 5xx answer.
   | {kind: 'registry-unavailable'; retry: true; detail: string}
+  // The manager's own age rule refused a fresh release. A day cannot be waited out.
+  | {
+      kind: 'release-too-young'
+      retry: false
+      manager: 'deno' | 'pnpm'
+      packageSpec?: string
+    }
+  // Corepack could not fetch the manager, so the manager never ran.
+  | {
+      kind: 'manager-not-downloaded'
+      retry: false
+      registry?: string
+      detail?: string
+    }
   | {kind: 'permanent'; retry: false}
 
 const PERMANENT: InstallFailure = {kind: 'permanent', retry: false}
@@ -29,9 +43,68 @@ const CANNOT_HEAL = [
   /Bad response: 40[13]\b/,
   /\b(?:EACCES|EPERM|ENOSPC|EROFS|EDQUOT)\b/,
   /\bcode ERESOLVE\b/,
-  /ERR_PNPM_PEER_DEP_ISSUES/,
-  /minimum dependency (?:age|date)/
+  /ERR_PNPM_PEER_DEP_ISSUES/
 ]
+
+const DENO_AGE_RULE = /minimum dependency (?:age|date)/
+const DENO_AGE_PACKAGE =
+  /Could not find npm package '([^']+)' matching '([^']+)'/
+
+const PNPM_AGE_RULE =
+  /ERR_PNPM_NO_MATURE_MATCHING_VERSION|does not meet the minimumReleaseAge constraint/
+// pnpm up to 10 writes the version first, later ones write name@version.
+const PNPM_AGE_VERSION_FIRST =
+  /Version (\S+) \(released [^)]*\) of (\S+) does not meet the minimumReleaseAge/
+const PNPM_AGE_SPEC = /(\S+@[^\s@]+) was published at /
+
+function releaseTooYoung(text: string): InstallFailure | undefined {
+  if (DENO_AGE_RULE.test(text)) {
+    const match = DENO_AGE_PACKAGE.exec(text)
+
+    return {
+      kind: 'release-too-young',
+      retry: false,
+      manager: 'deno',
+      ...(match ? {packageSpec: `${match[1]}@${match[2]}`} : {})
+    }
+  }
+
+  if (PNPM_AGE_RULE.test(text)) {
+    const versionFirst = PNPM_AGE_VERSION_FIRST.exec(text)
+    const spec = versionFirst
+      ? `${versionFirst[2]}@${versionFirst[1]}`
+      : PNPM_AGE_SPEC.exec(text)?.[1]
+
+    return {
+      kind: 'release-too-young',
+      retry: false,
+      manager: 'pnpm',
+      ...(spec ? {packageSpec: spec} : {})
+    }
+  }
+
+  return undefined
+}
+
+const COREPACK_FETCH =
+  /(?:Server answered with HTTP (\d+) when|Error when) performing the request to (\S+?); for troubleshooting help, see https:\/\/github\.com\/nodejs\/corepack/
+
+// Corepack asks <registry>/<name>/<version>. The registry is what is left.
+function corepackRegistry(url: string): string {
+  return url.replace(/\/(?:@[^/]+\/)?[^/@]+\/[^/]+$/, '')
+}
+
+function managerNotDownloaded(text: string): InstallFailure | undefined {
+  const match = COREPACK_FETCH.exec(text)
+  if (!match) return undefined
+
+  return {
+    kind: 'manager-not-downloaded',
+    retry: false,
+    registry: corepackRegistry(match[2]),
+    ...(match[1] ? {detail: `HTTP ${match[1]}`} : {})
+  }
+}
 
 const TARBALL_URL = String.raw`(https?:\/\/\S+?\.tgz)`
 
@@ -124,7 +197,14 @@ export function classifyInstallFailure(
   const text = unwrap(String(output || ''))
   if (!text.trim()) return PERMANENT
 
+  // Corepack fails before the manager runs, so nothing below describes it.
+  const notDownloaded = managerNotDownloaded(text)
+  if (notDownloaded) return notDownloaded
+
   if (CANNOT_HEAL.some((pattern) => pattern.test(text))) return PERMANENT
+
+  const tooYoung = releaseTooYoung(text)
+  if (tooYoung) return tooYoung
 
   for (const pattern of TARBALL_NOT_SERVED) {
     const match = pattern.exec(text)

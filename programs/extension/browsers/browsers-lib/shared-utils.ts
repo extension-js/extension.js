@@ -11,6 +11,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {DEFAULT_DEBUG_PORT, PORT_OFFSET} from './constants'
+import {isPidAlive} from './resolve-live-pid'
 
 const MANAGED_EPHEMERAL_PROFILE_MARKER = '.extension-js-managed-profile'
 
@@ -218,18 +219,6 @@ export function mergeChromiumFeatureSwitches(flags: string[]): string[] {
   return merged
 }
 
-function isProcessLikelyAlive(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) return false
-
-  try {
-    process.kill(pid, 0)
-
-    return true
-  } catch {
-    return false
-  }
-}
-
 function parseChromiumSingletonOwner(
   raw: string
 ): {host: string; pid: number} | null {
@@ -372,7 +361,7 @@ export function prepareChromiumProfileForLaunch(
   const currentHost = os.hostname().trim().toLowerCase()
   const ownerHost = owner.host.trim().toLowerCase()
   const sameHost = currentHost.length > 0 && currentHost === ownerHost
-  const alive = isProcessLikelyAlive(owner.pid)
+  const alive = isPidAlive(owner.pid)
   const command =
     sameHost && alive
       ? (probe.readCommand || readProcessCommand)(owner.pid)

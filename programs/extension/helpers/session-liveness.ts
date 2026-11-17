@@ -48,12 +48,15 @@ export function sessionNounOf(command: SessionCommand): string {
 
 // Why the live pid cannot be the process that wrote the contract, or null
 // when it can. A pid is handed to another process once its owner exits.
-export function reusedPidEvidence(ready: SessionContract): string | null {
+export function reusedPidEvidence(
+  ready: SessionContract,
+  pidStartedAt = pidStartedAtMs
+): string | null {
   const stampedAt = Date.parse(String(ready.pidStartedAt ?? ''))
   const writtenAt = Date.parse(String(ready.startedAt ?? ''))
   if (Number.isNaN(stampedAt) && Number.isNaN(writtenAt)) return null
 
-  const startedAt = pidStartedAtMs(ready.pid)
+  const startedAt = pidStartedAt(ready.pid)
   if (startedAt == null) return null
 
   if (!Number.isNaN(stampedAt)) {
@@ -100,7 +103,8 @@ async function controlPortAnswers(ready: SessionContract): Promise<boolean> {
 export async function endedSessionReason(
   ready: SessionContract,
   readyPath: string,
-  options?: {dialFailed?: boolean}
+  options?: {dialFailed?: boolean},
+  pidStartedAt = pidStartedAtMs
 ): Promise<string | null> {
   if (ready.status === 'stopped') {
     return `${readyPath} reads status 'stopped'`
@@ -119,7 +123,7 @@ export async function endedSessionReason(
   // has already failed.
   if (!options?.dialFailed) return null
 
-  const reused = reusedPidEvidence(ready)
+  const reused = reusedPidEvidence(ready, pidStartedAt)
   if (!reused || (await controlPortAnswers(ready))) return null
 
   return (

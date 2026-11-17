@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {
   buildDevContentScriptMarkerPrelude,
@@ -591,6 +591,11 @@ const withStatic = {
 }
 
 describe('dev content scripts runtime', () => {
+  // A test that moved to fake timers gets the real ones back even if it fails.
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('registers the registry at boot without session persistence and drops dev registrations it no longer names', async () => {
     const w = worker({
       registry,
@@ -1167,11 +1172,13 @@ describe('dev content scripts runtime', () => {
     await w.settle()
 
     let handled: boolean | undefined
+    vi.useFakeTimers()
     w.hooks().reload(['content_scripts/content-1'], (h: boolean) => {
       handled = h
     })
 
-    await new Promise((r) => setTimeout(r, 250))
+    await vi.advanceTimersByTimeAsync(250)
+    vi.useRealTimers()
 
     expect(handled).toBe(true)
     expect(w.calls.reload).toEqual([])
@@ -1204,8 +1211,10 @@ describe('dev content scripts runtime', () => {
     const restarts: number[] = []
     w.g.__extjsDevRestartExtension = (delay: number) => restarts.push(delay)
 
+    vi.useFakeTimers()
     w.hooks().reload(['content_scripts/content-1'], () => {})
-    await new Promise((r) => setTimeout(r, 250))
+    await vi.advanceTimersByTimeAsync(250)
+    vi.useRealTimers()
 
     expect(restarts).toEqual([150])
     expect(w.calls.runtimeReload).toEqual([])
@@ -1220,8 +1229,10 @@ describe('dev content scripts runtime', () => {
     })
     await w.settle()
 
+    vi.useFakeTimers()
     w.hooks().reload(['content_scripts/content-0'], () => {})
-    await new Promise((r) => setTimeout(r, 250))
+    await vi.advanceTimersByTimeAsync(250)
+    vi.useRealTimers()
 
     expect(w.calls.reload).toEqual([1])
     expect(w.calls.runtimeReload).toEqual([])
