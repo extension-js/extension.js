@@ -279,20 +279,16 @@ export async function maybeUseSvelte(
 
   const resolverPlugin = {
     apply(compiler: import('@rspack/core').Compiler) {
-      const existingMainFields = compiler.options.resolve?.mainFields || []
       const existingExtensions = compiler.options.resolve?.extensions || []
-      const existingAlias = compiler.options.resolve?.alias || {}
       const existingModules = compiler.options.resolve?.modules || []
 
       const dedupe = (arr: string[]) => Array.from(new Set(arr))
 
       compiler.options.resolve = {
         ...compiler.options.resolve,
-        mainFields: dedupe(existingMainFields),
         // Keep the host bundler/browser conditions untouched: a `svelte` export
         // condition can resolve server entries that pull node: built-ins.
         extensions: dedupe(['.svelte', ...existingExtensions]),
-        alias: existingAlias,
         modules: dedupe([
           path.join(projectPath, 'node_modules'),
           ...existingModules
