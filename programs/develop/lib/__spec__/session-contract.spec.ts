@@ -1,3 +1,4 @@
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {describe, expect, it} from 'vitest'
@@ -184,5 +185,22 @@ describe('when a held start turns ready', () => {
     )
 
     expect(isDevSessionStarting({command: 'dev', status: 'ready'})).toBe(false)
+  })
+})
+
+describe('what the session contract module pulls in', () => {
+  it('imports Node built-ins only, so a bundle that inlines it stays small', () => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '..', 'session-contract.ts'),
+      'utf8'
+    )
+    const specifiers = [
+      ...source.matchAll(/\bfrom\s+['"]([^'"]+)['"]/g),
+      ...source.matchAll(/\b(?:import|require)\(\s*['"]([^'"]+)['"]/g),
+      ...source.matchAll(/^\s*import\s+['"]([^'"]+)['"]/gm)
+    ].map((match) => match[1])
+
+    expect(specifiers.length).toBeGreaterThan(0)
+    expect(specifiers.filter((name) => !name.startsWith('node:'))).toEqual([])
   })
 })
