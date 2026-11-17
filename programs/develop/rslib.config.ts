@@ -172,8 +172,6 @@ export default defineConfig({
       },
       output: {
         target: 'node',
-        // Emit ESM-aware polyfills for __dirname/__filename so they keep working
-        // after the format flip to ESM.
         filename: {js: '[name].mjs'},
         // Ship the contract JSON (schema plus any golden envelopes) so the MCP
         // can byte-compare against node_modules/extension-develop/dist/contract.
