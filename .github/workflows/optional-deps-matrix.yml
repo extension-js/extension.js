@@ -33,8 +33,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The toolchain preflight spec has no job here: ci.yml runs it on every pull
-  # request and push to main, in its own row and inside the full suites.
+  # The toolchain preflight spec has no job here: the develop suite in ci.yml
+  # runs it on every pull request and push to main.
   optional-deps-smoke:
     name: smoke (${{ matrix.os }} / ${{ matrix.pm }})
     runs-on: ${{ matrix.os }}

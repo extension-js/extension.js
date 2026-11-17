@@ -103,7 +103,6 @@ jobs:
           - ci:test:develop
           - ci:test:cli
           - ci:test:create
-          - ci:test:toolchain-preflight
 
     steps:
       - name: Checkout
