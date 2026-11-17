@@ -13,9 +13,11 @@ type Equals<A, B> =
     ? true
     : false
 
-// The public type is a hand-written mirror of the plugin's list. Both checks
-// fail when either side gains or loses a category the other does not have.
+// The public type is a hand-written mirror of the plugin's list. This line is
+// the type half: the typecheck gate fails on it, and nothing runs it.
 const publicMatchesPlugin: Equals<PerfBudgetCategory, AssetCategory> = true
+
+void publicMatchesPlugin
 
 const configTypesPath = path.resolve(__dirname, '..', 'config-types.ts')
 
@@ -38,7 +40,6 @@ function publicCategoriesFromFile(filePath = configTypesPath): string[] {
 
 describe('perf budget categories', () => {
   it('the public PerfBudgetCategory union lists exactly the plugin categories', () => {
-    expect(publicMatchesPlugin).toBe(true)
     expect(publicCategoriesFromFile()).toEqual([...ASSET_CATEGORIES])
   })
 

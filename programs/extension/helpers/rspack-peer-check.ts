@@ -58,11 +58,15 @@ function readJson(filePath: string): PackageManifest | undefined {
 
 // The @rspack/core the engine builds with: the installed copy next to
 // extension-develop when there is one, else the version its manifest pins.
-export function engineRspackVersion(projectPath: string): string | undefined {
+export function engineRspackVersion(
+  projectPath: string,
+  resolveDevelopRoot: (startDir: string) => string = (startDir) =>
+    resolveExtensionDevelopRoot(startDir)
+): string | undefined {
   let developRoot: string
 
   try {
-    developRoot = resolveExtensionDevelopRoot(projectPath)
+    developRoot = resolveDevelopRoot(projectPath)
   } catch {
     return undefined
   }

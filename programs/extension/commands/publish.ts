@@ -20,7 +20,7 @@ import {
   type ErrorCode
 } from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
-import {isJsonOutput} from '../helpers/output-flag'
+import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 
 // THIN WRAPPER, keep it that way: build a request, POST it, print the URL.
 // The canonical publish implementation lives in the platform MCP. Every
@@ -345,6 +345,7 @@ export function registerPublishCommand(program: Command) {
       'name the project this publish is for, when it is not the directory you are in'
     )
     .option('--output <pretty|json>', 'output format (default pretty)')
+    .hook('preAction', refuseUnreadableOutput())
     .action(async (projectPathArg: string, opts: PublishOptions) => {
       const asJson = isJsonOutput(opts)
 

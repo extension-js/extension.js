@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import colors from 'pintor'
 import {scanArgvValue} from './cli-argv'
+import {profileLockedHint} from './messages'
 import {
   CODES,
   ENVELOPE,
@@ -243,6 +244,12 @@ export function loadRefusedEnvelope(
   )
 }
 
+// The way out of these failures is the same on every command, so dev, start
+// and preview read it from here and their frames cannot drift apart.
+export function failureHint(code: ErrorCode | undefined): string | undefined {
+  return code === CODES.E_PROFILE_LOCKED ? profileLockedHint() : undefined
+}
+
 export function internalErrorEnvelope(
   err: unknown,
   command: string
@@ -250,13 +257,19 @@ export function internalErrorEnvelope(
   if (isLoadRefused(err)) return loadRefusedEnvelope(err, command)
 
   const code = declaredErrorCode(err) ?? CODES.E_INTERNAL
+  const hint = failureHint(code)
 
   // A bad pinned binary is a value the user typed, on every command.
-  return ENVELOPE.fail(command, isUsageCode(code) ? 'usage' : 'failed', {
-    code,
-    message: err instanceof Error ? err.message : String(err),
-    name: err instanceof Error ? err.name : 'Error'
-  })
+  return ENVELOPE.fail(
+    command,
+    isUsageCode(code) ? 'usage' : 'failed',
+    {
+      code,
+      message: err instanceof Error ? err.message : String(err),
+      name: err instanceof Error ? err.name : 'Error'
+    },
+    hint ? {hint} : {}
+  )
 }
 
 export function earlyExitEnvelope(

@@ -1,182 +1,615 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-const extensionDev = vi.fn(async () => {})
-const loadCommandConfig = vi.fn(async (): Promise<unknown> => ({}))
-const packageSafariExtension = vi.fn(async () => {})
-const safariPreflightError = vi.fn((): string | null => null)
-const setupParentWatchdog = vi.fn()
-const runWaitMode = vi.fn(async (_input: unknown) => ({
-  format: 'json' as const,
-  browsers: ['chromium'],
-  results: [{browser: 'chromium', ok: true}]
-}))
-
-vi.mock('../browsers', () => ({
-  launchBrowser: vi.fn(async () => {})
-}))
-
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopModule: vi.fn(async () => ({
-    extensionDev,
-    loadCommandConfig
-  }))
-}))
-
-vi.mock('../browsers/run-safari/safari-launch', () => ({
-  packageSafariExtension: (...args: unknown[]) =>
-    packageSafariExtension(...(args as [])),
-  safariPreflightError: () => safariPreflightError()
-}))
-
-vi.mock('../browsers/run-safari/safari-launch/safari-config', () => ({
-  isValidBundleId: (id: string) => id.includes('.') && !id.includes(' ')
-}))
-
-vi.mock('../helpers/parent-watchdog', () => ({
-  parseParentPid: (value: unknown) => {
-    const n = Number(value)
-
-    return Number.isInteger(n) && n > 0 ? n : undefined
-  },
-  setupParentWatchdog: (pid: number, options?: unknown) =>
-    setupParentWatchdog(pid, options)
-}))
-
-vi.mock('../commands/dev-wait', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../commands/dev-wait')>()
-
-  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input)}
-})
-
 import {registerDevCommand} from '../commands/dev'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {SUPPORTED_BROWSER_TARGETS} from '../helpers/vendors'
+import {
+  makeProgram,
+  runCli,
+  stubCommandEnv,
+  stubProcessExit
+} from './command-harness'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const ORIG_ENV = {...process.env}
+// A real folder: a typed path that is not there is refused before the engine.
+const PROJECT = trackTempFolders()('extjs-dev-spec-')
 
-let logSpy: ReturnType<typeof vi.spyOn>
-let errorSpy: ReturnType<typeof vi.spyOn>
+type EngineCall = [projectPath: string, options: Record<string, unknown>]
+type DevDeps = NonNullable<Parameters<typeof registerDevCommand>[1]>
+
+const engineCalls: EngineCall[] = []
+const configReads: unknown[][] = []
+const waitInputs: unknown[] = []
+const watchdogs: Array<[pid: number, options: {emitFrame: () => void}]> = []
+const packagerOptions: unknown[] = []
+const packaged: unknown[][] = []
+
+let commandConfig: unknown = {}
+let preflightIssue: string | null = null
+
+let engine: (...call: EngineCall) => Promise<void> = async () => {}
+
+const launcher = (async () => {}) as unknown as NonNullable<DevDeps['launcher']>
+
+const deps: DevDeps = {
+  loadDevelop: async () => ({
+    extensionDev: async (...call: EngineCall) => {
+      engineCalls.push(call)
+      await engine(...call)
+    },
+    loadCommandConfig: async (...args: unknown[]) => {
+      configReads.push(args)
+
+      return commandConfig
+    }
+  }),
+  launcher,
+  safariPreflight: () => preflightIssue,
+  armParentWatchdog: ((pid: number, options: {emitFrame: () => void}) => {
+    watchdogs.push([pid, options])
+  }) as never,
+  waitForReady: (async (input: unknown) => {
+    waitInputs.push(input)
+
+    return {
+      format: 'json',
+      browsers: ['chromium'],
+      results: [{browser: 'chromium', ok: true}]
+    }
+  }) as never,
+  // The real packager drives Xcode, so the factory records what dev asked of it.
+  createPackager: ((options: unknown) => {
+    packagerOptions.push(options)
+
+    return async (...args: unknown[]) => {
+      packaged.push(args)
+    }
+  }) as never
+}
+
+let stdout: string[]
+let stderr: string[]
 
 beforeEach(() => {
+  stdout = []
+  stderr = []
   stubProcessExit()
-  logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-  delete process.env.EXTENSION_CLI_NO_BROWSER
-  Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
-  delete process.env.EXTENSION_VERBOSE
-  safariPreflightError.mockReturnValue(null)
+  vi.spyOn(console, 'log').mockImplementation((line) => {
+    stdout.push(String(line))
+  })
+
+  vi.spyOn(console, 'error').mockImplementation((line) => {
+    stderr.push(String(line))
+  })
+
+  stubCommandEnv()
 })
 
 afterEach(() => {
-  process.env = {...ORIG_ENV}
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
-  vi.clearAllMocks()
+
+  for (const list of [
+    engineCalls,
+    configReads,
+    waitInputs,
+    watchdogs,
+    packagerOptions,
+    packaged
+  ]) {
+    list.length = 0
+  }
+
+  commandConfig = {}
+  preflightIssue = null
+
+  engine = async () => {}
 })
 
 function run(argv: string[]) {
-  return runCli(makeProgram(registerDevCommand), argv)
+  return runCli(
+    makeProgram((program) => registerDevCommand(program, deps)),
+    argv
+  )
 }
 
-describe('extension dev', () => {
-  it('runs the dev server with defaults and a browser launcher', async () => {
-    expect(await run(['dev', './my-extension'])).toBe(0)
-    expect(extensionDev).toHaveBeenCalledTimes(1)
-    const [projectPath, devArgs] = extensionDev.mock.calls[0] as any[]
-    expect(projectPath).toBe('./my-extension')
-    expect(devArgs).toMatchObject({
-      browser: 'chromium',
-      noBrowser: false
+function frames(): unknown[] {
+  return stdout.map((line) => JSON.parse(line))
+}
+
+// Every spelling commander accepts for dev, read from the registered options.
+function registeredFlags(): string[] {
+  const dev = makeProgram(registerDevCommand).commands.find(
+    (command) => command.name() === 'dev'
+  )
+
+  return (dev?.options ?? []).flatMap((option) =>
+    [option.short, option.long].filter((flag): flag is string => Boolean(flag))
+  )
+}
+
+function flagsIn(argv: string[]): string[] {
+  return argv
+    .filter((arg) => arg.startsWith('-'))
+    .map((arg) => arg.split('=')[0])
+}
+
+// What extensionDev receives when no flag is typed. A row states only the keys
+// its flags change, and the whole object is compared.
+const UNTYPED = {
+  browser: 'chromium',
+  exitOnError: true,
+  noBrowser: false,
+  logTimestamps: undefined,
+  logColor: undefined,
+  profile: undefined,
+  chromiumBinary: undefined,
+  geckoBinary: undefined,
+  polyfill: undefined,
+  noOpen: undefined,
+  macOsOnly: undefined,
+  startingUrl: undefined,
+  install: undefined,
+  extensions: undefined,
+  logLevel: undefined,
+  logContexts: undefined,
+  logFormat: undefined,
+  logUrl: undefined,
+  logTab: undefined,
+  firefoxBinary: undefined,
+  safariBinary: undefined,
+  appName: undefined,
+  bundleId: undefined,
+  developmentTeam: undefined,
+  appIcon: undefined,
+  forceRegenerate: undefined,
+  port: undefined,
+  host: undefined,
+  publicHost: undefined,
+  allowedHosts: undefined,
+  authorMode: undefined,
+  allowControl: undefined,
+  allowEval: undefined,
+  launcher,
+  onReady: expect.any(Function),
+  onSessionStart: expect.any(Function),
+  onExitError: expect.any(Function),
+  safariPackager: expect.any(Function)
+}
+
+interface ForwardingRow {
+  argv: string[]
+  env?: Record<string, string>
+  config?: unknown
+  options: Record<string, unknown>
+}
+
+const SAFARI = ['--browser', 'safari']
+
+// A flag that only steers the CLI (--wait, --output, --parent-pid) rows {}:
+// the engine gets named keys, never the parsed flags themselves.
+const FORWARDING: ForwardingRow[] = [
+  {argv: [], options: {}},
+  {argv: [], config: {browser: 'firefox'}, options: {browser: 'firefox'}},
+  {
+    argv: ['--browser', 'edge'],
+    config: {browser: 'firefox'},
+    options: {browser: 'edge'}
+  },
+  {argv: ['-b', 'firefox'], options: {browser: 'firefox'}},
+  {
+    argv: [],
+    env: {EXTENSION_CLI_NO_BROWSER: '1'},
+    options: {noBrowser: true, launcher: undefined}
+  },
+  {
+    argv: [],
+    config: {noBrowser: true},
+    options: {noBrowser: true, launcher: undefined}
+  },
+  {argv: ['--profile', 'false'], options: {profile: false}},
+  {
+    argv: ['--profile', '/tmp/my-profile'],
+    options: {profile: '/tmp/my-profile'}
+  },
+  {
+    argv: ['--chromium-binary', '/bin/chromium'],
+    options: {chromiumBinary: '/bin/chromium'}
+  },
+  {
+    argv: ['--gecko-binary', '/bin/gecko'],
+    options: {geckoBinary: '/bin/gecko'}
+  },
+  {
+    argv: ['--firefox-binary', '/bin/firefox'],
+    options: {geckoBinary: '/bin/firefox', firefoxBinary: '/bin/firefox'}
+  },
+  {
+    argv: [...SAFARI, '--safari-binary', '/bin/safari'],
+    options: {browser: 'safari', safariBinary: '/bin/safari'}
+  },
+  {
+    argv: [...SAFARI, '--app-name', 'My App'],
+    options: {browser: 'safari', appName: 'My App'}
+  },
+  {
+    argv: [...SAFARI, '--bundle-id', 'dev.example.app'],
+    options: {browser: 'safari', bundleId: 'dev.example.app'}
+  },
+  {
+    argv: [...SAFARI, '--development-team', 'ABCDE12345'],
+    options: {browser: 'safari', developmentTeam: 'ABCDE12345'}
+  },
+  {
+    argv: [...SAFARI, '--macos-only'],
+    options: {browser: 'safari', macOsOnly: true}
+  },
+  {
+    argv: [...SAFARI, '--macos-only', 'false'],
+    options: {browser: 'safari', macOsOnly: false}
+  },
+  {
+    argv: [...SAFARI, '--app-icon', './icon.png'],
+    options: {browser: 'safari', appIcon: './icon.png'}
+  },
+  {
+    argv: [...SAFARI, '--force-regenerate'],
+    options: {browser: 'safari', forceRegenerate: true}
+  },
+  {
+    // It reaches the Safari packager, not the engine.
+    argv: [...SAFARI, '--enable-extension'],
+    options: {browser: 'safari'}
+  },
+  {argv: ['--polyfill'], options: {polyfill: true}},
+  {argv: ['--polyfill', 'false'], options: {polyfill: false}},
+  {argv: ['--no-polyfill'], options: {polyfill: false}},
+  {argv: ['--no-open'], options: {noOpen: true}},
+  {
+    argv: ['--starting-url', 'https://example.com'],
+    options: {startingUrl: 'https://example.com'}
+  },
+  {argv: ['--port', '9000'], options: {port: '9000'}},
+  {argv: ['--port', '0'], options: {port: '0'}},
+  {argv: ['--host', '0.0.0.0'], options: {host: '0.0.0.0'}},
+  {
+    argv: ['--public-host', '203.0.113.7'],
+    options: {publicHost: '203.0.113.7'}
+  },
+  {
+    argv: ['--allowed-hosts', 'web,.example.test'],
+    options: {allowedHosts: 'web,.example.test'}
+  },
+  {
+    argv: ['--log-context', 'background, nope ,content'],
+    options: {logContexts: ['background', 'content']}
+  },
+  {argv: ['--log-context', 'all'], options: {}},
+  {argv: ['--logs', 'debug'], options: {logLevel: 'debug'}},
+  {argv: ['--log-format', 'json'], options: {logFormat: 'json'}},
+  {argv: ['--no-log-timestamps'], options: {logTimestamps: false}},
+  {argv: ['--no-log-color'], options: {logColor: false}},
+  {argv: ['--log-url', '/api/i'], options: {logUrl: '/api/i'}},
+  {argv: ['--log-tab', '12'], options: {logTab: '12'}},
+  {
+    argv: ['--extensions', 'a, ,b'],
+    options: {extensions: ['a', 'b']}
+  },
+  {argv: ['--install'], options: {install: true}},
+  {argv: ['--install', 'false'], options: {install: false}},
+  {argv: ['--wait', 'false'], options: {}},
+  {argv: ['--output', 'json'], options: {exitOnError: false}},
+  {argv: ['--output', 'pretty'], options: {}},
+  {
+    argv: ['--wait-format', 'json'],
+    options: {exitOnError: false}
+  },
+  {argv: ['--debug'], options: {}},
+  {argv: ['--author'], options: {authorMode: true}},
+  {argv: ['--author-mode'], options: {authorMode: true}},
+  {argv: ['--allow-control'], options: {allowControl: true}},
+  {argv: ['--allow-eval'], options: {allowEval: true}},
+  {argv: ['--parent-pid', '4242'], options: {}}
+]
+
+describe('extension dev flag forwarding', () => {
+  it('has a row for every flag the command registers', () => {
+    // A flag that is only ever refused alone is typed in the refusal table.
+    const typed = new Set(
+      [...FORWARDING, ...REFUSALS].flatMap((row) => flagsIn(row.argv))
+    )
+
+    expect(registeredFlags().filter((flag) => !typed.has(flag))).toEqual([])
+  })
+
+  it.each(
+    FORWARDING
+  )('hands extensionDev the options of dev $argv (env $env, config $config)', async ({
+    argv,
+    env = {},
+    config = {},
+    options
+  }) => {
+    commandConfig = config
+    for (const [name, value] of Object.entries(env)) vi.stubEnv(name, value)
+
+    expect(await run(['dev', PROJECT, ...argv])).toBe(0)
+    expect(engineCalls).toEqual([[PROJECT, {...UNTYPED, ...options}]])
+  })
+
+  it('reads the project config for the dev command before it picks a browser', async () => {
+    expect(await run(['dev', PROJECT])).toBe(0)
+    expect(configReads[0]).toEqual([PROJECT, 'dev'])
+  })
+})
+
+interface RefusalRow {
+  name: string
+  argv: string[]
+  env?: Record<string, string>
+  preflight?: string
+  stderr: string[]
+  frame: {status: string; error: {code: string; message: string}}
+}
+
+const EVERY_TARGET = SUPPORTED_BROWSER_TARGETS.join(', ')
+
+const WHOLE_NUMBER_USE = {
+  '--parent-pid': 'Use the process id to watch, in digits, such as 4242.',
+  '--wait-timeout': 'Use a whole number of milliseconds, such as 10000.',
+  '--port':
+    'Use a whole number from 0 to 65535, such as 8080. 0 picks a free port.'
+} as const
+
+function wholeNumberRefusal(
+  flag: keyof typeof WHOLE_NUMBER_USE,
+  value: string
+): RefusalRow {
+  const message = `${flag} got "${value}". ${WHOLE_NUMBER_USE[flag]}`
+
+  return {
+    name: `${flag} ${value}`,
+    argv: [flag, value],
+    stderr: [`⏵⏵⏵ ${message}`],
+    frame: {status: 'usage', error: {code: 'E_INVALID_OPTION', message}}
+  }
+}
+
+const REFUSALS: RefusalRow[] = [
+  ...[
+    ['--wait-timeout', '5000'],
+    ['--wait', 'false', '--wait-timeout', '5000']
+  ].map(
+    (argv): RefusalRow => ({
+      name: `${argv.join(' ')} with no wait to time`,
+      argv,
+      stderr: [
+        '⏵⏵⏵ --wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
+      ],
+      frame: {
+        status: 'usage',
+        error: {
+          code: 'E_INVALID_OPTION',
+          message:
+            '--wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
+        }
+      }
     })
+  ),
+  ...(
+    [
+      ['--parent-pid', 'zero'],
+      ['--parent-pid', '1e3'],
+      ['--parent-pid', '12abc'],
+      ['--parent-pid', '0'],
+      ['--wait-timeout', '10s'],
+      ['--wait-timeout', '0'],
+      ['--wait-timeout', '-5'],
+      ['--port', 'abc'],
+      ['--port', '1.5'],
+      ['--port', '-1'],
+      ['--port', '70000']
+    ] as const
+  ).map(([flag, value]) => wholeNumberRefusal(flag, value)),
+  {
+    name: 'a browser name nobody supports',
+    argv: ['--browser', 'netscape'],
+    stderr: [
+      `⏵⏵⏵ Unsupported --browser value: netscape.\nChoose one of: ${EVERY_TARGET}.`
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_UNSUPPORTED_BROWSER',
+        message: `Unsupported browser: netscape. Choose one of: ${EVERY_TARGET}.`
+      }
+    }
+  },
+  {
+    name: 'a safari-only flag on a chromium target',
+    argv: ['--bundle-id', 'dev.example.app'],
+    stderr: [
+      '⏵⏵⏵ --bundle-id only applies to Safari targets.\nAdd --browser safari (or webkit-based).'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message: '--bundle-id applies to safari targets only.'
+      }
+    }
+  },
+  {
+    name: 'several safari-only flags on a chromium target',
+    argv: ['--app-name', 'My App', '--force-regenerate'],
+    stderr: [
+      '⏵⏵⏵ --app-name, --force-regenerate only apply to Safari targets.\nAdd --browser safari (or webkit-based).'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message: '--app-name, --force-regenerate apply to safari targets only.'
+      }
+    }
+  },
+  {
+    // `false` is a real value for this flag, not an unset boolean, so the
+    // safari-only gate has to notice it rather than filter it out.
+    name: '--macos-only false on a chromium target',
+    argv: ['--macos-only', 'false'],
+    stderr: [
+      '⏵⏵⏵ --macos-only only applies to Safari targets.\nAdd --browser safari (or webkit-based).'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message: '--macos-only applies to safari targets only.'
+      }
+    }
+  },
+  {
+    name: 'a malformed safari bundle id',
+    argv: ['--browser', 'safari', '--bundle-id', 'bad id'],
+    stderr: [
+      '⏵⏵⏵ --bundle-id got "bad id". Use reverse DNS form, such as com.example.bad-id.'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message:
+          '--bundle-id got "bad id". Use reverse DNS form, such as com.example.bad-id.'
+      }
+    }
+  },
+  {
+    name: 'a safari bundle id with no dot',
+    argv: ['--browser', 'safari', '--bundle-id', 'myapp'],
+    stderr: [
+      '⏵⏵⏵ --bundle-id got "myapp". Use reverse DNS form, such as com.example.myapp.'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message:
+          '--bundle-id got "myapp". Use reverse DNS form, such as com.example.myapp.'
+      }
+    }
+  },
+  {
+    name: 'a safari bundle id of symbols only',
+    argv: ['--browser', 'safari', '--bundle-id', '!!'],
+    stderr: [
+      '⏵⏵⏵ --bundle-id got "!!". Use reverse DNS form, such as com.example.my-extension.'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message:
+          '--bundle-id got "!!". Use reverse DNS form, such as com.example.my-extension.'
+      }
+    }
+  },
+  {
+    name: 'a safari toolchain the preflight rejects',
+    argv: ['--browser', 'safari'],
+    preflight: 'xcode missing',
+    stderr: ['xcode missing'],
+    frame: {
+      status: 'failed',
+      error: {code: 'E_SAFARI_TOOLCHAIN', message: 'xcode missing'}
+    }
+  },
+  {
+    // Same process, both flags: --wait never starts a server, so the run used
+    // to sit on the ready contract for the whole --wait-timeout and then fail.
+    name: '--no-browser with --wait',
+    argv: ['--wait', '--wait-timeout', '45000'],
+    env: {EXTENSION_CLI_NO_BROWSER: '1'},
+    stderr: [
+      '⏵⏵⏵ --no-browser and --wait cannot run in the same process.\n--no-browser runs the server without a browser, and --wait only reads the ready contract another process writes.\nRUN extension dev --no-browser\nTHEN extension dev --wait --output json in a second process'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message:
+          '--no-browser and --wait cannot run in the same process. Run `extension dev --no-browser` in one process and `extension dev --wait` in another.'
+      }
+    }
+  }
+]
 
-    // Unset flags stay undefined so extension.config.js commands.dev values
-    // and stock defaults apply inside extensionDev, not forced here.
-    expect(devArgs.polyfill).toBeUndefined()
-    expect(devArgs.noOpen).toBeUndefined()
-    expect(devArgs.logLevel).toBeUndefined()
-    expect(devArgs.logFormat).toBeUndefined()
-    expect(devArgs.logTimestamps).toBeUndefined()
-    expect(devArgs.logColor).toBeUndefined()
-    expect(devArgs.profile).toBeUndefined()
-    expect(typeof devArgs.launcher).toBe('function')
+describe.each(REFUSALS)('extension dev refuses $name', (row) => {
+  beforeEach(() => {
+    preflightIssue = row.preflight ?? null
+
+    for (const [name, value] of Object.entries(row.env ?? {})) {
+      vi.stubEnv(name, value)
+    }
   })
 
-  it('adopts extension.config.js commands.dev.browser when --browser is not typed', async () => {
-    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+  function expectNothingRan() {
+    expect(engineCalls).toEqual([])
+    expect(waitInputs).toEqual([])
+    expect(watchdogs).toEqual([])
+  }
 
-    expect(await run(['dev', './my-extension'])).toBe(0)
-    const [, devArgs] = extensionDev.mock.calls[0] as any[]
-    expect(devArgs.browser).toBe('firefox')
-
-    loadCommandConfig.mockResolvedValue({})
+  it('on stderr, with exit 1 and nothing run', async () => {
+    expect(await run(['dev', '.', ...row.argv])).toBe(1)
+    expect(stderr).toEqual(row.stderr)
+    expect(stdout).toEqual([])
+    expectNothingRan()
   })
 
-  it('lets a typed --browser beat commands.dev.browser', async () => {
-    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
+  it('as one frame and no prose under --output json', async () => {
+    expect(await run(['dev', '.', ...row.argv, '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'dev',
+        value: null,
+        warnings: [],
+        ...row.frame
+      }
+    ])
 
-    expect(await run(['dev', './my-extension', '--browser', 'edge'])).toBe(0)
-    const [, devArgs] = extensionDev.mock.calls[0] as any[]
-    expect(devArgs.browser).toBe('edge')
-
-    loadCommandConfig.mockResolvedValue({})
+    expect(stderr).toEqual([])
+    expectNothingRan()
   })
+})
 
-  it('normalizes --profile false and --polyfill false', async () => {
-    expect(
-      await run(['dev', '.', '--profile', 'false', '--polyfill', 'false'])
-    ).toBe(0)
+describe('extension dev', () => {
+  it.each([
+    [[], false],
+    [['--no-open'], true]
+  ])('wires a safari packager that follows the --no-open decision of %j', async (flags, noOpen) => {
+    expect(await run(['dev', '.', ...flags])).toBe(0)
 
-    const [, devArgs] = extensionDev.mock.calls[0] as any[]
-    expect(devArgs.profile).toBe(false)
-    expect(devArgs.polyfill).toBe(false)
-  })
+    const packager = engineCalls[0][1].safariPackager as (
+      distPath: string,
+      mode: string
+    ) => Promise<void>
+    await packager('/tmp/dist/safari', 'resync')
 
-  it('forwards explicit logger and no-open flags without inventing values', async () => {
-    expect(
-      await run([
-        'dev',
-        '.',
-        '--no-open',
-        '--log-format',
-        'json',
-        '--no-log-color',
-        '--no-log-timestamps',
-        '--logs',
-        'debug'
-      ])
-    ).toBe(0)
+    expect(packagerOptions).toEqual([
+      {
+        browser: 'chromium',
+        noOpen,
+        announceDevReady: true,
+        enableExtension: false
+      }
+    ])
 
-    const [, devArgs] = extensionDev.mock.calls[0] as any[]
-    expect(devArgs.noOpen).toBe(true)
-    expect(devArgs.logFormat).toBe('json')
-    expect(devArgs.logColor).toBe(false)
-    expect(devArgs.logTimestamps).toBe(false)
-    expect(devArgs.logLevel).toBe('debug')
-  })
-
-  it('drops the launcher when EXTENSION_CLI_NO_BROWSER is set', async () => {
-    process.env.EXTENSION_CLI_NO_BROWSER = '1'
-    expect(await run(['dev', '.'])).toBe(0)
-    const [, devArgs] = extensionDev.mock.calls[0] as any[]
-    expect(devArgs.noBrowser).toBe(true)
-    expect(devArgs.launcher).toBeUndefined()
-  })
-
-  it('wires a safari packager that follows the --no-open decision', async () => {
-    expect(await run(['dev', '.'])).toBe(0)
-    const [, devArgs] = extensionDev.mock.calls[0] as any[]
-    await devArgs.safariPackager('/tmp/dist/safari', 'resync')
-    expect(packageSafariExtension).toHaveBeenCalledTimes(1)
-    const [launchOpts, distPath, , mode] = packageSafariExtension.mock
-      .calls[0] as any[]
-    expect(launchOpts).toMatchObject({extension: ['/tmp/dist/safari']})
-    expect(distPath).toBe('/tmp/dist/safari')
-    expect(mode).toBe('resync')
+    expect(packaged).toEqual([['/tmp/dist/safari', 'resync']])
   })
 
   it('arms the parent watchdog with a valid --parent-pid', async () => {
     expect(await run(['dev', '.', '--parent-pid', '4242'])).toBe(0)
-    expect(setupParentWatchdog).toHaveBeenCalledWith(4242, {
-      emitFrame: expect.any(Function)
-    })
+    expect(watchdogs).toEqual([[4242, {emitFrame: expect.any(Function)}]])
   })
 
   it('frames a parent-gone shutdown under --output json', async () => {
@@ -184,132 +617,131 @@ describe('extension dev', () => {
       await run(['dev', '.', '--parent-pid', '4242', '--output', 'json'])
     ).toBe(0)
 
-    const options = setupParentWatchdog.mock.calls[0]?.[1] as {
-      emitFrame: () => void
-    }
-    logSpy.mockClear()
-    options.emitFrame()
+    stdout.length = 0
+    watchdogs[0][1].emitFrame()
 
-    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toMatchObject({
-      ok: false,
-      command: 'dev',
-      status: 'failed',
-      error: {code: 'E_PARENT_GONE'}
-    })
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        value: null,
+        error: {
+          code: 'E_PARENT_GONE',
+          message:
+            'the --parent-pid owner (process 4242) is gone, so this dev session is shutting down'
+        },
+        warnings: []
+      }
+    ])
   })
 
   it('prints no parent-gone frame without --output json', async () => {
     expect(await run(['dev', '.', '--parent-pid', '4242'])).toBe(0)
-    const options = setupParentWatchdog.mock.calls[0]?.[1] as {
-      emitFrame: () => void
-    }
-    logSpy.mockClear()
-    options.emitFrame()
+    watchdogs[0][1].emitFrame()
 
-    expect(logSpy).not.toHaveBeenCalled()
+    expect(stdout).toEqual([])
   })
 
-  it('enables author diagnostics with --author', async () => {
-    expect(await run(['dev', '.', '--author'])).toBe(0)
+  it.each([
+    '--debug',
+    '--author',
+    '--author-mode'
+  ])('enables maintainer diagnostics with %s', async (flag) => {
+    expect(await run(['dev', '.', flag])).toBe(0)
+    expect(process.env.EXTENSION_DEBUG).toBe('1')
     expect(process.env.EXTENSION_AUTHOR_MODE).toBe('true')
     expect(process.env.EXTENSION_VERBOSE).toBe('1')
   })
 
-  it('exits on an unsupported browser name', async () => {
-    expect(await run(['dev', '.', '--browser', 'netscape'])).toBe(1)
-    expect(extensionDev).not.toHaveBeenCalled()
+  it('sets EXTENSION_OUTPUT to json before the dev server runs', async () => {
+    let seen: string | undefined = 'never ran'
+
+    engine = async () => {
+      seen = process.env.EXTENSION_OUTPUT
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+    expect(seen).toBe('json')
   })
 
-  it('rejects a malformed --parent-pid', async () => {
-    expect(await run(['dev', '.', '--parent-pid', 'zero'])).toBe(1)
-    expect(setupParentWatchdog).not.toHaveBeenCalled()
-    expect(extensionDev).not.toHaveBeenCalled()
+  it('leaves EXTENSION_OUTPUT alone in pretty mode', async () => {
+    expect(await run(['dev', '.'])).toBe(0)
+    expect(engineCalls).toHaveLength(1)
+    expect(process.env.EXTENSION_OUTPUT).toBeUndefined()
+  })
+})
+
+describe('extension dev --wait', () => {
+  it.each([
+    [['--wait'], {waitTimeout: undefined, waitFormat: 'pretty'}],
+    [['--wait', 'true'], {waitTimeout: undefined, waitFormat: 'pretty'}],
+    [
+      ['--wait', '--wait-timeout', '5000'],
+      {waitTimeout: '5000', waitFormat: 'pretty'}
+    ],
+    [
+      ['--wait', '--output', 'json'],
+      {waitTimeout: undefined, waitFormat: 'json'}
+    ],
+    [
+      ['--wait', '--wait-format', 'json'],
+      {waitTimeout: undefined, waitFormat: 'json'}
+    ],
+    [
+      ['--wait', '--browser', 'chrome,firefox'],
+      {
+        browsers: ['chrome', 'firefox'],
+        waitTimeout: undefined,
+        waitFormat: 'pretty'
+      }
+    ]
+  ])('hands wait mode the input of dev %j and starts no server', async (flags, input) => {
+    expect(await run(['dev', PROJECT, ...flags])).toBe(0)
+    expect(waitInputs).toEqual([
+      {
+        command: 'dev',
+        pathOrRemoteUrl: PROJECT,
+        browsers: ['chromium'],
+        ...input
+      }
+    ])
+
+    expect(engineCalls).toEqual([])
   })
 
-  it('rejects safari-only flags for non-safari targets', async () => {
-    expect(await run(['dev', '.', '--bundle-id', 'dev.example.app'])).toBe(1)
-    expect(extensionDev).not.toHaveBeenCalled()
-  })
-
-  it('rejects a malformed safari bundle id', async () => {
-    expect(
-      await run(['dev', '.', '--browser', 'safari', '--bundle-id', 'bad id'])
-    ).toBe(1)
-
-    expect(extensionDev).not.toHaveBeenCalled()
-  })
-
-  it('forwards --macos-only false so a universal project is reachable', async () => {
-    expect(
-      await run(['dev', '.', '--browser', 'safari', '--macos-only', 'false'])
-    ).toBe(0)
-
-    const [, opts] = extensionDev.mock.calls[0] as any[]
-    expect(opts.macOsOnly).toBe(false)
-  })
-
-  it('rejects --macos-only false for non-safari targets', async () => {
-    // `false` is a real value for this flag, not an unset boolean, so the
-    // safari-only gate has to notice it rather than filter it out.
-    expect(await run(['dev', '.', '--macos-only', 'false'])).toBe(1)
-    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--macos-only/)
-  })
-
-  it('fails fast when the safari toolchain preflight reports an issue', async () => {
-    safariPreflightError.mockReturnValue('xcode missing')
-    expect(await run(['dev', '.', '--browser', 'safari'])).toBe(1)
-    expect(String(errorSpy.mock.calls[0][0])).toContain('xcode missing')
-    expect(extensionDev).not.toHaveBeenCalled()
-  })
-
-  it('delegates --wait to wait mode and prints the json envelope', async () => {
+  it('prints what wait mode found as one ready frame', async () => {
     expect(await run(['dev', '.', '--wait', '--wait-format', 'json'])).toBe(0)
-    expect(runWaitMode).toHaveBeenCalledWith(
-      expect.objectContaining({command: 'dev', browsers: ['chromium']})
-    )
-
-    const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
     // The pre-envelope wait frame now rides inside value.
-    expect(payload).toMatchObject({
-      schema: 1,
-      ok: true,
-      command: 'dev',
-      status: 'ready',
-      error: null,
-      value: {mode: 'wait', command: 'dev'}
-    })
-
-    expect(extensionDev).not.toHaveBeenCalled()
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: true,
+        command: 'dev',
+        status: 'ready',
+        value: {
+          mode: 'wait',
+          command: 'dev',
+          browsers: ['chromium'],
+          results: [{browser: 'chromium', ok: true}]
+        },
+        error: null,
+        warnings: []
+      }
+    ])
   })
 
-  it('refuses --no-browser with --wait instead of polling for a file no one writes', async () => {
-    // Same process, both flags: --wait never starts a server, so the run used
-    // to sit on the ready contract for the whole --wait-timeout and then fail.
-    process.env.EXTENSION_CLI_NO_BROWSER = '1'
-    expect(await run(['dev', '.', '--wait', '--wait-timeout', '45000'])).toBe(1)
-    expect(runWaitMode).not.toHaveBeenCalled()
-    expect(extensionDev).not.toHaveBeenCalled()
-    expect(String(errorSpy.mock.calls[0][0])).toMatch(/--no-browser/)
-  })
-
-  it('frames the --no-browser with --wait refusal under --output json', async () => {
-    process.env.EXTENSION_CLI_NO_BROWSER = '1'
-    expect(await run(['dev', '.', '--wait', '--output', 'json'])).toBe(1)
-    const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(payload).toMatchObject({
-      ok: false,
-      command: 'dev',
-      status: 'usage',
-      error: {code: 'E_INVALID_OPTION'}
-    })
+  it('prints nothing on stdout for a pretty wait', async () => {
+    expect(await run(['dev', '.', '--wait'])).toBe(0)
+    expect(stdout).toEqual([])
   })
 
   it('still waits when noBrowser comes from extension.config.js', async () => {
     // The config value belongs to the producer process. Refusing on it would
     // break the documented two-process pattern for those projects.
-    loadCommandConfig.mockResolvedValue({noBrowser: true})
+    commandConfig = {noBrowser: true}
     expect(await run(['dev', '.', '--wait', '--output', 'json'])).toBe(0)
-    expect(runWaitMode).toHaveBeenCalledTimes(1)
-    loadCommandConfig.mockResolvedValue({})
+    expect(waitInputs).toHaveLength(1)
   })
 })

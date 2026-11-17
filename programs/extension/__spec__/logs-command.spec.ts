@@ -13,18 +13,6 @@ import {
 
 const readReadyContract = vi.fn((): unknown => null)
 
-vi.mock('../helpers/extension-develop-runtime', async () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    ...(await import('../../develop/dev-server/control-bridge/logs-query')),
-    readReadyContract: (...args: unknown[]) =>
-      readReadyContract(...(args as [])),
-    BridgeConsumer: class {
-      start() {}
-      close() {}
-    }
-  }))
-}))
-
 import {LOG_CONTEXTS as BRIDGE_LOG_CONTEXTS} from '../../develop/dev-server/control-bridge/contracts'
 import {
   LOG_LEVEL_FILTERS,
@@ -32,6 +20,15 @@ import {
 } from '../../develop/dev-server/control-bridge/log-rule'
 import {LOG_CONTEXTS, registerLogsCommand} from '../commands/logs'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+
+const loadBridge = async () => ({
+  ...(await import('../../develop/dev-server/control-bridge/logs-query')),
+  readReadyContract: (...args: unknown[]) => readReadyContract(...(args as [])),
+  BridgeConsumer: class {
+    start() {}
+    close() {}
+  }
+})
 
 const EVENTS = [
   {v: 1, type: 'header', runId: 'r'},
@@ -101,7 +98,10 @@ afterEach(() => {
 })
 
 function run(argv: string[]) {
-  return runCli(makeProgram(registerLogsCommand), argv)
+  return runCli(
+    makeProgram((program) => registerLogsCommand(program, {loadBridge})),
+    argv
+  )
 }
 
 function printedLines(): string[] {
@@ -441,7 +441,7 @@ describe('extension logs (one-shot)', () => {
     logSpy.mockClear()
     expect(
       await run(['logs', dir, '--output', 'ndjson', '--since', 'yesterday-ish'])
-    ).not.toBe(0)
+    ).toBe(1)
 
     expect(String(errorSpy.mock.calls.flat().join(' '))).toContain(
       'expects a sequence number or an ISO timestamp'
