@@ -14,6 +14,15 @@ import type {FilepathList, PluginInterface} from '../../../types'
 import * as messages from '../html-lib/messages'
 import {getAssetsFromHtml, missingPageEntryFiles} from '../html-lib/utils'
 
+const isRemoteUrl = (ref: string) => /^(https?:)?\/\//i.test(ref)
+
+// A root URL or a path with no file behind it is left out of the page
+// entry. The win32 test reads both a drive path and a leading slash.
+const hasNoFile = (ref: string) =>
+  path.win32.isAbsolute(ref) && !fs.existsSync(ref)
+
+const isEntryFile = (ref: string) => !hasNoFile(ref) && !isRemoteUrl(ref)
+
 export class ThrowIfRecompileIsNeeded {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
@@ -64,15 +73,11 @@ export class ThrowIfRecompileIsNeeded {
         return
       }
 
-      const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
-      const looksLikePublicRootUrl = (p: string) =>
-        p.startsWith('/') && !fs.existsSync(p)
-
       const initialJs = (getAssetsFromHtml(htmlFile)?.js || []).filter(
-        (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
+        isEntryFile
       )
       const initialCss = (getAssetsFromHtml(htmlFile)?.css || []).filter(
-        (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
+        isEntryFile
       )
 
       this.initialHtmlAssets[htmlFile] = {
@@ -103,10 +108,6 @@ export class ThrowIfRecompileIsNeeded {
         // multi-save). Every page in the set must be inspected, not just the
         // first entry, or a changed page later in the batch never triggers
         // the restart warning.
-        const isRemoteUrl = (p: string) => /^(https?:)?\/\//i.test(p)
-        const looksLikePublicRootUrl = (p: string) =>
-          p.startsWith('/') && !fs.existsSync(p)
-
         // Pages this build already asks a restart for, said once per page.
         const restartAsked = new Set<string>()
 
@@ -132,11 +133,9 @@ export class ThrowIfRecompileIsNeeded {
             updatedAssets = undefined
           }
 
-          const updatedJsEntries = (updatedAssets?.js || []).filter(
-            (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
-          )
+          const updatedJsEntries = (updatedAssets?.js || []).filter(isEntryFile)
           const updatedCssEntries = (updatedAssets?.css || []).filter(
-            (p) => !looksLikePublicRootUrl(p) && !isRemoteUrl(p)
+            isEntryFile
           )
 
           // The page as it reads now decides which files are still awaited.
