@@ -86,13 +86,13 @@ jobs:
         run: bash scripts/check-bundled-template-drift.sh
 
   tests:
+    # Every event runs each suite once, on the engines floor. Newer Node runs
+    # on main and nightly, where a break is caught before a release.
     name: Run test suite (${{ matrix.suite }})
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      # Every entry is a distinct suite. The per-plugin names that used to sit
-      # here were all aliases of ci:test:develop, nine green rows for one run.
       matrix:
         suite:
           - ci:test:develop
@@ -137,7 +137,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: '22.12'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -147,16 +147,16 @@ jobs:
         run: pnpm run ${{ matrix.suite }}
 
   tests-node:
-    # The main matrix runs on Node 22 only. The engine floor is 22.12 and
-    # current is 24, and a Node API that moved between them (globSync string
-    # excludes landed in 22.14) reaches users before it reaches CI otherwise.
+    # Current Node, for an API that changed after the floor. Pull requests skip
+    # it, so it runs on main here and every night in programs-nightly.yml.
     name: Node ${{ matrix.node }} (${{ matrix.suite }})
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        node: ['22.12', 24]
+        node: [24]
         suite:
           - ci:test:develop
           - ci:test:cli

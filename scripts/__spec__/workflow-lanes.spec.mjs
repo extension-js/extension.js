@@ -60,6 +60,36 @@ test('every ci test matrix entry runs a suite no other entry runs', () => {
   }
 })
 
+test('pull requests run each suite once on the engines floor, newer Node on main and nightly', () => {
+  const ci = workflow('ci.yml')
+  const floor = JSON.parse(
+    fs.readFileSync(
+      path.join(root, 'programs', 'extension', 'package.json'),
+      'utf8'
+    )
+  ).engines.node.replace('>=', '')
+  const suites = ['ci:test:develop', 'ci:test:cli', 'ci:test:create']
+
+  const tests = jobSection(ci, 'tests')
+  assert.deepEqual(matrixSuites(ci, 'tests'), suites)
+  assert.match(tests, new RegExp(`node-version: '${floor}'\n`))
+  assert.doesNotMatch(tests, /^ {4}if: /m)
+
+  const current = jobSection(ci, 'tests-node')
+  assert.deepEqual(matrixSuites(ci, 'tests-node'), suites)
+  assert.match(current, /^ {4}if: github\.event_name != 'pull_request'$/m)
+  const nodes = /^ {8}node: \[(.+)\]$/m.exec(current)[1]
+  assert.ok(!nodes.includes(floor), nodes)
+
+  const nightly = workflow('programs-nightly.yml')
+  const lane = jobSection(nightly, 'nightly-node-current')
+  assert.deepEqual(matrixSuites(nightly, 'nightly-node-current'), suites)
+  assert.equal(/^ {8}node: \[(.+)\]$/m.exec(lane)[1].replace(/'/g, ''), nodes)
+  assert.match(lane, /node-version: \$\{\{ matrix\.node \}\}/)
+  assert.match(step(lane, 'Report a red lane'), /if: failure\(\)/)
+  assert.match(step(lane, 'Close the red lane'), /if: success\(\)/)
+})
+
 test('no ci:test script is an alias of another', () => {
   const bodies = Object.entries(scripts)
     .filter(([name]) => name.startsWith('ci:test:'))
