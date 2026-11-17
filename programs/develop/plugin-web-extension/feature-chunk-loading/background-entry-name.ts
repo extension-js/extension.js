@@ -20,8 +20,6 @@ export function getBackgroundEntryName(
 ): {
   pageEntry?: string
   serviceWorkerEntry?: string
-  tryCatchWrapper: boolean
-  eagerChunkLoading: boolean
 } {
   if (manifest.background) {
     // A background page is compiled as the background/index HTML surface, so
@@ -39,17 +37,13 @@ export function getBackgroundEntryName(
       !hasScriptEntry
     ) {
       return {
-        pageEntry: 'background/index',
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
+        pageEntry: 'background/index'
       }
     }
 
     if (isGeckoBasedBrowser(String(browser))) {
       return {
-        pageEntry: 'background/script',
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
+        pageEntry: 'background/script'
       }
     }
 
@@ -65,31 +59,22 @@ export function getBackgroundEntryName(
       // entryOption and kill the build before the scripts feature can report
       // the real problem, such as a missing service worker file.
       if (!serviceWorkerEntry) {
-        return {
-          tryCatchWrapper: true,
-          eagerChunkLoading: false
-        }
+        return {}
       }
 
       return {
-        serviceWorkerEntry,
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
+        serviceWorkerEntry
       }
     }
 
     if (manifest.manifest_version === 2) {
       return {
-        pageEntry: 'background/script',
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
+        pageEntry: 'background/script'
       }
     }
   }
 
   return {
-    pageEntry: 'background',
-    tryCatchWrapper: true,
-    eagerChunkLoading: false
+    pageEntry: 'background'
   }
 }

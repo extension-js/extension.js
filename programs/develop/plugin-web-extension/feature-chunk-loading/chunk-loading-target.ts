@@ -12,11 +12,6 @@ export default class WebExtensionPlugin {
     const {background} = options
     if (background) {
       const {serviceWorkerEntry, pageEntry} = background
-      if ('entry' in background || 'manifest' in background) {
-        throw new Error(
-          '[webpack-extension-target] background.entry and background.manifest has been removed. Use background.pageEntry and/or background.serviceWorkerEntry instead.'
-        )
-      }
       if (serviceWorkerEntry && serviceWorkerEntry === pageEntry) {
         throw new Error(
           `[webpack-extension-target] background.serviceWorkerEntry must not be the same as background.pageEntry. Service Worker entry only supports importScript, but importScript does not exist in background page (mv2) or limited event page (mv3).

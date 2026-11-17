@@ -75,7 +75,6 @@ describe('ReloadPlugin on a real development compiler', () => {
         'InjectBridgeRelay'
       ],
       compilation: [
-        'WebExtensionServiceWorkerEntryPlugin',
         'WebExtensionChuckLoaderRuntimePlugin',
         'WebExtensionPlugin'
       ],

@@ -71,7 +71,6 @@ describe('SetupChunkLoadingTarget', () => {
       taps: {
         entryOption: ['WebExtensionServiceWorkerEntryPlugin'],
         compilation: [
-          'WebExtensionServiceWorkerEntryPlugin',
           'WebExtensionChuckLoaderRuntimePlugin',
           'WebExtensionPlugin'
         ],

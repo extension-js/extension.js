@@ -38,9 +38,7 @@ describe('getBackgroundEntryName', () => {
     } as Manifest
 
     expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
-      serviceWorkerEntry: 'background/service_worker',
-      tryCatchWrapper: true,
-      eagerChunkLoading: false
+      serviceWorkerEntry: 'background/service_worker'
     })
   })
 
@@ -52,9 +50,7 @@ describe('getBackgroundEntryName', () => {
     } as Manifest
 
     expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
-      serviceWorkerEntry: 'background/scripts',
-      tryCatchWrapper: true,
-      eagerChunkLoading: false
+      serviceWorkerEntry: 'background/scripts'
     })
   })
 
@@ -76,10 +72,9 @@ describe('getBackgroundEntryName', () => {
       background: {service_worker: 'background/missing.js'}
     } as Manifest
 
-    expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
-      tryCatchWrapper: true,
-      eagerChunkLoading: false
-    })
+    expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual(
+      {}
+    )
   })
 
   it('omits the worker entry when no background.scripts file exists', () => {
