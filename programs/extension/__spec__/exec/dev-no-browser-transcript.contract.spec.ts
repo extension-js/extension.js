@@ -1,26 +1,8 @@
-import {spawn} from 'node:child_process'
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync
-} from 'node:fs'
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-
-function cliBin(): string {
-  const cjs = join(cliRoot, 'dist', 'cli.cjs')
-  if (existsSync(cjs)) return cjs
-
-  return join(cliRoot, 'dist', 'cli.js')
-}
+import {startCli} from '../helpers/run-cli'
 
 function createFixture(): string {
   const projectDir = mkdtempSync(join(tmpdir(), 'extjs-golden-boot-'))
@@ -48,61 +30,25 @@ function createFixture(): string {
   return projectDir
 }
 
-function captureDevBoot(projectDir: string) {
-  return new Promise<string>((resolvePromise, reject) => {
-    const child = spawn(
-      process.execPath,
-      [cliBin(), 'dev', projectDir, '--no-browser', '--browser=chromium'],
-      {
-        cwd: cliRoot,
-        stdio: 'pipe',
-        env: {...process.env, NO_COLOR: '1', EXTENSION_ENV: 'test'}
-      }
+async function captureDevBoot(projectDir: string) {
+  const session = startCli([
+    'dev',
+    projectDir,
+    '--no-browser',
+    '--browser=chromium'
+  ])
+
+  try {
+    await session.waitFor(
+      () => session.read().stdout.includes('Watching for file changes.'),
+      90_000,
+      'the ready line'
     )
-    let output = ''
-    let settled = false
+  } finally {
+    await session.stop('SIGTERM')
+  }
 
-    const finish = () => {
-      if (settled) return
-
-      settled = true
-      clearTimeout(timer)
-      resolvePromise(output)
-    }
-
-    const timer = setTimeout(() => {
-      child.kill('SIGKILL')
-
-      if (!settled) {
-        settled = true
-        reject(new Error(`dev boot timed out, output so far:\n${output}`))
-      }
-    }, 90000)
-    child.stdout.on('data', (chunk) => {
-      output += chunk.toString()
-
-      if (output.includes('Watching for file changes.')) {
-        setTimeout(() => {
-          child.kill('SIGTERM')
-          setTimeout(finish, 1000)
-        }, 250)
-      }
-    })
-
-    child.stderr.on('data', (chunk) => {
-      output += chunk.toString()
-    })
-
-    child.on('close', finish)
-    child.on('error', (error) => {
-      clearTimeout(timer)
-
-      if (!settled) {
-        settled = true
-        reject(error)
-      }
-    })
-  })
+  return session.read().output
 }
 
 describe('dev --no-browser boot transcript', () => {

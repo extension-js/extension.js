@@ -1,126 +1,163 @@
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<any>('fs')
-
-  return {
-    ...actual,
-    existsSync: vi.fn(() => true),
-    lstatSync: vi.fn(() => ({isFile: () => true}))
-  }
-})
-
-const setupReloadStrategyCtor = vi.hoisted(() =>
-  vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-)
-const stripCtor = vi.hoisted(() =>
-  vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-)
-vi.mock('../steps/setup-reload-strategy', () => ({
-  SetupReloadStrategy: setupReloadStrategyCtor
-}))
-
-vi.mock('../steps/strip-content-script-dev-server-runtime', () => ({
-  StripContentScriptDevServerRuntime: stripCtor
-}))
-
-vi.mock('../steps/inject-scripts-replay-shim', () => ({
-  InjectScriptsReplayShim: vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-}))
-
-vi.mock('../steps/inject-bridge-producer', () => ({
-  InjectBridgeProducer: vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-}))
-
-vi.mock('../steps/inject-bridge-relay', () => ({
-  InjectBridgeRelay: vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-}))
-
-const devContentScriptsCtor = vi.hoisted(() =>
-  vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-)
-
-vi.mock('../steps/setup-dev-content-scripts', () => ({
-  SetupDevContentScripts: devContentScriptsCtor
-}))
-
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {ReloadPlugin} from '../index'
+import {idleCompiler, tapsAddedBy, writeProject} from './helpers/real-compiler'
 
-function makeCompiler(mode: 'development' | 'production' | 'none') {
-  return {
-    options: {
-      mode,
-      module: {rules: []}
-    }
-  } as any
+const makeTempFolder = trackTempFolders()
+
+const manifest = {
+  manifest_version: 3,
+  name: 'gating',
+  version: '1.0.0',
+  background: {service_worker: 'src/background.js'},
+  content_scripts: [{matches: ['<all_urls>'], js: ['src/content.js']}]
 }
 
-const fixtureManifest = path.join(__dirname, '__fixtures__', 'manifest.json')
-
-describe('ReloadPlugin dev-only gating', () => {
-  beforeEach(() => {
-    setupReloadStrategyCtor.mockClear()
-    stripCtor.mockClear()
-    devContentScriptsCtor.mockClear()
+function project() {
+  const root = writeProject(makeTempFolder('extjs-reload-gating-'), {
+    'manifest.json': manifest,
+    'src/background.js': '',
+    'src/content.js': ''
   })
 
-  afterEach(() => {
-    delete process.env.EXTENSION_NO_RELOAD
-    vi.restoreAllMocks()
-  })
+  return {root, manifestPath: path.join(root, 'manifest.json')}
+}
 
-  it('applies the reload strategy in development mode', () => {
+function applied(
+  mode: 'development' | 'production',
+  options: {browser?: string; devSession?: boolean; manifestPath?: string} = {}
+) {
+  const {root, manifestPath} = project()
+  const compiler = idleCompiler(root, mode)
+  const taps = tapsAddedBy(compiler, () =>
     new ReloadPlugin({
-      manifestPath: fixtureManifest,
-      browser: 'chromium'
-    } as any).apply(makeCompiler('development'))
+      manifestPath,
+      browser: 'chrome',
+      ...options
+    } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
+  )
 
-    expect(setupReloadStrategyCtor).toHaveBeenCalledTimes(1)
-    expect(stripCtor).toHaveBeenCalledTimes(1)
-    expect(devContentScriptsCtor).toHaveBeenCalledTimes(1)
+  return {taps, entry: compiler.options.entry}
+}
+
+// The producer and the relay inject nothing without a control port, so a
+// port is set for every test and the whole pipeline is visible.
+beforeEach(() => {
+  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+  vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
+describe('ReloadPlugin on a real development compiler', () => {
+  it('taps every dev step, in order, for Chromium', () => {
+    expect(applied('development').taps).toEqual({
+      done: [
+        'SetupDevContentScripts',
+        'plugin-reload:prune-stale-hot-updates',
+        'plugin-reload:prune-unreachable-chunks'
+      ],
+      thisCompilation: [
+        'StripContentScriptDevServerRuntime',
+        'StableContentScriptNames',
+        'NoDangerNamePlugin',
+        'InjectScriptsReplayShim',
+        'SetupDevContentScripts',
+        'InjectBridgeProducer',
+        'InjectBridgeRelay'
+      ],
+      compilation: [
+        'WebExtensionServiceWorkerEntryPlugin',
+        'WebExtensionChuckLoaderRuntimePlugin',
+        'WebExtensionPlugin'
+      ],
+      environment: ['WebExtensionPlugin'],
+      entryOption: ['WebExtensionServiceWorkerEntryPlugin']
+    })
   })
 
-  it('keeps the manifest content scripts static for firefox', () => {
-    new ReloadPlugin({
-      manifestPath: fixtureManifest,
-      browser: 'firefox'
-    } as any).apply(makeCompiler('development'))
-
-    expect(setupReloadStrategyCtor).toHaveBeenCalledTimes(1)
-    expect(devContentScriptsCtor).not.toHaveBeenCalled()
+  it('keeps the manifest content scripts static for Firefox', () => {
+    expect(applied('development', {browser: 'firefox'}).taps).toEqual({
+      done: [
+        'plugin-reload:prune-stale-hot-updates',
+        'plugin-reload:prune-unreachable-chunks'
+      ],
+      thisCompilation: [
+        'StripContentScriptDevServerRuntime',
+        'StableContentScriptNames',
+        'NoDangerNamePlugin',
+        'InjectScriptsReplayShim',
+        'InjectBridgeProducer',
+        'InjectBridgeRelay'
+      ],
+      compilation: [
+        'WebExtensionChuckLoaderRuntimePlugin',
+        'WebExtensionPlugin'
+      ],
+      environment: ['WebExtensionPlugin']
+    })
   })
 
-  it('applies nothing in production mode', () => {
-    new ReloadPlugin({
-      manifestPath: fixtureManifest,
-      browser: 'chromium'
-    } as any).apply(makeCompiler('production'))
+  it('registers the declared service worker as the background entry', () => {
+    const {entry} = applied('development')
 
-    expect(setupReloadStrategyCtor).not.toHaveBeenCalled()
-    expect(stripCtor).not.toHaveBeenCalled()
+    expect(Object.keys(entry as object)).toEqual(['background/service_worker'])
+  })
+})
+
+describe('ReloadPlugin applies nothing', () => {
+  it('on a production compiler', () => {
+    expect(applied('production')).toEqual({taps: {}, entry: {}})
   })
 
-  it('applies nothing when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
-    process.env.EXTENSION_NO_RELOAD = 'true'
-    new ReloadPlugin({
-      manifestPath: fixtureManifest,
-      browser: 'chromium'
-    } as any).apply(makeCompiler('development'))
+  // A shippable development build carries no reload client.
+  it('on a development compiler outside a dev session', () => {
+    expect(applied('development', {devSession: false})).toEqual({
+      taps: {},
+      entry: {}
+    })
+  })
 
-    expect(setupReloadStrategyCtor).not.toHaveBeenCalled()
-    expect(stripCtor).not.toHaveBeenCalled()
+  it('when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
+    vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
+
+    expect(applied('development')).toEqual({taps: {}, entry: {}})
+  })
+
+  it('when the manifest path names no file', () => {
+    const {root} = project()
+
+    expect(
+      applied('development', {manifestPath: path.join(root, 'missing.json')})
+    ).toEqual({taps: {}, entry: {}})
+  })
+
+  it('when the manifest path names a folder', () => {
+    const {root} = project()
+    fs.mkdirSync(path.join(root, 'folder.json'))
+
+    expect(
+      applied('development', {manifestPath: path.join(root, 'folder.json')})
+    ).toEqual({taps: {}, entry: {}})
+  })
+})
+
+describe('ReloadPlugin in a dev session', () => {
+  it('applies when devSession is true', () => {
+    expect(
+      applied('development', {devSession: true}).taps.thisCompilation
+    ).toContain('StripContentScriptDevServerRuntime')
+  })
+
+  it('applies for any other EXTENSION_NO_RELOAD value', () => {
+    vi.stubEnv('EXTENSION_NO_RELOAD', 'false')
+
+    expect(applied('development').taps.thisCompilation).toContain(
+      'StripContentScriptDevServerRuntime'
+    )
   })
 })

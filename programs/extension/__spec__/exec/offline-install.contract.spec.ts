@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
@@ -9,14 +8,12 @@ import {
 import {
   offlineRegistryEnv,
   offlineRegistryFiles,
-  serveOfflineRegistry,
-  withoutInheritedRegistry
+  serveOfflineRegistry
 } from '../../../create/__spec__/offline-registry-fixture'
+import {cliEnv, freshCliHome, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
-
-const ANSI = /\x1b\[[0-9;]*m/g
 
 // A dependency no registry can satisfy, so the install fails on every lane
 // whether or not the pin held. The request log is what proves the pin held.
@@ -24,50 +21,20 @@ const ABSENT_DEPENDENCY = '@extension-js-offline-proof/absent'
 const PACKAGE_MANAGER_REQUEST = /^\/(?:pnpm|yarn|@yarnpkg\/cli-dist)(?:\/|$)/
 const REGISTRY_VARIABLE = /^(?:npm_config_registry|corepack_npm_registry)$/i
 
-function cliBin(): string {
-  const root = path.resolve(__dirname, '../..')
-  const cjs = path.join(root, 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(root, 'dist', 'cli.js')
-}
-
-function runCreateIn(
+// The helper's env inherits no registry, and the package manager keeps its
+// cache and store in the run's own temp home.
+async function runCreateIn(
   work: string,
   args: string[],
   env: Record<string, string>
-): Promise<{status: number | null; stderr: string; handed: string[]}> {
-  const configHome = makeTempFolder('extjs-config-')
-  const cacheHome = makeTempFolder('extjs-cache-')
-  const childEnv: NodeJS.ProcessEnv = {
-    ...withoutInheritedRegistry(process.env),
-    ...env,
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0',
-    XDG_CONFIG_HOME: configHome,
-    XDG_CACHE_HOME: cacheHome
-  }
-  const handed = Object.keys(childEnv)
-    .filter((key) => REGISTRY_VARIABLE.test(key))
-    .map((key) => `${key}=${childEnv[key]}`)
+) {
+  const options = {home: freshCliHome(), env}
+  const handed = Object.entries(cliEnv(options))
+    .filter(([key]) => REGISTRY_VARIABLE.test(key))
+    .map(([key, value]) => `${key}=${value}`)
+  const run = await runCli(args, {cwd: work, timeoutMs: 170_000, ...options})
 
-  return new Promise((resolve) => {
-    let stderr = ''
-    const child = spawn(process.execPath, [cliBin(), ...args], {
-      cwd: work,
-      stdio: ['ignore', 'ignore', 'pipe'],
-      env: childEnv
-    })
-    child.stderr.setEncoding('utf8')
-
-    child.stderr.on('data', (chunk: string) => {
-      stderr += chunk
-    })
-
-    child.on('close', (status) => {
-      resolve({status, stderr: stderr.replace(ANSI, ''), handed})
-    })
-  })
+  return {status: run.status, stderr: run.stderr, handed}
 }
 
 describe('an install pinned to a loopback registry stays off the network', () => {

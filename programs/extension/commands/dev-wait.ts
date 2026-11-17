@@ -8,20 +8,27 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {pidStartedAtMs} from '../browsers/browsers-lib/resolve-live-pid'
 import {
+  failureHint,
   LOAD_REFUSED_HINT,
   LOAD_REFUSED_STATUS,
   markErrorFramed
 } from '../helpers/cli-failure'
-import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  loadExtensionDevelopBridgeModule
+} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {CODES, type ErrorCode} from '../helpers/messaging'
+import {isValidWholeNumberFlag} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   readyContractErrorCode,
   recordedLoadRefusal,
   stampedLaunchFailureCode
 } from '../helpers/ready-contract-codes'
+import {reusedPidEvidence} from '../helpers/session-liveness'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -45,6 +52,7 @@ export type ReadyContractPayload = {
   manifestPath?: string
   port?: number | null
   pid?: number
+  pidStartedAt?: string
   ts?: string
   compiledAt?: string | null
   extensionLoadRefusedAt?: string
@@ -59,6 +67,20 @@ export type RunWaitModeOptions = {
   waitTimeout?: string | number
   waitFormat?: string
 }
+
+// The clock, the pause between polls, the bridge loader a wait reads and the
+// probe that dates a pid.
+export type WaitModeDeps = {
+  now?: () => number
+  sleep?: (ms: number) => Promise<void>
+  loadBridge?: () => Promise<AnyDevelopModule>
+  pidStartedAt?: (pid: number | null | undefined) => number | null
+}
+
+const systemNow = (): number => Date.now()
+
+const systemSleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms))
 
 export type RunWaitModeResult = {
   projectPath: string
@@ -77,14 +99,17 @@ function isHttpUrl(value?: string): boolean {
 
 // --wait polls for the contract dev writes at the package root, so the
 // argument has to resolve the way dev resolves it, not as given.
-async function resolveProjectPath(pathOrRemoteUrl?: string): Promise<{
+async function resolveProjectPath(
+  pathOrRemoteUrl: string | undefined,
+  loadBridge: () => Promise<AnyDevelopModule>
+): Promise<{
   projectPath: string
   bridge: unknown
 }> {
   let bridge: unknown
 
   try {
-    bridge = await loadExtensionDevelopBridgeModule()
+    bridge = await loadBridge()
   } catch {
     bridge = undefined
   }
@@ -96,18 +121,16 @@ async function resolveProjectPath(pathOrRemoteUrl?: string): Promise<{
 }
 
 function parseWaitTimeoutMs(value?: string | number): number {
-  const fallback = 60000
+  if (value === undefined) return 60000
 
-  if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
-    return Math.floor(value)
+  if (!isValidWholeNumberFlag('--wait-timeout', value)) {
+    throw new WaitModeError(
+      messages.invalidWholeNumberFlag('--wait-timeout', String(value)),
+      CODES.E_INVALID_OPTION
+    )
   }
 
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = parseInt(value, 10)
-    if (Number.isFinite(parsed) && parsed > 0) return parsed
-  }
-
-  return fallback
+  return Number(String(value).trim())
 }
 
 // Exported so a caller can resolve the format before runWaitMode runs, and
@@ -151,6 +174,15 @@ export function describeWaitError(error: unknown): WaitFailure {
       status: 'usage',
       message,
       hint: 'Pass a local project path to --wait. Remote URLs are not supported.'
+    }
+  }
+
+  if (code === CODES.E_INVALID_OPTION) {
+    return {
+      code,
+      status: 'usage',
+      message,
+      hint: 'Fix the value the message names and run the command again.'
     }
   }
 
@@ -213,7 +245,9 @@ export function describeWaitError(error: unknown): WaitFailure {
     code,
     status: 'failed',
     message,
-    hint: 'Read the server output for the failure behind the ready contract.'
+    hint:
+      failureHint(code) ??
+      'Read the server output for the failure behind the ready contract.'
   }
 }
 
@@ -246,7 +280,10 @@ function isProcessLikelyAlive(pid: unknown): boolean {
   }
 }
 
-export function isFreshContractPayload(payload: ReadyContractPayload): boolean {
+export function isFreshContractPayload(
+  payload: ReadyContractPayload,
+  now: () => number = systemNow
+): boolean {
   const candidates = [payload.ts, payload.compiledAt, payload.startedAt]
 
   for (const candidate of candidates) {
@@ -255,7 +292,7 @@ export function isFreshContractPayload(payload: ReadyContractPayload): boolean {
     const stamp = Date.parse(candidate)
     if (!Number.isFinite(stamp)) continue
 
-    return Date.now() - stamp <= READY_CONTRACT_FRESHNESS_MS
+    return now() - stamp <= READY_CONTRACT_FRESHNESS_MS
   }
 
   return false
@@ -305,102 +342,153 @@ function withRefusalCause(
   return cause ? `${message.replace(/[.\s]+$/, '')}. ${cause}` : message
 }
 
-async function waitForReadyContract(options: {
-  command: WaitCommand
-  projectPath: string
-  bridge: unknown
-  browser: string
-  timeoutMs: number
-}): Promise<ReadyContractPayload> {
-  const readyPath = sessionReadyPath(
-    options.bridge,
-    options.projectPath,
-    options.browser
-  )
-  const start = Date.now()
-  let lastReadFailure = ''
+interface PendingContract {
+  readyPath: string
+  lastReadFailure: string
+  payload?: ReadyContractPayload
+}
 
-  while (Date.now() - start < options.timeoutMs) {
-    if (fs.existsSync(readyPath)) {
-      let payload: ReadyContractPayload | null = null
+// One read of one contract: the payload once it is ready, nothing while it is
+// not, a throw when the session already failed.
+function readReadyContract(
+  pending: PendingContract,
+  command: WaitCommand,
+  now: () => number,
+  isLive: (payload: ReadyContractPayload) => boolean
+): ReadyContractPayload | undefined {
+  if (!fs.existsSync(pending.readyPath)) return undefined
 
-      try {
-        payload = JSON.parse(
-          fs.readFileSync(readyPath, 'utf8')
-        ) as ReadyContractPayload
+  let payload: ReadyContractPayload | null
 
-        lastReadFailure = ''
-      } catch (error) {
-        // A contract read while its producer still writes it parses as nothing.
-        // That is a transient state like the ones below, so poll again.
-        payload = null
-        lastReadFailure = error instanceof Error ? error.message : String(error)
-      }
+  try {
+    payload = JSON.parse(
+      fs.readFileSync(pending.readyPath, 'utf8')
+    ) as ReadyContractPayload
 
-      if (payload) {
-        const isLive = isProcessLikelyAlive(payload.pid)
-        const isFresh = isFreshContractPayload(payload)
+    pending.lastReadFailure = ''
+  } catch (error) {
+    // A contract read while its producer still writes it parses as nothing.
+    // That is a transient state like the ones below, so poll again.
+    pending.lastReadFailure =
+      error instanceof Error ? error.message : String(error)
 
-        if (payload.command !== options.command) {
-          await new Promise((resolve) => setTimeout(resolve, 250))
-          continue
-        }
-
-        // Waiting on a run the browser refused would only spend the timeout.
-        const refusal = isLive ? undefined : standingLoadRefusal(payload)
-
-        if (refusal) {
-          throw new WaitModeError(refusal, CODES.E_EXTENSION_LOAD_REFUSED)
-        }
-
-        if (!isLive) {
-          // start can complete quickly; accept recent contracts from completed
-          // start runs. Dead dev producers are always stale for wait purposes.
-          if (options.command !== 'start' || !isFresh) {
-            await new Promise((resolve) => setTimeout(resolve, 250))
-            continue
-          }
-        }
-
-        if (payload.status === 'ready') return payload
-
-        if (payload.status === 'error') {
-          if (!isLive && options.command !== 'start') {
-            await new Promise((resolve) => setTimeout(resolve, 250))
-            continue
-          }
-
-          const detail =
-            payload.message || payload.errors?.[0] || 'unknown error'
-
-          // A launch the launcher coded keeps the code it was refused with.
-          throw new WaitModeError(
-            withRefusalCause(String(detail), payload),
-            stampedLaunchFailureCode(payload) ??
-              readyContractErrorCode(payload.code) ??
-              CODES.E_READY_ERROR_STATUS
-          )
-        }
-      }
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 250))
+    return undefined
   }
 
+  if (!payload || payload.command !== command) return undefined
+
+  const live = isLive(payload)
+  const isFresh = isFreshContractPayload(payload, now)
+
+  // Waiting on a run the browser refused would only spend the timeout.
+  const refusal = live ? undefined : standingLoadRefusal(payload)
+
+  if (refusal) {
+    throw new WaitModeError(refusal, CODES.E_EXTENSION_LOAD_REFUSED)
+  }
+
+  // A recent error from a run that already exited is its answer. An old one
+  // belongs to an earlier run, and the producer about to start will replace it.
+  if (payload.status === 'error' && (live || isFresh)) {
+    const detail = payload.message || payload.errors?.[0] || 'unknown error'
+
+    // A launch the launcher coded keeps the code it was refused with.
+    throw new WaitModeError(
+      withRefusalCause(String(detail), payload),
+      stampedLaunchFailureCode(payload) ??
+        readyContractErrorCode(payload.code) ??
+        CODES.E_READY_ERROR_STATUS
+    )
+  }
+
+  // start can complete quickly; accept recent contracts from completed start
+  // runs. Dead dev producers are always stale for wait purposes.
+  if (!live && (command !== 'start' || !isFresh)) return undefined
+
+  return payload.status === 'ready' ? payload : undefined
+}
+
+// Alive is not enough: a pid outlives its process and goes to the next one.
+// Dating a pid starts a process, so each contract identity is dated once.
+function sessionLiveness(
+  pidStartedAt: (pid: number | null | undefined) => number | null
+): (payload: ReadyContractPayload) => boolean {
+  const reused = new Map<string, boolean>()
+
+  return (payload) => {
+    if (!isProcessLikelyAlive(payload.pid)) return false
+    if (typeof payload.pid !== 'number') return true
+
+    const key = `${payload.pid}|${payload.pidStartedAt}|${payload.startedAt}`
+
+    if (!reused.has(key)) {
+      reused.set(key, reusedPidEvidence(payload, pidStartedAt) !== null)
+    }
+
+    return !reused.get(key)
+  }
+}
+
+// Every browser is read on each poll against one deadline, so --wait-timeout
+// bounds the whole wait however many browsers it names.
+async function waitForReadyContracts(options: {
+  command: WaitCommand
+  readyPaths: string[]
+  timeoutMs: number
+  now: () => number
+  sleep: (ms: number) => Promise<void>
+  isLive: (payload: ReadyContractPayload) => boolean
+}): Promise<ReadyContractPayload[]> {
+  const {now, sleep} = options
+  const pending: PendingContract[] = options.readyPaths.map((readyPath) => ({
+    readyPath,
+    lastReadFailure: ''
+  }))
+  const start = now()
+
+  while (now() - start < options.timeoutMs) {
+    for (const contract of pending) {
+      contract.payload ??= readReadyContract(
+        contract,
+        options.command,
+        now,
+        options.isLive
+      )
+    }
+
+    if (pending.every((contract) => contract.payload)) {
+      return pending.map((contract) => contract.payload as ReadyContractPayload)
+    }
+
+    await sleep(250)
+  }
+
+  const missing = pending.filter((contract) => !contract.payload)
   // A contract that could not be read is a different problem from one that
   // never arrived, and the timeout alone would point the reader at the wrong one.
+  const lastReadFailure = missing.find(
+    (contract) => contract.lastReadFailure
+  )?.lastReadFailure
   const timeoutDetail = lastReadFailure
     ? `. The last read of the file failed to parse as JSON: ${lastReadFailure}`
     : ''
 
   throw new WaitModeError(
-    `Timed out waiting for ready contract at ${readyPath} (${options.timeoutMs} ms)${timeoutDetail}`,
+    `Timed out waiting for ready contract at ${missing
+      .map((contract) => contract.readyPath)
+      .join(', ')} (${options.timeoutMs} ms)${timeoutDetail}`,
     CODES.E_READY_TIMEOUT
   )
 }
 
 export async function runWaitMode(
-  options: RunWaitModeOptions
+  options: RunWaitModeOptions,
+  {
+    now = systemNow,
+    sleep = systemSleep,
+    loadBridge = loadExtensionDevelopBridgeModule,
+    pidStartedAt = pidStartedAtMs
+  }: WaitModeDeps = {}
 ): Promise<RunWaitModeResult> {
   if (isHttpUrl(options.pathOrRemoteUrl)) {
     throw new WaitModeError(
@@ -410,22 +498,25 @@ export async function runWaitMode(
   }
 
   const {projectPath, bridge} = await resolveProjectPath(
-    options.pathOrRemoteUrl
+    options.pathOrRemoteUrl,
+    loadBridge
   )
   const timeoutMs = parseWaitTimeoutMs(options.waitTimeout)
   const format = parseWaitFormat(options.waitFormat)
-  const results: Array<ReadyContractPayload & {browser: string}> = []
-
-  for (const browser of options.browsers) {
-    const payload = await waitForReadyContract({
-      command: options.command,
-      projectPath,
-      bridge,
-      browser,
-      timeoutMs
-    })
-    results.push({...payload, browser})
-  }
+  const payloads = await waitForReadyContracts({
+    command: options.command,
+    readyPaths: options.browsers.map((browser) =>
+      sessionReadyPath(bridge, projectPath, browser)
+    ),
+    timeoutMs,
+    now,
+    sleep,
+    isLive: sessionLiveness(pidStartedAt)
+  })
+  const results = payloads.map((payload, index) => ({
+    ...payload,
+    browser: options.browsers[index]
+  }))
 
   return {
     projectPath,
@@ -438,7 +529,8 @@ export async function runWaitMode(
 }
 
 export async function runDevWaitMode(
-  options: Omit<RunWaitModeOptions, 'command'>
+  options: Omit<RunWaitModeOptions, 'command'>,
+  deps?: WaitModeDeps
 ): Promise<RunWaitModeResult> {
-  return runWaitMode({...options, command: 'dev'})
+  return runWaitMode({...options, command: 'dev'}, deps)
 }

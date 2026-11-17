@@ -3,23 +3,23 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 
-const developRoot = vi.hoisted(() => ({dir: ''}))
-
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  resolveExtensionDevelopRoot: () => {
-    if (!developRoot.dir) throw new Error('no engine')
-
-    return developRoot.dir
-  }
-}))
-
 import {
   describeRspackPeerConflicts,
   describeUnreadableDependencies,
-  engineRspackVersion,
+  engineRspackVersion as engineRspackVersionWith,
   remedyRspackPeerConflicts,
   scanRspackPeers
 } from '../helpers/rspack-peer-check'
+
+const developRoot = {dir: ''}
+
+// The engine root comes from this file, not from the installed develop.
+const engineRspackVersion = (projectPath: string) =>
+  engineRspackVersionWith(projectPath, () => {
+    if (!developRoot.dir) throw new Error('no engine')
+
+    return developRoot.dir
+  })
 
 const created: string[] = []
 

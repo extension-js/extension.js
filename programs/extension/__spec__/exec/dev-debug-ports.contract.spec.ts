@@ -1,6 +1,4 @@
-import {type ChildProcess, spawn} from 'node:child_process'
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -9,20 +7,9 @@ import {
 } from 'node:fs'
 import {connect} from 'node:net'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-
-function cliBin(): string {
-  const cjs = join(cliRoot, 'dist', 'cli.cjs')
-  if (existsSync(cjs)) return cjs
-
-  return join(cliRoot, 'dist', 'cli.js')
-}
+import {type CliSession, startCli} from '../helpers/run-cli'
 
 interface ReadyPorts {
   status?: string
@@ -31,10 +18,9 @@ interface ReadyPorts {
 }
 
 interface Session {
-  child: ChildProcess
+  cli: CliSession
   projectDir: string
   output: () => string
-  closed: Promise<void>
 }
 
 function createFixture(): string {
@@ -63,50 +49,15 @@ function createFixture(): string {
   return projectDir
 }
 
+// The helper's env names no debug switch, so the argument decides the run.
 function startDev(debug: boolean): Session {
   const projectDir = createFixture()
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0',
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0'
-  }
-
-  // An inherited debug switch would decide the run instead of the argument.
-  for (const key of [
-    'VITEST',
-    'VITEST_WORKER_ID',
-    'EXTENSION_AUTHOR_MODE',
-    'EXTENSION_DEBUG'
-  ]) {
-    Reflect.deleteProperty(env, key)
-  }
-
-  if (debug) env.EXTENSION_DEBUG = '1'
-
-  const child = spawn(
-    process.execPath,
-    [
-      cliBin(),
-      'dev',
-      projectDir,
-      '--no-browser',
-      '--browser=chromium',
-      '--port',
-      '0'
-    ],
-    {cwd: cliRoot, stdio: 'pipe', env}
+  const cli = startCli(
+    ['dev', projectDir, '--no-browser', '--browser=chromium', '--port', '0'],
+    {env: debug ? {EXTENSION_DEBUG: '1'} : {}}
   )
-  let output = ''
-  child.stdout?.on('data', (chunk) => (output += chunk.toString()))
-  child.stderr?.on('data', (chunk) => (output += chunk.toString()))
 
-  const closed = new Promise<void>((done) => {
-    child.once('close', () => done())
-  })
-
-  return {child, projectDir, output: () => output, closed}
+  return {cli, projectDir, output: () => cli.read().output}
 }
 
 function readReady(projectDir: string): ReadyPorts | null {
@@ -159,12 +110,7 @@ function accepts(port: number): Promise<boolean> {
 }
 
 async function stop(session: Session) {
-  session.child.kill('SIGINT')
-
-  const forced = setTimeout(() => session.child.kill('SIGKILL'), 30_000)
-
-  await session.closed
-  clearTimeout(forced)
+  await session.cli.stop('SIGINT', 30_000)
 }
 
 async function readySession(debug: boolean, sessions: Session[]) {

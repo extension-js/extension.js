@@ -74,7 +74,9 @@ export class EmitHtmlFile {
                   compilation,
                   compiler,
                   messages.manifestFieldMessageOnly(featureName),
-                  'warning'
+                  'warning',
+                  undefined,
+                  'ManifestPageMissing'
                 )
               } else {
                 // Chrome refuses to load an extension whose popup/options/devtools/background
@@ -95,7 +97,8 @@ export class EmitHtmlFile {
                     resolved
                   ),
                   isLoadChecked ? 'error' : 'warning',
-                  'manifest.json'
+                  'manifest.json',
+                  'ManifestPageMissing'
                 )
               }
 

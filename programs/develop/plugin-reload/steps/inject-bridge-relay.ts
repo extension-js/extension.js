@@ -33,9 +33,15 @@ export const RELAY_TARGETS: ReadonlyArray<{
 ]
 
 export class InjectBridgeRelay {
+  private readonly env: NodeJS.ProcessEnv
+
+  constructor(options: {env?: NodeJS.ProcessEnv} = {}) {
+    this.env = options.env ?? process.env
+  }
+
   apply(compiler: Compiler) {
     const controlPort = parseInt(
-      String(process.env.EXTENSION_CONTROL_PORT || ''),
+      String(this.env.EXTENSION_CONTROL_PORT || ''),
       10
     )
     if (!Number.isFinite(controlPort) || controlPort < 1) return

@@ -10,6 +10,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
 import {corepackRegistryOrigin} from './corepack-registry'
+import {
+  isDevelopWatchRunning,
+  missingDevelopBuildEntries,
+  waitForDevelopBuildEntries
+} from './develop-build-entries'
 import {findExtensionDevelopRoot} from './develop-context'
 import {classifyInstallFailure} from './install-registry-failure'
 import * as messages from './messages'
@@ -203,19 +208,58 @@ export async function ensureUserProjectDependencies(
   )
 }
 
-export async function ensureDevelopArtifacts() {
+// Only a source checkout carries the build config. An installed copy that
+// lost a file cannot rebuild, so it stops and names what is gone.
+function canRebuildDevelopArtifacts(developRoot: string): boolean {
+  return fs.existsSync(path.join(developRoot, 'rslib.config.ts'))
+}
+
+// A first watch build takes about fifteen seconds on a laptop, so a minute
+// covers a slow machine before the wait gives up and names the files.
+const WATCH_BUILD_WAIT_MS = 60000
+const WATCH_BUILD_POLL_MS = 100
+
+export type DevelopArtifactsOptions = {
+  watchWaitMs?: number
+  watchPollMs?: number
+}
+
+export async function ensureDevelopArtifacts(
+  options?: DevelopArtifactsOptions
+) {
   const developRoot = findExtensionDevelopRoot()
   if (!developRoot) return
 
-  const requiredFiles = [
-    path.join(developRoot, 'dist', 'ensure-hmr-for-scripts.js'),
-    path.join(developRoot, 'dist', 'minimum-script-file.js')
-  ]
-  const missing = requiredFiles.filter((file) => !fs.existsSync(file))
+  const missing = missingDevelopBuildEntries(developRoot)
   if (missing.length === 0) return
+
+  if (!canRebuildDevelopArtifacts(developRoot)) {
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(missing)
+    )
+  }
+
+  // The running watch writes the missing files itself, so this waits for
+  // it. A compile here would be a second build writing the same dist.
+  if (isDevelopWatchRunning(developRoot)) {
+    const unwritten = await waitForDevelopBuildEntries(
+      developRoot,
+      options?.watchWaitMs ?? WATCH_BUILD_WAIT_MS,
+      options?.watchPollMs ?? WATCH_BUILD_POLL_MS
+    )
+
+    if (unwritten.length === 0) return
+
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(unwritten, {watching: true})
+    )
+  }
 
   const pm = resolvePackageManager({cwd: developRoot})
   const command = buildInstallCommand(pm, ['run', 'compile'])
+  const rebuild = [command.command, ...command.args].join(' ')
   const isAuthor = isDebug()
   const stdio = isAuthor ? 'inherit' : 'ignore'
 
@@ -227,8 +271,28 @@ export async function ensureDevelopArtifacts() {
     )
   }
 
-  await execInstallCommand(command.command, command.args, {
-    cwd: developRoot,
-    stdio
-  })
+  try {
+    await execInstallCommand(command.command, command.args, {
+      cwd: developRoot,
+      stdio
+    })
+  } catch {
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(missing, {command: rebuild, developRoot})
+    )
+  }
+
+  // A build that exits clean and still skips an entry would fail much later.
+  const stillMissing = missingDevelopBuildEntries(developRoot)
+
+  if (stillMissing.length > 0) {
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(stillMissing, {
+        command: rebuild,
+        developRoot
+      })
+    )
+  }
 }
