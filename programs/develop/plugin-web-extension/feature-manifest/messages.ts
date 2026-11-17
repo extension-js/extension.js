@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import colors from 'pintor'
+import {isGeckoBasedBrowser} from '../../lib/constants'
 import {prefix} from '../../lib/messaging'
 
 export function serverRestartRequiredFromManifestError(
@@ -247,11 +248,22 @@ export function manifestVersionLostForBrowser(
       ? scoped.length
         ? `${scoped.join(', ')}, so the ${target} build has no ${field}.`
         : `The ${target} build has no ${field}.`
-      : `The ${target} build resolved ${field} to ${colors.yellow(JSON.stringify(resolved))}, and browsers load only 2 or 3.`
+      : `The ${target} build resolved ${field} to ${colors.yellow(JSON.stringify(resolved))}, and the build takes only the integer 2 or 3.`
+  // Measured: Chromium runs an integer above 3 as Manifest V3 and says
+  // nothing, Firefox refuses it. Every other value both of them refuse.
+  const aboveThree = Number.isInteger(resolved) && Number(resolved) > 3
+  const why =
+    resolved === undefined
+      ? 'No browser loads a manifest without it, so the build was refused.'
+      : !aboveThree
+        ? 'No browser loads that value, so the build was refused.'
+        : isGeckoBasedBrowser(browser)
+          ? 'Firefox does not load a manifest_version above 3, so the build was refused.'
+          : 'Chromium loads a version above 3 as Manifest V3 with no warning and Firefox does not load it at all, so the build was refused.'
 
   return (
     `${prefix('error')} ${lead}\n` +
-    `No browser loads a manifest without it, so the build was refused. ` +
+    `${why} ` +
     `Add a plain ${field}, or scope one to this browser: ${colors.yellow('chromium:manifest_version')} for every Chromium-based browser, ${colors.yellow('firefox:manifest_version')} for Firefox.`
   )
 }
@@ -302,6 +314,24 @@ export function sidebarKeyTranslatedForBrowser(
     `${prefix('info')} The build folded ${colors.yellow(from)} into ${colors.yellow(to)} for ${colors.blue(browser)}, which reads a sidebar only from ${colors.yellow(to)}${permission}. ` +
     `The panel opens and points at the same compiled page.\n` +
     `Declare both keys to ship a panel of its own per vendor, or scope ${colors.yellow(from)} with a prefix to keep it off this build.`
+  )
+}
+
+export function pageKeptAtAuthoredPath(
+  fields: string[],
+  authored: string,
+  outputs: string[],
+  mentionedIn: string
+) {
+  const keys = fields.map((field) => colors.yellow(field)).join(' and ')
+  const compiled = outputs
+    .map((output) => colors.underline(output))
+    .join(' and ')
+
+  return (
+    `${prefix('info')} ${keys} ${fields.length > 1 ? 'open' : 'opens'} at ${colors.underline(authored)} in the built manifest, the path written in your source.\n` +
+    `${colors.underline(mentionedIn)} holds that path as a string, and from ${compiled} a check against ${colors.blue('sender.url')} or ${colors.blue('location')} would fail.\n` +
+    `The compiled page ships at both paths and loads the same script and styles.`
   )
 }
 
@@ -720,6 +750,20 @@ export function geckoIncognitoSplitNotAllowed(browser: string) {
 
 // A description that passes a Chrome build is exactly the one Apple refuses,
 // since Chrome allows 132 characters and App Store Connect 112.
+export function hostPermissionPatternsIgnored(
+  hits: Array<{key: string; pattern: string}>
+) {
+  return [
+    `${prefix('warn')} manifest.json lists host permission patterns the browser drops, so they grant no host access.`,
+    ...hits.map(
+      (hit) =>
+        `${colors.gray('PATTERN')} ${colors.red(hit.pattern)} in ${colors.blue(hit.key)}`
+    ),
+    'Chrome and Firefox load the extension, Chrome records no error or warning for it, and the other patterns in the list still apply.',
+    `Write the host as ${colors.blue('*')}, ${colors.blue('*.domain.tld')} or a literal host.`
+  ].join('\n')
+}
+
 export function manifestDescriptionOverStoreLimit(
   browser: string,
   length: number,

@@ -43,3 +43,25 @@ export function stampedLaunchFailureCode(ready: {
     ? (code as ErrorCode)
     : undefined
 }
+
+// What a refused load recorded, as one clause: the browser's own reason and,
+// where the launcher knew it, the cause the manifest shows.
+export function recordedLoadRefusal(
+  contract:
+    | {
+        extensionLoadRefusedReason?: unknown
+        extensionLoadRefusedCause?: unknown
+      }
+    | null
+    | undefined
+): string {
+  const clause = (value: unknown) =>
+    typeof value === 'string' ? value.trim().replace(/[.\s]+$/, '') : ''
+
+  return [
+    clause(contract?.extensionLoadRefusedReason),
+    clause(contract?.extensionLoadRefusedCause)
+  ]
+    .filter(Boolean)
+    .join('. ')
+}

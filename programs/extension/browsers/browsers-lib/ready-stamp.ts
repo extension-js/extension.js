@@ -25,6 +25,38 @@ export function claimReadyPath(
   ownedReadyPaths.set(path.resolve(extensionOutputPath), readyPath)
 }
 
+// Every flow keeps managed profiles under the session root that holds its
+// contract, which a claimed contract names when the loaded folder cannot.
+export function managedProfileBaseDir(
+  extensionOutputPath: string,
+  browser: string
+): string {
+  const owned = ownedReadyPaths.get(path.resolve(extensionOutputPath))
+  const sessionRoot = owned
+    ? path.dirname(path.dirname(owned))
+    : path.join(path.dirname(extensionOutputPath), 'extension-js')
+
+  return path.resolve(sessionRoot, 'profiles', `${browser}-profile`)
+}
+
+// Where earlier versions put the profile when the loaded folder was not a
+// build under dist, so a kept profile left there can still be found.
+export function earlierManagedProfileBaseDir(
+  extensionOutputPath: string,
+  browser: string
+): string | undefined {
+  const earlier = path.resolve(
+    path.dirname(extensionOutputPath),
+    'extension-js',
+    'profiles',
+    `${browser}-profile`
+  )
+
+  return earlier === managedProfileBaseDir(extensionOutputPath, browser)
+    ? undefined
+    : earlier
+}
+
 export function readyPathFor(extensionOutputPath: string): string {
   return (
     ownedReadyPaths.get(path.resolve(extensionOutputPath)) ??
@@ -744,7 +776,8 @@ export function stampReadyExtensionBaseUrl(
 export function stampReadyExtensionLoadRefused(
   extensionOutputPath: string | undefined,
   reason: string,
-  runId?: string
+  runId?: string,
+  cause?: string
 ) {
   try {
     if (!extensionOutputPath) return
@@ -766,6 +799,16 @@ export function stampReadyExtensionLoadRefused(
 
     ready.extensionLoadRefusedAt = new Date().toISOString()
     if (reason) ready.extensionLoadRefusedReason = reason
+
+    // The cause belongs to this refusal only, so an older one never lingers.
+    if (cause) ready.extensionLoadRefusedCause = cause
+    else delete ready.extensionLoadRefusedCause
+
+    // A refused extension holds no id. The derived one was only a forecast.
+    if (ready.extensionIdSource !== 'browser') {
+      delete ready.extensionId
+      delete ready.extensionIdSource
+    }
 
     writeJsonAtomic(readyPath, ready)
   } catch {

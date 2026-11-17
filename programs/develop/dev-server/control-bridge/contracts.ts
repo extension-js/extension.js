@@ -183,6 +183,12 @@ export const REFUSAL_TAB_NOT_FOUND = 'tab_not_found'
 // The manifest never declares the surface (options with no options_ui), so
 // there is nothing to open, unlike a declared surface that is closed.
 export const REFUSAL_SURFACE_NOT_DECLARED = 'surface_not_declared'
+// Set by the broker, not the guest: the browser turned the extension away,
+// so there is no guest. The same id the ready contract stamps.
+export const REFUSAL_EXTENSION_LOAD_REFUSED = 'extension_load_refused'
+// Set by the broker: the loaded build has no background this browser runs,
+// so no executor ever dials in and waiting for one changes nothing.
+export const REFUSAL_NO_BACKGROUND = 'no_background'
 
 export type BridgeRefusalCode =
   | typeof REFUSAL_NEEDS_HEADED_WINDOW
@@ -193,6 +199,8 @@ export type BridgeRefusalCode =
   | typeof REFUSAL_URL_REFUSED
   | typeof REFUSAL_TAB_NOT_FOUND
   | typeof REFUSAL_SURFACE_NOT_DECLARED
+  | typeof REFUSAL_EXTENSION_LOAD_REFUSED
+  | typeof REFUSAL_NO_BACKGROUND
 
 export interface ResultFrame {
   type: 'result'

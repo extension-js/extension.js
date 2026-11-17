@@ -6,6 +6,7 @@ import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   DOCTOR_CHECKS,
   type DoctorReport,
+  doctorFailureCode,
   resolveDoctorBrowser,
   runDoctor
 } from '../commands/doctor'
@@ -389,6 +390,45 @@ describe('extension doctor', () => {
     ).toBe(false)
   })
 
+  // The broker already knows nothing will dial in, so doctor answers what
+  // eval answers and does not ask the reader to wait.
+  it('fails the executor inside the grace window when the build has no background', async () => {
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        runId: 'run-A',
+        status: 'ready',
+        command: 'preview',
+        pid: process.pid,
+        compiledAt: new Date().toISOString()
+      })
+    })
+
+    const message =
+      'no executor connected: the build this session loaded has no ' +
+      'background this browser runs, so nothing in it dials the control ' +
+      'channel and no retry changes that.'
+
+    StubController.probeResult = {
+      ok: false,
+      error: {name: 'Unavailable', message, code: 'no_background'}
+    }
+
+    const report = await runDoctor('/proj', {})
+    const r = byCheck(report)
+
+    expect(r.executor.status).toBe('fail')
+    expect(r.executor.detail).toBe(message)
+    expect(r.executor.detail).not.toMatch(/still launching/)
+    expect(r.executor.remediation).toBe(
+      'No retry helps: declare a background this browser runs, build again ' +
+        'and restart the dev session'
+    )
+
+    expect(report.checks.some((c) => c.status === 'fail')).toBe(true)
+  })
+
   it('fails the executor once the grace window has elapsed with no attach', async () => {
     state.mod = healthyModule({
       readReadyContract: () => ({
@@ -488,6 +528,50 @@ describe('extension doctor', () => {
       )
 
       expect(r.executor.detail).not.toContain('at x')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('names a load the browser refused on the contract row, never a wait', async () => {
+    const root = failedCompileProject({
+      code: 'extension_load_refused',
+      message: 'Chrome refused to load the extension at /proj/dist/chrome',
+      extensionLoadRefusedAt: '2026-11-16T20:27:28.524Z',
+      extensionLoadRefusedReason:
+        'Cannot install extension because it uses an unsupported manifest version.'
+    })
+    StubController.probeResult = {
+      ok: false,
+      error: {
+        name: 'Unavailable',
+        message:
+          'no executor connected: the browser refused to load this extension',
+        code: 'extension_load_refused'
+      }
+    }
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'chrome'}))
+
+      expect(r['ready-contract'].status).toBe('fail')
+      expect(r['ready-contract'].detail).toBe(
+        "contract status is 'error', the browser refused to load the " +
+          'extension: Cannot install extension because it uses an ' +
+          'unsupported manifest version'
+      )
+
+      expect(r['ready-contract'].remediation).toMatch(
+        /tries the load again on the next build/
+      )
+
+      expect(r['ready-contract'].remediation).not.toMatch(/wait for it/)
+      expect(r.executor.status).toBe('fail')
+      expect(r.executor.detail).toContain('refused to load this extension')
+      // The frame names the refusal the act verbs name, not a missing session.
+      expect(doctorFailureCode(r['ready-contract'])).toBe(
+        'E_EXTENSION_LOAD_REFUSED'
+      )
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
     }
@@ -745,6 +829,120 @@ describe('extension doctor (browser resolution)', () => {
     }
   })
 
+  // A refused start or preview run exits and leaves a receipt that says why.
+  const refusedReceipt = (command: string, reason?: string) => ({
+    status: 'error',
+    command,
+    browser: 'chrome',
+    port: null,
+    controlPort: null,
+    pid: 999999,
+    code: 'extension_load_refused',
+    extensionLoadRefusedAt: '2026-11-16T21:16:17.189Z',
+    ...(reason ? {extensionLoadRefusedReason: reason} : {})
+  })
+
+  it('names the refusal a start or preview receipt recorded, and the way back', async () => {
+    const sentence =
+      'Cannot install extension because it uses an unsupported manifest version.'
+
+    for (const command of ['start', 'preview']) {
+      const root = makeProject([])
+      let dialed = 0
+      state.mod = healthyModule({
+        readReadyContract: () => {
+          dialed += 1
+
+          return null
+        }
+      })
+
+      writeContract(root, 'chrome', refusedReceipt(command, sentence))
+
+      try {
+        const report = await runDoctor(root, {browser: 'chrome'})
+        const r = byCheck(report)
+
+        expect(dialed).toBe(0)
+        expect(r['ready-contract'].status).toBe('fail')
+        expect(doctorFailureCode(r['ready-contract'])).toBe(
+          'E_EXTENSION_LOAD_REFUSED'
+        )
+
+        expect(r['ready-contract'].detail).toBe(
+          `the last extension ${command} run for chrome ended because the ` +
+            'browser refused to load the extension: Cannot install extension ' +
+            'because it uses an unsupported manifest version'
+        )
+
+        expect(r['ready-contract'].remediation).toBe(
+          'Fix what the browser names, then run the same command again: ' +
+            `extension ${command} --browser=chrome --allow-control ` +
+            '(add --allow-eval for the eval verb)'
+        )
+
+        const printed = report.checks
+          .map((c) => `${c.detail} ${c.remediation ?? ''}`)
+          .join('\n')
+        expect(printed).not.toContain('not a session contract')
+        expect(printed).not.toContain('extension dev')
+        expect(printed.split('unsupported manifest version')).toHaveLength(2)
+
+        for (const check of ALL_CHECKS.slice(2)) {
+          expect(r[check].status).toBe('skip')
+        }
+      } finally {
+        fs.rmSync(root, {recursive: true, force: true})
+      }
+    }
+  })
+
+  it('names a refused receipt that recorded no reason', async () => {
+    const root = makeProject([])
+    state.mod = healthyModule({readReadyContract: () => null})
+    writeContract(root, 'chrome', refusedReceipt('start'))
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'chrome'}))
+
+      expect(r['ready-contract'].detail).toBe(
+        'the last extension start run for chrome ended because the browser ' +
+          'refused to load the extension'
+      )
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('keeps the receipt wording for a start receipt with no refusal', async () => {
+    const root = makeProject([])
+    state.mod = healthyModule({readReadyContract: () => null})
+    writeContract(root, 'chrome', {
+      status: 'ready',
+      command: 'start',
+      port: null,
+      controlPort: null,
+      pid: 999999
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'chrome'}))
+
+      expect(r['ready-contract'].detail).toMatch(
+        /chrome[\\/]ready\.json is the receipt of an extension start run, not a session contract/
+      )
+
+      expect(r['ready-contract'].remediation).toContain(
+        'extension dev --browser=chrome'
+      )
+
+      // A row with no cause of its own keeps the code of its check.
+      expect(doctorFailureCode(r['ready-contract'])).toBe('E_SESSION_NOT_FOUND')
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   const productionContract = (command: string) => ({
     status: 'ready',
     command,
@@ -847,6 +1045,96 @@ describe('extension doctor (browser resolution)', () => {
       expect(r['ready-contract'].detail).toContain('session ended')
       expect(r['ready-contract'].remediation).toBe(
         'Start it again: extension preview --browser=chrome --allow-control'
+      )
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  // Ctrl+C on a session the browser had refused must not bury the refusal:
+  // a bare restart of the same manifest is refused again.
+  it('names the refusal a stopped session ended on, with its code', async () => {
+    const root = makeProject([])
+    writeContract(root, 'firefox', {
+      command: 'dev',
+      browser: 'firefox',
+      status: 'stopped',
+      code: 'shutdown',
+      message: 'the dev session ended (watch closed)',
+      controlPort: 4001,
+      instanceId: 'inst-1',
+      pid: 999999,
+      extensionLoadRefusedAt: '2026-11-16T22:32:40.228Z',
+      extensionLoadRefusedReason:
+        'Could not install add-on: Error: Extension is invalid Reading manifest: Error processing browser_specific_settings.gecko.id.'
+    })
+
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        status: 'stopped',
+        command: 'dev',
+        pid: 999999
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'firefox'}))
+
+      expect(r['ready-contract'].detail).toBe(
+        "contract status is 'stopped', the dev session ended after the " +
+          'browser refused to load the extension: Could not install add-on: ' +
+          'Error: Extension is invalid Reading manifest: Error processing ' +
+          'browser_specific_settings.gecko.id'
+      )
+
+      expect(r['ready-contract'].remediation).toBe(
+        'Fix what the browser names, then start it again: ' +
+          'extension dev --browser=firefox --allow-control'
+      )
+
+      expect(doctorFailureCode(r['ready-contract'])).toBe(
+        'E_EXTENSION_LOAD_REFUSED'
+      )
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  it('prints the recorded cause beside the reason, stopped or not', async () => {
+    const root = makeProject([])
+    writeContract(root, 'firefox', {
+      command: 'dev',
+      browser: 'firefox',
+      status: 'stopped',
+      code: 'shutdown',
+      controlPort: 4001,
+      instanceId: 'inst-1',
+      pid: 999999,
+      extensionLoadRefusedAt: '2026-11-16T22:32:40.228Z',
+      extensionLoadRefusedReason: 'Could not install add-on: TypeError.',
+      extensionLoadRefusedCause:
+        'Firefox does not load a manifest_version above 3.'
+    })
+
+    state.mod = healthyModule({
+      readReadyContract: () => ({
+        controlPort: 4001,
+        instanceId: 'inst-1',
+        status: 'stopped',
+        command: 'dev',
+        pid: 999999
+      })
+    })
+
+    try {
+      const r = byCheck(await runDoctor(root, {browser: 'firefox'}))
+
+      expect(r['ready-contract'].detail).toBe(
+        "contract status is 'stopped', the dev session ended after the " +
+          'browser refused to load the extension: Could not install add-on: ' +
+          'TypeError. Firefox does not load a manifest_version above 3'
       )
     } finally {
       fs.rmSync(root, {recursive: true, force: true})

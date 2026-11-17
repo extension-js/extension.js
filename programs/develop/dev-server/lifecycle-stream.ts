@@ -33,6 +33,7 @@ export type LifecycleStatus =
   | 'compile-failed'
   | 'ready'
   | 'browser-exited'
+  | 'load-refused'
   | 'failed'
   | 'stopped'
 
@@ -349,15 +350,26 @@ export class LifecycleStream {
     fallback: ErrorCode
   ): Envelope<unknown> | null {
     const launchCode = stampedLaunchFailureCode(ready)
+    // A refused load reads the same here as on start, preview and the verbs.
+    const loadRefused = ready.code === 'extension_load_refused'
     const frame = ENVELOPE.fail(
       this.options.command,
-      launchCode && USAGE_LAUNCH_CODES.has(launchCode) ? 'usage' : 'failed',
+      loadRefused
+        ? 'load-refused'
+        : launchCode && USAGE_LAUNCH_CODES.has(launchCode)
+          ? 'usage'
+          : 'failed',
       {
-        code: launchCode ?? fallback,
+        code: loadRefused
+          ? CODES.E_EXTENSION_LOAD_REFUSED
+          : (launchCode ?? fallback),
         message:
           String(ready.message || '') ||
           'The ready contract reports an error for this session.'
-      }
+      },
+      loadRefused
+        ? {hint: 'Fix what the browser names, then run the command again.'}
+        : {}
     ) as Envelope<unknown>
     frame.value = this.sessionValue({
       ...(typeof ready.code === 'string' ? {readyCode: ready.code} : {})

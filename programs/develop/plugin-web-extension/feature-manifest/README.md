@@ -126,6 +126,7 @@ new ManifestPlugin({
 Notes:
 
 - JavaScript and CSS extensions are normalized to .js/.css in output.
+- A page keeps its authored path when a script of the extension holds that path as a string, for example a background that compares `sender.url` with `/ui/popup/index.html`. The compiled page then ships at the authored path as well as the canonical one, the built manifest opens it at the authored path, and the build prints one line that names the page and the file that holds the string. `background.page` is not kept this way.
 
 ### Folder conventions
 

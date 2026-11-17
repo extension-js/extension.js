@@ -309,8 +309,8 @@ export class ApplyDevDefaults {
               ...canonicalManifest,
               content_security_policy:
                 canonicalManifest.manifest_version === 3
-                  ? patchV3CSP(canonicalManifest)
-                  : patchV2CSP(canonicalManifest),
+                  ? patchV3CSP(canonicalManifest, this.browser)
+                  : patchV2CSP(canonicalManifest, this.browser),
 
               // Dev-only permissions for the control bridge + reload loop. MV2 also
               // needs content-script host patterns in `permissions` (no host_permissions).

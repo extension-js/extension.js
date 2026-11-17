@@ -1,12 +1,15 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
-const {chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} = vi.hoisted(
-  () => ({
+const {chromiumOptions, chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} =
+  vi.hoisted(() => ({
+    chromiumOptions: vi.fn((_options: Record<string, unknown>) => {}),
     chromiumRunOnce: vi.fn(async () => {}),
     firefoxRunOnce: vi.fn(async () => {}),
     printProdBannerOnce: vi.fn(async () => true)
-  })
-)
+  }))
 
 vi.mock('../run-chromium/chromium-context', () => ({
   createChromiumContext: vi.fn(() => ({}))
@@ -21,6 +24,10 @@ vi.mock('../run-firefox/firefox-context', () => ({createFirefoxContext}))
 vi.mock('../run-chromium/chromium-launch', () => ({
   ChromiumLaunchPlugin: class {
     runOnce = chromiumRunOnce
+
+    constructor(options: Record<string, unknown>) {
+      chromiumOptions(options)
+    }
   }
 }))
 
@@ -34,7 +41,10 @@ vi.mock('../browsers-lib/banner', () => ({
   printProdBannerOnce
 }))
 
-import {runOnlyPreviewBrowser} from '../run-only'
+import {
+  runOnlyPreviewBrowser,
+  warnIgnoredHostPermissionPatterns
+} from '../run-only'
 
 describe('runOnlyPreviewBrowser', () => {
   beforeEach(() => {
@@ -72,6 +82,24 @@ describe('runOnlyPreviewBrowser', () => {
       readyPath: undefined,
       browserVersionLine: undefined
     })
+  })
+
+  // browser.<name>.persistProfile is one switch, so a preview on Chromium
+  // keeps the profile the way a preview on Firefox does.
+  it('hands the kept-profile switch to the chromium launcher', async () => {
+    chromiumOptions.mockClear()
+
+    await runOnlyPreviewBrowser({
+      browser: 'chrome',
+      outPath: '/tmp/ext',
+      contextDir: '/tmp',
+      extensionsToLoad: ['/tmp/ext'],
+      persistProfile: true
+    })
+
+    expect(chromiumOptions).toHaveBeenCalledWith(
+      expect.objectContaining({persistProfile: true})
+    )
   })
 
   // Shell-script fixture: not executable on Windows, posix-only case.
@@ -310,4 +338,54 @@ describe('runOnlyPreviewBrowser', () => {
       expect(chromiumRunOnce).not.toHaveBeenCalled()
     })
   }
+})
+
+describe('warnIgnoredHostPermissionPatterns', () => {
+  const writeManifest = (hostPermissions: string[]) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-only-hosts-'))
+
+    fs.writeFileSync(
+      path.join(dir, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, host_permissions: hostPermissions})
+    )
+
+    return dir
+  }
+
+  const printed = (opts: {outPath: string; command?: 'preview' | 'start'}) => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    warnIgnoredHostPermissionPatterns(opts)
+
+    const text = [spy, warn, log]
+      .flatMap((each) => each.mock.calls.map((call) => call.join(' ')))
+      .join('\n')
+
+    spy.mockRestore()
+    warn.mockRestore()
+    log.mockRestore()
+
+    return text
+  }
+
+  it('warns before a preview launch and does not call it a refusal', () => {
+    const text = printed({outPath: writeManifest(['https://foo.*.com/*'])})
+
+    expect(text).toContain('host permission patterns the browser drops')
+    expect(text).toContain('https://foo.*.com/*')
+    expect(text).not.toMatch(/refuses|won't load/)
+  })
+
+  it('stays quiet for valid patterns, a missing manifest, and start', () => {
+    expect(printed({outPath: writeManifest(['https://*.foo.com/*'])})).toBe('')
+    expect(printed({outPath: '/nonexistent/run-only-hosts'})).toBe('')
+    expect(
+      printed({
+        outPath: writeManifest(['https://foo.*.com/*']),
+        command: 'start'
+      })
+    ).toBe('')
+  })
 })

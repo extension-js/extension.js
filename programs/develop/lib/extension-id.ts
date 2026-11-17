@@ -113,13 +113,22 @@ export function chromiumExtensionId(extensionDir: string): string {
   return chromiumExtensionIdFromPath(extensionDir)
 }
 
+const GECKO_ID_SHAPES = [
+  /^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i,
+  /^[a-z0-9-._]*@[a-z0-9-._]+$/i
+]
+
 export function geckoExtensionId(extensionDir: string): string | undefined {
   const manifest = readManifest(extensionDir)
   const settings = (manifest?.browser_specific_settings ??
     manifest?.applications) as {gecko?: {id?: unknown}} | undefined
   const id = settings?.gecko?.id
 
-  return typeof id === 'string' && id.trim().length > 0 ? id : undefined
+  // Firefox refuses a gecko.id in any other shape, so it names no add-on.
+  return typeof id === 'string' &&
+    GECKO_ID_SHAPES.some((shape) => shape.test(id.trim()))
+    ? id.trim()
+    : undefined
 }
 
 export function managedExtensionRecords(

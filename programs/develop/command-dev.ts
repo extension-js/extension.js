@@ -39,6 +39,10 @@ import {
   ensureTypeScriptConfig,
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
+import {
+  rememberExcludedFiles,
+  rememberSpecialFoldersConfig
+} from './plugin-special-folders/folders-config'
 import type {BrowserConfig, DevOptions} from './types'
 
 export async function extensionDev(
@@ -75,17 +79,6 @@ export async function extensionDev(
 
     if (devOptions.install !== false) {
       await ensureUserProjectDependencies(packageJsonDir)
-    }
-
-    // Create/validate tsconfig (and surface the "missing tsconfig" error)
-    // before deciding whether to generate extension type defs.
-    ensureTypeScriptConfig(manifestDir, {
-      manifestPath: projectStructure.manifestPath,
-      browser: devOptions.browser
-    })
-
-    if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir, packageJsonDir)
     }
 
     const userManifestPath =
@@ -131,6 +124,23 @@ export async function extensionDev(
       ),
       browser
     })
+
+    // With the browser, folders and exclude config resolved, so this check
+    // reads the entries the compiler will and writes both files or neither.
+    rememberSpecialFoldersConfig(
+      packageJsonDir,
+      commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
+    )
+
+    rememberExcludedFiles(packageJsonDir, merged.exclude)
+    ensureTypeScriptConfig(manifestDir, {
+      manifestPath: projectStructure.manifestPath,
+      browser
+    })
+
+    if (isUsingTypeScript(manifestDir)) {
+      await generateExtensionTypes(manifestDir, packageJsonDir)
+    }
 
     if (
       (browser === 'safari' || browser === 'webkit-based') &&

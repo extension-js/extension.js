@@ -15,7 +15,8 @@ import {
   type EnvelopeError,
   type EnvelopeErrorRefs,
   type ErrorCode,
-  prefix
+  prefix,
+  stripChannelPrefix
 } from './messaging'
 import {normalizeOutputFormat} from './output-flag'
 
@@ -212,10 +213,42 @@ export function declaredErrorCode(err: unknown): ErrorCode | undefined {
     : undefined
 }
 
+// One status and one code for a load the browser refused, on every command,
+// so a reader branches on it without knowing which command met the refusal.
+export const LOAD_REFUSED_STATUS = 'load-refused'
+export const LOAD_REFUSED_HINT =
+  'Fix what the browser names, then run the command again.'
+
+export function isLoadRefused(err: unknown): boolean {
+  return declaredErrorCode(err) === CODES.E_EXTENSION_LOAD_REFUSED
+}
+
+// A producer that knows a closer remedy than the general one names it.
+export function loadRefusedEnvelope(
+  err: unknown,
+  command: string
+): ReturnType<typeof ENVELOPE.fail> {
+  const hint = (err as {hint?: unknown} | null | undefined)?.hint
+
+  return ENVELOPE.fail(
+    command,
+    LOAD_REFUSED_STATUS,
+    {
+      code: CODES.E_EXTENSION_LOAD_REFUSED,
+      message: stripChannelPrefix(
+        err instanceof Error ? err.message : String(err)
+      )
+    },
+    {hint: typeof hint === 'string' && hint ? hint : LOAD_REFUSED_HINT}
+  )
+}
+
 export function internalErrorEnvelope(
   err: unknown,
   command: string
 ): ReturnType<typeof ENVELOPE.fail> {
+  if (isLoadRefused(err)) return loadRefusedEnvelope(err, command)
+
   const code = declaredErrorCode(err) ?? CODES.E_INTERNAL
 
   // A bad pinned binary is a value the user typed, on every command.
