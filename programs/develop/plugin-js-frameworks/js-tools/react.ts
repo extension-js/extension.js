@@ -116,8 +116,8 @@ export async function maybeUseReact(
       contractId: 'react-refresh',
       projectPath,
       dependencyId: '@rspack/plugin-react-refresh',
-      // v1 exports the ctor as module.exports; v2 exports a namespace object.
-      // Resolve the named export first so both major versions work.
+      // v1 exports the ctor as module.exports, v2 a namespace with only the
+      // named export: a default wins, then the named export, then the module.
       moduleAdapter: (mod) =>
         ((mod && (mod.default || mod.ReactRefreshRspackPlugin)) ||
           mod) as ReactRefreshPluginCtor
