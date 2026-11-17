@@ -210,16 +210,15 @@ describe('webpack-config transpile packages watch behavior', () => {
     }
   })
 
-  it('refuses a named companion that is not an extension, for any session', () => {
+  it('warns once about a named companion that is not an extension', async () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
 
+    const {takeCodedWarnings} = await import('../lib/coded-warnings')
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const missing = path.join(root, 'extensions', 'gone')
-
-    let refusal: (Error & {code?: string}) | undefined
-
-    try {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const session = () =>
       webpackConfig(
         projectStructure as any,
         {
@@ -231,12 +230,27 @@ describe('webpack-config transpile packages watch behavior', () => {
           noBrowser: true
         } as any
       )
-    } catch (error) {
-      refusal = error as Error & {code?: string}
-    }
 
-    expect(refusal?.code).toBe('E_COMPANION_EXTENSION_PATH')
-    expect(refusal?.message).toContain(path.join(missing, 'manifest.json'))
+    takeCodedWarnings()
+
+    try {
+      session()
+
+      const coded = takeCodedWarnings()
+
+      expect(coded).toHaveLength(1)
+      expect(coded[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+      expect(coded[0]).toContain(path.join(missing, 'manifest.json'))
+      expect(warn).toHaveBeenCalledTimes(1)
+
+      // A restart builds the config again and has nothing new to say.
+      session()
+
+      expect(takeCodedWarnings()).toEqual([])
+      expect(warn).toHaveBeenCalledTimes(1)
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {

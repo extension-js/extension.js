@@ -48,8 +48,8 @@ vi.mock('../plugin-special-folders/get-data', () => ({
 }))
 
 vi.mock('../lib/extensions-to-load', () => ({
-  assertNamedCompanionsResolve: vi.fn(),
   companionsDeclaredIn: vi.fn(),
+  unresolvedNamedCompanions: vi.fn(() => []),
   computeExtensionsToLoad: vi.fn(() => ['/theme', '/comp/a', '/out'])
 }))
 

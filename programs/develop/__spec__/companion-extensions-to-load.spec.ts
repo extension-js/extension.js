@@ -3,9 +3,10 @@ import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
-  assertNamedCompanionsResolve,
   companionsDeclaredIn,
-  computeExtensionsToLoad
+  computeExtensionsToLoad,
+  isFirstCompanionWarning,
+  unresolvedNamedCompanions
 } from '../lib/extensions-to-load'
 import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-extensions/resolve-dirs'
 
@@ -532,45 +533,43 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
 })
 
 describe('a companion that does not resolve', () => {
-  function refusal(input: Parameters<typeof assertNamedCompanionsResolve>[0]) {
-    try {
-      assertNamedCompanionsResolve(input)
-    } catch (error) {
-      return error as Error & {code?: string}
-    }
-
-    return undefined
-  }
-
-  it('is an error when the user named it, with the entry as it was typed', () => {
+  it('is named as it was typed, with where it was declared', () => {
     const root = tmpDir('extjs-companion-named-')
-    const error = refusal({
+    const manifestPath = path.join(root, 'extensions', 'typo', 'manifest.json')
+    const [unresolved, ...rest] = unresolvedNamedCompanions({
       projectRoot: root,
       resolved: {paths: [path.join(root, 'extensions', 'typo')]},
       declared: ['./extensions/typo'],
       declaredIn: 'the --extensions flag'
     })
 
-    expect(error?.code).toBe('E_COMPANION_EXTENSION_PATH')
-    expect(error?.message).toContain('ENTRY')
-    expect(error?.message).toContain('./extensions/typo')
-    expect(error?.message).toContain('the --extensions flag')
-    expect(error?.message).toContain(
-      path.join(root, 'extensions', 'typo', 'manifest.json')
+    expect(rest).toEqual([])
+    expect(unresolved.manifestPath).toBe(manifestPath)
+    expect(unresolved.coded).toBe(
+      'E_COMPANION_EXTENSION_PATH: A companion extension entry is not an unpacked extension folder, so it is not loaded.\n' +
+        'ENTRY ./extensions/typo\n' +
+        'DECLARED IN the --extensions flag\n' +
+        `NOT FOUND ${manifestPath}\n` +
+        'Point the entry at a folder that holds a manifest.json, or remove it.'
     )
+
+    expect(unresolved.frame).toContain('ENTRY')
   })
 
-  it('names the resolved path when only that is known', () => {
+  it('names the resolved path when only that is known, and each entry once', () => {
     const root = tmpDir('extjs-companion-named-')
     const folder = path.join(root, 'extensions', 'no-manifest')
 
     fs.mkdirSync(folder, {recursive: true})
 
-    const error = refusal({projectRoot: root, resolved: [folder]})
+    const unresolved = unresolvedNamedCompanions({
+      projectRoot: root,
+      resolved: [folder, folder]
+    })
 
-    expect(error?.code).toBe('E_COMPANION_EXTENSION_PATH')
-    expect(error?.message).toContain(folder)
-    expect(error?.message).toContain('the extensions option')
+    expect(unresolved).toHaveLength(1)
+    expect(unresolved[0].coded).toContain(`ENTRY ${folder}`)
+    expect(unresolved[0].coded).toContain('DECLARED IN the extensions option')
   })
 
   it('passes a named companion that is an extension, and a folder scan', () => {
@@ -580,12 +579,27 @@ describe('a companion that does not resolve', () => {
     fs.mkdirSync(folder, {recursive: true})
     fs.writeFileSync(path.join(folder, 'manifest.json'), '{}')
 
-    expect(refusal({projectRoot: root, resolved: [folder]})).toBeUndefined()
     expect(
-      refusal({projectRoot: root, resolved: {dir: './extensions/none'}})
-    ).toBeUndefined()
+      unresolvedNamedCompanions({projectRoot: root, resolved: [folder]})
+    ).toEqual([])
 
-    expect(refusal({projectRoot: root, resolved: undefined})).toBeUndefined()
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions/none'}
+      })
+    ).toEqual([])
+
+    expect(
+      unresolvedNamedCompanions({projectRoot: root, resolved: undefined})
+    ).toEqual([])
+  })
+
+  it('counts a companion as new once in a process', () => {
+    const manifestPath = path.join(tmpDir('extjs-companion-once-'), 'm.json')
+
+    expect(isFirstCompanionWarning(manifestPath)).toBe(true)
+    expect(isFirstCompanionWarning(manifestPath)).toBe(false)
   })
 
   it('says which layer declared the companions, first one wins', () => {

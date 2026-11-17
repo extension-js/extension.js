@@ -224,7 +224,7 @@ describe('start run receipt (real build + preview)', () => {
     expect(types).not.toContain('compile_success')
   }, 120_000)
 
-  it('refuses a named companion that is not an extension before it compiles', async () => {
+  it('warns about a named companion that is not an extension and builds on', async () => {
     const {extensionBuild} = await import('../command-build')
     const options = {
       browser: BROWSER,
@@ -234,23 +234,32 @@ describe('start run receipt (real build + preview)', () => {
       exitOnError: false,
       extensions: ['./extensions/gone']
     }
-    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const aboutCompanion = (lines: string[] = []) =>
+      lines.filter((line) => line.includes('./extensions/gone'))
 
     try {
-      await expect(
-        extensionBuild(ROOT, {...options, metadataCommand: 'start'} as never)
-      ).rejects.toMatchObject({
-        code: 'E_COMPANION_EXTENSION_PATH',
-        message: expect.stringContaining('./extensions/gone')
-      })
+      const started = await extensionBuild(ROOT, {
+        ...options,
+        metadataCommand: 'start'
+      } as never)
+      const coded = aboutCompanion(started.warnings)
+
+      expect(started.errors_count).toBe(0)
+      expect(coded).toHaveLength(1)
+      expect(coded[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+      expect(coded[0]).toContain('DECLARED IN the --extensions flag')
+      expect(
+        aboutCompanion(warn.mock.calls.map((call) => String(call[0])))
+      ).toHaveLength(1)
+
+      // A plain build loads no companion, so the same entry is not its concern.
+      const built = await extensionBuild(ROOT, options as never)
+
+      expect(aboutCompanion(built.warnings)).toEqual([])
     } finally {
-      quiet.mockRestore()
+      warn.mockRestore()
     }
-
-    // A plain build loads no companion, so the same entry is not its concern.
-    const summary = await extensionBuild(ROOT, options as never)
-
-    expect(summary.errors_count).toBe(0)
   }, 120_000)
 
   it('lists companions when loaded and forgets them when the next run passes none', async () => {

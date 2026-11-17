@@ -56,8 +56,9 @@ import {
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
 import {
-  assertNamedCompanionsResolve,
-  companionsDeclaredIn
+  companionsDeclaredIn,
+  isFirstCompanionWarning,
+  unresolvedNamedCompanions
 } from './lib/extensions-to-load'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import {findLiveDevSession} from './lib/live-dev-session'
@@ -556,7 +557,9 @@ async function runBuild(
           })
         : undefined
 
-    assertNamedCompanionsResolve({
+    // Said here, where the layer that named the companion is known. The
+    // compiler config finds the same entry and leaves it to this line.
+    for (const companion of unresolvedNamedCompanions({
       projectRoot: packageJsonDir,
       resolved: resolvedExtensionsConfig,
       declared: mergedExtensionsConfig,
@@ -566,7 +569,15 @@ async function runBuild(
         browser: browserConfig.extensions,
         project: projectConfig.extensions
       })
-    })
+    })) {
+      isFirstCompanionWarning(companion.manifestPath)
+      recordCodedWarning(
+        CODES.E_COMPANION_EXTENSION_PATH,
+        stripChannelPrefix(companion.frame)
+      )
+
+      if (!quiet) console.warn(companion.frame)
+    }
 
     const resolvedMode: 'development' | 'production' | 'none' =
       buildOptions?.mode === 'development' ||

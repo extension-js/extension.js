@@ -174,31 +174,35 @@ describe('a preview that fails after it wrote starting', () => {
     expect(ready.message).toContain('looks like a store id')
   })
 
-  it('refuses a companion the call named that is not an extension folder', async () => {
+  it('warns about a companion the call named and launches without it', async () => {
     const root = builtProject()
-    const launcher = vi.fn(launchNothing)
-    const error = await rejection(
-      extensionPreview(
-        root,
-        {browser: 'chromium', extensions: ['./extensions/gone']} as any,
-        launcher
-      )
+    const launcher = vi.fn(async (_opts: ResolvedPreviewOptions) => {})
+    const result = await extensionPreview(
+      root,
+      {browser: 'chromium', extensions: ['./extensions/gone']} as any,
+      launcher
+    )
+    const gone = path.join(root, 'extensions', 'gone')
+
+    expect(result?.warnings).toHaveLength(1)
+    expect(result?.warnings[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+    expect(result?.warnings[0]).toContain('ENTRY ./extensions/gone')
+    expect(result?.warnings[0]).toContain('DECLARED IN the --extensions flag')
+    expect(result?.warnings[0]).toContain(
+      `NOT FOUND ${path.join(gone, 'manifest.json')}`
     )
 
-    expect(error.code).toBe('E_COMPANION_EXTENSION_PATH')
-    expect(error.message).toContain('./extensions/gone')
-    expect(error.message).toContain('--extensions')
-    expect(error.message).toContain(
-      path.join(root, 'extensions', 'gone', 'manifest.json')
-    )
+    const printed = vi
+      .mocked(console.warn)
+      .mock.calls.map((call) => String(call[0]))
 
-    expect(launcher).not.toHaveBeenCalled()
+    expect(
+      printed.filter((line) => line.includes('./extensions/gone'))
+    ).toHaveLength(1)
 
-    const ready = readReady(root)
-
-    expect(ready.status).toBe('error')
-    expect(ready.code).toBe('preview_failed')
-    expect(ready.message).toContain('./extensions/gone')
+    expect(launcher).toHaveBeenCalledTimes(1)
+    expect(launcher.mock.calls[0][0].extensionsToLoad).not.toContain(gone)
+    expect(readReady(root).status).toBe('ready')
   })
 
   it('names the config file when the companion was declared there', async () => {
@@ -211,15 +215,42 @@ describe('a preview that fails after it wrote starting', () => {
     fs.mkdirSync(path.join(root, 'extensions', 'empty'), {recursive: true})
 
     const launcher = vi.fn(launchNothing)
-    const error = await rejection(
-      extensionPreview(root, {browser: 'chromium'} as any, launcher)
+    const result = await extensionPreview(
+      root,
+      {browser: 'chromium'} as any,
+      launcher
     )
 
-    expect(error.code).toBe('E_COMPANION_EXTENSION_PATH')
-    expect(error.message).toContain('./extensions/empty')
-    expect(error.message).toContain('extension.config.js')
-    expect(error.message).not.toContain('--extensions')
-    expect(launcher).not.toHaveBeenCalled()
+    expect(result?.warnings).toHaveLength(1)
+    expect(result?.warnings[0]).toContain('./extensions/empty')
+    expect(result?.warnings[0]).toContain('extension.config.js')
+    expect(result?.warnings[0]).not.toContain('--extensions')
+    expect(launcher).toHaveBeenCalledTimes(1)
+    expect(readReady(root).status).toBe('ready')
+  })
+
+  it('keeps the warning off stdout when a machine reads it', async () => {
+    const root = builtProject()
+
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
+
+    try {
+      const result = await extensionPreview(
+        root,
+        {browser: 'chromium', extensions: ['./extensions/gone']} as any,
+        launchNothing
+      )
+
+      expect(result?.warnings).toHaveLength(1)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+
+    const said = [console.log, console.warn]
+      .flatMap((sink) => vi.mocked(sink).mock.calls)
+      .map((call) => String(call[0]))
+
+    expect(said.filter((line) => line.includes('extensions/gone'))).toEqual([])
   })
 
   it('loads the companions that resolve and stays quiet about a scanned folder', async () => {
@@ -235,8 +266,13 @@ describe('a preview that fails after it wrote starting', () => {
 
     const launcher = vi.fn(async (_opts: ResolvedPreviewOptions) => {})
 
-    await extensionPreview(root, {browser: 'chromium'} as any, launcher)
+    const result = await extensionPreview(
+      root,
+      {browser: 'chromium'} as any,
+      launcher
+    )
 
+    expect(result?.warnings).toEqual([])
     expect(launcher.mock.calls[0][0].extensionsToLoad).toContain(companion)
     expect(readReady(root).status).toBe('ready')
   })

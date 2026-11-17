@@ -1667,7 +1667,7 @@ export function companionExtensionNotResolved(
   declaredIn: string
 ) {
   return (
-    `${getLoggingPrefix('error')} A companion extension entry is not an unpacked extension folder.\n` +
+    `${getLoggingPrefix('warn')} A companion extension entry is not an unpacked extension folder, so it is not loaded.\n` +
     `${colors.gray('ENTRY')} ${colors.underline(entry)}\n` +
     `${colors.gray('DECLARED IN')} ${declaredIn}\n` +
     `${colors.gray('NOT FOUND')} ${colors.underline(manifestPath)}\n` +

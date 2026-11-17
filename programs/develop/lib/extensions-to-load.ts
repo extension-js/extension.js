@@ -8,9 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {codedError} from './coded-error'
 import * as messages from './messages'
-import {CODES} from './messaging'
+import {CODES, stripChannelPrefix} from './messaging'
 import {parseAuthoredJson} from './parse-json-safe'
 import {devtoolsEngineFor} from './paths'
 
@@ -131,21 +130,31 @@ export function companionsDeclaredIn(
   return undefined
 }
 
-// A companion named by path has to be an unpacked extension. Skipped, a
-// typo runs the session without it and nothing ever says so.
-export function assertNamedCompanionsResolve(input: {
+export interface UnresolvedCompanion {
+  manifestPath: string
+  // The framed sentence a terminal reads.
+  frame: string
+  // The same sentence with its code, as an envelope's warnings array holds it.
+  coded: string
+}
+
+// A companion named by path that is not an unpacked extension is left out of
+// the load, and without a word a typo runs the session one extension short.
+export function unresolvedNamedCompanions(input: {
   projectRoot: string
   // The entries once store links became folders.
   resolved: unknown
   // The entries as written, to name the one that fails the way it was typed.
   declared?: unknown
   declaredIn?: string
-}): void {
+}): UnresolvedCompanion[] {
   const asWritten = new Map<string, string>()
 
   for (const entry of explicitCompanionEntries(input.declared)) {
     asWritten.set(path.resolve(input.projectRoot, entry), entry)
   }
+
+  const unresolved: UnresolvedCompanion[] = []
 
   for (const entry of explicitCompanionEntries(input.resolved)) {
     const folder = path.resolve(input.projectRoot, entry)
@@ -157,15 +166,36 @@ export function assertNamedCompanionsResolve(input: {
       // Reported below, the same as a manifest.json that is a folder.
     }
 
-    throw codedError(
-      CODES.E_COMPANION_EXTENSION_PATH,
-      messages.companionExtensionNotResolved(
-        asWritten.get(folder) ?? entry,
-        manifestPath,
-        input.declaredIn ?? 'the extensions option'
-      )
+    if (unresolved.some((known) => known.manifestPath === manifestPath)) {
+      continue
+    }
+
+    const frame = messages.companionExtensionNotResolved(
+      asWritten.get(folder) ?? entry,
+      manifestPath,
+      input.declaredIn ?? 'the extensions option'
     )
+
+    unresolved.push({
+      manifestPath,
+      frame,
+      coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+    })
   }
+
+  return unresolved
+}
+
+// The compiler config is built again on every restart of a session, and by
+// then the command may have said it already with the layer it came from.
+const companionsWarnedAbout = new Set<string>()
+
+export function isFirstCompanionWarning(manifestPath: string): boolean {
+  if (companionsWarnedAbout.has(manifestPath)) return false
+
+  companionsWarnedAbout.add(manifestPath)
+
+  return true
 }
 
 function dedupeByResolvedPath(paths: string[]): string[] {

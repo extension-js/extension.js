@@ -19,9 +19,9 @@ import {
 } from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {
-  assertNamedCompanionsResolve,
   companionsDeclaredIn,
-  computeExtensionsToLoad
+  computeExtensionsToLoad,
+  unresolvedNamedCompanions
 } from './lib/extensions-to-load'
 import {
   falseProfileSource,
@@ -576,7 +576,9 @@ export async function extensionPreview(
       config: mergedExtensionsConfig
     })
 
-    assertNamedCompanionsResolve({
+    // The browser opens without a named companion that is not an extension,
+    // and the caller reads which one beside the other warnings.
+    for (const companion of unresolvedNamedCompanions({
       projectRoot: packageJsonDir,
       resolved: resolvedExtensionsConfig,
       declared: mergedExtensionsConfig,
@@ -586,7 +588,10 @@ export async function extensionPreview(
         browser: safeBrowserConfig.extensions,
         project: safeProjectConfig.extensions
       })
-    })
+    })) {
+      warnings.push(companion.coded)
+      humanWarn(companion.frame)
+    }
 
     const mergedGeckoBinary =
       safePreviewOptions.geckoBinary ||
@@ -646,6 +651,10 @@ export async function extensionPreview(
       companionUnpackedExtensionDirs,
       projectStructure.manifestPath
     )
+
+    if (debug) {
+      humanLine(messages.debugExtensionsToLoad(unpackedExtensionDirsToLoad))
+    }
 
     metadata.setManagedExtensionDirs(
       unpackedExtensionDirsToLoad.filter(
