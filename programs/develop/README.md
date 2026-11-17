@@ -25,40 +25,36 @@ pnpm add extension-develop
 
 ```ts
 import {
-  extensionDev,
   extensionBuild,
-  extensionStart,
-  extensionPreview,
-  type DevOptions,
   type BuildOptions,
-  type StartOptions,
-  type PreviewOptions
+  type BuildSummary
 } from 'extension-develop'
+import {
+  extensionPreview,
+  type PreviewLauncherFn,
+  type PreviewOptions
+} from 'extension-develop/preview'
 
-async function run() {
-  // Development server
-  await extensionDev(undefined, {
-    browser: 'chrome',
-    open: true
-  } satisfies DevOptions)
+// Production build of the project in the current folder, with a zip
+const summary: BuildSummary = await extensionBuild(undefined, {
+  browser: 'chrome',
+  zip: true
+} satisfies BuildOptions)
 
-  // Production build + zip
-  await extensionBuild(undefined, {
-    browser: 'firefox',
-    zip: true
-  } satisfies BuildOptions)
+console.log(summary.errors_count)
 
-  // Build then preview from dist/<browser>
-  await extensionStart(undefined, {browser: 'edge'} satisfies StartOptions)
-
-  // Preview using an existing output folder or project path
-  await extensionPreview(undefined, {
-    browser: 'chrome',
-    mode: 'production'
-  } satisfies PreviewOptions)
+// This package starts no browser. The caller passes the launcher, which
+// receives the built folder and every unpacked extension to load.
+const launcher: PreviewLauncherFn = async ({browser, extensionsToLoad}) => {
+  console.log(`Start ${browser} with`, extensionsToLoad)
 }
 
-run()
+// Runs the build in dist/chrome with no dev server
+await extensionPreview(
+  undefined,
+  {browser: 'chrome', mode: 'production'} satisfies PreviewOptions,
+  launcher
+)
 ```
 
 ## Features
