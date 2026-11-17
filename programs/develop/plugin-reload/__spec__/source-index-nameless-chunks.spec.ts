@@ -79,6 +79,16 @@ beforeAll(async () => {
       if (error) return reject(error)
       if (!stats) return reject(new Error('no stats'))
 
+      // An index read off a failed compile names nothing and fails every test
+      // below for the wrong reason, a missing dist loader most often.
+      if (stats.hasErrors()) {
+        return reject(
+          new Error(
+            stats.compilation.errors.map((error) => error.message).join('\n')
+          )
+        )
+      }
+
       resolve(stats.compilation)
     })
   })
