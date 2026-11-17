@@ -8,7 +8,6 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import colors from 'pintor'
 import {humanLine} from '../../dev-server/lifecycle-stream'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {DevOptions} from '../../types'

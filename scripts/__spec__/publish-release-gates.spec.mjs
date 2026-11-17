@@ -137,7 +137,7 @@ test('cuts the canary itself when npm has none, and waits for it', () => {
   assert.equal(result.outputs, `canary=${CANARY}`)
   assert.match(
     result.log,
-    /^workflow run publish-release\.yml --repo o\/r --ref main -f channel=canary\n/
+    /^workflow run publish-release\.yml --repo o\/r --ref main -f channel=canary -f readings=false\n/
   )
 
   assert.equal(result.log.match(/workflow run/g).length, 1)
@@ -197,14 +197,14 @@ test('a stable publishes only after both gates, and both read the same canary', 
   }
 })
 
-test('every channel reads the corpus and the templates with the published version', () => {
+test('every channel reads the corpus and the templates with the published version, unless a stable cut the canary', () => {
   for (const job of ['corpus-published', 'templates-published']) {
     const text = workflow.slice(workflow.indexOf(`\n  ${job}:`))
 
     assert.match(text, /needs: publish\n/)
     assert.match(
       text,
-      /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' \}\}/
+      /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' && \(inputs\.channel != 'canary' \|\| inputs\.readings\) \}\}/
     )
 
     assert.match(

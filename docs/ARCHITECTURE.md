@@ -36,11 +36,13 @@ On a change, the reload plugin classifies the edit and applies hot module replac
 
 The dev server hosts a WebSocket channel at `/extjs-control`.
 It refuses a handshake whose Origin is `http://`, `https://` or `null`, so a web page cannot connect.
+The one exception is a `chromium-emulator` session, which admits the emulator viewer origin, and only in the viewer role.
 Every client presents the session instance id when it connects.
-Clients connect with one of three roles.
+Clients connect with one of four roles.
 A producer is the runtime inside the extension. It sends logs and runs the reload, open, storage and eval commands.
 A consumer reads logs, for example `extension logs --follow`.
 A controller sends commands such as reload, open and storage, and needs `--allow-control`.
+A viewer is the emulator page. It receives reload frames and acknowledges them, and it cannot send logs or commands.
 Eval also needs `--allow-eval` and a per-session token stored in a mode 0600 file.
 
 ## Session artifacts
@@ -51,10 +53,11 @@ Tools and agents read these files to find the ports and the session state.
 
 ## Browser runners
 
-`programs/extension/browsers` contains one runner per engine family: Chromium (Chrome, Edge, Chromium), Firefox and Safari.
+`programs/extension/browsers` contains one runner per engine family: Chromium (Chrome, Edge, Chromium), Firefox and Safari, plus `run-emulator` for the `chromium-emulator` target.
 Chromium is driven through the DevTools protocol.
 Firefox is driven through its remote debugging protocol.
 Safari builds go through Apple's converter and Xcode on macOS.
+The emulator runner launches no browser. It prints the emulator viewer address and opens it in the default browser unless `--no-open` is set.
 
 ## Project creation
 

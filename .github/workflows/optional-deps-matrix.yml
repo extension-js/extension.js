@@ -8,7 +8,6 @@ on:
       - 'extensions/monorepo/**'
       - 'scripts/**'
       - '.github/workflows/optional-deps-matrix.yml'
-      - '.github/workflows/publish-release.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
   push:
@@ -20,7 +19,6 @@ on:
       - 'extensions/monorepo/**'
       - 'scripts/**'
       - '.github/workflows/optional-deps-matrix.yml'
-      - '.github/workflows/publish-release.yml'
       - 'package.json'
       - 'pnpm-lock.yaml'
   workflow_dispatch:
@@ -35,36 +33,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  optional-deps-lib-specs:
-    name: toolchain preflight specs (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 10
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10.28.0
-
-      - name: Setup Node
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install workspace dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Run toolchain preflight specs
-        run: pnpm run ci:test:toolchain-preflight
-
+  # The toolchain preflight spec has no job here: ci.yml runs it on every pull
+  # request and push to main, in its own row and inside the full suites.
   optional-deps-smoke:
     name: smoke (${{ matrix.os }} / ${{ matrix.pm }})
     runs-on: ${{ matrix.os }}

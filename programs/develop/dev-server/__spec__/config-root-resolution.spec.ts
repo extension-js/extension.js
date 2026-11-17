@@ -32,10 +32,6 @@ vi.mock('@rspack/dev-server', () => ({
   }
 }))
 
-vi.mock('../frameworks', () => ({
-  isUsingJSFramework: vi.fn(() => false)
-}))
-
 vi.mock('../../lib/config-loader', () => ({
   loadCommandConfig,
   loadBrowserConfig,

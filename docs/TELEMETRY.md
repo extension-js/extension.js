@@ -163,10 +163,12 @@ Telemetry is **opt-out**. On the first run where none of the overrides above app
 
 A stored `enabled` consent file does **not** override this. That file records that a person agreed at that keyboard once; it cannot tell that apart from a pipeline that later inherited the same home directory, which is the case on self-hosted runners, baked container images and any CI that caches `$HOME`. A stored `disabled` still wins everywhere, because a refusal never needs re-confirming.
 
+A stored `enabled` consent file that sits inside a git worktree is ignored as well. It came with the clone, so it cannot record your agreement. The run falls back to the default, which shows the first-run notice. A stored `disabled` there is still honored.
+
 ## Local audit log
 
 Every event the CLI considers sending (whether or not it actually ships) is appended to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely.
 
 ## Questions or concerns?
 
-Open an issue: https://github.com/extensionjs/extension/issues
+Open an issue: https://github.com/extension-js/extension.js/issues

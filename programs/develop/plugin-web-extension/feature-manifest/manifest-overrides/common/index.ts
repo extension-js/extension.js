@@ -32,7 +32,7 @@ export function manifestCommon(
   return {
     ...backgroundPage(manifest),
     ...chromeUrlOverrides(manifest, manifestPath, projectPath),
-    ...contentScripts(manifest, manifestPath),
+    ...contentScripts(manifest),
     ...devtoolsPage(manifest, manifestPath, projectPath),
     ...icons(manifest),
     ...commands(manifest),

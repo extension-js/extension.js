@@ -60,7 +60,7 @@ function isAlreadyBundledContentScripts(contentScripts: unknown[]) {
   )
 }
 
-export function contentScripts(manifest: Manifest, manifestPath?: string) {
+export function contentScripts(manifest: Manifest) {
   if (!manifest.content_scripts) return undefined
 
   const original = manifest.content_scripts

@@ -35,16 +35,10 @@ import {
   type ScriptAnswer
 } from './tools'
 
-export {
-  extensionCheckboxId,
-  parseCommandShortcut,
-  shortcutFromGlyphs,
-  toolbarButtonId
-} from './scripts'
+export {extensionCheckboxId} from './scripts'
 export {
   appexPathFor,
   createSafariUiTools,
-  hostAppName,
   isAccessibilityRefusal,
   parseScriptAnswer,
   type SafariUiTools

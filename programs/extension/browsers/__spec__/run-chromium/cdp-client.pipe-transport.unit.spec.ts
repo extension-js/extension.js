@@ -101,7 +101,6 @@ describe('CDPClient pipe transport', () => {
 
     await new Promise((r) => setTimeout(r, 0))
 
-    const sent: any[] = []
     pipeOut.removeAllListeners('data')
     const pendingIds = Array.from(
       (client as any).pendingRequests.keys()

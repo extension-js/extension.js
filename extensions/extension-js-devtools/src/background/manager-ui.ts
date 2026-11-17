@@ -87,7 +87,7 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
         // so we ensure the welcome page is still available.
         await handleFirstRun(undefined, {welcomeBehind: session.startingUrl})
         if (!isInitialPage) {
-          createExtensionsPageTab(initialTab, extensionsPage)
+          createExtensionsPageTab(initialTab)
         }
         return
       }
@@ -97,7 +97,7 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
         return
       }
 
-      createExtensionsPageTab(initialTab, extensionsPage)
+      createExtensionsPageTab(initialTab)
     })
   } catch {
     // Ignore

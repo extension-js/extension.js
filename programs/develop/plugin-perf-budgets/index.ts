@@ -140,4 +140,4 @@ export class PerfBudgetsPlugin {
 
 export type {AssetCategory} from './categorize'
 export {ASSET_CATEGORIES, BUDGET_BYTES, categorizeAsset} from './categorize'
-export {type AssetReferrers, collectAssetReferrers} from './referrers'
+export {collectAssetReferrers} from './referrers'

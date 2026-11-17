@@ -49,11 +49,6 @@ import {maybeUseSass} from './css-tools/sass'
 import {getTailwindConfigFile} from './css-tools/tailwind'
 import {PUBLIC_ROOT_SCHEME} from './public-css-url-loader'
 
-export {injectCssLink} from './css-lib/inject-css-link'
-export type {CssAssetResult} from './css-lib/resolve-css-asset'
-// Re-export CSS utilities so other plugins can import from @plugin-css
-export {resolveCssAsset} from './css-lib/resolve-css-asset'
-
 export class CssPlugin {
   public static readonly name: string = 'plugin-css'
 

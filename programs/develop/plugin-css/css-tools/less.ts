@@ -6,7 +6,6 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import colors from 'pintor'
 import {hasDependency} from '../../lib/has-dependency'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'

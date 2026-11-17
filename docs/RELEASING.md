@@ -21,7 +21,7 @@ All other packages are private and not published.
 
 ### 1) Publish workflow (manual)
 
-Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml`.
+Use the `Extension.js – Release Publish` workflow at `.github/workflows/publish-release.yml`.
 
 - Trigger: `workflow_dispatch` with inputs:
   - `channel`: `next`, `stable`, or `canary`
@@ -29,6 +29,8 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
     - For `canary`, this can be left empty to auto-generate:
       `<next patch>-canary.<run_number>.<short_sha>`, named for the patch after
       the last release so it sorts above the published stable
+  - `draft`: creates the GitHub Release as a draft for manual review before it goes
+    public (`stable` and `next` only, default `false`)
 - For `stable` and `next`, CI first moves the `extension create` template pin to the
   head of `extension-js/templates` (`node scripts/generate-template-corpus.mjs --ref main`)
   and carries the two generated files in the release commit, so a fresh scaffold
@@ -60,6 +62,9 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
   is the verdict to read before a stable. On a stable it proves the shipped
   version. They run after the publish, so a failure turns the run red and
   unpublishes nothing.
+  The one exception is the canary a stable run cuts for itself. It is dispatched
+  with `readings=false`, because that stable's gates read the same version at
+  the same pins.
 - The notes of a stable release end with a line that names the canary the gates
   read and links the run, or says the gates were skipped.
 - Both repositories are pinned by commit in `publish-release.yml`, in each `uses:`
@@ -100,8 +105,11 @@ Use the `Release – Publish` workflow at `.github/workflows/publish-release.yml
 
 ## Optional hardening implemented
 
-- `publishConfig.tag: "latest"` explicitly set in public packages
-  (`extension`, `extension-develop`, `extension-create`, `extension-install`).
+- The dist-tag is always passed explicitly. The workflow resolves it from the channel
+  (`latest`, `next`, or `canary`) and hands it to `scripts/npm-publish.sh`, which runs
+  `npm publish --tag <dist-tag>` for each public package (`extension`,
+  `extension-develop`, `extension-create`, `extension-install`). No package sets
+  `publishConfig.tag`.
 - Input validation for channel/version in the release workflow.
 
 ## Environments

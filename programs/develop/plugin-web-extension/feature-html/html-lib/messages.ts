@@ -9,18 +9,6 @@
 import * as path from 'node:path'
 import colors from 'pintor'
 
-function shortPath(p: string) {
-  try {
-    const cwd = process.cwd()
-    const rel = path.relative(cwd, p)
-    if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return rel
-
-    return p
-  } catch {
-    return p
-  }
-}
-
 export function javaScriptError(
   errorSourcePath: string,
   missingFilePath: string,
@@ -212,10 +200,7 @@ export function remoteResourceWarning(
   return lines.join('\n')
 }
 
-export function serverRestartRequiredFromHtml(
-  relativeHtmlPath: string,
-  absoluteHtmlPath: string
-) {
+export function serverRestartRequiredFromHtml(absoluteHtmlPath: string) {
   const lines: string[] = []
   lines.push(`Entrypoint references changed.`)
   lines.push(`${colors.gray('PATH')} ${colors.underline(absoluteHtmlPath)}`)

@@ -21,7 +21,6 @@ import {getAssetsFromHtml} from '../html-lib/utils'
 function handleCantResolveError(
   includesList: FilepathList,
   error: StatsError,
-  compilation: Compilation,
   manifestDir: string
 ) {
   const raw = String(error.message || '')
@@ -147,7 +146,6 @@ export class HandleCommonErrors {
                 const cantResolveError = handleCantResolveError(
                   this.includeList || {},
                   error as StatsError,
-                  compilation,
                   path.dirname(this.manifestPath)
                 )
 
@@ -167,7 +165,6 @@ export class HandleCommonErrors {
             const replaced = handleCantResolveError(
               this.includeList || {},
               error as unknown as StatsError,
-              compilation,
               path.dirname(this.manifestPath)
             )
 
@@ -187,7 +184,6 @@ export class HandleCommonErrors {
           const replaced = handleCantResolveError(
             this.includeList || {},
             error as unknown as StatsError,
-            compilation,
             path.dirname(this.manifestPath)
           )
 

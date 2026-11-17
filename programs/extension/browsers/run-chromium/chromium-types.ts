@@ -12,51 +12,14 @@ import type {
   BrowserLogger,
   BrowserLogSink,
   Controller,
-  LogLevel,
   PluginInterface
 } from '../browsers-types'
 
 export type {
   Controller,
-  LogFormat,
   LogLevel,
   PluginInterface
 } from '../browsers-types'
-
-export interface ConsoleAPICalledEvent {
-  method: 'Runtime.consoleAPICalled'
-  params?: {
-    type?: string
-    args?: Array<{value?: unknown; description?: string}>
-    stackTrace?: {
-      callFrames?: Array<{
-        url?: string
-        lineNumber?: number
-        columnNumber?: number
-      }>
-    }
-  }
-}
-
-export interface LogEntryAddedEvent {
-  method: 'Log.entryAdded'
-  params?: {
-    entry?: {
-      level?: string
-      text?: string
-      url?: string
-      lineNumber?: number
-      columnNumber?: number
-    }
-  }
-}
-
-export type CdpEvent =
-  | ConsoleAPICalledEvent
-  | LogEntryAddedEvent
-  | {method: string; params?: unknown}
-
-export type Logger = BrowserLogger
 
 // Options consumed by Chromium plugins (launch/logger/inspection);
 // narrowed from PluginInterface for the Chromium path.
@@ -126,16 +89,6 @@ export interface ChromiumPluginRuntime extends ChromiumLaunchOptions {
   printBannerOnRecovery?: () => Promise<void>
 }
 
-export interface ChromiumLogger {
-  level?: LogLevel | 'off' | string
-  contexts?: string[]
-  urlFilter?: string
-  tabFilter?: number | string
-  format?: 'pretty' | 'json' | 'ndjson' | string
-  timestamps?: boolean
-  color?: boolean
-}
-
 // CDP wire-boundary shapes, recovered from how run-chromium READS each value;
 // all optional because the runtime code guards each access.
 
@@ -199,60 +152,4 @@ export interface CdpProtocolMessage {
   params?: CdpProtocolParams
   sessionId?: string
   id?: number
-}
-
-export interface CdpDomNode {
-  localName?: string
-  nodeName?: string
-  nodeId?: number
-  shadowRootType?: string
-  shadowRoots?: CdpDomNode[]
-  children?: CdpDomNode[]
-  contentDocument?: CdpDomNode
-}
-
-export interface CdpFrameNode {
-  id?: string
-  url?: string
-}
-
-export interface CdpFrameTreeResult {
-  frameTree?: {frame?: CdpFrameNode}
-  frame?: CdpFrameNode
-}
-
-export type ConsoleCountKey = 'error' | 'warn' | 'info' | 'log' | 'debug'
-
-// A page-meta snapshot evaluated in the inspected page; a type alias (not an
-// interface) so it keeps an implicit index signature for the event sink.
-export type PageMetaSnapshot = {
-  readyState?: string
-  viewport?: {width: number; height: number; devicePixelRatio: number}
-  frameCount?: number
-}
-
-export interface SelectorProbeSample {
-  tag: string
-  id?: string
-  classes?: string
-  role?: string
-  ariaLabel?: string
-  textLength?: number
-  textSnippet?: string
-}
-
-export interface SelectorProbeResult {
-  selector: string
-  count: number
-  samples: SelectorProbeSample[]
-}
-
-// The extension-root tree snapshot evaluated in the inspected page; a type
-// alias so it keeps an implicit index signature for the event sink.
-export type ExtensionRootTreeResult = {
-  rootMode: 'shadow' | 'element'
-  depthLimit: number
-  nodeLimit: number
-  truncated: boolean
-  tree: unknown
 }

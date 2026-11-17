@@ -44,7 +44,6 @@ function resolvePublicRelativePath(
 export function handleStaticAsset(
   compilation: unknown,
   htmlEntry: string,
-  htmlDir: string,
   absolutePath: string,
   assetType: 'staticSrc' | 'staticHref',
   cleanPath: string,
@@ -57,8 +56,6 @@ export function handleStaticAsset(
   manifestDir?: string
 ): parse5utilities.ParsedNode {
   const isFilepathListEntry = isFromFilepathList(absolutePath, includeList)
-  const excludedFilePath =
-    path.posix.join('/', cleanPath) + (search || '') + (hash || '')
   const attrName = resolveStaticAttributeName(assetType, attributeName)
 
   let node = childNode

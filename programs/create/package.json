@@ -51,6 +51,7 @@
     "pretest": "pnpm compile",
     "test": "vitest run",
     "test:create": "vitest run",
+    "pretest:coverage": "pnpm compile",
     "test:coverage": "vitest run --coverage"
   },
   "keywords": [
@@ -85,14 +86,12 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.2.4",
-    "@changesets/cli": "^3.0.2",
     "@rslib/core": "^1.0.6",
     "@types/chrome": "^0.1.33",
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^26",
     "@types/webextension-polyfill": "0.12.4",
     "@vitest/coverage-v8": "^5.0.5",
-    "tsconfig": "*",
     "typescript": "7.0.2",
     "vitest": "^5.0.5",
     "webextension-polyfill": "^0.12.0"

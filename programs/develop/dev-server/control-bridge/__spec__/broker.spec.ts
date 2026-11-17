@@ -946,15 +946,6 @@ describe('BridgeBroker.undeliveredReloadWarning: SW-not-attached DX', () => {
     return {b, advance: (ms: number) => (nowMs += ms)}
   }
 
-  function helloProducer(b: BridgeBroker, id = 'p') {
-    b.onFrame(new FakeConn(id), {
-      type: 'hello',
-      v: 1,
-      role: 'producer',
-      instanceId: 'inst-1'
-    })
-  }
-
   it('stays silent inside the startup grace window (browser still launching)', () => {
     const {b, advance} = brokerAt(1_000_000)
     advance(GRACE_MS - 1)

@@ -251,7 +251,7 @@ test('reads the corpus with the published version on every channel, skipped gate
   assert.match(job, /needs: publish\n/)
   assert.match(
     job,
-    /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' \}\}/
+    /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' && \(inputs\.channel != 'canary' \|\| inputs\.readings\) \}\}/
   )
 
   assert.match(job, /cli-version: \$\{\{ needs\.publish\.outputs\.version \}\}/)
