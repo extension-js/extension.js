@@ -234,7 +234,7 @@ jobs:
         run: node scripts/check-emitted-types.mjs
 
   bundled-extensions:
-    name: Bundled extensions build (chromium)
+    name: Bundled extensions build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -258,15 +258,10 @@ jobs:
           pnpm --filter extension-develop compile
           pnpm --filter extension compile
 
-      # The bundled devtools/theme extensions are otherwise only built by
-      # publish-release.yml and the nightly, so a breaking dependency bump
-      # in extensions/ merges green here and reddens the next release
-      # (the react-table 9 bump did exactly that). One engine is enough to
-      # catch API breaks; the release gate still builds all four.
-      - name: Build bundled extensions for chromium
-        run: |
-          pnpm --filter extension-js-devtools run build:chromium
-          pnpm --filter @extension-js/theme run build:chromium
+      # A dependency bump in extensions/ can break one engine only, and the
+      # release builds all four. The script also checks its own build stamp.
+      - name: Build bundled extensions for every engine
+        run: node scripts/build-extensions.cjs
 
   deno-runtime:
     name: Deno runtime (${{ matrix.deno }} / ${{ matrix.os }})
