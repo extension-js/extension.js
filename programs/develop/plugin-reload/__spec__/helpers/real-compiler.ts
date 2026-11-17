@@ -34,15 +34,16 @@ export function idleCompiler(
   })
 }
 
-// Runs a production compile with readable output and returns every emitted
-// JavaScript file by name, after checking the compile reported no error.
-export async function compileProduction(
+// Runs a compile with readable output and returns every emitted JavaScript
+// file by name, or none when the compile reported an error.
+export async function compileFiles(
   root: string,
   entry: Record<string, string>,
-  plugin: {apply(compiler: Compiler): void}
+  plugin: {apply(compiler: Compiler): void},
+  mode: 'development' | 'production' = 'production'
 ): Promise<{errors: string[]; files: Record<string, string>}> {
   const compiler = rspack({
-    mode: 'production',
+    mode,
     context: root,
     devtool: false,
     optimization: {minimize: false},

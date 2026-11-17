@@ -7,6 +7,7 @@ import {
   SetupReloadStrategy
 } from '../steps/setup-reload-strategy/index'
 import {
+  compileFiles,
   idleCompiler,
   tapsAddedBy,
   workerEntryFromFork,
@@ -217,5 +218,48 @@ describe('SetupReloadStrategy wiring', () => {
     expect(run({manifest_version: 3}).entries).toEqual({
       'background/service_worker': ['minimum-chromium-file']
     })
+  })
+})
+
+describe('SetupReloadStrategy in a development compile', () => {
+  // The loader a lazy chunk gets depends on the world the strategy hands the
+  // fork, so a MAIN world script must come out with the bridge loader.
+  it('hands the content script worlds to the chunk loader', async () => {
+    const lazyImport = "import('./lazy.js').then((m) => console.log(m))\n"
+    const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
+      'manifest.json': {
+        manifest_version: 3,
+        name: 'worlds',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'},
+        content_scripts: [
+          {matches: ['<all_urls>'], js: ['content/isolated.js']},
+          {matches: ['<all_urls>'], js: ['content/main.js'], world: 'MAIN'}
+        ]
+      },
+      'background.js': '',
+      'content/isolated.js': lazyImport,
+      'content/main.js': lazyImport,
+      'content/lazy.js': 'export const a = 1\n'
+    })
+    const {errors, files} = await compileFiles(
+      root,
+      {
+        'content_scripts/content-0': 'content/isolated.js',
+        'content_scripts/content-1': 'content/main.js'
+      },
+      new SetupReloadStrategy({
+        manifestPath: path.join(root, 'manifest.json'),
+        browser: 'chrome'
+      } as ConstructorParameters<typeof SetupReloadStrategy>[0]),
+      'development'
+    )
+
+    expect(errors).toEqual([])
+    expect(files['content_scripts/content-0.js']).not.toContain(
+      'EXTJS_WTW_LOAD'
+    )
+
+    expect(files['content_scripts/content-1.js']).toContain('EXTJS_WTW_LOAD')
   })
 })

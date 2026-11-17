@@ -3,7 +3,7 @@ import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {SetupChunkLoadingTarget} from '../steps/setup-chunk-loading-target'
 import {
-  compileProduction,
+  compileFiles,
   idleCompiler,
   tapsAddedBy,
   workerEntryFromFork,
@@ -181,7 +181,7 @@ describe('SetupChunkLoadingTarget in a production compile', () => {
       'content/lazy.js': 'export const a = 1\n',
       'scripts/lazy.js': 'export const a = 1\n'
     })
-    const {errors, files} = await compileProduction(
+    const {errors, files} = await compileFiles(
       root,
       {
         'background/service_worker': 'background/index.js',
@@ -228,7 +228,7 @@ describe('SetupChunkLoadingTarget in a production compile', () => {
       'scripts/plain.js': lazyImport,
       'scripts/lazy.js': 'export const a = 1\n'
     })
-    const {errors, files} = await compileProduction(
+    const {errors, files} = await compileFiles(
       root,
       {
         'background/service_worker': 'background/index.js',
@@ -260,7 +260,7 @@ describe('SetupChunkLoadingTarget in a production compile', () => {
       'scripts/hook.js': lazyImport,
       'scripts/lazy.js': 'export const a = 1\n'
     })
-    const {errors, files} = await compileProduction(
+    const {errors, files} = await compileFiles(
       root,
       {
         'background/scripts': 'data:text/javascript;charset=utf-8,generated',
