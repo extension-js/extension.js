@@ -53,7 +53,10 @@ import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
-import {markCommandSessionStart} from '../helpers/telemetry-cli'
+import {
+  markCommandSessionStart,
+  noteRunBrowsers
+} from '../helpers/telemetry-cli'
 import {
   type Browser,
   isSafariVendor,
@@ -119,6 +122,7 @@ interface PreviewCommandDeps {
   loadDevelop?: () => Promise<AnyDevelopModule>
   loadPreview?: () => Promise<AnyDevelopModule>
   runBrowser?: typeof runOnlyPreviewBrowser
+  noteBrowsers?: typeof noteRunBrowsers
 }
 
 export function registerPreviewCommand(
@@ -126,7 +130,8 @@ export function registerPreviewCommand(
   {
     loadDevelop = loadExtensionDevelopModule,
     loadPreview = loadExtensionDevelopPreviewModule,
-    runBrowser = runOnlyPreviewBrowser
+    runBrowser = runOnlyPreviewBrowser,
+    noteBrowsers = noteRunBrowsers
   }: PreviewCommandDeps = {}
 ) {
   program
@@ -279,6 +284,7 @@ export function registerPreviewCommand(
         }
 
         const list = vendors(browser)
+        noteBrowsers(list)
 
         let unsupported = ''
         let supportedBrowsers: string[] = []

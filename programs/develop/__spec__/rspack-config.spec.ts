@@ -76,6 +76,31 @@ describe('webpack-config transpile packages watch behavior', () => {
     expect(ignored).toContain('**/node_modules/**')
   })
 
+  it('keeps .git ignored, with and without transpiled packages', () => {
+    for (const dirs of [[], ['/tmp/workspace/packages/ui']]) {
+      resolveTranspilePackageDirsMock.mockReturnValue(dirs)
+      const projectStructure = createProjectStructure()
+      const config = webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode: 'development',
+          output: {
+            clean: false,
+            path: path.join(
+              path.dirname(projectStructure.manifestPath),
+              'dist',
+              'chrome'
+            )
+          },
+          noBrowser: true
+        } as any
+      )
+
+      expect(config.watchOptions?.ignored).toContain('**/.git/**')
+    }
+  })
+
   it('ignores by path segment, not substring, a project path containing "dist" stays watched', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()

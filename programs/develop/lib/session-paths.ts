@@ -11,8 +11,8 @@ import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import * as messages from './messages'
+import {humanLine} from './messaging'
 import {linkFreePath} from './real-path'
 
 export function sessionStateDir(projectPath: string): string {

@@ -8,10 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import {codedError} from './coded-error'
 import * as messages from './messages'
-import {CODES, isDebug} from './messaging'
+import {CODES, humanLine, isDebug} from './messaging'
 import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
 import {rememberAskedPath} from './paths'
