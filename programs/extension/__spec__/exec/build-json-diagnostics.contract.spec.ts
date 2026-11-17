@@ -325,7 +325,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  "E_CSS_PARSE: Module Warning (from <develop-dist>/css-parse-guard-loader.mjs):\n  │ ⏵⏵⏵ The CSS in this file doesn't parse, so it was copied as-is.\n  │ PATH <project>/a.css\n  │ REASON Unclosed block\n  │ Browsers skip rules they can't parse, so the build kept going.\n  │ PostCSS and Tailwind processing wasn't applied to this file.\n  │ Fix the CSS to re-enable processing."
+                  "E_CSS_PARSE: ⏵⏵⏵ The CSS in this file doesn't parse, so it was copied as-is.\n  │ PATH a.css\n  │ REASON Unclosed block\n  │ Browsers skip rules they can't parse, so the build kept going.\n  │ PostCSS and Tailwind processing wasn't applied to this file.\n  │ Fix the CSS to re-enable processing."
                 ],
                 toolchain: {
                   node: '<node>',
@@ -340,7 +340,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            "E_CSS_PARSE: Module Warning (from <develop-dist>/css-parse-guard-loader.mjs):\n  │ ⏵⏵⏵ The CSS in this file doesn't parse, so it was copied as-is.\n  │ PATH <project>/a.css\n  │ REASON Unclosed block\n  │ Browsers skip rules they can't parse, so the build kept going.\n  │ PostCSS and Tailwind processing wasn't applied to this file.\n  │ Fix the CSS to re-enable processing."
+            "E_CSS_PARSE: ⏵⏵⏵ The CSS in this file doesn't parse, so it was copied as-is.\n  │ PATH a.css\n  │ REASON Unclosed block\n  │ Browsers skip rules they can't parse, so the build kept going.\n  │ PostCSS and Tailwind processing wasn't applied to this file.\n  │ Fix the CSS to re-enable processing."
           ]
         }
       ],
@@ -359,7 +359,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '   └─ content-0.css (N KB)',
         '',
         "⏵⏵⏵ The CSS in this file doesn't parse, so it was copied as-is.",
-        'PATH <project>/a.css',
+        'PATH a.css',
         'REASON Unclosed block',
         "Browsers skip rules they can't parse, so the build kept going.",
         "PostCSS and Tailwind processing wasn't applied to this file.",
