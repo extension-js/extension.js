@@ -25,6 +25,10 @@ import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
 import {CODES, debugLine, isDebug} from './lib/messaging'
+import {
+  installedPackageDir,
+  MissingReferenceWatch
+} from './lib/missing-reference-watch'
 import {parseAuthoredJson} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
@@ -174,6 +178,10 @@ export default function webpackConfig(
   // in vendored scripts): collected below and warned, left verbatim in output.
   const unresolvedBareRequires = new Map<string, string>()
 
+  // Both kinds of reference above name a target that may be written later,
+  // which a dev session has to notice: see MissingReferenceWatch.
+  const missingReferences = new MissingReferenceWatch()
+
   // Node builtins stubbed via `resolve.fallback` below. The raw externals
   // resolver does not apply fallback, so the bare-require tolerance skips these.
   const nodeFallbacks: Record<string, false> = {
@@ -288,6 +296,7 @@ export default function webpackConfig(
         )
       }
     } satisfies RspackPluginInstance,
+    missingReferences,
     new NodeBuiltinsPlugin(),
     new OneDiagnosticPerLocationPlugin(),
     // Warn (don't fail) for bare require() calls that resolve nowhere. The
@@ -504,6 +513,11 @@ export default function webpackConfig(
             if (assetPath && !fs.existsSync(path.resolve(context, assetPath))) {
               const leaveUnresolved = () => {
                 missingCssAssets.add(request)
+                missingReferences.record(
+                  path.resolve(context, assetPath),
+                  contextInfo?.issuer
+                )
+
                 callback(null, request, 'asset')
               }
 
@@ -554,6 +568,11 @@ export default function webpackConfig(
               if (!unresolvedBareRequires.has(request)) {
                 unresolvedBareRequires.set(request, contextInfo?.issuer || '')
               }
+
+              missingReferences.record(
+                installedPackageDir(packageJsonDir, bareRequest),
+                contextInfo?.issuer
+              )
 
               callback(null, request, 'commonjs')
             } else {
