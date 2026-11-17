@@ -213,6 +213,8 @@ export type PerfBudgetCategory =
  */
 export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>> & {
   ignore?: string[]
+  /** `'warn'` (default) reports an overrun, `'error'` fails the build. */
+  onExceed?: 'warn' | 'error'
 }
 
 /** `commands.dev` overrides. */
