@@ -191,8 +191,10 @@ Applied by `ReloadPlugin` in order:
 ## Contracts
 
 The canonical content-script entry/asset names come from
-`plugin-web-extension/feature-scripts/contracts.ts`. This plugin consumes
-that contract; it does not define it.
+`plugin-web-extension/feature-scripts/contracts.ts`, and so do the names of
+the stub, CSS marker and sheet probe files this plugin emits. This plugin
+consumes that contract. It does not define it, and nothing in
+`plugin-web-extension` imports from here.
 
 ## Testing
 

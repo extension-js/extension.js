@@ -11,7 +11,6 @@ import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {debugLine, isDebug} from '../../../lib/messaging'
-import {isDevContentScriptStandInAsset} from '../../../plugin-reload/reload-lib/dev-content-scripts'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -19,6 +18,7 @@ import {
 } from '../../feature-manifest/manifest-lib/manifest'
 import {
   getCanonicalContentScriptCssAssetName,
+  isDevContentScriptStandInAsset,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
 import {injectedSheetTargets} from '../../feature-scripts/scripts-lib/injected-sheet-urls'

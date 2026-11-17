@@ -59,7 +59,7 @@ real compiler takes per mode and browser.
 ## Important files
 
 - `contracts.ts`
-  Defines the canonical content-script entry and asset names like `content_scripts/content-0.js`.
+  Defines the canonical content-script entry and asset names like `content_scripts/content-0.js`, and the names of the files a dev session ships beside them (`dev-stub-N.js`, `dev-css-N.js`, `dev-sheet-N.css`) with `isDevContentScriptStandInAsset`, so a feature here can skip them without importing `plugin-reload`.
 
 - `steps/add-scripts.ts`
   Reads manifest script fields, validates paths, creates Rspack entries, and synthesizes a sequential data-url entry when a single content-script group declares multiple files.
