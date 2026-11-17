@@ -302,7 +302,8 @@ describe('D7: a public folder spelled Public/', () => {
 })
 
 describe('D9: a symlinked file inside scripts/', () => {
-  it('is not an entry', () => {
+  // Creating a symlink needs a privilege Windows runners do not grant.
+  it.skipIf(process.platform === 'win32')('is not an entry', () => {
     const root = project({
       'scripts/content.js': 'document.title = "c"',
       'shared/linked.js': 'document.title = "linked"'
