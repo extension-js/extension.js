@@ -287,7 +287,11 @@ export async function extensionPreview(
   const configBrowser = previewOptions.browser
     ? undefined
     : configBrowserOrThrow(
-        (await loadCommandConfig(packageJsonDir, metadataCommand)).browser,
+        (
+          await loadCommandConfig(packageJsonDir, metadataCommand, {
+            mode: 'production'
+          })
+        ).browser,
         metadataCommand
       )
   const namesBinary = Boolean(
@@ -424,10 +428,17 @@ export async function extensionPreview(
 
     // Load command + browser defaults from the project root; when start.ts
     // delegates here, honor commands.start.* rather than commands.preview.*.
-    const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
+    // Preview loads a production build, so the config reads the env files
+    // that build read: production ones, and those named for this browser.
+    const envTarget = {mode: 'production', browser: String(browser)}
+    const projectConfig = await loadProjectConfigDefaults(
+      packageJsonDir,
+      envTarget
+    )
     const commandConfig = await loadCommandConfig(
       packageJsonDir,
-      metadataCommand
+      metadataCommand,
+      envTarget
     )
     const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
 

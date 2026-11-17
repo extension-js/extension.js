@@ -1018,7 +1018,8 @@ describe('webpack/command-preview (run-only)', () => {
 
     expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
       '/proj',
-      'preview'
+      'preview',
+      {mode: 'production', browser: 'chrome'}
     )
   })
 
@@ -1043,7 +1044,8 @@ describe('webpack/command-preview (run-only)', () => {
 
     expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
       '/proj',
-      'start'
+      'start',
+      {mode: 'production', browser: 'chrome'}
     )
 
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
