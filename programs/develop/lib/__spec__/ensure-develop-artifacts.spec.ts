@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {stripVTControlCharacters} from 'node:util'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const execInstallCommand = vi.fn()
@@ -26,6 +27,20 @@ vi.mock('../paths', async (importOriginal) => {
 })
 
 import {ensureUserProjectDependencies} from '../ensure-develop-artifacts'
+import {CAPTURED_INSTALL_FAILURES} from './install-failure-captures'
+
+function installFailure(output: string) {
+  return Object.assign(new Error('Install failed with exit code 1'), {
+    exitCode: 1,
+    output
+  })
+}
+
+function warnings(): string[] {
+  return (console.warn as any).mock.calls.map((call: any[]) =>
+    stripVTControlCharacters(String(call[0]))
+  )
+}
 
 describe('ensureUserProjectDependencies', () => {
   beforeEach(() => {
@@ -199,7 +214,7 @@ describe('ensureUserProjectDependencies', () => {
     expect(args).toContain('--ignore-scripts')
   })
 
-  it('sends the install output to stderr under machine output and inherits it otherwise', async () => {
+  it('sends the install output to stderr under machine output and to its own streams otherwise', async () => {
     resolvePackageManager.mockReturnValue({name: 'pnpm'})
     execInstallCommand.mockResolvedValue(undefined)
 
@@ -212,12 +227,14 @@ describe('ensureUserProjectDependencies', () => {
     }
 
     const [, , machineOptions] = execInstallCommand.mock.calls[0]
-    expect(machineOptions.stdio).toEqual(['inherit', 2, 2])
+    expect(machineOptions.tee.stdout).toBe(process.stderr)
+    expect(machineOptions.tee.stderr).toBe(process.stderr)
 
     await ensureUserProjectDependencies('/nonexistent-project' as any)
 
     const [, , prettyOptions] = execInstallCommand.mock.calls[1]
-    expect(prettyOptions.stdio).toBe('inherit')
+    expect(prettyOptions.tee.stdout).toBe(process.stdout)
+    expect(prettyOptions.tee.stderr).toBe(process.stderr)
   })
 
   it('suppresses yarn scripts via env (Berry rejects --ignore-scripts, yarn 1 reads npm_config_*)', async () => {
@@ -249,5 +266,173 @@ describe('ensureUserProjectDependencies', () => {
     } finally {
       delete process.env.EXTENSION_ALLOW_INSTALL_SCRIPTS
     }
+  })
+
+  describe('a registry that is not ready', () => {
+    const sleep = vi.fn(async () => {})
+
+    beforeEach(() => sleep.mockClear())
+
+    it.each([
+      'npm',
+      'pnpm',
+      'yarn',
+      'bun'
+    ])('installs again after a listed tarball answers 404, then succeeds (%s)', async (manager) => {
+      resolvePackageManager.mockReturnValue({name: manager})
+      execInstallCommand
+        .mockRejectedValueOnce(
+          installFailure(CAPTURED_INSTALL_FAILURES[`${manager}-tarball-404`])
+        )
+        .mockRejectedValueOnce(
+          installFailure(CAPTURED_INSTALL_FAILURES[`${manager}-tarball-404`])
+        )
+        .mockResolvedValueOnce(undefined)
+
+      await ensureUserProjectDependencies('/nonexistent-project' as any, {
+        sleep
+      })
+
+      expect(execInstallCommand).toHaveBeenCalledTimes(3)
+      expect(sleep.mock.calls).toEqual([[5000], [10000]])
+      // The same manager and the same command every time, never npm instead.
+      expect(execInstallCommand.mock.calls[2].slice(0, 2)).toEqual(
+        execInstallCommand.mock.calls[0].slice(0, 2)
+      )
+
+      expect(
+        warnings().filter((line) => line.includes('Retrying the install'))
+      ).toEqual([
+        '⏵⏵⏵ The registry lists stubx-dep@1.0.1 but is not serving its tarball yet. Retrying the install in 5 seconds (attempt 2 of 4).',
+        '⏵⏵⏵ The registry lists stubx-dep@1.0.1 but is not serving its tarball yet. Retrying the install in 10 seconds (attempt 3 of 4).'
+      ])
+    })
+
+    it('stops after four attempts with one error that names the version and the next step', async () => {
+      resolvePackageManager.mockReturnValue({name: 'pnpm'})
+      execInstallCommand.mockRejectedValue(
+        installFailure(CAPTURED_INSTALL_FAILURES['pnpm10-tarball-404'])
+      )
+
+      const error: any = await ensureUserProjectDependencies(
+        '/nonexistent-project' as any,
+        {sleep}
+      ).catch((caught) => caught)
+
+      expect(execInstallCommand).toHaveBeenCalledTimes(4)
+      expect(sleep.mock.calls).toEqual([[5000], [10000], [20000]])
+      expect(error.code).toBe('E_DEPENDENCY_INSTALL')
+      expect(stripVTControlCharacters(error.message)).toBe(
+        [
+          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          'The registry lists stubx-dep@1.0.1 but is not serving its tarball yet.',
+          'A new release takes a minute or two to reach the whole registry. Extension.js tried 4 times over 35 seconds.',
+          'Run the command again in a minute. The pnpm error is printed above.'
+        ].join('\n')
+      )
+
+      // npm reads the same registry, so no fallback install is attempted.
+      expect(
+        warnings().some((line) => line.includes('retries once with npm'))
+      ).toBe(false)
+    })
+
+    it('waits for a range an upstream package asked for, and names it when it never lands', async () => {
+      resolvePackageManager.mockReturnValue({name: 'npm'})
+      execInstallCommand.mockRejectedValue(
+        installFailure(CAPTURED_INSTALL_FAILURES['npm-version-transitive'])
+      )
+
+      const error: any = await ensureUserProjectDependencies(
+        '/nonexistent-project' as any,
+        {sleep, delaysMs: [1000]}
+      ).catch((caught) => caught)
+
+      expect(execInstallCommand).toHaveBeenCalledTimes(2)
+      expect(stripVTControlCharacters(error.message)).toBe(
+        [
+          "⏵⏵⏵ Couldn't install the project dependencies with npm.",
+          'A dependency asks for stubx-late@^4.0.3, which the registry does not list yet.',
+          'A new release takes a minute or two to reach the whole registry. Extension.js tried 2 times over 1 second.',
+          'Run the command again in a minute. The npm error is printed above.'
+        ].join('\n')
+      )
+    })
+
+    it('says the registry is having trouble after a 503 on every attempt', async () => {
+      resolvePackageManager.mockReturnValue({name: 'bun'})
+      execInstallCommand.mockRejectedValue(
+        installFailure(CAPTURED_INSTALL_FAILURES['bun-tarball-503'])
+      )
+
+      const error: any = await ensureUserProjectDependencies(
+        '/nonexistent-project' as any,
+        {sleep}
+      ).catch((caught) => caught)
+
+      expect(execInstallCommand).toHaveBeenCalledTimes(4)
+      expect(stripVTControlCharacters(error.message)).toContain(
+        'The registry did not answer the install (HTTP 503).\nThe registry is having trouble answering right now.'
+      )
+    })
+
+    it('does not wait on a range the project itself wrote', async () => {
+      const project = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-eda-range-'))
+
+      try {
+        fs.writeFileSync(
+          path.join(project, 'package.json'),
+          JSON.stringify({name: 'ext', dependencies: {'stubx-late': '^9.0.0'}})
+        )
+
+        resolvePackageManager.mockReturnValue({name: 'npm'})
+        execInstallCommand.mockRejectedValue(
+          installFailure(CAPTURED_INSTALL_FAILURES['npm-version-direct'])
+        )
+
+        await expect(
+          ensureUserProjectDependencies(project as any, {sleep})
+        ).rejects.toThrow('Install failed with exit code 1')
+
+        expect(execInstallCommand).toHaveBeenCalledTimes(1)
+        expect(sleep).not.toHaveBeenCalled()
+      } finally {
+        fs.rmSync(project, {recursive: true, force: true})
+      }
+    })
+
+    it.each([
+      'missing-package',
+      'auth'
+    ])('does not wait on a failure that cannot heal (%s)', async (scenario) => {
+      resolvePackageManager.mockReturnValue({name: 'npm'})
+      execInstallCommand.mockRejectedValue(
+        installFailure(CAPTURED_INSTALL_FAILURES[`npm-${scenario}`])
+      )
+
+      await expect(
+        ensureUserProjectDependencies('/nonexistent-project' as any, {sleep})
+      ).rejects.toThrow('Install failed with exit code 1')
+
+      expect(execInstallCommand).toHaveBeenCalledTimes(1)
+      expect(sleep).not.toHaveBeenCalled()
+    })
+
+    it('still falls back to npm once when another manager fails for a reason that cannot heal', async () => {
+      resolvePackageManager.mockReturnValue({name: 'pnpm'})
+      execInstallCommand
+        .mockRejectedValueOnce(
+          installFailure(CAPTURED_INSTALL_FAILURES['pnpm-missing-package'])
+        )
+        .mockResolvedValueOnce(undefined)
+
+      await ensureUserProjectDependencies('/nonexistent-project' as any, {
+        sleep
+      })
+
+      expect(execInstallCommand).toHaveBeenCalledTimes(2)
+      expect(execInstallCommand.mock.calls[1][1]).toContain('--no-package-lock')
+      expect(sleep).not.toHaveBeenCalled()
+    })
   })
 })
