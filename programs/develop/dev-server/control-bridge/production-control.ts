@@ -22,6 +22,7 @@ import {
 import {RELAY_TARGETS} from '../../plugin-reload/steps/inject-bridge-relay'
 import {ActionsFileWriter} from './actions-file'
 import {BridgeBroker} from './broker'
+import {readExtensionLoadRefusal} from './consumer-client'
 import {LogsFileWriter} from './logs-file'
 import {
   buildBridgeProducerSource,
@@ -292,6 +293,8 @@ export async function startProductionControl(
     sessionCommand: options.command ?? 'preview',
     onExecutorAttached: options.onExecutorAttached,
     onExecutorDetached: options.onExecutorDetached,
+    readLoadRefusal: () =>
+      readExtensionLoadRefusal(packageJsonDir, browser, options.runId),
     // Only Gecko suspends the background with no way back short of an event.
     ...(isGeckoBasedBrowser(browser) && options.wakeExecutor
       ? {wakeExecutor: options.wakeExecutor}
