@@ -109,7 +109,7 @@ export function findInjectedOnlyPermissionUses(
       const resource = scannableSourcePath(module.resource)
       if (!resource) continue
 
-      const source = readProjectSource(resource)
+      const source = readProjectSource(resource, compilation)
       if (source === undefined) continue
 
       for (const api of candidates) {
@@ -395,7 +395,8 @@ export class ApplyDevDefaults {
                 }>,
                 contentScriptMatches,
                 declaredHostPatterns(canonicalManifest),
-                optionalHostPatterns(canonicalManifest)
+                optionalHostPatterns(canonicalManifest),
+                compilation
               )
               const hostKey =
                 canonicalManifest.manifest_version === 3

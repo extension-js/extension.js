@@ -457,7 +457,7 @@ export function findGeckoUnsupportedApiUses(
       const resource = scannableSourcePath(module.resource)
       if (!resource) continue
 
-      const source = readProjectSource(resource)
+      const source = readProjectSource(resource, compilation)
       if (source === undefined) continue
 
       for (const target of targets) {

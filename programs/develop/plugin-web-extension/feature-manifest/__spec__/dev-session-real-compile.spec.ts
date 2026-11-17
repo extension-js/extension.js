@@ -172,3 +172,67 @@ describe('the content script files of a dev session', () => {
     }
   }, 120_000)
 })
+
+describe('the source scans of a dev session', () => {
+  const cjsFs = createRequire(import.meta.url)('node:fs') as typeof fs
+
+  it('read each project module from disk once per save', async () => {
+    const root = project(CONTENT_SCRIPT_PROJECT.manifest, {
+      ...CONTENT_SCRIPT_PROJECT.files,
+      'background.js':
+        'import {shared} from "./shared.js"\nconsole.log(shared)\n',
+      'shared.js': 'export const shared = "one"\n'
+    })
+    const reads = new Map<string, number>()
+    const realRead = cjsFs.readFileSync
+    let counting = false
+
+    cjsFs.readFileSync = function (this: unknown, ...args: unknown[]) {
+      const file = args[0]
+
+      if (
+        counting &&
+        typeof file === 'string' &&
+        path.dirname(file) === root &&
+        file.endsWith('.js') &&
+        // Other plugins scan the same modules, and those are not counted.
+        /[\\/]feature-manifest[\\/]steps[\\/]/.test(String(new Error().stack))
+      ) {
+        const name = path.basename(file)
+        reads.set(name, (reads.get(name) || 0) + 1)
+      }
+
+      return Reflect.apply(realRead, this, args)
+    } as typeof fs.readFileSync
+
+    syncBuiltinESMExports()
+
+    const session = await devSession(root)
+
+    try {
+      counting = true
+      await session.save('shared.js', 'export const shared = "two"\n')
+      const afterOneSave = Object.fromEntries(reads)
+      await session.save('shared.js', 'export const shared = "three"\n')
+      counting = false
+
+      expect(afterOneSave).toEqual({
+        'background.js': 1,
+        'content.js': 1,
+        'label.js': 1,
+        'shared.js': 1
+      })
+
+      expect(Object.fromEntries(reads)).toEqual({
+        'background.js': 2,
+        'content.js': 2,
+        'label.js': 2,
+        'shared.js': 2
+      })
+    } finally {
+      cjsFs.readFileSync = realRead
+      syncBuiltinESMExports()
+      await session.close()
+    }
+  }, 120_000)
+})
