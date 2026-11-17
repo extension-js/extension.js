@@ -79,7 +79,10 @@ export async function extensionDev(
 
     // Create/validate tsconfig (and surface the "missing tsconfig" error)
     // before deciding whether to generate extension type defs.
-    ensureTypeScriptConfig(manifestDir)
+    ensureTypeScriptConfig(manifestDir, {
+      manifestPath: projectStructure.manifestPath,
+      browser: devOptions.browser
+    })
 
     if (isUsingTypeScript(manifestDir)) {
       await generateExtensionTypes(manifestDir, packageJsonDir)

@@ -50,11 +50,60 @@ function blankedByCharacter(source: string): string {
       continue
     }
 
+    const close = char === '/' ? patternEnd(source, i) : -1
+
+    if (close !== -1) {
+      out += '/'
+
+      for (let j = i + 1; j < close; j++) {
+        out += '\'"`()[]{}'.includes(source[j]) ? ' ' : source[j]
+      }
+
+      out += '/'
+      i = close + 1
+      continue
+    }
+
     out += char
     i++
   }
 
   return out
+}
+
+// Where the regular expression opened at this slash closes, or -1 when the
+// slash divides. Written apart from the walk it checks, one rule at a time.
+function patternEnd(source: string, open: number): number {
+  const before = source.slice(0, open).trimEnd()
+  const last = before.at(-1)
+
+  if (last !== undefined) {
+    const word = /[\w$]+$/.exec(before)?.[0]
+    const afterWord =
+      word !== undefined &&
+      /^(?:return|typeof|instanceof|in|of|new|delete|void|throw|case|do|else|yield|await)$/.test(
+        word
+      )
+
+    if (word !== undefined && !afterWord) return -1
+    if (word === undefined && /[)\]}'"`<.]$/.test(before)) return -1
+    if (/(?:\+\+|--)$/.test(before)) return -1
+  }
+
+  let inClass = false
+
+  for (let i = open + 1; i < source.length; i++) {
+    const char = source[i]
+
+    if (char === '\n' || char === '\r') return -1
+
+    if (char === '\\') i++
+    else if (char === '[') inClass = true
+    else if (char === ']') inClass = false
+    else if (char === '/' && !inClass) return i
+  }
+
+  return -1
 }
 
 // A fixed sequence, so a failure names an input that can be run again.
@@ -142,6 +191,46 @@ describe('blankComments', () => {
         blankedByCharacter(input)
       )
     }
+  })
+
+  it('reads on past a regular expression that ends in two slashes', () => {
+    // One line, as a minifier writes it: a comment read here would blank
+    // every call after the pattern.
+    const source =
+      'let c=/\\/\\*[\\s\\S]*?\\*\\//g;x.replace(c,"");fetch("kept.json")'
+    const blanked = blankComments(source)
+
+    expect(blanked).toHaveLength(source.length)
+    expect(blanked).toContain('fetch("kept.json")')
+  })
+
+  it('keeps a quote or a bracket inside a pattern from opening anything', () => {
+    const source = 'a=e.split(/["\'(]/);b=x.test(/`/)?1:2;fetch("kept.json")'
+    const blanked = blankComments(source)
+
+    expect(blanked).toHaveLength(source.length)
+    expect(blanked).toContain('a=e.split(/     /)')
+    expect(blanked).toContain('x.test(/ /)')
+    expect(blanked).toContain('fetch("kept.json")')
+  })
+
+  it('steps over a pattern holding a quote inside an interpolation', () => {
+    // The quote once opened a string that ran to the next one, and the
+    // address after it was blanked as a comment to the end of the line.
+    const source =
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: fixture source text
+      'a=`"${t.replace(/"/g,"x")}"`;b=`https://example.com/${c}`;fetch("kept.json")'
+
+    expect(blankComments(source)).toBe(source)
+  })
+
+  it('reads a slash after a value as division', () => {
+    const source = 'a = b / 2 // fetch("gone.json")\nc = (d) / e /* gone */ / f'
+    const blanked = blankComments(source)
+
+    expect(blanked).not.toContain('gone')
+    expect(blanked).toContain('a = b / 2 ')
+    expect(blanked.split('\n')[1].replace(/ +/g, ' ')).toBe('c = (d) / e / f')
   })
 
   it('hands back the same text when there is nothing to blank', () => {

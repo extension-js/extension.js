@@ -15,6 +15,7 @@ import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
 import * as messages from '../js-frameworks-lib/messages'
+import {buildReachesTypeScript} from './typescript-reach'
 
 let hasShownUserMessage = false
 
@@ -89,10 +90,24 @@ export function isUsingTypeScript(projectPath: string): boolean {
   )
 }
 
-export function ensureTypeScriptConfig(projectPath: string): void {
+export function ensureTypeScriptConfig(
+  projectPath: string,
+  entries?: {manifestPath?: string; browser?: DevOptions['browser']}
+): void {
   const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
   const hasDep = hasTypeScriptDependency(projectPath)
-  const hasTsFiles = hasTypeScriptSourceFiles(projectPath)
+  // A file the build never compiles (a leftover beside built output) is not
+  // a TypeScript project, and a scaffold for it lands in a folder nobody asked.
+  const hasTsFiles =
+    hasTypeScriptSourceFiles(projectPath) &&
+    (tsConfigFilePath !== undefined ||
+      buildReachesTypeScript({
+        projectRoot:
+          findNearestPackageJsonDirectory(projectPath) || projectPath,
+        manifestPath:
+          entries?.manifestPath || path.join(projectPath, 'manifest.json'),
+        browser: entries?.browser
+      }))
 
   // The latch only dedupes console output: the setup work itself must run
   // for every caller, or a call with one directory shape (manifest dir vs

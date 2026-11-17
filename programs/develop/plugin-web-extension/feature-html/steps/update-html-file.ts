@@ -22,7 +22,11 @@ import {
   entryOwnJsFile,
   initialJsFiles
 } from '../../shared/initial-files'
-import {needsOptionsDialogFloor} from '../html-lib/options-dialog-floor'
+import {
+  needsOptionsDialogFloor,
+  OPTIONS_DIALOG_FLOOR_CSS,
+  OPTIONS_DIALOG_FLOOR_FILE
+} from '../html-lib/options-dialog-floor'
 import {patchHtml} from '../html-lib/patch-html'
 import {getFilePath} from '../html-lib/utils'
 
@@ -153,6 +157,24 @@ export class UpdateHtmlFile {
             // owner of script and asset rewriting, in either tap order.
             const currentHtml = readAssetSource(existing)
 
+            const optionsDialogFloor = needsOptionsDialogFloor(
+              manifest,
+              this.browser,
+              feature
+            )
+
+            // The page links the floor as a file, so the file ships with it.
+            if (
+              optionsDialogFloor &&
+              typeof compilation.emitAsset === 'function' &&
+              !getAssetFn?.call(compilation, OPTIONS_DIALOG_FLOOR_FILE)
+            ) {
+              compilation.emitAsset(
+                OPTIONS_DIALOG_FLOOR_FILE,
+                new sources.RawSource(OPTIONS_DIALOG_FLOOR_CSS)
+              )
+            }
+
             const updated = patchHtml(
               compilation as unknown as Compilation,
               feature,
@@ -162,11 +184,7 @@ export class UpdateHtmlFile {
               siblingScriptsFor(compilation as unknown as Compilation, feature),
               currentHtml,
               {
-                optionsDialogFloor: needsOptionsDialogFloor(
-                  manifest,
-                  this.browser,
-                  feature
-                ),
+                optionsDialogFloor,
                 entryScript: entryScriptFor(
                   compilation as unknown as Compilation,
                   feature

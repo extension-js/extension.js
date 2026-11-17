@@ -134,6 +134,172 @@ describe('ApplyDevDefaults patch helpers', () => {
     })
   })
 
+  describe("a directive that gains a source never keeps 'none'", () => {
+    const directiveOf = (policy: string, name: string) =>
+      policy
+        .split(';')
+        .map((part) => part.trim())
+        .find((part) => part.split(' ')[0] === name)
+
+    const pagesV3 = (extensionPages: string) =>
+      patchV3CSP({
+        manifest_version: 3,
+        content_security_policy: {extension_pages: extensionPages}
+      } as any).extension_pages
+
+    const pagesV2 = (policy: string) =>
+      patchV2CSP({manifest_version: 2, content_security_policy: policy} as any)
+
+    const everyDirectiveIsValid = (policy: string) => {
+      for (const part of policy.split(';')) {
+        const [, ...sources] = part.trim().split(/\s+/)
+        if (sources.includes("'none'")) expect(sources).toEqual(["'none'"])
+      }
+    }
+
+    it("drops 'none' inherited from default-src when it opens connect-src (MV3)", () => {
+      const policy = pagesV3(
+        "default-src 'none'; script-src 'self'; style-src 'self'"
+      )
+
+      expect(directiveOf(policy, 'connect-src')).toBe(
+        'connect-src ws://127.0.0.1:* ws://localhost:* http://127.0.0.1:* http://localhost:*'
+      )
+
+      expect(directiveOf(policy, 'default-src')).toBe("default-src 'none'")
+      everyDirectiveIsValid(policy)
+    })
+
+    it("drops 'none' written on connect-src itself, in any letter case", () => {
+      for (const none of ["'none'", "'NONE'"]) {
+        const policy = pagesV3(`script-src 'self'; connect-src ${none}`)
+
+        expect(directiveOf(policy, 'connect-src')).toMatch(
+          /^connect-src ws:\/\/127\.0\.0\.1:\*/
+        )
+      }
+    })
+
+    it('keeps what default-src allowed when it writes connect-src', () => {
+      const policy = pagesV3("default-src 'self' https://api.example.com")
+
+      expect(directiveOf(policy, 'connect-src')).toMatch(
+        /^connect-src 'self' https:\/\/api\.example\.com ws:\/\/127\.0\.0\.1:\*/
+      )
+    })
+
+    it('leaves connect-src unset when no directive restricts connections', () => {
+      expect(pagesV3("script-src 'self'")).not.toContain('connect-src')
+    })
+
+    it("leaves scripts and objects to the author's default-src (MV3)", () => {
+      const strict = pagesV3("default-src 'none'; style-src 'self'")
+
+      expect(strict).not.toContain('script-src')
+      expect(strict).not.toContain('object-src')
+
+      const wasm = pagesV3("default-src 'self' 'wasm-unsafe-eval'")
+
+      expect(wasm).not.toContain('script-src')
+      expect(wasm).toContain("default-src 'self' 'wasm-unsafe-eval'")
+    })
+
+    it('still covers scripts and objects when the policy names neither and has no default-src (MV3)', () => {
+      const policy = pagesV3("style-src 'self'")
+
+      expect(directiveOf(policy, 'script-src')).toBe("script-src 'self'")
+      expect(directiveOf(policy, 'object-src')).toBe("object-src 'self'")
+    })
+
+    it("drops 'none' from script-src and object-src when MV2 adds its sources", () => {
+      const policy = pagesV2("script-src 'none'; object-src 'none'")
+
+      expect(directiveOf(policy, 'script-src')).toBe(
+        "script-src 'unsafe-eval' blob: filesystem:"
+      )
+
+      expect(directiveOf(policy, 'object-src')).toBe(
+        'object-src blob: filesystem:'
+      )
+
+      everyDirectiveIsValid(policy)
+    })
+
+    it('starts the MV2 script and object copies from default-src', () => {
+      const none = pagesV2("default-src 'none'")
+
+      expect(directiveOf(none, 'script-src')).toBe(
+        "script-src 'unsafe-eval' blob: filesystem:"
+      )
+
+      expect(directiveOf(none, 'object-src')).toBe(
+        'object-src blob: filesystem:'
+      )
+
+      everyDirectiveIsValid(none)
+
+      const remote = pagesV2("default-src 'self' https://cdn.example.com")
+
+      expect(directiveOf(remote, 'script-src')).toBe(
+        "script-src 'self' https://cdn.example.com 'unsafe-eval' blob: filesystem:"
+      )
+    })
+
+    it('keeps the MV2 defaults when the policy names neither and has no default-src', () => {
+      const policy = pagesV2("img-src 'self'")
+
+      expect(directiveOf(policy, 'script-src')).toBe(
+        "script-src 'self' 'unsafe-eval' blob: filesystem:"
+      )
+
+      expect(directiveOf(policy, 'object-src')).toBe(
+        "object-src 'self' blob: filesystem:"
+      )
+    })
+
+    it('drops upgrade-insecure-requests on Firefox only, where it breaks the loopback dial', () => {
+      const manifest = {
+        manifest_version: 3,
+        content_security_policy: {
+          extension_pages:
+            "script-src 'self'; upgrade-insecure-requests; connect-src 'self'"
+        }
+      } as any
+
+      expect(patchV3CSP(manifest, 'firefox').extension_pages).not.toContain(
+        'upgrade-insecure-requests'
+      )
+
+      expect(patchV3CSP(manifest, 'chrome').extension_pages).toContain(
+        '; upgrade-insecure-requests; '
+      )
+
+      expect(
+        patchV2CSP(
+          {
+            manifest_version: 2,
+            content_security_policy:
+              "script-src 'self'; upgrade-insecure-requests"
+          } as any,
+          'firefox'
+        )
+      ).not.toContain('upgrade-insecure-requests')
+    })
+
+    it('never touches the sandbox slot', () => {
+      const sandbox = "sandbox allow-scripts; default-src 'none'"
+      const policy = patchV3CSP({
+        manifest_version: 3,
+        content_security_policy: {
+          extension_pages: "default-src 'none'; script-src 'self'",
+          sandbox
+        }
+      } as any)
+
+      expect(policy.sandbox).toBe(sandbox)
+    })
+  })
+
   it('adds extension ids to externally_connectable when missing', () => {
     expect(
       patchExternallyConnectable({
