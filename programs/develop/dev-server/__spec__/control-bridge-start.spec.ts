@@ -213,6 +213,8 @@ describe('opening the control bridge', () => {
     closers.push(
       () =>
         new Promise<void>((resolve) => {
+          if (socket.readyState === WebSocket.CLOSED) return resolve()
+
           socket.once('close', () => resolve())
           socket.terminate()
         })
