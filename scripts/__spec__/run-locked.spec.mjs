@@ -216,7 +216,7 @@ test('the typecheck resolves workspace packages to source, not to dist', () => {
   )
   const passes = scripts.typecheck.split('&&')
 
-  assert.equal(passes.length, 2)
+  assert.equal(passes.length, 3)
 
   for (const pass of passes) {
     assert.ok(pass.includes('--customConditions development'), pass)
