@@ -7,11 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
-  invokedCommand,
-  markCommandFailure,
-  markCommandSuccess,
   reportCommandFailureNow,
-  telemetry
+  type TelemetryCli,
+  telemetryCli
 } from './telemetry-cli'
 
 /* @invariant TELEMETRY IS FLUSHED HERE BECAUSE `process.exit` DOES NOT EMIT
@@ -54,29 +52,43 @@ import {
  */
 const TELEMETRY_FLUSH_TIMEOUT_MS = 500
 
-function markOutcomeForExit(code: number): void {
+type ExitTelemetry = Pick<
+  TelemetryCli,
+  'invokedCommand' | 'markCommandSuccess' | 'markCommandFailure' | 'telemetry'
+>
+
+export interface ExitAfterDrainDeps {
+  cli: ExitTelemetry
+  exit: (code: number) => void
+}
+
+function markOutcomeForExit(cli: ExitTelemetry, code: number): void {
   // Swallowed like every other telemetry call: an exit code is a promise to
   // the caller, and a measurement must never be what breaks it.
   try {
-    if (invokedCommand() === 'unknown') return
+    if (cli.invokedCommand() === 'unknown') return
 
     if (code === 0) {
-      markCommandSuccess()
+      cli.markCommandSuccess()
 
       return
     }
 
     // No catalog code: the paths that know theirs pass it before they get
     // here, and inventing one would file a framed failure as internal.
-    markCommandFailure(undefined, {exitCode: code})
+    cli.markCommandFailure(undefined, {exitCode: code})
   } catch {
     // Ignore
   }
 }
 
-export function exitWithFailure(code?: unknown, exitCode = 1): never {
+export function exitWithFailure(
+  code?: unknown,
+  exitCode = 1,
+  reportFailure = reportCommandFailureNow
+): never {
   try {
-    reportCommandFailureNow({code, exitCode})
+    reportFailure({code, exitCode})
   } catch {
     // Ignore
   }
@@ -86,13 +98,19 @@ export function exitWithFailure(code?: unknown, exitCode = 1): never {
 
 // Node writes to a piped stdout/stderr asynchronously, so process.exit right
 // after a large frame drops every byte past the first pipe buffer.
-export async function exitAfterDrain(code: number): Promise<void> {
+export async function exitAfterDrain(
+  code: number,
+  {
+    cli = telemetryCli,
+    exit = (exitCode) => process.exit(exitCode)
+  }: Partial<ExitAfterDrainDeps> = {}
+): Promise<void> {
   // Before the flush, or the flush has nothing to send.
-  markOutcomeForExit(code)
+  markOutcomeForExit(cli, code)
 
   try {
     await Promise.race([
-      telemetry.flush(),
+      cli.telemetry.flush(),
       new Promise<void>((resolve) =>
         setTimeout(resolve, TELEMETRY_FLUSH_TIMEOUT_MS).unref?.()
       )
@@ -114,5 +132,5 @@ export async function exitAfterDrain(code: number): Promise<void> {
     )
   )
 
-  process.exit(code)
+  exit(code)
 }

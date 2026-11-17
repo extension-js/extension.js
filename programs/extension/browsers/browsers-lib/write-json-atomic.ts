@@ -7,16 +7,20 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {renameSyncWithRetry} from './rename-with-retry'
+import {type RenameRetryOptions, renameSyncWithRetry} from './rename-with-retry'
 
 // Automation polls ready.json while the CLI stamps it, so an in-place write
 // can be read half-written. A rename swaps the whole file in one step.
-export function writeJsonAtomic(filePath: string, value: unknown): boolean {
+export function writeJsonAtomic(
+  filePath: string,
+  value: unknown,
+  retry: RenameRetryOptions = {}
+): boolean {
   const tmpPath = `${filePath}.tmp-${process.pid}`
 
   try {
     fs.writeFileSync(tmpPath, JSON.stringify(value, null, 2), 'utf-8')
-    renameSyncWithRetry(tmpPath, filePath)
+    renameSyncWithRetry(tmpPath, filePath, retry)
 
     return true
   } catch {

@@ -9,7 +9,10 @@
 import * as nodeFs from 'node:fs'
 import * as path from 'node:path'
 import {resolveManagedBinaryIn} from '../../browsers-lib/output-binaries-resolver'
-import {renameSyncWithRetry} from '../../browsers-lib/rename-with-retry'
+import {
+  type RenameRetryOptions,
+  renameSyncWithRetry
+} from '../../browsers-lib/rename-with-retry'
 
 // Current Firefox ignores the app.update.enabled pref. The enterprise policy is
 // the supported switch, so a managed build cannot update and relaunch itself.
@@ -114,6 +117,7 @@ export function ensureManagedGeckoUpdatePolicy(opts: {
   managedRoots: string[]
   platform?: NodeJS.Platform
   fs?: PolicyFs
+  retry?: RenameRetryOptions
 }): ManagedUpdatePolicyResult {
   const platform = opts.platform || process.platform
   const fs = opts.fs || nodeFs
@@ -143,7 +147,8 @@ export function ensureManagedGeckoUpdatePolicy(opts: {
     fs.mkdirSync(p.dirname(policyPath), {recursive: true})
     fs.writeFileSync(tempPath, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
     renameSyncWithRetry(tempPath, policyPath, {
-      rename: (from, to) => fs.renameSync(from, to)
+      rename: (from, to) => fs.renameSync(from, to),
+      ...opts.retry
     })
 
     return {status: 'written', policyPath}

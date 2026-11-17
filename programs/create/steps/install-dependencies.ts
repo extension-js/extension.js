@@ -26,17 +26,6 @@ import {
 } from '../lib/package-manager'
 import {failStep} from '../lib/utils'
 
-// `--silent` is for a run the user is watching. When the output is captured
-// instead, silencing it throws away the only diagnosis a failure can carry:
-// `npm install --silent` against a dead registry prints nothing at all.
-function getInstallArgs(packageManager: string, silent: boolean) {
-  if (packageManager === 'bun' || !silent) {
-    return ['install']
-  }
-
-  return ['install', '--silent']
-}
-
 // The runner's own reason leads, so a long captured output cannot push it
 // past the point where the frame truncates.
 function failureOutput(run: InstallResult) {
@@ -264,11 +253,11 @@ export async function installDependencies(
   // The project's one manager installs it: the caller resolves it once for the
   // whole scaffold, and a caller that passes none reads the same resolver.
   const command = packageManager ?? resolveProjectPackageManager(projectPath)
-  const stdio = process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
-  const dependenciesArgs =
-    command === 'deno'
-      ? ['install']
-      : getInstallArgs(command, stdio === 'inherit')
+  // Captured in both modes: the output is the only diagnosis a failure can
+  // carry, and the tag retry reads it. Development also shows it live.
+  const stdio = process.env.EXTENSION_ENV === 'development' ? 'tee' : 'pipe'
+  // Never --silent: a silenced install against a dead registry prints nothing.
+  const dependenciesArgs = ['install']
 
   const installMessage = messages.installingDependencies()
   logger.log(installMessage)

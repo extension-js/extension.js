@@ -50,10 +50,11 @@ describe('CDPClient pipe shutdown safety', () => {
   })
 })
 
+// The fakes carry no pid: on Windows the teardown hands it to taskkill,
+// and a made-up number can name a real process.
 describe('wasTerminatedByUs', () => {
   const fakeChild = () =>
     ({
-      pid: 4242,
       killed: false,
       kill: () => true
     }) as unknown as import('child_process').ChildProcess
@@ -134,6 +135,8 @@ describe('stampReadyBrowserExited', () => {
     expect(() =>
       stampReadyBrowserExited(path.join(tmp, 'dist', 'chromium'), 0)
     ).not.toThrow()
+
+    expect(fs.readdirSync(tmp)).toEqual([])
   })
 
   it('flips a preview contract to error: a dead browser is a dead session', () => {
