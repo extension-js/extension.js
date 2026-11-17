@@ -1,9 +1,9 @@
-// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
-// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
-// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
-// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
-// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
-// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
@@ -23,8 +23,9 @@ import {findRuntimeMainWorldEntries} from '../feature-scripts/scripts-lib/runtim
 import {extensionBaseAttributeFor} from '../feature-scripts/scripts-lib/taken-extension-base'
 import {classicConcatFiles} from '../shared/classic-concat'
 import {getBackgroundEntryName} from './background-entry-name'
-import WebExtension from './chunk-loading-target'
+import {ChunkLoadingTarget} from './chunk-loading-target'
 import {buildContentScriptsMeta} from './content-scripts-meta'
+import type {ContentScriptsMeta} from './options'
 
 // A file the background or a page registers into the MAIN world is in no
 // manifest group, so its world is read off the entries already created.
@@ -32,7 +33,7 @@ function buildRuntimeMainWorldMeta(
   compiler: Compiler,
   manifestPath: string,
   manifest: Manifest
-): Record<string, unknown> {
+): ContentScriptsMeta {
   const entries = compiler.options.entry
   if (!entries || typeof entries !== 'object') return {}
 
@@ -64,7 +65,7 @@ function buildRuntimeMainWorldMeta(
   }
 
   const manifestDir = path.dirname(manifestPath)
-  const meta: Record<string, unknown> = {}
+  const meta: ContentScriptsMeta = {}
 
   for (const {entryName} of findRuntimeMainWorldEntries({
     includeList,
@@ -112,7 +113,7 @@ export class SetupChunkLoadingTarget {
       return
     }
 
-    new WebExtension({
+    new ChunkLoadingTarget({
       background: {
         ...getBackgroundEntryName(patchedManifest, this.browser, {
           manifestDir: path.dirname(this.manifestPath),
@@ -140,8 +141,6 @@ export class SetupChunkLoadingTarget {
       gecko: isGeckoBasedBrowser(String(this.browser)),
       baseAttribute: extensionBaseAttributeFor(this.manifestPath, this.browser),
       baseScheme: extensionSchemeFor(String(this.browser))
-    }).apply(
-      compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
-    )
+    }).apply(compiler)
   }
 }

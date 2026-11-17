@@ -1,4 +1,12 @@
-import type * as webpack from 'webpack'
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
+
+import type {Compiler, RuntimeModule} from '@rspack/core'
 import {
   CHROMIUM_EXTENSION_SCHEME,
   closedOnSlash,
@@ -10,12 +18,15 @@ import {
 } from '../../../lib/extension-base-from-stack'
 import {RuntimeGlobal} from './browser-runtime'
 
-export default function PublicPathRuntimeModule(
-  webpack: typeof import('webpack'),
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
+
+export function PublicPathRuntimeModule(
+  webpack: Compiler['webpack'],
   gecko = false,
   attribute: string = EXTENSION_BASE_ATTRIBUTE,
   scheme: string = gecko ? GECKO_EXTENSION_SCHEME : CHROMIUM_EXTENSION_SCHEME
-): webpack.RuntimeModule {
+): RuntimeModule {
   const {RuntimeGlobals, RuntimeModule, Template} = webpack
 
   class PublicPathRuntime extends RuntimeModule {
@@ -23,12 +34,15 @@ export default function PublicPathRuntimeModule(
       super('publicPath', RuntimeModule.STAGE_BASIC)
     }
 
-    generate() {
+    generate(): string {
       const {compilation} = this
-      if (!compilation)
+
+      if (!compilation) {
         return Template.asString(
           '/* [webpack-target-webextension] PublicPathRuntimeModule skipped because no compilation is found. */'
         )
+      }
+
       const {publicPath} = compilation.outputOptions
 
       const path = JSON.stringify(
@@ -36,12 +50,10 @@ export default function PublicPathRuntimeModule(
           hash: compilation.hash || 'XXXX'
         })
       )
+
       return Template.asString([
-        // When extension runtime exists, use runtime.getURL().
-        // In MAIN world content scripts, runtime is missing; fall back to a base URL
-        // set by the isolated-world bridge (or empty as last resort).
-        // A page owns the globals of its world, so the file goes from what
-        // names it to the attribute its own bridge wrote.
+        // A page owns the globals of its world, so a file with no runtime
+        // goes from what names it to the attribute its own bridge wrote.
         `var __extjsBase = ${extensionBaseFromFile(gecko)};`,
         `if (!__extjsBase && typeof document === "object" && document && document.documentElement) {`,
         Template.indent([

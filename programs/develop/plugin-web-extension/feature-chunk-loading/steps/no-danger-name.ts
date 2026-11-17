@@ -1,34 +1,43 @@
-export default class NoDangerNamePlugin {
-  apply(compiler: any) {
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
+
+import type {Compiler} from '@rspack/core'
+
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
+
+export class NoDangerNamePlugin {
+  apply(compiler: Compiler) {
     const {Compilation, WebpackError} = compiler.webpack
+
     compiler.hooks.thisCompilation.tap(
       NoDangerNamePlugin.name,
-      (compilation: any) => {
+      (compilation) => {
         compilation.hooks.processAssets.tap(
           {
             name: NoDangerNamePlugin.name,
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
-          (assets: any) => {
+          (assets) => {
             for (const name of Object.keys(assets || {})) {
               if (!name.startsWith('_')) continue
-              // `_locales/` and `_metadata/` are the two underscore-prefixed
-              // paths the WebExtensions platform itself reserves and permits:
-              // `_locales/<lang>/messages.json` is the i18n directory every
-              // localized extension ships (required when `default_locale` is
-              // set), and `_metadata/` holds store-generated verified contents.
-              // They are legitimate outputs, not the accidental webpack-runtime
-              // chunks this guard exists to catch, so they must pass. `build`
-              // already emits them fine; without this, `dev` fails to compile
-              // any internationalized extension.
+
+              // The platform itself reserves _locales/ for translations and
+              // _metadata/ for store contents, so both are real outputs.
               if (
                 name.startsWith('_locales/') ||
                 name.startsWith('_metadata/')
               ) {
                 continue
               }
-              // Any OTHER "_"-prefixed name is preserved by the browser and
-              // bypasses special handling — that's the dangerous case.
+
+              // A browser refuses to load an extension that ships any other
+              // file or folder whose name starts with an underscore.
               const e = new WebpackError(
                 `[webpack-extension-target] Output file name ${JSON.stringify(
                   name

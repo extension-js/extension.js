@@ -74,11 +74,8 @@ describe('ReloadPlugin on a real development compiler', () => {
         'InjectBridgeProducer',
         'InjectBridgeRelay'
       ],
-      compilation: [
-        'WebExtensionChuckLoaderRuntimePlugin',
-        'WebExtensionPlugin'
-      ],
-      environment: ['WebExtensionPlugin', 'plugin-reload:hot-update-names']
+      compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
+      environment: ['ChunkLoadingTarget', 'plugin-reload:hot-update-names']
     })
   })
 
@@ -96,11 +93,8 @@ describe('ReloadPlugin on a real development compiler', () => {
         'InjectBridgeProducer',
         'InjectBridgeRelay'
       ],
-      compilation: [
-        'WebExtensionChuckLoaderRuntimePlugin',
-        'WebExtensionPlugin'
-      ],
-      environment: ['WebExtensionPlugin', 'plugin-reload:hot-update-names']
+      compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
+      environment: ['ChunkLoadingTarget', 'plugin-reload:hot-update-names']
     })
   })
 

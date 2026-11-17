@@ -1,55 +1,72 @@
-import BrowserRuntimeModule, {
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
+
+import type {Compiler} from '@rspack/core'
+import type {ChunkLoadingTargetOptions} from './options'
+import {
+  BrowserRuntimeModule,
   RuntimeGlobal
 } from './runtime-modules/browser-runtime'
-import ChunkLoaderRuntimePlugin from './steps/chunk-loader'
-import NoDangerNamePlugin from './steps/no-danger-name'
+import {ChunkLoaderRuntime} from './steps/chunk-loader'
+import {NoDangerNamePlugin} from './steps/no-danger-name'
 
-export default class WebExtensionPlugin {
-  private readonly options: any
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
 
-  constructor(options: any = {}) {
+// Loads the chunks of an extension bundle the way each world allows: a
+// native import in the extension world, a bridge or the page in MAIN.
+export class ChunkLoadingTarget {
+  private readonly options: ChunkLoadingTargetOptions
+
+  constructor(options: ChunkLoadingTargetOptions = {}) {
     const {background} = options
-    if (background) {
-      const {serviceWorkerEntry, pageEntry} = background
-      if (serviceWorkerEntry && serviceWorkerEntry === pageEntry) {
-        throw new Error(
-          `[webpack-extension-target] background.serviceWorkerEntry must not be the same as background.pageEntry. Service Worker entry only supports importScript, but importScript does not exist in background page (mv2) or limited event page (mv3).
-    A possible fix is to create two new files to be the service worker entry and the page entry, then those two files imports the background entry.`
-        )
-      }
+
+    if (
+      background?.serviceWorkerEntry &&
+      background.serviceWorkerEntry === background.pageEntry
+    ) {
+      throw new Error(
+        'background.serviceWorkerEntry must not be the same as background.pageEntry. A service worker and a background page are separate entries.'
+      )
     }
+
     this.options = options
   }
 
-  apply(compiler: any) {
-    // Pass full plugin options so runtime can be world-aware for content scripts.
-    new ChunkLoaderRuntimePlugin(this.options).apply(compiler)
+  apply(compiler: Compiler) {
+    new ChunkLoaderRuntime(this.options).apply(compiler)
     new NoDangerNamePlugin().apply(compiler)
 
-    // better preset
-    compiler.hooks.environment.tap(WebExtensionPlugin.name, () => {
+    // Every browser an extension targets has a native import(), which is
+    // the loader an isolated world chunk needs.
+    compiler.hooks.environment.tap(ChunkLoadingTarget.name, () => {
       const {output} = compiler.options
-      if (output.environment.dynamicImport !== false)
-        output.environment.dynamicImport = true
+      const environment = (output.environment ??= {})
+
+      if (environment.dynamicImport !== false) {
+        environment.dynamicImport = true
+      }
     })
 
-    // browser runtime
-    compiler.hooks.compilation.tap(
-      WebExtensionPlugin.name,
-      (compilation: any) => {
-        compilation.hooks.runtimeRequirementInTree
-          .for(RuntimeGlobal)
-          .tap(WebExtensionPlugin.name, (chunk: any) => {
-            compilation.addRuntimeModule(
-              chunk,
-              BrowserRuntimeModule(
-                compiler.webpack,
-                !!this.options.weakRuntimeCheck
-              )
+    compiler.hooks.compilation.tap(ChunkLoadingTarget.name, (compilation) => {
+      compilation.hooks.runtimeRequirementInTree
+        .for(RuntimeGlobal)
+        .tap(ChunkLoadingTarget.name, (chunk) => {
+          compilation.addRuntimeModule(
+            chunk,
+            BrowserRuntimeModule(
+              compiler.webpack,
+              !!this.options.weakRuntimeCheck
             )
-            return true
-          })
-      }
-    )
+          )
+
+          return true
+        })
+    })
   }
 }

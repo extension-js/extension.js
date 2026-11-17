@@ -1,6 +1,19 @@
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
+
+import type {Compiler, RuntimeModule} from '@rspack/core'
 import {EXTENSION_BASE_FROM_STACK} from '../../../lib/extension-base-from-stack'
+import type {ContentScriptsMeta} from '../options'
 import {RuntimeGlobal, RuntimeGlobalIsBrowser} from './browser-runtime'
 import {TemplateFn} from './template-fn'
+
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
 
 // import()
 const DYNAMIC_IMPORT_LOADER = 'dynamicImportLoader'
@@ -19,22 +32,19 @@ const MAIN_UNAIDED_LOADER = 'unaidedLoaderMainWorld'
 // fallback choice when DYNAMIC_IMPORT_LOADER fails
 const FALLBACK_LOADER = 'fallbackLoader'
 
-export default function LoadScriptRuntimeModule(
-  webpack: typeof import('webpack'),
+export function LoadScriptRuntimeModule(
+  webpack: Compiler['webpack'],
   supportDynamicImport: boolean | undefined,
   classicLoaderEnabled: boolean | undefined,
-  contentScriptsMeta?: Record<
-    string,
-    {world?: 'main' | 'extension'; bridgeBundleId?: string}
-  >,
+  contentScriptsMeta?: ContentScriptsMeta,
   gecko = false
-): import('webpack').RuntimeModule {
-  const {Template, RuntimeGlobals, RuntimeModule} = webpack as any
+): RuntimeModule {
+  const {Template, RuntimeGlobals, RuntimeModule} = webpack
 
   class LoadScriptRuntime extends RuntimeModule {
     private readonly supportDynamicImport: boolean
     private readonly classicLoaderEnabled: boolean
-    private readonly contentScriptsMeta: Record<string, any>
+    private readonly contentScriptsMeta: ContentScriptsMeta
 
     constructor() {
       // stage is for rspack to override the builtin implementation
@@ -44,25 +54,22 @@ export default function LoadScriptRuntimeModule(
       this.contentScriptsMeta = contentScriptsMeta || {}
     }
 
-    generate() {
-      const {compilation} = this as any
-      if (!compilation)
+    generate(): string {
+      const {compilation} = this
+
+      if (!compilation) {
         return Template.asString(
           '/* [webpack-target-webextension] ChunkLoaderFallbackRuntimeModule skipped because no compilation is found. */'
         )
-      const {f} = TemplateFn(compilation, Template)
-      const _const = compilation.outputOptions.environment.const
+      }
+
+      const {f} = TemplateFn(compilation)
+      const _const = compilation.outputOptions.environment?.const
         ? 'const'
         : 'var'
-      const _let = compilation.outputOptions.environment.const ? 'let' : 'var'
+      const _let = compilation.outputOptions.environment?.const ? 'let' : 'var'
 
-      const chunkName =
-        ((this as any).chunk?.name ? (this as any).chunk.name : '') ||
-        (compilation &&
-        (compilation as any).chunk &&
-        (compilation as any).chunk.name
-          ? (compilation as any).chunk.name
-          : '')
+      const chunkName = this.chunk?.name || ''
       const bundleId = chunkName ? `${chunkName}.js` : ''
       const world =
         bundleId && this.contentScriptsMeta[bundleId]
@@ -294,5 +301,5 @@ export default function LoadScriptRuntimeModule(
     }
   }
 
-  return new LoadScriptRuntime() as unknown as import('webpack').RuntimeModule
+  return new LoadScriptRuntime()
 }

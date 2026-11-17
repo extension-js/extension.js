@@ -117,9 +117,7 @@ describe('SetupReloadStrategy background entry', () => {
       {files: ['b.js']}
     )
 
-    expect(result.taps.compilation).toContain(
-      'WebExtensionChuckLoaderRuntimePlugin'
-    )
+    expect(result.taps.compilation).toContain('ChunkLoaderRuntime')
   })
 
   it('uses a page entry on gecko even when the manifest is MV3', () => {
@@ -128,9 +126,7 @@ describe('SetupReloadStrategy background entry', () => {
       {browser: 'firefox', files: ['b.js']}
     )
 
-    expect(result.taps.compilation).toContain(
-      'WebExtensionChuckLoaderRuntimePlugin'
-    )
+    expect(result.taps.compilation).toContain('ChunkLoaderRuntime')
   })
 
   it('adds the minimum worker as an entry when the manifest declares none', () => {

@@ -9,7 +9,7 @@ import {
   extensionSchemeFor
 } from '../../../lib/extension-base-from-stack'
 import {toRuntimeStylesheetModule} from '../../../plugin-css/css-lib/inline-content-script-css'
-import PublicPathRuntimeModule from '../../feature-chunk-loading/runtime-modules/public-path'
+import {PublicPathRuntimeModule} from '../../feature-chunk-loading/runtime-modules/public-path'
 import {buildMainWorldBridgePairingSource} from '../scripts-lib/main-world-bridge-pairing'
 import {baseUriRuntimeSource} from '../steps/add-base-uri-runtime-module'
 
@@ -164,10 +164,8 @@ describe('the inline stylesheet module of a Gecko build', () => {
 })
 
 describe('the public path module the chunk loader adds', () => {
-  const webpack = rspack as unknown as typeof import('webpack')
-
   it('reads the attribute of its own extension on a Gecko build', () => {
-    const source = generated(PublicPathRuntimeModule(webpack, true, KEYED))
+    const source = generated(PublicPathRuntimeModule(rspack, true, KEYED))
 
     expect(source).toContain(`getAttribute(${quoted(KEYED)})`)
     expect(source).not.toContain(quoted(EXTENSION_BASE_ATTRIBUTE))
@@ -176,14 +174,14 @@ describe('the public path module the chunk loader adds', () => {
   })
 
   it('asks no runtime for the public path in a file that took its base', () => {
-    const source = generated(PublicPathRuntimeModule(webpack, true, KEYED))
+    const source = generated(PublicPathRuntimeModule(rspack, true, KEYED))
 
     expect(source).toContain('if (typeof __extjsTakenBase !== "string" && ')
     expect(source).toContain('__extjsRuntimePath < "moz-extension://"')
   })
 
   it('stays off the global and off the Gecko scheme on every other browser', () => {
-    const chromium = generated(PublicPathRuntimeModule(webpack, false, KEYED))
+    const chromium = generated(PublicPathRuntimeModule(rspack, false, KEYED))
 
     expect(chromium).toContain(`getAttribute(${quoted(KEYED)})`)
     expect(chromium).not.toContain(quoted(EXTENSION_BASE_ATTRIBUTE))
@@ -196,7 +194,6 @@ describe('the public path module the chunk loader adds', () => {
 // Each engine serves an extension under one scheme, and two extensions
 // share one document on all of them.
 describe('the base a file of any engine reads off the document', () => {
-  const webpack = rspack as unknown as typeof import('webpack')
   const CHROME = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop/'
   const SAFARI = 'safari-web-extension://2D3F5E1A-0000-4000-8000-000000000000/'
   const PAGE = 'https://example.com/page'
@@ -276,7 +273,7 @@ describe('the base a file of any engine reads off the document', () => {
       expect(sheet, scheme).toContain(`getAttribute(${quoted(KEYED)})`)
 
       const source = generated(
-        PublicPathRuntimeModule(webpack, gecko, KEYED, scheme)
+        PublicPathRuntimeModule(rspack, gecko, KEYED, scheme)
       )
 
       expect(source, scheme).toContain(`__extjsBase ${from}`)

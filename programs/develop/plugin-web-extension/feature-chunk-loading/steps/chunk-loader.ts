@@ -1,12 +1,28 @@
-import {RuntimeGlobal} from '../runtime-modules/browser-runtime'
-import ChunkLoaderFallbackRuntimeModule from '../runtime-modules/chunk-loader-fallback'
-import LoadScriptRuntimeModule from '../runtime-modules/load-script'
-import PublicPathRuntimeModule from '../runtime-modules/public-path'
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-export default class WebExtensionChuckLoaderRuntimePlugin {
-  private readonly pluginOptions: any
-  private readonly options: any
-  private readonly contentScriptsMeta: Record<string, any>
+import type {Compilation, Compiler} from '@rspack/core'
+import type {
+  ChunkLoadingBackgroundOptions,
+  ChunkLoadingTargetOptions,
+  ContentScriptsMeta
+} from '../options'
+import {RuntimeGlobal} from '../runtime-modules/browser-runtime'
+import {ChunkLoaderFallbackRuntimeModule} from '../runtime-modules/chunk-loader-fallback'
+import {LoadScriptRuntimeModule} from '../runtime-modules/load-script'
+import {PublicPathRuntimeModule} from '../runtime-modules/public-path'
+
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
+
+export class ChunkLoaderRuntime {
+  private readonly background: ChunkLoadingBackgroundOptions
+  private readonly contentScriptsMeta: ContentScriptsMeta
   // A Gecko MAIN world file opens on the read that takes the base.
   private readonly gecko: boolean
   // The attribute this extension's bridge writes the base under.
@@ -14,107 +30,94 @@ export default class WebExtensionChuckLoaderRuntimePlugin {
   // The one scheme the build's engine serves an extension under.
   private readonly baseScheme: string | undefined
 
-  constructor(options: any) {
-    // Back-compat:
-    // - upstream calls with background options only
-    // - Extension.js passes full plugin options to support MAIN world bridge
-    this.pluginOptions = options || {}
-    this.options = this.pluginOptions.background || this.pluginOptions || {}
-    this.contentScriptsMeta = this.pluginOptions.contentScriptsMeta || {}
-    this.gecko = this.pluginOptions.gecko === true
+  constructor(options: ChunkLoadingTargetOptions) {
+    this.background = options.background || {}
+    this.contentScriptsMeta = options.contentScriptsMeta || {}
+    this.gecko = options.gecko === true
     this.baseAttribute =
-      typeof this.pluginOptions.baseAttribute === 'string'
-        ? this.pluginOptions.baseAttribute
+      typeof options.baseAttribute === 'string'
+        ? options.baseAttribute
         : undefined
+
     this.baseScheme =
-      typeof this.pluginOptions.baseScheme === 'string'
-        ? this.pluginOptions.baseScheme
-        : undefined
+      typeof options.baseScheme === 'string' ? options.baseScheme : undefined
   }
 
-  apply(compiler: any) {
-    compiler.hooks.compilation.tap(
-      WebExtensionChuckLoaderRuntimePlugin.name,
-      (compilation: any) => {
-        this.tap(compiler, compilation)
-      }
-    )
+  apply(compiler: Compiler) {
+    compiler.hooks.compilation.tap(ChunkLoaderRuntime.name, (compilation) => {
+      this.tap(compiler, compilation)
+    })
   }
 
-  tap(compiler: any, compilation: any) {
+  private tap(compiler: Compiler, compilation: Compilation) {
     const {RuntimeGlobals} = compiler.webpack
-    const {options} = this
+    const {background} = this
 
     compilation.hooks.runtimeRequirementInTree
       .for(RuntimeGlobals.loadScript)
-      .tap(
-        WebExtensionChuckLoaderRuntimePlugin.name,
-        (_chunk: any, set: any) => {
-          set.add(RuntimeGlobal)
-          compilation.addRuntimeModule(
-            _chunk,
-            LoadScriptRuntimeModule(
-              compiler.webpack,
-              compilation.outputOptions.environment.dynamicImport !== false,
-              options.classicLoader !== false,
-              this.contentScriptsMeta,
-              this.gecko
-            )
+      .tap(ChunkLoaderRuntime.name, (chunk, set) => {
+        set.add(RuntimeGlobal)
+        compilation.addRuntimeModule(
+          chunk,
+          LoadScriptRuntimeModule(
+            compiler.webpack,
+            compilation.outputOptions.environment?.dynamicImport !== false,
+            background.classicLoader !== false,
+            this.contentScriptsMeta,
+            this.gecko
           )
-          return true
-        }
-      )
+        )
+
+        return true
+      })
 
     compilation.hooks.runtimeRequirementInTree
       .for(RuntimeGlobals.publicPath)
-      .tap(
-        WebExtensionChuckLoaderRuntimePlugin.name,
-        (chunk: any, set: any) => {
-          const {outputOptions} = compilation
-          const {publicPath} = outputOptions
+      .tap(ChunkLoaderRuntime.name, (chunk, set) => {
+        const {publicPath} = compilation.outputOptions
 
-          set.add(RuntimeGlobal)
-          const module: any = PublicPathRuntimeModule(
-            compiler.webpack,
-            this.gecko,
-            this.baseAttribute,
-            this.baseScheme
-          )
+        set.add(RuntimeGlobal)
+        const module = PublicPathRuntimeModule(
+          compiler.webpack,
+          this.gecko,
+          this.baseAttribute,
+          this.baseScheme
+        )
 
-          if (
-            typeof publicPath !== 'string' ||
-            /\[(full)?hash\]/.test(publicPath)
-          ) {
-            module.fullHash = true
-          }
-
-          compilation.addRuntimeModule(chunk, module)
-          return true
+        if (
+          typeof publicPath !== 'string' ||
+          /\[(full)?hash\]/.test(publicPath)
+        ) {
+          module.fullHash = true
         }
-      )
 
-    if (options.classicLoader !== false) {
-      // we used to use hooks.afterChunks but that is missing in rspack.
-      // hooks.afterOptimizeModules looks good for both webpack and rspack.
+        compilation.addRuntimeModule(chunk, module)
+
+        return true
+      })
+
+    if (background.classicLoader !== false) {
+      // rspack has no afterChunks hook, and the entry chunks exist by this one.
       compilation.hooks.afterOptimizeModules.tap(
-        WebExtensionChuckLoaderRuntimePlugin.name,
+        ChunkLoaderRuntime.name,
         () => {
-          const {pageEntry, serviceWorkerEntry} = options
-          const entryPoint1 =
+          const {pageEntry, serviceWorkerEntry} = background
+          const pageEntrypoint =
             pageEntry && compilation.entrypoints.get(pageEntry)
-          const entryPoint2 =
+          const workerEntrypoint =
             serviceWorkerEntry &&
             compilation.entrypoints.get(serviceWorkerEntry)
 
-          if (entryPoint1) {
+          if (pageEntrypoint) {
             compilation.addRuntimeModule(
-              entryPoint1.chunks[0],
+              pageEntrypoint.chunks[0],
               ChunkLoaderFallbackRuntimeModule(compiler.webpack)
             )
           }
-          if (entryPoint2) {
+
+          if (workerEntrypoint) {
             compilation.addRuntimeModule(
-              entryPoint2.chunks[0],
+              workerEntrypoint.chunks[0],
               ChunkLoaderFallbackRuntimeModule(compiler.webpack)
             )
           }

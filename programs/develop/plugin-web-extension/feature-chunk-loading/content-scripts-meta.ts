@@ -1,20 +1,21 @@
-// ██████╗ ███████╗██╗      ██████╗  █████╗ ██████╗
-// ██╔══██╗██╔════╝██║     ██╔═══██╗██╔══██╗██╔══██╗
-// ██████╔╝█████╗  ██║     ██║   ██║███████║██║  ██║
-// ██╔══██╗██╔══╝  ██║     ██║   ██║██╔══██║██║  ██║
-// ██║  ██║███████╗███████╗╚██████╔╝██║  ██║██████╔╝
-// ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Manifest} from '../../types'
 import {getCanonicalContentScriptJsAssetName} from '../feature-scripts/contracts'
+import type {ContentScriptsMeta} from './options'
 
 // Which world each content-script bundle runs in, so the chunk loader can pick
 // a loading strategy that world can actually use.
 export function buildContentScriptsMeta(
   patchedManifest: Manifest
-): Record<string, unknown> {
-  const contentScriptsMeta: Record<string, unknown> = {}
+): ContentScriptsMeta {
+  const contentScriptsMeta: ContentScriptsMeta = {}
 
   try {
     const csList = Array.isArray(patchedManifest.content_scripts)

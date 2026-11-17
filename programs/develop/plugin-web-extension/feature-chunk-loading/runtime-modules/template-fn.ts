@@ -1,33 +1,20 @@
-export type TemplateLike = {
-  asString: (chunks: any) => string
-  indent: (lines: any) => string
-}
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-/**
- * @param compilation webpack/rspack compilation
- * @param Template webpack Template
- */
-export function TemplateFn(compilation: any, Template: TemplateLike) {
+import type {Compilation} from '@rspack/core'
+
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
+
+// Writes a function in the syntax the output environment accepts.
+export function TemplateFn(compilation: Compilation) {
   return {
-    f: (args: string, body: string | string[]) => {
-      if (!compilation) throw new TypeError('No compilation is found.')
-      if (compilation.runtimeTemplate)
-        return compilation.runtimeTemplate.basicFunction(args, body)
-
-      // rspack
-      return compilation.outputOptions.environment.arrowFunction
-        ? `(${args}) => {\n${Template.indent(body)}\n}`
-        : `function(${args}) {\n${Template.indent(body)}\n}`
-    },
-    retF: (returnValue: string, args = '') => {
-      if (!compilation) throw new TypeError('No compilation is found.')
-      if (compilation.runtimeTemplate)
-        return compilation.runtimeTemplate.returningFunction(returnValue, args)
-
-      // rspack
-      return compilation.outputOptions.environment.arrowFunction
-        ? `(${args}) => (${returnValue})`
-        : `function(${args}) { return ${returnValue}; }`
-    }
+    f: (args: string, body: string | string[]): string =>
+      compilation.runtimeTemplate.basicFunction(args, body)
   }
 }

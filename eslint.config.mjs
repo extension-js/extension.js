@@ -65,10 +65,7 @@ export default [
       '**/postcss.config.js',
       '**/tailwind.config.js',
       '**/*.generated.*',
-      'programs/create/templates/',
-      'programs/develop/plugin-web-extension/feature-chunk-loading/chunk-loading-target.ts',
-      'programs/develop/plugin-web-extension/feature-chunk-loading/steps/',
-      'programs/develop/plugin-web-extension/feature-chunk-loading/runtime-modules/'
+      'programs/create/templates/'
     ]
   },
   {

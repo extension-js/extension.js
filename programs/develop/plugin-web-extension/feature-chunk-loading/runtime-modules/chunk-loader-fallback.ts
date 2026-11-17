@@ -1,31 +1,49 @@
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
+
+import type {Compiler, RuntimeModule} from '@rspack/core'
 import {RuntimeGlobal, RuntimeGlobalIsBrowser} from './browser-runtime'
 import {TemplateFn} from './template-fn'
 
-export default function ChunkLoaderFallbackRuntimeModule(
-  webpack: typeof import('webpack')
-): import('webpack').RuntimeModule {
-  const {RuntimeModule, Template} = webpack as any
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
+
+// The background side of the message fallback: it injects the chunk a
+// content script asked for into the tab and frame that asked.
+export function ChunkLoaderFallbackRuntimeModule(
+  webpack: Compiler['webpack']
+): RuntimeModule {
+  const {RuntimeModule, Template} = webpack
+
   class ChunkLoaderFallbackRuntime extends RuntimeModule {
     constructor() {
       super('chunk loader fallback', RuntimeModule.STAGE_TRIGGER)
     }
-    generate() {
-      const {compilation} = this as any
-      if (!compilation)
+
+    generate(): string {
+      const {compilation} = this
+
+      if (!compilation) {
         return Template.asString(
           '/* [webpack-target-webextension] ChunkLoaderFallbackRuntimeModule skipped because no compilation is found. */'
         )
-      const {f} = TemplateFn(compilation, Template)
+      }
+
+      const {f} = TemplateFn(compilation)
       const optionalChain =
-        compilation.outputOptions.environment.optionalChaining
-      const _const = compilation.outputOptions.environment.const
+        compilation.outputOptions.environment?.optionalChaining
+      const _const = compilation.outputOptions.environment?.const
         ? 'const'
         : 'var'
-      const _let = compilation.outputOptions.environment.const ? 'let' : 'var'
+      const _let = compilation.outputOptions.environment?.const ? 'let' : 'var'
 
-      // Guard: HMR update chunks may run before BrowserRuntime initializes
-      // `webExtRt`, or runtime detection can yield `{ runtime: null }` in some
-      // contexts. Skipping registration avoids crashing the service worker.
+      // The runtime global can be unset or hold no runtime when this runs,
+      // and registering on it then would crash the service worker.
       return (
         `if (${RuntimeGlobal} && ${RuntimeGlobal}.runtime && ${RuntimeGlobal}.runtime.onMessage) {` +
         `${RuntimeGlobal}.runtime.onMessage.addListener(` +
@@ -64,5 +82,6 @@ export default function ChunkLoaderFallbackRuntimeModule(
       )
     }
   }
-  return new ChunkLoaderFallbackRuntime() as unknown as import('webpack').RuntimeModule
+
+  return new ChunkLoaderFallbackRuntime()
 }

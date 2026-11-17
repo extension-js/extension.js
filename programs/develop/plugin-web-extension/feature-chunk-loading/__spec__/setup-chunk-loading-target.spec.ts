@@ -66,12 +66,9 @@ describe('SetupChunkLoadingTarget', () => {
 
     expect(installed(manifestPath, 'production')).toEqual({
       taps: {
-        compilation: [
-          'WebExtensionChuckLoaderRuntimePlugin',
-          'WebExtensionPlugin'
-        ],
+        compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
         thisCompilation: ['NoDangerNamePlugin'],
-        environment: ['WebExtensionPlugin']
+        environment: ['ChunkLoadingTarget']
       },
       entry: {}
     })
