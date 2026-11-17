@@ -193,6 +193,24 @@ test('the ci passed gate waits on every other job and reads each result', () => 
   assert.match(gate, /if: always\(\)/)
   assert.match(gate, /join\(needs\.\*\.result, ' '\)/)
   assert.match(gate, /bash scripts\/check-ci-results\.sh "\$\{RESULTS\}"/)
+
+  // Only a pull request run is cancelled, so a run of main always reports.
+  assert.match(
+    ci,
+    /^ {2}cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m
+  )
+
+  assert.match(gate, /^ {6}issues: write$/m)
+  assert.doesNotMatch(ci.slice(0, ci.indexOf('\njobs:\n')), /issues: write/)
+  assert.match(
+    step(gate, 'Report a red lane'),
+    /if: failure\(\) && github\.ref == 'refs\/heads\/main'[\s\S]*GH_TOKEN[\s\S]*report-red-lane\.sh "CI"/
+  )
+
+  assert.match(
+    step(gate, 'Close the red lane'),
+    /if: success\(\) && github\.ref == 'refs\/heads\/main'[\s\S]*close-red-lane\.sh "CI"/
+  )
 })
 
 test('the telemetry lane runs the tree, fails on a failed verb and asserts an event per verb', () => {

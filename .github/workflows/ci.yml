@@ -18,9 +18,11 @@ on:
 permissions:
   contents: read
 
+# A newer push supersedes a pull request run, but every run of main finishes
+# so its red lane report names the commit that broke it.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quality:
@@ -416,6 +418,10 @@ jobs:
       - tests-windows
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -424,3 +430,18 @@ jobs:
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: bash scripts/check-ci-results.sh "${RESULTS}"
+
+      - name: Report a red lane
+        if: failure() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            pnpm install --frozen-lockfile
+            pnpm test
+        run: bash scripts/report-red-lane.sh "CI"
+
+      - name: Close the red lane
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "CI"
