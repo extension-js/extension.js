@@ -62,6 +62,7 @@ function runWithInjectedCrash(
           ...process.env,
           // An opt-out in the shell that runs the suite would silence both.
           EXTENSION_TELEMETRY_DISABLED: undefined,
+          DO_NOT_TRACK: undefined,
           EXTENSION_TELEMETRY: telemetry,
           // Nothing may leave the machine for a spec: the sink is a refused
           // loopback port or the local fake server below.
