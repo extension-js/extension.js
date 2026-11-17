@@ -88,9 +88,6 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
         // Prevent startup self-rebuild: initial emit writes dist/**/*.html.
         // Those generated files must not be treated as source watch inputs.
         ignored: [path.join(input.packageJsonDir, 'dist', '**/*')],
-        // Avoid a startup recompile caused by chokidar "add" events for
-        // existing files in watched folders.
-        ignoreInitial: true,
         // Native FS events by default: polling wakes the CPU and adds HMR latency.
         // EXTENSION_WATCH_POLL opts into polling where native events are unreliable.
         ...(env.EXTENSION_WATCH_POLL === 'true'

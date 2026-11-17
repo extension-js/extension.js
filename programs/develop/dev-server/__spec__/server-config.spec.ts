@@ -71,8 +71,7 @@ describe('buildServerConfig', () => {
     expect(config.watchFiles).toEqual({
       paths: [path.join(PUBLIC, '**/*')],
       options: {
-        ignored: [path.join(ROOT, 'dist', '**/*')],
-        ignoreInitial: true
+        ignored: [path.join(ROOT, 'dist', '**/*')]
       }
     })
   })
@@ -99,7 +98,6 @@ describe('buildServerConfig', () => {
 
     expect(options).toEqual({
       ignored: [path.join(ROOT, 'dist', '**/*')],
-      ignoreInitial: true,
       ...expected
     })
   })
