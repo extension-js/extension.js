@@ -107,12 +107,12 @@ The `create` command adds four properties, so a broken advertised starter shows 
 
 | property   | value                                                                 |
 | ---------- | --------------------------------------------------------------------- |
-| `template` | the starter name as listed by `extension create --help`, or absent   |
+| `template` | the starter name as listed by `extension create --help`, or absent. With no `--template`, the default starter's name, `typescript` |
 | `source`   | `cli`, or `templates` when the docs template gallery started the create   |
 | `deps_install` | `skipped`, `installed` or `failed`, for the dependency install `--install` runs |
 | `deps_install_seconds` | whole seconds the dependency install took, when one ran |
 
-`template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against the two surfaces above, and any other value is sent as `cli`.
+`template` is checked against the published starter list before it is sent. A create with no `--template` sends the default starter's name, the same value an explicit `--template typescript` sends. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against the two surfaces above, and any other value is sent as `cli`.
 
 `is_source_build` is a boolean and nothing more. It is `false` when the CLI was resolved from a package manager directory, which is what an ordinary install looks like, and `true` when it was resolved from a checkout of this repository. It exists so a run of the framework's own development can be told apart from a run by somebody using it. No path, no directory name and no hash of either is collected or transmitted; only the boolean leaves the machine.
 

@@ -26,7 +26,11 @@ import {
   type TelemetryDeps,
   type TelemetryReset
 } from './telemetry'
-import {listTemplates, templateAliasFor} from './template-catalog'
+import {
+  DEFAULT_TEMPLATE,
+  listTemplates,
+  templateAliasFor
+} from './template-catalog'
 
 export {KNOWN_COMMANDS}
 
@@ -108,6 +112,14 @@ function hasFlag(argv: string[], names: string[]): boolean {
     .some((arg) =>
       names.some((name) => arg === name || arg.startsWith(`${name}=`))
     )
+}
+
+// The starter a create ran with. No flag at all means the default starter,
+// sent exactly as its name typed after --template would be.
+export function createTemplateName(argv: string[]): string | undefined {
+  if (!hasFlag(argv, ['--template', '-t'])) return DEFAULT_TEMPLATE
+
+  return advertisedTemplateName(readArgValue(argv, ['--template', '-t']))
 }
 
 // One browser name as one of six fixed words. A fork is its engine family,
@@ -199,7 +211,7 @@ function commandContextWith(
 
   return {
     ...installContext,
-    template: advertisedTemplateName(readArgValue(argv, ['--template', '-t'])),
+    template: createTemplateName(argv),
     source: createSourceTag(readArgValue(argv, ['--source'])),
     ...(deps ? {deps_install: deps.outcome} : {}),
     ...(deps?.seconds === undefined ? {} : {deps_install_seconds: deps.seconds})

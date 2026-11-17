@@ -1,6 +1,7 @@
 import {describe, expect, it} from 'vitest'
 import {TELEMETRY_BROWSERS} from '../telemetry'
 import {telemetryBrowserWord} from '../telemetry-cli'
+import {DEFAULT_TEMPLATE} from '../template-catalog'
 import {SUPPORTED_BROWSER_TARGETS} from '../vendors'
 import {cliRun, useTelemetrySandbox} from './telemetry-sandbox'
 
@@ -249,5 +250,65 @@ describe('the browser property is one of six words or absent', () => {
     expect(
       await sentProperties(command, ['--browser', 'firefox'])
     ).not.toHaveProperty('browser')
+  })
+})
+
+describe('the starter on a create row', () => {
+  it('sends the default starter when --template was not typed', async () => {
+    expect(DEFAULT_TEMPLATE).toBe('typescript')
+    expect((await sentProperties('create', ['my-extension'])).template).toBe(
+      'typescript'
+    )
+  })
+
+  it.each([
+    [['--template', 'typescript']],
+    [['--template=typescript']],
+    [['-t', 'typescript']]
+  ])('sends the same value for an explicit %j', async (flags) => {
+    const typed = await sentProperties('create', ['my-extension', ...flags])
+    const omitted = await sentProperties('create', ['my-extension'])
+
+    expect(typed.template).toBe(omitted.template)
+  })
+
+  it('sends another advertised starter by its name', async () => {
+    expect(
+      (await sentProperties('create', ['my-extension', '--template', 'react']))
+        .template
+    ).toBe('react')
+  })
+
+  it.each([
+    'https://github.com/acme/private-thing',
+    '/Users/jane/private/ext',
+    '../clients/acme/internal-ext',
+    'acme/private-thing',
+    'not-a-starter'
+  ])('sends no template at all for --template %s', async (freeform) => {
+    const properties = await sentProperties('create', [
+      'my-extension',
+      '--template',
+      freeform
+    ])
+
+    expect(properties).not.toHaveProperty('template')
+    expect(JSON.stringify(properties)).not.toContain('acme')
+  })
+
+  it('sends none when --template was typed with no value', async () => {
+    expect(
+      await sentProperties('create', ['my-extension', '--template'])
+    ).not.toHaveProperty('template')
+  })
+
+  it('sends the default on a failed create too', async () => {
+    expect(
+      (await sentProperties('create', ['my-extension'], 'failure')).template
+    ).toBe('typescript')
+  })
+
+  it('adds no template to a command that is not create', async () => {
+    expect(await sentProperties('build', [])).not.toHaveProperty('template')
   })
 })
