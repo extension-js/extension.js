@@ -1,5 +1,8 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import type {ReloadBroker} from '../../plugin-reload'
+import {classifyReloadFromSources, type ReloadBroker} from '../../plugin-reload'
 import {
   reloadSurvivingPackage,
   SafariDevPlugin,
@@ -573,5 +576,104 @@ describe('SafariDevPlugin reload trimming after a package', () => {
     expect(asked).toEqual([])
     expect(warn).not.toHaveBeenCalled()
     expect(log).not.toHaveBeenCalled()
+  })
+})
+
+describe('SafariDevPlugin failures and reloads it does not report', () => {
+  const roots: string[] = []
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+
+    for (const root of roots.splice(0)) {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  // Pins today's behavior. Ledger 1382 D3.
+  it('prints nothing and never says ready when the first package throws an error of its own', async () => {
+    const quiet = vi.fn()
+    vi.spyOn(console, 'log').mockImplementation(quiet)
+    vi.spyOn(console, 'warn').mockImplementation(quiet)
+    vi.spyOn(console, 'error').mockImplementation(quiet)
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => {
+      quiet()
+
+      return true
+    })
+
+    const ready = vi.fn()
+    // Neither of the two failures the packager prints for itself (converter
+    // and xcodebuild), so nothing on the way out names it.
+    const plugin = new SafariDevPlugin(async () => {
+      throw new Error("EACCES: permission denied, open 'Info.plist'")
+    })
+    plugin.setReadyListener(ready)
+    const {compiler, trigger} = makeCompiler()
+    plugin.apply(compiler)
+
+    await trigger('/out1')
+
+    expect(quiet).not.toHaveBeenCalled()
+    expect(ready).not.toHaveBeenCalled()
+    expect(plugin.emitter.listenerCount('error')).toBe(1)
+  })
+
+  // Pins today's behavior. Ledger 1382 D5.
+  it('sends a copied page edit with no standalone page, so its open tabs are not refreshed', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-page-'))
+    roots.push(root)
+    const output = path.join(root, 'dist')
+    const page = '<!doctype html><title>options</title>\n'
+
+    for (const dir of [root, output]) {
+      fs.mkdirSync(path.join(dir, 'pages'), {recursive: true})
+      fs.writeFileSync(path.join(dir, 'pages/options.html'), page)
+    }
+
+    const frames: Array<Record<string, unknown>> = []
+    const pkg = makeDeferredPackager()
+    const plugin = new SafariDevPlugin(pkg.fn)
+    plugin.setReloadBroker({
+      broadcastReload: (frame) => {
+        frames.push({...frame})
+
+        return 1
+      }
+    })
+
+    const {compiler, trigger} = makeCompiler(root)
+    plugin.apply(compiler)
+
+    const first = trigger(output)
+    await flush()
+    pkg.callFor(output).resolve()
+    await first
+
+    pkg.calls.length = 0
+    await trigger(output, {changedFiles: ['pages/options.html']})
+    await flush()
+    pkg.callFor(output).resolve()
+    await plugin.idle()
+
+    expect(frames).toEqual([
+      {
+        type: 'page',
+        label: 'options page (pages/options.html)',
+        changedContentScriptEntries: undefined,
+        changedFiles: ['pages/options.html']
+      }
+    ])
+
+    // The same edit names the page once the classifier is told the root.
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['pages/options.html'],
+        getContentScriptCount: () => 0,
+        outputPath: output,
+        contextDir: root
+      })?.standalonePages
+    ).toEqual(['pages/options.html'])
   })
 })

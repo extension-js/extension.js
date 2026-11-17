@@ -166,6 +166,75 @@ describe('browser launch slot', () => {
 
     expect(dev.launch).toHaveBeenCalledTimes(1)
   })
+
+  // Pins today's behavior. Ledger 1382 D1.
+  it('reports a logging setup failure as a browser that could not start, and never says ready', async () => {
+    const dev = session(
+      async () =>
+        controller({
+          enableUnifiedLogging: vi.fn(async () => {
+            throw new Error('logging refused')
+          })
+        }),
+      {browser: 'chrome', logLevel: 'info'}
+    )
+
+    await dev.compile()
+    await dev.compile()
+
+    expect(printed.error).toEqual([
+      messages.browserLaunchFailed('chrome', 'logging refused')
+    ])
+
+    expect(printed.error[0]).toContain("Chrome couldn't start")
+    expect(dev.errors).toEqual([{errors: ['logging refused']}])
+    expect(dev.events).toEqual(['settled', 'error', 'compiled', 'compiled'])
+  })
+
+  // Pins today's behavior. Ledger 1382 D6.
+  it("drops the launcher's error code from the emitted error", async () => {
+    const dev = session(async () => {
+      throw Object.assign(new Error('Chrome binary not found'), {
+        code: 'E_BROWSER_NOT_FOUND'
+      })
+    })
+
+    await dev.compile()
+
+    expect(dev.errors).toEqual([{errors: ['Chrome binary not found']}])
+    expect(JSON.stringify(dev.errors)).not.toContain('E_BROWSER_NOT_FOUND')
+  })
+
+  // Pins today's behavior. Ledger 1382 D7.
+  it("never emits the declared 'close' event, and taps no hook that could", async () => {
+    const dev = session(async () => controller())
+
+    await dev.compile()
+    await dev.compile(['src/manifest.json'])
+
+    expect(dev.fake.tappers('watchClose')).toEqual([])
+    expect(dev.fake.tappers('shutdown')).toEqual([])
+    expect(dev.fake.tappers('done')).toContain(BrowsersPlugin.name)
+    expect(dev.events).not.toContain('close')
+  })
+
+  // A session the dev server never handed a broker still classifies, and the
+  // emitted event carries the reload, but nothing is sent or announced.
+  it('emits the reload and sends nothing when no broker was handed in', async () => {
+    const dev = session(async () => controller())
+
+    await dev.compile()
+    await dev.compile(['src/manifest.json'])
+
+    expect(dev.compiled[1].reloadInstruction).toEqual({
+      type: 'full',
+      changedAssets: ['src/manifest.json'],
+      label: 'extension (src/manifest.json)'
+    })
+
+    expect(printed.log).toEqual([])
+    expect(printed.error).toEqual([])
+  })
 })
 
 // The ready contract of a dev session waits for what the launcher stamps,

@@ -171,6 +171,35 @@ describe('the retry of a refused extension on the next compile', () => {
     expect(dev.events).toEqual(['compiled', 'ready', 'compiled'])
   })
 
+  // The guest started from the dist this compile wrote, so the swap that
+  // compile classified is not sent, and the next compile compares with it.
+  it('sends nothing for the compile the retry loaded, and compares with it next', async () => {
+    const broadcastReload = vi.fn(() => 1)
+    const browser = refusingBrowser(async () => ({status: 'loaded' as const}))
+    const dev = session(browser.controller, {broadcastReload}, 'firefox')
+
+    await dev.compile('red')
+    await dev.compile('blue', ['src/widget.module.css'])
+
+    expect(dev.compiled[1].reloadInstruction?.refreshedStylesheets).toEqual([
+      {file: SHEET, digest: expect.any(String)}
+    ])
+
+    expect(broadcastReload).not.toHaveBeenCalled()
+
+    await dev.compile('blue', ['src/notes.txt'])
+
+    expect(dev.compiled[2].reloadInstruction).toMatchObject({
+      type: 'content-scripts'
+    })
+
+    expect(
+      dev.compiled[2].reloadInstruction?.refreshedStylesheets
+    ).toBeUndefined()
+
+    expect(dev.events).toEqual(['compiled', 'ready', 'compiled', 'compiled'])
+  })
+
   it('keeps the recovery line off stdout while a machine owns it', async () => {
     vi.stubEnv('EXTENSION_OUTPUT', 'json')
     vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
@@ -265,5 +294,20 @@ describe('the retry of a refused extension on the next compile', () => {
 
     expect(browser.retryExtensionLoad).toHaveBeenCalledTimes(1)
     expect(dev.events).toEqual(['compiled', 'compiled'])
+  })
+
+  // Pins today's behavior. Ledger 1382 D8.
+  it('prints nothing at all when the retry throws', async () => {
+    const browser = refusingBrowser(async () => {
+      throw new Error('CDP socket closed')
+    })
+    const dev = session(browser.controller)
+
+    await dev.compile()
+    await dev.compile()
+
+    expect(printed.log).toEqual([])
+    expect(printed.error).toEqual([])
+    expect(dev.events).not.toContain('error')
   })
 })
