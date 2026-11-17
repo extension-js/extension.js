@@ -10,7 +10,6 @@ import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
-import {hasChannelPrefix} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 const allowlist = ['LICENSE', 'node_modules']
@@ -49,8 +48,9 @@ export async function createDirectory(
     const writeFailure = await utils.directoryWriteFailure(projectPath)
 
     if (writeFailure) {
-      throw new Error(
-        messages.destinationNotWriteable(projectPath, writeFailure)
+      throw utils.failStep(
+        messages.destinationNotWriteable(projectPath, writeFailure),
+        writeFailure
       )
     }
 
@@ -86,14 +86,11 @@ export async function createDirectory(
     }
   } catch (error) {
     // A step that already rendered its own block keeps it. Wrapping it again
-    // prints a second glyph, a REASON row repeating the text, and a remedy
-    // for permissions that has nothing to do with the real cause.
-    if (hasChannelPrefix(String((error as Error)?.message ?? error))) {
-      throw error
-    }
-
-    // Re-throw a single formatted error so callers log it once
-    throw new Error(messages.createDirectoryError(projectName, error))
+    // prints a second glyph and a remedy that has nothing to do with the cause.
+    throw utils.failStep(
+      messages.createDirectoryError(projectName, error),
+      error
+    )
   }
 
   return {directoryCreated: !directoryPreExisted}

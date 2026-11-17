@@ -9,9 +9,11 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {parseJsoncSafe} from '../lib/deno-manifest'
+import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {isDenoRuntime} from '../lib/package-manager'
+import {failStep} from '../lib/utils'
 import {
   getTemplateAwareScripts,
   resolveExtensionBinary,
@@ -88,14 +90,8 @@ async function collectTemplateImports(
   projectPath: string,
   cliVersion?: string
 ): Promise<Record<string, string>> {
-  let templatePackageJson: Record<string, unknown> = {}
-
-  try {
-    const raw = await fs.readFile(path.join(projectPath, 'package.json'))
-    templatePackageJson = JSON.parse(raw.toString())
-  } catch {
-    // Web-only remote templates may not include package.json.
-  }
+  // Web-only remote templates may not include package.json.
+  const templatePackageJson = readTemplatePackageJson(projectPath) ?? {}
 
   const declared: Record<string, string> = {
     ...(templatePackageJson.dependencies || {}),
@@ -206,8 +202,6 @@ export async function writeDenoJsonc(
       await fs.rm(path.join(projectPath, 'package.json'), {force: true})
     }
   } catch (error) {
-    logger.error(messages.writingDenoJsoncError(error))
-
-    throw error
+    throw failStep(messages.writingDenoJsoncError(error), error)
   }
 }

@@ -14,6 +14,7 @@ import {
 } from '../../develop/lib/extension-env-template'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
+import {failStep} from '../lib/utils'
 
 export async function generateExtensionTypes(
   projectPath: string,
@@ -34,8 +35,6 @@ export async function generateExtensionTypes(
 
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error) {
-    logger.error(messages.writingTypeDefinitionsError(error))
-
-    throw error
+    throw failStep(messages.writingTypeDefinitionsError(error), error)
   }
 }

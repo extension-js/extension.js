@@ -1,46 +1,41 @@
+import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {strToU8, zipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-vi.mock('go-git-it', () => ({default: vi.fn(async () => {})}))
-vi.mock('axios', () => ({
-  default: {
-    get: vi.fn(async () => {
-      throw new Error('network is disabled in this test')
-    })
-  }
-}))
-
-vi.mock('../../lib/install-runner', () => ({
-  runInstall: vi.fn(async () => ({
-    code: 1,
-    stdout: '',
-    stderr:
-      'npm error code ECONNREFUSED\n' +
-      'npm error     at ClientRequest.<anonymous> (minipass-fetch/lib/index.js:130:14)\n' +
-      'npm error A complete log of this run can be found in: /tmp/debug-0.log\n'
-  }))
-}))
-
-import axios from 'axios'
-import goGitIt from 'go-git-it'
+import {
+  fetchFrom,
+  type LoopbackReply,
+  type LoopbackServer,
+  refusedLoopbackUrl,
+  serveLoopback
+} from '../../__spec__/loopback-template-server'
 import {hasChannelPrefix} from '../../lib/messaging'
 import {createDirectory} from '../create-directory'
+import {generateExtensionTypes} from '../generate-extension-types'
 import {
+  type ImportExternalTemplateOptions,
   InsecureTemplateUrlError,
   importExternalTemplate,
   TemplateArchiveDamagedError,
   TemplateArchiveEntryOutsideError,
+  type TemplateClone,
   TemplateDownloadError,
+  type TemplateFetch,
   TemplateNotFoundError,
   TemplateNotZipError
 } from '../import-external-template'
 import {installDependencies} from '../install-dependencies'
+import {setupBuiltInTests} from '../setup-built-in-tests'
+import {writeDenoJsonc} from '../write-deno-jsonc'
+import {writeGitignore} from '../write-gitignore'
 import {writeManifestJson} from '../write-manifest-json'
+import {overridePackageJson} from '../write-package-json'
+import {writeReadmeFile} from '../write-readme-file'
 
 const GLYPH = '⏵⏵⏵'
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
 const STACK_FRAME = /^\s+at /m
 const emptyArchive = Buffer.concat([
   Buffer.from([0x50, 0x4b, 0x05, 0x06]),
@@ -75,16 +70,32 @@ async function makeProjectPath() {
   return path.join(tmpRoot, 'my-ext')
 }
 
-async function failingImport(template: string, logger = makeLogger()) {
+async function failingImport(
+  template: string,
+  options: ImportExternalTemplateOptions = {},
+  logger = makeLogger()
+) {
   const error = (await importExternalTemplate(
     await makeProjectPath(),
     'my-ext',
     template,
     logger,
-    {ownsProjectDir: true, allowOfflineFallback: false}
+    {ownsProjectDir: true, allowOfflineFallback: false, ...options}
   ).catch((thrown: Error) => thrown)) as Error
 
   return {error, logger}
+}
+
+const servers: LoopbackServer[] = []
+
+// A loopback server that stands for the remote end. Plain http is allowed
+// for the test that asks, as it is for any loopback run of the CLI.
+async function serving(routes: Record<string, LoopbackReply>) {
+  const server = await serveLoopback(routes)
+  servers.push(server)
+  process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+
+  return server
 }
 
 function expectOneFrameAndNoStack(error: Error, logger: {errors: string[]}) {
@@ -94,15 +105,23 @@ function expectOneFrameAndNoStack(error: Error, logger: {errors: string[]}) {
   expect(logger.errors).toEqual([])
 }
 
+const savedEnv = {
+  EXTENSION_ALLOW_HTTP_TEMPLATE: process.env.EXTENSION_ALLOW_HTTP_TEMPLATE,
+  EXTENSION_CREATE_TEMPLATE_URL: process.env.EXTENSION_CREATE_TEMPLATE_URL
+}
+
 beforeEach(() => {
   delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
   delete process.env.EXTENSION_CREATE_TEMPLATE_URL
-  vi.mocked(axios.get).mockReset()
-  vi.mocked(goGitIt).mockReset()
 })
 
 afterEach(async () => {
-  delete process.env.EXTENSION_CREATE_TEMPLATE_URL
+  for (const [name, value] of Object.entries(savedEnv)) {
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
+  }
+
+  for (const server of servers.splice(0)) await server.close()
 
   for (const dir of tmpRoots.splice(0)) {
     await fsp.rm(dir, {recursive: true, force: true})
@@ -111,9 +130,11 @@ afterEach(async () => {
 
 describe('a create refusal travels as one framed message on the thrown error', () => {
   it('for a template name missing from the catalog', async () => {
-    vi.mocked(axios.get).mockResolvedValue({data: emptyArchive, headers: {}})
+    const server = await serving({'/catalog.zip': {body: emptyArchive}})
 
-    const {error, logger} = await failingImport('nope-xyz')
+    const {error, logger} = await failingImport('nope-xyz', {
+      fetch: fetchFrom(server.url('/catalog.zip'))
+    })
 
     expect(error).toBeInstanceOf(TemplateNotFoundError)
     expect(error.message).toContain('nope-xyz')
@@ -125,15 +146,14 @@ describe('a create refusal travels as one framed message on the thrown error', (
   })
 
   it('for a catalog download that fails', async () => {
-    vi.mocked(axios.get).mockRejectedValue(
-      Object.assign(new Error('Request failed with status code 404'), {
-        response: {status: 404}
-      })
-    )
+    const server = await serving({})
 
-    const {error, logger} = await failingImport('react')
+    const {error, logger} = await failingImport('react', {
+      fetch: fetchFrom(server.url('/catalog.zip'))
+    })
 
     expect(error).toBeInstanceOf(TemplateDownloadError)
+    expect(server.hits('/catalog.zip')).toBe(1)
     expect(error.message).toContain("Couldn't download the template")
     expect(error.message).toContain('status code 404')
     expectOneFrameAndNoStack(error, logger)
@@ -143,8 +163,8 @@ describe('a create refusal travels as one framed message on the thrown error', (
   // so an untyped throw here reached the sink that prints a stack. The spawned
   // git reports its own failure with frames pointing inside node_modules.
   it('for a GitHub template URL that cannot be fetched', async () => {
-    vi.mocked(goGitIt).mockRejectedValueOnce(
-      Object.assign(
+    const clone = vi.fn<TemplateClone>(async () => {
+      throw Object.assign(
         new Error(
           'Failed to download partial repository: Git command failed\n' +
             'remote: Repository not found.\n' +
@@ -156,11 +176,14 @@ describe('a create refusal travels as one framed message on the thrown error', (
             '    at downloadPartialRepository (/x/node_modules/go-git-it/dist/index.cjs:372:15)\n'
         }
       )
-    )
+    })
 
     const {error, logger} = await failingImport(
-      'https://github.com/extension-js/exampels/tree/main/examples/react'
+      'https://github.com/extension-js/exampels/tree/main/examples/react',
+      {clone}
     )
+
+    expect(clone).toHaveBeenCalledTimes(1)
 
     expect(error).toBeInstanceOf(TemplateDownloadError)
     expect(error.message).toContain(
@@ -173,18 +196,16 @@ describe('a create refusal travels as one framed message on the thrown error', (
   })
 
   it('for a ZIP template URL that answers with something else', async () => {
-    vi.mocked(axios.get).mockResolvedValue({
-      data: Buffer.from('<html>not found</html>'),
-      headers: {'content-type': 'text/html'}
+    const server = await serving({
+      '/templates/mine': {type: 'text/html', body: '<html>not found</html>'}
     })
+    const url = server.url('/templates/mine')
 
-    const {error, logger} = await failingImport(
-      'https://example.com/templates/mine'
-    )
+    const {error, logger} = await failingImport(url)
 
     expect(error).toBeInstanceOf(TemplateNotZipError)
     expect(error.message).toContain("doesn't point to a ZIP archive")
-    expect(error.message).toContain('URL https://example.com/templates/mine')
+    expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain('GOT text/html')
     expectOneFrameAndNoStack(error, logger)
   })
@@ -194,30 +215,28 @@ describe('a create refusal travels as one framed message on the thrown error', (
   it.each([
     [
       'a page behind a .zip name',
-      'https://example.com/t.zip',
+      '/t.zip',
       {
-        data: Buffer.from('<!doctype html><html><body>Sign in</body></html>'),
-        headers: {'content-type': 'text/html; charset=utf-8'}
+        type: 'text/html; charset=utf-8',
+        body: '<!doctype html><html><body>Sign in</body></html>'
       },
       'GOT text/html; charset=utf-8'
     ],
     [
       'an empty body sent as a ZIP',
-      'https://example.com/download',
-      {data: Buffer.alloc(0), headers: {'content-type': 'application/zip'}},
+      '/download',
+      {type: 'application/zip', body: Buffer.alloc(0)},
       'GOT application/zip with an empty body'
     ],
     [
       'bytes that are not an archive sent as one',
-      'https://example.com/t.zip',
-      {
-        data: Buffer.from('not an archive'),
-        headers: {'content-type': 'application/octet-stream'}
-      },
+      '/t.zip',
+      {type: 'application/octet-stream', body: 'not an archive'},
       'GOT application/octet-stream that is not ZIP data'
     ]
-  ])('for a ZIP template URL that answers with %s', async (_label, url, response, got) => {
-    vi.mocked(axios.get).mockResolvedValue(response)
+  ])('for a ZIP template URL that answers with %s', async (_label, pathname, reply, got) => {
+    const server = await serving({[pathname]: reply})
+    const url = server.url(pathname)
 
     const {error, logger} = await failingImport(url)
 
@@ -233,36 +252,34 @@ describe('a create refusal travels as one framed message on the thrown error', (
   // The catalog override is a URL someone typed as well, and its reply went
   // to the unzip with no test at all.
   it('for a catalog override URL that answers with a page', async () => {
-    process.env.EXTENSION_CREATE_TEMPLATE_URL =
-      'https://example.com/catalog.zip'
-
-    vi.mocked(axios.get).mockResolvedValue({
-      data: Buffer.from('<!doctype html><html><body>Sign in</body></html>'),
-      headers: {'content-type': 'text/html; charset=utf-8'}
+    const server = await serving({
+      '/catalog.zip': {
+        type: 'text/html; charset=utf-8',
+        body: '<!doctype html><html><body>Sign in</body></html>'
+      }
     })
+    const override = server.url('/catalog.zip')
+    process.env.EXTENSION_CREATE_TEMPLATE_URL = override
 
     const {error, logger} = await failingImport('react')
 
     expect(error).toBeInstanceOf(TemplateNotZipError)
     expect(error.message).toContain("doesn't point to a ZIP archive")
-    expect(error.message).toContain('URL https://example.com/catalog.zip')
+    expect(error.message).toContain(`URL ${override}`)
     expect(error.message).toContain('GOT text/html; charset=utf-8')
     expect(error.message).not.toContain('invalid zip data')
     expectOneFrameAndNoStack(error, logger)
   })
 
   it.each([
-    ['a template URL', 'https://example.com/t.zip', undefined],
-    ['a catalog override URL', 'react', 'https://example.com/catalog.zip']
-  ])('for %s whose archive is damaged', async (_label, template, override) => {
-    if (override) process.env.EXTENSION_CREATE_TEMPLATE_URL = override
+    ['a template URL', undefined],
+    ['a catalog override URL', 'react']
+  ])('for %s whose archive is damaged', async (_label, catalogName) => {
+    const server = await serving({'/t.zip': {body: damagedArchive}})
+    const url = server.url('/t.zip')
+    if (catalogName) process.env.EXTENSION_CREATE_TEMPLATE_URL = url
 
-    vi.mocked(axios.get).mockResolvedValue({
-      data: damagedArchive,
-      headers: {'content-type': 'application/zip'}
-    })
-
-    const {error, logger} = await failingImport(template)
+    const {error, logger} = await failingImport(catalogName ?? url)
 
     expect(error).toBeInstanceOf(TemplateArchiveDamagedError)
     expect(error).not.toBeInstanceOf(TemplateDownloadError)
@@ -270,7 +287,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
       'The ZIP archive at the remote URL is damaged.'
     )
 
-    expect(error.message).toContain(`URL ${override ?? template}`)
+    expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain('REASON invalid zip data')
     expectOneFrameAndNoStack(error, logger)
   })
@@ -280,7 +297,6 @@ describe('a create refusal travels as one framed message on the thrown error', (
   it.each([
     [
       'a template URL',
-      'https://example.com/t.zip',
       undefined,
       {
         't/manifest.json': strToU8('{}'),
@@ -291,20 +307,19 @@ describe('a create refusal travels as one framed message on the thrown error', (
     [
       'a catalog override URL',
       'react',
-      'https://example.com/catalog.zip',
       {
         'examples-main/examples/react/manifest.json': strToU8('{}'),
         'examples-main/examples/react/../../../escaped.txt': strToU8('hostile')
       },
       'examples-main/examples/react/../../../escaped.txt'
     ]
-  ])('for %s whose archive has an entry outside its folder', async (_label, template, override, files, entry) => {
-    if (override) process.env.EXTENSION_CREATE_TEMPLATE_URL = override
-
-    vi.mocked(axios.get).mockResolvedValue({
-      data: Buffer.from(zipSync(files)),
-      headers: {'content-type': 'application/zip'}
+  ])('for %s whose archive has an entry outside its folder', async (_label, catalogName, files, entry) => {
+    const server = await serving({
+      '/t.zip': {body: Buffer.from(zipSync(files))}
     })
+    const url = server.url('/t.zip')
+    const template = catalogName ?? url
+    if (catalogName) process.env.EXTENSION_CREATE_TEMPLATE_URL = url
 
     const projectPath = await makeProjectPath()
     const staging = path.join(path.dirname(projectPath), 'staging')
@@ -332,7 +347,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
       'The ZIP archive at the remote URL contains a path outside its folder, so it was refused. Nothing was written.'
     )
 
-    expect(error.message).toContain(`URL ${override ?? template}`)
+    expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain(`ENTRY ${entry}`)
     expect(error.message).not.toMatch(/damaged|try again/i)
     expectOneFrameAndNoStack(error, logger)
@@ -343,27 +358,31 @@ describe('a create refusal travels as one framed message on the thrown error', (
   })
 
   it('for a template URL the connection to which is refused', async () => {
-    vi.mocked(axios.get).mockRejectedValue(
-      Object.assign(new Error('connect ECONNREFUSED 127.0.0.1:1'), {
-        code: 'ECONNREFUSED'
-      })
-    )
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+    const url = await refusedLoopbackUrl('/t.zip')
 
-    const {error, logger} = await failingImport('https://127.0.0.1:1/t.zip')
+    const {error, logger} = await failingImport(url)
 
     expect(error).toBeInstanceOf(TemplateDownloadError)
     expect(error.message).toContain("Couldn't fetch the template from that URL")
+    expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain('ECONNREFUSED')
     expectOneFrameAndNoStack(error, logger)
   })
 
   it('for a plain http template URL', async () => {
-    const {error, logger} = await failingImport('http://example.com/t.zip')
+    const fetch = vi.fn<TemplateFetch>(async () => {
+      throw new Error('the import asked for a download')
+    })
+
+    const {error, logger} = await failingImport('http://example.com/t.zip', {
+      fetch
+    })
 
     expect(error).toBeInstanceOf(InsecureTemplateUrlError)
     expect(error.message).toContain('plain HTTP')
     expectOneFrameAndNoStack(error, logger)
-    expect(axios.get).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
   })
 
   // A real read-only parent, never a stubbed writability probe: the probe is
@@ -411,7 +430,16 @@ describe('a create refusal travels as one framed message on the thrown error', (
       projectPath,
       'my-ext',
       logger,
-      'npm'
+      'npm',
+      undefined,
+      async () => ({
+        code: 1,
+        stdout: '',
+        stderr:
+          'npm error code ECONNREFUSED\n' +
+          'npm error     at ClientRequest.<anonymous> (minipass-fetch/lib/index.js:130:14)\n' +
+          'npm error A complete log of this run can be found in: /tmp/debug-0.log\n'
+      })
     ).catch((thrown: Error) => thrown)) as Error
 
     expect(error.message).toContain("Couldn't install the dependencies")
@@ -450,6 +478,213 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
     expect(error.message).toContain("Couldn't read a manifest.json")
     expect(error.message).toContain(manifestPath)
+    expect((error as {cause?: unknown}).cause).toBeInstanceOf(SyntaxError)
+    expectOneFrameAndNoStack(error, logger)
+  })
+
+  // A file where the folder must go fails the same on every platform, with no
+  // permission bits involved.
+  it('for a destination that is a file', async () => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.writeFile(projectPath, 'not a folder')
+
+    const error = (await createDirectory(projectPath, 'my-ext', logger).catch(
+      (thrown: Error) => thrown
+    )) as Error & {cause?: NodeJS.ErrnoException}
+
+    expect(plainLines(error)[0]).toBe(
+      `${GLYPH} Couldn't write to the destination directory.`
+    )
+
+    expect(plainLines(error)[1]).toBe(`PATH ${projectPath}`)
+    expect(error.cause).toMatchObject({code: 'EEXIST', syscall: 'mkdir'})
+    expectOneFrameAndNoStack(error, logger)
+  })
+})
+
+function plainLines(error: Error) {
+  return String(error.message).replace(ANSI, '').split('\n')
+}
+
+const GECKO_MANIFEST = JSON.stringify({
+  name: 'template',
+  browser_specific_settings: {gecko: {id: 'template@example.com'}}
+})
+
+// What each step is handed so its own write is the call that fails. Every
+// fault is a real one the filesystem raises on any platform: a folder where
+// the file goes, or a project folder that is not there. Nothing is stubbed.
+interface WriteFault {
+  step: string
+  headline: string
+  codes: string[]
+  syscall: string
+  // A failed read of a folder names no path on the error itself.
+  causeNamesPath?: false
+  // Answers the path the failed call names.
+  arrange: (projectPath: string) => Promise<string>
+  run: (
+    projectPath: string,
+    logger: ReturnType<typeof makeLogger>
+  ) => Promise<unknown>
+}
+
+const folderInPlaceOf =
+  (...segments: string[]) =>
+  async (projectPath: string) => {
+    const target = path.join(projectPath, ...segments)
+    await fsp.mkdir(target, {recursive: true})
+
+    return target
+  }
+
+const writeFaults: WriteFault[] = [
+  {
+    step: 'writeDenoJsonc',
+    headline: "Couldn't write deno.jsonc.",
+    codes: ['ENOENT'],
+    syscall: 'open',
+    arrange: async (projectPath) => {
+      await fsp.rm(projectPath, {recursive: true})
+
+      return path.join(projectPath, 'deno.jsonc')
+    },
+    run: (projectPath, logger) => writeDenoJsonc(projectPath, {}, logger)
+  },
+  {
+    step: 'overridePackageJson',
+    headline: "Couldn't write package.json.",
+    codes: ['ENOENT'],
+    syscall: 'open',
+    arrange: async (projectPath) => {
+      await fsp.rm(projectPath, {recursive: true})
+
+      return path.join(projectPath, 'package.json')
+    },
+    run: (projectPath, logger) =>
+      overridePackageJson(
+        projectPath,
+        {packageManager: 'npm', probeVersion: () => ({status: 1, stdout: ''})},
+        logger
+      )
+  },
+  {
+    step: 'writeManifestJson',
+    headline: "Couldn't write manifest.json.",
+    codes: ['EISDIR'],
+    syscall: 'open',
+    arrange: async (projectPath) => {
+      const target = path.join(projectPath, 'manifest.json')
+      await fsp.writeFile(target, GECKO_MANIFEST)
+
+      return target
+    },
+    // The manifest is read, then written back to the same path, so the id
+    // generator that runs between the two is where the folder takes its place.
+    run: (projectPath, logger) =>
+      writeManifestJson(projectPath, logger, () => {
+        const target = path.join(projectPath, 'manifest.json')
+        fs.rmSync(target)
+        fs.mkdirSync(target)
+
+        return '{00000000-0000-4000-8000-000000000000}'
+      })
+  },
+  {
+    step: 'writeReadmeFile',
+    headline: "Couldn't write README.md.",
+    codes: ['EISDIR'],
+    syscall: 'open',
+    arrange: async (projectPath) => {
+      await fsp.writeFile(path.join(projectPath, 'manifest.json'), '{}')
+
+      return folderInPlaceOf('README.md')(projectPath)
+    },
+    run: (projectPath, logger) =>
+      writeReadmeFile(projectPath, 'my-ext', logger, 'npm')
+  },
+  {
+    step: 'writeGitignore, reading the rules already there',
+    headline: "Couldn't write .gitignore.",
+    codes: ['EISDIR'],
+    syscall: 'read',
+    causeNamesPath: false,
+    arrange: folderInPlaceOf('.gitignore'),
+    run: (projectPath, logger) => writeGitignore(projectPath, logger)
+  },
+  {
+    step: 'writeGitignore, writing the merged rules',
+    headline: "Couldn't write .gitignore.",
+    codes: ['ENOENT'],
+    syscall: 'open',
+    arrange: async (projectPath) => {
+      await fsp.rm(projectPath, {recursive: true})
+
+      return path.join(projectPath, '.gitignore')
+    },
+    run: (projectPath, logger) => writeGitignore(projectPath, logger)
+  },
+  {
+    step: 'generateExtensionTypes',
+    headline: "Couldn't write the extension type definitions.",
+    codes: ['EISDIR'],
+    syscall: 'open',
+    arrange: folderInPlaceOf('extension-env.d.ts'),
+    run: (projectPath, logger) =>
+      generateExtensionTypes(projectPath, 'my-ext', logger)
+  },
+  {
+    step: 'setupBuiltInTests',
+    headline: "Couldn't set up the built-in tests.",
+    // Unlinking a folder is EPERM on macOS and Windows, EISDIR on Linux.
+    codes: ['EPERM', 'EISDIR'],
+    syscall: 'unlink',
+    arrange: folderInPlaceOf('tests', 'templates.spec.ts'),
+    run: (projectPath) => setupBuiltInTests(projectPath)
+  }
+]
+
+describe('a step whose write fails throws one frame and keeps the cause', () => {
+  it.each(writeFaults)('$step', async ({
+    headline,
+    codes,
+    syscall,
+    causeNamesPath,
+    arrange,
+    run
+  }) => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.mkdir(projectPath, {recursive: true})
+    const failedPath = await arrange(projectPath)
+    const hadDeno = 'Deno' in globalThis
+    ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}
+
+    const error = (await run(projectPath, logger)
+      .then(() => new Error('the step did not fail'))
+      .catch((thrown: Error) => thrown)
+      .finally(() => {
+        if (!hadDeno) delete (globalThis as {Deno?: unknown}).Deno
+      })) as Error & {cause?: NodeJS.ErrnoException}
+    const lines = plainLines(error)
+
+    expect(lines[0]).toBe(`${GLYPH} ${headline}`)
+    expect(
+      lines.filter((line) => /^REASON Error: E[A-Z]+: /.test(line))
+    ).toEqual([expect.stringContaining(`, ${syscall}`)])
+
+    // The file the step could not write is named in the frame.
+    expect(lines.join('\n')).toContain(failedPath)
+
+    // The filesystem's own error, whole, and not a copy of its text.
+    expect(error.cause).toBeInstanceOf(Error)
+    expect(codes).toContain(error.cause?.code)
+    expect(error.cause?.syscall).toBe(syscall)
+    expect(error.cause?.path).toBe(
+      causeNamesPath === false ? undefined : failedPath
+    )
+
     expectOneFrameAndNoStack(error, logger)
   })
 })

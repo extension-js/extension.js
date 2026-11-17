@@ -2,31 +2,43 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {InstallRunner} from '../lib/install-runner'
+import {shellQuote} from '../lib/utils'
+import {
+  buildOptionalInstallArgs,
+  detectOptionalDependencies,
+  installInternalDependencies,
+  type OptionalDepsPlan,
+  optionalInstallManager,
+  resolveMissingOptionalDeps
+} from '../steps/install-internal-deps'
+
+type InstallCall = {
+  command: string
+  args: string[]
+  opts: {cwd: string; stdio: string}
+}
+
+const installCalls: InstallCall[] = []
+const installResult = {
+  code: 0 as number | null,
+  stdout: '',
+  stderr: '',
+  reason: undefined as string | undefined
+}
+
+// The runner is the only thing that spawns, so handing the step this one means
+// no package manager ever starts and the result of an install is the test's.
+const runInstall: InstallRunner = async (command, args, opts) => {
+  installCalls.push({command, args, opts: {cwd: opts.cwd, stdio: opts.stdio}})
+
+  return {...installResult}
+}
+
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+const plain = (text: string) => text.replace(ANSI, '')
 
 const created: string[] = []
-
-const spawnCalls = vi.hoisted(
-  () => [] as Array<{command: string; args: string[]; cwd?: string}>
-)
-
-vi.mock('cross-spawn', () => ({
-  spawn: (command: string, args: string[], opts: any) => {
-    spawnCalls.push({command, args, cwd: opts?.cwd})
-    const listeners: Record<string, Function[]> = {close: [], error: []}
-
-    return {
-      stdout: {on: () => undefined},
-      stderr: {on: () => undefined},
-      on: (evt: 'close' | 'error', cb: Function) => {
-        listeners[evt].push(cb)
-
-        if (evt === 'close') {
-          setImmediate(() => cb(0))
-        }
-      }
-    } as any
-  }
-}))
 
 function makeTempDir(prefix: string) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), prefix))
@@ -40,266 +52,761 @@ function writeJson(filePath: string, value: unknown) {
   fs.writeFileSync(filePath, JSON.stringify(value, null, 2))
 }
 
-describe('install-internal-deps', () => {
-  const originalEnv = process.env
+function makeProject(
+  dependencies: Record<string, string> | undefined,
+  files: string[] = []
+) {
+  const projectRoot = makeTempDir('extjs-project-')
 
-  const itCleanEnv = process.env.CI ? it.skip : it
+  if (dependencies) {
+    writeJson(path.join(projectRoot, 'package.json'), {
+      name: 'demo',
+      dependencies
+    })
+  }
 
-  beforeEach(() => {
-    vi.resetModules()
-    process.env = {...originalEnv}
-    spawnCalls.length = 0
+  for (const file of files) {
+    fs.writeFileSync(path.join(projectRoot, file), '{}')
+  }
+
+  return projectRoot
+}
+
+function makeDevelopRoot() {
+  const developRoot = makeTempDir('extjs-develop-')
+  writeJson(path.join(developRoot, 'package.json'), {name: 'extension-develop'})
+
+  return developRoot
+}
+
+function recordingLogger() {
+  const logs: string[] = []
+
+  return {
+    logs,
+    logger: {
+      log: (...args: unknown[]) => logs.push(plain(args.map(String).join(' '))),
+      error: (...args: unknown[]) =>
+        logs.push(plain(args.map(String).join(' ')))
+    }
+  }
+}
+
+const nothingResolves = () => false
+const everythingResolves = () => true
+
+beforeEach(() => {
+  installCalls.length = 0
+  Object.assign(installResult, {
+    code: 0,
+    stdout: '',
+    stderr: '',
+    reason: undefined
   })
 
-  afterEach(() => {
-    for (const d of created) {
-      try {
-        fs.rmSync(d, {recursive: true, force: true})
-      } catch {
-        // Ignore
+  // The machine or the lane may export any of these, and each changes the run.
+  vi.stubEnv('EXTENSION_ENV', undefined)
+  vi.stubEnv('EXTENSION_SKIP_INTERNAL_INSTALL', undefined)
+  vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', undefined)
+  vi.stubEnv('EXTENSION_DEBUG', undefined)
+  vi.stubEnv('EXTENSION_AUTHOR_MODE', undefined)
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+
+  for (const dir of created.splice(0)) {
+    fs.rmSync(dir, {recursive: true, force: true})
+  }
+})
+
+type DetectionCase = {
+  name: string
+  dependencies: Record<string, string> | undefined
+  files: string[]
+  plan: OptionalDepsPlan
+}
+
+describe('detectOptionalDependencies', () => {
+  it.each<DetectionCase>([
+    {
+      name: 'a project with no tooling asks for nothing',
+      dependencies: {},
+      files: [],
+      plan: {integrations: [], dependencies: [], dependenciesByIntegration: {}}
+    },
+    {
+      name: 'React asks for the refresh runtime and its plugin',
+      dependencies: {react: '^18.0.0'},
+      files: [],
+      plan: {
+        integrations: ['React'],
+        dependencies: ['react-refresh', '@rspack/plugin-react-refresh'],
+        dependenciesByIntegration: {
+          React: ['react-refresh', '@rspack/plugin-react-refresh']
+        }
+      }
+    },
+    {
+      name: 'react-dom alone counts as React',
+      dependencies: {'react-dom': '^18.0.0'},
+      files: [],
+      plan: {
+        integrations: ['React'],
+        dependencies: ['react-refresh', '@rspack/plugin-react-refresh'],
+        dependenciesByIntegration: {
+          React: ['react-refresh', '@rspack/plugin-react-refresh']
+        }
+      }
+    },
+    {
+      name: 'React with Tailwind and a PostCSS config adds the PostCSS pair',
+      dependencies: {react: '^18.0.0', tailwindcss: '^4.0.0'},
+      files: ['postcss.config.js'],
+      plan: {
+        integrations: ['React', 'PostCSS'],
+        dependencies: [
+          'react-refresh',
+          '@rspack/plugin-react-refresh',
+          'postcss',
+          'postcss-loader'
+        ],
+        dependenciesByIntegration: {
+          React: ['react-refresh', '@rspack/plugin-react-refresh'],
+          PostCSS: ['postcss', 'postcss-loader']
+        }
+      }
+    },
+    {
+      name: 'a tsconfig.json alone counts as TypeScript',
+      dependencies: undefined,
+      files: ['tsconfig.json'],
+      plan: {
+        integrations: ['TypeScript'],
+        dependencies: ['typescript'],
+        dependenciesByIntegration: {TypeScript: ['typescript']}
+      }
+    },
+    {
+      name: 'Preact asks for prefresh and preact itself',
+      dependencies: {preact: '^10.0.0'},
+      files: [],
+      plan: {
+        integrations: ['Preact'],
+        dependencies: [
+          '@prefresh/core',
+          '@prefresh/utils',
+          '@rspack/plugin-preact-refresh',
+          'preact'
+        ],
+        dependenciesByIntegration: {
+          Preact: [
+            '@prefresh/core',
+            '@prefresh/utils',
+            '@rspack/plugin-preact-refresh',
+            'preact'
+          ]
+        }
+      }
+    },
+    {
+      name: 'Vue asks for its loader and the SFC compiler',
+      dependencies: {vue: '^3.0.0'},
+      files: [],
+      plan: {
+        integrations: ['Vue'],
+        dependencies: ['vue-loader', '@vue/compiler-sfc'],
+        dependenciesByIntegration: {Vue: ['vue-loader', '@vue/compiler-sfc']}
+      }
+    },
+    {
+      name: 'Svelte with TypeScript lists typescript once across both',
+      dependencies: {svelte: '^5.0.0', typescript: '^5.0.0'},
+      files: [],
+      plan: {
+        integrations: ['TypeScript', 'Svelte'],
+        dependencies: ['typescript', 'svelte-loader'],
+        dependenciesByIntegration: {
+          TypeScript: ['typescript'],
+          Svelte: ['svelte-loader', 'typescript']
+        }
+      }
+    },
+    {
+      name: 'Sass brings its own PostCSS loader, so PostCSS adds nothing',
+      dependencies: {sass: '^1.0.0', postcss: '^8.0.0'},
+      files: [],
+      plan: {
+        integrations: ['Sass', 'PostCSS'],
+        dependencies: [
+          'sass-loader',
+          'postcss-loader',
+          'postcss-scss',
+          'postcss-preset-env'
+        ],
+        dependenciesByIntegration: {
+          Sass: [
+            'sass-loader',
+            'postcss-loader',
+            'postcss-scss',
+            'postcss-preset-env'
+          ],
+          PostCSS: []
+        }
+      }
+    },
+    {
+      name: 'Less asks for less and its loader',
+      dependencies: {'less-loader': '^12.0.0'},
+      files: [],
+      plan: {
+        integrations: ['Less'],
+        dependencies: ['less', 'less-loader'],
+        dependenciesByIntegration: {Less: ['less', 'less-loader']}
+      }
+    },
+    {
+      name: 'a Tailwind config file alone counts as PostCSS',
+      dependencies: {},
+      files: ['tailwind.config.js'],
+      plan: {
+        integrations: ['PostCSS'],
+        dependencies: ['postcss', 'postcss-loader'],
+        dependenciesByIntegration: {PostCSS: ['postcss', 'postcss-loader']}
       }
     }
+  ])('$name', ({dependencies, files, plan}) => {
+    const projectRoot = makeProject(dependencies, files)
 
-    created.length = 0
-    process.env = originalEnv
-    vi.restoreAllMocks()
+    expect(detectOptionalDependencies(projectRoot)).toEqual(plan)
   })
 
-  it('warns loudly when package.json exists but cannot be parsed', async () => {
-    const developRoot = makeTempDir('extjs-develop-')
+  it('reads devDependencies as well as dependencies', () => {
     const projectRoot = makeTempDir('extjs-project-')
-
-    writeJson(path.join(developRoot, 'package.json'), {
-      name: 'extension-develop'
+    writeJson(path.join(projectRoot, 'package.json'), {
+      name: 'demo',
+      devDependencies: {vue: '^3.0.0'}
     })
 
-    fs.writeFileSync(path.join(projectRoot, 'package.json'), '{"name": broken')
+    expect(detectOptionalDependencies(projectRoot).integrations).toEqual([
+      'Vue'
+    ])
+  })
 
-    process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
-    process.env.EXTENSION_ENV = 'development'
+  it('reads npm imports from a Deno project that has no package.json', () => {
+    const projectRoot = makeTempDir('extjs-project-')
+    writeJson(path.join(projectRoot, 'deno.json'), {
+      imports: {react: 'npm:react@^18.0.0'}
+    })
 
-    const logs: string[] = []
-    const logger = {
-      log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
-      error: (...args: unknown[]) => logs.push(args.map(String).join(' '))
+    expect(detectOptionalDependencies(projectRoot).integrations).toEqual([
+      'React'
+    ])
+  })
+})
+
+describe('resolveMissingOptionalDeps', () => {
+  const developRoot = path.join(path.sep, 'toolchain', 'extension-develop')
+  const cwd = path.join(path.sep, 'somewhere', 'else')
+
+  it('keeps every dependency when nothing resolves', () => {
+    const projectRoot = makeProject({react: '^18.0.0', vue: '^3.0.0'})
+
+    expect(
+      resolveMissingOptionalDeps(developRoot, projectRoot, nothingResolves, cwd)
+    ).toEqual({
+      integrations: ['React', 'Vue'],
+      dependencies: [
+        'react-refresh',
+        '@rspack/plugin-react-refresh',
+        'vue-loader',
+        '@vue/compiler-sfc'
+      ],
+      dependenciesByIntegration: {
+        React: ['react-refresh', '@rspack/plugin-react-refresh'],
+        Vue: ['vue-loader', '@vue/compiler-sfc']
+      }
+    })
+  })
+
+  it('drops what already resolves and the integrations left with nothing', () => {
+    const projectRoot = makeProject({react: '^18.0.0', vue: '^3.0.0'})
+    const present = new Set([
+      'react-refresh',
+      '@rspack/plugin-react-refresh',
+      'vue-loader'
+    ])
+
+    expect(
+      resolveMissingOptionalDeps(
+        developRoot,
+        projectRoot,
+        (dependency) => present.has(dependency),
+        cwd
+      )
+    ).toEqual({
+      integrations: ['Vue'],
+      dependencies: ['@vue/compiler-sfc'],
+      dependenciesByIntegration: {Vue: ['@vue/compiler-sfc']}
+    })
+  })
+
+  it('answers an empty plan when everything resolves', () => {
+    const projectRoot = makeProject({react: '^18.0.0', sass: '^1.0.0'})
+
+    expect(
+      resolveMissingOptionalDeps(
+        developRoot,
+        projectRoot,
+        everythingResolves,
+        cwd
+      )
+    ).toEqual({
+      integrations: [],
+      dependencies: [],
+      dependenciesByIntegration: {}
+    })
+  })
+
+  it('looks in the toolchain, the project and the working directory, in that order', () => {
+    const projectRoot = makeProject({vue: '^3.0.0'})
+    const asked: Array<{dependency: string; paths: string[]}> = []
+
+    resolveMissingOptionalDeps(
+      developRoot,
+      projectRoot,
+      (dependency, paths) => {
+        asked.push({dependency, paths})
+
+        return false
+      },
+      cwd
+    )
+
+    expect(asked).toEqual([
+      {dependency: 'vue-loader', paths: [developRoot, projectRoot, cwd]},
+      {dependency: '@vue/compiler-sfc', paths: [developRoot, projectRoot, cwd]}
+    ])
+  })
+})
+
+describe('optional install arguments per package manager', () => {
+  const installDir = path.join(path.sep, 'toolchain', 'extension-develop')
+  const dependencies = ['react-refresh', '@rspack/plugin-react-refresh']
+
+  it.each([
+    {
+      manager: 'npm',
+      command: 'npm',
+      argv: [
+        'install',
+        'react-refresh',
+        '@rspack/plugin-react-refresh',
+        '--save-optional',
+        '--legacy-peer-deps'
+      ]
+    },
+    {
+      manager: 'pnpm',
+      command: 'pnpm',
+      argv: [
+        'add',
+        'react-refresh',
+        '@rspack/plugin-react-refresh',
+        '--dir',
+        installDir,
+        '--save-optional',
+        '--silent'
+      ]
+    },
+    {
+      manager: 'yarn',
+      command: 'yarn',
+      argv: [
+        'add',
+        'react-refresh',
+        '@rspack/plugin-react-refresh',
+        '--optional'
+      ]
+    },
+    {
+      manager: 'bun',
+      command: 'bun',
+      argv: [
+        'add',
+        'react-refresh',
+        '@rspack/plugin-react-refresh',
+        '--cwd',
+        installDir,
+        '--optional'
+      ]
+    },
+    {
+      manager: 'deno',
+      command: 'npm',
+      argv: [
+        'install',
+        'react-refresh',
+        '@rspack/plugin-react-refresh',
+        '--save-optional',
+        '--legacy-peer-deps'
+      ]
     }
+  ] as const)('$manager runs $command with its own flags', ({
+    manager,
+    command,
+    argv
+  }) => {
+    const pm = optionalInstallManager(manager)
 
-    const mod = await import('../steps/install-internal-deps')
-    await mod.installInternalDependencies(projectRoot, logger)
+    expect(pm).toBe(command)
+    expect(buildOptionalInstallArgs(pm, dependencies, installDir)).toEqual(argv)
+  })
+})
 
-    // The malformed manifest is named, and nothing is installed silently.
-    const warning = logs.find((line) => line.includes('package.json'))
-    expect(warning).toBeDefined()
-    expect(warning).toContain(path.join(projectRoot, 'package.json'))
-    expect(spawnCalls.length).toBe(0)
+describe('installInternalDependencies', () => {
+  it('refuses a package.json that exists but cannot be parsed, with one frame', async () => {
+    const projectRoot = makeTempDir('extjs-project-')
+    const manifestPath = path.join(projectRoot, 'package.json')
+    fs.writeFileSync(manifestPath, '{"name": broken')
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
+
+    const {logger, logs} = recordingLogger()
+    const error = (await installInternalDependencies(
+      projectRoot,
+      logger,
+      'npm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    ).catch((thrown: Error) => thrown)) as Error & {cause?: unknown}
+    const frame = plain(String(error.message))
+
+    expect(frame.split('\n').slice(0, 2)).toEqual([
+      "⏵⏵⏵ Couldn't read the template's package.json.",
+      `PATH ${manifestPath}`
+    ])
+
+    expect(frame.split('\n')[2]).toMatch(/^REASON .*JSON/)
+    expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
+    expect(error.cause).toBeInstanceOf(SyntaxError)
+    expect(logs).toEqual([])
+    expect(installCalls).toEqual([])
+  })
+
+  // A Deno scaffold installs these with npm, so a machine with Deno alone
+  // reaches a runner that rejects before any manager starts.
+  it('frames a package manager that is not installed, with the spawn error as cause', async () => {
+    const projectRoot = makeProject({vue: '^3.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
+    const spawnError = Object.assign(new Error('spawn npm ENOENT'), {
+      code: 'ENOENT',
+      syscall: 'spawn npm'
+    })
+    const asked: string[] = []
+
+    const {logger, logs} = recordingLogger()
+    const error = (await installInternalDependencies(
+      projectRoot,
+      logger,
+      'deno',
+      'vue',
+      nothingResolves,
+      undefined,
+      async (command) => {
+        asked.push(command)
+
+        throw spawnError
+      }
+    ).catch((thrown: Error) => thrown)) as Error & {cause?: unknown}
+    const frame = plain(String(error.message))
+
+    expect(asked).toEqual(['npm'])
+    expect(frame.split('\n').slice(0, 3)).toEqual([
+      `⏵⏵⏵ Couldn't install the dependencies for ${path.basename(projectRoot)}.`,
+      'REASON Error: spawn npm ENOENT',
+      'The install process exited unexpectedly.'
+    ])
+
+    expect(frame).toContain('--template vue --install')
+    expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
+    expect(frame).not.toMatch(/^\s+at /m)
+    expect(error.cause).toBe(spawnError)
+    // Only the progress line, on the log channel: the failure is the throw.
+    expect(logs).toHaveLength(1)
+    expect(logs[0]).toContain('Installing the dependencies for Vue…')
   })
 
   it('stays silent when package.json is simply absent', async () => {
-    const developRoot = makeTempDir('extjs-develop-')
     const projectRoot = makeTempDir('extjs-project-')
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
 
-    writeJson(path.join(developRoot, 'package.json'), {
-      name: 'extension-develop'
-    })
-
-    process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
-    process.env.EXTENSION_ENV = 'development'
-
-    const logs: string[] = []
-    const logger = {
-      log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
-      error: (...args: unknown[]) => logs.push(args.map(String).join(' '))
-    }
-
-    const mod = await import('../steps/install-internal-deps')
-    await mod.installInternalDependencies(projectRoot, logger)
-
-    expect(logs.find((line) => line.includes('package.json'))).toBeUndefined()
-  })
-
-  itCleanEnv('installs missing optional deps into develop root', async () => {
-    const developRoot = makeTempDir('extjs-develop-')
-    const projectRoot = makeTempDir('extjs-project-')
-
-    writeJson(path.join(developRoot, 'package.json'), {
-      name: 'extension-develop'
-    })
-
-    writeJson(path.join(projectRoot, 'package.json'), {
-      name: 'demo',
-      dependencies: {react: '^18.0.0', tailwindcss: '^4.0.0'}
-    })
-
-    fs.writeFileSync(
-      path.join(projectRoot, 'postcss.config.js'),
-      'module.exports = {}'
+    const {logger, logs} = recordingLogger()
+    await installInternalDependencies(
+      projectRoot,
+      logger,
+      'npm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
     )
 
-    process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
-    process.env.npm_config_user_agent = 'npm/9.0.0'
-    process.env.EXTENSION_ENV = 'development'
-
-    const cwd = process.cwd()
-    process.chdir(projectRoot)
-
-    const mod = await import('../steps/install-internal-deps')
-    await mod.installInternalDependencies(projectRoot, console)
-
-    process.chdir(cwd)
-
-    expect(spawnCalls.length).toBeGreaterThanOrEqual(1)
-
-    const optionalCall = spawnCalls.find((call) => {
-      const args = call.args.join(' ')
-
-      return (
-        args.includes('react-refresh') &&
-        args.includes('@rspack/plugin-react-refresh')
-      )
-    })
-    expect(optionalCall).toBeTruthy()
-    expect(optionalCall?.cwd).toBe(developRoot)
-    const optionalArgs = optionalCall?.args.join(' ') ?? ''
-    expect(optionalArgs).toContain('react-refresh')
-    expect(optionalArgs).toContain('@rspack/plugin-react-refresh')
-    expect(optionalArgs).not.toContain('--prefix')
-    expect(optionalArgs).toContain('--save-optional')
-    expect(optionalArgs).toContain('--legacy-peer-deps')
-    const postCssCall = spawnCalls.find((call) => {
-      const args = call.args.join(' ')
-
-      return args.includes('postcss') && args.includes('postcss-loader')
-    })
-    expect(postCssCall).toBeTruthy()
+    expect(logs).toEqual([])
+    expect(installCalls).toEqual([])
   })
 
-  itCleanEnv(
-    'pnpm optional installs run silent like project installs',
-    async () => {
-      const developRoot = makeTempDir('extjs-develop-')
-      const projectRoot = makeTempDir('extjs-project-')
+  it('installs each missing integration into the develop root, one run each', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({react: '^18.0.0', tailwindcss: '^4.0.0'}, [
+      'postcss.config.js'
+    ])
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
 
-      writeJson(path.join(developRoot, 'package.json'), {
-        name: 'extension-develop'
-      })
+    const {logger, logs} = recordingLogger()
+    await installInternalDependencies(
+      projectRoot,
+      logger,
+      'pnpm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
 
-      writeJson(path.join(projectRoot, 'package.json'), {
-        name: 'demo',
-        dependencies: {react: '^18.0.0'}
-      })
+    expect(installCalls).toEqual([
+      {
+        command: 'pnpm',
+        args: [
+          'add',
+          'react-refresh',
+          '@rspack/plugin-react-refresh',
+          '--dir',
+          developRoot,
+          '--save-optional',
+          '--silent'
+        ],
+        opts: {cwd: developRoot, stdio: 'pipe'}
+      },
+      {
+        command: 'pnpm',
+        args: [
+          'add',
+          'postcss',
+          'postcss-loader',
+          '--dir',
+          developRoot,
+          '--save-optional',
+          '--silent'
+        ],
+        opts: {cwd: developRoot, stdio: 'pipe'}
+      }
+    ])
 
-      process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
-      process.env.npm_config_user_agent = 'pnpm/9.0.0'
-      process.env.EXTENSION_ENV = 'development'
+    expect(logs.map((line) => line.split('\n')[0])).toEqual([
+      expect.stringContaining('[1/2] Installing the dependencies for React…'),
+      expect.stringContaining('[2/2] Installing the dependencies for PostCSS…')
+    ])
+  })
 
-      const cwd = process.cwd()
-      process.chdir(projectRoot)
+  it('installs with npm for a Deno scaffold', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({vue: '^3.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
 
-      const mod = await import('../steps/install-internal-deps')
-      await mod.installInternalDependencies(projectRoot, console)
+    await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'deno',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
 
-      process.chdir(cwd)
+    expect(installCalls).toEqual([
+      {
+        command: 'npm',
+        args: [
+          'install',
+          'vue-loader',
+          '@vue/compiler-sfc',
+          '--save-optional',
+          '--legacy-peer-deps'
+        ],
+        opts: {cwd: developRoot, stdio: 'pipe'}
+      }
+    ])
+  })
 
-      const optionalCall = spawnCalls.find((call) =>
-        call.args.join(' ').includes('react-refresh')
-      )
-      expect(optionalCall).toBeTruthy()
-      expect(optionalCall?.args[0]).toBe('add')
-      expect(optionalCall?.args).toContain('--dir')
-      expect(optionalCall?.args).toContain('--save-optional')
-      expect(optionalCall?.args).toContain('--silent')
-    }
-  )
+  it('installs only what does not already resolve', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({react: '^18.0.0', vue: '^3.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
 
-  itCleanEnv(
-    'yarn optional installs carry no --cwd, Berry rejects it after the subcommand',
-    async () => {
-      const developRoot = makeTempDir('extjs-develop-')
-      const projectRoot = makeTempDir('extjs-project-')
+    await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'yarn',
+      undefined,
+      (dependency) => dependency !== '@vue/compiler-sfc',
+      undefined,
+      runInstall
+    )
 
-      writeJson(path.join(developRoot, 'package.json'), {
-        name: 'extension-develop'
-      })
+    expect(installCalls).toEqual([
+      {
+        command: 'yarn',
+        args: ['add', '@vue/compiler-sfc', '--optional'],
+        opts: {cwd: developRoot, stdio: 'pipe'}
+      }
+    ])
+  })
 
-      writeJson(path.join(projectRoot, 'package.json'), {
-        name: 'demo',
-        dependencies: {react: '^18.0.0'}
-      })
+  it('prefers the project local extension-develop over the CLI override', async () => {
+    const projectRoot = makeProject({react: '^18.0.0'})
+    const localDevelopRoot = path.join(
+      projectRoot,
+      'node_modules',
+      'extension-develop'
+    )
+    writeJson(path.join(localDevelopRoot, 'package.json'), {
+      name: 'extension-develop'
+    })
 
-      process.env.EXTENSION_CREATE_DEVELOP_ROOT = developRoot
-      process.env.npm_config_user_agent = 'yarn/4.9.2'
-      process.env.EXTENSION_ENV = 'development'
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
 
-      const cwd = process.cwd()
-      process.chdir(projectRoot)
+    await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'npm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
 
-      const mod = await import('../steps/install-internal-deps')
-      await mod.installInternalDependencies(projectRoot, console)
+    expect(installCalls.map((call) => call.opts.cwd)).toEqual([
+      localDevelopRoot
+    ])
+  })
 
-      process.chdir(cwd)
+  it('names the create to run again when an optional install fails', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({react: '^18.0.0', vue: '^3.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
+    Object.assign(installResult, {
+      code: 1,
+      stdout: '',
+      stderr: 'npm error code E404\nnpm error 404 Not Found'
+    })
 
-      const optionalCall = spawnCalls.find((call) =>
-        call.args.join(' ').includes('react-refresh')
-      )
-      expect(optionalCall).toBeTruthy()
-      expect(optionalCall?.args[0]).toBe('add')
-      expect(optionalCall?.args).toContain('--optional')
-      expect(optionalCall?.args).not.toContain('--cwd')
-      // cwd carries the target dir instead of the flag.
-      expect(optionalCall?.cwd).toBe(developRoot)
-    }
-  )
+    const error = await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'npm',
+      'react',
+      nothingResolves,
+      undefined,
+      runInstall
+    ).then(
+      () => {
+        throw new Error('expected the optional install to reject')
+      },
+      (thrown: Error) => thrown
+    )
 
-  itCleanEnv(
-    'prefers the project local extension-develop over the CLI override',
-    async () => {
-      const overrideDevelopRoot = makeTempDir('extjs-develop-override-')
-      const localDevelopRoot = path.join(
-        makeTempDir('extjs-project-local-'),
-        'node_modules',
-        'extension-develop'
-      )
-      const projectRoot = path.dirname(path.dirname(localDevelopRoot))
+    expect(plain(error.message)).toContain(
+      "Couldn't install the dependencies.\n" +
+        'COMMAND npm install react-refresh @rspack/plugin-react-refresh --save-optional --legacy-peer-deps\n' +
+        'EXIT 1\n' +
+        'REASON npm error code E404\nnpm error 404 Not Found\n' +
+        'The new project files were removed. Fix the error above, then run ' +
+        `extension create ${shellQuote(projectRoot)} --template react --install again.`
+    )
 
-      writeJson(path.join(overrideDevelopRoot, 'package.json'), {
-        name: 'extension-develop'
-      })
+    // The first failure ends the run, so the Vue install never starts.
+    expect(installCalls).toHaveLength(1)
+  })
 
-      writeJson(path.join(localDevelopRoot, 'package.json'), {
-        name: 'extension-develop'
-      })
+  it('names the timeout first when the runner ended a hung optional install', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({react: '^18.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
+    Object.assign(installResult, {
+      code: null,
+      stdout: 'still resolving\n',
+      stderr: '',
+      reason:
+        'The install did not finish within 1800 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)'
+    })
 
-      writeJson(path.join(projectRoot, 'package.json'), {
-        name: 'demo',
-        dependencies: {react: '^18.0.0'}
-      })
+    const error = await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'npm',
+      'react',
+      nothingResolves,
+      undefined,
+      runInstall
+    ).then(
+      () => {
+        throw new Error('expected the optional install to reject')
+      },
+      (thrown: Error) => thrown
+    )
 
-      process.env.EXTENSION_CREATE_DEVELOP_ROOT = overrideDevelopRoot
-      process.env.npm_config_user_agent = 'npm/9.0.0'
-      process.env.EXTENSION_ENV = 'development'
+    expect(error.name).toBe('Error')
+    expect(plain(error.message)).toContain(
+      "Couldn't install the dependencies.\n" +
+        'COMMAND npm install react-refresh @rspack/plugin-react-refresh --save-optional --legacy-peer-deps\n' +
+        'EXIT null\n' +
+        'REASON The install did not finish within 1800 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)\n' +
+        'still resolving\n' +
+        'The new project files were removed.'
+    )
+  })
 
-      const cwd = process.cwd()
-      process.chdir(projectRoot)
+  it('installs nothing when EXTENSION_SKIP_INTERNAL_INSTALL is true', async () => {
+    const projectRoot = makeProject({react: '^18.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
+    vi.stubEnv('EXTENSION_SKIP_INTERNAL_INSTALL', 'true')
 
-      const mod = await import('../steps/install-internal-deps')
-      await mod.installInternalDependencies(projectRoot, console)
+    const {logger, logs} = recordingLogger()
+    await installInternalDependencies(
+      projectRoot,
+      logger,
+      'npm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
 
-      process.chdir(cwd)
+    expect(installCalls).toEqual([])
+    expect(logs).toEqual([])
+  })
 
-      const optionalCall = spawnCalls.find((call) => {
-        const args = call.args.join(' ')
+  it('spawns nothing when every optional dependency already resolves', async () => {
+    const projectRoot = makeProject(
+      {react: '^18.0.0', sass: '^1.0.0', typescript: '^5.0.0'},
+      ['postcss.config.js']
+    )
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
 
-        return (
-          args.includes('react-refresh') &&
-          args.includes('@rspack/plugin-react-refresh')
-        )
-      })
+    const {logger, logs} = recordingLogger()
+    await installInternalDependencies(
+      projectRoot,
+      logger,
+      'npm',
+      undefined,
+      everythingResolves,
+      undefined,
+      runInstall
+    )
 
-      expect(optionalCall).toBeTruthy()
-      expect(optionalCall?.cwd).toBe(localDevelopRoot)
-      expect(optionalCall?.cwd).not.toBe(overrideDevelopRoot)
-      expect(optionalCall?.args.join(' ')).not.toContain('--prefix')
-      expect(optionalCall?.args.join(' ')).toContain('--legacy-peer-deps')
-    }
-  )
+    expect(installCalls).toEqual([])
+    expect(logs).toEqual([])
+  })
 })

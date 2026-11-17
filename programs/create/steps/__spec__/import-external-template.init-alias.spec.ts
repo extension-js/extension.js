@@ -4,17 +4,13 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-vi.mock('go-git-it', () => ({default: vi.fn(async () => {})}))
-vi.mock('axios', () => ({
-  default: {
-    get: vi.fn(async () => {
-      throw new Error('network is disabled in this test')
-    })
-  }
-}))
-
-import axios from 'axios'
 import {strToU8, zipSync} from 'fflate'
+import {
+  fetchFrom,
+  type LoopbackServer,
+  refusedLoopbackUrl,
+  serveLoopback
+} from '../../__spec__/loopback-template-server'
 import {extensionCreate} from '../../module'
 import {importExternalTemplate} from '../import-external-template'
 
@@ -38,16 +34,41 @@ function catalogZipWith(names: string[]): Buffer {
 }
 
 describe('importExternalTemplate', () => {
-  const prevEnv = process.env.EXTENSION_ENV
+  const savedEnv = {
+    EXTENSION_ENV: process.env.EXTENSION_ENV,
+    EXTENSION_ALLOW_HTTP_TEMPLATE: process.env.EXTENSION_ALLOW_HTTP_TEMPLATE,
+    EXTENSION_CREATE_TEMPLATE_URL: process.env.EXTENSION_CREATE_TEMPLATE_URL
+  }
+  const servers: LoopbackServer[] = []
 
   beforeEach(() => {
     process.env.EXTENSION_ENV = 'test'
-    vi.mocked(axios.get).mockClear()
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+    delete process.env.EXTENSION_CREATE_TEMPLATE_URL
   })
 
-  afterEach(() => {
-    process.env.EXTENSION_ENV = prevEnv
+  afterEach(async () => {
+    for (const [name, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+
+    for (const server of servers.splice(0)) await server.close()
   })
+
+  async function serveCatalog(names: string[]) {
+    const server = await serveLoopback({
+      '/catalog.zip': {body: catalogZipWith(names)}
+    })
+    servers.push(server)
+
+    return server.url('/catalog.zip')
+  }
+
+  // The catalog override points the real download at a loopback archive.
+  async function catalogWith(names: string[]) {
+    process.env.EXTENSION_CREATE_TEMPLATE_URL = await serveCatalog(names)
+  }
 
   // `init` used to be an alias that scaffolded the bundled `javascript`
   // template, a sidebar extension, while a genuinely different `init` folder
@@ -62,21 +83,25 @@ describe('importExternalTemplate', () => {
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
-    vi.mocked(axios.get).mockRejectedValue(
-      new Error('network is disabled in this test')
-    )
+    const fetch = vi.fn(fetchFrom(await refusedLoopbackUrl('/catalog.zip')))
 
     try {
       await expect(
-        importExternalTemplate(projectPath, 'my-ext', 'init', {
-          log: () => {},
-          error: () => {}
-        })
-      ).rejects.toThrow()
+        importExternalTemplate(
+          projectPath,
+          'my-ext',
+          'init',
+          {log: () => {}, error: () => {}},
+          {downloadRetry: {sleep: async () => {}}, fetch}
+        )
+      ).rejects.toMatchObject({
+        name: 'TemplateDownloadError',
+        cause: {code: 'ECONNREFUSED'}
+      })
 
       // The download was attempted, which is the whole point: the bundled
       // javascript copy is no longer silently substituted for this name.
-      expect(vi.mocked(axios.get)).toHaveBeenCalled()
+      expect(fetch).toHaveBeenCalledTimes(2)
       expect(
         fs.existsSync(path.join(projectPath, 'src', 'manifest.json'))
       ).toBe(false)
@@ -94,16 +119,15 @@ describe('importExternalTemplate', () => {
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
-    vi.mocked(axios.get).mockResolvedValue({
-      data: catalogZipWith(['init', 'javascript'])
-    } as never)
+    const fetch = fetchFrom(await serveCatalog(['init', 'javascript']))
 
     try {
       const provenance = await importExternalTemplate(
         projectPath,
         'my-ext',
         'init',
-        {log: () => {}, error: () => {}}
+        {log: () => {}, error: () => {}},
+        {fetch}
       )
 
       expect(provenance.template).toBe('init')
@@ -133,9 +157,7 @@ describe('importExternalTemplate', () => {
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
-    vi.mocked(axios.get).mockResolvedValue({
-      data: catalogZipWith(['init', 'javascript'])
-    } as never)
+    await catalogWith(['init', 'javascript'])
 
     const captured: string[] = []
     const logger = {
@@ -175,9 +197,7 @@ describe('importExternalTemplate', () => {
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
-    vi.mocked(axios.get).mockResolvedValue({
-      data: catalogZipWith(['init', 'javascript', 'newtab-react'])
-    } as never)
+    await catalogWith(['init', 'javascript', 'newtab-react'])
 
     try {
       const provenance = await importExternalTemplate(
@@ -213,9 +233,7 @@ describe('importExternalTemplate', () => {
       path.join(os.tmpdir(), 'ext-create-test-')
     )
     const projectPath = path.join(tmpRoot, 'my-ext')
-    vi.mocked(axios.get).mockResolvedValue({
-      data: catalogZipWith(['init', 'javascript', 'content', 'newtab-react'])
-    } as never)
+    await catalogWith(['init', 'javascript', 'content', 'newtab-react'])
 
     try {
       const provenance = await importExternalTemplate(

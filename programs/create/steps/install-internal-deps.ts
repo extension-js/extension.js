@@ -10,13 +10,18 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {readDenoConfigDependencies} from '../lib/deno-manifest'
-import {runInstall} from '../lib/install-runner'
+import {readTemplatePackageJson} from '../lib/find-manifest-json'
+import {
+  type InstallRunner,
+  runInstall as runInstallCommand
+} from '../lib/install-runner'
 import * as messages from '../lib/messages'
 import {isDebug, prefix} from '../lib/messaging'
 import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
+import {failStep} from '../lib/utils'
 
 const requireFromCreate = createRequire(import.meta.url)
 
@@ -25,13 +30,19 @@ type PackageJson = {
   devDependencies?: Record<string, string>
 }
 
-type OptionalDepsPlan = {
+export type OptionalDepsPlan = {
   integrations: string[]
   dependencies: string[]
   dependenciesByIntegration: Record<string, string[]>
 }
 
-function resolveDevelopRoot(projectPath: string): string | null {
+// Answers whether a dependency already resolves from any of the given roots.
+export type DependencyResolver = (
+  dependency: string,
+  paths: string[]
+) => boolean
+
+function resolveDevelopRoot(projectPath: string, cwd: string): string | null {
   try {
     const localPkgPath = path.join(
       projectPath,
@@ -54,7 +65,7 @@ function resolveDevelopRoot(projectPath: string): string | null {
     const pkgPath = requireFromCreate.resolve(
       'extension-develop/package.json',
       {
-        paths: [projectPath, process.cwd(), __dirname]
+        paths: [projectPath, cwd, __dirname]
       }
     )
 
@@ -64,24 +75,10 @@ function resolveDevelopRoot(projectPath: string): string | null {
   }
 }
 
-function readPackageJson(
-  projectPath: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
-): PackageJson {
-  let pkg: PackageJson = {}
-  const packageJsonPath = path.join(projectPath, 'package.json')
-
-  try {
-    const raw = fs.readFileSync(packageJsonPath, 'utf8')
-    pkg = JSON.parse(raw)
-  } catch (error) {
-    // Deno-created scaffolds carry no package.json at all, which stays quiet.
-    // A manifest that exists but cannot be parsed must say so, or the run
-    // silently detects zero integrations and installs nothing.
-    if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
-      logger.log(messages.malformedPackageJson(packageJsonPath, error))
-    }
-  }
+function readPackageJson(projectPath: string): PackageJson {
+  // Deno-created scaffolds carry no package.json at all, which stays quiet.
+  // One that exists and does not parse is refused, never read as no integrations.
+  let pkg: PackageJson = readTemplatePackageJson(projectPath) ?? {}
 
   // Deno projects declare npm dependencies in deno.json(c) `imports`;
   // fold them in so integration detection sees them.
@@ -115,11 +112,10 @@ function findConfigFile(projectPath: string, candidates: string[]): boolean {
   return candidates.some((file) => fs.existsSync(path.join(projectPath, file)))
 }
 
-function detectOptionalDependencies(
-  projectPath: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+export function detectOptionalDependencies(
+  projectPath: string
 ): OptionalDepsPlan {
-  const pkg = readPackageJson(projectPath, logger)
+  const pkg = readPackageJson(projectPath)
 
   const usesReact =
     hasDependency(pkg, 'react') || hasDependency(pkg, 'react-dom')
@@ -232,7 +228,15 @@ function detectOptionalDependencies(
   }
 }
 
-function buildOptionalInstallArgs(
+// These land in extension-develop's own node_modules, so a Deno scaffold
+// still installs them with npm.
+export function optionalInstallManager(
+  packageManager: ScaffoldPackageManager
+): Exclude<ScaffoldPackageManager, 'deno'> {
+  return packageManager === 'deno' ? 'npm' : packageManager
+}
+
+export function buildOptionalInstallArgs(
   pm: string,
   dependencies: string[],
   installDir: string
@@ -265,12 +269,13 @@ function buildOptionalInstallArgs(
   return ['install', ...dependencies, '--save-optional', '--legacy-peer-deps']
 }
 
-function resolveMissingOptionalDeps(
+export function resolveMissingOptionalDeps(
   developRoot: string,
   projectPath: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
+  canResolveDependency: DependencyResolver = canResolve,
+  cwd: string = process.cwd()
 ): OptionalDepsPlan {
-  const plan = detectOptionalDependencies(projectPath, logger)
+  const plan = detectOptionalDependencies(projectPath)
   const dependenciesByIntegration: Record<string, string[]> = {}
   const integrations: string[] = []
   const missing = new Set<string>()
@@ -278,7 +283,7 @@ function resolveMissingOptionalDeps(
   for (const integration of plan.integrations) {
     const depsForIntegration = plan.dependenciesByIntegration[integration] || []
     const missingForIntegration = depsForIntegration.filter(
-      (dep) => !canResolve(dep, [developRoot, projectPath, process.cwd()])
+      (dep) => !canResolveDependency(dep, [developRoot, projectPath, cwd])
     )
 
     if (missingForIntegration.length === 0) {
@@ -303,13 +308,12 @@ async function installOptionalDependencies(
   plan: OptionalDepsPlan,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
   packageManager: ScaffoldPackageManager,
-  template?: string
+  template: string | undefined,
+  runInstall: InstallRunner
 ) {
   if (plan.dependencies.length === 0) return
 
-  // These land in extension-develop's own node_modules, so a Deno scaffold
-  // still installs them with npm.
-  const pm = packageManager === 'deno' ? 'npm' : packageManager
+  const pm = optionalInstallManager(packageManager)
   // Piped, not ignored: a failure here can then name the manager's own cause
   // instead of reporting an exit code alone.
   const stdio = process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
@@ -337,9 +341,20 @@ async function installOptionalDependencies(
     }
 
     const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
+    // A runner that rejects never started the manager (a missing binary), so
+    // it takes the frame the project install gives the same rejection.
     const result = await runInstall(pm, args, {
       cwd: developRoot,
       stdio
+    }).catch((error: unknown) => {
+      throw failStep(
+        messages.installingDependenciesProcessError(
+          path.basename(projectPath),
+          error,
+          {projectPath, template}
+        ),
+        error
+      )
     })
 
     if (result.code !== 0) {
@@ -348,7 +363,9 @@ async function installOptionalDependencies(
           pm,
           args,
           result.code,
-          `${result.stdout}\n${result.stderr}`,
+          [result.reason, result.stdout, result.stderr]
+            .filter((part) => part !== undefined)
+            .join('\n'),
           {projectPath, template}
         )
       )
@@ -362,22 +379,21 @@ export async function installInternalDependencies(
   packageManager?: ScaffoldPackageManager,
   // Carried for the failure frame alone: this install runs in the toolchain's
   // own directory, so the retry a user can run is the create, not the install.
-  template?: string
+  template?: string,
+  canResolveDependency: DependencyResolver = canResolve,
+  cwd: string = process.cwd(),
+  runInstall: InstallRunner = runInstallCommand
 ) {
-  if (
-    process.env.EXTENSION_ENV === 'test' ||
-    process.env.EXTENSION_SKIP_INTERNAL_INSTALL === 'true'
-  ) {
-    return
-  }
+  if (process.env.EXTENSION_SKIP_INTERNAL_INSTALL === 'true') return
 
-  const developRoot = resolveDevelopRoot(projectPath)
+  const developRoot = resolveDevelopRoot(projectPath, cwd)
   if (!developRoot) return
 
   const optionalPlan = resolveMissingOptionalDeps(
     developRoot,
     projectPath,
-    logger
+    canResolveDependency,
+    cwd
   )
 
   if (optionalPlan.dependencies.length > 0) {
@@ -387,7 +403,8 @@ export async function installInternalDependencies(
       optionalPlan,
       logger,
       packageManager ?? resolveProjectPackageManager(projectPath),
-      template
+      template,
+      runInstall
     )
   }
 }

@@ -7,12 +7,14 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import type {
+  SpawnSyncOptionsWithStringEncoding,
+  SpawnSyncReturns
+} from 'node:child_process'
 import * as path from 'node:path'
 import {sync as spawnSync} from 'cross-spawn'
 import {getPackageManagerSpec} from 'prefers-yarn'
 import {corepackRegistryEnv} from './corepack-registry'
-
-export {getPackageManagerSpec as getPackageManagerSpecFromEnv} from 'prefers-yarn'
 
 const NODE_PACKAGE_MANAGERS = ['pnpm', 'yarn', 'bun', 'npm'] as const
 
@@ -127,9 +129,16 @@ export function readPinnedPackageManager(
 // own pin, else the invoking manager's spec when it is the same manager,
 // else the installed binary's version. A host with no user agent still gets
 // a usable declaration this way instead of an empty field.
+export type VersionProbe = (
+  command: string,
+  args: string[],
+  options: SpawnSyncOptionsWithStringEncoding
+) => Pick<SpawnSyncReturns<string>, 'status' | 'stdout'>
+
 export function resolvePackageManagerSpec(
   projectPath: string,
-  manager: ScaffoldPackageManager
+  manager: ScaffoldPackageManager,
+  probeVersion: VersionProbe = spawnSync
 ): string | undefined {
   if (manager === 'deno') return undefined
 
@@ -147,7 +156,7 @@ export function resolvePackageManagerSpec(
   try {
     // Windows installs the managers as .cmd shims. cross-spawn resolves the
     // shim itself, so the probe never goes through a shell string.
-    const probe = spawnSync(manager, ['--version'], {
+    const probe = probeVersion(manager, ['--version'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 5000,

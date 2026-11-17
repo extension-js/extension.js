@@ -15,6 +15,7 @@ import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
+import {failStep} from '../lib/utils'
 
 async function pathExists(target: string): Promise<boolean> {
   try {
@@ -110,8 +111,6 @@ export async function writeReadmeFile(
     await fs.mkdir(projectPath, {recursive: true})
     await fs.writeFile(path.join(projectPath, 'README.md'), readme)
   } catch (error) {
-    logger.error(messages.writingReadmeMetaDataError(error))
-
-    throw error
+    throw failStep(messages.writingReadmeMetaDataError(error), error)
   }
 }
