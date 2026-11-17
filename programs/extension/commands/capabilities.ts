@@ -11,6 +11,7 @@ import {getCliPackageJson} from '../helpers/cli-package-json'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
 import {ENVELOPE, ENVELOPE_SCHEMA} from '../helpers/messaging'
+import {refuseUnreadableOutput} from '../helpers/output-flag'
 
 // ready.json's schemaVersion as this CLI's bundled engine writes it. A spec
 // compares this against the writer's source, so the two cannot drift apart.
@@ -96,6 +97,7 @@ export function registerCapabilitiesCommand(program: Command): void {
       '--output <pretty|json>',
       'result format. This command defaults to json'
     )
+    .hook('preAction', refuseUnreadableOutput())
     .action(async (opts: {output?: string} = {}) => {
       const format =
         String(opts.output ?? 'json')

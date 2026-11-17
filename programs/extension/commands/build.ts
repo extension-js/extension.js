@@ -13,13 +13,16 @@ import {
   SAFARI_DEVELOPMENT_TEAM_HELP
 } from '../browsers/browsers-lib/messages'
 import {safariBuildPreflight} from '../browsers/run-safari/safari-launch'
-import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
+import {refuseUnlistedChoices} from '../helpers/choice-flags'
 import {declaredErrorCode} from '../helpers/cli-failure'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
-import {loadExtensionDevelopModule} from '../helpers/extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  loadExtensionDevelopModule
+} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {
@@ -28,19 +31,28 @@ import {
   ENVELOPE,
   type ErrorCode
 } from '../helpers/messaging'
-import {parseExtensionsList} from '../helpers/normalize-options'
-import {isJsonOutput} from '../helpers/output-flag'
+import {
+  isReverseDnsBundleId,
+  parseExtensionsList
+} from '../helpers/normalize-options'
+import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {checkProjectCliVersion} from '../helpers/project-cli-version'
+import {
+  missingProjectFolder,
+  missingProjectRefusal
+} from '../helpers/project-folder'
+import {noteRunBrowsers} from '../helpers/telemetry-cli'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
   isSafariVendor,
   parseOptionalBoolean,
+  unsupportedBrowserMessage,
   validateVendors,
   vendors
 } from '../helpers/vendors'
 
-type BuildOptions = {
+export type BuildOptions = {
   browser?: Browser | 'all'
   polyfill?: boolean
   zip?: boolean
@@ -64,7 +76,6 @@ type BuildOptions = {
   forceRegenerate?: boolean
   debug?: boolean
   output?: 'pretty' | 'json'
-  author?: boolean
   authorMode?: boolean
 }
 
@@ -73,17 +84,36 @@ type BuildOptions = {
 function failAndExit(
   asJson: boolean,
   status: string,
-  error: {code: ErrorCode; message: string}
+  error: {code: ErrorCode; message: string},
+  hint?: string
 ): never {
   if (asJson) {
     // eslint-disable-next-line no-console
-    console.log(JSON.stringify(ENVELOPE.fail('build', status, error)))
+    console.log(
+      JSON.stringify(ENVELOPE.fail('build', status, error, hint ? {hint} : {}))
+    )
   }
 
   exitWithFailure(error.code)
 }
 
-export function registerBuildCommand(program: Command) {
+// What the action reaches outside this file. Production takes every default.
+interface BuildCommandDeps {
+  loadDevelop?: () => Promise<AnyDevelopModule>
+  safariPreflight?: typeof safariBuildPreflight
+  createPackager?: typeof createSafariPackager
+  noteBrowsers?: typeof noteRunBrowsers
+}
+
+export function registerBuildCommand(
+  program: Command,
+  {
+    loadDevelop = loadExtensionDevelopModule,
+    safariPreflight = safariBuildPreflight,
+    createPackager = createSafariPackager,
+    noteBrowsers = noteRunBrowsers
+  }: BuildCommandDeps = {}
+) {
   program
     .command('build')
     .arguments('[project-name]')
@@ -202,6 +232,8 @@ export function registerBuildCommand(program: Command) {
         'deprecated alias for --debug'
       ).hideHelp()
     )
+    .hook('preAction', refuseUnreadableOutput())
+    .hook('preAction', refuseUnlistedChoices())
     .action(
       async (
         pathOrRemoteUrl: string,
@@ -213,15 +245,12 @@ export function registerBuildCommand(program: Command) {
           cliBrowser ??
           ((await resolveConfigBrowser(
             pathOrRemoteUrl || process.cwd(),
-            'build'
+            'build',
+            loadDevelop
           )) as BuildOptions['browser']) ??
           'chromium'
 
-        if (
-          buildOptions.debug ||
-          buildOptions.author ||
-          buildOptions.authorMode
-        ) {
+        if (buildOptions.debug || buildOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
@@ -233,6 +262,7 @@ export function registerBuildCommand(program: Command) {
 
         const asJson = isJsonOutput(buildOptions)
         const list = vendors(browser)
+        noteBrowsers(list)
         let unsupportedBrowser = ''
         let supportedBrowsers: string[] = []
 
@@ -241,7 +271,9 @@ export function registerBuildCommand(program: Command) {
           (invalid, supported) => {
             unsupportedBrowser = invalid
             supportedBrowsers = supported
-            // stderr in json mode too, so the valid choices are always named.
+            // The frame names the choices, so json mode needs no prose.
+            if (asJson) return
+
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           }
@@ -250,37 +282,20 @@ export function registerBuildCommand(program: Command) {
         if (!vendorsAreSupported) {
           failAndExit(asJson, 'usage', {
             code: CODES.E_UNSUPPORTED_BROWSER,
-            message:
-              `Unsupported browser: ${unsupportedBrowser}. ` +
-              `Choose one of: ${supportedBrowsers.join(', ')}.`
+            message: unsupportedBrowserMessage(
+              unsupportedBrowser,
+              supportedBrowsers
+            )
           })
         }
 
-        // Validate --mode upfront so users get a clear error rather than a
-        // silent fall-through to the production default.
-        let mode: 'development' | 'production' | 'none' | undefined
-
-        if (typeof buildOptions.mode === 'string') {
-          const m = buildOptions.mode.trim().toLowerCase()
-
-          if (m === 'development' || m === 'production' || m === 'none') {
-            mode = m
-          } else {
-            const message =
-              `Invalid --mode value: ${JSON.stringify(buildOptions.mode)}. ` +
-              `Expected one of: development, production, none.`
-
-            if (!asJson) {
-              // eslint-disable-next-line no-console
-              console.error(message)
-            }
-
-            failAndExit(asJson, 'usage', {
-              code: CODES.E_INVALID_OPTION,
-              message
-            })
-          }
-        }
+        // The preAction hook already refused a --mode off its list, so this
+        // only folds case and spaces the way that check reads them.
+        const mode = buildOptions.mode?.trim().toLowerCase() as
+          | 'development'
+          | 'production'
+          | 'none'
+          | undefined
 
         // Safari-only options are rejected for other targets so typos don't
         // silently no-op; a malformed bundle id fails before any build.
@@ -309,20 +324,38 @@ export function registerBuildCommand(program: Command) {
 
           failAndExit(asJson, 'usage', {
             code: CODES.E_INVALID_OPTION,
-            message: `${safariOnlyFlags.join(', ')} apply to safari targets only.`
+            message: messages.safariOnlyOptionPlain(safariOnlyFlags)
           })
         }
 
-        if (buildOptions.bundleId && !isValidBundleId(buildOptions.bundleId)) {
+        if (
+          buildOptions.bundleId !== undefined &&
+          !isReverseDnsBundleId(buildOptions.bundleId)
+        ) {
+          const message = messages.invalidBundleId(buildOptions.bundleId)
+
           if (!asJson) {
             // eslint-disable-next-line no-console
-            console.error(messages.safariInvalidBundleId(buildOptions.bundleId))
+            console.error(messages.usageRefusal(message))
           }
 
-          failAndExit(asJson, 'usage', {
-            code: CODES.E_INVALID_OPTION,
-            message: `--bundle-id expects a reverse-DNS identifier, got: ${buildOptions.bundleId}`
-          })
+          failAndExit(asJson, 'usage', {code: CODES.E_INVALID_OPTION, message})
+        }
+
+        const missingFolder = missingProjectFolder(pathOrRemoteUrl)
+
+        if (missingFolder) {
+          const refusal = missingProjectRefusal('build', missingFolder)
+
+          // eslint-disable-next-line no-console
+          if (!asJson) console.error(refusal.stderr)
+
+          failAndExit(
+            asJson,
+            'usage',
+            {code: CODES.E_PROJECT_NOT_FOUND, message: refusal.message},
+            refusal.hint
+          )
         }
 
         // Safari packaging preflight. Non-macOS is a warn-and-skip; a macOS
@@ -330,7 +363,7 @@ export function registerBuildCommand(program: Command) {
         let safariPackagingEnabled = true
 
         if (list.some(isSafariVendor)) {
-          const preflight = safariBuildPreflight()
+          const preflight = safariPreflight()
 
           if (preflight.severity === 'fatal') {
             if (!asJson) {
@@ -351,7 +384,7 @@ export function registerBuildCommand(program: Command) {
           }
         }
 
-        const {extensionBuild} = await loadExtensionDevelopModule()
+        const {extensionBuild} = await loadDevelop()
 
         const cliVersion = checkProjectCliVersion(
           path.resolve(pathOrRemoteUrl || process.cwd()),
@@ -406,7 +439,7 @@ export function registerBuildCommand(program: Command) {
               appIcon: buildOptions.appIcon,
               forceRegenerate: buildOptions.forceRegenerate,
               safariPackager: safariPackagingEnabled
-                ? createSafariPackager({
+                ? createPackager({
                     browser: vendor as 'safari' | 'webkit-based',
                     // build is a packaging command: never open the app unless
                     // explicitly asked (--open). dev keeps open-by-default.

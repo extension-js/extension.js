@@ -171,11 +171,20 @@ describe('RDP evaluation of a throwing expression', () => {
   it.each([
     [
       'a rejected top-level await',
-      {topLevelAwaitRejected: true, exceptionMessage: 'Error: nope'}
+      {topLevelAwaitRejected: true, exceptionMessage: 'Error: nope'},
+      'Error: nope'
     ],
-    ['an exception grip alone', {exception: {type: 'object', class: 'Error'}}],
-    ['only an exception message', {exceptionMessage: 'Error: nope'}]
-  ])('treats %s as a failure', async (_name, shape) => {
+    [
+      'an exception grip alone',
+      {exception: {type: 'object', class: 'Error'}},
+      'The expression threw inside the page'
+    ],
+    [
+      'only an exception message',
+      {exceptionMessage: 'Error: nope'},
+      'Error: nope'
+    ]
+  ])('treats %s as a failure', async (_name, shape, message) => {
     mock = await createFirefoxMock((packet, send) => {
       if (packet.type === 'evaluateJSAsync') {
         send({from: CONSOLE, resultID: 'rid-1'})
@@ -194,7 +203,10 @@ describe('RDP evaluation of a throwing expression', () => {
 
     await client.connect(mock.port)
 
-    await expect(evaluate(client, CONSOLE, 'x')).rejects.toThrow()
+    await expect(evaluate(client, CONSOLE, 'x')).rejects.toMatchObject({
+      name: 'PageThrewError',
+      message
+    })
   })
 
   it('still resolves a clean result whose exception field is null', async () => {

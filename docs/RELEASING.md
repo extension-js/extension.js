@@ -61,7 +61,8 @@ Use the `Extension.js – Release Publish` workflow at `.github/workflows/publis
   published (jobs `corpus-published` and `templates-published`). On a canary that
   is the verdict to read before a stable. On a stable it proves the shipped
   version. They run after the publish, so a failure turns the run red and
-  unpublishes nothing.
+  unpublishes nothing. On a stable the corpus reading skips Safari, which the
+  gate before the publish already read from the same source.
   The one exception is the canary a stable run cuts for itself. It is dispatched
   with `readings=false`, because that stable's gates read the same version at
   the same pins.

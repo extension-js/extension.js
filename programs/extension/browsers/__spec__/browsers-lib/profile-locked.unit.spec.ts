@@ -1,0 +1,411 @@
+import {type ChildProcess, spawn} from 'node:child_process'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {unhandledError} from '../../../helpers/messages'
+import {chromiumProfileInUse} from '../../browsers-lib/messages'
+import {stampReadyProfileLocked} from '../../browsers-lib/ready-stamp'
+import {
+  isProfileLockedError,
+  type ProfileLockedError,
+  prepareChromiumProfileForLaunch
+} from '../../browsers-lib/shared-utils'
+
+const browserOn = (dataDir: string) => () =>
+  `/Applications/Chromium.app/Contents/MacOS/Chromium --user-data-dir=${dataDir} --no-first-run`
+
+describe('profile lock detection', () => {
+  let profile: string
+
+  beforeEach(() => {
+    profile = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-profile-lock-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(profile, {recursive: true, force: true})
+  })
+
+  it('tags the refusal with a code and the owning process', () => {
+    fs.writeFileSync(
+      path.join(profile, 'SingletonLock'),
+      `${os.hostname()}-${process.pid}`,
+      'utf8'
+    )
+
+    let caught: unknown
+
+    try {
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: browserOn(profile)
+      })
+    } catch (error) {
+      caught = error
+    }
+
+    expect(isProfileLockedError(caught)).toBe(true)
+    if (!isProfileLockedError(caught)) return
+
+    expect(caught.code).toBe('profile_locked')
+    expect(caught.profileLockOwner.pid).toBe(process.pid)
+    expect(caught.profileLockOwner.host.toLowerCase()).toBe(
+      os.hostname().toLowerCase()
+    )
+  })
+
+  it('clears the lock of a dead owner instead of refusing', () => {
+    fs.writeFileSync(
+      path.join(profile, 'SingletonLock'),
+      `${os.hostname()}-2147483600`,
+      'utf8'
+    )
+
+    fs.writeFileSync(path.join(profile, 'SingletonSocket'), '', 'utf8')
+
+    const result = prepareChromiumProfileForLaunch(profile)
+
+    expect(result.removedArtifacts).toContain('SingletonLock')
+    expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(false)
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'refuses a symlink lock whose target names a live process',
+    () => {
+      fs.symlinkSync(
+        `${os.hostname()}-${process.pid}`,
+        path.join(profile, 'SingletonLock')
+      )
+
+      let caught: unknown
+
+      try {
+        prepareChromiumProfileForLaunch(profile, {
+          readCommand: browserOn(profile)
+        })
+      } catch (error) {
+        caught = error
+      }
+
+      expect(isProfileLockedError(caught)).toBe(true)
+      if (!isProfileLockedError(caught)) return
+
+      expect(caught.code).toBe('profile_locked')
+      expect(caught.profileLockOwner.pid).toBe(process.pid)
+      expect(caught.message).toContain(`process ${process.pid}`)
+      expect(
+        fs.lstatSync(path.join(profile, 'SingletonLock'), {
+          throwIfNoEntry: false
+        })
+      ).toBeDefined()
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'removes a symlink lock of a dead owner and lets the launch proceed',
+    () => {
+      fs.symlinkSync(
+        `${os.hostname()}-2147483600`,
+        path.join(profile, 'SingletonLock')
+      )
+
+      fs.symlinkSync(
+        path.join(
+          os.tmpdir(),
+          '.org.chromium.Chromium.none',
+          'SingletonSocket'
+        ),
+        path.join(profile, 'SingletonSocket')
+      )
+
+      fs.writeFileSync(path.join(profile, 'SingletonCookie'), '1', 'utf8')
+
+      const result = prepareChromiumProfileForLaunch(profile)
+
+      expect(result.removedArtifacts.sort()).toEqual([
+        'SingletonCookie',
+        'SingletonLock',
+        'SingletonSocket'
+      ])
+
+      for (const name of [
+        'SingletonLock',
+        'SingletonSocket',
+        'SingletonCookie'
+      ]) {
+        expect(
+          fs.lstatSync(path.join(profile, name), {throwIfNoEntry: false})
+        ).toBeUndefined()
+      }
+    }
+  )
+
+  describe('a live pid that is not a browser on this profile', () => {
+    let bystander: ChildProcess | undefined
+
+    afterEach(() => {
+      bystander?.kill('SIGKILL')
+      bystander = undefined
+    })
+
+    const lockTo = (pid: number) =>
+      fs.symlinkSync(
+        `${os.hostname()}-${pid}`,
+        path.join(profile, 'SingletonLock')
+      )
+
+    const lockIsGone = () =>
+      fs.lstatSync(path.join(profile, 'SingletonLock'), {
+        throwIfNoEntry: false
+      }) === undefined
+
+    // After a crash or a reboot the pid in the lock gets handed to whatever
+    // starts next, and the profile must not stay locked out because of it.
+    it.skipIf(process.platform === 'win32')(
+      'clears the lock when the pid now belongs to another program',
+      () => {
+        bystander = spawn('sleep', ['30'], {stdio: 'ignore'})
+        lockTo(bystander.pid as number)
+
+        const result = prepareChromiumProfileForLaunch(profile)
+
+        expect(result.removedArtifacts).toContain('SingletonLock')
+        expect(lockIsGone()).toBe(true)
+      }
+    )
+
+    it.skipIf(process.platform === 'win32')(
+      'refuses when the live process is a browser running on the profile',
+      () => {
+        bystander = spawn(
+          process.execPath,
+          [
+            '-e',
+            'setTimeout(() => {}, 30000)',
+            'chromium',
+            `--user-data-dir=${profile}`
+          ],
+          {stdio: 'ignore'}
+        )
+
+        lockTo(bystander.pid as number)
+
+        expect(() => prepareChromiumProfileForLaunch(profile)).toThrow(
+          /already in use by process/
+        )
+
+        expect(lockIsGone()).toBe(false)
+      }
+    )
+
+    it.skipIf(process.platform === 'win32')(
+      'clears the lock when that browser runs on another data dir',
+      () => {
+        lockTo(process.pid)
+
+        const result = prepareChromiumProfileForLaunch(profile, {
+          readCommand: browserOn('/somewhere/else/profile')
+        })
+
+        expect(result.removedArtifacts).toContain('SingletonLock')
+      }
+    )
+
+    it.skipIf(process.platform === 'win32')(
+      'keeps refusing when the owner cannot be told apart',
+      () => {
+        lockTo(process.pid)
+
+        expect(() =>
+          prepareChromiumProfileForLaunch(profile, {readCommand: () => null})
+        ).toThrow(/already in use by process/)
+
+        expect(() =>
+          prepareChromiumProfileForLaunch(profile, {
+            readCommand: () => '/Applications/Brave Browser.app/Brave Browser'
+          })
+        ).toThrow(/already in use by process/)
+      }
+    )
+  })
+
+  describe('an owner matched by the text of its command line', () => {
+    const lockToThisProcess = () =>
+      fs.writeFileSync(
+        path.join(profile, 'SingletonLock'),
+        `${os.hostname()}-${process.pid}`,
+        'utf8'
+      )
+
+    // Pins today's behavior. Ledger 1374 D4.
+    it('refuses when the browser runs on a sibling folder whose name starts with the profile', () => {
+      lockToThisProcess()
+
+      let caught: unknown
+
+      try {
+        prepareChromiumProfileForLaunch(profile, {
+          readCommand: browserOn(`${profile}-copy`)
+        })
+      } catch (error) {
+        caught = error
+      }
+
+      expect(isProfileLockedError(caught)).toBe(true)
+      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(true)
+    })
+
+    // Pins today's behavior. Ledger 1374 D4.
+    it('refuses for any program whose command line carries a browser family word', () => {
+      lockToThisProcess()
+
+      let caught: unknown
+
+      try {
+        prepareChromiumProfileForLaunch(profile, {
+          readCommand: () => '/usr/local/bin/node /srv/opera-tickets/server.js'
+        })
+      } catch (error) {
+        caught = error
+      }
+
+      expect(isProfileLockedError(caught)).toBe(true)
+      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(true)
+    })
+  })
+
+  describe('an owner the system will not let this user signal', () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    it('reads EPERM as a live owner and keeps the lock of a browser on this profile', () => {
+      fs.writeFileSync(
+        path.join(profile, 'SingletonLock'),
+        `${os.hostname()}-${process.pid}`,
+        'utf8'
+      )
+
+      fs.writeFileSync(path.join(profile, 'SingletonCookie'), '1', 'utf8')
+
+      // The fake sends nothing: it only answers the signal 0 probe.
+      const kill = vi.spyOn(process, 'kill').mockImplementation(() => {
+        throw Object.assign(new Error('kill EPERM'), {code: 'EPERM'})
+      })
+      const readCommand = vi.fn(browserOn(profile))
+
+      let caught: unknown
+
+      try {
+        prepareChromiumProfileForLaunch(profile, {readCommand})
+      } catch (error) {
+        caught = error
+      }
+
+      expect(kill.mock.calls).toEqual([[process.pid, 0]])
+      expect(readCommand).toHaveBeenCalledExactlyOnceWith(process.pid)
+      expect(isProfileLockedError(caught)).toBe(true)
+      expect((caught as ProfileLockedError).profileLockOwner).toEqual({
+        host: os.hostname(),
+        pid: process.pid
+      })
+
+      expect(fs.readdirSync(profile).sort()).toEqual([
+        'SingletonCookie',
+        'SingletonLock'
+      ])
+    })
+
+    it('reads ESRCH as a dead owner and removes its lock', () => {
+      fs.writeFileSync(
+        path.join(profile, 'SingletonLock'),
+        `${os.hostname()}-${process.pid}`,
+        'utf8'
+      )
+
+      const kill = vi.spyOn(process, 'kill').mockImplementation(() => {
+        throw Object.assign(new Error('kill ESRCH'), {code: 'ESRCH'})
+      })
+      const readCommand = vi.fn(browserOn(profile))
+
+      const result = prepareChromiumProfileForLaunch(profile, {readCommand})
+
+      expect(kill.mock.calls).toEqual([[process.pid, 0]])
+      expect(readCommand).not.toHaveBeenCalled()
+      expect(result.removedArtifacts).toEqual(['SingletonLock'])
+      expect(fs.readdirSync(profile)).toEqual([])
+    })
+  })
+
+  it('prints the refusal as one frame with no stack trace', () => {
+    const printed = unhandledError(
+      new Error(chromiumProfileInUse('/p/profile', {host: 'host-a', pid: 42}))
+    )
+
+    expect(printed).toContain('A running browser already uses this profile.')
+    expect(printed).toContain('42 on host-a')
+    expect(printed).not.toMatch(/\n\s+at /)
+    expect(printed).not.toContain('Error:')
+  })
+
+  it('does not classify an unrelated launch failure as a lock', () => {
+    expect(isProfileLockedError(new Error('boom'))).toBe(false)
+    expect(isProfileLockedError(undefined)).toBe(false)
+  })
+})
+
+describe('stampReadyProfileLocked', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ready-lock-'))
+    outputPath = path.join(tmp, 'dist', 'chromium')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chromium', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('flips the contract to a profile_locked error', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'starting',
+        browser: 'chromium',
+        command: 'preview',
+        runId: 'run-A'
+      })
+    )
+
+    stampReadyProfileLocked(outputPath, {
+      message: 'Chromium profile "/p" is already in use by process 42',
+      owner: {host: 'host-a', pid: 42}
+    })
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('profile_locked')
+    expect(ready.message).toContain('already in use by process 42')
+    expect(ready.profileLockOwner).toEqual({host: 'host-a', pid: 42})
+    expect(typeof ready.profileLockedAt).toBe('string')
+    expect(ready.runId).toBe('run-A')
+  })
+
+  it('falls back to a generic sentence when no message is given', () => {
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'starting'}))
+
+    stampReadyProfileLocked(outputPath, {})
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.code).toBe('profile_locked')
+    expect(ready.message).toMatch(/already in use/i)
+    expect('profileLockOwner' in ready).toBe(false)
+  })
+
+  it('is a no-op when the contract file does not exist yet', () => {
+    expect(() => stampReadyProfileLocked(outputPath, {})).not.toThrow()
+    expect(() => stampReadyProfileLocked(undefined, {})).not.toThrow()
+    expect(fs.existsSync(readyPath)).toBe(false)
+  })
+})

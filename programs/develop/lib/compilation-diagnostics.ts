@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {MAX_SUMMARY_WARNINGS} from './build-summary'
+import {MAX_SUMMARY_WARNINGS, stripLoaderWrapper} from './build-summary'
 import {type DiagnosticContext, diagnosticCode} from './diagnostic-code'
 import type {Diagnostic, ErrorCode} from './messaging'
 
@@ -40,8 +40,7 @@ function finite(value: unknown): number | undefined {
 // The bundler renders a glyph and a gutter in front of its message text,
 // which a consumer of a structured field should never have to peel off.
 function plainMessage(raw: unknown): string {
-  return String(raw ?? '')
-    .replace(ANSI_PATTERN, '')
+  return stripLoaderWrapper(String(raw ?? '').replace(ANSI_PATTERN, ''))
     .split('\n')
     .map((line, index) =>
       index === 0

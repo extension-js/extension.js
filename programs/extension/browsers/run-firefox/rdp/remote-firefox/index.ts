@@ -73,6 +73,7 @@ export class RemoteFirefox {
   private derivedExtensionId: string | undefined
   private extensionBaseUrl: string | undefined
   private addonInstallRefusalReason: string | undefined
+  private lastPrintedConnectError: string | undefined
 
   // Gecko's own words for why it threw the add-on out, or null when the
   // install never got an answer. Read by the launcher after a failed install.
@@ -203,16 +204,27 @@ export class RemoteFirefox {
           await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
         } else {
           const err = error as Error
-          // The reason is the line that helps. The stack is for the author
-          // and the outer retry would print it once per attempt.
-          humanError(
-            messages.generalBrowserError(
-              this.options.browser,
-              isDebug() ? err.stack || err : err
-            )
-          )
 
-          throw err
+          // The setup retries this dial, and the same reason said once per
+          // attempt is one failure printed five times.
+          if (this.lastPrintedConnectError !== err.message) {
+            this.lastPrintedConnectError = err.message
+            // The reason is the line that helps. The stack is for the author.
+            humanError(
+              messages.generalBrowserError(
+                this.options.browser,
+                isDebug() ? err.stack || err : err
+              )
+            )
+          }
+
+          // A socket error such as a reset carries Node's code, not ours.
+          throw launchFailureCode(err)
+            ? err
+            : Object.assign(new Error(err.message), {
+                code: CODES.E_BROWSER_CONNECT,
+                cause: err
+              })
         }
       }
     }
