@@ -1023,7 +1023,10 @@ export class FirefoxLaunchPlugin {
       this.host.browser as FirefoxBrowserKind,
       () => this.child,
       () => this.cleanupInstance(),
-      () => this.livePid
+      () => this.livePid,
+      // A session that exits on a signal is gone before the browser's close
+      // event runs, so the fresh profile is reclaimed as the process ends.
+      () => removeManagedEphemeralProfile(this.host.launchProfilePath)
     )
   }
 
