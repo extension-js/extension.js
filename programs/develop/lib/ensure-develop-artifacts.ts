@@ -20,7 +20,6 @@ import {
   type InstallCommandError,
   installScriptSuppression,
   projectInstallTarget,
-  resolveNpmPackageManager,
   resolvePackageManager,
   workspaceManagerOverride
 } from './package-manager'
@@ -92,7 +91,14 @@ async function installWithRegistryRetry(
         )
       }
 
-      if (!failure.retry) throw error
+      if (failure.kind === 'manager-not-downloaded') {
+        throw codedError(
+          CODES.E_DEPENDENCY_INSTALL,
+          messages.projectInstallManagerNotDownloaded(failure, pmName)
+        )
+      }
+
+      if (!failure.retry) throw installFailed(pmName, error)
 
       if (attempt >= attempts) {
         throw codedError(
@@ -118,8 +124,22 @@ async function installWithRegistryRetry(
   }
 }
 
-function isRegistryNotReady(error: unknown): boolean {
-  return (error as {code?: string})?.code === CODES.E_DEPENDENCY_INSTALL
+// A second manager would build a tree the lockfile does not describe and
+// install past the project's own policy, so the first failure is final.
+function installFailed(pmName: string, error: unknown): Error {
+  const failed = error as InstallCommandError & {code?: string}
+
+  if (failed?.code === 'ENOENT') {
+    return codedError(
+      CODES.E_DEPENDENCY_INSTALL,
+      messages.projectInstallManagerNotFound(pmName)
+    )
+  }
+
+  return codedError(
+    CODES.E_DEPENDENCY_INSTALL,
+    messages.projectInstallFailed(pmName, failed?.exitCode, failed?.message)
+  )
 }
 
 // CI and prebuild scripts set this once the dependencies are in place, which
@@ -161,43 +181,13 @@ export async function ensureUserProjectDependencies(
     console.warn(messages.projectInstallInWorkspaceRoot(target.cwd, pm.name))
   }
 
-  const directDependencies = directDependencyNames(packageJsonDir)
-
-  try {
-    await installWithRegistryRetry(
-      pm.name,
-      cmd,
-      {cwd: target.cwd, env: suppression.env},
-      directDependencies,
-      retry
-    )
-  } catch (error) {
-    // npm reads the same registry, and would install past an age rule.
-    if (isRegistryNotReady(error)) throw error
-    // The resolved manager can fail through no fault of the project (e.g. a
-    // `packageManager` pin too old for Node); one npm retry keeps the build alive.
-    if (pm.name === 'npm') throw error
-    // A Deno project's dependencies live in deno.json(c) `npm:` imports,
-    // npm cannot install those (and may have no package.json to read at all).
-    if (pm.name === 'deno') throw error
-
-    console.warn(messages.projectInstallFallbackToNpm(pm.name))
-
-    const npmPm = resolveNpmPackageManager()
-    const npmSuppression = installScriptSuppression(npmPm)
-    const npmCmd = buildInstallCommand(npmPm, [
-      'install',
-      '--no-package-lock',
-      ...npmSuppression.args
-    ])
-    await installWithRegistryRetry(
-      npmPm.name,
-      npmCmd,
-      {cwd: packageJsonDir, env: npmSuppression.env},
-      directDependencies,
-      retry
-    )
-  }
+  await installWithRegistryRetry(
+    pm.name,
+    cmd,
+    {cwd: target.cwd, env: suppression.env},
+    directDependencyNames(packageJsonDir),
+    retry
+  )
 }
 
 export async function ensureDevelopArtifacts() {

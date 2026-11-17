@@ -22,6 +22,13 @@ export type InstallFailure =
       manager: 'deno' | 'pnpm'
       packageSpec?: string
     }
+  // Corepack could not fetch the manager, so the manager never ran.
+  | {
+      kind: 'manager-not-downloaded'
+      retry: false
+      registry?: string
+      detail?: string
+    }
   | {kind: 'permanent'; retry: false}
 
 const PERMANENT: InstallFailure = {kind: 'permanent', retry: false}
@@ -77,6 +84,26 @@ function releaseTooYoung(text: string): InstallFailure | undefined {
   }
 
   return undefined
+}
+
+const COREPACK_FETCH =
+  /(?:Server answered with HTTP (\d+) when|Error when) performing the request to (\S+?); for troubleshooting help, see https:\/\/github\.com\/nodejs\/corepack/
+
+// Corepack asks <registry>/<name>/<version>. The registry is what is left.
+function corepackRegistry(url: string): string {
+  return url.replace(/\/(?:@[^/]+\/)?[^/@]+\/[^/]+$/, '')
+}
+
+function managerNotDownloaded(text: string): InstallFailure | undefined {
+  const match = COREPACK_FETCH.exec(text)
+  if (!match) return undefined
+
+  return {
+    kind: 'manager-not-downloaded',
+    retry: false,
+    registry: corepackRegistry(match[2]),
+    ...(match[1] ? {detail: `HTTP ${match[1]}`} : {})
+  }
 }
 
 const TARBALL_URL = String.raw`(https?:\/\/\S+?\.tgz)`
@@ -169,6 +196,10 @@ export function classifyInstallFailure(
 ): InstallFailure {
   const text = unwrap(String(output || ''))
   if (!text.trim()) return PERMANENT
+
+  // Corepack fails before the manager runs, so nothing below describes it.
+  const notDownloaded = managerNotDownloaded(text)
+  if (notDownloaded) return notDownloaded
 
   if (CANNOT_HEAL.some((pattern) => pattern.test(text))) return PERMANENT
 

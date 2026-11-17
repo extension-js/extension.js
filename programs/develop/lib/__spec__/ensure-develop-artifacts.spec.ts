@@ -6,7 +6,6 @@ import {beforeEach, describe, expect, it, vi} from 'vitest'
 
 const execInstallCommand = vi.fn()
 const resolvePackageManager = vi.fn()
-const resolveNpmPackageManager = vi.fn()
 
 vi.mock('../package-manager', async (importOriginal) => {
   const actual = (await importOriginal()) as any
@@ -14,9 +13,7 @@ vi.mock('../package-manager', async (importOriginal) => {
   return {
     ...actual,
     execInstallCommand: (...args: any[]) => execInstallCommand(...args),
-    resolvePackageManager: (...args: any[]) => resolvePackageManager(...args),
-    resolveNpmPackageManager: (...args: any[]) =>
-      resolveNpmPackageManager(...args)
+    resolvePackageManager: (...args: any[]) => resolvePackageManager(...args)
   }
 })
 
@@ -46,24 +43,132 @@ describe('ensureUserProjectDependencies', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    resolveNpmPackageManager.mockReturnValue({name: 'npm'})
   })
 
-  it('falls back to npm once when the resolved manager fails (G28: corepack-pinned ancient pnpm)', async () => {
+  it.each([
+    'pnpm',
+    'yarn',
+    'bun',
+    'deno',
+    'npm'
+  ])('installs with the project manager only and frames its failure once (%s)', async (manager) => {
+    resolvePackageManager.mockReturnValue({name: manager})
+    execInstallCommand.mockRejectedValue(installFailure('Segmentation fault'))
+
+    const error: any = await ensureUserProjectDependencies(
+      '/project' as any
+    ).catch((caught) => caught)
+
+    expect(execInstallCommand).toHaveBeenCalledTimes(1)
+    expect(error.code).toBe('E_DEPENDENCY_INSTALL')
+    expect(stripVTControlCharacters(error.message)).toBe(
+      [
+        `⏵⏵⏵ Couldn't install the project dependencies with ${manager}.`,
+        `${manager} exited with code 1. The ${manager} error is printed above.`,
+        `Fix it, or run ${manager} install yourself, then run the command again.`
+      ].join('\n')
+    )
+  })
+
+  it.each([
+    [
+      'pnpm',
+      'Install it with npm install -g pnpm, then run the command again.'
+    ],
+    [
+      'yarn',
+      'Install it with npm install -g yarn, then run the command again.'
+    ],
+    ['bun', 'Install it with npm install -g bun, then run the command again.'],
+    [
+      'deno',
+      'Install it with npm install -g deno, then run the command again.'
+    ],
+    [
+      'npm',
+      'It ships with Node.js, so reinstall Node.js, then run the command again.'
+    ]
+  ])('says the manager is not on PATH and how to install it (%s)', async (manager, step) => {
+    resolvePackageManager.mockReturnValue({name: manager})
+    execInstallCommand.mockRejectedValue(
+      Object.assign(new Error(`spawn ${manager} ENOENT`), {code: 'ENOENT'})
+    )
+
+    const error: any = await ensureUserProjectDependencies(
+      '/project' as any
+    ).catch((caught) => caught)
+
+    expect(execInstallCommand).toHaveBeenCalledTimes(1)
+    expect(error.code).toBe('E_DEPENDENCY_INSTALL')
+    expect(stripVTControlCharacters(error.message)).toBe(
+      [
+        `⏵⏵⏵ Couldn't install the project dependencies with ${manager}.`,
+        `This project installs with ${manager}, but ${manager} is not on PATH.`,
+        step
+      ].join('\n')
+    )
+  })
+
+  it('names what stopped a manager that could not start for another reason', async () => {
     resolvePackageManager.mockReturnValue({name: 'pnpm'})
-    execInstallCommand
-      .mockRejectedValueOnce(new Error('Install failed with exit code 1'))
-      .mockResolvedValueOnce(undefined)
+    execInstallCommand.mockRejectedValue(
+      Object.assign(new Error('spawn pnpm EACCES'), {code: 'EACCES'})
+    )
 
-    await ensureUserProjectDependencies('/project' as any)
+    const error: any = await ensureUserProjectDependencies(
+      '/project' as any
+    ).catch((caught) => caught)
 
-    expect(execInstallCommand).toHaveBeenCalledTimes(2)
-    const [, fallbackArgs] = execInstallCommand.mock.calls[1]
-    expect(fallbackArgs).toEqual([
-      'install',
-      '--no-package-lock',
-      '--ignore-scripts'
-    ])
+    expect(stripVTControlCharacters(error.message)).toBe(
+      [
+        "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+        'pnpm could not start (spawn pnpm EACCES).',
+        'Fix it, or run pnpm install yourself, then run the command again.'
+      ].join('\n')
+    )
+  })
+
+  it.each([
+    [
+      'pnpm',
+      'corepack-pnpm-404',
+      'Corepack could not download pnpm from http://registry.test (HTTP 404), so pnpm never started.'
+    ],
+    [
+      'pnpm',
+      'corepack-pnpm-latest-404',
+      'Corepack could not download pnpm from http://registry.test (HTTP 404), so pnpm never started.'
+    ],
+    [
+      'pnpm',
+      'corepack-pnpm-refused',
+      'Corepack could not download pnpm from http://registry.test, so pnpm never started.'
+    ],
+    [
+      'yarn',
+      'corepack-yarn-404',
+      'Corepack could not download yarn from http://registry.test (HTTP 404), so yarn never started.'
+    ]
+  ])('says Corepack could not download %s and from where (%s)', async (manager, capture, cause) => {
+    resolvePackageManager.mockReturnValue({name: manager})
+    execInstallCommand.mockRejectedValue(
+      installFailure(CAPTURED_INSTALL_FAILURES[capture])
+    )
+
+    const error: any = await ensureUserProjectDependencies('/project' as any, {
+      sleep: async () => {}
+    }).catch((caught) => caught)
+
+    expect(execInstallCommand).toHaveBeenCalledTimes(1)
+    expect(error.code).toBe('E_DEPENDENCY_INSTALL')
+    expect(stripVTControlCharacters(error.message)).toBe(
+      [
+        `⏵⏵⏵ Couldn't install the project dependencies with ${manager}.`,
+        cause,
+        `Check that the registry serves ${manager} and can be reached, or set COREPACK_NPM_REGISTRY to one that does.`,
+        'The Corepack error is printed above.'
+      ].join('\n')
+    )
   })
 
   for (const value of ['1', 'true', ' TRUE ']) {
@@ -97,19 +202,6 @@ describe('ensureUserProjectDependencies', () => {
       expect(execInstallCommand).toHaveBeenCalledTimes(1)
     })
   }
-
-  it('does not retry when npm itself was the resolved manager', async () => {
-    resolvePackageManager.mockReturnValue({name: 'npm'})
-    execInstallCommand.mockRejectedValueOnce(
-      new Error('Install failed with exit code 1')
-    )
-
-    await expect(
-      ensureUserProjectDependencies('/project' as any)
-    ).rejects.toThrow('exit code 1')
-
-    expect(execInstallCommand).toHaveBeenCalledTimes(1)
-  })
 
   it('passes the confinement args from projectInstallArgs to the first install', async () => {
     resolvePackageManager.mockReturnValue({name: 'pnpm'})
@@ -330,11 +422,6 @@ describe('ensureUserProjectDependencies', () => {
           'Run the command again in a minute. The pnpm error is printed above.'
         ].join('\n')
       )
-
-      // npm reads the same registry, so no fallback install is attempted.
-      expect(
-        warnings().some((line) => line.includes('retries once with npm'))
-      ).toBe(false)
     })
 
     it('waits for a range an upstream package asked for, and names it when it never lands', async () => {
@@ -392,7 +479,9 @@ describe('ensureUserProjectDependencies', () => {
 
         await expect(
           ensureUserProjectDependencies(project as any, {sleep})
-        ).rejects.toThrow('Install failed with exit code 1')
+        ).rejects.toThrow(
+          'npm exited with code 1. The npm error is printed above.'
+        )
 
         expect(execInstallCommand).toHaveBeenCalledTimes(1)
         expect(sleep).not.toHaveBeenCalled()
@@ -412,7 +501,9 @@ describe('ensureUserProjectDependencies', () => {
 
       await expect(
         ensureUserProjectDependencies('/nonexistent-project' as any, {sleep})
-      ).rejects.toThrow('Install failed with exit code 1')
+      ).rejects.toThrow(
+        'npm exited with code 1. The npm error is printed above.'
+      )
 
       expect(execInstallCommand).toHaveBeenCalledTimes(1)
       expect(sleep).not.toHaveBeenCalled()
@@ -474,24 +565,29 @@ describe('ensureUserProjectDependencies', () => {
       expect(stripVTControlCharacters(error.message)).toBe(framed.join('\n'))
       expect(execInstallCommand).toHaveBeenCalledTimes(1)
       expect(sleep).not.toHaveBeenCalled()
-      expect(warnings().join('\n')).not.toContain('retries once with npm')
     })
 
-    it('still falls back to npm once when another manager fails for a reason that cannot heal', async () => {
+    it('never installs with npm when another manager fails for a reason that cannot heal', async () => {
       resolvePackageManager.mockReturnValue({name: 'pnpm'})
-      execInstallCommand
-        .mockRejectedValueOnce(
-          installFailure(CAPTURED_INSTALL_FAILURES['pnpm-missing-package'])
-        )
-        .mockResolvedValueOnce(undefined)
+      execInstallCommand.mockRejectedValue(
+        installFailure(CAPTURED_INSTALL_FAILURES['pnpm-missing-package'])
+      )
 
-      await ensureUserProjectDependencies('/nonexistent-project' as any, {
-        sleep
-      })
+      const error: any = await ensureUserProjectDependencies(
+        '/nonexistent-project' as any,
+        {sleep}
+      ).catch((caught) => caught)
 
-      expect(execInstallCommand).toHaveBeenCalledTimes(2)
-      expect(execInstallCommand.mock.calls[1][1]).toContain('--no-package-lock')
+      expect(execInstallCommand).toHaveBeenCalledTimes(1)
       expect(sleep).not.toHaveBeenCalled()
+      expect(error.code).toBe('E_DEPENDENCY_INSTALL')
+      expect(stripVTControlCharacters(error.message)).toBe(
+        [
+          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          'pnpm exited with code 1. The pnpm error is printed above.',
+          'Fix it, or run pnpm install yourself, then run the command again.'
+        ].join('\n')
+      )
     })
   })
 })

@@ -152,6 +152,33 @@ describe('classifyInstallFailure', () => {
     })
   })
 
+  it.each([
+    ['corepack-pnpm-404', 'http://registry.test', 'HTTP 404'],
+    ['corepack-pnpm-latest-404', 'http://registry.test', 'HTTP 404'],
+    ['corepack-yarn-404', 'http://registry.test', 'HTTP 404'],
+    ['corepack-pnpm-refused', 'http://registry.test', undefined]
+  ])('reads a manager Corepack could not download, never as a registry to wait on (%s)', (capture, registry, detail) => {
+    expect(classifyInstallFailure(CAPTURED_INSTALL_FAILURES[capture])).toEqual({
+      kind: 'manager-not-downloaded',
+      retry: false,
+      registry,
+      ...(detail ? {detail} : {})
+    })
+  })
+
+  it('keeps the path of a registry that is not at the root of its host', () => {
+    expect(
+      classifyInstallFailure(
+        'Error: Server answered with HTTP 503 when performing the request to https://host.test/api/npm/all/@yarnpkg/cli-dist/4.5.0; for troubleshooting help, see https://github.com/nodejs/corepack#troubleshooting'
+      )
+    ).toEqual({
+      kind: 'manager-not-downloaded',
+      retry: false,
+      registry: 'https://host.test/api/npm/all',
+      detail: 'HTTP 503'
+    })
+  })
+
   it('still names the age rule when the refusal carries no package', () => {
     expect(
       classifyInstallFailure(

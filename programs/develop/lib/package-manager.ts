@@ -694,12 +694,6 @@ export function installScriptSuppression(pm: PackageManagerResolution): {
   return {args: ['--ignore-scripts'], env: {}}
 }
 
-// A hydrated npm resolution for fallback installs: PATH npm first, then the
-// npm bundled with the running Node.
-export function resolveNpmPackageManager(): PackageManagerResolution {
-  return hydrateResolvedPackageManager('npm') || {name: 'npm'}
-}
-
 export function buildInstallCommand(
   pm: PackageManagerResolution,
   args: string[]

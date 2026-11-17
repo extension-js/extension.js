@@ -238,13 +238,6 @@ export function projectInstallInWorkspaceRoot(
   )
 }
 
-export function projectInstallFallbackToNpm(pmName: string) {
-  return (
-    `${getLoggingPrefix('warn')} Dependency install with ${pmName} failed.\n` +
-    `Extension.js retries once with npm so the build can continue.`
-  )
-}
-
 function installFailureReason(failure: InstallFailure): string {
   if (failure.kind === 'tarball-not-served') {
     return `The registry lists ${fmt.code(failure.packageSpec)} but is not serving its tarball yet.`
@@ -318,6 +311,60 @@ export function projectInstallReleaseTooYoung(
     `${rule}, and ${release || 'a release this project asks for'} is too young.\n` +
     `Wait until the release is old enough, pin the previous version, or ${lift}.\n` +
     `The ${pmName} error is printed above.`
+  )
+}
+
+// The install commands are the ones each manager's own install page gives.
+const MANAGER_INSTALL_STEP: Record<string, string> = {
+  pnpm: 'npm install -g pnpm',
+  yarn: 'npm install -g yarn',
+  bun: 'npm install -g bun',
+  deno: 'npm install -g deno'
+}
+
+export function projectInstallManagerNotFound(pmName: string) {
+  const command = MANAGER_INSTALL_STEP[pmName]
+  const step = command
+    ? `Install it with ${fmt.code(command)}, then run the command again.`
+    : 'It ships with Node.js, so reinstall Node.js, then run the command again.'
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `This project installs with ${pmName}, but ${pmName} is not on PATH.\n` +
+    step
+  )
+}
+
+export function projectInstallManagerNotDownloaded(
+  failure: Extract<InstallFailure, {kind: 'manager-not-downloaded'}>,
+  pmName: string
+) {
+  const from = failure.registry ? ` from ${fmt.code(failure.registry)}` : ''
+  const detail = failure.detail ? ` (${failure.detail})` : ''
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `Corepack could not download ${pmName}${from}${detail}, so ${pmName} never started.\n` +
+    `Check that the registry serves ${pmName} and can be reached, or set ${fmt.code('COREPACK_NPM_REGISTRY')} to one that does.\n` +
+    `The Corepack error is printed above.`
+  )
+}
+
+// Only the project's own manager installs, so its failure is the last word.
+export function projectInstallFailed(
+  pmName: string,
+  exitCode: number | null | undefined,
+  reason?: string
+) {
+  const what =
+    typeof exitCode === 'number'
+      ? `${pmName} exited with code ${exitCode}. The ${pmName} error is printed above.`
+      : `${pmName} could not start${reason ? ` (${reason})` : ''}.`
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `${what}\n` +
+    `Fix it, or run ${fmt.code(`${pmName} install`)} yourself, then run the command again.`
   )
 }
 
