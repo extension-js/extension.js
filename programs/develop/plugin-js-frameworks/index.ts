@@ -468,7 +468,6 @@ export class JsFrameworksPlugin {
           parser: swcParserForFile(resourcePath, jsxInPlainJs),
           transform: {
             react: {
-              development: mode === 'development',
               runtime: 'automatic',
               importSource: jsxImportSource,
               refresh: options.refresh
