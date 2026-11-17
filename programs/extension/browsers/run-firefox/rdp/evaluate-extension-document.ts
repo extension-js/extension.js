@@ -6,6 +6,8 @@
 // ╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝      ╚═╝     ╚═╝╚═╝  ╚═╝╚══════╝╚═╝      ╚═════╝ ╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {
   capEvalValue,
   MAX_RESULT_BYTES,
@@ -99,7 +101,9 @@ export function extensionDocumentPagePath(
 
   const candidates: Array<string | undefined> = []
 
-  if (context === 'popup') {
+  if (context === 'background') {
+    candidates.push(read('background', 'page'))
+  } else if (context === 'popup') {
     candidates.push(
       read('action', 'default_popup'),
       read('browser_action', 'default_popup'),
@@ -125,6 +129,24 @@ export function extensionDocumentPagePath(
   const page = candidates.find((value) => typeof value === 'string' && value)
 
   return page ? page.replace(/^\.?\//, '').split(/[?#]/)[0] : undefined
+}
+
+// The launcher holds the folder it installed, not a parsed manifest.
+// Undefined for background.scripts, whose document Firefox names itself.
+export function installedBackgroundPagePath(
+  addonPath: string | undefined
+): string | undefined {
+  if (!addonPath) return undefined
+
+  try {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(addonPath, 'manifest.json'), 'utf-8')
+    )
+
+    return extensionDocumentPagePath(manifest, 'background')
+  } catch {
+    return undefined
+  }
 }
 
 // The manifest keys that declare a surface, as the refusal names them.
@@ -192,8 +214,8 @@ export function documentNotOpenMessage(context: string): string {
   return `the ${context} document is not open (open it first: extension open ${context})`
 }
 
-// Firefox names the background document of an MV3 add-on
-// _generated_background_page.html, and an MV2 one by its own background.html.
+// Firefox runs background.scripts in _generated_background_page.html, and a
+// background.page in that page, whose path only the manifest can name.
 const BACKGROUND_DOCUMENT = /\/(?:_generated_background_page|background)\.html$/
 
 export function pickDocumentFrame(
@@ -212,9 +234,11 @@ export function pickDocumentFrame(
   const match = open.find((frame) => {
     const url = String(frame.url).split(/[?#]/)[0]
 
+    const isNamedPage = Boolean(pagePath) && url.endsWith(`/${pagePath}`)
+
     return context === 'background'
-      ? BACKGROUND_DOCUMENT.test(url)
-      : Boolean(pagePath) && url.endsWith(`/${pagePath}`)
+      ? isNamedPage || BACKGROUND_DOCUMENT.test(url)
+      : isNamedPage
   })
 
   return match ? String(match.consoleActor) : undefined
