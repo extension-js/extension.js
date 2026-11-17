@@ -157,8 +157,14 @@ export function inlineStylesheetUrls(
         resolvePublicFolder(manifestPath, projectPath)
       ))
     }
-  } catch {
+  } catch (error) {
     // A reference check must never break a build the browser would accept.
+    loader.emitWarning(
+      Object.assign(
+        new Error(messages.cssUrlRewriteSkipped(loader.resourcePath, error)),
+        {name: 'CssUrlRewriteWarning'}
+      )
+    )
   }
 
   return {css, bundledRequests}

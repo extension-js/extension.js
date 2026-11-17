@@ -61,6 +61,9 @@ export class CssPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
 
+  // Setup failures found while building the rules, said once per compiler.
+  private readonly setupWarnings: string[] = []
+
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
@@ -93,7 +96,9 @@ export class CssPlugin {
     const usage = {
       useSass: usingSass,
       useLess: usingLess,
-      postCss: postCssReaderForOneCompiler()
+      postCss: postCssReaderForOneCompiler((message) =>
+        this.setupWarnings.push(message)
+      )
     }
 
     const loaders: RuleSetRule[] = [
@@ -417,7 +422,19 @@ export class CssPlugin {
     )
   }
 
+  private reportSetupWarnings(compiler: Compiler) {
+    compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:setup`, (c) => {
+      for (const message of this.setupWarnings.splice(0)) {
+        const warning = new compiler.rspack.WebpackError(message)
+
+        warning.name = 'CssSetupWarning'
+        c.warnings.push(warning)
+      }
+    })
+  }
+
   public async apply(compiler: Compiler) {
+    this.reportSetupWarnings(compiler)
     this.keepCssParityInProduction(compiler)
     this.restorePublicRootRefs(compiler)
     this.tolerateDeadUrlRefs(compiler)

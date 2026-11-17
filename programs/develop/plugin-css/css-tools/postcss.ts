@@ -541,7 +541,9 @@ export type PostCssRuleReader = (
 
 // One compiler builds 24 style rules from one config. Its reader loads the
 // config once per project and mode, and a new compiler starts a new reader.
-export function postCssReaderForOneCompiler(): PostCssRuleReader {
+export function postCssReaderForOneCompiler(
+  warn?: (message: string) => void
+): PostCssRuleReader {
   const read = new Map<string, Promise<Record<string, AnyModule>>>()
 
   return (projectPath, opts) => {
@@ -549,7 +551,7 @@ export function postCssReaderForOneCompiler(): PostCssRuleReader {
     let rule = read.get(key)
 
     if (!rule) {
-      rule = maybeUsePostCss(projectPath, opts)
+      rule = maybeUsePostCss(projectPath, {...opts, warn: warn ?? opts.warn})
       read.set(key, rule)
     }
 
@@ -641,6 +643,9 @@ export async function maybeUsePostCss(
   const declaredTailwindMajor = getDeclaredTailwindMajor(projectPath)
 
   if (shouldInjectTailwindPlugin) {
+    let setupError: unknown
+    let tailwindPluginId: string | undefined
+
     try {
       const bases = Array.from(
         new Set(
@@ -658,7 +663,6 @@ export async function maybeUsePostCss(
           ? ['tailwindcss', '@tailwindcss/postcss']
           : ['@tailwindcss/postcss', 'tailwindcss']
       let tailwindMod: AnyModule | undefined
-      let tailwindPluginId: string | undefined
 
       for (const base of bases) {
         try {
@@ -731,7 +735,9 @@ export async function maybeUsePostCss(
             // Keep compatibility with plugin versions that don't accept options.
             try {
               instance = tailwindMod()
-            } catch {
+            } catch (error) {
+              setupError = error
+
               // Recovery: if direct tailwindcss execution fails (e.g. v4), try loading
               // @tailwindcss/postcss anchored to the project root.
               if (tailwindPluginId === 'tailwindcss') {
@@ -755,8 +761,8 @@ export async function maybeUsePostCss(
                       tailwindPluginId = '@tailwindcss/postcss'
                       break
                     }
-                  } catch {
-                    // Ignore
+                  } catch (error) {
+                    setupError = error
                   }
                 }
               }
@@ -785,8 +791,19 @@ export async function maybeUsePostCss(
             : [...tailwindStringPluginDisableShims(), tailwindMod]
         }
       }
-    } catch {
+    } catch (error) {
       // Never break the build from here; let postcss-loader handle errors.
+      setupError = error
+    }
+
+    if (!tailwindResolvedInstance && setupError !== undefined) {
+      opts.warn?.(
+        messages.tailwindSetupFailed(
+          tailwindPluginId ?? '@tailwindcss/postcss',
+          projectPath,
+          setupError
+        )
+      )
     }
   }
 

@@ -23,6 +23,8 @@ export interface StyleLoaderOptions {
   loader?: string
   loaderOptions?: Record<string, unknown>
   postCss?: PostCssRuleReader
+  // Hears a setup failure the build survives, to say it once per compiler.
+  warn?: (message: string) => void
 }
 
 export async function commonStyleLoaders(
