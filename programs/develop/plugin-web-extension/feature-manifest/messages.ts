@@ -317,6 +317,24 @@ export function sidebarKeyTranslatedForBrowser(
   )
 }
 
+export function pageKeptAtAuthoredPath(
+  fields: string[],
+  authored: string,
+  outputs: string[],
+  mentionedIn: string
+) {
+  const keys = fields.map((field) => colors.yellow(field)).join(' and ')
+  const compiled = outputs
+    .map((output) => colors.underline(output))
+    .join(' and ')
+
+  return (
+    `${prefix('info')} ${keys} ${fields.length > 1 ? 'open' : 'opens'} at ${colors.underline(authored)} in the built manifest, the path written in your source.\n` +
+    `${colors.underline(mentionedIn)} holds that path as a string, and from ${compiled} a check against ${colors.blue('sender.url')} or ${colors.blue('location')} would fail.\n` +
+    `The compiled page ships at both paths and loads the same script and styles.`
+  )
+}
+
 export function mv3BackgroundPageUnsupported(browser: string) {
   return (
     `${prefix('warn')} ${colors.blue(browser)} has no ${colors.yellow('background.page')} in Manifest V3, and the extension installs with no background context at all.\n` +

@@ -106,6 +106,7 @@ import * as messages from '../lib/messages'
 import {recordZipArtifact} from '../plugin-compilation/zip-artifacts'
 import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
 import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
+import * as specialFoldersMod from '../plugin-special-folders/get-data'
 import webpackConfig from '../rspack-config'
 import type {BuildOptions} from '../types'
 
@@ -794,6 +795,26 @@ describe('webpack/command-build', () => {
 
     expect(process.env.NODE_ENV).toBe('development')
     process.env.NODE_ENV = previousNodeEnv
+  })
+
+  it('checks for TypeScript only after the folders config is remembered', async () => {
+    ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
+      return String(p).endsWith('node_modules')
+    })
+    ;(fs.readdirSync as any).mockReturnValue(['something'])
+
+    const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
+    rspackMock.mockReturnValue(makeCompiler(stats))
+    ;(specialFoldersMod as any).rememberSpecialFoldersConfig.mockClear()
+
+    await extensionBuild('/proj', {browser: 'chrome', silent: true})
+
+    const remembered = (specialFoldersMod as any).rememberSpecialFoldersConfig
+      .mock.invocationCallOrder[0]
+    const checked = (tsToolsMod as any).ensureTypeScriptConfig.mock
+      .invocationCallOrder[0]
+
+    expect(remembered).toBeLessThan(checked)
   })
 
   it('regenerates extension-env.d.ts for TS projects so CI tsc --noEmit stays clean', async () => {

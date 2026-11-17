@@ -678,6 +678,30 @@ describe("the controlled copy's content security policy", () => {
     )
   })
 
+  it("drops 'none' from the connect-src that admits the control port", async () => {
+    const {projectDir, distPath} = makeFirefoxProject({
+      manifest_version: 3,
+      content_security_policy: {
+        extension_pages: "default-src 'none'; script-src 'self'"
+      }
+    })
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      distPath,
+      allowControl: true
+    })
+
+    const pages = controlledManifest(session.controlledPath)
+      .content_security_policy.extension_pages
+    expect(pages).toContain(
+      `connect-src ws://127.0.0.1:${session.controlPort};`
+    )
+
+    expect(pages).toContain("default-src 'none';")
+  })
+
   it('drops upgrade-insecure-requests from an MV2 string policy', async () => {
     const {projectDir, distPath} = makeFirefoxProject({
       manifest_version: 2,

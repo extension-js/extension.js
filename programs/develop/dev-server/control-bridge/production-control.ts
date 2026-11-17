@@ -20,6 +20,7 @@ import {
   logsPath
 } from '../../lib/session-paths'
 import {RELAY_TARGETS} from '../../plugin-reload/steps/inject-bridge-relay'
+import {withAddedSources} from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp'
 import {ActionsFileWriter} from './actions-file'
 import {BridgeBroker} from './broker'
 import {readExtensionLoadRefusal} from './consumer-client'
@@ -141,8 +142,8 @@ function controlledPagesPolicy(
 
   const connectSrc = csp.get('connect-src') || csp.get('default-src')
 
-  if (connectSrc && !connectSrc.includes(controlSource)) {
-    csp.set('connect-src', [...connectSrc, controlSource])
+  if (connectSrc) {
+    csp.set('connect-src', withAddedSources(connectSrc, [controlSource]))
   }
 
   return buildPolicy(csp)

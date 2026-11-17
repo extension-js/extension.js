@@ -56,6 +56,8 @@ import * as devServerMod from '../dev-server'
 import * as configLoaderMod from '../lib/config-loader'
 import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as genTypesMod from '../lib/generate-extension-types'
+import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
+import {rememberedFolders} from '../plugin-special-folders/folders-config'
 
 describe('webpack/command-dev', () => {
   const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -100,6 +102,30 @@ describe('webpack/command-dev', () => {
       expect.any(Object),
       expect.objectContaining({mode: 'development', browser: 'chrome'})
     )
+  })
+
+  it('checks for TypeScript with the browser and folders the config file names', async () => {
+    ;(fs.existsSync as any).mockReturnValue(false)
+    ;(fs.readdirSync as any).mockReturnValue([])
+    ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+      browser: 'firefox',
+      folders: {pages: 'src/pages'}
+    })
+
+    let foldersAtCheck: unknown
+
+    ;(tsToolsMod as any).ensureTypeScriptConfig.mockImplementationOnce(() => {
+      foldersAtCheck = rememberedFolders('/proj')
+    })
+
+    await extensionDev('/proj', {browser: undefined, port: 0} as any)
+
+    expect(tsToolsMod.ensureTypeScriptConfig).toHaveBeenCalledWith(
+      '/proj',
+      expect.objectContaining({browser: 'firefox'})
+    )
+
+    expect(foldersAtCheck).toEqual({pages: 'src/pages'})
   })
 
   it('skips user dependency install when install option is false', async () => {

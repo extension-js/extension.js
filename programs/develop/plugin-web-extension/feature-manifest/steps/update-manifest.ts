@@ -47,6 +47,7 @@ import {
   shouldFoldBrowserActionIntoAction,
   sidebarFoldTarget
 } from '../../shared/html-surfaces'
+import {applyKeptPagePaths, keptPagePaths} from '../../shared/kept-page-paths'
 import * as messages from '../messages'
 import {
   hasUnsupportedMv3BackgroundPage,
@@ -75,6 +76,8 @@ export class UpdateManifest {
   // Same contract for the Safari unsupported-API warning, which fires in
   // development too: one line per distinct call, not one on every save.
   private reportedUnsupportedApis = new Set<string>()
+  // A page kept at its authored path is said once per session too.
+  private reportedKeptPages = new Set<string>()
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -349,6 +352,35 @@ export class UpdateManifest {
               patchedManifest,
               this.browser
             )
+
+            // A page whose authored path a script holds opens at that path,
+            // so sender.url and location read as they do from the source.
+            const keptPages = applyKeptPagePaths(
+              patchedManifest,
+              keptPagePaths(compilation)
+            )
+            patchedManifest = keptPages.manifest
+
+            for (const authored of new Set(
+              keptPages.applied.map((page) => page.authored)
+            )) {
+              if (this.reportedKeptPages.has(authored)) continue
+
+              this.reportedKeptPages.add(authored)
+
+              const pages = keptPages.applied.filter(
+                (page) => page.authored === authored
+              )
+
+              humanLine(
+                messages.pageKeptAtAuthoredPath(
+                  pages.map((page) => page.field),
+                  authored,
+                  [...new Set(pages.map((page) => page.output))],
+                  pages[0].mentionedIn
+                )
+              )
+            }
 
             // Dev-only: content_scripts with only CSS get a JS file so styles can be
             // dynamically imported (HMR). Must run before patchDevContentScriptManifestPaths.
