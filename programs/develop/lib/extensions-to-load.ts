@@ -104,10 +104,24 @@ function explicitCompanionEntries(config: unknown): string[] {
     : []
 }
 
+function isFolder(target: string): boolean {
+  try {
+    return fs.statSync(target).isDirectory()
+  } catch {
+    return false
+  }
+}
+
 // The entries that name a folder, told apart from a store link without the
 // resolver that would fetch one: a link has a scheme or opens with a host.
-export function namedCompanionFolders(config: unknown): string[] {
+export function namedCompanionFolders(
+  config: unknown,
+  projectRoot?: string
+): string[] {
   return explicitCompanionEntries(config).filter((entry) => {
+    // A folder that is there is a folder, whatever its name looks like.
+    if (projectRoot && isFolder(path.resolve(projectRoot, entry))) return true
+
     if (/^[a-z][a-z0-9+.-]*:\/\//i.test(entry)) return false
     if (path.isAbsolute(entry) || entry.startsWith('.')) return true
 

@@ -6,6 +6,7 @@ import {
   companionsDeclaredIn,
   computeExtensionsToLoad,
   isFirstCompanionWarning,
+  namedCompanionFolders,
   unresolvedNamedCompanions
 } from '../lib/extensions-to-load'
 import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-extensions/resolve-dirs'
@@ -597,6 +598,35 @@ describe('a companion that does not resolve', () => {
     expect(
       unresolvedNamedCompanions({projectRoot: root, resolved: undefined})
     ).toEqual([])
+  })
+
+  it('reads an entry that names a folder on disk as a folder, whatever it looks like', () => {
+    const root = tmpDir('extjs-companion-folder-')
+    const storeId = 'abcdefghijklmnopabcdefghijklmnop'
+    const entries = [
+      'my.ext/foo',
+      storeId,
+      'plain',
+      'chromewebstore.google.com/detail/some-name/abcdefghijklmnopabcdefghijklmnop',
+      'https://example.com/not-a-store'
+    ]
+
+    // With nothing on disk only the shape decides, and none reads as a folder.
+    expect(namedCompanionFolders(entries, root)).toEqual([])
+
+    for (const entry of ['my.ext/foo', storeId, 'plain']) {
+      fs.mkdirSync(path.join(root, entry), {recursive: true})
+    }
+
+    expect(namedCompanionFolders(entries, root)).toEqual([
+      'my.ext/foo',
+      storeId,
+      'plain'
+    ])
+
+    // A file of that name is not a folder.
+    fs.writeFileSync(path.join(root, 'a.file'), '')
+    expect(namedCompanionFolders(['a.file'], root)).toEqual([])
   })
 
   it('counts a companion as new once in a process', () => {

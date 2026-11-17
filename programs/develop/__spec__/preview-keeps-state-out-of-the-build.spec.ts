@@ -354,6 +354,25 @@ describe('a named companion that is not an extension, with no browser', () => {
     ).toBe('ready')
   })
 
+  it('warns about a folder that is there and holds no manifest, though its name reads as a host', async () => {
+    const root = project()
+
+    fs.mkdirSync(path.join(root, 'my.ext', 'foo'), {recursive: true})
+
+    const {warnings} = await preview(root, {
+      extensions: ['my.ext/foo', 'my.ext/gone']
+    })
+
+    // The entry with no folder behind it still reads as a link and is left.
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('ENTRY my.ext/foo')
+    expect(warnings[0]).toContain(
+      `NOT FOUND ${path.join(root, 'my.ext', 'foo', 'manifest.json')}`
+    )
+
+    expect(store.fetch).not.toHaveBeenCalled()
+  })
+
   it('still refuses the same entry when a browser is to open', async () => {
     const root = project()
 

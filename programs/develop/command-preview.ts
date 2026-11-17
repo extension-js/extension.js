@@ -488,7 +488,7 @@ export async function extensionPreview(
     const missingCompanions = unresolvedNamedCompanions({
       projectRoot: packageJsonDir,
       resolved: previewOptions.noBrowser
-        ? namedCompanionFolders(mergedExtensionsConfig)
+        ? namedCompanionFolders(mergedExtensionsConfig, packageJsonDir)
         : resolvedExtensionsConfig,
       declared: mergedExtensionsConfig,
       declaredIn: companionsDeclaredIn(metadataCommand, {
