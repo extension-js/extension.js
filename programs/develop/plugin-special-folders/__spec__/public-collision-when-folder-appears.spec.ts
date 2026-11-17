@@ -124,6 +124,8 @@ describe('an output collision from a public folder that appeared later', () => {
     compiler.__compile(compilation)
 
     expect(collisionErrorsFrom(compilation)).toContain('PublicOutputCollision')
+    // No copier reads a folder that appeared late, so the plugin watches it.
+    expect(compilation.contextDependencies).toContain(path.join(root, 'public'))
     const explained = compilation.errors.find(
       (error) => (error as Error & {name?: string}).name
     ) as Error & {file?: string}
@@ -143,6 +145,10 @@ describe('an output collision from a public folder that appeared later', () => {
     compiler.__compile(compilation)
 
     expect(collisionErrorsFrom(compilation)).toContain('PublicOutputCollision')
+    // The copier watches a folder it reads; the plugin adds nothing itself.
+    expect(compilation.contextDependencies).not.toContain(
+      path.join(root, 'public')
+    )
   })
 
   it('stays quiet while no folder has appeared', () => {

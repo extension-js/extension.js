@@ -208,3 +208,50 @@ export async function compileFixture(
     await closeCompiler(compiler)
   }
 }
+
+export interface FixtureWatch {
+  builds: FixtureBuild[]
+  // Resolves with the build numbered `count` (1-based), or undefined when
+  // none arrives within the timeout.
+  waitForBuild: (
+    count: number,
+    timeoutMs: number
+  ) => Promise<FixtureBuild | undefined>
+  close: () => Promise<void>
+}
+
+export function watchFixture(root: string, compiler: Compiler): FixtureWatch {
+  const builds: FixtureBuild[] = []
+  const waiters = new Set<() => void>()
+
+  const watching = compiler.watch({aggregateTimeout: 50}, (error, stats) => {
+    if (!error && stats) builds.push(readBuild(root, stats.compilation))
+
+    for (const wake of [...waiters]) wake()
+  })
+
+  return {
+    builds,
+    waitForBuild(count, timeoutMs) {
+      return new Promise((resolve) => {
+        const check = () => {
+          if (builds.length < count) return false
+
+          waiters.delete(check)
+          clearTimeout(timer)
+          resolve(builds[count - 1])
+
+          return true
+        }
+
+        const timer = setTimeout(() => {
+          waiters.delete(check)
+          resolve(undefined)
+        }, timeoutMs)
+
+        if (!check()) waiters.add(check)
+      })
+    },
+    close: () => new Promise<void>((resolve) => watching.close(() => resolve()))
+  }
+}

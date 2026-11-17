@@ -167,14 +167,12 @@ export class SpecialFoldersPlugin {
       compiler.hooks.thisCompilation.tap(
         SpecialFoldersPlugin.name,
         (compilation: Compilation) => {
-          // A file only the copier ships (a DNR ruleset, a fetched data file)
-          // has no module or manifest reference to watch it, so watch the folder.
-          // A folder that is not there yet is watched by its own path as a
-          // missing dependency, so its creation is the next compile's trigger.
-          if (fs.existsSync(publicDir)) {
-            compilation.contextDependencies?.add(publicDir)
-          } else {
+          // The copier watches the folder it reads. One that is not there yet
+          // is watched by its own path, so creating it triggers a compile.
+          if (!fs.existsSync(publicDir)) {
             compilation.missingDependencies?.add(publicDir)
+          } else if (!copierWired) {
+            compilation.contextDependencies?.add(publicDir)
           }
 
           // A folder that appeared mid-session needs the copier the session
