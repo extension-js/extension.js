@@ -169,132 +169,6 @@ function hasGuardedManifestDiskPath(filePath: unknown) {
   return false
 }
 
-interface GuardableOutputFs {
-  __extensionjsGuardedManifestPaths?: Map<string, number>
-  writeFile?: (filePath: string, ...args: unknown[]) => unknown
-  writeFileSync?: (filePath: string, ...args: unknown[]) => unknown
-  createWriteStream?: (filePath: string, ...args: unknown[]) => unknown
-  promises?: {writeFile?: (filePath: string, ...args: unknown[]) => unknown}
-}
-
-// Ref-counted like the disk guard: a restart has two servers guarding one
-// manifest, and the first to stop must not unguard the one still live.
-function holdGuardedOutputPath(
-  guardedPaths: Map<string, number>,
-  resolvedPath: string
-): () => void {
-  guardedPaths.set(resolvedPath, (guardedPaths.get(resolvedPath) || 0) + 1)
-
-  let released = false
-
-  return () => {
-    if (released) return
-
-    released = true
-    const count = guardedPaths.get(resolvedPath) || 0
-    if (count <= 1) guardedPaths.delete(resolvedPath)
-    else guardedPaths.set(resolvedPath, count - 1)
-  }
-}
-
-export function suppressManifestOutputWrites(
-  compiler: unknown,
-  manifestOutputPath: string
-): () => void {
-  const outputFileSystem = (
-    compiler as {outputFileSystem?: unknown} | undefined
-  )?.outputFileSystem as GuardableOutputFs | undefined
-
-  if (!outputFileSystem) return () => {}
-
-  const resolvedManifestPath = path.resolve(manifestOutputPath)
-
-  // rspack hands every compiler in the process the same node_fs singleton,
-  // so a second server must ADD its path to the already-patched fs instead
-  // of no-opping and inheriting only the first server's suppression.
-  const alreadyGuardedPaths = outputFileSystem.__extensionjsGuardedManifestPaths
-
-  if (alreadyGuardedPaths) {
-    return holdGuardedOutputPath(alreadyGuardedPaths, resolvedManifestPath)
-  }
-
-  const guardedPaths = new Map<string, number>()
-  outputFileSystem.__extensionjsGuardedManifestPaths = guardedPaths
-
-  const isManifestPath = (filePath: unknown) => {
-    if (typeof filePath !== 'string') return false
-
-    for (const guardedPath of guardedPaths.keys()) {
-      if (isSamePath(guardedPath, filePath)) return true
-    }
-
-    return false
-  }
-
-  if (typeof outputFileSystem.writeFile === 'function') {
-    const originalWriteFile = outputFileSystem.writeFile.bind(outputFileSystem)
-
-    outputFileSystem.writeFile = (filePath: string, ...args: unknown[]) => {
-      if (isManifestPath(filePath)) {
-        const callback = args[args.length - 1]
-
-        if (typeof callback === 'function') callback(null)
-
-        return
-      }
-
-      return originalWriteFile(filePath, ...args)
-    }
-  }
-
-  if (typeof outputFileSystem.writeFileSync === 'function') {
-    const originalWriteFileSync =
-      outputFileSystem.writeFileSync.bind(outputFileSystem)
-
-    outputFileSystem.writeFileSync = (filePath: string, ...args: unknown[]) => {
-      if (isManifestPath(filePath)) return
-
-      return originalWriteFileSync(filePath, ...args)
-    }
-  }
-
-  if (typeof outputFileSystem.createWriteStream === 'function') {
-    const originalCreateWriteStream =
-      outputFileSystem.createWriteStream.bind(outputFileSystem)
-
-    outputFileSystem.createWriteStream = (
-      filePath: string,
-      ...args: unknown[]
-    ) => {
-      if (isManifestPath(filePath)) {
-        const stream = createDiscardWriteStream()
-        stream.path = filePath
-
-        return stream
-      }
-
-      return originalCreateWriteStream(filePath, ...args)
-    }
-  }
-
-  if (typeof outputFileSystem?.promises?.writeFile === 'function') {
-    const originalPromiseWriteFile = outputFileSystem.promises.writeFile.bind(
-      outputFileSystem.promises
-    )
-
-    outputFileSystem.promises.writeFile = async (
-      filePath: string,
-      ...args: unknown[]
-    ) => {
-      if (isManifestPath(filePath)) return
-
-      return originalPromiseWriteFile(filePath, ...args)
-    }
-  }
-
-  return holdGuardedOutputPath(guardedPaths, resolvedManifestPath)
-}
-
 export function installManifestDiskWriteGuard(
   manifestOutputPath: string
 ): () => void {
@@ -1080,10 +954,6 @@ export async function devServer(
 
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)
-    const releaseOutputFsGuard = suppressManifestOutputWrites(
-      compiler,
-      manifestOutputPath
-    )
 
     // Under --no-browser no CDP controller owns reload, so broadcast the same
     // classified reload decision over the control bridge; gated to avoid double-reload.
@@ -1222,7 +1092,6 @@ export async function devServer(
           await originalDevServerStop()
         } finally {
           uninstallManifestGuard()
-          releaseOutputFsGuard()
         }
       }
     }

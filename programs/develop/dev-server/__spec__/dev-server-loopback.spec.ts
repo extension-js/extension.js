@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {installManifestDiskWriteGuard} from '../index'
 import {
   bootLoopback,
   closeSocket,
@@ -133,5 +134,57 @@ describe('the dev server on loopback', () => {
         await closeSocket(socket)
       }
     })
+  })
+
+  it('keeps the compiled manifest off disk until its guard is released', async () => {
+    const root = createFixture('extjs-loopback-guard-')
+    roots.push(root)
+    const manifest = path.join(root, 'dist', 'chrome', 'manifest.json')
+    const uninstall = installManifestDiskWriteGuard(manifest)
+    let session: LoopbackSession | undefined
+    let released = false
+
+    try {
+      session = await bootLoopback({root})
+      await session.firstCompile
+
+      // The middleware swaps the compiler onto memory, so the compiler never
+      // writes through node:fs: only the middleware's writeToDisk does.
+      expect(session.compiler.outputFileSystem).not.toBe(fs)
+      expect(
+        String(
+          (
+            session.compiler.outputFileSystem as unknown as {
+              readFileSync: (file: string) => Buffer
+            }
+          ).readFileSync(manifest)
+        )
+      ).toBe('{"manifest_version":3}')
+
+      expect(fs.existsSync(path.join(session.distPath, 'background.js'))).toBe(
+        true
+      )
+
+      expect(fs.existsSync(manifest)).toBe(false)
+
+      fs.writeFileSync(manifest, 'sync')
+      await new Promise<void>((resolve) =>
+        fs.writeFile(manifest, 'callback', () => resolve())
+      )
+
+      await fs.promises.writeFile(manifest, 'promise')
+      expect(fs.existsSync(manifest)).toBe(false)
+
+      await session.server.stop()
+      session = undefined
+      uninstall()
+      released = true
+
+      fs.writeFileSync(manifest, 'after release')
+      expect(fs.readFileSync(manifest, 'utf8')).toBe('after release')
+    } finally {
+      await session?.server.stop()
+      if (!released) uninstall()
+    }
   })
 })
