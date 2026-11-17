@@ -10,18 +10,18 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {humanLine} from '../../dev-server/lifecycle-stream'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
+import {
+  findNearestProjectManifestDirSync,
+  hasProjectDependency
+} from '../../lib/project-manifest'
 import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
 import * as messages from '../js-frameworks-lib/messages'
 import {buildReachesTypeScript} from './typescript-reach'
 
-let hasShownUserMessage = false
-
-import {
-  findNearestProjectManifestDirSync,
-  hasProjectDependency
-} from '../../lib/project-manifest'
+// Printed once per process. A caller that needs its own record passes one.
+const tsconfigNotice = {delivered: false}
 
 function findNearestPackageJsonDirectory(
   startPath: string
@@ -91,7 +91,8 @@ export function isUsingTypeScript(projectPath: string): boolean {
 
 export function ensureTypeScriptConfig(
   projectPath: string,
-  entries?: {manifestPath?: string; browser?: DevOptions['browser']}
+  entries?: {manifestPath?: string; browser?: DevOptions['browser']},
+  notice: {delivered: boolean} = tsconfigNotice
 ): void {
   const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
   const hasDep = hasTypeScriptDependency(projectPath)
@@ -115,7 +116,7 @@ export function ensureTypeScriptConfig(
   // project) earns no scaffold: only TypeScript sources need a tsconfig.
   if (hasTsFiles || (hasDep && tsConfigFilePath)) {
     if (tsConfigFilePath) {
-      if (!hasShownUserMessage && isDebug()) {
+      if (!notice.delivered && isDebug()) {
         debugLine(
           `${prefix('debug')} ${messages.isUsingIntegration('TypeScript')}`
         )
@@ -124,14 +125,14 @@ export function ensureTypeScriptConfig(
       // TS sources without a declared typescript dep are common in the wild
       // (19 of 5,187 swept repos). Scaffold the same default tsconfig the
       // declared-dep path writes instead of refusing the build.
-      if (!hasShownUserMessage) {
+      if (!notice.delivered) {
         humanLine(messages.creatingTSConfig())
       }
 
       writeTsConfig(projectPath)
     }
 
-    hasShownUserMessage = true
+    notice.delivered = true
   }
 }
 

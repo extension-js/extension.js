@@ -21,21 +21,25 @@ import * as messages from '../js-frameworks-lib/messages'
 
 type ReactRefreshPluginCtor = new (...args: unknown[]) => RspackPluginInstance
 
-let userMessageDelivered = false
+// Printed once per process. A caller that needs its own record passes one.
+const reactNotice = {delivered: false}
 
 type MaybeUseReactOptions = {
   refreshExclude?: unknown
   disableRefresh?: boolean
 }
 
-export function isUsingReact(projectPath: string) {
+export function isUsingReact(
+  projectPath: string,
+  notice: {delivered: boolean} = reactNotice
+) {
   if (hasDependency(projectPath, 'react')) {
-    if (!userMessageDelivered) {
+    if (!notice.delivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('React')}`)
       }
 
-      userMessageDelivered = true
+      notice.delivered = true
     }
 
     return true
