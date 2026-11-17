@@ -19,6 +19,7 @@ const BUILD_TARGETS = [
   'build:edge'
 ]
 const BUNDLED_PACKAGES = ['extension-js-devtools', 'extension-js-theme']
+const PINNED_COMPANION = 'extension-js-devtools'
 const STAMP_FILE = 'build-stamp.json'
 
 function main() {
@@ -184,7 +185,54 @@ function main() {
       )
     }
 
+    if (packageName === PINNED_COMPANION) {
+      const drift = pinnedManifestDrift(pkgRoot, distRoot)
+
+      if (drift.length > 0) {
+        throw new Error(
+          `[Extension.js] ${packageName} build changed its pinned manifest: ${drift.join(' ')}`
+        )
+      }
+    }
+
     return distRoot
+  }
+
+  // The companion's permissions and IDs are pinned in its source manifest,
+  // so a build that drops or widens them is refused before it is mirrored.
+  function pinnedManifestDrift(pkgRoot, distRoot) {
+    const read = (file) => JSON.parse(fs.readFileSync(file, 'utf8'))
+    const source = read(path.join(pkgRoot, 'src', 'manifest.json'))
+    const sorted = (list) => [...(list || [])].sort().join(', ')
+    const problems = []
+
+    for (const engine of ENGINES) {
+      const built = read(path.join(distRoot, engine, 'manifest.json'))
+      const family = engine === 'firefox' ? 'firefox' : 'chromium'
+      const expected = sorted(source[`${family}:permissions`])
+
+      if (sorted(built.permissions) !== expected) {
+        problems.push(
+          `${engine} permissions are [${sorted(built.permissions)}], the source manifest has [${expected}].`
+        )
+      }
+
+      if (family === 'chromium' && built.key !== source['chromium:key']) {
+        problems.push(`${engine} lost the key that pins its extension ID.`)
+      }
+
+      const geckoId =
+        source['firefox:browser_specific_settings']?.gecko?.id ?? null
+
+      if (
+        family === 'firefox' &&
+        (built.browser_specific_settings?.gecko?.id ?? null) !== geckoId
+      ) {
+        problems.push(`${engine} lost the add-on ID ${geckoId}.`)
+      }
+    }
+
+    return problems
   }
 
   // A temp folder + rename avoids EEXIST errors from cpSync on macOS.
