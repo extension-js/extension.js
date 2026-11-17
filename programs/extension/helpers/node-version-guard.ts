@@ -7,9 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import fs from 'node:fs'
-import {getCliPackageJson} from './cli-package-json'
-import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
-import {resolveTelemetryConsent, Telemetry} from './telemetry'
+import {
+  commandFromArgv,
+  reportUnsupportedRuntimeWith
+} from './runtime-refusal-telemetry'
 
 const MIN_NODE_MAJOR = 22
 const MIN_NODE_MINOR = 12
@@ -122,15 +123,6 @@ function wantsJsonOutput(argv: string[]): boolean {
   )
 }
 
-function commandFromArgv(argv: string[]): string {
-  for (let index = 2; index < argv.length; index += 1) {
-    if (argv[index] === '--output') index += 1
-    else if (!argv[index].startsWith('-')) return argv[index]
-  }
-
-  return 'extension'
-}
-
 // Built by hand because nothing may be imported before this check runs. The
 // shape is the schema-1 failure envelope every other early refusal writes.
 export function unsupportedNodeVersionFrame(
@@ -157,34 +149,8 @@ export function unsupportedNodeVersionFrame(
   }
 }
 
-const UNSUPPORTED_RUNTIME_FLUSH_MS = 1500
-
-// Only a machine whose owner already saw the first-run notice reports here,
-// since this exit comes before the CLI that prints the notice can load.
 export function reportUnsupportedRuntime(argv: string[] = process.argv): void {
-  try {
-    const consent = resolveTelemetryConsent(argv)
-    if (!consent.enabled || consent.source === 'default') return
-
-    const verb = commandFromArgv(argv)
-    const command: KnownCommand = KNOWN_COMMANDS.has(verb as KnownCommand)
-      ? (verb as KnownCommand)
-      : 'unknown'
-    const version = String(getCliPackageJson().version || '0.0.0')
-    const telemetry = new Telemetry({app: 'extension', version})
-
-    telemetry.track('command_failed', {
-      command,
-      success: false,
-      version,
-      code: 'E_NODE_VERSION',
-      exit_code: 1
-    })
-
-    telemetry.flushSync(UNSUPPORTED_RUNTIME_FLUSH_MS)
-  } catch {
-    // Ignore
-  }
+  reportUnsupportedRuntimeWith(argv)
 }
 
 function writeFrame(frame: Record<string, unknown>): void {

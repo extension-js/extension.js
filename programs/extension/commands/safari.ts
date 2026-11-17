@@ -28,10 +28,16 @@ import {
   type SafariUiTools
 } from '../browsers/run-safari/safari-ui'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
-import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  loadExtensionDevelopBridgeModule
+} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode, humanLine} from '../helpers/messaging'
-import {normalizeOutputFormat} from '../helpers/output-flag'
+import {
+  normalizeOutputFormat,
+  refuseUnreadableOutput
+} from '../helpers/output-flag'
 import {resolveSessionProjectPath} from '../helpers/session-project-path'
 
 export type SafariUiAction = (typeof messages.SAFARI_UI_ACTIONS)[number]
@@ -46,10 +52,10 @@ interface SafariCommandOptions {
 
 const COMMAND = 'safari'
 
-let injectedTools: SafariUiTools | undefined
-
-export function setSafariUiToolsForTests(tools?: SafariUiTools): void {
-  injectedTools = tools
+// What an action reaches outside this file. Production takes every default.
+interface SafariCommandDeps {
+  createUiTools?: () => SafariUiTools
+  loadBridge?: () => Promise<AnyDevelopModule>
 }
 
 function writeFrame(frame: unknown): void {
@@ -129,10 +135,6 @@ function readManifestCommands(manifestDir: string): string | undefined {
   }
 }
 
-export function toolsForRun(): SafariUiTools {
-  return injectedTools || createSafariUiTools()
-}
-
 export interface ResolvedSafariTarget {
   projectPath: string
   manifestDir: string
@@ -144,9 +146,10 @@ export interface ResolvedSafariTarget {
 
 export async function resolveSafariTarget(
   projectPathArg: string | undefined,
-  opts: SafariCommandOptions
+  opts: SafariCommandOptions,
+  loadBridge: () => Promise<AnyDevelopModule> = loadExtensionDevelopBridgeModule
 ): Promise<ResolvedSafariTarget> {
-  const bridge = await loadExtensionDevelopBridgeModule()
+  const bridge = await loadBridge()
   const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
   const manifestDir = manifestDirFor(projectPath)
   const compilation = {
@@ -206,9 +209,11 @@ function switchWord(value: string | null): string {
 async function runAction(
   action: SafariUiAction,
   projectPathArg: string | undefined,
-  opts: SafariCommandOptions
+  opts: SafariCommandOptions,
+  createUiTools: () => SafariUiTools,
+  loadBridge: () => Promise<AnyDevelopModule>
 ): Promise<unknown> {
-  const tools = toolsForRun()
+  const tools = createUiTools()
 
   if (tools.platform !== 'darwin') {
     fail(
@@ -231,7 +236,7 @@ async function runAction(
     )
   }
 
-  const target = await resolveSafariTarget(projectPathArg, opts)
+  const target = await resolveSafariTarget(projectPathArg, opts, loadBridge)
   const identity = {
     bundleId: target.bundleId,
     developmentTeam: target.developmentTeam
@@ -342,7 +347,13 @@ async function runAction(
   return {appName: target.appName, bundleId: target.bundleId, ...shortcut}
 }
 
-export function registerSafariCommand(program: Command): void {
+export function registerSafariCommand(
+  program: Command,
+  {
+    createUiTools = createSafariUiTools,
+    loadBridge = loadExtensionDevelopBridgeModule
+  }: SafariCommandDeps = {}
+): void {
   program
     .command(COMMAND)
     .arguments('<action> [project-path]')
@@ -362,6 +373,7 @@ export function registerSafariCommand(program: Command): void {
       'the Apple team id the app was signed with (default: an ad-hoc build)'
     )
     .option('--output <pretty|json>', 'output format (default pretty)')
+    .hook('preAction', refuseUnreadableOutput())
     .action(
       async (
         action: string,
@@ -387,14 +399,16 @@ export function registerSafariCommand(program: Command): void {
           value = await runAction(
             action as SafariUiAction,
             projectPathArg,
-            opts
+            opts,
+            createUiTools,
+            loadBridge
           )
         } catch (error) {
           if (
             error instanceof SafariUiError &&
             error.kind === 'accessibility'
           ) {
-            const host = error.host || toolsForRun().hostApp()
+            const host = error.host || createUiTools().hostApp()
             fail(
               opts.output,
               browserMessages.safariAccessibilityDenied(host),

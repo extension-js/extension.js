@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {sources} from '@rspack/core'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {DEV_BOOT_REGISTERS_GLOBAL} from '../../dev-server/control-bridge/producer-runtime'
 import {
   backgroundNamesRegistration,
@@ -16,7 +16,6 @@ const INJECTS =
   'chrome.scripting.executeScript({target: {tabId: 1}, files: ["a.js"]})'
 
 let dir: string
-const saved: Record<string, string | undefined> = {}
 
 function source(name: string, text: string): string {
   const file = path.join(dir, name)
@@ -105,22 +104,13 @@ function build(
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-boot-registrations-'))
-
-  for (const key of ['EXTENSION_CONTROL_PORT', 'EXTENSION_INSTANCE_ID']) {
-    saved[key] = process.env[key]
-  }
-
-  process.env.EXTENSION_CONTROL_PORT = '8123'
-  process.env.EXTENSION_INSTANCE_ID = 'abc123'
+  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+  vi.stubEnv('EXTENSION_INSTANCE_ID', 'abc123')
 })
 
 afterEach(() => {
   fs.rmSync(dir, {recursive: true, force: true})
-
-  for (const [key, value] of Object.entries(saved)) {
-    if (value === undefined) delete process.env[key]
-    else process.env[key] = value
-  }
+  vi.unstubAllEnvs()
 })
 
 describe('whether a background registers a content script', () => {

@@ -5,7 +5,9 @@ import {
   installTargets,
   MANAGED_INSTALL_BINARIES,
   MANAGED_INSTALL_TARGETS,
+  SUPPORTED_BROWSER_TARGETS,
   validateManagedInstallTargets,
+  validateVendors,
   vendors
 } from '../vendors'
 
@@ -21,6 +23,41 @@ describe('vendors', () => {
   it('splits comma-separated values and trims whitespace', () => {
     expect(vendors('chrome,firefox' as any)).toEqual(['chrome', 'firefox'])
     expect(vendors('chrome, edge' as any)).toEqual(['chrome', 'edge'])
+  })
+})
+
+describe('validateVendors', () => {
+  function refusal(list: string[], options = {}) {
+    let seen: [string, string[]] | undefined
+
+    const valid = validateVendors(
+      list,
+      (invalid, supported) => {
+        seen = [invalid, supported]
+      },
+      options
+    )
+
+    return {valid, seen}
+  }
+
+  it('lists every target when nothing is held back', () => {
+    expect(refusal(['netscape'])).toEqual({
+      valid: false,
+      seen: ['netscape', SUPPORTED_BROWSER_TARGETS]
+    })
+  })
+
+  it('accepts safari but leaves it out of the choices when asked to', () => {
+    const options = {allowEmulator: false, listSafari: false}
+
+    expect(refusal(['safari'], options)).toEqual({valid: true, seen: undefined})
+    expect(refusal(['netscape'], options).seen?.[1]).toEqual(
+      SUPPORTED_BROWSER_TARGETS.filter(
+        (target) =>
+          !['safari', 'webkit-based', 'chromium-emulator'].includes(target)
+      )
+    )
   })
 })
 

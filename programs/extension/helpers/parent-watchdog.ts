@@ -6,6 +6,8 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {parseWholeNumber} from './normalize-options'
+
 const POLL_INTERVAL_MS = 2_000
 const HARD_EXIT_GRACE_MS = 5_000
 
@@ -33,10 +35,13 @@ export function setupParentWatchdog(
     // Test seam: replaces the SIGTERM-self shutdown.
     onDeath?: () => void
     pollIntervalMs?: number
+    // Answers whether a pid is alive, the system probe when left out.
+    isAlive?: (pid: number) => boolean
   }
 ): () => void {
   const log = options?.log ?? console.error
   const pollIntervalMs = options?.pollIntervalMs ?? POLL_INTERVAL_MS
+  const isAlive = options?.isAlive ?? isProcessAlive
   const shutdown =
     options?.onDeath ??
     (() => {
@@ -60,14 +65,14 @@ export function setupParentWatchdog(
     shutdown()
   }
 
-  if (!isProcessAlive(parentPid)) {
+  if (!isAlive(parentPid)) {
     onParentDeath()
 
     return () => {}
   }
 
   const timer = setInterval(() => {
-    if (isProcessAlive(parentPid)) return
+    if (isAlive(parentPid)) return
 
     clearInterval(timer)
     onParentDeath()
@@ -79,10 +84,7 @@ export function setupParentWatchdog(
 }
 
 export function parseParentPid(value: unknown): number | undefined {
-  if (value === undefined || value === null || value === '') return undefined
+  const pid = parseWholeNumber(value)
 
-  const pid = Number.parseInt(String(value), 10)
-  if (!Number.isInteger(pid) || pid <= 0) return undefined
-
-  return pid
+  return pid !== undefined && pid > 0 ? pid : undefined
 }
