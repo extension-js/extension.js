@@ -29,7 +29,6 @@ export {
   classifyReloadFromSources,
   createLoadedContentScripts,
   formatReloadContextLabel,
-  publicOutputPath,
   type ReloadInstruction,
   type ReloadType,
   readContentScriptCount,
@@ -38,8 +37,7 @@ export {
   readWebAccessibleResources,
   reloadForNewWebResources,
   reloadForRenamedContentScripts,
-  reloadForRewrittenContentScripts,
-  type SourceFeatureIndex
+  reloadForRewrittenContentScripts
 } from './classify-reload'
 export {
   type ChangedSourcesTracker,

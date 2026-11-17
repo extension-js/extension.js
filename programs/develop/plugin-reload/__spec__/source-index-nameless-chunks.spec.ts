@@ -9,7 +9,7 @@ import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   type SourceFeatureIndex
-} from '../index'
+} from '../classify-reload'
 
 const files: Record<string, string> = {
   'package.json': JSON.stringify({

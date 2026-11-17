@@ -2,13 +2,13 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   publicOutputPath,
   type SourceFeatureIndex
-} from '../index'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+} from '../classify-reload'
 
 const makeTempFolder = trackTempFolders()
 
