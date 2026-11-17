@@ -618,8 +618,6 @@ export class JsFrameworksPlugin {
       : []
 
     if (refreshEntries.length === 0) return
-    // Unit specs hand in a compiler stub without this hook.
-    if (typeof compiler.hooks?.entryOption?.tap !== 'function') return
 
     compiler.hooks.entryOption.tap(
       JsFrameworksPlugin.name,
