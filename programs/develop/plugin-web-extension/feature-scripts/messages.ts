@@ -532,6 +532,17 @@ export function contentScriptWithoutDefaultExport(
   )
 }
 
+// Thrown, so the build stops where the script would otherwise ship unmounted.
+export function defaultExportUnreadable(file: string, reason: string) {
+  return (
+    `${prefix('error')} Extension.js could not read the default export of ${file}.\n` +
+    `${colors.gray('PATH')} ${colors.underline(file)}\n` +
+    `${colors.gray('REASON')} ${reason}\n` +
+    `The build parses a content script to find the function it mounts, and the parser stopped before it reached the export, so the script would never run.\n` +
+    `Move the code named above into a module this file imports, and keep the default export in a file of plain JavaScript, TypeScript or JSX.`
+  )
+}
+
 // Chromium drops an @import in a sheet it injects, so one the build could
 // not write into the sheet is a rule that styles nothing there.
 export function injectedSheetImportKept(

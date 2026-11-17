@@ -42,6 +42,7 @@ import {
 } from '../../contracts'
 import * as messages from '../../messages'
 import {keepCompletionValue} from '../../scripts-lib/completion-value'
+import {MOUNT_NAME, readDefaultExport} from '../../scripts-lib/default-export'
 import {
   extensionBaseAttributeFor,
   extensionBaseGlobalFor
@@ -58,7 +59,6 @@ interface ContentScriptLoaderContext {
     mainWorldBundle?: boolean
     scriptsFolder?: string | false
   }
-  _compilation?: unknown
   resourcePath: string
   resourceQuery?: string
   emitWarning?(warning: Error): void
@@ -90,13 +90,6 @@ function escapeCodeString(str: string): string {
 
     return map[ch] || ch
   })
-}
-
-function getSourceSignature(source: unknown): string {
-  const head = String(source || '').slice(0, 64)
-  const tail = String(source || '').slice(-64)
-
-  return `${String(source || '').length}:${head}:${tail}`
 }
 
 function createBuildToken(source: string): string {
@@ -166,52 +159,6 @@ function collectStyleAssetSpecifiers(source: string): string[] {
 // could reach another module counts, so the answer only ever errs towards yes.
 function hasModuleDependency(source: string): boolean {
   return /\bimport\b|\brequire\s*\(|\bfrom\s*["'`]/.test(source)
-}
-
-function hasDefaultExport(
-  source: string,
-  resourcePath: string,
-  compilationArg: unknown
-): boolean {
-  const compilation = compilationArg as
-    | {__extjsHasDefaultExportCache?: Map<string, boolean>}
-    | undefined
-
-  try {
-    const abs = path.normalize(resourcePath)
-    const sig = getSourceSignature(source)
-
-    if (compilation) {
-      compilation.__extjsHasDefaultExportCache ??= new Map()
-      const cacheKey = `${abs}|${sig}`
-      const cached = compilation.__extjsHasDefaultExportCache.get(cacheKey)
-      if (typeof cached === 'boolean') return cached
-    }
-
-    // The lexer only scans import/export statements, tolerating TS/TSX without
-    // per-syntax config; anything it can't lex throws into the regex fallback.
-    const [, moduleExports] = parseModuleSyntax(source)
-    const result = moduleExports.some(
-      (entry) => 'name' in entry && entry.name === 'default'
-    )
-
-    compilation?.__extjsHasDefaultExportCache?.set(`${abs}|${sig}`, result)
-
-    return result
-  } catch {
-    const fallback = source.includes('export default')
-
-    try {
-      compilation?.__extjsHasDefaultExportCache?.set(
-        `${path.normalize(resourcePath)}|${getSourceSignature(source)}`,
-        fallback
-      )
-    } catch {
-      // Ignore
-    }
-
-    return fallback
-  }
 }
 
 // Whether a file imports another one from scripts/, whose value would
@@ -296,7 +243,6 @@ export default function contentScriptWrapper(
     baseDataPath: 'options'
   })
 
-  const compilation = this._compilation
   const manifestPath = options.manifestPath
   // Canonicalize to match this.resourcePath (symlink-resolved); under a
   // symlinked project root a raw manifestDir would break declared-entry matching.
@@ -1206,21 +1152,28 @@ export default function contentScriptWrapper(
     '  return unmount;\n' +
     '}\n'
 
-  if (!hasDefaultExport(rewrittenSource, this.resourcePath, compilation)) {
+  const projectRelativePath =
+    path.relative(packageJsonDir, resourceAbsPath).split(path.sep).join('/') ||
+    resourceAbsPath
+  const defaultExport = readDefaultExport(
+    rewrittenSource,
+    this.resourcePath,
+    projectRelativePath
+  )
+
+  if (defaultExport.kind !== 'found') {
     // A declared entry that starts itself at import cannot be cleaned up, so
     // each dev re-inject adds a copy. Said in the session, where it bites.
     if (
       !isShippedBundle &&
       declaredEntry &&
+      defaultExport.kind === 'none' &&
       !hintedEntriesWithoutDefaultExport.has(resourceAbsPath)
     ) {
       hintedEntriesWithoutDefaultExport.add(resourceAbsPath)
       humanLine(
         messages.contentScriptWithoutDefaultExport(
-          path
-            .relative(packageJsonDir, resourceAbsPath)
-            .split(path.sep)
-            .join('/') || resourceAbsPath,
+          projectRelativePath,
           isChromiumBasedBrowser(browser)
         )
       )
@@ -1274,27 +1227,8 @@ export default function contentScriptWrapper(
     )
   }
 
-  const replaced = rewrittenSource.replace(
-    /\bexport\s+default\b/,
-    'const __EXTENSIONJS_default__ ='
-  )
-
-  let defaultName: string | undefined
-
-  {
-    const matchFunction = rewrittenSource.match(
-      /\bexport\s+default\s+function\s+([A-Za-z_$][\w$]*)\s*\(/
-    )
-
-    if (matchFunction) {
-      defaultName = matchFunction[1]
-    } else {
-      const matchIdentifier = rewrittenSource.match(
-        /\bexport\s+default\s+([A-Za-z_$][\w$]*)\b/
-      )
-      if (matchIdentifier) defaultName = matchIdentifier[1]
-    }
-  }
+  const replaced = defaultExport.code
+  const defaultName = defaultExport.localName
 
   let cleaned = replaced
 
@@ -1324,8 +1258,9 @@ export default function contentScriptWrapper(
     `${runtimeInline}`
   const wrapSuffix =
     `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
+    defaultExport.binding +
     `var __EXTENSIONJS_cleanup = function(){};\n` +
-    `try { __EXTENSIONJS_cleanup = __EXTENSIONJS_mount(__EXTENSIONJS_default__, ${JSON.stringify(
+    `try { __EXTENSIONJS_cleanup = __EXTENSIONJS_mount(${MOUNT_NAME}, ${JSON.stringify(
       runAt
     )}) } catch (error) {
       // Ignore
@@ -1335,7 +1270,7 @@ export default function contentScriptWrapper(
       // Ignore
     }\n`
     ) +
-    `export default __EXTENSIONJS_default__\n`
+    (defaultExport.keepsOwnExport ? '' : `export default ${MOUNT_NAME}\n`)
   const wrappedResult = `${wrapPrefix}${cleaned}\n${wrapSuffix}`
 
   return returnWithMap(
