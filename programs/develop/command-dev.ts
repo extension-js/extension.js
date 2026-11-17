@@ -23,7 +23,7 @@ import {
   mergeOptionLayers
 } from './lib/merge-options'
 import * as messages from './lib/messages'
-import {debugLine, isDebug} from './lib/messaging'
+import {debugLine, isDebug, isMachineOutput} from './lib/messaging'
 import {
   browserOptionOrThrow,
   configBrowserOrThrow,
@@ -72,6 +72,9 @@ export async function extensionDev(
   // The CLI wrapper passes exitOnError=true; as a library import a failed dev
   // session must be a rejected promise, never a process.exit inside the host.
   const shouldExitOnError = devOptions.exitOnError === true
+  // A refusal while the project is being found is the whole answer, and
+  // under machine output the frame has it. Later failures keep their lines.
+  let findingProject = true
 
   try {
     // A name nobody knows is refused before anything is fetched or installed.
@@ -79,6 +82,9 @@ export async function extensionDev(
     // Inside the try, so a missing manifest fails the way every other dev
     // failure does.
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+
+    findingProject = false
+
     const isAuthor = isDebug()
     const debug = isAuthor
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
@@ -231,17 +237,21 @@ export async function extensionDev(
   } catch (error) {
     // A library caller gets the rejection and prints what it wants of it.
     // Printing here too showed the same failure twice.
-    if (!shouldExitOnError) {
+    const framedByCaller = !shouldExitOnError && isMachineOutput()
+
+    if (!shouldExitOnError && !(framedByCaller && !findingProject)) {
       throw error
     }
 
-    // The exiting path owns the one printed block: clean, with no stack,
-    // unless author mode asks for the full trace.
+    // One printed block: clean, with no stack, unless author mode asks for
+    // the full trace. A frame on stdout leaves the human lines to stderr.
     if (isDebug()) {
       console.error(error)
     } else {
       console.error(messages.devCommandFailed(error))
     }
+
+    if (framedByCaller) throw error
 
     try {
       devOptions.onExitError?.(error)

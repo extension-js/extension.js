@@ -537,6 +537,43 @@ describe('webpack/command-dev', () => {
     exitSpy.mockRestore()
   })
 
+  it('keeps the human lines on stderr when a caller frames a later failure for a machine', async () => {
+    const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
+
+    try {
+      ;(devServerMod as any).devServer.mockImplementationOnce(async () => {
+        throw new Error('boom')
+      })
+
+      await expect(
+        extensionDev('/proj', {browser: 'firefox'} as any)
+      ).rejects.toThrow('boom')
+
+      expect(printed).toHaveBeenCalledTimes(1)
+      expect(String(printed.mock.calls[0][0])).toContain('boom')
+      expect(String(printed.mock.calls[0][0])).not.toMatch(/\n\s+at /)
+
+      // A project that is not found is the whole answer, and the frame has it.
+      const projectMod = await import('../lib/project')
+
+      printed.mockClear()
+      ;(projectMod.getProjectStructure as any).mockRejectedValueOnce(
+        new Error('no manifest here')
+      )
+
+      await expect(
+        extensionDev('/nowhere', {browser: 'firefox'} as any)
+      ).rejects.toThrow('no manifest here')
+
+      expect(printed).not.toHaveBeenCalled()
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('hands the failure to onExitError only on the path that exits', async () => {
     const failure = new Error('boom')
     const onExitError = vi.fn()
