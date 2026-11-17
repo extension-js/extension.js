@@ -20,7 +20,7 @@ afterEach(() => {
 type FakeCompilation = {
   errors: any[]
   outputOptions: {path: string}
-  hooks: {processAssets: {tap: (opts: any, fn: () => void) => void}}
+  hooks: {afterProcessAssets: {tap: (opts: any, fn: () => void) => void}}
   getAsset: (name: string) => any
 }
 
@@ -35,7 +35,7 @@ function makeCompiler(
   const compilationProxy: any = {
     ...compilation,
     hooks: {
-      processAssets: {
+      afterProcessAssets: {
         tap: (_opts: any, fn: () => void) => {
           processAssetsFn = fn
         }
@@ -74,7 +74,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: [],
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => '{\n  "name": "x"\n}'}}
@@ -113,7 +113,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -167,7 +167,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -197,7 +197,7 @@ describe('PersistManifestToDisk', () => {
       makeCompiler(outputDir, () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -227,7 +227,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -281,7 +281,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -313,7 +313,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -332,5 +332,32 @@ describe('PersistManifestToDisk', () => {
     expect(fs.existsSync(path.join(outputDir, 'manifest.json'))).toBe(false)
     expect(compilationErrors).toHaveLength(0)
     scheduler.dispose()
+  })
+
+  it('writes what the asset holds once every stage is over', () => {
+    const outputDir = makeTempFolder('persist-manifest-late-edit-')
+    let source = '{"name":"built in"}'
+    const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
+      outputDir,
+      () => ({
+        errors: [],
+        outputOptions: {path: outputDir},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => source}}
+            : undefined
+      })
+    )
+
+    new PersistManifestToDisk().apply(compiler)
+    // A plugin of the project rewrites the asset at a late stage.
+    source = '{"name":"edited by the project"}'
+    runProcessAssets()
+    runAfterEmit()
+
+    expect(fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf8')).toBe(
+      '{"name":"edited by the project"}'
+    )
   })
 })

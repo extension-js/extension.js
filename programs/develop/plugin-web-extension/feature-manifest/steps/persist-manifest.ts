@@ -8,13 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import rspack, {Compilation, type Compiler} from '@rspack/core'
+import rspack, {type Compilation, type Compiler} from '@rspack/core'
 import {isCompilerRestarting} from '../../../dev-server/session-restart'
 import {renameSyncWithRetry} from '../../../lib/rename-with-retry'
 import {turnedOffPublicFolders} from '../../../plugin-special-folders/resolve-public-folder'
 import {isManifestAddress} from '../../shared/paths'
 import {pagesReportedMissing} from '../../shared/reported-missing-pages'
-import {getCurrentManifestContent} from '../manifest-lib/manifest'
+import {readManifestAssetText} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 
 function readJsonSafe(source: string) {
@@ -236,23 +236,16 @@ export class PersistManifestToDisk {
     compiler.hooks.thisCompilation.tap(
       'manifest:persist-manifest:capture',
       (compilation: Compilation) => {
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'manifest:persist-manifest:capture',
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1000
-          },
+        // Read once every processAssets stage is over, so an edit a project
+        // plugin makes at any stage is in the text that reaches the disk.
+        compilation.hooks.afterProcessAssets.tap(
+          'manifest:persist-manifest:capture',
           () => {
             pendingHadErrors = compilation.errors.length > 0
             pendingOutputPath =
               compilation.outputOptions.path || compiler.options.output?.path
 
-            const manifestAsset = compilation.getAsset('manifest.json')
-            const manifestSource =
-              getCurrentManifestContent(compilation) ||
-              manifestAsset?.source?.source?.().toString()
-
-            pendingManifestSource =
-              typeof manifestSource === 'string' ? manifestSource : undefined
+            pendingManifestSource = readManifestAssetText(compilation)
           }
         )
       }
