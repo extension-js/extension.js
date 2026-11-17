@@ -954,7 +954,13 @@ async function geckoProtocolPageEval(
 function bridgeRefusedInjection(result: ActResultLike): boolean {
   const raw = (result?.error || {}) as {code?: unknown; name?: unknown}
 
-  return raw.code === 'injection_refused' || raw.name === 'InjectionRefused'
+  // A build with no scripting permission cannot inject at all, and its own
+  // pages are read the same way a refused one is.
+  return (
+    raw.code === 'injection_refused' ||
+    raw.code === 'scripting_unavailable' ||
+    raw.name === 'InjectionRefused'
+  )
 }
 
 const EXTENSION_PAGE_URL = /^(?:chrome|moz)-extension:\/\//
