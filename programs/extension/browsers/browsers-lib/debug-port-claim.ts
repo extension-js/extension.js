@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {isPidAlive} from './resolve-live-pid'
 
 export interface DebugPortClaim {
   port: number
@@ -30,18 +31,6 @@ function claimPath(dir: string, port: number): string {
   return path.join(dir, `${port}.claim`)
 }
 
-function processIsAlive(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) return false
-
-  try {
-    process.kill(pid, 0)
-
-    return true
-  } catch (error) {
-    return (error as NodeJS.ErrnoException)?.code === 'EPERM'
-  }
-}
-
 function claimIsLive(file: string): boolean {
   let pid: unknown
 
@@ -51,7 +40,7 @@ function claimIsLive(file: string): boolean {
     if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return false
   }
 
-  if (typeof pid === 'number') return processIsAlive(pid)
+  if (typeof pid === 'number') return isPidAlive(pid)
 
   try {
     return Date.now() - fs.statSync(file).mtimeMs < UNREADABLE_CLAIM_MAX_AGE_MS

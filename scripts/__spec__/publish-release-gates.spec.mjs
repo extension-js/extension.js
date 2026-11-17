@@ -277,11 +277,17 @@ test('a pin behind by artifact commits alone is not behind', () => {
   assert.equal(onlyBotCommits([]), false)
 })
 
-test('both corpus readings include the Safari lane', () => {
-  for (const job of ['corpus-gate', 'corpus-published']) {
+test('the gate reads Safari, the published reading only on a canary', () => {
+  const withOf = (job) => {
     const text = workflow.slice(workflow.indexOf(`\n  ${job}:`))
     const end = text.indexOf('\n\n', 1)
 
-    assert.match(end === -1 ? text : text.slice(0, end), /\n {6}safari: true/)
+    return end === -1 ? text : text.slice(0, end)
   }
+
+  assert.match(withOf('corpus-gate'), /\n {6}safari: true$/)
+  assert.match(
+    withOf('corpus-published'),
+    /\n {6}safari: \$\{\{ inputs\.channel == 'canary' \}\}$/
+  )
 })

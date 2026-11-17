@@ -37,10 +37,26 @@ export function canonicalizeDir(dir: string): string {
     try {
       return fs.realpathSync(dir)
     } catch {
-      // A dir that does not exist yet still needs one spelling, or a trailing
-      // separator or a dot segment keeps it from ever matching a resource key.
-      return path.resolve(dir)
+      return canonicalizeMissingDir(path.resolve(dir))
     }
+  }
+}
+
+// A dir that does not exist yet takes the real spelling of its nearest
+// existing parent, or a symlinked or short-named root never matches it.
+function canonicalizeMissingDir(resolved: string): string {
+  const missing: string[] = []
+
+  for (let dir = resolved; ; dir = path.dirname(dir)) {
+    const parent = path.dirname(dir)
+
+    if (parent === dir) return resolved
+
+    missing.unshift(path.basename(dir))
+
+    try {
+      return path.join(fs.realpathSync.native(parent), ...missing)
+    } catch {}
   }
 }
 
