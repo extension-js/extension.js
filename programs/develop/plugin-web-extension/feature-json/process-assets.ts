@@ -41,7 +41,6 @@ export function processJsonAssets(
   const jsonFields = includeList || {}
   const manifestDir = path.dirname(manifestPath)
   const projectPath = getProjectPathFromCompilation(compilation, manifestPath)
-  const publicDir = path.join(projectPath, 'public')
 
   if (isDebug()) {
     const featureKeys = Object.keys(jsonFields || {})

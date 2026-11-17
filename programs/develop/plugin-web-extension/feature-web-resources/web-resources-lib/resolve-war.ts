@@ -490,13 +490,6 @@ export function resolveUserDeclaredWAR(
       return
     }
 
-    const absForExclude = path.isAbsolute(res)
-      ? res
-      : path.join(
-          manifestDir,
-          isPublicRootLike(res) ? toPublicOutput(res) : res
-        )
-
     if (/[*?[\]{}]/.test(res)) {
       // A pattern with a parent segment names nothing inside the build, and
       // copying its matches would write outside the output folder.

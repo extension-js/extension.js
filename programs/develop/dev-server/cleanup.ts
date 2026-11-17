@@ -77,7 +77,7 @@ export function setupCleanupHandlers(
 
   // A stray rejection (common from browser plugins / CDP during long HMR
   // sessions) should NOT kill the dev server, log it and keep serving
-  process.on('unhandledRejection', (reason, promise) => {
+  process.on('unhandledRejection', (reason) => {
     console.error(messages.runnerUnhandledRejection(reason))
   })
 

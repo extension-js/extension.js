@@ -168,13 +168,6 @@ export interface PluginInterface extends PluginOptions {
   dryRun?: boolean
 }
 
-// Runtime state shared with post-launch setup helpers (CDP/RDP); extends
-// PluginInterface with transient runtime fields.
-export interface PluginRuntime extends PluginInterface {
-  // Intentionally empty for shared runtime; per-run runtime fields live in
-  // run-chromium/chromium-types.ts and run-firefox/firefox-types.ts
-}
-
 export type LogLevel =
   | 'off'
   | 'error'
@@ -185,8 +178,6 @@ export type LogLevel =
   | 'all'
 
 export type LogContext = SharedLogContext
-
-export type LogFormat = 'pretty' | 'json' | 'ndjson'
 
 // A browser-generated log entry (CDP Log.entryAdded) normalized for the host's
 // log pipeline; these never pass the page console hook, so they need a sink.

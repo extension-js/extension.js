@@ -7,19 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {
-  classifyEntrySurface,
-  type EntrySurface
-} from '../../../lib/split-chunks'
+import {classifyEntrySurface} from '../../../lib/split-chunks'
 import {
   type EntrypointLike,
   entryOwnJsFile,
   initialJsFiles
 } from '../../shared/initial-files'
 import * as messages from '../messages'
-
-export type SplitEntrySurface = EntrySurface
-export {classifyEntrySurface}
 
 // An HTML page lists every sibling chunk in its emitted markup, so only the
 // single-file surfaces can be split by a user cache group: the surface loads

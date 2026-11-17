@@ -1,9 +1,7 @@
 import {describe, expect, it} from 'vitest'
+import {classifyEntrySurface} from '../../../lib/split-chunks'
 import {entryOwnJsFile, initialJsFiles} from '../../shared/initial-files'
-import {
-  classifyEntrySurface,
-  WarnSplitInitialChunks
-} from '../steps/warn-split-initial-chunks'
+import {WarnSplitInitialChunks} from '../steps/warn-split-initial-chunks'
 
 type FakeEntry = {
   files: string[]

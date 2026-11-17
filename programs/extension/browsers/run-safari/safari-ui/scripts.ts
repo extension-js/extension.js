@@ -12,8 +12,6 @@ export const EDIT_WEBSITES_TITLE = 'Edit Websites…'
 const ALWAYS_ALLOW_TITLE = 'Always Allow on Every Website'
 export const OTHER_WEBSITES_ALLOW = 'Allow'
 
-export type OtherWebsitesChoice = 'Ask' | 'Deny' | 'Allow'
-
 export function safariExtensionIdentity(
   bundleId: string,
   developmentTeam?: string

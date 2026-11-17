@@ -18,8 +18,6 @@ import {
 
 export {
   WEBKIT_UNSUPPORTED_PERMISSIONS as UNSUPPORTED_PERMISSIONS,
-  type WebkitDroppedPage,
-  type WebkitUnsupportedKey,
   webkitDroppedSurfacePages,
   webkitUnsupportedManifestKeys,
   webkitUnsupportedPermissions
@@ -153,9 +151,4 @@ export function reportWebkitDroppedKeys(
   reportedDrops.add(signature)
 
   humanLine(messages.webkitUnsupportedKeysDropped(String(browser), dropped))
-}
-
-// Tests drive the reporter repeatedly, so they need the dedupe cleared.
-export function resetWebkitDropNotices(): void {
-  reportedDrops.clear()
 }

@@ -106,10 +106,6 @@ export function readStoredLogin(): StoredLogin | null {
   }
 }
 
-export function readStoredLoginToken(): string {
-  return readStoredLogin()?.token || ''
-}
-
 // The name this directory calls itself, in the order the tool trusts: the
 // package manifest, then the extension manifest, then the folder itself.
 export function readLocalProjectName(projectPath: string): string {

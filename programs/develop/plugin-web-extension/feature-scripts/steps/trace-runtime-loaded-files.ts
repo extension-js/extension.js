@@ -79,7 +79,7 @@ import {
   toRuntimePathReference
 } from './warn-unshipped-runtime-assets'
 
-export type {ImportedModule, ImportedModuleReader} from './source-literals'
+export type {ImportedModuleReader} from './source-literals'
 
 // Structural view of the manifest fields the tracer reads; values stay
 // unknown and are validated at each use site.

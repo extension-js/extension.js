@@ -129,7 +129,6 @@
     "@rslib/core": "^1.0.6",
     "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",
-    "tsconfig": "*",
     "typescript": "7.0.2",
     "vitest": "^5.0.5",
     "webextension-polyfill": "^0.12.0"

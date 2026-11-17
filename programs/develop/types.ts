@@ -89,15 +89,6 @@ export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
 
 export type FilepathList = Record<string, string | string[] | undefined>
 
-export type ResourceType =
-  | 'script'
-  | 'css'
-  | 'html'
-  | 'static'
-  | 'staticSrc'
-  | 'staticHref'
-  | 'empty'
-
 export interface LoaderContext {
   resourcePath: string
   emitFile: (name: string, content: string) => void
@@ -224,13 +215,6 @@ export type SafariPackagerFn = (
   mode: 'full' | 'resync',
   overrides?: SafariPackagerOverrides
 ) => Promise<SafariPackageSummary | void>
-
-export interface NonBinaryOptions extends BrowserOptionsBase {
-  browser: Exclude<
-    BrowserType,
-    'chromium-based' | 'gecko-based' | 'webkit-based'
-  >
-}
 
 export interface DevOptions extends BrowserOptionsBase {
   mode: 'development' | 'production' | 'none'

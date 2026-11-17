@@ -8,5 +8,11 @@
     "lib": ["ES2021", "DOM"]
   },
   "include": ["./**/*.ts"],
-  "exclude": ["./dist", "./**/__spec__/**", "./__spec__/**", "./**/*.spec.ts"]
+  "exclude": [
+    "./dist",
+    "./**/__spec__/**",
+    "./__spec__/**",
+    "./**/*.spec.ts",
+    "./rslib.config.ts"
+  ]
 }

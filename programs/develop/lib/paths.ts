@@ -385,14 +385,6 @@ export function computePreviewOutputPath(
   return manifestDir
 }
 
-export function ensureDirSync(dir: AbsolutePath) {
-  try {
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, {recursive: true})
-  } catch {
-    // Ignore
-  }
-}
-
 export function devtoolsEngineFor(
   browser: unknown
 ): 'chrome' | 'edge' | 'chromium' | 'firefox' | 'safari' {

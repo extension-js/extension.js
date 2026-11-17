@@ -57,10 +57,7 @@ export async function getDevExtension() {
 
 // Create a new tab and set it to background: the user-selected page should be
 // active, not chrome://extensions.
-export function createExtensionsPageTab(
-  initialTab: chrome.tabs.Tab,
-  url: string
-) {
+export function createExtensionsPageTab(initialTab: chrome.tabs.Tab) {
   const browser = sessionBrowser()
   const isFirefox = browser === 'firefox'
   const isEdge = browser === 'edge'

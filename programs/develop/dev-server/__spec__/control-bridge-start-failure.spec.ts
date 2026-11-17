@@ -34,10 +34,6 @@ vi.mock('../control-bridge/ws-control-server', () => ({
   startControlServer
 }))
 
-vi.mock('../frameworks', () => ({
-  isUsingJSFramework: vi.fn(() => false)
-}))
-
 vi.mock('../../lib/config-loader', () => ({
   loadCommandConfig: vi.fn(async () => ({})),
   loadBrowserConfig: vi.fn(async () => ({})),

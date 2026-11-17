@@ -10,7 +10,7 @@ Report vulnerabilities as described in [SECURITY.md](../.github/SECURITY.md).
 - The dev server and the control bridge bind to `127.0.0.1` unless you set `--host` or `host` in `extension.config.js`.
 - The control bridge accepts commands only when you pass `--allow-control`, or `--allow-eval`, which implies it.
 - Remote code evaluation through the bridge works only with `--allow-eval` and a matching per-session token.
-- The control bridge refuses a WebSocket handshake whose Origin is `http://`, `https://` or `null`, so a web page open in the development browser cannot connect to it.
+- The control bridge refuses a WebSocket handshake whose Origin is `http://`, `https://` or `null`, so a web page open in the development browser cannot connect to it. A `chromium-emulator` session admits one web origin, the emulator viewer: `https://browsers.extension.land`, or the origin you set in `EXTENSION_EMULATOR_ORIGIN`. A connection from that origin must present the session instance id and gets the viewer role only. A viewer receives reload frames and acknowledges them. It cannot send commands or eval requests, and it is sent no logs. Every other session admits no web origin.
 - The session token is 256 random bits, written with mode 0600, so on macOS and Linux only your user can read it.
 - Built-in templates are downloaded over HTTPS, and archive entries cannot write outside the new project folder. A template URL you pass yourself, and `EXTENSION_CREATE_TEMPLATE_URL`, must use HTTPS. `extension create` refuses `http://` and a download that redirects to `http://` unless `EXTENSION_ALLOW_HTTP_TEMPLATE=true`.
 - Managed browser installs run pinned versions of `playwright` and `@puppeteer/browsers`.
@@ -80,7 +80,7 @@ A stable or next release writes two commits to `main`, the version bump and the 
 | OS command injection (CWE-78) | cross-spawn with argument arrays and no shell option. On Windows cross-spawn escapes each argument for the cmd shim. |
 | Path traversal (CWE-22) | zip-slip guard on template archives, hashed static asset output names |
 | Missing authentication for a critical function (CWE-306) | eval requires `--allow-eval` and the session token |
-| Missing origin validation in WebSockets (CWE-1385) | the control bridge refuses `http://`, `https://` and `null` origins with 401 |
+| Missing origin validation in WebSockets (CWE-1385) | the control bridge refuses `http://`, `https://` and `null` origins with 401. A `chromium-emulator` session admits the one emulator viewer origin, in the viewer role only and with the session instance id. |
 | Cleartext transmission of sensitive information (CWE-319) | template URLs must use HTTPS, and a redirect to HTTP is refused, unless you opt in |
 | Insecure randomness (CWE-338) | the eval token, instance id and telemetry id come from `node:crypto`. `Math.random` is used only for ids that grant nothing. |
 | Improper certificate validation (CWE-295) | Node.js defaults, no overrides |

@@ -19,7 +19,7 @@
       "dependsOn": ["^compile"]
     },
     "test": {
-      "dependsOn": ["compile", "^compile", "^test"],
+      "dependsOn": ["compile", "^compile"],
       "cache": false
     },
     "test:build": {},

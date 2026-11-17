@@ -10,6 +10,8 @@ Extension.js is a PNPM workspace. Public programs are published to npm; others a
 | ------------------ | ------------------- | ------------------------------------------------------- |
 | `programs/extension` | `extension`       | The CLI that runs `extension <command>`                 |
 | `programs/develop` | `extension-develop` | `dev`/`build`/`preview` engines and Rspack integration |
+| `programs/create`  | `extension-create`  | The project creation engine behind `extension create`   |
+| `programs/install` | `extension-install` | Managed browser installer and uninstaller               |
 
 Related workspaces:
 
@@ -106,11 +108,11 @@ cd my-extension && pnpm dev
 - `pnpm compile`, Build all workspaces (produces `dist/` used by the local CLI)
 - `pnpm watch`, Build once then watch all programs for changes
 - `pnpm extension`, Run the local CLI at `programs/extension/dist/cli.cjs`
-- `pnpm test`, Run all tests across packages via Turbo
-- `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build`, Focused test groups
+- `pnpm test`, Run all tests across packages via `scripts/run-test.mjs`, which wraps Turbo filters
+- `pnpm test:cli` | `pnpm test:dev` | `pnpm test:build`, Focused test groups (`test:dev` and `test:build` are the same command, both run the `programs/develop` tests)
 - `pnpm test:e2e`, Playwright end-to-end tests
-- `pnpm lint`, Biome lint (config in `biome.json`)
-- `pnpm format`, Biome format write
+- `pnpm lint`, Biome lint (config in `biome.json`), a Biome format check, then `eslint .`
+- `pnpm format`, Runs `scripts/format-wrapper.cjs`: Biome format write, then `eslint . --fix`, over the whole repo
 
 Tip: run a single package’s script with Turbo filters, e.g.:
 
@@ -127,7 +129,7 @@ pnpm exec playwright install
 ## Coding guidelines
 
 - TypeScript-first where applicable; otherwise modern ESNext.
-- Biome (lint + format) is enforced. Run `pnpm lint` and `pnpm format` before pushing.
+- Biome (lint + format) and ESLint are enforced. Run `pnpm lint` and `pnpm format` before pushing.
 - Keep code small, composable, and dependency-light. Prefer standard APIs.
 - Handle errors meaningfully; avoid silent catches.
 - Security: minimize browser permissions; sanitize inputs; validate cross-process messages.

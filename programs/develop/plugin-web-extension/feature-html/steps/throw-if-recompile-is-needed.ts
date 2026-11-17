@@ -45,7 +45,7 @@ export class ThrowIfRecompileIsNeeded {
   }
 
   private storeInitialHtmlAssets(htmlFields: Record<string, unknown>) {
-    Object.entries(htmlFields).forEach(([key, resource]) => {
+    Object.entries(htmlFields).forEach(([, resource]) => {
       if (typeof resource !== 'string') {
         return
       }
@@ -142,7 +142,7 @@ export class ThrowIfRecompileIsNeeded {
             }
 
             const err = new WebpackError(
-              messages.serverRestartRequiredFromHtml(relToManifest, changedFile)
+              messages.serverRestartRequiredFromHtml(changedFile)
             ) as Error & {file?: string}
             err.name = 'HtmlEntrypointChanged'
             err.file = relToManifest

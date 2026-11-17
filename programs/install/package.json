@@ -62,7 +62,6 @@
     "@rslib/core": "^1.0.6",
     "@types/cross-spawn": "^6.0.6",
     "@types/node": "^26",
-    "tsconfig": "*",
     "typescript": "7.0.2",
     "vitest": "^5.0.5"
   }
