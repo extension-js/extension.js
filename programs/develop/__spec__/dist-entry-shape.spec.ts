@@ -2,6 +2,7 @@ import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import {builtinModules, createRequire} from 'node:module'
 import * as path from 'node:path'
+import * as acorn from 'acorn'
 import {init, parse} from 'es-module-lexer'
 import {beforeAll, describe, expect, it} from 'vitest'
 import buildConfig, {
@@ -341,14 +342,50 @@ function builtinImportsOf(entryFile: string): string[] {
   return found
 }
 
-// The shim that gives bundled require() calls a real require in ESM output.
-function hasRequireShim(source: string): boolean {
-  const prologue = source.slice(0, 400)
+// rslib's shims.esm.require opens every node chunk with node:module and keeps
+// the require binding only where the chunk calls it.
+function opensWithNodeModule(source: string): boolean {
+  return /^(?:\/\/[^\n]*\n)*import\b[^;\n]*["']node:module["']/.test(source)
+}
 
-  return (
-    /from\s*["']node:module["']/.test(prologue) &&
-    /\bconst require\s*=[^;\n]*createRequire\s*\(/i.test(prologue)
+// A require() call, or require.resolve(), in a module with no top-level
+// binding of its own named require.
+function callsUnboundRequire(source: string): boolean {
+  const program = acorn.parse(source, {
+    ecmaVersion: 'latest',
+    sourceType: 'module'
+  }) as unknown as AstNode
+  const isRequire = (node: unknown) =>
+    (node as AstNode | undefined)?.type === 'Identifier' &&
+    (node as AstNode).name === 'require'
+  const bound = (program.body as AstNode[]).some(
+    (statement) =>
+      statement.type === 'VariableDeclaration' &&
+      (statement.declarations as AstNode[]).some((d) => isRequire(d.id))
   )
+  let calls = false
+
+  walk(program, (node) => {
+    if (node.type !== 'CallExpression') return
+
+    const callee = node.callee as AstNode
+    if (isRequire(callee)) calls = true
+
+    if (callee.type === 'MemberExpression' && isRequire(callee.object)) {
+      calls = true
+    }
+  })
+
+  return calls && !bound
+}
+
+function emittedEsmFiles(dir: string = DIST_DIR): string[] {
+  return fs.readdirSync(dir, {withFileTypes: true}).flatMap((entry) => {
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) return emittedEsmFiles(full)
+
+    return entry.name.endsWith('.mjs') ? [full] : []
+  })
 }
 
 function packedFiles(): string[] {
@@ -447,12 +484,26 @@ describe.skipIf(!HAS_DIST)(
     }
 
     for (const stem of Object.keys(nodeEntries)) {
-      it(`${stem}.mjs runs on Node: it opens with the require shim`, () => {
-        expect(hasRequireShim(fs.readFileSync(distFile(stem), 'utf8'))).toBe(
-          true
-        )
+      it(`${stem}.mjs runs on Node: it opens with the node:module shim`, () => {
+        expect(
+          opensWithNodeModule(fs.readFileSync(distFile(stem), 'utf8')),
+          `${stem}.mjs does not open with an import of node:module, so the ` +
+            `node lib in rslib.config.ts probably lost shims.esm.require.`
+        ).toBe(true)
       })
     }
+
+    it('declares require in every emitted file that calls it', () => {
+      const unbound = emittedEsmFiles().filter((file) =>
+        callsUnboundRequire(fs.readFileSync(file, 'utf8'))
+      )
+
+      expect(
+        unbound.map((file) => path.relative(DIST_DIR, file)),
+        'These files call require() in ESM with no createRequire binding, so ' +
+          'they throw "require is not defined" when that line runs.'
+      ).toEqual([])
+    })
 
     it('packs no config declaration, spec file or unrequested source map', () => {
       const files = packedFiles()

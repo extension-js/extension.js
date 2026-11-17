@@ -50,7 +50,7 @@ const externals = [
 ]
 
 // Browser-side runtime files run INSIDE the user's extension; they must not
-// receive the Node-only createRequire banner (node:module is unresolvable there).
+// receive the Node-only require shim (node:module is unresolvable there).
 export const browserEntries = {
   'minimum-script-file': path.resolve(
     __dirname,
@@ -79,7 +79,7 @@ export const browserEntries = {
   )
 }
 
-// Wire constants and frame types only, web target and no banner, so the
+// Wire constants and frame types only, web target and no shim, so the
 // emitted chunk imports nothing and browser bundles can consume it.
 export const contractsEntries = {
   contracts: path.resolve(__dirname, './contracts-entry.ts')
@@ -90,7 +90,7 @@ export const contractsEntries = {
 const contractDir = path.resolve(__dirname, '../extension/__spec__/contract')
 
 // Node-side entries and rspack loaders run at build time on Node, so they need
-// the CJS-shim banner for bundled bare require()/require.resolve() sites.
+// the require shim for bundled bare require()/require.resolve() sites.
 export const nodeEntries = {
   module: path.resolve(__dirname, './module.ts'),
   preview: path.resolve(__dirname, './preview-entry.ts'),
@@ -153,15 +153,7 @@ export const nodeEntries = {
 export default defineConfig({
   tools: {
     // Disable caching to avoid rspack module graph panics in CI builds.
-    rspack: {
-      cache: false,
-      // Polyfill CJS globals in ESM output (target: node): __dirname/__filename
-      // would otherwise hit ReferenceError after the ESM flip.
-      node: {
-        __dirname: 'node-module',
-        __filename: 'node-module'
-      }
-    }
+    rspack: {cache: false}
   },
   lib: [
     {
@@ -169,11 +161,9 @@ export default defineConfig({
       syntax: 'es2022',
       dts: shouldGenerateDts,
       source: {entry: nodeEntries},
-      // Inject a CJS-style require for bundled bare require() sites in Node-side
-      // code; limited to node-target lib so browser wrappers skip node:module.
-      banner: {
-        js: 'import { createRequire as __extjsCreateRequire } from "node:module"; const require = __extjsCreateRequire(import.meta.url);'
-      },
+      // Bundled require() and __dirname sites need CJS globals in ESM output.
+      // Node lib only, so browser entries never import node:module.
+      shims: {esm: {require: true, __dirname: true, __filename: true}},
       output: {
         target: 'node',
         filename: {js: '[name].mjs'},
