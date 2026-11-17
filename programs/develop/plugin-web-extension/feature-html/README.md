@@ -45,13 +45,13 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 
 ### Output mapping
 
-| Source                                    | Output path                         | Notes                                        |
-| ----------------------------------------- | ----------------------------------- | -------------------------------------------- |
-| Manifest/Include HTML (`<feature>`)       | `<feature>.html`                    | E.g., `pages/main` → `pages/main.html`       |
-| Consolidated JS                           | `<feature>.js`                      | E.g., `pages/main.js`                        |
-| Consolidated CSS                          | `<feature>.css`                     | E.g., `pages/main.css`                       |
-| Relative static assets referenced by HTML | `assets/<name>.<contenthash>.<ext>` | One copy, shared with stylesheets and imports |
-| Extension-root assets in HTML (leading `/`) | the same path, URL kept as written | E.g., `<img src="/img/logo.png">` ships `img/logo.png` |
+| Source                                      | Output path                         | Notes                                                  |
+| ------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| Manifest/Include HTML (`<feature>`)         | `<feature>.html`                    | E.g., `pages/main` → `pages/main.html`                 |
+| Consolidated JS                             | `<feature>.js`                      | E.g., `pages/main.js`                                  |
+| Consolidated CSS                            | `<feature>.css`                     | E.g., `pages/main.css`                                 |
+| Relative static assets referenced by HTML   | `assets/<name>.<contenthash>.<ext>` | One copy, shared with stylesheets and imports          |
+| Extension-root assets in HTML (leading `/`) | the same path, URL kept as written  | E.g., `<img src="/img/logo.png">` ships `img/logo.png` |
 
 ## Supported pages/fields
 
