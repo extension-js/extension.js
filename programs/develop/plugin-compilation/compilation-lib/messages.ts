@@ -110,6 +110,32 @@ export function envPublicSecretName(names: string[]) {
   )
 }
 
+// Names the placeholder and the asset, never the value it would have written.
+export function envPrivatePlaceholder(
+  placeholders: Array<{name: string; assets: string[]}>
+) {
+  const example = placeholders[0].name.replace(
+    /^EXTENSION_/,
+    'EXTENSION_PUBLIC_'
+  )
+
+  return (
+    placeholders
+      .map(
+        ({name, assets}) =>
+          `${colors.yellow(`$${name}`)} in ` +
+          `${assets.map((asset) => colors.yellow(asset)).join(', ')} ` +
+          `was left as written.\n`
+      )
+      .join('') +
+    `Placeholders in emitted .json and .html files are filled only from ` +
+    `${colors.yellow('EXTENSION_PUBLIC_*')} variables, because those files ` +
+    `ship to every user.\n` +
+    `If the value is meant to ship, rename the variable with that prefix, ` +
+    `such as ${colors.yellow(example)}.`
+  )
+}
+
 export function envIgnoredFiles(files: string[], mode: string) {
   return `${prefix('debug')} env      ignored=${files.join(',')} mode=${mode}`
 }

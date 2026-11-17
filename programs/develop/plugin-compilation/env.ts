@@ -585,6 +585,7 @@ export class EnvPlugin {
     // JSON/HTML `$VAR` templating must resolve to the same values JS sees at
     // runtime (DefinePlugin + env files). Build one lookup shared by every asset.
     const templateVars = buildTemplateVars(combinedVars, this.browser, mode)
+    const privateNames = findPrivateTemplateNames(combinedVars, templateVars)
 
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
@@ -597,6 +598,7 @@ export class EnvPlugin {
           (assets) => {
             // Prefer compilation assets to be robust against different bundler versions
             const files = Object.keys(compilation.assets || assets)
+            const unfilled = new Map<string, Set<string>>()
 
             files.forEach((filename) => {
               if (filename.endsWith('.json') || filename.endsWith('.html')) {
@@ -612,6 +614,15 @@ export class EnvPlugin {
                   if (
                     !Object.prototype.hasOwnProperty.call(templateVars, name)
                   ) {
+                    // A name that is set but private is worth a warning. An
+                    // unset name stays quiet, the way a typo always has.
+                    if (privateNames.has(name)) {
+                      unfilled.set(
+                        name,
+                        (unfilled.get(name) || new Set()).add(filename)
+                      )
+                    }
+
                     // Preserve the placeholder when the var is unknown, matching
                     // the pre-substitution form so authors can spot typos.
                     return `$${name}`
@@ -675,6 +686,19 @@ export class EnvPlugin {
                 }
               }
             })
+
+            if (unfilled.size > 0) {
+              const warn = new WebpackError(
+                messages.envPrivatePlaceholder(
+                  [...unfilled.keys()].sort().map((name) => ({
+                    name,
+                    assets: [...(unfilled.get(name) || [])].sort()
+                  }))
+                )
+              ) as Error & {name?: string}
+              warn.name = 'EnvPrivatePlaceholder'
+              compilation.warnings.push(warn)
+            }
           }
         )
       }
@@ -690,12 +714,15 @@ export function buildTemplateVars(
   const vars: Record<string, string> = {}
 
   for (const [key, value] of Object.entries(combinedVars)) {
-    if (typeof value === 'string' && key.startsWith('EXTENSION_')) {
+    // Same gate as JavaScript: an emitted asset ships to every user, so a
+    // value without the public prefix never reaches one.
+    if (typeof value === 'string' && key.startsWith('EXTENSION_PUBLIC_')) {
       vars[key] = value
     }
   }
 
   // Always win: same overrides DefinePlugin applies after reading .env files.
+  // These four are the build target, the only names filled without a variable.
   const browserValue = String(browser)
   const modeValue = String(mode)
   vars.EXTENSION_BROWSER = browserValue
@@ -704,4 +731,17 @@ export function buildTemplateVars(
   vars.EXTENSION_PUBLIC_MODE = modeValue
 
   return vars
+}
+
+// Names set in the environment but held back from placeholders, so a build
+// can tell a private variable apart from a typo.
+export function findPrivateTemplateNames(
+  combinedVars: Record<string, unknown>,
+  templateVars: Record<string, string>
+): Set<string> {
+  return new Set(
+    Object.keys(combinedVars).filter(
+      (key) => !Object.prototype.hasOwnProperty.call(templateVars, key)
+    )
+  )
 }

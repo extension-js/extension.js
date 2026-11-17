@@ -21,6 +21,14 @@ import {
 
 const stripAnsi = (value: string) => value.replace(/\x1b\[[0-9;]*m/g, '')
 
+// rspack frames a warning with a glyph and a gutter, which is not the text.
+const plainMessage = (value: string) =>
+  stripAnsi(value)
+    .split('\n')
+    .map((line) => line.replace(/^\s*[\u26a0\u2502] ?/, ''))
+    .join('\n')
+    .trim()
+
 const LOG_PUBLIC = 'console.log(process.env.EXTENSION_PUBLIC_FOO)\n'
 
 interface BuildOptions {
@@ -58,7 +66,7 @@ async function build(root: string, options: BuildOptions = {}) {
     })),
     warnings: Array.from(stats.compilation.warnings, (warning) => ({
       name: warning.name,
-      message: stripAnsi(warning.message)
+      message: plainMessage(warning.message)
     })),
     // Read from the compilation, so an asset held back by an error is visible.
     asset: (name: string) =>
@@ -201,7 +209,7 @@ describe('EnvPlugin env file selection', () => {
 
     expect(result.logs()).toEqual(['rootOnly rootOnly'])
     expect(result.asset('manifest.json')).toBe(
-      '{"name":"rootOnly","desc":"rootBar"}'
+      '{"name":"rootOnly","desc":"$EXTENSION_BAR"}'
     )
   })
 
@@ -305,7 +313,7 @@ describe('EnvPlugin values in JavaScript', () => {
 })
 
 describe('EnvPlugin placeholders in emitted .json and .html', () => {
-  it('replaces $EXTENSION_* names and leaves other files and unknown names', async () => {
+  it('replaces public names and leaves other files, private and unknown names', async () => {
     const root = project({
       '.env': 'EXTENSION_PUBLIC_FOO=envFoo\nEXTENSION_BAR=envBar\n',
       'index.html':
@@ -319,17 +327,17 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
     })
 
     expect(result.asset('index.html')).toBe(
-      '<meta content="envFoo"><p>envBar $EXTENSION_MISS</p>'
+      '<meta content="envFoo"><p>$EXTENSION_BAR $EXTENSION_MISS</p>'
     )
 
     expect(result.asset('manifest.json')).toBe(
-      '{"name":"envFoo","desc":"envBar"}'
+      '{"name":"envFoo","desc":"$EXTENSION_BAR"}'
     )
 
     expect(result.asset('notes.txt')).toBe('$EXTENSION_PUBLIC_FOO')
     // Later manifest steps read the substituted text, not the authored one.
     expect(getCurrentManifestContent(result.stats.compilation)).toBe(
-      '{"name":"envFoo","desc":"envBar"}'
+      '{"name":"envFoo","desc":"$EXTENSION_BAR"}'
     )
   })
 
@@ -503,34 +511,93 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
   })
 })
 
-describe('EnvPlugin failure paths and leaks as they stand', () => {
-  // Pins today's behavior.
-  it('templates a non-public shell or .env value into .html and .json, never into JavaScript', async () => {
+describe('EnvPlugin private names in emitted .json and .html', () => {
+  it('leaves a private shell or .env name as written and warns once, without the value', async () => {
     vi.stubEnv('EXTENSION_SECRET_X', 'shell-secret')
+    vi.stubEnv('EXTENSION_PUBLIC_FOO', 'shipped')
     const root = project(
       {
         '.env': 'EXTENSION_SECRET_TOKEN=file-secret\n',
         'manifest.json':
-          '{"description":"$EXTENSION_SECRET_X","key":"$EXTENSION_SECRET_TOKEN"}',
-        'index.html': '<p>$EXTENSION_SECRET_X $EXTENSION_SECRET_TOKEN</p>'
+          '{"name":"$EXTENSION_PUBLIC_FOO","description":"$EXTENSION_SECRET_X","key":"$EXTENSION_SECRET_TOKEN","mode":"$EXTENSION_MODE"}',
+        'index.html':
+          '<title>$EXTENSION_PUBLIC_FOO</title><p>$EXTENSION_SECRET_X $EXTENSION_SECRET_X $EXTENSION_BROWSER</p>',
+        'public/config.json': '{"token":"$EXTENSION_SECRET_TOKEN"}'
       },
       'console.log(process.env.EXTENSION_SECRET_X, import.meta.env.EXTENSION_SECRET_TOKEN)\n'
     )
     const result = await build(root, {
       mode: 'production',
-      copy: ['manifest.json', 'index.html']
+      copy: ['manifest.json', 'index.html', 'public/config.json']
     })
 
     expect(result.asset('manifest.json')).toBe(
-      '{"description":"shell-secret","key":"file-secret"}'
+      '{"name":"shipped","description":"$EXTENSION_SECRET_X","key":"$EXTENSION_SECRET_TOKEN","mode":"production"}'
     )
 
-    expect(result.asset('index.html')).toBe('<p>shell-secret file-secret</p>')
-    expect(result.warnings).toEqual([])
+    expect(result.asset('index.html')).toBe(
+      '<title>shipped</title><p>$EXTENSION_SECRET_X $EXTENSION_SECRET_X chrome</p>'
+    )
+
+    expect(result.asset('public/config.json')).toBe(
+      '{"token":"$EXTENSION_SECRET_TOKEN"}'
+    )
+
+    expect(getCurrentManifestContent(result.stats.compilation)).toBe(
+      result.asset('manifest.json')
+    )
+
+    expect(result.errors).toEqual([])
+    expect(result.warnings).toEqual([
+      {
+        name: 'EnvPrivatePlaceholder',
+        message:
+          '$EXTENSION_SECRET_TOKEN in manifest.json, public/config.json was left as written.\n' +
+          '$EXTENSION_SECRET_X in index.html, manifest.json was left as written.\n' +
+          'Placeholders in emitted .json and .html files are filled only from EXTENSION_PUBLIC_* variables, because those files ship to every user.\n' +
+          'If the value is meant to ship, rename the variable with that prefix, such as EXTENSION_PUBLIC_SECRET_TOKEN.'
+      }
+    ])
+
     expect(result.logs()).toEqual(['undefined undefined'])
     expect(result.asset('background.js')).not.toContain('secret')
   })
 
+  it('stays quiet about a private name no emitted file asks for', async () => {
+    vi.stubEnv('EXTENSION_SECRET_X', 'shell-secret')
+    const root = project({
+      '.env': 'EXTENSION_SECRET_TOKEN=file-secret\n',
+      'manifest.json': '{"name":"$EXTENSION_UNSET"}',
+      'notes.txt': '$EXTENSION_SECRET_X'
+    })
+    const result = await build(root, {copy: ['manifest.json', 'notes.txt']})
+
+    expect(result.asset('manifest.json')).toBe('{"name":"$EXTENSION_UNSET"}')
+    expect(result.asset('notes.txt')).toBe('$EXTENSION_SECRET_X')
+    expect(result.warnings).toEqual([])
+  })
+
+  it('names a secret-looking public name a production build fills into JSON', async () => {
+    const root = project({
+      '.env': 'EXTENSION_PUBLIC_API_KEY=shipped-key\n',
+      'manifest.json': '{"key":"$EXTENSION_PUBLIC_API_KEY"}'
+    })
+    const result = await build(root, {
+      mode: 'production',
+      copy: ['manifest.json']
+    })
+
+    expect(result.asset('manifest.json')).toBe('{"key":"shipped-key"}')
+    expect(result.warnings.map((warning) => warning.name)).toEqual([
+      'EnvPublicSecretName'
+    ])
+
+    expect(result.warnings[0].message).toContain('EXTENSION_PUBLIC_API_KEY')
+    expect(result.warnings[0].message).not.toContain('shipped-key')
+  })
+})
+
+describe('EnvPlugin failure paths as they stand', () => {
   // Pins today's behavior. Ledger 1388 D8.
   it('throws a raw EISDIR while the compiler is created when an env file is a folder', () => {
     for (const name of ['.env', '.env.defaults']) {
