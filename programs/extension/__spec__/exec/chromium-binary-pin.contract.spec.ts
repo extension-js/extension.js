@@ -1,14 +1,8 @@
-import {spawn} from 'node:child_process'
 import {chmodSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
+import {runCli as spawnCli} from '../helpers/run-cli'
 
 const CHROMIUM_FAMILY = [
   'chrome',
@@ -21,49 +15,10 @@ const CHROMIUM_FAMILY = [
   'chromium-based'
 ] as const
 
-function stripVitestEnv(): NodeJS.ProcessEnv {
-  const env = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0'
-  }
-  Reflect.deleteProperty(env, 'VITEST')
-  Reflect.deleteProperty(env, 'VITEST_WORKER_ID')
-
-  return env
-}
-
-function runCli(args: string[], timeoutMs = 25000) {
-  return new Promise<{code: number; stdout: string; stderr: string}>(
-    (resolvePromise, reject) => {
-      const child = spawn(process.execPath, [cliBin, ...args], {
-        cwd: cliRoot,
-        stdio: 'pipe',
-        env: stripVitestEnv()
-      })
-      let stdout = ''
-      let stderr = ''
-      child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-      child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-      const timer = setTimeout(() => {
-        child.kill('SIGKILL')
-        reject(
-          new Error(
-            `CLI timed out: ${args.join(' ')}\nstdout:\n${stdout}\nstderr:\n${stderr}`
-          )
-        )
-      }, timeoutMs)
-      child.on('close', (code) => {
-        clearTimeout(timer)
-        resolvePromise({code: code ?? 1, stdout, stderr})
-      })
-
-      child.on('error', (error) => {
-        clearTimeout(timer)
-        reject(error)
-      })
-    }
-  )
+// The pin is a stand-in script in a temp folder, so the launch code runs
+// for real and no installed browser is ever named.
+function runCli(args: string[]) {
+  return spawnCli(args, {timeoutMs: 25_000})
 }
 
 function writeUnpackedExtension(dir: string) {
@@ -135,13 +90,15 @@ describe.skipIf(process.platform === 'win32')(
         missing
       ])
 
-      const combined = `${result.stdout}\n${result.stderr}`
-      expect(result.code).not.toBe(0)
-      expect(combined).toMatch(/Can't find a Chromium binary at the given path/)
-      expect(combined).toContain(missing)
-      expect(combined).not.toMatch(/Chrome for Testing isn't available/)
-      expect(combined).not.toMatch(/Install Chrome for Testing/)
-      expect(combined).not.toMatch(/npx extension install chrome/)
+      // The whole of stderr, so no install advice can ride along.
+      expect(result.status).toBe(1)
+      expect(result.stderr).toBe(
+        "⏵⏵⏵ Can't find a Chromium binary at the given path.\n" +
+          `NOT FOUND ${missing}\n` +
+          'Pass --chromium-binary <abs-path> with a working path.\n'
+      )
+
+      expect(result.stdout).not.toMatch(/Chrome for Testing/)
     })
 
     it.each(
@@ -161,7 +118,7 @@ describe.skipIf(process.platform === 'win32')(
         pin
       ])
 
-      const combined = `${result.stdout}\n${result.stderr}`
+      const combined = result.output
       expect(combined).not.toMatch(/Chrome for Testing isn't available/)
       expect(combined).not.toMatch(/Install Chrome for Testing/)
       expect(combined).not.toMatch(

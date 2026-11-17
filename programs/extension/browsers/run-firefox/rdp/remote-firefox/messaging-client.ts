@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import EventEmitter from 'node:events'
-import {CODES} from '../../../../helpers/messaging'
+import {CODES, humanError} from '../../../../helpers/messaging'
 import * as messages from '../../../browsers-lib/messages'
 import {evaluate as evalHelper} from './evaluate'
 import * as api from './rdp-api'
@@ -22,9 +22,11 @@ export class MessagingClient extends EventEmitter {
   private lastPort: number | null = null
   private reconnecting = false
   private disconnectedByUser = false
+  private reconnectDelayMs = RECONNECT_RETRY_DELAY_MS
 
-  async connect(port: number) {
+  async connect(port: number, reconnectDelayMs = RECONNECT_RETRY_DELAY_MS) {
     this.disconnectedByUser = false
+    this.reconnectDelayMs = reconnectDelayMs
     await this.openTransport(port)
   }
 
@@ -56,11 +58,12 @@ export class MessagingClient extends EventEmitter {
     if (this.disconnectedByUser || this.reconnecting || !this.lastPort) return
 
     this.reconnecting = true
+    const port = this.lastPort
 
     try {
       for (let i = 0; i < RECONNECT_MAX_ATTEMPTS; i++) {
         await new Promise((r) => {
-          const backoff = setTimeout(r, RECONNECT_RETRY_DELAY_MS)
+          const backoff = setTimeout(r, this.reconnectDelayMs)
           backoff.unref?.()
         })
 
@@ -84,9 +87,29 @@ export class MessagingClient extends EventEmitter {
           // Ignore
         }
       }
+
+      this.reportReconnectGaveUp(port)
     } finally {
       this.reconnecting = false
     }
+  }
+
+  // Said once per lost connection: the loop above is its only caller and it
+  // cannot run twice at the same time.
+  private reportReconnectGaveUp(port: number) {
+    const line = messages.debuggerReconnectGaveUp(
+      'firefox',
+      port,
+      RECONNECT_MAX_ATTEMPTS
+    )
+
+    humanError(line)
+    this.emit(
+      'reconnectFailed',
+      Object.assign(new Error(line), {
+        code: CODES.E_BROWSER_CONNECTION_CLOSED
+      })
+    )
   }
 
   async request(requestProps: unknown) {

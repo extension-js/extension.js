@@ -1,90 +1,396 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import {afterEach, expect, it} from 'vitest'
-import {Telemetry} from '../telemetry'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
+import {createTelemetryKit, type TelemetryEnv} from '../telemetry'
+import {
+  blockFolder,
+  fsWith,
+  readRows,
+  type Sandbox,
+  useTelemetrySandbox
+} from './telemetry-sandbox'
 
-const makeTempFolder = trackTempFolders()
+const sandbox = useTelemetrySandbox()
 
-const originalEnv = {...process.env}
-const originalCwd = process.cwd()
+const HOME = path.join(path.sep, 'h')
+const TMP = path.join(path.sep, 't')
+const PROJECT = path.join(path.sep, 'p')
 
-function restoreEnv() {
-  for (const key of Object.keys(process.env)) {
-    if (!(key in originalEnv)) {
-      delete process.env[key]
-    }
-  }
-
-  for (const [key, value] of Object.entries(originalEnv)) {
-    process.env[key] = value
-  }
+function candidates(platform: NodeJS.Platform, env: TelemetryEnv): string[] {
+  return createTelemetryKit({
+    env,
+    platform,
+    homedir: () => HOME,
+    tmpdir: () => TMP,
+    cwd: () => PROJECT
+  }).deps.storageFolders()
 }
 
-function canWrite(dir: string): boolean {
-  try {
-    fs.mkdirSync(dir, {recursive: true})
-    const probe = path.join(dir, `.write-test-${Date.now()}`)
-    fs.writeFileSync(probe, 'ok', 'utf8')
-    fs.unlinkSync(probe)
+const LAST_TWO = [
+  path.join(TMP, 'extensionjs'),
+  path.join(PROJECT, '.cache', 'extensionjs')
+]
 
-    return true
-  } catch {
-    return false
-  }
-}
-
-afterEach(() => {
-  restoreEnv()
-  process.chdir(originalCwd)
+describe('where telemetry may keep its files, in order', () => {
+  it.each<[string, NodeJS.Platform, TelemetryEnv, string[]]>([
+    [
+      'linux with nothing set',
+      'linux',
+      {},
+      [path.join(HOME, '.config', 'extensionjs'), ...LAST_TWO]
+    ],
+    [
+      'linux with both XDG homes',
+      'linux',
+      {XDG_CONFIG_HOME: '/c', XDG_CACHE_HOME: '/k'},
+      [
+        path.join('/c', 'extensionjs'),
+        path.join('/k', 'extensionjs'),
+        ...LAST_TWO
+      ]
+    ],
+    [
+      'macOS with nothing set',
+      'darwin',
+      {},
+      [
+        path.join(HOME, '.config', 'extensionjs'),
+        path.join(HOME, 'Library', 'Caches', 'extensionjs'),
+        ...LAST_TWO
+      ]
+    ],
+    [
+      'Windows with APPDATA and LOCALAPPDATA',
+      'win32',
+      {APPDATA: '/roaming', LOCALAPPDATA: '/local'},
+      [
+        path.join('/roaming', 'extensionjs'),
+        path.join('/local', 'extensionjs', 'Cache'),
+        ...LAST_TWO
+      ]
+    ],
+    [
+      'Windows with APPDATA alone',
+      'win32',
+      {APPDATA: '/roaming'},
+      [
+        path.join('/roaming', 'extensionjs'),
+        path.join('/roaming', 'extensionjs', 'Cache'),
+        ...LAST_TWO
+      ]
+    ],
+    [
+      'Windows with neither',
+      'win32',
+      {},
+      [path.join(HOME, '.config', 'extensionjs'), ...LAST_TWO]
+    ],
+    [
+      'XDG over APPDATA on Windows',
+      'win32',
+      {XDG_CONFIG_HOME: '/c', APPDATA: '/roaming'},
+      [
+        path.join('/c', 'extensionjs'),
+        path.join('/roaming', 'extensionjs', 'Cache'),
+        ...LAST_TWO
+      ]
+    ],
+    [
+      'one folder named twice once',
+      'linux',
+      {XDG_CONFIG_HOME: '/same', XDG_CACHE_HOME: '/same'},
+      [path.join('/same', 'extensionjs'), ...LAST_TWO]
+    ]
+  ])('%s', (_name, platform, env, expected) => {
+    expect(candidates(platform, env)).toEqual(expected)
+  })
 })
 
-it('writes audit to cache when config path is unwritable', () => {
-  const work = makeTempFolder('extjs-telemetry-')
-  const configHome = makeTempFolder('extjs-config-')
-  const cacheHome = makeTempFolder('extjs-cache-')
+function storageIn(box: Sandbox) {
+  return box.kit().resolveStorage()
+}
 
-  try {
-    fs.chmodSync(configHome, 0o500)
-  } catch {
-    // Ignore
-  }
+describe('an unwritable folder hands over to the next, in turn', () => {
+  it('uses the config home first and removes its write probe', () => {
+    const box = sandbox()
+    const storage = storageIn(box)
 
-  const configWritable = canWrite(configHome)
+    expect(storage).toEqual({
+      telemetryDir: box.configDir,
+      auditFile: path.join(box.configDir, 'events.jsonl'),
+      idFile: path.join(box.configDir, 'anonymous-id'),
+      consentFile: path.join(box.configDir, 'consent'),
+      noticeFile: path.join(box.configDir, 'notice-shown')
+    })
 
-  process.env.XDG_CONFIG_HOME = configHome
-  process.env.XDG_CACHE_HOME = cacheHome
-  process.chdir(work)
-
-  const telemetry = new Telemetry({
-    app: 'extension',
-    version: '0.0.0',
-    sampleRate: 1,
-    debounceMs: 0
-  })
-  telemetry.track('command_executed', {
-    command: 'test',
-    success: true,
-    version: '0.0.0'
+    expect(fs.readdirSync(box.configDir)).toEqual([])
   })
 
-  const configAudit = path.join(
-    configHome,
-    'extensionjs',
-    'telemetry',
-    'events.jsonl'
-  )
-  const cacheAudit = path.join(
-    cacheHome,
-    'extensionjs',
-    'telemetry',
-    'events.jsonl'
-  )
+  it('falls to the cache home when the config home is a file', () => {
+    const box = sandbox()
+    blockFolder(box.places.config)
 
-  if (!configWritable) {
-    expect(fs.existsSync(cacheAudit)).toBe(true)
-    expect(fs.existsSync(configAudit)).toBe(false)
-  } else {
-    expect(fs.existsSync(configAudit) || fs.existsSync(cacheAudit)).toBe(true)
-  }
+    expect(storageIn(box)?.telemetryDir).toBe(box.cacheDir)
+    expect(fs.readFileSync(box.places.config, 'utf8')).toBe('not a folder')
+  })
+
+  it('falls to the temp folder when the cache home is a file too', () => {
+    const box = sandbox()
+    blockFolder(box.places.config)
+    blockFolder(box.places.cache)
+
+    expect(storageIn(box)?.telemetryDir).toBe(
+      path.join(box.places.tmp, 'extensionjs', 'telemetry')
+    )
+  })
+
+  it('falls to the project when the temp folder is a file too', () => {
+    const box = sandbox()
+    blockFolder(box.places.config)
+    blockFolder(box.places.cache)
+    blockFolder(path.join(box.places.tmp, 'extensionjs'))
+
+    expect(storageIn(box)?.telemetryDir).toBe(
+      path.join(box.places.project, '.cache', 'extensionjs', 'telemetry')
+    )
+  })
+
+  it('has no storage when all four are files', () => {
+    const box = sandbox()
+    blockFolder(box.places.config)
+    blockFolder(box.places.cache)
+    blockFolder(path.join(box.places.tmp, 'extensionjs'))
+    blockFolder(path.join(box.places.project, '.cache'))
+
+    expect(storageIn(box)).toBeNull()
+  })
+
+  it('skips a folder whose write probe is refused', () => {
+    const box = sandbox({
+      deps: {
+        fs: fsWith({
+          writeFileSync: (file: string, ...rest: unknown[]) => {
+            if (String(file).includes(`${path.sep}config${path.sep}`)) {
+              throw Object.assign(new Error('EROFS'), {code: 'EROFS'})
+            }
+
+            return (fs.writeFileSync as (...a: unknown[]) => void)(
+              file,
+              ...rest
+            )
+          }
+        })
+      }
+    })
+
+    expect(storageIn(box)?.telemetryDir).toBe(box.cacheDir)
+    expect(fs.readdirSync(box.configDir)).toEqual([])
+  })
+
+  it('skips a folder the access check refuses', () => {
+    const box = sandbox({
+      deps: {
+        fs: fsWith({
+          accessSync: (file: string) => {
+            if (String(file).startsWith(box.configDir)) {
+              throw Object.assign(new Error('EACCES'), {code: 'EACCES'})
+            }
+          }
+        })
+      }
+    })
+
+    expect(storageIn(box)?.telemetryDir).toBe(box.cacheDir)
+  })
+
+  it('tries the injected folders and nothing else', () => {
+    const box = sandbox()
+    const only = path.join(box.root, 'only')
+    const kit = createTelemetryKit({...box.deps, storageFolders: () => [only]})
+
+    expect(kit.resolveStorage()?.telemetryDir).toBe(
+      path.join(only, 'telemetry')
+    )
+
+    expect(fs.existsSync(box.places.config)).toBe(false)
+  })
+})
+
+describe('resolving consent on a pipeline', () => {
+  it('creates the telemetry folder in the config home before the CI gate answers', () => {
+    const box = sandbox({env: {CI: '1'}})
+
+    // Pins today's behavior. Ledger 1372 D16.
+    expect(box.kit().resolveConsent(['node', 'extension', 'build'])).toEqual({
+      enabled: false,
+      source: 'ci'
+    })
+
+    expect(fs.statSync(box.configDir).isDirectory()).toBe(true)
+    // The project is the last place tried, so here it stays untouched.
+    expect(fs.readdirSync(box.places.project)).toEqual([])
+  })
+
+  it('creates .cache/extensionjs/telemetry in the project when nothing else is writable', () => {
+    const box = sandbox({env: {CI: '1'}})
+    blockFolder(box.places.config)
+    blockFolder(box.places.cache)
+    blockFolder(path.join(box.places.tmp, 'extensionjs'))
+
+    // Pins today's behavior. Ledger 1372 D16.
+    expect(box.kit().resolveConsent(['node', 'extension', 'build'])).toEqual({
+      enabled: false,
+      source: 'ci'
+    })
+
+    expect(
+      fs
+        .statSync(
+          path.join(box.places.project, '.cache', 'extensionjs', 'telemetry')
+        )
+        .isDirectory()
+    ).toBe(true)
+  })
+
+  it.each([
+    ['EXTENSION_TELEMETRY=0', {EXTENSION_TELEMETRY: '0'}, []],
+    ['EXTENSION_TELEMETRY_DISABLED=1', {EXTENSION_TELEMETRY_DISABLED: '1'}, []],
+    ['EXTENSION_TELEMETRY=1', {EXTENSION_TELEMETRY: '1'}, []],
+    ['--no-telemetry', {}, ['--no-telemetry']]
+  ])('writes nothing when %s already answered', (_name, env, argv) => {
+    const box = sandbox({env})
+
+    box.kit().resolveConsent(argv)
+
+    expect(fs.existsSync(box.places.config)).toBe(false)
+    expect(fs.existsSync(box.places.cache)).toBe(false)
+  })
+})
+
+describe('writing consent and the notice marker', () => {
+  it('writes the consent word into the storage it resolved', () => {
+    const box = sandbox()
+
+    expect(box.kit().writeConsent('disabled')).toBe(true)
+    expect(fs.readFileSync(path.join(box.configDir, 'consent'), 'utf8')).toBe(
+      'disabled'
+    )
+  })
+
+  it('answers false with no storage at all', () => {
+    const box = sandbox({deps: {storageFolders: () => []}})
+
+    expect(box.kit().writeConsent('enabled')).toBe(false)
+    expect(box.kit().claimFirstRunNotice()).toBe(false)
+  })
+
+  it('answers false when the consent file cannot be written', () => {
+    const box = sandbox()
+    fs.mkdirSync(path.join(box.configDir, 'consent'), {recursive: true})
+
+    expect(box.kit().writeConsent('enabled')).toBe(false)
+  })
+
+  it('claims the notice once, stamped by the clock, and stores enabled', () => {
+    const box = sandbox()
+    const kit = box.kit()
+
+    expect(kit.claimFirstRunNotice()).toBe(true)
+    expect(kit.claimFirstRunNotice()).toBe(false)
+    expect(
+      fs.readFileSync(path.join(box.configDir, 'notice-shown'), 'utf8')
+    ).toBe('2026-11-17T12:00:00.000Z')
+
+    expect(fs.readFileSync(path.join(box.configDir, 'consent'), 'utf8')).toBe(
+      'enabled'
+    )
+  })
+
+  it('does not claim a notice whose marker path is taken by a folder', () => {
+    const box = sandbox()
+    fs.mkdirSync(path.join(box.configDir, 'notice-shown'), {recursive: true})
+
+    expect(box.kit().claimFirstRunNotice()).toBe(false)
+    expect(fs.existsSync(path.join(box.configDir, 'consent'))).toBe(false)
+  })
+
+  it('does not claim a notice whose marker write fails', () => {
+    const box = sandbox({
+      deps: {
+        fs: fsWith({
+          writeFileSync: (file: string, ...rest: unknown[]) => {
+            if (String(file).endsWith('notice-shown')) throw new Error('ENOSPC')
+
+            return (fs.writeFileSync as (...a: unknown[]) => void)(
+              file,
+              ...rest
+            )
+          }
+        })
+      }
+    })
+
+    expect(box.kit().claimFirstRunNotice()).toBe(false)
+    // The consent word went first, so it stays written.
+    expect(fs.readFileSync(path.join(box.configDir, 'consent'), 'utf8')).toBe(
+      'enabled'
+    )
+  })
+
+  it('does not claim a notice when the marker check throws', () => {
+    const box = sandbox({
+      deps: {
+        fs: fsWith({
+          existsSync: (file: string) => {
+            if (String(file).endsWith('notice-shown')) throw new Error('EIO')
+
+            return fs.existsSync(file)
+          }
+        })
+      }
+    })
+
+    expect(box.kit().claimFirstRunNotice()).toBe(false)
+    expect(fs.existsSync(path.join(box.configDir, 'consent'))).toBe(false)
+  })
+})
+
+describe('with no writable storage at all', () => {
+  it('writes no audit line and sends as the literal disabled', async () => {
+    const box = sandbox({deps: {storageFolders: () => []}})
+    const telemetry = box.telemetry({sampleRate: 1, debounceMs: 0})
+
+    telemetry.track('command_executed', {
+      command: 'test',
+      success: true,
+      version: '0.0.0'
+    })
+
+    await telemetry.flush()
+
+    expect(box.sent.map((batch) => batch.url)).toEqual([
+      'http://127.0.0.1:9/capture/'
+    ])
+
+    // Pins today's behavior. Ledger 1372 D15.
+    expect(box.sentRows().map((row) => row.distinct_id)).toEqual(['disabled'])
+    expect(fs.readdirSync(box.root).sort()).toEqual(['home', 'project', 'tmp'])
+  })
+
+  it('keeps auditing in the cache home when the config home is a file', () => {
+    const box = sandbox()
+    blockFolder(box.places.config)
+
+    box.telemetry({sampleRate: 1, debounceMs: 0}).track('command_executed', {
+      command: 'test',
+      success: true,
+      version: '0.0.0'
+    })
+
+    expect(
+      readRows(path.join(box.cacheDir, 'events.jsonl')).map(
+        (row) => `${row.event}:${row.properties.command}`
+      )
+    ).toEqual(['command_executed:test'])
+  })
 })
