@@ -67,13 +67,24 @@ export class EmitHtmlFile {
                 continue
               }
 
-              if (featureName.startsWith('pages/')) {
-                // Non-entrypoint HTML (special pages/*) only warns.
+              const manifestField = featureName.startsWith('pages/')
+                ? undefined
+                : manifestFieldForHtmlFeature(
+                    featureName,
+                    this.manifestPath,
+                    this.browser
+                  )
+
+              if (!manifestField) {
+                // A page of the pages folder or one only a script opens: the
+                // browser loads the extension without it, so a dead one warns.
                 reportToCompilation(
                   compilation,
                   compiler,
                   messages.pageFileMissing(featureName, resolved),
-                  'warning',
+                  process.env.EXTENSION_STRICT_REFS === 'true'
+                    ? 'error'
+                    : 'warning',
                   undefined,
                   'ManifestPageMissing'
                 )
@@ -84,20 +95,13 @@ export class EmitHtmlFile {
                   !featureName.startsWith('sandbox/') &&
                   featureName !== 'sidebar/index' &&
                   featureName !== 'sidebar_action/index'
-                const manifestField = manifestFieldForHtmlFeature(
-                  featureName,
-                  this.manifestPath,
-                  this.browser
-                )
 
                 reportToCompilation(
                   compilation,
                   compiler,
-                  manifestField
-                    ? messages.manifestPageMissing(manifestField, resolved)
-                    : messages.pageFileMissing(featureName, resolved),
+                  messages.manifestPageMissing(manifestField, resolved),
                   isLoadChecked ? 'error' : 'warning',
-                  manifestField ? 'manifest.json' : undefined,
+                  'manifest.json',
                   'ManifestPageMissing'
                 )
 

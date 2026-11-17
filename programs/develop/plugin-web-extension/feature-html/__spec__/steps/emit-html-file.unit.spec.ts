@@ -90,7 +90,7 @@ describe('EmitHtmlFile', () => {
     expect(warning.message).not.toContain('field')
   })
 
-  it('names the file of a missing page that only a script opens', () => {
+  it('warns, naming the file, about a missing page that only a script opens', () => {
     const tmp = makeTmp('emit3')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(
@@ -99,10 +99,10 @@ describe('EmitHtmlFile', () => {
       'utf8'
     )
 
-    const errors: Array<{name: string; message: string; file?: string}> = []
+    const warnings: Array<{name: string; message: string; file?: string}> = []
     const compilation = {
-      errors,
-      warnings: [],
+      warnings,
+      errors: [],
       hooks: {processAssets: {tap: (_: unknown, run: () => void) => run()}}
     }
 
@@ -118,15 +118,19 @@ describe('EmitHtmlFile', () => {
       }
     } as any)
 
-    expect(errors.map((error) => error.name)).toEqual(['ManifestPageMissing'])
-    expect(errors[0].message).toContain('panel/index')
-    expect(errors[0].message).toContain(
+    expect(warnings.map((warning) => warning.name)).toEqual([
+      'ManifestPageMissing'
+    ])
+
+    expect(warnings[0].message).toContain('panel/index')
+    expect(warnings[0].message).toContain(
       `NOT FOUND ${path.join(tmp, 'panel', 'index.html')}`
     )
 
-    expect(errors[0].message).not.toContain('panel.index')
-    expect(errors[0].message).not.toContain('manifest.json')
-    expect(errors[0].file).toBeUndefined()
+    expect(warnings[0].message).not.toContain('panel.index')
+    expect(warnings[0].message).not.toContain('manifest.json')
+    expect(warnings[0].file).toBeUndefined()
+    expect(compilation.errors).toEqual([])
   })
 
   it('taps the asset stage under its own name', () => {
