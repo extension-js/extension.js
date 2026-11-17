@@ -1681,6 +1681,20 @@ export function companionExtensionNotResolved(
   )
 }
 
+export function companionExtensionsFolderNotFound(
+  dir: string,
+  folderPath: string,
+  declaredIn: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} The companion extensions folder does not exist, so no extension is loaded from it.\n` +
+    `${colors.gray('DIR')} ${colors.underline(dir)}\n` +
+    `${colors.gray('DECLARED IN')} ${declaredIn}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(folderPath)}\n` +
+    `Create the folder, or remove extensions.dir.`
+  )
+}
+
 export function noCompanionExtensionsResolved() {
   return (
     `${getLoggingPrefix('warn')} No companion extensions resolved from the ${colors.blue('extensions')} config.\n` +

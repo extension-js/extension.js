@@ -112,6 +112,18 @@ function isFolder(target: string): boolean {
   }
 }
 
+// The scan reads a folder only under the spelling the config gave it, so a
+// folder that differs by case on a case-blind disk counts as not there.
+function isFolderAsSpelled(target: string): boolean {
+  if (!isFolder(target)) return false
+
+  try {
+    return fs.readdirSync(path.dirname(target)).includes(path.basename(target))
+  } catch {
+    return false
+  }
+}
+
 // The entries that name a folder, told apart from a store link without the
 // resolver that would fetch one: a link has a scheme or opens with a host.
 export function namedCompanionFolders(
@@ -157,7 +169,23 @@ export function companionsDeclaredIn(
   return undefined
 }
 
+// The folder the commands scan when no layer says which one. Its absence
+// is the usual state of a project, so it is never spoken of on its own.
+const STOCK_SCAN_DIR = './extensions'
+
+function declaredScanDir(config: unknown): string | undefined {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return undefined
+  }
+
+  const dir = (config as {dir?: unknown}).dir
+
+  return typeof dir === 'string' && dir.trim() ? dir.trim() : undefined
+}
+
 export interface UnresolvedCompanion {
+  // What was looked for and is not there: the manifest.json of a named
+  // companion, or the folder a declared extensions.dir names.
   manifestPath: string
   // The framed sentence a terminal reads.
   frame: string
@@ -182,6 +210,27 @@ export function unresolvedNamedCompanions(input: {
   }
 
   const unresolved: UnresolvedCompanion[] = []
+  const scanDir = declaredScanDir(input.resolved)
+
+  // A folder some layer declared and that is not there loads nothing, and
+  // without a word a typo runs the session with no companion at all.
+  if (scanDir && (input.declaredIn || scanDir !== STOCK_SCAN_DIR)) {
+    const folder = path.resolve(input.projectRoot, scanDir)
+
+    if (!isFolderAsSpelled(folder)) {
+      const frame = messages.companionExtensionsFolderNotFound(
+        scanDir,
+        folder,
+        input.declaredIn ?? 'the extensions option'
+      )
+
+      unresolved.push({
+        manifestPath: folder,
+        frame,
+        coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+      })
+    }
+  }
 
   for (const entry of explicitCompanionEntries(input.resolved)) {
     const folder = path.resolve(input.projectRoot, entry)

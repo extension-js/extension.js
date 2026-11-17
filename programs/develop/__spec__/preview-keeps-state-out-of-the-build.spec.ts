@@ -373,6 +373,40 @@ describe('a named companion that is not an extension, with no browser', () => {
     expect(store.fetch).not.toHaveBeenCalled()
   })
 
+  it('warns once about a declared extensions.dir that is not there, browser or not', async () => {
+    const root = project()
+    const declared = {extensions: {dir: './extensions/none'}}
+    const quiet = await preview(root, declared)
+
+    expect(quiet.warnings).toHaveLength(1)
+    expect(quiet.warnings[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+    expect(quiet.warnings[0]).toContain('DIR ./extensions/none')
+    expect(quiet.warnings[0]).toContain('DECLARED IN the --extensions flag')
+    expect(quiet.warnings[0]).toContain(
+      `NOT FOUND ${path.join(root, 'extensions', 'none')}`
+    )
+
+    expect(
+      quiet.warned.split('\n').filter((line) => line.includes('NOT FOUND'))
+    ).toHaveLength(1)
+
+    vi.restoreAllMocks()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const withBrowser = await extensionPreview(
+      root,
+      {browser: 'chrome', ...declared} as never,
+      async () => {}
+    )
+
+    expect(withBrowser?.warnings).toEqual(quiet.warnings)
+
+    // The folder every project is scanned for is not one the user declared.
+    fs.rmSync(path.join(root, 'extensions'), {recursive: true})
+    expect((await preview(root)).warnings).toEqual([])
+  })
+
   it('still refuses the same entry when a browser is to open', async () => {
     const root = project()
 

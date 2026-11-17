@@ -591,13 +591,65 @@ describe('a companion that does not resolve', () => {
     expect(
       unresolvedNamedCompanions({
         projectRoot: root,
-        resolved: {dir: './extensions/none'}
+        resolved: {dir: './extensions'},
+        declaredIn: 'extensions in extension.config.js'
       })
     ).toEqual([])
 
     expect(
       unresolvedNamedCompanions({projectRoot: root, resolved: undefined})
     ).toEqual([])
+  })
+
+  it('names a declared extensions.dir that is not on disk, once', () => {
+    const root = tmpDir('extjs-companion-dir-')
+    const folder = path.join(root, 'extensions', 'none')
+    const unresolved = unresolvedNamedCompanions({
+      projectRoot: root,
+      resolved: {dir: './extensions/none'},
+      declaredIn: 'extensions in extension.config.js'
+    })
+
+    expect(unresolved).toHaveLength(1)
+    expect(unresolved[0].manifestPath).toBe(folder)
+    expect(unresolved[0].coded).toBe(
+      'E_COMPANION_EXTENSION_PATH: The companion extensions folder does not exist, so no extension is loaded from it.\n' +
+        'DIR ./extensions/none\n' +
+        'DECLARED IN extensions in extension.config.js\n' +
+        `NOT FOUND ${folder}\n` +
+        'Create the folder, or remove extensions.dir.'
+    )
+
+    // The compiler config meets the same folder with no layer to name.
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions/none'}
+      }).map((companion) => companion.manifestPath)
+    ).toEqual([folder])
+
+    expect(isFirstCompanionWarning(folder)).toBe(true)
+    expect(isFirstCompanionWarning(folder)).toBe(false)
+  })
+
+  it('stays quiet about the stock ./extensions scan when no layer declared it', () => {
+    const root = tmpDir('extjs-companion-dir-')
+
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions'}
+      })
+    ).toEqual([])
+
+    // The same spelling, declared by a layer, is the user's and is named.
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions'},
+        declaredIn: 'the --extensions flag'
+      })
+    ).toHaveLength(1)
   })
 
   it('reads an entry that names a folder on disk as a folder, whatever it looks like', () => {
