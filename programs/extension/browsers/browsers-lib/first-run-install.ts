@@ -27,10 +27,9 @@ function isCI(): boolean {
   )
 }
 
-// A prompt needs a human on both ends of the pipe. A test run, a CI job or a
-// piped session takes the old path: print the install command and stop.
+// A prompt needs a human on both ends of the pipe. A CI job or a piped
+// session takes the old path: print the install command and stop.
 export function canPromptForInstall(): boolean {
-  if (process.env.VITEST || process.env.VITEST_WORKER_ID) return false
   if (process.env.EXTENSION_NO_INSTALL_PROMPT) return false
   if (isCI()) return false
 
@@ -67,17 +66,40 @@ export function askToInstall(question: string): Promise<boolean> {
   })
 }
 
+async function installManagedBrowser(target: InstallableTarget): Promise<void> {
+  const {extensionInstall} = await import('extension-install')
+
+  await extensionInstall({
+    browser: target,
+    locateInstalledBinary: resolveManagedBinaryIn
+  })
+}
+
+export interface OfferInstallOptions {
+  // Whether a human can answer. Left out, the live session decides.
+  canPrompt?: () => boolean
+  // Left out, the terminal is asked and the real download runs, so only a
+  // caller that must not prompt or download passes these.
+  ask?: (question: string) => Promise<boolean>
+  install?: (target: InstallableTarget) => Promise<void>
+}
+
 // Downloads the managed browser the session asked for and reports whether the
 // caller can retry resolution. Never throws: a failed install falls back to
 // the printed install command.
 export async function offerManagedInstall(
-  target: InstallableTarget
+  target: InstallableTarget,
+  {
+    canPrompt = canPromptForInstall,
+    ask = askToInstall,
+    install = installManagedBrowser
+  }: OfferInstallOptions = {}
 ): Promise<boolean> {
-  if (!canPromptForInstall()) return false
+  if (!canPrompt()) return false
 
   humanLine(messages.firstRunInstallOffer(target))
   recordBrowserInstall('offered', target)
-  const accepted = await askToInstall(messages.firstRunInstallQuestion(target))
+  const accepted = await ask(messages.firstRunInstallQuestion(target))
 
   if (!accepted) {
     recordBrowserInstall('declined', target)
@@ -89,11 +111,7 @@ export async function offerManagedInstall(
   const startedAt = Date.now()
 
   try {
-    const {extensionInstall} = await import('extension-install')
-    await extensionInstall({
-      browser: target,
-      locateInstalledBinary: resolveManagedBinaryIn
-    })
+    await install(target)
 
     recordBrowserInstall('accepted', target, (Date.now() - startedAt) / 1000)
 

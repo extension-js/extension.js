@@ -1,13 +1,16 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
+  readBrowserInstall,
+  resetBrowserInstall
+} from '../../helpers/browser-install-outcome'
+import {
   askToInstall,
   canPromptForInstall,
+  type InstallableTarget,
   offerManagedInstall
 } from '../browsers-lib/first-run-install'
 
 const GUARD_KEYS = [
-  'VITEST',
-  'VITEST_WORKER_ID',
   'EXTENSION_NO_INSTALL_PROMPT',
   'CI',
   'GITHUB_ACTIONS',
@@ -50,13 +53,6 @@ afterEach(() => {
 })
 
 describe('canPromptForInstall', () => {
-  it('refuses inside a test run', () => {
-    setTty(true)
-    clearGuards()
-    process.env.VITEST = 'true'
-    expect(canPromptForInstall()).toBe(false)
-  })
-
   it('refuses in CI even on a TTY', () => {
     setTty(true)
     clearGuards()
@@ -118,11 +114,87 @@ describe('askToInstall', () => {
   })
 })
 
+// No case here may ask the terminal or download: each one hands in its own
+// question and installer, and the real ones are never the defaults in use.
 describe('offerManagedInstall', () => {
-  it('never prompts when the session cannot prompt', async () => {
-    setTty(true)
+  const never = () => {
+    throw new Error('this case must not prompt or install')
+  }
+
+  function seams(answer: boolean, outcome: 'done' | Error = 'done') {
+    return {
+      ask: vi.fn(async (_question: string) => answer),
+      install: vi.fn(async (_target: InstallableTarget) => {
+        if (outcome !== 'done') throw outcome
+      })
+    }
+  }
+
+  beforeEach(() => {
+    resetBrowserInstall()
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+  })
+
+  it('never prompts when the caller says the session cannot prompt', async () => {
+    await expect(
+      offerManagedInstall('chrome', {
+        canPrompt: () => false,
+        ask: never,
+        install: never
+      })
+    ).resolves.toBe(false)
+
+    expect(readBrowserInstall()).toBe(null)
+  })
+
+  it('asks the live session by default, and a piped one is never prompted', async () => {
     clearGuards()
-    process.env.VITEST = 'true'
-    await expect(offerManagedInstall('chrome')).resolves.toBe(false)
+    setTty(false)
+    const {ask, install} = seams(true)
+
+    await expect(offerManagedInstall('chrome', {ask, install})).resolves.toBe(
+      false
+    )
+
+    expect(ask).not.toHaveBeenCalled()
+    expect(install).not.toHaveBeenCalled()
+  })
+
+  it('installs the offered browser once on a yes', async () => {
+    const {ask, install} = seams(true)
+
+    await expect(
+      offerManagedInstall('edge', {canPrompt: () => true, ask, install})
+    ).resolves.toBe(true)
+
+    expect(ask).toHaveBeenCalledTimes(1)
+    expect(install.mock.calls).toEqual([['edge']])
+    expect(readBrowserInstall()).toMatchObject({
+      outcome: 'accepted',
+      browser: 'edge'
+    })
+  })
+
+  it('installs nothing on a no', async () => {
+    const {ask, install} = seams(false)
+
+    await expect(
+      offerManagedInstall('chrome', {canPrompt: () => true, ask, install})
+    ).resolves.toBe(false)
+
+    expect(install).not.toHaveBeenCalled()
+    expect(readBrowserInstall()).toMatchObject({outcome: 'declined'})
+  })
+
+  it('reports a failed install as false and never throws', async () => {
+    const {ask, install} = seams(true, new Error('404 from CDN'))
+    const printed = vi.mocked(console.log)
+
+    await expect(
+      offerManagedInstall('chrome', {canPrompt: () => true, ask, install})
+    ).resolves.toBe(false)
+
+    expect(readBrowserInstall()).toMatchObject({outcome: 'failed'})
+    expect(printed.mock.calls.flat().join('\n')).toContain('404 from CDN')
   })
 })

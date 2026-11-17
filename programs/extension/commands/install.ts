@@ -8,6 +8,8 @@
 
 import * as path from 'node:path'
 import type {Command} from 'commander'
+import type {UninstallResult} from 'extension-install'
+import {systemScanSkipped} from '../browsers/browsers-lib/locator-env'
 import {resolveManagedBinaryIn} from '../browsers/browsers-lib/output-binaries-resolver'
 import {applyManagedFirefoxInstallPolicy} from '../browsers/run-firefox/firefox-launch/managed-update-policy'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
@@ -47,24 +49,88 @@ function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-// Mirrors extension-install's isBrowserNotInstallableError without a static
-// import so unit tests can mock the package without shipping the type guard.
-function isNotInstallableRefusal(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === 'object' &&
-      ((error as {name?: string}).name === 'BrowserNotInstallableError' ||
-        (error as {code?: string}).code === 'BROWSER_NOT_INSTALLABLE')
-  )
+type InstallPackage = typeof import('extension-install')
+
+// The install failures that are not a download gone wrong. Each is told by
+// the package's own guard, and gets its own code and hint.
+const INSTALL_REFUSALS = [
+  {
+    guard: 'isBrowserInstallTimeoutError',
+    code: CODES.E_BROWSER_INSTALL_TIMEOUT,
+    hint: 'Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again.'
+  },
+  {
+    guard: 'isBrowserInstallBusyError',
+    code: CODES.E_BROWSER_INSTALL_BUSY,
+    hint: 'Wait for the other install of this browser to finish, then run the install again.'
+  },
+  {
+    guard: 'isBrowserCacheRootError',
+    code: CODES.E_BROWSER_CACHE_NOT_WRITABLE,
+    hint: 'Set EXT_BROWSERS_CACHE_DIR to a folder Extension.js can write to.'
+  },
+  {
+    guard: 'isBrowserInstallForeignFolderError',
+    code: CODES.E_BROWSER_FOLDER_FOREIGN,
+    hint: 'Set EXT_BROWSERS_CACHE_DIR to a folder that only Extension.js uses.'
+  }
+] as const
+
+// The guards match by name or code, never instanceof, so an error thrown by
+// a second copy of the package is still told apart.
+function installRefusalOf(installer: InstallPackage, error: unknown) {
+  return INSTALL_REFUSALS.find((refusal) => installer[refusal.guard](error))
 }
 
-function isInstallPrivilegeRefusal(error: unknown): boolean {
-  return Boolean(
-    error &&
-      typeof error === 'object' &&
-      ((error as {name?: string}).name === 'BrowserInstallPrivilegeError' ||
-        (error as {code?: string}).code === 'BROWSER_INSTALL_PRIVILEGE')
-  )
+// What a failed uninstall carries: every target's outcome, removed ones too.
+function uninstallResultsOf(error: unknown): UninstallResult[] | null {
+  const results = (error as {results?: unknown} | null)?.results
+
+  return Array.isArray(results) ? (results as UninstallResult[]) : null
+}
+
+// A run that was told to see no system browser gets the same answer here, so
+// install, uninstall and the launcher agree on whether an Edge is present.
+function systemEdgeSeam() {
+  if (!systemScanSkipped()) return {}
+
+  return {
+    systemEdge: {
+      exists: () => false,
+      lookup: () => null,
+      registry: () => null
+    }
+  }
+}
+
+// Nothing was downloaded, so there is nothing to retry: the remedy is the
+// runner itself, which the installer's own message already names.
+async function refuseInstallerNotFound(
+  error: unknown,
+  asJson: boolean
+): Promise<void> {
+  const detail = errorText(error)
+
+  if (asJson) {
+    emit(
+      ENVELOPE.fail(
+        'install',
+        'failed',
+        {
+          code: CODES.E_BROWSER_INSTALLER_NOT_FOUND,
+          message: detail
+        },
+        {
+          hint: 'Install the package runner the message names, or run this command through a package manager that is installed.'
+        }
+      )
+    )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(detail)
+  }
+
+  await exitAfterDrain(1)
 }
 
 // Retrying in the same session can never work: the fix is a different session
@@ -125,7 +191,7 @@ async function refuseNotInstallable(
 // and json. Scripts branch on the envelope code alone:
 //   unknown name        → E_UNSUPPORTED_BROWSER
 //   known, never fetch  → E_BROWSER_NOT_INSTALLABLE
-//   managed download    → proceeds (failures become E_BROWSER_DOWNLOAD)
+//   managed download    → proceeds (installer failures become E_BROWSER_DOWNLOAD)
 async function refuseIfNotManagedTarget(
   command: 'install' | 'uninstall',
   browserList: string[],
@@ -201,6 +267,33 @@ async function refuseDownloadFailed(
   await exitAfterDrain(1)
 }
 
+// The package words each of these with its own remedy, so the message is
+// printed as it is and never framed as a download to retry.
+async function refuseInstall(
+  error: unknown,
+  asJson: boolean,
+  code: (typeof CODES)[keyof typeof CODES] = CODES.E_BROWSER_DOWNLOAD,
+  hint?: string
+): Promise<void> {
+  const detail = errorText(error)
+
+  if (asJson) {
+    emit(
+      ENVELOPE.fail(
+        'install',
+        'failed',
+        {code, message: detail},
+        hint ? {hint} : {}
+      )
+    )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(detail)
+  }
+
+  await exitAfterDrain(1)
+}
+
 export function registerInstallCommand(program: Command) {
   program
     .command('install')
@@ -238,11 +331,12 @@ export function registerInstallCommand(program: Command) {
       // envelope is the only document there.
       if (asJson) process.env.EXTENSION_OUTPUT = 'json'
 
+      const installer = await import('extension-install')
       const {
         extensionInstall,
         getManagedBrowsersCacheRoot,
         getManagedBrowserInstallDir
-      } = await import('extension-install')
+      } = installer
 
       if (options.where) {
         let paths: string[]
@@ -276,7 +370,8 @@ export function registerInstallCommand(program: Command) {
           await extensionInstall({
             browser,
             defaulted: !named,
-            locateInstalledBinary: resolveManagedBinaryIn
+            locateInstalledBinary: resolveManagedBinaryIn,
+            ...systemEdgeSeam()
           })
 
           const installDir = getManagedBrowserInstallDir(browser)
@@ -290,19 +385,40 @@ export function registerInstallCommand(program: Command) {
 
           installed.push(browser)
         } catch (error) {
-          if (isNotInstallableRefusal(error)) {
+          if (installer.isBrowserNotInstallableError(error)) {
             await refuseNotInstallable('install', error, asJson)
 
             return
           }
 
-          if (isInstallPrivilegeRefusal(error)) {
+          if (installer.isBrowserInstallPrivilegeError(error)) {
             await refuseInstallPrivilege(browser, error, asJson)
 
             return
           }
 
-          await refuseDownloadFailed(browser, error, asJson)
+          if (installer.isBrowserInstallerNotFoundError(error)) {
+            await refuseInstallerNotFound(error, asJson)
+
+            return
+          }
+
+          const refusal = installRefusalOf(installer, error)
+
+          if (refusal) {
+            await refuseInstall(error, asJson, refusal.code, refusal.hint)
+
+            return
+          }
+
+          if (installer.isBrowserInstallFailedError(error)) {
+            await refuseDownloadFailed(browser, error, asJson)
+
+            return
+          }
+
+          // Anything else is no download that failed, so it keeps its own words.
+          await refuseInstall(error, asJson)
 
           return
         }
@@ -347,7 +463,8 @@ export function registerInstallCommand(program: Command) {
         const {
           extensionUninstall,
           getManagedBrowsersCacheRoot,
-          getManagedBrowserInstallDir
+          getManagedBrowserInstallDir,
+          isBrowserNotInstallableError
         } = await import('extension-install')
 
         // --where alone (no name, no --all): print the cache root, no name gate.
@@ -417,28 +534,46 @@ export function registerInstallCommand(program: Command) {
         }
 
         const removeAll = Boolean(all || selected === 'all')
-        let results: Array<{browser: string; removed: boolean; path: string}>
+        let results: UninstallResult[]
 
         try {
           results = await extensionUninstall({
             // --all and the name `all` both mean the managed binary set; the
             // package expands that set itself when all is true.
             browser: removeAll ? undefined : browserList.join(','),
-            all: removeAll
+            all: removeAll,
+            ...systemEdgeSeam()
           })
         } catch (error) {
-          if (isNotInstallableRefusal(error)) {
+          if (isBrowserNotInstallableError(error)) {
             await refuseNotInstallable('uninstall', error, asJson)
 
             return
           }
 
+          const attempted = uninstallResultsOf(error)
+
           if (asJson) {
             emit(
-              ENVELOPE.fail('uninstall', 'failed', {
-                code: CODES.E_BROWSER_UNINSTALL,
-                message: errorText(error)
-              })
+              ENVELOPE.fail(
+                'uninstall',
+                'failed',
+                {
+                  code: CODES.E_BROWSER_UNINSTALL,
+                  message: errorText(error)
+                },
+                // The targets that were removed stay reported beside the ones
+                // that were not, so a script does not remove them twice.
+                attempted
+                  ? {
+                      value: {
+                        browsers: browserList,
+                        all: removeAll,
+                        results: attempted
+                      }
+                    }
+                  : {}
+              )
             )
           } else {
             // eslint-disable-next-line no-console
