@@ -10,40 +10,6 @@ import {CODES, type ErrorCode} from './messaging'
 
 export type WarningCode = Extract<ErrorCode, `W_${string}`>
 
-// What a consumer reads once the severity is known: the name the diagnostic
-// ships under, and for a warning the documented W_ name beside it.
-export interface SeverityCode {
-  code: ErrorCode
-  warningCode?: WarningCode
-}
-
-// Warnings that shipped under an E_ name before the warning class existed.
-// A reader matching that name keeps matching through 4.x, and 5.0 drops it.
-export const DEPRECATED_WARNING_NAMES: Partial<Record<WarningCode, ErrorCode>> =
-  {
-    [CODES.W_MANAGED_DEP_CONFLICT]: CODES.E_MANAGED_DEP_CONFLICT,
-    [CODES.W_TYPES_EMIT]: CODES.E_TYPES_EMIT,
-    [CODES.W_MODULE_NOT_FOUND]: CODES.E_MODULE_NOT_FOUND,
-    [CODES.W_ENTRY_NOT_FOUND]: CODES.E_ENTRY_NOT_FOUND,
-    [CODES.W_ASSET_MISSING]: CODES.E_ASSET_MISSING,
-    [CODES.W_SCRIPT_DEP_MISSING]: CODES.E_SCRIPT_DEP_MISSING,
-    [CODES.W_CSS_PARSE]: CODES.E_CSS_PARSE,
-    [CODES.W_CSS_PREPROCESSOR_MISSING]: CODES.E_CSS_PREPROCESSOR_MISSING,
-    [CODES.W_CSS_DEAD_REF]: CODES.E_CSS_DEAD_REF,
-    [CODES.W_POLYFILL_NOT_FOUND]: CODES.E_POLYFILL_NOT_FOUND,
-    [CODES.W_LOCALES_LAYOUT]: CODES.E_LOCALES_LAYOUT,
-    [CODES.W_PROD_LOOPBACK_ORIGIN]: CODES.E_PROD_LOOPBACK_ORIGIN,
-    [CODES.W_NO_ENTRYPOINTS]: CODES.E_NO_ENTRYPOINTS,
-    [CODES.W_REMOTE_RESOURCE_BLOCKED]: CODES.E_REMOTE_RESOURCE_BLOCKED,
-    [CODES.W_PERF_BUDGET]: CODES.E_PERF_BUDGET,
-    [CODES.W_ENV_NO_MATCH]: CODES.E_ENV_NO_MATCH,
-    [CODES.W_LAUNCH_SKIPPED_COMPILE_ERRORS]:
-      CODES.E_LAUNCH_SKIPPED_COMPILE_ERRORS,
-    [CODES.W_UNINSTALL_NOOP]: CODES.E_UNINSTALL_NOOP,
-    [CODES.W_PORT_IN_USE]: CODES.E_PORT_IN_USE,
-    [CODES.W_LOGS_STREAM_GAP]: CODES.E_LOGS_STREAM_GAP
-  }
-
 export interface DiagnosticContext {
   contentScripts?: ReadonlySet<string>
 }
@@ -66,8 +32,8 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   LocalesLayoutWarning: CODES.E_LOCALES_LAYOUT,
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,
-  PerfBudgetWarning: CODES.E_PERF_BUDGET,
-  EnvNoMatchingFile: CODES.E_ENV_NO_MATCH,
+  PerfBudgetWarning: CODES.W_PERF_BUDGET,
+  EnvNoMatchingFile: CODES.W_ENV_NO_MATCH,
   JSONMissingFile: CODES.E_ENTRY_NOT_FOUND,
   LocalesPluginMissingFile: CODES.E_ENTRY_NOT_FOUND,
   HtmlEntrypointMissing: CODES.E_ENTRY_NOT_FOUND,
@@ -97,7 +63,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   MovedPageRelativeUrl: CODES.E_SCRIPT_DEP_MISSING,
   WebkitDroppedPageOpened: CODES.E_SCRIPT_DEP_MISSING,
   NodeBuiltinNotAvailable: CODES.E_MODULE_NOT_FOUND,
-  RemoteResourceBlocked: CODES.E_REMOTE_RESOURCE_BLOCKED,
+  RemoteResourceBlocked: CODES.W_REMOTE_RESOURCE_BLOCKED,
   ReservedScriptsFolder: CODES.E_RESERVED_FOLDER,
   ScriptsFolderEntryOnlyImported: CODES.W_RESERVED_FOLDER,
   CssPreprocessorMissing: CODES.E_CSS_PREPROCESSOR_MISSING,
@@ -265,22 +231,13 @@ export function warningCodeOf(code: ErrorCode): WarningCode | undefined {
   return name as WarningCode | undefined
 }
 
-// The one place a class meets its severity. A warning that shipped as E_
-// keeps that name in `code`, and one born after the class carries W_ there.
+// The one place a class meets its severity: a warning reads W_ and an
+// error reads E_, wherever the class has a name under that prefix.
 export function codeForSeverity(
   code: ErrorCode,
   severity: 'error' | 'warning'
-): SeverityCode {
-  if (severity === 'error') {
-    return {code: code.startsWith('W_') ? (twin(code, 'E_') ?? code) : code}
-  }
+): ErrorCode {
+  if (severity === 'warning') return warningCodeOf(code) ?? code
 
-  const warningCode = warningCodeOf(code)
-
-  if (!warningCode) return {code}
-
-  return {
-    code: DEPRECATED_WARNING_NAMES[warningCode] ?? warningCode,
-    warningCode
-  }
+  return code.startsWith('W_') ? (twin(code, 'E_') ?? code) : code
 }

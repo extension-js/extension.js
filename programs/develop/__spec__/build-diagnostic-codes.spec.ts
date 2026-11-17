@@ -259,7 +259,7 @@ describe('a green build prefixes a coded warning with its code', () => {
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings_count).toBe(1)
     expect(summary.warnings?.[0]).toMatch(
-      /^E_CSS_DEAD_REF: A url\(\.\/nope-token\.png\) reference points to a file that exists nowhere in the project\./
+      /^W_CSS_DEAD_REF: A url\(\.\/nope-token\.png\) reference points to a file that exists nowhere in the project\./
     )
   }, 120_000)
 
@@ -285,7 +285,7 @@ describe('a green build prefixes a coded warning with its code', () => {
     expect(summary.warnings_count).toBe(1)
     const lines = String(summary.warnings?.[0]).split('\n')
     expect(lines[0]).toBe(
-      "E_CSS_PARSE: The CSS in this file doesn't parse, so it was copied as-is."
+      "W_CSS_PARSE: The CSS in this file doesn't parse, so it was copied as-is."
     )
 
     expect(lines[1]).toBe('PATH content/styles.css')
@@ -308,7 +308,7 @@ describe('a green build prefixes a coded warning with its code', () => {
     expect(summary.warnings_count).toBe(1)
     expect(summary.warnings).toHaveLength(1)
     expect(String(summary.warnings?.[0]).split('\n')[0]).toBe(
-      "E_ASSET_MISSING: The page references an asset that doesn't exist."
+      "W_ASSET_MISSING: The page references an asset that doesn't exist."
     )
 
     expect(summary.warnings?.[0]).toContain(
@@ -328,7 +328,7 @@ describe('a green build prefixes a coded warning with its code', () => {
     const summary = await build(root)
     expect(summary.warnings).toEqual([
       [
-        "E_ASSET_MISSING: The page references an asset that doesn't exist.",
+        "W_ASSET_MISSING: The page references an asset that doesn't exist.",
         'PATH popup/index.html',
         'NOT FOUND popup/gone-token.png',
         'Update the popup/gone-token.png reference to point to a file that exists.'
@@ -351,7 +351,7 @@ describe('a green build prefixes a coded warning with its code', () => {
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings).toEqual([
       [
-        'E_CSS_PARSE: An @import rule comes after other rules, so browsers skip it.',
+        'W_CSS_PARSE: An @import rule comes after other rules, so browsers skip it.',
         'PATH popup/late.css:2',
         'Chrome applies the rest of the stylesheet and ignores this import, so the build kept going.',
         'Move the @import above every other rule to make it load.'
@@ -369,7 +369,7 @@ describe('a green build prefixes a coded warning with its code', () => {
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings).toEqual([
       [
-        "E_ENTRY_NOT_FOUND: Can't find the page listed in side_panel.default_path.",
+        "W_ENTRY_NOT_FOUND: Can't find the page listed in side_panel.default_path.",
         'NOT FOUND panel/missing-token.html',
         'Update the path in your manifest.json to an HTML file that exists.'
       ].join('\n')

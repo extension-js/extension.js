@@ -438,8 +438,8 @@ export const CODES = {
   E_JSON_INVALID: 'E_JSON_INVALID',
   E_PROJECT_LAYOUT: 'E_PROJECT_LAYOUT',
   E_ASSET_IMPORT_SHAPE: 'E_ASSET_IMPORT_SHAPE',
-  // A W_ code is a warning: the run carried on past it. These twenty are
-  // the warnings that shipped under an E_ name, which they keep through 4.x.
+  // A W_ code is a warning: the run carried on past it. These twenty
+  // shipped under an E_ name before warnings had a prefix of their own.
   W_MANAGED_DEP_CONFLICT: 'W_MANAGED_DEP_CONFLICT',
   W_TYPES_EMIT: 'W_TYPES_EMIT',
   W_MODULE_NOT_FOUND: 'W_MODULE_NOT_FOUND',
@@ -460,7 +460,7 @@ export const CODES = {
   W_UNINSTALL_NOOP: 'W_UNINSTALL_NOOP',
   W_PORT_IN_USE: 'W_PORT_IN_USE',
   W_LOGS_STREAM_GAP: 'W_LOGS_STREAM_GAP',
-  // Born as warnings, so no E_ name ever stood for them.
+  // Born as warnings, so no E_ name ever shipped for them.
   W_MANIFEST_INVALID: 'W_MANIFEST_INVALID',
   W_WAR_INVALID: 'W_WAR_INVALID',
   W_RESERVED_FOLDER: 'W_RESERVED_FOLDER',

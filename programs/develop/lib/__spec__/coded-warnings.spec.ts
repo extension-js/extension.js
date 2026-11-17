@@ -6,28 +6,15 @@ describe('coded warnings', () => {
   it('hands back each recorded line once, code first, and then nothing', () => {
     takeCodedWarnings()
 
-    recordCodedWarning(CODES.E_TYPES_EMIT, 'the first thing')
-    recordCodedWarning(CODES.E_TYPES_EMIT, 'the first thing')
-    recordCodedWarning(CODES.E_POLYFILL_NOT_FOUND, 'the second thing')
+    recordCodedWarning(CODES.W_TYPES_EMIT, 'the first thing')
+    recordCodedWarning(CODES.W_TYPES_EMIT, 'the first thing')
+    recordCodedWarning(CODES.W_POLYFILL_NOT_FOUND, 'the second thing')
 
     expect(takeCodedWarnings()).toEqual([
-      'E_TYPES_EMIT: the first thing',
-      'E_POLYFILL_NOT_FOUND: the second thing'
+      'W_TYPES_EMIT: the first thing',
+      'W_POLYFILL_NOT_FOUND: the second thing'
     ])
 
     expect(takeCodedWarnings()).toEqual([])
-  })
-
-  it('records a shipped warning under its E_ name whichever name the caller passes', () => {
-    takeCodedWarnings()
-
-    recordCodedWarning(CODES.W_TYPES_EMIT, 'one thing')
-    recordCodedWarning(CODES.E_TYPES_EMIT, 'one thing')
-    recordCodedWarning(CODES.W_STORE_READINESS, 'another thing')
-
-    expect(takeCodedWarnings()).toEqual([
-      'E_TYPES_EMIT: one thing',
-      'W_STORE_READINESS: another thing'
-    ])
   })
 })

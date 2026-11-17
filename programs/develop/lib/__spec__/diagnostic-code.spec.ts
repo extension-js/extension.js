@@ -2,7 +2,6 @@ import {describe, expect, it} from 'vitest'
 import {toDiagnostic} from '../compilation-diagnostics'
 import {
   codeForSeverity,
-  DEPRECATED_WARNING_NAMES,
   diagnosticCode,
   diagnosticName,
   NAMED_CODES,
@@ -22,8 +21,8 @@ describe('diagnosticCode', () => {
     ['LocalesLayoutWarning', 'E_LOCALES_LAYOUT'],
     ['LocalesFolderWithoutMessages', 'E_LOCALES_LAYOUT'],
     ['LocalesValidationError', 'E_LOCALES_LAYOUT'],
-    ['PerfBudgetWarning', 'E_PERF_BUDGET'],
-    ['EnvNoMatchingFile', 'E_ENV_NO_MATCH'],
+    ['PerfBudgetWarning', 'W_PERF_BUDGET'],
+    ['EnvNoMatchingFile', 'W_ENV_NO_MATCH'],
     ['JSONMissingFile', 'E_ENTRY_NOT_FOUND'],
     ['LocalesPluginMissingFile', 'E_ENTRY_NOT_FOUND'],
     ['HtmlEntrypointMissing', 'E_ENTRY_NOT_FOUND'],
@@ -53,7 +52,7 @@ describe('diagnosticCode', () => {
     ['MovedPageRelativeUrl', 'E_SCRIPT_DEP_MISSING'],
     ['WebkitDroppedPageOpened', 'E_SCRIPT_DEP_MISSING'],
     ['NodeBuiltinNotAvailable', 'E_MODULE_NOT_FOUND'],
-    ['RemoteResourceBlocked', 'E_REMOTE_RESOURCE_BLOCKED'],
+    ['RemoteResourceBlocked', 'W_REMOTE_RESOURCE_BLOCKED'],
     ['ReservedScriptsFolder', 'E_RESERVED_FOLDER'],
     ['ScriptsFolderEntryOnlyImported', 'W_RESERVED_FOLDER'],
     ['CssPreprocessorMissing', 'E_CSS_PREPROCESSOR_MISSING'],
@@ -246,83 +245,58 @@ const WARNING_NAMES = Object.values(CODES).filter((code) =>
 )
 
 describe('the warning class', () => {
-  it('keeps the E_ name a warning shipped under and names its W_ code beside it', () => {
-    expect(codeForSeverity(CODES.E_ASSET_MISSING, 'warning')).toEqual({
-      code: 'E_ASSET_MISSING',
-      warningCode: 'W_ASSET_MISSING'
-    })
+  it('reports a warning under the W_ name of its class', () => {
+    expect(codeForSeverity(CODES.E_ASSET_MISSING, 'warning')).toBe(
+      'W_ASSET_MISSING'
+    )
 
-    expect(codeForSeverity(CODES.W_ASSET_MISSING, 'warning')).toEqual({
-      code: 'E_ASSET_MISSING',
-      warningCode: 'W_ASSET_MISSING'
-    })
+    expect(codeForSeverity(CODES.W_ASSET_MISSING, 'warning')).toBe(
+      'W_ASSET_MISSING'
+    )
+
+    expect(codeForSeverity(CODES.E_JSON_INVALID, 'warning')).toBe(
+      'W_JSON_INVALID'
+    )
   })
 
-  it('leaves an error under its E_ name with no warning name', () => {
-    expect(codeForSeverity(CODES.E_ASSET_MISSING, 'error')).toEqual({
-      code: 'E_ASSET_MISSING'
-    })
+  it('reports an error under the E_ name of its class', () => {
+    expect(codeForSeverity(CODES.E_ASSET_MISSING, 'error')).toBe(
+      'E_ASSET_MISSING'
+    )
 
-    expect(codeForSeverity(CODES.E_JSON_INVALID, 'error')).toEqual({
-      code: 'E_JSON_INVALID'
-    })
-  })
-
-  it('gives a class born as a warning its W_ name in both places', () => {
-    expect(codeForSeverity(CODES.W_STORE_READINESS, 'warning')).toEqual({
-      code: 'W_STORE_READINESS',
-      warningCode: 'W_STORE_READINESS'
-    })
-  })
-
-  it('splits a new class with errors and warnings by the prefix alone', () => {
-    expect(codeForSeverity(CODES.E_JSON_INVALID, 'warning')).toEqual({
-      code: 'W_JSON_INVALID',
-      warningCode: 'W_JSON_INVALID'
-    })
-
-    expect(codeForSeverity(CODES.W_JSON_INVALID, 'error')).toEqual({
-      code: 'E_JSON_INVALID'
-    })
-
-    expect(codeForSeverity(CODES.E_MANIFEST_INVALID, 'warning')).toEqual({
-      code: 'W_MANIFEST_INVALID',
-      warningCode: 'W_MANIFEST_INVALID'
-    })
+    expect(codeForSeverity(CODES.W_JSON_INVALID, 'error')).toBe(
+      'E_JSON_INVALID'
+    )
   })
 
   it('keeps a warning-only class on its W_ name when a build fails on it', () => {
-    expect(codeForSeverity(CODES.W_STORE_READINESS, 'error')).toEqual({
-      code: 'W_STORE_READINESS'
-    })
+    expect(codeForSeverity(CODES.W_STORE_READINESS, 'error')).toBe(
+      'W_STORE_READINESS'
+    )
   })
 
-  it('leaves a class with no W_ name as it is on a warning', () => {
+  it('leaves an errors-only class as it is on a warning', () => {
     expect(warningCodeOf(CODES.E_COMPILE)).toBeUndefined()
-    expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toEqual({
-      code: 'E_COMPILE'
-    })
+    expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBe('E_COMPILE')
   })
 
-  it('carries both names on the diagnostic a frame lists', () => {
-    expect(toDiagnostic(named('PerfBudgetWarning'), 'warning')).toEqual({
-      code: 'E_PERF_BUDGET',
-      warningCode: 'W_PERF_BUDGET',
+  it('carries one code on the diagnostic a frame lists', () => {
+    expect(toDiagnostic(named('HtmlAssetMissing'), 'warning')).toEqual({
+      code: 'W_ASSET_MISSING',
       message: 'text',
       severity: 'warning',
-      name: 'PerfBudgetWarning'
+      name: 'HtmlAssetMissing'
     })
 
-    expect(toDiagnostic(named('ScriptsMissingFile'), 'error')).toEqual({
-      code: 'E_ENTRY_NOT_FOUND',
+    expect(toDiagnostic(named('IconsMissingFile'), 'error')).toEqual({
+      code: 'E_ASSET_MISSING',
       message: 'text',
       severity: 'error',
-      name: 'ScriptsMissingFile'
+      name: 'IconsMissingFile'
     })
 
     expect(toDiagnostic(named('EnvPublicSecretName'), 'warning')).toEqual({
       code: 'W_ENV_SECRET_PUBLIC',
-      warningCode: 'W_ENV_SECRET_PUBLIC',
       message: 'text',
       severity: 'warning',
       name: 'EnvPublicSecretName'
@@ -330,7 +304,6 @@ describe('the warning class', () => {
 
     expect(toDiagnostic(named('DNRDuplicateRuleId'), 'warning')).toEqual({
       code: 'W_JSON_INVALID',
-      warningCode: 'W_JSON_INVALID',
       message: 'text',
       severity: 'warning',
       name: 'DNRDuplicateRuleId'
@@ -344,44 +317,12 @@ describe('the warning class', () => {
     })
   })
 
-  // The E_ names consumers match today. A row leaves this list in 5.0 and
-  // not before, and no new row joins it.
-  it('pins the warnings that keep an E_ name through 4.x', () => {
-    expect(DEPRECATED_WARNING_NAMES).toEqual({
-      W_MANAGED_DEP_CONFLICT: 'E_MANAGED_DEP_CONFLICT',
-      W_TYPES_EMIT: 'E_TYPES_EMIT',
-      W_MODULE_NOT_FOUND: 'E_MODULE_NOT_FOUND',
-      W_ENTRY_NOT_FOUND: 'E_ENTRY_NOT_FOUND',
-      W_ASSET_MISSING: 'E_ASSET_MISSING',
-      W_SCRIPT_DEP_MISSING: 'E_SCRIPT_DEP_MISSING',
-      W_CSS_PARSE: 'E_CSS_PARSE',
-      W_CSS_PREPROCESSOR_MISSING: 'E_CSS_PREPROCESSOR_MISSING',
-      W_CSS_DEAD_REF: 'E_CSS_DEAD_REF',
-      W_POLYFILL_NOT_FOUND: 'E_POLYFILL_NOT_FOUND',
-      W_LOCALES_LAYOUT: 'E_LOCALES_LAYOUT',
-      W_PROD_LOOPBACK_ORIGIN: 'E_PROD_LOOPBACK_ORIGIN',
-      W_NO_ENTRYPOINTS: 'E_NO_ENTRYPOINTS',
-      W_REMOTE_RESOURCE_BLOCKED: 'E_REMOTE_RESOURCE_BLOCKED',
-      W_PERF_BUDGET: 'E_PERF_BUDGET',
-      W_ENV_NO_MATCH: 'E_ENV_NO_MATCH',
-      W_LAUNCH_SKIPPED_COMPILE_ERRORS: 'E_LAUNCH_SKIPPED_COMPILE_ERRORS',
-      W_UNINSTALL_NOOP: 'E_UNINSTALL_NOOP',
-      W_PORT_IN_USE: 'E_PORT_IN_USE',
-      W_LOGS_STREAM_GAP: 'E_LOGS_STREAM_GAP'
-    })
-  })
-
   it('finds the W_ names in the catalog', () => {
     expect(WARNING_NAMES.length).toBe(36)
   })
 
-  it.each(
-    WARNING_NAMES
-  )('reports %s on a warning under one stable name', (code) => {
-    const shipped = codeForSeverity(code, 'warning')
-
-    expect(shipped.warningCode).toBe(code)
-    expect([code, `E_${code.slice(2)}`]).toContain(shipped.code)
+  it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {
+    expect(codeForSeverity(code, 'warning')).toBe(code)
   })
 
   // A new E_ class in the table has to say whether it can warn: it gets a

@@ -81,8 +81,7 @@ describe('a loader warning on the machine channel', () => {
     const issue = Object.assign(new Error(REPORTED), {name: 'CssParseWarning'})
 
     expect(toDiagnostic(issue, 'warning')).toEqual({
-      code: 'E_CSS_PARSE',
-      warningCode: 'W_CSS_PARSE',
+      code: 'W_CSS_PARSE',
       message: "The CSS in this file doesn't parse.\nPATH content/styles.css",
       severity: 'warning',
       name: 'CssParseWarning'
@@ -101,17 +100,17 @@ describe('the code a summary warning line opens with', () => {
     ).warnings
   }
 
-  it('keeps the E_ name of a warning that shipped under one', () => {
-    const issue = Object.assign(new Error('An asset is over budget.'), {
-      name: 'PerfBudgetWarning'
+  it('opens with the W_ name of a class that also fails builds', () => {
+    const issue = Object.assign(new Error('The page names a missing file.'), {
+      name: 'HtmlAssetMissing'
     })
 
     expect(summaryOf([issue])).toEqual([
-      'E_PERF_BUDGET: An asset is over budget.'
+      'W_ASSET_MISSING: The page names a missing file.'
     ])
   })
 
-  it('opens with the W_ name of a warning born after the class', () => {
+  it('opens with the W_ name of a class that only warns', () => {
     const born = Object.assign(new Error('The description is too long.'), {
       name: 'ManifestDescriptionWarning'
     })

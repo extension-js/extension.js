@@ -244,7 +244,7 @@ function warnProductionLoopbackOrigins(distPath: string): void {
   if (origins.length === 0) return
 
   recordCodedWarning(
-    CODES.E_PROD_LOOPBACK_ORIGIN,
+    CODES.W_PROD_LOOPBACK_ORIGIN,
     messages.productionLoopbackOriginsText(origins)
   )
 
