@@ -51,7 +51,7 @@ const externals = [
 
 // Browser-side runtime files run INSIDE the user's extension; they must not
 // receive the Node-only createRequire banner (node:module is unresolvable there).
-const browserEntries = {
+export const browserEntries = {
   'minimum-script-file': path.resolve(
     __dirname,
     './plugin-web-extension/feature-html/steps/minimum-script-file.ts'
@@ -79,13 +79,19 @@ const browserEntries = {
   )
 }
 
+// Wire constants and frame types only, web target and no banner, so the
+// emitted chunk imports nothing and browser bundles can consume it.
+export const contractsEntries = {
+  contracts: path.resolve(__dirname, './contracts-entry.ts')
+}
+
 // The canonical machine contract lives in the extension program's spec tree;
 // the published package ships a byte-for-byte copy under dist/contract.
 const contractDir = path.resolve(__dirname, '../extension/__spec__/contract')
 
 // Node-side entries and rspack loaders run at build time on Node, so they need
 // the CJS-shim banner for bundled bare require()/require.resolve() sites.
-const nodeEntries = {
+export const nodeEntries = {
   module: path.resolve(__dirname, './module.ts'),
   preview: path.resolve(__dirname, './preview-entry.ts'),
   bridge: path.resolve(__dirname, './bridge-entry.ts'),
@@ -193,16 +199,12 @@ export default defineConfig({
         externals
       }
     },
-    // Wire constants and frame types only, web target and no banner, so the
-    // emitted chunk imports nothing and browser bundles can consume it.
     {
       format: 'esm',
       syntax: 'es2022',
       // No dts here: the node lib's pass already emits every declaration, and
       // a second pass would rewrite the same files while the first still runs.
-      source: {
-        entry: {contracts: path.resolve(__dirname, './contracts-entry.ts')}
-      },
+      source: {entry: contractsEntries},
       output: {
         target: 'web',
         filename: {js: '[name].mjs'}
