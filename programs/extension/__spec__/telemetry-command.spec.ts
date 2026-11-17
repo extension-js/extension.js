@@ -1,100 +1,222 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-// The exit path marks the outcome and flushes through this module, so a mock
-// that names only the consent pair leaves the command running against a hole.
-vi.mock('../helpers/telemetry-cli', () => ({
-  getTelemetryConsent: vi.fn(() => ({enabled: true, source: 'default'})),
-  setTelemetryConsent: vi.fn(() => ({ok: true, path: '/tmp/consent.json'})),
-  invokedCommand: vi.fn(() => 'telemetry'),
-  markCommandSuccess: vi.fn(),
-  markCommandFailure: vi.fn(),
-  telemetry: {flush: vi.fn(async () => {})}
-}))
-
 import {registerTelemetryCommand} from '../commands/telemetry'
-import {
-  getTelemetryConsent,
-  setTelemetryConsent
-} from '../helpers/telemetry-cli'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
-let logSpy: ReturnType<typeof vi.spyOn>
-let errorSpy: ReturnType<typeof vi.spyOn>
+type TelemetryDeps = NonNullable<Parameters<typeof registerTelemetryCommand>[1]>
+type Consent = ReturnType<NonNullable<TelemetryDeps['getConsent']>>
+type WriteResult = ReturnType<NonNullable<TelemetryDeps['setConsent']>>
+
+const WRITTEN: WriteResult = {ok: true, path: '/tmp/consent.json'}
+const NOT_WRITTEN: WriteResult = {ok: false, path: '/tmp/consent.json'}
+const ENABLED_BY_DEFAULT = {enabled: true, source: 'default'} as Consent
+
+// The real pair reads and writes the consent file in the user's config folder.
+let consent = ENABLED_BY_DEFAULT
+let writeResult = WRITTEN
+let writes: string[]
+let stdout: string[]
+let stderr: string[]
 
 beforeEach(() => {
+  writes = []
+  stdout = []
+  stderr = []
   stubProcessExit()
-  logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  vi.spyOn(console, 'log').mockImplementation((line) => {
+    stdout.push(String(line))
+  })
+
+  vi.spyOn(console, 'error').mockImplementation((line) => {
+    stderr.push(String(line))
+  })
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
-  vi.clearAllMocks()
+  consent = ENABLED_BY_DEFAULT
+  writeResult = WRITTEN
 })
 
 function run(argv: string[]) {
-  return runCli(makeProgram(registerTelemetryCommand), argv)
+  return runCli(
+    makeProgram((program) =>
+      registerTelemetryCommand(program, {
+        getConsent: () => consent,
+        setConsent: (value) => {
+          writes.push(value)
+
+          return writeResult
+        }
+      })
+    ),
+    argv
+  )
 }
 
-describe('extension telemetry', () => {
-  it('enables telemetry and reports the consent path', async () => {
-    expect(await run(['telemetry', 'enable'])).toBe(0)
-    expect(setTelemetryConsent).toHaveBeenCalledWith('enabled')
-    expect(String(logSpy.mock.calls[0][0])).toContain('enabled')
-  })
+interface Row {
+  name: string
+  argv: string[]
+  consent?: Consent
+  writeResult?: WriteResult
+  exit: number
+  writes: string[]
+  stdout?: string[]
+  stderr?: string[]
+  // The single frame `--output json` prints in place of the lines above.
+  frame: Record<string, unknown>
+}
 
-  it('disables telemetry', async () => {
-    expect(await run(['telemetry', 'disable'])).toBe(0)
-    expect(setTelemetryConsent).toHaveBeenCalledWith('disabled')
-    expect(String(logSpy.mock.calls[0][0])).toContain('disabled')
-  })
+const CONSENT_NOT_WRITTEN = {
+  ok: false,
+  status: 'failed',
+  value: null,
+  error: {
+    code: 'E_TELEMETRY_WRITE',
+    message: 'Could not write telemetry consent file.'
+  },
+  hint: 'Check write permissions on the consent file path.'
+}
 
-  it('exits 1 when the consent file cannot be written', async () => {
-    vi.mocked(setTelemetryConsent).mockReturnValue({ok: false} as any)
-    expect(await run(['telemetry', 'enable'])).toBe(1)
-    expect(await run(['telemetry', 'disable'])).toBe(1)
-    expect(errorSpy).toHaveBeenCalledTimes(2)
-  })
-
-  it('defaults to status and prints the source', async () => {
-    expect(await run(['telemetry'])).toBe(0)
-    expect(getTelemetryConsent).toHaveBeenCalled()
-    expect(String(logSpy.mock.calls[0][0])).toContain('source: default')
-  })
-
-  it('rejects an unknown action', async () => {
-    expect(await run(['telemetry', 'bogus'])).toBe(1)
-    expect(String(errorSpy.mock.calls[0][0])).toContain(
-      'Unknown telemetry action: bogus'
-    )
-  })
-
-  it('emits a schema-1 status envelope with --output json', async () => {
-    expect(await run(['telemetry', 'status', '--output', 'json'])).toBe(0)
-    expect(JSON.parse(String(logSpy.mock.calls[0][0]))).toEqual({
-      schema: 1,
+const ROWS: Row[] = [
+  {
+    name: 'enable writes the consent and names the file',
+    argv: ['enable'],
+    exit: 0,
+    writes: ['enabled'],
+    stdout: ['✓ Telemetry enabled (/tmp/consent.json).'],
+    frame: {
       ok: true,
-      command: 'telemetry',
+      status: 'status',
+      value: {enabled: true, source: 'config', path: '/tmp/consent.json'},
+      error: null
+    }
+  },
+  {
+    name: 'disable writes the refusal and names the file',
+    argv: ['disable'],
+    exit: 0,
+    writes: ['disabled'],
+    stdout: ['✓ Telemetry disabled (/tmp/consent.json).'],
+    frame: {
+      ok: true,
+      status: 'status',
+      value: {enabled: false, source: 'config', path: '/tmp/consent.json'},
+      error: null
+    }
+  },
+  {
+    name: 'an action is read without its case or surrounding spaces',
+    argv: [' Enable '],
+    exit: 0,
+    writes: ['enabled'],
+    stdout: ['✓ Telemetry enabled (/tmp/consent.json).'],
+    frame: {
+      ok: true,
+      status: 'status',
+      value: {enabled: true, source: 'config', path: '/tmp/consent.json'},
+      error: null
+    }
+  },
+  {
+    name: 'enable names no file when storage has none',
+    argv: ['enable'],
+    writeResult: {ok: true, path: null},
+    exit: 0,
+    writes: ['enabled'],
+    stdout: ['✓ Telemetry enabled.'],
+    frame: {
+      ok: true,
+      status: 'status',
+      value: {enabled: true, source: 'config', path: null},
+      error: null
+    }
+  },
+  {
+    name: 'enable exits 1 when the consent file cannot be written',
+    argv: ['enable'],
+    writeResult: NOT_WRITTEN,
+    exit: 1,
+    writes: ['enabled'],
+    stderr: ['✗ Could not write telemetry consent file.'],
+    frame: CONSENT_NOT_WRITTEN
+  },
+  {
+    name: 'disable exits 1 when the consent file cannot be written',
+    argv: ['disable'],
+    writeResult: NOT_WRITTEN,
+    exit: 1,
+    writes: ['disabled'],
+    stderr: ['✗ Could not write telemetry consent file.'],
+    frame: CONSENT_NOT_WRITTEN
+  },
+  {
+    name: 'no action reads the status and its source',
+    argv: [],
+    exit: 0,
+    writes: [],
+    stdout: ['Telemetry: enabled (source: default)'],
+    frame: {
+      ok: true,
       status: 'status',
       value: {enabled: true, source: 'default'},
-      error: null,
-      warnings: []
-    })
+      error: null
+    }
+  },
+  {
+    name: 'status reports a refusal and where it came from',
+    argv: ['status'],
+    consent: {enabled: false, source: 'env'} as Consent,
+    exit: 0,
+    writes: [],
+    stdout: ['Telemetry: disabled (source: env)'],
+    frame: {
+      ok: true,
+      status: 'status',
+      value: {enabled: false, source: 'env'},
+      error: null
+    }
+  },
+  {
+    name: 'an unknown action is refused and writes nothing',
+    argv: ['bogus'],
+    exit: 1,
+    writes: [],
+    stderr: [
+      'Unknown telemetry action: bogus. Expected: enable | disable | status.'
+    ],
+    frame: {
+      ok: false,
+      status: 'usage',
+      value: null,
+      error: {code: 'E_ARGS', message: 'Unknown telemetry action: bogus.'},
+      hint: 'Expected: enable | disable | status.'
+    }
+  }
+]
+
+describe.each(ROWS)('extension telemetry: $name', (row) => {
+  beforeEach(() => {
+    consent = row.consent ?? ENABLED_BY_DEFAULT
+    writeResult = row.writeResult ?? WRITTEN
   })
 
-  it('emits a failure envelope on stdout when the consent write fails', async () => {
-    vi.mocked(setTelemetryConsent).mockReturnValue({ok: false} as any)
-    expect(await run(['telemetry', 'enable', '--output', 'json'])).toBe(1)
-    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(frame).toMatchObject({schema: 1, ok: false, status: 'failed'})
-    expect(frame.error.code).toBe('E_TELEMETRY_WRITE')
-    expect(errorSpy).not.toHaveBeenCalled()
+  it('in pretty mode', async () => {
+    expect(await run(['telemetry', ...row.argv])).toBe(row.exit)
+    expect(writes).toEqual(row.writes)
+    expect(stdout).toEqual(row.stdout ?? [])
+    expect(stderr).toEqual(row.stderr ?? [])
   })
 
-  it('emits E_ARGS for an unknown action with --output json', async () => {
-    expect(await run(['telemetry', 'bogus', '--output', 'json'])).toBe(1)
-    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(frame.status).toBe('usage')
-    expect(frame.error.code).toBe('E_ARGS')
+  it('as one frame and no prose under --output json', async () => {
+    expect(await run(['telemetry', ...row.argv, '--output', 'json'])).toBe(
+      row.exit
+    )
+
+    expect(writes).toEqual(row.writes)
+    expect(stdout.map((line) => JSON.parse(line))).toEqual([
+      {schema: 1, command: 'telemetry', warnings: [], ...row.frame}
+    ])
+
+    expect(stderr).toEqual([])
   })
 })

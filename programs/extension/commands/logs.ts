@@ -9,13 +9,18 @@
 import fs from 'node:fs'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {refuseUnlistedChoices} from '../helpers/choice-flags'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
-import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  loadExtensionDevelopBridgeModule
+} from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
+import {refuseUnreadableOutput} from '../helpers/output-flag'
 import {
   endedSessionReason,
   runningSessionBrowsers,
@@ -308,7 +313,15 @@ function writeFrame(frame: unknown): void {
   }
 }
 
-export function registerLogsCommand(program: Command) {
+// The bridge loader is the one thing the action reaches outside this file.
+interface LogsCommandDeps {
+  loadBridge?: () => Promise<AnyDevelopModule>
+}
+
+export function registerLogsCommand(
+  program: Command,
+  {loadBridge = loadExtensionDevelopBridgeModule}: LogsCommandDeps = {}
+) {
   program
     .command('logs')
     .arguments('[project-path]')
@@ -347,8 +360,15 @@ export function registerLogsCommand(program: Command) {
       '--output <pretty|json|ndjson>',
       'output format. Defaults to pretty on a TTY, ndjson when piped'
     )
+    .hook(
+      'preAction',
+      refuseUnreadableOutput({choices: ['pretty', 'json', 'ndjson']})
+    )
+    // --level is read by the bridge's published rule, which also takes log
+    // and any case, so the action checks it and this hook does not.
+    .hook('preAction', refuseUnlistedChoices({skip: ['--level']}))
     .action(async (projectPathArg: string, options: LogsOptions) => {
-      const bridge = await loadExtensionDevelopBridgeModule()
+      const bridge = await loadBridge()
       const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
       const browser = options.browser || 'chromium'
       const format = resolveFormat(options)
@@ -452,7 +472,7 @@ export function registerLogsCommand(program: Command) {
       }
 
       if (options.follow) {
-        await followLogs(projectPath, browser, format, matches)
+        await followLogs(projectPath, browser, format, matches, loadBridge)
 
         return
       }
@@ -539,9 +559,10 @@ async function followLogs(
   projectPath: string,
   browser: string,
   format: 'pretty' | 'json' | 'ndjson',
-  matches: (e: LogEventLike) => boolean
+  matches: (e: LogEventLike) => boolean,
+  loadBridge: () => Promise<AnyDevelopModule>
 ) {
-  const bridge = await loadExtensionDevelopBridgeModule()
+  const bridge = await loadBridge()
   const {BridgeConsumer, readReadyContract} = bridge
 
   const ready = readReadyContract(projectPath, browser)

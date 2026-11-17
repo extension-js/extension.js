@@ -9,9 +9,11 @@
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
+import {refuseUnlistedChoices} from '../helpers/choice-flags'
 import {explicitCliValue} from '../helpers/cli-explicit'
 import {
   declaredErrorCode,
+  failureHint,
   isLoadRefused,
   loadRefusedEnvelope
 } from '../helpers/cli-failure'
@@ -22,7 +24,11 @@ import {
 } from '../helpers/cli-options'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
-import {loadExtensionDevelopPreviewModule} from '../helpers/extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  loadExtensionDevelopModule,
+  loadExtensionDevelopPreviewModule
+} from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
@@ -38,20 +44,26 @@ import {
   resolveNoBrowser
 } from '../helpers/no-browser'
 import {
+  firstInvalidWholeNumberFlag,
   parseExtensionsList,
   parseLogContexts
 } from '../helpers/normalize-options'
-import {isJsonOutput} from '../helpers/output-flag'
+import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
+import {
+  missingProjectFolder,
+  missingProjectRefusal
+} from '../helpers/project-folder'
 import {markCommandSessionStart} from '../helpers/telemetry-cli'
 import {
   type Browser,
   isSafariVendor,
   NO_SAFARI_BROWSER_TARGETS_HELP,
+  unsupportedBrowserMessage,
   validateVendors,
   vendors
 } from '../helpers/vendors'
 
-type PreviewOptions = {
+export type PreviewOptions = {
   browser?: Browser | 'all'
   profile?: string | boolean
   chromiumBinary?: string
@@ -60,7 +72,8 @@ type PreviewOptions = {
   open?: boolean
   startingUrl?: string
   port?: string | number
-  logLevel?: string
+  logs?: string
+  logContext?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
   logTimestamps?: boolean
   logColor?: boolean
@@ -72,7 +85,6 @@ type PreviewOptions = {
   outputPath?: string
   output?: 'pretty' | 'json'
   debug?: boolean
-  author?: boolean
   authorMode?: boolean
 }
 
@@ -86,6 +98,7 @@ export const PREVIEW_FAILED_CODES: ReadonlySet<ErrorCode> = new Set([
   CODES.E_BROWSER_CONNECTION_CLOSED,
   CODES.E_RDP_PROTOCOL,
   CODES.E_ADDON_INSTALL,
+  CODES.E_PROFILE_LOCKED,
   CODES.E_CONFIG_LOAD,
   CODES.E_RUNTIME_NOT_FOUND,
   CODES.E_REMOTE_DOWNLOAD,
@@ -101,7 +114,21 @@ export const PREVIEW_NOT_FOUND_NEEDLES = [
   'Manifest file not found'
 ] as const
 
-export function registerPreviewCommand(program: Command) {
+// What the action reaches outside this file. Production takes every default.
+interface PreviewCommandDeps {
+  loadDevelop?: () => Promise<AnyDevelopModule>
+  loadPreview?: () => Promise<AnyDevelopModule>
+  runBrowser?: typeof runOnlyPreviewBrowser
+}
+
+export function registerPreviewCommand(
+  program: Command,
+  {
+    loadDevelop = loadExtensionDevelopModule,
+    loadPreview = loadExtensionDevelopPreviewModule,
+    runBrowser = runOnlyPreviewBrowser
+  }: PreviewCommandDeps = {}
+) {
   program
     .command('preview')
     .arguments('[project-name]')
@@ -187,6 +214,8 @@ export function registerPreviewCommand(program: Command) {
         'deprecated alias for --debug'
       ).hideHelp()
     )
+    .hook('preAction', refuseUnreadableOutput())
+    .hook('preAction', refuseUnlistedChoices())
     .action(
       async (
         pathOrRemoteUrl: string,
@@ -200,15 +229,12 @@ export function registerPreviewCommand(program: Command) {
           cliBrowser ??
           ((await resolveConfigBrowser(
             pathOrRemoteUrl || process.cwd(),
-            'preview'
+            'preview',
+            loadDevelop
           )) as PreviewOptions['browser']) ??
           'chromium'
 
-        if (
-          previewOptions.debug ||
-          previewOptions.author ||
-          previewOptions.authorMode
-        ) {
+        if (previewOptions.debug || previewOptions.authorMode) {
           process.env.EXTENSION_DEBUG = '1'
           // Alias kept for one minor: extension-develop still reads the old name.
           process.env.EXTENSION_AUTHOR_MODE = 'true'
@@ -228,19 +254,45 @@ export function registerPreviewCommand(program: Command) {
           console.log(JSON.stringify(frame))
         }
 
+        const invalidNumber = firstInvalidWholeNumberFlag([
+          ['--port', previewOptions.port]
+        ])
+
+        if (invalidNumber) {
+          const message = messages.invalidWholeNumberFlag(...invalidNumber)
+
+          if (asJson) {
+            emit(
+              ENVELOPE.fail('preview', 'usage', {
+                code: CODES.E_INVALID_OPTION,
+                message
+              })
+            )
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(messages.usageRefusal(message))
+          }
+
+          await exitAfterDrain(1)
+
+          return
+        }
+
         const list = vendors(browser)
 
         let unsupported = ''
+        let supportedBrowsers: string[] = []
         const vendorsAreSupported = validateVendors(
           list,
           (invalid, supported) => {
             unsupported = invalid
+            supportedBrowsers = supported
             if (asJson) return
 
             // eslint-disable-next-line no-console
             console.error(messages.unsupportedBrowserFlag(invalid, supported))
           },
-          {allowEmulator: false}
+          {allowEmulator: false, listSafari: false}
         )
 
         if (!vendorsAreSupported) {
@@ -248,7 +300,10 @@ export function registerPreviewCommand(program: Command) {
             emit(
               ENVELOPE.fail('preview', 'usage', {
                 code: CODES.E_UNSUPPORTED_BROWSER,
-                message: `Unsupported browser: ${unsupported}.`
+                message: unsupportedBrowserMessage(
+                  unsupported,
+                  supportedBrowsers
+                )
               })
             )
           }
@@ -277,6 +332,30 @@ export function registerPreviewCommand(program: Command) {
           return
         }
 
+        const missingFolder = missingProjectFolder(pathOrRemoteUrl)
+
+        if (missingFolder) {
+          const refusal = missingProjectRefusal('preview', missingFolder)
+
+          if (asJson) {
+            emit(
+              ENVELOPE.fail(
+                'preview',
+                'usage',
+                {code: CODES.E_PROJECT_NOT_FOUND, message: refusal.message},
+                {hint: refusal.hint}
+              )
+            )
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(refusal.stderr)
+          }
+
+          await exitAfterDrain(1)
+
+          return
+        }
+
         if (!process.env.EXTJS_LIGHT) {
           const isRemote =
             typeof pathOrRemoteUrl === 'string' &&
@@ -288,15 +367,13 @@ export function registerPreviewCommand(program: Command) {
         // a signal, ten milliseconds after which its own handler kills it.
         markCommandSessionStart('preview')
 
-        const {extensionPreview} = await loadExtensionDevelopPreviewModule()
+        const {extensionPreview} = await loadPreview()
         const previewed: string[] = []
         const previewWarnings: string[] = []
 
         for (const vendor of list) {
-          const logsOption = (previewOptions as unknown as {logs?: string}).logs
-          const logContextOption = (
-            previewOptions as unknown as {logContext?: string}
-          ).logContext
+          const logsOption = previewOptions.logs
+          const logContextOption = previewOptions.logContext
 
           const logContexts = parseLogContexts(logContextOption)
 
@@ -320,7 +397,8 @@ export function registerPreviewCommand(program: Command) {
                 port: previewOptions.port,
                 noBrowser: await resolveNoBrowser(
                   pathOrRemoteUrl || process.cwd(),
-                  'preview'
+                  'preview',
+                  loadDevelop
                 ),
                 extensions: parseExtensionsList(previewOptions.extensions),
                 outputPath: previewOptions.outputPath,
@@ -330,7 +408,7 @@ export function registerPreviewCommand(program: Command) {
                 allowEval: Boolean(previewOptions.allowEval),
                 // Only pass logger values the user typed. Stock defaults and
                 // commands.preview.* are applied inside extensionPreview.
-                logLevel: logsOption || previewOptions.logLevel || undefined,
+                logLevel: logsOption || undefined,
                 logContexts,
                 logFormat: previewOptions.logFormat,
                 logTimestamps: explicitCliValue(
@@ -349,7 +427,7 @@ export function registerPreviewCommand(program: Command) {
               // Browser launcher callback, runs browser code from extension/browser/
               // without pulling rspack into the preview path
               (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
-                runOnlyPreviewBrowser(opts)
+                runBrowser(opts)
             )
 
             previewed.push(vendor)
@@ -385,8 +463,16 @@ export function registerPreviewCommand(program: Command) {
               const status = PREVIEW_FAILED_CODES.has(declared)
                 ? 'failed'
                 : 'usage'
+              const hint = failureHint(declared)
 
-              emit(ENVELOPE.fail('preview', status, {code: declared, message}))
+              emit(
+                ENVELOPE.fail(
+                  'preview',
+                  status,
+                  {code: declared, message},
+                  hint ? {hint} : {}
+                )
+              )
 
               await exitAfterDrain(1)
 
