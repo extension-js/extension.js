@@ -228,10 +228,7 @@ export class StaticAssetsPlugin {
 
     const inlineKB = 2
 
-    const defaultRuleFor = (
-      extensions: string[],
-      inline: boolean
-    ): RuleSetRule | null => {
+    const defaultRuleFor = (extensions: string[]): RuleSetRule | null => {
       const remaining = unclaimedExtensions(extensions)
       if (!remaining.length) return null
 
@@ -244,9 +241,7 @@ export class StaticAssetsPlugin {
           generator: {
             filename: filenamePattern
           },
-          ...(inline
-            ? {parser: {dataUrlCondition: {maxSize: inlineKB * 1024}}}
-            : {}),
+          parser: {dataUrlCondition: {maxSize: inlineKB * 1024}},
           ...(scoped.length ? {resourceQuery: {not: scoped}} : {})
         },
         remaining
@@ -254,11 +249,11 @@ export class StaticAssetsPlugin {
     }
 
     const hasCustomSvgRule = unclaimedExtensions(['svg']).length === 0
-    const imagesRule = defaultRuleFor(IMAGE_EXTENSIONS, true)
-    // Fonts inline under the same explicit threshold the debug reporter
-    // prints; without a parser block rspack's own 8 KB default silently applied.
-    const fontsRule = defaultRuleFor(FONT_EXTENSIONS, true)
-    const filesRule = defaultRuleFor(FILE_EXTENSIONS, true)
+    // Every rule sets the 2 KB threshold itself: a rule with no parser block
+    // falls back to rspack's default of 8096 bytes.
+    const imagesRule = defaultRuleFor(IMAGE_EXTENSIONS)
+    const fontsRule = defaultRuleFor(FONT_EXTENSIONS)
+    const filesRule = defaultRuleFor(FILE_EXTENSIONS)
 
     const hasResourceQueryRule = (query: string) =>
       compiler.options.module.rules.some((thisRule) => {
