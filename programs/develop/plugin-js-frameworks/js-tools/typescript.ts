@@ -217,13 +217,3 @@ function writeTsConfig(projectPath: string) {
     )
   )
 }
-
-export async function maybeUseTypeScript(
-  projectPath: string
-): Promise<boolean> {
-  if (!isUsingTypeScript(projectPath)) return false
-
-  // No `typescript` package is required to build: swc compiles the sources.
-  // Installing it for editor tooling and `tsc --noEmit` is the project's call.
-  return true
-}

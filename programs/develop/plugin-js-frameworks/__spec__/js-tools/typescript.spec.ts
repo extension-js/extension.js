@@ -224,7 +224,7 @@ describe('typescript tools', () => {
     expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
   })
 
-  it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {
+  it('isUsingTypeScript is true with a tsconfig and a typescript dependency', async () => {
     ;(fs.existsSync as any).mockImplementation(
       (p: string) =>
         toPosix(String(p)).endsWith('/project/tsconfig.json') ||
@@ -238,18 +238,11 @@ describe('typescript tools', () => {
       return ''
     })
 
-    const originalResolve = (require as any).resolve
-    ;(require as any).resolve = vi.fn((id: string) =>
-      id === 'typescript' ? '/mock/typescript' : originalResolve(id)
-    )
-
-    const {maybeUseTypeScript} = await import('../../js-tools/typescript')
-    const result = await maybeUseTypeScript('/project')
-    expect(result).toBe(true)
-    ;(require as any).resolve = originalResolve
+    const {isUsingTypeScript} = await import('../../js-tools/typescript')
+    expect(isUsingTypeScript('/project')).toBe(true)
   })
 
-  it('maybeUseTypeScript succeeds when the project does NOT declare typescript', async () => {
+  it('isUsingTypeScript is true with a tsconfig and sources but no typescript dependency', async () => {
     ;(fs.existsSync as any).mockImplementation(
       (p: string) =>
         toPosix(String(p)).endsWith('/project/tsconfig.json') ||
@@ -266,8 +259,8 @@ describe('typescript tools', () => {
       {name: 'index.ts', isFile: () => true, isDirectory: () => false}
     ])
 
-    const {maybeUseTypeScript} = await import('../../js-tools/typescript')
-    await expect(maybeUseTypeScript('/project')).resolves.toBe(true)
+    const {isUsingTypeScript} = await import('../../js-tools/typescript')
+    expect(isUsingTypeScript('/project')).toBe(true)
   })
 
   it('defaultTypeScriptConfig scaffolds a moduleResolution TypeScript 7 accepts', async () => {
