@@ -107,7 +107,8 @@ export class SafariDevPlugin implements RunnerPlugin {
               readContentScriptCount(compilation, outputPath),
             getSourceFeatureIndex: () =>
               buildSourceFeatureIndex(compilation, contextDir),
-            outputPath
+            outputPath,
+            contextDir
           })
         )
       }

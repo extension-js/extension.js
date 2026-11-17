@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {classifyReloadFromSources, type ReloadBroker} from '../../plugin-reload'
+import type {ReloadBroker} from '../../plugin-reload'
 import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
@@ -566,7 +566,7 @@ describe('SafariDevPlugin reload trimming after a package', () => {
   })
 })
 
-describe('SafariDevPlugin failures and reloads it does not report', () => {
+describe('SafariDevPlugin failures it does not report and the page it does', () => {
   const roots: string[] = []
 
   afterEach(() => {
@@ -606,8 +606,9 @@ describe('SafariDevPlugin failures and reloads it does not report', () => {
     expect(plugin.emitter.listenerCount('error')).toBe(1)
   })
 
-  // Pins today's behavior. Ledger 1382 D5.
-  it('sends a copied page edit with no standalone page, so its open tabs are not refreshed', async () => {
+  // Only a classifier told both folders can see that the build copied the
+  // page, which is what makes the producer reload the tabs that show it.
+  it('hands over the output folder and the project root, so a copied page names itself', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-page-'))
     roots.push(root)
@@ -649,18 +650,9 @@ describe('SafariDevPlugin failures and reloads it does not report', () => {
         type: 'page',
         label: 'options page (pages/options.html)',
         changedContentScriptEntries: undefined,
-        changedFiles: ['pages/options.html']
+        changedFiles: ['pages/options.html'],
+        standalonePages: ['pages/options.html']
       }
     ])
-
-    // The same edit names the page once the classifier is told the root.
-    expect(
-      classifyReloadFromSources({
-        changedSources: ['pages/options.html'],
-        getContentScriptCount: () => 0,
-        outputPath: output,
-        contextDir: root
-      })?.standalonePages
-    ).toEqual(['pages/options.html'])
   })
 })
