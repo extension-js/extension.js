@@ -8,6 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {codedError} from './coded-error'
+import * as messages from './messages'
+import {CODES} from './messaging'
 import {parseAuthoredJson} from './parse-json-safe'
 import {devtoolsEngineFor} from './paths'
 
@@ -27,6 +30,8 @@ function hasNewTabOverride(extensionDir: string): boolean {
   }
 }
 
+// A built-in companion that is not there is left out without a word: the
+// session runs the same, and its absence is the package's state, not the user's.
 function resolveBuiltInExtensionForBrowser(input: {
   baseDir: string
   packageName: 'extension-js-devtools' | 'extension-js-theme'
@@ -90,6 +95,79 @@ function isReservedBuiltInPath(extensionPath: string): boolean {
   return segments.some((segment) => RESERVED_BUILT_IN_NAMES.has(segment))
 }
 
+function explicitCompanionEntries(config: unknown): string[] {
+  const entries = Array.isArray(config)
+    ? config
+    : (config as {paths?: unknown} | null | undefined)?.paths
+
+  return Array.isArray(entries)
+    ? entries.filter((entry): entry is string => typeof entry === 'string')
+    : []
+}
+
+// Which layer the companions came from, in the order the commands merge them.
+// A folder scan names no companion, so it answers nothing.
+export function companionsDeclaredIn(
+  command: string,
+  layers: {
+    flag?: unknown
+    command?: unknown
+    browser?: unknown
+    project?: unknown
+  }
+): string | undefined {
+  if (layers.flag != null) return 'the --extensions flag'
+
+  if (layers.command != null) {
+    return `commands.${command}.extensions in extension.config.js`
+  }
+
+  if (layers.browser != null) {
+    return 'the browser section of extension.config.js'
+  }
+
+  if (layers.project != null) return 'extensions in extension.config.js'
+
+  return undefined
+}
+
+// A companion named by path has to be an unpacked extension. Skipped, a
+// typo runs the session without it and nothing ever says so.
+export function assertNamedCompanionsResolve(input: {
+  projectRoot: string
+  // The entries once store links became folders.
+  resolved: unknown
+  // The entries as written, to name the one that fails the way it was typed.
+  declared?: unknown
+  declaredIn?: string
+}): void {
+  const asWritten = new Map<string, string>()
+
+  for (const entry of explicitCompanionEntries(input.declared)) {
+    asWritten.set(path.resolve(input.projectRoot, entry), entry)
+  }
+
+  for (const entry of explicitCompanionEntries(input.resolved)) {
+    const folder = path.resolve(input.projectRoot, entry)
+    const manifestPath = path.join(folder, 'manifest.json')
+
+    try {
+      if (fs.statSync(manifestPath).isFile()) continue
+    } catch {
+      // Reported below, the same as a manifest.json that is a folder.
+    }
+
+    throw codedError(
+      CODES.E_COMPANION_EXTENSION_PATH,
+      messages.companionExtensionNotResolved(
+        asWritten.get(folder) ?? entry,
+        manifestPath,
+        input.declaredIn ?? 'the extensions option'
+      )
+    )
+  }
+}
+
 function dedupeByResolvedPath(paths: string[]): string[] {
   const seen = new Set<string>()
   const result: string[] = []
@@ -149,7 +227,7 @@ export function computeExtensionsToLoad(
       list.push(themeForBrowser)
     }
   } catch {
-    // Ignore
+    // Built-ins are optional, so one that cannot be read is left out.
   }
 
   // Add companions (load-only) before the user extension; skip paths that

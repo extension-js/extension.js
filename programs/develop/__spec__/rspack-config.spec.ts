@@ -210,6 +210,35 @@ describe('webpack-config transpile packages watch behavior', () => {
     }
   })
 
+  it('refuses a named companion that is not an extension, for any session', () => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const missing = path.join(root, 'extensions', 'gone')
+
+    let refusal: (Error & {code?: string}) | undefined
+
+    try {
+      webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode: 'development',
+          metadataCommand: 'dev',
+          extensions: {paths: [missing]},
+          output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+          noBrowser: true
+        } as any
+      )
+    } catch (error) {
+      refusal = error as Error & {code?: string}
+    }
+
+    expect(refusal?.code).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(refusal?.message).toContain(path.join(missing, 'manifest.json'))
+  })
+
   it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     computeExtensionsToLoadMock.mockReturnValue([

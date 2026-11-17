@@ -72,6 +72,12 @@ vi.mock('../plugin-special-folders/folder-extensions/resolve-config', () => ({
   resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
 }))
 
+// The resolver above answers a folder that is not on disk.
+vi.mock('../lib/extensions-to-load', () => ({
+  assertNamedCompanionsResolve: vi.fn(),
+  companionsDeclaredIn: vi.fn()
+}))
+
 vi.mock('../plugin-special-folders/get-data', () => ({
   getSpecialFoldersDataForProjectRoot: vi.fn(() => ({extensions: undefined})),
   rememberSpecialFoldersConfig: vi.fn()

@@ -1661,6 +1661,20 @@ export function debugExtensionsToLoad(extensions: string[]) {
   )
 }
 
+export function companionExtensionNotResolved(
+  entry: string,
+  manifestPath: string,
+  declaredIn: string
+) {
+  return (
+    `${getLoggingPrefix('error')} A companion extension entry is not an unpacked extension folder.\n` +
+    `${colors.gray('ENTRY')} ${colors.underline(entry)}\n` +
+    `${colors.gray('DECLARED IN')} ${declaredIn}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(manifestPath)}\n` +
+    `Point the entry at a folder that holds a manifest.json, or remove it.`
+  )
+}
+
 export function noCompanionExtensionsResolved() {
   return (
     `${getLoggingPrefix('warn')} No companion extensions resolved from the ${colors.blue('extensions')} config.\n` +

@@ -2,7 +2,11 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {computeExtensionsToLoad} from '../lib/extensions-to-load'
+import {
+  assertNamedCompanionsResolve,
+  companionsDeclaredIn,
+  computeExtensionsToLoad
+} from '../lib/extensions-to-load'
 import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-extensions/resolve-dirs'
 
 const created: string[] = []
@@ -524,5 +528,91 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     expect(
       list.filter((p) => path.resolve(p) === path.resolve(userOut))
     ).toHaveLength(1)
+  })
+})
+
+describe('a companion that does not resolve', () => {
+  function refusal(input: Parameters<typeof assertNamedCompanionsResolve>[0]) {
+    try {
+      assertNamedCompanionsResolve(input)
+    } catch (error) {
+      return error as Error & {code?: string}
+    }
+
+    return undefined
+  }
+
+  it('is an error when the user named it, with the entry as it was typed', () => {
+    const root = tmpDir('extjs-companion-named-')
+    const error = refusal({
+      projectRoot: root,
+      resolved: {paths: [path.join(root, 'extensions', 'typo')]},
+      declared: ['./extensions/typo'],
+      declaredIn: 'the --extensions flag'
+    })
+
+    expect(error?.code).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(error?.message).toContain('ENTRY')
+    expect(error?.message).toContain('./extensions/typo')
+    expect(error?.message).toContain('the --extensions flag')
+    expect(error?.message).toContain(
+      path.join(root, 'extensions', 'typo', 'manifest.json')
+    )
+  })
+
+  it('names the resolved path when only that is known', () => {
+    const root = tmpDir('extjs-companion-named-')
+    const folder = path.join(root, 'extensions', 'no-manifest')
+
+    fs.mkdirSync(folder, {recursive: true})
+
+    const error = refusal({projectRoot: root, resolved: [folder]})
+
+    expect(error?.code).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(error?.message).toContain(folder)
+    expect(error?.message).toContain('the extensions option')
+  })
+
+  it('passes a named companion that is an extension, and a folder scan', () => {
+    const root = tmpDir('extjs-companion-named-')
+    const folder = path.join(root, 'extensions', 'other')
+
+    fs.mkdirSync(folder, {recursive: true})
+    fs.writeFileSync(path.join(folder, 'manifest.json'), '{}')
+
+    expect(refusal({projectRoot: root, resolved: [folder]})).toBeUndefined()
+    expect(
+      refusal({projectRoot: root, resolved: {dir: './extensions/none'}})
+    ).toBeUndefined()
+
+    expect(refusal({projectRoot: root, resolved: undefined})).toBeUndefined()
+  })
+
+  it('says which layer declared the companions, first one wins', () => {
+    const all = {flag: [], command: [], browser: [], project: []}
+
+    expect(companionsDeclaredIn('preview', all)).toBe('the --extensions flag')
+    expect(companionsDeclaredIn('start', {...all, flag: undefined})).toBe(
+      'commands.start.extensions in extension.config.js'
+    )
+
+    expect(companionsDeclaredIn('dev', {browser: [], project: []})).toBe(
+      'the browser section of extension.config.js'
+    )
+
+    expect(companionsDeclaredIn('dev', {project: []})).toBe(
+      'extensions in extension.config.js'
+    )
+
+    expect(companionsDeclaredIn('dev', {})).toBeUndefined()
+  })
+
+  it('stays quiet when a built-in companion is absent', () => {
+    const root = tmpDir('extjs-companion-builtin-absent-')
+    const userOut = path.join(root, 'dist', 'chrome')
+
+    expect(
+      computeExtensionsToLoad(root, 'development', 'chrome', userOut, [])
+    ).toEqual([userOut])
   })
 })

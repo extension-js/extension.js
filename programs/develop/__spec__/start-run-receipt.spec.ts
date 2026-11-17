@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
 import {eventsPath, readyContractPath} from '../lib/session-paths'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-start-receipt-'))
@@ -222,6 +222,35 @@ describe('start run receipt (real build + preview)', () => {
     expect(ready.code).toBeUndefined()
     const types = readEvents().map((event) => event.type)
     expect(types).not.toContain('compile_success')
+  }, 120_000)
+
+  it('refuses a named companion that is not an extension before it compiles', async () => {
+    const {extensionBuild} = await import('../command-build')
+    const options = {
+      browser: BROWSER,
+      silent: true,
+      install: false,
+      mode: 'production',
+      exitOnError: false,
+      extensions: ['./extensions/gone']
+    }
+    const quiet = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      await expect(
+        extensionBuild(ROOT, {...options, metadataCommand: 'start'} as never)
+      ).rejects.toMatchObject({
+        code: 'E_COMPANION_EXTENSION_PATH',
+        message: expect.stringContaining('./extensions/gone')
+      })
+    } finally {
+      quiet.mockRestore()
+    }
+
+    // A plain build loads no companion, so the same entry is not its concern.
+    const summary = await extensionBuild(ROOT, options as never)
+
+    expect(summary.errors_count).toBe(0)
   }, 120_000)
 
   it('lists companions when loaded and forgets them when the next run passes none', async () => {

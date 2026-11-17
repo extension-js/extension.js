@@ -174,6 +174,73 @@ describe('a preview that fails after it wrote starting', () => {
     expect(ready.message).toContain('looks like a store id')
   })
 
+  it('refuses a companion the call named that is not an extension folder', async () => {
+    const root = builtProject()
+    const launcher = vi.fn(launchNothing)
+    const error = await rejection(
+      extensionPreview(
+        root,
+        {browser: 'chromium', extensions: ['./extensions/gone']} as any,
+        launcher
+      )
+    )
+
+    expect(error.code).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(error.message).toContain('./extensions/gone')
+    expect(error.message).toContain('--extensions')
+    expect(error.message).toContain(
+      path.join(root, 'extensions', 'gone', 'manifest.json')
+    )
+
+    expect(launcher).not.toHaveBeenCalled()
+
+    const ready = readReady(root)
+
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('preview_failed')
+    expect(ready.message).toContain('./extensions/gone')
+  })
+
+  it('names the config file when the companion was declared there', async () => {
+    const root = builtProject(
+      'chromium',
+      "module.exports = {extensions: {paths: ['./extensions/empty']}}\n"
+    )
+
+    // The folder is there and holds no manifest, so it is not an extension.
+    fs.mkdirSync(path.join(root, 'extensions', 'empty'), {recursive: true})
+
+    const launcher = vi.fn(launchNothing)
+    const error = await rejection(
+      extensionPreview(root, {browser: 'chromium'} as any, launcher)
+    )
+
+    expect(error.code).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(error.message).toContain('./extensions/empty')
+    expect(error.message).toContain('extension.config.js')
+    expect(error.message).not.toContain('--extensions')
+    expect(launcher).not.toHaveBeenCalled()
+  })
+
+  it('loads the companions that resolve and stays quiet about a scanned folder', async () => {
+    const root = builtProject()
+    const companion = path.join(root, 'extensions', 'other')
+
+    fs.mkdirSync(companion, {recursive: true})
+    fs.mkdirSync(path.join(root, 'extensions', 'not-one'), {recursive: true})
+    fs.writeFileSync(
+      path.join(companion, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'other', version: '1.0.0'})
+    )
+
+    const launcher = vi.fn(async (_opts: ResolvedPreviewOptions) => {})
+
+    await extensionPreview(root, {browser: 'chromium'} as any, launcher)
+
+    expect(launcher.mock.calls[0][0].extensionsToLoad).toContain(companion)
+    expect(readReady(root).status).toBe('ready')
+  })
+
   it('records an error when the control channel cannot open', async () => {
     const root = builtProject()
     const launcher = vi.fn(launchNothing)

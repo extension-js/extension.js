@@ -21,7 +21,10 @@ import {codedError} from './lib/coded-error'
 import {isChromiumBasedBrowser} from './lib/constants'
 import {cssMinimizerOptions} from './lib/css-minimizer-options'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
-import {computeExtensionsToLoad} from './lib/extensions-to-load'
+import {
+  assertNamedCompanionsResolve,
+  computeExtensionsToLoad
+} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
 import {CODES, debugLine, isDebug} from './lib/messaging'
@@ -121,6 +124,13 @@ export default function webpackConfig(
           : path.resolve(packageJsonDir, devOptions.output.finalPath)
       )
     : primaryExtensionOutputDir
+
+  // Every session that loads companions compiles through here, so a named
+  // one that is not an extension stops it before a browser opens without it.
+  assertNamedCompanionsResolve({
+    projectRoot: packageJsonDir,
+    resolved: devOptions.extensions
+  })
 
   const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
     projectRoot: packageJsonDir,

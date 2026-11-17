@@ -18,7 +18,11 @@ import {
   loadProjectConfigDefaults
 } from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
-import {computeExtensionsToLoad} from './lib/extensions-to-load'
+import {
+  assertNamedCompanionsResolve,
+  companionsDeclaredIn,
+  computeExtensionsToLoad
+} from './lib/extensions-to-load'
 import {
   falseProfileSource,
   mergeOptionLayers,
@@ -192,6 +196,21 @@ export function explicitUnpackedDir(
   return typed
 }
 
+// A folder named on the command line that no project manifest claims and
+// that is itself what loads: a build folder, not a source waiting for one.
+function isNamedLoadFolder(
+  pathOrRemoteUrl: string | undefined,
+  loadedDir: string
+): boolean {
+  if (!pathOrRemoteUrl || isArchiveSource(pathOrRemoteUrl)) return false
+
+  const typed = linkFreePath(path.resolve(process.cwd(), pathOrRemoteUrl))
+
+  if (path.basename(typed) === 'src') return false
+
+  return typed === linkFreePath(path.resolve(loadedDir))
+}
+
 // A previewed archive is read, never edited, so it lands in the user's cache
 // and the folder the command ran from stays as it was. --output-path names
 // the one folder it may land in instead. `start` builds its archive where
@@ -298,7 +317,15 @@ export async function extensionPreview(
           browser,
           previewOptions.outputPath
         )
-  const distPath = unpackedDir || getDistPath(packageJsonDir, browser)
+  // With no project around it, the folder that was named and is loaded is
+  // the build, so no dist/<browser> is looked for beneath it.
+  const namedFolderIsTheBuild =
+    !userManifestPath &&
+    !previewOptions.outputPath &&
+    isNamedLoadFolder(pathOrRemoteUrl, outputPath)
+  const distPath =
+    unpackedDir ||
+    (namedFolderIsTheBuild ? outputPath : getDistPath(packageJsonDir, browser))
   // A build names its browser in the summary kept beside it. A folder with
   // no summary (a download, a hand-made folder) is loaded as asked.
   const builtFor = recordedBuildBrowser(outputPath, [
@@ -547,6 +574,18 @@ export async function extensionPreview(
       projectRoot: packageJsonDir,
       browser,
       config: mergedExtensionsConfig
+    })
+
+    assertNamedCompanionsResolve({
+      projectRoot: packageJsonDir,
+      resolved: resolvedExtensionsConfig,
+      declared: mergedExtensionsConfig,
+      declaredIn: companionsDeclaredIn(metadataCommand, {
+        flag: safePreviewOptions.extensions,
+        command: safeCommandConfig.extensions,
+        browser: safeBrowserConfig.extensions,
+        project: safeProjectConfig.extensions
+      })
     })
 
     const mergedGeckoBinary =
