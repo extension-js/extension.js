@@ -52,4 +52,27 @@ describe('a .wasm import through a real compile', () => {
       'You may need an appropriate loader to handle this file type.'
     )
   })
+
+  it('drops rspack default extensions from a config that sets none', async () => {
+    const pkg = {
+      'node_modules/wrapper/package.json':
+        '{"name":"wrapper","version":"1.0.0"}',
+      'node_modules/wrapper/index.js': 'export default 7\n',
+      'index.js': "import w from 'wrapper'\nself.out = {w}\n"
+    }
+    const bare = await compileFixture({files: pkg, plugins: []})
+    const withPlugin = await compileFixture({
+      files: pkg,
+      plugins: [new WasmPlugin()]
+    })
+
+    expect(await bare.evaluate()).toEqual({w: 7})
+    // Pins today's behavior: the plugin's ['.wasm'] replaces rspack's
+    // per-dependency ['.js', '.json'], so a package main without one fails.
+    expect(withPlugin.compiler.options.resolve.extensions).toEqual(['.wasm'])
+    expect(withPlugin.errors).toHaveLength(1)
+    expect(withPlugin.errors[0]).toContain(
+      "Module not found: Can't resolve 'wrapper'"
+    )
+  })
 })
