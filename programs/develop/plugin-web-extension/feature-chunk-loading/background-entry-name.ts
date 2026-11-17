@@ -55,9 +55,8 @@ export function getBackgroundEntryName(
         projectPath: context.projectPath
       })
 
-      // Naming an entry that will not exist makes the fork assert at
-      // entryOption and kill the build before the scripts feature can report
-      // the real problem, such as a missing service worker file.
+      // A worker file that is missing gets no entry, so none is named and
+      // the scripts feature reports the missing file.
       if (!serviceWorkerEntry) {
         return {}
       }

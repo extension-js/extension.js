@@ -4,7 +4,6 @@ import {
   compileFiles,
   idleCompiler,
   tapsAddedBy,
-  workerEntryFromFork,
   writeProject
 } from '../../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
@@ -30,8 +29,8 @@ function target(manifestPath: string) {
   return new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'})
 }
 
-// What the fork installs, read off an idle compiler: the worker entry its
-// entryOption tap names and the public path it clears for rspack.
+// What the target installs, read off an idle compiler: the taps it adds,
+// the public path it clears for rspack and the entries it leaves alone.
 function installed(
   manifestPath: string,
   mode: 'development' | 'production',
@@ -42,7 +41,6 @@ function installed(
 
   return {
     taps,
-    workerEntry: workerEntryFromFork(compiler),
     publicPath: compiler.options.output.publicPath,
     entry: compiler.options.entry
   }
@@ -69,7 +67,6 @@ describe('SetupChunkLoadingTarget', () => {
 
     expect(installed(manifestPath, 'production')).toEqual({
       taps: {
-        entryOption: ['WebExtensionServiceWorkerEntryPlugin'],
         compilation: [
           'WebExtensionChuckLoaderRuntimePlugin',
           'WebExtensionPlugin'
@@ -77,7 +74,6 @@ describe('SetupChunkLoadingTarget', () => {
         thisCompilation: ['NoDangerNamePlugin'],
         environment: ['WebExtensionPlugin']
       },
-      workerEntry: 'background/service_worker',
       publicPath: '',
       entry: {}
     })
@@ -111,51 +107,34 @@ describe('SetupChunkLoadingTarget', () => {
     const result = installed(manifestPath, 'production')
 
     expect(result.entry).toEqual({})
-    expect(result.workerEntry).toBeUndefined()
-    expect(result.publicPath).toBe('')
-  })
-
-  // Regression: a cross-browser MV3 manifest with Firefox-style
-  // background.scripts bundles as the background/scripts entry on Chromium.
-  // Naming background/service_worker here made the fork assert at entryOption
-  // and hard-crash every production build of such a manifest.
-  it('resolves a background.scripts manifest to the background/scripts entry', () => {
-    const {manifestPath} = project({
-      'manifest.json': {
-        manifest_version: 3,
-        name: 'scripts background',
-        version: '1.0',
-        background: {scripts: ['background.js']},
-        content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
-      },
-      'background.js': ''
-    })
-
-    expect(installed(manifestPath, 'production').workerEntry).toBe(
-      'background/scripts'
-    )
-  })
-
-  // Regression: a service_worker path that resolves to no file produces no
-  // entry, and naming one crashed the build with the fork's entryOption throw
-  // before the curated ScriptsMissingFile diagnostic could surface.
-  it('omits the service worker entry when its file does not exist', () => {
-    const {manifestPath} = project({
-      'manifest.json': {
-        manifest_version: 3,
-        name: 'missing worker',
-        version: '1.0',
-        background: {service_worker: 'background/missing.js'}
-      }
-    })
-    const result = installed(manifestPath, 'production')
-
-    expect(result.workerEntry).toBeUndefined()
     expect(result.publicPath).toBe('')
   })
 })
 
 describe('SetupChunkLoadingTarget in a production compile', () => {
+  // A service_worker path that resolves to no file produces no entry. The
+  // target must not stop the build before the scripts feature reports it.
+  it('compiles when the declared service worker file does not exist', async () => {
+    const {root, manifestPath} = project({
+      'manifest.json': {
+        ...manifest,
+        background: {service_worker: 'background/missing.js'}
+      },
+      'content/scripts.js': lazyImport,
+      'content/lazy.js': 'export const a = 1\n'
+    })
+    const {errors, files} = await compileFiles(
+      root,
+      {'content_scripts/content-0': 'content/scripts.js'},
+      target(manifestPath)
+    )
+
+    expect(errors).toEqual([])
+    expect(files['content_scripts/content-0.js']).toContain(
+      EXTENSION_WORLD_LOADER
+    )
+  })
+
   // The manifest never names a file the background registers at runtime, so
   // its world is read off the entry sources the scripts step created.
   it('loads chunks per world and adds no classic fallback to the worker', async () => {

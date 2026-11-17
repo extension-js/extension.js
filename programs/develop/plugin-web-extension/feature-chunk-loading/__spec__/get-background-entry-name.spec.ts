@@ -26,9 +26,8 @@ function makeProject(files: string[] = []) {
   return dir
 }
 
-// The name handed to the fork's ServiceWorkerPlugin must match an entry
-// AddScripts will create, because the plugin asserts at entryOption that the
-// entry exists and a wrong name hard-crashes the whole build.
+// The name must match an entry AddScripts will create, because the chunk
+// loader puts the background side of its message fallback in that entry.
 describe('getBackgroundEntryName', () => {
   it('names the declared service worker when its file exists', () => {
     const manifestDir = makeProject(['background/index.js'])

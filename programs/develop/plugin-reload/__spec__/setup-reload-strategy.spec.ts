@@ -4,7 +4,6 @@ import {
   compileFiles,
   idleCompiler,
   tapsAddedBy,
-  workerEntryFromFork,
   writeProject
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
@@ -13,7 +12,7 @@ import {SetupReloadStrategy} from '../steps/setup-reload-strategy/index'
 const makeTempFolder = trackTempFolders()
 
 // Applies the strategy to an idle dev compiler over a real manifest and
-// reads back the worker entry the fork claims and the entries it added.
+// reads back the taps and the entries it added.
 function run(
   manifest: object,
   options: {browser?: string; files?: string[]} = {}
@@ -36,7 +35,6 @@ function run(
   return {
     root,
     taps,
-    workerEntry: workerEntryFromFork(compiler),
     entries: Object.fromEntries(
       Object.entries(entry).map(([name, value]) => [
         name,
@@ -46,40 +44,67 @@ function run(
   }
 }
 
-// The exact option objects per manifest shape are pinned in
-// get-background-entry-name.spec.ts, this file checks what reaches the fork.
-describe('SetupReloadStrategy background entry', () => {
-  it('uses a service worker entry for MV3 on chromium', () => {
-    const result = run(
-      {manifest_version: 3, background: {service_worker: 'b.js'}},
-      {files: ['b.js']}
-    )
+// The background bundles that answer a content script asking for a chunk,
+// read off a real dev compile of the entries the scripts feature creates.
+async function fallbackListeners(
+  manifest: object,
+  entry: Record<string, string>
+): Promise<string[]> {
+  const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
+    'manifest.json': manifest,
+    'b.js': ''
+  })
+  const {errors, files} = await compileFiles(
+    root,
+    entry,
+    new SetupReloadStrategy({
+      manifestPath: path.join(root, 'manifest.json'),
+      browser: 'chrome'
+    } as ConstructorParameters<typeof SetupReloadStrategy>[0]),
+    'development'
+  )
 
-    expect(result.workerEntry).toBe('background/service_worker')
-    expect(result.entries).toEqual({'background/service_worker': ['b']})
+  expect(errors).toEqual([])
+
+  return Object.keys(files).filter((name) =>
+    files[name].includes('type != "WTW_INJECT"')
+  )
+}
+
+// The exact option objects per manifest shape are pinned in
+// get-background-entry-name.spec.ts, this file checks what a compile gets.
+describe('SetupReloadStrategy background entry', () => {
+  it('uses a service worker entry for MV3 on chromium', async () => {
+    const manifest = {manifest_version: 3, background: {service_worker: 'b.js'}}
+
+    expect(run(manifest, {files: ['b.js']}).entries).toEqual({
+      'background/service_worker': ['b']
+    })
+
+    expect(
+      await fallbackListeners(manifest, {'background/service_worker': 'b.js'})
+    ).toEqual(['background/service_worker.js'])
   })
 
   // Chromium runs a Firefox-style MV3 background.scripts bundle as a worker
-  // under the background/scripts entry. Naming background/service_worker here
-  // crashed production builds, where no such entry is ever synthesized.
-  it('uses the background/scripts entry for MV3 background.scripts on chromium', () => {
+  // under the background/scripts entry, so the fallback is answered there.
+  it('uses the background/scripts entry for MV3 background.scripts on chromium', async () => {
     expect(
-      run(
+      await fallbackListeners(
         {manifest_version: 3, background: {scripts: ['b.js']}},
-        {files: ['b.js']}
-      ).workerEntry
-    ).toBe('background/scripts')
+        {'background/scripts': 'b.js'}
+      )
+    ).toEqual(['background/scripts.js'])
   })
 
-  // A missing file produces no entry at all, and naming one trips the fork's
-  // entryOption assert before the curated missing-file error can surface.
-  it('omits the worker entry when the declared background file is missing', () => {
+  // A missing file produces no entry at all, and the missing-file error is
+  // the one report the build gets.
+  it('adds no worker entry when the declared background file is missing', () => {
     const result = run({
       manifest_version: 3,
       background: {service_worker: 'b.js'}
     })
 
-    expect(result.workerEntry).toBeUndefined()
     expect(result.entries).toEqual({})
     expect(result.taps.thisCompilation).toContain(
       'plugin-reload:setup-background-entry'
@@ -92,7 +117,6 @@ describe('SetupReloadStrategy background entry', () => {
       {files: ['b.js']}
     )
 
-    expect(result.workerEntry).toBeUndefined()
     expect(result.taps.compilation).toContain(
       'WebExtensionChuckLoaderRuntimePlugin'
     )
@@ -104,17 +128,14 @@ describe('SetupReloadStrategy background entry', () => {
       {browser: 'firefox', files: ['b.js']}
     )
 
-    expect(result.workerEntry).toBeUndefined()
     expect(result.taps.compilation).toContain(
       'WebExtensionChuckLoaderRuntimePlugin'
     )
   })
 
-  // The minimum worker is added as an entry, and the fork still names none.
-  it('falls back to a plain background entry when the manifest declares none', () => {
+  it('adds the minimum worker as an entry when the manifest declares none', () => {
     const result = run({manifest_version: 3})
 
-    expect(result.workerEntry).toBeUndefined()
     expect(result.entries).toEqual({
       'background/service_worker': ['minimum-chromium-file']
     })
@@ -137,7 +158,7 @@ describe('SetupReloadStrategy wiring', () => {
 
 describe('SetupReloadStrategy in a development compile', () => {
   // The loader a lazy chunk gets depends on the world the strategy hands the
-  // fork, so a MAIN world script must come out with the bridge loader.
+  // chunk loader, so a MAIN world script must come out with the bridge loader.
   it('hands the content script worlds to the chunk loader', async () => {
     const lazyImport = "import('./lazy.js').then((m) => console.log(m))\n"
     const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {

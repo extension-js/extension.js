@@ -78,8 +78,7 @@ describe('ReloadPlugin on a real development compiler', () => {
         'WebExtensionChuckLoaderRuntimePlugin',
         'WebExtensionPlugin'
       ],
-      environment: ['WebExtensionPlugin', 'plugin-reload:hot-update-names'],
-      entryOption: ['WebExtensionServiceWorkerEntryPlugin']
+      environment: ['WebExtensionPlugin', 'plugin-reload:hot-update-names']
     })
   })
 

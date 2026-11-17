@@ -271,7 +271,7 @@ describe('chunk loading runtime of a production build for Chromium', () => {
     )
   })
 
-  it('gives a module service worker the import scripts loader too', async () => {
+  it('gives a module service worker no chunk loader at all', async () => {
     const moduleWorker = await build({
       browser: 'chrome',
       mode: 'production',
@@ -280,12 +280,12 @@ describe('chunk loading runtime of a production build for Chromium', () => {
     })
 
     expect(moduleWorker.entry['background/service_worker'].chunkLoading).toBe(
-      'import-scripts'
+      false
     )
 
     expect(writers(moduleWorker.file(WORKER), BASE_URI)).toEqual([
-      'scriptsFeature',
-      'bundlerWorker'
+      'bundlerNone',
+      'scriptsFeature'
     ])
   })
 })

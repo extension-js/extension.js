@@ -150,30 +150,3 @@ export function tapsAddedBy(
 
   return added
 }
-
-// The fork's service worker plugin names its entry only inside the tap it
-// adds to entryOption, so the entry is read by handing that tap a set.
-export function workerEntryFromFork(compiler: Compiler): string | undefined {
-  const taps = (
-    compiler.hooks.entryOption as unknown as {
-      taps: Array<{
-        name: string
-        fn: (context: string, entries: object) => void
-      }>
-    }
-  ).taps.filter((tap) => tap.name === 'WebExtensionServiceWorkerEntryPlugin')
-
-  if (taps.length === 0) return undefined
-  if (taps.length > 1) throw new Error('the fork tapped entryOption twice')
-
-  const entries = new Proxy<Record<string, {chunkLoading?: string}>>(
-    {},
-    {get: (seen, name: string) => (seen[name] ??= {})}
-  )
-  taps[0].fn(String(compiler.options.context), entries)
-  const named = Object.entries(entries).find(
-    ([, entry]) => entry.chunkLoading === 'import-scripts'
-  )
-
-  return named?.[0]
-}

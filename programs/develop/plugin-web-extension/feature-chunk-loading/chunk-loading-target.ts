@@ -3,7 +3,6 @@ import BrowserRuntimeModule, {
 } from './runtime-modules/browser-runtime'
 import ChunkLoaderRuntimePlugin from './steps/chunk-loader'
 import NoDangerNamePlugin from './steps/no-danger-name'
-import ServiceWorkerEntryPlugin from './steps/service-worker-entry'
 
 export default class WebExtensionPlugin {
   private readonly options: any
@@ -23,10 +22,6 @@ export default class WebExtensionPlugin {
   }
 
   apply(compiler: any) {
-    const {background} = this.options
-    if (background?.serviceWorkerEntry) {
-      new ServiceWorkerEntryPlugin(background).apply(compiler)
-    }
     // Pass full plugin options so runtime can be world-aware for content scripts.
     new ChunkLoaderRuntimePlugin(this.options).apply(compiler)
     new NoDangerNamePlugin().apply(compiler)
