@@ -68,6 +68,8 @@ async function compile(
             // The bundler's frame is its own: the mark and the bar come off.
             lines: issue.message
               .replaceAll(root, '<root>')
+              // The project path keeps the platform's separators on Windows.
+              .replaceAll('\\', '/')
               .split('\n')
               .map((line) => line.replace(/^ {2}[×│] ?/, ''))
               .filter(Boolean)
@@ -128,6 +130,8 @@ async function buildProject(manifest: Record<string, unknown>) {
               file: String(issue.file || ''),
               lines: issue.message
                 .replaceAll(root, '<root>')
+                // The project path keeps the platform's separators on Windows.
+                .replaceAll('\\', '/')
                 .split('\n')
                 .map((line) => line.replace(/^ {2}[\u00d7\u2502] ?/, ''))
                 .filter(Boolean)
