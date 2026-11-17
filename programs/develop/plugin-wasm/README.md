@@ -16,7 +16,7 @@
 - **Runtime aliases**: For eight known runtime files of `@ffmpeg/core`, `@ffmpeg/core-mt`, `@imagemagick/magick-wasm` and `tesseract-wasm`, adds an alias to the first copy found in a `node_modules` folder above the project, then above the process folder. The alias bypasses the package's `exports`, finds a copy installed only above the process folder, and makes every importer use that one copy.
 - **Alias safety**: Preserves existing user aliases and only fills missing defaults.
 - **Bytes on request**: `import url from './x.wasm?url'` emits the binary under `assets/` and returns its URL, for Emscripten-style loaders that fetch their own bytes (handled by the static-assets `?url` rule).
-- **Budget**: a `.wasm` binary only extension pages and workers reach is budgeted as `wasm` (32 MiB) by the perf-budgets plugin, so a vendor runtime such as onnxruntime or ffmpeg builds without a warning. One a content script or the service worker reaches keeps the `runtime` budget (1 MiB). Raise `perfBudgets.wasm` or list a file under `perfBudgets.ignore` in `extension.config.js` to change that.
+- **Budget**: a `.wasm` binary only extension pages and workers reach is budgeted as `wasm` (32 MiB) by the perf-budgets plugin, so a vendor runtime such as onnxruntime or ffmpeg builds without a warning. One a content script or the service worker reaches keeps the `runtime` budget (1 MiB). Raise `perfBudgets.wasm` for the first case and `perfBudgets.runtime` for the second, or list a file under `perfBudgets.ignore` in `extension.config.js`.
 
 ### Feature overview
 
