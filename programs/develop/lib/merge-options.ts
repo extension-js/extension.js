@@ -50,10 +50,13 @@ export const CONCAT_ARRAY_KEYS = new Set([
   'exclude'
 ])
 
+// A layer that sets one perfBudgets key keeps the budgets another layer set.
+// An array inside any of these replaces the one below it, like include.
 export const DEEP_MERGE_OBJECT_KEYS = new Set([
   'preferences',
   'define',
-  'include'
+  'include',
+  'perfBudgets'
 ])
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
