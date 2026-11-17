@@ -66,11 +66,7 @@ export class SafariDevPlugin implements RunnerPlugin {
   }
 
   apply(compiler: Compiler) {
-    // Only a watching compiler reports changed sources, and only a watch has
-    // anything to reload. Without it the plugin still packages, silently.
-    const changedSources = compiler.hooks?.watchRun
-      ? createChangedSourcesTracker(compiler)
-      : undefined
+    const changedSources = createChangedSourcesTracker(compiler)
 
     compiler.hooks.done.tapPromise(SafariDevPlugin.name, async (stats) => {
       const compilation = stats.compilation
@@ -93,7 +89,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       // first package has nothing to reload, it is the state the browser loads.
       let instruction: ReloadInstruction | undefined
 
-      if (!this.firstRun && changedSources) {
+      if (!this.firstRun) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
         // Safari takes the same granularity as Chromium. A content-script
         // reinjection was measured working there, same tab, through the
