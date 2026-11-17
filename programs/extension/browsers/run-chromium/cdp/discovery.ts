@@ -16,12 +16,26 @@ import {codedError} from './coded-error'
 async function getJson(
   host: string,
   port: number,
-  path: string
+  path: string,
+  timeoutMs: number
 ): Promise<unknown> {
   return new Promise<unknown>((resolve, reject) => {
     const req = http.request(
       {hostname: host, port, path, method: 'GET'},
       (res) => {
+        // An error page can carry JSON too, and it is not the browser's answer.
+        if (res.statusCode !== 200) {
+          res.resume()
+          reject(
+            codedError(
+              CODES.E_CDP_NOT_CONNECTED,
+              `CDP endpoint ${path} answered HTTP ${res.statusCode}`
+            )
+          )
+
+          return
+        }
+
         let data = ''
         res.on('data', (chunk) => (data += chunk))
         res.on('end', () => {
@@ -34,7 +48,7 @@ async function getJson(
       }
     )
     req.on('error', (err) => reject(err))
-    req.setTimeout(CDP_HTTP_TIMEOUT_MS, () => {
+    req.setTimeout(timeoutMs, () => {
       req.destroy(
         codedError(CODES.E_CDP_TIMEOUT, `CDP endpoint timed out: ${path}`)
       )
@@ -47,13 +61,16 @@ async function getJson(
 export async function discoverWebSocketDebuggerUrl(
   host: string,
   port: number,
-  isDev: boolean
+  isDev: boolean,
+  timeoutMs = CDP_HTTP_TIMEOUT_MS
 ): Promise<string> {
   try {
-    const version = (await getJson(host, port, '/json/version')) as Record<
-      string,
-      unknown
-    >
+    const version = (await getJson(
+      host,
+      port,
+      '/json/version',
+      timeoutMs
+    )) as Record<string, unknown>
     const wsUrl =
       typeof version?.webSocketDebuggerUrl === 'string'
         ? version.webSocketDebuggerUrl
@@ -75,7 +92,7 @@ export async function discoverWebSocketDebuggerUrl(
     }
   }
 
-  const targets = (await getJson(host, port, '/json')) as Array<
+  const targets = (await getJson(host, port, '/json', timeoutMs)) as Array<
     Record<string, unknown>
   >
 

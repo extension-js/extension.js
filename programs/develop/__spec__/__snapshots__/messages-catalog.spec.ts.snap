@@ -68,6 +68,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "debugSplitChunksNarrowed: function(1)",
     "declinedProjectRoot: function(2)",
     "devCommandFailed: function(1)",
+    "developArtifactsMissing: function(2)",
     "developmentArtifactsKept: function(2)",
     "downloadedProjectFolderNotFound: function(2)",
     "downloadingProjectPath: function(2)",
@@ -190,7 +191,14 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "youAreAllSet: function(1)",
   ],
   "plugin-perf-budgets/messages.ts": [
+    "MAX_LISTED_ASSETS: number",
+    "perfBudgetInvalid: function(3)",
     "perfBudgetWarning: function(1)",
+    "perfBudgetsIgnoreInvalid: function(2)",
+    "perfBudgetsNoEffectInDev: function(1)",
+    "perfBudgetsReferrersUnreadable: function(1)",
+    "perfBudgetsUnknownKeys: function(3)",
+    "perfBudgetsWrongShape: function(2)",
   ],
   "plugin-reload/messages.ts": [
     "backgroundIsRequiredMessageOnly: function(1)",

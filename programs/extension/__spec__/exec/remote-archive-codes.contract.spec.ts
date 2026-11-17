@@ -1,14 +1,13 @@
-import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {freshCliHome, runCli as spawnCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
-const cliBin = path.resolve(__dirname, '../..', 'dist', 'cli.cjs')
 const STACK_FRAME = /^\s+at /m
 
 // The archive library belongs to develop, which is where a spec here finds it.
@@ -44,6 +43,9 @@ const DAMAGED_ARCHIVE = Buffer.concat([
   Buffer.from([0x50, 0x4b, 0x03, 0x04]),
   Buffer.from('cut short on the way down '.repeat(8))
 ])
+
+// Only the silent route reaches this bound, and there it is the whole wait.
+const EXTENSION_FETCH_TIMEOUT_MS = '300'
 
 interface Frame {
   ok: boolean
@@ -140,62 +142,25 @@ describe('a remote archive, read by create and by develop', () => {
     }
   })
 
-  function runCli(
+  // A home of its own per run: the unpacked archive lands in its cache.
+  // A dev session never ends by itself, so it is stopped once the frame
+  // the case waits for is on stdout.
+  async function runCli(
     args: string[],
     options: {env?: Record<string, string>; stopOnFrame?: string} = {}
   ): Promise<Run> {
-    const configHome = makeTempFolder('extjs-config-')
-    const cacheHome = makeTempFolder('extjs-cache-')
-    homes.push(configHome, cacheHome)
-
-    const env: NodeJS.ProcessEnv = {
-      ...process.env,
-      NO_COLOR: '1',
-      FORCE_COLOR: '0',
-      EXTENSION_ENV: 'test',
-      EXTENSION_TELEMETRY: '0',
-      EXTENSION_ALLOW_HTTP_TEMPLATE: 'true',
-      XDG_CONFIG_HOME: configHome,
-      XDG_CACHE_HOME: cacheHome,
-      ...options.env
-    }
-    delete env.VITEST
-    delete env.VITEST_WORKER_ID
-
-    return new Promise((resolve, reject) => {
-      let stdout = ''
-      let stderr = ''
-      const child = spawn(process.execPath, [cliBin, ...args], {
-        cwd: work,
-        stdio: ['ignore', 'pipe', 'pipe'],
-        env
-      })
-
-      const timer = setTimeout(() => {
-        child.kill('SIGKILL')
-        reject(new Error(`CLI did not exit: ${args.join(' ')}\n${stdout}`))
-      }, 100_000)
-
-      child.stdout.on('data', (chunk) => {
-        stdout += chunk.toString()
-
-        // A dev session never ends by itself, so it is stopped once the frame
-        // the case waits for is on stdout.
-        if (
-          options.stopOnFrame &&
-          stdout.includes(`"status":"${options.stopOnFrame}"`)
-        ) {
-          child.kill('SIGTERM')
-        }
-      })
-
-      child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-
-      child.on('close', (status) => {
-        clearTimeout(timer)
-        resolve({status, stdout, stderr})
-      })
+    const marker = `"status":"${options.stopOnFrame}"`
+    const run = await spawnCli(args, {
+      cwd: work,
+      timeoutMs: 100_000,
+      home: freshCliHome(),
+      env: {EXTENSION_ALLOW_HTTP_TEMPLATE: 'true', ...options.env},
+      until: options.stopOnFrame
+        ? (output) => output.stdout.includes(marker)
+        : undefined
     })
+
+    return {status: run.status, stdout: run.stdout, stderr: run.stderr}
   }
 
   // stdout as a whole: a human line beside the frame fails the parse.
@@ -232,6 +197,7 @@ describe('a remote archive, read by create and by develop', () => {
       expect(onlyFrame(run).error?.message).not.toContain('⏵')
     }
 
+    expect(onlyFrame(created)).toMatchObject({ok: false, command: 'create'})
     expect(onlyFrame(built).status).toBe('build-failed')
 
     return {
@@ -247,6 +213,7 @@ describe('a remote archive, read by create and by develop', () => {
 
     expect(result.create).toBe('E_REMOTE_ZIP_INVALID')
     expect(result.develop).toBe('E_REMOTE_ZIP_INVALID')
+    expect(result.createMessage).toContain("doesn't point to a ZIP archive")
     expect(result.createMessage).toContain('GOT text/html')
     expect(result.developMessage).toContain('GOT text/html')
     // The refusal is its own block, not the reason line of a download one.
@@ -289,15 +256,24 @@ describe('a remote archive, read by create and by develop', () => {
   // The other side of the line: nothing usable answered, so each package
   // keeps the transport code it already had and never borrows the ZIP one.
   it.each([
-    ['a refused connection', () => refused],
-    ['a 404', () => `${origin}/missing`]
+    [
+      'a refused connection',
+      () => refused,
+      ["Couldn't fetch the template from that URL", 'ECONNREFUSED']
+    ],
+    ['a 404', () => `${origin}/missing`, []]
   ])(
     'keeps the transport codes for %s',
-    async (_label, route) => {
+    async (_label, route, createSays) => {
       const result = await codes(route())
 
       expect(result.create).toBe('E_NETWORK')
       expect(result.develop).toBe('E_REMOTE_DOWNLOAD')
+      expect(result.createMessage).not.toContain('ZIP archive')
+
+      for (const words of createSays) {
+        expect(result.createMessage).toContain(words)
+      }
     },
     120_000
   )
@@ -323,7 +299,7 @@ describe('a remote archive, read by create and by develop', () => {
   it('codes a fetch that outlives its timeout in develop', async () => {
     const run = await runCli(
       ['build', `${origin}/slow/extension.zip`, '--output', 'json'],
-      {env: {EXTENSION_FETCH_TIMEOUT_MS: '1500'}}
+      {env: {EXTENSION_FETCH_TIMEOUT_MS}}
     )
 
     expect(run.status, run.stdout + run.stderr).toBe(1)
@@ -344,7 +320,8 @@ describe('a remote archive, read by create and by develop', () => {
     'ends create within its fetch timeout for %s that never answers',
     async (_label, args, extraEnv) => {
       seq += 1
-      const bound = 4000
+      // Short, yet a second full wait would still overrun the margin below.
+      const bound = 2000
       const url = `${origin}/slow/create-${seq}.zip`
 
       const run = await runCli(
@@ -363,11 +340,11 @@ describe('a remote archive, read by create and by develop', () => {
       expect(run.stderr).not.toMatch(STACK_FRAME)
       expect(hits).toHaveLength(1)
       // Measured from the request, so a slow CLI start does not count.
-      expect(ended - hits[0].at).toBeLessThan(bound + 2500)
+      expect(ended - hits[0].at).toBeLessThan(bound + 1500)
 
       const frame = onlyFrame(run)
       expect(frame.error?.code).toBe('E_NETWORK')
-      expect(frame.error?.message).toContain('No answer within 4 seconds')
+      expect(frame.error?.message).toContain('No answer within 2 seconds')
       expect(fs.existsSync(path.join(work, `created-slow-${seq}`))).toBe(false)
     },
     120_000
@@ -403,7 +380,7 @@ describe('a remote archive, read by create and by develop', () => {
           '--output',
           'json'
         ],
-        {env: {EXTENSION_FETCH_TIMEOUT_MS: '1500'}}
+        {env: {EXTENSION_FETCH_TIMEOUT_MS}}
       )
 
       expect(run.status, run.stdout + run.stderr).toBe(1)

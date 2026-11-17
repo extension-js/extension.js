@@ -24,7 +24,6 @@
     "**/*.spec.ts",
     "**/__spec__/**",
     "rslib.config.ts",
-    "vitest.config.ts",
-    "browsers/vitest.config.ts"
+    "vitest.config.ts"
   ]
 }

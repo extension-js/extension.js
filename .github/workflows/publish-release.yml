@@ -841,7 +841,9 @@ jobs:
     with:
       cli-version: ${{ needs.publish.outputs.version }}
       ref: 8723961e3833f3c42c9635a70d992eaa55e515ed
-      safari: true
+      # A stable already read Safari in the gate before the publish, and a
+      # packaging fault shows on any browser. A canary has no gate, so it reads it.
+      safari: ${{ inputs.channel == 'canary' }}
 
   # The templates suite with the exact version that reached npm, for the same
   # reason and under the same rule as the corpus reading above.

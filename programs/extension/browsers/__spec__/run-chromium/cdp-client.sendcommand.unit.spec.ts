@@ -94,8 +94,7 @@ describe('CDPClient.sendCommand', () => {
 
     const result = await promise
     expect(result).toEqual({frameId: 'frame-1'})
-
-    await vi.advanceTimersByTimeAsync(10000)
+    expect(vi.getTimerCount()).toBe(0)
   })
 
   it('rejects with error details when CDP returns an error', async () => {

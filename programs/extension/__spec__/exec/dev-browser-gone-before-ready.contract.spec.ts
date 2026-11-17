@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import {
   chmodSync,
   existsSync,
@@ -9,30 +8,9 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
-const ANSI = /\x1b\[[0-9;]*m/g
-
-function stripVitestEnv(extra: Record<string, string>): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0',
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0',
-    ...extra
-  }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
-
-  return env
-}
+import {startCli} from '../helpers/run-cli'
 
 // A managed Chrome whose binary is a script that exits at once: the shape of
 // a browser that dies at launch, with nothing on screen and no download.
@@ -82,76 +60,43 @@ function readJson(file: string): Record<string, unknown> | null {
   }
 }
 
-function sleep(ms: number) {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms))
-}
-
+// The only browser this run can find is the stand-in planted in its cache:
+// the helper turns the system scan off and the home is a temp folder.
 async function runDevUntilBrowserGone(projectDir: string, cacheRoot: string) {
-  const child = spawn(
-    process.execPath,
-    [cliBin, 'dev', projectDir, '--browser', 'chrome'],
-    {
-      cwd: cliRoot,
-      stdio: 'pipe',
-      env: stripVitestEnv({EXT_BROWSERS_CACHE_DIR: cacheRoot})
-    }
-  )
-  let output = ''
-  child.stdout.on('data', (chunk) => (output += chunk.toString()))
-  child.stderr.on('data', (chunk) => (output += chunk.toString()))
+  const session = startCli(['dev', projectDir, '--browser', 'chrome'], {
+    env: {EXT_BROWSERS_CACHE_DIR: cacheRoot}
+  })
+  const sessionDir = join(projectDir, 'dist', 'extension-js', 'chrome')
+  const readyPath = join(sessionDir, 'ready.json')
+  const eventsPath = join(sessionDir, 'events.ndjson')
+  const events = () =>
+    existsSync(eventsPath) ? readFileSync(eventsPath, 'utf8') : ''
 
-  const readyPath = join(
-    projectDir,
-    'dist',
-    'extension-js',
-    'chrome',
-    'ready.json'
-  )
-  const eventsPath = join(
-    projectDir,
-    'dist',
-    'extension-js',
-    'chrome',
-    'events.ndjson'
-  )
-  const deadline = Date.now() + 60_000
+  let ready: Record<string, unknown> | null = null
+  let timeline = ''
 
   try {
     // The exit lands in three places: the human line, the contract and the
-    // events timeline (a one second poll). Wait for all three or give up.
-    while (Date.now() < deadline) {
-      const ready = readJson(readyPath)
-      const events = existsSync(eventsPath)
-        ? readFileSync(eventsPath, 'utf8')
-        : ''
+    // events timeline (a one second poll).
+    await session.waitFor(
+      () =>
+        typeof readJson(readyPath)?.browserExitedAt === 'string' &&
+        events().includes('"browser_exited"') &&
+        /nothing is running|ready for development/.test(session.read().output),
+      60_000,
+      'the browser exit on the contract, the timeline and the terminal'
+    )
 
-      if (
-        typeof ready?.browserExitedAt === 'string' &&
-        events.includes('"browser_exited"') &&
-        /nothing is running|ready for development/.test(output)
-      ) {
-        break
-      }
-
-      await sleep(250)
-    }
-
-    // The ready line, when it is printed, follows the gone line by less than
-    // a tick, so give the transcript a moment to settle before reading it.
-    await sleep(1000)
-
-    return {
-      output: output.replace(ANSI, ''),
-      ready: readJson(readyPath),
-      events: existsSync(eventsPath) ? readFileSync(eventsPath, 'utf8') : ''
-    }
+    // Read before the stop, which rewrites the contract as stopped.
+    ready = readJson(readyPath)
+    timeline = events()
   } finally {
-    child.kill('SIGTERM')
-    await Promise.race([
-      new Promise((resolvePromise) => child.once('close', resolvePromise)),
-      sleep(3000).then(() => child.kill('SIGKILL'))
-    ])
+    // A ready line, were one printed, follows the gone line by less than a
+    // tick, so the transcript is read once the CLI has ended.
+    await session.stop('SIGTERM', 3000)
   }
+
+  return {output: session.read().output, ready, events: timeline}
 }
 
 // The stand-in binary is a shell script, which Windows cannot exec, so the
