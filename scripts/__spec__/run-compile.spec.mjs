@@ -6,10 +6,12 @@ import {runCompile} from '../run-compile.mjs'
 // Error is a runner that could not start.
 function fakeRunner(...answers) {
   const calls = []
+
   const run = async (command, args) => {
     calls.push([command, ...args].join(' '))
     const answer = answers[calls.length - 1]
     if (answer instanceof Error) throw answer
+
     return answer
   }
 
