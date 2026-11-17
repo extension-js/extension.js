@@ -7,7 +7,13 @@ import {
   classifyReloadFromSources
 } from '../classify-reload'
 import type {ReloadInstruction} from '../index'
-import {createChangedSourcesTracker, dispatchReload} from '../reload-dispatch'
+import {
+  createChangedSourcesTracker,
+  dispatchReload,
+  dispatchRestartReload,
+  fullReloadsDeliveredTo,
+  type ReloadBroker
+} from '../reload-dispatch'
 
 const CS: ReloadInstruction = {
   type: 'content-scripts',
@@ -679,6 +685,32 @@ describe('createChangedSourcesTracker', () => {
     expect(tracker.snapshot().forcedFull).toBe(true)
   })
 
+  // Pins today's behavior. Ledger 1385 D7.
+  it('forces a full reload for a file whose name only ends in manifest.json', () => {
+    const {compiler, fireWatchRun} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+    compiler.modifiedFiles = new Set(['/proj/src/pwa/site-manifest.json'])
+    fireWatchRun()
+
+    expect(tracker.snapshot()).toEqual({
+      forcedFull: true,
+      changedSources: ['src/pwa/site-manifest.json']
+    })
+  })
+
+  // Pins today's behavior. Ledger 1385 D7.
+  it('forces a full reload for a source file under any _locales folder', () => {
+    const {compiler, fireWatchRun} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+    compiler.modifiedFiles = new Set(['/proj/src/i18n/_locales/strings.ts'])
+    fireWatchRun()
+
+    expect(tracker.snapshot()).toEqual({
+      forcedFull: true,
+      changedSources: ['src/i18n/_locales/strings.ts']
+    })
+  })
+
   it('resets on each watchRun (no stale carryover)', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
@@ -1004,5 +1036,93 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
 
     expect(instruction?.type).toBe('page')
     expect(instruction?.label).toBe('popup page (src/action/scripts.js)')
+  })
+})
+
+// A broker double that records each call and answers what the test says.
+function recordingBroker(answers: {
+  delivered?: number
+  broadcast?: () => number
+  ack?: () => ReturnType<NonNullable<ReloadBroker['awaitReloadAck']>>
+}) {
+  const sent: unknown[] = []
+  const broker: ReloadBroker = {
+    broadcastReload: (instruction) => {
+      sent.push(instruction)
+
+      return answers.broadcast ? answers.broadcast() : (answers.delivered ?? 1)
+    },
+    ...(answers.ack ? {awaitReloadAck: answers.ack} : {})
+  }
+
+  return {broker, sent}
+}
+
+describe('dispatchReload when the broker fails', () => {
+  // Pins today's behavior. Ledger 1385 D9.
+  it('rejects with the error a throwing broadcast raised', async () => {
+    const gone = new Error('socket gone')
+    const {broker, sent} = recordingBroker({
+      broadcast: () => {
+        throw gone
+      }
+    })
+
+    await expect(dispatchReload(CS, {broker})).rejects.toBe(gone)
+    expect(sent).toHaveLength(1)
+    expect(fullReloadsDeliveredTo(broker)).toBe(0)
+  })
+
+  // Pins today's behavior. Ledger 1385 D9.
+  it('rejects with the error a rejected ack wait raised', async () => {
+    const lost = new Error('ack channel closed')
+    const {broker, sent} = recordingBroker({ack: () => Promise.reject(lost)})
+
+    await expect(
+      dispatchReload({type: 'full', label: 'extension'}, {broker})
+    ).rejects.toBe(lost)
+
+    expect(sent).toHaveLength(1)
+    expect(fullReloadsDeliveredTo(broker)).toBe(0)
+  })
+})
+
+describe('dispatchRestartReload', () => {
+  // Pins today's behavior. Ledger 1385 D10.
+  it('sends one full reload for the extension when no build reloaded it since', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, sent} = recordingBroker({})
+
+    await expect(dispatchRestartReload({broker}, 0)).resolves.toBe(true)
+    expect(sent).toEqual([
+      {
+        type: 'full',
+        changedContentScriptEntries: undefined,
+        label: 'extension',
+        changedFiles: undefined
+      }
+    ])
+
+    expect(fullReloadsDeliveredTo(broker)).toBe(1)
+    expect(log.mock.calls.map((call) => call.join(' '))).toEqual([
+      expect.stringContaining('Reloading extension')
+    ])
+  })
+
+  // Pins today's behavior. Ledger 1385 D10.
+  it('sends nothing when a build of the new compiler already reloaded it', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, sent} = recordingBroker({})
+    await dispatchReload({type: 'full', label: 'manifest.json'}, {broker})
+    sent.length = 0
+
+    await expect(dispatchRestartReload({broker}, 0)).resolves.toBe(false)
+    expect(sent).toEqual([])
+    expect(fullReloadsDeliveredTo(broker)).toBe(1)
+  })
+
+  // Pins today's behavior. Ledger 1385 D10.
+  it('sends nothing and reports false with no broker', async () => {
+    await expect(dispatchRestartReload({}, 0)).resolves.toBe(false)
   })
 })
