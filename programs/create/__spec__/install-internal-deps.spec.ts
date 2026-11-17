@@ -233,6 +233,29 @@ describe('detectOptionalDependencies', () => {
       }
     },
     {
+      name: 'Svelte in a project with no TypeScript asks for its loader alone',
+      dependencies: {svelte: '^5.0.0'},
+      files: [],
+      plan: {
+        integrations: ['Svelte'],
+        dependencies: ['svelte-loader'],
+        dependenciesByIntegration: {Svelte: ['svelte-loader']}
+      }
+    },
+    {
+      name: 'Svelte beside a tsconfig.json asks for typescript too',
+      dependencies: {svelte: '^5.0.0'},
+      files: ['tsconfig.json'],
+      plan: {
+        integrations: ['TypeScript', 'Svelte'],
+        dependencies: ['typescript', 'svelte-loader'],
+        dependenciesByIntegration: {
+          TypeScript: ['typescript'],
+          Svelte: ['svelte-loader', 'typescript']
+        }
+      }
+    },
+    {
       name: 'Sass brings its own PostCSS loader, so PostCSS adds nothing',
       dependencies: {sass: '^1.0.0', postcss: '^8.0.0'},
       files: [],
@@ -534,8 +557,9 @@ describe('installInternalDependencies', () => {
     expect(frame).not.toMatch(/^\s+at /m)
     expect(error.cause).toBe(spawnError)
     // Only the progress line, on the log channel: the failure is the throw.
-    expect(logs).toHaveLength(1)
-    expect(logs[0]).toContain('Installing the dependencies for Vue…')
+    expect(logs.map((line) => line.split('\n')[0])).toEqual([
+      expect.stringMatching(/ Installing the dependencies for Vue…$/)
+    ])
   })
 
   it('stays silent when package.json is simply absent', async () => {
@@ -557,7 +581,7 @@ describe('installInternalDependencies', () => {
     expect(installCalls).toEqual([])
   })
 
-  it('installs each missing integration into the develop root, one run each', async () => {
+  it('installs every missing integration into the develop root in one run', async () => {
     const developRoot = makeDevelopRoot()
     const projectRoot = makeProject({react: '^18.0.0', tailwindcss: '^4.0.0'}, [
       'postcss.config.js'
@@ -582,17 +606,6 @@ describe('installInternalDependencies', () => {
           'add',
           'react-refresh',
           '@rspack/plugin-react-refresh',
-          '--dir',
-          developRoot,
-          '--save-optional',
-          '--silent'
-        ],
-        opts: {cwd: developRoot, stdio: 'pipe'}
-      },
-      {
-        command: 'pnpm',
-        args: [
-          'add',
           'postcss',
           'postcss-loader',
           '--dir',
@@ -604,9 +617,70 @@ describe('installInternalDependencies', () => {
       }
     ])
 
+    // One progress line that names every integration the run serves.
+    expect(logs).toHaveLength(1)
+    expect(logs[0].split('\n')).toEqual([
+      expect.stringMatching(
+        / Installing the dependencies for React and PostCSS…$/
+      ),
+      'This can take a moment.'
+    ])
+  })
+
+  it('installs a package two integrations share once', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({svelte: '^5.0.0', typescript: '^5.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
+
+    const {logger, logs} = recordingLogger()
+    await installInternalDependencies(
+      projectRoot,
+      logger,
+      'npm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
+
+    expect(installCalls).toEqual([
+      {
+        command: 'npm',
+        args: [
+          'install',
+          'typescript',
+          'svelte-loader',
+          '--save-optional',
+          '--legacy-peer-deps'
+        ],
+        opts: {cwd: developRoot, stdio: 'pipe'}
+      }
+    ])
+
     expect(logs.map((line) => line.split('\n')[0])).toEqual([
-      expect.stringContaining('[1/2] Installing the dependencies for React…'),
-      expect.stringContaining('[2/2] Installing the dependencies for PostCSS…')
+      expect.stringMatching(
+        / Installing the dependencies for TypeScript and Svelte…$/
+      )
+    ])
+  })
+
+  it('never asks for typescript in a Svelte project that has none', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({svelte: '^5.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
+
+    await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'npm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
+
+    expect(installCalls.map((call) => call.args)).toEqual([
+      ['install', 'svelte-loader', '--save-optional', '--legacy-peer-deps']
     ])
   })
 
@@ -719,15 +793,52 @@ describe('installInternalDependencies', () => {
 
     expect(plain(error.message)).toContain(
       "Couldn't install the dependencies.\n" +
-        'COMMAND npm install react-refresh @rspack/plugin-react-refresh --save-optional --legacy-peer-deps\n' +
+        'COMMAND npm install react-refresh @rspack/plugin-react-refresh vue-loader @vue/compiler-sfc --save-optional --legacy-peer-deps\n' +
         'EXIT 1\n' +
         'REASON npm error code E404\nnpm error 404 Not Found\n' +
         'The new project files were removed. Fix the error above, then run ' +
         `extension create ${shellQuote(projectRoot)} --template react --install again.`
     )
 
-    // The first failure ends the run, so the Vue install never starts.
+    // React and Vue share the one run, so one failure is the whole story.
     expect(installCalls).toHaveLength(1)
+  })
+
+  it('shows the output live in development and still frames the reason', async () => {
+    const developRoot = makeDevelopRoot()
+    const projectRoot = makeProject({vue: '^3.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', developRoot)
+    vi.stubEnv('EXTENSION_ENV', 'development')
+    Object.assign(installResult, {
+      code: 1,
+      stdout: '',
+      stderr: 'npm error code E404\nnpm error 404 Not Found'
+    })
+
+    const error = await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'npm',
+      'vue',
+      nothingResolves,
+      undefined,
+      runInstall
+    ).then(
+      () => {
+        throw new Error('expected the optional install to reject')
+      },
+      (thrown: Error) => thrown
+    )
+
+    // Tee, not inherit: an inherited stream leaves nothing to put in the frame.
+    expect(installCalls.map((call) => call.opts.stdio)).toEqual(['tee'])
+    expect(plain(error.message)).toContain(
+      "Couldn't install the dependencies.\n" +
+        'COMMAND npm install vue-loader @vue/compiler-sfc --save-optional --legacy-peer-deps\n' +
+        'EXIT 1\n' +
+        'REASON npm error code E404\nnpm error 404 Not Found\n' +
+        'The new project files were removed.'
+    )
   })
 
   it('names the timeout first when the runner ended a hung optional install', async () => {
@@ -768,10 +879,15 @@ describe('installInternalDependencies', () => {
     )
   })
 
-  it('installs nothing when EXTENSION_SKIP_INTERNAL_INSTALL is true', async () => {
+  it.each([
+    'true',
+    '1',
+    'TRUE',
+    ' 1 '
+  ])('installs nothing when EXTENSION_SKIP_INTERNAL_INSTALL is "%s"', async (value) => {
     const projectRoot = makeProject({react: '^18.0.0'})
     vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
-    vi.stubEnv('EXTENSION_SKIP_INTERNAL_INSTALL', 'true')
+    vi.stubEnv('EXTENSION_SKIP_INTERNAL_INSTALL', value)
 
     const {logger, logs} = recordingLogger()
     await installInternalDependencies(
@@ -786,6 +902,28 @@ describe('installInternalDependencies', () => {
 
     expect(installCalls).toEqual([])
     expect(logs).toEqual([])
+  })
+
+  it.each([
+    'false',
+    '0',
+    ''
+  ])('still installs when EXTENSION_SKIP_INTERNAL_INSTALL is "%s"', async (value) => {
+    const projectRoot = makeProject({react: '^18.0.0'})
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
+    vi.stubEnv('EXTENSION_SKIP_INTERNAL_INSTALL', value)
+
+    await installInternalDependencies(
+      projectRoot,
+      recordingLogger().logger,
+      'npm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
+
+    expect(installCalls).toHaveLength(1)
   })
 
   it('spawns nothing when every optional dependency already resolves', async () => {

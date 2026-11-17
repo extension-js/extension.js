@@ -16,7 +16,7 @@ import {
   runInstall as runInstallCommand
 } from '../lib/install-runner'
 import * as messages from '../lib/messages'
-import {isDebug, prefix} from '../lib/messaging'
+import {isDebug} from '../lib/messaging'
 import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
@@ -199,7 +199,12 @@ export function detectOptionalDependencies(
   }
 
   if (usesSvelte) {
-    addIntegration('Svelte', ['svelte-loader', 'typescript'])
+    // svelte-loader runs without typescript, so only a TypeScript project
+    // asks for it here.
+    addIntegration(
+      'Svelte',
+      usesTypeScript ? ['svelte-loader', 'typescript'] : ['svelte-loader']
+    )
   }
 
   if (usesSass) {
@@ -314,63 +319,56 @@ async function installOptionalDependencies(
   if (plan.dependencies.length === 0) return
 
   const pm = optionalInstallManager(packageManager)
-  // Piped, not ignored: a failure here can then name the manager's own cause
-  // instead of reporting an exit code alone.
-  const stdio = process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
+  // Captured in both modes so a failure can name the manager's own cause.
+  // Development also shows the output live, which is what tee adds.
+  const stdio = process.env.EXTENSION_ENV === 'development' ? 'tee' : 'pipe'
 
   if (isDebug()) {
     logger.log(messages.foundSpecializedDependencies(plan.integrations.length))
   }
 
-  // Match on the rendered prefix, not on the bare glyph: the glyph carries
-  // color escapes whenever the stream is a TTY, so a literal never matches.
-  const infoPrefix = prefix('info')
+  logger.log(messages.installingProjectIntegrations(plan.integrations))
 
-  for (const [index, integration] of plan.integrations.entries()) {
-    const missingDeps = plan.dependenciesByIntegration[integration] || []
-
-    const baseMessage = messages.installingProjectIntegrations([integration])
-    const installMessage = baseMessage.replace(
-      infoPrefix,
-      `${infoPrefix} [${index + 1}/${plan.integrations.length}]`
+  // One run for every integration: a package two of them share installs once.
+  const args = buildOptionalInstallArgs(pm, plan.dependencies, developRoot)
+  // A runner that rejects never started the manager (a missing binary), so
+  // it takes the frame the project install gives the same rejection.
+  const result = await runInstall(pm, args, {
+    cwd: developRoot,
+    stdio
+  }).catch((error: unknown) => {
+    throw failStep(
+      messages.installingDependenciesProcessError(
+        path.basename(projectPath),
+        error,
+        {projectPath, template}
+      ),
+      error
     )
-    logger.log(installMessage)
+  })
 
-    if (missingDeps.length === 0) {
-      continue
-    }
-
-    const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
-    // A runner that rejects never started the manager (a missing binary), so
-    // it takes the frame the project install gives the same rejection.
-    const result = await runInstall(pm, args, {
-      cwd: developRoot,
-      stdio
-    }).catch((error: unknown) => {
-      throw failStep(
-        messages.installingDependenciesProcessError(
-          path.basename(projectPath),
-          error,
-          {projectPath, template}
-        ),
-        error
+  if (result.code !== 0) {
+    throw new Error(
+      messages.installingDependenciesFailed(
+        pm,
+        args,
+        result.code,
+        [result.reason, result.stdout, result.stderr]
+          .filter((part) => part !== undefined)
+          .join('\n'),
+        {projectPath, template}
       )
-    })
-
-    if (result.code !== 0) {
-      throw new Error(
-        messages.installingDependenciesFailed(
-          pm,
-          args,
-          result.code,
-          [result.reason, result.stdout, result.stderr]
-            .filter((part) => part !== undefined)
-            .join('\n'),
-          {projectPath, template}
-        )
-      )
-    }
+    )
   }
+}
+
+// Reads the flag the way the project install reads EXTENSION_SKIP_INSTALL.
+function isInternalInstallSkippedByEnv(): boolean {
+  const raw = String(process.env.EXTENSION_SKIP_INTERNAL_INSTALL ?? '')
+    .trim()
+    .toLowerCase()
+
+  return raw === '1' || raw === 'true'
 }
 
 export async function installInternalDependencies(
@@ -384,7 +382,7 @@ export async function installInternalDependencies(
   cwd: string = process.cwd(),
   runInstall: InstallRunner = runInstallCommand
 ) {
-  if (process.env.EXTENSION_SKIP_INTERNAL_INSTALL === 'true') return
+  if (isInternalInstallSkippedByEnv()) return
 
   const developRoot = resolveDevelopRoot(projectPath, cwd)
   if (!developRoot) return
