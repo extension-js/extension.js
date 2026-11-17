@@ -480,7 +480,7 @@
     },
     "E_TELEMETRY_WRITE": {
       "area": "telemetry",
-      "summary": "The telemetry consent file could not be written."
+      "summary": "A telemetry file could not be written or removed."
     },
     "E_DOCTOR_CHECKS_FAILED": {
       "area": "doctor",

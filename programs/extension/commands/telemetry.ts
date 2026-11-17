@@ -13,32 +13,35 @@ import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
-  getTelemetryConsent,
+  getTelemetryStatus,
+  resetTelemetry,
   setTelemetryConsent
 } from '../helpers/telemetry-cli'
 
-type TelemetryAction = 'enable' | 'disable' | 'status'
+type TelemetryAction = 'enable' | 'disable' | 'status' | 'reset'
 
 type TelemetryOptions = {
   output?: 'pretty' | 'json'
 }
 
-// The consent pair is what the action reaches outside this file.
+// The three calls the action makes outside this file.
 interface TelemetryCommandDeps {
-  getConsent?: typeof getTelemetryConsent
+  getStatus?: typeof getTelemetryStatus
   setConsent?: typeof setTelemetryConsent
+  reset?: typeof resetTelemetry
 }
 
 export function registerTelemetryCommand(
   program: Command,
   {
-    getConsent = getTelemetryConsent,
-    setConsent = setTelemetryConsent
+    getStatus = getTelemetryStatus,
+    setConsent = setTelemetryConsent,
+    reset = resetTelemetry
   }: TelemetryCommandDeps = {}
 ) {
   program
     .command('telemetry')
-    .argument('[action]', 'enable | disable | status (default: status)')
+    .argument('[action]', 'enable | disable | status | reset (default: status)')
     .description(commandDescriptions.telemetry)
     .option(
       '--output <pretty|json>',
@@ -106,19 +109,84 @@ export function registerTelemetryCommand(
       }
 
       if (normalized === 'status') {
-        const {enabled, source} = getConsent()
+        const status = getStatus()
 
         if (asJson) {
-          emit(ENVELOPE.ok('telemetry', 'status', {enabled, source}))
+          emit(ENVELOPE.ok('telemetry', 'status', status))
         } else {
-          const label = enabled
+          const label = status.enabled
             ? colors.green('enabled')
             : colors.red('disabled')
+          const decidedBy = status.variable
+            ? `${status.source}, ${status.variable}`
+            : status.source
           // eslint-disable-next-line no-console
-          console.log(`Telemetry: ${label} (source: ${source})`)
+          console.log(
+            [
+              `Telemetry: ${label} (source: ${decidedBy})`,
+              `Anonymous ID: ${status.anonymousId ?? 'none'}`,
+              `Consent file: ${status.consentFile ?? 'none'}`,
+              `Audit log: ${status.auditFile ?? 'none'}`
+            ].join('\n')
+          )
         }
 
         await exitAfterDrain(0)
+
+        return
+      }
+
+      if (normalized === 'reset') {
+        const {ok, removed, clearedOptOut} = reset()
+
+        if (ok) {
+          if (asJson) {
+            emit(ENVELOPE.ok('telemetry', 'reset', {removed, clearedOptOut}))
+          } else {
+            const lines = [
+              removed.length > 0
+                ? `${colors.green('✓')} Telemetry reset. Removed the anonymous ID, the consent and the local audit log. The next run starts fresh and shows the first-run notice.`
+                : `${colors.green('✓')} Telemetry reset. Nothing was stored.`
+            ]
+
+            if (clearedOptOut) {
+              lines.push(
+                `A stored opt-out was removed too. Run ${colors.cyan('extension telemetry disable')} to keep telemetry off.`
+              )
+            }
+
+            // eslint-disable-next-line no-console
+            console.log(lines.join('\n'))
+          }
+
+          await exitAfterDrain(0)
+
+          return
+        }
+
+        if (asJson) {
+          emit(
+            ENVELOPE.fail(
+              'telemetry',
+              'failed',
+              {
+                code: CODES.E_TELEMETRY_WRITE,
+                message: 'Could not remove every telemetry file.'
+              },
+              {
+                value: {removed, clearedOptOut},
+                hint: 'Check write permissions on the telemetry folder.'
+              }
+            )
+          )
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(
+            `${colors.red('✗')} Could not remove every telemetry file.`
+          )
+        }
+
+        await exitAfterDrain(1)
 
         return
       }
@@ -132,13 +200,13 @@ export function registerTelemetryCommand(
               code: CODES.E_ARGS,
               message: `Unknown telemetry action: ${action}.`
             },
-            {hint: 'Expected: enable | disable | status.'}
+            {hint: 'Expected: enable | disable | status | reset.'}
           )
         )
       } else {
         // eslint-disable-next-line no-console
         console.error(
-          `Unknown telemetry action: ${action}. Expected: enable | disable | status.`
+          `Unknown telemetry action: ${action}. Expected: enable | disable | status | reset.`
         )
       }
 

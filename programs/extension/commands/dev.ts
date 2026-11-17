@@ -62,6 +62,7 @@ import {
 import {
   markCommandSessionReady,
   markCommandSessionStart,
+  noteRunBrowsers,
   reportCommandFailureNow
 } from '../helpers/telemetry-cli'
 import {
@@ -155,6 +156,7 @@ interface DevCommandDeps {
   waitForReady?: typeof runWaitMode
   createPackager?: typeof createSafariPackager
   reportFailure?: typeof reportCommandFailureNow
+  noteBrowsers?: typeof noteRunBrowsers
 }
 
 export function registerDevCommand(
@@ -166,7 +168,8 @@ export function registerDevCommand(
     armParentWatchdog = setupParentWatchdog,
     waitForReady = runWaitMode,
     createPackager = createSafariPackager,
-    reportFailure = reportCommandFailureNow
+    reportFailure = reportCommandFailureNow,
+    noteBrowsers = noteRunBrowsers
   }: DevCommandDeps = {}
 ) {
   program
@@ -420,6 +423,7 @@ export function registerDevCommand(
         }
 
         const list = vendors(browser)
+        noteBrowsers(list)
         let unsupportedBrowser = ''
         let supportedBrowsers: string[] = []
 
