@@ -51,10 +51,6 @@ export default class WebExtensionPlugin {
       const {output} = compiler.options
       if (output.environment.dynamicImport !== false)
         output.environment.dynamicImport = true
-      if (output.hotUpdateChunkFilename !== undefined)
-        output.hotUpdateChunkFilename = 'hot/[id].[fullhash].js'
-      if (output.hotUpdateMainFilename !== undefined)
-        output.hotUpdateMainFilename = 'hot/[runtime].[fullhash].json'
     })
 
     // browser runtime
