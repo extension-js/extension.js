@@ -24,6 +24,14 @@ function makeTempOutPath(manifest: Record<string, unknown>): string {
   return outPath
 }
 
+// Chrome hashes the folder as given on Windows and resolved elsewhere, so a
+// short Windows temp name stays short in the id the banner prints.
+function registeredPath(dir: string): string {
+  return process.platform === 'win32'
+    ? path.resolve(dir)
+    : fs.realpathSync.native(dir)
+}
+
 describe('printDevBannerOnce', () => {
   it('derives Chromium extension id from manifest key when runtime info is unavailable', async () => {
     const outPath = makeTempOutPath({
@@ -100,7 +108,7 @@ describe('printDevBannerOnce', () => {
       output.split('\n').find((line) => line.includes('Extension ID')) || ''
     const extracted = idLine.split('Extension ID')[1]?.trim() || ''
     expect(extracted).toBe(
-      chromiumExtensionIdFromRegisteredPath(fs.realpathSync.native(outPath))
+      chromiumExtensionIdFromRegisteredPath(registeredPath(outPath))
     )
 
     logSpy.mockRestore()
@@ -203,7 +211,7 @@ describe('printProdBannerOnce', () => {
       output.split('\n').find((line) => line.includes('Extension ID')) || ''
     const extracted = idLine.split('Extension ID')[1]?.trim() || ''
     expect(extracted).toBe(
-      chromiumExtensionIdFromRegisteredPath(fs.realpathSync.native(outPath))
+      chromiumExtensionIdFromRegisteredPath(registeredPath(outPath))
     )
 
     logSpy.mockRestore()
