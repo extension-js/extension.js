@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {beforeAll, describe, expect, it} from 'vitest'
+import {LOG_CONTEXTS} from '../dev-server/control-bridge/contracts'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const require = createRequire(__filename)
@@ -56,10 +57,98 @@ function readmeUsageExample(): string {
   return String(block?.[1])
 }
 
+const COMMANDS = ['dev', 'build', 'start', 'preview'] as const
+const OPTION_TYPES: Record<(typeof COMMANDS)[number], string> = {
+  dev: 'DevOptions',
+  build: 'BuildOptions',
+  start: 'StartOptions',
+  preview: 'PreviewOptions'
+}
+
+interface OptionTable {
+  heading: string
+  commands: string[]
+  rows: Array<{option: string; values: string}>
+}
+
 function readReadme(): string {
   return fs
     .readFileSync(path.join(developRoot, 'README.md'), 'utf8')
     .replace(/\r\n/g, '\n')
+}
+
+// Every table under "## Command options". The heading names the commands
+// whose option type has each row of the table.
+function readmeOptionTables(readme: string): OptionTable[] {
+  const start = readme.indexOf('\n## Command options')
+  const section = readme.slice(start, readme.indexOf('\n## ', start + 1))
+
+  return section
+    .split('\n### ')
+    .slice(1)
+    .map((block) => {
+      const [heading, ...lines] = block.split('\n')
+      const rows = lines
+        .filter((line) => line.startsWith('|'))
+        .slice(2)
+        .map((line) => line.split('|').map((cell) => cell.trim()))
+        .map((cells) => ({
+          option: cells[1].replace(/`/g, ''),
+          values: cells[2]
+        }))
+
+      return {
+        heading,
+        commands: COMMANDS.filter((command) =>
+          new RegExp(`\\b${command}\\b`).test(heading)
+        ),
+        rows
+      }
+    })
+}
+
+const union = (names: string[]) =>
+  names.length > 0 ? names.map((name) => `'${name}'`).join(' | ') : 'never'
+
+// A table holds the options every command of its heading has, less the ones
+// a table for more commands already lists. tsc names each row that is off.
+function optionTableProgram(tables: OptionTable[]): string {
+  const lines = [
+    `import type {${Object.values(OPTION_TYPES).join(', ')}} from 'extension-develop'`,
+    ''
+  ]
+
+  tables.forEach((table, index) => {
+    const wider = tables
+      .map((other, otherIndex) => ({other, otherIndex}))
+      .filter(
+        ({other}) =>
+          other.commands.length > table.commands.length &&
+          table.commands.every((command) => other.commands.includes(command))
+      )
+      .map(({otherIndex}) => `Expected${otherIndex}`)
+
+    const shared = table.commands
+      .map(
+        (command) =>
+          `keyof ${OPTION_TYPES[command as keyof typeof OPTION_TYPES]}`
+      )
+      .join(' & ')
+
+    lines.push(
+      `type Expected${index} = Exclude<${shared || 'never'}, ${wider.join(' | ') || 'never'}>`,
+      `type Rows${index} = ${union(table.rows.map((row) => row.option))}`,
+      `export const missing${index}: [Exclude<Expected${index}, Rows${index}>] extends [never]`,
+      `  ? true`,
+      `  : {tableLacksTheOption: Exclude<Expected${index}, Rows${index}>} = true`,
+      `export const unknown${index}: [Exclude<Rows${index}, Expected${index}>] extends [never]`,
+      `  ? true`,
+      `  : {tableNamesNoSuchOption: Exclude<Rows${index}, Expected${index}>} = true`,
+      ''
+    )
+  })
+
+  return lines.join('\n')
 }
 
 function typecheck(files: Record<string, string>) {
@@ -201,6 +290,74 @@ export const build: BuildOptions = {browser: 'chrome', zip: true}
     expect(result.errors).toEqual([])
     expect(result.status).toBe(0)
   }, 120_000)
+})
+
+describe('the option tables of the README', () => {
+  const tables = readmeOptionTables(readReadme())
+
+  it('have one table per command and no row twice', () => {
+    for (const command of COMMANDS) {
+      expect(
+        tables.filter(
+          (table) =>
+            table.commands.length === 1 && table.commands[0] === command
+        ),
+        `README.md needs one "### ${command}" table under "## Command options"`
+      ).toHaveLength(1)
+    }
+
+    for (const table of tables) {
+      const names = table.rows.map((row) => row.option)
+
+      expect(
+        table.commands,
+        `"### ${table.heading}" names no command`
+      ).not.toEqual([])
+
+      expect(names, `"### ${table.heading}" has no rows`).not.toEqual([])
+      expect(new Set(names).size, `"### ${table.heading}"`).toBe(names.length)
+    }
+  })
+
+  it('list every option of the shipped option types and no other', () => {
+    const result = typecheck({'option-tables.ts': optionTableProgram(tables)})
+
+    expect(result.errors).toEqual([])
+    expect(result.status).toBe(0)
+  }, 120_000)
+
+  it('are refused with a row for no option, or with an option left out', () => {
+    const drifted = tables.map((table) =>
+      table.heading === 'dev'
+        ? {
+            ...table,
+            rows: [...table.rows.slice(1), {option: 'open', values: 'boolean'}]
+          }
+        : table
+    )
+    const dropped = tables.find((table) => table.heading === 'dev')?.rows[0]
+    const result = typecheck({'option-tables.ts': optionTableProgram(drifted)})
+    const errors = result.errors.join('\n')
+
+    expect(result.status).not.toBe(0)
+    expect(errors).toContain('tableNamesNoSuchOption: "open"')
+    expect(errors).toContain(`tableLacksTheOption: "${dropped?.option}"`)
+  }, 120_000)
+
+  it('list every log context the engine knows', () => {
+    const row = tables
+      .flatMap((table) => table.rows)
+      .find((entry) => entry.option === 'logContexts')
+
+    expect(row, 'no table has a logContexts row').toBeDefined()
+
+    const listed = String(row?.values)
+      .replace(/^array of:/, '')
+      .split(',')
+      .map((name) => name.trim())
+
+    expect(listed).toEqual([...LOG_CONTEXTS])
+  })
 })
 
 describe('types.ts', () => {
