@@ -7,6 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
+import {
+  isChromiumBrowser,
+  isFirefoxBrowser
+} from '../browsers/browsers-lib/browser-family'
 import {readBrowserInstall} from './browser-install-outcome'
 import {resolveCommandFromArgv} from './cli-argv'
 import {getCliPackageJson} from './cli-package-json'
@@ -17,6 +21,7 @@ import {
   createTelemetryKit,
   TELEMETRY_DOCS_URL,
   Telemetry,
+  type TelemetryBrowser,
   type TelemetryConsent,
   type TelemetryDeps,
   type TelemetryReset
@@ -97,8 +102,64 @@ export function createSourceTag(value: string | undefined): string {
   return CREATE_SOURCES.has(tag) ? tag : 'cli'
 }
 
+function hasFlag(argv: string[], names: string[]): boolean {
+  return argv
+    .slice(2)
+    .some((arg) =>
+      names.some((name) => arg === name || arg.startsWith(`${name}=`))
+    )
+}
+
+// One browser name as one of six fixed words. A fork is its engine family,
+// and a name outside both families has no word, so it is not sent.
+export function telemetryBrowserWord(
+  name: string | undefined
+): TelemetryBrowser | undefined {
+  if (name === 'chrome' || name === 'edge' || name === 'firefox') return name
+  if (name === 'safari') return name
+  if (!name) return undefined
+  if (isChromiumBrowser(name)) return 'chromium-based'
+  if (isFirefoxBrowser(name)) return 'gecko-based'
+
+  return undefined
+}
+
+const BROWSER_COMMANDS: ReadonlySet<string> = new Set([
+  'dev',
+  'start',
+  'preview',
+  'build'
+])
+
+// Read from the typed --browser only. A list of browsers is one run and one
+// row, so it sends nothing, and so does a run that typed no browser.
+export function telemetryBrowser(
+  command: string,
+  argv: string[]
+): TelemetryBrowser | undefined {
+  if (!BROWSER_COMMANDS.has(command)) return undefined
+
+  const word = telemetryBrowserWord(readArgValue(argv, ['--browser', '-b']))
+  if (!word) return undefined
+
+  // A custom binary is known by its engine alone, whatever name was typed.
+  if (isChromiumBrowser(word) && hasFlag(argv, ['--chromium-binary'])) {
+    return 'chromium-based'
+  }
+
+  if (
+    isFirefoxBrowser(word) &&
+    hasFlag(argv, ['--gecko-binary', '--firefox-binary'])
+  ) {
+    return 'gecko-based'
+  }
+
+  return word
+}
+
 export type TelemetryCommandContext = {
   template?: string
+  browser?: TelemetryBrowser
   source?: string
   browser_install?: string
   browser_install_browser?: string
@@ -130,6 +191,8 @@ function commandContextWith(
       }
     : {}
 
+  const browser = telemetryBrowser(command, argv)
+  if (browser) return {...installContext, browser}
   if (command !== 'create') return installContext
 
   const deps = readers.readDependencyInstall()

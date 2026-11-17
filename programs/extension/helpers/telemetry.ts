@@ -32,6 +32,8 @@ export type TelemetryProps = {
   // integer. They are re-checked below, since this is the last gate.
   code?: string
   exit_code?: number
+  // One word from TELEMETRY_BROWSERS, on dev, start, preview and build.
+  browser?: string
   browser_install?: string
   browser_install_browser?: string
   browser_install_seconds?: number
@@ -76,6 +78,21 @@ function catalogCode(value: unknown): string | undefined {
 
   return CATALOG_CODE.test(value) ? value : undefined
 }
+
+// Every value the `browser` property can take. A fork or a custom binary is
+// its engine family, so no product name, path or version ever travels.
+export const TELEMETRY_BROWSERS = [
+  'chrome',
+  'edge',
+  'firefox',
+  'safari',
+  'chromium-based',
+  'gecko-based'
+] as const
+
+export type TelemetryBrowser = (typeof TELEMETRY_BROWSERS)[number]
+
+const BROWSER_WORDS: Set<string> = new Set(TELEMETRY_BROWSERS)
 
 const BROWSER_INSTALL_OUTCOMES = new Set([
   'offered',
@@ -968,6 +985,9 @@ export class Telemetry {
 
       const exitCode = smallExitCode(props.exit_code)
       if (exitCode !== undefined) enforcedProps.exit_code = exitCode
+
+      const browser = fixedWord(props.browser, BROWSER_WORDS)
+      if (browser) enforcedProps.browser = browser
 
       // The install outcomes were documented as sent and dropped right here,
       // so each one passes only as a fixed word or a bounded whole number.
