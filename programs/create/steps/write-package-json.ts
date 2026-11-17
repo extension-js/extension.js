@@ -9,13 +9,16 @@
 import {readFileSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {
   resolvePackageManagerSpec,
   resolveProjectPackageManager,
-  type ScaffoldPackageManager
+  type ScaffoldPackageManager,
+  type VersionProbe
 } from '../lib/package-manager'
+import {failStep} from '../lib/utils'
 
 export async function resolveExtensionBinary(): Promise<string> {
   const developRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
@@ -86,6 +89,8 @@ interface OverridePackageJsonOptions {
   template?: string
   cliVersion?: string
   packageManager?: ScaffoldPackageManager
+  // How the installed manager is asked its version, cross-spawn unless given.
+  probeVersion?: VersionProbe
 }
 
 /* @invariant less rides in transitively and its postinstall is a no-op outside
@@ -155,22 +160,17 @@ export async function overridePackageJson(
 ) {
   const {template = 'javascript', cliVersion} = options
   const extensionBinary = await resolveExtensionBinary()
-  const candidatePath = path.join(projectPath, 'package.json')
 
-  // Web-only remote templates may not include package.json; start from a minimal base
-  let packageJson: Record<string, unknown> = {}
-
-  try {
-    const packageJsonContent = await fs.readFile(candidatePath)
-    packageJson = JSON.parse(packageJsonContent.toString())
-  } catch {
-    packageJson = {
-      name: path.basename(projectPath),
-      private: true,
-      scripts: {},
-      dependencies: {},
-      devDependencies: {}
-    }
+  // Web-only remote templates may not include package.json, so a missing one
+  // starts from a minimal base. One that exists and does not parse is refused.
+  const packageJson: Record<string, unknown> = readTemplatePackageJson(
+    projectPath
+  ) ?? {
+    name: path.basename(projectPath),
+    private: true,
+    scripts: {},
+    dependencies: {},
+    devDependencies: {}
   }
 
   packageJson.scripts = packageJson.scripts || {}
@@ -188,7 +188,8 @@ export async function overridePackageJson(
     options.packageManager ?? resolveProjectPackageManager(projectPath)
   const packageManagerSpec = resolvePackageManagerSpec(
     projectPath,
-    packageManager
+    packageManager,
+    options.probeVersion
   )
 
   // Pre-approve dependency build scripts so one install just works on pnpm/bun;
@@ -253,8 +254,6 @@ export async function overridePackageJson(
       `${JSON.stringify(packageMetadata, null, 2)}\n`
     )
   } catch (error) {
-    logger.error(messages.writingPackageJsonMetadataError(error))
-
-    throw error
+    throw failStep(messages.writingPackageJsonMetadataError(error), error)
   }
 }

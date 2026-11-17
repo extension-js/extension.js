@@ -44,8 +44,8 @@ describe('the pinned templates catalog still serves the default template', () =>
   }, 600_000)
 })
 
-// The shipped entry, not the source, is what proves a ZIP layout survives
-// create. `pnpm test:remote` compiles first, which puts this file in place.
+// The ZIP layouts are pinned from source in create-from-zip-url.spec.ts. This
+// is the shipped entry's exit code and envelope, which need the compiled CLI.
 const PACKED_CLI = path.resolve(
   __dirname,
   '..',
@@ -98,8 +98,7 @@ type CreateEnvelope = {
 
 function createFromUrl(
   dest: string,
-  templateUrl: string,
-  env: Record<string, string> = {}
+  templateUrl: string
 ): Promise<{code: number | null; envelope: CreateEnvelope; stderr: string}> {
   return new Promise((resolve, reject) => {
     const child = spawn(
@@ -119,8 +118,7 @@ function createFromUrl(
           ...process.env,
           EXTENSION_ENV: 'test',
           EXTENSION_SKIP_INTERNAL_INSTALL: 'true',
-          EXTENSION_ALLOW_HTTP_TEMPLATE: 'true',
-          ...env
+          EXTENSION_ALLOW_HTTP_TEMPLATE: 'true'
         }
       }
     )
@@ -199,62 +197,5 @@ describe('the packed cli scaffolds from a ZIP template URL', () => {
     )
     expect(written.name).toBe('my-remote-ext')
     expect(written.manifest_version).toBe(3)
-  }, 180_000)
-
-  it('keeps a nested manifest where the archive put it', async () => {
-    const served = await serveZip(
-      'template.zip',
-      makeZip({'extension/manifest.json': manifest})
-    )
-    server = served.server
-    const dest = path.join(workDir, 'my-remote-nested-ext')
-
-    const {code, envelope} = await createFromUrl(dest, served.url)
-
-    expect(envelope.error).toBeNull()
-    expect(code).toBe(0)
-
-    const nested = path.join(dest, 'extension', 'manifest.json')
-    expect(fs.existsSync(nested)).toBe(true)
-    expect(fs.existsSync(path.join(dest, 'manifest.json'))).toBe(false)
-    expect(JSON.parse(await fsp.readFile(nested, 'utf8')).name).toBe(
-      'my-remote-nested-ext'
-    )
-  }, 180_000)
-
-  it('unwraps a root folder named after the archive, as release zips are', async () => {
-    const served = await serveZip(
-      'content-react.edge.zip',
-      makeZip({'content-react.edge/manifest.json': manifest})
-    )
-    server = served.server
-    const dest = path.join(workDir, 'my-remote-browser-suffix-ext')
-
-    const {code, envelope} = await createFromUrl(dest, served.url)
-
-    expect(envelope.error).toBeNull()
-    expect(code).toBe(0)
-    expect(fs.existsSync(path.join(dest, 'manifest.json'))).toBe(true)
-    expect(
-      fs.existsSync(path.join(dest, 'content-react.edge', 'manifest.json'))
-    ).toBe(false)
-  }, 180_000)
-
-  it('refuses plain http unless the opt-in is set, and scaffolds nothing', async () => {
-    const served = await serveZip(
-      'template.zip',
-      makeZip({'manifest.json': manifest})
-    )
-    server = served.server
-    const dest = path.join(workDir, 'my-refused-ext')
-
-    const {code, envelope} = await createFromUrl(dest, served.url, {
-      EXTENSION_ALLOW_HTTP_TEMPLATE: ''
-    })
-
-    expect(code).not.toBe(0)
-    expect(envelope.ok).toBe(false)
-    expect(envelope.error?.message).toContain('plain HTTP')
-    expect(fs.existsSync(dest)).toBe(false)
   }, 180_000)
 })

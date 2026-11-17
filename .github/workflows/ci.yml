@@ -166,6 +166,7 @@ jobs:
         suite:
           - ci:test:develop
           - ci:test:cli
+          - ci:test:create
 
     steps:
       - name: Checkout

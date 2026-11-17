@@ -1,22 +1,18 @@
-import * as fs from 'node:fs'
-import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {runInstall} from '../install-runner'
 
-// Nothing is mocked here on purpose: the sibling spec mocks cross-spawn, so
-// only a real spawn proves the .cmd shims resolve on the Windows lane.
+// Nothing is faked here on purpose: the sibling spec drives the runner
+// through its spawn seam, so only this file proves what a real child does.
 const VERSION = /^\d+\.\d+\.\d+/
 
-function onPath(name: string): boolean {
-  const suffixes =
-    process.platform === 'win32' ? ['.cmd', '.exe', '.bat', ''] : ['']
-  const dirs = (process.env.PATH || '').split(path.delimiter)
+function isRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
 
-  return dirs.some(
-    (dir) =>
-      dir &&
-      suffixes.some((suffix) => fs.existsSync(path.join(dir, name + suffix)))
-  )
+    return true
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code !== 'ESRCH'
+  }
 }
 
 describe('install-runner runInstall (real spawn)', () => {
@@ -33,18 +29,56 @@ describe('install-runner runInstall (real spawn)', () => {
     expect(result.stderr).not.toMatch(/not recognized|not found/i)
   })
 
-  it.skipIf(!onPath('pnpm'))(
-    'runs pnpm --version through its .cmd shim',
-    async () => {
-      const result = await runInstall('pnpm', ['--version'], {
-        cwd: process.cwd(),
-        stdio: 'pipe'
-      })
+  it('rejects with ENOENT for a binary that does not exist', async () => {
+    const missing = `extjs-no-such-binary-${process.pid}`
 
-      expect(result.code).toBe(0)
-      expect(result.stdout.trim()).toMatch(VERSION)
-    }
-  )
+    await expect(
+      runInstall(missing, ['install'], {cwd: process.cwd(), stdio: 'pipe'})
+    ).rejects.toMatchObject({
+      code: 'ENOENT',
+      syscall: `spawn ${missing}`,
+      path: missing,
+      message: expect.stringContaining(`spawn ${missing} ENOENT`)
+    })
+  })
+
+  it('captures what a failing child wrote to stderr, apart from stdout', async () => {
+    const result = await runInstall(
+      process.execPath,
+      [
+        '-e',
+        "process.stdout.write('resolving'); process.stderr.write('registry said no'); process.exitCode = 3"
+      ],
+      {cwd: process.cwd(), stdio: 'pipe'}
+    )
+
+    expect(result).toEqual({
+      code: 3,
+      stdout: 'resolving',
+      stderr: 'registry said no'
+    })
+  })
+
+  it('kills a child that outlives the timeout', async () => {
+    const result = await runInstall(
+      process.execPath,
+      ['-e', 'console.log(process.pid); setInterval(() => {}, 1000)'],
+      {cwd: process.cwd(), stdio: 'pipe', timeoutMs: 1000}
+    )
+
+    expect(result.code).toBeNull()
+    expect(result.reason).toBe(
+      'The install did not finish within 1 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)'
+    )
+
+    // The pid the child printed before it hung is the one that must be gone.
+    const pid = Number(result.stdout.trim())
+    expect(pid).toBeGreaterThan(0)
+    await vi.waitFor(() => expect(isRunning(pid)).toBe(false), {
+      timeout: 10_000,
+      interval: 50
+    })
+  }, 20_000)
 
   // The control variable is the point: a lane where no npm_config_* reaches the
   // child reads "unset" for the stripped key too, and the assertion would then

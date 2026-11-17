@@ -2,43 +2,62 @@ import * as fs from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {stripVTControlCharacters} from 'node:util'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-vi.mock('go-git-it', () => ({default: vi.fn(async () => {})}))
-vi.mock('axios', () => ({
-  default: {
-    get: vi.fn(async () => {
-      throw new Error('network is disabled in this test')
-    })
-  }
-}))
-
-import axios from 'axios'
-import goGitIt from 'go-git-it'
+import {
+  buildExamplesArchive,
+  fixtureExtensionFiles
+} from '../../__spec__/examples-catalog-fixture'
+import {
+  fetchFrom,
+  type LoopbackReply,
+  type LoopbackServer,
+  serveLoopback,
+  zipOf
+} from '../../__spec__/loopback-template-server'
 import {
   InsecureTemplateUrlError,
   importExternalTemplate,
-  refuseHttpRedirect
+  refuseHttpRedirect,
+  type TemplateClone,
+  type TemplateFetch
 } from '../import-external-template'
 
+const noopLogger = {log: () => {}, error: () => {}}
+const templateZip = zipOf({'manifest.json': '{"manifest_version":3}'})
+
+// Stand-ins that answer nothing, for the cases that must never ask.
+function unusedTransport() {
+  return {
+    fetch: vi.fn<TemplateFetch>(async () => {
+      throw new Error('the import asked for a download')
+    }),
+    clone: vi.fn<TemplateClone>(async () => {
+      throw new Error('the import asked for a clone')
+    })
+  }
+}
+
 describe('importExternalTemplate refuses plain HTTP template URLs', () => {
-  const prevAllow = process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
+  const savedEnv = {
+    EXTENSION_ALLOW_HTTP_TEMPLATE: process.env.EXTENSION_ALLOW_HTTP_TEMPLATE,
+    EXTENSION_CREATE_TEMPLATE_URL: process.env.EXTENSION_CREATE_TEMPLATE_URL
+  }
   const tempDirs: string[] = []
+  const servers: LoopbackServer[] = []
 
   beforeEach(() => {
     delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
-    vi.mocked(axios.get).mockReset()
-    vi.mocked(axios.get).mockRejectedValue(
-      new Error('network is disabled in this test')
-    )
-
-    vi.mocked(goGitIt).mockClear()
+    delete process.env.EXTENSION_CREATE_TEMPLATE_URL
   })
 
   afterEach(async () => {
-    if (prevAllow === undefined) {
-      delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
-    } else process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = prevAllow
+    for (const [name, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+
+    for (const server of servers.splice(0)) await server.close()
 
     while (tempDirs.length > 0) {
       await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
@@ -52,142 +71,181 @@ describe('importExternalTemplate refuses plain HTTP template URLs', () => {
     return path.join(tmpRoot, 'my-ext')
   }
 
+  async function serving(routes: Record<string, LoopbackReply>) {
+    const server = await serveLoopback(routes)
+    servers.push(server)
+
+    return server
+  }
+
   it.each([
     'http://example.com/template.zip',
     'HTTP://example.com/template.zip',
     'http://github.com/extension-js/templates/tree/main/examples/content'
   ])('refuses %s before any network request', async (url) => {
     const projectPath = await makeProjectPath()
+    const transport = unusedTransport()
 
     const error = (await importExternalTemplate(
       projectPath,
       'my-ext',
       url,
-      {log: () => {}, error: () => {}},
-      {ownsProjectDir: true}
+      noopLogger,
+      {ownsProjectDir: true, ...transport}
     ).catch((thrown: Error) => thrown)) as Error
 
     expect(error).toBeInstanceOf(InsecureTemplateUrlError)
-    expect(axios.get).not.toHaveBeenCalled()
-    expect(goGitIt).not.toHaveBeenCalled()
+    expect(transport.fetch).not.toHaveBeenCalled()
+    expect(transport.clone).not.toHaveBeenCalled()
     expect(fs.existsSync(projectPath)).toBe(false)
     expect(error.message).toContain('plain HTTP')
     expect(error.message).toContain('EXTENSION_ALLOW_HTTP_TEMPLATE=true')
   })
 
-  it('downloads an http URL when EXTENSION_ALLOW_HTTP_TEMPLATE=true', async () => {
+  it('scaffolds from a plain http ZIP URL when EXTENSION_ALLOW_HTTP_TEMPLATE=true', async () => {
     process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+    const server = await serving({'/template.zip': {body: templateZip}})
     const projectPath = await makeProjectPath()
+    const url = server.url('/template.zip')
 
-    await expect(
-      importExternalTemplate(
-        projectPath,
-        'my-ext',
-        'http://example.com/template.zip',
-        {log: () => {}, error: () => {}},
-        {ownsProjectDir: true}
-      )
-    ).rejects.toThrow('network is disabled in this test')
+    const provenance = await importExternalTemplate(
+      projectPath,
+      'my-ext',
+      url,
+      noopLogger,
+      {ownsProjectDir: true}
+    )
 
-    expect(axios.get).toHaveBeenCalledTimes(1)
-  })
-
-  it('passes a redirect guard with every https download', async () => {
-    const projectPath = await makeProjectPath()
-
-    await expect(
-      importExternalTemplate(
-        projectPath,
-        'my-ext',
-        'https://example.com/template.zip',
-        {log: () => {}, error: () => {}},
-        {ownsProjectDir: true}
-      )
-    ).rejects.toThrow('network is disabled in this test')
-
-    const [, config] = vi.mocked(axios.get).mock.calls[0]
+    expect(provenance).toEqual({template: 'template.zip', source: url})
+    expect(server.hits('/template.zip')).toBe(1)
     expect(
-      (config as {beforeRedirect?: unknown} | undefined)?.beforeRedirect
-    ).toBe(refuseHttpRedirect)
+      await fsp.readFile(path.join(projectPath, 'manifest.json'), 'utf8')
+    ).toBe('{"manifest_version":3}')
   })
 
-  it('names the refusal when the redirect guard fires mid-download', async () => {
-    vi.mocked(axios.get).mockImplementation(async () => {
-      refuseHttpRedirect({
-        protocol: 'http:',
-        href: 'http://mirror.example.com/t.zip'
-      })
-
-      return {data: new ArrayBuffer(0), headers: {}}
+  it('follows a redirect to plain http when EXTENSION_ALLOW_HTTP_TEMPLATE=true', async () => {
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+    const server = await serving({
+      '/template.zip': {redirectTo: '/moved.zip'},
+      '/moved.zip': {body: templateZip}
     })
+    const projectPath = await makeProjectPath()
 
+    await importExternalTemplate(
+      projectPath,
+      'my-ext',
+      server.url('/template.zip'),
+      noopLogger,
+      {ownsProjectDir: true}
+    )
+
+    expect(server.hits('/moved.zip')).toBe(1)
+    expect(fs.existsSync(path.join(projectPath, 'manifest.json'))).toBe(true)
+  })
+
+  // The import is given an https URL, and the loopback server that answers
+  // for it redirects to plain http, where a whole archive is waiting.
+  async function httpsUrlRedirectingToHttp() {
+    const server = await serving({
+      '/template.zip': {redirectTo: '/moved.zip'},
+      '/moved.zip': {body: templateZip}
+    })
     const projectPath = await makeProjectPath()
 
     const error = (await importExternalTemplate(
       projectPath,
       'my-ext',
-      'https://example.com/template.zip',
-      {log: () => {}, error: () => {}},
-      {ownsProjectDir: true}
+      'https://templates.test/template.zip',
+      noopLogger,
+      {ownsProjectDir: true, fetch: fetchFrom(server.url('/template.zip'))}
     ).catch((thrown: Error) => thrown)) as Error
 
+    return {server, projectPath, error}
+  }
+
+  it('never requests the plain http target an https ZIP URL redirects to', async () => {
+    const {server, projectPath, error} = await httpsUrlRedirectingToHttp()
+
     expect(error).toBeInstanceOf(InsecureTemplateUrlError)
-    expect(error.message).toContain('http://mirror.example.com/t.zip')
+    expect(server.hits('/template.zip')).toBe(1)
+    expect(server.hits('/moved.zip')).toBe(0)
+    expect(fs.existsSync(projectPath)).toBe(false)
+  })
+
+  it('names the redirect target in the refusal', async () => {
+    const {server, projectPath, error} = await httpsUrlRedirectingToHttp()
+    const frame = stripVTControlCharacters(error.message)
+
+    expect(error).toBeInstanceOf(InsecureTemplateUrlError)
+    expect((error as InsecureTemplateUrlError).url).toBe(
+      server.url('/moved.zip')
+    )
+
+    expect(frame).toContain(server.url('/moved.zip'))
+    expect(frame).toContain('plain HTTP')
     expect(fs.existsSync(projectPath)).toBe(false)
   })
 
   it('refuses an http EXTENSION_CREATE_TEMPLATE_URL without the offline fallback', async () => {
-    const prevUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL
     process.env.EXTENSION_CREATE_TEMPLATE_URL =
       'http://mirror.example.com/x.zip'
 
-    try {
-      const projectPath = await makeProjectPath()
+    const projectPath = await makeProjectPath()
+    const transport = unusedTransport()
 
-      const error = (await importExternalTemplate(
-        projectPath,
-        'my-ext',
-        'typescript',
-        {log: () => {}, error: () => {}},
-        {ownsProjectDir: true, allowOfflineFallback: true}
-      ).catch((thrown: Error) => thrown)) as Error
+    const error = (await importExternalTemplate(
+      projectPath,
+      'my-ext',
+      'typescript',
+      noopLogger,
+      {ownsProjectDir: true, allowOfflineFallback: true, ...transport}
+    ).catch((thrown: Error) => thrown)) as Error
 
-      expect(error).toBeInstanceOf(InsecureTemplateUrlError)
-      expect(axios.get).not.toHaveBeenCalled()
-      expect(error.message).toContain('http://mirror.example.com/x.zip')
-      expect(fs.existsSync(projectPath)).toBe(false)
-    } finally {
-      if (prevUrl === undefined) {
-        delete process.env.EXTENSION_CREATE_TEMPLATE_URL
-      } else process.env.EXTENSION_CREATE_TEMPLATE_URL = prevUrl
-    }
+    expect(error).toBeInstanceOf(InsecureTemplateUrlError)
+    expect(transport.fetch).not.toHaveBeenCalled()
+    expect(error.message).toContain('http://mirror.example.com/x.zip')
+    expect(fs.existsSync(projectPath)).toBe(false)
   })
 
   it('stops a catalog download that redirects to http, with no retry or fallback', async () => {
-    vi.mocked(axios.get).mockImplementation(async () => {
-      refuseHttpRedirect({href: 'http://mirror.example.com/x.zip'})
-
-      return {data: new ArrayBuffer(0), headers: {}}
+    const server = await serving({
+      '/catalog.zip': {redirectTo: '/moved.zip'},
+      '/moved.zip': {
+        body: buildExamplesArchive({
+          typescript: fixtureExtensionFiles('typescript')
+        })
+      }
     })
-
     const projectPath = await makeProjectPath()
+    const fetch = vi.fn(fetchFrom(server.url('/catalog.zip')))
+    const waits: number[] = []
 
-    await expect(
-      importExternalTemplate(
-        projectPath,
-        'my-ext',
-        'typescript',
-        {log: () => {}, error: () => {}},
-        {ownsProjectDir: true, allowOfflineFallback: true}
-      )
-    ).rejects.toBeInstanceOf(InsecureTemplateUrlError)
+    const error = (await importExternalTemplate(
+      projectPath,
+      'my-ext',
+      'typescript',
+      noopLogger,
+      {
+        ownsProjectDir: true,
+        allowOfflineFallback: true,
+        fetch,
+        downloadRetry: {
+          sleep: async (ms) => {
+            waits.push(ms)
+          }
+        }
+      }
+    ).catch((thrown: Error) => thrown)) as Error
 
-    expect(axios.get).toHaveBeenCalledTimes(1)
-    const [, config] = vi.mocked(axios.get).mock.calls[0]
-    expect(
-      (config as {beforeRedirect?: unknown} | undefined)?.beforeRedirect
-    ).toBe(refuseHttpRedirect)
+    expect(error).toBeInstanceOf(InsecureTemplateUrlError)
+    expect((error as InsecureTemplateUrlError).url).toBe(
+      server.url('/moved.zip')
+    )
 
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(fetch.mock.calls[0][0]).toContain('https://codeload.github.com/')
+    expect(waits).toEqual([])
+    expect(server.hits('/moved.zip')).toBe(0)
     expect(fs.existsSync(projectPath)).toBe(false)
   })
 

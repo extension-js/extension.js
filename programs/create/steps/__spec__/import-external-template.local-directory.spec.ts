@@ -5,18 +5,15 @@ import * as path from 'node:path'
 import {strToU8, zipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-vi.mock('go-git-it', () => ({default: vi.fn(async () => {})}))
-vi.mock('axios', () => ({
-  default: {
-    get: vi.fn(async () => {
-      throw new Error('network is disabled in this test')
-    })
-  }
-}))
-
-import axios from 'axios'
-import goGitIt from 'go-git-it'
-import {importExternalTemplate} from '../import-external-template'
+import {
+  type LoopbackServer,
+  serveLoopback
+} from '../../__spec__/loopback-template-server'
+import {
+  importExternalTemplate,
+  type TemplateClone,
+  type TemplateFetch
+} from '../import-external-template'
 
 // The catalog has an entry whose name is also the basename of the local
 // directory under test, which is the collision the defect lived in.
@@ -56,17 +53,33 @@ function makeLocalTemplate() {
 
 const logger = {log: () => {}, error: () => {}}
 
-beforeEach(() => {
-  vi.mocked(axios.get).mockReset()
-  vi.mocked(axios.get).mockResolvedValue({
-    data: CATALOG_ARCHIVE,
-    headers: {'content-type': 'application/zip'}
+const savedEnv = {
+  EXTENSION_ALLOW_HTTP_TEMPLATE: process.env.EXTENSION_ALLOW_HTTP_TEMPLATE,
+  EXTENSION_CREATE_TEMPLATE_URL: process.env.EXTENSION_CREATE_TEMPLATE_URL
+}
+let catalog: LoopbackServer
+
+// The catalog override points the real download at a loopback archive.
+beforeEach(async () => {
+  catalog = await serveLoopback({
+    '/catalog.zip': {body: CATALOG_ARCHIVE},
+    '/no-examples.zip': {
+      body: Buffer.from(zipSync({'examples-main/README.md': strToU8('x')}))
+    }
   })
 
-  vi.mocked(goGitIt).mockClear()
+  process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
+  process.env.EXTENSION_CREATE_TEMPLATE_URL = catalog.url('/catalog.zip')
 })
 
 afterEach(async () => {
+  for (const [name, value] of Object.entries(savedEnv)) {
+    if (value === undefined) delete process.env[name]
+    else process.env[name] = value
+  }
+
+  await catalog.close()
+
   while (tempDirs.length > 0) {
     await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
   }
@@ -77,19 +90,27 @@ describe('a --template that names a directory on this machine', () => {
     const templateDir = makeLocalTemplate()
     const projectPath = path.join(makeTempDir('extjs-local-out-'), 'my-ext')
 
+    const fetch = vi.fn<TemplateFetch>(async () => {
+      throw new Error('the import asked for a download')
+    })
+    const clone = vi.fn<TemplateClone>(async () => {
+      throw new Error('the import asked for a clone')
+    })
+
     const provenance = await importExternalTemplate(
       projectPath,
       'my-ext',
       templateDir,
       logger,
-      {ownsProjectDir: true}
+      {ownsProjectDir: true, fetch, clone}
     )
 
     expect(provenance).toEqual({template: 'widget', source: 'local'})
     expect(fs.existsSync(path.join(projectPath, 'LOCAL.md'))).toBe(true)
     expect(fs.existsSync(path.join(projectPath, 'REMOTE.md'))).toBe(false)
-    expect(axios.get).not.toHaveBeenCalled()
-    expect(goGitIt).not.toHaveBeenCalled()
+    expect(fetch).not.toHaveBeenCalled()
+    expect(clone).not.toHaveBeenCalled()
+    expect(catalog.hits('/catalog.zip')).toBe(0)
   })
 
   it('reads a relative path against the working directory', async () => {
@@ -163,10 +184,7 @@ describe('a --template that names a directory on this machine', () => {
   )
 
   it('names the value it was given when no such directory exists', async () => {
-    vi.mocked(axios.get).mockResolvedValue({
-      data: Buffer.from(zipSync({'examples-main/README.md': strToU8('x')})),
-      headers: {'content-type': 'application/zip'}
-    })
+    process.env.EXTENSION_CREATE_TEMPLATE_URL = catalog.url('/no-examples.zip')
 
     const projectPath = path.join(makeTempDir('extjs-local-out-'), 'my-ext')
 
@@ -178,7 +196,9 @@ describe('a --template that names a directory on this machine', () => {
       {ownsProjectDir: true}
     ).catch((thrown: Error) => thrown)) as Error
 
+    expect(error.name).toBe('TemplateNotFoundError')
     expect(error.message).toContain('./my-templates/not-a-real-template')
+    expect(catalog.hits('/no-examples.zip')).toBe(1)
   })
 
   // A bare word is a catalog name even when the working directory happens to

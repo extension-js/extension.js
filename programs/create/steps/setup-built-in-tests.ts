@@ -9,11 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {failStep} from '../lib/utils'
 
-export async function setupBuiltInTests(
-  projectPath: string,
-  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
-) {
+export async function setupBuiltInTests(projectPath: string) {
   try {
     const testSpecPath = path.join(projectPath, 'tests', 'templates.spec.ts')
 
@@ -21,8 +19,6 @@ export async function setupBuiltInTests(
       fs.unlinkSync(testSpecPath)
     }
   } catch (error) {
-    logger.error(messages.cantSetupBuiltInTests(error))
-
-    throw error
+    throw failStep(messages.cantSetupBuiltInTests(error), error)
   }
 }

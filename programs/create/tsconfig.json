@@ -18,5 +18,12 @@
     "types": ["node", "webextension-polyfill", "chrome"]
   },
   "include": ["."],
-  "exclude": ["node_modules", "dist", "**/*.spec.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.spec.ts",
+    "**/__spec__/**",
+    "rslib.config.ts",
+    "vitest.config.ts"
+  ]
 }

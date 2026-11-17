@@ -41,12 +41,15 @@ const require = createRequire(import.meta.url)
 // pins each needle against the real message so a copy edit fails loudly.
 export const CREATE_ERROR_NEEDLES = {
   E_DESTINATION_NOT_EMPTY: ['already contains files that would be overwritten'],
-  E_DESTINATION_NOT_WRITABLE: ["Couldn't write to the destination directory"],
+  // Every refused write lands inside the destination, the folder itself or a
+  // file the scaffold places in it, and the fix is the same permissions.
+  E_DESTINATION_NOT_WRITABLE: ["Couldn't write "],
   // A template with no readable manifest is the same refusal class as a
   // template the catalog does not have, which is what this code documents.
   E_TEMPLATE_NOT_FOUND: [
     'is not in the extension-js/templates catalog',
     "Couldn't read a manifest.json",
+    "Couldn't read the template's",
     // A path-shaped --template that names neither a directory here nor a
     // catalog entry is the same refusal class, reported against the path.
     'that path on this machine'

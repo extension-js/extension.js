@@ -13,13 +13,18 @@ import {
   parseNpmSpecifier,
   readDenoConfigDependencies
 } from '../lib/deno-manifest'
-import {runInstall as runInstallCommand} from '../lib/install-runner'
+import {readTemplatePackageJson} from '../lib/find-manifest-json'
+import {
+  type InstallResult,
+  type InstallRunner,
+  runInstall as runInstallCommand
+} from '../lib/install-runner'
 import * as messages from '../lib/messages'
-import {hasChannelPrefix} from '../lib/messaging'
 import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
+import {failStep} from '../lib/utils'
 
 // `--silent` is for a run the user is watching. When the output is captured
 // instead, silencing it throws away the only diagnosis a failure can carry:
@@ -32,10 +37,12 @@ function getInstallArgs(packageManager: string, silent: boolean) {
   return ['install', '--silent']
 }
 
-type InstallResult = {
-  code: number | null
-  stderr: string
-  stdout: string
+// The runner's own reason leads, so a long captured output cannot push it
+// past the point where the frame truncates.
+function failureOutput(run: InstallResult) {
+  return [run.reason, run.stdout, run.stderr]
+    .filter((part) => part !== undefined)
+    .join('\n')
 }
 
 function getTagFallback(version: string) {
@@ -216,38 +223,20 @@ function shouldRetryWithTagFallback(output: string) {
   )
 }
 
-async function runInstall(
-  command: string,
-  args: string[],
-  cwd: string,
-  stdio: 'inherit' | 'ignore' | 'pipe'
-): Promise<InstallResult> {
-  return runInstallCommand(command, args, {cwd, stdio})
-}
-
 async function hasDependenciesToInstall(projectPath: string) {
-  // When package.json is present, its deps alone decide, same as today for
-  // npm scaffolds (empty package.json still skips). Only a missing file falls
-  // through to the Deno config; a fat-fingered / unreadable package.json must
-  // fail loudly rather than be treated as "no deps".
-  const packageJsonPath = path.join(projectPath, 'package.json')
-  let raw: string
+  // When package.json is present, its deps alone decide (an empty one still
+  // skips). Only a missing file falls through to the Deno config, and one that
+  // does not parse is refused framed instead of read as "no deps".
+  const packageJson = readTemplatePackageJson(projectPath)
 
-  try {
-    raw = await fs.promises.readFile(packageJsonPath, 'utf8')
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
-      // Deno-primary (or a web-only remote template). Skip install when the
-      // Deno imports map declares nothing to fetch either.
-      return Object.keys(readDenoConfigDependencies(projectPath)).length > 0
-    }
-
-    throw error
+  if (!packageJson) {
+    // Deno-primary (or a web-only remote template). Skip install when the
+    // Deno imports map declares nothing to fetch either.
+    return Object.keys(readDenoConfigDependencies(projectPath)).length > 0
   }
 
-  const packageJson = JSON.parse(raw)
-  const depsCount = Object.keys(packageJson?.dependencies || {}).length
-  const devDepsCount = Object.keys(packageJson?.devDependencies || {}).length
+  const depsCount = Object.keys(packageJson.dependencies || {}).length
+  const devDepsCount = Object.keys(packageJson.devDependencies || {}).length
 
   return depsCount + devDepsCount > 0
 }
@@ -260,7 +249,8 @@ export async function installDependencies(
   // What the user asked for, so a failure can name the create that tries
   // again. The scaffold is removed on failure, so the install command itself
   // is not something they can run.
-  template?: string
+  template?: string,
+  runInstall: InstallRunner = runInstallCommand
 ) {
   const retry = {projectPath, template}
   const nodeModulesPath = path.join(projectPath, 'node_modules')
@@ -286,27 +276,23 @@ export async function installDependencies(
   try {
     await fs.promises.mkdir(nodeModulesPath, {recursive: true})
 
-    const firstRun = await runInstall(
-      command,
-      dependenciesArgs,
-      projectPath,
+    const firstRun = await runInstall(command, dependenciesArgs, {
+      cwd: projectPath,
       stdio
-    )
+    })
 
     if (firstRun.code !== 0) {
-      const output = `${firstRun.stdout}\n${firstRun.stderr}`
+      const output = failureOutput(firstRun)
       const shouldRetry = shouldRetryWithTagFallback(output)
       const didUpdate = shouldRetry
         ? await updateExtensionDependencyTag(projectPath)
         : false
 
       if (didUpdate) {
-        const retryRun = await runInstall(
-          command,
-          dependenciesArgs,
-          projectPath,
+        const retryRun = await runInstall(command, dependenciesArgs, {
+          cwd: projectPath,
           stdio
-        )
+        })
 
         if (retryRun.code === 0) {
           return
@@ -317,7 +303,7 @@ export async function installDependencies(
             command,
             dependenciesArgs,
             retryRun.code,
-            `${retryRun.stdout}\n${retryRun.stderr}`,
+            failureOutput(retryRun),
             retry
           )
         )
@@ -335,13 +321,10 @@ export async function installDependencies(
     }
   } catch (error) {
     // One frame per failure: the frame travels on the error for the CLI to
-    // print, and a logger.error here would print the same failure twice.
-    if (hasChannelPrefix(String((error as Error)?.message ?? error))) {
-      throw error
-    }
-
-    throw new Error(
-      messages.installingDependenciesProcessError(projectName, error, retry)
+    // print, and a refusal framed above passes through as it is.
+    throw failStep(
+      messages.installingDependenciesProcessError(projectName, error, retry),
+      error
     )
   }
 }

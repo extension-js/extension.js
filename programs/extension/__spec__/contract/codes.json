@@ -432,7 +432,7 @@
     },
     "E_DESTINATION_NOT_WRITABLE": {
       "area": "create",
-      "summary": "The destination directory is not writable."
+      "summary": "The destination directory, or a file the scaffold writes in it, is not writable."
     },
     "E_PREVIEW_NO_DIST": {
       "area": "preview",

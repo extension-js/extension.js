@@ -3,18 +3,12 @@ import * as fsp from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {strToU8, zipSync} from 'fflate'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 
-vi.mock('go-git-it', () => ({default: vi.fn(async () => {})}))
-vi.mock('axios', () => ({
-  default: {
-    get: vi.fn(async () => {
-      throw new Error('no response configured for this test')
-    })
-  }
-}))
-
-import axios from 'axios'
+import {
+  type LoopbackServer,
+  serveLoopback
+} from '../../__spec__/loopback-template-server'
 import {importExternalTemplate} from '../import-external-template'
 
 // The sidebar-monorepo-turborepo shape from BUGS_TO_FIX 123: the one catalog
@@ -42,16 +36,33 @@ function makeCatalogZipWithLockfiles(): Buffer {
 }
 
 describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', () => {
-  const prevEnv = process.env.EXTENSION_ENV
+  const savedEnv = {
+    EXTENSION_ENV: process.env.EXTENSION_ENV,
+    EXTENSION_ALLOW_HTTP_TEMPLATE: process.env.EXTENSION_ALLOW_HTTP_TEMPLATE,
+    EXTENSION_CREATE_TEMPLATE_URL: process.env.EXTENSION_CREATE_TEMPLATE_URL
+  }
   const tempDirs: string[] = []
+  const servers: LoopbackServer[] = []
 
   beforeEach(() => {
     process.env.EXTENSION_ENV = 'test'
-    vi.mocked(axios.get).mockReset()
+    process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
   })
 
+  // The catalog override points the real download at a loopback archive.
+  async function catalogServing(archive: Buffer) {
+    const server = await serveLoopback({'/catalog.zip': {body: archive}})
+    servers.push(server)
+    process.env.EXTENSION_CREATE_TEMPLATE_URL = server.url('/catalog.zip')
+  }
+
   afterEach(async () => {
-    process.env.EXTENSION_ENV = prevEnv
+    for (const [name, value] of Object.entries(savedEnv)) {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+
+    for (const server of servers.splice(0)) await server.close()
 
     while (tempDirs.length > 0) {
       await fsp.rm(tempDirs.pop()!, {recursive: true, force: true})
@@ -63,10 +74,7 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
     tempDirs.push(tmpRoot)
     const projectPath = path.join(tmpRoot, 'my-ext')
 
-    vi.mocked(axios.get).mockResolvedValue({
-      data: makeCatalogZipWithLockfiles(),
-      headers: {'content-type': 'application/zip'}
-    } as never)
+    await catalogServing(makeCatalogZipWithLockfiles())
 
     const logs: string[] = []
     await importExternalTemplate(
@@ -103,15 +111,14 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
     tempDirs.push(tmpRoot)
     const projectPath = path.join(tmpRoot, 'my-ext')
 
-    vi.mocked(axios.get).mockResolvedValue({
-      data: Buffer.from(
+    await catalogServing(
+      Buffer.from(
         zipSync({
           'examples-main/examples/react/package.json':
             strToU8('{"name":"react"}')
         })
-      ),
-      headers: {'content-type': 'application/zip'}
-    } as never)
+      )
+    )
 
     const logs: string[] = []
     await importExternalTemplate(projectPath, 'my-ext', 'react', {
@@ -119,6 +126,7 @@ describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', (
       error: () => {}
     })
 
+    expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBe(true)
     expect(logs.find((line) => line.includes('lock'))).toBeUndefined()
   })
 })

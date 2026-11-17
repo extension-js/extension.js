@@ -10,6 +10,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
+import {failStep} from '../lib/utils'
 
 const intro =
   '# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.'
@@ -79,9 +80,7 @@ export async function writeGitignore(
         return ''
       }
 
-      logger.error(err)
-
-      throw err
+      throw failStep(messages.writingGitIgnoreError(gitIgnorePath, err), err)
     })
 
   const present = new Set(
@@ -110,8 +109,6 @@ export async function writeGitignore(
   const contents = `${existing ? `${existing}\n\n` : ''}${blocks.join('\n\n')}\n`
 
   await fs.writeFile(gitIgnorePath, contents).catch((err) => {
-    logger.error(err)
-
-    throw err
+    throw failStep(messages.writingGitIgnoreError(gitIgnorePath, err), err)
   })
 }

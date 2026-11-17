@@ -1,7 +1,10 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {beforeAll, describe, expect, it} from 'vitest'
+import {stripVTControlCharacters} from 'node:util'
+import {sync as spawnSync} from 'cross-spawn'
+import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
   fixtureExtensionFiles,
   serveExamplesCatalog
@@ -13,124 +16,47 @@ function restoreEnv(name: string, value: string | undefined) {
   else process.env[name] = value
 }
 
-let extensionCreate: (
-  projectName: string | undefined,
-  opts: any
-) => Promise<void>
-
-{
-  const require = createRequire(import.meta.url)
-
-  try {
-    // Standalone repo path
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    extensionCreate = require('./dist/module.cjs').extensionCreate
-  } catch {
-    try {
-      // Monorepo fallback
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      extensionCreate =
-        require('../../programs/create/dist/module.cjs').extensionCreate
-    } catch {
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      extensionCreate = require('./dist/module.js').extensionCreate
-    }
-  }
+// The one spec that runs the compiled bundle, the file a consumer installs.
+const {extensionCreate} = createRequire(import.meta.url)(
+  './dist/module.cjs'
+) as {
+  extensionCreate: (
+    projectName: string | undefined,
+    opts: {template?: string; install?: boolean}
+  ) => Promise<unknown>
 }
 
-type TemplateMeta = {
-  name: string
-  uiFramework?: string
-  uiContext?: string[]
-  css?: string
-  configFiles?: string[]
-  hasEnv?: boolean
-}
-
-let ALL_TEMPLATES: TemplateMeta[] = []
-let DEFAULT_TEMPLATE: TemplateMeta = {name: 'javascript'}
-
-try {
-  const require = createRequire(import.meta.url)
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const m = require('../../examples/data') as {
-    ALL_TEMPLATES: TemplateMeta[]
-    DEFAULT_TEMPLATE: TemplateMeta
-  }
-  ALL_TEMPLATES = m.ALL_TEMPLATES
-  DEFAULT_TEMPLATE = m.DEFAULT_TEMPLATE
-} catch {
-  ALL_TEMPLATES = [{name: 'javascript'}]
-  DEFAULT_TEMPLATE = {name: 'javascript'}
-}
-
-function fileExists(templateName: string, filePath?: string): boolean {
-  const templatePath = path.resolve(
-    __dirname,
-    'dist',
-    `test-template-${templateName}`
-  )
-
-  return fs.existsSync(path.join(templatePath, filePath || ''))
-}
-
-function manifestExists(templateName: string): boolean {
-  const candidates = [
-    'manifest.json',
-    path.join('src', 'manifest.json'),
-    path.join('extension', 'manifest.json'),
-    path.join('extension', 'src', 'manifest.json')
-  ]
-
-  return candidates.some((candidate) => fileExists(templateName, candidate))
-}
-
-async function removeDir(dirPath: string) {
-  if (fs.existsSync(dirPath)) {
-    await fs.promises.rm(dirPath, {recursive: true})
-  }
-}
-
-async function removeAllTemplateFolders() {
-  await Promise.all(
-    ALL_TEMPLATES.map(async (template) => {
-      const templatePath = path.resolve(
-        __dirname,
-        'dist',
-        `test-template-${template.name}`
-      )
-
-      console.log('Removing template:', templatePath)
-
-      await removeDir(templatePath)
-
-      return true
-    })
-  )
-}
+let workDir: string
 
 describe('extension create', () => {
   beforeAll(async () => {
-    await removeAllTemplateFolders()
+    workDir = await fs.promises.mkdtemp(
+      path.join(os.tmpdir(), 'extjs-create-dist-')
+    )
+  })
+
+  afterAll(async () => {
+    await fs.promises.rm(workDir, {recursive: true, force: true})
   })
 
   it('throws an error if no project name is provided', async () => {
-    try {
-      await extensionCreate(undefined, {
-        template: DEFAULT_TEMPLATE.name
-      })
-    } catch (error: any) {
-      expect(error).toBeTruthy()
-      expect(error.message).toContain('A project name is required')
-    }
+    const error = await extensionCreate(undefined, {
+      template: DEFAULT_TEMPLATE_NAME
+    }).then(
+      () => undefined,
+      (reason: unknown) => reason
+    )
+
+    expect(error).toBeInstanceOf(Error)
+    expect(stripVTControlCharacters((error as Error).message)).toBe(
+      '⏵⏵⏵ A project name is required.\n' +
+        'Pass a name, for example extension create my-extension.\n' +
+        'Run extension create --help for the full usage.'
+    )
   }, 30000)
 
   it('creates a default project when template is omitted', async () => {
-    const templatePath = path.resolve(
-      __dirname,
-      'dist',
-      'test-template-javascript'
-    )
+    const projectPath = path.join(workDir, 'default-project')
     const catalog = await serveExamplesCatalog({
       [DEFAULT_TEMPLATE_NAME]: fixtureExtensionFiles(DEFAULT_TEMPLATE_NAME)
     })
@@ -140,7 +66,7 @@ describe('extension create', () => {
     process.env.EXTENSION_ALLOW_HTTP_TEMPLATE = 'true'
 
     try {
-      await extensionCreate(templatePath, {
+      await extensionCreate(projectPath, {
         install: false
       })
     } finally {
@@ -149,133 +75,135 @@ describe('extension create', () => {
       await catalog.close()
     }
 
-    expect(fileExists('javascript', 'package.json')).toBeTruthy()
-    expect(manifestExists('javascript')).toBeTruthy()
-    expect(fileExists('javascript', 'README.md')).toBeTruthy()
+    for (const file of ['package.json', 'src/manifest.json', 'README.md']) {
+      expect(fs.existsSync(path.join(projectPath, file)), file).toBe(true)
+    }
 
     const provenance = JSON.parse(
-      fs.readFileSync(
-        path.join(templatePath, '.extension-create.json'),
-        'utf-8'
-      )
+      fs.readFileSync(path.join(projectPath, '.extension-create.json'), 'utf-8')
     )
     expect(provenance.template).toBe(DEFAULT_TEMPLATE_NAME)
     expect(provenance.source).toBe(catalog.url)
   }, 30000)
 
+  // The published entry hands `install` on to the create. The template ships a
+  // file named node_modules, so the install step stops at its own first line,
+  // before any package manager is asked. An empty PATH makes sure of that.
+  it('forwards install: true, which reaches the install step', async () => {
+    const template = path.join(workDir, 'template-with-a-node-modules-file')
+    const projectPath = path.join(workDir, 'install-forwarded')
+    const emptyBin = path.join(workDir, 'empty-bin')
+    await fs.promises.mkdir(template)
+    await fs.promises.mkdir(emptyBin)
+    await fs.promises.writeFile(
+      path.join(template, 'manifest.json'),
+      JSON.stringify({name: 'seed', manifest_version: 3, version: '1.0.0'})
+    )
+
+    await fs.promises.writeFile(path.join(template, 'node_modules'), '')
+    const savedPath = process.env.PATH
+    process.env.PATH = emptyBin
+
+    const run = (install: boolean) =>
+      extensionCreate(projectPath, {template, install}).then(
+        () => undefined,
+        (reason: Error & {cause?: NodeJS.ErrnoException}) => reason
+      )
+
+    try {
+      const withInstall = await run(true)
+
+      expect(
+        stripVTControlCharacters(String(withInstall?.message)).split('\n')[0]
+      ).toBe("⏵⏵⏵ Couldn't install the dependencies for install-forwarded.")
+
+      expect(withInstall?.cause).toMatchObject({
+        code: 'EEXIST',
+        syscall: 'mkdir',
+        path: path.join(projectPath, 'node_modules')
+      })
+
+      expect(fs.existsSync(projectPath)).toBe(false)
+
+      // The same template scaffolds when no install is asked for, so the
+      // failure above can only have come from the flag.
+      expect(await run(false)).toBeUndefined()
+      expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBe(true)
+    } finally {
+      restoreEnv('PATH', savedPath)
+    }
+  }, 30000)
+
   it('rejects a URL as project path', async () => {
     await expect(
       extensionCreate('http://example.com', {
-        template: DEFAULT_TEMPLATE.name
+        template: DEFAULT_TEMPLATE_NAME
       })
     ).rejects.toThrow('A URL is not a valid project path')
   }, 30000)
+})
 
-  describe.skip('using the --template flag', () => {
-    it.each(
-      ALL_TEMPLATES
-    )(`creates the "$name" extension template`, async (template) => {
-      const templatePath = path.join(
-        __dirname,
-        'dist',
-        `test-template-${template.name}`
+// The file list npm would publish, read from a dry run that packs nothing and
+// asks no registry. npm prints an array before version 11 and a map after.
+function publishedFiles(): string[] {
+  const run = spawnSync(
+    'npm',
+    ['pack', '--dry-run', '--json', '--ignore-scripts', '--offline'],
+    {
+      cwd: import.meta.dirname,
+      encoding: 'utf8',
+      env: {...process.env, npm_config_update_notifier: 'false'}
+    }
+  )
+
+  expect(run.status, run.stderr).toBe(0)
+
+  const report: unknown = JSON.parse(run.stdout)
+  const [entry] = Object.values(report as Record<string, unknown>) as Array<{
+    files: Array<{path: string}>
+  }>
+
+  return entry.files.map((file) => file.path)
+}
+
+describe('the published extension-create package', () => {
+  // A template is the product, so its config and sources ship on purpose.
+  it('ships no spec, config or TypeScript source beside the templates', () => {
+    const files = publishedFiles()
+    const ours = files.filter((file) => !file.startsWith('templates/'))
+
+    expect(files).toContain('dist/module.cjs')
+    expect(ours.filter((file) => file.includes('__spec__'))).toEqual([])
+    expect(ours.filter((file) => /\.(?:spec|config)\./.test(file))).toEqual([])
+    expect(
+      ours.filter(
+        (file) => /\.[cm]?tsx?$/.test(file) && !/\.d\.[cm]?ts$/.test(file)
       )
+    ).toEqual([])
+  }, 30000)
 
-      await extensionCreate(templatePath, {
-        template: template.name,
-        install: true
-      })
+  it('ships every file its exports, main and types name', () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(import.meta.dirname, 'package.json'), 'utf8')
+    ) as {
+      main: string
+      types: string
+      exports: Record<string, Record<string, string>>
+    }
 
-      const ext = template.uiFramework
-        ? template.uiFramework === 'vue' || template.uiFramework === 'svelte'
-          ? 'ts'
-          : 'tsx'
-        : template.configFiles?.includes('tsconfig.json')
-          ? 'ts'
-          : 'js'
+    // The development condition names source on purpose and is never shipped.
+    const named = Object.values(manifest.exports).flatMap((entry) =>
+      Object.entries(entry)
+        .filter(([condition]) => condition !== 'development')
+        .map(([, target]) => target)
+    )
 
-      template.uiContext?.forEach((context: string) => {
-        if (!context.includes('content')) {
-          expect(
-            fileExists(template.name, `${context.toLowerCase()}/index.html`)
-          ).toBeTruthy()
-        }
+    const targets = [...new Set([manifest.main, manifest.types, ...named])]
+    const files = publishedFiles()
 
-        if (template.name.includes('esm')) {
-          expect(
-            fileExists(template.name, `${context.toLowerCase()}/scripts.mjs`)
-          ).toBeTruthy()
-        } else {
-          expect(
-            fileExists(template.name, `${context.toLowerCase()}/scripts.${ext}`)
-          ).toBeTruthy()
-        }
-
-        if (template.css === 'sass') {
-          expect(
-            fileExists(template.name, `${context.toLowerCase()}/styles.scss`)
-          ).toBeTruthy()
-        } else if (template.name?.includes('less')) {
-          expect(
-            fileExists(template.name, `${context.toLowerCase()}/styles.less`)
-          ).toBeTruthy()
-        } else {
-          expect(
-            fileExists(template.name, `${context.toLowerCase()}/styles.css`)
-          ).toBeTruthy()
-        }
-
-        if (template.uiFramework) {
-          const capitalizedtemplate =
-            context?.charAt(0).toUpperCase() + context?.slice(1)
-
-          const fileExt =
-            template.uiFramework === 'vue'
-              ? 'vue'
-              : template.uiFramework === 'svelte'
-                ? 'svelte'
-                : ext
-
-          expect(
-            fileExists(
-              template.name,
-              `${context.toLowerCase()}/${capitalizedtemplate}App.${fileExt}`
-            )
-          ).toBeTruthy()
-        }
-      })
-
-      if (template.name !== 'init' && template.name !== 'javascript') {
-        expect(
-          fileExists(template.name, 'images/extension_48.png')
-        ).toBeTruthy()
-      }
-
-      if (template.uiContext?.includes('action')) {
-        expect(
-          fileExists(template.name, 'images/extension_16.png')
-        ).toBeTruthy()
-      }
-
-      expect(manifestExists(template.name)).toBeTruthy()
-
-      expect(fileExists(template.name, 'package.json')).toBeTruthy()
-
-      expect(fileExists(template.name, 'README.md')).toBeTruthy()
-
-      expect(fileExists(template.name, '.gitignore')).toBeTruthy()
-
-      expect(fileExists(template.name, '.git')).toBeTruthy()
-
-      if (template.hasEnv) {
-        expect(fileExists(template.name, '.env.example')).toBeTruthy()
-      }
-
-      if (template.configFiles) {
-        template.configFiles.forEach((configFile) => {
-          expect(fileExists(template.name, configFile)).toBeTruthy()
-        })
-      }
-    }, 60000)
-  })
+    expect(targets).toContain('./dist/module.d.ts')
+    expect(
+      targets.filter((target) => !files.includes(target.replace(/^\.\//, '')))
+    ).toEqual([])
+  }, 30000)
 })

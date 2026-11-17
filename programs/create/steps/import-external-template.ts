@@ -10,11 +10,11 @@ import {existsSync, realpathSync, statSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import axios from 'axios'
+import axios, {type AxiosRequestConfig, type AxiosResponse} from 'axios'
 import {unzipSync} from 'fflate'
 import goGitIt from 'go-git-it'
 import * as messages from '../lib/messages'
-import {hasChannelPrefix, isDebug} from '../lib/messaging'
+import {isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 // In-process unzip with a zip-slip guard: entries naming absolute paths or
@@ -57,14 +57,15 @@ async function extractZipBufferTo(
   }
 }
 
-const NETWORK_TIMEOUT_MS = (() => {
+// Read when a fetch starts, so the variable counts whenever it was set.
+function networkTimeoutMs(): number {
   const raw = parseInt(
     String(process.env.EXTENSION_CREATE_TIMEOUT_MS || ''),
     10
   )
 
   return Number.isFinite(raw) && raw > 0 ? raw : 60_000
-})()
+}
 
 // codeload serves a repo archive per ref namespace: a commit at /zip/<sha>, a tag
 // at /zip/refs/tags/<tag>, a branch at /zip/refs/heads/<branch>.
@@ -315,7 +316,30 @@ function describeNonZipResponse(contentType: string, body: Buffer): string {
     : type
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+// How a catalog download retries. The wait grows by backoffMs per attempt,
+// and a caller that must not wait passes its own sleep.
+export interface DownloadRetryOptions {
+  attempts?: number
+  backoffMs?: number
+  sleep?: (ms: number) => Promise<unknown>
+}
+
+const waitFor = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// How a download reaches the network. A caller that must not passes its own.
+export type TemplateFetch = (
+  url: string,
+  config: AxiosRequestConfig
+) => Promise<Pick<AxiosResponse, 'data' | 'headers'>>
+
+const fetchWithAxios: TemplateFetch = (url, config) => axios.get(url, config)
+
+// How a GitHub URL is cloned into a folder, go-git-it unless a caller says.
+export type TemplateClone = (
+  url: string,
+  destination: string,
+  message: string
+) => Promise<unknown>
 
 // One budget for the whole fetch, retries included, like the remote source
 // fetch in develop. A per-attempt timeout let a silent server double it.
@@ -347,7 +371,8 @@ function budgetSpentBy(error: unknown, budget: FetchBudget): boolean {
 async function downloadArchive(
   url: string,
   budget: FetchBudget,
-  attempts = 2
+  {attempts = 2, backoffMs = 400, sleep = waitFor}: DownloadRetryOptions = {},
+  fetchTemplate: TemplateFetch = fetchWithAxios
 ): Promise<{body: Buffer; contentType: string}> {
   let lastError: unknown
 
@@ -356,7 +381,7 @@ async function downloadArchive(
     if (remaining <= 0) throw fetchBudgetSpent(budget)
 
     try {
-      const {data, headers} = await axios.get(url, {
+      const {data, headers} = await fetchTemplate(url, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
         timeout: remaining,
@@ -380,7 +405,7 @@ async function downloadArchive(
       const retriable = status === undefined || status === 429 || status >= 500
       if (attempt >= attempts || !retriable) break
 
-      await sleep(Math.min(400 * attempt, budget.deadline - Date.now()))
+      await sleep(Math.min(backoffMs * attempt, budget.deadline - Date.now()))
     }
   }
 
@@ -440,7 +465,9 @@ export async function extractExamplesTemplateFromZip(
 // unpack just the requested template, so catalog slugs scaffold without git.
 async function importFromExamplesCatalog(
   templateName: string,
-  projectPath: string
+  projectPath: string,
+  downloadRetry?: DownloadRetryOptions,
+  fetchTemplate?: TemplateFetch
 ): Promise<{source: string; ref?: string}> {
   const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || DEFAULT_TEMPLATES_REF
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
@@ -452,7 +479,7 @@ async function importFromExamplesCatalog(
   }
 
   const urls = resolveCatalogUrls(ref, overrideUrl)
-  const budget = startFetchBudget(NETWORK_TIMEOUT_MS)
+  const budget = startFetchBudget(networkTimeoutMs())
 
   let buffer: Buffer | undefined
   let contentType = ''
@@ -463,7 +490,12 @@ async function importFromExamplesCatalog(
   // present-but-missing slug still surfaces as TemplateNotFoundError below.
   for (const candidate of urls) {
     try {
-      const reply = await downloadArchive(candidate, budget)
+      const reply = await downloadArchive(
+        candidate,
+        budget,
+        downloadRetry,
+        fetchTemplate
+      )
       buffer = reply.body
       contentType = reply.contentType
       source = candidate
@@ -733,20 +765,42 @@ export interface ImportExternalTemplateOptions {
   // fallback instead of failing, so an offline machine can still create. An
   // explicit template that fails to download still fails loudly.
   allowOfflineFallback?: boolean
+  // Attempts and backoff for the catalog download. Omitted in production,
+  // where the defaults apply.
+  downloadRetry?: DownloadRetryOptions
+  // The transport under both downloads and the clone under a GitHub URL.
+  // Omitted in production, where axios and go-git-it do the work.
+  fetch?: TemplateFetch
+  clone?: TemplateClone
+  // How failure cleanup removes a path, fs.rm unless given.
+  remove?: RemovePath
 }
 
 // Failure cleanup must never delete a directory the scaffolder did not create
 // and never pre-existing user content (`extension create .` in a real repo
 // once lost .git to a transient download failure).
+export type RemovePath = (target: string) => Promise<void>
+
+const removeRecursively: RemovePath = (target) =>
+  fs.rm(target, {recursive: true, force: true})
+
+// Answers the paths it could not remove, so the caller can name them.
 export async function cleanupFailedImport(
   projectPath: string,
   ownsProjectDir: boolean,
-  preExistingEntries: string[]
-): Promise<void> {
-  if (ownsProjectDir) {
-    await fs.rm(projectPath, {recursive: true, force: true}).catch(() => {})
+  preExistingEntries: readonly string[],
+  remove: RemovePath = removeRecursively
+): Promise<string[]> {
+  const leftBehind: string[] = []
+  const removeOrReport = (target: string) =>
+    remove(target).catch(() => {
+      leftBehind.push(target)
+    })
 
-    return
+  if (ownsProjectDir) {
+    await removeOrReport(projectPath)
+
+    return leftBehind
   }
 
   const keep = new Set(preExistingEntries)
@@ -755,17 +809,40 @@ export async function cleanupFailedImport(
   try {
     entries = await fs.readdir(projectPath)
   } catch {
-    return
+    // Nothing can be listed, and the folder is the owner's, never ours to name.
+    return leftBehind
   }
 
   await Promise.all(
     entries
       .filter((entry) => !keep.has(entry))
-      .map((entry) =>
-        fs
-          .rm(path.join(projectPath, entry), {recursive: true, force: true})
-          .catch(() => {})
-      )
+      .map((entry) => removeOrReport(path.join(projectPath, entry)))
+  )
+
+  return leftBehind.sort()
+}
+
+export interface CleanupLeftovers {
+  leftBehind: string[]
+  notRestored: string[]
+}
+
+const cleanupNoted = new WeakSet<Error>()
+
+// The failure stays the one thrown. A cleanup that fell short is told once on
+// its frame, however many cleanup passes meet the same leftovers.
+export function noteIncompleteCleanup(
+  error: unknown,
+  {leftBehind, notRestored}: CleanupLeftovers
+): void {
+  if (!(error instanceof Error) || cleanupNoted.has(error)) return
+  if (leftBehind.length === 0 && notRestored.length === 0) return
+
+  cleanupNoted.add(error)
+  error.message = messages.withIncompleteCleanup(
+    error.message,
+    leftBehind,
+    notRestored
   )
 }
 
@@ -851,21 +928,29 @@ async function restoreOwnerHiddenFiles(
 }
 
 // A copy that failed partway may already have replaced these two by name.
-// The owner's bytes go back exactly as read, with nothing merged in.
+// The owner's bytes go back exactly as read, with nothing merged in, and the
+// paths that could not be written back are answered.
 export async function putBackOwnerHiddenFiles(
   projectPath: string,
   ownerFiles: OwnerHiddenFiles
-): Promise<void> {
+): Promise<string[]> {
   const files: Array<[string, string | Buffer | null]> = [
     ['.gitignore', ownerFiles.gitignore],
     ['.mcp.json', ownerFiles.mcpConfig]
   ]
+  const notRestored: string[] = []
 
   for (const [name, contents] of files) {
     if (contents === null) continue
 
-    await fs.writeFile(path.join(projectPath, name), contents).catch(() => {})
+    const target = path.join(projectPath, name)
+
+    await fs.writeFile(target, contents).catch(() => {
+      notRestored.push(target)
+    })
   }
+
+  return notRestored
 }
 
 export async function importExternalTemplate(
@@ -976,6 +1061,9 @@ export async function importExternalTemplate(
     tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'extension-js-create-'))
     const tempPath = path.join(tempRoot, `${projectName}-temp`)
     await fs.mkdir(tempPath, {recursive: true})
+    const timeoutMs = networkTimeoutMs()
+    const fetchTemplate = options?.fetch ?? fetchWithAxios
+    const cloneTemplate = options?.clone ?? goGitIt
 
     const runGoGitIt = async (templatePath: string, destination: string) => {
       // Harden the spawned git so a credential-helper prompt can't hang it
@@ -995,17 +1083,15 @@ export async function importExternalTemplate(
       try {
         await withTimeout(
           withSuppressedOutput(async () =>
-            goGitIt(
+            cloneTemplate(
               templatePath,
               destination,
-              messages.installingFromTemplate(projectName, templateName)
+              messages.installingFromTemplate(templateName)
             )
           ),
-          NETWORK_TIMEOUT_MS,
+          timeoutMs,
           () =>
-            new Error(
-              messages.templateFetchTimedOut(templateName, NETWORK_TIMEOUT_MS)
-            )
+            new Error(messages.templateFetchTimedOut(templateName, timeoutMs))
         )
       } finally {
         for (const [k, v] of Object.entries(savedEnv)) {
@@ -1016,10 +1102,10 @@ export async function importExternalTemplate(
     }
 
     const fetchZipArchive = async () => {
-      const {data, headers} = await axios.get(template, {
+      const {data, headers} = await fetchTemplate(template, {
         responseType: 'arraybuffer',
         maxRedirects: 5,
-        timeout: NETWORK_TIMEOUT_MS,
+        timeout: timeoutMs,
         beforeRedirect: refuseHttpRedirect
       })
       const contentType = String(headers?.['content-type'] || '')
@@ -1066,7 +1152,7 @@ export async function importExternalTemplate(
       // answers with a 404 or an HTML page is the user's URL to fix, not a
       // fault to report with our stack. axios times out an idle socket and
       // not a reply that trickles in, so the whole fetch gets one budget.
-      const budget = startFetchBudget(NETWORK_TIMEOUT_MS)
+      const budget = startFetchBudget(timeoutMs)
       const data = await withTimeout(fetchZipArchive(), budget.ms, () =>
         fetchBudgetSpent(budget)
       ).catch((fetchError: unknown) => {
@@ -1094,7 +1180,9 @@ export async function importExternalTemplate(
       // templates catalog, fetched as an HTTP tarball; no git, one template (#56).
       const catalog = await importFromExamplesCatalog(
         resolvedTemplateName,
-        projectPath
+        projectPath,
+        options?.downloadRetry,
+        fetchTemplate
       )
       provenance = {
         template: resolvedTemplateName,
@@ -1136,14 +1224,27 @@ export async function importExternalTemplate(
       resolvedTemplate !== OFFLINE_FALLBACK_TEMPLATE &&
       BUNDLED_TEMPLATES.includes(OFFLINE_FALLBACK_TEMPLATE)
     ) {
-      await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
-      await fs.mkdir(projectPath, {recursive: true})
-      const fallback = await copyBundledTemplate(
-        OFFLINE_FALLBACK_TEMPLATE,
+      // Leftovers of the failed download would mix into the bundled copy, so
+      // a cleanup that leaves any refuses the fallback and the failure is told.
+      const staleEntries = await cleanupFailedImport(
         projectPath,
-        logger,
-        ownerFiles
+        ownsProjectDir,
+        preExistingEntries,
+        options?.remove
       )
+      const fallback =
+        staleEntries.length === 0
+          ? await fs
+              .mkdir(projectPath, {recursive: true})
+              .then(() =>
+                copyBundledTemplate(
+                  OFFLINE_FALLBACK_TEMPLATE,
+                  projectPath,
+                  logger,
+                  ownerFiles
+                )
+              )
+          : undefined
 
       if (fallback) {
         logger.log(
@@ -1198,28 +1299,38 @@ export async function importExternalTemplate(
                     : messages.templateDownloadFailed(templateName, error)
                 : null
 
-    // A step that framed its own refusal (an output path inside the template)
-    // already carries the one frame the CLI prints.
-    if (
-      frame === null &&
-      !hasChannelPrefix(String((error as Error)?.message))
-    ) {
-      logger.error(messages.installingFromTemplateError(templateName, error))
-    }
+    // The CLI prints a framed message as-is and a bare one with its stack, so
+    // the frame travels on the error and is never logged here as well. A step
+    // that framed its own refusal (an output path inside the template) keeps it.
+    const failure =
+      frame === null
+        ? utils.failStep(
+            messages.installingFromTemplateError(templateName, error),
+            error
+          )
+        : error
+
+    if (frame !== null && failure instanceof Error) failure.message = frame
 
     // Clean the partial scaffold so a retry into the same name is not
     // poisoned, without ever touching content that pre-existed this run.
-    await cleanupFailedImport(projectPath, ownsProjectDir, preExistingEntries)
+    const leftBehind = await cleanupFailedImport(
+      projectPath,
+      ownsProjectDir,
+      preExistingEntries,
+      options?.remove
+    )
+    const notRestored = ownsProjectDir
+      ? []
+      : await putBackOwnerHiddenFiles(projectPath, ownerFiles)
 
-    if (!ownsProjectDir) await putBackOwnerHiddenFiles(projectPath, ownerFiles)
+    noteIncompleteCleanup(failure, {leftBehind, notRestored})
 
-    // The CLI prints a framed message as-is and a bare one with its stack,
-    // so the frame travels on the error and is never logged here as well.
-    if (frame !== null && error instanceof Error) error.message = frame
-
-    throw error
+    throw failure
   } finally {
     if (tempRoot) {
+      // Staging under the system temp folder: a failed removal is not the
+      // user's to fix, and it must not replace the result or the failure.
       await fs.rm(tempRoot, {recursive: true, force: true}).catch(() => {})
     }
   }

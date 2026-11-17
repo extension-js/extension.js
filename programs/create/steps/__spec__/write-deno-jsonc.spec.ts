@@ -15,6 +15,16 @@ function withDenoGlobal(body: () => Promise<void> | void) {
 
 const noopLogger = {log() {}, error() {}}
 
+// Absence is the ENOENT from fs.access on that exact path, so a broken
+// helper or a permission error cannot pass for a file that is not there.
+function expectAbsent(target: string) {
+  return expect(fsp.access(target)).rejects.toMatchObject({
+    code: 'ENOENT',
+    syscall: 'access',
+    path: target
+  })
+}
+
 function parseJsonc(contents: string): Record<string, any> {
   const withoutComments = contents
     .split('\n')
@@ -54,9 +64,7 @@ describe('writeDenoJsonc', () => {
 
   it('does nothing outside the Deno runtime', async () => {
     await writeDenoJsonc(projectPath, {}, noopLogger)
-    await expect(
-      fsp.access(path.join(projectPath, 'deno.jsonc'))
-    ).rejects.toThrow()
+    await expectAbsent(path.join(projectPath, 'deno.jsonc'))
   })
 
   it('writes a parseable deno.jsonc with tasks and nodeModulesDir', async () => {
@@ -139,9 +147,7 @@ describe('writeDenoJsonc', () => {
     expect(contents).not.toContain('Template Author')
     expect(contents).not.toContain('template@example.com')
 
-    await expect(
-      fsp.access(path.join(projectPath, 'package.json'))
-    ).rejects.toThrow()
+    await expectAbsent(path.join(projectPath, 'package.json'))
   })
 
   it('primary mode pins canary CLI versions exactly', async () => {
@@ -180,9 +186,7 @@ describe('writeDenoJsonc', () => {
       await writeDenoJsonc(projectPath, {}, noopLogger)
     })
 
-    await expect(
-      fsp.access(path.join(projectPath, 'deno.jsonc'))
-    ).rejects.toThrow()
+    await expectAbsent(path.join(projectPath, 'deno.jsonc'))
 
     expect(
       await fsp.readFile(path.join(projectPath, 'deno.json'), 'utf8')
@@ -222,13 +226,9 @@ describe('writeDenoJsonc', () => {
     expect(config.imports.extension).toBe('npm:extension@^4.0.5')
     expect(config.nodeModulesDir).toBe('auto')
 
-    await expect(
-      fsp.access(path.join(projectPath, 'package.json'))
-    ).rejects.toThrow()
+    await expectAbsent(path.join(projectPath, 'package.json'))
 
-    await expect(
-      fsp.access(path.join(projectPath, 'deno.jsonc'))
-    ).rejects.toThrow()
+    await expectAbsent(path.join(projectPath, 'deno.jsonc'))
   })
 
   it('primary mode forces nodeModulesDir auto even when the template turns it off', async () => {
@@ -365,5 +365,42 @@ describe('writeDenoJsonc', () => {
     expect(
       await fsp.readFile(path.join(projectPath, 'deno.jsonc'), 'utf8')
     ).toBe(jsoncContents)
+  })
+
+  // The Deno scaffold retires package.json, so a broken one read as absent
+  // lost the template's dependencies with no file left to show it.
+  it('primary mode refuses a template package.json that does not parse', async () => {
+    const packageJsonPath = path.join(projectPath, 'package.json')
+    const contents = '{"dependencies": {"preact": "10.0.0"'
+    await fsp.writeFile(packageJsonPath, contents)
+    const errors: unknown[] = []
+    let error: (Error & {cause?: unknown}) | undefined
+
+    await withDenoGlobal(async () => {
+      error = await writeDenoJsonc(
+        projectPath,
+        {primary: true},
+        {log() {}, error: (...args: unknown[]) => errors.push(args)}
+      ).then(
+        () => new Error('the step did not refuse'),
+        (thrown: Error) => thrown
+      )
+    })
+
+    const frame = String(error?.message)
+      .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g'), '')
+      .split('\n')
+
+    expect(frame.slice(0, 2)).toEqual([
+      "⏵⏵⏵ Couldn't read the template's package.json.",
+      `PATH ${packageJsonPath}`
+    ])
+
+    expect(frame[2]).toMatch(/^REASON .*JSON/)
+    expect(error?.cause).toBeInstanceOf(SyntaxError)
+    expect(errors).toEqual([])
+    // Neither manifest was touched: no deno.jsonc, package.json as shipped.
+    await expectAbsent(path.join(projectPath, 'deno.jsonc'))
+    expect(await fsp.readFile(packageJsonPath, 'utf8')).toBe(contents)
   })
 })

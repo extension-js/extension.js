@@ -136,9 +136,35 @@ describe('extension create', () => {
       'E_DESTINATION_NOT_WRITABLE',
       () => createMessages.destinationNotWriteable('/tmp/my-extension')
     ],
+    ...[
+      createMessages.writingPackageJsonMetadataError,
+      createMessages.writingDenoJsoncError,
+      createMessages.writingManifestJsonMetadataError,
+      createMessages.writingReadmeMetaDataError,
+      createMessages.writingTypeDefinitionsError
+    ].map((render): [string, () => string] => [
+      'E_DESTINATION_NOT_WRITABLE',
+      () => render(new Error('EACCES: permission denied'))
+    ]),
+    [
+      'E_DESTINATION_NOT_WRITABLE',
+      () =>
+        createMessages.writingGitIgnoreError(
+          '/tmp/my-extension/.gitignore',
+          new Error('EACCES: permission denied')
+        )
+    ],
     [
       'E_TEMPLATE_NOT_FOUND',
       () => createMessages.templateNotFoundInCatalog('nope')
+    ],
+    [
+      'E_TEMPLATE_NOT_FOUND',
+      () =>
+        createMessages.templatePackageJsonNotParseable(
+          '/tmp/my-extension/package.json',
+          new SyntaxError('Unexpected end of JSON input')
+        )
     ],
     [
       'E_TEMPLATE_NOT_FOUND',
