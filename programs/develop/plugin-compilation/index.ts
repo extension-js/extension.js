@@ -13,7 +13,6 @@ import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
 import {debugLine, isDebug} from '../lib/messaging'
 import type {PluginInterface} from '../types'
 import {BoringPlugin} from './boring'
-import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from './compilation-lib/messages'
 import {EnvPlugin} from './env'
 import {FileRequestsPlugin} from './resolve-file-requests'
@@ -27,7 +26,6 @@ export class CompilationPlugin {
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
-  public readonly clean: boolean
   public readonly zip?: boolean
   public readonly zipSource?: boolean
   public readonly zipFilename?: string
@@ -37,7 +35,7 @@ export class CompilationPlugin {
   public readonly define?: Record<string, unknown>
 
   constructor(
-    options: PluginInterface & {clean: boolean} & {
+    options: PluginInterface & {
       zip?: boolean
       zipSource?: boolean
       zipFilename?: string
@@ -50,7 +48,6 @@ export class CompilationPlugin {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.define = options.define
-    this.clean = options.clean ?? true
     this.zip = options.zip
     this.zipSource = options.zipSource
     this.zipFilename = options.zipFilename
@@ -120,14 +117,6 @@ export class CompilationPlugin {
 
       new WatchRealProjectPathPlugin().apply(compiler)
       new WarmAncestorWatchersPlugin().apply(compiler)
-    }
-
-    // CleanDistFolderPlugin removes dist before compilation, a problem for preview
-    // mode which serves from that folder.
-    if (this.clean) {
-      new CleanDistFolderPlugin({
-        browser: this.browser || 'chrome'
-      }).apply(compiler)
     }
 
     // Define NODE_ENV only under a real Rspack compiler; unit tests pass stubs

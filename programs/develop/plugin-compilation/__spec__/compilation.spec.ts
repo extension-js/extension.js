@@ -32,23 +32,6 @@ vi.mock('../env', () => {
   return {EnvPlugin: EnvPluginMock}
 })
 
-const cleanDistMocks = vi.hoisted(() => ({
-  instances: [] as any[],
-  apply: vi.fn()
-}))
-
-vi.mock('../clean-dist', () => {
-  class CleanDistFolderPluginMock {
-    public static instances: any[] = cleanDistMocks.instances
-    constructor(public options: any) {
-      cleanDistMocks.instances.push(this)
-    }
-    apply = cleanDistMocks.apply
-  }
-
-  return {CleanDistFolderPlugin: CleanDistFolderPluginMock}
-})
-
 vi.mock('../zip', () => {
   const apply = vi.fn()
   class ZipPluginMock {
@@ -102,9 +85,6 @@ describe('CompilationPlugin', () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'MyExt'})
     )
-
-    cleanDistMocks.instances.length = 0
-    cleanDistMocks.apply.mockClear()
   })
 
   afterEach(() => {
@@ -150,7 +130,7 @@ describe('CompilationPlugin', () => {
     }
   }
 
-  it('applies EnvPlugin and optionally CleanDistFolderPlugin based on options', async () => {
+  it('applies EnvPlugin with the manifest path and browser', async () => {
     ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
       JSON.stringify({name: 'ExtA'})
     )
@@ -158,8 +138,7 @@ describe('CompilationPlugin', () => {
     const {compiler, emitDone} = createCompiler('development')
     const plugin = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
-      browser: 'edge',
-      clean: true
+      browser: 'edge'
     })
     plugin.apply(compiler as any)
 
@@ -177,35 +156,11 @@ describe('CompilationPlugin', () => {
     expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtA, 10ms)')
   })
 
-  it('does not apply CleanDistFolderPlugin when clean is false', async () => {
-    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      JSON.stringify({name: 'ExtB'})
-    )
-
-    const {compiler, emitDone} = createCompiler('development')
-    const plugin = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: false
-    })
-    plugin.apply(compiler as any)
-
-    emitDone({
-      hasErrors: () => false,
-      compilation: {startTime: 0, endTime: 5}
-    })
-
-    expect(cleanDistMocks.instances.length).toBe(0)
-
-    expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtB, 5ms)')
-  })
-
   it('ignores known Vue compiler-sfc critical dependency warnings', () => {
     const {compiler} = createCompiler('development')
     const plugin = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: true
+      browser: 'chrome'
     })
 
     plugin.apply(compiler as any)
@@ -237,8 +192,7 @@ describe('CompilationPlugin', () => {
 
     const plugin = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: true
+      browser: 'chrome'
     })
     plugin.apply(compiler as any)
 
@@ -283,7 +237,6 @@ describe('CompilationPlugin', () => {
     const plugin = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
       browser: 'chrome',
-      clean: true,
       port: 8080
     })
     plugin.apply(compiler as any)
@@ -329,7 +282,6 @@ describe('CompilationPlugin', () => {
     const plugin = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
       browser: 'chrome',
-      clean: false,
       command: 'build',
       port: 8080
     })
@@ -358,7 +310,6 @@ describe('CompilationPlugin', () => {
     const dev = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
       browser: 'chrome',
-      clean: true,
       zip: true
     })
     dev.apply(devCompiler as any)
@@ -366,7 +317,6 @@ describe('CompilationPlugin', () => {
     const prod = new CompilationPlugin({
       manifestPath: '/p/manifest.json',
       browser: 'chrome',
-      clean: true,
       zip: true
     })
     prod.apply(prodCompiler as any)

@@ -7,20 +7,18 @@
 
 # plugin-compilation
 
-> Compilation-level utilities for the develop bundler: environment handling, optional dist cleaning, and a compact compilation summary.
+> Compilation-level utilities for the develop bundler: environment handling, zip packaging, and a compact compilation summary.
 
 ### What it does
 
 - **EnvPlugin**: Loads environment files by priority (.env.<browser>.<mode> → .env.<browser> → .env.<mode> → .env.local → .env → .env.example); exposes `EXTENSION_PUBLIC_*` to both `process.env` and `import.meta.env`; defines `EXTENSION_PUBLIC_BROWSER`, `EXTENSION_PUBLIC_MODE`, `EXTENSION_BROWSER`, `EXTENSION_MODE`; replaces `$EXTENSION_PUBLIC_*` and `$EXTENSION__*` in emitted .json/.html.
-- **CleanDistFolderPlugin**: Optionally deletes `dist/<browser>` at the start of a compilation to avoid stale hot-update files.
-- **CompilationPlugin**: Applies CaseSensitivePathsPlugin; wires Env/Clean plugins; prints a single-line, de-duplicated compilation summary with `(Nx)` repetition.
+- **CompilationPlugin**: Applies CaseSensitivePathsPlugin; wires the Env plugin; prints a single-line, de-duplicated compilation summary with `(Nx)` repetition.
 
 ### Feature overview
 
 |                                                                            | Feature                                                                                                                       |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Environment handling**<br/>Loads env files by priority, injects EXTENSION*PUBLIC*\* to process/import.meta, and templating. |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Clean dist**<br/>Optionally removes `dist/<browser>` at the start of a compilation.                                         |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Compilation summary**<br/>Single-line, de-duplicated summary shown at the end of builds.                                    |
 
 ### Usage
@@ -28,8 +26,7 @@
 ```ts
 new CompilationPlugin({
   manifestPath,
-  browser, // e.g. 'chrome' | 'firefox'
-  clean: true // whether to remove dist/<browser> at start
+  browser // e.g. 'chrome' | 'firefox'
 })
 ```
 
@@ -47,7 +44,6 @@ export class CompilationPlugin {
       | 'safari'
       | 'chromium-based'
       | 'gecko-based'
-    clean?: boolean
   })
   apply(compiler: import('@rspack/core').Compiler): void
 }
