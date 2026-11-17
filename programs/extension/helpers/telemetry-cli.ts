@@ -15,9 +15,11 @@ import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
 import {CODES} from './messaging'
 import {
   createTelemetryKit,
+  TELEMETRY_DOCS_URL,
   Telemetry,
   type TelemetryConsent,
-  type TelemetryDeps
+  type TelemetryDeps,
+  type TelemetryReset
 } from './telemetry'
 import {listTemplates, templateAliasFor} from './template-catalog'
 
@@ -207,9 +209,18 @@ export interface TelemetryCliDeps extends TelemetryDeps, InstallReaders {
   host: TelemetryHost
 }
 
+// What `extension telemetry status` answers: the decision and what is stored.
+export type TelemetryStatus = TelemetryConsent & {
+  anonymousId: string | null
+  consentFile: string | null
+  auditFile: string | null
+}
+
 export interface TelemetryCli {
   telemetry: Telemetry
   getConsent(): TelemetryConsent
+  getStatus(): TelemetryStatus
+  reset(): TelemetryReset
   invokedCommand(): string
   resolveInvokedCommand(argv: string[], valuedFlags: ReadonlySet<string>): void
   setConsent(value: 'enabled' | 'disabled'): {ok: boolean; path: string | null}
@@ -268,6 +279,30 @@ export function createTelemetryCli(
     const storage = kit.resolveStorage()
 
     return {ok, path: storage?.consentFile ?? null}
+  }
+
+  // Read-only: a status never creates the folder, the ID or a probe file.
+  function getStatus(): TelemetryStatus {
+    const storage = kit.locateStorage()
+    // An opt-in by variable with nowhere to write still sends nothing.
+    const decided: TelemetryConsent =
+      consent.enabled && !telemetry.isEnabled
+        ? {enabled: false, source: 'storage'}
+        : consent
+
+    return {
+      ...decided,
+      anonymousId: storage ? kit.readId(storage.idFile) : null,
+      consentFile: storage?.consentFile ?? null,
+      auditFile: storage?.auditFile ?? null
+    }
+  }
+
+  // Silenced first, so the run that resets leaves no audit line behind it.
+  function reset(): TelemetryReset {
+    telemetry.disable()
+
+    return kit.resetState()
   }
 
   function markTracked(): boolean {
@@ -389,8 +424,8 @@ export function createTelemetryCli(
       `${colors.gray('⏵⏵⏵')} Extension.js collects anonymous, opt-out telemetry (two events: ` +
         `${colors.cyan('command_executed')} + ${colors.cyan('command_failed')}). ` +
         `Disable with ${colors.cyan('extension telemetry disable')}, ` +
-        `${colors.cyan('EXTENSION_TELEMETRY=0')}, or ${colors.cyan('--no-telemetry')}. ` +
-        `See docs/TELEMETRY.md.`
+        `${colors.cyan('EXTENSION_TELEMETRY_DISABLED=1')}, ${colors.cyan('DO_NOT_TRACK=1')}, ` +
+        `or ${colors.cyan('--no-telemetry')}. Details: ${colors.underline(TELEMETRY_DOCS_URL)}`
     )
   }
 
@@ -432,6 +467,8 @@ export function createTelemetryCli(
   return {
     telemetry,
     getConsent: () => consent,
+    getStatus,
+    reset,
     invokedCommand: () => invoked,
     resolveInvokedCommand: (nextArgv, valuedFlags) => {
       invoked = detectInvokedCommand(nextArgv, valuedFlags)
@@ -455,6 +492,14 @@ export const telemetry = telemetryCli.telemetry
 
 export function getTelemetryConsent(): TelemetryConsent {
   return telemetryCli.getConsent()
+}
+
+export function getTelemetryStatus(): TelemetryStatus {
+  return telemetryCli.getStatus()
+}
+
+export function resetTelemetry(): TelemetryReset {
+  return telemetryCli.reset()
 }
 
 // The verb this run invoked, for the exit path that reports an outcome the
