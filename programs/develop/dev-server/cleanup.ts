@@ -19,13 +19,7 @@ export type DevServerHandle =
 
 type ExitFn = (code?: number) => void
 
-interface ProcessEventsLike {
-  on(event: string, listener: (...args: never[]) => unknown): unknown
-  removeListener(
-    event: string,
-    listener: (...args: never[]) => unknown
-  ): unknown
-}
+type ProcessEventsLike = Pick<NodeJS.EventEmitter, 'on' | 'removeListener'>
 
 export interface CleanupDependencies {
   events?: ProcessEventsLike
