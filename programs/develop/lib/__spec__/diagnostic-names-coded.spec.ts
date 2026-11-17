@@ -176,7 +176,7 @@ describe('the names diagnostics report under', () => {
 
     expect(
       unaccounted,
-      'Map each name in NAMED_CODES in lib/diagnostic-code.ts. A literal that names no diagnostic goes in NOT_DIAGNOSTICS here.'
+      'A capitalized string literal in programs/develop source is read as a diagnostic name. If it is one, map it in NAMED_CODES in lib/diagnostic-code.ts. If it is an ordinary word, add it to NOT_DIAGNOSTICS in lib/__spec__/diagnostic-names-coded.spec.ts.'
     ).toEqual([])
   })
 
