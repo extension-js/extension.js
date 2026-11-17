@@ -9,6 +9,7 @@ import {
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyCdpPort,
+  stampReadyStartingUrl,
   writeManifest
 } from './helpers/contract'
 
@@ -95,5 +96,38 @@ describe('launch facts are scoped to the run that produced them', () => {
     expect(next.cdpPort).toBe(9333)
     expect(next.binary).toBe('/Applications/Live.app')
     expect(next.binaryProvenance).toBe('pinned')
+  })
+
+  // Pins today's behavior. Ledger 1383 D1.
+  it.each([
+    ['binary', '/browsers/chrome-pinned'],
+    ['binaryProvenance', 'pinned'],
+    ['binaryPinnedBy', undefined],
+    ['profileReused', undefined],
+    ['startingUrl', undefined],
+    ['startingUrlOpened', undefined],
+    ['startingUrlUnopenedReason', undefined]
+  ] as const)('a recompile of the same run leaves %s as %s', (field, after) => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    stampReadyBrowserLaunch(writer.readyPath, {
+      binary: '/browsers/chrome-pinned',
+      binaryProvenance: 'pinned',
+      binaryPinnedBy: '--chromium-binary',
+      profileReused: true
+    })
+
+    stampReadyStartingUrl(writer.readyPath, {
+      startingUrl: 'https://example.com/',
+      startingUrlOpened: false,
+      startingUrlUnopenedReason: 'no WebDriver session to open it in'
+    })
+
+    expect(readContract(writer.readyPath)[field]).toBeDefined()
+
+    writer.writeReady()
+
+    expect(readContract(writer.readyPath)[field]).toBe(after)
   })
 })

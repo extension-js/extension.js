@@ -4,7 +4,12 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {detectLiveDevSessionOwner} from '../index'
-import {contractPath, makeWriter} from './helpers/contract'
+import {
+  contractPath,
+  makeWriter,
+  readContract,
+  stampReadyExtensionLoadRefused
+} from './helpers/contract'
 
 const makeTempFolder = trackTempFolders()
 
@@ -209,5 +214,134 @@ describe("the notice about a live dev session owning another command's target", 
       path.join(projectDir, 'build', browser)
     )
     expect(notices).toEqual([])
+  })
+})
+
+describe('the live-session check reads pid liveness only', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  // Pins today's behavior. Ledger 1383 D3.
+  it('takes a live pid whose start time does not match as the owner', () => {
+    const probed: number[] = []
+    const readyPath = writeReadyFixture({
+      pidStartedAt: '2000-01-01T00:00:00.000Z'
+    })
+
+    const owner = detectLiveDevSessionOwner(readyPath, (pid) => {
+      probed.push(pid)
+
+      return true
+    })
+
+    expect(probed).toEqual([424242])
+    expect(owner).toEqual({
+      pid: 424242,
+      port: null,
+      runId: 'f3a9',
+      instanceId: 'alpha',
+      instanceExplicit: false
+    })
+  })
+
+  // Pins today's behavior. Ledger 1383 D3.
+  it('a build drops its receipt beside a reused pid', () => {
+    const projectDir = makeTempFolder('extjs-owner-')
+    const readyPath = writeLiveSession(projectDir, 'chromium', {
+      runId: 'a-run-whose-pid-was-reused',
+      pidStartedAt: '2000-01-01T00:00:00.000Z'
+    })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    const build = makeWriter(projectDir, {command: 'build'})
+    build.writeStarting()
+    build.writeReady()
+
+    const after = readContract(readyPath)
+    expect(after.command).toBe('dev')
+    expect(after.runId).toBe('a-run-whose-pid-was-reused')
+  })
+
+  // Pins today's behavior. Ledger 1383.
+  it('reads a malformed contract as no owner, so a build replaces it', () => {
+    const projectDir = makeTempFolder('extjs-owner-')
+    const readyPath = contractPath(projectDir)
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(readyPath, `{"command":"dev","pid":${process.ppid},`)
+
+    expect(detectLiveDevSessionOwner(readyPath, alive)).toBeNull()
+
+    makeWriter(projectDir, {command: 'build'}).writeReady()
+
+    expect(readContract(readyPath).command).toBe('build')
+  })
+})
+
+describe('the attach stamp beside another live dev session', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  // A preview with act verbs opened beside a live dev session on one target.
+  function previewBesideLiveSession(contract: Record<string, unknown>) {
+    const projectDir = makeTempFolder('extjs-owner-')
+    const readyPath = writeLiveSession(projectDir, 'chromium', {
+      runId: 'a-live-dev-run',
+      ...contract
+    })
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    return {readyPath, preview: makeWriter(projectDir, {command: 'preview'})}
+  }
+
+  // Pins today's behavior. Ledger 1383 D2.
+  it("stampExecutorAttached flips the live session's contract to attached and turns its held ready ready", () => {
+    const {readyPath, preview} = previewBesideLiveSession({
+      status: 'starting',
+      compiledAt: '2026-11-01T00:00:00.000Z',
+      awaitingExecutorSince: '2026-11-01T00:00:00.000Z'
+    })
+
+    preview.stampExecutorAttached()
+
+    const after = readContract(readyPath)
+    expect(after.runId).toBe('a-live-dev-run')
+    expect(after.pid).toBe(process.ppid)
+    expect(after.runtime).toBe('attached')
+    expect(typeof after.executorAttachedAt).toBe('string')
+    expect(after.status).toBe('ready')
+    expect('awaitingExecutorSince' in after).toBe(false)
+  })
+
+  // Pins today's behavior. Ledger 1383 D2.
+  it("stampExecutorAttached wipes the live session's recorded load refusal", () => {
+    const {readyPath, preview} = previewBesideLiveSession({})
+    stampReadyExtensionLoadRefused(readyPath, {
+      status: 'error',
+      code: 'extension_load_refused',
+      message: 'Chromium refused to load the extension at /dist/chromium',
+      extensionLoadRefusedAt: '2026-11-01T00:00:00.000Z',
+      extensionLoadRefusedReason: 'Manifest is not valid JSON.'
+    })
+
+    preview.stampExecutorAttached()
+
+    const after = readContract(readyPath)
+    expect(after.status).toBe('ready')
+    expect('code' in after).toBe(false)
+    expect('message' in after).toBe(false)
+    expect('extensionLoadRefusedAt' in after).toBe(false)
+    expect('extensionLoadRefusedReason' in after).toBe(false)
+  })
+
+  // Pins today's behavior. Ledger 1383 D2.
+  it("stampExecutorDetached and stampReload leave the live session's contract alone", () => {
+    const {readyPath, preview} = previewBesideLiveSession({
+      runtime: 'attached',
+      executorAttachedAt: '2026-11-01T00:00:00.000Z'
+    })
+    const before = fs.readFileSync(readyPath, 'utf-8')
+
+    preview.stampExecutorDetached()
+    preview.stampReload('full', 'full reload')
+
+    expect(fs.readFileSync(readyPath, 'utf-8')).toBe(before)
   })
 })
