@@ -6,7 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
@@ -224,251 +223,8 @@ function declaresDependency(
   }
 }
 
-function getPackageDirFromInstallRoot(
-  dependencyId: string,
-  installRoot: string
-): string {
-  return path.join(installRoot, 'node_modules', ...dependencyId.split('/'))
-}
-
-function listInstalledPackageDirs(nodeModulesDir: string): string[] {
-  if (!fs.existsSync(nodeModulesDir)) return []
-
-  try {
-    const entries = fs.readdirSync(nodeModulesDir, {withFileTypes: true})
-    const packageDirs: string[] = []
-
-    for (const entry of entries) {
-      if (!entry.isDirectory() || entry.name === '.bin') continue
-
-      const entryPath = path.join(nodeModulesDir, entry.name)
-
-      if (!entry.name.startsWith('@')) {
-        packageDirs.push(entryPath)
-        continue
-      }
-
-      const scopedEntries = fs.readdirSync(entryPath, {withFileTypes: true})
-
-      for (const scopedEntry of scopedEntries) {
-        if (!scopedEntry.isDirectory()) continue
-
-        packageDirs.push(path.join(entryPath, scopedEntry.name))
-      }
-    }
-
-    return packageDirs
-  } catch (error) {
-    debugSwallowed('list the installed package folders', error)
-
-    return []
-  }
-}
-
-function findNestedPackageDir(
-  dependencyId: string,
-  installRoot: string
-): string | undefined {
-  const targetPackageJson = path.join(
-    installRoot,
-    'node_modules',
-    ...dependencyId.split('/'),
-    'package.json'
-  )
-
-  if (fs.existsSync(targetPackageJson)) {
-    return path.dirname(targetPackageJson)
-  }
-
-  const visited = new Set<string>()
-  const queue: Array<{nodeModulesDir: string; depth: number}> = [
-    {
-      nodeModulesDir: path.join(installRoot, 'node_modules'),
-      depth: 0
-    }
-  ]
-  const maxDepth = 4
-
-  while (queue.length > 0) {
-    const current = queue.shift() as {nodeModulesDir: string; depth: number}
-    if (visited.has(current.nodeModulesDir)) continue
-
-    visited.add(current.nodeModulesDir)
-
-    const candidatePackageJson = path.join(
-      current.nodeModulesDir,
-      ...dependencyId.split('/'),
-      'package.json'
-    )
-
-    if (fs.existsSync(candidatePackageJson)) {
-      return path.dirname(candidatePackageJson)
-    }
-
-    if (current.depth >= maxDepth) continue
-
-    for (const packageDir of listInstalledPackageDirs(current.nodeModulesDir)) {
-      const nestedNodeModulesDir = path.join(packageDir, 'node_modules')
-
-      if (fs.existsSync(nestedNodeModulesDir)) {
-        queue.push({
-          nodeModulesDir: nestedNodeModulesDir,
-          depth: current.depth + 1
-        })
-      }
-    }
-  }
-
-  return undefined
-}
-
-function readPackageJsonFromDir(
-  packageDir: string
-): Record<string, unknown> | undefined {
-  const manifestPath = path.join(packageDir, 'package.json')
-  if (!fs.existsSync(manifestPath)) return undefined
-
-  try {
-    const raw = fs.readFileSync(manifestPath, 'utf8')
-
-    return JSON.parse(raw || '{}')
-  } catch (error) {
-    debugSwallowed(`read ${manifestPath}`, error)
-
-    return undefined
-  }
-}
-
-function getPackageEntryCandidates(
-  pkg: {main?: unknown; module?: unknown; exports?: unknown} | undefined
-): string[] {
-  const candidateEntries: string[] = []
-
-  if (typeof pkg?.main === 'string') candidateEntries.push(pkg.main)
-  if (typeof pkg?.module === 'string') candidateEntries.push(pkg.module)
-  if (typeof pkg?.exports === 'string') candidateEntries.push(pkg.exports)
-
-  const exportsValue = pkg?.exports
-  const dotExport =
-    exportsValue && typeof exportsValue === 'object'
-      ? (exportsValue as Record<string, unknown>)['.']
-      : undefined
-  if (typeof dotExport === 'string') candidateEntries.push(dotExport)
-
-  if (dotExport && typeof dotExport === 'object') {
-    const dotObj = dotExport as {
-      require?: unknown
-      default?: unknown
-      import?: unknown
-    }
-
-    if (typeof dotObj.require === 'string') {
-      candidateEntries.push(dotObj.require)
-    }
-
-    if (typeof dotObj.default === 'string') {
-      candidateEntries.push(dotObj.default)
-    }
-
-    if (typeof dotObj.import === 'string') candidateEntries.push(dotObj.import)
-  }
-
-  candidateEntries.push('index.js', 'index.cjs', 'index.mjs')
-
-  return candidateEntries
-}
-
-function resolveFirstExistingEntry(
-  packageDir: string,
-  candidateEntries: string[]
-): string | undefined {
-  for (const relativeEntry of candidateEntries) {
-    const absoluteEntry = path.resolve(packageDir, relativeEntry)
-    if (fs.existsSync(absoluteEntry)) return absoluteEntry
-  }
-
-  return undefined
-}
-
-function resolveFromPackageDir(packageDir: string): string | undefined {
-  if (!fs.existsSync(packageDir)) return undefined
-
-  try {
-    return require.resolve(packageDir)
-  } catch (error) {
-    // Fall through to the package.json guided fallback.
-    debugSwallowed(`resolve the package folder ${packageDir}`, error)
-  }
-
-  const pkg = readPackageJsonFromDir(packageDir)
-  if (!pkg) return undefined
-
-  const candidateEntries = getPackageEntryCandidates(pkg)
-
-  return resolveFirstExistingEntry(packageDir, candidateEntries)
-}
-
-function resolveFromInstallRootPackageDir(
-  dependencyId: string,
-  installRoot: string
-): string | undefined {
-  const directDir = getPackageDirFromInstallRoot(dependencyId, installRoot)
-  const fromDirect = resolveFromPackageDir(directDir)
-  if (fromDirect) return fromDirect
-
-  const nested = findNestedPackageDir(dependencyId, installRoot)
-
-  return nested ? resolveFromPackageDir(nested) : undefined
-}
-
 function dedupeFailures(packageIds: string[]) {
   return Array.from(new Set(packageIds))
-}
-
-function resolveRealPathSafe(targetPath: string): string {
-  try {
-    return fs.realpathSync(targetPath)
-  } catch (error) {
-    debugSwallowed(`realpath ${targetPath}`, error)
-
-    return path.resolve(targetPath)
-  }
-}
-
-function findOwningPackageDir(resolvedPath: string): string | undefined {
-  let currentPath = path.dirname(resolvedPath)
-
-  for (let depth = 0; depth < 8; depth++) {
-    const packageJson = path.join(currentPath, 'package.json')
-    if (fs.existsSync(packageJson)) return currentPath
-
-    const parent = path.dirname(currentPath)
-    if (parent === currentPath) break
-
-    currentPath = parent
-  }
-
-  return undefined
-}
-
-function isSameInstalledPackage(
-  resolvedPath: string,
-  expectedInstalledPath: string
-): boolean {
-  const resolvedPackageDir = findOwningPackageDir(resolvedPath)
-  const expectedPackageDir = findOwningPackageDir(expectedInstalledPath)
-
-  if (resolvedPackageDir && expectedPackageDir) {
-    return (
-      resolveRealPathSafe(resolvedPackageDir) ===
-      resolveRealPathSafe(expectedPackageDir)
-    )
-  }
-
-  return (
-    resolveRealPathSafe(resolvedPath) ===
-    resolveRealPathSafe(expectedInstalledPath)
-  )
 }
 
 function evaluateModuleContextRule(
@@ -476,19 +232,12 @@ function evaluateModuleContextRule(
     OptionalDependencyVerificationRule,
     {type: 'module-context-resolve' | 'module-context-load'}
   >,
-  fromPackagePath: string,
-  options?: {expectedInstalledPath?: string}
+  fromPackagePath: string
 ): string | undefined {
   try {
     const req = createRequire(fromPackagePath)
-    const resolvedPeer = req.resolve(rule.packageId)
 
-    if (
-      options?.expectedInstalledPath &&
-      !isSameInstalledPackage(resolvedPeer, options.expectedInstalledPath)
-    ) {
-      return rule.packageId
-    }
+    req.resolve(rule.packageId)
 
     if (rule.type === 'module-context-load') {
       req(rule.packageId)
@@ -539,56 +288,6 @@ export function getContractVerificationFailuresFromKnownLocations(
     // Strict pnpm hides user-side frameworks from the contract tooling's dir;
     // the bundler aliases them at compile time, so trust project package.json.
     if (failure && declaresDependency(projectPath, failure)) continue
-    if (failure) failures.push(failure)
-  }
-
-  return dedupeFailures(failures)
-}
-
-export function getContractVerificationFailuresAtInstallRoot(
-  contract: OptionalDependencyContract,
-  installRoot: string
-) {
-  const resolvedByPackage = new Map<string, string | undefined>()
-
-  const resolvePackage = (packageId: string) => {
-    if (!resolvedByPackage.has(packageId)) {
-      resolvedByPackage.set(
-        packageId,
-        resolveFromInstallRootPackageDir(packageId, installRoot)
-      )
-    }
-
-    return resolvedByPackage.get(packageId)
-  }
-
-  const failures: string[] = []
-
-  for (const rule of contract.verificationRules) {
-    if (rule.type === 'install-root') {
-      const resolvedPath = resolvePackage(rule.packageId)
-      if (!resolvedPath) failures.push(rule.packageId)
-
-      continue
-    }
-
-    const fromPackagePath = resolvePackage(rule.fromPackage)
-
-    if (!fromPackagePath) {
-      failures.push(rule.fromPackage)
-      continue
-    }
-
-    const expectedPeerPath = resolvePackage(rule.packageId)
-
-    if (!expectedPeerPath) {
-      failures.push(rule.packageId)
-      continue
-    }
-
-    const failure = evaluateModuleContextRule(rule, fromPackagePath, {
-      expectedInstalledPath: expectedPeerPath
-    })
     if (failure) failures.push(failure)
   }
 
