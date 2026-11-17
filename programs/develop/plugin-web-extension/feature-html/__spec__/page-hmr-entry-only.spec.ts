@@ -53,6 +53,11 @@ function writeProject() {
     'export const label = "PAGE_CHILD_MODULE"\n'
   )
 
+  fs.writeFileSync(
+    path.join(src, 'background.js'),
+    'console.log("BACKGROUND_ENTRY_MODULE")\n'
+  )
+
   return root
 }
 
@@ -133,5 +138,46 @@ describe('page HMR prelude in a real rspack compile', () => {
     expect(entry?.[1]).toContain(PRELUDE_MARK)
     expect(child?.[1]).not.toContain(PRELUDE_MARK)
     expect(child?.[1]).not.toMatch(/\.accept\(\)/)
+  }, 60000)
+
+  it('stays off an entry no page names, such as the background script', async () => {
+    const root = writeProject()
+    const manifestPath = path.join(root, 'src', 'manifest.json')
+    const htmlPath = path.join(root, 'src', 'newtab', 'index.html')
+    const outDir = path.join(root, 'dist')
+
+    const compiler = rspack({
+      mode: 'development',
+      context: root,
+      devtool: false,
+      entry: {
+        'background/service_worker': path.join(root, 'src', 'background.js')
+      },
+      output: {path: outDir},
+      plugins: [
+        new rspack.HotModuleReplacementPlugin(),
+        new HtmlPlugin({
+          manifestPath,
+          browser: 'chrome',
+          devSession: true,
+          includeList: {'chrome_url_overrides/newtab': htmlPath}
+        })
+      ]
+    })
+
+    await compile(compiler)
+
+    const background = fs.readFileSync(
+      path.join(outDir, 'background', 'service_worker.js'),
+      'utf8'
+    )
+    const page = fs.readFileSync(
+      path.join(outDir, 'chrome_url_overrides', 'newtab.js'),
+      'utf8'
+    )
+
+    expect(background).toContain('BACKGROUND_ENTRY_MODULE')
+    expect(background).not.toContain(PRELUDE_MARK)
+    expect(page).toContain(PRELUDE_MARK)
   }, 60000)
 })
