@@ -819,6 +819,81 @@ describe('ready.json writer preservation', () => {
   })
 })
 
+describe('the reload stamp', () => {
+  let tmp: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'reload-stamp-'))
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it("stamps reloadedAt, reloadKind and reloadLabel on the run's own contract", () => {
+    const writer = makeProjectWriter(tmp)
+    writer.writeReady('2026-11-01T00:00:00.000Z')
+    const before = readContract(writer.readyPath)
+
+    writer.stampReload('background', 'background (service_worker.ts)')
+
+    const after = readContract(writer.readyPath)
+    expect(after.reloadKind).toBe('background')
+    expect(after.reloadLabel).toBe('background (service_worker.ts)')
+    expect(Date.parse(String(after.reloadedAt))).toBeGreaterThanOrEqual(
+      Date.parse('2026-11-01T00:00:00.000Z')
+    )
+
+    expect(after.status).toBe(before.status)
+    expect(after.compiledAt).toBe('2026-11-01T00:00:00.000Z')
+  })
+
+  it('drops the earlier label when a reload carries none', () => {
+    const writer = makeProjectWriter(tmp)
+    writer.writeReady()
+    writer.stampReload('content', 'content_script (a.ts)')
+
+    writer.stampReload('full')
+
+    const after = readContract(writer.readyPath)
+    expect(after.reloadKind).toBe('full')
+    expect('reloadLabel' in after).toBe(false)
+  })
+
+  it('keeps the stamp through a recompile of the same run', () => {
+    const writer = makeProjectWriter(tmp)
+    writer.writeReady()
+    writer.stampReload('page', 'page (options.html)')
+    const stamped = readContract(writer.readyPath)
+
+    writer.writeReady()
+
+    const after = readContract(writer.readyPath)
+    expect(after.reloadedAt).toBe(stamped.reloadedAt)
+    expect(after.reloadKind).toBe('page')
+    expect(after.reloadLabel).toBe('page (options.html)')
+  })
+
+  it('refuses another run on disk', () => {
+    const writer = makeProjectWriter(tmp)
+    writer.writeReady()
+    patchContract(writer.readyPath, {runId: 'another-run'})
+    const before = fs.readFileSync(writer.readyPath, 'utf-8')
+
+    writer.stampReload('full', 'full reload')
+
+    expect(fs.readFileSync(writer.readyPath, 'utf-8')).toBe(before)
+  })
+
+  it('is a no-op when no contract was ever written', () => {
+    const writer = makeProjectWriter(tmp)
+
+    writer.stampReload('full')
+
+    expect(fs.existsSync(writer.readyPath)).toBe(false)
+  })
+})
+
 describe('ready.json names the extension the browser loaded', () => {
   let tmp: string
 

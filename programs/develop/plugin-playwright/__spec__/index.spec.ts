@@ -255,3 +255,93 @@ describe('plugin-playwright metadata writer', () => {
     ).toContain('compile_success')
   })
 })
+
+describe('the plugin across a watch session', () => {
+  const tmpRoots: string[] = []
+
+  afterEach(() => {
+    for (const root of tmpRoots.splice(0)) {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  const watchedPlugin = (
+    options: Partial<ConstructorParameters<typeof PlaywrightPlugin>[0]> = {}
+  ) => {
+    const projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-watch-'))
+    tmpRoots.push(projectRoot)
+
+    const plugin = new PlaywrightPlugin({
+      packageJsonDir: projectRoot,
+      browser: 'chromium',
+      mode: 'development',
+      outputPath: path.join(projectRoot, 'dist', 'chromium'),
+      manifestPath: path.join(projectRoot, 'manifest.json'),
+      ...options
+    })
+    const metadataDir = getPlaywrightMetadataDir(projectRoot, 'chromium')
+
+    return {
+      plugin,
+      projectRoot,
+      ready: () => readContract(path.join(metadataDir, 'ready.json')),
+      eventTypes: () =>
+        readEvents(path.join(metadataDir, 'events.ndjson')).map(
+          (event) => event.type
+        )
+    }
+  }
+
+  it('appends compile_start when a compile begins', () => {
+    const session = watchedPlugin()
+    const taps = applyToFakeCompiler(session.plugin)
+
+    taps.compile()
+
+    expect(session.eventTypes()).toEqual(['compile_start'])
+  })
+
+  it('on watch close a dev session appends shutdown and stamps stopped', () => {
+    const session = watchedPlugin()
+    const taps = applyToFakeCompiler(session.plugin)
+    taps.done(doneStats())
+
+    taps.watchClose()
+
+    expect(session.eventTypes()).toEqual(['compile_success', 'shutdown'])
+    const ready = session.ready()
+    expect(ready.status).toBe('stopped')
+    expect(ready.code).toBe('shutdown')
+    expect(ready.message).toBe('the dev session ended (watch closed)')
+  })
+
+  it('on watch close a start receipt stays ready', () => {
+    const session = watchedPlugin({mode: 'production', command: 'start'})
+    const taps = applyToFakeCompiler(session.plugin)
+    taps.done(doneStats())
+
+    taps.watchClose()
+
+    expect(session.eventTypes()).toEqual(['compile_success', 'shutdown'])
+    expect(session.ready().status).toBe('ready')
+    expect(session.ready().code).toBeUndefined()
+  })
+
+  it('a watch that a restart superseded closes without the event or the stamp', () => {
+    const first = watchedPlugin()
+    const closing = applyToFakeCompiler(first.plugin)
+    const restarted = new PlaywrightPlugin({
+      packageJsonDir: first.projectRoot,
+      browser: 'chromium',
+      mode: 'development',
+      outputPath: path.join(first.projectRoot, 'dist', 'chromium'),
+      manifestPath: path.join(first.projectRoot, 'manifest.json')
+    })
+    applyToFakeCompiler(restarted)
+
+    closing.watchClose()
+
+    expect(first.eventTypes()).toEqual([])
+    expect(first.ready().status).toBe('starting')
+  })
+})
