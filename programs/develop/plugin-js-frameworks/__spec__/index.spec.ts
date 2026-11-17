@@ -6,6 +6,7 @@ import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/featu
 import {JsFrameworksPlugin} from '../index'
 import {
   callable,
+  compileProject,
   configure,
   fakePackage,
   type LooseRule,
@@ -301,6 +302,28 @@ describe('JsFrameworksPlugin SWC rules', () => {
       importSource: 'react',
       refresh: false
     })
+  })
+
+  it('keeps a magic comment for rspack in a production build', async () => {
+    const root = makeProject({
+      'package.json': {},
+      'manifest.json': MANIFEST,
+      'tsconfig.json': {},
+      'main.ts':
+        "export const later = () => import(/* webpackIgnore: true */ './late.js')\n"
+    })
+
+    const {errors, read} = await compileProject(
+      root,
+      {main: './main.ts'},
+      'production'
+    )
+
+    // Without the comment rspack would try to bundle the missing file.
+    expect(errors).toEqual([])
+    expect(read('main')).toContain(
+      "import(/* webpackIgnore: true */ './late.js')"
+    )
   })
 
   it('gates a one-shot development build on the same configure promise as watch', async () => {
