@@ -169,8 +169,8 @@ export class CssPlugin {
       }
     ]
 
-    // Rspack's native CSS already bakes a content-hash into [name] for split CSS
-    // chunks, so plain [name].css suffices in dev and production.
+    // [name] is the entry name, or the chunk id for an unnamed split chunk,
+    // so every sheet gets its own file without a hash in dev and production.
     compiler.options.output.cssFilename = '[name].css'
     compiler.options.output.cssChunkFilename = '[name].css'
 
