@@ -104,6 +104,19 @@ function explicitCompanionEntries(config: unknown): string[] {
     : []
 }
 
+// The entries that name a folder, told apart from a store link without the
+// resolver that would fetch one: a link has a scheme or opens with a host.
+export function namedCompanionFolders(config: unknown): string[] {
+  return explicitCompanionEntries(config).filter((entry) => {
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(entry)) return false
+    if (path.isAbsolute(entry) || entry.startsWith('.')) return true
+
+    const [first, ...rest] = entry.split(/[\\/]/)
+
+    return rest.length > 0 && !first.includes('.')
+  })
+}
+
 // Which layer the companions came from, in the order the commands merge them.
 // A folder scan names no companion, so it answers nothing.
 export function companionsDeclaredIn(

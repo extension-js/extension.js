@@ -21,6 +21,7 @@ import {withDarkMode} from './lib/dark-mode'
 import {
   companionsDeclaredIn,
   computeExtensionsToLoad,
+  namedCompanionFolders,
   unresolvedNamedCompanions
 } from './lib/extensions-to-load'
 import {
@@ -456,7 +457,7 @@ export async function extensionPreview(
     }
     const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
     // Preview never compiles, so an ancestor project's scripts/ folder has no
-    // say here; only its companion extensions folder does.
+    // say here. Only its companion extensions folder does.
     const specialFoldersData = unpackedDir
       ? {extensions: undefined}
       : getSpecialFoldersDataForProjectRoot(
@@ -472,17 +473,23 @@ export async function extensionPreview(
       safeBrowserConfig.extensions ??
       safeProjectConfig.extensions ??
       specialFoldersData.extensions
-    const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
-      projectRoot: packageJsonDir,
-      browser,
-      config: mergedExtensionsConfig
-    })
+    // With no browser nothing loads a companion, so none is fetched from a
+    // store and no entry is refused. Only the folders named are looked at.
+    const resolvedExtensionsConfig = previewOptions.noBrowser
+      ? undefined
+      : await resolveCompanionExtensionsConfig({
+          projectRoot: packageJsonDir,
+          browser,
+          config: mergedExtensionsConfig
+        })
 
     // The session goes on without a named companion that is not an extension,
     // browser or not, and the caller reads which one beside the other warnings.
     const missingCompanions = unresolvedNamedCompanions({
       projectRoot: packageJsonDir,
-      resolved: resolvedExtensionsConfig,
+      resolved: previewOptions.noBrowser
+        ? namedCompanionFolders(mergedExtensionsConfig)
+        : resolvedExtensionsConfig,
       declared: mergedExtensionsConfig,
       declaredIn: companionsDeclaredIn(metadataCommand, {
         flag: safePreviewOptions.extensions,

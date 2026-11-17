@@ -97,14 +97,21 @@ function tempArtifactsRoot(buildDir: string): string {
   return path.join(os.tmpdir(), 'extension-js', key)
 }
 
-// Beside the build, where its own summary already sits. A parent that takes
-// no write, or a sibling that is someone's extension, sends it to temp.
+// Only a dist folder is a place made for builds, and the root beside a build
+// in it is the project's own. Any other parent is left as the user keeps it.
+function sitsInDistFolder(buildDir: string): boolean {
+  return path.basename(path.dirname(path.resolve(buildDir))) === 'dist'
+}
+
+// Beside a build under dist/, where its own summary already sits. Anywhere
+// else, or with a dist/ that takes no write, a temp root keyed by the folder.
 export function previewedBuildArtifactsRoot(buildDir: string): string {
   const beside = besideArtifactsRoot(buildDir)
-  const usable = fs.existsSync(beside)
-    ? isWritableDir(beside) &&
-      !fs.existsSync(path.join(beside, 'manifest.json'))
-    : isWritableDir(path.dirname(beside))
+  const usable =
+    sitsInDistFolder(buildDir) &&
+    (fs.existsSync(beside)
+      ? isWritableDir(beside)
+      : isWritableDir(path.dirname(beside)))
 
   return usable ? beside : tempArtifactsRoot(buildDir)
 }
@@ -178,7 +185,9 @@ function previewedElsewhereRoot(
   let found: {root: string; writtenAt: number} | undefined
 
   for (const root of [
-    besideArtifactsRoot(projectPath),
+    ...(sitsInDistFolder(projectPath)
+      ? [besideArtifactsRoot(projectPath)]
+      : []),
     tempArtifactsRoot(projectPath)
   ]) {
     const writtenAt = newestContractNaming(root, folder)
@@ -231,6 +240,19 @@ export const SESSION_ARTIFACTS_README_CONTENT =
   '- `profiles/`: managed browser profiles (cookies, history, logins)\n\n' +
   'The builds themselves are the sibling folders, such as `dist/chrome`.\n'
 
+// The same folder kept in the temp directory, for a previewed build that has
+// no dist/ of a project around it. What it says has to be true there.
+export const RELOCATED_SESSION_ARTIFACTS_README_CONTENT =
+  '# Extension.js session state\n\n' +
+  'Extension.js writes this folder for a build it previewed from a folder\n' +
+  'that no project owns, so that nothing is written inside that build. It is\n' +
+  'not a browser build and is safe to delete while no session is running.\n\n' +
+  '- `<browser>/ready.json`: the session contract (status, ports, browser\n' +
+  '  pid). Its `distPath` names the folder that was previewed\n' +
+  '- `<browser>/events.ndjson`: the lifecycle events of the latest session\n' +
+  '- `<browser>/logs.ndjson`, `<browser>/actions.ndjson`: session logs\n' +
+  '- `profiles/`: managed browser profiles (cookies, history, logins)\n'
+
 export function sessionArtifactsReadmePath(projectPath: string): string {
   return path.join(sessionArtifactsRootDir(projectPath), 'README.md')
 }
@@ -262,7 +284,13 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
     const readme = sessionArtifactsReadmePath(projectPath)
 
     if (!fs.existsSync(readme)) {
-      fs.writeFileSync(readme, SESSION_ARTIFACTS_README_CONTENT)
+      fs.writeFileSync(
+        readme,
+        path.basename(path.dirname(readme)) === 'extension-js' &&
+          path.basename(path.dirname(path.dirname(readme))) === 'dist'
+          ? SESSION_ARTIFACTS_README_CONTENT
+          : RELOCATED_SESSION_ARTIFACTS_README_CONTENT
+      )
     }
   } catch {
     // A hygiene guard must never break a dev session or build.
