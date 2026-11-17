@@ -36,7 +36,8 @@ export interface PublicFolderInspection {
 // consumer (copier, root refs, resolve roots, dev-server watch) asks here.
 export function inspectPublicFolders(
   manifestPath: string,
-  projectRoot?: string
+  projectRoot?: string,
+  {isDir = isUsableDir}: {isDir?: (candidate: string) => boolean} = {}
 ): PublicFolderInspection {
   const setting = publicFolderSetting(projectRoot)
   const fromManifest = path.join(path.dirname(manifestPath), 'public')
@@ -48,9 +49,9 @@ export function inspectPublicFolders(
         : fromManifest
   const sameLocation = path.resolve(fromRoot) === path.resolve(fromManifest)
   // A configured folder is the only one read, and `false` reads none.
-  const rootOk = setting.kind !== 'off' && isUsableDir(fromRoot)
+  const rootOk = setting.kind !== 'off' && isDir(fromRoot)
   const manifestOk =
-    setting.kind === 'default' && !sameLocation && isUsableDir(fromManifest)
+    setting.kind === 'default' && !sameLocation && isDir(fromManifest)
 
   return {
     publicDir: rootOk ? fromRoot : manifestOk ? fromManifest : undefined,
