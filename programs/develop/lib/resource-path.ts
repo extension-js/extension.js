@@ -106,6 +106,26 @@ export function toResourceKey(resourcePath: string): string {
   return key
 }
 
+// The spelling a message prints: relative to the project with forward
+// slashes, and the path as given when it sits outside the project.
+export function toProjectRelativePath(
+  projectPath: string | undefined,
+  resourcePath: string
+): string {
+  if (!projectPath || !resourcePath) return resourcePath
+
+  const relative = path.relative(
+    canonicalizeDir(projectPath),
+    canonicalizeResourcePath(resourcePath)
+  )
+
+  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+    return resourcePath
+  }
+
+  return relative.split(path.sep).join('/')
+}
+
 // True when resource resolves inside any of dirs (already canonicalized);
 // suitable as an rspack rule include condition.
 export function isResourceUnderDirs(resource: string, dirs: string[]): boolean {

@@ -1,4 +1,3 @@
-import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
@@ -10,30 +9,18 @@ import {
 import {
   offlineRegistryEnv,
   offlineRegistryFiles,
-  serveOfflineRegistry,
-  withoutInheritedRegistry
+  serveOfflineRegistry
 } from '../../../create/__spec__/offline-registry-fixture'
+import {freshCliHome, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
-const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m
 const emptyArchive = Buffer.concat([
   Buffer.from([0x50, 0x4b, 0x05, 0x06]),
   Buffer.alloc(18)
 ])
-
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
-
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
 
 function serveArchive(status: number): Promise<{
   url: string
@@ -59,41 +46,19 @@ function serveArchive(status: number): Promise<{
   })
 }
 
-function runCreate(
+// The helper's env inherits no registry, and the package manager one case
+// starts keeps its cache and store in the run's own temp home.
+async function runCreate(
   args: string[],
   env: Record<string, string>,
   prepare?: (work: string) => void
-): Promise<{status: number | null; stderr: string}> {
+) {
   const work = makeTempFolder('extjs-create-stderr-')
   prepare?.(work)
-  const configHome = makeTempFolder('extjs-config-')
-  const cacheHome = makeTempFolder('extjs-cache-')
 
-  return new Promise((resolve) => {
-    let stderr = ''
-    const child = spawn(process.execPath, [cliBin(), ...args], {
-      cwd: work,
-      stdio: ['ignore', 'ignore', 'pipe'],
-      env: {
-        ...withoutInheritedRegistry(process.env),
-        ...env,
-        EXTENSION_ENV: 'test',
-        EXTENSION_TELEMETRY: '0',
-        XDG_CONFIG_HOME: configHome,
-        XDG_CACHE_HOME: cacheHome
-      }
-    })
-    child.stderr.setEncoding('utf8')
+  const run = await runCli(args, {cwd: work, home: freshCliHome(), env})
 
-    child.stderr.on('data', (chunk: string) => {
-      stderr += chunk
-    })
-
-    child.on('close', (status) => {
-      fs.rmSync(work, {recursive: true, force: true})
-      resolve({status, stderr: stderr.replace(ANSI, '')})
-    })
-  })
+  return {status: run.status, stderr: run.stderr}
 }
 
 describe('a known create refusal prints its frame and nothing else', () => {

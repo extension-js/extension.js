@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {TEMPLATE_ALIASES as CREATE_ALIASES} from 'extension-create'
 import {describe, expect, it} from 'vitest'
 import {registerCreateCommand} from '../commands/create'
 import {programAIHelp, programAIHelpJSON} from '../helpers/messages'
@@ -100,12 +101,42 @@ describe('template catalog', () => {
     }
   })
 
-  it('renders no alias section while the alias list is empty', () => {
-    if (TEMPLATE_ALIASES.length > 0) return
+  it('ends with one alias section, and with none while the alias list is empty', () => {
+    const lines = renderTemplateList({color: false}).split('\n')
+    const section =
+      TEMPLATE_ALIASES.length > 0
+        ? [
+            '',
+            '  Aliases',
+            ...TEMPLATE_ALIASES.map(
+              (alias) => `    ${alias.name} still works, ${alias.note}`
+            )
+          ]
+        : []
 
-    const rendered = renderTemplateList({color: false})
-    expect(rendered).not.toContain('Aliases')
-    expect(rendered.endsWith('\n')).toBe(false)
+    expect(lines.filter((line) => line === '  Aliases')).toHaveLength(
+      section.length > 0 ? 1 : 0
+    )
+
+    expect(lines.slice(lines.length - section.length)).toEqual(section)
+    expect(lines.at(-1)).not.toBe('')
+  })
+})
+
+// One rename, two lists, and no runtime edge between them: extension-create
+// resolves a template, the CLI lists it, and only this spec holds them together.
+describe('template aliases agree across the packages that own them', () => {
+  it('lists exactly the aliases the resolver resolves', () => {
+    const listed = Object.fromEntries(
+      TEMPLATE_ALIASES.map((alias) => [alias.name, alias.resolvesTo])
+    )
+    expect(listed).toEqual({...CREATE_ALIASES})
+  })
+
+  it('never points an alias at itself', () => {
+    expect(
+      TEMPLATE_ALIASES.filter((alias) => alias.resolvesTo === alias.name)
+    ).toEqual([])
   })
 })
 
@@ -230,13 +261,17 @@ describe('catalog matches the corpus it scaffolds from', () => {
     const uncurated = TEMPLATE_CORPUS_SLUGS.filter((name) => !curated.has(name))
     const rendered = renderTemplateList({color: false})
 
+    const catchAll = TEMPLATE_GROUPS.find(
+      (group) => group.title === UNCURATED_GROUP_TITLE
+    )
+
+    // Holds with nothing uncurated too: the group and its heading are absent.
+    expect(catchAll?.templates ?? []).toEqual(uncurated)
+    expect(rendered.includes(UNCURATED_GROUP_TITLE)).toBe(uncurated.length > 0)
+
     for (const name of uncurated) {
       expect(listTemplates(), name).toContain(name)
       expect(rendered, name).toContain(name)
-    }
-
-    if (uncurated.length) {
-      expect(rendered).toContain(UNCURATED_GROUP_TITLE)
     }
   })
 })

@@ -650,8 +650,8 @@ export async function loadProjectConfigDefaults(
           ...(Array.isArray(userConfig?.transpilePackages)
             ? {transpilePackages: userConfig.transpilePackages}
             : {}),
-          ...(userConfig?.perfBudgets &&
-          typeof userConfig.perfBudgets === 'object'
+          // A misshapen value passes through so the budget check refuses it by name.
+          ...(userConfig?.perfBudgets !== undefined
             ? {perfBudgets: userConfig.perfBudgets}
             : {}),
           ...(userConfig?.define && typeof userConfig.define === 'object'

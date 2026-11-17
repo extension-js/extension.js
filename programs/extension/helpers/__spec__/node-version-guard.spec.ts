@@ -8,10 +8,7 @@ import {
   isSupportedBunVersion,
   isSupportedDenoVersion,
   isSupportedNodeVersion,
-  unsupportedBunVersionMessage,
-  unsupportedDenoVersionMessage,
-  unsupportedNodeVersionFrame,
-  unsupportedNodeVersionMessage
+  unsupportedNodeVersionFrame
 } from '../node-version-guard'
 
 describe('isSupportedNodeVersion', () => {
@@ -100,17 +97,11 @@ describe('enforceSupportedNodeVersion', () => {
 
     expect(exitSpy).toHaveBeenCalledWith(1)
     expect(errorSpy).toHaveBeenCalledTimes(1)
-    const message = errorSpy.mock.calls[0][0] as string
-    expect(message).toBe(unsupportedNodeVersionMessage('20.19.4'))
     // The literal wording is what a user pastes into a search, so a change
     // to it is a deliberate one, not a side effect of a refactor.
-    expect(message).toBe(
+    expect(errorSpy.mock.calls[0][0]).toBe(
       '[Extension.js] Requires Node.js >= 22.12 (you are on 20.19.4). Upgrade Node.js to run the extension CLI.'
     )
-
-    expect(message).toContain('22.12')
-    expect(message).toContain('20.19.4')
-    expect(message).not.toContain('\n')
   })
 
   it('writes one E_NODE_VERSION envelope on stdout when json output is asked for', () => {
@@ -214,12 +205,10 @@ describe('enforceSupportedNodeVersion', () => {
     enforceSupportedNodeVersion('22.6.0', '1.1.38')
 
     expect(exitSpy).toHaveBeenCalledWith(1)
-    const message = errorSpy.mock.calls[0][0] as string
-    expect(message).toBe(unsupportedBunVersionMessage('1.1.38'))
-    expect(message).toContain('Bun >= 1.2')
-    expect(message).toContain('1.1.38')
-    expect(message).not.toContain('22.6.0')
-    expect(message).not.toContain('\n')
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(errorSpy.mock.calls[0][0]).toBe(
+      '[Extension.js] Requires Bun >= 1.2 (you are on 1.1.38). Run bun upgrade, or run the extension CLI on Node.js >= 22.12 instead.'
+    )
   })
 
   it('runs on Deno at or above the floor', () => {
@@ -238,11 +227,10 @@ describe('enforceSupportedNodeVersion', () => {
     enforceSupportedNodeVersion('20.11.1', undefined, '2.0.6')
 
     expect(exitSpy).toHaveBeenCalledWith(1)
-    const message = errorSpy.mock.calls[0][0] as string
-    expect(message).toBe(unsupportedDenoVersionMessage('2.0.6'))
-    expect(message).toContain('Deno >= 2.5')
-    expect(message).not.toContain('20.11.1')
-    expect(message).not.toContain('\n')
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(errorSpy.mock.calls[0][0]).toBe(
+      '[Extension.js] Requires Deno >= 2.5 (you are on 2.0.6). Run deno upgrade, or run the extension CLI on Node.js >= 22.12 instead.'
+    )
   })
 
   it('refuses Deno 2.8.0, which cannot load node:querystring', () => {
@@ -251,11 +239,10 @@ describe('enforceSupportedNodeVersion', () => {
     enforceSupportedNodeVersion('24.2.0', undefined, '2.8.0')
 
     expect(exitSpy).toHaveBeenCalledWith(1)
-    const message = errorSpy.mock.calls[0][0] as string
-    expect(message).toContain('2.8.0')
-    expect(message).toContain('node:querystring')
-    expect(message).toContain('2.8.1')
-    expect(message).not.toContain('\n')
+    expect(errorSpy).toHaveBeenCalledTimes(1)
+    expect(errorSpy.mock.calls[0][0]).toBe(
+      '[Extension.js] Deno 2.8.0 cannot load node:querystring inside the bundler, so every build fails on it. Deno fixed that in 2.8.1. Run deno upgrade to build the extension on Deno.'
+    )
   })
 })
 

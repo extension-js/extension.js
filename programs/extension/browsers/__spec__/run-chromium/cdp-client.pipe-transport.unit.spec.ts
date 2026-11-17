@@ -1,15 +1,6 @@
 import {PassThrough} from 'node:stream'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-vi.mock('../../run-chromium/cdp/discovery', () => ({
-  discoverWebSocketDebuggerUrl: vi.fn(),
-  checkChromeRemoteDebugging: vi.fn(async () => true)
-}))
-
-vi.mock('../../run-chromium/cdp/ws', () => ({
-  establishBrowserConnection: vi.fn()
-}))
-
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
 describe('CDPClient pipe transport', () => {
@@ -194,7 +185,7 @@ describe('CDPClient pipe transport when the browser dies mid-write', () => {
     )
 
     expect(client.isTransportGone()).toBe(true)
-    expect(reasons.length).toBeGreaterThan(0)
+    expect(reasons).toEqual(['write EPIPE'])
     client.disconnect()
     pipeIn.destroy()
   })

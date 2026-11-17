@@ -325,6 +325,7 @@ export class PersistManifestToDisk {
               '    or restart after removing the `dist/` folder for a clean build.'
             ].join('\n')
           ) as Error & {file?: string}
+          err.name = 'ManifestFilesNotEmitted'
           err.file = 'manifest.json'
           compilation.errors.push(err)
 

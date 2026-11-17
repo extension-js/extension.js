@@ -20,11 +20,16 @@ import {FirefoxRDPController} from '../rdp/rdp-extension-controller'
 export async function setupRdpAfterLaunch(
   plugin: FirefoxPluginRuntime & {[k: string]: unknown},
   compilation: CompilationLike,
-  debugPort: number
+  debugPort: number,
+  retryBaseMs = 150
 ): Promise<FirefoxRDPController> {
   const controller = new FirefoxRDPController(plugin, debugPort)
 
-  const retry = async <T>(fn: () => Promise<T>, attempts = 5, baseMs = 150) => {
+  const retry = async <T>(
+    fn: () => Promise<T>,
+    attempts = 5,
+    baseMs = retryBaseMs
+  ) => {
     let lastError: unknown
 
     for (let i = 0; i < attempts; i++) {
