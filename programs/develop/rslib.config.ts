@@ -212,6 +212,5 @@ export default defineConfig({
         filename: {js: '[name].mjs'}
       }
     }
-  ],
-  plugins: []
+  ]
 } satisfies RslibConfig)
