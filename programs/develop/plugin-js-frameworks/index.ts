@@ -42,8 +42,7 @@ import {maybeUseSvelte} from './js-tools/svelte'
 import {
   ensureTypeScriptConfig,
   getUserJsConfigFile,
-  getUserTypeScriptConfigFile,
-  isUsingTypeScript
+  getUserTypeScriptConfigFile
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
 import {resolveSwcTargets} from './swc-targets'
@@ -573,9 +572,9 @@ export class JsFrameworksPlugin {
 
     const resolveConfigPath = tsConfigPath ?? getUserJsConfigFile(projectPath)
 
-    if (isUsingTypeScript(projectPath) || !!resolveConfigPath) {
+    if (resolveConfigPath) {
       compiler.options.resolve.tsConfig = {
-        configFile: resolveConfigPath as string
+        configFile: resolveConfigPath
       }
     }
 
