@@ -1,140 +1,171 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {CssPlugin} from '../index'
+import {closeCompiler, cssProjects} from './helpers/css-project'
 
-const tempDirs: string[] = []
+const makeProject = cssProjects()
 
 afterEach(() => {
-  delete process.env.EXTENSION_STRICT_REFS
-
-  while (tempDirs.length > 0) {
-    fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
-  }
+  vi.unstubAllEnvs()
 })
 
-function createProject() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-dead-url-'))
-  tempDirs.push(dir)
-  fs.writeFileSync(path.join(dir, 'manifest.json'), '{}', 'utf8')
-
-  return dir
-}
-
-function armPlugin(projectDir: string) {
-  const warnings: any[] = []
-  let beforeResolve: ((data: any) => false | void) | null = null
-  let onCompilation: ((c: any) => void) | null = null
-
-  const compiler: any = {
-    options: {context: projectDir, mode: 'production'},
-    hooks: {
-      thisCompilation: {tap: (_: any, fn: any) => (onCompilation = fn)},
-      normalModuleFactory: {
-        tap: (_: any, fn: any) =>
-          fn({
-            hooks: {
-              beforeResolve: {tap: (__: any, cb: any) => (beforeResolve = cb)}
-            }
-          })
-      },
-      beforeRun: {tapPromise: () => {}},
-      watchRun: {tapPromise: () => {}}
-    }
-  }
-
-  void new CssPlugin({
-    manifestPath: path.join(projectDir, 'manifest.json')
-  } as any).apply(compiler)
-
-  onCompilation!({warnings})
-
-  return {resolve: beforeResolve!, warnings}
-}
-
-describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
-  it('cancels a root-absolute url() with no file anywhere and warns once', () => {
-    const dir = createProject()
-    const issuer = path.join(dir, 'cs.css')
-    const {resolve, warnings} = armPlugin(dir)
-
-    const data = {
-      request: '/img/missing.png',
-      context: dir,
-      contextInfo: {issuer}
-    }
-    expect(resolve(data)).toBe(false)
-    expect(resolve(data)).toBe(false)
-    expect(warnings).toHaveLength(1)
-    expect(String(warnings[0].message)).toContain('NOT FOUND')
+// A real compiler with CssPlugin applied. Production defers the CSS rules to
+// beforeRun, which compile() skips, so a plain css rule stands in for them
+// and the plugin's own hooks run against what the native parser requests.
+function compilerFor(root: string, entry: string): Compiler {
+  const compiler = rspack({
+    context: root,
+    mode: 'production',
+    devtool: false,
+    entry: {main: entry},
+    output: {path: path.join(root, 'out')},
+    module: {rules: [{test: /\.css$/, type: 'css'}]},
+    optimization: {minimize: false}
   })
 
-  it('leaves resolvable refs and non-CSS issuers alone', () => {
-    const dir = createProject()
-    fs.mkdirSync(path.join(dir, 'img'))
-    fs.writeFileSync(path.join(dir, 'img', 'real.png'), 'x')
-    const issuer = path.join(dir, 'cs.css')
-    const {resolve, warnings} = armPlugin(dir)
+  void new CssPlugin({manifestPath: path.join(root, 'manifest.json')}).apply(
+    compiler
+  )
 
-    expect(
-      resolve({request: '/img/real.png', context: dir, contextInfo: {issuer}})
-    ).toBeUndefined()
+  return compiler
+}
 
-    expect(
-      resolve({
-        request: '/img/missing.png',
-        context: dir,
-        contextInfo: {issuer: path.join(dir, 'index.js')}
-      })
-    ).toBeUndefined()
+async function compile(root: string, entry = './entry.js') {
+  const compiler = compilerFor(root, entry)
 
-    expect(
-      resolve({
-        request: 'some-pkg/styles.css',
-        context: dir,
-        contextInfo: {issuer}
-      })
-    ).toBeUndefined()
+  try {
+    const compilation = await new Promise<Compilation>((resolve, reject) =>
+      compiler.compile((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+    )
 
-    expect(warnings).toHaveLength(0)
+    return {
+      warnings: compilation.warnings.map((w) => ({
+        name: w.name,
+        message: unframed(w.message)
+      })),
+      errors: compilation.errors.map((e) => e.message)
+    }
+  } finally {
+    await closeCompiler(compiler)
+  }
+}
+
+// rspack hands a diagnostic back inside its own frame: a glyph on the first
+// line and a bar on the others.
+function unframed(message: string) {
+  return message
+    .trimEnd()
+    .split('\n')
+    .map((line) => line.replace(/^\s*(?:⚠|×|│)\s?/, ''))
+    .join('\n')
+}
+
+const deadRef = (issuer: string, request: string) => ({
+  name: 'CssDeadRef',
+  message: [
+    `A url(${request}) reference points to a file that exists nowhere in the project.`,
+    `PATH ${issuer}`,
+    `NOT FOUND ${request}`,
+    "Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
+    'Set EXTENSION_STRICT_REFS=true to make this a build error.'
+  ].join('\n')
+})
+
+describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
+  it('cancels a root-absolute url() with no file anywhere and warns once', async () => {
+    const root = makeProject({
+      'entry.js': 'import "./cs.css"',
+      'cs.css':
+        '.a{background:url(/img/missing.png)}\n.b{background:url(/img/missing.png)}\n'
+    })
+
+    expect(await compile(root)).toEqual({
+      warnings: [deadRef('cs.css', '/img/missing.png')],
+      errors: []
+    })
+  })
+
+  it('leaves a url() to a file that exists to the bundler', async () => {
+    const root = makeProject({
+      'entry.js': 'import "./cs.css"',
+      'cs.css': '.a{background:url(./img/real.png)}\n',
+      'img/real.png': 'x'
+    })
+
+    expect(await compile(root)).toEqual({warnings: [], errors: []})
+  })
+
+  it.each([
+    ['a script', {'entry.js': 'import "/img/missing.png"'}, '/img/missing.png'],
+    [
+      'a package sheet',
+      {
+        'entry.js': 'import "./cs.css"',
+        'cs.css': '@import "some-pkg/styles.css";\n'
+      },
+      'some-pkg/styles.css'
+    ]
+  ])('leaves the request of %s to fail the way rspack fails it', async (_label, files, request) => {
+    const root = makeProject(files)
+    const {warnings, errors} = await compile(root)
+
+    expect(warnings).toEqual([])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain(`Can't resolve '${request}'`)
+  })
+
+  it('makes the missing file a build error under EXTENSION_STRICT_REFS=true', async () => {
+    vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
+    const root = makeProject({
+      'entry.js': 'import "./cs.css"',
+      'cs.css': '.a{background:url(/img/missing.png)}\n'
+    })
+    const {warnings, errors} = await compile(root)
+
+    expect(warnings).toEqual([])
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain("Can't resolve '/img/missing.png'")
   })
 
   // vue-loader re-issues each <style> block as an inline match resource
   // request from a `.vue.css` issuer. That is a module request, not a url(),
   // and cancelling it dropped every Vue style block from the built sheet.
-  it('leaves a loader-built request alone even when no such file exists', () => {
-    const dir = createProject()
-    const issuer = path.join(dir, 'sidebar', 'SidebarApp.vue.css')
-    const {resolve, warnings} = armPlugin(dir)
+  it('leaves a loader-built request alone even when no such file exists', async () => {
+    const root = makeProject({'entry.js': ''})
+    const compiler = compilerFor(root, './entry.js')
+    const issuer = path.join(root, 'sidebar', 'SidebarApp.vue.css')
+    let answers: Promise<unknown[]> = Promise.resolve([])
 
-    for (const request of [
-      './SidebarApp.vue.css?vue&type=style&index=1&id=09c2&scoped=true&lang=css!=!-!/n/vue-loader/dist/stylePostLoader.js!./SidebarApp.vue?vue&type=style&index=1&id=09c2&scoped=true&lang=css',
-      './probe.css.css?vue&type=style&index=2&lang=css&external!=!-!/n/vue-loader/dist/stylePostLoader.js!./probe.css?vue&type=style&index=2&lang=css&external',
-      '!!raw-loader!./missing.css'
-    ]) {
-      expect(
-        resolve({request, context: dir, contextInfo: {issuer}})
-      ).toBeUndefined()
+    // Ask the factory's real hook, after CssPlugin tapped it, the way
+    // vue-loader's requests reach it.
+    compiler.hooks.normalModuleFactory.tap('spec', (nmf) => {
+      answers = Promise.all(
+        [
+          './SidebarApp.vue.css?vue&type=style&index=1&id=09c2&scoped=true&lang=css!=!-!/n/vue-loader/dist/stylePostLoader.js!./SidebarApp.vue?vue&type=style&index=1&id=09c2&scoped=true&lang=css',
+          './probe.css.css?vue&type=style&index=2&lang=css&external!=!-!/n/vue-loader/dist/stylePostLoader.js!./probe.css?vue&type=style&index=2&lang=css&external',
+          '!!raw-loader!./missing.css'
+        ].map((request) =>
+          nmf.hooks.beforeResolve.promise({
+            request,
+            context: path.dirname(issuer),
+            contextInfo: {issuer}
+          } as never)
+        )
+      )
+    })
+
+    try {
+      await new Promise<void>((resolve, reject) =>
+        compiler.compile((error) => (error ? reject(error) : resolve()))
+      )
+    } finally {
+      await closeCompiler(compiler)
     }
 
-    expect(warnings).toHaveLength(0)
-  })
-
-  it('keeps the fatal under EXTENSION_STRICT_REFS=true', () => {
-    process.env.EXTENSION_STRICT_REFS = 'true'
-    const dir = createProject()
-    const issuer = path.join(dir, 'cs.css')
-    const {resolve, warnings} = armPlugin(dir)
-
-    expect(
-      resolve({
-        request: '/img/missing.png',
-        context: dir,
-        contextInfo: {issuer}
-      })
-    ).toBeUndefined()
-
-    expect(warnings).toHaveLength(0)
+    expect(await answers).toEqual([undefined, undefined, undefined])
   })
 })
