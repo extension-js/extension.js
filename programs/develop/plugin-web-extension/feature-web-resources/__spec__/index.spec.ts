@@ -474,11 +474,13 @@ describe('generateManifestPatches', () => {
     })
   })
 
-  it('adds root-level fonts (e.g. fonts/*) to mv3 WAR when content scripts exist', () => {
+  it.each([
+    2, 3
+  ] as const)('leaves a font no injected sheet or content script loads unlisted (mv%i)', (manifestVersion) => {
     const updated = runWith(
       {},
       {
-        manifest_version: 3,
+        manifest_version: manifestVersion,
         content_scripts: [
           {
             matches: ['<all_urls>'],
@@ -488,18 +490,13 @@ describe('generateManifestPatches', () => {
       },
       {
         extraAssets: {
-          'fonts/DMMonoRegular.woff2': 'x'
+          'fonts/DMMonoRegular.woff2': 'x',
+          'assets/Imported.woff2': 'x'
         }
       }
     )
 
-    const groups = (updated as any).web_accessible_resources as {
-      matches: string[]
-      resources: string[]
-    }[]
-    expect(groups).toBeTruthy()
-    expect(groups[0].matches).toEqual(['<all_urls>'])
-    expect(groups[0].resources).toContain('fonts/DMMonoRegular.woff2')
+    expect((updated as any).web_accessible_resources).toBeUndefined()
   })
 
   it('should correctly handle manifest v2 content scripts', () => {
