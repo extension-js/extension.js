@@ -804,7 +804,6 @@ export async function maybeUsePostCss(
     }
 
     const postcssOptions = {
-      ident: 'postcss',
       cwd: projectPath,
       config: false,
       plugins: selfResolved.plugins
@@ -824,8 +823,6 @@ export async function maybeUsePostCss(
     }
 
     return {
-      test: /\.css$/,
-      type: 'css',
       loader: resolvedPostCssLoader,
       options: {
         postcssOptions,
@@ -873,7 +870,6 @@ export async function maybeUsePostCss(
   // and a project that keeps two configs must not get the other one here.
   // A config that was set aside stays out, or the loader fails on it again.
   const postcssOptions: AnyModule = {
-    ident: 'postcss',
     cwd: projectPath,
     config:
       userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat || configRefused
@@ -910,8 +906,6 @@ export async function maybeUsePostCss(
   }
 
   return {
-    test: /\.css$/,
-    type: 'css',
     loader: resolvedPostCssLoader,
     options: {
       postcssOptions,
