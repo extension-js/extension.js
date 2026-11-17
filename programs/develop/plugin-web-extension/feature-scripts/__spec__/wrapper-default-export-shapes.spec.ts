@@ -46,8 +46,9 @@ function wrap(
   source: string,
   {
     file = 'main.js',
-    siblings = {}
-  }: {file?: string; siblings?: Record<string, string>} = {}
+    siblings = {},
+    mode = 'production'
+  }: {file?: string; siblings?: Record<string, string>; mode?: string} = {}
 ) {
   const root = project(file, siblings)
   const resourcePath = path.join(root, 'content', file)
@@ -62,7 +63,7 @@ function wrap(
         emitWarning,
         getOptions: () => ({
           manifestPath: path.join(root, 'manifest.json'),
-          mode: 'production'
+          mode
         })
       } as any,
       source
@@ -161,14 +162,14 @@ async function buildAndRun({
       })
     })
   })
-  const clicked: Array<() => void> = []
+  const listeners: Array<() => void> = []
   const warned: string[] = []
   const late: string[] = []
   const page: Record<string, unknown> = {
     document: {
       readyState: 'complete',
-      addEventListener(type: string, listener: () => void) {
-        if (type === 'click') clicked.push(listener)
+      addEventListener(_type: string, listener: () => void) {
+        listeners.push(listener)
       },
       removeEventListener() {}
     },
@@ -206,7 +207,7 @@ async function buildAndRun({
 
   await new Promise((resolve) => setTimeout(resolve, 20))
 
-  for (const listener of clicked) {
+  for (const listener of listeners) {
     try {
       listener()
     } catch (error) {
@@ -458,21 +459,218 @@ describe('the content script wrapper on default export shapes', () => {
     expect(wrapped.text).toContain(`\n${source}\n`)
     expect(wrapped.text).not.toContain('__EXTENSIONJS_default__')
   })
+})
 
-  it('deletes a call to the default export inside a timer callback', () => {
-    // Pins today's behavior. Ledger 1384 D4.
-    const {text, warnings} = wrap(
-      'export default function main() {}\n' +
-        'setTimeout(() => {\n  main()\n}, 50)\n'
+const REMOVED = (name = 'main') => [
+  `content/main.js calls ${name}() at the top level and also exports ${name} as default, so the call was left out of the build.\n` +
+    'FILE content/main.js\n' +
+    'Extension.js runs the default export once the page is ready, and the call would run it a second time.\n' +
+    `Remove the ${name}() call, or drop the default export if the script should start itself.`
+]
+
+describe('a content script that calls its own default export', () => {
+  const REMOVED_AT_TOP_LEVEL: Shape[] = [
+    {
+      title: 'a named function',
+      source: `export default function main() { ${RUN} }\nmain()\n`
+    },
+    {
+      title: 'a function exported in a list',
+      source: `function main() { ${RUN} }\nmain();\nexport { main as default }\n`
+    },
+    {
+      title: 'a name declared above, between statements with no semicolons',
+      source:
+        `const main = () => { ${RUN} }\n` +
+        'export default main\n' +
+        'const first = [1]\n' +
+        'main()\n' +
+        'first.forEach((value) => { globalThis.second = value })\n'
+    }
+  ]
+
+  for (const shape of REMOVED_AT_TOP_LEVEL) {
+    it(`leaves out a top-level call of ${shape.title}, and warns`, async () => {
+      const wrapped = wrap(shape.source, shape)
+
+      expect(wrapped.warnings).toEqual(REMOVED())
+      expect(await buildAndRun(wrapped)).toMatchObject(ONCE)
+    })
+  }
+
+  it('leaves out a top-level call of a name with a dollar sign', async () => {
+    const wrapped = wrap(
+      `export default function $mount() { ${RUN} }\n$mount()\n`
     )
 
-    expect(text).toContain(
-      ' function main() {}\n' + 'setTimeout(() => {\n\n}, 50)\n'
+    expect(wrapped.warnings).toEqual(REMOVED('$mount'))
+    expect(await buildAndRun(wrapped)).toMatchObject(ONCE)
+  })
+
+  it('leaves out a top-level call in a TypeScript file', async () => {
+    const wrapped = wrap(
+      `export default function main(): void { ${RUN} }\nmain()\n`,
+      {file: 'main.ts'}
     )
 
-    expect(warnings).toEqual([
-      'Removed direct call to main() to prevent double mount; wrapper handles mounting.'
+    expect(wrapped.warnings).toEqual([
+      REMOVED()[0].replaceAll('content/main.js', 'content/main.ts')
     ])
+
+    expect(await buildAndRun(wrapped)).toMatchObject(ONCE)
+  })
+
+  it('keeps the line of every statement after a call it leaves out', () => {
+    const wrapped = wrap(
+      'export default function main() {}\nmain(\n)\nconst after = 1\n'
+    )
+
+    expect(wrapped.text).toContain(
+      ' function main() {}\n;\n\nconst after = 1\n'
+    )
+  })
+
+  const KEPT: Shape[] = [
+    {
+      title: 'a timer callback',
+      source:
+        `export default function main() { ${RUN} }\n` +
+        'setTimeout(() => {\n  main()\n}, 1)\n'
+    },
+    {
+      title: 'a condition on the ready state',
+      source:
+        `export default function main() { ${RUN} }\n` +
+        "if (document.readyState === 'complete') {\n  main()\n}\n"
+    },
+    {
+      title: 'a condition with no braces',
+      source:
+        `export default function main() { ${RUN} }\n` +
+        "if (document.readyState === 'complete')\n  main()\n"
+    },
+    {
+      title: 'a DOMContentLoaded listener',
+      source:
+        `export default function main() { ${RUN} }\n` +
+        "document.addEventListener('DOMContentLoaded', () => {\n  main()\n})\n"
+    },
+    {
+      title: 'another function',
+      source:
+        `export default function main() { ${RUN} }\n` +
+        'function start() {\n  main()\n}\nstart()\n'
+    },
+    {
+      title: 'a block',
+      source: `export default function main() { ${RUN} }\n{\n  main()\n}\n`
+    },
+    {
+      title: 'a TypeScript timer callback',
+      file: 'main.ts',
+      source:
+        `export default function main(): void { ${RUN} }\n` +
+        'setTimeout((): void => {\n  main()\n}, 1)\n'
+    }
+  ]
+
+  for (const shape of KEPT) {
+    it(`keeps a call inside ${shape.title}`, async () => {
+      const wrapped = wrap(shape.source, shape)
+
+      expect(wrapped.warnings).toEqual([])
+      // Once by the wrapper and once by the call the author wrote.
+      expect(await buildAndRun(wrapped)).toMatchObject({...ONCE, ran: 2})
+    })
+  }
+
+  it('keeps top-level calls of functions with a similar name, and calls that differ', async () => {
+    const wrapped = wrap(
+      `export default function main() { ${RUN} }\n` +
+        'const seen = []\n' +
+        'function mainLoop() { seen.push("mainLoop") }\n' +
+        'function domain() { seen.push("domain") }\n' +
+        'const app = {main() { seen.push("app.main") }}\n' +
+        'mainLoop()\n' +
+        'domain()\n' +
+        'app.main()\n' +
+        'main("again")\n' +
+        'globalThis.seen = seen.join()\n'
+    )
+
+    expect(wrapped.warnings).toEqual([])
+
+    const result = await buildAndRun(wrapped)
+
+    expect(result).toMatchObject({...ONCE, ran: 2})
+    expect(result.page.seen).toBe('mainLoop,domain,app.main')
+  })
+})
+
+describe('the dev session hint for a default export the script also calls', () => {
+  const strip = (text: string) => text.replace(/\u001b\[[0-9;]*m/g, '')
+
+  function hintsFor(source: string, mode: string, saves = 1) {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const root = project('main.js', {})
+      const resourcePath = path.join(root, 'content', 'main.js')
+
+      fs.writeFileSync(resourcePath, source)
+
+      for (let save = 0; save < saves; save++) {
+        contentScriptWrapper.call(
+          {
+            resourcePath,
+            getOptions: () => ({
+              manifestPath: path.join(root, 'manifest.json'),
+              mode
+            })
+          } as any,
+          source
+        )
+      }
+
+      return log.mock.calls
+        .map((call) => strip(call.map(String).join(' ')))
+        .filter((line) => line.includes('runs more than once'))
+    } finally {
+      log.mockRestore()
+    }
+  }
+
+  const CALLED_LATER =
+    'export default function main() {}\n' +
+    "document.addEventListener('DOMContentLoaded', () => {\n  main()\n})\n"
+
+  it('says once per file that the function runs more than once, and why it matters', () => {
+    expect(hintsFor(CALLED_LATER, 'development', 3)).toEqual([
+      '\u23f5\u23f5\u23f5 content/main.js calls main() itself, and Extension.js also runs the default export once the page is ready, so main runs more than once.\n' +
+        'Only the run Extension.js starts has its cleanup called before the next copy in this dev session, so what the other run adds stays on the page.\n' +
+        'Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.'
+    ])
+  })
+
+  it('says nothing in a production build', () => {
+    expect(hintsFor(CALLED_LATER, 'production')).toEqual([])
+  })
+
+  it('says nothing when the only call is the top-level one it leaves out', () => {
+    expect(
+      hintsFor('export default function main() {}\nmain()\n', 'development')
+    ).toEqual([])
+  })
+
+  it('says nothing for a function that calls itself again, as a retry does', () => {
+    expect(
+      hintsFor(
+        'export default function main() {\n' +
+          '  if (!document.body) setTimeout(() => main(), 50)\n' +
+          '}\n',
+        'development'
+      )
+    ).toEqual([])
   })
 })
 

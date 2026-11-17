@@ -532,6 +532,32 @@ export function contentScriptWithoutDefaultExport(
   )
 }
 
+export function topLevelMountCallRemoved(file: string, name: string) {
+  const lines: string[] = []
+  lines.push(
+    `${file} calls ${name}() at the top level and also exports ${name} as default, so the call was left out of the build.`
+  )
+
+  lines.push(`${colors.gray('FILE')} ${colors.underline(file)}`)
+  lines.push(
+    `Extension.js runs the default export once the page is ready, and the call would run it a second time.`
+  )
+
+  lines.push(
+    `Remove the ${colors.blue(`${name}()`)} call, or drop the default export if the script should start itself.`
+  )
+
+  return lines.join('\n')
+}
+
+export function defaultExportCalledAgain(file: string, name: string) {
+  return (
+    `${prefix('warn')} ${colors.yellow(file)} calls ${name}() itself, and Extension.js also runs the default export once the page is ready, so ${name} runs more than once.\n` +
+    `Only the run Extension.js starts has its cleanup called before the next copy in this dev session, so what the other run adds stays on the page.\n` +
+    `Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.`
+  )
+}
+
 // Thrown, so the build stops where the script would otherwise ship unmounted.
 export function defaultExportUnreadable(file: string, reason: string) {
   return (

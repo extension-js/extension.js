@@ -43,6 +43,10 @@ export type DefaultExportReading =
       keepsOwnExport: boolean
       // The module-scope name of the default export, unless it is a class.
       localName?: string
+      // Top-level calls of that name left out, since the wrapper mounts it.
+      removedCalls: number
+      // Calls of that name anywhere else, each one a run beside the mount.
+      keptCalls: number
     }
 
 const isTyped = (extension: string) => /^\.[cm]?tsx?$/.test(extension)
@@ -153,6 +157,41 @@ function nameOf(node: unknown): string | undefined {
   return undefined
 }
 
+const isCallOf = (node: unknown, name: string) => {
+  const call = node as {type?: string; callee?: unknown; arguments?: unknown[]}
+
+  return (
+    call?.type === 'CallExpression' &&
+    nameOf(call.callee) === name &&
+    (call.callee as AstNode).type === 'Identifier' &&
+    call.arguments?.length === 0
+  )
+}
+
+// Calls of the function from outside it: a call it makes to itself, as a
+// retry does, belongs to the run that is already under way.
+function countCallsOf(node: unknown, name: string): number {
+  if (Array.isArray(node)) {
+    return node.reduce((sum, child) => sum + countCallsOf(child, name), 0)
+  }
+
+  if (!node || typeof (node as AstNode).type !== 'string') return 0
+
+  const {type, id} = node as AstNode
+
+  if (
+    (type === 'FunctionDeclaration' || type === 'VariableDeclarator') &&
+    nameOf(id) === name
+  ) {
+    return 0
+  }
+
+  return Object.values(node).reduce(
+    (sum: number, child) => sum + countCallsOf(child, name),
+    isCallOf(node, name) ? 1 : 0
+  )
+}
+
 // Every edit keeps the line count, so the line map of the source still holds.
 const lineBreaksOf = (text: string) => text.replace(/[^\n]/g, '')
 
@@ -260,11 +299,40 @@ export function readDefaultExport(
 
   if (!found) return {kind: 'none'}
 
+  let removedCalls = 0
+
+  // Only a statement of the module body: a call in a function, a callback,
+  // a block or a condition runs when the author's own code decides.
+  for (const node of localName ? program.body : []) {
+    if (
+      node.type === 'ExpressionStatement' &&
+      isCallOf(node.expression, localName as string)
+    ) {
+      removedCalls++
+      edits.push({
+        start: node.start,
+        end: node.end,
+        text: `;${lineBreaksOf(textOf(node))}`
+      })
+    }
+  }
+
+  const keptCalls = localName
+    ? countCallsOf(program.body, localName) - removedCalls
+    : 0
   let code = source
 
   for (const edit of edits.sort((a, b) => b.start - a.start)) {
     code = code.slice(0, edit.start) + edit.text + code.slice(edit.end)
   }
 
-  return {kind: 'found', code, binding, keepsOwnExport, localName}
+  return {
+    kind: 'found',
+    code,
+    binding,
+    keepsOwnExport,
+    localName,
+    removedCalls,
+    keptCalls
+  }
 }

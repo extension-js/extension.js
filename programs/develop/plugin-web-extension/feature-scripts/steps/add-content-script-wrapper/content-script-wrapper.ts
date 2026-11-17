@@ -192,6 +192,7 @@ function importsScriptsFile(
 // One hint per entry per process: a dev session recompiles the entry on every
 // save, and the advice does not change between them.
 const hintedEntriesWithoutDefaultExport = new Set<string>()
+const hintedEntriesCallingTheirDefault = new Set<string>()
 
 const __EXTENSIONJS_manifestParseCache = new Map<
   string,
@@ -1227,29 +1228,28 @@ export default function contentScriptWrapper(
     )
   }
 
-  const replaced = defaultExport.code
-  const defaultName = defaultExport.localName
+  const cleaned = defaultExport.code
+  const defaultName = String(defaultExport.localName)
 
-  let cleaned = replaced
-
-  if (defaultName) {
-    const callPattern = new RegExp(
-      `(^|\\n|;)\\s*${defaultName}\\s*\\(\\s*\\)\\s*;?\\s*(?=\\n|$)`,
-      'g'
-    )
-    const next = cleaned.replace(
-      callPattern,
-      (_match, prefix) => prefix || '\n'
-    )
-
-    if (next !== cleaned) {
-      cleaned = next
-      this.emitWarning?.(
-        new Error(
-          `Removed direct call to ${defaultName}() to prevent double mount; wrapper handles mounting.`
-        )
+  if (defaultExport.removedCalls > 0) {
+    this.emitWarning?.(
+      new Error(
+        messages.topLevelMountCallRemoved(projectRelativePath, defaultName)
       )
-    }
+    )
+  }
+
+  // The runtime cannot see a call the script makes to its own function, so
+  // the extra run is said here, in the session where its leftovers show.
+  if (
+    !isShippedBundle &&
+    defaultExport.keptCalls > 0 &&
+    !hintedEntriesCallingTheirDefault.has(resourceAbsPath)
+  ) {
+    hintedEntriesCallingTheirDefault.add(resourceAbsPath)
+    humanLine(
+      messages.defaultExportCalledAgain(projectRelativePath, defaultName)
+    )
   }
 
   const wrapPrefix =
@@ -1278,7 +1278,7 @@ export default function contentScriptWrapper(
     wrappedResult,
     adjustLoaderSourceMap(
       inputOrIdentityMap(inputSourceMap, this.resourcePath, rewrittenSource),
-      {prefix: wrapPrefix, before: replaced, after: cleaned}
+      {prefix: wrapPrefix, before: rewrittenSource, after: cleaned}
     )
   )
 }
