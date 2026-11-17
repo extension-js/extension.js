@@ -31,8 +31,6 @@ export class EmitHtmlFile {
 
   public apply(compiler: Compiler): void {
     compiler.hooks.thisCompilation.tap('html:emit-html-file', (compilation) => {
-      const processAssetsHook = compilation.hooks?.processAssets
-
       const runner = () => {
         const htmlFields = Object.entries(this.includeList || {})
 
@@ -74,7 +72,7 @@ export class EmitHtmlFile {
                 reportToCompilation(
                   compilation,
                   compiler,
-                  messages.manifestFieldMessageOnly(featureName),
+                  messages.pageFileMissing(featureName, resolved),
                   'warning',
                   undefined,
                   'ManifestPageMissing'
@@ -121,18 +119,13 @@ export class EmitHtmlFile {
         }
       }
 
-      if (processAssetsHook && typeof processAssetsHook.tap === 'function') {
-        processAssetsHook.tap(
-          {
-            name: 'AddAssetsToCompilationPlugin',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
-          },
-          () => runner()
-        )
-      } else {
-        // Fallback for environments without processAssets support (tests)
-        runner()
-      }
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'html:emit-html-file',
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+        },
+        () => runner()
+      )
     })
   }
 }

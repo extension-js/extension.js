@@ -71,10 +71,43 @@ describe('EmitHtmlFile', () => {
     const c = makeCompilation()
     new EmitHtmlFile({
       manifestPath,
-      includeList: {'pages/missing': '/missing.html'}
+      includeList: {'pages/missing': path.join(tmp, 'pages', 'missing.html')}
     } as any).apply(c as any)
 
-    expect(c.state.warnings.length).toBeGreaterThanOrEqual(1)
+    expect(c.state.warnings).toHaveLength(1)
+
+    const [warning] = c.state.warnings as Array<{name: string; message: string}>
+
+    // A page of the pages folder is in no manifest field, so the message
+    // names the file and never sends the reader to manifest.json.
+    expect(warning.name).toBe('ManifestPageMissing')
+    expect(warning.message).toContain('pages/missing')
+    expect(warning.message).toContain(
+      `NOT FOUND ${path.join(tmp, 'pages', 'missing.html')}`
+    )
+
+    expect(warning.message).not.toContain('manifest.json')
+    expect(warning.message).not.toContain('field')
+  })
+
+  it('taps the asset stage under its own name', () => {
+    const names: string[] = []
+    const compilation = {
+      hooks: {
+        processAssets: {
+          tap: (options: {name: string}) => names.push(options.name)
+        }
+      }
+    }
+
+    new EmitHtmlFile({
+      manifestPath: '/x/manifest.json',
+      includeList: {}
+    } as any).apply({
+      hooks: {thisCompilation: {tap: (_: string, fn: any) => fn(compilation)}}
+    } as any)
+
+    expect(names).toEqual(['html:emit-html-file'])
   })
 })
 
