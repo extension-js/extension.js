@@ -49,13 +49,13 @@
     --foreground: #f2f2f7; /* label color on dark */
     --primary: #2563eb; /* system accent blue */
     --primary-foreground: #ffffff;
-    --secondary: rgba(120,120,128,0.16); /* secondarySystemFill */
+    --secondary: rgba(120, 120, 128, 0.16); /* secondarySystemFill */
     --secondary-foreground: #f2f2f7;
     --muted: #2c2c2e; /* tertiarySystemGroupedBackground */
     --muted-foreground: #98989f; /* secondaryLabel */
-    --accent: rgba(10,132,255,0.16); /* blue-tinted hover per brand/HIG */
+    --accent: rgba(10, 132, 255, 0.16); /* blue-tinted hover per brand/HIG */
     --accent-foreground: #f2f2f7;
-    --border: rgba(84,84,88,0.36); /* separator */
+    --border: rgba(84, 84, 88, 0.36); /* separator */
     --ring: #2563eb;
   }
 }
@@ -65,13 +65,13 @@
   --foreground: #f2f2f7;
   --primary: #2563eb;
   --primary-foreground: #ffffff;
-  --secondary: rgba(120,120,128,0.16);
+  --secondary: rgba(120, 120, 128, 0.16);
   --secondary-foreground: #f2f2f7;
   --muted: #2c2c2e;
   --muted-foreground: #98989f;
-  --accent: rgba(10,132,255,0.16);
+  --accent: rgba(10, 132, 255, 0.16);
   --accent-foreground: #f2f2f7;
-  --border: rgba(84,84,88,0.36);
+  --border: rgba(84, 84, 88, 0.36);
   --ring: #2563eb;
 }
 
@@ -81,7 +81,8 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, system-ui, "Segoe UI", "PingFang SC", "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    font-family:
+      -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Helvetica Neue", Helvetica, Arial, system-ui, "Segoe UI", "PingFang SC", "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
@@ -93,7 +94,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;

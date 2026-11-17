@@ -112,7 +112,8 @@ function renderFooter(): HTMLElement {
   const learnMore = externalLink(
     'text-muted-foreground text-sm underline underline-offset-4 hover:opacity-90'
   )
-  learnMore.textContent = 'Learn more about developing cross-browser extensions.'
+  learnMore.textContent =
+    'Learn more about developing cross-browser extensions.'
 
   row.append(logoLink, learnMore)
   pill.append(row)
