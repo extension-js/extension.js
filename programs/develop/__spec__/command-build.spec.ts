@@ -180,9 +180,11 @@ describe('webpack/command-build', () => {
     expect(passedPlugins).toEqual([SOME_OTHER_PLUGIN])
 
     expect(rspackMock).toHaveBeenCalledTimes(1)
+    // Every config load is told the run's mode and browser.
     expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
       '/proj',
-      'build'
+      'build',
+      {mode: 'production', browser: 'chrome'}
     )
 
     expect(configLoaderMod.loadCustomConfig).toHaveBeenCalledWith('/proj', {
@@ -571,7 +573,8 @@ describe('webpack/command-build', () => {
 
       expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
         '/proj',
-        'start'
+        'start',
+        {mode: 'production', browser: 'chrome'}
       )
 
       expect(webpackOpts()).toMatchObject({polyfill: false})
@@ -872,7 +875,8 @@ describe('webpack/command-build', () => {
 
     expect(genTypesMod.generateExtensionTypes).toHaveBeenCalledWith(
       '/proj/src',
-      '/proj'
+      '/proj',
+      {mode: 'production', browser: 'chrome'}
     )
   })
 
