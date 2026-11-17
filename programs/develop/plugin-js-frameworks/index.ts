@@ -451,7 +451,6 @@ export class JsFrameworksPlugin {
     ) => ({
       loader: 'builtin:swc-loader',
       options: {
-        sync: true,
         module: {
           type: 'es6'
         },
