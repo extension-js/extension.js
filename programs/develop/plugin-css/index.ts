@@ -41,8 +41,10 @@ import {
 } from './css-lib/sfc-style-block'
 import {beginStyleDiagnostics} from './css-lib/style-diagnostics'
 import {
+  forgetVerbatimCss,
   minifierDroppedTokens,
-  restoreVerbatimCssAssets
+  restoreVerbatimCssAssets,
+  verbatimCssIdsIn
 } from './css-lib/verbatim-css'
 import {maybeUseLess} from './css-tools/less'
 import {
@@ -220,6 +222,10 @@ export class CssPlugin {
   // the minimizer error-recovered into fewer rules than the browser would
   // keep ships unminified, with a warning naming what it dropped.
   private keepCssParityInProduction(compiler: Compiler) {
+    // The registry outlives a compilation, so each compiler drops the sheets
+    // it no longer emits, and never one another compiler may still emit.
+    let idsInUse = new Set<string>()
+
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:parity`, (c) => {
       const beforeMinify = new Map<string, string>()
       c.hooks.processAssets.tap(
@@ -242,7 +248,11 @@ export class CssPlugin {
           stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE + 1
         },
         () => {
+          const ids = verbatimCssIdsIn(c)
           const restored = new Set(restoreVerbatimCssAssets(c))
+
+          forgetVerbatimCss([...idsInUse].filter((id) => !ids.has(id)))
+          idsInUse = ids
 
           for (const asset of c.getAssets()) {
             if (!asset.name.endsWith('.css') || restored.has(asset.name)) {
