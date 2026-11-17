@@ -768,7 +768,10 @@ function loadResolvedOptionalModule<T>(
 
   if (projectCopy) {
     try {
-      loaded = createRequire(packageJsonPath(input.projectPath))(projectCopy)
+      // Asked by name from the project, which is how the path was resolved.
+      loaded = createRequire(packageJsonPath(input.projectPath))(
+        input.dependencyId
+      )
     } catch (error) {
       throw optionalLoadError(input, projectCopy, error, true)
     }
