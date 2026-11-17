@@ -44,7 +44,9 @@ export const refused: FileConfig = {
 `
 
 function readmeUsageExample(): string {
-  const readme = fs.readFileSync(path.join(developRoot, 'README.md'), 'utf8')
+  const readme = fs
+    .readFileSync(path.join(developRoot, 'README.md'), 'utf8')
+    .replace(/\r\n/g, '\n')
   const usage = readme.slice(
     readme.indexOf('\n## Usage'),
     readme.indexOf('\n## Features')
