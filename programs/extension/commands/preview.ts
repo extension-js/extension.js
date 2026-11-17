@@ -10,7 +10,11 @@ import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
 import {explicitCliValue} from '../helpers/cli-explicit'
-import {declaredErrorCode} from '../helpers/cli-failure'
+import {
+  declaredErrorCode,
+  isLoadRefused,
+  loadRefusedEnvelope
+} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -95,21 +99,6 @@ export const PREVIEW_FAILED_CODES: ReadonlySet<ErrorCode> = new Set([
 export const PREVIEW_NOT_FOUND_NEEDLES = [
   'Preview is run-only',
   'Manifest file not found'
-] as const
-
-// The browser comes up without the extension in it, which is a different
-// failure from having nothing built, and a machine reader has to tell them apart.
-export const PREVIEW_LOAD_REFUSED_HINTS: ReadonlyArray<
-  readonly [needle: string, hint: string]
-> = [
-  [
-    'refuses to load this extension',
-    'Fix the manifest, then run the command again.'
-  ],
-  [
-    'missing files its manifest declares',
-    'Run `extension build` again, then run the command.'
-  ]
 ] as const
 
 export function registerPreviewCommand(program: Command) {
@@ -380,6 +369,16 @@ export function registerPreviewCommand(program: Command) {
             // text match, which is a guess by construction.
             const declared = declaredErrorCode(error)
 
+            // The browser came up and turned the extension away, which is a
+            // different failure from having nothing built.
+            if (isLoadRefused(error)) {
+              emit(loadRefusedEnvelope(error, 'preview'))
+
+              await exitAfterDrain(1)
+
+              return
+            }
+
             if (declared) {
               // A browser, config or remote archive that failed is a failed
               // run and not a mistyped command.
@@ -400,31 +399,20 @@ export function registerPreviewCommand(program: Command) {
             const nothingToPreview = PREVIEW_NOT_FOUND_NEEDLES.some((needle) =>
               message.includes(needle)
             )
-            const loadRefusedHint = PREVIEW_LOAD_REFUSED_HINTS.find(
-              ([needle]) => message.includes(needle)
-            )?.[1]
 
             emit(
               ENVELOPE.fail(
                 'preview',
-                nothingToPreview
-                  ? 'not-found'
-                  : loadRefusedHint
-                    ? 'load-refused'
-                    : 'failed',
+                nothingToPreview ? 'not-found' : 'failed',
                 {
                   code: nothingToPreview
                     ? CODES.E_PREVIEW_NO_DIST
-                    : loadRefusedHint
-                      ? CODES.E_EXTENSION_LOAD_REFUSED
-                      : CODES.E_INTERNAL,
+                    : CODES.E_INTERNAL,
                   message
                 },
                 nothingToPreview
                   ? {hint: 'Run `extension build` before previewing.'}
-                  : loadRefusedHint
-                    ? {hint: loadRefusedHint}
-                    : {}
+                  : {}
               )
             )
 

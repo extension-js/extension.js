@@ -7,6 +7,7 @@ import {TAKE_BLOCK_OPEN} from '../../../lib/extension-base-from-stack'
 import {buildBridgeProducerSource} from '../producer-runtime'
 import {
   controlledBuildDir,
+  declaredBackgroundFiles,
   type ProductionControlSession,
   startProductionControl
 } from '../production-control'
@@ -227,43 +228,39 @@ describe('startProductionControl', () => {
   })
 })
 
-// An --output-path folder holding only a manifest and built files, with no
-// package.json above it, resolves to its own project root. The copy must
-// still land outside the folder it copies, or cpSync refuses to copy a
-// directory into itself.
-describe('the answers of a start or preview session', () => {
-  // What an act verb is told when it reaches the session's broker.
-  function refusal(control: ProductionControlSession): string {
-    const sent: unknown[] = []
-    const controller = {
-      id: 'ctl',
-      send: (frame: unknown) => {
-        sent.push(frame)
+// What an act verb is told when it reaches the session's broker.
+function refusal(control: ProductionControlSession): string {
+  const sent: unknown[] = []
+  const controller = {
+    id: 'ctl',
+    send: (frame: unknown) => {
+      sent.push(frame)
 
-        return true
-      },
-      close: () => {}
-    }
-
-    control.broker.onFrame(controller, {
-      type: 'hello',
-      v: 1,
-      role: 'controller',
-      instanceId: control.instanceId
-    })
-
-    control.broker.onFrame(controller, {
-      type: 'command',
-      cmdId: 'c1',
-      op: 'reload',
-      target: {context: 'background'}
-    })
-
-    const result = sent[sent.length - 1] as {error: {message: string}}
-
-    return result.error.message
+      return true
+    },
+    close: () => {}
   }
 
+  control.broker.onFrame(controller, {
+    type: 'hello',
+    v: 1,
+    role: 'controller',
+    instanceId: control.instanceId
+  })
+
+  control.broker.onFrame(controller, {
+    type: 'command',
+    cmdId: 'c1',
+    op: 'reload',
+    target: {context: 'background'}
+  })
+
+  const result = sent[sent.length - 1] as {error: {message: string}}
+
+  return result.error.message
+}
+
+describe('the answers of a start or preview session', () => {
   it.each([
     'start',
     'preview'
@@ -308,6 +305,146 @@ describe('the answers of a start or preview session', () => {
   })
 })
 
+// A build made by another tool keeps its own file names, so the producer
+// follows what the manifest declares and not only the paths this build emits.
+describe('a build whose background sits where its manifest says', () => {
+  function makeForeignBuild(manifest: Record<string, unknown>): {
+    projectDir: string
+    distPath: string
+  } {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-foreign-build-'))
+    const distPath = path.join(tmpDir, 'dist', 'chrome')
+    fs.mkdirSync(distPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(distPath, 'manifest.json'),
+      JSON.stringify({name: 'x', version: '1.0.0', ...manifest})
+    )
+
+    fs.writeFileSync(path.join(distPath, 'background.js'), WORKER)
+    fs.writeFileSync(path.join(tmpDir, 'package.json'), '{"name":"x"}')
+
+    return {projectDir: tmpDir, distPath}
+  }
+
+  const controlled = (control: ProductionControlSession) =>
+    fs.readFileSync(path.join(control.controlledPath, 'background.js'), 'utf-8')
+
+  it.each([
+    3, 4
+  ])('prepends the producer to the service worker of a manifest_version %i build', async (version) => {
+    const {projectDir, distPath} = makeForeignBuild({
+      manifest_version: version,
+      background: {service_worker: './background.js'}
+    })
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      command: 'preview',
+      distPath,
+      allowControl: true
+    })
+
+    expect(session.backgroundAssets).toEqual(['background.js'])
+    expect(controlled(session)).toContain('__extjsBridgeProducerInstalled')
+    expect(controlled(session).endsWith(WORKER)).toBe(true)
+    expect(fs.readFileSync(path.join(distPath, 'background.js'), 'utf-8')).toBe(
+      WORKER
+    )
+  })
+
+  // Measured on Chrome 151: the extension loads and these scripts never run.
+  it('counts background.scripts with no service worker as no background on Chromium', async () => {
+    const {projectDir, distPath} = makeForeignBuild({
+      manifest_version: 3,
+      background: {scripts: ['background.js']}
+    })
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      command: 'preview',
+      distPath,
+      allowControl: true
+    })
+
+    expect(session.backgroundAssets).toEqual([])
+    expect(controlled(session)).toBe(WORKER)
+
+    const message = refusal(session)
+
+    expect(message).toContain('has no background this browser runs')
+    expect(message).toContain('background.service_worker')
+    expect(message).not.toContain('may still be launching')
+  })
+
+  it('carries the producer on the first background script for Firefox', async () => {
+    const {projectDir, distPath} = makeForeignBuild({
+      manifest_version: 3,
+      background: {scripts: ['background.js', 'second.js']}
+    })
+
+    fs.writeFileSync(path.join(distPath, 'second.js'), WORKER)
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'firefox',
+      command: 'preview',
+      distPath,
+      allowControl: true
+    })
+
+    expect(session.backgroundAssets).toEqual(['background.js'])
+    expect(controlled(session)).toContain('__extjsBridgeProducerInstalled')
+    expect(
+      fs.readFileSync(path.join(session.controlledPath, 'second.js'), 'utf-8')
+    ).toBe(WORKER)
+  })
+
+  it('reads each shape the way the browser runs it', () => {
+    const scriptsOnly = {
+      manifest_version: 3,
+      background: {scripts: ['/bg/a.js', 'bg/b.js']}
+    }
+
+    expect(declaredBackgroundFiles(scriptsOnly, 'chrome')).toEqual({
+      files: [],
+      runsNone: true
+    })
+
+    expect(declaredBackgroundFiles(scriptsOnly, 'firefox')).toEqual({
+      files: ['bg/a.js'],
+      runsNone: false
+    })
+
+    expect(
+      declaredBackgroundFiles(
+        {
+          manifest_version: 3,
+          background: {service_worker: 'sw.js', scripts: ['bg.js']}
+        },
+        'edge'
+      )
+    ).toEqual({files: ['sw.js'], runsNone: false})
+
+    expect(
+      declaredBackgroundFiles(
+        {manifest_version: 2, background: {scripts: ['bg.js']}},
+        'edge'
+      )
+    ).toEqual({files: ['bg.js'], runsNone: false})
+
+    expect(declaredBackgroundFiles({manifest_version: 3}, 'chrome')).toEqual({
+      files: [],
+      runsNone: false
+    })
+  })
+})
+
+// An --output-path folder holding only a manifest and built files, with no
+// package.json above it, resolves to its own project root. The copy must
+// still land outside the folder it copies, or cpSync refuses to copy a
+// directory into itself.
 describe('a build folder that is its own project root', () => {
   function makeBareBuild(): string {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-bare-build-'))
@@ -394,6 +531,58 @@ describe('a build folder that is its own project root', () => {
     expect(fs.existsSync(path.join(root, 'extension-js-control.json'))).toBe(
       false
     )
+
+    fs.rmSync(path.dirname(path.dirname(session.controlledPath)), {
+      recursive: true,
+      force: true
+    })
+  })
+
+  // A folder written by hand: a manifest and the background it names, with
+  // no package.json and no canonical background path.
+  it.each([
+    {browser: 'chrome', background: {service_worker: 'sw.js'}, file: 'sw.js'},
+    {browser: 'firefox', background: {scripts: ['bg.js']}, file: 'bg.js'}
+  ])('carries the producer on $file of a hand-written $browser folder', async ({
+    browser,
+    background,
+    file
+  }) => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-raw-folder-'))
+    const root = tmpDir
+
+    fs.writeFileSync(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'x',
+        version: '1.0.0',
+        background
+      })
+    )
+
+    fs.writeFileSync(path.join(root, file), WORKER)
+
+    session = await startProductionControl({
+      packageJsonDir: root,
+      browser,
+      command: 'preview',
+      distPath: root,
+      allowControl: true,
+      allowEval: true
+    })
+
+    expect(session.backgroundAssets).toEqual([file])
+
+    const controlled = fs.readFileSync(
+      path.join(session.controlledPath, file),
+      'utf-8'
+    )
+
+    expect(controlled).toContain('__extjsBridgeProducerInstalled')
+    expect(controlled.endsWith(WORKER)).toBe(true)
+    expect(refusal(session)).not.toContain('has no background')
+    expect(fs.readFileSync(path.join(root, file), 'utf-8')).toBe(WORKER)
 
     fs.rmSync(path.dirname(path.dirname(session.controlledPath)), {
       recursive: true,

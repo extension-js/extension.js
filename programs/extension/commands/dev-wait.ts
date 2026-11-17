@@ -7,13 +7,19 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {markErrorFramed} from '../helpers/cli-failure'
+import * as path from 'node:path'
+import {
+  LOAD_REFUSED_HINT,
+  LOAD_REFUSED_STATUS,
+  markErrorFramed
+} from '../helpers/cli-failure'
 import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
 import {CODES, type ErrorCode} from '../helpers/messaging'
 import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   readyContractErrorCode,
+  recordedLoadRefusal,
   stampedLaunchFailureCode
 } from '../helpers/ready-contract-codes'
 import {
@@ -41,6 +47,9 @@ export type ReadyContractPayload = {
   pid?: number
   ts?: string
   compiledAt?: string | null
+  extensionLoadRefusedAt?: string
+  extensionLoadRefusedReason?: string
+  extensionLoadRefusedCause?: string
 }
 
 export type RunWaitModeOptions = {
@@ -181,6 +190,16 @@ export function describeWaitError(error: unknown): WaitFailure {
     }
   }
 
+  // The session wrote down that the browser turned the extension away.
+  if (code === CODES.E_EXTENSION_LOAD_REFUSED) {
+    return {
+      code,
+      status: LOAD_REFUSED_STATUS,
+      message,
+      hint: LOAD_REFUSED_HINT
+    }
+  }
+
   if (code === CODES.E_READY_TIMEOUT) {
     return {
       code,
@@ -242,6 +261,50 @@ export function isFreshContractPayload(payload: ReadyContractPayload): boolean {
   return false
 }
 
+// A run that ended on a refusal keeps saying so however old it is: the same
+// manifest is refused again. An edit since then means a new run is due.
+export function standingLoadRefusal(
+  payload: ReadyContractPayload
+): string | undefined {
+  const refusedAt = Date.parse(String(payload.extensionLoadRefusedAt ?? ''))
+
+  if (!Number.isFinite(refusedAt)) return undefined
+
+  const manifests = [
+    payload.manifestPath,
+    payload.distPath ? path.join(payload.distPath, 'manifest.json') : undefined
+  ]
+
+  for (const manifest of manifests) {
+    try {
+      if (!manifest || fs.statSync(manifest).mtimeMs > refusedAt) {
+        return undefined
+      }
+    } catch {
+      return undefined
+    }
+  }
+
+  if (payload.code === 'extension_load_refused' && payload.message) {
+    return withRefusalCause(String(payload.message), payload)
+  }
+
+  const reason = recordedLoadRefusal(payload)
+
+  return `The browser refused to load the extension${reason ? `: ${reason}.` : ''}`
+}
+
+// The contract's message carries the browser's words. The cause the launcher
+// read off the manifest sits in its own field, so it is added here.
+function withRefusalCause(
+  message: string,
+  payload: ReadyContractPayload
+): string {
+  const cause = String(payload.extensionLoadRefusedCause ?? '').trim()
+
+  return cause ? `${message.replace(/[.\s]+$/, '')}. ${cause}` : message
+}
+
 async function waitForReadyContract(options: {
   command: WaitCommand
   projectPath: string
@@ -283,6 +346,13 @@ async function waitForReadyContract(options: {
           continue
         }
 
+        // Waiting on a run the browser refused would only spend the timeout.
+        const refusal = isLive ? undefined : standingLoadRefusal(payload)
+
+        if (refusal) {
+          throw new WaitModeError(refusal, CODES.E_EXTENSION_LOAD_REFUSED)
+        }
+
         if (!isLive) {
           // start can complete quickly; accept recent contracts from completed
           // start runs. Dead dev producers are always stale for wait purposes.
@@ -305,7 +375,7 @@ async function waitForReadyContract(options: {
 
           // A launch the launcher coded keeps the code it was refused with.
           throw new WaitModeError(
-            String(detail),
+            withRefusalCause(String(detail), payload),
             stampedLaunchFailureCode(payload) ??
               readyContractErrorCode(payload.code) ??
               CODES.E_READY_ERROR_STATUS

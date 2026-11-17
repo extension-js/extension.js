@@ -11,7 +11,11 @@ import * as path from 'node:path'
 import {CODES, humanLine, isDebug} from '../../../helpers/messaging'
 import {stageCompanionForSession} from '../../browsers-lib/companion-session'
 import * as messages from '../../browsers-lib/messages'
-import type {DevAdditionEntry} from '../../browsers-lib/ready-stamp'
+import {
+  type DevAdditionEntry,
+  earlierManagedProfileBaseDir,
+  managedProfileBaseDir
+} from '../../browsers-lib/ready-stamp'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
 import {
   LAUNCH_TAB_URL,
@@ -434,12 +438,9 @@ export function browserConfig(
   const outPath =
     compilation?.options?.output?.path ||
     path.resolve(process.cwd(), 'dist/chrome')
-  const distRoot = path.dirname(outPath)
-  const managedBaseDir = path.resolve(
-    distRoot,
-    'extension-js',
-    'profiles',
-    `${configOptions.browser}-profile`
+  const managedBaseDir = managedProfileBaseDir(
+    outPath,
+    String(configOptions.browser)
   )
 
   // One shared decision about what profile this run gets; the launcher only
@@ -447,6 +448,10 @@ export function browserConfig(
   const resolved = resolveProfileConfig({
     rawProfile,
     managedBaseDir,
+    earlierManagedBaseDir: earlierManagedProfileBaseDir(
+      outPath,
+      String(configOptions.browser)
+    ),
     useSystemProfile,
     persistProfile: configOptions.persistProfile,
     keepProfileChanges: configOptions.keepProfileChanges,

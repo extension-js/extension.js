@@ -24,6 +24,7 @@ import {
   surfaceNotDeclaredHint,
   surfaceNotDeclaredOutcome
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
+import {LOAD_REFUSED_STATUS} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
@@ -59,10 +60,13 @@ import {
 } from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {normalizeOutputFormat} from '../helpers/output-flag'
+import {recordedLoadRefusal} from '../helpers/ready-contract-codes'
 import {
   endedSessionReason,
   runningSessionBrowsers,
-  sessionEndedMessage
+  sessionCommandOf,
+  sessionEndedMessage,
+  sessionNounOf
 } from '../helpers/session-liveness'
 import {
   otherSessionsNote,
@@ -366,6 +370,7 @@ function codeForBridgeError(
 
 function statusForCode(code: ErrorCode): string {
   if (code === CODES.E_TIMEOUT) return 'timeout'
+  if (code === CODES.E_EXTENSION_LOAD_REFUSED) return LOAD_REFUSED_STATUS
 
   if (code === CODES.E_SESSION_NOT_FOUND || code === CODES.E_TARGET_NOT_FOUND) {
     return 'not-found'
@@ -1063,16 +1068,33 @@ export function refusedRunMessage(
   if (command !== 'start' && command !== 'preview') return undefined
   if (receipt?.code !== 'extension_load_refused') return undefined
 
-  const reason =
-    typeof receipt.extensionLoadRefusedReason === 'string'
-      ? receipt.extensionLoadRefusedReason.trim().replace(/[.\s]+$/, '')
-      : ''
+  const reason = recordedLoadRefusal(receipt)
 
   return (
     `The last extension ${command} run for ${browser} ended because the ` +
     `browser refused to load the extension${reason ? `: ${reason}` : ''}. ` +
     'Fix what the browser names, then run ' +
     `\`extension ${command} --browser=${browser} ${flag}\` again.`
+  )
+}
+
+// A session that ended refused keeps the refusal on its contract. Starting
+// it again unchanged is refused again, so the answer names the reason.
+export function refusedSessionEndedMessage(
+  contract: Record<string, unknown> | null | undefined,
+  browser: string,
+  flag: string
+): string | undefined {
+  if (typeof contract?.extensionLoadRefusedAt !== 'string') return undefined
+
+  const command = sessionCommandOf(contract)
+  const reason = recordedLoadRefusal(contract)
+
+  return (
+    `The ${sessionNounOf(command)} for ${browser} ended after the browser ` +
+    `refused to load the extension${reason ? `: ${reason}` : ''}. ` +
+    'Fix what the browser names, then run ' +
+    `\`extension ${command} --browser=${browser} ${flag}\` to start one.`
   )
 }
 
@@ -1157,6 +1179,16 @@ async function runCommand(input: RunInput): Promise<void> {
   const failIfSessionEnded = async (dialFailed: boolean) => {
     const reason = await endedSessionReason(ready, readyPath, {dialFailed})
     if (!reason) return
+
+    const refused = refusedSessionEndedMessage(
+      bridge.readReadyContractDocument?.(projectPath, browser),
+      browser,
+      unlockFlag
+    )
+
+    if (refused) {
+      fail(refused, {...outputFrame, code: CODES.E_EXTENSION_LOAD_REFUSED})
+    }
 
     const others = await runningSessionBrowsers(
       bridge,

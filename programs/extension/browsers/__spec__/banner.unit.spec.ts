@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {claimCardKey} from '../../helpers/messaging'
 import {
   chromiumExtensionIdFromRegisteredPath,
@@ -9,7 +10,6 @@ import {
   printDevBannerOnce,
   printProdBannerOnce
 } from '../browsers-lib/banner'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
@@ -410,6 +410,34 @@ describe('expectedGeckoExtensionId', () => {
     })
 
     expect(expectedGeckoExtensionId(outPath)).toBe('fixture@extension.js')
+  })
+
+  // Firefox refuses a gecko.id in any other shape, so no add-on holds it.
+  it('returns empty for a gecko id Firefox refuses, in either manifest key', () => {
+    for (const settings of [
+      {browser_specific_settings: {gecko: {id: 'not a valid id'}}},
+      {applications: {gecko: {id: 'not a valid id'}}}
+    ]) {
+      const outPath = makeTempOutPath({
+        name: 'x',
+        version: '1.0.0',
+        ...settings
+      })
+
+      expect(expectedGeckoExtensionId(outPath)).toBe('')
+    }
+
+    expect(
+      expectedGeckoExtensionId(
+        makeTempOutPath({
+          name: 'x',
+          version: '1.0.0',
+          browser_specific_settings: {
+            gecko: {id: '{12345678-90ab-cdef-1234-567890abcdef}'}
+          }
+        })
+      )
+    ).toBe('{12345678-90ab-cdef-1234-567890abcdef}')
   })
 
   it('returns empty for a manifest without a declared gecko id', () => {

@@ -5,7 +5,10 @@ import {fileURLToPath} from 'node:url'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {createLifecycleStream} from '../../../develop/dev-server/lifecycle-stream'
 import {describeWaitError, runDevWaitMode} from '../../commands/dev-wait'
-import {READY_CONTRACT_CODES} from '../../helpers/ready-contract-codes'
+import {
+  READY_CONTRACT_CODES,
+  recordedLoadRefusal
+} from '../../helpers/ready-contract-codes'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
 const table = JSON.parse(
@@ -212,5 +215,29 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
     )
 
     expect(browserVerdicts.sort()).toEqual(Object.keys(SURFACES).sort())
+  })
+})
+
+describe('recordedLoadRefusal', () => {
+  it('joins the reason and the cause as one clause with no closing period', () => {
+    expect(
+      recordedLoadRefusal({
+        extensionLoadRefusedReason: 'TypeError: x is undefined.',
+        extensionLoadRefusedCause:
+          'Firefox does not load a manifest_version above 3.'
+      })
+    ).toBe(
+      'TypeError: x is undefined. Firefox does not load a manifest_version above 3'
+    )
+  })
+
+  it('reads a contract with one of them, or neither', () => {
+    expect(recordedLoadRefusal({extensionLoadRefusedReason: ' no. '})).toBe(
+      'no'
+    )
+
+    expect(recordedLoadRefusal({extensionLoadRefusedCause: 'why.'})).toBe('why')
+    expect(recordedLoadRefusal({})).toBe('')
+    expect(recordedLoadRefusal(null)).toBe('')
   })
 })
