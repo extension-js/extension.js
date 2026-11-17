@@ -72,14 +72,28 @@ function inferPackageManagerFromPath(
 ): PackageManagerName | undefined {
   if (!value) return undefined
 
-  const lower = value.toLowerCase()
+  const segments = value
+    .toLowerCase()
+    .split(/[\\/]+/)
+    .filter(Boolean)
+  const file = (segments[segments.length - 1] || '').replace(
+    /\.(?:cjs|mjs|js|cmd|bat|exe|ps1)$/,
+    ''
+  )
+  // npm ships npm-cli.js and Yarn Berry ships yarn-<version>.cjs.
+  const named = /^(pnpm|yarn|bun|npm)(?:-cli|-\d[\w.-]*)?$/.exec(file)
 
-  if (lower.includes('pnpm')) return 'pnpm'
-  if (lower.includes('yarn')) return 'yarn'
-  if (lower.includes('bun')) return 'bun'
-  if (lower.includes('npm')) return 'npm'
+  if (named) return named[1] as PackageManagerName
 
-  return undefined
+  // A generic file name is read from its package folder: <name>/bin/<file>.
+  const packageDir =
+    segments[segments.length - 2] === 'bin'
+      ? segments[segments.length - 3]
+      : undefined
+
+  return /^(?:pnpm|yarn|bun|npm)$/.test(packageDir || '')
+    ? (packageDir as PackageManagerName)
+    : undefined
 }
 
 function getPackageManagerOverride(): PackageManagerResolution | undefined {
@@ -264,12 +278,9 @@ function detectDenoProject(cwd?: string): PackageManagerResolution | undefined {
     return undefined
   }
 
-  const execPath = resolveCommandOnPath('deno')
-  if (execPath) return {name: 'deno', execPath}
-
-  // Deno-created projects may run dev/build through a node CLI later; only
-  // claim deno when the binary is actually available.
-  return undefined
+  // Claimed even with no deno on PATH, so the install says deno is missing
+  // and no other manager installs the project in its place.
+  return hydrateResolvedPackageManager('deno') || {name: 'deno'}
 }
 
 // The `packageManager` field names the manager when no lockfile does yet.

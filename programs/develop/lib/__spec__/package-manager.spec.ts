@@ -130,6 +130,50 @@ describe('package-manager resolution order', () => {
     )
   }
 
+  it.each([
+    ['/home/pnpm-user/tools/bun-stuff/yarn.js', 'yarn'],
+    ['/opt/bun-cache/node/lib/node_modules/npm/bin/npm-cli.js', 'npm'],
+    ['/work/yarn-migration/node_modules/pnpm/bin/pnpm.cjs', 'pnpm'],
+    ['/srv/pnpm-mirror/.yarn/releases/yarn-4.5.0.cjs', 'yarn'],
+    ['/usr/local/npm-global/lib/node_modules/bun/bin/cli.js', 'bun'],
+    ['C:\\Users\\bun\\AppData\\Roaming\\npm\\yarn.cmd', 'yarn'],
+    ['/work/pnpm-playground/bin/run.js', 'npm'],
+    ['/home/bunny/yarn-notes/tool.js', 'npm']
+  ])('reads the manager from the exec path file name, never a folder that contains the word (%s)', async (execPath, manager) => {
+    writePackageJson()
+    vi.stubEnv('EXTENSION_JS_PM_EXEC_PATH', execPath)
+
+    expect(await resolveWith(true)).toEqual({name: manager, execPath})
+  })
+
+  it.each([
+    ['deno.lock beside a package.json', true, 'deno.lock'],
+    ['deno.json with no package.json', false, 'deno.json'],
+    ['deno.jsonc with no package.json', false, 'deno.jsonc']
+  ])('answers deno for a Deno project with no deno on PATH (%s)', async (_label, withPackageJson, file) => {
+    if (withPackageJson) writePackageJson()
+
+    fs.writeFileSync(path.join(dir, file), '{}')
+
+    expect(await resolveWith(false)).toEqual({name: 'deno'})
+  })
+
+  it('names the deno binary for a Deno project when deno is on PATH', async () => {
+    fs.writeFileSync(path.join(dir, 'deno.lock'), '{}')
+
+    expect(await resolveWith(true)).toEqual({
+      name: 'deno',
+      execPath: '/fake/bin/deno'
+    })
+  })
+
+  it('leaves a deno.json beside a package.json to the other steps', async () => {
+    writePackageJson()
+    fs.writeFileSync(path.join(dir, 'deno.json'), '{}')
+
+    expect((await resolveWith(false)).name).toBe('npm')
+  })
+
   it('reads the lockfile before the packageManager field', async () => {
     writePackageJson({packageManager: 'pnpm@10.28.0'})
     fs.writeFileSync(path.join(dir, 'yarn.lock'), '')
