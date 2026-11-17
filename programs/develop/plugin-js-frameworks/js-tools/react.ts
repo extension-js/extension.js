@@ -130,7 +130,6 @@ export async function maybeUseReact(
 
   const reactPlugins: RspackPluginInstance[] = [
     new ReactRefreshPlugin({
-      overlay: false,
       injectEntry: !refreshEntry,
       ...(typeof options.refreshExclude === 'undefined'
         ? {}
