@@ -35,7 +35,6 @@ import type {ProjectStructure} from './lib/project'
 import {forgetResolvedModuleFolders} from './lib/resource-path'
 import {sessionStateDir} from './lib/session-paths'
 import {defaultSplitChunks} from './lib/split-chunks'
-import {StableLoaderPathsPlugin} from './lib/stable-loader-paths'
 import {diagnosticsHaveColor} from './lib/stats-handler'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
@@ -440,11 +439,6 @@ export default function webpackConfig(
     plugins.push(browsersPlugin)
   }
 
-  // Last, so it sees every rule the plugins above attach: the loader paths
-  // inside the module identifiers (which the deterministic ids hash) are
-  // named through the project's node_modules, not where the package sits.
-  plugins.push(new StableLoaderPathsPlugin())
-
   // A top-level resolve list without '...' wipes rspack's per-type defaults,
   // so every dependency type is restated here, the mode condition included.
   const modeCondition =
@@ -587,7 +581,6 @@ export default function webpackConfig(
       }
     ] as Configuration['externals'],
     context: packageJsonDir,
-    cache: false,
     // "module" keeps every loader map (swc, the content-script wrapper, the
     // classic concat map) so the emitted maps describe the author's source,
     // not the transpiled text; a cheap devtool discarded them all. No eval
@@ -827,6 +820,8 @@ export default function webpackConfig(
           minimizerOptions: cssMinimizerOptions(rawManifest, devOptions.browser)
         })
       ],
+      // Tree shaking runs in development as it does in production, so a
+      // module a build would drop is already gone while editing.
       sideEffects: true,
       usedExports: 'global',
       // Concatenate modules in prod only: in dev, scope hoisting breaks
@@ -835,16 +830,10 @@ export default function webpackConfig(
       // HTML pages share the framework runtime and their common modules
       // through stable sibling files. Every other surface keeps one file.
       splitChunks: defaultSplitChunks(devOptions.browser),
-      // The runtime stays inside each entry: a page loads its siblings from
-      // the HTML, a background or content script loads nothing else.
-      runtimeChunk: false,
       // A hashed id is the hash of every loader path in the module request,
       // so it follows where the CLI is installed. Production counts instead.
       moduleIds: devOptions.mode === 'production' ? 'natural' : 'deterministic',
       chunkIds: devOptions.mode === 'production' ? 'natural' : 'deterministic'
-    },
-    experiments: {
-      css: true
     }
   }
 }
