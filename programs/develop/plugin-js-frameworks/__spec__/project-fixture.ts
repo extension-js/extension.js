@@ -1,11 +1,14 @@
 import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {
   type Compiler,
   type Configuration,
+  type RspackPluginInstance,
   type RuleSetRule,
-  rspack
+  rspack,
+  type Stats
 } from '@rspack/core'
 import {afterEach} from 'vitest'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
@@ -98,6 +101,54 @@ export async function configure(
   }
 
   return compiler
+}
+
+// The project's own React from this workspace, linked so a real compile
+// resolves it without an install.
+export function linkWorkspaceReact(root: string) {
+  const fromDevelop = createRequire(path.join(__dirname, '..', '..', 'x.js'))
+  fs.mkdirSync(path.join(root, 'node_modules'), {recursive: true})
+
+  for (const name of ['react', 'react-dom', 'scheduler']) {
+    const source = fs.realpathSync(fromDevelop.resolve(`${name}/package.json`))
+    fs.symlinkSync(path.dirname(source), path.join(root, 'node_modules', name))
+  }
+}
+
+// A real build with the plugin in the config, the way a dev run applies it,
+// into the project's own dist. Returns each emitted file's source by name.
+export async function compileProject(
+  root: string,
+  entry: Record<string, string>,
+  mode: 'development' | 'production' = 'development'
+) {
+  const compiler = rspack({
+    mode,
+    context: root,
+    devtool: false,
+    entry: Object.fromEntries(
+      Object.entries(entry).map(([name, file]) => [name, {import: [file]}])
+    ),
+    output: {path: path.join(root, 'dist')},
+    optimization: {minimize: false},
+    plugins: [
+      new JsFrameworksPlugin({
+        manifestPath: path.join(root, 'manifest.json'),
+        mode
+      }) as unknown as RspackPluginInstance
+    ]
+  })
+
+  const stats = await new Promise<Stats | undefined>((resolve, reject) => {
+    compiler.run((error, result) => (error ? reject(error) : resolve(result)))
+  })
+  await new Promise((resolve) => compiler.close(resolve))
+
+  const errors = stats?.toJson({all: false, errors: true}).errors || []
+  const read = (name: string) =>
+    fs.readFileSync(path.join(root, 'dist', `${name}.js`), 'utf-8')
+
+  return {errors: errors.map((error) => error.message), read}
 }
 
 // The rule fields the cases read, without rspack's falsy-rule union.
