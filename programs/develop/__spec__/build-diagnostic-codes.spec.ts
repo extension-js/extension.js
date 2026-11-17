@@ -176,9 +176,10 @@ describe('a failed build codes a file the manifest names and the project lacks',
       name: 'IconsMissingFile'
     })
 
-    expect(error.diagnostics?.[0].message.split('\n')[0]).toBe(
-      "Can't find an icon file listed in icons."
-    )
+    expect(error.diagnostics?.[0].message.split('\n').slice(0, 2)).toEqual([
+      "Can't find an icon file listed in icons.",
+      'NOT FOUND images/missing-icon-token.png'
+    ])
   }, 120_000)
 
   it('codes a default locale with no _locales folder', async () => {
@@ -229,9 +230,10 @@ describe('a failed build codes a file the manifest names and the project lacks',
       name: 'ManifestPageMissing'
     })
 
-    expect(error.diagnostics?.[0].message.split('\n')[0]).toBe(
-      "Can't find the page listed in action.default_popup."
-    )
+    expect(error.diagnostics?.[0].message.split('\n').slice(0, 2)).toEqual([
+      "Can't find the page listed in action.default_popup.",
+      'NOT FOUND popup/nope-token.html'
+    ])
   }, 120_000)
 })
 
@@ -282,11 +284,11 @@ describe('a green build prefixes a coded warning with its code', () => {
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings_count).toBe(1)
     const lines = String(summary.warnings?.[0]).split('\n')
-    expect(lines[0]).toMatch(
-      /^E_CSS_PARSE: \S+ The CSS in this file doesn't parse, so it was copied as-is\.$/
+    expect(lines[0]).toBe(
+      "E_CSS_PARSE: The CSS in this file doesn't parse, so it was copied as-is."
     )
 
-    expect(lines[1]).toBe('  │ PATH content/styles.css')
+    expect(lines[1]).toBe('PATH content/styles.css')
     expect(summary.warnings?.[0]).not.toContain('Module Warning')
     expect(summary.warnings?.[0]).not.toContain('css-parse-guard-loader')
     expect(summary.warnings?.[0]).not.toContain(`${path.sep}dist${path.sep}`)
@@ -312,5 +314,74 @@ describe('a green build prefixes a coded warning with its code', () => {
     expect(summary.warnings?.[0]).toContain(
       'Update the /missing-asset-token.png reference to point to a file that exists.'
     )
+  }, 120_000)
+
+  it('names the page and the asset from the project root', async () => {
+    const root = project(
+      {action: {default_popup: 'popup/index.html'}},
+      {
+        'popup/index.html':
+          '<!doctype html><html><body><img src="./gone-token.png"></body></html>\n'
+      }
+    )
+
+    const summary = await build(root)
+    expect(summary.warnings).toEqual([
+      [
+        "E_ASSET_MISSING: The page references an asset that doesn't exist.",
+        'PATH popup/index.html',
+        'NOT FOUND popup/gone-token.png',
+        'Update the popup/gone-token.png reference to point to a file that exists.'
+      ].join('\n')
+    ])
+  }, 120_000)
+
+  it('codes an @import that comes after other rules', async () => {
+    const root = project(
+      {action: {default_popup: 'popup/index.html'}},
+      {
+        'popup/index.html':
+          '<!doctype html><html><head><link rel="stylesheet" href="./late.css"></head><body></body></html>\n',
+        'popup/late.css': 'body { color: red }\n@import "./other.css";\n',
+        'popup/other.css': '.o { color: blue }\n'
+      }
+    )
+
+    const summary = await build(root)
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings).toEqual([
+      [
+        'E_CSS_PARSE: An @import rule comes after other rules, so browsers skip it.',
+        'PATH popup/late.css:2',
+        'Chrome applies the rest of the stylesheet and ignores this import, so the build kept going.',
+        'Move the @import above every other rule to make it load.'
+      ].join('\n')
+    ])
+  }, 120_000)
+
+  it('warns once about a side panel page the project lacks and still builds', async () => {
+    const root = project(
+      {side_panel: {default_path: 'panel/missing-token.html'}},
+      {}
+    )
+
+    const summary = await build(root)
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings).toEqual([
+      [
+        "E_ENTRY_NOT_FOUND: Can't find the page listed in side_panel.default_path.",
+        'NOT FOUND panel/missing-token.html',
+        'Update the path in your manifest.json to an HTML file that exists.'
+      ].join('\n')
+    ])
+
+    expect(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(root, 'dist', 'chrome', 'manifest.json'),
+          'utf8'
+        )
+      ).side_panel
+    ).toEqual({default_path: 'sidebar/index.html'})
   }, 120_000)
 })

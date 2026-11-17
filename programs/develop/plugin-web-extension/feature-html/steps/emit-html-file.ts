@@ -14,6 +14,7 @@ import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
+import {markPageReportedMissing} from '../../shared/reported-missing-pages'
 import * as messages from '../html-lib/messages'
 import {getFilePath} from '../html-lib/utils'
 
@@ -100,6 +101,13 @@ export class EmitHtmlFile {
                   'manifest.json',
                   'ManifestPageMissing'
                 )
+
+                if (!isLoadChecked) {
+                  markPageReportedMissing(
+                    compilation,
+                    getFilePath(featureName, '.html', false)
+                  )
+                }
               }
 
               continue

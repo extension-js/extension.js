@@ -99,6 +99,17 @@ function isSyntaxFailure(err: IssueLike): boolean {
   )
 }
 
+// The late @import loader warns through a plain Error, so the loader the
+// bundler names in its header is what tells this warning from any other.
+function isLateCssImport(err: IssueLike): boolean {
+  return (
+    err.name === 'ModuleWarning' &&
+    /^[^\n]*\(from [^\n]*late-css-import-loader[^\n]*\):/.test(
+      text(err.message)
+    )
+  )
+}
+
 function resource(err: IssueLike): string {
   return text(err.module?.resource)
 }
@@ -126,6 +137,10 @@ export function diagnosticCode(
   if (err.name === 'ModuleParseError' && STYLESHEET.test(resource(err))) {
     return CODES.E_CSS_PARSE
   }
+
+  // The bundler's own parser fails the module on this rule, which is the
+  // same finding the loader reports once it has blanked the rule out.
+  if (isLateCssImport(err)) return CODES.E_CSS_PARSE
 
   return undefined
 }

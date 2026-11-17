@@ -72,6 +72,30 @@ describe('diagnosticCode', () => {
     expect(diagnosticCode(issue)).toBe('E_CSS_PARSE')
   })
 
+  it('codes the late @import warning by the loader that reports it', () => {
+    const late = Object.assign(
+      new Error(
+        '  ⚠ Module Warning (from /abs/extension-develop/dist/late-css-import-loader.mjs):\n' +
+          '  │ An @import rule comes after other rules, so browsers skip it.\n'
+      ),
+      {
+        name: 'ModuleWarning',
+        module: {resource: '/proj/popup/late.css'},
+        details: 'Error: An @import rule comes after other rules\n    at run'
+      }
+    )
+    const other = Object.assign(
+      new Error(
+        '  ⚠ Module Warning (from /abs/some-loader/index.js):\n' +
+          '  │ An @import rule comes after other rules, so browsers skip it.\n'
+      ),
+      {name: 'ModuleWarning', module: {resource: '/proj/popup/late.css'}}
+    )
+
+    expect(diagnosticCode(late)).toBe('E_CSS_PARSE')
+    expect(diagnosticCode(other)).toBeUndefined()
+  })
+
   it('maps the native module not found error by its message', () => {
     const issue = Object.assign(
       new Error("  × Module not found: Can't resolve './missing' in '/proj'"),
