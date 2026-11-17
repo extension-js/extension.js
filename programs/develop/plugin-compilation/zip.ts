@@ -154,7 +154,17 @@ function listFilesUnder(root: string, skipNames: Set<string>): string[] {
     }
   }
 
-  return out.sort()
+  return inArchiveOrder(out)
+}
+
+// Ordered by the name the archive stores. Sorting the platform's own
+// spelling put a folder after its dotted and dashed siblings on Windows.
+export function inArchiveOrder(files: string[]): string[] {
+  const named = files.map((file) => ({file, name: toPosix(file)}))
+
+  named.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))
+
+  return named.map(({file}) => file)
 }
 
 // Companion extensions under ./extensions are loaded beside yours for local

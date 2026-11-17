@@ -26,7 +26,10 @@ afterEach(() => {
 })
 
 function project(manifest: Record<string, unknown>, files: string[]) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-key-'))
+  // A real path, since a restart names an entry by the path it is built by.
+  const root = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-key-'))
+  )
   roots.push(root)
   fs.writeFileSync(
     path.join(root, 'package.json'),

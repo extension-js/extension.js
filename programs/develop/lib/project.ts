@@ -14,9 +14,10 @@ import * as messages from './messages'
 import {CODES, isDebug} from './messaging'
 import {findNearestPackageJsonSync, validatePackageJson} from './package-json'
 import {type ParsedJson, parseJsonSafe} from './parse-json-safe'
+import {rememberAskedPath} from './paths'
 import {findNearestDenoConfigSync, validateDenoConfig} from './project-manifest'
+import {isInsidePath, linkFreePath} from './real-path'
 import {remoteArchiveCacheKey, repairPastedUrl} from './remote-archive'
-import {isInsidePath} from './real-path'
 
 // Any of these in a project manifest means that project is an Extension.js
 // project, so it owns a manifest one directory below it.
@@ -644,7 +645,10 @@ export async function getProjectStructure(
   pathOrRemoteUrl: string | undefined,
   options: ProjectPathOptions = {}
 ): Promise<ProjectStructure> {
-  const projectPath = await getProjectPath(pathOrRemoteUrl, options)
+  const asked = await getProjectPath(pathOrRemoteUrl, options)
+  const projectPath = linkFreePath(asked)
+
+  rememberAskedPath(asked, projectPath)
 
   return resolveProjectStructureSync(projectPath)
 }

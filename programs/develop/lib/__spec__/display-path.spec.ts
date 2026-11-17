@@ -2,7 +2,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {buildComplete, zipArtifactReady} from '../messages'
-import {displayPath, relativeToDir} from '../paths'
+import {displayPath, relativeToDir, rememberAskedPath} from '../paths'
 
 const root = path.parse(process.cwd()).root
 const stripAnsi = (s: string) => s.replace(/\[[0-9;]*m/g, '')
@@ -41,6 +41,25 @@ describe('a path printed for a person', () => {
     vi.spyOn(process, 'cwd').mockReturnValue(root)
 
     expect(displayPath(target)).toBe(target)
+  })
+
+  it('prints the typed spelling whole for a linked project from the root', () => {
+    const real = path.join(root, 'private', 'real', 'app')
+    const asked = path.join(root, 'work', 'link')
+
+    rememberAskedPath(asked, real)
+
+    try {
+      expect(displayPath(path.join(real, 'dist', 'chrome'), root)).toBe(
+        path.join(asked, 'dist', 'chrome')
+      )
+
+      expect(displayPath(path.join(real, 'dist', 'chrome'), asked)).toBe(
+        path.join('dist', 'chrome')
+      )
+    } finally {
+      rememberAskedPath(real, real)
+    }
   })
 
   it('reaches the built line and the packaged line whole', () => {

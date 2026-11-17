@@ -65,12 +65,14 @@ import {
   card,
   claimCardKey,
   debugLine,
+  holdHumanLines,
   isDebug
 } from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {
+  asAskedPath,
   collapseHomeDir,
   configBrowserOrThrow,
   displayPath,
@@ -253,6 +255,28 @@ export async function extensionBuild(
   pathOrRemoteUrl: string | undefined,
   buildOptions?: BuildOptions
 ): Promise<BuildSummary> {
+  // `start` prints its build leg as part of its own session, tree aside.
+  const mayBeSilent = buildOptions?.metadataCommand !== 'start'
+  let releaseHumanLines: (() => void) | undefined
+
+  const goSilent = () => {
+    if (mayBeSilent) releaseHumanLines ??= holdHumanLines()
+  }
+
+  if (buildOptions?.silent === true) goSilent()
+
+  try {
+    return await runBuild(pathOrRemoteUrl, buildOptions, goSilent)
+  } finally {
+    releaseHumanLines?.()
+  }
+}
+
+async function runBuild(
+  pathOrRemoteUrl: string | undefined,
+  buildOptions: BuildOptions | undefined,
+  goSilent: () => void
+): Promise<BuildSummary> {
   const projectStructure = await getProjectStructure(pathOrRemoteUrl)
   const isVitest = process.env.VITEST === 'true'
   // The CLI wrapper passes exitOnError=true; as a library import a failed
@@ -392,6 +416,9 @@ export async function extensionBuild(
     }
 
     const silent = Boolean(mergedBuildOptions.silent)
+
+    // A config layer can ask for it too, known only once the layers merge.
+    if (silent) goSilent()
 
     // The Safari identity is settled from the same layers before any compile,
     // so a bad bundle id from any layer is refused without spending a build.
@@ -538,7 +565,7 @@ export async function extensionBuild(
     let summary: BuildSummary = {
       browser,
       buildType,
-      output_path: distPath,
+      output_path: asAskedPath(distPath),
       total_assets: 0,
       total_bytes: 0,
       largest_asset_bytes: 0,
@@ -642,7 +669,7 @@ export async function extensionBuild(
             ...getBuildSummary(
               browser,
               info,
-              displayDistPath,
+              asAskedPath(displayDistPath),
               outputFiles,
               warningCodes(stats.compilation)
             ),
@@ -758,10 +785,11 @@ export async function extensionBuild(
           const zipArtifacts = getZipArtifacts(stats.compilation).map(
             (artifact) => ({
               kind: artifact.kind,
-              path:
+              path: asAskedPath(
                 useStagingSwap && artifact.path.startsWith(stagingDistPath)
                   ? distPath + artifact.path.slice(stagingDistPath.length)
-                  : artifact.path,
+                  : artifact.path
+              ),
               size: artifact.size
             })
           )

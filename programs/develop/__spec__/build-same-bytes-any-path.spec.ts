@@ -132,10 +132,22 @@ function relocatedInstall(...nested: string[]) {
   return root
 }
 
-// A real path: a project named through a link is compiled against the link,
-// and the way from there to its real files is a path of that machine.
+// A real path, so each link case below decides where its link sits.
 function projectFolder(...nested: string[]) {
   return path.join(fs.realpathSync(tempFolder('extjs-same-bytes-')), ...nested)
+}
+
+function canLink(): boolean {
+  const probe = tempFolder('extjs-same-bytes-link-probe-')
+
+  try {
+    fs.mkdirSync(path.join(probe, 'target'))
+    fs.symlinkSync(path.join(probe, 'target'), path.join(probe, 'link'), 'dir')
+
+    return true
+  } catch {
+    return false
+  }
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
@@ -144,6 +156,8 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   const rulesOut = path.join(tempFolder('extjs-same-bytes-rules-'), 'rules')
   process.env.VITEST = 'true'
   process.env[RULES_OUT] = rulesOut
+
+  let outputPath = ''
 
   try {
     const summary = await extensionBuild(root, {
@@ -156,6 +170,7 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
       exitOnError: false
     } as any)
     expect(summary.errors_count).toBe(0)
+    outputPath = String(summary.output_path)
   } finally {
     if (previous === undefined) delete process.env.VITEST
     else process.env.VITEST = previous
@@ -184,7 +199,7 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   const zipName = Object.keys(files).find((file) => file.endsWith('.zip'))
   const zip = fs.readFileSync(path.join(dist, String(zipName)))
 
-  return {files, zip, rules: fs.readFileSync(rulesOut, 'utf8')}
+  return {files, zip, outputPath, rules: fs.readFileSync(rulesOut, 'utf8')}
 }
 
 // The time and date of every entry, read from the central directory.
@@ -244,6 +259,83 @@ describe('a production build gives the same bytes from any path', () => {
 
       expect(second.files).toEqual(first.files)
     }, 180_000)
+  }
+
+  // Each case names the same kind of project through a different link.
+  const linkedSpellings: Array<{
+    name: string
+    link: (base: string) => {real: string; linked: string}
+  }> = [
+    {
+      name: 'a link to the project folder',
+      link: (base) => {
+        fs.symlinkSync(path.join(base, 'real'), path.join(base, 'link'), 'dir')
+
+        return {real: path.join(base, 'real'), linked: path.join(base, 'link')}
+      }
+    },
+    {
+      name: 'a link to a parent folder',
+      link: (base) => {
+        fs.symlinkSync(path.join(base, 'real'), path.join(base, 'link'), 'dir')
+
+        return {
+          real: path.join(base, 'real', 'apps', 'ext'),
+          linked: path.join(base, 'link', 'apps', 'ext')
+        }
+      }
+    },
+    {
+      name: 'a workspace package linked into node_modules',
+      link: (base) => {
+        const real = path.join(base, 'real', 'packages', 'ext')
+        const linked = path.join(base, 'real', 'node_modules', 'ext')
+
+        fs.mkdirSync(path.dirname(real), {recursive: true})
+        fs.mkdirSync(path.dirname(linked), {recursive: true})
+        fs.symlinkSync(path.join('..', 'packages', 'ext'), linked, 'dir')
+
+        return {real, linked}
+      }
+    }
+  ]
+
+  for (const manifestVersion of [3, 2] as const) {
+    const browser = manifestVersion === 3 ? 'chrome' : 'firefox'
+
+    for (const spelling of linkedSpellings) {
+      it.skipIf(!canLink())(
+        `${browser}: ${spelling.name} builds the same files and zip as the real path`,
+        async () => {
+          const base = projectFolder()
+
+          fs.mkdirSync(path.join(base, 'real'), {recursive: true})
+
+          const {real, linked} = spelling.link(base)
+
+          project(real, manifestVersion)
+
+          const byRealPath = await build(real, browser)
+          const byLink = await build(linked, browser)
+
+          // The fixture has to exercise what the link leaked into.
+          expect(Object.keys(byRealPath.files)).toEqual(
+            expect.arrayContaining([
+              'content_scripts/content-0.css',
+              'content_scripts/content-0.js.map',
+              'options/index.html'
+            ])
+          )
+
+          expect(byLink.files).toEqual(byRealPath.files)
+
+          // What comes back still names the folder the way it was asked for.
+          expect(byRealPath.outputPath).toBe(path.join(real, 'dist', browser))
+          expect(byLink.outputPath).toBe(path.join(linked, 'dist', browser))
+        },
+        180_000
+      )
+    }
   }
 
   it('a zip of built files records no build time', async () => {

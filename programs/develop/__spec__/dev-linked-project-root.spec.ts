@@ -177,7 +177,7 @@ describe.skipIf(!canLink())('dev: a project behind a linked path', () => {
   // Windows reports a changed file under its own spelling of a short temp
   // name, so the spelling this case compares is not the one it would get.
   it.skipIf(process.platform === 'win32')(
-    'still rebuilds for an edit, and reports it under the path that was asked for',
+    'still rebuilds for an edit, and reports it under the real path only',
     async () => {
       const {real, linked} = linkedProject()
       const modified: string[][] = []
@@ -211,7 +211,8 @@ describe.skipIf(!canLink())('dev: a project behind a linked path', () => {
 
       expect(modified.flat()).toContain(path.join(real, 'background.js'))
 
-      // The manifest was asked for under the linked path and answers under it.
+      // The project root is resolved once, so the manifest answers by its
+      // real path too, whichever spelling the edit went through.
       const beforeManifest = await session.settle()
       const manifestPath = path.join(linked, 'manifest.json')
       const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'))
@@ -223,11 +224,13 @@ describe.skipIf(!canLink())('dev: a project behind a linked path', () => {
 
       await session.doneAfter(beforeManifest)
       await waitUntil(() =>
-        modified.some((files) => files.includes(manifestPath))
+        modified.some((files) =>
+          files.includes(path.join(real, 'manifest.json'))
+        )
       )
 
-      expect(modified.flat()).toContain(manifestPath)
-      expect(modified.flat()).not.toContain(path.join(real, 'manifest.json'))
+      expect(modified.flat()).toContain(path.join(real, 'manifest.json'))
+      expect(modified.flat()).not.toContain(manifestPath)
     },
     120000
   )
@@ -258,7 +261,7 @@ describe.skipIf(!canLink())('dev: a project behind a linked path', () => {
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
           reason: 'public',
-          pathAfter: path.join(linked, 'public')
+          pathAfter: path.join(real, 'public')
         })
       )
 

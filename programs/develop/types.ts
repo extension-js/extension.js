@@ -337,6 +337,10 @@ export interface BuildOptions {
    */
   sourceMaps?: boolean
   polyfill?: boolean
+  /**
+   * Print nothing on stdout. Warnings stay in the returned summary and in
+   * `build-summary.json`, and a failure still prints. Defaults to `false`.
+   */
   silent?: boolean
   /**
    * Run Mozilla's addons-linter over the emitted dist after a production

@@ -38,6 +38,7 @@ import {
   normalizeBrowser
 } from './lib/paths'
 import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
+import {linkFreePath} from './lib/real-path'
 import {remoteArchiveCacheRoot} from './lib/remote-archive'
 import {sanitize} from './lib/sanitize'
 import {ensureSessionArtifactsIgnoreFile} from './lib/session-paths'
@@ -144,7 +145,7 @@ export function explicitUnpackedDir(
     return manifestDir
   }
 
-  const typed = path.resolve(process.cwd(), pathOrRemoteUrl)
+  const typed = linkFreePath(path.resolve(process.cwd(), pathOrRemoteUrl))
 
   if (!fs.existsSync(path.join(typed, 'manifest.json'))) return undefined
   if (fs.existsSync(path.join(typed, 'package.json'))) return undefined

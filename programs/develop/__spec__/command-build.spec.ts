@@ -210,7 +210,7 @@ describe('webpack/command-build', () => {
 
     await extensionBuild('/proj', {
       browser: 'chrome',
-      silent: true
+      silent: false
     })
 
     const printed = localLogSpy.mock.calls.map((call) => String(call[0] || ''))
@@ -245,7 +245,7 @@ describe('webpack/command-build', () => {
     }
     rspackMock.mockReturnValue(makeCompiler(stats))
 
-    await extensionBuild('/proj', {browser: 'chrome', silent: true})
+    await extensionBuild('/proj', {browser: 'chrome', silent: false})
 
     const printed = localLogSpy.mock.calls
       .map((call) => String(call[0] || ''))
@@ -330,7 +330,7 @@ describe('webpack/command-build', () => {
 
     const summary = await extensionBuild('/proj', {
       browser: 'chrome',
-      silent: true
+      silent: false
     })
     expect(summary.warnings_count).toBe(2)
 
@@ -444,14 +444,8 @@ describe('webpack/command-build', () => {
       const printed = localLogSpy.mock.calls.map((call) =>
         String(call[0] || '')
       )
-      // Asset names only appear in the summary tree, which silent suppresses.
-      expect(printed.some((line) => line.includes('service_worker.js'))).toBe(
-        false
-      )
-
-      expect(
-        printed.some((line) => line.includes('built for production in'))
-      ).toBe(true)
+      // A silent build answers through its summary and prints no line.
+      expect(printed).toEqual([])
     })
 
     it('lets explicit CLI flags beat config in both directions (both)', async () => {
@@ -1133,7 +1127,7 @@ describe('webpack/command-build', () => {
     const receiptLog = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
-      await extensionBuild(tmp, {browser: 'chrome', silent: true})
+      await extensionBuild(tmp, {browser: 'chrome', silent: false})
 
       const printed = receiptLog.mock.calls
         .map((call) => call.join(' '))

@@ -108,7 +108,7 @@ async function build(root: string) {
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
-      silent: true,
+      silent: false,
       install: false,
       mode: 'production',
       exitOnError: false

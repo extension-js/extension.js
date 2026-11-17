@@ -123,7 +123,7 @@ describe('writes outside the build graph under extension dev', () => {
     expect(handler).toHaveBeenCalledWith(
       expect.objectContaining({
         reason: 'public',
-        pathAfter: path.join(root, 'public')
+        pathAfter: path.join(fs.realpathSync(root), 'public')
       })
     )
   }, 90000)

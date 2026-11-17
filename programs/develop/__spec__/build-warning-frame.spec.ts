@@ -32,7 +32,7 @@ async function build() {
   try {
     await extensionBuild(ROOT, {
       browser: 'chrome',
-      silent: true,
+      silent: false,
       install: false,
       mode: 'production',
       exitOnError: false
