@@ -5,7 +5,9 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   claimReadyPath,
   describeLaunchFailure,
+  earlierManagedProfileBaseDir,
   launchFailureCode,
+  managedProfileBaseDir,
   readReadyExecutorAttached,
   readReadyRunId,
   stampReadyBrowserExited,
@@ -816,5 +818,49 @@ describe('stampReadyExtensionBaseUrl', () => {
     expect(
       'extensionBaseUrl' in JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ).toBe(false)
+  })
+})
+
+describe('managedProfileBaseDir', () => {
+  it('sits in the session root beside a loaded build folder', () => {
+    expect(managedProfileBaseDir('/work/app/dist/chrome', 'chrome')).toBe(
+      path.resolve('/work/app/dist/extension-js/profiles/chrome-profile')
+    )
+
+    expect(
+      earlierManagedProfileBaseDir('/work/app/dist/chrome', 'chrome')
+    ).toBeUndefined()
+  })
+
+  it('stays in the project when the project folder itself is loaded', () => {
+    claimReadyPath(
+      '/work/unbuilt',
+      '/work/unbuilt/dist/extension-js/chrome/ready.json'
+    )
+
+    expect(managedProfileBaseDir('/work/unbuilt', 'chrome')).toBe(
+      path.resolve('/work/unbuilt/dist/extension-js/profiles/chrome-profile')
+    )
+
+    // Earlier versions climbed out of the project into its parent folder.
+    expect(earlierManagedProfileBaseDir('/work/unbuilt', 'chrome')).toBe(
+      path.resolve('/work/extension-js/profiles/chrome-profile')
+    )
+  })
+
+  it('leaves the folder of a controlled copy for the one documented place', () => {
+    const controlled = '/work/app/dist/extension-js/firefox/controlled'
+
+    claimReadyPath(controlled, '/work/app/dist/extension-js/firefox/ready.json')
+
+    expect(managedProfileBaseDir(controlled, 'firefox')).toBe(
+      path.resolve('/work/app/dist/extension-js/profiles/firefox-profile')
+    )
+
+    expect(earlierManagedProfileBaseDir(controlled, 'firefox')).toBe(
+      path.resolve(
+        '/work/app/dist/extension-js/firefox/extension-js/profiles/firefox-profile'
+      )
+    )
   })
 })

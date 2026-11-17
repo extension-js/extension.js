@@ -903,6 +903,28 @@ describe('BridgeBroker (Slice 2: act)', () => {
       expect(message).toContain('restart extension start')
       expect(message).not.toContain('may still be launching')
     })
+
+    it('names that absence with a code, and no other absence', () => {
+      const codeOf = (prepare?: (b: BridgeBroker) => void) => {
+        const b = new BridgeBroker(base({sessionCommand: 'preview'}))
+        const ctl = new FakeConn('ctl')
+
+        prepare?.(b)
+        helloController(b, ctl)
+        ctl.sent = []
+        b.onFrame(ctl, {
+          type: 'command',
+          cmdId: 'c1',
+          op: 'reload',
+          target: {context: 'background'}
+        })
+
+        return (ctl.sent[0] as any).error.code
+      }
+
+      expect(codeOf((b) => b.noteNoBackground())).toBe('no_background')
+      expect(codeOf()).toBeUndefined()
+    })
   })
 
   it('ignores result frames from non-executor connections', () => {

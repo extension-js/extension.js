@@ -273,6 +273,17 @@ export function explicitProfileUnderProject(
   )
 }
 
+export function keptProfileAtEarlierPath(
+  browser: string,
+  earlierPath: string,
+  currentPath: string
+) {
+  return (
+    `${getLoggingPrefix('info')} Using the kept ${capitalizedBrowserName(browser as Browser)} profile at ${colors.underline(earlierPath)}, where an earlier version put it. ` +
+    `Its place is now ${colors.underline(currentPath)}, so move the folder there to keep its cookies and logins, or delete it to start fresh.`
+  )
+}
+
 export function copyFromProfileSourceMissing(source: string) {
   return (
     `${getLoggingPrefix('warn')} The profile to copy from doesn't exist, so this run starts from an empty profile.\n` +
@@ -458,14 +469,21 @@ export function extensionOutputIsIncomplete(
   )
 }
 
-export function chromiumRefusesTheExtension(
+// The reason is the browser's own sentence, when a launch could ask for it.
+export function browserRefusesTheExtension(
   browser: string,
-  extensionPath: string
+  extensionPath: string,
+  reason?: string,
+  cause?: string
 ) {
   return (
-    `${getLoggingPrefix('error')} ${colors.red(`${browserDisplayName(browser)} refuses to load this extension, so there is nothing to preview.`)}\n` +
+    `${getLoggingPrefix('error')} ${colors.red(`${browserDisplayName(browser)} refuses to load this extension, so nothing in it runs.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `Read the reason above, fix the manifest, then run the command again.`
+    (reason
+      ? `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+        (cause ? `${colors.gray('CAUSE')} ${cause}\n` : '') +
+        `Fix what the browser names, then run the command again.`
+      : `Read the reason above, fix the manifest, then run the command again.`)
   )
 }
 
@@ -514,17 +532,33 @@ export function manifestV2OnChromiumBrowser(
   )
 }
 
-export function mv3BackgroundScriptsNotSupportedByChromium(
-  extensionPath: string
-) {
+// Measured on Chrome 151: the extension loads, gets an id and shows no error
+// or warning on chrome://extensions, and no script in background.scripts runs.
+export function backgroundScriptsNotRunByChromium(extensionPath: string) {
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow('This MV3 extension declares Firefox-style background.scripts with no service_worker, Chromium refuses to load it.')}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension declares background.scripts with no background.service_worker, so Chromium loads it and runs no background.')}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser rejects it at launch with no console error, so the dev session can't attach.\n` +
+    `The browser assigns an Extension ID and reports no error, and the scripts in background.scripts never start.\n` +
     `Run it on the browser it targets (${colors.blue('--browser firefox')}) or declare ${colors.blue('background.service_worker')} for Chromium.`
   )
 }
 
+// Measured on Chrome 151: any integer above 3 loads and runs as Manifest V3,
+// with no warning. Firefox refuses the same manifest.
+export function manifestVersionAboveThreeOnChromium(
+  extensionPath: string,
+  declared: unknown
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares manifest_version ${JSON.stringify(declared)}, which Chromium loads and runs as Manifest V3.`)}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    `The browser reports no error or warning for it, and Firefox refuses the same manifest.\n` +
+    `Declare ${colors.blue('"manifest_version": 3')} in the source manifest.`
+  )
+}
+
+// A missing key, a string, a fraction or a value below 2. Chrome's own words
+// for it: "Must be an integer either 2 or 3."
 export function unsupportedManifestVersionOnChromium(
   extensionPath: string,
   declared: unknown
@@ -535,10 +569,30 @@ export function unsupportedManifestVersionOnChromium(
       : `manifest_version ${JSON.stringify(declared)}`
 
   return (
-    `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares ${value}, which Chromium refuses as an unsupported manifest version.`)}\n` +
+    `${getLoggingPrefix('warn')} ${colors.brightYellow(`This extension declares ${value}, which Chromium refuses to load.`)}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
-    `The browser rejects it at launch (a native dialog, not a console error), so the dev session can't attach.\n` +
+    `The browser takes the integer 2 or 3 only, so a string such as "3" is refused too, and no part of the extension runs.\n` +
     `Declare ${colors.blue('"manifest_version": 3')} in the source manifest.`
+  )
+}
+
+// A caveat, not a refusal: the browser loads the extension and drops these.
+export function hostPermissionPatternsIgnored(
+  extensionPath: string,
+  patterns: string[]
+) {
+  const shown = patterns.slice(0, 6)
+  const more = patterns.length - shown.length
+
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension lists host permission patterns the browser drops, so they grant no host access.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    shown
+      .map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`)
+      .join('') +
+    (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
+    `Chrome and Firefox load the extension, Chrome records no error or warning for it, and the other patterns in the list still apply.\n` +
+    `Write the host as ${colors.blue('*')}, ${colors.blue('*.domain.tld')} or a literal host in the source manifest.`
   )
 }
 
@@ -562,6 +616,19 @@ export function chromiumInvalidMatchPatterns(
   )
 }
 
+// Printed in place of a predicted refusal the browser did not make.
+export function chromiumLoadedPredictedRefusal(
+  extensionPath: string,
+  shapes: string[]
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('Chrome loaded this extension, although its manifest has a shape expected to be refused.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    shapes.map((shape) => `${colors.gray('SHAPE')} ${shape}\n`).join('') +
+    `The browser reported no error for it. Check that the named part does what you expect.`
+  )
+}
+
 export function chromiumManifestLoadBlockers(
   extensionPath: string,
   blockers: string[]
@@ -577,28 +644,24 @@ export function chromiumManifestLoadBlockers(
   )
 }
 
+// Only a dev session prints this block. A run-only launch ends on a refusal.
+const LOAD_REFUSAL_RECOVERY =
+  `Fix the reason above and save.\n` +
+  `If the browser doesn't pick it up, restart the dev session.`
+
 // The browser accepted the launch but rejected the guest. Reported from the
 // browser's own answer, so it reads the same headed (modal) and headless (silent).
 export function chromiumExtensionLoadRefused(
   extensionPath: string,
-  reason: string,
-  options: {runOnly?: boolean} = {}
+  reason: string
 ) {
   return (
     `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this extension, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
     `No service worker, content script, or page from this extension will run, and no Extension ID was assigned.\n` +
-    loadRefusalRecovery(options.runOnly)
+    LOAD_REFUSAL_RECOVERY
   )
-}
-
-// A run-only session has no watcher, so saving the file changes nothing.
-function loadRefusalRecovery(runOnly?: boolean) {
-  return runOnly
-    ? `Fix the reason above, rebuild, and run the command again.`
-    : `Fix the reason above and save.\n` +
-        `If the browser doesn't pick it up, restart the dev session.`
 }
 
 // Chrome 150 drops --load-extension unless the switch policy is disabled, and
@@ -656,14 +719,15 @@ export function chromiumHeadlessPageTargetRecreated(browser: Browser) {
 export function geckoAddonLoadRefused(
   addonPath: string,
   reason: string,
-  options: {runOnly?: boolean} = {}
+  cause?: string
 ) {
   return (
     `${getLoggingPrefix('error')} ${colors.red("The browser refused to load this add-on, so it isn't running.")}\n` +
     `${colors.gray('PATH')} ${colors.underline(addonPath)}\n` +
     (reason ? `${colors.gray('REASON')} ${colors.red(reason)}\n` : '') +
+    (cause ? `${colors.gray('CAUSE')} ${cause}\n` : '') +
     `No background script, content script, or page from this add-on will run, and no Extension ID was assigned.\n` +
-    loadRefusalRecovery(options.runOnly)
+    LOAD_REFUSAL_RECOVERY
   )
 }
 

@@ -5,15 +5,212 @@ import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   chromiumStillRunsManifestV2,
   diagnoseChromiumManifestRefusal,
+  endsRunOnlyLaunch,
   findChromiumLoadBlockers,
+  findChromiumManifestCaveats,
+  findGeckoRefusalCause,
+  findIgnoredHostPermissionPatterns,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
   findUnloadableIconFiles,
+  holdRefusalPredictions,
   planManifestV2Launch,
   repeatsManifestV2Refusal
 } from '../browsers-lib/manifest-refusal'
-import {manifestV2OnChromiumBrowser} from '../browsers-lib/messages'
+import {
+  backgroundScriptsNotRunByChromium,
+  browserRefusesTheExtension,
+  chromiumLoadedPredictedRefusal,
+  geckoAddonLoadRefused,
+  hostPermissionPatternsIgnored,
+  manifestV2OnChromiumBrowser,
+  manifestVersionAboveThreeOnChromium,
+  unsupportedManifestVersionOnChromium
+} from '../browsers-lib/messages'
+
+// One refusal gets one block: the browser's own when it answered.
+describe('holdRefusalPredictions', () => {
+  const start = () => {
+    const printed: string[] = []
+    const held = holdRefusalPredictions((message) => printed.push(message))
+
+    held.hold('predicted A', 'loaded although A')
+    held.hold('predicted B', 'loaded although B')
+
+    return {printed, held}
+  }
+
+  it('prints a held prediction when the browser gave no answer', () => {
+    const {printed, held} = start()
+
+    expect(printed).toEqual([])
+
+    held.flush()
+    held.flush()
+    expect(printed).toEqual(['predicted A', 'predicted B'])
+  })
+
+  it("drops the prediction once the browser's own refusal is reported", () => {
+    const {printed, held} = start()
+
+    held.browserRefused()
+    held.flush()
+
+    expect(printed).toEqual([])
+  })
+
+  // Chrome 151 loads an invalid host wildcard in host_permissions, so a
+  // prediction can be wrong and must not be printed as a refusal then.
+  it('says the browser loaded it, and never that it refuses, once it loaded', () => {
+    const {printed, held} = start()
+
+    held.browserLoaded()
+    held.flush()
+
+    expect(printed).toEqual(['loaded although A', 'loaded although B'])
+  })
+
+  it('words the loaded case as a warning about the shape', () => {
+    const text = chromiumLoadedPredictedRefusal('/dist/chrome', [
+      'match pattern https://foo.*.com/*'
+    ])
+
+    expect(text).toContain(
+      'Chrome loaded this extension, although its manifest has a shape expected to be refused.'
+    )
+
+    expect(text).toContain('SHAPE match pattern https://foo.*.com/*')
+    expect(text).not.toMatch(/refuses|won't load/)
+  })
+})
+
+// Firefox answers these with an internal TypeError or a bare value, so the
+// cause is read off the manifest and printed beside the browser's words.
+describe('findGeckoRefusalCause', () => {
+  it.each([
+    4, 99
+  ])('names manifest_version %i as above what Firefox loads', (version) => {
+    expect(findGeckoRefusalCause({manifest_version: version})).toBe(
+      'Firefox does not load a manifest_version above 3.'
+    )
+  })
+
+  it.each([
+    ['missing', {}],
+    ['the string "3"', {manifest_version: '3'}],
+    ['1', {manifest_version: 1}],
+    ['0', {manifest_version: 0}],
+    ['-1', {manifest_version: -1}],
+    ['3.5', {manifest_version: 3.5}]
+  ])('names a manifest_version that is %s', (_label, manifest) => {
+    expect(findGeckoRefusalCause(manifest)).toBe(
+      'Firefox loads only the integer 2 or 3 as manifest_version.'
+    )
+  })
+
+  it('names no cause where the manifest shows none, whatever the browser said', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {service_worker: 'sw.js'}},
+      {manifest_version: 2},
+      {
+        manifest_version: 3,
+        browser_specific_settings: {gecko: {id: 'not a valid id'}}
+      },
+      null,
+      []
+    ]) {
+      expect(findGeckoRefusalCause(manifest)).toBeUndefined()
+    }
+  })
+
+  it("puts the cause beside the browser's words, which stay", () => {
+    const reason =
+      'Could not install add-on: TypeError: can\'t access property "length", manifest.name is undefined'
+    const cause = 'Firefox does not load a manifest_version above 3.'
+
+    for (const text of [
+      browserRefusesTheExtension('firefox', '/dist/firefox', reason, cause),
+      geckoAddonLoadRefused('/dist/firefox', reason, cause)
+    ]) {
+      expect(text).toContain(`REASON ${reason}\nCAUSE ${cause}\n`)
+    }
+
+    expect(
+      browserRefusesTheExtension('firefox', '/dist/firefox', reason)
+    ).not.toContain('CAUSE')
+  })
+})
+
+describe('findChromiumManifestCaveats', () => {
+  it('names background.scripts with no service worker from Manifest V3 on', () => {
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 3,
+        background: {scripts: ['background.js']}
+      })
+    ).toEqual(['background-scripts-not-run'])
+  })
+
+  it('names a manifest version above 3, which Chrome runs as Manifest V3', () => {
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 4,
+        background: {service_worker: 'sw.js'}
+      })
+    ).toEqual(['manifest-version-above-3'])
+
+    expect(
+      findChromiumManifestCaveats({
+        manifest_version: 4,
+        background: {scripts: ['background.js']}
+      })
+    ).toEqual(['manifest-version-above-3', 'background-scripts-not-run'])
+  })
+
+  it('names nothing for a manifest Chrome runs in full, or refuses', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {service_worker: 'sw.js'}},
+      {
+        manifest_version: 3,
+        background: {service_worker: 'sw.js', scripts: ['background.js']}
+      },
+      {manifest_version: 3, background: {scripts: []}},
+      {manifest_version: 2, background: {scripts: ['background.js']}},
+      {manifest_version: '3', background: {scripts: ['background.js']}},
+      {name: 'x'}
+    ]) {
+      expect(findChromiumManifestCaveats(manifest)).toEqual([])
+    }
+  })
+
+  it('says what the browser does, and never that it refuses', () => {
+    const scripts = backgroundScriptsNotRunByChromium('/dist/chrome')
+
+    expect(scripts).toContain('Chromium loads it and runs no background')
+    expect(scripts).toContain('assigns an Extension ID')
+    expect(scripts).not.toMatch(/refuses|rejects/)
+
+    const above = manifestVersionAboveThreeOnChromium('/dist/chrome', 4)
+
+    expect(above).toContain(
+      'declares manifest_version 4, which Chromium loads and runs as Manifest V3'
+    )
+
+    expect(above).not.toMatch(/Chromium refuses|rejects/)
+
+    const refused = unsupportedManifestVersionOnChromium('/dist/chrome', '3')
+
+    expect(refused).toContain(
+      'declares manifest_version "3", which Chromium refuses to load'
+    )
+
+    expect(refused).toContain('the integer 2 or 3 only')
+    expect(unsupportedManifestVersionOnChromium('/d', undefined)).toContain(
+      'declares no manifest_version, which Chromium refuses to load'
+    )
+  })
+})
 
 describe('diagnoseChromiumManifestRefusal', () => {
   it('flags MV2', () => {
@@ -29,27 +226,39 @@ describe('diagnoseChromiumManifestRefusal', () => {
     ).toBe(null)
   })
 
-  it('flags missing, MV1, and above-3 manifest_version as unsupported (wild: Custom-salesforce-inspector)', () => {
-    expect(diagnoseChromiumManifestRefusal({name: 'x'})).toBe(
-      'unsupported-manifest-version'
-    )
-
-    expect(diagnoseChromiumManifestRefusal({manifest_version: 1})).toBe(
-      'unsupported-manifest-version'
-    )
-
-    expect(diagnoseChromiumManifestRefusal({manifest_version: 4})).toBe(
+  // Chrome 151 answers each of these "Must be an integer either 2 or 3", or
+  // "Missing 'manifest_version' key" (wild: Custom-salesforce-inspector).
+  it.each([
+    ['a missing key', {name: 'x'}],
+    ['1', {manifest_version: 1}],
+    ['0', {manifest_version: 0}],
+    ['a negative value', {manifest_version: -1}],
+    ['a fraction', {manifest_version: 3.5}],
+    ['the string "3"', {manifest_version: '3'}],
+    ['the string "2"', {manifest_version: '2'}]
+  ])('flags %s as a manifest version Chrome refuses', (_label, manifest) => {
+    expect(diagnoseChromiumManifestRefusal(manifest)).toBe(
       'unsupported-manifest-version'
     )
   })
 
-  it('flags MV3 with Firefox-style background.scripts and no service_worker', () => {
-    expect(
-      diagnoseChromiumManifestRefusal({
-        manifest_version: 3,
-        background: {scripts: ['background.js']}
-      })
-    ).toBe('mv3-background-scripts')
+  // Measured on Chrome 151: both load, get an id and show no warning.
+  it('predicts no refusal for the shapes Chrome loads', () => {
+    for (const manifest of [
+      {manifest_version: 3, background: {scripts: ['background.js']}},
+      {manifest_version: 4, background: {service_worker: 'sw.js'}},
+      {manifest_version: 4, background: {scripts: ['background.js']}},
+      {manifest_version: 99, background: {service_worker: 'sw.js'}}
+    ]) {
+      expect(diagnoseChromiumManifestRefusal(manifest)).toBeNull()
+    }
+  })
+
+  it('diagnoses nothing that is not a manifest object', () => {
+    for (const value of [null, undefined, 'x', 3, []]) {
+      expect(diagnoseChromiumManifestRefusal(value)).toBeNull()
+      expect(findChromiumManifestCaveats(value)).toEqual([])
+    }
   })
 
   it('accepts MV3 with a service_worker (even alongside scripts)', () => {
@@ -126,9 +335,61 @@ describe('diagnoseChromiumManifestRefusal', () => {
 
     expect(
       findInvalidMatchPatterns({
-        host_permissions: ['*://*carbonwise*:*/*']
+        content_scripts: [{matches: ['*://*carbonwise*:*/*']}]
       })
     ).toEqual(['*://*carbonwise*:*/*'])
+  })
+
+  // Measured on Chrome 151: content script and web accessible resource
+  // patterns refuse the extension, host permission patterns do not.
+  it('predicts a refusal only for the keys Chrome refuses over', () => {
+    const bad = 'https://foo.*.com/*'
+
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: [bad],
+        optional_host_permissions: [bad]
+      })
+    ).toEqual([])
+
+    for (const manifest of [
+      {content_scripts: [{matches: [bad]}]},
+      {
+        content_scripts: [
+          {matches: ['https://ok.example/*'], exclude_matches: [bad]}
+        ]
+      },
+      {web_accessible_resources: [{resources: ['a.js'], matches: [bad]}]}
+    ]) {
+      expect(findInvalidMatchPatterns(manifest)).toEqual([bad])
+      expect(findIgnoredHostPermissionPatterns(manifest)).toEqual([])
+    }
+  })
+
+  it('names host permission patterns the browser drops as a caveat', () => {
+    expect(
+      findIgnoredHostPermissionPatterns({
+        host_permissions: ['https://foo.*.com/*', 'https://ok.example/*'],
+        optional_host_permissions: ['https://*foo.com/*', '<all_urls>']
+      })
+    ).toEqual(['https://foo.*.com/*', 'https://*foo.com/*'])
+
+    expect(findIgnoredHostPermissionPatterns(undefined)).toEqual([])
+
+    const text = hostPermissionPatternsIgnored('/dist/chrome', [
+      'https://foo.*.com/*'
+    ])
+
+    expect(text).toContain(
+      'lists host permission patterns the browser drops, so they grant no host access.'
+    )
+
+    expect(text).toContain('PATTERN https://foo.*.com/*')
+    expect(text).toContain(
+      'Chrome and Firefox load the extension, Chrome records no error or warning for it'
+    )
+
+    expect(text).not.toMatch(/refuses|won't load/)
   })
 
   it('accepts MV3 with no background and tolerates malformed shapes', () => {
@@ -626,6 +887,45 @@ describe('a Manifest V2 guest at launch', () => {
     expect(repeatsManifestV2Refusal(false, reason)).toBe(false)
     expect(repeatsManifestV2Refusal(undefined, reason)).toBe(false)
     expect(repeatsManifestV2Refusal(true, 'Could not load icon')).toBe(false)
+  })
+
+  it('ends a predicted refusal unless the browser took the guest', () => {
+    expect(endsRunOnlyLaunch(true, 'refused')).toBe(true)
+    expect(endsRunOnlyLaunch(true, 'unknown')).toBe(true)
+    expect(endsRunOnlyLaunch(true, 'loaded')).toBe(false)
+  })
+
+  // A minimum_chrome_version above the browser is one the preflight lets by.
+  it('ends a run the browser refused though nothing predicted it', () => {
+    expect(endsRunOnlyLaunch(false, 'refused')).toBe(true)
+    expect(endsRunOnlyLaunch(false, 'unknown')).toBe(false)
+    expect(endsRunOnlyLaunch(false, 'loaded')).toBe(false)
+  })
+
+  it('carries the sentence of the browser on the frame that ends the run', () => {
+    const sentence =
+      'Cannot install extension because it uses an unsupported manifest version.'
+    const framed = browserRefusesTheExtension(
+      'chrome',
+      '/dist/chrome',
+      sentence
+    )
+
+    expect(framed).toContain('Chrome refuses to load this extension')
+    expect(framed).toContain(sentence)
+    expect(framed.split(sentence)).toHaveLength(2)
+    expect(framed).toContain(
+      'Fix what the browser names, then run the command again.'
+    )
+
+    expect(framed).not.toContain('Read the reason above')
+
+    const unasked = browserRefusesTheExtension('chrome', '/dist/chrome')
+
+    expect(unasked).not.toContain('REASON')
+    expect(unasked).toContain(
+      'Read the reason above, fix the manifest, then run the command again.'
+    )
   })
 
   it('names the Chrome versions for Chrome', () => {

@@ -120,6 +120,10 @@ export function collapseHomeDir(value: string): string {
 // A path inside the base dir prints relative to it; the base itself and
 // anything outside it return null so the caller picks a longer form.
 export function relativeToDir(target: string, base: string): string | null {
+  // Every path sits inside the filesystem root, and relative to it a path
+  // only loses its leading slash, which then reads as some other folder.
+  if (path.parse(path.resolve(base)).root === path.resolve(base)) return null
+
   const relative = path.relative(base, target)
 
   if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {

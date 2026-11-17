@@ -1410,8 +1410,8 @@ export function productionControlOpen(
   // port answers every verb with a refusal. Saying so here saves the round trip.
   if (!hasBackground) {
     return (
-      `${getLoggingPrefix('warn')} Control channel open for the ${String(browser)} production build, but this build has no background, so nothing in it can connect and every act verb will be refused.\n` +
-      `Add a background script or service worker to the manifest and build again. The browser loads ${controlled}, a copy of ${dist}. ${dist} is unchanged.`
+      `${getLoggingPrefix('warn')} Control channel open for the ${String(browser)} production build, but this build has no background this browser runs, so nothing in it can connect and every act verb will be refused.\n` +
+      `Declare one in the manifest (background.service_worker on Chromium, background.scripts on Firefox) and build again. The browser loads ${controlled}, a copy of ${dist}. ${dist} is unchanged.`
     )
   }
 

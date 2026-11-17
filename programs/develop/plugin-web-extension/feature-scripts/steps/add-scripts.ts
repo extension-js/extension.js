@@ -238,7 +238,13 @@ export class AddScripts {
         manifestJson.background?.type === 'module' ? false : 'import-scripts'
 
       newEntries[feature] = runsAsWorker
-        ? {import: finalEntryImports, chunkLoading: workerChunkLoading}
+        ? {
+            import: finalEntryImports,
+            chunkLoading: workerChunkLoading,
+            // A Chromium service worker can fetch a script only while it
+            // installs, so what import() names ships inside the worker file.
+            asyncChunks: false
+          }
         : {
             import: finalEntryImports,
             ...(isContentScriptFeature(feature) ||

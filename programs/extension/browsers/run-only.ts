@@ -7,14 +7,18 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {CODES, hasChannelPrefix} from '../helpers/messaging'
+import {CODES, hasChannelPrefix, humanWarn} from '../helpers/messaging'
 import {printProdBannerOnce} from './browsers-lib/banner'
-import {builtBackgroundNamesRegistration} from './browsers-lib/built-boot-registrations'
 import {
   isChromiumBrowser,
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
-import {browserNeverStarted} from './browsers-lib/messages'
+import {builtBackgroundNamesRegistration} from './browsers-lib/built-boot-registrations'
+import {findIgnoredHostPermissionPatterns} from './browsers-lib/manifest-refusal'
+import {
+  browserNeverStarted,
+  hostPermissionPatternsIgnored
+} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {
   claimReadyPath,
@@ -159,6 +163,7 @@ function buildPreviewChromiumOptions(
     browser: pluginOptions.browser,
     noOpen: pluginOptions.noOpen,
     profile: pluginOptions.profile,
+    persistProfile: pluginOptions.persistProfile,
     preferences: pluginOptions.preferences,
     browserFlags: pluginOptions.browserFlags,
     excludeBrowserFlags: pluginOptions.excludeBrowserFlags,
@@ -289,6 +294,27 @@ export interface PreviewBrowserSession {
   wakeBackground?(): Promise<boolean>
 }
 
+// Preview builds nothing, so no build warned about what it loads. Firefox
+// drops such a pattern in silence, the way Chrome does.
+export function warnIgnoredHostPermissionPatterns(opts: {
+  outPath: string
+  command?: 'preview' | 'start'
+}): void {
+  if (opts.command === 'start') return
+
+  try {
+    const patterns = findIgnoredHostPermissionPatterns(
+      JSON.parse(fs.readFileSync(`${opts.outPath}/manifest.json`, 'utf8'))
+    )
+
+    if (patterns.length) {
+      humanWarn(hostPermissionPatternsIgnored(opts.outPath, patterns))
+    }
+  } catch {
+    // An unreadable manifest is the browser's to report.
+  }
+}
+
 export async function runOnlyPreviewBrowser(
   opts: PreviewRunOptions
 ): Promise<PreviewBrowserSession | undefined> {
@@ -367,6 +393,8 @@ export async function runOnlyPreviewBrowser(
     // Identity before the launch here too: the add-on install still verifies
     // through the banner's nameability verdict, which survives a dedupe hit.
     await printProdBannerOnce(bannerOptions)
+
+    warnIgnoredHostPermissionPatterns(opts)
 
     try {
       await launcher.runOnce(

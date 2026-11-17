@@ -395,7 +395,9 @@ export function findClassicRedeclarations(
 // Absolute build paths read as noise next to the rest of the CLI output, and a
 // path.sep spelling would print the same defect two ways across platforms.
 function displayPath(file: string): string {
-  const relative = path.relative(process.cwd(), file)
+  const cwd = process.cwd()
+  // Relative to the filesystem root a path only loses its leading slash.
+  const relative = path.parse(cwd).root === cwd ? '' : path.relative(cwd, file)
   const shown = relative && !relative.startsWith('..') ? relative : file
 
   return shown.split(path.sep).join('/')

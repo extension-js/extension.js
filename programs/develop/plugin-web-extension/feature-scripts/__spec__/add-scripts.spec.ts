@@ -143,6 +143,30 @@ describe('AddScripts', () => {
     ).toBe('import-scripts')
   })
 
+  it('keeps what import() names inside a worker entry and leaves a page entry splitting', () => {
+    // A service worker can fetch a script only while it installs, so a
+    // chunk first asked for later never arrives.
+    expect(
+      buildServiceWorkerEntry({background: {service_worker: 'sw.js'}}, 'chrome')
+        .asyncChunks
+    ).toBe(false)
+
+    expect(
+      buildServiceWorkerEntry(
+        {background: {type: 'module', service_worker: 'sw.js'}},
+        'chrome'
+      ).asyncChunks
+    ).toBe(false)
+
+    expect(buildBackgroundScriptsEntry(3, 'chrome').asyncChunks).toBe(false)
+
+    expect(
+      buildBackgroundScriptsEntry(3, 'firefox').asyncChunks
+    ).toBeUndefined()
+
+    expect(buildBackgroundScriptsEntry(2, 'chrome').asyncChunks).toBeUndefined()
+  })
+
   it('uses a sequential entry module for multi-file content script groups', () => {
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')

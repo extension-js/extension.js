@@ -51,8 +51,8 @@ export function patchChromiumBackground(
     return manifest
   }
 
-  // Chromium MV3 rejects the extension whenever background.scripts is present,
-  // even beside a valid service_worker; drop scripts always.
+  // Chromium loads a Manifest V3 extension with background.scripts and never
+  // runs them, so the entry moves to service_worker and scripts is dropped.
   const {scripts, ...rest} = background
 
   return {
