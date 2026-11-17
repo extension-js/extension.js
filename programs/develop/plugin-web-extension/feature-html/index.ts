@@ -66,8 +66,6 @@ export class HtmlPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    new PruneReplacedPageAssets().apply(compiler)
-
     new UpdateHtmlFile({
       manifestPath: this.manifestPath,
       includeList,
@@ -79,6 +77,10 @@ export class HtmlPlugin {
       (compiler.options.mode || 'development') !== 'production'
 
     if (devSession) {
+      // A one-shot build starts from an empty folder. Only a session that
+      // keeps writing into the same one can leave a replaced copy behind.
+      new PruneReplacedPageAssets().apply(compiler)
+
       const contentScriptEntryPaths = new Set<string>()
 
       try {
