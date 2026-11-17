@@ -71,10 +71,6 @@ export function verbatimCssModulePlaceholder(id: string, raw: string): string {
   )
 }
 
-export function takeVerbatimCss(id: string): string | undefined {
-  return registry().get(id)?.raw
-}
-
 // The relative files a sheet names: @import targets and url() assets. A
 // verbatim sheet skipped the parser, so nothing else ships them.
 export function cssRelativeRefs(text: string): string[] {
