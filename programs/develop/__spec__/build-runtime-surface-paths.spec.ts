@@ -194,27 +194,55 @@ describe('an icon a lazily imported module sets', () => {
   const icons = (root: string, browser: string) =>
     outputFiles(root, browser).filter((file) => file.endsWith('.png'))
 
-  it('ships beside the worker and the popup that load the chunk, on chrome', async () => {
+  it('ships beside the worker that holds the call and the popup that loads the chunk, on chrome', async () => {
     const root = project(LAZY, {service_worker: 'background.js'})
 
     const summary = await build(root, 'chrome')
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings || []).toEqual([])
 
-    // The calls are in chunks of their own, which no page names.
+    // A Chromium worker holds what it imports lazily, so only the popup's
+    // call is in a chunk of its own, which no page names.
     const chunks = outputFiles(root, 'chrome').filter((file) =>
       /^[^/]+\.js$/.test(file)
     )
-    const text = chunks
-      .map((file) => fs.readFileSync(path.join(root, 'dist/chrome', file)))
-      .join('\n')
+    const read = (file: string) =>
+      fs.readFileSync(path.join(root, 'dist/chrome', file), 'utf8')
 
-    expect(chunks).toHaveLength(2)
-    expect(text).toContain('"on.png"')
-    expect(text).toContain('"pop.png"')
+    expect(chunks).toHaveLength(1)
+    expect(read(chunks[0])).toContain('"pop.png"')
+    expect(read(chunks[0])).not.toContain('"on.png"')
+    expect(read('background/service_worker.js')).toContain('"on.png"')
     expect(icons(root, 'chrome')).toEqual([
       'action/pop.png',
       'background/on.png'
+    ])
+  }, 120_000)
+
+  it('ships beside both when the worker and the popup import one module lazily, on chrome', async () => {
+    const root = project(
+      {
+        'background.js':
+          'globalThis.early = import("./lazy-both.js").then((m) => m.set())\n',
+        'popup.html': LAZY['popup.html'],
+        'popup.js':
+          'window.lazy = () => import("./lazy-both.js").then((m) => m.set())\n',
+        'lazy-both.js':
+          'export const set = () => chrome.action.setIcon({path: "both.png"})\n',
+        'both.png': 'png'
+      },
+      {service_worker: 'background.js'}
+    )
+
+    const summary = await build(root, 'chrome')
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings || []).toEqual([])
+
+    // The worker runs its own copy and the popup loads a chunk, and Chrome
+    // asks beside whichever of the two runs the call.
+    expect(icons(root, 'chrome')).toEqual([
+      'action/both.png',
+      'background/both.png'
     ])
   }, 120_000)
 
