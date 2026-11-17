@@ -625,6 +625,7 @@ describe('addon lint failure paths', () => {
   async function expectUnusable(
     root: string,
     why: string,
+    where: string,
     loadLinter?: LoadAddonLinter
   ) {
     const dist = path.join(root, 'dist')
@@ -639,7 +640,7 @@ describe('addon lint failure paths', () => {
     expect(result.status).toBe('failed')
     const failed = result as {reason: string; line: string; debugLine: string}
     expect(failed.reason).toBe(
-      `addons-linter is installed but cannot be used: ${why}`
+      `addons-linter at ${where} is installed but cannot be used: ${why}`
     )
 
     expect(stripAnsi(failed.line)).toContain(
@@ -751,10 +752,23 @@ describe('addon lint failure paths', () => {
 
     fs.writeFileSync(path.join(packageDir, 'index.js'), 'module.exports = {}\n')
 
-    await expectUnusable(root, 'addons-linter exports no createInstance')
+    // Inside the project the copy is named the way the project names files.
+    await expectUnusable(
+      root,
+      'addons-linter exports no createInstance',
+      path.join('node_modules', 'addons-linter', 'index.js')
+    )
   })
 
   it('names the load error of a linter that resolved and would not load', async () => {
+    const outsideCopy = path.join(
+      os.tmpdir(),
+      'another-install',
+      'node_modules',
+      'addons-linter',
+      'index.js'
+    )
+
     const unloadable: LoadAddonLinter = async () => {
       throw Object.assign(
         new Error(
@@ -762,12 +776,19 @@ describe('addon lint failure paths', () => {
         ),
         {
           code: 'E_OPTIONAL_DEP_LOAD',
+          resolvedPath: outsideCopy,
           cause: new Error('linter entry boom\nRequire stack:\n- index.js')
         }
       )
     }
 
-    await expectUnusable(project(), 'linter entry boom', unloadable)
+    // A copy outside the project keeps its full path.
+    await expectUnusable(
+      project(),
+      'linter entry boom',
+      outsideCopy,
+      unloadable
+    )
   })
 
   it('gives up after the time box instead of hanging the build', async () => {
