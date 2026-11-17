@@ -33,6 +33,7 @@ export class CompilationPlugin {
   public readonly port?: number
   public readonly command?: 'dev' | 'start' | 'preview' | 'build'
   public readonly define?: Record<string, unknown>
+  public readonly browserLaunchEnabled?: boolean
 
   constructor(
     options: PluginInterface & {
@@ -43,6 +44,7 @@ export class CompilationPlugin {
       port?: number
       command?: 'dev' | 'start' | 'preview' | 'build'
       define?: Record<string, unknown>
+      browserLaunchEnabled?: boolean
     }
   ) {
     this.manifestPath = options.manifestPath
@@ -54,6 +56,7 @@ export class CompilationPlugin {
     this.zipDir = options.zipDir
     this.port = options.port
     this.command = options.command
+    this.browserLaunchEnabled = options.browserLaunchEnabled
   }
 
   private applyIgnoreWarnings(compiler: Compiler): void {
@@ -163,7 +166,8 @@ export class CompilationPlugin {
 
     new BoringPlugin({
       manifestPath: this.manifestPath,
-      browser: this.browser || 'chrome'
+      browser: this.browser || 'chrome',
+      browserLaunchEnabled: this.browserLaunchEnabled
     }).apply(compiler)
 
     // The build path renders errors and warnings once through the stats
