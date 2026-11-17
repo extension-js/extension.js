@@ -23,6 +23,8 @@ const isCriticalJsonFeatureKey = isCriticalJsonFeature
 interface CategoryChange {
   hasChange: boolean
   manifestField?: string
+  manifestFieldBefore?: string
+  pathChanged?: string
   pathBefore?: string
   pathAfter?: string
 }
@@ -31,6 +33,8 @@ type CategoryName = 'scripts' | 'html' | 'icons' | 'json'
 
 interface Snapshot {
   scripts: string[]
+  // The entry each script compiles into, index for index with scripts.
+  scriptEntries: string[]
   html: Record<string, string>
   icons: string[]
   json: string[]
@@ -43,7 +47,7 @@ function toComparablePath(value: unknown): string {
 }
 
 function flattenValues(
-  map: Record<string, string | string[]> | undefined
+  map: Record<string, string | string[] | undefined> | undefined
 ): string[] {
   const paths: string[] = []
 
@@ -77,6 +81,34 @@ function diffArray(prev: string[], next: string[]): CategoryChange | null {
   }
 
   return {hasChange: true, pathBefore, pathAfter}
+}
+
+// Entry names follow the output layout. The author reads manifest fields.
+function manifestFieldOfEntry(entry: string | undefined): string | undefined {
+  if (!entry) return undefined
+
+  return entry
+    .replace(/^content_scripts\/content-(\d+)$/, 'content_scripts[$1].js')
+    .replace(/\//g, '.')
+}
+
+// The same files under another key compile to other output files, so a key
+// swap needs the restart a path change gets even when no path moved.
+function diffScripts(prev: Snapshot, next: Snapshot): CategoryChange | null {
+  const byPath = diffArray(prev.scripts, next.scripts)
+  if (byPath) return byPath
+
+  const index = next.scriptEntries.findIndex(
+    (entry, i) => entry !== prev.scriptEntries[i]
+  )
+  if (index === -1) return null
+
+  return {
+    hasChange: true,
+    pathChanged: next.scripts[index],
+    manifestFieldBefore: manifestFieldOfEntry(prev.scriptEntries[index]),
+    manifestField: manifestFieldOfEntry(next.scriptEntries[index])
+  }
 }
 
 function diffRecord(
@@ -121,7 +153,15 @@ export class ManifestFieldsChangeDetector {
       string,
       string | string[]
     >
-    const scripts = flattenValues(scriptsMap)
+    const scripts: string[] = []
+    const scriptEntries: string[] = []
+
+    for (const [entry, val] of Object.entries(scriptsMap)) {
+      for (const script of flattenValues({[entry]: val})) {
+        scripts.push(script)
+        scriptEntries.push(entry)
+      }
+    }
 
     // Include bridge scripts for MAIN world content scripts
     const bridgeScripts = AddContentScriptWrapper.getBridgeScripts(
@@ -129,9 +169,11 @@ export class ManifestFieldsChangeDetector {
       this.browser
     )
 
-    for (const val of Object.values(bridgeScripts)) {
-      if (Array.isArray(val)) scripts.push(...(val.filter(Boolean) as string[]))
-      else if (val) scripts.push(val)
+    for (const [entry, val] of Object.entries(bridgeScripts)) {
+      for (const script of flattenValues({[entry]: val})) {
+        scripts.push(script)
+        scriptEntries.push(entry)
+      }
     }
 
     const html = (fields.html || {}) as Record<string, string>
@@ -157,7 +199,7 @@ export class ManifestFieldsChangeDetector {
       else if (val) json.push(val as string)
     }
 
-    return {scripts, html, icons, json}
+    return {scripts, scriptEntries, html, icons, json}
   }
 
   apply(compiler: Compiler): void {
@@ -193,7 +235,7 @@ export class ManifestFieldsChangeDetector {
             return
           }
 
-          const scriptsDiff = diffArray(this.prev.scripts, next.scripts)
+          const scriptsDiff = diffScripts(this.prev, next)
           const htmlDiff = diffRecord(this.prev.html, next.html)
           const iconsDiff = diffArray(this.prev.icons, next.icons)
           const jsonDiff = diffArray(this.prev.json, next.json)
@@ -251,7 +293,9 @@ export class ManifestFieldsChangeDetector {
         reason,
         pathAfter: change.pathAfter,
         pathBefore: change.pathBefore,
-        manifestField: change.manifestField
+        pathChanged: change.pathChanged,
+        manifestField: change.manifestField,
+        manifestFieldBefore: change.manifestFieldBefore
       })
     }
 
@@ -262,8 +306,8 @@ export class ManifestFieldsChangeDetector {
     if (this.pending.scripts) {
       const p = this.pending.scripts
       const msg = serverRestartRequiredFromManifestError(
-        p.pathAfter || '',
-        p.pathBefore || ''
+        p.pathAfter || p.manifestField || '',
+        p.pathBefore || p.manifestFieldBefore || ''
       )
       const err = new WebpackError(msg) as Error & {file?: string}
       err.file = 'manifest.json'

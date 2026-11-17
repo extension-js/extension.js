@@ -31,6 +31,11 @@ import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
 import {isClassicScript} from '../../shared/classic-concat'
+import {
+  keepPagePath,
+  namesPagePath,
+  pageServedAtAuthoredPath
+} from '../../shared/kept-page-paths'
 import {getResolvedManifestFieldsData} from '../../shared/manifest-fields'
 import {
   createLocalImportResolver,
@@ -273,6 +278,7 @@ interface ApplyContext {
 export class TraceRuntimeLoadedFiles {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
+  private readonly namingSources = new Map<string, string>()
 
   constructor(options: {
     manifestPath: string
@@ -312,6 +318,8 @@ export class TraceRuntimeLoadedFiles {
                 this.traceInjectedFilePayloads(run, only)
                 this.traceFetchedFiles(run, only)
                 this.traceGetURLFiles(run, only)
+                this.keepAuthoredPagePaths(run, only)
+                this.traceKeptPageFetches(run, only)
                 this.traceNamedFiles(run, only)
                 this.traceWebpackChunkSiblings(run, only)
                 const emitted = await run.flushCompiles()
@@ -607,6 +615,104 @@ export class TraceRuntimeLoadedFiles {
     return outputs
   }
 
+  // Every page the build compiles away from the path its author wrote, with
+  // each compiled page that source feeds. The background page is not one.
+  private relocatedPageOutputs(manifestDir: string): Map<string, string[]> {
+    const relocated = new Map<string, string[]>()
+
+    try {
+      const pages = getResolvedManifestFieldsData({
+        manifestPath: this.manifestPath,
+        browser: this.browser
+      }).html as Record<string, string | undefined>
+
+      for (const [feature, source] of Object.entries(pages)) {
+        if (!source || feature === 'background/index') continue
+
+        const authored = unixify(path.relative(manifestDir, source))
+        const output = `${feature}.html`
+        if (authored.startsWith('..') || authored === output) continue
+
+        relocated.set(authored, [...(relocated.get(authored) ?? []), output])
+      }
+    } catch {
+      // A manifest the fields reader rejects moves no page.
+    }
+
+    return relocated
+  }
+
+  // A script that holds the path a page was written at compares it with
+  // sender.url or location, so the page has to open at that same path.
+  private keepAuthoredPagePaths(run: TraceRun, only?: Set<string>) {
+    const relocated = this.relocatedPageOutputs(run.manifestDir)
+    if (relocated.size === 0) return
+
+    for (const asset of run.jsAssets(only)) {
+      const text = run.textOf(asset)
+      const mentioned = [...relocated.keys()].filter((authored) =>
+        text.includes(authored)
+      )
+      if (mentioned.length === 0) continue
+
+      const literals = extractPathLiterals(blankComments(text))
+
+      for (const authored of mentioned) {
+        const literal = literals.find((value) => namesPagePath(value, authored))
+        if (!literal) continue
+
+        const outputs = relocated.get(authored) ?? []
+        if (!servePageAtAuthoredPath(run, authored, outputs)) continue
+
+        // Read once per session: a dev rebuild keeps the page the same way.
+        const mentionedIn =
+          this.namingSources.get(literal) ??
+          run.sourceNaming(literal) ??
+          asset.name
+
+        this.namingSources.set(literal, mentionedIn)
+
+        for (const output of outputs) {
+          if (!run.hasAsset(output)) continue
+
+          keepPagePath(run.compilation, {output, authored, mentionedIn})
+        }
+      }
+    }
+  }
+
+  // A kept page asks from the folder its author wrote it in, so a relative
+  // fetch in its scripts reads the layout of the source folder.
+  private traceKeptPageFetches(run: TraceRun, only?: Set<string>) {
+    if (run.servedPages.size === 0) return
+
+    const pages = run.pagesLoadingScripts()
+    const seen = run.seen.fetched
+
+    for (const asset of run.jsAssets(only)) {
+      const bases = (pages.get(asset.name) ?? []).filter((page) =>
+        run.servedPages.has(page)
+      )
+      if (bases.length === 0) continue
+
+      for (const literal of extractFetchedFileLiterals(run.textOf(asset))) {
+        for (const base of bases) {
+          const distRel = resolveExtensionPath(literal, base)
+          if (!distRel || seen.has(distRel)) continue
+
+          seen.add(distRel)
+
+          if (run.hasAsset(distRel)) continue
+          if (isFile(path.join(run.manifestDir, 'public', distRel))) continue
+
+          const abs = path.join(run.manifestDir, distRel)
+
+          if (isFile(abs)) run.emitCopy(abs, distRel)
+        }
+      }
+    }
+  }
+
   // The root paths web_accessible_resources files ship at: a sibling folder
   // file the WAR step emits later in the compilation is not missing.
   private webAccessibleOutputs(run: TraceRun): Set<string> {
@@ -652,6 +758,7 @@ export class TraceRuntimeLoadedFiles {
         : []
     )
     const surfacePages = this.surfacePageOutputs(run.manifestDir)
+    const relocatedPages = this.relocatedPageOutputs(run.manifestDir)
     let shippedByWar: Set<string> | undefined
     const seen = run.seen.getURL
     const pageSources = new Map(
@@ -777,12 +884,12 @@ export class TraceRuntimeLoadedFiles {
           // it: its compiled markup names its script and sheet from the root.
           if (declaredSurfaces.has(distRel)) {
             const output = surfacePages.get(distRel)
-            const page =
-              output && output !== distRel && !run.hasAsset(distRel)
-                ? run.compilation.getAsset(output)
-                : undefined
 
-            if (page) run.compilation.emitAsset(distRel, page.source)
+            servePageAtAuthoredPath(
+              run,
+              distRel,
+              relocatedPages.get(distRel) ?? (output ? [output] : [])
+            )
 
             continue
           }
@@ -1111,6 +1218,8 @@ class TraceRun {
   readonly workerScope = new Set<string>([EMITTED_WORKER_PATH])
   readonly entrySourceDirs: Map<string, string>
   readonly hasAsset: (name: string) => boolean
+  // The compiled page each authored page path serves a copy of.
+  readonly servedPages = new Map<string, string>()
   private readonly queue = new Map<string, CompileRequest>()
   private readonly texts = new Map<string, string>()
   // Files the `exclude` config leaves out of this build. A literal that names
@@ -1159,6 +1268,31 @@ class TraceRun {
     }
 
     return found
+  }
+
+  // The project file and line that spell a string, so a build line names
+  // code the author can open and not a chunk the bundler named.
+  sourceNaming(literal: string): string | undefined {
+    const projectPath =
+      (this.compiler.options?.context as string | undefined) || this.manifestDir
+
+    try {
+      for (const file of this.compilation.fileDependencies ?? []) {
+        if (typeof file !== 'string' || !isLocalScriptSource(file)) continue
+
+        const text = readScriptText(file)
+        const at = text === undefined ? -1 : text.indexOf(literal)
+        if (text === undefined || at === -1) continue
+
+        const line = text.slice(0, at).split('\n').length
+
+        return `${unixify(path.relative(projectPath, file))}:${line}`
+      }
+    } catch {
+      // Ignore, a source that cannot be read names nothing
+    }
+
+    return undefined
   }
 
   // The pages each emitted script is loaded by, since a relative path in a
@@ -1823,6 +1957,31 @@ function movedPageSourceBase(
   if (sourceDirRel === path.posix.dirname(unixify(assetName))) return ''
 
   return sourceRel.replace(/^\.\//, '')
+}
+
+// Serves a compiled page at the path its author wrote too. Its markup names
+// its script and sheet from the root, so the copy loads the same files.
+function servePageAtAuthoredPath(
+  run: TraceRun,
+  authored: string,
+  outputs: string[]
+): string | undefined {
+  const served = run.servedPages.get(authored)
+  if (served) return served
+
+  const emitted = outputs.filter(
+    (output) => output !== authored && run.hasAsset(output)
+  )
+  if (emitted.length === 0 || run.hasAsset(authored)) return undefined
+
+  const output = pageServedAtAuthoredPath(emitted)
+  const page = run.compilation.getAsset(output)
+  if (!page) return undefined
+
+  run.compilation.emitAsset(authored, page.source)
+  run.servedPages.set(authored, output)
+
+  return output
 }
 
 function rewriteStringLiteral(

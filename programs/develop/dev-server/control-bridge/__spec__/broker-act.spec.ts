@@ -329,6 +329,80 @@ describe('BridgeBroker (Slice 2: act)', () => {
       expect(b.producerCount).toBe(1)
     })
 
+    it('names the load refusal the session recorded, not a browser still launching', () => {
+      let refusal: string | null =
+        'Cannot install extension because it uses an unsupported manifest version.'
+      const b = new BridgeBroker(base({readLoadRefusal: () => refusal}))
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      const msg = denyMessage(b, ctl)
+
+      expect(msg).toContain('the browser refused to load this extension')
+      expect(msg).toContain(
+        'The browser said: Cannot install extension because it uses an unsupported manifest version. Fix'
+      )
+
+      expect(msg).toContain(
+        'the dev session tries the load again on the next build. If it stays refused, restart extension dev'
+      )
+
+      expect(msg).not.toMatch(/still be launching|has connected since/)
+      expect((ctl.sent[0] as any).error.code).toBe('extension_load_refused')
+
+      // The stamp leaves the contract once the browser accepts the extension.
+      refusal = null
+      expect(denyMessage(b, ctl)).toContain('may still be launching')
+      expect((ctl.sent[0] as any).error.code).toBeUndefined()
+    })
+
+    it('keeps the wait hint while no refusal is recorded or the contract cannot be read', () => {
+      const none = new BridgeBroker(base({readLoadRefusal: () => null}))
+      const unreadable = new BridgeBroker(
+        base({
+          readLoadRefusal: () => {
+            throw new Error('unreadable')
+          }
+        })
+      )
+
+      for (const b of [none, unreadable]) {
+        const ctl = new FakeConn('ctl')
+        helloController(b, ctl)
+        expect(denyMessage(b, ctl)).toContain('may still be launching')
+      }
+    })
+
+    it('names a refusal with no reason, and what a start session has to do', () => {
+      const b = new BridgeBroker(
+        base({
+          engine: 'firefox',
+          sessionCommand: 'start',
+          readLoadRefusal: () => ''
+        })
+      )
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+      const msg = denyMessage(b, ctl)
+
+      expect(msg).toContain(
+        'the browser refused to load this extension, so no background page runs'
+      )
+
+      expect(msg).not.toContain('The browser said')
+      expect(msg).toContain('build again and restart extension start')
+      expect(msg).not.toMatch(/dev session/)
+    })
+
+    it('names a browser exit over a refusal recorded before it', () => {
+      const b = new BridgeBroker(base({readLoadRefusal: () => 'refused'}))
+      b.noteBrowserExited('2026-09-25T23:24:37.253Z', 'code 0')
+      const ctl = new FakeConn('ctl')
+      helloController(b, ctl)
+
+      expect(denyMessage(b, ctl)).toContain('the browser exited at')
+      expect((ctl.sent[0] as any).error.code).toBeUndefined()
+    })
+
     it('speaks of a background page, not a service worker, on Firefox', () => {
       let t = 0
       const b = new BridgeBroker(base({engine: 'firefox', now: () => t}))

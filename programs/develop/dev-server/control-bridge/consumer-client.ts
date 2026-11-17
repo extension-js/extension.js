@@ -87,6 +87,26 @@ export function readReadyContractDocument(
   }
 }
 
+// The refusal the launcher stamped on this run's contract, as the browser
+// worded it: empty when it gave no reason, null while none stands.
+export function readExtensionLoadRefusal(
+  projectPath: string,
+  browser: string,
+  runId?: string
+): string | null {
+  const ready = readReadyContractDocument(projectPath, browser)
+
+  if (typeof ready?.extensionLoadRefusedAt !== 'string') return null
+
+  if (runId && typeof ready.runId === 'string' && ready.runId !== runId) {
+    return null
+  }
+
+  return typeof ready.extensionLoadRefusedReason === 'string'
+    ? ready.extensionLoadRefusedReason
+    : ''
+}
+
 export function readReadyContract(
   projectPath: string,
   browser = 'chrome'
