@@ -416,6 +416,11 @@ export default function webpackConfig(
       // The Firefox launcher stamps the RDP port after the compile, so a dev
       // contract with a browser ahead holds ready until it does.
       readyAwaitsRdpPort: Boolean(devOptions.browsersPlugin),
+      // The Chromium launcher stamps the browser and its CDP port the same
+      // way, and a plugin that says when it came back ends the wait.
+      readyAwaitsCdpPort:
+        typeof devOptions.browsersPlugin?.setLaunchSettledListener ===
+        'function',
       readyAwaitsExecutor: devOptions.readyAwaitsExecutor
     })
   )
