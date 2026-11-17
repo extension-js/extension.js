@@ -3,42 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-const bridge = vi.hoisted(() => ({
+const bridge = {
   document: null as Record<string, unknown> | null,
   controllers: 0
-}))
-
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    ...(await import('../../develop/dev-server/control-bridge/log-rule')),
-    readReadyContractDocument: () => bridge.document,
-    readReadyContract: () =>
-      bridge.document
-        ? {controlPort: 9123, instanceId: 'inst-1', runId: 'run-1'}
-        : null,
-    readControlToken: () => null,
-    readPersistedControlPort: () => 9123,
-    controlPortFilePath: (p: string, b: string) => `${p}/${b}`,
-    BridgeController: class {
-      constructor() {
-        bridge.controllers++
-      }
-      async connect() {
-        return {}
-      }
-      async command() {
-        return {ok: true}
-      }
-      close() {}
-    },
-    BridgeConsumer: class {
-      start() {
-        bridge.controllers++
-      }
-      close() {}
-    }
-  }))
-}))
+}
 
 import {launchBrowser} from '../browsers'
 import {
@@ -54,7 +22,7 @@ import {
 } from '../browsers/run-emulator'
 
 import {registerActCommands} from '../commands/act'
-import {runDoctor} from '../commands/doctor'
+import {runDoctor as runDoctorWith} from '../commands/doctor'
 import {registerLogsCommand} from '../commands/logs'
 import {
   EMULATOR_LOGS_REFUSAL,
@@ -69,8 +37,45 @@ import {
 } from '../helpers/vendors'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
+const loadBridge = async () => ({
+  ...(await import('../../develop/dev-server/control-bridge/log-rule')),
+  readReadyContractDocument: () => bridge.document,
+  readReadyContract: () =>
+    bridge.document
+      ? {controlPort: 9123, instanceId: 'inst-1', runId: 'run-1'}
+      : null,
+  readControlToken: () => null,
+  readPersistedControlPort: () => 9123,
+  controlPortFilePath: (p: string, b: string) => `${p}/${b}`,
+  BridgeController: class {
+    constructor() {
+      bridge.controllers++
+    }
+    async connect() {
+      return {}
+    }
+    async command() {
+      return {ok: true}
+    }
+    close() {}
+  },
+  BridgeConsumer: class {
+    start() {
+      bridge.controllers++
+    }
+    close() {}
+  }
+})
+
 const VIEWER_URL =
   'https://browsers.extension.land/chromium/#files=http%3A%2F%2F127.0.0.1%3A8080%2F__extjs-emulator%2Ffiles.json&instance=inst-1&v=1'
+
+// The engine is out of reach of a scratch project, so the peer leg skips.
+const runDoctor = (
+  projectPath: string,
+  opts: Parameters<typeof runDoctorWith>[1]
+) =>
+  runDoctorWith(projectPath, opts, {loadBridge, engineVersion: () => undefined})
 
 let errorSpy: ReturnType<typeof vi.spyOn>
 let logSpy: ReturnType<typeof vi.spyOn>
@@ -82,13 +87,13 @@ beforeEach(() => {
   logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   bridge.document = null
   bridge.controllers = 0
-  delete process.env.EXTENSION_EXPERIMENTAL_EMULATOR
+  vi.stubEnv('EXTENSION_EXPERIMENTAL_EMULATOR', undefined)
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-emulator-'))
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
-  delete process.env.EXTENSION_EXPERIMENTAL_EMULATOR
+  vi.unstubAllEnvs()
   fs.rmSync(dir, {recursive: true, force: true})
 })
 
@@ -113,7 +118,7 @@ describe('chromium-emulator as a public browser name', () => {
 
   it('reads the same with the retired EXTENSION_EXPERIMENTAL_EMULATOR set either way', () => {
     for (const value of ['0', '1']) {
-      process.env.EXTENSION_EXPERIMENTAL_EMULATOR = value
+      vi.stubEnv('EXTENSION_EXPERIMENTAL_EMULATOR', value)
       expect(reject(['chromium-emulator']), value).toEqual({
         ok: true,
         refused: ''
@@ -363,7 +368,9 @@ describe('tooling refuses an emulator session', () => {
 
   it('logs refuses with the one sentence and never opens a consumer', async () => {
     bridge.document = {engine: 'emulator'}
-    const program = makeProgram(registerLogsCommand)
+    const program = makeProgram((command) =>
+      registerLogsCommand(command, {loadBridge})
+    )
     const code = await runCli(program, [
       'logs',
       dir,
@@ -380,7 +387,9 @@ describe('tooling refuses an emulator session', () => {
 
   it('act verbs refuse before dialing the control channel', async () => {
     bridge.document = {engine: 'emulator'}
-    const program = makeProgram(registerActCommands)
+    const program = makeProgram((command) =>
+      registerActCommands(command, {loadBridge})
+    )
     const code = await runCli(program, [
       'eval',
       '1+1',

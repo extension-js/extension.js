@@ -1,18 +1,12 @@
-import {spawn} from 'node:child_process'
 import fs from 'node:fs'
 import http from 'node:http'
-import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {freshCliHome, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
-const ANSI = /\x1b\[[0-9;]*m/g
 const STACK_FRAME = /^\s+at /m
-
-function cliBin(): string {
-  return path.resolve(__dirname, '../..', 'dist', 'cli.cjs')
-}
 
 type Reply = {status?: number; contentType?: string; body: string | Buffer}
 
@@ -54,55 +48,23 @@ async function refusedOrigin(): Promise<string> {
   return server.origin
 }
 
-function runCreate(
+async function runCreate(
   args: string[],
   extraEnv: Record<string, string> = {}
-): Promise<{
-  status: number | null
-  stdout: string
-  stderr: string
-  leftBehind: string[]
-}> {
+) {
   const work = makeTempFolder('extjs-create-notzip-')
-  const configHome = makeTempFolder('extjs-config-')
-  const cacheHome = makeTempFolder('extjs-cache-')
-
-  return new Promise((resolve) => {
-    let stdout = ''
-    let stderr = ''
-    const child = spawn(process.execPath, [cliBin(), 'create', ...args], {
-      cwd: work,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      env: {
-        ...process.env,
-        NO_COLOR: '1',
-        FORCE_COLOR: '0',
-        EXTENSION_ENV: 'test',
-        EXTENSION_TELEMETRY: '0',
-        EXTENSION_ALLOW_HTTP_TEMPLATE: 'true',
-        XDG_CONFIG_HOME: configHome,
-        XDG_CACHE_HOME: cacheHome,
-        ...extraEnv
-      }
-    })
-    child.stdout.on('data', (chunk) => (stdout += chunk.toString()))
-    child.stderr.on('data', (chunk) => (stderr += chunk.toString()))
-
-    child.on('close', (status) => {
-      const leftBehind = fs.readdirSync(work)
-
-      for (const dir of [work, configHome, cacheHome]) {
-        fs.rmSync(dir, {recursive: true, force: true})
-      }
-
-      resolve({
-        status,
-        stdout: stdout.replace(ANSI, ''),
-        stderr: stderr.replace(ANSI, ''),
-        leftBehind
-      })
-    })
+  const run = await runCli(['create', ...args], {
+    cwd: work,
+    home: freshCliHome(),
+    env: {EXTENSION_ALLOW_HTTP_TEMPLATE: 'true', ...extraEnv}
   })
+
+  return {
+    status: run.status,
+    stdout: run.stdout,
+    stderr: run.stderr,
+    leftBehind: fs.readdirSync(work)
+  }
 }
 
 function onlyFrame(stdout: string): {
@@ -150,32 +112,9 @@ describe('create with a template URL that does not answer with a ZIP', () => {
     expect(result.leftBehind).toEqual([])
   }, 60000)
 
-  it('codes the page E_REMOTE_ZIP_INVALID under --output json', async () => {
-    const server = await serve({
-      contentType: 'text/html',
-      body: '<html>not here</html>'
-    })
-    close = server.close
-
-    const result = await runCreate([
-      './proof',
-      '-t',
-      `${server.origin}/template.zip`,
-      '--output',
-      'json'
-    ])
-
-    expect(result.status, result.stderr).toBe(1)
-    expect(result.stderr).not.toMatch(STACK_FRAME)
-
-    const frame = onlyFrame(result.stdout)
-    expect(frame).toMatchObject({ok: false, command: 'create'})
-    expect(frame.error.code).toBe('E_REMOTE_ZIP_INVALID')
-    expect(frame.error.message).toContain("doesn't point to a ZIP archive")
-    expect(frame.error.message).toContain('GOT text/html')
-  }, 60000)
-
-  it('codes an empty body sent as a ZIP the same way', async () => {
+  // The page and the refused connection under json are read beside develop's
+  // answer to the same request, in remote-archive-codes.contract.spec.ts.
+  it('codes an empty body sent as a ZIP as E_REMOTE_ZIP_INVALID', async () => {
     const server = await serve({contentType: 'application/zip', body: ''})
     close = server.close
 
@@ -196,32 +135,6 @@ describe('create with a template URL that does not answer with a ZIP', () => {
     expect(frame.error.message).toContain(
       'GOT application/zip with an empty body'
     )
-  }, 60000)
-
-  // The other side of the line: nothing answered, so this stays a network
-  // failure and never borrows the not-a-ZIP frame.
-  it('keeps the network code when the connection is refused', async () => {
-    const origin = await refusedOrigin()
-
-    const result = await runCreate([
-      './proof',
-      '-t',
-      `${origin}/template.zip`,
-      '--output',
-      'json'
-    ])
-
-    expect(result.status, result.stderr).toBe(1)
-    expect(result.stderr).not.toMatch(STACK_FRAME)
-
-    const frame = onlyFrame(result.stdout)
-    expect(frame.error.code).toBe('E_NETWORK')
-    expect(frame.error.message).toContain(
-      "Couldn't fetch the template from that URL"
-    )
-
-    expect(frame.error.message).toContain('ECONNREFUSED')
-    expect(frame.error.message).not.toContain('ZIP archive')
   }, 60000)
 })
 
@@ -261,31 +174,6 @@ describe('create with a remote archive the unzip cannot read', () => {
     expect(result.stderr).toContain(`URL ${url}`)
     expect(result.stderr).toContain('REASON invalid zip data')
     expect(result.leftBehind).toEqual([])
-  }, 60000)
-
-  it('codes it E_REMOTE_ZIP_INVALID under --output json', async () => {
-    const server = await serve({
-      contentType: 'application/zip',
-      body: DAMAGED_ARCHIVE
-    })
-    close = server.close
-
-    const result = await runCreate([
-      './proof',
-      '-t',
-      `${server.origin}/template.zip`,
-      '--output',
-      'json'
-    ])
-
-    expect(result.status, result.stderr).toBe(1)
-    expect(result.stderr).not.toMatch(STACK_FRAME)
-
-    const frame = onlyFrame(result.stdout)
-    expect(frame).toMatchObject({ok: false, command: 'create'})
-    expect(frame.error.code).toBe('E_REMOTE_ZIP_INVALID')
-    expect(frame.error.message).toContain('is damaged')
-    expect(frame.error.message).not.toContain('⏵')
   }, 60000)
 })
 

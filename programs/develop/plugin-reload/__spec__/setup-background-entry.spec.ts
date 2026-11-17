@@ -2,7 +2,16 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {diagnosticCode} from '../../lib/diagnostic-code'
+import {ReloadPlugin, SetupChunkLoadingTarget} from '../index'
 import {SetupBackgroundEntry} from '../steps/setup-reload-strategy/setup-background-entry'
+import {
+  compileIssues,
+  idleCompiler,
+  tapsAddedBy,
+  writeProject
+} from './helpers/real-compiler'
 
 const tempDirs: string[] = []
 
@@ -273,5 +282,126 @@ describe('SetupBackgroundEntry with a declared MV2 background page', () => {
 
     expect(compiler.options.entry).toEqual({})
     expect(compiler.__collectErrors()).toHaveLength(1)
+  })
+})
+
+const makeTempFolder = trackTempFolders()
+
+// A static theme has no background, and the step leaves its dist a theme.
+describe('SetupBackgroundEntry on a static theme', () => {
+  // Pins today's behavior. Ledger 1385 D10.
+  it('adds no entry and no error tap', () => {
+    const root = writeProject(makeTempFolder('extjs-bg-theme-'), {
+      'manifest.json': {
+        manifest_version: 3,
+        name: 'Theme',
+        version: '1.0.0',
+        theme: {colors: {frame: '#000000'}}
+      }
+    })
+    const compiler = idleCompiler(root, 'development')
+    const taps = tapsAddedBy(compiler, () =>
+      new SetupBackgroundEntry({
+        manifestPath: path.join(root, 'manifest.json'),
+        browser: 'chrome'
+      }).apply(compiler)
+    )
+
+    expect(taps).toEqual({})
+    expect(compiler.options.entry).toEqual({})
+  })
+})
+
+// The missing background check runs only inside the dev reload pipeline, so
+// it is read here through the same two plugins rspack-config applies.
+describe('the background required error', () => {
+  function project(manifest: object, files: string[]) {
+    const root = writeProject(makeTempFolder('extjs-bg-required-'), {
+      'manifest.json': {name: 'Required', version: '1.0.0', ...manifest},
+      'content.js': '',
+      ...Object.fromEntries(files.map((file) => [file, '']))
+    })
+
+    return {root, manifestPath: path.join(root, 'manifest.json')}
+  }
+
+  async function errorsOf(
+    mode: 'development' | 'production',
+    browser: string,
+    {root, manifestPath}: {root: string; manifestPath: string}
+  ) {
+    const {errors} = await compileIssues(
+      root,
+      mode,
+      {'content_scripts/content-0': 'content.js'},
+      [
+        new ReloadPlugin({manifestPath, browser} as ConstructorParameters<
+          typeof ReloadPlugin
+        >[0]),
+        new SetupChunkLoadingTarget({
+          manifestPath,
+          browser
+        } as ConstructorParameters<typeof SetupChunkLoadingTarget>[0])
+      ]
+    )
+
+    return errors.map((error) => ({...error, code: diagnosticCode(error)}))
+  }
+
+  const missingWorker = {
+    manifest_version: 3,
+    background: {service_worker: 'missing.js'}
+  }
+
+  // Pins today's behavior. Ledger 1385 D5.
+  it('is raised by a dev session for a missing service worker', async () => {
+    expect(
+      await errorsOf('development', 'chrome', project(missingWorker, []))
+    ).toEqual([
+      {
+        name: 'BackgroundRequired',
+        message:
+          'Check the background.service_worker field in your manifest.json file.',
+        code: 'E_BACKGROUND_REQUIRED'
+      }
+    ])
+  })
+
+  // Pins today's behavior. Ledger 1385 D5.
+  it('is not raised by a production build of the same manifest', async () => {
+    expect(
+      await errorsOf('production', 'chrome', project(missingWorker, []))
+    ).toEqual([])
+  })
+
+  // Pins today's behavior. Ledger 1385 D5.
+  it('checks only the first background script', async () => {
+    const manifest = (scripts: string[]) => ({
+      manifest_version: 2,
+      background: {scripts}
+    })
+
+    expect(
+      await errorsOf(
+        'development',
+        'firefox',
+        project(manifest(['present.js', 'missing.js']), ['present.js'])
+      )
+    ).toEqual([])
+
+    expect(
+      await errorsOf(
+        'development',
+        'firefox',
+        project(manifest(['missing.js', 'present.js']), ['present.js'])
+      )
+    ).toEqual([
+      {
+        name: 'BackgroundRequired',
+        message:
+          'Check the background.scripts field in your manifest.json file.',
+        code: 'E_BACKGROUND_REQUIRED'
+      }
+    ])
   })
 })

@@ -23,30 +23,38 @@ It is responsible for:
 
 ## Entry point
 
-`index.ts` exposes two seams:
+`index.ts` exposes three seams:
 
 - `ReloadPlugin`, the rspack plugin applied by `rspack-config.ts`. It must
   register AFTER `plugin-web-extension`: `SetupReloadStrategy` decorates the
   background/content entries that `feature-scripts`' `AddScripts` declares.
-  The whole pipeline no-ops in production and under
-  `EXTENSION_NO_RELOAD=true` (`--no-reload`).
+  The whole pipeline no-ops in production, for a build whose `devSession`
+  is `false`, under `EXTENSION_NO_RELOAD=true` (`--no-reload`), and when
+  the manifest path is not a file.
+- `SetupChunkLoadingTarget`, also applied by `rspack-config.ts`. It is the
+  production half: it installs the same vendored chunk-loading target in a
+  production build only, since `SetupReloadStrategy` installs it in dev.
 - the classifier/dispatch API (`classifyReloadFromSources`,
   `buildSourceFeatureIndex`, `dispatchReload`,
-  `createChangedSourcesTracker`, …) consumed by `plugin-browsers`'
-  `BrowsersPlugin` (launched-browser path) and `dev-server/index.ts`
-  (`--no-browser` broadcast path). Centralizing the decision keeps both
-  paths converged: the same change always resolves to the same reload type.
+  `createChangedSourcesTracker`, `readDevBuild`, …) consumed by
+  `plugin-browsers`' `BrowsersPlugin` (launched-browser path) and
+  `dev-server/index.ts` (`--no-browser` broadcast path). Centralizing the
+  decision keeps both paths converged: the same change always resolves to
+  the same reload type.
 
 ## Development pipeline
 
 Applied by `ReloadPlugin` in order:
 
 1. `StripContentScriptDevServerRuntime`
-2. `SetupReloadStrategy`
-3. `InjectScriptsReplayShim`
-4. `SetupDevContentScripts` (Chromium only)
-5. `InjectBridgeProducer`
-6. `InjectBridgeRelay`
+2. `StableContentScriptNames`
+3. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the vendored fork)
+4. `InjectScriptsReplayShim`
+5. `SetupDevContentScripts` (Chromium only, not the emulator)
+6. `InjectBridgeProducer` (not the emulator)
+7. `InjectBridgeRelay` (not the emulator)
+8. `PruneStaleHotUpdates`
+9. `PruneUnreachableChunks`
 
 ## Important files
 
@@ -166,11 +174,32 @@ that contract; it does not define it.
 
 ## Testing
 
-- `__spec__/reload-plugin-gating.spec.ts`, dev-only gating
-- `__spec__/classify-reload.unit.spec.ts`, classifier decisions
-- `__spec__/reload-dispatch.unit.spec.ts`, dispatch seam
-- `__spec__/loaded-content-scripts.spec.ts`, `__spec__/web-resources.unit.spec.ts`, what the browser last read
-- `__spec__/setup-background-entry.spec.ts`, `__spec__/inject-scripts-replay-shim.spec.ts`, `__spec__/strip-content-script-dev-server-runtime.spec.ts`, step behavior
+- `reload-plugin-gating.spec.ts`, `reload-plugin-emulator.spec.ts`, which
+  steps a real compiler gets per mode, session, opt-out and engine
+- `classify-reload.unit.spec.ts`, classifier decisions
+- `reload-dispatch.unit.spec.ts`, dispatch seam and the changed-sources
+  tracker
+- `reload-stamp.unit.spec.ts`, the reload kind a dispatch stamps into
+  `ready.json`, through the broker, the Safari plugin and the Playwright
+  metadata writer
+- `loaded-content-scripts.spec.ts`, `web-resources.unit.spec.ts`, what the
+  browser last read
+- `setup-reload-strategy.spec.ts`, `get-background-entry-name.spec.ts`,
+  `setup-background-entry.spec.ts`, `setup-chunk-loading-target.spec.ts`,
+  background entries and the chunk-loading target in dev and production
+- `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
+- `inject-bridge-steps.spec.ts`, `inject-bridge-boot-registrations.spec.ts`,
+  the control-bridge producer and relay
+- `inject-scripts-replay-shim.spec.ts`, `scripts-replay-shim.runtime.spec.ts`,
+  `scripts-replay-shim-namespaces.spec.ts`, the worker replay shim
+- `strip-content-script-dev-server-runtime.spec.ts`,
+  `prune-stale-hot-updates.spec.ts`, `prune-unreachable-chunks.spec.ts`,
+  emitted-asset steps
+- `stable-content-script-names.spec.ts`,
+  `source-index-nameless-chunks.spec.ts`, real rspack compiles. They read
+  loaders from `programs/develop/dist`, so run the package `compile` first.
+
+All files above sit in `__spec__/`.
 
 `BrowsersPlugin`-level classification integration is covered from
 `plugin-browsers/__spec__/classify.unit.spec.ts`. Behavioral reload

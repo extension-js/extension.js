@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
+import {TELEMETRY_DOCS_URL} from './telemetry'
 import {
   BUNDLED_TEMPLATES,
   DEFAULT_TEMPLATE,
@@ -258,11 +259,11 @@ const COMMAND_TABLE = [
       {
         name: 'action',
         required: false,
-        values: ['enable', 'disable', 'status']
+        values: ['enable', 'disable', 'status', 'reset']
       }
     ],
     description:
-      'Manage anonymous telemetry consent (enable, disable, or show status)',
+      'Manage anonymous telemetry (enable, disable, show status, or reset)',
     supportsSourceInspection: false
   },
   {
@@ -424,7 +425,7 @@ ${'Usage:'} extension [command] [options]
 
 ${'Notes'}
 - All high-level commands offer their own \`--help\` with usage and flag lists.
-- Telemetry is anonymous and privacy-safe by default, see ${code('docs/TELEMETRY.md')} for the full contract.
+- Telemetry is anonymous and privacy-safe by default, see ${code(TELEMETRY_DOCS_URL)} for the full contract.
 
 ${'Example'}
 - ${code('extension create --help')} outputs information about the "create" command.
@@ -436,7 +437,7 @@ ${'Common options'}
 - ${code('--browser')} ${arg('<chrome|edge|firefox|chromium|chromium-based|gecko-based|firefox-based>')} Target browser/engine (default: chromium)
 - ${code('--profile')} ${arg('<path|boolean>')}        Browser profile configuration
 - ${code('--polyfill')} ${arg('[boolean]')}            Bundle the cross-browser polyfill (default: off)
-- ${code('--no-telemetry')}                            Disable anonymous telemetry for this run (persistent toggle: ${code('extension telemetry disable')}, or ${code('EXTENSION_TELEMETRY=0')})
+- ${code('--no-telemetry')}                            Disable anonymous telemetry for this run (persistent toggle: ${code('extension telemetry disable')}, or ${code('EXTENSION_TELEMETRY_DISABLED=1')})
 - ${code('--ai-help')}                                 Show AI-assistant oriented help and tips
 - ${code('--output')} ${arg('<pretty|json>')}          Result format for ${code('--ai-help')} and machine-readable command results (default: pretty)
   ${code('--format')} and ${code('--wait-format')} still work as deprecated aliases of ${code('--output')}
@@ -494,8 +495,12 @@ ${'AI assistants'}
 }
 
 export function unsupportedBrowserFlag(value: string, supported: string[]) {
+  const problem = value
+    ? `Unsupported --browser value: ${value}.`
+    : '--browser got an empty value.'
+
   return (
-    `${getLoggingPrefix('error')} Unsupported --browser value: ${value}.\n` +
+    `${getLoggingPrefix('error')} ${problem}\n` +
     `${colors.red('Choose one of:')} ${supported.join(', ')}${colors.red('.')}`
   )
 }
@@ -591,6 +596,60 @@ export function safariOnlyOption(flags: string[]) {
   )
 }
 
+// Plain text, so the envelope and the terminal carry the same sentence.
+export function usageRefusal(message: string): string {
+  return `${getLoggingPrefix('error')} ${message}`
+}
+
+const WHOLE_NUMBER_USE: Record<string, string> = {
+  '--wait-timeout': 'Use a whole number of milliseconds, such as 10000.',
+  '--parent-pid': 'Use the process id to watch, in digits, such as 4242.',
+  '--port':
+    'Use a whole number from 0 to 65535, such as 8080. 0 picks a free port.'
+}
+
+export function invalidWholeNumberFlag(flag: string, value: string): string {
+  return `${flag} got "${value}". ${WHOLE_NUMBER_USE[flag]}`
+}
+
+export function projectFolderMissing(folder: string): string {
+  return `No project folder at ${folder}.`
+}
+
+export function projectFolderMissingHint(command: string): string {
+  return `Run \`extension ${command}\` inside your extension project, or pass its path.`
+}
+
+export function profileLockedHint(): string {
+  return 'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+}
+
+export function waitTimeoutWithoutWait(): string {
+  return '--wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
+}
+
+export function invalidChoiceValue(
+  flag: string,
+  value: string,
+  choices: readonly string[]
+): string {
+  const listed = `${choices.slice(0, -1).join(', ')} or ${choices[choices.length - 1]}`
+
+  return `${flag} got "${value}". Use ${listed}.`
+}
+
+export function invalidOutputValue(
+  flag: string,
+  value: string,
+  choices: readonly string[] = ['pretty', 'json']
+): string {
+  return invalidChoiceValue(flag, value, choices)
+}
+
+export function safariOnlyOptionPlain(flags: string[]): string {
+  return `${flags.join(', ')} appl${flags.length === 1 ? 'ies' : 'y'} to safari targets only.`
+}
+
 export const SAFARI_UI_ACTIONS = [
   'enable',
   'button',
@@ -649,12 +708,15 @@ export function safariUiStep(label: string, reading: string) {
   return `${getLoggingPrefix('info')} Safari ${label}: ${reading}.`
 }
 
-export function safariInvalidBundleId(bundleId: string) {
-  return (
-    `${getLoggingPrefix('error')} Can't use ${code(bundleId)} as a bundle identifier.\n` +
-    `Use letters, digits, hyphens and periods, with no empty segment ` +
-    `(e.g. ${code('com.example.my-extension')}).`
-  )
+// The example keeps what the user typed, so the fix reads as theirs.
+export function invalidBundleId(bundleId: string): string {
+  const label =
+    bundleId
+      .toLowerCase()
+      .replace(/[^a-z0-9-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'my-extension'
+
+  return `--bundle-id got "${bundleId}". Use reverse DNS form, such as com.example.${label}.`
 }
 
 export function safariCommandNotSupported(
@@ -895,7 +957,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
       {
         name: '--no-telemetry',
         description:
-          'Disable anonymous telemetry for this run. Persistent toggle: `extension telemetry disable`. Hard override: `EXTENSION_TELEMETRY=0`.'
+          'Disable anonymous telemetry for this run. Persistent toggle: `extension telemetry disable`. Hard override: `EXTENSION_TELEMETRY_DISABLED=1`.'
       },
       {
         name: '--browser',

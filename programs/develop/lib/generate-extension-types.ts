@@ -9,7 +9,6 @@
 import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import {getUserTypeScriptConfigFile} from '../plugin-js-frameworks/js-tools/typescript'
 import {recordCodedWarning} from './coded-warnings'
 import {loadDefineTypes} from './config-loader'
@@ -19,7 +18,7 @@ import {
   renderExtensionEnvTypes
 } from './extension-env-template'
 import * as messages from './messages'
-import {CODES} from './messaging'
+import {CODES, humanLine} from './messaging'
 import {parseJsonSafe} from './parse-json-safe'
 import {tsconfigCanIncludeFile} from './tsconfig-includes-file'
 

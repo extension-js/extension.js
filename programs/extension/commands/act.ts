@@ -24,6 +24,7 @@ import {
   surfaceNotDeclaredHint,
   surfaceNotDeclaredOutcome
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
+import {refuseUnlistedChoices} from '../helpers/choice-flags'
 import {LOAD_REFUSED_STATUS} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
@@ -31,6 +32,7 @@ import {
   type AnyDevelopModule,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
+import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {
   alreadyNamesEngine,
   commandDescriptions,
@@ -59,7 +61,10 @@ import {
   type ErrorCode
 } from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
-import {normalizeOutputFormat} from '../helpers/output-flag'
+import {
+  normalizeOutputFormat,
+  refuseUnreadableOutput
+} from '../helpers/output-flag'
 import {recordedLoadRefusal} from '../helpers/ready-contract-codes'
 import {
   endedSessionReason,
@@ -484,10 +489,8 @@ interface FailFrame {
   hint?: string
 }
 
+// Under --output json the frame is the whole answer, as on every other command.
 function fail(message: string, frame?: FailFrame): never {
-  // eslint-disable-next-line no-console
-  console.error(message)
-
   if (frame && normalizeOutputFormat(frame.output) === 'json') {
     writeFrame(
       ENVELOPE.fail(frame.command, statusForCode(frame.code), {
@@ -497,6 +500,9 @@ function fail(message: string, frame?: FailFrame): never {
         ...(frame.hint ? {hint: frame.hint} : {})
       })
     )
+  } else {
+    // eslint-disable-next-line no-console
+    console.error(message)
   }
 
   exitWithFailure(frame?.code)
@@ -846,7 +852,8 @@ async function geckoProtocolEval(
   browser: string,
   context: string,
   expression: string,
-  timeoutMs: number
+  timeoutMs: number,
+  evaluate: typeof evaluateExtensionDocument
 ): Promise<ActResultLike | undefined> {
   const ready = bridge.readReadyContractDocument(projectPath, browser) as
     | {rdpPort?: unknown; extensionId?: unknown}
@@ -867,7 +874,7 @@ async function geckoProtocolEval(
     return manifest ? surfaceNotDeclaredOutcome(context) : undefined
   }
 
-  return await evaluateExtensionDocument({
+  return await evaluate({
     rdpPort,
     extensionId,
     context,
@@ -921,7 +928,8 @@ async function geckoProtocolPageEval(
   listTabs: () => Promise<ActResultLike>,
   target: {tabId?: number; url?: string},
   expression: string,
-  timeoutMs: number
+  timeoutMs: number,
+  evaluateTab: typeof evaluateTabDocument
 ): Promise<ActResultLike | undefined> {
   const ready = bridge.readReadyContractDocument(projectPath, browser) as
     | {rdpPort?: unknown}
@@ -946,7 +954,7 @@ async function geckoProtocolPageEval(
 
   if (!url) return undefined
 
-  return await evaluateTabDocument({rdpPort, url, expression, timeoutMs})
+  return await evaluateTab({rdpPort, url, expression, timeoutMs})
 }
 
 // The browser refuses a script injected into an extension page, the session's
@@ -1008,7 +1016,9 @@ async function extensionPageTabEval(
   listTabs: () => Promise<ActResultLike>,
   target: {context: ActContext; tabId?: number; url?: string},
   expression: string,
-  timeoutMs: number
+  timeoutMs: number,
+  evaluateGeckoTab: typeof evaluateTabDocument,
+  evaluateChromiumTab: typeof evaluateChromiumTabDocument
 ): Promise<{outcome?: ActResultLike; hint?: string}> {
   let tabs: ActResultLike
 
@@ -1048,10 +1058,10 @@ async function extensionPageTabEval(
 
   const outcome = isFirefoxBrowser(browser)
     ? rdpPort
-      ? await evaluateTabDocument({rdpPort, url, expression, timeoutMs})
+      ? await evaluateGeckoTab({rdpPort, url, expression, timeoutMs})
       : undefined
     : cdpPort
-      ? await evaluateChromiumTabDocument({
+      ? await evaluateChromiumTab({
           cdpPort,
           url,
           expression,
@@ -1104,8 +1114,26 @@ export function refusedSessionEndedMessage(
   )
 }
 
-async function runCommand(input: RunInput): Promise<void> {
-  const bridge = await loadExtensionDevelopBridgeModule()
+// What a run reaches outside this file. Production takes every default.
+interface ActCommandDeps {
+  loadBridge?: () => Promise<AnyDevelopModule>
+  markFailure?: typeof markCommandFailure
+  evaluateGecko?: typeof evaluateExtensionDocument
+  evaluateGeckoTab?: typeof evaluateTabDocument
+  evaluateChromiumTab?: typeof evaluateChromiumTabDocument
+}
+
+async function runCommand(
+  input: RunInput,
+  {
+    loadBridge = loadExtensionDevelopBridgeModule,
+    markFailure = markCommandFailure,
+    evaluateGecko = evaluateExtensionDocument,
+    evaluateGeckoTab = evaluateTabDocument,
+    evaluateChromiumTab = evaluateChromiumTabDocument
+  }: ActCommandDeps
+): Promise<void> {
+  const bridge = await loadBridge()
   const projectPath = resolveSessionProjectPath(bridge, input.projectPathArg)
   const browser = input.opts.browser || 'chromium'
 
@@ -1299,7 +1327,8 @@ async function runCommand(input: RunInput): Promise<void> {
         browser,
         input.target.context,
         inspectSnapshotExpression(include, Number(input.args?.maxBytes)),
-        timeoutMs
+        timeoutMs,
+        evaluateGecko
       )
 
       // The bridge's refusal says more than a debugger that found no page,
@@ -1318,7 +1347,8 @@ async function runCommand(input: RunInput): Promise<void> {
         browser,
         input.target.context,
         String(input.args?.expression ?? ''),
-        timeoutMs
+        timeoutMs,
+        evaluateGecko
       )
 
       if (overProtocol) {
@@ -1350,7 +1380,8 @@ async function runCommand(input: RunInput): Promise<void> {
           }),
         input.target,
         String(input.args?.expression ?? ''),
-        timeoutMs
+        timeoutMs,
+        evaluateGeckoTab
       )
 
       if (overProtocol) result = overProtocol
@@ -1380,7 +1411,9 @@ async function runCommand(input: RunInput): Promise<void> {
               Number(input.args?.maxBytes)
             )
           : String(input.args?.expression ?? ''),
-        timeoutMs
+        timeoutMs,
+        evaluateGeckoTab,
+        evaluateChromiumTab
       )
 
       if (overProtocol.outcome) {
@@ -1429,7 +1462,7 @@ async function runCommand(input: RunInput): Promise<void> {
     const {error} = buildActEnvelope(input.command, result) as {
       error?: {code?: unknown}
     }
-    markCommandFailure(undefined, {code: error?.code, exitCode: 1})
+    markFailure(undefined, {code: error?.code, exitCode: 1})
   }
 
   await exitAfterDrain(result.ok ? 0 : 1)
@@ -1496,7 +1529,10 @@ function targetFrom(
   return target
 }
 
-const commonOptions = (cmd: Command): Command =>
+const commonOptions = (
+  cmd: Command,
+  choiceCheck: Parameters<typeof refuseUnlistedChoices>[0] = {}
+): Command =>
   cmd
     .option(
       `--browser <${SESSION_BROWSER_TARGETS_HELP}>`,
@@ -1504,8 +1540,13 @@ const commonOptions = (cmd: Command): Command =>
     )
     .option('--timeout <ms>', 'command timeout in milliseconds (default 5000)')
     .option('--output <pretty|json>', 'output format (default pretty)')
+    .hook('preAction', refuseUnreadableOutput())
+    .hook('preAction', refuseUnlistedChoices(choiceCheck))
 
-export function registerActCommands(program: Command): void {
+export function registerActCommands(
+  program: Command,
+  deps: ActCommandDeps = {}
+): void {
   commonOptions(
     program
       .command('eval')
@@ -1529,15 +1570,18 @@ export function registerActCommands(program: Command): void {
       projectPathArg: string,
       opts: CommonActOptions
     ) => {
-      await runCommand({
-        projectPathArg,
-        command: 'eval',
-        op: 'eval',
-        target: targetFrom(opts, 'eval'),
-        args: {expression},
-        needsToken: true,
-        opts
-      })
+      await runCommand(
+        {
+          projectPathArg,
+          command: 'eval',
+          op: 'eval',
+          target: targetFrom(opts, 'eval'),
+          args: {expression},
+          needsToken: true,
+          opts
+        },
+        deps
+      )
     }
   )
 
@@ -1565,14 +1609,17 @@ export function registerActCommands(program: Command): void {
       const area = opts.area || 'local'
 
       if (action === 'get') {
-        await runCommand({
-          projectPathArg,
-          command: 'storage',
-          op: 'storage.get',
-          target: targetFrom(opts, 'storage'),
-          args: opts.key ? {area, key: opts.key} : {area},
-          opts
-        })
+        await runCommand(
+          {
+            projectPathArg,
+            command: 'storage',
+            op: 'storage.get',
+            target: targetFrom(opts, 'storage'),
+            args: opts.key ? {area, key: opts.key} : {area},
+            opts
+          },
+          deps
+        )
 
         return
       }
@@ -1594,14 +1641,17 @@ export function registerActCommands(program: Command): void {
           parsed = opts.value // fall back to a raw string value
         }
 
-        await runCommand({
-          projectPathArg,
-          command: 'storage',
-          op: 'storage.set',
-          target: targetFrom(opts, 'storage'),
-          args: {area, items: {[opts.key as string]: parsed}},
-          opts
-        })
+        await runCommand(
+          {
+            projectPathArg,
+            command: 'storage',
+            op: 'storage.set',
+            target: targetFrom(opts, 'storage'),
+            args: {area, items: {[opts.key as string]: parsed}},
+            opts
+          },
+          deps
+        )
 
         return
       }
@@ -1630,27 +1680,28 @@ export function registerActCommands(program: Command): void {
       .option(
         '--tab <id>',
         'for content/page: a specific tab (default: the --url match, else the active tab)'
-      )
-  ).action(async (projectPathArg: string, opts: CommonActOptions) => {
-    // A popup, options or sidebar page reloads with the extension, so a
-    // surface context is a usage error the CLI can state before dialing.
-    const context = opts.context || 'background'
-
-    if (!['background', 'content', 'page'].includes(context)) {
-      fail(
-        `reload takes --context background, content or page (got ${context}). ` +
-          `A ${context} page reloads with the extension: run extension reload without --context.`,
-        {command: 'reload', code: CODES.E_ARGS, output: opts.output}
-      )
+      ),
+    {
+      // A popup, options or sidebar page reloads with the extension, so the
+      // refusal says what to run instead of naming the list alone.
+      hints: {
+        '--context': (value) =>
+          (LOG_CONTEXTS as readonly string[]).includes(value)
+            ? `A ${value} page reloads with the extension: run extension reload without --context.`
+            : ''
+      }
     }
-
-    await runCommand({
-      projectPathArg,
-      command: 'reload',
-      op: 'reload',
-      target: targetFrom(opts, 'reload'),
-      opts
-    })
+  ).action(async (projectPathArg: string, opts: CommonActOptions) => {
+    await runCommand(
+      {
+        projectPathArg,
+        command: 'reload',
+        op: 'reload',
+        target: targetFrom(opts, 'reload'),
+        opts
+      },
+      deps
+    )
   })
 
   commonOptions(
@@ -1699,14 +1750,17 @@ export function registerActCommands(program: Command): void {
       // --list-tabs is a discovery path: surface numeric tab ids so a caller can
       // target eval/inspect explicitly. tabs.query needs no token or DOM. (#51)
       if (opts.listTabs) {
-        await runCommand({
-          projectPathArg,
-          command: 'inspect',
-          op: 'tabs.query',
-          target: {context: 'background'},
-          args: {},
-          opts
-        })
+        await runCommand(
+          {
+            projectPathArg,
+            command: 'inspect',
+            op: 'tabs.query',
+            target: {context: 'background'},
+            args: {},
+            opts
+          },
+          deps
+        )
 
         return
       }
@@ -1727,40 +1781,46 @@ export function registerActCommands(program: Command): void {
           ? undefined
           : Math.min(requestedMaxBytes, MAX_RESULT_BYTES)
 
-      await runCommand({
-        projectPathArg,
-        command: 'inspect',
-        op: 'inspect',
-        target,
-        args: {include, maxBytes},
-        opts,
-        augment: (projectPath, browser, result) => {
-          const warnings = inspectHtmlWarnings(result.value, requestedMaxBytes)
-          const cut =
-            (result.value as {htmlTruncated?: unknown} | null)
-              ?.htmlTruncated === true
-          const extras: Record<string, unknown> = {
-            ...(warnings.length ? {warnings} : {}),
-            ...(cut ? {truncated: true} : {})
-          }
-
-          if (opts.withConsole) {
-            const n =
-              typeof opts.withConsole === 'string' && opts.withConsole !== ''
-                ? Number(opts.withConsole)
-                : 20
-
-            extras.console = readRecentConsole(
-              projectPath,
-              browser,
-              target,
-              Number.isFinite(n) && n > 0 ? n : 20
+      await runCommand(
+        {
+          projectPathArg,
+          command: 'inspect',
+          op: 'inspect',
+          target,
+          args: {include, maxBytes},
+          opts,
+          augment: (projectPath, browser, result) => {
+            const warnings = inspectHtmlWarnings(
+              result.value,
+              requestedMaxBytes
             )
-          }
+            const cut =
+              (result.value as {htmlTruncated?: unknown} | null)
+                ?.htmlTruncated === true
+            const extras: Record<string, unknown> = {
+              ...(warnings.length ? {warnings} : {}),
+              ...(cut ? {truncated: true} : {})
+            }
 
-          return extras
-        }
-      })
+            if (opts.withConsole) {
+              const n =
+                typeof opts.withConsole === 'string' && opts.withConsole !== ''
+                  ? Number(opts.withConsole)
+                  : 20
+
+              extras.console = readRecentConsole(
+                projectPath,
+                browser,
+                target,
+                Number.isFinite(n) && n > 0 ? n : 20
+              )
+            }
+
+            return extras
+          }
+        },
+        deps
+      )
     }
   )
 
@@ -1801,23 +1861,33 @@ export function registerActCommands(program: Command): void {
 
       if (tabId !== undefined) target.tabId = tabId
 
+      if (opts.background && !opts.newTab) {
+        fail(
+          '--background applies only with --new-tab. Add --new-tab, or drop --background.',
+          {command: 'navigate', code: CODES.E_ARGS, output: opts.output}
+        )
+      }
+
       const args: Record<string, unknown> = {url}
       if (opts.newTab) args.newTab = true
       if (opts.newTab && opts.background) args.active = false
 
-      await runCommand({
-        projectPathArg,
-        command: 'navigate',
-        op: 'tabs.navigate',
-        target,
-        args,
-        opts,
-        pretty: {
-          value: navigateResultLines,
-          failure: (error) =>
-            navigateFailed(url, error.message, error.engine, error.hint)
-        }
-      })
+      await runCommand(
+        {
+          projectPathArg,
+          command: 'navigate',
+          op: 'tabs.navigate',
+          target,
+          args,
+          opts,
+          pretty: {
+            value: navigateResultLines,
+            failure: (error) =>
+              navigateFailed(url, error.message, error.engine, error.hint)
+          }
+        },
+        deps
+      )
     }
   )
 
@@ -1847,6 +1917,13 @@ export function registerActCommands(program: Command): void {
         )
       }
 
+      if (opts.name !== undefined && surface !== 'command') {
+        fail(
+          `--name applies only to open command (got open ${surface}). Drop --name, or run extension open command --name ${opts.name}.`,
+          {command: 'open', code: CODES.E_ARGS, output: opts.output}
+        )
+      }
+
       // 'action' and 'command' replay a captured event in the service worker, so
       // they route to the background context (UI surfaces map 1:1 to a context).
       const inBackground = surface === 'action' || surface === 'command'
@@ -1854,24 +1931,32 @@ export function registerActCommands(program: Command): void {
         ? 'background'
         : (surface as ActContext)
       const args: Record<string, unknown> = {surface}
-      if (surface === 'command' && opts.name) args.name = opts.name
+      if (opts.name) args.name = opts.name
 
-      await runCommand({
-        projectPathArg,
-        command: 'open',
-        op: 'open',
-        target: {context},
-        args,
-        opts,
-        preflight: (bridge, projectPath, browser) =>
-          gestureRefusal(surface, bridge, projectPath, browser) ??
-          optionsNotDeclaredRefusal(surface, bridge, projectPath, browser),
-        pretty: {
-          value: openResultLines,
-          failure: (error) =>
-            openSurfaceFailed(surface, error.message, error.engine, error.hint)
-        }
-      })
+      await runCommand(
+        {
+          projectPathArg,
+          command: 'open',
+          op: 'open',
+          target: {context},
+          args,
+          opts,
+          preflight: (bridge, projectPath, browser) =>
+            gestureRefusal(surface, bridge, projectPath, browser) ??
+            optionsNotDeclaredRefusal(surface, bridge, projectPath, browser),
+          pretty: {
+            value: openResultLines,
+            failure: (error) =>
+              openSurfaceFailed(
+                surface,
+                error.message,
+                error.engine,
+                error.hint
+              )
+          }
+        },
+        deps
+      )
     }
   )
 }

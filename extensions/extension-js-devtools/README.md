@@ -7,7 +7,8 @@
 
 The companion extension Extension.js loads next to yours during development.
 It opens the welcome page on a first run, points the launch tab at the
-browser's extensions page, keeps the new tab blank, and reads the per-session
+browser's extensions page, keeps the new tab blank in Chromium-based browsers
+(Firefox keeps its own new tab), and reads the per-session
 `extension-js-session.json` flag so `--no-open` opens nothing at all.
 
 ## Build
@@ -15,6 +16,7 @@ browser's extensions page, keeps the new tab blank, and reads the per-session
 Run a browser-targeted build:
 
 ```bash
+pnpm run build:chromium
 pnpm run build:chrome
 pnpm run build:edge
 pnpm run build:firefox

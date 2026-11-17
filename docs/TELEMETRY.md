@@ -6,6 +6,7 @@ Extension.js collects a tiny amount of anonymous telemetry to understand which c
 - Three properties on every event: `command`, `success`, `version`
 - Opt-out, with notice on first run
 - Sampled and capped to stay well inside the PostHog free tier
+- Every event carries `$process_person_profile: false`, which asks the analytics service not to build a person profile for the anonymous ID
 
 ## What is collected
 
@@ -13,7 +14,7 @@ Per CLI run, at most one of these, except for a watch session, which is explaine
 
 | event              | sampled                           | properties                     |
 | ------------------ | --------------------------------- | ------------------------------ |
-| `command_executed` | 20% (configurable, see below)     | `command`, `success: true`, `version` |
+| `command_executed` | 20% (configurable, see below). `create` and session rows are never sampled | `command`, `success: true`, `version` |
 | `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version`, `code`, `exit_code` |
 
 Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, `package_manager`, and `app`, which is always the word `extension`. Nothing else.
@@ -85,6 +86,14 @@ Three consequences worth stating plainly:
 Nothing extra is collected here. `session` is a single word, `started` or `ready`, attached to
 an event that was already being sent.
 
+`dev`, `start`, `preview` and `build` add one property when the run targets a single browser, whether it came from `--browser`, from `extension.config.js` or from the default:
+
+| property  | value                                                                        |
+| --------- | ---------------------------------------------------------------------------- |
+| `browser` | `chrome`, `edge`, `firefox`, `safari`, `chromium-based` or `gecko-based`, or absent |
+
+Those six words are the only values `browser` can take. `chromium` and a named Chromium fork (Brave, Opera, Vivaldi, Yandex) are sent as `chromium-based`. A named Gecko fork (Waterfox, LibreWolf, Zen, Floorp) and `firefox-based` are sent as `gecko-based`. A run with `--chromium-binary` is sent as `chromium-based` and a run with `--gecko-binary` or `--firefox-binary` as `gecko-based`, whatever name was typed, so a binary path, a product name and a version are never sent. The property is absent when a run targets several browsers (`--browser chrome,firefox` or `all`), for `webkit-based`, `chromium-emulator` or any value outside the list, and on a failure that happened before the command picked its browser.
+
 When a run offers to download a managed browser, the command's event carries the outcome so
 the offer can be told apart from a dead end:
 
@@ -98,12 +107,12 @@ The `create` command adds four properties, so a broken advertised starter shows 
 
 | property   | value                                                                 |
 | ---------- | --------------------------------------------------------------------- |
-| `template` | the starter name as listed by `extension create --help`, or absent   |
+| `template` | the starter name as listed by `extension create --help`, or absent. With no `--template`, the default starter's name, `typescript` |
 | `source`   | `cli`, or `templates` when the docs template gallery started the create   |
 | `deps_install` | `skipped`, `installed` or `failed`, for the dependency install `--install` runs |
 | `deps_install_seconds` | whole seconds the dependency install took, when one ran |
 
-`template` is checked against the published starter list before it is sent. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against the two surfaces above, and any other value is sent as `cli`.
+`template` is checked against the published starter list before it is sent. A create with no `--template` sends the default starter's name, the same value an explicit `--template typescript` sends. A GitHub URL, a local folder path or any other value that is not an advertised name is dropped rather than trimmed, so a private repository or a directory name never leaves the machine. `source` is checked the same way against the two surfaces above, and any other value is sent as `cli`.
 
 `is_source_build` is a boolean and nothing more. It is `false` when the CLI was resolved from a package manager directory, which is what an ordinary install looks like, and `true` when it was resolved from a checkout of this repository. It exists so a run of the framework's own development can be told apart from a run by somebody using it. No path, no directory name and no hash of either is collected or transmitted; only the boolean leaves the machine.
 
@@ -114,17 +123,21 @@ The `create` command adds four properties, so a broken advertised starter shows 
 - Dependency lists, permission lists, or freeform project identifiers
 - Environment variable values, filesystem paths, or machine-local URLs
 - Stack traces, error messages, or free-text error names
-- IP addresses. The project discards the request address at ingestion (`anonymize_ips`) and every payload sends `$ip: null` with `$geoip_disable: true`, so no location is derived from it either. Events sent before 2026-10-06 carried the request address.
+- IP addresses. The CLI sends `$ip: null` and `$geoip_disable: true` on every event, which ask the analytics service not to keep the request address or derive a location from it.
+
+## How long events are kept
+
+Events are kept for 12 months. The analytics project deletes older events in monthly batches, a whole month at a time, so an event can stay up to about 13 months before it is removed. The local audit log on your machine is yours: delete it at any time.
 
 ## Releases before 4.0
 
-The 3.x line sent a different schema, published in this file until 2026-04-17: lifecycle events (`cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_shutdown`, `cli_telemetry_consent`), `manifest_summary` (permission and content script counts), `project_profile` (framework family and package manager), `workflow_profile` (a usage cohort) and `cli_build_summary` (asset counts and bytes). Counts, booleans and names from fixed lists, never a path, a URL or a project name. Installs still on 3.x keep sending those events, and since 2026-10-07 the project drops every event that is not one of the two above at ingestion, so nothing from that schema is stored any more.
+The 3.x line sent a different schema, published in this file until 2026-04-17: lifecycle events (`cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_shutdown`, `cli_telemetry_consent`), `manifest_summary` (permission and content script counts), `project_profile` (framework family and package manager), `workflow_profile` (a usage cohort) and `cli_build_summary` (asset counts and bytes). Counts, booleans and names from fixed lists, never a path, a URL or a project name. Installs still on 3.x keep sending those events. From 4.0 on, the CLI sends only the two events above.
 
 ## Volume controls
 
 Three independent controls, all combined:
 
-- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 - 1.0). Failures are never sampled, and neither are the `session: started` rows for `dev`, `start` and `preview` or the `session: ready` row for `dev`.
+- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 - 1.0). Failures are never sampled, and neither are `create` rows, the `session: started` rows for `dev`, `start` and `preview` or the `session: ready` row for `dev`. Every `create` is sent, success or failure.
 - **Per-run cap**, at most **3 events** per CLI process. Override via `EXTENSION_TELEMETRY_MAX_EVENTS`.
 - **Debounce**, duplicate `(event, command, success, session)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
 
@@ -138,6 +151,7 @@ Three ways, in precedence order:
 # 1. Environment variable (wins over everything else)
 EXTENSION_TELEMETRY_DISABLED=1 extension dev   # Next.js-style, preferred
 EXTENSION_TELEMETRY=0 extension dev            # back-compat, also honored
+DO_NOT_TRACK=1 extension dev                   # the cross-tool convention
 
 # 2. Per-run flag
 extension dev --no-telemetry
@@ -147,13 +161,26 @@ extension telemetry disable
 extension telemetry enable
 extension telemetry             # no arg = show status
 extension telemetry status
+extension telemetry reset       # delete the anonymous ID, the consent and the audit log
 ```
+
+`DO_NOT_TRACK` follows the [Console Do Not Track](https://consoledonottrack.com) convention. Any value other than empty, `0` or `false` turns telemetry off, and it wins over `EXTENSION_TELEMETRY=1`. When more than one of the three variables is set, `extension telemetry status` names the first one in the order above.
 
 The run that turns telemetry off reports nothing about itself. `extension telemetry disable`
 silences the running process at the moment it records your choice, so the act of opting out is
 never the last thing collected from you.
 
-The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent). The only other telemetry state persisted on disk is the anonymous install id, a `notice-shown` marker recording that the first-run notice was printed, and a local audit log of every event the CLI considered sending (not every row was delivered, see below).
+## Status and reset
+
+`extension telemetry status` prints whether telemetry is on, what decided it (the variable by name when one did), the anonymous ID, the consent file path and the audit log path. It reads only: it never creates a folder, an ID or a file. A value that is not stored yet reads `none`. `--output json` carries the same answer as `enabled`, `source`, `variable`, `anonymousId`, `consentFile` and `auditFile`.
+
+`extension telemetry reset` deletes the anonymous ID, the stored consent, the `notice-shown` marker and the local audit log with its `.1` backup, in every folder listed under "Where the files live". The run that resets reports nothing about itself. The next run starts fresh: it creates a new anonymous ID and prints the first-run notice again. A stored opt-out is deleted with the rest, and the command says so. Run `extension telemetry disable` afterward to keep telemetry off.
+
+## Where the files live
+
+The CLI uses the first writable folder of these three: the config home (`$XDG_CONFIG_HOME/extensionjs`, `%APPDATA%\extensionjs` on Windows, or `~/.config/extensionjs`), the cache home (`$XDG_CACHE_HOME/extensionjs`, `%LOCALAPPDATA%\extensionjs\Cache` on Windows, or `~/Library/Caches/extensionjs` on macOS), then `extensionjs` in the system temp folder. The project folder is never used. When none of the three is writable, telemetry is off for that run: nothing is sent and no file is written, and `extension telemetry status` reports `source: storage`.
+
+The consent file lives at `telemetry/consent` inside that folder, for example `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`. The only other telemetry state persisted on disk is the anonymous install id, a `notice-shown` marker recording that the first-run notice was printed, and a local audit log of every event the CLI considered sending (not every row was delivered, see below).
 
 ## Default behavior
 
@@ -167,7 +194,7 @@ A stored `enabled` consent file that sits inside a git worktree is ignored as we
 
 ## Local audit log
 
-Every event the CLI considers sending (whether or not it actually ships) is appended to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely.
+Every event the CLI considers sending (whether or not it actually ships) is appended to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely, or run `extension telemetry reset`. `extension telemetry status` prints its path.
 
 ## Questions or concerns?
 

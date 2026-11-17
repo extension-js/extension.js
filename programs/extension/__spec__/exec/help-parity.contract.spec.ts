@@ -1,5 +1,3 @@
-import {spawnSync} from 'node:child_process'
-import fs from 'node:fs'
 import path from 'node:path'
 import type {Argument} from 'commander'
 import {Command} from 'commander'
@@ -24,21 +22,7 @@ import {
   programUserHelp,
   registeredArgSignature
 } from '../../helpers/messages'
-
-function stripAnsi(input: string): string {
-  return input.replace(/\u001b\[[0-9;]*m/g, '')
-}
-
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
-
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
+import {cliHome, runCli, stripAnsi} from '../helpers/run-cli'
 
 function buildProgramForInspection() {
   const program = new Command()
@@ -179,7 +163,7 @@ describe('CLI help parity contract', () => {
     expect(help).toContain('Minimum level (default: off)')
   })
 
-  it('contract #16: install help names the browser a bare install picks', () => {
+  it('contract #16: install help names the browser a bare install picks', async () => {
     const install = buildProgramForInspection().commands.find(
       (command) => command.name() === 'install'
     ) as Command
@@ -188,14 +172,10 @@ describe('CLI help parity contract', () => {
       /browser-name\s+managed browser to install \(default: chromium\)/
     )
 
-    const spawned = spawnSync(
-      process.execPath,
-      [cliBin(), 'install', '--help'],
-      {cwd: cliRoot(), encoding: 'utf8'}
-    )
+    const spawned = await runCli(['install', '--help'])
 
     expect(spawned.status).toBe(0)
-    expect(stripAnsi(spawned.stdout)).toMatch(
+    expect(spawned.stdout).toMatch(
       /browser-name\s+managed browser to install \(default: chromium\)/
     )
 
@@ -219,13 +199,9 @@ describe('CLI help parity contract', () => {
     expect(help).toContain('--help')
   })
 
-  it('contract #4: --ai-help exits with code 0 and prints canonical sections', () => {
-    const result = spawnSync(process.execPath, [cliBin(), '--ai-help'], {
-      cwd: cliRoot(),
-      encoding: 'utf8'
-    })
-
-    const out = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
+  it('contract #4: --ai-help exits with code 0 and prints canonical sections', async () => {
+    const result = await runCli(['--ai-help'])
+    const out = result.output
     expect(result.status).toBe(0)
     expect(out).toContain(
       'Development tips for extension developers and AI assistants'
@@ -250,21 +226,14 @@ describe('CLI help parity contract', () => {
     }
   })
 
-  it('contract #8: --ai-help supports machine-readable JSON output with a stable schema', () => {
+  it('contract #8: --ai-help supports machine-readable JSON output with a stable schema', async () => {
     // Spawns with the deprecated --format alias on purpose: it must keep
     // resolving to --output json, with the notice on stderr, not stdout.
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), '--ai-help', '--format', 'json'],
-      {
-        cwd: cliRoot(),
-        encoding: 'utf8'
-      }
-    )
+    const result = await runCli(['--ai-help', '--format', 'json'])
 
     expect(result.status).toBe(0)
 
-    const parsed = JSON.parse(result.stdout || '{}') as {
+    const parsed = JSON.parse(result.stdout) as {
       version?: unknown
       commands?: unknown
       globalOptions?: unknown
@@ -279,65 +248,55 @@ describe('CLI help parity contract', () => {
     expect(Array.isArray(parsed.examples)).toBe(true)
   })
 
-  it('contract #9: install --where prints managed cache path and exits 0', () => {
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'install', '--where'],
-      {
-        cwd: cliRoot(),
-        encoding: 'utf8'
-      }
-    )
+  // The cache root is the helper's temp folder, so no case reads this
+  // machine's own cache and each answer can be compared whole.
+  it.each([
+    ['contract #9', 'install'],
+    ['contract #10', 'uninstall']
+  ])('%s: %s --where prints the managed cache root and exits 0', async (_id, command) => {
+    const result = await runCli([command, '--where'])
 
-    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[/\\]browsers/i)
+    expect(result.stderr).toBe('')
+    expect(result.stdout).toBe(`${cliHome().browsersCache}\n`)
   })
 
-  it('contract #10: uninstall --where prints managed cache path and exits 0', () => {
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'uninstall', '--where'],
-      {
-        cwd: cliRoot(),
-        encoding: 'utf8'
-      }
-    )
+  it('contract #9b: with no override the root sits under the user cache folder', async () => {
+    const result = await runCli(['install', '--where'], {
+      env: {EXT_BROWSERS_CACHE_DIR: undefined}
+    })
+    const home = cliHome()
+    const root =
+      process.platform === 'win32'
+        ? path.join(home.home, 'AppData', 'Local')
+        : process.platform === 'darwin'
+          ? path.join(home.home, 'Library', 'Caches')
+          : home.cacheHome
 
-    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[/\\]browsers/i)
+    expect(result.stdout).toBe(
+      `${path.join(root, 'extension.js', 'browsers')}\n`
+    )
   })
 
-  it('contract #11: install --where with --browser prints browser-specific path', () => {
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'install', '--where', '--browser=firefox'],
-      {
-        cwd: cliRoot(),
-        encoding: 'utf8'
-      }
-    )
+  it('contract #11: install --where with --browser prints browser-specific path', async () => {
+    const result = await runCli(['install', '--where', '--browser=firefox'])
 
-    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]firefox/i)
+    expect(result.stdout).toBe(
+      `${path.join(cliHome().browsersCache, 'firefox')}\n`
+    )
   })
 
-  it('contract #12: uninstall --where --all prints browser-specific paths', () => {
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'uninstall', '--where', '--all'],
-      {
-        cwd: cliRoot(),
-        encoding: 'utf8'
-      }
-    )
+  it('contract #12: uninstall --where --all prints browser-specific paths', async () => {
+    const result = await runCli(['uninstall', '--where', '--all'])
+    const root = cliHome().browsersCache
 
-    const output = stripAnsi(`${result.stdout || ''}\n${result.stderr || ''}`)
     expect(result.status).toBe(0)
-    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]chrome/i)
-    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]edge/i)
-    expect(output).toMatch(/extension\.js[/\\]browsers[/\\]firefox/i)
+    expect(result.stdout.trimEnd().split('\n')).toEqual(
+      ['chrome', 'chromium', 'edge', 'firefox'].map((name) =>
+        path.join(root, name)
+      )
+    )
   })
 })

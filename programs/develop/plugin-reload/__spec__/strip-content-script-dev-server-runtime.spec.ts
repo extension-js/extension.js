@@ -1,6 +1,10 @@
 import {describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {stripDevServerStartupFromContentScript} from '../steps/remove-content-script-dev-server-runtime'
 import {StripContentScriptDevServerRuntime} from '../steps/strip-content-script-dev-server-runtime'
+import {compileIssues, writeProject} from './helpers/real-compiler'
+
+const makeTempFolder = trackTempFolders()
 
 describe('content script dev-server runtime stripping', () => {
   it('removes dev-server startup requires from content script bundles', () => {
@@ -163,5 +167,38 @@ describe('content script dev-server runtime stripping', () => {
       'content_scripts/content-0.js',
       expect.anything()
     )
+  })
+})
+
+describe('the dev-server runtime warning', () => {
+  // Pins today's behavior. Ledger 1385 D10.
+  it('names the content script that still carries the client text', async () => {
+    const root = writeProject(makeTempFolder('extjs-strip-warning-'), {
+      'content.js': "console.log('@rspack/dev-server/client/index.js?x')\n",
+      'options.js': "console.log('@rspack/dev-server/client/index.js?x')\n"
+    })
+    const {errors, warnings} = await compileIssues(
+      root,
+      'development',
+      {
+        'content_scripts/content-0': 'content.js',
+        'options/index': 'options.js'
+      },
+      [new StripContentScriptDevServerRuntime()]
+    )
+
+    expect(errors).toEqual([])
+    expect(warnings).toEqual([
+      {
+        name: 'ContentScriptDevServerRuntimeWarning',
+        file: 'content_scripts/content-0.js',
+        message:
+          'Could not strip the dev-server runtime from content_scripts/content-0.js. ' +
+          "This usually means the bundler's output format changed and " +
+          'Extension.js needs an update. The content script may try to ' +
+          'open a dev-server connection on the host page. Please report ' +
+          'this at https://github.com/extension-js/extension.js/issues.'
+      }
+    ])
   })
 })
