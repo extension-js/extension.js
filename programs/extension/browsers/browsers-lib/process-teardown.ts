@@ -10,8 +10,27 @@ import {type ChildProcess, spawn, spawnSync} from 'node:child_process'
 import {humanLine, isDebug} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import * as messages from './messages'
+import {isPidAlive, pidStartedAtMs} from './resolve-live-pid'
 
 export const FORCE_KILL_GRACE_MS = 5000
+
+export interface ProcessMark {
+  pid: number
+  started: string
+}
+
+// What a teardown asks of the machine, so a caller can stand in for it.
+export interface TeardownDependencies {
+  platform: NodeJS.Platform
+  now: () => number
+  isAlive: (pid: number) => boolean
+  startedAt: (pid: number) => number | null
+  mark: (pid: number | undefined) => ProcessMark[]
+  sweep: (marks: ProcessMark[]) => number[]
+  kill: (pid: number, signal: NodeJS.Signals) => boolean
+  killTree: (pid: number) => void
+  print: (line: string) => void
+}
 
 // A 'close' on a child we asked to stop is expected; a 'close' on any other
 // child means the browser died mid-session and must be surfaced loudly.
@@ -62,21 +81,77 @@ function signalPid(pid: number, signal: NodeJS.Signals): boolean {
   }
 }
 
+export const teardownDefaults: TeardownDependencies = {
+  platform: process.platform,
+  now: () => Date.now(),
+  isAlive: (pid) => isPidAlive(pid),
+  startedAt: (pid) => pidStartedAtMs(pid),
+  mark: (pid) => markDescendants(pid),
+  sweep: (marks) => forceKillMarkedOnExit(marks),
+  kill: signalPid,
+  killTree: (pid) => killWindowsTree(pid, false),
+  print: (line) => humanLine(line)
+}
+
+// A pid is reused once its owner exits. It is still the process asked to
+// stop only if the process table dates it no later than the ask.
+function startedBy(
+  pid: number,
+  askedAt: number,
+  deps: TeardownDependencies
+): boolean {
+  const started = deps.startedAt(pid)
+
+  return started !== null && started <= askedAt
+}
+
+function forceKill(
+  pid: number,
+  browser: BrowserType,
+  helpers: ProcessMark[],
+  deps: TeardownDependencies,
+  sigkill: () => void
+): void {
+  authorLog(messages.enhancedProcessManagementForceKill(browser))
+
+  if (deps.platform === 'win32') {
+    deps.killTree(pid)
+
+    return
+  }
+
+  sigkill()
+  deps.sweep(helpers)
+}
+
 // The pid counterpart of gracefulTerminateChild, for a browser process the
 // session adopted after the spawned launcher handed off and exited.
 export function gracefulTerminatePid(
   pid: number | null | undefined,
-  browser: BrowserType
+  browser: BrowserType,
+  deps: TeardownDependencies = teardownDefaults
 ): void {
   if (!pid || terminatedPids.has(pid)) return
 
   terminatedPids.add(pid)
   killWindowsTree(pid, false)
   authorLog(messages.enhancedProcessManagementTerminating(browser))
-  signalPid(pid, 'SIGTERM')
+
+  // ps dates a process to the second, so only a start in an earlier second
+  // counts: a pid reused in the second of the ask never passes for the browser.
+  const askedAt = Math.floor(deps.now() / 1000) * 1000 - 1
+
+  deps.kill(pid, 'SIGTERM')
   const killTimer = setTimeout(() => {
-    authorLog(messages.enhancedProcessManagementForceKill(browser))
-    signalPid(pid, 'SIGKILL')
+    if (!deps.isAlive(pid)) return
+
+    if (!startedBy(pid, askedAt, deps)) {
+      deps.print(messages.browserLeftRunning(browser, pid, deps.platform))
+
+      return
+    }
+
+    forceKill(pid, browser, [], deps, () => deps.kill(pid, 'SIGKILL'))
   }, FORCE_KILL_GRACE_MS)
   killTimer.unref?.()
 }
@@ -94,23 +169,39 @@ export function forceKillPidOnExit(
   signalPid(pid, 'SIGKILL')
 }
 
-// Signal-path teardown: SIGTERM, then SIGKILL after a grace window. The timer
-// is unref'd; if the loop drains first, forceKillChildOnExit is the backstop.
+// Signal-path teardown: SIGTERM, then a forced kill after a grace window. The
+// timer is unref'd; if the loop drains first, forceKillChildOnExit is the backstop.
 export function gracefulTerminateChild(
   child: ChildProcess | null,
-  browser: BrowserType
+  browser: BrowserType,
+  helpers?: ProcessMark[],
+  deps: TeardownDependencies = teardownDefaults
 ): void {
   if (!child || child.killed) return
 
   terminatedByUs.add(child)
   killWindowsTree(child.pid, false)
   authorLog(messages.enhancedProcessManagementTerminating(browser))
+
+  // Noted while the browser is still the parent, as markDescendants needs.
+  const marks = helpers ?? deps.mark(child.pid)
+  const askedAt = deps.now()
+
   child.kill('SIGTERM')
   const killTimer = setTimeout(() => {
-    if (!child.killed) {
-      authorLog(messages.enhancedProcessManagementForceKill(browser))
-      child.kill('SIGKILL')
+    const pid = child.pid
+
+    // Node frees a child's pid only as it reports the exit, so one that has
+    // not exited is still ours. `killed` only says a signal was sent.
+    if (!pid || child.exitCode !== null || child.signalCode !== null) return
+
+    if (!startedBy(pid, askedAt, deps)) {
+      deps.print(messages.browserLeftRunning(browser, pid, deps.platform))
+
+      return
     }
+
+    forceKill(pid, browser, marks, deps, () => child.kill('SIGKILL'))
   }, FORCE_KILL_GRACE_MS)
   killTimer.unref?.()
 }
@@ -132,11 +223,6 @@ export function forceKillChildOnExit(
   } catch {
     // Ignore
   }
-}
-
-export interface ProcessMark {
-  pid: number
-  started: string
 }
 
 function listProcesses(args: string[]): string[] {

@@ -16,12 +16,12 @@ import {
   runInstall as runInstallCommand
 } from '../lib/install-runner'
 import * as messages from '../lib/messages'
-import {isDebug, prefix} from '../lib/messaging'
+import {isDebug} from '../lib/messaging'
 import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
-import {failStep} from '../lib/utils'
+import {failStep, isEnvFlagOn} from '../lib/utils'
 
 const requireFromCreate = createRequire(import.meta.url)
 
@@ -199,7 +199,12 @@ export function detectOptionalDependencies(
   }
 
   if (usesSvelte) {
-    addIntegration('Svelte', ['svelte-loader', 'typescript'])
+    // svelte-loader runs without typescript, so only a TypeScript project
+    // asks for it here.
+    addIntegration(
+      'Svelte',
+      usesTypeScript ? ['svelte-loader', 'typescript'] : ['svelte-loader']
+    )
   }
 
   if (usesSass) {
@@ -239,7 +244,9 @@ export function optionalInstallManager(
 export function buildOptionalInstallArgs(
   pm: string,
   dependencies: string[],
-  installDir: string
+  installDir: string,
+  // True when the run is shown live, so the manager is left to speak.
+  showOutput = false
 ) {
   if (pm === 'yarn') {
     // The install already runs with cwd=installDir. Yarn Berry rejects
@@ -249,14 +256,14 @@ export function buildOptionalInstallArgs(
   }
 
   if (pm === 'pnpm') {
-    // Same convention as the project-deps installer: pnpm runs silent.
+    // pnpm runs silent unless the run is shown live.
     return [
       'add',
       ...dependencies,
       '--dir',
       installDir,
       '--save-optional',
-      '--silent'
+      ...(showOutput ? [] : ['--silent'])
     ]
   }
 
@@ -314,62 +321,51 @@ async function installOptionalDependencies(
   if (plan.dependencies.length === 0) return
 
   const pm = optionalInstallManager(packageManager)
-  // Piped, not ignored: a failure here can then name the manager's own cause
-  // instead of reporting an exit code alone.
-  const stdio = process.env.EXTENSION_ENV === 'development' ? 'inherit' : 'pipe'
+  // Captured in both modes so a failure can name the manager's own cause.
+  // Development also shows the output live, which is what tee adds.
+  const stdio = process.env.EXTENSION_ENV === 'development' ? 'tee' : 'pipe'
 
   if (isDebug()) {
     logger.log(messages.foundSpecializedDependencies(plan.integrations.length))
   }
 
-  // Match on the rendered prefix, not on the bare glyph: the glyph carries
-  // color escapes whenever the stream is a TTY, so a literal never matches.
-  const infoPrefix = prefix('info')
+  logger.log(messages.installingProjectIntegrations(plan.integrations))
 
-  for (const [index, integration] of plan.integrations.entries()) {
-    const missingDeps = plan.dependenciesByIntegration[integration] || []
-
-    const baseMessage = messages.installingProjectIntegrations([integration])
-    const installMessage = baseMessage.replace(
-      infoPrefix,
-      `${infoPrefix} [${index + 1}/${plan.integrations.length}]`
+  // One run for every integration: a package two of them share installs once.
+  const args = buildOptionalInstallArgs(
+    pm,
+    plan.dependencies,
+    developRoot,
+    stdio === 'tee'
+  )
+  // A runner that rejects never started the manager (a missing binary), so
+  // it takes the frame the project install gives the same rejection.
+  const result = await runInstall(pm, args, {
+    cwd: developRoot,
+    stdio
+  }).catch((error: unknown) => {
+    throw failStep(
+      messages.installingDependenciesProcessError(
+        path.basename(projectPath),
+        error,
+        {projectPath, template}
+      ),
+      error
     )
-    logger.log(installMessage)
+  })
 
-    if (missingDeps.length === 0) {
-      continue
-    }
-
-    const args = buildOptionalInstallArgs(pm, missingDeps, developRoot)
-    // A runner that rejects never started the manager (a missing binary), so
-    // it takes the frame the project install gives the same rejection.
-    const result = await runInstall(pm, args, {
-      cwd: developRoot,
-      stdio
-    }).catch((error: unknown) => {
-      throw failStep(
-        messages.installingDependenciesProcessError(
-          path.basename(projectPath),
-          error,
-          {projectPath, template}
-        ),
-        error
+  if (result.code !== 0) {
+    throw new Error(
+      messages.installingDependenciesFailed(
+        pm,
+        args,
+        result.code,
+        [result.reason, result.stdout, result.stderr]
+          .filter((part) => part !== undefined)
+          .join('\n'),
+        {projectPath, template}
       )
-    })
-
-    if (result.code !== 0) {
-      throw new Error(
-        messages.installingDependenciesFailed(
-          pm,
-          args,
-          result.code,
-          [result.reason, result.stdout, result.stderr]
-            .filter((part) => part !== undefined)
-            .join('\n'),
-          {projectPath, template}
-        )
-      )
-    }
+    )
   }
 }
 
@@ -384,7 +380,7 @@ export async function installInternalDependencies(
   cwd: string = process.cwd(),
   runInstall: InstallRunner = runInstallCommand
 ) {
-  if (process.env.EXTENSION_SKIP_INTERNAL_INSTALL === 'true') return
+  if (isEnvFlagOn('EXTENSION_SKIP_INTERNAL_INSTALL')) return
 
   const developRoot = resolveDevelopRoot(projectPath, cwd)
   if (!developRoot) return

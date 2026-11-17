@@ -59,6 +59,24 @@ describe('install-runner runInstall (real spawn)', () => {
     })
   })
 
+  it('tee captures what a real failing child wrote while showing it', async () => {
+    const shown: string[] = []
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      shown.push(String(chunk))
+
+      return true
+    })
+
+    const result = await runInstall(
+      process.execPath,
+      ['-e', "process.stderr.write('registry said no'); process.exitCode = 3"],
+      {cwd: process.cwd(), stdio: 'tee'}
+    ).finally(() => vi.restoreAllMocks())
+
+    expect(result).toEqual({code: 3, stdout: '', stderr: 'registry said no'})
+    expect(shown.join('')).toBe('registry said no')
+  })
+
   it('kills a child that outlives the timeout', async () => {
     const result = await runInstall(
       process.execPath,

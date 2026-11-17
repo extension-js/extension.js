@@ -1,0 +1,272 @@
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, describe, expect, it} from 'vitest'
+import {
+  binaryProvenanceNote,
+  collapseHomeDirInCardValue,
+  runningInDevelopment
+} from '../../browsers-lib/messages'
+import {classifyBinaryProvenance} from '../../browsers-lib/shared-utils'
+
+const stripAnsi = (s: string) => s.replace(/\[[0-9;]*m/g, '')
+
+function renderCard(opts?: {
+  binaryPath?: string
+  binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
+  profilePath?: string
+}) {
+  return stripAnsi(
+    runningInDevelopment(
+      {name: 'My Extension', version: '1.0.0'},
+      'chromium',
+      {
+        data: {
+          id: 'pjkghmlbdmhkfellgkkcolmnlhwmubhe',
+          management: {name: 'My Extension', version: '1.0.0'}
+        }
+      },
+      'Chromium 139.0.7259.2',
+      undefined,
+      opts
+    )
+  )
+}
+
+describe('card binary provenance', () => {
+  it('adds no parenthetical and no Binary row for the managed default', () => {
+    const card = renderCard({
+      binaryPath: '/Users/dev/.extension-js/binaries/chrome/mac-138/chrome',
+      binaryProvenance: 'managed'
+    })
+    expect(card).toContain('Browser        Chromium 139.0.7259.2')
+    expect(card).not.toContain('(')
+    expect(card).not.toContain('Binary')
+  })
+
+  it('adds no parenthetical and no Binary row when provenance is unknown', () => {
+    const card = renderCard({binaryPath: '/somewhere/chromium'})
+    expect(card).not.toContain('Binary')
+  })
+
+  it('marks a pinned binary in the Browser row and prints no Binary row', () => {
+    const card = renderCard({
+      binaryPath: '/opt/forks/thorium',
+      binaryProvenance: 'pinned'
+    })
+    expect(card).toContain(
+      'Browser        Chromium 139.0.7259.2 (pinned with --chromium-binary)'
+    )
+
+    // The note is the whole signal; the path the user typed is not echoed.
+    expect(card).not.toContain('Binary')
+  })
+
+  it('marks a system fallback binary', () => {
+    const card = renderCard({
+      binaryPath: '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      binaryProvenance: 'system'
+    })
+    // A managed target that ran from the system says so on its own row.
+    expect(card).toContain(
+      'Browser        Chromium 139.0.7259.2 (system install)'
+    )
+
+    expect(card).not.toContain('Binary')
+  })
+
+  it('marks a cached snapshot binary', () => {
+    const card = renderCard({
+      binaryPath: '/Users/dev/.extension-js/binaries/chromium/snap/chromium',
+      binaryProvenance: 'snapshot'
+    })
+    expect(card).not.toContain('(cached snapshot)')
+    expect(card).not.toContain('Binary')
+  })
+
+  it('collapses the home dir in Profile and Binary card values only', () => {
+    const home = os.homedir()
+    const profile = path.join(home, '.extension-js', 'profiles', 'chrome')
+    // Two cards, because MAX_CARD_ROWS means Binary and Profile never share
+    // one: a non-managed launch spends the slot on the binary that actually
+    // runs, a managed one has nothing to disambiguate and shows the profile.
+    // The collapsing under test applies to both values either way.
+    // Binary is never a row now, so the collapsing under test is exercised
+    // through Profile alone; the helper itself is asserted directly below.
+    const managedCard = renderCard({
+      binaryProvenance: 'managed',
+      profilePath: profile
+    })
+    expect(managedCard).toContain(
+      `Profile        ~${path.sep}.extension-js${path.sep}profiles${path.sep}chrome`
+    )
+
+    expect(collapseHomeDirInCardValue('/unrelated/path')).toBe(
+      '/unrelated/path'
+    )
+
+    expect(collapseHomeDirInCardValue(home)).toBe('~')
+    expect(collapseHomeDirInCardValue(`${home}sibling`)).toBe(`${home}sibling`)
+  })
+
+  it('annotates a pinned binary and a system install of a managed target', () => {
+    expect(binaryProvenanceNote('pinned')).toBe(
+      '(pinned with --chromium-binary)'
+    )
+
+    expect(binaryProvenanceNote('system', 'edge')).toBe('(system install)')
+    expect(binaryProvenanceNote('system')).toBe('')
+    expect(binaryProvenanceNote('snapshot')).toBe('')
+    expect(binaryProvenanceNote('managed')).toBe('')
+    expect(binaryProvenanceNote(undefined)).toBe('')
+  })
+
+  it('names the pin flag of the engine in use', () => {
+    // A Firefox session pinned with --gecko-binary must not claim the
+    // Chromium flag, and the same holds for every fork of each engine.
+    const flags: Record<string, string> = {
+      firefox: '--gecko-binary',
+      librewolf: '--gecko-binary',
+      zen: '--gecko-binary',
+      floorp: '--gecko-binary',
+      'gecko-based': '--gecko-binary',
+      chrome: '--chromium-binary',
+      brave: '--chromium-binary',
+      'chromium-based': '--chromium-binary',
+      safari: '--safari-binary',
+      'webkit-based': '--safari-binary'
+    }
+
+    for (const [browser, flag] of Object.entries(flags)) {
+      expect(binaryProvenanceNote('pinned', browser)).toBe(
+        `(pinned with ${flag})`
+      )
+    }
+
+    // The flag only matters once a pin exists.
+    expect(binaryProvenanceNote('system', 'librewolf')).toBe('')
+    expect(binaryProvenanceNote('managed', 'safari')).toBe('')
+  })
+
+  it('prints the gecko flag on a pinned Firefox card', () => {
+    const card = stripAnsi(
+      runningInDevelopment(
+        {name: 'My Extension', version: '1.0.0'},
+        'firefox',
+        {
+          data: {
+            id: 'my-extension@example.com',
+            management: {name: 'My Extension', version: '1.0.0'}
+          }
+        },
+        'Firefox 155.0.1',
+        undefined,
+        {binaryPath: '/opt/firefox/firefox', binaryProvenance: 'pinned'}
+      )
+    )
+    expect(card).toContain('Firefox 155.0.1 (pinned with --gecko-binary)')
+    expect(card).not.toContain('--chromium-binary')
+  })
+})
+
+describe('classifyBinaryProvenance', () => {
+  const root = path.join(os.tmpdir(), 'managed-binaries')
+
+  it('prefers the pinned flag over everything', () => {
+    expect(
+      classifyBinaryProvenance({
+        binaryPath: path.join(root, 'chrome', 'chrome'),
+        managedCacheRoot: root,
+        pinnedByFlag: true
+      })
+    ).toBe('pinned')
+  })
+
+  it('reports the cached snapshot when it is what actually runs', () => {
+    expect(
+      classifyBinaryProvenance({
+        binaryPath: path.join(root, 'chromium', 'chromium'),
+        managedCacheRoot: root,
+        usedManagedSnapshot: true
+      })
+    ).toBe('snapshot')
+  })
+
+  it('reports managed for a binary under the managed cache root', () => {
+    expect(
+      classifyBinaryProvenance({
+        binaryPath: path.join(root, 'chrome', 'mac-138', 'chrome'),
+        managedCacheRoot: root
+      })
+    ).toBe('managed')
+  })
+
+  it('reports system for a binary outside the managed cache root', () => {
+    expect(
+      classifyBinaryProvenance({
+        binaryPath: '/Applications/Chromium.app/Contents/MacOS/Chromium',
+        managedCacheRoot: root
+      })
+    ).toBe('system')
+  })
+})
+
+{
+  const stripAnsi = (s: string) => s.replace(/\[[0-9;]*m/g, '')
+  // The registry the build fills when a project is named through a link.
+  const ASKED_PATHS = Symbol.for('extension-js.asked-paths')
+  const shared = globalThis as {[key: symbol]: Map<string, string> | undefined}
+  const before = shared[ASKED_PATHS]
+
+  afterEach(() => {
+    shared[ASKED_PATHS] = before
+  })
+
+  describe('the card Profile row of a project named through a link', () => {
+    const real = path.join(path.sep, 'volumes', 'real', 'project')
+    const asked = path.join(path.sep, 'work', 'link')
+    const profile = path.join('dist', 'extension-js', 'profiles', 'chrome')
+
+    it('prints the profile under the spelling the command was given', () => {
+      shared[ASKED_PATHS] = new Map([[real, asked]])
+
+      const card = stripAnsi(
+        runningInDevelopment(
+          {name: 'My Extension', version: '1.0.0'},
+          'chrome',
+          {
+            data: {
+              id: 'abcdefghijklmnopabcdefghijklmnop',
+              management: {name: 'My Extension', version: '1.0.0'}
+            }
+          },
+          'Chrome 140',
+          undefined,
+          {profilePath: path.join(real, profile)}
+        )
+      )
+
+      expect(card).toContain(`Profile        ${path.join(asked, profile)}`)
+      expect(card).not.toContain(real)
+    })
+
+    it('leaves a path outside the linked project, and a sibling of it, alone', () => {
+      shared[ASKED_PATHS] = new Map([[real, asked]])
+
+      expect(collapseHomeDirInCardValue(`${real}-sibling`)).toBe(
+        `${real}-sibling`
+      )
+
+      expect(collapseHomeDirInCardValue('/unrelated/path')).toBe(
+        '/unrelated/path'
+      )
+    })
+
+    it('prints the path as it is when no build has filled the registry', () => {
+      shared[ASKED_PATHS] = undefined
+
+      expect(collapseHomeDirInCardValue(path.join(real, profile))).toBe(
+        path.join(real, profile)
+      )
+    })
+  })
+}

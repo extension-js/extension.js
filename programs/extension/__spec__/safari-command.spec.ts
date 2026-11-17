@@ -23,19 +23,28 @@ const bridge = {
   ready: null as Record<string, unknown> | null
 }
 
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    readReadyContract: () => bridge.ready,
-    resolveSessionProjectRoot: (input: string) => input
-  }))
-}))
-
 import {fakeSafariUiTools} from '../browsers/__spec__/safari-fake-ui-tools'
-import {
-  registerSafariCommand,
-  setSafariUiToolsForTests
-} from '../commands/safari'
+import type {SafariUiTools} from '../browsers/run-safari/safari-ui'
+import {registerSafariCommand} from '../commands/safari'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+
+const loadBridge = async () => ({
+  readReadyContract: () => bridge.ready,
+  resolveSessionProjectRoot: (input: string) => input
+})
+
+let uiTools: SafariUiTools | undefined
+
+function setSafariUiToolsForTests(tools?: SafariUiTools): void {
+  uiTools = tools
+}
+
+// A test that set no tools must not reach the real Safari UI.
+function createUiTools(): SafariUiTools {
+  if (!uiTools) throw new Error('this test set no Safari UI tools')
+
+  return uiTools
+}
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>
@@ -44,7 +53,12 @@ let frames: string[]
 let project: string
 
 function run(argv: string[]) {
-  return runCli(makeProgram(registerSafariCommand), argv)
+  return runCli(
+    makeProgram((program) =>
+      registerSafariCommand(program, {createUiTools, loadBridge})
+    ),
+    argv
+  )
 }
 
 function lastFrame(): Record<string, unknown> {

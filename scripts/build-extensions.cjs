@@ -47,7 +47,7 @@ function main() {
   }
 
   // Discover top-level extension packages (directories) under extensions/,
-  // excluding the folder named 'browser-extension' and 'monorepo'
+  // skipping the local browser-extension fixture the optional-deps smoke reads
   function listExtensionPackages() {
     const extensionsRoot = path.join(root, 'extensions')
 
@@ -57,7 +57,7 @@ function main() {
       return entries
         .filter((d) => d.isDirectory())
         .map((d) => d.name)
-        .filter((name) => name !== 'browser-extension' && name !== 'monorepo')
+        .filter((name) => name !== 'browser-extension')
     } catch {
       return []
     }
