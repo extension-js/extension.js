@@ -2,8 +2,9 @@
 
 `plugin-reload` owns the dev-only reload/HMR strategy for `extension dev`,
 end to end. It was extracted from `plugin-web-extension/feature-scripts`
-(build-time injection) and `plugin-browsers` (classification + dispatch) so
-the reload concern has a single owner.
+(build-time injection) and `plugin-browsers` (classification, dispatch, what
+the browser last read, and the Safari trim and burst merge) so the reload
+concern has a single owner.
 
 It is responsible for:
 
@@ -35,12 +36,15 @@ It is responsible for:
   production half: it installs the same vendored chunk-loading target in a
   production build only, since `SetupReloadStrategy` installs it in dev.
 - the classifier/dispatch API (`classifyReloadFromSources`,
-  `buildSourceFeatureIndex`, `dispatchReload`,
+  `buildSourceFeatureIndex`, `createLoadedContentScripts`, `dispatchReload`,
   `createChangedSourcesTracker`, `readDevBuild`, …) consumed by
   `plugin-browsers`' `BrowsersPlugin` (launched-browser path) and
-  `dev-server/index.ts` (`--no-browser` broadcast path). Centralizing the
-  decision keeps both paths converged: the same change always resolves to
-  the same reload type.
+  `SafariDevPlugin` (which adds `reloadSurvivingPackage` and
+  `mergeReloadInstructions`), and by `dev-server/index.ts` (`--no-browser`
+  broadcast path). Centralizing the decision keeps the paths converged: the
+  same change always resolves to the same reload type. The callers say when
+  a build was loaded and when a reload may be sent. What must reload is
+  answered here.
 
 ## Development pipeline
 
@@ -81,10 +85,11 @@ Applied by `ReloadPlugin` in order:
   frame, so the frames are the ones the browser ran the entry in, whatever
   the tab shows. Nothing restarts and the tab keeps its state. Any other
   browser, an entry with no script, and a changed script still reload the
-  extension. `createLoadedContentScripts` keeps what the browser last read,
-  so `--no-browser` resolves an edit the way a launched browser does, and
-  it takes a swapped sheet as read only once `settle(true)` says a producer
-  received it.
+  extension. `createLoadedContentScripts` keeps what the browser last read
+  for both the launched-browser plugin and `--no-browser`, so they resolve
+  an edit alike: `noteLoaded` records a build the browser loaded, `resolve`
+  compares a compile with it, and a swapped sheet counts as read only once
+  `settle(true)` says a producer received it.
   `reloadForNewWebResources` reloads the extension when the emitted manifest
   lists a web accessible resource the loaded one did not, as an imported
   image does under its hashed name after an edit.
@@ -108,6 +113,14 @@ Applied by `ReloadPlugin` in order:
   `dispatchRestartReload` is the one reload a restarted dev session owes: it
   sends nothing when the first build of the new compiler already reloaded
   the extension for its manifest, so one reload prints one line.
+
+- `reload-after-package.ts`
+  For a browser whose every build is packaged and restarts the extension
+  (Safari). `reloadSurvivingPackage` keeps only what a restart cannot
+  deliver: a content script or notify-only page instruction, and the content
+  half of an edit shared with the background. `mergeReloadInstructions`
+  folds the instructions of a save burst into the one its single package
+  sends, unioning content entries and injected script files.
 
 - `steps/setup-reload-strategy/`
   Dev-only background entry setup and the vendored
@@ -180,10 +193,11 @@ that contract; it does not define it.
 - `reload-dispatch.unit.spec.ts`, dispatch seam and the changed-sources
   tracker
 - `reload-stamp.unit.spec.ts`, the reload kind a dispatch stamps into
-  `ready.json`, through the broker, the Safari plugin and the Playwright
-  metadata writer
+  `ready.json`, through the broker and the Playwright metadata writer
 - `loaded-content-scripts.spec.ts`, `web-resources.unit.spec.ts`, what the
   browser last read
+- `reload-after-package.unit.spec.ts`, the trim and the burst merge for a
+  packaged browser
 - `setup-reload-strategy.spec.ts`, `get-background-entry-name.spec.ts`,
   `setup-background-entry.spec.ts`, `setup-chunk-loading-target.spec.ts`,
   background entries and the chunk-loading target in dev and production
@@ -201,7 +215,8 @@ that contract; it does not define it.
 
 All files above sit in `__spec__/`.
 
-`BrowsersPlugin`-level classification integration is covered from
-`plugin-browsers/__spec__/classify.unit.spec.ts`. Behavioral reload
+How `BrowsersPlugin` and `SafariDevPlugin` call this API is covered from
+`plugin-browsers/__spec__/` (`reload-eligibility.unit.spec.ts`,
+`safari-dev-coalesce.unit.spec.ts`). Behavioral reload
 verification is covered by the scripts templates in the public
 [extension-js/templates](https://github.com/extension-js/templates) repo.
