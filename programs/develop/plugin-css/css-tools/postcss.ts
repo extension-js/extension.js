@@ -18,6 +18,7 @@ import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-res
 import {readProjectDependencies} from '../../lib/project-manifest'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 import * as messages from '../css-lib/messages'
+import {reportStyleDiagnostic} from '../css-lib/style-diagnostics'
 import {getTailwindConfigFile, isUsingTailwind} from './tailwind'
 
 let userMessageDelivered = false
@@ -189,7 +190,7 @@ export async function loadUserPostCssConfigObject(
       // No YAML parser available here; let postcss-loader handle it.
       return undefined
     } else if (configPath.endsWith('.cjs')) {
-      loaded = tryLoadCjsConfig(configPath, {report: true})
+      loaded = tryLoadCjsConfig(configPath, {report: true, projectPath})
     } else {
       try {
         const mod = await import(pathToFileURL(configPath).href)
@@ -204,7 +205,8 @@ export async function loadUserPostCssConfigObject(
           // A TypeScript config this Node build cannot strip is not broken:
           // postcss-loader reads it with the jiti loader it ships.
           if (!isTypeScriptConfig(configPath)) {
-            console.warn(
+            reportStyleDiagnostic(
+              projectPath,
               messages.postCssConfigUnreadable(configPath, importError)
             )
           }
@@ -214,7 +216,10 @@ export async function loadUserPostCssConfigObject(
       }
     }
   } catch (error) {
-    console.warn(messages.postCssConfigUnreadable(configPath, error))
+    reportStyleDiagnostic(
+      projectPath,
+      messages.postCssConfigUnreadable(configPath, error)
+    )
 
     return undefined
   }
@@ -223,7 +228,10 @@ export async function loadUserPostCssConfigObject(
     try {
       loaded = loaded({env: mode, mode, cwd: projectPath})
     } catch (error) {
-      console.warn(messages.postCssConfigUnreadable(configPath, error))
+      reportStyleDiagnostic(
+        projectPath,
+        messages.postCssConfigUnreadable(configPath, error)
+      )
 
       return undefined
     }
@@ -241,7 +249,10 @@ export async function loadUserPostCssConfigObject(
     !Array.isArray(plugins) &&
     typeof plugins !== 'object'
   ) {
-    console.warn(messages.postCssConfigPluginsShape(configPath, typeof plugins))
+    reportStyleDiagnostic(
+      projectPath,
+      messages.postCssConfigPluginsShape(configPath, typeof plugins)
+    )
 
     return undefined
   }
@@ -373,7 +384,7 @@ function resolveConfigPluginList(
 
 function tryLoadCjsConfig(
   configPath: string,
-  options: {report: boolean} = {report: true}
+  options: {report: boolean; projectPath?: string} = {report: true}
 ): AnyModule | undefined {
   try {
     const source = fs.readFileSync(configPath, 'utf8')
@@ -393,7 +404,10 @@ function tryLoadCjsConfig(
     return moduleObj.exports
   } catch (error) {
     if (options.report) {
-      console.warn(messages.postCssConfigUnreadable(configPath, error))
+      reportStyleDiagnostic(
+        options.projectPath ?? path.dirname(configPath),
+        messages.postCssConfigUnreadable(configPath, error)
+      )
     }
 
     return undefined
@@ -620,7 +634,10 @@ export async function maybeUsePostCss(
                 // Load CJS config to normalize relative content globs against the extension
                 // project path, avoiding cwd-dependent misses in monorepos.
                 if (isLikelyCjsTailwindConfig(configFile)) {
-                  const loaded = tryLoadCjsConfig(configFile)
+                  const loaded = tryLoadCjsConfig(configFile, {
+                    report: true,
+                    projectPath
+                  })
 
                   if (loaded && typeof loaded === 'object') {
                     const normalized = normalizeTailwindContentGlobs(
@@ -742,7 +759,11 @@ export async function maybeUsePostCss(
 
   if (selfResolved) {
     for (const pluginName of selfResolved.unresolved) {
-      console.error(messages.postCssPluginNotResolved(pluginName, projectPath))
+      reportStyleDiagnostic(
+        projectPath,
+        messages.postCssPluginNotResolved(pluginName, projectPath),
+        console.error
+      )
     }
 
     const postcssOptions = {
