@@ -11,6 +11,8 @@ import type {
   RspackPluginInstance
 } from '@rspack/core'
 import type {LogContext} from './dev-server/control-bridge/contracts'
+import type {DevAddition} from './lib/dev-additions'
+import type {ManagedExtensionRecord} from './lib/extension-id'
 import type {ManifestV2, ManifestV3} from './lib/manifest-types'
 
 /**
@@ -852,3 +854,117 @@ export type IncludeFilesConfig = Record<string, string | IncludeFileEntry>
  * here is not copied. The lists of every config layer add up.
  */
 export type ExcludeFilesConfig = string[]
+
+/**
+ * `ready.json` as the build engine writes it, every field included. A field
+ * the browser launcher stamps is listed when the engine carries it across a
+ * recompile. Read it with `readReadyContractDocument` from the bridge entry.
+ */
+export interface ReadyContract {
+  /** The contract's own version. */
+  schemaVersion: 2
+  /** The result envelope version this engine speaks. */
+  schema: 1
+  /**
+   * `starting` until the session is usable, `stopped` once it ended. A held
+   * `starting` with `compiledAt` set waits for the browser or its background.
+   */
+  status: 'starting' | 'ready' | 'error' | 'stopped'
+  command: SessionCommand
+  browser: string
+  runId: string
+  /** When the run began (ISO 8601 UTC), kept across recompiles. */
+  startedAt: string
+  distPath: string
+  manifestPath: string
+  /** The dev server port, null when the command serves nothing. */
+  port: number | null
+  host?: string
+  pid: number
+  /** When the process behind `pid` started, to tell a reused pid apart. */
+  pidStartedAt: string
+  /** When this document was last written. */
+  ts: string
+  compiledAt: string | null
+  errors: string[]
+  /** Set with `status: 'error'` or `'stopped'`, and its sentence. */
+  code?: string
+  message?: string
+  instanceId?: string
+  instanceExplicit?: boolean
+  controlPort: number | null
+  /** Why `controlPort` is null when a control channel was asked for. */
+  controlPortUnavailableReason?: string
+  controlPath?: string
+  logsPath?: string
+  toolchainVersion: string
+  extensionName?: string
+  extensionVersion?: string
+  /** The id the browser serves the build under, and who said so. */
+  extensionId?: string
+  extensionIdSource?: 'browser' | 'derived' | 'packager'
+  /** Set on the emulator target, which has no browser process. */
+  engine?: 'emulator'
+  /** Every extension loaded besides the project's own. */
+  managedExtensions?: ManagedExtensionRecord[]
+  /** Dev only: what the session has that a production build does not. */
+  devAdditions?: DevAddition[]
+  /** Set while a compiled dev session waits for its background to connect. */
+  awaitingExecutorSince?: string
+  /** `attached` once the background connected, `detached` after it left. */
+  runtime?: 'attached' | 'detached'
+  executorAttachedAt?: string
+  executorDetachedAt?: string
+  extensionBaseUrl?: string
+  /** Dev only: the last reload applied after a compile. */
+  reloadedAt?: string
+  reloadKind?: string
+  reloadLabel?: string
+  // From here on the browser launcher stamps the field after the launch and
+  // the engine carries it across every recompile of the same run.
+  cdpPort?: number
+  cdpFaultCode?: string
+  cdpFaultMessage?: string
+  rdpPort?: number
+  rdpPortError?: string
+  webdriverPort?: number
+  webdriverSessionId?: string
+  webdriverUnavailableReason?: string
+  webdriverRequestPath?: string
+  /** Safari dev sessions: how far the enable step got and why it stopped. */
+  safari?: {
+    bundleId: string
+    extensionId: string
+    team: string
+    switchId: string
+    enableAttempted: boolean
+    step: string
+    enabled: boolean | null
+    listed: boolean | null
+    otherWebsites: string | null
+    reason?: string
+    earlierExtensionIds?: string[]
+  }
+  profilePath?: string
+  browserPid?: number | null
+  browserStartedAt?: string
+  launcherPid?: number
+  launcherStartedAt?: string
+  /** The browser binary that ran, and how it was chosen. */
+  binary?: string
+  binaryProvenance?: string
+  browserExitedAt?: string
+  browserExitCode?: number | null
+  browserExitSignal?: string | null
+  browserLaunchFailedAt?: string
+  browserLaunchFailedReason?: string
+  browserLaunchFailedCode?: string
+  /** The browser is up and no background has connected yet. */
+  browserUpNotAttachedAt?: string
+  browserUpNotAttachedWaitMs?: number
+  browserUpNotAttachedHint?: string
+  /** The browser refused to load the extension. */
+  extensionLoadRefusedAt?: string
+  extensionLoadRefusedReason?: string
+  extensionLoadRefusedCause?: string
+}
