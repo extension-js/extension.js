@@ -198,6 +198,21 @@ export function serverRestartRequiredFromHtml(absoluteHtmlPath: string) {
   return lines.join('\n')
 }
 
+// A script or stylesheet that was missing at startup is not in the page
+// entry, and an entry cannot grow while the compiler runs.
+export function serverRestartRequiredFromCreatedFile(
+  absoluteHtmlPath: string,
+  createdFilePath: string
+) {
+  const lines: string[] = []
+  lines.push(`A file the page references was created.`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(absoluteHtmlPath)}`)
+  lines.push(`${colors.gray('FILE')} ${colors.underline(createdFilePath)}`)
+  lines.push(`Restart the dev server to add it to the page.`)
+
+  return lines.join('\n')
+}
+
 export function manifestHtmlEntrypointChange(
   manifestField?: string,
   pathAfter?: string,

@@ -65,7 +65,7 @@ describe('AddAssetsToCompilation', () => {
       })
 
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-        return name === 'resource.html' ? (mockAsset as any) : undefined
+        return name === 'feature.html' ? (mockAsset as any) : undefined
       })
 
       vi.mocked(fs.existsSync).mockImplementation((p) => {
@@ -101,7 +101,7 @@ describe('AddAssetsToCompilation', () => {
       })
 
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-        return name === 'resource.html' ? (mockAsset as any) : undefined
+        return name === 'feature.html' ? (mockAsset as any) : undefined
       })
 
       vi.mocked(fs.existsSync).mockImplementation((p: any) => {
@@ -141,7 +141,7 @@ describe('AddAssetsToCompilation', () => {
       })
 
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-        return name === 'resource.html' ? (mockAsset as any) : undefined
+        return name === 'feature.html' ? (mockAsset as any) : undefined
       })
 
       vi.mocked(fs.existsSync).mockImplementation((p: any) => {
@@ -172,7 +172,7 @@ describe('AddAssetsToCompilation', () => {
     })
 
     vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-      return name === 'resource.html' ? (mockAsset as any) : undefined
+      return name === 'feature.html' ? (mockAsset as any) : undefined
     })
 
     vi.mocked(fs.existsSync).mockImplementation((p: any) => false)
@@ -204,7 +204,7 @@ describe('AddAssetsToCompilation', () => {
     })
 
     vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-      return name === 'resource.html' ? (mockAsset as any) : undefined
+      return name === 'feature.html' ? (mockAsset as any) : undefined
     })
     ;(fs.existsSync as any).mockReturnValue(false)
     ;(fs.readFileSync as any).mockReturnValue(Buffer.from(''))

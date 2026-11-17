@@ -17,6 +17,7 @@ import {
   getAssetsFromHtml,
   isHttpLike,
   isSpecialScheme,
+  missingPageEntryFiles,
   resolveAbsoluteFsPath
 } from '../html-lib/utils'
 
@@ -106,6 +107,13 @@ export class AddToFileDependencies {
               // Parse only files that exist: getAssetsFromHtml throws on a
               // deleted HTML entry instead of reporting an empty page.
               if (!fs.existsSync(page)) continue
+
+              // A script or stylesheet with no file is left out of the page
+              // entry, so the bundler never watches for it. Creating it has
+              // to rebuild for the restart notice to reach the author.
+              for (const file of missingPageEntryFiles(page, projectRoot)) {
+                compilation.missingDependencies?.add(file)
+              }
 
               for (const file of staticFilesOf(page)) {
                 track(file)

@@ -192,36 +192,20 @@ export class UpdateHtmlFile {
               }
             )
 
-            const updatedHtml =
-              typeof updated === 'string'
-                ? updated
-                : updated &&
-                    typeof (updated as {html?: unknown}).html === 'string'
-                  ? (updated as {html: string}).html
-                  : null
-
-            if (typeof updatedHtml === 'string') {
-              compilation.updateAsset(
-                assetFilename,
-                new sources.RawSource(updatedHtml)
-              )
-            }
+            compilation.updateAsset(
+              assetFilename,
+              new sources.RawSource(updated)
+            )
           }
         }
 
-        const hasProcessAssets = Boolean(compilation?.hooks?.processAssets?.tap)
-
-        if (hasProcessAssets) {
-          compilation.hooks.processAssets.tap(
-            {
-              name: 'html:update-html-file',
-              stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
-            },
-            () => run()
-          )
-        } else {
-          run()
-        }
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:update-html-file',
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+          },
+          () => run()
+        )
       }
     )
   }

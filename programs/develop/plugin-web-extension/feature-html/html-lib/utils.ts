@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
+import {isOsPathUnder} from '../../../lib/real-path'
 import {
   type AssetHashOptions,
   bundledAssetOutputName
@@ -16,7 +17,6 @@ import {
 import type {FilepathList} from '../../../types'
 import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'
-import {isOsPathUnder} from '../../../lib/real-path'
 
 export interface ParsedHtmlAsset {
   css?: string[]
@@ -41,18 +41,6 @@ const assetsFromHtmlCache = new Map<
   string,
   {key: string; assets: ParsedHtmlAsset}
 >()
-
-// Watch integrations drop entries here when an HTML file is removed or
-// renamed; without a hook the stale parse survives for the process lifetime.
-export function evictAssetsFromHtmlCache(htmlFilePath?: string): void {
-  if (htmlFilePath === undefined) {
-    assetsFromHtmlCache.clear()
-
-    return
-  }
-
-  assetsFromHtmlCache.delete(htmlFilePath)
-}
 
 export function getAssetsFromHtml(
   htmlFilePath: string | undefined,
@@ -172,6 +160,27 @@ export function getAssetsFromHtml(
   }
 
   return assets
+}
+
+// The local scripts and stylesheets a page names that have no file. The
+// entry step leaves exactly these out, by the same test: a remote URL and
+// a root URL are not files the bundler would have compiled.
+export function missingPageEntryFiles(
+  htmlFilePath: string,
+  projectRoot: string,
+  htmlContent?: string
+): string[] {
+  const assets = getAssetsFromHtml(htmlFilePath, htmlContent)
+  const refs = [...(assets?.js || []), ...(assets?.css || [])]
+
+  return [...new Set(refs)].filter(
+    (ref) =>
+      path.isAbsolute(ref) &&
+      !/^(https?:)?\/\//i.test(ref) &&
+      !ref.startsWith('/public/') &&
+      !(ref.startsWith('/') && !ref.startsWith(projectRoot)) &&
+      !fs.existsSync(ref)
+  )
 }
 
 export function getHtmlPageDeclaredAssetPath(
@@ -339,6 +348,32 @@ export function joinEmittedAssetName(prefix: string, rel: string): string {
   return parts.slice(i).join('/') || path.posix.basename(rel)
 }
 
+const pageFileBytes = new WeakMap<object, Map<string, Buffer>>()
+
+// One read of a file per compilation. The emit step and the page rewrite
+// both name the copy from its bytes, and the bytes they name are the copy.
+export function readPageFile(
+  compilation: object | undefined,
+  absolutePath: string
+): Buffer {
+  if (!compilation) return fs.readFileSync(absolutePath)
+
+  let byPath = pageFileBytes.get(compilation)
+
+  if (!byPath) {
+    byPath = new Map<string, Buffer>()
+    pageFileBytes.set(compilation, byPath)
+  }
+
+  const known = byPath.get(absolutePath)
+  if (known) return known
+
+  const bytes = fs.readFileSync(absolutePath)
+  byPath.set(absolutePath, bytes)
+
+  return bytes
+}
+
 // Output name of a static asset an html page references: the name the
 // bundler gives the same file from a stylesheet or an import, so one build
 // ships one copy however many places name it. A nested page keeps its
@@ -348,13 +383,14 @@ export function htmlStaticAssetOutputName(
   manifestDir: string | undefined,
   htmlEntry: string,
   absolutePath: string,
-  output?: AssetHashOptions
+  output?: AssetHashOptions,
+  compilation?: object
 ): string {
   if (!/\.html?$/i.test(absolutePath)) {
     try {
       return bundledAssetOutputName(
         absolutePath,
-        fs.readFileSync(absolutePath),
+        readPageFile(compilation, absolutePath),
         output
       )
     } catch {

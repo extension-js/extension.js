@@ -112,7 +112,8 @@ export function handleStaticAsset(
     htmlEntry,
     absolutePath,
     (compilation as {outputOptions?: AssetHashOptions} | undefined)
-      ?.outputOptions
+      ?.outputOptions,
+    compilation && typeof compilation === 'object' ? compilation : undefined
   )
 
   if (fs.existsSync(absolutePath)) {

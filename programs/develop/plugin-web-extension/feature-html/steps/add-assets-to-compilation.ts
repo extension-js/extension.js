@@ -16,6 +16,7 @@ import {isFolder, resolveRootAbsoluteRef} from '../../shared/paths'
 import {findCompiledRootRefSource} from '../html-lib/compiled-root-ref'
 import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
+import {emitPageAsset} from '../html-lib/shipped-page-assets'
 import {
   cleanLeading,
   getAssetsFromHtml,
@@ -24,6 +25,7 @@ import {
   isFromIncludeList,
   isHttpLike,
   isSpecialScheme,
+  readPageFile,
   resolveAbsoluteFsPath
 } from '../html-lib/utils'
 
@@ -237,7 +239,8 @@ function emitNestedHtmlAndReferencedAssets(params: {
     ...(htmlAssets?.static || [])
   ]
 
-  compilation.emitAsset(
+  emitPageAsset(
+    compilation,
     filepath,
     new sources.RawSource((updatedHtml || source).toString())
   )
@@ -249,17 +252,17 @@ function emitNestedHtmlAndReferencedAssets(params: {
       return
     }
 
-    const s = fs.readFileSync(assetFromHtml)
-    const r = new sources.RawSource(s)
+    const r = new sources.RawSource(readPageFile(compilation, assetFromHtml))
     const assetFilepath = htmlStaticAssetOutputName(
       manifestDir,
       absoluteFsPath,
       assetFromHtml,
-      compilation.outputOptions
+      compilation.outputOptions,
+      compilation
     )
 
     if (!compilation.getAsset(assetFilepath)) {
-      compilation.emitAsset(assetFilepath, r)
+      emitPageAsset(compilation, assetFilepath, r)
     }
   })
 }
@@ -279,8 +282,6 @@ export class AddAssetsToCompilation {
     compiler.hooks.thisCompilation.tap(
       'html:add-assets-to-compilation',
       (compilation) => {
-        const processAssetsHook = compilation.hooks?.processAssets
-
         const runner = () => {
           const errs = compilation.errors || []
           if (Array.isArray(errs) && errs.length > 0) return
@@ -296,19 +297,10 @@ export class AddAssetsToCompilation {
             const htmlAssetName = getFilePath(featureName, '.html', false)
             const getAssetFn = compilation.getAsset
 
-            let compilationAsset =
+            const compilationAsset =
               typeof getAssetFn === 'function'
                 ? getAssetFn.call(compilation, htmlAssetName)
                 : null
-
-            // Fallback: some test harnesses store by basename(resource)
-            if (!compilationAsset) {
-              const altName = path.basename(resource as string)
-              compilationAsset =
-                typeof getAssetFn === 'function'
-                  ? getAssetFn.call(compilation, altName)
-                  : null
-            }
 
             if (!compilationAsset && !fs.existsSync(resource as string)) {
               continue
@@ -466,7 +458,8 @@ export class AddAssetsToCompilation {
                 manifestDir,
                 resource as string,
                 absoluteFsPath,
-                compilation.outputOptions
+                compilation.outputOptions,
+                compilation
               )
 
               const isNestedHtml = asset.endsWith('.html')
@@ -503,8 +496,13 @@ export class AddAssetsToCompilation {
                     manifestDir
                   })
                 } else {
-                  const source = fs.readFileSync(absoluteFsPath)
-                  compilation.emitAsset(filepath, new sources.RawSource(source))
+                  emitPageAsset(
+                    compilation,
+                    filepath,
+                    new sources.RawSource(
+                      readPageFile(compilation, absoluteFsPath)
+                    )
+                  )
                 }
               }
 
@@ -532,10 +530,12 @@ export class AddAssetsToCompilation {
                       getAssetFn.call(compilation, sourcePathAsset)
                     )
                   ) {
-                    const source = fs.readFileSync(absoluteFsPath)
-                    compilation.emitAsset(
+                    emitPageAsset(
+                      compilation,
                       sourcePathAsset,
-                      new sources.RawSource(source)
+                      new sources.RawSource(
+                        readPageFile(compilation, absoluteFsPath)
+                      )
                     )
                   }
                 }
@@ -544,18 +544,13 @@ export class AddAssetsToCompilation {
           }
         }
 
-        // Fallback for test environments where processAssets hook isn't mocked
-        if (processAssetsHook && typeof processAssetsHook.tap === 'function') {
-          processAssetsHook.tap(
-            {
-              name: 'html:add-assets-to-compilation',
-              stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
-            },
-            () => runner()
-          )
-        } else {
-          runner()
-        }
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:add-assets-to-compilation',
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+          },
+          () => runner()
+        )
       }
     )
   }

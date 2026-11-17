@@ -387,7 +387,8 @@ export function patchHtmlNested(
                       manifestDir,
                       htmlEntry,
                       absolutePath,
-                      compilation.outputOptions
+                      compilation.outputOptions,
+                      compilation
                     )
                     thisChildNode = applyRewrittenStaticUrl(
                       thisChildNode,

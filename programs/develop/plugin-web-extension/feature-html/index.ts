@@ -26,6 +26,7 @@ import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-t
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {EmitHtmlFile} from './steps/emit-html-file'
 import {HandleCommonErrors} from './steps/handle-common-errors'
+import {PruneReplacedPageAssets} from './steps/prune-replaced-page-assets'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {UpdateHtmlFile} from './steps/update-html-file'
 
@@ -64,6 +65,8 @@ export class HtmlPlugin {
       includeList,
       browser: this.browser
     }).apply(compiler)
+
+    new PruneReplacedPageAssets().apply(compiler)
 
     new UpdateHtmlFile({
       manifestPath: this.manifestPath,
