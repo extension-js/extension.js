@@ -39,7 +39,17 @@ type ExecOptions = {
   cwd?: string
   stdio?: StdioOptions
   env?: Record<string, string>
+  // Print the manager's output here and keep its tail on the rejection, so
+  // the caller can read why an install failed. Replaces `stdio`.
+  tee?: {stdout: NodeJS.WritableStream; stderr: NodeJS.WritableStream}
 }
+
+export type InstallCommandError = Error & {
+  exitCode?: number | null
+  output?: string
+}
+
+const INSTALL_OUTPUT_TAIL_CHARS = 64 * 1024
 
 function normalizePackageManager(
   value?: string
@@ -752,11 +762,35 @@ export function execInstallCommand(
   options?: ExecOptions
 ): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawnInstallCommand(command, args, options)
+    const tee = options?.tee
+    const child = spawnInstallCommand(
+      command,
+      args,
+      tee ? {...options, stdio: ['inherit', 'pipe', 'pipe']} : options
+    )
+    let output = ''
+
+    const forward = (target: NodeJS.WritableStream) => (chunk: Buffer) => {
+      target.write(chunk)
+      output = (output + chunk.toString('utf8')).slice(
+        -INSTALL_OUTPUT_TAIL_CHARS
+      )
+    }
+
+    if (tee) {
+      child.stdout?.on('data', forward(tee.stdout))
+      child.stderr?.on('data', forward(tee.stderr))
+    }
 
     child.on('close', (code) => {
       if (code !== 0) {
-        reject(new Error(`Install failed with exit code ${code}`))
+        const error: InstallCommandError = new Error(
+          `Install failed with exit code ${code}`
+        )
+        error.exitCode = code
+        if (tee) error.output = output
+
+        reject(error)
       } else {
         resolve()
       }
