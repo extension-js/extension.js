@@ -18,6 +18,7 @@ const ensureStartupNewTabSpy = vi.fn(async () => 'set' as const)
 const loadCompanionsSpy = vi.fn(async (_paths: string[]) => [])
 const ensurePageTargetSpy = vi.fn(async (_url: string) => 'created' as string)
 const openStartingUrlSpy = vi.fn(async (_url: string) => 'navigated')
+const debugPortOwnerSpy = vi.fn(async () => 'this-browser' as string)
 
 vi.mock('../../run-chromium/cdp/cdp-extension-controller', async () => {
   const actual = (await vi.importActual(
@@ -37,6 +38,7 @@ vi.mock('../../run-chromium/cdp/cdp-extension-controller', async () => {
     loadCompanions = loadCompanionsSpy
     ensurePageTarget = ensurePageTargetSpy
     openStartingUrl = openStartingUrlSpy
+    debugPortOwner = debugPortOwnerSpy
   }
 
   return {
@@ -118,6 +120,7 @@ describe('setupCdpAfterLaunch', () => {
     loadCompanionsSpy.mockClear()
     ensurePageTargetSpy.mockClear()
     openStartingUrlSpy.mockClear()
+    debugPortOwnerSpy.mockClear()
     vi.mocked(banner.printDevBannerOnce).mockClear()
     vi.mocked(banner.printProdBannerOnce).mockClear()
   })
@@ -701,6 +704,81 @@ describe('setupCdpAfterLaunch', () => {
     expect(openTabSpy).not.toHaveBeenCalled()
   })
 
+  function sessionWithRecord(record: Record<string, unknown>) {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-cdp-port-'))
+    tempDirs.push(root)
+    const outPath = path.join(root, 'dist', 'chromium')
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.writeFileSync(
+      path.join(outPath, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'User', version: '1.0'}),
+      'utf-8'
+    )
+
+    const readyPath = readyPathFor(outPath)
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(readyPath, JSON.stringify(record))
+
+    const plugin: any = {
+      browser: 'chromium',
+      port: 9333,
+      instanceId: 'test-instance',
+      launchRunId: 'run-A'
+    }
+    const compilation: any = {
+      options: {mode: 'development', output: {path: outPath}}
+    }
+
+    return {
+      run: () =>
+        setupCdpAfterLaunch(compilation, plugin, [
+          `--load-extension=${outPath}`,
+          '--remote-debugging-port=9333'
+        ]),
+      ready: () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    }
+  }
+
+  it('names the debugging port on the record once this browser answers on it', async () => {
+    const session = sessionWithRecord({status: 'ready', runId: 'run-A'})
+
+    await session.run()
+
+    expect(debugPortOwnerSpy).toHaveBeenCalledTimes(1)
+    expect(session.ready().cdpPort).toBe(9333)
+  })
+
+  it.each([
+    'another-browser',
+    'closed'
+  ])('takes the debugging port off the record and says so when the port is %s', async (owner) => {
+    const session = sessionWithRecord({
+      status: 'ready',
+      runId: 'run-A',
+      cdpPort: 9333
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    debugPortOwnerSpy.mockResolvedValueOnce(owner)
+
+    try {
+      await session.run()
+
+      const said = [...warn.mock.calls, ...error.mock.calls, ...log.mock.calls]
+        .flat()
+        .join('\n')
+
+      expect('cdpPort' in session.ready()).toBe(false)
+      expect(said).toContain('9333')
+      expect(said).toContain('names no cdpPort')
+    } finally {
+      warn.mockRestore()
+      error.mockRestore()
+      log.mockRestore()
+    }
+  })
+
   it('keeps the mock in step with the controller the launch really builds', () => {
     const real = (controllerModule as any).__realController
     const mocked = new (controllerModule as any).CDPExtensionController({})
@@ -709,6 +787,8 @@ describe('setupCdpAfterLaunch', () => {
     expect(typeof mocked.ensurePageTarget).toBe('function')
     expect(typeof real?.prototype?.ensureStartupNewTab).toBe('function')
     expect(typeof mocked.ensureStartupNewTab).toBe('function')
+    expect(typeof real?.prototype?.debugPortOwner).toBe('function')
+    expect(typeof mocked.debugPortOwner).toBe('function')
   })
 
   it('gives a headless session a page target, on the companion welcome page', async () => {
