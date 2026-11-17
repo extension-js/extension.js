@@ -46,6 +46,7 @@ export interface CompileOptions {
   outputClean?: boolean
   // Copied verbatim from context, so the asset hooks see real .json and .html.
   copy?: string[]
+  nodeEnv?: string | false
 }
 
 export function createCompiler(options: CompileOptions): Compiler {
@@ -56,7 +57,11 @@ export function createCompiler(options: CompileOptions): Compiler {
     target: 'web',
     entry: options.entry || {},
     output: {clean: options.outputClean ?? false, path: options.outputPath},
-    optimization: {emitOnErrors: false, minimize: false},
+    optimization: {
+      emitOnErrors: false,
+      minimize: false,
+      ...(options.nodeEnv === undefined ? {} : {nodeEnv: options.nodeEnv})
+    },
     plugins: [
       ...(options.copy?.length
         ? [

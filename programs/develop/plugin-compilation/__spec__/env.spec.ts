@@ -12,6 +12,7 @@ import {
 } from '../env'
 import {
   compile,
+  createCompiler,
   makeTempRoot,
   removeTempRoots,
   runScript,
@@ -517,6 +518,77 @@ describe('EnvPlugin placeholders in emitted .json and .html', () => {
     )
 
     expect(result.logs()).toEqual(['https://api.example/v2'])
+  })
+})
+
+describe('EnvPlugin failure paths and leaks as they stand', () => {
+  // Pins today's behavior. Ledger 1388 D6.
+  it('templates a non-public shell value into .html and .json, never into JavaScript', async () => {
+    vi.stubEnv('EXTENSION_SECRET_X', 'shell-secret')
+    const root = project(
+      {
+        'manifest.json': '{"description":"$EXTENSION_SECRET_X"}',
+        'index.html': '<p>$EXTENSION_SECRET_X</p>'
+      },
+      'console.log(process.env.EXTENSION_SECRET_X, import.meta.env.EXTENSION_SECRET_X)\n'
+    )
+    const result = await build(root, {copy: ['manifest.json', 'index.html']})
+
+    expect(result.asset('manifest.json')).toBe('{"description":"shell-secret"}')
+    expect(result.asset('index.html')).toBe('<p>shell-secret</p>')
+    expect(result.logs()).toEqual(['undefined undefined'])
+    expect(result.asset('background.js')).not.toContain('shell-secret')
+  })
+
+  // Pins today's behavior. Ledger 1388 D8.
+  it('throws a raw EISDIR while the compiler is created when an env file is a folder', () => {
+    for (const name of ['.env', '.env.defaults']) {
+      const root = project({})
+      fs.mkdirSync(path.join(root, name))
+      let thrown: unknown
+
+      try {
+        createCompiler({
+          context: root,
+          outputPath: path.join(root, 'out'),
+          entry: {background: './background.js'},
+          plugins: [new EnvPlugin({browser: 'chrome'})]
+        })
+      } catch (error) {
+        thrown = error
+      }
+
+      expect(thrown).toMatchObject({
+        code: 'EISDIR',
+        syscall: 'read',
+        message: 'EISDIR: illegal operation on a directory, read'
+      })
+
+      expect(fs.existsSync(path.join(root, 'out'))).toBe(false)
+    }
+  })
+
+  // Pins today's behavior. Ledger 1388 D8.
+  it('says nothing about stray env files when the project folder cannot be listed', () => {
+    const root = project({'.env.staging': 'EXTENSION_PUBLIC_FOO=staging\n'})
+
+    const warningTaps = (context: string) => {
+      const compiler = createCompiler({
+        context: root,
+        outputPath: path.join(root, 'out')
+      })
+      // rspack itself refuses a file as context, so only EnvPlugin sees it.
+      compiler.options.context = context
+      new EnvPlugin({browser: 'chrome'}).apply(compiler)
+
+      return compiler.hooks.thisCompilation.taps
+        .map((tap) => tap.name)
+        .filter((name) => name.startsWith('env:warn'))
+    }
+
+    // readdir on a file fails like an unreadable folder, and the catch is silent.
+    expect(warningTaps(path.join(root, 'manifest.json'))).toEqual([])
+    expect(warningTaps(root)).toEqual(['env:warn-unmatched'])
   })
 })
 

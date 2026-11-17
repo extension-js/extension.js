@@ -34,15 +34,17 @@ function compilerFor(
   root: string,
   options: Partial<ConstructorParameters<typeof CompilationPlugin>[0]> & {
     mode?: 'development' | 'production'
+    nodeEnv?: string | false
     later?: (compiler: Compiler) => void
   } = {}
 ) {
-  const {mode, later, ...pluginOptions} = options
+  const {mode, nodeEnv, later, ...pluginOptions} = options
 
   return createCompiler({
     context: root,
     outputPath: path.join(root, 'dist', 'chrome'),
     mode: mode || 'development',
+    nodeEnv,
     entry: {background: './background.js'},
     plugins: [
       new CompilationPlugin({
@@ -238,5 +240,58 @@ describe('CompilationPlugin on a real compiler', () => {
     expect(runScript(path.join(root, 'dist/chrome/background.js'))).toEqual([
       'edge production'
     ])
+  })
+
+  for (const mode of ['development', 'production'] as const) {
+    it(`gives the bundle process.env.NODE_ENV as ${mode}`, async () => {
+      const root = scaffold('console.log(process.env.NODE_ENV)\n')
+      await runCompiler(compilerFor(root, {command: 'build', mode}))
+
+      expect(runScript(path.join(root, 'dist/chrome/background.js'))).toEqual([
+        mode
+      ])
+    })
+  }
+
+  // Pins today's behavior. Ledger 1388 D3.
+  it('defines NODE_ENV itself even when optimization.nodeEnv is false', async () => {
+    const root = scaffold('console.log(process.env.NODE_ENV)\n')
+    await runCompiler(
+      compilerFor(root, {command: 'build', mode: 'production', nodeEnv: false})
+    )
+
+    expect(runScript(path.join(root, 'dist/chrome/background.js'))).toEqual([
+      'production'
+    ])
+  })
+
+  // Pins today's behavior. Ledger 1388 D3.
+  it('swallows a failure of its own NODE_ENV define', () => {
+    const root = scaffold()
+    const compiler = createCompiler({
+      context: root,
+      outputPath: path.join(root, 'dist', 'chrome')
+    }) as Compiler & {__internal__registerBuiltinPlugin: (p: unknown) => void}
+    const register = compiler.__internal__registerBuiltinPlugin.bind(compiler)
+    const refused: unknown[] = []
+
+    compiler.__internal__registerBuiltinPlugin = (plugin) => {
+      if (JSON.stringify(plugin).includes('process.env.NODE_ENV')) {
+        refused.push(plugin)
+
+        throw new Error('refused')
+      }
+
+      register(plugin)
+    }
+
+    expect(() =>
+      new CompilationPlugin({
+        manifestPath: path.join(root, 'manifest.json'),
+        command: 'build'
+      }).apply(compiler)
+    ).not.toThrow()
+
+    expect(refused).toHaveLength(1)
   })
 })
