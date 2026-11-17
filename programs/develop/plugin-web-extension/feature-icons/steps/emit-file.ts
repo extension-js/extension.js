@@ -50,7 +50,7 @@ export class EmitFile {
       compilation.hooks.processAssets.tap(
         {
           name: 'icons:emit-file',
-          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
         },
         () => {
           // A compile that already failed still names the icon files the

@@ -17,7 +17,7 @@ vi.mock('@rspack/core', () => {
   return {
     default: {WebpackError},
     WebpackError,
-    Compilation: {PROCESS_ASSETS_STAGE_OPTIMIZE_TRANSFER: 0},
+    Compilation: {PROCESS_ASSETS_STAGE_ADDITIONS: 0},
     sources: {RawSource}
   }
 })

@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {openDevWatchSession} from '../../../__spec__/helpers/dev-watch-session'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
@@ -276,4 +277,40 @@ describe('the icon files a build ships', () => {
       expect(await devBuild(fixture)).toEqual(fixture.shipped)
     }, 120000)
   }
+
+  // A step that runs right after the additions stage reads the icons as
+  // assets, so a plugin that lists or checks shipped files sees them.
+  it('are assets by the end of the additions stage', async () => {
+    const fixture = fixtures['firefox MV3']
+    const seen: string[][] = []
+    const session = await openDevWatchSession(
+      project(fixture),
+      fixture.browser,
+      (compiler) => {
+        compiler.hooks.thisCompilation.tap('spec-icons-pin', (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'spec-icons-pin',
+              stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE
+            },
+            () => {
+              seen.push(
+                Object.keys(fixture.shipped).filter((name) =>
+                  Boolean(compilation.getAsset(name))
+                )
+              )
+            }
+          )
+        })
+      }
+    )
+
+    try {
+      await session.settle()
+    } finally {
+      await session.close()
+    }
+
+    expect(seen[0]).toEqual(Object.keys(fixture.shipped))
+  }, 120000)
 })
