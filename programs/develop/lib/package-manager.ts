@@ -111,22 +111,26 @@ function getPackageManagerOverride(): PackageManagerResolution | undefined {
 }
 
 function detectPackageManagerFromEnv(): PackageManagerResolution | undefined {
-  const userAgent = process.env.npm_config_user_agent || ''
+  // A user agent leads with the invoking manager, as in "pnpm/10.2.0 npm/? node/v22".
+  // Later tokens name the platform, so only the first one is read.
+  const userAgent = (process.env.npm_config_user_agent || '')
+    .trim()
+    .split('/')[0]
   const execPath = process.env.npm_execpath || process.env.NPM_EXEC_PATH || ''
 
-  if (userAgent.includes('pnpm')) {
+  if (userAgent === 'pnpm') {
     return {name: 'pnpm', execPath: execPath || undefined}
   }
 
-  if (userAgent.includes('yarn')) {
+  if (userAgent === 'yarn') {
     return {name: 'yarn', execPath: execPath || undefined}
   }
 
-  if (userAgent.includes('bun')) {
+  if (userAgent === 'bun') {
     return {name: 'bun', execPath: execPath || undefined}
   }
 
-  if (userAgent.includes('npm')) {
+  if (userAgent === 'npm') {
     return {name: 'npm', execPath: execPath || undefined}
   }
 

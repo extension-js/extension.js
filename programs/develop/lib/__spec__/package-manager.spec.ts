@@ -215,6 +215,16 @@ describe('package-manager resolution order', () => {
     expect(await resolveWith(true)).toEqual({name: 'yarn', execPath: undefined})
   })
 
+  it('reads the invoker from the leading token of the user agent only', async () => {
+    writePackageJson()
+    vi.stubEnv(
+      'npm_config_user_agent',
+      'npm/10.9.0 node/v22.11.0 darwin arm64 bundle/pnpm-yarn'
+    )
+
+    expect((await resolveWith(true)).name).toBe('npm')
+  })
+
   it('answers npm when nothing names a manager, whatever is on PATH', async () => {
     writePackageJson()
 
