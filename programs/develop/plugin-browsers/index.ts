@@ -8,9 +8,9 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
+import {humanLine} from '../lib/messaging'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
