@@ -2,11 +2,9 @@ import createEagerlyLoadChunksRuntimeModule from '../runtime-modules/eagerly-loa
 
 export default class WebExtensionServiceWorkerEntryPlugin {
   private readonly options: any
-  private readonly backgroundOutputEmitted: boolean
 
-  constructor(options: any, backgroundOutputEmitted: boolean) {
+  constructor(options: any) {
     this.options = options
-    this.backgroundOutputEmitted = backgroundOutputEmitted
   }
 
   apply(compiler: any) {
@@ -96,8 +94,7 @@ Set background.noDynamicEntryWarning to true to disable this warning.
 
     if (
       this.options.tryCatchWrapper !== false &&
-      compiler.options.output.chunkFormat !== 'module' &&
-      !this.backgroundOutputEmitted
+      compiler.options.output.chunkFormat !== 'module'
     ) {
       compiler.hooks.compilation.tap(
         WebExtensionServiceWorkerEntryPlugin.name,
