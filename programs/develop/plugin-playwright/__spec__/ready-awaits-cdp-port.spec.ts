@@ -2,7 +2,18 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {createPlaywrightMetadataWriter} from '../index'
+import {
+  contractPath,
+  makeWriter as makeProjectWriter,
+  patchContract,
+  readContract,
+  stampReadyBrowserLaunch,
+  stampReadyBrowserLaunchFailed,
+  stampReadyCdpFault,
+  stampReadyCdpPort,
+  type WriterOptions,
+  writeManifest
+} from './helpers/contract'
 
 // The Chromium launcher stamps the browser process and its CDP port after the
 // compile. A dev contract that went ready on the compile named neither.
@@ -11,55 +22,37 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-awaits-cdp-'))
-    fs.mkdirSync(path.join(tmp, 'src'), {recursive: true})
-    fs.writeFileSync(
-      path.join(tmp, 'src', 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0'})
-    )
+    writeManifest(path.join(tmp, 'src'), {name: 'Fixture', version: '1.0.0'})
   })
 
   afterEach(() => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const makeWriter = (
-    overrides: Partial<Parameters<typeof createPlaywrightMetadataWriter>[0]>
-  ) =>
-    createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
+  const makeWriter = (overrides: Partial<WriterOptions>) =>
+    makeProjectWriter(tmp, {
       browser: 'chrome',
-      command: 'dev',
-      distPath: path.join(tmp, 'dist', overrides.browser || 'chrome'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json'),
       readyAwaitsCdpPort: true,
       ...overrides
     })
 
-  const readyPath = (browser = 'chrome') =>
-    path.join(tmp, 'dist', 'extension-js', browser, 'ready.json')
+  const readyPath = (browser = 'chrome') => contractPath(tmp, browser)
 
-  const readContract = (browser = 'chrome') =>
-    JSON.parse(fs.readFileSync(readyPath(browser), 'utf-8')) as Record<
-      string,
-      unknown
-    >
+  const contract = (browser = 'chrome') => readContract(readyPath(browser))
 
-  const patchContract = (patch: Record<string, unknown>) => {
-    fs.writeFileSync(readyPath(), JSON.stringify({...readContract(), ...patch}))
-  }
-
-  const launchStamp = {
-    browserPid: 4242,
-    binary: '/browsers/chrome',
-    profilePath: '/profiles/one'
-  }
+  const stampLaunch = () =>
+    stampReadyBrowserLaunch(readyPath(), {
+      browserPid: 4242,
+      binary: '/browsers/chrome',
+      profilePath: '/profiles/one'
+    })
 
   it('keeps the compile at starting with its compiledAt while nothing is stamped', () => {
     const writer = makeWriter({})
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
 
-    const ready = readContract()
+    const ready = contract()
     expect(ready.status).toBe('starting')
     expect(ready.compiledAt).toBe('2026-11-01T00:00:00.000Z')
     expect(ready.browserPid).toBeUndefined()
@@ -69,23 +62,24 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
     const writer = makeWriter({})
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
-    patchContract(launchStamp)
+    stampLaunch()
 
     writer.writeReady('2026-11-01T00:00:01.000Z')
 
-    expect(readContract().status).toBe('starting')
-    expect(readContract().browserPid).toBe(4242)
+    expect(contract().status).toBe('starting')
+    expect(contract().browserPid).toBe(4242)
   })
 
   it('goes ready on the recompile after the launcher stamped the port, and keeps the launch', () => {
     const writer = makeWriter({})
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
-    patchContract({...launchStamp, cdpPort: 9222})
+    stampLaunch()
+    stampReadyCdpPort(readyPath(), 9222)
 
     writer.writeReady('2026-11-01T00:00:01.000Z')
 
-    const ready = readContract()
+    const ready = contract()
     expect(ready.status).toBe('ready')
     expect(ready.cdpPort).toBe(9222)
     expect(ready.browserPid).toBe(4242)
@@ -95,35 +89,37 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
   it('goes ready with the fault when the CDP wire never came up', () => {
     const writer = makeWriter({})
     writer.writeStarting()
-    patchContract({...launchStamp, cdpFaultCode: 'E_CDP_CONNECT'})
+    stampLaunch()
+    stampReadyCdpFault(readyPath(), 'E_CDP_CONNECT')
 
     writer.writeReady('2026-11-01T00:00:01.000Z')
 
-    expect(readContract().status).toBe('ready')
-    expect(readContract().cdpFaultCode).toBe('E_CDP_CONNECT')
+    expect(contract().status).toBe('ready')
+    expect(contract().cdpFaultCode).toBe('E_CDP_CONNECT')
   })
 
   it('does not take a port from another run as settled', () => {
     const writer = makeWriter({})
     writer.writeStarting()
-    patchContract({runId: 'an-earlier-run', cdpPort: 9222})
+    patchContract(readyPath(), {runId: 'an-earlier-run'})
+    stampReadyCdpPort(readyPath(), 9222)
 
     writer.writeReady('2026-11-01T00:00:01.000Z')
 
-    expect(readContract().status).toBe('starting')
-    expect(readContract().cdpPort).toBeUndefined()
+    expect(contract().status).toBe('starting')
+    expect(contract().cdpPort).toBeUndefined()
   })
 
   it('goes ready when the launcher comes back with nothing to stamp', () => {
     const writer = makeWriter({})
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
-    expect(readContract().status).toBe('starting')
+    expect(contract().status).toBe('starting')
 
     writer.settleBrowserLaunch()
 
-    expect(readContract().status).toBe('ready')
-    expect(readContract().compiledAt).toBe('2026-11-01T00:00:00.000Z')
+    expect(contract().status).toBe('ready')
+    expect(contract().compiledAt).toBe('2026-11-01T00:00:00.000Z')
   })
 
   it('lets the session writer settle the launch for the writer that compiles', () => {
@@ -134,35 +130,38 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
     compiler.writeReady('2026-11-01T00:00:00.000Z')
 
     session.settleBrowserLaunch()
-    expect(readContract().status).toBe('ready')
+    expect(contract().status).toBe('ready')
 
     compiler.writeReady('2026-11-01T00:00:01.000Z')
-    expect(readContract().status).toBe('ready')
+    expect(contract().status).toBe('ready')
   })
 
   it('leaves a launch failure standing when the launcher comes back', () => {
     const writer = makeWriter({})
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
-    patchContract({status: 'error', code: 'browser_launch_failed'})
+    stampReadyBrowserLaunchFailed(readyPath(), {
+      status: 'error',
+      code: 'browser_launch_failed'
+    })
 
     writer.settleBrowserLaunch()
 
-    expect(readContract().status).toBe('error')
-    expect(readContract().code).toBe('browser_launch_failed')
+    expect(contract().status).toBe('error')
+    expect(contract().code).toBe('browser_launch_failed')
   })
 
   it('leaves a compile that still waits for the hello to the hello', () => {
     const writer = makeWriter({readyAwaitsExecutor: true})
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
-    expect(typeof readContract().awaitingExecutorSince).toBe('string')
+    expect(typeof contract().awaitingExecutorSince).toBe('string')
 
     writer.settleBrowserLaunch()
-    expect(readContract().status).toBe('starting')
+    expect(contract().status).toBe('starting')
 
     writer.stampExecutorAttached()
-    expect(readContract().status).toBe('ready')
+    expect(contract().status).toBe('ready')
   })
 
   it('holds the hello for the port, so neither wait lets ready out early', () => {
@@ -171,11 +170,12 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
     writer.writeReady('2026-11-01T00:00:00.000Z')
 
     writer.stampExecutorAttached()
-    expect(readContract().status).toBe('starting')
+    expect(contract().status).toBe('starting')
 
-    patchContract({...launchStamp, cdpPort: 9222})
+    stampLaunch()
+    stampReadyCdpPort(readyPath(), 9222)
     writer.writeReady('2026-11-01T00:00:01.000Z')
-    expect(readContract().status).toBe('ready')
+    expect(contract().status).toBe('ready')
   })
 
   it.each([
@@ -188,7 +188,7 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
 
-    expect(readContract(browser).status).toBe('ready')
+    expect(contract(browser).status).toBe('ready')
   })
 
   it('does not hold a dev contract with no browser to launch', () => {
@@ -196,6 +196,6 @@ describe('a Chromium dev contract holds ready until the launch is stamped', () =
     writer.writeStarting()
     writer.writeReady('2026-11-01T00:00:00.000Z')
 
-    expect(readContract().status).toBe('ready')
+    expect(contract().status).toBe('ready')
   })
 })
