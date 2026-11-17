@@ -11,14 +11,15 @@ import * as path from 'node:path'
 import type {Readable, Writable} from 'node:stream'
 import {CODES, humanWarn, isDebug} from '../../../../helpers/messaging'
 import {expectedChromiumExtensionId} from '../../../browsers-lib/banner'
-import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
 import {loadsExtensionsOverCdpOnly} from '../../../browsers-lib/browser-family'
+import type {BackgroundSession} from '../../../browsers-lib/built-boot-registrations'
 import {stampReadyExtensionId} from '../../../browsers-lib/ready-stamp'
 import {LAUNCH_TAB_URL} from '../../../browsers-lib/runtime-options'
 import type {BrowserLogSink} from '../../../browsers-types'
 import type {CdpProtocolMessage} from '../../chromium-types'
 import type {CDPClient} from '../cdp-client'
 import {codedError, declaredCode} from '../coded-error'
+import {type DebugPortOwner, debugPortOwner} from '../debug-port-owner'
 import {
   type DeveloperModeOutcome,
   ensureDeveloperMode
@@ -145,6 +146,17 @@ export class CDPExtensionController {
     if (this.cdp) return
 
     await this.connectFreshClient()
+  }
+
+  // Only a session on the pipe can tell: one that dialed the port itself is
+  // talking to whatever answered there.
+  async debugPortOwner(): Promise<DebugPortOwner | 'unknown'> {
+    const cdp = this.cdp
+    if (!cdp || !this.pipeIn || !this.pipeOut) return 'unknown'
+
+    return debugPortOwner(this.cdpPort, async () =>
+      (await cdp.getTargets()).map((target) => String(target.targetId))
+    )
   }
 
   // Chromium reads the developer-mode toggle from a MAC-protected pref the
