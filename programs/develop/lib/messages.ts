@@ -661,13 +661,18 @@ export function addonLintMore(hiddenCount: number, distDisplay: string) {
   )
 }
 
+// A build that ran no lint to the end says where the last lint's note went.
+function retiredReviewerNote(staleNote: string | null) {
+  return staleNote
+    ? ` The reviewer note of the last lint moved to ${colors.underline(staleNote)}, since it does not describe this build.`
+    : ''
+}
+
 export function addonLintNotInstalled(
   installHint: string,
   staleNote: string | null = null
 ) {
-  const retired = staleNote
-    ? ` The reviewer note of the last lint moved to ${colors.underline(staleNote)}, since it does not describe this build.`
-    : ''
+  const retired = retiredReviewerNote(staleNote)
 
   return (
     `${getLoggingPrefix('info')} Skipped the addons.mozilla.org lint: addons-linter is not installed. ` +
@@ -676,10 +681,30 @@ export function addonLintNotInstalled(
   )
 }
 
-export function addonLintFailed(reason: string, distDisplay: string) {
+export function addonLintFailed(
+  reason: string,
+  distDisplay: string,
+  staleNote: string | null = null
+) {
   return (
     `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
-    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.`
+    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.` +
+    retiredReviewerNote(staleNote)
+  )
+}
+
+// npx would run the same install that just failed to load, so the advice is
+// the one step that replaces it.
+export function addonLintUnusable(
+  reason: string,
+  installHint: string,
+  staleNote: string | null = null
+) {
+  return (
+    `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
+    `The build is complete. Reinstall the linter with ${colors.blue(installHint)} and build again to see what AMO would flag, ` +
+    `or turn the lint off with ${colors.blue('--no-addon-lint')}.` +
+    retiredReviewerNote(staleNote)
   )
 }
 

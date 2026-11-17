@@ -205,7 +205,116 @@ describe('optional-deps-resolver', () => {
         projectPath,
         dependencyId: '@extjs-test/throws-on-load'
       })
-    ).toThrow(expect.objectContaining({code: 'E_OPTIONAL_DEP_LOAD'}))
+    ).toThrow(
+      expect.objectContaining({
+        code: 'E_OPTIONAL_DEP_LOAD',
+        cause: expect.objectContaining({message: 'lane-broken-on-load'})
+      })
+    )
+  })
+
+  it('carries the cause when a copy outside the project throws on load, on both load paths', async () => {
+    createPackage(
+      runtimePath,
+      '@extjs-test/runtime-throws',
+      'throw new Error("runtime-copy-broken")'
+    )
+
+    const {ensureOptionalModuleLoaded, loadOptionalModuleWithoutInstall} =
+      await import('../optional-deps-resolver')
+    const input = {
+      integration: 'Vue',
+      projectPath,
+      dependencyId: '@extjs-test/runtime-throws'
+    }
+    const coded = expect.objectContaining({
+      code: 'E_OPTIONAL_DEP_LOAD',
+      message: expect.stringContaining('could not be loaded after it resolved'),
+      cause: expect.objectContaining({message: 'runtime-copy-broken'})
+    })
+
+    await expect(ensureOptionalModuleLoaded(input)).rejects.toEqual(coded)
+    expect(() => loadOptionalModuleWithoutInstall(input)).toThrow(coded)
+  })
+
+  it('refuses a broken project copy and never loads another install in its place', async () => {
+    const dependencyId = '@extjs-test/broken-in-project'
+    process.env.EXTENSION_JS_PACKAGE_MANAGER = 'npm'
+    const ranFile = path.join(projectPath, 'ran.txt')
+
+    createPackage(
+      projectPath,
+      dependencyId,
+      `require('node:fs').appendFileSync(${JSON.stringify(ranFile)}, 'ran\\n')
+throw new Error('project-copy-broken.\\nRequire stack:\\n- index.js')`
+    )
+
+    createPackage(
+      runtimePath,
+      dependencyId,
+      'module.exports = {from: "another-install"}'
+    )
+
+    const {ensureOptionalModuleLoaded, loadOptionalModuleWithoutInstall} =
+      await import('../optional-deps-resolver')
+    const input = {integration: 'Vue', projectPath, dependencyId}
+    const brokenEntry = path.join(
+      fs.realpathSync(projectPath),
+      'node_modules',
+      '@extjs-test',
+      'broken-in-project',
+      'index.js'
+    )
+
+    const refusal = await ensureOptionalModuleLoaded(input).then(
+      (loaded) => ({loaded}),
+      (error) => ({error})
+    )
+
+    expect(refusal).not.toHaveProperty('loaded')
+    expect((refusal as {error: unknown}).error).toMatchObject({
+      code: 'E_OPTIONAL_DEP_LOAD',
+      message:
+        `[Vue] ${dependencyId} at ${brokenEntry} could not be loaded: project-copy-broken. ` +
+        `Reinstall it with: npm install -D ${dependencyId}`,
+      cause: expect.objectContaining({
+        message: expect.stringContaining('project-copy-broken')
+      })
+    })
+
+    // One attempt, so a package with side effects on load runs them once.
+    expect(fs.readFileSync(ranFile, 'utf8')).toBe('ran\n')
+
+    expect(() => loadOptionalModuleWithoutInstall(input)).toThrow(
+      expect.objectContaining({
+        code: 'E_OPTIONAL_DEP_LOAD',
+        message: expect.stringContaining(
+          `at ${brokenEntry} could not be loaded`
+        )
+      })
+    )
+  })
+
+  it('still loads the copy of another install when the project has none', async () => {
+    const dependencyId = '@extjs-test/only-in-runtime'
+
+    createPackage(
+      runtimePath,
+      dependencyId,
+      'module.exports = {from: "another-install"}'
+    )
+
+    const {ensureOptionalModuleLoaded} = await import(
+      '../optional-deps-resolver'
+    )
+
+    await expect(
+      ensureOptionalModuleLoaded({
+        integration: 'Vue',
+        projectPath,
+        dependencyId
+      })
+    ).resolves.toEqual({from: 'another-install'})
   })
 
   it('verifies React refresh contract at a flat install root', async () => {

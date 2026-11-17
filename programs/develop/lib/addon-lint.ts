@@ -450,7 +450,7 @@ export async function runAddonLint(
     if (
       (error as {code?: unknown} | null)?.code === CODES.E_OPTIONAL_DEP_LOAD
     ) {
-      return unusableAddonLint(error, input.distDisplay)
+      return unusableAddonLint(error, input, staleNote)
     }
 
     if (hintedProjects.has(input.projectPath)) {
@@ -463,9 +463,7 @@ export async function runAddonLint(
       status: 'missing',
       hint: messages.addonLintNotInstalled(
         formatInstallHint(input.projectPath, [ADDON_LINT_PACKAGE]),
-        staleNote
-          ? path.join(path.dirname(input.distDisplay), path.basename(staleNote))
-          : null
+        staleNoteDisplay(staleNote, input.distDisplay)
       )
     }
   }
@@ -507,31 +505,50 @@ export async function runAddonLint(
       reviewerNote: reviewerNoteFor(input, output, chunkProvenance)
     }
   } catch (error) {
-    return failedAddonLint(error, input.distDisplay)
+    return failedAddonLint(error, input.distDisplay, input.distPath)
   }
 }
 
+// The note sits beside the dist folder, so it is shown the way dist is.
+function staleNoteDisplay(
+  staleNote: string | null,
+  distDisplay: string
+): string | null {
+  return staleNote
+    ? path.join(path.dirname(distDisplay), path.basename(staleNote))
+    : null
+}
+
+// With the dist path, the note of an earlier lint is retired: a lint that
+// crashed or timed out wrote none, so the one on disk is another build's.
 export function failedAddonLint(
   error: unknown,
-  distDisplay: string
+  distDisplay: string,
+  distPath?: string
 ): Extract<AddonLintResult, {status: 'failed'}> {
   const message = String((error as Error)?.message || error)
   const reason =
     error instanceof AddonLintTimeout
       ? `${ADDON_LINT_PACKAGE} ${message}`
       : `${ADDON_LINT_PACKAGE} crashed: ${message}`
+  const staleNote = distPath ? retireAddonReviewerNote(distPath) : null
 
   return {
     status: 'failed',
     reason,
-    line: messages.addonLintFailed(reason, distDisplay),
+    line: messages.addonLintFailed(
+      reason,
+      distDisplay,
+      staleNoteDisplay(staleNote, distDisplay)
+    ),
     debugLine: messages.addonLintFailedDebug(reason)
   }
 }
 
 function unusableAddonLint(
   error: unknown,
-  distDisplay: string
+  input: RunAddonLintInput,
+  staleNote: string | null
 ): Extract<AddonLintResult, {status: 'failed'}> {
   const {cause, message} = error as {cause?: unknown; message?: unknown}
   const why = String((cause as Error | undefined)?.message || cause || message)
@@ -540,7 +557,11 @@ function unusableAddonLint(
   return {
     status: 'failed',
     reason,
-    line: messages.addonLintFailed(reason, distDisplay),
+    line: messages.addonLintUnusable(
+      reason,
+      formatInstallHint(input.projectPath, [ADDON_LINT_PACKAGE]),
+      staleNoteDisplay(staleNote, input.distDisplay)
+    ),
     debugLine: messages.addonLintFailedDebug(reason)
   }
 }

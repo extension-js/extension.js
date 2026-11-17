@@ -69,9 +69,11 @@ function formatResolverError(args: {
   installSpecs: string[]
   projectPath: string
   diagnostics: Record<string, unknown>
+  // A package that is there and broken is reinstalled, not installed.
+  action?: 'Install' | 'Reinstall'
 }): string {
   const hint = formatInstallHint(args.projectPath, args.installSpecs)
-  const readableLine = `[${args.integration}] ${args.headline} Install it with: ${hint}`
+  const readableLine = `[${args.integration}] ${args.headline} ${args.action || 'Install'} it with: ${hint}`
 
   if (!isVerboseMode()) {
     return readableLine
@@ -705,16 +707,76 @@ export function resolveOptionalPackageWithoutInstall(
   )
 }
 
-export async function ensureOptionalModuleLoaded<T = AnyModule>(
-  input: EnsureLoadInput<T>
-): Promise<T> {
-  const resolvedPath = await ensureOptionalPackageResolved(input)
-  const candidateBases = getResolutionBases(input.projectPath)
+function firstLineOf(error: unknown): string {
+  const text = error instanceof Error ? error.message : String(error)
+
+  return text.split('\n')[0].trim().replace(/\.$/, '')
+}
+
+// The reason travels with the error as its cause, so a caller can say why
+// the package is unusable without parsing the readable line.
+function optionalLoadError(
+  input: EnsureLoadInput<AnyModule>,
+  resolvedPath: string,
+  loadError: unknown,
+  brokenProjectCopy: boolean
+) {
+  const installSpecs = input.installDependencies || [input.dependencyId]
+  const diagnostics = {
+    ...buildDiagnostics({
+      integration: input.integration,
+      dependencyId: input.dependencyId,
+      projectPath: input.projectPath,
+      installDependencies: installSpecs,
+      verifyPackageIds: input.verifyPackageIds || installSpecs
+    }),
+    resolvedPath,
+    loadError:
+      loadError instanceof Error ? loadError.message : String(loadError)
+  }
+
+  return Object.assign(
+    codedError(
+      CODES.E_OPTIONAL_DEP_LOAD,
+      formatResolverError({
+        integration: input.integration,
+        dependencyId: input.dependencyId,
+        headline: brokenProjectCopy
+          ? `${input.dependencyId} at ${resolvedPath} could not be loaded: ${firstLineOf(loadError)}.`
+          : `${input.dependencyId} could not be loaded after it resolved.`,
+        installSpecs,
+        projectPath: input.projectPath,
+        diagnostics,
+        action: brokenProjectCopy ? 'Reinstall' : 'Install'
+      })
+    ),
+    {cause: loadError}
+  )
+}
+
+function loadResolvedOptionalModule<T>(
+  input: EnsureLoadInput<T>,
+  resolvedPath: string
+): T {
   let loaded: AnyModule
   let didLoad = false
   let lastLoadError: unknown
 
-  for (const basePath of candidateBases) {
+  // The copy the project resolves is the one the project asked for. When it
+  // is broken that is the answer, and no other install stands in for it.
+  const projectCopy = tryResolveWithBase(input.dependencyId, input.projectPath)
+
+  if (projectCopy) {
+    try {
+      loaded = createRequire(packageJsonPath(input.projectPath))(projectCopy)
+    } catch (error) {
+      throw optionalLoadError(input, projectCopy, error, true)
+    }
+
+    return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+  }
+
+  for (const basePath of getResolutionBases(input.projectPath)) {
     const req = createRequire(packageJsonPath(basePath))
     const candidateModuleIds = [input.dependencyId, resolvedPath]
 
@@ -741,100 +803,26 @@ export async function ensureOptionalModuleLoaded<T = AnyModule>(
   }
 
   if (!didLoad) {
-    const diagnostics = {
-      ...buildDiagnostics({
-        integration: input.integration,
-        dependencyId: input.dependencyId,
-        projectPath: input.projectPath,
-        installDependencies: input.installDependencies || [input.dependencyId],
-        verifyPackageIds: input.verifyPackageIds ||
-          input.installDependencies || [input.dependencyId]
-      }),
-      resolvedPath,
-      loadError:
-        lastLoadError instanceof Error
-          ? lastLoadError.message
-          : String(lastLoadError)
-    }
-
-    // The reason travels with the error, so a caller can say why the package
-    // is unusable. The readable line only carries it in verbose mode.
-    throw Object.assign(
-      codedError(
-        CODES.E_OPTIONAL_DEP_LOAD,
-        formatResolverError({
-          integration: input.integration,
-          dependencyId: input.dependencyId,
-          headline: `${input.dependencyId} could not be loaded after it resolved.`,
-          installSpecs: input.installDependencies || [input.dependencyId],
-          projectPath: input.projectPath,
-          diagnostics
-        })
-      ),
-      {cause: lastLoadError}
-    )
+    throw optionalLoadError(input, resolvedPath, lastLoadError, false)
   }
 
   return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+}
+
+export async function ensureOptionalModuleLoaded<T = AnyModule>(
+  input: EnsureLoadInput<T>
+): Promise<T> {
+  const resolvedPath = await ensureOptionalPackageResolved(input)
+
+  return loadResolvedOptionalModule(input, resolvedPath)
 }
 
 export function loadOptionalModuleWithoutInstall<T = AnyModule>(
   input: EnsureLoadInput<T>
 ): T {
   const resolvedPath = resolveOptionalPackageWithoutInstall(input)
-  const candidateBases = getResolutionBases(input.projectPath)
 
-  let loaded: AnyModule
-  let didLoad = false
-  let lastLoadError: unknown
-
-  for (const basePath of candidateBases) {
-    const req = createRequire(packageJsonPath(basePath))
-    const candidateModuleIds = [input.dependencyId, resolvedPath]
-
-    for (const candidateModuleId of candidateModuleIds) {
-      try {
-        loaded = req(candidateModuleId)
-        didLoad = true
-        break
-      } catch (error) {
-        lastLoadError = error
-      }
-    }
-
-    if (didLoad) break
-  }
-
-  if (!didLoad) {
-    try {
-      loaded = require(resolvedPath)
-      didLoad = true
-    } catch (directRequireError) {
-      lastLoadError = directRequireError
-    }
-  }
-
-  if (!didLoad) {
-    throw codedError(
-      CODES.E_OPTIONAL_DEP_LOAD,
-      formatResolverError({
-        integration: input.integration,
-        dependencyId: input.dependencyId,
-        headline: `${input.dependencyId} could not be loaded after resolving.`,
-        installSpecs: input.installDependencies || [input.dependencyId],
-        projectPath: input.projectPath,
-        diagnostics: {
-          resolvedPath,
-          loadError:
-            lastLoadError instanceof Error
-              ? lastLoadError.message
-              : String(lastLoadError)
-        }
-      })
-    )
-  }
-
-  return input.moduleAdapter ? input.moduleAdapter(loaded) : loaded
+  return loadResolvedOptionalModule(input, resolvedPath)
 }
 
 export async function ensureOptionalContractPackageResolved(input: {

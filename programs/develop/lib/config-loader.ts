@@ -83,9 +83,8 @@ function envPreloadOrder(mode: string, browser?: string): string[] {
   return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
 }
 
-// The config whose env files are on process.env now, and the file order each
-// loaded config was read with, so a cached config gets its own keys back.
-let envOwnerConfigPath: string | undefined
+// The file order each config was last read with. A loader that is told no
+// mode and no browser reads the config the way the run last did.
 const envOrderByConfigPath = new Map<string, string[]>()
 
 // What each preloaded key was set to, so a value something else wrote over
@@ -505,7 +504,19 @@ function isConfigLoadError(error: unknown): boolean {
   return (error as {code?: unknown} | null)?.code === CODES.E_CONFIG_LOAD
 }
 
+// Keyed by the file and the env file values it is read under. The mode and
+// the browser reach a config only through those files, so they are the key.
 const loadedConfigCache = new Map<string, Promise<FileConfig>>()
+
+// How many times each config file ran to the end, so a later run under other
+// env values is a fresh evaluation and not Node's cached module.
+const configEvaluations = new Map<string, number>()
+
+function preloadedEnvFingerprint(): string {
+  return JSON.stringify(
+    [...preloadedEnvValues].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  )
+}
 
 // Four loaders each report before rethrowing, so one bad config printed the
 // same frame once per entry point. The command-level handler prints the reason.
@@ -569,46 +580,47 @@ let configLoadQueue: Promise<unknown> = Promise.resolve()
 
 async function loadConfigFile(
   configPath: string,
-  envOrder: string[] = envPreloadOrder(envModeFor())
+  envOrder?: string[]
 ): Promise<FileConfig> {
   const absolutePath = path.resolve(configPath)
 
-  const cached = loadedConfigCache.get(absolutePath)
+  const turn = configLoadQueue.then(() => {
+    const order =
+      envOrder ||
+      envOrderByConfigPath.get(absolutePath) ||
+      envPreloadOrder(envModeFor())
 
-  if (cached) {
-    const config = await cached
+    // Every call gets its own files on process.env, so the answer never
+    // depends on which loader, or which project, happened to run before it.
+    preloadEnvFiles(path.dirname(absolutePath), order)
+    envOrderByConfigPath.set(absolutePath, order)
 
-    // Another project loaded since: hand this one its own file values back.
-    if (envOwnerConfigPath !== absolutePath) {
-      preloadEnvFiles(
-        path.dirname(absolutePath),
-        envOrderByConfigPath.get(absolutePath) || envOrder
-      )
+    const cacheKey = `${absolutePath}\0${preloadedEnvFingerprint()}`
+    const cached = loadedConfigCache.get(cacheKey)
+    if (cached) return cached
 
-      envOwnerConfigPath = absolutePath
-    }
-
-    return config
-  }
-
-  const loading = configLoadQueue
-    .then(() => loadConfigFileUncached(absolutePath, envOrder))
-    .then((value) => {
+    const loading = loadConfigFileUncached(absolutePath).then((value) => {
       assertConfigShape(absolutePath, value)
+      configEvaluations.set(
+        absolutePath,
+        (configEvaluations.get(absolutePath) || 0) + 1
+      )
 
       return value
     })
-  loadedConfigCache.set(absolutePath, loading)
-  configLoadQueue = loading.catch(() => undefined)
+    loadedConfigCache.set(cacheKey, loading)
 
-  try {
-    return await loading
-  } catch (error) {
-    // Don't poison the cache with a transient failure.
-    loadedConfigCache.delete(absolutePath)
+    return loading.catch((error: unknown) => {
+      // Don't poison the cache with a transient failure.
+      loadedConfigCache.delete(cacheKey)
 
-    throw error
-  }
+      throw error
+    })
+  })
+
+  configLoadQueue = turn.catch(() => undefined)
+
+  return turn
 }
 
 // A config file with side effects runs once per load. Another route may read
@@ -624,18 +636,26 @@ function canRetryAsCommonJs(absolutePath: string, importError: unknown) {
 }
 
 async function loadConfigFileUncached(
-  absolutePath: string,
-  envOrder: string[]
+  absolutePath: string
 ): Promise<FileConfig> {
-  const projectDir = path.dirname(absolutePath)
+  const requireFn = createRequire(import.meta.url)
+  const earlierRuns = configEvaluations.get(absolutePath) || 0
 
-  preloadEnvFiles(projectDir, envOrder)
-  envOwnerConfigPath = absolutePath
-  envOrderByConfigPath.set(absolutePath, envOrder)
+  // Node keeps a module it already ran. A run under other env values has to
+  // read the file again, or it would hand back the first run's answer.
+  if (earlierRuns > 0) {
+    delete requireFn.cache[absolutePath]
+
+    try {
+      // require() files a module under its real path, past any symlink.
+      delete requireFn.cache[fs.realpathSync(absolutePath)]
+    } catch {
+      // Ignore: a file that is gone fails below with its own reason.
+    }
+  }
 
   try {
     if (absolutePath.endsWith('.cjs')) {
-      const requireFn = createRequire(import.meta.url)
       const required = requireFn(absolutePath)
 
       return unwrapDefaultExport(required) as FileConfig
@@ -645,7 +665,10 @@ async function loadConfigFileUncached(
     // and import.meta.dirname is the project, which a temp copy both broke.
     prepareImportMetaEnv(absolutePath)
 
-    const module = await import(pathToFileURL(absolutePath).href)
+    const fileUrl = pathToFileURL(absolutePath).href
+    const module = await import(
+      earlierRuns > 0 ? `${fileUrl}?env=${earlierRuns}` : fileUrl
+    )
 
     return unwrapDefaultExport(module) as FileConfig
   } catch (err: unknown) {
@@ -836,9 +859,16 @@ export async function loadProjectConfigDefaults(
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
+        // Told nothing about the run, this reads the config as the run last
+        // did, and never as a production build in the middle of a dev session.
         const userConfig = (await loadConfigFile(
           configPath,
-          envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
+          envTarget?.mode || envTarget?.browser
+            ? envPreloadOrder(
+                envModeFor(undefined, envTarget),
+                envTarget?.browser
+              )
+            : undefined
         )) as ProjectConfigDefaults | undefined
 
         return {
