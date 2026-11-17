@@ -28,26 +28,9 @@ const shouldGenerateDts = (() => {
   }
 })()
 
-const externals = [
-  'react-refresh',
-  '@rspack/plugin-react-refresh',
-  '@rspack/plugin-preact-refresh',
-  '@prefresh/core',
-  '@prefresh/utils',
-
-  'vue-loader',
-  '@vue/compiler-sfc',
-  'svelte-loader',
-  'solid-js/h',
-
-  'sass-loader',
-  'less-loader',
-  'postcss-loader',
-  'postcss-preset-env',
-
-  // Agent-bridge control WS (Node-side, required at runtime)
-  'ws'
-]
+// autoExternal already keeps every package.json dependency out of the bundle.
+// solid-js is the user's own package, so it is named here.
+const externals = ['solid-js/h']
 
 // Browser-side runtime files run INSIDE the user's extension; they must not
 // receive the Node-only require shim (node:module is unresolvable there).
