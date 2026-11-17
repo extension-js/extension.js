@@ -90,6 +90,34 @@ test('pull requests run each suite once on the engines floor, newer Node on main
   assert.match(step(lane, 'Close the red lane'), /if: success\(\)/)
 })
 
+test('windows runs the suites as two parallel jobs, each with its own timeout', () => {
+  const ci = workflow('ci.yml')
+
+  assert.equal(ci.includes('\n  tests-windows:\n'), false)
+
+  const develop = jobSection(ci, 'tests-windows-develop')
+  const cli = jobSection(ci, 'tests-windows-cli')
+
+  for (const job of [develop, cli]) {
+    assert.match(job, /^ {4}runs-on: windows-latest$/m)
+    assert.match(job, /^ {4}timeout-minutes: \d+$/m)
+    assert.doesNotMatch(job, /^ {4}needs: /m)
+  }
+
+  assert.match(develop, /run: pnpm test:dev$/m)
+  assert.match(cli, /run: pnpm test:cli$/m)
+  assert.match(cli, /run: pnpm ci:test:create$/m)
+  assert.match(scripts['test:dev'], /run-test\.mjs develop$/)
+  assert.match(scripts['test:cli'], /run-test\.mjs cli$/)
+
+  // The Edge locate proof reads the compiled CLI, so it stays beside it.
+  assert.equal(ci.split('verify-edge-system-locate.mjs').length - 1, 1)
+  assert.ok(
+    cli.indexOf('--filter extension compile') <
+      cli.indexOf('verify-edge-system-locate.mjs')
+  )
+})
+
 test('no ci:test script is an alias of another', () => {
   const bodies = Object.entries(scripts)
     .filter(([name]) => name.startsWith('ci:test:'))
