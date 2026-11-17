@@ -49,6 +49,7 @@ export async function bootLoopback(options: {
   env?: Readonly<Record<string, string | undefined>>
   beforeServer?: (compiler: Compiler, distPath: string) => void
   input?: (port: number) => Partial<ServerConfigInput>
+  start?: (server: RspackDevServer, port: number) => Promise<void>
   mutateConfig?: (config: Configuration) => Configuration
 }): Promise<LoopbackSession> {
   const {root} = options
@@ -109,7 +110,7 @@ export async function bootLoopback(options: {
     : config
   const server = new RspackDevServer(finalConfig, compiler)
 
-  await server.start()
+  await (options.start ? options.start(server, port) : server.start())
 
   return {
     root,

@@ -118,9 +118,11 @@ import {createSessionRestartHandler} from './session-restart-handler'
 import {withSessionStartPrune} from './session-start-prune'
 import {
   announceReadyOnCleanCompile,
+  createBindFailureRelay,
   createReadyAnnouncer,
   createStartFailure,
   readStartTimeoutMs,
+  releaseFailedStart,
   startBundler
 } from './start-bundler'
 
@@ -821,6 +823,10 @@ export async function devServer(
 
   // The middleware reads the live compiler's output; a restart swaps it.
   let activeCompiler: Compiler | null = null
+  const bindFailure = createBindFailureRelay()
+  // Same rule as the dev command: only a caller that asked for it is exited.
+  const exitOnStartFailure =
+    (devOptions.exitOnError ?? false) && process.env.VITEST !== 'true'
 
   // `folders: {public: false}` reads no folder at all, so there is nothing to
   // serve over HTTP and nothing to watch for a rebuild.
@@ -843,7 +849,7 @@ export async function devServer(
     server: {
       type: reservedHttpServer({
         takeReservation: () => portManager.takeReservation(),
-        onBindError: (error) => failStart(error),
+        onBindError: (error) => bindFailure.report(error),
         holdOnClose: () => portManager.shouldHoldPortOnClose(),
         onHeld: (reservation) => portManager.adoptHeldPort(reservation)
       })
@@ -1055,16 +1061,20 @@ export async function devServer(
   const failStart = createStartFailure({
     metadata,
     lifecycle,
-    onExitError: extendedOptions.onExitError
+    onExitError: extendedOptions.onExitError,
+    exitOnError: exitOnStartFailure
   })
 
   const startSessionBundler = (server: RspackDevServer) =>
-    startBundler(server, {
-      timeoutMs: START_TIMEOUT_MS,
-      onSlowStart: () =>
-        console.error(messages.devServerStartTimeout(START_TIMEOUT_MS)),
-      onFailure: failStart
-    })
+    startBundler(
+      {start: () => bindFailure.during(() => server.start())},
+      {
+        timeoutMs: START_TIMEOUT_MS,
+        onSlowStart: () =>
+          console.error(messages.devServerStartTimeout(START_TIMEOUT_MS)),
+        onFailure: failStart
+      }
+    )
 
   const firstBundle = await createCompilerAndServer({isRestart: false})
   let currentServer: RspackDevServer | null = firstBundle.server
@@ -1078,7 +1088,19 @@ export async function devServer(
   }
 
   lifecycle.starting({requestedPort: Number(devOptions.port), port})
-  await startSessionBundler(firstBundle.server)
+
+  try {
+    await startSessionBundler(firstBundle.server)
+  } catch (error) {
+    // Reached only by a caller that keeps running, so nothing stays open.
+    await releaseFailedStart({
+      server: firstBundle.server,
+      releasePort: () => portManager.terminateCurrentInstance(),
+      closeControlBridge: controlBridge.close
+    })
+
+    throw error
+  }
 
   // Plugins that find an entrypoint change ask for this; the request outlives
   // the compiler that noticed it because the scheduler belongs to the session.

@@ -33,6 +33,8 @@ export interface OpenControlBridgeOptions {
 export interface ControlBridgeOpening {
   controlPort: number | null
   unavailableReason: string | null
+  // Closes the control server, for a session that ends without a process exit.
+  close: () => Promise<void>
 }
 
 export async function openControlBridge(
@@ -81,7 +83,11 @@ export async function openControlBridge(
     ensureSessionStateIgnoreFile(packageJsonDir)
     writePersistedControlPort(controlPortFile, controlServer.port)
 
-    return {controlPort, unavailableReason: null}
+    return {
+      controlPort,
+      unavailableReason: null,
+      close: () => controlServer.close()
+    }
   } catch (error) {
     // No control port means no reload transport at all, so say it here rather
     // than let the broker blame a worker that was never given a port to dial.
@@ -96,6 +102,6 @@ export async function openControlBridge(
       // Ignore
     }
 
-    return {controlPort, unavailableReason: reason}
+    return {controlPort, unavailableReason: reason, close: async () => {}}
   }
 }

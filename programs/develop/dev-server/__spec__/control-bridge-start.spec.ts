@@ -102,7 +102,8 @@ describe('opening the control bridge', () => {
     expect(startServer.mock.calls[1]?.[0]?.port).toBeUndefined()
     expect(opening).toEqual({
       controlPort: null,
-      unavailableReason: 'listen EADDRNOTAVAIL 10.0.0.9:0'
+      unavailableReason: 'listen EADDRNOTAVAIL 10.0.0.9:0',
+      close: expect.any(Function)
     })
 
     expect(broker.noteControlPortUnavailable.mock.calls).toEqual([
@@ -142,7 +143,8 @@ describe('opening the control bridge', () => {
 
     expect(opening).toEqual({
       controlPort: null,
-      unavailableReason: 'listen EACCES 127.0.0.1:0'
+      unavailableReason: 'listen EACCES 127.0.0.1:0',
+      close: expect.any(Function)
     })
   })
 

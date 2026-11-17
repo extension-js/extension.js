@@ -2,9 +2,12 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {stripAnsi} from '../lifecycle-stream'
 import {
   announceReadyOnCleanCompile,
+  createBindFailureRelay,
   createReadyAnnouncer,
   createStartFailure,
+  devServerStartError,
   readStartTimeoutMs,
+  releaseFailedStart,
   startBundler
 } from '../start-bundler'
 
@@ -136,8 +139,7 @@ describe('starting the bundler', () => {
     expect(() => fail(new Error('boom'))).toThrow(new Error('exit 1'))
   })
 
-  // Pins today's behavior: nothing here asks whether the caller wants an exit.
-  it('ends the process on a start failure for every caller', () => {
+  it('ends the process for a caller that did not say otherwise', () => {
     const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
       throw new Error('process.exit')
     }) as never)
@@ -154,6 +156,139 @@ describe('starting the bundler', () => {
     } finally {
       exit.mockRestore()
     }
+  })
+
+  it('rejects with a coded error and exits nothing for a library caller', async () => {
+    const failure = new Error(
+      '\u001b[31m\u23f5\u23f5\u23f5 listen EADDRINUSE 127.0.0.1:8080\u001b[39m'
+    )
+    const writeError = vi.fn()
+    const failed = vi.fn()
+    const print = vi.fn()
+    const onExitError = vi.fn()
+    const exit = vi.fn((): never => {
+      throw new Error('exit')
+    })
+    const processExit = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('process.exit')
+    }) as never)
+
+    try {
+      const fail = createStartFailure({
+        metadata: {writeError},
+        lifecycle: {failed},
+        onExitError,
+        print,
+        exit,
+        exitOnError: false
+      })
+      const rejection = await startBundler(
+        {start: async () => Promise.reject(failure)},
+        {timeoutMs: 30000, onSlowStart: () => {}, onFailure: fail}
+      ).then(
+        () => null,
+        (error: unknown) => error
+      )
+
+      expect(rejection).toBeInstanceOf(Error)
+      expect(rejection).toMatchObject({
+        code: 'E_DEV_SERVER_START',
+        message: 'listen EADDRINUSE 127.0.0.1:8080',
+        cause: failure
+      })
+
+      // The session records still say why it ended.
+      expect(writeError).toHaveBeenCalledWith(
+        'dev_server_start_failed',
+        failure.message
+      )
+
+      expect(failed).toHaveBeenCalledWith(failure.message)
+      expect(print).not.toHaveBeenCalled()
+      expect(onExitError).not.toHaveBeenCalled()
+      expect(exit).not.toHaveBeenCalled()
+      expect(processExit).not.toHaveBeenCalled()
+    } finally {
+      processExit.mockRestore()
+    }
+  })
+
+  it('codes a failure that is not an Error and one with no text', () => {
+    expect(devServerStartError('plain reason')).toMatchObject({
+      code: 'E_DEV_SERVER_START',
+      message: 'plain reason',
+      cause: 'plain reason'
+    })
+
+    expect(devServerStartError(new Error('')).message).toBe(
+      'The dev server could not start.'
+    )
+  })
+
+  it('hands a bind failure to the start that is waiting on it', async () => {
+    const relay = createBindFailureRelay()
+    const bind = new Error('listen EADDRINUSE')
+    const pending = relay.during(() => new Promise<void>(() => {}))
+
+    relay.report(bind)
+    await expect(pending).rejects.toBe(bind)
+
+    // A start that settles on its own is passed through either way.
+    await expect(relay.during(async () => 'up')).resolves.toBe('up')
+    await expect(
+      relay.during(async () => Promise.reject(new Error('other')))
+    ).rejects.toThrow('other')
+
+    // One reported with no start waiting fails the next start, once.
+    relay.report(bind)
+    const work = vi.fn(async () => 'up')
+
+    await expect(relay.during(work)).rejects.toBe(bind)
+    expect(work).not.toHaveBeenCalled()
+    await expect(relay.during(work)).resolves.toBe('up')
+  })
+
+  it('releases a failed start step by step, whatever each step does', async () => {
+    const order: string[] = []
+
+    await releaseFailedStart({
+      server: {
+        stop: async () => {
+          order.push('stop')
+
+          throw new Error('not running')
+        }
+      },
+      releasePort: async () => {
+        order.push('port')
+      },
+      closeControlBridge: async () => {
+        order.push('bridge')
+      }
+    })
+
+    expect(order).toEqual(['stop', 'port', 'bridge'])
+
+    // A stop that never answers is given up on, and the rest still runs.
+    const late: string[] = []
+
+    await releaseFailedStart({
+      server: {stop: () => new Promise<void>(() => {})},
+      releasePort: async () => {
+        late.push('port')
+      },
+      closeControlBridge: async () => {
+        late.push('bridge')
+      },
+      stopTimeoutMs: 20
+    })
+
+    expect(late).toEqual(['port', 'bridge'])
+    await releaseFailedStart({
+      server: {},
+      releasePort: async () => {},
+      closeControlBridge: async () => {}
+    })
   })
 
   it('warns once when the start outlives the timeout and clears it after', async () => {
