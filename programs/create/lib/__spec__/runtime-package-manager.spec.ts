@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   isBunRuntime,
   isDenoRuntime,
@@ -44,7 +44,22 @@ function makeProject(files: Record<string, string> = {}): string {
   return dir
 }
 
+// Every variable the invoking manager can be read from, emptied so the one
+// a test sets is the only one that speaks.
+function withInvokerEnv(env: Record<string, string>) {
+  for (const name of [
+    'npm_config_user_agent',
+    'npm_execpath',
+    'NPM_EXEC_PATH',
+    'BUN_INSTALL'
+  ]) {
+    vi.stubEnv(name, env[name] ?? '')
+  }
+}
+
 afterEach(() => {
+  vi.unstubAllEnvs()
+
   while (tempDirs.length) {
     fs.rmSync(tempDirs.pop() as string, {recursive: true, force: true})
   }
@@ -75,6 +90,41 @@ describe('resolveScaffoldPackageManager', () => {
     expect(
       withDenoGlobal(() => withBunGlobal(() => resolveScaffoldPackageManager()))
     ).toBe('deno')
+  })
+
+  it('reports the package manager from the invoking environment', () => {
+    withInvokerEnv({npm_config_user_agent: 'pnpm/9.9.0 npm/? node/v20.0.0'})
+
+    expect(resolveScaffoldPackageManager()).toBe('pnpm')
+  })
+
+  it('falls back to npm when no package manager is in the environment', () => {
+    withInvokerEnv({})
+
+    expect(resolveScaffoldPackageManager()).toBe('npm')
+  })
+
+  it('ignores an installer variable that only says what is on the machine', () => {
+    withInvokerEnv({BUN_INSTALL: '/Users/someone/.bun'})
+
+    expect(resolveScaffoldPackageManager()).toBe('npm')
+  })
+
+  it('reads the invoking manager out of a bun-run install', () => {
+    withInvokerEnv({
+      BUN_INSTALL: '/Users/someone/.bun',
+      npm_config_user_agent: 'bun/1.1.0 npm/? node/v22.12.0'
+    })
+
+    expect(resolveScaffoldPackageManager()).toBe('bun')
+  })
+
+  it('reads the invoking manager out of an exec path when no agent is set', () => {
+    withInvokerEnv({
+      npm_execpath: '/usr/local/lib/node_modules/yarn/bin/yarn.js'
+    })
+
+    expect(resolveScaffoldPackageManager()).toBe('yarn')
   })
 })
 

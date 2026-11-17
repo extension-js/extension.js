@@ -207,6 +207,8 @@ describe('the order a launch resolves its binary in', () => {
       USERPROFILE: root,
       LOCALAPPDATA: path.join(root, 'AppData', 'Local'),
       EXT_BROWSERS_CACHE_DIR: cacheRoot,
+      // This env drops the suite's own guard, and nothing found offers a download.
+      EXTENSION_NO_INSTALL_PROMPT: '1',
       FORCE_COLOR: '0',
       NO_COLOR: '1'
     } as unknown as NodeJS.ProcessEnv

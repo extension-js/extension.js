@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from './messages'
+import {failStep} from './utils'
 
 const manifestSearchMaxDepth = 3
 const ignoredManifestDirs = new Set(['node_modules', '.git'])
@@ -87,6 +88,34 @@ export async function readManifestJson(projectPath: string): Promise<{
 
     return {manifestJsonPath, manifestJson: JSON.parse(raw)}
   } catch (error) {
-    throw new Error(messages.manifestNotParseable(manifestJsonPath, error))
+    throw failStep(
+      messages.manifestNotParseable(manifestJsonPath, error),
+      error
+    )
+  }
+}
+
+// Every step that reads the scaffold's package.json reads it here, so a broken
+// one is refused the same way everywhere. Only a missing file answers nothing.
+export function readTemplatePackageJson(
+  projectPath: string
+): Record<string, unknown> | undefined {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'))
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new TypeError('The file does not hold a JSON object')
+    }
+
+    return parsed as Record<string, unknown>
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') return undefined
+
+    throw failStep(
+      messages.templatePackageJsonNotParseable(packageJsonPath, error),
+      error
+    )
   }
 }

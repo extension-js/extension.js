@@ -1,9 +1,21 @@
 import {describe, expect, it} from 'vitest'
 import {
+  BrowserInstallPrivilegeError,
   BrowserNotInstallableError,
+  isBrowserInstallPrivilegeError,
   isBrowserNotInstallableError,
   normalizeBrowserName
 } from '../lib/browser-target'
+
+function captured(run: () => unknown): unknown {
+  try {
+    run()
+  } catch (error) {
+    return error
+  }
+
+  return undefined
+}
 
 describe('browser target normalization', () => {
   it('maps engine aliases to concrete targets', () => {
@@ -23,12 +35,10 @@ describe('browser target normalization', () => {
     expect(() => normalizeBrowserName('brave')).toThrow(/never downloads/)
     expect(() => normalizeBrowserName('chrome,edge')).toThrow(/never downloads/)
 
-    try {
-      normalizeBrowserName('brave')
-    } catch (error) {
-      expect(isBrowserNotInstallableError(error)).toBe(true)
-      expect(error).toBeInstanceOf(BrowserNotInstallableError)
-    }
+    const error = captured(() => normalizeBrowserName('brave'))
+
+    expect(isBrowserNotInstallableError(error)).toBe(true)
+    expect(error).toBeInstanceOf(BrowserNotInstallableError)
   })
 
   it('explains that Safari needs Xcode, not a browser install', () => {
@@ -38,10 +48,62 @@ describe('browser target normalization', () => {
       /ships with macOS/
     )
 
-    try {
-      normalizeBrowserName('safari')
-    } catch (error) {
-      expect(isBrowserNotInstallableError(error)).toBe(true)
+    const error = captured(() => normalizeBrowserName('safari'))
+
+    expect(isBrowserNotInstallableError(error)).toBe(true)
+    expect(error).toBeInstanceOf(BrowserNotInstallableError)
+  })
+})
+
+describe('the error checks, which must hold across two copies of this package', () => {
+  const checks = [
+    {
+      check: isBrowserNotInstallableError,
+      thrown: new BrowserNotInstallableError('no'),
+      name: 'BrowserNotInstallableError',
+      code: 'BROWSER_NOT_INSTALLABLE'
+    },
+    {
+      check: isBrowserInstallPrivilegeError,
+      thrown: new BrowserInstallPrivilegeError('no'),
+      name: 'BrowserInstallPrivilegeError',
+      code: 'BROWSER_INSTALL_PRIVILEGE'
     }
+  ]
+
+  it.each(checks)('$name is known by its class, its name or its code', ({
+    check,
+    thrown,
+    name,
+    code
+  }) => {
+    expect(thrown).toBeInstanceOf(Error)
+    expect({
+      name: thrown.name,
+      code: thrown.code,
+      message: thrown.message
+    }).toEqual({name, code, message: 'no'})
+
+    expect(check(thrown)).toBe(true)
+    expect(check({name})).toBe(true)
+    expect(check({code})).toBe(true)
+  })
+
+  it.each(checks)('$name is not seen in anything else', ({check}) => {
+    expect(check(new Error('no'))).toBe(false)
+    expect(check({name: 'Error', code: 'ENOENT'})).toBe(false)
+    expect(check('BROWSER_NOT_INSTALLABLE')).toBe(false)
+    expect(check(null)).toBe(false)
+    expect(check(undefined)).toBe(false)
+  })
+
+  it('neither check answers for the other error', () => {
+    expect(
+      isBrowserNotInstallableError(new BrowserInstallPrivilegeError('no'))
+    ).toBe(false)
+
+    expect(
+      isBrowserInstallPrivilegeError(new BrowserNotInstallableError('no'))
+    ).toBe(false)
   })
 })

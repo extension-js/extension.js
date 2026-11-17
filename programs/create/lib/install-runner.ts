@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import type {ChildProcess, SpawnOptions} from 'node:child_process'
 import {spawn} from 'cross-spawn'
 import {corepackRegistryEnv} from './corepack-registry'
 
@@ -88,17 +89,22 @@ export function withoutInheritedReleaseAge(
   return env
 }
 
-function buildExecEnv(cwd: string): Record<string, string | undefined> {
+export function buildExecEnv(
+  source: Record<string, string | undefined>,
+  cwd: string,
+  platform: NodeJS.Platform = process.platform,
+  execPath: string = process.execPath
+): Record<string, string | undefined> {
   const env = {
-    ...withoutInheritedReleaseAge(process.env),
-    ...corepackRegistryEnv(process.env, cwd)
+    ...withoutInheritedReleaseAge(source),
+    ...corepackRegistryEnv(source, cwd)
   }
 
-  if (process.platform !== 'win32') return env
+  if (platform !== 'win32') return env
 
-  const nodeDir = path.dirname(process.execPath)
-  const pathSep = path.delimiter
-  const existing = process.env.PATH || process.env.Path || ''
+  const nodeDir = path.win32.dirname(execPath)
+  const pathSep = path.win32.delimiter
+  const existing = source.PATH || source.Path || ''
 
   if (existing.includes(nodeDir)) return env
 
@@ -109,23 +115,93 @@ function buildExecEnv(cwd: string): Record<string, string | undefined> {
   }
 }
 
-type InstallResult = {
+const DEFAULT_INSTALL_TIMEOUT_MS = 30 * 60_000
+// A longer delay overflows the timer and fires at once.
+const LONGEST_TIMER_MS = 2_147_483_647
+
+// Its own variable: the fetch budget is a minute, and a user who raised that
+// to two for a slow download must not have a cold install cut off at two.
+export function installTimeoutMs(
+  source: Record<string, string | undefined> = process.env
+): number {
+  const raw = parseInt(
+    String(source.EXTENSION_CREATE_INSTALL_TIMEOUT_MS || ''),
+    10
+  )
+
+  return Number.isFinite(raw) && raw > 0
+    ? Math.min(raw, LONGEST_TIMER_MS)
+    : DEFAULT_INSTALL_TIMEOUT_MS
+}
+
+export function installTimedOutReason(ms: number): string {
+  return `The install did not finish within ${Math.round(ms / 1000)} seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
+}
+
+export type SpawnProcess = (
+  command: string,
+  args: string[],
+  options: SpawnOptions
+) => ChildProcess
+
+export type InstallResult = {
   code: number | null
   stderr: string
   stdout: string
+  // Why the runner ended the child itself, set only when it did.
+  reason?: string
+}
+
+export interface RunInstallOptions {
+  cwd: string
+  stdio: 'inherit' | 'ignore' | 'pipe'
+  timeoutMs?: number
+  spawn?: SpawnProcess
+  platform?: NodeJS.Platform
+}
+
+export type InstallRunner = (
+  command: string,
+  args: string[],
+  opts: RunInstallOptions
+) => Promise<InstallResult>
+
+// A .cmd shim runs the manager as a grandchild of cmd.exe, which a plain kill
+// would orphan, so Windows ends the whole tree.
+function endInstall(
+  child: ChildProcess,
+  spawnProcess: SpawnProcess,
+  platform: NodeJS.Platform
+) {
+  try {
+    if (platform === 'win32' && child.pid !== undefined) {
+      spawnProcess('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
+        stdio: 'ignore'
+      }).on('error', () => {})
+
+      return
+    }
+
+    child.kill('SIGTERM')
+  } catch {
+    // The child is already gone, and the timeout is still what gets reported.
+  }
 }
 
 export async function runInstall(
   command: string,
   args: string[],
-  opts: {cwd: string; stdio: 'inherit' | 'ignore' | 'pipe'}
+  opts: RunInstallOptions
 ): Promise<InstallResult> {
-  const child = spawn(command, args, {
+  const spawnProcess = opts.spawn ?? spawn
+  const platform = opts.platform ?? process.platform
+  const timeoutMs = opts.timeoutMs ?? installTimeoutMs()
+  const child = spawnProcess(command, args, {
     stdio: opts.stdio,
     cwd: opts.cwd,
     // cross-spawn runs the .cmd shims on Windows and escapes each argument,
     // so the project path never becomes part of a shell string.
-    env: buildExecEnv(opts.cwd) as NodeJS.ProcessEnv
+    env: buildExecEnv(process.env, opts.cwd, platform) as NodeJS.ProcessEnv
   })
   let stdout = ''
   let stderr = ''
@@ -143,11 +219,25 @@ export async function runInstall(
   }
 
   return new Promise<InstallResult>((resolve, reject) => {
+    // Resolved here and not on close: a surviving grandchild can hold the
+    // pipes open, and close would then never arrive.
+    const timer = setTimeout(() => {
+      endInstall(child, spawnProcess, platform)
+      resolve({
+        code: null,
+        stderr,
+        stdout,
+        reason: installTimedOutReason(timeoutMs)
+      })
+    }, timeoutMs)
+
     child.on('close', (code) => {
+      clearTimeout(timer)
       resolve({code, stderr, stdout})
     })
 
     child.on('error', (error) => {
+      clearTimeout(timer)
       reject(error)
     })
   })

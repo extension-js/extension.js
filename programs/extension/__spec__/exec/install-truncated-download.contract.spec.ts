@@ -14,30 +14,54 @@ function cliBin(): string {
   return path.join(root, 'dist', 'cli.js')
 }
 
+// Windows names the binary chrome.exe and judges it by that name alone.
+const CHROME = process.platform === 'win32' ? 'chrome.exe' : 'chrome'
+
 // A stand-in for the npx the installer shells out to. It fills the --path the
 // CLI hands it the way an interrupted or a finished download would, then
 // exits 0 either way, which is exactly the exit code the CLI used to trust.
-function writeFakeNpx(binDir: string, mode: 'truncated' | 'complete') {
-  const body =
-    mode === 'truncated'
-      ? ': > "$dir/chrome"'
-      : 'printf "#!/bin/sh\\nexit 0\\n" > "$dir/chrome" && chmod 755 "$dir/chrome"'
-  const script = [
-    '#!/bin/sh',
-    'dest=""',
-    'while [ $# -gt 0 ]; do',
-    '  if [ "$1" = "--path" ]; then dest="$2"; shift; fi',
-    '  shift',
-    'done',
-    'dir="$dest/chrome/linux-152.0.9999.1/chrome-linux64"',
-    'mkdir -p "$dir"',
-    body,
-    'exit 0',
+function writeFakeNpx(
+  binDir: string,
+  mode: 'truncated' | 'complete' | 'hangs'
+) {
+  const script = path.join(binDir, 'fake-npx.cjs')
+  const body = [
+    // An installer that never ends, for the timeout to stop.
+    mode === 'hangs' ? 'setInterval(() => {}, 1000)' : '',
+    "const fs = require('node:fs')",
+    "const path = require('node:path')",
+    'const args = process.argv.slice(2)',
+    "if (!args.includes('--path')) process.exit(2)",
+    "const dest = args[args.indexOf('--path') + 1]",
+    'const dir = path.join(',
+    "  dest, 'chrome', 'linux-152.0.9999.1', 'chrome-linux64'",
+    ')',
+    'fs.mkdirSync(dir, {recursive: true})',
+    `const file = path.join(dir, ${JSON.stringify(CHROME)})`,
+    mode === 'complete'
+      ? "fs.writeFileSync(file, '#!/bin/sh\\nexit 0\\n')"
+      : "fs.writeFileSync(file, '')",
+    mode === 'complete' ? 'fs.chmodSync(file, 0o755)' : '',
     ''
   ].join('\n')
+
+  fs.writeFileSync(script, body)
+
+  // Each launcher only hands its arguments to the script above, so the part
+  // one platform cannot run is the two lines of the other platform's file.
   const npx = path.join(binDir, 'npx')
-  fs.writeFileSync(npx, script)
+
+  fs.writeFileSync(
+    npx,
+    `#!/bin/sh\nexec "${process.execPath}" "${script}" "$@"\n`
+  )
+
   fs.chmodSync(npx, 0o755)
+
+  fs.writeFileSync(
+    path.join(binDir, 'npx.cmd'),
+    `@echo off\r\n"${process.execPath}" "%~dp0fake-npx.cjs" %*\r\n`
+  )
 }
 
 function runInstall(
@@ -45,7 +69,14 @@ function runInstall(
   env: Record<string, string>,
   binDir: string
 ) {
-  const {npm_execpath: _npmExecPath, ...base} = process.env
+  // Windows spells the variable Path, and a child reads one spelling only.
+  const base = {...process.env}
+
+  for (const key of Object.keys(base)) {
+    if (key === 'npm_execpath' || key.toLowerCase() === 'path') {
+      Reflect.deleteProperty(base, key)
+    }
+  }
 
   const result = spawnSync(process.execPath, [cliBin(), ...args], {
     encoding: 'utf8',
@@ -67,6 +98,8 @@ function runInstall(
   }
 }
 
+// The npx.cmd stand-in has never run on Windows, so this stays off there
+// until one Windows run of these three cases is seen to pass.
 describe.skipIf(process.platform === 'win32')(
   'install verifies the destination before claiming success',
   () => {
@@ -129,6 +162,114 @@ describe.skipIf(process.platform === 'win32')(
       expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
     })
 
+    // PATH is the empty bin folder alone, so no package runner can start:
+    // the stand-in is not written and the machine's own npx is out of reach.
+    it('frames a package runner that is not there as its own failure, not a retry', () => {
+      expect(fs.readdirSync(binDir)).toEqual([])
+
+      const result = runInstall(
+        ['install', 'chrome', '--output', 'json'],
+        {EXT_BROWSERS_CACHE_DIR: cacheRoot, PATH: binDir},
+        binDir
+      )
+
+      expect(result.status).toBe(1)
+      const lines = result.stdout.split('\n').filter((line) => line.trim())
+      expect(lines).toHaveLength(1)
+      const frame = JSON.parse(lines[0]) as Record<string, unknown>
+      expect(frame).toMatchObject({
+        schema: 1,
+        ok: false,
+        command: 'install',
+        status: 'failed'
+      })
+
+      const error = frame.error as {code: string; message: string}
+      expect(error.code).toBe('E_BROWSER_INSTALLER_NOT_FOUND')
+      expect(error.message).toBe(
+        "Couldn't install Chrome. The package runner npx wasn't found on " +
+          'this machine. Install npm, or run this command through a package ' +
+          'manager that is installed.'
+      )
+
+      expect(String(frame.hint)).toMatch(/^Install the package runner/)
+      expect(String(frame.hint)).not.toMatch(/retry|manually/i)
+      expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
+    })
+
+    it('stops an installer that never ends at EXTENSION_INSTALL_TIMEOUT_MS and frames it as E_BROWSER_INSTALL_TIMEOUT', () => {
+      writeFakeNpx(binDir, 'hangs')
+
+      const result = runInstall(
+        ['install', 'chrome', '--output', 'json'],
+        {
+          EXT_BROWSERS_CACHE_DIR: cacheRoot,
+          EXTENSION_INSTALL_TIMEOUT_MS: '700'
+        },
+        binDir
+      )
+
+      expect(result.status).toBe(1)
+      const lines = result.stdout.split('\n').filter((line) => line.trim())
+      expect(lines).toHaveLength(1)
+      const frame = JSON.parse(lines[0]) as Record<string, unknown>
+      const error = frame.error as {code: string; message: string}
+
+      expect(error.code).toBe('E_BROWSER_INSTALL_TIMEOUT')
+      // A slow start may be stopped before the stand-in wrote a file.
+      expect(error.message).toMatch(
+        /^Couldn't install Chrome\. The installer didn't finish within 700 ms and was stopped\. (The incomplete files were removed\. )?Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again\.$/
+      )
+
+      expect(frame.hint).toBe(
+        'Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again.'
+      )
+
+      // The broken tree and the lock are both gone, and the root stays.
+      expect(fs.readdirSync(cacheRoot)).toEqual([])
+    })
+
+    // EXT_BROWSERS_CACHE_DIR pointed at an application folder, where the
+    // chrome folder is a browser profile. Built from nothing, in a temp folder.
+    it('refuses to install over a folder that holds a browser profile, and changes nothing in it', () => {
+      writeFakeNpx(binDir, 'complete')
+      const profile = path.join(cacheRoot, 'chrome')
+      fs.mkdirSync(path.join(profile, 'Default'), {recursive: true})
+      fs.writeFileSync(path.join(profile, 'Default', 'Preferences'), '{"a":1}')
+      fs.writeFileSync(path.join(profile, 'Local State'), '{"b":2}')
+
+      const result = runInstall(
+        ['install', 'chrome', '--output', 'json'],
+        {EXT_BROWSERS_CACHE_DIR: cacheRoot},
+        binDir
+      )
+
+      expect(result.status).toBe(1)
+      const frame = JSON.parse(result.stdout) as Record<string, unknown>
+      const error = frame.error as {code: string; message: string}
+
+      expect(error.code).toBe('E_BROWSER_FOLDER_FOREIGN')
+      expect(error.message).toBe(
+        `Couldn't install Chrome. The folder ${profile} holds files ` +
+          "Extension.js didn't put there, so nothing in it was changed. " +
+          'Set EXT_BROWSERS_CACHE_DIR to a folder that only Extension.js uses.'
+      )
+
+      expect(frame.hint).toBe(
+        'Set EXT_BROWSERS_CACHE_DIR to a folder that only Extension.js uses.'
+      )
+
+      expect(fs.readdirSync(cacheRoot)).toEqual(['chrome'])
+      expect(fs.readdirSync(profile).sort()).toEqual(['Default', 'Local State'])
+      expect(
+        fs.readFileSync(path.join(profile, 'Default', 'Preferences'), 'utf8')
+      ).toBe('{"a":1}')
+
+      expect(fs.readFileSync(path.join(profile, 'Local State'), 'utf8')).toBe(
+        '{"b":2}'
+      )
+    })
+
     it('still reports a finished download as installed', () => {
       writeFakeNpx(binDir, 'complete')
 
@@ -155,7 +296,7 @@ describe.skipIf(process.platform === 'win32')(
             'chrome',
             'linux-152.0.9999.1',
             'chrome-linux64',
-            'chrome'
+            CHROME
           )
         )
       ).toBe(true)

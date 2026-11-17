@@ -5,14 +5,43 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const runInstallMock = vi.fn()
 
-vi.mock('../../lib/install-runner', () => ({
-  runInstall: (...args: unknown[]) => runInstallMock(...args)
-}))
-
+import type {ScaffoldPackageManager} from '../../lib/package-manager'
 import {shellQuote} from '../../lib/utils'
-import {installDependencies} from '../install-dependencies'
+import {installDependencies as installWithRunner} from '../install-dependencies'
 
 const noopLogger = {log() {}, error() {}}
+
+// The step under test, with the recording runner where cross-spawn would be.
+function installDependencies(
+  projectPath: string,
+  projectName: string,
+  logger: {log(...args: unknown[]): void; error(...args: unknown[]): void},
+  packageManager?: ScaffoldPackageManager,
+  template?: string
+) {
+  return installWithRunner(
+    projectPath,
+    projectName,
+    logger,
+    packageManager,
+    template,
+    runInstallMock
+  )
+}
+
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+
+// Resolves with the rejection so the frame it carries reads without colors.
+async function installFailure(run: Promise<unknown>) {
+  const error = await run.then(
+    () => {
+      throw new Error('expected the install to reject')
+    },
+    (thrown: Error) => thrown
+  )
+
+  return {name: error.name, frame: String(error.message).replace(ANSI, '')}
+}
 
 describe('installDependencies', () => {
   let projectPath: string
@@ -104,18 +133,35 @@ describe('installDependencies', () => {
     expect(runInstallMock.mock.calls[0][1]).toEqual(['install'])
   })
 
-  it('fails loudly when package.json exists but cannot be parsed', async () => {
+  it('refuses a package.json that exists but cannot be parsed, with one frame', async () => {
     // A fat-fingered package.json used to skip install (treated as "no deps")
     // and print the ready banner; the broken file only surfaced later.
+    const packageJsonPath = path.join(projectPath, 'package.json')
     await fsp.writeFile(
-      path.join(projectPath, 'package.json'),
+      packageJsonPath,
       '{ name: "broken", devDependencies: { extension: "^4.0.5" }\n'
     )
 
-    await expect(
-      installDependencies(projectPath, 'broken-pkg', noopLogger)
-    ).rejects.toThrow()
+    const errors: unknown[] = []
 
+    const error = (await installDependencies(projectPath, 'broken-pkg', {
+      log() {},
+      error: (...args: unknown[]) => errors.push(args)
+    }).catch((thrown: Error) => thrown)) as Error & {cause?: unknown}
+    const frame = String(error.message).replace(ANSI, '').split('\n')
+
+    // The file is named and the parse error is the cause, not the thing thrown.
+    expect(error.name).toBe('Error')
+    expect(frame.slice(0, 2)).toEqual([
+      "⏵⏵⏵ Couldn't read the template's package.json.",
+      `PATH ${packageJsonPath}`
+    ])
+
+    expect(frame[2]).toMatch(/^REASON .*JSON/)
+    expect(frame[3]).toBe('Fix that file in the template, then create again.')
+    expect(frame).toHaveLength(4)
+    expect(error.cause).toBeInstanceOf(SyntaxError)
+    expect(errors).toEqual([])
     expect(runInstallMock).not.toHaveBeenCalled()
   })
 
@@ -241,9 +287,17 @@ describe('installDependencies', () => {
 
     ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}
 
-    await expect(
+    const failure = await installFailure(
       installDependencies(projectPath, 'flaky-wifi', noopLogger)
-    ).rejects.toThrow()
+    )
+
+    expect(failure.name).toBe('Error')
+    expect(failure.frame).toContain(
+      "Couldn't install the dependencies.\n" +
+        'COMMAND deno install\n' +
+        'EXIT 1\n' +
+        'REASON error: failed to fetch https://registry.npmjs.org/extension: network error (connection reset)\n'
+    )
 
     expect(runInstallMock).toHaveBeenCalledTimes(1)
     expect(
@@ -271,9 +325,17 @@ describe('installDependencies', () => {
 
     ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}
 
-    await expect(
+    const failure = await installFailure(
       installDependencies(projectPath, 'other-pkg', noopLogger)
-    ).rejects.toThrow()
+    )
+
+    expect(failure.name).toBe('Error')
+    expect(failure.frame).toContain(
+      "Couldn't install the dependencies.\n" +
+        'COMMAND deno install\n' +
+        'EXIT 1\n' +
+        "REASON error: Could not find version of npm package 'react' matching '99.0.0'\n"
+    )
 
     expect(runInstallMock).toHaveBeenCalledTimes(1)
     expect(

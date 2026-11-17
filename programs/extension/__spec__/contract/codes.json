@@ -292,6 +292,26 @@
       "summary": "Nothing to remove.",
       "warn": true
     },
+    "E_BROWSER_INSTALL_TIMEOUT": {
+      "area": "browser-binary",
+      "summary": "The browser installer was still running at the install timeout and was stopped."
+    },
+    "E_BROWSER_INSTALL_BUSY": {
+      "area": "browser-binary",
+      "summary": "Another install of the same browser was still running after the whole wait, so this one never started."
+    },
+    "E_BROWSER_CACHE_NOT_WRITABLE": {
+      "area": "browser-binary",
+      "summary": "The browser cache root is a file, cannot be created or cannot be written to."
+    },
+    "E_BROWSER_FOLDER_FOREIGN": {
+      "area": "browser-binary",
+      "summary": "The browser folder in the cache holds files the installers never write, so the install left it untouched."
+    },
+    "E_BROWSER_INSTALLER_NOT_FOUND": {
+      "area": "browser-binary",
+      "summary": "The package runner that installs the browser is not on this machine."
+    },
     "E_EXTENSION_LOAD_REFUSED": {
       "area": "browser-runtime",
       "summary": "The browser refused the unpacked extension."
@@ -432,7 +452,7 @@
     },
     "E_DESTINATION_NOT_WRITABLE": {
       "area": "create",
-      "summary": "The destination directory is not writable."
+      "summary": "The destination directory, or a file the scaffold writes in it, is not writable."
     },
     "E_PREVIEW_NO_DIST": {
       "area": "preview",

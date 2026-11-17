@@ -586,7 +586,8 @@ export class ChromiumLaunchPlugin {
           return getEdgeInstallGuidance({
             steps: [
               {
-                summary: 'Install Edge into the managed browser cache',
+                summary:
+                  'Install Edge system-wide (the installer may ask for an administrator password)',
                 command: 'npx extension install edge'
               }
             ]
@@ -982,22 +983,16 @@ export class ChromiumLaunchPlugin {
       }
 
       // Nothing resolved anywhere. Offer the download in a terminal a human is
-      // watching, so the first run ends in a running extension, not a command
-      // to copy. Chrome for Testing is what a chromium target launches anyway.
+      // watching. Edge is never offered: it is a system-wide install the
+      // person starts on purpose, and its case above already named the command.
       if (!browserBinaryLocation || !fs.existsSync(browserBinaryLocation)) {
         const offerTarget: InstallableTarget | null =
-          browser === 'chromium'
-            ? 'chrome'
-            : browser === 'chrome' || browser === 'edge'
-              ? browser
-              : null
+          browser === 'chromium' || browser === 'chrome' ? 'chrome' : null
 
         if (offerTarget && (await offerManagedInstall(offerTarget))) {
           const justInstalled = (): string | null => {
             try {
-              const env = managedEnvFor(offerTarget)
-              const located =
-                offerTarget === 'edge' ? locateEdge({env}) : locateChromeIn(env)
+              const located = locateChromeIn(managedEnvFor(offerTarget))
 
               return normalizePath(located || null)
             } catch {

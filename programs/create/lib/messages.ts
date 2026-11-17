@@ -144,10 +144,7 @@ export function writingTypeDefinitionsError(error: unknown) {
   )
 }
 
-export function installingFromTemplate(
-  projectName: string,
-  templateName: string
-) {
+export function installingFromTemplate(templateName: string) {
   // Only the bundled default hides its name here. `init` used to share this
   // branch as an alias for `javascript`, that alias is gone (section 126).
   if (templateName === 'javascript') {
@@ -492,15 +489,48 @@ function createCommandFor(retry: ScaffoldRetry) {
   ].join(' ')
 }
 
+const PROJECT_FILES_REMOVED = 'The new project files were removed. '
+
 function createAgainStep(retry?: ScaffoldRetry) {
   if (!retry) {
     return colors.red('Fix the error above, then create the project again.')
   }
 
   return (
-    `${colors.red('The new project files were removed. Fix the error above, then run')} ` +
+    `${colors.red(`${PROJECT_FILES_REMOVED}Fix the error above, then run`)} ` +
     `${colors.blue(createCommandFor(retry))} ${colors.red('again.')}`
   )
+}
+
+// The cleanup of a failed create runs after its frame is written. One that
+// falls short corrects the frame: the removal claim goes, the leftovers are named.
+export function withIncompleteCleanup(
+  frame: string,
+  leftBehind: string[],
+  notRestored: string[]
+) {
+  const pathRows = (paths: string[]) =>
+    paths.map((file) => `   ${colors.yellow('-')} ${fmt.val(file)}`)
+
+  return [
+    frame.replace(PROJECT_FILES_REMOVED, ''),
+    ...(leftBehind.length
+      ? [
+          colors.red(
+            "Couldn't remove the new project files. Delete what is left before you create again."
+          ),
+          ...pathRows(leftBehind)
+        ]
+      : []),
+    ...(notRestored.length
+      ? [
+          colors.red(
+            "Couldn't put back the files this folder already had. Check them before you create again."
+          ),
+          ...pathRows(notRestored)
+        ]
+      : [])
+  ].join('\n')
 }
 
 export function installingDependenciesFailed(
@@ -558,13 +588,17 @@ export function manifestNotParseable(manifestPath: string, error: unknown) {
   )
 }
 
-// A present-but-unreadable manifest is a user problem to surface, never a
-// silent zero-integrations detection; only a truly absent file stays quiet.
-export function malformedPackageJson(packageJsonPath: string, error: unknown) {
+// A package.json that exists and does not parse is a broken template. Writing
+// a minimal one in its place would drop the author's dependencies and scripts.
+export function templatePackageJsonNotParseable(
+  packageJsonPath: string,
+  error: unknown
+) {
   return (
-    `${prefix('warn')} Couldn't parse ${colors.blue('package.json')}, so no integrations were detected.\n` +
+    `${prefix('error')} Couldn't read the template's ${colors.blue('package.json')}.\n` +
     `${fmt.label('PATH')} ${fmt.val(packageJsonPath)}\n` +
-    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}`
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String((error as Error | undefined)?.message || error)))}\n` +
+    `${colors.red('Fix that file in the template, then create again.')}`
   )
 }
 
@@ -642,6 +676,16 @@ export function writingReadmeMetaData() {
 
 export function writingGitIgnore() {
   return `${prefix('debug')} create write file=.gitignore`
+}
+
+// The path has its own row: a failed read of a folder names none in its text.
+export function writingGitIgnoreError(gitIgnorePath: string, error: unknown) {
+  return (
+    `${prefix('error')} Couldn't write ${colors.blue('.gitignore')}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(gitIgnorePath)}\n` +
+    `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
+    `${colors.red('Check the file permissions, then try again.')}`
+  )
 }
 
 export function writingReadmeMetaDataError(error: unknown) {

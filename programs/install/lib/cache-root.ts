@@ -10,18 +10,29 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type {InstallBrowserTarget} from './browser-target'
 
-export function resolveBrowsersCacheRoot(): string {
-  const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()
-  if (explicit) return path.resolve(explicit)
+// The working directory is read only where a branch needs it, so a caller
+// that leaves it out never asks the process for one it would not use.
+export function resolveBrowsersCacheRoot(
+  env: Record<string, string | undefined> = process.env,
+  platform: NodeJS.Platform = process.platform,
+  cwd?: string
+): string {
+  const explicit = String(env.EXT_BROWSERS_CACHE_DIR || '').trim()
 
-  const isWin = process.platform === 'win32'
-  const isMac = process.platform === 'darwin'
+  if (explicit) {
+    return cwd === undefined
+      ? path.resolve(explicit)
+      : path.resolve(cwd, explicit)
+  }
+
+  const isWin = platform === 'win32'
+  const isMac = platform === 'darwin'
 
   if (isWin) {
-    const local = String(process.env.LOCALAPPDATA || '').trim()
+    const local = String(env.LOCALAPPDATA || '').trim()
     if (local) return path.join(local, 'extension.js', 'browsers')
 
-    const userProfile = String(process.env.USERPROFILE || '').trim()
+    const userProfile = String(env.USERPROFILE || '').trim()
 
     if (userProfile) {
       return path.join(
@@ -33,45 +44,57 @@ export function resolveBrowsersCacheRoot(): string {
       )
     }
 
-    return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+    return path.resolve(
+      cwd ?? process.cwd(),
+      '.cache',
+      'extension.js',
+      'browsers'
+    )
   }
 
   if (isMac) {
-    const home = String(process.env.HOME || '').trim()
+    const home = String(env.HOME || '').trim()
 
     if (home) {
       return path.join(home, 'Library', 'Caches', 'extension.js', 'browsers')
     }
 
-    return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+    return path.resolve(
+      cwd ?? process.cwd(),
+      '.cache',
+      'extension.js',
+      'browsers'
+    )
   }
 
-  const xdg = String(process.env.XDG_CACHE_HOME || '').trim()
+  const xdg = String(env.XDG_CACHE_HOME || '').trim()
   if (xdg) return path.join(xdg, 'extension.js', 'browsers')
 
-  const home = String(process.env.HOME || '').trim()
+  const home = String(env.HOME || '').trim()
   if (home) return path.join(home, '.cache', 'extension.js', 'browsers')
 
-  return path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+  return path.resolve(
+    cwd ?? process.cwd(),
+    '.cache',
+    'extension.js',
+    'browsers'
+  )
 }
 
 export function resolveBrowserInstallDir(
-  browser: InstallBrowserTarget
+  browser: InstallBrowserTarget,
+  cacheRoot: string = resolveBrowsersCacheRoot()
 ): string {
-  return path.join(resolveBrowsersCacheRoot(), browser)
+  return path.join(cacheRoot, browser)
 }
 
-export function removeBrowserDir(browser: InstallBrowserTarget): {
-  path: string
-  removed: boolean
-} {
-  const installDir = resolveBrowserInstallDir(browser)
-
-  if (!fs.existsSync(installDir)) {
-    return {path: installDir, removed: false}
-  }
-
-  fs.rmSync(installDir, {recursive: true, force: true})
-
-  return {path: installDir, removed: true}
+// Windows answers EBUSY while a scanner or a closing browser still holds a
+// file, and lets go a moment later, so the removal waits and tries again.
+export function removeTree(dir: string): void {
+  fs.rmSync(dir, {
+    recursive: true,
+    force: true,
+    maxRetries: 4,
+    retryDelay: 100
+  })
 }

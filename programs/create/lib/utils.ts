@@ -8,6 +8,18 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
+import {hasChannelPrefix} from './messaging'
+
+// One failure, one frame: the frame is the message the CLI prints as is, and
+// the original rides on cause. A failure that is already framed keeps its own.
+export function failStep(frame: string, cause: unknown): Error {
+  if (cause instanceof Error && hasChannelPrefix(cause.message)) return cause
+
+  const error = new Error(frame)
+  ;(error as {cause?: unknown}).cause = cause
+
+  return error
+}
 
 // A template directory can be a working checkout: this repo runs `dev` inside
 // the bundled one, and a new project must never inherit that build output or

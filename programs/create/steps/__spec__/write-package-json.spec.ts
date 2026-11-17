@@ -485,3 +485,87 @@ describe('overridePackageJson dependency build-script approval', () => {
     })
   })
 })
+
+const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g')
+
+// A template's package.json carries its author's dependencies and scripts.
+// Replacing one that does not parse with a minimal file dropped all of them
+// and still reported a finished scaffold.
+describe('overridePackageJson with a template package.json it cannot use', () => {
+  const noProbe = {
+    packageManager: 'npm' as const,
+    probeVersion: () => ({status: 1, stdout: ''})
+  }
+
+  function recordingLogger() {
+    const errors: unknown[] = []
+
+    return {errors, log() {}, error: (...args: unknown[]) => errors.push(args)}
+  }
+
+  it.each([
+    [
+      'is cut short',
+      '{"name": "seed", "dependencies": {"react": "^19.0.0"}',
+      SyntaxError,
+      /JSON/
+    ],
+    [
+      'holds a list and not an object',
+      '["react"]',
+      TypeError,
+      /does not hold a JSON object/
+    ]
+  ])('refuses one that %s and leaves the file as it was', async (_label, contents, causeType, reason) => {
+    await withTempDir(async (projectPath) => {
+      const packageJsonPath = path.join(projectPath, 'package.json')
+      await fs.writeFile(packageJsonPath, contents)
+      const logger = recordingLogger()
+
+      const error = (await overridePackageJson(projectPath, noProbe, logger)
+        .then(() => new Error('the step did not refuse'))
+        .catch((thrown: Error) => thrown)) as Error & {cause?: unknown}
+      const frame = String(error.message).replace(ANSI, '').split('\n')
+
+      expect(frame.slice(0, 2)).toEqual([
+        "⏵⏵⏵ Couldn't read the template's package.json.",
+        `PATH ${packageJsonPath}`
+      ])
+
+      expect(frame[2]).toMatch(/^REASON /)
+      expect(frame[2]).toMatch(reason)
+      expect(frame[3]).toBe('Fix that file in the template, then create again.')
+      expect(frame).toHaveLength(4)
+      expect(error.cause).toBeInstanceOf(causeType)
+      expect(logger.errors).toEqual([])
+      // Nothing was written over the template's own bytes.
+      expect(await fs.readFile(packageJsonPath, 'utf8')).toBe(contents)
+    })
+  })
+
+  it('still writes a minimal package.json for a template that ships none', async () => {
+    await withTempDir(async (projectPath) => {
+      const logger = recordingLogger()
+
+      await overridePackageJson(
+        projectPath,
+        {...noProbe, cliVersion: '4.0.1'},
+        logger
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg).toMatchObject({
+        name: path.basename(projectPath),
+        private: true,
+        dependencies: {},
+        devDependencies: {extension: '^4.0.1'}
+      })
+
+      expect(pkg.scripts.dev).toBe('extension dev')
+      expect(logger.errors).toEqual([])
+    })
+  })
+})

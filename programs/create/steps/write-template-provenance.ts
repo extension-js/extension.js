@@ -49,9 +49,6 @@ export async function writeTemplateProvenance(
   provenance: TemplateProvenance,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
 ): Promise<void> {
-  // Advisory: a caller with no resolved provenance (or a mock) never crashes create.
-  if (!provenance?.template) return
-
   const record = buildProvenanceRecord(provenance)
 
   try {
