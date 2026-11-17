@@ -38,6 +38,22 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
   return `${arrow} ${timestamp} ${app} ${status} in ${time}.`
 }
 
+export function zipMissingDefaultLocale(
+  defaultLocale: string,
+  messagesPath: string
+) {
+  return (
+    `ZipPlugin: manifest.json declares default_locale "${defaultLocale}" ` +
+    `but ${messagesPath} does not exist. Stores reject packages ` +
+    `without their default locale: restore the _locales folder ` +
+    `before shipping this zip.`
+  )
+}
+
+export function zipCreationFailed(error: unknown) {
+  return `ZipPlugin: Failed to create zip(s): ${String(error)}`
+}
+
 export function zipPackagingSkipped(reason: string) {
   return `${prefix('debug')} zip      skipped=true reason="${reason}"`
 }
