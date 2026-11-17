@@ -121,6 +121,24 @@ describe('React refresh and the background script in development', () => {
   })
 })
 
+describe('TypeScript decorators', () => {
+  it('fail to parse in a .ts file', async () => {
+    // Pins today's behavior. Ledger 1389 D1.
+    const root = makeProject({
+      'package.json': {},
+      'manifest.json': MANIFEST,
+      'tsconfig.json': {},
+      'main.ts':
+        'const log = (target: unknown) => target\n@log class A {}\nconsole.log(A)\n'
+    })
+
+    const {errors} = await compileProject(root, {main: './main.ts'})
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('Syntax Error: Expression expected')
+  })
+})
+
 describe('where the React refresh entry is read from', () => {
   it('finds by path string the same file the package exports as ./react-refresh-entry', () => {
     // Pins today's behavior. Ledger 1389 D9.
