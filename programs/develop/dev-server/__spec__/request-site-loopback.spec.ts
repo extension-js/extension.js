@@ -82,9 +82,16 @@ async function boot(
   return session
 }
 
-// The first frames the stock server sends an admitted or a refused socket.
+// The first frames the stock server sends an admitted or a refused socket,
+// or the answer to an upgrade that never completed.
 async function socketFrames(port: number, origin: string | null) {
-  const client = await connectClient(port, origin)
+  let client: Awaited<ReturnType<typeof connectClient>>
+
+  try {
+    client = await connectClient(port, origin)
+  } catch (error) {
+    return [`refused: ${(error as Error).message}`]
+  }
 
   try {
     await waitFor(() => client.messages.length > 0, 2000)
@@ -280,20 +287,36 @@ describe('requests to the dev server on loopback', () => {
     expect(refused).toHaveLength(1)
   })
 
-  it('opens the reload socket for the session and closes it for another site', async () => {
-    expect(await socketFrames(session.port, EXTENSION)).toEqual(
+  it('opens the reload socket for the session', async () => {
+    const opened = expect.arrayContaining(['hot', 'liveReload'])
+
+    expect(await socketFrames(session.port, own())).toEqual(opened)
+    expect(
+      await socketFrames(session.port, `http://localhost:${session.port}`)
+    ).toEqual(opened)
+
+    expect(await socketFrames(session.port, EXTENSION)).toEqual(opened)
+  })
+
+  // An extension dials before the session knows it, so every one is let in.
+  it('opens the reload socket for an extension it has not met', async () => {
+    expect(await socketFrames(session.port, OTHER_EXTENSION)).toEqual(
       expect.arrayContaining(['hot', 'liveReload'])
     )
+  })
 
-    expect(await socketFrames(session.port, own())).toEqual(
-      expect.arrayContaining(['hot', 'liveReload'])
-    )
-
-    expect(await socketFrames(session.port, 'https://other.test')).toEqual([
-      'error: Invalid Host/Origin header'
+  it.each([
+    ['another site', 'https://other.test'],
+    ['another port on the same address', 'http://127.0.0.1:3000'],
+    ['another port on localhost', 'http://localhost:3000'],
+    ['a frame with no origin of its own', 'null']
+  ])('refuses the reload socket to %s', async (_name, origin) => {
+    expect(await socketFrames(session.port, origin)).toEqual([
+      'refused: Unexpected server response: 403'
     ])
+  })
 
-    // A socket with no Origin is closed by the stock server too.
+  it('leaves a socket with no Origin to the stock server, which closes it', async () => {
     expect(await socketFrames(session.port, null)).toEqual([
       'error: Invalid Host/Origin header'
     ])
@@ -306,7 +329,8 @@ describe('the stock dev server with its default host list', () => {
       mutateConfig: (config) => ({
         ...config,
         allowedHosts: 'auto',
-        setupMiddlewares: undefined
+        setupMiddlewares: undefined,
+        webSocketServer: undefined
       })
     })
     const ours = await boot()
@@ -367,6 +391,10 @@ describe('a session reached through a named host', () => {
       200, 200, 200
     ])
 
+    expect(
+      await socketFrames(session.port, 'https://dev.example.test')
+    ).toEqual(expect.arrayContaining(['hot', 'liveReload']))
+
     expect(hostRefused).toEqual([])
     expect(siteRefused).toEqual([])
   })
@@ -394,15 +422,28 @@ describe('a session reached through a named host', () => {
     expect([page.status, fromPublicHost.status, otherPort.status]).toEqual([
       200, 200, 403
     ])
+
+    expect(
+      await socketFrames(session.port, `http://devbox.local:${session.port}`)
+    ).toEqual(expect.arrayContaining(['hot', 'liveReload']))
+
+    expect(
+      await socketFrames(session.port, 'http://devbox.local:3000')
+    ).toEqual(['refused: Unexpected server response: 403'])
   })
 })
 
 describe('a session with the emulator viewer', () => {
   it('serves the viewer its file index, files and reload socket', async () => {
     const holder = createEmulatorFileIndexHolder('instance')
+    const siteRefused: string[] = []
     const session = await boot({
       beforeServer: (compiler) => attachEmulatorFileIndex(compiler, holder),
-      input: () => ({emulatorOrigin: VIEWER, emulatorFiles: holder})
+      input: () => ({
+        emulatorOrigin: VIEWER,
+        emulatorFiles: holder,
+        onSiteRefused: (origin) => siteRefused.push(origin)
+      })
     })
     const viewer = {
       'sec-fetch-site': 'cross-site',
@@ -429,6 +470,13 @@ describe('a session with the emulator viewer', () => {
 
     expect(file.status).toBe(200)
     expect(file.headers['access-control-allow-origin']).toBe(VIEWER)
+    expect(
+      await socketFrames(session.port, 'https://viewer.example:8443')
+    ).toEqual(['refused: Unexpected server response: 403'])
+
+    // A refused socket is reported like a refused request.
+    expect(siteRefused).toEqual(['https://viewer.example:8443'])
+
     expect(await socketFrames(session.port, VIEWER)).toEqual(
       expect.arrayContaining(['hot', 'liveReload'])
     )

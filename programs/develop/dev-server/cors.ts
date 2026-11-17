@@ -280,6 +280,43 @@ export function isRequestFromSession(
   return isSessionWebOrigin(headerText(headers.referer), hostHeader, session)
 }
 
+// Whether the reload socket may open for this upgrade. An extension dials
+// before it has said hello, so its scheme is left to the stock check.
+export function isSocketFromSession(
+  headers: RequestHeaders,
+  session: RequestSiteSession
+): boolean {
+  const origin = headerText(headers.origin)
+
+  if (!origin || isExtensionOrigin(origin)) return true
+
+  return isSessionWebOrigin(
+    origin,
+    headerText(headers[':authority'] ?? headers.host),
+    session
+  )
+}
+
+// The verifyClient the socket server runs before the upgrade completes.
+export function createSocketVerifier(
+  session: RequestSiteSession,
+  onRefused: (origin: string) => void
+) {
+  return (
+    info: {req: Pick<IncomingMessage, 'headers'>},
+    done: (verified: boolean, code?: number, message?: string) => void
+  ) => {
+    if (isSocketFromSession(info.req.headers, session)) {
+      done(true)
+
+      return
+    }
+
+    onRefused(refusedRequestOrigin(info.req.headers))
+    done(false, 403, 'Forbidden')
+  }
+}
+
 // The origin a refused request named, for the one printed line.
 export function refusedRequestOrigin(headers: RequestHeaders): string {
   const origin = headerText(headers.origin)

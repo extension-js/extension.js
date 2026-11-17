@@ -201,7 +201,7 @@ export function devServerOutsideRequestRefused(origin: string) {
   const from = origin ? ` (${colors.yellow(origin)})` : ''
 
   return (
-    `${getLoggingPrefix('warn')} A page outside this session${from} asked the dev server for a file and was refused.\n` +
+    `${getLoggingPrefix('warn')} A page outside this session${from} made a request to the dev server and was refused.\n` +
     "Your extension's own pages still load. This line prints once per session."
   )
 }

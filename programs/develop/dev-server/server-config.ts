@@ -10,6 +10,7 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import type {Configuration} from '@rspack/dev-server'
 import {
+  createSocketVerifier,
   devServerAccessConfig,
   REQUEST_SITE_MIDDLEWARE_NAME,
   type SessionExtensionOriginCheck,
@@ -114,6 +115,16 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
       }
     },
     client: false,
+    // The stock socket check still runs after this one, on the connection.
+    webSocketServer: {
+      type: 'ws',
+      options: {
+        verifyClient: createSocketVerifier(
+          access.requestSite,
+          announceSiteRefusal
+        )
+      }
+    },
     headers: access.headers,
     setupMiddlewares: (
       ...args: Parameters<NonNullable<Configuration['setupMiddlewares']>>

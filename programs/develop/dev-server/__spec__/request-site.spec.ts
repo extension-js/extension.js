@@ -3,6 +3,7 @@ import {
   devServerAccessConfig,
   isRequestFromSession,
   isSessionWebOrigin,
+  isSocketFromSession,
   REFUSED_REQUEST_RESPONSE,
   refusedRequestOrigin
 } from '../cors'
@@ -338,6 +339,49 @@ describe('the origins a session calls its own', () => {
   })
 })
 
+describe('whether the reload socket opens', () => {
+  const socket = (origin?: string, overrides = {}) =>
+    isSocketFromSession(
+      origin === undefined ? {host: HOST} : {host: HOST, origin},
+      session(overrides)
+    )
+
+  it.each([
+    ['the session address', OWN],
+    ['the localhost spelling of it', `http://localhost:${PORT}`],
+    ['the IPv6 spelling of it', `http://[::1]:${PORT}`],
+    ['the session extension', EXTENSION],
+    ['an extension the session has not met', 'chrome-extension://zzzzzzzz'],
+    ['a Firefox extension', FIREFOX_EXTENSION]
+  ])('opens for %s', (_name, origin) => {
+    expect(socket(origin)).toBe(true)
+  })
+
+  it.each([
+    ['another site', 'https://other.test'],
+    ['another port on the same address', 'http://127.0.0.1:3000'],
+    ['another port on localhost', 'http://localhost:3000'],
+    ['a name under localhost', `http://app.localhost:${PORT}`],
+    ['a page opened from a file', 'null'],
+    ['a file origin', 'file://'],
+    ['the viewer when the session has none', VIEWER]
+  ])('stays closed for %s', (_name, origin) => {
+    expect(socket(origin)).toBe(false)
+  })
+
+  it('opens for the viewer and for a named host', () => {
+    expect(socket(VIEWER, {emulatorOrigin: VIEWER})).toBe(true)
+    expect(
+      socket('https://dev.example.test', {allowedHosts: 'dev.example.test'})
+    ).toBe(true)
+  })
+
+  it('leaves a client with no Origin to the stock check', () => {
+    expect(socket()).toBe(true)
+    expect(socket('')).toBe(true)
+  })
+})
+
 describe('what a refused request is told', () => {
   it('names the origin a refused request carried, cleaned for a terminal', () => {
     expect(refusedRequestOrigin({origin: 'https://other.test'})).toBe(
@@ -370,12 +414,12 @@ describe('what a refused request is told', () => {
     expect(line).toContain('A page outside this session (')
     expect(line).toContain('https://other.test')
     expect(line).toContain(
-      ') asked the dev server for a file and was refused.\n' +
+      ') made a request to the dev server and was refused.\n' +
         "Your extension's own pages still load. This line prints once per session."
     )
 
     expect(devServerOutsideRequestRefused('')).toContain(
-      'A page outside this session asked the dev server for a file'
+      'A page outside this session made a request to the dev server'
     )
   })
 })
