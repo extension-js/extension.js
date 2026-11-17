@@ -46,7 +46,8 @@ describe('compile harness', () => {
   })
 
   it('refuses a build whose config moves the output out of the fixture', async () => {
-    const outside = path.join(process.cwd(), 'dist')
+    // A name nothing else writes: a compiled dist may already sit in cwd.
+    const outside = path.join(process.cwd(), `harness-refused-${process.pid}`)
 
     await expect(
       compileFixture({
