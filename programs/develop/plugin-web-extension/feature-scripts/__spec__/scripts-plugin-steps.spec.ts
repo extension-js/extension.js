@@ -101,7 +101,8 @@ async function made(
   const loaders = (compiler.options.module.rules as any[]).flatMap((rule) =>
     [rule, ...(rule?.oneOf || [])].flatMap((one: any) =>
       (Array.isArray(one?.use) ? one.use : []).map((use: any) => ({
-        loader: path.basename(String(use.loader)),
+        // The stem alone: a built dist adds .js or .mjs, a fresh tree adds none.
+        loader: path.basename(String(use.loader)).replace(/\.m?js$/, ''),
         options: use.options
       }))
     )
