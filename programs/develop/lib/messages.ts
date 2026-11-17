@@ -1691,6 +1691,17 @@ export function configLoadingError(configPath: string, error: unknown) {
   )
 }
 
+// What a build rejects with when the thrown value has no message to read.
+export function thrownValueText(thrown: unknown): string {
+  if (typeof thrown === 'string' && thrown.trim()) return thrown
+
+  try {
+    return `A value that is not an Error was thrown: ${describeThrown(thrown) || 'an empty string'}.`
+  } catch {
+    return 'A value that cannot be read was thrown.'
+  }
+}
+
 export function buildCommandFailed(error: unknown) {
   const message = (() => {
     if (error instanceof Error && error.message) return error.message

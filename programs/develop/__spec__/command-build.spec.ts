@@ -1425,6 +1425,41 @@ describe('webpack/command-build', () => {
       expect(exitSpy).not.toHaveBeenCalled()
     }, 5000)
 
+    it('fails the same way with exitOnError on, off and absent', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const outcomes: unknown[] = []
+
+      for (const exitOnError of [true, false, undefined]) {
+        localErrorSpy.mockClear()
+        rspackMock.mockReturnValue(
+          makeCompiler(undefined, new Error('bundler exploded'))
+        )
+
+        const failure = await extensionBuild('/proj', {
+          browser: 'chrome',
+          silent: true,
+          ...(exitOnError === undefined ? {} : {exitOnError})
+        }).catch((error: Error & {code?: string}) => error)
+
+        outcomes.push({
+          code: (failure as {code?: string}).code,
+          message: (failure as Error).message,
+          printed: printedErrors(localErrorSpy)
+        })
+      }
+
+      expect(outcomes[0]).toEqual({
+        code: 'E_COMPILE_FATAL',
+        message: 'bundler exploded',
+        printed: expect.stringContaining('Build failed with 1 error.')
+      })
+
+      expect(outcomes[1]).toEqual(outcomes[0])
+      expect(outcomes[2]).toEqual(outcomes[0])
+    })
+
     it('fails on a missing archive before the summary or the closer call it built', async () => {
       const {tmp, realFs} = await tmpProject('build-zip-failure-')
       const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})

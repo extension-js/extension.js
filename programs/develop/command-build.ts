@@ -1114,13 +1114,14 @@ async function runBuild(
     }
 
     return summary
-  } catch (error) {
+  } catch (thrown) {
     if (stagingDistPath) removeStagingDir(stagingDistPath)
 
-    const alreadyReported =
-      error instanceof Error && reportedBuildFailures.has(error)
+    // The line below and every caller read the message of the failure, so a
+    // thrown value with none is wrapped before it is printed and passed on.
+    const error = readableFailure(thrown)
 
-    if (!alreadyReported) {
+    if (!reportedBuildFailures.has(error)) {
       if (isDebug()) {
         console.error(error)
       } else {
@@ -1141,6 +1142,20 @@ async function runBuild(
 
     await closeCompiler(compilerToClose)
   }
+}
+
+function readableFailure(thrown: unknown): Error {
+  try {
+    if (thrown instanceof Error && typeof thrown.message === 'string') {
+      return thrown
+    }
+  } catch {
+    // Ignore
+  }
+
+  return Object.assign(new Error(messages.thrownValueText(thrown)), {
+    cause: thrown
+  })
 }
 
 function hasDeclaredCode(error: unknown): boolean {
