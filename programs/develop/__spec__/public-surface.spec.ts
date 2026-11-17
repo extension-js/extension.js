@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {pathToFileURL} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import * as bridge from '../bridge-entry'
 
@@ -262,6 +263,31 @@ describe('the extension-develop/bridge entry', () => {
       expect(producerSource, `the producer never sends ${code}`).toContain(
         `"${code}"`
       )
+    }
+  })
+
+  it('exports every constant the control bridge defines', async () => {
+    const contractsSource = source('dev-server/control-bridge/contracts.ts')
+    const defined = [
+      ...contractsSource.matchAll(/^export const ([A-Z][A-Z0-9_]*)\b/gm)
+    ].map((match) => match[1])
+
+    // A read that finds nothing would pass every check below.
+    expect(defined).toContain('CLOSE_TOKEN_REQUIRED')
+    expect(defined).toContain('REFUSAL_NO_BACKGROUND')
+
+    const builtEntry = path.join(developRoot, 'dist', 'bridge.mjs')
+    const built = (await import(pathToFileURL(builtEntry).href)) as Record<
+      string,
+      unknown
+    >
+    const fromSource = bridge as Record<string, unknown>
+
+    expect(defined.filter((name) => fromSource[name] === undefined)).toEqual([])
+    expect(defined.filter((name) => built[name] === undefined)).toEqual([])
+
+    for (const name of defined) {
+      expect(built[name], name).toEqual(fromSource[name])
     }
   })
 
