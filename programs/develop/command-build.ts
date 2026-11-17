@@ -101,6 +101,7 @@ import {
   buildSummaryPath,
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore,
+  keepSessionArtifactsInProject,
   readyContractPath
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
@@ -370,6 +371,8 @@ async function runBuild(
   try {
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+
+    keepSessionArtifactsInProject(packageJsonDir)
 
     // A browser passed in wins; with none, commands.<cmd>.browser from the
     // project config decides the target before the stock default does.
@@ -1051,7 +1054,26 @@ async function runBuild(
 
           // Ready names a folder a reader can open: promoted, pruned and
           // summarized. A launch that follows stamps its own ready later.
-          if (
+          // A failed archive leaves that folder in place and the command
+          // failing, so the receipt says both and no reader takes it for green.
+          if (zipFailures.length > 0) {
+            if (heldReceipt()) {
+              openReceipt().writeError(
+                'build_failed',
+                messages.buildFailedOutputInPlace(
+                  zipFailures.map((failure) =>
+                    messages.zipArtifactNotCreatedText(
+                      failure.kind,
+                      failure.path,
+                      failure.reason
+                    )
+                  ),
+                  distPath
+                ),
+                summary.errors
+              )
+            }
+          } else if (
             mergedBuildOptions.launchFollows !== true &&
             typeof heldReceipt()?.compiledAt === 'string'
           ) {

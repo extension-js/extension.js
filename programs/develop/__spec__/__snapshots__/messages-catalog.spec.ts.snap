@@ -47,6 +47,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "buildCommandFailed: function(1)",
     "buildComplete: function(5)",
     "buildFailed: function(1)",
+    "buildFailedOutputInPlace: function(2)",
     "buildOutDirInvalid: function(3)",
     "buildOutputFolderForeign: function(1)",
     "buildOutputNotPublished: function(2)",

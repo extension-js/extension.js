@@ -56,14 +56,19 @@ export function resolvedWorkspaceManifest(
 // folders and install all silently belong to a project the author never named.
 export function declinedProjectRoot(
   projectManifestPath: string,
-  manifestPath: string
+  manifestPath: string,
+  previewing = false
 ) {
   const manifestDir = path.dirname(manifestPath)
+  // A preview compiles nothing, so there is no build to keep anything out of.
+  const consequence = previewing
+    ? 'That project does not depend on Extension.js, so its dist, its special folders and its config stay out of this preview. Name that project folder, or depend on Extension.js there, to use it as the project root.'
+    : 'That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.'
 
   return (
     `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(manifestDir)}/ as the project root.`)}\n` +
     `${colors.gray('IGNORED')} ${colors.underline(projectManifestPath)}\n` +
-    `${colors.gray('That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.')}`
+    `${colors.gray(consequence)}`
   )
 }
 
@@ -1101,6 +1106,12 @@ export function zipArtifactNotCreatedText(
   reason: string
 ) {
   return `The ${kind === 'source' ? 'source' : 'distribution'} zip was requested and not created at ${zipPath}: ${reason}`
+}
+
+// What ready.json says when the folder was built and a later step failed:
+// a reader told only "failed" would not know the folder can be loaded.
+export function buildFailedOutputInPlace(reasons: string[], distPath: string) {
+  return `${reasons.join(' ')} The output folder ${distPath} is in place and loads as built.`
 }
 
 export function zipArtifactReady(zipPath: string, sizeInBytes: number) {

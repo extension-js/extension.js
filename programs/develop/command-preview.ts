@@ -53,6 +53,7 @@ import {remoteArchiveCacheRoot} from './lib/remote-archive'
 import {sanitize} from './lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
+  keepSessionArtifactsOutOfBuild,
   sessionArtifactsRootDir
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
@@ -267,7 +268,8 @@ export async function extensionPreview(
     remoteArchive: previewArchiveTarget(
       metadataCommand,
       previewOptions.outputPath
-    )
+    ),
+    previewing: metadataCommand === 'preview'
   })
   const debug = isDebug()
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
@@ -326,6 +328,17 @@ export async function extensionPreview(
   const distPath =
     unpackedDir ||
     (namedFolderIsTheBuild ? outputPath : getDistPath(packageJsonDir, browser))
+
+  // A local folder no project owns is loaded as it is, so the session keeps
+  // its state beside that folder and a zip or a load of it carries none.
+  if (
+    !userManifestPath &&
+    !isArchiveSource(pathOrRemoteUrl ?? '') &&
+    path.resolve(outputPath) === path.resolve(packageJsonDir)
+  ) {
+    keepSessionArtifactsOutOfBuild(packageJsonDir)
+  }
+
   // A build names its browser in the summary kept beside it. A folder with
   // no summary (a download, a hand-made folder) is loaded as asked.
   const builtFor = recordedBuildBrowser(outputPath, [
@@ -430,6 +443,62 @@ export async function extensionPreview(
       warnings.push(stripChannelPrefix(frame))
     }
 
+    const safeProjectConfig = sanitize(projectConfig) as {
+      extensions?: CompanionExtensionsConfig
+      folders?: SpecialFoldersConfig
+    }
+    const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
+    const safeCommandConfig = sanitize(
+      commandConfig
+    ) as Partial<PreviewOptions> & {
+      extensions?: CompanionExtensionsConfig
+      folders?: SpecialFoldersConfig
+    }
+    const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
+    // Preview never compiles, so an ancestor project's scripts/ folder has no
+    // say here; only its companion extensions folder does.
+    const specialFoldersData = unpackedDir
+      ? {extensions: undefined}
+      : getSpecialFoldersDataForProjectRoot(
+          packageJsonDir,
+          safeCommandConfig.folders ??
+            safeBrowserConfig.folders ??
+            safeProjectConfig.folders
+        )
+
+    const mergedExtensionsConfig =
+      safePreviewOptions.extensions ??
+      safeCommandConfig.extensions ??
+      safeBrowserConfig.extensions ??
+      safeProjectConfig.extensions ??
+      specialFoldersData.extensions
+    const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
+      projectRoot: packageJsonDir,
+      browser,
+      config: mergedExtensionsConfig
+    })
+
+    // The session goes on without a named companion that is not an extension,
+    // browser or not, and the caller reads which one beside the other warnings.
+    const missingCompanions = unresolvedNamedCompanions({
+      projectRoot: packageJsonDir,
+      resolved: resolvedExtensionsConfig,
+      declared: mergedExtensionsConfig,
+      declaredIn: companionsDeclaredIn(metadataCommand, {
+        flag: safePreviewOptions.extensions,
+        command: safeCommandConfig.extensions,
+        browser: safeBrowserConfig.extensions,
+        project: safeProjectConfig.extensions
+      })
+    })
+
+    const warnAboutMissingCompanions = () => {
+      for (const companion of missingCompanions) {
+        warnings.push(companion.coded)
+        humanWarn(companion.frame)
+      }
+    }
+
     if (previewOptions.noBrowser) {
       const browserLabel = String(browser || 'unknown')
       // Identity first, then the state lines: the card is the header for the
@@ -455,6 +524,7 @@ export async function extensionPreview(
         )
       }
 
+      warnAboutMissingCompanions()
       metadata.writeReady()
 
       return {warnings}
@@ -541,57 +611,7 @@ export async function extensionPreview(
       )
     }
 
-    const safeProjectConfig = sanitize(projectConfig) as {
-      extensions?: CompanionExtensionsConfig
-      folders?: SpecialFoldersConfig
-    }
-    const safeBrowserConfig = sanitize(browserConfig) as BrowserConfig
-    const safeCommandConfig = sanitize(
-      commandConfig
-    ) as Partial<PreviewOptions> & {
-      extensions?: CompanionExtensionsConfig
-      folders?: SpecialFoldersConfig
-    }
-    const safePreviewOptions = sanitize(previewOptions) as PreviewOptions
-    // Preview never compiles, so an ancestor project's scripts/ folder has no
-    // say here; only its companion extensions folder does.
-    const specialFoldersData = unpackedDir
-      ? {extensions: undefined}
-      : getSpecialFoldersDataForProjectRoot(
-          packageJsonDir,
-          safeCommandConfig.folders ??
-            safeBrowserConfig.folders ??
-            safeProjectConfig.folders
-        )
-
-    const mergedExtensionsConfig =
-      safePreviewOptions.extensions ??
-      safeCommandConfig.extensions ??
-      safeBrowserConfig.extensions ??
-      safeProjectConfig.extensions ??
-      specialFoldersData.extensions
-    const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
-      projectRoot: packageJsonDir,
-      browser,
-      config: mergedExtensionsConfig
-    })
-
-    // The browser opens without a named companion that is not an extension,
-    // and the caller reads which one beside the other warnings.
-    for (const companion of unresolvedNamedCompanions({
-      projectRoot: packageJsonDir,
-      resolved: resolvedExtensionsConfig,
-      declared: mergedExtensionsConfig,
-      declaredIn: companionsDeclaredIn(metadataCommand, {
-        flag: safePreviewOptions.extensions,
-        command: safeCommandConfig.extensions,
-        browser: safeBrowserConfig.extensions,
-        project: safeProjectConfig.extensions
-      })
-    })) {
-      warnings.push(companion.coded)
-      humanWarn(companion.frame)
-    }
+    warnAboutMissingCompanions()
 
     const mergedGeckoBinary =
       safePreviewOptions.geckoBinary ||

@@ -7,10 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {spawnSync} from 'node:child_process'
+import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {humanLine} from '../dev-server/lifecycle-stream'
 import * as messages from './messages'
+import {linkFreePath} from './real-path'
 
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
@@ -63,8 +66,144 @@ export function ensureSessionStateIgnoreFile(projectPath: string): void {
   }
 }
 
-export function sessionArtifactsRootDir(projectPath: string): string {
+function ownArtifactsRoot(projectPath: string): string {
   return path.resolve(projectPath, 'dist', 'extension-js')
+}
+
+// The roots this process settled on: a previewed build keeps its state
+// outside itself, and a command that compiles keeps it in the project.
+const settledArtifactsRoots = new Map<string, string>()
+
+function isWritableDir(dir: string): boolean {
+  try {
+    fs.accessSync(dir, fs.constants.W_OK)
+
+    return fs.statSync(dir).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+function besideArtifactsRoot(buildDir: string): string {
+  return path.join(path.dirname(path.resolve(buildDir)), 'extension-js')
+}
+
+function tempArtifactsRoot(buildDir: string): string {
+  const key = createHash('sha1')
+    .update(linkFreePath(path.resolve(buildDir)))
+    .digest('hex')
+    .slice(0, 12)
+
+  return path.join(os.tmpdir(), 'extension-js', key)
+}
+
+// Beside the build, where its own summary already sits. A parent that takes
+// no write, or a sibling that is someone's extension, sends it to temp.
+export function previewedBuildArtifactsRoot(buildDir: string): string {
+  const beside = besideArtifactsRoot(buildDir)
+  const usable = fs.existsSync(beside)
+    ? isWritableDir(beside) &&
+      !fs.existsSync(path.join(beside, 'manifest.json'))
+    : isWritableDir(path.dirname(beside))
+
+  return usable ? beside : tempArtifactsRoot(buildDir)
+}
+
+// The folder a preview loads as it is: a zip or a browser load of it would
+// carry any session state written inside, so none is written there.
+export function keepSessionArtifactsOutOfBuild(buildDir: string): string {
+  const root = previewedBuildArtifactsRoot(buildDir)
+
+  settledArtifactsRoots.set(path.resolve(buildDir), root)
+
+  return root
+}
+
+// A command that compiles this folder owns dist/ under it, whatever an
+// earlier preview of the same folder left beside it.
+export function keepSessionArtifactsInProject(projectPath: string): void {
+  settledArtifactsRoots.set(
+    path.resolve(projectPath),
+    ownArtifactsRoot(projectPath)
+  )
+}
+
+function newestContractNaming(
+  root: string,
+  manifestDir?: string
+): number | undefined {
+  let newest: number | undefined
+
+  try {
+    for (const entry of fs.readdirSync(root)) {
+      const readyFile = path.join(root, entry, 'ready.json')
+
+      try {
+        const writtenAt = fs.statSync(readyFile).mtimeMs
+
+        if (manifestDir) {
+          const contract = JSON.parse(fs.readFileSync(readyFile, 'utf-8'))
+
+          if (typeof contract?.manifestPath !== 'string') continue
+
+          if (
+            linkFreePath(path.dirname(contract.manifestPath)) !== manifestDir
+          ) {
+            continue
+          }
+        }
+
+        if (newest === undefined || writtenAt > newest) newest = writtenAt
+      } catch {
+        // No contract in this folder, or one that cannot be read.
+      }
+    }
+  } catch {
+    // No such root.
+  }
+
+  return newest
+}
+
+// Another process previewed this folder as a build: its contract names the
+// folder's manifest from outside it. The latest record of the two wins.
+function previewedElsewhereRoot(
+  projectPath: string,
+  own: string
+): string | undefined {
+  if (!fs.existsSync(path.join(projectPath, 'manifest.json'))) return undefined
+  if (fs.existsSync(path.join(projectPath, 'package.json'))) return undefined
+
+  const folder = linkFreePath(path.resolve(projectPath))
+  let found: {root: string; writtenAt: number} | undefined
+
+  for (const root of [
+    besideArtifactsRoot(projectPath),
+    tempArtifactsRoot(projectPath)
+  ]) {
+    const writtenAt = newestContractNaming(root, folder)
+
+    if (writtenAt === undefined) continue
+    if (!found || writtenAt > found.writtenAt) found = {root, writtenAt}
+  }
+
+  if (!found) return undefined
+
+  const ownWrittenAt = newestContractNaming(own)
+
+  return ownWrittenAt !== undefined && ownWrittenAt > found.writtenAt
+    ? undefined
+    : found.root
+}
+
+export function sessionArtifactsRootDir(projectPath: string): string {
+  const own = ownArtifactsRoot(projectPath)
+
+  return (
+    settledArtifactsRoots.get(path.resolve(projectPath)) ??
+    previewedElsewhereRoot(projectPath, own) ??
+    own
+  )
 }
 
 // dist/extension-js holds a full managed browser profile; a '*' .gitignore

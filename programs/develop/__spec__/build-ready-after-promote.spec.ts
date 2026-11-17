@@ -19,6 +19,27 @@ vi.mock('../lib/atomic-dist', async (importOriginal) => {
   }
 })
 
+const zip = vi.hoisted(() => ({fails: false}))
+
+vi.mock('../plugin-compilation/zip-artifacts', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../plugin-compilation/zip-artifacts')>()
+
+  return {
+    ...actual,
+    getZipFailures: (carrier: unknown) =>
+      zip.fails
+        ? [
+            {
+              kind: 'dist' as const,
+              path: '/out/probe-chrome.zip',
+              reason: 'ENOSPC: no space left on device'
+            }
+          ]
+        : actual.getZipFailures(carrier)
+  }
+})
+
 const tempFolder = trackTempFolders()
 const BROWSER = 'chrome'
 
@@ -99,6 +120,7 @@ async function build(root: string, options: Record<string, unknown> = {}) {
 
 beforeEach(() => {
   promote.fails = false
+  zip.fails = false
   vi.stubEnv('VITEST', 'true')
   vi.stubEnv('EXTENSION_AUTHOR_MODE', '')
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -190,6 +212,30 @@ describe('when a build says ready', () => {
     expect(ready.code).toBe('build_failed')
     expect(ready.message).toContain('rename refused by the spec')
     expect(fs.existsSync(path.join(root, 'dist', BROWSER))).toBe(false)
+  }, 120_000)
+
+  it('records the failed archive and says the output is in place', async () => {
+    const root = project()
+
+    zip.fails = true
+
+    await expect(build(root)).rejects.toMatchObject({code: 'E_ZIP_SKIPPED'})
+
+    const ready = readJson(readyContractPath(root, BROWSER))
+    const dist = path.join(root, 'dist', BROWSER)
+
+    expect(ready.status).toBe('error')
+    expect(ready.code).toBe('build_failed')
+    expect(ready.message).toBe(
+      'The distribution zip was requested and not created at ' +
+        '/out/probe-chrome.zip: ENOSPC: no space left on device ' +
+        `The output folder ${dist} is in place and loads as built.`
+    )
+
+    expect(ready.errors).toHaveLength(1)
+    expect(ready.errors[0]).toMatch(/^E_ZIP_SKIPPED: /)
+    expect(ready.distPath).toBe(dist)
+    expect(fs.existsSync(path.join(dist, 'manifest.json'))).toBe(true)
   }, 120_000)
 
   it('keeps the compile error the plugin recorded', async () => {

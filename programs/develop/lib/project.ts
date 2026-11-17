@@ -135,7 +135,8 @@ function announceDeclinedProjectRoot(
   projectManifestPath: string,
   manifestPath: string,
   log: (line: string) => void,
-  quiet: boolean
+  quiet: boolean,
+  previewing: boolean
 ): void {
   // A quiet resolution prints nothing, so it must not use up the one line.
   if (quiet) return
@@ -144,7 +145,9 @@ function announceDeclinedProjectRoot(
   if (announcedDeclinedRoots.has(key)) return
 
   announcedDeclinedRoots.add(key)
-  log(messages.declinedProjectRoot(projectManifestPath, manifestPath))
+  log(
+    messages.declinedProjectRoot(projectManifestPath, manifestPath, previewing)
+  )
 }
 
 export interface ProjectStructure {
@@ -439,6 +442,8 @@ export type RemoteArchiveTarget = {cacheRoot: string} | {destination: string}
 
 export interface ProjectPathOptions {
   remoteArchive?: RemoteArchiveTarget
+  // The command loads a folder and compiles nothing, which its notices say.
+  previewing?: boolean
 }
 
 async function importUrlSourceFromZip(
@@ -650,14 +655,16 @@ export async function getProjectStructure(
 
   rememberAskedPath(asked, projectPath)
 
-  return resolveProjectStructureSync(projectPath)
+  return resolveProjectStructureSync(projectPath, {
+    previewing: options.previewing
+  })
 }
 
 // The same walk `dev` anchors its session on, usable by the read-only
 // session tools: local path in, manifest and project root out, no network.
 export function resolveProjectStructureSync(
   projectPath: string,
-  options: {quiet?: boolean} = {}
+  options: {quiet?: boolean; previewing?: boolean} = {}
 ): ProjectStructure {
   const log = (line: string) => {
     if (!options.quiet) humanLine(line)
@@ -911,7 +918,8 @@ export function resolveProjectStructureSync(
       declined,
       manifestPath,
       log,
-      Boolean(options.quiet)
+      Boolean(options.quiet),
+      Boolean(options.previewing)
     )
   }
 
