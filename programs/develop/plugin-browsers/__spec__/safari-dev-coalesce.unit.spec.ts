@@ -556,6 +556,62 @@ describe('SafariDevPlugin reload trimming after a package', () => {
     expect(sent[0].type).toBe('content-scripts')
   })
 
+  // One package answers the whole burst, so one frame does too: the content
+  // edit keeps its label and its entries when a page edit lands after it.
+  it('sends a burst of a content edit and a page edit as the content edit', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, sent} = makeBroker()
+    const h = harness(broker, '/project')
+    await settleFirst(h)
+
+    const p2 = h.trigger('/v2', MANIFEST_EDIT)
+    await flush()
+    void h.trigger('/v3', CONTENT_EDIT)
+    void h.trigger('/v4', {changedFiles: ['src/popup/index.js']})
+    await flush()
+
+    h.callFor('/v2').resolve()
+    await p2
+    await flush()
+    h.callFor('/v4').resolve()
+    await h.plugin.idle()
+
+    expect(sent).toEqual([
+      {
+        type: 'content-scripts',
+        label: 'content_script (src/content/scripts.js)',
+        entries: ['content_scripts/content-0']
+      }
+    ])
+  })
+
+  it('sends a burst of page edits as the newest one', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, sent} = makeBroker()
+    const h = harness(broker, '/project')
+    await settleFirst(h)
+
+    const p2 = h.trigger('/v2', MANIFEST_EDIT)
+    await flush()
+    void h.trigger('/v3', {changedFiles: ['src/popup/index.js']})
+    void h.trigger('/v4', {changedFiles: ['src/options/index.js']})
+    await flush()
+
+    h.callFor('/v2').resolve()
+    await p2
+    await flush()
+    h.callFor('/v4').resolve()
+    await h.plugin.idle()
+
+    expect(sent).toEqual([
+      {
+        type: 'page',
+        label: 'options page (src/options/index.js)',
+        entries: undefined
+      }
+    ])
+  })
+
   it('says nothing at all when the whole instruction is dropped', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
