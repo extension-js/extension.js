@@ -41,6 +41,7 @@ import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
+import {noteRunBrowsers} from '../helpers/telemetry-cli'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
@@ -101,6 +102,7 @@ interface BuildCommandDeps {
   loadDevelop?: () => Promise<AnyDevelopModule>
   safariPreflight?: typeof safariBuildPreflight
   createPackager?: typeof createSafariPackager
+  noteBrowsers?: typeof noteRunBrowsers
 }
 
 export function registerBuildCommand(
@@ -108,7 +110,8 @@ export function registerBuildCommand(
   {
     loadDevelop = loadExtensionDevelopModule,
     safariPreflight = safariBuildPreflight,
-    createPackager = createSafariPackager
+    createPackager = createSafariPackager,
+    noteBrowsers = noteRunBrowsers
   }: BuildCommandDeps = {}
 ) {
   program
@@ -259,6 +262,7 @@ export function registerBuildCommand(
 
         const asJson = isJsonOutput(buildOptions)
         const list = vendors(browser)
+        noteBrowsers(list)
         let unsupportedBrowser = ''
         let supportedBrowsers: string[] = []
 

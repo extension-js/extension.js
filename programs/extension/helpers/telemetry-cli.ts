@@ -7,6 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
+import {
+  isChromiumBrowser,
+  isFirefoxBrowser
+} from '../browsers/browsers-lib/browser-family'
 import {readBrowserInstall} from './browser-install-outcome'
 import {resolveCommandFromArgv} from './cli-argv'
 import {getCliPackageJson} from './cli-package-json'
@@ -15,11 +19,18 @@ import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
 import {CODES} from './messaging'
 import {
   createTelemetryKit,
+  TELEMETRY_DOCS_URL,
   Telemetry,
+  type TelemetryBrowser,
   type TelemetryConsent,
-  type TelemetryDeps
+  type TelemetryDeps,
+  type TelemetryReset
 } from './telemetry'
-import {listTemplates, templateAliasFor} from './template-catalog'
+import {
+  DEFAULT_TEMPLATE,
+  listTemplates,
+  templateAliasFor
+} from './template-catalog'
 
 export {KNOWN_COMMANDS}
 
@@ -95,8 +106,65 @@ export function createSourceTag(value: string | undefined): string {
   return CREATE_SOURCES.has(tag) ? tag : 'cli'
 }
 
+function hasFlag(argv: string[], names: string[]): boolean {
+  return argv
+    .slice(2)
+    .some((arg) =>
+      names.some((name) => arg === name || arg.startsWith(`${name}=`))
+    )
+}
+
+// The starter a create ran with. No flag at all means the default starter,
+// sent exactly as its name typed after --template would be.
+export function createTemplateName(argv: string[]): string | undefined {
+  if (!hasFlag(argv, ['--template', '-t'])) return DEFAULT_TEMPLATE
+
+  return advertisedTemplateName(readArgValue(argv, ['--template', '-t']))
+}
+
+// One browser name as one of six fixed words. A fork is its engine family,
+// and a name outside both families has no word, so it is not sent.
+export function telemetryBrowserWord(
+  name: string | undefined
+): TelemetryBrowser | undefined {
+  if (name === 'chrome' || name === 'edge' || name === 'firefox') return name
+  if (name === 'safari') return name
+  if (!name) return undefined
+  if (isChromiumBrowser(name)) return 'chromium-based'
+  if (isFirefoxBrowser(name)) return 'gecko-based'
+
+  return undefined
+}
+
+// The browsers a command resolved, from the flag, the config file or the
+// default. Several browsers are one run and one row, so they send nothing.
+export function telemetryBrowser(
+  resolved: readonly string[] | undefined,
+  argv: string[]
+): TelemetryBrowser | undefined {
+  if (!resolved || resolved.length !== 1) return undefined
+
+  const word = telemetryBrowserWord(resolved[0])
+  if (!word) return undefined
+
+  // A custom binary is known by its engine alone, whatever name was typed.
+  if (isChromiumBrowser(word) && hasFlag(argv, ['--chromium-binary'])) {
+    return 'chromium-based'
+  }
+
+  if (
+    isFirefoxBrowser(word) &&
+    hasFlag(argv, ['--gecko-binary', '--firefox-binary'])
+  ) {
+    return 'gecko-based'
+  }
+
+  return word
+}
+
 export type TelemetryCommandContext = {
   template?: string
+  browser?: TelemetryBrowser
   source?: string
   browser_install?: string
   browser_install_browser?: string
@@ -113,7 +181,8 @@ type InstallReaders = {
 function commandContextWith(
   readers: InstallReaders,
   command: string,
-  argv: string[]
+  argv: string[],
+  resolvedBrowsers?: readonly string[]
 ): TelemetryCommandContext {
   // Whether the first-run download offer converts, on whichever command made
   // it. Four fixed outcomes and a managed browser name, never a path.
@@ -128,13 +197,15 @@ function commandContextWith(
       }
     : {}
 
+  const browser = telemetryBrowser(resolvedBrowsers, argv)
+  if (browser) return {...installContext, browser}
   if (command !== 'create') return installContext
 
   const deps = readers.readDependencyInstall()
 
   return {
     ...installContext,
-    template: advertisedTemplateName(readArgValue(argv, ['--template', '-t'])),
+    template: createTemplateName(argv),
     source: createSourceTag(readArgValue(argv, ['--source'])),
     ...(deps ? {deps_install: deps.outcome} : {}),
     ...(deps?.seconds === undefined ? {} : {deps_install_seconds: deps.seconds})
@@ -207,9 +278,20 @@ export interface TelemetryCliDeps extends TelemetryDeps, InstallReaders {
   host: TelemetryHost
 }
 
+// What `extension telemetry status` answers: the decision and what is stored.
+export type TelemetryStatus = TelemetryConsent & {
+  anonymousId: string | null
+  consentFile: string | null
+  auditFile: string | null
+}
+
 export interface TelemetryCli {
   telemetry: Telemetry
   getConsent(): TelemetryConsent
+  getStatus(): TelemetryStatus
+  reset(): TelemetryReset
+  // Called by a command once it knows which browsers the run targets.
+  noteBrowsers(resolved: readonly string[]): void
   invokedCommand(): string
   resolveInvokedCommand(argv: string[], valuedFlags: ReadonlySet<string>): void
   setConsent(value: 'enabled' | 'disabled'): {ok: boolean; path: string | null}
@@ -252,6 +334,7 @@ export function createTelemetryCli(
     kit
   )
 
+  let resolvedBrowsers: readonly string[] | undefined
   let tracked = false
   let sessionStarted = false
   let sessionReady = false
@@ -268,6 +351,30 @@ export function createTelemetryCli(
     const storage = kit.resolveStorage()
 
     return {ok, path: storage?.consentFile ?? null}
+  }
+
+  // Read-only: a status never creates the folder, the ID or a probe file.
+  function getStatus(): TelemetryStatus {
+    const storage = kit.locateStorage()
+    // An opt-in by variable with nowhere to write still sends nothing.
+    const decided: TelemetryConsent =
+      consent.enabled && !telemetry.isEnabled
+        ? {enabled: false, source: 'storage'}
+        : consent
+
+    return {
+      ...decided,
+      anonymousId: storage ? kit.readId(storage.idFile) : null,
+      consentFile: storage?.consentFile ?? null,
+      auditFile: storage?.auditFile ?? null
+    }
+  }
+
+  // Silenced first, so the run that resets leaves no audit line behind it.
+  function reset(): TelemetryReset {
+    telemetry.disable()
+
+    return kit.resetState()
   }
 
   function markTracked(): boolean {
@@ -311,7 +418,7 @@ export function createTelemetryCli(
       success: true,
       version,
       session: 'started',
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
 
     // Sent now, not queued. Holding it for the exit is the defect being fixed.
@@ -331,7 +438,7 @@ export function createTelemetryCli(
       success: true,
       version,
       session: 'ready',
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
 
     void telemetry.flush()
@@ -347,7 +454,7 @@ export function createTelemetryCli(
       command,
       success: true,
       version,
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
   }
 
@@ -365,7 +472,7 @@ export function createTelemetryCli(
       version,
       ...(code ? {code} : {}),
       ...(exitCode === undefined ? {} : {exit_code: exitCode}),
-      ...commandContextWith(readers, command, argv)
+      ...commandContextWith(readers, command, argv, resolvedBrowsers)
     })
   }
 
@@ -389,8 +496,8 @@ export function createTelemetryCli(
       `${colors.gray('⏵⏵⏵')} Extension.js collects anonymous, opt-out telemetry (two events: ` +
         `${colors.cyan('command_executed')} + ${colors.cyan('command_failed')}). ` +
         `Disable with ${colors.cyan('extension telemetry disable')}, ` +
-        `${colors.cyan('EXTENSION_TELEMETRY=0')}, or ${colors.cyan('--no-telemetry')}. ` +
-        `See docs/TELEMETRY.md.`
+        `${colors.cyan('EXTENSION_TELEMETRY_DISABLED=1')}, ${colors.cyan('DO_NOT_TRACK=1')}, ` +
+        `or ${colors.cyan('--no-telemetry')}. Details: ${colors.underline(TELEMETRY_DOCS_URL)}`
     )
   }
 
@@ -432,6 +539,11 @@ export function createTelemetryCli(
   return {
     telemetry,
     getConsent: () => consent,
+    getStatus,
+    reset,
+    noteBrowsers: (resolved) => {
+      resolvedBrowsers = [...resolved]
+    },
     invokedCommand: () => invoked,
     resolveInvokedCommand: (nextArgv, valuedFlags) => {
       invoked = detectInvokedCommand(nextArgv, valuedFlags)
@@ -455,6 +567,19 @@ export const telemetry = telemetryCli.telemetry
 
 export function getTelemetryConsent(): TelemetryConsent {
   return telemetryCli.getConsent()
+}
+
+export function getTelemetryStatus(): TelemetryStatus {
+  return telemetryCli.getStatus()
+}
+
+// A row sent before this call, or by a run that never makes it, has no browser.
+export function noteRunBrowsers(resolved: readonly string[]): void {
+  telemetryCli.noteBrowsers(resolved)
+}
+
+export function resetTelemetry(): TelemetryReset {
+  return telemetryCli.reset()
 }
 
 // The verb this run invoked, for the exit path that reports an outcome the

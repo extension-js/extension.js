@@ -355,7 +355,7 @@ programs/install/lib/messaging.ts
 ```
 
 There is no shared package. `create` and `install` are small enough that depending on the
-develop engine for a sixty-line helper would drag the entire bundler graph behind it, and the
+develop engine for one messaging module would drag the entire bundler graph behind it, and the
 browser runner is deliberately extractable as a standalone bundle. A test asserts the four
 copies are byte-identical and points at the canonical when they are not. Edit the canonical,
 then copy it over the others.

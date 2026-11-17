@@ -9,6 +9,8 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {codedError} from './coded-error'
+import {CODES} from './messaging'
 import type {ProjectStructure} from './project'
 import {
   PROJECT_MANIFEST_FILENAMES,
@@ -259,7 +261,8 @@ export function configBrowserOrThrow(
   if (configBrowser === undefined || configBrowser === null) return undefined
 
   if (!isKnownBrowserName(configBrowser)) {
-    throw new Error(
+    throw codedError(
+      CODES.E_UNSUPPORTED_BROWSER,
       `Unsupported browser in extension.config commands.${command}.browser: ${String(configBrowser)}`
     )
   }

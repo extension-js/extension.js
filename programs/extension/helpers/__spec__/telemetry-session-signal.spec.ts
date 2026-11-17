@@ -73,7 +73,8 @@ describe('a watch session is counted when it starts', () => {
       is_ci: false,
       is_source_build: true,
       $ip: null,
-      $geoip_disable: true
+      $geoip_disable: true,
+      $process_person_profile: false
     })
   })
 
@@ -310,17 +311,38 @@ describe('the first-run notice', () => {
     expect(defaultRun(sandbox({env: {CI: '1'}})).notices).toEqual([])
   })
 
-  it('never prints with no storage, while the run still sends', async () => {
+  it('prints nothing and sends nothing with no storage', async () => {
     const box = sandbox({deps: {storageFolders: () => [], random: () => 0}})
     const run = defaultRun(box)
 
     run.cli.markCommandFailure('build', {code: 'E_ARGS'})
     await run.cli.telemetry.flush()
 
-    // Pins today's behavior. Ledger 1372 D34.
     expect(run.notices).toEqual([])
-    expect(run.cli.getConsent()).toEqual({enabled: true, source: 'default'})
-    expect(box.sentRows().map((row) => row.distinct_id)).toEqual(['disabled'])
+    expect(run.cli.getConsent()).toEqual({enabled: false, source: 'storage'})
+    expect(run.hooks).toEqual({})
+    expect(box.sent).toEqual([])
+  })
+
+  it('names the documented switches and a full link, not a repo path', () => {
+    const notice = defaultRun(sandbox()).notices[0]
+
+    expect(notice).toBe(
+      '⏵⏵⏵ Extension.js collects anonymous, opt-out telemetry (two events: ' +
+        'command_executed + command_failed). Disable with ' +
+        'extension telemetry disable, EXTENSION_TELEMETRY_DISABLED=1, ' +
+        'DO_NOT_TRACK=1, or --no-telemetry. Details: ' +
+        'https://github.com/extension-js/extension.js/blob/main/docs/TELEMETRY.md'
+    )
+  })
+
+  it('prints nothing under DO_NOT_TRACK and leaves no file behind', () => {
+    const box = sandbox({env: {DO_NOT_TRACK: '1'}})
+    const run = defaultRun(box)
+
+    expect(run.notices).toEqual([])
+    expect(run.cli.telemetry.isEnabled).toBe(false)
+    expect(fs.existsSync(box.places.config)).toBe(false)
   })
 })
 

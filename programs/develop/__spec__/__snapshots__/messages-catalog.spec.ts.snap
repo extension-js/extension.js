@@ -144,9 +144,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-compilation/compilation-lib/messages.ts": [
     "boring: function(3)",
-    "cleanDistRemovedSummary: function(2)",
-    "cleanDistSkippedNotFound: function(1)",
-    "cleanDistStarting: function(1)",
     "envChangedRestartRequired: function(1)",
     "envIgnoredFiles: function(2)",
     "envInjectedPublicVars: function(1)",
@@ -157,6 +154,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "nodeBuiltinHasNoStandIn: function(4)",
     "nodeBuiltinStandInHint: function(1)",
     "projectConfigChangedRestartRequired: function(1)",
+    "zipCreationFailed: function(1)",
+    "zipMissingDefaultLocale: function(2)",
     "zipPackagingSkipped: function(1)",
   ],
   "plugin-css/css-lib/messages.ts": [

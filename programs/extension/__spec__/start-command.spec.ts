@@ -45,7 +45,13 @@ let wait: () => Promise<unknown> = async () => READY
 
 // Only waitForReady is faked on the wait path: describeWaitError is the code
 // under test there.
+// What the command told telemetry about the browsers of the run.
+const notedBrowsers: string[][] = []
+
 const deps: StartDeps = {
+  noteBrowsers: (resolved) => {
+    notedBrowsers.push([...resolved])
+  },
   loadDevelop: async () => ({
     extensionBuild: async (...call: EngineCall) => {
       events.push('build')
@@ -100,6 +106,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  notedBrowsers.length = 0
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
 
@@ -766,5 +773,38 @@ describe('extension start --wait', () => {
         hint: 'Read the server output for the failure behind the ready contract.'
       }
     ])
+  })
+})
+
+describe('extension start tells telemetry which browsers it resolved', () => {
+  it.each<[string, string[], unknown, string[]]>([
+    ['the default, with no flag and no config', [], {}, ['chromium']],
+    ['the one the config file names', [], {browser: 'firefox'}, ['firefox']],
+    [
+      'the flag over the config file',
+      ['--browser', 'edge'],
+      {browser: 'firefox'},
+      ['edge']
+    ],
+    [
+      'every browser of a list',
+      ['--browser', 'chrome,firefox'],
+      {},
+      ['chrome', 'firefox']
+    ]
+  ])('%s', async (_name, argv, config, expected) => {
+    commandConfig = config
+
+    await run(['start', PROJECT, ...argv])
+
+    expect(notedBrowsers).toEqual([expected])
+  })
+
+  it('tells nothing for a run refused before a browser is resolved', async () => {
+    commandConfig = {browser: 'firefox'}
+
+    expect(await run(['start', PROJECT, '--output', 'xml'])).toBe(1)
+    expect(notedBrowsers).toEqual([])
+    expect(configReads).toEqual([])
   })
 })
