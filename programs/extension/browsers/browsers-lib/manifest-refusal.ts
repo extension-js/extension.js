@@ -127,15 +127,32 @@ export function endsRunOnlyLaunch(
   return predictedRefusal ? status !== 'loaded' : status === 'refused'
 }
 
-// An invalid host wildcard in a content script or a web accessible resource
-// refuses the whole extension. Chrome 151 loads one in host permissions.
-export function findInvalidMatchPatterns(manifest: unknown): string[] {
+// Measured on Chrome 151 and Firefox Nightly 160: an invalid host wildcard
+// in the host permission lists loads and grants no host access.
+export function findIgnoredHostPermissionPatterns(manifest: unknown): string[] {
   const m = manifest as Record<string, LooseManifest> | null | undefined
-  const patterns: string[] = []
+  const patterns: unknown[] = []
 
   for (const list of [m?.host_permissions, m?.optional_host_permissions]) {
     if (Array.isArray(list)) patterns.push(...list)
   }
+
+  return [...new Set(patterns.filter(isInvalidHostPattern))]
+}
+
+function isInvalidHostPattern(pattern: unknown): pattern is string {
+  return (
+    typeof pattern === 'string' &&
+    pattern !== '<all_urls>' &&
+    hasInvalidHostWildcard(pattern)
+  )
+}
+
+// An invalid host wildcard in a content script or a web accessible resource
+// refuses the whole extension. The host permission lists are read above.
+export function findInvalidMatchPatterns(manifest: unknown): string[] {
+  const m = manifest as Record<string, LooseManifest> | null | undefined
+  const patterns: string[] = []
 
   for (const contentScript of Array.isArray(m?.content_scripts)
     ? m.content_scripts
@@ -154,14 +171,7 @@ export function findInvalidMatchPatterns(manifest: unknown): string[] {
     if (Array.isArray(resource?.matches)) patterns.push(...resource.matches)
   }
 
-  const invalid = patterns.filter(
-    (pattern): pattern is string =>
-      typeof pattern === 'string' &&
-      pattern !== '<all_urls>' &&
-      hasInvalidHostWildcard(pattern)
-  )
-
-  return [...new Set(invalid)]
+  return [...new Set(patterns.filter(isInvalidHostPattern))]
 }
 
 // Chrome's host grammar allows *, *.domain.tld, or a literal host. The PORT is

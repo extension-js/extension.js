@@ -9,6 +9,7 @@ import {
   findChromiumLoadBlockers,
   findChromiumManifestCaveats,
   findGeckoRefusalCause,
+  findIgnoredHostPermissionPatterns,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
@@ -22,6 +23,7 @@ import {
   browserRefusesTheExtension,
   chromiumLoadedPredictedRefusal,
   geckoAddonLoadRefused,
+  hostPermissionPatternsIgnored,
   manifestV2OnChromiumBrowser,
   manifestVersionAboveThreeOnChromium,
   unsupportedManifestVersionOnChromium
@@ -333,9 +335,61 @@ describe('diagnoseChromiumManifestRefusal', () => {
 
     expect(
       findInvalidMatchPatterns({
-        host_permissions: ['*://*carbonwise*:*/*']
+        content_scripts: [{matches: ['*://*carbonwise*:*/*']}]
       })
     ).toEqual(['*://*carbonwise*:*/*'])
+  })
+
+  // Measured on Chrome 151: content script and web accessible resource
+  // patterns refuse the extension, host permission patterns do not.
+  it('predicts a refusal only for the keys Chrome refuses over', () => {
+    const bad = 'https://foo.*.com/*'
+
+    expect(
+      findInvalidMatchPatterns({
+        host_permissions: [bad],
+        optional_host_permissions: [bad]
+      })
+    ).toEqual([])
+
+    for (const manifest of [
+      {content_scripts: [{matches: [bad]}]},
+      {
+        content_scripts: [
+          {matches: ['https://ok.example/*'], exclude_matches: [bad]}
+        ]
+      },
+      {web_accessible_resources: [{resources: ['a.js'], matches: [bad]}]}
+    ]) {
+      expect(findInvalidMatchPatterns(manifest)).toEqual([bad])
+      expect(findIgnoredHostPermissionPatterns(manifest)).toEqual([])
+    }
+  })
+
+  it('names host permission patterns the browser drops as a caveat', () => {
+    expect(
+      findIgnoredHostPermissionPatterns({
+        host_permissions: ['https://foo.*.com/*', 'https://ok.example/*'],
+        optional_host_permissions: ['https://*foo.com/*', '<all_urls>']
+      })
+    ).toEqual(['https://foo.*.com/*', 'https://*foo.com/*'])
+
+    expect(findIgnoredHostPermissionPatterns(undefined)).toEqual([])
+
+    const text = hostPermissionPatternsIgnored('/dist/chrome', [
+      'https://foo.*.com/*'
+    ])
+
+    expect(text).toContain(
+      'lists host permission patterns the browser drops, so they grant no host access.'
+    )
+
+    expect(text).toContain('PATTERN https://foo.*.com/*')
+    expect(text).toContain(
+      'Chrome and Firefox load the extension, Chrome records no error or warning for it'
+    )
+
+    expect(text).not.toMatch(/refuses|won't load/)
   })
 
   it('accepts MV3 with no background and tolerates malformed shapes', () => {

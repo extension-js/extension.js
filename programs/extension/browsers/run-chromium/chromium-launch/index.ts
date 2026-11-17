@@ -48,6 +48,7 @@ import {
   endsRunOnlyLaunch,
   findChromiumLoadBlockers,
   findChromiumManifestCaveats,
+  findIgnoredHostPermissionPatterns,
   findInvalidMatchPatterns,
   findLocaleLoadBlockers,
   findMissingManagedSchema,
@@ -1130,6 +1131,23 @@ export class ChromiumLaunchPlugin {
                   String(extPath),
                   m?.manifest_version
                 )
+          )
+        }
+
+        // The build of this session already warned about its own output.
+        const builtHere =
+          sessionBuilds &&
+          path.resolve(String(extPath)) === path.resolve(sessionOutputPath)
+        const ignoredPatterns = builtHere
+          ? []
+          : findIgnoredHostPermissionPatterns(m)
+
+        if (ignoredPatterns.length) {
+          humanWarn(
+            messages.hostPermissionPatternsIgnored(
+              String(extPath),
+              ignoredPatterns
+            )
           )
         }
 

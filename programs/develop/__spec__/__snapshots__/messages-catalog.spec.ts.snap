@@ -281,6 +281,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "geckoIncognitoSplitNotAllowed: function(1)",
     "geckoSidePanelUnsupported: function(1)",
     "geckoUnsupportedKeysDropped: function(2)",
+    "hostPermissionPatternsIgnored: function(1)",
     "iconVariantsFallback: function(2)",
     "invalidThemeValue: function(3)",
     "legacyManifestPathWarning: function(3)",

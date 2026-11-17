@@ -565,6 +565,26 @@ export function unsupportedManifestVersionOnChromium(
   )
 }
 
+// A caveat, not a refusal: the browser loads the extension and drops these.
+export function hostPermissionPatternsIgnored(
+  extensionPath: string,
+  patterns: string[]
+) {
+  const shown = patterns.slice(0, 6)
+  const more = patterns.length - shown.length
+
+  return (
+    `${getLoggingPrefix('warn')} ${colors.brightYellow('This extension lists host permission patterns the browser drops, so they grant no host access.')}\n` +
+    `${colors.gray('PATH')} ${colors.underline(extensionPath)}\n` +
+    shown
+      .map((pattern) => `${colors.gray('PATTERN')} ${colors.red(pattern)}\n`)
+      .join('') +
+    (more > 0 ? `${colors.gray(`…and ${more} more`)}\n` : '') +
+    `Chrome and Firefox load the extension, Chrome records no error or warning for it, and the other patterns in the list still apply.\n` +
+    `Write the host as ${colors.blue('*')}, ${colors.blue('*.domain.tld')} or a literal host in the source manifest.`
+  )
+}
+
 export function chromiumInvalidMatchPatterns(
   extensionPath: string,
   patterns: string[]

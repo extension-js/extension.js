@@ -732,6 +732,20 @@ export function geckoIncognitoSplitNotAllowed(browser: string) {
 
 // A description that passes a Chrome build is exactly the one Apple refuses,
 // since Chrome allows 132 characters and App Store Connect 112.
+export function hostPermissionPatternsIgnored(
+  hits: Array<{key: string; pattern: string}>
+) {
+  return [
+    `${prefix('warn')} manifest.json lists host permission patterns the browser drops, so they grant no host access.`,
+    ...hits.map(
+      (hit) =>
+        `${colors.gray('PATTERN')} ${colors.red(hit.pattern)} in ${colors.blue(hit.key)}`
+    ),
+    'Chrome and Firefox load the extension, Chrome records no error or warning for it, and the other patterns in the list still apply.',
+    `Write the host as ${colors.blue('*')}, ${colors.blue('*.domain.tld')} or a literal host.`
+  ].join('\n')
+}
+
 export function manifestDescriptionOverStoreLimit(
   browser: string,
   length: number,
