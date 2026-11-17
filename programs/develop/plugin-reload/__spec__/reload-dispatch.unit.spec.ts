@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources
@@ -16,15 +16,19 @@ const CS: ReloadInstruction = {
   label: 'content_script (src/content/scripts.js)'
 }
 
+beforeEach(() => {
+  vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
+  vi.stubEnv('EXTENSION_OUTPUT', undefined)
+})
+
 afterEach(() => {
-  delete process.env.EXTENSION_NO_RELOAD
-  delete process.env.EXTENSION_OUTPUT
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
 })
 
 describe('dispatchReload', () => {
   it('keeps the reload line off stdout while a machine owns it', async () => {
-    process.env.EXTENSION_OUTPUT = 'json'
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const stderr = vi
       .spyOn(process.stderr, 'write')
@@ -447,7 +451,7 @@ describe('dispatchReload', () => {
       false
     )
 
-    process.env.EXTENSION_NO_RELOAD = 'true'
+    vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
     await expect(dispatchReload(CS, {broker: taken})).resolves.toBe(false)
   })
 
@@ -588,7 +592,7 @@ describe('dispatchReload', () => {
   })
 
   it('honors EXTENSION_NO_RELOAD', async () => {
-    process.env.EXTENSION_NO_RELOAD = 'true'
+    vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
     const broker = {broadcastReload: vi.fn()}
     await dispatchReload(CS, {broker})
     expect(broker.broadcastReload).not.toHaveBeenCalled()
