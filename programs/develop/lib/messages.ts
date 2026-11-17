@@ -1593,6 +1593,34 @@ export function previewingCustomOutput(
   )
 }
 
+// A library call that launches a browser has to bring the launcher: the
+// engine holds no browser code of its own.
+export function previewLauncherRequired() {
+  return (
+    `${getLoggingPrefix('error')} extensionPreview was called without a browser launcher.\n` +
+    `Pass a launcher as the third argument, or set noBrowser to launch none.`
+  )
+}
+
+// The control channel of a production run lives in the browser it opens.
+export function controlNeedsBrowser(command: string) {
+  return (
+    `${getLoggingPrefix('error')} --no-browser cannot be combined with --allow-control or --allow-eval on ${command}.\n` +
+    `The control channel is carried by the browser this command opens, and --no-browser opens none. Drop --no-browser, or drop --allow-control and --allow-eval.`
+  )
+}
+
+export function previewBuildBrowserMismatch(
+  outputPath: string,
+  builtFor: string,
+  asked: string
+) {
+  return (
+    `${getLoggingPrefix('error')} ${asAskedPath(outputPath)} was built for ${builtFor} and cannot be previewed in ${asked}.\n` +
+    `Run \`extension build --browser ${asked}\` and preview that build, or pass \`--browser ${builtFor}\`.`
+  )
+}
+
 export function productionControlOpen(
   browser: DevOptions['browser'],
   controlledPath: string,

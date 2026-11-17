@@ -100,7 +100,7 @@ describe('webpack/command-dev', () => {
     expect(ensureArtifactsMod.ensureDevelopArtifacts).toHaveBeenCalled()
     expect(devServerMod.devServer).toHaveBeenCalledWith(
       expect.any(Object),
-      expect.objectContaining({mode: 'development', browser: 'chrome'})
+      expect.objectContaining({mode: 'development', browser: 'chromium'})
     )
   })
 
@@ -302,6 +302,46 @@ describe('webpack/command-dev', () => {
       )
     })
 
+    it('refuses a commands.dev.browser it does not know, with a code', async () => {
+      ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+        browser: 'netscape'
+      })
+
+      await expect(
+        extensionDev('/proj', {browser: undefined, port: 0} as any)
+      ).rejects.toMatchObject({
+        code: 'E_UNSUPPORTED_BROWSER',
+        message: expect.stringContaining('commands.dev.browser: netscape')
+      })
+
+      expect((devServerMod as any).devServer).not.toHaveBeenCalled()
+    })
+
+    it('refuses a browser option it does not know, with a code', async () => {
+      await expect(
+        extensionDev('/proj', {browser: 'netscape', port: 0} as any)
+      ).rejects.toMatchObject({code: 'E_UNSUPPORTED_BROWSER'})
+
+      expect((devServerMod as any).devServer).not.toHaveBeenCalled()
+    })
+
+    it('targets chromium when neither the call nor the config names a browser', async () => {
+      await extensionDev('/proj', {port: 0, launcher: vi.fn()} as any)
+
+      expect(pluginBrowserOptions().browser).toBe('chromium')
+      expect(devServerOptions().browser).toBe('chromium')
+    })
+
+    it('lets a binary with no browser name pick its own family', async () => {
+      await extensionDev('/proj', {
+        port: 0,
+        geckoBinary: '/opt/gecko/firefox',
+        launcher: vi.fn()
+      } as any)
+
+      expect(devServerOptions().browser).toBe('gecko-based')
+    })
+
     it('lets an explicit CLI browser beat commands.dev.browser', async () => {
       ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
         browser: 'firefox'
@@ -429,10 +469,13 @@ describe('webpack/command-dev', () => {
     })
   })
 
-  it('prints contract errors once, clean, without a stack trace (bug 28)', async () => {
+  it('prints contract errors once, clean, without a stack trace, on the path that exits', async () => {
     const localErrorSpy = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {})
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit 1')
+    })
     // Nightly jobs export author mode, pin it off for this assertion.
     vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
 
@@ -443,9 +486,10 @@ describe('webpack/command-dev', () => {
     })
 
     await expect(
-      extensionDev('/proj', {browser: 'chrome'} as any)
-    ).rejects.toThrow(/Missing tsconfig\.json/)
+      extensionDev('/proj', {browser: 'chrome', exitOnError: true} as any)
+    ).rejects.toThrow('exit 1')
 
+    expect(exitSpy).toHaveBeenCalledWith(1)
     expect(localErrorSpy).toHaveBeenCalledTimes(1)
     const printed = localErrorSpy.mock.calls[0][0]
     expect(typeof printed).toBe('string')
@@ -479,6 +523,8 @@ describe('webpack/command-dev', () => {
       throw new Error('boom')
     })
 
+    const printed = vi.spyOn(console, 'error').mockImplementation(() => {})
+
     // Library contract: no exitOnError means reject, never process.exit; the
     // CLI wrapper opts into exiting on its pretty path.
     await expect(
@@ -486,6 +532,8 @@ describe('webpack/command-dev', () => {
     ).rejects.toThrow('boom')
 
     expect(exitSpy).not.toHaveBeenCalled()
+    // The caller holds the rejection, so printing it here would show it twice.
+    expect(printed).not.toHaveBeenCalled()
     exitSpy.mockRestore()
   })
 
@@ -508,8 +556,6 @@ describe('webpack/command-dev', () => {
     expect(onExitError).not.toHaveBeenCalled()
 
     printed.mockClear()
-    // The exit path is off under vitest, so this run stands in for the CLI.
-    vi.stubEnv('VITEST', 'false')
 
     try {
       await expect(
@@ -520,7 +566,6 @@ describe('webpack/command-dev', () => {
         } as any)
       ).rejects.toThrow('exit 1')
     } finally {
-      vi.unstubAllEnvs()
       ;(devServerMod as any).devServer.mockImplementation(async () => {})
     }
 

@@ -382,7 +382,11 @@ export interface BuildOptions {
 }
 
 export interface PreviewOptions extends BrowserOptionsBase {
-  mode: 'production'
+  /**
+   * @deprecated Nothing reads it: a preview always runs a finished build.
+   * Kept optional so a caller that still passes it compiles.
+   */
+  mode?: 'production'
   outputPath?: string
   /**
    * Internal metadata command override used by start->preview delegation.
@@ -425,12 +429,14 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * Dry run mode (no browser launch) for diagnostics.
    */
   dryRun?: boolean
-  // Port forwarding to browser runner (e.g., debugging/logging server)
+  /**
+   * Seeds the browser's debugging port, which the launcher derives from it.
+   * This command serves nothing, so it is not a server port.
+   */
   port?: string | number
   /**
-   * Host to bind the dev server to.
-   * Use '0.0.0.0' for Docker/devcontainer environments.
-   * Defaults to '127.0.0.1'.
+   * Host the control channel binds to when `allowControl` or `allowEval`
+   * opens one. Nothing else listens. Defaults to '127.0.0.1'.
    */
   host?: string
   /**
@@ -465,12 +471,14 @@ export interface StartOptions extends BrowserOptionsBase {
    * Skip launching the browser (build still runs).
    */
   noBrowser?: boolean
-  // Port forwarding to browser runner (e.g., debugging/logging server)
+  /**
+   * Seeds the browser's debugging port, which the launcher derives from it.
+   * This command serves nothing, so it is not a server port.
+   */
   port?: string | number
   /**
-   * Host to bind the dev server to.
-   * Use '0.0.0.0' for Docker/devcontainer environments.
-   * Defaults to '127.0.0.1'.
+   * Host the control channel binds to when `allowControl` or `allowEval`
+   * opens one. Nothing else listens. Defaults to '127.0.0.1'.
    */
   host?: string
   /**
