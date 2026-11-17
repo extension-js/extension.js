@@ -22,7 +22,17 @@
 
 - `status`: `starting` | `ready` | `error` | `stopped`. Under `start` with a
   browser to launch, the build leaves `status: starting` with `compiledAt` set,
-  and `ready` is stamped only once the launch passed its binary checks
+  and `ready` is stamped only once the launch passed its binary checks. Under
+  `dev` with a browser to launch, the compile leaves `status: starting` with
+  `compiledAt` set the same way, and `ready` follows once the launcher stamped
+  the browser it started: `browserPid`, `binary`, `profilePath` and the
+  debugger port, `cdpPort` on Chromium or `rdpPort` on Firefox. A `ready`
+  record with a pid and no port means the launch is over and the session holds
+  no debugger port, with `cdpFaultCode` or `rdpPortError` beside it when a
+  fault is the reason, and one with no `browserPid` names a session that
+  launched no browser (`--no-browser`, a dry run). `executorAttachedAt` can follow
+  `ready`, unless the session takes act verbs, where `ready` waits for it up to
+  10 seconds
 - `command`: `dev` | `start` | `preview`
 - `browser`
 - `runId`

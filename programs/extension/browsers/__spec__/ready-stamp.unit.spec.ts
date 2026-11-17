@@ -16,6 +16,7 @@ import {
   stampReadyBrowserLaunchFailed,
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
+  stampReadyCdpPort,
   stampReadyExtensionBaseUrl,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
@@ -508,6 +509,106 @@ describe('stampReadyCdpFault', () => {
     ).not.toThrow()
 
     expect(fs.existsSync(readyPath)).toBe(false)
+  })
+})
+
+// A Chromium dev compile waits at starting for the launcher, and the port, or
+// the fault that stands in for it, is what tells a reader the launch is in.
+describe('a held Chromium dev contract', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  const held = {
+    command: 'dev',
+    browser: 'chrome',
+    runId: 'run-A',
+    status: 'starting',
+    compiledAt: '2026-11-01T00:00:00.000Z',
+    browserPid: 4242,
+    binary: '/browsers/chrome'
+  }
+
+  const read = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-held-cdp-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  it('goes ready on the CDP port, with the launch beside it', () => {
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+
+    stampReadyCdpPort(outputPath, 9222, 'run-A')
+
+    expect(read()).toMatchObject({
+      status: 'ready',
+      cdpPort: 9222,
+      browserPid: 4242,
+      binary: '/browsers/chrome'
+    })
+  })
+
+  it('goes ready on a port an earlier write already named', () => {
+    fs.writeFileSync(readyPath, JSON.stringify({...held, cdpPort: 9222}))
+
+    stampReadyCdpPort(outputPath, 9222, 'run-A')
+
+    expect(read().status).toBe('ready')
+  })
+
+  it('goes ready on the fault when the wire never came up', () => {
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+
+    stampReadyCdpFault(outputPath, 'E_CDP_CONNECT', 'no endpoint', 'run-A')
+
+    expect(read()).toMatchObject({
+      status: 'ready',
+      cdpFaultCode: 'E_CDP_CONNECT'
+    })
+  })
+
+  it('stays at starting while the compile is not in, or the hello is owed', () => {
+    fs.writeFileSync(readyPath, JSON.stringify({...held, compiledAt: null}))
+    stampReadyCdpPort(outputPath, 9222, 'run-A')
+    expect(read()).toMatchObject({status: 'starting', cdpPort: 9222})
+
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        ...held,
+        awaitingExecutorSince: '2026-11-01T00:00:00.000Z'
+      })
+    )
+
+    stampReadyCdpPort(outputPath, 9222, 'run-A')
+    expect(read()).toMatchObject({status: 'starting', cdpPort: 9222})
+  })
+
+  it.each([
+    'start',
+    'preview'
+  ])('leaves a %s contract for the launch phase to turn ready', (command) => {
+    fs.writeFileSync(readyPath, JSON.stringify({...held, command}))
+
+    stampReadyCdpPort(outputPath, 9222, 'run-A')
+
+    expect(read()).toMatchObject({status: 'starting', cdpPort: 9222})
+  })
+
+  it('takes no port from a run that is not the contract owner', () => {
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+
+    stampReadyCdpPort(outputPath, 9222, 'run-B')
+
+    expect(read().status).toBe('starting')
+    expect(read().cdpPort).toBeUndefined()
   })
 })
 

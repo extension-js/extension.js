@@ -126,3 +126,52 @@ describe('browser launch slot', () => {
     expect(launcher).toHaveBeenCalledTimes(1)
   })
 })
+
+// The ready contract of a dev session waits for what the launcher stamps,
+// so it has to hear the launcher come back whichever way that goes.
+describe('the launch settled listener', () => {
+  it('hears the launcher come back with a browser, once', async () => {
+    const settled = vi.fn()
+    const plugin = new BrowsersPlugin({
+      launcher: vi.fn(async () => ({enableUnifiedLogging: vi.fn()})),
+      browserOptions: {browser: 'chrome'}
+    } as never)
+    plugin.setLaunchSettledListener(settled)
+    const compile = applyPlugin(plugin)
+
+    await compile()
+    await compile()
+
+    expect(settled).toHaveBeenCalledTimes(1)
+  })
+
+  it('hears a launch that threw', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const settled = vi.fn()
+    const plugin = new BrowsersPlugin({
+      launcher: vi.fn().mockRejectedValue(new Error('Chrome binary not found')),
+      browserOptions: {browser: 'chrome'}
+    } as never)
+    plugin.emitter.on('error', () => {})
+    plugin.setLaunchSettledListener(settled)
+    const compile = applyPlugin(plugin)
+
+    await compile()
+
+    expect(settled).toHaveBeenCalledTimes(1)
+  })
+
+  it('never lets a throwing listener break the compile loop', async () => {
+    const plugin = new BrowsersPlugin({
+      launcher: vi.fn(async () => ({enableUnifiedLogging: vi.fn()})),
+      browserOptions: {browser: 'chrome'}
+    } as never)
+    plugin.setLaunchSettledListener(() => {
+      throw new Error('listener failed')
+    })
+
+    const compile = applyPlugin(plugin)
+
+    await expect(compile()).resolves.toBeUndefined()
+  })
+})

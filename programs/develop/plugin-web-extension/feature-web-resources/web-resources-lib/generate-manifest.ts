@@ -664,8 +664,8 @@ export function generateManifestPatches(
   }
 
   // A content script's stylesheet reaches its own url() targets at runtime, so
-  // every emitted file it names is exposed, whatever the extension. The font
-  // rule below predates this and still covers fonts reached from JS.
+  // every emitted file it names is exposed. A font only a page's own sheet
+  // loads is fetched by the extension itself and stays unlisted.
   const contentSheetKeys = Object.keys(compilation.assets || {}).filter(
     (k) => k.startsWith('content_scripts/') && k.endsWith('.css')
   )
@@ -701,49 +701,6 @@ export function generateManifestPatches(
     for (const resource of contentSheetTargets) {
       if (!webAccessibleResourcesV2.includes(resource)) {
         webAccessibleResourcesV2.push(resource)
-      }
-    }
-  }
-
-  // Last-resort fallback: expose emitted font files to the union of
-  // content_scripts matches; assets/ and content_scripts/ files stay excluded.
-  const fontExtRe = /\.(woff2?|eot|ttf|otf)$/i
-
-  if (canonicalManifest.manifest_version === 3) {
-    const assetKeys: string[] = Object.keys(compilation.assets || {})
-    const fontAssets = assetKeys
-      .filter((k) => fontExtRe.test(k))
-      .filter((k) => !k.startsWith('assets/'))
-      .filter((k) => !k.startsWith('content_scripts/'))
-      .sort()
-
-    if (fontAssets.length > 0) {
-      const allMatches: string[] = Array.from(
-        new Set(
-          (canonicalManifest.content_scripts || []).flatMap(
-            (cs: {matches?: string[]}) => cs.matches || []
-          )
-        )
-      )
-      const normalizedMatches = cleanMatches(allMatches)
-
-      if (normalizedMatches.length > 0) {
-        mergeIntoV3Group(
-          webAccessibleResourcesV3,
-          normalizedMatches,
-          fontAssets
-        )
-      }
-    }
-  } else if (canonicalManifest.manifest_version === 2) {
-    const assetKeys: string[] = Object.keys(compilation.assets || {})
-    const fontAssets = assetKeys.filter((k) => fontExtRe.test(k)).sort()
-
-    if (fontAssets.length > 0) {
-      for (const r of fontAssets) {
-        if (!webAccessibleResourcesV2.includes(r)) {
-          webAccessibleResourcesV2.push(r)
-        }
       }
     }
   }
