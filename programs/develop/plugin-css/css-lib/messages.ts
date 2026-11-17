@@ -157,14 +157,15 @@ export function postCssConfigUnreadable(configPath: string, error: unknown) {
   return (
     `${prefix('warn')} Could not load the PostCSS config at ${colors.gray(configPath)}.\n` +
     `${String((error as Error)?.message || error)}\n` +
-    'The build continues without it. Fix the file or remove it.'
+    'The build continues without it, so none of its plugins run. Fix the file or remove it.'
   )
 }
 
 export function postCssConfigPluginsShape(configPath: string, found: string) {
   return (
     `${prefix('warn')} The PostCSS config at ${colors.gray(configPath)} lists plugins as ${found}.\n` +
-    'PostCSS expects an array or an object keyed by plugin name. The build continues without this config.'
+    'PostCSS expects an array or an object keyed by plugin name.\n' +
+    'The build continues without this config, so none of its plugins run.'
   )
 }
 

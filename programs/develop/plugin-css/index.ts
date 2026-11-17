@@ -39,6 +39,7 @@ import {
   SFC_STYLE_BLOCK_QUERY,
   SVELTE_STYLE_BLOCK_TEST
 } from './css-lib/sfc-style-block'
+import {beginStyleDiagnostics} from './css-lib/style-diagnostics'
 import {
   minifierDroppedTokens,
   restoreVerbatimCssAssets
@@ -73,6 +74,8 @@ export class CssPlugin {
     const manifestPath = this.manifestPath
     const usingSass = hasDependency(projectPath, 'sass')
     const usingLess = hasDependency(projectPath, 'less')
+
+    beginStyleDiagnostics(projectPath, String(mode))
 
     // Two main loaders: cssInContentScriptLoader (assets) and cssInHtmlLoader.
     // The optional-package contract resolves sass/less before the chain runs.
