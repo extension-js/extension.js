@@ -313,9 +313,14 @@ function main() {
   }
 }
 
-try {
-  main()
-} catch (error) {
-  console.error(String(error?.message || error))
-  process.exitCode = 1
+// The smoke reads which engines and packages a packed extension-develop holds.
+module.exports = {BUNDLED_PACKAGES, ENGINES}
+
+if (require.main === module) {
+  try {
+    main()
+  } catch (error) {
+    console.error(String(error?.message || error))
+    process.exitCode = 1
+  }
 }

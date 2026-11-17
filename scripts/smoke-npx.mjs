@@ -19,6 +19,7 @@ import {
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
 import {pathToFileURL} from 'node:url'
+import buildExtensions from './build-extensions.cjs'
 
 // Ensure spawned processes find node/npm/pnpm (cross-platform, e.g. Windows CI)
 const nodeDir = dirname(process.execPath)
@@ -100,6 +101,34 @@ export function describeReusedDist(packageName, distDir, builtAt) {
   return `--fast: reusing the existing dist for ${packageName} at ${distDir} (built ${when}), not the source in this checkout`
 }
 
+// The companions ship inside extension-develop's dist, and a tarball packed
+// before they were built still installs without an error.
+export function missingCompanionManifests(
+  tarballFiles,
+  packages = buildExtensions.BUNDLED_PACKAGES,
+  engines = buildExtensions.ENGINES
+) {
+  const packed = new Set(
+    tarballFiles.map((file) => file.trim().replace(/^package\//, ''))
+  )
+
+  return packages.flatMap((name) =>
+    engines
+      .map((engine) => `dist/${name}/${engine}/manifest.json`)
+      .filter((file) => !packed.has(file))
+  )
+}
+
+export function assertCompanionsPacked(tarballName, tarballFiles) {
+  const missing = missingCompanionManifests(tarballFiles)
+
+  if (missing.length > 0) {
+    throw new Error(
+      `${tarballName} is missing the bundled companion manifests:\n  ${missing.join('\n  ')}\nRun node scripts/build-extensions.cjs after compiling extension-develop, then pack again.`
+    )
+  }
+}
+
 function main() {
   const {fast} = parseSmokeOptions(process.argv.slice(2))
   const root = resolve(process.cwd())
@@ -160,6 +189,14 @@ function main() {
 
     if (!existsSync(tgz)) {
       throw new Error(`pnpm pack did not produce expected tarball: ${tgz}`)
+    }
+
+    if (pkg.name === 'extension-develop') {
+      const listing = run('tar', ['-tzf', tgz]).stdout.toString()
+      assertCompanionsPacked(
+        `${pkg.name}-${pkg.version}.tgz`,
+        listing.split('\n')
+      )
     }
 
     tarballs.push(tgz)
