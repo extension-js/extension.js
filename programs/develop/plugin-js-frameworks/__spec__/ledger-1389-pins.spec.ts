@@ -122,8 +122,8 @@ describe('React refresh and the background script in development', () => {
 })
 
 describe('TypeScript decorators', () => {
-  it('fail to parse in a .ts file', async () => {
-    // Pins today's behavior. Ledger 1389 D1.
+  it('parse in a .ts file', async () => {
+    // Ledger 1389 D1, fixed: this pinned the syntax error until then.
     const root = makeProject({
       'package.json': {},
       'manifest.json': MANIFEST,
@@ -134,8 +134,7 @@ describe('TypeScript decorators', () => {
 
     const {errors} = await compileProject(root, {main: './main.ts'})
 
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toContain('Syntax Error: Expression expected')
+    expect(errors).toEqual([])
   })
 })
 

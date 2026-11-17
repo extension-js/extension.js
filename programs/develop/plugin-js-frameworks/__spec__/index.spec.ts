@@ -138,13 +138,15 @@ describe('JsFrameworksPlugin aliases and framework rules', () => {
     expect(swcOptionsFor(plainRule, '/x/a.js').jsc.parser).toEqual({
       syntax: 'ecmascript',
       jsx: false,
-      dynamicImport: true
+      dynamicImport: true,
+      decorators: true
     })
 
     expect(swcOptionsFor(reactRule, '/x/a.js').jsc.parser).toEqual({
       syntax: 'ecmascript',
       jsx: true,
-      dynamicImport: true
+      dynamicImport: true,
+      decorators: true
     })
   })
 
@@ -205,7 +207,8 @@ describe('JsFrameworksPlugin SWC rules', () => {
     expect(parser('/x/a.ts')).toEqual({
       syntax: 'typescript',
       tsx: false,
-      dynamicImport: true
+      dynamicImport: true,
+      decorators: true
     })
 
     expect(parser('/x/helper.cts')).toEqual(parser('/x/a.ts'))
@@ -213,13 +216,15 @@ describe('JsFrameworksPlugin SWC rules', () => {
     expect(parser('/x/popup.tsx')).toEqual({
       syntax: 'typescript',
       tsx: true,
-      dynamicImport: true
+      dynamicImport: true,
+      decorators: true
     })
 
     expect(parser('/x/popup.jsx')).toEqual({
       syntax: 'ecmascript',
       jsx: true,
-      dynamicImport: true
+      dynamicImport: true,
+      decorators: true
     })
 
     expect(pages?.test).toEqual(/\.(js|cjs|mjs|jsx|mjsx|ts|mts|cts|tsx|mtsx)$/)

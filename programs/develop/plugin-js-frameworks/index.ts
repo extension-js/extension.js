@@ -31,6 +31,7 @@ import {
   swcParserForFile
 } from './js-frameworks-lib/jsx-transform'
 import * as messages from './js-frameworks-lib/messages'
+import {swcDecoratorTransform} from './js-tools/decorators'
 import {maybeUsePreact} from './js-tools/preact'
 import {
   isUsingReact,
@@ -385,6 +386,9 @@ export class JsFrameworksPlugin {
     // reading it here could never add anything: the config IS the signal
     // (ensureTypeScriptConfig above scaffolds it for TS projects).
     const preferTypeScript = !!tsConfigPath
+    const resolveConfigPath = tsConfigPath ?? getUserJsConfigFile(projectPath)
+    // The same config chooses decorator semantics, the way tsc reads them.
+    const decorators = swcDecoratorTransform(resolveConfigPath)
 
     const targets = resolveSwcTargets(manifest as Manifest, this.browser)
 
@@ -461,8 +465,12 @@ export class JsFrameworksPlugin {
         sourceMap: wantsSourceMaps,
         env: {targets},
         jsc: {
-          parser: swcParserForFile(resourcePath, jsxInPlainJs),
+          parser: {
+            ...swcParserForFile(resourcePath, jsxInPlainJs),
+            decorators: true
+          },
           transform: {
+            ...decorators,
             react: {
               runtime: 'automatic',
               importSource: jsxImportSource,
@@ -569,8 +577,6 @@ export class JsFrameworksPlugin {
     this.patchReactRefreshRules(
       compiler.options.module.rules as LooseRuleSetRule[]
     )
-
-    const resolveConfigPath = tsConfigPath ?? getUserJsConfigFile(projectPath)
 
     if (resolveConfigPath) {
       compiler.options.resolve.tsConfig = {
