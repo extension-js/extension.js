@@ -28,6 +28,16 @@ describe('the path a command was given for a linked project', () => {
     )
   })
 
+  it('keeps the spelling on the process, where the browser launcher reads it', () => {
+    rememberAskedPath(asked, real)
+
+    const onProcess = (
+      globalThis as {[key: symbol]: Map<string, string> | undefined}
+    )[Symbol.for('extension-js.asked-paths')]
+
+    expect(onProcess?.get(real)).toBe(asked)
+  })
+
   it('leaves a neighbor that only shares the first letters as it is', () => {
     rememberAskedPath(asked, real)
 

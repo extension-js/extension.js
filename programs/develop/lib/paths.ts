@@ -68,8 +68,14 @@ export function toPosixPath(p: string): string {
 
 const MAX_ASKED_PATHS = 64
 
-// Real project folder to the spelling a command was given for it.
-const askedPaths = new Map<string, string>()
+// Real project folder to the spelling a command was given for it. It sits
+// on the process, so the browser launcher's own bundle reads the same one.
+const ASKED_PATHS = Symbol.for('extension-js.asked-paths')
+const shared = globalThis as {[ASKED_PATHS]?: Map<string, string>}
+
+if (!shared[ASKED_PATHS]) shared[ASKED_PATHS] = new Map<string, string>()
+
+const askedPaths: Map<string, string> = shared[ASKED_PATHS]
 
 // A project named through a link is built by its real path, so the bytes
 // are the same either way. What is printed or returned keeps the asked one.

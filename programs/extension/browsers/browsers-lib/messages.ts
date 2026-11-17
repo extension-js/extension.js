@@ -1788,10 +1788,29 @@ export interface DevClientMessage {
   data?: {id?: string; management?: DevClientManagementInfo}
 }
 
+// The path as the command was given it, for a path at or below a project
+// named through a link. The build remembers that spelling on the process.
+function asAskedPath(target: string): string {
+  const askedPaths = (
+    globalThis as {[key: symbol]: Map<string, string> | undefined}
+  )[Symbol.for('extension-js.asked-paths')]
+  let found = ''
+
+  if (!(askedPaths instanceof Map)) return target
+
+  for (const real of askedPaths.keys()) {
+    if (real.length <= found.length) continue
+
+    if (target === real || target.startsWith(real + path.sep)) found = real
+  }
+
+  return found ? askedPaths.get(found) + target.slice(found.length) : target
+}
+
 // Card values collapse the home dir for scanability. Evidence and debug lines
 // never do, so a pasted path stays valid.
 export function collapseHomeDirInCardValue(value: string): string {
-  const raw = String(value || '')
+  const raw = asAskedPath(String(value || ''))
   const home = os.homedir()
   if (!home || !raw.startsWith(home)) return raw
 
