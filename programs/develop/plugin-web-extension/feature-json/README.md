@@ -105,7 +105,7 @@ new JsonPlugin({
 
 - `includeList` accepts a string or an array of strings as values. The key becomes the output path (plugin appends `.json`).
 - When `includeList` value is an array, the plugin emits a single output named after the key and the content from the last file in the array wins (subsequent entries overwrite previous ones for the same output).
-- Missing files referenced in `includeList` are skipped and reported as warnings; the build continues without emitting that asset.
+- A missing file referenced in `includeList` is skipped and reported: an error for the critical features above, a warning for any other key.
 - JSON files under `public/` are not emitted by this plugin; they are watched and validated if critical.
 
 ### Supported fields (context)
