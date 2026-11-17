@@ -8,18 +8,33 @@ import {
   unbindDevSessionRestart
 } from '../../dev-server/session-restart'
 import {rememberSpecialFoldersConfig} from '../folders-config'
-import * as messages from '../messages'
 import {WarnUponFolderChanges} from '../warn-upon-folder-changes'
 
-vi.mock('../messages', () => ({
-  serverRestartRequiredFromSpecialFolderMessageOnly: vi.fn(
-    (addingOrRemoving: string, folder: string, typeOfAsset: string) =>
-      `[${addingOrRemoving}] ${folder} ${typeOfAsset}`
-  ),
-  specialFolderChangeDetected: vi.fn(
-    (_change: string, _folder: string, _filePath: string) => ''
+const ESC = String.fromCharCode(27)
+const plain = (text: unknown) =>
+  String(text).replace(new RegExp(`${ESC}\\[[0-9;]*m`, 'g'), '')
+
+// The facts a restart notice must carry: what changed, in which folder, and
+// that the dev server needs a restart.
+function expectRestartNotice(
+  issue: {message?: unknown; name?: unknown; file?: unknown} | undefined,
+  verb: 'Adding' | 'Removing',
+  kind: 'HTML pages' | 'script files',
+  folder: 'pages' | 'scripts',
+  file: string
+) {
+  const text = plain(issue?.message)
+  expect(text).toContain(
+    `${verb} ${kind} in ${folder}/ changes the extension entrypoints.`
   )
-}))
+
+  expect(text).toContain('Restart the dev server to apply the change.')
+  expect(issue?.name).toBe(
+    verb === 'Adding' ? 'SpecialFoldersChange' : 'SpecialFoldersRemoval'
+  )
+
+  expect(issue?.file).toBe(file)
+}
 
 const createFakeCompiler = () => {
   const projectRoot = fs.mkdtempSync(
@@ -92,6 +107,10 @@ let compilation: {
 const tempDirs = new Set<string>()
 const toPosix = (value: string) => value.split(path.sep).join('/')
 
+// The scheduler calls the handler at once and frees itself one microtask
+// later, so a second request needs that tick to be served.
+const restartSettled = () => Promise.resolve()
+
 beforeEach(() => {
   compilation = {
     warnings: [],
@@ -121,27 +140,32 @@ describe('WarnUponFolderChanges', () => {
     fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
     new WarnUponFolderChanges().apply(compiler as any)
 
-    compiler.modifiedFiles = new Set([
-      path.join(projectRoot, 'pages', 'foo.html')
-    ])
+    const page = path.join(projectRoot, 'pages', 'foo.html')
+    compiler.modifiedFiles = new Set([page])
 
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(1)
-    expect(
-      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
-    ).toHaveBeenCalledWith('Adding', 'pages', 'HTML pages')
+    expectRestartNotice(
+      compilation.warnings[0],
+      'Adding',
+      'HTML pages',
+      'pages',
+      page
+    )
 
     compiler.modifiedFiles = new Set()
-    compiler.removedFiles = new Set([
-      path.join(projectRoot, 'pages', 'foo.html')
-    ])
+    compiler.removedFiles = new Set([page])
 
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
-    expect(
-      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
-    ).toHaveBeenCalledWith('Removing', 'pages', 'HTML pages')
+    expectRestartNotice(
+      compilation.errors[0],
+      'Removing',
+      'HTML pages',
+      'pages',
+      page
+    )
   })
 
   it('warns on adding supported scripts and errors on removing; ignores unsupported extensions', () => {
@@ -150,28 +174,35 @@ describe('WarnUponFolderChanges', () => {
     fs.mkdirSync(path.join(projectRoot, 'scripts'), {recursive: true})
     new WarnUponFolderChanges().apply(compiler as any)
 
+    const script = path.join(projectRoot, 'scripts', 'content.ts')
     compiler.modifiedFiles = new Set([
-      path.join(projectRoot, 'scripts', 'content.ts'),
+      script,
       path.join(projectRoot, 'scripts', 'note.md')
     ])
 
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(1)
-    expect(
-      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
-    ).toHaveBeenCalledWith('Adding', 'scripts', 'script files')
+    expectRestartNotice(
+      compilation.warnings[0],
+      'Adding',
+      'script files',
+      'scripts',
+      script
+    )
 
     compiler.modifiedFiles = new Set()
-    compiler.removedFiles = new Set([
-      path.join(projectRoot, 'scripts', 'content.ts')
-    ])
+    compiler.removedFiles = new Set([script])
 
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
-    expect(
-      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
-    ).toHaveBeenCalledWith('Removing', 'scripts', 'script files')
+    expectRestartNotice(
+      compilation.errors[0],
+      'Removing',
+      'script files',
+      'scripts',
+      script
+    )
   })
 
   it('ignores non-HTML additions/removals in pages/', () => {
@@ -241,9 +272,13 @@ describe('WarnUponFolderChanges', () => {
     runCycle(compiler, compilation)
 
     expect(compilation.warnings.length).toBe(1)
-    expect(
-      (messages as any).serverRestartRequiredFromSpecialFolderMessageOnly
-    ).toHaveBeenCalledWith('Adding', 'scripts', 'script files')
+    expectRestartNotice(
+      compilation.warnings[0],
+      'Adding',
+      'script files',
+      'scripts',
+      newFile
+    )
 
     compilation.warnings.length = 0
     compiler.modifiedFiles = new Set([newFile])
@@ -283,7 +318,7 @@ describe('WarnUponFolderChanges', () => {
 
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
-    await new Promise((r) => setTimeout(r, 0))
+    await restartSettled()
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(0)
     expect(handler).toHaveBeenCalledWith(
@@ -299,7 +334,8 @@ describe('WarnUponFolderChanges', () => {
     ])
 
     runCycle(compiler, compilation)
-    await new Promise((r) => setTimeout(r, 0))
+
+    await restartSettled()
     expect(compilation.errors.length).toBe(0)
     expect(handler).toHaveBeenLastCalledWith({
       reason: 'scripts',
@@ -307,7 +343,7 @@ describe('WarnUponFolderChanges', () => {
     })
   })
 
-  it('restarts a live session once for a rename and names both paths', async () => {
+  it('restarts a live session once for a rename and names both paths', () => {
     const handler = vi.fn()
     const scheduler = new DevSessionRestartScheduler(0)
     scheduler.setHandler(handler)
@@ -332,7 +368,6 @@ describe('WarnUponFolderChanges', () => {
     ])
 
     runCycle(compiler, compilation)
-    await new Promise((r) => setTimeout(r, 0))
 
     expect(compilation.errors.length).toBe(0)
     expect(compilation.warnings.length).toBe(0)
@@ -344,7 +379,7 @@ describe('WarnUponFolderChanges', () => {
     })
   })
 
-  it('drops what the superseded build says about a file a restart removes', async () => {
+  it('drops what the superseded build says about a file a restart removes', () => {
     const handler = vi.fn()
     const scheduler = new DevSessionRestartScheduler(0)
     scheduler.setHandler(handler)
@@ -392,7 +427,17 @@ describe('WarnUponFolderChanges', () => {
 
     runCycle(compiler, compilation)
     expect(compilation.errors.length).toBe(1)
-    expect(String(compilation.errors[0].details)).toContain('Removing from')
+    expectRestartNotice(
+      compilation.errors[0],
+      'Removing',
+      'script files',
+      'scripts',
+      path.join(projectRoot, 'scripts', 'extra.js')
+    )
+
+    expect(compilation.errors[0].details).toBe(
+      'Removing from scripts/ breaks current build. Restart the dev server to recompile.'
+    )
   })
 
   const bindRestartHandler = () => {
@@ -427,7 +472,7 @@ describe('WarnUponFolderChanges', () => {
       compiler.modifiedFiles = new Set([fresh])
       compiler.removedFiles = new Set()
       runCycle(compiler, compilation)
-      await new Promise((r) => setTimeout(r, 0))
+      await restartSettled()
 
       expect(handler).toHaveBeenLastCalledWith(
         expect.objectContaining({reason: 'scripts', pathAfter: fresh})
@@ -447,7 +492,7 @@ describe('WarnUponFolderChanges', () => {
     expect(handler).toHaveBeenCalledTimes(2)
   })
 
-  it('restarts for a relocated pages folder and watches it', async () => {
+  it('restarts for a relocated pages folder and watches it', () => {
     const handler = bindRestartHandler()
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
@@ -459,7 +504,6 @@ describe('WarnUponFolderChanges', () => {
     compiler.modifiedFiles = new Set([fresh])
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
-    await new Promise((r) => setTimeout(r, 0))
 
     expect(handler).toHaveBeenCalledWith(
       expect.objectContaining({reason: 'html', pathAfter: fresh})
@@ -470,7 +514,7 @@ describe('WarnUponFolderChanges', () => {
     expect(deps).not.toContain(toPosix(path.join(projectRoot, 'pages')))
   })
 
-  it('does nothing for a folder set to false', async () => {
+  it('does nothing for a folder set to false', () => {
     const handler = bindRestartHandler()
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
@@ -486,7 +530,6 @@ describe('WarnUponFolderChanges', () => {
 
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
-    await new Promise((r) => setTimeout(r, 0))
 
     expect(handler).not.toHaveBeenCalled()
     expect(compilation.warnings.length).toBe(0)
@@ -504,7 +547,7 @@ describe('WarnUponFolderChanges', () => {
     expect(compilation.errors.length).toBe(0)
   })
 
-  it('ignores a scripts/ file the scan never enrolls, on add and on removal', async () => {
+  it('ignores a scripts/ file the scan never enrolls, on add and on removal', () => {
     const handler = bindRestartHandler()
     const {compiler, projectRoot} = createFakeCompiler()
     tempDirs.add(projectRoot)
@@ -516,7 +559,6 @@ describe('WarnUponFolderChanges', () => {
     compiler.modifiedFiles = new Set([rules])
     compiler.removedFiles = new Set()
     runCycle(compiler, compilation)
-    await new Promise((r) => setTimeout(r, 0))
 
     expect(handler).not.toHaveBeenCalled()
     expect(compilation.warnings.length).toBe(0)
@@ -540,7 +582,7 @@ describe('WarnUponFolderChanges', () => {
       compiler.modifiedFiles = new Set([fresh])
       compiler.removedFiles = new Set()
       runCycle(compiler, compilation)
-      await new Promise((r) => setTimeout(r, 0))
+      await restartSettled()
 
       expect(handler).toHaveBeenLastCalledWith(
         expect.objectContaining({reason: 'scripts', pathAfter: fresh})

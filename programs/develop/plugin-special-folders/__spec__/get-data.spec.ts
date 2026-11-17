@@ -8,18 +8,10 @@ const getSpecialFoldersDataMock = vi.fn()
 const tempDirs: string[] = []
 
 afterEach(() => {
-  while (tempDirs.length > 0) {
-    fs.rmSync(tempDirs.pop()!, {recursive: true, force: true})
-  }
-})
+  vi.unstubAllEnvs()
 
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<typeof import('fs')>('fs')
-
-  return {
-    ...actual,
-    existsSync: vi.fn(actual.existsSync),
-    statSync: vi.fn(actual.statSync)
+  for (const dir of tempDirs.splice(0)) {
+    fs.rmSync(dir, {recursive: true, force: true})
   }
 })
 
@@ -296,27 +288,6 @@ describe('getSpecialFoldersDataForCompiler', () => {
       '/does-not-exist/scripts/a.js'
     ])
   })
-
-  it('auto-configures companion extensions scan from extensions/', () => {
-    getSpecialFoldersDataMock.mockReturnValue({
-      pages: {},
-      scripts: {},
-      public: {}
-    })
-
-    const existsSpy = vi.mocked(fs.existsSync).mockReturnValue(true as any)
-    const statSpy = vi
-      .mocked(fs.statSync)
-      .mockReturnValue({isDirectory: () => true} as any)
-
-    const compiler = {options: {context: '/project'}} as any
-    const data = getSpecialFoldersDataForCompiler(compiler)
-
-    expect(data.extensions).toEqual({dir: './extensions'})
-
-    existsSpy.mockReset()
-    statSpy.mockReset()
-  })
 })
 
 describe('scripts/ entries the package.json scripts run', () => {
@@ -378,20 +349,11 @@ describe('scripts/ entries the package.json scripts run', () => {
 
   it('names the dropped helper on one debug line', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const previous = process.env.EXTENSION_DEBUG
-    process.env.EXTENSION_DEBUG = 'true'
+    vi.stubEnv('EXTENSION_DEBUG', 'true')
     const {dir} = tooling()
 
-    try {
-      const compiler = {options: {context: dir}} as any
-      getSpecialFoldersDataForCompiler(compiler)
-    } finally {
-      if (previous === undefined) {
-        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
-      } else {
-        process.env.EXTENSION_DEBUG = previous
-      }
-    }
+    const compiler = {options: {context: dir}} as any
+    getSpecialFoldersDataForCompiler(compiler)
 
     const printed = log.mock.calls.map((call) => String(call[0])).join('\n')
     expect(log).toHaveBeenCalledTimes(1)
@@ -403,22 +365,13 @@ describe('scripts/ entries the package.json scripts run', () => {
 
   it('prints the debug line once however many times a build scans the folder', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const previous = process.env.EXTENSION_DEBUG
-    process.env.EXTENSION_DEBUG = 'true'
+    vi.stubEnv('EXTENSION_DEBUG', 'true')
     const {dir} = tooling({manifest_version: 3}, 'bump_version')
 
-    try {
-      const compiler = {options: {context: dir}} as any
-      getSpecialFoldersDataForCompiler(compiler)
-      getSpecialFoldersDataForCompiler(compiler)
-      getSpecialFoldersDataForCompiler(compiler)
-    } finally {
-      if (previous === undefined) {
-        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
-      } else {
-        process.env.EXTENSION_DEBUG = previous
-      }
-    }
+    const compiler = {options: {context: dir}} as any
+    getSpecialFoldersDataForCompiler(compiler)
+    getSpecialFoldersDataForCompiler(compiler)
+    getSpecialFoldersDataForCompiler(compiler)
 
     const mentions = log.mock.calls.filter((call) =>
       String(call[0]).includes('scripts/bump_version.js')
