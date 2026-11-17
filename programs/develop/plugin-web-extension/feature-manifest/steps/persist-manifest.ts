@@ -306,24 +306,8 @@ export class PersistManifestToDisk {
           // them; the restart already scheduled emits them, so stay quiet.
           if (isCompilerRestarting(compiler)) return
 
-          const sample = missingFiles.slice(0, 5).join('\n  - ')
-          const more =
-            missingFiles.length > 5
-              ? `\n  ... and ${missingFiles.length - 5} more`
-              : ''
           const err = new rspack.WebpackError(
-            [
-              'manifest.json references files that were not emitted to disk for this build:',
-              `  - ${sample}${more}`,
-              '',
-              'The previous manifest.json was kept to avoid loading a broken extension.',
-              'Most often this is one of:',
-              '  • An outdated Extension.js. Run `npm ls extension` and update to the',
-              '    latest, this missing-entry class (e.g. engine-family targets like',
-              '    `chromium-based`) was fixed in 4.0.0.',
-              '  • A skipped chunk on an incremental rebuild. Save a source file again,',
-              '    or restart after removing the `dist/` folder for a clean build.'
-            ].join('\n')
+            messages.manifestFilesNotEmitted(missingFiles)
           ) as Error & {file?: string}
           err.name = 'ManifestFilesNotEmitted'
           err.file = 'manifest.json'
@@ -345,8 +329,9 @@ export class PersistManifestToDisk {
           writeFileAtomically(manifestOutputPath, manifestSource)
         } catch (error) {
           const err = new rspack.WebpackError(
-            `Failed to persist manifest.json to disk: ${(error as Error).message}`
+            messages.manifestPersistFailed((error as Error).message)
           ) as Error & {file?: string}
+          err.name = 'ManifestPersistFailed'
           err.file = 'manifest.json'
           compilation.errors.push(err)
         }

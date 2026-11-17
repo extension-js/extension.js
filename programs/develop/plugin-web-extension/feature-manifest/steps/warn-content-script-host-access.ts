@@ -8,11 +8,10 @@
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {isChromiumBasedBrowser} from '../../../lib/constants'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions} from '../../../types'
 import {
   filterKeysForThisBrowser,
-  getOriginalManifestContent
+  getOriginalManifest
 } from '../manifest-lib/manifest'
 import * as messages from '../messages'
 import {
@@ -92,14 +91,14 @@ export class WarnContentScriptHostAccess {
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
           },
           () => {
-            const original = getOriginalManifestContent(compilation)
-            if (!original) return
+            const authored = getOriginalManifest(compilation)
+            if (!authored) return
 
             // The dev build grants the matched hosts itself, so the question
             // is asked of the manifest as written, before that patch.
             const hit = findContentScriptOnlyHostAccess(
               filterKeysForThisBrowser(
-                parseJsonSafe(original),
+                authored,
                 this.browser as DevOptions['browser']
               ),
               this.browser

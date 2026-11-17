@@ -43,6 +43,77 @@ export function manifestFilesInTurnedOffPublic(files: string[]) {
   ].join('\n')
 }
 
+// The manifest names a file that is not in the output folder, so the
+// browser would refuse the extension. Names each file and the usual cause.
+export function manifestFilesNotEmitted(files: string[]) {
+  const shown = files.slice(0, 5)
+
+  return [
+    'manifest.json names files that this build did not write to the output folder:',
+    ...shown.map((file) => `  - ${file}`),
+    ...(files.length > shown.length
+      ? [`  and ${files.length - shown.length} more`]
+      : []),
+    '',
+    'A dev session keeps the manifest.json of the last good build, so the browser never loads one that names a missing file.',
+    'Most often a plugin or a config hook of the project edits manifest.json and names a file that no entry produces. Name a file the build writes, or emit that file from the same plugin.',
+    'When nothing in the project edits manifest.json, the manifest and the files the build wrote disagree. Save a source file to build again, and report it with the list above if the same files come back.'
+  ].join('\n')
+}
+
+export function manifestPersistFailed(reason: string) {
+  return [
+    'The build could not write manifest.json to the output folder.',
+    `${colors.gray('REASON')} ${reason}`,
+    'Check that the output folder is writable and that no other program holds manifest.json open, then save a file to build again.'
+  ].join('\n')
+}
+
+// A shippable build grants nothing on its own, so a call that leans on a
+// permission the manifest never declared fails there. Names the file.
+export function undeclaredPermissionInBuild(use: {
+  api: string
+  location: string
+  tabField?: string
+  activeTabDeclared: boolean
+  outcome: string
+}) {
+  const {api, location, tabField, activeTabDeclared, outcome} = use
+
+  if (api !== 'tabs') {
+    return (
+      `manifest.json does not declare the "${api}" permission, but ` +
+      `${location} uses chrome.${api}. Nothing grants it here, so ` +
+      `${outcome} Add "${api}" to permissions in manifest.json.`
+    )
+  }
+
+  const reads = tabField
+    ? `reads the ${tabField} of a tab, which "tabs" gates`
+    : 'uses chrome.tabs'
+
+  if (activeTabDeclared) {
+    return (
+      `manifest.json does not declare the "tabs" permission, but ` +
+      `${location} ${reads}. "activeTab" is declared, and it ` +
+      `grants url, title and favIconUrl for the tab the person invoked ` +
+      `the extension on (toolbar click, shortcut, context menu) and ` +
+      `captureVisibleTab of that tab. A read of any other tab comes ` +
+      `back without those fields. Add "tabs" only if the code reads ` +
+      `tabs the person did not invoke it on.`
+    )
+  }
+
+  return (
+    `manifest.json does not declare the "tabs" permission, but ` +
+    `${location} ${reads}. Nothing grants it here, so ` +
+    `${outcome} Add "tabs" to permissions in manifest.json ` +
+    `(Chrome then shows "Read your browsing history" at install), ` +
+    `or drop the read. tabs.create, update, remove and sendMessage ` +
+    `need no permission.`
+  )
+}
+
 export function legacyManifestPathWarning(
   field: string,
   legacyPath: string,

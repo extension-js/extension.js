@@ -7,9 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {Compilation, type Compiler} from '@rspack/core'
-import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
-import {getManifestContent} from '../manifest-lib/manifest'
+import {
+  getManifestContent,
+  isStaticThemeCompilation
+} from '../manifest-lib/manifest'
+import * as messages from '../messages'
 import {
   findInjectedOnlyPermissionUses,
   type PermissionScanCompilation,
@@ -57,7 +60,16 @@ export class WarnUndeclaredPermissions {
           () => {
             if (compilation.errors.length > 0) return
             if (!this.manifestPath) return
-            if (isStaticThemeSource(this.manifestPath, this.browser)) return
+
+            if (
+              isStaticThemeCompilation(
+                compilation,
+                this.manifestPath,
+                this.browser
+              )
+            ) {
+              return
+            }
 
             try {
               const manifest = getManifestContent(
@@ -80,28 +92,13 @@ export class WarnUndeclaredPermissions {
                 const outcome = gated
                   ? `in the packaged build${gated.replace(/^ Only part of the namespace is gated:/, ',')}`
                   : 'in the packaged build that call fails.'
-                const reads = use.field
-                  ? `reads the ${use.field} of a tab, which "tabs" gates`
-                  : `uses chrome.${api}`
-                const text =
-                  api === 'tabs' && declared.has('activeTab')
-                    ? `manifest.json does not declare the "tabs" permission, but ` +
-                      `${relative} ${reads}. "activeTab" is declared, and it ` +
-                      `grants url, title and favIconUrl for the tab the person invoked ` +
-                      `the extension on (toolbar click, shortcut, context menu) and ` +
-                      `captureVisibleTab of that tab; a read of any other tab comes ` +
-                      `back without those fields. Add "tabs" only if the code reads ` +
-                      `tabs the person did not invoke it on.`
-                    : api === 'tabs'
-                      ? `manifest.json does not declare the "tabs" permission, but ` +
-                        `${relative} ${reads}. Nothing grants it here, so ` +
-                        `${outcome} Add "tabs" to permissions in manifest.json ` +
-                        `(Chrome then shows "Read your browsing history" at install), ` +
-                        `or drop the read. tabs.create, update, remove and sendMessage ` +
-                        `need no permission.`
-                      : `manifest.json does not declare the "${api}" permission, but ` +
-                        `${relative} uses chrome.${api}. Nothing grants it here, so ` +
-                        `${outcome} Add "${api}" to permissions in manifest.json.`
+                const text = messages.undeclaredPermissionInBuild({
+                  api,
+                  location: relative,
+                  tabField: use.field,
+                  activeTabDeclared: declared.has('activeTab'),
+                  outcome
+                })
 
                 const WebpackErrorCtor = compiler.rspack?.WebpackError
                 const warning = WebpackErrorCtor

@@ -8,7 +8,7 @@
 
 import type {Compiler} from '@rspack/core'
 import {debugLine, isDebug} from '../../lib/messaging'
-import type {DevOptions, FilepathList, PluginInterface} from '../../types'
+import type {DevOptions, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {AddDependencies} from './steps/add-dependencies'
 import {ApplyDevDefaults} from './steps/apply-dev-defaults'
@@ -26,13 +26,11 @@ import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
 export class ManifestPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
-  public readonly includeList?: FilepathList
   private readonly devSession?: boolean
 
   constructor(options: PluginInterface & {browser: DevOptions['browser']}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-    this.includeList = options.includeList
     this.devSession = options.devSession
   }
 

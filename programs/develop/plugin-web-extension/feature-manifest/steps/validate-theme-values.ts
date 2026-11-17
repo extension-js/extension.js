@@ -6,16 +6,15 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import {Compilation, type Compiler} from '@rspack/core'
 import {
   isChromiumBasedBrowser,
   isWebkitBasedBrowser
 } from '../../../lib/constants'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
+import {getOriginalManifest} from '../manifest-lib/manifest'
 import {collectThemeValueIssues} from '../manifest-lib/theme-values'
 import * as messages from '../messages'
 
@@ -48,16 +47,15 @@ export class ValidateThemeValues {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            let manifest: Manifest
+            // The manifest EmitManifest read for this compilation, so a save
+            // that lands mid-build is not validated ahead of its own build.
+            const authored = getOriginalManifest(compilation)
+            if (!authored) return
 
-            try {
-              manifest = filterKeysForThisBrowser(
-                parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf8')),
-                this.browser
-              )
-            } catch {
-              return
-            }
+            const manifest: Manifest = filterKeysForThisBrowser(
+              authored,
+              this.browser
+            )
 
             if (webkitTarget) {
               if ((manifest as Record<string, unknown>).theme) {

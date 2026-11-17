@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import {createRequire, syncBuiltinESMExports} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {
@@ -10,6 +11,7 @@ import {
 } from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {suppressManifestOutputWrites} from '../../../dev-server'
+import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 
@@ -168,4 +170,125 @@ describe('a project plugin that edits the manifest.json asset', () => {
       })
     }
   }
+
+  it('is told which file is missing when its edit names one nothing emits', async () => {
+    const {stats, manifest} = await compile(project(), 'development', [
+      new EditManifestAsset(
+        Compilation.PROCESS_ASSETS_STAGE_REPORT,
+        (edited) => {
+          edited.options_page = 'made-up/options.html'
+        }
+      )
+    ])
+    const errors = stats.compilation.errors.filter(
+      (error) => error.name === 'ManifestFilesNotEmitted'
+    )
+
+    expect(errors).toHaveLength(1)
+    expect(diagnosticCode(errors[0])).toBe('E_ENTRY_NOT_FOUND')
+    expect(String(errors[0].message)).toContain(
+      'manifest.json names files that this build did not write to the output folder:'
+    )
+
+    expect(String(errors[0].message)).toContain('- made-up/options.html')
+    // The broken manifest never reaches the folder the browser loads.
+    expect(manifest).toBeUndefined()
+  })
+})
+
+describe('the description length check', () => {
+  const TAGLINE = 'x'.repeat(140)
+
+  function descriptionWarnings(stats: Stats) {
+    return stats.compilation.warnings.filter(
+      (warning) => warning.name === 'ManifestDescriptionWarning'
+    )
+  }
+
+  it('measures the text an $EXTENSION_ value fills in', async () => {
+    const root = project(
+      {description: '$EXTENSION_PUBLIC_TAGLINE'},
+      {'.env': `EXTENSION_PUBLIC_TAGLINE=${TAGLINE}\n`}
+    )
+    const {stats, manifest} = await compile(root, 'production')
+
+    expect(manifest?.description).toBe(TAGLINE)
+    expect(descriptionWarnings(stats)).toHaveLength(1)
+    expect(String(descriptionWarnings(stats)[0].message)).toContain('140')
+  })
+
+  it('stays quiet when a long placeholder fills in with a short text', async () => {
+    const name = `EXTENSION_PUBLIC_${'TAGLINE_'.repeat(20)}END`
+    const root = project(
+      {description: `$${name}`},
+      {'.env': `${name}=Short and fine\n`}
+    )
+    const {stats, manifest} = await compile(root, 'production')
+
+    expect(name.length).toBeGreaterThan(132)
+    expect(manifest?.description).toBe('Short and fine')
+    expect(descriptionWarnings(stats)).toEqual([])
+  })
+})
+
+describe('a dev rebuild', () => {
+  const cjsFs = createRequire(import.meta.url)('node:fs') as typeof fs
+
+  // The step of this folder a read came from, read off the call stack.
+  function readingStep(): string | undefined {
+    return /feature-manifest\/(?:steps|manifest-lib|manifest-overrides)\/([\w-]+)\.ts/.exec(
+      String(new Error().stack)
+    )?.[1]
+  }
+
+  it('reads the manifest from disk once, when it is emitted', async () => {
+    const root = project()
+    const manifestPath = path.join(root, 'manifest.json')
+    const {config} = await configure(root, 'development')
+    const compiler: Compiler = rspack(config)
+    const readers: string[] = []
+    const realRead = cjsFs.readFileSync
+    let counting = false
+    let finished: (() => void) | undefined
+    const nextBuild = () =>
+      new Promise<void>((resolve) => {
+        finished = resolve
+      })
+
+    cjsFs.readFileSync = function (this: unknown, ...args: unknown[]) {
+      if (counting && args[0] === manifestPath) {
+        const step = readingStep()
+        // The dev defaults move to the reload plugin with their own read.
+        if (step && step !== 'apply-dev-defaults') readers.push(step)
+      }
+
+      return Reflect.apply(realRead, this, args)
+    } as typeof fs.readFileSync
+
+    syncBuiltinESMExports()
+
+    try {
+      const first = nextBuild()
+      const watching = compiler.watch({aggregateTimeout: 20}, () => {
+        const done = finished
+        finished = undefined
+        done?.()
+      })
+      await first
+      await new Promise((resolve) => setTimeout(resolve, 300))
+
+      counting = true
+      const second = nextBuild()
+      fs.writeFileSync(path.join(root, 'background.js'), 'console.log(2)\n')
+      await second
+      counting = false
+
+      await new Promise<void>((resolve) => watching.close(() => resolve()))
+    } finally {
+      cjsFs.readFileSync = realRead
+      syncBuiltinESMExports()
+    }
+
+    expect(readers).toEqual(['emit-manifest'])
+  })
 })

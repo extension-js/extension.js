@@ -6,8 +6,6 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
-import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {Manifest} from '../../../types'
 import {manifestCommon} from './common'
 import {manifestV2} from './mv2'
@@ -18,12 +16,9 @@ import {manifestV3} from './mv3'
 // projectPath finds the root public/ folder when the manifest lives in src/.
 export function getManifestOverrides(
   manifestPath: string,
-  manifest: Manifest,
+  manifestContent: Manifest,
   projectPath?: string
 ) {
-  const manifestContent: Manifest =
-    manifest || parseAuthoredJson(fs.readFileSync(manifestPath, 'utf8'))
-
   const omit = (obj: Record<string, unknown> | undefined, key: string) => {
     if (!obj) return {}
 
