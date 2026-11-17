@@ -6,9 +6,9 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import type {ChildProcess, SpawnOptions} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {ChildProcess, SpawnOptions} from 'node:child_process'
 import {spawn} from 'cross-spawn'
 import {corepackRegistryEnv} from './corepack-registry'
 
@@ -154,7 +154,8 @@ export type InstallResult = {
 
 export interface RunInstallOptions {
   cwd: string
-  stdio: 'inherit' | 'ignore' | 'pipe'
+  // 'tee' shows the child's output as it arrives and still captures it.
+  stdio: 'inherit' | 'ignore' | 'pipe' | 'tee'
   timeoutMs?: number
   spawn?: SpawnProcess
   platform?: NodeJS.Platform
@@ -196,8 +197,9 @@ export async function runInstall(
   const spawnProcess = opts.spawn ?? spawn
   const platform = opts.platform ?? process.platform
   const timeoutMs = opts.timeoutMs ?? installTimeoutMs()
+  const tee = opts.stdio === 'tee'
   const child = spawnProcess(command, args, {
-    stdio: opts.stdio,
+    stdio: opts.stdio === 'tee' ? ['inherit', 'pipe', 'pipe'] : opts.stdio,
     cwd: opts.cwd,
     // cross-spawn runs the .cmd shims on Windows and escapes each argument,
     // so the project path never becomes part of a shell string.
@@ -209,12 +211,14 @@ export async function runInstall(
   if (child.stdout) {
     child.stdout.on('data', (chunk) => {
       stdout += chunk.toString()
+      if (tee) process.stdout.write(chunk)
     })
   }
 
   if (child.stderr) {
     child.stderr.on('data', (chunk) => {
       stderr += chunk.toString()
+      if (tee) process.stderr.write(chunk)
     })
   }
 

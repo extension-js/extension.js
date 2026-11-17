@@ -191,7 +191,7 @@ export class InsecureTemplateUrlError extends Error {
 // A template runs code on this machine at install time, and anyone on the
 // network path can rewrite a plain HTTP download. Opting in is explicit.
 export function isRefusedHttpTemplateUrl(url: string): boolean {
-  if (process.env.EXTENSION_ALLOW_HTTP_TEMPLATE === 'true') return false
+  if (utils.isEnvFlagOn('EXTENSION_ALLOW_HTTP_TEMPLATE')) return false
 
   return /^http:\/\//i.test(url)
 }
