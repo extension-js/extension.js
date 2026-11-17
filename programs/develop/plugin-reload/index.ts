@@ -28,16 +28,9 @@ export {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   createLoadedContentScripts,
-  formatReloadContextLabel,
   type ReloadInstruction,
   type ReloadType,
-  readContentScriptCount,
-  readContentScriptDigests,
-  readContentScriptFiles,
-  readWebAccessibleResources,
-  reloadForNewWebResources,
-  reloadForRenamedContentScripts,
-  reloadForRewrittenContentScripts
+  readContentScriptCount
 } from './classify-reload'
 export {
   mergeReloadInstructions,
@@ -60,9 +53,9 @@ export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
  * - build-time injection of the reload runtime (SetupReloadStrategy and the
  *   vendored webpack-target-webextension fork), the SW scripts-replay shim,
  *   and the control-bridge producer/relay instrumentation
- * - the reload classifier and dispatch seam consumed by plugin-browsers'
- *   BrowsersPlugin and the dev server's `--no-browser` broadcast path
- *   (re-exported above from classify-reload.ts / reload-dispatch.ts)
+ * - the reload classifier, what the browser last read, the trim and merge
+ *   a packaged browser needs, and the dispatch seam. plugin-browsers and the
+ *   dev server's `--no-browser` path call them (re-exported above)
  *
  * Registration order matters: this plugin must be applied AFTER
  * plugin-web-extension, SetupReloadStrategy decorates the background and

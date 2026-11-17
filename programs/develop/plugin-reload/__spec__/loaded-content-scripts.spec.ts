@@ -4,7 +4,7 @@ import {
   type ReloadInstruction,
   readContentScriptDigests,
   reloadForRewrittenContentScripts
-} from '../index'
+} from '../classify-reload'
 
 const BUNDLE = 'content_scripts/content-0.aaaaaaaa.js'
 const SHEET = 'content_scripts/content-0.css'
@@ -40,8 +40,8 @@ function compile(color: string, js = BUNDLE, resources?: string[]) {
   } as never
 }
 
-// Without a launched browser the dev server stands in for the plugin that
-// remembers what the browser read, so both paths answer an edit alike.
+// The launched-browser plugin and the dev server without a browser both keep
+// what the browser read here, so both paths answer an edit alike.
 describe('createLoadedContentScripts', () => {
   it('names a rewritten sheet for a browser that swaps it in place, once', () => {
     const loaded = createLoadedContentScripts({refreshInPlace: true})
