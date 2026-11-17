@@ -67,11 +67,13 @@ export function createExtensionsPageTab(initialTab: chrome.tabs.Tab) {
     chrome.tabs.create(
       {url: extensionsPage, active: false},
       function setBackgroundTab(extensionsTab) {
+        if (typeof extensionsTab?.id !== 'number') return
+
         // Get current url tab and move it left.
         // This action auto-activates the tab
-        chrome.tabs.move(extensionsTab.id!, {index: 0}, () => {
+        chrome.tabs.move(extensionsTab.id, {index: 0}, () => {
           setTimeout(() => {
-            chrome.tabs.update(initialTab.id!, {active: true})
+            chrome.tabs.update(initialTab.id, {active: true})
           }, 500)
         })
       }
@@ -131,8 +133,7 @@ export async function handleFirstRun(
   // the active tab can land on a page another tool opened in the meantime.
   const startTabId = typeof startTab?.id === 'number' ? startTab.id : undefined
 
-  let devExtension: chrome.management.ExtensionInfo | undefined
-  devExtension = await getDevExtension()
+  const devExtension = await getDevExtension()
 
   const browserStr = String(browser || 'chromium').toLowerCase()
   const storageKey = devExtension?.id || `__first_run__:${browserStr}`

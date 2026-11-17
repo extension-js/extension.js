@@ -97,9 +97,12 @@
   *,
   *::before,
   *::after {
+    /* biome-ignore-start lint/complexity/noImportantStyles: a reader who asks for reduced motion
+       must win over the utility classes and the status pulse, which outrank this selector */
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+    /* biome-ignore-end lint/complexity/noImportantStyles: end of the reduced motion block */
   }
 }
 

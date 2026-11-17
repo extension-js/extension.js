@@ -6,11 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Plain DOM on purpose: the page is one small screen, and a UI framework
-// would ship innerHTML code that the AMO store check flags in Firefox builds.
+import {getDevExtension} from '@/background/define-initial-tab'
+import {sessionBrowser} from '@/background/session-flags'
 import logo from '@/images/logo.png'
 import {applyTheme} from '@/lib/utils'
-import {getDevExtension} from '@/background/define-initial-tab'
 
 import '@/styles.css'
 
@@ -21,16 +20,15 @@ applyTheme('dark')
 type ExtensionInfo = chrome.management.ExtensionInfo
 
 const isFirefox =
-  String(
-    // @ts-ignore
-    import.meta.env.EXTENSION_BROWSER || 'chromium'
-  ).toLowerCase() === 'firefox'
+  String(sessionBrowser() || 'chromium').toLowerCase() === 'firefox'
 
 const DEFAULT_NAME = 'My Extension'
 const DEFAULT_DESCRIPTION =
   'Extension.js makes cross‑browser extension development simple.'
 const SITE_URL = 'https://extension.js.org/'
 
+// Plain DOM on purpose: the page is one small screen, and a UI framework
+// would ship innerHTML code that the AMO store check flags in Firefox builds.
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,

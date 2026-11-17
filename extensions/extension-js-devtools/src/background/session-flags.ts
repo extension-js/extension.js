@@ -6,6 +6,12 @@
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+export type SessionFlags = {
+  noOpen: boolean
+  // The session opens a starting URL, so the welcome page stays behind it.
+  startingUrl: boolean
+}
+
 // The build ships this file from public/ with noOpen false. Under --no-open
 // the CLI stages a per-session copy of this extension and overwrites the file
 // beside its manifest, so the shared dist always says the session may open.
@@ -13,14 +19,8 @@ export const SESSION_FLAGS_FILE = 'extension-js-session.json'
 
 // The build inlines the browser this copy of the companion was made for.
 export function sessionBrowser(): string | undefined {
-  // @ts-ignore
-  return (import.meta as any).env?.EXTENSION_BROWSER
-}
-
-export type SessionFlags = {
-  noOpen: boolean
-  // The session opens a starting URL, so the welcome page stays behind it.
-  startingUrl: boolean
+  return (import.meta as {env?: {EXTENSION_BROWSER?: string}}).env
+    ?.EXTENSION_BROWSER
 }
 
 export function parseSessionFlags(raw: unknown): SessionFlags {
