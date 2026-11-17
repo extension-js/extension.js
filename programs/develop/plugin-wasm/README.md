@@ -12,11 +12,11 @@
 ### What it does
 
 - **Async wasm**: Leaves `experiments.asyncWebAssembly` to rspack, which turns it on by default. Setting `experiments.asyncWebAssembly: false` from the `config` function in `extension.config.js` turns wasm modules off.
-- **Resolution**: Ensures `.wasm` is resolvable by default.
-- **Runtime aliases**: Injects stable aliases for wasm runtime assets (ffmpeg, tesseract, imagemagick).
+- **Resolution**: Appends `.wasm` to `resolve.extensions` and keeps the entries already there.
+- **Runtime aliases**: For eight known runtime files of `@ffmpeg/core`, `@ffmpeg/core-mt`, `@imagemagick/magick-wasm` and `tesseract-wasm`, adds an alias to the first copy found in a `node_modules` folder above the project, then above the process folder. The alias bypasses the package's `exports`, finds a copy installed only above the process folder, and makes every importer use that one copy.
 - **Alias safety**: Preserves existing user aliases and only fills missing defaults.
 - **Bytes on request**: `import url from './x.wasm?url'` emits the binary under `assets/` and returns its URL, for Emscripten-style loaders that fetch their own bytes (handled by the static-assets `?url` rule).
-- **Budget**: a `.wasm` binary only extension pages and workers reach is budgeted as `wasm` (32 MiB) by the perf-budgets plugin, so a vendor runtime such as onnxruntime or ffmpeg builds without a warning; one a content script or the service worker reaches keeps the `runtime` budget (1 MiB). Raise `perfBudgets.wasm` or list a file under `perfBudgets.ignore` in `extension.config.js` to change that.
+- **Budget**: a `.wasm` binary only extension pages and workers reach is budgeted as `wasm` (32 MiB) by the perf-budgets plugin, so a vendor runtime such as onnxruntime or ffmpeg builds without a warning. One a content script or the service worker reaches keeps the `runtime` budget (1 MiB). Raise `perfBudgets.wasm` or list a file under `perfBudgets.ignore` in `extension.config.js` to change that.
 
 ### Feature overview
 
@@ -32,10 +32,7 @@ import {WasmPlugin} from './plugin-wasm'
 
 export default {
   plugins: [
-    new WasmPlugin({
-      manifestPath: '/abs/path/to/manifest.json',
-      mode: process.env.NODE_ENV === 'production' ? 'production' : 'development'
-    })
+    new WasmPlugin()
   ]
 }
 ```
@@ -45,10 +42,9 @@ export default {
 ```ts
 export class WasmPlugin {
   static readonly name: 'plugin-wasm'
-  constructor(options: {
-    manifestPath: string
-    mode: 'development' | 'production'
-  })
-  apply(compiler: import('@rspack/core').Compiler): void
+  // rspack-config.ts passes the shared plugin options. None is read.
+  constructor(options?: {manifestPath: string; mode?: 'development' | 'production'})
+  // rspack calls apply(compiler). `cwd` is the second folder the alias walk starts from.
+  apply(compiler: import('@rspack/core').Compiler, cwd?: string): void
 }
 ```
