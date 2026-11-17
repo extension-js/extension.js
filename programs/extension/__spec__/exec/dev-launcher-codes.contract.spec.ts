@@ -1,4 +1,3 @@
-import {type ChildProcess, spawn, spawnSync} from 'node:child_process'
 import {
   chmodSync,
   mkdirSync,
@@ -8,15 +7,14 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
-const ANSI = /\x1b\[[0-9;]*m/g
+import {
+  type CliSession,
+  everyLineAsFrame,
+  runCli,
+  startCli
+} from '../helpers/run-cli'
 
 interface Frame {
   ok: boolean
@@ -25,21 +23,9 @@ interface Frame {
   error: {code: string; message: string} | null
 }
 
-function cliEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0',
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0',
-    EXTENSION_OUTPUT: 'json',
-    ...extra
-  }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
-
-  return env
-}
+// The helper turns the system scan off and gives each run an empty cache
+// and a temp home, so no case can reach a browser this machine has.
+const OUTPUT_ENV = {EXTENSION_OUTPUT: 'json'}
 
 const FAKE_GECKO = `#!/usr/bin/env node
 const net = require('node:net')
@@ -73,11 +59,8 @@ function plantFakeGecko(dir: string): string {
   return binary
 }
 
-function sleep(ms: number) {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms))
-}
-
 type Session = {
+  cli: CliSession
   frames: () => Frame[]
   stderr: () => string
   ready: () => Record<string, unknown> | null
@@ -90,25 +73,10 @@ function startDev(
   args: string[],
   env: Record<string, string> = {}
 ): Session {
-  const child: ChildProcess = spawn(
-    process.execPath,
-    [
-      cliBin,
-      'dev',
-      projectDir,
-      '--browser',
-      browser,
-      '--output',
-      'json',
-      ...args
-    ],
-    {cwd: cliRoot, stdio: 'pipe', env: cliEnv(env)}
+  const cli = startCli(
+    ['dev', projectDir, '--browser', browser, '--output', 'json', ...args],
+    {env: {...OUTPUT_ENV, ...env}}
   )
-  let stdout = ''
-  let stderr = ''
-  child.stdout?.on('data', (chunk) => (stdout += chunk.toString()))
-  child.stderr?.on('data', (chunk) => (stderr += chunk.toString()))
-
   const readyPath = join(
     projectDir,
     'dist',
@@ -118,12 +86,9 @@ function startDev(
   )
 
   return {
-    frames: () =>
-      stdout
-        .split('\n')
-        .filter((line) => line.trim())
-        .map((line) => JSON.parse(line) as Frame),
-    stderr: () => stderr.replace(ANSI, ''),
+    cli,
+    frames: () => everyLineAsFrame<Frame>(cli.read().stdout),
+    stderr: () => cli.read().stderr,
     ready: () => {
       try {
         return JSON.parse(readFileSync(readyPath, 'utf8')) as Record<
@@ -135,11 +100,7 @@ function startDev(
       }
     },
     async stop() {
-      child.kill('SIGTERM')
-      await Promise.race([
-        new Promise((resolvePromise) => child.once('close', resolvePromise)),
-        sleep(3000).then(() => child.kill('SIGKILL'))
-      ])
+      await cli.stop('SIGTERM', 3000)
     }
   }
 }
@@ -148,27 +109,24 @@ async function waitForFailureFrame(
   session: Session,
   timeoutMs = 90_000
 ): Promise<Frame> {
-  const deadline = Date.now() + timeoutMs
+  const failed = () => session.frames().find((frame) => !frame.ok)
 
-  while (Date.now() < deadline) {
-    const failed = session.frames().find((frame) => !frame.ok)
-    if (failed) return failed
+  await session.cli.waitFor(
+    () => failed() !== undefined,
+    timeoutMs,
+    'a failure frame'
+  )
 
-    await sleep(250)
-  }
-
-  throw new Error(`no failure frame within ${timeoutMs}ms\n${session.stderr()}`)
+  return failed() as Frame
 }
 
-function runWaiter(
+async function runWaiter(
   projectDir: string,
   browser: string,
   env: Record<string, string> = {}
 ) {
-  const result = spawnSync(
-    process.execPath,
+  const result = await runCli(
     [
-      cliBin,
       'dev',
       projectDir,
       '--browser',
@@ -179,17 +137,19 @@ function runWaiter(
       '--output',
       'json'
     ],
-    {cwd: cliRoot, encoding: 'utf8', env: cliEnv(env)}
+    {env: {...OUTPUT_ENV, ...env}}
   )
-  const lines = result.stdout.split('\n').filter((line) => line.trim())
+  const lines = everyLineAsFrame<Frame>(result.stdout)
 
   return {
     status: result.status,
-    frame: JSON.parse(lines[lines.length - 1]) as Frame,
+    frame: lines[lines.length - 1],
     lineCount: lines.length
   }
 }
 
+// The Gecko cases run a stand-in through its shebang, which Windows does
+// not read. The other cases have never run on Windows.
 describe.skipIf(process.platform === 'win32')(
   'a launcher refusal names its code on the stream, the contract and --wait',
   () => {
@@ -247,7 +207,7 @@ describe.skipIf(process.platform === 'win32')(
       await expectLaunchRefusal(session, 'E_BROWSER_BINARY_REQUIRED', 'usage')
       expect(session.stderr()).toMatch(/needs a Chromium binary/)
 
-      const waiter = runWaiter(projectDir, 'chromium-based')
+      const waiter = await runWaiter(projectDir, 'chromium-based')
       expect(waiter.status).toBe(1)
       expect(waiter.lineCount).toBe(1)
       expect(waiter.frame).toMatchObject({
@@ -276,7 +236,7 @@ describe.skipIf(process.platform === 'win32')(
       expect(session.stderr()).toContain(missing)
       expect(session.stderr()).not.toMatch(/isn't installed/)
 
-      const waiter = runWaiter(projectDir, 'edge', env)
+      const waiter = await runWaiter(projectDir, 'edge', env)
       expect(waiter.status).toBe(1)
       expect(waiter.lineCount).toBe(1)
       expect(waiter.frame).toMatchObject({
@@ -318,7 +278,7 @@ describe.skipIf(process.platform === 'win32')(
       expect(session.stderr()).toContain(reason)
       expect(session.ready()?.browserPid).toBeUndefined()
 
-      const waiter = runWaiter(projectDir, browser, env)
+      const waiter = await runWaiter(projectDir, browser, env)
       expect(waiter.status).toBe(1)
       expect(waiter.lineCount).toBe(1)
       expect(waiter.frame).toMatchObject({
@@ -343,7 +303,9 @@ describe.skipIf(process.platform === 'win32')(
 
         session = startDev(projectDir, 'firefox', ['--gecko-binary', binary], {
           FAKE_RDP_MODE: mode,
-          EXTENSION_RDP_REQUEST_TIMEOUT_MS: '1000'
+          // Each of the five setup attempts waits this long for a greeting,
+          // and only the silent mode ever reaches the end of it.
+          EXTENSION_RDP_REQUEST_TIMEOUT_MS: mode === 'silent' ? '250' : '1000'
         })
 
         await expectLaunchRefusal(session, code, 'failed')

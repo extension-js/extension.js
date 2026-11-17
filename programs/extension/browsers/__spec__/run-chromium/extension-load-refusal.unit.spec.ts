@@ -66,8 +66,21 @@ describe('loadUnpacked verdict classification', () => {
       })
     } as any
 
-    await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toMatchObject({
-      status: 'unknown'
+    await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
+      status: 'unknown',
+      transportError: 'CDP command timed out: Extensions.loadUnpacked'
+    })
+  })
+
+  it('still reports a real refusal as refused', async () => {
+    const cdp = cdpThatFailsWith({
+      code: -32000,
+      message: 'Manifest file is missing or unreadable'
+    })
+
+    await expect(loadUnpacked(cdp, '/dist/chrome')).resolves.toEqual({
+      status: 'refused',
+      reason: 'Manifest file is missing or unreadable'
     })
   })
 

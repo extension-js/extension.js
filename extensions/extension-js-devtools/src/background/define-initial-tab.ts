@@ -20,17 +20,12 @@ export async function getDevExtensions() {
     const isBuiltIn = (extension: chrome.management.ExtensionInfo) => {
       const name = String(extension.name || '').toLowerCase()
 
-      return (
-        name.includes('extension.js built-in developer tools') ||
-        name.includes('extension.js theme')
-      )
+      return name.includes('extension.js theme')
     }
 
     const devExtensions = (allExtensions || []).filter((extension) => {
       return (
         extension.id !== chrome.runtime.id &&
-        // Reload extension
-        extension.id !== 'igcijhgmihmjbbahdabahfbpffalcfnn' &&
         extension.installType === 'development' &&
         // Exclude themes so we pick the actual user extension
         // (Chrome reports themes via management API)

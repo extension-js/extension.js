@@ -3,7 +3,7 @@
   "name": "@extension-js/theme",
   "private": true,
   "version": "0.1.0",
-  "description": "Chrome theme inspired by GitHub Dark, adapted to Apple HIG dark palette with accent #1E76E6.",
+  "description": "Dark Chromium and Firefox browser theme with neutral gray frame, toolbar and new tab colors.",
   "license": "MIT",
   "scripts": {
     "build:chromium": "node ../../programs/extension/dist/cli.cjs build . --browser=chromium --no-telemetry",

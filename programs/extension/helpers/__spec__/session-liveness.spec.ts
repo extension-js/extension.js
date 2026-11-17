@@ -3,17 +3,7 @@ import * as fs from 'node:fs'
 import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-
-const pidStart = vi.hoisted(() => ({value: null as number | null}))
-
-vi.mock('../../browsers/browsers-lib/resolve-live-pid', async () => {
-  const actual = await vi.importActual<
-    typeof import('../../browsers/browsers-lib/resolve-live-pid')
-  >('../../browsers/browsers-lib/resolve-live-pid')
-
-  return {...actual, pidStartedAtMs: () => pidStart.value}
-})
+import {afterEach, beforeAll, beforeEach, describe, expect, it} from 'vitest'
 
 import {
   endedSessionReason,
@@ -24,6 +14,12 @@ import {
 } from '../session-liveness'
 
 const READY_PATH = '/proj/dist/extension-js/chrome/ready.json'
+
+// The process table's answer for a pid's start time, which a real read would
+// get by shelling out.
+function startedAt(iso: string | null) {
+  return () => (iso === null ? null : Date.parse(iso))
+}
 
 let server: net.Server
 let livePort = 0
@@ -39,14 +35,16 @@ function listen(): Promise<net.Server> {
 }
 
 beforeEach(async () => {
-  pidStart.value = null
   server = await listen()
   livePort = (server.address() as net.AddressInfo).port
 
   const closed = await listen()
   silentPort = (closed.address() as net.AddressInfo).port
   await new Promise((resolve) => closed.close(resolve))
+})
 
+// One exited child serves every test: its pid stays dead for the file.
+beforeAll(() => {
   deadPid = spawnSync(process.execPath, ['-e', '']).pid
 })
 
@@ -101,7 +99,7 @@ describe('endedSessionReason', () => {
 
   it('ends a session whose pid another process holds once the dial has failed', async () => {
     const stamped = '2026-11-15T01:00:00.000Z'
-    pidStart.value = Date.parse('2026-11-15T03:00:00.000Z')
+    const reusedAt = startedAt('2026-11-15T03:00:00.000Z')
 
     const contract = {
       status: 'ready',
@@ -110,11 +108,16 @@ describe('endedSessionReason', () => {
       controlPort: silentPort
     }
 
-    expect(await endedSessionReason(contract, READY_PATH)).toBeNull()
+    expect(
+      await endedSessionReason(contract, READY_PATH, undefined, reusedAt)
+    ).toBeNull()
 
-    const reason = await endedSessionReason(contract, READY_PATH, {
-      dialFailed: true
-    })
+    const reason = await endedSessionReason(
+      contract,
+      READY_PATH,
+      {dialFailed: true},
+      reusedAt
+    )
 
     expect(reason).toContain(`pid ${process.pid}`)
     expect(reason).toContain('now belongs to another process')
@@ -122,8 +125,6 @@ describe('endedSessionReason', () => {
   })
 
   it('keeps a live pid that started when the contract says it did', async () => {
-    pidStart.value = Date.parse('2026-11-15T01:00:00.600Z')
-
     expect(
       await endedSessionReason(
         {
@@ -133,7 +134,8 @@ describe('endedSessionReason', () => {
           controlPort: silentPort
         },
         READY_PATH,
-        {dialFailed: true}
+        {dialFailed: true},
+        startedAt('2026-11-15T01:00:00.600Z')
       )
     ).toBeNull()
   })
@@ -141,25 +143,34 @@ describe('endedSessionReason', () => {
 
 describe('reusedPidEvidence', () => {
   it('reads the stamped pid start before the run start', () => {
-    pidStart.value = Date.parse('2026-11-15T01:00:30.000Z')
+    const thirtySecondsIn = startedAt('2026-11-15T01:00:30.000Z')
 
     // 30 s after the stamp: inside the run-start skew, outside the pid one.
     expect(
-      reusedPidEvidence({pid: 1, startedAt: '2026-11-15T01:00:00.000Z'})
+      reusedPidEvidence(
+        {pid: 1, startedAt: '2026-11-15T01:00:00.000Z'},
+        thirtySecondsIn
+      )
     ).toBeNull()
 
     expect(
-      reusedPidEvidence({
-        pid: 1,
-        startedAt: '2026-11-15T01:00:00.000Z',
-        pidStartedAt: '2026-11-15T01:00:00.000Z'
-      })
+      reusedPidEvidence(
+        {
+          pid: 1,
+          startedAt: '2026-11-15T01:00:00.000Z',
+          pidStartedAt: '2026-11-15T01:00:00.000Z'
+        },
+        thirtySecondsIn
+      )
     ).toContain("not at the contract's 2026-11-15T01:00:00.000Z")
   })
 
   it('answers nothing when the process table cannot date the pid', () => {
     expect(
-      reusedPidEvidence({pid: 1, pidStartedAt: '2026-11-15T01:00:00.000Z'})
+      reusedPidEvidence(
+        {pid: 1, pidStartedAt: '2026-11-15T01:00:00.000Z'},
+        startedAt(null)
+      )
     ).toBeNull()
   })
 })

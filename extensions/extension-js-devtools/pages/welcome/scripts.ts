@@ -54,30 +54,6 @@ async function findExtension(): Promise<ExtensionInfo> {
   const fromBg = await getDevExtension()
   if (fromBg) return fromBg
 
-  const all = (await new Promise((resolve) => {
-    try {
-      chrome.management.getAll(resolve)
-    } catch {
-      resolve([])
-    }
-  })) as ExtensionInfo[]
-
-  const candidates = (all || []).filter((extension) => {
-    return (
-      extension &&
-      extension.installType === 'development' &&
-      extension.id !== chrome.runtime.id &&
-      extension.enabled &&
-      extension.type !== 'theme'
-    )
-  })
-
-  // Prefer last candidate to align with how we append the user extension last
-  const userExtension = candidates.length
-    ? candidates[candidates.length - 1]
-    : undefined
-  if (userExtension) return userExtension
-
   const manifest = chrome.runtime.getManifest()
 
   return {

@@ -1,0 +1,305 @@
+import fs from 'node:fs'
+import path from 'node:path'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {resolveConfigBrowser} from '../config-browser'
+import {
+  loadExtensionDevelopModule,
+  resolveExtensionDevelopRoot
+} from '../extension-develop-runtime'
+import {KNOWN_COMMANDS} from '../known-commands'
+import {CODES} from '../messaging'
+import {resolveNoBrowser} from '../no-browser'
+import {
+  enforceSupportedNodeVersion,
+  unsupportedNodeVersionFrame
+} from '../node-version-guard'
+import {setupParentWatchdog} from '../parent-watchdog'
+import {detectInvokedCommand} from '../telemetry-cli'
+
+const makeTempFolder = trackTempFolders()
+
+afterEach(() => {
+  vi.useRealTimers()
+  vi.unstubAllEnvs()
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
+describe('the safari command and the known command list', () => {
+  it('leaves safari out, so its runs report as unknown', () => {
+    // Pins today's behavior. Ledger 1372 D8.
+    expect(KNOWN_COMMANDS.has('safari' as never)).toBe(false)
+    expect(
+      detectInvokedCommand(['node', 'extension', 'safari', 'button'])
+    ).toBe('unknown')
+  })
+})
+
+describe('the runtime guard under --output json', () => {
+  const jsonBuild = ['node', 'extension', 'build', '--output', 'json']
+
+  function refuse(run: () => void) {
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('exit')
+    }) as never)
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const write = vi.spyOn(fs, 'writeSync').mockImplementation(() => 0)
+
+    expect(run).toThrow('exit')
+
+    return {exit, error, log, write}
+  }
+
+  it.each([
+    ['Bun', '1.1.38', undefined, 'Requires Bun >= 1.2'],
+    ['Deno', undefined, '2.4.0', 'Requires Deno >= 2.5']
+  ])('refuses an old %s on stderr with no envelope on stdout', (_runtime, bun, deno, needle) => {
+    const seen = refuse(() =>
+      enforceSupportedNodeVersion('22.12.0', bun, deno, jsonBuild)
+    )
+
+    // Pins today's behavior. Ledger 1372 D14.
+    expect(seen.write).not.toHaveBeenCalled()
+    expect(seen.log).not.toHaveBeenCalled()
+    expect(String(seen.error.mock.calls[0][0])).toContain(needle)
+    expect(seen.exit).toHaveBeenCalledWith(1)
+  })
+
+  it('writes the envelope for an old Node, which the other runtimes skip', () => {
+    const seen = refuse(() =>
+      enforceSupportedNodeVersion('20.19.4', undefined, undefined, jsonBuild)
+    )
+
+    expect(seen.write).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(String(seen.write.mock.calls[0][1]))).toMatchObject({
+      ok: false,
+      command: 'build',
+      status: 'usage',
+      error: {code: 'E_NODE_VERSION'}
+    })
+  })
+
+  it('prints the envelope with console.log when stdout refuses the write', () => {
+    const exit = vi.spyOn(process, 'exit').mockImplementation((() => {
+      throw new Error('exit')
+    }) as never)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(fs, 'writeSync').mockImplementation(() => {
+      throw Object.assign(new Error('EAGAIN'), {code: 'EAGAIN'})
+    })
+
+    expect(() =>
+      enforceSupportedNodeVersion('20.19.4', undefined, undefined, jsonBuild)
+    ).toThrow('exit')
+
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(JSON.parse(String(log.mock.calls[0][0]))).toMatchObject({
+      ok: false,
+      command: 'build',
+      error: {code: 'E_NODE_VERSION'}
+    })
+
+    expect(exit).toHaveBeenCalledWith(1)
+  })
+
+  it('names the value of a flag typed before the command as the command', () => {
+    const frame = unsupportedNodeVersionFrame('20.19.4', [
+      'node',
+      'extension',
+      '--browser',
+      'firefox',
+      'build',
+      '--output',
+      'json'
+    ])
+
+    // Pins today's behavior. Ledger 1372 D14.
+    expect(frame?.command).toBe('firefox')
+  })
+})
+
+describe('a config file that throws', () => {
+  function projectWithThrowingConfig(): string {
+    const dir = makeTempFolder('extjs-throwing-config-')
+
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"probe"}')
+
+    // CommonJS on purpose: Node 22.12 leaves a stray rejection behind when a
+    // required ES module throws, and that fails the run, not the test.
+    fs.writeFileSync(
+      path.join(dir, 'extension.config.js'),
+      "throw new Error('config boom')\n" +
+        "module.exports = {commands: {dev: {noBrowser: true, browser: 'firefox'}}}\n"
+    )
+
+    return dir
+  }
+
+  it('reads noBrowser as false, so the browser would launch', async () => {
+    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', undefined)
+
+    // Pins today's behavior. Ledger 1372 D17.
+    await expect(
+      resolveNoBrowser(projectWithThrowingConfig(), 'dev')
+    ).resolves.toBe(false)
+  })
+
+  it('reads the config browser as unset', async () => {
+    // Pins today's behavior. Ledger 1372 D17.
+    await expect(
+      resolveConfigBrowser(projectWithThrowingConfig(), 'dev')
+    ).resolves.toBeUndefined()
+  })
+
+  it.each([
+    'dev',
+    'start',
+    'preview'
+  ] as const)('reads noBrowser as false for %s when the config loader rejects', async (command) => {
+    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', undefined)
+
+    // Pins today's behavior. Ledger 1372 D17.
+    await expect(
+      resolveNoBrowser('/nowhere', command, async () => ({
+        loadCommandConfig: async () => {
+          throw new Error('config boom')
+        }
+      }))
+    ).resolves.toBe(false)
+  })
+})
+
+describe('locating the extension-develop runtime', () => {
+  it('ignores an EXTENSION_DEVELOP_ROOT that holds no runtime, in silence', () => {
+    const wrong = makeTempFolder('extjs-wrong-root-')
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    vi.stubEnv('EXTENSION_DEVELOP_ROOT', wrong)
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', undefined)
+
+    // Pins today's behavior. Ledger 1372 D17.
+    const root = resolveExtensionDevelopRoot(makeTempFolder('extjs-start-'))
+
+    expect(root).not.toBe(wrong)
+    expect(
+      JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8')).name
+    ).toBe('extension-develop')
+
+    expect(process.env.EXTENSION_DEVELOP_ROOT).toBe(root)
+    expect(error).not.toHaveBeenCalled()
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('throws E_RUNTIME_NOT_FOUND when no candidate holds a package manifest', async () => {
+    const start = makeTempFolder('extjs-start-')
+    const exists = fs.existsSync.bind(fs)
+
+    vi.stubEnv('EXTENSION_DEVELOP_ROOT', undefined)
+    // Stands for an install with no extension-develop beside the CLI.
+    vi.spyOn(fs, 'existsSync').mockImplementation((file) =>
+      path.basename(String(file)) === 'package.json' ? false : exists(file)
+    )
+
+    expect(() => resolveExtensionDevelopRoot(start)).toThrow(
+      expect.objectContaining({
+        code: CODES.E_RUNTIME_NOT_FOUND,
+        message: 'Unable to locate the extension-develop runtime.'
+      })
+    )
+
+    await expect(loadExtensionDevelopModule(start)).rejects.toMatchObject({
+      code: CODES.E_RUNTIME_NOT_FOUND,
+      message: 'Unable to locate the extension-develop runtime.'
+    })
+
+    expect(process.env.EXTENSION_DEVELOP_ROOT).toBeUndefined()
+  })
+})
+
+describe('the parent watchdog shutdown', () => {
+  const PARENT = 4242
+
+  // Both probes are answered here: no signal leaves and no process ends.
+  function watchShutdown() {
+    vi.useFakeTimers()
+
+    return {
+      kill: vi.spyOn(process, 'kill').mockImplementation(() => true),
+      exit: vi
+        .spyOn(process, 'exit')
+        .mockImplementation((() => undefined) as never)
+    }
+  }
+
+  it('sends itself SIGTERM once, then exits 1 when the grace period runs out', () => {
+    const {kill, exit} = watchShutdown()
+    const log = vi.fn()
+    const emitFrame = vi.fn()
+
+    setupParentWatchdog(PARENT, {log, emitFrame, isAlive: () => false})
+
+    expect(log.mock.calls).toEqual([
+      [
+        `[Extension.js] Parent process ${PARENT} is gone (--parent-pid). Shutting down.`
+      ]
+    ])
+
+    expect(emitFrame).toHaveBeenCalledTimes(1)
+    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+    expect(exit).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(4999)
+    expect(exit).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(1)
+    expect(exit.mock.calls).toEqual([[1]])
+  })
+
+  it('exits 1 at once when the signal to itself cannot be sent', () => {
+    const {kill, exit} = watchShutdown()
+
+    kill.mockImplementation(() => {
+      throw new Error('kill EPERM')
+    })
+
+    setupParentWatchdog(PARENT, {log: () => {}, isAlive: () => false})
+
+    expect(exit.mock.calls).toEqual([[1]])
+  })
+
+  it('shuts down on the first poll that finds the parent gone, and only once', () => {
+    const {kill} = watchShutdown()
+    const answers = [true, true, false, false]
+    const isAlive = vi.fn(() => answers.shift() ?? false)
+
+    setupParentWatchdog(PARENT, {log: () => {}, isAlive})
+
+    vi.advanceTimersByTime(2000)
+    expect(kill).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(2000)
+    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+
+    vi.advanceTimersByTime(4000)
+    expect(isAlive).toHaveBeenCalledTimes(3)
+    expect(kill).toHaveBeenCalledTimes(1)
+  })
+
+  it('never shuts down after its cancel is called', () => {
+    const {kill, exit} = watchShutdown()
+    const cancel = setupParentWatchdog(PARENT, {
+      log: () => {},
+      isAlive: () => true
+    })
+
+    cancel()
+    vi.advanceTimersByTime(60_000)
+
+    expect(kill).not.toHaveBeenCalled()
+    expect(exit).not.toHaveBeenCalled()
+  })
+})

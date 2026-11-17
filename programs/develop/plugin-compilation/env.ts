@@ -192,9 +192,9 @@ function parsesAsJson(text: string): boolean {
   }
 }
 
-function resolveProcessShim(): string | undefined {
-  const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
-
+function resolveProcessShim(
+  candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
+): string | undefined {
   try {
     return fs.existsSync(candidate) ? candidate : undefined
   } catch {
@@ -359,11 +359,14 @@ export class EnvPlugin {
   public readonly browser: DevOptions['browser']
   public readonly manifestPath?: string
   public readonly define?: Record<string, unknown>
+  private readonly processShimPath?: string
 
-  constructor(options: Partial<PluginInterface>) {
+  // processShimPath defaults to the shim this package ships in runtime/.
+  constructor(options: Partial<PluginInterface> & {processShimPath?: string}) {
     this.browser = options.browser || 'chrome'
     this.manifestPath = options.manifestPath
     this.define = options.define
+    this.processShimPath = options.processShimPath
   }
 
   apply(compiler: Compiler) {
@@ -580,7 +583,7 @@ export class EnvPlugin {
 
     // Provide a real browser process object so free process.* reads don't throw;
     // EXTENSION_PUBLIC_* reads are still statically inlined and tree-shakeable.
-    const processShim = resolveProcessShim()
+    const processShim = resolveProcessShim(this.processShimPath)
 
     if (!processShim) {
       // Fallback (shim missing from the install): merge a minimal-but-complete

@@ -172,7 +172,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
     },
     {
       "name": "telemetry",
-      "summary": "Manage anonymous telemetry consent (enable, disable, or show status)",
+      "summary": "Manage anonymous telemetry (enable, disable, show status, or reset)",
       "supportsSourceInspection": false,
     },
     {
@@ -214,7 +214,7 @@ exports[`programAIHelp > matches the published AI-help JSON contract shape 1`] =
       ],
     },
     {
-      "description": "Disable anonymous telemetry for this run. Persistent toggle: \`extension telemetry disable\`. Hard override: \`EXTENSION_TELEMETRY=0\`.",
+      "description": "Disable anonymous telemetry for this run. Persistent toggle: \`extension telemetry disable\`. Hard override: \`EXTENSION_TELEMETRY_DISABLED=1\`.",
       "name": "--no-telemetry",
     },
     {
