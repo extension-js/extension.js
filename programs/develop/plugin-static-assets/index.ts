@@ -16,11 +16,9 @@ import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {
   public static readonly name: string = 'plugin-static-assets'
-  public readonly mode: DevOptions['mode']
 
-  constructor(options: PluginInterface & {mode: DevOptions['mode']}) {
-    this.mode = options.mode
-  }
+  // biome-ignore lint/complexity/noUselessConstructor: rspack-config.ts passes the shared options, nothing here reads them
+  constructor(_options?: PluginInterface & {mode?: DevOptions['mode']}) {}
 
   public apply(compiler: Compiler) {
     new CheckNamespaceImports().apply(compiler)

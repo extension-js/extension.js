@@ -13,13 +13,9 @@ import type {DevOptions, PluginInterface} from '../types'
 
 export class WasmPlugin {
   public static readonly name: string = 'plugin-wasm'
-  public readonly manifestPath: string
-  public readonly mode: DevOptions['mode']
 
-  constructor(options: PluginInterface & {mode: DevOptions['mode']}) {
-    this.manifestPath = options.manifestPath
-    this.mode = options.mode
-  }
+  // biome-ignore lint/complexity/noUselessConstructor: rspack-config.ts passes the shared options, nothing here reads them
+  constructor(_options?: PluginInterface & {mode?: DevOptions['mode']}) {}
 
   // Walk ancestors so hoisted workspace deps resolve the same way rspack's
   // `resolve.modules: ['node_modules']` does. Checking only the package dir
