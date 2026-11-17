@@ -1,9 +1,11 @@
+import {createHash} from 'node:crypto'
 import {
   chmodSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync
 } from 'node:fs'
@@ -97,7 +99,7 @@ function runCli(
   timeoutMs = 60_000,
   extraEnv: Record<string, string> = {}
 ) {
-  return spawnCli(args, {timeoutMs, env: extraEnv})
+  return spawnCli(args, {timeoutMs, env: extraEnv, tempFolder: childTemp})
 }
 
 function frames(stdout: string): Array<{
@@ -109,8 +111,12 @@ function frames(stdout: string): Array<{
   return everyLineAsFrame(stdout)
 }
 
-// The contract of the session that ran in projectDir. A project with no
-// build keeps it under dist all the same, beside nothing else.
+// The temp folder the children of the running test get, set per workspace.
+let childTemp: string | undefined
+
+// The contract of the session that previewed projectDir as it is. A folder
+// no project owns keeps it outside itself, in the child's temp folder,
+// under a key made from the folder's real path.
 function readContract(
   projectDir: string,
   browser: string
@@ -125,7 +131,16 @@ function readContract(
 } {
   return JSON.parse(
     readFileSync(
-      join(projectDir, 'dist', 'extension-js', browser, 'ready.json'),
+      join(
+        childTemp ?? tmpdir(),
+        'extension-js',
+        createHash('sha1')
+          .update(realpathSync(projectDir))
+          .digest('hex')
+          .slice(0, 12),
+        browser,
+        'ready.json'
+      ),
       'utf8'
     )
   )
@@ -149,6 +164,8 @@ describe.skipIf(process.platform === 'win32')(
       leftovers.push(work)
       const projectDir = join(work, 'project')
       mkdirSync(projectDir, {recursive: true})
+      childTemp = join(work, 'tmp')
+      mkdirSync(childTemp)
       writeFileSync(
         join(projectDir, 'manifest.json'),
         JSON.stringify({
