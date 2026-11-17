@@ -34,11 +34,9 @@ const externals = [
   '@rspack/plugin-preact-refresh',
   '@prefresh/core',
   '@prefresh/utils',
-  '@prefresh/webpack',
 
   'vue-loader',
   '@vue/compiler-sfc',
-  'vue-style-loader',
   'svelte-loader',
   'solid-js/h',
 
