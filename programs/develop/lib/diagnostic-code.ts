@@ -23,9 +23,10 @@ interface IssueLike {
 
 // Every plugin diagnostic names itself, and this table is the one place that
 // name meets the code a consumer reads.
-const NAMED_CODES: Record<string, ErrorCode> = {
+export const NAMED_CODES: Record<string, ErrorCode> = {
   WARInvalidMatchPattern: CODES.E_WAR_INVALID,
   WARStringEntryInMv3: CODES.E_WAR_INVALID,
+  WARPatternLeavesRoot: CODES.E_WAR_INVALID,
   LocalesLayoutWarning: CODES.E_LOCALES_LAYOUT,
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,
@@ -37,21 +38,41 @@ const NAMED_CODES: Record<string, ErrorCode> = {
   ScriptsMissingFile: CODES.E_ENTRY_NOT_FOUND,
   ManifestPageMissing: CODES.E_ENTRY_NOT_FOUND,
   ManifestFilesNotEmitted: CODES.E_ENTRY_NOT_FOUND,
+  JSONPathIsFolder: CODES.E_ENTRY_NOT_FOUND,
   IconsMissingFile: CODES.E_ASSET_MISSING,
   HtmlAssetMissing: CODES.E_ASSET_MISSING,
   HtmlPublicAssetMissing: CODES.E_ASSET_MISSING,
   WARRelativeAssetMissing: CODES.E_ASSET_MISSING,
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
+  PublicFolderOffRef: CODES.E_ASSET_MISSING,
+  RootAbsoluteRefCompiledSource: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
   UnresolvedBareRequireWarning: CODES.E_SCRIPT_DEP_MISSING,
+  ImportScriptsDependencyMissing: CODES.E_SCRIPT_DEP_MISSING,
+  ImportScriptsCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
+  InjectedScriptFilesMissing: CODES.E_SCRIPT_DEP_MISSING,
+  InjectedScriptCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeFetchedFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeStaticImportFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeSetSurfaceFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeGetURLFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeGetURLCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeAssetFolderNotShipped: CODES.E_SCRIPT_DEP_MISSING,
+  MovedPageRelativeUrl: CODES.E_SCRIPT_DEP_MISSING,
+  WebkitDroppedPageOpened: CODES.E_SCRIPT_DEP_MISSING,
   NodeBuiltinNotAvailable: CODES.E_MODULE_NOT_FOUND,
   RemoteResourceBlocked: CODES.E_REMOTE_RESOURCE_BLOCKED,
   ReservedScriptsFolder: CODES.E_RESERVED_FOLDER,
+  ScriptsFolderEntryOnlyImported: CODES.E_RESERVED_FOLDER,
   CssPreprocessorMissing: CODES.E_CSS_PREPROCESSOR_MISSING,
   CssDeadRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
   BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
-  ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX
+  ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
+  ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
+  ManifestFatalShapeWarning: CODES.E_MANIFEST_INVALID,
+  MainWorldScriptCompileFailed: CODES.E_COMPILE,
+  ContentScriptDevServerRuntimeWarning: CODES.E_INTERNAL
 }
 
 // The bundler wraps what a loader threw or emitted under one of these names
