@@ -454,9 +454,6 @@ export class JsFrameworksPlugin {
         module: {
           type: 'es6'
         },
-        // Keep SWC transform-only: Rspack owns production minification, and disabling
-        // SWC minify preserves magic comments like /* webpackIgnore: true */.
-        minify: false,
         // Content scripts and background.scripts load as classic sloppy scripts
         // where octal escapes are legal, so they keep per-file detection. Files
         // the browser loads as modules compile as modules: in script form the

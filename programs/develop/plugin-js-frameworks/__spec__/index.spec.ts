@@ -278,7 +278,8 @@ describe('JsFrameworksPlugin', () => {
     await (compiler.hooks.beforeRun as any)._cb()
 
     const swcRule = compiler.options.module.rules[0]
-    expect(swcOptions(swcRule)?.minify).toBe(false)
+    // SWC's own default is off, which keeps magic comments for rspack.
+    expect(swcOptions(swcRule)?.minify).toBeUndefined()
   })
 
   it('enables SWC sourcemaps in production when devtool is enabled', async () => {

@@ -180,7 +180,6 @@ export async function maybeUseSvelte(
         {
           loader: 'builtin:swc-loader',
           options: {
-            minify: false,
             jsc: {
               parser: {syntax: 'typescript'},
               target: 'esnext'
