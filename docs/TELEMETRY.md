@@ -125,6 +125,10 @@ The `create` command adds four properties, so a broken advertised starter shows 
 - Stack traces, error messages, or free-text error names
 - IP addresses. The CLI sends `$ip: null` and `$geoip_disable: true` on every event, which ask the analytics service not to keep the request address or derive a location from it.
 
+## How long events are kept
+
+Events are kept for 12 months. The analytics project deletes older events in monthly batches, a whole month at a time, so an event can stay up to about 13 months before it is removed. The local audit log on your machine is yours: delete it at any time.
+
 ## Releases before 4.0
 
 The 3.x line sent a different schema, published in this file until 2026-04-17: lifecycle events (`cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_shutdown`, `cli_telemetry_consent`), `manifest_summary` (permission and content script counts), `project_profile` (framework family and package manager), `workflow_profile` (a usage cohort) and `cli_build_summary` (asset counts and bytes). Counts, booleans and names from fixed lists, never a path, a URL or a project name. Installs still on 3.x keep sending those events. From 4.0 on, the CLI sends only the two events above.
