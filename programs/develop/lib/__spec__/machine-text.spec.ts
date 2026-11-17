@@ -1,3 +1,5 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {describe, expect, it} from 'vitest'
@@ -88,6 +90,24 @@ describe('toMachineText prints a path the reader can open', () => {
         'NOT FOUND popup/gone.png\n' +
         'Update the popup/gone.png reference to point to a file that exists.'
     )
+  })
+
+  it('names a file in a missing folder when the project sits behind a link', () => {
+    const real = fs.mkdtempSync(
+      path.join(fs.realpathSync.native(os.tmpdir()), 'extjs-machine-text-')
+    )
+    const linked = `${real}-link`
+
+    try {
+      fs.symlinkSync(real, linked, 'junction')
+
+      const raw = `NOT FOUND ${path.join(linked, 'panel', 'missing.html')}`
+
+      expect(toMachineText(raw, linked)).toBe('NOT FOUND panel/missing.html')
+    } finally {
+      fs.rmSync(linked, {force: true})
+      fs.rmSync(real, {recursive: true, force: true})
+    }
   })
 
   it('keeps a path outside the project in its real form', () => {
