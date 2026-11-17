@@ -655,10 +655,12 @@ export async function fakeFirefox(
             packets.push(parsedMessage)
             if (script.handshake === 'silent') continue
 
+            const answer = answers.get(String(parsedMessage.type))
+
             send(
-              answers.get(String(parsedMessage.type))?.(parsedMessage) ?? {
-                from: parsedMessage.to
-              }
+              typeof answer === 'function'
+                ? (answer(parsedMessage) ?? {from: parsedMessage.to})
+                : {from: parsedMessage.to}
             )
           }
         })
