@@ -44,9 +44,7 @@ export const refused: FileConfig = {
 `
 
 function readmeUsageExample(): string {
-  const readme = fs
-    .readFileSync(path.join(developRoot, 'README.md'), 'utf8')
-    .replace(/\r\n/g, '\n')
+  const readme = readReadme()
   const usage = readme.slice(
     readme.indexOf('\n## Usage'),
     readme.indexOf('\n## Features')
@@ -56,6 +54,12 @@ function readmeUsageExample(): string {
   expect(block, 'README.md has no ts block under "## Usage"').not.toBeNull()
 
   return String(block?.[1])
+}
+
+function readReadme(): string {
+  return fs
+    .readFileSync(path.join(developRoot, 'README.md'), 'utf8')
+    .replace(/\r\n/g, '\n')
 }
 
 function typecheck(files: Record<string, string>) {
@@ -75,6 +79,7 @@ function typecheck(files: Record<string, string>) {
         moduleResolution: 'bundler',
         lib: ['dom', 'esnext'],
         noEmit: true,
+        noErrorTruncation: true,
         skipLibCheck: true,
         typeRoots: [path.dirname(packageDir('@types/node'))],
         types: ['node'],
@@ -158,4 +163,56 @@ export const dev = () =>
     expect(result.errors).toEqual([])
     expect(result.status).toBe(0)
   }, 120_000)
+
+  it('keep the fields only the CLI sets off the option types', () => {
+    const internal: Record<string, string[]> = {
+      DevOptions: ['install'],
+      BuildOptions: [
+        'install',
+        'metadataCommand',
+        'launchFollows',
+        'failOnWarning'
+      ],
+      StartOptions: ['install'],
+      PreviewOptions: ['metadataCommand', 'instanceId', 'instanceExplicit'],
+      EntryPreviewOptions: ['metadataCommand', 'instanceId', 'instanceExplicit']
+    }
+
+    const probes = Object.entries(internal).flatMap(([type, fields]) =>
+      fields.map(
+        (field, index) => `export const ${type}${index}: Partial<${type}> = {
+  // @ts-expect-error ${field} is not a public option
+  ${field}: undefined
+}`
+      )
+    )
+
+    const result = typecheck({
+      'internal-fields.ts': `import type {BuildOptions, DevOptions, PreviewOptions, StartOptions} from 'extension-develop'
+import type {PreviewOptions as EntryPreviewOptions} from 'extension-develop/preview'
+
+${probes.join('\n\n')}
+
+// The engine still takes them, so the CLI passes them with no cast.
+export const build: BuildOptions = {browser: 'chrome', zip: true}
+`
+    })
+
+    expect(result.errors).toEqual([])
+    expect(result.status).toBe(0)
+  }, 120_000)
+})
+
+describe('types.ts', () => {
+  const source = fs.readFileSync(path.join(developRoot, 'types.ts'), 'utf8')
+
+  it('spells each union the option types share once', () => {
+    expect(source.match(/\blogLevel\?:/g)).toHaveLength(1)
+    expect(source.match(/\blogContexts\?:/g)).toHaveLength(1)
+    expect(source.match(/'dev' \| '(?:start|build)' \|/g)).toHaveLength(1)
+  })
+
+  it('has no option that nothing reads', () => {
+    expect(source).not.toMatch(/\bfailOnWarning\b/)
+  })
 })

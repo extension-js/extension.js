@@ -12,7 +12,7 @@ export type {
   PreviewLauncherFn,
   ResolvedPreviewOptions
 } from './command-preview'
-export type {PreviewOptions} from './types'
+export type {PublicPreviewOptions as PreviewOptions} from './types'
 
 // A host can import this entry before the main one, so the guard runs here
 // too, ahead of the command file that reaches rspack.

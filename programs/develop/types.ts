@@ -216,7 +216,23 @@ export type SafariPackagerFn = (
   overrides?: SafariPackagerOverrides
 ) => Promise<SafariPackageSummary | void>
 
-export interface DevOptions extends BrowserOptionsBase {
+/** The command a run is recorded under in `ready.json` and `events.ndjson`. */
+export type SessionCommand = 'dev' | 'start' | 'preview' | 'build'
+
+/** Which browser logs a session prints and how, for dev, start and preview. */
+export interface LogOptions {
+  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
+  logContexts?: LogContext[]
+  logFormat?: 'pretty' | 'json' | 'ndjson'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: number | string
+}
+
+// Each Public*Options type is what the package entry exports under the plain
+// name. The plain name here adds the fields only the CLI and the engine set.
+export interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
   mode: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
@@ -238,7 +254,6 @@ export interface DevOptions extends BrowserOptionsBase {
    * list or an array. A leading dot allows every subdomain.
    */
   allowedHosts?: string | string[]
-  install?: boolean
   /**
    * Companion extensions (load-only) for this command.
    */
@@ -259,13 +274,6 @@ export interface DevOptions extends BrowserOptionsBase {
   zipFilename?: string
   zipDir?: string
   sourceMaps?: boolean
-  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: LogContext[]
-  logFormat?: 'pretty' | 'json' | 'ndjson'
-  logTimestamps?: boolean
-  logColor?: boolean
-  logUrl?: string
-  logTab?: number | string
   hashContentScripts?: boolean
   /**
    * Open the agent-bridge control channel for the bounded act verbs
@@ -290,7 +298,12 @@ export interface DevOptions extends BrowserOptionsBase {
   safariPackager?: SafariPackagerFn
 }
 
-export interface BuildOptions {
+export interface DevOptions extends PublicDevOptions {
+  /** Auto-install project dependencies when missing. */
+  install?: boolean
+}
+
+export interface PublicBuildOptions {
   browser: BrowserOptionsBase['browser']
   /**
    * Base folder for the build output, relative to the project root. The
@@ -347,26 +360,9 @@ export interface BuildOptions {
    * maps. Only `extension dev` turns the dev instrumentation on.
    */
   mode?: 'development' | 'production' | 'none'
-  /**
-   * [internal] Auto-install project dependencies when missing.
-   */
-  install?: boolean
-  failOnWarning?: boolean
   // When true, a failed build calls process.exit(1) (CLI wrapper passes this);
   // defaults to false: as a library, a failed build is a rejected promise.
   exitOnError?: boolean
-  /**
-   * Internal: the command stamped into ready.json/events.ndjson. Defaults to
-   * 'build'; `extension start` passes 'start' for its build phase so the
-   * receipt names the command the user actually ran.
-   */
-  metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
-  /**
-   * Internal: `extension start` sets it when a browser launch follows the
-   * build, so the receipt stays `starting` with `compiledAt` set and only
-   * the launch phase stamps `ready`.
-   */
-  launchFollows?: boolean
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
@@ -376,15 +372,26 @@ export interface BuildOptions {
   safariPackager?: SafariPackagerFn
 }
 
-export interface PreviewOptions extends BrowserOptionsBase {
+export interface BuildOptions extends PublicBuildOptions {
+  /** Auto-install project dependencies when missing. */
+  install?: boolean
+  /**
+   * The command stamped into ready.json/events.ndjson. Defaults to
+   * 'build'; `extension start` passes 'start' for its build phase so the
+   * receipt names the command the user actually ran.
+   */
+  metadataCommand?: SessionCommand
+  /**
+   * `extension start` sets it when a browser launch follows the build, so
+   * the receipt stays `starting` with `compiledAt` set and only the launch
+   * phase stamps `ready`.
+   */
+  launchFollows?: boolean
+}
+
+export interface PublicPreviewOptions extends BrowserOptionsBase, LogOptions {
   mode: 'production'
   outputPath?: string
-  /**
-   * Internal metadata command override used by start->preview delegation.
-   * (Full command union so the WebpackConfigOptions intersection with
-   * BuildOptions.metadataCommand doesn't narrow the field.)
-   */
-  metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
@@ -409,14 +416,6 @@ export interface PreviewOptions extends BrowserOptionsBase {
    */
   allowEval?: boolean
   /**
-   * Internal auto-generated instance ID, not user-configurable.
-   */
-  instanceId?: string
-  /**
-   * Internal: true when the instance ID came from the user, not autogenerated.
-   */
-  instanceExplicit?: boolean
-  /**
    * Dry run mode (no browser launch) for diagnostics.
    */
   dryRun?: boolean
@@ -433,16 +432,21 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * served by this command, so there is no connectable host to override.
    */
   publicHost?: string
-  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: LogContext[]
-  logFormat?: 'pretty' | 'json' | 'ndjson'
-  logTimestamps?: boolean
-  logColor?: boolean
-  logUrl?: string
-  logTab?: number | string
 }
 
-export interface StartOptions extends BrowserOptionsBase {
+export interface PreviewOptions extends PublicPreviewOptions {
+  /**
+   * The command stamped into ready.json, set by start when it hands over to
+   * preview. The full union, so the bundler options type does not narrow it.
+   */
+  metadataCommand?: SessionCommand
+  /** Auto-generated instance ID, not user-configurable. */
+  instanceId?: string
+  /** True when the instance ID came from the user, not autogenerated. */
+  instanceExplicit?: boolean
+}
+
+export interface PublicStartOptions extends BrowserOptionsBase, LogOptions {
   mode: 'production'
   polyfill?: boolean
   chromiumBinary?: ChromiumOptions['chromiumBinary']
@@ -452,10 +456,6 @@ export interface StartOptions extends BrowserOptionsBase {
    * Companion extensions (load-only) for this command.
    */
   extensions?: CompanionExtensionsConfig
-  /**
-   * [internal] Auto-install project dependencies when missing.
-   */
-  install?: boolean
   /**
    * Skip launching the browser (build still runs).
    */
@@ -473,13 +473,11 @@ export interface StartOptions extends BrowserOptionsBase {
    * served by this command, so there is no connectable host to override.
    */
   publicHost?: string
-  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: LogContext[]
-  logFormat?: 'pretty' | 'json' | 'ndjson'
-  logTimestamps?: boolean
-  logColor?: boolean
-  logUrl?: string
-  logTab?: number | string
+}
+
+export interface StartOptions extends PublicStartOptions {
+  /** Auto-install project dependencies when missing. */
+  install?: boolean
 }
 
 export interface BrowserConfig extends Omit<BrowserOptionsBase, 'browser'> {
@@ -811,7 +809,7 @@ export interface FileConfig {
 export interface ConfigHookContext {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
-  command: 'dev' | 'build' | 'start' | 'preview'
+  command: SessionCommand
   /**
    * The bundler this run compiles with, so a hook reaches `ProvidePlugin`
    * or `NormalModuleReplacementPlugin` with no bundler of the project's own.
