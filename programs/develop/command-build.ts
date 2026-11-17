@@ -370,6 +370,14 @@ async function runBuild(
   // refusal there is the whole answer: under machine output the frame has it.
   let findingProject = true
   let projectRoot = ''
+  // What a green build would list, kept for the failure that carries it.
+  let failureWarnings: string[] = []
+  const resolvedMode: 'development' | 'production' | 'none' =
+    buildOptions?.mode === 'development' ||
+    buildOptions?.mode === 'none' ||
+    buildOptions?.mode === 'production'
+      ? buildOptions.mode
+      : 'production'
 
   try {
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
@@ -380,12 +388,6 @@ async function runBuild(
     // A browser passed in wins; with none, commands.<cmd>.browser from the
     // project config decides the target before the stock default does.
     const askedBrowser = browserOptionOrThrow(buildOptions?.browser)
-    const configBrowser = askedBrowser
-      ? undefined
-      : configBrowserOrThrow(
-          (await loadCommandConfig(packageJsonDir, commandKey)).browser,
-          commandKey
-        )
     const namesBinary = Boolean(
       buildOptions?.chromiumBinary ||
         buildOptions?.geckoBinary ||
@@ -394,12 +396,28 @@ async function runBuild(
     )
     // A binary with no name picks its own family, so the stock default only
     // applies when neither was given.
-    const browser = normalizeBrowser(
-      askedBrowser || configBrowser || (namesBinary ? undefined : 'chromium'),
-      buildOptions?.chromiumBinary,
-      buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
-      buildOptions?.safariBinary
-    )
+    const browserFor = (named: typeof askedBrowser) =>
+      normalizeBrowser(
+        named || (namesBinary ? undefined : 'chromium'),
+        buildOptions?.chromiumBinary,
+        buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
+        buildOptions?.safariBinary
+      )
+    // The config reads the env files the bundle will, so its first load is
+    // told the mode, and the browser whenever the config does not name it.
+    const browser = askedBrowser
+      ? browserFor(askedBrowser)
+      : browserFor(
+          configBrowserOrThrow(
+            (
+              await loadCommandConfig(packageJsonDir, commandKey, {
+                mode: resolvedMode
+              })
+            ).browser,
+            commandKey
+          )
+        )
+    const envTarget = {mode: resolvedMode, browser: String(browser)}
 
     findingProject = false
 
@@ -428,8 +446,15 @@ async function runBuild(
       assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
     }
 
-    const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
-    const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
+    const projectConfig = await loadProjectConfigDefaults(
+      packageJsonDir,
+      envTarget
+    )
+    const commandConfig = await loadCommandConfig(
+      packageJsonDir,
+      commandKey,
+      envTarget
+    )
     const outDir = resolveOutDir(
       buildOptions?.outDir ?? commandConfig.outDir,
       packageJsonDir,
@@ -474,7 +499,11 @@ async function runBuild(
       )
     }
 
-    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
+    const browserConfig = await loadBrowserConfig(
+      packageJsonDir,
+      browser,
+      envTarget
+    )
     const foldersConfig =
       commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
     rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
@@ -510,7 +539,7 @@ async function runBuild(
     })
 
     if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir, packageJsonDir)
+      await generateExtensionTypes(manifestDir, packageJsonDir, envTarget)
     }
 
     const silent = Boolean(mergedBuildOptions.silent)
@@ -564,13 +593,6 @@ async function runBuild(
             config: mergedExtensionsConfig
           })
         : undefined
-
-    const resolvedMode: 'development' | 'production' | 'none' =
-      buildOptions?.mode === 'development' ||
-      buildOptions?.mode === 'none' ||
-      buildOptions?.mode === 'production'
-        ? buildOptions.mode
-        : 'production'
 
     // `none` leaves NODE_ENV as the caller set it.
     if (resolvedMode === 'development' || resolvedMode === 'production') {
@@ -627,7 +649,10 @@ async function runBuild(
     const compilerConfig = applySplitChunksGuard(userConfig)
     compilerConfig.stats = false
 
-    const configResolved = await loadConfigResolvedHook(packageJsonDir)
+    const configResolved = await loadConfigResolvedHook(
+      packageJsonDir,
+      envTarget
+    )
 
     if (configResolved) {
       compilerConfig.plugins = [
@@ -978,6 +1003,7 @@ async function runBuild(
 
           if (zipFailures.length > 0) {
             failureCount = zipFailures.length
+            failureWarnings = summary.warnings || []
 
             return reject(
               codedError(
@@ -1070,6 +1096,20 @@ async function runBuild(
             stats.compilation,
             packageJsonDir
           )
+
+          try {
+            failureWarnings =
+              getBuildSummary(
+                browser,
+                stats.toJson({all: false, warnings: true}),
+                undefined,
+                undefined,
+                warningCodes(stats.compilation)
+              ).warnings || []
+          } catch {
+            // Ignore
+          }
+
           const failure = Object.assign(new Error('Build failed with errors'), {
             code: CODES.E_COMPILE,
             diagnostics: details,
@@ -1161,6 +1201,18 @@ async function runBuild(
       }
 
       console.error(messages.buildFailed(failureCount))
+    }
+
+    // A failed build carried on past the same warnings a green one lists,
+    // and the caller reads them off the rejection as it does off a summary.
+    const warnings = [...new Set([...failureWarnings, ...takeCodedWarnings()])]
+
+    if (warnings.length > 0) {
+      try {
+        Object.assign(error, {warnings})
+      } catch {
+        // Ignore
+      }
     }
 
     // The caller owns the exit: a CLI maps this to its code, a host keeps

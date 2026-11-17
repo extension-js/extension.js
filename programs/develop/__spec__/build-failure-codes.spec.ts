@@ -334,3 +334,70 @@ describe('build: a silent build keeps its warnings off stderr (real rspack)', ()
     )
   }, 120_000)
 })
+
+// A caller reading a failure wants what the run carried on past as well,
+// in the lines a green build lists in its summary.
+describe('build: a failed build keeps its coded warnings (real rspack)', () => {
+  const managed = (root: string, config: string) => {
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({
+        private: true,
+        name: 'codes',
+        version: '0.0.0',
+        dependencies: {'@rspack/core': '^2.0.0'}
+      })
+    )
+
+    fs.writeFileSync(
+      path.join(root, 'extension.config.js'),
+      `const lazy = () => require('@rspack/core')\n${config}\n`
+    )
+  }
+
+  const warned = (failure: unknown) =>
+    (failure as {warnings?: string[]} | undefined)?.warnings || []
+
+  it('lists them on a compile failure', async () => {
+    const root = project(['https://example.com/*'])
+
+    managed(root, 'module.exports = {}')
+    fs.writeFileSync(path.join(root, 'content.js'), "import './gone.js'\n")
+
+    const built = await build(root, {silent: true})
+
+    expect(built.failure?.code).toBe('E_COMPILE')
+    expect(warned(built.failure)).toHaveLength(1)
+    expect(warned(built.failure)[0]).toMatch(
+      /^E_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core /
+    )
+  }, 120_000)
+
+  it('lists them on a failure that is not a compile error', async () => {
+    const root = project(['https://example.com/*'])
+
+    managed(
+      root,
+      'module.exports = {config: (config) => {\n' +
+        "  config.plugins.push({apply() { throw new Error('apply exploded') }})\n" +
+        '  return config\n}}'
+    )
+
+    const built = await build(root, {silent: true})
+
+    expect(built.failure?.code).toBe('E_COMPILE_FATAL')
+    expect(warned(built.failure)).toHaveLength(1)
+    expect(warned(built.failure)[0]).toMatch(/^E_MANAGED_DEP_CONFLICT: /)
+  }, 120_000)
+
+  it('adds no list to a failure that carried on past nothing', async () => {
+    const root = project(['https://example.com/*'])
+
+    fs.writeFileSync(path.join(root, 'content.js'), "import './gone.js'\n")
+
+    const built = await build(root, {silent: true})
+
+    expect(built.failure?.code).toBe('E_COMPILE')
+    expect(built.failure).not.toHaveProperty('warnings')
+  }, 120_000)
+})

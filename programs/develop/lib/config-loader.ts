@@ -619,13 +619,17 @@ export async function loadCustomConfig(
 // The late hook: the bundler config with every loader rule attached, right
 // before the first build. Absent when the config file has none.
 export async function loadConfigResolvedHook(
-  projectPath: string
+  projectPath: string,
+  envTarget?: ConfigEnvTarget
 ): Promise<FileConfig['configResolved'] | undefined> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return undefined
   if (!(await isUsingExperimentalConfig(projectPath))) return undefined
 
-  const userConfig = await loadConfigFile(configPath)
+  const userConfig = await loadConfigFile(
+    configPath,
+    envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
+  )
 
   return typeof userConfig?.configResolved === 'function'
     ? userConfig.configResolved
@@ -671,7 +675,8 @@ function collectDefineTypes(
 // Every `define` key the config file declares, at the top level and under
 // each browser and command, with the type its values resolve to.
 export async function loadDefineTypes(
-  projectPath: string
+  projectPath: string,
+  envTarget?: ConfigEnvTarget
 ): Promise<Record<string, string>> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return {}
@@ -680,7 +685,10 @@ export async function loadDefineTypes(
   let userConfig: FileConfig | undefined
 
   try {
-    userConfig = await loadConfigFile(configPath)
+    userConfig = await loadConfigFile(
+      configPath,
+      envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
+    )
   } catch {
     return {}
   }
@@ -815,14 +823,18 @@ export async function loadCommandConfig(
 
 export async function loadBrowserConfig(
   projectPath: string,
-  browser: DevOptions['browser'] = 'chrome'
+  browser: DevOptions['browser'] = 'chrome',
+  envTarget?: ConfigEnvTarget
 ): Promise<BrowserConfig> {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
-        const userConfig = await loadConfigFile(configPath)
+        const userConfig = await loadConfigFile(
+          configPath,
+          envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
+        )
 
         if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>
