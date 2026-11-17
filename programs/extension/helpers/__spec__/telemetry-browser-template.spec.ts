@@ -144,11 +144,13 @@ describe('the browser property is one of six words or absent', () => {
   // A fixed seed, so a failure names a value that fails again.
   function arbitraryValues(count: number): unknown[] {
     let seed = 20261117
+
     const next = () => {
       seed = (seed * 1103515245 + 12345) % 2147483648
 
       return seed
     }
+
     const alphabet =
       'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ-_/. ,=:'
     const values: unknown[] = []
