@@ -13,7 +13,7 @@ Per CLI run, at most one of these, except for a watch session, which is explaine
 
 | event              | sampled                           | properties                     |
 | ------------------ | --------------------------------- | ------------------------------ |
-| `command_executed` | 20% (configurable, see below)     | `command`, `success: true`, `version` |
+| `command_executed` | 20% (configurable, see below). `create` and session rows are never sampled | `command`, `success: true`, `version` |
 | `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version`, `code`, `exit_code` |
 
 Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, `package_manager`, and `app`, which is always the word `extension`. Nothing else.
@@ -118,13 +118,13 @@ The `create` command adds four properties, so a broken advertised starter shows 
 
 ## Releases before 4.0
 
-The 3.x line sent a different schema, published in this file until 2026-04-17: lifecycle events (`cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_shutdown`, `cli_telemetry_consent`), `manifest_summary` (permission and content script counts), `project_profile` (framework family and package manager), `workflow_profile` (a usage cohort) and `cli_build_summary` (asset counts and bytes). Counts, booleans and names from fixed lists, never a path, a URL or a project name. Installs still on 3.x keep sending those events, and since 2026-10-07 the project drops every event that is not one of the two above at ingestion, so nothing from that schema is stored any more.
+The 3.x line sent a different schema, published in this file until 2026-04-17: lifecycle events (`cli_boot`, `cli_command_start`, `cli_command_finish`, `cli_vendor_start`, `cli_vendor_finish`, `cli_shutdown`, `cli_telemetry_consent`), `manifest_summary` (permission and content script counts), `project_profile` (framework family and package manager), `workflow_profile` (a usage cohort) and `cli_build_summary` (asset counts and bytes). Counts, booleans and names from fixed lists, never a path, a URL or a project name. Installs still on 3.x keep sending those events. From 4.0 on, the CLI sends only the two events above.
 
 ## Volume controls
 
 Three independent controls, all combined:
 
-- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 - 1.0). Failures are never sampled, and neither are the `session: started` rows for `dev`, `start` and `preview` or the `session: ready` row for `dev`.
+- **Sampling**, `command_executed` is sampled at 20% by default. Override via `EXTENSION_TELEMETRY_SAMPLE_RATE` (0.0 - 1.0). Failures are never sampled, and neither are `create` rows, the `session: started` rows for `dev`, `start` and `preview` or the `session: ready` row for `dev`. Every `create` is sent, success or failure.
 - **Per-run cap**, at most **3 events** per CLI process. Override via `EXTENSION_TELEMETRY_MAX_EVENTS`.
 - **Debounce**, duplicate `(event, command, success, session)` tuples within 60s are dropped. Override via `EXTENSION_TELEMETRY_DEBOUNCE_MS`.
 
@@ -138,6 +138,7 @@ Three ways, in precedence order:
 # 1. Environment variable (wins over everything else)
 EXTENSION_TELEMETRY_DISABLED=1 extension dev   # Next.js-style, preferred
 EXTENSION_TELEMETRY=0 extension dev            # back-compat, also honored
+DO_NOT_TRACK=1 extension dev                   # the cross-tool convention
 
 # 2. Per-run flag
 extension dev --no-telemetry
@@ -147,13 +148,26 @@ extension telemetry disable
 extension telemetry enable
 extension telemetry             # no arg = show status
 extension telemetry status
+extension telemetry reset       # delete the anonymous ID, the consent and the audit log
 ```
+
+`DO_NOT_TRACK` follows the [Console Do Not Track](https://consoledonottrack.com) convention. Any value other than empty, `0` or `false` turns telemetry off, and it wins over `EXTENSION_TELEMETRY=1`. When more than one of the three variables is set, `extension telemetry status` names the first one in the order above.
 
 The run that turns telemetry off reports nothing about itself. `extension telemetry disable`
 silences the running process at the moment it records your choice, so the act of opting out is
 never the last thing collected from you.
 
-The consent file lives at `$XDG_CONFIG_HOME/extensionjs/telemetry/consent` (or the platform equivalent). The only other telemetry state persisted on disk is the anonymous install id, a `notice-shown` marker recording that the first-run notice was printed, and a local audit log of every event the CLI considered sending (not every row was delivered, see below).
+## Status and reset
+
+`extension telemetry status` prints whether telemetry is on, what decided it (the variable by name when one did), the anonymous ID, the consent file path and the audit log path. It reads only: it never creates a folder, an ID or a file. A value that is not stored yet reads `none`. `--output json` carries the same answer as `enabled`, `source`, `variable`, `anonymousId`, `consentFile` and `auditFile`.
+
+`extension telemetry reset` deletes the anonymous ID, the stored consent, the `notice-shown` marker and the local audit log with its `.1` backup, in every folder listed under "Where the files live". The run that resets reports nothing about itself. The next run starts fresh: it creates a new anonymous ID and prints the first-run notice again. A stored opt-out is deleted with the rest, and the command says so. Run `extension telemetry disable` afterward to keep telemetry off.
+
+## Where the files live
+
+The CLI uses the first writable folder of these three: the config home (`$XDG_CONFIG_HOME/extensionjs`, `%APPDATA%\extensionjs` on Windows, or `~/.config/extensionjs`), the cache home (`$XDG_CACHE_HOME/extensionjs`, `%LOCALAPPDATA%\extensionjs\Cache` on Windows, or `~/Library/Caches/extensionjs` on macOS), then `extensionjs` in the system temp folder. The project folder is never used. When none of the three is writable, telemetry is off for that run: nothing is sent and no file is written, and `extension telemetry status` reports `source: storage`.
+
+The consent file lives at `telemetry/consent` inside that folder, for example `$XDG_CONFIG_HOME/extensionjs/telemetry/consent`. The only other telemetry state persisted on disk is the anonymous install id, a `notice-shown` marker recording that the first-run notice was printed, and a local audit log of every event the CLI considered sending (not every row was delivered, see below).
 
 ## Default behavior
 
@@ -167,7 +181,7 @@ A stored `enabled` consent file that sits inside a git worktree is ignored as we
 
 ## Local audit log
 
-Every event the CLI considers sending (whether or not it actually ships) is appended to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely.
+Every event the CLI considers sending (whether or not it actually ships) is appended to `events.jsonl` next to the consent file. Inspect it any time. Delete it freely, or run `extension telemetry reset`. `extension telemetry status` prints its path.
 
 ## Questions or concerns?
 
