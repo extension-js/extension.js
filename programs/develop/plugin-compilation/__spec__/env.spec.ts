@@ -461,6 +461,50 @@ describe('EnvPlugin env file layers', () => {
   })
 })
 
+describe('EnvPlugin names reserved for the build target', () => {
+  it('names a reserved name an env file sets, and the file, never the value', async () => {
+    const root = project(
+      {
+        '.env':
+          'EXTENSION_PUBLIC_MODE=staging-one\nEXTENSION_PUBLIC_BROWSER=netscape\nEXTENSION_MODE=staging-two\nMODE=other-tool\n',
+        '.env.development': 'EXTENSION_PUBLIC_MODE=staging-three\n',
+        'manifest.json':
+          '{"mode":"$EXTENSION_PUBLIC_MODE","browser":"$EXTENSION_PUBLIC_BROWSER"}'
+      },
+      'console.log(process.env.EXTENSION_PUBLIC_MODE, import.meta.env.EXTENSION_PUBLIC_BROWSER, process.env.EXTENSION_MODE, process.env.MODE)\n'
+    )
+    const result = await build(root, {copy: ['manifest.json']})
+
+    expect(result.logs()).toEqual([
+      'development chrome development development'
+    ])
+
+    expect(result.asset('manifest.json')).toBe(
+      '{"mode":"development","browser":"chrome"}'
+    )
+
+    expect(result.warnings).toEqual([
+      {
+        name: 'EnvReservedName',
+        message:
+          'EXTENSION_MODE in .env is reserved for the build target, so the file value is ignored.\n' +
+          'EXTENSION_PUBLIC_BROWSER in .env is reserved for the build target, so the file value is ignored.\n' +
+          'EXTENSION_PUBLIC_MODE in .env.development is reserved for the build target, so the file value is ignored.\n' +
+          'The build sets the browser and mode names itself, from the target it compiles for. Use another name for a value of your own.'
+      }
+    ])
+  })
+
+  it('stays quiet when the file value already is the build target', async () => {
+    const root = project({
+      '.env':
+        'EXTENSION_PUBLIC_MODE=development\nEXTENSION_PUBLIC_BROWSER=chrome\n'
+    })
+
+    expect((await build(root)).warnings).toEqual([])
+  })
+})
+
 describe('EnvPlugin values in JavaScript', () => {
   it('gives JavaScript only EXTENSION_PUBLIC_* values and the build target', async () => {
     const root = project(

@@ -291,6 +291,15 @@ export function getEnvFileLayers(
   return [ENV_DEFAULTS_FILE, ...getEnvFileCandidates(browser, mode).reverse()]
 }
 
+// The build sets these from its own target after the env files are read, so
+// a file can never change them. BROWSER and MODE are left to other tools.
+const RESERVED_ENV_NAMES: Record<string, 'browser' | 'mode'> = {
+  EXTENSION_PUBLIC_BROWSER: 'browser',
+  EXTENSION_BROWSER: 'browser',
+  EXTENSION_PUBLIC_MODE: 'mode',
+  EXTENSION_MODE: 'mode'
+}
+
 const KNOWN_ENV_MODES = new Set(['development', 'production', 'test', 'none'])
 const KNOWN_ENV_BROWSERS = new Set([
   ...SUPPORTED_BROWSERS,
@@ -385,6 +394,7 @@ export class EnvPlugin {
     // dotenv.parse (not .config) on purpose: .config mutates process.env, which
     // wins the merge, so the first build's values would leak into later builds.
     const fileVars: Record<string, string> = {}
+    const fileOfVar = new Map<string, string>()
 
     // Later layers override earlier ones key by key, so the last file wins.
     for (const filePath of [...defaultsPaths, ...matchedPaths]) {
@@ -394,6 +404,7 @@ export class EnvPlugin {
         dotenv.parse(fs.readFileSync(filePath))
       )) {
         fileVars[key] = value
+        fileOfVar.set(key, path.basename(filePath))
       }
     }
 
@@ -488,6 +499,31 @@ export class EnvPlugin {
           }
         )
       }
+    }
+
+    // A reserved name in a file loses to the build target without a word, so
+    // the build names it. A value that already agrees changes nothing.
+    const targetOf = {browser: String(this.browser), mode: String(mode)}
+    const reservedInFiles = Object.keys(fileVars)
+      .filter(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(RESERVED_ENV_NAMES, key) &&
+          fileVars[key] !== targetOf[RESERVED_ENV_NAMES[key]]
+      )
+      .sort()
+      .map((name) => ({name, file: fileOfVar.get(name) || ''}))
+
+    if (reservedInFiles.length > 0) {
+      compiler.hooks.thisCompilation.tap(
+        'env:warn-reserved-name',
+        (compilation) => {
+          const warn = new WebpackError(
+            messages.envReservedName(reservedInFiles)
+          ) as Error & {name?: string}
+          warn.name = 'EnvReservedName'
+          compilation.warnings.push(warn)
+        }
+      )
     }
 
     const filteredEnvVars = Object.keys(combinedVars)

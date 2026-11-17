@@ -137,6 +137,21 @@ export function envPrivatePlaceholder(
   )
 }
 
+// Names the variable and the file, never the value the file gave it.
+export function envReservedName(entries: Array<{name: string; file: string}>) {
+  return (
+    entries
+      .map(
+        ({name, file}) =>
+          `${colors.yellow(name)} in ${colors.yellow(file)} is reserved for ` +
+          `the build target, so the file value is ignored.\n`
+      )
+      .join('') +
+    `The build sets the browser and mode names itself, from the target it ` +
+    `compiles for. Use another name for a value of your own.`
+  )
+}
+
 export function envIgnoredFiles(files: string[], mode: string) {
   return `${prefix('debug')} env      ignored=${files.join(',')} mode=${mode}`
 }
