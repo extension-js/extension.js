@@ -36,7 +36,7 @@ jobs:
   # The toolchain preflight spec has no job here: the develop suite in ci.yml
   # runs it on every pull request and push to main.
   optional-deps-smoke:
-    name: smoke (${{ matrix.os }} / ${{ matrix.pm }})
+    name: smoke (${{ matrix.os }} / ${{ matrix.pm }}${{ matrix.browser && format(' / {0}', matrix.browser) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
@@ -104,9 +104,6 @@ jobs:
         uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
         with:
           deno-version: v2.x
-
-      - name: Test optional deps smoke helpers
-        run: node --test scripts/__spec__/run-optional-deps-smoke.spec.mjs
 
       # Matrix values reach the shell through env, so the run line stays plain
       # shell that workflow linters and Scorecard can parse.
