@@ -11,8 +11,10 @@ import type {Compiler} from '@rspack/core'
 import type {Configuration} from '@rspack/dev-server'
 import {
   devServerAccessConfig,
+  REQUEST_SITE_MIDDLEWARE_NAME,
   type SessionExtensionOriginCheck,
-  withHostCheckMiddleware
+  withHostCheckMiddleware,
+  withRequestSiteMiddleware
 } from './cors'
 import {
   createResponseDataRepair,
@@ -45,6 +47,8 @@ export interface ServerConfigInput {
   // The middleware reads the live compiler's output; a restart swaps it.
   activeCompiler: () => Compiler | null
   onHostRefused: (host: string) => void
+  // Called once per session, with the origin the first refused request named.
+  onSiteRefused: (origin: string) => void
   server: Configuration['server']
   env?: Readonly<Record<string, string | undefined>>
 }
@@ -56,8 +60,18 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     connectableHost: input.connectableHost,
     emulatorOrigin,
     allowedHosts: input.allowedHosts,
-    isSessionExtensionOrigin: input.isSessionExtensionOrigin
+    isSessionExtensionOrigin: input.isSessionExtensionOrigin,
+    host: input.host,
+    port: input.port
   })
+  let siteRefusalAnnounced = false
+
+  const announceSiteRefusal = (origin: string) => {
+    if (siteRefusalAnnounced) return
+
+    siteRefusalAnnounced = true
+    input.onSiteRefused(origin)
+  }
 
   return {
     host: input.host,
@@ -104,21 +118,29 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     setupMiddlewares: (
       ...args: Parameters<NonNullable<Configuration['setupMiddlewares']>>
     ) => {
-      const checked = withHostCheckMiddleware(
-        args[0],
-        args[1],
-        input.onHostRefused
+      const checked = withRequestSiteMiddleware(
+        withHostCheckMiddleware(args[0], args[1], input.onHostRefused),
+        access.requestSite,
+        announceSiteRefusal
       )
 
       if (!emulatorFiles) return checked
 
+      // Both checks run before the viewer's file index, as before any file.
+      const after =
+        checked.findIndex(
+          (item) =>
+            (item as {name?: string}).name === REQUEST_SITE_MIDDLEWARE_NAME
+        ) + 1
+
       return [
+        ...checked.slice(0, after),
         createEmulatorFilesMiddlewareEntry(
           emulatorFiles,
           args[1],
           emulatorOrigin
         ) as unknown as (typeof args)[0][number],
-        ...checked
+        ...checked.slice(after)
       ]
     },
     port: input.port,

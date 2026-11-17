@@ -1,6 +1,7 @@
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {HOST_CHECK_MIDDLEWARE_NAME} from '../cors'
+import {HOST_CHECK_MIDDLEWARE_NAME, REQUEST_SITE_MIDDLEWARE_NAME} from '../cors'
+import {createEmulatorFileIndexHolder} from '../emulator-lane'
 import {
   buildServerConfig,
   type ServerConfigInput,
@@ -22,6 +23,7 @@ function input(overrides: Partial<ServerConfigInput> = {}): ServerConfigInput {
     emulatorFiles: null,
     activeCompiler: () => null,
     onHostRefused: () => {},
+    onSiteRefused: () => {},
     server: undefined,
     env: {},
     ...overrides
@@ -152,11 +154,12 @@ describe('buildServerConfig', () => {
     expect(headerFor()).toEqual(new Map([['vary', 'Origin']]))
   })
 
-  it('swaps the stock host check for ours in place', () => {
+  it('swaps the two stock request checks for ours in place', () => {
     const config = buildServerConfig(input())
     const stock = [
-      {name: 'compression', middleware: () => {}},
       {name: HOST_CHECK_MIDDLEWARE_NAME, middleware: () => {}},
+      {name: REQUEST_SITE_MIDDLEWARE_NAME, middleware: () => {}},
+      {name: 'compression', middleware: () => {}},
       {name: 'webpack-dev-middleware', middleware: () => {}}
     ]
     const result = config.setupMiddlewares?.(stock as never, {} as never) as
@@ -164,12 +167,108 @@ describe('buildServerConfig', () => {
       | undefined
 
     expect(result?.map((entry) => entry.name)).toEqual([
-      'compression',
       HOST_CHECK_MIDDLEWARE_NAME,
+      REQUEST_SITE_MIDDLEWARE_NAME,
+      'compression',
       'webpack-dev-middleware'
     ])
 
+    expect(result?.[0]?.middleware).not.toBe(stock[0].middleware)
     expect(result?.[1]?.middleware).not.toBe(stock[1].middleware)
+  })
+
+  it('adds the request site check after the host check when stock has none', () => {
+    const config = buildServerConfig(input())
+    const stock = [
+      {name: 'compression', middleware: () => {}},
+      {name: HOST_CHECK_MIDDLEWARE_NAME, middleware: () => {}},
+      {name: 'webpack-dev-middleware', middleware: () => {}}
+    ]
+    const result = config.setupMiddlewares?.(stock as never, {} as never) as
+      | Array<{name: string}>
+      | undefined
+
+    expect(result?.map((entry) => entry.name)).toEqual([
+      'compression',
+      HOST_CHECK_MIDDLEWARE_NAME,
+      REQUEST_SITE_MIDDLEWARE_NAME,
+      'webpack-dev-middleware'
+    ])
+  })
+
+  it('serves the viewer file index after both request checks', () => {
+    const config = buildServerConfig(
+      input({
+        emulatorOrigin: 'https://viewer.example',
+        emulatorFiles: createEmulatorFileIndexHolder('instance')
+      })
+    )
+    const stock = [
+      {name: HOST_CHECK_MIDDLEWARE_NAME, middleware: () => {}},
+      {name: REQUEST_SITE_MIDDLEWARE_NAME, middleware: () => {}},
+      {name: 'webpack-dev-middleware', middleware: () => {}}
+    ]
+    const result = config.setupMiddlewares?.(stock as never, {} as never) as
+      | Array<{name: string}>
+      | undefined
+
+    expect(result?.map((entry) => entry.name)).toEqual([
+      HOST_CHECK_MIDDLEWARE_NAME,
+      REQUEST_SITE_MIDDLEWARE_NAME,
+      'extjs-emulator-files',
+      'webpack-dev-middleware'
+    ])
+  })
+
+  it('reports a refused request once per session, across restarts', () => {
+    const refused: string[] = []
+    const config = buildServerConfig(
+      input({onSiteRefused: (origin) => refused.push(origin)})
+    )
+
+    const refuse = (origin = 'https://other.test') => {
+      const entries = config.setupMiddlewares?.(
+        [{name: HOST_CHECK_MIDDLEWARE_NAME, middleware: () => {}}] as never,
+        {isValidHost: () => true} as never
+      ) as unknown as Array<{
+        name: string
+        middleware: (req: unknown, res: unknown, next: () => void) => void
+      }>
+      const check = entries.find(
+        (entry) => entry.name === REQUEST_SITE_MIDDLEWARE_NAME
+      )
+      const response = {statusCode: 0, setHeader: () => {}, end: () => {}}
+      let passed = false
+
+      check?.middleware(
+        {
+          headers: {
+            host: '127.0.0.1:51234',
+            origin,
+            'sec-fetch-site': 'cross-site'
+          }
+        },
+        response,
+        () => {
+          passed = true
+        }
+      )
+
+      return {status: response.statusCode, passed}
+    }
+
+    // An extension the session has not met yet is refused without a line.
+    expect(refuse('chrome-extension://abcdefgh')).toEqual({
+      status: 403,
+      passed: false
+    })
+
+    expect(refused).toEqual([])
+    expect(refuse()).toEqual({status: 403, passed: false})
+    expect(refuse()).toEqual({status: 403, passed: false})
+    // A restart runs setupMiddlewares again on the same config.
+    expect(refuse()).toEqual({status: 403, passed: false})
+    expect(refused).toEqual(['https://other.test'])
   })
 
   it('repairs a one-byte asset from whichever compiler is live', () => {

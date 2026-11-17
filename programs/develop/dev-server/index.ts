@@ -838,6 +838,8 @@ export async function devServer(
     emulatorFiles,
     activeCompiler: () => activeCompiler,
     onHostRefused: (host) => humanLine(messages.devServerHostRefused(host)),
+    onSiteRefused: (origin) =>
+      humanLine(messages.devServerOutsideRequestRefused(origin)),
     server: {
       type: reservedHttpServer({
         takeReservation: () => portManager.takeReservation(),

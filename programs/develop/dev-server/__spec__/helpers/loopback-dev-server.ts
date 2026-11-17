@@ -5,7 +5,7 @@ import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
 import {WebSocket} from 'ws'
-import {buildServerConfig} from '../../server-config'
+import {buildServerConfig, type ServerConfigInput} from '../../server-config'
 
 // A bare rspack compiler on a fixture in a temp folder, served by the stock
 // dev server with this folder's real config. No compiled dist, loopback only.
@@ -48,6 +48,7 @@ export async function bootLoopback(options: {
   root: string
   env?: Readonly<Record<string, string | undefined>>
   beforeServer?: (compiler: Compiler, distPath: string) => void
+  input?: (port: number) => Partial<ServerConfigInput>
   mutateConfig?: (config: Configuration) => Configuration
 }): Promise<LoopbackSession> {
   const {root} = options
@@ -98,8 +99,10 @@ export async function bootLoopback(options: {
     emulatorFiles: null,
     activeCompiler: () => compiler,
     onHostRefused: () => {},
+    onSiteRefused: () => {},
     server: undefined,
-    env: options.env ?? {}
+    env: options.env ?? {},
+    ...options.input?.(port)
   })
   const finalConfig = options.mutateConfig
     ? options.mutateConfig(config)
@@ -121,12 +124,16 @@ export async function bootLoopback(options: {
   }
 }
 
-export async function connectClient(port: number) {
+export async function connectClient(
+  port: number,
+  origin: string | null = 'chrome-extension://abcdefghijklmnopabcdefghijklmnop'
+) {
   const messages: Array<{type: string; data?: unknown}> = []
   // The stock server closes a socket with no Origin; extension pages send theirs.
-  const socket = new WebSocket(`ws://127.0.0.1:${port}/ws`, {
-    origin: 'chrome-extension://abcdefghijklmnopabcdefghijklmnop'
-  })
+  const socket = new WebSocket(
+    `ws://127.0.0.1:${port}/ws`,
+    origin === null ? {} : {origin}
+  )
 
   socket.on('message', (raw) => {
     try {

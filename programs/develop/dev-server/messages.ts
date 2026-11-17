@@ -196,6 +196,16 @@ export function devServerHostRefused(host: string) {
   )
 }
 
+// Printed once per session: the first page refused stands for the rest.
+export function devServerOutsideRequestRefused(origin: string) {
+  const from = origin ? ` (${colors.yellow(origin)})` : ''
+
+  return (
+    `${getLoggingPrefix('warn')} A page outside this session${from} asked the dev server for a file and was refused.\n` +
+    "Your extension's own pages still load. This line prints once per session."
+  )
+}
+
 // Reload has no other transport, so a session that comes up without the
 // control bridge must say so instead of looking healthy until the first save.
 // The keys are the ready.json field names, so the line pairs with the contract.
