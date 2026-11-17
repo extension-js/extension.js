@@ -2,7 +2,6 @@ import BrowserRuntimeModule, {
   RuntimeGlobal
 } from './runtime-modules/browser-runtime'
 import ChunkLoaderRuntimePlugin from './steps/chunk-loader'
-import HMRDevServerPlugin from './steps/hmr-dev-server'
 import InitialChunkFilePlugin from './steps/initial-chunk-file'
 import NoDangerNamePlugin from './steps/no-danger-name'
 import ServiceWorkerEntryPlugin from './steps/service-worker-entry'
@@ -40,8 +39,6 @@ export default class WebExtensionPlugin {
     }
     if (experimental_output)
       new InitialChunkFilePlugin(this.options).apply(compiler)
-    if (this.options.hmrConfig !== false)
-      new HMRDevServerPlugin().apply(compiler)
     // Pass full plugin options so runtime can be world-aware for content scripts.
     new ChunkLoaderRuntimePlugin(this.options).apply(compiler)
     new NoDangerNamePlugin().apply(compiler)

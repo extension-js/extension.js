@@ -47,7 +47,6 @@ export class SetupReloadStrategy {
         manifestDir: path.dirname(this.manifestPath),
         projectPath: compiler.options.context as string | undefined
       }),
-      hmrConfig: false,
       weakRuntimeCheck: true,
       contentScriptsMeta,
       gecko: isGeckoBasedBrowser(String(this.browser)),

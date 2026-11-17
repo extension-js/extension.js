@@ -128,7 +128,6 @@ export class SetupChunkLoadingTarget {
         // The reader is `background.classicLoader`, not the top-level key.
         classicLoader: false
       },
-      hmrConfig: false,
       weakRuntimeCheck: true,
       contentScriptsMeta: {
         ...buildContentScriptsMeta(patchedManifest),
