@@ -79,14 +79,45 @@ describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
   it('cancels a root-absolute url() with no file anywhere and warns once', async () => {
     const root = makeProject({
       'entry.js': 'import "./cs.css"',
+      // Two requests the parser makes apart, for one file.
       'cs.css':
-        '.a{background:url(/img/missing.png)}\n.b{background:url(/img/missing.png)}\n'
+        '.a{background:url(/img/missing.png)}\n.b{background:url(/img/missing.png?v=2)}\n'
     })
 
-    expect(await compile(root)).toEqual({
-      warnings: [deadRef('cs.css', '/img/missing.png')],
-      errors: []
+    const {warnings, errors} = await compile(root)
+
+    // The parser resolves the two in an order of its own.
+    expect(errors).toEqual([])
+    expect(warnings).toHaveLength(1)
+    expect([
+      deadRef('cs.css', '/img/missing.png'),
+      deadRef('cs.css', '/img/missing.png?v=2')
+    ]).toContainEqual(warnings[0])
+  })
+
+  it('warns again on a rebuild that still holds the dead url()', async () => {
+    const root = makeProject({
+      'entry.js': 'import "./cs.css"',
+      'cs.css': '.a{background:url(/img/missing.png)}\n'
     })
+    const compiler = compilerFor(root, './entry.js')
+    const names: string[][] = []
+
+    try {
+      for (const _rebuild of [1, 2]) {
+        const compilation = await new Promise<Compilation>((resolve, reject) =>
+          compiler.compile((error, result) =>
+            error || !result ? reject(error) : resolve(result)
+          )
+        )
+
+        names.push(compilation.warnings.map((w) => w.name))
+      }
+    } finally {
+      await closeCompiler(compiler)
+    }
+
+    expect(names).toEqual([['CssDeadRef'], ['CssDeadRef']])
   })
 
   it('leaves a url() to a file that exists to the bundler', async () => {
