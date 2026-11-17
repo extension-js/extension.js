@@ -164,9 +164,8 @@ export interface BrowsersPluginOptions {
  * function; on subsequent compilations it classifies changed files and triggers
  * the appropriate reload strategy (full / service-worker / content-scripts).
  *
- * A `BuildEmitter` is exposed as `plugin.emitter` so that external consumers
- * (CLI telemetry, wait-mode, etc.) can subscribe to build events without
- * coupling to rspack.
+ * A `BuildEmitter` is exposed as `plugin.emitter`, which extensionDev returns,
+ * so a programmatic caller can subscribe to build events without rspack.
  */
 export class BrowsersPlugin implements RunnerPlugin {
   static readonly name = 'plugin-browsers'
@@ -175,9 +174,8 @@ export class BrowsersPlugin implements RunnerPlugin {
   readonly emitter = new BuildEmitter()
 
   /**
-   * Extension directories to load alongside the user extension.
-   * Set externally by webpack-config after computing companion extensions,
-   * before the first compilation.
+   * Every unpacked folder the browser loads, the user's dist and companions.
+   * rspack-config.ts sets it before the first compile.
    */
   extensionsToLoad: string[] = []
 
