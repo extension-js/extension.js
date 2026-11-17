@@ -189,7 +189,14 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "youAreAllSet: function(1)",
   ],
   "plugin-perf-budgets/messages.ts": [
+    "MAX_LISTED_ASSETS: number",
+    "perfBudgetInvalid: function(3)",
     "perfBudgetWarning: function(1)",
+    "perfBudgetsIgnoreInvalid: function(2)",
+    "perfBudgetsNoEffectInDev: function(1)",
+    "perfBudgetsReferrersUnreadable: function(1)",
+    "perfBudgetsUnknownKeys: function(3)",
+    "perfBudgetsWrongShape: function(2)",
   ],
   "plugin-reload/messages.ts": [
     "backgroundIsRequiredMessageOnly: function(1)",
