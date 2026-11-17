@@ -298,6 +298,29 @@ export function projectInstallRegistryNotReady(
   )
 }
 
+// Each setting is named the way the manager's own refusal names it.
+export function projectInstallReleaseTooYoung(
+  failure: Extract<InstallFailure, {kind: 'release-too-young'}>,
+  pmName: string
+) {
+  const isDeno = failure.manager === 'deno'
+  const spec = failure.packageSpec ? fmt.code(failure.packageSpec) : ''
+  const release = isDeno ? spec && `the newest release matching ${spec}` : spec
+  const rule = isDeno
+    ? 'Deno refuses releases younger than its minimum dependency age'
+    : `pnpm refuses releases younger than ${fmt.code('minimumReleaseAge')} allows`
+  const lift = isDeno
+    ? `set ${fmt.code('minimumDependencyAge')} in deno.json`
+    : `add the package to the ${fmt.code('minimumReleaseAgeExclude')} setting`
+
+  return (
+    `${getLoggingPrefix('error')} Couldn't install the project dependencies with ${pmName}.\n` +
+    `${rule}, and ${release || 'a release this project asks for'} is too young.\n` +
+    `Wait until the release is old enough, pin the previous version, or ${lift}.\n` +
+    `The ${pmName} error is printed above.`
+  )
+}
+
 export function projectInstallScriptsDisabled(pmName: string) {
   return (
     `${getLoggingPrefix('info')} Installing the project dependencies with ${pmName}…\n` +

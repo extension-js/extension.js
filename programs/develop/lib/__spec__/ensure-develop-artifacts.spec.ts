@@ -418,6 +418,65 @@ describe('ensureUserProjectDependencies', () => {
       expect(sleep).not.toHaveBeenCalled()
     })
 
+    it.each([
+      [
+        'deno',
+        'deno-age-direct',
+        [
+          "⏵⏵⏵ Couldn't install the project dependencies with deno.",
+          'Deno refuses releases younger than its minimum dependency age, and the newest release matching stubx-late@^4.0.3 is too young.',
+          'Wait until the release is old enough, pin the previous version, or set minimumDependencyAge in deno.json.',
+          'The deno error is printed above.'
+        ]
+      ],
+      [
+        'deno',
+        'deno-age-transitive',
+        [
+          "⏵⏵⏵ Couldn't install the project dependencies with deno.",
+          'Deno refuses releases younger than its minimum dependency age, and the newest release matching stubx-late@^4.0.3 is too young.',
+          'Wait until the release is old enough, pin the previous version, or set minimumDependencyAge in deno.json.',
+          'The deno error is printed above.'
+        ]
+      ],
+      [
+        'pnpm',
+        'pnpm-age-direct',
+        [
+          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          'pnpm refuses releases younger than minimumReleaseAge allows, and stubx-late@4.0.3 is too young.',
+          'Wait until the release is old enough, pin the previous version, or add the package to the minimumReleaseAgeExclude setting.',
+          'The pnpm error is printed above.'
+        ]
+      ],
+      [
+        'pnpm',
+        'pnpm10-age-transitive',
+        [
+          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          'pnpm refuses releases younger than minimumReleaseAge allows, and stubx-late@4.0.3 is too young.',
+          'Wait until the release is old enough, pin the previous version, or add the package to the minimumReleaseAgeExclude setting.',
+          'The pnpm error is printed above.'
+        ]
+      ]
+    ])('names the age rule once, without a wait or an npm install, when %s refuses a young release (%s)', async (manager, capture, framed) => {
+      resolvePackageManager.mockReturnValue({name: manager})
+      execInstallCommand.mockRejectedValue(
+        installFailure(CAPTURED_INSTALL_FAILURES[capture])
+      )
+
+      const error: any = await ensureUserProjectDependencies(
+        '/nonexistent-project' as any,
+        {sleep}
+      ).catch((caught) => caught)
+
+      expect(error.code).toBe('E_DEPENDENCY_INSTALL')
+      expect(stripVTControlCharacters(error.message)).toBe(framed.join('\n'))
+      expect(execInstallCommand).toHaveBeenCalledTimes(1)
+      expect(sleep).not.toHaveBeenCalled()
+      expect(warnings().join('\n')).not.toContain('retries once with npm')
+    })
+
     it('still falls back to npm once when another manager fails for a reason that cannot heal', async () => {
       resolvePackageManager.mockReturnValue({name: 'pnpm'})
       execInstallCommand

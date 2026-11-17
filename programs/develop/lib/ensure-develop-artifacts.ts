@@ -85,6 +85,13 @@ async function installWithRegistryRetry(
         {directDependencies}
       )
 
+      if (failure.kind === 'release-too-young') {
+        throw codedError(
+          CODES.E_DEPENDENCY_INSTALL,
+          messages.projectInstallReleaseTooYoung(failure, pmName)
+        )
+      }
+
       if (!failure.retry) throw error
 
       if (attempt >= attempts) {
@@ -165,7 +172,7 @@ export async function ensureUserProjectDependencies(
       retry
     )
   } catch (error) {
-    // npm reads the same registry, so it would only fail the same way.
+    // npm reads the same registry, and would install past an age rule.
     if (isRegistryNotReady(error)) throw error
     // The resolved manager can fail through no fault of the project (e.g. a
     // `packageManager` pin too old for Node); one npm retry keeps the build alive.

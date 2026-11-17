@@ -123,10 +123,6 @@ describe('classifyInstallFailure', () => {
       'a folder it may not write',
       "npm error code EACCES\nnpm error syscall mkdir\nnpm error Error: EACCES: permission denied, mkdir '/project/node_modules'"
     ],
-    [
-      "deno's minimum dependency age",
-      "error: Could not find npm package 'stubx-late' matching '^4.0.3'.\n\nA newer matching version was found, but it was not used because it was newer than the specified minimum dependency date."
-    ],
     ['an error nothing here names', 'Segmentation fault'],
     ['no output at all', '']
   ])('does not retry %s', (_label, output) => {
@@ -134,6 +130,34 @@ describe('classifyInstallFailure', () => {
       kind: 'permanent',
       retry: false
     })
+  })
+
+  it.each([
+    ['deno', 'direct', 'stubx-late@^4.0.3'],
+    ['deno', 'transitive', 'stubx-late@^4.0.3'],
+    ['pnpm', 'direct', 'stubx-late@4.0.3'],
+    ['pnpm', 'transitive', 'stubx-late@4.0.3'],
+    ['pnpm10', 'direct', 'stubx-late@4.0.3'],
+    ['pnpm10', 'transitive', 'stubx-late@4.0.3']
+  ])('names the age rule and never retries a release that is too young (%s, %s)', (manager, scenario, packageSpec) => {
+    expect(
+      classifyInstallFailure(captured(manager, `age-${scenario}`) || '', {
+        directDependencies: ['stubx-late']
+      })
+    ).toEqual({
+      kind: 'release-too-young',
+      retry: false,
+      manager: manager === 'deno' ? 'deno' : 'pnpm',
+      packageSpec
+    })
+  })
+
+  it('still names the age rule when the refusal carries no package', () => {
+    expect(
+      classifyInstallFailure(
+        'error: blocked by the minimum dependency age policy'
+      )
+    ).toEqual({kind: 'release-too-young', retry: false, manager: 'deno'})
   })
 
   it('reads the tarball 404 the public registry answered during a release', () => {

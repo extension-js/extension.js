@@ -45,6 +45,25 @@ export const CAPTURED_INSTALL_FAILURES: Record<string, string> = {
     'error: No version matching "^4.0.3" found for specifier "stubx-late" (but package exists)',
     'error: stubx-late@^4.0.3 failed to resolve'
   ].join('\n'),
+  'deno-age-direct': [
+    'Download http://registry.test/stubx-late',
+    "error: Could not find npm package 'stubx-late' matching '^4.0.3'.",
+    '',
+    'A newer matching version was found, but it was not used because it was newer than the specified minimum dependency date of 2026-11-16 15:02:14.701983 UTC.',
+    '',
+    'hint: This version is blocked by the minimum dependency age policy, which avoids installing recently published versions to reduce supply chain risk (the default is 24 hours). To use this version now, pass the --minimum-dependency-age (or --min-dep-age) flag (for example 0 to disable it, or a shorter duration like 60 minutes) or set "minimumDependencyAge" in your deno.json, or wait until the version is old enough.',
+    'docs: https://docs.deno.com/go/minimum-dependency-age'
+  ].join('\n'),
+  'deno-age-transitive': [
+    'Download http://registry.test/stubx-parent',
+    'Download http://registry.test/stubx-late',
+    "error: Could not find npm package 'stubx-late' matching '^4.0.3'.",
+    '',
+    'A newer matching version was found, but it was not used because it was newer than the specified minimum dependency date of 2026-11-16 15:02:14.854416 UTC.',
+    '',
+    'hint: This version is blocked by the minimum dependency age policy, which avoids installing recently published versions to reduce supply chain risk (the default is 24 hours). To use this version now, pass the --minimum-dependency-age (or --min-dep-age) flag (for example 0 to disable it, or a shorter duration like 60 minutes) or set "minimumDependencyAge" in your deno.json, or wait until the version is old enough.',
+    'docs: https://docs.deno.com/go/minimum-dependency-age'
+  ].join('\n'),
   'deno-auth': [
     'Download http://registry.test/stubx-dep',
     'error: Failed loading http://registry.test/stubx-dep for package "stubx-dep"',
@@ -140,6 +159,29 @@ export const CAPTURED_INSTALL_FAILURES: Record<string, string> = {
     'npm error notarget No matching version found for stubx-late@^4.0.3.',
     "npm error notarget In most cases you or one of your dependencies are requesting a package version that doesn't exist."
   ].join('\n'),
+  'pnpm-age-direct': [
+    'Progress: resolved 0, reused 0, downloaded 1, added 0',
+    'Error: ERR_PNPM_NO_MATURE_MATCHING_VERSION',
+    '',
+    '  × installing dependencies',
+    '  ╰─▶ 1 version does not meet the minimumReleaseAge constraint:',
+    '        stubx-late@4.0.3 was published at 2026-11-17T15:02:08.019Z, within the',
+    '      minimumReleaseAge cutoff (2026-11-16T15:03:08.010Z)',
+    '  help: Run the install interactively to approve these picks, add them to',
+    '        minimumReleaseAgeExclude in pnpm-workspace.yaml, or wait for the',
+    '        packages to mature.'
+  ].join('\n'),
+  'pnpm-age-transitive': [
+    'Error: ERR_PNPM_NO_MATURE_MATCHING_VERSION',
+    '',
+    '  × installing dependencies',
+    '  ╰─▶ 1 version does not meet the minimumReleaseAge constraint:',
+    '        stubx-late@4.0.3 was published at 2026-11-17T15:02:09.250Z, within the',
+    '      minimumReleaseAge cutoff (2026-11-16T15:03:09.244Z)',
+    '  help: Run the install interactively to approve these picks, add them to',
+    '        minimumReleaseAgeExclude in pnpm-workspace.yaml, or wait for the',
+    '        packages to mature.'
+  ].join('\n'),
   'pnpm-auth': [
     'Error: ERR_PNPM_FETCH_401',
     '',
@@ -232,6 +274,29 @@ export const CAPTURED_INSTALL_FAILURES: Record<string, string> = {
     '        ',
     '        If you need the full list of all 1 published versions run "pnpm view',
     '        stubx-late versions".'
+  ].join('\n'),
+  'pnpm10-age-direct': [
+    ' ERR_PNPM_NO_MATURE_MATCHING_VERSION  Version 4.0.3 (released 1 minute ago) of stubx-late does not meet the minimumReleaseAge constraint',
+    '',
+    'This error happened while installing a direct dependency of /project',
+    '',
+    'The latest release of stubx-late is "4.0.3". Published at 11/17/2026 12:02:06 PM',
+    '',
+    'If you need the full list of all 2 published versions run "$ pnpm view stubx-late versions".',
+    '',
+    'If you want to install the matched version ignoring the time it was published, you can add the package name to the minimumReleaseAgeExclude setting. Read more about it: https://pnpm.io/settings#minimumreleaseageexclude'
+  ].join('\n'),
+  'pnpm10-age-transitive': [
+    'Progress: resolved 1, reused 0, downloaded 0, added 0',
+    ' ERR_PNPM_NO_MATURE_MATCHING_VERSION  Version 4.0.3 (released 1 minute ago) of stubx-late does not meet the minimumReleaseAge constraint',
+    '',
+    'This error happened while installing the dependencies of stubx-parent@2.0.0',
+    '',
+    'The latest release of stubx-late is "4.0.3". Published at 11/17/2026 12:02:06 PM',
+    '',
+    'If you need the full list of all 2 published versions run "$ pnpm view stubx-late versions".',
+    '',
+    'If you want to install the matched version ignoring the time it was published, you can add the package name to the minimumReleaseAgeExclude setting. Read more about it: https://pnpm.io/settings#minimumreleaseageexclude'
   ].join('\n'),
   'pnpm10-missing-package': [
     'ERR_PNPM_FETCH_404  GET http://registry.test/stubx-nope: Not Found - 404',
