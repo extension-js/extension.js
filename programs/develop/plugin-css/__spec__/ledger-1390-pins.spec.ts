@@ -17,6 +17,7 @@ const DEVELOP = path.join(__dirname, '..', '..')
 
 afterEach(() => {
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 function runInlineLoader(root: string, resourcePath: string, source: string) {
@@ -54,6 +55,23 @@ describe('a content-script sheet that imports another', () => {
     expect(output).toContain(JSON.stringify(source))
     expect(output).not.toContain('.imported')
     expect(warnings).toEqual([])
+  })
+})
+
+describe('a url() inside a CSS comment', () => {
+  const source = '/* .x{background:url(./gone.png)} */\n.a{color:red}\n'
+
+  it('is reported as dead, and fails a strict build', () => {
+    const root = makeProject({})
+    const sheet = path.join(root, 'content', 'styles.css')
+
+    const loose = runInlineLoader(root, sheet, source)
+    vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
+    const strict = runInlineLoader(root, sheet, source)
+
+    // Pins today's behavior. Ledger 1390 D7.
+    expect(loose.warnings.map((w) => w.name)).toEqual(['CssDeadRef'])
+    expect(strict.errors.map((e) => e.name)).toEqual(['CssDeadRef'])
   })
 })
 
