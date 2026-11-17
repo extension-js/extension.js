@@ -396,11 +396,13 @@ function packedFiles(): string[] {
     {
       cwd: DEVELOP_ROOT,
       encoding: 'utf8',
-      env: {...process.env, npm_config_update_notifier: 'false'}
+      env: {...process.env, npm_config_update_notifier: 'false'},
+      // npm is npm.cmd on Windows, which Node only starts through a shell.
+      shell: process.platform === 'win32'
     }
   )
 
-  expect(run.status, run.stderr).toBe(0)
+  expect(run.status, run.stderr || String(run.error)).toBe(0)
 
   const report = JSON.parse(run.stdout) as Record<
     string,
