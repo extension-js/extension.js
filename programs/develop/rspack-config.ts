@@ -834,6 +834,11 @@ export default function webpackConfig(
       // so it follows where the CLI is installed. Production counts instead.
       moduleIds: devOptions.mode === 'production' ? 'natural' : 'deterministic',
       chunkIds: devOptions.mode === 'production' ? 'natural' : 'deterministic'
+    },
+    // The bundler ignores this flag now, and vue-loader still reads it to
+    // hand a component's style blocks to the built-in CSS pipeline.
+    experiments: {
+      css: true
     }
   }
 }
