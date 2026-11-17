@@ -32,7 +32,7 @@ describe('PolyfillPlugin', () => {
     const compiler = {options: {context: tmp}} as any
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    const plugin = new PolyfillPlugin({manifestPath: '/abs/manifest.json'})
+    const plugin = new PolyfillPlugin()
     plugin.apply(compiler)
 
     expect(warnSpy.mock.calls.length <= 1).toBe(true)
@@ -47,7 +47,7 @@ describe('PolyfillPlugin', () => {
 
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    const plugin = new PolyfillPlugin({manifestPath: '/abs/manifest.json'})
+    const plugin = new PolyfillPlugin()
     takeCodedWarnings()
     plugin.apply(compiler)
 

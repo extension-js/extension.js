@@ -54,7 +54,6 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
     } as any
 
     const plugin = new PolyfillPlugin({
-      manifestPath: '/abs/manifest.json',
       browser: 'chrome'
     })
     plugin.apply(compiler)
@@ -84,7 +83,6 @@ describe('PolyfillPlugin resolver/alias and provider', () => {
     const compiler = {options: {}} as any
 
     const plugin = new PolyfillPlugin({
-      manifestPath: '/abs/manifest.json',
       browser: 'edge'
     })
     plugin.apply(compiler)

@@ -10,7 +10,7 @@ import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
-import type {DevOptions, PluginInterface} from '../types'
+import type {DevOptions} from '../types'
 import * as messages from './compatibility-lib/messages'
 
 const cjsRequire = createRequire(import.meta.url)
@@ -18,7 +18,7 @@ const cjsRequire = createRequire(import.meta.url)
 export class PolyfillPlugin {
   public readonly browser: DevOptions['browser']
 
-  constructor(options: PluginInterface) {
+  constructor(options: {browser?: DevOptions['browser']} = {}) {
     this.browser = options.browser || 'chrome'
   }
 
