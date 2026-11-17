@@ -288,7 +288,6 @@ const REFUSALS: RefusalRow[] = [
       const blocked = path.join(dir, 'blocked')
 
       put(blocked, 'x')
-      put(path.join(dir, '.cache'), 'x')
 
       return {
         args: ['telemetry', 'disable'],

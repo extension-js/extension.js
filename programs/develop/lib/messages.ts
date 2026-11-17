@@ -229,6 +229,39 @@ export function authorInstallNotice(target: string) {
   return `${prefix('debug')} install  target=${target}`
 }
 
+// The first files are enough to see what kind of install this is, and a
+// wiped dist would otherwise print every entry.
+const LISTED_MISSING_ARTIFACTS = 5
+
+export function developArtifactsMissing(
+  missing: string[],
+  rebuild?: {command: string; developRoot: string} | {watching: true}
+) {
+  const count = missing.length
+  const listed = missing.slice(0, LISTED_MISSING_ARTIFACTS)
+  const rest = count - listed.length
+  const lines = [
+    !rebuild
+      ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files.`
+      : 'watching' in rebuild
+        ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and the running watch build did not write them.`
+        : `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and could not rebuild.`,
+    ...listed.map((file) => `  ${colors.underline(file)}`)
+  ]
+
+  if (rest > 0) lines.push(`  and ${rest} more`)
+
+  lines.push(
+    !rebuild
+      ? `Reinstall ${fmt.code('extension')}, then run the command again.`
+      : 'watching' in rebuild
+        ? 'Fix the build error the watch prints, then run the command again.'
+        : `Run ${fmt.code(rebuild.command)} in ${colors.underline(rebuild.developRoot)} to see the build error.`
+  )
+
+  return lines.join('\n')
+}
+
 export function projectInstallInWorkspaceRoot(
   workspaceRoot: string,
   managerName = 'pnpm'

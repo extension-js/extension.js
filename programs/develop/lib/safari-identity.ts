@@ -9,7 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {SafariPackagerOverrides} from '../types'
+import {codedError} from './coded-error'
 import * as messages from './messages'
+import {CODES} from './messaging'
 
 export type SafariIdentity = Omit<SafariPackagerOverrides, 'noOpen'>
 
@@ -28,14 +30,20 @@ export function resolveSafariIdentity(
   projectDir: string = process.cwd()
 ): SafariIdentity {
   if (merged.bundleId && !isValidBundleId(merged.bundleId)) {
-    throw new Error(messages.safariInvalidBundleId(merged.bundleId))
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.safariInvalidBundleId(merged.bundleId)
+    )
   }
 
   const iconPath = String(merged.appIcon || '').trim()
   const appIcon = iconPath ? path.resolve(projectDir, iconPath) : undefined
 
   if (appIcon && !fs.existsSync(appIcon)) {
-    throw new Error(messages.safariAppIconNotFound(appIcon))
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.safariAppIconNotFound(appIcon)
+    )
   }
 
   return {
