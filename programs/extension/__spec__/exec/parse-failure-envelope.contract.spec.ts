@@ -123,8 +123,8 @@ describe('pre-command failures under --output json', () => {
     )
   })
 
-  // Ledger 1375 N4: the frame carries commander's raw text while stderr
-  // prints the house copy. Pinned as it is, to flip when the frame is fixed.
+  // Pins today's behavior. Ledger 1375 N4.
+  // The frame carries the parser's raw text while stderr prints the house copy.
   it.each([
     [
       ['nonexistent-cmd', '--output', 'json'],
@@ -135,16 +135,16 @@ describe('pre-command failures under --output json', () => {
       "unknown option '--nope'\n(Did you mean --no-open?)"
     ],
     [['eval', '--output', 'json'], "missing required argument 'expression'"]
-  ])('ledger 1375 N4: %j carries the parser text as error.message', async (args, message) => {
+  ])('%j carries the parser text as error.message', async (args, message) => {
     const {frame} = await failed(args)
 
     expect(frame.error.message).toBe(message)
     expect(frame.error.name).toBe('CliError')
   })
 
-  // Ledger 1375 N3: the value of a root option is read as the command, so
-  // the remedy and the frame both name a command called json.
-  it('ledger 1375 N3: -o json build names extension json --help', async () => {
+  // Pins today's behavior. Ledger 1375 N3.
+  // A root option's value is read as the command, so both name a command json.
+  it('-o json build names extension json --help', async () => {
     const plain = await runCli(['-o', 'json', 'build'])
 
     expect(plain.status).toBe(1)
@@ -162,7 +162,7 @@ describe('pre-command failures under --output json', () => {
   })
 
   // Pins today's behavior. Ledger 1375 N6.
-  it('ledger 1375 N6: build --browser --output json takes --output as the browser', async () => {
+  it('build --browser --output json takes --output as the browser', async () => {
     const run = await runCli(['build', '--browser', '--output', 'json'])
 
     expect({status: run.status, stdout: run.stdout}).toEqual({
@@ -179,7 +179,7 @@ describe('pre-command failures under --output json', () => {
   })
 
   // Pins today's behavior. Ledger 1375 N7.
-  it('ledger 1375 N7: --browser chrome before dev sends the reader to dev --help', async () => {
+  it('--browser chrome before dev sends the reader to dev --help', async () => {
     const remedy =
       '⏵⏵⏵ Unknown option --browser.\n' +
       'Run extension dev --help to see the options.\n'
@@ -223,7 +223,7 @@ describe('pre-command failures under --output json', () => {
       ['--level', 'loud'],
       'extension logs --level expects one of off, error, warn, info, debug, trace, all, got: loud'
     ]
-  ])('ledger 1375 N8: logs %j answers E_INVALID_OPTION where --tab answers E_FLAG_VALUE_INVALID', async (flag, message) => {
+  ])('logs %j answers E_INVALID_OPTION where --tab answers E_FLAG_VALUE_INVALID', async (flag, message) => {
     const {result, frame} = await failed([
       'logs',
       '.',

@@ -164,7 +164,7 @@ function listen(handler: http.RequestListener): Promise<{
   })
 }
 
-// Ledger 1375 T4: a --wait run that never saw a session exits 130 or 143.
+// A --wait run that never saw a session exits 130 or 143.
 // Posix only: on Windows a kill ends the child before any handler runs.
 describe.skipIf(process.platform === 'win32')(
   'a dev --wait run told to stop before any session came up',

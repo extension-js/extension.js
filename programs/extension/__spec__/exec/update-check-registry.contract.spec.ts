@@ -95,7 +95,7 @@ describe('the update check of a spawned CLI', () => {
   })
 
   // Pins today's behavior. Ledger 1375 N9.
-  it('ledger 1375 N9: replays a cached notice to a later run that shares the temp folder', async () => {
+  it('replays a cached notice to a later run that shares the temp folder', async () => {
     const home = freshCliHome()
     const tempFolder = cliTempFolder(home)
     const cacheFile = path.join(
@@ -156,7 +156,7 @@ describe('the update check of a spawned CLI', () => {
   })
 
   // Pins today's behavior. Ledger 1375 N10.
-  it('ledger 1375 N10: a registry that never answers keeps a finished build running', async () => {
+  it('a registry that never answers keeps a finished build running', async () => {
     const silent = http.createServer(() => {})
 
     await new Promise<void>((resolve) => silent.listen(0, '127.0.0.1', resolve))
