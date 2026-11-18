@@ -28,19 +28,10 @@ const NAMED: Record<Source, string> = {
   env: 'EXTENSION_USE_SYSTEM_PROFILE=true'
 }
 
-// dev keeps serving after a launch it refused, so its run ends once the
-// failure frame is out. start and preview end by themselves.
-async function runCli(
-  args: string[],
-  extraEnv: Record<string, string>,
-  untilFailure: boolean
-) {
-  const marker = args.includes('json') ? '"ok":false' : 'own profile'
-  const run = await spawnCli(args, {
-    timeoutMs: 100_000,
-    env: extraEnv,
-    until: untilFailure ? (output) => output.output.includes(marker) : undefined
-  })
+// No compile changes a refused profile mode, so dev ends the session itself
+// as start and preview do, and every run here is read to its own exit.
+async function runCli(args: string[], extraEnv: Record<string, string>) {
+  const run = await spawnCli(args, {timeoutMs: 100_000, env: extraEnv})
 
   return {code: run.status, stdout: run.output}
 }
@@ -127,11 +118,7 @@ function geckoSystemProfileSpecs(command: Command) {
     'config',
     'env'
   ] as Source[])(`${command} refuses system profile mode set by %s without spawning the browser`, async (source) => {
-    const {code, stdout} = await runCli(
-      argsFor(source, 'json'),
-      envFor(source),
-      command === 'dev'
-    )
+    const {code, stdout} = await runCli(argsFor(source, 'json'), envFor(source))
 
     expect(existsSync(spawnedLog(source)), stdout).toBe(false)
 
@@ -163,17 +150,13 @@ function geckoSystemProfileSpecs(command: Command) {
       })
 
       expect(ready.browserPid).toBeUndefined()
-    } else {
-      expect(code).toBe(1)
     }
+
+    expect(code, stdout).toBe(1)
   }, 120_000)
 
   it(`${command} prints the refusal as one block in text mode`, async () => {
-    const {stdout} = await runCli(
-      argsFor('flag', 'pretty'),
-      {},
-      command === 'dev'
-    )
+    const {stdout} = await runCli(argsFor('flag', 'pretty'), {})
 
     expect(existsSync(spawnedLog('text')), stdout).toBe(false)
     expect(
