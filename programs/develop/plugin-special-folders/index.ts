@@ -13,6 +13,8 @@ import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
+import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
+import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {
   DevOptions,
   ExcludeFilesConfig,
@@ -21,8 +23,6 @@ import type {
 } from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {explainPublicOutputCollision} from './check-public-output-collision'
-import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
-import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {
   excludedFiles,

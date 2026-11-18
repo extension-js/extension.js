@@ -15,6 +15,7 @@ import {
 } from '../css-lib/sfc-style-block'
 import {maybeUseLess} from '../css-tools/less'
 import {maybeUseSass} from '../css-tools/sass'
+import {CssPlugin} from '../index'
 import {
   closeCompiler,
   configureCss,
@@ -22,7 +23,6 @@ import {
   cssProjects,
   type Mode
 } from './helpers/css-project'
-import {CssPlugin} from '../index'
 
 const makeProject = cssProjects()
 const developRequire = createRequire(
