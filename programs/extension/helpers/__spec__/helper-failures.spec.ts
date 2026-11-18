@@ -147,51 +147,56 @@ describe('a config file that throws', () => {
     return dir
   }
 
-  it('reads noBrowser as false, so the browser would launch', async () => {
+  // The engine reads the same file before it builds or launches anything and
+  // fails the run with E_CONFIG_LOAD, so these answers never reach a launch.
+  it('leaves the answer to the engine, which refuses the same config', async () => {
     vi.stubEnv('EXTENSION_CLI_NO_BROWSER', undefined)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const project = projectWithThrowingConfig()
 
-    // Pins today's behavior. Ledger 1372 D17.
-    await expect(
-      resolveNoBrowser(projectWithThrowingConfig(), 'dev')
-    ).resolves.toBe(false)
-  })
+    await expect(resolveNoBrowser(project, 'dev')).resolves.toBe(false)
+    await expect(resolveConfigBrowser(project, 'dev')).resolves.toBeUndefined()
 
-  it('reads the config browser as unset', async () => {
-    // Pins today's behavior. Ledger 1372 D17.
-    await expect(
-      resolveConfigBrowser(projectWithThrowingConfig(), 'dev')
-    ).resolves.toBeUndefined()
+    const develop = await loadExtensionDevelopModule()
+
+    for (const command of ['dev', 'build', 'start', 'preview'] as const) {
+      await expect(
+        develop.loadCommandConfig(project, command)
+      ).rejects.toMatchObject({code: CODES.E_CONFIG_LOAD})
+    }
   })
 
   it.each([
     'dev',
     'start',
     'preview'
-  ] as const)('reads noBrowser as false for %s when the config loader rejects', async (command) => {
-    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', undefined)
+  ] as const)('keeps a typed --no-browser for %s whatever the config does', async (command) => {
+    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', '1')
+    const loadDevelop = vi.fn(async () => ({
+      loadCommandConfig: async () => {
+        throw new Error('config boom')
+      }
+    }))
 
-    // Pins today's behavior. Ledger 1372 D17.
     await expect(
-      resolveNoBrowser('/nowhere', command, async () => ({
-        loadCommandConfig: async () => {
-          throw new Error('config boom')
-        }
-      }))
-    ).resolves.toBe(false)
+      resolveNoBrowser('/nowhere', command, loadDevelop)
+    ).resolves.toBe(true)
+
+    expect(loadDevelop).not.toHaveBeenCalled()
   })
 })
 
 describe('locating the extension-develop runtime', () => {
-  it('ignores an EXTENSION_DEVELOP_ROOT that holds no runtime, in silence', () => {
+  it('warns once that an EXTENSION_DEVELOP_ROOT with no runtime is ignored', () => {
     const wrong = makeTempFolder('extjs-wrong-root-')
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const start = makeTempFolder('extjs-start-')
 
     vi.stubEnv('EXTENSION_DEVELOP_ROOT', wrong)
     vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', undefined)
 
-    // Pins today's behavior. Ledger 1372 D17.
-    const root = resolveExtensionDevelopRoot(makeTempFolder('extjs-start-'))
+    const root = resolveExtensionDevelopRoot(start)
 
     expect(root).not.toBe(wrong)
     expect(
@@ -200,7 +205,18 @@ describe('locating the extension-develop runtime', () => {
 
     expect(process.env.EXTENSION_DEVELOP_ROOT).toBe(root)
     expect(error).not.toHaveBeenCalled()
-    expect(warn).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
+
+    const line = String(warn.mock.calls[0][0])
+
+    expect(line).toContain('EXTENSION_DEVELOP_ROOT')
+    expect(line).toContain(wrong)
+    expect(line).toContain('no extension-develop package')
+
+    // A second ask in the same run, with the variable back on the wrong path.
+    vi.stubEnv('EXTENSION_DEVELOP_ROOT', wrong)
+    resolveExtensionDevelopRoot(start)
+    expect(warn).toHaveBeenCalledTimes(1)
   })
 
   it('throws E_RUNTIME_NOT_FOUND when no candidate holds a package manifest', async () => {
