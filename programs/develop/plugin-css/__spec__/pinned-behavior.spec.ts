@@ -51,7 +51,7 @@ describe('a content-script sheet that imports another', () => {
       source
     )
 
-    // Pins today's behavior. Ledger 1390 D2.
+    // Pins today's behavior.
     expect(output).toContain(JSON.stringify(source))
     expect(output).not.toContain('.imported')
     expect(warnings).toEqual([])
@@ -112,7 +112,7 @@ describe('postcss-preset-env and postcss-scss', () => {
       )
     })
 
-    // Pins today's behavior. Ledger 1390 D1.
+    // Pins today's behavior.
     expect(
       getOptionalDependencyContract('sass').installPackages.map((spec) =>
         spec.replace(/(.)@.*$/, '$1')
@@ -189,7 +189,7 @@ describe('the three dead url() checks and the .css sibling', () => {
       )
     )
 
-    // Pins today's behavior. Ledger 1390 D8.
+    // Pins today's behavior.
     expect(compilation.warnings.map((w) => w.name)).toEqual([])
     expect(compilation.errors.map((e) => e.message)).toEqual([])
     expect(inlined).toBe(true)
@@ -213,7 +213,7 @@ describe('the install commands in three CSS messages', () => {
 
     await maybeUsePostCss(root, {mode: 'development'})
 
-    // Pins today's behavior. Ledger 1390 D9.
+    // Pins today's behavior.
     expect(error.mock.calls[0][0].split('\n').at(-1)).toBe(
       'Install it in your project to re-enable it: npm install --save-dev postcss-plugin-nowhere'
     )

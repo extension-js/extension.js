@@ -112,7 +112,7 @@ describe('a PostCSS config edit between two compilers', () => {
     const next = await configureCss(root, mode)
 
     expect(postCssPluginNames(before)).toEqual(['first'])
-    // Pins today's behavior. Ledger 1390 D3.
+    // Pins today's behavior.
     expect(postCssPluginNames(next)).toEqual(after)
   })
 })
