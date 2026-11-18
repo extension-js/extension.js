@@ -169,7 +169,7 @@ export type InstallRunner = (
 
 // A .cmd shim runs the manager as a grandchild of cmd.exe, which a plain kill
 // would orphan, so Windows ends the whole tree.
-function endInstall(
+export function endProcessTree(
   child: ChildProcess,
   spawnProcess: SpawnProcess,
   platform: NodeJS.Platform
@@ -226,7 +226,7 @@ export async function runInstall(
     // Resolved here and not on close: a surviving grandchild can hold the
     // pipes open, and close would then never arrive.
     const timer = setTimeout(() => {
-      endInstall(child, spawnProcess, platform)
+      endProcessTree(child, spawnProcess, platform)
       resolve({
         code: null,
         stderr,

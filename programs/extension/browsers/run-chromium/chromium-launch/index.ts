@@ -283,8 +283,13 @@ export class ChromiumLaunchPlugin {
   // Set once a browser process exists. A launch that throws before this is a
   // launch that never spawned anything, and the contract has to say so.
   private didSpawn = false
+  // Set by the child's close handler on every exit, asked or not.
+  private didClose = false
   // Chrome's own refusal reason, when it declined to load the guest at launch.
   private extensionLoadRefused: string | undefined
+  // The run that owned the record when the launch began, so a stamp cannot
+  // land on a run that replaced this one while the launch was under way.
+  private launchRunId: string | undefined
 
   // The browser's refusal reason for this session, or null when it loaded.
   // Read by the launcher's controller so a later compile can re-offer the dist.
@@ -332,6 +337,12 @@ export class ChromiumLaunchPlugin {
     return this.didSpawn
   }
 
+  // Whether the spawned browser has exited, so a caller ending the session
+  // can wait for the close instead of killing it.
+  public get browserClosed(): boolean {
+    return this.didClose
+  }
+
   // Run the Chromium launch flow without a bundler compiler instance;
   // intended for run-only preview paths.
   public async runOnce(
@@ -367,7 +378,7 @@ export class ChromiumLaunchPlugin {
     stampReadyBrowserLaunchFailed(
       outputPath,
       describeLaunchFailure(error),
-      readReadyRunId(outputPath),
+      this.launchRunId,
       launchFailureCode(error)
     )
   }
@@ -463,6 +474,10 @@ export class ChromiumLaunchPlugin {
     compilation: CompilationLike,
     opts?: ChromiumRunOptions
   ) {
+    this.launchRunId = readReadyRunId(
+      getExtensionOutputPath(compilation, undefined)
+    )
+
     // A bad --chromium-binary is a pin error on every target, said before
     // anything looks for a browser, so it never reads as "not installed".
     if (this.options?.chromiumBinary) {
@@ -1156,7 +1171,7 @@ export class ChromiumLaunchPlugin {
         stampReadyExtensionLoadRefused(
           refusedOutputPath,
           `the build is missing ${incomplete.missing.join(', ')}`,
-          readReadyRunId(refusedOutputPath)
+          this.launchRunId
         )
 
         throw Object.assign(
@@ -1205,7 +1220,7 @@ export class ChromiumLaunchPlugin {
             message: error.message,
             owner: error.profileLockOwner
           },
-          readReadyRunId(lockedOutputPath)
+          this.launchRunId
         )
 
         // Framed, so the CLI prints the refusal alone and not a stack trace.
@@ -1301,7 +1316,6 @@ export class ChromiumLaunchPlugin {
 
     if (dryRun) {
       this.printDryRunPlan(
-        compilation,
         browserBinaryLocation,
         chromiumConfig,
         messages.binarySourceLabel(binaryProvenance, browser, binaryPinnedBy)
@@ -1329,11 +1343,22 @@ export class ChromiumLaunchPlugin {
       runId: launchRunId
     }
 
-    const child = await this.launchWithDirectSpawn(
-      browserBinaryLocation,
-      chromiumConfig,
-      usePipe
-    )
+    let child: Awaited<
+      ReturnType<ChromiumLaunchPlugin['launchWithDirectSpawn']>
+    >
+
+    try {
+      child = await this.launchWithDirectSpawn(
+        browserBinaryLocation,
+        chromiumConfig,
+        usePipe
+      )
+    } catch (error) {
+      // No browser will bind the port, so the next session may take it.
+      portClaim.release()
+
+      throw error
+    }
 
     this.didSpawn = true
 
@@ -1632,7 +1657,7 @@ export class ChromiumLaunchPlugin {
       stampReadyExtensionLoadRefused(
         refusedOutputPath,
         GENERAL_REFUSAL_REASON,
-        readReadyRunId(refusedOutputPath)
+        this.launchRunId
       )
     }
 
@@ -1747,24 +1772,15 @@ export class ChromiumLaunchPlugin {
     }
   }
 
-  // What a launch would run, from the same config seam as the spawn, with
-  // nothing provisioned on disk.
+  // What a launch would run, from the flags the launch built for the spawn.
   private printDryRunPlan(
-    compilation: CompilationLike,
     binary: string,
-    chromiumConfig?: string[],
+    chromiumConfig: string[],
     source?: string
   ) {
-    const flags =
-      chromiumConfig ??
-      browserConfig(
-        compilation,
-        {...this.options},
-        {provision: false, cdp: true}
-      )
     const plan = chromiumLaunchPlan(
       binary,
-      flags,
+      chromiumConfig,
       this.options?.startingUrl,
       this.options?.noOpen
     )
@@ -1868,6 +1884,8 @@ export class ChromiumLaunchPlugin {
         .replace(/^"|"$/g, '')
 
       child.on('close', (code: number | null, signal: string | null) => {
+        this.didClose = true
+
         if (isDebug()) {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }
