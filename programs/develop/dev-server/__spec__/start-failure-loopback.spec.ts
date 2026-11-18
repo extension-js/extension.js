@@ -53,7 +53,6 @@ describe('a dev server that cannot bind its port', () => {
       metadata: {writeError: (code) => records.push(code)},
       lifecycle: {
         failed: (message) => records.push(message),
-        endWithoutFrame: () => records.push('ended without a frame'),
         sessionValue: () => ({})
       },
       exitOnError: false
@@ -118,11 +117,8 @@ describe('a dev server that cannot bind its port', () => {
       expect(message).toContain(String(heldPort))
       // eslint-disable-next-line no-control-regex
       expect(message).not.toMatch(/\u001b|⏵/)
-      // The caller frames the rejection, so the engine writes no frame.
-      expect(records).toEqual([
-        'dev_server_start_failed',
-        'ended without a frame'
-      ])
+      // The engine writes the failed frame and the caller prints its line.
+      expect(records).toEqual(['dev_server_start_failed', cause.message])
 
       expect(processExit).not.toHaveBeenCalled()
       expect(closedCompiler).toBe(true)

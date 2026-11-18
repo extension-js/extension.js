@@ -453,14 +453,93 @@ describe('lifecycle stream transitions', () => {
   it('names the exit code when the process ends with no contract verdict', () => {
     const {stream, lines} = makeStream()
     stream.starting({requestedPort: 8080, port: 8080})
-    stream.exited(0)
-    expect(lines).toHaveLength(1)
     stream.exited(7)
     const [, frame] = parseFrames(lines)
     expect(frame.status).toBe('failed')
     expect(frame.error?.code).toBe('E_INTERNAL')
     expect(frame.error?.message).toBe('The dev session ended with exit code 7.')
     expect(frame.value?.exitCode).toBe(7)
+  })
+
+  it('ends a session that exits clean with one ok stopped frame', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.exited(0)
+    stream.exited(0)
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual(['starting', 'stopped'])
+    expect(frames[1].ok).toBe(true)
+    expect(frames[1].value).toMatchObject({
+      pid: process.pid,
+      port: 8080,
+      exitCode: 0
+    })
+  })
+
+  it.each([
+    [
+      'the browser exits and a signal follows',
+      'browser-exited',
+      (stream: ReturnType<typeof makeStream>['stream']) => {
+        stream.browserExited({exitCode: 9})
+        stream.interrupted('SIGINT')
+      }
+    ],
+    [
+      'the contract reports an error and a signal follows',
+      'failed',
+      (stream: ReturnType<typeof makeStream>['stream']) => {
+        stream.ready()
+        stream.interrupted('SIGINT')
+      }
+    ],
+    [
+      'a signal arrives and the first compile lands after it',
+      'stopped',
+      (stream: ReturnType<typeof makeStream>['stream']) => {
+        const compiler = fakeCompiler()
+        attachLifecycleStream(compiler, stream)
+        stream.interrupted('SIGINT')
+        compiler.taps.done(fakeStats({}))
+        compiler.taps.done(fakeStats({errors: true}))
+        stream.restartFailed({code: CODES.E_CONFIG_LOAD, message: 'late'})
+      }
+    ],
+    [
+      'the server never binds and the browser exit is read after',
+      'failed',
+      (stream: ReturnType<typeof makeStream>['stream']) => {
+        stream.failed('listen EADDRINUSE')
+        stream.browserExited({exitCode: 9})
+        stream.interrupted('SIGTERM')
+      }
+    ]
+  ])('writes one terminal frame and nothing after it when %s', (_name, status, drive) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-lifecycle-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify(
+        status === 'failed' && _name.startsWith('the contract')
+          ? {status: 'error', code: 'guest_refused', message: 'refused'}
+          : {status: 'ready', port: 8080}
+      )
+    )
+
+    try {
+      const {stream, lines} = makeStream({readyPath})
+      stream.starting({requestedPort: 8080, port: 8080})
+      drive(stream)
+      stream.exited(0)
+      stream.exited(1)
+
+      expect(parseFrames(lines).map((frame) => frame.status)).toEqual([
+        'starting',
+        status
+      ])
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
   })
 
   it('adds no failed frame at exit after an interrupt', () => {

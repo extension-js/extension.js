@@ -77,4 +77,30 @@ describe('auto-exit', () => {
     expect(process.exit).toHaveBeenCalledTimes(1)
     expect(process.exit).toHaveBeenCalledWith(1)
   })
+
+  it('caps a force kill the timer could not hold', () => {
+    const onCleanup = vi.fn().mockResolvedValue(undefined)
+    setupAutoExit(60_000, '3000000000', onCleanup)
+
+    // Uncapped, this timer fires after one millisecond and exits 0.
+    vi.advanceTimersByTime(59_999)
+    expect(process.exit).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(onCleanup).toHaveBeenCalledTimes(1)
+    expect(process.exit).not.toHaveBeenCalled()
+  })
+
+  it('caps the auto-exit and the default backstop near the limit', () => {
+    const onCleanup = vi.fn().mockResolvedValue(undefined)
+    setupAutoExit(2147483647, undefined as any, onCleanup)
+    vi.advanceTimersByTime(60_000)
+    expect(onCleanup).not.toHaveBeenCalled()
+    expect(process.exit).not.toHaveBeenCalled()
+
+    const later = vi.fn().mockResolvedValue(undefined)
+    setupAutoExit('9007199254740993', undefined as any, later)
+    vi.advanceTimersByTime(60_000)
+    expect(later).not.toHaveBeenCalled()
+    expect(process.exit).not.toHaveBeenCalled()
+  })
 })

@@ -23,11 +23,10 @@ export function readStartTimeoutMs(
   env: Readonly<Record<string, string | undefined>> = process.env
 ) {
   const raw = String(env.EXTENSION_START_TIMEOUT_MS ?? '').trim()
+  // Digits past what a number holds still mean a long wait, so they cap.
   const parsed = /^\d+$/.test(raw) ? Number(raw) : 0
 
-  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    return DEFAULT_START_TIMEOUT_MS
-  }
+  if (!(parsed > 0)) return DEFAULT_START_TIMEOUT_MS
 
   return Math.min(parsed, MAX_TIMER_MS)
 }
@@ -111,8 +110,11 @@ export function createBindFailureRelay() {
 // with no color or glyph, and the error the server gave as its cause.
 export interface DevServerStartError extends CodedError {
   cause: unknown
-  // The session the failed frame of a caller describes: pid, port, paths.
+  // The session that failed: pid, port, paths.
   session?: Record<string, unknown>
+  // True when the failed frame is already on the stream, so a caller that
+  // prints frames adds none.
+  framed?: boolean
 }
 
 export function devServerStartError(error: unknown): DevServerStartError {
@@ -129,9 +131,8 @@ export function devServerStartError(error: unknown): DevServerStartError {
 export interface StartFailureTargets {
   metadata: {writeError: (code: string, message: string) => void}
   lifecycle: {
-    failed: (message: string) => void
-    // Ends the stream with no frame, for a caller that writes its own.
-    endWithoutFrame: () => void
+    // Hands back the frame it wrote, or null when the stream is off.
+    failed: (message: string) => unknown
     sessionValue: () => Record<string, unknown>
   }
   onExitError?: (error: unknown, code?: string) => void
@@ -152,19 +153,19 @@ export function createStartFailure(targets: StartFailureTargets) {
       error instanceof Error ? error.message : String(error)
     )
 
-    // The caller prints and frames its own rejection, so nothing is said
-    // twice: a frame from here would be a second terminal one.
+    // The stream's one terminal frame is written here for every host.
+    const frame = targets.lifecycle.failed(
+      error instanceof Error ? error.message : String(error)
+    )
+
+    // The caller prints its own rejection, and reads framed to add no frame.
     if (!exitOnError) {
       const coded = devServerStartError(error)
       coded.session = targets.lifecycle.sessionValue()
-      targets.lifecycle.endWithoutFrame()
+      coded.framed = frame != null
 
       throw coded
     }
-
-    targets.lifecycle.failed(
-      error instanceof Error ? error.message : String(error)
-    )
 
     print(messages.extensionJsRunnerError(error))
 

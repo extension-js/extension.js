@@ -108,7 +108,7 @@ describe('starting the bundler', () => {
     })
     const fail = createStartFailure({
       metadata: {writeError},
-      lifecycle: {failed, endWithoutFrame: () => {}, sessionValue: () => ({})},
+      lifecycle: {failed, sessionValue: () => ({})},
       onExitError,
       print: (line) => {
         order.push('print')
@@ -150,7 +150,6 @@ describe('starting the bundler', () => {
       metadata: {writeError: () => {}},
       lifecycle: {
         failed: () => {},
-        endWithoutFrame: () => {},
         sessionValue: () => ({})
       },
       onExitError: () => {
@@ -173,7 +172,6 @@ describe('starting the bundler', () => {
         metadata: {writeError: () => {}},
         lifecycle: {
           failed: () => {},
-          endWithoutFrame: () => {},
           sessionValue: () => ({})
         },
         print: () => {}
@@ -191,8 +189,7 @@ describe('starting the bundler', () => {
       '\u001b[31m\u23f5\u23f5\u23f5 listen EADDRINUSE 127.0.0.1:8080\u001b[39m'
     )
     const writeError = vi.fn()
-    const failed = vi.fn()
-    const endWithoutFrame = vi.fn()
+    const failed = vi.fn((_message: string) => ({status: 'failed'}))
     const print = vi.fn()
     const onExitError = vi.fn()
     const exit = vi.fn((): never => {
@@ -207,7 +204,6 @@ describe('starting the bundler', () => {
         metadata: {writeError},
         lifecycle: {
           failed,
-          endWithoutFrame,
           sessionValue: () => ({pid: 7, port: 8080})
         },
         onExitError,
@@ -228,7 +224,8 @@ describe('starting the bundler', () => {
         code: 'E_DEV_SERVER_START',
         message: 'listen EADDRINUSE 127.0.0.1:8080',
         cause: failure,
-        session: {pid: 7, port: 8080}
+        session: {pid: 7, port: 8080},
+        framed: true
       })
 
       // The session records still say why it ended.
@@ -237,9 +234,9 @@ describe('starting the bundler', () => {
         failure.message
       )
 
-      // The caller frames its own rejection, so no frame comes from here.
-      expect(failed).not.toHaveBeenCalled()
-      expect(endWithoutFrame).toHaveBeenCalledTimes(1)
+      // The one terminal frame is written here, and the rejection says so.
+      expect(failed).toHaveBeenCalledTimes(1)
+      expect(failed).toHaveBeenCalledWith(failure.message)
       expect(print).not.toHaveBeenCalled()
       expect(onExitError).not.toHaveBeenCalled()
       expect(exit).not.toHaveBeenCalled()
@@ -372,6 +369,15 @@ describe('starting the bundler', () => {
     expect(MAX_TIMER_MS).toBe(2147483647)
     expect(
       readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: '9007199254740991'})
+    ).toBe(MAX_TIMER_MS)
+
+    // Digits past what a number holds are a long wait too, not the default.
+    expect(
+      readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: '9007199254740993000'})
+    ).toBe(MAX_TIMER_MS)
+
+    expect(
+      readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: '9'.repeat(400)})
     ).toBe(MAX_TIMER_MS)
 
     await vi.advanceTimersByTimeAsync(60000)
@@ -564,6 +570,10 @@ describe('a session that ended without a process exit', () => {
     expect(order).toEqual(['release only', 'restart'])
     expect(later.listenerCount('exit')).toBe(1)
     later.emit('exit', 0)
+    later.emit('exit', 0)
+    ending.releaseAll()
+
+    // Begun, then the exit: each ran exactly once.
     expect(order).toEqual(['release only', 'restart', 'file'])
   })
 
@@ -640,8 +650,8 @@ describe('a session that ended without a process exit', () => {
   })
 })
 
-describe('a start failure the caller frames itself', () => {
-  it('writes no frame from the engine, at the failure or at the exit', async () => {
+describe('the terminal frame of a start failure', () => {
+  it('is written once by the engine, with the session, for a library caller', async () => {
     const saved = process.env.EXTENSION_OUTPUT
     process.env.EXTENSION_OUTPUT = 'ndjson'
     const lines: string[] = []
@@ -671,7 +681,7 @@ describe('a start failure the caller frames itself', () => {
         exitOnError: false
       })
 
-      // The caller's frame still says which session failed.
+      // The rejection names the session and says the frame is written.
       await expect(
         startBundler(
           {start: async () => Promise.reject(new Error('watch broke'))},
@@ -688,19 +698,70 @@ describe('a start failure the caller frames itself', () => {
           eventsPath,
           runId: 'run-1',
           instanceId: 'instance-1'
-        }
+        },
+        framed: true
       })
 
-      // The caller's own failed frame is the only terminal one on the stream.
+      // The exit that follows adds nothing to a stream that has ended.
       lifecycle.exited(1)
 
-      expect(lines.map((line) => JSON.parse(line).status)).toEqual(['starting'])
+      const frames = lines.map((line) => JSON.parse(line))
+      expect(frames.map((frame) => frame.status)).toEqual([
+        'starting',
+        'failed'
+      ])
+
+      expect(frames[1]).toMatchObject({
+        ok: false,
+        error: {code: 'E_DEV_SERVER_START', message: 'watch broke'},
+        value: {
+          pid: process.pid,
+          port: 8080,
+          readyPath,
+          eventsPath,
+          runId: 'run-1',
+          instanceId: 'instance-1'
+        }
+      })
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
 
       if (saved === undefined) {
         Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
       } else process.env.EXTENSION_OUTPUT = saved
+    }
+  })
+
+  it('says the frame is not written when the stream is off', async () => {
+    const saved = process.env.EXTENSION_OUTPUT
+    Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
+    const lines: string[] = []
+    const lifecycle = createLifecycleStream({
+      command: 'dev',
+      browser: 'chromium',
+      distPath: '/proj/dist/chromium',
+      write: (line) => lines.push(line)
+    })
+
+    try {
+      await expect(
+        startBundler(
+          {start: async () => Promise.reject(new Error('watch broke'))},
+          {
+            timeoutMs: 30000,
+            onSlowStart: () => {},
+            onFailure: createStartFailure({
+              metadata: {writeError: () => {}},
+              lifecycle,
+              exitOnError: false
+            })
+          }
+        )
+      ).rejects.toMatchObject({code: 'E_DEV_SERVER_START', framed: false})
+
+      expect(lines).toEqual([])
+    } finally {
+      if (saved !== undefined) process.env.EXTENSION_OUTPUT = saved
     }
   })
 

@@ -38,6 +38,15 @@ export type LifecycleStatus =
   | 'failed'
   | 'stopped'
 
+// A frame with one of these ends the stream: a reader stops at it.
+const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+  'failed',
+  'usage',
+  'load-refused',
+  'browser-exited',
+  'stopped'
+])
+
 const MAX_OUTPUT_CHARS = 2000
 
 // eslint-disable-next-line no-control-regex
@@ -178,7 +187,11 @@ export class LifecycleStream {
     return isLifecycleStreamEnabled()
   }
 
+  // One terminal frame per stream and nothing after it, whichever of a
+  // signal, an exit, a browser exit or a late compile comes second.
   private emit(frame: Envelope<unknown>): Envelope<unknown> | null {
+    if (this.terminalEmitted) return null
+    if (TERMINAL_STATUSES.has(frame.status)) this.terminalEmitted = true
     if (!this.enabled) return null
 
     this.writeLine(`${JSON.stringify(frame)}\n`)
@@ -378,8 +391,6 @@ export class LifecycleStream {
       ...(typeof ready.code === 'string' ? {readyCode: ready.code} : {})
     })
 
-    this.terminalEmitted = true
-
     return this.emit(frame)
   }
 
@@ -388,8 +399,17 @@ export class LifecycleStream {
   // name the failure the contract already carries. Before the starting frame
   // the command layer still owns the failure and prints its own.
   public exited(exitCode: number): Envelope<unknown> | null {
-    if (!this.startingEmitted || this.terminalEmitted || exitCode === 0) {
-      return null
+    if (!this.startingEmitted || this.terminalEmitted) return null
+
+    // A session that ended on its own with nothing wrong still says it ended.
+    if (exitCode === 0) {
+      return this.emit(
+        ENVELOPE.ok(
+          this.options.command,
+          'stopped',
+          this.sessionValue({exitCode})
+        )
+      )
     }
 
     const ready = readReadyContract(this.options.readyPath)
@@ -408,7 +428,6 @@ export class LifecycleStream {
       message: `The dev session ended with exit code ${exitCode}.`
     }) as Envelope<unknown>
     frame.value = this.sessionValue({exitCode})
-    this.terminalEmitted = true
 
     return this.emit(frame)
   }
@@ -461,8 +480,6 @@ export class LifecycleStream {
         : {})
     })
 
-    this.terminalEmitted = true
-
     return this.emit(frame)
   }
 
@@ -472,7 +489,6 @@ export class LifecycleStream {
     if (this.interruptEmitted) return null
 
     this.interruptEmitted = true
-    this.terminalEmitted = true
     const frame = ENVELOPE.fail(this.options.command, 'stopped', {
       code: CODES.E_INTERRUPTED,
       message: `The ${this.options.command} session was interrupted by ${signal}.`
@@ -482,11 +498,6 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
-  // The caller writes the terminal frame itself, so the exit adds none.
-  public endWithoutFrame(): void {
-    this.terminalEmitted = true
-  }
-
   // The dev server never bound: a session-level failure, not a compile one.
   public failed(message: string): Envelope<unknown> | null {
     const frame = ENVELOPE.fail(this.options.command, 'failed', {
@@ -494,7 +505,6 @@ export class LifecycleStream {
       message: stripAnsi(message)
     }) as Envelope<unknown>
     frame.value = this.sessionValue()
-    this.terminalEmitted = true
 
     return this.emit(frame)
   }

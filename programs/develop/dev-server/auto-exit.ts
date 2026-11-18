@@ -8,6 +8,7 @@
 
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
+import {MAX_TIMER_MS} from './start-bundler'
 
 // How long after the auto-exit deadline the default backstop waits.
 const FORCE_KILL_DEFAULT_GRACE_MS = 4000
@@ -16,18 +17,18 @@ const FORCE_KILL_DEFAULT_GRACE_MS = 4000
 // completed one.
 export const FORCE_KILL_EXIT_CODE = 1
 
+// Capped at what a timer holds: past it the timer fires after 1 ms.
 function parseMilliseconds(value: string | number | undefined) {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value > 0 ? value : null
-  }
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? parseInt(value, 10)
+        : Number.NaN
 
-  if (typeof value === 'string') {
-    const parsed = parseInt(value, 10)
-
-    return !Number.isNaN(parsed) && parsed > 0 ? parsed : null
-  }
-
-  return null
+  return Number.isFinite(parsed) && parsed > 0
+    ? Math.min(parsed, MAX_TIMER_MS)
+    : null
 }
 
 export function setupAutoExit(
@@ -66,7 +67,7 @@ export function setupAutoExit(
   // auto-exit deadline stays the shorter knob it always was.
   const forceKillMs =
     parseMilliseconds(forceKillMsRaw) ??
-    autoExitMs + FORCE_KILL_DEFAULT_GRACE_MS
+    Math.min(autoExitMs + FORCE_KILL_DEFAULT_GRACE_MS, MAX_TIMER_MS)
 
   forceKillTimer = setTimeout(() => {
     try {
