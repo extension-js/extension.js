@@ -340,7 +340,29 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
-  it('fails the ready frame when the contract still reports an error', () => {
+  it('keeps a launch that failed terminal, stamped with a code or not', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'browser_launch_failed',
+        message: 'spawn /nowhere/chrome EACCES'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.ready()
+    stream.interrupted('SIGINT')
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual(['failed'])
+    expect(frames[0].error?.code).toBe('E_READY_ERROR_STATUS')
+    expect(frames[0].value?.readyCode).toBe('browser_launch_failed')
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('reports a contract error the session survives without ending the stream', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')
     fs.writeFileSync(
@@ -357,10 +379,23 @@ describe('lifecycle stream transitions', () => {
     stream.ready()
     expect(lines).toHaveLength(1)
     const [frame] = parseFrames(lines)
-    expect(frame.status).toBe('failed')
+    expect(frame.status).toBe('ready-failed')
     expect(frame.ok).toBe(false)
     expect(frame.error?.code).toBe('E_READY_ERROR_STATUS')
     expect(frame.value?.readyCode).toBe('compile_error')
+    expect(frame.value?.pid).toBe(process.pid)
+
+    // The next compile clears the error, and the stream says ready and ends
+    // later as any other does.
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready', port: 8080}))
+    stream.ready()
+    stream.interrupted('SIGINT')
+    expect(parseFrames(lines).map((entry) => entry.status)).toEqual([
+      'ready-failed',
+      'ready',
+      'stopped'
+    ])
+
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
@@ -486,7 +521,7 @@ describe('lifecycle stream transitions', () => {
       }
     ],
     [
-      'the contract reports an error and a signal follows',
+      'the contract reports a launch that failed and a signal follows',
       'failed',
       (stream: ReturnType<typeof makeStream>['stream']) => {
         stream.ready()
@@ -521,7 +556,12 @@ describe('lifecycle stream transitions', () => {
       readyPath,
       JSON.stringify(
         status === 'failed' && _name.startsWith('the contract')
-          ? {status: 'error', code: 'guest_refused', message: 'refused'}
+          ? {
+              status: 'error',
+              code: 'browser_launch_failed',
+              browserLaunchFailedCode: 'E_BROWSER_NOT_FOUND',
+              message: 'no browser'
+            }
           : {status: 'ready', port: 8080}
       )
     )

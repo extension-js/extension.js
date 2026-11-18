@@ -33,6 +33,7 @@ export type LifecycleStatus =
   | 'compile-failed'
   | 'restart-failed'
   | 'ready'
+  | 'ready-failed'
   | 'browser-exited'
   | 'load-refused'
   | 'failed'
@@ -349,7 +350,7 @@ export class LifecycleStream {
 
       this.readyErrorEmitted = true
 
-      return this.contractError(ready, CODES.E_READY_ERROR_STATUS)
+      return this.contractError(ready, CODES.E_READY_ERROR_STATUS, true)
     }
 
     this.readyEmitted = true
@@ -365,18 +366,25 @@ export class LifecycleStream {
   // set, the status every other command gives it.
   private contractError(
     ready: Record<string, unknown>,
-    fallback: ErrorCode
+    fallback: ErrorCode,
+    sessionGoesOn = false
   ): Envelope<unknown> | null {
     const launchCode = stampedLaunchFailureCode(ready)
     // A refused load reads the same here as on start, preview and the verbs.
     const loadRefused = ready.code === 'extension_load_refused'
+    // An error with no browser verdict, read while the session runs: the
+    // next compile may clear it, so the frame ends nothing.
+    const survivable =
+      sessionGoesOn && !loadRefused && ready.code !== 'browser_launch_failed'
     const frame = ENVELOPE.fail(
       this.options.command,
       loadRefused
         ? 'load-refused'
         : launchCode && USAGE_LAUNCH_CODES.has(launchCode)
           ? 'usage'
-          : 'failed',
+          : survivable
+            ? 'ready-failed'
+            : 'failed',
       {
         code: loadRefused
           ? CODES.E_EXTENSION_LOAD_REFUSED
@@ -387,7 +395,11 @@ export class LifecycleStream {
       },
       loadRefused
         ? {hint: 'Fix what the browser names, then run the command again.'}
-        : {}
+        : survivable
+          ? {
+              hint: 'The session keeps running. A later compile that clears the error writes the ready frame.'
+            }
+          : {}
     ) as Envelope<unknown>
     frame.value = this.sessionValue({
       ...(typeof ready.code === 'string' ? {readyCode: ready.code} : {})

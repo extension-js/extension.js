@@ -291,8 +291,12 @@ What is stable and what is not:
   writes a `stopped` frame with `ok: true`. Its `value` describes the session and carries
   `exitCode: 0`. A session stopped by a signal writes `stopped` with `ok: false` and the code
   `E_INTERRUPTED`.
-- A `failed` frame that reports an error on the ready contract also ends the stream. The
-  session can go on compiling, and a later compile that recovers writes no `ready` frame.
+- `ready-failed` is a `dev` status that does not end the stream: a compile finished and the
+  ready contract still reports an error that carries no browser verdict of its own. `ok` is
+  `false`, `error.code` is `E_READY_ERROR_STATUS`, and `value` describes the session and
+  carries `readyCode`, the contract's own id. The session keeps running, and a later compile
+  that clears the error writes `ready`. A launch that failed, a refused load and a browser
+  that exited keep their own statuses (`failed` or `usage`, `load-refused`, `browser-exited`).
 - A host that starts `dev` from the library gets a rejected promise when the dev server cannot
   start. The error carries `session`, the same description a frame's `value` holds, and
   `framed`. `framed` is `true` only when the engine wrote the `failed` frame to the stream, so
