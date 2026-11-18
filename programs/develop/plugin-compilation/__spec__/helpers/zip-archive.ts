@@ -53,7 +53,7 @@ export function writeProject(root: string) {
 export async function zipProject(
   root: string,
   outPath: string,
-  zipData: {zip?: boolean; zipSource?: boolean}
+  zipData: {zip?: boolean; zipSource?: boolean; zipDir?: string}
 ) {
   const {compiler, emitDone} = makeCompiler(root, outPath)
   new ZipPlugin({

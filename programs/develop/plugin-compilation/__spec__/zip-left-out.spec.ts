@@ -7,6 +7,7 @@ import {
   holdsRegistrySecret,
   isDeniedFromSourceZip,
   isOwnArchiveName,
+  leftOutOfExtensionZip,
   leftOutOfSourceByName
 } from '../zip'
 import {
@@ -461,13 +462,15 @@ describe('the source zip rules, read as paths', () => {
   })
 })
 
-describe('what the extension zip packs today beside the build', () => {
+describe('what the extension zip leaves out of the output folder', () => {
   let root: string
   let outPath: string
+  let zipPath: string
 
   beforeEach(() => {
     root = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-left-out-'))
     outPath = path.join(root, 'dist', 'chrome')
+    zipPath = path.join(root, 'dist', 'packed-1.0.0-chrome.zip')
     writeProject(root)
     write(path.join(outPath, 'manifest.json'), BUILT_MANIFEST)
     write(path.join(outPath, 'background.js'), 'BUILT')
@@ -477,29 +480,99 @@ describe('what the extension zip packs today beside the build', () => {
     fs.rmSync(root, {recursive: true, force: true})
   })
 
-  it('packs OS files, env files and old archives found in the output', async () => {
+  const BUILT = ['background.js', 'manifest.json']
+
+  it('leaves out the files an operating system writes, and says nothing', async () => {
     write(path.join(outPath, '.DS_Store'), 'FINDER')
     write(path.join(outPath, 'icons', 'Thumbs.db'), 'THUMBS')
-    write(path.join(outPath, '.env'), `API=${TOKEN}`)
-    write(path.join(outPath, 'packed-0.9.0-chrome.zip'), 'OLD')
-    write(path.join(outPath, 'packed-0.9.0-source.zip'), 'OLD')
+    write(path.join(outPath, 'icons', 'DESKTOP.INI'), 'INI')
+    write(path.join(outPath, 'icons', 'desktop.png'), 'SHIPPED')
 
     const {warnings} = await zipProject(root, outPath, {zip: true})
-    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-chrome.zip'))
+    const packed = readZip(zipPath)
 
     expect(Object.keys(packed).sort()).toEqual(
-      [
-        '.DS_Store',
-        '.env',
-        'background.js',
-        'icons/Thumbs.db',
-        'manifest.json',
-        'packed-0.9.0-chrome.zip',
-        'packed-0.9.0-source.zip'
-      ].sort()
+      [...BUILT, 'icons/desktop.png'].sort()
     )
 
-    expect(packed['.env']).toContain(TOKEN)
     expect(warnings).toEqual([])
+  })
+
+  it('leaves out an env file copied into the output, and lists it', async () => {
+    write(path.join(outPath, '.env'), `API=${TOKEN}`)
+    write(path.join(outPath, 'config', '.env.local'), `API=${TOKEN}`)
+    write(path.join(outPath, 'config', '.ENV.production'), `API=${TOKEN}`)
+    write(path.join(outPath, '.env.example'), 'API=')
+    write(path.join(outPath, 'env.js'), 'SHIPPED')
+
+    const {warnings} = await zipProject(root, outPath, {zip: true})
+    const packed = readZip(zipPath)
+
+    expect(Object.keys(packed).sort()).toEqual(
+      [...BUILT, '.env.example', 'env.js'].sort()
+    )
+
+    expect(everyByteOf(zipPath, packed)).not.toContain(TOKEN)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).not.toContain(TOKEN)
+    expect(warnings[0]).toMatch(
+      /The extension zip left out what is not part of the extension/
+    )
+
+    expect(warnings[0]).toMatch(
+      /ENV FILE\S* \.env, config\/\.ENV\.production, config\/\.env\.local\n/
+    )
+  })
+
+  it('leaves out an archive of an earlier run, and lists it', async () => {
+    write(path.join(outPath, 'packed-0.9.0-chrome.zip'), 'OLD')
+    write(path.join(outPath, 'old', 'packed-0.9.0-source.zip'), 'OLD')
+    write(path.join(outPath, 'assets', 'sample.zip'), 'SHIPPED')
+
+    const {warnings} = await zipProject(root, outPath, {zip: true})
+    const packed = readZip(zipPath)
+
+    expect(Object.keys(packed).sort()).toEqual(
+      [...BUILT, 'assets/sample.zip'].sort()
+    )
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(
+      /OLD ARCHIVE\S* old\/packed-0\.9\.0-source\.zip, packed-0\.9\.0-chrome\.zip\n/
+    )
+  })
+
+  // With the archive folder set to the output, the source zip lands in it.
+  it('skips the source zip of the same run, and says nothing', async () => {
+    const {warnings} = await zipProject(root, outPath, {
+      zip: true,
+      zipSource: true,
+      zipDir: outPath
+    })
+    const packed = readZip(path.join(outPath, 'packed-1.0.0-chrome.zip'))
+
+    expect(fs.existsSync(path.join(outPath, 'packed-1.0.0-source.zip'))).toBe(
+      true
+    )
+
+    expect(Object.keys(packed).sort()).toEqual(BUILT)
+    expect(warnings).toEqual([])
+  })
+
+  it('reads the same rules in either separator style', () => {
+    expect(leftOutOfExtensionZip('icons\\Thumbs.db')).toBe('silent')
+    expect(leftOutOfExtensionZip('icons/.DS_Store')).toBe('silent')
+    expect(leftOutOfExtensionZip('config\\.env.local')).toEqual({
+      reason: 'env',
+      path: 'config/.env.local'
+    })
+
+    expect(leftOutOfExtensionZip('old\\app-1.0.0-edge.zip')).toEqual({
+      reason: 'archive',
+      path: 'old/app-1.0.0-edge.zip'
+    })
+
+    expect(leftOutOfExtensionZip('config\\.env.example')).toBeUndefined()
+    expect(leftOutOfExtensionZip('assets\\sample.zip')).toBeUndefined()
   })
 })

@@ -415,6 +415,21 @@ function leftOutOfSourceByText(
   return PRIVATE_KEY_HEADER.test(text) ? {reason: 'key', path: file} : undefined
 }
 
+// The output folder takes whatever the public folder holds, dotfiles too.
+export function leftOutOfExtensionZip(
+  file: string
+): LeftOut | 'silent' | undefined {
+  const basename = lowerBasename(file)
+
+  if (OS_FILES.has(basename)) return 'silent'
+
+  if (isDeniedEnvFile(basename)) return {reason: 'env', path: toPosix(file)}
+
+  return isOwnArchiveName(file)
+    ? {reason: 'archive', path: toPosix(file)}
+    : undefined
+}
+
 function addLeftOut(list: LeftOut[], entry: LeftOut): void {
   const known = list.some(
     (other) => other.reason === entry.reason && other.path === entry.path
@@ -862,8 +877,29 @@ export class ZipPlugin {
 
             // An output a config points at dist itself, or at the project,
             // has the session folder inside it and not beside it.
-            const built = listFilesUnder(outPath, new Set([toPosix(zipName)]))
+            // Both archives of this run are skipped by name when the archive
+            // folder is the output folder itself.
+            const built = listFilesUnder(
+              outPath,
+              new Set([toPosix(zipName), toPosix(sourceName)])
+            )
             const sessionFolders = findSessionFolders(built, 'output')
+            const leftOut: LeftOut[] = []
+            const shipped = built
+              .filter((file) => !isUnderAny(file, sessionFolders))
+              .filter((file) => {
+                const found = leftOutOfExtensionZip(file)
+
+                if (found && found !== 'silent') leftOut.push(found)
+
+                return !found
+              })
+
+            if (leftOut.length) {
+              stats?.compilation?.warnings?.push(
+                new Error(compilationMessages.zipLeftOut('dist', leftOut))
+              )
+            }
 
             if (sessionFolders.length) {
               stats?.compilation?.warnings?.push(
@@ -880,8 +916,7 @@ export class ZipPlugin {
               distPath,
               // A store zip carries the extension, not its debugging aids: a
               // development-mode build leaves maps in dist for the author.
-              built
-                .filter((file) => !isUnderAny(file, sessionFolders))
+              shipped
                 .filter((file) => !file.endsWith('.map'))
                 .map((file) => ({
                   name: file,
