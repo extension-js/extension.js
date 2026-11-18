@@ -86,6 +86,8 @@ export default function sfcStyleBlockLoader(
   // The component reads an inline block as text and places it itself.
   if (inline) return source
 
+  // The sheets the block imports came in ahead of PostCSS, in the run the
+  // rule of a content script sheet gives every sheet.
   const {css, bundledRequests} = inlineStylesheetUrls(
     this,
     this.mode === 'production' ? dropSourceMapComment(source) : source

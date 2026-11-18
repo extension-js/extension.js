@@ -1,11 +1,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {beforeAll, describe, expect, it} from 'vitest'
 import {listOutput} from '../../../plugin-special-folders/__spec__/helpers/compile-harness'
 import {
   build,
   canLink,
   expectNothingPrivate,
+  expectNoWorkspaceAboveTemp,
   MARKER,
   manifest,
   project
@@ -16,8 +17,8 @@ import {
 // folder holds. Each way a sheet reaches the page is a table of its own.
 
 // A row in one line: the output files besides the worker, each url() an
-// output sheet holds, `MARKED` with the output files that carry a marker as
-// text or inside a data URL, what the build said, and its error count.
+// output sheet holds, what the build said, and its error count. No output
+// file of any row carries a marker, as text or inside a data URL.
 type Table = Record<string, string>
 
 interface Caller {
@@ -27,9 +28,6 @@ interface Caller {
   manifest?: Record<string, unknown>
   // The folder the sheet sits in, which its targets are read from.
   folder?: string
-  // The scripts feature copies the sheet itself and asks before each read.
-  // Left out where another step puts the target in the output today.
-  guarded?: boolean
 }
 
 const MATCHES = ['https://example.com/*']
@@ -38,7 +36,6 @@ const WORKER = {background: {service_worker: 'sw.js'}}
 const CALLERS: Record<string, Caller> = {
   insertCss: {
     name: 'scripting.insertCSS({files})',
-    guarded: true,
     files: (css) => ({
       'injected.css': css,
       'sw.js':
@@ -47,7 +44,6 @@ const CALLERS: Record<string, Caller> = {
   },
   registeredCss: {
     name: 'scripting.registerContentScripts({css})',
-    guarded: true,
     files: (css) => ({
       'injected.css': css,
       'sw.js': `chrome.scripting.registerContentScripts([{id: "a", matches: ${JSON.stringify(MATCHES)}, css: ["injected.css"]}])\n`
@@ -55,7 +51,6 @@ const CALLERS: Record<string, Caller> = {
   },
   updatedCss: {
     name: 'scripting.updateContentScripts({css})',
-    guarded: true,
     files: (css) => ({
       'injected.css': css,
       'sw.js': `chrome.scripting.updateContentScripts([{id: "a", css: ["injected.css"]}])\n`
@@ -63,7 +58,6 @@ const CALLERS: Record<string, Caller> = {
   },
   tabsInsertCss: {
     name: 'tabs.insertCSS({file})',
-    guarded: true,
     files: (css) => ({
       'injected.css': css,
       'sw.js': 'chrome.tabs.insertCSS(1, {file: "injected.css"})\n'
@@ -74,7 +68,6 @@ const CALLERS: Record<string, Caller> = {
   publicSheet: {
     name: 'scripting.insertCSS({files}) of a sheet under public/',
     folder: 'public/',
-    guarded: true,
     files: (css) => ({
       'public/injected.css': css,
       'sw.js':
@@ -82,7 +75,7 @@ const CALLERS: Record<string, Caller> = {
     })
   },
   // The bundler compiles the three below, so the stylesheet plugin is the
-  // one that reads each target. Their marked rows change with its own guard.
+  // one that reads each target. It leaves the address of one it withholds.
   manifestCss: {
     name: 'content_scripts[].css',
     manifest: {
@@ -188,6 +181,13 @@ const SAID: Array<[string, RegExp]> = [
   ]
 ]
 
+// The stylesheet plugin tells a file it withholds the way it tells one that
+// is not there. Both read the terminal text, so each warning counts once.
+const NOT_FOUND =
+  /A url\(([^)]+)\) reference points to a file that exists nowhere in the project\. \(([^)]+)\)/g
+const IMPORT_KEPT_PRIVATE =
+  /IMPORT (\S+)\nREASON The path holds \S+, a name the build keeps private\./g
+
 // A marker a data URL carries, which a search of the text does not find.
 function inlinesMarker(text: string): boolean {
   for (const match of text.matchAll(/base64,([A-Za-z0-9+/=]+)/g)) {
@@ -207,6 +207,7 @@ async function rowFor(caller: Caller, css: string): Promise<string> {
   const result = await build(root)
   const out = listOutput(path.join(root, 'dist', 'chrome'))
   const said = new Set<string>()
+  const told: string[] = []
 
   for (const [kind, pattern] of SAID) {
     for (const match of result.printed.matchAll(pattern)) {
@@ -227,18 +228,26 @@ async function rowFor(caller: Caller, css: string): Promise<string> {
     .map(withoutHash)
     .sort()
 
-  // Whatever the output holds, nothing a private file holds is printed.
-  expectNothingPrivate(result, caller.guarded ? 'everywhere' : 'printed')
+  for (const match of result.printed.matchAll(NOT_FOUND)) {
+    told.push(`not found ${match[1]} in ${match[2]}`)
+  }
 
-  if (caller.guarded) expect(marked).toEqual([])
+  for (const match of result.printed.matchAll(IMPORT_KEPT_PRIVATE)) {
+    told.push(`import kept private ${match[1]}`)
+  }
+
+  // Nothing a private file holds is printed or in the output, by any route.
+  expectNothingPrivate(result)
+  expect(marked).toEqual([])
 
   return [
     result.shipped
       .filter((file) => file !== 'background/service_worker.js')
       .join(' + ') || 'nothing',
     ...(urls.length ? [`url ${urls.join(', ')}`] : []),
-    ...(marked.length ? [`MARKED ${marked.join(', ')}`] : []),
-    ...(said.size ? [`said ${[...said].sort().join(', ')}`] : []),
+    ...(said.size + told.length
+      ? [`said ${[...said, ...told].sort().join(', ')}`]
+      : []),
     ...(result.errors ? [`errors ${result.errors}`] : [])
   ].join(' | ')
 }
@@ -270,7 +279,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -298,7 +307,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -326,7 +335,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -354,7 +363,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -382,7 +391,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./node_modules/pkg/.env',
     '/.env':
-      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url /.env',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url /.env | said not found /.env in injected.css',
     '@import ./.env':
       '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./.env',
     '@font-face ./.git/font.woff2':
@@ -398,23 +407,25 @@ const EXPECTED: Record<string, Table> = {
   },
   manifestCss: {
     './.env':
-      'assets/.env.<hash> + content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/assets/.env.<hash>" | MARKED assets/.env.<hash>',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.env | said not found ./.env in injected.css',
     '"./.env.local"':
-      'assets/.env.<hash>.local + content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/assets/.env.<hash>.local" | MARKED assets/.env.<hash>.local',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.env.local | said not found ./.env.local in injected.css',
     '.npmrc':
-      'assets/.npmrc.<hash> + content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/assets/.npmrc.<hash>" | MARKED assets/.npmrc.<hash>',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url .npmrc | said not found .npmrc in injected.css',
     '../outside.png':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url data:image/png;base64,<data> | MARKED content_scripts/content-0.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ../outside.png | said not found ../outside.png in injected.css',
     './linked.png':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url data:image/png;base64,<data> | MARKED content_scripts/content-0.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./linked.png | said not found ./linked.png in injected.css',
     './node_modules/pkg/.env':
-      'assets/.env.<hash> + content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/assets/.env.<hash>" | MARKED assets/.env.<hash>',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./node_modules/pkg/.env | said not found ./node_modules/pkg/.env in injected.css',
+    // The special folders step reads the emitted sheet and says it again.
     '/.env':
-      'assets/.env.<hash> + content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/assets/.env.<hash>" | MARKED assets/.env.<hash>',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in content_scripts/content-0.css, not found /.env in injected.css',
+    // The bundler drops an @import it does not follow, so the sheet is empty.
     '@import ./.env':
-      'content_scripts/content-0.css + content_scripts/content-0.js | MARKED content_scripts/content-0.js',
+      'content_scripts/content-0.css + content_scripts/content-0.js | said not found ./.env in injected.css',
     '@font-face ./.git/font.woff2':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url data:font/woff2;base64,<data> | MARKED content_scripts/content-0.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.git/font.woff2 | said not found ./.git/font.woff2 in injected.css',
     './logo.png':
       'content_scripts/content-0.css + content_scripts/content-0.js | url data:image/png;base64,<data>',
     './node_modules/pkg/icon.png':
@@ -424,25 +435,26 @@ const EXPECTED: Record<string, Table> = {
     './.env.example':
       'assets/.env.<hash>.example + content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/assets/.env.<hash>.example"'
   },
+  // The sheet rides inside the script, where the address stays as written.
   importedByContentScript: {
     './.env':
-      'assets/.env.<hash> + content_scripts/content-0.js | MARKED assets/.env.<hash>',
+      'content_scripts/content-0.js | said not found ./.env in injected.css',
     '"./.env.local"':
-      'assets/.env.<hash>.local + content_scripts/content-0.js | MARKED assets/.env.<hash>.local',
+      'content_scripts/content-0.js | said not found ./.env.local in injected.css',
     '.npmrc':
-      'assets/.npmrc.<hash> + content_scripts/content-0.js | MARKED assets/.npmrc.<hash>',
+      'content_scripts/content-0.js | said not found .npmrc in injected.css',
     '../outside.png':
-      'content_scripts/content-0.js | MARKED content_scripts/content-0.js',
+      'content_scripts/content-0.js | said not found ../outside.png in injected.css',
     './linked.png':
-      'content_scripts/content-0.js | MARKED content_scripts/content-0.js',
+      'content_scripts/content-0.js | said not found ./linked.png in injected.css',
     './node_modules/pkg/.env':
-      'assets/.env.<hash> + content_scripts/content-0.js | MARKED assets/.env.<hash>',
+      'content_scripts/content-0.js | said not found ./node_modules/pkg/.env in injected.css',
     '/.env':
-      'assets/.env.<hash> + content_scripts/content-0.js | MARKED assets/.env.<hash>',
+      'content_scripts/content-0.js | said not found /.env in injected.css',
     '@import ./.env':
-      'assets/.env.<hash> + content_scripts/content-0.js | MARKED assets/.env.<hash>',
+      'content_scripts/content-0.js | said import kept private ./.env',
     '@font-face ./.git/font.woff2':
-      'content_scripts/content-0.js | MARKED content_scripts/content-0.js',
+      'content_scripts/content-0.js | said not found ./.git/font.woff2 in injected.css',
     './logo.png': 'content_scripts/content-0.js',
     './node_modules/pkg/icon.png': 'content_scripts/content-0.js',
     './linked-in.png': 'content_scripts/content-0.js',
@@ -450,26 +462,30 @@ const EXPECTED: Record<string, Table> = {
       'assets/.env.<hash>.example + content_scripts/content-0.js'
   },
   importedByScriptsFile: {
-    './.env':
-      'assets/.env.<hash> + scripts/tool.js | MARKED assets/.env.<hash>',
+    './.env': 'scripts/tool.js | said not found ./.env in injected.css',
     '"./.env.local"':
-      'assets/.env.<hash>.local + scripts/tool.js | MARKED assets/.env.<hash>.local',
-    '.npmrc':
-      'assets/.npmrc.<hash> + scripts/tool.js | MARKED assets/.npmrc.<hash>',
-    '../outside.png': 'scripts/tool.js | MARKED scripts/tool.js',
-    './linked.png': 'scripts/tool.js | MARKED scripts/tool.js',
+      'scripts/tool.js | said not found ./.env.local in injected.css',
+    '.npmrc': 'scripts/tool.js | said not found .npmrc in injected.css',
+    '../outside.png':
+      'scripts/tool.js | said not found ../outside.png in injected.css',
+    './linked.png':
+      'scripts/tool.js | said not found ./linked.png in injected.css',
     './node_modules/pkg/.env':
-      'assets/.env.<hash> + scripts/tool.js | MARKED assets/.env.<hash>',
-    '/.env': 'assets/.env.<hash> + scripts/tool.js | MARKED assets/.env.<hash>',
-    '@import ./.env':
-      'assets/.env.<hash> + scripts/tool.js | MARKED assets/.env.<hash>',
-    '@font-face ./.git/font.woff2': 'scripts/tool.js | MARKED scripts/tool.js',
+      'scripts/tool.js | said not found ./node_modules/pkg/.env in injected.css',
+    '/.env': 'scripts/tool.js | said not found /.env in injected.css',
+    '@import ./.env': 'scripts/tool.js | said import kept private ./.env',
+    '@font-face ./.git/font.woff2':
+      'scripts/tool.js | said not found ./.git/font.woff2 in injected.css',
     './logo.png': 'scripts/tool.js',
     './node_modules/pkg/icon.png': 'scripts/tool.js',
     './linked-in.png': 'scripts/tool.js',
     './.env.example': 'assets/.env.<hash>.example + scripts/tool.js'
   }
 }
+
+// A row for a file outside the project holds only where no folder above
+// the temp folder is a workspace, which would make that file a shared one.
+beforeAll(expectNoWorkspaceAboveTemp)
 
 describe.skipIf(!canLink).each(Object.keys(CALLERS))('%s', (key) => {
   it(
