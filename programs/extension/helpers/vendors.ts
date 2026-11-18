@@ -73,10 +73,8 @@ export function parseOptionalBoolean(value?: string): boolean {
   return !['false', '0', 'no', 'off'].includes(normalized)
 }
 
-// An empty item stays in the list, so validateVendors refuses it. Dropped, an
-// empty --browser selected no browser and the run did nothing and exited 0.
-// Case is folded and repeats dropped, as install reads names, so Chrome is
-// chrome and chrome,chrome builds once.
+// An empty item stays for validateVendors to refuse (dropped, the run did
+// nothing and exited 0). Case folds and repeats go, as install reads names.
 export const vendors = (browser?: Browser | 'all') => {
   const value = String(browser ?? 'chromium').toLowerCase()
 
