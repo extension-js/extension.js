@@ -5,7 +5,6 @@ inputs:
   node-version:
     description: 'Node.js version to use'
     required: true
-    default: '20'
   install-command:
     description: 'Command to install dependencies'
     required: false
@@ -13,11 +12,8 @@ inputs:
 
 runs:
   using: "composite"
+  # Callers check out first: a local action cannot load before its own checkout.
   steps:
-    - name: Checkout repository
-      if: ${{ env.ACT != 'true' }}
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
     - name: Install pnpm
       uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
       with:

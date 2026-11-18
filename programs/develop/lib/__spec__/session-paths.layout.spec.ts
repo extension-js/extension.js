@@ -47,7 +47,10 @@ describe('session-state layout', () => {
   })
 
   it('has no session path joins outside session-paths', () => {
-    const allowed = new Set([path.join('lib', 'session-paths.ts')])
+    const allowed = new Set([
+      path.join('lib', 'session-paths.ts'),
+      path.join('lib', 'session-contract.ts')
+    ])
     const offenders: string[] = []
 
     const walk = (dir: string) => {

@@ -13,7 +13,7 @@ import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {
-  resolvePackageManagerSpec,
+  declarePackageManager,
   resolveProjectPackageManager,
   type ScaffoldPackageManager,
   type VersionProbe
@@ -186,11 +186,12 @@ export async function overridePackageJson(
 
   const packageManager =
     options.packageManager ?? resolveProjectPackageManager(projectPath)
-  const packageManagerSpec = resolvePackageManagerSpec(
+  const declaration = declarePackageManager(
     projectPath,
     packageManager,
     options.probeVersion
   )
+  const packageManagerSpec = declaration.spec
 
   // Pre-approve dependency build scripts so one install just works on pnpm/bun;
   // native ML builds only approved when the project pulls the transformers stack.
@@ -255,5 +256,13 @@ export async function overridePackageJson(
     )
   } catch (error) {
     throw failStep(messages.writingPackageJsonMetadataError(error), error)
+  }
+
+  // The field is left out only when no version could be learned, and the
+  // file that lacks it is on disk by now, so this is where the create says so.
+  if (declaration.undeclared && packageManager !== 'deno') {
+    logger.log(
+      messages.packageManagerUndeclared(packageManager, declaration.undeclared)
+    )
   }
 }
