@@ -57,7 +57,7 @@ function preview(root: string, entry: string) {
 function refusal(folder: string) {
   return {
     code: 'E_COMPANION_EXTENSION_PATH',
-    message: `Companion extensions must be inside the project.\nPATH ${folder}`
+    message: `Companion extensions must be inside the project.\nInvalid path: ${folder}`
   }
 }
 
@@ -76,6 +76,20 @@ describe('preview --no-browser and where a named companion sits', () => {
     extensionAt(path.join(root, 'extensions', 'my-ext'))
 
     expect((await preview(root, 'extensions/my-ext'))?.warnings).toEqual([])
+  })
+
+  it('takes a folder under node_modules that the user named', async () => {
+    const {root} = builtProject()
+
+    extensionAt(path.join(root, 'node_modules', 'some-ext'))
+
+    expect((await preview(root, 'node_modules/some-ext'))?.warnings).toEqual([])
+  })
+
+  it('refuses the project itself', async () => {
+    const {root} = builtProject()
+
+    await expect(preview(root, './')).rejects.toMatchObject(refusal(root))
   })
 
   it('refuses a relative path that leaves the project', async () => {

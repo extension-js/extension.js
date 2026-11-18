@@ -156,15 +156,19 @@ export function namedCompanionFoldersInsideProject(
   return namedCompanionFolders(config, projectRoot).map((entry) => {
     const folder = path.resolve(projectRoot, entry)
     const fromRoot = path.relative(root, realPath(folder))
+    // The project itself is the extension being run, never its companion.
     const outside =
+      fromRoot === '' ||
       fromRoot === '..' ||
       fromRoot.startsWith(`..${path.sep}`) ||
       path.isAbsolute(fromRoot)
 
     if (outside) {
+      // Word for word what the launch path throws, so both read the same.
       throw codedError(
         CODES.E_COMPANION_EXTENSION_PATH,
-        messages.companionExtensionOutsideProject(folder)
+        'Companion extensions must be inside the project.\n' +
+          `Invalid path: ${folder}`
       )
     }
 
