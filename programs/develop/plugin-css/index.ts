@@ -396,9 +396,32 @@ export class CssPlugin {
     compiler.hooks.normalModuleFactory.tap(
       `${CssPlugin.name}:dead-url`,
       (nmf) => {
-        nmf.hooks.beforeResolve.tap(
+        // Whether the project's resolver places a request no candidate file
+        // stands behind, as a url() and as an @import, aliases included.
+        const resolvesAnyway = (issuerDir: string, raw: string) =>
+          Promise.all(
+            ['url', 'css-import'].map(
+              (dependencyType) =>
+                new Promise<boolean>((resolve) => {
+                  nmf.getResolver('normal', {dependencyType}).resolve(
+                    {},
+                    issuerDir,
+                    raw,
+                    {
+                      missingDependencies: {
+                        add: (file) =>
+                          compilation?.missingDependencies.add(file)
+                      }
+                    },
+                    (error, result) => resolve(!error && Boolean(result))
+                  )
+                })
+            )
+          ).then((answers) => answers.every(Boolean))
+
+        nmf.hooks.beforeResolve.tapPromise(
           `${CssPlugin.name}:dead-url`,
-          (data: {
+          async (data: {
             contextInfo?: {issuer?: unknown}
             context?: unknown
             request?: unknown
@@ -431,6 +454,10 @@ export class CssPlugin {
             ) {
               return
             }
+
+            // An alias can place a name no candidate holds. The file it leads
+            // to is then checked once resolved, like any other.
+            if (!found && (await resolvesAnyway(issuerDir, raw))) return
 
             // Cancelled before rspack resolves it, so nothing watches for the
             // file. Watch every place it could appear, or a later write is lost.

@@ -1,10 +1,15 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {workspacePackage} from '../../__spec__/helpers/workspace-package'
 import {cssProjects, expectNoWorkspaceAbove} from './helpers/css-project'
 
 const makeProject = cssProjects()
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 // Windows makes no link without a setting most machines lack.
 const LINKS = process.platform !== 'win32'
 
@@ -525,4 +530,133 @@ describe('a url() that names a file the build withholds, built', () => {
     },
     120_000
   )
+})
+
+// A name with no file beside the sheet or in public/ is the resolver's to
+// place, and an alias of the project's config can. What it leads to is
+// checked like any other file.
+describe('a page sheet url() an alias places, built', () => {
+  const ALIASES = [
+    "const path = require('path')",
+    'module.exports = {',
+    '  config: (config) => {',
+    '    config.resolve.alias = {',
+    '      ...config.resolve.alias,',
+    "      aliased: path.join(__dirname, 'src/art'),",
+    "      hidden: path.join(__dirname, 'src/.git'),",
+    "      away: path.join(__dirname, '../shared')",
+    '    }',
+    '    return config',
+    '  }',
+    '}',
+    ''
+  ].join('\n')
+
+  function aliasProject(css: string) {
+    const root = makeProject({
+      'app/package.json': JSON.stringify({
+        private: true,
+        name: 'aliased',
+        version: '0.0.0'
+      }),
+      'app/manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'aliased',
+        version: '1.0.0',
+        action: {default_popup: 'popup/index.html'}
+      }),
+      'app/extension.config.js': ALIASES,
+      'app/popup/index.html':
+        '<!doctype html><link rel="stylesheet" href="./styles.css"><p>x</p>\n',
+      'app/popup/styles.css': `${css}\n`,
+      'app/src/art/logo.png': 'ALLOWED_ALIAS_LOGO\n',
+      'app/src/.git/logo.png': 'MARKER_ALIAS_HIDDEN\n',
+      'app/node_modules/pkg/package.json': JSON.stringify({
+        name: 'pkg',
+        version: '1.0.0'
+      }),
+      'app/node_modules/pkg/img.png': 'ALLOWED_PACKAGE_LOGO\n',
+      'shared/logo.png': 'MARKER_ALIAS_OUTSIDE\n'
+    })
+    const app = path.join(root, 'app')
+
+    expectNoWorkspaceAbove(app)
+
+    return app
+  }
+
+  const ships = (shipped: string, text: string) =>
+    shipped.includes(text) || shipped.includes(inlined(text))
+
+  it.each([
+    ['an alias to an image inside', 'aliased/logo.png', 'ALLOWED_ALIAS_LOGO'],
+    ['an installed package', 'pkg/img.png', 'ALLOWED_PACKAGE_LOGO']
+  ])(
+    'a bare name %s places ships with no warning',
+    async (_l, name, text) => {
+      const app = aliasProject(`.a{background:url(${name})}`)
+      const summary = await build(app)
+      const {shipped} = readDist(app)
+
+      expect(summary.errors_count).toBe(0)
+      expect(ships(shipped, text)).toBe(true)
+      expect(deadRefRequests(summary.warnings)).toEqual([])
+    },
+    120_000
+  )
+
+  it.each([
+    ['a private folder', 'hidden/logo.png', 'MARKER_ALIAS_HIDDEN'],
+    ['outside the project', 'away/logo.png', 'MARKER_ALIAS_OUTSIDE']
+  ])(
+    'an alias to %s ships nothing and warns',
+    async (_l, name, marker) => {
+      const app = aliasProject(`.a{background:url(${name})}`)
+      const summary = await build(app)
+      const {shipped} = readDist(app)
+
+      expect(summary.errors_count).toBe(0)
+      expect(ships(shipped, marker)).toBe(false)
+      expect(shipped).toContain(`url(${name})`)
+      expect(deadRefRequests(summary.warnings)).toEqual([name])
+    },
+    120_000
+  )
+
+  it('a bare name nothing places warns once and the build passes', async () => {
+    const app = aliasProject(
+      '.a{background:url(nowhere/logo.png)}\n.b{background:url(nowhere/logo.png)}'
+    )
+    const summary = await build(app)
+
+    expect(summary.errors_count).toBe(0)
+    expect(deadRefRequests(summary.warnings)).toEqual(['nowhere/logo.png'])
+  }, 120_000)
+
+  it('strict refs makes a bare name nothing places an error', async () => {
+    vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
+
+    const app = aliasProject('.a{background:url(nowhere/logo.png)}')
+    const failure = (await build(app).catch((error) => error)) as {
+      diagnostics?: Array<{severity: string; name?: string; message: string}>
+    }
+    const errors = (failure.diagnostics ?? []).filter(
+      (diagnostic) => diagnostic.severity === 'error'
+    )
+
+    expect(errors.map((error) => error.message.split('\n')[0])).toEqual([
+      expect.stringContaining('url(nowhere/logo.png)')
+    ])
+  }, 120_000)
+
+  it('strict refs leaves a name an alias places alone', async () => {
+    vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
+
+    const app = aliasProject('.a{background:url(aliased/logo.png)}')
+    const summary = await build(app)
+    const {shipped} = readDist(app)
+
+    expect(summary.errors_count).toBe(0)
+    expect(ships(shipped, 'ALLOWED_ALIAS_LOGO')).toBe(true)
+  }, 120_000)
 })
