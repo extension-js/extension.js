@@ -169,22 +169,9 @@ describe('a root-absolute path that names a file outside public/', () => {
         })
       )
 
-      // The bundler ships these, not the special folders plugin: two of a
-      // name are the project's file and the one inside a package.
-      const marked = [
-        'assets/.env.<hash>',
-        'assets/.env.<hash>',
-        'assets/.env.<hash>.local',
-        'assets/.envrc.<hash>',
-        'assets/.npmrc.<hash>',
-        'assets/.npmrc.<hash>',
-        'assets/config.<hash>',
-        // The two package links that lead out of the project.
-        ...(canLink
-          ? ['assets/data.<hash>.json', 'assets/data.<hash>.json']
-          : []),
-        'assets/package.<hash>.json'
-      ]
+      // The CSS plugin withholds private names and files outside the
+      // project. The bundler still ships package.json.
+      const marked = ['assets/package.<hash>.json']
 
       expect(result.shipped).toEqual(
         [
@@ -197,7 +184,16 @@ describe('a root-absolute path that names a file outside public/', () => {
 
       expect(result.marked).toEqual(marked)
 
-      expect(result.missing).toEqual(['/nothing.txt'])
+      // A file it withholds is told the way a missing one is.
+      expect(result.missing).toEqual(
+        [
+          ...PRIVATE_TARGETS,
+          ...CLIMBING_TARGETS,
+          ...LINKED_TARGETS,
+          '/nothing.txt'
+        ].sort()
+      )
+
       expect(result.errors).toBe(0)
       expectNothingPrivate(result, 'printed')
     },

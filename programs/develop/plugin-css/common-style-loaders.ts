@@ -25,6 +25,18 @@ export interface StyleLoaderOptions {
   postCss?: PostCssRuleReader
   // Hears a setup failure the build survives, to say it once per compiler.
   warn?: (message: string) => void
+  // Runs on what the preprocessor wrote, ahead of PostCSS.
+  afterPreprocessor?: {loader: string; options?: Record<string, unknown>}
+}
+
+// Whether any rule of this project asks PostCSS what to do with a sheet.
+export function usesStyleTools(projectPath: string): boolean {
+  return (
+    isUsingPostCss(projectPath) ||
+    isUsingTailwind(projectPath) ||
+    isUsingSass(projectPath) ||
+    isUsingLess(projectPath)
+  )
 }
 
 export async function commonStyleLoaders(
@@ -33,12 +45,7 @@ export async function commonStyleLoaders(
 ): Promise<RuleSetRule['use']> {
   const styleLoaders: RuleSetRule['use'] = []
 
-  if (
-    isUsingPostCss(projectPath) ||
-    isUsingTailwind(projectPath) ||
-    isUsingSass(projectPath) ||
-    isUsingLess(projectPath)
-  ) {
+  if (usesStyleTools(projectPath)) {
     const readPostCss = opts.postCss ?? maybeUsePostCss
     const maybeInstallPostCss = await readPostCss(projectPath, opts)
 
@@ -54,6 +61,8 @@ export async function commonStyleLoaders(
       })
     }
   }
+
+  if (opts.afterPreprocessor) styleLoaders.push(opts.afterPreprocessor)
 
   if (opts.loader) {
     styleLoaders.push({

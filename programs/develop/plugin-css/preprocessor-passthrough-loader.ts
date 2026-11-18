@@ -10,9 +10,15 @@ import * as path from 'node:path'
 import {toProjectRelativePath} from '../lib/resource-path'
 import * as messages from './css-lib/messages'
 
+export interface PreprocessorPassthroughLoaderOptions {
+  // The install command for a tool, in the project's package manager.
+  install: (tool: 'sass' | 'less') => string
+}
+
 interface PreprocessorPassthroughLoaderContext {
   resourcePath: string
   rootContext?: string
+  getOptions(): PreprocessorPassthroughLoaderOptions
   emitWarning(warning: Error): void
 }
 
@@ -27,7 +33,8 @@ export default function preprocessorPassthroughLoader(
       new Error(
         messages.preprocessorShippedUncompiled(
           toProjectRelativePath(this.rootContext, this.resourcePath),
-          tool
+          tool,
+          this.getOptions().install(tool)
         )
       ),
       {name: 'CssPreprocessorMissing'}
