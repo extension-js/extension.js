@@ -11,6 +11,7 @@ import {
   type WaitCommand
 } from '../commands/dev-wait'
 import {CODES} from '../helpers/messaging'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
@@ -38,7 +39,7 @@ function fakeClock(onSleep: (now: number) => void = () => {}) {
 }
 
 // An older bridge with no path exports, so the contract sits under dist.
-const loadBridge = async () => ({})
+const loadBridge = async () => bridgeStandIn({})
 
 function readyPathIn(project: string, browser = 'chromium'): string {
   return path.join(project, 'dist', 'extension-js', browser, 'ready.json')

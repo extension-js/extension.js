@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
-  type AnyDevelopModule,
   type DevelopFor,
   loadExtensionDevelopModule
 } from './extension-develop-runtime'
@@ -17,7 +16,7 @@ import {
 export async function resolveConfigBrowser(
   projectPath: string,
   command: 'dev' | 'build' | 'start' | 'preview',
-  loadDevelop: () => Promise<AnyDevelopModule> = loadExtensionDevelopModule
+  loadDevelop: () => Promise<DevelopFor> = loadExtensionDevelopModule
 ): Promise<string | undefined> {
   try {
     const develop: DevelopFor = await loadDevelop()

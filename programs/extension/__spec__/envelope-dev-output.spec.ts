@@ -16,6 +16,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn} from './helpers/engine-stand-ins'
 
 const extensionDev = vi.fn(async () => {})
 // The one call that sends a failure row, so a spec can read what would travel.
@@ -47,7 +48,7 @@ function run(argv: string[]) {
   return runCli(
     makeProgram((program) =>
       registerDevCommand(program, {
-        loadDevelop: async () => ({extensionDev}),
+        loadDevelop: async () => developStandIn({extensionDev}),
         launcher: vi.fn(async () => {}) as never,
         safariPreflight: () => null,
         waitForReady: (input) => runWaitMode(input) as never,

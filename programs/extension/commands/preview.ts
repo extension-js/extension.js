@@ -26,8 +26,8 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {
   type DevelopBrowser,
+  type DevelopModule,
   type DevelopPreviewLauncher,
-  type AnyDevelopModule,
   type DevelopPreviewModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
@@ -124,8 +124,8 @@ export const PREVIEW_NOT_FOUND_NEEDLES = [
 
 // What the action reaches outside this file. Production takes every default.
 interface PreviewCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
-  loadPreview?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
+  loadPreview?: () => Promise<DevelopPreviewModule>
   runBrowser?: typeof runOnlyPreviewBrowser
   noteBrowsers?: typeof noteRunBrowsers
 }

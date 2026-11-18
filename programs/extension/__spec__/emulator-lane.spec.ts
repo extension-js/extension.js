@@ -36,36 +36,38 @@ import {
   validateVendors
 } from '../helpers/vendors'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
-const loadBridge = async () => ({
-  ...(await import('../../develop/dev-server/control-bridge/log-rule')),
-  readReadyContractDocument: () => bridge.document,
-  readReadyContract: () =>
-    bridge.document
-      ? {controlPort: 9123, instanceId: 'inst-1', runId: 'run-1'}
-      : null,
-  readControlToken: () => null,
-  readPersistedControlPort: () => 9123,
-  controlPortFilePath: (p: string, b: string) => `${p}/${b}`,
-  BridgeController: class {
-    constructor() {
-      bridge.controllers++
+const loadBridge = async () =>
+  bridgeStandIn({
+    ...(await import('../../develop/dev-server/control-bridge/log-rule')),
+    readReadyContractDocument: () => bridge.document,
+    readReadyContract: () =>
+      bridge.document
+        ? {controlPort: 9123, instanceId: 'inst-1', runId: 'run-1'}
+        : null,
+    readControlToken: () => null,
+    readPersistedControlPort: () => 9123,
+    controlPortFilePath: (p: string, b: string) => `${p}/${b}`,
+    BridgeController: class {
+      constructor() {
+        bridge.controllers++
+      }
+      async connect() {
+        return {}
+      }
+      async command() {
+        return {ok: true}
+      }
+      close() {}
+    },
+    BridgeConsumer: class {
+      start() {
+        bridge.controllers++
+      }
+      close() {}
     }
-    async connect() {
-      return {}
-    }
-    async command() {
-      return {ok: true}
-    }
-    close() {}
-  },
-  BridgeConsumer: class {
-    start() {
-      bridge.controllers++
-    }
-    close() {}
-  }
-})
+  })
 
 const VIEWER_URL =
   'https://browsers.extension.land/chromium/#files=http%3A%2F%2F127.0.0.1%3A8080%2F__extjs-emulator%2Ffiles.json&instance=inst-1&v=1'

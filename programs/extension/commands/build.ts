@@ -21,8 +21,8 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type DevelopBrowser,
-  type AnyDevelopModule,
   type DevelopFor,
+  type DevelopModule,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -101,7 +101,7 @@ function failAndExit(
 
 // What the action reaches outside this file. Production takes every default.
 interface BuildCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
   safariPreflight?: typeof safariBuildPreflight
   createPackager?: typeof createSafariPackager
   noteBrowsers?: typeof noteRunBrowsers

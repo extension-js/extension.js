@@ -11,7 +11,7 @@ import {
   isPidAlive,
   pidStartedAtMs
 } from '../browsers/browsers-lib/resolve-live-pid'
-import type {AnyDevelopModule} from './extension-develop-runtime'
+import type {DevelopBridge} from './extension-develop-runtime'
 import {otherSessionBrowsers} from './session-project-path'
 
 // The fields of a ready contract that say whether its session still runs.
@@ -144,7 +144,7 @@ export async function isSessionRunning(
 
 // The other browsers of this project whose session can be dialed right now.
 export async function runningSessionBrowsers(
-  bridge: AnyDevelopModule,
+  bridge: Partial<DevelopBridge> | undefined,
   projectPath: string,
   browser: string,
   readContract: (

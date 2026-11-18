@@ -18,14 +18,16 @@ import {readScriptHeader} from '../browsers/run-safari/safari-ui/scripts'
 import {registerSafariCommand} from '../commands/safari'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 import {trackTempFolders} from './helpers/temp-folders'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
 const makeTempFolder = trackTempFolders()
 const BUTTON_ID = 'WebExtension-dev.extensionjs.My-Ext.Extension (UNSIGNED)'
 
-const loadBridge = async () => ({
-  readReadyContract: () => null,
-  resolveSessionProjectRoot: (input: string) => input
-})
+const loadBridge = async () =>
+  bridgeStandIn({
+    readReadyContract: () => null,
+    resolveSessionProjectRoot: (input: string) => input
+  })
 
 let errorSpy: MockInstance<typeof console.error>
 let written: string[]

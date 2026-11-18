@@ -28,6 +28,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn, previewStandIn} from './helpers/engine-stand-ins'
 
 const extensionBuild = vi.fn(async (_path: string, _options: unknown) => {})
 const extensionDev = vi.fn(async (_path: string, _options: unknown) => {})
@@ -40,12 +41,13 @@ const waitForReady = vi.fn(async () => {
   throw new Error('this spec never waits')
 })
 
-const loadDevelop = async () => ({
-  extensionBuild,
-  extensionDev,
-  loadCommandConfig
-})
-const loadPreview = async () => ({extensionPreview})
+const loadDevelop = async () =>
+  developStandIn({
+    extensionBuild,
+    extensionDev,
+    loadCommandConfig
+  })
+const loadPreview = async () => previewStandIn({extensionPreview})
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>

@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
-  type AnyDevelopModule,
   type DevelopFor,
   loadExtensionDevelopModule
 } from './extension-develop-runtime'
@@ -28,7 +27,7 @@ export const NO_OPEN_FLAG_DESCRIPTION =
 export async function resolveNoBrowser(
   projectPath: string,
   command: 'dev' | 'start' | 'preview',
-  loadDevelop: () => Promise<AnyDevelopModule> = loadExtensionDevelopModule
+  loadDevelop: () => Promise<DevelopFor> = loadExtensionDevelopModule
 ): Promise<boolean> {
   if (process.env.EXTENSION_CLI_NO_BROWSER === '1') return true
 

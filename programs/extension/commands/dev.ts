@@ -32,9 +32,8 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type DevelopBrowser,
-  type DevelopLauncher,
-  type AnyDevelopModule,
   type DevelopFor,
+  type DevelopLauncher,
   type DevelopModule,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'
@@ -161,7 +160,7 @@ function resolveRequestedPort(value: unknown): number {
 
 // What the action reaches outside this file. Production takes every default.
 interface DevCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
   launcher?: typeof launchBrowser
   safariPreflight?: typeof safariPreflightError
   armParentWatchdog?: typeof setupParentWatchdog
