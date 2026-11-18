@@ -18,6 +18,8 @@ const TIMEOUT = 120_000
 const WITHHELD = [
   '.env',
   '/.env.local',
+  '.npmrc',
+  '/.npmrc',
   '.git/config',
   'node_modules/pkg/.env',
   '../outside.txt',

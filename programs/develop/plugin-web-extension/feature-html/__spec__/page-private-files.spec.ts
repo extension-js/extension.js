@@ -189,6 +189,51 @@ describe('a page that names a file the build never copies', () => {
   )
 
   it(
+    'leaves out an env name with an image ending, at the root and below',
+    async () => {
+      const {root} = makeProject({
+        '.env.png': `PRIVATE_KEY=${MARKER}-env-png\n`,
+        'sub/.env.png': `PRIVATE_KEY=${MARKER}-sub-env-png\n`,
+        'public/sub/.env.png': `PRIVATE_KEY=${MARKER}-public-env-png\n`,
+        'popup.html': page({
+          body: '<img src="/sub/.env.png"><img src="/.env.png">'
+        })
+      })
+      const result = await build(root)
+
+      expect(result.marked).toEqual([])
+      expect(result.shipped).toEqual(PUBLIC_OUTPUT)
+      expect(result.missing).toEqual(['/.env.png', '/sub/.env.png'])
+      expect(notFoundPaths(result.printed)).toEqual([
+        path.join(root, '.env.png'),
+        path.join(root, 'sub/.env.png')
+      ])
+
+      expect(result.errors).toBe(0)
+      expectNothingPrivate(result)
+    },
+    TIMEOUT
+  )
+
+  it(
+    'names an env name with an image ending with its leading dot',
+    async () => {
+      const {root} = makeProject({
+        'popup.html': page({body: '<img src="/.env.png">'})
+      })
+      const result = await build(root)
+
+      expect(result.missing).toEqual(['/.env.png'])
+      expect(notFoundPaths(result.printed)).toEqual([
+        path.join(root, '.env.png')
+      ])
+
+      expect(result.marked).toEqual([])
+    },
+    TIMEOUT
+  )
+
+  it(
     'leaves out the same name in public/ and says so',
     async () => {
       const {root} = makeProject({
