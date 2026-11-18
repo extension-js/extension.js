@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import {type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
+import {CODES, type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
 import {TELEMETRY_DOCS_URL} from './telemetry'
 import {
   BUNDLED_TEMPLATES,
@@ -388,6 +388,19 @@ export function localDevelopVersionDiffers(
   )
 }
 
+// A catalog code other than E_INTERNAL names a refusal the user can act on,
+// so its stack only helps a maintainer, who asks for it with EXTENSION_DEBUG.
+function isKnownRefusal(err: Error): boolean {
+  const code = (err as {code?: unknown}).code
+
+  return (
+    typeof code === 'string' &&
+    code !== CODES.E_INTERNAL &&
+    Object.prototype.hasOwnProperty.call(CODES, code) &&
+    process.env.EXTENSION_DEBUG !== '1'
+  )
+}
+
 export function unhandledError(err: unknown) {
   const rendered = err instanceof Error ? err.message : ''
 
@@ -397,7 +410,7 @@ export function unhandledError(err: unknown) {
 
   const message =
     err instanceof Error
-      ? err.stack || err.message
+      ? (isKnownRefusal(err) ? '' : err.stack) || err.message
       : typeof err === 'string'
         ? err
         : err === undefined || err === null
