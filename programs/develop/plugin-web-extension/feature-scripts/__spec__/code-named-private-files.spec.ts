@@ -1,5 +1,4 @@
-import fsModule from 'node:fs'
-import * as fs from 'node:fs'
+import fsModule, * as fs from 'node:fs'
 import {syncBuiltinESMExports} from 'node:module'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'

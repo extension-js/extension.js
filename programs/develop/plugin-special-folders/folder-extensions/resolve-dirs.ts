@@ -8,6 +8,10 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {recordCodedWarning} from '../../lib/coded-warnings'
+import {CODES} from '../../lib/messaging'
+import {isInsidePath, isSamePath} from '../../lib/real-path'
+import {scannedCompanionOutsideProject} from '../messages'
 import type {CompanionExtensionsConfig} from './types'
 import {
   companionFolderMatchesBrowser,
@@ -17,10 +21,6 @@ import {
   normalizeCompanionConfig,
   toAbs
 } from './utils'
-import {isInsidePath, isSamePath} from '../../lib/real-path'
-import {recordCodedWarning} from '../../lib/coded-warnings'
-import {CODES} from '../../lib/messaging'
-import {scannedCompanionOutsideProject} from '../messages'
 
 // Resolve companion extension directories that should be loaded by the browser runner.
 // We assume each directory is already an unpacked extension root
