@@ -309,7 +309,11 @@ What is stable and what is not:
     error writes `ready`.
   - the browser launch failed. `error.code` is the code the launcher stamped, or
     `E_BROWSER_LAUNCH` when it stamped none, and the hint says the next compile tries the
-    launch again. Each launch that fails again writes one more `ready-failed` frame.
+    launch again. Each launch that fails again writes one more `ready-failed` frame. A launch
+    refused over a value you set is not this case: a binary pin that is missing or not
+    executable, a Chromium-based or Gecko-based run with no binary, or system profile mode on a
+    Gecko browser writes one `usage` frame and ends the session with exit code 1, since no
+    compile changes the value.
 
   In both, `ok` is `false`, `value` describes the session and carries `readyCode`, the
   contract's own id, and the session keeps running.
