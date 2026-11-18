@@ -8,6 +8,7 @@
 
 import {
   type AnyDevelopModule,
+  type DevelopFor,
   loadExtensionDevelopModule
 } from './extension-develop-runtime'
 
@@ -19,12 +20,7 @@ export async function resolveConfigBrowser(
   loadDevelop: () => Promise<AnyDevelopModule> = loadExtensionDevelopModule
 ): Promise<string | undefined> {
   try {
-    const develop: {
-      loadCommandConfig?: (
-        p: string,
-        c: 'dev' | 'build' | 'start' | 'preview'
-      ) => Promise<unknown>
-    } = await loadDevelop()
+    const develop: DevelopFor = await loadDevelop()
     if (typeof develop.loadCommandConfig !== 'function') return undefined
 
     const config = await develop.loadCommandConfig(projectPath, command)

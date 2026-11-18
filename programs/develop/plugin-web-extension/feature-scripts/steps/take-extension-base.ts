@@ -72,7 +72,6 @@ export class TakeExtensionBase {
     // Chromium names the extension on a MAIN world stack and Safari has no
     // page window to publish on, so their files ship as they were built.
     if (!gecko) return
-    if (!compiler?.hooks?.thisCompilation?.tap) return
 
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
