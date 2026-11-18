@@ -98,8 +98,8 @@ export class UpdateManifest {
       const js = contentObj.js ?? []
 
       if (css.length && !js.length) {
-        // The group's entry always emits a JS chunk named after the canonical group
-        // index, which can differ from array position; read it back from the css path.
+        // In development the group's entry holds a script named after the canonical
+        // group index, which can differ from array position: read it from the css path.
         const canonicalIndex =
           parseCanonicalContentScriptAsset(css[0])?.index ?? index
         contentObj.js = [getCanonicalContentScriptJsAssetName(canonicalIndex)]

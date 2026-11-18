@@ -7,7 +7,7 @@
     {
       "check": "peer-rspack",
       "status": "pass",
-      "detail": "every direct dependency with an @rspack/core peer range accepts the engine's 2.2.3"
+      "detail": "every direct dependency with an @rspack/core peer range accepts the engine's 2.3.3"
     },
     {
       "check": "ready-contract",
