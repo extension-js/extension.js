@@ -358,12 +358,26 @@ const settledLaunches = new Set<string>()
 // so the other session is noticed twice and told of once.
 const devOverDevWarnedByMetadataDir = new Set<string>()
 
+// The targets a dev session of this process holds, from its first stamp to
+// its release. Restarts and the dev server's own writer join the same one.
+const liveDevSessionDirs = new Set<string>()
+
+export function isDevSessionLiveInThisProcess(
+  packageJsonDir: string,
+  browser: string
+): boolean {
+  return liveDevSessionDirs.has(
+    path.resolve(getPlaywrightMetadataDir(packageJsonDir, browser))
+  )
+}
+
 // A host that outlives a session starts the next one in the same process,
 // and that one is a new run: its own id, its own launch, its own notices.
 export function forgetSessionRun(packageJsonDir: string, browser: string) {
   const metadataDir = getPlaywrightMetadataDir(packageJsonDir, browser)
   const readyPath = asAbsolute(readyContractPath(packageJsonDir, browser))
 
+  liveDevSessionDirs.delete(path.resolve(metadataDir))
   runIdByMetadataDir.delete(metadataDir)
   devOverDevWarnedByMetadataDir.delete(metadataDir)
 
@@ -549,26 +563,48 @@ export interface LiveDevSessionOwner {
   distPath?: string
 }
 
+function isPidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+// The session that owns a target, this process's own included: a library
+// host must not start a second session over one it still runs.
 export function detectLiveDevSessionOwner(
   readyPath: string,
-  isAlive: (pid: number) => boolean = (pid) => {
-    try {
-      process.kill(pid, 0)
+  isAlive: (pid: number) => boolean = isPidAlive
+): LiveDevSessionOwner | null {
+  return readLiveDevSessionOwner(readyPath, isAlive, true)
+}
 
-      return true
-    } catch {
-      return false
-    }
-  }
+function readLiveDevSessionOwner(
+  readyPath: string,
+  isAlive: (pid: number) => boolean,
+  countThisProcess: boolean
 ): LiveDevSessionOwner | null {
   try {
     if (!fs.existsSync(readyPath)) return null
 
     const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (prev?.command !== 'dev') return null
-    if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
-    if (prev.status !== 'ready' && prev.status !== 'starting') return null
-    if (!isAlive(prev.pid)) return null
+    if (typeof prev.pid !== 'number') return null
+
+    if (prev.pid === process.pid) {
+      // Its own session is live until released, whatever status it stamped.
+      const ownLive =
+        countThisProcess &&
+        liveDevSessionDirs.has(path.resolve(path.dirname(readyPath)))
+
+      if (!ownLive) return null
+    } else {
+      if (prev.status !== 'ready' && prev.status !== 'starting') return null
+      if (!isAlive(prev.pid)) return null
+    }
 
     return {
       pid: prev.pid as number,
@@ -617,7 +653,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     return null
   }
 
-  const liveOwner = detectLiveDevSessionOwner(readyPath)
+  // The writers of one session, a restart's included, are never each other's
+  // owner, so this process's own session is left out here.
+  const liveOwner = readLiveDevSessionOwner(readyPath, isPidAlive, false)
 
   // A second command against a project owned by a LIVE dev session must never
   // rewrite that session's contracts; detect the owner once and no-op writes.
@@ -1193,6 +1231,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       openedEpoch = (writerEpochByMetadataDir.get(metadataDir) || 0) + 1
       writerEpochByMetadataDir.set(metadataDir, openedEpoch)
       ensureDirSync(metadataDir)
+
+      // From here the target is this session's, until forgetSessionRun.
+      if (options.command === 'dev') {
+        liveDevSessionDirs.add(path.resolve(metadataDir))
+      }
 
       // A new run resets the timeline so prior-run entries don't interleave;
       // a restart reopens the run on disk and keeps appending to it.

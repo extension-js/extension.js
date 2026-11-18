@@ -3,10 +3,15 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {detectLiveDevSessionOwner, forgetSessionRun} from '../index'
+import {
+  detectLiveDevSessionOwner,
+  forgetSessionRun,
+  isDevSessionLiveInThisProcess
+} from '../index'
 import {
   contractPath,
   makeWriter,
+  patchContract,
   readContract,
   stampReadyExtensionLoadRefused
 } from './helpers/contract'
@@ -362,12 +367,70 @@ describe('a dev session of this same process', () => {
     return {devServer, plugin}
   }
 
-  it('is no owner, so a second session for the same target is let in', () => {
+  it('owns its target, so the dev server refuses a second session there', () => {
+    const projectDir = makeTempFolder('extjs-owner-')
+    const isAlive = vi.fn(() => true)
+    openSession(projectDir)
+    const {runId} = readContract(contractPath(projectDir))
+
+    expect(
+      detectLiveDevSessionOwner(contractPath(projectDir), isAlive)
+    ).toEqual({
+      pid: process.pid,
+      port: null,
+      runId,
+      instanceId: undefined,
+      instanceExplicit: false,
+      distPath: path.join(projectDir, 'dist', 'chromium')
+    })
+
+    // Its own pid is never probed with a signal.
+    expect(isAlive).not.toHaveBeenCalled()
+    expect(isDevSessionLiveInThisProcess(projectDir, 'chromium')).toBe(true)
+
+    forgetSessionRun(projectDir, 'chromium')
+  })
+
+  it.each([
+    'error',
+    'stopped'
+  ])('owns its target until released, with %s stamped', (status) => {
     const projectDir = makeTempFolder('extjs-owner-')
     openSession(projectDir)
+    patchContract(contractPath(projectDir), {status})
 
-    expect(readContract(contractPath(projectDir)).pid).toBe(process.pid)
-    expect(detectLiveDevSessionOwner(contractPath(projectDir))).toBeNull()
+    expect(detectLiveDevSessionOwner(contractPath(projectDir))).not.toBeNull()
+
+    forgetSessionRun(projectDir, 'chromium')
+  })
+
+  it('owns no other browser of the same project', () => {
+    const projectDir = makeTempFolder('extjs-owner-')
+    openSession(projectDir)
+    openSession(projectDir, 'firefox')
+    forgetSessionRun(projectDir, 'firefox')
+
+    expect(
+      detectLiveDevSessionOwner(contractPath(projectDir, 'firefox'))
+    ).toBeNull()
+
+    expect(detectLiveDevSessionOwner(contractPath(projectDir))).not.toBeNull()
+
+    forgetSessionRun(projectDir, 'chromium')
+  })
+
+  it('claims nothing while only the dev server writer is open', () => {
+    // The first session checks for an owner before its compiler stamps.
+    const projectDir = makeTempFolder('extjs-owner-')
+    const readyPath = writeLiveSession(projectDir, 'chromium', {
+      pid: process.pid,
+      runId: 'an-earlier-run-of-this-host'
+    })
+
+    makeWriter(projectDir)
+
+    expect(detectLiveDevSessionOwner(readyPath)).toBeNull()
+    expect(isDevSessionLiveInThisProcess(projectDir, 'chromium')).toBe(false)
 
     forgetSessionRun(projectDir, 'chromium')
   })
@@ -398,6 +461,7 @@ describe('a dev session of this same process', () => {
     forgetSessionRun(projectDir, 'chromium')
 
     expect(detectLiveDevSessionOwner(contractPath(projectDir))).toBeNull()
+    expect(isDevSessionLiveInThisProcess(projectDir, 'chromium')).toBe(false)
 
     openSession(projectDir)
     expect(readContract(contractPath(projectDir)).runId).not.toBe(runId)
