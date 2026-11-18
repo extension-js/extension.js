@@ -288,3 +288,66 @@ export function findPublicEnvFiles(publicDir: string): string[] {
 
   return found.sort()
 }
+
+// Links under public/ the copier must not follow, by their path inside it: a
+// link whose real place leaves the project or enters node_modules. A folder
+// such a link names is listed with a trailing slash and never walked.
+export function findPublicLinksLeftOut(
+  publicDir: string,
+  projectRoots: string[]
+): string[] {
+  const found: string[] = []
+  const seen = new Set<string>()
+
+  const walk = (dir: string, prefix: string) => {
+    let real: string
+
+    try {
+      real = fs.realpathSync(dir)
+    } catch {
+      return
+    }
+
+    // A link back to a folder already walked would walk it forever.
+    if (seen.has(real)) return
+
+    seen.add(real)
+
+    let entries: fs.Dirent[] = []
+
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      // The copier leaves these names out already.
+      if (privateFileKind(entry.name)) continue
+
+      const full = path.join(dir, entry.name)
+      const name = `${prefix}${entry.name}`
+      let isDir = entry.isDirectory()
+
+      if (entry.isSymbolicLink()) {
+        try {
+          isDir = fs.statSync(full).isDirectory()
+        } catch {
+          // A link to nothing copies nothing.
+          continue
+        }
+
+        if (!sourceFileMayShip(full, projectRoots, 'walked')) {
+          found.push(isDir ? `${name}/` : name)
+          continue
+        }
+      }
+
+      if (isDir) walk(full, `${name}/`)
+    }
+  }
+
+  walk(publicDir, '')
+
+  return found.sort()
+}

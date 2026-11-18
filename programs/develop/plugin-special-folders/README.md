@@ -77,6 +77,8 @@ A template env file holds no real value by convention, so a `.env.*` name that e
 
 Every other dot-file ships as authored: `.well-known/`, `.nojekyll`, `.htaccess` and any dot-folder of the project's own. The list is by name on purpose, since a dot-file can be content a page fetches.
 
+A link under `public/` is copied as the file or folder it leads to while that place stays inside the project and outside `node_modules`. A link that leads anywhere else is left out, a folder it names is never walked, and the build names each such link in one warning, never what it holds. A watch session reads the links when it starts.
+
 A page or a stylesheet that names one of them by a root-absolute path (`/.env`) gets the missing-file warning of that surface, whether or not `public/` holds the file.
 
 ## Root-absolute paths outside public/

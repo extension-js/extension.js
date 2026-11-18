@@ -69,11 +69,12 @@ const CALLERS: Record<string, Caller> = {
       'sw.js': 'chrome.tabs.insertCSS(1, {file: "injected.css"})\n'
     })
   },
-  // Ships byte for byte with the rest of public/. The copier follows the
-  // link under public/ that leads out of the project, in every row.
+  // Ships byte for byte with the rest of public/. The copier leaves out
+  // the link under public/ that leads out of the project, in every row.
   publicSheet: {
     name: 'scripting.insertCSS({files}) of a sheet under public/',
     folder: 'public/',
+    guarded: true,
     files: (css) => ({
       'public/injected.css': css,
       'sw.js':
@@ -369,31 +370,31 @@ const EXPECTED: Record<string, Table> = {
   },
   publicSheet: {
     './.env':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./.env | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./.env',
     '"./.env.local"':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url "./.env.local" | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url "./.env.local"',
     '.npmrc':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url .npmrc | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url .npmrc',
     '../outside.png':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ../outside.png | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ../outside.png',
     './linked.png':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./linked.png | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./linked.png',
     './node_modules/pkg/.env':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./node_modules/pkg/.env | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./node_modules/pkg/.env',
     '/.env':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url /.env | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url /.env',
     '@import ./.env':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./.env | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./.env',
     '@font-face ./.git/font.woff2':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./.git/font.woff2 | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./.git/font.woff2',
     './logo.png':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./logo.png | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./logo.png',
     './node_modules/pkg/icon.png':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./node_modules/pkg/icon.png | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./node_modules/pkg/icon.png',
     './linked-in.png':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./linked-in.png | MARKED linked.png',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./linked-in.png',
     './.env.example':
-      '.env.example + injected.css + inside.png + linked-in.png + linked.png + logo.png + node_modules/pkg/icon.png | url ./.env.example | MARKED linked.png'
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./.env.example'
   },
   manifestCss: {
     './.env':

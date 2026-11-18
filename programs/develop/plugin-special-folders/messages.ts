@@ -137,6 +137,28 @@ export function publicEnvFilesLeftOut(
   )
 }
 
+// Names only, like the env files above: no linked file is opened to say this.
+export function publicLinkedFilesLeftOut(
+  relativePaths: string[],
+  browser: string
+) {
+  const one = relativePaths.length === 1
+  const shown = relativePaths.slice(0, 10)
+  const more = relativePaths.length - shown.length
+  const list =
+    shown.map((entry) => colors.yellow(entry)).join(', ') +
+    (more > 0 ? ` and ${more} more` : '')
+
+  return (
+    `${list} ${one ? 'is a link' : 'are links'}, and ` +
+    `${one ? 'it is' : 'they are'} left out of the ${colors.blue(browser)} build.\n` +
+    'Every file in the public folder ships inside the extension, where ' +
+    'anyone who installs it can read it, so the build never copies what a ' +
+    'link brings from outside the project or from node_modules. To ship ' +
+    `${one ? 'it' : 'them'}, copy the ${one ? 'file' : 'files'} into the public folder.`
+  )
+}
+
 // Names only, like the public one above: no file is opened to say this.
 export function scriptsFolderFilesLeftOut(
   relativePaths: string[],

@@ -40,6 +40,7 @@ import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
 import {
   findPublicEnvFiles,
+  findPublicLinksLeftOut,
   literalPathGlob,
   privateFileIgnoreGlobs
 } from './public-private-files'
@@ -52,6 +53,9 @@ import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 // The env files a watch session already named, by public folder. It
 // outlives a compiler, so a session restart does not say them again.
 const saidEnvFiles = new Map<string, string>()
+
+// The same for the links under public/ a session named as left out.
+const saidPublicLinks = new Map<string, string>()
 
 // The same for the scripts/ files a session named as left out, by project.
 const saidLeftOutScripts = new Map<string, string>()
@@ -188,6 +192,10 @@ export class SpecialFoldersPlugin {
     const publicDir = inspection.publicDir || inspection.fromRoot
     // The reload classifier asks for this root later, from the compilation.
     rememberPublicRoots(compiler, readsPublicFolder ? [publicDir] : [])
+    // The copier follows links, so one that leads out is named to it to skip.
+    const publicLinksLeftOut = readsPublicFolder
+      ? findPublicLinksLeftOut(publicDir, [context, path.dirname(manifestPath)])
+      : []
 
     // Chrome resolves a leading '/' from the extension root; a root-absolute ref
     // public/ does not satisfy is served from the source root instead.
@@ -308,6 +316,29 @@ export class SpecialFoldersPlugin {
             )
           }
 
+          // A link that leads out is left out of the copy, and said like an
+          // env file: once per build, and in a watch session on a change.
+          const leftOutLinks = publicLinksLeftOut.map((file) =>
+            path.posix.join(path.basename(publicDir), file)
+          )
+          const linksKey = leftOutLinks.join('\n')
+          const linksSaid =
+            compiler.watchMode && saidPublicLinks.get(publicDir) === linksKey
+
+          if (compiler.watchMode) saidPublicLinks.set(publicDir, linksKey)
+
+          if (leftOutLinks.length > 0 && !linksSaid) {
+            pushLayoutWarning(
+              compiler,
+              compilation,
+              'PublicLinkedFilesWarning',
+              messages.publicLinkedFilesLeftOut(
+                leftOutLinks,
+                String(browser || 'chrome')
+              )
+            )
+          }
+
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,
@@ -349,7 +380,15 @@ export class SpecialFoldersPlugin {
         // A public file the `exclude` config names stays out of this build.
         ...[...excluded]
           .filter((file) => isUnderDir(file, publicDir))
-          .map(literalPathGlob)
+          .map(literalPathGlob),
+        // A link that leads out, and all a folder link holds.
+        ...publicLinksLeftOut.flatMap((file) => {
+          const full = literalPathGlob(path.join(publicDir, file))
+
+          return file.endsWith('/')
+            ? [full.replace(/\/$/, ''), `${full}**`]
+            : [full]
+        })
       ]
 
       if (copierWired) {
