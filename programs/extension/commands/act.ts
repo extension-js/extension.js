@@ -32,7 +32,7 @@ import {
   type AnyDevelopModule,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
-import {LOG_CONTEXTS} from '../helpers/log-contexts'
+import {LOG_CONTEXTS, type LogContext} from '../helpers/log-contexts'
 import {
   alreadyNamesEngine,
   commandDescriptions,
@@ -141,27 +141,11 @@ export function readRecentConsole(
   return out.slice(Math.max(0, out.length - limit))
 }
 
-type ActContext =
-  | 'background'
-  | 'popup'
-  | 'options'
-  | 'sidebar'
-  | 'devtools'
-  | 'newtab'
-  | 'history'
-  | 'bookmarks'
-  | 'content'
-  | 'page'
+// Every context a log line can carry is one a verb can be sent to.
+type ActContext = LogContext
 
-type CommandOp =
-  | 'eval'
-  | 'storage.get'
-  | 'storage.set'
-  | 'reload'
-  | 'open'
-  | 'tabs.query'
-  | 'tabs.navigate'
-  | 'inspect'
+// The verbs are the engine's to name, so its own list is the one read here.
+type CommandOp = import('extension-develop/bridge').CommandOp
 
 // Bridge command results are dynamic frames; this loose view names the
 // fields the CLI probes.
