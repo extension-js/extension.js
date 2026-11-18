@@ -164,7 +164,7 @@ describe('companion extensions resolver', () => {
     expect(dirs).toEqual(['extensions/my-helper/dist'])
   })
 
-  it('rejects local paths outside ./extensions', async () => {
+  it('rejects local paths outside the project', async () => {
     const root = tmpDir('extjs-companion-outside-')
 
     await expect(
@@ -280,24 +280,23 @@ describe('companion extensions resolver', () => {
       })
     })
 
-    it('is held to the ./extensions rule like any other folder', async () => {
+    it('may sit at the project root like any other folder', async () => {
       const root = tmpDir('extjs-companion-bare-outside-')
       writeManifest(path.join(root, 'my-ext'))
 
-      await expect(resolve(root, 'my-ext')).rejects.toThrow(
-        `Companion extensions must be inside ${path.join(root, 'extensions')}.\n` +
-          `Invalid path: ${path.join(root, 'my-ext')}`
-      )
+      await expect(resolve(root, 'my-ext')).resolves.toEqual({
+        paths: [path.join(root, 'my-ext')]
+      })
     })
 
     it('is a folder even when it reads like a store ID', async () => {
       const root = tmpDir('extjs-companion-bare-id-folder-')
       writeManifest(path.join(root, id))
 
-      // The folder rule answers, so the store ID hint is not what is said.
-      await expect(resolve(root, id)).rejects.toThrow(
-        `Invalid path: ${path.join(root, id)}`
-      )
+      // The folder answers, so nothing is fetched and no store hint is said.
+      await expect(resolve(root, id)).resolves.toEqual({
+        paths: [path.join(root, id)]
+      })
 
       expect(fetchExtensionFromStore).not.toHaveBeenCalled()
     })
@@ -334,16 +333,20 @@ describe('companion extensions resolver', () => {
       )
     })
 
-    it('leaves an absolute path as it was, inside ./extensions or not', async () => {
-      const root = tmpDir('extjs-companion-absolute-')
+    it('leaves an absolute path as it was, inside the project or not', async () => {
+      const holder = tmpDir('extjs-companion-absolute-')
+      const root = path.join(holder, 'project')
       const inside = path.join(root, 'extensions', 'inner')
-      const outside = path.join(root, 'my-ext')
+      const atRoot = path.join(root, 'my-ext')
+      const outside = path.join(holder, 'elsewhere')
       writeManifest(inside)
+      writeManifest(atRoot)
       writeManifest(outside)
 
       await expect(resolve(root, inside)).resolves.toEqual({paths: [inside]})
+      await expect(resolve(root, atRoot)).resolves.toEqual({paths: [atRoot]})
       await expect(resolve(root, outside)).rejects.toThrow(
-        /Companion extensions must be inside/
+        `Companion extensions must be inside the project.\nInvalid path: ${outside}`
       )
 
       // A path is a path whether or not anything is there.
@@ -362,10 +365,10 @@ describe('companion extensions resolver', () => {
           paths: [path.join(root, 'extensions', 'inner')]
         })
       } else {
-        // One file name with a backslash in it, which sits outside the folder.
-        await expect(attempt).rejects.toThrow(
-          /Companion extensions must be inside/
-        )
+        // One file name with a backslash in it, at the project root.
+        await expect(attempt).resolves.toEqual({
+          paths: [path.join(root, 'extensions\\inner')]
+        })
       }
     })
   })
@@ -468,23 +471,28 @@ describe('a companion folder named in the config, by where it sits', () => {
   }
 
   const refusal = (root: string, entry: string) =>
-    `Companion extensions must be inside ${path.join(root, 'extensions')}.\n` +
+    'Companion extensions must be inside the project.\n' +
     `Invalid path: ${path.isAbsolute(entry) ? entry : path.resolve(root, entry)}`
 
   it.each([
-    ['my-ext', REFUSED],
-    ['tools/my-ext', REFUSED],
-    ['./tools/my-ext', REFUSED],
+    ['my-ext', ['my-ext']],
+    ['tools/my-ext', ['tools/my-ext']],
+    ['./tools/my-ext', ['tools/my-ext']],
     ['extensions/my-ext', ['extensions/my-ext']],
-    ['node_modules/some-ext', REFUSED],
+    // The user named it, so it loads from there like from anywhere else.
+    ['node_modules/some-ext', ['node_modules/some-ext']],
     ['../outside', REFUSED],
     ['tools/../../outside', REFUSED],
-    // A folder with no manifest and a file pass the place check, and the
-    // session then loads nothing for them, without a word.
+    ['..', REFUSED],
+    // The project itself is not a folder inside the project.
+    ['./', REFUSED],
+    // A folder with no manifest, a file and a missing folder pass the place
+    // check, and the session then loads nothing for them, without a word.
     ['extensions/no-manifest', []],
-    ['tools/no-manifest', REFUSED],
+    ['tools/no-manifest', []],
     ['extensions/a-file.txt', []],
-    ['tools/a-file.txt', REFUSED]
+    ['tools/a-file.txt', []],
+    ['tools/missing', []]
   ])('%s', async (entry, expected) => {
     const {root} = layout()
 
@@ -498,9 +506,9 @@ describe('a companion folder named in the config, by where it sits', () => {
     const outside = path.join(holder, 'outside')
 
     expect(await outcome(root, outside)).toBe(refusal(root, outside))
-    expect(await outcome(root, path.join(root, 'tools', 'my-ext'))).toBe(
-      refusal(root, path.join(root, 'tools', 'my-ext'))
-    )
+    expect(await outcome(root, path.join(root, 'tools', 'my-ext'))).toEqual([
+      'tools/my-ext'
+    ])
 
     expect(
       await outcome(root, path.join(root, 'extensions', 'my-ext'))
@@ -510,22 +518,38 @@ describe('a companion folder named in the config, by where it sits', () => {
   it.skipIf(!canLink)('a link, by where it leads', async () => {
     const {root} = layout()
 
-    // Read by its spelling alone, so a link under extensions/ loads whatever
-    // it leads to.
-    expect(await outcome(root, 'extensions/linked-out')).toEqual([
-      'extensions/linked-out'
+    // Real paths are compared, so a link out of the project is refused
+    // wherever it sits, extensions/ included.
+    for (const entry of ['extensions/linked-out', 'tools/linked-out']) {
+      expect(await outcome(root, entry), entry).toBe(refusal(root, entry))
+    }
+
+    for (const entry of ['extensions/linked-in', 'tools/linked-in']) {
+      expect(await outcome(root, entry), entry).toEqual([entry])
+    }
+  })
+
+  it.skipIf(!canLink)('a project reached through a link', async () => {
+    const {holder, root} = layout()
+    const linkedRoot = path.join(holder, 'linked-project')
+    fs.symlinkSync(root, linkedRoot)
+
+    expect(await outcome(linkedRoot, 'tools/my-ext')).toEqual(['tools/my-ext'])
+    expect(await outcome(linkedRoot, path.join(root, 'my-ext'))).toEqual([
+      '../project/my-ext'
     ])
 
-    expect(await outcome(root, 'extensions/linked-in')).toEqual([
-      'extensions/linked-in'
-    ])
-
-    expect(await outcome(root, 'tools/linked-out')).toBe(
-      refusal(root, 'tools/linked-out')
+    expect(await outcome(linkedRoot, '../outside')).toBe(
+      refusal(linkedRoot, '../outside')
     )
+  })
 
-    expect(await outcome(root, 'tools/linked-in')).toBe(
-      refusal(root, 'tools/linked-in')
+  it('names a folder inside the project when an entry is no path and no link', async () => {
+    const {root} = layout()
+
+    expect(await outcome(root, 'not-there')).toBe(
+      'Companion extension entry is neither a store link nor a folder path: not-there\n' +
+        'Give a store link or the path of a folder inside the project'
     )
   })
 })

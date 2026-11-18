@@ -51,6 +51,14 @@ export default {
 - `exclude` names files relative to the project root that a build leaves out: a page or script there gets no entry, and a file under `public/` is not copied. An entry with no file behind it is a warning that names the browser.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
 
+## Companion extensions
+
+With no `extensions` setting, every unpacked extension one level inside `./extensions` loads beside the project's own, and a subfolder named for a browser (`extensions/chrome/`) is that browser's set.
+
+An entry the config or the CLI names is a store link or a folder. A named folder may sit anywhere inside the project (`my-ext`, `tools/my-ext`, `extensions/my-ext`), by a relative or an absolute path. A path that resolves outside the project is refused with `Companion extensions must be inside the project.`, and so is a link inside the project that leads out of it, since real paths are compared. `extensions.dir`, the folder that is scanned, stays inside `./extensions`.
+
+A named folder with no `manifest.json` loads nothing and is not reported.
+
 ## Files public/ never ships
 
 Every file in the build output is readable by anyone who installs the extension, so a few names are left out of the copy wherever they sit under `public/`, in any letter case. A folder with one of these names is left out with everything inside it.

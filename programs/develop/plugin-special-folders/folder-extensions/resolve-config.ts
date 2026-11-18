@@ -10,7 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
 import {debugLine, isDebug} from '../../lib/messaging'
-import {isSameOrInsidePath} from '../../lib/real-path'
+import {isSameOrInsidePath, realPath} from '../../lib/real-path'
 import type {CompanionExtensionsConfig} from './types'
 import {
   companionFolderForBrowser,
@@ -108,18 +108,26 @@ function parseStoreUrl(url: URL): {browser: StoreBrowser; id: string} | null {
   return null
 }
 
-function ensurePathsUnderExtensions(
+// A named folder may sit anywhere in the project. Real paths are compared,
+// so a link that leads out of the project is refused like any outside path.
+function ensurePathsInsideProject(
   projectRoot: string,
   paths: string[]
 ): string[] {
-  const extensionsRoot = path.resolve(projectRoot, 'extensions')
+  const realRoot = realPath(projectRoot)
 
   return paths.map((p) => {
     const abs = toAbs(projectRoot, p)
+    const relative = path.relative(realRoot, realPath(abs))
 
-    if (!isSameOrInsidePath(extensionsRoot, abs)) {
+    if (
+      relative === '' ||
+      relative === '..' ||
+      relative.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relative)
+    ) {
       throw new Error(
-        `Companion extensions must be inside ${extensionsRoot}.\n` +
+        'Companion extensions must be inside the project.\n' +
           `Invalid path: ${abs}`
       )
     }
@@ -285,12 +293,12 @@ export async function resolveCompanionExtensionsConfig(opts: {
 
     throw new Error(
       `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
-        'Give a store link or a path under ./extensions'
+        'Give a store link or the path of a folder inside the project'
     )
   }
 
   if (localPaths.length > 0) {
-    const absLocalPaths = ensurePathsUnderExtensions(projectRoot, localPaths)
+    const absLocalPaths = ensurePathsInsideProject(projectRoot, localPaths)
     resolvedPaths.push(...absLocalPaths)
   }
 
