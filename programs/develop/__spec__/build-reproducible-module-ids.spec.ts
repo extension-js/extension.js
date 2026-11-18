@@ -5,10 +5,9 @@ import {fileURLToPath} from 'node:url'
 import {afterAll, describe, expect, it} from 'vitest'
 import {stripAnsi} from '../dev-server/lifecycle-stream'
 
-// Production module ids are a hash of each module's full identifier, loader
-// paths included. extension-develop is reached through a symlink here, the
-// way `npm link` and pnpm lay it out, so without the project-local naming
-// the loader paths (and the ids) depend on how deep the project folder sits.
+// A hashed module id follows where every loader sits. Here extension-develop
+// is a symlink (npm link, pnpm) and a configResolved rule names a loader
+// outside the project, so the loader paths differ between the two folders.
 const DEVELOP_ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '..'
@@ -83,6 +82,31 @@ function project(...nested: string[]) {
   fs.writeFileSync(
     path.join(root, 'popup', 'index.html'),
     '<!doctype html><title>ids</title><link rel="stylesheet" href="./styles.css" /><script src="./scripts.ts" type="module"></script>'
+  )
+
+  // A loader of the project's own, attached after every built-in rule, at a
+  // path that is different for each of the two projects.
+  const ownLoader = path.join(base, 'own-loader.cjs')
+
+  fs.writeFileSync(
+    ownLoader,
+    'module.exports = function (source, map) {\n  this.callback(null, source, map)\n}\n'
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'extension.config.js'),
+    `module.exports = {
+  configResolved: (config) => {
+    config.module.rules.push({
+      test: /shared\\.ts$/,
+      enforce: 'post',
+      use: [${JSON.stringify(ownLoader)}]
+    })
+
+    return config
+  }
+}
+`
   )
 
   fs.writeFileSync(path.join(root, 'popup', 'styles.css'), 'body{margin:0}\n')

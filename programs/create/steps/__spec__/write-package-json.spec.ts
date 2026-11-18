@@ -616,13 +616,7 @@ describe('overridePackageJson when the manager version cannot be learned', () =>
   })
   const missing = Object.assign(new Error('spawn ENOENT'), {code: 'ENOENT'})
 
-  it.each<[string, 'npm' | 'pnpm', ReturnType<VersionProbe>, string]>([
-    [
-      'never answers',
-      'npm',
-      {status: null, stdout: '', error: timeout},
-      'npm --version did not answer within 15s'
-    ],
+  it.each<[string, 'npm' | 'pnpm', Awaited<ReturnType<VersionProbe>>, string]>([
     [
       'is not installed',
       'pnpm',
@@ -669,21 +663,79 @@ describe('overridePackageJson when the manager version cannot be learned', () =>
     })
   })
 
-  it('declares the manager and prints nothing once the second probe answers', async () => {
+  const askedAgain =
+    '⏵⏵⏵ npm --version did not answer within 5s. Asking once more, for up to 15s…'
+
+  it('says it is asking again, then why no field was written, when the binary never answers', async () => {
     await withTempDir(async (projectPath) => {
-      const answers: Array<ReturnType<VersionProbe>> = [
+      const {pkg, lines} = await scaffoldWith(projectPath, 'npm', () => ({
+        status: null,
+        stdout: '',
+        error: timeout
+      }))
+
+      expect(pkg).not.toHaveProperty('packageManager')
+      expect(lines).toEqual([
+        askedAgain,
+        '⏵⏵⏵ Left package.json without a packageManager field.\n' +
+          'REASON npm --version did not answer within 15s\n' +
+          'The project is fine. Add "packageManager": "npm@<version>" to pin the manager.'
+      ])
+    })
+  })
+
+  it('says it is asking again, then declares the manager once the second probe answers', async () => {
+    await withTempDir(async (projectPath) => {
+      const answers: Array<Awaited<ReturnType<VersionProbe>>> = [
         {status: null, stdout: '', error: timeout},
         {status: 0, stdout: 'npm notice from a wrapper\r\n10.9.2\r\n'}
       ]
       const {pkg, lines} = await scaffoldWith(
         projectPath,
         'npm',
-        () => answers.shift() as ReturnType<VersionProbe>
+        () => answers.shift() as Awaited<ReturnType<VersionProbe>>
       )
 
       expect(pkg.packageManager).toBe('npm@10.9.2')
       expect(answers).toEqual([])
-      expect(lines).toEqual([])
+      expect(lines).toEqual([askedAgain])
+    })
+  })
+
+  // A template pin for another manager is replaced when a version is known,
+  // so it is not kept when none is: the warning says the field is absent.
+  it.each([
+    ['names another manager', 'foo@1.0.0'],
+    ['carries no version', 'npm']
+  ])('drops a template pin that %s when no version is learned', async (_label, pin) => {
+    await withTempDir(async (projectPath) => {
+      vi.stubEnv('npm_config_user_agent', '')
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({name: 'x', packageManager: pin})
+      )
+
+      const logger = linesLogger()
+
+      const written = await overridePackageJson(
+        projectPath,
+        {
+          packageManager: 'npm',
+          probeVersion: () => ({status: 2, stdout: ''}),
+          cliVersion: '4.0.1'
+        },
+        logger
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg).not.toHaveProperty('packageManager')
+      expect(written).toEqual({})
+      expect(logger.lines.join('\n')).toContain(
+        'Left package.json without a packageManager field.'
+      )
     })
   })
 

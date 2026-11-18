@@ -31,18 +31,26 @@ export function claimReadyPath(
   ownedReadyPaths.set(path.resolve(extensionOutputPath), readyPath)
 }
 
-// Every flow keeps managed profiles under the session root that holds its
-// contract, which a claimed contract names when the loaded folder cannot.
+// The session root that holds the contract, which a claimed contract names
+// when the loaded folder cannot.
+export function sessionRootFor(extensionOutputPath: string): string {
+  const owned = ownedReadyPaths.get(path.resolve(extensionOutputPath))
+
+  return owned
+    ? path.dirname(path.dirname(owned))
+    : sessionArtifactsRootDirBesideBuild(extensionOutputPath)
+}
+
+// Every flow keeps managed profiles under the session root.
 export function managedProfileBaseDir(
   extensionOutputPath: string,
   browser: string
 ): string {
-  const owned = ownedReadyPaths.get(path.resolve(extensionOutputPath))
-  const sessionRoot = owned
-    ? path.dirname(path.dirname(owned))
-    : sessionArtifactsRootDirBesideBuild(extensionOutputPath)
-
-  return path.resolve(sessionRoot, 'profiles', `${browser}-profile`)
+  return path.resolve(
+    sessionRootFor(extensionOutputPath),
+    'profiles',
+    `${browser}-profile`
+  )
 }
 
 // Where earlier versions put the profile when the loaded folder was not a
@@ -69,6 +77,9 @@ export function readyPathFor(extensionOutputPath: string): string {
   )
 }
 
+// Matches no record, so every stamp a launcher guards with it stays off.
+const ANOTHER_PROCESS_RUN = 'run-of-another-process'
+
 // The run a stamp belongs to, read once when the browser launches. Every later
 // stamp is evidence about THAT browser, so it has to name the run it came from.
 export function readReadyRunId(
@@ -80,7 +91,14 @@ export function readReadyRunId(
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return undefined
 
-    const runId = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))?.runId
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    const runId = ready?.runId
+
+    // A preview over a live dev session writes nothing, so the record here
+    // is the dev process's run and no browser of this process belongs to it.
+    if (typeof ready?.pid === 'number' && ready.pid !== process.pid) {
+      return ANOTHER_PROCESS_RUN
+    }
 
     return typeof runId === 'string' && runId ? runId : undefined
   } catch {
@@ -98,11 +116,18 @@ function isForeignRun(ready: unknown, runId: string | undefined): boolean {
   return typeof owner === 'string' && owner !== '' && owner !== runId
 }
 
+// A reader dates the status by ts, so a status written here moves it. A fact
+// beside the status leaves it, or a late one would read as a fresh start.
+function dateStatus(ready: {ts?: unknown}) {
+  ready.ts = new Date().toISOString()
+}
+
 // Publish the Gecko RDP debugger-server port next to Chromium's cdpPort so
 // downstream tooling can pair protocol clients from the ready contract alone.
 export function stampReadyRdpPort(
   extensionOutputPath: string | undefined,
-  rdpPort: number
+  rdpPort: number,
+  runId?: string
 ) {
   try {
     if (!extensionOutputPath || !Number.isFinite(rdpPort)) return
@@ -111,6 +136,8 @@ export function stampReadyRdpPort(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
     const held = isDevSessionStarting(ready)
     if (ready.rdpPort === rdpPort && !ready.rdpPortError && !held) return
 
@@ -118,7 +145,8 @@ export function stampReadyRdpPort(
     // waits for, so the stamp that names it is the one that turns it ready.
     ready.rdpPort = rdpPort
     delete ready.rdpPortError
-    releaseHeldReady(ready, {rdpPort: true})
+    if (releaseHeldReady(ready, {rdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -146,7 +174,8 @@ export function stampReadyRdpPortError(
       String(reason || '').trim() ||
       'Firefox did not open its remote debugging port'
 
-    releaseHeldReady(ready, {rdpPort: true})
+    if (releaseHeldReady(ready, {rdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -173,7 +202,8 @@ export function stampReadyCdpPort(
     if (ready.cdpPort === cdpPort && !held) return
 
     ready.cdpPort = cdpPort
-    releaseHeldReady(ready, {cdpPort: true})
+    if (releaseHeldReady(ready, {cdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -463,6 +493,7 @@ export function stampReadyBrowserLaunch(
         ready.status = 'ready'
         delete ready.code
         delete ready.message
+        dateStatus(ready)
       }
     }
 
@@ -572,6 +603,7 @@ export function stampReadyBrowserLaunchFailed(
 
     ready.status = 'error'
     ready.code = 'browser_launch_failed'
+    dateStatus(ready)
     ready.message = `the ${ready.browser || 'browser'} process could not start (${detail}), nothing is running`
     ready.browserLaunchFailedAt = new Date().toISOString()
     ready.browserLaunchFailedReason = detail
@@ -728,7 +760,8 @@ export function stampReadyCdpFault(
 
     // The browser is up with no port to name, which is all a held dev
     // contract was waiting to learn.
-    releaseHeldReady(ready, {cdpPort: true})
+    if (releaseHeldReady(ready, {cdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort, never block launch on this
@@ -739,7 +772,8 @@ export function stampReadyCdpFault(
 // derived id; this browser confirmation overwrites it and is never recomputed.
 export function stampReadyExtensionId(
   extensionOutputPath: string | undefined,
-  extensionId: string | undefined
+  extensionId: string | undefined,
+  runId?: string
 ) {
   try {
     const id = String(extensionId || '').trim()
@@ -749,6 +783,7 @@ export function stampReadyExtensionId(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
 
     if (ready.extensionId === id && ready.extensionIdSource === 'browser') {
       return
@@ -766,7 +801,8 @@ export function stampReadyExtensionId(
 // per-profile UUID host no id reveals, so only the browser can name it.
 export function stampReadyExtensionBaseUrl(
   extensionOutputPath: string | undefined,
-  extensionBaseUrl: string | undefined
+  extensionBaseUrl: string | undefined,
+  runId?: string
 ) {
   try {
     const base = String(extensionBaseUrl || '').trim()
@@ -776,6 +812,7 @@ export function stampReadyExtensionBaseUrl(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
     if (ready.extensionBaseUrl === base) return
 
     ready.extensionBaseUrl = base
@@ -805,6 +842,7 @@ export function stampReadyExtensionLoadRefused(
 
     ready.status = 'error'
     ready.code = 'extension_load_refused'
+    dateStatus(ready)
     const browserLabel = String(ready.browser || 'the browser')
     ready.message = `${
       browserLabel.charAt(0).toUpperCase() + browserLabel.slice(1)
@@ -849,6 +887,7 @@ export function stampReadyProfileLocked(
 
     ready.status = 'error'
     ready.code = 'profile_locked'
+    dateStatus(ready)
     ready.message =
       String(details?.message || '').trim() ||
       'the browser profile is already in use by another session'
@@ -894,10 +933,12 @@ export function stampReadyBrowserExited(
     if (ready.command === 'preview' || ready.command === 'start') {
       ready.status = 'error'
       ready.code = 'browser_exited'
+      dateStatus(ready)
       ready.message = `the ${ready.browser || 'browser'} process exited (${how}); nothing is running`
     } else if (details.beforeReady) {
       ready.status = 'error'
       ready.code = 'browser_exited'
+      dateStatus(ready)
       ready.message = `the ${ready.browser || 'browser'} process exited (${how}) before the extension loaded, nothing is running`
     }
 

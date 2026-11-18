@@ -223,10 +223,30 @@ describe('maybeUsePostCss reads each config shape', () => {
     })
   })
 
-  it('hands a YAML config to postcss-loader, which has the parser', async () => {
+  // Left to postcss-loader, a plugin a YAML config names resolves from the
+  // loader's own folder, where no project file or package is.
+  it('reads a YAML config and resolves its plugins from the project', async () => {
     const root = makeProject({
-      '.postcssrc.yml': 'plugins:\n  fake-plugin: {}\n'
+      '.postcssrc.yml':
+        'plugins:\n  fake-plugin: {}\n  ./local-plugin.cjs: {}\n',
+      'local-plugin.cjs':
+        "module.exports = () => ({postcssPlugin: 'local-plugin'})\n"
     })
+    fakePackage(root, 'fake-plugin')
+
+    const rule = await maybeUsePostCss(root, {mode: 'development'})
+
+    expect(rule.options.postcssOptions).toEqual({
+      cwd: root,
+      config: false,
+      plugins: [{postcssPlugin: 'fake-plugin'}, {postcssPlugin: 'local-plugin'}]
+    })
+
+    expect(calls(root)).toEqual([{id: 'fake-plugin', opts: {}}])
+  })
+
+  it('hands a YAML config it cannot parse to postcss-loader by its path', async () => {
+    const root = makeProject({'.postcssrc.yml': 'plugins: [\n'})
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
@@ -234,8 +254,6 @@ describe('maybeUsePostCss reads each config shape', () => {
       cwd: root,
       config: path.join(root, '.postcssrc.yml')
     })
-
-    expect(calls(root)).toEqual([])
   })
 
   it('points postcss-loader at the project for an empty postcss key', async () => {
@@ -291,6 +309,10 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
 
   it('skips a plugin it cannot resolve and keeps the others', async () => {
     const root = makeProject({
+      'package.json': JSON.stringify({
+        name: 'css-fixture',
+        packageManager: 'yarn@4.0.0'
+      }),
       '.postcssrc.json': JSON.stringify({
         plugins: {'fake-plugin': {}, 'postcss-plugin-nowhere-installed': {}}
       })
@@ -306,7 +328,7 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
         'The plugin was skipped so the build can continue.\n' +
         'Styles it would generate are missing from the output.\n' +
         `PATH ${root}\n` +
-        'Install it in your project to re-enable it: npm install --save-dev postcss-plugin-nowhere-installed'
+        'Install it in your project to re-enable it: yarn add -D postcss-plugin-nowhere-installed'
     ])
   })
 
@@ -392,24 +414,108 @@ describe('maybeUsePostCss with Tailwind', () => {
     expect(calls(root)).toEqual([])
   })
 
-  // The search also tries the folder the CLI runs from, so a project that
-  // declares Tailwind and holds none of it gets the plugin installed there.
-  it('still returns the PostCSS rule when the project holds no Tailwind package', async () => {
+  // The plugin beside the CLI can be another Tailwind, of another version,
+  // so a project that holds none compiles without it and hears the fix.
+  it.each([
+    [
+      'both packages listed and not installed',
+      {tailwindcss: '^4.0.0', '@tailwindcss/postcss': '^4.0.0'},
+      'pnpm@10.0.0',
+      'pnpm install'
+    ],
+    [
+      'the PostCSS plugin not listed',
+      {tailwindcss: '^4.0.0'},
+      'bun@1.2.0',
+      'bun add -D @tailwindcss/postcss'
+    ],
+    [
+      'Tailwind 3 listed and not installed',
+      {tailwindcss: '^3.4.0'},
+      'yarn@4.0.0',
+      'yarn install'
+    ]
+  ])('takes no Tailwind from outside the project: %s', async (_label, devDependencies, packageManager, fix) => {
     const root = makeProject({
-      'package.json': packageJson({
-        devDependencies: {
-          tailwindcss: '^4.0.0',
-          '@tailwindcss/postcss': '^4.0.0'
-        }
-      })
+      'package.json': packageJson({packageManager, devDependencies})
+    })
+    const warned: string[] = []
+
+    const rule = await maybeUsePostCss(root, {
+      mode: 'development',
+      warn: (message) => warned.push(message)
     })
 
-    const rule = await maybeUsePostCss(root, {mode: 'development'})
-
     expect(rule.loader).toBe(POSTCSS_LOADER)
-    expect(rule.options.postcssOptions.config).toBe(root)
-    // Pins today's behavior: the plugin is the one beside the CLI.
-    expect(pluginNames(rule)).toEqual([...SHIMS, '@tailwindcss/postcss'])
+    expect(rule.options.postcssOptions).toEqual({cwd: root, config: root})
+    expect(warned).toEqual([
+      [
+        "⏵⏵⏵ Couldn't find the Tailwind PostCSS plugin in this project, so the build ran without it.",
+        `PATH ${root}`,
+        'Tailwind classes are missing from the output CSS.',
+        `Install it in your project: ${fix}`
+      ].join('\n')
+    ])
+  })
+
+  // A package manager can set NODE_PATH to its own store, outside the project.
+  it('takes no Tailwind from a NODE_PATH folder outside the project', async () => {
+    const outside = makeProject({}, 'extjs-css-node-path-')
+    fakePackage(outside, '@tailwindcss/postcss')
+    const root = makeProject({
+      'package.json': packageJson({
+        packageManager: 'pnpm@10.0.0',
+        devDependencies: {'@tailwindcss/postcss': '^4.0.0'}
+      })
+    })
+    const warned: string[] = []
+    const previous = process.env.NODE_PATH
+    const Module = createRequire(import.meta.url)('node:module')
+
+    process.env.NODE_PATH = path.join(outside, 'node_modules')
+    Module._initPaths()
+
+    try {
+      const rule = await maybeUsePostCss(root, {
+        mode: 'development',
+        warn: (message) => warned.push(message)
+      })
+
+      expect(rule.options.postcssOptions).toEqual({cwd: root, config: root})
+      expect(calls(outside)).toEqual([])
+      expect(warned).toHaveLength(1)
+    } finally {
+      if (previous === undefined) delete process.env.NODE_PATH
+      else process.env.NODE_PATH = previous
+
+      Module._initPaths()
+    }
+  })
+
+  it('says once that a Tailwind named in the config is not installed', async () => {
+    const root = makeProject({
+      'package.json': packageJson({
+        packageManager: 'pnpm@10.0.0',
+        devDependencies: {'@tailwindcss/postcss': '^4.0.0'}
+      }),
+      '.postcssrc.json': JSON.stringify({
+        plugins: {'@tailwindcss/postcss': {}}
+      })
+    })
+    const output = captureConsole()
+    const warned: string[] = []
+
+    const rule = await maybeUsePostCss(root, {
+      mode: 'development',
+      warn: (message) => warned.push(message)
+    })
+
+    expect(pluginNames(rule)).toEqual([])
+    expect(warned.map((message) => message.split('\n').at(-1))).toEqual([
+      'Install it in your project: pnpm add -D tailwindcss'
+    ])
+
+    expect(output.errored()).toEqual([])
   })
 
   it('injects Tailwind for a TypeScript config, read here where it can import one', async () => {
@@ -533,7 +639,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     expect(calls(root)).toEqual([])
   })
 
-  it('injects Tailwind next to a YAML config postcss-loader reads', async () => {
+  it('resolves the Tailwind a YAML config names from the project', async () => {
     const root = makeProject({
       'package.json': packageJson({
         devDependencies: {'@tailwindcss/postcss': '^4.0.0'}
@@ -546,8 +652,8 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     expect(rule.options.postcssOptions).toEqual({
       cwd: root,
-      config: path.join(root, '.postcssrc.yml'),
-      plugins: [...SHIMS, {postcssPlugin: '@tailwindcss/postcss'}]
+      config: false,
+      plugins: [{postcssPlugin: '@tailwindcss/postcss'}]
     })
   })
 
@@ -628,6 +734,39 @@ describe('maybeUsePostCss with Tailwind', () => {
       {id: 'tailwindcss', opts: null},
       {id: '@tailwindcss/postcss', opts: {base: root}},
       {id: 'autoprefixer', opts: null}
+    ])
+  })
+
+  // The plugin refuses, the retry refuses, and the fallback package fails to
+  // load. Only the first of the three says what the project has to change.
+  it('names the first failure when every way to start Tailwind fails', async () => {
+    const refusal =
+      "It looks like you're trying to use `tailwindcss` directly as a PostCSS plugin."
+    const root = makeProject({
+      'package.json': packageJson({
+        devDependencies: {tailwindcss: '^3.4.13'}
+      })
+    })
+    fakePackage(root, 'tailwindcss', {throwsOnCall: refusal})
+    fakePackage(root, '@tailwindcss/postcss', {
+      throwsOnRequire: 'Cannot find native binding'
+    })
+
+    const warned: string[] = []
+
+    await maybeUsePostCss(root, {
+      mode: 'development',
+      warn: (message) => warned.push(message)
+    })
+
+    expect(warned).toEqual([
+      [
+        "⏵⏵⏵ Couldn't start the Tailwind PostCSS plugin tailwindcss, so the build ran without it.",
+        `PATH ${root}`,
+        `REASON ${refusal}`,
+        'Tailwind classes are missing from the output CSS.',
+        'Install tailwindcss and @tailwindcss/postcss at the same major version, or name the plugin in your PostCSS config.'
+      ].join('\n')
     ])
   })
 
