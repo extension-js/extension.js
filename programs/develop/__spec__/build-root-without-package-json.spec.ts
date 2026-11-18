@@ -236,7 +236,7 @@ describe('output an earlier build left beside the manifest', () => {
     }).toEqual({old: before, carried: [], manifestName: 'Root Probe'})
   })
 
-  it('refuses a source zip that would carry the old folder', async () => {
+  it('keeps the old folder out of a source zip', async () => {
     const root = project({manifestIn: 'src', packageJson: false})
     const old = plantOldOutput(root)
 
@@ -249,14 +249,18 @@ describe('output an earlier build left beside the manifest', () => {
       'session'
     )
 
-    await expect(
-      build(root, {zip: true, zipSource: true})
-    ).rejects.toMatchObject({
-      code: 'E_ZIP_SKIPPED',
-      message: expect.stringContaining(old)
-    })
+    await build(root, {zip: true, zipSource: true})
 
-    expect(filesUnder(path.join(root, 'dist'))).toEqual([])
+    const sourceZip = unzipSync(
+      new Uint8Array(
+        fs.readFileSync(path.join(root, 'dist', 'root-probe-1.0.0-source.zip'))
+      )
+    )
+
+    expect(Object.keys(sourceZip).sort()).toEqual([
+      'src/background.js',
+      'src/manifest.json'
+    ])
   })
 
   it('says once that the old folder is no longer written', async () => {

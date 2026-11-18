@@ -491,14 +491,6 @@ export function leftoverOutputFolder(leftover: string, current: string) {
   )
 }
 
-// Everything under the root is source to that zip, session state included.
-export function sourceZipWouldCarryLeftover(leftover: string) {
-  return (
-    `${getLoggingPrefix('error')} The source zip was requested and not created: ${fmt.code(displayPath(leftover))} holds output and session state an earlier build left, and the zip would carry them.\n` +
-    'Nothing was built. Remove that folder, then build again.'
-  )
-}
-
 // A config hook can point the bundler anywhere, and the bundler empties the
 // folder it is pointed at.
 export function buildOutputPathRefused(
