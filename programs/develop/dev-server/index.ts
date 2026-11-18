@@ -109,6 +109,7 @@ import {PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig} from './server-config'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
+import {createSessionHoldings} from './session-holdings'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
@@ -128,7 +129,6 @@ import {
   createStartFailure,
   readStartTimeoutMs,
   releaseEndedSession,
-  releaseFailedStart,
   rethrowStartFailure,
   startBundler
 } from './start-bundler'
@@ -688,8 +688,10 @@ export async function devServer(
     launchedPlugin.setEmulatorViewerUrl(emulatorViewer)
   }
 
-  // Flush buffered logs on process exit (interval flush handles the steady state).
-  process.once('exit', () => {
+  // Flush buffered logs on process exit (interval flush handles the steady
+  // state), or when the session ends and its host keeps running.
+  const holdings = createSessionHoldings()
+  holdings.add(() => {
     try {
       bridgeLogFile.close()
     } catch {
@@ -706,8 +708,6 @@ export async function devServer(
     if (bridgeControlToken) {
       clearControlToken(packageJsonDir, browserName, bridgeControlToken)
     }
-
-    unbindDevSessionRestart()
   })
 
   // stock defaults, then top-level config, then browser.*, then commands.dev,
@@ -820,7 +820,7 @@ export async function devServer(
     eventsPath: metadata.eventsPath,
     noBrowser: Boolean(devOptions.noBrowser)
   })
-  lifecycle.emitOnExit()
+  holdings.addForRelease(lifecycle.emitOnExit())
 
   // Say so when the requested port was taken. Compare numerically: a CLI
   // --port arrives as a string, and '55835' !== 55835 misreported every run.
@@ -1123,10 +1123,11 @@ export async function devServer(
     await startSessionBundler(firstBundle.server)
   } catch (error) {
     // Reached only by a caller that keeps running, so nothing stays open.
-    await releaseFailedStart({
+    await releaseEndedSession({
       server: firstBundle.server,
       releasePort: () => portManager.terminateCurrentInstance(),
-      closeControlBridge: controlBridge.close
+      closeControlBridge: controlBridge.close,
+      releaseHoldings: holdings.releaseAll
     })
 
     throw error
@@ -1135,27 +1136,23 @@ export async function devServer(
   // Plugins that find an entrypoint change ask for this; the request outlives
   // the compiler that noticed it because the scheduler belongs to the session.
   let isShuttingDown = false
-
-  let disposeCleanupHandlers = () => {}
-
   const sessionRestart = new DevSessionRestartScheduler()
   const restartFailure = createRestartFailure({
     metadata,
     lifecycle,
     keepServing: () => endCompilerRestart(activeCompiler ?? undefined),
+    hasQueuedRestart: () => sessionRestart.hasQueuedRequest(),
     release: (server) =>
       releaseEndedSession({
         server,
         releasePort: () => portManager.terminateCurrentInstance(),
         closeControlBridge: controlBridge.close,
-        restartScheduler: sessionRestart,
-        unbindRestart: unbindDevSessionRestart,
-        disposeCleanupHandlers: () => disposeCleanupHandlers()
+        releaseHoldings: holdings.releaseAll
       }),
     onExitError: extendedOptions.onExitError,
     exitOnError: exitOnStartFailure
   })
-  sessionRestart.setFailureHandler(restartFailure.unexpected)
+  sessionRestart.setFailureHandler((error) => restartFailure.unexpected(error))
   sessionRestart.setHandler(
     createSessionRestartHandler<RspackDevServer>({
       announce: (request) => humanLine(messages.devServerRestarting(request)),
@@ -1173,6 +1170,7 @@ export async function devServer(
       onBundleFailure: restartFailure.bundle,
       onStopFailure: restartFailure.stop,
       onStartFailure: restartFailure.start,
+      onUnexpectedFailure: restartFailure.unexpected,
       fullReloadsDelivered: () => fullReloadsDeliveredTo(bridgeBroker),
       reloadAfterRestart: (fullReloadsBefore) =>
         dispatchRestartReload({broker: bridgeBroker}, fullReloadsBefore)
@@ -1180,15 +1178,16 @@ export async function devServer(
   )
 
   bindDevSessionRestart(sessionRestart)
-  process.once('exit', () => {
+  holdings.add(() => {
     sessionRestart.dispose()
+    unbindDevSessionRestart(sessionRestart)
   })
 
   // The launcher stamps browserExitedAt on the ready contract; poll for it so
   // a machine consumer learns the browser died without scraping prose. The
   // same read tells the broker, so act verbs name the exit instead of an
   // idle worker, and lands on the events timeline beside the compiles.
-  lifecycle.watchBrowserExit(1000, (ready) => {
+  const stopBrowserExitWatch = lifecycle.watchBrowserExit(1000, (ready) => {
     const exitCode =
       typeof ready.browserExitCode === 'number' ? ready.browserExitCode : null
     const exitSignal =
@@ -1215,21 +1214,27 @@ export async function devServer(
 
   // Same mirror for a browser that never came up: the launcher stamps why on
   // the contract, and the timeline says so beside the compile that tried.
-  lifecycle.watchBrowserLaunchFailure(1000, (ready) => {
-    metadata.appendEvent({
-      type: 'browser_launch_failed',
-      ts: new Date().toISOString(),
-      command: 'dev',
-      browser: browserName,
-      browserLaunchFailedAt: String(ready.browserLaunchFailedAt),
-      reason:
-        typeof ready.browserLaunchFailedReason === 'string'
-          ? ready.browserLaunchFailedReason
-          : undefined
-    })
-  })
+  const stopLaunchFailureWatch = lifecycle.watchBrowserLaunchFailure(
+    1000,
+    (ready) => {
+      metadata.appendEvent({
+        type: 'browser_launch_failed',
+        ts: new Date().toISOString(),
+        command: 'dev',
+        browser: browserName,
+        browserLaunchFailedAt: String(ready.browserLaunchFailedAt),
+        reason:
+          typeof ready.browserLaunchFailedReason === 'string'
+            ? ready.browserLaunchFailedReason
+            : undefined
+      })
+    }
+  )
 
-  disposeCleanupHandlers = setupCleanupHandlers(
+  holdings.add(stopBrowserExitWatch)
+  holdings.add(stopLaunchFailureWatch)
+
+  const disposeCleanupHandlers = setupCleanupHandlers(
     () => currentServer,
     portManager,
     (signal) => {
@@ -1241,8 +1246,9 @@ export async function devServer(
       onShutdownStart: () => {
         isShuttingDown = true
         sessionRestart.dispose()
-        unbindDevSessionRestart()
+        unbindDevSessionRestart(sessionRestart)
       }
     }
   )
+  holdings.addForRelease(disposeCleanupHandlers)
 }

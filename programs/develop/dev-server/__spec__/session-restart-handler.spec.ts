@@ -49,6 +49,7 @@ function session(
     metadata: {writeError: (code) => calls.push(`writeError ${code}`)},
     lifecycle,
     keepServing: () => calls.push('keepServing'),
+    hasQueuedRestart: () => scheduler.hasQueuedRequest(),
     release: async (server) => {
       calls.push(`release ${(server as FakeServer).name}`)
     },
@@ -80,6 +81,7 @@ function session(
     onBundleFailure: failure.bundle,
     onStopFailure: failure.stop,
     onStartFailure: failure.start,
+    onUnexpectedFailure: failure.unexpected,
     isShuttingDown: () => false,
     fullReloadsDelivered: () => 3,
     reloadAfterRestart: async (before) => {
@@ -88,7 +90,7 @@ function session(
     ...overrides
   }
   const scheduler = new DevSessionRestartScheduler(0)
-  scheduler.setFailureHandler(failure.unexpected)
+  scheduler.setFailureHandler((error) => failure.unexpected(error))
   scheduler.setHandler(createSessionRestartHandler(steps))
 
   return {
@@ -98,6 +100,8 @@ function session(
     next,
     current: () => current,
     frames: () => lines.map((line) => JSON.parse(line) as Frame),
+    request: () =>
+      scheduler.request({reason: 'scripts', pathAfter: 'scripts/later.js'}),
     restart: async () => {
       scheduler.request({reason: 'scripts', pathAfter: 'scripts/new.js'})
       await vi.waitFor(() => expect(scheduler.isPending()).toBe(false))
@@ -284,6 +288,67 @@ describe('a dev session restart', () => {
     expect(s.current()).toBe(s.next)
     expect(s.printed[1]).toContain('The dev server restart did not finish.')
     expect(s.printed[1]).toContain('reload dispatch broke')
+    // The old server is gone by then, so nothing is said to keep serving.
+    expect(s.calls).not.toContain('keepServing')
+    expect(s.frames()).toEqual([])
+  })
+
+  it('keeps the old server reporting when a step before its stop throws', async () => {
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+
+    let announced = 0
+    const s = session({
+      announce: () => {
+        if (announced++ === 0) throw new Error('announce broke')
+      }
+    })
+    await s.restart()
+
+    expect(s.first.stop).not.toHaveBeenCalled()
+    expect(s.current()).toBe(s.first)
+    expect(s.calls).toEqual(['keepServing'])
+    expect(s.printed).toHaveLength(1)
+    expect(s.printed[0]).toContain('announce broke')
+    expect(s.printed[0]).toContain('The previous build keeps serving.')
+    expect(s.frames()).toHaveLength(1)
+    expect(s.frames()[0]).toMatchObject({
+      ok: false,
+      status: 'restart-failed',
+      error: {code: 'E_DEV_SERVER_START', message: 'announce broke'}
+    })
+
+    // The session goes on: the next restart runs as any other.
+    await s.restart()
+    expect(s.current()).toBe(s.next)
+  })
+
+  it('leaves the old compiler marked while another restart is queued', async () => {
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+
+    let builds = 0
+    const s = session({
+      createBundle: async () => {
+        if (builds++ > 0) {
+          return {
+            server: s.next,
+            firstCompile: Promise.resolve({hasErrors: () => false})
+          }
+        }
+
+        // A second change lands while the first restart builds its bundle.
+        s.request()
+
+        throw new Error('config hook broke')
+      }
+    })
+    await s.restart()
+
+    // The failure is still said, and the queued restart then replaces the
+    // compiler, which never went back to reporting in between.
+    expect(builds).toBe(2)
+    expect(s.calls).not.toContain('keepServing')
+    expect(s.frames().map((frame) => frame.status)).toEqual(['restart-failed'])
+    expect(s.current()).toBe(s.next)
   })
 
   it('leaves the servers to a shutdown that starts while it runs', async () => {
@@ -307,6 +372,8 @@ describe('a dev session restart', () => {
     expect(building.first.stop).not.toHaveBeenCalled()
     expect(building.current()).toBe(building.first)
     expect(building.calls).toEqual([])
+    // The bundle that will never serve is stopped, so it holds nothing.
+    expect(building.next.stop).toHaveBeenCalledTimes(1)
 
     // Shutdown begins while the old server stops: nothing new may listen.
     shuttingDown = false
@@ -319,6 +386,7 @@ describe('a dev session restart', () => {
 
     expect(stopping.calls).toEqual(['createBundle', 'holdPort', 'endPortHold'])
     expect(stopping.current()).toBeNull()
+    expect(stopping.next.stop).toHaveBeenCalledTimes(1)
 
     // Shutdown stops the next server mid-start: no failure frame, no exit.
     shuttingDown = false

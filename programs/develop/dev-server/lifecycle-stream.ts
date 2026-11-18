@@ -480,6 +480,11 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
+  // The caller writes the terminal frame itself, so the exit adds none.
+  public endWithoutFrame(): void {
+    this.terminalEmitted = true
+  }
+
   // The dev server never bound: a session-level failure, not a compile one.
   public failed(message: string): Envelope<unknown> | null {
     const frame = ENVELOPE.fail(this.options.command, 'failed', {

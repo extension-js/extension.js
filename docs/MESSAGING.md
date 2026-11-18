@@ -273,14 +273,16 @@ What is stable and what is not:
 - `error.message` and `hint` are free copy. They can change in any release. **Do not parse
   them, and do not match on the pretty output either.** If you need a signal that is not in
   `ok`, `status`, or `error.code`, open an issue and it will be added to the envelope.
-- `value` carries the payload on success, `null` otherwise.
+- `value` carries the payload on success. On a failure it is `null`, except on a session frame
+  of `dev`, `start` or `preview`, where it still describes the session.
 - `error.details` is present when a compile failed and lists each diagnostic behind it, errors
   first, as `{code?, message, file?, line?, column?, severity, name?}`. `code` is the table
   code the diagnostic resolves to and is absent when none does, `severity` is `error` or
   `warning`, and `file` is relative to the project root. The list is capped at twenty entries
   and the frame sets `truncated: true` when it was cut.
 - `restart-failed` is a `dev` status that does not end the stream: the session tried to rebuild
-  itself after an entry change and could not. `ok` is `false`, `value.serving` is `true`, and
+  itself after a change that needs a new compiler (a manifest entry, an env file, a public
+  folder) and could not. `ok` is `false`, `value.serving` is `true`, and
   the previous build keeps serving.
 - `browser` is optional and names the session a frame is about, so a reader of `doctor`
   knows which browser the result describes. Commands with no session leave it absent.

@@ -3,7 +3,8 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
 import {setupCleanupHandlers} from '../cleanup'
-import {stripAnsi} from '../lifecycle-stream'
+import {createLifecycleStream, stripAnsi} from '../lifecycle-stream'
+import {createSessionHoldings} from '../session-holdings'
 import {
   bindDevSessionRestart,
   canAutoRestartDevSession,
@@ -18,6 +19,7 @@ import {
   createStartFailure,
   declaredErrorCode,
   devServerStartError,
+  MAX_TIMER_MS,
   readStartTimeoutMs,
   releaseEndedSession,
   releaseFailedStart,
@@ -102,7 +104,7 @@ describe('starting the bundler', () => {
     })
     const fail = createStartFailure({
       metadata: {writeError},
-      lifecycle: {failed},
+      lifecycle: {failed, endWithoutFrame: () => {}},
       onExitError,
       print: (line) => {
         order.push('print')
@@ -142,7 +144,7 @@ describe('starting the bundler', () => {
     })
     const fail = createStartFailure({
       metadata: {writeError: () => {}},
-      lifecycle: {failed: () => {}},
+      lifecycle: {failed: () => {}, endWithoutFrame: () => {}},
       onExitError: () => {
         throw new Error('report broke')
       },
@@ -161,7 +163,7 @@ describe('starting the bundler', () => {
     try {
       const fail = createStartFailure({
         metadata: {writeError: () => {}},
-        lifecycle: {failed: () => {}},
+        lifecycle: {failed: () => {}, endWithoutFrame: () => {}},
         print: () => {}
       })
 
@@ -178,6 +180,7 @@ describe('starting the bundler', () => {
     )
     const writeError = vi.fn()
     const failed = vi.fn()
+    const endWithoutFrame = vi.fn()
     const print = vi.fn()
     const onExitError = vi.fn()
     const exit = vi.fn((): never => {
@@ -190,7 +193,7 @@ describe('starting the bundler', () => {
     try {
       const fail = createStartFailure({
         metadata: {writeError},
-        lifecycle: {failed},
+        lifecycle: {failed, endWithoutFrame},
         onExitError,
         print,
         exit,
@@ -217,7 +220,9 @@ describe('starting the bundler', () => {
         failure.message
       )
 
-      expect(failed).toHaveBeenCalledWith(failure.message)
+      // The caller frames its own rejection, so no frame comes from here.
+      expect(failed).not.toHaveBeenCalled()
+      expect(endWithoutFrame).toHaveBeenCalledTimes(1)
       expect(print).not.toHaveBeenCalled()
       expect(onExitError).not.toHaveBeenCalled()
       expect(exit).not.toHaveBeenCalled()
@@ -281,7 +286,8 @@ describe('starting the bundler', () => {
       }
     })
 
-    expect(order).toEqual(['stop', 'port', 'bridge'])
+    // The port goes last, as it does at a shutdown.
+    expect(order).toEqual(['stop', 'bridge', 'port'])
 
     // A stop that never answers is given up on, and the rest still runs.
     const late: string[] = []
@@ -297,7 +303,7 @@ describe('starting the bundler', () => {
       stopTimeoutMs: 20
     })
 
-    expect(late).toEqual(['port', 'bridge'])
+    expect(late).toEqual(['bridge', 'port'])
     await releaseFailedStart({
       server: {},
       releasePort: async () => {},
@@ -328,6 +334,33 @@ describe('starting the bundler', () => {
   it('reads the start timeout from the environment', () => {
     expect(readStartTimeoutMs({})).toBe(30000)
     expect(readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: '5000'})).toBe(5000)
+  })
+
+  it('caps a start timeout the timer could not hold', async () => {
+    vi.useFakeTimers()
+    const timeoutMs = readStartTimeoutMs({
+      EXTENSION_START_TIMEOUT_MS: '2147483648'
+    })
+    const onSlowStart = vi.fn()
+
+    let finish: () => void = () => {}
+
+    const started = startBundler(
+      {start: () => new Promise<void>((resolve) => (finish = resolve))},
+      {timeoutMs, onSlowStart, onFailure: () => {}}
+    )
+
+    // Past the cap a timer fires after one millisecond.
+    expect(timeoutMs).toBe(MAX_TIMER_MS)
+    expect(MAX_TIMER_MS).toBe(2147483647)
+    expect(
+      readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: '9007199254740991'})
+    ).toBe(MAX_TIMER_MS)
+
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(onSlowStart).not.toHaveBeenCalled()
+    finish()
+    await started
   })
 
   it.each([
@@ -379,52 +412,212 @@ describe('a start whose caller reports the failure', () => {
 })
 
 describe('a session that ended without a process exit', () => {
-  it('leaves no restart bound and no handler registered', async () => {
-    const events = new EventEmitter()
-    const exit = vi.fn()
-    const stop = vi.fn(async () => {})
-    const releasePort = vi.fn(async () => {})
-    const closeControlBridge = vi.fn(async () => {})
+  const hostEvents = [
+    'exit',
+    'SIGINT',
+    'SIGTERM',
+    'SIGHUP',
+    'uncaughtException',
+    'unhandledRejection'
+  ]
+  const listened = () => hostEvents.map((event) => process.listenerCount(event))
+
+  // What the dev server registers for one session, wired as it wires it.
+  function startSession() {
+    const closed: string[] = []
     const handler = vi.fn()
-    const scheduler = new DevSessionRestartScheduler(0)
+    const exit = vi.fn()
+    const holdings = createSessionHoldings()
+    holdings.add(() => closed.push('log file'))
+
+    const lifecycle = createLifecycleStream({
+      command: 'dev',
+      browser: 'chromium',
+      distPath: '/proj/dist/chromium',
+      readyPath: '/proj/dist/extension-js/chromium/ready.json',
+      write: () => {}
+    })
+    holdings.addForRelease(lifecycle.emitOnExit())
+
+    const scheduler = new DevSessionRestartScheduler(300)
     scheduler.setHandler(handler)
     bindDevSessionRestart(scheduler)
-    const disposeCleanupHandlers = setupCleanupHandlers(
-      () => null,
-      {terminateCurrentInstance: releasePort} as never,
-      undefined,
-      {events, exit, env: {}}
-    )
-    const listened = () =>
-      ['SIGINT', 'SIGTERM', 'SIGHUP', 'uncaughtException'].map((event) =>
-        events.listenerCount(event)
-      )
-
-    expect(listened()).toEqual([1, 1, 1, 1])
-    expect(canAutoRestartDevSession()).toBe(true)
-
-    await releaseEndedSession({
-      server: {stop},
-      releasePort,
-      closeControlBridge,
-      restartScheduler: scheduler,
-      unbindRestart: unbindDevSessionRestart,
-      disposeCleanupHandlers
+    holdings.add(() => {
+      scheduler.dispose()
+      unbindDevSessionRestart(scheduler)
     })
 
-    expect(listened()).toEqual([0, 0, 0, 0])
-    expect(canAutoRestartDevSession()).toBe(false)
-    expect(requestDevSessionRestart({}, {reason: 'env'})).toBe(false)
-    scheduler.request({reason: 'env'})
-    await new Promise((resolve) => setTimeout(resolve, 10))
-    expect(handler).not.toHaveBeenCalled()
-    expect(stop).toHaveBeenCalledTimes(1)
-    expect(releasePort).toHaveBeenCalledTimes(1)
-    expect(closeControlBridge).toHaveBeenCalledTimes(1)
+    holdings.add(lifecycle.watchBrowserExit(1000, () => {}))
+    holdings.add(lifecycle.watchBrowserLaunchFailure(1000, () => {}))
+    holdings.addForRelease(
+      setupCleanupHandlers(
+        () => null,
+        {terminateCurrentInstance: async () => {}} as never,
+        undefined,
+        {exit, env: {}}
+      )
+    )
 
-    // A signal after the release reaches nothing of this session.
-    events.emit('SIGINT', 'SIGINT')
-    expect(exit).not.toHaveBeenCalled()
+    return {closed, handler, exit, holdings, scheduler}
+  }
+
+  it('leaves the host as it found it after six sessions', async () => {
+    vi.useFakeTimers()
+    const before = listened()
+    const sessions = []
+
+    for (let index = 0; index < 6; index++) {
+      const session = startSession()
+      sessions.push(session)
+
+      // One exit listener for the holdings and one for the last frame, and
+      // both watchers plus a restart waiting on its timer.
+      expect(process.listenerCount('exit')).toBe(before[0] + 2)
+      session.scheduler.request({reason: 'env'})
+      expect(vi.getTimerCount()).toBe(3)
+
+      const order: string[] = []
+
+      await releaseEndedSession({
+        server: {
+          stop: async () => {
+            order.push('stop')
+          }
+        },
+        releasePort: async () => {
+          order.push('port')
+        },
+        closeControlBridge: async () => {
+          order.push('bridge')
+        },
+        releaseHoldings: session.holdings.releaseAll
+      })
+
+      expect(order).toEqual(['stop', 'bridge', 'port'])
+      expect(listened()).toEqual(before)
+      expect(vi.getTimerCount()).toBe(0)
+      expect(session.closed).toEqual(['log file'])
+      expect(canAutoRestartDevSession()).toBe(false)
+      expect(requestDevSessionRestart({}, {reason: 'env'})).toBe(false)
+    }
+
+    // Nothing of an ended session answers later: no restart, no second close.
+    await vi.advanceTimersByTimeAsync(5000)
+
+    for (const session of sessions) {
+      session.holdings.releaseAll()
+      expect(session.handler).not.toHaveBeenCalled()
+      expect(session.closed).toEqual(['log file'])
+      expect(session.exit).not.toHaveBeenCalled()
+    }
+  })
+
+  it('runs what a session holds once, at the exit or at the release', () => {
+    const events = new EventEmitter()
+    const ran: string[] = []
+    const holdings = createSessionHoldings(events)
+    holdings.add(() => ran.push('first'))
+    holdings.add(() => {
+      throw new Error('close failed')
+    })
+
+    holdings.add(() => ran.push('last'))
+    holdings.addForRelease(() => ran.push('release only'))
+
+    expect(events.listenerCount('exit')).toBe(1)
+    events.emit('exit', 0)
+
+    // The exit keeps what only a release may remove, newest first.
+    expect(ran).toEqual(['last', 'first'])
+    holdings.releaseAll()
+    events.emit('exit', 0)
+    expect(ran).toEqual(['last', 'first'])
+  })
+
+  it('unbinds only the scheduler the session bound', () => {
+    const ended = new DevSessionRestartScheduler(0)
+    const running = new DevSessionRestartScheduler(0)
+    bindDevSessionRestart(ended)
+    bindDevSessionRestart(running)
+
+    try {
+      unbindDevSessionRestart(ended)
+      expect(canAutoRestartDevSession()).toBe(true)
+      unbindDevSessionRestart(running)
+      expect(canAutoRestartDevSession()).toBe(false)
+    } finally {
+      unbindDevSessionRestart()
+    }
+  })
+})
+
+describe('a start failure the caller frames itself', () => {
+  it('writes no frame from the engine, at the failure or at the exit', async () => {
+    const saved = process.env.EXTENSION_OUTPUT
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+    const lines: string[] = []
+    const lifecycle = createLifecycleStream({
+      command: 'dev',
+      browser: 'chromium',
+      distPath: '/proj/dist/chromium',
+      write: (line) => lines.push(line)
+    })
+
+    try {
+      lifecycle.starting({requestedPort: 8080, port: 8080})
+
+      const fail = createStartFailure({
+        metadata: {writeError: () => {}},
+        lifecycle,
+        exitOnError: false
+      })
+
+      await expect(
+        startBundler(
+          {start: async () => Promise.reject(new Error('watch broke'))},
+          {timeoutMs: 30000, onSlowStart: () => {}, onFailure: fail}
+        )
+      ).rejects.toMatchObject({code: 'E_DEV_SERVER_START'})
+
+      // The caller's own failed frame is the only terminal one on the stream.
+      lifecycle.exited(1)
+
+      expect(lines.map((line) => JSON.parse(line).status)).toEqual(['starting'])
+    } finally {
+      if (saved === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
+      } else process.env.EXTENSION_OUTPUT = saved
+    }
+  })
+
+  it('still writes the frame when the engine ends the process', () => {
+    const saved = process.env.EXTENSION_OUTPUT
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+    const lines: string[] = []
+    const lifecycle = createLifecycleStream({
+      command: 'dev',
+      browser: 'chromium',
+      distPath: '/proj/dist/chromium',
+      write: (line) => lines.push(line)
+    })
+
+    try {
+      createStartFailure({
+        metadata: {writeError: () => {}},
+        lifecycle,
+        print: () => {},
+        exit: (() => {}) as never,
+        exitOnError: true
+      })(new Error('watch broke'))
+
+      lifecycle.exited(1)
+
+      expect(lines.map((line) => JSON.parse(line).status)).toEqual(['failed'])
+    } finally {
+      if (saved === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
+      } else process.env.EXTENSION_OUTPUT = saved
+    }
   })
 })
 

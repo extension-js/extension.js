@@ -15,6 +15,7 @@ export interface RestartableServer {
 export interface RestartBundle<Server extends RestartableServer> {
   server: Server
   firstCompile: Promise<{hasErrors?: () => boolean} | null>
+  compiler?: {close: (callback: () => void) => void}
 }
 
 export interface SessionRestartSteps<Server extends RestartableServer> {
@@ -30,6 +31,12 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
   onStopFailure: (error: unknown) => void
   // The next server could not start after the old one stopped.
   onStartFailure: (error: unknown, server: Server) => void | Promise<void>
+  // A throw no step above owns. previousServing says whether the server the
+  // restart began with was still untouched.
+  onUnexpectedFailure: (
+    error: unknown,
+    state: {previousServing: boolean}
+  ) => void
   // True once the session is being torn down, which owns the servers then.
   isShuttingDown: () => boolean
   fullReloadsDelivered: () => number
@@ -41,7 +48,10 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
 export function createSessionRestartHandler<Server extends RestartableServer>(
   steps: SessionRestartSteps<Server>
 ) {
-  return async (request: DevSessionRestartRequest): Promise<void> => {
+  const restart = async (
+    request: DevSessionRestartRequest,
+    state: {previousServing: boolean}
+  ): Promise<void> => {
     steps.announce(request)
 
     let nextBundle: RestartBundle<Server>
@@ -58,9 +68,14 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     }
 
     // Shutdown stops the current server itself and frees the port for good.
-    if (steps.isShuttingDown()) return
+    if (steps.isShuttingDown()) {
+      discardRestartBundle(nextBundle)
+
+      return
+    }
 
     const previous = steps.currentServer()
+    state.previousServing = false
     steps.setCurrentServer(null)
 
     steps.holdPort()
@@ -81,6 +96,7 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
 
     if (steps.isShuttingDown()) {
       steps.endPortHold()
+      discardRestartBundle(nextBundle)
 
       return
     }
@@ -113,6 +129,37 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     // The fresh compiler's first build carries no changed sources, so the
     // classifier stays silent; the new entry set needs one full reload.
     await steps.reloadAfterRestart(fullReloadsBefore)
+  }
+
+  return async (request: DevSessionRestartRequest): Promise<void> => {
+    const state = {previousServing: true}
+
+    try {
+      await restart(request, state)
+    } catch (error) {
+      if (steps.isShuttingDown()) return
+
+      steps.onUnexpectedFailure(error, state)
+    }
+  }
+}
+
+// A bundle that will never serve lets go of its compiler and of the manifest
+// guard its server holds until stopped.
+export function discardRestartBundle(bundle: {
+  server: RestartableServer
+  compiler?: {close: (callback: () => void) => void}
+}): void {
+  try {
+    void Promise.resolve(bundle.server.stop?.()).catch(() => {})
+  } catch {
+    // Ignore
+  }
+
+  try {
+    bundle.compiler?.close(() => {})
+  } catch {
+    // Ignore
   }
 }
 

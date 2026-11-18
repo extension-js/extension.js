@@ -71,6 +71,11 @@ export class DevSessionRestartScheduler {
     this.schedule()
   }
 
+  // A request waiting behind the restart that is running, or for its timer.
+  hasQueuedRequest(): boolean {
+    return this.latest != null
+  }
+
   isPending(): boolean {
     return this.latest != null || this.inFlight
   }
@@ -138,7 +143,13 @@ export function bindDevSessionRestart(
   boundScheduler = scheduler
 }
 
-export function unbindDevSessionRestart(): void {
+// A session passes its own scheduler and unbinds only that one: a second
+// session in the same host may have bound its own since.
+export function unbindDevSessionRestart(
+  scheduler?: DevSessionRestartScheduler
+): void {
+  if (scheduler && boundScheduler !== scheduler) return
+
   boundScheduler = null
 }
 

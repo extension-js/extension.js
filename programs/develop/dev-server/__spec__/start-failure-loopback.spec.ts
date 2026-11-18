@@ -51,7 +51,10 @@ describe('a dev server that cannot bind its port', () => {
     }) as never)
     const fail = createStartFailure({
       metadata: {writeError: (code) => records.push(code)},
-      lifecycle: {failed: (message) => records.push(message)},
+      lifecycle: {
+        failed: (message) => records.push(message),
+        endWithoutFrame: () => records.push('ended without a frame')
+      },
       exitOnError: false
     })
     let session: LoopbackSession | undefined
@@ -114,7 +117,12 @@ describe('a dev server that cannot bind its port', () => {
       expect(message).toContain(String(heldPort))
       // eslint-disable-next-line no-control-regex
       expect(message).not.toMatch(/\u001b|⏵/)
-      expect(records).toEqual(['dev_server_start_failed', cause.message])
+      // The caller frames the rejection, so the engine writes no frame.
+      expect(records).toEqual([
+        'dev_server_start_failed',
+        'ended without a frame'
+      ])
+
       expect(processExit).not.toHaveBeenCalled()
       expect(closedCompiler).toBe(true)
 

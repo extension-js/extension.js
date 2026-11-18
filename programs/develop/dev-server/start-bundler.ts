@@ -14,6 +14,9 @@ import * as messages from './messages'
 
 export const DEFAULT_START_TIMEOUT_MS = 30000
 
+// The longest delay a timer takes. A longer one fires after 1 ms instead.
+export const MAX_TIMER_MS = 2147483647
+
 // Anything but a positive whole number would arm the slow-start warning for
 // the wrong moment, so it falls back to the default.
 export function readStartTimeoutMs(
@@ -22,9 +25,11 @@ export function readStartTimeoutMs(
   const raw = String(env.EXTENSION_START_TIMEOUT_MS ?? '').trim()
   const parsed = /^\d+$/.test(raw) ? Number(raw) : 0
 
-  return Number.isSafeInteger(parsed) && parsed > 0
-    ? parsed
-    : DEFAULT_START_TIMEOUT_MS
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    return DEFAULT_START_TIMEOUT_MS
+  }
+
+  return Math.min(parsed, MAX_TIMER_MS)
 }
 
 // For a start whose caller reports the failure itself.
@@ -121,7 +126,11 @@ export function devServerStartError(error: unknown): DevServerStartError {
 
 export interface StartFailureTargets {
   metadata: {writeError: (code: string, message: string) => void}
-  lifecycle: {failed: (message: string) => void}
+  lifecycle: {
+    failed: (message: string) => void
+    // Ends the stream with no frame, for a caller that writes its own.
+    endWithoutFrame: () => void
+  }
   onExitError?: (error: unknown, code?: string) => void
   print?: (line: string) => void
   exit?: (code: number) => never
@@ -140,12 +149,17 @@ export function createStartFailure(targets: StartFailureTargets) {
       error instanceof Error ? error.message : String(error)
     )
 
+    // The caller prints and frames its own rejection, so nothing is said
+    // twice: a frame from here would be a second terminal one.
+    if (!exitOnError) {
+      targets.lifecycle.endWithoutFrame()
+
+      throw devServerStartError(error)
+    }
+
     targets.lifecycle.failed(
       error instanceof Error ? error.message : String(error)
     )
-
-    // The caller prints and reports its own rejection, so nothing is said twice.
-    if (!exitOnError) throw devServerStartError(error)
 
     print(messages.extensionJsRunnerError(error))
 
@@ -181,6 +195,8 @@ export interface RestartFailureTargets {
   }
   // Puts the session back on the compiler that is still serving.
   keepServing: () => void
+  // A queued restart supersedes the serving compiler, which stays quiet.
+  hasQueuedRestart: () => boolean
   // Lets go of what a session with no server still holds open.
   release: (server: {stop?: () => Promise<void>}) => Promise<void>
   onExitError?: (error: unknown, code?: string) => void
@@ -197,15 +213,20 @@ export function createRestartFailure(targets: RestartFailureTargets) {
   const exit = targets.exit ?? ((code: number) => process.exit(code))
   const exitOnError = targets.exitOnError ?? true
 
+  const previousBuildKeepsServing = (error: unknown) => {
+    if (!targets.hasQueuedRestart()) targets.keepServing()
+
+    print(messages.devServerRestartFailed(error, 'previous-build'))
+
+    targets.lifecycle.restartFailed({
+      code: declaredErrorCode(error) ?? CODES.E_DEV_SERVER_START,
+      message: stripChannelPrefix(errorMessage(error))
+    })
+  }
+
   return {
     bundle(error: unknown): void {
-      targets.keepServing()
-      print(messages.devServerRestartFailed(error, 'previous-build'))
-
-      targets.lifecycle.restartFailed({
-        code: declaredErrorCode(error) ?? CODES.E_DEV_SERVER_START,
-        message: stripChannelPrefix(errorMessage(error))
-      })
+      previousBuildKeepsServing(error)
     },
     stop(error: unknown): void {
       print(messages.devServerStopFailedOnRestart(error))
@@ -236,9 +257,14 @@ export function createRestartFailure(targets: RestartFailureTargets) {
 
       await targets.release(server)
     },
-    // Anything the steps above did not expect still gets its line.
-    unexpected(error: unknown): void {
-      print(messages.devServerRestartFailed(error, 'unknown'))
+    // Anything the steps above did not expect still gets its line, and a
+    // compiler that goes on serving is not left marked as restarting.
+    unexpected(
+      error: unknown,
+      state: {previousServing: boolean} = {previousServing: false}
+    ): void {
+      if (state.previousServing) previousBuildKeepsServing(error)
+      else print(messages.devServerRestartFailed(error, 'unknown'))
     }
   }
 }
@@ -251,29 +277,19 @@ export interface FailedStartRelease {
 }
 
 export interface EndedSessionRelease extends FailedStartRelease {
-  restartScheduler: {dispose: () => void}
-  unbindRestart: () => void
-  // Removes the signal and exception handlers the session registered.
-  disposeCleanupHandlers: () => void
+  // Everything the session registered in the host, see session-holdings.
+  releaseHoldings: () => void
 }
 
 // A session that ended without a process exit leaves nothing registered in
-// the host: no restart can start and no handler waits for a signal.
+// the host: no restart can start, no handler or timer waits, no file is open.
 export async function releaseEndedSession(
   release: EndedSessionRelease
 ): Promise<void> {
-  const steps = [
-    release.restartScheduler.dispose.bind(release.restartScheduler),
-    release.unbindRestart,
-    release.disposeCleanupHandlers
-  ]
-
-  for (const step of steps) {
-    try {
-      step()
-    } catch {
-      // Ignore
-    }
+  try {
+    release.releaseHoldings()
+  } catch {
+    // Ignore
   }
 
   await releaseFailedStart(release)
@@ -284,10 +300,12 @@ export async function releaseEndedSession(
 export async function releaseFailedStart(
   release: FailedStartRelease
 ): Promise<void> {
+  // Same order as a shutdown: the port is let go last, once nothing of the
+  // session still listens beside it.
   const steps = [
     () => release.server.stop?.(),
-    release.releasePort,
-    release.closeControlBridge
+    release.closeControlBridge,
+    release.releasePort
   ]
 
   for (const step of steps) {
