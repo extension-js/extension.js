@@ -144,6 +144,27 @@ export function missingGeckoDataCollectionPermissions() {
   return lines.join('\n')
 }
 
+export function missingGeckoAddonId(declared: unknown) {
+  const lines: string[] = []
+  const field = colors.blue('browser_specific_settings.gecko.id')
+
+  lines.push(
+    declared == null
+      ? `${prefix('warn')} The manifest sets no ${field}, so Firefox has no add-on ID for this extension.`
+      : `${prefix('warn')} Firefox refuses the add-on ID ${colors.yellow(JSON.stringify(declared))} in ${field}, so this extension has none.`
+  )
+
+  lines.push(
+    `Without one, Firefox gives the add-on a new ID on each launch, so its storage does not survive a relaunch, and addons.mozilla.org assigns one on the first upload that every later upload must carry.`
+  )
+
+  lines.push(
+    `Set ${colors.yellow('firefox:browser_specific_settings.gecko.id')} in ${colors.yellow('manifest.json')} to an email-like string such as ${colors.yellow('my-extension@example.com')}.`
+  )
+
+  return lines.join('\n')
+}
+
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
   const lines: string[] = []
   lines.push(`Can't read your ${colors.blue('manifest.json')} file.`)
