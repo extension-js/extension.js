@@ -1730,6 +1730,14 @@ export function companionExtensionNotResolved(
   )
 }
 
+// The wording the launch path refuses with, so both paths read the same.
+export function companionExtensionOutsideProject(folderPath: string) {
+  return (
+    'Companion extensions must be inside the project.\n' +
+    `${colors.gray('PATH')} ${colors.underline(folderPath)}`
+  )
+}
+
 export function companionExtensionsFolderNotFound(
   dir: string,
   folderPath: string,

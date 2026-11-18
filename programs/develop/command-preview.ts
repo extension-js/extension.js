@@ -22,7 +22,7 @@ import {withDarkMode} from './lib/dark-mode'
 import {
   companionsDeclaredIn,
   computeExtensionsToLoad,
-  namedCompanionFolders,
+  namedCompanionFoldersInsideProject,
   unresolvedNamedCompanions
 } from './lib/extensions-to-load'
 import {
@@ -493,7 +493,7 @@ export async function extensionPreview(
       safeProjectConfig.extensions ??
       specialFoldersData.extensions
     // With no browser nothing loads a companion, so none is fetched from a
-    // store and no entry is refused. Only the folders named are looked at.
+    // store. A named folder outside the project is refused either way.
     const resolvedExtensionsConfig = previewOptions.noBrowser
       ? undefined
       : await resolveCompanionExtensionsConfig({
@@ -511,7 +511,10 @@ export async function extensionPreview(
             dir: Array.isArray(mergedExtensionsConfig)
               ? undefined
               : mergedExtensionsConfig?.dir,
-            paths: namedCompanionFolders(mergedExtensionsConfig, packageJsonDir)
+            paths: namedCompanionFoldersInsideProject(
+              mergedExtensionsConfig,
+              packageJsonDir
+            )
           }
         : resolvedExtensionsConfig,
       declared: mergedExtensionsConfig,

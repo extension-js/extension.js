@@ -8,10 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {codedError} from './coded-error'
 import * as messages from './messages'
 import {CODES, stripChannelPrefix} from './messaging'
 import {parseAuthoredJson} from './parse-json-safe'
 import {devtoolsEngineFor} from './paths'
+import {realPath} from './real-path'
 
 function hasNewTabOverride(extensionDir: string): boolean {
   const manifestPath = path.join(extensionDir, 'manifest.json')
@@ -140,6 +142,33 @@ export function namedCompanionFolders(
     const [first, ...rest] = entry.split(/[\\/]/)
 
     return rest.length > 0 && !first.includes('.')
+  })
+}
+
+// A companion the user names may sit anywhere inside the project. Real paths
+// are compared, so a link inside the project that leads out is refused too.
+export function namedCompanionFoldersInsideProject(
+  config: unknown,
+  projectRoot: string
+): string[] {
+  const root = realPath(projectRoot)
+
+  return namedCompanionFolders(config, projectRoot).map((entry) => {
+    const folder = path.resolve(projectRoot, entry)
+    const fromRoot = path.relative(root, realPath(folder))
+    const outside =
+      fromRoot === '..' ||
+      fromRoot.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(fromRoot)
+
+    if (outside) {
+      throw codedError(
+        CODES.E_COMPANION_EXTENSION_PATH,
+        messages.companionExtensionOutsideProject(folder)
+      )
+    }
+
+    return entry
   })
 }
 

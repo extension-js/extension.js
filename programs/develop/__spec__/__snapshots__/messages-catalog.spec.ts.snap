@@ -57,6 +57,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "buildWarningsDetails: function(1)",
     "buildZipDirInvalid: function(3)",
     "companionExtensionNotResolved: function(3)",
+    "companionExtensionOutsideProject: function(1)",
     "companionExtensionsFolderNotFound: function(3)",
     "companionManifestNotProjectError: function(2)",
     "configLoadingError: function(2)",
