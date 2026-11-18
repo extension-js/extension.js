@@ -32,8 +32,8 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 
-// What a ReloadPlugin with these options bakes into the control file.
-function bakedControl(options: Record<string, unknown> = {}) {
+// A ReloadPlugin with these options, applied to a real idle compiler.
+function appliedPlugin(options: Record<string, unknown> = {}) {
   const root = writeProject(makeTempFolder('extjs-bridge-coords-'), {
     'manifest.json': {
       manifest_version: 3,
@@ -51,7 +51,20 @@ function bakedControl(options: Record<string, unknown> = {}) {
     ...options
   } as PluginOptions).apply(compiler)
 
-  return bakedBridgeControl(compiler)
+  return compiler
+}
+
+// What a ReloadPlugin with these options bakes into the control file.
+function bakedControl(options: Record<string, unknown> = {}) {
+  return bakedBridgeControl(appliedPlugin(options))
+}
+
+function relayApplied(options: Record<string, unknown>) {
+  const {taps} = appliedPlugin(options).hooks.thisCompilation as unknown as {
+    taps: Array<{name: string}>
+  }
+
+  return taps.some(({name}) => name === 'InjectBridgeRelay')
 }
 
 describe('the bridge coordinates a ReloadPlugin bakes', () => {
@@ -62,24 +75,53 @@ describe('the bridge coordinates a ReloadPlugin bakes', () => {
     expect(bakedControl()).toMatchObject({port: 8123, instanceId: 'from-env'})
   })
 
-  it('come from the environment even when options name others', () => {
+  it('come from the options over the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
     expect(
       bakedControl({instanceId: 'from-options', controlPort: 9001})
-    ).toMatchObject({port: 8123, instanceId: 'from-env'})
+    ).toMatchObject({port: 9001, instanceId: 'from-options'})
   })
 
-  it('are the same for two plugins whose options differ', () => {
+  it('differ for two plugins whose options differ', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
     const first = bakedControl({instanceId: 'session-a', controlPort: 9001})
     const second = bakedControl({instanceId: 'session-b', controlPort: 9002})
 
-    expect(first).toMatchObject({port: 8123, instanceId: 'from-env'})
-    expect(second).toEqual(first)
+    expect(first).toMatchObject({port: 9001, instanceId: 'session-a'})
+    expect(second).toMatchObject({port: 9002, instanceId: 'session-b'})
+  })
+
+  it('take one option and the environment for the other', () => {
+    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
+
+    expect(bakedControl({controlPort: 9001})).toMatchObject({
+      port: 9001,
+      instanceId: 'from-env'
+    })
+
+    expect(bakedControl({instanceId: 'from-options'})).toMatchObject({
+      port: 8123,
+      instanceId: 'from-options'
+    })
+  })
+
+  it('leave the relay off for a session with no bridge, whatever the environment', () => {
+    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+
+    expect(relayApplied({controlPort: null})).toBe(false)
+    expect(relayApplied({})).toBe(true)
+  })
+
+  it('bake nothing for a session with no bridge, whatever the environment', () => {
+    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
+
+    expect(bakedControl({controlPort: null})).toBeNull()
   })
 })
 
@@ -117,13 +159,18 @@ describe('the reload plugin of a dev session config', () => {
     return bakedBridgeControl(compiler)
   }
 
-  it('bakes the environment, whatever the session was given', () => {
+  it('bakes the values the session was given, not the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
     expect(bakedFor('session-a', 50111)).toMatchObject({
-      port: 8123,
-      instanceId: 'from-env'
+      port: 50111,
+      instanceId: 'session-a'
+    })
+
+    expect(bakedFor('session-b', 50222)).toMatchObject({
+      port: 50222,
+      instanceId: 'session-b'
     })
   })
 })

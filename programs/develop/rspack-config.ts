@@ -271,7 +271,9 @@ export default function webpackConfig(
     new ReloadPlugin({
       manifestPath,
       browser: devOptions.browser,
-      devSession
+      devSession,
+      instanceId: devOptions.instanceId,
+      controlPort: devOptions.controlPort
     }),
     // rspack's own loader appends a <script> to the host page, which never
     // reaches an isolated world. A reload session installs this target itself.
