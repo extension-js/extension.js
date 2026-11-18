@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {publicFolderSetting} from './folders-config'
+import {hasPrivateFileName} from './public-private-files'
 
 function isUsableDir(candidate: string): boolean {
   try {
@@ -119,6 +120,10 @@ export function findPublicFile(
   if (!rel || rel.split('/').includes('..') || path.isAbsolute(rel)) {
     return undefined
   }
+
+  // The copier leaves these names out, so the folder does not hold them as
+  // far as the build goes.
+  if (hasPrivateFileName(rel)) return undefined
 
   const {publicDir} = inspectPublicFolders(manifestPath, projectRoot)
   if (!publicDir) return undefined

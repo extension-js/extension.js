@@ -84,6 +84,14 @@ export function privateFileKind(name: string): PrivateFileKind | undefined {
   return undefined
 }
 
+// A path with one of these names anywhere along it, a folder included. The
+// path is relative and may use either separator.
+export function hasPrivateFileName(relativePath: string): boolean {
+  return relativePath
+    .split(/[\\/]+/)
+    .some((name) => privateFileKind(name) !== undefined)
+}
+
 // A glob has no "all but this name", so every `.env.<suffix>` other than the
 // template is spelled out: a first differing letter, a shorter or longer name.
 function envVariantGlobs(): string[] {

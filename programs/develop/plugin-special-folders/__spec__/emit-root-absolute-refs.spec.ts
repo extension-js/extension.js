@@ -185,15 +185,310 @@ describe('planRootAbsoluteRef', () => {
     expect(planRootAbsoluteRef('/', root, publicDir, hasNone)).toBeNull()
   })
 
-  it('reports a ref that escapes the root or names nothing as missing', () => {
+  it('withholds a ref that escapes the root and reports one that names nothing as missing', () => {
     const {root, publicDir} = createProject({'x.js': 'var a\n'})
     expect(
       planRootAbsoluteRef('/../../etc/passwd', root, publicDir, hasNone)
-    ).toMatchObject({kind: 'missing'})
+    ).toEqual({kind: 'withheld', emitPath: '../../etc/passwd'})
 
     expect(
       planRootAbsoluteRef('/nope/missing.js', root, publicDir, hasNone)
     ).toEqual({kind: 'missing', emitPath: 'nope/missing.js'})
+  })
+})
+
+describe('planRootAbsoluteRef for a path that is not project content', () => {
+  const hasNone = () => false
+  const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
+
+  it('withholds a private name, an installed package and a climbing path', () => {
+    const {root, publicDir} = createProject({
+      '.env': MARKER,
+      '.env.local': MARKER,
+      '.envrc': MARKER,
+      '.npmrc': MARKER,
+      '.git/config': MARKER,
+      '.DS_Store': MARKER,
+      'cfg/.env.production': MARKER,
+      'node_modules/pkg/data.json': MARKER,
+      'vendor/node_modules/pkg/lib.js': 'var a = 1\n',
+      'a/keep.txt': 'keep'
+    })
+
+    for (const ref of [
+      '/.env',
+      '/.ENV',
+      '/.env.local',
+      '/.envrc',
+      '/.npmrc',
+      '/.git/config',
+      '/.DS_Store',
+      '/cfg/.env.production',
+      '/a/../.env',
+      '/%2eenv',
+      '/%2Egit/config',
+      '/node_modules/pkg/data.json',
+      '/vendor/node_modules/pkg/lib.js',
+      '/../outside.txt',
+      '/a/../../outside.txt',
+      '/%2e%2e/outside.txt',
+      '/a/%2E%2E/%2e%2e/outside.txt'
+    ]) {
+      expect(planRootAbsoluteRef(ref, root, publicDir, hasNone), ref).toEqual({
+        kind: 'withheld',
+        emitPath: ref.slice(1)
+      })
+    }
+  })
+
+  it('withholds a private name that public/ holds, which the copier leaves out', () => {
+    const {root, publicDir} = createProject({
+      'public/.env': MARKER,
+      'public/cfg/.npmrc': MARKER,
+      'public/.env.example': 'KEY=\n'
+    })
+
+    expect(planRootAbsoluteRef('/.env', root, publicDir, hasNone)).toEqual({
+      kind: 'withheld',
+      emitPath: '.env'
+    })
+
+    expect(
+      planRootAbsoluteRef('/cfg/.npmrc', root, publicDir, hasNone)
+    ).toEqual({kind: 'withheld', emitPath: 'cfg/.npmrc'})
+
+    expect(
+      planRootAbsoluteRef('/.env.example', root, publicDir, hasNone)
+    ).toEqual({kind: 'skip', reason: 'public', emitPath: '.env.example'})
+  })
+
+  it('leaves a node_modules folder inside public/ to the copier, which ships it', () => {
+    const {root, publicDir} = createProject({
+      'public/node_modules/pkg/lib.js': 'var a = 1\n',
+      'node_modules/pkg/other.js': 'var b = 1\n'
+    })
+
+    expect(
+      planRootAbsoluteRef('/node_modules/pkg/lib.js', root, publicDir, hasNone)
+    ).toEqual({
+      kind: 'skip',
+      reason: 'public',
+      emitPath: 'node_modules/pkg/lib.js'
+    })
+
+    expect(
+      planRootAbsoluteRef(
+        '/node_modules/pkg/other.js',
+        root,
+        publicDir,
+        hasNone
+      )
+    ).toEqual({kind: 'withheld', emitPath: 'node_modules/pkg/other.js'})
+  })
+
+  it('leaves a path the compilation already holds to the step that emitted it', () => {
+    const {root, publicDir} = createProject({'.env': MARKER})
+
+    expect(
+      planRootAbsoluteRef(
+        '/assets/.env.1a2b3c4d',
+        root,
+        publicDir,
+        (name) => name === 'assets/.env.1a2b3c4d'
+      )
+    ).toEqual({
+      kind: 'skip',
+      reason: 'emitted',
+      emitPath: 'assets/.env.1a2b3c4d'
+    })
+
+    expect(
+      planRootAbsoluteRef(
+        '/a/../data.json',
+        root,
+        publicDir,
+        (name) => name === 'data.json'
+      )
+    ).toEqual({kind: 'skip', reason: 'emitted', emitPath: 'a/../data.json'})
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'follows a link that stays in the project and withholds one that leaves it or lands on a private name',
+    () => {
+      const holder = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-root-abs-'))
+      tempDirs.push(holder)
+
+      const root = path.join(holder, 'project')
+      const publicDir = path.join(root, 'public')
+      fs.mkdirSync(path.join(root, 'data'), {recursive: true})
+      fs.mkdirSync(path.join(holder, 'elsewhere'))
+      fs.writeFileSync(path.join(root, 'data', 'real.txt'), 'real')
+      fs.writeFileSync(path.join(root, '.env'), MARKER)
+      fs.writeFileSync(path.join(holder, 'outside.txt'), MARKER)
+      fs.writeFileSync(path.join(holder, 'elsewhere', 'inner.txt'), MARKER)
+      fs.symlinkSync(
+        path.join(root, 'data', 'real.txt'),
+        path.join(root, 'alias.txt')
+      )
+
+      fs.symlinkSync(path.join(root, 'data'), path.join(root, 'alias-folder'))
+      fs.symlinkSync(
+        path.join(holder, 'outside.txt'),
+        path.join(root, 'linked.txt')
+      )
+
+      fs.symlinkSync(
+        path.join(holder, 'elsewhere'),
+        path.join(root, 'linked-folder')
+      )
+
+      fs.symlinkSync(path.join(root, '.env'), path.join(root, 'settings.txt'))
+
+      expect(
+        planRootAbsoluteRef('/alias.txt', root, publicDir, hasNone)
+      ).toEqual({
+        kind: 'copy',
+        sourcePath: path.join(root, 'alias.txt'),
+        emitPath: 'alias.txt'
+      })
+
+      expect(
+        planRootAbsoluteRef('/alias-folder/real.txt', root, publicDir, hasNone)
+      ).toMatchObject({kind: 'copy', emitPath: 'alias-folder/real.txt'})
+
+      for (const ref of [
+        '/linked.txt',
+        '/linked-folder/inner.txt',
+        '/settings.txt'
+      ]) {
+        expect(planRootAbsoluteRef(ref, root, publicDir, hasNone), ref).toEqual(
+          {kind: 'withheld', emitPath: ref.slice(1)}
+        )
+      }
+    }
+  )
+
+  it('reads the project root, not the manifest folder, as the edge of the project', () => {
+    const {root} = createProject({
+      'src/manifest.json': '{}',
+      'src/data/x.json': '{}',
+      'shared/logo.txt': 'logo'
+    })
+    const manifestDir = path.join(root, 'src')
+    const publicDir = path.join(root, 'public')
+
+    expect(
+      planRootAbsoluteRef('/data/x.json', manifestDir, publicDir, hasNone, root)
+    ).toMatchObject({kind: 'copy', emitPath: 'data/x.json'})
+
+    // A climbing path stays withheld even when it lands inside the project.
+    expect(
+      planRootAbsoluteRef(
+        '/../shared/logo.txt',
+        manifestDir,
+        publicDir,
+        hasNone,
+        root
+      )
+    ).toEqual({kind: 'withheld', emitPath: '../shared/logo.txt'})
+  })
+})
+
+describe('emitRootAbsoluteRefs for a path that is not project content', () => {
+  const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
+
+  it('emits nothing and says the missing-file finding of each surface once', async () => {
+    const {root, publicDir} = createProject({
+      '.env': MARKER,
+      '.npmrc': MARKER,
+      'node_modules/pkg/data.json': MARKER,
+      'data/ok.json': '{}'
+    })
+    const {compilation, emitted} = makeCompilation({
+      'page.html':
+        '<link href="/.env"><img src="/.env"><img src="/node_modules/pkg/data.json"><img src="/data/ok.json">',
+      'style.css': '.a{background:url(/.npmrc)}.b{background:url(/.npmrc)}'
+    })
+
+    await emitRootAbsoluteRefs(compilation, root, publicDir)
+
+    expect([...emitted.keys()].sort()).toEqual([
+      'data/ok.json',
+      'page.html',
+      'style.css'
+    ])
+
+    expect(
+      compilation.warnings.map((warning: Error & {file?: string}) => [
+        warning.name,
+        warning.file,
+        warning.message.split('\n')[0]
+      ])
+    ).toEqual([
+      [
+        'RootAbsoluteRefMissing',
+        'page.html',
+        "The page references an asset that doesn't exist."
+      ],
+      [
+        'RootAbsoluteRefMissing',
+        'page.html',
+        "The page references an asset that doesn't exist."
+      ],
+      [
+        'CssDeadRef',
+        'style.css',
+        'A url(/.npmrc) reference points to a file that exists nowhere in the project.'
+      ]
+    ])
+
+    expect(compilation.warnings[0].message).toContain(
+      `NOT FOUND ${path.join(root, '.env')}`
+    )
+
+    expect(compilation.warnings[0].message).toContain(
+      'Update the /.env reference to point to a file that exists.'
+    )
+
+    expect(compilation.errors).toEqual([])
+    expect(JSON.stringify(compilation.warnings.map(String))).not.toContain(
+      MARKER
+    )
+  })
+
+  it('stays quiet when the page step already named the ref as missing', async () => {
+    const {root, publicDir} = createProject({'.env': MARKER})
+    const {compilation, emitted} = makeCompilation({
+      'page.html': '<img src="/.env">'
+    })
+    compilation.warnings.push(
+      new Error('Update the /.env reference to point to a file that exists.')
+    )
+
+    await emitRootAbsoluteRefs(compilation, root, publicDir)
+
+    expect([...emitted.keys()]).toEqual(['page.html'])
+    expect(compilation.warnings).toHaveLength(1)
+  })
+
+  it('fails the build for a stylesheet ref when dead references are strict', async () => {
+    const {root, publicDir} = createProject({'.env': MARKER})
+    const {compilation, emitted} = makeCompilation({
+      'style.css': '.a{background:url(/.env)}'
+    })
+    vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
+
+    try {
+      await emitRootAbsoluteRefs(compilation, root, publicDir)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+
+    expect([...emitted.keys()]).toEqual(['style.css'])
+    expect(compilation.warnings).toEqual([])
+    expect(compilation.errors.map((error: Error) => error.name)).toEqual([
+      'CssDeadRef'
+    ])
   })
 })
 

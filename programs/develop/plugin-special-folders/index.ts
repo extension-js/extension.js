@@ -155,7 +155,8 @@ export class SpecialFoldersPlugin {
               compilation,
               path.dirname(manifestPath),
               publicDir,
-              !readsPublicFolder
+              !readsPublicFolder,
+              context
             )
         )
       }

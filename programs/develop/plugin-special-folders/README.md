@@ -63,6 +63,19 @@ Every file in the build output is readable by anyone who installs the extension,
 
 Every other dot-file ships as authored: `.well-known/`, `.nojekyll`, `.htaccess`, `.env.example` and any dot-folder of the project's own. The list is by name on purpose, since a dot-file can be content a page fetches.
 
+A page or a stylesheet that names one of them by a root-absolute path (`/.env`) gets the missing-file warning of that surface, whether or not `public/` holds the file.
+
+## Root-absolute paths outside public/
+
+A root-absolute path (`/data/config.json`) in a page or in a stylesheet that ships as authored names a file in `public/` first. When `public/` has none, the file at that path beside the manifest is copied, or compiled when the browser cannot run it as written. That fallback never ships:
+
+- a name from the table above, anywhere along the path,
+- anything under `node_modules`,
+- a path that climbs out of the extension root (`/../x`, `/%2e%2e/x`),
+- a link that resolves outside the project or onto one of those names.
+
+Each of those is reported as a missing file, in the words the surface uses for one, and nothing is copied. A link that stays inside the project is followed.
+
 ## Path resolution convention (consistent across @plugin-extension)
 
 - Leading `/` means extension root (public root) relative to the directory containing `manifest.json`.

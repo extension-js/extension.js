@@ -202,12 +202,9 @@ const TIMEOUT = 120_000
 
 const LINKED_OUTPUT = canLink ? ['linked-folder/inner.txt', 'linked.txt'] : []
 
+// The page step copies these on its own, whatever this plugin decides.
 const SHIPPED_FROM_A_PAGE = [
-  '.env',
-  '.env.local',
   '.envrc',
-  '.git/config',
-  '.npmrc',
   'data/ok.json',
   'extension.config.js',
   ...LINKED_OUTPUT,
@@ -216,17 +213,12 @@ const SHIPPED_FROM_A_PAGE = [
 ]
 
 const MARKED_FROM_A_PAGE = [
-  '.env',
-  '.env.local',
   '.envrc',
-  '.git/config',
-  '.npmrc',
   ...LINKED_OUTPUT,
   'node_modules/pkg/data.json',
   'package.json'
 ]
 
-// The dot-files are named as missing and shipped all the same.
 const MISSING_FROM_A_PAGE = [
   '/%2e%2e/outside.txt',
   '/../outside.txt',
@@ -234,8 +226,23 @@ const MISSING_FROM_A_PAGE = [
   '/.env.local',
   '/.git/config',
   '/.npmrc',
+  '/a/../../outside.txt',
   '/nothing.txt'
 ]
+
+const times = (text: string, part: string) => text.split(part).length - 1
+
+// Each ref is said once, in the words a missing page asset gets. The text is
+// read twice over: the printed lines, then the summary that repeats them.
+function expectEachSaidOnce(result: Built) {
+  for (const ref of MISSING_FROM_A_PAGE) {
+    expect(times(result.printed, `Update the ${ref} reference`), ref).toBe(2)
+  }
+
+  expect(
+    times(result.printed, "The page references an asset that doesn't exist.")
+  ).toBe(MISSING_FROM_A_PAGE.length * 2)
+}
 
 describe('a root-absolute path that names a file outside public/', () => {
   it(
@@ -252,6 +259,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.marked).toEqual(MARKED_FROM_A_PAGE)
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
+      expectEachSaidOnce(result)
       expect(result.printed).not.toContain(MARKER)
     },
     TIMEOUT
@@ -271,6 +279,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.marked).toEqual(MARKED_FROM_A_PAGE)
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
+      expectEachSaidOnce(result)
       expect(result.printed).not.toContain(MARKER)
     },
     TIMEOUT
@@ -338,9 +347,23 @@ describe('a root-absolute path that names a file outside public/', () => {
         })
       )
 
-      expect(result.shipped).toEqual([...SHIPPED_FROM_A_PAGE, 'theme.css'])
-      expect(result.marked).toEqual(MARKED_FROM_A_PAGE)
-      expect(result.missing).toEqual([])
+      expect(result.shipped).toEqual([
+        'data/ok.json',
+        'extension.config.js',
+        'package.json',
+        'theme.css'
+      ])
+
+      expect(result.marked).toEqual(['package.json'])
+      expect(result.missing).toEqual(
+        [...PRIVATE_TARGETS, ...CLIMBING_TARGETS, ...LINKED_TARGETS].sort()
+      )
+
+      // In the words a dead stylesheet reference gets.
+      expect(result.printed).toContain(
+        'A url(/.env) reference points to a file that exists nowhere in the project.'
+      )
+
       expect(result.errors).toBe(0)
       expect(result.printed).not.toContain(MARKER)
     },
@@ -366,11 +389,33 @@ describe('a root-absolute path that names a file outside public/', () => {
 
       // The manifest features ship these, not the special folders plugin.
       expect(result.shipped).toEqual(
-        [...SHIPPED_FROM_A_PAGE, 'assets/outside.<hash>.txt'].sort()
+        [
+          '.env',
+          '.env.local',
+          '.envrc',
+          '.git/config',
+          '.npmrc',
+          'assets/outside.<hash>.txt',
+          'data/ok.json',
+          'extension.config.js',
+          ...LINKED_OUTPUT,
+          'node_modules/pkg/data.json',
+          'package.json'
+        ].sort()
       )
 
       expect(result.marked).toEqual(
-        [...MARKED_FROM_A_PAGE, 'assets/outside.<hash>.txt'].sort()
+        [
+          '.env',
+          '.env.local',
+          '.envrc',
+          '.git/config',
+          '.npmrc',
+          'assets/outside.<hash>.txt',
+          ...LINKED_OUTPUT,
+          'node_modules/pkg/data.json',
+          'package.json'
+        ].sort()
       )
 
       expect(result.errors).toBe(0)
@@ -395,7 +440,7 @@ describe('a root-absolute path that names a file outside public/', () => {
         })
       )
 
-      // public/ answers for the name, and the copier leaves the file out.
+      // The copier leaves the file out, so public/ does not answer for it.
       expect(result.shipped).toEqual(['theme.css'])
       expect(result.marked).toEqual([])
       expect(result.missing).toEqual(['/.env', '/.npmrc'])
@@ -403,8 +448,74 @@ describe('a root-absolute path that names a file outside public/', () => {
         'public/.env is an env file, and it is left out of the chrome build.'
       )
 
+      for (const ref of ['/.env', '/.npmrc']) {
+        expect(result.printed).toContain(
+          `A url(${ref}) reference points to a file that exists nowhere in the project.`
+        )
+      }
+
       expect(result.errors).toBe(0)
       expect(result.printed).not.toContain(MARKER)
+    },
+    TIMEOUT
+  )
+
+  it(
+    'keeps answering for project content',
+    async () => {
+      const refs = [
+        '/data/ok.json',
+        '/.well-known/links.json',
+        '/.env.example',
+        '/alias.txt'
+      ]
+      const root = project({
+        '.env.example': 'PRIVATE_KEY=\n',
+        '.well-known/links.json': '[]',
+        'data/real.txt': 'real',
+        'fonts/face.woff2': 'font',
+        'img/from-css.txt': 'from css',
+        'public/theme.css':
+          '.a{background:url(/img/from-css.txt)}\n@font-face{src:url(/fonts/face.woff2)}',
+        'popup.html': PAGE.replace(
+          '<head>',
+          '<head><link rel="stylesheet" href="/theme.css">' +
+            refs.map((ref) => `<link rel="preload" href="${ref}">`).join('')
+        )
+      })
+
+      // A link that stays inside the project is followed.
+      if (canLink) {
+        fs.symlinkSync(
+          path.join(root, 'data', 'real.txt'),
+          path.join(root, 'alias.txt')
+        )
+      }
+
+      const result = await build(root)
+
+      expect(result.shipped).toEqual(
+        [
+          '.env.example',
+          '.well-known/links.json',
+          ...(canLink ? ['alias.txt'] : []),
+          'data/ok.json',
+          'fonts/face.woff2',
+          'img/from-css.txt',
+          'theme.css'
+        ].sort()
+      )
+
+      expect(result.marked).toEqual([])
+      // The page step drops a leading dot when it looks, so it calls the
+      // two dot-names missing. They ship all the same.
+      expect(result.missing).toEqual([
+        '/.env.example',
+        '/.well-known/links.json',
+        ...(canLink ? [] : ['/alias.txt'])
+      ])
+
+      expect(result.errors).toBe(0)
     },
     TIMEOUT
   )
