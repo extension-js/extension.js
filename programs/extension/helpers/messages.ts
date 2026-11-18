@@ -42,6 +42,8 @@ export interface CommandArgSpec {
   readonly values?: readonly string[]
   // Help label used when the registered name misnames what the argument takes.
   readonly label?: string
+  // Takes any number of values, registered and printed with a trailing `...`.
+  readonly variadic?: boolean
 }
 
 export interface CommandNoteSpec {
@@ -59,8 +61,13 @@ interface CommandTableEntry {
   readonly notes?: readonly CommandNoteSpec[]
 }
 
+// Commander's marker for an argument that takes several values. It is syntax
+// a shell user types, so it stays three ASCII dots, never an ellipsis.
+const VARIADIC_MARK = '.'.repeat(3)
+
 function renderArgToken(spec: CommandArgSpec): string {
-  const token = spec.values ? spec.values.join('|') : (spec.label ?? spec.name)
+  const name = spec.values ? spec.values.join('|') : (spec.label ?? spec.name)
+  const token = spec.variadic ? `${name}${VARIADIC_MARK}` : name
 
   return spec.required ? `<${token}>` : `[${token}]`
 }
@@ -77,7 +84,11 @@ export function registeredArgSignature(
   positionals: readonly CommandArgSpec[]
 ): string {
   return positionals
-    .map((spec) => (spec.required ? `<${spec.name}>` : `[${spec.name}]`))
+    .map((spec) => {
+      const token = spec.variadic ? `${spec.name}${VARIADIC_MARK}` : spec.name
+
+      return spec.required ? `<${token}>` : `[${token}]`
+    })
     .join(' ')
 }
 
@@ -215,7 +226,7 @@ const COMMAND_TABLE = [
   },
   {
     name: 'install',
-    positionals: [{name: 'browser-name', required: false}],
+    positionals: [{name: 'browser-name', required: false, variadic: true}],
     description: 'Install a managed browser binary into the Extension.js cache',
     detail: 'Defaults to chromium when no browser is named.',
     supportsSourceInspection: false,
@@ -235,7 +246,7 @@ const COMMAND_TABLE = [
   },
   {
     name: 'uninstall',
-    positionals: [{name: 'browser-name', required: false}],
+    positionals: [{name: 'browser-name', required: false, variadic: true}],
     description: 'Remove managed browser binaries from the Extension.js cache',
     supportsSourceInspection: false,
     notes: [

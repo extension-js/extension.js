@@ -85,6 +85,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.clearAllMocks()
+  // A queued rejection a test never reached must not fail the next test.
+  vi.mocked(extensionInstall).mockReset()
+  vi.mocked(extensionUninstall).mockReset()
   vi.unstubAllEnvs()
 
   if (typeof prevOutput === 'undefined') {
@@ -1152,7 +1155,7 @@ describe('the code a refused run reports to telemetry', () => {
       ['install', 'chrome'],
       () => {
         vi.mocked(extensionInstall).mockRejectedValueOnce(
-          new BrowserInstallTimeoutError('took too long')
+          new BrowserInstallTimeoutError('took too long', 1)
         )
       }
     ],
