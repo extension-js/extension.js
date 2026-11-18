@@ -162,6 +162,79 @@ describe('a failed build names each diagnostic with its code', () => {
   }, 120_000)
 })
 
+describe('a failed build codes a file the manifest names and the project lacks', () => {
+  it('codes a missing icon', async () => {
+    const root = project({icons: {16: 'images/missing-icon-token.png'}}, {})
+
+    const error = await failure(root)
+    expect(error.code).toBe('E_COMPILE')
+    expect(error.diagnostics).toHaveLength(1)
+    expect(error.diagnostics?.[0]).toMatchObject({
+      code: 'E_ASSET_MISSING',
+      file: 'manifest.json',
+      severity: 'error',
+      name: 'IconsMissingFile'
+    })
+
+    expect(error.diagnostics?.[0].message.split('\n')[0]).toBe(
+      "Can't find an icon file listed in icons."
+    )
+  }, 120_000)
+
+  it('codes a default locale with no _locales folder', async () => {
+    const root = project({default_locale: 'en'}, {})
+
+    const error = await failure(root)
+    expect(error.code).toBe('E_COMPILE')
+    expect(error.diagnostics).toEqual([
+      {
+        code: 'E_LOCALES_LAYOUT',
+        message:
+          'default_locale is set, but the _locales folder is missing.\nAdd _locales/<default>/messages.json.',
+        file: 'manifest.json',
+        severity: 'error',
+        name: 'LocalesValidationError'
+      }
+    ])
+  }, 120_000)
+
+  it('codes a default locale folder with no messages.json', async () => {
+    const root = project(
+      {default_locale: 'en'},
+      {'_locales/en/notes.txt': 'empty\n'}
+    )
+
+    const error = await failure(root)
+    expect(error.diagnostics).toEqual([
+      {
+        code: 'E_LOCALES_LAYOUT',
+        message:
+          'The default locale messages.json file is missing.\nNOT FOUND _locales/en/messages.json\nCreate the file with your strings.',
+        file: 'manifest.json',
+        severity: 'error',
+        name: 'LocalesValidationError'
+      }
+    ])
+  }, 120_000)
+
+  it('codes a missing popup page', async () => {
+    const root = project({action: {default_popup: 'popup/nope-token.html'}}, {})
+
+    const error = await failure(root)
+    expect(error.diagnostics).toHaveLength(1)
+    expect(error.diagnostics?.[0]).toMatchObject({
+      code: 'E_ENTRY_NOT_FOUND',
+      file: 'manifest.json',
+      severity: 'error',
+      name: 'ManifestPageMissing'
+    })
+
+    expect(error.diagnostics?.[0].message.split('\n')[0]).toBe(
+      "Can't find the page listed in action.default_popup."
+    )
+  }, 120_000)
+})
+
 describe('a green build prefixes a coded warning with its code', () => {
   it('codes a stylesheet url() that points at nothing', async () => {
     const root = project(
@@ -208,7 +281,36 @@ describe('a green build prefixes a coded warning with its code', () => {
     const summary = await build(root)
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings_count).toBe(1)
-    expect(summary.warnings?.[0]).toMatch(/^E_CSS_PARSE: Module Warning/)
-    expect(summary.warnings?.[0]).toContain("doesn't parse")
+    const lines = String(summary.warnings?.[0]).split('\n')
+    expect(lines[0]).toMatch(
+      /^E_CSS_PARSE: \S+ The CSS in this file doesn't parse, so it was copied as-is\.$/
+    )
+
+    expect(lines[1]).toBe('  │ PATH content/styles.css')
+    expect(summary.warnings?.[0]).not.toContain('Module Warning')
+    expect(summary.warnings?.[0]).not.toContain('css-parse-guard-loader')
+    expect(summary.warnings?.[0]).not.toContain(`${path.sep}dist${path.sep}`)
+  }, 120_000)
+
+  it('codes an asset a page references that is nowhere in the project', async () => {
+    const root = project(
+      {action: {default_popup: 'popup/index.html'}},
+      {
+        'popup/index.html':
+          '<!doctype html><html><body><img src="/missing-asset-token.png"></body></html>\n'
+      }
+    )
+
+    const summary = await build(root)
+    expect(summary.errors_count).toBe(0)
+    expect(summary.warnings_count).toBe(1)
+    expect(summary.warnings).toHaveLength(1)
+    expect(String(summary.warnings?.[0]).split('\n')[0]).toBe(
+      "E_ASSET_MISSING: The page references an asset that doesn't exist."
+    )
+
+    expect(summary.warnings?.[0]).toContain(
+      'Update the /missing-asset-token.png reference to point to a file that exists.'
+    )
   }, 120_000)
 })

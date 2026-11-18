@@ -589,8 +589,8 @@ export async function devServer(
       readExtensionLoadRefusal(packageJsonDir, browserName, sessionRunId)
   })
 
-  // Hand the broker to a launched runner plugin so Chromium and Safari reload
-  // through the SW producer (same executor as --no-browser). No-op for Firefox.
+  // Hand the broker to a launched runner plugin so every engine reloads
+  // through the SW producer, the same executor as --no-browser.
   const launchedPlugin = extendedOptions.browsersPlugin
 
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {

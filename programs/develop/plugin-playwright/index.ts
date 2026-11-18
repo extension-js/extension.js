@@ -246,8 +246,8 @@ const MAX_CONTRACT_ERRORS = 10
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
 
-// ready.json/events.ndjson are machine contracts (--wait, --attach, MCP);
-// error text must be plain so consumers never have to ANSI-strip.
+// ready.json and events.ndjson are machine contracts (--wait, doctor, logs,
+// MCP), so error text is plain and no consumer has to strip color.
 export function formatStatsErrors(errors: unknown): string[] {
   if (!Array.isArray(errors)) return []
 
@@ -780,11 +780,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
     prev.ts = nowISO()
 
-    try {
-      writeJsonAtomic(readyPath, prev)
-    } catch {
-      // Ignore
-    }
+    writeJsonAtomic(readyPath, prev)
   }
 
   function writeReady(
@@ -1229,11 +1225,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       prev.message = message
       prev.ts = nowISO()
 
-      try {
-        writeJsonAtomic(readyPath, prev)
-      } catch {
-        // Ignore
-      }
+      writeJsonAtomic(readyPath, prev)
     },
     // A reload dev applied after a compile. A tool waiting for the rebuild to
     // be live compares reloadedAt with compiledAt instead of guessing from a
@@ -1250,11 +1242,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       prev.ts = nowISO()
 
-      try {
-        writeJsonAtomic(readyPath, prev)
-      } catch {
-        // Ignore
-      }
+      writeJsonAtomic(readyPath, prev)
     },
     // The mirror of stampExecutorAttached: without it `runtime` was a latch that
     // said "attached" long after the last producer went away, so a reader could
@@ -1268,11 +1256,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       prev.executorDetachedAt = nowISO()
       prev.ts = nowISO()
 
-      try {
-        writeJsonAtomic(readyPath, prev)
-      } catch {
-        // Ignore
-      }
+      writeJsonAtomic(readyPath, prev)
     },
     // The launcher came back, with a browser or without one, so a compile
     // held for what it stamps goes ready with whatever the launch left.
@@ -1287,14 +1271,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       prev.status = 'ready'
       prev.ts = nowISO()
 
-      try {
-        writeJsonAtomic(readyPath, prev)
-      } catch {
-        // Ignore
-      }
+      writeJsonAtomic(readyPath, prev)
     },
-    // Stamp the runtime-attached signal on first SW connect; read-modify-write and
-    // idempotent so reconnects don't disturb status or launcher-stamped fields.
+    // Stamp the runtime-attached signal on every connect. The first one also
+    // releases a held ready and clears a load refusal the attach disproves.
     stampExecutorAttached(attached?: {origin?: string}) {
       try {
         if (!fs.existsSync(readyPath)) return

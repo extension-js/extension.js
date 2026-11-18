@@ -36,8 +36,13 @@ function buildCatalog(
 }
 
 describe('extension message catalogs', () => {
+  // Named here, not only in the snapshot, which an update would rewrite to
+  // an empty catalog without a word.
   it('discovers the message catalogs in this package', () => {
-    expect(Object.keys(modules).length).toBeGreaterThan(0)
+    expect(Object.keys(modules).sort()).toEqual([
+      '../../browsers/browsers-lib/messages.ts',
+      '../messages.ts'
+    ])
   })
 
   it('matches the exported message surface', () => {

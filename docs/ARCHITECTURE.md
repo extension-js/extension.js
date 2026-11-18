@@ -21,7 +21,7 @@ Four packages are published to npm.
 
 `extension-develop` turns an extension project into a browser-ready folder under `dist/<browser>`.
 The manifest is the entry point.
-Plugins handle each concern: the web extension surface (manifest, HTML pages and scripts), CSS, static assets, WebAssembly, special folders, JavaScript frameworks, compatibility, reload, performance budgets and compilation (for example `--zip` output).
+Plugins handle each concern: the web extension surface (manifest, HTML pages and scripts), CSS, static assets, WebAssembly, special folders, JavaScript frameworks, compatibility, reload, performance budgets, the handoff of each compile to the browser runner, the `ready.json` and `events.ndjson` metadata that automation reads, and compilation (for example `--zip` output).
 Browser-prefixed manifest keys such as `chrome:` and `firefox:` resolve for the requested target.
 A production build for a Gecko-based browser also runs the addons.mozilla.org linter and prints its findings.
 

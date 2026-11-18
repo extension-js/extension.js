@@ -7,21 +7,14 @@
 
 # plugin-compilation
 
-> Compilation-level utilities for the develop bundler: environment handling, optional dist cleaning, and a compact compilation summary.
+> Compilation-level plugins for the develop bundler: environment files, zip packaging, watch helpers and the one-line compile summary.
 
 ### What it does
 
-- **EnvPlugin**: Loads environment files by priority (.env.<browser>.<mode> → .env.<browser> → .env.<mode> → .env.local → .env → .env.example); exposes `EXTENSION_PUBLIC_*` to both `process.env` and `import.meta.env`; defines `EXTENSION_PUBLIC_BROWSER`, `EXTENSION_PUBLIC_MODE`, `EXTENSION_BROWSER`, `EXTENSION_MODE`; replaces `$EXTENSION_PUBLIC_*` and `$EXTENSION__*` in emitted .json/.html.
-- **CleanDistFolderPlugin**: Optionally deletes `dist/<browser>` at the start of a compilation to avoid stale hot-update files.
-- **CompilationPlugin**: Applies CaseSensitivePathsPlugin; wires Env/Clean plugins; prints a single-line, de-duplicated compilation summary with `(Nx)` repetition.
-
-### Feature overview
-
-|                                                                            | Feature                                                                                                                       |
-| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Environment handling**<br/>Loads env files by priority, injects EXTENSION*PUBLIC*\* to process/import.meta, and templating. |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Clean dist**<br/>Optionally removes `dist/<browser>` at the start of a compilation.                                         |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Compilation summary**<br/>Single-line, de-duplicated summary shown at the end of builds.                                    |
+- **CompilationPlugin**: The entry rspack-config registers. It hides three known third-party "Critical dependency" warnings from `node_modules`, applies `CaseSensitivePathsPlugin`, `EnvPlugin` and `FileRequestsPlugin`, adds `ZipPlugin` when a zip is asked for on any command but `dev`, and adds `BoringPlugin`. Under a watch run it also adds `WatchProjectConfigPlugin`, `WatchRealProjectPathPlugin` and `WarmAncestorWatchersPlugin`. On `dev` and `preview` it also prints the raw errors and warnings, which `build` and `start` print through their own stats handler. `process.env.NODE_ENV` comes from rspack's own `optimization.nodeEnv`, which follows the mode.
+- **EnvPlugin**: Picks the first env file that exists, in this order: `.env.<browser>.<mode>`, `.env.<browser>`, the same two for each name of the browser family, `.env.<mode>`, `.env.local`, `.env`. It merges that file over `.env.defaults`, and the process environment wins over both. When the project has neither, the nearest folder with a `pnpm-workspace.yaml` is searched the same way. `.env.example` is never read. Only `EXTENSION_PUBLIC_*` values reach JavaScript, through both `process.env` and `import.meta.env`, next to `EXTENSION_PUBLIC_BROWSER`, `EXTENSION_PUBLIC_MODE`, `EXTENSION_BROWSER`, `EXTENSION_MODE`, `BROWSER` and `MODE`. In emitted `.json` and `.html` files, every `$EXTENSION_*` placeholder is replaced, escaped for where it lands. Under a watch run, `WatchEnvFilesPlugin` reports an edited env file.
+- **ZipPlugin**: Writes `<name>-<version>-<browser>.zip` from the output folder and, with `zipSource`, `<name>-<version>-source.zip` from the project, beside the browser folder.
+- **BoringPlugin**: Prints one line per compile, such as `My Extension compiled in 120 ms.`. While a browser is launched, repeated startup passes print one line per severity until the first real change.
 
 ### Usage
 
@@ -29,7 +22,8 @@
 new CompilationPlugin({
   manifestPath,
   browser, // e.g. 'chrome' | 'firefox'
-  clean: true // whether to remove dist/<browser> at start
+  command: 'build',
+  zip: true
 })
 ```
 
@@ -40,14 +34,14 @@ export class CompilationPlugin {
   static readonly name: 'plugin-compilation'
   constructor(options: {
     manifestPath: string
-    browser?:
-      | 'chrome'
-      | 'edge'
-      | 'firefox'
-      | 'safari'
-      | 'chromium-based'
-      | 'gecko-based'
-    clean?: boolean
+    browser?: DevOptions['browser'] // 'chrome' when unset
+    define?: Record<string, unknown> // extension.config.js constants, JSON-serialized
+    zip?: boolean
+    zipSource?: boolean
+    zipFilename?: string
+    zipDir?: string // absolute, the output folder's parent when unset
+    port?: number
+    command?: 'dev' | 'start' | 'preview' | 'build'
   })
   apply(compiler: import('@rspack/core').Compiler): void
 }
@@ -55,4 +49,4 @@ export class CompilationPlugin {
 
 ### Security note
 
-Only variables prefixed with EXTENSION*PUBLIC* are injected into client code via DefinePlugin. Template replacement in .json/.html uses the merged environment; avoid embedding secrets in those files.
+Only `EXTENSION_PUBLIC_*` values are inlined into JavaScript. Placeholder replacement in emitted `.json` and `.html` reads every `EXTENSION_*` variable, including ones set only in the shell, so keep secrets out of those placeholders.

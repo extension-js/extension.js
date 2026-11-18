@@ -16,7 +16,7 @@ import {exitAfterDrain} from '../helpers/exit-after-drain'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
-import {isJsonOutput} from '../helpers/output-flag'
+import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
   type Browser,
   firstNonManagedInstallTarget,
@@ -312,6 +312,7 @@ export function registerInstallCommand(program: Command) {
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
     )
+    .hook('preAction', refuseUnreadableOutput())
     .action(async (browserArg: string | undefined, options: InstallOptions) => {
       const asJson = isJsonOutput(options)
       const named = Boolean(options.browser || browserArg)
@@ -443,6 +444,7 @@ export function registerInstallCommand(program: Command) {
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
     )
+    .hook('preAction', refuseUnreadableOutput())
     .argument('[browser-name]')
     .action(
       async (

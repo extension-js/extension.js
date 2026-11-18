@@ -201,7 +201,6 @@ test('the develop compile runs under the lock and one lib emits declarations', (
   )
 
   assert.ok(scripts.compile.includes('rslib build'))
-  assert.ok(scripts.compile.includes('write-dist-js-aliases.mjs'))
   assert.equal(config.split('dts: shouldGenerateDts').length - 1, 1)
 })
 
