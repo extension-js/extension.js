@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import postcss, {type AtRule, type ChildNode, type Root} from 'postcss'
+import type {WithheldKind} from '../../lib/withheld-file'
 import {workspaceRootOf} from '../../plugin-special-folders/public-private-files'
 import {cssUrlRefFiles, toPosixPath} from './dead-url-refs'
 
@@ -55,6 +56,8 @@ export interface InlinedCssImports {
     from: string
     reason: string
     fix?: string
+    // Set for a file the build withholds, which has a message of its own.
+    kind?: WithheldKind
   }>
   // An import that now leads rules it used to follow.
   moved: PlacedCssImport[]
@@ -343,11 +346,6 @@ function isPrivateName(name: string): boolean {
   return PRIVATE_NAMES.some((matcher) => matcher.test(name))
 }
 
-const KEEP_IN_PROJECT =
-  'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
-const NO_PRIVATE_NAME =
-  'Give the sheet a path with no private file or folder name along it.'
-
 // Whether a path is inside the node_modules of one of these folders or of a
 // folder above one, where a package manager keeps what a project installed.
 function inInstalledModules(file: string, folders: string[]): boolean {
@@ -400,11 +398,11 @@ function nearestSpelling(file: string, spellings: string[]): string {
 }
 
 // Whether the rules of a sheet may be read into another one: undefined when
-// they may, or the reason they may not with the fix. Links are followed.
+// they may, or the kind of file it is and the reason. Links are followed.
 export function whyNotRead(
   file: string,
   projectRoot: string
-): {reason: string; fix: string} | undefined {
+): {kind: WithheldKind; reason: string} | undefined {
   const root = realPath(projectRoot)
   const asked = path.resolve(file)
   const real = realPath(file)
@@ -420,8 +418,8 @@ export function whyNotRead(
 
   if (privateName) {
     return {
-      reason: `The path holds ${privateName}, a name the build keeps private.`,
-      fix: NO_PRIVATE_NAME
+      kind: 'private',
+      reason: `The path holds ${privateName}, a name the build keeps private.`
     }
   }
 
@@ -453,8 +451,8 @@ export function whyNotRead(
   }
 
   return {
-    reason: `The file sits outside the project, at ${toPosixPath(real)}.`,
-    fix: KEEP_IN_PROJECT
+    kind: 'outside',
+    reason: `The file sits outside the project, at ${toPosixPath(real)}.`
   }
 }
 

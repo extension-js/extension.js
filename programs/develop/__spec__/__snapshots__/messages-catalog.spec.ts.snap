@@ -190,6 +190,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "tailwindNotInstalled: function(2)",
     "tailwindSetupFailed: function(3)",
     "unplacedStyleImport: function(3)",
+    "withheldCssRef: function(3)",
   ],
   "plugin-js-frameworks/js-frameworks-lib/messages.ts": [
     "creatingTSConfig: function(0)",

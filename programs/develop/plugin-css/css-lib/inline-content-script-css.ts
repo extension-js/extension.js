@@ -17,6 +17,7 @@ import {
   GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../lib/extension-base-from-stack'
+import type {WithheldKind} from '../../lib/withheld-file'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
 import {rewriteCssUrls, whyNotRead} from './inline-css-imports'
@@ -104,10 +105,14 @@ function resolveTarget(
 export function rewriteInlinedCssUrls(
   source: string,
   context: RewriteInlinedCssUrlsContext
-): {css: string; targets: InlinedCssUrlTarget[]; withheld: string[]} {
+): {
+  css: string
+  targets: InlinedCssUrlTarget[]
+  withheld: Array<{request: string; kind: WithheldKind}>
+} {
   const targets: InlinedCssUrlTarget[] = []
   // The addresses of files the build keeps back, each once, as written.
-  const withheld = new Set<string>()
+  const withheld = new Map<string, WithheldKind>()
   const seen = new Map<string, string>()
 
   // Read the way CSS reads it, so a url( inside a string is left alone. The
@@ -134,12 +139,13 @@ export function rewriteInlinedCssUrls(
         const target = resolveTarget(req, context)
         if (!target) return undefined
 
-        if (
-          !target.publicOwned &&
-          context.projectPath &&
-          whyNotRead(target.absolutePath, context.projectPath)
-        ) {
-          withheld.add(request)
+        const refused =
+          !target.publicOwned && context.projectPath
+            ? whyNotRead(target.absolutePath, context.projectPath)
+            : undefined
+
+        if (refused) {
+          withheld.set(request, refused.kind)
 
           return undefined
         }
@@ -159,7 +165,11 @@ export function rewriteInlinedCssUrls(
     true
   )
 
-  return {css, targets, withheld: [...withheld]}
+  return {
+    css,
+    targets,
+    withheld: [...withheld].map(([request, kind]) => ({request, kind}))
+  }
 }
 
 export const SFC_STYLE_ATTRIBUTE = 'data-extjs-sfc-style'

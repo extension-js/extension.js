@@ -270,11 +270,6 @@ describe('the sheets a content-script sheet imports', () => {
     expect(result.unreadable).toEqual([])
   })
 
-  const KEEP =
-    'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
-  const NO_PRIVATE_NAME =
-    'Give the sheet a path with no private file or folder name along it.'
-
   function inlineApp(root: string) {
     const app = path.join(root, 'app')
 
@@ -308,8 +303,8 @@ describe('the sheets a content-script sheet imports', () => {
         request: '../shared/tokens.css',
         file: path.join(root, 'shared', 'tokens.css'),
         from: path.join(root, 'app', 'styles.css'),
-        reason: `The file sits outside the project, at ${real.split(path.sep).join('/')}.`,
-        fix: KEEP
+        kind: 'outside',
+        reason: `The file sits outside the project, at ${real.split(path.sep).join('/')}.`
       }
     ])
   })
@@ -427,8 +422,8 @@ describe('the sheets a content-script sheet imports', () => {
         request,
         file: path.resolve(root, 'app', request),
         from: path.join(root, 'app', 'styles.css'),
-        reason: `The path holds ${name}, a name the build keeps private.`,
-        fix: NO_PRIVATE_NAME
+        kind: 'private',
+        reason: `The path holds ${name}, a name the build keeps private.`
       }
     ])
   })
@@ -1451,7 +1446,7 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     ])
   })
 
-  it('warns for a sheet outside the project, names where it sits, and still watches it', () => {
+  it('says a sheet outside the project is not bundled, and still watches it', () => {
     const root = makeProject({
       'app/content/styles.css': '@import "../../shared/tokens.css";\n.own{}\n',
       'shared/tokens.css': '.tokens{}\n'
@@ -1469,20 +1464,19 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     expect(watched).toEqual([tokens])
     expect(warnings.map((w) => [w.name, w.message])).toEqual([
       [
-        'CssParseWarning',
+        'CssWithheldRef',
         [
-          `${WARN} Couldn't bring an @import into this content script stylesheet, so the rules of that file will not load.`,
+          '../../shared/tokens.css is not bundled. Check the url() or @import that names it in this stylesheet.',
+          'The file is not one the project or its workspace shares. Move it into the project.',
           'PATH content/styles.css',
-          'IMPORT ../../shared/tokens.css',
-          `REASON The file sits outside the project, at ${realPath(tokens).split(path.sep).join('/')}.`,
-          'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
-          'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
+          'The rest of the stylesheet ships, and this reference loads nothing.',
+          'Set EXTENSION_STRICT_REFS=true to make this a build error.'
         ].join('\n')
       ]
     ])
   })
 
-  it('warns for a private file by its name', () => {
+  it('says a private file is not bundled, by the path as written', () => {
     const root = makeProject({
       'content/styles.css': '@import "../node_modules/pkg/.env";\n.own{}\n',
       'node_modules/pkg/.env': 'KEY=value\n'
@@ -1495,12 +1489,11 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     expect(output).toBe('@import "../node_modules/pkg/.env";\n.own{}\n')
     expect(warnings.map((w) => w.message.split('\n'))).toEqual([
       [
-        `${WARN} Couldn't bring an @import into this content script stylesheet, so the rules of that file will not load.`,
+        '../node_modules/pkg/.env is not bundled. Check the url() or @import that names it in this stylesheet.',
+        'The build never bundles env files, tooling files or repository files. Move the contents into a file with another name.',
         'PATH content/styles.css',
-        'IMPORT ../node_modules/pkg/.env',
-        'REASON The path holds .env, a name the build keeps private.',
-        'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
-        'Give the sheet a path with no private file or folder name along it.'
+        'The rest of the stylesheet ships, and this reference loads nothing.',
+        'Set EXTENSION_STRICT_REFS=true to make this a build error.'
       ]
     ])
   })
@@ -2223,7 +2216,9 @@ describe('a content script that imports a sheet with an @import, compiled', () =
         `${statements.join('\n')}\n.own{color:red}\n`
       )
 
-      expect(issues.map((issue) => /IMPORT (\S+)/.exec(issue)?.[1])).toEqual([
+      expect(
+        issues.map((issue) => /(\S+) is not bundled\./.exec(issue)?.[1])
+      ).toEqual([
         './.env',
         './.env.local',
         '../../shared/tokens.css',
@@ -2231,7 +2226,7 @@ describe('a content script that imports a sheet with an @import, compiled', () =
       ])
 
       for (const issue of issues) {
-        expect(issue).toContain('so the rules of that file will not load.')
+        expect(issue).toContain('this reference loads nothing.')
       }
     },
     60_000
@@ -2352,8 +2347,8 @@ describe('the workspace root of a project', () => {
       whyNotRead(
         path.join(root, 'ws-other', 'a.css'),
         path.join(root, 'ws', 'app')
-      )?.fix
-    ).toMatch(/inside the project or its workspace/)
+      )?.kind
+    ).toBe('outside')
   })
 
   // A sibling is read where its sources are, never what a tool keeps there.
