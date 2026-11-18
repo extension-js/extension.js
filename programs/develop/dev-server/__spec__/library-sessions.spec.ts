@@ -118,7 +118,11 @@ afterAll(() => {
 
 describe('a host that starts dev sessions from the library', () => {
   it.each([
-    ['its config is refused before a compiler exists', 'config', 'config hook'],
+    [
+      'its config is refused before a compiler exists',
+      'config',
+      "Couldn't load extension.config.js."
+    ],
     ['its bundle throws once the manifest is guarded', 'bundle', 'tap broke'],
     ['its server cannot start', 'start', 'watch broke']
   ])(
@@ -209,8 +213,11 @@ describe('a host that starts dev sessions from the library', () => {
       expect(frame).toMatchObject({
         ok: false,
         command: 'dev',
-        error: {code: 'E_INTERNAL', message: 'config hook broke'},
-        hint: 'host hint for E_INTERNAL',
+        error: {
+          code: 'E_CONFIG_LOAD',
+          message: expect.stringContaining('\nconfig hook broke\n')
+        },
+        hint: 'host hint for E_CONFIG_LOAD',
         value: {command: 'dev', browser: 'chromium', pid: expect.any(Number)}
       })
     }
