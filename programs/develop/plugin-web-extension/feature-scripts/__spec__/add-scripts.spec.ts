@@ -34,9 +34,6 @@ function createCompiler(context: string) {
     hooks: {
       thisCompilation: {
         tap() {}
-      },
-      make: {
-        tapPromise() {}
       }
     },
     rspack: {
