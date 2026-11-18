@@ -242,11 +242,11 @@ export function missingGeckoDataCollectionPermissions() {
   )
 
   lines.push(
-    `Declare ${colors.blue('{"required": ["none"]}')} if this extension transmits no data.`
+    `The extension's owner declares what the extension collects. The build proposes no value.`
   )
 
   lines.push(
-    `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for details.`
+    `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for the accepted values.`
   )
 
   return lines.join('\n')
