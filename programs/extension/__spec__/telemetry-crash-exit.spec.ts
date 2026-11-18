@@ -23,8 +23,8 @@ function cliBin(): string {
 // awaited command promise, which is the path a telemetry listener swallowed.
 const CRASH_PRELOAD = 'Promise.reject(new Error("injected async crash"))\n'
 
-// The update check reads its registry through rc, which takes npm_registry
-// and ignores npm_config_registry. A refused loopback port keeps it local.
+// The update check takes npm_registry ahead of npm_config_registry, which
+// the runner may set. A refused loopback port keeps it local.
 const LOOPBACK_REGISTRY = 'http://127.0.0.1:9/'
 
 interface CrashRun {
