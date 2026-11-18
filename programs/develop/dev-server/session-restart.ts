@@ -14,6 +14,7 @@ export type DevSessionRestartReason =
   | 'env'
   | 'public'
   | 'main-world'
+  | 'styles'
 
 export interface DevSessionRestartRequest {
   reason: DevSessionRestartReason
