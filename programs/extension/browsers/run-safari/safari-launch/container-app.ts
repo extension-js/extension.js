@@ -6,6 +6,7 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {isPidAlive} from '../../browsers-lib/resolve-live-pid'
 import type {SafariPipelineTools} from './tools'
 
 const RAISE_WAIT_MS = 5000
@@ -20,16 +21,6 @@ let handlersInstalled = false
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function processAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
-
-    return true
-  } catch {
-    return false
-  }
 }
 
 function terminate(pid: number): void {
@@ -92,7 +83,7 @@ export async function closeSafariContainerApps(): Promise<void> {
 
   const deadline = Date.now() + QUIT_MS
 
-  while (Date.now() < deadline && pids.some(processAlive)) {
+  while (Date.now() < deadline && pids.some(isPidAlive)) {
     await sleep(POLL_MS)
   }
 }

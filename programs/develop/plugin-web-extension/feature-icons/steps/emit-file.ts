@@ -236,7 +236,8 @@ export class EmitFile {
                           publicRootHint: isPublicRoot
                         }),
                     'error',
-                    'manifest.json'
+                    'manifest.json',
+                    'IconsMissingFile'
                   )
 
                   missingCount++
@@ -249,7 +250,8 @@ export class EmitFile {
                     compiler,
                     messages.iconsPathIsFolder(feature, resolved),
                     'error',
-                    'manifest.json'
+                    'manifest.json',
+                    'IconsMissingFile'
                   )
 
                   missingCount++

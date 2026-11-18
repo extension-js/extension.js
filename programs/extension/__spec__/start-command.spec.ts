@@ -1,299 +1,810 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {WaitModeError} from '../commands/dev-wait'
+import {registerStartCommand} from '../commands/start'
+import {CODES} from '../helpers/messaging'
+import {
+  isEmulatorVendor,
+  isSafariVendor,
+  SUPPORTED_BROWSER_TARGETS
+} from '../helpers/vendors'
+import {
+  makeProgram,
+  runCli,
+  stubCommandEnv,
+  stubProcessExit
+} from './command-harness'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const extensionBuild = vi.fn(async () => {})
-const extensionPreview = vi.fn(
-  async (_path: string, _opts: any, launcher: (o: any) => unknown) => {
-    launcher({launched: true})
-  }
-)
-const runWaitMode = vi.fn(async (_input: unknown) => ({
-  format: 'json' as const,
+// A real folder: a typed path that is not there is refused before the engine.
+const PROJECT = trackTempFolders()('extjs-start-spec-')
+
+type EngineCall = [projectPath: string, options: Record<string, unknown>]
+type StartDeps = NonNullable<Parameters<typeof registerStartCommand>[1]>
+
+const builds: EngineCall[] = []
+const previews: EngineCall[] = []
+const browserRuns: unknown[] = []
+const configReads: unknown[][] = []
+const waitInputs: unknown[] = []
+// The order things happened in, stdout lines included.
+const events: string[] = []
+
+const READY = {
+  format: 'json',
   browsers: ['chromium'],
   results: [{browser: 'chromium', ok: true}]
-}))
+}
 
-const loadCommandConfig = vi.fn(async (): Promise<unknown> => ({}))
+let commandConfig: unknown = {}
 
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopModule: vi.fn(async () => ({
-    extensionBuild,
-    loadCommandConfig
-  })),
-  loadExtensionDevelopPreviewModule: vi.fn(async () => ({extensionPreview}))
-}))
+let build: () => Promise<void> = async () => {}
 
-vi.mock('../browsers/run-only', () => ({
-  runOnlyPreviewBrowser: vi.fn(async () => {})
-}))
+let preview: () => Promise<void> = async () => {}
 
-vi.mock('../commands/dev-wait', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../commands/dev-wait')>()
+let wait: () => Promise<unknown> = async () => READY
 
-  return {...actual, runWaitMode: (input: unknown) => runWaitMode(input)}
-})
+// Only waitForReady is faked on the wait path: describeWaitError is the code
+// under test there.
+// What the command told telemetry about the browsers of the run.
+const notedBrowsers: string[][] = []
 
-import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {registerStartCommand} from '../commands/start'
-import {makeProgram, runCli, stubProcessExit} from './command-harness'
+const deps: StartDeps = {
+  noteBrowsers: (resolved) => {
+    notedBrowsers.push([...resolved])
+  },
+  loadDevelop: async () => ({
+    extensionBuild: async (...call: EngineCall) => {
+      events.push('build')
+      builds.push(call)
+      await build()
+    },
+    loadCommandConfig: async (...args: unknown[]) => {
+      configReads.push(args)
 
-const ORIG_ENV = {...process.env}
+      return commandConfig
+    }
+  }),
+  loadPreview: async () => ({
+    extensionPreview: async (
+      projectPath: string,
+      options: Record<string, unknown>,
+      runBrowser: (launch: unknown) => unknown
+    ) => {
+      events.push('preview')
+      previews.push([projectPath, options])
+      await preview()
+      await runBrowser({launched: true})
+    }
+  }),
+  runBrowser: (async (launch: unknown) => {
+    browserRuns.push(launch)
+  }) as never,
+  waitForReady: (async (input: unknown) => {
+    waitInputs.push(input)
 
-let logSpy: ReturnType<typeof vi.spyOn>
+    return wait()
+  }) as never
+}
+
+let stdout: string[]
+let stderr: string[]
 
 beforeEach(() => {
+  stdout = []
+  stderr = []
   stubProcessExit()
-  logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-  vi.spyOn(console, 'error').mockImplementation(() => {})
-  delete process.env.EXTENSION_CLI_NO_BROWSER
+  vi.spyOn(console, 'log').mockImplementation((line) => {
+    events.push('stdout')
+    stdout.push(String(line))
+  })
+
+  vi.spyOn(console, 'error').mockImplementation((line) => {
+    stderr.push(String(line))
+  })
+
+  stubCommandEnv()
 })
 
 afterEach(() => {
-  process.env = {...ORIG_ENV}
+  notedBrowsers.length = 0
+  vi.unstubAllEnvs()
   vi.restoreAllMocks()
-  vi.clearAllMocks()
+
+  for (const list of [
+    builds,
+    previews,
+    browserRuns,
+    configReads,
+    waitInputs,
+    events
+  ]) {
+    list.length = 0
+  }
+
+  commandConfig = {}
+
+  build = async () => {}
+
+  preview = async () => {}
+
+  wait = async () => READY
 })
 
 function run(argv: string[]) {
-  return runCli(makeProgram(registerStartCommand), argv)
+  return runCli(
+    makeProgram((program) => registerStartCommand(program, deps)),
+    argv
+  )
 }
 
-describe('extension start', () => {
-  it('builds in production then launches the preview browser', async () => {
-    expect(await run(['start', './my-extension'])).toBe(0)
-    expect(extensionBuild).toHaveBeenCalledTimes(1)
-    const [, buildOpts] = extensionBuild.mock.calls[0] as any[]
-    expect(buildOpts).toMatchObject({
-      browser: 'chromium',
-      exitOnError: true,
-      metadataCommand: 'start',
-      silent: true
-    })
+function frames(): unknown[] {
+  return stdout.map((line) => JSON.parse(line))
+}
 
-    // Unset polyfill stays undefined so commands.start.polyfill can apply.
-    // The start-phase build still defaults it on inside extensionBuild.
-    expect(buildOpts.polyfill).toBeUndefined()
+function startCommandOf(program: ReturnType<typeof makeProgram>) {
+  const start = program.commands.find((command) => command.name() === 'start')
 
-    expect(extensionPreview).toHaveBeenCalledTimes(1)
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts).toMatchObject({
-      mode: 'production',
-      metadataCommand: 'start'
-    })
+  if (!start) throw new Error('start is not registered')
 
-    // Logger defaults live in extensionPreview, not forced at the CLI layer.
-    expect(previewOpts.logLevel).toBeUndefined()
-    expect(previewOpts.logFormat).toBeUndefined()
-    expect(previewOpts.logTimestamps).toBeUndefined()
-    expect(previewOpts.logColor).toBeUndefined()
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({
-      launched: true,
-      command: 'start'
-    })
+  return start
+}
+
+function startCommand() {
+  return startCommandOf(makeProgram(registerStartCommand))
+}
+
+// Every spelling commander accepts for start, read from the registered options.
+function registeredFlags(): string[] {
+  return startCommand().options.flatMap((option) =>
+    [option.short, option.long].filter((flag): flag is string => Boolean(flag))
+  )
+}
+
+function flagsIn(argv: string[]): string[] {
+  return argv
+    .filter((arg) => arg.startsWith('-'))
+    .map((arg) => arg.split('=')[0])
+}
+
+// What the build and the launch receive when no flag is typed. A row states
+// only the keys its flags change, and both objects are compared whole.
+const UNTYPED_BUILD = {
+  browser: 'chromium',
+  exitOnError: true,
+  metadataCommand: 'start',
+  launchFollows: true,
+  polyfill: undefined,
+  install: undefined,
+  extensions: undefined,
+  silent: true
+}
+
+const UNTYPED_LAUNCH = {
+  mode: 'production',
+  profile: undefined,
+  browser: 'chromium',
+  chromiumBinary: undefined,
+  geckoBinary: undefined,
+  startingUrl: undefined,
+  port: undefined,
+  host: undefined,
+  noBrowser: false,
+  noOpen: undefined,
+  extensions: undefined,
+  metadataCommand: 'start',
+  allowControl: false,
+  allowEval: false,
+  logLevel: undefined,
+  logContexts: undefined,
+  logFormat: undefined,
+  logTimestamps: undefined,
+  logColor: undefined,
+  logUrl: undefined,
+  logTab: undefined
+}
+
+interface ForwardingRow {
+  argv: string[]
+  env?: Record<string, string>
+  config?: unknown
+  build?: Record<string, unknown>
+  // null when the row launches no browser.
+  launch?: Record<string, unknown> | null
+}
+
+const NO_LAUNCH = {build: {launchFollows: false}, launch: null}
+
+const FORWARDING: ForwardingRow[] = [
+  {argv: []},
+  {
+    argv: [],
+    config: {browser: 'firefox'},
+    build: {browser: 'firefox'},
+    launch: {browser: 'firefox'}
+  },
+  {
+    argv: ['--browser', 'edge'],
+    config: {browser: 'firefox'},
+    build: {browser: 'edge'},
+    launch: {browser: 'edge'}
+  },
+  {argv: [], env: {EXTENSION_CLI_NO_BROWSER: '1'}, ...NO_LAUNCH},
+  {argv: [], config: {noBrowser: true}, ...NO_LAUNCH},
+  {argv: ['--profile', 'false'], launch: {profile: false}},
+  {
+    argv: ['--profile', '/tmp/my-profile'],
+    launch: {profile: '/tmp/my-profile'}
+  },
+  {argv: ['--polyfill'], build: {polyfill: true}},
+  {argv: ['--polyfill', 'false'], build: {polyfill: false}},
+  {argv: ['--no-polyfill'], build: {polyfill: false}},
+  // The browser phase still runs under --no-open. Only the tab is skipped.
+  {argv: ['--no-open'], launch: {noOpen: true}},
+  {
+    argv: ['--chromium-binary', '/bin/chromium'],
+    launch: {chromiumBinary: '/bin/chromium'}
+  },
+  {argv: ['--gecko-binary', '/bin/gecko'], launch: {geckoBinary: '/bin/gecko'}},
+  {
+    argv: ['--firefox-binary', '/bin/firefox'],
+    launch: {geckoBinary: '/bin/firefox'}
+  },
+  {
+    argv: ['--starting-url', 'https://example.com'],
+    launch: {startingUrl: 'https://example.com'}
+  },
+  {argv: ['--port', '9000'], launch: {port: '9000'}},
+  {argv: ['--port', '0'], launch: {port: '0'}},
+  {argv: ['--host', '0.0.0.0'], launch: {host: '0.0.0.0'}},
+  // Accepted at 4.1.30 and still sent by callers that share their flags with
+  // dev. start serves nothing, so the value is taken and never forwarded.
+  {argv: ['--public-host', '203.0.113.7']},
+  {
+    argv: ['--log-context', 'background, nope ,content'],
+    launch: {logContexts: ['background', 'content']}
+  },
+  {argv: ['--log-context', 'all']},
+  {argv: ['--logs', 'debug'], launch: {logLevel: 'debug'}},
+  {argv: ['--log-format', 'ndjson'], launch: {logFormat: 'ndjson'}},
+  {argv: ['--no-log-timestamps'], launch: {logTimestamps: false}},
+  {argv: ['--no-log-color'], launch: {logColor: false}},
+  {argv: ['--log-url', '/api/i'], launch: {logUrl: '/api/i'}},
+  {argv: ['--log-tab', '12'], launch: {logTab: '12'}},
+  {
+    argv: ['--extensions', 'a, ,b'],
+    build: {extensions: ['a', 'b']},
+    launch: {extensions: ['a', 'b']}
+  },
+  {argv: ['--allow-control'], launch: {allowControl: true}},
+  {argv: ['--allow-eval'], launch: {allowControl: true, allowEval: true}},
+  {argv: ['--install'], build: {install: true}},
+  {argv: ['--install', 'false'], build: {install: false}},
+  {argv: ['--wait', 'false']},
+  {argv: ['--output', 'json'], build: {exitOnError: false}},
+  {argv: ['--output', 'pretty']},
+  {argv: ['--wait-format', 'json'], build: {exitOnError: false}},
+  {argv: ['--debug']},
+  {argv: ['--author']},
+  {argv: ['--author-mode']},
+  {
+    argv: ['--browser', 'chrome'],
+    build: {browser: 'chrome'},
+    launch: {browser: 'chrome'}
+  }
+]
+
+describe('extension start flag forwarding', () => {
+  it('has a row for every flag the command registers', () => {
+    // A flag that is only ever refused alone is typed in the refusal table.
+    const typed = new Set(
+      [...FORWARDING, ...REFUSALS].flatMap((row) => flagsIn(row.argv))
+    )
+
+    expect(registeredFlags().filter((flag) => !typed.has(flag))).toEqual([])
   })
 
-  it('opens the control channel on the production run with --allow-control', async () => {
-    expect(await run(['start', '.', '--allow-control'])).toBe(0)
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts).toMatchObject({allowControl: true, allowEval: false})
+  // It could only fail: start refuses Safari, and the flag is Safari-only.
+  it('does not take --enable-extension', async () => {
+    const program = makeProgram((root) => registerStartCommand(root, deps))
+    const printed: string[] = []
+
+    startCommandOf(program).configureOutput({
+      writeErr: (text) => printed.push(text)
+    })
+
+    expect(registeredFlags()).not.toContain('--enable-extension')
+    await expect(
+      runCli(program, ['start', '.', '--enable-extension'])
+    ).rejects.toThrow("error: unknown option '--enable-extension'")
+
+    expect(builds).toEqual([])
   })
 
-  it('lets --allow-eval imply --allow-control', async () => {
-    expect(await run(['start', '.', '--allow-eval'])).toBe(0)
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts).toMatchObject({allowControl: true, allowEval: true})
+  it.each(
+    FORWARDING
+  )('hands the build and the launch the options of start $argv (env $env, config $config)', async (row) => {
+    commandConfig = row.config ?? {}
+
+    for (const [name, value] of Object.entries(row.env ?? {})) {
+      vi.stubEnv(name, value)
+    }
+
+    expect(await run(['start', PROJECT, ...row.argv])).toBe(0)
+    expect(builds).toEqual([[PROJECT, {...UNTYPED_BUILD, ...row.build}]])
+
+    if (row.launch === null) {
+      expect(previews).toEqual([])
+      expect(browserRuns).toEqual([])
+
+      return
+    }
+
+    expect(previews).toEqual([[PROJECT, {...UNTYPED_LAUNCH, ...row.launch}]])
+
+    // The runner learns which command launched it, on top of what it was given.
+    expect(browserRuns).toEqual([{launched: true, command: 'start'}])
   })
 
-  it('keeps the control channel closed by default', async () => {
-    expect(await run(['start', '.'])).toBe(0)
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts.allowControl).toBe(false)
-    expect(previewOpts.allowEval).toBe(false)
+  it('builds and launches once per browser of a list, in order', async () => {
+    expect(await run(['start', '.', '--browser', 'chrome,firefox'])).toBe(0)
+    expect(builds.map(([, options]) => options.browser)).toEqual([
+      'chrome',
+      'firefox'
+    ])
+
+    expect(previews.map(([, options]) => options.browser)).toEqual([
+      'chrome',
+      'firefox'
+    ])
+
+    expect(events).toEqual(['build', 'preview', 'build', 'preview'])
+  })
+
+  it('reads the project config for the start command before it picks a browser', async () => {
+    expect(await run(['start', PROJECT])).toBe(0)
+    expect(configReads[0]).toEqual([PROJECT, 'start'])
   })
 
   it('lists both control flags in start --help', () => {
-    const program = makeProgram(registerStartCommand)
-    const help = program.commands
-      .find((c) => c.name() === 'start')!
-      .helpInformation()
+    const help = startCommand().helpInformation()
+
     expect(help).toContain('--allow-control')
     expect(help).toContain('--allow-eval')
   })
+})
 
-  it('disables the polyfill with --polyfill false', async () => {
-    expect(await run(['start', '.', '--polyfill', 'false'])).toBe(0)
-    const [, buildOpts] = extensionBuild.mock.calls[0] as any[]
-    expect(buildOpts.polyfill).toBe(false)
-  })
+interface RefusalRow {
+  name: string
+  argv: string[]
+  env?: Record<string, string>
+  stderr: string[]
+  frame: {status: string; error: {code: string; message: string}}
+}
 
-  it('enables the polyfill explicitly with --polyfill', async () => {
-    expect(await run(['start', '.', '--polyfill'])).toBe(0)
-    const [, buildOpts] = extensionBuild.mock.calls[0] as any[]
-    expect(buildOpts.polyfill).toBe(true)
-  })
+// Safari has its own refusal on this command, so the choices leave it out.
+const RUN_ONLY_TARGETS = SUPPORTED_BROWSER_TARGETS.filter(
+  (target) => !isEmulatorVendor(target) && !isSafariVendor(target)
+).join(', ')
 
-  it('forwards a typed --no-open and leaves it unset otherwise', async () => {
-    expect(await run(['start', '.', '--no-open'])).toBe(0)
-    const [, withFlag] = extensionPreview.mock.calls[0] as any[]
-    // The browser phase still runs under --no-open. Only the tab is skipped.
-    expect(withFlag.noOpen).toBe(true)
-    expect(withFlag.noBrowser).toBe(false)
-    expect(runOnlyPreviewBrowser).toHaveBeenCalledWith({
-      launched: true,
-      command: 'start'
+// Same contract as preview: the refusal has to hand the user a command, and
+// it has to give the measured reason for having no Safari path.
+const SAFARI_REFUSAL =
+  "⏵⏵⏵ start can't load an extension into Safari.\n" +
+  'Safari loads an extension only from an app it has registered, and that app is enabled by hand once installed.\n' +
+  'Its automation route can load a folder but grants no website access, so content scripts never run.\n' +
+  'Run a live Safari session: extension dev --browser safari\n' +
+  'Or package the app and open it: extension build --browser safari --open\n' +
+  'Both need macOS with Xcode, and Safari takes the enable gesture once in Safari ▸ Settings ▸ Extensions.'
+
+const WHOLE_NUMBER_USE = {
+  '--wait-timeout': 'Use a whole number of milliseconds, such as 10000.',
+  '--port':
+    'Use a whole number from 0 to 65535, such as 8080. 0 picks a free port.'
+} as const
+
+const REFUSALS: RefusalRow[] = [
+  ...[
+    ['--wait-timeout', '5000'],
+    ['--wait', 'false', '--wait-timeout', '5000']
+  ].map(
+    (argv): RefusalRow => ({
+      name: `${argv.join(' ')} with no wait to time`,
+      argv,
+      stderr: [
+        '⏵⏵⏵ --wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
+      ],
+      frame: {
+        status: 'usage',
+        error: {
+          code: 'E_INVALID_OPTION',
+          message:
+            '--wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
+        }
+      }
     })
+  ),
+  ...(
+    [
+      ['--wait-timeout', '10s'],
+      ['--wait-timeout', '1.5'],
+      ['--port', 'abc'],
+      ['--port', '-1'],
+      ['--port', '70000']
+    ] as const
+  ).map(([flag, value]): RefusalRow => {
+    const message = `${flag} got "${value}". ${WHOLE_NUMBER_USE[flag]}`
 
-    vi.clearAllMocks()
+    return {
+      name: `${flag} ${value}`,
+      argv: [flag, value],
+      stderr: [`⏵⏵⏵ ${message}`],
+      frame: {status: 'usage', error: {code: 'E_INVALID_OPTION', message}}
+    }
+  }),
+  {
+    name: 'a browser name nobody supports',
+    argv: ['--browser', 'netscape'],
+    stderr: [
+      `⏵⏵⏵ Unsupported --browser value: netscape.\nChoose one of: ${RUN_ONLY_TARGETS}.`
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_UNSUPPORTED_BROWSER',
+        message: `Unsupported browser: netscape. Choose one of: ${RUN_ONLY_TARGETS}.`
+      }
+    }
+  },
+  {
+    // Safari is a supported browser that this command has no path for, which
+    // is a different failure from an unknown vendor. The codes must not merge.
+    name: 'safari, which it has no path for',
+    argv: ['--browser', 'safari'],
+    stderr: [SAFARI_REFUSAL],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_COMMAND_UNSUPPORTED_FOR_TARGET',
+        message: 'Safari is not supported by start.'
+      }
+    }
+  },
+  {
+    // Same process, both flags: --wait never starts a server, so the run used
+    // to sit on the ready contract for the whole --wait-timeout and then fail.
+    name: '--no-browser with --wait',
+    argv: ['--wait'],
+    env: {EXTENSION_CLI_NO_BROWSER: '1'},
+    stderr: [
+      '⏵⏵⏵ --no-browser and --wait cannot run in the same process.\n--no-browser runs the server without a browser, and --wait only reads the ready contract another process writes.\nRUN extension start --no-browser\nTHEN extension start --wait --output json in a second process'
+    ],
+    frame: {
+      status: 'usage',
+      error: {
+        code: 'E_INVALID_OPTION',
+        message:
+          '--no-browser and --wait cannot run in the same process. Run `extension start --no-browser` in one process and `extension start --wait` in another.'
+      }
+    }
+  }
+]
 
-    expect(await run(['start', '.'])).toBe(0)
-    const [, withoutFlag] = extensionPreview.mock.calls[0] as any[]
-    expect(withoutFlag.noOpen).toBeUndefined()
+describe.each(REFUSALS)('extension start refuses $name', (row) => {
+  beforeEach(() => {
+    for (const [name, value] of Object.entries(row.env ?? {})) {
+      vi.stubEnv(name, value)
+    }
   })
 
-  it('normalizes --profile false to the system-profile sentinel', async () => {
-    expect(await run(['start', '.', '--profile', 'false'])).toBe(0)
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts.profile).toBe(false)
+  function expectNothingRan() {
+    expect(builds).toEqual([])
+    expect(previews).toEqual([])
+    expect(browserRuns).toEqual([])
+    expect(waitInputs).toEqual([])
+  }
+
+  it('on stderr, with exit 1 and nothing run', async () => {
+    expect(await run(['start', '.', ...row.argv])).toBe(1)
+    expect(stderr).toEqual(row.stderr)
+    expect(stdout).toEqual([])
+    expectNothingRan()
   })
 
-  it('keeps an explicit --profile path as a string', async () => {
-    expect(await run(['start', '.', '--profile', '/tmp/my-profile'])).toBe(0)
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts.profile).toBe('/tmp/my-profile')
-  })
+  it('as one frame and no prose under --output json', async () => {
+    expect(await run(['start', '.', ...row.argv, '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'start',
+        value: null,
+        warnings: [],
+        ...row.frame
+      }
+    ])
 
-  it('skips the browser phase when EXTENSION_CLI_NO_BROWSER is set', async () => {
-    process.env.EXTENSION_CLI_NO_BROWSER = '1'
-    expect(await run(['start', '.'])).toBe(0)
-    expect(extensionBuild).toHaveBeenCalledTimes(1)
-    expect(extensionPreview).not.toHaveBeenCalled()
+    expect(stderr).toEqual([])
+    expectNothingRan()
   })
+})
 
-  it('enables author diagnostics with --author', async () => {
-    Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
-    delete process.env.EXTENSION_VERBOSE
-    expect(await run(['start', '.', '--author'])).toBe(0)
+describe('extension start', () => {
+  it.each([
+    '--debug',
+    '--author',
+    '--author-mode'
+  ])('enables maintainer diagnostics with %s', async (flag) => {
+    expect(await run(['start', '.', flag])).toBe(0)
+    expect(process.env.EXTENSION_DEBUG).toBe('1')
     expect(process.env.EXTENSION_AUTHOR_MODE).toBe('true')
     expect(process.env.EXTENSION_VERBOSE).toBe('1')
   })
 
-  it('exits on an unsupported browser name', async () => {
-    expect(await run(['start', '.', '--browser', 'netscape'])).toBe(1)
-    expect(extensionBuild).not.toHaveBeenCalled()
-  })
-
-  it('forwards --host and --port to the preview path', async () => {
-    expect(
-      await run(['start', '.', '--host', '0.0.0.0', '--port', '9000'])
-    ).toBe(0)
-
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts).toMatchObject({host: '0.0.0.0', port: '9000'})
-    expect(previewOpts).not.toHaveProperty('publicHost')
-  })
-
-  // Accepted at 4.1.30 and still sent by callers that share their flags with
-  // dev. start serves nothing, so the value is taken and never forwarded.
-  it('accepts --public-host as dev does, without forwarding it', async () => {
-    const program = makeProgram(registerStartCommand)
-    const start = program.commands.find((cmd) => cmd.name() === 'start')
-    expect(start?.options.map((option) => option.long)).toContain(
-      '--public-host'
-    )
-
-    expect(await run(['start', '.', '--public-host', '203.0.113.7'])).toBe(0)
-    expect(extensionBuild).toHaveBeenCalledTimes(1)
-
-    const [, previewOpts] = extensionPreview.mock.calls[0] as any[]
-    expect(previewOpts).not.toHaveProperty('publicHost')
-  })
-
-  // Same contract as preview: the refusal has to hand the user a command, and
-  // it has to give the measured reason. Safari's automation load grants no
-  // host origins, so content scripts never run under it.
-  it('rejects safari and names what to run instead', async () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(await run(['start', '.', '--browser', 'safari'])).toBe(1)
-    expect(extensionBuild).not.toHaveBeenCalled()
-    const refusal = String(errorSpy.mock.calls.at(-1)?.[0] ?? '')
-    expect(refusal).toContain('extension dev --browser safari')
-    expect(refusal).toContain('extension build --browser safari --open')
-    expect(refusal).toContain('grants no website access')
-  })
-
-  it('emits E_UNSUPPORTED_BROWSER instead of prose with --output json', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(
-      await run(['start', '.', '--browser', 'netscape', '--output', 'json'])
-    ).toBe(1)
-
-    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(frame.status).toBe('usage')
-    expect(frame.error.code).toBe('E_UNSUPPORTED_BROWSER')
-    expect(errorSpy).not.toHaveBeenCalled()
-  })
-
-  // Safari is a supported browser that this command has no path for, which is
-  // a different failure from an unknown vendor. The two codes must not collapse.
-  it('separates safari-on-start from an unknown vendor', async () => {
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    expect(
-      await run(['start', '.', '--browser', 'safari', '--output', 'json'])
-    ).toBe(1)
-
-    const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(frame.status).toBe('usage')
-    expect(frame.error.code).toBe('E_COMMAND_UNSUPPORTED_FOR_TARGET')
-    expect(frame.error.code).not.toBe('E_UNSUPPORTED_BROWSER')
-    expect(frame.error.message).toContain('Safari')
-    expect(errorSpy).not.toHaveBeenCalled()
-  })
-
-  it('delegates --wait to wait mode and prints the json envelope', async () => {
-    expect(await run(['start', '.', '--wait', '--wait-format', 'json'])).toBe(0)
-    expect(runWaitMode).toHaveBeenCalledWith(
-      expect.objectContaining({command: 'start'})
-    )
-
-    const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
-    // The pre-envelope wait frame now rides inside value.
-    expect(payload).toMatchObject({
-      schema: 1,
-      ok: true,
-      command: 'start',
-      status: 'ready',
-      error: null,
-      value: {mode: 'wait', command: 'start'}
-    })
-
-    expect(extensionBuild).not.toHaveBeenCalled()
-  })
-
-  it('refuses --no-browser with --wait instead of polling for a file no one writes', async () => {
-    // Same process, both flags: --wait never starts a server, so the run used
-    // to sit on the ready contract for the whole --wait-timeout and then fail.
-    process.env.EXTENSION_CLI_NO_BROWSER = '1'
-    expect(await run(['start', '.', '--wait', '--output', 'json'])).toBe(1)
-    expect(runWaitMode).not.toHaveBeenCalled()
-    expect(extensionBuild).not.toHaveBeenCalled()
-    const payload = JSON.parse(String(logSpy.mock.calls[0][0]))
-    expect(payload).toMatchObject({
-      ok: false,
-      command: 'start',
-      status: 'usage',
-      error: {code: 'E_INVALID_OPTION'}
-    })
+  it('prints no frame and leaves EXTENSION_OUTPUT alone in pretty mode', async () => {
+    expect(await run(['start', '.'])).toBe(0)
+    expect(builds).toHaveLength(1)
+    expect(stdout).toEqual([])
+    expect(process.env.EXTENSION_OUTPUT).toBeUndefined()
   })
 })
 
-describe('extension start browser from config', () => {
-  it('adopts commands.start.browser when --browser is not typed', async () => {
-    loadCommandConfig.mockResolvedValue({browser: 'firefox'})
-    expect(await run(['start', './my-extension'])).toBe(0)
-    const [, opts] = extensionBuild.mock.calls[0] as any[]
-    expect(opts.browser).toBe('firefox')
-    expect(loadCommandConfig).toHaveBeenCalledWith('./my-extension', 'start')
-    loadCommandConfig.mockResolvedValue({})
+describe('extension start --output json', () => {
+  it('emits one startup frame, after the build and the launch', async () => {
+    expect(await run(['start', '.', '--output', 'json'])).toBe(0)
+    // Same contract as build/preview: develop's previewing banner is a
+    // humanLine, and this env is what keeps it off the envelope stream.
+    expect(process.env.EXTENSION_OUTPUT).toBe('json')
+    // `port` stayed on the frame for readers of the 4.1.30 shape. It was the
+    // requested port then and nothing ever listened on it, so it is null now.
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: true,
+        command: 'start',
+        status: 'started',
+        value: {
+          projectPath: '.',
+          browser: 'chromium',
+          browsers: ['chromium'],
+          port: null,
+          pid: process.pid,
+          noBrowser: false,
+          allowControl: false,
+          allowEval: false
+        },
+        error: null,
+        warnings: []
+      }
+    ])
+
+    // The frame says started, so it waits for the build and the launch.
+    expect(events).toEqual(['build', 'preview', 'stdout'])
+  })
+
+  it('emits a failure frame when the build rejects', async () => {
+    build = async () => {
+      throw new Error('Build failed with errors')
+    }
+
+    expect(await run(['start', '.', '--output', 'json'])).toBe(1)
+    // One frame: an ok "started" ahead of it described a run that failed.
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'start',
+        status: 'build-failed',
+        value: null,
+        error: {code: CODES.E_COMPILE, message: 'Build failed with errors'},
+        warnings: [],
+        hint: 'Fix the error above and run start again.'
+      }
+    ])
+
+    expect(previews).toEqual([])
+  })
+
+  it('rejects with the build error, unframed, in pretty mode', async () => {
+    build = async () => {
+      throw new Error('Build failed with errors')
+    }
+
+    await expect(run(['start', '.'])).rejects.toThrow(
+      'Build failed with errors'
+    )
+
+    expect(stdout).toEqual([])
+    expect(previews).toEqual([])
+  })
+
+  it('prints no ok frame when the launch rejects', async () => {
+    preview = async () => {
+      throw Object.assign(new Error('the browser never started'), {
+        code: CODES.E_BROWSER_LAUNCH
+      })
+    }
+
+    await expect(run(['start', '.', '--output', 'json'])).rejects.toThrow(
+      'the browser never started'
+    )
+
+    expect(frames()).toEqual([])
+  })
+})
+
+describe('extension start --wait', () => {
+  it.each([
+    [['--wait'], {waitTimeout: undefined, waitFormat: 'pretty'}],
+    [['--wait', 'true'], {waitTimeout: undefined, waitFormat: 'pretty'}],
+    [
+      ['--wait', '--wait-timeout', '5000'],
+      {waitTimeout: '5000', waitFormat: 'pretty'}
+    ],
+    [
+      ['--wait', '--output', 'json'],
+      {waitTimeout: undefined, waitFormat: 'json'}
+    ],
+    [
+      ['--wait', '--wait-format', 'json'],
+      {waitTimeout: undefined, waitFormat: 'json'}
+    ],
+    [
+      ['--wait', '--browser', 'chrome,firefox'],
+      {
+        browsers: ['chrome', 'firefox'],
+        waitTimeout: undefined,
+        waitFormat: 'pretty'
+      }
+    ]
+  ])('hands wait mode the input of start %j and builds nothing', async (flags, input) => {
+    expect(await run(['start', PROJECT, ...flags])).toBe(0)
+    expect(waitInputs).toEqual([
+      {
+        command: 'start',
+        pathOrRemoteUrl: PROJECT,
+        browsers: ['chromium'],
+        ...input
+      }
+    ])
+
+    expect(builds).toEqual([])
+    expect(previews).toEqual([])
+  })
+
+  it.each([
+    [['--wait', '--wait-format', 'json']],
+    // Wait mode answers pretty here, so only --output can ask for the frame.
+    [['--wait', '--output', 'json']]
+  ])('prints what wait mode found as one ready frame for %j', async (flags) => {
+    wait = async () => ({...READY, format: 'pretty'})
+
+    expect(await run(['start', '.', ...flags])).toBe(0)
+    // The pre-envelope wait frame now rides inside value.
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: true,
+        command: 'start',
+        status: 'ready',
+        value: {
+          mode: 'wait',
+          command: 'start',
+          browsers: ['chromium'],
+          results: [{browser: 'chromium', ok: true}]
+        },
+        error: null,
+        warnings: []
+      }
+    ])
+  })
+
+  it('prints nothing on stdout for a pretty wait', async () => {
+    expect(await run(['start', '.', '--wait'])).toBe(0)
+    expect(stdout).toEqual([])
+  })
+
+  it('reports a wait timeout as E_READY_TIMEOUT', async () => {
+    wait = async () => {
+      throw new WaitModeError('Timed out waiting', CODES.E_READY_TIMEOUT)
+    }
+
+    await expect(
+      run(['start', '.', '--wait', '--output', 'json'])
+    ).rejects.toThrow('Timed out')
+
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'start',
+        status: 'timeout',
+        value: null,
+        error: {code: CODES.E_READY_TIMEOUT, message: 'Timed out waiting'},
+        warnings: [],
+        hint: 'Raise --wait-timeout, or read the server output for what kept it from reporting ready.'
+      }
+    ])
+  })
+
+  it('frames a locked profile as failed with the hint preview gives', async () => {
+    wait = async () => {
+      throw new WaitModeError('The profile is in use.', CODES.E_PROFILE_LOCKED)
+    }
+
+    await expect(
+      run(['start', '.', '--wait', '--output', 'json'])
+    ).rejects.toThrow('The profile is in use.')
+
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'start',
+        status: 'failed',
+        value: null,
+        error: {
+          code: CODES.E_PROFILE_LOCKED,
+          message: 'The profile is in use.'
+        },
+        warnings: [],
+        hint: 'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+      }
+    ])
+  })
+
+  it('falls back to E_INTERNAL for an untagged wait failure', async () => {
+    wait = async () => {
+      throw new Error('Compilation failed')
+    }
+
+    await expect(
+      run(['start', '.', '--wait', '--output', 'json'])
+    ).rejects.toThrow('Compilation failed')
+
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'start',
+        status: 'failed',
+        value: null,
+        error: {code: CODES.E_INTERNAL, message: 'Compilation failed'},
+        warnings: [],
+        hint: 'Read the server output for the failure behind the ready contract.'
+      }
+    ])
+  })
+})
+
+describe('extension start tells telemetry which browsers it resolved', () => {
+  it.each<[string, string[], unknown, string[]]>([
+    ['the default, with no flag and no config', [], {}, ['chromium']],
+    ['the one the config file names', [], {browser: 'firefox'}, ['firefox']],
+    [
+      'the flag over the config file',
+      ['--browser', 'edge'],
+      {browser: 'firefox'},
+      ['edge']
+    ],
+    [
+      'every browser of a list',
+      ['--browser', 'chrome,firefox'],
+      {},
+      ['chrome', 'firefox']
+    ]
+  ])('%s', async (_name, argv, config, expected) => {
+    commandConfig = config
+
+    await run(['start', PROJECT, ...argv])
+
+    expect(notedBrowsers).toEqual([expected])
+  })
+
+  it('tells nothing for a run refused before a browser is resolved', async () => {
+    commandConfig = {browser: 'firefox'}
+
+    expect(await run(['start', PROJECT, '--output', 'xml'])).toBe(1)
+    expect(notedBrowsers).toEqual([])
+    expect(configReads).toEqual([])
   })
 })

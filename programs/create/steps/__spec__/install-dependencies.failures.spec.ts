@@ -198,6 +198,63 @@ describe('installDependencies failure paths', () => {
     )
   })
 
+  it('captures a development install, so the tag retry runs and the frame has a reason', async () => {
+    vi.stubEnv('EXTENSION_ENV', 'development')
+    await writePackageJson({extension: '^2.1.0'})
+    const runs: FakeRun[] = [
+      {
+        exit: 1,
+        stderr:
+          'npm error code ETARGET\nnpm error notarget No matching version found for extension@^2.1.0\n'
+      },
+      {
+        exit: 7,
+        stderr: 'npm error code ECONNRESET\nnpm error network socket hang up\n'
+      }
+    ]
+    const install = installWith(() => runs.shift() ?? {exit: 0})
+    const shown: string[] = []
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true)
+    vi.spyOn(process.stderr, 'write').mockImplementation((chunk) => {
+      shown.push(String(chunk))
+
+      return true
+    })
+
+    const failure = await installFailure(install.run('npm', 'react')).finally(
+      () => vi.restoreAllMocks()
+    )
+
+    // Two runs: the first one's output was read, the pin rewritten, and the
+    // install tried again. Neither is silenced, and both are shown live.
+    expect(install.calls.map((call) => [call.command, ...call.args])).toEqual([
+      ['npm', 'install'],
+      ['npm', 'install']
+    ])
+
+    expect(install.calls.map((call) => call.options.stdio)).toEqual([
+      ['inherit', 'pipe', 'pipe'],
+      ['inherit', 'pipe', 'pipe']
+    ])
+
+    expect(shown.join('')).toContain('No matching version found')
+    expect(shown.join('')).toContain('network socket hang up')
+    expect(failure.frame.replace(/^\S+ /, '')).toBe(
+      "Couldn't install the dependencies.\n" +
+        'COMMAND npm install\n' +
+        'EXIT 7\n' +
+        'REASON npm error code ECONNRESET\n' +
+        'npm error network socket hang up\n' +
+        'The new project files were removed. Fix the error above, then run ' +
+        `extension create ${shellQuote(projectPath)} --template react --install again.`
+    )
+
+    const pkg = JSON.parse(
+      await fsp.readFile(path.join(projectPath, 'package.json'), 'utf8')
+    )
+    expect(pkg.devDependencies.extension).toBe('latest')
+  })
+
   it("reports the retry's output when the install fails again after the tag rewrite", async () => {
     await writePackageJson({extension: '^2.1.0'})
     const runs: FakeRun[] = [

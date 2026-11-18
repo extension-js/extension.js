@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
 import {fileURLToPath} from 'node:url'
@@ -240,26 +241,25 @@ test('every existence-gated spec path under programs/ is real or compiled', () =
   )
 })
 
-test('the scanner sees the built cli gate, so an empty scan cannot pass', () => {
-  const gates = collectProgramGates()
+test('the scanner reads a gate from a spec file, so an empty scan cannot pass', () => {
+  // A spec of its own: the tree may hold no existence gate at all.
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'spec-path-gates-'))
+  const spec = path.join(dir, 'gated.spec.ts')
+  const target = path.join(programsDir, 'extension', 'dist', 'cli.cjs')
 
-  assert.ok(
-    gates.some(
-      (gate) =>
-        gate.spec ===
-          path.join(
-            'programs',
-            'extension',
-            '__spec__',
-            'exec',
-            'cli-flags.contract.spec.ts'
-          ) &&
-        gate.target === path.join('programs', 'extension', 'dist', 'cli.cjs')
-    ),
-    `expected the cli-flags gate among:\n  ${gates
-      .map((gate) => `${gate.spec} -> ${gate.target}`)
-      .join('\n  ')}`
-  )
+  try {
+    fs.writeFileSync(
+      spec,
+      `it.skipIf(!existsSync('${target.replaceAll('\\', '/')}'))('runs', () => {})\n`
+    )
+
+    assert.deepEqual(
+      collectProgramGates([spec]).map((gate) => gate.target),
+      [path.join('programs', 'extension', 'dist', 'cli.cjs')]
+    )
+  } finally {
+    fs.rmSync(dir, {recursive: true, force: true})
+  }
 })
 
 test('a gate on a path nothing produces is named, a compiled one is not', () => {

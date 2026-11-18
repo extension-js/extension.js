@@ -1,3 +1,4 @@
+import {stripVTControlCharacters} from 'node:util'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 // The warn-once latch is module state, so every test imports a fresh copy.
@@ -7,77 +8,134 @@ async function freshModule() {
   return import('../output-flag')
 }
 
-let errorSpy: ReturnType<typeof vi.spyOn>
+function notice(flag: string): string {
+  return (
+    `⏵⏵⏵ ${flag} is deprecated and maps to --output.\n` +
+    'Pass --output <pretty|json> instead.'
+  )
+}
+
+let stderr: string[]
 
 beforeEach(() => {
-  errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  stderr = []
+  vi.spyOn(console, 'error').mockImplementation((line) => {
+    stderr.push(stripVTControlCharacters(String(line)))
+  })
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
+interface ResolveRow {
+  name: string
+  opts: {output?: string; format?: string; waitFormat?: string}
+  format: 'pretty' | 'json'
+  stderr: string[]
+}
+
+const RESOLVE_ROWS: ResolveRow[] = [
+  {name: 'nothing passed', opts: {}, format: 'pretty', stderr: []},
+  {name: '--output', opts: {output: 'json'}, format: 'json', stderr: []},
+  {
+    name: 'the --wait-format alias',
+    opts: {waitFormat: 'json'},
+    format: 'json',
+    stderr: [notice('--wait-format')]
+  },
+  {
+    name: 'the --format alias',
+    opts: {format: 'json'},
+    format: 'json',
+    stderr: [notice('--format')]
+  },
+  {
+    name: 'both aliases, where --format comes first',
+    opts: {format: 'json', waitFormat: 'pretty'},
+    format: 'json',
+    stderr: [notice('--format')]
+  },
+  {
+    name: 'an unreadable --format beside a readable --wait-format',
+    opts: {format: 'yaml', waitFormat: 'json'},
+    format: 'json',
+    stderr: [notice('--wait-format')]
+  },
+  {
+    name: 'an explicit --output beside an alias',
+    opts: {output: 'pretty', waitFormat: 'json'},
+    format: 'pretty',
+    stderr: []
+  },
+  {
+    name: 'values no parser recognizes',
+    opts: {output: 'bogus', waitFormat: 'nope'},
+    format: 'pretty',
+    stderr: []
+  },
+  {
+    name: 'a value in another case and with spaces',
+    opts: {output: ' JSON '},
+    format: 'json',
+    stderr: []
+  }
+]
+
 describe('resolveOutputFormat', () => {
-  it('defaults to pretty when nothing is passed', async () => {
-    const {resolveOutputFormat} = await freshModule()
-    expect(resolveOutputFormat({})).toBe('pretty')
-    expect(errorSpy).not.toHaveBeenCalled()
-  })
+  it.each(RESOLVE_ROWS)('reads $name', async (row) => {
+    const {isJsonOutput, resolveOutputFormat} = await freshModule()
 
-  it('honors --output without warning', async () => {
-    const {resolveOutputFormat} = await freshModule()
-    expect(resolveOutputFormat({output: 'json'})).toBe('json')
-    expect(errorSpy).not.toHaveBeenCalled()
-  })
-
-  it('maps the --wait-format alias onto --output and warns on stderr', async () => {
-    const {resolveOutputFormat} = await freshModule()
-    expect(resolveOutputFormat({waitFormat: 'json'})).toBe('json')
-    expect(errorSpy).toHaveBeenCalledTimes(1)
-    const notice = String(errorSpy.mock.calls[0][0])
-    expect(notice).toContain('--wait-format')
-    expect(notice).toContain('--output')
-    expect(notice).toContain('deprecated')
-  })
-
-  it('maps the --format alias and names it in the notice', async () => {
-    const {resolveOutputFormat} = await freshModule()
-    expect(resolveOutputFormat({format: 'json'})).toBe('json')
-    expect(String(errorSpy.mock.calls[0][0])).toContain('--format')
+    expect(resolveOutputFormat(row.opts)).toBe(row.format)
+    expect(stderr).toEqual(row.stderr)
+    expect(isJsonOutput(row.opts)).toBe(row.format === 'json')
   })
 
   it('warns once per process, not once per alias', async () => {
     const {resolveOutputFormat} = await freshModule()
-    resolveOutputFormat({format: 'json', waitFormat: 'json'})
-    resolveOutputFormat({waitFormat: 'pretty'})
-    expect(errorSpy).toHaveBeenCalledTimes(1)
-  })
 
-  it('lets an explicit --output beat any alias, silently', async () => {
-    const {resolveOutputFormat} = await freshModule()
-    expect(resolveOutputFormat({output: 'pretty', waitFormat: 'json'})).toBe(
-      'pretty'
+    expect(resolveOutputFormat({format: 'json', waitFormat: 'json'})).toBe(
+      'json'
     )
 
-    expect(errorSpy).not.toHaveBeenCalled()
+    expect(resolveOutputFormat({waitFormat: 'pretty'})).toBe('pretty')
+    expect(stderr).toEqual([notice('--format')])
   })
+})
 
-  it('ignores unrecognized values like the old parsers did', async () => {
-    const {resolveOutputFormat} = await freshModule()
-    expect(resolveOutputFormat({output: 'bogus', waitFormat: 'nope'})).toBe(
-      'pretty'
-    )
+describe('invalidOutputFlagMessage', () => {
+  it.each([
+    [{}, undefined],
+    [{output: ' Json '}, undefined],
+    [{output: 'jsno'}, '--output got "jsno". Use pretty or json.'],
+    [{format: 'yaml'}, '--format got "yaml". Use pretty or json.'],
+    [{waitFormat: ''}, '--wait-format got "". Use pretty or json.'],
+    [
+      {output: 'json', waitFormat: 'nope'},
+      '--wait-format got "nope". Use pretty or json.'
+    ],
+    [
+      {output: 'bad', waitFormat: 'nope'},
+      '--output got "bad". Use pretty or json.'
+    ]
+  ])('reads %j as %j', async (opts, message) => {
+    const {invalidOutputFlagMessage} = await freshModule()
 
-    expect(errorSpy).not.toHaveBeenCalled()
+    expect(invalidOutputFlagMessage(opts)).toBe(message)
   })
+})
 
-  it('reads one value regardless of case and spaces', async () => {
-    const {isJsonOutput, normalizeOutputFormat} = await freshModule()
-    expect(normalizeOutputFormat('JSON')).toBe('json')
-    expect(normalizeOutputFormat(' json ')).toBe('json')
-    expect(normalizeOutputFormat('Pretty')).toBe('pretty')
-    expect(normalizeOutputFormat('yaml')).toBeUndefined()
-    expect(isJsonOutput({output: 'JSON'})).toBe(true)
-    expect(isJsonOutput({output: 'pretty'})).toBe(false)
+describe('normalizeOutputFormat', () => {
+  it.each([
+    ['JSON', 'json'],
+    [' json ', 'json'],
+    ['Pretty', 'pretty'],
+    ['yaml', undefined],
+    [undefined, undefined],
+    [42, undefined]
+  ])('reads %j as %j', async (value, format) => {
+    const {normalizeOutputFormat} = await freshModule()
+
+    expect(normalizeOutputFormat(value)).toBe(format)
   })
 })

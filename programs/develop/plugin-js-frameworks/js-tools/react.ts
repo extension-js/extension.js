@@ -21,21 +21,25 @@ import * as messages from '../js-frameworks-lib/messages'
 
 type ReactRefreshPluginCtor = new (...args: unknown[]) => RspackPluginInstance
 
-let userMessageDelivered = false
+// Printed once per process. A caller that needs its own record passes one.
+const reactNotice = {delivered: false}
 
 type MaybeUseReactOptions = {
   refreshExclude?: unknown
   disableRefresh?: boolean
 }
 
-export function isUsingReact(projectPath: string) {
+export function isUsingReact(
+  projectPath: string,
+  notice: {delivered: boolean} = reactNotice
+) {
   if (hasDependency(projectPath, 'react')) {
-    if (!userMessageDelivered) {
+    if (!notice.delivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('React')}`)
       }
 
-      userMessageDelivered = true
+      notice.delivered = true
     }
 
     return true
@@ -116,8 +120,8 @@ export async function maybeUseReact(
       contractId: 'react-refresh',
       projectPath,
       dependencyId: '@rspack/plugin-react-refresh',
-      // v1 exports the ctor as module.exports; v2 exports a namespace object.
-      // Resolve the named export first so both major versions work.
+      // v1 exports the ctor as module.exports, v2 a namespace with only the
+      // named export: a default wins, then the named export, then the module.
       moduleAdapter: (mod) =>
         ((mod && (mod.default || mod.ReactRefreshRspackPlugin)) ||
           mod) as ReactRefreshPluginCtor
@@ -130,7 +134,6 @@ export async function maybeUseReact(
 
   const reactPlugins: RspackPluginInstance[] = [
     new ReactRefreshPlugin({
-      overlay: false,
       injectEntry: !refreshEntry,
       ...(typeof options.refreshExclude === 'undefined'
         ? {}
