@@ -314,7 +314,7 @@ export async function declarePackageManager(
   }
 
   const fromEnv = getPackageManagerSpec()
-  if (fromEnv && fromEnv.startsWith(`${manager}@`)) return {spec: fromEnv}
+  if (fromEnv?.startsWith(`${manager}@`)) return {spec: fromEnv}
 
   let undeclared: UndeclaredReason = {kind: 'no-version'}
 
