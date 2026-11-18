@@ -12,6 +12,7 @@ export {
   linkPackages,
   MARKER,
   manifest,
+  missingRefs,
   notFoundPaths,
   PAGE
 } from '../../../../plugin-special-folders/__spec__/helpers/private-files-project'

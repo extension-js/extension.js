@@ -1,12 +1,15 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {fileNotFound} from '../html-lib/messages'
+import {getAssetsFromHtml} from '../html-lib/utils'
 import {
   build,
   canLink,
   expectNothingPrivate,
   MARKER,
   makeProject,
+  missingRefs,
   notFoundPaths,
   PAGE,
   PUBLIC_OUTPUT
@@ -278,4 +281,53 @@ describe('a page that names a dot-named file public/ ships', () => {
     },
     TIMEOUT
   )
+})
+
+// What a Windows runner writes, read on every platform: a drive letter is
+// not a URL scheme, and a `\n` inside a path is not a line break.
+const WINDOWS_OUTSIDE =
+  'C:\\Users\\RUNNER~1\\AppData\\Local\\Temp\\holder\\outside.txt'
+const WINDOWS_PAGE = 'C:\\Users\\RUNNER~1\\Temp\\holder\\project\\popup.html'
+
+describe('a page ref written as a Windows machine path', () => {
+  const spellings = [
+    WINDOWS_OUTSIDE,
+    'C:/Users/runneradmin/Temp/holder/outside.txt',
+    'c:\\temp\\holder\\outside.txt'
+  ]
+
+  it.each(ATTRIBUTES)('is a file to look up, in %s', (_label, write) => {
+    const assets = getAssetsFromHtml(
+      '/project/popup.html',
+      page(write(spellings))
+    )
+
+    expect(assets.static).toEqual(spellings)
+    expect(Object.values(assets.authored || {})).toEqual(spellings)
+  })
+
+  it('leaves an address with a scheme alone', () => {
+    const assets = getAssetsFromHtml(
+      '/project/popup.html',
+      page({
+        body: '<img src="chrome-extension://abc/x.png"><img src="data:image/png;base64,AA==">'
+      })
+    )
+
+    expect(assets.static).toEqual([])
+  })
+
+  it('is named once as missing, in the line and in its JSON copy', () => {
+    const file = `${path.win32.dirname(WINDOWS_PAGE)}\\node_modules\\pkg\\.env`
+    const message = [
+      fileNotFound(WINDOWS_PAGE, WINDOWS_OUTSIDE, {refLabel: WINDOWS_OUTSIDE}),
+      fileNotFound(WINDOWS_PAGE, file, {refLabel: './node_modules/pkg/.env'})
+    ]
+      .join('\n')
+      .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g'), '')
+    const printed = `${message}\n${JSON.stringify({diagnostics: [{message}]})}`
+
+    expect(notFoundPaths(printed)).toEqual([WINDOWS_OUTSIDE, file].sort())
+    expect(missingRefs(printed)).toEqual([WINDOWS_OUTSIDE])
+  })
 })

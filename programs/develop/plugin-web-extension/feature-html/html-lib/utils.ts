@@ -229,7 +229,14 @@ export function isFromIncludeList(
   })
 }
 
+// A drive letter parses as a one-letter URL scheme, yet `C:\x` is a path.
+export function isDrivePath(src: string): boolean {
+  return /^[a-z]:[\\/]/i.test(src)
+}
+
 export function isUrl(src: string) {
+  if (isDrivePath(src)) return false
+
   try {
     // eslint-disable-next-line no-new
     new URL(src)
@@ -528,7 +535,7 @@ export function resolveHtmlRefPath(
   cleanPath: string
 ): string {
   if (isUrl(cleanPath)) return cleanPath
-  if (cleanPath.startsWith('/')) return cleanPath
+  if (cleanPath.startsWith('/') || isDrivePath(cleanPath)) return cleanPath
 
   const htmlDir = path.dirname(htmlFilePath)
   const pageRelative = path.join(htmlDir, cleanPath)
