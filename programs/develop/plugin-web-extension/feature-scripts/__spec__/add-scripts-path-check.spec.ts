@@ -180,6 +180,25 @@ describe('a manifest that names files that do not exist', () => {
     ])
   })
 
+  it('names the list of a group each missing file came from, whatever its extension', async () => {
+    const errors = await buildProject({
+      content_scripts: [
+        {
+          matches: ['<all_urls>'],
+          js: ['content/helper', 'content/odd.css'],
+          css: ['content/theme', 'content/odd.js']
+        }
+      ]
+    })
+
+    expect(errors.map(({lines}) => lines[0])).toEqual([
+      'content/helper does not exist. Check the content_scripts[0].js field in your manifest.json file.',
+      'content/odd.css does not exist. Check the content_scripts[0].css field in your manifest.json file.',
+      'content/theme does not exist. Check the content_scripts[0].js field in your manifest.json file.',
+      'content/odd.js does not exist. Check the content_scripts[0].js field in your manifest.json file.'
+    ])
+  })
+
   it('opens each detail with its own file when one field names two missing scripts', async () => {
     const errors = await buildProject({
       background: {service_worker: 'worker.js'},
