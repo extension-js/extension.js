@@ -199,7 +199,9 @@ const SAID: Array<[string, RegExp]> = [
   [
     'surface',
     /names '([^']+)' at runtime \(setPopup, setIcon, panels\.create, tabs\.create and friends\), but the file isn't in the output\./g
-  ]
+  ],
+  // The words for a file that is there and that the build will not copy.
+  ['withheld', /names '([^']+)', but the file isn't in the output\./g]
 ]
 
 const PRIVATE_NAME =
@@ -378,33 +380,30 @@ const TARGETS = [
 
 const EXPECTED: Record<string, Table> = {
   importScripts: {
-    '.env': 'background/.env | MARKED | read project/.env',
-    '/.env': '.env | MARKED | read project/.env',
-    './.env': 'background/.env | MARKED | read project/.env',
-    '.env.local': 'background/.env.local | MARKED | read project/.env.local',
-    '.npmrc': 'background/.npmrc | MARKED | read project/.npmrc',
-    '.envrc': 'background/.envrc | MARKED | read project/.envrc',
+    '.env': 'nothing | said importScripts .env',
+    '/.env': 'nothing | said importScripts /.env',
+    './.env': 'nothing | said importScripts ./.env',
+    '.env.local': 'nothing | said importScripts .env.local',
+    '.npmrc': 'nothing | said importScripts .npmrc',
+    '.envrc': 'nothing | said importScripts .envrc',
     '.git/hooks/pre-push.sh':
-      'background/.git/hooks/pre-push.sh | MARKED | read project/.git/hooks/pre-push.sh',
-    '.git/hooks/tool.js':
-      'background/.git/hooks/tool.js | MARKED | read project/.git/hooks/tool.js',
-    '.git/logo.png':
-      'background/.git/logo.png | MARKED | read project/.git/logo.png',
-    'a/.env': 'background/a/.env | MARKED | read project/a/.env',
-    'a/../.envrc': 'background/.envrc | MARKED | read project/.envrc',
+      'nothing | said importScripts .git/hooks/pre-push.sh',
+    '.git/hooks/tool.js': 'nothing | said importScripts .git/hooks/tool.js',
+    '.git/logo.png': 'nothing | said importScripts .git/logo.png',
+    'a/.env': 'nothing | said importScripts a/.env',
+    'a/../.envrc': 'nothing | said importScripts a/../.envrc',
     '../outside.txt': 'nothing | said importScripts ../outside.txt',
     'sub/../../outside.txt':
       'nothing | said importScripts sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said importScripts %2e%2e/outside.txt',
-    'linked.txt': 'background/linked.txt | MARKED | read outside.txt',
+    'linked.txt': 'nothing | said importScripts linked.txt',
     'linked-folder/inner.txt':
-      'background/linked-folder/inner.txt + linked-folder/inner.txt | MARKED | read outside-folder/inner.txt',
+      'nothing | said importScripts linked-folder/inner.txt, withheld linked-folder/inner.txt',
     'shared/logo.txt':
-      'background/shared/logo.txt + shared/logo.txt | MARKED | read shared-assets/logo.txt',
-    'out.js': 'background/out.js | MARKED | read outside.js',
-    'out-module.js':
-      'background/out-module.js | MARKED | read outside-module.js',
-    'out.png': 'background/out.png | MARKED | read outside.png',
+      'nothing | said importScripts shared/logo.txt, withheld shared/logo.txt',
+    'out.js': 'nothing | said importScripts out.js',
+    'out-module.js': 'nothing | said importScripts out-module.js',
+    'out.png': 'nothing | said importScripts out.png',
     'alias.json': 'background/alias.json',
     '.env.example': 'background/.env.example',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
@@ -421,41 +420,34 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'background/node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'background/node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said importScripts node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
-      'background/node_modules/far-pkg/data.json | MARKED | read other-project/node_modules/far-pkg/data.json',
+      'nothing | said importScripts node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'background/node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env',
-    'node_modules/.npmrc':
-      'background/node_modules/.npmrc | MARKED | read project/node_modules/.npmrc'
+      'nothing | said importScripts node_modules/plain-pkg/.env',
+    'node_modules/.npmrc': 'nothing | said importScripts node_modules/.npmrc'
   },
   fetch: {
-    '.env': 'background/.env | MARKED | read project/.env',
-    '/.env': '.env | MARKED | read project/.env',
-    './.env': 'background/.env | MARKED | read project/.env',
-    '.env.local': 'background/.env.local | MARKED | read project/.env.local',
-    '.npmrc': 'background/.npmrc | MARKED | read project/.npmrc',
-    '.envrc': 'background/.envrc | MARKED | read project/.envrc',
-    '.git/hooks/pre-push.sh':
-      'background/.git/hooks/pre-push.sh | MARKED | read project/.git/hooks/pre-push.sh',
-    '.git/hooks/tool.js':
-      'background/.git/hooks/tool.js | MARKED | read project/.git/hooks/tool.js',
-    '.git/logo.png':
-      'background/.git/logo.png | MARKED | read project/.git/logo.png',
-    'a/.env': 'background/a/.env | MARKED | read project/a/.env',
-    'a/../.envrc': 'background/.envrc | MARKED | read project/.envrc',
+    '.env': 'nothing | said fetch .env',
+    '/.env': 'nothing | said fetch /.env',
+    './.env': 'nothing | said fetch ./.env',
+    '.env.local': 'nothing | said fetch .env.local',
+    '.npmrc': 'nothing | said fetch .npmrc',
+    '.envrc': 'nothing | said fetch .envrc',
+    '.git/hooks/pre-push.sh': 'nothing | said fetch .git/hooks/pre-push.sh',
+    '.git/hooks/tool.js': 'nothing | said fetch .git/hooks/tool.js',
+    '.git/logo.png': 'nothing | said fetch .git/logo.png',
+    'a/.env': 'nothing | said fetch a/.env',
+    'a/../.envrc': 'nothing | said fetch a/../.envrc',
     '../outside.txt': 'nothing | said fetch ../outside.txt',
     'sub/../../outside.txt': 'nothing | said fetch sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said fetch %2e%2e/outside.txt',
-    'linked.txt': 'background/linked.txt | MARKED | read outside.txt',
-    'linked-folder/inner.txt':
-      'background/linked-folder/inner.txt | MARKED | read outside-folder/inner.txt',
-    'shared/logo.txt':
-      'background/shared/logo.txt | MARKED | read shared-assets/logo.txt',
-    'out.js': 'background/out.js | MARKED | read outside.js',
-    'out-module.js':
-      'background/out-module.js | MARKED | read outside-module.js',
-    'out.png': 'background/out.png | MARKED | read outside.png',
+    'linked.txt': 'nothing | said fetch linked.txt',
+    'linked-folder/inner.txt': 'nothing | said fetch linked-folder/inner.txt',
+    'shared/logo.txt': 'nothing | said fetch shared/logo.txt',
+    'out.js': 'nothing | said fetch out.js',
+    'out-module.js': 'nothing | said fetch out-module.js',
+    'out.png': 'nothing | said fetch out.png',
     'alias.json': 'background/alias.json',
     '.env.example': 'background/.env.example',
     'data/ok.json': 'background/data/ok.json',
@@ -472,38 +464,34 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'background/node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'background/node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said fetch node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
-      'background/node_modules/far-pkg/data.json | MARKED | read other-project/node_modules/far-pkg/data.json',
+      'nothing | said fetch node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'background/node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env',
-    'node_modules/.npmrc':
-      'background/node_modules/.npmrc | MARKED | read project/node_modules/.npmrc'
+      'nothing | said fetch node_modules/plain-pkg/.env',
+    'node_modules/.npmrc': 'nothing | said fetch node_modules/.npmrc'
   },
   getURL: {
-    '.env': '.env | MARKED | read project/.env',
-    '/.env': '.env | MARKED | read project/.env',
-    './.env': '.env | MARKED | read project/.env',
-    '.env.local': '.env.local | MARKED | read project/.env.local',
-    '.npmrc': '.npmrc | MARKED | read project/.npmrc',
-    '.envrc': '.envrc | MARKED | read project/.envrc',
-    '.git/hooks/pre-push.sh':
-      '.git/hooks/pre-push.sh | MARKED | read project/.git/hooks/pre-push.sh',
-    '.git/hooks/tool.js':
-      '.git/hooks/tool.js | MARKED | read project/.git/hooks/tool.js',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'a/.env': 'a/.env | MARKED | read project/a/.env',
-    'a/../.envrc': '.envrc | MARKED | read project/.envrc',
+    '.env': 'nothing | said getURL .env',
+    '/.env': 'nothing | said getURL /.env',
+    './.env': 'nothing | said getURL ./.env',
+    '.env.local': 'nothing | said getURL .env.local',
+    '.npmrc': 'nothing | said getURL .npmrc',
+    '.envrc': 'nothing | said getURL .envrc',
+    '.git/hooks/pre-push.sh': 'nothing | said getURL .git/hooks/pre-push.sh',
+    '.git/hooks/tool.js': 'nothing | said getURL .git/hooks/tool.js',
+    '.git/logo.png': 'nothing | said getURL .git/logo.png',
+    'a/.env': 'nothing | said getURL a/.env',
+    'a/../.envrc': 'nothing | said getURL a/../.envrc',
     '../outside.txt': 'nothing | said getURL ../outside.txt',
     'sub/../../outside.txt': 'nothing | said getURL sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said getURL %2e%2e/outside.txt',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
-    'linked-folder/inner.txt':
-      'linked-folder/inner.txt | MARKED | read outside-folder/inner.txt',
-    'shared/logo.txt': 'shared/logo.txt | MARKED | read shared-assets/logo.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out-module.js': 'out-module.js | MARKED | read outside-module.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+    'linked.txt': 'nothing | said getURL linked.txt',
+    'linked-folder/inner.txt': 'nothing | said getURL linked-folder/inner.txt',
+    'shared/logo.txt': 'nothing | said getURL shared/logo.txt',
+    'out.js': 'nothing | said getURL out.js',
+    'out-module.js': 'nothing | said getURL out-module.js',
+    'out.png': 'nothing | said getURL out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'data/ok.json',
@@ -518,39 +506,36 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said getURL node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
-      'node_modules/far-pkg/data.json | MARKED | read other-project/node_modules/far-pkg/data.json',
+      'nothing | said getURL node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env',
-    'node_modules/.npmrc':
-      'node_modules/.npmrc | MARKED | read project/node_modules/.npmrc'
+      'nothing | said getURL node_modules/plain-pkg/.env',
+    'node_modules/.npmrc': 'nothing | said getURL node_modules/.npmrc'
   },
   executeScript: {
-    '.env': '.env | MARKED | read project/.env',
-    '/.env': '.env | MARKED | read project/.env',
-    './.env': '.env | MARKED | read project/.env',
-    '.env.local': '.env.local | MARKED | read project/.env.local',
-    '.npmrc': '.npmrc | MARKED | read project/.npmrc',
-    '.envrc': '.envrc | MARKED | read project/.envrc',
-    '.git/hooks/pre-push.sh':
-      '.git/hooks/pre-push.sh | MARKED | read project/.git/hooks/pre-push.sh',
-    '.git/hooks/tool.js':
-      '.git/hooks/tool.js | MARKED | read project/.git/hooks/tool.js',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'a/.env': 'a/.env | MARKED | read project/a/.env',
-    'a/../.envrc': '.envrc | MARKED | read project/.envrc',
+    '.env': 'nothing | said injected .env',
+    '/.env': 'nothing | said injected /.env',
+    './.env': 'nothing | said injected ./.env',
+    '.env.local': 'nothing | said injected .env.local',
+    '.npmrc': 'nothing | said injected .npmrc',
+    '.envrc': 'nothing | said injected .envrc',
+    '.git/hooks/pre-push.sh': 'nothing | said injected .git/hooks/pre-push.sh',
+    '.git/hooks/tool.js': 'nothing | said injected .git/hooks/tool.js',
+    '.git/logo.png': 'nothing | said injected .git/logo.png',
+    'a/.env': 'nothing | said injected a/.env',
+    'a/../.envrc': 'nothing | said injected a/../.envrc',
     '../outside.txt': 'nothing | said injected ../outside.txt',
     'sub/../../outside.txt': 'nothing | said injected sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said injected %2e%2e/outside.txt',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
+    'linked.txt': 'nothing | said injected linked.txt',
     'linked-folder/inner.txt':
-      'background/linked-folder/inner.txt + linked-folder/inner.txt | MARKED | read outside-folder/inner.txt',
+      'nothing | said injected linked-folder/inner.txt, withheld linked-folder/inner.txt',
     'shared/logo.txt':
-      'background/shared/logo.txt + shared/logo.txt | MARKED | read shared-assets/logo.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out-module.js': 'out-module.js | MARKED | read outside-module.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+      'nothing | said injected shared/logo.txt, withheld shared/logo.txt',
+    'out.js': 'nothing | said injected out.js',
+    'out-module.js': 'nothing | said injected out-module.js',
+    'out.png': 'nothing | said injected out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
@@ -565,60 +550,58 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said injected node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
-      'node_modules/far-pkg/data.json | MARKED | read other-project/node_modules/far-pkg/data.json',
+      'nothing | said injected node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env',
-    'node_modules/.npmrc':
-      'node_modules/.npmrc | MARKED | read project/node_modules/.npmrc'
+      'nothing | said injected node_modules/plain-pkg/.env',
+    'node_modules/.npmrc': 'nothing | said injected node_modules/.npmrc'
   },
   insertCSS: {
-    '.env': '.env | MARKED | read project/.env',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+    '.env': 'nothing | said injected .env',
+    '.git/logo.png': 'nothing | said injected .git/logo.png',
+    'linked.txt': 'nothing | said injected linked.txt',
+    'out.js': 'nothing | said injected out.js',
+    'out.png': 'nothing | said injected out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said injected node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env'
+      'nothing | said injected node_modules/plain-pkg/.env'
   },
   tabsExecuteScript: {
-    '.env': '.env | MARKED | read project/.env',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+    '.env': 'nothing | said injected .env',
+    '.git/logo.png': 'nothing | said injected .git/logo.png',
+    'linked.txt': 'nothing | said injected linked.txt',
+    'out.js': 'nothing | said injected out.js',
+    'out.png': 'nothing | said injected out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said injected node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env'
+      'nothing | said injected node_modules/plain-pkg/.env'
   },
   registerContentScripts: {
-    '.env': '.env | MARKED | read project/.env',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+    '.env': 'nothing | said injected .env',
+    '.git/logo.png': 'nothing | said injected .git/logo.png',
+    'linked.txt': 'nothing | said injected linked.txt',
+    'out.js': 'nothing | said injected out.js',
+    'out.png': 'nothing | said injected out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said injected node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env'
+      'nothing | said injected node_modules/plain-pkg/.env'
   },
   setIcon: {
     '.env': 'nothing',
-    '.git/logo.png':
-      'background/.git/logo.png | MARKED | read project/.git/logo.png',
+    '.git/logo.png': 'nothing | said surface .git/logo.png',
     'linked.txt': 'nothing',
     'out.js': 'nothing',
-    'out.png': 'background/out.png | MARKED | read outside.png',
+    'out.png': 'nothing | said surface out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'nothing',
     'node_modules/stray-pkg/data.json': 'nothing',
@@ -641,9 +624,8 @@ const EXPECTED: Record<string, Table> = {
     '%2e%2e/outside.txt': 'nothing',
     'linked.txt': 'nothing',
     'linked-folder/inner.txt':
-      'background/linked-folder/inner.txt + linked-folder/inner.txt | MARKED | read outside-folder/inner.txt',
-    'shared/logo.txt':
-      'background/shared/logo.txt + shared/logo.txt | MARKED | read shared-assets/logo.txt',
+      'nothing | said withheld linked-folder/inner.txt',
+    'shared/logo.txt': 'nothing | said withheld shared/logo.txt',
     'out.js': 'nothing',
     'out-module.js': 'nothing',
     'out.png': 'nothing',
@@ -665,29 +647,27 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/.npmrc': 'nothing'
   },
   copiedPage: {
-    '.env': '.env | MARKED | read project/.env',
-    '/.env': '.env | MARKED | read project/.env',
-    './.env': '.env | MARKED | read project/.env',
-    '.env.local': '.env.local | MARKED | read project/.env.local',
-    '.npmrc': '.npmrc | MARKED | read project/.npmrc',
-    '.envrc': '.envrc | MARKED | read project/.envrc',
-    '.git/hooks/pre-push.sh':
-      '.git/hooks/pre-push.sh | MARKED | read project/.git/hooks/pre-push.sh',
-    '.git/hooks/tool.js':
-      '.git/hooks/tool.js | MARKED | read project/.git/hooks/tool.js',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'a/.env': 'a/.env | MARKED | read project/a/.env',
-    'a/../.envrc': '.envrc | MARKED | read project/.envrc',
+    '.env': 'nothing | said withheld .env',
+    '/.env': 'nothing | said withheld /.env',
+    './.env': 'nothing | said withheld ./.env',
+    '.env.local': 'nothing | said withheld .env.local',
+    '.npmrc': 'nothing | said withheld .npmrc',
+    '.envrc': 'nothing | said withheld .envrc',
+    '.git/hooks/pre-push.sh': 'nothing | said withheld .git/hooks/pre-push.sh',
+    '.git/hooks/tool.js': 'nothing | said withheld .git/hooks/tool.js',
+    '.git/logo.png': 'nothing | said withheld .git/logo.png',
+    'a/.env': 'nothing | said withheld a/.env',
+    'a/../.envrc': 'nothing | said withheld a/../.envrc',
     '../outside.txt': 'nothing',
     'sub/../../outside.txt': 'nothing',
     '%2e%2e/outside.txt': 'nothing',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
+    'linked.txt': 'nothing | said withheld linked.txt',
     'linked-folder/inner.txt':
-      'linked-folder/inner.txt | MARKED | read outside-folder/inner.txt',
-    'shared/logo.txt': 'shared/logo.txt | MARKED | read shared-assets/logo.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out-module.js': 'out-module.js | MARKED | read outside-module.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+      'nothing | said withheld linked-folder/inner.txt',
+    'shared/logo.txt': 'nothing | said withheld shared/logo.txt',
+    'out.js': 'nothing | said withheld out.js',
+    'out-module.js': 'nothing | said withheld out-module.js',
+    'out.png': 'nothing | said withheld out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'data/ok.json',
@@ -702,38 +682,35 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said withheld node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
-      'node_modules/far-pkg/data.json | MARKED | read other-project/node_modules/far-pkg/data.json',
+      'nothing | said withheld node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env',
-    'node_modules/.npmrc':
-      'node_modules/.npmrc | MARKED | read project/node_modules/.npmrc'
+      'nothing | said withheld node_modules/plain-pkg/.env',
+    'node_modules/.npmrc': 'nothing | said withheld node_modules/.npmrc'
   },
   copiedSheet: {
-    '.env': '.env | MARKED | read project/.env',
-    '/.env': '.env | MARKED | read project/.env',
-    './.env': '.env | MARKED | read project/.env',
-    '.env.local': '.env.local | MARKED | read project/.env.local',
-    '.npmrc': '.npmrc | MARKED | read project/.npmrc',
-    '.envrc': '.envrc | MARKED | read project/.envrc',
-    '.git/hooks/pre-push.sh':
-      '.git/hooks/pre-push.sh | MARKED | read project/.git/hooks/pre-push.sh',
-    '.git/hooks/tool.js':
-      '.git/hooks/tool.js | MARKED | read project/.git/hooks/tool.js',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'a/.env': 'a/.env | MARKED | read project/a/.env',
-    'a/../.envrc': '.envrc | MARKED | read project/.envrc',
+    '.env': 'nothing | said withheld .env',
+    '/.env': 'nothing | said withheld /.env',
+    './.env': 'nothing | said withheld ./.env',
+    '.env.local': 'nothing | said withheld .env.local',
+    '.npmrc': 'nothing | said withheld .npmrc',
+    '.envrc': 'nothing | said withheld .envrc',
+    '.git/hooks/pre-push.sh': 'nothing | said withheld .git/hooks/pre-push.sh',
+    '.git/hooks/tool.js': 'nothing | said withheld .git/hooks/tool.js',
+    '.git/logo.png': 'nothing | said withheld .git/logo.png',
+    'a/.env': 'nothing | said withheld a/.env',
+    'a/../.envrc': 'nothing | said withheld a/../.envrc',
     '../outside.txt': 'nothing',
     'sub/../../outside.txt': 'nothing',
     '%2e%2e/outside.txt': 'nothing',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
+    'linked.txt': 'nothing | said withheld linked.txt',
     'linked-folder/inner.txt':
-      'linked-folder/inner.txt | MARKED | read outside-folder/inner.txt',
-    'shared/logo.txt': 'shared/logo.txt | MARKED | read shared-assets/logo.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out-module.js': 'out-module.js | MARKED | read outside-module.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+      'nothing | said withheld linked-folder/inner.txt',
+    'shared/logo.txt': 'nothing | said withheld shared/logo.txt',
+    'out.js': 'nothing | said withheld out.js',
+    'out-module.js': 'nothing | said withheld out-module.js',
+    'out.png': 'nothing | said withheld out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'data/ok.json',
@@ -748,26 +725,25 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said withheld node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
-      'node_modules/far-pkg/data.json | MARKED | read other-project/node_modules/far-pkg/data.json',
+      'nothing | said withheld node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env',
-    'node_modules/.npmrc':
-      'node_modules/.npmrc | MARKED | read project/node_modules/.npmrc'
+      'nothing | said withheld node_modules/plain-pkg/.env',
+    'node_modules/.npmrc': 'nothing | said withheld node_modules/.npmrc'
   },
   copiedScript: {
-    '.env': '.env | MARKED | read project/.env',
-    '.git/logo.png': '.git/logo.png | MARKED | read project/.git/logo.png',
-    'linked.txt': 'linked.txt | MARKED | read outside.txt',
-    'out.js': 'out.js | MARKED | read outside.js',
-    'out.png': 'out.png | MARKED | read outside.png',
+    '.env': 'nothing | said getURL .env',
+    '.git/logo.png': 'nothing | said getURL .git/logo.png',
+    'linked.txt': 'nothing | said getURL linked.txt',
+    'out.js': 'nothing | said getURL out.js',
+    'out.png': 'nothing | said getURL out.png',
     'data/ok.json': 'data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'node_modules/stray-pkg/data.json | MARKED | read elsewhere/stray-pkg/data.json',
+      'nothing | said getURL node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
-      'node_modules/plain-pkg/.env | MARKED | read project/node_modules/plain-pkg/.env'
+      'nothing | said getURL node_modules/plain-pkg/.env'
   }
 }
 
@@ -781,6 +757,82 @@ describe.skipIf(!canLink).each(Object.keys(TRACERS))('%s', (key) => {
       )
 
       expect(actual).toEqual(EXPECTED[key])
+    },
+    TIMEOUT
+  )
+})
+
+describe('a file the code names and the build withholds', () => {
+  const times = (text: string, part: string) => text.split(part).length - 1
+
+  it(
+    'is said once for an output path, in the words a missing file gets',
+    async () => {
+      const root = fixture(
+        {
+          name: 'three calls for one file',
+          source: () =>
+            'fetch("/.env")\nfetch("../.env")\nfetch("/.env?fresh")\n'
+        },
+        '/.env'
+      )
+      const result = await build(root)
+
+      // The text is read twice over: the printed lines, then the summary.
+      for (const sentence of [
+        "background/service_worker.js loads '/.env' at runtime (fetch/XMLHttpRequest/new URL), but the file isn't in the output.",
+        'NOT FOUND .env',
+        'The request fails at runtime.',
+        'Move the file so it resolves to .env, or serve it from public/ so it ships with the extension.'
+      ]) {
+        expect(times(result.printed, sentence), sentence).toBe(2)
+      }
+
+      expect(times(result.printed, "isn't in the output.")).toBe(2)
+      expect(result.shipped).toEqual([
+        'background/service_worker.js',
+        'hosted.txt'
+      ])
+
+      expect(result.marked).toEqual([])
+      expect(result.errors).toBe(0)
+
+      for (const text of [MARKER, ...OPENINGS]) {
+        expect(result.printed).not.toContain(text)
+      }
+    },
+    TIMEOUT
+  )
+
+  it.skipIf(!canLink)(
+    'is said in words of its own where a missing file gets none',
+    async () => {
+      const root = fixture(TRACERS.plainString, 'shared/logo.txt')
+      const result = await build(root)
+
+      // One finding for each place the worker could mean: the root, then
+      // beside the worker.
+      for (const sentence of [
+        'NOT FOUND shared/logo.txt',
+        'NOT FOUND background/shared/logo.txt'
+      ]) {
+        expect(times(result.printed, sentence), sentence).toBe(2)
+      }
+
+      for (const sentence of [
+        "background/service_worker.js names 'shared/logo.txt', but the file isn't in the output.",
+        'A read of it fails at runtime.',
+        'The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in public/.'
+      ]) {
+        expect(times(result.printed, sentence), sentence).toBe(4)
+      }
+
+      expect(result.marked).toEqual([])
+      expect(result.errors).toBe(0)
+
+      for (const text of [MARKER, ...OPENINGS]) {
+        expect(result.printed).not.toContain(text)
+      }
     },
     TIMEOUT
   )

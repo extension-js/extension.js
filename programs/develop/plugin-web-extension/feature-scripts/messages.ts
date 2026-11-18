@@ -243,13 +243,30 @@ export function manifestNamedFileNotShipped(
     `manifest.json names '${literal}' under the custom key ${colors.blue(manifestKey)}, but the file isn't in the output.`
   )
 
-  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
-  lines.push(`A read of it fails at runtime.`)
-  lines.push(
-    `The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
-  )
+  lines.push(...neverCopiedLines(expectedPath))
 
   return lines.join('\n')
+}
+
+function neverCopiedLines(expectedPath: string) {
+  return [
+    `${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`,
+    `A read of it fails at runtime.`,
+    `The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
+  ]
+}
+
+// The same finding for a path found in code, where a missing file of that
+// kind is not worth a word and one the build withholds is.
+export function codeNamedFileNotShipped(
+  assetName: string,
+  literal: string,
+  expectedPath: string
+) {
+  return [
+    `${assetName} names '${literal}', but the file isn't in the output.`,
+    ...neverCopiedLines(expectedPath)
+  ].join('\n')
 }
 
 // The page the literal opens was declared only under a key the WebKit filter
