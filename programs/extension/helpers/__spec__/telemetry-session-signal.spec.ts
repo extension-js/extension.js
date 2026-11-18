@@ -2,7 +2,7 @@ import {EventEmitter} from 'node:events'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {exitAfterDrain} from '../exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../exit-after-drain'
 import type {TelemetryCli} from '../telemetry-cli'
 import {
   createTelemetrySignals,
@@ -703,6 +703,32 @@ describe('a command that exits on purpose still reports', () => {
     await drain(0)
 
     expect(box.sentRows()).toEqual([])
+  })
+
+  it('sends the code and the error class of a failure that printed its own answer', async () => {
+    const {box, exits, cli} = exitRun('doctor')
+
+    await exitFailedAfterDrain(
+      {
+        code: 'E_INTERNAL',
+        exitCode: 1,
+        error: new TypeError('reading a private folder'),
+        step: 'action'
+      },
+      {cli, exit: (exitCode) => exits.push(exitCode)}
+    )
+
+    expect(box.sentRows().map((row) => row.properties)).toEqual([
+      expect.objectContaining({
+        command: 'doctor',
+        code: 'E_INTERNAL',
+        exit_code: 1,
+        error_class: 'TypeError',
+        error_step: 'action'
+      })
+    ])
+    expect(JSON.stringify(box.sentRows())).not.toContain('private folder')
+    expect(exits).toEqual([1])
   })
 
   it('still exits, with its code, when the collector never answers', async () => {

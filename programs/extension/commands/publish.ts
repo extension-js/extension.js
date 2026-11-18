@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
 import {
   CODES,
@@ -357,7 +357,8 @@ export function registerPublishCommand(program: Command) {
         status: string,
         error: EnvelopeError,
         prose: string,
-        hint?: string
+        hint?: string,
+        thrown?: unknown
       ) => {
         if (asJson) {
           // eslint-disable-next-line no-console
@@ -371,7 +372,11 @@ export function registerPublishCommand(program: Command) {
           console.error(prose)
         }
 
-        await exitAfterDrain(1)
+        await exitFailedAfterDrain({
+          code: error.code,
+          exitCode: 1,
+          ...(thrown === undefined ? {} : {error: thrown, step: 'action'})
+        })
       }
 
       let req: PublishRequest
@@ -399,7 +404,13 @@ export function registerPublishCommand(program: Command) {
         }
 
         const message = (err as Error | undefined)?.message || String(err)
-        await failWith('failed', {code: CODES.E_INTERNAL, message}, message)
+        await failWith(
+          'failed',
+          {code: CODES.E_INTERNAL, message},
+          message,
+          undefined,
+          err
+        )
 
         return
       }
