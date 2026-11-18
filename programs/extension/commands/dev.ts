@@ -52,6 +52,7 @@ import {
   isReverseDnsBundleId,
   parseExtensionsList,
   parseLogContexts,
+  parseLogFormat,
   parseLogLevel
 } from '../helpers/normalize-options'
 import {
@@ -699,7 +700,7 @@ export function registerDevCommand(
             extensions: parseExtensionsList(devOptions.extensions),
             logLevel,
             logContexts,
-            logFormat: devOptions.logFormat,
+            logFormat: parseLogFormat(devOptions.logFormat),
             logTimestamps: explicitCliValue(
               command,
               'logTimestamps',
