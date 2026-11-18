@@ -1308,7 +1308,6 @@ export class ChromiumLaunchPlugin {
 
     if (dryRun) {
       this.printDryRunPlan(
-        compilation,
         browserBinaryLocation,
         chromiumConfig,
         messages.binarySourceLabel(binaryProvenance, browser, binaryPinnedBy)
@@ -1754,24 +1753,15 @@ export class ChromiumLaunchPlugin {
     }
   }
 
-  // What a launch would run, from the same config seam as the spawn, with
-  // nothing provisioned on disk.
+  // What a launch would run, from the flags the launch built for the spawn.
   private printDryRunPlan(
-    compilation: CompilationLike,
     binary: string,
-    chromiumConfig?: string[],
+    chromiumConfig: string[],
     source?: string
   ) {
-    const flags =
-      chromiumConfig ??
-      browserConfig(
-        compilation,
-        {...this.options},
-        {provision: false, cdp: true}
-      )
     const plan = chromiumLaunchPlan(
       binary,
-      flags,
+      chromiumConfig,
       this.options?.startingUrl,
       this.options?.noOpen
     )
