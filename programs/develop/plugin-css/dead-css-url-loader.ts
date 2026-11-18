@@ -225,6 +225,26 @@ export function inlineStylesheetImports(
       )
     }
 
+    const issuer = toPosixPath(path.relative(manifestDir, resourcePath))
+    const placed = [
+      ...inlined.moved.map(({statement}) =>
+        messages.cssImportMovedAhead(issuer, statement)
+      ),
+      ...inlined.skipped.map(({statement, file}) =>
+        messages.cssImportSkippedInBlock(
+          issuer,
+          statement,
+          toPosixPath(path.relative(manifestDir, file))
+        )
+      )
+    ]
+
+    for (const message of new Set(placed)) {
+      loader.emitWarning(
+        Object.assign(new Error(message), {name: 'CssParseWarning'})
+      )
+    }
+
     return inlined.css
   } catch (error) {
     loader.emitWarning(

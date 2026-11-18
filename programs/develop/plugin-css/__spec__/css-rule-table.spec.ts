@@ -3,7 +3,6 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
-import {formatInstallHint} from '../../lib/optional-deps-resolver'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER as LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import {extensionBaseAttributeFor} from '../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
@@ -71,12 +70,8 @@ function expectedRules(
   const guard = {loader: dist('css-parse-guard-loader')}
   const passthrough = {
     loader: dist('preprocessor-passthrough-loader'),
-    options: {
-      install: {
-        sass: formatInstallHint(root, ['sass']),
-        less: formatInstallHint(root, ['less'])
-      }
-    }
+    // The install command is asked for only when a warning prints.
+    options: {install: expect.any(Function)}
   }
   const post = tools.postcss ? [guard, tools.postcss] : []
 

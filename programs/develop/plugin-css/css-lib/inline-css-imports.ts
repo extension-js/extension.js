@@ -18,6 +18,13 @@ export interface InlineCssImportsContext {
   roots: string[]
 }
 
+export interface PlacedCssImport {
+  // The @import as it reads in the result.
+  statement: string
+  // The sheet it was written in.
+  file: string
+}
+
 export interface InlinedCssImports {
   css: string
   // Every sheet whose text is now part of this one.
@@ -26,13 +33,23 @@ export interface InlinedCssImports {
   missing: string[]
   // A sheet that was found and could not be read as CSS.
   unreadable: Array<{request: string; file: string; reason: string}>
+  // An import that now leads rules it used to follow.
+  moved: PlacedCssImport[]
+  // An import left inside a block, where a browser skips it.
+  skipped: PlacedCssImport[]
 }
 
-interface ParsedImport {
-  request: string
+interface ImportConditions {
   layer?: string
   supports?: string
   media?: string
+}
+
+interface ParsedImport extends ImportConditions {
+  request: string
+  // What follows the target when it holds a function CSS does not define.
+  // Such an import is left to the browser or to a plugin.
+  opaque?: string
 }
 
 const IMPORT_TARGET =
@@ -61,14 +78,14 @@ function takeFunction(
   return undefined
 }
 
-// Undefined for an import this step leaves to the browser or to a plugin:
-// one it cannot read, or one that carries a function CSS does not define.
+// Undefined for an import whose target cannot be read at all.
 function parseImport(params: string): ParsedImport | undefined {
   const match = IMPORT_TARGET.exec(params.trim())
   if (!match) return undefined
 
   const request = match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5] ?? ''
-  let rest = (match[6] || '').trim()
+  const tail = (match[6] || '').trim()
+  let rest = tail
   const parsed: ParsedImport = {request}
 
   const layer = takeFunction(rest, 'layer')
@@ -89,10 +106,77 @@ function parseImport(params: string): ParsedImport | undefined {
   }
 
   // What is left is a media query list, which calls no function.
-  if (/(^|[\s,(])[a-z-]+\(/i.test(rest)) return undefined
+  if (/(^|[\s,(])[a-z-]+\(/i.test(rest)) return {request, opaque: tail}
   if (rest) parsed.media = rest
 
   return parsed
+}
+
+function isConditional(rule: ImportConditions): boolean {
+  return Boolean(
+    rule.media || rule.supports !== undefined || rule.layer !== undefined
+  )
+}
+
+function supportsCondition(supports: string): string {
+  return /^[\w-]+\s*:/.test(supports) ? `(${supports})` : supports
+}
+
+// One set of conditions that says what the nested ones say together, or
+// undefined when an @import has no way to write that.
+function combineConditions(
+  outer: ImportConditions[],
+  own: ImportConditions
+): ImportConditions | undefined {
+  const combined: ImportConditions = {}
+  const frames = [...outer, own]
+  const outerLayers = outer.flatMap((frame) =>
+    frame.layer === undefined ? [] : [frame.layer]
+  )
+
+  // An unnamed layer is a new one each time it is written, so an import
+  // has no way to name one that a block opened, or one inside another.
+  if (outerLayers.includes('')) return undefined
+  if (own.layer === '' && outerLayers.length > 0) return undefined
+
+  if (own.layer !== undefined || outerLayers.length > 0) {
+    combined.layer = [
+      ...outerLayers,
+      ...(own.layer === undefined ? [] : [own.layer])
+    ].join('.')
+  }
+
+  const supports = frames.flatMap((frame) =>
+    frame.supports === undefined ? [] : [frame.supports]
+  )
+  const media = frames.flatMap((frame) => (frame.media ? [frame.media] : []))
+
+  if (supports.length === 1) combined.supports = supports[0]
+
+  if (supports.length > 1) {
+    combined.supports = supports.map((one) => `(${one})`).join(' and ')
+  }
+
+  if (media.length === 1) combined.media = media[0]
+
+  if (media.length > 1) {
+    // Only a plain list of features can be joined with "and".
+    const typed = media.filter((query) => !query.startsWith('('))
+    const features = media.filter((query) => query.startsWith('('))
+
+    if (
+      typed.length > 1 ||
+      media.some((query) => query.includes(',')) ||
+      typed.some((query) => /^not\b/i.test(query)) ||
+      features.some((query) => /\bor\b/i.test(query))
+    ) {
+      return undefined
+    }
+
+    combined.media = [...typed, ...features].join(' and ')
+  }
+
+  return combined
 }
 
 function isFile(candidate: string): boolean {
@@ -129,8 +213,17 @@ function importCandidates(
     : [...named, ...named.map((file) => `${file}.css`)]
 }
 
-// A relative url() in an imported sheet is written from that sheet's folder,
-// and its text now sits in a sheet that lives somewhere else.
+// A relative request is written from its own sheet's folder, and its text
+// now sits in a sheet that lives somewhere else.
+function rebaseRequest(request: string, fromDir: string, toDir: string) {
+  const suffixAt = request.search(/[?#]/)
+  const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
+  const suffix = suffixAt === -1 ? '' : request.slice(suffixAt)
+  const moved = toPosixPath(path.relative(toDir, path.resolve(fromDir, req)))
+
+  return `${moved.startsWith('../') ? moved : `./${moved}`}${suffix}`
+}
+
 function rebaseUrls(css: string, fromDir: string, toDir: string): string {
   if (fromDir === toDir) return css
 
@@ -143,26 +236,17 @@ function rebaseUrls(css: string, fromDir: string, toDir: string): string {
       return undefined
     }
 
-    const suffixAt = request.search(/[?#]/)
-    const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
-    const suffix = suffixAt === -1 ? '' : request.slice(suffixAt)
-    const moved = toPosixPath(path.relative(toDir, path.resolve(fromDir, req)))
-
-    return `${moved.startsWith('../') ? moved : `./${moved}`}${suffix}`
+    return rebaseRequest(request, fromDir, toDir)
   })
 }
 
-function wrap(css: string, rule: ParsedImport): string {
+function wrap(css: string, rule: ImportConditions): string {
   let wrapped = css
 
   if (rule.media) wrapped = `@media ${rule.media} {\n${wrapped}\n}`
 
   if (rule.supports !== undefined) {
-    const condition = /^[\w-]+\s*:/.test(rule.supports)
-      ? `(${rule.supports})`
-      : rule.supports
-
-    wrapped = `@supports ${condition} {\n${wrapped}\n}`
+    wrapped = `@supports ${supportsCondition(rule.supports)} {\n${wrapped}\n}`
   }
 
   if (rule.layer !== undefined) {
@@ -172,21 +256,48 @@ function wrap(css: string, rule: ParsedImport): string {
   return wrapped
 }
 
+function importStatement(
+  request: string,
+  rule: ImportConditions & {opaque?: string}
+): string {
+  const quote = request.includes('"') ? "'" : '"'
+  const parts = [`@import ${quote}${request}${quote}`]
+
+  if (rule.opaque) parts.push(rule.opaque)
+
+  if (rule.layer !== undefined) {
+    parts.push(rule.layer ? `layer(${rule.layer})` : 'layer')
+  }
+
+  if (rule.supports !== undefined) parts.push(`supports(${rule.supports})`)
+  if (rule.media) parts.push(rule.media)
+
+  return `${parts.join(' ')};`
+}
+
 interface Inlining {
   roots: string[]
+  // The folder of the sheet every other one comes into.
+  topDir: string
   files: Set<string>
   missing: Set<string>
   unreadable: InlinedCssImports['unreadable']
+  // The imports that stay, in the order they were met, to lead the result.
+  kept: string[]
+  moved: PlacedCssImport[]
+  skipped: PlacedCssImport[]
+  // Layers whose order the first sheet states before anything else.
+  orderedLayers: Set<string>
 }
 
 // The sheet with every @import of a project .css file replaced by that
-// file's rules. `kept` collects the imports that stay, to open the result.
+// file's rules. `frames` holds the conditions of each import on the way here.
 function inlineSheet(
   css: string,
   file: string,
   chain: string[],
   state: Inlining,
-  kept: string[] | undefined
+  frames: ImportConditions[]
 ): string | undefined {
   let root: Root
 
@@ -196,11 +307,36 @@ function inlineSheet(
     return undefined
   }
 
+  const top = chain.length === 1
   const issuerDir = path.dirname(file)
   const firstBlock = root.nodes.findIndex((node) =>
     Array.isArray((node as {nodes?: unknown}).nodes)
   )
   const edits: Array<{start: number; end: number; text: string}> = []
+  // Where an import that stays goes: a browser reads @charset and a list of
+  // layer names ahead of every @import, and the list sets the layer order.
+  let head = 0
+
+  if (top) {
+    for (const node of root.nodes) {
+      if (node.type === 'comment') continue
+
+      const name = node.type === 'atrule' ? node.name.toLowerCase() : ''
+      const end = node.source?.end?.offset
+      const statement =
+        node.type === 'atrule' &&
+        (name === 'charset' || (name === 'layer' && !node.nodes))
+      if (!statement || typeof end !== 'number') break
+
+      head = end
+
+      if (name === 'layer') {
+        for (const layer of node.params.split(',')) {
+          state.orderedLayers.add(layer.trim())
+        }
+      }
+    }
+  }
 
   root.nodes.forEach((node, index) => {
     if (node.type !== 'atrule' || node.name.toLowerCase() !== 'import') return
@@ -213,27 +349,60 @@ function inlineSheet(
     if (typeof start !== 'number' || typeof end !== 'number') return
 
     const parsed = parseImport(rule.params)
-    const candidates = parsed
-      ? importCandidates(parsed.request, issuerDir, state.roots)
-      : []
+    const candidates =
+      parsed && !parsed.opaque
+        ? importCandidates(parsed.request, issuerDir, state.roots)
+        : []
     const target = candidates.find(
       (candidate) => /\.css$/i.test(candidate) && isFile(candidate)
     )
 
     if (!parsed || !target) {
+      const written = `${css.slice(start, end).replace(/;$/, '').trim()};`
       // A bare name is most often a package, which no project path awaits.
-      const namesPath = parsed && /^\.{0,2}\//.test(parsed.request)
+      const relative = parsed !== undefined && /^\.{1,2}\//.test(parsed.request)
+      const namesPath = relative || parsed?.request.startsWith('/')
 
       for (const candidate of namesPath ? candidates : []) {
         if (!fs.existsSync(candidate)) state.missing.add(candidate)
       }
 
       // Once another sheet's rules come in, an @import that stays would
-      // follow a rule, so it moves to the head of the result.
-      if (kept) {
-        kept.push(css.slice(start, end))
-        edits.push({start, end, text: ''})
+      // follow a rule, so it leads the result under the conditions it had.
+      const conditions =
+        parsed && !(parsed.opaque && frames.length > 0)
+          ? combineConditions(frames, parsed)
+          : frames.length === 0
+            ? {}
+            : undefined
+
+      if (!conditions) {
+        state.skipped.push({statement: written, file})
+
+        return
       }
+
+      const request =
+        relative && parsed && issuerDir !== state.topDir
+          ? rebaseRequest(parsed.request, issuerDir, state.topDir)
+          : parsed?.request
+      const statement =
+        parsed && (frames.length > 0 || request !== parsed.request)
+          ? importStatement(request ?? parsed.request, {
+              ...conditions,
+              opaque: parsed.opaque
+            })
+          : written
+
+      if (
+        state.files.size > 0 &&
+        !(conditions.layer && state.orderedLayers.has(conditions.layer))
+      ) {
+        state.moved.push({statement, file})
+      }
+
+      state.kept.push(statement)
+      edits.push({start, end, text: ''})
 
       return
     }
@@ -249,15 +418,11 @@ function inlineSheet(
 
     try {
       inner = inlineSheet(
-        fs.readFileSync(target, 'utf8').replace(/^﻿/, ''),
+        fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''),
         target,
         [...chain, target],
         state,
-        parsed.media ||
-          parsed.supports !== undefined ||
-          parsed.layer !== undefined
-          ? undefined
-          : (kept ?? [])
+        isConditional(parsed) ? [...frames, parsed] : frames
       )
     } catch (error) {
       state.unreadable.push({
@@ -293,9 +458,20 @@ function inlineSheet(
     })
   })
 
+  if (top && state.kept.length > 0) {
+    const lines = state.kept.join('\n')
+
+    edits.push({
+      start: head,
+      end: head,
+      text: head === 0 ? `${lines}\n` : `\n${lines}`
+    })
+  }
+
   let out = css
 
-  for (const edit of edits.sort((a, b) => b.start - a.start)) {
+  // From the end back, and a removal ahead of what goes in at its start.
+  for (const edit of edits.sort((a, b) => b.start - a.start || b.end - a.end)) {
     out = out.slice(0, edit.start) + edit.text + out.slice(edit.end)
   }
 
@@ -310,26 +486,33 @@ export function inlineCssImports(
 ): InlinedCssImports {
   const state: Inlining = {
     roots: context.roots,
+    topDir: path.dirname(context.resourcePath),
     files: new Set(),
     missing: new Set(),
-    unreadable: []
+    unreadable: [],
+    kept: [],
+    moved: [],
+    skipped: [],
+    orderedLayers: new Set()
   }
   const untouched: InlinedCssImports = {
     css: source,
     files: [],
     missing: [],
-    unreadable: []
+    unreadable: [],
+    moved: [],
+    skipped: []
   }
 
   if (!/@import/i.test(source)) return untouched
 
-  const kept: string[] = []
+  // The parser drops a byte order mark and counts every place without it.
   const css = inlineSheet(
-    source,
+    source.replace(/^\uFEFF/, ''),
     context.resourcePath,
     [context.resourcePath],
     state,
-    kept
+    []
   )
 
   // Nothing came in, so nothing has to move: the sheet stays as written.
@@ -342,10 +525,11 @@ export function inlineCssImports(
   }
 
   return {
-    // An import that stays has to lead the sheet, or the browser skips it.
-    css: kept.length > 0 ? `${kept.join('\n')}\n${css}` : css,
+    css,
     files: [...state.files],
     missing: [...state.missing],
-    unreadable: state.unreadable
+    unreadable: state.unreadable,
+    moved: state.moved,
+    skipped: state.skipped
   }
 }

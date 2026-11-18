@@ -14,7 +14,7 @@ function run(resourcePath: string, source: string, rootContext?: string) {
       resourcePath,
       rootContext,
       getOptions: () => ({
-        install: {sass: 'pnpm add -D sass', less: 'pnpm add -D less'}
+        install: (tool: 'sass' | 'less') => `pnpm add -D ${tool}`
       }),
       emitWarning: (w: Error) => warnings.push(w)
     } as any,

@@ -157,6 +157,32 @@ export function cssImportLeftAsWritten(
   ].join('\n')
 }
 
+// The import leads the sheet so it loads at all, at the cost of its place.
+export function cssImportMovedAhead(issuerPath: string, statement: string) {
+  return [
+    `${prefix('warn')} Moved an ${colors.blue('@import')} to the top of this content script stylesheet, ahead of rules it used to follow.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('IMPORT')} ${colors.blue(statement)}`,
+    'The sheets imported before it are now rules in this file, and a browser skips an @import that follows a rule.',
+    `Write this ${colors.blue('@import')} first, or set the order with ${colors.blue('@layer')}, to keep the cascade you wrote.`
+  ].join('\n')
+}
+
+export function cssImportSkippedInBlock(
+  issuerPath: string,
+  statement: string,
+  writtenIn: string
+) {
+  return [
+    `${prefix('warn')} An ${colors.blue('@import')} in a sheet this content script stylesheet imports will not load.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('IMPORT')} ${colors.blue(statement)}`,
+    `${colors.gray('WRITTEN IN')} ${colors.underline(writtenIn)}`,
+    'Its sheet came in under a layer, media or supports condition this import cannot carry, and a browser skips an @import inside a block.',
+    `Move this ${colors.blue('@import')} to the content script stylesheet itself.`
+  ].join('\n')
+}
+
 export function cssUrlRewriteSkipped(resourcePath: string, error: unknown) {
   return [
     `${prefix('warn')} Couldn't rewrite the url() references in this stylesheet, so they shipped as written.`,

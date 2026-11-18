@@ -161,6 +161,18 @@ export async function buildCssRules(
         ])
   ]
 
+  // Asked only when a warning prints, and once: naming the package manager
+  // of a project can start a process.
+  const hints = new Map<string, string>()
+
+  const install = (tool: 'sass' | 'less'): string => {
+    const hint = hints.get(tool) ?? formatInstallHint(projectPath, [tool])
+
+    hints.set(tool, hint)
+
+    return hint
+  }
+
   return Promise.all(
     fileTypes.map(async ({test, exclude, type, loader, missingTool}) => {
       // An inlined sheet has no base for a relative @import, so the rules it
@@ -193,12 +205,7 @@ export async function buildCssRules(
       if (missingTool) {
         ;(use as Array<Record<string, unknown>>).push({
           loader: resolveDevelopDistFile('preprocessor-passthrough-loader'),
-          options: {
-            install: {
-              sass: formatInstallHint(projectPath, ['sass']),
-              less: formatInstallHint(projectPath, ['less'])
-            }
-          }
+          options: {install}
         })
       }
 
