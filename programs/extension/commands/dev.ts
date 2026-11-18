@@ -29,7 +29,7 @@ import {
 } from '../helpers/cli-options'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
-import {exitWithFailure} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
   loadExtensionDevelopModule
@@ -157,6 +157,8 @@ interface DevCommandDeps {
   createPackager?: typeof createSafariPackager
   reportFailure?: typeof reportCommandFailureNow
   noteBrowsers?: typeof noteRunBrowsers
+  // Ends the process once stdout is written out, which a bare exit cuts.
+  exitDrained?: (code: number) => Promise<void>
 }
 
 export function registerDevCommand(
@@ -169,7 +171,8 @@ export function registerDevCommand(
     waitForReady = runWaitMode,
     createPackager = createSafariPackager,
     reportFailure = reportCommandFailureNow,
-    noteBrowsers = noteRunBrowsers
+    noteBrowsers = noteRunBrowsers,
+    exitDrained = exitAfterDrain
   }: DevCommandDeps = {}
 ) {
   program
@@ -636,10 +639,19 @@ export function registerDevCommand(
         // develop exits the process itself on a failure it already printed,
         // which skips every reporting path, so the failure row is sent here.
         const reportExitError = (error: unknown, fallbackCode?: string) => {
-          reportFailure({
-            code: declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
-            exitCode: 1
-          })
+          try {
+            reportFailure({
+              code:
+                declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
+              exitCode: 1
+            })
+          } catch {
+            // Best-effort: a report that throws must not keep the process up.
+          }
+
+          // Under --output json develop ends the session and exits nothing.
+          // Its failed frame is out, so the exit here prints no second one.
+          if (asJson) void exitDrained(1)
         }
 
         const {extensionDev} = await loadDevelop()

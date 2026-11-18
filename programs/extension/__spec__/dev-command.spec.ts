@@ -689,11 +689,17 @@ describe('extension dev after the engine ends a running session', () => {
     code: 'E_DEV_SERVER_START'
   })
 
+  const drainedExits: Array<{code: number; reportedFirst: boolean}> = []
+
   async function endSession(argv: string[]) {
     const reported: unknown[] = []
 
     deps.reportFailure = (details) => {
       reported.push(details)
+    }
+
+    deps.exitDrained = async (code) => {
+      drainedExits.push({code, reportedFirst: reported.length === 1})
     }
 
     expect(await run(argv)).toBe(0)
@@ -709,16 +715,72 @@ describe('extension dev after the engine ends a running session', () => {
     return reported
   }
 
-  afterEach(() => {
-    deps.reportFailure = () => {}
+  beforeEach(() => {
+    deps.exitDrained = async (code) => {
+      drainedExits.push({code, reportedFirst: false})
+    }
   })
 
-  it('reports the failure and leaves the process running under --output json', async () => {
+  afterEach(() => {
+    drainedExits.length = 0
+
+    deps.reportFailure = () => {}
+
+    delete deps.exitDrained
+  })
+
+  it('exits 1 after the report under --output json, with no frame of its own', async () => {
     const reported = await endSession(['dev', '.', '--output', 'json'])
 
     expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
-    expect(process.exit).not.toHaveBeenCalled()
+    expect(drainedExits).toEqual([{code: 1, reportedFirst: true}])
     expect(stdout).toEqual([])
+  })
+
+  it('ends the real process with code 1 when no exit is injected', async () => {
+    delete deps.exitDrained
+
+    const exit = vi
+      .spyOn(process, 'exit')
+      .mockImplementation((() => undefined) as never)
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+    stdout.length = 0
+
+    const onExitError = engineCalls[0][1].onExitError as (
+      error: unknown
+    ) => void
+
+    onExitError(lostServer)
+
+    // The exit waits for stdout to be written out, so it lands a turn later.
+    expect(exit).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1))
+    expect(exit).toHaveBeenCalledTimes(1)
+    expect(stdout).toEqual([])
+  })
+
+  it('still exits when the report throws', async () => {
+    deps.reportFailure = () => {
+      throw new Error('telemetry is down')
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+
+    const onExitError = engineCalls[0][1].onExitError as (
+      error: unknown
+    ) => void
+
+    expect(() => onExitError(lostServer)).not.toThrow()
+    expect(drainedExits.map(({code}) => code)).toEqual([1])
+  })
+
+  it('leaves the exit to the engine in pretty mode, which ends the process itself', async () => {
+    const reported = await endSession(['dev', '.'])
+
+    expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
+    expect(drainedExits).toEqual([])
+    expect(process.exit).not.toHaveBeenCalled()
   })
 })
 
