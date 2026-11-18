@@ -94,6 +94,7 @@ describe('run() in process', () => {
     expect(
       await run(argv('build', '--bogus', '--output', 'json'), fake.deps)
     ).toBe(1)
+
     expect(fake.exits).toEqual([1])
     expect(fake.stderr()).toContain('--bogus')
     expect(fake.frames).toEqual([
