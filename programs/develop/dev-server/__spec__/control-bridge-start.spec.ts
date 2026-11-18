@@ -193,10 +193,11 @@ describe('opening the control bridge', () => {
 
   async function controlSocket() {
     const frames: unknown[] = []
+    const closes: unknown[] = []
     const broker = {
       pingProducers: () => {},
       onFrame: (_conn: unknown, frame: unknown) => frames.push(frame),
-      onClose: () => {}
+      onClose: (conn: unknown) => closes.push(conn)
     }
     const {startControlServer, MAX_CONTROL_FRAME_BYTES} = await import(
       '../control-bridge/ws-control-server'
@@ -227,7 +228,14 @@ describe('opening the control bridge', () => {
     // The server ends the socket mid-send, which the client reports here.
     socket.on('error', () => {})
 
-    return {frames, socket, closed, limit: MAX_CONTROL_FRAME_BYTES, WebSocket}
+    return {
+      frames,
+      closes,
+      socket,
+      closed,
+      limit: MAX_CONTROL_FRAME_BYTES,
+      WebSocket
+    }
   }
 
   it('takes a frame far above what a producer sends', async () => {
@@ -241,12 +249,34 @@ describe('opening the control bridge', () => {
   })
 
   it('closes a socket that sends a frame above the limit and keeps serving', async () => {
-    const {frames, socket, closed, limit} = await controlSocket()
-    socket.send(JSON.stringify({type: 'pin', payload: 'x'.repeat(limit)}))
+    const savedDebug = process.env.EXTENSION_DEBUG
+    process.env.EXTENSION_DEBUG = '1'
+    const debug = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    // 1009 is the WebSocket close code for a message that is too big.
-    expect(await closed).toBe(1009)
-    expect(frames).toEqual([])
+    try {
+      const {frames, closes, socket, closed, limit} = await controlSocket()
+      socket.send(JSON.stringify({type: 'pin', payload: 'x'.repeat(limit)}))
+
+      // 1009 is the WebSocket close code for a message that is too big.
+      expect(await closed).toBe(1009)
+      expect(frames).toEqual([])
+
+      // The error and the close that follows reach the broker as one end.
+      await vi.waitFor(() => expect(closes).toHaveLength(1))
+      await new Promise((resolve) => setTimeout(resolve, 50))
+      expect(closes).toHaveLength(1)
+
+      const lines = debug.mock.calls.map((call) => stripAnsi(String(call[0])))
+      expect(lines.filter((line) => line.includes('control'))).toEqual([
+        expect.stringContaining(`a frame above ${limit} bytes`)
+      ])
+    } finally {
+      debug.mockRestore()
+
+      if (savedDebug === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
+      } else process.env.EXTENSION_DEBUG = savedDebug
+    }
 
     const next = await controlSocket()
     next.socket.send(JSON.stringify({type: 'pin', payload: 'small'}))

@@ -115,7 +115,10 @@ import {
   endCompilerRestart,
   unbindDevSessionRestart
 } from './session-restart'
-import {createSessionRestartHandler} from './session-restart-handler'
+import {
+  buildRestartBundle,
+  createSessionRestartHandler
+} from './session-restart-handler'
 import {withSessionStartPrune} from './session-start-prune'
 import {
   announceReadyOnCleanCompile,
@@ -124,7 +127,9 @@ import {
   createRestartFailure,
   createStartFailure,
   readStartTimeoutMs,
+  releaseEndedSession,
   releaseFailedStart,
+  rethrowStartFailure,
   startBundler
 } from './start-bundler'
 
@@ -1065,30 +1070,20 @@ export async function devServer(
     return {compiler, server, firstCompile}
   }
 
-  // A restart that cannot build its next bundle leaves the session exactly
-  // as it was: the serving compiler stays the one the middleware reads.
-  async function createRestartBundle() {
-    const serving = activeCompiler
+  const createRestartBundle = () =>
+    buildRestartBundle({
+      build: () => createCompilerAndServer({isRestart: true}),
+      activeCompiler: () => activeCompiler,
+      setActiveCompiler: (compiler) => {
+        activeCompiler = compiler
+      },
+      takeUnfinishedRelease: () => {
+        const release = releaseUnfinishedBundle
+        releaseUnfinishedBundle = null
 
-    try {
-      return await createCompilerAndServer({isRestart: true})
-    } catch (error) {
-      const abandoned = activeCompiler
-      activeCompiler = serving
-      releaseUnfinishedBundle?.()
-      releaseUnfinishedBundle = null
-
-      if (abandoned && abandoned !== serving) {
-        try {
-          abandoned.close(() => {})
-        } catch {
-          // Ignore
-        }
+        return release
       }
-
-      throw error
-    }
-  }
+    })
 
   const failStart = createStartFailure({
     metadata,
@@ -1139,20 +1134,27 @@ export async function devServer(
 
   // Plugins that find an entrypoint change ask for this; the request outlives
   // the compiler that noticed it because the scheduler belongs to the session.
+  let isShuttingDown = false
+
+  let disposeCleanupHandlers = () => {}
+
+  const sessionRestart = new DevSessionRestartScheduler()
   const restartFailure = createRestartFailure({
     metadata,
     lifecycle,
     keepServing: () => endCompilerRestart(activeCompiler ?? undefined),
     release: (server) =>
-      releaseFailedStart({
+      releaseEndedSession({
         server,
         releasePort: () => portManager.terminateCurrentInstance(),
-        closeControlBridge: controlBridge.close
+        closeControlBridge: controlBridge.close,
+        restartScheduler: sessionRestart,
+        unbindRestart: unbindDevSessionRestart,
+        disposeCleanupHandlers: () => disposeCleanupHandlers()
       }),
     onExitError: extendedOptions.onExitError,
     exitOnError: exitOnStartFailure
   })
-  const sessionRestart = new DevSessionRestartScheduler()
   sessionRestart.setFailureHandler(restartFailure.unexpected)
   sessionRestart.setHandler(
     createSessionRestartHandler<RspackDevServer>({
@@ -1166,9 +1168,8 @@ export async function devServer(
       endPortHold: () => portManager.endRestartHold(),
       // A restart reports its own failure, so the start only rejects here.
       startBundler: (server) =>
-        startSessionBundler(server, (error) => {
-          throw error
-        }),
+        startSessionBundler(server, rethrowStartFailure),
+      isShuttingDown: () => isShuttingDown,
       onBundleFailure: restartFailure.bundle,
       onStopFailure: restartFailure.stop,
       onStartFailure: restartFailure.start,
@@ -1228,12 +1229,20 @@ export async function devServer(
     })
   })
 
-  setupCleanupHandlers(
+  disposeCleanupHandlers = setupCleanupHandlers(
     () => currentServer,
     portManager,
     (signal) => {
       lifecycle.interrupted(signal)
     },
-    {closeControlBridge: controlBridge.close}
+    {
+      closeControlBridge: controlBridge.close,
+      // No restart may begin, and one already running stops at its next step.
+      onShutdownStart: () => {
+        isShuttingDown = true
+        sessionRestart.dispose()
+        unbindDevSessionRestart()
+      }
+    }
   )
 }

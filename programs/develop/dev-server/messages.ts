@@ -213,6 +213,10 @@ export function debugSessionPorts(port: number, controlPort: number | null) {
   return `${getLoggingPrefix('debug')} ports    port=${port} controlPort=${controlPort ?? 'none'}`
 }
 
+export function debugControlFrameTooLarge(maxBytes: number) {
+  return `${getLoggingPrefix('debug')} control  closed a socket that sent a frame above ${maxBytes} bytes`
+}
+
 // The first page was let go because the background had gone quiet, and a
 // registration followed. A registered script reaches no page already open.
 export function lateBootRegistration(afterMs?: number) {

@@ -1,7 +1,16 @@
+import {EventEmitter} from 'node:events'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
+import {setupCleanupHandlers} from '../cleanup'
 import {stripAnsi} from '../lifecycle-stream'
+import {
+  bindDevSessionRestart,
+  canAutoRestartDevSession,
+  DevSessionRestartScheduler,
+  requestDevSessionRestart,
+  unbindDevSessionRestart
+} from '../session-restart'
 import {
   announceReadyOnCleanCompile,
   createBindFailureRelay,
@@ -10,7 +19,9 @@ import {
   declaredErrorCode,
   devServerStartError,
   readStartTimeoutMs,
+  releaseEndedSession,
   releaseFailedStart,
+  rethrowStartFailure,
   startBundler
 } from '../start-bundler'
 
@@ -323,6 +334,9 @@ describe('starting the bundler', () => {
     ['a word', 'soon'],
     ['zero', '0'],
     ['a negative number', '-5'],
+    ['digits followed by letters', '10abc'],
+    ['an exponent', '1e3'],
+    ['a fraction', '5.5'],
     ['an empty value', '']
   ])('keeps the default start timeout for %s', async (_name, value) => {
     vi.useFakeTimers()
@@ -341,6 +355,76 @@ describe('starting the bundler', () => {
     expect(onSlowStart).not.toHaveBeenCalled()
     finish()
     await started
+  })
+})
+
+describe('a start whose caller reports the failure', () => {
+  it('rejects with the error the server gave and leaves no timer', async () => {
+    vi.useFakeTimers()
+    const failure = new Error('listen EADDRINUSE')
+
+    await expect(
+      startBundler(
+        {start: async () => Promise.reject(failure)},
+        {
+          timeoutMs: 30000,
+          onSlowStart: () => {},
+          onFailure: rethrowStartFailure
+        }
+      )
+    ).rejects.toBe(failure)
+
+    expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('a session that ended without a process exit', () => {
+  it('leaves no restart bound and no handler registered', async () => {
+    const events = new EventEmitter()
+    const exit = vi.fn()
+    const stop = vi.fn(async () => {})
+    const releasePort = vi.fn(async () => {})
+    const closeControlBridge = vi.fn(async () => {})
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+    const disposeCleanupHandlers = setupCleanupHandlers(
+      () => null,
+      {terminateCurrentInstance: releasePort} as never,
+      undefined,
+      {events, exit, env: {}}
+    )
+    const listened = () =>
+      ['SIGINT', 'SIGTERM', 'SIGHUP', 'uncaughtException'].map((event) =>
+        events.listenerCount(event)
+      )
+
+    expect(listened()).toEqual([1, 1, 1, 1])
+    expect(canAutoRestartDevSession()).toBe(true)
+
+    await releaseEndedSession({
+      server: {stop},
+      releasePort,
+      closeControlBridge,
+      restartScheduler: scheduler,
+      unbindRestart: unbindDevSessionRestart,
+      disposeCleanupHandlers
+    })
+
+    expect(listened()).toEqual([0, 0, 0, 0])
+    expect(canAutoRestartDevSession()).toBe(false)
+    expect(requestDevSessionRestart({}, {reason: 'env'})).toBe(false)
+    scheduler.request({reason: 'env'})
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(handler).not.toHaveBeenCalled()
+    expect(stop).toHaveBeenCalledTimes(1)
+    expect(releasePort).toHaveBeenCalledTimes(1)
+    expect(closeControlBridge).toHaveBeenCalledTimes(1)
+
+    // A signal after the release reaches nothing of this session.
+    events.emit('SIGINT', 'SIGINT')
+    expect(exit).not.toHaveBeenCalled()
   })
 })
 

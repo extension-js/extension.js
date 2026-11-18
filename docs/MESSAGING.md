@@ -279,6 +279,9 @@ What is stable and what is not:
   code the diagnostic resolves to and is absent when none does, `severity` is `error` or
   `warning`, and `file` is relative to the project root. The list is capped at twenty entries
   and the frame sets `truncated: true` when it was cut.
+- `restart-failed` is a `dev` status that does not end the stream: the session tried to rebuild
+  itself after an entry change and could not. `ok` is `false`, `value.serving` is `true`, and
+  the previous build keeps serving.
 - `browser` is optional and names the session a frame is about, so a reader of `doctor`
   knows which browser the result describes. Commands with no session leave it absent.
 

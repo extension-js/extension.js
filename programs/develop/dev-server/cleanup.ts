@@ -22,7 +22,8 @@ type ExitFn = (code?: number) => void
 type ProcessEventsLike = Pick<NodeJS.EventEmitter, 'on' | 'removeListener'>
 
 // How long a shutdown may take before the process is ended anyway.
-export const SHUTDOWN_TIMEOUT_MS = 5000
+// A stop waits for a compile in flight, so the bound leaves room for one.
+export const SHUTDOWN_TIMEOUT_MS = 10000
 
 // One Ctrl+C can reach the process twice, from the terminal and from the
 // package manager above it, so a repeat this soon is the same request.
@@ -40,6 +41,8 @@ export interface CleanupDependencies {
   shutdownTimeoutMs?: number
   print?: (line: string) => void
   now?: () => number
+  // Called once, before anything is stopped.
+  onShutdownStart?: () => void
 }
 
 function resolveDevServer(
@@ -54,27 +57,27 @@ async function closeAll(
   exit: ExitFn,
   closeControlBridge: (() => Promise<void>) | undefined
 ): Promise<void> {
-  let stopFailed = false
+  let failed = false
 
-  if (devServer && typeof devServer.stop === 'function') {
+  // Each step runs whatever the one before it did, and any failure still
+  // leaves the browser plugins their grace before the exit.
+  const steps = [
+    () => devServer?.stop?.(),
+    () => closeControlBridge?.(),
+    () => portManager.terminateCurrentInstance()
+  ]
+
+  for (const step of steps) {
     try {
-      await devServer.stop()
+      await step()
     } catch (error) {
-      stopFailed = true
+      failed = true
       console.error(messages.runnerCleanupError(error))
     }
   }
 
-  await portManager.terminateCurrentInstance()
-
-  try {
-    await closeControlBridge?.()
-  } catch {
-    // Ignore
-  }
-
   // Allow browser plugin signal handlers to complete cleanup
-  setTimeout(() => (stopFailed ? exit(1) : exit()), 500)
+  setTimeout(() => (failed ? exit(1) : exit()), 500)
 }
 
 // Returns a disposer that cancels auto-exit and removes every listener added
@@ -113,6 +116,13 @@ export function setupCleanupHandlers(
 
     isShuttingDown = true
     shutdownStartedAt = now()
+
+    try {
+      dependencies.onShutdownStart?.()
+    } catch {
+      // Ignore
+    }
+
     // A stop that never settles would hold the terminal for good.
     shutdownTimer = setTimeout(() => {
       print(messages.shutdownTimedOut(shutdownTimeoutMs))

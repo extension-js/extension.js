@@ -196,6 +196,65 @@ describe('setupCleanupHandlers', () => {
     }
   })
 
+  it('closes the control bridge and keeps the grace when the port release rejects', async () => {
+    vi.useFakeTimers()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const events = new EventEmitter()
+    const exit = vi.fn()
+    const order: string[] = []
+    const onShutdownStart = vi.fn(() => order.push('shutdown start'))
+    const portManager = {
+      terminateCurrentInstance: async () => {
+        order.push('release port')
+
+        throw new Error('release EPERM')
+      }
+    } as unknown as PortManager
+    disposers.push(
+      setupCleanupHandlers(
+        () =>
+          ({
+            stop: async () => {
+              order.push('stop')
+            }
+          }) as never,
+        portManager,
+        undefined,
+        {
+          events,
+          exit,
+          env: {},
+          onShutdownStart,
+          closeControlBridge: async () => {
+            order.push('close control bridge')
+          }
+        }
+      )
+    )
+
+    try {
+      events.emit('SIGTERM', 'SIGTERM')
+      await vi.advanceTimersByTimeAsync(499)
+      expect(exit).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(1)
+
+      expect(exit.mock.calls).toEqual([[1]])
+      expect(order).toEqual([
+        'shutdown start',
+        'stop',
+        'close control bridge',
+        'release port'
+      ])
+
+      expect(onShutdownStart).toHaveBeenCalledTimes(1)
+      expect(stripAnsi(String(consoleError.mock.calls[0][0]))).toContain(
+        'The dev server could not shut down cleanly: release EPERM'
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
   it('closes the control server on shutdown', async () => {
     const events = new EventEmitter()
     const exit = vi.fn()

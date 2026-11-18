@@ -284,4 +284,58 @@ describe('a dev session restart', () => {
     expect(s.printed[1]).toContain('The dev server restart did not finish.')
     expect(s.printed[1]).toContain('reload dispatch broke')
   })
+
+  it('leaves the servers to a shutdown that starts while it runs', async () => {
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+
+    // Shutdown begins while the next bundle is being built.
+    let shuttingDown = false
+    const building = session({
+      createBundle: async () => {
+        shuttingDown = true
+
+        return {
+          server: building.next,
+          firstCompile: Promise.resolve({hasErrors: () => false})
+        }
+      },
+      isShuttingDown: () => shuttingDown
+    })
+    await building.restart()
+
+    expect(building.first.stop).not.toHaveBeenCalled()
+    expect(building.current()).toBe(building.first)
+    expect(building.calls).toEqual([])
+
+    // Shutdown begins while the old server stops: nothing new may listen.
+    shuttingDown = false
+    const stopping = session({isShuttingDown: () => shuttingDown})
+    stopping.first.stop.mockImplementationOnce(async () => {
+      shuttingDown = true
+    })
+
+    await stopping.restart()
+
+    expect(stopping.calls).toEqual(['createBundle', 'holdPort', 'endPortHold'])
+    expect(stopping.current()).toBeNull()
+
+    // Shutdown stops the next server mid-start: no failure frame, no exit.
+    shuttingDown = false
+    const starting = session({
+      startBundler: async () => {
+        shuttingDown = true
+
+        throw new Error('server closed while starting')
+      },
+      isShuttingDown: () => shuttingDown
+    })
+    await starting.restart()
+
+    expect(starting.calls).toEqual(['createBundle', 'holdPort', 'endPortHold'])
+    expect(starting.printed).toHaveLength(1)
+
+    for (const s of [building, stopping, starting]) {
+      expect(s.frames()).toEqual([])
+    }
+  })
 })

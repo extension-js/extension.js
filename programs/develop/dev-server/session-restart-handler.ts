@@ -30,6 +30,8 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
   onStopFailure: (error: unknown) => void
   // The next server could not start after the old one stopped.
   onStartFailure: (error: unknown, server: Server) => void | Promise<void>
+  // True once the session is being torn down, which owns the servers then.
+  isShuttingDown?: () => boolean
   fullReloadsDelivered: () => number
   reloadAfterRestart: (fullReloadsBefore: number) => Promise<unknown>
 }
@@ -52,6 +54,9 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
       return
     }
 
+    // Shutdown stops the current server itself and frees the port for good.
+    if (steps.isShuttingDown?.()) return
+
     const previous = steps.currentServer()
     steps.setCurrentServer(null)
 
@@ -71,11 +76,20 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     // build can add to it before the reload below is decided.
     const fullReloadsBefore = steps.fullReloadsDelivered()
 
+    if (steps.isShuttingDown?.()) {
+      steps.endPortHold()
+
+      return
+    }
+
     steps.setCurrentServer(nextBundle.server)
 
     try {
       await steps.startBundler(nextBundle.server)
     } catch (error) {
+      // A start cut short by the shutdown is not a failure of the restart.
+      if (steps.isShuttingDown?.()) return
+
       steps.setCurrentServer(null)
       await steps.onStartFailure(error, nextBundle.server)
 
@@ -93,5 +107,40 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     // The fresh compiler's first build carries no changed sources, so the
     // classifier stays silent; the new entry set needs one full reload.
     await steps.reloadAfterRestart(fullReloadsBefore)
+  }
+}
+
+export interface RestartBundleBuild<Compiler, Bundle> {
+  build: () => Promise<Bundle>
+  activeCompiler: () => Compiler | null
+  setActiveCompiler: (compiler: Compiler | null) => void
+  // What a build that threw partway still holds, taken so it runs once.
+  takeUnfinishedRelease: () => (() => void) | null
+}
+
+// A restart that cannot build its next bundle leaves the session exactly
+// as it was: the serving compiler stays the one the middleware reads.
+export async function buildRestartBundle<
+  Compiler extends {close: (callback: () => void) => void},
+  Bundle
+>(steps: RestartBundleBuild<Compiler, Bundle>): Promise<Bundle> {
+  const serving = steps.activeCompiler()
+
+  try {
+    return await steps.build()
+  } catch (error) {
+    const abandoned = steps.activeCompiler()
+    steps.setActiveCompiler(serving)
+    steps.takeUnfinishedRelease()?.()
+
+    if (abandoned && abandoned !== serving) {
+      try {
+        abandoned.close(() => {})
+      } catch {
+        // Ignore
+      }
+    }
+
+    throw error
   }
 }

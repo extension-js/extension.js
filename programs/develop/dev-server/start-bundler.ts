@@ -14,16 +14,22 @@ import * as messages from './messages'
 
 export const DEFAULT_START_TIMEOUT_MS = 30000
 
-// A value that is not a positive number would arm the slow-start warning for
-// the next tick, so it falls back to the default.
+// Anything but a positive whole number would arm the slow-start warning for
+// the wrong moment, so it falls back to the default.
 export function readStartTimeoutMs(
   env: Readonly<Record<string, string | undefined>> = process.env
 ) {
-  const parsed = parseInt(String(env.EXTENSION_START_TIMEOUT_MS ?? ''), 10)
+  const raw = String(env.EXTENSION_START_TIMEOUT_MS ?? '').trim()
+  const parsed = /^\d+$/.test(raw) ? Number(raw) : 0
 
-  return Number.isFinite(parsed) && parsed > 0
+  return Number.isSafeInteger(parsed) && parsed > 0
     ? parsed
     : DEFAULT_START_TIMEOUT_MS
+}
+
+// For a start whose caller reports the failure itself.
+export function rethrowStartFailure(error: unknown): never {
+  throw error
 }
 
 export interface StartBundlerOptions {
@@ -242,6 +248,35 @@ export interface FailedStartRelease {
   releasePort: () => Promise<void>
   closeControlBridge: () => Promise<void>
   stopTimeoutMs?: number
+}
+
+export interface EndedSessionRelease extends FailedStartRelease {
+  restartScheduler: {dispose: () => void}
+  unbindRestart: () => void
+  // Removes the signal and exception handlers the session registered.
+  disposeCleanupHandlers: () => void
+}
+
+// A session that ended without a process exit leaves nothing registered in
+// the host: no restart can start and no handler waits for a signal.
+export async function releaseEndedSession(
+  release: EndedSessionRelease
+): Promise<void> {
+  const steps = [
+    release.restartScheduler.dispose.bind(release.restartScheduler),
+    release.unbindRestart,
+    release.disposeCleanupHandlers
+  ]
+
+  for (const step of steps) {
+    try {
+      step()
+    } catch {
+      // Ignore
+    }
+  }
+
+  await releaseFailedStart(release)
 }
 
 // Best effort and bounded: a server that never listened may not answer stop,
