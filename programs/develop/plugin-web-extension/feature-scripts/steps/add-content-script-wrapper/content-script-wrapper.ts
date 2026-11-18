@@ -1084,7 +1084,18 @@ export default function contentScriptWrapper(
         '} catch (error) {}\n' +
         // No registry entry = fresh isolated world: any root we own predates this
         // execution and must go, even when its build token still matches.
-        'try { __EXTENSIONJS_cleanupKnownRoots(!__EXTENSIONJS_previousEntry); } catch (error) {}\n'
+        'try { __EXTENSIONJS_cleanupKnownRoots(!__EXTENSIONJS_previousEntry); } catch (error) {}\n' +
+        // A top-level await ends this run before the script mounts, so the
+        // next injection has to find this copy and retire it while it waits.
+        'var __EXTENSIONJS_retired=false;\n' +
+        'function __EXTENSIONJS_retire(){\n' +
+        '  __EXTENSIONJS_retired = true;\n' +
+        '  try { __EXTENSIONJS_composeCleanup(null)(); } catch (error) {}\n' +
+        '}\n' +
+        'try {\n' +
+        '  __EXTENSIONJS_retire.__extjsGeneration = __EXTENSIONJS_REINJECT_GENERATION;\n' +
+        '  __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_retire;\n' +
+        '} catch (error) {}\n'
     ) +
     // The public path only matters to a bundle that resolves something its
     // module graph brought in: an emitted asset, a split chunk or, in
@@ -1261,10 +1272,10 @@ export default function contentScriptWrapper(
       `${runtimeInline}`
     const suffix =
       devOnly(
-        `try { __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {
+        `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {
         // Ignore
       }\n` +
-          `try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {
+          `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {
         // Ignore
       }\n`
       ) +
@@ -1272,7 +1283,7 @@ export default function contentScriptWrapper(
         // Ignore
       }\n` +
       devOnly(
-        `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {
+        `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {
         // Ignore
       }\n`
       )
@@ -1335,13 +1346,14 @@ export default function contentScriptWrapper(
     `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
     defaultExport.binding +
     `var __EXTENSIONJS_cleanup = function(){};\n` +
-    `try { __EXTENSIONJS_cleanup = __EXTENSIONJS_mount(${MOUNT_NAME}, ${JSON.stringify(
+    // A copy the next injection retired while it waited mounts nothing.
+    `try { ${devOnly('if (!__EXTENSIONJS_retired) ')}__EXTENSIONJS_cleanup = __EXTENSIONJS_mount(${MOUNT_NAME}, ${JSON.stringify(
       runAt
     )}) } catch (error) {
       // Ignore
     }\n` +
     devOnly(
-      `try { __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {
+      `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {
       // Ignore
     }\n`
     ) +

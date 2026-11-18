@@ -69,6 +69,8 @@ real compiler takes per mode and browser.
 
   The wrapper rules sit at the front of `module.rules`, ahead of every rule `extension.config.js` added, and loaders run from the last rule to the first. A loader of the project with no `enforce`, or with `enforce: 'pre'`, is handed the file as written, and the wrapper reads what it returns before the transpiler does. A loader with `enforce: 'post'` is handed the wrapped and transpiled text. When a loader returns text with no default export for a file that has one as written, the build stops and names the file and the loader. The wrapper applies in production too, with no option to turn it off.
 
+  A content script with an `import` or an `export` may await at the top level, and its default export mounts only once that `await` ends, so a `run_at: document_start` script that awaits mounts later than `document_start`. In a dev session a copy that is still waiting when the next one is injected is cleaned up and never mounts.
+
 - `steps/trace-runtime-loaded-files.ts`
   Copies through runtime-loaded files the module graph cannot see (classic worker `importScripts(...)`, `executeScript`/`insertCSS` `files` payloads, `{file}` entries of `contentScripts.register` and `userScripts.register`). A data or media file that a script names as a plain string inside a folder also ships, at the path the page or worker asks for, and a copied stylesheet brings its `url()` targets.
 
