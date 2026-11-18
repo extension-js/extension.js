@@ -18,6 +18,7 @@ import {
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
   stampReadyCdpPort,
+  stampReadyDevBrowserFlag,
   stampReadyExtensionBaseUrl,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
@@ -25,6 +26,8 @@ import {
   stampReadyRdpPort,
   stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
+import {readyContractPath} from '../../../../develop/lib/session-contract'
+import {isFreshContractPayload} from '../../../commands/dev-wait'
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
 // Every stamp time is written with toISOString.
@@ -121,6 +124,76 @@ describe('stampReadyRdpPort', () => {
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     expect(ready.status).toBe('starting')
     expect(ready.rdpPort).toBe(6006)
+  })
+
+  it('keeps the port of a superseded run off the run that replaced it', () => {
+    const held = {
+      command: 'dev',
+      status: 'starting',
+      compiledAt: '2026-11-01T00:00:00.000Z',
+      runId: 'run-B'
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(held)
+  })
+
+  it('never replaces the port the new run stamped with an older one', () => {
+    const owned = {
+      command: 'dev',
+      status: 'ready',
+      compiledAt: '2026-11-01T00:00:00.000Z',
+      runId: 'run-B',
+      rdpPort: 6007
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(owned))
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(owned)
+  })
+
+  it('stamps and releases the contract of the run it belongs to', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        command: 'dev',
+        status: 'starting',
+        compiledAt: '2026-11-01T00:00:00.000Z',
+        runId: 'run-A'
+      })
+    )
+
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.rdpPort).toBe(6006)
+    expect(ready.status).toBe('ready')
+    expect(ready.runId).toBe('run-A')
+  })
+
+  it('stamps a contract that names no run, and one for a caller that names none', () => {
+    const held = {
+      command: 'dev',
+      status: 'starting',
+      compiledAt: '2026-11-01T00:00:00.000Z'
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    const unnamed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(unnamed.rdpPort).toBe(6006)
+    expect(unnamed.status).toBe('ready')
+
+    fs.writeFileSync(readyPath, JSON.stringify({...held, runId: 'run-B'}))
+    stampReadyRdpPort(outputPath, 6006)
+
+    const anonymous = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(anonymous.rdpPort).toBe(6006)
+    expect(anonymous.status).toBe('ready')
   })
 
   it('is a no-op when the contract file does not exist yet', () => {
@@ -354,6 +427,34 @@ describe('stampReadyExtensionId', () => {
     stampReadyExtensionId(outputPath, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionIdSource).toBe('browser')
+  })
+
+  it('keeps the id a superseded run confirmed off the run that replaced it', () => {
+    const owned = {
+      status: 'ready',
+      runId: 'run-B',
+      extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      extensionIdSource: 'derived'
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(owned))
+    stampReadyExtensionId(
+      outputPath,
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'run-A'
+    )
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(owned)
+
+    stampReadyExtensionId(
+      outputPath,
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'run-B'
+    )
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionId).toBe('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
     expect(ready.extensionIdSource).toBe('browser')
   })
 
@@ -797,6 +898,28 @@ describe('a stamp from a superseded run', () => {
     expect(readReadyRunId(undefined)).toBeUndefined()
     expect(readReadyRunId(path.join(tmp, 'dist', 'edge'))).toBeUndefined()
   })
+
+  it('reads the run of a record this process wrote', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({...freshContract(), pid: process.pid})
+    )
+
+    expect(readReadyRunId(outputPath)).toBe('run-B')
+  })
+
+  it('gives no run of its own for a record another process wrote', () => {
+    const foreign = {...freshContract(), pid: process.pid + 1, cdpPort: 9222}
+    fs.writeFileSync(readyPath, JSON.stringify(foreign))
+
+    const runId = readReadyRunId(outputPath)
+    expect(runId).not.toBe('run-B')
+
+    stampReadyBrowserLaunch(outputPath, {browserPid: 9999}, runId)
+    stampReadyBrowserExited(outputPath, 15, 'SIGTERM', runId)
+
+    expect(readReady()).toEqual(foreign)
+  })
 })
 
 describe('readReadyExecutorAttached', () => {
@@ -950,6 +1073,29 @@ describe('stampReadyExtensionBaseUrl', () => {
     })
   })
 
+  it('keeps the base of a superseded run off the run that replaced it', () => {
+    const owned = {status: 'ready', browser: 'firefox', runId: 'run-B'}
+
+    fs.writeFileSync(readyPath, JSON.stringify(owned))
+    stampReadyExtensionBaseUrl(
+      outputPath,
+      'moz-extension://host-1234/',
+      'run-A'
+    )
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(owned)
+
+    stampReadyExtensionBaseUrl(
+      outputPath,
+      'moz-extension://host-1234/',
+      'run-B'
+    )
+
+    expect(
+      JSON.parse(fs.readFileSync(readyPath, 'utf-8')).extensionBaseUrl
+    ).toBe('moz-extension://host-1234/')
+  })
+
   it('writes nothing without a base, an output path or a contract', () => {
     stampReadyExtensionBaseUrl(outputPath, 'moz-extension://host-1234/')
     expect(fs.existsSync(readyPath)).toBe(false)
@@ -962,6 +1108,162 @@ describe('stampReadyExtensionBaseUrl', () => {
     expect(
       'extensionBaseUrl' in JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ).toBe(false)
+  })
+})
+
+describe('the time a launcher stamp leaves on the record', () => {
+  const WRITTEN = '2026-11-01T00:00:00.000Z'
+  const held = {command: 'dev', status: 'starting', compiledAt: WRITTEN}
+  const up = {command: 'dev', status: 'ready', compiledAt: WRITTEN}
+
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-ts-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const stamped = (
+    record: Record<string, unknown>,
+    stamp: (out: string) => void
+  ) => {
+    fs.writeFileSync(readyPath, JSON.stringify({...record, ts: WRITTEN}))
+    stamp(outputPath)
+
+    return JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+  }
+
+  it.each<
+    [string, Record<string, unknown>, (out: string) => void, 'ready' | 'error']
+  >([
+    ['the RDP port', held, (out) => stampReadyRdpPort(out, 6006), 'ready'],
+    [
+      'the reason there is no RDP port',
+      held,
+      (out) => stampReadyRdpPortError(out, 'never opened'),
+      'ready'
+    ],
+    ['the CDP port', held, (out) => stampReadyCdpPort(out, 9222), 'ready'],
+    [
+      'a CDP fault',
+      held,
+      (out) => stampReadyCdpFault(out, 'E_CDP_PORT_CLOSED', 'closed'),
+      'ready'
+    ],
+    [
+      'a launch after one that failed',
+      {
+        ...up,
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedAt: WRITTEN
+      },
+      (out) => stampReadyBrowserLaunch(out, {profilePath: '/tmp/profile'}),
+      'ready'
+    ],
+    [
+      'a failed launch',
+      up,
+      (out) => stampReadyBrowserLaunchFailed(out, 'no binary'),
+      'error'
+    ],
+    [
+      'a refused load',
+      up,
+      (out) => stampReadyExtensionLoadRefused(out, 'bad manifest'),
+      'error'
+    ],
+    [
+      'a locked profile',
+      up,
+      (out) => stampReadyProfileLocked(out, {}),
+      'error'
+    ],
+    [
+      'a browser that left a start session',
+      {...up, command: 'start'},
+      (out) => stampReadyBrowserExited(out, 1),
+      'error'
+    ],
+    [
+      'a browser that left before the extension loaded',
+      up,
+      (out) =>
+        stampReadyBrowserExited(out, 1, null, undefined, {
+          beforeReady: true
+        }),
+      'error'
+    ]
+  ])('dates the status %s writes', (_name, record, stamp, status) => {
+    const before = Date.now()
+    const ready = stamped(record, stamp)
+
+    expect(ready.status).toBe(status)
+    expect(ready.ts).toMatch(ISO_INSTANT)
+    expect(Date.parse(ready.ts)).toBeGreaterThanOrEqual(before)
+  })
+
+  it.each<[string, Record<string, unknown>, (out: string) => void]>([
+    ['a port on a ready record', up, (out) => stampReadyRdpPort(out, 6006)],
+    [
+      'a port a held record still cannot go ready on',
+      {...held, awaitingExecutorSince: WRITTEN},
+      (out) => stampReadyCdpPort(out, 9222)
+    ],
+    [
+      'the extension ID',
+      up,
+      (out) => stampReadyExtensionId(out, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+    ],
+    [
+      'the extension base URL',
+      up,
+      (out) => stampReadyExtensionBaseUrl(out, 'moz-extension://host-1234/')
+    ],
+    [
+      'the launch details',
+      up,
+      (out) => stampReadyBrowserLaunch(out, {profilePath: '/tmp/profile'})
+    ],
+    [
+      'a browser flag',
+      up,
+      (out) => stampReadyDevBrowserFlag(out, {kind: '', value: '--flag'})
+    ],
+    [
+      'a browser that left a dev session',
+      up,
+      (out) => stampReadyBrowserExited(out, 0)
+    ],
+    [
+      'the hint that nothing attached',
+      {...up, compiledAt: null},
+      (out) =>
+        stampReadyBrowserUpNotAttached(out, {waitedMs: 10_000, hint: 'hint'})
+    ]
+  ])('leaves the date alone for %s, a fact beside the status', (_name, record, stamp) => {
+    const ready = stamped(record, stamp)
+
+    expect(ready.status).toBe(record.status)
+    expect(ready.ts).toBe(WRITTEN)
+    expect(ready).not.toEqual({...record, ts: WRITTEN})
+  })
+
+  it('lets a waiting reader take an error the launcher wrote late as recent', () => {
+    const ready = stamped({...up, command: 'start'}, (out) =>
+      stampReadyBrowserExited(out, 1)
+    )
+
+    expect(ready.code).toBe('browser_exited')
+    expect(isFreshContractPayload(ready)).toBe(true)
   })
 })
 
@@ -979,6 +1281,22 @@ describe('readyPathFor', () => {
 
     expect(readyPathFor(path.join('dist', 'edge'))).toBe(
       path.join('dist', 'extension-js', 'edge', 'ready.json')
+    )
+  })
+
+  // A dev session always loads dist/<browser> (the dev server's output path),
+  // so the launcher finds the record the engine writes for any browser name.
+  it.each([
+    'chrome',
+    'brave',
+    'chromium-based',
+    'gecko-based',
+    'safari'
+  ])('names the record the engine writes for a %s dev build', (browser) => {
+    const project = path.resolve('/', 'work', 'app')
+
+    expect(readyPathFor(path.join(project, 'dist', browser))).toBe(
+      readyContractPath(project, browser)
     )
   })
 })

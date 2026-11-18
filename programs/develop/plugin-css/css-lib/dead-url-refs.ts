@@ -18,11 +18,39 @@ const ASSET_EXT =
 
 const URL_REF = /url\(\s*(?:"([^"\n]*)"|'([^'\n]*)'|([^)'"\s]*))\s*\)/gi
 
-// A stylesheet path is shown the way the extension addresses it, so it must not
-// change shape with the host OS: path.relative hands back `content\\styles.css`
-// on Windows, and the same defect then reads as two different messages.
+// A stylesheet path is shown the way the extension addresses it, whatever the
+// host OS: path.relative hands back `content\\styles.css` on Windows.
 export function toPosixPath(value: string): string {
   return String(value).split(path.sep).join('/')
+}
+
+// The text CSS reads from an address: `\2e ` and `\.` are both a period,
+// and a backslash ahead of a line break joins the two lines.
+export function unescapeCss(text: string): string {
+  return String(text).replace(
+    /\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(\r\n|[\s\S]))/gi,
+    (_whole, hex: string | undefined, char: string | undefined) => {
+      if (hex === undefined) return /^[\r\n\f]/.test(char || '') ? '' : char!
+
+      const code = Number.parseInt(hex, 16)
+      const valid =
+        code > 0 && code <= 0x10ffff && (code < 0xd800 || code > 0xdfff)
+
+      return valid ? String.fromCodePoint(code) : '�'
+    }
+  )
+}
+
+const CHECKED_SHEETS = Symbol.for('extensionjs.css-checked-sheets')
+
+// The sheets a page loader ran for, by the name rules match each as.
+// A loader and a hook in two bundles share it, so it lives on the compiler.
+export function checkedCssSheets(owner: object): Set<string> {
+  const holder = owner as {[CHECKED_SHEETS]?: Set<string>}
+
+  if (!holder[CHECKED_SHEETS]) holder[CHECKED_SHEETS] = new Set()
+
+  return holder[CHECKED_SHEETS]
 }
 
 export interface DeadUrlRefContext {
@@ -58,11 +86,24 @@ export function cssUrlRefCandidates(
       ]
 }
 
+// The same files, plus the .css sheet an @import names without its extension.
+export function cssUrlRefFiles(
+  rawRequest: string,
+  context: DeadUrlRefContext
+): string[] {
+  const candidates = cssUrlRefCandidates(rawRequest, context)
+  const req = String(rawRequest).split('?')[0].split('#')[0]
+
+  return path.extname(req)
+    ? candidates
+    : [...candidates, ...candidates.map((candidate) => `${candidate}.css`)]
+}
+
 export function isDeadCssUrlRef(
   rawRequest: string,
   context: DeadUrlRefContext
 ): boolean {
-  const candidates = cssUrlRefCandidates(rawRequest, context)
+  const candidates = cssUrlRefFiles(rawRequest, context)
 
   return (
     candidates.length > 0 &&
@@ -147,23 +188,30 @@ function commentRanges(source: string): Array<[number, number]> {
   return ranges
 }
 
+// An @import can name its sheet with a bare string, where no url() is read.
+const IMPORT_STRING_REF = /@import\s+(?:"([^"\n]*)"|'([^'\n]*)')/gi
+
 export function extractCssUrlRefs(source: string): string[] {
   const found: string[] = []
   const seen = new Set<string>()
   const comments = commentRanges(source)
 
-  URL_REF.lastIndex = 0
-  let match: RegExpExecArray | null
+  for (const pattern of [URL_REF, IMPORT_STRING_REF]) {
+    pattern.lastIndex = 0
+    let match: RegExpExecArray | null
 
-  while ((match = URL_REF.exec(source)) !== null) {
-    const at = match.index
-    if (comments.some(([start, end]) => at >= start && at < end)) continue
+    while ((match = pattern.exec(source)) !== null) {
+      const at = match.index
+      if (comments.some(([start, end]) => at >= start && at < end)) continue
 
-    const request = match[1] ?? match[2] ?? match[3] ?? ''
-    if (!request || seen.has(request)) continue
+      const request = match[1] ?? match[2] ?? match[3] ?? ''
+      if (!request || seen.has(request)) continue
+      // Loader syntax marks a module request some loader built, not a file.
+      if (pattern === IMPORT_STRING_REF && request.includes('!')) continue
 
-    seen.add(request)
-    found.push(request)
+      seen.add(request)
+      found.push(request)
+    }
   }
 
   return found

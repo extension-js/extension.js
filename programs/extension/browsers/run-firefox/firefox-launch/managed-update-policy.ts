@@ -146,8 +146,10 @@ export function ensureManagedGeckoUpdatePolicy(opts: {
 
     fs.mkdirSync(p.dirname(policyPath), {recursive: true})
     fs.writeFileSync(tempPath, `${JSON.stringify(next, null, 2)}\n`, 'utf8')
+    // The platform that names the paths also decides whether a lock is retried.
     renameSyncWithRetry(tempPath, policyPath, {
       rename: (from, to) => fs.renameSync(from, to),
+      platform,
       ...opts.retry
     })
 

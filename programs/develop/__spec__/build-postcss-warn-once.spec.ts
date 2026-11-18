@@ -61,7 +61,9 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   try {
     return await extensionBuild(root, {
       browser,
-      silent: true,
+      // These are warnings of the build, which a silent one keeps
+      // to itself.
+      silent: false,
       install: false,
       mode: 'production',
       exitOnError: false
@@ -72,7 +74,15 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   }
 }
 
-// Every line either console method printed that holds the given text.
+function consoleSpies() {
+  return [
+    vi.spyOn(console, 'log').mockImplementation(() => {}),
+    vi.spyOn(console, 'error').mockImplementation(() => {}),
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  ]
+}
+
+// Every line a console method printed that holds the given text.
 function printed(spies: Array<{mock: {calls: unknown[][]}}>, text: string) {
   return spies
     .flatMap((spy) => spy.mock.calls)
@@ -82,7 +92,7 @@ function printed(spies: Array<{mock: {calls: unknown[][]}}>, text: string) {
 
 // A compiler builds one style rule per file type and per place a sheet can
 // load, and each of them reads the PostCSS config again.
-describe('a PostCSS finding is said once per build', () => {
+describe('a PostCSS config problem is said once per build', () => {
   it.each([
     'chrome',
     'firefox'
@@ -90,16 +100,19 @@ describe('a PostCSS finding is said once per build', () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}, 'postcss-second-missing-plugin': {}}}\n"
     )
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, browser)
 
+    // The build prints its warnings together, so the names are read from
+    // everything it printed.
     expect(
-      printed(spies, "Couldn't resolve the PostCSS plugin")
-        .map((line) => line.split('\n')[0].replace(/^.*plugin /, ''))
+      [
+        ...printed(spies, "Couldn't resolve the PostCSS plugin")
+          .join('\n')
+          .matchAll(/Couldn't resolve the PostCSS plugin (\S+)/g)
+      ]
+        .map((match) => match[1])
         .sort()
     ).toEqual([
       'postcss-plugin-nobody-installed.',
@@ -107,14 +120,38 @@ describe('a PostCSS finding is said once per build', () => {
     ])
   }, 120_000)
 
+  // What `build --output json` answers with is this list.
+  it('lists each warning once in the warnings the build answers with', async () => {
+    const root = project(
+      "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}, 'postcss-second-missing-plugin': {}}}\n"
+    )
+
+    consoleSpies()
+
+    const summary = (await build(root, 'chrome')) as {
+      warnings_count: number
+      warnings: string[]
+    }
+
+    expect(summary.warnings_count).toBe(2)
+    expect(
+      summary.warnings
+        .map(
+          (warning) =>
+            /Couldn't resolve the PostCSS plugin (\S+)\./.exec(warning)?.[1]
+        )
+        .sort()
+    ).toEqual([
+      'postcss-plugin-nobody-installed',
+      'postcss-second-missing-plugin'
+    ])
+  }, 120_000)
+
   it('says it again in the next build of the same project', async () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}}}\n"
     )
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, 'chrome')
     await build(root, 'chrome')
@@ -171,10 +208,7 @@ describe.each(unusableConfigs)('$name is set aside', ({config, says}) => {
     'firefox'
   ] as const)('warns once and still ships the styles on %s', async (browser) => {
     const root = project(config)
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, browser)
 

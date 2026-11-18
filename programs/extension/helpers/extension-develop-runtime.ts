@@ -10,6 +10,8 @@ import fs from 'node:fs'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {pathToFileURL} from 'node:url'
+import {getCliPackageJson} from './cli-package-json'
+import * as messages from './messages'
 import {CODES} from './messaging'
 
 const require = createRequire(import.meta.url)
@@ -86,25 +88,48 @@ function resolveWorkspaceDevelopRoot(startDir: string): string | undefined {
   return undefined
 }
 
-function resolveInstalledDevelopRoot(): string | undefined {
+const BROKEN_MANIFEST = 'ERR_INVALID_PACKAGE_CONFIG'
+
+// Node's own lookup from one folder, or from this file when none is given.
+function resolveInstalledDevelopRootFrom(
+  startDir: string | undefined
+): string | undefined {
+  const options = startDir ? {paths: [startDir]} : undefined
+
   try {
-    const packageJsonPath = require.resolve('extension-develop/package.json')
+    const packageJsonPath = require.resolve(
+      'extension-develop/package.json',
+      options
+    )
 
     return resolveDevelopRootFromDir(path.dirname(packageJsonPath))
   } catch {
-    try {
-      const entryPath = require.resolve('extension-develop')
+    const entryPath = require.resolve('extension-develop', options)
 
-      return resolveDevelopRootFromDir(path.dirname(path.dirname(entryPath)))
-    } catch {
-      return undefined
-    }
+    return resolveDevelopRootFromDir(path.dirname(path.dirname(entryPath)))
   }
 }
 
+// The engine installed for the CLI at startDir is the one beside it. A start
+// folder that reaches no install falls back to this file's own lookup.
+function resolveInstalledDevelopRoot(startDir: string): string | undefined {
+  for (const from of [startDir, undefined]) {
+    try {
+      return resolveInstalledDevelopRootFrom(from)
+    } catch (error) {
+      // An install that is there with a broken manifest is the answer.
+      if ((error as {code?: unknown})?.code === BROKEN_MANIFEST) break
+    }
+  }
+
+  return undefined
+}
+
+type DevelopRootSource = 'workspace' | 'env' | 'installed' | 'missing'
+
 function resolvePreferredDevelopRoot(startDir: string): {
   root: string | undefined
-  source: 'workspace' | 'env' | 'installed' | 'missing'
+  source: DevelopRootSource
 } {
   const workspaceRoot = resolveWorkspaceDevelopRoot(startDir)
   if (workspaceRoot) return {root: workspaceRoot, source: 'workspace'}
@@ -116,7 +141,7 @@ function resolvePreferredDevelopRoot(startDir: string): {
     : undefined
   if (envRoot) return {root: envRoot, source: 'env'}
 
-  const installedRoot = resolveInstalledDevelopRoot()
+  const installedRoot = resolveInstalledDevelopRoot(startDir)
   if (installedRoot) return {root: installedRoot, source: 'installed'}
 
   return {root: undefined, source: 'missing'}
@@ -169,6 +194,89 @@ export function resolveExtensionDevelopVersion(
   }
 }
 
+function realPathOf(dir: string): string {
+  try {
+    return fs.realpathSync(dir)
+  } catch {
+    return path.resolve(dir)
+  }
+}
+
+// The CLI writes the root it found to EXTENSION_DEVELOP_ROOT, so the variable
+// alone proves nothing. A local engine is one that is not the CLI's install.
+function isLocalDevelopRoot(root: string, startDir: string): boolean {
+  const installedRoot = resolveInstalledDevelopRoot(startDir)
+
+  return !installedRoot || realPathOf(installedRoot) !== realPathOf(root)
+}
+
+function judgeDevelopVersion(root: string, startDir: string): Error | null {
+  let cliVersion: unknown
+
+  try {
+    cliVersion = getCliPackageJson().version
+  } catch {
+    // A CLI that cannot name its own version has nothing to compare.
+    return null
+  }
+
+  if (typeof cliVersion !== 'string' || !cliVersion) return null
+
+  let engineVersion: string
+
+  try {
+    const pkg = parseJsonSafe(path.join(root, 'package.json'))
+
+    engineVersion = typeof pkg?.version === 'string' ? pkg.version : ''
+  } catch {
+    return runtimeNotFound('Unable to locate the extension-develop runtime.')
+  }
+
+  if (engineVersion === cliVersion) return null
+
+  const found = engineVersion || 'unknown'
+
+  if (isLocalDevelopRoot(root, startDir)) {
+    // eslint-disable-next-line no-console
+    console.warn(messages.localDevelopVersionDiffers(cliVersion, found, root))
+
+    return null
+  }
+
+  return runtimeNotFound(
+    messages.developVersionMismatch(cliVersion, found, root)
+  )
+}
+
+// One verdict per engine root, so a command that loads several entries reads
+// the manifest once and names a local engine once.
+const developVersionVerdicts = new Map<string, Error | null>()
+
+// The CLI and the engine are published as one exact version, so any other
+// pair is a broken install. Runs before the engine is imported.
+export function assertDevelopVersionMatches(
+  root: string,
+  startDir: string = __dirname
+): void {
+  let refusal = developVersionVerdicts.get(root)
+
+  if (refusal === undefined) {
+    refusal = judgeDevelopVersion(root, startDir)
+    developVersionVerdicts.set(root, refusal)
+  }
+
+  if (refusal) throw refusal
+}
+
+// The engine of the checkout the CLI runs from is its own by construction.
+function assertLoadableDevelopRoot(
+  root: string,
+  source: DevelopRootSource,
+  startDir: string
+): void {
+  if (source !== 'workspace') assertDevelopVersionMatches(root, startDir)
+}
+
 async function importModule<T = AnyDevelopModule>(
   filePath: string
 ): Promise<T> {
@@ -186,6 +294,8 @@ export async function loadExtensionDevelopModule<T = DevelopModule>(
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
   const {source} = resolvePreferredDevelopRoot(startDir)
+
+  assertLoadableDevelopRoot(root, source, startDir)
   const distEntry = resolveDevelopDistEntry(root)
 
   if (distEntry) {
@@ -206,6 +316,8 @@ export async function loadExtensionDevelopPreviewModule<
 >(startDir: string = __dirname): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
   const {source} = resolvePreferredDevelopRoot(startDir)
+
+  assertLoadableDevelopRoot(root, source, startDir)
   const previewEntry = resolveDevelopDistEntry(root, 'preview')
 
   if (previewEntry) {
@@ -234,6 +346,8 @@ export async function loadExtensionDevelopBridgeModule<T = AnyDevelopModule>(
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
   const {source} = resolvePreferredDevelopRoot(startDir)
+
+  assertLoadableDevelopRoot(root, source, startDir)
   const bridgeEntry = resolveDevelopDistEntry(root, 'bridge')
 
   if (bridgeEntry) {

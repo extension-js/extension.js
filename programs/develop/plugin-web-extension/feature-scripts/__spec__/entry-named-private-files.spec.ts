@@ -602,7 +602,7 @@ const EXPECTED: Record<string, Table> = {
     '/hosted.css': 'public/hosted.css in hosted.css',
     'public/hosted.css': 'public/hosted.css in hosted.css',
     'absent.css':
-      'nothing | said missing <root>/absent.css does not exist. Check the theme_experiment.stylesheet field | errors 1'
+      'nothing | said missing absent.css does not exist. Check the theme_experiment.stylesheet field | errors 1'
   },
   webAccessibleScript: {
     '.envrc': 'nothing',

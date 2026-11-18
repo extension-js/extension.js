@@ -68,7 +68,7 @@ const THEME_REFUSING_BROWSERS: ReadonlySet<string> = new Set([
   'yandex'
 ])
 
-export function browserAcceptsThemeExtension(browser: string): boolean {
+function browserAcceptsThemeExtension(browser: string): boolean {
   return !THEME_REFUSING_BROWSERS.has(String(browser || '').toLowerCase())
 }
 
