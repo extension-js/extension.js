@@ -610,7 +610,7 @@ describe('the folder scanned for companion extensions, by where it sits', () => 
   }
 
   const refusal = (root: string, dir: string) =>
-    `extensions.dir must be inside ${path.resolve(root, 'extensions')}.\n` +
+    'extensions.dir must be inside the project.\n' +
     `Invalid dir: ${path.isAbsolute(dir) ? dir : path.resolve(root, dir)}`
 
   const REFUSED = 'refused'
@@ -621,14 +621,20 @@ describe('the folder scanned for companion extensions, by where it sits', () => 
     ['extensions', DEFAULT_SET],
     ['./extensions', DEFAULT_SET],
     ['extensions/set', ['extensions/set/inner']],
-    ['./vendor', REFUSED],
-    ['node_modules/kept', REFUSED],
+    ['./vendor', ['vendor/two']],
+    // The user named it, so it is scanned like any other folder.
+    ['node_modules/kept', ['node_modules/kept/three']],
+    // The project itself is not a folder inside the project.
     ['.', REFUSED],
     ['./', REFUSED],
+    ['..', REFUSED],
     ['../outside', REFUSED],
-    // A folder that is not there scans nothing, without a word.
+    ['vendor/../../outside', REFUSED],
+    // A folder that is not there scans nothing, without a word, when the
+    // place it would sit at is inside the project.
     ['extensions/missing', []],
-    ['missing', REFUSED]
+    ['missing', []],
+    ['../missing', REFUSED]
   ])('%s', async (dir, expected) => {
     const {root} = layout()
 
@@ -643,7 +649,8 @@ describe('the folder scanned for companion extensions, by where it sits', () => 
     const vendor = path.join(root, 'vendor')
 
     expect(await outcome(root, outside)).toBe(refusal(root, outside))
-    expect(await outcome(root, vendor)).toBe(refusal(root, vendor))
+    expect(await outcome(root, root)).toBe(refusal(root, root))
+    expect(await outcome(root, vendor)).toEqual(['vendor/two'])
     expect(await outcome(root, path.join(root, 'extensions'))).toEqual(
       DEFAULT_SET
     )
@@ -652,12 +659,54 @@ describe('the folder scanned for companion extensions, by where it sits', () => 
   it.skipIf(!canLink)('a link, by where it leads', async () => {
     const {root} = layout()
 
-    expect(await outcome(root, 'linked-dir')).toBe(refusal(root, 'linked-dir'))
-    expect(await outcome(root, 'linked-in')).toBe(refusal(root, 'linked-in'))
-    // The spelling sits under extensions/, so the folder outside is scanned.
-    expect(await outcome(root, 'extensions/linked-set')).toEqual([
-      'extensions/linked-set/four'
+    // Real paths are compared, so a link out of the project is refused
+    // wherever it sits, extensions/ included.
+    for (const dir of ['linked-dir', 'extensions/linked-set']) {
+      expect(await outcome(root, dir), dir).toBe(refusal(root, dir))
+    }
+
+    expect(await outcome(root, 'linked-in')).toEqual(['linked-in/two'])
+  })
+
+  it.skipIf(!canLink)('a project reached through a link', async () => {
+    const {holder, root} = layout()
+    const linkedRoot = path.join(holder, 'linked-project')
+    fs.symlinkSync(root, linkedRoot)
+
+    expect(await outcome(linkedRoot, 'vendor')).toEqual(['vendor/two'])
+    expect(await outcome(linkedRoot, path.join(root, 'vendor'))).toEqual([
+      '../project/vendor/two'
     ])
+
+    expect(await outcome(linkedRoot, '../outside')).toBe(
+      refusal(linkedRoot, '../outside')
+    )
+  })
+
+  it('refuses with a code a machine reader can match on', async () => {
+    const {root} = layout()
+
+    const refused = async (config: {dir: string} | string[]) => {
+      try {
+        await resolveCompanionExtensionsConfig({
+          projectRoot: root,
+          browser: 'chrome',
+          config
+        })
+      } catch (error) {
+        return (error as {code?: string}).code
+      }
+
+      return 'accepted'
+    }
+
+    expect(await refused({dir: '../outside'})).toBe(
+      'E_COMPANION_EXTENSION_PATH'
+    )
+
+    expect(await refused({dir: '.'})).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(await refused(['../outside'])).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(await refused({dir: './vendor'})).toBe('accepted')
   })
 
   it.skipIf(!canLink)(

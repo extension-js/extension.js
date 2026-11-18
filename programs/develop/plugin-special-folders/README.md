@@ -55,7 +55,11 @@ export default {
 
 With no `extensions` setting, every unpacked extension one level inside `./extensions` loads beside the project's own, and a subfolder named for a browser (`extensions/chrome/`) is that browser's set.
 
-An entry the config or the CLI names is a store link or a folder. A named folder may sit anywhere inside the project (`my-ext`, `tools/my-ext`, `extensions/my-ext`), by a relative or an absolute path. A path that resolves outside the project is refused with `Companion extensions must be inside the project.`, and so is a link inside the project that leads out of it, since real paths are compared. `extensions.dir`, the folder that is scanned, stays inside `./extensions`.
+An entry the config or the CLI names is a store link or a folder. A named folder may sit anywhere inside the project (`my-ext`, `tools/my-ext`, `extensions/my-ext`), by a relative or an absolute path. A path that resolves outside the project is refused with `Companion extensions must be inside the project.`, and so is a link inside the project that leads out of it, since real paths are compared.
+
+`extensions.dir`, the folder that is scanned, follows the same rule: any folder inside the project (`./vendor`, `tools/companions`, a folder under `node_modules`), by a relative or an absolute path, compared by real path. The project itself (`.`), a path outside it and a link that leads out are refused with `extensions.dir must be inside the project.`. A `dir` that does not exist scans nothing and is not reported. The scan reads folders only, so a link that is one entry of the scanned folder loads nothing, wherever it leads.
+
+Both refusals carry the code `E_COMPANION_EXTENSION_PATH`. A web link that is no store link is refused as well, and `isCompanionStoreLink` in `folder-extensions/resolve-config.ts` is the one answer to which links are store links.
 
 A named folder with no `manifest.json` loads nothing and is not reported.
 
