@@ -1,4 +1,3 @@
-import {type ChildProcess, spawn} from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -8,20 +7,9 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {dirname, join} from 'node:path'
 import {describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-
-function cliBin(): string {
-  const cjs = join(cliRoot, 'dist', 'cli.cjs')
-  if (existsSync(cjs)) return cjs
-
-  return join(cliRoot, 'dist', 'cli.js')
-}
+import {type CliSession, startCli} from '../helpers/run-cli'
 
 function createFixture(): string {
   const projectDir = mkdtempSync(join(tmpdir(), 'extjs-start-clean-'))
@@ -75,25 +63,14 @@ function eventsOf(projectDir: string) {
 }
 
 function startDev(projectDir: string) {
-  const child = spawn(
-    process.execPath,
-    [cliBin(), 'dev', projectDir, '--no-browser', '--browser=chromium'],
-    {
-      cwd: cliRoot,
-      stdio: 'pipe',
-      env: {...process.env, NO_COLOR: '1', EXTENSION_ENV: 'test'}
-    }
-  )
-  let output = ''
-  child.stdout.on('data', (chunk: Buffer) => {
-    output += chunk.toString()
-  })
+  const session = startCli([
+    'dev',
+    projectDir,
+    '--no-browser',
+    '--browser=chromium'
+  ])
 
-  child.stderr.on('data', (chunk: Buffer) => {
-    output += chunk.toString()
-  })
-
-  return {child, output: () => output}
+  return {session, output: () => session.read().output}
 }
 
 function compileCount(projectDir: string) {
@@ -125,11 +102,8 @@ function waitForCompile(
   })
 }
 
-function stop(child: ChildProcess) {
-  return new Promise<void>((resolvePromise) => {
-    child.once('close', () => resolvePromise())
-    child.kill('SIGTERM')
-  })
+async function stop(session: CliSession) {
+  await session.stop('SIGTERM')
 }
 
 describe('dev --no-browser at the start of a session', () => {
@@ -174,7 +148,7 @@ describe('dev --no-browser at the start of a session', () => {
         otherBrowser: true
       })
     } finally {
-      await stop(dev.child)
+      await stop(dev.session)
       rmSync(projectDir, {recursive: true, force: true})
     }
   }, 120000)
@@ -210,7 +184,7 @@ describe('dev --no-browser at the start of a session', () => {
 
       expect(existsSync(stale)).toBe(false)
     } finally {
-      await stop(dev.child)
+      await stop(dev.session)
       rmSync(projectDir, {recursive: true, force: true})
     }
   }, 120000)

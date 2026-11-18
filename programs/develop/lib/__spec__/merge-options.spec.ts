@@ -238,6 +238,21 @@ describe('mergeOptionLayers', () => {
     })
   })
 
+  it('merges perfBudgets key by key, so a layer with only ignore keeps a budget', () => {
+    const merged = mergeOptionLayers<Record<string, any>>(
+      BUILD_COMMAND_DEFAULTS,
+      {perfBudgets: {wasm: 48 * 1024 * 1024, ignore: ['assets/a.wasm']}},
+      {perfBudgets: {page: 2048}},
+      {perfBudgets: {ignore: ['assets/b.wasm']}}
+    )
+
+    expect(merged.perfBudgets).toEqual({
+      wasm: 48 * 1024 * 1024,
+      page: 2048,
+      ignore: ['assets/b.wasm']
+    })
+  })
+
   it('keeps scalar last-wins while combining flags and preferences', () => {
     const merged = mergeOptionLayers<Record<string, any>>(
       DEV_COMMAND_DEFAULTS,

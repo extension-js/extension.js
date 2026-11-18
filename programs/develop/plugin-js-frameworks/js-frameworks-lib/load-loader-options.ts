@@ -13,7 +13,8 @@ import {debugLine, isDebug} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
 import * as messages from './messages'
 
-let userMessageDelivered = false
+// Printed once per process. A caller that needs its own record passes one.
+const customLoaderNotice = {delivered: false}
 
 export function resolveLoaderConfigPath(
   projectPath: string,
@@ -54,15 +55,16 @@ export function mergeLoaderOptions(
 
 export async function loadLoaderOptions(
   projectPath: string,
-  framework: 'vue' | 'svelte'
+  framework: 'vue' | 'svelte',
+  notice: {delivered: boolean} = customLoaderNotice
 ): Promise<AnyModule> {
   const configPath = resolveLoaderConfigPath(projectPath, framework)
 
   if (configPath) {
-    if (!userMessageDelivered && isDebug()) {
+    if (!notice.delivered && isDebug()) {
       const display = path.basename(configPath)
       debugLine(messages.isUsingCustomLoader(display))
-      userMessageDelivered = true
+      notice.delivered = true
     }
 
     try {

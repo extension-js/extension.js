@@ -1,9 +1,9 @@
-// ██████╗ ███████╗██╗   ██╗      ███████╗███████╗██████╗ ██╗   ██╗███████╗██████╗
-// ██╔══██╗██╔════╝██║   ██║      ██╔════╝██╔════╝██╔══██╗██║   ██║██╔════╝██╔══██╗
-// ██║  ██║█████╗  ██║   ██║█████╗███████╗█████╗  ██████╔╝██║   ██║█████╗  ██████╔╝
-// ██║  ██║██╔══╝  ╚██╗ ██╔╝╚════╝╚════██║██╔══╝  ██╔══██╗╚██╗ ██╔╝██╔══╝  ██╔══██╗
-// ██████╔╝███████╗ ╚████╔╝       ███████║███████╗██║  ██║ ╚████╔╝ ███████╗██║  ██║
-// ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
+// ███████╗██████╗ ███████╗ ██████╗██╗ █████╗ ██╗      ███████╗ ██████╗ ██╗     ██████╗ ███████╗██████╗ ███████╗
+// ██╔════╝██╔══██╗██╔════╝██╔════╝██║██╔══██╗██║      ██╔════╝██╔═══██╗██║     ██╔══██╗██╔════╝██╔══██╗██╔════╝
+// ███████╗██████╔╝█████╗  ██║     ██║███████║██║█████╗█████╗  ██║   ██║██║     ██║  ██║█████╗  ██████╔╝███████╗
+// ╚════██║██╔═══╝ ██╔══╝  ██║     ██║██╔══██║██║╚════╝██╔══╝  ██║   ██║██║     ██║  ██║██╔══╝  ██╔══██╗╚════██║
+// ███████║██║     ███████╗╚██████╗██║██║  ██║███████╗ ██║     ╚██████╔╝███████╗██████╔╝███████╗██║  ██║███████║
+// ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
@@ -14,10 +14,7 @@ function isUsableDir(candidate: string): boolean {
   try {
     if (!fs.existsSync(candidate)) return false
 
-    const stat = fs.statSync(candidate)
-
-    // A stat without the method (a files-only mock) still counts as a folder.
-    return typeof stat?.isDirectory === 'function' ? stat.isDirectory() : true
+    return fs.statSync(candidate).isDirectory()
   } catch {
     return false
   }
@@ -39,7 +36,8 @@ export interface PublicFolderInspection {
 // consumer (copier, root refs, resolve roots, dev-server watch) asks here.
 export function inspectPublicFolders(
   manifestPath: string,
-  projectRoot?: string
+  projectRoot?: string,
+  {isDir = isUsableDir}: {isDir?: (candidate: string) => boolean} = {}
 ): PublicFolderInspection {
   const setting = publicFolderSetting(projectRoot)
   const fromManifest = path.join(path.dirname(manifestPath), 'public')
@@ -51,9 +49,9 @@ export function inspectPublicFolders(
         : fromManifest
   const sameLocation = path.resolve(fromRoot) === path.resolve(fromManifest)
   // A configured folder is the only one read, and `false` reads none.
-  const rootOk = setting.kind !== 'off' && isUsableDir(fromRoot)
+  const rootOk = setting.kind !== 'off' && isDir(fromRoot)
   const manifestOk =
-    setting.kind === 'default' && !sameLocation && isUsableDir(fromManifest)
+    setting.kind === 'default' && !sameLocation && isDir(fromManifest)
 
   return {
     publicDir: rootOk ? fromRoot : manifestOk ? fromManifest : undefined,
@@ -92,9 +90,7 @@ function isUsableFile(candidate: string): boolean {
   try {
     if (!fs.existsSync(candidate)) return false
 
-    const stat = fs.statSync(candidate)
-
-    return typeof stat?.isFile === 'function' ? stat.isFile() : true
+    return fs.statSync(candidate).isFile()
   } catch {
     return false
   }
