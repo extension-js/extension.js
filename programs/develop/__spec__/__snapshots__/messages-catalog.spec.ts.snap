@@ -164,6 +164,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cssIntegrationsEnabled: function(1)",
     "cssMinifierDroppedRules: function(2)",
     "cssParseErrorShippedVerbatim: function(2)",
+    "cssUrlRewriteSkipped: function(2)",
     "deadCssUrlRef: function(2)",
     "isUsingIntegration: function(1)",
     "lateCssImportIgnored: function(2)",
@@ -172,8 +173,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "postCssConfigUnreadable: function(2)",
     "postCssPluginNotResolved: function(2)",
     "preprocessorShippedUncompiled: function(2)",
+    "tailwindSetupFailed: function(3)",
     "unplacedStyleImport: function(3)",
-    "youAreAllSet: function(1)",
   ],
   "plugin-js-frameworks/js-frameworks-lib/messages.ts": [
     "creatingTSConfig: function(0)",
