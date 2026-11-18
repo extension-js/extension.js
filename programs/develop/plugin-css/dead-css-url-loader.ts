@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
@@ -23,7 +24,11 @@ import {
   rewriteInlinedCssUrls,
   toRuntimeStylesheetModule
 } from './css-lib/inline-content-script-css'
-import {inlineCssImports, readCssImports} from './css-lib/inline-css-imports'
+import {
+  inlineCssImports,
+  readCssImports,
+  whyNotRead
+} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {isSfcStyleBlock} from './css-lib/sfc-style-block'
 
@@ -73,8 +78,22 @@ function reportDeadRefs(
   const strict = process.env.EXTENSION_STRICT_REFS === 'true'
   const compilation = loader._compilation
 
+  const answered = answeredImports.get(importsKey(loader))
+  const projectPath = loader.getOptions()?.projectPath
+
   for (const request of extractCssUrlRefs(source)) {
-    if (!isDeadCssUrlRef(request, {issuerDir, roots})) continue
+    // A file the build withholds is told the way one that is not there is,
+    // unless the run ahead of PostCSS already gave its own reason.
+    const found = cssUrlRefFiles(request, {issuerDir, roots}).find((file) =>
+      fs.existsSync(file)
+    )
+    const withheld =
+      found !== undefined &&
+      projectPath !== undefined &&
+      !answered?.has(found) &&
+      whyNotRead(found, projectPath) !== undefined
+
+    if (!withheld && !isDeadCssUrlRef(request, {issuerDir, roots})) continue
 
     // Keep watch mode honest: writing the file later should rebuild the sheet.
     for (const candidate of cssUrlRefFiles(request, {issuerDir, roots})) {
@@ -166,7 +185,8 @@ function resolveTargets(
     resourcePath,
     manifestDir,
     publicRoot,
-    publicDir
+    publicDir,
+    projectPath: loader.getOptions()?.projectPath
   })
   const bundledRequests: string[] = []
 

@@ -19,7 +19,7 @@ import {
 } from '../../lib/extension-base-from-stack'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
-import {rewriteCssUrls} from './inline-css-imports'
+import {rewriteCssUrls, whyNotRead} from './inline-css-imports'
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'
 
@@ -46,6 +46,8 @@ export interface RewriteInlinedCssUrlsContext {
   publicRoot: string
   // The same folder when the copier does ship one, for a relative ref into it.
   publicDir?: string
+  // A file the build withholds keeps its address and is never bundled.
+  projectPath?: string
 }
 
 function isFile(candidate: string): boolean {
@@ -129,6 +131,14 @@ export function rewriteInlinedCssUrls(
       if (!named) {
         const target = resolveTarget(req, context)
         if (!target) return undefined
+
+        if (
+          !target.publicOwned &&
+          context.projectPath &&
+          whyNotRead(target.absolutePath, context.projectPath)
+        ) {
+          return undefined
+        }
 
         named = target.publicOwned
           ? `${EXTENSION_ROOT_PLACEHOLDER}${target.outputName}`

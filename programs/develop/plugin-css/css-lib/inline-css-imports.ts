@@ -359,7 +359,7 @@ function inInstalledModules(file: string, folders: string[]): boolean {
 
 // Whether the rules of a sheet may be read into another one: undefined when
 // they may, or the reason they may not with the fix. Links are followed.
-function whyNotRead(
+export function whyNotRead(
   file: string,
   projectRoot: string
 ): {reason: string; fix: string} | undefined {

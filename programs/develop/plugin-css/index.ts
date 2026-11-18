@@ -33,6 +33,7 @@ import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {cssUrlRefFiles, toPosixPath} from './css-lib/dead-url-refs'
+import {whyNotRead} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
@@ -391,7 +392,17 @@ export class CssPlugin {
 
             const req = raw.split('?')[0].split('#')[0]
 
-            if (candidates.some((candidate) => fs.existsSync(candidate))) {
+            const found = candidates.find((candidate) =>
+              fs.existsSync(candidate)
+            )
+
+            // A file the build withholds is told the way one that is not
+            // there is. A sheet an @import names is the bundler's to read.
+            if (
+              found &&
+              (/\.(css|scss|sass|less)$/i.test(req) ||
+                !whyNotRead(found, projectPath))
+            ) {
               return
             }
 
