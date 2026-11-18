@@ -299,8 +299,9 @@ from the legacy `ready.json` codes, bridge error names, and doctor check ids) li
 `programs/extension/__spec__/contract/`. Copy them if you are building a tool on top of the
 CLI. They are also what the CLI's own tests validate against, so they cannot go stale. Codes
 may be added over time, and an existing code is never renamed within a schema, with one
-exception: the release that introduced the `W_` prefix moved nineteen warnings from an `E_` name
-to the `W_` name with the same stem. A code retired after it shipped keeps a row under `folded`
+exception: the release that introduced the `W_` prefix moved twenty-four warnings from an `E_` name
+to the `W_` name with the same stem. Five of them are CDP faults a session carries on past, so
+the `cdpFaultCode` value in `ready.json` was renamed with them. A code retired after it shipped keeps a row under `folded`
 that names the code the same path reports now. That row is a record for a reader of the table.
 Nothing at run time reads it and no alias exists, so a consumer that matches a folded name has
 to switch to the code the row names.

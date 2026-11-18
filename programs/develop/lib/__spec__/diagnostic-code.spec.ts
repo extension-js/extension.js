@@ -336,6 +336,7 @@ describe('the warning class', () => {
   it('drops the code on a user run where the class has no name for the severity', () => {
     vi.stubEnv('VITEST', '')
     vi.stubEnv('EXTENSION_AUTHOR_MODE', '')
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     try {
       for (const code of Object.values(CODES)) {
@@ -349,7 +350,34 @@ describe('the warning class', () => {
         severity: 'warning',
         name: 'BackgroundRequired'
       })
+
+      expect(stderr).not.toHaveBeenCalled()
     } finally {
+      stderr.mockRestore()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  // An author's run is a real session too, so it is told and carries on.
+  it('tells an author in one stderr line and drops the code, without throwing', () => {
+    vi.stubEnv('VITEST', '')
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', 'true')
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
+      expect(stderr).toHaveBeenCalledTimes(1)
+      expect(String(stderr.mock.calls[0][0])).toContain(
+        'E_COMPILE has no W_ name in CODES, so it cannot be reported as a warning.'
+      )
+
+      expect(codeForSeverity(CODES.E_ASSET_MISSING, 'warning')).toBe(
+        'W_ASSET_MISSING'
+      )
+
+      expect(stderr).toHaveBeenCalledTimes(1)
+    } finally {
+      stderr.mockRestore()
       vi.unstubAllEnvs()
     }
   })
@@ -392,7 +420,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(40)
+    expect(WARNING_NAMES.length).toBe(41)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

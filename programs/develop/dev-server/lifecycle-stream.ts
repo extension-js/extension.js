@@ -116,14 +116,11 @@ function cdpFaultWarnings(ready: Record<string, unknown> | null): string[] {
   if (typeof stamped !== 'string') return []
 
   // An older launcher stamped the E_ name, and a warning never carries one.
-  const code = `W_${stamped.slice(2)}`
-
-  if (
-    !/^[EW]_/.test(stamped) ||
-    !Object.prototype.hasOwnProperty.call(CODES, code)
-  ) {
-    return []
-  }
+  // A class the catalog has no warning for still reads as a failed operation.
+  const named = `W_${stamped.slice(2)}`
+  const code = Object.prototype.hasOwnProperty.call(CODES, named)
+    ? named
+    : CODES.W_CDP_OP_FAILED
 
   const message =
     typeof ready?.cdpFaultMessage === 'string' && ready.cdpFaultMessage.trim()

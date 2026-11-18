@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed, with one exception: the release that introduced the W_ prefix moved nineteen warnings from an E_ name to the W_ name with the same stem. A code retired after it shipped keeps a 'folded' row naming the code the same path reports now. A folded row is a record for a reader of this table: nothing at run time reads it, no envelope carries a folded name and no alias exists, so a consumer that matches a folded name has to switch to the code the row names. A W_ code is a warning: the run carried on past it. An E_ code is a failure. A class that can do both has one row under each prefix with the same stem. Eleven of the nineteen E_ names that moved never marked a failure, and each has a 'folded' row naming its W_ name. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it; its 'reason' says what keeps it reserved.",
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed, with one exception: the release that introduced the W_ prefix moved twenty-four warnings from an E_ name to the W_ name with the same stem. Five of them are CDP faults a session carries on past, so the exception also covers the cdpFaultCode value in ready.json, a contract field whose values were renamed with them. A code retired after it shipped keeps a 'folded' row naming the code the same path reports now. A folded row is a record for a reader of this table: nothing at run time reads it, no envelope carries a folded name and no alias exists, so a consumer that matches a folded name has to switch to the code the row names. A W_ code is a warning: the run carried on past it. An E_ code is a failure. A class that can do both has one row under each prefix with the same stem. Twelve of the twenty-four E_ names that moved never marked a failure. Eleven have a 'folded' row naming their W_ name. The twelfth, E_PERF_BUDGET, stays in the table as a reserved row, because the failure it is held for is the same overrun made strict. One code per operator-distinguishable failure family. The envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table. A ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it. Its 'reason' says what keeps it reserved.",
   "codes": {
     "E_ARGS": {
       "area": "usage",
@@ -160,9 +160,9 @@
     },
     "E_PERF_BUDGET": {
       "area": "compile",
-      "summary": "An asset exceeds its size budget, and the project asked for that to fail the build.",
+      "summary": "An asset exceeds its size budget, and the project asked for that to fail the build. It is the same overrun W_PERF_BUDGET warns of, made strict.",
       "reserved": true,
-      "reason": "Nothing fails a build on a budget overrun yet, so an overrun is only ever W_PERF_BUDGET. The name is held for the setting that will."
+      "reason": "This name shipped only on warnings, which W_PERF_BUDGET carries now. Nothing fails a build on a budget overrun yet, and the name is held for the setting that will."
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
@@ -650,6 +650,11 @@
     "W_BROWSER_CONNECTION_CLOSED": {
       "area": "debug-protocol",
       "summary": "The debug socket closed after launch, and the dev session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_EXTENSION_ID_UNKNOWN": {
+      "area": "debug-protocol",
+      "summary": "The extension id could not be determined over CDP after launch, and the session stayed ready. Reload and HMR cannot attach.",
       "warn": true
     }
   },

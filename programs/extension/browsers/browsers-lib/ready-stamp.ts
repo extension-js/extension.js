@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {stripChannelPrefix} from '../../helpers/messaging'
+import {CODES, stripChannelPrefix} from '../../helpers/messaging'
 import {pidStartedAtIso} from './resolve-live-pid'
 import {writeJsonAtomic} from './write-json-atomic'
 
@@ -736,8 +736,14 @@ export function stampReadyCdpFault(
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (isForeignRun(ready, runId)) return
 
-    // The session carried on, so the fault reads under its W_ name.
-    ready.cdpFaultCode = code.replace(/^E_/, 'W_')
+    // The session carried on, so the fault reads under the W_ name of its
+    // class, and a class with none still reads as a failed CDP operation.
+    const warning = `W_${code.slice(2)}`
+
+    ready.cdpFaultCode = Object.prototype.hasOwnProperty.call(CODES, warning)
+      ? warning
+      : CODES.W_CDP_OP_FAILED
+
     ready.cdpFaultMessage =
       String(detail || '').trim() || 'the CDP wire failed after launch'
 

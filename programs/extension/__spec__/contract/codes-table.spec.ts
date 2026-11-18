@@ -382,16 +382,24 @@ describe('a summary names the causes its code covers', () => {
   })
 })
 
-// A CDP fault a dev session carries on past is stamped under its W_ name.
+// A CDP fault a session carries on past is stamped under its W_ name.
 const CDP_FAULT_STAMP: [string, string, string] = [
   'extension/browsers/browsers-lib/ready-stamp.ts',
-  'The session carried on, so the fault reads under its W_ name.',
-  "ready.cdpFaultCode = code.replace(/^E_/, 'W_')"
+  'The session carried on, so the fault reads under the W_ name of its',
+  'const warning = `W_${code.slice(2)}`'
 ]
 
-// W_ names no source line spells: each comes from the E_ name of its class
-// when the place below reports it as a warning. File, the line that marks
-// the diagnostic, and the warning sink that has to sit within 15 lines of it.
+// The classes the launcher can hand that stamp, by the stem they share.
+const CDP_FAULT_STEMS = [
+  'CDP_NOT_CONNECTED',
+  'CDP_TIMEOUT',
+  'CDP_OP_FAILED',
+  'BROWSER_CONNECTION_CLOSED',
+  'EXTENSION_ID_UNKNOWN'
+]
+
+// W_ names no source line spells, each beside the place that warns under the
+// E_ name: file, the line marking it, and a sink within 15 lines of that.
 const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
   W_MODULE_NOT_FOUND: [
     'develop/lib/diagnostic-code.ts',
@@ -435,8 +443,8 @@ const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
   ],
   W_CDP_NOT_CONNECTED: CDP_FAULT_STAMP,
   W_CDP_TIMEOUT: CDP_FAULT_STAMP,
-  W_CDP_OP_FAILED: CDP_FAULT_STAMP,
-  W_BROWSER_CONNECTION_CLOSED: CDP_FAULT_STAMP
+  W_BROWSER_CONNECTION_CLOSED: CDP_FAULT_STAMP,
+  W_EXTENSION_ID_UNKNOWN: CDP_FAULT_STAMP
 }
 
 describe('every declared code is emitted or marked reserved', () => {
@@ -505,6 +513,22 @@ describe('every declared code is emitted or marked reserved', () => {
     const nearby = text.slice(Math.max(0, at - 15), at + 16).join('\n')
 
     expect(nearby, `${mark} in ${file} no longer warns`).toContain(sink)
+  })
+
+  // The stamp renames whatever it is handed, so each name it can write is
+  // real only while the CDP code under the Chromium runner still raises it.
+  it.each(
+    CDP_FAULT_STEMS
+  )('finds %s raised as a failure by the CDP code', (stem) => {
+    expect(CODES).toHaveProperty(`W_${stem}`)
+
+    const raised = emitSites(`E_${stem}`, lines).filter(({file}) =>
+      file.startsWith(path.join('extension', 'browsers', 'run-chromium', 'cdp'))
+    )
+
+    expect(raised.length, `E_${stem} is raised nowhere there`).toBeGreaterThan(
+      0
+    )
   })
 
   it('marks every code no source can produce as reserved in the table', () => {

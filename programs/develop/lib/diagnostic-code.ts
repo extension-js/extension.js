@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {CODES, type ErrorCode} from './messaging'
+import {CODES, prefix as channelPrefix, type ErrorCode} from './messaging'
 
 export type WarningCode = Extract<ErrorCode, `W_${string}`>
 
@@ -232,14 +232,6 @@ export function warningCodeOf(code: ErrorCode): WarningCode | undefined {
   return name as WarningCode | undefined
 }
 
-// A CLI under test or run by its authors fails loudly on a class reported
-// with a severity it has no name for. A user's run drops the code instead.
-function isAuthoring(): boolean {
-  return (
-    Boolean(process.env.VITEST) || process.env.EXTENSION_AUTHOR_MODE === 'true'
-  )
-}
-
 // The one place a class meets its severity: a warning reads W_ and an
 // error reads E_, and no other pairing leaves this function.
 export function codeForSeverity(
@@ -248,12 +240,17 @@ export function codeForSeverity(
 ): ErrorCode | undefined {
   const prefix = severity === 'warning' ? 'W_' : 'E_'
   const name = code.startsWith(prefix) ? code : twin(code, prefix)
+  if (name) return name
 
-  if (!name && isAuthoring()) {
-    throw new Error(
-      `${code} has no ${prefix} name in CODES, so it cannot be reported as ${severity === 'warning' ? 'a warning' : 'an error'}`
-    )
+  const gap = `${code} has no ${prefix} name in CODES, so it cannot be reported as ${severity === 'warning' ? 'a warning' : 'an error'}`
+
+  // A spec fails on the gap. A real run drops the code and carries on, and
+  // tells its authors, since one stray child warning must not end a session.
+  if (process.env.VITEST) throw new Error(gap)
+
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+    console.error(`${channelPrefix('warn')} ${gap}.`)
   }
 
-  return name
+  return undefined
 }

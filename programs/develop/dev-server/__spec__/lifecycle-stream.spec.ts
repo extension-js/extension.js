@@ -340,7 +340,7 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
-  it('leaves a fault whose class has no warning name off the ready frame', () => {
+  it('warns of a fault whose class has no warning name as a failed operation', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')
     fs.writeFileSync(
@@ -361,7 +361,9 @@ describe('lifecycle stream transitions', () => {
     const [frame] = parseFrames(lines)
     expect(frame.status).toBe('ready')
     expect(frame.ok).toBe(true)
-    expect(frame.warnings).toEqual([])
+    expect(frame.warnings).toEqual([
+      'W_CDP_OP_FAILED: ensureLoaded timeout (10000ms)'
+    ])
 
     fs.rmSync(dir, {recursive: true, force: true})
   })
