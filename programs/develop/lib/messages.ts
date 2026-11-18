@@ -13,12 +13,12 @@ import type {DevOptions, Manifest} from '../types'
 import {stripLoaderWrapper} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import type {InstallFailure} from './install-registry-failure'
+import {isUsageLaunchCode} from './launch-codes'
 import {
   artifactNoun,
   type Channel,
   fmt,
   hasChannelPrefix,
-  isUsageLaunchCode,
   prefix,
   stripChannelPrefix
 } from './messaging'

@@ -9,14 +9,14 @@
 import * as fs from 'node:fs'
 import {takeCodedWarnings} from '../lib/coded-warnings'
 import {compilationDiagnostics} from '../lib/compilation-diagnostics'
+import {isUsageLaunchCode} from '../lib/launch-codes'
 import {
   CODES,
   type Diagnostic,
   ENVELOPE,
   type Envelope,
   type ErrorCode,
-  isMachineOutput,
-  isUsageLaunchCode
+  isMachineOutput
 } from '../lib/messaging'
 import {shouldWarnPortConflict} from './messages'
 import {readyContractErrorCode} from './ready-contract-codes'
