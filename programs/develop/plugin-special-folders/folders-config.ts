@@ -33,7 +33,7 @@ export function rememberedFolders(
 
 // The file kinds the scan enrolls from scripts/; the watcher asks the same
 // question, so a data file dropped there never restarts a session.
-export const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
+const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
   '.js',
   '.mjs',
   '.jsx',

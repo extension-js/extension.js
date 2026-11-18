@@ -22,9 +22,6 @@
       "dependsOn": ["compile", "^compile"],
       "cache": false
     },
-    "test:build": {},
-    "test:cli": {},
-    "test:dev": {},
     "lint": {
       "outputs": []
     },

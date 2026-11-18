@@ -408,3 +408,48 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash scripts/close-red-lane.sh "Nightly ${{ matrix.runtime }} runtime + ${{ matrix.browser }}"
 
+
+  # Pull requests run the suites on the engines floor only, so current Node is
+  # read here every night and on each push to main in ci.yml.
+  nightly-node-current:
+    name: Node ${{ matrix.node }} (${{ matrix.suite }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['24']
+        suite:
+          - ci:test:develop
+          - ci:test:cli
+          - ci:test:create
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+        with:
+          node-version: ${{ matrix.node }}
+      - name: Start Xvfb (cli suite)
+        if: matrix.suite == 'ci:test:cli'
+        run: |
+          Xvfb :99 -screen 0 1280x720x24 &
+          echo "DISPLAY=:99" >> "$GITHUB_ENV"
+      - name: Run ${{ matrix.suite }}
+        run: pnpm run ${{ matrix.suite }}
+      - name: Report a red lane
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            nvm use ${{ matrix.node }}
+            pnpm run ${{ matrix.suite }}
+        run: bash scripts/report-red-lane.sh "Nightly Node ${{ matrix.node }} ${{ matrix.suite }}"
+
+      - name: Close the red lane
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "Nightly Node ${{ matrix.node }} ${{ matrix.suite }}"

@@ -1,10 +1,18 @@
-import {afterEach, describe, expect, it, vi} from 'vitest'
-import type {ReloadBroker} from '../../plugin-reload'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {classifyReloadFromSources, type ReloadBroker} from '../../plugin-reload'
 import {
   reloadSurvivingPackage,
   SafariDevPlugin,
   type SafariPackagerFn
 } from '../safari-dev-plugin'
+import {fakeCompilation, fakeCompiler} from './fake-compiler'
+
+beforeEach(() => {
+  expect.hasAssertions()
+})
 
 const flush = async () => {
   for (let i = 0; i < 8; i++) await Promise.resolve()
@@ -30,63 +38,38 @@ function makeDeferredPackager() {
   return {fn, calls, callFor, modes}
 }
 
-function makeCompiler() {
-  let cb: (stats: unknown) => Promise<void>
-  let watchRunCb: (() => void) | undefined
-  let doneTapCb: ((stats: unknown) => void) | undefined
-  // A watching compiler, so the changed-sources tracker the plugin builds has
-  // the hooks it taps. Without changedFiles a trigger behaves as it always did.
-  const compiler: {
-    hooks: Record<string, unknown>
-    options: {context: string}
-    modifiedFiles?: Set<string>
-  } = {
-    hooks: {
-      done: {
-        tapPromise: (_n: string, f: typeof cb) => (cb = f),
-        tap: (_n: string, f: (stats: unknown) => void) => (doneTapCb = f)
-      },
-      watchRun: {tap: (_n: string, f: () => void) => (watchRunCb = f)}
-    },
-    options: {context: 'ctx'}
-  }
+function makeCompiler(context = 'ctx') {
+  const fake = fakeCompiler({owner: SafariDevPlugin.name, context})
 
   const trigger = (
     outputPath: string,
     opts?: {
       errors?: unknown[]
+      // Project-relative saves that started this rebuild.
       changedFiles?: string[]
       // The classifier reads the emitted manifest to count content scripts, so
       // a content edit only classifies as one when the build declares them.
       contentScripts?: number
     }
   ) => {
-    if (opts?.changedFiles) {
-      compiler.modifiedFiles = new Set(opts.changedFiles)
-      watchRunCb?.()
-    }
+    if (opts?.changedFiles) fake.watchRun(opts.changedFiles)
 
-    const manifest = JSON.stringify({
-      content_scripts: Array.from({length: opts?.contentScripts || 0}, () => ({
-        js: ['content.js']
-      }))
-    })
-    const stats = {
-      compilation: {
-        errors: opts?.errors || [],
-        options: {output: {path: outputPath}, context: 'ctx'},
-        getAsset: (name: string) =>
-          name === 'manifest.json'
-            ? {source: {source: () => manifest}}
-            : undefined
-      }
-    }
-    doneTapCb?.(stats)
-
-    return cb(stats)
+    return fake.done(
+      fakeCompilation({
+        context,
+        output: outputPath,
+        errors: opts?.errors,
+        manifest: {
+          content_scripts: Array.from(
+            {length: opts?.contentScripts || 0},
+            () => ({js: ['content.js']})
+          )
+        }
+      })
+    )
   }
 
-  return {compiler: compiler as never, trigger}
+  return {compiler: fake.compiler, trigger}
 }
 
 function makeBroker() {
@@ -110,12 +93,12 @@ function makeBroker() {
   return {broker, sent}
 }
 
-function harness(broker?: ReloadBroker) {
+function harness(broker?: ReloadBroker, context?: string) {
   const pkg = makeDeferredPackager()
   const plugin = new SafariDevPlugin(pkg.fn)
   if (broker) plugin.setReloadBroker(broker)
 
-  const {compiler, trigger} = makeCompiler()
+  const {compiler, trigger} = makeCompiler(context)
   plugin.apply(compiler)
   const compiled: Array<{isFirstCompile: boolean; outputPath: string}> = []
   const errors: Array<{errors: string[]}> = []
@@ -283,14 +266,14 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
 
 // A manifest edit is the one change that always classifies as a full reload,
 // so these cover the seam itself rather than the classifier.
-const MANIFEST_EDIT = {changedFiles: ['ctx/manifest.json']}
+const MANIFEST_EDIT = {changedFiles: ['manifest.json']}
 // A content edit is the one kind that survives the package, since a restart
 // does not re-inject content scripts into tabs that are already open.
 const CONTENT_EDIT = {
-  changedFiles: ['ctx/src/content/scripts.js'],
+  changedFiles: ['src/content/scripts.js'],
   contentScripts: 1
 }
-const BACKGROUND_EDIT = {changedFiles: ['ctx/src/background.js']}
+const BACKGROUND_EDIT = {changedFiles: ['src/background.js']}
 
 describe('SafariDevPlugin reload seam', () => {
   it('reloads only after the package that replaced the appex', async () => {
@@ -593,5 +576,104 @@ describe('SafariDevPlugin reload trimming after a package', () => {
     expect(asked).toEqual([])
     expect(warn).not.toHaveBeenCalled()
     expect(log).not.toHaveBeenCalled()
+  })
+})
+
+describe('SafariDevPlugin failures and reloads it does not report', () => {
+  const roots: string[] = []
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+
+    for (const root of roots.splice(0)) {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
+  // Pins today's behavior. Ledger 1382 D3.
+  it('prints nothing and never says ready when the first package throws an error of its own', async () => {
+    const quiet = vi.fn()
+    vi.spyOn(console, 'log').mockImplementation(quiet)
+    vi.spyOn(console, 'warn').mockImplementation(quiet)
+    vi.spyOn(console, 'error').mockImplementation(quiet)
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => {
+      quiet()
+
+      return true
+    })
+
+    const ready = vi.fn()
+    // Neither of the two failures the packager prints for itself (converter
+    // and xcodebuild), so nothing on the way out names it.
+    const plugin = new SafariDevPlugin(async () => {
+      throw new Error("EACCES: permission denied, open 'Info.plist'")
+    })
+    plugin.setReadyListener(ready)
+    const {compiler, trigger} = makeCompiler()
+    plugin.apply(compiler)
+
+    await trigger('/out1')
+
+    expect(quiet).not.toHaveBeenCalled()
+    expect(ready).not.toHaveBeenCalled()
+    expect(plugin.emitter.listenerCount('error')).toBe(1)
+  })
+
+  // Pins today's behavior. Ledger 1382 D5.
+  it('sends a copied page edit with no standalone page, so its open tabs are not refreshed', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-page-'))
+    roots.push(root)
+    const output = path.join(root, 'dist')
+    const page = '<!doctype html><title>options</title>\n'
+
+    for (const dir of [root, output]) {
+      fs.mkdirSync(path.join(dir, 'pages'), {recursive: true})
+      fs.writeFileSync(path.join(dir, 'pages/options.html'), page)
+    }
+
+    const frames: Array<Record<string, unknown>> = []
+    const pkg = makeDeferredPackager()
+    const plugin = new SafariDevPlugin(pkg.fn)
+    plugin.setReloadBroker({
+      broadcastReload: (frame) => {
+        frames.push({...frame})
+
+        return 1
+      }
+    })
+
+    const {compiler, trigger} = makeCompiler(root)
+    plugin.apply(compiler)
+
+    const first = trigger(output)
+    await flush()
+    pkg.callFor(output).resolve()
+    await first
+
+    pkg.calls.length = 0
+    await trigger(output, {changedFiles: ['pages/options.html']})
+    await flush()
+    pkg.callFor(output).resolve()
+    await plugin.idle()
+
+    expect(frames).toEqual([
+      {
+        type: 'page',
+        label: 'options page (pages/options.html)',
+        changedContentScriptEntries: undefined,
+        changedFiles: ['pages/options.html']
+      }
+    ])
+
+    // The same edit names the page once the classifier is told the root.
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['pages/options.html'],
+        getContentScriptCount: () => 0,
+        outputPath: output,
+        contextDir: root
+      })?.standalonePages
+    ).toEqual(['pages/options.html'])
   })
 })

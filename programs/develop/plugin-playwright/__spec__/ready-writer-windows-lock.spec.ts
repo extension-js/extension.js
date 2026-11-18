@@ -28,7 +28,7 @@ vi.mock('node:fs', async (importOriginal) => {
   }
 })
 
-const {createPlaywrightMetadataWriter} = await import('../index')
+const {makeWriter: makeProjectWriter} = await import('./helpers/contract')
 
 describe('ready.json writer while a Windows reader holds the file', () => {
   const realPlatform = process.platform
@@ -46,14 +46,7 @@ describe('ready.json writer while a Windows reader holds the file', () => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const makeWriter = () =>
-    createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'dev',
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
+  const makeWriter = () => makeProjectWriter(tmp)
 
   it('lands the ready stamp once the reader releases the file', () => {
     const writer = makeWriter()
