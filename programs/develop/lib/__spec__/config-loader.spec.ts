@@ -1,13 +1,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadProjectConfigDefaults,
   requireCommonJsCopyBesideSource
 } from '../config-loader'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
@@ -25,6 +25,18 @@ describe('config-loader', () => {
       runtime: 25 * 1024 * 1024,
       'service-worker': 10
     })
+  })
+
+  it('hands on a top-level perfBudgets that is not an object, so the budget check can refuse it', async () => {
+    const dir = makeTempFolder('tmp-extjs-budget-shape-')
+    fs.writeFileSync(
+      path.join(dir, 'extension.config.js'),
+      'module.exports = {perfBudgets: 5}\n',
+      'utf-8'
+    )
+
+    const defaults = await loadProjectConfigDefaults(dir)
+    expect(defaults.perfBudgets).toBe(5)
   })
 
   it('loadCommandConfig on a remote URL resolves empty without walking the disk', async () => {

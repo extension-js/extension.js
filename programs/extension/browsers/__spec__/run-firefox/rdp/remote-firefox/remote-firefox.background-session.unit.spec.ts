@@ -2,7 +2,7 @@ import EventEmitter from 'node:events'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {POLL_EXPRESSION} from '../../../../run-firefox/rdp/evaluate-extension-document'
 import {RemoteFirefox} from '../../../../run-firefox/rdp/remote-firefox'
 
@@ -148,15 +148,29 @@ describe('a session on the background of an installed add-on', () => {
   it('opens nothing, and stops watching, when there is no background document', async () => {
     const client = new FakeSessionClient([])
 
-    await expect(
-      makeRemote(client, ADDON_ID).openBackgroundSession()
-    ).resolves.toBeUndefined()
+    vi.useFakeTimers()
 
-    await Promise.resolve()
+    try {
+      let opened: unknown = 'pending'
+      void makeRemote(client, ADDON_ID)
+        .openBackgroundSession()
+        .then((session) => {
+          opened = session
+        })
 
-    expect(client.evaluated).toEqual([])
-    expect(types(client).at(-1)).toBe('unwatchTargets')
-  }, 10_000)
+      // The document gets two seconds to show up before the session gives up.
+      await vi.advanceTimersByTimeAsync(1999)
+      expect(opened).toBe('pending')
+      expect(types(client).at(-1)).toBe('watchTargets')
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect(opened).toBeUndefined()
+      expect(client.evaluated).toEqual([])
+      expect(types(client).at(-1)).toBe('unwatchTargets')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 
   it('opens nothing with no connection or no add-on id, and asks nothing', async () => {
     const client = new FakeSessionClient([BACKGROUND_FRAME])

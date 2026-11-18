@@ -53,7 +53,7 @@ function cleanupOne(instance: ChromiumInstanceHandlers) {
     }
 
     instance.helpers = markDescendants(child.pid)
-    gracefulTerminateChild(child, browser)
+    gracefulTerminateChild(child, browser, instance.helpers)
     cleanupInstance()
   } catch (error) {
     humanError(messages.enhancedProcessManagementCleanupError(browser, error))

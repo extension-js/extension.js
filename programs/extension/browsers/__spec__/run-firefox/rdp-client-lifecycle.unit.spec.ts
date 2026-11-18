@@ -117,9 +117,19 @@ describe('RDP client lifecycle', () => {
       resolvedRdpPort: mock.port
     } as never)
 
+    const outcomes: Array<string | undefined> = []
+
     for (let i = 0; i < 5; i++) {
-      await remote.installAddons(compilation()).catch(() => {})
+      outcomes.push(
+        await remote.installAddons(compilation()).then(
+          () => 'installed',
+          (error: Error & {code?: string}) => error.code
+        )
+      )
     }
+
+    // The scripted server refuses every install, and each refusal is coded.
+    expect(outcomes).toEqual(Array(5).fill('E_ADDON_INSTALL'))
 
     await sleep(50)
     expect(mock.accepted()).toBe(5)
@@ -135,7 +145,13 @@ describe('RDP client lifecycle', () => {
       {extension: dist, browser: 'firefox'},
       mock.port
     )
-    await controller.ensureLoaded(compilation()).catch(() => {})
+    await expect(controller.ensureLoaded(compilation())).rejects.toMatchObject({
+      code: 'E_ADDON_INSTALL',
+      message: expect.stringContaining(
+        'Could not install add-on: manifest is invalid'
+      )
+    })
+
     await sleep(50)
     expect(mock.open()).toBe(1)
 
@@ -158,7 +174,7 @@ describe('RDP client lifecycle', () => {
     expect(mock.accepted()).toBe(1)
   }, 20000)
 
-  it('does not reconnect once disconnected and never holds the loop with its backoff', async () => {
+  it('waits one second before it reconnects and never holds the loop with that wait', async () => {
     const timers = vi.spyOn(globalThis, 'setTimeout')
     const client = new MessagingClient()
     await client.connect(mock.port)
@@ -174,7 +190,19 @@ describe('RDP client lifecycle', () => {
     expect(timer.hasRef()).toBe(false)
 
     client.disconnect()
-    await sleep(1300)
     expect(mock.accepted()).toBe(1)
-  }, 20000)
+  })
+
+  it('does not reconnect once disconnected, even after its backoff ran out', async () => {
+    const client = new MessagingClient()
+    await client.connect(mock.port, 40)
+    const ended = new Promise<void>((resolve) => client.on('end', resolve))
+
+    mock.sockets[0].resetAndDestroy()
+    await ended
+
+    client.disconnect()
+    await sleep(200)
+    expect(mock.accepted()).toBe(1)
+  })
 })

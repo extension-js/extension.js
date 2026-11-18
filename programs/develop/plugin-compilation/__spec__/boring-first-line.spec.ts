@@ -48,14 +48,10 @@ function warningStats(modifiedFiles: string[] = []) {
 }
 
 describe('BoringPlugin startup line', () => {
-  const previousLaunchEnv = process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
-  const previousBannerEnv = process.env.EXTENSION_CLI_BANNER_PRINTED
   let logSpy: ReturnType<typeof vi.spyOn>
   let tmpDir: string
 
   beforeEach(() => {
-    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = '1'
-    delete process.env.EXTENSION_CLI_BANNER_PRINTED
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'boring-first-line-'))
     fs.writeFileSync(
@@ -69,21 +65,17 @@ describe('BoringPlugin startup line', () => {
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
     logSpy.mockRestore()
     fs.rmSync(tmpDir, {recursive: true, force: true})
-    if (previousLaunchEnv === undefined) {
-      delete process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
-    } else process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = previousLaunchEnv
-    if (previousBannerEnv === undefined) {
-      delete process.env.EXTENSION_CLI_BANNER_PRINTED
-    } else process.env.EXTENSION_CLI_BANNER_PRINTED = previousBannerEnv
   })
 
   it('prints the first success immediately, before any card is printed', () => {
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json'),
-      browser: 'chromium'
+      browser: 'chromium',
+      browserLaunchEnabled: true
     }).apply(compiler as never)
 
     done(successStats())
@@ -99,7 +91,8 @@ describe('BoringPlugin startup line', () => {
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json'),
-      browser: 'chromium'
+      browser: 'chromium',
+      browserLaunchEnabled: true
     }).apply(compiler as never)
 
     done(successStats())
@@ -113,7 +106,8 @@ describe('BoringPlugin startup line', () => {
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json'),
-      browser: 'chromium'
+      browser: 'chromium',
+      browserLaunchEnabled: true
     }).apply(compiler as never)
 
     done(successStats())
@@ -126,7 +120,8 @@ describe('BoringPlugin startup line', () => {
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json'),
-      browser: 'chromium'
+      browser: 'chromium',
+      browserLaunchEnabled: true
     }).apply(compiler as never)
 
     done(successStats())
@@ -141,7 +136,8 @@ describe('BoringPlugin startup line', () => {
     const {compiler, done} = makeCompiler(tmpDir, path.join(tmpDir, 'out'))
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json'),
-      browser: 'chromium'
+      browser: 'chromium',
+      browserLaunchEnabled: true
     }).apply(compiler as never)
 
     done(successStats())
@@ -155,7 +151,8 @@ describe('BoringPlugin startup line', () => {
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json'),
-      browser: 'chromium'
+      browser: 'chromium',
+      browserLaunchEnabled: true
     }).apply(compiler as never)
 
     done(warningStats())
@@ -167,5 +164,39 @@ describe('BoringPlugin startup line', () => {
     expect(logSpy).toHaveBeenCalledTimes(2)
     expect(String(logSpy.mock.calls[0][0])).toContain('with warnings')
     expect(String(logSpy.mock.calls[1][0])).toContain('compiled in')
+  })
+
+  it('prints every startup pass when no browser is launched', () => {
+    const {compiler, done} = makeCompiler(tmpDir)
+    new BoringPlugin({
+      manifestPath: path.join(tmpDir, 'manifest.json'),
+      browser: 'chromium',
+      browserLaunchEnabled: false
+    }).apply(compiler as never)
+
+    done(successStats())
+    done(successStats())
+    done(successStats())
+
+    expect(logSpy).toHaveBeenCalledTimes(3)
+  })
+
+  // The default is the flag the dev server writes, read at each compile.
+  it('reads EXTENSION_BROWSER_LAUNCH_ENABLED when the option is unset', () => {
+    const {compiler, done} = makeCompiler(tmpDir)
+    new BoringPlugin({
+      manifestPath: path.join(tmpDir, 'manifest.json'),
+      browser: 'chromium'
+    }).apply(compiler as never)
+
+    vi.stubEnv('EXTENSION_BROWSER_LAUNCH_ENABLED', '0')
+    done(successStats())
+    done(successStats())
+    expect(logSpy).toHaveBeenCalledTimes(2)
+
+    vi.stubEnv('EXTENSION_BROWSER_LAUNCH_ENABLED', undefined)
+    done(successStats())
+    done(successStats())
+    expect(logSpy).toHaveBeenCalledTimes(3)
   })
 })

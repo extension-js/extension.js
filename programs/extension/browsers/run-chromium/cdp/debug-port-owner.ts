@@ -23,6 +23,13 @@ export function targetIdsOnDebugPort(
     const request = http.get(
       {host, port, path: '/json/list', timeout: timeoutMs},
       (response) => {
+        if (response.statusCode !== 200) {
+          response.resume()
+          resolve(null)
+
+          return
+        }
+
         let body = ''
         response.setEncoding('utf-8')
         response.on('data', (chunk) => {

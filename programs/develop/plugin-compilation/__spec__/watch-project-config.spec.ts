@@ -211,7 +211,6 @@ describe('the compilation plugin wiring', () => {
     new CompilationPlugin({
       manifestPath: path.join(projectRoot, 'src/manifest.json'),
       browser: 'chrome',
-      clean: false,
       command: 'dev'
     }).apply(compiler as never)
 
@@ -238,7 +237,6 @@ describe('the compilation plugin wiring', () => {
     new CompilationPlugin({
       manifestPath: path.join(projectRoot, 'src/manifest.json'),
       browser: 'chrome',
-      clean: false,
       command: 'build'
     }).apply(compiler as never)
 

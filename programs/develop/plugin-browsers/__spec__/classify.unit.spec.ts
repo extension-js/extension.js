@@ -1,17 +1,14 @@
-import * as path from 'node:path'
-import {afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadInstruction} from '../../plugin-reload'
-import {type BrowserController, BrowsersPlugin} from '../index'
+import {BrowsersPlugin, BuildEmitter} from '../index'
+import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 interface Harness {
-  plugin: BrowsersPlugin
-  compiler: any
   reload: ReturnType<typeof vi.fn>
-  controller: BrowserController
   triggerWatchRun(modifiedFiles: string[]): void
   triggerDone(options?: {
-    manifest?: Record<string, unknown>
-    errors?: any[]
+    contentScripts?: number
+    errors?: unknown[]
     writtenAssets?: string[]
   }): Promise<void>
   lastReload(): ReloadInstruction | undefined
@@ -20,108 +17,55 @@ interface Harness {
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/chromium'
 
+beforeEach(() => {
+  expect.hasAssertions()
+})
+
 function createHarness(manifestContentScripts: number = 1): Harness {
   const reload = vi.fn()
-  const controller: BrowserController = {
-    enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-  }
-
   const plugin = new BrowsersPlugin({
-    launcher: vi.fn().mockResolvedValue(controller),
-    browserOptions: {browser: 'chromium'} as any
+    launcher: vi.fn().mockResolvedValue({
+      enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
+    }),
+    browserOptions: {browser: 'chromium'}
   })
   plugin.extensionsToLoad = [OUTPUT]
-  plugin.emitter.on('error', () => {})
-  plugin.emitter.on(
-    'compiled',
-    (ev: {reloadInstruction?: ReloadInstruction}) => {
-      if (ev.reloadInstruction) reload(ev.reloadInstruction)
-    }
-  )
+  plugin.emitter.on('compiled', (ev) => {
+    if (ev.reloadInstruction) reload(ev.reloadInstruction)
+  })
 
-  let watchRunCb: (() => void) | undefined
-  const doneSync: Array<(stats: any) => void> = []
-  let doneCb: ((stats: any) => Promise<void>) | undefined
-  let assetEmittedCb: ((file: string) => void) | undefined
+  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
+  plugin.apply(fake.compiler)
 
-  const compiler: any = {
-    options: {context: CONTEXT},
-    modifiedFiles: undefined as ReadonlySet<string> | undefined,
-    hooks: {
-      watchRun: {tap: (_: string, fn: () => void) => (watchRunCb = fn)},
-      done: {
-        tap: (_: string, fn: (s: any) => void) => {
-          doneSync.push(fn)
-        },
-        tapPromise: (_: string, fn: (s: any) => Promise<void>) => (doneCb = fn)
-      },
-      assetEmitted: {
-        tap: (_: string, fn: (file: string) => void) => {
-          assetEmittedCb = fn
-        }
-      }
-    }
-  }
-
-  plugin.apply(compiler)
-
-  const buildManifest = (count: number) =>
-    JSON.stringify({
-      manifest_version: 3,
-      name: 'fake',
-      version: '0',
-      content_scripts: Array.from({length: count}, (_, i) => ({
-        matches: ['https://example.com/*'],
-        js: [`content/script-${i}.js`]
-      }))
-    })
+  const manifest = (count: number) => ({
+    manifest_version: 3,
+    name: 'fake',
+    version: '0',
+    content_scripts: Array.from({length: count}, (_, i) => ({
+      matches: ['https://example.com/*'],
+      js: [`content/script-${i}.js`]
+    }))
+  })
 
   return {
-    plugin,
-    compiler,
     reload,
-    controller,
-    triggerWatchRun(modifiedFiles: string[]) {
-      compiler.modifiedFiles = new Set(
-        modifiedFiles.map((f) => path.join(CONTEXT, f))
-      )
+    triggerWatchRun: (modifiedFiles) => fake.watchRun(modifiedFiles),
+    async triggerDone(opts = {}) {
+      for (const file of opts.writtenAssets || []) fake.emitAsset(file)
 
-      if (!watchRunCb) throw new Error('watchRun not tapped')
-
-      watchRunCb()
-    },
-    async triggerDone(
-      opts: {
-        manifest?: Record<string, unknown>
-        errors?: any[]
-        writtenAssets?: string[]
-      } = {}
-    ) {
-      if (!doneCb) throw new Error('done not tapped')
-
-      const manifestSource = buildManifest(
-        opts.manifest
-          ? ((opts.manifest.content_scripts as any[])?.length ?? 0)
-          : manifestContentScripts
-      )
-      const stats = {
-        compilation: {
-          errors: opts.errors || [],
-          options: {context: CONTEXT, output: {path: OUTPUT}},
-          assets: {
-            'manifest.json': {},
-            'background/service_worker.js': {},
-            'content_scripts/content-0.abc12345.js': {}
-          },
-          getAsset: (name: string) =>
-            name === 'manifest.json'
-              ? {source: {source: () => manifestSource}}
-              : undefined
+      await fake.done({
+        ...fakeCompilation({
+          context: CONTEXT,
+          output: OUTPUT,
+          manifest: manifest(opts.contentScripts ?? manifestContentScripts),
+          errors: opts.errors
+        }),
+        assets: {
+          'manifest.json': {},
+          'background/service_worker.js': {},
+          'content_scripts/content-0.abc12345.js': {}
         }
-      }
-      for (const file of opts.writtenAssets || []) assetEmittedCb?.(file)
-      for (const fn of doneSync) fn(stats)
-      await doneCb(stats)
+      })
     },
     lastReload() {
       const calls = reload.mock.calls
@@ -342,14 +286,12 @@ describe('BrowsersPlugin classifier', () => {
 })
 
 describe('BuildEmitter', () => {
-  it('emit("error") does not throw when no listener is attached', async () => {
-    const {BuildEmitter} = await import('../index')
+  it('emit("error") does not throw when no listener is attached', () => {
     const emitter = new BuildEmitter()
     expect(() => emitter.emit('error', {errors: ['boom']})).not.toThrow()
   })
 
-  it('user-installed error listeners still fire alongside the default', async () => {
-    const {BuildEmitter} = await import('../index')
+  it('user-installed error listeners still fire alongside the default', () => {
     const emitter = new BuildEmitter()
     const seen: string[][] = []
     emitter.on('error', (event) => seen.push([...event.errors]))
