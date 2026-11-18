@@ -11,6 +11,7 @@ import {takeCodedWarnings} from '../lib/coded-warnings'
 import {compilationDiagnostics} from '../lib/compilation-diagnostics'
 import {
   CODES,
+  cdpFaultWarningCode,
   type Diagnostic,
   ENVELOPE,
   type Envelope,
@@ -113,14 +114,10 @@ function stampedLaunchFailureCode(
 // the fault on the contract, so the ready frame carries it as a coded warning.
 function cdpFaultWarnings(ready: Record<string, unknown> | null): string[] {
   const stamped = ready?.cdpFaultCode
-  if (typeof stamped !== 'string') return []
+  if (typeof stamped !== 'string' || !stamped.trim()) return []
 
   // An older launcher stamped the E_ name, and a warning never carries one.
-  // A class the catalog has no warning for still reads as a failed operation.
-  const named = `W_${stamped.slice(2)}`
-  const code = Object.prototype.hasOwnProperty.call(CODES, named)
-    ? named
-    : CODES.W_CDP_OP_FAILED
+  const code = cdpFaultWarningCode(stamped.trim())
 
   const message =
     typeof ready?.cdpFaultMessage === 'string' && ready.cdpFaultMessage.trim()

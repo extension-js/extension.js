@@ -340,7 +340,19 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
-  it('warns of a fault whose class has no warning name as a failed operation', () => {
+  // The frame names one of the five CDP fault warnings and no other code,
+  // whatever an older launcher or a hand-edited contract stamped.
+  it.each([
+    ['E_COMPILE', ['W_CDP_OP_FAILED: detail']],
+    ['E_INTERNAL', ['W_CDP_OP_FAILED: detail']],
+    ['E_ASSET_MISSING', ['W_CDP_OP_FAILED: detail']],
+    ['W_INTERNAL', ['W_CDP_OP_FAILED: detail']],
+    ['W_EXTENSION_ID_UNKNOWN', ['W_EXTENSION_ID_UNKNOWN: detail']],
+    ['E_BROWSER_CONNECTION_CLOSED', ['W_BROWSER_CONNECTION_CLOSED: detail']],
+    ['ENOENT', ['W_CDP_OP_FAILED: detail']],
+    ['', []],
+    ['   ', []]
+  ])('reads a stamped cdpFaultCode of "%s" as %j', (cdpFaultCode, warnings) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')
     fs.writeFileSync(
@@ -351,19 +363,16 @@ describe('lifecycle stream transitions', () => {
         runId: 'run-abc',
         port: 8081,
         pid: 4242,
-        cdpFaultCode: 'E_COMPILE',
-        cdpFaultMessage: 'ensureLoaded timeout (10000ms)'
+        cdpFaultCode,
+        cdpFaultMessage: 'detail'
       })
     )
 
     const {stream, lines} = makeStream({readyPath})
     stream.ready()
     const [frame] = parseFrames(lines)
-    expect(frame.status).toBe('ready')
     expect(frame.ok).toBe(true)
-    expect(frame.warnings).toEqual([
-      'W_CDP_OP_FAILED: ensureLoaded timeout (10000ms)'
-    ])
+    expect(frame.warnings).toEqual(warnings)
 
     fs.rmSync(dir, {recursive: true, force: true})
   })

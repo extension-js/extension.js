@@ -634,27 +634,27 @@
     },
     "W_CDP_NOT_CONNECTED": {
       "area": "debug-protocol",
-      "summary": "A dev session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",
+      "summary": "A dev, start or preview session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",
       "warn": true
     },
     "W_CDP_TIMEOUT": {
       "area": "debug-protocol",
-      "summary": "A CDP command or load timed out after launch, and the dev session stayed ready. Reload and HMR cannot attach.",
+      "summary": "A CDP command or load timed out after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
       "warn": true
     },
     "W_CDP_OP_FAILED": {
       "area": "debug-protocol",
-      "summary": "An extension operation over CDP failed after launch, and the dev session stayed ready. Reload and HMR cannot attach.",
+      "summary": "An extension operation over CDP failed after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach. A fault of any class other than the four with a warning name of their own is reported under this code too.",
       "warn": true
     },
     "W_BROWSER_CONNECTION_CLOSED": {
       "area": "debug-protocol",
-      "summary": "The debug socket closed after launch, and the dev session stayed ready. Reload and HMR cannot attach.",
+      "summary": "The debug socket closed after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
       "warn": true
     },
     "W_EXTENSION_ID_UNKNOWN": {
       "area": "debug-protocol",
-      "summary": "The extension id could not be determined over CDP after launch, and the session stayed ready. Reload and HMR cannot attach.",
+      "summary": "The extension id could not be determined over CDP after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
       "warn": true
     }
   },

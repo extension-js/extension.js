@@ -366,6 +366,8 @@ describe('the warning class', () => {
 
     try {
       expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
+      // A rebuild meets the same gap again, and the line is not repeated.
+      expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
       expect(stderr).toHaveBeenCalledTimes(1)
       expect(String(stderr.mock.calls[0][0])).toContain(
         'E_COMPILE has no W_ name in CODES, so it cannot be reported as a warning.'

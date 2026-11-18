@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import {DOCTOR_CHECK_CODES, DOCTOR_CHECKS} from '../../commands/doctor'
-import {CODES} from '../../helpers/messaging'
+import {CDP_FAULT_STEMS, CODES} from '../../helpers/messaging'
 import {
   READY_CONTRACT_CODES,
   readyContractErrorCode
@@ -385,17 +385,8 @@ describe('a summary names the causes its code covers', () => {
 // A CDP fault a session carries on past is stamped under its W_ name.
 const CDP_FAULT_STAMP: [string, string, string] = [
   'extension/browsers/browsers-lib/ready-stamp.ts',
-  'The session carried on, so the fault reads under the W_ name of its',
-  'const warning = `W_${code.slice(2)}`'
-]
-
-// The classes the launcher can hand that stamp, by the stem they share.
-const CDP_FAULT_STEMS = [
-  'CDP_NOT_CONNECTED',
-  'CDP_TIMEOUT',
-  'CDP_OP_FAILED',
-  'BROWSER_CONNECTION_CLOSED',
-  'EXTENSION_ID_UNKNOWN'
+  'The session carried on, so the fault reads under a warning name.',
+  'ready.cdpFaultCode = cdpFaultWarningCode(code)'
 ]
 
 // W_ names no source line spells, each beside the place that warns under the

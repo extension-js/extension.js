@@ -232,6 +232,9 @@ export function warningCodeOf(code: ErrorCode): WarningCode | undefined {
   return name as WarningCode | undefined
 }
 
+// A watch session meets the same gap on every rebuild, and says it once.
+const toldGaps = new Set<string>()
+
 // The one place a class meets its severity: a warning reads W_ and an
 // error reads E_, and no other pairing leaves this function.
 export function codeForSeverity(
@@ -248,7 +251,8 @@ export function codeForSeverity(
   // tells its authors, since one stray child warning must not end a session.
   if (process.env.VITEST) throw new Error(gap)
 
-  if (process.env.EXTENSION_AUTHOR_MODE === 'true') {
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true' && !toldGaps.has(gap)) {
+    toldGaps.add(gap)
     console.error(`${channelPrefix('warn')} ${gap}.`)
   }
 

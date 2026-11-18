@@ -503,7 +503,8 @@ describe('stampReadyCdpFault', () => {
     ['E_CDP_TIMEOUT', 'W_CDP_TIMEOUT'],
     ['E_CDP_OP_FAILED', 'W_CDP_OP_FAILED'],
     ['E_BROWSER_CONNECTION_CLOSED', 'W_BROWSER_CONNECTION_CLOSED'],
-    ['E_EXTENSION_ID_UNKNOWN', 'W_EXTENSION_ID_UNKNOWN']
+    ['E_EXTENSION_ID_UNKNOWN', 'W_EXTENSION_ID_UNKNOWN'],
+    ['W_CDP_TIMEOUT', 'W_CDP_TIMEOUT']
   ])('stamps %s as %s, a name the catalog has', (thrown, stamped) => {
     stampReadyCdpFault(outputPath, thrown, 'detail', 'run-A')
 
@@ -514,9 +515,12 @@ describe('stampReadyCdpFault', () => {
   // A fault always reaches the contract under a name the catalog has.
   it.each([
     'E_PROFILE_LOCKED',
+    'E_INTERNAL',
+    'E_ASSET_MISSING',
+    'W_INTERNAL',
     'E_NOT_IN_THE_CATALOG',
     'ENOENT'
-  ])('stamps %s, a class with no warning name, as a failed operation', (thrown) => {
+  ])('stamps %s, which is not a CDP fault class, as a failed operation', (thrown) => {
     stampReadyCdpFault(outputPath, thrown, 'detail', 'run-A')
 
     expect(readReady().cdpFaultCode).toBe('W_CDP_OP_FAILED')

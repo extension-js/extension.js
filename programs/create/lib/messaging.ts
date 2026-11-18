@@ -477,6 +477,24 @@ export const CODES = {
 
 export type ErrorCode = (typeof CODES)[keyof typeof CODES]
 
+// The classes a CDP fault can warn under when the session carried on.
+export const CDP_FAULT_STEMS = [
+  'CDP_NOT_CONNECTED',
+  'CDP_TIMEOUT',
+  'CDP_OP_FAILED',
+  'BROWSER_CONNECTION_CLOSED',
+  'EXTENSION_ID_UNKNOWN'
+] as const
+
+// A fault of any other class is still a CDP operation that failed, so the
+// contract and the ready frame only ever name one of those five.
+export function cdpFaultWarningCode(code: string): ErrorCode {
+  const stem = /^[EW]_/.test(code) ? code.slice(2) : ''
+  const known = CDP_FAULT_STEMS.find((name) => name === stem)
+
+  return known ? CODES[`W_${known}`] : CODES.W_CDP_OP_FAILED
+}
+
 // The actionable parts a message or hint names, carried beside the sentence so
 // a consumer can render its own copy instead of rewriting the engine's.
 export interface EnvelopeErrorRefs {
