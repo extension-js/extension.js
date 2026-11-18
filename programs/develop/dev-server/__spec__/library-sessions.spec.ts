@@ -107,7 +107,7 @@ function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
 
 beforeEach((context) => {
   skipWithoutDevelopDist(context)
-  skipWithStaleDevelopDist(context, builtEntry, path.join(__dirname, '..'))
+  skipWithStaleDevelopDist(context, builtEntry)
 })
 
 afterAll(() => {

@@ -31,18 +31,24 @@ export function skipWithoutDevelopDist(context: {
   if (missing) context.skip(missing)
 }
 
+const SOURCE_FILE = /\.(?:[cm]?[jt]s|json)$/
+
+// Every source the build reads, from the engine root down. The build output,
+// installed packages, specs and dot folders are not sources.
 function newestSourceTime(dir: string): number {
   let newest = 0
 
   for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
-    if (entry.name === '__spec__' || entry.name === 'node_modules') continue
+    if (entry.name.startsWith('.')) continue
+    if (['__spec__', 'node_modules', 'dist'].includes(entry.name)) continue
 
     const file = path.join(dir, entry.name)
 
-    newest = Math.max(
-      newest,
-      entry.isDirectory() ? newestSourceTime(file) : fs.statSync(file).mtimeMs
-    )
+    if (entry.isDirectory()) {
+      newest = Math.max(newest, newestSourceTime(file))
+    } else if (SOURCE_FILE.test(entry.name) && !/\.spec\./.test(entry.name)) {
+      newest = Math.max(newest, fs.statSync(file).mtimeMs)
+    }
   }
 
   return newest
@@ -50,26 +56,25 @@ function newestSourceTime(dir: string): number {
 
 // A spec that runs the built entry reads old engine code from a build older
 // than the sources, and would pass or fail for what is no longer there.
-export function staleDevelopDist(
-  builtFile: string,
-  sourceDir: string
-): string | null {
+export function staleDevelopDist(builtFile: string): string | null {
   if (!fs.existsSync(builtFile)) {
     return `needs the compiled dist: run ${DEVELOP_COMPILE_COMMAND}`
   }
 
-  return fs.statSync(builtFile).mtimeMs < newestSourceTime(sourceDir)
-    ? `the compiled dist is older than ${path.basename(sourceDir)}: run ${DEVELOP_COMPILE_COMMAND}`
+  // The engine root is the folder that holds dist.
+  const root = path.dirname(path.dirname(builtFile))
+
+  return fs.statSync(builtFile).mtimeMs < newestSourceTime(root)
+    ? `the compiled dist is older than the engine sources: run ${DEVELOP_COMPILE_COMMAND}`
     : null
 }
 
 // For beforeEach, beside skipWithoutDevelopDist.
 export function skipWithStaleDevelopDist(
   context: {skip: (note?: string) => void},
-  builtFile: string,
-  sourceDir: string
+  builtFile: string
 ): void {
-  const stale = staleDevelopDist(builtFile, sourceDir)
+  const stale = staleDevelopDist(builtFile)
 
   if (stale) context.skip(stale)
 }
