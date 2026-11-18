@@ -21,10 +21,28 @@ type ExitFn = (code?: number) => void
 
 type ProcessEventsLike = Pick<NodeJS.EventEmitter, 'on' | 'removeListener'>
 
+// How long a shutdown may take before the process is ended anyway.
+// A stop waits for a compile in flight, so the bound leaves room for one.
+export const SHUTDOWN_TIMEOUT_MS = 10000
+
+// One Ctrl+C can reach the process twice, from the terminal and from the
+// package manager above it, so a repeat this soon is the same request.
+export const REPEATED_SIGNAL_GRACE_MS = 1000
+
+// A shutdown cut short is a truncated session, never a completed one.
+export const FORCED_SHUTDOWN_EXIT_CODE = 1
+
 export interface CleanupDependencies {
   events?: ProcessEventsLike
   exit?: ExitFn
   env?: Readonly<Record<string, string | undefined>>
+  // Closes the control server, which the dev server's stop does not own.
+  closeControlBridge?: () => Promise<void>
+  shutdownTimeoutMs?: number
+  print?: (line: string) => void
+  now?: () => number
+  // Called once, before anything is stopped.
+  onShutdownStart?: () => void
 }
 
 function resolveDevServer(
@@ -33,28 +51,39 @@ function resolveDevServer(
   return typeof handle === 'function' ? handle() : handle
 }
 
-function closeAll(
+async function closeAll(
   devServer: RspackDevServer | null | undefined,
   portManager: PortManager,
-  exit: ExitFn
+  exit: ExitFn,
+  closeControlBridge: (() => Promise<void>) | undefined
 ): Promise<void> {
-  const afterStop = async () => {
-    await portManager.terminateCurrentInstance()
-    // Allow browser plugin signal handlers to complete cleanup
-    setTimeout(() => exit(), 500)
+  let failed = false
+
+  // Each step runs even when the one before it failed, and any failure still
+  // leaves the browser plugins their grace before the exit.
+  const steps = [
+    () => devServer?.stop?.(),
+    () => closeControlBridge?.(),
+    () => portManager.terminateCurrentInstance()
+  ]
+
+  for (const step of steps) {
+    try {
+      await step()
+    } catch (error) {
+      failed = true
+      console.error(messages.runnerCleanupError(error))
+    }
   }
 
-  if (!devServer || typeof devServer.stop !== 'function') return afterStop()
+  // Allow browser plugin signal handlers to complete cleanup
+  setTimeout(() => (failed ? exit(1) : exit()), 500)
+}
 
-  return devServer
-    .stop()
-    .then(afterStop)
-    .catch(async (error) => {
-      humanLine(messages.extensionJsRunnerError(error))
-      await portManager.terminateCurrentInstance()
-      // Allow browser plugin signal handlers to complete cleanup
-      setTimeout(() => exit(1), 500)
-    })
+export interface CleanupHandlers {
+  (): void
+  // Runs the same shutdown a signal runs, and the process then exits 1.
+  endAsFailed: () => Promise<void>
 }
 
 // Returns a disposer that cancels auto-exit and removes every listener added
@@ -64,22 +93,58 @@ export function setupCleanupHandlers(
   portManager: PortManager,
   onSignal?: (signal: NodeJS.Signals) => void,
   dependencies: CleanupDependencies = {}
-): () => void {
+): CleanupHandlers {
   const events = dependencies.events ?? process
   // process.exit(undefined) clears an exitCode set earlier, exit() keeps it.
-  const exit: ExitFn =
+  const processExit: ExitFn =
     dependencies.exit ??
     ((code) => (code === undefined ? process.exit() : process.exit(code)))
   const env = dependencies.env ?? process.env
+  const print = dependencies.print ?? humanLine
+  const now = dependencies.now ?? Date.now
+  const shutdownTimeoutMs =
+    dependencies.shutdownTimeoutMs ?? SHUTDOWN_TIMEOUT_MS
   let isShuttingDown = false
+  let shutdownStartedAt = 0
+  let shutdownTimer: NodeJS.Timeout | undefined
+  let endingAsFailed = false
+
+  const exit: ExitFn = (code) => {
+    if (shutdownTimer) clearTimeout(shutdownTimer)
+
+    shutdownTimer = undefined
+
+    // A session ended as a failure never exits 0, however clean its stop.
+    if (code === undefined && endingAsFailed) processExit(1)
+    else if (code === undefined) processExit()
+    else processExit(code)
+  }
 
   const cleanup = async () => {
     if (isShuttingDown) return
 
     isShuttingDown = true
+    shutdownStartedAt = now()
 
     try {
-      await closeAll(resolveDevServer(devServer), portManager, exit)
+      dependencies.onShutdownStart?.()
+    } catch {
+      // Ignore
+    }
+
+    // A stop that never settles would hold the terminal for good.
+    shutdownTimer = setTimeout(() => {
+      print(messages.shutdownTimedOut(shutdownTimeoutMs))
+      exit(FORCED_SHUTDOWN_EXIT_CODE)
+    }, shutdownTimeoutMs)
+
+    try {
+      await closeAll(
+        resolveDevServer(devServer),
+        portManager,
+        exit,
+        dependencies.closeControlBridge
+      )
     } catch (error) {
       console.error(messages.runnerCleanupError(error))
       exit(1)
@@ -118,9 +183,19 @@ export function setupCleanupHandlers(
       // Ignore
     }
 
+    // Asking twice means stop waiting, as the stock dev server does.
+    if (isShuttingDown) {
+      if (now() - shutdownStartedAt < REPEATED_SIGNAL_GRACE_MS) return
+
+      print(messages.shutdownForcedBySignal(signal))
+      exit(FORCED_SHUTDOWN_EXIT_CODE)
+
+      return
+    }
+
     // Before the server stops: closeAll ends the process, and a frame written
     // after it would never reach the pipe.
-    if (!isShuttingDown) onSignal?.(signal)
+    onSignal?.(signal)
 
     await cleanup()
   }
@@ -130,8 +205,11 @@ export function setupCleanupHandlers(
   const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
   for (const signal of signals) events.on(signal, cancelAndCleanup)
 
-  return () => {
+  const dispose = () => {
     cancelAutoExit()
+    if (shutdownTimer) clearTimeout(shutdownTimer)
+
+    shutdownTimer = undefined
     events.removeListener('uncaughtException', onUncaughtException)
     events.removeListener('unhandledRejection', onUnhandledRejection)
 
@@ -139,4 +217,21 @@ export function setupCleanupHandlers(
       events.removeListener(signal, cancelAndCleanup)
     }
   }
+
+  return Object.assign(dispose, {
+    endAsFailed: async () => {
+      // A shutdown under way already wrote its stopped frame and owns the exit.
+      if (isShuttingDown) return
+
+      endingAsFailed = true
+
+      try {
+        cancelAutoExit()
+      } catch {
+        // Ignore
+      }
+
+      await cleanup()
+    }
+  })
 }
