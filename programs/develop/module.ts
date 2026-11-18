@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {BuildSummary, SafariPackageSummary} from './lib/build-summary'
+import type {ErrorCode} from './lib/messaging'
 import {ensureRustMinStack} from './lib/rust-min-stack'
 import type {
   BrowserController,
@@ -55,10 +56,10 @@ export const loadCommandConfig = config.loadCommandConfig
 export const loadProjectConfigDefaults = config.loadProjectConfigDefaults
 // Ends one dev session of this process as a failure the host names.
 export const endSessionAsFailed = sessionEnd.endSessionAsFailed
-// The codes a host's hintFor resolver is called with.
-export type {ErrorCode} from './lib/messaging'
 
 export type {
+  // The codes a host's hintFor resolver is called with.
+  ErrorCode,
   BuildOptions,
   DevOptions,
   PreviewOptions,
