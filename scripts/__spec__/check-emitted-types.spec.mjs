@@ -88,7 +88,7 @@ test('typed entries are the exports that name a declaration file', () => {
     typedEntries({
       name: 'pkg',
       exports: {
-        '.': {development: './module.ts', types: './dist/module.d.ts'},
+        '.': {types: './dist/module.d.ts', import: './dist/module.mjs'},
         './sub': {types: './dist/sub.d.ts', import: './dist/sub.mjs'},
         './contract/*': './dist/contract/*',
         './untyped': {import: './dist/untyped.mjs'},
