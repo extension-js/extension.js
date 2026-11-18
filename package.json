@@ -55,7 +55,6 @@
     "ci:test:develop": "pnpm run test:dev",
     "ci:test:cli": "pnpm run test:cli",
     "ci:test:create": "node scripts/run-test.mjs create",
-    "ci:test:toolchain-preflight": "pnpm --dir programs/develop exec vitest run lib/__spec__/optional-deps-resolver.spec.ts",
     "postcompile": "node scripts/build-extensions.cjs",
     "prepare": "node scripts/install-git-hooks.mjs",
     "check:prose": "node scripts/check-prose.mjs",

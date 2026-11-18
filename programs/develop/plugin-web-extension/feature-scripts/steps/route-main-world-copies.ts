@@ -39,8 +39,6 @@ export class RouteMainWorldCopies {
   }
 
   public apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
     const copies: Record<string, string> = {}

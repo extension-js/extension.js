@@ -92,9 +92,9 @@ export function doneStats(errors: Array<{message: string}> = []) {
 }
 
 // Stand-ins for programs/extension/browsers/browsers-lib/ready-stamp.ts. None
-// promotes a held contract the way the real port and fault stamps do (:105).
+// releases a held contract the way the real port and fault stamps do.
 
-// ready-stamp.ts:387. Start times are passed in: the real stamp asks the
+// ready-stamp.ts:373. Start times are passed in: the real stamp asks the
 // process table, and only for a pid it has not stamped before.
 export function stampReadyBrowserLaunch(
   readyPath: string,
@@ -113,17 +113,17 @@ export function stampReadyBrowserLaunch(
   patchContract(readyPath, fields)
 }
 
-// ready-stamp.ts:172
+// ready-stamp.ts:158
 export function stampReadyCdpPort(readyPath: string, cdpPort: number) {
   patchContract(readyPath, {cdpPort})
 }
 
-// ready-stamp.ts:119
+// ready-stamp.ts:105
 export function stampReadyRdpPort(readyPath: string, rdpPort: number) {
   patchContract(readyPath, {rdpPort})
 }
 
-// ready-stamp.ts:144
+// ready-stamp.ts:130
 export function stampReadyRdpPortError(
   readyPath: string,
   rdpPortError: string
@@ -131,7 +131,7 @@ export function stampReadyRdpPortError(
   patchContract(readyPath, {rdpPortError})
 }
 
-// ready-stamp.ts:724
+// ready-stamp.ts:710
 export function stampReadyCdpFault(
   readyPath: string,
   cdpFaultCode: string,
@@ -143,7 +143,7 @@ export function stampReadyCdpFault(
   })
 }
 
-// ready-stamp.ts:222
+// ready-stamp.ts:208
 export function stampReadyWebDriver(
   readyPath: string,
   fields: {
@@ -156,7 +156,7 @@ export function stampReadyWebDriver(
   patchContract(readyPath, fields)
 }
 
-// ready-stamp.ts:338
+// ready-stamp.ts:324
 export function stampReadyStartingUrl(
   readyPath: string,
   fields: {
@@ -168,7 +168,7 @@ export function stampReadyStartingUrl(
   patchContract(readyPath, fields)
 }
 
-// ready-stamp.ts:518
+// ready-stamp.ts:504
 export function stampReadyBrowserUpNotAttached(
   readyPath: string,
   fields: {
@@ -180,7 +180,7 @@ export function stampReadyBrowserUpNotAttached(
   patchContract(readyPath, fields)
 }
 
-// ready-stamp.ts:561. status, code and message are what the stamp flips.
+// ready-stamp.ts:547. status, code and message are what the stamp flips.
 export function stampReadyBrowserLaunchFailed(
   readyPath: string,
   fields: {
@@ -195,7 +195,7 @@ export function stampReadyBrowserLaunchFailed(
   patchContract(readyPath, fields)
 }
 
-// ready-stamp.ts:883. status, code and message flip only before ready or
+// ready-stamp.ts:869. status, code and message flip only before ready or
 // under preview and start.
 export function stampReadyBrowserExited(
   readyPath: string,
@@ -211,12 +211,12 @@ export function stampReadyBrowserExited(
   patchContract(readyPath, fields)
 }
 
-// ready-stamp.ts:754
+// ready-stamp.ts:740
 export function stampReadyExtensionId(readyPath: string, extensionId: string) {
   patchContract(readyPath, {extensionId, extensionIdSource: 'browser'})
 }
 
-// ready-stamp.ts:805. Like the real stamp, a forecast id comes off with it.
+// ready-stamp.ts:791. Like the real stamp, a forecast id comes off with it.
 export function stampReadyExtensionLoadRefused(
   readyPath: string,
   fields: {
@@ -252,7 +252,7 @@ function appendDevAddition(readyPath: string, entry: DevAdditionEntry) {
   })
 }
 
-// ready-stamp.ts:694
+// ready-stamp.ts:680
 export function stampReadyDevBrowserFlag(
   readyPath: string,
   entry: DevAdditionEntry
@@ -260,7 +260,7 @@ export function stampReadyDevBrowserFlag(
   appendDevAddition(readyPath, {...entry, kind: 'browser_flag'})
 }
 
-// ready-stamp.ts:709
+// ready-stamp.ts:695
 export function stampReadyDevBrowserPreference(
   readyPath: string,
   entry: DevAdditionEntry

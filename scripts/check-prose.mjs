@@ -5,12 +5,10 @@ import fs from 'node:fs'
 
 const EM_DASH = '—'
 
-const EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|md|mdx|json|yml|yaml)$/
+const EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|md|mdx|json|yml|yaml|sh)$/
 
 // Paths where the character is data rather than prose.
 const EXCLUDED_PATHS = [
-  // Vendored third-party fork; not ours to restyle.
-  'webpack-target-webextension-fork',
   // This checker necessarily contains the character it searches for.
   'scripts/check-prose.mjs'
 ]
