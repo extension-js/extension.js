@@ -132,6 +132,42 @@ describe('an entry of the scanned companion folder', () => {
     })
   })
 
+  // A named file may come from the workspace, a companion folder may not.
+  it.skipIf(!canLink)(
+    'is a link to a folder of the workspace outside the project',
+    () => {
+      const {holder, root} = layout()
+
+      fs.writeFileSync(
+        path.join(holder, 'pnpm-workspace.yaml'),
+        'packages:\n  - project\n'
+      )
+
+      link(root, 'linked-workspace', path.join(holder, 'outside', 'out'))
+
+      const said = [
+        [
+          'A companion extension entry leads outside the project, so it is not loaded.',
+          './extensions/linked-workspace',
+          path.join(holder, 'outside', 'out')
+        ]
+      ].map(([sentence, entry, target]) =>
+        [
+          sentence,
+          `ENTRY ${entry}`,
+          `LEADS TO ${target}`,
+          'Companion extensions must be inside the project. Copy the folder into the project, or remove the link.'
+        ].join('\n')
+      )
+
+      expect(scan(root)).toEqual({
+        loaded: ['extensions/real'],
+        said,
+        coded: said.map((text) => `E_COMPANION_EXTENSION_PATH: ${text}`)
+      })
+    }
+  )
+
   it.skipIf(!canLink)(
     'is a link to nothing, to a file, to itself or to a folder above it',
     () => {
