@@ -10,13 +10,17 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
+import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../../types'
 
 export const isRemoteUrl = (entry: string) =>
   /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
 
-// Root-relative paths point at the extension output root (served from
-// public/), which maps to the project directory in source space.
+const isRootRelative = (entry: string) =>
+  entry.startsWith('/') && !path.isAbsolute(entry)
+
+// The one answer to where a manifest entry is read from, for the check that
+// it exists and for the bundler entry alike, so the two cannot disagree.
 export function resolveScriptEntryPath(
   entry: string,
   manifestDir: string,
@@ -24,7 +28,34 @@ export function resolveScriptEntryPath(
 ) {
   if (!entry || isRemoteUrl(entry)) return entry
 
-  if (entry.startsWith('/') && !path.isAbsolute(entry)) {
+  const source = sourcePathOf(entry, manifestDir, projectPath)
+
+  if (fs.existsSync(source)) return source
+
+  // public/ ships at the extension root, so a file it holds answers a path
+  // that names no source file. The path looked at stays the source one.
+  const fromRoot = path.relative(
+    isRootRelative(entry) ? projectPath : manifestDir,
+    source
+  )
+
+  if (!fromRoot || fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) {
+    return source
+  }
+
+  return (
+    findPublicFile(
+      path.join(manifestDir, 'manifest.json'),
+      projectPath,
+      fromRoot.split(path.sep).join('/')
+    ) || source
+  )
+}
+
+// Root-relative paths point at the extension output root (served from
+// public/), which maps to the project directory in source space.
+function sourcePathOf(entry: string, manifestDir: string, projectPath: string) {
+  if (isRootRelative(entry)) {
     return path.join(projectPath, entry.slice(1))
   }
 

@@ -106,8 +106,6 @@ export class AddScripts {
 
         try {
           const manifestDir = path.dirname(this.manifestPath)
-          const outputRoot = compilation.options?.output?.path || ''
-
           const projectPath =
             (compiler.options.context as string) || manifestDir
           const listOf = (raw: FilepathList[string]): string[] =>
@@ -132,32 +130,17 @@ export class AddScripts {
                 continue
               }
 
-              let resolved = entry
-
-              if (isWithheld) {
-                resolved = resolveScriptEntryPath(
-                  entry,
-                  manifestDir,
-                  projectPath
-                )
-              } else if (!fs.existsSync(resolved)) {
-                resolved = path.isAbsolute(entry)
-                  ? entry
-                  : entry.startsWith('/')
-                    ? path.join(manifestDir, entry.slice(1))
-                    : path.join(manifestDir, entry)
-              }
+              // The path the entry itself is built from, and no other.
+              const resolved = resolveScriptEntryPath(
+                entry,
+                manifestDir,
+                projectPath
+              )
 
               if (!isWithheld && fs.existsSync(resolved)) continue
 
-              // A withheld file is on disk, so its own path is the one named.
               const isPublicRoot =
                 !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
-              const displayPath = isPublicRoot
-                ? outputRoot
-                  ? path.join(outputRoot, entry.slice(1))
-                  : entry
-                : resolved
 
               const err = new ErrorCtor(
                 messages.scriptsMissingFile(
@@ -168,7 +151,7 @@ export class AddScripts {
                         .split(path.sep)
                         .join('/'),
                   manifestFieldOf(feature, entry),
-                  displayPath,
+                  resolved,
                   isPublicRoot
                 )
               ) as Error & {file?: string; name?: string}

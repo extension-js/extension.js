@@ -137,11 +137,11 @@ const TIMEOUT = 600_000
 const EXPECTED: Record<string, Record<string, string>> = {
   'a file in public/, manifest at the root': {
     'content_scripts[0].js':
-      'nothing | said hosted.js does not exist. Check the content_scripts[0].js field in your manifest.json file. | NOT FOUND <root>/hosted.js | errors 1',
+      'public/hosted.js in content_scripts/content-0.js + hosted.js | manifest names content_scripts/content-0.js',
     'content_scripts[0].css':
-      'nothing | said hosted.css does not exist. Check the content_scripts[0].css field in your manifest.json file. | NOT FOUND <root>/hosted.css | errors 1',
+      'public/hosted.css in content_scripts/content-0.css + hosted.css | manifest names content_scripts/content-0.css',
     'background.service_worker':
-      'nothing | said hosted.js does not exist. Check the background.service_worker field in your manifest.json file. | NOT FOUND <root>/hosted.js | errors 1'
+      'public/hosted.js in background/service_worker.js + hosted.js | manifest names background/service_worker.js'
   },
   'a file at the root, manifest at the root': {
     'content_scripts[0].js':
@@ -169,11 +169,11 @@ const EXPECTED: Record<string, Record<string, string>> = {
   },
   'a file in public/, manifest in src/': {
     'content_scripts[0].js':
-      'nothing | said hosted.js does not exist. Check the content_scripts[0].js field in your manifest.json file. | NOT FOUND <root>/src/hosted.js | errors 1',
+      'public/hosted.js in content_scripts/content-0.js + hosted.js | manifest names content_scripts/content-0.js',
     'content_scripts[0].css':
-      'nothing | said hosted.css does not exist. Check the content_scripts[0].css field in your manifest.json file. | NOT FOUND <root>/src/hosted.css | errors 1',
+      'public/hosted.css in content_scripts/content-0.css + hosted.css | manifest names content_scripts/content-0.css',
     'background.service_worker':
-      'nothing | said hosted.js does not exist. Check the background.service_worker field in your manifest.json file. | NOT FOUND <root>/src/hosted.js | errors 1'
+      'public/hosted.js in background/service_worker.js + hosted.js | manifest names background/service_worker.js'
   },
   'no file at all, manifest at the root': {
     'content_scripts[0].js':

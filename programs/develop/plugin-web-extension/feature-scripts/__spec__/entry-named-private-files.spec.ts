@@ -333,7 +333,7 @@ const EXPECTED: Record<string, Table> = {
       'nothing | said missing .env.example.js does not exist. Check the content_scripts[0].js field | errors 1',
     'ok.js': 'ok.js in content_scripts/content-0.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'public/hosted.js in content_scripts/content-0.js + public/hosted.js in hosted.js',
     'public/hosted.js':
       'public/hosted.js in content_scripts/content-0.js + public/hosted.js in hosted.js',
     'absent.js':
@@ -395,7 +395,7 @@ const EXPECTED: Record<string, Table> = {
       'nothing | said missing .env.example.css does not exist. Check the content_scripts[0].css field | errors 1',
     'ok.css': 'ok.css in content_scripts/content-0.css',
     '/hosted.css':
-      'nothing | said missing hosted.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'public/hosted.css in content_scripts/content-0.css + public/hosted.css in hosted.css',
     'public/hosted.css':
       'public/hosted.css in content_scripts/content-0.css + public/hosted.css in hosted.css',
     'absent.css':
@@ -440,7 +440,7 @@ const EXPECTED: Record<string, Table> = {
       'nothing | said missing .env.example.js does not exist. Check the background.service_worker field | errors 1',
     'ok.js': 'ok.js in background/service_worker.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the background.service_worker field | errors 1',
+      'public/hosted.js in background/service_worker.js + public/hosted.js in hosted.js',
     'public/hosted.js':
       'public/hosted.js in background/service_worker.js + public/hosted.js in hosted.js',
     'absent.js':
@@ -485,7 +485,7 @@ const EXPECTED: Record<string, Table> = {
       'nothing | said missing .env.example.js does not exist. Check the background.scripts field | errors 1',
     'ok.js': 'ok.js in background/scripts.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the background.scripts field | errors 1',
+      'public/hosted.js in background/scripts.js + public/hosted.js in hosted.js',
     'public/hosted.js':
       'public/hosted.js in background/scripts.js + public/hosted.js in hosted.js',
     'absent.js':
@@ -547,7 +547,7 @@ const EXPECTED: Record<string, Table> = {
       'nothing | said missing .env.example.js does not exist. Check the user_scripts.api_script field | errors 1',
     'ok.js': 'ok.js in user_scripts/api_script.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'public/hosted.js in hosted.js + public/hosted.js in user_scripts/api_script.js',
     'public/hosted.js':
       'public/hosted.js in hosted.js + public/hosted.js in user_scripts/api_script.js',
     'absent.js':
