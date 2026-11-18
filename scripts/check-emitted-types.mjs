@@ -100,8 +100,8 @@ export function consumerPrograms(specifiers, exclusive = exclusiveEntries) {
   return programs
 }
 
-// No development condition here, so each import resolves the way an installed
-// copy does: through the types target of the export.
+// No source paths here, so each import resolves the way an installed copy
+// does: through the types target of the export.
 export function consumerTsconfig(file = 'consumer.ts') {
   return {
     compilerOptions: {
