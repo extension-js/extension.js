@@ -82,6 +82,8 @@ import {
 import {describeWaitError, framedWaitFailure, runWaitMode} from './dev-wait'
 
 type EngineDevOptions = Parameters<DevelopModule['extensionDev']>[1]
+type EndEngineSession = DevelopModule['endSessionAsFailed']
+type EngineErrorCode = Parameters<EndEngineSession>[0]
 
 // The engine sets the mode of a dev session itself and reads authorMode off
 // the options without declaring it, so both are stated here.
@@ -151,7 +153,7 @@ function failAndExit(
 
 // The remedy a failed dev frame names, whichever side writes the frame. Only
 // a code the CLI declares has one.
-function devFailureHint(code: string): string | undefined {
+function devFailureHint(code: EngineErrorCode): string | undefined {
   return failureHint(declaredErrorCode({code}))
 }
 
@@ -427,17 +429,22 @@ export function registerDevCommand(
 
         const parentPid = parseParentPid(devOptions.parentPid)
         // Set once the engine is loaded. Before that no session can be live.
-        let endEngineSession:
-          | ((code: ErrorCode, message: string) => boolean)
-          | undefined
+        let endEngineSession: EndEngineSession | undefined
 
         if (parentPid !== undefined) {
           const parentGone = `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
 
           armParentWatchdog(parentPid, {
             // A live session's stream writes the one terminal frame itself.
-            endSession: () =>
-              endEngineSession?.(CODES.E_PARENT_GONE, parentGone) === true,
+            // Under --output json the engine exits nothing, so this does.
+            endSession: () => {
+              const ended =
+                endEngineSession?.(CODES.E_PARENT_GONE, parentGone) === true
+
+              if (ended && asJson) void exitDrained(1)
+
+              return ended
+            },
             emitFrame: () => {
               if (!asJson) return
 
