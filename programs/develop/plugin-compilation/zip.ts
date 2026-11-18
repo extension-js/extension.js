@@ -16,6 +16,7 @@ import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import * as messages from '../lib/messages'
 import {debugLine, isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
+import {isKnownBrowserName} from '../lib/paths'
 import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
 import * as compilationMessages from './compilation-lib/messages'
@@ -216,6 +217,20 @@ function isDeniedEnvFile(basename: string): boolean {
 // done hooks), so they must be denied by name or they leak into the zip.
 const STAGING_DIR_PREFIX = '.extension-build-'
 
+// Names are compared in lower case: Windows and macOS open KEY.PEM as key.pem.
+function lowerBasename(file: string): string {
+  const posix = toPosix(file)
+
+  return posix.slice(posix.lastIndexOf('/') + 1).toLowerCase()
+}
+
+// What an operating system writes into any folder it shows. Nobody misses it.
+const OS_FILES = new Set(['.ds_store', 'thumbs.db', 'desktop.ini'])
+
+// Folders a tool keeps for one machine. A project commits .vscode and .idea
+// on purpose, so those two are packed.
+const MACHINE_LOCAL_DIRS = new Set(['.claude', '.vercel'])
+
 export function isDeniedFromSourceZip(file: string): boolean {
   const posix = toPosix(file)
   const segments = posix.split('/')
@@ -225,9 +240,187 @@ export function isDeniedFromSourceZip(file: string): boolean {
     return true
   }
 
-  if (isDeniedEnvFile(segments[segments.length - 1])) return true
+  if (segments.some((name) => MACHINE_LOCAL_DIRS.has(name.toLowerCase()))) {
+    return true
+  }
+
+  const basename = lowerBasename(posix)
+
+  if (isDeniedEnvFile(basename) || OS_FILES.has(basename)) return true
 
   return isUnder(posix, DEFAULT_OUTPUT_DIR)
+}
+
+export type LeftOutReason = 'key' | 'registry' | 'archive' | 'build' | 'env'
+
+export interface LeftOut {
+  reason: LeftOutReason
+  path: string
+}
+
+// Containers of a private key by format or by fixed name. Public material a
+// build may need (.pub, .crt, .cer) is packed.
+const KEY_EXTENSIONS = [
+  '.pem',
+  '.crx',
+  '.p12',
+  '.pfx',
+  '.jks',
+  '.keystore',
+  '.ppk'
+]
+const KEY_BASENAMES = new Set(['id_rsa', 'id_dsa', 'id_ecdsa', 'id_ed25519'])
+
+function isKeyFileName(basename: string): boolean {
+  return (
+    KEY_BASENAMES.has(basename) ||
+    KEY_EXTENSIONS.some((extension) => basename.endsWith(extension))
+  )
+}
+
+// The two names this plugin writes: <name>-source.zip, and a name that ends
+// in a version and a browser. Any other zip can be a fixture or an asset.
+export function isOwnArchiveName(file: string): boolean {
+  const basename = lowerBasename(file)
+
+  if (!basename.endsWith('.zip')) return false
+
+  if (basename.endsWith('-source.zip')) return true
+
+  const parts = basename.slice(0, -'.zip'.length).split('-')
+
+  // A browser name holds at most one dash, as in chromium-based.
+  return [1, 2].some((taken) => {
+    const version = parts[parts.length - taken - 1]
+
+    return (
+      parts.length > taken + 1 &&
+      /^\d[\w.+]*$/.test(version) &&
+      isKnownBrowserName(parts.slice(-taken).join('-'))
+    )
+  })
+}
+
+const BUILD_DIR_NAMES = new Set(['dist', 'build'])
+
+// A build writes <dist or build>/<browser>/manifest.json. Only that browser
+// folder is named, so whatever else the parent holds is still packed.
+export function findNestedBuildFolders(files: string[]): string[] {
+  const folders = new Set<string>()
+
+  for (const file of files) {
+    const segments = toPosix(file).split('/')
+    const [parent, browser, basename] = segments
+      .slice(-3)
+      .map((segment) => segment.toLowerCase())
+
+    if (
+      segments.length >= 3 &&
+      basename === 'manifest.json' &&
+      isKnownBrowserName(browser) &&
+      BUILD_DIR_NAMES.has(parent)
+    ) {
+      folders.add(segments.slice(0, -1).join('/'))
+    }
+  }
+
+  return inArchiveOrder([...folders])
+}
+
+// The folder web-ext writes its archives into.
+const WEB_EXT_ARTIFACTS_DIR = 'web-ext-artifacts'
+
+export function leftOutOfSourceByName(
+  listed: string,
+  buildFolders: string[]
+): LeftOut | undefined {
+  const file = toPosix(listed)
+  const segments = file.split('/')
+
+  if (isKeyFileName(lowerBasename(file))) return {reason: 'key', path: file}
+
+  const artifacts = segments.findIndex(
+    (segment, index) =>
+      index < segments.length - 1 &&
+      segment.toLowerCase() === WEB_EXT_ARTIFACTS_DIR
+  )
+
+  if (artifacts !== -1) {
+    return {
+      reason: 'archive',
+      path: segments.slice(0, artifacts + 1).join('/')
+    }
+  }
+
+  if (isOwnArchiveName(file)) return {reason: 'archive', path: file}
+
+  const buildFolder = buildFolders.find((folder) => isUnder(file, folder))
+
+  return buildFolder ? {reason: 'build', path: buildFolder} : undefined
+}
+
+const REGISTRY_FILES = new Set(['.npmrc', '.yarnrc', '.yarnrc.yml'])
+const AUTH_ENTRY =
+  /(?:^|[^A-Za-z0-9])(?:_authToken|_auth|_password|npmAuthToken|npmAuthIdent)["']?\s*(?:=|:|\s)\s*(.*)$/
+const ENV_REFERENCE = /\$\{[A-Za-z_][A-Za-z0-9_]*(?::?-|\?)?\}/g
+
+// True when an auth entry carries a value of its own. A value that only
+// reads the environment, as in ${NPM_TOKEN}, holds nothing to keep back.
+export function holdsRegistrySecret(text: string): boolean {
+  return text.split(/\r?\n/).some((line) => {
+    const entry = line.trim()
+
+    if (entry.startsWith('#') || entry.startsWith(';')) return false
+
+    const match = AUTH_ENTRY.exec(entry)
+
+    if (!match) return false
+
+    const value = match[1]
+      .replace(/\s+#.*$/, '')
+      .trim()
+      .replace(/^(["'])(.*)\1$/, '$2')
+
+    return !/^:?$/.test(value.replace(ENV_REFERENCE, '').trim())
+  })
+}
+
+const PRIVATE_KEY_HEADER = /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----/
+
+// Read only for the few names whose text decides: a registry file, and a
+// .key file, which is a private key for some tools and a slide deck for others.
+function leftOutOfSourceByText(
+  projectDir: string,
+  file: string
+): LeftOut | undefined {
+  const basename = lowerBasename(file)
+  const isRegistryFile = REGISTRY_FILES.has(basename)
+
+  if (!isRegistryFile && !basename.endsWith('.key')) return undefined
+
+  let text = ''
+
+  try {
+    text = fs.readFileSync(path.join(projectDir, file), 'latin1')
+  } catch {
+    return undefined
+  }
+
+  if (isRegistryFile) {
+    return holdsRegistrySecret(text)
+      ? {reason: 'registry', path: file}
+      : undefined
+  }
+
+  return PRIVATE_KEY_HEADER.test(text) ? {reason: 'key', path: file} : undefined
+}
+
+function addLeftOut(list: LeftOut[], entry: LeftOut): void {
+  const known = list.some(
+    (other) => other.reason === entry.reason && other.path === entry.path
+  )
+
+  if (!known) list.push(entry)
 }
 
 function isUnder(file: string, root: string | undefined): boolean {
@@ -408,6 +601,7 @@ export async function getFilesToZip(
   files: string[]
   skippedLinks: string[]
   skippedFolders: string[]
+  leftOut: LeftOut[]
 }> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
@@ -449,17 +643,35 @@ export async function getFilesToZip(
     candidates.some((file) => isUnder(file, folder))
   )
   const kept = candidates.filter((file) => !isUnderAny(file, skippedFolders))
+  const buildFolders = findNestedBuildFolders(files)
   // tiny-glob lists a symlink as a regular file and does not descend into it,
   // so reading one threw EISDIR or ENOENT and took the whole archive down.
   const regularFiles: string[] = []
   const skippedLinks: string[] = []
+  // Named only for a file that would have been packed, so the warning lists
+  // what this run removed and nothing an ignore rule already covered.
+  const leftOut: LeftOut[] = []
 
   for (const file of kept) {
-    if (isRegularFile(path.join(projectDir, file))) regularFiles.push(file)
-    else skippedLinks.push(file)
+    const byName = leftOutOfSourceByName(file, buildFolders)
+
+    if (byName) {
+      addLeftOut(leftOut, byName)
+      continue
+    }
+
+    if (!isRegularFile(path.join(projectDir, file))) {
+      skippedLinks.push(file)
+      continue
+    }
+
+    const byText = leftOutOfSourceByText(projectDir, file)
+
+    if (byText) addLeftOut(leftOut, byText)
+    else regularFiles.push(file)
   }
 
-  return {files: regularFiles, skippedLinks, skippedFolders}
+  return {files: regularFiles, skippedLinks, skippedFolders, leftOut}
 }
 
 function isRegularFile(absPath: string): boolean {
@@ -586,14 +798,18 @@ export class ZipPlugin {
         // take the dist zip down with it, and neither was reported as missing.
         if (this.zipData.zipSource) {
           try {
-            const {files, skippedLinks, skippedFolders} = await getFilesToZip(
-              packageJsonDir,
-              {
+            const {files, skippedLinks, skippedFolders, leftOut} =
+              await getFilesToZip(packageJsonDir, {
                 outPath,
                 archives: [sourcePath, distPath],
                 archiveDir: this.zipData.zipDir
-              }
-            )
+              })
+
+            if (leftOut.length) {
+              stats?.compilation?.warnings?.push(
+                new Error(compilationMessages.zipLeftOut('source', leftOut))
+              )
+            }
 
             if (skippedFolders.length) {
               stats?.compilation?.warnings?.push(
