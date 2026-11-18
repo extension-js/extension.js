@@ -3,6 +3,7 @@ import {once} from 'node:events'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   FORCE_KILL_GRACE_MS,
+  forceKillPidOnExit,
   gracefulTerminateChild,
   gracefulTerminatePid,
   type TeardownDependencies,
@@ -91,7 +92,14 @@ afterEach(async () => {
     }
 
     const exited = once(child, 'exit')
-    process.kill(child.pid, 'SIGKILL')
+
+    try {
+      process.kill(child.pid, 'SIGKILL')
+    } catch (error) {
+      // A row already ended it, and its exit event is still on the way.
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error
+    }
+
     await exited
   }
 })
@@ -379,6 +387,40 @@ describe('gracefulTerminatePid', () => {
 
     expect(deps.killTree).toHaveBeenCalledExactlyOnceWith(pid)
     expect(vi.mocked(deps.kill).mock.calls).toEqual([[pid, 'SIGTERM']])
+  })
+})
+
+describe('forceKillPidOnExit', () => {
+  const ADOPTED_AT = Date.parse('2026-11-17T10:00:05.400Z')
+
+  it('SIGKILLs an adopted pid that started before it was adopted', async () => {
+    const pid = (await startChild(POLITE)).pid as number
+    const {deps} = scriptedTeardown({
+      startedAt: vi.fn(() => Date.parse('2026-11-17T10:00:04.000Z'))
+    })
+
+    forceKillPidOnExit(pid, 'firefox', ADOPTED_AT, deps)
+
+    expect(deps.startedAt).toHaveBeenCalledExactlyOnceWith(pid)
+    expect(vi.mocked(deps.kill).mock.calls).toEqual([[pid, 'SIGKILL']])
+  })
+
+  it.each([
+    ['the process table cannot date', null],
+    [
+      'that started after it was adopted',
+      Date.parse('2026-11-17T10:00:07.000Z')
+    ]
+  ] as const)('sends nothing to a pid %s', async (_title, startedAt) => {
+    const child = await startChild(POLITE)
+    const {deps} = scriptedTeardown({startedAt: vi.fn(() => startedAt)})
+
+    forceKillPidOnExit(child.pid, 'firefox', ADOPTED_AT, deps)
+    await new Promise((resolve) => setTimeout(resolve, 200))
+
+    expect(deps.kill).not.toHaveBeenCalled()
+    expect(deps.killTree).not.toHaveBeenCalled()
+    expect(isRunning(child)).toBe(true)
   })
 })
 
