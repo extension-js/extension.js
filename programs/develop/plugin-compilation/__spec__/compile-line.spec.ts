@@ -48,11 +48,19 @@ function scaffold() {
 }
 
 // Pushed while the compilation runs, the way a plugin reports a finding.
-function diagnostics(warnings: number, errors: number) {
+function diagnostics(warnings: number, errors: number, printedAtEmit = 0) {
   return (compiler: Compiler) => {
     compiler.hooks.thisCompilation.tap('spec:diagnostics', (compilation) => {
       for (let index = 1; index <= warnings; index++) {
         compilation.warnings.push(new Error(`spec warning ${index}`) as never)
+      }
+
+      // The manifest plugin prints these itself and marks them by name.
+      for (let index = 1; index <= printedAtEmit; index++) {
+        const warning = new Error(`spec emit warning ${index}`)
+
+        warning.name = 'ManifestLegacyWarning'
+        compilation.warnings.push(warning as never)
       }
 
       for (let index = 1; index <= errors; index++) {
@@ -96,55 +104,82 @@ const summaryLines = () =>
 const indexOfText = (needle: string) =>
   printed.findIndex((entry) => entry.text.includes(needle))
 
+// The whole line after the name, so a stray word fails the match.
+const lineEnding = (tail: string) => [
+  expect.stringMatching(new RegExp(`${STAMP}${tail}$`))
+]
+
 describe('the compile line of a build', () => {
   it('says compiled and nothing more when there is nothing to report', async () => {
     await run('build')
 
     expect(printed).toHaveLength(1)
     expect(printed[0].channel).toBe('log')
-    expect(printed[0].text).toMatch(
-      new RegExp(`${STAMP}compiled in \\d+ ms\\.$`)
+    expect(summaryLines()).toEqual(lineEnding(String.raw`compiled in \d+ ms\.`))
+  })
+
+  it('counts one warning and says it is listed below', async () => {
+    await run('build', diagnostics(1, 0))
+
+    expect(summaryLines()).toEqual(
+      lineEnding(String.raw`compiled with 1 warning in \d+ ms, listed below\.`)
     )
   })
 
-  it('marks one warning', async () => {
-    await run('build', diagnostics(1, 0))
+  it('counts several warnings', async () => {
+    await run('build', diagnostics(3, 0))
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(
-        new RegExp(`${STAMP}compiled with warnings in \\d+ ms\\.$`)
-      )
-    ])
+    expect(summaryLines()).toEqual(
+      lineEnding(String.raw`compiled with 3 warnings in \d+ ms, listed below\.`)
+    )
   })
 
-  it('marks several warnings', async () => {
-    await run('build', diagnostics(2, 0))
+  it('points both ways when a plugin printed some warnings at emit', async () => {
+    await run('build', diagnostics(1, 0, 1))
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(
-        new RegExp(`${STAMP}compiled with warnings in \\d+ ms\\.$`)
+    expect(summaryLines()).toEqual(
+      lineEnding(
+        String.raw`compiled with 2 warnings in \d+ ms, listed above and below\.`
       )
-    ])
+    )
   })
 
-  it('marks one error', async () => {
+  it('points nowhere when every warning was printed at emit', async () => {
+    await run('build', diagnostics(0, 0, 2))
+
+    expect(summaryLines()).toEqual(
+      lineEnding(String.raw`compiled with 2 warnings in \d+ ms\.`)
+    )
+  })
+
+  it('says a compile with one error failed', async () => {
     await run('build', diagnostics(0, 1))
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(
-        new RegExp(`${STAMP}compiled with errors in \\d+ ms\\.$`)
-      )
-    ])
+    expect(summaryLines()).toEqual(
+      lineEnding(String.raw`failed to compile with 1 error in \d+ ms\.`)
+    )
+
+    expect(summaryLines()[0]).not.toMatch(/ compiled /)
   })
 
-  it('marks errors and warnings together', async () => {
+  it('counts errors and warnings together', async () => {
     await run('build', diagnostics(2, 3))
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(
-        new RegExp(`${STAMP}compiled with errors in \\d+ ms\\.$`)
+    expect(summaryLines()).toEqual(
+      lineEnding(
+        String.raw`failed to compile with 3 errors and 2 warnings in \d+ ms\.`
       )
-    ])
+    )
+  })
+
+  it('counts one error and one warning in the singular', async () => {
+    await run('build', diagnostics(1, 1))
+
+    expect(summaryLines()).toEqual(
+      lineEnding(
+        String.raw`failed to compile with 1 error and 1 warning in \d+ ms\.`
+      )
+    )
   })
 
   it('leaves the diagnostics to the caller', async () => {
@@ -153,31 +188,31 @@ describe('the compile line of a build', () => {
     expect(printed).toHaveLength(1)
   })
 
-  it('misses an error a later done tap adds', async () => {
+  it('counts an error a later done tap adds', async () => {
     await run('build', (compiler) => {
       compiler.hooks.done.tap('spec:late-error', (stats) => {
         stats.compilation.errors.push(new Error('late error') as never)
       })
     })
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(new RegExp(`${STAMP}compiled in \\d+ ms\\.$`))
-    ])
+    expect(summaryLines()).toEqual(
+      lineEnding(String.raw`failed to compile with 1 error in \d+ ms\.`)
+    )
   })
 
-  it('misses a warning a later done tap adds', async () => {
+  it('counts a warning a later done tap adds', async () => {
     await run('build', (compiler) => {
       compiler.hooks.done.tap('spec:late-warning', (stats) => {
         stats.compilation.warnings.push(new Error('late warning') as never)
       })
     })
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(new RegExp(`${STAMP}compiled in \\d+ ms\\.$`))
-    ])
+    expect(summaryLines()).toEqual(
+      lineEnding(String.raw`compiled with 1 warning in \d+ ms, listed below\.`)
+    )
   })
 
-  it('prints a line for a build a later done tap throws out of', async () => {
+  it('prints no line for a build a later done tap throws out of', async () => {
     const failure = run('build', (compiler) => {
       compiler.hooks.done.tapPromise('spec:late-throw', async () => {
         throw new Error('late throw')
@@ -185,7 +220,7 @@ describe('the compile line of a build', () => {
     })
 
     await expect(failure).rejects.toThrow('late throw')
-    expect(summaryLines()).toHaveLength(1)
+    expect(printed).toEqual([])
   })
 })
 
@@ -194,42 +229,49 @@ describe('the compile line of a dev compile', () => {
     await run('dev')
 
     expect(printed).toHaveLength(1)
-    expect(printed[0].text).toMatch(
-      new RegExp(`${STAMP}compiled in \\d+ ms\\.$`)
-    )
+    expect(summaryLines()).toEqual(lineEnding(String.raw`compiled in \d+ ms\.`))
   })
 
-  it('comes before the warnings it marks', async () => {
+  it('comes after the warnings it counts and points nowhere', async () => {
     await run('dev', diagnostics(2, 0))
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(
-        new RegExp(`${STAMP}compiled with warnings in \\d+ ms\\.$`)
-      )
-    ])
+    expect(summaryLines()).toEqual(
+      lineEnding(String.raw`compiled with 2 warnings in \d+ ms\.`)
+    )
 
-    expect(printed.map((entry) => entry.channel)).toEqual(['log', 'warn'])
-    expect(printed[1].text).toContain('spec warning 1')
-    expect(printed[1].text).toContain('spec warning 2')
-    expect(indexOfText('Real Name compiled')).toBeLessThan(
-      indexOfText('spec warning 1')
+    expect(printed.map((entry) => entry.channel)).toEqual(['warn', 'log'])
+    expect(printed[0].text).toContain('spec warning 1')
+    expect(printed[0].text).toContain('spec warning 2')
+    expect(indexOfText('spec warning 2')).toBeLessThan(
+      indexOfText('Real Name compiled')
     )
   })
 
-  it('comes before the errors it marks', async () => {
+  it('comes after the errors it counts', async () => {
     await run('dev', diagnostics(1, 2))
 
-    expect(summaryLines()).toEqual([
-      expect.stringMatching(
-        new RegExp(`${STAMP}compiled with errors in \\d+ ms\\.$`)
+    expect(summaryLines()).toEqual(
+      lineEnding(
+        String.raw`failed to compile with 2 errors and 1 warning in \d+ ms\.`
       )
-    ])
-
-    expect(printed.map((entry) => entry.channel)).toEqual(['log', 'error'])
-    expect(printed[1].text).toContain('spec error 2')
-    expect(printed[1].text).toContain('spec warning 1')
-    expect(indexOfText('Real Name compiled')).toBeLessThan(
-      indexOfText('spec error 1')
     )
+
+    expect(printed.map((entry) => entry.channel)).toEqual(['error', 'log'])
+    expect(printed[0].text).toContain('spec error 2')
+    expect(printed[0].text).toContain('spec warning 1')
+    expect(indexOfText('spec error 2')).toBeLessThan(
+      indexOfText('Real Name failed to compile')
+    )
+  })
+
+  it('stays ahead of a tap registered after the plugin', async () => {
+    await run('dev', (compiler) => {
+      compiler.hooks.done.tap('spec:card', () => console.log('the card'))
+    })
+
+    expect(printed.map((entry) => entry.text)).toEqual([
+      expect.stringMatching(new RegExp(`${STAMP}compiled in \\d+ ms\\.$`)),
+      'the card'
+    ])
   })
 })

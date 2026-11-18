@@ -223,7 +223,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -273,7 +273,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -345,7 +345,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -423,7 +423,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -568,7 +568,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -643,7 +643,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -715,7 +715,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -788,7 +788,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',

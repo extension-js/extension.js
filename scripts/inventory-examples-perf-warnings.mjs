@@ -79,7 +79,7 @@ function listExampleDirs() {
 function parseBuildOutput(text, receiptOk) {
   const hadBuildWarnLine =
     /Build succeeded with \d+ warning\(s\)/i.test(text) ||
-    /compiled with warnings in \d+ ms/i.test(text)
+    /compiled with (?:\d+ )?warnings? in \d+ ms/i.test(text)
   const hadAssetWarn =
     /exceed the extension performance budget/i.test(text) ||
     /asset size limit exceeded/i.test(text) || // legacy rspack pattern, kept for future-proofing
