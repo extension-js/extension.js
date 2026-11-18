@@ -99,6 +99,7 @@ export class CDPExtensionController {
   private readonly pipeIn?: Readable
   private readonly pipeOut?: Writable
   private readonly logSink?: BrowserLogSink
+  private readonly runId?: string
   private cdp: CDPClient | null = null
   private targetAttacher: ExtensionTargetAttacher | null = null
   public onTransportGone: ((reason: string) => void) | undefined
@@ -115,8 +116,11 @@ export class CDPExtensionController {
     pipeIn?: Readable
     pipeOut?: Writable
     logSink?: BrowserLogSink
+    // The run this browser was launched for, so its stamps stay off a later one.
+    runId?: string
   }) {
     this.outPath = args.outPath
+    this.runId = args.runId
     this.browser = args.browser
     this.cdpPort = args.cdpPort
     this.profilePath = args.profilePath
@@ -459,7 +463,7 @@ export class CDPExtensionController {
       if (present) {
         if (!this.extensionId) this.extensionId = expectedId
 
-        stampReadyExtensionId(this.outPath, expectedId)
+        stampReadyExtensionId(this.outPath, expectedId, this.runId)
 
         return {status: 'loaded', extensionId: expectedId}
       }
@@ -477,7 +481,7 @@ export class CDPExtensionController {
       // The browser's own id, so the banner stops relying on the path hash.
       if (!this.extensionId) this.extensionId = outcome.extensionId
 
-      stampReadyExtensionId(this.outPath, outcome.extensionId)
+      stampReadyExtensionId(this.outPath, outcome.extensionId, this.runId)
     }
 
     if (outcome.status === 'refused') {
@@ -617,7 +621,7 @@ export class CDPExtensionController {
     }
 
     if (this.extensionId) {
-      stampReadyExtensionId(this.outPath, this.extensionId)
+      stampReadyExtensionId(this.outPath, this.extensionId, this.runId)
 
       try {
         let info: {
@@ -664,7 +668,7 @@ export class CDPExtensionController {
         )
       }
 
-      stampReadyExtensionId(this.outPath, this.extensionId)
+      stampReadyExtensionId(this.outPath, this.extensionId, this.runId)
 
       await this.enableLogging()
 

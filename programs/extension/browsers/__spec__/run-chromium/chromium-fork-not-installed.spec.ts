@@ -56,8 +56,7 @@ describe('a system-located chromium fork that is not installed', () => {
     }
   })
 
-  // Pins today's behavior. Ledger 1374 D7.
-  it('answers an empty string when the locator throws, which prints a block with no steps', () => {
+  it('prints an install step of its own when the locator throws', () => {
     vivaldiLocator.throws = true
 
     try {
@@ -71,7 +70,7 @@ describe('a system-located chromium fork that is not installed', () => {
 
       expect(lines[0].endsWith(" Vivaldi isn't installed.")).toBe(true)
       expect(lines.slice(1)).toEqual([
-        '',
+        'Install Vivaldi, then run the command again.',
         'Or point at a binary with --chromium-binary <path>, or choose another browser with --browser <chrome|chromium|edge|brave|opera|vivaldi|yandex>.'
       ])
     } finally {

@@ -75,8 +75,11 @@ export async function stampReadyWhenRdpPortOpens(
 ): Promise<RdpPortWait> {
   const result = await waitForRdpPort(options)
 
-  if (result.open) stampReadyRdpPort(extensionOutputPath, options.port)
-  else stampReadyRdpPortError(extensionOutputPath, result.reason, options.runId)
+  if (result.open) {
+    stampReadyRdpPort(extensionOutputPath, options.port, options.runId)
+  } else {
+    stampReadyRdpPortError(extensionOutputPath, result.reason, options.runId)
+  }
 
   return result
 }
