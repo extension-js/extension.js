@@ -331,7 +331,9 @@ export function devServerRestarting(request: {
             ? 'an environment file'
             : request.reason === 'public'
               ? 'a public folder'
-              : 'a manifest script entry'
+              : request.reason === 'styles'
+                ? 'a PostCSS setup'
+                : 'a manifest script entry'
   const lines = [
     `${getLoggingPrefix('info')} Restarting the dev server to pick up ${what} change…`
   ]

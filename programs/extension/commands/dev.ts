@@ -29,7 +29,7 @@ import {
 } from '../helpers/cli-options'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
-import {exitWithFailure} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
   loadExtensionDevelopModule
@@ -157,6 +157,8 @@ interface DevCommandDeps {
   createPackager?: typeof createSafariPackager
   reportFailure?: typeof reportCommandFailureNow
   noteBrowsers?: typeof noteRunBrowsers
+  // Ends the process once stdout is written out, which a bare exit cuts.
+  exitDrained?: (code: number) => Promise<void>
 }
 
 export function registerDevCommand(
@@ -169,7 +171,8 @@ export function registerDevCommand(
     waitForReady = runWaitMode,
     createPackager = createSafariPackager,
     reportFailure = reportCommandFailureNow,
-    noteBrowsers = noteRunBrowsers
+    noteBrowsers = noteRunBrowsers,
+    exitDrained = exitAfterDrain
   }: DevCommandDeps = {}
 ) {
   program
@@ -636,10 +639,19 @@ export function registerDevCommand(
         // develop exits the process itself on a failure it already printed,
         // which skips every reporting path, so the failure row is sent here.
         const reportExitError = (error: unknown, fallbackCode?: string) => {
-          reportFailure({
-            code: declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
-            exitCode: 1
-          })
+          try {
+            reportFailure({
+              code:
+                declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
+              exitCode: 1
+            })
+          } catch {
+            // Best-effort: a report that throws must not keep the process up.
+          }
+
+          // Under --output json develop ends the session and exits nothing.
+          // Its failed frame is out, so the exit here prints no second one.
+          if (asJson) void exitDrained(1)
         }
 
         const {extensionDev} = await loadDevelop()
@@ -749,22 +761,29 @@ export function registerDevCommand(
             // untagged is an internal fault rather than a known class.
             const code = declaredErrorCode(error) ?? CODES.E_INTERNAL
 
-            printFrame(
-              ENVELOPE.fail(
-                'dev',
-                'failed',
-                {
-                  code,
-                  message:
-                    error instanceof Error ? error.message : String(error)
-                },
-                {
-                  hint:
-                    failureHint(code) ??
-                    'Fix the error above and run dev again.'
-                }
+            // A session has one terminal frame. An engine that already wrote
+            // it says so on the error, and a second one would break readers.
+            if ((error as {framed?: unknown} | null)?.framed !== true) {
+              printFrame(
+                ENVELOPE.fail(
+                  'dev',
+                  'failed',
+                  {
+                    code,
+                    message:
+                      error instanceof Error ? error.message : String(error)
+                  },
+                  {
+                    // The engine knows the session that failed, so a reader
+                    // still finds the port and the ready file on this frame.
+                    value: (error as {session?: unknown} | null)?.session,
+                    hint:
+                      failureHint(code) ??
+                      'Fix the error above and run dev again.'
+                  }
+                )
               )
-            )
+            }
 
             exitWithFailure(code, 1, reportFailure)
           }

@@ -7,6 +7,7 @@ import {
   DevSessionRestartScheduler,
   endCompilerRestart,
   isCompilerRestarting,
+  isDevSessionRestartPending,
   requestDevSessionRestart,
   unbindDevSessionRestart
 } from '../session-restart'
@@ -223,5 +224,32 @@ describe('requestDevSessionRestart', () => {
     unbindDevSessionRestart(a)
     expect(canAutoRestartDevSession()).toBe(false)
     expect(requestDevSessionRestart(compilerA, {reason: 'env'})).toBe(false)
+  })
+
+  it('says a restart is pending from the request until the restart ends', async () => {
+    expect(isDevSessionRestartPending()).toBe(false)
+
+    let end = () => {}
+
+    const scheduler = new DevSessionRestartScheduler(0)
+
+    scheduler.setHandler(
+      () =>
+        new Promise<void>((resolve) => {
+          end = resolve
+        })
+    )
+
+    bindDevSessionRestart(scheduler)
+
+    requestDevSessionRestart({}, {reason: 'env', pathChanged: '/.env'})
+    expect(isDevSessionRestartPending()).toBe(true)
+
+    end()
+    await tick()
+    expect(isDevSessionRestartPending()).toBe(false)
+
+    unbindDevSessionRestart()
+    expect(isDevSessionRestartPending()).toBe(false)
   })
 })
