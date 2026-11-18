@@ -60,6 +60,116 @@ test('every ci test matrix entry runs a suite no other entry runs', () => {
   }
 })
 
+test('pull requests run each suite once on the engines floor, newer Node on main and nightly', () => {
+  const ci = workflow('ci.yml')
+  const floor = JSON.parse(
+    fs.readFileSync(
+      path.join(root, 'programs', 'extension', 'package.json'),
+      'utf8'
+    )
+  ).engines.node.replace('>=', '')
+  const suites = ['ci:test:develop', 'ci:test:cli', 'ci:test:create']
+
+  const tests = jobSection(ci, 'tests')
+  assert.deepEqual(matrixSuites(ci, 'tests'), suites)
+  assert.match(tests, new RegExp(`node-version: '${floor}'\n`))
+  assert.doesNotMatch(tests, /^ {4}if: /m)
+
+  const current = jobSection(ci, 'tests-node')
+  assert.deepEqual(matrixSuites(ci, 'tests-node'), suites)
+  assert.match(current, /^ {4}if: github\.event_name != 'pull_request'$/m)
+  const nodes = /^ {8}node: \[(.+)\]$/m.exec(current)[1]
+  assert.ok(!nodes.includes(floor), nodes)
+
+  const nightly = workflow('programs-nightly.yml')
+  const lane = jobSection(nightly, 'nightly-node-current')
+  assert.deepEqual(matrixSuites(nightly, 'nightly-node-current'), suites)
+  assert.equal(/^ {8}node: \[(.+)\]$/m.exec(lane)[1].replace(/'/g, ''), nodes)
+  assert.match(lane, /node-version: \$\{\{ matrix\.node \}\}/)
+  assert.match(step(lane, 'Report a red lane'), /if: failure\(\)/)
+  assert.match(step(lane, 'Close the red lane'), /if: success\(\)/)
+})
+
+test('windows runs the suites as two parallel jobs, each with its own timeout', () => {
+  const ci = workflow('ci.yml')
+
+  assert.equal(ci.includes('\n  tests-windows:\n'), false)
+
+  const develop = jobSection(ci, 'tests-windows-develop')
+  const cli = jobSection(ci, 'tests-windows-cli')
+
+  for (const job of [develop, cli]) {
+    assert.match(job, /^ {4}runs-on: windows-latest$/m)
+    assert.match(job, /^ {4}timeout-minutes: \d+$/m)
+    assert.doesNotMatch(job, /^ {4}needs: /m)
+  }
+
+  assert.match(develop, /run: pnpm test:dev$/m)
+  assert.match(cli, /run: pnpm test:cli$/m)
+  assert.match(cli, /run: pnpm ci:test:create$/m)
+  assert.match(scripts['test:dev'], /run-test\.mjs develop$/)
+  assert.match(scripts['test:cli'], /run-test\.mjs cli$/)
+
+  // The Edge locate proof reads the compiled CLI, so it stays beside it.
+  assert.equal(ci.split('verify-edge-system-locate.mjs').length - 1, 1)
+  assert.ok(
+    cli.indexOf('--filter extension compile') <
+      cli.indexOf('verify-edge-system-locate.mjs')
+  )
+})
+
+test('the optional deps smoke keeps macOS off pull requests and names every leg apart', () => {
+  const lane = workflow('optional-deps-matrix.yml')
+  const main = jobSection(lane, 'optional-deps-smoke')
+  const macos = jobSection(lane, 'optional-deps-smoke-macos')
+
+  assert.match(lane, /^ {2}pull_request:$/m)
+  assert.doesNotMatch(main, /macos/)
+  assert.doesNotMatch(main, /^ {4}if: /m)
+  assert.match(macos, /^ {4}runs-on: macos-latest$/m)
+  assert.match(macos, /^ {4}if: github\.event_name != 'pull_request'$/m)
+  assert.match(macos, /^ {8}pm: \[pnpm, deno\]$/m)
+  assert.match(macos, /run-optional-deps-smoke\.mjs --pm "\$SMOKE_PM"/)
+
+  // The helper spec runs once in the CI quality job, not on every leg.
+  assert.ok(!lane.includes('__spec__'))
+
+  // The fork legs share os and pm with the plain pnpm leg, so the browser
+  // has to be part of the job name or three rows read the same.
+  assert.match(
+    main,
+    /name: smoke \(\$\{\{ matrix\.os \}\} \/ \$\{\{ matrix\.pm \}\}\$\{\{ matrix\.browser && format\(' \/ \{0\}', matrix\.browser\) \|\| '' \}\}\)/
+  )
+})
+
+test('dependabot groups npm minor and patch bumps and never rebases on its own', () => {
+  const config = fs.readFileSync(
+    path.join(root, '.github', 'dependabot.yml'),
+    'utf8'
+  )
+  const entries = config.split(/\n {2}- package-ecosystem: /).slice(1)
+  const npm = entries.filter((entry) => entry.startsWith('"npm"'))
+
+  assert.equal(npm.length, 1)
+  assert.ok(entries.length >= 2)
+
+  for (const entry of entries) {
+    assert.match(entry, /^ {4}rebase-strategy: "disabled"$/m)
+  }
+
+  for (const applies of ['version-updates', 'security-updates']) {
+    assert.match(
+      npm[0],
+      new RegExp(
+        `applies-to: ${applies}\\n\\s+patterns:\\n\\s+- "\\*"\\n\\s+update-types:\\n\\s+- "minor"\\n\\s+- "patch"\\n`
+      )
+    )
+  }
+
+  // A major left out of every group gets a pull request of its own.
+  assert.doesNotMatch(npm[0], /- "major"/)
+})
+
 test('no ci:test script is an alias of another', () => {
   const bodies = Object.entries(scripts)
     .filter(([name]) => name.startsWith('ci:test:'))
@@ -163,6 +273,24 @@ test('the ci passed gate waits on every other job and reads each result', () => 
   assert.match(gate, /if: always\(\)/)
   assert.match(gate, /join\(needs\.\*\.result, ' '\)/)
   assert.match(gate, /bash scripts\/check-ci-results\.sh "\$\{RESULTS\}"/)
+
+  // Only a pull request run is cancelled, so a run of main always reports.
+  assert.match(
+    ci,
+    /^ {2}cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' \}\}$/m
+  )
+
+  assert.match(gate, /^ {6}issues: write$/m)
+  assert.doesNotMatch(ci.slice(0, ci.indexOf('\njobs:\n')), /issues: write/)
+  assert.match(
+    step(gate, 'Report a red lane'),
+    /if: failure\(\) && github\.ref == 'refs\/heads\/main'[\s\S]*GH_TOKEN[\s\S]*report-red-lane\.sh "CI"/
+  )
+
+  assert.match(
+    step(gate, 'Close the red lane'),
+    /if: success\(\) && github\.ref == 'refs\/heads\/main'[\s\S]*close-red-lane\.sh "CI"/
+  )
 })
 
 test('the telemetry lane runs the tree, fails on a failed verb and asserts an event per verb', () => {

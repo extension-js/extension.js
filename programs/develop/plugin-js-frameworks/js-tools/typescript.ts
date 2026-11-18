@@ -158,6 +158,9 @@ export function defaultTypeScriptConfig(projectPath: string) {
       // `tsc --noEmit` with TS5108; 'bundler' models the Rspack/SWC pipeline.
       moduleResolution: 'bundler',
       module: 'esnext',
+      // A script with no import is still a module to the bundler. Without this
+      // tsc reads it as a global script and a top-level const fails with TS2451.
+      moduleDetection: 'force',
       resolveJsonModule: true,
       strict: true,
       target: 'esnext',

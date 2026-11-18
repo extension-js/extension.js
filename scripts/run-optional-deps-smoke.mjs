@@ -344,7 +344,7 @@ function runLong(command, args, cwd, env = baseEnv, opts = {}) {
 // file-links against. Keep this in sync when renaming/adding `programs/*`
 // packages, `assertLocalWorkspacePackagesExist()` and the helper spec validate
 // that every path here exists on disk, so stale entries fail fast in the
-// "Test optional deps smoke helpers" CI step (before the slow smoke lanes).
+// script specs the CI quality job runs.
 function getLocalWorkspacePackagePaths() {
   return {
     create: path.join(ROOT_DIR, 'programs', 'create'),
