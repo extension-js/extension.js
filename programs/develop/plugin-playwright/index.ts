@@ -358,6 +358,22 @@ const settledLaunches = new Set<string>()
 // so the other session is noticed twice and told of once.
 const devOverDevWarnedByMetadataDir = new Set<string>()
 
+// A host that outlives a session starts the next one in the same process,
+// and that one is a new run: its own id, its own launch, its own notices.
+export function forgetSessionRun(packageJsonDir: string, browser: string) {
+  const metadataDir = getPlaywrightMetadataDir(packageJsonDir, browser)
+  const readyPath = asAbsolute(readyContractPath(packageJsonDir, browser))
+
+  runIdByMetadataDir.delete(metadataDir)
+  devOverDevWarnedByMetadataDir.delete(metadataDir)
+
+  for (const launchKey of settledLaunches) {
+    if (launchKey.startsWith(`${readyPath}\n`)) {
+      settledLaunches.delete(launchKey)
+    }
+  }
+}
+
 // The one identifier a consumer cannot read from the manifest alone: gecko
 // declares it, chromium hashes the manifest key or the loaded dist path.
 // Safari has no dist-derivable id at all: identity is the appex bundle id

@@ -2,16 +2,17 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {diagnosticCode} from '../../lib/diagnostic-code'
-import {ReloadPlugin, SetupChunkLoadingTarget} from '../index'
-import {SetupBackgroundEntry} from '../steps/setup-reload-strategy/setup-background-entry'
 import {
   compileIssues,
   idleCompiler,
   tapsAddedBy,
   writeProject
-} from './helpers/real-compiler'
+} from '../../__spec__/helpers/real-compiler'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {diagnosticCode} from '../../lib/diagnostic-code'
+import {SetupChunkLoadingTarget} from '../../plugin-web-extension/feature-chunk-loading'
+import {ReloadPlugin} from '../index'
+import {SetupBackgroundEntry} from '../steps/setup-reload-strategy/setup-background-entry'
 
 const tempDirs: string[] = []
 
