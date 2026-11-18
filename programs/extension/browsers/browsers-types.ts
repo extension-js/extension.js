@@ -6,27 +6,12 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {LogContext as SharedLogContext} from '../helpers/log-contexts'
+import type {BrowserType} from '../config-types'
+import type {LogContext} from '../helpers/log-contexts'
+import type {LogLevel} from '../helpers/normalize-options'
 
-export type BrowserType =
-  | 'chrome'
-  | 'edge'
-  | 'firefox'
-  | 'chromium'
-  | 'brave'
-  | 'opera'
-  | 'vivaldi'
-  | 'yandex'
-  | 'waterfox'
-  | 'librewolf'
-  | 'zen'
-  | 'floorp'
-  | 'chromium-based'
-  | 'gecko-based'
-  | 'firefox-based'
-  | 'safari'
-  | 'webkit-based'
-  | 'chromium-emulator'
+// One list of targets for the config type and the launchers.
+export type {BrowserType} from '../config-types'
 
 // Lightweight stand-in for rspack's Compilation used by browser-launching code;
 // only properties actually read by launch/reload/inspection flows.
@@ -142,7 +127,7 @@ export interface PluginInterface extends PluginOptions {
 
   instanceId?: string
 
-  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
+  logLevel?: LogLevel
 
   logContexts?: LogContext[]
 
@@ -168,16 +153,8 @@ export interface PluginInterface extends PluginOptions {
   dryRun?: boolean
 }
 
-export type LogLevel =
-  | 'off'
-  | 'error'
-  | 'warn'
-  | 'info'
-  | 'debug'
-  | 'trace'
-  | 'all'
-
-export type LogContext = SharedLogContext
+export type {LogContext} from '../helpers/log-contexts'
+export type {LogLevel} from '../helpers/normalize-options'
 
 // A browser-generated log entry (CDP Log.entryAdded) normalized for the host's
 // log pipeline; these never pass the page console hook, so they need a sink.
