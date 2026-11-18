@@ -90,6 +90,17 @@ function project(name, config) {
 const distManifest = (dir) =>
   path.join(dir, 'dist', 'chromium', 'manifest.json')
 
+// The run the contract on disk names, read once its session has ended.
+function readyRunId(dir) {
+  const file = path.join(dir, 'dist', 'extension-js', 'chromium', 'ready.json')
+
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8')).runId ?? null
+  } catch {
+    return null
+  }
+}
+
 function start(dir) {
   let ready = false
   const session = extensionDev(dir, {
@@ -107,6 +118,8 @@ function start(dir) {
       code: error?.code,
       message: String(error?.message ?? error).split('\n')[0],
       instanceId: error?.session?.instanceId,
+      runId: error?.session?.runId,
+      readyRunId: readyRunId(dir),
       framed: error?.framed
     })
   )

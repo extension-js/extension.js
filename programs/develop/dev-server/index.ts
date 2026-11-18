@@ -47,6 +47,7 @@ import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {
   createPlaywrightMetadataWriter,
   detectLiveDevSessionOwner,
+  forgetSessionRun,
   getSessionRunId
 } from '../plugin-playwright'
 import {
@@ -585,6 +586,11 @@ async function startDevSession(
   // logs.ndjson/events.ndjson rows must stamp the SAME runId ready.json
   // publishes, or consumers joining on it read every live row as foreign.
   const sessionRunId = getSessionRunId(packageJsonDir, browserName)
+
+  // Registered first, so it runs last: after the final contract write. The
+  // next session in this host is a new run and draws its own id.
+  holdings.add(() => forgetSessionRun(packageJsonDir, browserName))
+
   const bridgeLogFile = new LogsFileWriter({
     filePath: bridgeLogsAbsPath,
     runId: sessionRunId

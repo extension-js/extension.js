@@ -15,6 +15,8 @@ interface FailedSession {
   code?: string
   message?: string
   instanceId?: string
+  runId?: string
+  readyRunId?: string | null
   framed?: boolean
 }
 
@@ -150,6 +152,23 @@ describe('a host that starts dev sessions from the library', () => {
     ).toEqual(ids)
 
     expect(result.after).toEqual(result.before)
+  }, 180_000)
+
+  it('gives each session in turn its own run, named by its frames and its contract', async () => {
+    const {result, frames} = await runHost<HostResult>('start', {
+      EXTENSION_OUTPUT: 'ndjson'
+    })
+    const runIds = result.sessions.map((session) => session.runId)
+
+    expect(runIds.every((runId) => typeof runId === 'string')).toBe(true)
+    expect(new Set(runIds).size).toBe(4)
+
+    // Both frames of a session and the ready.json it left name its run.
+    expect(frames.map((frame) => frame.value?.runId)).toEqual(
+      runIds.flatMap((runId) => [runId, runId])
+    )
+
+    expect(result.sessions.map((session) => session.readyRunId)).toEqual(runIds)
   }, 180_000)
 
   it('writes one failed frame and no stopped one when the host ends the session as failed', async () => {
