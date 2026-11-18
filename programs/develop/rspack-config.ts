@@ -243,7 +243,8 @@ export default function webpackConfig(
       browser: devOptions.browser,
       devSession,
       instanceId: devOptions.instanceId,
-      controlPort: devOptions.controlPort
+      controlPort: devOptions.controlPort,
+      connectableHost: devOptions.connectableHost
     }),
     // The web-extension chunk-loading target, which dev gets via ReloadPlugin.
     // Production needs it too: rspack's web-target loader appends a <script> to
@@ -398,8 +399,9 @@ export default function webpackConfig(
       manifestPath,
       port: devOptions.port,
       // Connectable host clients dial (HMR + control bridge). Resolved once by
-      // dev-server/index.ts and exported via env; falls back to the bind host.
+      // dev-server/index.ts per session; falls back to the bind host.
       host:
+        devOptions.connectableHost ||
         process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
         (devOptions as {host?: string}).host,
       instanceId: devOptions.instanceId,

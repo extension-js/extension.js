@@ -158,10 +158,12 @@ export function buildContentScriptsMeta(
 export class SetupReloadStrategy {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
+  private readonly connectableHost?: string
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {connectableHost?: string}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.connectableHost = options.connectableHost
   }
 
   public apply(compiler: Compiler) {
@@ -183,6 +185,7 @@ export class SetupReloadStrategy {
         projectPath: compiler.options.context as string | undefined
       }),
       hmrConfig: false,
+      connectableHost: this.connectableHost,
       weakRuntimeCheck: true,
       contentScriptsMeta,
       gecko: isGeckoBasedBrowser(String(this.browser)),

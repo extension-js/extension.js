@@ -41,7 +41,9 @@ export default class WebExtensionPlugin {
     if (experimental_output)
       new InitialChunkFilePlugin(this.options).apply(compiler)
     if (this.options.hmrConfig !== false)
-      new HMRDevServerPlugin().apply(compiler)
+      new HMRDevServerPlugin({
+        connectableHost: this.options.connectableHost
+      }).apply(compiler)
     // Pass full plugin options so runtime can be world-aware for content scripts.
     new ChunkLoaderRuntimePlugin(this.options).apply(compiler)
     new NoDangerNamePlugin().apply(compiler)

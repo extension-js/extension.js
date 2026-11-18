@@ -88,6 +88,11 @@ export interface WebExtensionPluginOptions {
    */
   hmrConfig?: boolean
   /**
+   * The host the HMR client dials, given by the dev session that owns this
+   * compiler. Falls back to the environment when not given.
+   */
+  connectableHost?: string
+  /**
    *
    * **This is an experimental API.**
    * **API might change at any time.**

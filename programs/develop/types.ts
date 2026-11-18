@@ -569,6 +569,11 @@ export interface CommonWebpackOptions {
    * PlaywrightPlugin can advertise them in ready.json. Not user-configurable.
    */
   controlPort?: number | null
+  /**
+   * The host this session's browser dials for HMR and the control bridge.
+   * Given by the dev session that builds the config. Not user-configurable.
+   */
+  connectableHost?: string
   controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string

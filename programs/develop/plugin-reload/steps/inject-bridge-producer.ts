@@ -113,6 +113,9 @@ export interface BridgeCoordinates {
   // Null when the session has no control bridge, which the environment of
   // another session in the same host must not fill in.
   controlPort?: number | null
+  // The host this session's browser dials, so another session's environment
+  // in the same host process does not name it.
+  connectableHost?: string
 }
 
 // Prepends the agent-bridge producer to the compiled background SW; control
@@ -133,10 +136,12 @@ export class InjectBridgeProducer {
       this.coordinates.instanceId ?? (process.env.EXTENSION_INSTANCE_ID || '')
     )
     // Connectable host of the control WS (loopback locally; the public host for
-    // remote/devcontainer). Resolved once by dev-server/index.ts.
+    // remote/devcontainer). Resolved once per session by dev-server/index.ts.
     const host =
-      String(process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || '').trim() ||
-      '127.0.0.1'
+      String(
+        this.coordinates.connectableHost ??
+          (process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || '')
+      ).trim() || '127.0.0.1'
     const source = buildBridgeProducerSource({
       controlPort: Number.isFinite(controlPort) ? controlPort : null,
       instanceId,

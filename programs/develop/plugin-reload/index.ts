@@ -85,7 +85,8 @@ export class ReloadPlugin {
     this.devSession = options.devSession
     this.bridge = {
       instanceId: options.instanceId,
-      controlPort: options.controlPort
+      controlPort: options.controlPort,
+      connectableHost: options.connectableHost
     }
   }
 
@@ -113,7 +114,8 @@ export class ReloadPlugin {
 
     new SetupReloadStrategy({
       manifestPath: this.manifestPath,
-      browser: this.browser
+      browser: this.browser,
+      connectableHost: this.bridge.connectableHost
     }).apply(compiler)
 
     // Inject the SW-side __extjsScriptsReplay shim so the controller can re-run

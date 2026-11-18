@@ -1,4 +1,10 @@
 export default class DevServerConfigPlugin {
+  private readonly connectableHost?: string
+
+  constructor(options: {connectableHost?: string} = {}) {
+    this.connectableHost = options.connectableHost
+  }
+
   apply(compiler: any) {
     if (!compiler.options.devServer) compiler.options.devServer = {}
     const devServer = compiler.options.devServer
@@ -27,14 +33,10 @@ export default class DevServerConfigPlugin {
     // collide with user apps (e.g. localhost:8080) and produce "Upgrade Required" responses.
     setDefault(devServer.client, 'webSocketURL', {protocol: 'ws'})
     setDefault(devServer.client.webSocketURL, 'protocol', 'ws')
-    // The HMR client must dial a CONNECTABLE host, not the bind host. Under
-    // `--host 0.0.0.0` (devcontainer/CI) `devServer.host` is a wildcard the
-    // browser can't connect to, which silently breaks HMR. dev-server/index.ts
-    // resolves the connectable host once (resolveConnectableHost) and exports it
-    // here; prefer it, then rewrite any wildcard bind host to loopback as a
-    // fallback, and only use the raw bind host when it's already connectable.
+    // The HMR client dials the session's connectable host, never a wildcard
+    // bind host such as 0.0.0.0, which the browser cannot reach.
     const connectableHost = resolveClientHost(
-      process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST,
+      this.connectableHost ?? process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST,
       devServer.host
     )
     if (connectableHost)
