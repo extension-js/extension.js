@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
+import {isOsPathUnder} from '../../../lib/real-path'
 import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
@@ -16,15 +17,16 @@ import {isFolder, resolveRootAbsoluteRef} from '../../shared/paths'
 import {findCompiledRootRefSource} from '../html-lib/compiled-root-ref'
 import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
+import {sourceMayShip} from '../html-lib/source-may-ship'
 import {
-  cleanLeading,
   getAssetsFromHtml,
   getFilePath,
   htmlStaticAssetOutputName,
   isFromIncludeList,
   isHttpLike,
   isSpecialScheme,
-  resolveAbsoluteFsPath
+  resolveAbsoluteFsPath,
+  rootUrlPath
 } from '../html-lib/utils'
 
 function warnRemoteResourceReferences(params: {
@@ -213,11 +215,22 @@ function checkMissingLocalEntries(params: {
 
 function emitNestedHtmlAndReferencedAssets(params: {
   compilation: Compilation
+  compiler: Compiler
   filepath: string
   absoluteFsPath: string
   manifestDir: string
+  projectRoot: string
+  publicDir: string
 }) {
-  const {compilation, filepath, absoluteFsPath, manifestDir} = params
+  const {
+    compilation,
+    compiler,
+    filepath,
+    absoluteFsPath,
+    manifestDir,
+    projectRoot,
+    publicDir
+  } = params
   const source = fs.readFileSync(absoluteFsPath)
   const updatedHtml = patchHtmlNested(compilation, absoluteFsPath, manifestDir)
   const htmlAssets = getAssetsFromHtml(absoluteFsPath)
@@ -236,6 +249,30 @@ function emitNestedHtmlAndReferencedAssets(params: {
     // A ref that doesn't resolve to a real source file must not throw here: an
     // uncaught ENOENT inside processAssets wedges the watch loop.
     if (!path.isAbsolute(assetFromHtml) || !fs.existsSync(assetFromHtml)) {
+      return
+    }
+
+    const authored = htmlAssets?.authored?.[assetFromHtml] || assetFromHtml
+    const verdict = sourceMayShip(assetFromHtml, projectRoot, manifestDir, {
+      rootRef: authored.startsWith('/') ? assetFromHtml : undefined,
+      publicDir
+    })
+
+    if (!verdict.ship) {
+      reportToCompilation(
+        compilation,
+        compiler,
+        messages.fileNotFound(
+          absoluteFsPath,
+          authored.startsWith('/')
+            ? path.join(manifestDir, rootUrlPath(assetFromHtml))
+            : assetFromHtml,
+          {publicRootHint: authored.startsWith('/'), refLabel: authored}
+        ),
+        'warning',
+        path.relative(manifestDir, absoluteFsPath)
+      )
+
       return
     }
 
@@ -393,29 +430,50 @@ export class AddAssetsToCompilation {
                   manifestRoot: manifestDir
                 })
 
+              // Written with a leading slash, the ref is a path inside the
+              // extension, also when a file sits at that address on disk.
+              const authored = parsedAssets?.authored?.[asset] || asset
+              const asRootUrl =
+                isRootUrl ||
+                (authored.startsWith('/') && !isOsPathUnder(projectRoot, asset))
+              const withheld = !sourceMayShip(
+                absoluteFsPath,
+                projectRoot,
+                manifestDir,
+                {
+                  rootRef: asRootUrl ? asset : undefined,
+                  publicDir: publicRootForResource
+                }
+              ).ship
+
               if (
+                !withheld &&
                 isRootUrl &&
                 fs.existsSync(
-                  path.join(publicRootForResource, cleanLeading(asset))
+                  path.join(publicRootForResource, rootUrlPath(asset))
                 )
               ) {
                 continue
               }
 
-              if (!fs.existsSync(absoluteFsPath)) {
+              if (withheld || !fs.existsSync(absoluteFsPath)) {
                 const inIncludeList = isFromIncludeList(asset, this.includeList)
 
-                if (!inIncludeList && !path.basename(asset).startsWith('#')) {
-                  const displayPath = isRootUrl
-                    ? path.join(manifestDir, cleanLeading(asset))
+                // A withheld file is reported the way a missing one is.
+                if (
+                  withheld ||
+                  (!inIncludeList && !path.basename(asset).startsWith('#'))
+                ) {
+                  const displayPath = asRootUrl
+                    ? path.join(manifestDir, rootUrlPath(asset))
                     : absoluteFsPath
 
                   reportToCompilation(
                     compilation,
                     compiler,
                     messages.fileNotFound(resource as string, displayPath, {
-                      publicRootHint: isRootUrl,
-                      refLabel: asset
+                      publicRootHint: asRootUrl,
+                      refLabel: asRootUrl ? asset : authored
                     }),
                     'warning',
                     path.relative(manifestDir, resource as string)
@@ -486,9 +544,12 @@ export class AddAssetsToCompilation {
                 if (asset.endsWith('.html')) {
                   emitNestedHtmlAndReferencedAssets({
                     compilation,
+                    compiler,
                     filepath,
                     absoluteFsPath,
-                    manifestDir
+                    manifestDir,
+                    projectRoot,
+                    publicDir: publicRootForResource
                   })
                 } else {
                   const source = fs.readFileSync(absoluteFsPath)

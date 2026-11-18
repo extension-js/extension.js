@@ -202,22 +202,14 @@ const TIMEOUT = 120_000
 
 const LINKED_OUTPUT = canLink ? ['linked-folder/inner.txt', 'linked.txt'] : []
 
-// The page step copies these on its own, whatever this plugin decides.
+// The page step applies the same rule to what it copies on its own.
 const SHIPPED_FROM_A_PAGE = [
-  '.envrc',
   'data/ok.json',
   'extension.config.js',
-  ...LINKED_OUTPUT,
-  'node_modules/pkg/data.json',
   'package.json'
 ]
 
-const MARKED_FROM_A_PAGE = [
-  '.envrc',
-  ...LINKED_OUTPUT,
-  'node_modules/pkg/data.json',
-  'package.json'
-]
+const MARKED_FROM_A_PAGE = ['package.json']
 
 const MISSING_FROM_A_PAGE = [
   '/%2e%2e/outside.txt',
@@ -227,8 +219,11 @@ const MISSING_FROM_A_PAGE = [
   '/.git/config',
   '/.npmrc',
   '/a/../../outside.txt',
+  '/a/../.envrc',
+  ...LINKED_TARGETS,
+  '/node_modules/pkg/data.json',
   '/nothing.txt'
-]
+].sort()
 
 const times = (text: string, part: string) => text.split(part).length - 1
 
@@ -376,7 +371,6 @@ describe('a root-absolute path that names a file outside public/', () => {
       const result = await build(
         project({
           'manifest.json': manifest({
-            icons: {16: '/.env'},
             web_accessible_resources: [
               {
                 resources: TARGETS.filter((ref) => ref !== '/.env'),
@@ -390,7 +384,6 @@ describe('a root-absolute path that names a file outside public/', () => {
       // The manifest features ship these, not the special folders plugin.
       expect(result.shipped).toEqual(
         [
-          '.env',
           '.env.local',
           '.envrc',
           '.git/config',
@@ -406,7 +399,6 @@ describe('a root-absolute path that names a file outside public/', () => {
 
       expect(result.marked).toEqual(
         [
-          '.env',
           '.env.local',
           '.envrc',
           '.git/config',
@@ -507,13 +499,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       )
 
       expect(result.marked).toEqual([])
-      // The page step drops a leading dot when it looks, so it calls the
-      // two dot-names missing. They ship all the same.
-      expect(result.missing).toEqual([
-        '/.env.example',
-        '/.well-known/links.json',
-        ...(canLink ? [] : ['/alias.txt'])
-      ])
+      expect(result.missing).toEqual(canLink ? [] : ['/alias.txt'])
 
       expect(result.errors).toBe(0)
     },

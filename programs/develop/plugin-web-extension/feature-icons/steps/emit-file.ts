@@ -16,6 +16,7 @@ import {
   inspectPublicFolders
 } from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {sourceMayShip} from '../../feature-html/html-lib/source-may-ship'
 import {
   iconOutputPath,
   themeIconOutputPath,
@@ -87,6 +88,9 @@ export class EmitFile {
                 const manifestDir = path.dirname(this.manifestPath)
 
                 let resolved = entry
+                // A leading slash that is no address on this machine is a
+                // path inside the extension.
+                let rootRef: string | undefined
 
                 if (!fs.existsSync(resolved)) {
                   if (
@@ -130,6 +134,7 @@ export class EmitFile {
                       ? publicCandidate
                       : entry
                   } else if (entry.startsWith('/')) {
+                    rootRef = entry
                     // First, look under public/ because "/foo.png" is authored
                     // as an extension-root asset served from public/.
                     const publicCandidate =
@@ -208,7 +213,15 @@ export class EmitFile {
                 // --load-extension shows that only as a native modal.
                 const isThemeImage = group === 'theme' && sub === 'images'
 
-                if (!fs.existsSync(resolved)) {
+                // A withheld file is reported the way a missing one is.
+                const withheld = !sourceMayShip(
+                  resolved,
+                  projectPath,
+                  manifestDir,
+                  {rootRef, publicDir}
+                ).ship
+
+                if (withheld || !fs.existsSync(resolved)) {
                   // Leading '/' (extension-root style) maps to the output/public root;
                   // OS-absolute paths are handled separately above and skip the hint.
                   const isPublicRoot =
