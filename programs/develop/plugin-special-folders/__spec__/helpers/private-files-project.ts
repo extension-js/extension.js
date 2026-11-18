@@ -203,11 +203,14 @@ function privateTextOf(holder: string): string[] {
 }
 
 // The paths a build names as not found, in the order of the alphabet. The
-// summary repeats each message as JSON, where a line ends in a written \n.
+// summary repeats each message as JSON, where a line ends in a written \n
+// and the last one in a quote.
 export function notFoundPaths(printed: string): string[] {
   const found = new Set<string>()
 
-  for (const match of printed.matchAll(/NOT FOUND (\S+?)(?=\\n|\s|$)/g)) {
+  for (const match of printed.matchAll(
+    /NOT FOUND ([^\s"]+?)(?=\\n|[\s"]|$)/g
+  )) {
     found.add(match[1])
   }
 

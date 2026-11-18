@@ -5,8 +5,10 @@ import {listOutput} from '../../../plugin-special-folders/__spec__/helpers/compi
 import {
   build,
   canLink,
+  expectNothingPrivate,
   MARKER,
   manifest,
+  notFoundPaths,
   PAGE,
   project
 } from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
@@ -259,6 +261,9 @@ async function rowFor(field: Field, target: string): Promise<string> {
 
   const said = new Set<string>()
 
+  // No message and no output file carries what a private file holds.
+  expectNothingPrivate(result)
+
   for (const [kind, pattern] of SAID) {
     for (const match of result.printed.matchAll(pattern)) {
       said.add(`${kind} ${match[1]}`)
@@ -286,27 +291,36 @@ const TIMEOUT = 600_000
 
 const EXPECTED: Record<string, Table> = {
   contentScriptsJs: {
-    '.envrc': 'nothing | errors 1',
-    '.npmrc': 'nothing | errors 1',
-    '.env': 'nothing | errors 1',
-    '.env.local': 'nothing | errors 1',
-    '.env.js': '.env.js in content_scripts/content-0.js',
-    '.env.local.js': '.env.local.js in content_scripts/content-0.js',
-    'a/../.envrc': 'nothing | errors 1',
-    'a/../.env.js': '.env.js in content_scripts/content-0.js',
-    '/.env.js': '.env.js in content_scripts/content-0.js',
-    '../outside.js': '../outside.js in content_scripts/content-0.js',
-    'a/../../outside.js': '../outside.js in content_scripts/content-0.js',
-    'linked-out.js': '../outside.js in content_scripts/content-0.js',
-    'node_modules/pkg/.env': 'nothing | errors 1',
+    '.envrc': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.npmrc': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env.local': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env.js': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env.local.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'a/../.envrc':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'a/../.env.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    '/.env.js': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '../outside.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'a/../../outside.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'linked-out.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'node_modules/pkg/.env':
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'node_modules/pkg/.env.js':
-      'node_modules/pkg/.env.js in content_scripts/content-0.js',
-    '.git/tool.js': '.git/tool.js in content_scripts/content-0.js',
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    '.git/tool.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in content_scripts/content-0.js',
     'linked-in.js': 'inside.js in content_scripts/content-0.js',
     '.env.example': 'nothing | errors 1',
-    '.env.example.js': '.env.example.js in content_scripts/content-0.js',
+    '.env.example.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'ok.js': 'ok.js in content_scripts/content-0.js',
     '/hosted.js': 'nothing | said missing content_scripts.content-0 | errors 1',
     'public/hosted.js':
@@ -314,39 +328,50 @@ const EXPECTED: Record<string, Table> = {
     'absent.js': 'nothing | said missing content_scripts.content-0 | errors 1'
   },
   contentScriptsJsGroup: {
-    '.envrc': 'nothing',
-    '.env.js': '.env.js in content_scripts/content-0.js',
-    '../outside.js': '../outside.js in content_scripts/content-0.js',
-    'linked-out.js': '../outside.js in content_scripts/content-0.js',
+    '.envrc': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env.js': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '../outside.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'linked-out.js':
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'node_modules/pkg/.env.js':
-      'node_modules/pkg/.env.js in content_scripts/content-0.js',
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in content_scripts/content-0.js',
     'ok.js': 'ok.js in content_scripts/content-0.js',
     'absent.js': 'nothing | said missing content_scripts.content-0 | errors 1'
   },
   contentScriptsCss: {
-    '.envrc': 'nothing | errors 1',
-    '.npmrc': 'nothing | errors 1',
-    '.env': 'nothing | errors 1',
-    '.env.local': 'nothing | errors 1',
-    '.env.css': '.env.css in content_scripts/content-0.css',
-    '.env.local.css': '.env.local.css in content_scripts/content-0.css',
-    'a/../.envrc': 'nothing | errors 1',
-    'a/../.env.css': '.env.css in content_scripts/content-0.css',
-    '/.env.css': '.env.css in content_scripts/content-0.css',
-    '../outside.css': '../outside.css in content_scripts/content-0.css',
-    'a/../../outside.css': '../outside.css in content_scripts/content-0.css',
-    'linked-out.css': '../outside.css in content_scripts/content-0.css',
-    'node_modules/pkg/.env': 'nothing | errors 1',
+    '.envrc': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.npmrc': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env.local': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env.css': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.env.local.css':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'a/../.envrc':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'a/../.env.css':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    '/.env.css': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '../outside.css':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'a/../../outside.css':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'linked-out.css':
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    'node_modules/pkg/.env':
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'node_modules/pkg/.env.css':
-      'node_modules/pkg/.env.css in content_scripts/content-0.css',
-    '.git/tool.css': '.git/tool.css in content_scripts/content-0.css',
+      'nothing | said missing content_scripts.content-0 | errors 1',
+    '.git/tool.css':
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'node_modules/pkg/theme.css':
       'node_modules/pkg/theme.css in content_scripts/content-0.css',
     'linked-in.css': 'inside.css in content_scripts/content-0.css',
     '.env.example': 'nothing | errors 1',
-    '.env.example.css': '.env.example.css in content_scripts/content-0.css',
+    '.env.example.css':
+      'nothing | said missing content_scripts.content-0 | errors 1',
     'ok.css': 'ok.css in content_scripts/content-0.css',
     '/hosted.css':
       'nothing | said missing content_scripts.content-0 | errors 1',
@@ -355,27 +380,36 @@ const EXPECTED: Record<string, Table> = {
     'absent.css': 'nothing | said missing content_scripts.content-0 | errors 1'
   },
   serviceWorker: {
-    '.envrc': 'nothing | errors 1',
-    '.npmrc': 'nothing | errors 1',
-    '.env': 'nothing | errors 1',
-    '.env.local': 'nothing | errors 1',
-    '.env.js': '.env.js in background/service_worker.js',
-    '.env.local.js': '.env.local.js in background/service_worker.js',
-    'a/../.envrc': 'nothing | errors 1',
-    'a/../.env.js': '.env.js in background/service_worker.js',
-    '/.env.js': '.env.js in background/service_worker.js',
-    '../outside.js': '../outside.js in background/service_worker.js',
-    'a/../../outside.js': '../outside.js in background/service_worker.js',
-    'linked-out.js': '../outside.js in background/service_worker.js',
-    'node_modules/pkg/.env': 'nothing | errors 1',
+    '.envrc': 'nothing | said missing background.service_worker | errors 1',
+    '.npmrc': 'nothing | said missing background.service_worker | errors 1',
+    '.env': 'nothing | said missing background.service_worker | errors 1',
+    '.env.local': 'nothing | said missing background.service_worker | errors 1',
+    '.env.js': 'nothing | said missing background.service_worker | errors 1',
+    '.env.local.js':
+      'nothing | said missing background.service_worker | errors 1',
+    'a/../.envrc':
+      'nothing | said missing background.service_worker | errors 1',
+    'a/../.env.js':
+      'nothing | said missing background.service_worker | errors 1',
+    '/.env.js': 'nothing | said missing background.service_worker | errors 1',
+    '../outside.js':
+      'nothing | said missing background.service_worker | errors 1',
+    'a/../../outside.js':
+      'nothing | said missing background.service_worker | errors 1',
+    'linked-out.js':
+      'nothing | said missing background.service_worker | errors 1',
+    'node_modules/pkg/.env':
+      'nothing | said missing background.service_worker | errors 1',
     'node_modules/pkg/.env.js':
-      'node_modules/pkg/.env.js in background/service_worker.js',
-    '.git/tool.js': '.git/tool.js in background/service_worker.js',
+      'nothing | said missing background.service_worker | errors 1',
+    '.git/tool.js':
+      'nothing | said missing background.service_worker | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/service_worker.js',
     'linked-in.js': 'inside.js in background/service_worker.js',
     '.env.example': 'nothing | errors 1',
-    '.env.example.js': '.env.example.js in background/service_worker.js',
+    '.env.example.js':
+      'nothing | said missing background.service_worker | errors 1',
     'ok.js': 'ok.js in background/service_worker.js',
     '/hosted.js': 'nothing | said missing background.service_worker | errors 1',
     'public/hosted.js':
@@ -383,27 +417,29 @@ const EXPECTED: Record<string, Table> = {
     'absent.js': 'nothing | said missing background.service_worker | errors 1'
   },
   backgroundScripts: {
-    '.envrc': 'nothing | errors 1',
-    '.npmrc': 'nothing | errors 1',
-    '.env': 'nothing | errors 1',
-    '.env.local': 'nothing | errors 1',
-    '.env.js': '.env.js in background/scripts.js',
-    '.env.local.js': '.env.local.js in background/scripts.js',
-    'a/../.envrc': 'nothing | errors 1',
-    'a/../.env.js': '.env.js in background/scripts.js',
-    '/.env.js': '.env.js in background/scripts.js',
-    '../outside.js': '../outside.js in background/scripts.js',
-    'a/../../outside.js': '../outside.js in background/scripts.js',
-    'linked-out.js': '../outside.js in background/scripts.js',
-    'node_modules/pkg/.env': 'nothing | errors 1',
+    '.envrc': 'nothing | said missing background.scripts | errors 1',
+    '.npmrc': 'nothing | said missing background.scripts | errors 1',
+    '.env': 'nothing | said missing background.scripts | errors 1',
+    '.env.local': 'nothing | said missing background.scripts | errors 1',
+    '.env.js': 'nothing | said missing background.scripts | errors 1',
+    '.env.local.js': 'nothing | said missing background.scripts | errors 1',
+    'a/../.envrc': 'nothing | said missing background.scripts | errors 1',
+    'a/../.env.js': 'nothing | said missing background.scripts | errors 1',
+    '/.env.js': 'nothing | said missing background.scripts | errors 1',
+    '../outside.js': 'nothing | said missing background.scripts | errors 1',
+    'a/../../outside.js':
+      'nothing | said missing background.scripts | errors 1',
+    'linked-out.js': 'nothing | said missing background.scripts | errors 1',
+    'node_modules/pkg/.env':
+      'nothing | said missing background.scripts | errors 1',
     'node_modules/pkg/.env.js':
-      'node_modules/pkg/.env.js in background/scripts.js',
-    '.git/tool.js': '.git/tool.js in background/scripts.js',
+      'nothing | said missing background.scripts | errors 1',
+    '.git/tool.js': 'nothing | said missing background.scripts | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/scripts.js',
     'linked-in.js': 'inside.js in background/scripts.js',
     '.env.example': 'nothing | errors 1',
-    '.env.example.js': '.env.example.js in background/scripts.js',
+    '.env.example.js': 'nothing | said missing background.scripts | errors 1',
     'ok.js': 'ok.js in background/scripts.js',
     '/hosted.js': 'nothing | said missing background.scripts | errors 1',
     'public/hosted.js':
@@ -411,39 +447,45 @@ const EXPECTED: Record<string, Table> = {
     'absent.js': 'nothing | said missing background.scripts | errors 1'
   },
   backgroundScriptsFirefox: {
-    '.envrc': 'nothing | errors 1',
-    '.env.js': '.env.js in background/scripts.js',
-    '../outside.js': '../outside.js in background/scripts.js',
-    'linked-out.js': '../outside.js in background/scripts.js',
+    '.envrc': 'nothing | said missing background.scripts | errors 1',
+    '.env.js': 'nothing | said missing background.scripts | errors 1',
+    '../outside.js': 'nothing | said missing background.scripts | errors 1',
+    'linked-out.js': 'nothing | said missing background.scripts | errors 1',
     'node_modules/pkg/.env.js':
-      'node_modules/pkg/.env.js in background/scripts.js',
+      'nothing | said missing background.scripts | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/scripts.js',
     'ok.js': 'ok.js in background/scripts.js',
     'absent.js': 'nothing | said missing background.scripts | errors 1'
   },
   userScripts: {
-    '.envrc': 'nothing',
-    '.npmrc': 'nothing',
-    '.env': 'nothing',
-    '.env.local': 'nothing',
-    '.env.js': '.env.js in user_scripts/api_script.js',
-    '.env.local.js': '.env.local.js in user_scripts/api_script.js',
-    'a/../.envrc': 'nothing',
-    'a/../.env.js': '.env.js in user_scripts/api_script.js',
-    '/.env.js': '.env.js in user_scripts/api_script.js',
-    '../outside.js': '../outside.js in user_scripts/api_script.js',
-    'a/../../outside.js': '../outside.js in user_scripts/api_script.js',
-    'linked-out.js': '../outside.js in user_scripts/api_script.js',
-    'node_modules/pkg/.env': 'nothing',
+    '.envrc': 'nothing | said missing user_scripts.api_script | errors 1',
+    '.npmrc': 'nothing | said missing user_scripts.api_script | errors 1',
+    '.env': 'nothing | said missing user_scripts.api_script | errors 1',
+    '.env.local': 'nothing | said missing user_scripts.api_script | errors 1',
+    '.env.js': 'nothing | said missing user_scripts.api_script | errors 1',
+    '.env.local.js':
+      'nothing | said missing user_scripts.api_script | errors 1',
+    'a/../.envrc': 'nothing | said missing user_scripts.api_script | errors 1',
+    'a/../.env.js': 'nothing | said missing user_scripts.api_script | errors 1',
+    '/.env.js': 'nothing | said missing user_scripts.api_script | errors 1',
+    '../outside.js':
+      'nothing | said missing user_scripts.api_script | errors 1',
+    'a/../../outside.js':
+      'nothing | said missing user_scripts.api_script | errors 1',
+    'linked-out.js':
+      'nothing | said missing user_scripts.api_script | errors 1',
+    'node_modules/pkg/.env':
+      'nothing | said missing user_scripts.api_script | errors 1',
     'node_modules/pkg/.env.js':
-      'node_modules/pkg/.env.js in user_scripts/api_script.js',
-    '.git/tool.js': '.git/tool.js in user_scripts/api_script.js',
+      'nothing | said missing user_scripts.api_script | errors 1',
+    '.git/tool.js': 'nothing | said missing user_scripts.api_script | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in user_scripts/api_script.js',
     'linked-in.js': 'inside.js in user_scripts/api_script.js',
     '.env.example': 'nothing',
-    '.env.example.js': '.env.example.js in user_scripts/api_script.js',
+    '.env.example.js':
+      'nothing | said missing user_scripts.api_script | errors 1',
     'ok.js': 'ok.js in user_scripts/api_script.js',
     '/hosted.js': 'nothing | said missing user_scripts.api_script | errors 1',
     'public/hosted.js':
@@ -451,27 +493,33 @@ const EXPECTED: Record<string, Table> = {
     'absent.js': 'nothing | said missing user_scripts.api_script | errors 1'
   },
   themeExperiment: {
-    '.envrc': 'nothing | errors 1',
-    '.npmrc': 'nothing | errors 1',
-    '.env': 'nothing | errors 1',
-    '.env.local': 'nothing | errors 1',
-    '.env.css': '.env.css in theme_experiment/.env.css',
-    '.env.local.css': '.env.local.css in theme_experiment/.env.local.css',
-    'a/../.envrc': 'nothing | errors 1',
-    'a/../.env.css': '.env.css in theme_experiment/.env.css',
-    '/.env.css': '.env.css in theme_experiment/.env.css',
-    '../outside.css': '../outside.css in theme_experiment/outside.css',
-    'a/../../outside.css': '../outside.css in theme_experiment/outside.css',
-    'linked-out.css': '../outside.css in theme_experiment/linked-out.css',
-    'node_modules/pkg/.env': 'nothing | errors 1',
+    '.envrc': 'nothing | said missing theme_experiment. | errors 1',
+    '.npmrc': 'nothing | said missing theme_experiment. | errors 1',
+    '.env': 'nothing | said missing theme_experiment. | errors 1',
+    '.env.local': 'nothing | said missing theme_experiment..env | errors 1',
+    '.env.css': 'nothing | said missing theme_experiment..env | errors 1',
+    '.env.local.css':
+      'nothing | said missing theme_experiment..env.local | errors 1',
+    'a/../.envrc': 'nothing | said missing theme_experiment. | errors 1',
+    'a/../.env.css': 'nothing | said missing theme_experiment..env | errors 1',
+    '/.env.css': 'nothing | said missing theme_experiment..env | errors 1',
+    '../outside.css':
+      'nothing | said missing theme_experiment.outside | errors 1',
+    'a/../../outside.css':
+      'nothing | said missing theme_experiment.outside | errors 1',
+    'linked-out.css':
+      'nothing | said missing theme_experiment.linked-out | errors 1',
+    'node_modules/pkg/.env':
+      'nothing | said missing theme_experiment. | errors 1',
     'node_modules/pkg/.env.css':
-      'node_modules/pkg/.env.css in theme_experiment/.env.css',
-    '.git/tool.css': '.git/tool.css in theme_experiment/tool.css',
+      'nothing | said missing theme_experiment..env | errors 1',
+    '.git/tool.css': 'nothing | said missing theme_experiment.tool | errors 1',
     'node_modules/pkg/theme.css':
       'node_modules/pkg/theme.css in theme_experiment/theme.css',
     'linked-in.css': 'inside.css in theme_experiment/linked-in.css',
     '.env.example': 'nothing | errors 1',
-    '.env.example.css': '.env.example.css in theme_experiment/.env.example.css',
+    '.env.example.css':
+      'nothing | said missing theme_experiment..env.example | errors 1',
     'ok.css': 'ok.css in theme_experiment/ok.css',
     '/hosted.css': 'public/hosted.css in hosted.css',
     'public/hosted.css': 'public/hosted.css in hosted.css',
@@ -580,12 +628,64 @@ describe('a manifest kept in src/', () => {
         background: {service_worker: '../../outside.js'}
       })
 
-      expect(held).toEqual([
-        '../outside.js in background/service_worker.js',
-        '.env.js in content_scripts/content-0.js'
+      const root = result.printed.match(/NOT FOUND (\S+)\/\.env\.js/)?.[1] ?? ''
+
+      expect(held).toEqual([])
+      expect(notFoundPaths(result.printed)).toEqual([
+        `${path.dirname(root)}/outside.js`,
+        `${root}/.env.js`
       ])
 
-      expect(result.errors).toBe(0)
+      expect(result.errors).toBe(2)
+      expectNothingPrivate(result)
+    },
+    TIMEOUT
+  )
+})
+
+describe('a file a compiled field names and the build withholds', () => {
+  const times = (text: string, part: string) => text.split(part).length - 1
+
+  it(
+    'fails the build in the words a missing file gets, once for a file',
+    async () => {
+      const root = fixture(
+        {
+          name: 'two fields for two files',
+          kind: 'js',
+          manifest: () => ({
+            content_scripts: [
+              {matches: MATCHES, js: ['ok.js', '.env.js'], css: ['.env.css']}
+            ],
+            background: {service_worker: '.envrc'}
+          })
+        },
+        ''
+      )
+      const result = await build(root)
+
+      for (const sentence of [
+        'Check the content_scripts.content-0 field in your manifest.json file.',
+        'Check the background.service_worker field in your manifest.json file.'
+      ]) {
+        expect(result.printed, sentence).toContain(sentence)
+      }
+
+      // Each is printed once and carried once in the result the build returns.
+      for (const file of ['.env.js', '.env.css', '.envrc']) {
+        expect(times(result.printed, `NOT FOUND ${root}/${file}`), file).toBe(2)
+      }
+
+      expect(
+        times(
+          result.printed,
+          'The script path must point to an existing file that will be bundled.'
+        )
+      ).toBe(6)
+
+      expect(result.errors).toBe(3)
+      expect(result.shipped).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )

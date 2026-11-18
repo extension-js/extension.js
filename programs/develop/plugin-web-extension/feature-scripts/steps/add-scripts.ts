@@ -62,11 +62,14 @@ export function createSequentialEntryModule(
 export class AddScripts {
   public readonly manifestPath: string
   public readonly includeList: FilepathList
+  // The files a field names and the build withholds, which are no entry.
+  public readonly withheldList: FilepathList
   public readonly browser: DevOptions['browser']
 
-  constructor(options: PluginInterface) {
+  constructor(options: PluginInterface & {withheldList?: FilepathList}) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList || {}
+    this.withheldList = options.withheldList || {}
     this.browser = options.browser || 'chrome'
   }
 
@@ -88,14 +91,25 @@ export class AddScripts {
             const manifestDir = path.dirname(this.manifestPath)
             const outputRoot = compilation.options?.output?.path || ''
             const ErrorCtor = compiler.rspack?.WebpackError || Error
-
-            for (const [feature, raw] of Object.entries(scriptFields)) {
-              const rawEntries: string[] = Array.isArray(raw)
+            const projectPath =
+              (compiler.options.context as string) || manifestDir
+            const listOf = (raw: FilepathList[string]): string[] =>
+              Array.isArray(raw)
                 ? (raw as string[]).filter(Boolean)
                 : raw
                   ? [raw as string]
                   : []
+            // A withheld file is reported in the words a missing one gets.
+            const named = [
+              ...Object.entries(scriptFields).map(
+                ([feature, raw]) => [feature, listOf(raw), false] as const
+              ),
+              ...Object.entries(this.withheldList).map(
+                ([feature, raw]) => [feature, listOf(raw), true] as const
+              )
+            ]
 
+            for (const [feature, rawEntries, isWithheld] of named) {
               for (const entry of rawEntries) {
                 if (!entry || typeof entry !== 'string' || isRemoteUrl(entry)) {
                   continue
@@ -103,7 +117,13 @@ export class AddScripts {
 
                 let resolved = entry
 
-                if (!fs.existsSync(resolved)) {
+                if (isWithheld) {
+                  resolved = resolveScriptEntryPath(
+                    entry,
+                    manifestDir,
+                    projectPath
+                  )
+                } else if (!fs.existsSync(resolved)) {
                   resolved = path.isAbsolute(entry)
                     ? entry
                     : entry.startsWith('/')
@@ -111,7 +131,7 @@ export class AddScripts {
                       : path.join(manifestDir, entry)
                 }
 
-                if (fs.existsSync(resolved)) continue
+                if (!isWithheld && fs.existsSync(resolved)) continue
 
                 const isPublicRoot =
                   entry.startsWith('/') && !path.isAbsolute(entry)
