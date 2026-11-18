@@ -33,7 +33,7 @@ import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {
-  cssUrlPlaces,
+  checkedCssSheets,
   cssUrlRefFiles,
   toPosixPath
 } from './css-lib/dead-url-refs'
@@ -441,8 +441,8 @@ export class CssPlugin {
           }
         )
 
-        // The file a url() leads to once aliases, packages and links are
-        // followed. An @import of the same text is the bundler's to read.
+        // The file any request of a page sheet leads to once aliases, packages
+        // and links are followed, whatever text the loader read for it.
         nmf.hooks.afterResolve.tap(
           `${CssPlugin.name}:dead-url`,
           (data: {
@@ -452,9 +452,9 @@ export class CssPlugin {
           }) => {
             const issuer = String(data?.contextInfo?.issuer || '')
             const raw = String(data?.request || '')
-            const places = cssUrlPlaces(compiler).get(issuer)
+            const checked = checkedCssSheets(compiler).has(issuer)
 
-            if (!places?.has(raw) || raw.includes('!')) return
+            if (!checked || raw.includes('!')) return
 
             const file = String(data?.createData?.resource || '').split(
               /[?#]/

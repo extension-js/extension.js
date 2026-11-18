@@ -466,4 +466,63 @@ describe('a url() that names a file the build withholds, built', () => {
     },
     120_000
   )
+
+  // The text the bundler asks for need not be the text the sheet holds, and
+  // the file it leads to is checked either way.
+  it.each([
+    ['a query and a fragment', 'url(.env?x#y)', '.env?x#y'],
+    ['a ~ ahead of a package', 'url(~pkg/.env)', 'pkg/.env'],
+    ['an escape in the name', 'url(".\\65 nv")', '.env'],
+    ['a percent-encoded name', 'url(.%65nv)', '.env'],
+    ['an @import', '@import "./.env.css";', './.env.css']
+  ])(
+    'a page sheet ships nothing it withholds when its url() holds %s',
+    async (_label, css, request) => {
+      const root = makeProject({
+        'app/package.json': JSON.stringify({
+          private: true,
+          name: 'withheld-spelled',
+          version: '0.0.0'
+        }),
+        'app/manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'withheld-spelled',
+          version: '1.0.0',
+          action: {default_popup: 'popup.html'}
+        }),
+        'app/popup.html':
+          '<!doctype html><link rel="stylesheet" href="./styles.css"><p>x</p>\n',
+        'app/styles.css': css.startsWith('@')
+          ? `${css}\n.a{color:red}\n`
+          : `.a{background:${css}}\n`,
+        'app/.env': 'MARKER_SPELLED_ENV=one\n',
+        'app/.env.css': '.MARKER_SPELLED_SHEET{color:red}\n',
+        'app/node_modules/pkg/package.json': JSON.stringify({
+          name: 'pkg',
+          version: '1.0.0'
+        }),
+        'app/node_modules/pkg/.env': 'MARKER_SPELLED_PKG=one\n'
+      })
+      const app = path.join(root, 'app')
+
+      expectNoWorkspaceAbove(app)
+
+      const summary = await build(app)
+      const {shipped} = readDist(app)
+
+      expect(summary.errors_count).toBe(0)
+
+      for (const marker of [
+        'MARKER_SPELLED_ENV',
+        'MARKER_SPELLED_SHEET',
+        'MARKER_SPELLED_PKG'
+      ]) {
+        expect(shipped).not.toContain(marker)
+        expect(shipped).not.toContain(inlined(marker))
+      }
+
+      expect(deadRefRequests(summary.warnings)).toEqual([request])
+    },
+    120_000
+  )
 })

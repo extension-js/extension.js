@@ -12,11 +12,7 @@ import {
   publicContainmentRoot,
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
-import {
-  cssUrlPlaces,
-  publicOwnedOutputName,
-  unescapeCss
-} from './css-lib/dead-url-refs'
+import {checkedCssSheets, publicOwnedOutputName} from './css-lib/dead-url-refs'
 import {rewriteCssUrls} from './css-lib/inline-css-imports'
 import {lineRewriteSourceMap} from './css-lib/line-rewrite-source-map'
 import * as messages from './css-lib/messages'
@@ -38,26 +34,13 @@ interface PublicCssUrlLoaderContext {
   _module?: {nameForCondition?(): string | null | undefined}
 }
 
-// Notes what this sheet names in a url() or an image-set() string, so the
-// resolve hook tells those from an @import of the same text.
-function noteUrlPlaces(loader: PublicCssUrlLoaderContext, source: string) {
+// Notes that this sheet ran here, so the resolve hook checks every file
+// it leads to. The two live in two bundles and share the compiler.
+function noteCheckedSheet(loader: PublicCssUrlLoaderContext) {
   const name = loader._module?.nameForCondition?.() || loader.resourcePath
   if (!loader._compiler || !name) return
 
-  const places = new Set<string>()
-
-  rewriteCssUrls(
-    source,
-    (request, where) => {
-      if (where === 'url' || where === 'set') places.add(unescapeCss(request))
-
-      return undefined
-    },
-    false,
-    true
-  )
-
-  cssUrlPlaces(loader._compiler).set(name, places)
+  checkedCssSheets(loader._compiler).add(name)
 }
 
 function isFile(candidate: string): boolean {
@@ -132,9 +115,9 @@ export default function publicCssUrlLoader(
   let rewritten = source
 
   if (manifestPath && projectPath) {
-    try {
-      noteUrlPlaces(this, source)
+    noteCheckedSheet(this)
 
+    try {
       const publicRoot = publicContainmentRoot(manifestPath, projectPath)
       const publicDir = resolvePublicFolder(manifestPath, projectPath)
 

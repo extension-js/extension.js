@@ -41,16 +41,16 @@ export function unescapeCss(text: string): string {
   )
 }
 
-const URL_PLACES = Symbol.for('extensionjs.css-url-places')
+const CHECKED_SHEETS = Symbol.for('extensionjs.css-checked-sheets')
 
-// A sheet's url() and image-set() addresses, by the name rules match it as.
+// The sheets a page loader ran for, by the name rules match each as.
 // A loader and a hook in two bundles share it, so it lives on the compiler.
-export function cssUrlPlaces(owner: object): Map<string, Set<string>> {
-  const holder = owner as {[URL_PLACES]?: Map<string, Set<string>>}
+export function checkedCssSheets(owner: object): Set<string> {
+  const holder = owner as {[CHECKED_SHEETS]?: Set<string>}
 
-  if (!holder[URL_PLACES]) holder[URL_PLACES] = new Map()
+  if (!holder[CHECKED_SHEETS]) holder[CHECKED_SHEETS] = new Set()
 
-  return holder[URL_PLACES]
+  return holder[CHECKED_SHEETS]
 }
 
 export interface DeadUrlRefContext {
