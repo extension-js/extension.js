@@ -184,6 +184,7 @@ const UNTYPED = {
   onReady: expect.any(Function),
   onSessionStart: expect.any(Function),
   onExitError: expect.any(Function),
+  hintFor: expect.any(Function),
   safariPackager: expect.any(Function)
 }
 
@@ -783,14 +784,44 @@ describe('extension dev and the hint of a failed start', () => {
     ])
   })
 
-  it('hands the engine no hint for the frame it writes, so none is printed', async () => {
-    engine = async () => {
+  it.each([
+    ['E_PROFILE_LOCKED', PROFILE_LOCKED_HINT],
+    ['E_DEV_SERVER_START', undefined],
+    ['E_NOT_A_CODE', undefined]
+  ])('hands the engine the hint for %s', async (code, hint) => {
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+
+    const hintFor = engineCalls[0][1].hintFor as (code: string) => unknown
+
+    expect(hintFor(code)).toBe(hint)
+  })
+
+  it('reaches stdout once, on the frame the engine wrote', async () => {
+    // The engine's stream adds the hint to a failed frame that has none.
+    engine = async (_path, options) => {
+      const hintFor = options.hintFor as (code: string) => string | undefined
+      const hint = hintFor('E_PROFILE_LOCKED')
+
+      // eslint-disable-next-line no-console
+      console.log(
+        JSON.stringify({
+          status: 'failed',
+          error: {code: 'E_PROFILE_LOCKED'},
+          ...(hint ? {hint} : {})
+        })
+      )
+
       throw locked({framed: true})
     }
 
     expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
-    expect('hintFor' in engineCalls[0][1]).toBe(false)
-    expect(stdout).toEqual([])
+    expect(frames()).toEqual([
+      {
+        status: 'failed',
+        error: {code: 'E_PROFILE_LOCKED'},
+        hint: PROFILE_LOCKED_HINT
+      }
+    ])
   })
 
   it('adds no line of its own in pretty mode, the error names the remedy once', async () => {

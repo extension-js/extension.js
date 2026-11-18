@@ -149,6 +149,12 @@ function failAndExit(
   exitWithFailure(error.code, 1, reportFailure)
 }
 
+// The remedy a failed dev frame names, whichever side writes the frame. Only
+// a code the CLI declares has one.
+function devFailureHint(code: string): string | undefined {
+  return failureHint(declaredErrorCode({code}))
+}
+
 // The dev server can move off a busy port after this frame is emitted, so this
 // is the requested port. ready.json carries the port it actually bound.
 function resolveRequestedPort(value: unknown): number {
@@ -777,6 +783,9 @@ export function registerDevCommand(
             // front, it announced a run that a missing manifest then refused.
             onSessionStart: printStartedFrame,
             onExitError: reportExitError,
+            // The hint of a terminal failed or usage frame the engine writes
+            // with none of its own.
+            hintFor: devFailureHint,
             // Inject the Safari packager. SafariDevPlugin calls it on each
             // rebuild (full first, then incremental resync). The merged noOpen
             // from develop arrives via packager overrides per call.
@@ -821,7 +830,7 @@ export function registerDevCommand(
                     // still finds the port and the ready file on this frame.
                     value: (error as {session?: unknown} | null)?.session,
                     hint:
-                      failureHint(code) ??
+                      devFailureHint(code) ??
                       'Fix the error above and run dev again.'
                   }
                 )
