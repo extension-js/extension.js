@@ -425,7 +425,7 @@ describe('a MAIN world change in one of two live sessions', () => {
     return {scheduler, asked}
   }
 
-  it('waits on a restart still running in the other session', async () => {
+  it('is not held back by a restart still running in the other session', async () => {
     const files = project(IDLE)
     const compiler = compilerIn(files)
     const session = devSession(compiler)
@@ -444,14 +444,14 @@ describe('a MAIN world change in one of two live sessions', () => {
     await settle()
     expect(session.frames).toHaveLength(1)
 
-    // Today the other session's restart answers, so the retry waits on it.
+    // Its own session has nothing in line, so this save is the retry.
     expect((await save(compiler)).held).toBe(true)
     await settle()
-    expect(session.announced).toHaveLength(1)
+    expect(session.announced).toHaveLength(2)
     expect(other.asked).toHaveLength(1)
   })
 
-  it('takes the other session as its own once its own ended', async () => {
+  it('warns once its own session ended, though the other one is live', async () => {
     const files = project(IDLE)
     const compiler = compilerIn(files)
     const session = devSession(compiler)
@@ -465,11 +465,11 @@ describe('a MAIN world change in one of two live sessions', () => {
 
     files.write(`${IDLE}${REGISTRATION}`)
 
-    // Today the other session answers, so the save is held and warns nothing.
     const saved = await save(compiler)
 
-    expect(saved.held).toBe(true)
-    expect(saved.warnings).toEqual([])
+    expect(saved.held).toBe(false)
+    expect(saved.warnings).toHaveLength(1)
+    expect(saved.warnings[0]).toContain('Restart the dev server')
     await settle()
     expect(session.announced).toEqual([])
     expect(other.asked).toEqual([])
