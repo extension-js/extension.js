@@ -103,7 +103,11 @@ export function partiallyGatedNote(api: string): string {
 export function partiallyGatedWarning(
   api: string,
   relative: string,
-  declared: ReadonlySet<string> = new Set()
+  declared: ReadonlySet<string> = new Set(),
+  wording: {lead: string; fixKey: string} = {
+    lead: `manifest.json does not declare the "${api}" permission, but `,
+    fixKey: 'permissions'
+  }
 ): string | null {
   const note = PARTIALLY_GATED_APIS[api]
   if (!note) return null
@@ -113,9 +117,8 @@ export function partiallyGatedWarning(
     : ''
 
   return (
-    `manifest.json does not declare the "${api}" permission, but ` +
-    `${relative} reads fields it gates. It works in dev only because dev ` +
+    `${wording.lead}${relative} reads fields it gates. It works in dev only because dev ` +
     `injects "${api}": packaged, ${note}.${activeTab} ` +
-    `Add "${api}" to permissions in manifest.json.`
+    `Add "${api}" to ${wording.fixKey} in manifest.json.`
   )
 }

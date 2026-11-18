@@ -285,7 +285,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-web-extension/feature-manifest/messages.ts": [
     "contentScriptEntryDroppedForBrowser: function(3)",
-    "contentScriptMatchesGrantNoHostOnChromium: function(2)",
+    "contentScriptMatchesGrantNoHostOnChromium: function(3)",
     "edgeEmbeddedOptionsDialog: function(0)",
     "fatalManifestShapeFixed: function(2)",
     "geckoActionUnsupportedOnMv2: function(1)",
@@ -339,6 +339,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "sidebarKeyTranslatedForBrowser: function(3)",
     "themeNotSupportedByBrowser: function(1)",
     "undeclaredPermissionInBuild: function(1)",
+    "undeclaredPermissionWording: function(2)",
     "vendorPrefixedKeyDropped: function(4)",
     "webkitUnsupportedKeysDropped: function(2)",
   ],

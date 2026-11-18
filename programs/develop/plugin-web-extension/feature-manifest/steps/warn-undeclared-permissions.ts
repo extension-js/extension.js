@@ -10,8 +10,10 @@ import {Compilation, type Compiler} from '@rspack/core'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {
   getManifestContent,
+  getOriginalManifest,
   isStaticThemeCompilation
 } from '../manifest-lib/manifest'
+import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
 import * as messages from '../messages'
 import {
   findInjectedOnlyPermissionUses,
@@ -97,7 +99,12 @@ export class WarnUndeclaredPermissions {
                   location: relative,
                   tabField: use.field,
                   activeTabDeclared: declared.has('activeTab'),
-                  outcome
+                  outcome,
+                  shadow: findShadowedPermission(
+                    getOriginalManifest(compilation),
+                    this.browser,
+                    api
+                  )
                 })
 
                 const WebpackErrorCtor = compiler.rspack?.WebpackError

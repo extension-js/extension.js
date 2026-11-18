@@ -13,6 +13,7 @@ import {
   filterKeysForThisBrowser,
   getOriginalManifest
 } from '../manifest-lib/manifest'
+import {findReplacedHostList} from '../manifest-lib/shadowed-declaration'
 import * as messages from '../messages'
 import {
   declaredHostPatterns,
@@ -116,7 +117,11 @@ export class WarnContentScriptHostAccess {
             const warn = new WebpackError(
               messages.contentScriptMatchesGrantNoHostOnChromium(
                 hit.permissions,
-                hit.matches
+                hit.matches,
+                findReplacedHostList(
+                  authored,
+                  this.browser as DevOptions['browser']
+                )
               )
             ) as Error & {file?: string; name?: string}
             warn.name = 'ContentScriptHostAccessWarning'
