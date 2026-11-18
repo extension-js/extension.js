@@ -224,4 +224,21 @@ describe('StaticAssetsPlugin', () => {
       'media/[name][ext]'
     )
   })
+
+  it('appends .wasm to the extensions the config lists, once, and sets no list of its own', () => {
+    const withUser = createCompiler()
+    const withWasm = createCompiler()
+    const withNone = createCompiler()
+    withUser.options.resolve.extensions = ['.ts', '.js']
+    withWasm.options.resolve.extensions = ['.wasm', '.ts']
+
+    new StaticAssetsPlugin().apply(withUser)
+    new StaticAssetsPlugin().apply(withWasm)
+    new StaticAssetsPlugin().apply(withNone)
+
+    expect(withUser.options.resolve.extensions).toEqual(['.ts', '.js', '.wasm'])
+    expect(withWasm.options.resolve.extensions).toEqual(['.wasm', '.ts'])
+    expect(withNone.options.resolve.extensions).toBeUndefined()
+    expect(withUser.options.resolve.alias).toEqual({})
+  })
 })

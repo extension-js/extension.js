@@ -36,6 +36,14 @@ export class StaticAssetsPlugin {
       compiler.options.output.assetModuleFilename = filenamePattern
     }
 
+    // An extensionless import reaches a .wasm file. A config with no list is
+    // left alone: a list set here would replace rspack's per-type defaults.
+    const extensions = compiler.options.resolve?.extensions
+
+    if (extensions && !extensions.includes('.wasm')) {
+      compiler.options.resolve.extensions = [...extensions, '.wasm']
+    }
+
     type InspectableRule = {
       test?: unknown
       use?: unknown
