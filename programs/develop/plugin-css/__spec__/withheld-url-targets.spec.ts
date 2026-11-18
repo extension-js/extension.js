@@ -12,6 +12,11 @@ const SHEET = [
   '.d{background:url(./linked.png)}',
   '.e{background:url(./node_modules/pkg/.env)}',
   '.f{background:url(./node_modules/pkg/img.png)}',
+  '.g{background:url(./.npmrc)}',
+  '.h{background:url(./.envrc)}',
+  '.i{background:url(./.git/config)}',
+  '.j{background:url(./.DS_Store)}',
+  '.k{background:url(./.env.example)}',
   ''
 ].join('\n')
 
@@ -20,7 +25,11 @@ const WITHHELD = [
   './.env.local',
   '../../shared/outside.png',
   './linked.png',
-  './node_modules/pkg/.env'
+  './node_modules/pkg/.env',
+  './.npmrc',
+  './.envrc',
+  './.git/config',
+  './.DS_Store'
 ]
 
 // What a file's text reads as once a bundler inlines it in a data: URL.
@@ -63,6 +72,11 @@ describe.skipIf(process.platform === 'win32')(
           [`app/${folder}/.env.local`]: 'MARKER_LOCAL=two\n',
           [`app/${folder}/node_modules/pkg/.env`]: 'MARKER_PKG_ENV=three\n',
           [`app/${folder}/node_modules/pkg/img.png`]: 'ALLOWED_PKG_IMAGE\n',
+          [`app/${folder}/.npmrc`]: 'MARKER_NPMRC=four\n',
+          [`app/${folder}/.envrc`]: 'MARKER_ENVRC=five\n',
+          [`app/${folder}/.git/config`]: 'MARKER_GIT_CONFIG\n',
+          [`app/${folder}/.DS_Store`]: 'MARKER_DS_STORE\n',
+          [`app/${folder}/.env.example`]: 'ALLOWED_ENV_TEMPLATE\n',
           'shared/outside.png': 'MARKER_SHARED_IMAGE\n',
           'linked.png': 'MARKER_LINKED_IMAGE\n'
         })
@@ -102,24 +116,32 @@ describe.skipIf(process.platform === 'win32')(
           .join('\n')
 
         expect(summary.errors_count).toBe(0)
-        expect(emitted.filter((entry) => entry.includes('.env'))).toEqual([])
+        // A template that documents the keys of an env file is no secret.
+        expect(emitted.filter((entry) => entry.includes('.env'))).toEqual([
+          expect.stringMatching(/\.example$/)
+        ])
 
         for (const marker of [
           'MARKER_ENV',
           'MARKER_LOCAL',
           'MARKER_PKG_ENV',
           'MARKER_SHARED_IMAGE',
-          'MARKER_LINKED_IMAGE'
+          'MARKER_LINKED_IMAGE',
+          'MARKER_NPMRC',
+          'MARKER_ENVRC',
+          'MARKER_GIT_CONFIG',
+          'MARKER_DS_STORE'
         ]) {
           expect(shipped).not.toContain(marker)
           expect(shipped).not.toContain(inlined(marker))
         }
 
-        // The package image ships, inlined or as a file of its own.
-        expect(
-          shipped.includes('ALLOWED_PKG_IMAGE') ||
-            shipped.includes(inlined('ALLOWED_PKG_IMAGE'))
-        ).toBe(true)
+        // The package image and the env template ship, inlined or as files.
+        for (const allowed of ['ALLOWED_PKG_IMAGE', 'ALLOWED_ENV_TEMPLATE']) {
+          expect(
+            shipped.includes(allowed) || shipped.includes(inlined(allowed))
+          ).toBe(true)
+        }
 
         for (const request of WITHHELD) {
           expect(shipped).toMatch(
