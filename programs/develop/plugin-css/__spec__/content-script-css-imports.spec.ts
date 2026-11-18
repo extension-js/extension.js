@@ -531,6 +531,18 @@ describe('the sheets a content-script sheet imports', () => {
     )
   })
 
+  // No ending is guessed, the way no tool guesses one for a package.
+  it('read a name with no ending as a package, with that name and .css beside', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "reset";\n.own{}\n',
+      'content/reset.css': '.reset{}\n'
+    })
+
+    expect(inline(root, 'content/styles.css').css).toBe(
+      '@import "reset";\n.own{}\n'
+    )
+  })
+
   // The disk root is above every project and owns none of them.
   it('leave a sheet in the node_modules of the disk root', () => {
     const root = makeProject({'styles.css': '.own{}\n'})
