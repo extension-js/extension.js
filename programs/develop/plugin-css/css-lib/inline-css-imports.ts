@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import postcss, {type AtRule, type ChildNode, type Root} from 'postcss'
 import {cssUrlRefFiles, toPosixPath} from './dead-url-refs'
@@ -340,7 +341,7 @@ function isPrivateName(name: string): boolean {
 }
 
 const KEEP_IN_PROJECT =
-  'Keep the sheets a content script stylesheet imports inside the project, or in a package it installs.'
+  'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
 const NO_PRIVATE_NAME =
   'Give the sheet a path with no private file or folder name along it.'
 
@@ -364,6 +365,62 @@ function inInstalledModules(file: string, folders: string[]): boolean {
     .some(
       (folder) => folder === owner || folder.startsWith(`${owner}${path.sep}`)
     )
+}
+
+// Whether a folder declares a workspace the way pnpm, npm, Yarn and Bun read one.
+function declaresWorkspace(dir: string): boolean {
+  if (fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))) return true
+
+  try {
+    const {workspaces} = JSON.parse(
+      fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+    )
+
+    return Array.isArray(workspaces) || Array.isArray(workspaces?.packages)
+  } catch {
+    return false
+  }
+}
+
+const workspaceRoots = new Map<string, string>()
+
+// The nearest folder at or above the project that declares a workspace, or
+// the project itself. The walk ends at the home folder or the disk root.
+function workspaceRootOf(projectRoot: string): string {
+  const root = realPath(projectRoot)
+  const cached = workspaceRoots.get(root)
+  if (cached !== undefined) return cached
+
+  const home = realPath(os.homedir())
+  let found = root
+
+  for (let dir = root; ; dir = path.dirname(dir)) {
+    if (declaresWorkspace(dir)) {
+      found = dir
+      break
+    }
+
+    if (dir === home || path.dirname(dir) === dir) break
+  }
+
+  workspaceRoots.set(root, found)
+
+  return found
+}
+
+// Whether a path inside the workspace stays clear of the folders a package
+// manager or a tool keeps for itself: node_modules and any dot-folder.
+function inWorkspaceSources(file: string, workspaceRoot: string): boolean {
+  const inside = path.relative(workspaceRoot, file)
+
+  if (!inside || inside.startsWith('..') || path.isAbsolute(inside)) {
+    return false
+  }
+
+  return !path
+    .dirname(inside)
+    .split(path.sep)
+    .some((part) => part === 'node_modules' || /^\.(?!\.?$)/.test(part))
 }
 
 // Whether the rules of a sheet may be read into another one: undefined when
@@ -400,6 +457,18 @@ export function whyNotRead(
   if (
     inInstalledModules(asked, [written, root]) &&
     inInstalledModules(real, [root])
+  ) {
+    return undefined
+  }
+
+  // A sibling package of the same workspace is read where it is written.
+  const workspace = workspaceRootOf(root)
+  const writtenWorkspace = path.resolve(written, path.relative(root, workspace))
+
+  if (
+    workspace !== root &&
+    inWorkspaceSources(real, workspace) &&
+    inWorkspaceSources(asked, writtenWorkspace)
   ) {
     return undefined
   }

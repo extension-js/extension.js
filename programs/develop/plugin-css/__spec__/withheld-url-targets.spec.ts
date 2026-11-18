@@ -161,5 +161,73 @@ describe.skipIf(process.platform === 'win32')(
       },
       120_000
     )
+
+    // A sibling package of a workspace is the project's to name, a private
+    // name in it never.
+    it('a content script sheet ships a file of a sibling package in a workspace', async () => {
+      const root = makeProject({
+        'package.json': JSON.stringify({private: true, workspaces: ['*']}),
+        'app/package.json': JSON.stringify({
+          private: true,
+          name: 'sibling',
+          version: '0.0.0'
+        }),
+        'app/manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'sibling',
+          version: '1.0.0',
+          content_scripts: [
+            {matches: ['<all_urls>'], js: ['content/scripts.js']}
+          ]
+        }),
+        'app/content/scripts.js':
+          "import href from './styles.css'\ndocument.head.append(Object.assign(document.createElement('link'), {rel: 'stylesheet', href}))\n",
+        'app/content/styles.css':
+          '.a{background:url(../../shared/img.png)}\n.b{background:url(../../shared/.env)}\n',
+        'shared/img.png': 'SIBLING_IMAGE\n',
+        'shared/.env': 'MARKER_SIBLING_ENV=seven\n'
+      })
+      const app = path.join(root, 'app')
+      const {extensionBuild} = await import('../../command-build')
+      const previous = process.env.VITEST
+
+      process.env.VITEST = 'true'
+
+      let summary: {errors_count: number; warnings?: string[]}
+
+      try {
+        summary = (await extensionBuild(app, {
+          browser: 'chrome',
+          silent: true,
+          install: false,
+          mode: 'production',
+          exitOnError: false
+        } as never)) as typeof summary
+      } finally {
+        if (previous === undefined) delete process.env.VITEST
+        else process.env.VITEST = previous
+      }
+
+      const dist = path.join(app, 'dist', 'chrome')
+      const shipped = (fs.readdirSync(dist, {recursive: true}) as string[])
+        .filter((entry) => fs.statSync(path.join(dist, entry)).isFile())
+        .map((entry) => fs.readFileSync(path.join(dist, entry), 'utf8'))
+        .join('\n')
+
+      expect(summary.errors_count).toBe(0)
+      expect(
+        shipped.includes('SIBLING_IMAGE') ||
+          shipped.includes(inlined('SIBLING_IMAGE'))
+      ).toBe(true)
+
+      expect(shipped).not.toContain('url(../../shared/img.png)')
+      expect(shipped).not.toContain('MARKER_SIBLING_ENV')
+      expect(shipped).not.toContain(inlined('MARKER_SIBLING_ENV'))
+      expect(
+        (summary.warnings ?? []).map(
+          (warning) => /A url\((\S+)\) reference points/.exec(warning)?.[1]
+        )
+      ).toEqual(['../../shared/.env'])
+    }, 120_000)
   }
 )

@@ -248,7 +248,7 @@ describe('the sheets a content-script sheet imports', () => {
   })
 
   const KEEP =
-    'Keep the sheets a content script stylesheet imports inside the project, or in a package it installs.'
+    'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
   const NO_PRIVATE_NAME =
     'Give the sheet a path with no private file or folder name along it.'
 
@@ -265,7 +265,7 @@ describe('the sheets a content-script sheet imports', () => {
     )
   }
 
-  // The package beside this one in a workspace is not this project.
+  // With no workspace file above, the folder beside the project is not its own.
   it('leave a sheet outside the project where it is, and name where it sits', () => {
     const root = makeProject({
       'shared/tokens.css': '.tokens{}\n',
@@ -288,6 +288,86 @@ describe('the sheets a content-script sheet imports', () => {
         reason: `The file sits outside the project, at ${real.split(path.sep).join('/')}.`,
         fix: KEEP
       }
+    ])
+  })
+
+  // A workspace is a folder above that pnpm, npm, Yarn or Bun read as one.
+  it.each([
+    ['a pnpm-workspace.yaml', {'pnpm-workspace.yaml': "packages:\n  - '*'\n"}],
+    [
+      'a package.json with a workspaces list',
+      {'package.json': JSON.stringify({private: true, workspaces: ['*']})}
+    ],
+    [
+      'a package.json with workspaces packages',
+      {
+        'package.json': JSON.stringify({
+          private: true,
+          workspaces: {packages: ['*']}
+        })
+      }
+    ]
+  ])('bring in a sheet of a sibling package under %s', (_label, marker) => {
+    const root = makeProject({
+      ...marker,
+      'shared/tokens.css': '.tokens{}\n',
+      'app/styles.css': '@import "../shared/tokens.css";\n.own{}\n'
+    })
+    const result = inlineApp(root)
+
+    expect(result.css).toBe('.tokens{}\n\n.own{}\n')
+    expect(result.unreadable).toEqual([])
+  })
+
+  it.each([
+    ['a lockfile', {'pnpm-lock.yaml': "lockfileVersion: '9.0'\n"}],
+    ['an npm lockfile', {'package-lock.json': '{}'}],
+    ['a .git folder', {'.git/HEAD': 'ref: refs/heads/main\n'}],
+    ['a turbo.json', {'turbo.json': '{}'}],
+    [
+      'a workspaces field that is a string',
+      {'package.json': '{"workspaces":"*"}'}
+    ]
+  ])('leave a sibling sheet out when the folder above has only %s', (_label, marker) => {
+    const root = makeProject({
+      ...marker,
+      'shared/tokens.css': '.tokens{}\n',
+      'app/styles.css': '@import "../shared/tokens.css";\n.own{}\n'
+    })
+    const real = fs.realpathSync(path.join(root, 'shared', 'tokens.css'))
+
+    expect(inlineApp(root).unreadable.map((left) => left.reason)).toEqual([
+      `The file sits outside the project, at ${real.split(path.sep).join('/')}.`
+    ])
+  })
+
+  it.each([
+    [
+      'a private name',
+      '../shared/.env/x.css',
+      'The path holds .env, a name the build keeps private.'
+    ],
+    [
+      'the node_modules of another package',
+      '../shared/node_modules/pkg/x.css',
+      'outside'
+    ],
+    ['a dot-folder a tool keeps', '../shared/.cache/x.css', 'outside'],
+    ['a dot-folder at the workspace root', '../.turbo/x.css', 'outside']
+  ])('leave a workspace sheet out whose path holds %s', (_label, request, why) => {
+    const root = makeProject({
+      'pnpm-workspace.yaml': "packages:\n  - '*'\n",
+      [path.posix.join('app', request)]: '.x{}\n',
+      'app/styles.css': `@import "${request}";\n.own{}\n`
+    })
+    const real = fs.realpathSync(path.join(root, 'app', request))
+    const reason =
+      why === 'outside'
+        ? `The file sits outside the project, at ${real.split(path.sep).join('/')}.`
+        : why
+
+    expect(inlineApp(root).unreadable.map((left) => left.reason)).toEqual([
+      reason
     ])
   })
 
@@ -1372,7 +1452,7 @@ describe('the loader run that brings imports into a content-script sheet', () =>
           'IMPORT ../../shared/tokens.css',
           `REASON The file sits outside the project, at ${fs.realpathSync(tokens).split(path.sep).join('/')}.`,
           'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
-          'Keep the sheets a content script stylesheet imports inside the project, or in a package it installs.'
+          'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
         ].join('\n')
       ]
     ])

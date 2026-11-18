@@ -20,12 +20,22 @@ function write(root: string, relPath: string, contents: string | Buffer) {
   fs.writeFileSync(abs, contents)
 }
 
-function writeFixture(name: string): string {
+// The parent holds the project and the shared file, a monorepo when it
+// declares a workspace.
+function writeFixture(name: string, workspace = true): string {
   const parent = path.join(SUITE_ROOT, name)
   const root = path.join(parent, 'project')
   fs.mkdirSync(root, {recursive: true})
 
   write(parent, 'shared/outside-picture.png', IMAGE_BYTES)
+
+  if (workspace) {
+    write(
+      parent,
+      'package.json',
+      JSON.stringify({private: true, workspaces: ['project', 'shared']})
+    )
+  }
 
   write(
     root,
@@ -104,7 +114,7 @@ afterAll(() => {
 })
 
 describe('build: a web_accessible_resources file outside the project root shares the copy a sheet names', () => {
-  it('emits one assets/ copy and the WAR entry and the url() agree on its name', async () => {
+  it('in a workspace, emits one assets/ copy and the WAR entry and the url() agree on its name', async () => {
     const root = writeFixture('one-copy')
     const summary = await buildFixture(root)
     expect(summary.errors_count).toBe(0)
@@ -134,5 +144,28 @@ describe('build: a web_accessible_resources file outside the project root shares
     )
 
     expect(resources.filter((r) => r.endsWith('.png'))).toEqual([images[0]])
+  }, 120_000)
+
+  // Only the sheet's route is this test's: the manifest copies what it lists.
+  it('with no workspace above, keeps the url() of the sheet as written and warns', async () => {
+    const root = writeFixture('no-workspace', false)
+    const summary = (await buildFixture(root)) as {
+      errors_count: number
+      warnings?: string[]
+    }
+    expect(summary.errors_count).toBe(0)
+
+    const distDir = path.join(root, 'dist', 'chrome')
+    const sheet = fs
+      .readFileSync(path.join(distDir, 'content_scripts/content-0.css'), 'utf8')
+      .replace(/"/g, '')
+
+    expect(sheet).toContain('url(../../../shared/outside-picture.png)')
+    expect(sheet).not.toContain(CHROMIUM_EXTENSION_ROOT)
+    expect(
+      (summary.warnings ?? []).filter((warning) =>
+        warning.includes('url(../../../shared/outside-picture.png)')
+      )
+    ).toHaveLength(1)
   }, 120_000)
 })
