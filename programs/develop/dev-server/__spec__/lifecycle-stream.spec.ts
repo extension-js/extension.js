@@ -609,6 +609,37 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
+  it('names a crash after a contract error that cleared by its exit code, not the old error', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+
+    try {
+      const {stream, lines} = makeStream({readyPath})
+      stream.starting({requestedPort: 8080, port: 8080})
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({status: 'error', code: 'compile_error', message: 'm'})
+      )
+
+      stream.ready()
+      fs.writeFileSync(readyPath, JSON.stringify({status: 'ready', port: 8080}))
+      stream.ready()
+      stream.exited(1)
+
+      const frames = parseFrames(lines)
+      expect(frames.map((frame) => frame.status)).toEqual([
+        'starting',
+        'ready-failed',
+        'ready',
+        'failed'
+      ])
+
+      expect(frames[3].error?.code).toBe('E_INTERNAL')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   it('names the exit code when the process ends with no contract verdict', () => {
     const {stream, lines} = makeStream()
     stream.starting({requestedPort: 8080, port: 8080})
