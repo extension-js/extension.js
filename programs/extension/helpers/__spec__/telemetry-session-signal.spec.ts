@@ -727,6 +727,7 @@ describe('a command that exits on purpose still reports', () => {
         error_step: 'action'
       })
     ])
+
     expect(JSON.stringify(box.sentRows())).not.toContain('private folder')
     expect(exits).toEqual([1])
   })
