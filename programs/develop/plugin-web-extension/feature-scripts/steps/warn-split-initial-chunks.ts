@@ -20,8 +20,6 @@ import * as messages from '../messages'
 // one file and the entry waits for the rest forever. Say so once per entry.
 export class WarnSplitInitialChunks {
   apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(
       'scripts:warn-split-initial-chunks',
       (compilation) => {

@@ -102,7 +102,8 @@ export class DevSessionRestartScheduler {
     try {
       await handler(request)
     } catch {
-      // The handler reports its own failure; the session keeps serving.
+      // Nothing reports a failed restart: the error ends here unseen, and the
+      // old server keeps serving only if the failure came before its stop.
     } finally {
       this.inFlight = false
       if (this.latest) this.schedule()
