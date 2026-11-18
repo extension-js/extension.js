@@ -23,11 +23,14 @@ import {
 
 type StoreBrowser = 'chrome' | 'edge' | 'firefox'
 
-function isPathLike(value: string): boolean {
+function isPathLike(value: string, projectRoot: string): boolean {
   if (path.isAbsolute(value)) return true
   if (value.startsWith('./') || value.startsWith('../')) return true
+  if (value.includes('/') || value.includes('\\')) return true
 
-  return value.includes('/') || value.includes('\\')
+  // A folder that is there is a folder, whatever its name looks like, a
+  // store ID included.
+  return value.trim().length > 0 && isDir(toAbs(projectRoot, value))
 }
 
 // The web store moved hosts; the old chrome.google.com/webstore links still
@@ -267,7 +270,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
       continue
     }
 
-    if (isPathLike(entry)) {
+    if (isPathLike(entry, projectRoot)) {
       localPaths.push(entry)
       continue
     }

@@ -262,32 +262,112 @@ describe('companion extensions resolver', () => {
     ).rejects.toThrow(/neither a store link nor a folder path/)
   })
 
-  it('refuses a bare entry even when a folder of that name is in the project', async () => {
-    const root = tmpDir('extjs-companion-bare-folder-')
+  describe('a bare entry with no slash and no dot', () => {
     const id = 'fmkadmapgofadopljbjfkapdkoienihi'
-    writeManifest(path.join(root, 'my-ext'))
-    writeManifest(path.join(root, id))
-    writeManifest(path.join(root, 'extensions', 'inner'))
-
-    const resolve = (entry: string) =>
+    const resolve = (root: string, entry: string) =>
       resolveCompanionExtensionsConfig({
         projectRoot: root,
         browser: 'chrome',
         config: [entry]
       })
 
-    // Pins today's behavior.
-    await expect(resolve('my-ext')).rejects.toThrow(
-      /neither a store link nor a folder path: my-ext/
-    )
+    it('is a folder when a folder of that name is in the project', async () => {
+      const root = tmpDir('extjs-companion-bare-folder-')
+      writeManifest(path.join(root, 'extensions', 'inner'))
 
-    await expect(resolve('extensions')).rejects.toThrow(
-      /neither a store link nor a folder path: extensions/
-    )
+      await expect(resolve(root, 'extensions')).resolves.toEqual({
+        paths: [path.join(root, 'extensions')]
+      })
+    })
 
-    await expect(resolve(id)).rejects.toThrow(
-      /looks like a store id, not a store link/
-    )
+    it('is held to the ./extensions rule like any other folder', async () => {
+      const root = tmpDir('extjs-companion-bare-outside-')
+      writeManifest(path.join(root, 'my-ext'))
+
+      await expect(resolve(root, 'my-ext')).rejects.toThrow(
+        `Companion extensions must be inside ${path.join(root, 'extensions')}.\n` +
+          `Invalid path: ${path.join(root, 'my-ext')}`
+      )
+    })
+
+    it('is a folder even when it reads like a store ID', async () => {
+      const root = tmpDir('extjs-companion-bare-id-folder-')
+      writeManifest(path.join(root, id))
+
+      // The folder rule answers, so the store ID hint is not what is said.
+      await expect(resolve(root, id)).rejects.toThrow(
+        `Invalid path: ${path.join(root, id)}`
+      )
+
+      expect(fetchExtensionFromStore).not.toHaveBeenCalled()
+    })
+
+    it('stays an unknown entry when no folder has that name', async () => {
+      const root = tmpDir('extjs-companion-bare-missing-')
+      fs.mkdirSync(path.join(root, 'extensions'))
+
+      await expect(resolve(root, 'my-ext')).rejects.toThrow(
+        /neither a store link nor a folder path: my-ext/
+      )
+
+      await expect(resolve(root, id)).rejects.toThrow(
+        /looks like a store id, not a store link/
+      )
+
+      // An empty entry resolves to the project itself, which names nothing.
+      await expect(resolve(root, '')).rejects.toThrow(
+        /neither a store link nor a folder path/
+      )
+    })
+
+    it('stays an unknown entry when the name belongs to a file', async () => {
+      const root = tmpDir('extjs-companion-bare-file-')
+      fs.writeFileSync(path.join(root, 'my-ext'), 'a file, not a folder')
+      fs.writeFileSync(path.join(root, id), 'a file, not a folder')
+
+      await expect(resolve(root, 'my-ext')).rejects.toThrow(
+        /neither a store link nor a folder path: my-ext/
+      )
+
+      await expect(resolve(root, id)).rejects.toThrow(
+        /looks like a store id, not a store link/
+      )
+    })
+
+    it('leaves an absolute path as it was, inside ./extensions or not', async () => {
+      const root = tmpDir('extjs-companion-absolute-')
+      const inside = path.join(root, 'extensions', 'inner')
+      const outside = path.join(root, 'my-ext')
+      writeManifest(inside)
+      writeManifest(outside)
+
+      await expect(resolve(root, inside)).resolves.toEqual({paths: [inside]})
+      await expect(resolve(root, outside)).rejects.toThrow(
+        /Companion extensions must be inside/
+      )
+
+      // A path is a path whether or not anything is there.
+      await expect(
+        resolve(root, path.join(root, 'extensions', 'missing'))
+      ).resolves.toEqual({paths: [path.join(root, 'extensions', 'missing')]})
+    })
+
+    it('reads a backslash as a separator only where the platform does', async () => {
+      const root = tmpDir('extjs-companion-backslash-')
+      writeManifest(path.join(root, 'extensions', 'inner'))
+      const attempt = resolve(root, 'extensions\\inner')
+
+      if (process.platform === 'win32') {
+        await expect(attempt).resolves.toEqual({
+          paths: [path.join(root, 'extensions', 'inner')]
+        })
+      } else {
+        // One file name with a backslash in it, which sits outside the folder.
+        await expect(attempt).rejects.toThrow(
+          /Companion extensions must be inside/
+        )
+      }
+    })
   })
 
   it('keeps skipping the other browser link quietly, in every link form', async () => {
