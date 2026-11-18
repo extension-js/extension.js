@@ -9,7 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
-import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
+import {
+  hasPrivateFileName,
+  sourceFileMayShip
+} from '../../../plugin-special-folders/public-private-files'
 import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../../types'
 
@@ -109,6 +112,49 @@ export function splitWithheldEntries(
   }
 
   return {kept, withheld}
+}
+
+// Why the build withholds a file it may not ship: a private name along the
+// path as named or where a link leads, or else a place outside the project.
+export function withheldEntryKind(
+  sourcePath: string,
+  projectRoots: string[]
+): 'private' | 'outside' {
+  const hasPrivateNameBelow = (root: string, file: string) => {
+    const fromRoot = path.relative(root, file)
+
+    return (
+      fromRoot !== '' &&
+      fromRoot !== '..' &&
+      !fromRoot.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(fromRoot) &&
+      hasPrivateFileName(fromRoot)
+    )
+  }
+
+  const given = path.resolve(sourcePath)
+
+  if (
+    projectRoots.some((root) => hasPrivateNameBelow(path.resolve(root), given))
+  ) {
+    return 'private'
+  }
+
+  try {
+    const real = fs.realpathSync(sourcePath)
+
+    if (
+      projectRoots.some((root) =>
+        hasPrivateNameBelow(fs.realpathSync(root), real)
+      )
+    ) {
+      return 'private'
+    }
+  } catch {
+    // A path that cannot be read through is no private name either.
+  }
+
+  return 'outside'
 }
 
 // The background entry AddScripts will actually create for an MV3 worker

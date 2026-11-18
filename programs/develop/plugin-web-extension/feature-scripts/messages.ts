@@ -596,6 +596,31 @@ export function scriptsMissingFile(
   return lines.join('\n')
 }
 
+// A file on disk the build will not bundle: saying it does not exist would
+// send the author looking for a file that is right there.
+export function scriptsWithheldFile(
+  file: string,
+  field: string,
+  kind: 'private' | 'outside',
+  notFound: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${file} is not bundled. Check the ${field} field in your manifest.json file.`
+  )
+
+  lines.push(
+    kind === 'private'
+      ? `The build never bundles env files, tooling files or repository files. Move the code into a file with another name.`
+      : `The file is outside the project. Move it into the project.`
+  )
+
+  lines.push('')
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(notFound)}`)
+
+  return lines.join('\n')
+}
+
 export function scriptPathsCheckFailed(reason: string) {
   const lines: string[] = []
   lines.push(

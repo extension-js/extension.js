@@ -23,7 +23,8 @@ import {
   getCssEntries,
   getScriptEntries,
   isRemoteUrl,
-  resolveScriptEntryPath
+  resolveScriptEntryPath,
+  withheldEntryKind
 } from '../scripts-lib/utils'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'
 
@@ -168,7 +169,7 @@ export class AddScripts {
             manifestDir,
             projectPath
           )
-          // A withheld file is reported in the words a missing one gets.
+          // A withheld file is reported apart from a missing one.
           const named = [
             ...Object.entries(scriptFields).map(
               ([feature, raw]) => [feature, listOf(raw), false] as const
@@ -196,18 +197,24 @@ export class AddScripts {
               const isPublicRoot =
                 !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
 
+              const file = isPublicRoot
+                ? entry
+                : path.relative(manifestDir, resolved).split(path.sep).join('/')
+              const field = manifestFieldOf(feature, resolved, sheets)
               const err = new ErrorCtor(
-                messages.scriptsMissingFile(
-                  isPublicRoot
-                    ? entry
-                    : path
-                        .relative(manifestDir, resolved)
-                        .split(path.sep)
-                        .join('/'),
-                  manifestFieldOf(feature, resolved, sheets),
-                  resolved,
-                  isPublicRoot
-                )
+                isWithheld
+                  ? messages.scriptsWithheldFile(
+                      file,
+                      field,
+                      withheldEntryKind(resolved, [projectPath, manifestDir]),
+                      resolved
+                    )
+                  : messages.scriptsMissingFile(
+                      file,
+                      field,
+                      resolved,
+                      isPublicRoot
+                    )
               ) as Error & {file?: string; name?: string}
               err.file = 'manifest.json'
               err.name = 'ScriptsMissingFile'

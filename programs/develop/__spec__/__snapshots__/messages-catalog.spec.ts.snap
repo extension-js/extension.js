@@ -363,6 +363,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "runtimeSetSurfaceDependencyMissing: function(4)",
     "scriptPathsCheckFailed: function(1)",
     "scriptsMissingFile: function(4)",
+    "scriptsWithheldFile: function(4)",
     "staticImportDependencyMissing: function(4)",
     "topLevelMountCallRemoved: function(2)",
     "unknownRegistrationWorld: function(3)",

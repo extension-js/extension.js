@@ -255,8 +255,8 @@ describe.skipIf(process.platform === 'win32')(
           code: 'ScriptsMissingFile',
           file: 'manifest.json',
           lines: [
-            '.env.js does not exist. Check the content_scripts[0].js field in your manifest.json file.',
-            MUST_EXIST,
+            '.env.js is not bundled. Check the content_scripts[0].js field in your manifest.json file.',
+            'The build never bundles env files, tooling files or repository files. Move the code into a file with another name.',
             'NOT FOUND <root>/.env.js'
           ]
         },
@@ -264,8 +264,8 @@ describe.skipIf(process.platform === 'win32')(
           code: 'ScriptsMissingFile',
           file: 'manifest.json',
           lines: [
-            'linked.js does not exist. Check the content_scripts[0].js field in your manifest.json file.',
-            MUST_EXIST,
+            'linked.js is not bundled. Check the content_scripts[0].js field in your manifest.json file.',
+            'The file is outside the project. Move it into the project.',
             'NOT FOUND <root>/linked.js'
           ]
         }
