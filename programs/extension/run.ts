@@ -414,7 +414,9 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
       code:
         telemetryFailureCode((err as {code?: unknown} | undefined)?.code) ||
         CODES.E_INTERNAL,
-      exitCode: 1
+      exitCode: 1,
+      error: err,
+      step: 'action'
     })
 
     deps.stderr(`${messages.unhandledError(err)}\n`)
