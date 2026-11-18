@@ -125,7 +125,7 @@ describe('a Firefox dev session stamps ready only once the RDP port is known', (
     )
   })
 
-  it('lets the port of a superseded run land on the contract of the run that replaced it', async () => {
+  it('keeps the port of a superseded run off the contract of the run that replaced it', async () => {
     fs.writeFileSync(readyPath, JSON.stringify({...read(), runId: 'run-B'}))
 
     const port = await freePort()
@@ -142,8 +142,8 @@ describe('a Firefox dev session stamps ready only once the RDP port is known', (
 
     const ready = read()
     expect(ready.runId).toBe('run-B')
-    expect(ready.rdpPort).toBe(port)
-    expect(ready.status).toBe('ready')
+    expect(ready.rdpPort).toBeUndefined()
+    expect(ready.status).toBe('starting')
   })
 
   it('names the exit when Firefox leaves before opening the port', async () => {

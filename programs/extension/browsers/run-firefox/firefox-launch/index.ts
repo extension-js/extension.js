@@ -812,7 +812,11 @@ export class FirefoxLaunchPlugin {
         // timeout) stays a launch failure and keeps propagating as before.
         if (!reason) {
           if (portWait.open) {
-            stampReadyRdpPort(this.extensionOutputPath, debugPort)
+            stampReadyRdpPort(
+              this.extensionOutputPath,
+              debugPort,
+              this.launchRunId
+            )
           }
 
           // A process exists and the add-on never reached it, so the contract
@@ -837,7 +841,7 @@ export class FirefoxLaunchPlugin {
         this.host.retryAddonInstall = () =>
           this.retryAddonInstall(compilation, debugPort)
 
-        stampReadyRdpPort(this.extensionOutputPath, debugPort)
+        stampReadyRdpPort(this.extensionOutputPath, debugPort, this.launchRunId)
         this.scheduleWatchTimeout()
 
         return
@@ -845,11 +849,17 @@ export class FirefoxLaunchPlugin {
 
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
-      stampReadyRdpPort(this.extensionOutputPath, debugPort)
-      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyRdpPort(this.extensionOutputPath, debugPort, this.launchRunId)
+      stampReadyExtensionId(
+        this.extensionOutputPath,
+        ctrl.getExtensionId(),
+        this.launchRunId
+      )
+
       stampReadyExtensionBaseUrl(
         this.extensionOutputPath,
-        ctrl.getExtensionBaseUrl()
+        ctrl.getExtensionBaseUrl(),
+        this.launchRunId
       )
 
       this.scheduleWatchTimeout()
@@ -1113,10 +1123,16 @@ export class FirefoxLaunchPlugin {
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
       this.host.extensionLoadRefused = undefined
-      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyExtensionId(
+        this.extensionOutputPath,
+        ctrl.getExtensionId(),
+        this.launchRunId
+      )
+
       stampReadyExtensionBaseUrl(
         this.extensionOutputPath,
-        ctrl.getExtensionBaseUrl()
+        ctrl.getExtensionBaseUrl(),
+        this.launchRunId
       )
 
       return {status: 'loaded'}

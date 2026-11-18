@@ -123,6 +123,76 @@ describe('stampReadyRdpPort', () => {
     expect(ready.rdpPort).toBe(6006)
   })
 
+  it('keeps the port of a superseded run off the run that replaced it', () => {
+    const held = {
+      command: 'dev',
+      status: 'starting',
+      compiledAt: '2026-11-01T00:00:00.000Z',
+      runId: 'run-B'
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(held)
+  })
+
+  it('never replaces the port the new run stamped with an older one', () => {
+    const owned = {
+      command: 'dev',
+      status: 'ready',
+      compiledAt: '2026-11-01T00:00:00.000Z',
+      runId: 'run-B',
+      rdpPort: 6007
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(owned))
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(owned)
+  })
+
+  it('stamps and releases the contract of the run it belongs to', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        command: 'dev',
+        status: 'starting',
+        compiledAt: '2026-11-01T00:00:00.000Z',
+        runId: 'run-A'
+      })
+    )
+
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.rdpPort).toBe(6006)
+    expect(ready.status).toBe('ready')
+    expect(ready.runId).toBe('run-A')
+  })
+
+  it('stamps a contract that names no run, and one for a caller that names none', () => {
+    const held = {
+      command: 'dev',
+      status: 'starting',
+      compiledAt: '2026-11-01T00:00:00.000Z'
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(held))
+    stampReadyRdpPort(outputPath, 6006, 'run-A')
+
+    const unnamed = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(unnamed.rdpPort).toBe(6006)
+    expect(unnamed.status).toBe('ready')
+
+    fs.writeFileSync(readyPath, JSON.stringify({...held, runId: 'run-B'}))
+    stampReadyRdpPort(outputPath, 6006)
+
+    const anonymous = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(anonymous.rdpPort).toBe(6006)
+    expect(anonymous.status).toBe('ready')
+  })
+
   it('is a no-op when the contract file does not exist yet', () => {
     expect(() => stampReadyRdpPort(outputPath, 6006)).not.toThrow()
     expect(fs.existsSync(readyPath)).toBe(false)
@@ -354,6 +424,34 @@ describe('stampReadyExtensionId', () => {
     stampReadyExtensionId(outputPath, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionIdSource).toBe('browser')
+  })
+
+  it('keeps the id a superseded run confirmed off the run that replaced it', () => {
+    const owned = {
+      status: 'ready',
+      runId: 'run-B',
+      extensionId: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      extensionIdSource: 'derived'
+    }
+
+    fs.writeFileSync(readyPath, JSON.stringify(owned))
+    stampReadyExtensionId(
+      outputPath,
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'run-A'
+    )
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(owned)
+
+    stampReadyExtensionId(
+      outputPath,
+      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+      'run-B'
+    )
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.extensionId).toBe('bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb')
     expect(ready.extensionIdSource).toBe('browser')
   })
 
@@ -948,6 +1046,29 @@ describe('stampReadyExtensionBaseUrl', () => {
       extensionIdSource: 'browser',
       extensionBaseUrl: 'moz-extension://305a8e3f-2f12-4c62-8198-89ee682bd857/'
     })
+  })
+
+  it('keeps the base of a superseded run off the run that replaced it', () => {
+    const owned = {status: 'ready', browser: 'firefox', runId: 'run-B'}
+
+    fs.writeFileSync(readyPath, JSON.stringify(owned))
+    stampReadyExtensionBaseUrl(
+      outputPath,
+      'moz-extension://host-1234/',
+      'run-A'
+    )
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toEqual(owned)
+
+    stampReadyExtensionBaseUrl(
+      outputPath,
+      'moz-extension://host-1234/',
+      'run-B'
+    )
+
+    expect(
+      JSON.parse(fs.readFileSync(readyPath, 'utf-8')).extensionBaseUrl
+    ).toBe('moz-extension://host-1234/')
   })
 
   it('writes nothing without a base, an output path or a contract', () => {

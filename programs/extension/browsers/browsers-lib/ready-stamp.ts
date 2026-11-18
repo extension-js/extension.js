@@ -102,7 +102,8 @@ function isForeignRun(ready: unknown, runId: string | undefined): boolean {
 // downstream tooling can pair protocol clients from the ready contract alone.
 export function stampReadyRdpPort(
   extensionOutputPath: string | undefined,
-  rdpPort: number
+  rdpPort: number,
+  runId?: string
 ) {
   try {
     if (!extensionOutputPath || !Number.isFinite(rdpPort)) return
@@ -111,6 +112,8 @@ export function stampReadyRdpPort(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
+
     const held = isDevSessionStarting(ready)
     if (ready.rdpPort === rdpPort && !ready.rdpPortError && !held) return
 
@@ -739,7 +742,8 @@ export function stampReadyCdpFault(
 // derived id; this browser confirmation overwrites it and is never recomputed.
 export function stampReadyExtensionId(
   extensionOutputPath: string | undefined,
-  extensionId: string | undefined
+  extensionId: string | undefined,
+  runId?: string
 ) {
   try {
     const id = String(extensionId || '').trim()
@@ -749,6 +753,7 @@ export function stampReadyExtensionId(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
 
     if (ready.extensionId === id && ready.extensionIdSource === 'browser') {
       return
@@ -766,7 +771,8 @@ export function stampReadyExtensionId(
 // per-profile UUID host no id reveals, so only the browser can name it.
 export function stampReadyExtensionBaseUrl(
   extensionOutputPath: string | undefined,
-  extensionBaseUrl: string | undefined
+  extensionBaseUrl: string | undefined,
+  runId?: string
 ) {
   try {
     const base = String(extensionBaseUrl || '').trim()
@@ -776,6 +782,7 @@ export function stampReadyExtensionBaseUrl(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    if (isForeignRun(ready, runId)) return
     if (ready.extensionBaseUrl === base) return
 
     ready.extensionBaseUrl = base
