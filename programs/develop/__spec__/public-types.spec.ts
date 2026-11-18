@@ -61,6 +61,40 @@ export const dev: DevOptions = {mode: 'development'}
 export const build: BuildOptions = {zip: true}
 `
 
+// What start and preview read from their own commands block. The two profile
+// seeding keys reach the browser from dev alone, so they stay refused here.
+const serveCommandKeys = `import type {FileConfig} from 'extension-develop'
+
+export const start: FileConfig = {
+  commands: {
+    start: {
+      perfBudgets: {'service-worker': 10},
+      noOpen: true,
+      startingUrl: 'https://example.com'
+    }
+  }
+}
+
+export const preview: FileConfig = {
+  commands: {preview: {noOpen: true, startingUrl: 'https://example.com'}}
+}
+
+export const previewBudgets: FileConfig = {
+  // @ts-expect-error preview builds nothing, so no budget applies
+  commands: {preview: {perfBudgets: {'service-worker': 10}}}
+}
+
+export const previewKeep: FileConfig = {
+  // @ts-expect-error only dev hands keepProfileChanges to the browser
+  commands: {preview: {keepProfileChanges: true}}
+}
+
+export const startCopy: FileConfig = {
+  // @ts-expect-error only dev hands copyFromProfile to the browser
+  commands: {start: {copyFromProfile: '/tmp/profile'}}
+}
+`
+
 function readmeUsageExample(): string {
   const readme = readReadme()
   const usage = readme.slice(
@@ -262,6 +296,13 @@ describe('the declarations extension-develop ships', () => {
 
   it('want browser wherever no map key names the target', () => {
     const result = typecheck({'browser-required.ts': browserRequired})
+
+    expect(result.errors).toEqual([])
+    expect(result.status).toBe(0)
+  }, 120_000)
+
+  it('accept what start and preview read from their commands block', () => {
+    const result = typecheck({'serve-command-keys.ts': serveCommandKeys})
 
     expect(result.errors).toEqual([])
     expect(result.status).toBe(0)

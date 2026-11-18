@@ -483,7 +483,10 @@ export interface StartOptions extends PublicStartOptions {
 }
 
 export interface BrowserConfig extends Omit<BrowserOptionsBase, 'browser'> {
-  /** Optional: the key of the `browser` map already names the target. */
+  /**
+   * Optional: the key of the `browser` map already names the target. The map
+   * key wins, a different value here changes nothing.
+   */
   browser?: BrowserType
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
@@ -535,8 +538,9 @@ export type OutputConfig = {
  * (32 MiB); one a content script or the service worker reaches stays
  * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
  * under `browser.<vendor>.perfBudgets`, or per command via
- * `commands.dev.perfBudgets` / `commands.build.perfBudgets` (strongest
- * below a CLI flag).
+ * `commands.dev.perfBudgets`, `commands.build.perfBudgets` or
+ * `commands.start.perfBudgets` (strongest below a CLI flag). Preview builds
+ * nothing, so it takes none.
  */
 export type PerfBudgetsConfig =
   import('./plugin-perf-budgets').PerfBudgetsConfig
@@ -660,6 +664,8 @@ export interface FileConfig {
       | 'chromiumBinary'
       | 'geckoBinary'
       | 'polyfill'
+      | 'noOpen'
+      | 'startingUrl'
       | 'noBrowser'
       | 'port'
       | 'host'
@@ -683,6 +689,7 @@ export interface FileConfig {
       folders?: SpecialFoldersConfig
       include?: IncludeFilesConfig
       exclude?: ExcludeFilesConfig
+      perfBudgets?: PerfBudgetsConfig
     }
 
     preview?: Pick<
@@ -690,6 +697,8 @@ export interface FileConfig {
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
+      | 'noOpen'
+      | 'startingUrl'
       | 'noBrowser'
       | 'port'
       | 'host'
@@ -765,7 +774,7 @@ export interface FileConfig {
   /**
    * Default per-category asset budgets for all commands, the weakest layer.
    * `browser.<vendor>.perfBudgets` overrides it, and per-command
-   * `commands.dev|build.perfBudgets` overrides both.
+   * `commands.dev|build|start.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
   /**
