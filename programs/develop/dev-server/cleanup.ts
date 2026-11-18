@@ -80,6 +80,12 @@ async function closeAll(
   setTimeout(() => (failed ? exit(1) : exit()), 500)
 }
 
+export interface CleanupHandlers {
+  (): void
+  // Runs the same shutdown a signal runs, and the process then exits 1.
+  endAsFailed: () => Promise<void>
+}
+
 // Returns a disposer that cancels auto-exit and removes every listener added
 // here, so a second session in one process does not stack handlers.
 export function setupCleanupHandlers(
@@ -87,7 +93,7 @@ export function setupCleanupHandlers(
   portManager: PortManager,
   onSignal?: (signal: NodeJS.Signals) => void,
   dependencies: CleanupDependencies = {}
-): () => void {
+): CleanupHandlers {
   const events = dependencies.events ?? process
   // process.exit(undefined) clears an exitCode set earlier, exit() keeps it.
   const processExit: ExitFn =
@@ -101,13 +107,16 @@ export function setupCleanupHandlers(
   let isShuttingDown = false
   let shutdownStartedAt = 0
   let shutdownTimer: NodeJS.Timeout | undefined
+  let endingAsFailed = false
 
   const exit: ExitFn = (code) => {
     if (shutdownTimer) clearTimeout(shutdownTimer)
 
     shutdownTimer = undefined
 
-    if (code === undefined) processExit()
+    // A session ended as a failure never exits 0, however clean its stop.
+    if (code === undefined && endingAsFailed) processExit(1)
+    else if (code === undefined) processExit()
     else processExit(code)
   }
 
@@ -196,7 +205,7 @@ export function setupCleanupHandlers(
   const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
   for (const signal of signals) events.on(signal, cancelAndCleanup)
 
-  return () => {
+  const dispose = () => {
     cancelAutoExit()
     if (shutdownTimer) clearTimeout(shutdownTimer)
 
@@ -208,4 +217,18 @@ export function setupCleanupHandlers(
       events.removeListener(signal, cancelAndCleanup)
     }
   }
+
+  return Object.assign(dispose, {
+    endAsFailed: async () => {
+      endingAsFailed = true
+
+      try {
+        cancelAutoExit()
+      } catch {
+        // Ignore
+      }
+
+      await cleanup()
+    }
+  })
 }

@@ -515,10 +515,14 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
-  // The dev server never bound: a session-level failure, not a compile one.
-  public failed(message: string): Envelope<unknown> | null {
+  // The session cannot go on: the dev server never bound, unless the caller
+  // names another reason. A session-level failure, not a compile one.
+  public failed(
+    message: string,
+    code: ErrorCode = CODES.E_DEV_SERVER_START
+  ): Envelope<unknown> | null {
     const frame = ENVELOPE.fail(this.options.command, 'failed', {
-      code: CODES.E_DEV_SERVER_START,
+      code,
       message: stripAnsi(message)
     }) as Envelope<unknown>
     frame.value = this.sessionValue()

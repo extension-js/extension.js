@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import {extensionDev} from '../../../dist/module.mjs'
+import {endSessionAsFailed, extensionDev} from '../../../dist/module.mjs'
 
 // A host that goes on running: dev sessions started from the built library,
 // each ended by a failure, and what the process still holds after them.
@@ -201,10 +201,35 @@ async function restartWhileAnotherSessionLives() {
   }
 }
 
+// The host learns the session cannot go on, as a watchdog would, says so
+// through the engine and then signals itself. The shutdown ends the process.
+async function endedAsFailedByTheHost() {
+  const before = endSessionAsFailed('E_PARENT_GONE', 'too early')
+  const session = start(project('ended', CONFIGS.start))
+  await session.session
+  await until(() => session.isReady())
+
+  const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
+
+  process.on('exit', (code) => {
+    fs.writeSync(
+      1,
+      `\nRESULT ${JSON.stringify({before, ended, exitCode: code})}\n`
+    )
+  })
+
+  process.kill(process.pid, 'SIGTERM')
+  await wait(30000)
+
+  return {before, ended, exitCode: null}
+}
+
 const result =
   scenario === 'restart'
     ? await restartWhileAnotherSessionLives()
-    : await failingStarts()
+    : scenario === 'end-as-failed'
+      ? await endedAsFailedByTheHost()
+      : await failingStarts()
 
 process.stdout.write(`\nRESULT ${JSON.stringify(result)}\n`)
 process.exit(0)

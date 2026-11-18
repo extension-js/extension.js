@@ -108,6 +108,7 @@ import * as messages from './messages'
 import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig} from './server-config'
+import {registerLiveSession} from './session-end'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {createSessionHoldings} from './session-holdings'
 import {
@@ -1304,4 +1305,13 @@ async function startDevSession(
     }
   )
   holdings.addForRelease(disposeCleanupHandlers)
+
+  // A host that knows the session cannot go on ends it through here, so the
+  // one terminal frame is the stream's own and the shutdown is the usual one.
+  holdings.addEarly(
+    registerLiveSession((code, message) => {
+      lifecycle.failed(message, code)
+      void disposeCleanupHandlers.endAsFailed()
+    })
+  )
 }

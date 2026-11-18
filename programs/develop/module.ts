@@ -34,6 +34,8 @@ import type {
   StartOptions
 } from './types'
 
+// Ends the dev sessions of this process as a failure the host names.
+export {endSessionAsFailed} from './dev-server/session-end'
 export {
   loadCommandConfig,
   loadProjectConfigDefaults

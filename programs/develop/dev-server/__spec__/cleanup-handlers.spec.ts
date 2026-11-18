@@ -162,6 +162,49 @@ describe('setupCleanupHandlers', () => {
     expect(s.exit).toHaveBeenCalledTimes(1)
   })
 
+  it('ends as a failure with the usual shutdown and exit code 1', async () => {
+    vi.useFakeTimers()
+    const events = new EventEmitter()
+    const exit = vi.fn()
+    const order: string[] = []
+    const onSignal = vi.fn()
+    const handlers = setupCleanupHandlers(
+      () =>
+        ({
+          stop: async () => {
+            order.push('stop')
+          }
+        }) as never,
+      {
+        terminateCurrentInstance: async () => {
+          order.push('port')
+        }
+      } as unknown as PortManager,
+      onSignal,
+      {
+        events,
+        exit,
+        env: {},
+        closeControlBridge: async () => {
+          order.push('bridge')
+        },
+        onShutdownStart: () => order.push('shutdown start')
+      }
+    )
+    disposers.push(handlers)
+
+    const ending = handlers.endAsFailed()
+
+    // The host signals itself right after, which is the same request.
+    events.emit('SIGTERM', 'SIGTERM')
+    await ending
+    await vi.advanceTimersByTimeAsync(500)
+
+    expect(order).toEqual(['shutdown start', 'stop', 'bridge', 'port'])
+    expect(onSignal).not.toHaveBeenCalled()
+    expect(exit.mock.calls).toEqual([[1]])
+  })
+
   it('exits 1 and says so when the server stop rejects', async () => {
     vi.useFakeTimers()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})

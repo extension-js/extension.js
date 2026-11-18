@@ -152,6 +152,27 @@ describe('a host that starts dev sessions from the library', () => {
     expect(result.after).toEqual(result.before)
   }, 180_000)
 
+  it('writes one failed frame and no stopped one when the host ends the session as failed', async () => {
+    const {result, frames} = await runHost<{
+      before: boolean
+      ended: boolean
+      exitCode: number | null
+    }>('end-as-failed', {EXTENSION_OUTPUT: 'ndjson'})
+
+    // No session was live at the first call, and one was at the second.
+    expect(result).toEqual({before: false, ended: true, exitCode: 1})
+
+    const statuses = frames.map((frame) => frame.status)
+    expect(statuses.filter((status) => status === 'failed')).toHaveLength(1)
+    expect(statuses).not.toContain('stopped')
+    expect(statuses[statuses.length - 1]).toBe('failed')
+    expect(frames[frames.length - 1]).toMatchObject({
+      ok: false,
+      error: {code: 'E_PARENT_GONE', message: 'the owner is gone'},
+      value: {pid: expect.any(Number), port: expect.any(Number)}
+    })
+  }, 180_000)
+
   it('keeps an older session restarting after a newer one lost its server', async () => {
     const {result} = await runHost<TwoSessionsResult>('restart')
 
