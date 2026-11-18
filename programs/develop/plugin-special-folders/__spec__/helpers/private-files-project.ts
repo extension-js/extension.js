@@ -110,6 +110,55 @@ export function linkWorkspace(root: string, shared: Record<string, string>) {
   }
 }
 
+// Installed packages, made by hand: a plain folder, two linked the way pnpm
+// links them, two links that leave every `node_modules` above the project.
+export function linkPackages(root: string) {
+  const holder = path.dirname(root)
+  const modules = path.join(root, 'node_modules')
+
+  const write = (file: string, contents: string) => {
+    fs.mkdirSync(path.dirname(file), {recursive: true})
+    fs.writeFileSync(file, contents)
+  }
+
+  const store = (base: string, name: string) =>
+    path.join(base, 'node_modules/.pnpm', `${name}@1.0.0`, 'node_modules', name)
+
+  write(path.join(modules, 'plain-pkg/data.json'), '{"from":"plain-pkg"}')
+  write(path.join(modules, 'plain-pkg/lib.js'), 'var plainPkg = 1\n')
+  write(path.join(modules, 'plain-pkg/.env'), `KEY=${MARKER}-pkg-env\n`)
+  write(path.join(modules, '.npmrc'), `# ${MARKER}-modules-npmrc\n`)
+  write(
+    path.join(store(root, 'store-pkg'), 'data.json'),
+    '{"from":"store-pkg"}'
+  )
+
+  write(
+    path.join(store(holder, 'workspace-pkg'), 'data.json'),
+    '{"from":"workspace-pkg"}'
+  )
+
+  write(
+    path.join(holder, 'elsewhere/stray-pkg/data.json'),
+    `{"from":"${MARKER}-stray"}`
+  )
+
+  write(
+    path.join(holder, 'other-project/node_modules/far-pkg/data.json'),
+    `{"from":"${MARKER}-far"}`
+  )
+
+  if (!canLink) return
+
+  const link = (target: string, name: string) =>
+    fs.symlinkSync(target, path.join(modules, name))
+
+  link(store(root, 'store-pkg'), 'store-pkg')
+  link(store(holder, 'workspace-pkg'), 'workspace-pkg')
+  link(path.join(holder, 'elsewhere/stray-pkg'), 'stray-pkg')
+  link(path.join(holder, 'other-project/node_modules/far-pkg'), 'far-pkg')
+}
+
 const ESC = String.fromCharCode(27)
 const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, 'g')
 
