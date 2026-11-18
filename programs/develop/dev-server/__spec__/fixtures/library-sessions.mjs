@@ -346,16 +346,34 @@ async function twoStartsInOneTick() {
   }
 }
 
+// The engine is loaded and no session is live: the host's call is answered
+// false, and nothing the engine left behind writes a frame after it.
+async function endedBeforeAnySession() {
+  const before = listeners()
+  const ended = endSessionAsFailed('E_PARENT_GONE', 'no session yet')
+  const after = listeners()
+
+  process.stdout.write(`\nRESULT ${JSON.stringify({ended, before, after})}\n`)
+
+  if (process.platform === 'win32') process.exit(1)
+
+  process.kill(process.pid, 'SIGTERM')
+  await wait(30000)
+  process.exit(1)
+}
+
 const result =
   scenario === 'same-tick'
     ? await twoStartsInOneTick()
-    : scenario === 'restart'
-      ? await restartWhileAnotherSessionLives()
-      : scenario === 'end-as-failed'
-        ? await endedAsFailedByALibraryHost()
-        : scenario === 'end-as-failed-cli'
-          ? await endedAsFailedByTheCli()
-          : await failingStarts()
+    : scenario === 'end-before-session'
+      ? await endedBeforeAnySession()
+      : scenario === 'restart'
+        ? await restartWhileAnotherSessionLives()
+        : scenario === 'end-as-failed'
+          ? await endedAsFailedByALibraryHost()
+          : scenario === 'end-as-failed-cli'
+            ? await endedAsFailedByTheCli()
+            : await failingStarts()
 
 process.stdout.write(`\nRESULT ${JSON.stringify(result)}\n`)
 process.exit(0)

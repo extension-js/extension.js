@@ -330,6 +330,21 @@ describe('a host that starts dev sessions from the library', () => {
     expect(result.third).toEqual({started: true})
   }, 180_000)
 
+  it('answers false and writes no frame when the host ends a session before any is live', async () => {
+    const {result, frames} = await runHost<{
+      ended: boolean
+      before: number[]
+      after: number[]
+    }>('end-before-session', {EXTENSION_OUTPUT: 'ndjson'})
+
+    expect(result.ended).toBe(false)
+    expect(result.after).toEqual(result.before)
+    expect(result.before).toEqual([0, 0, 0, 0, 0, 0])
+
+    // The signal the host sends itself next finds no engine handler.
+    expect(frames).toEqual([])
+  }, 180_000)
+
   it('keeps an older session restarting after a newer one lost its server', async () => {
     const {result} = await runHost<TwoSessionsResult>('restart')
 
