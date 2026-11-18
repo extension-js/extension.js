@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
   build,
+  expectNothingPrivate,
   expectNoWorkspaceAboveTemp,
   MARKER
 } from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
@@ -125,6 +126,8 @@ async function rowFor(layout: Layout): Promise<Row> {
   }
 
   expect(result.errors).toBe(0)
+  // A workspace shares the picture, so there it ships with its marker.
+  expectNothingPrivate(result, layout.marker ? 'printed' : 'everywhere')
 
   return {
     marked: result.marked,
@@ -135,18 +138,11 @@ async function rowFor(layout: Layout): Promise<Row> {
 
 const PICTURE = 'assets/outside-picture.<hash>.png'
 
-// The entry alone: the file is refused and the raw entry stays listed.
+// The file is refused and the raw entry stays listed, alone or with a
+// content script sheet that names it through url(), which copies nothing.
 const refused = (ref: string): Row => ({
   marked: [],
   listed: [ref],
-  reported: [ref]
-})
-
-// A content script sheet names the same file through url(). The stylesheet
-// copies it, and the manifest lists that copy, while the entry is refused.
-const copiedBySheet = (ref: string): Row => ({
-  marked: [PICTURE],
-  listed: [PICTURE],
   reported: [ref]
 })
 
@@ -170,12 +166,12 @@ const ROWS: Array<[string, Layout, Row]> = [
   [
     'at the root, with a sheet',
     {manifestIn: '', sheet: true, marker: false},
-    copiedBySheet(FROM_ROOT)
+    refused(FROM_ROOT)
   ],
   [
     'in src/, with a sheet',
     {manifestIn: 'src', sheet: true, marker: false},
-    copiedBySheet(FROM_SRC)
+    refused(FROM_SRC)
   ],
   [
     'at the root, alone, in a workspace',
