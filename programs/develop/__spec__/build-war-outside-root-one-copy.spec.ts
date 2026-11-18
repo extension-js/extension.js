@@ -128,7 +128,7 @@ async function buildFixture(root: string) {
 // The rows with no marker need none above the temp folder either, or the
 // walk would find that one and read the shared folder as a sibling.
 function expectNoWorkspaceAbove(root: string) {
-  expect(workspaceRootOf(root)).toBe(fs.realpathSync.native(root))
+  expect(workspaceRootOf(root)).toBe(fs.realpathSync(root))
 }
 
 afterAll(() => {
