@@ -17,16 +17,20 @@ const childEnv = {
 }
 
 const repoRoot = path.resolve(__dirname, '..')
-const biomeBin = require.resolve('@biomejs/biome/bin/biome')
-const result = spawnSync(
-  process.execPath,
-  [biomeBin, 'format', '--write', '.'],
-  {
-    stdio: 'inherit',
-    env: childEnv,
-    cwd: repoRoot
+
+// A child that could not spawn has neither a status nor a signal, so reading
+// those alone would report a formatter that never ran as a success.
+function exitCodeFor(result, label) {
+  if (result.error) {
+    console.error(
+      `[Extension.js] Format: ${label} could not run (${result.error.message}).`
+    )
+
+    return 1
   }
-)
+
+  return result.status ?? (result.signal ? 1 : 0)
+}
 
 // Biome wraps a line that crosses the print width, which turns it into a
 // multiline expression that `local/padding-line-between-statements` then wants
@@ -60,22 +64,41 @@ function runEslintFix() {
     cwd: repoRoot
   })
 
-  return eslint.status ?? (eslint.signal ? 1 : 0)
+  return exitCodeFor(eslint, 'eslint')
 }
 
 // Windows ERROR_DLL_NOT_FOUND when Node/native binary can't load (e.g. Windows Node in WSL)
 const DLL_NOT_FOUND = 3221225781
 
-if (result.status === DLL_NOT_FOUND) {
-  console.warn(
-    '[Extension.js] Format skipped: Biome could not load (e.g. missing runtime). Run format on macOS/Linux or install Visual C++ Redistributable on Windows.'
+function main() {
+  const biomeBin = require.resolve('@biomejs/biome/bin/biome')
+  const result = spawnSync(
+    process.execPath,
+    [biomeBin, 'format', '--write', '.'],
+    {
+      stdio: 'inherit',
+      env: childEnv,
+      cwd: repoRoot
+    }
   )
 
-  process.exitCode = 0
-} else if (result.status !== 0) {
-  process.exitCode = result.status ?? (result.signal ? 1 : 0)
-} else {
+  if (result.status === DLL_NOT_FOUND) {
+    console.warn(
+      '[Extension.js] Format skipped: Biome could not load (e.g. missing runtime). Run format on macOS/Linux or install Visual C++ Redistributable on Windows.'
+    )
+
+    return 0
+  }
+
+  if (result.status !== 0) return exitCodeFor(result, 'Biome')
+
   // eslint exits non-zero on any remaining error it could not fix, which is a
   // real result for `pnpm format` rather than a reason to hide it.
-  process.exitCode = runEslintFix()
+  return runEslintFix()
+}
+
+module.exports = {exitCodeFor}
+
+if (require.main === module) {
+  process.exitCode = main()
 }

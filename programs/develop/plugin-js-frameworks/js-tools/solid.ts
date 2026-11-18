@@ -18,17 +18,21 @@ import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 
-let userMessageDelivered = false
+// Printed once per process. A caller that needs its own record passes one.
+const solidNotice = {delivered: false}
 
-export function isUsingSolid(projectPath: string) {
+export function isUsingSolid(
+  projectPath: string,
+  notice: {delivered: boolean} = solidNotice
+) {
   const using = hasDependency(projectPath, 'solid-js')
 
-  if (using && !userMessageDelivered) {
+  if (using && !notice.delivered) {
     if (isDebug()) {
       debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Solid')}`)
     }
 
-    userMessageDelivered = true
+    notice.delivered = true
   }
 
   return using
