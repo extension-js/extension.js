@@ -45,6 +45,7 @@ interface Loaded {
 const WITHHELD: Loaded[] = [
   {kind: 'script', ref: '.envrc', file: 'project/.envrc'},
   {kind: 'script', ref: '../outside.js', file: 'outside.js'},
+  {kind: 'script', ref: '/.env.js', file: 'project/.env.js'},
   {
     kind: 'script',
     ref: 'node_modules/pkg/.env',
@@ -82,7 +83,9 @@ const SHIPPED: Loaded[] = [
     ref: 'node_modules/pkg/lib.js',
     file: 'project/node_modules/pkg/lib.js'
   },
-  {kind: 'script', ref: '/.env.js', file: 'project/.env.js'},
+  // A name that only looks close to a private one.
+  {kind: 'script', ref: 'env.js', file: 'project/env.js'},
+  {kind: 'script', ref: '/config.env.js', file: 'project/config.env.js'},
   {kind: 'stylesheet', ref: 'own.css', file: 'project/own.css'},
   {
     kind: 'stylesheet',
@@ -140,7 +143,12 @@ describe.each([
         /The page references (?:a script file|a stylesheet|an asset) that doesn't exist\./
       )
 
-      expect(result.printed).toContain(`NOT FOUND ${path.resolve(root, ref)}`)
+      // A ref with a leading slash is read from the extension root.
+      const shown = ref.startsWith('/')
+        ? path.join(root, ref)
+        : path.resolve(root, ref)
+
+      expect(result.printed).toContain(`NOT FOUND ${shown}`)
     },
     TIMEOUT
   )
