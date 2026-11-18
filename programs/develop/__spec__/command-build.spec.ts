@@ -1,3 +1,4 @@
+import {AsyncLocalStorage} from 'node:async_hooks'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -101,7 +102,10 @@ import * as configLoaderMod from '../lib/config-loader'
 import * as ensureArtifactsMod from '../lib/ensure-develop-artifacts'
 import * as genTypesMod from '../lib/generate-extension-types'
 import * as messages from '../lib/messages'
-import {recordZipArtifact} from '../plugin-compilation/zip-artifacts'
+import {
+  recordZipArtifact,
+  recordZipFailure
+} from '../plugin-compilation/zip-artifacts'
 import * as tsToolsMod from '../plugin-js-frameworks/js-tools/typescript'
 import * as resolveConfigMod from '../plugin-special-folders/folder-extensions/resolve-config'
 import * as specialFoldersMod from '../plugin-special-folders/get-data'
@@ -615,7 +619,7 @@ describe('webpack/command-build', () => {
     expect(ensureArtifactsMod.ensureDevelopArtifacts).toHaveBeenCalled()
   })
 
-  it('resolves companion extensions before building', async () => {
+  it('downloads no companion for a build, and resolves them for the start leg', async () => {
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
     })
@@ -624,12 +628,25 @@ describe('webpack/command-build', () => {
     const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
     rspackMock.mockReturnValue(makeCompiler(stats))
 
+    const extensions = [
+      'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
+    ]
+
+    await extensionBuild('/proj', {browser: 'chrome', silent: true, extensions})
+
+    expect(
+      resolveConfigMod.resolveCompanionExtensionsConfig
+    ).not.toHaveBeenCalled()
+
+    expect((webpackConfig as any).mock.calls.at(-1)?.[1].extensions).toBe(
+      undefined
+    )
+
     await extensionBuild('/proj', {
       browser: 'chrome',
       silent: true,
-      extensions: [
-        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
-      ]
+      metadataCommand: 'start',
+      extensions
     })
 
     expect(
@@ -637,12 +654,10 @@ describe('webpack/command-build', () => {
     ).toHaveBeenCalledWith({
       projectRoot: '/proj',
       browser: 'chrome',
-      config: [
-        'https://chromewebstore.google.com/detail/react-developer-tools/fmkadmapgofadopljbjfkapdkoienihi'
-      ]
+      config: extensions
     })
 
-    expect(webpackConfig).toHaveBeenCalledWith(
+    expect(webpackConfig).toHaveBeenLastCalledWith(
       expect.any(Object),
       expect.objectContaining({
         extensions: {paths: ['/comp/a']},
@@ -765,28 +780,57 @@ describe('webpack/command-build', () => {
     )
   })
 
-  it('honors mode: development override and aligns NODE_ENV', async () => {
+  it('sets NODE_ENV for the compile and hands the caller back its own', async () => {
     ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) => {
       return String(p).endsWith('node_modules')
     })
     ;(fs.readdirSync as any).mockReturnValue(['something'])
     const stats = {hasErrors: () => false, toJson: () => ({assets: []})}
-    rspackMock.mockReturnValue(makeCompiler(stats))
-    const previousNodeEnv = process.env.NODE_ENV
+    const seen: Array<string | undefined> = []
+    rspackMock.mockImplementation(() => {
+      seen.push(process.env.NODE_ENV)
 
-    await extensionBuild('/proj', {
-      browser: 'chrome',
-      silent: true,
-      mode: 'development'
+      return makeCompiler(stats)
     })
 
-    expect(webpackConfig).toHaveBeenCalledWith(
-      expect.any(Object),
-      expect.objectContaining({mode: 'development'})
-    )
+    vi.stubEnv('NODE_ENV', 'test')
 
-    expect(process.env.NODE_ENV).toBe('development')
-    process.env.NODE_ENV = previousNodeEnv
+    try {
+      await extensionBuild('/proj', {
+        browser: 'chrome',
+        silent: true,
+        mode: 'development'
+      })
+
+      expect(webpackConfig).toHaveBeenCalledWith(
+        expect.any(Object),
+        expect.objectContaining({mode: 'development'})
+      )
+
+      await extensionBuild('/proj', {browser: 'chrome', silent: true})
+      await extensionBuild('/proj', {
+        browser: 'chrome',
+        silent: true,
+        mode: 'none'
+      })
+
+      expect(seen).toEqual(['development', 'production', 'test'])
+      expect(process.env.NODE_ENV).toBe('test')
+
+      // A failed build hands it back too.
+      rspackMock.mockImplementation(() => {
+        throw new Error('no compiler')
+      })
+
+      await expect(
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('no compiler')
+
+      expect(process.env.NODE_ENV).toBe('test')
+    } finally {
+      vi.unstubAllEnvs()
+      rspackMock.mockReset()
+    }
   })
 
   it('checks for TypeScript only after the folders config is remembered', async () => {
@@ -1157,7 +1201,10 @@ describe('webpack/command-build', () => {
     })
     ;(fs.existsSync as any).mockImplementation(
       (p: fs.PathLike) =>
-        String(p).endsWith('node_modules') || String(p) === safariDist
+        String(p).endsWith('node_modules') ||
+        String(p) === safariDist ||
+        // An earlier build wrote this folder, so the build may replace it.
+        String(p) === path.join(safariDist, 'manifest.json')
     )
     ;(fs.readdirSync as any).mockReturnValue(['something'])
 
@@ -1240,5 +1287,501 @@ describe('webpack/command-build', () => {
         exitOnError: false
       })
     ).rejects.toThrow(/invalid stats output/i)
+  })
+
+  describe('how a build fails', () => {
+    const plain = (text: unknown) =>
+      String(text)
+        // eslint-disable-next-line no-control-regex
+        .replace(/\u001b\[[0-9;]*m/g, '')
+        .replace(/^\S+ /, '')
+
+    async function tmpProject(prefix: string) {
+      const os = await import('node:os')
+      const realFs = await vi.importActual<typeof import('node:fs')>('node:fs')
+      const tmp = realFs.realpathSync(
+        realFs.mkdtempSync(path.join(os.tmpdir(), prefix))
+      )
+      const projectMod = await import('../lib/project')
+      ;(projectMod.getProjectStructure as any).mockResolvedValueOnce({
+        manifestPath: path.join(tmp, 'src', 'manifest.json'),
+        packageJsonPath: path.join(tmp, 'package.json')
+      })
+
+      return {tmp, realFs}
+    }
+
+    const stagingPath = () =>
+      (webpackConfig as any).mock.calls.at(-1)?.[1].output.path as string
+
+    const printedErrors = (spy: {mock: {calls: unknown[][]}}) =>
+      spy.mock.calls.map((call) => String(call[0] ?? '')).join('\n')
+
+    beforeEach(() => {
+      vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
+      vi.stubEnv('EXTENSION_DEBUG', '')
+      ;(fs.existsSync as any).mockImplementation((p: fs.PathLike) =>
+        String(p).endsWith('node_modules')
+      )
+      ;(fs.readdirSync as any).mockReturnValue(['something'])
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('starts the bundler outside any async scope and settles inside it', async () => {
+      const callerScope = new AsyncLocalStorage<string>()
+      const seen: Record<string, string | undefined> = {}
+      const stats = {
+        hasErrors: () => false,
+        toJson: () => {
+          seen.settle = callerScope.getStore()
+
+          return {assets: [], warnings: [], errors: [], time: 1}
+        }
+      }
+      rspackMock.mockReturnValue({
+        run: (cb: any) => {
+          seen.run = callerScope.getStore()
+          cb(null, stats)
+        },
+        close: (cb: any) => cb?.()
+      })
+
+      await callerScope.run('caller', () =>
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      )
+
+      expect(seen).toEqual({run: undefined, settle: 'caller'})
+    })
+
+    it('rejects and removes the staging folder when reading the result throws', async () => {
+      const {tmp, realFs} = await tmpProject('build-throw-after-run-')
+      const stats = {
+        hasErrors: () => false,
+        toJson: () => {
+          throw new Error('stats exploded')
+        }
+      }
+      let staging = ''
+      rspackMock.mockReturnValue({
+        run: (cb: any) => {
+          staging = stagingPath()
+          realFs.mkdirSync(staging, {recursive: true})
+          realFs.writeFileSync(path.join(staging, 'manifest.json'), '{}')
+          cb(null, stats)
+        },
+        close: (cb: any) => cb?.()
+      })
+
+      try {
+        await expect(
+          extensionBuild(tmp, {browser: 'chrome', silent: true})
+        ).rejects.toThrow('stats exploded')
+
+        expect(path.basename(staging)).toMatch(/^\.extension-build-chrome-/)
+        expect(realFs.existsSync(staging)).toBe(false)
+      } finally {
+        realFs.rmSync(tmp, {recursive: true, force: true})
+      }
+    }, 5000)
+
+    it('closes the compiler after a green build and after a failed one', async () => {
+      const close = vi.fn((cb: any) => cb?.())
+      rspackMock.mockReturnValue({
+        run: (cb: any) =>
+          cb(null, {hasErrors: () => false, toJson: () => ({assets: []})}),
+        close
+      })
+
+      await extensionBuild('/proj', {browser: 'chrome', silent: true})
+      expect(close).toHaveBeenCalledTimes(1)
+
+      rspackMock.mockReturnValue({
+        run: (cb: any) => cb(new Error('bundler exploded')),
+        close
+      })
+
+      await expect(
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('bundler exploded')
+
+      expect(close).toHaveBeenCalledTimes(2)
+    })
+
+    it('never ends the process, even when the caller asks for exitOnError', async () => {
+      const exitSpy = vi
+        .spyOn(process, 'exit')
+        .mockImplementation(((_code?: number) => undefined) as any)
+
+      rspackMock.mockReturnValue(
+        makeCompiler({
+          hasErrors: () => true,
+          toString: () => 'ERROR in ./missing-entry.js',
+          toJson: () => ({errors: [{message: 'a'}]})
+        })
+      )
+
+      let compileFailure: (Error & {code?: string}) | undefined
+
+      try {
+        await extensionBuild('/proj', {
+          browser: 'chrome',
+          silent: true,
+          exitOnError: true
+        })
+      } catch (error) {
+        compileFailure = error as Error & {code?: string}
+      }
+
+      expect(compileFailure?.message).toBe('Build failed with errors')
+      expect(compileFailure?.code).toBe('E_COMPILE')
+      ;(ensureArtifactsMod.ensureDevelopArtifacts as any).mockRejectedValueOnce(
+        new Error('boom')
+      )
+
+      await expect(
+        extensionBuild('/proj', {
+          browser: 'chrome',
+          silent: true,
+          exitOnError: true
+        })
+      ).rejects.toThrow('boom')
+
+      expect(exitSpy).not.toHaveBeenCalled()
+    }, 5000)
+
+    it('fails the same way with exitOnError on, off and absent', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const outcomes: unknown[] = []
+
+      for (const exitOnError of [true, false, undefined]) {
+        localErrorSpy.mockClear()
+        rspackMock.mockReturnValue(
+          makeCompiler(undefined, new Error('bundler exploded'))
+        )
+
+        const failure = await extensionBuild('/proj', {
+          browser: 'chrome',
+          silent: true,
+          ...(exitOnError === undefined ? {} : {exitOnError})
+        }).catch((error: Error & {code?: string}) => error)
+
+        outcomes.push({
+          code: (failure as {code?: string}).code,
+          message: (failure as Error).message,
+          printed: printedErrors(localErrorSpy)
+        })
+      }
+
+      expect(outcomes[0]).toEqual({
+        code: 'E_COMPILE_FATAL',
+        message: 'bundler exploded',
+        printed: expect.stringContaining('Build failed with 1 error.')
+      })
+
+      expect(outcomes[1]).toEqual(outcomes[0])
+      expect(outcomes[2]).toEqual(outcomes[0])
+    })
+
+    it('fails on a missing archive before the summary or the closer call it built', async () => {
+      const {tmp, realFs} = await tmpProject('build-zip-failure-')
+      const localLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const zipPath = path.join(tmp, 'dist', 'probe-chrome.zip')
+      const compilation = {}
+      recordZipFailure(compilation, {
+        kind: 'dist',
+        path: zipPath,
+        reason: 'ENOSPC: no space left on device'
+      })
+
+      rspackMock.mockReturnValue(
+        makeCompiler({
+          hasErrors: () => false,
+          toJson: () => ({assets: [{name: 'a.js', size: 10}], warnings: []}),
+          compilation
+        })
+      )
+
+      const block =
+        'The distribution zip was requested and not created.\n' +
+        `PATH ${zipPath}\n` +
+        'ENOSPC: no space left on device'
+
+      try {
+        let failure: (Error & {code?: string}) | undefined
+
+        try {
+          await extensionBuild(tmp, {browser: 'chrome', silent: false})
+        } catch (error) {
+          failure = error as Error & {code?: string}
+        }
+
+        expect(failure?.code).toBe('E_ZIP_SKIPPED')
+        expect(plain(failure?.message)).toBe(block)
+
+        const printed = localLogSpy.mock.calls
+          .map((call) => String(call[0] || ''))
+          .join('\n')
+        expect(printed).not.toContain('built for production in')
+
+        const errors = printedErrors(localErrorSpy)
+        expect(errors.split('was requested and not created').length).toBe(2)
+        expect(errors).toContain('Build failed with 1 error.')
+
+        const persisted = JSON.parse(
+          realFs.readFileSync(
+            path.join(
+              tmp,
+              'dist',
+              'extension-js',
+              'chrome',
+              'build-summary.json'
+            ),
+            'utf8'
+          )
+        )
+        expect(persisted.errors_count).toBe(1)
+        expect(persisted.errors).toEqual([
+          `E_ZIP_SKIPPED: The distribution zip was requested and not created at ${zipPath}: ENOSPC: no space left on device`
+        ])
+      } finally {
+        realFs.rmSync(tmp, {recursive: true, force: true})
+      }
+    })
+
+    it('prints a bundler error once, with no stack, under the fatal compile code', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+
+      rspackMock.mockReturnValue(
+        makeCompiler(undefined, new Error('bundler exploded'))
+      )
+
+      let failure: (Error & {code?: string; cause?: unknown}) | undefined
+
+      try {
+        await extensionBuild('/proj', {browser: 'chrome', silent: true})
+      } catch (error) {
+        failure = error as Error & {code?: string}
+      }
+
+      expect(failure?.code).toBe('E_COMPILE_FATAL')
+      expect(failure?.message).toBe('bundler exploded')
+      expect((failure?.cause as Error).message).toBe('bundler exploded')
+
+      const errors = printedErrors(localErrorSpy)
+      expect(errors.split('bundler exploded').length).toBe(2)
+      expect(errors).not.toMatch(/\n\s+at /)
+      expect(errors).toContain('Build failed with 1 error.')
+    })
+
+    it('codes a finished build that cannot take its place', async () => {
+      const {tmp, realFs} = await tmpProject('build-promote-failure-')
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      ;(configLoaderMod as any).userConfigSpy.mockImplementationOnce(
+        (cfg: any) => ({...cfg, output: {...cfg.output, path: stagingPath()}})
+      )
+      // The staging folder is reported present and is not, so the rename fails.
+      ;(fs.existsSync as any).mockImplementation(
+        (p: fs.PathLike) =>
+          String(p).endsWith('node_modules') ||
+          path.basename(String(p)).startsWith('.extension-build-')
+      )
+
+      rspackMock.mockReturnValue(
+        makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+      )
+
+      try {
+        let failure: (Error & {code?: string}) | undefined
+
+        try {
+          await extensionBuild(tmp, {browser: 'chrome', silent: true})
+        } catch (error) {
+          failure = error as Error & {code?: string}
+        }
+
+        expect(failure?.code).toBe('E_DESTINATION_NOT_WRITABLE')
+        const lines = plain(failure?.message).split('\n')
+        expect(lines[0]).toBe("Couldn't move the finished build into place.")
+        expect(lines[1]).toBe(`PATH ${path.join(tmp, 'dist', 'chrome')}`)
+        expect(lines[2]).toContain('ENOENT')
+        expect(lines[3]).toBe(
+          'Close whatever holds that folder open, check that it is writable, then run the build again.'
+        )
+      } finally {
+        realFs.rmSync(tmp, {recursive: true, force: true})
+      }
+    })
+
+    it('codes a Safari build that emitted nothing to package', async () => {
+      const {tmp, realFs} = await tmpProject('build-safari-empty-')
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      rspackMock.mockReturnValue(
+        makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+      )
+
+      try {
+        let failure: (Error & {code?: string}) | undefined
+
+        try {
+          await extensionBuild(tmp, {
+            browser: 'safari',
+            silent: true,
+            safariPackager: vi.fn(async () => undefined)
+          })
+        } catch (error) {
+          failure = error as Error & {code?: string}
+        }
+
+        expect(failure?.code).toBe('E_PREVIEW_NO_DIST')
+        expect(plain(failure?.message).split('\n')[0]).toBe(
+          'No build output to package for Safari.'
+        )
+      } finally {
+        realFs.rmSync(tmp, {recursive: true, force: true})
+      }
+    })
+
+    it('codes a bad out dir, a bad zip dir and a bad config browser as usage errors', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      const codeOf = async (options: Record<string, unknown>) => {
+        try {
+          await extensionBuild('/proj', {silent: true, ...options} as never)
+        } catch (error) {
+          return (error as {code?: string}).code
+        }
+
+        return 'resolved'
+      }
+
+      expect(await codeOf({browser: 'chrome', outDir: '.'})).toBe(
+        'E_INVALID_OPTION'
+      )
+
+      expect(await codeOf({browser: 'chrome', outDir: '  '})).toBe(
+        'E_INVALID_OPTION'
+      )
+
+      expect(await codeOf({browser: 'chrome', zipDir: '../escape'})).toBe(
+        'E_INVALID_OPTION'
+      )
+
+      expect(await codeOf({browser: 'chrome', zipDir: 'dist/chrome/z'})).toBe(
+        'E_INVALID_OPTION'
+      )
+
+      ;(configLoaderMod.loadCommandConfig as any).mockResolvedValueOnce({
+        browser: 'nope'
+      })
+
+      expect(await codeOf({})).toBe('E_UNSUPPORTED_BROWSER')
+    })
+
+    it('builds for chromium when no browser is named, and refuses a name it does not know', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      rspackMock.mockReturnValue(
+        makeCompiler({hasErrors: () => false, toJson: () => ({assets: []})})
+      )
+
+      const summary = await extensionBuild('/proj', {
+        silent: true
+      } as BuildOptions)
+
+      expect(summary.browser).toBe('chromium')
+      expect((webpackConfig as any).mock.calls.at(-1)?.[1].browser).toBe(
+        'chromium'
+      )
+
+      // A binary with no name still picks its own family.
+      const forked = await extensionBuild('/proj', {
+        silent: true,
+        chromiumBinary: '/opt/fork/browser'
+      } as BuildOptions)
+      expect(forked.browser).toBe('chromium-based')
+      ;(webpackConfig as any).mockClear()
+
+      let failure: (Error & {code?: string}) | undefined
+
+      try {
+        await extensionBuild('/proj', {
+          browser: 'chorme',
+          silent: true
+        } as never)
+      } catch (error) {
+        failure = error as Error & {code?: string}
+      }
+
+      expect(failure?.code).toBe('E_UNSUPPORTED_BROWSER')
+      expect(failure?.message).toBe(
+        'Unsupported browser: chorme. Choose one of: chrome, edge, chromium, brave, opera, vivaldi, yandex, chromium-based, firefox, waterfox, librewolf, zen, floorp, gecko-based, firefox-based, safari, webkit-based, chromium-emulator.'
+      )
+
+      expect(webpackConfig).not.toHaveBeenCalled()
+      expect(printedErrors(localErrorSpy)).toContain(
+        'Build failed with 1 error.'
+      )
+    })
+
+    it('reports a project it cannot find like every other build failure', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const projectMod = await import('../lib/project')
+      ;(projectMod.getProjectStructure as any).mockRejectedValueOnce(
+        new Error('no manifest here')
+      )
+
+      await expect(
+        extensionBuild('/nowhere', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('no manifest here')
+
+      const errors = printedErrors(localErrorSpy)
+      expect(errors).toContain('no manifest here')
+      expect(errors).toContain('Build failed with 1 error.')
+    })
+
+    it('leaves a project it cannot find to the frame under machine output', async () => {
+      const localErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {})
+      const projectMod = await import('../lib/project')
+
+      vi.stubEnv('EXTENSION_OUTPUT', 'json')
+      ;(projectMod.getProjectStructure as any).mockRejectedValueOnce(
+        new Error('no manifest here')
+      )
+
+      await expect(
+        extensionBuild('/nowhere', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('no manifest here')
+
+      expect(printedErrors(localErrorSpy)).toBe('')
+
+      // Past the project lookup a failure keeps its lines on stderr.
+      ;(ensureArtifactsMod.ensureDevelopArtifacts as any).mockRejectedValueOnce(
+        new Error('boom')
+      )
+
+      await expect(
+        extensionBuild('/proj', {browser: 'chrome', silent: true})
+      ).rejects.toThrow('boom')
+
+      expect(printedErrors(localErrorSpy)).toContain('boom')
+      expect(printedErrors(localErrorSpy)).toContain(
+        'Build failed with 1 error.'
+      )
+    })
   })
 })
