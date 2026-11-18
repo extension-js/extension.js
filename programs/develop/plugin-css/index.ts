@@ -447,9 +447,11 @@ export class CssPlugin {
               return
             }
 
-            // An alias can place a name no candidate holds. The file it leads
-            // to is then checked once resolved, like any other.
-            if (!found && resolvesAnyway(issuerDir, raw)) return
+            // An alias or a package can place a bare name no candidate holds.
+            // The file it leads to is then checked once resolved, like any other.
+            const bare = !/^\.{0,2}\//.test(req)
+
+            if (!found && bare && resolvesAnyway(issuerDir, raw)) return
 
             // Cancelled before rspack resolves it, so nothing watches for the
             // file. Watch every place it could appear, or a later write is lost.
