@@ -24,7 +24,6 @@ export default defineConfig({
       '__spec__/**/*.spec.js',
       '__spec__/**/*.spec.jsx',
       'dev-server/**/__spec__/**/*.spec.ts',
-      'feature-*/**/__spec__/**/*.spec.ts',
       'lib/**/__spec__/**/*.spec.ts',
       'plugin-*/**/__spec__/**/*.spec.ts',
       'plugin-*/**/__spec__/**/*.spec.tsx',

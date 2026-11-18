@@ -6,36 +6,63 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Stats} from '@rspack/core'
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
 import {displayPath} from '../../lib/paths'
 
-export function boring(manifestName: string, durationMs: number, stats: Stats) {
+export interface CompileReport {
+  errors: number
+  warnings: number
+  // Where the warnings print relative to this line, unset when it follows them.
+  warningsListed?: 'below' | 'above and below'
+}
+
+const counted = (count: number, noun: string) =>
+  `${count} ${noun}${count === 1 ? '' : 's'}`
+
+export function boring(
+  manifestName: string,
+  durationMs: number,
+  report: CompileReport
+) {
   const now = new Date()
   const hh = String(now.getHours()).padStart(2, '0')
   const mm = String(now.getMinutes()).padStart(2, '0')
   const ss = String(now.getSeconds()).padStart(2, '0')
   const timestamp = colors.gray(`[${hh}:${mm}:${ss}]`)
 
-  const hasErrors = stats.hasErrors()
-  const hasWarnings = stats.hasWarnings()
+  const {errors, warnings, warningsListed} = report
 
   // One glyph across all five channels; the color carries the severity.
-  const arrow = hasErrors
-    ? prefix('error')
-    : hasWarnings
-      ? prefix('warn')
-      : prefix('info')
-  const status = hasErrors
-    ? `compiled ${colors.red('with errors')}`
-    : hasWarnings
-      ? `compiled ${colors.yellow('with warnings')}`
-      : 'compiled'
-  const app = manifestName
+  const arrow =
+    errors > 0
+      ? prefix('error')
+      : warnings > 0
+        ? prefix('warn')
+        : prefix('info')
   const time = `${durationMs} ms`
 
-  return `${arrow} ${timestamp} ${app} ${status} in ${time}.`
+  // A failed compile never reads as one that went through.
+  if (errors > 0) {
+    const also =
+      warnings > 0 ? ` and ${colors.yellow(counted(warnings, 'warning'))}` : ''
+    const status = `failed to compile ${colors.red(
+      `with ${counted(errors, 'error')}`
+    )}${also}`
+
+    return `${arrow} ${timestamp} ${manifestName} ${status} in ${time}.`
+  }
+
+  if (warnings > 0) {
+    const status = `compiled ${colors.yellow(
+      `with ${counted(warnings, 'warning')}`
+    )}`
+    const where = warningsListed ? `, listed ${warningsListed}` : ''
+
+    return `${arrow} ${timestamp} ${manifestName} ${status} in ${time}${where}.`
+  }
+
+  return `${arrow} ${timestamp} ${manifestName} compiled in ${time}.`
 }
 
 export function zipMissingDefaultLocale(
@@ -48,6 +75,80 @@ export function zipMissingDefaultLocale(
     `without their default locale: restore the _locales folder ` +
     `before shipping this zip.`
   )
+}
+
+// A folder left out is named, so a source folder that shares the session
+// folder's name is never dropped without a word.
+export function zipLeftOutSessionFolders(
+  kind: 'source' | 'dist',
+  folders: string[]
+) {
+  const one = folders.length === 1
+  const archive = kind === 'source' ? 'source zip' : 'extension zip'
+
+  return (
+    `${prefix('warn')} The ${archive} left out ${one ? 'a folder' : `${folders.length} folders`} that Extension.js writes while it builds and runs, not part of the extension.\n` +
+    `${colors.gray('LEFT OUT')} ${folders.join(', ')}\n` +
+    `Delete ${one ? 'it' : 'them'} while no session is running.` +
+    (kind === 'source'
+      ? ' A folder of your own named extension-js is packed once it holds a package.json.'
+      : '')
+  )
+}
+
+type ZipLeftOutReason = 'key' | 'registry' | 'archive' | 'build' | 'env'
+
+const ZIP_LEFT_OUT: Record<ZipLeftOutReason, {label: string; why: string}> = {
+  key: {
+    label: 'KEY FILE',
+    why: 'A signing key or a packed extension is never source.'
+  },
+  registry: {
+    label: 'REGISTRY AUTH',
+    why: `A registry file is packed once its auth value reads the environment, as in \${NPM_TOKEN}.`
+  },
+  archive: {
+    label: 'OLD ARCHIVE',
+    why: 'An archive of an earlier run is not packed into a new one.'
+  },
+  build: {
+    label: 'BUILD OUTPUT',
+    why: 'A folder named after a browser inside dist or build that holds a manifest.json is a build.'
+  },
+  env: {
+    label: 'ENV FILE',
+    why: 'An env file reaches the output from the public folder. Move it out of there.'
+  }
+}
+
+// Names the path and the reason, never what a file holds.
+export function zipLeftOut(
+  kind: 'source' | 'dist',
+  entries: Array<{reason: ZipLeftOutReason; path: string}>
+) {
+  const reasons = (Object.keys(ZIP_LEFT_OUT) as ZipLeftOutReason[]).filter(
+    (reason) => entries.some((entry) => entry.reason === reason)
+  )
+  const lines = reasons.map((reason) => {
+    // Sorted here: the walk lists a folder in the order its file system
+    // gives, which differs where names differ only by case.
+    const paths = entries
+      .filter((entry) => entry.reason === reason)
+      .map((entry) => entry.path)
+      .sort()
+
+    return `${colors.gray(ZIP_LEFT_OUT[reason].label)} ${paths.join(', ')}\n`
+  })
+
+  return (
+    `${prefix('warn')} The ${kind === 'source' ? 'source zip left out what is not source' : 'extension zip left out what is not part of the extension'}.\n` +
+    lines.join('') +
+    reasons.map((reason) => ZIP_LEFT_OUT[reason].why).join(' ')
+  )
+}
+
+export function zipSourceEmpty() {
+  return `${prefix('warn')} The source zip holds no files. Every file in the project is ignored or left out.`
 }
 
 export function zipCreationFailed(error: unknown) {

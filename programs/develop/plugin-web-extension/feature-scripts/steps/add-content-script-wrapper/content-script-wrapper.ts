@@ -47,11 +47,11 @@ import {
   readDefaultExport,
   refuseDefaultExportLostToLoaders
 } from '../../scripts-lib/default-export'
-import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 import {
   extensionBaseAttributeFor,
   extensionBaseGlobalFor
 } from '../../scripts-lib/taken-extension-base'
+import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 
 interface ContentScriptLoaderContext {
   getOptions(): {

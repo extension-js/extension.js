@@ -120,10 +120,10 @@ describe('the extension-develop/contracts entry', () => {
   })
 
   it('leaves the bridge entry shape unchanged', () => {
-    const bridge = packageJson.exports['./bridge']
-    expect(bridge.development).toBe('./bridge-entry.ts')
-    expect(bridge.types).toBe('./dist/bridge-entry.d.ts')
-    expect(bridge.import).toBe('./dist/bridge.mjs')
+    expect(packageJson.exports['./bridge']).toEqual({
+      types: './dist/bridge-entry.d.ts',
+      import: './dist/bridge.mjs'
+    })
   })
 
   it('pulls in no Node-only module', () => {

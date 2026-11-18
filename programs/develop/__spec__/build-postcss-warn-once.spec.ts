@@ -13,7 +13,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function project(postCssConfig: string) {
+function project(postCssConfig: string, extra: Record<string, string> = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-postcss-once-'))
   roots.push(root)
 
@@ -41,7 +41,8 @@ function project(postCssConfig: string) {
     'page.css': '.b { color: blue; }\n',
     'options.html':
       '<!doctype html><html><head><link rel="stylesheet" href="page.css"></head><body></body></html>',
-    'postcss.config.js': postCssConfig
+    'postcss.config.js': postCssConfig,
+    ...extra
   }
 
   for (const [rel, content] of Object.entries(files)) {
@@ -61,7 +62,9 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   try {
     return await extensionBuild(root, {
       browser,
-      silent: true,
+      // These are warnings of the build, which a silent one keeps
+      // to itself.
+      silent: false,
       install: false,
       mode: 'production',
       exitOnError: false
@@ -72,7 +75,15 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   }
 }
 
-// Every line either console method printed that holds the given text.
+function consoleSpies() {
+  return [
+    vi.spyOn(console, 'log').mockImplementation(() => {}),
+    vi.spyOn(console, 'error').mockImplementation(() => {}),
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  ]
+}
+
+// Every line a console method printed that holds the given text.
 function printed(spies: Array<{mock: {calls: unknown[][]}}>, text: string) {
   return spies
     .flatMap((spy) => spy.mock.calls)
@@ -82,7 +93,7 @@ function printed(spies: Array<{mock: {calls: unknown[][]}}>, text: string) {
 
 // A compiler builds one style rule per file type and per place a sheet can
 // load, and each of them reads the PostCSS config again.
-describe('a PostCSS finding is said once per build', () => {
+describe('a PostCSS config problem is said once per build', () => {
   it.each([
     'chrome',
     'firefox'
@@ -90,16 +101,19 @@ describe('a PostCSS finding is said once per build', () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}, 'postcss-second-missing-plugin': {}}}\n"
     )
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, browser)
 
+    // The build prints its warnings together, so the names are read from
+    // everything it printed.
     expect(
-      printed(spies, "Couldn't resolve the PostCSS plugin")
-        .map((line) => line.split('\n')[0].replace(/^.*plugin /, ''))
+      [
+        ...printed(spies, "Couldn't resolve the PostCSS plugin")
+          .join('\n')
+          .matchAll(/Couldn't resolve the PostCSS plugin (\S+)/g)
+      ]
+        .map((match) => match[1])
         .sort()
     ).toEqual([
       'postcss-plugin-nobody-installed.',
@@ -107,14 +121,38 @@ describe('a PostCSS finding is said once per build', () => {
     ])
   }, 120_000)
 
+  // What `build --output json` answers with is this list.
+  it('lists each warning once in the warnings the build answers with', async () => {
+    const root = project(
+      "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}, 'postcss-second-missing-plugin': {}}}\n"
+    )
+
+    consoleSpies()
+
+    const summary = (await build(root, 'chrome')) as {
+      warnings_count: number
+      warnings: string[]
+    }
+
+    expect(summary.warnings_count).toBe(2)
+    expect(
+      summary.warnings
+        .map(
+          (warning) =>
+            /Couldn't resolve the PostCSS plugin (\S+)\./.exec(warning)?.[1]
+        )
+        .sort()
+    ).toEqual([
+      'postcss-plugin-nobody-installed',
+      'postcss-second-missing-plugin'
+    ])
+  }, 120_000)
+
   it('says it again in the next build of the same project', async () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}}}\n"
     )
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, 'chrome')
     await build(root, 'chrome')
@@ -122,6 +160,61 @@ describe('a PostCSS finding is said once per build', () => {
     expect(printed(spies, "Couldn't resolve the PostCSS plugin")).toHaveLength(
       2
     )
+  }, 120_000)
+})
+
+// The CLI ships no PostCSS preset, so a config that names one by string gets
+// the copy the project installed and nothing else.
+describe('a config naming postcss-preset-env as a string', () => {
+  const config = "module.exports = {plugins: {'postcss-preset-env': {}}}\n"
+
+  it('builds without it and says once how to install it when the project has none', async () => {
+    const root = project(config)
+    const spies = consoleSpies()
+
+    await build(root, 'chrome')
+
+    const css = emittedCss(root, 'chrome')
+    const said = printed(spies, "Couldn't resolve the PostCSS plugin")
+
+    expect(css).toContain('.a{color:red}')
+    expect(css).toContain('.b{color:#00f}')
+    expect(said).toHaveLength(1)
+    expect(said[0]).toMatch(
+      /Couldn't resolve the PostCSS plugin \S*postcss-preset-env/
+    )
+
+    expect(said[0].split('\n').at(-1)).toMatch(
+      /^Install it in your project to re-enable it: .*postcss-preset-env/
+    )
+  }, 120_000)
+
+  it('applies the copy in the node_modules of the project', async () => {
+    const root = project(config, {
+      [path.join('node_modules', 'postcss-preset-env', 'package.json')]:
+        JSON.stringify({
+          name: 'postcss-preset-env',
+          version: '0.0.0',
+          main: 'index.js'
+        }),
+      [path.join('node_modules', 'postcss-preset-env', 'index.js')]: [
+        'module.exports = () => ({',
+        "  postcssPlugin: 'postcss-preset-env',",
+        "  Once(root) { root.append('.from-the-project-preset{order:7}') }",
+        '})',
+        'module.exports.postcss = true',
+        ''
+      ].join('\n')
+    })
+    const spies = consoleSpies()
+
+    await build(root, 'chrome')
+
+    const css = emittedCss(root, 'chrome')
+
+    expect(css).toContain('.a{color:red}')
+    expect(css.match(/\.from-the-project-preset\{order:7\}/g)).toHaveLength(2)
+    expect(printed(spies, "Couldn't resolve the PostCSS plugin")).toEqual([])
   }, 120_000)
 })
 
@@ -171,10 +264,7 @@ describe.each(unusableConfigs)('$name is set aside', ({config, says}) => {
     'firefox'
   ] as const)('warns once and still ships the styles on %s', async (browser) => {
     const root = project(config)
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, browser)
 

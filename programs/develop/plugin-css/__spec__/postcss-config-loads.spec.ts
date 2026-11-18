@@ -79,6 +79,11 @@ function postCssPluginNames(rules: RuleSetRule[]): string[] {
       if (!String(use.loader).includes('postcss-loader')) continue
 
       for (const plugin of use.options?.postcssOptions?.plugins || []) {
+        // The build's own plugin, which names the config files to watch.
+        if (plugin.postcssPlugin === 'extension-js-postcss-setup-files') {
+          continue
+        }
+
         names.add(String(plugin.postcssPlugin))
       }
     }
@@ -87,14 +92,14 @@ function postCssPluginNames(rules: RuleSetRule[]): string[] {
   return [...names]
 }
 
-// Nothing restarts a dev session for a PostCSS config edit. The next
-// compiler, which a restart for any other reason builds, reads it again.
+// Node keeps every module it imports, so each read asks for the file anew.
+// A compiler built after an edit, which a session restart does, reads the edit.
 describe('a PostCSS config edit between two compilers', () => {
   it.each([
     ['development', 'postcss.config.cjs', ['second']],
     ['production', 'postcss.config.cjs', ['second']],
-    // Node keeps the module it imported first, so the edit is not seen.
-    ['development', 'postcss.config.js', ['first']]
+    ['development', 'postcss.config.js', ['second']],
+    ['production', 'postcss.config.js', ['second']]
   ] as Array<
     [Mode, string, string[]]
   >)('%s, %s', async (mode, configFile, after) => {
@@ -112,7 +117,6 @@ describe('a PostCSS config edit between two compilers', () => {
     const next = await configureCss(root, mode)
 
     expect(postCssPluginNames(before)).toEqual(['first'])
-    // Pins today's behavior.
     expect(postCssPluginNames(next)).toEqual(after)
   })
 })

@@ -68,7 +68,7 @@ The `extension-develop/manifest` entry is deprecated and is removed in the next 
 - Zipping: distribution and/or source packages (respects `.gitignore`)
 - Auto-install of missing build + optional dependencies on first run
 - Type generation for TS projects via `extension-env.d.ts`
-- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and webpack config hooks
+- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and the bundler config hooks (`config`, `configResolved`)
 - Managed dependency guard to avoid conflicts
 
 ## Commands
@@ -124,6 +124,10 @@ Options accepted by each command. Values shown are typical types or enumerations
 | logColor            | boolean                             | Colorize pretty output                                                            |
 | logUrl              | string or /regex/flags              | Filter by URL substring or JS-style regex literal                                 |
 | logTab              | number                              | Filter by tabId                                                                   |
+| exitOnError         | boolean                             | Exit the process with code 1 on a failed session, off by default for a library    |
+| hintFor             | (code) => string or undefined       | The hint for a terminal `failed` or `usage` frame that carries none               |
+
+A host that learns a session cannot go on calls `endSessionAsFailed(code, message, instanceId?)`, exported beside `extensionDev`. It ends the named session, or the newest one, with one `failed` frame and answers `false` when that session is not live or is already stopping. A host that did not pass `exitOnError` keeps running.
 
 ### build
 
@@ -305,6 +309,12 @@ dist/
 | plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules<br/>- Appends `.wasm` to the resolve extensions |
 | plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
+| plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |
+| plugin-wasm          | core  | - Enables async WebAssembly<br/>- Resolves `.wasm` imports<br/>- Aliases runtime wasm assets |
+| plugin-perf-budgets  | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold |
+| plugin-reload        | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session |
+| plugin-playwright    | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |
+| plugin-browsers      | dev   | - Launches the target browser with the built extension loaded<br/>- Passed in by the CLI, absent under `--no-browser` |
 
 ## Notes and compatibility
 

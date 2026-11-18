@@ -223,7 +223,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -273,7 +273,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -319,7 +319,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 browser: 'chromium',
                 buildType: 'production',
                 output_path: '<project>/dist/chromium',
-                total_assets: 3,
+                total_assets: 2,
                 total_bytes: 0,
                 largest_asset_bytes: 0,
                 warnings_count: 1,
@@ -345,7 +345,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -355,7 +355,6 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '├─ manifest.json (N KB)',
         '└─ content_scripts',
-        '   ├─ content-0.js (N KB)',
         '   └─ content-0.css (N KB)',
         '',
         "⏵⏵⏵ The CSS in this file doesn't parse, so it was copied as-is.",
@@ -397,7 +396,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 browser: 'chromium',
                 buildType: 'production',
                 output_path: '<project>/dist/chromium',
-                total_assets: 3,
+                total_assets: 2,
                 total_bytes: 0,
                 largest_asset_bytes: 0,
                 warnings_count: 1,
@@ -423,7 +422,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -433,7 +432,6 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '├─ manifest.json (N KB)',
         '└─ content_scripts',
-        '   ├─ content-0.js (N KB)',
         '   └─ content-0.css (N KB)',
         '',
         '⏵⏵⏵ Warning: A url(./nope.png) reference points to a file that exists nowhere in the project. (a.css)',
@@ -568,7 +566,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -643,7 +641,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -715,7 +713,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -788,7 +786,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',

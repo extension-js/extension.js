@@ -711,7 +711,7 @@ export function buildInstallCommand(
   return {command: pm.name, args}
 }
 
-export function buildSpawnInvocation(
+function buildSpawnInvocation(
   command: string,
   args: string[]
 ): {command: string; args: string[]} {
