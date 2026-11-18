@@ -59,7 +59,8 @@ export interface InlinedCssImports {
   moved: PlacedCssImport[]
   // An import of an address left inside a block, where a browser skips it.
   skipped: SkippedCssImport[]
-  // Each file an import that stays names and a reason above speaks for.
+  // Each file an import that stays names and a reason above speaks for, and
+  // each statement with no target that one does.
   answered: string[]
   // Each run of sheets that import one another, closed by its first sheet.
   cycles: string[][]
@@ -350,11 +351,19 @@ function inInstalledModules(file: string, folders: string[]): boolean {
   const modulesAt = parts.indexOf('node_modules')
   if (modulesAt === -1) return false
 
-  const owner = parts.slice(0, modulesAt).join(path.sep)
+  // Windows spells one drive in either letter case.
+  const spelled = (folder: string) =>
+    process.platform === 'win32' ? folder.toLowerCase() : folder
+  const owner = spelled(parts.slice(0, modulesAt).join(path.sep))
 
-  return folders.some(
-    (folder) => folder === owner || folder.startsWith(`${owner}${path.sep}`)
-  )
+  // The root of a disk owns no project, whatever sits in its node_modules.
+  if (owner === '' || /^[a-z]:$/i.test(owner)) return false
+
+  return folders
+    .map(spelled)
+    .some(
+      (folder) => folder === owner || folder.startsWith(`${owner}${path.sep}`)
+    )
 }
 
 // Whether the rules of a sheet may be read into another one: undefined when
@@ -428,14 +437,19 @@ function stringEnd(css: string, at: number): number {
 }
 
 const IDENT = /[a-z_-][\w-]*/iy
-const URL_STRING_FUNCTIONS = new Set(['url', 'image-set', '-webkit-image-set'])
+const URL_STRING_FUNCTIONS = new Set([
+  'url',
+  'src',
+  'image-set',
+  '-webkit-image-set'
+])
 
-// Where an address stands: the string of an @import, the url() of one,
-// any other url(), or a string of a function that takes addresses.
+// Where an address stands: the string of an @import, the url() of one, any
+// other url(), or a string inside src() or image-set(). See the README.
 export type CssAddressPlace = 'import' | 'import-url' | 'url' | 'set'
 
-// The sheet with each address it names passed through `rewrite`. Reads the
-// text the way CSS does, so a url( inside a string or a comment is left.
+// The sheet with each address `rewrite` answers for replaced, read the way
+// CSS reads it. The README says what reaches `rewrite` and what stays.
 export function rewriteCssUrls(
   css: string,
   rewrite: (request: string, where: CssAddressPlace) => string | undefined,
@@ -811,7 +825,8 @@ function inlineSheet(
     // when a file beside the sheet has exactly that name. Else a package.
     const asPath =
       beside !== undefined &&
-      (parsed?.viaUrl === true || isFileNamedExactly(issuerDir, plain))
+      (parsed?.viaUrl === true ||
+        (/\.css$/i.test(plain) && isFileNamedExactly(issuerDir, plain)))
     // The one rule for which files a path names.
     const candidates =
       parsed && !parsed.opaque && !parsed.request.includes('!')
@@ -860,6 +875,8 @@ function inlineSheet(
           state.skipped.push({statement: written, file, why: conditions})
 
           for (const candidate of candidates) state.answered.add(candidate)
+
+          if (!parsed) state.answered.add(written)
         }
 
         return
@@ -1132,12 +1149,12 @@ export function readCssImports(css: string): LeftCssImport[] {
   try {
     postcss.parse(css).walkAtRules(/^import$/i, (rule) => {
       const parsed = parseImport(rule.params)
-      if (!parsed) return
 
+      // An import with no target that can be read is left all the same.
       found.push({
         statement: `@import ${rule.params.trim()};`,
-        request: parsed.request,
-        viaUrl: parsed.viaUrl === true
+        request: parsed?.request ?? '',
+        viaUrl: parsed?.viaUrl === true
       })
     })
   } catch {

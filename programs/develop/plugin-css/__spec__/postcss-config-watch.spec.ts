@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
+import {postCssConfigHelpers} from '../css-tools/postcss'
 import {CssPlugin} from '../index'
 import {cssProjects} from './helpers/css-project'
 
@@ -282,6 +283,16 @@ describe('a PostCSS config edited while a dev session runs', () => {
       setupWarnings: [],
       errors: []
     })
+
+    expect(postCssConfigHelpers(root).sort()).toEqual([
+      path.join(root, 'tokens', 'deep.cjs'),
+      path.join(root, 'tokens', 'index.cjs')
+    ])
+
+    // A config that is gone has no helper left to watch.
+    fs.rmSync(path.join(root, file))
+
+    expect(postCssConfigHelpers(root)).toEqual([])
   })
 
   it('a config written into a project that had no PostCSS asks for a restart, once', async () => {
@@ -315,7 +326,7 @@ describe('a PostCSS config edited while a dev session runs', () => {
     expect(next).toEqual({css: '.a{color:blue}', setupWarnings: [], errors: []})
   })
 
-  // A finding about the config belongs to the build that read the config,
+  // A problem with the config belongs to the build that read the config,
   // where every reporter and the JSON output read it, and is said once.
   it('a config PostCSS cannot use is reported on the build that read it, once', async () => {
     const root = makeProject({
@@ -364,7 +375,7 @@ describe('a PostCSS config edited while a dev session runs', () => {
 })
 
 describe('a dev session that opens a second compiler on the same project', () => {
-  it('says a finding about the config once, in the first of them', async () => {
+  it('warns about the config once, in the first of them', async () => {
     const root = makeProject({
       ...SHEET,
       '.postcssrc.json': JSON.stringify({

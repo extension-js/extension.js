@@ -125,7 +125,24 @@ function expectedRules(
         resourceQuery: NOT_RAW_RESOURCE_QUERY,
         use: emitsSheet
           ? sheet([...post, ...first])
-          : [inlineUrls, ...post, inlineImports, ...first]
+          : [
+              // A sheet no tool compiled says so to the run that reads it last.
+              first.includes(passthrough)
+                ? {
+                    ...inlineUrls,
+                    options: {
+                      manifestPath,
+                      projectPath: root,
+                      ...(gecko ? {gecko} : {}),
+                      uncompiled: true,
+                      ...base
+                    }
+                  }
+                : inlineUrls,
+              ...post,
+              inlineImports,
+              ...first
+            ]
       }
     })
 

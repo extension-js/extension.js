@@ -220,3 +220,95 @@ describe.skipIf(!VUE_PACKAGE || !VUE_SCOPE || process.platform === 'win32')(
     }, 120_000)
   }
 )
+
+const SVELTE_PACKAGE = workspacePackage('svelte')
+const SVELTE_LOADER = workspacePackage('svelte-loader')
+
+describe.skipIf(
+  !SVELTE_PACKAGE || !SVELTE_LOADER || process.platform === 'win32'
+)('a Svelte content script whose style block imports a sheet, built', () => {
+  it('runs the imported rules through the PostCSS config, once', async () => {
+    const root = makeProject({
+      'package.json': JSON.stringify({
+        private: true,
+        name: 'svelte-imports',
+        version: '0.0.0',
+        dependencies: {svelte: '*'}
+      }),
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'svelte-imports',
+        version: '1.0.0',
+        content_scripts: [{matches: ['<all_urls>'], js: ['content/scripts.js']}]
+      }),
+      'content/scripts.js': [
+        "import {mount} from 'svelte'",
+        "import Widget from './Widget.svelte'",
+        'mount(Widget, {target: document.body})',
+        ''
+      ].join('\n'),
+      'content/Widget.svelte':
+        '<p class="probe">x</p>\n\n<style>\n  @import "./card.css";\n  .probe { color: red; }\n</style>\n',
+      'content/card.css': '.card_from_import{color:green}\n',
+      'postcss.config.cjs': [
+        'module.exports = {',
+        '  plugins: [',
+        '    {',
+        "      postcssPlugin: 'marker',",
+        '      Rule(rule) {',
+        "        rule.prepend({prop: '--seen', value: 'yes'})",
+        '      }',
+        '    }',
+        '  ]',
+        '}',
+        ''
+      ].join('\n')
+    })
+
+    fs.mkdirSync(path.join(root, 'node_modules'), {recursive: true})
+
+    for (const [name, source] of [
+      ['svelte', SVELTE_PACKAGE],
+      ['svelte-loader', SVELTE_LOADER]
+    ] as const) {
+      fs.symlinkSync(
+        fs.realpathSync(source as string),
+        path.join(root, 'node_modules', name),
+        'dir'
+      )
+    }
+
+    const {extensionBuild} = await import('../../command-build')
+    const previous = process.env.VITEST
+
+    process.env.VITEST = 'true'
+
+    try {
+      const summary = (await extensionBuild(root, {
+        browser: 'chrome',
+        silent: true,
+        install: false,
+        mode: 'production',
+        exitOnError: false
+      } as never)) as {errors_count: number; warnings?: string[]}
+
+      expect(summary.warnings ?? []).toEqual([])
+      expect(summary.errors_count).toBe(0)
+    } finally {
+      if (previous === undefined) delete process.env.VITEST
+      else process.env.VITEST = previous
+    }
+
+    const dist = path.join(root, 'dist', 'chrome')
+    const scripts = (fs.readdirSync(dist, {recursive: true}) as string[])
+      .filter((entry) => entry.endsWith('.js'))
+      .map((entry) => fs.readFileSync(path.join(dist, entry), 'utf8'))
+      .join('\n')
+
+    expect(scripts.match(/\.card_from_import\{[^}]*\}/g)).toEqual([
+      expect.stringMatching(/\{--seen:\s*yes;\s*color:\s*green;?\}$/)
+    ])
+
+    expect(scripts).not.toMatch(/@import\s*["']\.\/card\.css/)
+  }, 120_000)
+})

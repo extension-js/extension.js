@@ -6,7 +6,7 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import {bundledFileToken} from '../css-lib/inline-content-script-css'
-import {inlineCssImports} from '../css-lib/inline-css-imports'
+import {inlineCssImports, whyNotRead} from '../css-lib/inline-css-imports'
 import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
 
@@ -517,6 +517,46 @@ describe('the sheets a content-script sheet imports', () => {
     expect(result.css).toBe('@import "../shared/x.css";\n.a{}\n\n.own{}\n')
     expect(result.unreadable.map((left) => left.request)).toEqual(['x.css'])
   })
+
+  // A file with no .css ending is no sheet, so the name stays the package.
+  it('read a name with no .css ending as a package, whatever file has that name', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "../shared/a.css";\n.own{}\n',
+      'shared/a.css': '@import "tailwindcss";\n.a{}\n',
+      'shared/tailwindcss': 'not a sheet\n'
+    })
+
+    expect(inline(root, 'content/styles.css').css).toBe(
+      '@import "tailwindcss";\n\n.a{}\n\n.own{}\n'
+    )
+  })
+
+  // The disk root is above every project and owns none of them.
+  it('leave a sheet in the node_modules of the disk root', () => {
+    const root = makeProject({'styles.css': '.own{}\n'})
+    const file = path.resolve('/node_modules/pkg/x.css')
+
+    expect(whyNotRead(file, root)?.reason).toBe(
+      `The file sits outside the project, at ${file.split(path.sep).join('/')}.`
+    )
+  })
+
+  it.skipIf(process.platform !== 'win32')(
+    'bring in a package sheet when the drive letter is spelled in another case',
+    () => {
+      const root = makeProject({
+        'app/styles.css': '.own{}\n',
+        'node_modules/pkg/x.css': '.x{}\n'
+      })
+      const file = path.join(root, 'node_modules', 'pkg', 'x.css')
+      const flipped =
+        file[0] === file[0].toLowerCase()
+          ? file[0].toUpperCase() + file.slice(1)
+          : file[0].toLowerCase() + file.slice(1)
+
+      expect(whyNotRead(flipped, path.join(root, 'app'))).toBeUndefined()
+    }
+  )
 
   // The same on every disk, one that ignores letter case included.
   it('read a name that differs from the file beside the sheet in letter case as a package', () => {
@@ -1224,7 +1264,7 @@ describe('the sheets a content-script sheet imports', () => {
 function runLoader(
   root: string,
   sheet: string,
-  options: {inlineImports?: boolean} = {},
+  options: {inlineImports?: boolean; uncompiled?: boolean} = {},
   project = root
 ) {
   const resourcePath = path.join(root, sheet)
@@ -1458,6 +1498,61 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     ])
   })
 
+  it('names an import whose target cannot be read at all', () => {
+    const root = makeProject({
+      'content/styles.css': '@import foo.css;\n.own{}\n'
+    })
+
+    expect(runBoth(root, 'content/styles.css')).toEqual([
+      [
+        'CssParseWarning',
+        STILL,
+        'PATH content/styles.css',
+        'IMPORT @import foo.css;'
+      ]
+    ])
+  })
+
+  it('says one thing of an import with no target inside a block', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "./a.css" screen;\n.own{}\n',
+      'content/a.css': '@import nothing;\n.a{}\n'
+    })
+
+    expect(
+      runBoth(root, 'content/styles.css').map(([, headline]) => headline)
+    ).toEqual([
+      `${WARN} An @import in a sheet this content script stylesheet imports will not load.`
+    ])
+  })
+
+  // The run after PostCSS forgets what the run ahead of it said once read.
+  it('answers for one build of the sheet only', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "./svg.css";\n.own{}\n',
+      'content/svg.css':
+        '@namespace svg url(http://www.w3.org/2000/svg);\nsvg|a{}\n'
+    })
+
+    expect(runBoth(root, 'content/styles.css')).toHaveLength(1)
+    expect(
+      runLoader(root, 'content/styles.css').warnings.map(
+        (w) => w.message.split('\n')[0]
+      )
+    ).toEqual([STILL])
+  })
+
+  // Sass is not installed, so the sheet is still Sass and says so elsewhere.
+  it('says nothing of the imports of a sheet no tool compiled', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "normalize.css";\n.own{}\n'
+    })
+
+    expect(
+      runLoader(root, 'content/styles.css', {uncompiled: true}).warnings
+    ).toEqual([])
+  })
+
   it('names each import no tool brought in, once every tool ran', () => {
     const root = makeProject({
       'content/styles.css': [
@@ -1536,6 +1631,20 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     expect(runLoader(root, 'content/styles.css').output).toContain(
       `url(\\"${bundledFileToken(0)}\\")`
     )
+  })
+
+  it('names the files src() and image-set() take as strings the way url() does', () => {
+    const root = makeProject({
+      'content/styles.css':
+        '@font-face{font-family:a;src:src("./a.woff2")}\n.b{background:image-set("./icon.png" 1x)}\n',
+      'content/a.woff2': 'font',
+      'content/icon.png': 'image'
+    })
+
+    const {output} = runLoader(root, 'content/styles.css')
+
+    expect(output).toContain(`src(\\"${bundledFileToken(0)}\\")`)
+    expect(output).toContain(`image-set(\\"${bundledFileToken(1)}\\" 1x)`)
   })
 
   // A string is text, whatever it spells.

@@ -242,6 +242,7 @@ export async function buildCssRules(
             manifestPath,
             projectPath,
             ...(gecko ? {gecko} : {}),
+            ...(missingTool ? {uncompiled: true} : {}),
             baseAttribute,
             baseScheme
           }

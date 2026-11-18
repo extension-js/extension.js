@@ -104,8 +104,8 @@ const TWO_BUILDS = [
   ''
 ].join('\n')
 
-// A dev session with no browser: waits for the first stamp, edits the file
-// two requires down from the config, and waits for the stamp to follow.
+// A dev session with no browser: once it says it is ready, edits the file
+// two requires down from the config and waits for the stamp to follow.
 const WATCH = [
   "import fs from 'node:fs'",
   "import path from 'node:path'",
@@ -129,7 +129,10 @@ const WATCH = [
   '}',
   "extensionDev(root, {browser: 'chrome', noBrowser: true, install: false, open: false}).catch((error) => console.log('DEV ' + error?.message))",
   "const first = await until('first')",
-  'await new Promise((resolve) => setTimeout(resolve, 1500))',
+  "const ready = path.join(root, 'dist', 'extension-js', 'chrome', 'ready.json')",
+  'for (let turn = 0; turn < 400 && !fs.existsSync(ready); turn++) {',
+  '  await new Promise((resolve) => setTimeout(resolve, 100))',
+  '}',
   "fs.writeFileSync(path.join(root, 'tokens', 'deep.cjs'), \"module.exports = 'second'\\n\")",
   "console.log('STAMPS ' + [first, await until('second')].join(','))",
   'process.exit(0)',

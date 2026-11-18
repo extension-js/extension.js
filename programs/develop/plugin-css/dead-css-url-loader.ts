@@ -46,6 +46,8 @@ export interface DeadCssUrlLoaderOptions {
   // The first of this loader's two runs on a sheet: ahead of PostCSS, it
   // brings in the rules of each sheet an @import names and stays CSS.
   inlineImports?: boolean
+  // Set when the tool that compiles this kind of sheet is not installed.
+  uncompiled?: boolean
 }
 
 export interface DeadCssUrlLoaderContext {
@@ -148,6 +150,7 @@ function reportLeftImports(
   for (const {statement, request, viaUrl} of readCssImports(source)) {
     if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(request)) continue
     if (request.includes('!') || told.has(statement)) continue
+    if (answered?.has(statement)) continue
     // The dead reference check already names a path that leads nowhere.
     if (isDeadCssUrlRef(request, context)) continue
 
@@ -234,7 +237,15 @@ export function inlineStylesheetUrls(
         publicContainmentRoot(manifestPath, projectPath)
       )
       reportDeadRefs(loader, source, manifestDir, publicRoot)
-      reportLeftImports(loader, source, manifestDir, publicRoot)
+
+      // A sheet no tool compiled has its own warning, and its imports are
+      // the ones of another language.
+      if (!options.uncompiled) {
+        reportLeftImports(loader, source, manifestDir, publicRoot)
+      }
+
+      // Read once: the next build of this sheet answers for itself.
+      answeredImports.delete(importsKey(loader))
       ;({css, bundledRequests} = resolveTargets(
         loader,
         source,

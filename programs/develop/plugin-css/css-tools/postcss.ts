@@ -194,9 +194,14 @@ function noteConfigHelpers(
 // under the path the project was given by, which is how a watcher names it.
 export function postCssConfigHelpers(projectPath: string): string[] {
   const root = realPathOf(projectPath)
-  const files = [...(configHelpers.get(root)?.values() ?? [])].flatMap(
-    (found) => [...found]
-  )
+  const ofProject = configHelpers.get(root)
+
+  // A config that was renamed or deleted answers for nothing any more.
+  for (const configPath of ofProject?.keys() ?? []) {
+    if (!fs.existsSync(configPath)) ofProject?.delete(configPath)
+  }
+
+  const files = [...(ofProject?.values() ?? [])].flatMap((found) => [...found])
 
   return [...new Set(files)].map((file) =>
     path.join(projectPath, path.relative(root, file))

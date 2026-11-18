@@ -61,7 +61,7 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   try {
     return await extensionBuild(root, {
       browser,
-      // The findings are warnings of the build, which a silent one keeps
+      // These are warnings of the build, which a silent one keeps
       // to itself.
       silent: false,
       install: false,
@@ -92,7 +92,7 @@ function printed(spies: Array<{mock: {calls: unknown[][]}}>, text: string) {
 
 // A compiler builds one style rule per file type and per place a sheet can
 // load, and each of them reads the PostCSS config again.
-describe('a PostCSS finding is said once per build', () => {
+describe('a PostCSS config problem is said once per build', () => {
   it.each([
     'chrome',
     'firefox'
@@ -121,7 +121,7 @@ describe('a PostCSS finding is said once per build', () => {
   }, 120_000)
 
   // What `build --output json` answers with is this list.
-  it('lists each finding once in the warnings the build answers with', async () => {
+  it('lists each warning once in the warnings the build answers with', async () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}, 'postcss-second-missing-plugin': {}}}\n"
     )
