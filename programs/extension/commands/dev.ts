@@ -774,6 +774,9 @@ export function registerDevCommand(
                       error instanceof Error ? error.message : String(error)
                   },
                   {
+                    // The engine knows the session that failed, so a reader
+                    // still finds the port and the ready file on this frame.
+                    value: (error as {session?: unknown} | null)?.session,
                     hint:
                       failureHint(code) ??
                       'Fix the error above and run dev again.'

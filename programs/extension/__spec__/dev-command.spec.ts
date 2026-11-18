@@ -708,6 +708,26 @@ describe('extension dev when the engine fails to start under --output json', () 
     ])
   })
 
+  it('carries the session the engine put on the error as the frame value', async () => {
+    const session = {pid: 4242, port: 8080, readyPath: '/tmp/ready.json'}
+
+    engine = async () => {
+      throw startFailure({session})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'failed', value: session}])
+  })
+
+  it('leaves the frame value null when the error names no session', async () => {
+    engine = async () => {
+      throw startFailure()
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'failed', value: null}])
+  })
+
   it.each([
     ['false', false],
     ['a truthy value that is not true', 'yes']
