@@ -394,3 +394,144 @@ describe('a root-absolute path that names a file outside public/', () => {
     TIMEOUT
   )
 })
+
+// Each warning of a build, whole, from the summary it ends on.
+function warningsOf(result: Built, root: string): string[] {
+  const summary = result.printed.slice(result.printed.lastIndexOf('\n{"'))
+
+  return (JSON.parse(summary).warnings as string[])
+    .map((warning) => warning.split(path.dirname(root)).join('<holder>'))
+    .sort()
+}
+
+describe('a withheld root-absolute reference and a missing one', () => {
+  // A path that climbs out of the extension root from either page.
+  const climbing = (dir: string) =>
+    `/${dir}a/${dir ? '../' : ''}../../outside.txt`
+  const tags = (dir: string) =>
+    PAGE.replace(
+      '<head>',
+      '<head>' +
+        `<link rel="stylesheet" href="/${dir}.env.css">` +
+        `<link rel="stylesheet" href="/${dir}missing.css">` +
+        `<link rel="stylesheet" href="/${dir}.npmrc">` +
+        `<link rel="stylesheet" href="/${dir}missing">` +
+        `<script src="/${dir}.env.js"></script>` +
+        `<script src="/${dir}missing.js"></script>`
+    ).replace(
+      '<body>',
+      `<body><img src="${climbing(dir)}"><img src="/${dir}missing.png">`
+    )
+
+  it(
+    'of the same tag, on a page the manifest names',
+    async () => {
+      const root = project({
+        '.env.css': `a{content:"${MARKER}-css"}\n`,
+        '.env.js': `globalThis.fake = "${MARKER}-js"\n`,
+        'o/.env.css': `a{content:"${MARKER}-css"}\n`,
+        'o/.env.js': `globalThis.fake = "${MARKER}-js"\n`,
+        'o/.npmrc': `# ${MARKER}-npmrc\n`,
+        'manifest.json': manifest({
+          options_ui: {page: 'settings/options.html'}
+        }),
+        'popup.html': tags(''),
+        'settings/options.html': tags('o/')
+      })
+      const result = await build(root)
+      const hint =
+        "A path starting with '/' resolves from the extension root, so the file must sit at that path in your project or in public/."
+      const said = (
+        code: string,
+        noun: string,
+        page: string,
+        missing: string,
+        update: string
+      ) =>
+        [
+          `${code}The page references ${noun} that doesn't exist.`,
+          `  │ PATH ${page}`,
+          `  │ NOT FOUND ${missing}`,
+          `  │ ${hint}`,
+          `  │ ${update}`
+        ].join('\n')
+      const script = 'Update the <script> src to point to a file that exists.'
+      const sheet = 'Update the <link> href to point to a file that exists.'
+      const asset = (ref: string) =>
+        `Update the ${ref} reference to point to a file that exists.`
+      const missing = (page: string, dir: string) => [
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a script file',
+          page,
+          `<holder>/project/${dir}missing.js`,
+          script
+        ),
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a stylesheet',
+          page,
+          `<holder>/project/${dir}missing.css`,
+          sheet
+        ),
+        said(
+          'E_ASSET_MISSING: ',
+          'an asset',
+          page,
+          `<holder>/project/${dir}missing`,
+          asset(`/${dir}missing`)
+        ),
+        said(
+          'E_ASSET_MISSING: ',
+          'an asset',
+          page,
+          `<holder>/project/${dir}missing.png`,
+          asset(`/${dir}missing.png`)
+        )
+      ]
+      const withheld = (page: string, dir: string) => [
+        said(
+          '⚠ ',
+          'a script file',
+          page,
+          `<holder>/project/${dir}.env.js`,
+          script
+        ),
+        said(
+          '⚠ ',
+          'a stylesheet',
+          page,
+          `<holder>/project/${dir}.env.css`,
+          sheet
+        ),
+        said(
+          '⚠ ',
+          'an asset',
+          page,
+          `<holder>/project/${dir}.npmrc`,
+          asset(`/${dir}.npmrc`)
+        ),
+        said(
+          '⚠ ',
+          'an asset',
+          page,
+          '<holder>/project/outside.txt',
+          asset(climbing(dir))
+        )
+      ]
+
+      expect(warningsOf(result, root)).toEqual(
+        [
+          ...missing('<holder>/project/popup.html', ''),
+          ...missing('<holder>/project/settings/options.html', 'o/'),
+          ...withheld('action/index.html', ''),
+          ...withheld('options/index.html', 'o/')
+        ].sort()
+      )
+
+      expect(result.errors).toBe(0)
+      expectNothingPrivate(result, 'printed')
+    },
+    TIMEOUT
+  )
+})
