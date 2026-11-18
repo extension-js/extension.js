@@ -123,6 +123,13 @@ describe('toMachineText prints a path the reader can open', () => {
     )
   })
 
+  it('keeps a root URL under /node_modules as the page wrote it', () => {
+    const line =
+      'Update the /node_modules/.npmrc reference to point to a file that exists.'
+
+    expect(toMachineText(line, PROJECT)).toBe(line)
+  })
+
   it('leaves a longer path that only ends like the project alone', () => {
     const nested = path.join(path.sep, 'mnt', PROJECT, 'a.css')
 

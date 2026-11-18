@@ -73,11 +73,17 @@ function toolchainFolders(): string[] {
   const packageRoot = path.resolve(__dirname, '..')
   const folders = [packageRoot]
 
-  for (let dir = packageRoot; ; dir = path.dirname(dir)) {
+  // The one at the filesystem root is left out: `/node_modules/x` is how a
+  // page spells a root URL, and a diagnostic must keep the reference as written.
+  for (
+    let dir = packageRoot;
+    path.dirname(dir) !== dir;
+    dir = path.dirname(dir)
+  ) {
     folders.push(path.join(dir, 'node_modules'))
-
-    if (path.dirname(dir) === dir) return folders
   }
+
+  return folders
 }
 
 // A dependency reads from its own package name on, and a file of this
