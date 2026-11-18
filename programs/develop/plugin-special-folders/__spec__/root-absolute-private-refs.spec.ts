@@ -401,13 +401,17 @@ function warningsOf(result: Built, root: string): string[] {
 
   return (
     (JSON.parse(summary).warnings as string[])
-      // A Windows build spells each path natively, so a row reads one way.
+      // A path outside the project is the one a Windows build spells
+      // natively, so only what follows the holder is read with slashes.
       .map((warning) =>
         warning
           .split(path.dirname(root))
+          .map((part, index) =>
+            index === 0
+              ? part
+              : part.replace(/^\S*/, (rest) => rest.split(path.sep).join('/'))
+          )
           .join('<holder>')
-          .split(path.sep)
-          .join('/')
       )
       .sort()
   )
@@ -461,10 +465,10 @@ describe('a withheld root-absolute reference and a missing one', () => {
       ) =>
         [
           `${code}The page references ${noun} that doesn't exist.`,
-          `  │ PATH ${page}`,
-          `  │ NOT FOUND ${missing}`,
-          `  │ ${hint}`,
-          `  │ ${update}`
+          `PATH ${page}`,
+          `NOT FOUND ${missing}`,
+          hint,
+          update
         ].join('\n')
       const script = 'Update the <script> src to point to a file that exists.'
       const sheet = 'Update the <link> href to point to a file that exists.'
@@ -475,28 +479,28 @@ describe('a withheld root-absolute reference and a missing one', () => {
           'E_ENTRY_NOT_FOUND: ',
           'a script file',
           page,
-          `<holder>/project/${dir}missing.js`,
+          `${dir}missing.js`,
           script
         ),
         said(
           'E_ENTRY_NOT_FOUND: ',
           'a stylesheet',
           page,
-          `<holder>/project/${dir}missing.css`,
+          `${dir}missing.css`,
           sheet
         ),
         said(
           'E_ASSET_MISSING: ',
           'an asset',
           page,
-          `<holder>/project/${dir}missing`,
+          `${dir}missing`,
           asset(`/${dir}missing`)
         ),
         said(
           'E_ASSET_MISSING: ',
           'an asset',
           page,
-          `<holder>/project/${dir}missing.png`,
+          `${dir}missing.png`,
           asset(`/${dir}missing.png`)
         ),
         // The page step says a climbing script and sheet itself, once.
@@ -516,34 +520,10 @@ describe('a withheld root-absolute reference and a missing one', () => {
         )
       ]
       const withheld = (page: string, dir: string) => [
-        said(
-          '⚠ ',
-          'a script file',
-          page,
-          `<holder>/project/${dir}.env.js`,
-          script
-        ),
-        said(
-          '⚠ ',
-          'a stylesheet',
-          page,
-          `<holder>/project/${dir}.env.css`,
-          sheet
-        ),
-        said(
-          '⚠ ',
-          'an asset',
-          page,
-          `<holder>/project/${dir}.npmrc`,
-          asset(`/${dir}.npmrc`)
-        ),
-        said(
-          '⚠ ',
-          'an asset',
-          page,
-          '<holder>/project/outside.txt',
-          asset(climbing(dir))
-        )
+        said('', 'a script file', page, `${dir}.env.js`, script),
+        said('', 'a stylesheet', page, `${dir}.env.css`, sheet),
+        said('', 'an asset', page, `${dir}.npmrc`, asset(`/${dir}.npmrc`)),
+        said('', 'an asset', page, 'outside.txt', asset(climbing(dir)))
       ]
 
       const warnings = warningsOf(result, root)
@@ -551,16 +531,16 @@ describe('a withheld root-absolute reference and a missing one', () => {
       const opening = (notFound: string) =>
         warnings
           .find((warning) => warning.includes(`NOT FOUND ${notFound}\n`))
-          ?.replace(/^(?:E_\w+: |⚠ )/, '')
+          ?.replace(/^E_\w+: /, '')
           .split('\n')
           .slice(0, 2)
 
       expect(warnings).toEqual(
         [
-          ...missing('<holder>/project/popup.html', ''),
-          ...missing('<holder>/project/settings/options.html', 'o/'),
-          ...withheld('<holder>/project/popup.html', ''),
-          ...withheld('<holder>/project/settings/options.html', 'o/')
+          ...missing('popup.html', ''),
+          ...missing('settings/options.html', 'o/'),
+          ...withheld('popup.html', ''),
+          ...withheld('settings/options.html', 'o/')
         ].sort()
       )
 
@@ -571,17 +551,13 @@ describe('a withheld root-absolute reference and a missing one', () => {
           ['.env.css', 'missing.css'],
           ['.npmrc', 'missing']
         ]) {
-          const at = `<holder>/project/${dir}`
-
-          expect(opening(`${at}${kept}`), kept).toEqual(
-            opening(`${at}${absent}`)
+          expect(opening(`${dir}${kept}`), kept).toEqual(
+            opening(`${dir}${absent}`)
           )
         }
       }
 
-      expect(opening('<holder>/project/outside.txt')).toEqual(
-        opening('<holder>/project/missing.png')
-      )
+      expect(opening('outside.txt')).toEqual(opening('missing.png'))
 
       expect(result.errors).toBe(0)
       expectNothingPrivate(result, 'printed')
