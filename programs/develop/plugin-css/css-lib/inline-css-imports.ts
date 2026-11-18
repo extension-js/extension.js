@@ -7,9 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import postcss, {type AtRule, type ChildNode, type Root} from 'postcss'
+import {workspaceRootOf} from '../../plugin-special-folders/public-private-files'
 import {cssUrlRefFiles, toPosixPath} from './dead-url-refs'
 
 export interface InlineCssImportsContext {
@@ -368,58 +368,6 @@ function inInstalledModules(file: string, folders: string[]): boolean {
     .some(
       (folder) => folder === owner || folder.startsWith(`${owner}${path.sep}`)
     )
-}
-
-// Whether a folder declares a workspace the way pnpm, npm, Yarn and Bun read one.
-function declaresWorkspace(dir: string): boolean {
-  if (fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))) return true
-
-  try {
-    const {workspaces} = JSON.parse(
-      fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
-    )
-
-    return Array.isArray(workspaces) || Array.isArray(workspaces?.packages)
-  } catch {
-    return false
-  }
-}
-
-const workspaceRoots = new Map<string, string>()
-
-// Whether a folder is the home folder or one that holds it.
-function isHomeOrAbove(dir: string, home: string): boolean {
-  const down = path.relative(dir, home)
-
-  return !down.startsWith('..') && !path.isAbsolute(down)
-}
-
-// The nearest folder at or above the project that declares a workspace, or
-// the project itself. A marker in the home folder or above it is not read.
-export function workspaceRootOf(
-  projectRoot: string,
-  homeDir: string = os.homedir()
-): string {
-  const root = realPath(projectRoot)
-  const home = realPath(homeDir)
-  const key = `${root}\0${home}`
-  const cached = workspaceRoots.get(key)
-  if (cached !== undefined) return cached
-
-  let found = root
-
-  for (let dir = root; !isHomeOrAbove(dir, home); dir = path.dirname(dir)) {
-    if (declaresWorkspace(dir)) {
-      found = dir
-      break
-    }
-
-    if (path.dirname(dir) === dir) break
-  }
-
-  workspaceRoots.set(key, found)
-
-  return found
 }
 
 // Whether a path inside the workspace stays clear of what a package manager
