@@ -539,7 +539,8 @@ export type OutputConfig = {
  * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
  * under `browser.<vendor>.perfBudgets`, or under
  * `commands.build.perfBudgets` (strongest below a CLI flag). Budgets are
- * checked on a production build only.
+ * checked on a production build only. `onExceed: 'error'` makes an overrun
+ * fail the build instead of warning.
  */
 export type PerfBudgetsConfig =
   import('./plugin-perf-budgets').PerfBudgetsConfig
