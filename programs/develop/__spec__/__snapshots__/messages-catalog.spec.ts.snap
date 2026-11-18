@@ -295,6 +295,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "geckoCallbackFormUnsupported: function(3)",
     "geckoEmptyBackgroundScriptsDropped: function(1)",
     "geckoIncognitoSplitNotAllowed: function(1)",
+    "geckoServiceWorkerTranslated: function(1)",
     "geckoSidePanelUnsupported: function(1)",
     "geckoUnsupportedKeysDropped: function(2)",
     "hostPermissionPatternsIgnored: function(1)",
