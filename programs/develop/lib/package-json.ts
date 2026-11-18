@@ -17,35 +17,6 @@ function isUrlShaped(target: string): boolean {
   return /^(?:\.[\\/])?[a-z][a-z0-9+.-]+:[\\/]+/i.test(target)
 }
 
-async function findUpLocal(
-  filename: string,
-  options: {cwd: string}
-): Promise<string | undefined> {
-  if (isUrlShaped(options.cwd)) return undefined
-
-  const root = path.parse(path.resolve(options.cwd)).root
-  let currentDir = path.resolve(options.cwd)
-
-  while (true) {
-    const candidate = path.join(currentDir, filename)
-
-    try {
-      const stat = await fs.promises.stat(candidate)
-
-      if (stat.isFile()) return candidate
-    } catch {
-      // Ignore
-    }
-
-    // A relative start (a URL handed in as a path) never reaches the
-    // filesystem root, so stop as soon as the walk stops climbing.
-    const parentDir = path.dirname(currentDir)
-    if (currentDir === root || parentDir === currentDir) return undefined
-
-    currentDir = parentDir
-  }
-}
-
 function findUpLocalSync(
   filename: string,
   options: {cwd: string}
@@ -71,23 +42,6 @@ function findUpLocalSync(
     if (currentDir === root || parentDir === currentDir) return undefined
 
     currentDir = parentDir
-  }
-}
-
-export async function findNearestPackageJson(
-  manifestPath: string
-): Promise<string | null> {
-  try {
-    const manifestDir = path.dirname(manifestPath)
-    const packageJsonPath = await findUpLocal('package.json', {
-      cwd: manifestDir
-    })
-
-    return packageJsonPath || null
-  } catch {
-    // Only a path that is not a string throws here, and the answer for it
-    // is the same as for a folder with no package.json above it.
-    return null
   }
 }
 
