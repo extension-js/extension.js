@@ -45,7 +45,7 @@ pnpm links packages into `node_modules/.pnpm` with relative paths. Keep every `d
 folder under `node_modules`, since packages such as `vue` and `preact` ship their code
 there. If the copy skips the template's own build output, skip only the top level `dist/`
 of the template, never `node_modules/**/dist`. A copy that drops either one reports
-"compiled with errors" for unresolved modules that have nothing to do with the change
+"failed to compile" for unresolved modules that have nothing to do with the change
 under test.
 
 ## Prerequisites
