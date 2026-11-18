@@ -4,6 +4,7 @@ import path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
+  assignCompilerToDevSession,
   bindDevSessionRestart,
   DEV_SESSION_RESTART_DEBOUNCE_MS,
   type DevSessionRestartRequest,
@@ -178,6 +179,7 @@ function devSession(serving: Compiler) {
   bindDevSessionRestart(scheduler)
 
   return {
+    scheduler,
     announced,
     frames,
     lines,
@@ -398,5 +400,75 @@ describe('a MAIN world restart that could not build its next bundle', () => {
     expect(saved.warnings[0]).toContain('Restart the dev server')
     await settle()
     expect(session.announced).toHaveLength(1)
+  })
+})
+
+// A library host can run two dev sessions. Each compiler must be answered by
+// the session it was built for, never by the newest one.
+describe('a MAIN world change in one of two live sessions', () => {
+  // A second session bound after the first, whose own restart never ends.
+  function otherSession() {
+    const scheduler = new DevSessionRestartScheduler()
+    const asked: DevSessionRestartRequest[] = []
+
+    scheduler.setHandler((request) => {
+      asked.push(request)
+
+      return new Promise<void>(() => {})
+    })
+
+    bindDevSessionRestart(scheduler)
+
+    return {scheduler, asked}
+  }
+
+  it('waits on a restart still running in the other session', async () => {
+    const files = project(IDLE)
+    const compiler = compilerIn(files)
+    const session = devSession(compiler)
+
+    assignCompilerToDevSession(compiler, session.scheduler)
+
+    const other = otherSession()
+
+    other.scheduler.request({reason: 'env'})
+    await vi.advanceTimersByTimeAsync(DEV_SESSION_RESTART_DEBOUNCE_MS + 2)
+    expect(other.scheduler.isPending()).toBe(true)
+
+    expect((await save(compiler)).held).toBe(false)
+    files.write(`${IDLE}${REGISTRATION}`)
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+    expect(session.frames).toHaveLength(1)
+
+    // Today the other session's restart answers, so the retry waits on it.
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+    expect(session.announced).toHaveLength(1)
+    expect(other.asked).toHaveLength(1)
+  })
+
+  it('takes the other session as its own once its own ended', async () => {
+    const files = project(IDLE)
+    const compiler = compilerIn(files)
+    const session = devSession(compiler)
+
+    assignCompilerToDevSession(compiler, session.scheduler)
+
+    const other = otherSession()
+
+    expect((await save(compiler)).held).toBe(false)
+    unbindDevSessionRestart(session.scheduler)
+
+    files.write(`${IDLE}${REGISTRATION}`)
+
+    // Today the other session answers, so the save is held and warns nothing.
+    const saved = await save(compiler)
+
+    expect(saved.held).toBe(true)
+    expect(saved.warnings).toEqual([])
+    await settle()
+    expect(session.announced).toEqual([])
+    expect(other.asked).toEqual([])
   })
 })
