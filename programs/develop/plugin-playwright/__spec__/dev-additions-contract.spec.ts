@@ -3,38 +3,28 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import type {DevAddition} from '../../lib/dev-additions'
-import {createPlaywrightMetadataWriter} from '../index'
+import {
+  makeWriter as makeProjectWriter,
+  patchContract,
+  readContract,
+  stampReadyDevBrowserFlag,
+  stampReadyDevBrowserPreference,
+  writeManifest
+} from './helpers/contract'
 
 describe('devAdditions in the ready contract', () => {
   let tmp: string
 
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'dev-additions-contract-'))
-    fs.mkdirSync(path.join(tmp, 'src'), {recursive: true})
-    fs.writeFileSync(
-      path.join(tmp, 'src', 'manifest.json'),
-      JSON.stringify({name: 'Fixture', version: '1.0.0'})
-    )
+    writeManifest(path.join(tmp, 'src'), {name: 'Fixture', version: '1.0.0'})
   })
 
   afterEach(() => {
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const makeWriter = () =>
-    createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'dev',
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
-
-  const readyPath = () =>
-    path.join(tmp, 'dist', 'extension-js', 'chromium', 'ready.json')
-
-  const readContract = () =>
-    JSON.parse(fs.readFileSync(readyPath(), 'utf-8')) as Record<string, unknown>
+  const makeWriter = () => makeProjectWriter(tmp)
 
   const scripting: DevAddition = {
     kind: 'permission',
@@ -58,7 +48,7 @@ describe('devAdditions in the ready contract', () => {
     writer.writeStarting()
     writer.writeReady()
 
-    expect('devAdditions' in readContract()).toBe(false)
+    expect('devAdditions' in readContract(writer.readyPath)).toBe(false)
   })
 
   it('writes what the compile recorded', () => {
@@ -67,7 +57,10 @@ describe('devAdditions in the ready contract', () => {
     writer.setDevAdditions([scripting, tabs])
     writer.writeReady()
 
-    expect(readContract().devAdditions).toEqual([scripting, tabs])
+    expect(readContract(writer.readyPath).devAdditions).toEqual([
+      scripting,
+      tabs
+    ])
   })
 
   it('keeps the flag the launcher stamped while a recompile replaces the grants', () => {
@@ -76,19 +69,15 @@ describe('devAdditions in the ready contract', () => {
     writer.setDevAdditions([scripting, tabs])
     writer.writeReady()
 
-    const stamped = readContract()
-    fs.writeFileSync(
-      readyPath(),
-      JSON.stringify({
-        ...stamped,
-        devAdditions: [...(stamped.devAdditions as unknown[]), flag]
-      })
-    )
+    stampReadyDevBrowserFlag(writer.readyPath, flag)
 
     writer.setDevAdditions([scripting])
     writer.writeReady()
 
-    expect(readContract().devAdditions).toEqual([scripting, flag])
+    expect(readContract(writer.readyPath).devAdditions).toEqual([
+      scripting,
+      flag
+    ])
   })
 
   // The preference the launcher wrote into a kept profile is its entry too.
@@ -104,19 +93,17 @@ describe('devAdditions in the ready contract', () => {
     writer.setDevAdditions([scripting, tabs])
     writer.writeReady()
 
-    const stamped = readContract()
-    fs.writeFileSync(
-      readyPath(),
-      JSON.stringify({
-        ...stamped,
-        devAdditions: [...(stamped.devAdditions as unknown[]), flag, preference]
-      })
-    )
+    stampReadyDevBrowserFlag(writer.readyPath, flag)
+    stampReadyDevBrowserPreference(writer.readyPath, preference)
 
     writer.setDevAdditions([scripting])
     writer.writeReady()
 
-    expect(readContract().devAdditions).toEqual([scripting, flag, preference])
+    expect(readContract(writer.readyPath).devAdditions).toEqual([
+      scripting,
+      flag,
+      preference
+    ])
   })
 
   it("drops a previous run's flag verdict", () => {
@@ -125,21 +112,14 @@ describe('devAdditions in the ready contract', () => {
     first.setDevAdditions([scripting])
     first.writeReady()
 
-    const stamped = readContract()
-    fs.writeFileSync(
-      readyPath(),
-      JSON.stringify({
-        ...stamped,
-        runId: 'an-earlier-run',
-        devAdditions: [scripting, flag]
-      })
-    )
+    patchContract(first.readyPath, {runId: 'an-earlier-run'})
+    stampReadyDevBrowserFlag(first.readyPath, flag)
 
     const second = makeWriter()
     second.writeStarting()
     second.setDevAdditions([scripting])
     second.writeReady()
 
-    expect(readContract().devAdditions).toEqual([scripting])
+    expect(readContract(second.readyPath).devAdditions).toEqual([scripting])
   })
 })

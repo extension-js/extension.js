@@ -334,8 +334,6 @@ export class WarnUnshippedRuntimeAssets {
   }
 
   apply(compiler: Compiler) {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(
       WarnUnshippedRuntimeAssets.name,
       (compilation) => {

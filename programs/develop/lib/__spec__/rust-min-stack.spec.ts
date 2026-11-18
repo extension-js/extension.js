@@ -26,16 +26,23 @@ describe('ensureRustMinStack', () => {
     expect(env.RUST_MIN_STACK).toBe(String(RUST_MIN_STACK_BYTES))
   })
 
-  it('runs on import (importing this spec already set process.env)', () => {
-    expect(process.env.RUST_MIN_STACK).toBeTruthy()
-  })
-
-  it('stays the first import of module.ts. It must run before anything transitively loads @rspack/core', () => {
+  it('is called by module.ts before the first module that reaches rspack', () => {
     const source = fs.readFileSync(
       path.join(__dirname, '..', '..', 'module.ts'),
       'utf8'
     )
-    const firstImport = source.match(/^import .*$/m)
-    expect(firstImport?.[0]).toBe("import './lib/rust-min-stack'")
+    const call = source.search(/^ensureRustMinStack\(\)$/m)
+    const firstLoad = source.indexOf('import(')
+
+    expect(call).toBeGreaterThan(-1)
+    expect(firstLoad).toBeGreaterThan(call)
+
+    // A static import is hoisted above the call, so only types and the guard
+    // itself may be imported that way.
+    const staticValueImports = [
+      ...source.matchAll(/^import (?!type\b)[^'"]*['"]([^'"]+)['"]/gm)
+    ].map((match) => match[1])
+    expect(staticValueImports).toEqual(['./lib/rust-min-stack'])
+    expect(source).not.toMatch(/^export [^'"\n]* from /m)
   })
 })

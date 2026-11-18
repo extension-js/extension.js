@@ -38,19 +38,20 @@ export function boring(manifestName: string, durationMs: number, stats: Stats) {
   return `${arrow} ${timestamp} ${app} ${status} in ${time}.`
 }
 
-export function cleanDistStarting(distPath: string) {
-  return `${prefix('debug')} clean    start path=${distPath}`
-}
-
-export function cleanDistRemovedSummary(
-  removedCount: number,
-  distPath: string
+export function zipMissingDefaultLocale(
+  defaultLocale: string,
+  messagesPath: string
 ) {
-  return `${prefix('debug')} clean    removed=${removedCount} path=${distPath}`
+  return (
+    `ZipPlugin: manifest.json declares default_locale "${defaultLocale}" ` +
+    `but ${messagesPath} does not exist. Stores reject packages ` +
+    `without their default locale: restore the _locales folder ` +
+    `before shipping this zip.`
+  )
 }
 
-export function cleanDistSkippedNotFound(distPath: string) {
-  return `${prefix('debug')} clean    skipped=not-found path=${distPath}`
+export function zipCreationFailed(error: unknown) {
+  return `ZipPlugin: Failed to create zip(s): ${String(error)}`
 }
 
 export function zipPackagingSkipped(reason: string) {

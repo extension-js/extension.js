@@ -1,384 +1,267 @@
-import {
-  afterEach,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  type MockInstance,
-  vi
-} from 'vitest'
-
-vi.mock('fs', async () => {
-  const actual: any = await vi.importActual('fs')
-
-  return {
-    ...actual,
-    readFileSync: vi.fn()
-  }
-})
-
-import * as fs from 'node:fs'
-
-vi.mock('../env', () => {
-  const apply = vi.fn()
-  class EnvPluginMock {
-    public static lastOptions: any
-    constructor(options: any) {
-      ;(EnvPluginMock as any).lastOptions = options
-    }
-    apply = apply
-  }
-
-  return {EnvPlugin: EnvPluginMock}
-})
-
-const cleanDistMocks = vi.hoisted(() => ({
-  instances: [] as any[],
-  apply: vi.fn()
-}))
-
-vi.mock('../clean-dist', () => {
-  class CleanDistFolderPluginMock {
-    public static instances: any[] = cleanDistMocks.instances
-    constructor(public options: any) {
-      cleanDistMocks.instances.push(this)
-    }
-    apply = cleanDistMocks.apply
-  }
-
-  return {CleanDistFolderPlugin: CleanDistFolderPluginMock}
-})
-
-vi.mock('../zip', () => {
-  const apply = vi.fn()
-  class ZipPluginMock {
-    public static lastOptions: any
-    constructor(options: any) {
-      ;(ZipPluginMock as any).lastOptions = options
-    }
-    apply = apply
-  }
-
-  return {ZipPlugin: ZipPluginMock}
-})
-
-vi.mock('../compilation-lib/messages', () => ({
-  boring: (name: string, duration: number) => `build(${name}, ${duration}ms)`,
-  zipPackagingSkipped: (reason: string) => `zip-skip(${reason})`
-}))
-
-vi.mock('pintor', () => ({
-  supportsColor: () => false,
-  default: {
-    brightYellow: (s: string) => s,
-    gray: (s: string) => s,
-    green: (s: string) => s,
-    red: (s: string) => s
-  }
-}))
-
-vi.mock('case-sensitive-paths-webpack-plugin', () => ({
-  default: class {
-    apply() {}
-  }
-}))
-
+import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
+import {afterAll, beforeEach, describe, expect, it, vi} from 'vitest'
 import {CompilationPlugin} from '../index'
+import {
+  createCompiler,
+  makeTempRoot,
+  messagesOf,
+  removeTempRoots,
+  runCompiler,
+  runScript,
+  writeFiles
+} from './helpers/real-compile'
 
-describe('CompilationPlugin', () => {
-  let consoleLogSpy: MockInstance<typeof console.log>
-  let consoleWarnSpy: MockInstance<typeof console.warn>
-  let stdoutWriteSpy: MockInstance<typeof process.stdout.write>
-  const originalBrowserLaunchEnabled =
-    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
+type Command = 'dev' | 'start' | 'preview' | 'build'
 
-  beforeEach(() => {
-    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = '0'
-    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    stdoutWriteSpy = vi
-      .spyOn(process.stdout, 'write')
-      .mockImplementation(() => true)
-    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      JSON.stringify({name: 'MyExt'})
-    )
+const DYNAMIC_REQUIRE = 'module.exports = (name) => require(name)\n'
 
-    cleanDistMocks.instances.length = 0
-    cleanDistMocks.apply.mockClear()
+function scaffold(entry = 'console.log("ran")\n') {
+  const root = makeTempRoot('compilation')
+  writeFiles(root, {
+    'manifest.json': JSON.stringify({
+      manifest_version: 3,
+      name: 'Real Name',
+      version: '1.0.0'
+    }),
+    'background.js': entry
   })
 
-  afterEach(() => {
-    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = originalBrowserLaunchEnabled
-    vi.restoreAllMocks()
-  })
+  return root
+}
 
-  function createCompiler(mode: 'development' | 'production' = 'development') {
-    const doneHandlers: Array<(stats: any, done?: any) => any> = []
-    const compiler: any = {
-      options: {
-        mode,
-        output: {environment: {}}
-      },
-      getInfrastructureLogger: () => ({
-        info: console.log,
-        warn: console.warn,
-        error: console.error
+function compilerFor(
+  root: string,
+  options: Partial<ConstructorParameters<typeof CompilationPlugin>[0]> & {
+    mode?: 'development' | 'production'
+    nodeEnv?: string | false
+    later?: (compiler: Compiler) => void
+  } = {}
+) {
+  const {mode, nodeEnv, later, ...pluginOptions} = options
+
+  return createCompiler({
+    context: root,
+    outputPath: path.join(root, 'dist', 'chrome'),
+    mode: mode || 'development',
+    nodeEnv,
+    entry: {background: './background.js'},
+    plugins: [
+      new CompilationPlugin({
+        manifestPath: path.join(root, 'manifest.json'),
+        browser: 'chrome',
+        browserLaunchEnabled: false,
+        ...pluginOptions
       }),
-      hooks: {
-        watchClose: {
-          tap: () => {}
-        },
-        done: {
-          tap: (_name: string, cb: any) => {
-            doneHandlers.push((stats: any, _done: any) => cb(stats))
-          },
-          tapAsync: (_name: string, cb: any) => {
-            doneHandlers.push(cb)
-          },
-          tapPromise: (_name: string, cb: any) => {
-            doneHandlers.push((stats: any, _done: any) => cb(stats))
-          }
-        }
-      }
-    }
+      ...(later ? [{apply: later}] : [])
+    ]
+  })
+}
 
-    return {
-      compiler,
-      emitDone: (stats: any, done = () => {}) => {
-        for (const handler of doneHandlers) handler(stats, done)
-      }
-    }
+const doneTaps = (compiler: Compiler) =>
+  compiler.hooks.done.taps.map((tap) => tap.name)
+
+let log: ReturnType<typeof vi.spyOn>
+let warn: ReturnType<typeof vi.spyOn>
+let error: ReturnType<typeof vi.spyOn>
+
+beforeEach(() => {
+  vi.restoreAllMocks()
+  log = vi.spyOn(console, 'log').mockImplementation(() => {})
+  warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  error = vi.spyOn(console, 'error').mockImplementation(() => {})
+})
+
+afterAll(() => {
+  vi.restoreAllMocks()
+  removeTempRoots()
+})
+
+describe('CompilationPlugin on a real compiler', () => {
+  // rspack defaults watchOptions to {}, so the watch-only plugins register on
+  // every command and stay idle without a watch run.
+  const taps: Record<Command, string[]> = {
+    dev: [
+      'plugin-compilation:warm-ancestor-watchers',
+      'CaseSensitivePathsPlugin',
+      'develop:brand',
+      'extension.js:done'
+    ],
+    preview: [
+      'plugin-compilation:warm-ancestor-watchers',
+      'CaseSensitivePathsPlugin',
+      'plugin-zip',
+      'develop:brand',
+      'extension.js:done'
+    ],
+    build: [
+      'plugin-compilation:warm-ancestor-watchers',
+      'CaseSensitivePathsPlugin',
+      'plugin-zip',
+      'develop:brand'
+    ],
+    start: [
+      'plugin-compilation:warm-ancestor-watchers',
+      'CaseSensitivePathsPlugin',
+      'plugin-zip',
+      'develop:brand'
+    ]
   }
 
-  it('applies EnvPlugin and optionally CleanDistFolderPlugin based on options', async () => {
-    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      JSON.stringify({name: 'ExtA'})
-    )
+  for (const [command, expected] of Object.entries(taps)) {
+    it(`registers the done taps for ${command} with zip requested`, () => {
+      const compiler = compilerFor(scaffold(), {
+        command: command as Command,
+        zip: true
+      })
 
-    const {compiler, emitDone} = createCompiler('development')
-    const plugin = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'edge',
-      clean: true
+      expect(doneTaps(compiler)).toEqual(
+        process.platform === 'darwin' ? expected : expected.slice(1)
+      )
     })
-    plugin.apply(compiler as any)
+  }
 
-    emitDone({
-      hasErrors: () => false,
-      compilation: {startTime: 0, endTime: 10}
-    })
+  it('registers no zip on build when neither archive is asked for', () => {
+    const compiler = compilerFor(scaffold(), {command: 'build'})
 
-    const {EnvPlugin} = await import('../env')
-    expect((EnvPlugin as any).lastOptions).toEqual({
-      manifestPath: '/p/manifest.json',
-      browser: 'edge'
-    })
-
-    expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtA, 10ms)')
+    expect(doneTaps(compiler)).not.toContain('plugin-zip')
+    expect(doneTaps(compiler)).toContain('develop:brand')
   })
 
-  it('does not apply CleanDistFolderPlugin when clean is false', async () => {
-    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      JSON.stringify({name: 'ExtB'})
+  it('prints one summary line naming the manifest', async () => {
+    await runCompiler(compilerFor(scaffold(), {command: 'build'}))
+
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(String(log.mock.calls[0][0])).toMatch(
+      /^⏵⏵⏵ \[\d{2}:\d{2}:\d{2}\] Real Name compiled in \d+ ms\.$/
     )
-
-    const {compiler, emitDone} = createCompiler('development')
-    const plugin = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: false
-    })
-    plugin.apply(compiler as any)
-
-    emitDone({
-      hasErrors: () => false,
-      compilation: {startTime: 0, endTime: 5}
-    })
-
-    expect(cleanDistMocks.instances.length).toBe(0)
-
-    expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtB, 5ms)')
   })
 
-  it('ignores known Vue compiler-sfc critical dependency warnings', () => {
-    const {compiler} = createCompiler('development')
-    const plugin = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: true
+  it('prints a line per compile with no browser, one at startup with one', async () => {
+    for (const [browserLaunchEnabled, lines] of [
+      [false, 2],
+      [true, 1]
+    ] as const) {
+      log.mockClear()
+      const compiler = compilerFor(scaffold(), {
+        command: 'build',
+        browserLaunchEnabled
+      })
+      await new Promise<void>((resolve, reject) =>
+        compiler.run((e) => (e ? reject(e) : resolve()))
+      )
+
+      await runCompiler(compiler)
+
+      expect(log).toHaveBeenCalledTimes(lines)
+    }
+  })
+
+  it('hides a critical dependency warning from node_modules only', async () => {
+    const root = scaffold(
+      "require('dyn')('a')\nrequire('./own.js')('b')\nconsole.log('ran')\n"
+    )
+    writeFiles(root, {
+      'node_modules/dyn/package.json': '{"name":"dyn","main":"index.js"}',
+      'node_modules/dyn/index.js': DYNAMIC_REQUIRE,
+      'own.js': DYNAMIC_REQUIRE
     })
 
-    plugin.apply(compiler as any)
+    const stats = await runCompiler(compilerFor(root, {command: 'build'}))
+    const warnings = stats.toJson({all: false, warnings: true}).warnings || []
 
-    const ignoreWarnings = compiler.options.ignoreWarnings as Array<
-      (warning: any) => boolean
-    >
-    const shouldIgnore = ignoreWarnings.some((matcher) =>
-      matcher({
-        message:
-          'Critical dependency: require function is used in a way in which dependencies cannot be statically extracted',
-        module: {
-          resource:
-            '/tmp/node_modules/@vue/compiler-sfc/dist/compiler-sfc.esm-browser.js'
-        }
+    expect(
+      warnings.map((warning) => [warning.moduleName, warning.message])
+    ).toEqual([
+      [
+        './own.js',
+        expect.stringContaining(
+          'Critical dependency: the request of a dependency is an expression'
+        )
+      ]
+    ])
+  })
+
+  it('prints dev warnings before a later done tap such as a browser launch', async () => {
+    const root = scaffold("require('./own.js')('b')\n")
+    writeFiles(root, {'own.js': DYNAMIC_REQUIRE})
+    const launch = vi.fn()
+    await runCompiler(
+      compilerFor(root, {
+        command: 'dev',
+        later: (compiler) => compiler.hooks.done.tap('launch', launch)
       })
     )
 
-    expect(shouldIgnore).toBe(true)
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain(
+      'Critical dependency: the request of a dependency is an expression'
+    )
+
+    expect(launch).toHaveBeenCalledTimes(1)
+    expect(warn.mock.invocationCallOrder[0]).toBeLessThan(
+      launch.mock.invocationCallOrder[0]
+    )
   })
 
-  it('logs a boring success message on repeated compilations', () => {
-    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      JSON.stringify({name: 'ExtC'})
-    )
+  for (const [command, printed] of [
+    ['dev', 1],
+    ['preview', 1],
+    ['build', 0],
+    ['start', 0]
+  ] as const) {
+    it(`prints compile errors itself ${printed} time(s) on ${command}`, async () => {
+      const stats = await runCompiler(
+        compilerFor(scaffold("import './missing-module'\n"), {command})
+      )
 
-    const {compiler, emitDone} = createCompiler('development')
-    ;(process.stdout as any).isTTY = false
+      expect(messagesOf(stats, 'errors')).toEqual([
+        expect.stringContaining("Can't resolve './missing-module'")
+      ])
 
-    const plugin = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: true
-    })
-    plugin.apply(compiler as any)
+      expect(error).toHaveBeenCalledTimes(printed)
 
-    const stats = {
-      hasErrors: () => false,
-      compilation: {startTime: 0, endTime: 10}
-    }
-
-    emitDone(stats)
-    emitDone(stats)
-
-    const buildLines = consoleLogSpy.mock.calls.filter((call) =>
-      String(call[0] || '').startsWith('build(')
-    )
-    expect(buildLines.length).toBe(2)
-  })
-
-  it('prints aggregated warnings before later done hooks like browser launch', () => {
-    ;(fs.readFileSync as unknown as ReturnType<typeof vi.fn>).mockReturnValue(
-      JSON.stringify({name: 'ExtWarn'})
-    )
-
-    const doneTapOrder: Array<(stats: any) => any> = []
-    const browserLaunchSpy = vi.fn()
-    const compiler: any = {
-      options: {
-        mode: 'development',
-        output: {environment: {}}
-      },
-      hooks: {
-        watchClose: {
-          tap: () => {}
-        },
-        done: {
-          tap: (_name: string, cb: any) => {
-            doneTapOrder.push(cb)
-          }
-        }
+      if (printed) {
+        expect(String(error.mock.calls[0][0])).toContain(
+          "Can't resolve './missing-module'"
+        )
       }
-    }
-
-    const plugin = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: true,
-      port: 8080
     })
-    plugin.apply(compiler as any)
+  }
 
-    compiler.hooks.done.tapPromise = (_name: string, cb: any) => {
-      doneTapOrder.push(cb)
-    }
-
-    compiler.hooks.done.tapPromise('chromium:launch', async () => {
-      browserLaunchSpy('launch')
-    })
-
-    const stats = {
-      hasErrors: () => false,
-      hasWarnings: () => true,
-      toString: () => 'WARNING in Content script requires a default export.',
-      toJson: () => ({assets: [{name: 'a.js'}], entrypoints: {main: {}}}),
-      compilation: {startTime: 0, endTime: 12}
-    }
-
-    for (const cb of doneTapOrder) {
-      cb(stats)
-    }
-
-    expect(consoleLogSpy).toHaveBeenCalledWith('build(ExtWarn, 12ms)')
-    expect(consoleWarnSpy).toHaveBeenCalledWith(
-      '⏵⏵⏵ Build warning in Content script requires a default export.'
+  it('hands the browser and mode to the bundle through EnvPlugin', async () => {
+    const root = scaffold(
+      'console.log(process.env.EXTENSION_PUBLIC_BROWSER, import.meta.env.EXTENSION_PUBLIC_MODE)\n'
+    )
+    await runCompiler(
+      compilerFor(root, {command: 'build', browser: 'edge', mode: 'production'})
     )
 
-    expect(browserLaunchSpy).toHaveBeenCalledWith('launch')
-
-    const warnOrder = consoleWarnSpy.mock.invocationCallOrder[0]
-    const launchOrder = browserLaunchSpy.mock.invocationCallOrder[0]
-    expect(warnOrder).toBeLessThan(launchOrder)
+    expect(runScript(path.join(root, 'dist/chrome/background.js'))).toEqual([
+      'edge production'
+    ])
   })
 
-  it('skips the raw stats renderer under build so errors print once', () => {
-    const consoleErrorSpy = vi
-      .spyOn(console, 'error')
-      .mockImplementation(() => {})
-    const {compiler, emitDone} = createCompiler('production')
+  for (const mode of ['development', 'production'] as const) {
+    it(`gives the bundle process.env.NODE_ENV as ${mode}`, async () => {
+      const root = scaffold('console.log(process.env.NODE_ENV)\n')
+      await runCompiler(compilerFor(root, {command: 'build', mode}))
 
-    const plugin = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: false,
-      command: 'build',
-      port: 8080
+      expect(runScript(path.join(root, 'dist/chrome/background.js'))).toEqual([
+        mode
+      ])
     })
-    plugin.apply(compiler as any)
+  }
 
-    const stats = {
-      hasErrors: () => true,
-      hasWarnings: () => false,
-      toString: () => 'ERROR in ./missing-entry.js',
-      toJson: () => ({assets: [{name: 'a.js'}], entrypoints: {main: {}}}),
-      compilation: {startTime: 0, endTime: 8}
-    }
-    emitDone(stats)
-
-    const rendered = consoleErrorSpy.mock.calls
-      .map((call) => String(call[0] || ''))
-      .join('\n')
-    expect(rendered).not.toContain('ERROR in ./missing-entry.js')
-    consoleErrorSpy.mockRestore()
-  })
-
-  it('registers ZipPlugin only in production when zip/zipSource are set', async () => {
-    const {compiler: devCompiler} = createCompiler('development')
-    const {compiler: prodCompiler} = createCompiler('production')
-
-    const dev = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: true,
-      zip: true
-    })
-    dev.apply(devCompiler as any)
-
-    const prod = new CompilationPlugin({
-      manifestPath: '/p/manifest.json',
-      browser: 'chrome',
-      clean: true,
-      zip: true
-    })
-    prod.apply(prodCompiler as any)
-
-    const {ZipPlugin} = await import('../zip')
-
-    expect((ZipPlugin as any).lastOptions).toEqual(
-      expect.objectContaining({
-        manifestPath: '/p/manifest.json',
-        browser: 'chrome',
-        zipData: expect.objectContaining({zip: true})
-      })
+  // rspack's optimization.nodeEnv owns the define, so a project can turn it off.
+  it('leaves NODE_ENV undefined when optimization.nodeEnv is false', async () => {
+    const root = scaffold('console.log(process.env.NODE_ENV)\n')
+    await runCompiler(
+      compilerFor(root, {command: 'build', mode: 'production', nodeEnv: false})
     )
+
+    expect(runScript(path.join(root, 'dist/chrome/background.js'))).toEqual([
+      'undefined'
+    ])
   })
 })

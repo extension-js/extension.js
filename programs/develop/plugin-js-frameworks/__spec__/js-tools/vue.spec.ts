@@ -1,365 +1,250 @@
-import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it} from 'vitest'
+import {maybeUseVue, resolveVueBundlerEntry} from '../../js-tools/vue'
+import {fakePackage, makeProject} from '../project-fixture'
 
-vi.mock('../../frameworks-lib/integrations', () => ({
-  hasDependency: vi.fn(() => false),
-  resolveDevelopInstallRoot: vi.fn(() => undefined)
-}))
+// vue-loader is not in the fixture, so it resolves from Extension.js.
+const fromDevelop = createRequire(
+  path.join(__dirname, '..', '..', '..', 'x.js')
+)
 
-const originalResolve = (require as any).resolve
-beforeEach(() => {
-  ;(require as any).resolve = vi.fn((id: string) =>
-    id === 'vue-loader' ? '/mock/vue-loader' : originalResolve(id)
-  )
-})
-
-afterEach(() => {
-  ;(require as any).resolve = originalResolve
-})
-
-describe('vue tools', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
+function vueThreeProject(files: Record<string, string> = {}) {
+  const root = makeProject({
+    'package.json': {dependencies: {vue: '^3.5.0'}},
+    ...files
   })
 
-  it('isUsingVue logs once; maybeUseVue returns default loader and plugin; merges custom options', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'vue'
+  for (const name of [
+    'vue',
+    '@vue/runtime-dom',
+    '@vue/runtime-core',
+    '@vue/shared'
+  ]) {
+    fakePackage(
+      root,
+      name,
+      {version: '3.5.0', main: 'index.js', module: 'dist/esm-bundler.js'},
+      {'index.js': '', 'dist/esm-bundler.js': ''}
     )
+  }
 
-    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
-      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
-      loadLoaderOptions: vi.fn(async () => ({foo: 1}))
-    }))
+  return root
+}
 
-    const VueLoaderPluginMock = function (this: any) {
-      this.apply = vi.fn()
-    } as any
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = ((id: string) => {
-          if (id === 'vue-loader') {
-            return {VueLoaderPlugin: VueLoaderPluginMock}
-          }
+function vueTwoProject() {
+  const root = makeProject({
+    'package.json': {name: 'vue2-fixture', dependencies: {vue: '^2.7.16'}}
+  })
+  const vueDir = fakePackage(
+    root,
+    'vue',
+    {version: '2.7.16', main: 'index.js', module: 'dist/vue.runtime.esm.js'},
+    {'index.js': '', 'dist/vue.runtime.esm.js': ''}
+  )
 
-          if (id === '@vue/compiler-sfc') {
-            return {parse: vi.fn()}
-          }
+  return {root, vueDir}
+}
 
-          if (id === 'vue') {
-            return {version: '3.5.0'}
-          }
-
-          throw new Error(`Cannot find module ${id}`)
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-
-        return req
+// The two hooks the refusal taps, run by hand over a list of modules.
+function finishModules(plugin: unknown, context: string, modules: unknown[]) {
+  const errors: Array<Error & {file?: string}> = []
+  const compilation = {
+    errors,
+    hooks: {
+      finishModules: {
+        tap: (_name: string, fn: (m: unknown[]) => void) => fn(modules)
       }
-    }))
+    }
+  }
 
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const {isUsingVue, maybeUseVue} = await import('../../js-tools/vue')
+  ;(plugin as {apply(compiler: unknown): void}).apply({
+    context,
+    hooks: {
+      thisCompilation: {
+        tap: (_name: string, fn: (c: unknown) => void) => fn(compilation)
+      }
+    }
+  })
 
-    expect(isUsingVue('/p')).toBe(true)
-    expect(isUsingVue('/p')).toBe(true)
-    expect(logSpy).toHaveBeenCalledTimes(1)
+  return errors
+}
 
-    const result = await maybeUseVue('/p', 'development')
-    expect(result?.loaders?.[0].test).toEqual(/\.vue$/)
-    expect(result?.loaders?.[0].options).toMatchObject({foo: 1})
-    expect(result?.loaders?.[0].include).toBeUndefined()
+describe('maybeUseVue', () => {
+  it('returns the vue-loader rule, VueLoaderPlugin, the feature flags and runtime-only aliases', async () => {
+    const root = vueThreeProject({
+      'vue.loader.mjs': 'export default {foo: 1}\n'
+    })
+    const result = await maybeUseVue(root, 'development')
+    const [rule] = result?.loaders || []
 
-    const exclude = result?.loaders?.[0].exclude as (p: string) => boolean
-    expect(exclude('/p/src/App.vue')).toBe(false)
-    expect(exclude('/p/node_modules/other-lib/Button.vue')).toBe(true)
-    expect(result?.plugins?.length).toBeGreaterThan(0)
-    expect(result?.alias?.vue$).toContain('/project/node_modules/vue')
-    expect(result?.alias?.['@vue/runtime-dom']).toContain(
-      '/project/node_modules/@vue/runtime-dom'
+    expect(rule).toMatchObject({
+      test: /\.vue$/,
+      loader: fromDevelop.resolve('vue-loader'),
+      options: {experimentalInlineMatchResource: true, foo: 1}
+    })
+
+    expect(rule.include).toBeUndefined()
+
+    const exclude = rule.exclude as (p: string) => boolean
+    expect(exclude(path.join(root, 'src', 'App.vue'))).toBe(false)
+    expect(exclude(path.join(root, 'node_modules', 'lib', 'Button.vue'))).toBe(
+      true
     )
 
-    expect(result?.alias?.['@vue/runtime-core']).toContain(
-      '/project/node_modules/@vue/runtime-core'
+    const [loaderPlugin, definePlugin] = result?.plugins || []
+    expect(loaderPlugin).toBeInstanceOf(
+      fromDevelop('vue-loader').VueLoaderPlugin
     )
 
-    expect(result?.alias?.['@vue/shared']).toContain(
-      '/project/node_modules/@vue/shared'
-    )
+    expect((definePlugin as unknown as {_args: unknown[]})._args).toEqual([
+      {
+        __VUE_OPTIONS_API__: 'true',
+        __VUE_PROD_DEVTOOLS__: 'true',
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'true'
+      }
+    ])
+
+    const esm = (name: string) =>
+      path.join(root, 'node_modules', name, 'dist', 'esm-bundler.js')
+    expect(result?.alias).toEqual({
+      vue$: esm('vue'),
+      '@vue/runtime-dom': esm('@vue/runtime-dom'),
+      '@vue/runtime-core': esm('@vue/runtime-core'),
+      '@vue/shared': esm('@vue/shared')
+    })
+  })
+
+  it('turns the production devtools flags off in a production build', async () => {
+    const result = await maybeUseVue(vueThreeProject(), 'production')
+    const definePlugin = result?.plugins?.[1] as unknown as {_args: unknown[]}
+
+    expect(definePlugin._args).toEqual([
+      {
+        __VUE_OPTIONS_API__: 'true',
+        __VUE_PROD_DEVTOOLS__: 'false',
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false'
+      }
+    ])
   })
 
   it('compiles an SFC from a transpiled package and keeps the nested defaults', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'vue'
+    const root = vueThreeProject({
+      'vue.loader.mjs':
+        "export default {compilerOptions: {whitespace: 'preserve'}}\n"
+    })
+    const acme = path.join(root, 'node_modules', 'acme-ui')
+    const result = await maybeUseVue(root, 'development', [acme])
+    const rule = result?.loaders?.[0] as {
+      options: Record<string, unknown>
+      exclude: (p: string) => boolean
+    }
+
+    expect(rule.options).toEqual({
+      experimentalInlineMatchResource: true,
+      compilerOptions: {whitespace: 'preserve'}
+    })
+
+    expect(rule.exclude(path.join(acme, 'Button.vue'))).toBe(false)
+    expect(
+      rule.exclude(path.join(root, 'node_modules', 'other-lib', 'Button.vue'))
+    ).toBe(true)
+  })
+
+  it('returns undefined when vue is not a dependency', async () => {
+    expect(await maybeUseVue(makeProject({'package.json': {}}))).toBeUndefined()
+  })
+})
+
+describe('Vue 2', () => {
+  // No vue-loader in the result is how the Vue 2 branch shows: the Vue 3
+  // branch always returns the vue-loader rule and VueLoaderPlugin.
+  it('builds a Vue 2 project without vue-loader instead of refusing it', async () => {
+    const {root, vueDir} = vueTwoProject()
+    const result = await maybeUseVue(root)
+
+    expect(result?.alias).toEqual({
+      vue$: path.join(vueDir, 'dist', 'vue.runtime.esm.js')
+    })
+
+    expect(result?.loaders).toEqual([{test: /\.vue$/, type: 'asset/source'}])
+    expect(result?.plugins).toHaveLength(1)
+
+    const errors = finishModules(result?.plugins?.[0], root, [
+      {resource: path.join(root, 'src', 'main.js'), type: 'javascript/auto'}
+    ])
+
+    expect(errors).toEqual([])
+  })
+
+  it('refuses a Vue 2 single-file component once, by file, with no stack', async () => {
+    const {root} = vueTwoProject()
+    const result = await maybeUseVue(root)
+    const errors = finishModules(result?.plugins?.[0], root, [
+      {resource: path.join(root, 'src', 'main.js'), type: 'javascript/auto'},
+      {resource: path.join(root, 'src', 'B.vue'), type: 'asset/source'},
+      {resource: path.join(root, 'src', 'A.vue?x=1'), type: 'asset/source'}
+    ])
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0].message).toMatch(
+      /Vue 2\.7\.16 is installed, and Extension\.js compiles \.vue files for Vue 3 only/
     )
 
-    vi.doMock('../../js-frameworks-lib/load-loader-options', async () => ({
-      ...(await vi.importActual('../../js-frameworks-lib/load-loader-options')),
-      loadLoaderOptions: vi.fn(async () => ({
-        compilerOptions: {whitespace: 'preserve'}
-      }))
-    }))
+    expect(errors[0].message).toContain(path.join(root, 'src', 'A.vue'))
+    expect(errors[0].message).toContain(path.join(root, 'src', 'B.vue'))
+    expect(errors[0].file).toBe(path.join('src', 'A.vue'))
+    expect(errors[0].stack).toBe('')
+  })
 
-    const VueLoaderPluginMock = function (this: any) {
-      this.apply = vi.fn()
-    } as any
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = ((id: string) => {
-          if (id === 'vue-loader') {
-            return {VueLoaderPlugin: VueLoaderPluginMock}
-          }
-
-          if (id === '@vue/compiler-sfc') return {parse: vi.fn()}
-          if (id === 'vue') return {version: '3.5.0'}
-
-          throw new Error(`Cannot find module ${id}`)
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-
-        return req
-      }
-    }))
-
-    vi.spyOn(console, 'log').mockImplementation(() => {})
-    const {maybeUseVue} = await import('../../js-tools/vue')
-    const result = await maybeUseVue('/p', 'development', [
-      '/p/node_modules/acme-ui'
+  it('leaves a .vue file the project compiles with its own loader alone', async () => {
+    const {root} = vueTwoProject()
+    const result = await maybeUseVue(root)
+    const errors = finishModules(result?.plugins?.[0], root, [
+      {resource: path.join(root, 'src', 'A.vue'), type: 'javascript/auto'}
     ])
-    const rule = result?.loaders?.[0] as any
 
-    expect(rule.options.experimentalInlineMatchResource).toBe(true)
-    expect(rule.options.compilerOptions).toEqual({whitespace: 'preserve'})
-    expect(rule.exclude('/p/node_modules/acme-ui/Button.vue')).toBe(false)
-    expect(rule.exclude('/p/node_modules/other-lib/Button.vue')).toBe(true)
+    expect(errors).toEqual([])
   })
 })
 
 describe('resolveVueBundlerEntry', () => {
-  function fakeProject(vueManifest: Record<string, unknown>, files: string[]) {
-    const root = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-vue-entry-'))
-    )
-    fs.writeFileSync(path.join(root, 'package.json'), '{"name":"app"}')
-    const vueDir = path.join(root, 'node_modules', 'vue')
-
-    for (const rel of files) {
-      fs.mkdirSync(path.dirname(path.join(vueDir, rel)), {recursive: true})
-      fs.writeFileSync(path.join(vueDir, rel), '')
-    }
-
-    fs.writeFileSync(
-      path.join(vueDir, 'package.json'),
-      JSON.stringify({name: 'vue', ...vueManifest})
+  function project(vueManifest: Record<string, unknown>, files: string[]) {
+    const root = makeProject({'package.json': {name: 'app'}})
+    fakePackage(
+      root,
+      'vue',
+      vueManifest,
+      Object.fromEntries(files.map((file) => [file, '']))
     )
 
-    return root
+    return createRequire(path.join(root, 'package.json'))
   }
 
-  beforeEach(() => {
-    vi.doUnmock('module')
-    vi.resetModules()
-  })
-
-  async function loadVueTwoProject() {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'vue'
-    )
-
-    const resolver = {
-      ensureOptionalContractPackageResolved: vi.fn(),
-      ensureOptionalContractModuleLoaded: vi.fn()
-    }
-    vi.doMock('../../../lib/optional-deps-resolver', () => resolver)
-
-    const projectPath = fs.realpathSync(
-      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-vue2-'))
-    )
-    const vueDir = path.join(projectPath, 'node_modules', 'vue')
-    fs.mkdirSync(path.join(vueDir, 'dist'), {recursive: true})
-    fs.writeFileSync(
-      path.join(projectPath, 'package.json'),
-      JSON.stringify({name: 'vue2-fixture', dependencies: {vue: '^2.7.16'}})
-    )
-
-    fs.writeFileSync(
-      path.join(vueDir, 'package.json'),
-      JSON.stringify({
-        name: 'vue',
-        version: '2.7.16',
-        main: 'index.js',
-        module: 'dist/vue.runtime.esm.js'
-      })
-    )
-
-    fs.writeFileSync(path.join(vueDir, 'index.js'), '')
-    fs.writeFileSync(path.join(vueDir, 'dist', 'vue.runtime.esm.js'), '')
-
-    const {maybeUseVue} = await import('../../js-tools/vue')
-
-    return {
-      projectPath,
-      vueDir,
-      resolver,
-      result: await maybeUseVue(projectPath)
-    }
-  }
-
-  // The two hooks the refusal taps, run by hand over a list of modules.
-  function finishModules(plugin: any, context: string, modules: unknown[]) {
-    const errors: Array<Error & {file?: string}> = []
-    const compilation = {
-      errors,
-      hooks: {
-        finishModules: {
-          tap: (_name: string, fn: (m: unknown[]) => void) => fn(modules)
-        }
-      }
-    }
-
-    plugin.apply({
-      context,
-      hooks: {
-        thisCompilation: {
-          tap: (_name: string, fn: (c: unknown) => void) => fn(compilation)
-        }
-      }
-    })
-
-    return errors
-  }
-
-  it('builds a Vue 2 project without vue-loader instead of refusing it', async () => {
-    const {projectPath, vueDir, resolver, result} = await loadVueTwoProject()
-
-    try {
-      expect(
-        resolver.ensureOptionalContractPackageResolved
-      ).not.toHaveBeenCalled()
-
-      expect(resolver.ensureOptionalContractModuleLoaded).not.toHaveBeenCalled()
-
-      expect(result?.alias).toEqual({
-        vue$: path.join(vueDir, 'dist', 'vue.runtime.esm.js')
-      })
-
-      expect(result?.loaders).toEqual([{test: /\.vue$/, type: 'asset/source'}])
-      expect(result?.plugins).toHaveLength(1)
-
-      const errors = finishModules(result?.plugins?.[0], projectPath, [
-        {
-          resource: path.join(projectPath, 'src', 'main.js'),
-          type: 'javascript/auto'
-        }
-      ])
-
-      expect(errors).toEqual([])
-    } finally {
-      fs.rmSync(projectPath, {recursive: true, force: true})
-    }
-  })
-
-  it('refuses a Vue 2 single-file component once, by file, with no stack', async () => {
-    const {projectPath, result} = await loadVueTwoProject()
-
-    try {
-      const errors = finishModules(result?.plugins?.[0], projectPath, [
-        {
-          resource: path.join(projectPath, 'src', 'main.js'),
-          type: 'javascript/auto'
-        },
-        {
-          resource: path.join(projectPath, 'src', 'B.vue'),
-          type: 'asset/source'
-        },
-        {
-          resource: path.join(projectPath, 'src', 'A.vue?x=1'),
-          type: 'asset/source'
-        }
-      ])
-
-      expect(errors).toHaveLength(1)
-      expect(errors[0].message).toMatch(
-        /Vue 2\.7\.16 is installed, and Extension\.js compiles \.vue files for Vue 3 only/
-      )
-
-      expect(errors[0].message).toContain(
-        path.join(projectPath, 'src', 'A.vue')
-      )
-
-      expect(errors[0].message).toContain(
-        path.join(projectPath, 'src', 'B.vue')
-      )
-
-      expect(errors[0].file).toBe(path.join('src', 'A.vue'))
-      expect(errors[0].stack).toBe('')
-    } finally {
-      fs.rmSync(projectPath, {recursive: true, force: true})
-    }
-  })
-
-  it('leaves a .vue file the project compiles with its own loader alone', async () => {
-    const {projectPath, result} = await loadVueTwoProject()
-
-    try {
-      const errors = finishModules(result?.plugins?.[0], projectPath, [
-        {
-          resource: path.join(projectPath, 'src', 'A.vue'),
-          type: 'javascript/auto'
-        }
-      ])
-
-      expect(errors).toEqual([])
-    } finally {
-      fs.rmSync(projectPath, {recursive: true, force: true})
-    }
-  })
-
-  it('picks the runtime ESM build named by package.json module', async () => {
-    const root = fakeProject(
+  it('picks the runtime ESM build named by package.json module', () => {
+    const req = project(
       {main: 'index.js', module: 'dist/vue.runtime.esm-bundler.js'},
       ['index.js', 'dist/vue.runtime.esm-bundler.js']
     )
-    const {resolveVueBundlerEntry} = await import('../../js-tools/vue')
-    const req = createRequire(path.join(root, 'package.json'))
+
     expect(resolveVueBundlerEntry(req, 'vue')).toBe(
       path.join(
-        root,
-        'node_modules',
-        'vue',
+        path.dirname(req.resolve('vue/package.json')),
         'dist',
         'vue.runtime.esm-bundler.js'
       )
     )
-
-    fs.rmSync(root, {recursive: true, force: true})
   })
 
-  it('falls back to the main entry when module is missing or absent on disk', async () => {
-    const root = fakeProject({main: 'index.js', module: 'dist/gone.js'}, [
+  it('falls back to the main entry when module is missing or absent on disk', () => {
+    const req = project({main: 'index.js', module: 'dist/gone.js'}, [
       'index.js'
     ])
-    const {resolveVueBundlerEntry} = await import('../../js-tools/vue')
-    const req = createRequire(path.join(root, 'package.json'))
+
     expect(resolveVueBundlerEntry(req, 'vue')).toBe(
-      path.join(root, 'node_modules', 'vue', 'index.js')
+      path.join(path.dirname(req.resolve('vue/package.json')), 'index.js')
     )
 
     expect(resolveVueBundlerEntry(req, 'not-installed')).toBeUndefined()
-    fs.rmSync(root, {recursive: true, force: true})
   })
 })

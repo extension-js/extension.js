@@ -13,12 +13,10 @@ import {CollectContentEntryImports} from './steps/collect-content-entry-imports'
 export class WebResourcesPlugin {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
-  public readonly browser?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
-    this.browser = options.browser || 'chrome'
   }
 
   apply(compiler: Compiler) {
