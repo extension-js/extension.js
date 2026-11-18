@@ -31,6 +31,35 @@ export function manifest(extra: Record<string, unknown> = {}) {
   })
 }
 
+// A fixture without a workspace marker means one only while no folder above
+// the temp folder holds one, so a spec checks that first.
+export function expectNoWorkspaceAboveTemp() {
+  let dir = fs.realpathSync(os.tmpdir())
+
+  while (true) {
+    let workspaces: unknown
+
+    try {
+      workspaces = JSON.parse(
+        fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+      )?.workspaces
+    } catch {
+      workspaces = undefined
+    }
+
+    expect(fs.existsSync(path.join(dir, 'pnpm-workspace.yaml')), dir).toBe(
+      false
+    )
+
+    expect(workspaces, dir).toBeUndefined()
+
+    const parent = path.dirname(dir)
+    if (parent === dir) return
+
+    dir = parent
+  }
+}
+
 // The project sits one folder down, so a climbing path has a file to reach.
 export function project(files: Record<string, string>) {
   const holder = fs.realpathSync(
