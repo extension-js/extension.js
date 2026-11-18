@@ -939,6 +939,7 @@ async function startDevSession(
     controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath,
+    connectableHost,
     readyAwaitsExecutor,
     port: portAllocation.port,
     output: {
