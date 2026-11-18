@@ -16,10 +16,10 @@
 
 |                                                                            | Feature                                                                                                                                                                       |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Content script CSS**<br/>A sheet a content script imports becomes a module that answers a `data:text/css` URL. A sheet the manifest lists under `content_scripts[].css` ships as a file. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Content script CSS**<br/>A sheet a content script imports becomes a module that answers a `data:text/css` URL, with the rules of every project sheet it brings in with `@import` inside it. A sheet the manifest lists under `content_scripts[].css` ships as a file. |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Page CSS**<br/>Native Rspack CSS for HTML pages, with CSS modules for `.module.*` files.                                                                                     |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Sass and Less (optional)**<br/>Enabled when the project depends on `sass` or `less`. Without them, `.scss` and `.less` files ship uncompiled with a warning.                |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **PostCSS and Tailwind (optional)**<br/>Reads the project's PostCSS config and resolves its plugins from the project.                                                         |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **PostCSS and Tailwind (optional)**<br/>Reads the project's PostCSS config and resolves its plugins, Tailwind included, from the project. An edit to the config applies to the next build of a running `dev` session.                                                         |
 
 ### Content script styles on a page with a strict style policy
 
