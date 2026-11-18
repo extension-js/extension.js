@@ -8,8 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {pidStartedAtMs} from '../browsers/browsers-lib/resolve-live-pid'
 import {
+  isPidAlive,
+  pidStartedAtMs
+} from '../browsers/browsers-lib/resolve-live-pid'
+import {
+  declaredErrorCode,
   failureHint,
   LOAD_REFUSED_HINT,
   LOAD_REFUSED_STATUS,
@@ -108,9 +112,21 @@ async function resolveProjectPath(
 }> {
   let bridge: unknown
 
+  // A coded refusal (no engine, an unbuilt one, another version) means no
+  // session of this install can come up, so the wait answers it at once. An
+  // uncoded load failure falls back to the plain dist/extension-js path.
   try {
     bridge = await loadBridge()
-  } catch {
+  } catch (error) {
+    const code = declaredErrorCode(error)
+
+    if (code) {
+      throw new WaitModeError(
+        error instanceof Error ? error.message : String(error),
+        code
+      )
+    }
+
     bridge = undefined
   }
 
@@ -162,11 +178,7 @@ export interface WaitFailure {
 // E_INTERNAL: a throw nobody classified is a fault, not a known refusal.
 export function describeWaitError(error: unknown): WaitFailure {
   const message = error instanceof Error ? error.message : String(error)
-  const tagged = (error as {code?: unknown} | null)?.code
-  const code =
-    typeof tagged === 'string' && tagged in CODES
-      ? (tagged as ErrorCode)
-      : CODES.E_INTERNAL
+  const code = declaredErrorCode(error) ?? CODES.E_INTERNAL
 
   if (code === CODES.E_ARGS || code === CODES.E_REMOTE_URL_UNSUPPORTED) {
     return {
@@ -268,16 +280,12 @@ export function framedWaitFailure(
   return framed
 }
 
+// A contract with no usable pid cannot be judged dead. EPERM is a live process
+// of another user, which isPidAlive reads as alive.
 function isProcessLikelyAlive(pid: unknown): boolean {
   if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) return true
 
-  try {
-    process.kill(pid, 0)
-
-    return true
-  } catch {
-    return false
-  }
+  return isPidAlive(pid)
 }
 
 export function isFreshContractPayload(
