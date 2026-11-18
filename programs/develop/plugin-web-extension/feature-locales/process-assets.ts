@@ -12,6 +12,10 @@ import {type Compilation, type Compiler, sources} from '@rspack/core'
 import {debugLine, isDebug} from '../../lib/messaging'
 import {hasJsonComments, parseAuthoredJson} from '../../lib/parse-json-safe'
 import {
+  privateFileKind,
+  sourceFileMayShip
+} from '../../plugin-special-folders/public-private-files'
+import {
   getLocales,
   localeFoldersWithoutMessages,
   localesFolderIsCopiedByPublic,
@@ -89,6 +93,9 @@ export function processLocaleAssets(
   const localesFields = getLocales(manifestPath, projectRoot) || []
   const discoveredList = localesFields
   const resolvedLocalesRoot = resolveLocalesFolder(manifestPath, projectRoot)
+  const projectRoots = [projectRoot, path.dirname(manifestPath)].filter(
+    (root): root is string => Boolean(root)
+  )
   let emittedCount = 0
   let missingCount = 0
 
@@ -104,7 +111,20 @@ export function processLocaleAssets(
 
     // Resources from the manifest lib can come as undefined.
     if (thisResource) {
-      if (!fs.existsSync(thisResource)) {
+      // A file the build never copies is left out the way a missing one is.
+      const withheld =
+        fs.existsSync(thisResource) &&
+        !sourceFileMayShip(thisResource, projectRoots, 'walked')
+
+      if (withheld || !fs.existsSync(thisResource)) {
+        const leftOutKind = withheld
+          ? privateFileKind(path.basename(thisResource))
+          : undefined
+
+        // Editor and repository leftovers are skipped without a word, as
+        // the public folder copier skips them.
+        if (leftOutKind === 'os' || leftOutKind === 'tooling') continue
+
         const ErrorConstructor = compiler?.rspack?.WebpackError || Error
         // The message names the locale file; the absolute path rides on the
         // warning's file metadata like every other emit-time warning.

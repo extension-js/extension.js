@@ -225,7 +225,8 @@ export async function verifyGuestLoadAfterLaunch(
     companionPath,
     pipeIn: pipeStreams?.input,
     pipeOut: pipeStreams?.output,
-    logSink: plugin.logSink
+    logSink: plugin.logSink,
+    runId: plugin.launchRunId
   })
 
   await cdpExtensionController.connect()
@@ -322,7 +323,8 @@ export async function setupCdpAfterLaunch(
     companionPath,
     pipeIn: pipeStreams?.input,
     pipeOut: pipeStreams?.output,
-    logSink: plugin.logSink
+    logSink: plugin.logSink,
+    runId: plugin.launchRunId
   })
 
   // connectToChromeCdp already performs bounded startup retries internally.

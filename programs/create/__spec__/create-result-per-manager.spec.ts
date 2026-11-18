@@ -121,6 +121,7 @@ describe.each(
     expect(created.result.packageManager).toBe(manager)
     expect(created.result.depsInstalled).toBe(true)
     expect(created.packageJson.packageManager).toBe(`${manager}@${version}`)
+    expect(created.result.packageManagerSpec).toBe(`${manager}@${version}`)
     expect(created.readme).toContain(`${manager} run dev`)
     expect(created.ready).toContain(devCommand)
     expect(created.ready).not.toContain(`${manager} install`)
@@ -139,6 +140,7 @@ describe('a create that does not install', () => {
     expect(created.result.packageManager).toBe('bun')
     expect(created.result.depsInstalled).toBe(false)
     expect(created.packageJson.packageManager).toBe('bun@1.1.0')
+    expect(created.result.packageManagerSpec).toBe('bun@1.1.0')
     expect(created.ready).toContain('bun install')
     expect(created.ready).toContain('bun dev')
   })
@@ -155,8 +157,20 @@ describe('a create from a starter that pins its manager', () => {
     expect(created.installs).toEqual([{command: 'pnpm', args: ['install']}])
     expect(created.result.packageManager).toBe('pnpm')
     expect(created.packageJson.packageManager).toBe('pnpm@8.15.0')
+    expect(created.result.packageManagerSpec).toBe('pnpm@8.15.0')
     expect(created.readme).toContain('pnpm run dev')
     expect(created.ready).toContain('pnpm dev')
     expect(created.ready).not.toContain('npm run dev')
+  })
+})
+
+describe('a create that cannot learn the manager version', () => {
+  it('hands back the manager and no spec, as the project declares none', async () => {
+    // No invoker names a version, and the stand-in probe fails.
+    const created = await createAs('no-version', '', {install: false})
+
+    expect(created.result.packageManager).toBe('npm')
+    expect(created.result).not.toHaveProperty('packageManagerSpec')
+    expect(created.packageJson).not.toHaveProperty('packageManager')
   })
 })
