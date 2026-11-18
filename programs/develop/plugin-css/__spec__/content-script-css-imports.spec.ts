@@ -518,6 +518,20 @@ describe('the sheets a content-script sheet imports', () => {
     expect(result.unreadable.map((left) => left.request)).toEqual(['x.css'])
   })
 
+  // The same on every disk, one that ignores letter case included.
+  it('read a name that differs from the file beside the sheet in letter case as a package', () => {
+    const source = '@import "Reset.css";\n@import "Parts/a.css";\n.own{}\n'
+    const root = makeProject({
+      'styles.css': source,
+      'reset.css': '.reset{}\n',
+      'parts/a.css': '.a{}\n'
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.css).toBe(source)
+    expect(result.files).toEqual([])
+  })
+
   // `tailwindcss` is not `tailwindcss.css`, so the file beside the sheet is
   // not what the name asks for.
   it('read a name no file beside the sheet has exactly as a package', () => {
@@ -1428,6 +1442,22 @@ describe('the loader run that brings imports into a content-script sheet', () =>
 
   const STILL = `${WARN} An @import is still in this content script stylesheet after every tool ran, so the rules it names will not load.`
 
+  it('names an import whose letter case no file beside the sheet has', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "Reset.css";\n.own{}\n',
+      'content/reset.css': '.reset{}\n'
+    })
+
+    expect(runBoth(root, 'content/styles.css')).toEqual([
+      [
+        'CssParseWarning',
+        STILL,
+        'PATH content/styles.css',
+        'IMPORT @import "Reset.css";'
+      ]
+    ])
+  })
+
   it('names each import no tool brought in, once every tool ran', () => {
     const root = makeProject({
       'content/styles.css': [
@@ -1894,6 +1924,60 @@ describe('a content script that imports a sheet with an @import, compiled', () =
 
     expect(emittedSheet(distDir)).toContain('.own{color:red}')
   }, 60_000)
+
+  // A sheet that may not come in is not a file to ship either.
+  it.skipIf(process.platform === 'win32')(
+    'ships no file an @import url() names and may not read',
+    async () => {
+      const statements = [
+        '@import url(./.env);',
+        '@import url("./.env.local");',
+        '@import url(../../shared/tokens.css);',
+        '@import url(./linked.css);'
+      ]
+      const root = makeProject({
+        'app/content/scripts.js': SCRIPT,
+        'app/content/styles.css': `${statements.join('\n')}\n.own{color:red}\n`,
+        'app/content/.env': 'MARKER_ENV=one\n',
+        'app/content/.env.local': 'MARKER_LOCAL=two\n',
+        'shared/tokens.css': '.MARKER_SHARED{color:green}\n',
+        'outside.css': '.MARKER_LINKED{color:green}\n'
+      })
+      const app = path.join(root, 'app')
+
+      fs.symlinkSync(
+        path.join(root, 'outside.css'),
+        path.join(app, 'content', 'linked.css')
+      )
+
+      const {issues, distDir} = await compileIssues(app)
+      const emitted = (
+        fs.readdirSync(distDir, {recursive: true}) as string[]
+      ).filter((entry) => fs.statSync(path.join(distDir, entry)).isFile())
+
+      expect(emitted).toEqual([path.join('content', 'scripts.js')])
+      expect(
+        fs.readFileSync(path.join(distDir, emitted[0]), 'utf8')
+      ).not.toMatch(/MARK/)
+
+      // Each statement stays as written, with no address of the extension.
+      expect(emittedSheet(distDir)).toBe(
+        `${statements.join('\n')}\n.own{color:red}\n`
+      )
+
+      expect(issues.map((issue) => /IMPORT (\S+)/.exec(issue)?.[1])).toEqual([
+        './.env',
+        './.env.local',
+        '../../shared/tokens.css',
+        './linked.css'
+      ])
+
+      for (const issue of issues) {
+        expect(issue).toContain('so the rules of that file will not load.')
+      }
+    },
+    60_000
+  )
 
   it('runs the imported rules through the PostCSS config of the project', async () => {
     const root = makeProject({

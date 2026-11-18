@@ -265,6 +265,26 @@ function isFile(candidate: string): boolean {
   }
 }
 
+// Whether a file sits at this path from the folder under exactly these
+// names. A disk that ignores letter case opens it under any spelling.
+function isFileNamedExactly(folder: string, relative: string): boolean {
+  let at = folder
+
+  for (const name of relative.split('/')) {
+    if (name !== '..' && name !== '.') {
+      try {
+        if (!fs.readdirSync(at).includes(name)) return false
+      } catch {
+        return false
+      }
+    }
+
+    at = path.join(at, name)
+  }
+
+  return isFile(at)
+}
+
 function realPath(file: string): string {
   try {
     // The native call answers in the letter case the disk holds.
@@ -790,7 +810,8 @@ function inlineSheet(
     // A name with no ./ ahead of it is a path inside url(), and as a string
     // when a file beside the sheet has exactly that name. Else a package.
     const asPath =
-      beside !== undefined && (parsed?.viaUrl === true || isFile(beside))
+      beside !== undefined &&
+      (parsed?.viaUrl === true || isFileNamedExactly(issuerDir, plain))
     // The one rule for which files a path names.
     const candidates =
       parsed && !parsed.opaque && !parsed.request.includes('!')

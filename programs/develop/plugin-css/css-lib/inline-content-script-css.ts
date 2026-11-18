@@ -106,11 +106,12 @@ export function rewriteInlinedCssUrls(
   const targets: InlinedCssUrlTarget[] = []
   const seen = new Map<string, string>()
 
-  // Read the way CSS reads it, so a url( inside a string is left alone.
+  // Read the way CSS reads it, so a url( inside a string is left alone. The
+  // url() of an @import names a sheet, which is never a file to bundle.
   const css = rewriteCssUrls(
     source,
     (request, where) => {
-      if (where !== 'url' && where !== 'import-url') return undefined
+      if (where !== 'url') return undefined
 
       const suffixAt = request.search(/[?#]/)
       const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
