@@ -3,15 +3,15 @@ import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {TAKE_BLOCK_OPEN} from '../../../lib/extension-base-from-stack'
-import {buildBridgeProducerSource} from '../producer-runtime'
+import {buildBridgeProducerSource} from '../../../dev-server/control-bridge/producer-runtime'
+import {readControlToken} from '../../../dev-server/control-bridge/session-token'
+import {TAKE_BLOCK_OPEN} from '../../extension-base-from-stack'
 import {
   controlledBuildDir,
   declaredBackgroundFiles,
   type ProductionControlSession,
   startProductionControl
-} from '../production-control'
-import {readControlToken} from '../session-token'
+} from '../index'
 
 let tmpDir: string | undefined
 let session: ProductionControlSession | undefined
