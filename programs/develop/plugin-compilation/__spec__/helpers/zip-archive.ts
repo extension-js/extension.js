@@ -53,13 +53,14 @@ export function writeProject(root: string) {
 export async function zipProject(
   root: string,
   outPath: string,
-  zipData: {zip?: boolean; zipSource?: boolean; zipDir?: string}
+  zipData: {zip?: boolean; zipSource?: boolean; zipDir?: string},
+  manifestPath = path.join(root, 'manifest.json')
 ) {
   const {compiler, emitDone} = makeCompiler(root, outPath)
   new ZipPlugin({
     browser: 'chrome',
     zipData,
-    manifestPath: path.join(root, 'manifest.json')
+    manifestPath
   }).apply(compiler)
 
   const stats = await emitDone()
