@@ -153,17 +153,48 @@ describe('PortManager exhaustion', () => {
   })
 })
 
+function listenOn(port: number, host: string): Promise<net.Server> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer()
+    server.once('error', reject)
+    server.listen(port, host, () => resolve(server))
+  })
+}
+
+async function portWithFreeNeighbor(host: string): Promise<number> {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const first = await listenOn(0, host)
+    const {port} = first.address() as net.AddressInfo
+    const start = port > 60000 ? port - 2000 : port
+    await new Promise((resolve) => first.close(resolve))
+
+    try {
+      const pair = [await listenOn(start, host)]
+
+      try {
+        pair.push(await listenOn(start + 1, host))
+      } finally {
+        await Promise.all(
+          pair.map((server) => new Promise((resolve) => server.close(resolve)))
+        )
+      }
+
+      if (pair.length === 2) return start
+    } catch {
+      // Held or reserved, so another start is tried.
+    }
+  }
+
+  throw new Error('no port with a free neighbor to probe')
+}
+
 describe('PortManager host-aware probing', () => {
   it('probes the requested host, skipping a port taken there', async () => {
     const host = '127.0.0.1'
-    const blocker = net.createServer()
-    // An ephemeral port, since any fixed one can already be held on the host.
-    await new Promise<void>((resolve, reject) => {
-      blocker.once('error', reject)
-      blocker.listen(0, host, resolve)
-    })
-
-    const taken = (blocker.address() as net.AddressInfo).port
+    // A port the system names with a free neighbor above it, since on a busy
+    // host the ports beside an ephemeral one can all be held or reserved.
+    const taken = await portWithFreeNeighbor(host)
+    const blocker = await listenOn(taken, host)
 
     try {
       const allocation = await new PortManager().allocatePorts(taken, host)

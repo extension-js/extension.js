@@ -1,0 +1,59 @@
+//  ██████╗ ██████╗ ███╗   ███╗██████╗ ██╗██╗      █████╗ ████████╗██╗ ██████╗ ███╗   ██╗
+// ██╔════╝██╔═══██╗████╗ ████║██╔══██╗██║██║     ██╔══██╗╚══██╔══╝██║██╔═══██╗████╗  ██║
+// ██║     ██║   ██║██╔████╔██║██████╔╝██║██║     ███████║   ██║   ██║██║   ██║██╔██╗ ██║
+// ██║     ██║   ██║██║╚██╔╝██║██╔═══╝ ██║██║     ██╔══██║   ██║   ██║██║   ██║██║╚██╗██║
+// ╚██████╗╚██████╔╝██║ ╚═╝ ██║██║     ██║███████╗██║  ██║   ██║   ██║╚██████╔╝██║ ╚████║
+//  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
+
+import {toJsStringLiteral} from './compilation-lib/js-literal'
+
+// A bundle has no process global, so code that reads one is handed this
+// module. Its env carries the public values import.meta.env carries.
+export function processModuleSource(env: Record<string, string>): string {
+  const entries = Object.keys(env).map(
+    (key) => `${toJsStringLiteral(key)}:${toJsStringLiteral(env[key])}`
+  )
+
+  return [
+    'const noop=()=>{};',
+    'module.exports={',
+    `env:{${entries.join(',')}},`,
+    'argv:[],',
+    'version:"",',
+    'versions:{},',
+    'platform:"browser",',
+    'arch:"browser",',
+    'browser:true,',
+    'title:"browser",',
+    'pid:0,',
+    'nextTick:(callback,...args)=>{',
+    'const run=()=>{callback(...args)};',
+    'if(typeof queueMicrotask==="function"){queueMicrotask(run)}',
+    'else{Promise.resolve().then(run)}',
+    '},',
+    'cwd:()=>"/",',
+    'chdir:noop,',
+    'umask:()=>0,',
+    'on:noop,',
+    'once:noop,',
+    'off:noop,',
+    'addListener:noop,',
+    'removeListener:noop,',
+    'removeAllListeners:noop,',
+    'prependListener:noop,',
+    'prependOnceListener:noop,',
+    'emit:noop,',
+    'listeners:()=>[]',
+    '};'
+  ].join('')
+}
+
+// Base64 leaves no dot, quote or percent sign in the request, so no module
+// rule takes it for a file by its name and no value can cut the URI short.
+export function processModuleRequest(env: Record<string, string>): string {
+  const source = Buffer.from(processModuleSource(env)).toString('base64')
+
+  // This media type is the one the bundler reads as CommonJS.
+  return `data:application/node;base64,${source}`
+}

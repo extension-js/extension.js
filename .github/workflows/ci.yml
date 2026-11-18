@@ -368,12 +368,17 @@ jobs:
       - name: Run the Bun runtime smoke
         run: pnpm smoke:bun
 
-  # The Windows suites run as two parallel jobs, so the slowest half sets the
-  # wait instead of the sum of all four.
+  # The Windows suites run as parallel jobs, so the slowest one sets the wait
+  # instead of the sum. The develop suite is the longest, so it runs as two
+  # vitest shards.
   tests-windows-develop:
-    name: Run test suite (Windows, develop)
+    name: Run test suite (Windows, develop ${{ matrix.shard }}/2)
     runs-on: windows-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -390,8 +395,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run the develop suite
-        run: pnpm test:dev
+      - name: Compile the build engine and what it depends on
+        run: pnpm exec turbo run compile --filter ./programs/develop
+
+      - name: Run this half of the develop suite
+        run: pnpm -C programs/develop exec vitest run --shard=${{ matrix.shard }}/2
 
   tests-windows-cli:
     name: Run test suite (Windows, CLI, install and create)
