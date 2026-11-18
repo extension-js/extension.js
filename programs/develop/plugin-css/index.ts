@@ -29,9 +29,15 @@ import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-
 import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
+import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {cssUrlRefCandidates, toPosixPath} from './css-lib/dead-url-refs'
+import {
+  checkedCssSheets,
+  cssUrlRefFiles,
+  toPosixPath
+} from './css-lib/dead-url-refs'
+import {whyNotRead} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
@@ -39,7 +45,10 @@ import {
   SFC_STYLE_BLOCK_QUERY,
   SVELTE_STYLE_BLOCK_TEST
 } from './css-lib/sfc-style-block'
-import {beginStyleDiagnostics} from './css-lib/style-diagnostics'
+import {
+  beginStyleDiagnostics,
+  reportStyleDiagnostic
+} from './css-lib/style-diagnostics'
 import {
   forgetVerbatimCss,
   minifierDroppedTokens,
@@ -48,8 +57,12 @@ import {
 } from './css-lib/verbatim-css'
 import {maybeUseLess} from './css-tools/less'
 import {
+  findIgnoredPostCssConfigs,
   findPostCssConfig,
-  postCssReaderForOneCompiler
+  type PostCssCompilerReader,
+  postCssConfigHelpers,
+  postCssReaderForOneCompiler,
+  postCssSetupFiles
 } from './css-tools/postcss'
 import {maybeUseSass} from './css-tools/sass'
 import {getTailwindConfigFile} from './css-tools/tailwind'
@@ -63,6 +76,12 @@ export class CssPlugin {
 
   // Setup failures found while building the rules, said once per compiler.
   private readonly setupWarnings: string[] = []
+
+  // The compiler's one reader of the PostCSS config, kept to read it again.
+  private postCss: PostCssCompilerReader | undefined
+
+  // Whether the rules were built for a project that uses a style tool.
+  private usedStyleTools = false
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -93,12 +112,32 @@ export class CssPlugin {
       baseScheme: extensionSchemeFor(String(this.browser))
     }
 
+    // A reading that repeats what the one before it said adds nothing, in
+    // this compiler or in the one a dev session opened before it.
+    this.postCss = postCssReaderForOneCompiler((message) => {
+      reportStyleDiagnostic(projectPath, message, (told) =>
+        this.setupWarnings.push(told)
+      )
+    })
+
+    const reread = this.postCss.reread
+
+    this.postCss.reread = () => {
+      beginStyleDiagnostics(projectPath, String(mode))
+
+      return reread()
+    }
+
+    this.usedStyleTools = usesStyleTools(projectPath)
+
     const usage = {
       useSass: usingSass,
       useLess: usingLess,
-      postCss: postCssReaderForOneCompiler((message) =>
-        this.setupWarnings.push(message)
-      )
+      postCss: this.postCss
+    }
+
+    for (const {file, rename} of findIgnoredPostCssConfigs(projectPath)) {
+      this.setupWarnings.push(messages.postCssConfigNameIgnored(file, rename))
     }
 
     const loaders: RuleSetRule[] = [
@@ -220,12 +259,8 @@ export class CssPlugin {
     }
   }
 
-  // A sheet the parser rejected went through as a placeholder rule; once the
-  // minimizer is done, the emitted asset becomes the sheet as authored.
-  // Production keeps every rule development keeps: a sheet the parser
-  // rejected comes back as authored once the minimizer is done, and a sheet
-  // the minimizer error-recovered into fewer rules than the browser would
-  // keep ships unminified, with a warning naming what it dropped.
+  // Production keeps every rule development keeps: a sheet the parser rejected
+  // or the minimizer cut short ships as authored, with a warning for the cut.
   private keepCssParityInProduction(compiler: Compiler) {
     // The registry outlives a compilation, so each compiler drops the sheets
     // it no longer emits, and never one another compiler may still emit.
@@ -336,9 +371,46 @@ export class CssPlugin {
       ]
     })
 
+    // Strict refs fails the build here, under the same name and code. Left
+    // to rspack, a relative one came back as a warning.
+    const report = (issuer: string, raw: string) => {
+      const req = raw.split('?')[0].split('#')[0]
+      const key = `${issuer}|${req}`
+      const strict = process.env.EXTENSION_STRICT_REFS === 'true'
+      const sink = strict ? compilation?.errors : compilation?.warnings
+
+      if (warned.has(key) || !sink) return
+
+      warned.add(key)
+      const issuerPath = toPosixPath(
+        path.relative(manifestDir, issuer) || issuer
+      )
+      const error = new WebpackError(
+        messages.deadCssUrlRef(issuerPath, raw, strict)
+      )
+      ;(error as Error & {file?: string}).file = issuerPath
+      error.name = 'CssDeadRef'
+      sink.push(error)
+    }
+
     compiler.hooks.normalModuleFactory.tap(
       `${CssPlugin.name}:dead-url`,
       (nmf) => {
+        // Whether the project's resolver places a request no candidate file
+        // stands behind, as a url() and as an @import, aliases included.
+        const resolvesAnyway = (issuerDir: string, raw: string) =>
+          ['url', 'css-import'].every((dependencyType) => {
+            try {
+              return Boolean(
+                nmf
+                  .getResolver('normal', {dependencyType})
+                  .resolveSync({}, issuerDir, raw)
+              )
+            } catch {
+              return false
+            }
+          })
+
         nmf.hooks.beforeResolve.tap(
           `${CssPlugin.name}:dead-url`,
           (data: {
@@ -351,61 +423,128 @@ export class CssPlugin {
 
             const raw = String(data?.request || '')
 
-            // A request with loader syntax (`!=!` inline match resource, `-!`
-            // or `!!` prefixes) is a module request some loader built, never
-            // a url() to a file. vue-loader re-issues each <style> block this
-            // way from a `.vue.css` issuer; cancelling it drops the block.
+            // A request with loader syntax is one some loader built, never a
+            // url() to a file. Cancelling one vue-loader made drops its block.
             if (raw.includes('!')) return
 
             const issuerDir = String(data?.context || path.dirname(issuer))
-            const candidates = cssUrlRefCandidates(raw, {issuerDir, roots})
+            const candidates = cssUrlRefFiles(raw, {issuerDir, roots})
             if (candidates.length === 0) return
 
             const req = raw.split('?')[0].split('#')[0]
-            const withCssExtension = path.extname(req)
-              ? []
-              : candidates.map((candidate) => `${candidate}.css`)
 
+            const found = candidates.find((candidate) =>
+              fs.existsSync(candidate)
+            )
+
+            // A file the build withholds is told the way one that is not
+            // there is. Which file a url() leads to is checked once resolved.
             if (
-              [...candidates, ...withCssExtension].some((candidate) =>
-                fs.existsSync(candidate)
-              )
+              found &&
+              (/\.(css|scss|sass|less)$/i.test(req) ||
+                !whyNotRead(found, projectPath))
             ) {
               return
             }
 
+            // An alias or a package can place a bare name no candidate holds.
+            // The file it leads to is then checked once resolved, like any other.
+            const bare = !/^\.{0,2}\//.test(req)
+
+            if (!found && bare && resolvesAnyway(issuerDir, raw)) return
+
             // Cancelled before rspack resolves it, so nothing watches for the
             // file. Watch every place it could appear, or a later write is lost.
-            compilation?.missingDependencies.addAll([
-              ...candidates,
-              ...withCssExtension
-            ])
+            compilation?.missingDependencies.addAll(candidates)
+            report(issuer, raw)
 
-            const key = `${issuer}|${req}`
+            return false
+          }
+        )
 
-            // Strict refs fails the build here, under the same name and code.
-            // Left to rspack, a relative one came back as a warning.
-            const strict = process.env.EXTENSION_STRICT_REFS === 'true'
-            const sink = strict ? compilation?.errors : compilation?.warnings
+        // The file any request of a page sheet leads to once aliases, packages
+        // and links are followed, whatever text the loader read for it.
+        nmf.hooks.afterResolve.tap(
+          `${CssPlugin.name}:dead-url`,
+          (data: {
+            contextInfo?: {issuer?: unknown}
+            request?: unknown
+            createData?: {resource?: unknown}
+          }) => {
+            const issuer = String(data?.contextInfo?.issuer || '')
+            const raw = String(data?.request || '')
+            const checked = checkedCssSheets(compiler).has(issuer)
 
-            if (!warned.has(key) && sink) {
-              warned.add(key)
-              const issuerPath = toPosixPath(
-                path.relative(manifestDir, issuer) || issuer
-              )
-              const report = new WebpackError(
-                messages.deadCssUrlRef(issuerPath, raw, strict)
-              )
-              ;(report as Error & {file?: string}).file = issuerPath
-              report.name = 'CssDeadRef'
-              sink.push(report)
+            if (!checked || raw.includes('!')) return
+
+            const file = String(data?.createData?.resource || '').split(
+              /[?#]/
+            )[0]
+
+            if (!path.isAbsolute(file) || !whyNotRead(file, projectPath)) {
+              return
             }
+
+            report(issuer.split('?')[0], raw)
 
             return false
           }
         )
       }
     )
+  }
+
+  // A dev session reads the PostCSS setup when it starts. An edit to one of
+  // its files is read again here, so the next build compiles with it.
+  private rereadPostCssSetupOnChange(
+    compiler: Compiler,
+    configured: Promise<void>
+  ) {
+    const projectPath = (compiler.options.context as string) || process.cwd()
+    const files = postCssSetupFiles(projectPath).map((file) =>
+      path.resolve(file)
+    )
+    // The project files a config requires are known once it was read.
+    const setupFiles = () => [...files, ...postCssConfigHelpers(projectPath)]
+    let needsRestart: string | undefined
+
+    compiler.hooks.watchRun.tapPromise(`${CssPlugin.name}:setup`, async () => {
+      await configured
+
+      const watched = new Set(setupFiles())
+      const changed = [
+        ...(compiler.modifiedFiles || []),
+        ...(compiler.removedFiles || [])
+      ].find((file) => watched.has(path.resolve(file)))
+
+      if (!changed || !this.postCss) return
+
+      // Rules built with no style tool hold no PostCSS step to update, and
+      // the same goes for a step that would now appear or go away.
+      const applied =
+        usesStyleTools(projectPath) === this.usedStyleTools &&
+        (await this.postCss.reread())
+
+      if (!applied) needsRestart = path.resolve(changed)
+    })
+
+    compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:setup-files`, (c) => {
+      // A project with no sheet yet has no module that watches these.
+      for (const file of setupFiles()) {
+        if (fs.existsSync(file)) c.fileDependencies.add(file)
+        else c.missingDependencies.add(file)
+      }
+
+      if (!needsRestart) return
+
+      const warning = new compiler.rspack.WebpackError(
+        messages.postCssConfigNeedsRestart(needsRestart)
+      )
+
+      needsRestart = undefined
+      warning.name = 'CssSetupWarning'
+      c.warnings.push(warning)
+    })
   }
 
   private reportSetupWarnings(compiler: Compiler) {
@@ -435,14 +574,12 @@ export class CssPlugin {
       return
     }
 
-    // dev/watch: configure eagerly and gate the first compilation on the one
-    // promise from both hooks. watchRun covers the dev server; beforeRun covers
-    // a one-shot development build (compiler.run), which otherwise read the
-    // rules before the css rules existed and sent a manifest stylesheet entry
-    // to the JavaScript parser.
+    // dev/watch: configure eagerly and gate the first compilation on it.
+    // watchRun covers the dev server and beforeRun a one-shot development build.
     const configuring = this.configureOptions(compiler)
     compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () => configuring)
     compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)
+    this.rereadPostCssSetupOnChange(compiler, configuring)
     await configuring
   }
 }

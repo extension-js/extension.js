@@ -16,7 +16,10 @@ import {resolveDevelopInstallRoot} from '../../lib/develop-context'
 import {hasDependency} from '../../lib/has-dependency'
 import {isDebug} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
-import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {
+  ensureOptionalContractPackageResolved,
+  formatInstallHint
+} from '../../lib/optional-deps-resolver'
 import * as messages from '../css-lib/messages'
 
 let userMessageDelivered = false
@@ -63,8 +66,7 @@ export function resolveSassImplementation(
   }
 
   try {
-    // Fallback to Extension.js's own optional-dependency install, primarily for
-    // npm/npx usage installing SASS into the extension-develop cache.
+    // Fallback to Extension.js's own optional-dependency install, for npm/npx.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     let mod = cjsRequire('sass')
 
@@ -87,9 +89,12 @@ export function createSassLoaderOptions(
   // Project declares "sass" but we cannot resolve any implementation from
   // the project or extension runtime – surface a clear error.
   if (usingSass && !implementation) {
-    throw Object.assign(new Error(messages.missingSassDependency()), {
-      name: 'CssPreprocessorMissing'
-    })
+    throw Object.assign(
+      new Error(
+        messages.missingSassDependency(formatInstallHint(projectPath, ['sass']))
+      ),
+      {name: 'CssPreprocessorMissing'}
+    )
   }
 
   const base: Record<string, AnyModule> = {
