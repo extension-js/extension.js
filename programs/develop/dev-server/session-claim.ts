@@ -17,7 +17,7 @@ function claimKey(packageJsonDir: string, browser: string): string {
   let dir = path.resolve(packageJsonDir)
 
   try {
-    dir = fs.realpathSync(dir)
+    dir = fs.realpathSync.native(dir)
   } catch {
     // The resolved path stands for a folder that cannot be read.
   }
