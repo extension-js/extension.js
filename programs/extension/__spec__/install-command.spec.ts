@@ -57,7 +57,8 @@ import {
   getManagedBrowserInstallDir,
   getManagedBrowsersCacheRoot,
   isBrowserInstallPrivilegeError,
-  isBrowserNotInstallableError
+  isBrowserNotInstallableError,
+  type UninstallResult
 } from 'extension-install'
 import * as installPackage from 'extension-install'
 import {registerInstallCommand} from '../commands/install'
@@ -759,7 +760,7 @@ describe('extension uninstall', () => {
   })
 
   it('reports a system Edge as not removed, exit 0, with the path it names', async () => {
-    const system = {
+    const system: UninstallResult = {
       browser: 'edge',
       removed: false,
       path: '/cache/edge',
@@ -829,7 +830,7 @@ describe('extension uninstall', () => {
   })
 
   describe('when one target of several could not be removed', () => {
-    const results = [
+    const results: UninstallResult[] = [
       {
         browser: 'chrome',
         removed: true,
