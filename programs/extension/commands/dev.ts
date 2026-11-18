@@ -435,11 +435,21 @@ export function registerDevCommand(
           const parentGone = `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
 
           armParentWatchdog(parentPid, {
-            // A live session's stream writes the one terminal frame itself.
+            // Each live session writes its own terminal frame, newest first.
             // Under --output json the engine exits nothing, so this does.
             endSession: () => {
-              const ended =
-                endEngineSession?.(CODES.E_PARENT_GONE, parentGone) === true
+              let ended = false
+
+              // One call ends one session, and a run holds one per browser.
+              for (let turn = 0; turn < 16; turn++) {
+                if (
+                  endEngineSession?.(CODES.E_PARENT_GONE, parentGone) !== true
+                ) {
+                  break
+                }
+
+                ended = true
+              }
 
               if (ended && asJson) void exitDrained(1)
 
