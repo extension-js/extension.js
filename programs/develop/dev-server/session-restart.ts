@@ -141,6 +141,9 @@ const boundSchedulers = new Set<DevSessionRestartScheduler>()
 // The session each compiler was built for, so its request reaches its own.
 const schedulerByCompiler = new WeakMap<object, DevSessionRestartScheduler>()
 
+// Compilers that will not serve again. A WeakSet, so they are not kept.
+const retiredCompilers = new WeakSet<object>()
+
 // Compilers whose next build a restart will supersede. Their diagnostics
 // about entries the old include list could not emit are noise.
 const restartingCompilers = new WeakSet<object>()
@@ -157,7 +160,35 @@ export function assignCompilerToDevSession(
   compiler: object,
   scheduler: DevSessionRestartScheduler
 ): void {
+  retiredCompilers.delete(compiler)
   schedulerByCompiler.set(compiler, scheduler)
+}
+
+// A compiler that will not serve again, replaced or never adopted, has no
+// session left: what it still asks reaches no other session of the host.
+export function releaseCompilerFromDevSession(
+  compiler: object | undefined
+): void {
+  if (!compiler) return
+
+  schedulerByCompiler.delete(compiler)
+  retiredCompilers.add(compiler)
+}
+
+// The live session a compiler speaks for. One that names no known compiler
+// speaks for the newest session.
+function liveSessionOf(
+  compiler: object | undefined
+): DevSessionRestartScheduler | null {
+  if (!compiler) return boundScheduler
+  if (retiredCompilers.has(compiler)) return null
+
+  const own = schedulerByCompiler.get(compiler)
+
+  // A compiler whose session ended, or is not bound yet, has none.
+  if (own) return boundSchedulers.has(own) ? own : null
+
+  return boundScheduler
 }
 
 // A session passes its own scheduler and unbinds only that one: the other
@@ -179,8 +210,10 @@ export function unbindDevSessionRestart(
   }
 }
 
-export function canAutoRestartDevSession(): boolean {
-  return boundScheduler != null
+// Asked for the session the compiler belongs to, so another live session
+// of the host does not answer for one that is not bound yet.
+export function canAutoRestartDevSession(compiler?: object): boolean {
+  return liveSessionOf(compiler) != null
 }
 
 // True when a live session will carry the change; a false return means the
@@ -189,12 +222,7 @@ export function requestDevSessionRestart(
   compiler: object | undefined,
   request: DevSessionRestartRequest
 ): boolean {
-  const own = compiler ? schedulerByCompiler.get(compiler) : undefined
-
-  // A compiler whose session ended has no restart to ask for.
-  if (own && !boundSchedulers.has(own)) return false
-
-  const scheduler = own ?? boundScheduler
+  const scheduler = liveSessionOf(compiler)
 
   if (!scheduler) return false
   if (compiler) restartingCompilers.add(compiler)
@@ -216,6 +244,6 @@ export function isCompilerRestarting(compiler: object | undefined): boolean {
 
 // True while a restart is queued or running. One that failed can leave
 // another in line, which a caller must not take for a restart given up on.
-export function isDevSessionRestartPending(): boolean {
-  return boundScheduler?.isPending() ?? false
+export function isDevSessionRestartPending(compiler?: object): boolean {
+  return liveSessionOf(compiler)?.isPending() ?? false
 }

@@ -6,7 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {DevSessionRestartRequest} from './session-restart'
+import {
+  type DevSessionRestartRequest,
+  releaseCompilerFromDevSession
+} from './session-restart'
 
 export interface RestartableServer {
   stop?: () => Promise<void>
@@ -33,10 +36,12 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
   onStartFailure: (error: unknown, server: Server) => void | Promise<void>
   // A throw no step above owns. previousServing says whether the server the
   // restart began with was still untouched.
-  onUnexpectedFailure: (
+  onUnexpectedFailure?: (
     error: unknown,
     state: {previousServing: boolean}
   ) => void
+  // The server the restart began with is set aside and will not serve again.
+  retireServer?: (server: Server) => void
   // True once the session is being torn down, which owns the servers then.
   isShuttingDown: () => boolean
   fullReloadsDelivered: () => number
@@ -86,6 +91,7 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     state.previousServing = false
     state.unadopted = nextBundle
     steps.setCurrentServer(null)
+    if (previous) steps.retireServer?.(previous)
 
     state.portHeld = true
     steps.holdPort()
@@ -180,13 +186,13 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
         try {
           await steps.onStartFailure(error, unadopted.server)
         } catch (failure) {
-          steps.onUnexpectedFailure(failure, state)
+          steps.onUnexpectedFailure?.(failure, state)
         }
 
         return
       }
 
-      steps.onUnexpectedFailure(error, state)
+      steps.onUnexpectedFailure?.(error, state)
     }
   }
 }
@@ -197,6 +203,8 @@ export function discardRestartBundle(bundle: {
   server: RestartableServer
   compiler?: {close: (callback: () => void) => void}
 }): void {
+  releaseCompilerFromDevSession(bundle.compiler)
+
   try {
     void Promise.resolve(bundle.server.stop?.()).catch(() => {})
   } catch {

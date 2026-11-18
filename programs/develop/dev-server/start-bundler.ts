@@ -210,7 +210,7 @@ export interface RestartFailureTargets {
   // Puts the session back on the compiler that is still serving.
   keepServing: () => void
   // A queued restart supersedes the serving compiler, which stays quiet.
-  hasQueuedRestart: () => boolean
+  hasQueuedRestart?: () => boolean
   // Lets go of what a session with no server still holds open.
   release: (server: {stop?: () => Promise<void>}) => Promise<void>
   onExitError?: (error: unknown, code?: string) => void
@@ -228,7 +228,7 @@ export function createRestartFailure(targets: RestartFailureTargets) {
   const exitOnError = targets.exitOnError ?? true
 
   const previousBuildKeepsServing = (error: unknown) => {
-    if (!targets.hasQueuedRestart()) targets.keepServing()
+    if (!targets.hasQueuedRestart?.()) targets.keepServing()
 
     print(messages.devServerRestartFailed(error, 'previous-build'))
 

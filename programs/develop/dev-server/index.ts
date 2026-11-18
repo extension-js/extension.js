@@ -117,6 +117,7 @@ import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
   endCompilerRestart,
+  releaseCompilerFromDevSession,
   unbindDevSessionRestart
 } from './session-restart'
 import {
@@ -522,6 +523,8 @@ async function startDevSession(
 
   // The middleware reads the live compiler's output, which a restart swaps.
   let activeCompiler: Compiler | null = null
+  // The compiler behind each server, to retire it when a restart replaces it.
+  const compilerByServer = new WeakMap<object, Compiler>()
   // Set while a bundle is being built, for a build that throws partway.
   let releaseUnfinishedBundle: (() => void) | null = null
 
@@ -1137,6 +1140,7 @@ async function startDevSession(
     }
 
     releaseUnfinishedBundle = null
+    compilerByServer.set(server, compiler)
 
     return {compiler, server, firstCompile}
   }
@@ -1221,6 +1225,8 @@ async function startDevSession(
       setCurrentServer: (server) => {
         currentServer = server
       },
+      retireServer: (server) =>
+        releaseCompilerFromDevSession(compilerByServer.get(server)),
       holdPort: () => portManager.holdPortAcrossRestart(),
       endPortHold: () => portManager.endRestartHold(),
       // A restart reports its own failure, so the start only rejects here.

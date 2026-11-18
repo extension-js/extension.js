@@ -3,7 +3,14 @@ import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
 import {createLifecycleStream, stripAnsi} from '../lifecycle-stream'
 import * as messages from '../messages'
-import {DevSessionRestartScheduler} from '../session-restart'
+import {
+  assignCompilerToDevSession,
+  bindDevSessionRestart,
+  canAutoRestartDevSession,
+  DevSessionRestartScheduler,
+  requestDevSessionRestart,
+  unbindDevSessionRestart
+} from '../session-restart'
 import {
   createSessionRestartHandler,
   type RestartBundle,
@@ -413,6 +420,41 @@ describe('a dev session restart', () => {
     expect(s.calls).not.toContain('keepServing')
     expect(s.frames().map((frame) => frame.status)).toEqual(['restart-failed'])
     expect(s.current()).toBe(s.next)
+  })
+
+  it('retires the server it replaces, and the compiler of a bundle it discards', async () => {
+    const retired: string[] = []
+    const replacing = session({
+      retireServer: (server) => retired.push(server.name)
+    })
+    await replacing.restart()
+
+    expect(retired).toEqual(['first'])
+
+    // A bundle built as the shutdown begins never serves.
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(() => {})
+    const compiler = {close: vi.fn((done: () => void) => done())}
+    assignCompilerToDevSession(compiler, scheduler)
+    bindDevSessionRestart(scheduler)
+
+    const discarding = session({
+      retireServer: (server) => retired.push(server.name),
+      createBundle: async () => ({
+        server: discarding.next,
+        firstCompile: Promise.resolve({hasErrors: () => false}),
+        compiler
+      }),
+      isShuttingDown: () => true
+    })
+    await discarding.restart()
+
+    expect(retired).toEqual(['first'])
+    expect(compiler.close).toHaveBeenCalledTimes(1)
+    expect(canAutoRestartDevSession(compiler)).toBe(false)
+    expect(requestDevSessionRestart(compiler, {reason: 'env'})).toBe(false)
+
+    unbindDevSessionRestart()
   })
 
   it('leaves the servers to a shutdown that starts while it runs', async () => {

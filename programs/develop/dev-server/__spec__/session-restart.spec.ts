@@ -8,6 +8,7 @@ import {
   endCompilerRestart,
   isCompilerRestarting,
   isDevSessionRestartPending,
+  releaseCompilerFromDevSession,
   requestDevSessionRestart,
   unbindDevSessionRestart
 } from '../session-restart'
@@ -224,6 +225,72 @@ describe('requestDevSessionRestart', () => {
     unbindDevSessionRestart(a)
     expect(canAutoRestartDevSession()).toBe(false)
     expect(requestDevSessionRestart(compilerA, {reason: 'env'})).toBe(false)
+  })
+
+  it('answers for the session a compiler belongs to, not for another live one', async () => {
+    let endB = () => {}
+
+    const a = new DevSessionRestartScheduler(0)
+    const b = new DevSessionRestartScheduler(0)
+    a.setHandler(() => {})
+    b.setHandler(
+      () =>
+        new Promise<void>((resolve) => {
+          endB = resolve
+        })
+    )
+
+    const compilerA = {}
+    const compilerB = {}
+    assignCompilerToDevSession(compilerA, a)
+    assignCompilerToDevSession(compilerB, b)
+
+    // B is live and restarting while A has a compiler and is not bound yet.
+    bindDevSessionRestart(b)
+    requestDevSessionRestart(compilerB, {reason: 'env', pathChanged: '/.env'})
+
+    expect(canAutoRestartDevSession(compilerB)).toBe(true)
+    expect(isDevSessionRestartPending(compilerB)).toBe(true)
+    expect(canAutoRestartDevSession(compilerA)).toBe(false)
+    expect(isDevSessionRestartPending(compilerA)).toBe(false)
+    expect(requestDevSessionRestart(compilerA, {reason: 'env'})).toBe(false)
+
+    bindDevSessionRestart(a)
+    expect(canAutoRestartDevSession(compilerA)).toBe(true)
+    expect(isDevSessionRestartPending(compilerA)).toBe(false)
+
+    // No compiler named, or one no session knows: the newest session answers.
+    expect(canAutoRestartDevSession()).toBe(true)
+    expect(isDevSessionRestartPending()).toBe(false)
+    expect(isDevSessionRestartPending({})).toBe(false)
+
+    endB()
+    await tick()
+    expect(isDevSessionRestartPending(compilerB)).toBe(false)
+  })
+
+  it('gives a compiler that will not serve again no session at all', async () => {
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    const replaced = {}
+    assignCompilerToDevSession(replaced, scheduler)
+    bindDevSessionRestart(scheduler)
+
+    releaseCompilerFromDevSession(replaced)
+
+    // Not even the newest session, which an unknown compiler falls back to.
+    expect(canAutoRestartDevSession(replaced)).toBe(false)
+    expect(isDevSessionRestartPending(replaced)).toBe(false)
+    expect(requestDevSessionRestart(replaced, {reason: 'env'})).toBe(false)
+    expect(isCompilerRestarting(replaced)).toBe(false)
+
+    await tick()
+    expect(handler).not.toHaveBeenCalled()
+
+    // A compiler handed to a session again is live again.
+    assignCompilerToDevSession(replaced, scheduler)
+    expect(canAutoRestartDevSession(replaced)).toBe(true)
   })
 
   it('says a restart is pending from the request until the restart ends', async () => {
