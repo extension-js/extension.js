@@ -515,6 +515,28 @@ describe('env preload in a workspace package', () => {
     )
   })
 
+  it('drops the workspace root values before another project loads', async () => {
+    process.env.EXTENSION_PUBLIC_B = 'from-shell'
+    const dir = workspacePackage(WORKSPACE_ROOT_FILES, {
+      '.env.defaults': PACKAGE_DEFAULTS,
+      'extension.config.js': WORKSPACE_CONFIG
+    })
+    const other = project({
+      '.env': 'EXTENSION_PUBLIC_D=other-D\n',
+      'extension.config.js': WORKSPACE_CONFIG
+    })
+
+    expect(await seenBy(dir)).toBe(
+      'root-production|package-defaults-A|from-shell|root-D'
+    )
+
+    expect(await seenBy(other)).toBe('undefined|undefined|from-shell|other-D')
+    expect([...getPreloadedEnvKeys()]).toEqual(['EXTENSION_PUBLIC_D'])
+    expect(await seenBy(dir)).toBe(
+      'root-production|package-defaults-A|from-shell|root-D'
+    )
+  })
+
   it.each([
     [
       'only .env.defaults',
