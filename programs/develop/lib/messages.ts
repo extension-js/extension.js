@@ -22,7 +22,7 @@ import {
   stripChannelPrefix
 } from './messaging'
 import {foldOutputFiles, type OutputFile} from './output-files'
-import {asAskedPath} from './paths'
+import {asAskedPath, displayPath} from './paths'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
@@ -58,16 +58,16 @@ export function resolvedWorkspaceManifest(
 export function declinedProjectRoot(
   projectManifestPath: string,
   manifestPath: string,
-  previewing = false
+  previewing = false,
+  rootDir = path.dirname(manifestPath)
 ) {
-  const manifestDir = path.dirname(manifestPath)
   // A preview compiles nothing, so there is no build to keep anything out of.
   const consequence = previewing
     ? 'That project does not depend on Extension.js, so its dist, its special folders and its config stay out of this preview. Name that project folder, or depend on Extension.js there, to use it as the project root.'
     : 'That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.'
 
   return (
-    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(manifestDir)}/ as the project root.`)}\n` +
+    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(rootDir)}/ as the project root.`)}\n` +
     `${colors.gray('IGNORED')} ${colors.underline(projectManifestPath)}\n` +
     `${colors.gray(consequence)}`
   )
@@ -475,6 +475,22 @@ export function buildOutputFolderForeign(resolved: string) {
   return (
     `${getLoggingPrefix('error')} The build output folder ${fmt.code(resolved)} holds files no extension build wrote.\n` +
     `The build replaces that folder, so nothing was deleted. Move or delete it, or build beside it with ${fmt.code('--out-dir build')}.`
+  )
+}
+
+// Output used to land beside a manifest found below the named folder.
+export function leftoverOutputFolder(leftover: string, current: string) {
+  return (
+    `${getLoggingPrefix('warn')} An earlier build left output in ${fmt.code(displayPath(leftover))}, and that folder is no longer written.\n` +
+    `Output now goes to ${fmt.code(displayPath(current))} at the project root. The old folder was left as it is and can be removed.`
+  )
+}
+
+// Everything under the root is source to that zip, session state included.
+export function sourceZipWouldCarryLeftover(leftover: string) {
+  return (
+    `${getLoggingPrefix('error')} The source zip was requested and not created: ${fmt.code(displayPath(leftover))} holds output and session state an earlier build left, and the zip would carry them.\n` +
+    'Nothing was built. Remove that folder, then build again.'
   )
 }
 

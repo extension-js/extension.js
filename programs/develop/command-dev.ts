@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -90,6 +91,7 @@ export async function extensionDev(
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     keepSessionArtifactsInProject(packageJsonDir)
+    announceLeftoverOutputFolder(projectStructure)
     await ensureDevelopArtifacts()
 
     if (devOptions.install !== false) {

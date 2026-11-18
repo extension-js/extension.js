@@ -24,7 +24,12 @@ import {
   removeStaleStagingDirs,
   stagingDistPathFor
 } from './lib/atomic-dist'
-import {holdsForeignFiles, protectedFolderAt} from './lib/build-output-guard'
+import {
+  announceLeftoverOutputFolder,
+  holdsForeignFiles,
+  leftoverOutputFolder,
+  protectedFolderAt
+} from './lib/build-output-guard'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
@@ -378,6 +383,7 @@ async function runBuild(
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
     keepSessionArtifactsInProject(packageJsonDir)
+    announceLeftoverOutputFolder(projectStructure)
 
     // A browser passed in wins; with none, commands.<cmd>.browser from the
     // project config decides the target before the stock default does.
@@ -503,6 +509,17 @@ async function runBuild(
       packageJsonDir,
       (mergedBuildOptions as Partial<CommonWebpackOptions>).exclude
     )
+
+    // A source zip takes every file under the root, and the folder an
+    // earlier build left beside the manifest can hold a browser profile.
+    const leftover = leftoverOutputFolder(projectStructure)
+
+    if (leftover && mergedBuildOptions.zipSource === true) {
+      throw codedError(
+        CODES.E_ZIP_SKIPPED,
+        messages.sourceZipWouldCarryLeftover(leftover)
+      )
+    }
 
     // After the folders and exclude config, so this check reads the entries
     // the compiler will and tsconfig.json never lands without its type file.

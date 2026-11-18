@@ -154,7 +154,9 @@ export function getDirs(struct: ProjectStructure): {
   const manifestDir = asAbsolute(path.dirname(struct.manifestPath))
   const projectManifestPath = struct.packageJsonPath || struct.denoJsonPath
   const packageJsonDir = asAbsolute(
-    projectManifestPath ? path.dirname(projectManifestPath) : manifestDir
+    projectManifestPath
+      ? path.dirname(projectManifestPath)
+      : struct.projectRoot || manifestDir
   )
 
   return {manifestDir, packageJsonDir}

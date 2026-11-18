@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
 import {startProductionControl} from './dev-server/control-bridge/production-control'
 import * as devServerMessages from './dev-server/messages'
+import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
   loadBrowserConfig,
@@ -274,6 +275,8 @@ export async function extensionPreview(
   })
   const debug = isDebug()
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+
+  announceLeftoverOutputFolder(projectStructure)
 
   const userManifestPath =
     projectStructure.packageJsonPath || projectStructure.denoJsonPath
