@@ -21,7 +21,10 @@ import {
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
 import * as folderMessages from './messages'
-import {hasPrivateFileName, sourceFileMayShip} from './public-private-files'
+import {
+  rootAbsolutePathIsWithheld,
+  sourceFileMayShip
+} from './public-private-files'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {
@@ -37,25 +40,6 @@ interface WithheldRef {
 }
 
 export type RootAbsoluteRefPlan = TracedFilePlan | WithheldRef
-
-// The name as written and as the browser reads it, where `%2e%2e` is `..`.
-function browserSpellings(outputName: string): string[] {
-  const spellings = [outputName]
-
-  try {
-    spellings.push(decodeURIComponent(outputName))
-  } catch {
-    // Not a valid escape, so the browser asks for the name as written.
-  }
-
-  return spellings.map((spelling) =>
-    path.posix.normalize(spelling.replace(/\\/g, '/'))
-  )
-}
-
-function climbsOut(normalized: string): boolean {
-  return normalized === '..' || normalized.startsWith('../')
-}
 
 // Decide how a root-absolute ref ships, with the tracer's rule: data files
 // and classic hand-written .js copy verbatim, anything the browser cannot run
@@ -86,9 +70,7 @@ export function planRootAbsoluteRef(
 
   // Asked before public/: the copier leaves these names out as well, so the
   // folder cannot answer for one.
-  const spellings = browserSpellings(outputName)
-
-  if (spellings.some((name) => climbsOut(name) || hasPrivateFileName(name))) {
+  if (rootAbsolutePathIsWithheld(outputName)) {
     return {kind: 'withheld', emitPath: outputName}
   }
 

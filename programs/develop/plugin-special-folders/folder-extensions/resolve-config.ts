@@ -9,8 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
-import {debugLine, isDebug} from '../../lib/messaging'
-import {isSameOrInsidePath, realPath} from '../../lib/real-path'
+import {codedError} from '../../lib/coded-error'
+import {CODES, debugLine, isDebug} from '../../lib/messaging'
+import {realPath} from '../../lib/real-path'
 import type {CompanionExtensionsConfig} from './types'
 import {
   companionFolderForBrowser,
@@ -108,25 +109,54 @@ function parseStoreUrl(url: URL): {browser: StoreBrowser; id: string} | null {
   return null
 }
 
-// A named folder may sit anywhere in the project. Real paths are compared,
-// so a link that leads out of the project is refused like any outside path.
+// Whether an entry is a web link at all. One that is not may still be a
+// folder path.
+export function isCompanionWebLink(entry: string): boolean {
+  return toWebUrl(entry) !== null
+}
+
+// Whether an entry is a link to an extension in a store this resolver reads:
+// the Chrome Web Store, Edge Add-ons or Firefox Add-ons.
+export function isCompanionStoreLink(entry: string): boolean {
+  const url = toWebUrl(entry)
+
+  return url !== null && parseStoreUrl(url) !== null
+}
+
+// The refusal a web link gets when it is no store link.
+export function companionLinkNotAStoreLink(entry: string): string {
+  return (
+    `Companion extension link is not a store link this resolver recognizes: ${entry}\n` +
+    'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
+    'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
+    'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
+  )
+}
+
+// A folder of the project, the project itself left out. Real paths are
+// compared, so a link that leads out is outside like any other path.
+function isInsideProject(projectRoot: string, abs: string): boolean {
+  const relative = path.relative(realPath(projectRoot), realPath(abs))
+
+  return !(
+    relative === '' ||
+    relative === '..' ||
+    relative.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(relative)
+  )
+}
+
+// A named folder may sit anywhere in the project.
 function ensurePathsInsideProject(
   projectRoot: string,
   paths: string[]
 ): string[] {
-  const realRoot = realPath(projectRoot)
-
   return paths.map((p) => {
     const abs = toAbs(projectRoot, p)
-    const relative = path.relative(realRoot, realPath(abs))
 
-    if (
-      relative === '' ||
-      relative === '..' ||
-      relative.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(relative)
-    ) {
-      throw new Error(
+    if (!isInsideProject(projectRoot, abs)) {
+      throw codedError(
+        CODES.E_COMPANION_EXTENSION_PATH,
         'Companion extensions must be inside the project.\n' +
           `Invalid path: ${abs}`
       )
@@ -255,12 +285,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
       const parsedStore = parseStoreUrl(url)
 
       if (!parsedStore) {
-        throw new Error(
-          `Companion extension link is not a store link this resolver recognizes: ${entry}\n` +
-            'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
-            'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
-            'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
-        )
+        throw new Error(companionLinkNotAStoreLink(entry))
       }
 
       if (parsedStore.browser !== runtimeBrowser) {
@@ -306,11 +331,12 @@ export async function resolveCompanionExtensionsConfig(opts: {
 
   if (typeof normalized.dir === 'string') {
     const absDir = toAbs(projectRoot, normalized.dir)
-    const extensionsRoot = path.resolve(projectRoot, 'extensions')
 
-    if (!isSameOrInsidePath(extensionsRoot, absDir)) {
-      throw new Error(
-        `extensions.dir must be inside ${extensionsRoot}.\n` +
+    // The scanned folder may sit anywhere in the project, like a named one.
+    if (!isInsideProject(projectRoot, absDir)) {
+      throw codedError(
+        CODES.E_COMPANION_EXTENSION_PATH,
+        'extensions.dir must be inside the project.\n' +
           `Invalid dir: ${absDir}`
       )
     }

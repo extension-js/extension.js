@@ -469,8 +469,12 @@ export function resolveUserDeclaredWAR(
     return runtimeNamedPaths.has(outputPath)
   }
 
+  // An entry that names one file may reach into an installed package. A
+  // folder entry or a pattern is walked, and a walk never enters one.
   const mayShip = (abs: string) =>
     sourceFileMayShip(abs, [projectPath, manifestDir])
+  const mayShipWalked = (abs: string) =>
+    sourceFileMayShip(abs, [projectPath, manifestDir], 'walked')
   const saidWithheld = new Set<string>()
 
   // A source the build will not copy gets the finding a missing file gets.
@@ -580,7 +584,7 @@ export function resolveUserDeclaredWAR(
           manifestDir,
           projectPath,
           res,
-          mayShip,
+          mayShipWalked,
           (abs, named) =>
             named ? reportWithheld(abs, res) : reportWithheldInside(abs)
         )
@@ -661,12 +665,16 @@ export function resolveUserDeclaredWAR(
     // the compiled asset at its root-relative path, or ships the file there.
     const rootRel = rootRelativeOf(projectPath, manifestDir, abs, res)
 
-    // A file or a folder that is not project content is never read: outside
-    // the project, in an installed package, or a link that leads to either.
+    // A file or a folder the build may not copy is never read: a private
+    // name, a place outside the project, or a folder of installed packages.
     const withheld = [
       abs,
       rootRel ? path.join(projectPath, rootRel) : abs
-    ].find((candidate) => fs.existsSync(candidate) && !mayShip(candidate))
+    ].find(
+      (candidate) =>
+        fs.existsSync(candidate) &&
+        !(isDirectory(candidate) ? mayShipWalked : mayShip)(candidate)
+    )
 
     if (withheld) {
       reportWithheld(withheld, res)
@@ -765,7 +773,7 @@ export function resolveUserDeclaredWAR(
         compilation,
         abs,
         manifestDir,
-        mayShip,
+        mayShipWalked,
         reportWithheldInside
       )
 

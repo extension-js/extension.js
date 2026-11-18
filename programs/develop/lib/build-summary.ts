@@ -74,6 +74,15 @@ export const MAX_SUMMARY_WARNINGS = 20
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
 
+// The bundler heads a loader's report with the loader's absolute path, which
+// names a folder inside the installed package and nothing in the project.
+export function stripLoaderWrapper(message: string): string {
+  return message.replace(
+    /^(\s*(?:[×⚠]\s*)?)Module (?:Warning|Error) \(from [^\n]*\):\s*(?:│ ?)?/,
+    '$1'
+  )
+}
+
 export function getBuildSummary(
   browser: string,
   info: {
@@ -102,8 +111,9 @@ export function getBuildSummary(
         warning && typeof warning === 'object'
           ? String((warning as {message?: unknown}).message ?? '')
           : String(warning ?? '')
-      const text = message.replace(ANSI_PATTERN, '').trim()
-      const code = codes?.get(text)
+      const raw = message.replace(ANSI_PATTERN, '').trim()
+      const code = codes?.get(raw)
+      const text = stripLoaderWrapper(raw)
 
       // A warning that resolves to a code reads the way the frame's own
       // warnings do: the code, a colon, the text without the bundler glyph.

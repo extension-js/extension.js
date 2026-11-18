@@ -55,7 +55,11 @@ export default {
 
 With no `extensions` setting, every unpacked extension one level inside `./extensions` loads beside the project's own, and a subfolder named for a browser (`extensions/chrome/`) is that browser's set.
 
-An entry the config or the CLI names is a store link or a folder. A named folder may sit anywhere inside the project (`my-ext`, `tools/my-ext`, `extensions/my-ext`), by a relative or an absolute path. A path that resolves outside the project is refused with `Companion extensions must be inside the project.`, and so is a link inside the project that leads out of it, since real paths are compared. `extensions.dir`, the folder that is scanned, stays inside `./extensions`.
+An entry the config or the CLI names is a store link or a folder. A named folder may sit anywhere inside the project (`my-ext`, `tools/my-ext`, `extensions/my-ext`), by a relative or an absolute path. A path that resolves outside the project is refused with `Companion extensions must be inside the project.`, and so is a link inside the project that leads out of it, since real paths are compared.
+
+`extensions.dir`, the folder that is scanned, follows the same rule: any folder inside the project (`./vendor`, `tools/companions`, a folder under `node_modules`), by a relative or an absolute path, compared by real path. The project itself (`.`), a path outside it and a link that leads out are refused with `extensions.dir must be inside the project.`. A `dir` that does not exist scans nothing and is not reported. The scan follows links: an entry that is a link to a folder inside the project loads like any folder, and one that leads outside the project is not loaded while the other entries go on. A caller that launches a browser with the result passes `launchesBrowser`, and the entry left out is then said once under the code `E_COMPANION_EXTENSION_PATH`. A link to nothing, to a file or back to itself is skipped, and a folder reached under two names loads once.
+
+Both refusals carry the code `E_COMPANION_EXTENSION_PATH`. A web link that is no store link is refused as well, and `isCompanionStoreLink` in `folder-extensions/resolve-config.ts` is the one answer to which links are store links.
 
 A named folder with no `manifest.json` loads nothing and is not reported.
 
@@ -80,13 +84,14 @@ A page or a stylesheet that names one of them by a root-absolute path (`/.env`) 
 A root-absolute path (`/data/config.json`) in a page or in a stylesheet that ships as authored names a file in `public/` first. When `public/` has none, the file at that path beside the manifest is copied, or compiled when the browser cannot run it as written. That fallback never ships:
 
 - a name from the table above, anywhere along the path,
-- anything under `node_modules`,
 - a path that climbs out of the extension root (`/../x`, `/%2e%2e/x`),
 - a link that resolves outside the project or onto one of those names.
 
 Each of those is reported as a missing file, in the words the surface uses for one, and nothing is copied. A link that stays inside the project is followed.
 
-The decision is one function, `sourceFileMayShip` in `public-private-files.ts`. The `web_accessible_resources` step asks it too, for every file, folder and pattern match it would copy.
+A file of an installed package ships when its path is named (`/node_modules/pkg/worker.js`), a vendored worker, wasm file or stylesheet for example. It ships through a package manager's link too: the place the link leads to has to stay inside a `node_modules` folder of the project or of a folder above it, which is where a workspace keeps its store. A name from the table above is refused inside a package as well, and so is a `node_modules` link that leads anywhere else.
+
+The decision is one function, `sourceFileMayShip(sourcePath, projectRoots, ask)` in `public-private-files.ts`. `ask` is `'named'` when the author wrote the path of that one file, which is the default, and `'walked'` when a folder entry or a pattern reached it. A walk never enters `node_modules`. The `web_accessible_resources` step, the JSON fields of the manifest, custom manifest keys and the file names found in code all ask it.
 
 ## Path resolution convention (consistent across @plugin-extension)
 

@@ -228,7 +228,8 @@ describe('web_accessible_resources of a manifest below the project root', () => 
     const files: Record<string, string> = {
       'outside.txt': `${MARKER}-outside`,
       'project/.env': `PRIVATE_KEY=${MARKER}-env`,
-      'project/node_modules/pkg/data.json': `"${MARKER}-package"`,
+      'project/node_modules/pkg/data.json': '"installed"',
+      'project/node_modules/pkg/.env': `KEY=${MARKER}-package-env`,
       'project/docs/terms.txt': 'terms',
       'project/src/manifest.json': '{}',
       'project/src/.npmrc': `# ${MARKER}-npmrc`,
@@ -250,10 +251,15 @@ describe('web_accessible_resources of a manifest below the project root', () => 
     '.env',
     '../.env',
     '.npmrc',
-    'node_modules/pkg/data.json',
-    '../node_modules/pkg/data.json',
+    '../node_modules/pkg/.env',
     '../../outside.txt',
     '../docs/../../outside.txt'
+  ]
+
+  // A file of an installed package ships where an entry names the file.
+  const PACKAGE_FILES = [
+    'node_modules/pkg/data.json',
+    '../node_modules/pkg/data.json'
   ]
 
   it('copies nothing the project root does not own and reports each entry', () => {
@@ -267,14 +273,24 @@ describe('web_accessible_resources of a manifest below the project root', () => 
         web_accessible_resources: [
           {
             matches: ['<all_urls>'],
-            resources: [...WITHHELD, '../docs/terms.txt', 'beside.txt']
+            resources: [
+              ...WITHHELD,
+              ...PACKAGE_FILES,
+              '../docs/terms.txt',
+              'beside.txt'
+            ]
           }
         ]
       } as never,
       'chrome'
     )
 
-    const shipped = ['assets/terms.<hash>.txt', 'beside.txt']
+    const shipped = [
+      'assets/data.<hash>.json',
+      'assets/terms.<hash>.txt',
+      'beside.txt',
+      'node_modules/pkg/data.json'
+    ]
     const withoutHash = (name: string) =>
       name.replace(/\.[0-9a-f]{8}(?=\.)/, '.<hash>')
 

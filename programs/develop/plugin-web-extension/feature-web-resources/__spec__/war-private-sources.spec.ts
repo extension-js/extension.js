@@ -4,6 +4,8 @@ import {describe, expect, it} from 'vitest'
 import {
   build,
   canLink,
+  expectNothingPrivate,
+  linkPackages,
   MARKER,
   manifest,
   PAGE,
@@ -60,7 +62,7 @@ const FILES: Record<string, string> = {
   'sub/deep/keep.txt': 'keep',
   'images/logo.png': 'png',
   'images/.DS_Store': `${MARKER}-ds-store`,
-  '.env.example': 'PRIVATE_KEY=\n',
+  '.env.example': 'EXAMPLE_KEY=\n',
   '.well-known/links.json': '[]',
   'public/hosted.txt': 'hosted',
   'frame.html': PAGE.replace(
@@ -75,6 +77,7 @@ function workspaceProject(version: 2 | 3, entry: string) {
   const root = project({...FILES, 'manifest.json': declare(version, [entry])})
   const holder = path.dirname(root)
 
+  linkPackages(root)
   fs.writeFileSync(path.join(holder, 'pnpm-workspace.yaml'), 'packages: []\n')
   fs.mkdirSync(path.join(holder, 'shared-assets'))
   fs.writeFileSync(
@@ -109,7 +112,8 @@ async function rowFor(version: 2 | 3, entry: string): Promise<Row> {
   }
 
   // No message carries what a file holds, and no build fails over an entry.
-  expect(result.printed, entry).not.toContain(MARKER)
+  // The output is read row by row: a project file may carry a marker.
+  expectNothingPrivate(result, 'printed')
   expect(result.errors, entry).toBe(0)
 
   return {
@@ -228,18 +232,6 @@ const PRIVATE_FILES: Table = {
     listed: ['.ENV'],
     reported: ['.ENV']
   },
-  '/node_modules/pkg/data.json': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['node_modules/pkg/data.json'],
-    reported: ['node_modules/pkg/data.json']
-  },
-  'node_modules/pkg/data.json': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['node_modules/pkg/data.json'],
-    reported: ['node_modules/pkg/data.json']
-  },
   '/nothing.txt': {
     shipped: ['hosted.txt'],
     marked: [],
@@ -252,6 +244,53 @@ const PRIVATE_FILES: Table = {
     listed: ['nothing.txt'],
     reported: ['nothing.txt']
   }
+}
+
+// An entry the build copies nothing for, and names as missing.
+const refused = (entry: string): Row => ({
+  shipped: ['hosted.txt'],
+  marked: [],
+  listed: [entry],
+  reported: [entry]
+})
+
+// An entry that names one file of an installed package, which ships.
+const vendored = (file: string): Row => ({
+  shipped: ['hosted.txt', file],
+  marked: [],
+  listed: [file],
+  reported: []
+})
+
+// A file the author names ships from an installed package, through the
+// links of a package manager too. A private name and a link out do not.
+const PACKAGE_FILES: Table = {
+  '/node_modules/pkg/data.json': vendored('node_modules/pkg/data.json'),
+  'node_modules/pkg/data.json': vendored('node_modules/pkg/data.json'),
+  'node_modules/plain-pkg/lib.js': vendored('node_modules/plain-pkg/lib.js'),
+  'node_modules/plain-pkg/.env': refused('node_modules/plain-pkg/.env'),
+  'node_modules/.npmrc': refused('node_modules/.npmrc')
+}
+const LINKED_PACKAGE_FILES: Table = {
+  'node_modules/store-pkg/data.json': vendored(
+    'node_modules/store-pkg/data.json'
+  ),
+  'node_modules/workspace-pkg/data.json': vendored(
+    'node_modules/workspace-pkg/data.json'
+  ),
+  'node_modules/stray-pkg/data.json': refused(
+    'node_modules/stray-pkg/data.json'
+  ),
+  'node_modules/far-pkg/data.json': refused('node_modules/far-pkg/data.json')
+}
+// A folder entry or a pattern never descends into installed packages.
+const PACKAGE_FOLDERS: Table = {
+  'node_modules/plain-pkg': refused('node_modules/plain-pkg'),
+  'node_modules/plain-pkg/*': refused('node_modules/plain-pkg/*'),
+  'node_modules/store-pkg/': refused('node_modules/store-pkg/'),
+  'node_modules/store-pkg/*': refused('node_modules/store-pkg/*'),
+  'node_modules/workspace-pkg/': refused('node_modules/workspace-pkg/'),
+  'node_modules/*/data.json': refused('node_modules/*/data.json')
 }
 const PRIVATE_FOLDERS: Table = {
   '.git': {
@@ -504,6 +543,36 @@ describe.each(
   )
 
   it(
+    'names a file of an installed package',
+    async () => {
+      expect(await tableFor(version, Object.keys(PACKAGE_FILES))).toEqual(
+        PACKAGE_FILES
+      )
+    },
+    TIMEOUT
+  )
+
+  it.skipIf(!canLink)(
+    'names a file of a linked package',
+    async () => {
+      expect(
+        await tableFor(version, Object.keys(LINKED_PACKAGE_FILES))
+      ).toEqual(LINKED_PACKAGE_FILES)
+    },
+    TIMEOUT
+  )
+
+  it.skipIf(!canLink)(
+    'names a folder or a pattern inside installed packages',
+    async () => {
+      expect(await tableFor(version, Object.keys(PACKAGE_FOLDERS))).toEqual(
+        PACKAGE_FOLDERS
+      )
+    },
+    TIMEOUT
+  )
+
+  it(
     'names a folder',
     async () => {
       expect(await tableFor(version, Object.keys(PRIVATE_FOLDERS))).toEqual(
@@ -572,7 +641,7 @@ describe('a web_accessible_resources entry the build withholds', () => {
       ).toBe(entries.length * 2)
 
       expect(result.marked).toEqual([])
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
       expect(result.errors).toBe(0)
     },
     TIMEOUT
@@ -598,7 +667,7 @@ describe('a web_accessible_resources entry the build withholds', () => {
         )
       }
 
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
       expect(result.errors).toBe(0)
     },
     TIMEOUT

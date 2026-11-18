@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeEach, describe, expect, it} from 'vitest'
 import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
 import {getProjectStructure} from '../../lib/project'
 import {
@@ -12,6 +12,7 @@ import {
 } from '../../lib/session-paths'
 import webpackConfig from '../../rspack-config'
 import {withSessionStartPrune} from '../session-start-prune'
+import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
 const roots: string[] = []
 
@@ -140,8 +141,10 @@ afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
 
+beforeEach(skipWithoutDevelopDist)
+
 describe('the browser folder after the first compile of a dev session', () => {
-  it('holds only what that compile emitted and leaves its neighbours alone', async () => {
+  it('holds only what that compile emitted and leaves its neighbors alone', async () => {
     const root = scaffold()
     const dist = path.join(root, 'dist', 'chrome')
     const stale = plant(path.join(dist, 'deleted-between-sessions.txt'))

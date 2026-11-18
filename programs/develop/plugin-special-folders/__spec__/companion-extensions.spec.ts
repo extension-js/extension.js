@@ -553,3 +553,183 @@ describe('a companion folder named in the config, by where it sits', () => {
     )
   })
 })
+
+describe('the folder scanned for companion extensions, by where it sits', () => {
+  const canLink = process.platform !== 'win32'
+
+  // A project one folder down, so `..` has somewhere real to land.
+  function layout() {
+    const holder = fs.realpathSync(tmpDir('extjs-companion-dir-'))
+    const root = path.join(holder, 'project')
+
+    for (const dir of [
+      'extensions/one',
+      'extensions/set/inner',
+      'vendor/two',
+      'node_modules/kept/three'
+    ]) {
+      writeManifest(path.join(root, dir))
+    }
+
+    writeManifest(path.join(holder, 'outside', 'four'))
+
+    if (canLink) {
+      fs.symlinkSync(
+        path.join(holder, 'outside'),
+        path.join(root, 'linked-dir')
+      )
+
+      fs.symlinkSync(
+        path.join(holder, 'outside'),
+        path.join(root, 'extensions', 'linked-set')
+      )
+
+      fs.symlinkSync(path.join(root, 'vendor'), path.join(root, 'linked-in'))
+    }
+
+    return {holder, root}
+  }
+
+  // What a session loads for one `dir`, or the refusal it gets.
+  async function outcome(root: string, dir: string) {
+    try {
+      const config = await resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: {dir}
+      })
+
+      return resolveCompanionExtensionDirs({
+        projectRoot: root,
+        config,
+        browser: 'chrome'
+      }).map((found) => toPosix(path.relative(root, found)))
+    } catch (error) {
+      return String((error as Error).message)
+    }
+  }
+
+  const refusal = (root: string, dir: string) =>
+    'extensions.dir must be inside the project.\n' +
+    `Invalid dir: ${path.isAbsolute(dir) ? dir : path.resolve(root, dir)}`
+
+  const REFUSED = 'refused'
+  // A subfolder that is no extension is read one level down.
+  const DEFAULT_SET = ['extensions/one', 'extensions/set/inner']
+
+  it.each([
+    ['extensions', DEFAULT_SET],
+    ['./extensions', DEFAULT_SET],
+    ['extensions/set', ['extensions/set/inner']],
+    ['./vendor', ['vendor/two']],
+    // The user named it, so it is scanned like any other folder.
+    ['node_modules/kept', ['node_modules/kept/three']],
+    // The project itself is not a folder inside the project.
+    ['.', REFUSED],
+    ['./', REFUSED],
+    ['..', REFUSED],
+    ['../outside', REFUSED],
+    ['vendor/../../outside', REFUSED],
+    // A folder that is not there scans nothing, without a word, when the
+    // place it would sit at is inside the project.
+    ['extensions/missing', []],
+    ['missing', []],
+    ['../missing', REFUSED]
+  ])('%s', async (dir, expected) => {
+    const {root} = layout()
+
+    expect(await outcome(root, dir)).toEqual(
+      expected === REFUSED ? refusal(root, dir) : expected
+    )
+  })
+
+  it('an absolute path, inside the project or not', async () => {
+    const {holder, root} = layout()
+    const outside = path.join(holder, 'outside')
+    const vendor = path.join(root, 'vendor')
+
+    expect(await outcome(root, outside)).toBe(refusal(root, outside))
+    expect(await outcome(root, root)).toBe(refusal(root, root))
+    expect(await outcome(root, vendor)).toEqual(['vendor/two'])
+    expect(await outcome(root, path.join(root, 'extensions'))).toEqual(
+      DEFAULT_SET
+    )
+  })
+
+  it.skipIf(!canLink)('a link, by where it leads', async () => {
+    const {root} = layout()
+
+    // Real paths are compared, so a link out of the project is refused
+    // wherever it sits, extensions/ included.
+    for (const dir of ['linked-dir', 'extensions/linked-set']) {
+      expect(await outcome(root, dir), dir).toBe(refusal(root, dir))
+    }
+
+    expect(await outcome(root, 'linked-in')).toEqual(['linked-in/two'])
+  })
+
+  it.skipIf(!canLink)('a project reached through a link', async () => {
+    const {holder, root} = layout()
+    const linkedRoot = path.join(holder, 'linked-project')
+    fs.symlinkSync(root, linkedRoot)
+
+    expect(await outcome(linkedRoot, 'vendor')).toEqual(['vendor/two'])
+    expect(await outcome(linkedRoot, path.join(root, 'vendor'))).toEqual([
+      '../project/vendor/two'
+    ])
+
+    expect(await outcome(linkedRoot, '../outside')).toBe(
+      refusal(linkedRoot, '../outside')
+    )
+  })
+
+  it('refuses with a code a machine reader can match on', async () => {
+    const {root} = layout()
+
+    const refused = async (config: {dir: string} | string[]) => {
+      try {
+        await resolveCompanionExtensionsConfig({
+          projectRoot: root,
+          browser: 'chrome',
+          config
+        })
+      } catch (error) {
+        return (error as {code?: string}).code
+      }
+
+      return 'accepted'
+    }
+
+    expect(await refused({dir: '../outside'})).toBe(
+      'E_COMPANION_EXTENSION_PATH'
+    )
+
+    expect(await refused({dir: '.'})).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(await refused(['../outside'])).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(await refused({dir: './vendor'})).toBe('accepted')
+  })
+
+  it.skipIf(!canLink)(
+    'follows a link that is one entry of the scanned folder while it stays inside',
+    async () => {
+      const {holder, root} = layout()
+
+      fs.symlinkSync(
+        path.join(holder, 'outside', 'four'),
+        path.join(root, 'extensions', 'linked-out')
+      )
+
+      fs.symlinkSync(
+        path.join(root, 'vendor', 'two'),
+        path.join(root, 'extensions', 'linked-two')
+      )
+
+      // The link that stays in loads like a folder, the one that leads out
+      // loads nothing.
+      expect(await outcome(root, 'extensions')).toEqual([
+        'extensions/linked-two',
+        ...DEFAULT_SET
+      ])
+    }
+  )
+})

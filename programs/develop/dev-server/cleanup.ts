@@ -17,6 +17,16 @@ export type DevServerHandle =
   | RspackDevServer
   | (() => RspackDevServer | null | undefined)
 
+type ExitFn = (code?: number) => void
+
+type ProcessEventsLike = Pick<NodeJS.EventEmitter, 'on' | 'removeListener'>
+
+export interface CleanupDependencies {
+  events?: ProcessEventsLike
+  exit?: ExitFn
+  env?: Readonly<Record<string, string | undefined>>
+}
+
 function resolveDevServer(
   handle: DevServerHandle
 ): RspackDevServer | null | undefined {
@@ -25,12 +35,13 @@ function resolveDevServer(
 
 function closeAll(
   devServer: RspackDevServer | null | undefined,
-  portManager: PortManager
+  portManager: PortManager,
+  exit: ExitFn
 ): Promise<void> {
   const afterStop = async () => {
     await portManager.terminateCurrentInstance()
     // Allow browser plugin signal handlers to complete cleanup
-    setTimeout(() => process.exit(), 500)
+    setTimeout(() => exit(), 500)
   }
 
   if (!devServer || typeof devServer.stop !== 'function') return afterStop()
@@ -42,15 +53,24 @@ function closeAll(
       humanLine(messages.extensionJsRunnerError(error))
       await portManager.terminateCurrentInstance()
       // Allow browser plugin signal handlers to complete cleanup
-      setTimeout(() => process.exit(1), 500)
+      setTimeout(() => exit(1), 500)
     })
 }
 
+// Returns a disposer that cancels auto-exit and removes every listener added
+// here, so a second session in one process does not stack handlers.
 export function setupCleanupHandlers(
   devServer: DevServerHandle,
   portManager: PortManager,
-  onSignal?: (signal: NodeJS.Signals) => void
+  onSignal?: (signal: NodeJS.Signals) => void,
+  dependencies: CleanupDependencies = {}
 ): () => void {
+  const events = dependencies.events ?? process
+  // process.exit(undefined) clears an exitCode set earlier, exit() keeps it.
+  const exit: ExitFn =
+    dependencies.exit ??
+    ((code) => (code === undefined ? process.exit() : process.exit(code)))
+  const env = dependencies.env ?? process.env
   let isShuttingDown = false
 
   const cleanup = async () => {
@@ -59,32 +79,35 @@ export function setupCleanupHandlers(
     isShuttingDown = true
 
     try {
-      await closeAll(resolveDevServer(devServer), portManager)
+      await closeAll(resolveDevServer(devServer), portManager, exit)
     } catch (error) {
       console.error(messages.runnerCleanupError(error))
-      process.exit(1)
+      exit(1)
     }
   }
 
   // An uncaught exception leaves the process in an undefined state, tear down.
   // closeAll exits with no argument, so without this a crashed --no-browser
   // session (no launcher handler to exit 1) reports success to CI.
-  process.on('uncaughtException', async (error) => {
+  const onUncaughtException = async (error: unknown) => {
     console.error(messages.runnerUncaughtException(error))
     process.exitCode = 1
     await cleanup()
-  })
+  }
 
   // A stray rejection (common from browser plugins / CDP during long HMR
   // sessions) should NOT kill the dev server, log it and keep serving
-  process.on('unhandledRejection', (reason) => {
+  const onUnhandledRejection = (reason: unknown) => {
     console.error(messages.runnerUnhandledRejection(reason))
-  })
+  }
+
+  events.on('uncaughtException', onUncaughtException)
+  events.on('unhandledRejection', onUnhandledRejection)
 
   // Optional auto-exit support for non-interactive (AI/CI) runs
   const cancelAutoExit = setupAutoExit(
-    process.env.EXTENSION_AUTO_EXIT_MS,
-    process.env.EXTENSION_FORCE_KILL_MS,
+    env.EXTENSION_AUTO_EXIT_MS,
+    env.EXTENSION_FORCE_KILL_MS,
     cleanup
   )
 
@@ -104,9 +127,16 @@ export function setupCleanupHandlers(
 
   // Do not remove other listeners; let browser plugins receive signals too.
   // Register our cleanup alongside theirs so Ctrl+C terminates the browser.
-  process.on('SIGINT', cancelAndCleanup)
-  process.on('SIGTERM', cancelAndCleanup)
-  process.on('SIGHUP', cancelAndCleanup)
+  const signals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
+  for (const signal of signals) events.on(signal, cancelAndCleanup)
 
-  return cancelAutoExit
+  return () => {
+    cancelAutoExit()
+    events.removeListener('uncaughtException', onUncaughtException)
+    events.removeListener('unhandledRejection', onUnhandledRejection)
+
+    for (const signal of signals) {
+      events.removeListener(signal, cancelAndCleanup)
+    }
+  }
 }

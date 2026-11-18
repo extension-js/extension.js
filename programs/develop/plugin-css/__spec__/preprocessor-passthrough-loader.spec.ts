@@ -1,10 +1,20 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import preprocessorPassthroughLoader from '../preprocessor-passthrough-loader'
 
-function run(resourcePath: string, source: string) {
+// eslint-disable-next-line no-control-regex
+const ANSI = /\u001b\[[0-9;]*m/g
+
+function run(resourcePath: string, source: string, rootContext?: string) {
   const warnings: Error[] = []
   const result = preprocessorPassthroughLoader.call(
-    {resourcePath, emitWarning: (w: Error) => warnings.push(w)} as any,
+    {
+      resourcePath,
+      rootContext,
+      emitWarning: (w: Error) => warnings.push(w)
+    } as any,
     source
   )
 
@@ -20,6 +30,23 @@ describe('preprocessor-passthrough-loader', () => {
     expect(String(warnings[0])).toMatch(/shipped uncompiled/)
     expect(String(warnings[0])).toMatch(/The sass package isn't installed/)
     expect(String(warnings[0])).toMatch(/npm install --save-dev sass/)
+  })
+
+  it('names the file by its path inside the project', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-passthrough-'))
+
+    try {
+      fs.mkdirSync(path.join(root, 'popup'))
+      const file = path.join(root, 'popup', 'styles.scss')
+      fs.writeFileSync(file, '$a: red;\n')
+
+      const {warnings} = run(file, '$a: red;\n', root)
+      const lines = warnings[0].message.replace(ANSI, '').split('\n')
+      expect(lines[1]).toBe('PATH popup/styles.scss')
+      expect(warnings[0].message).not.toContain(root)
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 
   it('ships .sass verbatim with an install-sass warning', () => {

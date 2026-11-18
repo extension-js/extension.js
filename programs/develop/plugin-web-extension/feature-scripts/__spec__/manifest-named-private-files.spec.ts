@@ -4,6 +4,8 @@ import {describe, expect, it} from 'vitest'
 import {
   build,
   canLink,
+  expectNothingPrivate,
+  linkPackages,
   linkWorkspace,
   MARKER,
   manifest,
@@ -51,15 +53,12 @@ const UNDER_BACKGROUND: Field = {
   })
 }
 
-// The opening of each fake private file, which no message may quote.
-const OPENINGS = ['PRIVATE_K', 'export PR', '# FAKE', 'FAKE-MARK']
-
 const foldsCase = fs.existsSync(__filename.toUpperCase())
 
 const FILES: Record<string, string> = {
   '.git/hooks/pre-push.sh': `# ${MARKER}-git-hook\n`,
-  'node_modules/pkg/lib.js': `var lib = "${MARKER}-node-modules-script"\n`,
-  '.env.example': 'PRIVATE_KEY=\n',
+  'node_modules/pkg/lib.js': 'var lib = "installed"\n',
+  '.env.example': 'EXAMPLE_KEY=\n',
   'public/hosted.txt': 'hosted',
   'sw.js': 'console.log("worker")\n'
 }
@@ -71,6 +70,7 @@ function fixture(field: Field, target: string) {
   })
 
   linkWorkspace(root, {'logo.txt': `${MARKER}-workspace\n`})
+  linkPackages(root)
 
   return root
 }
@@ -85,10 +85,8 @@ async function rowFor(root: string): Promise<Row> {
     said.add(`${match[2]}: ${match[1]}`)
   }
 
-  // No message carries what a file holds, its opening characters included.
-  for (const text of [MARKER, ...OPENINGS]) {
-    expect(result.printed).not.toContain(text)
-  }
+  // No message and no output file carries what a private file holds.
+  expectNothingPrivate(result)
 
   return {
     shipped: result.shipped,
@@ -134,8 +132,12 @@ const PRIVATE_TARGETS = [
   '.npmrc',
   '.git/hooks/pre-push.sh',
   'a/../.envrc',
-  'node_modules/pkg/data.json',
-  'node_modules/pkg/lib.js'
+  'node_modules/plain-pkg/.env',
+  'node_modules/.npmrc'
+]
+const LINKED_PACKAGES_OUT = [
+  'node_modules/stray-pkg/data.json',
+  'node_modules/far-pkg/data.json'
 ]
 const LINKS_OUT = ['linked.txt', 'linked-folder/inner.txt', 'shared/logo.txt']
 
@@ -155,6 +157,33 @@ const neverRead = (field: Field): Table => ({
 const links = (field: Field): Table => ({
   ...withheldEach(field, LINKS_OUT),
   'alias.json': landed(field, ['alias.json'])
+})
+
+const landedEach = (field: Field, targets: string[]): Table =>
+  Object.fromEntries(
+    targets.map((target) => [
+      target,
+      landed(field, [target.replace(/^\//, '')])
+    ])
+  )
+
+// A file the author names ships from an installed package.
+const packageFiles = (field: Field): Table =>
+  landedEach(field, [
+    'node_modules/pkg/data.json',
+    '/node_modules/pkg/data.json',
+    'node_modules/pkg/lib.js',
+    'node_modules/plain-pkg/data.json'
+  ])
+
+// It ships through the links of a package manager too, when the link stays
+// in a `node_modules` folder of the project or of a folder above it.
+const linkedPackageFiles = (field: Field): Table => ({
+  ...landedEach(field, [
+    'node_modules/store-pkg/data.json',
+    'node_modules/workspace-pkg/data.json'
+  ]),
+  ...withheldEach(field, LINKED_PACKAGES_OUT)
 })
 
 const projectContent = (field: Field): Table => ({
@@ -193,6 +222,26 @@ describe.each([TOP_LEVEL, UNDER_BACKGROUND])('$name', (field) => {
     'names a value the build never reads as a file',
     async () => {
       const expected = neverRead(field)
+
+      expect(await tableFor(field, keys(expected))).toEqual(expected)
+    },
+    TIMEOUT
+  )
+
+  it(
+    'names a file of an installed package',
+    async () => {
+      const expected = packageFiles(field)
+
+      expect(await tableFor(field, keys(expected))).toEqual(expected)
+    },
+    TIMEOUT
+  )
+
+  it.skipIf(!canLink)(
+    'names a file of a linked package',
+    async () => {
+      const expected = linkedPackageFiles(field)
 
       expect(await tableFor(field, keys(expected))).toEqual(expected)
     },
@@ -262,7 +311,7 @@ describe('a file a custom key names and the build withholds', () => {
         "manifest.json names '.env' under the custom key my_files, but the file isn't in the output.",
         'NOT FOUND .env',
         'A read of it fails at runtime.',
-        'The build never copies env files, tooling files, installed packages or files outside the project.'
+        'The build never copies env files, tooling files or files outside the project.'
       ]) {
         expect(times(sentence), sentence).toBe(2)
       }
@@ -270,7 +319,7 @@ describe('a file a custom key names and the build withholds', () => {
       expect(times('under the custom key')).toBe(2)
       expect(result.shipped).toEqual(['hosted.txt'])
       expect(result.marked).toEqual([])
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
       expect(result.errors).toBe(0)
     },
     TIMEOUT
