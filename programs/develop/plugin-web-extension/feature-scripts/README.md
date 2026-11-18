@@ -119,6 +119,8 @@ That keeps the user-facing manifest contract intact while giving the bundler and
 
 When every file of a group, or every script of a page, is a classic script, `classic-concat-loader` joins them into one module, the way the browser runs them in one scope. A file of that list deleted during a session is left out of the joined module. The step that owns the reference reports it: `feature-html` for a page script (a warning, an error under `EXTENSION_STRICT_REFS=true`), `AddScripts` for a manifest field (an error). The module is named for the first file of the list. When that one is deleted, `ResolveClassicConcat` (`shared/classic-concat.ts`) names the module for the first file left, and for the loader itself when none is left, so the session keeps building and picks the files up again when they return.
 
+A file that is the whole of an entry (one content script, a stylesheet of a group, a service worker, one background script) and is deleted during a session gets the same `AddScripts` error, and only that one: the bundler's own report for the entry request is dropped. The bundler does not build an entry file again once its request has failed, so `AddScripts` watches the path and enters the file anew, with the options of its entry, in each build where it is back on disk.
+
 ## MAIN world support
 
 MAIN-world content scripts get wrapper-side bridge script generation in `add-content-script-wrapper`. Dev-mode bridge metadata for reinjection is built by `plugin-reload`'s `SetupReloadStrategy`.

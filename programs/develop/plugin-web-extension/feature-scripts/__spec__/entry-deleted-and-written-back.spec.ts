@@ -241,7 +241,8 @@ describe.each(ROWS)('$title, deleted in a watch session', (row) => {
     expect(await next(builds.length)).toEqual({errors: [], warnings: []})
     expect(emitted()).toContain('written back')
     expect(emitted()).not.toContain('written first')
-    expect(layers).toEqual([row.layer, row.layer])
+    expect(layers.length).toBeGreaterThan(1)
+    expect([...new Set(layers)]).toEqual([row.layer])
 
     fs.writeFileSync(file, row.text('edited after'))
 

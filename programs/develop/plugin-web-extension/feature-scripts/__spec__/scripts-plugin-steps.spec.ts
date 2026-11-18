@@ -120,6 +120,7 @@ const EVERY_BUILD = [
   'compilation:shared:resolve-classic-concat',
   'initialize:scripts:add-content-script-wrapper',
   'initialize:scripts:keep-geturl-imports-native',
+  'make:scripts:restore-entry-files',
   'thisCompilation:TraceRuntimeLoadedFiles',
   'thisCompilation:WarnMovedPageRelativeUrls',
   'thisCompilation:WarnUnshippedRuntimeAssets',
