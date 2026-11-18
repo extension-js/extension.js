@@ -2,10 +2,12 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
-  buildProject,
+  build,
   canLink,
+  expectNothingPrivate,
   MARKER,
   makeProject,
+  outputHolding,
   PAGE
 } from './helpers/private-files-project'
 
@@ -133,14 +135,22 @@ describe.each([
     'leaves the %s %s out of every bundle and calls it missing',
     async (_kind, ref, loaded) => {
       const root = projectLoading(loaded, WITHHELD_MARK, nested)
-      const result = await buildProject(root)
+      const result = await build(root)
 
-      expect(result.holding(WITHHELD_MARK)).toEqual([])
-      expect(result.quoted).toEqual([])
+      expect(outputHolding(root, WITHHELD_MARK)).toEqual([])
+      expectNothingPrivate(result)
       expect(result.errors).toBe(0)
-      // The wording follows the file's ending, as it does for a missing one.
-      expect(result.printed).toMatch(
-        /The page references (?:a script file|a stylesheet|an asset) that doesn't exist\./
+      // The wording follows the tag, as it does for a missing file.
+      expect(result.printed).toContain(
+        loaded.kind === 'script'
+          ? "The page references a script file that doesn't exist."
+          : "The page references a stylesheet that doesn't exist."
+      )
+
+      expect(result.printed).toContain(
+        loaded.kind === 'script'
+          ? 'Update the <script> src to point to a file that exists.'
+          : 'Update the <link> href to point to a file that exists.'
       )
 
       // A ref with a leading slash is read from the extension root.
@@ -159,10 +169,10 @@ describe('a page that loads a file the build ships', () => {
     'keeps the %s %s',
     async (_kind, _ref, loaded) => {
       const root = projectLoading(loaded, SHIPPED_MARK, false)
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.errors).toBe(0)
-      expect(result.holding(SHIPPED_MARK)).toHaveLength(1)
+      expect(outputHolding(root, SHIPPED_MARK)).toHaveLength(1)
       expect(result.printed).not.toContain("doesn't exist")
     },
     TIMEOUT

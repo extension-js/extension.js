@@ -118,7 +118,7 @@ function warnMissingPublicRootResources(params: {
     authored
   } = params
 
-  const check = (publicRootUrl: string) => {
+  const check = (publicRootUrl: string, kind: 'script' | 'style') => {
     if (!publicRootUrl || isSpecialScheme(publicRootUrl)) return
 
     if (path.isAbsolute(publicRootUrl)) {
@@ -171,7 +171,8 @@ function warnMissingPublicRootResources(params: {
         compiler,
         messages.fileNotFound(resource, displayPath, {
           publicRootHint: true,
-          refLabel: publicRootUrl
+          refLabel: publicRootUrl,
+          kind
         }),
         'warning',
         path.relative(manifestDir, resource),
@@ -180,8 +181,8 @@ function warnMissingPublicRootResources(params: {
     }
   }
 
-  js?.forEach(check)
-  css?.forEach(check)
+  for (const url of js || []) check(url, 'script')
+  for (const url of css || []) check(url, 'style')
 }
 
 function checkMissingLocalEntries(params: {
@@ -209,7 +210,7 @@ function checkMissingLocalEntries(params: {
   // warns by default; EXTENSION_STRICT_REFS=true restores the failure for CI.
   const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
 
-  const check = (url: string) => {
+  const check = (url: string, kind: 'script' | 'style') => {
     if (!url || isHttpLike(url) || isSpecialScheme(url)) return
 
     // Treat root URLs as public-root references (handled elsewhere): a root ref is
@@ -223,7 +224,8 @@ function checkMissingLocalEntries(params: {
         compilation,
         compiler,
         messages.fileNotFound(displayFile, url, {
-          deadRefHint: !strictRefs
+          deadRefHint: !strictRefs,
+          kind
         }),
         strictRefs ? 'error' : 'warning',
         displayFile,
@@ -232,8 +234,8 @@ function checkMissingLocalEntries(params: {
     }
   }
 
-  js?.forEach(check)
-  css?.forEach(check)
+  for (const url of js || []) check(url, 'script')
+  for (const url of css || []) check(url, 'style')
 }
 
 function emitNestedHtmlAndReferencedAssets(params: {
@@ -290,7 +292,15 @@ function emitNestedHtmlAndReferencedAssets(params: {
           authored.startsWith('/')
             ? path.join(manifestDir, rootUrlPath(assetFromHtml))
             : assetFromHtml,
-          {publicRootHint: authored.startsWith('/'), refLabel: authored}
+          {
+            publicRootHint: authored.startsWith('/'),
+            refLabel: authored,
+            kind: htmlAssets?.js?.includes(assetFromHtml)
+              ? 'script'
+              : htmlAssets?.css?.includes(assetFromHtml)
+                ? 'style'
+                : undefined
+          }
         ),
         'warning',
         path.relative(manifestDir, absoluteFsPath)
