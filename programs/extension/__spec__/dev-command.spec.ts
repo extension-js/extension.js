@@ -756,6 +756,53 @@ describe('extension dev when the engine fails to start under --output json', () 
   })
 })
 
+// The remedy for a known failure, which the CLI's own frame carries.
+describe('extension dev and the hint of a failed start', () => {
+  const PROFILE_LOCKED_HINT =
+    'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+  const locked = (extra: Record<string, unknown> = {}) =>
+    Object.assign(
+      new Error(
+        'A running browser already uses this profile.\nClose that browser, or pass --profile a different directory.'
+      ),
+      {code: 'E_PROFILE_LOCKED', ...extra}
+    )
+
+  it('puts the hint on the frame it prints itself', async () => {
+    engine = async () => {
+      throw locked()
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([
+      {status: 'failed', hint: PROFILE_LOCKED_HINT}
+    ])
+  })
+
+  it('hands the engine no hint for the frame it writes, so none is printed', async () => {
+    engine = async () => {
+      throw locked({framed: true})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect('hintFor' in engineCalls[0][1]).toBe(false)
+    expect(stdout).toEqual([])
+  })
+
+  it('adds no line of its own in pretty mode, the error names the remedy once', async () => {
+    const failure = locked()
+
+    engine = async () => {
+      throw failure
+    }
+
+    await expect(run(['dev', '.'])).rejects.toBe(failure)
+    expect(stdout).toEqual([])
+    expect(stderr).toEqual([])
+    expect(failure.message.match(/--profile/g)).toHaveLength(1)
+  })
+})
+
 // The engine ends a session whose restart left no server by writing its own
 // terminal frame and calling onExitError. Under --output json it never exits.
 describe('extension dev after the engine ends a running session', () => {
