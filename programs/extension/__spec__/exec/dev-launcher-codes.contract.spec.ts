@@ -185,7 +185,7 @@ describe.skipIf(process.platform === 'win32')(
     async function expectLaunchRefusal(
       current: Session,
       code: string,
-      status: 'usage' | 'failed'
+      status: 'usage' | 'ready-failed'
     ) {
       const frame = await waitForFailureFrame(current)
 
@@ -247,8 +247,8 @@ describe.skipIf(process.platform === 'win32')(
       })
     }, 120_000)
 
-    // No browser can start here: the cache is an empty folder and the seam
-    // keeps the launcher from looking at what this machine has installed.
+    // No browser can start here, and the session keeps serving for the next
+    // compile to retry: ready-failed. The waiter's own run ends, so failed.
     it.each([
       'chrome',
       'firefox'
@@ -268,7 +268,7 @@ describe.skipIf(process.platform === 'win32')(
 
       session = startDev(projectDir, browser, [], env)
       const frame = await waitForFailureFrame(session)
-      await expectLaunchRefusal(session, 'E_BROWSER_NOT_FOUND', 'failed')
+      await expectLaunchRefusal(session, 'E_BROWSER_NOT_FOUND', 'ready-failed')
       expect(frame.error?.message).toContain(reason)
       expect(session.stderr()).toMatch(
         /isn't available in the managed browser cache/
@@ -308,7 +308,7 @@ describe.skipIf(process.platform === 'win32')(
           EXTENSION_RDP_REQUEST_TIMEOUT_MS: mode === 'silent' ? '250' : '1000'
         })
 
-        await expectLaunchRefusal(session, code, 'failed')
+        await expectLaunchRefusal(session, code, 'ready-failed')
         expect(String(session.ready()?.browserLaunchFailedReason)).toMatch(
           reason
         )
@@ -327,7 +327,7 @@ describe.skipIf(process.platform === 'win32')(
         XDG_CONFIG_HOME: ''
       })
 
-      await expectLaunchRefusal(session, 'E_BROWSER_CONNECT', 'failed')
+      await expectLaunchRefusal(session, 'E_BROWSER_CONNECT', 'ready-failed')
       expect(String(session.ready()?.browserLaunchFailedReason)).toMatch(
         /keeps remote debugging off/
       )

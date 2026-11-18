@@ -553,9 +553,9 @@ describe('dispatchReload', () => {
     })
   })
 
-  // The Safari packager trims its own instruction before dispatching, so the
-  // shared seam must keep broadcasting every kind for Chromium and Firefox.
-  it('broadcasts a full reload unchanged, the Safari trim is plugin-local', async () => {
+  // The Safari plugin trims its instruction with reloadSurvivingPackage first,
+  // so the shared seam must keep broadcasting every kind for the others.
+  it('broadcasts a full reload unchanged, the Safari trim runs before it', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
     await dispatchReload(
@@ -683,6 +683,23 @@ describe('createChangedSourcesTracker', () => {
     compiler.modifiedFiles = new Set(['/proj/src/_locales/en/messages.json'])
     fireWatchRun()
     expect(tracker.snapshot().forcedFull).toBe(true)
+  })
+
+  it('classifies a project-root _locales edit as "full"', () => {
+    const {compiler, fireWatchRun} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+    compiler.modifiedFiles = new Set(['/proj/_locales/en/messages.json'])
+    fireWatchRun()
+
+    const snapshot = tracker.snapshot()
+    const instruction = classifyReloadFromSources({
+      ...snapshot,
+      getContentScriptCount: () => 1
+    })
+
+    expect(snapshot.forcedFull).toBe(true)
+    expect(instruction?.type).toBe('full')
+    expect(instruction?.changedAssets).toEqual(['_locales/en/messages.json'])
   })
 
   // Pins today's behavior. Ledger 1385 D7.
@@ -1124,5 +1141,30 @@ describe('dispatchRestartReload', () => {
   // Pins today's behavior. Ledger 1385 D10.
   it('sends nothing and reports false with no broker', async () => {
     await expect(dispatchRestartReload({}, 0)).resolves.toBe(false)
+  })
+})
+
+describe('fullReloadsDeliveredTo', () => {
+  // A reload that restarts only the worker, or one no producer took, leaves
+  // the new entry set unloaded, so neither counts.
+  it('counts only a full reload a producer took', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const taken = {broadcastReload: vi.fn(() => 1)}
+    const missed = {broadcastReload: vi.fn(() => 0)}
+
+    await dispatchReload(
+      {type: 'service-worker', label: 'service_worker (background.js)'},
+      {broker: taken}
+    )
+
+    await dispatchReload({type: 'full', label: 'extension'}, {broker: missed})
+
+    expect(fullReloadsDeliveredTo(taken)).toBe(0)
+    expect(fullReloadsDeliveredTo(missed)).toBe(0)
+
+    await dispatchReload({type: 'full', label: 'extension'}, {broker: taken})
+
+    expect(fullReloadsDeliveredTo(taken)).toBe(1)
   })
 })

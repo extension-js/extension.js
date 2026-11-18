@@ -143,6 +143,10 @@ export type ReadyMetadata = {
   browserLaunchFailedAt?: string
   browserLaunchFailedReason?: string
   browserLaunchFailedCode?: string
+  // Stamped when the session ended as failed or usage, so the watch close
+  // keeps the error that ended it instead of a clean stop.
+  endedAsFailedAt?: string
+  endedAsFailedCode?: string
   // Stamped by the Chromium launcher when the CDP wire failed after launch:
   // the session stays ready and names the fault. Preserved across recompiles.
   cdpFaultCode?: string
@@ -1211,6 +1215,26 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         compiledAt: null
       })
     },
+    // A session that ended as failed or usage reads error from then on. One
+    // already in error keeps the code that ended it, which --wait reads.
+    writeEndedAsFailed(errorCode: string, message: string) {
+      if (foreignLiveDevSession) return
+
+      const prev = readContract()
+      if (!prev || !ownsDocument(prev)) return
+
+      if (prev.status !== 'error') {
+        prev.status = 'error'
+        prev.code = 'shutdown'
+        prev.message = message
+      }
+
+      prev.endedAsFailedAt = nowISO()
+      prev.endedAsFailedCode = errorCode
+      prev.ts = nowISO()
+
+      writeJsonAtomic(readyPath, prev)
+    },
     // Stamp a terminal status at watch close so a controller can never read green
     // over a dead pid; read-modify-write keeps the session's provenance intact.
     writeShutdown(message = 'the dev session ended (watch closed)') {
@@ -1218,6 +1242,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       const prev = readContract()
       if (!prev || !ownsDocument(prev)) return
+      if (typeof prev.endedAsFailedAt === 'string') return
 
       prev.status = 'stopped'
       prev.code = 'shutdown'

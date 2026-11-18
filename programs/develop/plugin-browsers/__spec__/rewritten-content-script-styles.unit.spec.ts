@@ -1,11 +1,6 @@
 import {createHash} from 'node:crypto'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {
-  type ReloadBroker,
-  type ReloadInstruction,
-  readContentScriptDigests,
-  reloadForRewrittenContentScripts
-} from '../../plugin-reload'
+import type {ReloadBroker, ReloadInstruction} from '../../plugin-reload'
 import {BrowsersPlugin} from '../index'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
@@ -239,115 +234,5 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
     await h.compile(stub('blue'), ['src/widget.module.css'])
 
     expect(h.reload.mock.calls[0][0]).toMatchObject({type: 'content-scripts'})
-  })
-})
-
-describe('readContentScriptDigests', () => {
-  const compilation = (assets: Record<string, string>) =>
-    ({
-      getAsset: (name: string) =>
-        name in assets ? {source: {source: () => assets[name]}} : undefined
-    }) as never
-
-  // A bundle carries the compile hash in its runtime, so its bytes change on
-  // every compile under one name and say nothing about the edit.
-  it('digests the stylesheets and skips the bundles', () => {
-    const digests = readContentScriptDigests(
-      compilation({[BUNDLE]: 'console.log(1)', [SHEET]: '.a{}'}),
-      [BUNDLE, SHEET, 'content_scripts/missing.css']
-    )
-
-    expect(Object.keys(digests)).toEqual([SHEET])
-  })
-
-  it('answers differently once the bytes change', () => {
-    const before = readContentScriptDigests(compilation({[SHEET]: '.a{}'}), [
-      SHEET
-    ])
-    const after = readContentScriptDigests(compilation({[SHEET]: '.b{}'}), [
-      SHEET
-    ])
-
-    expect(after[SHEET]).not.toBe(before[SHEET])
-  })
-})
-
-describe('reloadForRewrittenContentScripts', () => {
-  const content: ReloadInstruction = {
-    type: 'content-scripts',
-    changedContentScriptEntries: ['content_scripts/content-0'],
-    changedAssets: ['src/widget.module.css'],
-    label: 'content_script (src/widget.module.css)'
-  }
-
-  it('leaves a static entry to the worker, which reloads the extension and its tabs', () => {
-    const instruction = {
-      ...content,
-      staticContentScriptEntries: ['content_scripts/content-0']
-    }
-
-    expect(
-      reloadForRewrittenContentScripts(
-        instruction,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'}
-      )
-    ).toBe(instruction)
-  })
-
-  it('does not call a stylesheet the loaded manifest never named rewritten', () => {
-    expect(reloadForRewrittenContentScripts(content, {}, {[SHEET]: 'b'})).toBe(
-      content
-    )
-  })
-
-  it('names the extension when no source explains the new bytes', () => {
-    expect(
-      reloadForRewrittenContentScripts(
-        undefined,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'}
-      )
-    ).toMatchObject({type: 'full', label: 'extension (manifest.json)'})
-  })
-
-  it('names the rewritten sheets instead of a reload for a browser that swaps them in place', () => {
-    expect(
-      reloadForRewrittenContentScripts(
-        content,
-        {[SHEET]: 'a', 'content_scripts/content-1.css': 'same'},
-        {[SHEET]: 'b', 'content_scripts/content-1.css': 'same'},
-        {refreshInPlace: true}
-      )
-    ).toEqual({...content, refreshedStylesheets: [{file: SHEET, digest: 'b'}]})
-  })
-
-  it('turns a page edit that rewrote a declared sheet into a swap, named by the sheet', () => {
-    expect(
-      reloadForRewrittenContentScripts(
-        undefined,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'},
-        {refreshInPlace: true}
-      )
-    ).toEqual({
-      type: 'content-scripts',
-      changedAssets: [SHEET],
-      refreshedStylesheets: [{file: SHEET, digest: 'b'}],
-      label: `content_script (${SHEET})`
-    })
-  })
-
-  it('keeps a reload that already restarts the extension or its worker, swap or not', () => {
-    const full: ReloadInstruction = {type: 'full', label: 'extension'}
-
-    expect(
-      reloadForRewrittenContentScripts(
-        full,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'},
-        {refreshInPlace: true}
-      )
-    ).toBe(full)
   })
 })
