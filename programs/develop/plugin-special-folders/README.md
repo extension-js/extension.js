@@ -80,13 +80,14 @@ A page or a stylesheet that names one of them by a root-absolute path (`/.env`) 
 A root-absolute path (`/data/config.json`) in a page or in a stylesheet that ships as authored names a file in `public/` first. When `public/` has none, the file at that path beside the manifest is copied, or compiled when the browser cannot run it as written. That fallback never ships:
 
 - a name from the table above, anywhere along the path,
-- anything under `node_modules`,
 - a path that climbs out of the extension root (`/../x`, `/%2e%2e/x`),
 - a link that resolves outside the project or onto one of those names.
 
 Each of those is reported as a missing file, in the words the surface uses for one, and nothing is copied. A link that stays inside the project is followed.
 
-The decision is one function, `sourceFileMayShip` in `public-private-files.ts`. The `web_accessible_resources` step asks it too, for every file, folder and pattern match it would copy.
+A file of an installed package ships when its path is named (`/node_modules/pkg/worker.js`), a vendored worker, wasm file or stylesheet for example. It ships through a package manager's link too: the place the link leads to has to stay inside a `node_modules` folder of the project or of a folder above it, which is where a workspace keeps its store. A name from the table above is refused inside a package as well, and so is a `node_modules` link that leads anywhere else.
+
+The decision is one function, `sourceFileMayShip(sourcePath, projectRoots, ask)` in `public-private-files.ts`. `ask` is `'named'` when the author wrote the path of that one file, which is the default, and `'walked'` when a folder entry or a pattern reached it. A walk never enters `node_modules`. The `web_accessible_resources` step, the JSON fields of the manifest, custom manifest keys and the file names found in code all ask it.
 
 ## Path resolution convention (consistent across @plugin-extension)
 

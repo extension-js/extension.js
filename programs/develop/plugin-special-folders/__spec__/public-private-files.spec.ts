@@ -436,6 +436,9 @@ describe('whether a source file may ship', () => {
       'project/.env': env('root'),
       'project/.git/config': `# ${MARKER}-git`,
       'project/node_modules/pkg/data.json': '{}',
+      'project/node_modules/pkg/.env': env('package'),
+      'project/node_modules/.npmrc': `# ${MARKER}-npmrc`,
+      'project/vendor/node_modules/pkg/lib.js': 'var a = 1\n',
       'project/data/ok.json': '{}',
       'project/data/.DS_Store': '',
       'project/.well-known/links.json': '[]',
@@ -457,7 +460,10 @@ describe('whether a source file may ship', () => {
       '.well-known/links.json',
       '.env.example',
       'src/logo.png',
-      'data/../data/ok.json'
+      'data/../data/ok.json',
+      // A file the author names ships from an installed package.
+      'node_modules/pkg/data.json',
+      'vendor/node_modules/pkg/lib.js'
     ]) {
       expect(sourceFileMayShip(path.join(root, file), [root]), file).toBe(true)
     }
@@ -473,7 +479,7 @@ describe('whether a source file may ship', () => {
     ).toBe(true)
   })
 
-  it('says no to a private name, an installed package, a climb and a missing file', () => {
+  it('says no to a private name, a climb and a missing file', () => {
     const {holder, root} = holderProject()
 
     for (const file of [
@@ -482,8 +488,8 @@ describe('whether a source file may ship', () => {
       '.git/config',
       '.git',
       'data/.DS_Store',
-      'node_modules/pkg/data.json',
-      'node_modules',
+      'node_modules/pkg/.env',
+      'node_modules/.npmrc',
       'data/../.env',
       '../outside.txt',
       'data/../../outside.txt',
@@ -512,7 +518,7 @@ describe('whether a source file may ship', () => {
       link(path.join(holder, 'outside.txt'), 'linked.txt')
       link(path.join(holder, 'outside-folder'), 'linked-folder')
       link(path.join(root, '.env'), 'settings.txt')
-      link(path.join(root, 'node_modules', 'pkg'), 'vendor')
+      link(path.join(root, 'node_modules', 'pkg'), 'vendored')
       link(path.join(root, 'data', 'ok.json'), '.npmrc')
       link(path.join(root, 'nowhere.txt'), 'broken.txt')
 
@@ -524,7 +530,7 @@ describe('whether a source file may ship', () => {
           'linked-folder',
           'linked-folder/inner.txt',
           'settings.txt',
-          'vendor/data.json',
+          'vendored/data.json',
           '.npmrc',
           'broken.txt'
         ].map((file) => [
@@ -540,10 +546,116 @@ describe('whether a source file may ship', () => {
         'linked-folder': false,
         'linked-folder/inner.txt': false,
         'settings.txt': false,
-        'vendor/data.json': false,
+        'vendored/data.json': true,
         '.npmrc': false,
         'broken.txt': false
       })
+    }
+  )
+
+  it('answers a walk and a named file apart inside installed packages', () => {
+    const {root} = holderProject()
+    const asked = (file: string) => [
+      sourceFileMayShip(path.join(root, file), [root]),
+      sourceFileMayShip(path.join(root, file), [root], 'named'),
+      sourceFileMayShip(path.join(root, file), [root], 'walked')
+    ]
+
+    // With no kind given the ask is for a file the author named.
+    expect(asked('node_modules/pkg/data.json')).toEqual([true, true, false])
+    expect(asked('node_modules/pkg')).toEqual([true, true, false])
+    expect(asked('node_modules')).toEqual([true, true, false])
+    expect(asked('vendor/node_modules/pkg/lib.js')).toEqual([true, true, false])
+    expect(asked('data/ok.json')).toEqual([true, true, true])
+    // A private name is one inside a package as well.
+    expect(asked('node_modules/pkg/.env')).toEqual([false, false, false])
+    expect(asked('node_modules/.npmrc')).toEqual([false, false, false])
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'follows a package link into a store of the project or of a folder above it',
+    () => {
+      const {holder, root} = holderProject()
+      const store = (base: string, name: string) =>
+        `${base}node_modules/.pnpm/${name}@1.0.0/node_modules/${name}`
+
+      writeFixtureFiles(holder, {
+        [`${store('project/', 'inside')}/data.json`]: '{}',
+        [`${store('project/', 'inside')}/.env`]: env('store'),
+        [`${store('', 'above')}/data.json`]: '{}',
+        'node_modules/.npmrc': `# ${MARKER}-above-npmrc`,
+        'elsewhere/stray/data.json': `${MARKER}-stray`,
+        'other-project/node_modules/far/data.json': `${MARKER}-far`,
+        'node_modules-backup/kept/data.json': `${MARKER}-backup`
+      })
+
+      const link = (target: string, name: string) =>
+        fs.symlinkSync(
+          path.join(holder, target),
+          path.join(root, 'node_modules', name)
+        )
+
+      link(store('project/', 'inside'), 'inside')
+      link(store('', 'above'), 'above')
+      link('elsewhere/stray', 'stray')
+      link('other-project/node_modules/far', 'far')
+      link('node_modules-backup/kept', 'kept')
+      link('node_modules/.npmrc', 'settings.txt')
+      link('node_modules', 'whole-store')
+      // A link outside `node_modules` that leads into the store above.
+      fs.symlinkSync(
+        path.join(holder, store('', 'above'), 'data.json'),
+        path.join(root, 'above.json')
+      )
+
+      const files = [
+        'node_modules/inside/data.json',
+        'node_modules/inside/.env',
+        'node_modules/above/data.json',
+        'node_modules/stray/data.json',
+        'node_modules/far/data.json',
+        'node_modules/kept/data.json',
+        'node_modules/settings.txt',
+        'node_modules/whole-store',
+        'above.json'
+      ]
+      const answers = (ask: 'named' | 'walked') =>
+        Object.fromEntries(
+          files.map((file) => [
+            file,
+            sourceFileMayShip(path.join(root, file), [root], ask)
+          ])
+        )
+
+      expect(answers('named')).toEqual({
+        'node_modules/inside/data.json': true,
+        'node_modules/inside/.env': false,
+        'node_modules/above/data.json': true,
+        'node_modules/stray/data.json': false,
+        'node_modules/far/data.json': false,
+        'node_modules/kept/data.json': false,
+        'node_modules/settings.txt': false,
+        'node_modules/whole-store': false,
+        'above.json': true
+      })
+
+      expect(answers('walked')).toEqual(
+        Object.fromEntries(files.map((file) => [file, false]))
+      )
+
+      // The manifest folder is a root too, and the store sits above both.
+      expect(
+        sourceFileMayShip(path.join(root, 'node_modules/above/data.json'), [
+          path.join(root, 'src')
+        ])
+      ).toBe(false)
+
+      expect(
+        sourceFileMayShip(path.join(root, 'node_modules/above/data.json'), [
+          root,
+          path.join(root, 'src')
+        ])
+      ).toBe(true)
     }
   )
 })

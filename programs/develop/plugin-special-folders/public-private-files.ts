@@ -99,23 +99,40 @@ export function hasPrivateFileName(relativePath: string): boolean {
     .some((name) => privateFileKind(name) !== undefined)
 }
 
-// Installed packages are not project content.
-function isInNodeModules(relativePath: string): boolean {
-  return relativePath
-    .split(/[\\/]+/)
-    .some((name) => name.toLowerCase() === 'node_modules')
+// How the build came to a source path. `named`: the author wrote the path
+// of this one file. `walked`: a folder entry or a pattern reached it.
+export type SourceAsk = 'named' | 'walked'
+
+function isNodeModules(name: string): boolean {
+  return name.toLowerCase() === 'node_modules'
 }
 
-// A path from a project root to a file the project owns: it stays below the
-// root, carries no private name and enters no installed package.
-function isProjectContentPath(relativePath: string): boolean {
+// A path from a project root to something the project holds: it stays below
+// the root and carries no private name. Only a named file enters a package.
+function isProjectContentPath(relativePath: string, ask: SourceAsk): boolean {
   return (
     relativePath !== '' &&
     relativePath !== '..' &&
     !relativePath.startsWith(`..${path.sep}`) &&
     !path.isAbsolute(relativePath) &&
     !hasPrivateFileName(relativePath) &&
-    !isInNodeModules(relativePath)
+    (ask === 'named' || !relativePath.split(/[\\/]+/).some(isNodeModules))
+  )
+}
+
+// A package manager links a package to its store, which a workspace keeps
+// in the `node_modules` of a folder above the project.
+function isInAncestorNodeModules(relativePath: string): boolean {
+  if (path.isAbsolute(relativePath)) return false
+
+  const names = relativePath.split(/[\\/]+/)
+  const below = names.findIndex((name) => name !== '..')
+
+  return (
+    below > 0 &&
+    below < names.length - 1 &&
+    isNodeModules(names[below]) &&
+    !names.slice(below).some((name) => privateFileKind(name) !== undefined)
   )
 }
 
@@ -123,11 +140,12 @@ function isProjectContentPath(relativePath: string): boolean {
 // the path as given and the place a link leads to must be project content.
 export function sourceFileMayShip(
   sourcePath: string,
-  projectRoots: string[]
+  projectRoots: string[],
+  ask: SourceAsk = 'named'
 ): boolean {
   const given = path.resolve(sourcePath)
   const givenInside = projectRoots.some((root) =>
-    isProjectContentPath(path.relative(path.resolve(root), given))
+    isProjectContentPath(path.relative(path.resolve(root), given), ask)
   )
   if (!givenInside) return false
 
@@ -141,7 +159,12 @@ export function sourceFileMayShip(
 
   return projectRoots.some((root) => {
     try {
-      return isProjectContentPath(path.relative(fs.realpathSync(root), real))
+      const fromRoot = path.relative(fs.realpathSync(root), real)
+
+      return (
+        isProjectContentPath(fromRoot, ask) ||
+        (ask === 'named' && isInAncestorNodeModules(fromRoot))
+      )
     } catch {
       return false
     }

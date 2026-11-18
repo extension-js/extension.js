@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {
   build,
   canLink,
+  linkPackages,
   linkWorkspace,
   MARKER,
   manifest,
@@ -72,7 +73,7 @@ const OPENINGS = ['PRIVATE_K', 'export PR', '# FAKE', 'FAKE-MARK']
 
 function files(field: Field): Record<string, string> {
   return {
-    'node_modules/pkg/data.json': field.valid(`${MARKER}-node-modules`),
+    'node_modules/pkg/data.json': field.valid('installed'),
     'data/ok.json': field.valid('ok'),
     'public/hosted.json': field.valid('hosted'),
     '.env.example': field.valid('example'),
@@ -87,6 +88,7 @@ function fixture(field: Field, target: string) {
   })
 
   linkWorkspace(root, {'data.json': field.valid(`${MARKER}-workspace`)})
+  linkPackages(root, field.valid)
   fs.writeFileSync(
     path.join(path.dirname(root), 'outside.json'),
     field.valid(`${MARKER}-outside`)
@@ -179,7 +181,10 @@ const PRIVATE_FILES: Table = {
   '.npmrc': stopped('missing: .npmrc'),
   '.git/config': stopped('missing: .git/config'),
   'a/../.envrc': stopped('missing: .envrc'),
-  'node_modules/pkg/data.json': stopped('missing: node_modules/pkg/data.json'),
+  'node_modules/plain-pkg/.env': stopped(
+    'missing: node_modules/plain-pkg/.env'
+  ),
+  'node_modules/.npmrc': stopped('missing: node_modules/.npmrc'),
   '../outside.txt': stopped('missing: ../outside.txt'),
   '../outside.json': stopped('missing: ../outside.json'),
   'sub/../../outside.txt': stopped('missing: ../outside.txt'),
@@ -188,6 +193,26 @@ const PRIVATE_FILES: Table = {
   // The copier leaves this one out of public/, so no field may name it.
   'public/.env.local': stopped('missing: public/.env.local')
 }
+
+// A file the author names ships from an installed package.
+const packageFiles = (field: Field): Table => ({
+  'node_modules/pkg/data.json': landed(field),
+  '/node_modules/pkg/data.json': landed(field),
+  'node_modules/plain-pkg/data.json': landed(field)
+})
+
+// It ships through the links of a package manager too, when the link stays
+// in a `node_modules` folder of the project or of a folder above it.
+const linkedPackageFiles = (field: Field): Table => ({
+  'node_modules/store-pkg/data.json': landed(field),
+  'node_modules/workspace-pkg/data.json': landed(field),
+  'node_modules/stray-pkg/data.json': stopped(
+    'missing: node_modules/stray-pkg/data.json'
+  ),
+  'node_modules/far-pkg/data.json': stopped(
+    'missing: node_modules/far-pkg/data.json'
+  )
+})
 
 const links = (field: Field): Table => ({
   'linked.txt': stopped('missing: linked.txt'),
@@ -236,6 +261,26 @@ describe.each([RULES, SCHEMA])('$name', (field) => {
       expect(result.printed).not.toContain("Can't parse the JSON file")
       expect(result.printed).not.toContain(MARKER)
       expect(result.errors).toBe(1)
+    },
+    TIMEOUT
+  )
+
+  it(
+    'names a file of an installed package',
+    async () => {
+      const expected = packageFiles(field)
+
+      expect(await tableFor(field, keys(expected))).toEqual(expected)
+    },
+    TIMEOUT
+  )
+
+  it.skipIf(!canLink)(
+    'names a file of a linked package',
+    async () => {
+      const expected = linkedPackageFiles(field)
+
+      expect(await tableFor(field, keys(expected))).toEqual(expected)
     },
     TIMEOUT
   )

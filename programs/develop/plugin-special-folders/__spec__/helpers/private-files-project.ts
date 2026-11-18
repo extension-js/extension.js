@@ -52,7 +52,7 @@ export function project(files: Record<string, string>) {
       description: `${MARKER}-package`
     }),
     'extension.config.js': 'export default {}\n',
-    'node_modules/pkg/data.json': `{"value":"${MARKER}-node-modules"}`,
+    'node_modules/pkg/data.json': '{"value":"installed"}',
     'a/keep.txt': 'keep',
     'data/ok.json': '{"ok":true}',
     'manifest.json': manifest(),
@@ -112,7 +112,11 @@ export function linkWorkspace(root: string, shared: Record<string, string>) {
 
 // Installed packages, made by hand: a plain folder, two linked the way pnpm
 // links them, two links that leave every `node_modules` above the project.
-export function linkPackages(root: string) {
+export function linkPackages(
+  root: string,
+  // What each `data.json` holds, for a field that reads only its own shape.
+  data: (from: string) => string = (from) => JSON.stringify({from})
+) {
   const holder = path.dirname(root)
   const modules = path.join(root, 'node_modules')
 
@@ -124,28 +128,25 @@ export function linkPackages(root: string) {
   const store = (base: string, name: string) =>
     path.join(base, 'node_modules/.pnpm', `${name}@1.0.0`, 'node_modules', name)
 
-  write(path.join(modules, 'plain-pkg/data.json'), '{"from":"plain-pkg"}')
+  write(path.join(modules, 'plain-pkg/data.json'), data('plain-pkg'))
   write(path.join(modules, 'plain-pkg/lib.js'), 'var plainPkg = 1\n')
   write(path.join(modules, 'plain-pkg/.env'), `KEY=${MARKER}-pkg-env\n`)
   write(path.join(modules, '.npmrc'), `# ${MARKER}-modules-npmrc\n`)
-  write(
-    path.join(store(root, 'store-pkg'), 'data.json'),
-    '{"from":"store-pkg"}'
-  )
+  write(path.join(store(root, 'store-pkg'), 'data.json'), data('store-pkg'))
 
   write(
     path.join(store(holder, 'workspace-pkg'), 'data.json'),
-    '{"from":"workspace-pkg"}'
+    data('workspace-pkg')
   )
 
   write(
     path.join(holder, 'elsewhere/stray-pkg/data.json'),
-    `{"from":"${MARKER}-stray"}`
+    data(`${MARKER}-stray`)
   )
 
   write(
     path.join(holder, 'other-project/node_modules/far-pkg/data.json'),
-    `{"from":"${MARKER}-far"}`
+    data(`${MARKER}-far`)
   )
 
   if (!canLink) return

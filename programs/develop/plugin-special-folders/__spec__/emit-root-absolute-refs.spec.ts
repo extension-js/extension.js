@@ -201,7 +201,7 @@ describe('planRootAbsoluteRef for a path that is not project content', () => {
   const hasNone = () => false
   const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
 
-  it('withholds a private name, an installed package and a climbing path', () => {
+  it('withholds a private name and a climbing path', () => {
     const {root, publicDir} = createProject({
       '.env': MARKER,
       '.env.local': MARKER,
@@ -210,8 +210,8 @@ describe('planRootAbsoluteRef for a path that is not project content', () => {
       '.git/config': MARKER,
       '.DS_Store': MARKER,
       'cfg/.env.production': MARKER,
-      'node_modules/pkg/data.json': MARKER,
-      'vendor/node_modules/pkg/lib.js': 'var a = 1\n',
+      'node_modules/pkg/.env': MARKER,
+      'node_modules/.npmrc': MARKER,
       'a/keep.txt': 'keep'
     })
 
@@ -227,8 +227,8 @@ describe('planRootAbsoluteRef for a path that is not project content', () => {
       '/a/../.env',
       '/%2eenv',
       '/%2Egit/config',
-      '/node_modules/pkg/data.json',
-      '/vendor/node_modules/pkg/lib.js',
+      '/node_modules/pkg/.env',
+      '/node_modules/.npmrc',
       '/../outside.txt',
       '/a/../../outside.txt',
       '/%2e%2e/outside.txt',
@@ -262,10 +262,12 @@ describe('planRootAbsoluteRef for a path that is not project content', () => {
     ).toEqual({kind: 'skip', reason: 'public', emitPath: '.env.example'})
   })
 
-  it('leaves a node_modules folder inside public/ to the copier, which ships it', () => {
+  it('plans a file of an installed package like any other the page names', () => {
     const {root, publicDir} = createProject({
       'public/node_modules/pkg/lib.js': 'var a = 1\n',
-      'node_modules/pkg/other.js': 'var b = 1\n'
+      'node_modules/pkg/other.js': 'var b = 1\n',
+      'node_modules/pkg/data.json': '{}',
+      'vendor/node_modules/pkg/lib.js': 'var c = 1\n'
     })
 
     expect(
@@ -283,7 +285,37 @@ describe('planRootAbsoluteRef for a path that is not project content', () => {
         publicDir,
         hasNone
       )
-    ).toEqual({kind: 'withheld', emitPath: 'node_modules/pkg/other.js'})
+    ).toEqual({
+      kind: 'copy',
+      sourcePath: path.join(root, 'node_modules/pkg/other.js'),
+      emitPath: 'node_modules/pkg/other.js'
+    })
+
+    expect(
+      planRootAbsoluteRef(
+        '/node_modules/pkg/data.json',
+        root,
+        publicDir,
+        hasNone
+      )
+    ).toEqual({
+      kind: 'copy',
+      sourcePath: path.join(root, 'node_modules/pkg/data.json'),
+      emitPath: 'node_modules/pkg/data.json'
+    })
+
+    expect(
+      planRootAbsoluteRef(
+        '/vendor/node_modules/pkg/lib.js',
+        root,
+        publicDir,
+        hasNone
+      )
+    ).toEqual({
+      kind: 'copy',
+      sourcePath: path.join(root, 'vendor/node_modules/pkg/lib.js'),
+      emitPath: 'vendor/node_modules/pkg/lib.js'
+    })
   })
 
   it('leaves a path the compilation already holds to the step that emitted it', () => {
@@ -401,12 +433,12 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
     const {root, publicDir} = createProject({
       '.env': MARKER,
       '.npmrc': MARKER,
-      'node_modules/pkg/data.json': MARKER,
+      'node_modules/pkg/.env': MARKER,
       'data/ok.json': '{}'
     })
     const {compilation, emitted} = makeCompilation({
       'page.html':
-        '<link href="/.env"><img src="/.env"><img src="/node_modules/pkg/data.json"><img src="/data/ok.json">',
+        '<link href="/.env"><img src="/.env"><img src="/node_modules/pkg/.env"><img src="/data/ok.json">',
       'style.css': '.a{background:url(/.npmrc)}.b{background:url(/.npmrc)}'
     })
 

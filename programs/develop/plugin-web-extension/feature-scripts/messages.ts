@@ -246,7 +246,7 @@ export function manifestNamedFileNotShipped(
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
   lines.push(`A read of it fails at runtime.`)
   lines.push(
-    `The build never copies env files, tooling files, installed packages or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
+    `The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
   )
 
   return lines.join('\n')

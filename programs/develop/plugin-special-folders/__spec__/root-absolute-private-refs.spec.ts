@@ -5,6 +5,7 @@ import {
   type Built,
   build,
   canLink,
+  linkPackages,
   MARKER,
   manifest,
   PAGE,
@@ -20,7 +21,18 @@ const PRIVATE_TARGETS = [
   '/.npmrc',
   '/.git/config',
   '/a/../.envrc',
-  '/node_modules/pkg/data.json'
+  '/node_modules/plain-pkg/.env',
+  '/node_modules/.npmrc'
+]
+// A file of an installed package, through a package manager's links too.
+const PACKAGE_TARGETS = [
+  '/node_modules/pkg/data.json',
+  ...(canLink
+    ? [
+        '/node_modules/store-pkg/data.json',
+        '/node_modules/workspace-pkg/data.json'
+      ]
+    : [])
 ]
 const CLIMBING_TARGETS = [
   '/../outside.txt',
@@ -28,12 +40,18 @@ const CLIMBING_TARGETS = [
   '/a/../../outside.txt'
 ]
 const LINKED_TARGETS = canLink
-  ? ['/linked.txt', '/linked-folder/inner.txt']
+  ? [
+      '/linked.txt',
+      '/linked-folder/inner.txt',
+      '/node_modules/stray-pkg/data.json',
+      '/node_modules/far-pkg/data.json'
+    ]
   : []
 const PROJECT_TARGETS = ['/package.json', '/extension.config.js']
 const PLAIN_TARGETS = ['/data/ok.json', '/nothing.txt']
 const TARGETS = [
   ...PRIVATE_TARGETS,
+  ...PACKAGE_TARGETS,
   ...CLIMBING_TARGETS,
   ...LINKED_TARGETS,
   ...PROJECT_TARGETS,
@@ -42,24 +60,33 @@ const TARGETS = [
 
 const TIMEOUT = 120_000
 
-const LINKED_OUTPUT = canLink ? ['linked-folder/inner.txt', 'linked.txt'] : []
+function packaged(files: Record<string, string>) {
+  const root = project(files)
+
+  linkPackages(root)
+
+  return root
+}
+
+const LINKED_OUTPUT = LINKED_TARGETS.map((ref) => ref.slice(1))
+
+const PACKAGE_OUTPUT = PACKAGE_TARGETS.map((ref) => ref.slice(1))
 
 // The page step copies these on its own, whatever this plugin decides.
-const SHIPPED_FROM_A_PAGE = [
-  '.envrc',
-  'data/ok.json',
-  'extension.config.js',
-  ...LINKED_OUTPUT,
-  'node_modules/pkg/data.json',
-  'package.json'
-]
-
 const MARKED_FROM_A_PAGE = [
   '.envrc',
   ...LINKED_OUTPUT,
-  'node_modules/pkg/data.json',
+  'node_modules/.npmrc',
+  'node_modules/plain-pkg/.env',
   'package.json'
-]
+].sort()
+
+const SHIPPED_FROM_A_PAGE = [
+  ...MARKED_FROM_A_PAGE,
+  ...PACKAGE_OUTPUT,
+  'data/ok.json',
+  'extension.config.js'
+].sort()
 
 const MISSING_FROM_A_PAGE = [
   '/%2e%2e/outside.txt',
@@ -92,7 +119,7 @@ describe('a root-absolute path that names a file outside public/', () => {
     async () => {
       const links = TARGETS.map((ref) => `<link rel="preload" href="${ref}">`)
       const result = await build(
-        project({
+        packaged({
           'popup.html': PAGE.replace('<head>', `<head>${links.join('')}`)
         })
       )
@@ -112,7 +139,7 @@ describe('a root-absolute path that names a file outside public/', () => {
     async () => {
       const images = TARGETS.map((ref) => `<img src="${ref}">`)
       const result = await build(
-        project({
+        packaged({
           'popup.html': PAGE.replace('<body>', `<body>${images.join('')}`)
         })
       )
@@ -134,7 +161,7 @@ describe('a root-absolute path that names a file outside public/', () => {
         (ref, index) => `.c${index}{background:url(${ref})}`
       )
       const result = await build(
-        project({
+        packaged({
           'popup.html': PAGE.replace(
             '<head>',
             '<head><link rel="stylesheet" href="./popup.css">'
@@ -143,28 +170,33 @@ describe('a root-absolute path that names a file outside public/', () => {
         })
       )
 
-      // The bundler ships these, not the special folders plugin.
-      expect(result.shipped).toEqual([
+      // The bundler ships these, not the special folders plugin: two of a
+      // name are the project's file and the one inside a package.
+      const marked = [
+        'assets/.env.<hash>',
         'assets/.env.<hash>',
         'assets/.env.<hash>.local',
         'assets/.envrc.<hash>',
         'assets/.npmrc.<hash>',
-        'assets/config.<hash>',
-        'assets/data.<hash>.json',
-        'assets/ok.<hash>.json',
-        'assets/package.<hash>.json',
-        'extension.config.js'
-      ])
-
-      expect(result.marked).toEqual([
-        'assets/.env.<hash>',
-        'assets/.env.<hash>.local',
-        'assets/.envrc.<hash>',
         'assets/.npmrc.<hash>',
         'assets/config.<hash>',
-        'assets/data.<hash>.json',
+        // The two package links that lead out of the project.
+        ...(canLink
+          ? ['assets/data.<hash>.json', 'assets/data.<hash>.json']
+          : []),
         'assets/package.<hash>.json'
-      ])
+      ]
+
+      expect(result.shipped).toEqual(
+        [
+          ...marked,
+          ...PACKAGE_TARGETS.map(() => 'assets/data.<hash>.json'),
+          'assets/ok.<hash>.json',
+          'extension.config.js'
+        ].sort()
+      )
+
+      expect(result.marked).toEqual(marked)
 
       expect(result.missing).toEqual(['/nothing.txt'])
       expect(result.errors).toBe(0)
@@ -180,7 +212,7 @@ describe('a root-absolute path that names a file outside public/', () => {
         (ref, index) => `.c${index}{background:url(${ref})}`
       )
       const result = await build(
-        project({
+        packaged({
           'popup.html': PAGE.replace(
             '<head>',
             '<head><link rel="stylesheet" href="/theme.css">'
@@ -189,12 +221,15 @@ describe('a root-absolute path that names a file outside public/', () => {
         })
       )
 
-      expect(result.shipped).toEqual([
-        'data/ok.json',
-        'extension.config.js',
-        'package.json',
-        'theme.css'
-      ])
+      expect(result.shipped).toEqual(
+        [
+          'data/ok.json',
+          'extension.config.js',
+          ...PACKAGE_OUTPUT,
+          'package.json',
+          'theme.css'
+        ].sort()
+      )
 
       expect(result.marked).toEqual(['package.json'])
       expect(result.missing).toEqual(
@@ -216,7 +251,7 @@ describe('a root-absolute path that names a file outside public/', () => {
     'in a manifest field',
     async () => {
       const result = await build(
-        project({
+        packaged({
           'manifest.json': manifest({
             icons: {16: '/.env'},
             web_accessible_resources: [
@@ -231,12 +266,15 @@ describe('a root-absolute path that names a file outside public/', () => {
 
       // The icons step ships the env file. The resource list ships only
       // project content and names every other entry as missing.
-      expect(result.shipped).toEqual([
-        '.env',
-        'data/ok.json',
-        'extension.config.js',
-        'package.json'
-      ])
+      expect(result.shipped).toEqual(
+        [
+          '.env',
+          'data/ok.json',
+          'extension.config.js',
+          ...PACKAGE_OUTPUT,
+          'package.json'
+        ].sort()
+      )
 
       expect(result.marked).toEqual(['.env', 'package.json'])
 
@@ -262,7 +300,7 @@ describe('a root-absolute path that names a file outside public/', () => {
     'with the same name in public/',
     async () => {
       const result = await build(
-        project({
+        packaged({
           'public/.env': `PRIVATE_KEY=${MARKER}-public-env\n`,
           'public/.npmrc': `# ${MARKER}-public-npmrc\n`,
           'public/theme.css':
@@ -303,7 +341,7 @@ describe('a root-absolute path that names a file outside public/', () => {
         '/.env.example',
         '/alias.txt'
       ]
-      const root = project({
+      const root = packaged({
         '.env.example': 'PRIVATE_KEY=\n',
         '.well-known/links.json': '[]',
         'data/real.txt': 'real',
