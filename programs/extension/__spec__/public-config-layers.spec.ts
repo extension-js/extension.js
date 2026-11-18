@@ -30,6 +30,7 @@ import type {
   ServeCommandConfig,
   SpecialFoldersConfig
 } from '../config-types'
+import type {Agrees, Same} from './helpers/type-agreement'
 
 // The published config type is hand-kept beside the one the loader reads, so
 // the two are compared here key by key, in both directions. A difference
@@ -40,34 +41,6 @@ type InternalBrowser = NonNullable<
   NonNullable<InternalFileConfig['browser']>['chrome']
 >
 type InternalSafari = Omit<SafariOptions, keyof BrowserOptionsBase>
-
-type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
-type Extra<A, B> = Exclude<keyof A, keyof B>
-// Shared keys whose type or optionality is not the same on both sides.
-type Differing<A, B> = {
-  [K in keyof A & keyof B]-?: Same<Pick<A, K>, Pick<B, K>> extends true
-    ? never
-    : K
-}[keyof A & keyof B]
-
-// True when both sides agree, apart from the keys named as known exceptions.
-// An exception that stops being one fails too, so the list cannot go stale.
-type Agrees<
-  Public,
-  Internal,
-  PublicOnly extends PropertyKey = never,
-  Differs extends PropertyKey = never
-> = [
-  Same<Extra<Internal, Public>, never>,
-  Same<Extra<Public, Internal>, PublicOnly>,
-  Same<Differing<Public, Internal>, Differs>
-] extends [true, true, true]
-  ? true
-  : {
-      internalOnly: Extra<Internal, Public>
-      publicOnly: Extra<Public, Internal>
-      differing: Differing<Public, Internal>
-    }
 
 const everyLayerAgreesWithTheLoader: [
   // The engine reads these three from a browser block and its type omits
