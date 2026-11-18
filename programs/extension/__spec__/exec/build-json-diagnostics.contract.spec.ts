@@ -211,7 +211,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
               {
                 code: 'E_ENTRY_NOT_FOUND',
                 message:
-                  'missing.js does not exist. Check the background.service_worker field in your manifest.json file.\nThe script path must point to an existing file that will be bundled.\nNOT FOUND <project>/missing.js',
+                  'missing.js does not exist. Check the background.service_worker field in your manifest.json file.\nThe path must point to an existing file that will be bundled.\nNOT FOUND <project>/missing.js',
                 file: 'manifest.json',
                 severity: 'error',
                 name: 'ScriptsMissingFile'
@@ -232,7 +232,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         ' ',
         '⏵⏵⏵ Build error in manifest.json.',
         '    × missing.js does not exist. Check the background.service_worker field in your manifest.json file.',
-        '    │ The script path must point to an existing file that will be bundled.',
+        '    │ The path must point to an existing file that will be bundled.',
         '    │ NOT FOUND <project>/missing.js',
         '',
         '⏵⏵⏵ Build failed with 1 error.',
