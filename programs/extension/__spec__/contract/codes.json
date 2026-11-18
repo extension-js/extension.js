@@ -206,8 +206,7 @@
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
-      "summary": "Packaging was skipped for a stated reason.",
-      "warn": true
+      "summary": "A requested archive was not created."
     },
     "E_ENV_NO_MATCH": {
       "area": "compile",

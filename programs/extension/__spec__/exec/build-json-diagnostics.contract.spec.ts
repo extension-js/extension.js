@@ -868,7 +868,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
       ].join('\n')
     }
   },
-  // Pins today's behavior. Ledger 1375 N15.
+  // A requested archive that is not written fails the build, said once.
   {
     code: 'E_ZIP_SKIPPED',
     label: 'a folder where the requested zip has to go',
@@ -888,7 +888,8 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           value: null,
           error: {
             code: 'E_ZIP_SKIPPED',
-            message: '1 requested archive was not created'
+            message:
+              "The distribution zip was requested and not created.\nPATH dist/zipped-1.0.0-chromium.zip\nEISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'"
           },
           warnings: [],
           hint: 'Fix the error above and run build again.'
@@ -905,12 +906,9 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '└─ manifest.json (N KB)',
         '',
-        '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
-        "⏵⏵⏵ Built with Node <node> and Extension.js <version>. Name these versions in the store's reviewer note so a reviewer can rebuild it and match these bytes.",
         '⏵⏵⏵ The distribution zip was requested and not created.',
         'PATH dist/zipped-1.0.0-chromium.zip',
         "EISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'",
-        '⏵⏵⏵ 1 requested archive was not created',
         '⏵⏵⏵ Build failed with 1 error.',
         ''
       ].join('\n')
