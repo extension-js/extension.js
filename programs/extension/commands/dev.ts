@@ -31,10 +31,10 @@ import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type DevelopBrowser,
-  type DevelopLauncher,
   type AnyDevelopModule,
+  type DevelopBrowser,
   type DevelopFor,
+  type DevelopLauncher,
   type DevelopModule,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'

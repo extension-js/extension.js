@@ -9,6 +9,8 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
+import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 
 const requireModule = createRequire(import.meta.url)
 
@@ -403,6 +405,18 @@ function displayPath(file: string): string {
   return shown.split(path.sep).join('/')
 }
 
+// Named from the project, the way the wrapper names a content script.
+function projectPath(file: string): string {
+  const packageJson = findNearestProjectManifestSync(file)
+
+  if (!packageJson) return displayPath(file)
+
+  return path
+    .relative(path.dirname(packageJson), file)
+    .split(path.sep)
+    .join('/')
+}
+
 function redeclarationMessage(
   name: string,
   files: string[],
@@ -504,6 +518,8 @@ export default function classicConcatLoader(
   for (let fileIdx = 0; fileIdx < jsFiles.length; fileIdx++) {
     const file = jsFiles[fileIdx]
     const raw = fs.readFileSync(file, 'utf8')
+    // Inside the shared function below an await would read as a stray word.
+    refuseTopLevelAwait(raw, file, projectPath(file), true)
     // Line mappings for transpiled TS are approximate (tsc's emitter mostly
     // preserves line positions, but removed type-only blocks shift them).
     const transpiled = /\.ts$/i.test(file)

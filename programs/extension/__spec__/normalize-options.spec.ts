@@ -6,8 +6,8 @@ import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {
   firstInvalidWholeNumberFlag,
   isValidWholeNumberFlag,
-  parseExtensionsList,
   LOG_LEVELS,
+  parseExtensionsList,
   parseLogContexts,
   parseLogLevel,
   parsePositiveInt,
