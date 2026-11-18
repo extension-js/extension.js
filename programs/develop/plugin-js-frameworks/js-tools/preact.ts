@@ -14,16 +14,20 @@ import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
 import {isUsingReact} from './react'
 
-let userMessageDelivered = false
+// Printed once per process. A caller that needs its own record passes one.
+const preactNotice = {delivered: false}
 
-export function isUsingPreact(projectPath: string) {
+export function isUsingPreact(
+  projectPath: string,
+  notice: {delivered: boolean} = preactNotice
+) {
   if (hasDependency(projectPath, 'preact')) {
-    if (!userMessageDelivered) {
+    if (!notice.delivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Preact')}`)
       }
 
-      userMessageDelivered = true
+      notice.delivered = true
     }
 
     return true

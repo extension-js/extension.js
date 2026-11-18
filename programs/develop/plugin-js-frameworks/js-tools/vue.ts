@@ -33,17 +33,21 @@ type VueLoaderPluginCtor = new (
   ...args: unknown[]
 ) => {apply(compiler: unknown): void}
 
-let userMessageDelivered = false
+// Printed once per process. A caller that needs its own record passes one.
+const vueNotice = {delivered: false}
 
-export function isUsingVue(projectPath: string) {
+export function isUsingVue(
+  projectPath: string,
+  notice: {delivered: boolean} = vueNotice
+) {
   const using = hasDependency(projectPath, 'vue')
 
-  if (using && !userMessageDelivered) {
+  if (using && !notice.delivered) {
     if (isDebug()) {
       debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Vue')}`)
     }
 
-    userMessageDelivered = true
+    notice.delivered = true
   }
 
   return using

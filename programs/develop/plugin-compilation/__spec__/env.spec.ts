@@ -26,7 +26,6 @@ interface BuildOptions {
   browser?: 'chrome' | 'firefox' | 'edge'
   mode?: 'development' | 'production'
   copy?: string[]
-  processShimPath?: string
   extraPlugins?: Array<{apply: (compiler: Compiler) => void}>
 }
 
@@ -42,8 +41,7 @@ async function build(root: string, options: BuildOptions = {}) {
     plugins: [
       new EnvPlugin({
         manifestPath: path.join(context, 'manifest.json'),
-        browser: options.browser || 'chrome',
-        processShimPath: options.processShimPath
+        browser: options.browser || 'chrome'
       }),
       ...(options.extraPlugins || [])
     ]
@@ -255,27 +253,6 @@ describe('EnvPlugin values in JavaScript', () => {
     expect(
       fs.readFileSync(path.join(root, 'out/background.js'), 'utf8')
     ).not.toContain('secret')
-  })
-
-  it('bundles the shipped process shim for free process reads', async () => {
-    const root = project(
-      {},
-      'console.log(process.arch, process.platform, typeof process.nextTick)\n'
-    )
-
-    expect((await build(root)).logs()).toEqual(['browser browser function'])
-  })
-
-  it('falls back to an inline process stub when the shim file is missing', async () => {
-    const root = project(
-      {},
-      'console.log(process.arch, process.platform, typeof process.nextTick, JSON.stringify(process.env))\n'
-    )
-    const result = await build(root, {
-      processShimPath: path.join(root, 'no-such-shim.cjs')
-    })
-
-    expect(result.logs()).toEqual(['undefined browser function {}'])
   })
 
   it('neutralizes Node-only import.meta fields and keeps file: URLs out', async () => {

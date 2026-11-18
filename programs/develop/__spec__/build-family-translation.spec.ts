@@ -172,3 +172,83 @@ describe('cross-browser manifest translation at build time', () => {
     expect(manifest).not.toHaveProperty('browser_action')
   }, 180_000)
 })
+
+describe('a Chrome-only manifest built for Firefox', () => {
+  const identity = (id: string) => ({
+    browser_specific_settings: {
+      gecko: {id, data_collection_permissions: {required: ['none']}}
+    }
+  })
+  const moved =
+    'The build moved background.service_worker into background.scripts for firefox'
+
+  it('ports the worker, the panel and the permission and names each one', async () => {
+    const root = project('chromeonly', {
+      manifest_version: 3,
+      ...identity('chromeonly@example.com'),
+      background: {service_worker: 'background.js'},
+      side_panel: {default_path: 'panel.html'},
+      permissions: ['sidePanel', 'storage']
+    })
+    const {manifest, output, summary, has} = await build(root, 'firefox')
+
+    expect(manifest.background).toEqual({
+      scripts: ['background/service_worker.js']
+    })
+
+    expect(has('background/service_worker.js')).toBe(true)
+    expect(manifest.sidebar_action).toEqual({
+      default_panel: 'sidebar/index.html'
+    })
+
+    expect(manifest).not.toHaveProperty('side_panel')
+    expect(manifest.permissions).toEqual(['storage'])
+
+    expect(output.split(moved)).toHaveLength(2)
+    expect(output).toContain('firefox:background')
+    expect(output).toContain('The build folded side_panel into sidebar_action')
+    expect(output).toContain('Firefox has no support for permissions.sidePanel')
+    // Each repair ran, so the build stays green and raises no warning.
+    expect(summary.warnings_count ?? 0, output).toBe(0)
+  }, 180_000)
+
+  it('says nothing about the worker when a firefox:background key supplies scripts', async () => {
+    const root = project('geckooverride', {
+      manifest_version: 3,
+      ...identity('geckooverride@example.com'),
+      background: {service_worker: 'background.js'},
+      'firefox:background': {scripts: ['background.js']}
+    })
+    const {manifest, output} = await build(root, 'firefox')
+
+    expect(manifest.background.scripts).toHaveLength(1)
+    expect(manifest.background).not.toHaveProperty('service_worker')
+    expect(output).not.toContain(moved)
+  }, 180_000)
+
+  it('says nothing about the worker when scripts sits beside it', async () => {
+    const root = project('bothforms', {
+      manifest_version: 3,
+      ...identity('bothforms@example.com'),
+      background: {service_worker: 'background.js', scripts: ['background.js']}
+    })
+    const {manifest, output} = await build(root, 'firefox')
+
+    expect(manifest.background.scripts).toHaveLength(1)
+    expect(output).not.toContain(moved)
+  }, 180_000)
+
+  it('says nothing about the worker on a chromium build', async () => {
+    const root = project('chromeworker', {
+      manifest_version: 3,
+      background: {service_worker: 'background.js'}
+    })
+    const {manifest, output} = await build(root, 'chrome')
+
+    expect(manifest.background.service_worker).toBe(
+      'background/service_worker.js'
+    )
+
+    expect(output).not.toContain('The build moved background.service_worker')
+  }, 180_000)
+})

@@ -9,6 +9,7 @@ import {
   maybeUsePostCss
 } from '../../css-tools/postcss'
 import {cssProjects} from '../helpers/css-project'
+import {canImportTypeScript} from '../helpers/typescript-import'
 
 const makeProject = cssProjects()
 const POSTCSS_LOADER = createRequire(import.meta.url).resolve('postcss-loader')
@@ -331,7 +332,7 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
     ])
   })
 
-  it('reads a TypeScript config itself where Node strips types, else leaves it to postcss-loader', async () => {
+  it('reads a TypeScript config itself where it can import one, else leaves it to postcss-loader', async () => {
     const root = makeProject({
       'postcss.config.ts': "export default {plugins: {'fake-plugin': {}}}\n"
     })
@@ -340,9 +341,8 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    // process.features.typescript is set from Node 22.10 when stripping is on.
     expect(rule.options.postcssOptions).toEqual(
-      (process.features as {typescript?: unknown}).typescript
+      (await canImportTypeScript())
         ? {cwd: root, config: false, plugins: [{postcssPlugin: 'fake-plugin'}]}
         : {cwd: root, config: path.join(root, 'postcss.config.ts')}
     )
@@ -370,8 +370,8 @@ describe('loadUserPostCssConfigObject', () => {
   })
 })
 
-// Fake Tailwind packages live in the project, which the build searches
-// first, so the real ones in this workspace are never reached.
+// Fake Tailwind packages live in the project. A bare require from it also
+// reaches NODE_PATH and folders above, so a test with only tailwindcss declares v3.
 describe('maybeUsePostCss with Tailwind', () => {
   it('injects the v4 plugin anchored at the project when there is no config', async () => {
     const root = makeProject({
@@ -484,7 +484,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     expect(output.errored()).toEqual([])
   })
 
-  it('injects Tailwind for a TypeScript config, read here where Node strips types', async () => {
+  it('injects Tailwind for a TypeScript config, read here where it can import one', async () => {
     const root = makeProject({
       'package.json': packageJson({
         devDependencies: {'@tailwindcss/postcss': '^4.0.0'}
@@ -498,7 +498,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     const instance = {postcssPlugin: '@tailwindcss/postcss'}
 
     expect(rule.options.postcssOptions).toEqual(
-      (process.features as {typescript?: unknown}).typescript
+      (await canImportTypeScript())
         ? {cwd: root, config: false, plugins: [instance]}
         : {
             cwd: root,
@@ -566,7 +566,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
   it('swaps a string tailwindcss entry of a .cjs config for the instance it made', async () => {
     const root = makeProject({
-      'package.json': packageJson({devDependencies: {tailwindcss: 'latest'}}),
+      'package.json': packageJson({devDependencies: {tailwindcss: '^3.4.13'}}),
       'postcss.config.cjs': "module.exports = {plugins: ['tailwindcss']}"
     })
     fakePackage(root, 'tailwindcss')
@@ -581,6 +581,28 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     // The v3 plugin takes the project's tailwind.config, here none.
     expect(calls(root)).toEqual([{id: 'tailwindcss', opts: null}])
+  })
+
+  // A monorepo root can hold the v4 plugin, a v3 project's own package must win.
+  it('keeps the project tailwindcss of a v3 project over a v4 plugin found above it', async () => {
+    const root = makeProject({
+      'app/package.json': packageJson({
+        devDependencies: {tailwindcss: '^3.4.13'}
+      }),
+      'app/postcss.config.cjs': "module.exports = {plugins: ['tailwindcss']}"
+    })
+    const app = path.join(root, 'app')
+    fakePackage(root, '@tailwindcss/postcss')
+    fakePackage(app, 'tailwindcss')
+
+    const rule = await maybeUsePostCss(app, {mode: 'development'})
+
+    expect(rule.options.postcssOptions.plugins).toEqual([
+      {postcssPlugin: 'tailwindcss'}
+    ])
+
+    expect(calls(app)).toEqual([{id: 'tailwindcss', opts: null}])
+    expect(calls(root)).toEqual([])
   })
 
   it('resolves the Tailwind a YAML config names from the project', async () => {
@@ -605,7 +627,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     const root = makeProject({
       'package.json': packageJson({
         type: 'module',
-        devDependencies: {tailwindcss: 'latest', autoprefixer: '^10.0.0'}
+        devDependencies: {tailwindcss: '^3.4.13', autoprefixer: '^10.0.0'}
       }),
       'postcss.config.js':
         "const tailwindcss = require('tailwindcss'); module.exports = {plugins: [tailwindcss]}"
