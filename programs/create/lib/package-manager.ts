@@ -240,6 +240,20 @@ export function versionProbeWith(
     })
 }
 
+// Where the manager is started. A shim answers for the manifest nearest to
+// that folder, so the project is the place to ask from.
+export function versionProbeFolder(
+  projectPath: string,
+  platform: NodeJS.Platform = process.platform
+): string | undefined {
+  // Windows runs a file named like the manager from the folder it starts
+  // in before any on PATH, and a downloaded template must never answer.
+  if (platform === 'win32') return undefined
+
+  // A folder that is gone would read as a manager that is missing.
+  return fs.existsSync(projectPath) ? projectPath : undefined
+}
+
 type ProbeAnswer =
   | {version: string}
   | {failure: UndeclaredReason; askAgain: boolean}
@@ -250,15 +264,14 @@ async function askVersion(
   timeoutMs: number,
   probeVersion: VersionProbe
 ): Promise<ProbeAnswer> {
+  const cwd = versionProbeFolder(projectPath)
   let probe: VersionProbeAnswer
 
   try {
     probe = await probeVersion(manager, ['--version'], {
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: timeoutMs,
-      // A shim answers for the manifest nearest to where it starts, and a
-      // folder that is gone would read as a manager that is missing.
-      ...(fs.existsSync(projectPath) ? {cwd: projectPath} : {}),
+      ...(cwd === undefined ? {} : {cwd}),
       env: {
         ...process.env,
         ...corepackRegistryEnv(process.env, projectPath)

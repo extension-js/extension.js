@@ -8,6 +8,7 @@ import {
   declarePackageManager,
   type VersionProbe,
   type VersionProbeOptions,
+  versionProbeFolder,
   versionProbeWith
 } from '../package-manager'
 
@@ -102,15 +103,18 @@ describe('the package manager version probe', () => {
   })
 
   // A Corepack shim answers for the nearest manifest above where it starts.
-  it('asks from the project folder, not from where the create was started', async () => {
-    const dir = unpinnedProject(null)
-    const {probe, calls} = recordingProbe({status: 0, stdout: '9.9.9\n'})
+  it.skipIf(process.platform === 'win32')(
+    'asks from the project folder, not from where the create was started',
+    async () => {
+      const dir = unpinnedProject(null)
+      const {probe, calls} = recordingProbe({status: 0, stdout: '9.9.9\n'})
 
-    await declarePackageManager(dir, 'pnpm', probe)
+      await declarePackageManager(dir, 'pnpm', probe)
 
-    expect(calls[0][2].cwd).toBe(dir)
-    expect(dir).not.toBe(process.cwd())
-  })
+      expect(calls[0][2].cwd).toBe(dir)
+      expect(dir).not.toBe(process.cwd())
+    }
+  )
 
   it('names no folder to start in when the project folder is gone', async () => {
     const dir = path.join(unpinnedProject(null), 'never-made')
@@ -122,6 +126,16 @@ describe('the package manager version probe', () => {
     })
 
     expect(calls[0][2]).not.toHaveProperty('cwd')
+    expect(versionProbeFolder(dir, 'linux')).toBeUndefined()
+  })
+
+  // There a file named npm.cmd in the folder would run before the real npm.
+  it('stays in the starting folder on Windows, where a template could answer', () => {
+    const dir = unpinnedProject(null)
+
+    expect(versionProbeFolder(dir, 'win32')).toBeUndefined()
+    expect(versionProbeFolder(dir, 'darwin')).toBe(dir)
+    expect(versionProbeFolder(dir, 'linux')).toBe(dir)
   })
 
   it('sets no Corepack registry for a project that pins none', async () => {
