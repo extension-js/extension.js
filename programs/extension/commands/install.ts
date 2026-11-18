@@ -20,7 +20,7 @@ import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
-import {telemetryCli} from '../helpers/telemetry-cli'
+import {type TelemetryCli, telemetryCli} from '../helpers/telemetry-cli'
 import {
   type Browser,
   firstNonManagedInstallTarget,
@@ -44,7 +44,8 @@ type UninstallOptions = {
 
 const DEFAULT_INSTALL_TARGET: Browser = 'chromium'
 
-type InstallTelemetry = ExitAfterDrainDeps['cli']
+type InstallTelemetry = ExitAfterDrainDeps['cli'] &
+  Pick<TelemetryCli, 'noteInstallTarget'>
 
 export interface InstallCommandDeps {
   telemetry?: InstallTelemetry
@@ -367,6 +368,13 @@ export function registerInstallCommand(
         | Browser
         | 'all'
       const browserList = installTargets(selectedBrowser)
+
+      // One browser or all. Several names cannot be told apart in one row.
+      telemetry.noteInstallTarget(
+        selectedBrowser === 'all' || browserList.length !== 1
+          ? selectedBrowser
+          : browserList[0]
+      )
 
       // --where with no name prints the cache root; skip name validation.
       if (!(options.where && !named)) {

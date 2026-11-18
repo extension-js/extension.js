@@ -103,6 +103,14 @@ the offer can be told apart from a dead end:
 | `browser_install_browser` | the managed browser name, for example `chrome`     |
 | `browser_install_seconds` | whole seconds the download took, when one ran      |
 
+`extension install` adds one property, so its failures can be counted by browser:
+
+| property         | value                                                        |
+| ---------------- | ------------------------------------------------------------ |
+| `install_target` | `chrome`, `chromium`, `edge`, `firefox` or `all`, or absent |
+
+A bare `extension install` sends `chromium`, the browser it installs. The property is absent when several browsers are named (`extension install chrome firefox`), for a family alias such as `chromium-based`, and for any name outside the list, so a typed value is never sent.
+
 The `create` command adds four properties, so a broken advertised starter shows up in its failure counts and a slow or failed dependency install can be told apart from a project nobody ran:
 
 | property   | value                                                                 |

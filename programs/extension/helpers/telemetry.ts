@@ -39,6 +39,8 @@ export type TelemetryProps = {
   browser_install_seconds?: number
   deps_install?: string
   deps_install_seconds?: number
+  // One word from INSTALL_TARGETS, on install only.
+  install_target?: string
 }
 
 /* @invariant THIS CAP USED TO BE THIRTY-TWO AND IT WAS SILENTLY MANGLING THE
@@ -101,6 +103,7 @@ const BROWSER_INSTALL_OUTCOMES = new Set([
   'failed'
 ])
 const INSTALLABLE_BROWSERS = new Set(['chrome', 'chromium', 'edge', 'firefox'])
+const INSTALL_TARGETS = new Set([...INSTALLABLE_BROWSERS, 'all'])
 const DEPS_INSTALL_OUTCOMES = new Set(['skipped', 'installed', 'failed'])
 const MAX_INSTALL_SECONDS = 86_400
 
@@ -1035,6 +1038,9 @@ export class Telemetry {
       if (depsSeconds !== undefined) {
         enforcedProps.deps_install_seconds = depsSeconds
       }
+
+      const installTarget = fixedWord(props.install_target, INSTALL_TARGETS)
+      if (installTarget) enforcedProps.install_target = installTarget
 
       // $ip and $geoip_disable keep the request address and any location
       // out, $process_person_profile keeps a per-machine profile from forming.
