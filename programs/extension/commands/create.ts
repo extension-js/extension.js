@@ -225,7 +225,9 @@ export function registerCreateCommand(program: Command) {
           // and without this create could not report a failure at all.
           markCommandFailure(undefined, {
             code: createErrorCode(error),
-            exitCode: 1
+            exitCode: 1,
+            error,
+            step: 'scaffold'
           })
 
           if (!asJson) throw error

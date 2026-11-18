@@ -62,7 +62,13 @@ import {
 } from 'extension-install'
 import * as installPackage from 'extension-install'
 import {registerInstallCommand} from '../commands/install'
+import {
+  cliRun,
+  useTelemetrySandbox
+} from '../helpers/__spec__/telemetry-sandbox'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+
+const sandbox = useTelemetrySandbox()
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>
@@ -79,6 +85,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.clearAllMocks()
+  // A queued rejection a test never reached must not fail the next test.
+  vi.mocked(extensionInstall).mockReset()
+  vi.mocked(extensionUninstall).mockReset()
   vi.unstubAllEnvs()
 
   if (typeof prevOutput === 'undefined') {
@@ -177,6 +186,96 @@ describe('extension install', () => {
     expect(extensionInstall).toHaveBeenCalledWith(
       expect.objectContaining({browser: 'edge'})
     )
+  })
+
+  describe('when several names are given', () => {
+    function installedNames() {
+      return vi
+        .mocked(extensionInstall)
+        .mock.calls.map(([options]) => options.browser)
+    }
+
+    it('installs each of two positional names', async () => {
+      expect(await run(['install', 'chrome', 'firefox'])).toBe(0)
+      expect(installedNames()).toEqual(['chrome', 'firefox'])
+    })
+
+    it('reads two arguments the same as one comma list', async () => {
+      expect(await run(['install', 'chrome,firefox'])).toBe(0)
+      const fromList = installedNames()
+
+      vi.mocked(extensionInstall).mockClear()
+      expect(await run(['install', 'chrome', 'firefox'])).toBe(0)
+      expect(installedNames()).toEqual(fromList)
+    })
+
+    it('takes a mix of comma lists and single names', async () => {
+      expect(await run(['install', 'chrome,edge', 'firefox'])).toBe(0)
+      expect(installedNames()).toEqual(['chrome', 'edge', 'firefox'])
+    })
+
+    it('installs a name given twice once', async () => {
+      expect(await run(['install', 'chrome', 'chrome,firefox'])).toBe(0)
+      expect(installedNames()).toEqual(['chrome', 'firefox'])
+    })
+
+    it('takes the two arguments PowerShell makes of an unquoted chrome,firefox', async () => {
+      expect(
+        await run(['install', 'chrome', 'firefox', '--output', 'json'])
+      ).toBe(0)
+
+      expect(wholeStdout()).toMatchObject({
+        ok: true,
+        status: 'installed',
+        value: {browsers: ['chrome', 'firefox']}
+      })
+    })
+
+    it('refuses the whole list by the name it cannot install, before any download', async () => {
+      expect(
+        await run(['install', 'chrome', 'netscape', '--output', 'json'])
+      ).toBe(1)
+
+      expect(wholeStdout().error).toMatchObject({
+        code: 'E_UNSUPPORTED_BROWSER',
+        message: 'Unsupported browser: netscape.'
+      })
+
+      expect(extensionInstall).not.toHaveBeenCalled()
+    })
+
+    it('refuses a known browser it never downloads by its name', async () => {
+      expect(
+        await run(['install', 'firefox', 'brave', '--output', 'json'])
+      ).toBe(1)
+
+      expect(wholeStdout().error?.code).toBe('E_BROWSER_NOT_INSTALLABLE')
+      expect(wholeStdout().error?.message).toContain('brave')
+      expect(extensionInstall).not.toHaveBeenCalled()
+    })
+
+    it('prints the folder of each name with --where', async () => {
+      expect(await run(['install', 'chrome', 'edge', '--where'])).toBe(0)
+      expect(logSpy.mock.calls).toEqual([['/cache/chrome'], ['/cache/edge']])
+    })
+
+    it('reads all among the names as every managed browser', async () => {
+      expect(await run(['install', 'chrome', 'all'])).toBe(0)
+      expect(installedNames()).toEqual([
+        'chrome',
+        'chromium',
+        'edge',
+        'firefox'
+      ])
+    })
+
+    it('lets --browser decide over positional names, as its help says', async () => {
+      expect(
+        await run(['install', 'chrome', 'edge', '--browser', 'firefox'])
+      ).toBe(0)
+
+      expect(installedNames()).toEqual(['firefox'])
+    })
   })
 
   it('prints per-browser install dirs with --where and a browser', async () => {
@@ -644,6 +743,40 @@ describe('extension uninstall', () => {
     })
   })
 
+  it('uninstalls each of several positional names, a repeat once', async () => {
+    expect(
+      await run(['uninstall', 'chrome', 'firefox,chrome', '--output', 'json'])
+    ).toBe(0)
+
+    expect(extensionUninstall).toHaveBeenCalledWith({
+      browser: 'chrome,firefox',
+      all: false
+    })
+
+    expect(wholeStdout().value).toMatchObject({browsers: ['chrome', 'firefox']})
+  })
+
+  it('reads all among several names as every managed browser', async () => {
+    expect(await run(['uninstall', 'chrome', 'all'])).toBe(0)
+    expect(extensionUninstall).toHaveBeenCalledWith({
+      browser: undefined,
+      all: true
+    })
+  })
+
+  it('refuses several names by the one it cannot remove', async () => {
+    expect(
+      await run(['uninstall', 'edge', 'netscape', '--output', 'json'])
+    ).toBe(1)
+
+    expect(wholeStdout().error).toMatchObject({
+      code: 'E_UNSUPPORTED_BROWSER',
+      message: 'Unsupported browser: netscape.'
+    })
+
+    expect(extensionUninstall).not.toHaveBeenCalled()
+  })
+
   it('uninstalls a comma list via --browser', async () => {
     expect(await run(['uninstall', '--browser', 'chrome,firefox'])).toBe(0)
     expect(extensionUninstall).toHaveBeenCalledWith({
@@ -972,5 +1105,199 @@ describe('the code each package error class is framed as', () => {
       .map(([code, names]) => `${code}: ${names.join(', ')}`)
 
     expect(shared).toEqual([])
+  })
+})
+
+// The row a refused run leaves in telemetry, captured in a sandbox this file
+// owns. The code must match the one the envelope printed, for every refusal.
+describe('the code a refused run reports to telemetry', () => {
+  function telemetryRun(argv: string[]) {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: '1'}})
+    const {cli} = cliRun(box, {argv: ['node', 'extension', ...argv]})
+
+    return {box, cli}
+  }
+
+  async function refusedRow(argv: string[]) {
+    const {box, cli} = telemetryRun([...argv, '--output', 'json'])
+
+    logSpy.mockClear()
+    stdoutSpy.mockClear()
+
+    const exitCode = await runCli(
+      makeProgram((program) =>
+        registerInstallCommand(program, {telemetry: cli})
+      ),
+      argv.concat('--output', 'json')
+    )
+
+    const failed = box
+      .sentRows()
+      .filter((row) => row.event === 'command_failed')
+
+    return {exitCode, failed, envelopeCode: wholeStdout().error?.code}
+  }
+
+  const cases: Array<[string, string[], () => void]> = [
+    ['an unknown name', ['install', 'netscape'], () => {}],
+    ['a browser it never downloads', ['install', 'brave'], () => {}],
+    [
+      'a failed download',
+      ['install', 'chrome'],
+      () => {
+        vi.mocked(extensionInstall).mockRejectedValueOnce(
+          new BrowserInstallFailedError('404 from CDN')
+        )
+      }
+    ],
+    [
+      'a download that ran out of time',
+      ['install', 'chrome'],
+      () => {
+        vi.mocked(extensionInstall).mockRejectedValueOnce(
+          new BrowserInstallTimeoutError('took too long', 1)
+        )
+      }
+    ],
+    [
+      'a missing package runner',
+      ['install', 'chrome'],
+      () => {
+        vi.mocked(extensionInstall).mockRejectedValueOnce(
+          installerNotFoundError()
+        )
+      }
+    ],
+    [
+      'a session without the needed rights',
+      ['install', 'edge'],
+      () => {
+        vi.mocked(extensionInstall).mockRejectedValueOnce(privilegeError())
+      }
+    ],
+    [
+      'an error of no known kind',
+      ['install', 'chrome'],
+      () => {
+        vi.mocked(extensionInstall).mockRejectedValueOnce(new Error('odd'))
+      }
+    ],
+    ['an uninstall with no target', ['uninstall'], () => {}],
+    ['an uninstall of an unknown name', ['uninstall', 'netscape'], () => {}],
+    [
+      'an uninstall that could not remove a folder',
+      ['uninstall', 'firefox'],
+      () => {
+        vi.mocked(extensionUninstall).mockRejectedValueOnce(new Error('EBUSY'))
+      }
+    ]
+  ]
+
+  it.each(
+    cases
+  )('sends the envelope code for %s', async (_title, argv, arrange) => {
+    arrange()
+
+    const {exitCode, failed, envelopeCode} = await refusedRow(argv)
+
+    expect(exitCode).toBe(1)
+    expect(envelopeCode).toMatch(/^E_/)
+    expect(failed).toHaveLength(1)
+    expect(failed[0].properties).toMatchObject({
+      command: argv[0],
+      success: false,
+      code: envelopeCode,
+      exit_code: 1
+    })
+  })
+
+  it('sends no failure for an install that worked', async () => {
+    const {box, cli} = telemetryRun(['install', 'chrome'])
+
+    expect(
+      await runCli(
+        makeProgram((program) =>
+          registerInstallCommand(program, {telemetry: cli})
+        ),
+        ['install', 'chrome']
+      )
+    ).toBe(0)
+
+    expect(
+      box.sentRows().filter((row) => row.event === 'command_failed')
+    ).toEqual([])
+  })
+})
+
+// One word from a fixed list, so a failure count can be read by browser. A
+// list of several names, an alias or anything typed by hand sends nothing.
+describe('the browser an install row names', () => {
+  async function installRow(argv: string[], arrange: () => void = () => {}) {
+    const box = sandbox({
+      env: {EXTENSION_TELEMETRY: '1', EXTENSION_TELEMETRY_SAMPLE_RATE: '1'}
+    })
+    const {cli} = cliRun(box, {argv: ['node', 'extension', ...argv]})
+
+    arrange()
+    const exitCode = await runCli(
+      makeProgram((program) =>
+        registerInstallCommand(program, {telemetry: cli})
+      ),
+      argv
+    )
+
+    // The entry point marks a success once the action resolves.
+    if (exitCode === 0) cli.markCommandSuccess()
+
+    await cli.telemetry.flush()
+
+    const rows = box
+      .sentRows()
+      .filter((row) => row.properties.command === argv[0])
+
+    expect(rows).toHaveLength(1)
+
+    return rows[0].properties
+  }
+
+  it.each([
+    [['install', 'chrome'], 'chrome'],
+    [['install', 'firefox'], 'firefox'],
+    [['install', '--browser', 'edge'], 'edge'],
+    [['install'], 'chromium'],
+    [['install', 'all'], 'all'],
+    [['install', 'chrome', 'all'], 'all']
+  ])('sends install_target for %j', async (argv, target) => {
+    expect((await installRow(argv)).install_target).toBe(target)
+  })
+
+  it.each([
+    [['install', 'chrome', 'firefox']],
+    [['install', 'chrome,firefox']],
+    [['install', 'chromium-based']],
+    [['install', 'netscape']],
+    [['install', 'brave']]
+  ])('sends no install_target for %j', async (argv) => {
+    expect(await installRow(argv)).not.toHaveProperty('install_target')
+  })
+
+  it('names the browser on a failed download beside its code', async () => {
+    const row = await installRow(['install', 'firefox'], () => {
+      vi.mocked(extensionInstall).mockRejectedValueOnce(
+        new BrowserInstallFailedError('404 from CDN')
+      )
+    })
+
+    expect(row).toMatchObject({
+      success: false,
+      code: 'E_BROWSER_DOWNLOAD',
+      install_target: 'firefox'
+    })
+  })
+
+  it('never puts the name on an uninstall row', async () => {
+    expect(await installRow(['uninstall', 'chrome'])).not.toHaveProperty(
+      'install_target'
+    )
   })
 })

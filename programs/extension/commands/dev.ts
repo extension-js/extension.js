@@ -649,11 +649,30 @@ export function registerDevCommand(
         const reportExitError = (error: unknown, fallbackCode?: string) => {
           reportFailure({
             code: declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
-            exitCode: 1
+            exitCode: 1,
+            error,
+            step: 'engine'
           })
         }
 
-        const {extensionDev}: DevelopFor<'extensionDev'> = await loadDevelop()
+        let develop: DevelopFor<'extensionDev'>
+
+        try {
+          develop = await loadDevelop()
+        } catch (error) {
+          // Counted here, so the row says the engine never loaded. The entry
+          // point still prints the error and exits.
+          reportFailure({
+            code: declaredErrorCode(error) ?? CODES.E_INTERNAL,
+            exitCode: 1,
+            error,
+            step: 'engine_load'
+          })
+
+          throw error
+        }
+
+        const {extensionDev} = develop
 
         for (const vendor of list) {
           const logsOption = devOptions.logs
@@ -777,7 +796,7 @@ export function registerDevCommand(
               )
             )
 
-            exitWithFailure(code, 1, reportFailure)
+            exitWithFailure(code, 1, reportFailure, {error, step: 'engine'})
           }
         }
       }

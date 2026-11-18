@@ -18,6 +18,11 @@ import {readDependencyInstall} from './dependency-install-outcome'
 import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
 import {CODES} from './messaging'
 import {
+  type FailureStep,
+  isFailureStep,
+  telemetryErrorClass
+} from './telemetry-error-class'
+import {
   createTelemetryKit,
   TELEMETRY_DOCS_URL,
   Telemetry,
@@ -171,6 +176,7 @@ export type TelemetryCommandContext = {
   browser_install_seconds?: number
   deps_install?: string
   deps_install_seconds?: number
+  install_target?: string
 }
 
 type InstallReaders = {
@@ -178,11 +184,22 @@ type InstallReaders = {
   readDependencyInstall: typeof readDependencyInstall
 }
 
+// The browser an install was asked for, as one word the payload gate also
+// knows. Several names, an alias or a typed path send nothing.
+const INSTALL_TARGET_WORDS: ReadonlySet<string> = new Set([
+  'chrome',
+  'chromium',
+  'edge',
+  'firefox',
+  'all'
+])
+
 function commandContextWith(
   readers: InstallReaders,
   command: string,
   argv: string[],
-  resolvedBrowsers?: readonly string[]
+  resolvedBrowsers?: readonly string[],
+  installTarget?: string
 ): TelemetryCommandContext {
   // Whether the first-run download offer converts, on whichever command made
   // it. Four fixed outcomes and a managed browser name, never a path.
@@ -193,9 +210,10 @@ function commandContextWith(
         browser_install_browser: install.browser,
         ...(install.seconds === undefined
           ? {}
-          : {browser_install_seconds: install.seconds})
+          : {browser_install_seconds: install.seconds}),
+        ...targetContext(command, installTarget)
       }
-    : {}
+    : targetContext(command, installTarget)
 
   const browser = telemetryBrowser(resolvedBrowsers, argv)
   if (browser) return {...installContext, browser}
@@ -210,6 +228,17 @@ function commandContextWith(
     ...(deps ? {deps_install: deps.outcome} : {}),
     ...(deps?.seconds === undefined ? {} : {deps_install_seconds: deps.seconds})
   }
+}
+
+function targetContext(
+  command: string,
+  installTarget: string | undefined
+): Pick<TelemetryCommandContext, 'install_target'> {
+  if (command !== 'install' || !installTarget) return {}
+
+  return INSTALL_TARGET_WORDS.has(installTarget)
+    ? {install_target: installTarget}
+    : {}
 }
 
 export function telemetryCommandContext(
@@ -232,6 +261,25 @@ export interface CommandFailureDetails {
   // A CODES value. Anything else is dropped, so a message never travels.
   code?: unknown
   exitCode?: unknown
+  // Read only on an E_INTERNAL row, and only as a word from a fixed list.
+  error?: unknown
+  step?: FailureStep
+}
+
+// What an unclassified failure can say about itself: the error's class and
+// where it was thrown, each a fixed word. Nothing for any other code.
+function internalFailureContext(
+  code: string | undefined,
+  details: CommandFailureDetails
+): {error_class?: string; error_step?: FailureStep} {
+  if (code !== CODES.E_INTERNAL) return {}
+
+  return {
+    ...('error' in details
+      ? {error_class: telemetryErrorClass(details.error)}
+      : {}),
+    ...(isFailureStep(details.step) ? {error_step: details.step} : {})
+  }
 }
 
 // Only a catalog code travels. An error message carries paths and project
@@ -292,6 +340,8 @@ export interface TelemetryCli {
   reset(): TelemetryReset
   // Called by a command once it knows which browsers the run targets.
   noteBrowsers(resolved: readonly string[]): void
+  // Called by install once it has read the names it was given.
+  noteInstallTarget(target: string | undefined): void
   invokedCommand(): string
   resolveInvokedCommand(argv: string[], valuedFlags: ReadonlySet<string>): void
   setConsent(value: 'enabled' | 'disabled'): {ok: boolean; path: string | null}
@@ -335,6 +385,7 @@ export function createTelemetryCli(
   )
 
   let resolvedBrowsers: readonly string[] | undefined
+  let installTarget: string | undefined
   let tracked = false
   let sessionStarted = false
   let sessionReady = false
@@ -418,7 +469,13 @@ export function createTelemetryCli(
       success: true,
       version,
       session: 'started',
-      ...commandContextWith(readers, command, argv, resolvedBrowsers)
+      ...commandContextWith(
+        readers,
+        command,
+        argv,
+        resolvedBrowsers,
+        installTarget
+      )
     })
 
     // Sent now, not queued. Holding it for the exit is the defect being fixed.
@@ -438,7 +495,13 @@ export function createTelemetryCli(
       success: true,
       version,
       session: 'ready',
-      ...commandContextWith(readers, command, argv, resolvedBrowsers)
+      ...commandContextWith(
+        readers,
+        command,
+        argv,
+        resolvedBrowsers,
+        installTarget
+      )
     })
 
     void telemetry.flush()
@@ -454,7 +517,13 @@ export function createTelemetryCli(
       command,
       success: true,
       version,
-      ...commandContextWith(readers, command, argv, resolvedBrowsers)
+      ...commandContextWith(
+        readers,
+        command,
+        argv,
+        resolvedBrowsers,
+        installTarget
+      )
     })
   }
 
@@ -472,7 +541,14 @@ export function createTelemetryCli(
       version,
       ...(code ? {code} : {}),
       ...(exitCode === undefined ? {} : {exit_code: exitCode}),
-      ...commandContextWith(readers, command, argv, resolvedBrowsers)
+      ...internalFailureContext(code, details),
+      ...commandContextWith(
+        readers,
+        command,
+        argv,
+        resolvedBrowsers,
+        installTarget
+      )
     })
   }
 
@@ -544,6 +620,9 @@ export function createTelemetryCli(
     reset,
     noteBrowsers: (resolved) => {
       resolvedBrowsers = [...resolved]
+    },
+    noteInstallTarget: (target) => {
+      installTarget = target
     },
     invokedCommand: () => invoked,
     resolveInvokedCommand: (nextArgv, valuedFlags) => {
