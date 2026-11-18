@@ -9,12 +9,12 @@
 
 > Handle extension "special folders" (public, pages, scripts, extensions) during builds and development.
 
-This module adds support for special folders in a browser extension project and is part of the [Extension.js](https://extension.js.org) project. It uses Rspack's `CopyRspackPlugin` to emit static assets under `public/` (for proper watch/incremental behavior). In development watch mode, it also warns when HTML files in `pages/` or script files in `scripts/` are added or removed after compilation (which typically requires a server restart). It also defines a conventional `extensions/` folder for load-only companion extensions.
+This module adds support for special folders in a browser extension project and is part of the [Extension.js](https://extension.js.org) project. It uses Rspack's `CopyRspackPlugin` to emit static assets under `public/` (for proper watch/incremental behavior). In development watch mode, adding or removing an HTML file in `pages/` or a script in `scripts/` changes the entrypoints, so a live dev session restarts itself to pick the change up. It also defines a conventional `extensions/` folder for load-only companion extensions.
 
 - Emits everything from the exact `public/` directory into the build output root, preserving the folder structure, via `CopyRspackPlugin`.
 - In development with watch enabled, monitors `pages/` and `scripts/`:
-  - Adding supported files logs a warning (non-fatal) so you can continue working.
-  - Removing supported files triggers a compilation error that exits the process, to avoid running with broken entry points.
+  - Adding or removing a supported file restarts the live dev session, and a rename asks for one restart that names both paths.
+  - With no session to restart, an addition is a warning and a removal is a compilation error that asks for a restart.
 
 Output mapping overview:
 
@@ -48,6 +48,7 @@ export default {
 - This plugin takes no glob lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root. It also exposes a default `extensions/` scan when no CLI/config `extensions` are provided.
 - `include` (from `extension.config.js`, layered top-level, per browser and per command) names extra files by output path. A missing source or an output path outside the extension root fails the compilation with a message naming the key.
 - A `.js`, `.mjs` or `.cjs` file `include` copies is minified in a production build (a `.min.js` is left alone): names are shortened and comments dropped, no statement is rewritten, so the value `executeScript` reads off the file stays and a `/*!` banner stays in the file. `{from: 'vendor/lib.js', minify: false}` in place of the path ships that file as authored, and so does `--no-minify` for every file. Files under `public/` always ship as authored.
+- `exclude` names files relative to the project root that a build leaves out: a page or script there gets no entry, and a file under `public/` is not copied. An entry with no file behind it is a warning that names the browser.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
 
 ## Path resolution convention (consistent across @plugin-extension)
@@ -66,10 +67,12 @@ This plugin mirrors that convention by emitting `public/` into the output root s
 ## API
 
 ```ts
-export interface SpecialFoldersPluginOptions {
+interface SpecialFoldersPluginOptions {
   manifestPath: string
+  browser?: DevOptions['browser']
   folders?: SpecialFoldersConfig
   include?: Record<string, string | {from: string; minify?: boolean}>
+  exclude?: string[]
 }
 
 export class SpecialFoldersPlugin {
@@ -85,13 +88,13 @@ export class SpecialFoldersPlugin {
   - `public/img/icon.png` → `dist/img/icon.png`
   - `public/logo.svg` → `dist/logo.svg`
 - Dev watch behavior:
-  - Add `pages/foo.html` → logs a warning advising a restart.
-  - Remove `scripts/content.js` → logs an error and exits to prevent broken builds.
+  - Add `pages/foo.html` → the live session restarts with the new page.
+  - Remove `scripts/content.js` → the live session restarts without that entry.
 
 ## Tested behaviors
 
 - Copies `public/**` into output root during builds and mirrors add/change/unlink in development watch.
-- In dev watch, adding HTML under `pages/` or supported scripts under `scripts/` logs a warning; removing them logs an error and exits.
+- In dev watch, adding or removing HTML under `pages/` or supported scripts under `scripts/` restarts the live session. Without one, an addition warns and a removal is an error.
 
 ## License
 
