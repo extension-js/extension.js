@@ -5,7 +5,10 @@ import vm from 'node:vm'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, afterEach, describe, expect, it} from 'vitest'
 import {AddAssetsToCompilation} from '../../feature-html/steps/add-assets-to-compilation'
-import {classicConcatEntry} from '../../shared/classic-concat'
+import {
+  classicConcatEntry,
+  ResolveClassicConcat
+} from '../../shared/classic-concat'
 import classicConcatLoader from '../steps/add-content-script-wrapper/classic-concat-loader'
 import {AddScripts} from '../steps/add-scripts'
 
@@ -113,6 +116,7 @@ function session(feature: 'sidebar/index' | 'content_scripts/content-0') {
       ]
     },
     plugins: [
+      new ResolveClassicConcat({loader: at('stand-in-loader.cjs')}),
       ofPage
         ? new AddAssetsToCompilation({
             manifestPath,
@@ -138,7 +142,8 @@ function session(feature: 'sidebar/index' | 'content_scripts/content-0') {
     for (const resolve of waiting.splice(0)) resolve()
   })
 
-  compiler.watch({aggregateTimeout: 50}, () => {})
+  // Polled, so a loaded machine sees an edit as soon as an idle one.
+  compiler.watch({aggregateTimeout: 50, poll: 100}, () => {})
 
   // The build after the ones already seen, or a failure when none comes.
   const next = async (seen: number) => {
@@ -151,6 +156,13 @@ function session(feature: 'sidebar/index' | 'content_scripts/content-0') {
         new Promise<void>((resolve) => waiting.push(resolve)),
         new Promise<void>((resolve) => setTimeout(resolve, 500))
       ])
+    }
+
+    // Several edits may land in builds of their own, and the session
+    // watches again a moment after a build ends. The last quiet one counts.
+    for (let count = -1; count !== builds.length; ) {
+      count = builds.length
+      await new Promise<void>((resolve) => setTimeout(resolve, 300))
     }
 
     return builds[builds.length - 1]
@@ -275,6 +287,54 @@ describe('a page whose classic scripts are joined, in a watch session', () => {
     ])
 
     expect(ran({seen: ['page']})).toEqual(['page', 'third'])
+  }, 120000)
+})
+
+describe('classic scripts joined in a watch session, every file deleted', () => {
+  it('warns for each script of the page, then builds them once they return', async () => {
+    const {files, builds, next, ran} = session('sidebar/index')
+
+    await next(0)
+    for (const file of files) fs.rmSync(file)
+
+    const rebuilt = await next(builds.length)
+
+    expect(rebuilt.errors).toEqual([])
+    expect(rebuilt.warnings.map(({name}) => name)).toEqual([
+      'HtmlEntrypointMissing',
+      'HtmlEntrypointMissing',
+      'HtmlEntrypointMissing'
+    ])
+
+    fs.writeFileSync(files[0], 'var seen = ["first again"]\n')
+    fs.writeFileSync(files[1], 'seen.push("second")\n')
+    fs.writeFileSync(files[2], 'seen.push("third")\nglobalThis.seen = seen\n')
+
+    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(ran()).toEqual(['first again', 'second', 'third'])
+  }, 120000)
+
+  it('fails for each script of the group, then builds them once they return', async () => {
+    const {files, builds, next, ran} = session('content_scripts/content-0')
+
+    await next(0)
+    for (const file of files) fs.rmSync(file)
+
+    const rebuilt = await next(builds.length)
+
+    expect(rebuilt.warnings).toEqual([])
+    expect(rebuilt.errors.map(({name}) => name)).toEqual([
+      'ScriptsMissingFile',
+      'ScriptsMissingFile',
+      'ScriptsMissingFile'
+    ])
+
+    fs.writeFileSync(files[0], 'var seen = ["first again"]\n')
+    fs.writeFileSync(files[1], 'seen.push("second")\n')
+    fs.writeFileSync(files[2], 'seen.push("third")\nglobalThis.seen = seen\n')
+
+    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(ran()).toEqual(['first again', 'second', 'third'])
   }, 120000)
 })
 
