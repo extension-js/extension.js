@@ -949,6 +949,7 @@ describe('extension dev when the --parent-pid owner goes away', () => {
   let ended = false
   let kill: ReturnType<typeof vi.spyOn>
   let endSessionAsFailed: ReturnType<typeof vi.fn>
+  let drainedExits: number[] = []
 
   const engineFrame = (status: string, error: unknown) => {
     if (ended) return
@@ -964,6 +965,7 @@ describe('extension dev when the --parent-pid owner goes away', () => {
     parentAlive = true
     sessionLive = false
     ended = false
+    drainedExits = []
     vi.useFakeTimers({
       toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval']
     })
@@ -996,6 +998,9 @@ describe('extension dev when the --parent-pid owner goes away', () => {
   function runWithRealWatchdog(argv: string[]) {
     const realDeps: DevDeps = {
       ...deps,
+      exitDrained: async (code) => {
+        drainedExits.push(code)
+      },
       armParentWatchdog: (pid, options) =>
         setupParentWatchdog(pid, {
           ...options,
@@ -1022,10 +1027,11 @@ describe('extension dev when the --parent-pid owner goes away', () => {
       TERMINAL.has(String((frame as {status?: unknown}).status))
     )
 
+  // The engine exits a CLI session itself only outside --output json.
   it.each([
-    ['under --output json', ['--output', 'json']],
-    ['in pretty mode', []]
-  ])('ends a live session through the engine %s, with one terminal frame', async (_name, flags) => {
+    ['under --output json', ['--output', 'json'], [1]],
+    ['in pretty mode', [], []]
+  ])('ends a live session through the engine %s, with one terminal frame', async (_name, flags, exits) => {
     expect(
       await runWithRealWatchdog(['dev', '.', '--parent-pid', '4242', ...flags])
     ).toBe(0)
@@ -1048,8 +1054,9 @@ describe('extension dev when the --parent-pid owner goes away', () => {
       }
     ])
 
-    // The engine runs the shutdown and the exit, so nothing is signaled.
+    // The engine runs the shutdown, so nothing is signaled.
     expect(kill).not.toHaveBeenCalled()
+    expect(drainedExits).toEqual(exits)
 
     // No backstop exit is left behind either.
     vi.advanceTimersByTime(60_000)
@@ -1075,6 +1082,7 @@ describe('extension dev when the --parent-pid owner goes away', () => {
     ])
 
     expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+    expect(drainedExits).toEqual([])
   })
 })
 

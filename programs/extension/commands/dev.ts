@@ -8,6 +8,10 @@
 
 import * as path from 'node:path'
 import {type Command, Option} from 'commander'
+import type {
+  ErrorCode as EngineErrorCode,
+  endSessionAsFailed as EndSessionAsFailed
+} from 'extension-develop'
 import {launchBrowser} from '../browsers'
 import {
   SAFARI_APP_ICON_HELP,
@@ -140,7 +144,7 @@ function failAndExit(
 
 // The remedy a failed dev frame names, whichever side writes the frame. Only
 // a code the CLI declares has one.
-function devFailureHint(code: string): string | undefined {
+function devFailureHint(code: EngineErrorCode): string | undefined {
   return failureHint(declaredErrorCode({code}))
 }
 
@@ -416,17 +420,22 @@ export function registerDevCommand(
 
         const parentPid = parseParentPid(devOptions.parentPid)
         // Set once the engine is loaded. Before that no session can be live.
-        let endEngineSession:
-          | ((code: ErrorCode, message: string) => boolean)
-          | undefined
+        let endEngineSession: typeof EndSessionAsFailed | undefined
 
         if (parentPid !== undefined) {
           const parentGone = `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
 
           armParentWatchdog(parentPid, {
             // A live session's stream writes the one terminal frame itself.
-            endSession: () =>
-              endEngineSession?.(CODES.E_PARENT_GONE, parentGone) === true,
+            // Under --output json the engine exits nothing, so this does.
+            endSession: () => {
+              const ended =
+                endEngineSession?.(CODES.E_PARENT_GONE, parentGone) === true
+
+              if (ended && asJson) void exitDrained(1)
+
+              return ended
+            },
             emitFrame: () => {
               if (!asJson) return
 
@@ -699,7 +708,7 @@ export function registerDevCommand(
           // The engine reads hintFor to add a hint to the terminal failed or
           // usage frame it writes, which then carries none of its own.
           const devArgs: Record<string, unknown> & {
-            hintFor: (code: string) => string | undefined
+            hintFor: (code: EngineErrorCode) => string | undefined
           } = {
             // Under --output json the wrapper catches and frames the failure;
             // extensionDev must reject instead of exiting for that to happen.

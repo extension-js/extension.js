@@ -30,7 +30,7 @@ export function setupParentWatchdog(
   options?: {
     log?: (message: string) => void
     // Ends a live session through its engine, which writes the one terminal
-    // frame and exits. True when it did, and the frame and signal are skipped.
+    // frame. True when it did, and the frame and signal here are skipped.
     endSession?: () => boolean
     // The last thing a machine consumer sees, so it is written before the
     // shutdown that closes stdout behind it.

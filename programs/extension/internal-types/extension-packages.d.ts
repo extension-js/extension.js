@@ -37,7 +37,14 @@ declare module 'extension-develop' {
   export type PreviewOptions = Record<string, unknown>
   export type FileConfig = Record<string, unknown>
   export type Manifest = Record<string, unknown>
+  // The engine's code table is the CLI's own, so its codes type is shared.
+  export type ErrorCode = import('../helpers/messaging').ErrorCode
 
+  export function endSessionAsFailed(
+    code: ErrorCode,
+    message: string,
+    instanceId?: string
+  ): boolean
   export function extensionBuild(
     pathOrRemoteUrl: string,
     options: BuildOptions
