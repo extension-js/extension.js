@@ -53,6 +53,14 @@ const CALLERS: Record<string, Caller> = {
       'sw.js': `chrome.scripting.registerContentScripts([{id: "a", matches: ${JSON.stringify(MATCHES)}, css: ["injected.css"]}])\n`
     })
   },
+  updatedCss: {
+    name: 'scripting.updateContentScripts({css})',
+    guarded: true,
+    files: (css) => ({
+      'injected.css': css,
+      'sw.js': `chrome.scripting.updateContentScripts([{id: "a", css: ["injected.css"]}])\n`
+    })
+  },
   tabsInsertCss: {
     name: 'tabs.insertCSS({file})',
     guarded: true,
@@ -276,6 +284,34 @@ const EXPECTED: Record<string, Table> = {
       '.env.example + injected.css | url "chrome-extension://__MSG_@@extension_id__/.env.example"'
   },
   registeredCss: {
+    './.env':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld ./.env',
+    '"./.env.local"':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env.local" | said withheld ./.env.local',
+    '.npmrc':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.npmrc" | said withheld .npmrc',
+    '../outside.png':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/outside.png"',
+    './linked.png':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/linked.png" | said withheld ./linked.png',
+    './node_modules/pkg/.env':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
+    '/.env':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
+    '@import ./.env':
+      'injected.css | url ./.env | said import left out, withheld ./.env',
+    '@font-face ./.git/font.woff2':
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.git/font.woff2" | said withheld ./.git/font.woff2',
+    './logo.png':
+      'injected.css + logo.png | url "chrome-extension://__MSG_@@extension_id__/logo.png"',
+    './node_modules/pkg/icon.png':
+      'injected.css + node_modules/pkg/icon.png | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/icon.png"',
+    './linked-in.png':
+      'injected.css + linked-in.png | url "chrome-extension://__MSG_@@extension_id__/linked-in.png"',
+    './.env.example':
+      '.env.example + injected.css | url "chrome-extension://__MSG_@@extension_id__/.env.example"'
+  },
+  updatedCss: {
     './.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld ./.env',
     '"./.env.local"':
