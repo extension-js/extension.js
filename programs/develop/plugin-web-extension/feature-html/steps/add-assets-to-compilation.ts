@@ -32,7 +32,7 @@ import {
 
 // The name a missing reference reports under, split the way fileNotFound
 // splits its text: a script or a stylesheet is an entry, the rest an asset.
-function missingRefName(missingFilePath: string) {
+export function missingRefName(missingFilePath: string) {
   return /\.(?:[jt]sx?|css|scss|sass|less)$/.test(missingFilePath)
     ? 'HtmlEntrypointMissing'
     : 'HtmlAssetMissing'
