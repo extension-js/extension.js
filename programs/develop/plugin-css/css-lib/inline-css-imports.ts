@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import postcss, {type AtRule, type Root} from 'postcss'
+import postcss, {type AtRule, type ChildNode, type Root} from 'postcss'
 import {replaceCssUrlRefs, toPosixPath} from './dead-url-refs'
 
 export interface InlineCssImportsContext {
@@ -288,6 +288,43 @@ interface Inlining {
   skipped: PlacedCssImport[]
   // Layers whose order the first sheet states before anything else.
   orderedLayers: Set<string>
+  // Layers that rules of a sheet that came in already sit in.
+  filledLayers: Set<string>
+}
+
+// Notes each named layer the rules of a sheet that came in now sit in: the
+// one its import named, and each @layer block the sheet opens itself.
+function noteFilledLayers(
+  root: Root,
+  frames: ImportConditions[],
+  state: Inlining
+) {
+  const outer = frames.flatMap((frame) =>
+    frame.layer === undefined ? [] : [frame.layer]
+  )
+
+  // Nothing can name a layer inside an unnamed one.
+  if (outer.includes('')) return
+  if (outer.length > 0) state.filledLayers.add(outer.join('.'))
+
+  const visit = (nodes: ChildNode[], path: string[]) => {
+    for (const node of nodes) {
+      if (node.type !== 'atrule' || !node.nodes) continue
+
+      const name =
+        node.name.toLowerCase() === 'layer' ? node.params.trim() : undefined
+      // An unnamed block hides everything inside it the same way.
+      if (name === '') continue
+
+      const inner = name ? [...path, name] : path
+
+      if (name) state.filledLayers.add(inner.join('.'))
+
+      visit(node.nodes, inner)
+    }
+  }
+
+  visit(root.nodes, outer)
 }
 
 // The sheet with every @import of a project .css file replaced by that
@@ -338,8 +375,12 @@ function inlineSheet(
     }
   }
 
+  // Lists of layer names met so far that are not at the head of the result.
+  // An import that goes there would otherwise jump ahead of the order they set.
+  let layerLists: Array<{start: number; end: number; names: string[]}> = []
+
   root.nodes.forEach((node, index) => {
-    if (node.type !== 'atrule' || node.name.toLowerCase() !== 'import') return
+    if (node.type !== 'atrule') return
     // A browser skips an @import that follows a rule, and so does this step.
     if (firstBlock !== -1 && index > firstBlock) return
 
@@ -347,6 +388,20 @@ function inlineSheet(
     const start = rule.source?.start?.offset
     const end = rule.source?.end?.offset
     if (typeof start !== 'number' || typeof end !== 'number') return
+
+    if (node.name.toLowerCase() === 'layer' && !node.nodes) {
+      if (!top || start >= head) {
+        layerLists.push({
+          start,
+          end,
+          names: node.params.split(',').map((name) => name.trim())
+        })
+      }
+
+      return
+    }
+
+    if (node.name.toLowerCase() !== 'import') return
 
     const parsed = parseImport(rule.params)
     const candidates =
@@ -394,10 +449,44 @@ function inlineSheet(
             })
           : written
 
-      if (
-        state.files.size > 0 &&
-        !(conditions.layer && state.orderedLayers.has(conditions.layer))
-      ) {
+      // A list of layer names this import followed goes to the head with
+      // it, under the layer its sheet came in with. A list cannot carry a
+      // media or supports condition, nor a name inside an unnamed layer.
+      const outerLayers = frames.flatMap((frame) =>
+        frame.layer === undefined ? [] : [frame.layer]
+      )
+      const listsCanMove = !frames.some(
+        (frame) =>
+          frame.media || frame.supports !== undefined || frame.layer === ''
+      )
+      const listsMoved = layerLists.length > 0 && listsCanMove
+      const listsLeft = layerLists.length > 0 && !listsCanMove
+
+      if (listsMoved) {
+        for (const list of layerLists) {
+          const names = list.names.map((name) =>
+            [...outerLayers, name].join('.')
+          )
+
+          state.kept.push(`@layer ${names.join(', ')};`)
+          edits.push({start: list.start, end: list.end, text: ''})
+        }
+
+        layerLists = []
+      }
+
+      // The opening list of the first sheet fixes where each layer sits,
+      // and not the order of two sources inside one of them.
+      const layer = conditions.layer
+      const orderHolds =
+        Boolean(layer) &&
+        state.orderedLayers.has(layer as string) &&
+        ![...state.filledLayers].some(
+          (filled) =>
+            filled === layer || (layer as string).startsWith(`${filled}.`)
+        )
+
+      if (listsLeft || (state.files.size > 0 && (listsMoved || !orderHolds))) {
         state.moved.push({statement, file})
       }
 
@@ -458,6 +547,8 @@ function inlineSheet(
     })
   })
 
+  if (!top) noteFilledLayers(root, frames, state)
+
   if (top && state.kept.length > 0) {
     const lines = state.kept.join('\n')
 
@@ -493,7 +584,8 @@ export function inlineCssImports(
     kept: [],
     moved: [],
     skipped: [],
-    orderedLayers: new Set()
+    orderedLayers: new Set(),
+    filledLayers: new Set()
   }
   const untouched: InlinedCssImports = {
     css: source,
