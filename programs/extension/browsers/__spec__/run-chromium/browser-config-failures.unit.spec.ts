@@ -59,14 +59,13 @@ describe('a --profile path that is a file', () => {
 })
 
 describe('the output folder a Chromium launch assumes when the compile names none', () => {
-  // Pins today's behavior. Ledger 1374 D16.
-  it('is <cwd>/dist for the extension and <cwd>/dist/chrome for the profile root', () => {
+  it('is <cwd>/dist/chrome for the extension and for the profile root', () => {
     const cwd = process.cwd()
     const sessionRoot = path.join(cwd, 'dist', 'extension-js')
     const existedBefore = fs.existsSync(sessionRoot)
 
     expect(getExtensionOutputPath({options: {}} as never, undefined)).toBe(
-      path.join(cwd, 'dist')
+      path.join(cwd, 'dist', 'chrome')
     )
 
     // A plan only: nothing is created under the working directory.
@@ -79,8 +78,7 @@ describe('the output folder a Chromium launch assumes when the compile names non
       flags.find((flag) => flag.startsWith('--user-data-dir='))
     ).replace('--user-data-dir=', '')
 
-    // The profile root sits beside the output folder, so this one says the
-    // output is <cwd>/dist/chrome where the other said <cwd>/dist.
+    // The profile root sits beside that same output folder.
     expect(path.dirname(dataDir)).toBe(
       path.join(sessionRoot, 'profiles', 'chrome-profile')
     )

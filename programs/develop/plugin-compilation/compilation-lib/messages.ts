@@ -85,8 +85,9 @@ export function zipPackagingSkipped(reason: string) {
   return `${prefix('debug')} zip      skipped=true reason="${reason}"`
 }
 
-export function envSelectedFile(envPath: string) {
-  return `${prefix('debug')} env      file=${envPath || 'none'}`
+// Weakest first, the order the files are merged in.
+export function envSelectedFile(envPaths: string[]) {
+  return `${prefix('debug')} env      files=${envPaths.join(',') || 'none'}`
 }
 
 export function envInjectedPublicVars(count: number) {
@@ -134,6 +135,47 @@ export function envPublicSecretName(names: string[]) {
     `Keep the secret on a server the extension calls, under a name without the ` +
     `${colors.yellow('EXTENSION_PUBLIC_')} prefix. If the value is public by ` +
     `design, such as a Firebase web API key, this warning does not apply to it.`
+  )
+}
+
+// Names the placeholder and the asset, never the value it would have written.
+export function envPrivatePlaceholder(
+  placeholders: Array<{name: string; assets: string[]}>
+) {
+  const example = placeholders[0].name.replace(
+    /^EXTENSION_/,
+    'EXTENSION_PUBLIC_'
+  )
+
+  return (
+    placeholders
+      .map(
+        ({name, assets}) =>
+          `${colors.yellow(`$${name}`)} in ` +
+          `${assets.map((asset) => colors.yellow(asset)).join(', ')} ` +
+          `was left as written.\n`
+      )
+      .join('') +
+    `Placeholders in emitted .json and .html files are filled only from ` +
+    `${colors.yellow('EXTENSION_PUBLIC_*')} variables, because those files ` +
+    `ship to every user.\n` +
+    `If the value is meant to ship, rename the variable with that prefix, ` +
+    `such as ${colors.yellow(example)}.`
+  )
+}
+
+// Names the variable and the file, never the value the file gave it.
+export function envReservedName(entries: Array<{name: string; file: string}>) {
+  return (
+    entries
+      .map(
+        ({name, file}) =>
+          `${colors.yellow(name)} in ${colors.yellow(file)} is reserved for ` +
+          `the build target, so the file value is ignored.\n`
+      )
+      .join('') +
+    `The build sets the browser and mode names itself, from the target it ` +
+    `compiles for. Use another name for a value of your own.`
   )
 }
 

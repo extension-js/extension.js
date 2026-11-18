@@ -1,10 +1,7 @@
 import {afterAll, describe, expect, it} from 'vitest'
-import {
-  compileFixture,
-  removeFixtureRoots
-} from '../../plugin-static-assets/__spec__/helpers/compile-harness'
-import {ANSWER_WASM} from '../../plugin-static-assets/__spec__/helpers/fixtures'
-import {WasmPlugin} from '../index'
+import {StaticAssetsPlugin} from '../index'
+import {compileFixture, removeFixtureRoots} from './helpers/compile-harness'
+import {ANSWER_WASM} from './helpers/fixtures'
 
 afterAll(() => removeFixtureRoots())
 
@@ -24,7 +21,10 @@ describe('a .wasm import through a real compile', () => {
   })
 
   it('builds with the plugin and no user setting', async () => {
-    const build = await compileFixture({files, plugins: [new WasmPlugin()]})
+    const build = await compileFixture({
+      files,
+      plugins: [new StaticAssetsPlugin()]
+    })
 
     expect(build.compiler.options.experiments.asyncWebAssembly).toBe(true)
     expect(build.errors).toEqual([])
@@ -37,7 +37,7 @@ describe('a .wasm import through a real compile', () => {
       plugins: [],
       config: () => ({
         experiments: {asyncWebAssembly: false},
-        plugins: [new WasmPlugin()]
+        plugins: [new StaticAssetsPlugin()]
       })
     })
 
@@ -53,7 +53,7 @@ describe('a .wasm import through a real compile', () => {
     )
   })
 
-  it('drops rspack default extensions from a config that sets none', async () => {
+  it('sets no extension list on a config that has none, so rspack defaults stay', async () => {
     const pkg = {
       'node_modules/wrapper/package.json':
         '{"name":"wrapper","version":"1.0.0"}',
@@ -63,16 +63,47 @@ describe('a .wasm import through a real compile', () => {
     const bare = await compileFixture({files: pkg, plugins: []})
     const withPlugin = await compileFixture({
       files: pkg,
-      plugins: [new WasmPlugin()]
+      plugins: [new StaticAssetsPlugin()]
     })
 
     expect(await bare.evaluate()).toEqual({w: 7})
-    // Pins today's behavior: the plugin's ['.wasm'] replaces rspack's
-    // per-dependency ['.js', '.json'], so a package main without one fails.
-    expect(withPlugin.compiler.options.resolve.extensions).toEqual(['.wasm'])
-    expect(withPlugin.errors).toHaveLength(1)
-    expect(withPlugin.errors[0]).toContain(
-      "Module not found: Can't resolve 'wrapper'"
+    expect(await withPlugin.evaluate()).toEqual({w: 7})
+    expect(withPlugin.main).toBe(bare.main)
+    expect(withPlugin.compiler.options.resolve.extensions).toEqual(
+      bare.compiler.options.resolve.extensions
     )
+  })
+
+  it('resolves an extensionless wasm import when the config lists its own extensions', async () => {
+    const extensionless = {
+      'answer.wasm': ANSWER_WASM,
+      'index.js':
+        "self.out = {answer: import('./answer').then((m) => m.answer())}\n"
+    }
+    const config = () => ({resolve: {extensions: ['.js', '.json']}})
+    const bare = await compileFixture({
+      files: extensionless,
+      plugins: [],
+      config
+    })
+    const withPlugin = await compileFixture({
+      files: extensionless,
+      plugins: [new StaticAssetsPlugin()],
+      config
+    })
+
+    expect(bare.errors).toHaveLength(1)
+    expect(bare.errors[0]).toContain(
+      "Module not found: Can't resolve './answer'"
+    )
+
+    expect(withPlugin.compiler.options.resolve.extensions).toEqual([
+      '.js',
+      '.json',
+      '.wasm'
+    ])
+
+    expect(withPlugin.errors).toEqual([])
+    expect(await withPlugin.evaluate()).toEqual({answer: 42})
   })
 })

@@ -25,8 +25,7 @@ import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
 // Matches the compiled background entry across engines: Chromium emits
 // background/service_worker.js, Firefox background/scripts.js, and a declared
 // background page compiles to background/index.js; scripts? covers both forms.
-const BACKGROUND_ASSET =
-  /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
+const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 const builds = new WeakMap<object, string>()
 const bootRegistrations = new WeakMap<object, boolean>()
