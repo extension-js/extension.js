@@ -169,3 +169,9 @@ export function endCompilerRestart(compiler: object | undefined): void {
 export function isCompilerRestarting(compiler: object | undefined): boolean {
   return compiler != null && restartingCompilers.has(compiler)
 }
+
+// True while a restart is queued or running. One that failed can leave
+// another in line, which a caller must not take for a restart given up on.
+export function isDevSessionRestartPending(): boolean {
+  return boundScheduler?.isPending() ?? false
+}

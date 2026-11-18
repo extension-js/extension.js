@@ -5,6 +5,7 @@ import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   bindDevSessionRestart,
+  DEV_SESSION_RESTART_DEBOUNCE_MS,
   type DevSessionRestartRequest,
   DevSessionRestartScheduler,
   endCompilerRestart,
@@ -122,14 +123,14 @@ function save(compiler: Compiler) {
 function devSession(serving: Compiler) {
   let active: Compiler | null = serving
 
-  let nextBundle: () => Compiler = () => {
+  let nextBundle: () => Compiler | Promise<Compiler> = () => {
     throw new Error('The next bundle could not be built')
   }
 
   const announced: DevSessionRestartRequest[] = []
   const frames: Array<{code: string; message: string}> = []
   const lines: string[] = []
-  const scheduler = new DevSessionRestartScheduler(0)
+  const scheduler = new DevSessionRestartScheduler()
   const failure = createRestartFailure({
     metadata: {writeError: () => {}},
     lifecycle: {
@@ -150,7 +151,7 @@ function devSession(serving: Compiler) {
       createBundle: () =>
         buildRestartBundle({
           build: async () => {
-            active = nextBundle()
+            active = await nextBundle()
 
             return {server: {}, firstCompile: Promise.resolve(null)}
           },
@@ -180,68 +181,188 @@ function devSession(serving: Compiler) {
     frames,
     lines,
     active: () => active,
-    buildsNext: (build: () => Compiler) => {
+    buildsNext: (build: () => Compiler | Promise<Compiler>) => {
       nextBundle = build
     }
   }
 }
 
-// Past the window a changed set has to hold for, with the restart it asked
-// for run to its end.
-const settle = () => vi.advanceTimersByTimeAsync(MAIN_WORLD_SETTLE_MS + 1)
+// Past the window a changed set has to hold for and the wait the scheduler
+// adds, with the restart that was asked for run to its end.
+const settle = () =>
+  vi.advanceTimersByTimeAsync(
+    MAIN_WORLD_SETTLE_MS + DEV_SESSION_RESTART_DEBOUNCE_MS + 2
+  )
+
+// A session whose first MAIN world restart has just failed.
+async function afterFailedRestart(registration = REGISTRATION) {
+  const files = project(IDLE)
+  const compiler = compilerIn(files)
+  const session = devSession(compiler)
+
+  expect((await save(compiler)).held).toBe(false)
+
+  files.write(`${IDLE}${registration}`)
+  expect((await save(compiler)).held).toBe(true)
+  await settle()
+
+  expect(session.announced).toHaveLength(1)
+  expect(session.frames).toHaveLength(1)
+  expect(session.active()).toBe(compiler)
+  expect(isCompilerRestarting(compiler)).toBe(false)
+
+  return {files, compiler, session}
+}
 
 describe('a MAIN world restart that could not build its next bundle', () => {
-  it('leaves every later save held, with no new restart, on the build that kept serving', async () => {
-    const files = project(IDLE)
-    const compiler = compilerIn(files)
-    const session = devSession(compiler)
+  it('asks for the restart again on the next save, as its hint says', async () => {
+    const {files, compiler, session} = await afterFailedRestart()
 
-    expect((await save(compiler)).held).toBe(false)
-
-    files.write(`${IDLE}${REGISTRATION}`)
-    expect((await save(compiler)).held).toBe(true)
-    await settle()
-
-    expect(session.announced).toHaveLength(1)
-    expect(session.frames).toHaveLength(1)
     expect(session.lines.join('\n')).toContain(
       'save the changed file again to retry'
     )
 
-    expect(session.active()).toBe(compiler)
-    expect(isCompilerRestarting(compiler)).toBe(false)
+    const saved = await save(compiler)
 
-    // The hint says a save retries. The step still waits on the restart
-    // that already failed, so the save is held and nothing is asked for.
-    for (let saves = 0; saves < 3; saves++) {
+    expect(saved.held).toBe(true)
+    expect(saved.warnings).toEqual([])
+    await settle()
+
+    expect(session.announced).toHaveLength(2)
+    expect(session.announced[1]).toMatchObject({
+      reason: 'main-world',
+      pathChanged: files.at('scripts/hook.js'),
+      registeredBy: files.at('register.js')
+    })
+  })
+
+  it('asks once for each save while the restart keeps failing, never on its own', async () => {
+    const {compiler, session} = await afterFailedRestart()
+
+    for (let saves = 1; saves <= 3; saves++) {
+      expect((await save(compiler)).held).toBe(true)
+      await settle()
+      expect(session.announced).toHaveLength(1 + saves)
+      expect(session.frames).toHaveLength(1 + saves)
+
+      // No save, so nothing asks: the step does not rebuild by itself.
+      await settle()
+      await settle()
+      expect(session.announced).toHaveLength(1 + saves)
+    }
+  })
+
+  it('moves to the next compiler once a retry builds, and that one reloads', async () => {
+    const {files, compiler, session} = await afterFailedRestart()
+    let next: Compiler | undefined
+
+    session.buildsNext(() => {
+      next = compilerIn(files)
+
+      return next
+    })
+
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+
+    expect(session.announced).toHaveLength(2)
+    expect(session.frames).toHaveLength(1)
+    expect(session.active()).toBe(next)
+
+    const saved = await save(next!)
+
+    expect(saved.held).toBe(false)
+    expect(saved.warnings).toEqual([])
+    await settle()
+    expect(session.announced).toHaveLength(2)
+  })
+
+  it('reloads again once the registration is taken back, and asks for nothing', async () => {
+    const {files, compiler, session} = await afterFailedRestart()
+
+    files.write(`${IDLE}// taken back\n`)
+
+    for (let saves = 0; saves < 2; saves++) {
       const saved = await save(compiler)
 
-      expect(saved.held).toBe(true)
+      expect(saved.held).toBe(false)
       expect(saved.warnings).toEqual([])
+      expect(isAwaitingMainWorldRestart(compiler)).toBe(false)
       await settle()
     }
 
     expect(session.announced).toHaveLength(1)
-    expect(isAwaitingMainWorldRestart(compiler)).toBe(true)
   })
 
-  it('reloads again once the registration is taken back', async () => {
+  it('asks for a different registration written after the failure', async () => {
+    const {files, compiler, session} = await afterFailedRestart()
+
+    files.write(`${IDLE}${OTHER_REGISTRATION}`)
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+
+    expect(session.announced).toHaveLength(2)
+    expect(session.announced[1].pathChanged).toContain('other.js')
+  })
+
+  it('keeps waiting on a second change still in line when the first restart fails', async () => {
+    const files = project(IDLE)
+    const compiler = compilerIn(files)
+    const session = devSession(compiler)
+    const failures: Array<() => void> = []
+
+    // Each restart stays at its bundle step until the test fails it.
+    session.buildsNext(
+      () =>
+        new Promise<Compiler>((_resolve, reject) => {
+          failures.push(() => reject(new Error('The next bundle broke')))
+        })
+    )
+
+    files.write(`${IDLE}${REGISTRATION}`)
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+    expect(failures).toHaveLength(1)
+
+    files.write(`${IDLE}${OTHER_REGISTRATION}`)
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+    expect(session.announced).toHaveLength(1)
+
+    failures[0]()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(session.frames).toHaveLength(1)
+    expect(isCompilerRestarting(compiler)).toBe(false)
+
+    // A save lands before the restart in line starts. That restart is still
+    // coming, so the save waits on it and asks for no third one.
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+    expect(session.announced).toHaveLength(2)
+    expect(session.announced[1].pathChanged).toContain('other.js')
+
+    failures[1]()
+    await settle()
+    expect(session.frames).toHaveLength(2)
+    expect(session.announced).toHaveLength(2)
+
+    // Now nothing is in line, so this save is the retry.
+    expect((await save(compiler)).held).toBe(true)
+    await settle()
+    expect(session.announced).toHaveLength(3)
+  })
+
+  it('does not push the restart back for a build made while the set settles', async () => {
     const files = project(IDLE)
     const compiler = compilerIn(files)
     const session = devSession(compiler)
 
     files.write(`${IDLE}${REGISTRATION}`)
     expect((await save(compiler)).held).toBe(true)
-    await settle()
-    expect(session.frames).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(MAIN_WORLD_SETTLE_MS - 1)
+    expect((await save(compiler)).held).toBe(true)
 
-    files.write(`${IDLE}// taken back\n`)
-
-    const saved = await save(compiler)
-
-    expect(saved.held).toBe(false)
-    expect(isAwaitingMainWorldRestart(compiler)).toBe(false)
-    await settle()
+    await vi.advanceTimersByTimeAsync(DEV_SESSION_RESTART_DEBOUNCE_MS + 2)
     expect(session.announced).toHaveLength(1)
   })
 
@@ -259,6 +380,21 @@ describe('a MAIN world restart that could not build its next bundle', () => {
 
     expect(saved.held).toBe(false)
     expect(saved.warnings).toEqual([])
+    expect(isAwaitingMainWorldRestart(compiler)).toBe(false)
+    await settle()
+    expect(session.announced).toHaveLength(1)
+  })
+
+  it('warns and reloads once the session can no longer restart itself', async () => {
+    const {compiler, session} = await afterFailedRestart()
+
+    unbindDevSessionRestart()
+
+    const saved = await save(compiler)
+
+    expect(saved.held).toBe(false)
+    expect(saved.warnings).toHaveLength(1)
+    expect(saved.warnings[0]).toContain('Restart the dev server')
     await settle()
     expect(session.announced).toHaveLength(1)
   })
