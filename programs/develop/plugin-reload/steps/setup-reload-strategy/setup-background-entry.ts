@@ -83,7 +83,7 @@ export class SetupBackgroundEntry {
 
     function hookError(maybeError: string) {
       compiler.hooks.thisCompilation.tap(
-        'run-chromium:setup-background-entry',
+        'plugin-reload:setup-background-entry',
         (compilation) => {
           reportToCompilation(
             compilation,

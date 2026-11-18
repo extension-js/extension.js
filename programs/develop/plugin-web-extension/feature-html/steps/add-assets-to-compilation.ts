@@ -27,6 +27,14 @@ import {
   resolveAbsoluteFsPath
 } from '../html-lib/utils'
 
+// The name a missing reference reports under, split the way fileNotFound
+// splits its text: a script or a stylesheet is an entry, the rest an asset.
+function missingRefName(missingFilePath: string) {
+  return /\.(?:[jt]sx?|css|scss|sass|less)$/.test(missingFilePath)
+    ? 'HtmlEntrypointMissing'
+    : 'HtmlAssetMissing'
+}
+
 function warnRemoteResourceReferences(params: {
   compilation: Compilation
   compiler: Compiler
@@ -161,7 +169,8 @@ function warnMissingPublicRootResources(params: {
           refLabel: publicRootUrl
         }),
         'warning',
-        path.relative(manifestDir, resource)
+        path.relative(manifestDir, resource),
+        missingRefName(displayPath)
       )
     }
   }
@@ -202,7 +211,8 @@ function checkMissingLocalEntries(params: {
           deadRefHint: !strictRefs
         }),
         strictRefs ? 'error' : 'warning',
-        displayFile
+        displayFile,
+        missingRefName(url)
       )
     }
   }
@@ -418,7 +428,8 @@ export class AddAssetsToCompilation {
                       refLabel: asset
                     }),
                     'warning',
-                    path.relative(manifestDir, resource as string)
+                    path.relative(manifestDir, resource as string),
+                    missingRefName(displayPath)
                   )
 
                   continue
@@ -433,7 +444,8 @@ export class AddAssetsToCompilation {
                     refLabel: parsedAssets?.authored?.[asset] || asset
                   }),
                   'warning',
-                  path.relative(manifestDir, resource as string)
+                  path.relative(manifestDir, resource as string),
+                  'HtmlAssetMissing'
                 )
 
                 continue

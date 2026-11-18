@@ -12,23 +12,26 @@ import type {Compiler} from '@rspack/core'
 import {humanLine} from '../dev-server/lifecycle-stream'
 import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import {parseJsonSafe} from '../lib/parse-json-safe'
+import {isInsidePath, isSameOrInsidePath} from '../lib/real-path'
 import type {PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
-import {isInsidePath, isSameOrInsidePath} from '../lib/real-path'
 
 export class BoringPlugin {
   public static readonly name: string = 'plugin-boring'
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
+  private readonly browserLaunchEnabled?: boolean
   private sawUserInvalidation = false
   private printedStartupSuccess = false
   private printedStartupWarning = false
   private lastKnownManifestName?: string
 
-  constructor(options: PluginInterface) {
+  // Unset reads the dev server's environment flag at each compile, as before.
+  constructor(options: PluginInterface & {browserLaunchEnabled?: boolean}) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.browserLaunchEnabled = options.browserLaunchEnabled
   }
 
   public apply(compiler: Compiler): void {
@@ -42,6 +45,7 @@ export class BoringPlugin {
       const hasErrors = Boolean(stats?.hasErrors?.())
       const hasWarnings = Boolean(stats?.hasWarnings?.())
       const browserLaunchEnabled =
+        this.browserLaunchEnabled ??
         String(process.env.EXTENSION_BROWSER_LAUNCH_ENABLED || '1') !== '0'
 
       stats.compilation.name = undefined

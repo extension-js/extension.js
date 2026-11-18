@@ -327,6 +327,15 @@ export function collectContentScriptEntryImports(
 
   const chunkGraph = compilation.chunkGraph
 
+  // Nothing is emitted while this runs, so one listing serves every scan.
+  let emittedAssetNames: string[] | undefined
+
+  const emittedNames = () => {
+    emittedAssetNames ??= listEmittedAssetNames(compilation)
+
+    return emittedAssetNames
+  }
+
   compilation.entrypoints.forEach((_entry, entryName) => {
     if (isPageContextEntry(String(entryName))) {
       contentEntryNames.add(entryName)
@@ -339,6 +348,7 @@ export function collectContentScriptEntryImports(
     }
 
     const collectedFilesSet = new Set<string>()
+    const scannedBundles = new Set<string>()
 
     function addFileIfRelevant(file: string | undefined) {
       if (file === undefined || file === null) {
@@ -413,14 +423,16 @@ export function collectContentScriptEntryImports(
 
       // Fallback heuristic: scan JS chunk contents for referenced emits
       // (assets/* plus root-level wasm cores / model weights).
-      const emittedAssetNames = listEmittedAssetNames(compilation)
-
       for (let i = 0; i < chunkFilesArray.length; i++) {
         const chunkFileName = chunkFilesArray[i]
 
         if (!String(chunkFileName).endsWith('.js')) {
           continue
         }
+
+        if (scannedBundles.has(chunkFileName)) continue
+
+        scannedBundles.add(chunkFileName)
 
         const jsSource: string = getAssetSource(compilation, chunkFileName)
 
@@ -430,7 +442,7 @@ export function collectContentScriptEntryImports(
 
         const referenced = collectReferencedRuntimePayloads(
           jsSource,
-          emittedAssetNames
+          emittedNames()
         )
 
         for (let m = 0; m < referenced.length; m++) {
@@ -439,14 +451,17 @@ export function collectContentScriptEntryImports(
       }
     })
 
-    // Extra fallback: directly scan the logical entry output (e.g., content_scripts/content-0.js)
+    // A hashed dev bundle keeps the logical name (content_scripts/content-0.js)
+    // as a file of its own, so it is scanned unless a chunk already was it.
     const logicalJsAssetName = `${entryName}.js`
-    const logicalJsAssetSource = getAssetSource(compilation, logicalJsAssetName)
+    const logicalJsAssetSource = scannedBundles.has(logicalJsAssetName)
+      ? ''
+      : getAssetSource(compilation, logicalJsAssetName)
 
     if (logicalJsAssetSource) {
       const referenced = collectReferencedRuntimePayloads(
         logicalJsAssetSource,
-        listEmittedAssetNames(compilation)
+        emittedNames()
       )
 
       for (let n = 0; n < referenced.length; n++) {
@@ -467,7 +482,7 @@ export function collectContentScriptEntryImports(
 
     entryImports[entryName] = collectReferencedRuntimePayloads(
       source,
-      listEmittedAssetNames(compilation)
+      emittedNames()
     )
   }
 

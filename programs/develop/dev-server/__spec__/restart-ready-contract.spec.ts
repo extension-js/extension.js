@@ -2,11 +2,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeEach, describe, expect, it} from 'vitest'
 import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
 import {getProjectStructure} from '../../lib/project'
 import {eventsPath, readyContractPath} from '../../lib/session-paths'
 import webpackConfig from '../../rspack-config'
+import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
 const roots: string[] = []
 
@@ -86,6 +87,8 @@ function readEvents(root: string) {
 afterAll(() => {
   for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
 })
+
+beforeEach(skipWithoutDevelopDist)
 
 describe('the ready contract across an entrypoint-change restart', () => {
   it('never reads stopped while the session is alive and keeps the timeline', async () => {

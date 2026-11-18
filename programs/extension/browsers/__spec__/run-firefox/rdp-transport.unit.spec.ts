@@ -1,5 +1,5 @@
 import net from 'node:net'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildRdpFrame} from '../../run-firefox/rdp/remote-firefox/rdp-wire'
 import {RdpTransport} from '../../run-firefox/rdp/remote-firefox/transport'
 
@@ -50,6 +50,14 @@ function sendResponse(sock: net.Socket, payload: Record<string, unknown>) {
   sock.write(buildRdpFrame(payload))
 }
 
+// What every request in flight is rejected with when the wire goes away.
+const CHANNEL_CLOSED = {
+  code: 'E_BROWSER_CONNECTION_CLOSED',
+  message: expect.stringContaining(
+    'The Firefox messaging channel closed unexpectedly.'
+  )
+}
+
 describe('RdpTransport', () => {
   let mockState: Awaited<ReturnType<typeof createMockServer>>
   let transport: RdpTransport
@@ -72,19 +80,7 @@ describe('RdpTransport', () => {
     })
   })
 
-  it('rejects pending requests when disconnect() is called', async () => {
-    await transport.connect(mockState.port)
-
-    const pending = transport.request({to: 'root', type: 'listTabs'})
-
-    await new Promise((r) => setTimeout(r, 30))
-
-    transport.disconnect()
-
-    await expect(pending).rejects.toThrow()
-  })
-
-  it('rejects all queued requests for an actor on disconnect', async () => {
+  it('rejects the in-flight request and every queued one on disconnect', async () => {
     await transport.connect(mockState.port)
 
     const req1 = transport.request({to: 'tab-1', type: 'attach'})
@@ -94,34 +90,9 @@ describe('RdpTransport', () => {
     await new Promise((r) => setTimeout(r, 30))
     transport.disconnect()
 
-    await expect(req1).rejects.toThrow()
-    await expect(req2).rejects.toThrow()
-    await expect(req3).rejects.toThrow()
-  })
-
-  it('queues a second request to the same actor until the first resolves', async () => {
-    await transport.connect(mockState.port)
-    const sock = await waitForConnection(mockState)
-
-    const first = transport.request({to: 'tab-1', type: 'attach'})
-    const second = transport.request({
-      to: 'tab-1',
-      type: 'navigateTo',
-      url: 'https://example.com'
-    })
-
-    await new Promise((r) => setTimeout(r, 30))
-    sendResponse(sock, {from: 'tab-1', type: 'attached'})
-
-    const firstResult = await first
-
-    await new Promise((r) => setTimeout(r, 30))
-    sendResponse(sock, {from: 'tab-1', type: 'navigated'})
-
-    const secondResult = await second
-
-    expect(firstResult).toMatchObject({from: 'tab-1', type: 'attached'})
-    expect(secondResult).toMatchObject({from: 'tab-1', type: 'navigated'})
+    await expect(req1).rejects.toMatchObject(CHANNEL_CLOSED)
+    await expect(req2).rejects.toMatchObject(CHANNEL_CLOSED)
+    await expect(req3).rejects.toMatchObject(CHANNEL_CLOSED)
   })
 
   it('allows concurrent requests to different actors', async () => {
@@ -185,9 +156,7 @@ describe('RdpTransport', () => {
     })
 
     await new Promise((r) => setTimeout(r, 50))
-    expect(
-      errors.filter((e) => String(e).includes('without sender'))
-    ).toHaveLength(0)
+    expect(errors).toEqual([])
   })
 
   it('emits error for messages missing the from field', async () => {
@@ -204,7 +173,7 @@ describe('RdpTransport', () => {
     expect(String(errors[0])).toContain('without')
   })
 
-  it('flushes three sequential requests to same actor correctly', async () => {
+  it('holds each request to one actor until the one before it is answered', async () => {
     await transport.connect(mockState.port)
     const sock = await waitForConnection(mockState)
 
@@ -263,7 +232,7 @@ describe('RdpTransport', () => {
     sock.end()
 
     await endPromise
-    await expect(req).rejects.toThrow()
+    await expect(req).rejects.toMatchObject(CHANNEL_CLOSED)
   })
 
   it('rejects a request that never gets a reply after the timeout', async () => {
@@ -286,8 +255,98 @@ describe('RdpTransport', () => {
     }
   })
 
+  it('codes a request that timed out as E_RDP_PROTOCOL', async () => {
+    vi.stubEnv('EXTENSION_RDP_REQUEST_TIMEOUT_MS', '60')
+
+    try {
+      await transport.connect(mockState.port)
+
+      const error = await transport
+        .request({to: 'tab-1', type: 'noReply'})
+        .then(
+          () => null,
+          (reason: unknown) => reason
+        )
+
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toBe(
+        'RDP request to "tab-1" timed out after 60ms'
+      )
+
+      expect(Object.entries(error as Error)).toEqual([
+        ['code', 'E_RDP_PROTOCOL']
+      ])
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('codes a frame with no sender as E_RDP_PROTOCOL and keeps the connection', async () => {
+    await transport.connect(mockState.port)
+    const sock = await waitForConnection(mockState)
+    const errors: Array<Error & {code?: string}> = []
+    transport.on('error', (e) => errors.push(e))
+
+    sendResponse(sock, {type: 'someEvent'})
+    const answered = transport.request({to: 'root', type: 'getRoot'})
+    await new Promise((r) => setTimeout(r, 30))
+    sendResponse(sock, {from: 'root', addonsActor: 'addons1'})
+
+    await expect(answered).resolves.toEqual({
+      from: 'root',
+      addonsActor: 'addons1'
+    })
+
+    expect(errors.map((e) => e.code)).toEqual(['E_RDP_PROTOCOL'])
+  })
+
+  it('codes a body that is not JSON as E_RDP_PROTOCOL and reads the next frame', async () => {
+    await transport.connect(mockState.port)
+    const sock = await waitForConnection(mockState)
+    const errors: Array<Error & {code?: string}> = []
+    const messages: unknown[] = []
+    transport.on('error', (e) => errors.push(e))
+    transport.on('message', (m) => messages.push(m))
+
+    sock.write(`9:{not json${buildRdpFrame({from: 'root', type: 'later'})}`)
+
+    await vi.waitFor(() =>
+      expect(messages).toEqual([{from: 'root', type: 'later'}])
+    )
+
+    expect(errors.map((e) => e.code)).toEqual(['E_RDP_PROTOCOL'])
+    expect(errors[0].message).toContain("Can't parse a message from Firefox.")
+  })
+
+  it('codes a length prefix that is not a number as E_RDP_PROTOCOL and ends the connection', async () => {
+    await transport.connect(mockState.port)
+    const sock = await waitForConnection(mockState)
+    const errors: Array<Error & {code?: string}> = []
+    transport.on('error', (e) => errors.push(e))
+    const ended = new Promise<void>((resolve) => transport.on('end', resolve))
+    const inFlight = transport.request({to: 'tab-1', type: 'attach'})
+    const settled = inFlight.then(
+      () => null,
+      (reason: unknown) => reason
+    )
+
+    sock.write('abc:{"from":"root"}')
+    await ended
+
+    expect(errors.map((e) => e.code)).toEqual(['E_RDP_PROTOCOL'])
+    expect(errors[0].message).toContain('Invalid RDP frame length')
+    expect(await settled).toMatchObject(CHANNEL_CLOSED)
+  })
+
   it('rejects a request made before connect instead of throwing', async () => {
     const t = new RdpTransport()
-    await expect(t.request({to: 'root', type: 'listTabs'})).rejects.toThrow()
+    await expect(
+      t.request({to: 'root', type: 'listTabs'})
+    ).rejects.toMatchObject({
+      code: 'E_BROWSER_CONNECTION_CLOSED',
+      message: expect.stringContaining(
+        'The debugging connection to Firefox closed unexpectedly.'
+      )
+    })
   })
 })
