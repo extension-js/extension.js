@@ -608,11 +608,28 @@ export class ZipPlugin {
               ? dropEdgeStoreKey(distManifest, this.browser)
               : {manifest: undefined, dropped: false}
 
+            // An output a config points at dist itself, or at the project,
+            // has the session folder inside it and not beside it.
+            const built = listFilesUnder(outPath, new Set([toPosix(zipName)]))
+            const sessionFolders = findSessionFolders(built, 'output')
+
+            if (sessionFolders.length) {
+              stats?.compilation?.warnings?.push(
+                new Error(
+                  compilationMessages.zipLeftOutSessionFolders(
+                    'dist',
+                    sessionFolders
+                  )
+                )
+              )
+            }
+
             writeZipFile(
               distPath,
               // A store zip carries the extension, not its debugging aids: a
               // development-mode build leaves maps in dist for the author.
-              listFilesUnder(outPath, new Set([toPosix(zipName)]))
+              built
+                .filter((file) => !isUnderAny(file, sessionFolders))
                 .filter((file) => !file.endsWith('.map'))
                 .map((file) => ({
                   name: file,

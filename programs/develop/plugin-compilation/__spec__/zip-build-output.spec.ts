@@ -303,35 +303,50 @@ describe('the extension zip and the session folder', () => {
   ])('holds only the output when the session folder sits beside %s/chrome', async (base) => {
     const outPath = path.join(root, base, 'chrome')
     write(path.join(outPath, 'manifest.json'), BUILT_MANIFEST)
-
     write(path.join(outPath, 'background.js'), 'BUILT')
     writeSessionFolder(path.join(root, base, 'extension-js'), 'BESIDE')
 
-    await zipProject(root, outPath, {zip: true})
-
+    const {warnings} = await zipProject(root, outPath, {zip: true})
     const packed = readZip(path.join(root, base, 'packed-1.0.0-chrome.zip'))
 
     expect(Object.keys(packed).sort()).toEqual([
       'background.js',
       'manifest.json'
     ])
+
+    expect(warnings).toEqual([])
   })
 
-  // Pins today's behavior when a config points the output at dist itself.
-  it('packs a session folder that sits inside the output folder', async () => {
+  // A config that points the output at dist itself puts the folder inside.
+  it('leaves out a session folder that sits inside the output folder', async () => {
     const outPath = path.join(root, 'dist')
     write(path.join(outPath, 'manifest.json'), BUILT_MANIFEST)
-
     write(path.join(outPath, 'background.js'), 'BUILT')
     writeSessionFolder(path.join(outPath, 'extension-js'), 'INSIDE')
 
-    await zipProject(root, outPath, {zip: true})
-
+    const {warnings} = await zipProject(root, outPath, {zip: true})
     const packed = readZip(path.join(root, 'packed-1.0.0-chrome.zip'))
 
-    expect(packed['extension-js/chrome/ready.json']).toBe('INSIDE-READY')
-    expect(packed['extension-js/profiles/chrome-profile/dev/Cookies']).toBe(
-      'INSIDE-PROFILE'
-    )
+    expect(Object.keys(packed).sort()).toEqual([
+      'background.js',
+      'manifest.json'
+    ])
+
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/The extension zip left out a folder/)
+    expect(warnings[0]).toMatch(/LEFT OUT\S* extension-js\n/)
+    expect(warnings[0]).not.toMatch(/package\.json/)
+  })
+
+  it('keeps an asset folder of the extension that is named extension-js', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    write(path.join(outPath, 'manifest.json'), BUILT_MANIFEST)
+    write(path.join(outPath, 'extension-js', 'logo.svg'), 'LOGO')
+
+    const {warnings} = await zipProject(root, outPath, {zip: true})
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-chrome.zip'))
+
+    expect(packed['extension-js/logo.svg']).toBe('LOGO')
+    expect(warnings).toEqual([])
   })
 })
