@@ -130,9 +130,12 @@ export function zipLeftOut(
     (reason) => entries.some((entry) => entry.reason === reason)
   )
   const lines = reasons.map((reason) => {
+    // Sorted here: the walk lists a folder in the order its file system
+    // gives, which differs where names differ only by case.
     const paths = entries
       .filter((entry) => entry.reason === reason)
       .map((entry) => entry.path)
+      .sort()
 
     return `${colors.gray(ZIP_LEFT_OUT[reason].label)} ${paths.join(', ')}\n`
   })
