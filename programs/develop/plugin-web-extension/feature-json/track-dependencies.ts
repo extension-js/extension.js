@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {debugLine, isDebug} from '../../lib/messaging'
+import {sourceFileMayShip} from '../../plugin-special-folders/public-private-files'
 import * as messages from './messages'
 import {resolveJsonResource} from './resolve-json-resource'
 
@@ -50,6 +51,10 @@ export function trackJsonDependencies(
           compilation.missingDependencies?.add(abs)
           continue
         }
+
+        // A file the build withholds is never read, so a change to it has
+        // nothing to rebuild.
+        if (!sourceFileMayShip(abs, [projectPath, manifestDir])) continue
 
         if (!compilation.fileDependencies.has(abs)) {
           compilation.fileDependencies.add(abs)
