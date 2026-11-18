@@ -27,7 +27,7 @@ describe('a dev failure block that wraps a framed refusal', () => {
 
   it('says the session ends when the launch refused a value the user set', () => {
     const block = messages
-      .browserLaunchFailed('chrome', framed, true)
+      .browserLaunchFailed('chrome', framed, 'E_BROWSER_BINARY_INVALID')
       .replace(ANSI, '')
 
     expect(block).toContain('The dev session ends here.')

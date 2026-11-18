@@ -18,6 +18,7 @@ import {
   type Channel,
   fmt,
   hasChannelPrefix,
+  isUsageLaunchCode,
   prefix,
   stripChannelPrefix
 } from './messaging'
@@ -215,7 +216,7 @@ export function extensionLoadStillRefused(reason: string) {
 export function browserLaunchFailed(
   browser: DevOptions['browser'],
   reason: string,
-  endsSession = false
+  code?: unknown
 ) {
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} couldn't start, so the extension isn't running.\n` +
@@ -223,7 +224,7 @@ export function browserLaunchFailed(
     // so it loses its glyph and the frame stays one frame.
     `${hasChannelPrefix(reason) ? stripChannelPrefix(reason) : reason}\n` +
     // A value the user set ends the session, since no compile can change it.
-    (endsSession
+    (isUsageLaunchCode(code)
       ? `The dev session ends here. Fix the value, then run the command again.`
       : `The dev server keeps watching, but nothing will load until this is fixed.`)
   )

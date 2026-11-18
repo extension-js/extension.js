@@ -15,10 +15,11 @@ import {
   ENVELOPE,
   type Envelope,
   type ErrorCode,
-  isMachineOutput
+  isMachineOutput,
+  isUsageLaunchCode
 } from '../lib/messaging'
 import {shouldWarnPortConflict} from './messages'
-import {isUsageLaunchCode, readyContractErrorCode} from './ready-contract-codes'
+import {readyContractErrorCode} from './ready-contract-codes'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
 // one schema-1 frame per lifecycle transition, one JSON document per line.

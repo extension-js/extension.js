@@ -48,7 +48,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "anotherDevSessionActive: function(3)",
     "anotherDevSessionRefused: function(3)",
     "authorInstallNotice: function(1)",
-    "browserLaunchFailed: function(2)",
+    "browserLaunchFailed: function(3)",
     "buildAssetsTree: function(2)",
     "buildCommandFailed: function(1)",
     "buildComplete: function(5)",
