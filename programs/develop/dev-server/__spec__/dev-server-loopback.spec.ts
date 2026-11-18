@@ -10,6 +10,7 @@ import {
   type LoopbackSession,
   waitFor
 } from './helpers/loopback-dev-server'
+import {settleFixture} from './helpers/settled-fixture'
 
 // The stock rspack dev server on loopback with this folder's config and a
 // bare compiler, so none of this needs the compiled dist.
@@ -21,41 +22,40 @@ afterEach(() => {
   }
 })
 
-async function waitForQuiet(
-  count: () => number,
-  quietMs: number,
-  timeoutMs: number
-) {
-  const deadline = Date.now() + timeoutMs
-  let seen = count()
-  let quietSince = Date.now()
-
-  while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, 50))
-
-    if (count() !== seen) {
-      seen = count()
-      quietSince = Date.now()
-    } else if (Date.now() - quietSince >= quietMs) {
-      return
-    }
-  }
-
-  throw new Error(`frames kept arriving for ${timeoutMs} ms`)
+interface CompileTrack {
+  started: () => number
+  finished: () => number
 }
 
 async function withSession(
   env: Record<string, string>,
-  run: (session: LoopbackSession) => Promise<void>
+  run: (session: LoopbackSession, track: CompileTrack) => Promise<void>
 ) {
   const root = createFixture('extjs-loopback-')
   roots.push(root)
+  // Unsettled, the fixture rebuilt src/index.js late, after the edit.
+  await settleFixture(root)
   let session: LoopbackSession | undefined
+  let started = 0
+  let finished = 0
 
   try {
-    session = await bootLoopback({root, env})
+    session = await bootLoopback({
+      root,
+      env,
+      beforeServer: (compiler) => {
+        compiler.hooks.watchRun.tap('loopback-track', () => {
+          started++
+        })
+
+        compiler.hooks.done.tap('loopback-track', () => {
+          finished++
+        })
+      }
+    })
+
     await session.firstCompile
-    await run(session)
+    await run(session, {started: () => started, finished: () => finished})
   } finally {
     await session?.server.stop()
   }
@@ -103,7 +103,7 @@ describe('the dev server on loopback', () => {
       {EXTENSION_WATCH_POLL: 'true', EXTENSION_WATCH_POLL_INTERVAL: '100'}
     ]
   ])('sends nothing for a public/ edit with %s', async (_name, env) => {
-    await withSession(env, async (session) => {
+    await withSession(env, async (session, track) => {
       let socket:
         | Awaited<ReturnType<typeof connectClient>>['socket']
         | undefined
@@ -112,24 +112,34 @@ describe('the dev server on loopback', () => {
         const client = await connectClient(session.port)
         socket = client.socket
 
+        // The server sends its whole connect greeting at once and ends it with
+        // ok, so clearing before that ok would count a greeting frame as edit.
         expect(
           await waitFor(
-            () => client.messages.some((m) => m.type === 'liveReload'),
+            () => client.messages.some((m) => m.type === 'ok'),
             2000
           )
         ).toBe(true)
 
-        // A rebuild for fixture files written as the watcher started can land
-        // late, so the edit waits for a second with no frame.
-        await waitForQuiet(() => client.messages.length, 1000, 10000)
-        const compilesBefore = session.compiles()
+        expect(client.messages.map((m) => m.type)).toEqual([
+          'hot',
+          'liveReload',
+          'hash',
+          'ok'
+        ])
+
+        // With the fixture settled the first compile is the only one, so the
+        // edit starts from an idle compiler and any later compile is its own.
+        expect(track.started()).toBe(1)
+        expect(track.finished()).toBe(1)
         client.messages.length = 0
 
         fs.writeFileSync(path.join(session.publicFolder, 'data.txt'), 'two\n')
 
         await waitFor(() => client.messages.length > 0, 2500)
         expect(client.messages).toEqual([])
-        expect(session.compiles()).toBe(compilesBefore)
+        expect(track.started()).toBe(1)
+        expect(session.compiles()).toBe(1)
       } finally {
         await closeSocket(socket)
       }

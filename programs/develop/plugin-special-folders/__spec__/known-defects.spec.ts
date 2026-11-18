@@ -22,8 +22,8 @@ import {
   writeFixtureFiles
 } from './helpers/compile-harness'
 
-// Each case pins a defect the ledger names, as the code behaves today. The
-// fix flips the assertion under the marker comment.
+// Each case pins a defect as the code behaves today. The fix flips the
+// assertion under the marker comment.
 
 afterEach(() => {
   for (const root of fixtureRoots.splice(0)) {
