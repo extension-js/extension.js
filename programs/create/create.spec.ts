@@ -150,6 +150,7 @@ let packedFiles: string[] | undefined
 
 function publishedFiles(): string[] {
   packedFiles ??= listPublishedFiles()
+
   return packedFiles
 }
 
