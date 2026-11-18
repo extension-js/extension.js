@@ -1,38 +1,122 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import type {FileConfig as InternalFileConfig} from '../../develop/types'
+import type {PerfBudgetsConfig as InternalPerfBudgetsConfig} from '../../develop/plugin-perf-budgets'
+import type {CompanionExtensionsConfig as InternalCompanionExtensionsConfig} from '../../develop/plugin-special-folders/folder-extensions/types'
+import type {
+  BrowserOptionsBase,
+  BrowserType as InternalBrowserType,
+  ConfigHookContext as InternalConfigHookContext,
+  ExcludeFilesConfig as InternalExcludeFilesConfig,
+  FileConfig as InternalFileConfig,
+  IncludeFileEntry as InternalIncludeFileEntry,
+  IncludeFilesConfig as InternalIncludeFilesConfig,
+  SafariOptions,
+  SpecialFoldersConfig as InternalSpecialFoldersConfig
+} from '../../develop/types'
 import type {
   BrowserConfig,
+  BrowserType,
   BuildCommandConfig,
+  CompanionExtensionsConfig,
+  ConfigHookContext,
   DevCommandConfig,
+  ExcludeFilesConfig,
   FileConfig,
-  ServeCommandConfig
+  IncludeFileEntry,
+  IncludeFilesConfig,
+  PerfBudgetsConfig,
+  SafariConfig,
+  ServeCommandConfig,
+  SpecialFoldersConfig
 } from '../config-types'
 
 // The published config type is hand-kept beside the one the loader reads, so
-// a key the loader honors but the type omits fails a type-checked config that
-// works. Each layer below must name every key its internal twin does; a gap
-// makes `pnpm typecheck` fail on the assignment, naming the missing keys.
+// the two are compared here key by key, in both directions. A difference
+// makes `pnpm typecheck` fail on the assignment below and names the keys.
 // The assignments are the whole check: nothing here can fail at run time.
 type Commands = NonNullable<InternalFileConfig['commands']>
 type InternalBrowser = NonNullable<
   NonNullable<InternalFileConfig['browser']>['chrome']
 >
-type Gaps<Internal, Public> = Exclude<keyof Internal, keyof Public>
-type NoGaps<Internal, Public> = [Gaps<Internal, Public>] extends [never]
+type InternalSafari = Omit<SafariOptions, keyof BrowserOptionsBase>
+
+type Same<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
+type Extra<A, B> = Exclude<keyof A, keyof B>
+// Shared keys whose type or optionality is not the same on both sides.
+type Differing<A, B> = {
+  [K in keyof A & keyof B]-?: Same<Pick<A, K>, Pick<B, K>> extends true
+    ? never
+    : K
+}[keyof A & keyof B]
+
+// True when both sides agree, apart from the keys named as known exceptions.
+// An exception that stops being one fails too, so the list cannot go stale.
+type Agrees<
+  Public,
+  Internal,
+  PublicOnly extends PropertyKey = never,
+  Differs extends PropertyKey = never
+> = [
+  Same<Extra<Internal, Public>, never>,
+  Same<Extra<Public, Internal>, PublicOnly>,
+  Same<Differing<Public, Internal>, Differs>
+] extends [true, true, true]
   ? true
-  : Gaps<Internal, Public>
+  : {
+      internalOnly: Extra<Internal, Public>
+      publicOnly: Extra<Public, Internal>
+      differing: Differing<Public, Internal>
+    }
 
-const everyLayerNamesWhatTheLoaderReads: [
-  NoGaps<InternalBrowser, BrowserConfig>,
-  NoGaps<NonNullable<Commands['dev']>, DevCommandConfig>,
-  NoGaps<NonNullable<Commands['start']>, ServeCommandConfig>,
-  NoGaps<NonNullable<Commands['preview']>, ServeCommandConfig>,
-  NoGaps<NonNullable<Commands['build']>, BuildCommandConfig>
-] = [true, true, true, true, true]
+const everyLayerAgreesWithTheLoader: [
+  // The engine reads these three from a browser block and its type omits
+  // them. It also asks for `browser` inside a block the key already names.
+  Agrees<
+    BrowserConfig,
+    InternalBrowser,
+    'transpilePackages' | 'define' | 'perfBudgets',
+    'browser'
+  >,
+  Agrees<DevCommandConfig, NonNullable<Commands['dev']>>,
+  Agrees<ServeCommandConfig, NonNullable<Commands['start']>>,
+  // Preview builds nothing, so these three keys of the shared type do nothing.
+  Agrees<
+    ServeCommandConfig,
+    NonNullable<Commands['preview']>,
+    'polyfill' | 'include' | 'exclude'
+  >,
+  Agrees<BuildCommandConfig, NonNullable<Commands['build']>>,
+  // `browser` differs only through the browser block compared above.
+  Agrees<FileConfig, InternalFileConfig, never, 'browser'>,
+  Agrees<SafariConfig, InternalSafari>,
+  Agrees<SpecialFoldersConfig, InternalSpecialFoldersConfig>,
+  Agrees<IncludeFileEntry, InternalIncludeFileEntry>,
+  Agrees<PerfBudgetsConfig, InternalPerfBudgetsConfig>,
+  Agrees<ConfigHookContext, InternalConfigHookContext>,
+  Same<BrowserType, InternalBrowserType>,
+  Same<CompanionExtensionsConfig, InternalCompanionExtensionsConfig>,
+  Same<IncludeFilesConfig, InternalIncludeFilesConfig>,
+  Same<ExcludeFilesConfig, InternalExcludeFilesConfig>
+] = [
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true
+]
 
-void everyLayerNamesWhatTheLoaderReads
+void everyLayerAgreesWithTheLoader
 
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(

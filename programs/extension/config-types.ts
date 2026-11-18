@@ -6,17 +6,11 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Public type surface for `extension.config.js`.
-//
-// This file is published with the `extension` package and is the source of the
-// `import('extension').FileConfig` type used to annotate `extension.config.js`.
-//
-// It is intentionally self-contained: the full internal definition lives in
-// `extension-develop` (programs/develop/types.ts), but that package does not
-// publish declaration files, and its `FileConfig` pulls in `@rspack/core`
-// types via the `config` hook, which consumers of `extension` should not be
-// required to install. Keep the shape here in sync with the internal
-// `FileConfig` when the config contract changes.
+// The published types for extension.config.js, and the source of the
+// `import('extension').FileConfig` annotation. The engine has its own.
+
+// Kept apart from the engine's so a project that annotates its config loads
+// no bundler types. A spec compares the two key by key.
 
 /** A browser target accepted by Extension.js commands. */
 export type BrowserType =
@@ -174,6 +168,13 @@ export interface BrowserConfig extends BrowserLaunchConfig, SafariConfig {
   include?: IncludeFilesConfig
   /** Files this browser's build leaves out, added to the top-level `exclude`. */
   exclude?: ExcludeFilesConfig
+  /**
+   * Compile-time constants for this browser. Adds to the top-level `define`
+   * and overrides it for the keys it declares.
+   */
+  define?: Record<string, unknown>
+  /** Asset budgets for this browser. Overrides the top-level `perfBudgets`. */
+  perfBudgets?: PerfBudgetsConfig
 }
 
 /**
@@ -211,7 +212,9 @@ export type PerfBudgetCategory =
  *   }
  * }
  */
-export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>> & {
+export type PerfBudgetsConfig = Partial<
+  Record<Exclude<PerfBudgetCategory, 'ignored'>, number>
+> & {
   ignore?: string[]
 }
 
