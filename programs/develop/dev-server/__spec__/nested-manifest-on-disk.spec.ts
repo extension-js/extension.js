@@ -2,15 +2,24 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {RspackDevServer} from '@rspack/dev-server'
-import {beforeEach, describe, expect, it} from 'vitest'
+import {afterAll, beforeEach, describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
 import {buildServerConfig} from '../server-config'
 import {skipWithoutDevelopDist} from './helpers/develop-dist'
-import {freeLoopbackPort} from './helpers/loopback-dev-server'
+import {
+  bootLoopback,
+  createFixture,
+  freeLoopbackPort
+} from './helpers/loopback-dev-server'
 
 const tempFolder = trackTempFolders()
+const tracked: string[] = []
+
+afterAll(() => {
+  for (const root of tracked) fs.rmSync(root, {recursive: true, force: true})
+})
 
 // Every place the build copies a file through under the name it has on disk.
 const NESTED_MANIFESTS = [
@@ -19,6 +28,13 @@ const NESTED_MANIFESTS = [
   'vendor/helper/manifest.json',
   'bundled/companion/manifest.json'
 ]
+
+const SOURCE_OF: Record<string, string> = {
+  'app/manifest.json': 'public/app/manifest.json',
+  'deep/a/b/manifest.json': 'public/deep/a/b/manifest.json',
+  'vendor/helper/manifest.json': 'helper/manifest.json',
+  'bundled/companion/manifest.json': 'bundled/companion/manifest.json'
+}
 
 const INCLUDE = {
   'vendor/helper/manifest.json': './helper/manifest.json',
@@ -164,16 +180,58 @@ describe('nested manifest.json files in the dev output folder', () => {
     )
   }, 120_000)
 
-  it('dev writes only the root manifest.json and drops the nested ones', async () => {
-    const dev = await devFilesOnDisk(scaffold())
+  it('dev writes every nested manifest.json a production build ships', async () => {
+    const devRoot = scaffold()
+    const dev = await devFilesOnDisk(devRoot)
     const production = await productionFilesOnDisk(scaffold())
 
     expect(dev.errors).toEqual([])
-    expect(manifestsIn(dev.files)).toEqual(['manifest.json'])
-    // The file beside a dropped manifest is written, so the folder is there.
-    expect(dev.files).toContain('bundled/companion/note.txt')
+    expect(manifestsIn(dev.files)).toEqual(manifestsIn(production.files))
     expect(
       production.files.filter((file) => !dev.files.includes(file))
-    ).toEqual([...NESTED_MANIFESTS].sort())
+    ).toEqual([])
+
+    for (const relative of NESTED_MANIFESTS) {
+      expect(fs.readFileSync(path.join(dev.distPath, relative), 'utf8')).toBe(
+        fs.readFileSync(path.join(devRoot, SOURCE_OF[relative]), 'utf8')
+      )
+    }
+
+    // The root one is the generated manifest, written by the manifest step.
+    expect(
+      JSON.parse(
+        fs.readFileSync(path.join(dev.distPath, 'manifest.json'), 'utf8')
+      ).name
+    ).toBe('nested-manifest')
   }, 120_000)
+
+  it('the dev server itself never writes the root manifest.json', async () => {
+    const root = createFixture('extjs-nested-manifest-loopback-')
+    tracked.push(root)
+    // No manifest step runs here, so only the dev server could write it.
+    const session = await bootLoopback({
+      root,
+      beforeServer: (compiler) => {
+        compiler.hooks.thisCompilation.tap('nested-manifest', (compilation) => {
+          compilation.hooks.processAssets.tap('nested-manifest', () => {
+            compilation.emitAsset(
+              'app/manifest.json',
+              new compiler.webpack.sources.RawSource('{"nested":true}')
+            )
+          })
+        })
+      }
+    })
+
+    try {
+      await session.firstCompile
+
+      expect(filesUnder(session.distPath)).toEqual([
+        'app/manifest.json',
+        'background.js'
+      ])
+    } finally {
+      await session.server.stop()
+    }
+  }, 60_000)
 })
