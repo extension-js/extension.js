@@ -139,9 +139,11 @@ export function devServerStartError(error: unknown): DevServerStartError {
 export interface StartFailureTargets {
   metadata: {writeError: (code: string, message: string) => void}
   lifecycle: {
-    // Hands back the frame it wrote, or null when the stream is off.
     failed: (message: string) => unknown
     sessionValue: () => Record<string, unknown>
+    // True once the stream carries its terminal frame, this one or an
+    // earlier one.
+    readonly ended: boolean
   }
   onExitError?: (error: unknown, code?: string) => void
   print?: (line: string) => void
@@ -162,7 +164,7 @@ export function createStartFailure(targets: StartFailureTargets) {
     )
 
     // The stream's one terminal frame is written here for every host.
-    const frame = targets.lifecycle.failed(
+    targets.lifecycle.failed(
       error instanceof Error ? error.message : String(error)
     )
 
@@ -170,7 +172,7 @@ export function createStartFailure(targets: StartFailureTargets) {
     if (!exitOnError) {
       const coded = devServerStartError(error)
       coded.session = targets.lifecycle.sessionValue()
-      coded.framed = frame != null
+      coded.framed = targets.lifecycle.ended
 
       throw coded
     }

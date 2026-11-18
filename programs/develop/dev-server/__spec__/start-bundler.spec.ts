@@ -204,7 +204,8 @@ describe('starting the bundler', () => {
         metadata: {writeError},
         lifecycle: {
           failed,
-          sessionValue: () => ({pid: 7, port: 8080})
+          sessionValue: () => ({pid: 7, port: 8080}),
+          ended: true
         },
         onExitError,
         print,
@@ -726,6 +727,75 @@ describe('the terminal frame of a start failure', () => {
     } finally {
       fs.rmSync(root, {recursive: true, force: true})
 
+      if (saved === undefined) {
+        Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
+      } else process.env.EXTENSION_OUTPUT = saved
+    }
+  })
+
+  it.each([
+    [
+      'an earlier terminal frame already ended the stream',
+      (lifecycle: ReturnType<typeof createLifecycleStream>) => {
+        lifecycle.failed('the owner is gone', CODES.E_PARENT_GONE)
+      },
+      () => {},
+      ['failed'],
+      true
+    ],
+    [
+      'the writer throws on the frame',
+      () => {},
+      () => {
+        throw new Error('write EPIPE')
+      },
+      [],
+      false
+    ]
+  ])('rejects coded, with the session, when %s', async (_name, before, onWrite, statuses, framed) => {
+    const saved = process.env.EXTENSION_OUTPUT
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+    const lines: string[] = []
+    const lifecycle = createLifecycleStream({
+      command: 'dev',
+      browser: 'chromium',
+      distPath: '/proj/dist/chromium',
+      write: (line) => {
+        onWrite()
+        lines.push(line)
+      }
+    })
+
+    try {
+      before(lifecycle)
+
+      const rejection = await startBundler(
+        {start: async () => Promise.reject(new Error('watch broke'))},
+        {
+          timeoutMs: 30000,
+          onSlowStart: () => {},
+          onFailure: createStartFailure({
+            metadata: {writeError: () => {}},
+            lifecycle,
+            exitOnError: false
+          })
+        }
+      ).then(
+        () => null,
+        (error: unknown) => error
+      )
+
+      // The failure itself, never the write error, and never a second frame.
+      expect(rejection).toMatchObject({
+        code: 'E_DEV_SERVER_START',
+        message: 'watch broke',
+        session: {command: 'dev', pid: process.pid},
+        framed
+      })
+
+      expect(lifecycle.ended).toBe(framed)
+      expect(lines.map((line) => JSON.parse(line).status)).toEqual(statuses)
+    } finally {
       if (saved === undefined) {
         Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
       } else process.env.EXTENSION_OUTPUT = saved
