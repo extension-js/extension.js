@@ -23,7 +23,8 @@ import {
   getCssEntries,
   getScriptEntries,
   isRemoteUrl,
-  resolveScriptEntryPath
+  resolveScriptEntryPath,
+  withheldEntryKind
 } from '../scripts-lib/utils'
 import {AddContentScriptWrapper} from './add-content-script-wrapper'
 
@@ -36,7 +37,11 @@ const isBackgroundScriptsFeature = (feature: string) =>
 
 // The field as the manifest writes it: a content script group lists its
 // scripts and its stylesheets apart, under the index of the group.
-function manifestFieldOf(feature: string, entry: string): string {
+function manifestFieldOf(
+  feature: string,
+  entry: string,
+  sheets: ReadonlyMap<number, ReadonlySet<string>>
+): string {
   // The theme entry is named after its file, and the field has one name.
   if (feature.startsWith('theme_experiment/')) {
     return 'theme_experiment.stylesheet'
@@ -46,9 +51,48 @@ function manifestFieldOf(feature: string, entry: string): string {
 
   if (group === undefined) return feature.replace('/', '.')
 
-  const list = /\.(?:css|scss|sass|less)$/i.test(entry) ? 'css' : 'js'
+  // The list that named the file says which, since a name may lack an ending.
+  const list = sheets.get(group)?.has(path.resolve(entry)) ? 'css' : 'js'
 
   return `content_scripts[${group}].${list}`
+}
+
+// The stylesheets of each content script group, by the path each is read
+// from, so a reported file names the list it came from.
+function contentScriptSheets(
+  manifest: {content_scripts?: unknown},
+  manifestDir: string,
+  projectPath: string
+): Map<number, Set<string>> {
+  const sheets = new Map<number, Set<string>>()
+  const groups = Array.isArray(manifest.content_scripts)
+    ? manifest.content_scripts
+    : []
+
+  groups.forEach((group, index) => {
+    const css = (group as {css?: unknown} | null)?.css
+    const named = new Set<string>()
+
+    for (const sheet of Array.isArray(css) ? css : []) {
+      if (typeof sheet !== 'string' || !sheet) continue
+
+      // As written, and as the manifest fields list reads it from the folder.
+      for (const spelling of [
+        sheet,
+        path.join(manifestDir, sheet.replace(/^[\\/]+/, ''))
+      ]) {
+        named.add(
+          path.resolve(
+            resolveScriptEntryPath(spelling, manifestDir, projectPath)
+          )
+        )
+      }
+    }
+
+    sheets.set(index, named)
+  })
+
+  return sheets
 }
 
 export function createSequentialEntryModule(
@@ -111,8 +155,6 @@ export class AddScripts {
 
         try {
           const manifestDir = path.dirname(this.manifestPath)
-          const outputRoot = compilation.options?.output?.path || ''
-
           const projectPath =
             (compiler.options.context as string) || manifestDir
           const listOf = (raw: FilepathList[string]): string[] =>
@@ -121,7 +163,13 @@ export class AddScripts {
               : raw
                 ? [raw as string]
                 : []
-          // A withheld file is reported in the words a missing one gets.
+          // Read below, before any compilation starts.
+          const sheets = contentScriptSheets(
+            manifestJson,
+            manifestDir,
+            projectPath
+          )
+          // A withheld file is reported apart from a missing one.
           const named = [
             ...Object.entries(scriptFields).map(
               ([feature, raw]) => [feature, listOf(raw), false] as const
@@ -137,45 +185,36 @@ export class AddScripts {
                 continue
               }
 
-              let resolved = entry
-
-              if (isWithheld) {
-                resolved = resolveScriptEntryPath(
-                  entry,
-                  manifestDir,
-                  projectPath
-                )
-              } else if (!fs.existsSync(resolved)) {
-                resolved = path.isAbsolute(entry)
-                  ? entry
-                  : entry.startsWith('/')
-                    ? path.join(manifestDir, entry.slice(1))
-                    : path.join(manifestDir, entry)
-              }
+              // The path the entry itself is built from, and no other.
+              const resolved = resolveScriptEntryPath(
+                entry,
+                manifestDir,
+                projectPath
+              )
 
               if (!isWithheld && fs.existsSync(resolved)) continue
 
-              // A withheld file is on disk, so its own path is the one named.
               const isPublicRoot =
                 !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
-              const displayPath = isPublicRoot
-                ? outputRoot
-                  ? path.join(outputRoot, entry.slice(1))
-                  : entry
-                : resolved
 
+              const file = isPublicRoot
+                ? entry
+                : path.relative(manifestDir, resolved).split(path.sep).join('/')
+              const field = manifestFieldOf(feature, resolved, sheets)
               const err = new ErrorCtor(
-                messages.scriptsMissingFile(
-                  isPublicRoot
-                    ? entry
-                    : path
-                        .relative(manifestDir, resolved)
-                        .split(path.sep)
-                        .join('/'),
-                  manifestFieldOf(feature, entry),
-                  displayPath,
-                  isPublicRoot
-                )
+                isWithheld
+                  ? messages.scriptsWithheldFile(
+                      file,
+                      field,
+                      withheldEntryKind(resolved, [projectPath, manifestDir]),
+                      resolved
+                    )
+                  : messages.scriptsMissingFile(
+                      file,
+                      field,
+                      resolved,
+                      isPublicRoot
+                    )
               ) as Error & {file?: string; name?: string}
               err.file = 'manifest.json'
               err.name = 'ScriptsMissingFile'
@@ -210,6 +249,7 @@ export class AddScripts {
     let manifestJson: {
       manifest_version?: unknown
       background?: {type?: unknown}
+      content_scripts?: unknown
     } = {}
 
     try {

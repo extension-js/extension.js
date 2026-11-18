@@ -13,6 +13,7 @@ describe('diagnosticCode', () => {
     ['LocalesFolderWithoutMessages', 'E_LOCALES_LAYOUT'],
     ['LocalesValidationError', 'E_LOCALES_LAYOUT'],
     ['PerfBudgetWarning', 'E_PERF_BUDGET'],
+    ['PerfBudgetError', 'E_PERF_BUDGET'],
     ['EnvNoMatchingFile', 'E_ENV_NO_MATCH'],
     ['JSONMissingFile', 'E_ENTRY_NOT_FOUND'],
     ['LocalesPluginMissingFile', 'E_ENTRY_NOT_FOUND'],

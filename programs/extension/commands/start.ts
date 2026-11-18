@@ -26,6 +26,10 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopFor,
+  type DevelopPreviewLauncher,
+  type DevelopPreviewModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
 } from '../helpers/extension-develop-runtime'
@@ -41,7 +45,8 @@ import {
 import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {
   refuseUnreadableOutput,
@@ -463,7 +468,8 @@ export function registerStartCommand(
         // running behind the launched browser until a signal ends it.
         markCommandSessionStart('start')
 
-        const {extensionBuild} = await loadDevelop()
+        const {extensionBuild}: DevelopFor<'extensionBuild'> =
+          await loadDevelop()
         const noBrowser = await resolveNoBrowser(
           pathOrRemoteUrl || process.cwd(),
           'start',
@@ -477,11 +483,11 @@ export function registerStartCommand(
           const logContexts = parseLogContexts(logContextOption)
           // Unset stays undefined so commands.start.* and stock defaults
           // apply inside develop instead of a forced value here.
-          const logLevel = logsOption || undefined
+          const logLevel = parseLogLevel(logsOption)
 
           try {
             await extensionBuild(pathOrRemoteUrl, {
-              browser: vendor as StartOptions['browser'],
+              browser: vendor as DevelopBrowser,
               // CLI surface: a failed build ends this process with the clean
               // error line. Library imports of extensionBuild reject instead.
               // Under --output json we catch instead, so the failure can be
@@ -528,14 +534,14 @@ export function registerStartCommand(
 
           // Launch the browser through the preview module, which resolves the
           // project structure and extensions-to-load.
-          const {extensionPreview} = await loadPreview()
+          const {extensionPreview}: DevelopPreviewModule = await loadPreview()
 
           await extensionPreview(
             pathOrRemoteUrl,
             {
               mode: 'production',
               profile: normalizeProfileOption(startOptions.profile),
-              browser: vendor as StartOptions['browser'],
+              browser: vendor as DevelopBrowser,
               chromiumBinary: startOptions.chromiumBinary,
               geckoBinary: cliGeckoBinary(startOptions),
               startingUrl: startOptions.startingUrl,
@@ -573,8 +579,12 @@ export function registerStartCommand(
               logUrl: startOptions.logUrl,
               logTab: startOptions.logTab
             },
-            (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
-              runBrowser({...opts, command: 'start'})
+            (opts) =>
+              runBrowser({
+                ...opts,
+                browser: opts.browser as DevelopBrowser,
+                command: 'start'
+              }) as ReturnType<DevelopPreviewLauncher>
           )
         }
 
