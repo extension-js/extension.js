@@ -260,15 +260,15 @@ describe('Chromium profile flags', () => {
     'throws when a live browser holds the explicit profile',
     () => {
       const explicitProfile = makeTempFolder('extjs-explicit-profile-live-')
+      // Named chromium in the process table, the way a browser would be.
       const holder = spawn(
         process.execPath,
         [
           '-e',
           'setTimeout(() => {}, 30000)',
-          'chromium',
           `--user-data-dir=${explicitProfile}`
         ],
-        {stdio: 'ignore'}
+        {stdio: 'ignore', argv0: 'chromium'}
       )
 
       try {
