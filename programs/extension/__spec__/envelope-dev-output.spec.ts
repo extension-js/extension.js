@@ -359,9 +359,30 @@ describe('extension dev --output json', () => {
     hookOf().onExitError(new Error('boom'))
 
     expect(reportFailure.mock.calls).toEqual([
-      [{code: CODES.E_CONFIG_LOAD, exitCode: 1}],
-      [{code: CODES.E_DEV_SERVER_START, exitCode: 1}],
-      [{code: CODES.E_INTERNAL, exitCode: 1}]
+      [
+        {
+          code: CODES.E_CONFIG_LOAD,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ],
+      [
+        {
+          code: CODES.E_DEV_SERVER_START,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ],
+      [
+        {
+          code: CODES.E_INTERNAL,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ]
     ])
 
     // Reporting prints nothing: develop already said what failed.
@@ -377,7 +398,14 @@ describe('extension dev --output json', () => {
     expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
     expect(frames().map((frame) => frame.status)).toEqual(['failed'])
     expect(reportFailure.mock.calls).toEqual([
-      [{code: CODES.E_CONFIG_LOAD, exitCode: 1}]
+      [
+        {
+          code: CODES.E_CONFIG_LOAD,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ]
     ])
   })
 
