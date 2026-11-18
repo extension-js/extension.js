@@ -341,6 +341,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "injectedFileDependencyMissing: function(4)",
     "injectedSheetImportKept: function(4)",
     "mainWorldRegistrationChanged: function(2)",
+    "manifestNamedFileNotShipped: function(3)",
     "movedPageRelativeUrl: function(5)",
     "pageRelativeScriptPath: function(4)",
     "publicInjectedSheetImportIgnored: function(3)",
