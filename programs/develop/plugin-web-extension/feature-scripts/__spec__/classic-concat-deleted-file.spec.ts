@@ -15,6 +15,7 @@ const roots: string[] = []
 const watching: Compiler[] = []
 const before = process.env.EXTENSION_STRICT_REFS
 const HOLDER = '__EXTJS_SPEC_CLASSIC_CONCAT_LOADER__'
+const CONCAT_QUERY = '__extensionjs_classic_concat__'
 
 afterEach(async () => {
   if (before === undefined) delete process.env.EXTENSION_STRICT_REFS
@@ -155,8 +156,8 @@ function session(feature: 'sidebar/index' | 'content_scripts/content-0') {
     return builds[builds.length - 1]
   }
 
-  const ran = () => {
-    const page: Record<string, unknown> = {}
+  // The page may hold a value of its own before the bundle runs.
+  const ran = (page: Record<string, unknown> = {}) => {
     page.globalThis = page
     vm.runInNewContext(
       fs.readFileSync(at('dist', ...`${feature}.js`.split('/')), 'utf8'),
@@ -225,6 +226,56 @@ describe('a page whose classic scripts are joined, in a watch session', () => {
     expect(rebuilt).toEqual({errors: [], warnings: []})
     expect(ran()).toEqual(['first', 'second again', 'third'])
   }, 120000)
+
+  it('leaves out the first file when it is the deleted one, and warns once', async () => {
+    const {files, builds, next, ran} = session('sidebar/index')
+
+    await next(0)
+    fs.rmSync(files[0])
+
+    const rebuilt = await next(builds.length)
+
+    expect(rebuilt.errors).toEqual([])
+    expect(rebuilt.warnings).toHaveLength(1)
+    expect(rebuilt.warnings[0].name).toBe('HtmlEntrypointMissing')
+    expect(rebuilt.warnings[0].message).toContain('first.js')
+    expect(rebuilt.warnings[0].message).not.toContain(CONCAT_QUERY)
+    expect(rebuilt.warnings[0].file).toBe(path.join('sidebar', 'index.html'))
+    expect(ran({seen: ['page']})).toEqual(['page', 'second', 'third'])
+  }, 120000)
+
+  it('joins the first file again once it is written back', async () => {
+    const {files, builds, next, ran} = session('sidebar/index')
+
+    await next(0)
+    fs.rmSync(files[0])
+    await next(builds.length)
+    fs.writeFileSync(files[0], 'var seen = ["first again"]\n')
+
+    const rebuilt = await next(builds.length)
+
+    expect(rebuilt).toEqual({errors: [], warnings: []})
+    expect(ran()).toEqual(['first again', 'second', 'third'])
+  }, 120000)
+
+  it('builds the one file left when the others are deleted', async () => {
+    const {files, builds, next, ran} = session('sidebar/index')
+
+    await next(0)
+    fs.rmSync(files[0])
+    await next(builds.length)
+    fs.rmSync(files[1])
+
+    const rebuilt = await next(builds.length)
+
+    expect(rebuilt.errors).toEqual([])
+    expect(rebuilt.warnings.map(({name}) => name)).toEqual([
+      'HtmlEntrypointMissing',
+      'HtmlEntrypointMissing'
+    ])
+
+    expect(ran({seen: ['page']})).toEqual(['page', 'third'])
+  }, 120000)
 })
 
 describe('a content script group whose classic scripts are joined, in a watch session', () => {
@@ -249,5 +300,26 @@ describe('a content script group whose classic scripts are joined, in a watch se
     expect(rebuilt.errors[0].message).toContain('sidebar/second.js')
     expect(rebuilt.errors[0].message).toContain('content_scripts[0].js')
     expect(rebuilt.errors[0].message).not.toContain('ENOENT')
+  }, 120000)
+
+  it('fails once over the first file when it is the deleted one', async () => {
+    const {files, builds, next, ran} = session('content_scripts/content-0')
+
+    await next(0)
+    fs.rmSync(files[0])
+
+    const rebuilt = await next(builds.length)
+
+    expect(rebuilt.warnings).toEqual([])
+    expect(rebuilt.errors).toHaveLength(1)
+    expect(rebuilt.errors[0].name).toBe('ScriptsMissingFile')
+    expect(rebuilt.errors[0].message).toContain('sidebar/first.js')
+    expect(rebuilt.errors[0].message).toContain('content_scripts[0].js')
+    expect(rebuilt.errors[0].message).not.toContain(CONCAT_QUERY)
+
+    fs.writeFileSync(files[0], 'var seen = ["first again"]\n')
+
+    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(ran()).toEqual(['first again', 'second', 'third'])
   }, 120000)
 })
