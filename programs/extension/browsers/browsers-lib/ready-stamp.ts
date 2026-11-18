@@ -69,6 +69,9 @@ export function readyPathFor(extensionOutputPath: string): string {
   )
 }
 
+// Matches no record, so every stamp a launcher guards with it stays off.
+const ANOTHER_PROCESS_RUN = 'run-of-another-process'
+
 // The run a stamp belongs to, read once when the browser launches. Every later
 // stamp is evidence about THAT browser, so it has to name the run it came from.
 export function readReadyRunId(
@@ -80,7 +83,14 @@ export function readReadyRunId(
     const readyPath = readyPathFor(extensionOutputPath)
     if (!fs.existsSync(readyPath)) return undefined
 
-    const runId = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))?.runId
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    const runId = ready?.runId
+
+    // A preview over a live dev session writes nothing, so the record here
+    // is the dev process's run and no browser of this process belongs to it.
+    if (typeof ready?.pid === 'number' && ready.pid !== process.pid) {
+      return ANOTHER_PROCESS_RUN
+    }
 
     return typeof runId === 'string' && runId ? runId : undefined
   } catch {

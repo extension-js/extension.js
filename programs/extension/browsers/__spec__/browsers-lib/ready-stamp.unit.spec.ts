@@ -897,6 +897,28 @@ describe('a stamp from a superseded run', () => {
     expect(readReadyRunId(undefined)).toBeUndefined()
     expect(readReadyRunId(path.join(tmp, 'dist', 'edge'))).toBeUndefined()
   })
+
+  it('reads the run of a record this process wrote', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({...freshContract(), pid: process.pid})
+    )
+
+    expect(readReadyRunId(outputPath)).toBe('run-B')
+  })
+
+  it('gives no run of its own for a record another process wrote', () => {
+    const foreign = {...freshContract(), pid: process.pid + 1, cdpPort: 9222}
+    fs.writeFileSync(readyPath, JSON.stringify(foreign))
+
+    const runId = readReadyRunId(outputPath)
+    expect(runId).not.toBe('run-B')
+
+    stampReadyBrowserLaunch(outputPath, {browserPid: 9999}, runId)
+    stampReadyBrowserExited(outputPath, 15, 'SIGTERM', runId)
+
+    expect(readReady()).toEqual(foreign)
+  })
 })
 
 describe('readReadyExecutorAttached', () => {

@@ -1,3 +1,4 @@
+import {type ChildProcess, spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -64,6 +65,7 @@ vi.mock('../../browsers-lib/banner', () => ({
   printProdBannerOnce
 }))
 
+import {createPlaywrightMetadataWriter} from '../../../../develop/plugin-playwright'
 import {
   runOnlyPreviewBrowser,
   warnIgnoredHostPermissionPatterns
@@ -467,6 +469,109 @@ describe('runOnlyPreviewBrowser', () => {
       expect(chromiumRunOnce).not.toHaveBeenCalled()
     })
   }
+})
+
+// A preview started while a dev session owns the same record writes nothing to
+// it, so the preview's launcher has no run of its own on that record.
+describe('a preview launched over a live dev session', () => {
+  let dir: string
+  let devSession: ChildProcess
+  let readyPath: string
+  let outPath: string
+  let devRecord: string
+
+  beforeEach(async () => {
+    chromiumRunOnce.mockReset()
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-two-'))
+    outPath = path.join(dir, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"two"}')
+    fs.writeFileSync(
+      path.join(outPath, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'two', version: '1.0.0'})
+    )
+
+    // The first session: a stand-in process this spec spawned and ends.
+    devSession = spawn(
+      process.execPath,
+      ['-e', 'setInterval(() => {}, 1000)'],
+      {
+        stdio: 'ignore'
+      }
+    )
+
+    readyPath = path.join(dir, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    devRecord = JSON.stringify({
+      schemaVersion: 2,
+      command: 'dev',
+      browser: 'chrome',
+      status: 'ready',
+      runId: 'dev-run',
+      pid: devSession.pid,
+      distPath: outPath,
+      cdpPort: 9222,
+      ts: '2026-01-01T00:00:00.000Z'
+    })
+
+    fs.writeFileSync(readyPath, devRecord)
+
+    // The engine's half: the preview writer leaves the dev record alone.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: dir,
+      browser: 'chrome',
+      command: 'preview',
+      distPath: outPath,
+      manifestPath: path.join(outPath, 'manifest.json'),
+      port: null
+    })
+    expect(writer.readyPath).toBe(readyPath)
+    writer.writeStarting()
+    warn.mockRestore()
+    expect(fs.readFileSync(readyPath, 'utf8')).toBe(devRecord)
+  })
+
+  afterEach(() => {
+    devSession.kill()
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('leaves the dev record as it was when the preview browser comes up', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'chrome',
+      outPath,
+      readyPath,
+      contextDir: dir,
+      extensionsToLoad: [outPath]
+    })
+
+    const launch = chromiumRunOnce.mock.calls[0] as unknown as [
+      unknown,
+      {debugPortClaim?: {release(): void}}
+    ]
+    launch[1].debugPortClaim?.release()
+
+    expect(fs.readFileSync(readyPath, 'utf8')).toBe(devRecord)
+  })
+
+  it('leaves the dev record as it was when the preview launch fails', async () => {
+    chromiumRunOnce.mockImplementationOnce(async () => {
+      throw new Error('spawn EACCES')
+    })
+
+    await expect(
+      runOnlyPreviewBrowser({
+        browser: 'chrome',
+        outPath,
+        readyPath,
+        contextDir: dir,
+        extensionsToLoad: [outPath]
+      })
+    ).rejects.toMatchObject({code: 'E_BROWSER_LAUNCH'})
+
+    expect(fs.readFileSync(readyPath, 'utf8')).toBe(devRecord)
+  })
 })
 
 describe('the signal listeners of a run-only session', () => {
