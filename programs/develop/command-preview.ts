@@ -502,7 +502,9 @@ export async function extensionPreview(
     resolveCompanionExtensionDirsFromSpecialFolders({
       projectRoot: packageJsonDir,
       config: merged.extensions,
-      browser
+      browser,
+      // The no-browser run returned above, and a dry run opens nothing.
+      launchesBrowser: !merged.dryRun
     })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
