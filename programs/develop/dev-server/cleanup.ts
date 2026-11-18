@@ -220,6 +220,9 @@ export function setupCleanupHandlers(
 
   return Object.assign(dispose, {
     endAsFailed: async () => {
+      // A shutdown under way already wrote its stopped frame and owns the exit.
+      if (isShuttingDown) return
+
       endingAsFailed = true
 
       try {

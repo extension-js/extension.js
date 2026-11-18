@@ -240,6 +240,26 @@ describe('setupCleanupHandlers', () => {
     expect(exit.mock.calls).toEqual([[1]])
   })
 
+  it('keeps the clean exit of a signal shutdown that a failure end reaches late', async () => {
+    vi.useFakeTimers()
+    const events = new EventEmitter()
+    const exit = vi.fn()
+    const handlers = setupCleanupHandlers(
+      () => ({stop: async () => {}}) as never,
+      {terminateCurrentInstance: async () => {}} as unknown as PortManager,
+      () => {},
+      {events, exit, env: {}, closeControlBridge: async () => {}}
+    )
+    disposers.push(handlers)
+
+    events.emit('SIGINT', 'SIGINT')
+    await handlers.endAsFailed()
+    await vi.advanceTimersByTimeAsync(500)
+
+    // The stopped frame is already written, so the exit code must match it.
+    expect(exit.mock.calls).toEqual([[]])
+  })
+
   it('exits 1 and says so when the server stop rejects', async () => {
     vi.useFakeTimers()
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
