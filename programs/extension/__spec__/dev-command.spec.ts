@@ -682,6 +682,46 @@ describe('extension dev', () => {
   })
 })
 
+// The engine ends a session whose restart left no server by writing its own
+// terminal frame and calling onExitError. Under --output json it never exits.
+describe('extension dev after the engine ends a running session', () => {
+  const lostServer = Object.assign(new Error('listen EADDRINUSE'), {
+    code: 'E_DEV_SERVER_START'
+  })
+
+  async function endSession(argv: string[]) {
+    const reported: unknown[] = []
+
+    deps.reportFailure = (details) => {
+      reported.push(details)
+    }
+
+    expect(await run(argv)).toBe(0)
+    stdout.length = 0
+
+    const onExitError = engineCalls[0][1].onExitError as (
+      error: unknown,
+      code?: string
+    ) => void
+
+    onExitError(lostServer, 'E_DEV_SERVER_START')
+
+    return reported
+  }
+
+  afterEach(() => {
+    deps.reportFailure = () => {}
+  })
+
+  it('reports the failure and leaves the process running under --output json', async () => {
+    const reported = await endSession(['dev', '.', '--output', 'json'])
+
+    expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
+    expect(process.exit).not.toHaveBeenCalled()
+    expect(stdout).toEqual([])
+  })
+})
+
 describe('extension dev --wait', () => {
   it.each([
     [['--wait'], {waitTimeout: undefined, waitFormat: 'pretty'}],
