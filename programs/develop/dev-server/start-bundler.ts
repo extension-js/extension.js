@@ -143,7 +143,7 @@ export interface StartFailureTargets {
     sessionValue: () => Record<string, unknown>
     // True once the stream carries its terminal frame, this one or an
     // earlier one.
-    readonly ended: boolean
+    readonly ended?: boolean
   }
   onExitError?: (error: unknown, code?: string) => void
   print?: (line: string) => void
@@ -172,7 +172,7 @@ export function createStartFailure(targets: StartFailureTargets) {
     if (!exitOnError) {
       const coded = devServerStartError(error)
       coded.session = targets.lifecycle.sessionValue()
-      coded.framed = targets.lifecycle.ended
+      coded.framed = targets.lifecycle.ended === true
 
       throw coded
     }
@@ -275,11 +275,12 @@ export function createRestartFailure(targets: RestartFailureTargets) {
     },
     // Anything the steps above did not expect still gets its line, and a
     // compiler that goes on serving is not left marked as restarting.
-    unexpected(
-      error: unknown,
-      state: {previousServing: boolean} = {previousServing: false}
-    ): void {
-      if (state.previousServing) previousBuildKeepsServing(error)
+    // The scheduler hands its request here, which says nothing of a server.
+    unexpected(error: unknown, state?: object): void {
+      const serving = (state as {previousServing?: unknown} | undefined)
+        ?.previousServing
+
+      if (serving === true) previousBuildKeepsServing(error)
       else print(messages.devServerRestartFailed(error, 'unknown'))
     }
   }
