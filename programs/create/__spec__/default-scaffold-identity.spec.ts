@@ -48,7 +48,8 @@ beforeAll(async () => {
 
   process.env.GIT_CONFIG_GLOBAL = gitConfigPath
   process.env.GIT_CONFIG_SYSTEM = '/dev/null'
-  delete process.env.npm_config_user_agent
+  // npm ran this create. Naming it here keeps the real binary from being asked.
+  process.env.npm_config_user_agent = 'npm/11.11.0 node/v22.12.0'
   delete process.env.npm_execpath
   process.env.BUN_INSTALL = path.join(workDir, '.bun')
 

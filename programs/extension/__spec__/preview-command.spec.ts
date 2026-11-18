@@ -29,7 +29,13 @@ const configReads: unknown[][] = []
 let commandConfig: unknown = {}
 let preview: () => Promise<unknown> = async () => undefined
 
+// What the command told telemetry about the browsers of the run.
+const notedBrowsers: string[][] = []
+
 const deps: PreviewDeps = {
+  noteBrowsers: (resolved) => {
+    notedBrowsers.push([...resolved])
+  },
   loadDevelop: async () => ({
     loadCommandConfig: async (...args: unknown[]) => {
       configReads.push(args)
@@ -74,6 +80,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  notedBrowsers.length = 0
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
   for (const list of [previews, browserRuns, configReads]) list.length = 0
@@ -187,6 +194,8 @@ const FORWARDING: ForwardingRow[] = [
   },
   {argv: ['--log-context', 'all'], options: {}},
   {argv: ['--logs', 'debug'], options: {logLevel: 'debug'}},
+  // The flag is read in any case, and the engine compares the level exactly.
+  {argv: ['--logs', ' OFF '], options: {logLevel: 'off'}},
   {argv: ['--log-format', 'ndjson'], options: {logFormat: 'ndjson'}},
   {argv: ['--no-log-timestamps'], options: {logTimestamps: false}},
   {argv: ['--no-log-color'], options: {logColor: false}},
@@ -518,5 +527,38 @@ describe('extension preview --output json', () => {
         warnings: []
       }
     ])
+  })
+})
+
+describe('extension preview tells telemetry which browsers it resolved', () => {
+  it.each<[string, string[], unknown, string[]]>([
+    ['the default, with no flag and no config', [], {}, ['chromium']],
+    ['the one the config file names', [], {browser: 'firefox'}, ['firefox']],
+    [
+      'the flag over the config file',
+      ['--browser', 'edge'],
+      {browser: 'firefox'},
+      ['edge']
+    ],
+    [
+      'every browser of a list',
+      ['--browser', 'chrome,firefox'],
+      {},
+      ['chrome', 'firefox']
+    ]
+  ])('%s', async (_name, argv, config, expected) => {
+    commandConfig = config
+
+    await run(['preview', PROJECT, ...argv])
+
+    expect(notedBrowsers).toEqual([expected])
+  })
+
+  it('tells nothing for a run refused before a browser is resolved', async () => {
+    commandConfig = {browser: 'firefox'}
+
+    expect(await run(['preview', PROJECT, '--output', 'xml'])).toBe(1)
+    expect(notedBrowsers).toEqual([])
+    expect(configReads).toEqual([])
   })
 })

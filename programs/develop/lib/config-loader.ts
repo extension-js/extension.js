@@ -20,7 +20,13 @@ import type {
   FileConfig
 } from '../types'
 import {type CodedError, codedError} from './coded-error'
-import {isWebkitBasedBrowser} from './constants'
+import {
+  CHROMIUM_FAMILY_ALIASES,
+  GECKO_FAMILY_ALIASES,
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser,
+  isWebkitBasedBrowser
+} from './constants'
 import * as messages from './messages'
 import {CODES, debugLine, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
@@ -42,15 +48,45 @@ export function getPreloadedEnvKeys(): ReadonlySet<string> {
   return preloadedEnvKeys
 }
 
-// Env files from weakest to strongest: defaults only fill gaps, the base
-// file applies, a local override file layers on top, and the mode file wins
-// among files. A key the shell already owns is never touched by any of them.
-const ENV_PRELOAD_ORDER = [
-  '.env.defaults',
-  '.env',
-  '.env.local',
-  '.env.development'
-]
+// What a run is compiling for, as far as the caller knows it. The browser is
+// often read from the config itself, so it can be absent on the first load.
+export type ConfigEnvTarget = {mode?: string; browser?: string}
+
+// The files the compiled bundle picks from, strongest first, in the order the
+// env plugin uses. Without a browser only the files no browser owns apply.
+export function envFileCandidates(mode: string, browser?: string): string[] {
+  const shared = [`.env.${mode}`, '.env.local', '.env']
+  if (!browser) return shared
+
+  const isChromiumTarget =
+    isChromiumBasedBrowser(browser) ||
+    browser === 'safari' ||
+    browser.includes('webkit')
+  const familyNames = isChromiumTarget
+    ? CHROMIUM_FAMILY_ALIASES
+    : isGeckoBasedBrowser(browser)
+      ? GECKO_FAMILY_ALIASES
+      : []
+  const names = [browser, ...familyNames.filter((name) => name !== browser)]
+
+  return [
+    ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
+    ...shared
+  ]
+}
+
+// Only dev compiles in development. Every caller that loads the config with
+// no command named is a build, start or preview path, so that is the default.
+function envModeFor(command?: string, target?: ConfigEnvTarget): string {
+  return target?.mode || (command === 'dev' ? 'development' : 'production')
+}
+
+// Env files from weakest to strongest: defaults only fill gaps, then the
+// bundle's candidates from last to first, so the file the build picks wins.
+// A key the shell already owns is never touched by any of them.
+function envPreloadOrder(mode: string, browser?: string): string[] {
+  return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
+}
 
 function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
   const parsed = dotenv.parse(fs.readFileSync(filePath))
@@ -135,7 +171,10 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
   }
 }
 
-function preloadEnvFilesFromDir(envDir: string): EnvPreloadResult {
+function preloadEnvFilesFromDir(
+  envDir: string,
+  order: string[]
+): EnvPreloadResult {
   let loadedAny = false
   // Snapshot before any file loads: a later, stronger file may override an
   // earlier file's value but never a value the shell or CI exported.
@@ -143,7 +182,7 @@ function preloadEnvFilesFromDir(envDir: string): EnvPreloadResult {
     Object.keys(process.env).filter((key) => !preloadedEnvKeys.has(key))
   )
 
-  for (const filename of ENV_PRELOAD_ORDER) {
+  for (const filename of order) {
     const filePath = path.join(envDir, filename)
     if (!fs.existsSync(filePath)) continue
 
@@ -219,14 +258,14 @@ export function projectConfigCandidatePaths(projectPath: string): string[] {
   return dirs.flatMap((dir) => configCandidatesIn(dir))
 }
 
-function preloadEnvFiles(projectDir: string) {
-  const local = preloadEnvFilesFromDir(projectDir)
+function preloadEnvFiles(projectDir: string, order: string[]) {
+  const local = preloadEnvFilesFromDir(projectDir, order)
   if (local.loadedAny) return local
 
   const workspaceRoot = findNearestWorkspaceRoot(projectDir)
 
   if (workspaceRoot && workspaceRoot !== projectDir) {
-    return preloadEnvFilesFromDir(workspaceRoot)
+    return preloadEnvFilesFromDir(workspaceRoot, order)
   }
 
   return local
@@ -386,17 +425,22 @@ function assertConfigShape(configPath: string, value: unknown): void {
   }
 }
 
-async function loadConfigFile(configPath: string): Promise<FileConfig> {
+async function loadConfigFile(
+  configPath: string,
+  envOrder: string[] = envPreloadOrder(envModeFor())
+): Promise<FileConfig> {
   const absolutePath = path.resolve(configPath)
 
   const cached = loadedConfigCache.get(absolutePath)
   if (cached) return cached
 
-  const loading = loadConfigFileUncached(absolutePath).then((value) => {
-    assertConfigShape(absolutePath, value)
+  const loading = loadConfigFileUncached(absolutePath, envOrder).then(
+    (value) => {
+      assertConfigShape(absolutePath, value)
 
-    return value
-  })
+      return value
+    }
+  )
   loadedConfigCache.set(absolutePath, loading)
 
   try {
@@ -410,11 +454,12 @@ async function loadConfigFile(configPath: string): Promise<FileConfig> {
 }
 
 async function loadConfigFileUncached(
-  absolutePath: string
+  absolutePath: string,
+  envOrder: string[]
 ): Promise<FileConfig> {
   const projectDir = path.dirname(absolutePath)
 
-  preloadEnvFiles(projectDir)
+  preloadEnvFiles(projectDir, envOrder)
 
   try {
     if (absolutePath.endsWith('.cjs')) {
@@ -489,7 +534,10 @@ export async function loadCustomConfig(
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
-        const userConfig = await loadConfigFile(configPath)
+        const userConfig = await loadConfigFile(
+          configPath,
+          envPreloadOrder(context.mode, String(context.browser))
+        )
 
         if (userConfig && typeof userConfig.config === 'function') {
           const hook = userConfig.config
@@ -632,16 +680,18 @@ export type ProjectConfigDefaults = Pick<
 // beats everything. They are returned on their own so no consumer sees a
 // project-wide default wearing command-layer specificity.
 export async function loadProjectConfigDefaults(
-  projectPath: string
+  projectPath: string,
+  envTarget?: ConfigEnvTarget
 ): Promise<ProjectConfigDefaults> {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
-        const userConfig = (await loadConfigFile(configPath)) as
-          | ProjectConfigDefaults
-          | undefined
+        const userConfig = (await loadConfigFile(
+          configPath,
+          envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
+        )) as ProjectConfigDefaults | undefined
 
         return {
           ...(userConfig?.extensions
@@ -693,14 +743,18 @@ export type CommandLayerConfig = Partial<
 
 export async function loadCommandConfig(
   projectPath: string,
-  command: 'dev' | 'build' | 'start' | 'preview'
+  command: 'dev' | 'build' | 'start' | 'preview',
+  envTarget?: ConfigEnvTarget
 ): Promise<CommandLayerConfig> {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
-        const userConfig = await loadConfigFile(configPath)
+        const userConfig = await loadConfigFile(
+          configPath,
+          envPreloadOrder(envModeFor(command, envTarget), envTarget?.browser)
+        )
 
         return (userConfig?.commands?.[command] || {}) as CommandLayerConfig
       } catch (err: unknown) {

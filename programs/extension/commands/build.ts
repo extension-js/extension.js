@@ -21,6 +21,8 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopFor,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -41,6 +43,7 @@ import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
+import {noteRunBrowsers} from '../helpers/telemetry-cli'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
@@ -101,6 +104,7 @@ interface BuildCommandDeps {
   loadDevelop?: () => Promise<AnyDevelopModule>
   safariPreflight?: typeof safariBuildPreflight
   createPackager?: typeof createSafariPackager
+  noteBrowsers?: typeof noteRunBrowsers
 }
 
 export function registerBuildCommand(
@@ -108,7 +112,8 @@ export function registerBuildCommand(
   {
     loadDevelop = loadExtensionDevelopModule,
     safariPreflight = safariBuildPreflight,
-    createPackager = createSafariPackager
+    createPackager = createSafariPackager,
+    noteBrowsers = noteRunBrowsers
   }: BuildCommandDeps = {}
 ) {
   program
@@ -259,6 +264,7 @@ export function registerBuildCommand(
 
         const asJson = isJsonOutput(buildOptions)
         const list = vendors(browser)
+        noteBrowsers(list)
         let unsupportedBrowser = ''
         let supportedBrowsers: string[] = []
 
@@ -380,7 +386,8 @@ export function registerBuildCommand(
           }
         }
 
-        const {extensionBuild} = await loadDevelop()
+        const {extensionBuild}: DevelopFor<'extensionBuild'> =
+          await loadDevelop()
 
         const cliVersion = checkProjectCliVersion(
           path.resolve(pathOrRemoteUrl || process.cwd()),
@@ -409,7 +416,7 @@ export function registerBuildCommand(
         for (const vendor of list) {
           try {
             const summary = await extensionBuild(pathOrRemoteUrl, {
-              browser: vendor as BuildOptions['browser'],
+              browser: vendor as DevelopBrowser,
               // CLI surface: a failed build ends this process with the clean
               // error line. Library imports of extensionBuild reject instead.
               // Under --output json we catch instead, so the failure can be

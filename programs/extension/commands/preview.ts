@@ -26,6 +26,9 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopPreviewLauncher,
+  type DevelopPreviewModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
 } from '../helpers/extension-develop-runtime'
@@ -46,14 +49,18 @@ import {
 import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
-import {markCommandSessionStart} from '../helpers/telemetry-cli'
+import {
+  markCommandSessionStart,
+  noteRunBrowsers
+} from '../helpers/telemetry-cli'
 import {
   type Browser,
   isSafariVendor,
@@ -119,6 +126,7 @@ interface PreviewCommandDeps {
   loadDevelop?: () => Promise<AnyDevelopModule>
   loadPreview?: () => Promise<AnyDevelopModule>
   runBrowser?: typeof runOnlyPreviewBrowser
+  noteBrowsers?: typeof noteRunBrowsers
 }
 
 export function registerPreviewCommand(
@@ -126,7 +134,8 @@ export function registerPreviewCommand(
   {
     loadDevelop = loadExtensionDevelopModule,
     loadPreview = loadExtensionDevelopPreviewModule,
-    runBrowser = runOnlyPreviewBrowser
+    runBrowser = runOnlyPreviewBrowser,
+    noteBrowsers = noteRunBrowsers
   }: PreviewCommandDeps = {}
 ) {
   program
@@ -279,6 +288,7 @@ export function registerPreviewCommand(
         }
 
         const list = vendors(browser)
+        noteBrowsers(list)
 
         let unsupported = ''
         let supportedBrowsers: string[] = []
@@ -367,7 +377,7 @@ export function registerPreviewCommand(
         // a signal, ten milliseconds after which its own handler kills it.
         markCommandSessionStart('preview')
 
-        const {extensionPreview} = await loadPreview()
+        const {extensionPreview}: DevelopPreviewModule = await loadPreview()
         const previewed: string[] = []
         const previewWarnings: string[] = []
 
@@ -383,7 +393,7 @@ export function registerPreviewCommand(
               {
                 mode: 'production',
                 profile: normalizeProfileOption(previewOptions.profile),
-                browser: vendor as PreviewOptions['browser'],
+                browser: vendor as DevelopBrowser,
                 chromiumBinary: previewOptions.chromiumBinary,
                 geckoBinary: cliGeckoBinary(previewOptions),
                 // Only forward a typed --no-open, so commands.preview.noOpen
@@ -408,7 +418,7 @@ export function registerPreviewCommand(
                 allowEval: Boolean(previewOptions.allowEval),
                 // Only pass logger values the user typed. Stock defaults and
                 // commands.preview.* are applied inside extensionPreview.
-                logLevel: logsOption || undefined,
+                logLevel: parseLogLevel(logsOption),
                 logContexts,
                 logFormat: previewOptions.logFormat,
                 logTimestamps: explicitCliValue(
@@ -426,8 +436,10 @@ export function registerPreviewCommand(
               },
               // Browser launcher callback, runs browser code from extension/browser/
               // without pulling rspack into the preview path
-              (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
-                runBrowser(opts)
+              (opts) =>
+                runBrowser(
+                  opts as Parameters<typeof runOnlyPreviewBrowser>[0]
+                ) as ReturnType<DevelopPreviewLauncher>
             )
 
             previewed.push(vendor)

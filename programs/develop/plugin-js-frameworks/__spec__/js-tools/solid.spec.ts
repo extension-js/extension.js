@@ -1,19 +1,17 @@
 import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-vi.mock('../../frameworks-lib/integrations', () => ({
-  hasDependency: vi.fn(() => false),
-  resolveDevelopInstallRoot: vi.fn(() => undefined)
-}))
-
-vi.mock('../../../lib/optional-deps-resolver', () => ({
-  ensureOptionalContractPackageResolved: vi.fn(
-    async (input: {dependencyId: string}) =>
-      `/mock/node_modules/${input.dependencyId}/index.js`
-  )
-}))
+// The Babel pieces are not in the fixture, so they resolve from Extension.js
+// the same way the optional-deps resolver finds them.
+const fromDevelop = createRequire(
+  path.join(__dirname, '..', '..', '..', 'x.js')
+)
+const babelLoader = fromDevelop.resolve('babel-loader')
+const solidPreset = fromDevelop.resolve('babel-preset-solid')
+const typescriptPreset = fromDevelop.resolve('@babel/preset-typescript')
 
 // The real solid-js layout: one package, two builds of the hyperscript entry
 // behind the exports map. Only the import condition shares the ES module
@@ -54,18 +52,11 @@ function writeSolidPackage(projectPath: string, exportsForH: unknown) {
 describe('solid tools', () => {
   let projectPath: string
 
-  beforeEach(async () => {
-    vi.resetModules()
-    vi.clearAllMocks()
+  beforeEach(() => {
+    projectPath = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-solid-'))
+    )
 
-    // clearAllMocks keeps the implementation a previous case installed, so
-    // the detection default has to be put back by hand.
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(() => false)
-
-    projectPath = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-solid-'))
     fs.writeFileSync(
       path.join(projectPath, 'package.json'),
       JSON.stringify({name: 'solid-fixture', dependencies: {'solid-js': '*'}})
@@ -77,13 +68,6 @@ describe('solid tools', () => {
   })
 
   async function loadSolidTools() {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'solid-js'
-    )
-
     return await import('../../js-tools/solid')
   }
 
@@ -180,19 +164,17 @@ describe('solid tools', () => {
     const js = loaders.find((rule) => rule.test.test('a.js'))
 
     for (const rule of [jsx, tsx]) {
-      expect(rule.loader).toBe('/mock/node_modules/babel-loader/index.js')
+      expect(rule.loader).toBe(babelLoader)
       expect(rule.options.babelrc).toBe(false)
       expect(rule.options.configFile).toBe(false)
     }
 
-    expect(jsx.options.presets).toEqual([
-      ['/mock/node_modules/babel-preset-solid/index.js', {development: false}]
-    ])
+    expect(jsx.options.presets).toEqual([[solidPreset, {development: false}]])
 
     expect(tsx.options.presets).toEqual([
-      ['/mock/node_modules/babel-preset-solid/index.js', {development: false}],
+      [solidPreset, {development: false}],
       [
-        '/mock/node_modules/@babel/preset-typescript/index.js',
+        typescriptPreset,
         {isTSX: true, allExtensions: true, onlyRemoveTypeImports: true}
       ]
     ])
@@ -233,37 +215,21 @@ describe('solid tools', () => {
     const js = loaders.find((rule) => rule.test.test('a.js'))
 
     expect(js.loader).toContain('solid-jsx-gate-loader')
-    expect(js.options.babelLoader).toBe(
-      '/mock/node_modules/babel-loader/index.js'
-    )
+    expect(js.options.babelLoader).toBe(babelLoader)
 
-    expect(js.options.presets).toEqual([
-      ['/mock/node_modules/babel-preset-solid/index.js', {development: false}]
-    ])
+    expect(js.options.presets).toEqual([[solidPreset, {development: false}]])
 
     expect(js.options.compact).toBe(false)
   })
 
-  it('asks the solid contract for every Babel piece and turns development on in dev', async () => {
+  it('turns Solid development on in dev', async () => {
     writeSolidPackage(projectPath, './h/dist/h.js')
 
-    const resolver = (await import(
-      '../../../lib/optional-deps-resolver'
-    )) as any
     const {maybeUseSolid} = await loadSolidTools()
     const result = await maybeUseSolid(projectPath)
 
-    const asked = resolver.ensureOptionalContractPackageResolved.mock.calls.map(
-      (call: any[]) => [call[0].contractId, call[0].dependencyId]
-    )
-    expect(asked).toEqual([
-      ['solid', 'babel-loader'],
-      ['solid', 'babel-preset-solid'],
-      ['solid', '@babel/preset-typescript']
-    ])
-
     const presets = (result?.loaders as any[])[0].options.presets
-    expect(presets[0][1]).toEqual({development: true})
+    expect(presets[0]).toEqual([solidPreset, {development: true}])
   })
 
   it('never warns that Solid is unsupported', async () => {
@@ -283,6 +249,7 @@ describe('solid tools', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
+      fs.writeFileSync(path.join(projectPath, 'package.json'), '{}')
       const {isUsingSolid} = await import('../../js-tools/solid')
 
       expect(isUsingSolid(projectPath)).toBe(false)
@@ -293,6 +260,7 @@ describe('solid tools', () => {
   })
 
   it('returns undefined when solid-js is not a dependency', async () => {
+    fs.writeFileSync(path.join(projectPath, 'package.json'), '{}')
     const {maybeUseSolid} = await import('../../js-tools/solid')
 
     expect(await maybeUseSolid(projectPath)).toBeUndefined()

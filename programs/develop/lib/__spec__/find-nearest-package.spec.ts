@@ -1,8 +1,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
-import {findNearestPackageJson, validatePackageJson} from '../package-json'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {
+  findNearestPackageJson,
+  findNearestPackageJsonSync,
+  validatePackageJson
+} from '../package-json'
 
 const makeTempFolder = trackTempFolders()
 
@@ -27,6 +31,18 @@ describe('find-nearest-package', () => {
       path.join(manifestDir, 'manifest.json')
     )
     expect(found).toBe(pkgPath)
+  })
+
+  it('answers null for a path it cannot walk and prints no raw error', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      expect(findNearestPackageJsonSync(undefined as never)).toBeNull()
+      expect(await findNearestPackageJson(undefined as never)).toBeNull()
+      expect(warn).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
   })
 
   it('validatePackageJson returns false for missing or invalid JSON', () => {

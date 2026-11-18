@@ -32,6 +32,10 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopFor,
+  type DevelopLauncher,
+  type DevelopModule,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
@@ -47,7 +51,8 @@ import {
   firstInvalidWholeNumberFlag,
   isReverseDnsBundleId,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {
   refuseUnreadableOutput,
@@ -62,6 +67,7 @@ import {
 import {
   markCommandSessionReady,
   markCommandSessionStart,
+  noteRunBrowsers,
   reportCommandFailureNow
 } from '../helpers/telemetry-cli'
 import {
@@ -74,6 +80,12 @@ import {
   vendors
 } from '../helpers/vendors'
 import {describeWaitError, framedWaitFailure, runWaitMode} from './dev-wait'
+
+type EngineDevOptions = Parameters<DevelopModule['extensionDev']>[1]
+
+// The engine sets the mode of a dev session itself and reads authorMode off
+// the options without declaring it, so both are stated here.
+type DevArgs = Omit<EngineDevOptions, 'mode'> & {authorMode?: boolean}
 
 export type DevOptions = {
   browser?: Browser | 'all'
@@ -155,6 +167,7 @@ interface DevCommandDeps {
   waitForReady?: typeof runWaitMode
   createPackager?: typeof createSafariPackager
   reportFailure?: typeof reportCommandFailureNow
+  noteBrowsers?: typeof noteRunBrowsers
 }
 
 export function registerDevCommand(
@@ -166,7 +179,8 @@ export function registerDevCommand(
     armParentWatchdog = setupParentWatchdog,
     waitForReady = runWaitMode,
     createPackager = createSafariPackager,
-    reportFailure = reportCommandFailureNow
+    reportFailure = reportCommandFailureNow,
+    noteBrowsers = noteRunBrowsers
   }: DevCommandDeps = {}
 ) {
   program
@@ -420,6 +434,7 @@ export function registerDevCommand(
         }
 
         const list = vendors(browser)
+        noteBrowsers(list)
         let unsupportedBrowser = ''
         let supportedBrowsers: string[] = []
 
@@ -638,7 +653,7 @@ export function registerDevCommand(
           })
         }
 
-        const {extensionDev} = await loadDevelop()
+        const {extensionDev}: DevelopFor<'extensionDev'> = await loadDevelop()
 
         for (const vendor of list) {
           const logsOption = devOptions.logs
@@ -647,7 +662,7 @@ export function registerDevCommand(
           const logContexts = parseLogContexts(logContextOption)
           // Only forward logLevel when the user typed --logs. The stock `off`
           // and commands.dev.logLevel live in develop's merge layers.
-          const logLevel = logsOption || undefined
+          const logLevel = parseLogLevel(logsOption)
 
           // Pass only values the user typed. Stock defaults and
           // extension.config.js are applied inside extensionDev (defaults,
@@ -661,12 +676,12 @@ export function registerDevCommand(
 
           // Named key by key: a spread handed develop the CLI-only flags too
           // (--output json, --wait), which it then merged over config values.
-          const devArgs: Record<string, unknown> = {
+          const devArgs: DevArgs = {
             // Under --output json the wrapper catches and frames the failure;
             // extensionDev must reject instead of exiting for that to happen.
             exitOnError: !asJson,
             profile: normalizeProfileOption(devOptions.profile),
-            browser: vendor as DevOptions['browser'],
+            browser: vendor as DevelopBrowser,
             chromiumBinary: devOptions.chromiumBinary,
             geckoBinary: cliGeckoBinary(devOptions),
             polyfill: explicitCliValue(
@@ -713,7 +728,7 @@ export function registerDevCommand(
             allowEval: devOptions.allowEval,
             // Inject the browser launcher, develop's BrowsersPlugin calls it
             // on first compile; browser lifecycle is managed by the plugin.
-            launcher: noBrowser ? undefined : launcher,
+            launcher: noBrowser ? undefined : (launcher as DevelopLauncher),
             // The startup frame waits for the session to exist. Printed up
             // front, it announced a run that a missing manifest then refused.
             onSessionStart: printStartedFrame,
@@ -735,7 +750,7 @@ export function registerDevCommand(
           // extensionDev returns a BuildEmitter from the BrowsersPlugin.
           // Browser launch/reload is handled internally by the plugin.
           try {
-            await extensionDev(pathOrRemoteUrl, devArgs)
+            await extensionDev(pathOrRemoteUrl, devArgs as EngineDevOptions)
             // A develop that never called back still gets its frame.
             printStartedFrame()
           } catch (error) {
