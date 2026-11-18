@@ -1,4 +1,5 @@
 import {type ChildProcess, spawn} from 'node:child_process'
+import {once} from 'node:events'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -175,13 +176,21 @@ describe('profile lock detection', () => {
 
     it.skipIf(process.platform === 'win32')(
       'refuses when the live process is a browser running on the profile',
-      () => {
-        // A stand-in that the process table names as a Chromium binary.
+      async () => {
+        // A stand-in the process table names as a Chromium binary. `--` keeps
+        // the flag an argument of the script, or node refuses it and exits.
         bystander = spawn(
           process.execPath,
-          ['-e', 'setTimeout(() => {}, 30000)', `--user-data-dir=${profile}`],
+          [
+            '-e',
+            'setTimeout(() => {}, 30000)',
+            '--',
+            `--user-data-dir=${profile}`
+          ],
           {stdio: 'ignore', argv0: 'chromium'}
         )
+
+        await once(bystander, 'spawn')
 
         lockTo(bystander.pid as number)
 

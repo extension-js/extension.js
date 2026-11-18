@@ -202,10 +202,16 @@ describe('a Chromium launch that does not reach a running extension', () => {
           fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-locked-profile-'))
         )
         // A node child of this spec, named chromium in the process table,
-        // stands in for the browser on the profile.
+        // stands in for the browser on the profile. `--` keeps the flag an
+        // argument of the script, or node refuses it and exits.
         const holder = spawn(
           process.execPath,
-          ['-e', 'setInterval(() => {}, 1000)', `--user-data-dir=${profile}`],
+          [
+            '-e',
+            'setInterval(() => {}, 1000)',
+            '--',
+            `--user-data-dir=${profile}`
+          ],
           {stdio: 'ignore', argv0: 'chromium'}
         )
 
