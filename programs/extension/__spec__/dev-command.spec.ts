@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {registerDevCommand} from '../commands/dev'
+import {setupParentWatchdog} from '../helpers/parent-watchdog'
 import {SUPPORTED_BROWSER_TARGETS} from '../helpers/vendors'
 import {
   makeProgram,
@@ -849,6 +850,137 @@ describe('extension dev after the engine ends a running session', () => {
     expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
     expect(drainedExits).toEqual([])
     expect(process.exit).not.toHaveBeenCalled()
+  })
+})
+
+// The real watchdog over an engine that writes one terminal frame per session,
+// as the lifecycle stream does. No signal leaves the test process.
+describe('extension dev when the --parent-pid owner goes away', () => {
+  const PARENT_GONE =
+    'the --parent-pid owner (process 4242) is gone, so this dev session is shutting down'
+  const TERMINAL = new Set(['failed', 'usage', 'stopped'])
+  const POLL_MS = 1000
+
+  let parentAlive = true
+  let sessionLive = false
+  let ended = false
+  let kill: ReturnType<typeof vi.spyOn>
+  let endSessionAsFailed: ReturnType<typeof vi.fn>
+
+  const engineFrame = (status: string, error: unknown) => {
+    if (ended) return
+
+    ended = true
+    // eslint-disable-next-line no-console
+    console.log(
+      JSON.stringify({schema: 1, ok: false, command: 'dev', status, error})
+    )
+  }
+
+  beforeEach(() => {
+    parentAlive = true
+    sessionLive = false
+    ended = false
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval']
+    })
+
+    kill = vi.spyOn(process, 'kill').mockImplementation(((
+      pid: number,
+      signal?: string
+    ) => {
+      // The engine's signal handler ends a live session with its stop frame.
+      if (pid === process.pid && signal === 'SIGTERM' && sessionLive) {
+        engineFrame('stopped', null)
+      }
+
+      return true
+    }) as never)
+
+    endSessionAsFailed = vi.fn((code: string, message: string) => {
+      if (!sessionLive) return false
+
+      engineFrame('failed', {code, message})
+
+      return true
+    })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function runWithRealWatchdog(argv: string[]) {
+    const realDeps: DevDeps = {
+      ...deps,
+      armParentWatchdog: (pid, options) =>
+        setupParentWatchdog(pid, {
+          ...options,
+          isAlive: () => parentAlive,
+          pollIntervalMs: POLL_MS
+        }),
+      loadDevelop: async () => ({
+        extensionDev: async () => {
+          sessionLive = true
+        },
+        endSessionAsFailed,
+        loadCommandConfig: async () => ({})
+      })
+    }
+
+    return runCli(
+      makeProgram((program) => registerDevCommand(program, realDeps)),
+      argv
+    )
+  }
+
+  const terminalFrames = () =>
+    frames().filter((frame) =>
+      TERMINAL.has(String((frame as {status?: unknown}).status))
+    )
+
+  it('writes two terminal frames once the session is live', async () => {
+    expect(
+      await runWithRealWatchdog([
+        'dev',
+        '.',
+        '--parent-pid',
+        '4242',
+        '--output',
+        'json'
+      ])
+    ).toBe(0)
+
+    parentAlive = false
+    vi.advanceTimersByTime(POLL_MS)
+
+    expect(terminalFrames()).toMatchObject([
+      {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}},
+      {status: 'stopped'}
+    ])
+
+    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+  })
+
+  it('frames the failure itself and signals itself before any session is live', async () => {
+    parentAlive = false
+
+    expect(
+      await runWithRealWatchdog([
+        'dev',
+        '.',
+        '--parent-pid',
+        '4242',
+        '--output',
+        'json'
+      ])
+    ).toBe(0)
+
+    expect(terminalFrames()).toMatchObject([
+      {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}}
+    ])
+
+    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
   })
 })
 
