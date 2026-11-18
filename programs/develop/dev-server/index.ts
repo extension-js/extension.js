@@ -110,6 +110,7 @@ import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig} from './server-config'
 import {registerLiveSession} from './session-end'
+import {exportSessionEnv} from './session-env'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {createSessionHoldings} from './session-holdings'
 import {
@@ -434,9 +435,15 @@ export async function devServer(
   try {
     await startDevSession(projectStructure, devOptions, startup)
   } catch (error) {
-    // A session that never started leaves nothing in a host that goes on:
-    // no listener, no port, no open file, no guard on the manifest.
-    if (!startup.started) await startup.release?.()
+    if (!startup.started) {
+      // A session that never started leaves nothing in a host that goes on:
+      // no listener, no port, no open file, no guard on the manifest.
+      try {
+        await startup.release?.()
+      } catch {
+        // The failure that ended the start is the one the caller is owed.
+      }
+    }
 
     throw error
   }
@@ -467,9 +474,50 @@ async function startDevSession(
       wakeBackground?: () => Promise<boolean>
     }
   }
-  process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
-    ? '0'
-    : '1'
+  // Probe on the same host the server binds, so a port free on localhost but
+  // taken on the configured host isn't picked (and vice versa).
+  const portManager = new PortManager(8080)
+
+  // The middleware reads the live compiler's output, which a restart swaps.
+  let activeCompiler: Compiler | null = null
+  // The compiler behind each server, to retire it when a restart replaces it.
+  const compilerByServer = new WeakMap<object, Compiler>()
+  // Set while a bundle is being built, for a build that throws partway.
+  let releaseUnfinishedBundle: (() => void) | null = null
+
+  let closeControlBridge: () => Promise<void> = async () => {}
+
+  let firstServer: {stop?: () => Promise<void>} = {}
+  const holdings = createSessionHoldings()
+
+  startup.release = async () => {
+    // A bundle that threw partway has no server to stop it.
+    const releaseBundle = releaseUnfinishedBundle
+    releaseUnfinishedBundle = null
+
+    try {
+      releaseBundle?.()
+      if (!firstServer.stop) activeCompiler?.close(() => {})
+    } catch {
+      // Ignore
+    }
+
+    await releaseEndedSession({
+      server: firstServer,
+      releasePort: () => portManager.terminateCurrentInstance(),
+      closeControlBridge: () => closeControlBridge(),
+      holdings
+    })
+  }
+
+  // What the session writes for its compilers leaves the host with it.
+  const exportEnv = (name: string, value: string) =>
+    holdings.add(exportSessionEnv(name, value))
+
+  exportEnv(
+    'EXTENSION_BROWSER_LAUNCH_ENABLED',
+    devOptions.noBrowser ? '0' : '1'
+  )
 
   const {manifestPath} = projectStructure
   const packageJsonDir = resolveDevProjectRoot(projectStructure)
@@ -481,9 +529,6 @@ async function startDevSession(
     devOptions.browser
   )
 
-  // Probe on the same host the server binds, so a port free on localhost but
-  // taken on the configured host isn't picked (and vice versa).
-  const portManager = new PortManager(8080)
   const desiredPort =
     typeof devOptions.port === 'string'
       ? parseInt(devOptions.port, 10)
@@ -521,38 +566,6 @@ async function startDevSession(
 
   const port = portAllocation.port
 
-  // The middleware reads the live compiler's output, which a restart swaps.
-  let activeCompiler: Compiler | null = null
-  // The compiler behind each server, to retire it when a restart replaces it.
-  const compilerByServer = new WeakMap<object, Compiler>()
-  // Set while a bundle is being built, for a build that throws partway.
-  let releaseUnfinishedBundle: (() => void) | null = null
-
-  let closeControlBridge: () => Promise<void> = async () => {}
-
-  let firstServer: {stop?: () => Promise<void>} = {}
-  const holdings = createSessionHoldings()
-
-  startup.release = async () => {
-    // A bundle that threw partway has no server to stop it.
-    const releaseBundle = releaseUnfinishedBundle
-    releaseUnfinishedBundle = null
-
-    try {
-      releaseBundle?.()
-      if (!firstServer.stop) activeCompiler?.close(() => {})
-    } catch {
-      // Ignore
-    }
-
-    await releaseEndedSession({
-      server: firstServer,
-      releasePort: () => portManager.terminateCurrentInstance(),
-      closeControlBridge: () => closeControlBridge(),
-      holdings
-    })
-  }
-
   // `devServerHost` is the BIND host (e.g. 0.0.0.0 in a devcontainer). Clients
   // must dial a CONNECTABLE host: a wildcard bind is not a valid client target.
   const connectableHost = resolveConnectableHost(
@@ -565,11 +578,11 @@ async function startDevSession(
     hostname: connectableHost,
     port
   }
-  process.env.EXTENSION_DEV_SERVER_PROTOCOL = devServerWebSocketURL.protocol
-  process.env.EXTENSION_DEV_SERVER_HOST = devServerHost
-  process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = connectableHost
-  process.env.EXTENSION_DEV_SERVER_PORT = String(port)
-  process.env.EXTENSION_DEV_SERVER_PATH = '/ws'
+  exportEnv('EXTENSION_DEV_SERVER_PROTOCOL', devServerWebSocketURL.protocol)
+  exportEnv('EXTENSION_DEV_SERVER_HOST', devServerHost)
+  exportEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', connectableHost)
+  exportEnv('EXTENSION_DEV_SERVER_PORT', String(port))
+  exportEnv('EXTENSION_DEV_SERVER_PATH', '/ws')
 
   const browserName = String(devOptions.browser || 'chromium')
   const emulatorLane = isEmulatorBrowser(browserName)
@@ -590,9 +603,9 @@ async function startDevSession(
   // publishes, or consumers joining on it read every live row as foreign.
   const sessionRunId = getSessionRunId(packageJsonDir, browserName)
 
-  // Registered first, so it runs last: after the final contract write. The
-  // next session in this host is a new run and draws its own id.
-  holdings.add(() => forgetSessionRun(packageJsonDir, browserName))
+  // After the final contract write and everything else the release does.
+  // The next session in this host is a new run and draws its own id.
+  holdings.addLast(() => forgetSessionRun(packageJsonDir, browserName))
 
   const bridgeLogFile = new LogsFileWriter({
     filePath: bridgeLogsAbsPath,
@@ -752,13 +765,15 @@ async function startDevSession(
   // An id the session drew leaves the environment with it, so the next
   // session of this host does not read it as a pin.
   if (currentInstance.instanceExplicit) {
-    process.env.EXTENSION_INSTANCE_ID = currentInstance.instanceId
+    exportEnv('EXTENSION_INSTANCE_ID', currentInstance.instanceId)
   } else {
     holdings.add(exportInstanceId(currentInstance.instanceId))
   }
 
-  process.env.EXTENSION_CONTROL_PORT =
+  exportEnv(
+    'EXTENSION_CONTROL_PORT',
     bridgeControlPort != null ? String(bridgeControlPort) : ''
+  )
 
   const emulatorFiles = emulatorLane
     ? createEmulatorFileIndexHolder(currentInstance.instanceId)

@@ -3,12 +3,19 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeEach, describe, expect, it} from 'vitest'
-import {skipWithoutDevelopDist} from './helpers/develop-dist'
+import {
+  skipWithoutDevelopDist,
+  skipWithStaleDevelopDist
+} from './helpers/develop-dist'
 
 // Dev sessions started from the built library in a host that goes on
 // running, through the real entry: see fixtures/library-sessions.mjs.
 const fixture = path.join(__dirname, 'fixtures', 'library-sessions.mjs')
+const builtEntry = path.join(__dirname, '..', '..', 'dist', 'module.mjs')
 const roots: string[] = []
+
+// What the bundler's own dev server writes when it is first loaded.
+const BUNDLER_ENV = ['RSPACK_SERVE']
 
 interface FailedSession {
   started: boolean
@@ -18,12 +25,14 @@ interface FailedSession {
   runId?: string
   readyRunId?: string | null
   framed?: boolean
+  envChanged: string[]
 }
 
 interface HostResult {
   before: number[]
   after: number[]
   sessions: FailedSession[]
+  socketsClosed: boolean
   listening: number[]
   instanceIdLeft: string | null
   manifestWriteGoesThrough: boolean
@@ -31,8 +40,11 @@ interface HostResult {
 
 interface TwoSessionsResult {
   before: number[]
+  olderAlone: number[]
   live: number[]
   afterNewerEnded: number[]
+  newerSettled: boolean
+  envChangedByNewer: string[]
   started: Array<{started: boolean}>
   bothReady: boolean
   newerReleased: boolean
@@ -93,7 +105,10 @@ function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
   )
 }
 
-beforeEach(skipWithoutDevelopDist)
+beforeEach((context) => {
+  skipWithoutDevelopDist(context)
+  skipWithStaleDevelopDist(context, builtEntry, path.join(__dirname, '..'))
+})
 
 afterAll(() => {
   for (const root of roots.splice(0)) {
@@ -118,8 +133,22 @@ describe('a host that starts dev sessions from the library', () => {
         expect(session.message).toContain(message)
       }
 
+      // The environment reads after each session as it did before it.
+      expect(
+        result.sessions.map((session) =>
+          session.envChanged.filter((name) => !BUNDLER_ENV.includes(name))
+        )
+      ).toEqual([[], [], [], []])
+
+      expect(result.sessions.slice(1).map((s) => s.envChanged)).toEqual([
+        [],
+        [],
+        []
+      ])
+
       // No listener, no socket, no id in the environment, no guard on fs.
       expect(result.after).toEqual(result.before)
+      expect(result.socketsClosed).toBe(true)
       expect(result.listening).toEqual([])
       expect(result.instanceIdLeft).toBeNull()
       expect(result.manifestWriteGoesThrough).toBe(true)
@@ -198,11 +227,13 @@ describe('a host that starts dev sessions from the library', () => {
     expect(result.started).toEqual([{started: true}, {started: true}])
     expect(result.bothReady).toBe(true)
 
-    // The newer session is released whole, and the older one keeps its own.
+    // The newer session is released whole, and the older one keeps its own:
+    // its listeners, and the environment its next compiler reads.
     expect(result.newerReleased).toBe(true)
-    expect(result.afterNewerEnded).toEqual(
-      result.live.map((count, index) => (count + result.before[index]) / 2)
-    )
+    expect(result.newerSettled).toBe(true)
+    expect(result.afterNewerEnded).toEqual(result.olderAlone)
+    expect(result.live).toEqual(result.olderAlone.map((count) => count * 2))
+    expect(result.envChangedByNewer).toEqual([])
 
     expect(result.olderRestarted).toBe(true)
   }, 180_000)

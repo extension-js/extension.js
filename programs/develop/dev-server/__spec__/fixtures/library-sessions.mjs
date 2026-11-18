@@ -25,6 +25,14 @@ const listening = () =>
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
+// The names of the variables that differ from a copy of the environment.
+const envCopy = () => ({...process.env})
+
+const envChangedSince = (before) =>
+  [...new Set([...Object.keys(before), ...Object.keys(process.env)])]
+    .filter((name) => before[name] !== process.env[name])
+    .sort()
+
 async function until(read, timeoutMs = 30000) {
   const deadline = Date.now() + timeoutMs
 
@@ -148,16 +156,20 @@ async function failingStarts() {
   const sessions = []
 
   for (let index = 0; index < 4; index++) {
-    sessions.push(await start(dir).session)
+    const env = envCopy()
+    const session = await start(dir).session
+
+    sessions.push({...session, envChanged: envChangedSince(env)})
   }
 
   // A closing socket leaves the handle list a moment after its close.
-  await until(() => listening().length === 0, 5000)
+  const socketsClosed = await until(() => listening().length === 0, 5000)
 
   return {
     before,
     after: listeners(),
     sessions,
+    socketsClosed,
     listening: listening(),
     instanceIdLeft: process.env.EXTENSION_INSTANCE_ID ?? null,
     manifestWriteGoesThrough: manifestWriteGoesThrough(dir)
@@ -171,8 +183,14 @@ async function restartWhileAnotherSessionLives() {
   const older = project('older', CONFIGS.start)
   const newer = project('newer', CONFIGS.start)
   const a = start(older)
+  const olderStarted = await a.session
+  await until(() => a.isReady())
+
+  // What the older session alone holds, which the newer one must give back.
+  const olderAlone = listeners()
+  const envWithOlderAlone = envCopy()
   const b = start(newer)
-  const started = [await a.session, await b.session]
+  const started = [olderStarted, await b.session]
   const bothReady = await until(() => a.isReady() && b.isReady())
   const live = listeners()
   const listeningLive = listening().length
@@ -187,8 +205,12 @@ async function restartWhileAnotherSessionLives() {
     () =>
       listeners().join() !== live.join() && listening().length < listeningLive
   )
-  await wait(500)
+  // The exit listener comes off last, after the server, bridge and port.
+  const newerSettled = await until(
+    () => listeners().join() === olderAlone.join()
+  )
   const afterNewerEnded = listeners()
+  const envChangedByNewer = envChangedSince(envWithOlderAlone)
 
   fs.writeFileSync(path.join(older, 'manifest.json'), withContentScript)
 
@@ -205,8 +227,11 @@ async function restartWhileAnotherSessionLives() {
 
   return {
     before,
+    olderAlone,
     live,
     afterNewerEnded,
+    newerSettled,
+    envChangedByNewer,
     started,
     bothReady,
     newerReleased,

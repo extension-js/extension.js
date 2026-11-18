@@ -540,7 +540,9 @@ describe('a session that ended without a process exit', () => {
     const events = new EventEmitter()
     const ran: string[] = []
     const holdings = createSessionHoldings(events)
+    holdings.addLast(() => ran.push('run forgotten'))
     holdings.add(() => ran.push('file'))
+    holdings.addLast(() => ran.push('last'))
     holdings.addEarly(() => ran.push('poller'))
     holdings.addEarly(() => {
       throw new Error('stop failed')
@@ -553,16 +555,18 @@ describe('a session that ended without a process exit', () => {
     events.emit('exit', 0)
 
     // The exit keeps what only a release may remove, and closes files last.
-    expect(ran).toEqual(['restart', 'poller', 'file'])
+    const atExit = ['restart', 'poller', 'file', 'last', 'run forgotten']
+    expect(ran).toEqual(atExit)
     holdings.beginRelease()
     holdings.releaseAll()
     events.emit('exit', 0)
-    expect(ran).toEqual(['restart', 'poller', 'file'])
+    expect(ran).toEqual(atExit)
 
     // A release runs in two parts, and an exit between them does the rest.
     const later = new EventEmitter()
     const order: string[] = []
     const ending = createSessionHoldings(later)
+    ending.addLast(() => order.push('last'))
     ending.add(() => order.push('file'))
     ending.addEarly(() => order.push('restart'))
     ending.addForRelease(() => order.push('release only'))
@@ -575,7 +579,7 @@ describe('a session that ended without a process exit', () => {
     ending.releaseAll()
 
     // Begun, then the exit: each ran exactly once.
-    expect(order).toEqual(['release only', 'restart', 'file'])
+    expect(order).toEqual(['release only', 'restart', 'file', 'last'])
   })
 
   it('keeps the log file open until the server has stopped', async () => {

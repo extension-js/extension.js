@@ -10,6 +10,7 @@ import * as crypto from 'node:crypto'
 import * as net from 'node:net'
 import {codedError} from '../lib/coded-error'
 import {CODES} from '../lib/messaging'
+import {exportSessionEnv} from './session-env'
 
 export interface PortReservation {
   port: number
@@ -122,19 +123,9 @@ const exportedInstanceIds = new Set<string>()
 
 // Returns what puts the environment back when the session ends.
 export function exportInstanceId(instanceId: string): () => void {
-  const previous = process.env.EXTENSION_INSTANCE_ID
   exportedInstanceIds.add(instanceId)
-  process.env.EXTENSION_INSTANCE_ID = instanceId
 
-  return () => {
-    if (process.env.EXTENSION_INSTANCE_ID !== instanceId) return
-
-    if (previous === undefined || exportedInstanceIds.has(previous)) {
-      Reflect.deleteProperty(process.env, 'EXTENSION_INSTANCE_ID')
-    } else {
-      process.env.EXTENSION_INSTANCE_ID = previous
-    }
-  }
+  return exportSessionEnv('EXTENSION_INSTANCE_ID', instanceId)
 }
 
 function resolveInstanceIdOverride(): string | undefined {

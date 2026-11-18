@@ -20,6 +20,8 @@ export interface SessionHoldings {
   // What the teardown still writes to: a log file. Runs at process exit,
   // and last at a release.
   add: (release: Release) => void
+  // After everything else, at a release and at process exit.
+  addLast: (release: Release) => void
   // Before the server stops.
   beginRelease: () => void
   // After the server, the bridge and the port are gone.
@@ -35,6 +37,7 @@ export function createSessionHoldings(
   const early: Release[] = []
   const atRelease: Release[] = []
   const late: Release[] = []
+  const last: Release[] = []
   let done = false
 
   const run = (releases: Release[]) => {
@@ -53,6 +56,7 @@ export function createSessionHoldings(
     done = true
     run(early)
     run(late)
+    run(last)
   }
 
   events.once('exit', onExit)
@@ -66,6 +70,9 @@ export function createSessionHoldings(
     },
     add: (release) => {
       late.push(release)
+    },
+    addLast: (release) => {
+      last.push(release)
     },
     beginRelease: () => {
       if (done) return
@@ -81,6 +88,7 @@ export function createSessionHoldings(
       run(atRelease)
       run(early)
       run(late)
+      run(last)
     }
   }
 }
