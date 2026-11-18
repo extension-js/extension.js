@@ -3,15 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {
-  detectLiveDevSessionOwner,
-  forgetSessionRun,
-  isDevSessionLiveInThisProcess
-} from '../index'
+import {detectLiveDevSessionOwner, forgetSessionRun} from '../index'
 import {
   contractPath,
   makeWriter,
-  patchContract,
   readContract,
   stampReadyExtensionLoadRefused
 } from './helpers/contract'
@@ -351,94 +346,19 @@ describe('the attach stamp beside another live dev session', () => {
   })
 })
 
-// A library host runs every dev session in one process. The dev server asks
-// this check before it opens a session's writers.
+// The engine refuses a second session of one process on a target before its
+// writers open, so the writers of one session never read each other as owner.
 describe('a dev session of this same process', () => {
   afterEach(() => vi.restoreAllMocks())
-
-  // The dev server's writer and its compiler plugin's writer, as a session
-  // opens them, with the plugin's first stamp written.
-  function openSession(projectDir: string, browser = 'chromium') {
-    const devServer = makeWriter(projectDir, {browser})
-    const plugin = makeWriter(projectDir, {browser})
-
-    plugin.writeStarting()
-
-    return {devServer, plugin}
-  }
-
-  it('owns its target, so the dev server refuses a second session there', () => {
-    const projectDir = makeTempFolder('extjs-owner-')
-    const isAlive = vi.fn(() => true)
-    openSession(projectDir)
-    const {runId} = readContract(contractPath(projectDir))
-
-    expect(
-      detectLiveDevSessionOwner(contractPath(projectDir), isAlive)
-    ).toEqual({
-      pid: process.pid,
-      port: null,
-      runId,
-      instanceId: undefined,
-      instanceExplicit: false,
-      distPath: path.join(projectDir, 'dist', 'chromium')
-    })
-
-    // Its own pid is never probed with a signal.
-    expect(isAlive).not.toHaveBeenCalled()
-    expect(isDevSessionLiveInThisProcess(projectDir, 'chromium')).toBe(true)
-
-    forgetSessionRun(projectDir, 'chromium')
-  })
-
-  it.each([
-    'error',
-    'stopped'
-  ])('owns its target until released, with %s stamped', (status) => {
-    const projectDir = makeTempFolder('extjs-owner-')
-    openSession(projectDir)
-    patchContract(contractPath(projectDir), {status})
-
-    expect(detectLiveDevSessionOwner(contractPath(projectDir))).not.toBeNull()
-
-    forgetSessionRun(projectDir, 'chromium')
-  })
-
-  it('owns no other browser of the same project', () => {
-    const projectDir = makeTempFolder('extjs-owner-')
-    openSession(projectDir)
-    openSession(projectDir, 'firefox')
-    forgetSessionRun(projectDir, 'firefox')
-
-    expect(
-      detectLiveDevSessionOwner(contractPath(projectDir, 'firefox'))
-    ).toBeNull()
-
-    expect(detectLiveDevSessionOwner(contractPath(projectDir))).not.toBeNull()
-
-    forgetSessionRun(projectDir, 'chromium')
-  })
-
-  it('claims nothing while only the dev server writer is open', () => {
-    // The first session checks for an owner before its compiler stamps.
-    const projectDir = makeTempFolder('extjs-owner-')
-    const readyPath = writeLiveSession(projectDir, 'chromium', {
-      pid: process.pid,
-      runId: 'an-earlier-run-of-this-host'
-    })
-
-    makeWriter(projectDir)
-
-    expect(detectLiveDevSessionOwner(readyPath)).toBeNull()
-    expect(isDevSessionLiveInThisProcess(projectDir, 'chromium')).toBe(false)
-
-    forgetSessionRun(projectDir, 'chromium')
-  })
 
   it('keeps one run and warns nothing when its compiler restarts', () => {
     const projectDir = makeTempFolder('extjs-owner-')
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const {plugin} = openSession(projectDir)
+    const plugin = makeWriter(projectDir)
+
+    makeWriter(projectDir)
+    plugin.writeStarting()
+
     const runId = readContract(contractPath(projectDir)).runId
 
     // A restart builds a new compiler, and its plugin opens a writer again.
@@ -448,23 +368,8 @@ describe('a dev session of this same process', () => {
     plugin.writeStarting()
 
     expect(readContract(contractPath(projectDir)).runId).toBe(runId)
-    expect(warn).not.toHaveBeenCalled()
-
-    forgetSessionRun(projectDir, 'chromium')
-  })
-
-  it('is no owner once released, and the next session draws a new run', () => {
-    const projectDir = makeTempFolder('extjs-owner-')
-    openSession(projectDir)
-    const runId = readContract(contractPath(projectDir)).runId
-
-    forgetSessionRun(projectDir, 'chromium')
-
     expect(detectLiveDevSessionOwner(contractPath(projectDir))).toBeNull()
-    expect(isDevSessionLiveInThisProcess(projectDir, 'chromium')).toBe(false)
-
-    openSession(projectDir)
-    expect(readContract(contractPath(projectDir)).runId).not.toBe(runId)
+    expect(warn).not.toHaveBeenCalled()
 
     forgetSessionRun(projectDir, 'chromium')
   })
