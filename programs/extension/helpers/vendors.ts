@@ -6,17 +6,10 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-export type Browser =
-  | 'chrome'
-  | 'edge'
-  | 'firefox'
-  | 'chromium'
-  | 'chromium-based'
-  | 'gecko-based'
-  | 'firefox-based'
-  | 'safari'
-  | 'webkit-based'
-  | 'chromium-emulator'
+import type {BrowserType} from '../config-types'
+
+// One list of targets, so a value the parser takes is never a type error.
+export type Browser = BrowserType
 
 export const EMULATOR_BROWSER_TARGET = 'chromium-emulator'
 
