@@ -273,9 +273,8 @@ export function createRestartFailure(targets: RestartFailureTargets) {
 
       await targets.release(server)
     },
-    // Anything the steps above did not expect still gets its line, and a
-    // compiler that goes on serving is not left marked as restarting.
-    // The scheduler hands its request here, which says nothing of a server.
+    // An unexpected throw still gets its line, and a serving compiler is not
+    // left restarting. The scheduler's request here says nothing of a server.
     unexpected(error: unknown, state?: object): void {
       const serving = (state as {previousServing?: unknown} | undefined)
         ?.previousServing

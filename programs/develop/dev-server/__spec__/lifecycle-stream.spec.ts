@@ -776,7 +776,7 @@ describe('lifecycle stream transitions', () => {
       JSON.stringify({
         status: 'error',
         code: 'browser_exited',
-        message: 'the chromium process exited (code 0); nothing is running',
+        message: 'the chromium process exited with code 0, nothing is running',
         browserExitedAt: '2026-10-03T00:00:00.000Z',
         browserExitCode: 0
       })
@@ -820,7 +820,7 @@ describe('lifecycle stream transitions', () => {
       JSON.stringify({
         status: 'error',
         code: 'browser_exited',
-        message: 'the chromium process exited (code 0); nothing is running',
+        message: 'the chromium process exited with code 0, nothing is running',
         browserExitedAt: '2026-10-03T00:00:00.000Z'
       })
     )

@@ -18,9 +18,8 @@ interface HeldVariable {
 
 const heldByEnv = new WeakMap<Env, Map<string, HeldVariable>>()
 
-// Writes a variable the compilers of a session read, and returns what takes
-// the write back. The variable then reads as the newest session still live
-// wrote it, or as the host had it once none is.
+// Writes a variable a session's compilers read and returns its undo, after
+// which it reads as the newest live session wrote it, or as the host had it.
 export function exportSessionEnv(
   name: string,
   value: string,

@@ -21,9 +21,8 @@ export function registerLiveSession(end: EndAsFailed): () => void {
   }
 }
 
-// For a host that learns the session cannot go on: each live session writes
-// its one terminal failed frame, then shuts down and exits 1. False when no
-// session is live yet, and the host then reports the failure itself.
+// For a host that learns a session cannot go on. False when none is live,
+// and the host then reports the failure itself.
 export function endSessionAsFailed(code: ErrorCode, message: string): boolean {
   if (liveSessions.size === 0) return false
 

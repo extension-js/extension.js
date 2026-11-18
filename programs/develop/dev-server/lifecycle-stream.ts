@@ -379,9 +379,8 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
-  // Emitted when the ready contract is on disk for this session, and again
-  // after an error the session survived. The contract is the source of truth:
-  // a compile can succeed while the browser refuses the guest.
+  // Written once the contract is on disk, and again after an error survived.
+  // The contract decides, since a compile can pass while the browser refuses.
   public ready(args: {port?: number | null} = {}): Envelope<unknown> | null {
     if (args.port != null) this.boundPort = toFiniteNumber(args.port)
 
