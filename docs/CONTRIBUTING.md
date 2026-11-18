@@ -151,7 +151,7 @@ The test suite runs on Windows in CI. To avoid regressions:
 - **Spawning (pnpm, npm, etc.):** Resolve the binary (e.g. from `process.execPath`’s directory or `node_modules/.bin`) and pass it to `spawnSync`/`spawn`; on Windows use `shell: true` when the command is a `.cmd`/`.bat` file so the child runs correctly.
 - **Symlinks:** On Windows, creating symlinks often requires Developer Mode or admin. Prefer `fs.realpathSync()` + `fs.cpSync()` for test fixtures when copying from the pnpm store, or use copy-only paths on Windows.
 
-Run `pnpm test` locally on Windows (or rely on the **Run test suite (Windows)** CI job) before submitting changes that touch tests or spawn logic.
+Run `pnpm test` locally on Windows (or rely on the two **Run test suite (Windows, ...)** CI jobs) before submitting changes that touch tests or spawn logic.
 
 ## Debugging & troubleshooting
 
