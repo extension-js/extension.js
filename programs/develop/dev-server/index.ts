@@ -33,7 +33,7 @@ import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {anotherDevSessionRefused} from '../lib/messages'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
-import {asAbsolute, getDistPath} from '../lib/paths'
+import {asAbsolute, getDirs, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
 import {
@@ -549,13 +549,8 @@ export async function devServer(
     ? '0'
     : '1'
 
-  const {manifestPath, packageJsonPath, denoJsonPath} = projectStructure
-  // Plain manifest+scripts extensions ship no project manifest; the project root
-  // is then the manifest's directory. Deno projects anchor on deno.json(c).
-  const projectManifestPath = packageJsonPath || denoJsonPath
-  const packageJsonDir = projectManifestPath
-    ? path.dirname(projectManifestPath)
-    : path.dirname(manifestPath)
+  const {manifestPath} = projectStructure
+  const {packageJsonDir} = getDirs(projectStructure)
 
   const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
