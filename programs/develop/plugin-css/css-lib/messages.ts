@@ -37,10 +37,6 @@ export function isUsingIntegration(name: string) {
   return `integration use=${name}`
 }
 
-export function youAreAllSet(name: string) {
-  return `${prefix('success')} ${name} is installed.`
-}
-
 export function missingSassDependency() {
   return [
     `${prefix('error')} Couldn't compile the Sass styles.`,
@@ -101,13 +97,50 @@ export function preprocessorShippedUncompiled(
   ].join('\n')
 }
 
-export function deadCssUrlRef(issuerPath: string, request: string) {
+function reasonOf(error: unknown) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+export function tailwindSetupFailed(
+  pluginId: string,
+  projectPath: string,
+  error: unknown
+) {
+  return [
+    `${prefix('warn')} Couldn't start the Tailwind PostCSS plugin ${colors.blue(pluginId)}, so the build ran without it.`,
+    `${colors.gray('PATH')} ${colors.underline(projectPath)}`,
+    `${colors.gray('REASON')} ${reasonOf(error)}`,
+    'Tailwind classes are missing from the output CSS.',
+    `Install ${colors.blue('tailwindcss')} and ${colors.blue('@tailwindcss/postcss')} at the same major version, or name the plugin in your PostCSS config.`
+  ].join('\n')
+}
+
+export function cssUrlRewriteSkipped(resourcePath: string, error: unknown) {
+  return [
+    `${prefix('warn')} Couldn't rewrite the url() references in this stylesheet, so they shipped as written.`,
+    `${colors.gray('PATH')} ${colors.underline(resourcePath)}`,
+    `${colors.gray('REASON')} ${reasonOf(error)}`,
+    "A url() here may point at a path the extension can't load.",
+    'Check each url() in this file resolves from the file itself or from public/.'
+  ].join('\n')
+}
+
+// Under strict refs the reader already set the variable the hint names.
+export function deadCssUrlRef(
+  issuerPath: string,
+  request: string,
+  strict = false
+) {
   return [
     `A ${colors.blue(`url(${request})`)} reference points to a file that exists nowhere in the project.`,
     `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
     `${colors.gray('NOT FOUND')} ${colors.underline(request)}`,
     `Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.`,
-    `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+    ...(strict
+      ? []
+      : [
+          `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+        ])
   ].join('\n')
 }
 

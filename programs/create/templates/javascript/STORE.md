@@ -59,10 +59,14 @@ Last updated: 2026-10-24
   once any data is handled)
   <!-- The only place this URL lives. The readers take the first http or
   https address on this line, so leave no sample address here. -->
-- Data collected: none
-  <!-- Every kind of data the extension collects, stores or sends, or none.
-  Chrome, Edge and Apple each ask it again on their dashboards. -->
-- Firefox data collection: none
+- Data collected: TODO (the extension's owner declares what it collects)
+  <!-- Every kind of data the extension collects, stores or sends, as its
+  owner declares it. Chrome, Edge and Apple each ask it again on their
+  dashboards. -->
+- Firefox data collection: TODO (declare
+  browser_specific_settings.gecko.data_collection_permissions before
+  submitting to addons.mozilla.org, see
+  https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/)
   <!-- Mirrors browser_specific_settings.gecko.data_collection_permissions
   in the manifest. AMO reads the manifest, so the two must agree. -->
 
@@ -74,8 +78,8 @@ Per store answer sheets, filled from the two lines above:
   declaration, and AMO reads it from the package.
 - Edge Add-ons: the nine data categories and the three certifications on the
   Privacy page, typed once on Partner Center.
-- App Store: App Privacy, "Data Not Collected" when the line above says
-  none, answered by hand in App Store Connect.
+- App Store: App Privacy, answered by hand in App Store Connect from the
+  Data collected line above.
 
 ## Chrome Web Store
 

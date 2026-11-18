@@ -25,9 +25,9 @@ import {
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {
+  type AnyDevelopModule,
   type DevelopBrowser,
   type DevelopPreviewLauncher,
-  type AnyDevelopModule,
   type DevelopPreviewModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule

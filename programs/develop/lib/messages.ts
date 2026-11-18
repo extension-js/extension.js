@@ -433,10 +433,65 @@ export function anotherDevSessionActive(
   )
 }
 
-export function buildOutDirInvalid(value: string) {
+const PROTECTED_FOLDER_NAMES = {
+  project: 'the project root or a folder above it',
+  cwd: 'the current folder or a folder above it',
+  home: 'the home folder or a folder above it',
+  'session-state': 'where Extension.js keeps session state and browser profiles'
+} as const
+
+export function buildOutDirInvalid(
+  value: string,
+  reason: 'project-root' | 'not-a-build' | keyof typeof PROTECTED_FOLDER_NAMES,
+  resolved?: string,
+  where: 'inside' | 'outside' = 'outside'
+) {
+  if (reason === 'project-root') {
+    return (
+      `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} needs a folder path other than the project root, got ${fmt.code(value || '(empty)')}.\n` +
+      `Pass a folder such as ${fmt.code('--out-dir build')}, and the build writes ${fmt.code('build/<browser>')}.`
+    )
+  }
+
+  const why =
+    reason === 'not-a-build'
+      ? `got ${fmt.code(value)}, and ${fmt.code(String(resolved))} is ${where} the project and holds files no extension build wrote`
+      : `got ${fmt.code(value)}, which resolves to ${fmt.code(String(resolved))}, ${PROTECTED_FOLDER_NAMES[reason]}`
+  const fix =
+    reason === 'not-a-build'
+      ? `The build replaces that folder, so nothing was deleted. Pass a folder that does not exist yet, or one a previous build wrote, which holds ${fmt.code('manifest.json')}.`
+      : `The build replaces ${fmt.code('<out-dir>/<browser>')}, so nothing was deleted. Pass a folder of its own such as ${fmt.code('--out-dir build')}.`
+
+  return `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} ${why}.\n${fix}`
+}
+
+// The stock dist/<browser> holding something a build did not write.
+export function buildOutputFolderForeign(resolved: string) {
   return (
-    `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} needs a folder path other than the project root, got ${fmt.code(value || '(empty)')}.\n` +
-    `Pass a folder such as ${fmt.code('--out-dir build')}, and the build writes ${fmt.code('build/<browser>')}.`
+    `${getLoggingPrefix('error')} The build output folder ${fmt.code(resolved)} holds files no extension build wrote.\n` +
+    `The build replaces that folder, so nothing was deleted. Move or delete it, or build beside it with ${fmt.code('--out-dir build')}.`
+  )
+}
+
+// A config hook can point the bundler anywhere, and the bundler empties the
+// folder it is pointed at.
+export function buildOutputPathRefused(
+  resolved: string,
+  reason: keyof typeof PROTECTED_FOLDER_NAMES
+) {
+  return (
+    `${getLoggingPrefix('error')} ${fmt.code('output.path')} in the extension config resolves to ${fmt.code(resolved)}, ${PROTECTED_FOLDER_NAMES[reason]}.\n` +
+    `The build empties its output folder before it writes, so nothing was built and nothing was deleted. Point ${fmt.code('output.path')} at a folder of its own such as ${fmt.code('build')}.`
+  )
+}
+
+// The compile is done and the finished folder could not take its place.
+export function buildOutputNotPublished(distPath: string, error: unknown) {
+  return (
+    `${getLoggingPrefix('error')} Couldn't move the finished build into place.\n` +
+    `${colors.gray('PATH')} ${colors.underline(distPath)}\n` +
+    `${colors.red(describeThrown(error))}\n` +
+    `Close whatever holds that folder open, check that it is writable, then run the build again.`
   )
 }
 
@@ -1067,6 +1122,15 @@ export function zipArtifactNotCreated(
   )
 }
 
+// The same failure as one plain sentence, for the summary's errors list.
+export function zipArtifactNotCreatedText(
+  kind: 'source' | 'dist',
+  zipPath: string,
+  reason: string
+) {
+  return `The ${kind === 'source' ? 'source' : 'distribution'} zip was requested and not created at ${zipPath}: ${reason}`
+}
+
 export function zipArtifactReady(zipPath: string, sizeInBytes: number) {
   return (
     `${getLoggingPrefix('success')} Packaged ${colors.underline(zipPath)} ` +
@@ -1658,6 +1722,17 @@ export function configLoadingError(configPath: string, error: unknown) {
     `${colors.red(describeThrown(error))}\n` +
     `Fix the config file, then run the command again.`
   )
+}
+
+// What a build rejects with when the thrown value has no message to read.
+export function thrownValueText(thrown: unknown): string {
+  if (typeof thrown === 'string' && thrown.trim()) return thrown
+
+  try {
+    return `A value that is not an Error was thrown: ${describeThrown(thrown) || 'an empty string'}.`
+  } catch {
+    return 'A value that cannot be read was thrown.'
+  }
 }
 
 export function buildCommandFailed(error: unknown) {
