@@ -60,7 +60,7 @@ async function run(tools: FakeSafariTools, host: Record<string, unknown> = {}) {
     'full'
   ).then(
     () => null,
-    (reason: unknown) => reason as Error & {code?: string}
+    (reason: unknown) => reason as Error & {code?: string; printed?: boolean}
   )
 
   return {thrown, errors}
@@ -87,6 +87,8 @@ describe('a Safari packaging tool that fails', () => {
     )
 
     expect(thrown?.code).toBe('E_SAFARI_TOOLCHAIN')
+    // Printed above with the tool's output, so a caller does not print it again.
+    expect(thrown?.printed).toBe(true)
     expect(tools.calls.xcodebuild).toEqual([])
   })
 
@@ -106,6 +108,7 @@ describe('a Safari packaging tool that fails', () => {
     )
 
     expect(thrown?.code).toBe('E_SAFARI_TOOLCHAIN')
+    expect(thrown?.printed).toBe(true)
   })
 
   // The stand-in writes a fresh project the way a passing run does, then

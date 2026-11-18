@@ -886,11 +886,13 @@ async function runSafariPipeline(
       restoreBundleIdentifiers(config, identifiersBefore)
       restore()
 
+      // Printed above with the tool's output: a caller that frames it again
+      // prints the same failure twice.
       throw Object.assign(
         new Error(
           `safari-web-extension-converter failed (exit ${converted.code})\n${tail}`
         ),
-        {code: CODES.E_SAFARI_TOOLCHAIN}
+        {code: CODES.E_SAFARI_TOOLCHAIN, printed: true}
       )
     }
 
@@ -997,7 +999,7 @@ async function runSafariPipeline(
         new Error(
           `xcodebuild failed (exit ${built.code})\n${cause ? `${cause}\n` : ''}${tail}`
         ),
-        {code: CODES.E_SAFARI_TOOLCHAIN}
+        {code: CODES.E_SAFARI_TOOLCHAIN, printed: true}
       )
     }
 
