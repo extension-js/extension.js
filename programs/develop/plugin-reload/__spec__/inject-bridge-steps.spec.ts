@@ -510,4 +510,17 @@ describe('InjectBridgeRelay', () => {
     expect(off.taps).toHaveLength(0)
     expect(byDefault.taps).toHaveLength(1)
   })
+
+  it('takes the control port it is given over the environment', () => {
+    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    const none = makeCompiler()
+    new InjectBridgeRelay({controlPort: null}).apply(none.compiler)
+    const given = makeCompiler()
+    new InjectBridgeRelay({env: asEnv(), controlPort: 9001}).apply(
+      given.compiler
+    )
+
+    expect(none.taps).toHaveLength(0)
+    expect(given.taps).toHaveLength(1)
+  })
 })

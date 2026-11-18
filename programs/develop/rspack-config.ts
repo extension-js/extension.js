@@ -241,7 +241,9 @@ export default function webpackConfig(
     new ReloadPlugin({
       manifestPath,
       browser: devOptions.browser,
-      devSession
+      devSession,
+      instanceId: devOptions.instanceId,
+      controlPort: devOptions.controlPort
     }),
     // The web-extension chunk-loading target, which dev gets via ReloadPlugin.
     // Production needs it too: rspack's web-target loader appends a <script> to

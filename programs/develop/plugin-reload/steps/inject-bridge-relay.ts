@@ -34,16 +34,22 @@ export const RELAY_TARGETS: ReadonlyArray<{
 
 export class InjectBridgeRelay {
   private readonly env: NodeJS.ProcessEnv
+  private readonly controlPort?: number | null
 
-  constructor(options: {env?: NodeJS.ProcessEnv} = {}) {
+  constructor(
+    options: {env?: NodeJS.ProcessEnv; controlPort?: number | null} = {}
+  ) {
     this.env = options.env ?? process.env
+    this.controlPort = options.controlPort
   }
 
   apply(compiler: Compiler) {
-    const controlPort = parseInt(
-      String(this.env.EXTENSION_CONTROL_PORT || ''),
-      10
-    )
+    // The session's own port first, so another session's environment in the
+    // same host does not turn the relay on.
+    const controlPort =
+      this.controlPort !== undefined
+        ? Number(this.controlPort ?? Number.NaN)
+        : parseInt(String(this.env.EXTENSION_CONTROL_PORT || ''), 10)
     if (!Number.isFinite(controlPort) || controlPort < 1) return
 
     const sourceFor = new Map<string, string>()

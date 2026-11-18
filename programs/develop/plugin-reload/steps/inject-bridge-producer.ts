@@ -108,15 +108,30 @@ function digestBuild(compilation: Compilation): string {
   return digest.digest('hex').slice(0, 16)
 }
 
+export interface BridgeCoordinates {
+  instanceId?: string
+  // Null when the session has no control bridge, which the environment of
+  // another session in the same host must not fill in.
+  controlPort?: number | null
+}
+
 // Prepends the agent-bridge producer to the compiled background SW; control
-// port + instanceId come from process.env, nothing injected when unavailable.
+// port + instanceId come from the session, nothing injected when unavailable.
 export class InjectBridgeProducer {
+  private readonly coordinates: BridgeCoordinates
+
+  constructor(coordinates: BridgeCoordinates = {}) {
+    this.coordinates = coordinates
+  }
+
   apply(compiler: Compiler) {
-    const controlPort = parseInt(
-      String(process.env.EXTENSION_CONTROL_PORT || ''),
-      10
+    const controlPort =
+      this.coordinates.controlPort !== undefined
+        ? Number(this.coordinates.controlPort ?? Number.NaN)
+        : parseInt(String(process.env.EXTENSION_CONTROL_PORT || ''), 10)
+    const instanceId = String(
+      this.coordinates.instanceId ?? (process.env.EXTENSION_INSTANCE_ID || '')
     )
-    const instanceId = String(process.env.EXTENSION_INSTANCE_ID || '')
     // Connectable host of the control WS (loopback locally; the public host for
     // remote/devcontainer). Resolved once by dev-server/index.ts.
     const host =
