@@ -31,18 +31,26 @@ export function claimReadyPath(
   ownedReadyPaths.set(path.resolve(extensionOutputPath), readyPath)
 }
 
-// Every flow keeps managed profiles under the session root that holds its
-// contract, which a claimed contract names when the loaded folder cannot.
+// The session root that holds the contract, which a claimed contract names
+// when the loaded folder cannot.
+export function sessionRootFor(extensionOutputPath: string): string {
+  const owned = ownedReadyPaths.get(path.resolve(extensionOutputPath))
+
+  return owned
+    ? path.dirname(path.dirname(owned))
+    : sessionArtifactsRootDirBesideBuild(extensionOutputPath)
+}
+
+// Every flow keeps managed profiles under the session root.
 export function managedProfileBaseDir(
   extensionOutputPath: string,
   browser: string
 ): string {
-  const owned = ownedReadyPaths.get(path.resolve(extensionOutputPath))
-  const sessionRoot = owned
-    ? path.dirname(path.dirname(owned))
-    : sessionArtifactsRootDirBesideBuild(extensionOutputPath)
-
-  return path.resolve(sessionRoot, 'profiles', `${browser}-profile`)
+  return path.resolve(
+    sessionRootFor(extensionOutputPath),
+    'profiles',
+    `${browser}-profile`
+  )
 }
 
 // Where earlier versions put the profile when the loaded folder was not a
