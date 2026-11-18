@@ -12,11 +12,15 @@ import type {UninstallResult} from 'extension-install'
 import {systemScanSkipped} from '../browsers/browsers-lib/locator-env'
 import {resolveManagedBinaryIn} from '../browsers/browsers-lib/output-binaries-resolver'
 import {applyManagedFirefoxInstallPolicy} from '../browsers/run-firefox/firefox-launch/managed-update-policy'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {
+  type ExitAfterDrainDeps,
+  exitAfterDrain
+} from '../helpers/exit-after-drain'
 import * as messages from '../helpers/messages'
 import {commandDescriptions} from '../helpers/messages'
-import {CODES, ENVELOPE} from '../helpers/messaging'
+import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
+import {telemetryCli} from '../helpers/telemetry-cli'
 import {
   type Browser,
   firstNonManagedInstallTarget,
@@ -39,6 +43,41 @@ type UninstallOptions = {
 }
 
 const DEFAULT_INSTALL_TARGET: Browser = 'chromium'
+
+type InstallTelemetry = ExitAfterDrainDeps['cli']
+
+export interface InstallCommandDeps {
+  telemetry?: InstallTelemetry
+}
+
+// Where a refusal prints, and where its code is counted.
+interface Reply {
+  asJson: boolean
+  telemetry: InstallTelemetry
+}
+
+// Marked before the drain, so the failure row carries the catalog code and
+// not an exit code alone. The drain then finds the run already counted.
+async function exitRefused(reply: Reply, code: ErrorCode): Promise<void> {
+  try {
+    reply.telemetry.markCommandFailure(undefined, {code, exitCode: 1})
+  } catch {
+    // An exit code is a promise to the caller, a measurement never breaks it.
+  }
+
+  await exitAfterDrain(1, {cli: reply.telemetry})
+}
+
+// Several names and a comma list are one request. PowerShell hands an
+// unquoted chrome,firefox over as two arguments, so both shapes must agree.
+function requestedNames(names: readonly string[]): string | undefined {
+  const parts = names.flatMap((name) => name.split(','))
+
+  if (parts.length === 0) return undefined
+  if (parts.some((part) => part.trim().toLowerCase() === 'all')) return 'all'
+
+  return names.join(',')
+}
 
 function emit(frame: unknown): void {
   // eslint-disable-next-line no-console
@@ -107,11 +146,11 @@ function systemEdgeSeam() {
 // runner itself, which the installer's own message already names.
 async function refuseInstallerNotFound(
   error: unknown,
-  asJson: boolean
+  reply: Reply
 ): Promise<void> {
   const detail = errorText(error)
 
-  if (asJson) {
+  if (reply.asJson) {
     emit(
       ENVELOPE.fail(
         'install',
@@ -130,7 +169,7 @@ async function refuseInstallerNotFound(
     console.error(detail)
   }
 
-  await exitAfterDrain(1)
+  await exitRefused(reply, CODES.E_BROWSER_INSTALLER_NOT_FOUND)
 }
 
 // Retrying in the same session can never work: the fix is a different session
@@ -138,11 +177,11 @@ async function refuseInstallerNotFound(
 async function refuseInstallPrivilege(
   browser: string,
   error: unknown,
-  asJson: boolean
+  reply: Reply
 ): Promise<void> {
   const detail = errorText(error)
 
-  if (asJson) {
+  if (reply.asJson) {
     emit(
       ENVELOPE.fail(
         'install',
@@ -161,18 +200,18 @@ async function refuseInstallPrivilege(
     console.error(messages.browserInstallNeedsPrivilege(browser, detail))
   }
 
-  await exitAfterDrain(1)
+  await exitRefused(reply, CODES.E_BROWSER_INSTALL_PRIVILEGE)
 }
 
 // Belt-and-suspenders for direct package throws that slip past CLI validation.
 async function refuseNotInstallable(
   command: 'install' | 'uninstall',
   error: unknown,
-  asJson: boolean
+  reply: Reply
 ): Promise<void> {
   const message = errorText(error)
 
-  if (asJson) {
+  if (reply.asJson) {
     emit(
       ENVELOPE.fail(command, 'usage', {
         code: CODES.E_BROWSER_NOT_INSTALLABLE,
@@ -184,7 +223,7 @@ async function refuseNotInstallable(
     console.error(message)
   }
 
-  await exitAfterDrain(1)
+  await exitRefused(reply, CODES.E_BROWSER_NOT_INSTALLABLE)
 }
 
 // Three-way gate shared by install and uninstall (including --where), pretty
@@ -195,7 +234,7 @@ async function refuseNotInstallable(
 async function refuseIfNotManagedTarget(
   command: 'install' | 'uninstall',
   browserList: string[],
-  asJson: boolean
+  reply: Reply
 ): Promise<boolean> {
   const bad = firstNonManagedInstallTarget(browserList)
   if (!bad) return false
@@ -203,7 +242,7 @@ async function refuseIfNotManagedTarget(
   if (bad.kind === 'not-installable') {
     const message = messages.browserNotInstallablePlain(bad.name)
 
-    if (asJson) {
+    if (reply.asJson) {
       emit(
         ENVELOPE.fail(command, 'usage', {
           code: CODES.E_BROWSER_NOT_INSTALLABLE,
@@ -215,13 +254,13 @@ async function refuseIfNotManagedTarget(
       console.error(messages.browserNotInstallable(bad.name))
     }
 
-    await exitAfterDrain(1)
+    await exitRefused(reply, CODES.E_BROWSER_NOT_INSTALLABLE)
 
     return true
   }
 
   // unknown
-  if (asJson) {
+  if (reply.asJson) {
     emit(
       ENVELOPE.fail(command, 'usage', {
         code: CODES.E_UNSUPPORTED_BROWSER,
@@ -235,7 +274,7 @@ async function refuseIfNotManagedTarget(
     )
   }
 
-  await exitAfterDrain(1)
+  await exitRefused(reply, CODES.E_UNSUPPORTED_BROWSER)
 
   return true
 }
@@ -243,11 +282,11 @@ async function refuseIfNotManagedTarget(
 async function refuseDownloadFailed(
   browser: string,
   error: unknown,
-  asJson: boolean
+  reply: Reply
 ): Promise<void> {
   const detail = errorText(error)
 
-  if (asJson) {
+  if (reply.asJson) {
     emit(
       ENVELOPE.fail(
         'install',
@@ -264,20 +303,20 @@ async function refuseDownloadFailed(
     console.error(messages.browserDownloadFailed(browser, detail))
   }
 
-  await exitAfterDrain(1)
+  await exitRefused(reply, CODES.E_BROWSER_DOWNLOAD)
 }
 
 // The package words each of these with its own remedy, so the message is
 // printed as it is and never framed as a download to retry.
 async function refuseInstall(
   error: unknown,
-  asJson: boolean,
-  code: (typeof CODES)[keyof typeof CODES] = CODES.E_BROWSER_DOWNLOAD,
+  reply: Reply,
+  code: ErrorCode = CODES.E_BROWSER_DOWNLOAD,
   hint?: string
 ): Promise<void> {
   const detail = errorText(error)
 
-  if (asJson) {
+  if (reply.asJson) {
     emit(
       ENVELOPE.fail(
         'install',
@@ -291,17 +330,20 @@ async function refuseInstall(
     console.error(detail)
   }
 
-  await exitAfterDrain(1)
+  await exitRefused(reply, code)
 }
 
-export function registerInstallCommand(program: Command) {
+export function registerInstallCommand(
+  program: Command,
+  {telemetry = telemetryCli}: InstallCommandDeps = {}
+) {
   program
     .command('install')
     .argument(
-      '[browser-name]',
+      '[browser-name...]',
       `managed browser to install (default: ${DEFAULT_INSTALL_TARGET})`
     )
-    .usage('[browser-name] [options]')
+    .usage('[browser-name...] [options]')
     .description(commandDescriptions.install)
     .option(
       `--browser <${MANAGED_INSTALL_TARGETS_HELP}>`,
@@ -313,17 +355,22 @@ export function registerInstallCommand(program: Command) {
       'result format. Use json for a schema-1 envelope on stdout'
     )
     .hook('preAction', refuseUnreadableOutput())
-    .action(async (browserArg: string | undefined, options: InstallOptions) => {
+    .action(async (browserArgs: string[], options: InstallOptions) => {
       const asJson = isJsonOutput(options)
-      const named = Boolean(options.browser || browserArg)
-      const selectedBrowser = (options.browser ||
-        browserArg ||
-        DEFAULT_INSTALL_TARGET) as Browser | 'all'
+      const reply: Reply = {asJson, telemetry}
+      // --browser decides over positional names, as its help says.
+      const requested = options.browser
+        ? requestedNames([options.browser])
+        : requestedNames(browserArgs)
+      const named = Boolean(requested)
+      const selectedBrowser = (requested || DEFAULT_INSTALL_TARGET) as
+        | Browser
+        | 'all'
       const browserList = installTargets(selectedBrowser)
 
       // --where with no name prints the cache root; skip name validation.
       if (!(options.where && !named)) {
-        if (await refuseIfNotManagedTarget('install', browserList, asJson)) {
+        if (await refuseIfNotManagedTarget('install', browserList, reply)) {
           return
         }
       }
@@ -347,7 +394,7 @@ export function registerInstallCommand(program: Command) {
             ? browserList.map((browser) => getManagedBrowserInstallDir(browser))
             : [getManagedBrowsersCacheRoot()]
         } catch (error) {
-          await refuseNotInstallable('install', error, asJson)
+          await refuseNotInstallable('install', error, reply)
 
           return
         }
@@ -387,19 +434,19 @@ export function registerInstallCommand(program: Command) {
           installed.push(browser)
         } catch (error) {
           if (installer.isBrowserNotInstallableError(error)) {
-            await refuseNotInstallable('install', error, asJson)
+            await refuseNotInstallable('install', error, reply)
 
             return
           }
 
           if (installer.isBrowserInstallPrivilegeError(error)) {
-            await refuseInstallPrivilege(browser, error, asJson)
+            await refuseInstallPrivilege(browser, error, reply)
 
             return
           }
 
           if (installer.isBrowserInstallerNotFoundError(error)) {
-            await refuseInstallerNotFound(error, asJson)
+            await refuseInstallerNotFound(error, reply)
 
             return
           }
@@ -407,19 +454,19 @@ export function registerInstallCommand(program: Command) {
           const refusal = installRefusalOf(installer, error)
 
           if (refusal) {
-            await refuseInstall(error, asJson, refusal.code, refusal.hint)
+            await refuseInstall(error, reply, refusal.code, refusal.hint)
 
             return
           }
 
           if (installer.isBrowserInstallFailedError(error)) {
-            await refuseDownloadFailed(browser, error, asJson)
+            await refuseDownloadFailed(browser, error, reply)
 
             return
           }
 
           // Anything else is no download that failed, so it keeps its own words.
-          await refuseInstall(error, asJson)
+          await refuseInstall(error, reply)
 
           return
         }
@@ -432,7 +479,7 @@ export function registerInstallCommand(program: Command) {
 
   program
     .command('uninstall')
-    .usage('<browser-name> | --all | --where')
+    .usage('[browser-name...] | --all | --where')
     .description(commandDescriptions.uninstall)
     .option(
       `--browser <${MANAGED_INSTALL_TARGETS_HELP}>`,
@@ -445,20 +492,23 @@ export function registerInstallCommand(program: Command) {
       'result format. Use json for a schema-1 envelope on stdout'
     )
     .hook('preAction', refuseUnreadableOutput())
-    .argument('[browser-name]')
+    .argument('[browser-name...]')
     .action(
       async (
-        browserArg: string | undefined,
+        browserArgs: string[],
         {browser, all, where, output}: UninstallOptions
       ) => {
         const asJson = isJsonOutput({output})
-        const named = Boolean(browserArg || browser)
-        // Same resolution path as install: positional/--browser, comma lists,
-        // and `all` (via --all or the name itself) expand through installTargets.
-        const selected =
-          all || browserArg === 'all' || browser === 'all'
-            ? 'all'
-            : ((browser || browserArg) as Browser | 'all' | undefined)
+        const reply: Reply = {asJson, telemetry}
+        // Same resolution as install: --browser decides over positional
+        // names, and `all` (via --all or a name) expands through installTargets.
+        const requested = browser
+          ? requestedNames([browser])
+          : requestedNames(browserArgs)
+        const named = Boolean(requested)
+        const selected = all
+          ? 'all'
+          : (requested as Browser | 'all' | undefined)
 
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
 
@@ -501,14 +551,14 @@ export function registerInstallCommand(program: Command) {
             console.error(message)
           }
 
-          await exitAfterDrain(1)
+          await exitRefused(reply, CODES.E_ARGS)
 
           return
         }
 
         const browserList = installTargets(selected)
 
-        if (await refuseIfNotManagedTarget('uninstall', browserList, asJson)) {
+        if (await refuseIfNotManagedTarget('uninstall', browserList, reply)) {
           return
         }
 
@@ -518,7 +568,7 @@ export function registerInstallCommand(program: Command) {
           try {
             paths = browserList.map((name) => getManagedBrowserInstallDir(name))
           } catch (error) {
-            await refuseNotInstallable('uninstall', error, asJson)
+            await refuseNotInstallable('uninstall', error, reply)
 
             return
           }
@@ -548,7 +598,7 @@ export function registerInstallCommand(program: Command) {
           })
         } catch (error) {
           if (isBrowserNotInstallableError(error)) {
-            await refuseNotInstallable('uninstall', error, asJson)
+            await refuseNotInstallable('uninstall', error, reply)
 
             return
           }
@@ -582,7 +632,7 @@ export function registerInstallCommand(program: Command) {
             console.error(errorText(error))
           }
 
-          await exitAfterDrain(1)
+          await exitRefused(reply, CODES.E_BROWSER_UNINSTALL)
 
           return
         }
