@@ -23,10 +23,7 @@ import {
   rewriteInlinedCssUrls,
   toRuntimeStylesheetModule
 } from './css-lib/inline-content-script-css'
-import {
-  type InlinedCssImports,
-  inlineCssImports
-} from './css-lib/inline-css-imports'
+import {inlineCssImports, readCssImports} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {isSfcStyleBlock} from './css-lib/sfc-style-block'
 
@@ -54,14 +51,6 @@ export interface DeadCssUrlLoaderContext {
   emitError(error: Error): void
   addDependency?(file: string): void
   addMissingDependency?(file: string): void
-  async?(): (error: Error | null, content?: string) => void
-  getResolve?(options: {
-    dependencyType: string
-  }): (
-    context: string,
-    request: string,
-    callback: (error: Error | null, result?: string | false) => void
-  ) => void
   _compilation?: CompilationLike
 }
 
@@ -110,6 +99,58 @@ function reportDeadRefs(
     } else {
       loader.emitWarning(report)
     }
+  }
+}
+
+// The files an import that stays names and the run ahead of PostCSS gave a
+// reason for, by sheet, so the run after it does not say so a second time.
+const answeredImports = new Map<string, Set<string>>()
+
+function importsKey(loader: DeadCssUrlLoaderContext): string {
+  return `${canonicalizeResourcePath(loader.resourcePath)}${loader.resourceQuery || ''}`
+}
+
+// Only once every tool ran is it known that no plugin brought an import in.
+// An address with a scheme is the browser's to fetch, and stays.
+function reportLeftImports(
+  loader: DeadCssUrlLoaderContext,
+  source: string,
+  manifestDir: string,
+  publicRoot: string
+) {
+  const resourcePath = canonicalizeResourcePath(loader.resourcePath)
+  const context = {
+    issuerDir: path.dirname(resourcePath),
+    roots: [publicRoot, manifestDir]
+  }
+  const answered = answeredImports.get(importsKey(loader))
+  const told = new Set<string>()
+
+  for (const {statement, request, viaUrl} of readCssImports(source)) {
+    if (/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(request)) continue
+    if (request.includes('!') || told.has(statement)) continue
+    // The dead reference check already names a path that leads nowhere.
+    if (isDeadCssUrlRef(request, context)) continue
+
+    const asPath =
+      viaUrl && /^[^./~@#]/.test(request) ? `./${request}` : request
+
+    if (cssUrlRefFiles(asPath, context).some((file) => answered?.has(file))) {
+      continue
+    }
+
+    told.add(statement)
+    loader.emitWarning(
+      Object.assign(
+        new Error(
+          messages.cssImportStillInSheet(
+            toPosixPath(path.relative(manifestDir, resourcePath)),
+            statement
+          )
+        ),
+        {name: 'CssParseWarning'}
+      )
+    )
   }
 }
 
@@ -173,6 +214,7 @@ export function inlineStylesheetUrls(
         publicContainmentRoot(manifestPath, projectPath)
       )
       reportDeadRefs(loader, source, manifestDir, publicRoot)
+      reportLeftImports(loader, source, manifestDir, publicRoot)
       ;({css, bundledRequests} = resolveTargets(
         loader,
         source,
@@ -198,8 +240,7 @@ export function inlineStylesheetUrls(
 // gives a relative @import no base, so the browser would never fetch one.
 export function inlineStylesheetImports(
   loader: DeadCssUrlLoaderContext,
-  source: string,
-  packages: InlinedCssImports['packages'] = []
+  source: string
 ): string {
   const {manifestPath, projectPath} = loader.getOptions() || {}
 
@@ -270,7 +311,7 @@ export function inlineStylesheetImports(
       )
     }
 
-    packages.push(...inlined.packages)
+    answeredImports.set(importsKey(loader), new Set(inlined.answered))
 
     return inlined.css
   } catch (error) {
@@ -288,63 +329,14 @@ export function inlineStylesheetImports(
 export default function deadCssUrlLoader(
   this: DeadCssUrlLoaderContext,
   source: string
-): string | undefined {
+): string {
   // A component's style block is still CSS for the loaders after this one.
   // Its own loader turns it into a module once the framework is done with it.
   if (isSfcStyleBlock(this)) return source
 
   const options = this.getOptions() || {}
 
-  if (options.inlineImports) {
-    const packages: InlinedCssImports['packages'] = []
-    const css = inlineStylesheetImports(this, source, packages)
-    const resolve = this.getResolve?.({dependencyType: 'css-import'})
-
-    if (packages.length === 0 || !resolve || !this.async) return css
-
-    // A name that is no file beside its sheet is for the bundler to find,
-    // which fails the build for one it cannot, as it does in a page sheet.
-    const done = this.async()
-    const errors = this._compilation?.errors
-    const {manifestPath} = options
-    const resourcePath = canonicalizeResourcePath(this.resourcePath)
-    const issuer = toPosixPath(
-      manifestPath
-        ? path.relative(
-            canonicalizeDir(path.dirname(manifestPath)),
-            resourcePath
-          )
-        : resourcePath
-    )
-    const asked = new Map<string, {request: string; context: string}>()
-
-    for (const entry of packages) {
-      asked.set(`${entry.context}\0${entry.request}`, entry)
-    }
-
-    let left = asked.size
-
-    for (const {request, context} of asked.values()) {
-      resolve(context, request, (error) => {
-        if (error) {
-          const report = new WebpackError(
-            `Module not found: Can't resolve '${request}' in '${context}'`
-          )
-          ;(report as Error & {file?: string}).file = issuer
-          report.name = 'ModuleNotFoundError'
-
-          // Straight onto the compilation, so it reads as the error the
-          // bundler gives a page sheet and not as one of this loader.
-          if (errors) errors.push(report)
-          else this.emitError(report)
-        }
-
-        if (--left === 0) done(null, css)
-      })
-    }
-
-    return undefined
-  }
+  if (options.inlineImports) return inlineStylesheetImports(this, source)
 
   const {css, bundledRequests} = inlineStylesheetUrls(this, source)
 

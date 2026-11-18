@@ -202,7 +202,22 @@ const IMPORT_SKIP_REASONS = {
   'unknown-function': [
     'It carries a function CSS does not define and its sheet came in under a condition, and a browser skips an @import inside a block.',
     `Move this ${colors.blue('@import')} to the content script stylesheet itself.`
+  ],
+  'no-target': [
+    'What it names could not be read as a string or a url() and its sheet came in under a condition, and a browser skips an @import inside a block.',
+    `Write the target of this ${colors.blue('@import')} as a string, or move it to the content script stylesheet itself.`
   ]
+}
+
+// Known only once every tool ran: no plugin brought this import in.
+export function cssImportStillInSheet(issuerPath: string, statement: string) {
+  return [
+    `${prefix('warn')} An ${colors.blue('@import')} is still in this content script stylesheet after every tool ran, so the rules it names will not load.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('IMPORT')} ${colors.blue(statement)}`,
+    'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
+    'Name a file beside the sheet, or add the PostCSS plugin that brings this import in.'
+  ].join('\n')
 }
 
 export function cssImportSkippedInBlock(

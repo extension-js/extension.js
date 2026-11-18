@@ -104,9 +104,8 @@ const TWO_BUILDS = [
   ''
 ].join('\n')
 
-// Node itself loads a CommonJS postcss.config.js that is asked for by
-// import(), and the test runner loads it another way, so this one runs the
-// built engine in a process of its own.
+// The test runner loads a CommonJS postcss.config.js its own way, so this
+// one runs the built engine in a plain Node process.
 describe('a CommonJS postcss.config.js in a process that builds twice', () => {
   it('reads an edit to a file the config requires, or one that file requires', () => {
     const engine = path.join(

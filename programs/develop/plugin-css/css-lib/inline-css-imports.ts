@@ -33,6 +33,7 @@ export type CssImportSkipReason =
   | 'media-never'
   | 'media-not-joined'
   | 'unknown-function'
+  | 'no-target'
 
 export interface SkippedCssImport extends PlacedCssImport {
   why: CssImportSkipReason
@@ -56,9 +57,8 @@ export interface InlinedCssImports {
   moved: PlacedCssImport[]
   // An import of an address left inside a block, where a browser skips it.
   skipped: SkippedCssImport[]
-  // Each name with no ./ ahead of it that no file beside its sheet has, with
-  // the folder of that sheet. It is a package, which the bundler looks up.
-  packages: Array<{request: string; context: string}>
+  // Each file an import that stays names and a reason above speaks for.
+  answered: string[]
   // Each run of sheets that import one another, closed by its first sheet.
   cycles: string[][]
 }
@@ -71,6 +71,8 @@ interface ImportConditions {
 
 interface ParsedImport extends ImportConditions {
   request: string
+  // Written as url(), which names a path and never a package.
+  viaUrl?: boolean
   // What follows the target when it holds a function CSS does not define.
   // Such an import is left to the browser or to a plugin.
   opaque?: string
@@ -119,7 +121,8 @@ function parseImport(params: string): ParsedImport | undefined {
   const request = match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5] ?? ''
   const tail = (match[6] || '').trim()
   let rest = tail
-  const parsed: ParsedImport = {request}
+  const viaUrl = match[4] === undefined && match[5] === undefined
+  const parsed: ParsedImport = viaUrl ? {request, viaUrl} : {request}
 
   const layer = takeFunction(rest, 'layer')
 
@@ -142,7 +145,7 @@ function parseImport(params: string): ParsedImport | undefined {
   const called = rest.match(/[a-z-][\w-]*(?=\()/gi) ?? []
 
   if (called.some((name) => !MEDIA_MATH.has(name.toLowerCase()))) {
-    return {request, opaque: tail}
+    return viaUrl ? {request, viaUrl, opaque: tail} : {request, opaque: tail}
   }
 
   if (rest) parsed.media = rest
@@ -218,7 +221,10 @@ function combineConditions(
 
   if (media.length > 1) {
     // Only a plain list of features can be joined with "and".
-    let typed = media.filter((query) => !query.startsWith('('))
+    const types = media.filter((query) => !query.startsWith('('))
+    // `all` beside another type says nothing the other does not.
+    const narrow = types.filter((query) => !/^all$/i.test(query.trim()))
+    let typed = narrow.length > 0 ? narrow : types
     const features = media.filter((query) => query.startsWith('('))
 
     if (
@@ -259,7 +265,8 @@ function isFile(candidate: string): boolean {
 
 function realPath(file: string): string {
   try {
-    return fs.realpathSync(file)
+    // The native call answers in the letter case the disk holds.
+    return fs.realpathSync.native(file)
   } catch {
     return path.resolve(file)
   }
@@ -314,21 +321,35 @@ const KEEP_IN_PROJECT =
 const NO_PRIVATE_NAME =
   'Give the sheet a path with no private file or folder name along it.'
 
+// Whether a path is inside the node_modules of one of these folders or of a
+// folder above one, where a package manager keeps what a project installed.
+function inInstalledModules(file: string, folders: string[]): boolean {
+  const parts = file.split(path.sep)
+  const modulesAt = parts.indexOf('node_modules')
+  if (modulesAt === -1) return false
+
+  const owner = parts.slice(0, modulesAt).join(path.sep)
+
+  return folders.some(
+    (folder) => folder === owner || folder.startsWith(`${owner}${path.sep}`)
+  )
+}
+
 // Whether the rules of a sheet may be read into another one: undefined when
-// they may, or the reason they may not with the fix. A sheet may sit in the
-// project or in a node_modules folder of the project or of a folder above
-// it, and no name along its path may be a private one. Links are followed.
+// they may, or the reason they may not with the fix. Links are followed.
 function whyNotRead(
   file: string,
   projectRoot: string
 ): {reason: string; fix: string} | undefined {
+  const written = path.resolve(projectRoot)
   const root = realPath(projectRoot)
+  const asked = path.resolve(file)
   const real = realPath(file)
-  const names = [
-    ...path.relative(root, path.resolve(file)).split(path.sep),
+  // No name along the path asked for, or the one it leads to, is private.
+  const privateName = [
+    ...path.relative(written, asked).split(path.sep),
     ...path.relative(root, real).split(path.sep)
-  ]
-  const privateName = names.find(isPrivateName)
+  ].find(isPrivateName)
 
   if (privateName) {
     return {
@@ -343,16 +364,11 @@ function whyNotRead(
     return undefined
   }
 
-  // Where a package manager keeps what the project installed: beside the
-  // project, or beside a folder above it in a workspace.
-  const parts = real.split(path.sep)
-  const modulesAt = parts.indexOf('node_modules')
-  const owner =
-    modulesAt === -1 ? undefined : parts.slice(0, modulesAt).join(path.sep)
-
+  // A package is asked for through node_modules, and a package manager may
+  // link it from there into the store it keeps at the project or above it.
   if (
-    owner !== undefined &&
-    (root === owner || root.startsWith(`${owner}${path.sep}`))
+    inInstalledModules(asked, [written, root]) &&
+    inInstalledModules(real, [root])
   ) {
     return undefined
   }
@@ -379,8 +395,11 @@ function stringEnd(css: string, at: number): number {
   const quote = css[at]
   let end = at + 1
 
-  while (end < css.length && css[end] !== quote && css[end] !== '\n') {
-    end += css[end] === '\\' ? 2 : 1
+  // A line break ends a string that was never closed, and one after a
+  // backslash goes on with it, the two characters of CRLF as one break.
+  while (end < css.length && css[end] !== quote && !/[\n\r\f]/.test(css[end])) {
+    if (css[end] !== '\\') end++
+    else end += css[end + 1] === '\r' && css[end + 2] === '\n' ? 3 : 2
   }
 
   return Math.min(end + 1, css.length)
@@ -389,11 +408,17 @@ function stringEnd(css: string, at: number): number {
 const IDENT = /[a-z_-][\w-]*/iy
 const URL_STRING_FUNCTIONS = new Set(['url', 'image-set', '-webkit-image-set'])
 
+// Where an address stands: the string of an @import, inside url(), or a
+// string of a function that takes addresses as strings.
+export type CssAddressPlace = 'import' | 'url' | 'set'
+
 // The sheet with each address it names passed through `rewrite`. Reads the
 // text the way CSS does, so a url( inside a string or a comment is left.
-function rewriteCssUrls(
+export function rewriteCssUrls(
   css: string,
-  rewrite: (request: string, isImport: boolean) => string | undefined
+  rewrite: (request: string, where: CssAddressPlace) => string | undefined,
+  // Writes each new address inside double quotes, whatever it had.
+  doubleQuoted = false
 ): string {
   const functions: string[] = []
   let out = ''
@@ -401,9 +426,24 @@ function rewriteCssUrls(
   let at = 0
   let inImport = false
 
-  const put = (start: number, end: number, request: string, quote?: string) => {
-    const next = request.includes('\\') ? undefined : rewrite(request, inImport)
+  const put = (
+    start: number,
+    end: number,
+    request: string,
+    where: CssAddressPlace,
+    quote?: string
+  ) => {
+    const next = request.includes('\\') ? undefined : rewrite(request, where)
     if (next === undefined) return
+
+    if (doubleQuoted) {
+      const wide = quote ? 1 : 0
+
+      out += `${css.slice(copied, start - wide)}"${next.replace(/["\\]/g, '\\$&')}"`
+      copied = end + wide
+
+      return
+    }
 
     const text = quote
       ? next.split(quote).join(`\\${quote}`)
@@ -434,7 +474,13 @@ function rewriteCssUrls(
         closed &&
         (named === undefined ? inImport : URL_STRING_FUNCTIONS.has(named))
       ) {
-        put(at + 1, end - 1, css.slice(at + 1, end - 1), char)
+        put(
+          at + 1,
+          end - 1,
+          css.slice(at + 1, end - 1),
+          named === undefined ? 'import' : named === 'url' ? 'url' : 'set',
+          char
+        )
       }
 
       if (named === undefined) inImport = false
@@ -481,7 +527,7 @@ function rewriteCssUrls(
           const end = close === -1 ? css.length : close
           const request = css.slice(start, end).trim()
 
-          if (request) put(start, start + request.length, request)
+          if (request) put(start, start + request.length, request, 'url')
 
           inImport = false
           at = Math.min(end + 1, css.length)
@@ -496,7 +542,7 @@ function rewriteCssUrls(
 function rebaseUrls(css: string, fromDir: string, toDir: string): string {
   if (fromDir === toDir) return css
 
-  return rewriteCssUrls(css, (request, isImport) => {
+  return rewriteCssUrls(css, (request, where) => {
     if (
       !request ||
       /^[/#~@]/.test(request) ||
@@ -505,8 +551,8 @@ function rebaseUrls(css: string, fromDir: string, toDir: string): string {
       return undefined
     }
 
-    // After @import a name with no ./ ahead of it is a package.
-    if (isImport && !/^\.{1,2}\//.test(request)) return undefined
+    // The string of an @import with no ./ ahead of it is a package.
+    if (where === 'import' && !/^\.{1,2}\//.test(request)) return undefined
 
     return rebaseRequest(request, fromDir, toDir)
   })
@@ -530,10 +576,13 @@ function wrap(css: string, rule: ImportConditions): string {
 
 function importStatement(
   request: string,
-  rule: ImportConditions & {opaque?: string}
+  rule: ImportConditions & {opaque?: string; viaUrl?: boolean}
 ): string {
   const quote = request.includes('"') ? "'" : '"'
-  const parts = [`@import ${quote}${request}${quote}`]
+  const target = `${quote}${request}${quote}`
+  // Inside url() a name with no ./ ahead of it stays a path.
+  const named = rule.viaUrl && /^[^./~@#][^:]*$/.test(request)
+  const parts = [`@import ${named ? `url(${target})` : target}`]
 
   if (rule.opaque) parts.push(rule.opaque)
 
@@ -559,7 +608,7 @@ interface Inlining {
   kept: string[]
   moved: PlacedCssImport[]
   skipped: SkippedCssImport[]
-  packages: InlinedCssImports['packages']
+  answered: Set<string>
   cycles: string[][]
   // Layers whose order the first sheet states before anything else.
   orderedLayers: Set<string>
@@ -609,9 +658,8 @@ interface NotInlined {
 
 const IMPORT_RUN = new Set(['charset', 'import'])
 
-// The sheet with every @import of a project .css file replaced by that
-// file's rules. `frames` holds the conditions of each import on the way here,
-// and `chain` the sheets on the way here, each by the file it really is.
+// The sheet with each @import of a project .css file replaced by its rules.
+// `frames` and `chain` hold the conditions and the real files on the way here.
 function inlineSheet(
   css: string,
   file: string,
@@ -643,7 +691,6 @@ function inlineSheet(
     }
   }
 
-  let toldNamespace = false
   // A browser reads an @import only ahead of every rule: comments, @charset,
   // other imports and a list of layer names are all that may come before it.
   const runEnd = root.nodes.findIndex(
@@ -711,17 +758,19 @@ function inlineSheet(
 
     const parsed = parseImport(rule.params)
     const plain = parsed ? parsed.request.split('?')[0].split('#')[0] : ''
-    // A name with no ./ ahead of it: a file when one beside the sheet has
-    // exactly that name, the way CSS reads it, and a package when none has.
     const named =
       parsed !== undefined &&
       !parsed.request.includes('!') &&
       /^[^./~#][^:]*$/.test(plain)
     const beside = named ? path.resolve(issuerDir, plain) : undefined
+    // A name with no ./ ahead of it is a path inside url(), and as a string
+    // when a file beside the sheet has exactly that name. Else a package.
+    const asPath =
+      beside !== undefined && (parsed?.viaUrl === true || isFile(beside))
     // The one rule for which files a path names.
     const candidates =
       parsed && !parsed.opaque && !parsed.request.includes('!')
-        ? beside && isFile(beside)
+        ? beside && asPath
           ? [beside]
           : cssUrlRefFiles(parsed.request, {issuerDir, roots: state.roots})
         : []
@@ -735,18 +784,15 @@ function inlineSheet(
 
     if (!parsed || !target) {
       const written = `${css.slice(start, end).replace(/;$/, '').trim()};`
-      const relative = parsed !== undefined && /^\.{1,2}\//.test(parsed.request)
+      const relative =
+        parsed !== undefined && (asPath || /^\.{1,2}\//.test(parsed.request))
 
       for (const candidate of candidates) {
         if (!fs.existsSync(candidate)) state.missing.add(candidate)
       }
 
-      if (named && beside && !isFile(beside)) {
-        // Writing a file by that name beside the sheet changes the answer.
-        if (/\.css$/i.test(plain)) state.missing.add(beside)
-
-        state.packages.push({request: plain, context: issuerDir})
-      }
+      // Writing a file by that name beside the sheet changes the answer.
+      if (beside && !asPath && /\.css$/i.test(plain)) state.missing.add(beside)
 
       // Once another sheet's rules come in, an @import that stays would
       // follow a rule, so it leads the result under the conditions it had.
@@ -755,17 +801,20 @@ function inlineSheet(
           ? combineConditions(frames, parsed)
           : frames.length === 0
             ? {}
-            : 'unknown-function'
+            : parsed
+              ? 'unknown-function'
+              : 'no-target'
 
       if (typeof conditions === 'string') {
-        // A package name left in a block is for a PostCSS plugin to bring
-        // in, as the one at the head is. An address is for the browser,
-        // which skips an @import inside a block.
+        // A package left in a block is for a PostCSS plugin to bring in.
+        // An address is for the browser, which skips an @import in a block.
         if (
           !parsed ||
           /^(?:[a-z][a-z0-9+.-]*:|\.{0,2}\/)/i.test(parsed.request)
         ) {
           state.skipped.push({statement: written, file, why: conditions})
+
+          for (const candidate of candidates) state.answered.add(candidate)
         }
 
         return
@@ -779,13 +828,13 @@ function inlineSheet(
         parsed && (frames.length > 0 || request !== parsed.request)
           ? importStatement(request ?? parsed.request, {
               ...conditions,
-              opaque: parsed.opaque
+              opaque: parsed.opaque,
+              viaUrl: parsed.viaUrl
             })
           : written
 
-      // A list of layer names this import followed goes to the head with
-      // it, under the layer its sheet came in with. A list cannot carry a
-      // media or supports condition, nor a name inside an unnamed layer.
+      // A list of layer names this import followed goes to the head with it,
+      // which a media or supports condition or an unnamed layer rules out.
       const outerLayers = frames.flatMap((frame) =>
         frame.layer === undefined ? [] : [frame.layer]
       )
@@ -831,17 +880,15 @@ function inlineSheet(
     }
 
     if (namespaced) {
-      if (!toldNamespace) {
-        state.unreadable.push({
-          request: parsed.request,
-          file: target,
-          reason:
-            'This stylesheet sets an @namespace, which has to come before every rule, so no imported rules can come in ahead of it.',
-          fix: 'Import that file from the script instead, or move the @namespace rules to a sheet of their own.'
-        })
-      }
+      state.unreadable.push({
+        request: parsed.request,
+        file: target,
+        reason:
+          'This stylesheet sets an @namespace, which has to come before every rule, so no imported rules can come in ahead of it.',
+        fix: 'Import that file from the script instead, or move the @namespace rules to a sheet of their own.'
+      })
 
-      toldNamespace = true
+      state.answered.add(target)
 
       return
     }
@@ -874,6 +921,7 @@ function inlineSheet(
 
     if (refused) {
       state.unreadable.push({request: parsed.request, file: target, ...refused})
+      state.answered.add(target)
       keepAsPath()
 
       return
@@ -895,6 +943,7 @@ function inlineSheet(
 
     if (typeof inner !== 'string') {
       state.unreadable.push({request: parsed.request, file: target, ...inner})
+      state.answered.add(target)
       keepAsPath()
 
       return
@@ -936,6 +985,22 @@ function inlineSheet(
   return out
 }
 
+// One loop is met from each of its sheets that the first sheet imports, so
+// each is told once, from the sheet whose path sorts first.
+function uniqueLoops(cycles: string[][]): string[][] {
+  const loops = new Map<string, string[]>()
+
+  for (const cycle of cycles) {
+    const sheets = cycle.slice(0, -1)
+    const first = sheets.indexOf([...sheets].sort()[0])
+    const turned = [...sheets.slice(first), ...sheets.slice(0, first)]
+
+    loops.set(turned.join('\0'), [...turned, turned[0]])
+  }
+
+  return [...loops.values()]
+}
+
 // A content-script sheet reaches the page as one data: URL, where a relative
 // @import has no base to resolve from, so the imported rules come in here.
 export function inlineCssImports(
@@ -952,7 +1017,7 @@ export function inlineCssImports(
     kept: [],
     moved: [],
     skipped: [],
-    packages: [],
+    answered: new Set(),
     cycles: [],
     orderedLayers: new Set(),
     filledLayers: new Set()
@@ -966,7 +1031,7 @@ export function inlineCssImports(
       unreadable: [],
       moved: [],
       skipped: [],
-      packages: [],
+      answered: [],
       cycles: []
     }
   }
@@ -988,7 +1053,38 @@ export function inlineCssImports(
     unreadable: state.unreadable,
     moved: state.moved,
     skipped: state.skipped,
-    packages: state.packages,
-    cycles: state.cycles
+    answered: [...state.answered],
+    cycles: uniqueLoops(state.cycles)
   }
+}
+
+export interface LeftCssImport {
+  statement: string
+  request: string
+  viaUrl: boolean
+}
+
+// Every @import a sheet holds, wherever it stands. None for a sheet that
+// does not parse, which has its own word elsewhere.
+export function readCssImports(css: string): LeftCssImport[] {
+  if (!/@import/i.test(css)) return []
+
+  const found: LeftCssImport[] = []
+
+  try {
+    postcss.parse(css).walkAtRules(/^import$/i, (rule) => {
+      const parsed = parseImport(rule.params)
+      if (!parsed) return
+
+      found.push({
+        statement: `@import ${rule.params.trim()};`,
+        request: parsed.request,
+        viaUrl: parsed.viaUrl === true
+      })
+    })
+  } catch {
+    return []
+  }
+
+  return found
 }

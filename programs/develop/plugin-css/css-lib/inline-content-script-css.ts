@@ -18,11 +18,8 @@ import {
   unlessExtensionAddress
 } from '../../lib/extension-base-from-stack'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
-import {
-  publicOwnedOutputName,
-  replaceCssUrlRefs,
-  toPosixPath
-} from './dead-url-refs'
+import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
+import {rewriteCssUrls} from './inline-css-imports'
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'
 
@@ -109,34 +106,43 @@ export function rewriteInlinedCssUrls(
   const targets: InlinedCssUrlTarget[] = []
   const seen = new Map<string, string>()
 
-  const css = replaceCssUrlRefs(source, (request) => {
-    const suffixAt = request.search(/[?#]/)
-    const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
-    const suffix = suffixAt === -1 ? '' : request.slice(suffixAt)
+  // Read the way CSS reads it, so a url( inside a string is left alone.
+  const css = rewriteCssUrls(
+    source,
+    (request, where) => {
+      if (where !== 'url') return undefined
 
-    if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
-      return undefined
-    }
+      const suffixAt = request.search(/[?#]/)
+      const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
+      const suffix = suffixAt === -1 ? '' : request.slice(suffixAt)
 
-    if (req.startsWith('~') || req.startsWith('@')) return undefined
-    if (req.startsWith(EXTENSION_ROOT_PLACEHOLDER)) return undefined
+      if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
+        return undefined
+      }
 
-    let named = seen.get(req)
+      if (req.startsWith('~') || req.startsWith('@')) return undefined
+      if (req.startsWith(EXTENSION_ROOT_PLACEHOLDER)) return undefined
 
-    if (!named) {
-      const target = resolveTarget(req, context)
-      if (!target) return undefined
+      let named = seen.get(req)
 
-      named = target.publicOwned
-        ? `${EXTENSION_ROOT_PLACEHOLDER}${target.outputName}`
-        : bundledFileToken(targets.filter((other) => !other.publicOwned).length)
+      if (!named) {
+        const target = resolveTarget(req, context)
+        if (!target) return undefined
 
-      seen.set(req, named)
-      targets.push({request: req, ...target})
-    }
+        named = target.publicOwned
+          ? `${EXTENSION_ROOT_PLACEHOLDER}${target.outputName}`
+          : bundledFileToken(
+              targets.filter((other) => !other.publicOwned).length
+            )
 
-    return `${named}${suffix}`
-  })
+        seen.set(req, named)
+        targets.push({request: req, ...target})
+      }
+
+      return `${named}${suffix}`
+    },
+    true
+  )
 
   return {css, targets}
 }

@@ -49,7 +49,7 @@ describe('the sheets a content-script sheet imports', () => {
       unreadable: [],
       moved: [],
       skipped: [],
-      packages: [],
+      answered: [],
       cycles: []
     })
   })
@@ -189,14 +189,14 @@ describe('the sheets a content-script sheet imports', () => {
       ],
       moved: [],
       skipped: [],
-      packages: [],
+      answered: [path.join(root, 'svg.css')],
       cycles: []
     })
   })
 
   it('bring nothing into a sheet that sets an @namespace of its own', () => {
     const source =
-      '@import "./a.css";\n@namespace svg url(http://www.w3.org/2000/svg);\n@import "./b.css";\nsvg|a{}\n'
+      '@import "./a.css";\n@import "./b.css";\n@namespace svg url(http://www.w3.org/2000/svg);\nsvg|a{}\n'
     const root = makeProject({
       'styles.css': source,
       'a.css': '.a{}\n',
@@ -206,15 +206,15 @@ describe('the sheets a content-script sheet imports', () => {
 
     expect(result.css).toBe(source)
     expect(result.files).toEqual([])
-    expect(result.unreadable).toEqual([
-      {
-        request: './a.css',
-        file: path.join(root, 'a.css'),
+    expect(result.unreadable).toEqual(
+      ['a', 'b'].map((name) => ({
+        request: `./${name}.css`,
+        file: path.join(root, `${name}.css`),
         reason:
           'This stylesheet sets an @namespace, which has to come before every rule, so no imported rules can come in ahead of it.',
         fix: 'Import that file from the script instead, or move the @namespace rules to a sheet of their own.'
-      }
-    ])
+      }))
+    )
   })
 
   // A sheet a package ships is as much the project's as one it wrote, and a
@@ -326,6 +326,29 @@ describe('the sheets a content-script sheet imports', () => {
     ])
   })
 
+  // A disk that ignores letter case opens the project under any spelling.
+  it.skipIf(!fs.existsSync(__filename.toUpperCase()))(
+    'bring a sheet in when the project path is spelled in another letter case',
+    () => {
+      const root = makeProject({
+        'App/styles.css': '@import "./ok.css";\n.own{}\n',
+        'App/ok.css': '.ok{}\n'
+      })
+      const app = path.join(root, 'App')
+      const result = inlineCssImports(
+        fs.readFileSync(path.join(app, 'styles.css'), 'utf8'),
+        {
+          resourcePath: path.join(app, 'styles.css'),
+          roots: [app],
+          projectPath: path.join(root, 'app').toLowerCase()
+        }
+      )
+
+      expect(result.css).toBe('.ok{}\n\n.own{}\n')
+      expect(result.unreadable).toEqual([])
+    }
+  )
+
   // A template documents the keys of an env file and holds no value.
   it('bring in a sheet from a folder named as an env template', () => {
     const root = makeProject({
@@ -384,6 +407,25 @@ describe('the sheets a content-script sheet imports', () => {
       expect(result.unreadable).toEqual([])
     })
 
+    // A package is asked for by its path in node_modules, not by a link.
+    it('leave a sheet a link in the project takes into node_modules above', () => {
+      const root = makeProject({
+        'app/styles.css': '@import "./linked.css";\n.own{}\n',
+        'node_modules/up/x.css': '.x{}\n'
+      })
+
+      fs.symlinkSync(
+        path.join(root, 'node_modules', 'up', 'x.css'),
+        path.join(root, 'app', 'linked.css')
+      )
+
+      const real = fs.realpathSync(path.join(root, 'node_modules/up/x.css'))
+
+      expect(inlineApp(root).unreadable.map((left) => left.reason)).toEqual([
+        `The file sits outside the project, at ${real}.`
+      ])
+    })
+
     it('leave a sheet a link takes to a private name', () => {
       const root = makeProject({
         'app/styles.css': '@import "./theme.css";\n.own{}\n',
@@ -434,7 +476,7 @@ describe('the sheets a content-script sheet imports', () => {
       unreadable: [],
       moved: [],
       skipped: [],
-      packages: [],
+      answered: [],
       cycles: []
     })
   })
@@ -457,8 +499,6 @@ describe('the sheets a content-script sheet imports', () => {
       path.join(root, 'shared', 'x.css'),
       path.join(root, 'shared', 'a.css')
     ])
-
-    expect(result.packages).toEqual([])
   })
 
   it('write such a name as a path when its file stays out of a sheet that came in', () => {
@@ -490,21 +530,20 @@ describe('the sheets a content-script sheet imports', () => {
       unreadable: [],
       moved: [],
       skipped: [],
-      packages: [{request: 'tailwindcss', context: root}],
+      answered: [],
       cycles: []
     })
   })
 
-  // Neither a file nor yet known to be a package: the bundler is asked, and
-  // writing the file is awaited.
-  it('hand a name ending in .css that no file has to the bundler, and await the file', () => {
+  // Whether a plugin brings it in is known once the tools ran, and writing
+  // the file is awaited.
+  it('leave a name ending in .css that no file has as written, and await the file', () => {
     const source = '@import "nope.css";\n.own{}\n'
     const root = makeProject({'styles.css': source})
     const result = inline(root, 'styles.css')
 
     expect(result.css).toBe(source)
     expect(result.missing).toEqual([path.join(root, 'nope.css')])
-    expect(result.packages).toEqual([{request: 'nope.css', context: root}])
   })
 
   // An @import that follows a rule is skipped by the browser and by the
@@ -597,7 +636,7 @@ describe('the sheets a content-script sheet imports', () => {
       unreadable: [],
       moved: [],
       skipped: [],
-      packages: [],
+      answered: [],
       cycles: []
     })
   })
@@ -703,6 +742,91 @@ describe('the sheets a content-script sheet imports', () => {
     expect(result.moved).toEqual([])
   })
 
+  it('say an import it cannot read the target of has none, under a condition', () => {
+    const root = makeProject({
+      'styles.css': '@import "./a.css" screen;\n.own{}\n',
+      'a.css': '@import nothing;\n.a{}\n'
+    })
+
+    expect(inline(root, 'styles.css').skipped).toEqual([
+      {
+        statement: '@import nothing;',
+        file: path.join(root, 'a.css'),
+        why: 'no-target'
+      }
+    ])
+  })
+
+  // `all` asks for every device, so the other type is the whole answer.
+  it.each([
+    ['all', 'print', 'print'],
+    ['print', 'all', 'print'],
+    ['all', '(min-width: 600px)', 'all and (min-width: 600px)'],
+    ['all', 'all', 'all']
+  ])('join %s with %s as %s', (outer, own, joined) => {
+    const root = makeProject({
+      'styles.css': `@import "./a.css" ${outer};\n.own{}\n`,
+      'a.css': `@import "https://example.com/x.css" ${own};\n.a{}\n`
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.css.split('\n')[0]).toBe(
+      `@import "https://example.com/x.css" ${joined};`
+    )
+
+    expect(result.skipped).toEqual([])
+  })
+
+  // One loop, met once from each of the two sheets the first one imports.
+  it('tell a loop two imports of the first sheet lead into once', () => {
+    const root = makeProject({
+      'styles.css': '@import "./a.css";\n@import "./b.css";\n.own{}\n',
+      'a.css': '@import "./b.css";\n.a{}\n',
+      'b.css': '@import "./a.css";\n.b{}\n'
+    })
+
+    expect(inline(root, 'styles.css').cycles).toEqual([
+      [
+        path.join(root, 'a.css'),
+        path.join(root, 'b.css'),
+        path.join(root, 'a.css')
+      ]
+    ])
+  })
+
+  // url() takes an address, and an address with no ./ is still a path.
+  it('read a name inside url() as a path, whatever sits in node_modules', () => {
+    const root = makeProject({
+      'content/styles.css':
+        '@import url(reset.css);\n@import url("../shared/a.css");\n@import url(gone.css);\n.own{}\n',
+      'content/reset.css': '.reset{}\n',
+      'shared/a.css': '@import url(x.css);\n@import url(late.css);\n.a{}\n',
+      'shared/x.css': '.x{}\n',
+      'node_modules/gone.css/index.css': '.pkg{}\n'
+    })
+    const result = inline(root, 'content/styles.css')
+
+    expect(result.css).toBe(
+      '@import "../shared/late.css";\n@import url(gone.css);\n.reset{}\n\n.x{}\n\n\n.a{}\n\n\n.own{}\n'
+    )
+
+    expect(result.missing).toEqual([
+      path.join(root, 'shared', 'late.css'),
+      path.join(root, 'content', 'gone.css')
+    ])
+  })
+
+  it('read the addresses that follow a backslash ahead of a line break in a string', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "../shared/a.css";\n',
+      'shared/a.css': '.a{content:"a\\\r\nb"}\n.z{background:url("./z.png")}\n'
+    })
+
+    expect(inline(root, 'content/styles.css').css).toContain(
+      'url("../shared/z.png")'
+    )
+  })
+
   it.each([
     [
       'a range',
@@ -793,8 +917,7 @@ describe('the sheets a content-script sheet imports', () => {
     )
   })
 
-  // A package a sheet in another folder names goes to the head as written,
-  // and is looked up from the folder of the sheet that named it.
+  // A package a sheet in another folder names goes to the head as written.
   it('keep a package as written when it stays from a sheet in another folder', () => {
     const root = makeProject({
       'content/styles.css': '@import "../shared/a.css";\n.own{}\n',
@@ -804,9 +927,6 @@ describe('the sheets a content-script sheet imports', () => {
 
     expect(result.css).toBe('@import "pkg/y.css";\n\n.a{}\n\n.own{}\n')
     expect(result.missing).toEqual([path.join(root, 'shared', 'pkg', 'y.css')])
-    expect(result.packages).toEqual([
-      {request: 'pkg/y.css', context: path.join(root, 'shared')}
-    ])
   })
 
   // Two places where the check leans toward a warning it may not owe.
@@ -961,9 +1081,8 @@ describe('the sheets a content-script sheet imports', () => {
     ])
   })
 
-  // The opening list says which layer wins, and inside one layer the later
-  // source still wins, so an import moved ahead of rules in its own layer
-  // changes the result.
+  // Inside one layer the later source still wins, so an import moved ahead
+  // of rules in its own layer changes the result.
   it.each([
     ['the same layer', 'layer(theme)', '.btn{color:red}\n'],
     ['a layer block the sheet opens', '', '@layer theme{.btn{color:red}}\n'],
@@ -1009,18 +1128,14 @@ describe('the sheets a content-script sheet imports', () => {
   })
 
   it.each([
-    ['a package', '@import "tailwindcss";\n.own{}\n', ['tailwindcss']],
-    ['a scoped package', '@import "@scope/ui";\n.own{}\n', ['@scope/ui']],
-    ['an alias', '@import "~pkg/style.css";\n.own{}\n', []],
-    [
-      'a function CSS does not define',
-      '@import "./a.css" theme(reference);\n',
-      []
-    ],
-    ['an import after a rule', '.own{}\n@import "./a.css";\n', []],
-    ['a Sass file', '@import "./vars.scss";\n.own{}\n', []],
-    ['a sheet that does not parse', '@import "./a.css";\n.own{color:red\n', []]
-  ])('leave %s as written', (_label, source, packages) => {
+    ['a package', '@import "tailwindcss";\n.own{}\n'],
+    ['a scoped package', '@import "@scope/ui";\n.own{}\n'],
+    ['an alias', '@import "~pkg/style.css";\n.own{}\n'],
+    ['a function CSS does not define', '@import "./a.css" theme(reference);\n'],
+    ['an import after a rule', '.own{}\n@import "./a.css";\n'],
+    ['a Sass file', '@import "./vars.scss";\n.own{}\n'],
+    ['a sheet that does not parse', '@import "./a.css";\n.own{color:red\n']
+  ])('leave %s as written', (_label, source) => {
     const root = makeProject({
       'styles.css': source,
       'a.css': '.a{}',
@@ -1034,8 +1149,7 @@ describe('the sheets a content-script sheet imports', () => {
       unreadable: [],
       moved: [],
       skipped: [],
-      // A name that is no file beside the sheet is for the bundler to find.
-      packages: packages.map((request) => ({request, context: root})),
+      answered: [],
       cycles: []
     })
   })
@@ -1058,7 +1172,7 @@ describe('the sheets a content-script sheet imports', () => {
       unreadable: [],
       moved: [],
       skipped: [],
-      packages: [],
+      answered: [],
       cycles: []
     })
   })
@@ -1082,7 +1196,7 @@ describe('the sheets a content-script sheet imports', () => {
       ],
       moved: [],
       skipped: [],
-      packages: [],
+      answered: [path.join(root, 'broken.css')],
       cycles: []
     })
   })
@@ -1259,111 +1373,127 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     expect([warnings, errors]).toEqual([[], []])
   })
 
-  // The loader as the bundler runs it: it can ask where a package is.
-  function runWithResolver(
-    root: string,
-    sheet: string,
-    found: (request: string) => boolean
-  ) {
-    const errors: Error[] = []
+  // The run after PostCSS, fed what the run ahead of it answered with.
+  function runBoth(root: string, sheet: string) {
+    const first = runLoader(root, sheet, {inlineImports: true})
     const warnings: Error[] = []
-    const asked: Array<[string, string, string]> = []
 
-    return new Promise<{
-      output: string
-      errors: Error[]
-      warnings: Error[]
-      asked: Array<[string, string, string]>
-    }>((resolve, reject) => {
-      const returned = deadCssUrlLoader.call(
-        {
-          resourcePath: path.join(root, sheet),
-          getOptions: () => ({
-            manifestPath: path.join(root, 'manifest.json'),
-            projectPath: root,
-            inlineImports: true
-          }),
-          emitWarning: (warning: Error) => warnings.push(warning),
-          emitError: (error: Error) => errors.push(error),
-          addDependency() {},
-          addMissingDependency() {},
-          getResolve:
-            (options: {dependencyType: string}) =>
-            (
-              context: string,
-              request: string,
-              callback: (error: Error | null) => void
-            ) => {
-              asked.push([options.dependencyType, context, request])
-              callback(found(request) ? null : new Error('not found'))
-            },
-          async: () => (error: Error | null, output: string) =>
-            error ? reject(error) : resolve({output, errors, warnings, asked})
-        } as never,
-        fs.readFileSync(path.join(root, sheet), 'utf8')
-      )
+    deadCssUrlLoader.call(
+      {
+        resourcePath: path.join(root, sheet),
+        getOptions: () => ({
+          manifestPath: path.join(root, 'manifest.json'),
+          projectPath: root
+        }),
+        emitWarning: (warning: Error) => warnings.push(warning),
+        emitError() {},
+        addDependency() {},
+        addMissingDependency() {},
+        _compilation: {warnings, errors: []}
+      } as never,
+      String(first.output)
+    )
 
-      if (returned !== undefined) {
-        resolve({output: returned, errors, warnings, asked})
-      }
-    })
+    return [...first.warnings, ...warnings].map((w) => [
+      w.name,
+      ...w.message.split('\n').slice(0, 3)
+    ])
   }
 
-  it('asks the bundler for each package once, and says nothing for one it finds', async () => {
+  const STILL = `${WARN} An @import is still in this content script stylesheet after every tool ran, so the rules it names will not load.`
+
+  it('names each import no tool brought in, once every tool ran', () => {
     const root = makeProject({
-      'content/styles.css':
-        '@import "tailwindcss";\n@import "tailwindcss" print;\n.own{}\n',
-      'content/tailwindcss.css': '.local{}\n'
+      'content/styles.css': [
+        '@import "normalize.css";',
+        '@import "normalize.css";',
+        '@import url(gone.css);',
+        '@import "./vars.scss";',
+        '@import "https://example.com/x.css";',
+        '@import "//example.com/y.css";',
+        '@import "./other.css" layer;',
+        '.own{}',
+        ''
+      ].join('\n'),
+      'content/vars.scss': '$a: 1;\n',
+      'content/other.css': '@import "pkg/in-a-block.css";\n.other{}\n'
     })
 
-    const {output, errors, warnings, asked} = await runWithResolver(
-      root,
-      'content/styles.css',
-      () => true
-    )
-
-    expect(output).toBe(
-      '@import "tailwindcss";\n@import "tailwindcss" print;\n.own{}\n'
-    )
-
-    expect(asked).toEqual([
-      ['css-import', path.join(root, 'content'), 'tailwindcss']
-    ])
-
-    expect([warnings, errors]).toEqual([[], []])
-  })
-
-  it('fails the build for a name that is neither a file beside the sheet nor a package', async () => {
-    const root = makeProject({
-      'content/styles.css': '@import "nope.css";\n@import "gone-pkg";\n.own{}\n'
-    })
-    const content = path.join(root, 'content')
-
-    const {output, errors} = await runWithResolver(
-      root,
-      'content/styles.css',
-      () => false
-    )
-
-    expect(output).toBe('@import "nope.css";\n@import "gone-pkg";\n.own{}\n')
-    expect(
-      errors.map((error) => [
-        error.name,
-        (error as Error & {file?: string}).file,
-        error.message
-      ])
-    ).toEqual([
+    expect(runBoth(root, 'content/styles.css')).toEqual([
       [
-        'ModuleNotFoundError',
-        'content/styles.css',
-        `Module not found: Can't resolve 'nope.css' in '${content}'`
+        'CssParseWarning',
+        STILL,
+        'PATH content/styles.css',
+        'IMPORT @import "normalize.css";'
       ],
       [
-        'ModuleNotFoundError',
-        'content/styles.css',
-        `Module not found: Can't resolve 'gone-pkg' in '${content}'`
+        'CssParseWarning',
+        STILL,
+        'PATH content/styles.css',
+        'IMPORT @import url(gone.css);'
+      ],
+      [
+        'CssParseWarning',
+        STILL,
+        'PATH content/styles.css',
+        'IMPORT @import "./vars.scss";'
+      ],
+      [
+        'CssParseWarning',
+        STILL,
+        'PATH content/styles.css',
+        'IMPORT @import "pkg/in-a-block.css";'
       ]
     ])
+  })
+
+  it('says nothing more of an import a reason was already given for', () => {
+    const root = makeProject({
+      'content/styles.css':
+        '@import "./gone.css";\n@import "../shared/a.css";\n.own{}\n',
+      'shared/a.css': '@import "x.css";\n.a{}\n',
+      'shared/x.css':
+        '@namespace svg url(http://www.w3.org/2000/svg);\nsvg|a{}\n'
+    })
+
+    expect(
+      runBoth(root, 'content/styles.css').map(([name, headline]) => [
+        name,
+        headline.replace(`${WARN} `, '').slice(0, 28)
+      ])
+    ).toEqual([
+      ['CssParseWarning', "Couldn't bring an @import in"],
+      ['CssDeadRef', 'A url(./gone.css) reference '.slice(0, 28)]
+    ])
+  })
+
+  // A browser ends a string nobody closed at the line break, of any kind.
+  it.each([
+    ['a carriage return', '\r'],
+    ['a form feed', '\f']
+  ])('reads the url() that follows a string %s cuts short', (_label, lineBreak) => {
+    const root = makeProject({
+      'content/styles.css': `.a{content:"a${lineBreak}}.b{background:url("./icon.png")}\n`,
+      'content/icon.png': 'image'
+    })
+
+    expect(runLoader(root, 'content/styles.css').output).toContain(
+      `url(\\"${bundledFileToken(0)}\\")`
+    )
+  })
+
+  // A string is text, whatever it spells.
+  it('leaves a url( that is the text of a string as written', () => {
+    const root = makeProject({
+      'content/styles.css':
+        '.a::before{content:"url(./icon.png)"}\n.b{background:url(./icon.png)}\n',
+      'content/icon.png': 'image'
+    })
+
+    const {output} = runLoader(root, 'content/styles.css')
+
+    expect(output).toContain('content:\\"url(./icon.png)\\"')
+    expect(output).toContain(`background:url(\\"${bundledFileToken(0)}\\")`)
   })
 
   it('warns once for an import that now leads rules it used to follow', () => {
@@ -1707,21 +1837,36 @@ describe('a content script that imports a sheet with an @import, compiled', () =
     expect(sheet).not.toContain('@import')
   }, 60_000)
 
-  // The answer a page sheet gets for the same line, from the same resolver.
-  it('fails the build for a name that is neither a file beside the sheet nor a package', async () => {
+  // No plugin brings the package in, at the head or inside the block.
+  it('warns for each package no plugin brought in, and still ships the sheet', async () => {
     const root = makeProject({
       'content/scripts.js': SCRIPT,
-      'content/styles.css': '@import "nope.css";\n.own{color:red}\n'
+      'content/styles.css':
+        '@import "nope.css";\n@import "./other.css" layer;\n.own{color:red}\n',
+      'content/other.css': '@import "normalize.css";\n.imported{color:green}\n'
     })
 
-    const {issues} = await compileIssues(root)
+    const {issues, distDir} = await compileIssues(root)
 
-    // The bundler prints its mark ahead of the line.
-    expect(issues.map((issue) => issue.replace(/^\s*×\s*/, '').trim())).toEqual(
+    expect(
+      issues.map((issue) =>
+        issue
+          .split('\n')
+          .filter((line) => /still in this|IMPORT/.test(line))
+          .map((line) => line.replace(/^.*?(An @import|IMPORT)/, '$1'))
+      )
+    ).toEqual([
       [
-        `Module not found: Can't resolve 'nope.css' in '${path.join(root, 'content')}'`
+        'An @import is still in this content script stylesheet after every tool ran, so the rules it names will not load.',
+        'IMPORT @import "nope.css";'
+      ],
+      [
+        'An @import is still in this content script stylesheet after every tool ran, so the rules it names will not load.',
+        'IMPORT @import "normalize.css";'
       ]
-    )
+    ])
+
+    expect(emittedSheet(distDir)).toContain('.own{color:red}')
   }, 60_000)
 
   it('runs the imported rules through the PostCSS config of the project', async () => {
