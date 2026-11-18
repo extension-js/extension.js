@@ -4,9 +4,10 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {scaffoldReady} from '../lib/messages'
 import {
-  resolvePackageManagerSpec,
+  declarePackageManager,
   resolveProjectPackageManager,
-  type ScaffoldPackageManager
+  type ScaffoldPackageManager,
+  type VersionProbe
 } from '../lib/package-manager'
 import {overridePackageJson} from '../steps/write-package-json'
 import {writeReadmeFile} from '../steps/write-readme-file'
@@ -44,6 +45,11 @@ async function project(
 const npmUserAgent = 'npm/11.11.0 node/v22.0.0 darwin arm64'
 const noopLogger = {log() {}, error() {}}
 
+// The pin or the invoker answers in these tests, so the binary is never asked.
+const noProbe: VersionProbe = () => {
+  throw new Error('the version probe ran')
+}
+
 const pinnedStarters: Array<[string, ScaffoldPackageManager]> = [
   ['pnpm@8.15.0', 'pnpm'],
   ['bun@1.1.0', 'bun']
@@ -65,7 +71,9 @@ describe('one package-manager identity per scaffold', () => {
     vi.stubEnv('npm_config_user_agent', npmUserAgent)
     const dir = await project({name: 'seed', packageManager: 'pnpm@8.15.0'})
     expect(resolveProjectPackageManager(dir)).toBe('pnpm')
-    expect(resolvePackageManagerSpec(dir, 'pnpm')).toBe('pnpm@8.15.0')
+    expect((await declarePackageManager(dir, 'pnpm', noProbe)).spec).toBe(
+      'pnpm@8.15.0'
+    )
   })
 
   it('reads a shipped pnpm workspace file as a pnpm layout', async () => {
@@ -78,7 +86,9 @@ describe('one package-manager identity per scaffold', () => {
     vi.stubEnv('npm_config_user_agent', npmUserAgent)
     const dir = await project({name: 'seed'})
     expect(resolveProjectPackageManager(dir)).toBe('npm')
-    expect(resolvePackageManagerSpec(dir, 'npm')).toBe('npm@11.11.0')
+    expect((await declarePackageManager(dir, 'npm', noProbe)).spec).toBe(
+      'npm@11.11.0'
+    )
   })
 
   it('still declares a usable manager when the environment names none', async () => {
@@ -86,7 +96,22 @@ describe('one package-manager identity per scaffold', () => {
     vi.stubEnv('npm_execpath', '')
     const dir = await project({name: 'seed'})
     expect(resolveProjectPackageManager(dir)).toBe('npm')
-    expect(resolvePackageManagerSpec(dir, 'npm')).toMatch(/^npm@\d+\.\d+\.\d+/)
+
+    // The installed binary is the one source left. A stand-in answers for
+    // it, so a slow real npm on a loaded runner cannot fail this test.
+    const asked: string[] = []
+
+    const installed: VersionProbe = (command, args) => {
+      asked.push([command, ...args].join(' '))
+
+      return {status: 0, stdout: '10.9.2\n'}
+    }
+
+    expect(await declarePackageManager(dir, 'npm', installed)).toEqual({
+      spec: 'npm@10.9.2'
+    })
+
+    expect(asked).toEqual(['npm --version'])
   })
 
   it('declares, and keeps the pnpm block for, the manager the project uses', async () => {

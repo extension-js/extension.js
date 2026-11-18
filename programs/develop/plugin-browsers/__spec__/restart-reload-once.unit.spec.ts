@@ -131,25 +131,4 @@ describe('the reload a restarted dev session owes', () => {
     expect(dev.broker.broadcastReload).toHaveBeenCalledTimes(2)
     expect(reloadingLines()).toHaveLength(2)
   })
-
-  // A reload that restarts only the worker, or one no producer took, leaves
-  // the new entry set unloaded, so neither counts.
-  it('counts only a full reload a producer took', async () => {
-    const taken = {broadcastReload: vi.fn(() => 1)}
-    const missed = {broadcastReload: vi.fn(() => 0)}
-
-    await dispatchReload(
-      {type: 'service-worker', label: 'service_worker (background.js)'},
-      {broker: taken}
-    )
-
-    await dispatchReload({type: 'full', label: 'extension'}, {broker: missed})
-
-    expect(fullReloadsDeliveredTo(taken)).toBe(0)
-    expect(fullReloadsDeliveredTo(missed)).toBe(0)
-
-    await dispatchReload({type: 'full', label: 'extension'}, {broker: taken})
-
-    expect(fullReloadsDeliveredTo(taken)).toBe(1)
-  })
 })

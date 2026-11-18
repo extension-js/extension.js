@@ -25,41 +25,39 @@ pnpm add extension-develop
 
 ```ts
 import {
-  extensionDev,
   extensionBuild,
-  extensionStart,
-  extensionPreview,
-  type DevOptions,
   type BuildOptions,
-  type StartOptions,
-  type PreviewOptions
+  type BuildSummary
 } from 'extension-develop'
+import {
+  extensionPreview,
+  type PreviewLauncherFn,
+  type PreviewOptions
+} from 'extension-develop/preview'
 
-async function run() {
-  // Development server
-  await extensionDev(undefined, {
-    browser: 'chrome',
-    open: true
-  } satisfies DevOptions)
+// Production build of the project in the current folder, with a zip
+const summary: BuildSummary = await extensionBuild(undefined, {
+  browser: 'chrome',
+  zip: true
+} satisfies BuildOptions)
 
-  // Production build + zip
-  await extensionBuild(undefined, {
-    browser: 'firefox',
-    zip: true
-  } satisfies BuildOptions)
+console.log(summary.errors_count)
 
-  // Build then preview from dist/<browser>
-  await extensionStart(undefined, {browser: 'edge'} satisfies StartOptions)
-
-  // Preview using an existing output folder or project path
-  await extensionPreview(undefined, {
-    browser: 'chrome',
-    mode: 'production'
-  } satisfies PreviewOptions)
+// This package starts no browser. The caller passes the launcher, which
+// receives the built folder and every unpacked extension to load.
+const launcher: PreviewLauncherFn = async ({browser, extensionsToLoad}) => {
+  console.log(`Start ${browser} with`, extensionsToLoad)
 }
 
-run()
+// Runs the build in dist/chrome with no dev server
+await extensionPreview(
+  undefined,
+  {browser: 'chrome', mode: 'production'} satisfies PreviewOptions,
+  launcher
+)
 ```
+
+The `extension-develop/manifest` entry is deprecated and is removed in the next minor.
 
 ## Features
 
@@ -70,7 +68,7 @@ run()
 - Zipping: distribution and/or source packages (respects `.gitignore`)
 - Auto-install of missing build + optional dependencies on first run
 - Type generation for TS projects via `extension-env.d.ts`
-- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and webpack config hooks
+- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and the bundler config hooks (`config`, `configResolved`)
 - Managed dependency guard to avoid conflicts
 
 ## Commands
@@ -126,6 +124,10 @@ Options accepted by each command. Values shown are typical types or enumerations
 | logColor            | boolean                             | Colorize pretty output                                                            |
 | logUrl              | string or /regex/flags              | Filter by URL substring or JS-style regex literal                                 |
 | logTab              | number                              | Filter by tabId                                                                   |
+| exitOnError         | boolean                             | Exit the process with code 1 on a failed session, off by default for a library    |
+| hintFor             | (code) => string or undefined       | The hint for a terminal `failed` or `usage` frame that carries none               |
+
+A host that learns a session cannot go on calls `endSessionAsFailed(code, message, instanceId?)`, exported beside `extensionDev`. It ends the named session, or the newest one, with one `failed` frame and answers `false` when that session is not live or is already stopping. A host that did not pass `exitOnError` keeps running.
 
 ### build
 
@@ -302,11 +304,17 @@ dist/
 | Name                 | Group | Summary                                                                                                                                                                                                         |
 | -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
-| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
+| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist                                                                    |
 | plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
-| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
+| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules<br/>- Appends `.wasm` to the resolve extensions |
 | plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
+| plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |
+| plugin-wasm          | core  | - Enables async WebAssembly<br/>- Resolves `.wasm` imports<br/>- Aliases runtime wasm assets |
+| plugin-perf-budgets  | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold |
+| plugin-reload        | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session |
+| plugin-playwright    | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |
+| plugin-browsers      | dev   | - Launches the target browser with the built extension loaded<br/>- Passed in by the CLI, absent under `--no-browser` |
 
 ## Notes and compatibility
 

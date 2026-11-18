@@ -6,11 +6,16 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import * as path from 'node:path'
 import {
   isChromiumBasedBrowser,
   isGeckoBasedBrowser
 } from '../../../lib/constants'
 import {replaceCssUrlRefs} from '../../../plugin-css/css-lib/dead-url-refs'
+import {
+  browserSpellings,
+  climbsOut
+} from '../../../plugin-special-folders/public-private-files'
 import {parseCanonicalContentScriptAsset} from '../contracts'
 import {runtimeScriptSheetName} from './runtime-script-sheet'
 
@@ -73,6 +78,25 @@ export function namedInjectedSheets(compilation: object): ReadonlySet<string> {
   return namedSheets.get(compilation) ?? new Set<string>()
 }
 
+// A target that climbs out of the extension root from the sheet's folder,
+// as written or as the browser decodes it, names no file the build ships.
+export function climbsOutOfSheetRoot(
+  request: string,
+  sheetName: string
+): boolean {
+  const target = request.trim().split(/[?#]/)[0]
+
+  if (!target || target.startsWith('//') || /^[a-z][\w+.-]*:/i.test(target)) {
+    return false
+  }
+
+  const fromRoot = target.startsWith('/')
+    ? target.replace(/^\/+/, '')
+    : path.posix.join(path.posix.dirname(sheetName.replace(/\\/g, '/')), target)
+
+  return browserSpellings(fromRoot).some(climbsOut)
+}
+
 // The address of one url() target of a sheet at the given output name,
 // undefined for a target that reads the same from any page.
 function namedFromExtension(
@@ -86,7 +110,8 @@ function namedFromExtension(
     !target ||
     target.startsWith('#') ||
     target.startsWith('//') ||
-    /^[a-z][\w+.-]*:/i.test(target)
+    /^[a-z][\w+.-]*:/i.test(target) ||
+    climbsOutOfSheetRoot(target, sheetName)
   ) {
     return undefined
   }

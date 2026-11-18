@@ -1,11 +1,15 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {LOG_CONTEXTS as BRIDGE_LOG_CONTEXTS} from '../../develop/dev-server/control-bridge/contracts'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {
   firstInvalidWholeNumberFlag,
   isValidWholeNumberFlag,
+  LOG_LEVELS,
   parseExtensionsList,
   parseLogContexts,
+  parseLogLevel,
   parsePositiveInt,
   parseWholeNumber
 } from '../helpers/normalize-options'
@@ -19,6 +23,34 @@ describe('parseExtensionsList', () => {
 
   it('splits comma-separated values and trims whitespace', () => {
     expect(parseExtensionsList(' a, b ,c ')).toEqual(['a', 'b', 'c'])
+  })
+})
+
+// The engine turns logging on for any level but the exact word off, so a
+// level typed in capitals has to reach it as the listed name.
+describe('parseLogLevel', () => {
+  it.each(LOG_LEVELS)('hands %s to the engine as it is listed', (level) => {
+    expect(parseLogLevel(level)).toBe(level)
+    expect(parseLogLevel(` ${level.toUpperCase()} `)).toBe(level)
+  })
+
+  it('reads a blank or unlisted value as no level', () => {
+    expect(parseLogLevel(undefined)).toBeUndefined()
+    expect(parseLogLevel('')).toBeUndefined()
+    expect(parseLogLevel('verbose')).toBeUndefined()
+  })
+
+  it.each([
+    'dev',
+    'start',
+    'preview'
+  ])('lists the levels the --logs flag of %s declares', (command) => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '..', 'commands', `${command}.ts`),
+      'utf8'
+    )
+
+    expect(source).toContain(`'--logs <${LOG_LEVELS.join('|')}>'`)
   })
 })
 

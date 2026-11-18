@@ -223,7 +223,9 @@ async function waitForOn(
   const deadline = Date.now() + waitMs
 
   while (Date.now() < deadline) {
-    await new Promise((resolve) => setTimeout(resolve, pollMs))
+    // Never sleeps past the bound the message names.
+    const pause = Math.min(pollMs, deadline - Date.now())
+    await new Promise((resolve) => setTimeout(resolve, pause))
 
     try {
       const read = await runAnswer(tools, script)

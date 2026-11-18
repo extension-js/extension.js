@@ -26,8 +26,10 @@ function createProject() {
 function runLoader(projectPath: string, resourcePath: string, source: string) {
   const warnings: Error[] = []
   const errors: Error[] = []
+  const missing: string[] = []
   const context = {
     resourcePath,
+    addMissingDependency: (file: string) => missing.push(file),
     getOptions: () => ({
       manifestPath: path.join(projectPath, 'manifest.json'),
       projectPath
@@ -39,7 +41,7 @@ function runLoader(projectPath: string, resourcePath: string, source: string) {
 
   const output = deadCssUrlLoader.call(context as never, source)
 
-  return {output, warnings, errors}
+  return {output, warnings, errors, missing}
 }
 
 // Regression: a content-script stylesheet is inlined as asset/inline, so rspack
@@ -79,6 +81,9 @@ describe('dead url() in a content-script stylesheet', () => {
 
     expect(warnings).toHaveLength(0)
     expect(errors).toHaveLength(1)
+    expect(errors[0].message).toContain('/missing-probe.png')
+    // The reader already set the variable, so the text stops naming it.
+    expect(errors[0].message).not.toContain('EXTENSION_STRICT_REFS')
   })
 
   it('stays quiet for a reference that resolves, and for remote or data urls', () => {
@@ -101,6 +106,39 @@ describe('dead url() in a content-script stylesheet', () => {
     )
 
     expect(warnings).toHaveLength(0)
+  })
+
+  it.each([
+    'false',
+    'true'
+  ])('asks the watcher for each place a dead file could appear, strict refs %s', (strict) => {
+    process.env.EXTENSION_STRICT_REFS = strict
+    const dir = createProject()
+    // The loader expands a Windows 8.3 short path, and only the native call does.
+    const root = fs.realpathSync.native(dir)
+    fs.mkdirSync(path.join(dir, 'content'), {recursive: true})
+    fs.mkdirSync(path.join(dir, 'public'))
+    fs.writeFileSync(path.join(dir, 'content', 'logo.png'), '', 'utf8')
+
+    const {missing} = runLoader(
+      dir,
+      path.join(dir, 'content', 'styles.css'),
+      [
+        '.a { background-image: url("./gone.png?v=2#icon"); }',
+        '.b { background-image: url("/img/gone.png"); }',
+        '.c { background-image: url("./logo.png"); }',
+        '.d { background-image: url("https://example.com/x.png"); }',
+        '.e { background-image: url("data:image/gif;base64,R0lGOD"); }',
+        '.f { background-image: url("@scope/pkg/x.png"); }',
+        '.g { background-image: url(//cdn.example.com/x.png); }'
+      ].join('\n')
+    )
+
+    expect(missing).toEqual([
+      path.join(root, 'content', 'gone.png'),
+      path.join(root, 'public', 'img', 'gone.png'),
+      path.join(root, 'img', 'gone.png')
+    ])
   })
 
   it('warns the same way for url(), URL() and Url(), all valid CSS', () => {

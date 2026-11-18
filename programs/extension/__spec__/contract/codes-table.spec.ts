@@ -350,6 +350,7 @@ describe('a summary names the causes its code covers', () => {
     ['E_BROWSER_BINARY_INVALID', /version probe/, /within 10 seconds/],
     ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
     ['E_CONFIG_LOAD', /threw/, /not export an object/],
+    ['E_RUNTIME_NOT_FOUND', /uncompiled/, /another version than the CLI/],
     ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/]
   ])('%s', (code, first, second) => {
     const summary = table.codes[code]?.summary ?? ''

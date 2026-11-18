@@ -160,7 +160,7 @@ export function getDirs(struct: ProjectStructure): {
   return {manifestDir, packageJsonDir}
 }
 
-export function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
+function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
   return asAbsolute(path.join(packageJsonDir, 'node_modules'))
 }
 
@@ -268,6 +268,23 @@ export function configBrowserOrThrow(
   }
 
   return configBrowser as BrowserInput
+}
+
+// A name passed by a library caller is checked like a typed one, instead of
+// silently building for the default browser.
+export function browserOptionOrThrow(browser: unknown): BrowserInput {
+  if (browser === undefined || browser === null || browser === '') {
+    return undefined
+  }
+
+  if (!isKnownBrowserName(browser)) {
+    throw codedError(
+      CODES.E_UNSUPPORTED_BROWSER,
+      `Unsupported browser: ${String(browser)}. Choose one of: ${[...KNOWN_BROWSER_NAMES].join(', ')}.`
+    )
+  }
+
+  return browser as BrowserInput
 }
 
 export function normalizeBrowser(
