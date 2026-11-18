@@ -161,6 +161,22 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.spawns).toEqual([])
     })
 
+    it('leaves the record of a run that replaced this one during the launch', async () => {
+      const {runOnly} = await start({pinned: false})
+      const next = {command: 'preview', status: 'starting', runId: 'run-2'}
+
+      fake.deps.locate.chrome = () => {
+        fake.project.writeReady(next)
+
+        return null
+      }
+
+      const error = await failure(runOnly())
+
+      expect(error.code).toBe('E_BROWSER_NOT_FOUND')
+      expect(fake.project.readReady()).toEqual(next)
+    })
+
     it('runs the binary the system scan found for a fork', async () => {
       fake = await fakeChromium({browser: 'brave'})
       const system = fake.project.plantBinary('system-brave')
@@ -185,16 +201,18 @@ describe('a Chromium launch that does not reach a running extension', () => {
         const profile = fs.realpathSync(
           fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-locked-profile-'))
         )
-        // A node child of this spec stands in for the browser on the profile.
+        // A node child of this spec, named chromium in the process table,
+        // stands in for the browser on the profile. `--` keeps the flag an
+        // argument of the script, or node refuses it and exits.
         const holder = spawn(
           process.execPath,
           [
             '-e',
             'setInterval(() => {}, 1000)',
-            'chromium',
+            '--',
             `--user-data-dir=${profile}`
           ],
-          {stdio: 'ignore'}
+          {stdio: 'ignore', argv0: 'chromium'}
         )
 
         try {
@@ -257,13 +275,12 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.project.readReady()).not.toHaveProperty('browserPid')
     })
 
-    // Pins today's behavior. Ledger 1374 D6.
-    it('keeps the debugging port claim it took before the spawn', async () => {
+    it('gives back the debugging port claim it took before the spawn', async () => {
       const {runOnly} = await start({script: {spawnError: refused}})
       await failure(runOnly())
 
       expect(fake.claims).toEqual([
-        {requested: 9222, port: fake.port, released: 0}
+        {requested: 9222, port: fake.port, released: 1}
       ])
     })
   })
@@ -478,7 +495,8 @@ describe('a Chromium launch that does not reach a running extension', () => {
     })
 
     it('ends a run-only session the same way, without a second stop', async () => {
-      const {runOnly} = await start({script: crash})
+      const {plugin, runOnly} = await start({script: crash})
+      expect(plugin.browserClosed).toBe(false)
       await onFakeClock(runOnly)
 
       expect(said('error')[0]).toBe(
@@ -492,6 +510,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
 
       expect(fake.terminated).toEqual([])
       expect(fake.claims[0].released).toBe(1)
+      expect(plugin.browserClosed).toBe(true)
     })
   })
 })

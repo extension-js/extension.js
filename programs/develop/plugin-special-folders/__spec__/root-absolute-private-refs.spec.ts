@@ -69,36 +69,34 @@ function packaged(files: Record<string, string>) {
   return root
 }
 
-const LINKED_OUTPUT = LINKED_TARGETS.map((ref) => ref.slice(1))
-
 const PACKAGE_OUTPUT = PACKAGE_TARGETS.map((ref) => ref.slice(1))
 
-// The page step copies these on its own, whatever this plugin decides.
-const MARKED_FROM_A_PAGE = [
-  '.envrc',
-  ...LINKED_OUTPUT,
-  'node_modules/.npmrc',
-  'node_modules/plain-pkg/.env',
+// The page step applies the same rule to what it copies on its own.
+const SHIPPED_FROM_A_PAGE = [
+  ...PACKAGE_OUTPUT,
+  'data/ok.json',
+  'extension.config.js',
   'package.json'
 ].sort()
 
-const SHIPPED_FROM_A_PAGE = [
-  ...MARKED_FROM_A_PAGE,
-  ...PACKAGE_OUTPUT,
-  'data/ok.json',
-  'extension.config.js'
-].sort()
+const MARKED_FROM_A_PAGE = ['package.json']
 
 const MISSING_FROM_A_PAGE = [
-  '/%2e%2e/outside.txt',
-  '/../outside.txt',
-  '/.env',
-  '/.env.local',
-  '/.git/config',
-  '/.npmrc',
-  '/a/../../outside.txt',
+  ...PRIVATE_TARGETS,
+  ...CLIMBING_TARGETS,
+  ...LINKED_TARGETS,
   '/nothing.txt'
-]
+].sort()
+
+// The project's own package.json is a file the build ships when named, and
+// the fixture marks it. No other output file may hold private text.
+function expectOnlyProjectManifestMarked(result: Built) {
+  expectNothingPrivate(result, 'printed')
+
+  expect(
+    result.exposed.output.filter((line) => !line.startsWith('package.json: '))
+  ).toEqual([])
+}
 
 const times = (text: string, part: string) => text.split(part).length - 1
 
@@ -130,7 +128,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )
@@ -150,7 +148,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )
@@ -243,7 +241,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       )
 
       expect(result.errors).toBe(0)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )
@@ -251,25 +249,49 @@ describe('a root-absolute path that names a file outside public/', () => {
   it(
     'in a manifest field',
     async () => {
+      const resources = [
+        {
+          resources: TARGETS.filter((ref) => ref !== '/.env'),
+          matches: ['<all_urls>']
+        }
+      ]
+      const withheld = [
+        ...PRIVATE_TARGETS,
+        ...CLIMBING_TARGETS,
+        ...LINKED_TARGETS
+      ].filter((ref) => ref !== '/.env')
+
+      // An icon the build never copies stops the build, so nothing is
+      // written, the resource list included.
+      const root = packaged({
+        'manifest.json': manifest({
+          icons: {16: '/.env'},
+          web_accessible_resources: resources
+        })
+      })
+      const stopped = await build(root)
+
+      expect(stopped.errors).toBe(1)
+      expect(stopped.shipped).toEqual([])
+      expect(stopped.marked).toEqual([])
+      expect(stopped.printed).toContain(
+        "Can't find an icon file listed in icons."
+      )
+
+      expect(stopped.printed).toContain(`NOT FOUND ${path.join(root, '.env')}`)
+      expect(stopped.printed).not.toContain(MARKER)
+
+      // Without the icon the same resource list builds.
       const result = await build(
         packaged({
-          'manifest.json': manifest({
-            icons: {16: '/.env'},
-            web_accessible_resources: [
-              {
-                resources: TARGETS.filter((ref) => ref !== '/.env'),
-                matches: ['<all_urls>']
-              }
-            ]
-          })
+          'manifest.json': manifest({web_accessible_resources: resources})
         })
       )
 
-      // The icons step ships the env file. The resource list ships only
-      // project content and names every other entry as missing.
+      // The resource list ships only project content and names every other
+      // entry as missing.
       expect(result.shipped).toEqual(
         [
-          '.env',
           'data/ok.json',
           'extension.config.js',
           ...PACKAGE_OUTPUT,
@@ -277,22 +299,16 @@ describe('a root-absolute path that names a file outside public/', () => {
         ].sort()
       )
 
-      expect(result.marked).toEqual(['.env', 'package.json'])
+      expect(result.marked).toEqual(['package.json'])
 
-      for (const ref of [
-        ...PRIVATE_TARGETS,
-        ...CLIMBING_TARGETS,
-        ...LINKED_TARGETS
-      ]) {
-        if (ref === '/.env') continue
-
+      for (const ref of withheld) {
         expect(result.printed).toContain(
           `Can't find the file ${ref.slice(1)} listed in web_accessible_resources.`
         )
       }
 
       expect(result.errors).toBe(0)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )
@@ -380,13 +396,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       )
 
       expect(result.marked).toEqual([])
-      // The page step drops a leading dot when it looks, so it calls the
-      // two dot-names missing. They ship all the same.
-      expect(result.missing).toEqual([
-        '/.env.example',
-        '/.well-known/links.json',
-        ...(canLink ? [] : ['/alias.txt'])
-      ])
+      expect(result.missing).toEqual(canLink ? [] : ['/alias.txt'])
 
       expect(result.errors).toBe(0)
       expectNothingPrivate(result)
@@ -503,7 +513,14 @@ describe('a withheld root-absolute reference and a missing one', () => {
           `${dir}missing.png`,
           asset(`/${dir}missing.png`)
         ),
-        // The page step says a climbing script and sheet itself, once.
+        // The page step says a climbing ref itself, once, with its code.
+        said(
+          'E_ASSET_MISSING: ',
+          'an asset',
+          page,
+          'outside.txt',
+          asset(climbing(dir))
+        ),
         said(
           'E_ENTRY_NOT_FOUND: ',
           'a script file',
@@ -522,8 +539,7 @@ describe('a withheld root-absolute reference and a missing one', () => {
       const withheld = (page: string, dir: string) => [
         said('', 'a script file', page, `${dir}.env.js`, script),
         said('', 'a stylesheet', page, `${dir}.env.css`, sheet),
-        said('', 'an asset', page, `${dir}.npmrc`, asset(`/${dir}.npmrc`)),
-        said('', 'an asset', page, 'outside.txt', asset(climbing(dir)))
+        said('', 'an asset', page, `${dir}.npmrc`, asset(`/${dir}.npmrc`))
       ]
 
       const warnings = warningsOf(result, root)
