@@ -472,6 +472,88 @@ describe('a url() that names a file the build withholds, built', () => {
     120_000
   )
 
+  // A page sheet a preprocessor compiles, or a CSS module a page script
+  // imports, reaches the same check once the tool is done with it.
+  const TOOLS = {
+    sass: workspacePackage('sass'),
+    less: workspacePackage('less')
+  }
+
+  // Less writes ./.env as .env before the bundler reads the sheet.
+  it.each([
+    ['a page .scss', 'styles.scss', TOOLS.sass && 'sass', ['./.env', '.env']],
+    ['a page .less', 'styles.less', TOOLS.less && 'less', ['.env']],
+    [
+      'a .module.css a page script imports',
+      'card.module.css',
+      '',
+      ['./.env', '.env']
+    ]
+  ] as Array<[string, string, string | undefined, string[]]>)(
+    '%s keeps a private address as written and ships nothing for it',
+    async (_label, sheet, tool, requests) => {
+      if (tool === undefined) return
+
+      const root = makeProject({
+        'app/package.json': JSON.stringify({
+          private: true,
+          name: 'withheld-tool',
+          version: '0.0.0',
+          ...(tool ? {devDependencies: {[tool]: '*'}} : {})
+        }),
+        'app/manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'withheld-tool',
+          version: '1.0.0',
+          action: {default_popup: 'popup.html'}
+        }),
+        'app/popup.html':
+          '<!doctype html><p>x</p><script type="module" src="./popup.js"></script>\n',
+        'app/popup.js': sheet.includes('.module.')
+          ? `import s from './src/${sheet}'\ndocument.title = s.a\n`
+          : `import './src/${sheet}'\n`,
+        [`app/src/${sheet}`]: [
+          '.a{background:url(.env)}',
+          '.b{background:url(./.env)}',
+          '.c{background:url(./ok.png)}',
+          ''
+        ].join('\n'),
+        'app/src/.env': 'MARKER_TOOL_ENV=one\n',
+        'app/src/ok.png': 'ALLOWED_TOOL_IMAGE\n'
+      })
+      const app = path.join(root, 'app')
+
+      if (tool) {
+        fs.mkdirSync(path.join(app, 'node_modules'), {recursive: true})
+        fs.symlinkSync(
+          TOOLS[tool as 'sass' | 'less'] as string,
+          path.join(app, 'node_modules', tool),
+          'junction'
+        )
+      }
+
+      expectNoWorkspaceAbove(app)
+
+      const summary = await build(app)
+      const {shipped} = readDist(app)
+
+      expect(summary.errors_count).toBe(0)
+      expect(shipped).not.toContain('MARKER_TOOL_ENV')
+      expect(shipped).not.toContain(inlined('MARKER_TOOL_ENV'))
+      expect(
+        shipped.includes('ALLOWED_TOOL_IMAGE') ||
+          shipped.includes(inlined('ALLOWED_TOOL_IMAGE'))
+      ).toBe(true)
+
+      for (const request of requests) {
+        expect(shipped).toContain(`url(${request})`)
+      }
+
+      expect(deadRefRequests(summary.warnings)).toEqual(requests)
+    },
+    120_000
+  )
+
   // The text the bundler asks for need not be the text the sheet holds, and
   // the file it leads to is checked either way.
   it.each([
