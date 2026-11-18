@@ -58,11 +58,24 @@ export function cssUrlRefCandidates(
       ]
 }
 
+// The same files, plus the .css sheet an @import names without its extension.
+export function cssUrlRefFiles(
+  rawRequest: string,
+  context: DeadUrlRefContext
+): string[] {
+  const candidates = cssUrlRefCandidates(rawRequest, context)
+  const req = String(rawRequest).split('?')[0].split('#')[0]
+
+  return path.extname(req)
+    ? candidates
+    : [...candidates, ...candidates.map((candidate) => `${candidate}.css`)]
+}
+
 export function isDeadCssUrlRef(
   rawRequest: string,
   context: DeadUrlRefContext
 ): boolean {
-  const candidates = cssUrlRefCandidates(rawRequest, context)
+  const candidates = cssUrlRefFiles(rawRequest, context)
 
   return (
     candidates.length > 0 &&
@@ -147,23 +160,30 @@ function commentRanges(source: string): Array<[number, number]> {
   return ranges
 }
 
+// An @import can name its sheet with a bare string, where no url() is read.
+const IMPORT_STRING_REF = /@import\s+(?:"([^"\n]*)"|'([^'\n]*)')/gi
+
 export function extractCssUrlRefs(source: string): string[] {
   const found: string[] = []
   const seen = new Set<string>()
   const comments = commentRanges(source)
 
-  URL_REF.lastIndex = 0
-  let match: RegExpExecArray | null
+  for (const pattern of [URL_REF, IMPORT_STRING_REF]) {
+    pattern.lastIndex = 0
+    let match: RegExpExecArray | null
 
-  while ((match = URL_REF.exec(source)) !== null) {
-    const at = match.index
-    if (comments.some(([start, end]) => at >= start && at < end)) continue
+    while ((match = pattern.exec(source)) !== null) {
+      const at = match.index
+      if (comments.some(([start, end]) => at >= start && at < end)) continue
 
-    const request = match[1] ?? match[2] ?? match[3] ?? ''
-    if (!request || seen.has(request)) continue
+      const request = match[1] ?? match[2] ?? match[3] ?? ''
+      if (!request || seen.has(request)) continue
+      // Loader syntax marks a module request some loader built, not a file.
+      if (pattern === IMPORT_STRING_REF && request.includes('!')) continue
 
-    seen.add(request)
-    found.push(request)
+      seen.add(request)
+      found.push(request)
+    }
   }
 
   return found

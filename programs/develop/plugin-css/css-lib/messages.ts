@@ -37,26 +37,26 @@ export function isUsingIntegration(name: string) {
   return `integration use=${name}`
 }
 
-export function missingSassDependency() {
+// `install` is the command for the project's own package manager.
+export function missingSassDependency(install: string) {
   return [
     `${prefix('error')} Couldn't compile the Sass styles.`,
     `The ${colors.blue('sass')} package isn't installed in your project.`,
-    `Add it to your devDependencies:`,
-    `- ${colors.blue('npm install --save-dev sass')}`,
-    `- ${colors.blue('pnpm add -D sass')}`
+    `Add it to your devDependencies: ${colors.blue(install)}`
   ].join('\n')
 }
 
 export function postCssPluginNotResolved(
   pluginName: string,
-  projectPath: string
+  projectPath: string,
+  install: string
 ) {
   return [
     `${prefix('warn')} Couldn't resolve the PostCSS plugin ${colors.blue(pluginName)}.`,
     'The plugin was skipped so the build can continue.',
     'Styles it would generate are missing from the output.',
     `${colors.gray('PATH')} ${colors.underline(projectPath)}`,
-    `Install it in your project to re-enable it: ${colors.blue(`npm install --save-dev ${pluginName}`)}`
+    `Install it in your project to re-enable it: ${colors.blue(install)}`
   ].join('\n')
 }
 
@@ -82,7 +82,8 @@ export function cssParseErrorShippedVerbatim(
 
 export function preprocessorShippedUncompiled(
   resourcePath: string,
-  tool: 'sass' | 'less'
+  tool: 'sass' | 'less',
+  install: string
 ) {
   const pkg = tool === 'sass' ? 'sass' : 'less'
   const language = tool === 'sass' ? 'Sass/SCSS' : 'Less'
@@ -93,7 +94,7 @@ export function preprocessorShippedUncompiled(
     `The ${colors.blue(pkg)} package isn't installed in this project.`,
     `The raw ${language} source was copied as-is into the output .css.`,
     `Browsers treat it as broken CSS, so those surfaces render unstyled.`,
-    `Install it to compile this file: ${colors.blue(`npm install --save-dev ${pkg}`)}`
+    `Install it to compile this file: ${colors.blue(install)}`
   ].join('\n')
 }
 
@@ -112,6 +113,47 @@ export function tailwindSetupFailed(
     `${colors.gray('REASON')} ${reasonOf(error)}`,
     'Tailwind classes are missing from the output CSS.',
     `Install ${colors.blue('tailwindcss')} and ${colors.blue('@tailwindcss/postcss')} at the same major version, or name the plugin in your PostCSS config.`
+  ].join('\n')
+}
+
+// `fix` is the command that puts the plugin in the project.
+export function tailwindNotInstalled(projectPath: string, fix: string) {
+  return [
+    `${prefix('warn')} Couldn't find the Tailwind PostCSS plugin in this project, so the build ran without it.`,
+    `${colors.gray('PATH')} ${colors.underline(projectPath)}`,
+    'Tailwind classes are missing from the output CSS.',
+    `Install it in your project: ${colors.blue(fix)}`
+  ].join('\n')
+}
+
+export function postCssConfigNameIgnored(configPath: string, rename: string) {
+  return [
+    `${prefix('warn')} PostCSS reads no config by this name, so the file was ignored.`,
+    `${colors.gray('PATH')} ${colors.underline(configPath)}`,
+    `Rename it to ${colors.blue(rename)} to apply it.`
+  ].join('\n')
+}
+
+export function postCssConfigNeedsRestart(configPath: string) {
+  return [
+    `${prefix('warn')} The PostCSS setup changed in a way this session can't apply while it runs.`,
+    `${colors.gray('PATH')} ${colors.underline(configPath)}`,
+    `Stop it and run ${colors.blue('extension dev')} again to apply the change.`
+  ].join('\n')
+}
+
+export function cssImportLeftAsWritten(
+  issuerPath: string,
+  request: string,
+  reason: string
+) {
+  return [
+    `${prefix('warn')} Couldn't bring an ${colors.blue('@import')} into this content script stylesheet, so it stayed as written.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('IMPORT')} ${colors.blue(request)}`,
+    `${colors.gray('REASON')} ${reason}`,
+    'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
+    'Fix the imported file so its rules ship with this stylesheet.'
   ].join('\n')
 }
 

@@ -14,7 +14,7 @@ import {
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
 import {
-  cssUrlRefCandidates,
+  cssUrlRefFiles,
   extractCssUrlRefs,
   isDeadCssUrlRef,
   toPosixPath
@@ -23,6 +23,7 @@ import {
   rewriteInlinedCssUrls,
   toRuntimeStylesheetModule
 } from './css-lib/inline-content-script-css'
+import {inlineCssImports} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {isSfcStyleBlock} from './css-lib/sfc-style-block'
 
@@ -37,6 +38,9 @@ export interface DeadCssUrlLoaderOptions {
   gecko?: boolean
   baseAttribute?: string
   baseScheme?: string
+  // The first of this loader's two runs on a sheet: ahead of PostCSS, it
+  // brings in the rules of each sheet an @import names and stays CSS.
+  inlineImports?: boolean
 }
 
 export interface DeadCssUrlLoaderContext {
@@ -73,7 +77,7 @@ function reportDeadRefs(
     if (!isDeadCssUrlRef(request, {issuerDir, roots})) continue
 
     // Keep watch mode honest: writing the file later should rebuild the sheet.
-    for (const candidate of cssUrlRefCandidates(request, {issuerDir, roots})) {
+    for (const candidate of cssUrlRefFiles(request, {issuerDir, roots})) {
       loader.addMissingDependency?.(candidate)
     }
 
@@ -179,6 +183,61 @@ export function inlineStylesheetUrls(
   return {css, bundledRequests}
 }
 
+// The sheet with the rules of every project sheet it imports. A data: URL
+// gives a relative @import no base, so the browser would never fetch one.
+export function inlineStylesheetImports(
+  loader: DeadCssUrlLoaderContext,
+  source: string
+): string {
+  const {manifestPath, projectPath} = loader.getOptions() || {}
+
+  if (!manifestPath || !projectPath) return source
+
+  try {
+    const manifestDir = canonicalizeDir(path.dirname(manifestPath))
+    const publicRoot = canonicalizeDir(
+      publicContainmentRoot(manifestPath, projectPath)
+    )
+    const resourcePath = canonicalizeResourcePath(loader.resourcePath)
+    const inlined = inlineCssImports(source, {
+      resourcePath,
+      roots: [publicRoot, manifestDir]
+    })
+
+    // Keep watch mode honest: an edit to an imported sheet rebuilds this
+    // one, and so does writing a sheet that was not there.
+    for (const file of inlined.files) loader.addDependency?.(file)
+    for (const file of inlined.missing) loader.addMissingDependency?.(file)
+
+    for (const {request, file, reason} of inlined.unreadable) {
+      loader.addDependency?.(file)
+      loader.emitWarning(
+        Object.assign(
+          new Error(
+            messages.cssImportLeftAsWritten(
+              toPosixPath(path.relative(manifestDir, resourcePath)),
+              request,
+              reason
+            )
+          ),
+          {name: 'CssParseWarning'}
+        )
+      )
+    }
+
+    return inlined.css
+  } catch (error) {
+    loader.emitWarning(
+      Object.assign(
+        new Error(messages.cssUrlRewriteSkipped(loader.resourcePath, error)),
+        {name: 'CssUrlRewriteWarning'}
+      )
+    )
+
+    return source
+  }
+}
+
 export default function deadCssUrlLoader(
   this: DeadCssUrlLoaderContext,
   source: string
@@ -187,9 +246,11 @@ export default function deadCssUrlLoader(
   // Its own loader turns it into a module once the framework is done with it.
   if (isSfcStyleBlock(this)) return source
 
-  const {css, bundledRequests} = inlineStylesheetUrls(this, source)
-
   const options = this.getOptions() || {}
+
+  if (options.inlineImports) return inlineStylesheetImports(this, source)
+
+  const {css, bundledRequests} = inlineStylesheetUrls(this, source)
 
   return toRuntimeStylesheetModule(
     css,

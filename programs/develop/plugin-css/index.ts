@@ -29,9 +29,10 @@ import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-
 import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
+import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {cssUrlRefCandidates, toPosixPath} from './css-lib/dead-url-refs'
+import {cssUrlRefFiles, toPosixPath} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
@@ -48,8 +49,11 @@ import {
 } from './css-lib/verbatim-css'
 import {maybeUseLess} from './css-tools/less'
 import {
+  findIgnoredPostCssConfigs,
   findPostCssConfig,
-  postCssReaderForOneCompiler
+  type PostCssCompilerReader,
+  postCssReaderForOneCompiler,
+  postCssSetupFiles
 } from './css-tools/postcss'
 import {maybeUseSass} from './css-tools/sass'
 import {getTailwindConfigFile} from './css-tools/tailwind'
@@ -63,6 +67,12 @@ export class CssPlugin {
 
   // Setup failures found while building the rules, said once per compiler.
   private readonly setupWarnings: string[] = []
+
+  // The compiler's one reader of the PostCSS config, kept to read it again.
+  private postCss: PostCssCompilerReader | undefined
+
+  // Whether the rules were built for a project that uses a style tool.
+  private usedStyleTools = false
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -93,12 +103,36 @@ export class CssPlugin {
       baseScheme: extensionSchemeFor(String(this.browser))
     }
 
+    // A reading that repeats what the one before it said adds nothing.
+    let saidBefore = new Set<string>()
+    let said = new Set<string>()
+
+    this.postCss = postCssReaderForOneCompiler((message) => {
+      said.add(message)
+
+      if (!saidBefore.has(message)) this.setupWarnings.push(message)
+    })
+
+    const reread = this.postCss.reread
+
+    this.postCss.reread = () => {
+      saidBefore = said
+      said = new Set()
+      beginStyleDiagnostics(projectPath, String(mode))
+
+      return reread()
+    }
+
+    this.usedStyleTools = usesStyleTools(projectPath)
+
     const usage = {
       useSass: usingSass,
       useLess: usingLess,
-      postCss: postCssReaderForOneCompiler((message) =>
-        this.setupWarnings.push(message)
-      )
+      postCss: this.postCss
+    }
+
+    for (const {file, rename} of findIgnoredPostCssConfigs(projectPath)) {
+      this.setupWarnings.push(messages.postCssConfigNameIgnored(file, rename))
     }
 
     const loaders: RuleSetRule[] = [
@@ -358,28 +392,18 @@ export class CssPlugin {
             if (raw.includes('!')) return
 
             const issuerDir = String(data?.context || path.dirname(issuer))
-            const candidates = cssUrlRefCandidates(raw, {issuerDir, roots})
+            const candidates = cssUrlRefFiles(raw, {issuerDir, roots})
             if (candidates.length === 0) return
 
             const req = raw.split('?')[0].split('#')[0]
-            const withCssExtension = path.extname(req)
-              ? []
-              : candidates.map((candidate) => `${candidate}.css`)
 
-            if (
-              [...candidates, ...withCssExtension].some((candidate) =>
-                fs.existsSync(candidate)
-              )
-            ) {
+            if (candidates.some((candidate) => fs.existsSync(candidate))) {
               return
             }
 
             // Cancelled before rspack resolves it, so nothing watches for the
             // file. Watch every place it could appear, or a later write is lost.
-            compilation?.missingDependencies.addAll([
-              ...candidates,
-              ...withCssExtension
-            ])
+            compilation?.missingDependencies.addAll(candidates)
 
             const key = `${issuer}|${req}`
 
@@ -406,6 +430,57 @@ export class CssPlugin {
         )
       }
     )
+  }
+
+  // A dev session reads the PostCSS setup when it starts. An edit to one of
+  // its files is read again here, so the next build compiles with it.
+  private rereadPostCssSetupOnChange(
+    compiler: Compiler,
+    configured: Promise<void>
+  ) {
+    const projectPath = (compiler.options.context as string) || process.cwd()
+    const files = postCssSetupFiles(projectPath).map((file) =>
+      path.resolve(file)
+    )
+    const watched = new Set(files)
+    let needsRestart: string | undefined
+
+    compiler.hooks.watchRun.tapPromise(`${CssPlugin.name}:setup`, async () => {
+      await configured
+
+      const changed = [
+        ...(compiler.modifiedFiles || []),
+        ...(compiler.removedFiles || [])
+      ].find((file) => watched.has(path.resolve(file)))
+
+      if (!changed || !this.postCss) return
+
+      // Rules built with no style tool hold no PostCSS step to update, and
+      // the same goes for a step that would now appear or go away.
+      const applied =
+        usesStyleTools(projectPath) === this.usedStyleTools &&
+        (await this.postCss.reread())
+
+      if (!applied) needsRestart = path.resolve(changed)
+    })
+
+    compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:setup-files`, (c) => {
+      // A project with no sheet yet has no module that watches these.
+      for (const file of files) {
+        if (fs.existsSync(file)) c.fileDependencies.add(file)
+        else c.missingDependencies.add(file)
+      }
+
+      if (!needsRestart) return
+
+      const warning = new compiler.rspack.WebpackError(
+        messages.postCssConfigNeedsRestart(needsRestart)
+      )
+
+      needsRestart = undefined
+      warning.name = 'CssSetupWarning'
+      c.warnings.push(warning)
+    })
   }
 
   private reportSetupWarnings(compiler: Compiler) {
@@ -443,6 +518,7 @@ export class CssPlugin {
     const configuring = this.configureOptions(compiler)
     compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () => configuring)
     compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)
+    this.rereadPostCssSetupOnChange(compiler, configuring)
     await configuring
   }
 }

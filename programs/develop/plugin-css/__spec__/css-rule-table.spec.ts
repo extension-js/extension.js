@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
+import {formatInstallHint} from '../../lib/optional-deps-resolver'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER as LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import {extensionBaseAttributeFor} from '../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
@@ -15,6 +16,7 @@ import {
 } from '../css-lib/sfc-style-block'
 import {maybeUseLess} from '../css-tools/less'
 import {maybeUseSass} from '../css-tools/sass'
+import {CssPlugin} from '../index'
 import {
   closeCompiler,
   configureCss,
@@ -22,7 +24,6 @@ import {
   cssProjects,
   type Mode
 } from './helpers/css-project'
-import {CssPlugin} from '../index'
 
 const makeProject = cssProjects()
 const developRequire = createRequire(
@@ -60,36 +61,50 @@ function expectedRules(
       ...base
     }
   }
+  // The same loader a second time, ahead of PostCSS: it brings in the rules
+  // of each sheet an inlined sheet imports.
+  const inlineImports = {
+    loader: dist('dead-css-url-loader'),
+    options: {manifestPath, projectPath: root, inlineImports: true}
+  }
   const late = {loader: dist('late-css-import-loader')}
   const guard = {loader: dist('css-parse-guard-loader')}
-  const passthrough = {loader: dist('preprocessor-passthrough-loader')}
+  const passthrough = {
+    loader: dist('preprocessor-passthrough-loader'),
+    options: {
+      install: {
+        sass: formatInstallHint(root, ['sass']),
+        less: formatInstallHint(root, ['less'])
+      }
+    }
+  }
   const post = tools.postcss ? [guard, tools.postcss] : []
 
-  // The loaders a sheet of each language meets before its rule adds more.
+  // The loader that reads a sheet of each language first, if any.
   const languages = [
-    {test: /\.module\.css$/, module: true, chain: post},
-    {test: /\.css$/, exclude: /\.module\.css$/, module: false, chain: post},
+    {test: /\.module\.css$/, module: true, first: []},
+    {test: /\.css$/, exclude: /\.module\.css$/, module: false, first: []},
     {
       test: /\.(sass|scss)$/,
       exclude: /\.module\.(sass|scss)$/,
       module: false,
-      chain: tools.sass ? [...post, tools.sass] : [...post, passthrough]
+      first: [tools.sass ?? passthrough]
     },
     {
       test: /\.module\.(sass|scss)$/,
       module: true,
-      chain: tools.sass ? [...post, tools.sass] : [...post, passthrough]
+      first: [tools.sass ?? passthrough]
     },
     {
       test: /\.less$/,
       exclude: /\.module\.less$/,
       module: false,
-      chain: tools.less ? [...post, tools.less] : [...post, passthrough]
+      first: [tools.less ?? passthrough]
     },
     {
       test: /\.module\.less$/,
       module: true,
-      chain: tools.less ? [...post, tools.less] : [...post, passthrough]
+      first: [tools.less ?? passthrough]
     }
   ]
 
@@ -103,7 +118,7 @@ function expectedRules(
     where: Record<string, unknown>,
     inlined: boolean
   ): Array<Record<string, unknown>> =>
-    languages.map(({test, exclude, module, chain}) => {
+    languages.map(({test, exclude, module, first}) => {
       const emitsSheet = module || !inlined
 
       return {
@@ -113,7 +128,9 @@ function expectedRules(
         ...(emitsSheet ? {sideEffects: true} : {}),
         ...where,
         resourceQuery: NOT_RAW_RESOURCE_QUERY,
-        use: emitsSheet ? sheet(chain) : [inlineUrls, ...chain]
+        use: emitsSheet
+          ? sheet([...post, ...first])
+          : [inlineUrls, ...post, inlineImports, ...first]
       }
     })
 
@@ -215,7 +232,13 @@ describe('the rules CssPlugin adds, per language and surface', () => {
         postcssOptions: {
           cwd: root,
           config: false,
-          plugins: [{postcssPlugin: 'p'}]
+          plugins: [
+            {postcssPlugin: 'p'},
+            // Names the config files as dependencies of every sheet.
+            expect.objectContaining({
+              postcssPlugin: 'extension-js-postcss-setup-files'
+            })
+          ]
         },
         sourceMap: mode === 'development'
       }

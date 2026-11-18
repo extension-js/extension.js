@@ -8,7 +8,10 @@
 
 import type {RuleSetRule} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
-import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {
+  ensureOptionalContractPackageResolved,
+  formatInstallHint
+} from '../../lib/optional-deps-resolver'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
@@ -160,10 +163,20 @@ export async function buildCssRules(
 
   return Promise.all(
     fileTypes.map(async ({test, exclude, type, loader, missingTool}) => {
+      // An inlined sheet has no base for a relative @import, so the rules it
+      // imports come in before PostCSS reads the sheet.
+      const afterPreprocessor =
+        type === 'asset/inline' && manifestPath
+          ? {
+              loader: resolveDevelopDistFile('dead-css-url-loader'),
+              options: {manifestPath, projectPath, inlineImports: true}
+            }
+          : undefined
       const use = loader
         ? await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
             postCss,
+            afterPreprocessor,
             loader: await resolvePreprocessorLoader(loader, projectPath),
             // commonStyleLoaders sets sourceMap from the mode for both.
             loaderOptions:
@@ -173,12 +186,19 @@ export async function buildCssRules(
           })
         : await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
-            postCss
+            postCss,
+            afterPreprocessor
           })
 
       if (missingTool) {
         ;(use as Array<Record<string, unknown>>).push({
-          loader: resolveDevelopDistFile('preprocessor-passthrough-loader')
+          loader: resolveDevelopDistFile('preprocessor-passthrough-loader'),
+          options: {
+            install: {
+              sass: formatInstallHint(projectPath, ['sass']),
+              less: formatInstallHint(projectPath, ['less'])
+            }
+          }
         })
       }
 

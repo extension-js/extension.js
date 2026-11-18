@@ -13,12 +13,20 @@ import {pathToFileURL} from 'node:url'
 import {hasDependency} from '../../lib/has-dependency'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {AnyModule} from '../../lib/optional-deps-resolver'
-import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {
+  ensureOptionalContractPackageResolved,
+  formatInstallHint
+} from '../../lib/optional-deps-resolver'
+import {resolvePackageManager} from '../../lib/package-manager'
 import {readProjectDependencies} from '../../lib/project-manifest'
 import type {StyleLoaderOptions} from '../common-style-loaders'
 import * as messages from '../css-lib/messages'
 import {reportStyleDiagnostic} from '../css-lib/style-diagnostics'
-import {getTailwindConfigFile, isUsingTailwind} from './tailwind'
+import {
+  getTailwindConfigFile,
+  isUsingTailwind,
+  TAILWIND_CONFIG_NAMES
+} from './tailwind'
 
 let userMessageDelivered = false
 
@@ -75,6 +83,49 @@ export function findPostCssConfig(projectPath: string): string | undefined {
   }
 
   return undefined
+}
+
+// Names that read like a PostCSS config and that PostCSS never looks for,
+// each with the name it does read for the same format.
+const IGNORED_CONFIG_NAMES: Record<string, string> = {
+  'postcss.config.json': '.postcssrc.json',
+  'postcss.config.yaml': '.postcssrc.yaml',
+  'postcss.config.yml': '.postcssrc.yml'
+}
+
+export function findIgnoredPostCssConfigs(
+  projectPath: string
+): Array<{file: string; rename: string}> {
+  return Object.entries(IGNORED_CONFIG_NAMES)
+    .map(([name, rename]) => ({file: path.join(projectPath, name), rename}))
+    .filter(({file}) => fs.existsSync(file))
+}
+
+// Every file whose edit can change what PostCSS does to this project.
+export function postCssSetupFiles(projectPath: string): string[] {
+  return [
+    ...orderedSearchPlaces(projectPath),
+    ...TAILWIND_CONFIG_NAMES,
+    'package.json'
+  ].map((name) => path.join(projectPath, name))
+}
+
+// Node keeps every module it imported, so an edited config would come back
+// as the one read first. A new address and a dropped require entry reload it.
+async function importFresh(file: string): Promise<AnyModule> {
+  let stamp = 0
+  const registry = createRequire(import.meta.url).cache
+
+  try {
+    stamp = fs.statSync(file).mtimeMs
+    delete registry[fs.realpathSync(file)]
+  } catch {
+    // The import below reports a file that is not there.
+  }
+
+  delete registry[file]
+
+  return import(`${pathToFileURL(file).href}?t=${stamp}`)
 }
 
 function isTypeModuleProject(projectPath: string): boolean {
@@ -201,7 +252,7 @@ export async function loadUserPostCssConfigObject(
       }
     } else {
       try {
-        const mod = await import(pathToFileURL(configPath).href)
+        const mod = await importFresh(configPath)
         loaded = mod?.default ?? mod
       } catch (importError) {
         // A CJS-shaped file under an ESM import fails on `module`; the
@@ -302,6 +353,10 @@ function resolveConfigPluginModule(
       // Ignore
     }
   }
+
+  // Tailwind compiles the project's own classes with the project's own
+  // version, so a copy that sits beside the CLI never stands in for it.
+  if (TAILWIND_PLUGIN_IDS.includes(name)) return undefined
 
   try {
     const req = createRequire(import.meta.url)
@@ -488,6 +543,23 @@ function getDeclaredTailwindMajor(projectPath: string): number | undefined {
   }
 }
 
+// The command that puts Tailwind's PostCSS plugin in the project: an add for
+// what package.json does not list, an install for what it lists already.
+function tailwindInstallFix(
+  projectPath: string,
+  declaredMajor: number | undefined
+): string {
+  const needed =
+    typeof declaredMajor === 'number' && declaredMajor < 4
+      ? ['tailwindcss']
+      : ['tailwindcss', '@tailwindcss/postcss']
+  const unlisted = needed.filter((name) => !hasDependency(projectPath, name))
+
+  return unlisted.length > 0
+    ? formatInstallHint(projectPath, unlisted)
+    : `${resolvePackageManager({cwd: projectPath}).name} install`
+}
+
 export function isUsingPostCss(projectPath: string): boolean {
   if (hasDependency(projectPath, 'postcss')) {
     if (!userMessageDelivered) {
@@ -539,24 +611,117 @@ export type PostCssRuleReader = (
   opts: StyleLoaderOptions
 ) => Promise<Record<string, AnyModule>>
 
+export interface PostCssCompilerReader extends PostCssRuleReader {
+  // Reads every config again and updates the rules already handed out.
+  // False when a rule would appear or go away, which takes a new compiler.
+  reread(): Promise<boolean>
+}
+
+const SETUP_FILES_PLUGIN = 'extension-js-postcss-setup-files'
+
+// PostCSS tells the bundler which files a sheet depends on. Naming the
+// config files makes an edit to one of them rebuild every sheet.
+function withSetupFilesWatched(
+  projectPath: string,
+  rule: Record<string, AnyModule>
+): Record<string, AnyModule> {
+  const postcssOptions = rule.options?.postcssOptions
+  if (!rule.loader || !postcssOptions) return rule
+
+  const files = postCssSetupFiles(projectPath)
+
+  postcssOptions.plugins = [
+    ...(postcssOptions.plugins || []),
+    {
+      postcssPlugin: SETUP_FILES_PLUGIN,
+      Once(_root: unknown, {result}: {result: {messages: unknown[]}}) {
+        for (const file of files) {
+          // A config that is not there yet counts too, once it is written.
+          result.messages.push({
+            type: fs.existsSync(file) ? 'dependency' : 'missing-dependency',
+            plugin: SETUP_FILES_PLUGIN,
+            file
+          })
+        }
+      }
+    }
+  ]
+
+  return rule
+}
+
 // One compiler builds 24 style rules from one config. Its reader loads the
 // config once per project and mode, and a new compiler starts a new reader.
 export function postCssReaderForOneCompiler(
   warn?: (message: string) => void
-): PostCssRuleReader {
-  const read = new Map<string, Promise<Record<string, AnyModule>>>()
+): PostCssCompilerReader {
+  const read = new Map<
+    string,
+    {
+      projectPath: string
+      opts: StyleLoaderOptions
+      rule: Promise<Record<string, AnyModule>>
+    }
+  >()
 
-  return (projectPath, opts) => {
+  const reader: PostCssCompilerReader = (projectPath, opts) => {
     const key = `${projectPath}\0${String(opts.mode || 'development')}`
-    let rule = read.get(key)
+    let entry = read.get(key)
 
-    if (!rule) {
-      rule = maybeUsePostCss(projectPath, {...opts, warn: warn ?? opts.warn})
-      read.set(key, rule)
+    if (!entry) {
+      const readOpts = {...opts, warn: warn ?? opts.warn}
+
+      entry = {
+        projectPath,
+        opts: readOpts,
+        rule: maybeUsePostCss(projectPath, readOpts).then((rule) =>
+          withSetupFilesWatched(projectPath, rule)
+        )
+      }
+
+      read.set(key, entry)
     }
 
-    return rule
+    return entry.rule
   }
+
+  reader.reread = async () => {
+    let applied = true
+
+    for (const entry of read.values()) {
+      const current = await entry.rule
+      let next: Record<string, AnyModule>
+
+      try {
+        next = withSetupFilesWatched(
+          entry.projectPath,
+          await maybeUsePostCss(entry.projectPath, entry.opts)
+        )
+      } catch {
+        applied = false
+        continue
+      }
+
+      if (Boolean(current.loader) !== Boolean(next.loader)) {
+        applied = false
+        continue
+      }
+
+      if (!current.loader) continue
+
+      // Every rule of the compiler holds this one object, and the loader
+      // reads it on each run, so the next build compiles with the new config.
+      const live = current.options.postcssOptions
+
+      for (const key of Object.keys(live)) delete live[key]
+
+      Object.assign(live, next.options.postcssOptions)
+    }
+
+    return applied
+  }
+
+  return reader
 }
 
 export async function maybeUsePostCss(
@@ -642,17 +807,20 @@ export async function maybeUsePostCss(
       userConfigMentionsTailwind)
   const declaredTailwindMajor = getDeclaredTailwindMajor(projectPath)
 
+  let tailwindMissing = false
+
   if (shouldInjectTailwindPlugin) {
     let setupError: unknown
     let tailwindPluginId: string | undefined
 
     try {
+      // The project and its config folder only. The folder the CLI runs
+      // from can hold another Tailwind, of another version.
       const bases = Array.from(
         new Set(
           [
             projectPath,
-            userPostCssConfig ? path.dirname(userPostCssConfig) : '',
-            process.cwd()
+            userPostCssConfig ? path.dirname(userPostCssConfig) : ''
           ].filter(Boolean)
         )
       )
@@ -731,13 +899,15 @@ export async function maybeUsePostCss(
               // This avoids cwd-dependent misses for arbitrary-value classes in monorepos.
               instance = tailwindMod({base: projectPath})
             }
-          } catch {
+          } catch (firstError) {
+            // The first failure is the cause. The retries below fail for
+            // reasons of their own, which would name the wrong fix.
+            setupError = firstError
+
             // Keep compatibility with plugin versions that don't accept options.
             try {
               instance = tailwindMod()
-            } catch (error) {
-              setupError = error
-
+            } catch {
               // Recovery: if direct tailwindcss execution fails (e.g. v4), try loading
               // @tailwindcss/postcss anchored to the project root.
               if (tailwindPluginId === 'tailwindcss') {
@@ -761,8 +931,8 @@ export async function maybeUsePostCss(
                       tailwindPluginId = '@tailwindcss/postcss'
                       break
                     }
-                  } catch (error) {
-                    setupError = error
+                  } catch {
+                    // The first failure stays the one that is reported.
                   }
                 }
               }
@@ -793,7 +963,7 @@ export async function maybeUsePostCss(
       }
     } catch (error) {
       // Never break the build from here; let postcss-loader handle errors.
-      setupError = error
+      setupError ??= error
     }
 
     if (!tailwindResolvedInstance && setupError !== undefined) {
@@ -802,6 +972,15 @@ export async function maybeUsePostCss(
           tailwindPluginId ?? '@tailwindcss/postcss',
           projectPath,
           setupError
+        )
+      )
+    } else if (!tailwindResolvedInstance && tailwindPresent) {
+      // Declared and found nowhere in the project: say what installs it.
+      tailwindMissing = true
+      opts.warn?.(
+        messages.tailwindNotInstalled(
+          projectPath,
+          tailwindInstallFix(projectPath, declaredTailwindMajor)
         )
       )
     }
@@ -836,9 +1015,16 @@ export async function maybeUsePostCss(
 
   if (selfResolved) {
     for (const pluginName of selfResolved.unresolved) {
+      // Said above, with the command that installs it.
+      if (tailwindMissing && TAILWIND_PLUGIN_IDS.includes(pluginName)) continue
+
       reportStyleDiagnostic(
         projectPath,
-        messages.postCssPluginNotResolved(pluginName, projectPath),
+        messages.postCssPluginNotResolved(
+          pluginName,
+          projectPath,
+          formatInstallHint(projectPath, [pluginName])
+        ),
         console.error
       )
     }
