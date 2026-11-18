@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, type RuleSetRule, rspack} from '@rspack/core'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {workspaceRootOf} from '../../css-lib/inline-css-imports'
 import {CssPlugin} from '../../index'
 
 export type Mode = 'development' | 'production'
@@ -70,5 +71,17 @@ export async function configureCss(
     return compiler.options.module.rules as RuleSetRule[]
   } finally {
     await closeCompiler(compiler)
+  }
+}
+
+// A fixture with no workspace marker of its own reads the same only when no
+// folder above the temp folder declares one, which this checks first.
+export function expectNoWorkspaceAbove(projectRoot: string) {
+  const root = fs.realpathSync(projectRoot)
+
+  if (workspaceRootOf(root) !== root) {
+    throw new Error(
+      `A folder above ${root} declares a workspace, so this fixture would read as part of it. Set TMPDIR to a folder outside any workspace.`
+    )
   }
 }

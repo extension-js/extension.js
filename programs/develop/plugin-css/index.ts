@@ -32,7 +32,11 @@ import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {cssUrlRefFiles, toPosixPath} from './css-lib/dead-url-refs'
+import {
+  cssUrlPlaces,
+  cssUrlRefFiles,
+  toPosixPath
+} from './css-lib/dead-url-refs'
 import {whyNotRead} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {
@@ -367,6 +371,28 @@ export class CssPlugin {
       ]
     })
 
+    // Strict refs fails the build here, under the same name and code. Left
+    // to rspack, a relative one came back as a warning.
+    const report = (issuer: string, raw: string) => {
+      const req = raw.split('?')[0].split('#')[0]
+      const key = `${issuer}|${req}`
+      const strict = process.env.EXTENSION_STRICT_REFS === 'true'
+      const sink = strict ? compilation?.errors : compilation?.warnings
+
+      if (warned.has(key) || !sink) return
+
+      warned.add(key)
+      const issuerPath = toPosixPath(
+        path.relative(manifestDir, issuer) || issuer
+      )
+      const error = new WebpackError(
+        messages.deadCssUrlRef(issuerPath, raw, strict)
+      )
+      ;(error as Error & {file?: string}).file = issuerPath
+      error.name = 'CssDeadRef'
+      sink.push(error)
+    }
+
     compiler.hooks.normalModuleFactory.tap(
       `${CssPlugin.name}:dead-url`,
       (nmf) => {
@@ -397,7 +423,7 @@ export class CssPlugin {
             )
 
             // A file the build withholds is told the way one that is not
-            // there is. A sheet an @import names is the bundler's to read.
+            // there is. Which file a url() leads to is checked once resolved.
             if (
               found &&
               (/\.(css|scss|sass|less)$/i.test(req) ||
@@ -409,26 +435,36 @@ export class CssPlugin {
             // Cancelled before rspack resolves it, so nothing watches for the
             // file. Watch every place it could appear, or a later write is lost.
             compilation?.missingDependencies.addAll(candidates)
+            report(issuer, raw)
 
-            const key = `${issuer}|${req}`
+            return false
+          }
+        )
 
-            // Strict refs fails the build here, under the same name and code.
-            // Left to rspack, a relative one came back as a warning.
-            const strict = process.env.EXTENSION_STRICT_REFS === 'true'
-            const sink = strict ? compilation?.errors : compilation?.warnings
+        // The file a url() leads to once aliases, packages and links are
+        // followed. An @import of the same text is the bundler's to read.
+        nmf.hooks.afterResolve.tap(
+          `${CssPlugin.name}:dead-url`,
+          (data: {
+            contextInfo?: {issuer?: unknown}
+            request?: unknown
+            createData?: {resource?: unknown}
+          }) => {
+            const issuer = String(data?.contextInfo?.issuer || '')
+            const raw = String(data?.request || '')
+            const places = cssUrlPlaces(compiler).get(issuer)
 
-            if (!warned.has(key) && sink) {
-              warned.add(key)
-              const issuerPath = toPosixPath(
-                path.relative(manifestDir, issuer) || issuer
-              )
-              const report = new WebpackError(
-                messages.deadCssUrlRef(issuerPath, raw, strict)
-              )
-              ;(report as Error & {file?: string}).file = issuerPath
-              report.name = 'CssDeadRef'
-              sink.push(report)
+            if (!places?.has(raw) || raw.includes('!')) return
+
+            const file = String(data?.createData?.resource || '').split(
+              /[?#]/
+            )[0]
+
+            if (!path.isAbsolute(file) || !whyNotRead(file, projectPath)) {
+              return
             }
+
+            report(issuer.split('?')[0], raw)
 
             return false
           }

@@ -104,8 +104,10 @@ function resolveTarget(
 export function rewriteInlinedCssUrls(
   source: string,
   context: RewriteInlinedCssUrlsContext
-): {css: string; targets: InlinedCssUrlTarget[]} {
+): {css: string; targets: InlinedCssUrlTarget[]; withheld: string[]} {
   const targets: InlinedCssUrlTarget[] = []
+  // The addresses of files the build keeps back, each once, as written.
+  const withheld = new Set<string>()
   const seen = new Map<string, string>()
 
   // Read the way CSS reads it, so a url( inside a string is left alone. The
@@ -137,6 +139,8 @@ export function rewriteInlinedCssUrls(
           context.projectPath &&
           whyNotRead(target.absolutePath, context.projectPath)
         ) {
+          withheld.add(request)
+
           return undefined
         }
 
@@ -155,7 +159,7 @@ export function rewriteInlinedCssUrls(
     true
   )
 
-  return {css, targets}
+  return {css, targets, withheld: [...withheld]}
 }
 
 export const SFC_STYLE_ATTRIBUTE = 'data-extjs-sfc-style'

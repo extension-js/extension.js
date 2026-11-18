@@ -12,7 +12,11 @@ import {
   publicContainmentRoot,
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
-import {publicOwnedOutputName} from './css-lib/dead-url-refs'
+import {
+  cssUrlPlaces,
+  publicOwnedOutputName,
+  unescapeCss
+} from './css-lib/dead-url-refs'
 import {rewriteCssUrls} from './css-lib/inline-css-imports'
 import {lineRewriteSourceMap} from './css-lib/line-rewrite-source-map'
 import * as messages from './css-lib/messages'
@@ -30,6 +34,30 @@ interface PublicCssUrlLoaderContext {
   emitWarning?(warning: Error): void
   addDependency?(file: string): void
   callback(error: null, content: string, map?: unknown): void
+  _compiler?: object
+  _module?: {nameForCondition?(): string | null | undefined}
+}
+
+// Notes what this sheet names in a url() or an image-set() string, so the
+// resolve hook tells those from an @import of the same text.
+function noteUrlPlaces(loader: PublicCssUrlLoaderContext, source: string) {
+  const name = loader._module?.nameForCondition?.() || loader.resourcePath
+  if (!loader._compiler || !name) return
+
+  const places = new Set<string>()
+
+  rewriteCssUrls(
+    source,
+    (request, where) => {
+      if (where === 'url' || where === 'set') places.add(unescapeCss(request))
+
+      return undefined
+    },
+    false,
+    true
+  )
+
+  cssUrlPlaces(loader._compiler).set(name, places)
 }
 
 function isFile(candidate: string): boolean {
@@ -105,6 +133,8 @@ export default function publicCssUrlLoader(
 
   if (manifestPath && projectPath) {
     try {
+      noteUrlPlaces(this, source)
+
       const publicRoot = publicContainmentRoot(manifestPath, projectPath)
       const publicDir = resolvePublicFolder(manifestPath, projectPath)
 

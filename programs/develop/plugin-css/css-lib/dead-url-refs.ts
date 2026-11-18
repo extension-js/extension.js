@@ -24,6 +24,35 @@ export function toPosixPath(value: string): string {
   return String(value).split(path.sep).join('/')
 }
 
+// The text CSS reads from an address: `\2e ` and `\.` are both a period,
+// and a backslash ahead of a line break joins the two lines.
+export function unescapeCss(text: string): string {
+  return String(text).replace(
+    /\\(?:([0-9a-f]{1,6})(?:\r\n|[ \t\r\n\f])?|(\r\n|[\s\S]))/gi,
+    (_whole, hex: string | undefined, char: string | undefined) => {
+      if (hex === undefined) return /^[\r\n\f]/.test(char || '') ? '' : char!
+
+      const code = Number.parseInt(hex, 16)
+      const valid =
+        code > 0 && code <= 0x10ffff && (code < 0xd800 || code > 0xdfff)
+
+      return valid ? String.fromCodePoint(code) : '�'
+    }
+  )
+}
+
+const URL_PLACES = Symbol.for('extensionjs.css-url-places')
+
+// A sheet's url() and image-set() addresses, by the name rules match it as.
+// A loader and a hook in two bundles share it, so it lives on the compiler.
+export function cssUrlPlaces(owner: object): Map<string, Set<string>> {
+  const holder = owner as {[URL_PLACES]?: Map<string, Set<string>>}
+
+  if (!holder[URL_PLACES]) holder[URL_PLACES] = new Map()
+
+  return holder[URL_PLACES]
+}
+
 export interface DeadUrlRefContext {
   issuerDir: string
   roots: string[]

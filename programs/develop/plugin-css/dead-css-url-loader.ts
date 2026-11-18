@@ -61,26 +61,58 @@ export interface DeadCssUrlLoaderContext {
   _compilation?: CompilationLike
 }
 
+// The warning a reference to a file that is not there gets, which a file the
+// build withholds gets too, so it never says that such a file exists.
+function pushDeadRef(
+  loader: DeadCssUrlLoaderContext,
+  issuerPath: string,
+  request: string
+) {
+  const strict = process.env.EXTENSION_STRICT_REFS === 'true'
+  const compilation = loader._compilation
+  const report = new WebpackError(
+    messages.deadCssUrlRef(issuerPath, request, strict)
+  )
+  ;(report as Error & {file?: string}).file = issuerPath
+  report.name = 'CssDeadRef'
+
+  // Straight onto the compilation, the way the module-graph check reports
+  // it. emitWarning would stamp a "Module Warning (from <loader>)" prefix
+  // and the two paths would read as different defects.
+  const sink = strict ? compilation?.errors : compilation?.warnings
+
+  if (sink) {
+    sink.push(report)
+  } else if (strict) {
+    loader.emitError(report)
+  } else {
+    loader.emitWarning(report)
+  }
+}
+
+function sheetPath(loader: DeadCssUrlLoaderContext, manifestDir: string) {
+  const resourcePath = canonicalizeResourcePath(loader.resourcePath)
+
+  return toPosixPath(path.relative(manifestDir, resourcePath) || resourcePath)
+}
+
+// The requests it reported, so a later step does not say so a second time.
 function reportDeadRefs(
   loader: DeadCssUrlLoaderContext,
   source: string,
   manifestDir: string,
   publicRoot: string
-) {
+): Set<string> {
   const roots = [publicRoot, manifestDir]
   // Both sides of every path comparison go through the same canonical form:
   // on Windows rspack can hand over an 8.3 short path while the roots above
   // were expanded, and a mismatch names the target by a path that climbs out.
   const resourcePath = canonicalizeResourcePath(loader.resourcePath)
   const issuerDir = path.dirname(resourcePath)
-  const issuerPath = toPosixPath(
-    path.relative(manifestDir, resourcePath) || resourcePath
-  )
+  const issuerPath = sheetPath(loader, manifestDir)
+  const reported = new Set<string>()
 
-  const strict = process.env.EXTENSION_STRICT_REFS === 'true'
-  const compilation = loader._compilation
-
-  const answered = answeredImports.get(importsKey(loader))
+  const answered = answeredImports(loader).get(importsKey(loader))
   const projectPath = loader.getOptions()?.projectPath
 
   for (const request of extractCssUrlRefs(source)) {
@@ -102,30 +134,29 @@ function reportDeadRefs(
       loader.addMissingDependency?.(candidate)
     }
 
-    const report = new WebpackError(
-      messages.deadCssUrlRef(issuerPath, request, strict)
-    )
-    ;(report as Error & {file?: string}).file = issuerPath
-    report.name = 'CssDeadRef'
-
-    // Straight onto the compilation, the way the module-graph check reports
-    // it. emitWarning would stamp a "Module Warning (from <loader>)" prefix
-    // and the two paths would read as different defects.
-    const sink = strict ? compilation?.errors : compilation?.warnings
-
-    if (sink) {
-      sink.push(report)
-    } else if (strict) {
-      loader.emitError(report)
-    } else {
-      loader.emitWarning(report)
-    }
+    reported.add(request)
+    pushDeadRef(loader, issuerPath, request)
   }
+
+  return reported
 }
 
-// The files an import that stays names and the run ahead of PostCSS gave a
-// reason for, by sheet, so the run after it does not say so a second time.
-const answeredImports = new Map<string, Set<string>>()
+// What the run ahead of PostCSS gave a reason for, by sheet, so the run after
+// it does not say so again. Per compilation, so a lone first run leaves nothing.
+const answeredByCompilation = new WeakMap<object, Map<string, Set<string>>>()
+const noCompilation = {}
+
+function answeredImports(loader: DeadCssUrlLoaderContext) {
+  const owner = loader._compilation || noCompilation
+  let answered = answeredByCompilation.get(owner)
+
+  if (!answered) {
+    answered = new Map()
+    answeredByCompilation.set(owner, answered)
+  }
+
+  return answered
+}
 
 function importsKey(loader: DeadCssUrlLoaderContext): string {
   return `${canonicalizeResourcePath(loader.resourcePath)}${loader.resourceQuery || ''}`
@@ -144,7 +175,7 @@ function reportLeftImports(
     issuerDir: path.dirname(resourcePath),
     roots: [publicRoot, manifestDir]
   }
-  const answered = answeredImports.get(importsKey(loader))
+  const answered = answeredImports(loader).get(importsKey(loader))
   const told = new Set<string>()
 
   for (const {statement, request, viaUrl} of readCssImports(source)) {
@@ -182,9 +213,9 @@ function resolveTargets(
   manifestDir: string,
   publicRoot: string,
   publicDir: string | undefined
-): {css: string; bundledRequests: string[]} {
+): {css: string; bundledRequests: string[]; withheld: string[]} {
   const resourcePath = canonicalizeResourcePath(loader.resourcePath)
-  const {css, targets} = rewriteInlinedCssUrls(source, {
+  const {css, targets, withheld} = rewriteInlinedCssUrls(source, {
     resourcePath,
     manifestDir,
     publicRoot,
@@ -212,7 +243,7 @@ function resolveTargets(
     loader.addDependency?.(target.absolutePath)
   }
 
-  return {css, bundledRequests}
+  return {css, bundledRequests, withheld}
 }
 
 // Reports the sheet's dead url() targets and names the live ones the way
@@ -236,7 +267,7 @@ export function inlineStylesheetUrls(
       const publicRoot = canonicalizeDir(
         publicContainmentRoot(manifestPath, projectPath)
       )
-      reportDeadRefs(loader, source, manifestDir, publicRoot)
+      const reported = reportDeadRefs(loader, source, manifestDir, publicRoot)
 
       // A sheet no tool compiled has its own warning, and its imports are
       // the ones of another language.
@@ -245,14 +276,23 @@ export function inlineStylesheetUrls(
       }
 
       // Read once: the next build of this sheet answers for itself.
-      answeredImports.delete(importsKey(loader))
-      ;({css, bundledRequests} = resolveTargets(
+      answeredImports(loader).delete(importsKey(loader))
+      let withheld: string[]
+      ;({css, bundledRequests, withheld} = resolveTargets(
         loader,
         source,
         manifestDir,
         publicRoot,
         resolvePublicFolder(manifestPath, projectPath)
       ))
+
+      // A bare name, src() and image-set() strings, which the scan above
+      // reads no file for, are kept back here and told the same way.
+      for (const request of withheld) {
+        if (!reported.has(request)) {
+          pushDeadRef(loader, sheetPath(loader, manifestDir), request)
+        }
+      }
     }
   } catch (error) {
     // A reference check must never break a build the browser would accept.
@@ -343,7 +383,7 @@ export function inlineStylesheetImports(
       )
     }
 
-    answeredImports.set(importsKey(loader), new Set(inlined.answered))
+    answeredImports(loader).set(importsKey(loader), new Set(inlined.answered))
 
     return inlined.css
   } catch (error) {

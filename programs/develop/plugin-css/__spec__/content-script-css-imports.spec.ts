@@ -6,7 +6,11 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import {bundledFileToken} from '../css-lib/inline-content-script-css'
-import {inlineCssImports, whyNotRead} from '../css-lib/inline-css-imports'
+import {
+  inlineCssImports,
+  whyNotRead,
+  workspaceRootOf
+} from '../css-lib/inline-css-imports'
 import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
 
@@ -1357,7 +1361,8 @@ function runLoader(
   root: string,
   sheet: string,
   options: {inlineImports?: boolean; uncompiled?: boolean} = {},
-  project = root
+  project = root,
+  compilation?: {warnings: Error[]; errors: Error[]}
 ) {
   const resourcePath = path.join(root, sheet)
   const warnings: Error[] = []
@@ -1376,7 +1381,7 @@ function runLoader(
       emitError: (error: Error) => errors.push(error),
       addDependency: (file: string) => watched.push(file),
       addMissingDependency: (file: string) => awaited.push(file),
-      _compilation: {warnings, errors}
+      _compilation: compilation ?? {warnings, errors}
     } as never,
     fs.readFileSync(resourcePath, 'utf8')
   )
@@ -1545,9 +1550,17 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     expect([warnings, errors]).toEqual([[], []])
   })
 
-  // The run after PostCSS, fed what the run ahead of it answered with.
+  // The run after PostCSS, fed what the run ahead of it answered with, in
+  // the one compilation a build gives both.
   function runBoth(root: string, sheet: string) {
-    const first = runLoader(root, sheet, {inlineImports: true})
+    const compilation = {warnings: [] as Error[], errors: [] as Error[]}
+    const first = runLoader(
+      root,
+      sheet,
+      {inlineImports: true},
+      root,
+      compilation
+    )
     const warnings: Error[] = []
 
     deadCssUrlLoader.call(
@@ -1561,15 +1574,14 @@ describe('the loader run that brings imports into a content-script sheet', () =>
         emitError() {},
         addDependency() {},
         addMissingDependency() {},
-        _compilation: {warnings, errors: []}
+        _compilation: compilation
       } as never,
       String(first.output)
     )
 
-    return [...first.warnings, ...warnings].map((w) => [
-      w.name,
-      ...w.message.split('\n').slice(0, 3)
-    ])
+    return [...first.warnings, ...compilation.warnings, ...warnings].map(
+      (w) => [w.name, ...w.message.split('\n').slice(0, 3)]
+    )
   }
 
   const STILL = `${WARN} An @import is still in this content script stylesheet after every tool ran, so the rules it names will not load.`
@@ -1605,10 +1617,16 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     ])
   })
 
-  it('says one thing of an import with no target inside a block', () => {
+  // Both runs name the statement the same way, however it was spelled.
+  it.each([
+    ['@import nothing;'],
+    ['@import   nothing ;'],
+    ['@IMPORT nothing;'],
+    ['@import\tnothing;']
+  ])('says one thing of an import with no target inside a block: %s', (statement) => {
     const root = makeProject({
       'content/styles.css': '@import "./a.css" screen;\n.own{}\n',
-      'content/a.css': '@import nothing;\n.a{}\n'
+      'content/a.css': `${statement}\n.a{}\n`
     })
 
     expect(
@@ -1627,6 +1645,26 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     })
 
     expect(runBoth(root, 'content/styles.css')).toHaveLength(1)
+    expect(
+      runLoader(root, 'content/styles.css').warnings.map(
+        (w) => w.message.split('\n')[0]
+      )
+    ).toEqual([STILL])
+  })
+
+  // A first run whose second never came leaves no answer for the next build.
+  it('forgets what a first run answered once its compilation is gone', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "./svg.css";\n.own{}\n',
+      'content/svg.css':
+        '@namespace svg url(http://www.w3.org/2000/svg);\nsvg|a{}\n'
+    })
+
+    runLoader(root, 'content/styles.css', {inlineImports: true}, root, {
+      warnings: [],
+      errors: []
+    })
+
     expect(
       runLoader(root, 'content/styles.css').warnings.map(
         (w) => w.message.split('\n')[0]
@@ -2207,4 +2245,115 @@ describe('a content script that imports a sheet with an @import, compiled', () =
       '.imported{--seen:yes;color:green}.own{--seen:yes;color:red}'
     )
   }, 60_000)
+})
+
+// The folder a project's workspace starts at, which decides the siblings it
+// may name. A spec passes a home folder of its own, the real one stays put.
+describe('the workspace root of a project', () => {
+  const pkg = (body: object) => JSON.stringify({private: true, ...body})
+
+  it('ignores a marker in the home folder and ends the walk below it', () => {
+    const root = makeProject({
+      'home/package.json': pkg({workspaces: ['*']}),
+      'home/a/app/styles.css': '.own{}\n'
+    })
+    const app = path.join(root, 'home', 'a', 'app')
+
+    expect(workspaceRootOf(app, path.join(root, 'home'))).toBe(app)
+  })
+
+  it('ignores a marker above the home folder', () => {
+    const root = makeProject({
+      'package.json': pkg({workspaces: ['*']}),
+      'home/app/styles.css': '.own{}\n'
+    })
+    const app = path.join(root, 'home', 'app')
+
+    expect(workspaceRootOf(app, path.join(root, 'home'))).toBe(app)
+  })
+
+  // A pin: the home folder as the project was its own root before as well.
+  it('reads a project that is the home folder as its own root', () => {
+    const root = makeProject({
+      'package.json': pkg({workspaces: ['*']}),
+      'home/package.json': pkg({workspaces: ['*']})
+    })
+    const home = path.join(root, 'home')
+
+    expect(workspaceRootOf(home, home)).toBe(home)
+  })
+
+  // A pin of the walk below the home folder.
+  it('finds a marker below the home folder', () => {
+    const root = makeProject({
+      'home/ws/package.json': pkg({workspaces: ['*']}),
+      'home/ws/app/styles.css': '.own{}\n'
+    })
+
+    expect(
+      workspaceRootOf(
+        path.join(root, 'home', 'ws', 'app'),
+        path.join(root, 'home')
+      )
+    ).toBe(path.join(root, 'home', 'ws'))
+  })
+
+  // Pins: a list declares a workspace, empty or not. An object needs packages.
+  it.each([
+    ['an empty list', [], true],
+    ['an object with no packages', {}, false],
+    ['an object with packages', {packages: ['*']}, true]
+  ])('reads workspaces as %s', (_label, workspaces, declares) => {
+    const root = makeProject({
+      'ws/package.json': pkg({workspaces}),
+      'ws/app/styles.css': '.own{}\n',
+      'ws/shared/a.css': '.a{}\n'
+    })
+    const app = path.join(root, 'ws', 'app')
+    const ws = path.join(root, 'ws')
+
+    expect(workspaceRootOf(app, path.join(root, 'home'))).toBe(
+      declares ? ws : app
+    )
+
+    expect(
+      whyNotRead(path.join(ws, 'shared', 'a.css'), app) === undefined
+    ).toBe(declares)
+  })
+
+  // A pin: a folder whose name starts with the workspace's is not inside it.
+  it('leaves a sheet in a folder next to the workspace with a longer name', () => {
+    const root = makeProject({
+      'ws/package.json': pkg({workspaces: ['*']}),
+      'ws/app/styles.css': '.own{}\n',
+      'ws-other/a.css': '.a{}\n'
+    })
+
+    expect(
+      whyNotRead(
+        path.join(root, 'ws-other', 'a.css'),
+        path.join(root, 'ws', 'app')
+      )?.fix
+    ).toMatch(/inside the project or its workspace/)
+  })
+
+  // A sibling is read where its sources are, never what a tool keeps there.
+  it.each([
+    ['a dot-named file', 'shared/.env.example', false],
+    ['a dot-named sheet', 'shared/.hidden.css', false],
+    ['a file in a dot-named folder', 'shared/.cache/a.css', false],
+    ['a file in node_modules', 'shared/node_modules/pkg/a.css', false],
+    ['a source file', 'shared/a.css', true]
+  ])('reads %s of a sibling package: %s', (_label, file, read) => {
+    const root = makeProject({
+      'ws/package.json': pkg({workspaces: ['*']}),
+      'ws/app/styles.css': '.own{}\n',
+      [`ws/${file}`]: '.a{}\n'
+    })
+
+    expect(
+      whyNotRead(path.join(root, 'ws', file), path.join(root, 'ws', 'app')) ===
+        undefined
+    ).toBe(read)
+  })
 })

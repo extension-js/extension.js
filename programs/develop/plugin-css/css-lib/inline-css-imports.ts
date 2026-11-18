@@ -384,32 +384,43 @@ function declaresWorkspace(dir: string): boolean {
 
 const workspaceRoots = new Map<string, string>()
 
+// Whether a folder is the home folder or one that holds it.
+function isHomeOrAbove(dir: string, home: string): boolean {
+  const down = path.relative(dir, home)
+
+  return !down.startsWith('..') && !path.isAbsolute(down)
+}
+
 // The nearest folder at or above the project that declares a workspace, or
-// the project itself. The walk ends at the home folder or the disk root.
-function workspaceRootOf(projectRoot: string): string {
+// the project itself. A marker in the home folder or above it is not read.
+export function workspaceRootOf(
+  projectRoot: string,
+  homeDir: string = os.homedir()
+): string {
   const root = realPath(projectRoot)
-  const cached = workspaceRoots.get(root)
+  const home = realPath(homeDir)
+  const key = `${root}\0${home}`
+  const cached = workspaceRoots.get(key)
   if (cached !== undefined) return cached
 
-  const home = realPath(os.homedir())
   let found = root
 
-  for (let dir = root; ; dir = path.dirname(dir)) {
+  for (let dir = root; !isHomeOrAbove(dir, home); dir = path.dirname(dir)) {
     if (declaresWorkspace(dir)) {
       found = dir
       break
     }
 
-    if (dir === home || path.dirname(dir) === dir) break
+    if (path.dirname(dir) === dir) break
   }
 
-  workspaceRoots.set(root, found)
+  workspaceRoots.set(key, found)
 
   return found
 }
 
-// Whether a path inside the workspace stays clear of the folders a package
-// manager or a tool keeps for itself: node_modules and any dot-folder.
+// Whether a path inside the workspace stays clear of what a package manager
+// or a tool keeps: any node_modules or dot-named part, the file name included.
 function inWorkspaceSources(file: string, workspaceRoot: string): boolean {
   const inside = path.relative(workspaceRoot, file)
 
@@ -417,8 +428,7 @@ function inWorkspaceSources(file: string, workspaceRoot: string): boolean {
     return false
   }
 
-  return !path
-    .dirname(inside)
+  return !inside
     .split(path.sep)
     .some((part) => part === 'node_modules' || /^\.(?!\.?$)/.test(part))
 }
@@ -523,7 +533,9 @@ export function rewriteCssUrls(
   css: string,
   rewrite: (request: string, where: CssAddressPlace) => string | undefined,
   // Writes each new address inside double quotes, whatever it had.
-  doubleQuoted = false
+  doubleQuoted = false,
+  // An address with an escape in it is passed as written, else skipped.
+  escapedToo = false
 ): string {
   const functions: string[] = []
   let out = ''
@@ -540,7 +552,10 @@ export function rewriteCssUrls(
     where: CssAddressPlace,
     quote?: string
   ) => {
-    const next = request.includes('\\') ? undefined : rewrite(request, where)
+    const next =
+      request.includes('\\') && !escapedToo
+        ? undefined
+        : rewrite(request, where)
     if (next === undefined) return
 
     if (doubleQuoted) {
@@ -945,7 +960,7 @@ function inlineSheet(
 
           for (const candidate of candidates) state.answered.add(candidate)
 
-          if (!parsed) state.answered.add(written)
+          if (!parsed) state.answered.add(leftImportStatement(rule.params))
         }
 
         return
@@ -1202,6 +1217,12 @@ export function inlineCssImports(
   }
 }
 
+// How an @import that stays is named, whatever case and spaces it was written
+// with, so the run that answers for it and the one that reports it agree.
+function leftImportStatement(params: string): string {
+  return `@import ${params.trim()};`
+}
+
 export interface LeftCssImport {
   statement: string
   request: string
@@ -1221,7 +1242,7 @@ export function readCssImports(css: string): LeftCssImport[] {
 
       // An import with no target that can be read is left all the same.
       found.push({
-        statement: `@import ${rule.params.trim()};`,
+        statement: leftImportStatement(rule.params),
         request: parsed?.request ?? '',
         viaUrl: parsed?.viaUrl === true
       })
