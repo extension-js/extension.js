@@ -521,6 +521,116 @@ describe('the sheets a content-script sheet imports', () => {
     expect(result.moved).toEqual([])
   })
 
+  // The list is what sets the order of the layers, so an import that goes
+  // to the head takes along each list it followed in its own sheet.
+  it.each([
+    [
+      'with no condition',
+      '',
+      [
+        '@layer base, theme;',
+        '@import "https://cdn.example.com/x.css" layer(theme);',
+        '',
+        '',
+        '.a{}',
+        '',
+        '.own{}',
+        ''
+      ]
+    ],
+    [
+      'under a named layer',
+      ' layer(ui)',
+      [
+        '@layer ui.base, ui.theme;',
+        '@import "https://cdn.example.com/x.css" layer(ui.theme);',
+        '@layer ui {',
+        '',
+        '',
+        '.a{}',
+        '',
+        '}',
+        '.own{}',
+        ''
+      ]
+    ]
+  ])('take the list of layer names of an imported sheet to the head, %s', (_label, outer, lines) => {
+    const root = makeProject({
+      'content/styles.css': `@import "./a.css"${outer};\n.own{}\n`,
+      'content/a.css':
+        '@layer base, theme;\n@import "https://cdn.example.com/x.css" layer(theme);\n.a{}\n'
+    })
+    const result = inline(root, 'content/styles.css')
+
+    expect(result.css).toBe(lines.join('\n'))
+    expect(result.moved).toEqual([])
+  })
+
+  it.each([
+    ['a media query', 'screen', 'layer(theme) screen'],
+    [
+      'a supports condition',
+      'supports(display: grid)',
+      'layer(theme) supports(display: grid)'
+    ]
+  ])('say an import left its list of layer names behind under %s', (_label, outer, joined) => {
+    const root = makeProject({
+      'content/styles.css': `@import "./a.css" ${outer};\n.own{}\n`,
+      'content/a.css':
+        '@layer base, theme;\n@import "https://cdn.example.com/x.css" layer(theme);\n.a{}\n'
+    })
+    const result = inline(root, 'content/styles.css')
+    const statement = `@import "https://cdn.example.com/x.css" ${joined};`
+
+    expect(result.css.split('\n')[0]).toBe(statement)
+    expect(result.css).toContain('{\n@layer base, theme;\n\n.a{}\n\n}')
+    expect(result.moved).toEqual([
+      {statement, file: path.join(root, 'content', 'a.css')}
+    ])
+  })
+
+  it('say an import now leads a list of layer names the first sheet wrote after an import', () => {
+    const root = makeProject({
+      'styles.css':
+        '@import "./a.css";\n@layer base, theme;\n@import "https://cdn.example.com/x.css" layer(theme);\n',
+      'a.css': '.a{}\n'
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.css).toBe(
+      '@layer base, theme;\n@import "https://cdn.example.com/x.css" layer(theme);\n.a{}\n\n\n\n'
+    )
+
+    expect(result.moved).toEqual([
+      {
+        statement: '@import "https://cdn.example.com/x.css" layer(theme);',
+        file: path.join(root, 'styles.css')
+      }
+    ])
+  })
+
+  // The opening list says which layer wins, and inside one layer the later
+  // source still wins, so an import moved ahead of rules in its own layer
+  // changes the result.
+  it.each([
+    ['the same layer', 'layer(theme)', '.btn{color:red}\n'],
+    ['a layer block the sheet opens', '', '@layer theme{.btn{color:red}}\n'],
+    ['a parent of the layer', 'layer(theme)', '.btn{color:red}\n', 'theme.cdn']
+  ])('say an import moved past rules that came into %s', (_label, how, local, layer = 'theme') => {
+    const root = makeProject({
+      'styles.css': `@layer theme;\n@import "./local.css" ${how};\n@import "https://cdn.example.com/x.css" layer(${layer});\n`,
+      'local.css': local
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.moved).toEqual([
+      {
+        statement: `@import "https://cdn.example.com/x.css" layer(${layer});`,
+        file: path.join(root, 'styles.css')
+      }
+    ])
+  })
+
   it('name an import that stays from the first sheet, not the one it was in', () => {
     const root = makeProject({
       'content/styles.css': '@import "../shared/a.css";\n.own{}\n',
