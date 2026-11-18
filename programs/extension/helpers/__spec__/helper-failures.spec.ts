@@ -53,20 +53,31 @@ describe('the runtime guard under --output json', () => {
 
   it.each([
     ['Bun', '1.1.38', undefined, 'Requires Bun >= 1.2'],
-    ['Deno', undefined, '2.4.0', 'Requires Deno >= 2.5']
-  ])('refuses an old %s on stderr with no envelope on stdout', (_runtime, bun, deno, needle) => {
+    ['Deno', undefined, '2.4.0', 'Requires Deno >= 2.5'],
+    ['Deno', undefined, '2.8.0', 'Deno 2.8.0 cannot load node:querystring']
+  ])('refuses an old %s with one envelope on stdout', (_runtime, bun, deno, needle) => {
     const seen = refuse(() =>
       enforceSupportedNodeVersion('22.12.0', bun, deno, jsonBuild)
     )
 
-    // Pins today's behavior. Ledger 1372 D14.
-    expect(seen.write).not.toHaveBeenCalled()
-    expect(seen.log).not.toHaveBeenCalled()
     expect(String(seen.error.mock.calls[0][0])).toContain(needle)
+    expect(seen.write).toHaveBeenCalledTimes(1)
+
+    const frame = JSON.parse(String(seen.write.mock.calls[0][1]))
+
+    expect(frame).toMatchObject({
+      ok: false,
+      command: 'build',
+      status: 'usage',
+      error: {code: 'E_NODE_VERSION'}
+    })
+
+    expect(frame.error.message).toContain(needle)
+    expect(frame.error.message).not.toContain('[Extension.js]')
     expect(seen.exit).toHaveBeenCalledWith(1)
   })
 
-  it('writes the envelope for an old Node, which the other runtimes skip', () => {
+  it('writes the envelope for an old Node', () => {
     const seen = refuse(() =>
       enforceSupportedNodeVersion('20.19.4', undefined, undefined, jsonBuild)
     )
@@ -104,7 +115,7 @@ describe('the runtime guard under --output json', () => {
     expect(exit).toHaveBeenCalledWith(1)
   })
 
-  it('names the value of a flag typed before the command as the command', () => {
+  it('names the command after a flag typed before it', () => {
     const frame = unsupportedNodeVersionFrame('20.19.4', [
       'node',
       'extension',
@@ -115,8 +126,7 @@ describe('the runtime guard under --output json', () => {
       'json'
     ])
 
-    // Pins today's behavior. Ledger 1372 D14.
-    expect(frame?.command).toBe('firefox')
+    expect(frame?.command).toBe('build')
   })
 })
 
