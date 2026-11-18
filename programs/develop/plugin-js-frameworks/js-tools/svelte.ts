@@ -19,11 +19,12 @@ import {
 } from '../js-frameworks-lib/load-loader-options'
 import * as messages from '../js-frameworks-lib/messages'
 
-let userMessageDelivered = false
-let svelteMismatchDelivered = false
+// Printed once per process. A caller that needs its own record passes one.
+const svelteNotice = {delivered: false}
+const svelteMismatchNotice = {delivered: false}
 
-function resolveFromProject(id: string, projectPath: string) {
-  for (const base of [projectPath, process.cwd()]) {
+function resolveFromProject(id: string, projectPath: string, cwd: string) {
+  for (const base of [projectPath, cwd]) {
     try {
       const req = createRequire(path.join(base, 'package.json'))
 
@@ -125,15 +126,55 @@ export function chooseSvelteRoot(input: {
   }
 }
 
-export function isUsingSvelte(projectPath: string) {
+type ResolveOptions = NonNullable<
+  import('@rspack/core').Compiler['options']['resolve']
+>
+
+// Svelte libraries publish under the `svelte` export condition, often with no
+// other key, so a Svelte project offers it first, as vite-plugin-svelte does.
+export function withSvelteCondition(
+  conditionNames: ResolveOptions['conditionNames']
+): ResolveOptions['conditionNames'] {
+  if (!Array.isArray(conditionNames)) return conditionNames
+  if (conditionNames.includes('svelte')) return conditionNames
+
+  return ['svelte', ...conditionNames]
+}
+
+// Only the script resolvers take it: the stylesheet ones keep their own list.
+export function withSvelteConditionByDependency(
+  byDependency: ResolveOptions['byDependency']
+): ResolveOptions['byDependency'] {
+  if (!byDependency) return byDependency
+
+  const next: NonNullable<ResolveOptions['byDependency']> = {}
+
+  for (const [dependencyType, options] of Object.entries(byDependency)) {
+    const names = options?.conditionNames
+    const isScript =
+      Array.isArray(names) &&
+      (names.includes('import') || names.includes('require'))
+
+    next[dependencyType] = isScript
+      ? {...options, conditionNames: withSvelteCondition(names)}
+      : options
+  }
+
+  return next
+}
+
+export function isUsingSvelte(
+  projectPath: string,
+  notice: {delivered: boolean} = svelteNotice
+) {
   const using = hasDependency(projectPath, 'svelte')
 
-  if (using && !userMessageDelivered) {
+  if (using && !notice.delivered) {
     if (isDebug()) {
       debugLine(messages.isUsingIntegration('Svelte'))
     }
 
-    userMessageDelivered = true
+    notice.delivered = true
   }
 
   return using
@@ -141,7 +182,11 @@ export function isUsingSvelte(projectPath: string) {
 
 export async function maybeUseSvelte(
   projectPath: string,
-  mode: DevOptions['mode']
+  mode: DevOptions['mode'],
+  {
+    cwd = process.cwd(),
+    mismatchNotice = svelteMismatchNotice
+  }: {cwd?: string; mismatchNotice?: {delivered: boolean}} = {}
 ): Promise<JsFramework | undefined> {
   if (!isUsingSvelte(projectPath)) return undefined
 
@@ -180,7 +225,6 @@ export async function maybeUseSvelte(
         {
           loader: 'builtin:swc-loader',
           options: {
-            minify: false,
             jsc: {
               parser: {syntax: 'typescript'},
               target: 'esnext'
@@ -206,7 +250,8 @@ export async function maybeUseSvelte(
 
   const sveltePackageJson = resolveFromProject(
     'svelte/package.json',
-    projectPath
+    projectPath,
+    cwd
   )
   const projectRoot = sveltePackageJson
     ? path.dirname(sveltePackageJson)
@@ -222,7 +267,7 @@ export async function maybeUseSvelte(
   })
   const sveltePackageRoot = chosen.root
 
-  if (chosen.mismatch && !svelteMismatchDelivered) {
+  if (chosen.mismatch && !mismatchNotice.delivered) {
     console.warn(
       messages.svelteCompilerRuntimeMismatch(
         String(chosen.compilerVersion),
@@ -230,14 +275,14 @@ export async function maybeUseSvelte(
       )
     )
 
-    svelteMismatchDelivered = true
+    mismatchNotice.delivered = true
   }
 
   const resolveClientSubpath = (relative: string) => {
     // On a mismatch the project's copy is the wrong one: its runtime cannot
     // link the exports the compiler just emitted, so only the root wins here.
     if (!chosen.mismatch) {
-      const direct = resolveFromProject(`svelte/${relative}`, projectPath)
+      const direct = resolveFromProject(`svelte/${relative}`, projectPath, cwd)
       if (direct) return direct
     }
 
@@ -280,20 +325,22 @@ export async function maybeUseSvelte(
 
   const resolverPlugin = {
     apply(compiler: import('@rspack/core').Compiler) {
-      const existingMainFields = compiler.options.resolve?.mainFields || []
       const existingExtensions = compiler.options.resolve?.extensions || []
-      const existingAlias = compiler.options.resolve?.alias || {}
       const existingModules = compiler.options.resolve?.modules || []
 
       const dedupe = (arr: string[]) => Array.from(new Set(arr))
 
+      const {conditionNames, byDependency} = compiler.options.resolve || {}
+
       compiler.options.resolve = {
         ...compiler.options.resolve,
-        mainFields: dedupe(existingMainFields),
-        // Keep the host bundler/browser conditions untouched: a `svelte` export
-        // condition can resolve server entries that pull node: built-ins.
+        ...(conditionNames
+          ? {conditionNames: withSvelteCondition(conditionNames)}
+          : {}),
+        ...(byDependency
+          ? {byDependency: withSvelteConditionByDependency(byDependency)}
+          : {}),
         extensions: dedupe(['.svelte', ...existingExtensions]),
-        alias: existingAlias,
         modules: dedupe([
           path.join(projectPath, 'node_modules'),
           ...existingModules

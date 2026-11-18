@@ -354,12 +354,7 @@ export const dev = () =>
   it('keep the fields only the CLI sets off the option types', () => {
     const internal: Record<string, string[]> = {
       DevOptions: ['install'],
-      BuildOptions: [
-        'install',
-        'metadataCommand',
-        'launchFollows',
-        'failOnWarning'
-      ],
+      BuildOptions: ['install', 'metadataCommand', 'launchFollows'],
       StartOptions: ['install'],
       PreviewOptions: ['metadataCommand', 'instanceId', 'instanceExplicit'],
       EntryPreviewOptions: ['metadataCommand', 'instanceId', 'instanceExplicit']
@@ -467,7 +462,11 @@ describe('types.ts', () => {
     expect(source.match(/'dev' \| '(?:start|build)' \|/g)).toHaveLength(1)
   })
 
-  it('has no option that nothing reads', () => {
-    expect(source).not.toMatch(/\bfailOnWarning\b/)
+  it('marks the build options that nothing reads as deprecated', () => {
+    for (const option of ['failOnWarning', 'exitOnError']) {
+      expect(source).toMatch(
+        new RegExp(`@deprecated[^/]*\\*/\\s*${option}\\?:`)
+      )
+    }
   })
 })

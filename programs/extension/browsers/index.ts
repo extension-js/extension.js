@@ -6,11 +6,13 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {CODES} from '../helpers/messaging'
 import {
   isChromiumBrowser,
   isEmulatorBrowser,
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
+import {runOnlyUnsupportedBrowser} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {
@@ -129,7 +131,10 @@ export async function launchBrowser(
     return launchFirefox(opts, compilationLike, mode)
   }
 
-  throw new Error(`Unsupported browser: ${String(opts.browser)}`)
+  throw Object.assign(
+    new Error(runOnlyUnsupportedBrowser(String(opts.browser))),
+    {code: CODES.E_UNSUPPORTED_BROWSER}
+  )
 }
 
 async function launchChromium(
@@ -278,8 +283,8 @@ async function launchFirefox(
     launchRequest as unknown as Parameters<typeof launcher.runOnce>[1]
   )
 
-  // Resolve the RDP controller created during launch; in dry-run/VITEST paths
-  // none is created and reload/logging degrade to no-ops.
+  // Resolve the RDP controller created during launch; a dry run creates
+  // none and reload/logging degrade to no-ops.
   const rdpController = ctx.getController?.()
 
   return {

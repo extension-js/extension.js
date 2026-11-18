@@ -25,7 +25,7 @@ Use the `Extension.js – Release Publish` workflow at `.github/workflows/publis
 
 - Trigger: `workflow_dispatch` with inputs:
   - `channel`: `next`, `stable`, or `canary`
-  - `version`: explicit semver (e.g. `3.0.0-next.17` or `3.0.0`).
+  - `version`: explicit semver (for example `4.1.42-next.1` or `4.1.42`).
     - For `canary`, this can be left empty to auto-generate:
       `<next patch>-canary.<run_number>.<short_sha>`, named for the patch after
       the last release so it sorts above the published stable
@@ -61,7 +61,8 @@ Use the `Extension.js – Release Publish` workflow at `.github/workflows/publis
   published (jobs `corpus-published` and `templates-published`). On a canary that
   is the verdict to read before a stable. On a stable it proves the shipped
   version. They run after the publish, so a failure turns the run red and
-  unpublishes nothing.
+  unpublishes nothing. On a stable the corpus reading skips Safari, which the
+  gate before the publish already read from the same source.
   The one exception is the canary a stable run cuts for itself. It is dispatched
   with `readings=false`, because that stable's gates read the same version at
   the same pins.
@@ -74,7 +75,7 @@ Use the `Extension.js – Release Publish` workflow at `.github/workflows/publis
   builds a new corpus head with the latest stable, and opens an issue when a pin
   is behind. It cannot push the change, because the Actions token may not edit
   workflow files.
-- CI validates inputs, builds, and runs tests.
+- CI builds the packages, runs the tests, then validates the inputs.
 - Release notes are generated from git history using `scripts/generate-release-notes.mjs`.
   Stable and next releases use grouped, user-facing bullets with commit refs, while
   release-machinery and internal pipeline commits are omitted (extend
@@ -84,7 +85,7 @@ Use the `Extension.js – Release Publish` workflow at `.github/workflows/publis
   - `programs/extension/package.json`
   - `programs/develop/package.json`
   - `programs/create/package.json`
-- `programs/install/package.json`
+  - `programs/install/package.json`
 - CI publishes `extension`, `extension-develop`, `extension-create`, and `extension-install` to npm
   using the selected dist-tag (`latest`, `next`, or `canary`).
 - For `stable` and `next`, CI tags the release as `v<version>`, creates a GitHub

@@ -9,8 +9,15 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import * as messages from './messages'
+import {humanLine} from './messaging'
+import {
+  browserArtifactsDir,
+  readyContractPath,
+  sessionArtifactsRootDir
+} from './session-contract'
+
+export {browserArtifactsDir, readyContractPath, sessionArtifactsRootDir}
 
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
@@ -45,7 +52,7 @@ export function legacyControlTokenPath(projectPath: string): string {
 
 // A project the CLI did not create has no rule for this folder, and the root
 // .gitignore is only appended to when one exists: the folder ignores itself.
-export const SESSION_STATE_IGNORE_CONTENT =
+const SESSION_STATE_IGNORE_CONTENT =
   '# Extension.js local session state: the control port and the live control\n' +
   '# token of a running session. Never commit or ship this directory.\n' +
   '*\n'
@@ -63,10 +70,6 @@ export function ensureSessionStateIgnoreFile(projectPath: string): void {
   }
 }
 
-export function sessionArtifactsRootDir(projectPath: string): string {
-  return path.resolve(projectPath, 'dist', 'extension-js')
-}
-
 // dist/extension-js holds a full managed browser profile; a '*' .gitignore
 // inside the session root defends adopted projects from committing personal data.
 export const SESSION_ARTIFACTS_IGNORE_CONTENT =
@@ -81,7 +84,7 @@ export function sessionArtifactsIgnoreFilePath(projectPath: string): string {
 
 // The folder sits beside the user's builds, so a reader listing dist/ (often
 // an agent) needs it to say what it is rather than guess.
-export const SESSION_ARTIFACTS_README_CONTENT =
+const SESSION_ARTIFACTS_README_CONTENT =
   '# dist/extension-js\n\n' +
   'Extension.js writes this folder. It is not a browser build, is never\n' +
   'zipped or published, and is safe to delete while no session is running.\n\n' +
@@ -92,7 +95,7 @@ export const SESSION_ARTIFACTS_README_CONTENT =
   '- `profiles/`: managed browser profiles (cookies, history, logins)\n\n' +
   'The builds themselves are the sibling folders, such as `dist/chrome`.\n'
 
-export function sessionArtifactsReadmePath(projectPath: string): string {
+function sessionArtifactsReadmePath(projectPath: string): string {
   return path.join(sessionArtifactsRootDir(projectPath), 'README.md')
 }
 
@@ -233,13 +236,6 @@ export function ensureSessionStateInProjectGitignore(
   }
 }
 
-export function browserArtifactsDir(
-  projectPath: string,
-  browser: string
-): string {
-  return path.join(sessionArtifactsRootDir(projectPath), browser)
-}
-
 // The managed-profile root for one project+browser. A run's leaf under it is
 // 'dev' when persisted and a generated name otherwise, so only ready.json can
 // name the full profile path of an ephemeral run.
@@ -256,13 +252,6 @@ export function browserProfileRootDir(
 
 export function browserDistDir(projectPath: string, browser: string): string {
   return path.resolve(projectPath, 'dist', browser)
-}
-
-export function readyContractPath(
-  projectPath: string,
-  browser: string
-): string {
-  return path.join(browserArtifactsDir(projectPath, browser), 'ready.json')
 }
 
 export function eventsPath(projectPath: string, browser: string): string {
@@ -285,40 +274,3 @@ export function buildSummaryPath(projectPath: string, browser: string): string {
     'build-summary.json'
   )
 }
-
-export type SessionArtifactKeying =
-  | 'per-browser'
-  | 'legacy-shared'
-  | 'legacy-per-browser-in-dist'
-
-export interface SessionArtifact {
-  name: string
-  keying: SessionArtifactKeying
-  build: (projectPath: string, browser: string) => string
-}
-
-export const SESSION_ARTIFACTS: ReadonlyArray<SessionArtifact> = [
-  {name: 'control-port', keying: 'per-browser', build: controlPortFilePath},
-  {
-    name: 'legacy-control-port',
-    keying: 'legacy-per-browser-in-dist',
-    build: legacyControlPortFilePath
-  },
-  {name: 'control-token', keying: 'per-browser', build: controlTokenPath},
-  {
-    name: 'legacy-control-token',
-    keying: 'legacy-shared',
-    build: (projectPath) => legacyControlTokenPath(projectPath)
-  },
-  {
-    name: 'browser-profile-root',
-    keying: 'per-browser',
-    build: browserProfileRootDir
-  },
-  {name: 'browser-dist', keying: 'per-browser', build: browserDistDir},
-  {name: 'ready-contract', keying: 'per-browser', build: readyContractPath},
-  {name: 'events-log', keying: 'per-browser', build: eventsPath},
-  {name: 'bridge-logs', keying: 'per-browser', build: logsPath},
-  {name: 'actions-audit', keying: 'per-browser', build: actionsPath},
-  {name: 'build-summary', keying: 'per-browser', build: buildSummaryPath}
-]

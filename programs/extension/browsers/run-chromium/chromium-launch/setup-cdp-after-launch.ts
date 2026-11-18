@@ -225,7 +225,8 @@ export async function verifyGuestLoadAfterLaunch(
     companionPath,
     pipeIn: pipeStreams?.input,
     pipeOut: pipeStreams?.output,
-    logSink: plugin.logSink
+    logSink: plugin.logSink,
+    runId: plugin.launchRunId
   })
 
   await cdpExtensionController.connect()
@@ -322,7 +323,8 @@ export async function setupCdpAfterLaunch(
     companionPath,
     pipeIn: pipeStreams?.input,
     pipeOut: pipeStreams?.output,
-    logSink: plugin.logSink
+    logSink: plugin.logSink,
+    runId: plugin.launchRunId
   })
 
   // connectToChromeCdp already performs bounded startup retries internally.
@@ -462,12 +464,14 @@ export async function setupCdpAfterLaunch(
     version?: string
   } | null = null
 
+  let ensureLoadedTimer: ReturnType<typeof setTimeout> | undefined
+
   try {
     const ensureLoadedTimeoutMs = 10000
     extensionControllerInfo = await Promise.race([
       cdpExtensionController.ensureLoaded(),
       new Promise<never>((_, reject) => {
-        setTimeout(
+        ensureLoadedTimer = setTimeout(
           () =>
             reject(
               codedError(
@@ -478,7 +482,10 @@ export async function setupCdpAfterLaunch(
           ensureLoadedTimeoutMs
         )
       })
-    ])
+    ]).finally(() => {
+      // A load that answered leaves no timer to hold the process ten seconds.
+      clearTimeout(ensureLoadedTimer)
+    })
   } catch (error) {
     const code = declaredCode(error)
 

@@ -7,29 +7,29 @@
 
 # plugin-js-frameworks
 
-Automatically wires JS frameworks and TypeScript into the Rspack build used by Extension.js. It:
+Wires JavaScript frameworks and TypeScript into the Rspack build Extension.js runs. It:
 
-- Detects frameworks in your `package.json` (React, Preact, Vue, Svelte) and TypeScript
-- Picks the SWC parser per file extension (`.ts`, `.tsx`, `.jsx`, `.js`) and the JSX runtime from the installed framework
-- Adds framework loaders/plugins and safe aliases to avoid duplicate renderer instances
-- Sets `tsconfig` resolution when TypeScript is present
-- Defers heavy configuration to `beforeRun` in production
+- Detects React, Preact, Vue, Svelte and Solid from the project's `package.json`, and TypeScript from a `tsconfig.json` next to TypeScript sources or a `typescript` dependency
+- Compiles scripts with SWC. The file extension picks the parser (`.ts`, `.tsx`, `.jsx`, `.js` and their `m`/`c` forms), the installed framework picks the automatic JSX runtime (`solid-js`, then `preact` when React is absent, then `vue` when React and Preact are absent, else `react`)
+- Parses decorators in every script. `experimentalDecorators` in the `tsconfig.json` or `jsconfig.json` (read through `extends`) compiles them as TypeScript's legacy decorators, with `emitDecoratorMetadata` honored, otherwise they compile as standard decorators (the 2022-03 proposal)
+- Takes the SWC targets from the manifest: `minimum_chrome_version` for a Chromium build, the Gecko `strict_min_version` for a Firefox build, `chrome >= 100` otherwise
+- Compiles content scripts in their own layer as classic scripts, and compiles a `"type": "module"` service worker or a `<script type="module">` page script as an ES module
+- Points `resolve.tsConfig` at the project's `tsconfig.json`, or its `jsconfig.json` in a JavaScript project, so path aliases resolve
+- Writes a default `tsconfig.json` when the build reaches TypeScript sources and the project has none
+- Configures everything before the first compilation: on `beforeRun` in production, eagerly in development
 
-### Feature overview
+Optional tooling (the React refresh plugin, `vue-loader`, `svelte-loader`, Solid's Babel stack) is resolved from the project first, then from Extension.js. Nothing is installed: a missing package fails the build with the install command for the project's package manager.
 
-|                                                                            | Framework                                                                                                             |
-| -------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------- |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **React**<br/>Auto‑installs fast refresh (when missing), applies ReactRefresh plugin, and aliases React/DOM/runtime.  |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Preact**<br/>Auto‑installs Prefresh, applies PreactRefresh, and aliases React imports to `preact/compat`.           |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Vue**<br/>Adds `vue-loader` + `VueLoaderPlugin`; JSX/TSX pages import `vue/jsx-runtime`; supports optional `vue.loader.(js                                  | mjs)` with custom options. |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Svelte**<br/>Adds `svelte-loader` rules (including `.svelte.ts`) with dev/HMR defaults; supports `svelte.loader.*`. |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **TypeScript**<br/>Ensures `tsconfig.json` exists/loaded, the SWC parser follows the file extension, so `.tsx` and `.jsx` parse for every framework. |
+### Frameworks
 
-Solid is not a supported framework. A Solid project still compiles, through a runtime adapter over
-`solid-js/h`, but fine-grained JSX reactivity does not survive that path: SWC emits
-`jsx("h1", {children: count()})`, so a signal in a child position is read once at element creation and
-never again. Only Solid's own Babel preset compiles `{count()}` into a reactive expression, and SWC has
-no equivalent, so the adapter cannot recover it.
+| Framework | What the plugin adds |
+| --------- | -------------------- |
+| **React** | Aliases `react`, `react-dom`, `react-dom/client` and both JSX runtimes to one copy. In development it adds `@rspack/plugin-react-refresh` and puts the refresh runtime in front of page entries only, never content scripts or the background. |
+| **Preact** | Aliases `preact` and its JSX runtimes, and aliases `react` and `react-dom` to `preact/compat` when React is not a dependency. Fast refresh is off: Preact pages reload. |
+| **Vue** | Vue 3: `vue-loader` with `VueLoaderPlugin`, the Vue feature flags, and the runtime-only ES module build. Options from `vue.loader.(ts\|mts\|js\|mjs)` merge over the defaults. Vue 2: plain scripts build, and a `.vue` file fails the build with one error naming it. |
+| **Svelte** | `svelte-loader` for `.svelte`, `.svelte.js` and `.svelte.ts` (SWC strips the types first), with `dev` and `hotReload` on in development. The `svelte` export condition comes first in script resolution, so a component library that publishes only under it resolves. Options from `svelte.loader.(ts\|mts\|js\|mjs)` merge over the defaults. When the compiler is newer than the project's `svelte`, the runtime follows the compiler and a warning says so. |
+| **Solid** | Solid's own compiler through Babel (`babel-preset-solid`, plus `@babel/preset-typescript` for `.tsx`), the way `vite-plugin-solid` runs it. A plain `.js` file goes to Babel only when it holds JSX. `.ts` files stay on SWC. |
+| **TypeScript** | The SWC TypeScript parser by extension, the scaffolded `tsconfig.json`, and `resolve.tsConfig`. No `typescript` package is needed to build. |
 
 ### Usage
 
@@ -40,17 +40,13 @@ export default {
   plugins: [
     new JsFrameworksPlugin({
       manifestPath: '/abs/path/to/manifest.json',
-      mode: process.env.NODE_ENV === 'production' ? 'production' : 'development'
+      browser: 'chrome',
+      mode: 'development',
+      transpilePackages: ['@acme/ui']
     })
   ]
 }
 ```
-
-### What the tests cover
-
-- Ensures aliases, SWC rule, framework loaders/plugins, and `tsconfig` are applied in development
-- Ensures configuration happens on `beforeRun` in production
-- Validates individual detectors for React, Vue, Svelte, and TypeScript
 
 ### API
 
@@ -59,7 +55,11 @@ export class JsFrameworksPlugin {
   static readonly name: 'plugin-js-frameworks'
   constructor(options: {
     manifestPath: string
+    // The build target. Picks the manifest keys and the SWC targets. Defaults to 'chrome'.
+    browser?: DevOptions['browser']
     mode: 'development' | 'production'
+    // Packages under node_modules that compile like project sources.
+    transpilePackages?: string[]
   })
   apply(compiler: import('@rspack/core').Compiler): Promise<void>
 }

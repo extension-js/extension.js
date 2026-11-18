@@ -8,12 +8,7 @@
 
 import {exitAfterDrain} from './exit-after-drain'
 import {CODES} from './messaging'
-import {
-  getTelemetryConsent,
-  hasTrackedSessionStart,
-  markCommandFailure,
-  telemetry
-} from './telemetry-cli'
+import {type TelemetryCli, telemetryCli} from './telemetry-cli'
 
 export type TerminationSignal = 'SIGINT' | 'SIGTERM'
 
@@ -35,7 +30,7 @@ export const TERMINATION_SIGNALS: readonly TerminationSignal[] = [
  * WHY THIS HANDLER USUALLY DOES NOT EXIT THE PROCESS. `dev`, `start` and
  * `preview` install their own signal handlers, and those own the shutdown:
  * they terminate the browser child, close the dev server, and `run-only`
- * schedules a `process.exit(0)` ten milliseconds after the signal. Exiting from
+ * exits once the browser has closed, or at once on a second signal. Exiting from
  * here would race that teardown and cut it short for a measurement, which
  * inverts the priority. So the exit is taken only when nothing else is
  * listening, which is the case this handler created by registering at all: a
@@ -67,96 +62,126 @@ export interface TerminationSignalDeps {
   exit: (code: number) => void | Promise<void>
 }
 
-let handled = false
-const ownListeners = new Set<() => void>()
-let installed = false
+export interface TelemetrySignalTarget {
+  once(signal: TerminationSignal, listener: () => void): unknown
+  listeners(signal: TerminationSignal): unknown[]
+}
 
-export function __resetTelemetrySignalsForTest(): void {
-  for (const signal of TERMINATION_SIGNALS) {
-    for (const listener of ownListeners) {
-      process.removeListener(signal, listener as never)
+export interface TelemetrySignalsDeps {
+  cli: Pick<
+    TelemetryCli,
+    'getConsent' | 'hasTrackedSessionStart' | 'markCommandFailure' | 'telemetry'
+  >
+  target: TelemetrySignalTarget
+  exit: (code: number) => void | Promise<void>
+}
+
+export interface TelemetrySignals {
+  flushTelemetryWithin(ms: number): Promise<void>
+  handleTerminationSignal(
+    signal: TerminationSignal,
+    deps: TerminationSignalDeps
+  ): Promise<void>
+  install(): void
+}
+
+export function createTelemetrySignals(
+  overrides: Partial<TelemetrySignalsDeps> = {}
+): TelemetrySignals {
+  const cli = overrides.cli ?? telemetryCli
+  const target = overrides.target ?? (process as TelemetrySignalTarget)
+  const exit = overrides.exit ?? ((code: number) => exitAfterDrain(code))
+
+  let handled = false
+  const ownListeners = new Set<() => void>()
+  let installed = false
+
+  // A collector that never answers must not be what keeps a terminal from
+  // coming back after Ctrl-C.
+  async function flushTelemetryWithin(ms: number): Promise<void> {
+    try {
+      await Promise.race([
+        cli.telemetry.flush(),
+        new Promise<void>((resolve) => setTimeout(resolve, ms).unref?.())
+      ])
+    } catch {
+      // Ignore
     }
   }
 
-  ownListeners.clear()
-  handled = false
-  installed = false
-}
+  async function handleTerminationSignal(
+    signal: TerminationSignal,
+    deps: TerminationSignalDeps
+  ): Promise<void> {
+    // A SIGINT followed by a SIGTERM is one shutdown, not two outcomes.
+    if (handled) return
 
-// Exported so the deadline itself is testable: a collector that never answers
-// must not be what keeps a terminal from coming back after Ctrl-C.
-export async function flushTelemetryWithin(ms: number): Promise<void> {
-  try {
-    await Promise.race([
-      telemetry.flush(),
-      new Promise<void>((resolve) => setTimeout(resolve, ms).unref?.())
-    ])
-  } catch {
-    // Ignore
+    handled = true
+
+    const counted = deps.sessionStarted()
+    const othersOwn = deps.othersOwnTermination()
+
+    /* A Ctrl-C is how a watch session normally ends, so calling every signal a
+     * failure would rebuild the artifact this fix exists to remove. Only a run
+     * that reported nothing and had no shutdown of its own is reported as
+     * interrupted: `dev`, `start` and `preview` already counted themselves at
+     * their session start, and `logs` ends through its own handler at exit 0.
+     */
+    if (!counted && !othersOwn) deps.markInterrupted(signalExitCode(signal))
+
+    await deps.flush()
+
+    // A session that came up ends the way it always has: exit 0 through whoever
+    // owns the teardown. Only a run with no other listener needs this exit.
+    if (!othersOwn) await deps.exit(counted ? 0 : signalExitCode(signal))
   }
-}
 
-export async function handleTerminationSignal(
-  signal: TerminationSignal,
-  deps: TerminationSignalDeps
-): Promise<void> {
-  // A SIGINT followed by a SIGTERM is one shutdown, not two outcomes.
-  if (handled) return
-
-  handled = true
-
-  const counted = deps.sessionStarted()
-  const othersOwn = deps.othersOwnTermination()
-
-  /* A Ctrl-C is how a watch session normally ends, so calling every signal a
-   * failure would rebuild the artifact this fix exists to remove. Only a run
-   * that reported nothing and had no shutdown of its own is reported as
-   * interrupted: `dev`, `start` and `preview` already counted themselves at
-   * their session start, and `logs` ends through its own handler at exit 0.
-   */
-  if (!counted && !othersOwn) deps.markInterrupted(signalExitCode(signal))
-
-  await deps.flush()
-
-  // A session that came up ends the way it always has: exit 0 through whoever
-  // owns the teardown. Only a run with no other listener needs this exit.
-  if (!othersOwn) await deps.exit(counted ? 0 : signalExitCode(signal))
-}
-
-function defaultDeps(): TerminationSignalDeps {
-  return {
-    sessionStarted: hasTrackedSessionStart,
-    markInterrupted: (exitCode) =>
-      markCommandFailure(undefined, {code: CODES.E_INTERRUPTED, exitCode}),
-    flush: () => flushTelemetryWithin(FLUSH_DEADLINE_MS),
-    othersOwnTermination: () =>
-      TERMINATION_SIGNALS.some((signal) =>
-        process
-          .listeners(signal)
-          .some((listener) => !ownListeners.has(listener as () => void))
-      ),
-    exit: (code) => exitAfterDrain(code)
+  function defaultDeps(): TerminationSignalDeps {
+    return {
+      sessionStarted: () => cli.hasTrackedSessionStart(),
+      markInterrupted: (exitCode) =>
+        cli.markCommandFailure(undefined, {
+          code: CODES.E_INTERRUPTED,
+          exitCode
+        }),
+      flush: () => flushTelemetryWithin(FLUSH_DEADLINE_MS),
+      othersOwnTermination: () =>
+        TERMINATION_SIGNALS.some((signal) =>
+          target
+            .listeners(signal)
+            .some((listener) => !ownListeners.has(listener as () => void))
+        ),
+      exit
+    }
   }
+
+  // Registered from the CLI entry, before any command action runs, so this
+  // listener sees the signal ahead of the teardown handlers installed later.
+  function install(): void {
+    if (installed) return
+    // An opted-out run installs nothing at all, so it keeps the exact signal
+    // behavior it has today.
+    if (!cli.getConsent().enabled) return
+
+    installed = true
+
+    for (const signal of TERMINATION_SIGNALS) {
+      const listener = () => {
+        void handleTerminationSignal(signal, defaultDeps())
+      }
+
+      ownListeners.add(listener)
+      // `once`: a second Ctrl-C then finds no listener of ours and the default
+      // action kills the process, so an interrupt is never swallowed twice.
+      target.once(signal, listener)
+    }
+  }
+
+  return {flushTelemetryWithin, handleTerminationSignal, install}
 }
 
-// Registered from the CLI entry, before any command action runs, so this
-// listener sees the signal ahead of the teardown handlers installed later.
+const processSignals = createTelemetrySignals()
+
 export function installTelemetrySignalHandlers(): void {
-  if (installed) return
-  // An opted-out run installs nothing at all, so it keeps the exact signal
-  // behavior it has today.
-  if (!getTelemetryConsent().enabled) return
-
-  installed = true
-
-  for (const signal of TERMINATION_SIGNALS) {
-    const listener = () => {
-      void handleTerminationSignal(signal, defaultDeps())
-    }
-
-    ownListeners.add(listener)
-    // `once`: a second Ctrl-C then finds no listener of ours and the default
-    // action kills the process, so an interrupt is never swallowed twice.
-    process.once(signal, listener)
-  }
+  processSignals.install()
 }

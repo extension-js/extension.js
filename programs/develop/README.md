@@ -68,7 +68,7 @@ The `extension-develop/manifest` entry is deprecated and is removed in the next 
 - Zipping: distribution and/or source packages (respects `.gitignore`)
 - Auto-install of missing build + optional dependencies on first run
 - Type generation for TS projects via `extension-env.d.ts`
-- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and webpack config hooks
+- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and the bundler config hooks (`config`, `configResolved`)
 - Managed dependency guard to avoid conflicts
 
 ## Commands
@@ -122,44 +122,48 @@ Each table lists fields of the exported option types `DevOptions`, `BuildOptions
 
 ### dev and build
 
-| Option            | Type / Values | Description                                                                                                                                   |
-| ----------------- | ------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| `polyfill`        | boolean       | Bundle `webextension-polyfill` on a Chromium target, off by default                                                                           |
-| `safariBinary`    | string        | Path of a Safari or WebKit-based app to run                                                                                                   |
-| `appName`         | string        | Safari app name, the manifest name by default                                                                                                 |
-| `bundleId`        | string        | Safari bundle identifier                                                                                                                      |
-| `developmentTeam` | string        | Apple development team that signs the Safari app                                                                                              |
-| `macOsOnly`       | boolean       | Generate the macOS-only Xcode project, on by default                                                                                          |
-| `appIcon`         | string        | Square 1024 px PNG the Safari app icon set is made from, relative to the project                                                              |
-| `forceRegenerate` | boolean       | Regenerate the Xcode project even when it is current                                                                                          |
-| `safariPackager`  | function      | The callback that packages the Safari app. Without it no Safari app is produced                                                               |
-| `zip`             | boolean       | `build`: package `dist/<browser>` as an archive. Accepted and unused by `dev`, which writes no archive                                        |
-| `zipSource`       | boolean       | `build`: package the source files, respecting `.gitignore`. Unused by `dev`                                                                   |
-| `zipFilename`     | string        | `build`: base name of the archives. Unused by `dev`                                                                                           |
-| `zipDir`          | string        | `build`: folder for the archives, relative to the project or absolute. Unused by `dev`                                                        |
-| `sourceMaps`      | boolean       | `build`: write a `.map` file beside each script and stylesheet of a production build, never zipped. Unused by `dev`, which always writes maps |
-| `exitOnError`     | boolean       | Exit the process with code 1 when the run fails. Off by default: a failure is a rejected promise                                              |
+| Option            | Type / Values | Description                                                                                                                                                                   |
+| ----------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `polyfill`        | boolean       | Bundle `webextension-polyfill` on a Chromium target, off by default                                                                                                           |
+| `safariBinary`    | string        | Path of a Safari or WebKit-based app to run                                                                                                                                   |
+| `appName`         | string        | Safari app name, the manifest name by default                                                                                                                                 |
+| `bundleId`        | string        | Safari bundle identifier                                                                                                                                                      |
+| `developmentTeam` | string        | Apple development team that signs the Safari app                                                                                                                              |
+| `macOsOnly`       | boolean       | Generate the macOS-only Xcode project, on by default                                                                                                                          |
+| `appIcon`         | string        | Square 1024 px PNG the Safari app icon set is made from, relative to the project                                                                                              |
+| `forceRegenerate` | boolean       | Regenerate the Xcode project even when it is current                                                                                                                          |
+| `safariPackager`  | function      | The callback that packages the Safari app. Without it no Safari app is produced                                                                                               |
+| `zip`             | boolean       | `build`: package `dist/<browser>` as an archive. Accepted and unused by `dev`, which writes no archive                                                                        |
+| `zipSource`       | boolean       | `build`: package the source files, respecting `.gitignore`. Unused by `dev`                                                                                                   |
+| `zipFilename`     | string        | `build`: base name of the archives. Unused by `dev`                                                                                                                           |
+| `zipDir`          | string        | `build`: folder for the archives, relative to the project or absolute. Unused by `dev`                                                                                        |
+| `sourceMaps`      | boolean       | `build`: write a `.map` file beside each script and stylesheet of a production build, never zipped. Unused by `dev`, which always writes maps                                 |
+| `exitOnError`     | boolean       | `dev`: exit the process with code 1 on a failed session, off by default for a library. Deprecated and ignored by `build`: a failed build rejects and the caller owns the exit |
 
 ### dev
 
-| Option                | Type / Values      | Description                                                                   |
-| --------------------- | ------------------ | ----------------------------------------------------------------------------- |
-| `allowedHosts`        | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain |
-| `preferences`         | object             | Browser preferences to set in the profile                                     |
-| `browserFlags`        | string[]           | Extra flags for the browser command line                                      |
-| `excludeBrowserFlags` | string[]           | Default flags to leave off the browser command line                           |
-| `hashContentScripts`  | boolean            | Put a content hash in each content script file name, on by default            |
-| `allowControl`        | boolean            | Open the control channel for the act verbs                                    |
-| `allowEval`           | boolean            | Also allow the `eval` verb. Implies `allowControl`                            |
+| Option                | Type / Values      | Description                                                                                                              |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `allowedHosts`        | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain                                            |
+| `preferences`         | object             | Browser preferences to set in the profile                                                                                |
+| `browserFlags`        | string[]           | Extra flags for the browser command line                                                                                 |
+| `excludeBrowserFlags` | string[]           | Default flags to leave off the browser command line                                                                      |
+| `hashContentScripts`  | boolean            | Put a content hash in each content script file name, on by default                                                       |
+| `allowControl`        | boolean            | Open the control channel for the act verbs                                                                               |
+| `allowEval`           | boolean            | Also allow the `eval` verb. Implies `allowControl`                                                                       |
+| `hintFor`             | function           | The hint for a terminal `failed` or `usage` frame that carries none. Called with the code, returns a string or undefined |
+
+A host that learns a session cannot go on calls `endSessionAsFailed(code, message, instanceId?)`, exported beside `extensionDev`. It ends the named session, or the newest one, with one `failed` frame and answers `false` when that session is not live or is already stopping. A host that did not pass `exitOnError` keeps running.
 
 ### build
 
-| Option      | Type / Values | Description                                                                                                            |
-| ----------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `outDir`    | string        | Base folder of the output, relative to the project. The build writes `<outDir>/<browser>`, `dist/<browser>` by default |
-| `silent`    | boolean       | Print nothing on stdout. A failure still prints                                                                        |
-| `addonLint` | boolean       | Run `addons-linter` over a production build for a Gecko target, on by default when it is installed                     |
-| `minify`    | boolean       | Minify first-party code in a production build. On by default, off for `opera`                                          |
+| Option          | Type / Values | Description                                                                                                            |
+| --------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `outDir`        | string        | Base folder of the output, relative to the project. The build writes `<outDir>/<browser>`, `dist/<browser>` by default |
+| `silent`        | boolean       | Print nothing on stdout. A failure still prints                                                                        |
+| `addonLint`     | boolean       | Run `addons-linter` over a production build for a Gecko target, on by default when it is installed                     |
+| `minify`        | boolean       | Minify first-party code in a production build. On by default, off for `opera`                                          |
+| `failOnWarning` | boolean       | Deprecated. Nothing reads it, a build never fails on a warning                                                         |
 
 ### start
 
@@ -325,11 +329,17 @@ dist/
 | Name                 | Group | Summary                                                                                                                                                                                                         |
 | -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
-| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
+| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist                                                                    |
 | plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
-| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
+| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules<br/>- Appends `.wasm` to the resolve extensions |
 | plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
+| plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |
+| plugin-wasm          | core  | - Enables async WebAssembly<br/>- Resolves `.wasm` imports<br/>- Aliases runtime wasm assets |
+| plugin-perf-budgets  | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold |
+| plugin-reload        | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session |
+| plugin-playwright    | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |
+| plugin-browsers      | dev   | - Launches the target browser with the built extension loaded<br/>- Passed in by the CLI, absent under `--no-browser` |
 
 ## Notes and compatibility
 

@@ -8,21 +8,11 @@
 
 import type {ChildProcess} from 'node:child_process'
 import * as fs from 'node:fs'
-import locateFirefox, {
-  getInstallGuidance as getFirefoxInstallGuidance
-} from 'firefox-location2'
-import locateFloorp, {
-  getInstallGuidance as getFloorpInstallGuidance
-} from 'floorp-location'
-import locateLibreWolf, {
-  getInstallGuidance as getLibreWolfInstallGuidance
-} from 'librewolf-location'
-import locateWaterfox, {
-  getInstallGuidance as getWaterfoxInstallGuidance
-} from 'waterfox-location'
-import locateZen, {
-  getInstallGuidance as getZenInstallGuidance
-} from 'zen-location'
+import {getInstallGuidance as getFirefoxInstallGuidance} from 'firefox-location2'
+import {getInstallGuidance as getFloorpInstallGuidance} from 'floorp-location'
+import {getInstallGuidance as getLibreWolfInstallGuidance} from 'librewolf-location'
+import {getInstallGuidance as getWaterfoxInstallGuidance} from 'waterfox-location'
+import {getInstallGuidance as getZenInstallGuidance} from 'zen-location'
 import {
   CODES,
   hasChannelPrefix,
@@ -33,7 +23,6 @@ import {
 } from '../../../helpers/messaging'
 import {expectedGeckoExtensionId} from '../../browsers-lib/banner'
 import {binaryOverrideNaming} from '../../browsers-lib/binary-env-override'
-import {claimDebugPortNear} from '../../browsers-lib/debug-port-claim'
 import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {scanSystem} from '../../browsers-lib/locator-env'
 import {readGeckoRefusalCause} from '../../browsers-lib/manifest-refusal'
@@ -49,12 +38,6 @@ import {
   type PinnedBinaryProblem,
   pinnedBinaryProblem
 } from '../../browsers-lib/pinned-binary'
-import {
-  gracefulTerminateChild,
-  gracefulTerminatePid,
-  wasPidTerminatedByUs,
-  wasTerminatedByUs
-} from '../../browsers-lib/process-teardown'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {
   describeLaunchFailure,
@@ -69,12 +52,7 @@ import {
   stampReadyRdpPort,
   stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
-import {
-  findLiveBrowserPid,
-  isPidAlive,
-  listProcesses,
-  resolveLiveBrowserPid
-} from '../../browsers-lib/resolve-live-pid'
+import {findLiveBrowserPid} from '../../browsers-lib/resolve-live-pid'
 import {
   normalizeProfileOption,
   systemProfileEnvName
@@ -88,10 +66,7 @@ import {
   deriveDebugPortWithInstance,
   removeManagedEphemeralProfile
 } from '../../browsers-lib/shared-utils'
-import {
-  isVersionProbeTimeout,
-  probeGeckoBinaryVersion
-} from '../../browsers-lib/version-probe'
+import {isVersionProbeTimeout} from '../../browsers-lib/version-probe'
 import type {
   BrowserConfig,
   BrowserLogger,
@@ -101,7 +76,6 @@ import type {
 } from '../../browsers-types'
 import type {FirefoxContext} from '../firefox-context'
 import type {FirefoxPluginRuntime} from '../firefox-types'
-import {stampReadyWhenRdpPortOpens} from './await-rdp-port'
 import {
   FirefoxBinaryDetector,
   isFirefoxHeadlessRequested,
@@ -110,26 +84,23 @@ import {
 import {resolveFirefoxLaunchConfig} from './browser-config'
 import {attachChildOutput} from './child-output'
 import {logFirefoxDryRun} from './dry-run'
-import {librewolfRemoteDebuggingEnabled} from './librewolf-overrides'
-import {ensureManagedGeckoUpdatePolicy} from './managed-update-policy'
 import {
-  type FirefoxBrowserKind,
-  setupFirefoxProcessHandlers
-} from './process-handlers'
+  type FirefoxLaunchDependencies,
+  firefoxLaunchDefaults
+} from './launch-dependencies'
+import {ensureManagedGeckoUpdatePolicy} from './managed-update-policy'
+import type {FirefoxBrowserKind} from './process-handlers'
 import {removeSessionPreferences} from './session-preferences'
-import {setupRdpAfterLaunch} from './setup-rdp-after-launch'
+import type {setupRdpAfterLaunch} from './setup-rdp-after-launch'
 import {
   isWslEnv,
   normalizeBinaryPathForWsl,
   resolveWslLinuxBinary as resolveWslLinuxFirefox,
-  resolveWslWindowsBinary,
-  spawnFirefoxProcess
+  resolveWslWindowsBinary
 } from './wsl-support'
 
 const DRY_RUN_NO_BROWSER =
   'a dry run prints the Firefox launch plan and starts no browser'
-const TEST_RUNNER_NO_BROWSER =
-  'the test runner prints the Firefox launch plan and starts no browser'
 
 type LaunchOptions = {
   browser: BrowserType
@@ -216,14 +187,21 @@ export class FirefoxLaunchPlugin {
   // The process that owns the session once Firefox hands it off and lets the
   // spawned child exit. Null while the child itself is the browser.
   private livePid: number | null = null
+  private livePidAdoptedAt = 0
   private liveExitWatcher?: NodeJS.Timeout
   private browserGone = false
   private didReportReady = false
   private disposeProcessHandlers?: () => void
+  private readonly deps: FirefoxLaunchDependencies
 
-  constructor(host: FirefoxPluginRuntime, ctx: FirefoxContext) {
+  constructor(
+    host: FirefoxPluginRuntime,
+    ctx: FirefoxContext,
+    deps: Partial<FirefoxLaunchDependencies> = {}
+  ) {
     this.host = host
     this.ctx = ctx
+    this.deps = {...firefoxLaunchDefaults, ...deps}
     this.host.isBrowserGone = () => this.browserGone
   }
 
@@ -231,6 +209,12 @@ export class FirefoxLaunchPlugin {
   // that never spawned from a failure that followed a live browser.
   public get spawnedBrowser(): boolean {
     return this.child !== null
+  }
+
+  // Whether the browser has exited, an adopted process included, so a caller
+  // ending the session can wait for the close instead of killing it.
+  public get browserClosed(): boolean {
+    return this.browserGone
   }
 
   // Run the Firefox launch flow without a bundler compiler instance;
@@ -246,6 +230,16 @@ export class FirefoxLaunchPlugin {
         error: (...a: unknown[]) => humanError(...a),
         debug: (...a: unknown[]) => console?.debug?.(...a)
       } as BrowserLogger
+    }
+
+    // A skipped launch is not a launch: no ready line, and a later call may
+    // still start the browser.
+    if ((compilation as {errors?: unknown[]})?.errors?.length) {
+      this.ctx.logger?.info?.(
+        messages.skippingBrowserLaunchDueToCompileErrors()
+      )
+
+      return
     }
 
     try {
@@ -297,7 +291,7 @@ export class FirefoxLaunchPlugin {
     stampReadyBrowserLaunchFailed(
       outputPath,
       describeLaunchFailure(error),
-      this.launchRunId ?? readReadyRunId(outputPath),
+      this.launchRunId,
       launchFailureCode(error)
     )
   }
@@ -308,11 +302,7 @@ export class FirefoxLaunchPlugin {
     const outputPath =
       this.extensionOutputPath ?? this.resolveExtensionOutputPath()
 
-    stampReadyRdpPortError(
-      outputPath,
-      reason,
-      this.launchRunId ?? readReadyRunId(outputPath)
-    )
+    stampReadyRdpPortError(outputPath, reason, this.launchRunId)
   }
 
   // The user extension's dist dir anchors ready.json, so companions are
@@ -422,16 +412,8 @@ export class FirefoxLaunchPlugin {
   }
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
-    const compilationErrors: unknown[] =
-      (compilation as {errors?: unknown[]})?.errors || []
-
-    if (compilationErrors.length > 0) {
-      this.ctx.logger?.info?.(
-        messages.skippingBrowserLaunchDueToCompileErrors()
-      )
-
-      return
-    }
+    this.extensionOutputPath = this.resolveExtensionOutputPath()
+    this.launchRunId = readReadyRunId(this.extensionOutputPath)
 
     if (isDebug()) {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled(this.host.browser))
@@ -501,47 +483,10 @@ export class FirefoxLaunchPlugin {
       )
     }
 
-    const inTestRunner = Boolean(
-      process.env.VITEST || process.env.VITEST_WORKER_ID
-    )
     const dryRun = Boolean(this.host.dryRun)
 
-    // Specs never launch: without a dry run they get the bare placeholder,
-    // with one they get the real plan around the pinned binary, or around a
-    // placeholder when there is no pin to find inside the test runner.
-    if (inTestRunner && !dryRun) {
-      logFirefoxDryRun('firefox-mock-binary', [])
-      this.stampNoBrowserLaunched(TEST_RUNNER_NO_BROWSER)
-
-      return
-    }
-
-    // A pinned binary used to fall through to discovery, which probes the
-    // filesystem and execs the binary for a version line, and that took
-    // minutes on a Windows runner. Mirrors the chromium short circuit.
-    if (inTestRunner && dryRun) {
-      await this.printDryRunPlan(
-        compilation,
-        options,
-        this.host.geckoBinary
-          ? normalizeBinaryPathForWsl(String(this.host.geckoBinary))
-          : 'firefox-mock-binary',
-        this.host.geckoBinary
-          ? messages.binarySourceLabel('pinned', this.host.browser)
-          : undefined
-      )
-
-      this.stampNoBrowserLaunched(DRY_RUN_NO_BROWSER)
-
-      return
-    }
-
     if (this.host.browser === 'librewolf') {
-      const remoteDebugging = librewolfRemoteDebuggingEnabled(
-        fs,
-        process.env,
-        process.platform
-      )
+      const remoteDebugging = this.deps.librewolfRemoteDebugging()
 
       if (!remoteDebugging.enabled) {
         throw Object.assign(
@@ -626,7 +571,7 @@ export class FirefoxLaunchPlugin {
         } else if (this.host.browser === 'waterfox') {
           // Gecko fork located from the user's system, not a managed download.
           const located = scanSystem(() =>
-            locateWaterfox(true, {env: process.env})
+            this.deps.locate.waterfox(process.env)
           )
           const normalized = normalizePath(located)
 
@@ -635,7 +580,7 @@ export class FirefoxLaunchPlugin {
           }
         } else if (this.host.browser === 'librewolf') {
           const located = scanSystem(() =>
-            locateLibreWolf(true, {env: process.env})
+            this.deps.locate.librewolf(process.env)
           )
           const normalized = normalizePath(located)
 
@@ -643,16 +588,14 @@ export class FirefoxLaunchPlugin {
             browserBinaryLocation = normalized
           }
         } else if (this.host.browser === 'zen') {
-          const located = scanSystem(() => locateZen(true, {env: process.env}))
+          const located = scanSystem(() => this.deps.locate.zen(process.env))
           const normalized = normalizePath(located)
 
           if (normalized) {
             browserBinaryLocation = normalized
           }
         } else if (this.host.browser === 'floorp') {
-          const located = scanSystem(() =>
-            locateFloorp(true, {env: process.env})
-          )
+          const located = scanSystem(() => this.deps.locate.floorp(process.env))
           const normalized = normalizePath(located)
 
           if (normalized) {
@@ -664,7 +607,7 @@ export class FirefoxLaunchPlugin {
             ...process.env,
             ...managedBrowserCacheEnv(String(cacheRoot), 'firefox')
           }
-          const located = scanSystem(() => locateFirefox(true, {env}))
+          const located = scanSystem(() => this.deps.locate.firefox(env))
           const normalized = normalizePath(located)
 
           if (normalized) {
@@ -735,7 +678,7 @@ export class FirefoxLaunchPlugin {
     if (!isFlatpak) {
       try {
         this.host.browserVersionLine =
-          (await probeGeckoBinaryVersion(binaryPath)) || ''
+          (await this.deps.probeVersion(binaryPath)) || ''
       } catch (error) {
         // A binary that never answers would hang the launch the same way.
         if (isVersionProbeTimeout(error)) throw error
@@ -743,16 +686,13 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    this.extensionOutputPath = this.resolveExtensionOutputPath()
-    this.launchRunId = readReadyRunId(this.extensionOutputPath)
-
     const desiredDebugPort = deriveDebugPortWithInstance(
       this.host.port,
       this.host.instanceId
     )
     // Held until Firefox is seen on the port or the launch gives up, so a
     // session starting at the same moment is handed the next port.
-    const portClaim = await claimDebugPortNear(desiredDebugPort)
+    const portClaim = await this.deps.claimPort(desiredDebugPort)
     const debugPort = portClaim.port
     setInstancePorts(this.host.instanceId, {rdpPort: debugPort})
 
@@ -825,7 +765,20 @@ export class FirefoxLaunchPlugin {
     if (profilePath) {
       const {binary, args} = plan
       this.host.launchProfilePath = profilePath
-      this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
+
+      try {
+        this.child = await this.spawnFirefoxChild(
+          binary,
+          args,
+          wslFallbackBinary
+        )
+      } catch (error) {
+        // No browser will bind the port, so the next session may take it.
+        portClaim.release()
+
+        throw error
+      }
+
       // The contract names the executable that ran, the same fields the
       // Chromium launch stamps, so a reader can tell a fork from Firefox.
       stampReadyBrowserLaunch(
@@ -846,21 +799,18 @@ export class FirefoxLaunchPlugin {
       this.wireChildLifecycle()
       void this.trackLiveBrowserPid()
 
-      const portWait = await stampReadyWhenRdpPortOpens(
-        this.extensionOutputPath,
-        {
-          port: debugPort,
-          isBrowserGone: () => this.browserGone,
-          runId: this.launchRunId
-        }
-      )
+      const portWait = await this.deps.awaitRdpPort(this.extensionOutputPath, {
+        port: debugPort,
+        isBrowserGone: () => this.browserGone,
+        runId: this.launchRunId
+      })
 
       portClaim.release()
 
       let ctrl: Awaited<ReturnType<typeof setupRdpAfterLaunch>> | undefined
 
       try {
-        ctrl = await setupRdpAfterLaunch(
+        ctrl = await this.deps.setupRdp(
           this.host as FirefoxPluginRuntime & {[k: string]: unknown},
           compilation,
           debugPort
@@ -877,7 +827,11 @@ export class FirefoxLaunchPlugin {
         // timeout) stays a launch failure and keeps propagating as before.
         if (!reason) {
           if (portWait.open) {
-            stampReadyRdpPort(this.extensionOutputPath, debugPort)
+            stampReadyRdpPort(
+              this.extensionOutputPath,
+              debugPort,
+              this.launchRunId
+            )
           }
 
           // A process exists and the add-on never reached it, so the contract
@@ -902,7 +856,7 @@ export class FirefoxLaunchPlugin {
         this.host.retryAddonInstall = () =>
           this.retryAddonInstall(compilation, debugPort)
 
-        stampReadyRdpPort(this.extensionOutputPath, debugPort)
+        stampReadyRdpPort(this.extensionOutputPath, debugPort, this.launchRunId)
         this.scheduleWatchTimeout()
 
         return
@@ -910,11 +864,17 @@ export class FirefoxLaunchPlugin {
 
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
-      stampReadyRdpPort(this.extensionOutputPath, debugPort)
-      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyRdpPort(this.extensionOutputPath, debugPort, this.launchRunId)
+      stampReadyExtensionId(
+        this.extensionOutputPath,
+        ctrl.getExtensionId(),
+        this.launchRunId
+      )
+
       stampReadyExtensionBaseUrl(
         this.extensionOutputPath,
-        ctrl.getExtensionBaseUrl()
+        ctrl.getExtensionBaseUrl(),
+        this.launchRunId
       )
 
       this.scheduleWatchTimeout()
@@ -937,40 +897,6 @@ export class FirefoxLaunchPlugin {
     }
   }
 
-  // What a launch would run, from the same config seam as the spawn, with
-  // nothing provisioned on disk.
-  private async printDryRunPlan(
-    compilation: CompilationLike,
-    options: LaunchOptions,
-    binaryPath: string,
-    source?: string
-  ) {
-    const launchConfig = await resolveFirefoxLaunchConfig(
-      compilation,
-      {
-        ...options,
-        // The plan prints the flags the user asked for, so a caller that
-        // carries them on the plugin alone still sees them in the argv.
-        browserFlags: options.browserFlags || this.host.browserFlags || [],
-        profile: this.host.profile,
-        preferences: this.host.preferences || {},
-        instanceId: this.host.instanceId
-      },
-      {provision: false}
-    )
-    const plan = FirefoxBinaryDetector.launchPlan({
-      binaryPath,
-      profilePath: launchConfig.profilePath,
-      debugPort: deriveDebugPortWithInstance(
-        this.host.port,
-        this.host.instanceId
-      ),
-      binaryArgs: launchConfig.binaryArgs,
-      headless: isFirefoxHeadlessRequested()
-    })
-    logFirefoxDryRun(plan.binary, plan.args, source)
-  }
-
   private resolveSpawnStdio() {
     if (process.platform !== 'win32') {
       return ['pipe', 'pipe', 'pipe'] as const
@@ -986,7 +912,7 @@ export class FirefoxLaunchPlugin {
     args: string[],
     fallbackBinary?: string | null
   ) {
-    return await spawnFirefoxProcess({
+    return await this.deps.spawn({
       binary,
       args,
       stdio: [...this.resolveSpawnStdio()],
@@ -1012,7 +938,7 @@ export class FirefoxLaunchPlugin {
     })
 
     child.on('close', (code, signal) => {
-      const expected = wasTerminatedByUs(child)
+      const expected = this.deps.terminatedByUs(child)
 
       // Firefox can hand the session to a fresh process and let this one
       // exit. That process owns the profile now, so the session goes on.
@@ -1025,11 +951,14 @@ export class FirefoxLaunchPlugin {
 
     // Captured so the instance leaves the global cleanup registry once the
     // browser, spawned child or adopted process, is gone.
-    this.disposeProcessHandlers = setupFirefoxProcessHandlers(
+    this.disposeProcessHandlers = this.deps.watchSignals(
       this.host.browser as FirefoxBrowserKind,
       () => this.child,
       () => this.cleanupInstance(),
-      () => this.livePid,
+      () =>
+        this.livePid
+          ? {pid: this.livePid, adoptedAt: this.livePidAdoptedAt}
+          : null,
       // A session that exits on a signal is gone before the browser's close
       // event runs, so the fresh profile is reclaimed as the process ends.
       () => removeManagedEphemeralProfile(this.host.launchProfilePath)
@@ -1116,7 +1045,7 @@ export class FirefoxLaunchPlugin {
     if (!child?.pid || !profilePath || this.browserGone) return
 
     try {
-      const pid = await resolveLiveBrowserPid({
+      const pid = await this.deps.resolveLivePid({
         profilePath,
         binary: child.spawnfile,
         launcherPid: child.pid,
@@ -1145,10 +1074,12 @@ export class FirefoxLaunchPlugin {
           profilePath,
           binary: child.spawnfile,
           launcherPid: child.pid,
-          rows: listProcesses()
+          rows: this.deps.listProcesses()
         })
 
-      if (!pid || pid === this.child?.pid || !isPidAlive(pid)) return false
+      if (!pid || pid === this.child?.pid || !this.deps.isPidAlive(pid)) {
+        return false
+      }
 
       this.adoptLivePid(pid)
 
@@ -1162,6 +1093,7 @@ export class FirefoxLaunchPlugin {
     if (this.livePid === pid) return
 
     this.livePid = pid
+    this.livePidAdoptedAt = Date.now()
     stampReadyBrowserLaunch(
       this.extensionOutputPath,
       {
@@ -1187,11 +1119,11 @@ export class FirefoxLaunchPlugin {
 
     this.liveExitWatcher = setInterval(() => {
       const pid = this.livePid
-      if (!pid || isPidAlive(pid)) return
+      if (!pid || this.deps.isPidAlive(pid)) return
 
       clearInterval(this.liveExitWatcher)
       this.liveExitWatcher = undefined
-      this.onBrowserGone(null, wasPidTerminatedByUs(pid))
+      this.onBrowserGone(null, this.deps.pidTerminatedByUs(pid))
     }, 1000)
   }
 
@@ -1202,7 +1134,7 @@ export class FirefoxLaunchPlugin {
     debugPort: number
   ): Promise<ExtensionLoadRetryResult> {
     try {
-      const ctrl = await setupRdpAfterLaunch(
+      const ctrl = await this.deps.setupRdp(
         this.host as FirefoxPluginRuntime & {[k: string]: unknown},
         compilation,
         debugPort
@@ -1210,10 +1142,16 @@ export class FirefoxLaunchPlugin {
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
       this.host.extensionLoadRefused = undefined
-      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyExtensionId(
+        this.extensionOutputPath,
+        ctrl.getExtensionId(),
+        this.launchRunId
+      )
+
       stampReadyExtensionBaseUrl(
         this.extensionOutputPath,
-        ctrl.getExtensionBaseUrl()
+        ctrl.getExtensionBaseUrl(),
+        this.launchRunId
       )
 
       return {status: 'loaded'}
@@ -1272,18 +1210,17 @@ export class FirefoxLaunchPlugin {
 
     // The shared teardown owns the kill decision and is idempotent, so a shutdown
     // that already terminated the child here is a no-op.
-    gracefulTerminateChild(this.child, this.host.browser as BrowserType)
+    this.deps.terminate(this.child, this.host.browser as BrowserType)
 
     // The child may be long gone while the process it handed the session to
     // still runs on the profile; that one has to end with the session too.
     if (this.livePid && this.livePid !== this.child?.pid) {
-      gracefulTerminatePid(this.livePid, this.host.browser as BrowserType)
+      this.deps.terminatePid(this.livePid, this.host.browser as BrowserType)
     }
   }
 
   private scheduleWatchTimeout() {
     if (this.watchTimeout) return
-    if (process.env.VITEST || process.env.VITEST_WORKER_ID) return
 
     const raw =
       process.env.EXTENSION_WATCH_TIMEOUT_MS ||
@@ -1312,7 +1249,7 @@ export class FirefoxLaunchPlugin {
           }
         })
         .finally(() => {
-          process.exit(0)
+          this.deps.exit(0)
         })
     }, ms)
 

@@ -1,4 +1,3 @@
-import {spawnSync} from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -14,19 +13,9 @@ import {createRequire} from 'node:module'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {CLI_ROOT, runCli} from '../helpers/run-cli'
 
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
-
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
-
-const developRoot = path.resolve(cliRoot(), '..', 'develop')
+const developRoot = path.resolve(CLI_ROOT, '..', 'develop')
 const developRequire = createRequire(path.join(developRoot, 'package.json'))
 
 // sass does not export its package.json, so the package dir is the nearest
@@ -123,21 +112,9 @@ function createFixture(fixture: Fixture): string {
 }
 
 function build(projectDir: string) {
-  return spawnSync(
-    process.execPath,
-    [cliBin(), 'build', projectDir, '--browser=chrome'],
-    {
-      // The project dir, not the repo: nothing in the walk up from here
-      // reaches the checkout's node_modules.
-      cwd: projectDir,
-      encoding: 'utf8',
-      env: {
-        ...process.env,
-        EXTENSION_ENV: 'test',
-        EXTENSION_TELEMETRY_DISABLED: '1'
-      }
-    }
-  )
+  // The project dir, not the repo: nothing in the walk up from here
+  // reaches the checkout's node_modules.
+  return runCli(['build', projectDir, '--browser=chrome'], {cwd: projectDir})
 }
 
 function readEmittedContentScript(projectDir: string): string {
@@ -161,7 +138,7 @@ afterAll(() => {
 // project that lives outside the repo with "Unable to resolve loader
 // sass-loader", while the same project built fine inside the tree.
 describe('preprocessor loaders for a project outside the repo', () => {
-  it('compiles a Sass content script from a temp dir with the CLI alone', () => {
+  it('compiles a Sass content script from a temp dir with the CLI alone', async () => {
     const projectDir = createFixture({
       compiler: 'sass',
       sheetName: 'styles.scss',
@@ -174,8 +151,8 @@ describe('preprocessor loaders for a project outside the repo', () => {
       ].join('\n')
     })
 
-    const result = build(projectDir)
-    const output = `${result.stdout}\n${result.stderr}`
+    const result = await build(projectDir)
+    const output = result.output
 
     expect(output).not.toContain('Unable to resolve loader')
     expect(result.status, `build failed:\n${output}`).toBe(0)
@@ -187,7 +164,7 @@ describe('preprocessor loaders for a project outside the repo', () => {
     expect(bundle).not.toContain('$badge')
   }, 120000)
 
-  it('compiles a Less content script from a temp dir with the CLI alone', () => {
+  it('compiles a Less content script from a temp dir with the CLI alone', async () => {
     const projectDir = createFixture({
       compiler: 'less',
       sheetName: 'styles.less',
@@ -200,8 +177,8 @@ describe('preprocessor loaders for a project outside the repo', () => {
       ].join('\n')
     })
 
-    const result = build(projectDir)
-    const output = `${result.stdout}\n${result.stderr}`
+    const result = await build(projectDir)
+    const output = result.output
 
     expect(output).not.toContain('Unable to resolve loader')
     expect(result.status, `build failed:\n${output}`).toBe(0)

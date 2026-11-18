@@ -43,6 +43,16 @@ function backupRefs(cwd) {
   ]).trim()
 }
 
+function endTask(pidFile) {
+  const pid = Number(existsSync(pidFile) ? readFileSync(pidFile, 'utf8') : 0)
+
+  if (!pid) return
+
+  try {
+    process.kill(pid, 'SIGKILL')
+  } catch {}
+}
+
 function makeRepo(task) {
   const dir = mkdtempSync(path.join(tmpdir(), 'extjs-pre-commit-'))
 
@@ -101,8 +111,9 @@ test('a hook stopped mid-task moves its backup off the shared stash list', {
   skip: process.platform === 'win32'
 }, async () => {
   const dir = makeRepo(
-    "require('fs').writeFileSync('task-started', ''); setTimeout(() => {}, 20000)"
+    "require('fs').writeFileSync('task-started', String(process.pid)); setTimeout(() => {}, 20000)"
   )
+  const started = path.join(dir, 'task-started')
 
   try {
     const before = stashList(dir)
@@ -112,7 +123,7 @@ test('a hook stopped mid-task moves its backup off the shared stash list', {
     })
     const deadline = Date.now() + 15000
 
-    while (!existsSync(path.join(dir, 'task-started'))) {
+    while (!existsSync(started)) {
       assert.ok(Date.now() < deadline, 'the pre-commit task started')
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
@@ -123,6 +134,9 @@ test('a hook stopped mid-task moves its backup off the shared stash list', {
     assert.equal(stashList(dir), before)
     assert.match(backupRefs(dir), /^refs\/lint-staged-backups\/[0-9a-f]{12}$/)
   } finally {
+    // lint-staged leaves its task running when stopped, so the spec ends it
+    // or CI reports an orphan node process after the run.
+    endTask(started)
     rmSync(dir, {recursive: true, force: true})
   }
 })

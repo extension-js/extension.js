@@ -208,6 +208,59 @@ describe('discoverWebSocketDebuggerUrl', () => {
     )
     expect(url).toBe('ws://fallback-page')
   })
+
+  it('passes over a WebSocket URL in a 500 answer and asks the fallback endpoint', async () => {
+    const state = await createCdpServer({
+      '/json/version': (res) => {
+        res.writeHead(500, {'Content-Type': 'application/json'})
+        res.end(JSON.stringify({webSocketDebuggerUrl: 'ws://from-a-500'}))
+      },
+      '/json': (res) => {
+        res.writeHead(200, {'Content-Type': 'application/json'})
+        res.end(
+          JSON.stringify([
+            {type: 'page', webSocketDebuggerUrl: 'ws://page-200'}
+          ])
+        )
+      }
+    })
+    server = state.server
+
+    const url = await discoverWebSocketDebuggerUrl(
+      '127.0.0.1',
+      state.port,
+      false
+    )
+    expect(url).toBe('ws://page-200')
+  })
+
+  it.each([
+    500, 201, 404
+  ])('refuses a page target in a %i answer on the fallback endpoint', async (status) => {
+    const state = await createCdpServer({
+      '/json': (res) => {
+        res.writeHead(status, {'Content-Type': 'application/json'})
+        res.end(
+          JSON.stringify([
+            {type: 'page', webSocketDebuggerUrl: 'ws://page-not-200'}
+          ])
+        )
+      }
+    })
+    server = state.server
+
+    const error = await discoverWebSocketDebuggerUrl(
+      '127.0.0.1',
+      state.port,
+      false
+    ).then(
+      () => null,
+      (reason: unknown) => reason as Error & {code?: string}
+    )
+
+    expect(error?.message).toBe(`CDP endpoint /json answered HTTP ${status}`)
+    expect(error?.code).toBe('E_CDP_NOT_CONNECTED')
+  })
 })
 
 describe('checkChromeRemoteDebugging', () => {
@@ -247,16 +300,13 @@ describe('checkChromeRemoteDebugging', () => {
     }
   })
 
-  it('returns false when custom host does not match listening interface', async () => {
+  // Loopback only: an address off this machine would leave the test's reach.
+  it('returns false for a custom host whose port is closed', async () => {
     const server = net.createServer()
     await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()))
     const port = (server.address() as net.AddressInfo).port
+    await new Promise<void>((r) => server.close(() => r()))
 
-    try {
-      const result = await checkChromeRemoteDebugging(port, '192.0.2.1')
-      expect(result).toBe(false)
-    } finally {
-      await new Promise<void>((r) => server.close(() => r()))
-    }
+    expect(await checkChromeRemoteDebugging(port, '127.0.0.1')).toBe(false)
   })
 })

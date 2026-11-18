@@ -8,7 +8,9 @@
 
 import type {IncomingMessage} from 'node:http'
 import {type RawData, WebSocket, WebSocketServer} from 'ws'
+import {debugLine, isDebug} from '../../lib/messaging'
 import {isSameWebOrigin} from '../emulator-lane'
+import * as messages from '../messages'
 import type {BridgeBroker, BridgeConnection} from './broker'
 import {
   type AnyFrame,
@@ -18,6 +20,13 @@ import {
 } from './contracts'
 
 const SLOW_CONSUMER_BYTES = 8 * 1024 * 1024
+
+// The largest frame a peer may send. A producer caps a result at 256 KiB, so
+// this leaves room for a long log line and still bounds what one frame holds.
+export const MAX_CONTROL_FRAME_BYTES = 8 * 1024 * 1024
+
+// What `ws` reports before it closes the socket with 1009.
+const OVERSIZED_FRAME_ERROR = 'WS_ERR_UNSUPPORTED_MESSAGE_LENGTH'
 
 // MV3 service workers idle out after ~30s; a WebSocket message resets that
 // timer (Chrome 116+), so ping producers faster to keep the SW reachable.
@@ -71,6 +80,7 @@ export function startControlServer(
       host,
       port: options.port ?? 0,
       path,
+      maxPayload: MAX_CONTROL_FRAME_BYTES,
       verifyClient: (info: {origin: string}) =>
         isAdmittedOrigin(info.origin, options.viewerOrigin)
     })
@@ -130,8 +140,24 @@ export function startControlServer(
         broker.onFrame(conn, frame)
       })
 
-      socket.on('close', () => broker.onClose(conn))
-      socket.on('error', () => broker.onClose(conn))
+      // An error is followed by a close, and the broker hears of one end.
+      let ended = false
+
+      const end = () => {
+        if (ended) return
+
+        ended = true
+        broker.onClose(conn)
+      }
+
+      socket.on('close', end)
+      socket.on('error', (error: Error & {code?: string}) => {
+        if (error?.code === OVERSIZED_FRAME_ERROR && isDebug()) {
+          debugLine(messages.debugControlFrameTooLarge(MAX_CONTROL_FRAME_BYTES))
+        }
+
+        end()
+      })
     })
 
     wss.on('listening', () => {

@@ -120,8 +120,6 @@ export function startsWorkerFromExtensionUrl(source: string): boolean {
 // a content script's document is the page. Name it once per emitted file.
 export class WarnPageContextWorker {
   apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(
       'scripts:warn-page-context-worker',
       (compilation) => {

@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-
+import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import {bundledFileToken} from '../css-lib/inline-content-script-css'
 
@@ -118,6 +118,16 @@ describe.each([
   })
 
   it('emits PostCSS-processed CSS for a `?url` import', async () => {
+    // The rules name the compiled loaders, which only the compile step writes.
+    const loader = resolveDevelopDistFile('dead-css-url-loader')
+
+    if (!fs.existsSync(loader)) {
+      throw new Error(
+        `This spec compiles with the loaders in programs/develop/dist and ${loader} is missing. ` +
+          'Run `pnpm --filter extension-develop compile` first.'
+      )
+    }
+
     const manifestPath = path.join(fixtureDir, 'src', 'manifest.json')
     const rules = await cssInContentScriptLoader(
       fixtureDir,

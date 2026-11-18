@@ -1,19 +1,9 @@
-import {spawn} from 'node:child_process'
-import fs from 'node:fs'
 import http from 'node:http'
-import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import {freshCliHome, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
-
-function cliBin(): string {
-  const root = path.resolve(__dirname, '../..')
-  const cjs = path.join(root, 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(root, 'dist', 'cli.js')
-}
 
 interface CapturedEvent {
   event: string
@@ -56,27 +46,20 @@ function startCaptureServer(): Promise<{
   })
 }
 
-function run(args: string[], port: number): Promise<number | null> {
-  const work = makeTempFolder('extjs-tele-attr-')
-  const configHome = makeTempFolder('extjs-config-')
-  const cacheHome = makeTempFolder('extjs-cache-')
-
-  return new Promise((resolve) => {
-    const child = spawn(process.execPath, [cliBin(), ...args], {
-      cwd: work,
-      stdio: 'ignore',
-      env: {
-        ...process.env,
-        POSTHOG_HOST: `http://127.0.0.1:${port}`,
-        EXTENSION_TELEMETRY: '1',
-        EXTENSION_TELEMETRY_TIMEOUT_MS: '5000',
-        EXTENSION_NO_INSTALL_PROMPT: '1',
-        XDG_CONFIG_HOME: configHome,
-        XDG_CACHE_HOME: cacheHome
-      }
-    })
-    child.on('close', (status) => resolve(status))
+// Every run fails before a browser is looked for: the folder is empty.
+async function run(args: string[], port: number) {
+  const result = await runCli(args, {
+    cwd: makeTempFolder('extjs-tele-attr-'),
+    telemetry: true,
+    home: freshCliHome(),
+    env: {
+      POSTHOG_HOST: `http://127.0.0.1:${port}`,
+      EXTENSION_TELEMETRY: '1',
+      EXTENSION_TELEMETRY_TIMEOUT_MS: '5000'
+    }
   })
+
+  return result.status
 }
 
 function failures(events: CapturedEvent[]): CapturedEvent[] {
@@ -92,22 +75,30 @@ describe('a failed run names its command and the code the CLI chose', () => {
     close = undefined
   })
 
-  it('names the command behind a valued flag that comes first', async () => {
+  // The parser refuses a dev flag placed before the verb, and the report
+  // still has to name dev and not the flag's value.
+  it('names dev, not chrome, when --browser chrome comes before the verb', async () => {
     const server = await startCaptureServer()
     close = server.close
 
     const status = await run(['--browser', 'chrome', 'dev'], server.port)
 
     expect(status).toBe(1)
+    expect(failures(server.events)).toHaveLength(1)
+
     const [failed] = failures(server.events)
-    expect(failed?.properties.command).toBe('dev')
+    expect(failed.properties.command).toBe('dev')
+    expect(failed.properties.code).toBe('E_FLAG_NOT_SUPPORTED_HERE')
   })
 
   it('reports an unrecognized verb as an unknown command without the verb', async () => {
     const server = await startCaptureServer()
     close = server.close
 
-    await run(['my-secret-project'], server.port)
+    const status = await run(['my-secret-project'], server.port)
+
+    expect(status).toBe(1)
+    expect(failures(server.events)).toHaveLength(1)
 
     const [failed] = failures(server.events)
     expect(failed?.properties.command).toBe('unknown')
@@ -119,7 +110,10 @@ describe('a failed run names its command and the code the CLI chose', () => {
     const server = await startCaptureServer()
     close = server.close
 
-    await run(['dev', '--no-such-flag'], server.port)
+    const status = await run(['dev', '--no-such-flag'], server.port)
+
+    expect(status).toBe(1)
+    expect(failures(server.events)).toHaveLength(1)
 
     const [failed] = failures(server.events)
     expect(failed?.properties.command).toBe('dev')
@@ -148,6 +142,6 @@ describe('a failed run names its command and the code the CLI chose', () => {
     expect(status).toBe(1)
     const [failed] = failures(server.events)
     expect(failed?.properties.command).toBe('build')
-    expect(typeof failed?.properties.code).toBe('string')
+    expect(failed?.properties.code).toBe('E_MANIFEST_NOT_FOUND')
   })
 })

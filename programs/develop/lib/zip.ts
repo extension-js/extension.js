@@ -9,10 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import {type CodedError, codedError} from './coded-error'
 import * as messages from './messages'
-import {CODES, type ErrorCode} from './messaging'
+import {CODES, type ErrorCode, humanLine} from './messaging'
 import {tokenExpiry} from './remote-archive'
 import {renameSyncWithRetry} from './rename-with-retry'
 import {sessionArtifactsRootDir} from './session-paths'
@@ -213,7 +212,7 @@ export function writeRemoteSource(directory: string, source: string): void {
 
 // Where a remote archive url lands under targetPath. Exported so a caller can
 // vet the destination before anything is downloaded into it.
-export function remoteZipDestination(url: string, targetPath: string): string {
+function remoteZipDestination(url: string, targetPath: string): string {
   const urlNoSearchParams = url.split('?')[0]
   const extname = path.extname(urlNoSearchParams)
 

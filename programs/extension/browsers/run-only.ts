@@ -18,9 +18,11 @@ import {claimDebugPortNear} from './browsers-lib/debug-port-claim'
 import {findIgnoredHostPermissionPatterns} from './browsers-lib/manifest-refusal'
 import {
   browserNeverStarted,
-  hostPermissionPatternsIgnored
+  hostPermissionPatternsIgnored,
+  runOnlyUnsupportedBrowser
 } from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
+import {FORCE_KILL_GRACE_MS} from './browsers-lib/process-teardown'
 import {
   claimReadyPath,
   clearReadyCdpPort,
@@ -319,26 +321,88 @@ export function warnIgnoredHostPermissionPatterns(opts: {
   }
 }
 
+const SESSION_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
+
+// Past the stop grace period, so a browser that ignored the ask has been
+// killed by then. Polled at this interval until the browser is gone.
+const EXIT_DEADLINE_MS = FORCE_KILL_GRACE_MS + 500
+const EXIT_POLL_MS = 50
+
+interface LaunchedBrowser {
+  spawnedBrowser: boolean
+  browserClosed: boolean
+}
+
 export async function runOnlyPreviewBrowser(
   opts: PreviewRunOptions
 ): Promise<PreviewBrowserSession | undefined> {
-  let exitScheduled = false
-
-  const scheduleExitOnSignal = () => {
-    if (exitScheduled) return
-
-    exitScheduled = true
-    // Mirror `dev` behavior: exit promptly after cleanup kicks in.
-    setTimeout(() => process.exit(0), 10)
+  // Refused before anything is registered or written for the session.
+  if (!isChromiumBrowser(opts.browser) && !isFirefoxBrowser(opts.browser)) {
+    throw Object.assign(
+      new Error(runOnlyUnsupportedBrowser(String(opts.browser))),
+      {code: CODES.E_UNSUPPORTED_BROWSER}
+    )
   }
 
-  process.once('SIGINT', scheduleExitOnSignal)
-  process.once('SIGTERM', scheduleExitOnSignal)
-  process.once('SIGHUP', scheduleExitOnSignal)
+  let exitScheduled = false
+  let launcher: LaunchedBrowser | undefined
 
+  // The launchers ask the browser to stop on the same signal. Exiting before
+  // it closes would SIGKILL it at once, so the exit waits for the close.
+  const scheduleExitOnSignal = () => {
+    if (exitScheduled) {
+      process.exit(0)
+
+      return
+    }
+
+    exitScheduled = true
+    const deadline = Date.now() + EXIT_DEADLINE_MS
+
+    const exitOnceClosed = () => {
+      const running = launcher?.spawnedBrowser && !launcher.browserClosed
+
+      if (!running || Date.now() >= deadline) {
+        process.exit(0)
+
+        return
+      }
+
+      setTimeout(exitOnceClosed, EXIT_POLL_MS)
+    }
+
+    setTimeout(exitOnceClosed, 10)
+  }
+
+  for (const signal of SESSION_SIGNALS) {
+    process.on(signal, scheduleExitOnSignal)
+  }
+
+  try {
+    return await launchPreviewSession(opts, (launched) => {
+      launcher = launched
+    })
+  } catch (error) {
+    // No session came of this call, so its listeners have nothing to end.
+    // After a launch they stay: they are what ends the session on Ctrl+C.
+    for (const signal of SESSION_SIGNALS) {
+      process.removeListener(signal, scheduleExitOnSignal)
+    }
+
+    throw error
+  }
+}
+
+async function launchPreviewSession(
+  opts: PreviewRunOptions,
+  onLauncher: (launcher: LaunchedBrowser) => void
+): Promise<PreviewBrowserSession | undefined> {
   // Every stamp the launchers write lands on the contract this session owns,
   // which is not beside the loaded directory when that is a source folder.
   claimReadyPath(opts.outPath, opts.readyPath)
+  // Read once here: read again at each stamp it names whoever owns the record
+  // by then, so a run that replaced this one would be written over.
+  const runId = readReadyRunId(opts.outPath)
 
   const compilationLike = createPreviewCompilationLike(opts)
   const previewPluginOptions = buildPreviewPluginOptions(opts)
@@ -352,7 +416,7 @@ export async function runOnlyPreviewBrowser(
     stampReadyBrowserLaunchFailed(
       opts.outPath,
       describeLaunchFailure(error),
-      readReadyRunId(opts.outPath),
+      runId,
       launchFailureCode(error)
     )
 
@@ -369,6 +433,7 @@ export async function runOnlyPreviewBrowser(
     const ctx = createChromiumContext()
     const chromiumOptions = buildPreviewChromiumOptions(opts)
     const launcher = new ChromiumLaunchPlugin(chromiumOptions, ctx)
+    onLauncher(launcher)
     // A reader waits for the card, so the port is claimed and on the record
     // before it prints. The launch clears it if the browser opens none.
     const debugPortClaim = opts.dryRun
@@ -381,11 +446,7 @@ export async function runOnlyPreviewBrowser(
         )
 
     if (debugPortClaim) {
-      stampReadyCdpPort(
-        opts.outPath,
-        debugPortClaim.port,
-        readReadyRunId(opts.outPath)
-      )
+      stampReadyCdpPort(opts.outPath, debugPortClaim.port, runId)
     }
 
     // Identity before the launch: the card is the header for the session, not
@@ -402,7 +463,7 @@ export async function runOnlyPreviewBrowser(
       debugPortClaim?.release()
 
       if (!launcher.spawnedBrowser) {
-        clearReadyCdpPort(opts.outPath, readReadyRunId(opts.outPath))
+        clearReadyCdpPort(opts.outPath, runId)
       }
 
       throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
@@ -411,42 +472,39 @@ export async function runOnlyPreviewBrowser(
     return
   }
 
-  if (isFirefoxBrowser(opts.browser)) {
-    // Gecko forks (waterfox/librewolf) route here too.
-    const ctx = createFirefoxContext()
-    const launcher = new FirefoxLaunchPlugin(
-      buildPreviewFirefoxOptions(opts),
-      ctx
+  // Gecko forks (waterfox/librewolf) route here too.
+  const ctx = createFirefoxContext()
+  const launcher = new FirefoxLaunchPlugin(
+    buildPreviewFirefoxOptions(opts),
+    ctx
+  )
+  onLauncher(launcher)
+  // Identity before the launch here too: the add-on install still verifies
+  // through the banner's nameability verdict, which survives a dedupe hit.
+  await printProdBannerOnce(bannerOptions)
+
+  warnIgnoredHostPermissionPatterns(opts)
+
+  try {
+    await launcher.runOnce(
+      compilationLike,
+      buildBrowserLaunchRequest(previewPluginOptions, 'production', {
+        persistProfile: previewPluginOptions.persistProfile,
+        geckoBinary: previewPluginOptions.geckoBinary
+      }) as unknown as Parameters<typeof launcher.runOnce>[1]
     )
-    // Identity before the launch here too: the add-on install still verifies
-    // through the banner's nameability verdict, which survives a dedupe hit.
-    await printProdBannerOnce(bannerOptions)
-
-    warnIgnoredHostPermissionPatterns(opts)
-
-    try {
-      await launcher.runOnce(
-        compilationLike,
-        buildBrowserLaunchRequest(previewPluginOptions, 'production', {
-          persistProfile: previewPluginOptions.persistProfile,
-          geckoBinary: previewPluginOptions.geckoBinary
-        }) as unknown as Parameters<typeof launcher.runOnce>[1]
-      )
-    } catch (error) {
-      throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
-    }
-
-    // Firefox suspends an idle event page and the control producer with it,
-    // so a start session's bridge asks for it back the way dev's does.
-    return {
-      async wakeBackground() {
-        const controller = ctx.getController?.()
-        if (!controller) return false
-
-        return await controller.wakeBackground(WAKE_BACKGROUND_TIMEOUT_MS)
-      }
-    }
+  } catch (error) {
+    throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
   }
 
-  throw new Error(`Unsupported browser: ${String(opts.browser)}`)
+  // Firefox suspends an idle event page and the control producer with it,
+  // so a start session's bridge asks for it back the way dev's does.
+  return {
+    async wakeBackground() {
+      const controller = ctx.getController?.()
+      if (!controller) return false
+
+      return await controller.wakeBackground(WAKE_BACKGROUND_TIMEOUT_MS)
+    }
+  }
 }

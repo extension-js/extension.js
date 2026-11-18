@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {WarmAncestorWatchersPlugin} from '../warm-ancestor-watchers'
 
 type Tap = {name: string; stage: number; fn: (...args: unknown[]) => unknown}
@@ -196,13 +196,18 @@ describe('WarmAncestorWatchersPlugin', () => {
 
     fake.directories.set('/work', {initialScan: true})
 
-    let secondDone = false
-    await Promise.race([
-      fake.compiler.hooks.done.call().then(() => (secondDone = true)),
-      sleep(1000)
-    ])
+    // With timers frozen a wait would never end, so only a skip can settle.
+    vi.useFakeTimers()
 
-    expect(secondDone).toBe(true)
+    try {
+      let secondDone = false
+      void fake.compiler.hooks.done.call().then(() => (secondDone = true))
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(secondDone).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('stops waiting at the cap and on a watcher that was closed', async () => {
@@ -228,13 +233,17 @@ describe('WarmAncestorWatchersPlugin', () => {
       waitCapMs: 60000
     }).apply(closed.asCompiler)
 
-    let finished = false
-    await Promise.race([
-      closed.compiler.hooks.done.call().then(() => (finished = true)),
-      sleep(2000)
-    ])
+    vi.useFakeTimers()
 
-    expect(finished).toBe(true)
+    try {
+      let finished = false
+      void closed.compiler.hooks.done.call().then(() => (finished = true))
+      await vi.advanceTimersByTimeAsync(0)
+
+      expect(finished).toBe(true)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it.each([

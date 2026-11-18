@@ -357,5 +357,6 @@ describe('firefox new-tab courtesy after launch', () => {
       9222
     )
     expect(controller).toBeDefined()
+    expect(openNewTab).toHaveBeenCalledTimes(1)
   })
 })

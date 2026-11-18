@@ -1,4 +1,3 @@
-import {spawn, spawnSync} from 'node:child_process'
 import {
   chmodSync,
   existsSync,
@@ -9,30 +8,9 @@ import {
   writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
-const ANSI = /\x1b\[[0-9;]*m/g
-
-function stripVitestEnv(extra: Record<string, string> = {}): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0',
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0',
-    ...extra
-  }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
-
-  return env
-}
+import {type CliSession, runCli, startCli} from '../helpers/run-cli'
 
 // An executable file whose interpreter does not exist: it passes the pin
 // check, then spawn refuses it with ENOENT and no browser ever starts.
@@ -64,10 +42,6 @@ function readJson(file: string): Record<string, unknown> | null {
   }
 }
 
-function sleep(ms: number) {
-  return new Promise((resolvePromise) => setTimeout(resolvePromise, ms))
-}
-
 function sessionPaths(projectDir: string, browser: string) {
   const dir = join(projectDir, 'dist', 'extension-js', browser)
 
@@ -78,90 +52,70 @@ function sessionPaths(projectDir: string, browser: string) {
 }
 
 type Session = {
+  cli: CliSession
   output: () => string
   ready: () => Record<string, unknown> | null
   events: () => string
   stop: () => Promise<void>
 }
 
+// Every case pins a stand-in in a temp folder, so no browser is looked for.
 function startDev(
   projectDir: string,
   browser: string,
   args: string[]
 ): Session {
-  const child = spawn(
-    process.execPath,
-    [cliBin, 'dev', projectDir, '--browser', browser, ...args],
-    {cwd: cliRoot, stdio: 'pipe', env: stripVitestEnv()}
-  )
-  let output = ''
-  child.stdout.on('data', (chunk) => (output += chunk.toString()))
-  child.stderr.on('data', (chunk) => (output += chunk.toString()))
-
+  const cli = startCli(['dev', projectDir, '--browser', browser, ...args])
   const {readyPath, eventsPath} = sessionPaths(projectDir, browser)
 
   return {
-    output: () => output.replace(ANSI, ''),
+    cli,
+    output: () => cli.read().output,
     ready: () => readJson(readyPath),
     events: () =>
       existsSync(eventsPath) ? readFileSync(eventsPath, 'utf8') : '',
     async stop() {
-      child.kill('SIGTERM')
-      await Promise.race([
-        new Promise((resolvePromise) => child.once('close', resolvePromise)),
-        sleep(3000).then(() => child.kill('SIGKILL'))
-      ])
+      await cli.stop('SIGTERM', 3000)
     }
   }
 }
 
 // The failure lands in three places: the human block, the contract and the
-// events timeline (a one second poll). Wait for all three or give up.
+// events timeline (a one second poll).
 async function waitForLaunchFailure(session: Session, timeoutMs = 60_000) {
-  const deadline = Date.now() + timeoutMs
-
-  while (Date.now() < deadline) {
-    const ready = session.ready()
-
-    if (
-      typeof ready?.browserLaunchFailedAt === 'string' &&
+  await session.cli.waitFor(
+    () =>
+      typeof session.ready()?.browserLaunchFailedAt === 'string' &&
       session.events().includes('"browser_launch_failed"') &&
-      /couldn't start/.test(session.output())
-    ) {
-      break
-    }
-
-    await sleep(250)
-  }
-
-  // A ready line, were one printed, would follow the failure block by less
-  // than a tick, so let the transcript settle before reading it.
-  await sleep(1000)
-}
-
-function runWaiter(projectDir: string, browser: string) {
-  const result = spawnSync(
-    process.execPath,
-    [
-      cliBin,
-      'dev',
-      projectDir,
-      '--browser',
-      browser,
-      '--wait',
-      '--output',
-      'json',
-      '--wait-timeout',
-      '15000'
-    ],
-    {cwd: cliRoot, encoding: 'utf8', env: stripVitestEnv()}
+      /couldn't start/.test(session.output()),
+    timeoutMs,
+    'the launch failure on the contract, the timeline and the terminal'
   )
 
-  return {
-    status: result.status,
-    stdout: result.stdout.replace(ANSI, ''),
-    stderr: result.stderr.replace(ANSI, '')
-  }
+  // The last line of the block: a ready line would have come before it. A
+  // value the user set ends the session instead of keeping it watching.
+  await session.cli.waitFor(
+    () =>
+      /The dev server keeps watching|The dev session ends here/.test(
+        session.output()
+      ),
+    timeoutMs,
+    'the end of the failure block'
+  )
+}
+
+async function runWaiter(projectDir: string, browser: string) {
+  return runCli([
+    'dev',
+    projectDir,
+    '--browser',
+    browser,
+    '--wait',
+    '--output',
+    'json',
+    '--wait-timeout',
+    '15000'
+  ])
 }
 
 // The stand-in binaries lean on posix permission bits, which Windows does
@@ -226,7 +180,7 @@ describe.skipIf(process.platform === 'win32')(
 
       // The second process a consumer runs: it must not be told the session
       // is up while nothing can load.
-      const waiter = runWaiter(projectDir, 'chrome')
+      const waiter = await runWaiter(projectDir, 'chrome')
       expect(waiter.status, waiter.stderr).toBe(1)
       const lines = waiter.stdout.split('\n').filter((line) => line.trim())
       expect(lines, waiter.stdout).toHaveLength(1)
@@ -256,6 +210,8 @@ describe.skipIf(process.platform === 'win32')(
       )
 
       expect(output, output).toMatch(/Can't find a Chromium binary/)
+      expect(output, output).toMatch(/The dev session ends here/)
+      expect(output, output).not.toMatch(/The dev server keeps watching/)
       expect(output, output).not.toMatch(/ready for development/)
 
       const ready = session.ready()
@@ -270,7 +226,7 @@ describe.skipIf(process.platform === 'win32')(
       )
 
       // A path the user typed is a usage error to --wait as well.
-      const waiter = runWaiter(projectDir, 'chrome')
+      const waiter = await runWaiter(projectDir, 'chrome')
       expect(waiter.status, waiter.stderr).toBe(1)
       const lines = waiter.stdout.split('\n').filter((line) => line.trim())
       expect(lines, waiter.stdout).toHaveLength(1)

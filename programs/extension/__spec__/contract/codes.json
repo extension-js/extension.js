@@ -94,7 +94,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing or uncompiled."
+      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
@@ -202,8 +202,7 @@
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
-      "summary": "Packaging was skipped for a stated reason.",
-      "warn": true
+      "summary": "A requested archive was not created."
     },
     "E_ENV_NO_MATCH": {
       "area": "compile",
@@ -480,7 +479,7 @@
     },
     "E_TELEMETRY_WRITE": {
       "area": "telemetry",
-      "summary": "The telemetry consent file could not be written."
+      "summary": "A telemetry file could not be written or removed."
     },
     "E_DOCTOR_CHECKS_FAILED": {
       "area": "doctor",

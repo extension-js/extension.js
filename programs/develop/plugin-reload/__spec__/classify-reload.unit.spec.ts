@@ -1,14 +1,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import {describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   publicOutputPath,
   type SourceFeatureIndex
-} from '../index'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+} from '../classify-reload'
 
 const makeTempFolder = trackTempFolders()
 
@@ -51,6 +51,71 @@ describe('classifyReloadFromSources', () => {
     expect(result?.type).toBe('content-scripts')
     expect(result?.changedContentScriptEntries).toHaveLength(2)
     expect(result?.changedAssets).toEqual(['src/content/scripts.js'])
+  })
+
+  it('classifies a content-script source change as "content-scripts"', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/content/ContentApp.tsx'],
+      getContentScriptCount: count(1)
+    })
+
+    expect(result?.type).toBe('content-scripts')
+    expect(result?.changedContentScriptEntries).toEqual([
+      'content_scripts/content-0'
+    ])
+  })
+
+  it('emits ALL canonical content-script entries when the manifest declares multiple', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/content/ContentApp.tsx'],
+      getContentScriptCount: count(3)
+    })
+
+    expect(result?.type).toBe('content-scripts')
+    expect(result?.changedContentScriptEntries).toEqual([
+      'content_scripts/content-0',
+      'content_scripts/content-1',
+      'content_scripts/content-2'
+    ])
+  })
+
+  it('classifies a service-worker.ts source change as "service-worker"', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/worker/service-worker.ts'],
+        getContentScriptCount: count(1)
+      })?.type
+    ).toBe('service-worker')
+  })
+
+  it('background + content change prefers "service-worker" (widest blast radius wins)', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/background.ts', 'src/content/ContentApp.tsx'],
+        getContentScriptCount: count(1)
+      })?.type
+    ).toBe('service-worker')
+  })
+
+  it('forwards changedAssets on a "full" reload', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/manifest.json'],
+      forcedFull: true,
+      getContentScriptCount: count(1)
+    })
+
+    expect(result?.type).toBe('full')
+    expect(result?.changedAssets).toEqual(['src/manifest.json'])
+  })
+
+  it('emits a notify-only "page" instruction when a non-content-script project edits a page asset', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/action/scripts.js'],
+      getContentScriptCount: count(0)
+    })
+
+    expect(result?.type).toBe('page')
+    expect(result?.label).toBe('popup page (src/action/scripts.js)')
   })
 
   it('an html-only edit with declared content scripts is a page reload, never a content reinject (reload-oracle R4-page)', () => {
@@ -691,5 +756,54 @@ describe('the background label follows the emitted manifest', () => {
         getContentScriptCount: count(0)
       })?.label
     ).toBe('service_worker (src/background.js)')
+  })
+})
+
+describe('classifyReloadFromSources with a source index that throws', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  const classify = (changed: string, getSourceFeatureIndex: () => null) =>
+    classifyReloadFromSources({
+      changedSources: [changed],
+      getContentScriptCount: count(2),
+      getSourceFeatureIndex
+    })
+
+  const throwing = () => {
+    throw new Error('chunk graph unreadable')
+  }
+
+  // Pins today's behavior. Ledger 1385 D9.
+  it('falls back to the name heuristics and prints nothing, debug on', () => {
+    vi.stubEnv('EXTENSION_DEBUG', '1')
+    const printed = [
+      vi.spyOn(console, 'log').mockImplementation(() => {}),
+      vi.spyOn(console, 'warn').mockImplementation(() => {}),
+      vi.spyOn(console, 'error').mockImplementation(() => {}),
+      vi.spyOn(console, 'debug').mockImplementation(() => {})
+    ]
+
+    expect(classify('src/background/worker.ts', throwing)).toEqual({
+      type: 'service-worker',
+      changedAssets: ['src/background/worker.ts'],
+      label: 'service_worker (src/background/worker.ts)'
+    })
+
+    expect(classify('src/lib/util.ts', throwing)).toEqual(
+      classify('src/lib/util.ts', () => null)
+    )
+
+    expect(classify('src/lib/util.ts', throwing)).toMatchObject({
+      type: 'content-scripts',
+      changedContentScriptEntries: [
+        'content_scripts/content-0',
+        'content_scripts/content-1'
+      ]
+    })
+
+    expect(printed.map((spy) => spy.mock.calls)).toEqual([[], [], [], []])
   })
 })

@@ -73,6 +73,7 @@ export class RemoteFirefox {
   private derivedExtensionId: string | undefined
   private extensionBaseUrl: string | undefined
   private addonInstallRefusalReason: string | undefined
+  private lastPrintedConnectError: string | undefined
 
   // Gecko's own words for why it threw the add-on out, or null when the
   // install never got an answer. Read by the launcher after a failed install.
@@ -203,16 +204,27 @@ export class RemoteFirefox {
           await new Promise((resolve) => setTimeout(resolve, RETRY_INTERVAL))
         } else {
           const err = error as Error
-          // The reason is the line that helps. The stack is for the author
-          // and the outer retry would print it once per attempt.
-          humanError(
-            messages.generalBrowserError(
-              this.options.browser,
-              isDebug() ? err.stack || err : err
-            )
-          )
 
-          throw err
+          // The setup retries this dial, and the same reason said once per
+          // attempt is one failure printed five times.
+          if (this.lastPrintedConnectError !== err.message) {
+            this.lastPrintedConnectError = err.message
+            // The reason is the line that helps. The stack is for the author.
+            humanError(
+              messages.generalBrowserError(
+                this.options.browser,
+                isDebug() ? err.stack || err : err
+              )
+            )
+          }
+
+          // A socket error such as a reset carries Node's code, not ours.
+          throw launchFailureCode(err)
+            ? err
+            : Object.assign(new Error(err.message), {
+                code: CODES.E_BROWSER_CONNECT,
+                cause: err
+              })
         }
       }
     }
@@ -254,10 +266,11 @@ export class RemoteFirefox {
       )
     )
 
-    // If two are present, heuristic: path containing '/extensions/<browser>-manager' is manager
+    // A path holding extensions/<browser>-manager is the manager, written with
+    // either separator so a Windows path reads the same.
     const userFirst = unique.sort((a: string, b: string): number => {
-      const isAManager = /extensions\/[a-z-]+-manager/.test(a)
-      const isBManager = /extensions\/[a-z-]+-manager/.test(b)
+      const isAManager = /extensions[\\/][a-z-]+-manager/.test(a)
+      const isBManager = /extensions[\\/][a-z-]+-manager/.test(b)
       if (isAManager && !isBManager) return 1
       if (!isAManager && isBManager) return -1
 

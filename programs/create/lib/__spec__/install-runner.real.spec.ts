@@ -27,7 +27,8 @@ describe('install-runner runInstall (real spawn)', () => {
     expect(result.code).toBe(0)
     expect(result.stdout.trim()).toMatch(VERSION)
     expect(result.stderr).not.toMatch(/not recognized|not found/i)
-  })
+    // A cold npm on a loaded runner has taken over 5 s to print its version.
+  }, 60_000)
 
   it('rejects with ENOENT for a binary that does not exist', async () => {
     const missing = `extjs-no-such-binary-${process.pid}`

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {BuildSummary, SafariPackageSummary} from './lib/build-summary'
+import type {ErrorCode} from './lib/messaging'
 import {ensureRustMinStack} from './lib/rust-min-stack'
 import type {
   BrowserController,
@@ -37,12 +38,13 @@ import type {
 // variable again, so every module that reaches rspack loads after this call.
 ensureRustMinStack()
 
-const [build, dev, preview, browsers, config] = await Promise.all([
+const [build, dev, preview, browsers, config, sessionEnd] = await Promise.all([
   import('./command-build'),
   import('./command-dev'),
   import('./command-preview'),
   import('./plugin-browsers'),
-  import('./lib/config-loader')
+  import('./lib/config-loader'),
+  import('./dev-server/session-end')
 ])
 
 export const extensionBuild = build.extensionBuild
@@ -54,8 +56,12 @@ export const BuildEmitter = browsers.BuildEmitter
 export type BuildEmitter = BuildEmitterInstance
 export const loadCommandConfig = config.loadCommandConfig
 export const loadProjectConfigDefaults = config.loadProjectConfigDefaults
+// Ends one dev session of this process as a failure the host names.
+export const endSessionAsFailed = sessionEnd.endSessionAsFailed
 
 export type {
+  // The codes a host's hintFor resolver is called with.
+  ErrorCode,
   BuildOptions,
   DevOptions,
   PreviewOptions,

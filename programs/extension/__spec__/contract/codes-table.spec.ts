@@ -350,6 +350,7 @@ describe('a summary names the causes its code covers', () => {
     ['E_BROWSER_BINARY_INVALID', /version probe/, /within 10 seconds/],
     ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
     ['E_CONFIG_LOAD', /threw/, /not export an object/],
+    ['E_RUNTIME_NOT_FOUND', /uncompiled/, /another version than the CLI/],
     ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/]
   ])('%s', (code, first, second) => {
     const summary = table.codes[code]?.summary ?? ''
@@ -457,15 +458,19 @@ describe('the golden envelope fixtures', () => {
 
   it.each(
     fixtures
-  )('%s carries a code from the table when it fails', (name) => {
+  )('%s carries a code from the table when it fails, and no error when it succeeds', (name) => {
     const frame = JSON.parse(fs.readFileSync(path.join(here, name), 'utf8'))
 
-    if (frame.error) {
-      expect(
-        table.codes,
-        `${name} uses a code missing from codes.json`
-      ).toHaveProperty(frame.error.code)
+    if (frame.ok) {
+      expect(frame.error, `${name} is ok and carries an error`).toBeNull()
+
+      return
     }
+
+    expect(
+      table.codes,
+      `${name} uses a code missing from codes.json`
+    ).toHaveProperty(frame.error.code)
   })
 
   it.each(fixtures)('%s is named for its own contents', (name) => {

@@ -14,6 +14,7 @@ import type {LogContext} from './dev-server/control-bridge/contracts'
 import type {DevAddition} from './lib/dev-additions'
 import type {ManagedExtensionRecord} from './lib/extension-id'
 import type {ManifestV2, ManifestV3} from './lib/manifest-types'
+import type {ErrorCode} from './lib/messaging'
 
 /**
  * Firefox-only `theme_experiment` manifest key.
@@ -291,6 +292,8 @@ export interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
   // When true, a failed dev session calls process.exit(1) (CLI wrapper passes
   // this); defaults to false: as a library, a failure is a rejected promise.
   exitOnError?: boolean
+  /** The hint a host wants on the terminal `failed` or `usage` frame of a code. */
+  hintFor?: (code: ErrorCode) => string | undefined
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
@@ -353,8 +356,10 @@ export interface PublicBuildOptions {
    */
   minify?: boolean
   /**
-   * Override the bundler mode (and NODE_ENV). Defaults to 'production' to
-   * preserve historical behavior. Setting 'development' is useful for
+   * Override the bundler mode. 'development' and 'production' also set
+   * NODE_ENV for the length of the build, and 'none' leaves it as the
+   * caller set it. Defaults to 'production' to preserve historical
+   * behavior. Setting 'development' is useful for
    * staging/QA dists that should still pass through the bundler's debug
    * pipeline (sourcemaps, looser minification). Mirrors `vite build --mode`
    * and `webpack --mode`. The artifact stays shippable: it carries the
@@ -362,8 +367,13 @@ export interface PublicBuildOptions {
    * maps. Only `extension dev` turns the dev instrumentation on.
    */
   mode?: 'development' | 'production' | 'none'
-  // When true, a failed build calls process.exit(1) (CLI wrapper passes this);
-  // defaults to false: as a library, a failed build is a rejected promise.
+  /**
+   * @deprecated Nothing reads it. A build never fails on a warning.
+   */
+  failOnWarning?: boolean
+  /**
+   * @deprecated A build ignores it. A failed build rejects and the caller owns the exit.
+   */
   exitOnError?: boolean
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
@@ -537,10 +547,11 @@ export type OutputConfig = {
  * globs). A `.wasm` file only pages and workers reach is budgeted as `wasm`
  * (32 MiB); one a content script or the service worker reaches stays
  * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
- * under `browser.<vendor>.perfBudgets`, or per command via
- * `commands.dev.perfBudgets`, `commands.build.perfBudgets` or
- * `commands.start.perfBudgets` (strongest below a CLI flag). Preview builds
- * nothing, so it takes none.
+ * under `browser.<vendor>.perfBudgets`, or under
+ * `commands.build.perfBudgets` or `commands.start.perfBudgets` (strongest
+ * below a CLI flag). Budgets are checked on a production build only, the
+ * one `build` and `start` run. Preview builds nothing, so it takes none.
+ * `onExceed: 'error'` makes an overrun fail the build instead of warning.
  */
 export type PerfBudgetsConfig =
   import('./plugin-perf-budgets').PerfBudgetsConfig
@@ -773,8 +784,8 @@ export interface FileConfig {
   define?: Record<string, unknown>
   /**
    * Default per-category asset budgets for all commands, the weakest layer.
-   * `browser.<vendor>.perfBudgets` overrides it, and per-command
-   * `commands.dev|build|start.perfBudgets` overrides both.
+   * `browser.<vendor>.perfBudgets` overrides it, and
+   * `commands.build|start.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
   /**

@@ -180,8 +180,8 @@ export class AddContentScriptWrapper {
     const inMainWorldImportLayer = (layer: string): boolean =>
       layer === EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER
 
-    // Classic concat loader must be registered before the content-script-wrapper
-    // so the wrapper receives the concatenated source + source map.
+    // The concatenated text is the source of its module, so this rule stays
+    // last and runs first. The rule below wraps it, once, like any other.
     compiler.options.module.rules.push({
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       resourceQuery: /__extensionjs_classic_concat__/,
@@ -189,16 +189,16 @@ export class AddContentScriptWrapper {
       exclude: [/([\\/])node_modules\1/],
       use: [
         {
-          loader: this.resolveLoader(),
-          options: loaderOptions
-        },
-        {
           loader: this.resolveConcatLoader()
         }
       ]
     })
 
-    compiler.options.module.rules.push({
+    // Loaders run from the last rule to the first. In front of the rules
+    // extension.config.js added, the wrapper reads what their loaders return.
+    const wrapperRules: typeof compiler.options.module.rules = []
+
+    wrapperRules.push({
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [includeMatcher],
       exclude: [/([\\/])node_modules\1/],
@@ -239,13 +239,15 @@ export class AddContentScriptWrapper {
 
       // One slot in the rule list: a loader is named after its rule's
       // position, so a second slot would rename every rule added after it.
-      compiler.options.module.rules.push({
+      wrapperRules.push({
         oneOf: [
           {...mainWorldImportRule, issuer: importedByMainWorldEntry},
           {...mainWorldImportRule, issuerLayer: inMainWorldImportLayer}
         ]
       })
     }
+
+    compiler.options.module.rules.unshift(...wrapperRules)
 
     compiler.hooks.thisCompilation.tap(
       'scripts:add-content-script-wrapper',

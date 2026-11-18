@@ -7,7 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {humanError, humanLine, humanWarn} from '../../../helpers/messaging'
+import {
+  CODES,
+  humanError,
+  humanLine,
+  humanWarn
+} from '../../../helpers/messaging'
 import {printDevBannerOnce} from '../../browsers-lib/banner'
 import * as messages from '../../browsers-lib/messages'
 import {ready as devServerReady} from '../../browsers-lib/ready-message'
@@ -559,6 +564,47 @@ function completePackage(
   return describePackage(config)
 }
 
+const BUNDLE_IDENTIFIER_SETTING = /PRODUCT_BUNDLE_IDENTIFIER = ("?)([^;"]+)\1;/g
+
+const isExtensionTarget = (bundleId: string) => /\.Extension$/.test(bundleId)
+
+// The app and extension identifier settings as the project spells them, so
+// they can be put back letter for letter.
+function readBundleIdentifiers(config: SafariBuildConfig): {
+  app?: string
+  extension?: string
+} {
+  const projFile = pbxprojPath(config)
+  if (!fs.existsSync(projFile)) return {}
+
+  const settings = [
+    ...fs.readFileSync(projFile, 'utf8').matchAll(BUNDLE_IDENTIFIER_SETTING)
+  ]
+
+  return {
+    app: settings.find((setting) => !isExtensionTarget(setting[2]))?.[0],
+    extension: settings.find((setting) => isExtensionTarget(setting[2]))?.[0]
+  }
+}
+
+function restoreBundleIdentifiers(
+  config: SafariBuildConfig,
+  before: {app?: string; extension?: string}
+): void {
+  const projFile = pbxprojPath(config)
+  if (!fs.existsSync(projFile)) return
+
+  const content = fs.readFileSync(projFile, 'utf8')
+  const restored = content.replace(
+    BUNDLE_IDENTIFIER_SETTING,
+    (setting, _quote, bundleId) =>
+      (isExtensionTarget(String(bundleId)) ? before.extension : before.app) ??
+      setting
+  )
+
+  if (restored !== content) fs.writeFileSync(projFile, restored, 'utf8')
+}
+
 // The project file is rewritten on every package, not only after a
 // conversion: a version bump alone leaves the project fingerprint as it was,
 // and the number still has to reach the pbxproj for a hand archive in Xcode.
@@ -819,6 +865,7 @@ async function runSafariPipeline(
     // Preserve user-configured Xcode build settings (signing team, etc.)
     // so they survive the regeneration.
     const {saved, restore} = backupAndRestoreXcodeSettings(config)
+    const identifiersBefore = readBundleIdentifiers(config)
 
     logger.info?.(messages.safariConverting(config.extensionDir))
 
@@ -834,8 +881,18 @@ async function runSafariPipeline(
         )
       )
 
-      throw new Error(
-        `safari-web-extension-converter failed (exit ${converted.code})\n${tail}`
+      // A converter can replace the project and then fail, so what the
+      // project said before is put back for the next run to find.
+      restoreBundleIdentifiers(config, identifiersBefore)
+      restore()
+
+      // Printed above with the tool's output: a caller that frames it again
+      // prints the same failure twice.
+      throw Object.assign(
+        new Error(
+          `safari-web-extension-converter failed (exit ${converted.code})\n${tail}`
+        ),
+        {code: CODES.E_SAFARI_TOOLCHAIN, printed: true}
       )
     }
 
@@ -938,8 +995,11 @@ async function runSafariPipeline(
         messages.safariToolFailed('xcodebuild', built.code, tail, cause)
       )
 
-      throw new Error(
-        `xcodebuild failed (exit ${built.code})\n${cause ? `${cause}\n` : ''}${tail}`
+      throw Object.assign(
+        new Error(
+          `xcodebuild failed (exit ${built.code})\n${cause ? `${cause}\n` : ''}${tail}`
+        ),
+        {code: CODES.E_SAFARI_TOOLCHAIN, printed: true}
       )
     }
 
@@ -1042,7 +1102,8 @@ async function runSafariPipeline(
 
   // Only a dev session is still around to quit the app it raised on the way
   // out. A build run exits at once and the app it opened is the deliverable.
-  if (host.announceDevReady) {
+  // Opening the Xcode project raises no app, so there is none to wait for.
+  if (host.announceDevReady && target === appPath) {
     await rememberRaisedContainerApp(tools, appPath, appsBefore)
   }
 

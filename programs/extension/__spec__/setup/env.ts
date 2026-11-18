@@ -1,3 +1,5 @@
+import {beforeEach, expect} from 'vitest'
+
 process.env.FORCE_COLOR = '0'
 process.env.NO_COLOR = '1'
 
@@ -16,6 +18,10 @@ process.env.EXTENSION_TELEMETRY = '0'
 // child that copies this process's variables takes the same answer.
 process.env.EXTENSION_NO_INSTALL_PROMPT = '1'
 
+// The guard below covers this process only, and every CLI child asks a
+// registry for updates. update-check reads this name, npm does not.
+process.env.npm_registry = 'http://127.0.0.1:9/'
+
 // This suite is a required gate too, so it takes create's loopback-only rule.
 // The catalog drift cases are the only specs here that leave loopback and they
 // run under their own flag.
@@ -23,4 +29,12 @@ if (!process.env.EXTENSION_TEMPLATE_CATALOG_LIVE) {
   await import('../../../create/__spec__/forbid-network')
 }
 
-export {}
+// A test that asserts nothing passes whatever the CLI does. cli-exec is
+// left out: it installs from the real registry and was not run under this.
+const MUST_ASSERT = /[/\\]__spec__[/\\](?:exec|contract)[/\\](?!cli-exec\.)/
+
+beforeEach(() => {
+  if (MUST_ASSERT.test(expect.getState().testPath ?? '')) {
+    expect.hasAssertions()
+  }
+})

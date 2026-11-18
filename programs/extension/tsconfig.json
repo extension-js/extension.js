@@ -12,6 +12,7 @@
     "isolatedModules": true,
     "resolveJsonModule": true,
     "moduleResolution": "bundler",
+    "customConditions": ["development"],
     "useDefineForClassFields": true,
     "allowImportingTsExtensions": true,
     "rootDir": "..",
@@ -24,7 +25,6 @@
     "**/*.spec.ts",
     "**/__spec__/**",
     "rslib.config.ts",
-    "vitest.config.ts",
-    "browsers/vitest.config.ts"
+    "vitest.config.ts"
   ]
 }

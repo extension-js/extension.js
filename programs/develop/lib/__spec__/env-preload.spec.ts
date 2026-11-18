@@ -2,7 +2,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {loadCommandConfig} from '../config-loader'
+import {getEnvFileCandidates} from '../../plugin-compilation/env'
+import {
+  envFileCandidates,
+  loadCommandConfig,
+  loadProjectConfigDefaults
+} from '../config-loader'
 
 // Env files reach the config in the usual layers: .env.defaults only fills
 // gaps, .env is the base, .env.local overrides it, and a value the shell
@@ -12,6 +17,7 @@ const KEYS = [
   'EXTENSION_PUBLIC_B',
   'EXTENSION_PUBLIC_D',
   'EXTENSION_PUBLIC_E',
+  'EXTENSION_PUBLIC_STAGE',
   'EXTENSION_PUBLIC_SHELL'
 ]
 const roots: string[] = []
@@ -152,5 +158,135 @@ describe('env preload layering at config time', () => {
       .map(String)
       .filter((file) => file.endsWith('.zip'))
     expect(zips.length).toBeGreaterThan(0)
+  }, 120_000)
+})
+
+// The config reads the env files of the mode that is compiling, in the order
+// the bundle picks them, so both see one value for a key.
+const MODE_FILES = {
+  '.env': 'EXTENSION_PUBLIC_STAGE=from-dotenv\n',
+  '.env.development': 'EXTENSION_PUBLIC_STAGE=from-development\n',
+  '.env.production': 'EXTENSION_PUBLIC_STAGE=from-production\n'
+}
+const MODE_CONFIG = `const seen = String(process.env.EXTENSION_PUBLIC_STAGE)
+require('node:fs').writeFileSync(require('node:path').join(__dirname, 'seen.txt'), seen)
+module.exports = {
+  perfBudgets: {seen},
+  commands: {build: {profile: seen}, dev: {profile: seen}}
+}
+`
+
+describe('env preload follows the running mode', () => {
+  it('reads .env.production for build and leaves .env.development alone', async () => {
+    const root = project({...MODE_FILES, 'extension.config.js': MODE_CONFIG})
+    const config = (await loadCommandConfig(root, 'build')) as {
+      profile?: string
+    }
+
+    expect(config.profile).toBe('from-production')
+  })
+
+  it('reads .env.development for dev', async () => {
+    const root = project({...MODE_FILES, 'extension.config.js': MODE_CONFIG})
+    const config = (await loadCommandConfig(root, 'dev')) as {profile?: string}
+
+    expect(config.profile).toBe('from-development')
+  })
+
+  it('hides a development-only file from a build', async () => {
+    const root = project({
+      '.env.development': MODE_FILES['.env.development'],
+      'extension.config.js': MODE_CONFIG
+    })
+    const config = (await loadCommandConfig(root, 'build')) as {
+      profile?: string
+    }
+
+    expect(config.profile).toBe('undefined')
+  })
+
+  it('lets a file named for the browser win when the caller names it', async () => {
+    const root = project({
+      ...MODE_FILES,
+      '.env.firefox': 'EXTENSION_PUBLIC_STAGE=from-firefox\n',
+      '.env.chrome.production': 'EXTENSION_PUBLIC_STAGE=from-chrome\n',
+      'extension.config.js': MODE_CONFIG
+    })
+    const config = (await loadProjectConfigDefaults(root, {
+      mode: 'production',
+      browser: 'firefox'
+    })) as {perfBudgets?: {seen?: string}}
+
+    expect(config.perfBudgets?.seen).toBe('from-firefox')
+  })
+
+  // Written out, since the env plugin takes this same list and would agree
+  // with any order. Exact name first, then the family, then the shared files.
+  it('lists the files strongest first, browser files above the shared ones', () => {
+    const forNames = (mode: string, names: string[]) => [
+      ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
+      `.env.${mode}.local`,
+      `.env.${mode}`,
+      '.env.local',
+      '.env'
+    ]
+    const chromium = ['chromium', 'chrome', 'edge', 'chromium-based']
+    const gecko = ['firefox', 'gecko-based']
+    const expected: Record<string, string[]> = {
+      chrome: ['chrome', 'chromium', 'edge', 'chromium-based'],
+      edge: ['edge', 'chromium', 'chrome', 'chromium-based'],
+      'chromium-based': ['chromium-based', 'chromium', 'chrome', 'edge'],
+      firefox: gecko,
+      'gecko-based': ['gecko-based', 'firefox'],
+      safari: ['safari', ...chromium],
+      'acme-webkit': ['acme-webkit', ...chromium],
+      netscape: ['netscape']
+    }
+
+    for (const mode of ['development', 'production', 'none']) {
+      for (const [browser, names] of Object.entries(expected)) {
+        expect(envFileCandidates(mode, browser)).toEqual(forNames(mode, names))
+        expect(getEnvFileCandidates(browser as never, mode)).toEqual(
+          envFileCandidates(mode, browser)
+        )
+      }
+
+      expect(envFileCandidates(mode)).toEqual(forNames(mode, []))
+    }
+  })
+
+  it('gives the config of a real build the value the bundle gets', async () => {
+    const root = project({...MODE_FILES, 'extension.config.js': MODE_CONFIG})
+    fs.writeFileSync(
+      path.join(root, 'background.js'),
+      'console.log("stage", process.env.EXTENSION_PUBLIC_STAGE)\n'
+    )
+
+    const {extensionBuild} = await import('../../command-build')
+    const previous = process.env.VITEST
+    process.env.VITEST = 'true'
+
+    try {
+      const summary = await extensionBuild(root, {
+        browser: 'chrome',
+        silent: true,
+        install: false,
+        exitOnError: false
+      } as any)
+      expect(summary.errors_count).toBe(0)
+    } finally {
+      if (previous === undefined) delete process.env.VITEST
+      else process.env.VITEST = previous
+    }
+
+    const bundle = fs.readFileSync(
+      path.join(root, 'dist', 'chrome', 'background', 'service_worker.js'),
+      'utf-8'
+    )
+
+    expect(bundle).toContain('from-production')
+    expect(fs.readFileSync(path.join(root, 'seen.txt'), 'utf-8')).toBe(
+      'from-production'
+    )
   }, 120_000)
 })

@@ -8,6 +8,11 @@
 
 import * as http from 'node:http'
 import * as net from 'node:net'
+import * as messages from '../../browsers-lib/messages'
+import {
+  type TeardownDependencies,
+  teardownDefaults
+} from '../../browsers-lib/process-teardown'
 import type {SafariPipelineTools, SafariWebDriverProcess} from './tools'
 
 const DRIVER_READY_MS = 5000
@@ -41,7 +46,9 @@ interface DriverReply {
 }
 
 const activeSessions = new Set<SafariWebDriverSession>()
-const activeDrivers = new Set<SafariWebDriverProcess>()
+// Each driver this process runs, with what ends it at exit, where nothing
+// asynchronous can run: the driver, then the Safari its session raised.
+const activeDrivers = new Map<SafariWebDriverProcess, () => void>()
 let handlersInstalled = false
 
 function freePort(): Promise<number> {
@@ -133,7 +140,7 @@ function refusalReason(reply: DriverReply): string {
 }
 
 function stopAllDriversOnExit() {
-  for (const driver of activeDrivers) driver.stop()
+  for (const stopOnExit of activeDrivers.values()) stopOnExit()
 }
 
 function closeAllOnSignal() {
@@ -156,41 +163,72 @@ export async function closeSafariWebDriverSessions(): Promise<void> {
   await Promise.all([...activeSessions].map((session) => session.close()))
 }
 
-function processAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0)
+// What quitting the automation Safari asks of the machine.
+export type SafariQuitDependencies = Pick<
+  TeardownDependencies,
+  'platform' | 'isAlive' | 'startedAt' | 'kill' | 'print'
+>
 
-    return true
-  } catch {
-    return false
-  }
+// A pid is reused once its owner exits, so the driver counts as ours only
+// while its pid still carries the start time read when it spawned.
+function provenDriverStart(
+  pid: number | undefined,
+  spawnedAt: number | null,
+  deps: SafariQuitDependencies
+): number | null {
+  if (!pid || spawnedAt === null) return null
+
+  return deps.startedAt(pid) === spawnedAt ? spawnedAt : null
 }
 
 // Safari's automation instance outlives both the deleted session and the
-// driver, so the one this session raised is quit by pid. Only pids that were
-// not there before the driver spawned qualify, a Safari the user had open
-// stays, automation flag or not.
+// driver, so the one this session raised is quit by pid. It has to be absent
+// from the snapshot and no older than our driver, or it is left with a line.
 async function quitRaisedAutomation(
   tools: SafariPipelineTools,
-  before: Set<number>
+  before: Set<number>,
+  driverStarted: number | null,
+  deps: SafariQuitDependencies
 ): Promise<void> {
   const raised = (await tools.listAutomationPids()).filter(
     (pid) => !before.has(pid)
   )
+  const ours = provenAutomation(raised, driverStarted, deps)
 
-  for (const pid of raised) {
-    try {
-      process.kill(pid, 'SIGTERM')
-    } catch {
-      // Already gone
-    }
-  }
+  for (const pid of ours) deps.kill(pid, 'SIGTERM')
 
   const deadline = Date.now() + AUTOMATION_QUIT_MS
 
-  while (Date.now() < deadline && raised.some(processAlive)) {
+  while (Date.now() < deadline && ours.some(deps.isAlive)) {
     await new Promise((resolve) => setTimeout(resolve, DRIVER_POLL_MS))
   }
+}
+
+// The raised pids that started no earlier than our driver. Each other one is
+// left running with a line that says how to stop it.
+function provenAutomation(
+  raised: number[],
+  driverStarted: number | null,
+  deps: SafariQuitDependencies
+): number[] {
+  const ours: number[] = []
+
+  for (const pid of raised) {
+    // ps dates a process to the second, so the same second counts as after.
+    const started = driverStarted === null ? null : deps.startedAt(pid)
+
+    if (
+      started !== null &&
+      driverStarted !== null &&
+      started >= driverStarted
+    ) {
+      ours.push(pid)
+    } else {
+      deps.print(messages.browserLeftRunning('safari', pid, deps.platform))
+    }
+  }
+
+  return ours
 }
 
 // Points the automation window at a page. Answers null once Safari loaded it,
@@ -271,11 +309,14 @@ export interface SafariWebDriverOptions {
   // Reads what holds Safari after a request that timed out. An answer names
   // the blocker, and asking again behind the same blocker is skipped.
   readBlocker?: () => Promise<string | null>
+  // Dates, signals and probes pids on the way out. Unset means the machine.
+  teardown?: SafariQuitDependencies
 }
 
 async function requestSession(
   tools: SafariPipelineTools,
-  createMs: number
+  createMs: number,
+  deps: SafariQuitDependencies
 ): Promise<
   | {session: SafariWebDriverSession; reason?: undefined; retry?: undefined}
   | {session?: undefined; reason: string; retry: boolean}
@@ -301,13 +342,18 @@ async function requestSession(
     }
   }
 
-  activeDrivers.add(driver)
+  activeDrivers.set(driver, () => driver.stop())
   installHandlersOnce()
 
+  const spawnedAt = driver.pid ? deps.startedAt(driver.pid) : null
+
   const stopDriver = async () => {
+    // Read while the driver still runs: a stopped pid dates nothing.
+    const driverStarted = provenDriverStart(driver.pid, spawnedAt, deps)
+
     driver.stop()
     activeDrivers.delete(driver)
-    await quitRaisedAutomation(tools, before)
+    await quitRaisedAutomation(tools, before, driverStarted, deps)
   }
 
   const notReady = await waitForDriver(port)
@@ -366,6 +412,33 @@ async function requestSession(
     return {reason: refusalReason(created), retry: false}
   }
 
+  // Listed and dated now, since the exit path cannot list by arguments. A pid
+  // that no longer carries its start time at exit belongs to another process.
+  const raisedAtOpen: Array<{pid: number; started: number}> = []
+
+  for (const pid of await tools.listAutomationPids()) {
+    const started = before.has(pid) ? null : deps.startedAt(pid)
+    if (started !== null) raisedAtOpen.push({pid, started})
+  }
+
+  activeDrivers.set(driver, () => {
+    const driverStarted = provenDriverStart(driver.pid, spawnedAt, deps)
+
+    driver.stop()
+
+    for (const mark of raisedAtOpen) {
+      if (deps.startedAt(mark.pid) !== mark.started) continue
+
+      if (driverStarted !== null && mark.started >= driverStarted) {
+        deps.kill(mark.pid, 'SIGTERM')
+      } else {
+        deps.print(
+          messages.browserLeftRunning('safari', mark.pid, deps.platform)
+        )
+      }
+    }
+  })
+
   let closing: Promise<void> | null = null
 
   const session: SafariWebDriverSession = {
@@ -407,10 +480,11 @@ export async function openSafariWebDriverSession(
 ): Promise<SafariWebDriverOutcome> {
   const createMs = options.createMs ?? SESSION_CREATE_MS
   const attempts = Math.max(1, options.attempts ?? SESSION_ATTEMPTS)
+  const deps = options.teardown ?? teardownDefaults
   const reasons: string[] = []
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
-    const outcome = await requestSession(tools, createMs)
+    const outcome = await requestSession(tools, createMs, deps)
 
     if (outcome.session) return {session: outcome.session}
 

@@ -32,6 +32,23 @@ describe('the Safari appIcon option', () => {
     ).toThrow(path.join(project, 'store', 'missing.png'))
   })
 
+  it('codes both refusals as an option the caller got wrong', () => {
+    for (const merged of [
+      {appIcon: 'store/missing.png'},
+      {bundleId: 'com..example'}
+    ]) {
+      let thrown: {code?: string} | undefined
+
+      try {
+        resolveSafariIdentity(merged, project)
+      } catch (error) {
+        thrown = error as {code?: string}
+      }
+
+      expect(thrown?.code).toBe('E_INVALID_OPTION')
+    }
+  })
+
   it('stays unset when the option is not given', () => {
     expect(resolveSafariIdentity({}, project).appIcon).toBeUndefined()
   })

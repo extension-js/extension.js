@@ -6,6 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
 import {LOG_CONTEXTS, type LogContext} from './log-contexts'
 
 // Unknown names are dropped rather than refused, as this flag always did.
@@ -24,6 +25,28 @@ export function parseLogContexts(
     )
 
   return values.length > 0 ? values : undefined
+}
+
+export const LOG_LEVELS = [
+  'off',
+  'error',
+  'warn',
+  'info',
+  'debug',
+  'trace',
+  'all'
+] as const
+
+export type LogLevel = (typeof LOG_LEVELS)[number]
+
+// --logs is read in any case and with stray spaces, and the engine compares
+// the level exactly, so it is handed the listed name or nothing.
+export function parseLogLevel(raw: string | undefined): LogLevel | undefined {
+  const text = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+
+  return LOG_LEVELS.find((level) => level === text)
 }
 
 export type PositiveIntParse =
@@ -49,6 +72,52 @@ export function parsePositiveInt(flag: string, raw: unknown): PositiveIntParse {
   }
 
   return {ok: true, value}
+}
+
+// Digits only: parseInt read `10s` as 10 and `1e3` as 1, so a typo ran with
+// another number instead of being refused.
+export function parseWholeNumber(raw: unknown): number | undefined {
+  const text = String(raw ?? '').trim()
+  const value = /^\d+$/.test(text) ? Number(text) : Number.NaN
+
+  return Number.isSafeInteger(value) ? value : undefined
+}
+
+export type WholeNumberFlag = '--wait-timeout' | '--parent-pid' | '--port'
+
+// The smallest and largest value each flag takes. --port 0 asks for a free port.
+const WHOLE_NUMBER_BOUNDS: Record<WholeNumberFlag, [number, number]> = {
+  '--wait-timeout': [1, Number.MAX_SAFE_INTEGER],
+  '--parent-pid': [1, Number.MAX_SAFE_INTEGER],
+  '--port': [0, 65535]
+}
+
+export function isValidWholeNumberFlag(
+  flag: WholeNumberFlag,
+  raw: unknown
+): boolean {
+  const value = parseWholeNumber(raw)
+  const [min, max] = WHOLE_NUMBER_BOUNDS[flag]
+
+  return value !== undefined && value >= min && value <= max
+}
+
+// The first typed flag whose value is refused, in the order given.
+export function firstInvalidWholeNumberFlag(
+  values: Array<[WholeNumberFlag, unknown]>
+): [WholeNumberFlag, string] | undefined {
+  for (const [flag, raw] of values) {
+    if (raw === undefined) continue
+    if (!isValidWholeNumberFlag(flag, raw)) return [flag, String(raw)]
+  }
+
+  return undefined
+}
+
+// Apple takes a single label, but the identity of a shipped app needs an owner
+// domain in front of it, which is what the help asks for.
+export function isReverseDnsBundleId(value: string): boolean {
+  return value.includes('.') && isValidBundleId(value)
 }
 
 export function parseExtensionsList(raw: string | undefined) {

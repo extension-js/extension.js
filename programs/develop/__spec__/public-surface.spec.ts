@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import * as bridge from '../bridge-entry'
+import {sessionArtifactsRootDirBesideBuild} from '../lib/session-contract'
 
 // Everything a host can only get by reading this package's internals is a
 // capability the CLI has and a library caller does not. These pin the ones
@@ -170,8 +171,14 @@ describe('the extension-develop/bridge entry', () => {
       )
       .replace(/\s+/g, ' ')
 
-    expect(helper).toContain("'extension-js'")
+    expect(helper).toContain('sessionArtifactsRootDirBesideBuild(')
     expect(helper).toContain("'profiles', `${browser}-profile`")
+
+    expect(
+      sessionArtifactsRootDirBesideBuild(
+        bridge.browserDistDir('/p', 'chromium')
+      )
+    ).toBe(bridge.sessionArtifactsRootDir('/p'))
   })
 
   it('publishes the whole-document ready reader beside the narrow one', () => {

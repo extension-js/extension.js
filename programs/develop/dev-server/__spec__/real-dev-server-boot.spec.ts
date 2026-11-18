@@ -3,9 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {RspackDevServer} from '@rspack/dev-server'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeEach, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
+import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
 const roots: string[] = []
 
@@ -76,6 +77,8 @@ async function startServer(root: string) {
 
   return {server, port}
 }
+
+beforeEach(skipWithoutDevelopDist)
 
 describe('rspack dev server (real boot)', () => {
   afterAll(() => {
