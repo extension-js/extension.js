@@ -193,9 +193,9 @@ describe('a manifest that names files that do not exist', () => {
 
     expect(errors.map(({lines}) => lines[0])).toEqual([
       'content/helper does not exist. Check the content_scripts[0].js field in your manifest.json file.',
-      'content/odd.css does not exist. Check the content_scripts[0].css field in your manifest.json file.',
-      'content/theme does not exist. Check the content_scripts[0].js field in your manifest.json file.',
-      'content/odd.js does not exist. Check the content_scripts[0].js field in your manifest.json file.'
+      'content/odd.css does not exist. Check the content_scripts[0].js field in your manifest.json file.',
+      'content/theme does not exist. Check the content_scripts[0].css field in your manifest.json file.',
+      'content/odd.js does not exist. Check the content_scripts[0].css field in your manifest.json file.'
     ])
   })
 
