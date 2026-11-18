@@ -136,7 +136,7 @@ describe('theme colors on a Chromium build', () => {
 
     expect(output.split(NOTE)).toHaveLength(2)
     expect(output).toContain(
-      'The build wrote theme.colors.frame, theme.colors.tab_text, theme.colors.toolbar as [R, G, B] arrays for chrome'
+      'The build wrote theme.colors.frame, theme.colors.tab_text, theme.colors.toolbar as [R, G, B] arrays for Chrome'
     )
 
     expect(output).toContain('frame as [27, 38, 59] for one')
@@ -150,7 +150,7 @@ describe('theme colors on a Chromium build', () => {
 
     expect(failure, output).toBeUndefined()
     expect(manifest.theme.colors.frame).toEqual([0, 0, 0])
-    expect(output).toContain(`${NOTE} edge`)
+    expect(output).toContain(`${NOTE} Edge`)
   }, 180_000)
 
   it('passes arrays through untouched with no note', async () => {

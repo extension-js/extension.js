@@ -8,7 +8,7 @@
 
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../../lib/constants'
-import {prefix} from '../../lib/messaging'
+import {browserDisplayName, prefix} from '../../lib/messaging'
 import {formatThemeArray} from './manifest-lib/theme-values'
 
 export function serverRestartRequiredFromManifestError(
@@ -102,7 +102,7 @@ export function themeArraysRefused(
 ) {
   const lines: string[] = []
   lines.push(
-    `${colors.blue(browser)} loads ${colors.yellow('theme.colors')} and ${colors.yellow('theme.tints')} only as number arrays, and the build cannot translate these values from your ${colors.yellow('manifest.json')} exactly:`
+    `${colors.blue(browserDisplayName(browser))} loads ${colors.yellow('theme.colors')} and ${colors.yellow('theme.tints')} only as number arrays, and the build cannot translate these values from your ${colors.yellow('manifest.json')} exactly:`
   )
 
   for (const issue of issues) {
@@ -132,7 +132,7 @@ export function themeColorsTranslated(
   const [first] = translated
 
   return (
-    `${prefix('info')} The build wrote ${keys} as [R, G, B] arrays for ${colors.blue(browser)}, which loads theme colors only as number arrays. ` +
+    `${prefix('info')} The build wrote ${keys} as [R, G, B] arrays for ${colors.blue(browserDisplayName(browser))}, which loads theme colors only as number arrays. ` +
     `Each array holds the exact color of the string in the source.\n` +
     `Write the arrays in ${colors.yellow('manifest.json')}, ${colors.yellow(first.key)} as ${formatThemeArray(first.rgb)} for one, to state the Chromium colors in the source. Firefox reads the same arrays.`
   )
