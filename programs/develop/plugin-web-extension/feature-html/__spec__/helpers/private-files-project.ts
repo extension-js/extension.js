@@ -2,6 +2,7 @@ import * as path from 'node:path'
 import {listOutput} from '../../../../plugin-special-folders/__spec__/helpers/compile-harness'
 import {
   MARKER,
+  notFoundPaths,
   project
 } from '../../../../plugin-special-folders/__spec__/helpers/private-files-project'
 
@@ -40,6 +41,17 @@ export const PUBLIC_OUTPUT = [
   '.well-known/links.json',
   'logo.png'
 ]
+
+// The paths a build names as not found, one list per copy: the terminal
+// lines, then the JSON summary that closes what the build printed.
+export function notFoundCopies(printed: string) {
+  const cut = printed.lastIndexOf('\n{"')
+
+  return {
+    terminal: notFoundPaths(printed.slice(0, cut)),
+    summary: notFoundPaths(printed.slice(cut))
+  }
+}
 
 export interface Project {
   root: string
