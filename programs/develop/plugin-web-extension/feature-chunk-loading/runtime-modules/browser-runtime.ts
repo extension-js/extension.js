@@ -1,32 +1,44 @@
-import type * as webpack from 'webpack'
+// ██╗      ██████╗  █████╗ ██████╗ ███████╗██████╗
+// ██║     ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+// ██║     ██║   ██║███████║██║  ██║█████╗  ██████╔╝
+// ██║     ██║   ██║██╔══██║██║  ██║██╔══╝  ██╔══██╗
+// ███████╗╚██████╔╝██║  ██║██████╔╝███████╗██║  ██║
+// ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
+// MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
+
+import type {Compiler, RuntimeModule} from '@rspack/core'
+
+// Derived from webpack-target-webextension (MIT, Copyright 2020 CRIMX).
+// The license notice is in the README of this folder.
 
 export const RuntimeGlobal = '__webpack_require__.webExtRt'
 export const RuntimeGlobalIsBrowser = '__webpack_require__.webExtRtModern'
 
-/**
- * @param webpack webpack instance
- * @param acceptWeak if accept weak runtime check
- */
-export default function BrowserRuntimeModule(
-  webpack: typeof import('webpack'),
+// The extension API of the world a bundle runs in, under one runtime global.
+export function BrowserRuntimeModule(
+  webpack: Compiler['webpack'],
   acceptWeak: boolean
-): webpack.RuntimeModule {
+): RuntimeModule {
   const {RuntimeModule, Template} = webpack
+
   class BrowserRuntime extends RuntimeModule {
     constructor() {
       super('WebExtensionBrowserRuntime', RuntimeModule.STAGE_NORMAL)
     }
 
-    generate() {
+    generate(): string {
       const {compilation} = this
-      if (!compilation)
+
+      if (!compilation) {
         return Template.asString(
           '/* [webpack-target-webextension] BrowserRuntimeModule skipped because no compilation is found. */'
         )
+      }
 
       const optionalChaining =
-        compilation.outputOptions.environment.optionalChaining
-      const _let = compilation.outputOptions.environment.const ? 'let' : 'var'
+        compilation.outputOptions.environment?.optionalChaining
+      const _let = compilation.outputOptions.environment?.const ? 'let' : 'var'
+
       return Template.asString(
         [
           `${_let} isChrome, runtime;`,
@@ -60,8 +72,8 @@ export default function BrowserRuntimeModule(
           ]),
           '}',
           `${RuntimeGlobalIsBrowser} = !isChrome;`,
-          // IMPORTANT: In MAIN world content scripts, extension APIs are not present.
-          // Do NOT create throwing getters here (other runtime modules probe early).
+          // A MAIN world content script has no extension API, and the other
+          // runtime modules probe this early, so no getter here may throw.
           `${RuntimeGlobal} = runtime || { runtime: null };`,
           acceptWeak
             ? `if (!runtime && (typeof self !== "object" || !self.addEventListener)) {`
@@ -76,5 +88,6 @@ export default function BrowserRuntimeModule(
       )
     }
   }
+
   return new BrowserRuntime()
 }

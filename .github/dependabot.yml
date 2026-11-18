@@ -41,8 +41,27 @@ updates:
       - dependency-name: "@babel/preset-typescript"
         update-types:
           - "version-update:semver-major"
+    # Minor and patch bumps land as one pull request, while each major keeps
+    # its own so a breaking change is reviewed alone.
+    groups:
+      npm-minor-and-patch:
+        applies-to: version-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-security-minor-and-patch:
+        applies-to: security-updates
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
     open-pull-requests-limit: 10
-    rebase-strategy: "auto"
+    # A rebase reruns the whole CI matrix on every pull request each time main
+    # moves, so updates are rebased by hand when they are about to land.
+    rebase-strategy: "disabled"
     labels:
       - "dependencies"
 
@@ -64,7 +83,7 @@ updates:
       - dependency-name: "extension-js/corpus*"
       - dependency-name: "extension-js/templates*"
     open-pull-requests-limit: 10
-    rebase-strategy: "auto"
+    rebase-strategy: "disabled"
     labels:
       - "dependencies"
 
@@ -75,7 +94,7 @@ updates:
     schedule:
       interval: "weekly"
     open-pull-requests-limit: 10
-    rebase-strategy: "auto"
+    rebase-strategy: "disabled"
     labels:
       - "dependencies"
 
