@@ -364,7 +364,8 @@ describe('lifecycle stream transitions', () => {
     stream.interrupted('SIGINT')
     const frames = parseFrames(lines)
     expect(frames.map((frame) => frame.status)).toEqual(['failed'])
-    expect(frames[0].error?.code).toBe('E_READY_ERROR_STATUS')
+    // The code --wait and the exit frame give the same contract state.
+    expect(frames[0].error?.code).toBe('E_BROWSER_LAUNCH')
     expect(frames[0].value?.readyCode).toBe('browser_launch_failed')
     fs.rmSync(dir, {recursive: true, force: true})
   })
@@ -388,7 +389,7 @@ describe('lifecycle stream transitions', () => {
     const [frame] = parseFrames(lines)
     expect(frame.status).toBe('ready-failed')
     expect(frame.ok).toBe(false)
-    expect(frame.error?.code).toBe('E_READY_ERROR_STATUS')
+    expect(frame.error?.code).toBe('E_COMPILE')
     expect(frame.value?.readyCode).toBe('compile_error')
     expect(frame.value?.pid).toBe(process.pid)
 
@@ -404,6 +405,38 @@ describe('lifecycle stream transitions', () => {
     ])
 
     fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('reads a locked profile as E_PROFILE_LOCKED while the session runs and at exit', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'profile_locked',
+        message: 'the browser profile is already in use by another session',
+        profileLockedAt: '2026-10-03T00:00:00.000Z'
+      })
+    )
+
+    try {
+      const running = makeStream({readyPath})
+      running.stream.ready()
+      const [frame] = parseFrames(running.lines)
+      expect(frame.status).toBe('ready-failed')
+      expect(frame.error?.code).toBe('E_PROFILE_LOCKED')
+      expect(frame.value?.readyCode).toBe('profile_locked')
+
+      const ending = makeStream({readyPath})
+      ending.stream.starting({requestedPort: 8080, port: 8080})
+      ending.stream.exited(1)
+      const [, last] = parseFrames(ending.lines)
+      expect(last.status).toBe('failed')
+      expect(last.error?.code).toBe('E_PROFILE_LOCKED')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
   })
 
   // start, preview, doctor and the act verbs name a refused load this way.

@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {createLifecycleStream} from '../../../develop/dev-server/lifecycle-stream'
+import {READY_CONTRACT_CODES as ENGINE_READY_CONTRACT_CODES} from '../../../develop/dev-server/ready-contract-codes'
 import {describeWaitError, runDevWaitMode} from '../../commands/dev-wait'
 import {
   READY_CONTRACT_CODES,
@@ -32,7 +33,8 @@ const SURFACES: Record<
   {
     stamp: Record<string, unknown>
     wait: string
-    streamReady: {status: string; code: string}
+    // What the ready report writes. A browser exit reads as its exit frame.
+    streamReady?: {status: string; code: string}
     streamExit: {status: string; code: string} | null
   }
 > = {
@@ -43,7 +45,6 @@ const SURFACES: Record<
       browserExitSignal: null
     },
     wait: 'E_BROWSER_EXITED',
-    streamReady: {status: 'failed', code: 'E_READY_ERROR_STATUS'},
     streamExit: {status: 'browser-exited', code: 'E_BROWSER_LAUNCH'}
   },
   browser_launch_failed: {
@@ -52,8 +53,14 @@ const SURFACES: Record<
       browserLaunchFailedReason: 'spawn /nowhere/chrome EACCES'
     },
     wait: 'E_BROWSER_LAUNCH',
-    streamReady: {status: 'failed', code: 'E_READY_ERROR_STATUS'},
+    streamReady: {status: 'failed', code: 'E_BROWSER_LAUNCH'},
     // Nothing exited, so the stream has no exit frame to code.
+    streamExit: null
+  },
+  profile_locked: {
+    stamp: {profileLockedAt: '2026-10-03T00:00:00.000Z'},
+    wait: 'E_PROFILE_LOCKED',
+    streamReady: {status: 'ready-failed', code: 'E_PROFILE_LOCKED'},
     streamExit: null
   }
 }
@@ -158,8 +165,13 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
       expect(frames[0].status).toBe('browser-exited')
       expect(frames[0].error?.code).toBe(expected.streamExit.code)
     } else {
-      expect(frames[0].error?.code).toBe(expected.streamReady.code)
+      expect(frames[0].status).toBe(expected.streamReady?.status)
+      expect(frames[0].error?.code).toBe(expected.streamReady?.code)
     }
+  })
+
+  it('resolves contract ids in the engine with the table --wait reads', () => {
+    expect(ENGINE_READY_CONTRACT_CODES).toEqual(READY_CONTRACT_CODES)
   })
 
   // The launcher stamps the code it refused with, and every surface carries
@@ -209,7 +221,9 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
       code.startsWith('browser_')
     )
 
-    expect(browserVerdicts.sort()).toEqual(Object.keys(SURFACES).sort())
+    expect([...browserVerdicts, 'profile_locked'].sort()).toEqual(
+      Object.keys(SURFACES).sort()
+    )
   })
 })
 

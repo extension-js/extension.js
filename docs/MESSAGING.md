@@ -303,7 +303,9 @@ What is stable and what is not:
   and a refusal after that is written again.
 - `ready-failed` is a `dev` status that does not end the stream: a compile finished and the
   ready contract still reports an error that carries no browser verdict of its own. `ok` is
-  `false`, `error.code` is `E_READY_ERROR_STATUS`, and `value` describes the session and
+  `false`, and `error.code` is the code `codes.json` maps the contract's id to, the one
+  `--wait` reports for the same contract (`E_PROFILE_LOCKED` for `profile_locked`), or
+  `E_READY_ERROR_STATUS` for an id the table does not list. `value` describes the session and
   carries `readyCode`, the contract's own id. The session keeps running, and a later compile
   that clears the error writes `ready`.
 - A launch that failed is reported as `failed`, or as `usage` when the launcher refused a value

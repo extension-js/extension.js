@@ -18,6 +18,7 @@ import {
   isMachineOutput
 } from '../lib/messaging'
 import {shouldWarnPortConflict} from './messages'
+import {readyContractErrorCode} from './ready-contract-codes'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
 // one schema-1 frame per lifecycle transition, one JSON document per line.
@@ -397,7 +398,7 @@ export class LifecycleStream {
       this.reportedReadyError = verdict
       this.readyEmitted = false
 
-      return this.contractError(ready, CODES.E_READY_ERROR_STATUS, true)
+      return this.contractError(ready, true)
     }
 
     if (this.readyEmitted) return null
@@ -416,8 +417,8 @@ export class LifecycleStream {
   // set, the status every other command gives it.
   private contractError(
     ready: Record<string, unknown>,
-    fallback: ErrorCode,
-    sessionGoesOn = false
+    sessionGoesOn: boolean,
+    exitCode?: ErrorCode
   ): Envelope<unknown> | null {
     const launchCode = stampedLaunchFailureCode(ready)
     const loadRefused = ready.code === 'extension_load_refused'
@@ -442,9 +443,13 @@ export class LifecycleStream {
       this.options.command,
       status,
       {
+        // The id resolves through the table --wait reads, one code per state.
         code: loadRefused
           ? CODES.E_EXTENSION_LOAD_REFUSED
-          : (launchCode ?? fallback),
+          : (launchCode ??
+            exitCode ??
+            readyContractErrorCode(ready.code) ??
+            CODES.E_READY_ERROR_STATUS),
         message:
           String(ready.message || '') ||
           'The ready contract reports an error for this session.'
@@ -483,11 +488,10 @@ export class LifecycleStream {
     if (ready && ready.status === 'error') {
       return this.contractError(
         ready,
+        false,
         ready.code === 'browser_exited'
           ? this.browserExitCode(ready)
-          : ready.code === 'browser_launch_failed'
-            ? CODES.E_BROWSER_LAUNCH
-            : CODES.E_READY_ERROR_STATUS
+          : undefined
       )
     }
 
