@@ -158,6 +158,8 @@ export interface LifecycleStreamOptions {
   readyPath?: string
   eventsPath?: string
   noBrowser?: boolean
+  // The host's hint for a code, for a terminal failure that carries none.
+  hintFor?: (code: ErrorCode) => string | undefined
   // Spec seam: every frame goes through one writer.
   write?: (line: string) => void
 }
@@ -204,6 +206,10 @@ export class LifecycleStream {
     if (terminal) this.terminalEmitted = true
     if (!this.enabled) return null
 
+    if (frame.status === 'failed' || frame.status === 'usage') {
+      this.addHostHint(frame)
+    }
+
     // A closed pipe must not replace the failure this frame reports.
     try {
       this.writeLine(`${JSON.stringify(frame)}\n`)
@@ -214,6 +220,21 @@ export class LifecycleStream {
     if (terminal) this.terminalWritten = true
 
     return frame
+  }
+
+  // A resolver that throws costs the frame its hint and nothing else.
+  private addHostHint(frame: Envelope<unknown>): void {
+    const code = frame.error?.code
+
+    if (frame.hint || !code || !this.options.hintFor) return
+
+    try {
+      const hint = this.options.hintFor(code as ErrorCode)
+
+      if (typeof hint === 'string' && hint) frame.hint = hint
+    } catch {
+      // Ignore
+    }
   }
 
   public sessionValue(

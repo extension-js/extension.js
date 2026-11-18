@@ -23,7 +23,13 @@ type Frame = {
   truncated?: boolean
 }
 
-function makeStream(options: {readyPath?: string; noBrowser?: boolean} = {}) {
+function makeStream(
+  options: {
+    readyPath?: string
+    noBrowser?: boolean
+    hintFor?: (code: string) => string | undefined
+  } = {}
+) {
   const lines: string[] = []
   const stream = createLifecycleStream({
     command: 'dev',
@@ -32,6 +38,7 @@ function makeStream(options: {readyPath?: string; noBrowser?: boolean} = {}) {
     readyPath: options.readyPath,
     eventsPath: '/proj/.extension-js/chromium/events.ndjson',
     noBrowser: options.noBrowser,
+    hintFor: options.hintFor,
     write: (line) => lines.push(line)
   })
 
@@ -838,6 +845,100 @@ describe('lifecycle stream transitions', () => {
     missing.stream.browserExited()
     expect(parseFrames(missing.lines)[0].error?.code).toBe('E_BROWSER_LAUNCH')
     fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('adds the hint the host has for a code to a terminal frame that has none', () => {
+    const asked: string[] = []
+
+    const hintFor = (code: string) => {
+      asked.push(code)
+
+      return code === 'E_INTERNAL' ? undefined : `host hint for ${code}`
+    }
+
+    const failed = makeStream({hintFor})
+    failed.stream.restartFailed({code: CODES.E_CONFIG_LOAD, message: 'kept'})
+    failed.stream.browserExited({exitCode: 9})
+    failed.stream.failed('listen EADDRINUSE')
+    const frames = parseFrames(failed.lines) as Array<{hint?: string}>
+
+    // Frames that end nothing keep the hints the engine gave them.
+    expect(frames[0].hint).toContain('The previous build keeps serving')
+    expect(frames[1].hint).toContain('The dev server keeps running')
+    expect(frames[2].hint).toBe('host hint for E_DEV_SERVER_START')
+    expect(asked).toEqual(['E_DEV_SERVER_START'])
+
+    // A code the host has nothing for leaves the frame as it was.
+    const bare = makeStream({hintFor})
+    bare.stream.starting({requestedPort: 8080, port: 8080})
+    bare.stream.exited(1)
+    expect(parseFrames(bare.lines)[1].error?.code).toBe('E_INTERNAL')
+    expect('hint' in parseFrames(bare.lines)[1]).toBe(false)
+
+    // With no resolver nothing is added.
+    const none = makeStream()
+    none.stream.failed('listen EADDRINUSE')
+    expect('hint' in parseFrames(none.lines)[0]).toBe(false)
+  })
+
+  it('keeps the hint a terminal frame already carries, and adds one to a usage frame', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-lifecycle-'))
+    const readyPath = path.join(dir, 'ready.json')
+    const hintFor = (code: string) => `host hint for ${code}`
+
+    try {
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({
+          status: 'error',
+          code: 'extension_load_refused',
+          message: 'refused'
+        })
+      )
+
+      const refused = makeStream({readyPath, hintFor})
+      refused.stream.starting({requestedPort: 8080, port: 8080})
+      refused.stream.exited(1)
+      expect((parseFrames(refused.lines)[1] as {hint?: string}).hint).toBe(
+        'Fix what the browser names, then run the command again.'
+      )
+
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({
+          status: 'error',
+          code: 'browser_launch_failed',
+          browserLaunchFailedCode: 'E_BROWSER_BINARY_INVALID',
+          message: 'bad pin'
+        })
+      )
+
+      const usage = makeStream({readyPath, hintFor})
+      usage.stream.ready()
+      const [frame] = parseFrames(usage.lines) as Array<{
+        status: string
+        hint?: string
+      }>
+      expect(frame.status).toBe('usage')
+      expect(frame.hint).toBe('host hint for E_BROWSER_BINARY_INVALID')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('writes the terminal frame with no hint when the resolver throws', () => {
+    const {stream, lines} = makeStream({
+      hintFor: () => {
+        throw new Error('the resolver broke')
+      }
+    })
+    stream.failed('listen EADDRINUSE')
+
+    const [frame] = parseFrames(lines)
+    expect(frame.status).toBe('failed')
+    expect(frame.error?.code).toBe('E_DEV_SERVER_START')
+    expect('hint' in frame).toBe(false)
+    expect(stream.ended).toBe(true)
   })
 
   it('emits a failed frame when the dev server never binds', () => {

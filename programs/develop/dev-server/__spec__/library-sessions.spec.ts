@@ -180,6 +180,14 @@ describe('a host that starts dev sessions from the library', () => {
         .map((frame) => frame.value?.instanceId)
     ).toEqual(ids)
 
+    // The host passed a hint resolver with its options, and the frame the
+    // engine wrote carries what it answered for the code.
+    expect(
+      frames
+        .filter((frame) => frame.status === 'failed')
+        .map((frame) => frame.hint)
+    ).toEqual(ids.map(() => 'host hint for E_DEV_SERVER_START'))
+
     expect(result.after).toEqual(result.before)
   }, 180_000)
 
@@ -202,6 +210,7 @@ describe('a host that starts dev sessions from the library', () => {
         ok: false,
         command: 'dev',
         error: {code: 'E_INTERNAL', message: 'config hook broke'},
+        hint: 'host hint for E_INTERNAL',
         value: {command: 'dev', browser: 'chromium', pid: expect.any(Number)}
       })
     }
@@ -248,6 +257,7 @@ describe('a host that starts dev sessions from the library', () => {
     expect(frames[frames.length - 1]).toMatchObject({
       ok: false,
       error: {code: 'E_PARENT_GONE', message: 'the owner is gone'},
+      hint: 'host hint for E_PARENT_GONE',
       value: {pid: expect.any(Number), port: expect.any(Number)}
     })
   }, 180_000)

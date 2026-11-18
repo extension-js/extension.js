@@ -116,6 +116,8 @@ function start(dir) {
     noBrowser: true,
     port: 0,
     install: false,
+    // As a CLI host does, for the terminal frame the engine writes.
+    hintFor: (code) => `host hint for ${code}`,
     onReady: () => {
       ready = true
     }

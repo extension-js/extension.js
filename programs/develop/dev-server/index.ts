@@ -455,7 +455,8 @@ function frameFailedStart(
         distPath: getDistPath(
           asAbsolute(resolveDevProjectRoot(projectStructure)),
           browser
-        )
+        ),
+        hintFor: devOptions.hintFor
       })
 
     stream.failed(
@@ -958,7 +959,8 @@ async function startDevSession(
     distPath: primaryDistPath,
     readyPath: metadata.readyPath,
     eventsPath: metadata.eventsPath,
-    noBrowser: Boolean(devOptions.noBrowser)
+    noBrowser: Boolean(devOptions.noBrowser),
+    hintFor: devOptions.hintFor
   })
   startup.lifecycle = lifecycle
   holdings.addForRelease(lifecycle.emitOnExit())
