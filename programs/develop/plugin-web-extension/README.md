@@ -22,7 +22,6 @@ Builds your extension into a shippable bundle. Pages get one script and optional
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Web resources**<br/>Collects assets imported by content scripts and adds them to `web_accessible_resources` so pages can safely access them.                      |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **JSON assets**<br/>Emits rulesets and other JSON files (e.g., DNR, managed schema) and keeps them in sync during development.                                      |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Locales**<br/>Discovers `_locales/**/messages.json` and ships them where browsers expect for localized UI.                                                        |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Special folders**<br/>Copies `public/` as is; recognizes `pages/` and `scripts/`; surfaces structure changes early in development.                                |
 
 Feature-local architecture notes live next to each feature. For the scripts pipeline, see `feature-scripts/README.md`.
 
@@ -55,6 +54,8 @@ export class WebExtensionPlugin {
       | 'safari'
       | 'chromium-based'
       | 'gecko-based'
+    devSession?: boolean
+    define?: Record<string, unknown>
   })
   apply(compiler: import('@rspack/core').Compiler): void
 }
