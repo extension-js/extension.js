@@ -52,7 +52,6 @@ export class PruneMainWorldBridges {
 
   apply(compiler: Compiler) {
     if (compiler.options?.mode !== 'production') return
-    if (!compiler.webpack || !compiler.hooks?.thisCompilation) return
 
     // A Chromium MAIN bundle reads the base off its own stack, so it needs
     // no bridge at all. Elsewhere the stack names no extension file.

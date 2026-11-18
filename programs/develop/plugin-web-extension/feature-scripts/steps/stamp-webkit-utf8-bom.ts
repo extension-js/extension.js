@@ -22,7 +22,6 @@ export class StampWebkitUtf8Bom {
 
   apply(compiler: Compiler): void {
     if (!isWebkitBasedBrowser(this.browser)) return
-    if (!compiler?.hooks?.thisCompilation?.tap) return
 
     compiler.hooks.thisCompilation.tap(
       'scripts:stamp-webkit-utf8-bom',
