@@ -115,6 +115,7 @@ async function devSession(root: string): Promise<Diagnostic[]> {
       plugin?.constructor.name !== 'plugin-browsers' &&
       plugin?.constructor.name !== 'plugin-playwright'
   )
+
   config.stats = false
 
   return new Promise((resolve, reject) => {
@@ -164,6 +165,7 @@ async function run(root: string) {
     fs.readFileSync(path.join(dist, manifest.content_scripts[0].js[0]), 'utf8'),
     page
   )
+
   await new Promise((resolve) => setTimeout(resolve, 20))
 
   return page.log

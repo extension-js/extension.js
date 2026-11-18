@@ -54,7 +54,7 @@ const hasNoJsx = (extension: string) => /^\.[cm]?ts$/.test(extension)
 
 // The wrapper runs before the transpiler, so it reads TypeScript and JSX as
 // written or as a loader returned them: acorn first, then Babel's parser.
-function parseProgram(
+export function parseProgram(
   source: string,
   resourcePath: string
 ): {body: AstNode[]} | {error: string} {

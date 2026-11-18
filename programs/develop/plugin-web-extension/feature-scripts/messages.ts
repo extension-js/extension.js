@@ -669,6 +669,28 @@ export function defaultExportLostToLoaders(
   )
 }
 
+// Thrown, so the bundler's parse error of the wrapped text never shows.
+export function contentScriptTopLevelAwait(
+  file: string,
+  line: number,
+  column: number,
+  declared: boolean
+) {
+  const runsAs = declared
+    ? 'A content script declared in the manifest runs as a classic script'
+    : 'A file a scripting call injects runs as a classic script'
+
+  return (
+    `${prefix('error')} ${file} uses await at the top level, outside any function.\n` +
+    `${colors.gray('PATH')} ${colors.underline(`${file}:${line}:${column}`)}\n` +
+    `${runsAs}, and a classic script only allows await inside an async function. This file has no import or export, so the build compiles it as that classic script too.\n` +
+    `Wrap the code in an async function that runs right away:\n` +
+    `  ${colors.blue('(async () => {')}\n` +
+    `    // the code that uses await\n` +
+    `  ${colors.blue('})()')}`
+  )
+}
+
 // Chromium drops an @import in a sheet it injects, so one the build could
 // not write into the sheet is a rule that styles nothing there.
 export function injectedSheetImportKept(

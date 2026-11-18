@@ -47,6 +47,7 @@ import {
   readDefaultExport,
   refuseDefaultExportLostToLoaders
 } from '../../scripts-lib/default-export'
+import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 import {
   extensionBaseAttributeFor,
   extensionBaseGlobalFor
@@ -1223,6 +1224,20 @@ export default function contentScriptWrapper(
   }
 
   if (defaultExport.kind !== 'found') {
+    refuseTopLevelAwait(
+      rewrittenSource,
+      this.resourcePath,
+      projectRelativePath,
+      Boolean(declaredEntry),
+      () => {
+        try {
+          return fs.readFileSync(this.resourcePath, 'utf8')
+        } catch {
+          return undefined
+        }
+      }
+    )
+
     // A declared entry that starts itself at import cannot be cleaned up, so
     // each dev re-inject adds a copy. Said in the session, where it bites.
     if (
