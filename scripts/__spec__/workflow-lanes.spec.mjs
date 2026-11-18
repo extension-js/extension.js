@@ -90,7 +90,7 @@ test('pull requests run each suite once on the engines floor, newer Node on main
   assert.match(step(lane, 'Close the red lane'), /if: success\(\)/)
 })
 
-test('windows runs the suites as two parallel jobs, each with its own timeout', () => {
+test('windows runs the suites as parallel jobs, the develop one in two shards', () => {
   const ci = workflow('ci.yml')
 
   assert.equal(ci.includes('\n  tests-windows:\n'), false)
@@ -104,7 +104,19 @@ test('windows runs the suites as two parallel jobs, each with its own timeout', 
     assert.doesNotMatch(job, /^ {4}needs: /m)
   }
 
-  assert.match(develop, /run: pnpm test:dev$/m)
+  // Both halves compile first, then each runs its own share of the files.
+  assert.match(develop, /^ {8}shard: \[1, 2\]$/m)
+  assert.match(develop, /^ {6}fail-fast: false$/m)
+  assert.match(
+    develop,
+    /run: pnpm exec turbo run compile --filter \.\/programs\/develop$/m
+  )
+
+  assert.match(
+    develop,
+    /run: pnpm -C programs\/develop exec vitest run --shard=\$\{\{ matrix\.shard \}\}\/2$/m
+  )
+
   assert.match(cli, /run: pnpm test:cli$/m)
   assert.match(cli, /run: pnpm ci:test:create$/m)
   assert.match(scripts['test:dev'], /run-test\.mjs develop$/)

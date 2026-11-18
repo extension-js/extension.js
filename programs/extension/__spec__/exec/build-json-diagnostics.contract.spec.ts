@@ -223,7 +223,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -273,7 +273,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -345,7 +345,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -423,7 +423,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -568,7 +568,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -643,7 +643,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -695,7 +695,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  'E_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\n  │ EXTENSION_PUBLIC_* variables read from code are undefined in this build.\n  │ Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\n  │ Family names apply to every family member, so .env.chrome also matches chromium and edge targets.'
+                  'E_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\n  │ EXTENSION_PUBLIC_* variables read from code are undefined in this build.\n  │ Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production.local, .env.production, .env.local, .env.\n  │ Family names apply to every family member, so .env.chrome also matches chromium and edge targets.'
                 ],
                 toolchain: {
                   node: '<node>',
@@ -710,12 +710,12 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            'E_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\n  │ EXTENSION_PUBLIC_* variables read from code are undefined in this build.\n  │ Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\n  │ Family names apply to every family member, so .env.chrome also matches chromium and edge targets.'
+            'E_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\n  │ EXTENSION_PUBLIC_* variables read from code are undefined in this build.\n  │ Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production.local, .env.production, .env.local, .env.\n  │ Family names apply to every family member, so .env.chrome also matches chromium and edge targets.'
           ]
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -727,7 +727,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '',
         '⏵⏵⏵ Compatibility: Found .env.staging, but none match browser chromium in mode production.',
         'EXTENSION_PUBLIC_* variables read from code are undefined in this build.',
-        'Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.',
+        'Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production.local, .env.production, .env.local, .env.',
         'Family names apply to every family member, so .env.chrome also matches chromium and edge targets.',
         '│  Source: bundler',
         '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
@@ -788,7 +788,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -809,7 +809,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
       ].join('\n')
     }
   },
-  // Pins today's behavior. Ledger 1375 N15.
+  // A requested archive that is not written fails the build, said once.
   {
     code: 'E_ZIP_SKIPPED',
     label: 'a folder where the requested zip has to go',
@@ -829,7 +829,8 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           value: null,
           error: {
             code: 'E_ZIP_SKIPPED',
-            message: '1 requested archive was not created'
+            message:
+              "The distribution zip was requested and not created.\nPATH dist/zipped-1.0.0-chromium.zip\nEISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'"
           },
           warnings: [],
           hint: 'Fix the error above and run build again.'
@@ -846,12 +847,9 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '└─ manifest.json (N KB)',
         '',
-        '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
-        "⏵⏵⏵ Built with Node <node> and Extension.js <version>. Name these versions in the store's reviewer note so a reviewer can rebuild it and match these bytes.",
         '⏵⏵⏵ The distribution zip was requested and not created.',
         'PATH dist/zipped-1.0.0-chromium.zip',
         "EISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'",
-        '⏵⏵⏵ 1 requested archive was not created',
         '⏵⏵⏵ Build failed with 1 error.',
         ''
       ].join('\n')

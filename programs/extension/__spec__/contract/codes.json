@@ -94,7 +94,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing or uncompiled."
+      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
@@ -202,8 +202,7 @@
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
-      "summary": "Packaging was skipped for a stated reason.",
-      "warn": true
+      "summary": "A requested archive was not created."
     },
     "E_ENV_NO_MATCH": {
       "area": "compile",

@@ -34,7 +34,9 @@ export class KeepGetURLImportsNative {
         ? [manifestDir]
         : [manifestDir, packageJsonDir]
 
-    compiler.options.module.rules.push({
+    // In front of the rules extension.config.js added, whose loaders run
+    // first and so read the file as it is written.
+    compiler.options.module.rules.unshift({
       test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
       include: [
         (resource: string) => isResourceUnderDirs(resource, includeDirs)

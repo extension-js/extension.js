@@ -202,12 +202,3 @@ export function createNodeModulesExclude(
     return !transpiled
   }
 }
-
-// Containment check routed through the shared canonicalization helper so both
-// sides normalize identically across platforms. See lib/resource-path.
-export function isSubPath(
-  resourcePath: string,
-  directoryPath: string
-): boolean {
-  return isResourceUnderDirs(resourcePath, [canonicalizeDir(directoryPath)])
-}

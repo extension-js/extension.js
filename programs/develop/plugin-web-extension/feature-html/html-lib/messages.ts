@@ -141,10 +141,24 @@ export function fileIsFolder(
 export function fileNotFound(
   errorSourcePath: string | undefined,
   missingFilePath: string,
-  opts?: {publicRootHint?: boolean; refLabel?: string; deadRefHint?: boolean}
+  opts?: {
+    publicRootHint?: boolean
+    refLabel?: string
+    deadRefHint?: boolean
+    // The tag that named the file, which says more than an ending does.
+    kind?: 'script' | 'style'
+  }
 ) {
   if (!errorSourcePath) {
     throw new Error('This state should not occur. Report a bug.')
+  }
+
+  if (opts?.kind === 'script') {
+    return javaScriptError(errorSourcePath, missingFilePath, opts)
+  }
+
+  if (opts?.kind === 'style') {
+    return cssError(errorSourcePath, missingFilePath, opts)
   }
 
   switch (path.extname(missingFilePath)) {

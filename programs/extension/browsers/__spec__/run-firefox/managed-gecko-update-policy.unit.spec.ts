@@ -276,9 +276,8 @@ describe('managed Gecko update policy writes', () => {
     })
   })
 
-  // Pins today's behavior. Ledger 1374 D25.
   it.skipIf(process.platform === 'win32')(
-    'takes the platform for the paths only, so a Windows lock is not retried off Windows',
+    'takes the platform for the paths and the retry, so a Windows lock is retried off Windows',
     () => {
       let renames = 0
       const pauses: number[] = []
@@ -315,8 +314,8 @@ describe('managed Gecko update policy writes', () => {
         error: 'EPERM: operation not permitted'
       })
 
-      expect(renames).toBe(1)
-      expect(pauses).toEqual([])
+      expect(renames).toBe(7)
+      expect(pauses).toEqual([10, 20, 40, 80, 160, 320])
     }
   )
 

@@ -348,6 +348,37 @@ export function projectCliVersionMismatch(
   )
 }
 
+// The CLI and the engine are published as one version. A pair at two versions
+// fails far from its cause, so the run stops before the engine is imported.
+export function developVersionMismatch(
+  cliVersion: string,
+  engineVersion: string,
+  engineRoot: string
+) {
+  return (
+    `${getLoggingPrefix('error')} ${code(`extension@${cliVersion}`)} found ` +
+    `${code(`extension-develop@${engineVersion}`)} at ${engineRoot}. ` +
+    `The two run together only at the same version.\n` +
+    `Reinstall so both are ${cliVersion}: ${code(`npm install extension@${cliVersion}`)}\n` +
+    `To run a local engine on purpose, set ${code('EXTENSION_DEVELOP_ROOT')} to its folder.`
+  )
+}
+
+// A local engine is the user's own choice, so the run goes on and says once
+// which pair is running.
+export function localDevelopVersionDiffers(
+  cliVersion: string,
+  engineVersion: string,
+  engineRoot: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${code('EXTENSION_DEVELOP_ROOT')} runs ` +
+    `${code(`extension-develop@${engineVersion}`)} from ${engineRoot} with ` +
+    `${code(`extension@${cliVersion}`)}. ` +
+    `The versions differ, so a failure here may come from the pair.`
+  )
+}
+
 export function unhandledError(err: unknown) {
   const rendered = err instanceof Error ? err.message : ''
 
