@@ -6,18 +6,50 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {AsyncLocalStorage, AsyncResource} from 'node:async_hooks'
 import type {ErrorCode} from './messaging'
 
 // A warning the run carries on past, in the shape the envelope's warnings
 // array speaks: the declared code, a colon, one plain sentence.
 const pending: string[] = []
+const scopes = new AsyncLocalStorage<string[]>()
+let activeBuilds = 0
+
+// Bound while no scope is open, so whatever it calls sees none.
+const outsideScopes = AsyncResource.bind(<T>(run: () => T): T => run())
 
 export function recordCodedWarning(code: ErrorCode, text: string): void {
   const line = `${code}: ${text}`
+  const lines = scopes.getStore() ?? pending
 
-  if (!pending.includes(line)) pending.push(line)
+  if (!lines.includes(line)) lines.push(line)
 }
 
+// A bundler hook runs outside the build's async scope, so what a plugin
+// records sits in the shared list and the build that asks first takes it.
 export function takeCodedWarnings(): string[] {
-  return pending.splice(0)
+  const own = scopes.getStore()
+  const shared = pending.splice(0)
+
+  return own ? [...new Set([...own.splice(0), ...shared])] : shared
+}
+
+// What an earlier run left behind is not this build's. A second build that
+// starts while one is running leaves the first one's warnings alone.
+export async function withCodedWarnings<T>(run: () => Promise<T>): Promise<T> {
+  if (activeBuilds === 0) pending.length = 0
+
+  activeBuilds += 1
+
+  try {
+    return await scopes.run([], run)
+  } finally {
+    activeBuilds -= 1
+  }
+}
+
+// Bun 1.2.0 crashes when the bundler starts inside an async scope, and the
+// bundler's hooks never see the scope on any runtime, so it starts outside.
+export function outsideCodedWarnings<T>(run: () => T): T {
+  return outsideScopes(run) as T
 }

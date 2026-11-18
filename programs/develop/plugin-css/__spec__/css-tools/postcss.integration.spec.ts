@@ -4,42 +4,25 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import postcss from 'postcss'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {maybeUsePostCss} from '../../css-tools/postcss'
 
 describe('postcss integration (tailwind arbitrary classes)', () => {
   let tmpRoot = ''
 
   beforeEach(() => {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-postcss-int-'))
-    process.env.EXTENSION_AUTHOR_MODE = 'false'
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', 'false')
   })
 
   afterEach(() => {
+    vi.unstubAllEnvs()
+
     if (tmpRoot && fs.existsSync(tmpRoot)) {
       fs.rmSync(tmpRoot, {recursive: true, force: true})
     }
   })
 
   it('emits arbitrary gradient-stop utility from fixture sources', async () => {
-    vi.resetModules()
-    vi.doMock('../../../lib/has-dependency', () => ({
-      hasDependency: (_p: string, dep: string) =>
-        dep === 'tailwindcss' || dep === '@tailwindcss/postcss'
-    }))
-
-    vi.doMock('../../css-tools/tailwind', () => ({
-      isUsingTailwind: () => true
-    }))
-
-    vi.doMock('module', async () => {
-      const actual = await vi.importActual<any>('module')
-      const realReq = nodeCreateRequire(import.meta.url)
-
-      return {
-        ...actual,
-        createRequire: () => (id: string) => realReq(id)
-      }
-    })
-
     const srcSidebar = path.join(tmpRoot, 'src', 'sidebar')
     fs.mkdirSync(srcSidebar, {recursive: true})
 
@@ -104,7 +87,6 @@ describe('postcss integration (tailwind arbitrary classes)', () => {
       ].join('\n')
     )
 
-    const {maybeUsePostCss} = await import('../../css-tools/postcss')
     const rule = await maybeUsePostCss(tmpRoot, {mode: 'development'})
     const plugins = (rule.options?.postcssOptions?.plugins || []) as any[]
     const executablePlugins = plugins.filter(

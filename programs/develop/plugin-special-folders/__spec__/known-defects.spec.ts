@@ -303,7 +303,7 @@ describe('D7: a public folder spelled Public/', () => {
 
 describe('D9: a symlinked file inside scripts/', () => {
   // Creating a symlink needs a privilege Windows runners do not grant.
-  it.skipIf(process.platform === 'win32')('is not an entry', () => {
+  it.skipIf(process.platform === 'win32')('is an entry', () => {
     const root = project({
       'scripts/content.js': 'document.title = "c"',
       'shared/linked.js': 'document.title = "linked"'
@@ -321,9 +321,10 @@ describe('D9: a symlinked file inside scripts/', () => {
       fs.lstatSync(path.join(root, 'scripts', 'linked.js')).isSymbolicLink()
     ).toBe(true)
 
-    // Pins today's behavior.
+    // Fixed: a link that stays inside the project is walked like a file.
     expect(scanned).toEqual({
-      'scripts/content': path.join(root, 'scripts', 'content.js')
+      'scripts/content': path.join(root, 'scripts', 'content.js'),
+      'scripts/linked': path.join(root, 'scripts', 'linked.js')
     })
   })
 })

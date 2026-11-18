@@ -14,7 +14,10 @@ import {sourceFileMayShip} from '../../plugin-special-folders/public-private-fil
 import {isFolder} from '../shared/paths'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
 import * as messages from './messages'
-import {resolveJsonResource} from './resolve-json-resource'
+import {
+  jsonFieldClimbsOutOfRoot,
+  resolveJsonResource
+} from './resolve-json-resource'
 
 function getProjectPathFromCompilation(
   compilation: Compilation,
@@ -54,6 +57,11 @@ export function processJsonAssets(
 
   for (const field of Object.entries(jsonFields)) {
     const [feature, resource] = field
+    const climbsOut = jsonFieldClimbsOutOfRoot(
+      compilation,
+      manifestPath,
+      feature
+    )
     let emittedCount = 0
     let underPublicCount = 0
     let missingCount = 0
@@ -75,7 +83,7 @@ export function processJsonAssets(
 
         // A file the build withholds is never opened, so no message can
         // quote it. It gets the finding a missing file gets.
-        if (!sourceFileMayShip(abs, [projectPath, manifestDir])) {
+        if (climbsOut || !sourceFileMayShip(abs, [projectPath, manifestDir])) {
           const displayPath = abs
           const isFatal = isCriticalJsonFeature(feature)
           const notFound = new WebpackError(
