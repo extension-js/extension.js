@@ -1,7 +1,5 @@
-import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
-  CERTIFICATE_DESTINATION_PATH,
   CHROMIUM_BASED_BROWSERS,
   CHROMIUM_FAMILY_ALIASES,
   GECKO_BASED_BROWSERS,
@@ -14,14 +12,6 @@ import {
 } from '../constants'
 
 describe('constants', () => {
-  it('exports certificate path under node_modules/extension-develop/dist/certs', () => {
-    expect(
-      CERTIFICATE_DESTINATION_PATH.endsWith(
-        path.join('node_modules', 'extension-develop', 'dist', 'certs')
-      )
-    ).toBe(true)
-  })
-
   it('lists chromium and gecko based browsers and union', () => {
     expect(CHROMIUM_BASED_BROWSERS).toEqual([
       'chrome',

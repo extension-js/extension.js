@@ -18,7 +18,7 @@ export const PROJECT_MANIFEST_FILENAMES = [
   'deno.json'
 ] as const
 
-export const DENO_CONFIG_FILENAMES = ['deno.jsonc', 'deno.json'] as const
+const DENO_CONFIG_FILENAMES = ['deno.jsonc', 'deno.json'] as const
 
 // Removes JSONC extensions (comments, trailing commas) so the result parses
 // with JSON.parse; string contents are preserved verbatim.
@@ -150,7 +150,7 @@ export function parseNpmSpecifier(
   return name ? {name, version} : undefined
 }
 
-export function findDenoConfigPath(projectDir: string): string | undefined {
+function findDenoConfigPath(projectDir: string): string | undefined {
   for (const filename of DENO_CONFIG_FILENAMES) {
     const candidate = path.join(projectDir, filename)
 

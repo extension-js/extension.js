@@ -139,7 +139,8 @@ describe('chromium --dry-run', () => {
     expect(existsSync(profile)).toBe(false)
   })
 
-  // Pins today's behavior. Ledger 1374 D6.
+  // The plan names the port a launch would be handed, so it takes one the
+  // way a launch does and gives it back.
   it('claims a debugging port for a launch it will not make, then releases it', async () => {
     await dryRun({chromiumBinary: pin})
 
@@ -247,7 +248,8 @@ describe('firefox --dry-run', () => {
     )
   })
 
-  // Pins today's behavior. Ledger 1374 D6.
+  // The plan names the port a launch would be handed, so it takes one the
+  // way a launch does and gives it back.
   it('claims a debugging port for a launch it will not make, then releases it', async () => {
     await dryRun({geckoBinary: pin})
 

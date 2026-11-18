@@ -250,20 +250,56 @@ function privateTextOf(holder: string): string[] {
   return [MARKER, ...[...marked].filter((opening) => !plain.has(opening))]
 }
 
-// The paths a build names as not found, in the order of the alphabet. The
-// summary repeats each message as JSON, where a line ends in a written \n
-// and the last one in a quote.
+// Each string a printed line holds: the line itself, or the strings of the
+// JSON summary, read back so a Windows `\node_modules` is not a newline.
+function printedTexts(printed: string): string[] {
+  const texts: string[] = []
+
+  const collect = (value: unknown) => {
+    if (typeof value === 'string') texts.push(value)
+    else if (value && typeof value === 'object') {
+      for (const item of Object.values(value)) collect(item)
+    }
+  }
+
+  for (const line of printed.split('\n')) {
+    try {
+      collect(JSON.parse(line))
+    } catch {
+      texts.push(line)
+    }
+  }
+
+  return texts
+}
+
+// The paths a build names as not found, in the order of the alphabet.
 export function notFoundPaths(printed: string): string[] {
   const found = new Set<string>()
 
-  for (const match of printed.matchAll(
-    /NOT FOUND ([^\s"]+?)(?=\\n|[\s"]|$)/g
-  )) {
-    // JSON doubles each Windows separator, so both spellings name one path.
-    found.add(match[1].replace(/\\\\/g, '\\'))
+  for (const text of printedTexts(printed)) {
+    for (const match of text.matchAll(/NOT FOUND ([^\s"]+)/g)) {
+      found.add(match[1])
+    }
   }
 
   return [...found].sort()
+}
+
+// The refs a warning or an error names as missing, in the order of the
+// alphabet. A machine path on Windows starts with its drive letter.
+export function missingRefs(printed: string): string[] {
+  const missing = new Set<string>()
+
+  for (const text of printedTexts(printed)) {
+    for (const match of text.matchAll(
+      /Update the ((?:\/|[A-Za-z]:\\)\S+) reference to point|A url\((\/[^)]+)\) reference points to a file that exists nowhere/g
+    )) {
+      missing.add(match[1] || match[2])
+    }
+  }
+
+  return [...missing].sort()
 }
 
 export interface Built {
@@ -342,14 +378,6 @@ export async function build(root: string, browser = 'chrome'): Promise<Built> {
     const printed = [lines.join('\n'), JSON.stringify(summary ?? failure)]
       .join('\n')
       .replace(ANSI, '')
-    const missing = new Set<string>()
-
-    for (const match of printed.matchAll(
-      /Update the (\/\S+) reference to point|A url\((\/[^)]+)\) reference points to a file that exists nowhere/g
-    )) {
-      missing.add(match[1] || match[2])
-    }
-
     const privateText = privateTextOf(path.dirname(root))
 
     return {
@@ -371,7 +399,7 @@ export async function build(root: string, browser = 'chrome'): Promise<Built> {
         .filter((name) => out[name].includes(MARKER))
         .map(withoutHash)
         .sort(),
-      missing: [...missing].sort(),
+      missing: missingRefs(printed),
       printed,
       errors: failure
         ? (failure.diagnostics || []).filter(isError).length

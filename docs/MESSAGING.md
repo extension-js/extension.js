@@ -130,7 +130,10 @@ The encoded rules:
 
 - The order is compiled, then card, then ready, in both launch modes.
 - The compile line keeps its timestamp and never says "successfully". The marked variants
-  are the failures: "compiled with warnings in N ms.", "compiled with errors in N ms."
+  count what they mark: "compiled with 2 warnings in N ms.", "failed to compile with 1 error
+  in N ms." A failed compile never says "compiled".
+- In `dev` and `preview` the line follows the diagnostics it counts. In `build` and `start`
+  it comes first, so a warning line ends ", listed below."
 - Exactly one blank line above and below the card. The card prints once per
   (browser, dist) pair.
 - The ready line is green, uses `artifactNoun()`, names no browser, and states the watch

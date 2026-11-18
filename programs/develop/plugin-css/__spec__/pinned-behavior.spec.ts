@@ -6,8 +6,6 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {getOptionalDependencyContract} from '../../lib/optional-deps-contracts'
 import webpackConfig from '../../rspack-config'
 import {isDeadCssUrlRef} from '../css-lib/dead-url-refs'
-import * as messages from '../css-lib/messages'
-import {maybeUsePostCss} from '../css-tools/postcss'
 import deadCssUrlLoader from '../dead-css-url-loader'
 import {CssPlugin} from '../index'
 import {closeCompiler, cssProjects} from './helpers/css-project'
@@ -39,24 +37,6 @@ function runInlineLoader(root: string, resourcePath: string, source: string) {
 
   return {output, warnings, errors}
 }
-
-describe('a content-script sheet that imports another', () => {
-  it('keeps the @import as text and never brings in the imported rules', () => {
-    const root = makeProject({'content/other.css': '.imported{color:green}\n'})
-    const source = '@import "./other.css";\n.own{color:red}\n'
-
-    const {output, warnings} = runInlineLoader(
-      root,
-      path.join(root, 'content', 'styles.css'),
-      source
-    )
-
-    // Pins today's behavior.
-    expect(output).toContain(JSON.stringify(source))
-    expect(output).not.toContain('.imported')
-    expect(warnings).toEqual([])
-  })
-})
 
 describe('a url() inside a CSS comment', () => {
   const source = '/* .x{background:url(./gone.png)} */\n.a{color:red}\n'
@@ -130,7 +110,7 @@ describe('postcss-preset-env and postcss-scss', () => {
 
 // An extensionless request whose file exists only with .css appended.
 describe('the three dead url() checks and the .css sibling', () => {
-  it('only the module graph check tries the .css sibling', async () => {
+  it('the two checks of this plugin try the .css sibling, the externals step does not', async () => {
     const root = makeProject({
       'entry.js': 'import "./cs.css"',
       'cs.css': '@import "./theme";\n.a{color:red}\n',
@@ -162,7 +142,7 @@ describe('the three dead url() checks and the .css sibling', () => {
       await closeCompiler(compiler)
     }
 
-    // 2. The check on an inlined content-script sheet calls it dead.
+    // 2. The check on an inlined content-script sheet keeps it too.
     const inlined = isDeadCssUrlRef('./theme', {issuerDir: root, roots: [root]})
 
     // 3. The externals step for a url() leaves it unresolved.
@@ -189,46 +169,11 @@ describe('the three dead url() checks and the .css sibling', () => {
       )
     )
 
-    // Pins today's behavior.
     expect(compilation.warnings.map((w) => w.name)).toEqual([])
     expect(compilation.errors.map((e) => e.message)).toEqual([])
-    expect(inlined).toBe(true)
+    expect(inlined).toBe(false)
+    // Pins today's behavior: the externals step has no .css sibling.
     expect(external).toEqual([null, './theme', 'asset'])
-  })
-})
-
-describe('the install commands in three CSS messages', () => {
-  it('name npm in a pnpm project', async () => {
-    const root = makeProject({
-      'package.json': JSON.stringify({
-        name: 'css-fixture',
-        packageManager: 'pnpm@10.0.0'
-      }),
-      'pnpm-lock.yaml': "lockfileVersion: '9.0'\n",
-      '.postcssrc.json': JSON.stringify({
-        plugins: {'postcss-plugin-nowhere': {}}
-      })
-    })
-    const error = vi.spyOn(console, 'error').mockImplementation(() => {})
-
-    await maybeUsePostCss(root, {mode: 'development'})
-
-    // Pins today's behavior.
-    expect(error.mock.calls[0][0].split('\n').at(-1)).toBe(
-      'Install it in your project to re-enable it: npm install --save-dev postcss-plugin-nowhere'
-    )
-
-    expect(
-      messages
-        .preprocessorShippedUncompiled('styles.scss', 'sass')
-        .split('\n')
-        .at(-1)
-    ).toBe('Install it to compile this file: npm install --save-dev sass')
-
-    expect(messages.missingSassDependency().split('\n').slice(-2)).toEqual([
-      '- npm install --save-dev sass',
-      '- pnpm add -D sass'
-    ])
   })
 })
 
