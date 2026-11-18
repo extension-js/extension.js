@@ -4,7 +4,9 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
   cssUrlRefCandidates,
+  cssUrlRefFiles,
   extractCssUrlRefs,
+  isDeadCssUrlRef,
   replaceCssUrlRefs
 } from '../../css-lib/dead-url-refs'
 import {
@@ -90,6 +92,62 @@ describe('the files a css url() request could name', () => {
 })
 
 // A commented-out url() is not a reference a browser requests.
+// An @import may leave .css off, and both checks of a dead reference read
+// the same list, so neither calls such an import dead while the other keeps it.
+describe('the .css sheet an extensionless request can name', () => {
+  // Resolved, so Windows reads the root path on the current drive too.
+  const context = {
+    issuerDir: path.resolve(path.sep, 'project', 'content'),
+    roots: [path.resolve(path.sep, 'project', 'public')]
+  }
+
+  it('is listed after the file as written, for a relative and a root request', () => {
+    expect(cssUrlRefFiles('./theme', context)).toEqual([
+      path.resolve(path.sep, 'project', 'content', 'theme'),
+      path.resolve(path.sep, 'project', 'content', 'theme.css')
+    ])
+
+    expect(cssUrlRefFiles('/theme?v=1', context)).toEqual([
+      path.resolve(path.sep, 'project', 'public', 'theme'),
+      path.resolve(path.sep, 'project', 'public', 'theme.css')
+    ])
+  })
+
+  it('is not added to a request that names an extension', () => {
+    expect(cssUrlRefFiles('./theme.png', context)).toEqual([
+      path.resolve(path.sep, 'project', 'content', 'theme.png')
+    ])
+  })
+
+  it('keeps the request alive when only the .css file exists', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-sibling-'))
+    tempDirs.push(dir)
+    fs.writeFileSync(path.join(dir, 'theme.css'), '.theme{}')
+    const here = {issuerDir: dir, roots: [dir]}
+
+    expect(isDeadCssUrlRef('./theme', here)).toBe(false)
+    expect(isDeadCssUrlRef('./other', here)).toBe(true)
+  })
+})
+
+describe('an @import that names its sheet with a string', () => {
+  it('is read as a reference, like one written with url()', () => {
+    expect(
+      extractCssUrlRefs(
+        '@import "./a.css";\n@IMPORT \'./b.css\' screen;\n@import url(./c.css);\n.x{background:url(./d.png)}\n'
+      )
+    ).toEqual(['./c.css', './d.png', './a.css', './b.css'])
+  })
+
+  it('is skipped inside a comment, and when a loader built the request', () => {
+    expect(
+      extractCssUrlRefs(
+        '/* @import "./gone.css"; */\n@import "/a/b.vue.css!=!./loader.js!./b.vue";\n'
+      )
+    ).toEqual([])
+  })
+})
+
 describe('css url() refs inside comments', () => {
   it.each([
     ['a whole comment', '/* .x{background:url(./a.png)} */', []],
@@ -159,6 +217,22 @@ describe('css url() refs are read case-insensitively, the way CSS is', () => {
       ).toBe(`.a { background: url("${PUBLIC_ROOT_SCHEME}/logo.png"); }`)
     })
   }
+})
+
+// A string is text, whatever it spells.
+it('leaves a url( that is the text of a string as written', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-css-'))
+  tempDirs.push(dir)
+  fs.writeFileSync(path.join(dir, 'a.png'), 'image')
+
+  expect(
+    keepPublicRootRefs(
+      '.a::before{content:"url(/a.png)"}\n.b{background:url(/a.png)}\n',
+      dir
+    )
+  ).toBe(
+    `.a::before{content:"url(/a.png)"}\n.b{background:url("${PUBLIC_ROOT_SCHEME}/a.png")}\n`
+  )
 })
 
 const SPELLINGS = [
