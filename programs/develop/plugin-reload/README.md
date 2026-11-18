@@ -9,9 +9,11 @@ concern has a single owner.
 It is responsible for:
 
 - injecting the dev reload runtime into the built extension:
-  background entry setup, the vendored `webpack-target-webextension` fork,
-  the SW scripts-replay shim, and the control-bridge producer/relay
-  (console forwarding for unified logging)
+  background entry setup, the SW scripts-replay shim, and the control-bridge
+  producer/relay (console forwarding for unified logging)
+- applying the chunk loading target of `plugin-web-extension` in a dev
+  session, with the message fallback a content script uses when it cannot
+  import a chunk, and naming hot update files `hot/[id].[fullhash].js`
 - on Chromium, turning the manifest's `content_scripts` entries into
   signalling stubs and registering the real bundles from the worker, so an
   edit reaches new and open pages without a second copy running
@@ -24,7 +26,7 @@ It is responsible for:
 
 ## Entry point
 
-`index.ts` exposes three seams:
+`index.ts` exposes two seams:
 
 - `ReloadPlugin`, the rspack plugin applied by `rspack-config.ts`. It must
   register AFTER `plugin-web-extension`: `SetupReloadStrategy` decorates the
@@ -32,9 +34,6 @@ It is responsible for:
   The whole pipeline no-ops in production, for a build whose `devSession`
   is `false`, under `EXTENSION_NO_RELOAD=true` (`--no-reload`), and when
   the manifest path is not a file.
-- `SetupChunkLoadingTarget`, also applied by `rspack-config.ts`. It is the
-  production half: it installs the same vendored chunk-loading target in a
-  production build only, since `SetupReloadStrategy` installs it in dev.
 - the classifier/dispatch API (`classifyReloadFromSources`,
   `buildSourceFeatureIndex`, `createLoadedContentScripts`, `dispatchReload`,
   `createChangedSourcesTracker`, `readDevBuild`, …) consumed by
@@ -52,7 +51,8 @@ Applied by `ReloadPlugin` in order:
 
 1. `StripContentScriptDevServerRuntime`
 2. `StableContentScriptNames`
-3. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the vendored fork)
+3. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the chunk loading
+   target, then the hot update file names)
 4. `InjectScriptsReplayShim`
 5. `SetupDevContentScripts` (Chromium only, not the emulator)
 6. `InjectBridgeProducer` (not the emulator)
@@ -123,9 +123,10 @@ Applied by `ReloadPlugin` in order:
   sends, unioning content entries and injected script files.
 
 - `steps/setup-reload-strategy/`
-  Dev-only background entry setup and the vendored
-  `webpack-target-webextension-fork` runtime behavior (see `VENDORED.md`).
-  Builds MAIN-world bridge metadata under canonical content asset names.
+  Dev-only background entry setup. It then applies `ChunkLoadingTarget` from
+  `plugin-web-extension/feature-chunk-loading`, which owns chunk loading in
+  every mode, and renames hot update files. The production build gets the
+  same target from that feature's `SetupChunkLoadingTarget`, not from here.
 
 - `reload-lib/dev-content-scripts.ts` / `steps/setup-dev-content-scripts.ts`
   Chromium loads a static content script's bytes once, at extension load,
@@ -198,9 +199,12 @@ that contract; it does not define it.
   browser last read
 - `reload-after-package.unit.spec.ts`, the trim and the burst merge for a
   packaged browser
-- `setup-reload-strategy.spec.ts`, `get-background-entry-name.spec.ts`,
-  `setup-background-entry.spec.ts`, `setup-chunk-loading-target.spec.ts`,
-  background entries and the chunk-loading target in dev and production
+- `setup-reload-strategy.spec.ts`, `setup-background-entry.spec.ts`,
+  background entries and the chunk loading target in a dev session. The
+  target's own specs live in `plugin-web-extension/feature-chunk-loading`.
+- `chunk-loading-runtime.spec.ts`, which code sets the public path, the base
+  URI and the chunk loader in each world, read off builds made with the whole
+  plugin list. It reads loaders from `programs/develop/dist` too.
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
 - `inject-bridge-steps.spec.ts`, `inject-bridge-boot-registrations.spec.ts`,
   the control-bridge producer and relay

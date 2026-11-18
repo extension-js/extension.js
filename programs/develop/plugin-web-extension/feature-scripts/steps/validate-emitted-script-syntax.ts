@@ -18,8 +18,6 @@ const requireModule = createRequire(import.meta.url)
 // both ship a file the engine refuses to parse under a green exit code.
 export class ValidateEmittedScriptSyntax {
   apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(
       'scripts:validate-emitted-script-syntax',
       (compilation) => {

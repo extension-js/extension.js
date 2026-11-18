@@ -45,14 +45,14 @@ export {
   type ReloadBroker
 } from './reload-dispatch'
 export {readBootRegistrations, readDevBuild}
-export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 
 /**
  * ReloadPlugin owns the dev-only reload/HMR strategy end to end:
  *
- * - build-time injection of the reload runtime (SetupReloadStrategy and the
- *   vendored webpack-target-webextension fork), the SW scripts-replay shim,
- *   and the control-bridge producer/relay instrumentation
+ * - build-time injection of the reload runtime (SetupReloadStrategy, which
+ *   also applies plugin-web-extension's chunk loading target for a dev
+ *   session), the SW scripts-replay shim, and the control-bridge
+ *   producer/relay instrumentation
  * - the reload classifier, what the browser last read, the trim and merge
  *   a packaged browser needs, and the dispatch seam. plugin-browsers and the
  *   dev server's `--no-browser` path call them (re-exported above)

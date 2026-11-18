@@ -7,14 +7,31 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import {parse} from 'es-module-lexer'
+
+// import( and import.meta are legal in a classic script, so only a static
+// import statement counts on the line test the lexer falls back to.
+const STATIC_IMPORT_LINE = /^\s*import(?!\s*[(.])[\s{'"*]/m
+const EXPORT_LINE = /^\s*export[\s{*( ]/m
+
+function hasImportOrExport(src: string): boolean {
+  try {
+    const [imports, exports] = parse(src)
+
+    return (
+      exports.length > 0 || imports.some((found) => found.type === 'static')
+    )
+  } catch {
+    // The lexer reads plain JavaScript, so JSX gets the line test instead.
+    return STATIC_IMPORT_LINE.test(src) || EXPORT_LINE.test(src)
+  }
+}
 
 // Classic side-by-side scripts share one global scope in the browser; when a
 // group is all-classic it is concatenated by the classic-concat loader to match.
 export function isClassicScript(filePath: string): boolean {
   try {
-    const src = fs.readFileSync(filePath, 'utf8')
-
-    return !/^\s*import[\s{('"*]/m.test(src) && !/^\s*export[\s{*( ]/m.test(src)
+    return !hasImportOrExport(fs.readFileSync(filePath, 'utf8'))
   } catch {
     return false
   }

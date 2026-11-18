@@ -13,7 +13,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {Writable} from 'node:stream'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
-import {type Configuration, RspackDevServer} from '@rspack/dev-server'
+import {RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
 import {
@@ -38,7 +38,6 @@ import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
-  ensureSessionStateIgnoreFile,
   ensureSessionStateInProjectGitignore,
   readyContractPath,
   actionsPath as sessionActionsPath,
@@ -85,12 +84,6 @@ import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
 import {readExtensionLoadRefusal} from './control-bridge/consumer-client'
 import {CONTROL_WS_PATH, LOG_EVENT_VERSION} from './control-bridge/contracts'
-import {
-  controlPortFilePath,
-  legacyControlPortFilePath,
-  readPersistedControlPort,
-  writePersistedControlPort
-} from './control-bridge/control-port-store'
 import {LogsFileWriter} from './control-bridge/logs-file'
 import {isLoopbackAddress} from './control-bridge/loopback'
 import {LogRingBuffer} from './control-bridge/ring-buffer'
@@ -98,17 +91,11 @@ import {
   clearControlToken,
   writeControlToken
 } from './control-bridge/session-token'
-import {startControlServer} from './control-bridge/ws-control-server'
-import {devServerAccessConfig, withHostCheckMiddleware} from './cors'
-import {
-  createResponseDataRepair,
-  type OutputFileSystemLike
-} from './dev-middleware-body'
+import {openControlBridge} from './control-bridge-start'
 import {
   attachEmulatorFileIndex,
   buildEmulatorViewerUrl,
   createEmulatorFileIndexHolder,
-  createEmulatorFilesMiddlewareEntry,
   resolveEmulatorOrigin
 } from './emulator-lane'
 import {attachHtmlRefresh} from './html-refresh'
@@ -120,21 +107,24 @@ import {
 import * as messages from './messages'
 import {PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
+import {buildServerConfig} from './server-config'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from './session-restart'
+import {createSessionRestartHandler} from './session-restart-handler'
 import {withSessionStartPrune} from './session-start-prune'
-
-function shouldWriteAssetToDisk(filePath: string) {
-  // A `..` segment means an emitted asset NAME escapes the output dir; writing
-  // it would clobber a SOURCE file and start a self-feeding recompile loop.
-  if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
-
-  return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
-}
+import {
+  announceReadyOnCleanCompile,
+  createBindFailureRelay,
+  createReadyAnnouncer,
+  createStartFailure,
+  readStartTimeoutMs,
+  releaseFailedStart,
+  startBundler
+} from './start-bundler'
 
 function isSamePath(left: string, right: string) {
   return path.resolve(left) === path.resolve(right)
@@ -180,132 +170,6 @@ function hasGuardedManifestDiskPath(filePath: unknown) {
   }
 
   return false
-}
-
-interface GuardableOutputFs {
-  __extensionjsGuardedManifestPaths?: Map<string, number>
-  writeFile?: (filePath: string, ...args: unknown[]) => unknown
-  writeFileSync?: (filePath: string, ...args: unknown[]) => unknown
-  createWriteStream?: (filePath: string, ...args: unknown[]) => unknown
-  promises?: {writeFile?: (filePath: string, ...args: unknown[]) => unknown}
-}
-
-// Ref-counted like the disk guard: a restart has two servers guarding one
-// manifest, and the first to stop must not unguard the one still live.
-function holdGuardedOutputPath(
-  guardedPaths: Map<string, number>,
-  resolvedPath: string
-): () => void {
-  guardedPaths.set(resolvedPath, (guardedPaths.get(resolvedPath) || 0) + 1)
-
-  let released = false
-
-  return () => {
-    if (released) return
-
-    released = true
-    const count = guardedPaths.get(resolvedPath) || 0
-    if (count <= 1) guardedPaths.delete(resolvedPath)
-    else guardedPaths.set(resolvedPath, count - 1)
-  }
-}
-
-export function suppressManifestOutputWrites(
-  compiler: unknown,
-  manifestOutputPath: string
-): () => void {
-  const outputFileSystem = (
-    compiler as {outputFileSystem?: unknown} | undefined
-  )?.outputFileSystem as GuardableOutputFs | undefined
-
-  if (!outputFileSystem) return () => {}
-
-  const resolvedManifestPath = path.resolve(manifestOutputPath)
-
-  // rspack hands every compiler in the process the same node_fs singleton,
-  // so a second server must ADD its path to the already-patched fs instead
-  // of no-opping and inheriting only the first server's suppression.
-  const alreadyGuardedPaths = outputFileSystem.__extensionjsGuardedManifestPaths
-
-  if (alreadyGuardedPaths) {
-    return holdGuardedOutputPath(alreadyGuardedPaths, resolvedManifestPath)
-  }
-
-  const guardedPaths = new Map<string, number>()
-  outputFileSystem.__extensionjsGuardedManifestPaths = guardedPaths
-
-  const isManifestPath = (filePath: unknown) => {
-    if (typeof filePath !== 'string') return false
-
-    for (const guardedPath of guardedPaths.keys()) {
-      if (isSamePath(guardedPath, filePath)) return true
-    }
-
-    return false
-  }
-
-  if (typeof outputFileSystem.writeFile === 'function') {
-    const originalWriteFile = outputFileSystem.writeFile.bind(outputFileSystem)
-
-    outputFileSystem.writeFile = (filePath: string, ...args: unknown[]) => {
-      if (isManifestPath(filePath)) {
-        const callback = args[args.length - 1]
-
-        if (typeof callback === 'function') callback(null)
-
-        return
-      }
-
-      return originalWriteFile(filePath, ...args)
-    }
-  }
-
-  if (typeof outputFileSystem.writeFileSync === 'function') {
-    const originalWriteFileSync =
-      outputFileSystem.writeFileSync.bind(outputFileSystem)
-
-    outputFileSystem.writeFileSync = (filePath: string, ...args: unknown[]) => {
-      if (isManifestPath(filePath)) return
-
-      return originalWriteFileSync(filePath, ...args)
-    }
-  }
-
-  if (typeof outputFileSystem.createWriteStream === 'function') {
-    const originalCreateWriteStream =
-      outputFileSystem.createWriteStream.bind(outputFileSystem)
-
-    outputFileSystem.createWriteStream = (
-      filePath: string,
-      ...args: unknown[]
-    ) => {
-      if (isManifestPath(filePath)) {
-        const stream = createDiscardWriteStream()
-        stream.path = filePath
-
-        return stream
-      }
-
-      return originalCreateWriteStream(filePath, ...args)
-    }
-  }
-
-  if (typeof outputFileSystem?.promises?.writeFile === 'function') {
-    const originalPromiseWriteFile = outputFileSystem.promises.writeFile.bind(
-      outputFileSystem.promises
-    )
-
-    outputFileSystem.promises.writeFile = async (
-      filePath: string,
-      ...args: unknown[]
-    ) => {
-      if (isManifestPath(filePath)) return
-
-      return originalPromiseWriteFile(filePath, ...args)
-    }
-  }
-
-  return holdGuardedOutputPath(guardedPaths, resolvedManifestPath)
 }
 
 export function installManifestDiskWriteGuard(
@@ -521,6 +385,29 @@ export function installManifestDiskWriteGuard(
   return uninstall
 }
 
+// Plain manifest+scripts extensions ship no project manifest; the project root
+// is then the manifest's directory. Deno projects anchor on deno.json(c).
+export function resolveDevProjectRoot(
+  projectStructure: Pick<
+    ProjectStructure,
+    'manifestPath' | 'packageJsonPath' | 'denoJsonPath'
+  >
+): string {
+  const {manifestPath, packageJsonPath, denoJsonPath} = projectStructure
+  const projectManifestPath = packageJsonPath || denoJsonPath
+
+  return projectManifestPath
+    ? path.dirname(projectManifestPath)
+    : path.dirname(manifestPath)
+}
+
+// What the config hooks of a dev session are told.
+export function devConfigHookContext(
+  browser: DevOptions['browser']
+): ConfigHookContext {
+  return {browser, mode: 'development', command: 'dev', rspack}
+}
+
 export async function devServer(
   projectStructure: ProjectStructure,
   devOptions: DevOptions
@@ -549,13 +436,8 @@ export async function devServer(
     ? '0'
     : '1'
 
-  const {manifestPath, packageJsonPath, denoJsonPath} = projectStructure
-  // Plain manifest+scripts extensions ship no project manifest; the project root
-  // is then the manifest's directory. Deno projects anchor on deno.json(c).
-  const projectManifestPath = packageJsonPath || denoJsonPath
-  const packageJsonDir = projectManifestPath
-    ? path.dirname(projectManifestPath)
-    : path.dirname(manifestPath)
+  const {manifestPath} = projectStructure
+  const packageJsonDir = resolveDevProjectRoot(projectStructure)
 
   const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
@@ -719,21 +601,7 @@ export async function devServer(
     launchedPlugin.setInstanceId(currentInstance.instanceId)
   }
 
-  // Ready is said once per session, by whoever knows it: the plugin that
-  // opens the browser, or the first clean compile when nothing is launched.
-  let readyAnnounced = false
-
-  const announceReady = () => {
-    if (readyAnnounced) return
-
-    readyAnnounced = true
-
-    try {
-      extendedOptions.onReady?.()
-    } catch {
-      // Best-effort: a caller's announcement must never stop the session.
-    }
-  }
+  const announceReady = createReadyAnnouncer(extendedOptions.onReady)
 
   if (launchedPlugin && typeof launchedPlugin.setReadyListener === 'function') {
     launchedPlugin.setReadyListener(announceReady)
@@ -769,61 +637,17 @@ export async function devServer(
     })
   }
 
-  let bridgeControlPort: number | null = null
-  let controlPortUnavailableReason: string | null = null
-
-  try {
-    bridgeLogFile.start()
-    bridgeActionsFile?.start()
-
-    // Prefer the previous session's port: a reused profile may still run a CACHED
-    // SW with it baked in, and only a reachable server can tell it to resync.
-    const controlPortFile = controlPortFilePath(packageJsonDir, browserName)
-    const preferredControlPort =
-      readPersistedControlPort(controlPortFile) ??
-      // Pre-fix sessions persisted the port under dist/; honor it once so a
-      // profile whose cached SW has that port baked in can still resync.
-      readPersistedControlPort(
-        legacyControlPortFilePath(packageJsonDir, browserName)
-      )
-
-    let controlServer: Awaited<ReturnType<typeof startControlServer>>
-
-    try {
-      controlServer = await startControlServer({
-        broker: bridgeBroker,
-        host: devServerHost,
-        port: preferredControlPort ?? 0,
-        viewerOrigin: emulatorOrigin
-      })
-    } catch (error) {
-      if (preferredControlPort == null) throw error
-
-      controlServer = await startControlServer({
-        broker: bridgeBroker,
-        host: devServerHost,
-        viewerOrigin: emulatorOrigin
-      })
-    }
-
-    bridgeControlPort = controlServer.port
-    ensureSessionStateIgnoreFile(packageJsonDir)
-    writePersistedControlPort(controlPortFile, controlServer.port)
-  } catch (error) {
-    // No control port means no reload transport at all, so say it here rather
-    // than let the broker blame a worker that was never given a port to dial.
-    const reason = error instanceof Error ? error.message : String(error)
-
-    controlPortUnavailableReason = reason
-    bridgeBroker.noteControlPortUnavailable(reason)
-    humanLine(messages.controlBridgeUnavailable(reason))
-
-    try {
-      bridgeLogFile.close()
-    } catch {
-      // Ignore
-    }
-  }
+  const controlBridge = await openControlBridge({
+    broker: bridgeBroker,
+    host: devServerHost,
+    viewerOrigin: emulatorOrigin,
+    packageJsonDir,
+    browserName,
+    logFile: bridgeLogFile,
+    actionsFile: bridgeActionsFile
+  })
+  const bridgeControlPort = controlBridge.controlPort
+  const controlPortUnavailableReason = controlBridge.unavailableReason
 
   // Only --port bounds a port, so a debug run names the others it listens on.
   if (isDebug()) debugLine(messages.debugSessionPorts(port, bridgeControlPort))
@@ -999,103 +823,40 @@ export async function devServer(
 
   // The middleware reads the live compiler's output; a restart swaps it.
   let activeCompiler: Compiler | null = null
+  const bindFailure = createBindFailureRelay()
+  // Same rule as the dev command: only a caller that asked for it is exited.
+  const exitOnStartFailure =
+    (devOptions.exitOnError ?? false) && process.env.VITEST !== 'true'
 
   // `folders: {public: false}` reads no folder at all, so there is nothing to
   // serve over HTTP and nothing to watch for a rebuild.
   const publicFolder = publicFolderOrDefault(manifestPath, packageJsonDir)
-  const access = devServerAccessConfig({
+  const serverConfig = buildServerConfig({
+    host: devServerHost,
+    port,
     connectableHost,
     emulatorOrigin,
     allowedHosts: extendedOptions.allowedHosts,
     isSessionExtensionOrigin: (origin) =>
-      bridgeBroker.isSessionExtensionOrigin(origin)
-  })
-
-  const serverConfig: Configuration = {
-    host: devServerHost,
-    allowedHosts: access.allowedHosts,
-    static: publicFolder ? {directory: publicFolder, watch: false} : false,
-    compress: false,
-    devMiddleware: {
-      // Manifest writes must stay atomic; let the manifest plugin own disk
-      // persistence so Chromium never reads an in-place truncated file.
-      writeToDisk: shouldWriteAssetToDisk,
-      stats: {all: false},
-      // A one-byte asset is served empty by the middleware, see the helper.
-      modifyResponseData: createResponseDataRepair({
-        outputPath: () => activeCompiler?.options?.output?.path,
-        outputFileSystem: () =>
-          activeCompiler?.outputFileSystem as OutputFileSystemLike | undefined
-      })
-    },
-    watchFiles: {
-      // Only public/ is watched outside the compiler: every page the build
-      // knows is a file dependency, so its edit rebuilds and the done hook
-      // refreshes it (html-refresh.ts). A project-wide html glob refreshed
-      // every open page for a demo page the extension never loads.
-      paths: publicFolder ? [path.join(publicFolder, '**/*')] : [],
-      options: {
-        // Prevent startup self-rebuild: initial emit writes dist/**/*.html.
-        // Those generated files must not be treated as source watch inputs.
-        ignored: [path.join(packageJsonDir, 'dist', '**/*')],
-        // Avoid a startup recompile caused by chokidar "add" events for
-        // existing files in watched folders.
-        ignoreInitial: true,
-        // Native FS events by default: polling wakes the CPU and adds HMR latency.
-        // EXTENSION_WATCH_POLL opts into polling where native events are unreliable.
-        ...(process.env.EXTENSION_WATCH_POLL === 'true'
-          ? {
-              usePolling: true,
-              interval: parseInt(
-                String(process.env.EXTENSION_WATCH_POLL_INTERVAL || '1000'),
-                10
-              )
-            }
-          : {})
-      }
-    },
-    client: false,
-    headers: access.headers,
-    setupMiddlewares: (
-      ...args: Parameters<NonNullable<Configuration['setupMiddlewares']>>
-    ) => {
-      const checked = withHostCheckMiddleware(args[0], args[1], (host) =>
-        humanLine(messages.devServerHostRefused(host))
-      )
-
-      if (!emulatorFiles) return checked
-
-      return [
-        createEmulatorFilesMiddlewareEntry(
-          emulatorFiles,
-          args[1],
-          emulatorOrigin
-        ) as unknown as (typeof args)[0][number],
-        ...checked
-      ]
-    },
-    port,
-    // Rspack must inject `module.hot` so `@rspack/core/hot/dev-server` does not
-    // throw; content bundles strip HMR startup, so liveReload cannot loop them.
-    hot: true,
-    liveReload: true,
-    // setupCleanupHandlers owns the signals. The server's own handler stopped
-    // it a second time, so one Ctrl+C closed the watch and logged twice.
-    setupExitSignals: false,
+      bridgeBroker.isSessionExtensionOrigin(origin),
+    publicFolder,
+    packageJsonDir,
+    emulatorFiles,
+    activeCompiler: () => activeCompiler,
+    onHostRefused: (host) => humanLine(messages.devServerHostRefused(host)),
+    onSiteRefused: (origin) =>
+      humanLine(messages.devServerOutsideRequestRefused(origin)),
     server: {
       type: reservedHttpServer({
         takeReservation: () => portManager.takeReservation(),
-        onBindError: (error) => failStart(error),
+        onBindError: (error) => bindFailure.report(error),
         holdOnClose: () => portManager.shouldHoldPortOnClose(),
         onHeld: (reservation) => portManager.adoptHeldPort(reservation)
       })
     }
-  }
+  })
 
-  const START_TIMEOUT_MS = parseInt(
-    String(process.env.EXTENSION_START_TIMEOUT_MS || '30000'),
-    10
-  )
+  const START_TIMEOUT_MS = readStartTimeoutMs()
 
   // What the compilers of this session wrote, so a restart can tell the
   // outputs of an entry that is gone from a file it never wrote.
@@ -1106,12 +867,7 @@ export async function devServer(
   // the bundler is torn down.
   async function createCompilerAndServer(opts: {isRestart: boolean}) {
     const baseConfig = webpackConfig(projectStructure, webpackConfigOptions)
-    const hookContext: ConfigHookContext = {
-      browser: webpackConfigOptions.browser,
-      mode: webpackConfigOptions.mode,
-      command: webpackConfigOptions.metadataCommand,
-      rspack
-    }
+    const hookContext = devConfigHookContext(webpackConfigOptions.browser)
     const customWebpackConfig = await loadCustomConfig(
       packageJsonDir,
       hookContext
@@ -1159,10 +915,6 @@ export async function devServer(
 
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)
-    const releaseOutputFsGuard = suppressManifestOutputWrites(
-      compiler,
-      manifestOutputPath
-    )
 
     // Under --no-browser no CDP controller owns reload, so broadcast the same
     // classified reload decision over the control bridge; gated to avoid double-reload.
@@ -1226,10 +978,8 @@ export async function devServer(
       )
     }
 
-    if (!extendedOptions.browsersPlugin && compiler?.hooks?.done?.tap) {
-      compiler.hooks.done.tap('extjs-session-ready', (stats: Stats) => {
-        if (!stats?.hasErrors?.()) announceReady()
-      })
+    if (!extendedOptions.browsersPlugin) {
+      announceReadyOnCleanCompile(compiler, announceReady)
     }
 
     if (emulatorFiles) attachEmulatorFileIndex(compiler, emulatorFiles)
@@ -1301,7 +1051,6 @@ export async function devServer(
           await originalDevServerStop()
         } finally {
           uninstallManifestGuard()
-          releaseOutputFsGuard()
         }
       }
     }
@@ -1309,41 +1058,23 @@ export async function devServer(
     return {compiler, server, firstCompile}
   }
 
-  async function startBundler(server: RspackDevServer) {
-    let startTimeout: NodeJS.Timeout | undefined
+  const failStart = createStartFailure({
+    metadata,
+    lifecycle,
+    onExitError: extendedOptions.onExitError,
+    exitOnError: exitOnStartFailure
+  })
 
-    try {
-      startTimeout = setTimeout(() => {
-        console.error(messages.devServerStartTimeout(START_TIMEOUT_MS))
-      }, START_TIMEOUT_MS)
-
-      await server.start()
-
-      if (startTimeout) clearTimeout(startTimeout)
-    } catch (error) {
-      if (startTimeout) clearTimeout(startTimeout)
-
-      failStart(error)
-    }
-  }
-
-  function failStart(error: unknown): never {
-    metadata.writeError(
-      'dev_server_start_failed',
-      error instanceof Error ? error.message : String(error)
+  const startSessionBundler = (server: RspackDevServer) =>
+    startBundler(
+      {start: () => bindFailure.during(() => server.start())},
+      {
+        timeoutMs: START_TIMEOUT_MS,
+        onSlowStart: () =>
+          console.error(messages.devServerStartTimeout(START_TIMEOUT_MS)),
+        onFailure: failStart
+      }
     )
-
-    lifecycle.failed(error instanceof Error ? error.message : String(error))
-    humanLine(messages.extensionJsRunnerError(error))
-
-    try {
-      extendedOptions.onExitError?.(error, CODES.E_DEV_SERVER_START)
-    } catch {
-      // Best-effort: a caller's report must never change how the run ends.
-    }
-
-    process.exit(1)
-  }
 
   const firstBundle = await createCompilerAndServer({isRestart: false})
   let currentServer: RspackDevServer | null = firstBundle.server
@@ -1357,45 +1088,39 @@ export async function devServer(
   }
 
   lifecycle.starting({requestedPort: Number(devOptions.port), port})
-  await startBundler(firstBundle.server)
+
+  try {
+    await startSessionBundler(firstBundle.server)
+  } catch (error) {
+    // Reached only by a caller that keeps running, so nothing stays open.
+    await releaseFailedStart({
+      server: firstBundle.server,
+      releasePort: () => portManager.terminateCurrentInstance(),
+      closeControlBridge: controlBridge.close
+    })
+
+    throw error
+  }
 
   // Plugins that find an entrypoint change ask for this; the request outlives
   // the compiler that noticed it because the scheduler belongs to the session.
   const sessionRestart = new DevSessionRestartScheduler()
-  sessionRestart.setHandler(async (request) => {
-    humanLine(messages.devServerRestarting(request))
-    const nextBundle = await createCompilerAndServer({isRestart: true})
-    const previous = currentServer
-    currentServer = null
-
-    portManager.holdPortAcrossRestart()
-
-    if (previous && typeof previous.stop === 'function') {
-      await previous.stop()
-    }
-
-    // Read once the old compiler is stopped, so only the new one's first
-    // build can add to it before the reload below is decided.
-    const fullReloadsBefore = fullReloadsDeliveredTo(bridgeBroker)
-
-    currentServer = nextBundle.server
-
-    try {
-      await startBundler(nextBundle.server)
-    } finally {
-      portManager.endRestartHold()
-    }
-
-    const stats = await nextBundle.firstCompile
-
-    if (stats && typeof stats.hasErrors === 'function' && stats.hasErrors()) {
-      return
-    }
-
-    // The fresh compiler's first build carries no changed sources, so the
-    // classifier stays silent; the new entry set needs one full reload.
-    await dispatchRestartReload({broker: bridgeBroker}, fullReloadsBefore)
-  })
+  sessionRestart.setHandler(
+    createSessionRestartHandler<RspackDevServer>({
+      announce: (request) => humanLine(messages.devServerRestarting(request)),
+      createBundle: () => createCompilerAndServer({isRestart: true}),
+      currentServer: () => currentServer,
+      setCurrentServer: (server) => {
+        currentServer = server
+      },
+      holdPort: () => portManager.holdPortAcrossRestart(),
+      endPortHold: () => portManager.endRestartHold(),
+      startBundler: startSessionBundler,
+      fullReloadsDelivered: () => fullReloadsDeliveredTo(bridgeBroker),
+      reloadAfterRestart: (fullReloadsBefore) =>
+        dispatchRestartReload({broker: bridgeBroker}, fullReloadsBefore)
+    })
+  )
 
   bindDevSessionRestart(sessionRestart)
   process.once('exit', () => {
