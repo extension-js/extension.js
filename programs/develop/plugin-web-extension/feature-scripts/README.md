@@ -30,7 +30,8 @@ real compiler takes per mode and browser.
 4. `PlaceRuntimeScriptSheets`: a `scripts/` file carries the sheet of its CSS
    modules. Development also prunes stale sheets after each build
 5. `RootInjectedSheetUrls`: injected sheets name their `url()` targets from the
-   extension (not on WebKit)
+   extension (not on WebKit). A target that climbs out of the extension root
+   stays as written, and the build warns once that the file isn't in the output
 6. `TakeExtensionBase`: defines the base attribute and scheme everywhere, and
    on Gecko opens each MAIN world file on the read of the base
 7. `PairRuntimeMainWorldBridges`: pairs runtime MAIN world registrations with a

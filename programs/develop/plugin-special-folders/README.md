@@ -77,6 +77,8 @@ A template env file holds no real value by convention, so a `.env.*` name that e
 
 Every other dot-file ships as authored: `.well-known/`, `.nojekyll`, `.htaccess` and any dot-folder of the project's own. The list is by name on purpose, since a dot-file can be content a page fetches.
 
+A link under `public/` is copied as the file or folder it leads to while that place stays inside the project and outside `node_modules`. A link that leads anywhere else is left out, a folder it names is never walked, and the build names each such link in one warning, never what it holds. A watch session reads the links when it starts.
+
 A page or a stylesheet that names one of them by a root-absolute path (`/.env`) gets the missing-file warning of that surface, whether or not `public/` holds the file.
 
 ## Root-absolute paths outside public/
@@ -85,13 +87,15 @@ A root-absolute path (`/data/config.json`) in a page or in a stylesheet that shi
 
 - a name from the table above, anywhere along the path,
 - a path that climbs out of the extension root (`/../x`, `/%2e%2e/x`),
-- a link that resolves outside the project or onto one of those names.
+- a link that resolves outside the project and its workspace, as below, or onto one of those names.
 
-Each of those is reported as a missing file, in the words the surface uses for one, and nothing is copied. A link that stays inside the project is followed.
+Each of those is reported as a missing file, in the words the surface uses for one, and nothing is copied. A link that stays inside the project, or leads to a file the workspace may share, is followed.
 
 A file of an installed package ships when its path is named (`/node_modules/pkg/worker.js`), a vendored worker, wasm file or stylesheet for example. It ships through a package manager's link too: the place the link leads to has to stay inside a `node_modules` folder of the project or of a folder above it, which is where a workspace keeps its store. A name from the table above is refused inside a package as well, and so is a `node_modules` link that leads anywhere else.
 
-The decision is one function, `sourceFileMayShip(sourcePath, projectRoots, ask)` in `public-private-files.ts`. `ask` is `'named'` when the author wrote the path of that one file, which is the default, and `'walked'` when a folder entry or a pattern reached it. A walk never enters `node_modules`. The `web_accessible_resources` step, the JSON fields of the manifest, custom manifest keys and the file names found in code all ask it.
+A file the author names may also come from the workspace the project belongs to, by its path (`../../shared/logo.png`) or through a link inside the project. The workspace root is the nearest folder at or above the project that holds a `pnpm-workspace.yaml`, or a `package.json` whose `workspaces` is a list or an object with a `packages` list. A lockfile, a `.git` folder, `lerna.json`, `nx.json` or `turbo.json` alone marks nothing. The walk up never reaches the home folder, so a marker there or above it is ignored, and a project with no marker is its own workspace root. Inside the workspace and outside the project, a path through a folder or a file whose name starts with a dot (`.git`, `.cache`, `.turbo`) or through the `node_modules` of another package is refused, and so is anything outside the workspace root, reported as it is outside the project. The project does not have to be listed as a member of the workspace. Companion extensions and `extensions.dir` stay inside the project.
+
+The decision is one function, `sourceFileMayShip(sourcePath, projectRoots, ask)` in `public-private-files.ts`, and `workspaceRootOf(projectRoot)` beside it answers the workspace root. `ask` is `'named'` when the author wrote the path of that one file, which is the default, and `'walked'` when a folder entry or a pattern reached it. A walk never enters `node_modules` and never leaves the project. The `web_accessible_resources` step, the JSON fields of the manifest, custom manifest keys and the file names found in code all ask it. A custom key and a file name found in code are read the way a URL is, so they never climb above the extension root and reach the workspace only through a link. A `web_accessible_resources` entry or a JSON field spelled from the root that climbs out of it (`/../x`, `/%2e%2e/x`) is refused as a page refuses it, while the same path without the leading slash reaches the workspace.
 
 ## Path resolution convention (consistent across @plugin-extension)
 

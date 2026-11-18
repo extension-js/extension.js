@@ -21,6 +21,8 @@ import type {
 } from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {explainPublicOutputCollision} from './check-public-output-collision'
+import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
+import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {
   excludedFiles,
@@ -28,12 +30,17 @@ import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './folders-config'
+import {
+  getSpecialFoldersDataForCompiler,
+  walkedScriptsLeftOut
+} from './get-data'
 import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
 import {
   findPublicEnvFiles,
+  findPublicLinksLeftOut,
   literalPathGlob,
   privateFileIgnoreGlobs
 } from './public-private-files'
@@ -47,12 +54,61 @@ import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 // outlives a compiler, so a session restart does not say them again.
 const saidEnvFiles = new Map<string, string>()
 
+// The same for the links under public/ a session named as left out.
+const saidPublicLinks = new Map<string, string>()
+
+// The same for the scripts/ files a session named as left out, by project.
+const saidLeftOutScripts = new Map<string, string>()
+
 interface SpecialFoldersPluginOptions {
   manifestPath: string
   browser?: DevOptions['browser']
   folders?: SpecialFoldersConfig
   include?: IncludeFilesConfig
   exclude?: ExcludeFilesConfig
+}
+
+// The source file of each page the build emits, from the list the page step
+// emits them from. Read once a withheld ref asks, and once per compilation.
+function pageSources(
+  compiler: Compiler,
+  manifestPath: string,
+  browser: DevOptions['browser']
+): (assetName: string) => string | undefined {
+  let pages: Map<string, string> | undefined
+
+  return (assetName) => {
+    if (!pages) {
+      const projectPath = compiler.options.context || path.dirname(manifestPath)
+      const fields = getResolvedManifestFieldsData({
+        manifestPath,
+        browser,
+        projectPath
+      })
+      const entries = htmlPageEntries({
+        manifestPath,
+        browser,
+        projectPath,
+        mode: compiler.options.mode,
+        manifestHtml: fields.html,
+        manifestScripts: fields.scripts,
+        specialFolderPages: getSpecialFoldersDataForCompiler(compiler).pages
+      })
+
+      pages = new Map()
+
+      for (const [feature, file] of Object.entries(entries)) {
+        if (typeof file === 'string' && file) {
+          pages.set(
+            `${feature}.html`,
+            path.resolve(path.dirname(manifestPath), file)
+          )
+        }
+      }
+    }
+
+    return pages.get(assetName)
+  }
 }
 
 export class SpecialFoldersPlugin {
@@ -75,6 +131,32 @@ export class SpecialFoldersPlugin {
     new IncludeFiles({include, projectRoot: context}).apply(compiler)
 
     new HintImportOnlyScripts().apply(compiler)
+
+    // A file put in scripts/ is expected in the output, so one the build
+    // leaves out is said once, and in a watch session when the list changes.
+    compiler.hooks.thisCompilation.tap(
+      SpecialFoldersPlugin.name,
+      (compilation: Compilation) => {
+        const leftOut = walkedScriptsLeftOut(context)
+        const key = leftOut.join('\n')
+        const alreadySaid =
+          compiler.watchMode && saidLeftOutScripts.get(context) === key
+
+        if (compiler.watchMode) saidLeftOutScripts.set(context, key)
+
+        if (leftOut.length > 0 && !alreadySaid) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'ScriptsFolderFilesLeftOutWarning',
+            messages.scriptsFolderFilesLeftOut(
+              leftOut,
+              String(browser || 'chrome')
+            )
+          )
+        }
+      }
+    )
 
     const excluded = excludedFiles(context)
 
@@ -110,6 +192,10 @@ export class SpecialFoldersPlugin {
     const publicDir = inspection.publicDir || inspection.fromRoot
     // The reload classifier asks for this root later, from the compilation.
     rememberPublicRoots(compiler, readsPublicFolder ? [publicDir] : [])
+    // The copier follows links, so one that leads out is named to it to skip.
+    const publicLinksLeftOut = readsPublicFolder
+      ? findPublicLinksLeftOut(publicDir, [context, path.dirname(manifestPath)])
+      : []
 
     // Chrome resolves a leading '/' from the extension root; a root-absolute ref
     // public/ does not satisfy is served from the source root instead.
@@ -156,7 +242,8 @@ export class SpecialFoldersPlugin {
               path.dirname(manifestPath),
               publicDir,
               !readsPublicFolder,
-              context
+              context,
+              pageSources(compiler, manifestPath, browser || 'chrome')
             )
         )
       }
@@ -229,6 +316,29 @@ export class SpecialFoldersPlugin {
             )
           }
 
+          // A link that leads out is left out of the copy, and said like an
+          // env file: once per build, and in a watch session on a change.
+          const leftOutLinks = publicLinksLeftOut.map((file) =>
+            path.posix.join(path.basename(publicDir), file)
+          )
+          const linksKey = leftOutLinks.join('\n')
+          const linksSaid =
+            compiler.watchMode && saidPublicLinks.get(publicDir) === linksKey
+
+          if (compiler.watchMode) saidPublicLinks.set(publicDir, linksKey)
+
+          if (leftOutLinks.length > 0 && !linksSaid) {
+            pushLayoutWarning(
+              compiler,
+              compilation,
+              'PublicLinkedFilesWarning',
+              messages.publicLinkedFilesLeftOut(
+                leftOutLinks,
+                String(browser || 'chrome')
+              )
+            )
+          }
+
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,
@@ -270,7 +380,15 @@ export class SpecialFoldersPlugin {
         // A public file the `exclude` config names stays out of this build.
         ...[...excluded]
           .filter((file) => isUnderDir(file, publicDir))
-          .map(literalPathGlob)
+          .map(literalPathGlob),
+        // A link that leads out, and all a folder link holds.
+        ...publicLinksLeftOut.flatMap((file) => {
+          const full = literalPathGlob(path.join(publicDir, file))
+
+          return file.endsWith('/')
+            ? [full.replace(/\/$/, ''), `${full}**`]
+            : [full]
+        })
       ]
 
       if (copierWired) {
