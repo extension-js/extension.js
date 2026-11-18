@@ -231,6 +231,44 @@ export function getURLDependencyMissing(
   return lines.join('\n')
 }
 
+// The value names a file that exists, so staying quiet would hide why the
+// extension cannot read it once installed.
+export function manifestNamedFileNotShipped(
+  manifestKey: string,
+  literal: string,
+  expectedPath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `manifest.json names '${literal}' under the custom key ${colors.blue(manifestKey)}, but the file isn't in the output.`
+  )
+
+  lines.push(...neverCopiedLines(expectedPath))
+
+  return lines.join('\n')
+}
+
+function neverCopiedLines(expectedPath: string) {
+  return [
+    `${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`,
+    `A read of it fails at runtime.`,
+    `The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
+  ]
+}
+
+// The same finding for a path found in code, where a missing file of that
+// kind is not worth a word and one the build withholds is.
+export function codeNamedFileNotShipped(
+  assetName: string,
+  literal: string,
+  expectedPath: string
+) {
+  return [
+    `${assetName} names '${literal}', but the file isn't in the output.`,
+    ...neverCopiedLines(expectedPath)
+  ].join('\n')
+}
+
 // The page the literal opens was declared only under a key the WebKit filter
 // drops, so the build emitted nothing for it and the open fails in Safari.
 export function webkitDroppedPageOpened(
