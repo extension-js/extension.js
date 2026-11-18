@@ -26,7 +26,7 @@ import {
   ensureOptionalModuleLoaded,
   formatInstallHint
 } from './optional-deps-resolver'
-import {canonicalizeDir} from './resource-path'
+import {canonicalizeDir, canonicalizeResourcePath} from './resource-path'
 import {classifyEntrySurface} from './split-chunks'
 
 // The one place the default lives. Flip it here and the CLI flag, the config
@@ -549,11 +549,21 @@ export function failedAddonLint(
 // A copy inside the project reads the way the project names its files, and
 // one outside it keeps the full path, since that is the only way to find it.
 function copyDisplay(copy: string, projectPath: string): string {
-  const relative = path.relative(canonicalizeDir(projectPath), copy)
+  // Both paths as given first, then both resolved: one short and one long
+  // spelling of the same Windows folder would never read as inside.
+  const pairs = [
+    [projectPath, copy],
+    [canonicalizeDir(projectPath), canonicalizeResourcePath(copy)]
+  ]
 
-  return relative.startsWith('..') || path.isAbsolute(relative)
-    ? copy
-    : relative
+  for (const [root, file] of pairs) {
+    const relative = path.relative(root, file)
+    const climbs = relative === '..' || relative.startsWith(`..${path.sep}`)
+
+    if (relative && !climbs && !path.isAbsolute(relative)) return relative
+  }
+
+  return copy
 }
 
 function unusableAddonLint(
