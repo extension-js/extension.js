@@ -394,6 +394,7 @@ export const CODES = {
   E_DEV_SESSION_DIST_SHARED: 'E_DEV_SESSION_DIST_SHARED',
   E_BACKGROUND_REQUIRED: 'E_BACKGROUND_REQUIRED',
   E_CONTENT_SCRIPT_SYNTAX: 'E_CONTENT_SCRIPT_SYNTAX',
+  E_PERF_BUDGET: 'E_PERF_BUDGET',
   E_ZIP_SKIPPED: 'E_ZIP_SKIPPED',
   E_REMOTE_FETCH_TIMEOUT: 'E_REMOTE_FETCH_TIMEOUT',
   E_REMOTE_DOWNLOAD: 'E_REMOTE_DOWNLOAD',
@@ -427,8 +428,8 @@ export const CODES = {
   E_JSON_INVALID: 'E_JSON_INVALID',
   E_PROJECT_LAYOUT: 'E_PROJECT_LAYOUT',
   E_ASSET_IMPORT_SHAPE: 'E_ASSET_IMPORT_SHAPE',
-  // A W_ code is a warning: the run carried on past it. These twenty
-  // shipped under an E_ name before warnings had a prefix of their own.
+  // A W_ code is a warning: the run carried on past it. These shipped under
+  // an E_ name before the prefix existed, all but W_MODULE_NOT_FOUND.
   W_MANAGED_DEP_CONFLICT: 'W_MANAGED_DEP_CONFLICT',
   W_TYPES_EMIT: 'W_TYPES_EMIT',
   W_MODULE_NOT_FOUND: 'W_MODULE_NOT_FOUND',
@@ -449,7 +450,8 @@ export const CODES = {
   W_UNINSTALL_NOOP: 'W_UNINSTALL_NOOP',
   W_PORT_IN_USE: 'W_PORT_IN_USE',
   W_LOGS_STREAM_GAP: 'W_LOGS_STREAM_GAP',
-  // Born as warnings, so no E_ name ever shipped for them.
+  // No warning shipped under an E_ name for these. Where the E_ name of the
+  // same stem exists, it has only ever been an error.
   W_MANIFEST_INVALID: 'W_MANIFEST_INVALID',
   W_WAR_INVALID: 'W_WAR_INVALID',
   W_RESERVED_FOLDER: 'W_RESERVED_FOLDER',
@@ -465,7 +467,11 @@ export const CODES = {
   W_CSS_NOT_APPLIED: 'W_CSS_NOT_APPLIED',
   W_ENV_SECRET_PUBLIC: 'W_ENV_SECRET_PUBLIC',
   W_BUILD_CONSTANT_UNDEFINED: 'W_BUILD_CONSTANT_UNDEFINED',
-  W_SCRIPT_WORLD_UNKNOWN: 'W_SCRIPT_WORLD_UNKNOWN'
+  W_SCRIPT_WORLD_UNKNOWN: 'W_SCRIPT_WORLD_UNKNOWN',
+  W_CDP_NOT_CONNECTED: 'W_CDP_NOT_CONNECTED',
+  W_CDP_TIMEOUT: 'W_CDP_TIMEOUT',
+  W_CDP_OP_FAILED: 'W_CDP_OP_FAILED',
+  W_BROWSER_CONNECTION_CLOSED: 'W_BROWSER_CONNECTION_CLOSED'
 } as const
 
 export type ErrorCode = (typeof CODES)[keyof typeof CODES]

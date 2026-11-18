@@ -179,6 +179,7 @@ interface DiagnosticRow {
   label: string
   files: Record<string, string | object | null>
   args: string[]
+  env?: Record<string, string>
   expected: {status: number; frames: unknown[]; stderr: string}
 }
 
@@ -809,7 +810,195 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
       ].join('\n')
     }
   },
-  // Pins today's behavior. Ledger 1375 N15.
+  {
+    code: 'E_CSS_DEAD_REF',
+    label:
+      'a dead url() in a sheet a content script imports, with strict references',
+    files: {
+      'manifest.json': mv3({
+        content_scripts: [{matches: ['<all_urls>'], js: ['c.js']}]
+      }),
+      'c.js': "import './b.css'\n",
+      'b.css': 'a { background: url(./nope.png) }'
+    },
+    args: [],
+    env: {EXTENSION_STRICT_REFS: 'true'},
+    expected: {
+      status: 1,
+      frames: [
+        {
+          schema: 1,
+          ok: false,
+          command: 'build',
+          status: 'build-failed',
+          value: null,
+          error: {
+            code: 'E_COMPILE',
+            message: 'Build failed with errors',
+            details: [
+              {
+                code: 'E_CSS_DEAD_REF',
+                message:
+                  "A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH b.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.\nSet EXTENSION_STRICT_REFS=true to make this a build error.",
+                file: 'b.css',
+                severity: 'error',
+                name: 'CssDeadRef'
+              },
+              {
+                code: 'W_CSS_NOT_APPLIED',
+                message:
+                  "A stylesheet imported only for its side effect styles nothing in a content script.\nPATH c.js:1\nIMPORT import './b.css'\nThere the import evaluates to the sheet as a data: URL, and no code reads it.\nRead the value and place it: import href from './b.css', then set it on a <link rel=\"stylesheet\">.\nOr list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).\nExtension.js places it for you only in the shadow root of a host marked data-extension-root.",
+                file: 'c.js',
+                severity: 'warning',
+                name: 'CssUnplacedImport'
+              }
+            ]
+          },
+          warnings: [],
+          hint: 'Fix the error above and run build again.'
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '⏵⏵⏵ Build error in b.css.',
+        '    × A url(./nope.png) reference points to a file that exists nowhere in the project.',
+        '    │ PATH b.css',
+        '    │ NOT FOUND ./nope.png',
+        "    │ Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
+        '    │ Set EXTENSION_STRICT_REFS=true to make this a build error.',
+        '',
+        '⏵⏵⏵ Build failed with 1 error.',
+        ''
+      ].join('\n')
+    }
+  },
+  {
+    code: 'E_LOCALES_LAYOUT',
+    label: 'a default_locale with no _locales folder',
+    files: {'manifest.json': mv3({default_locale: 'en'})},
+    args: [],
+    expected: {
+      status: 1,
+      frames: [
+        {
+          schema: 1,
+          ok: false,
+          command: 'build',
+          status: 'build-failed',
+          value: null,
+          error: {
+            code: 'E_COMPILE',
+            message: 'Build failed with errors',
+            details: [
+              {
+                code: 'E_LOCALES_LAYOUT',
+                message:
+                  'default_locale is set, but the _locales folder is missing.\nAdd _locales/<default>/messages.json.',
+                file: 'manifest.json',
+                severity: 'error',
+                name: 'LocalesValidationError'
+              }
+            ]
+          },
+          warnings: [],
+          hint: 'Fix the error above and run build again.'
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '⏵⏵⏵ Build error in manifest.json.',
+        '    × default_locale is set, but the _locales folder is missing.',
+        '    │ Add _locales/<default>/messages.json.',
+        '',
+        '⏵⏵⏵ Build failed with 1 error.',
+        ''
+      ].join('\n')
+    }
+  },
+  {
+    code: 'W_MODULE_NOT_FOUND',
+    label: 'a guarded require of a file that is not there',
+    files: {
+      'manifest.json': mv3({background: {service_worker: 'bg.js'}}),
+      'bg.js': "try {\n  require('./nope')\n} catch {}\n"
+    },
+    args: [],
+    expected: {
+      status: 0,
+      frames: [
+        {
+          schema: 1,
+          ok: true,
+          command: 'build',
+          status: 'built',
+          value: {
+            projectPath: '.',
+            browsers: ['chromium'],
+            mode: 'production',
+            summaries: [
+              {
+                browser: 'chromium',
+                buildType: 'production',
+                output_path: '<project>/dist/chromium',
+                total_assets: 2,
+                total_bytes: 0,
+                largest_asset_bytes: 0,
+                warnings_count: 1,
+                errors_count: 0,
+                warnings: [
+                  "W_MODULE_NOT_FOUND: Module not found: Can't resolve './nope' in '<project>'\n   ╭─[2:4]\n 1 │ try {\n 2 │     require('./nope');\n   ·     ─────────────────\n 3 │ } catch  {}\n   ╰────"
+                ],
+                toolchain: {node: '<node>', extension_js: '<version>'},
+                addon_lint: {status: 'skipped', reason: 'browser'}
+              }
+            ]
+          },
+          error: null,
+          warnings: [
+            "W_MODULE_NOT_FOUND: Module not found: Can't resolve './nope' in '<project>'\n   ╭─[2:4]\n 1 │ try {\n 2 │     require('./nope');\n   ·     ─────────────────\n 3 │ } catch  {}\n   ╰────"
+          ]
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '.',
+        '├─ background',
+        '│  └─ service_worker.js (N KB)',
+        '└─ manifest.json (N KB)',
+        '',
+        "⏵⏵⏵ Warning: Module not found: Can't resolve './nope' in '<project>' (./bg.js)",
+        '╭─[2:4]',
+        '1 │ try {',
+        "2 │ require('./nope');",
+        '· ─────────────────',
+        '3 │ } catch {}',
+        '╰────',
+        '│  Source: ./bg.js',
+        '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
+        "⏵⏵⏵ Built with Node <node> and Extension.js <version>. Name these versions in the store's reviewer note so a reviewer can rebuild it and match these bytes.",
+        ''
+      ].join('\n')
+    }
+  },
+  // A zip that cannot be written fails the build it was asked of.
   {
     code: 'E_ZIP_SKIPPED',
     label: 'a folder where the requested zip has to go',
@@ -868,6 +1057,7 @@ describe.skipIf(process.platform === 'win32')(
     it.each(DIAGNOSTIC_ROWS)('$code: $label', async ({
       files,
       args,
+      env: rowEnv,
       expected
     }) => {
       const projectDir = realpathSync(makeTempFolder('extjs-diagnostic-'))
@@ -888,7 +1078,7 @@ describe.skipIf(process.platform === 'win32')(
 
       const run = await runCli(['build', '.', ...args, '--output', 'json'], {
         cwd: projectDir,
-        env
+        env: {...env, ...rowEnv}
       })
       const placeholders: Array<[string, string]> = [[projectDir, '<project>']]
       const actual = {

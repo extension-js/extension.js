@@ -170,6 +170,7 @@ export function warningCodes(input: unknown): Map<string, ErrorCode> {
     if (!found) continue
 
     const code = codeForSeverity(found, 'warning')
+    if (!code) continue
 
     const message =
       issue && typeof issue === 'object'

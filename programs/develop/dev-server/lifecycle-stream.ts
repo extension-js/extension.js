@@ -112,10 +112,14 @@ function stampedLaunchFailureCode(
 // The launcher keeps a session whose CDP wire failed alive and ready and names
 // the fault on the contract, so the ready frame carries it as a coded warning.
 function cdpFaultWarnings(ready: Record<string, unknown> | null): string[] {
-  const code = ready?.cdpFaultCode
+  const stamped = ready?.cdpFaultCode
+  if (typeof stamped !== 'string') return []
+
+  // An older launcher stamped the E_ name, and a warning never carries one.
+  const code = `W_${stamped.slice(2)}`
 
   if (
-    typeof code !== 'string' ||
+    !/^[EW]_/.test(stamped) ||
     !Object.prototype.hasOwnProperty.call(CODES, code)
   ) {
     return []

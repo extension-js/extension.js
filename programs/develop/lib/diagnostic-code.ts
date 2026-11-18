@@ -159,7 +159,7 @@ export function diagnosticName(issue: unknown): string | undefined {
 function isModuleNotFound(err: IssueLike): boolean {
   return (
     err.name === 'ModuleNotFoundError' ||
-    /^\s*[×]?\s*Module not found:/.test(text(err.message))
+    /^\s*[×⚠]?\s*Module not found:/.test(text(err.message))
   )
 }
 
@@ -232,13 +232,28 @@ export function warningCodeOf(code: ErrorCode): WarningCode | undefined {
   return name as WarningCode | undefined
 }
 
+// A CLI under test or run by its authors fails loudly on a class reported
+// with a severity it has no name for. A user's run drops the code instead.
+function isAuthoring(): boolean {
+  return (
+    Boolean(process.env.VITEST) || process.env.EXTENSION_AUTHOR_MODE === 'true'
+  )
+}
+
 // The one place a class meets its severity: a warning reads W_ and an
-// error reads E_, wherever the class has a name under that prefix.
+// error reads E_, and no other pairing leaves this function.
 export function codeForSeverity(
   code: ErrorCode,
   severity: 'error' | 'warning'
-): ErrorCode {
-  if (severity === 'warning') return warningCodeOf(code) ?? code
+): ErrorCode | undefined {
+  const prefix = severity === 'warning' ? 'W_' : 'E_'
+  const name = code.startsWith(prefix) ? code : twin(code, prefix)
 
-  return code.startsWith('W_') ? (twin(code, 'E_') ?? code) : code
+  if (!name && isAuthoring()) {
+    throw new Error(
+      `${code} has no ${prefix} name in CODES, so it cannot be reported as ${severity === 'warning' ? 'a warning' : 'an error'}`
+    )
+  }
+
+  return name
 }

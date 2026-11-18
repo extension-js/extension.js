@@ -73,7 +73,7 @@
   connect that found no endpoint, a command or load that timed out, an id it
   could not resolve). The session stays `ready` because the browser is up, but
   reload and HMR cannot attach until the fault is fixed. The `ready` frame under
-  `--output json` carries the same fault on `warnings` as `E_CDP_...: message`.
+  `--output json` carries the same fault on `warnings` as `W_CDP_...: message`.
   Both are preserved across recompiles of the same run
 - `pidStartedAt`, and optional `browserStartedAt` and `launcherStartedAt`: when
   the process behind `pid`, `browserPid` and `launcherPid` started (ISO 8601

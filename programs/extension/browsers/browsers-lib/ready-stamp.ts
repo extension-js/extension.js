@@ -736,7 +736,8 @@ export function stampReadyCdpFault(
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (isForeignRun(ready, runId)) return
 
-    ready.cdpFaultCode = code
+    // The session carried on, so the fault reads under its W_ name.
+    ready.cdpFaultCode = code.replace(/^E_/, 'W_')
     ready.cdpFaultMessage =
       String(detail || '').trim() || 'the CDP wire failed after launch'
 

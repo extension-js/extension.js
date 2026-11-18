@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {CODES} from '../../../helpers/messaging'
 import {
   claimReadyPath,
   clearReadyCdpPort,
@@ -491,8 +492,22 @@ describe('stampReadyCdpFault', () => {
     const ready = readReady()
     expect(ready.status).toBe('ready')
     expect(ready.code).toBeUndefined()
-    expect(ready.cdpFaultCode).toBe('E_CDP_TIMEOUT')
+    expect(ready.cdpFaultCode).toBe('W_CDP_TIMEOUT')
     expect(ready.cdpFaultMessage).toBe('ensureLoaded timeout (10000ms)')
+  })
+
+  // The launcher hands over the code the failure was thrown with, and a
+  // session that carried on reports it under the warning name.
+  it.each([
+    ['E_CDP_NOT_CONNECTED', 'W_CDP_NOT_CONNECTED'],
+    ['E_CDP_TIMEOUT', 'W_CDP_TIMEOUT'],
+    ['E_CDP_OP_FAILED', 'W_CDP_OP_FAILED'],
+    ['E_BROWSER_CONNECTION_CLOSED', 'W_BROWSER_CONNECTION_CLOSED']
+  ])('stamps %s as %s, a name the catalog has', (thrown, stamped) => {
+    stampReadyCdpFault(outputPath, thrown, 'detail', 'run-A')
+
+    expect(readReady().cdpFaultCode).toBe(stamped)
+    expect(CODES).toHaveProperty(stamped)
   })
 
   it('never stamps a run it does not belong to', () => {
@@ -573,7 +588,7 @@ describe('a held Chromium dev contract', () => {
 
     expect(read()).toMatchObject({
       status: 'ready',
-      cdpFaultCode: 'E_CDP_CONNECT'
+      cdpFaultCode: 'W_CDP_CONNECT'
     })
   })
 

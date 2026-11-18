@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {toDiagnostic} from '../compilation-diagnostics'
 import {
   codeForSeverity,
@@ -279,15 +279,79 @@ describe('the warning class', () => {
     )
   })
 
-  it('keeps a warning-only class on its W_ name when a build fails on it', () => {
-    expect(codeForSeverity(CODES.W_STORE_READINESS, 'error')).toBe(
-      'W_STORE_READINESS'
+  // The bundler opens a warning with its own glyph, not the error one.
+  it('codes a module the bundler could not find and warned about', () => {
+    const warning = new Error("  ⚠ Module not found: Can't resolve './nope'")
+
+    expect(toDiagnostic(warning, 'warning').code).toBe('W_MODULE_NOT_FOUND')
+    expect(
+      toDiagnostic(
+        new Error("  × Module not found: Can't resolve 'x'"),
+        'error'
+      ).code
+    ).toBe('E_MODULE_NOT_FOUND')
+  })
+
+  it('refuses a warning-only class on an error', () => {
+    expect(() => codeForSeverity(CODES.W_STORE_READINESS, 'error')).toThrow(
+      'W_STORE_READINESS has no E_ name in CODES'
     )
   })
 
-  it('leaves an errors-only class as it is on a warning', () => {
+  it('refuses an errors-only class on a warning', () => {
     expect(warningCodeOf(CODES.E_COMPILE)).toBeUndefined()
-    expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBe('E_COMPILE')
+    expect(() => codeForSeverity(CODES.E_COMPILE, 'warning')).toThrow(
+      'E_COMPILE has no W_ name in CODES'
+    )
+  })
+
+  it('reports a budget overrun under the name of its severity', () => {
+    expect(codeForSeverity(CODES.W_PERF_BUDGET, 'error')).toBe('E_PERF_BUDGET')
+    expect(codeForSeverity(CODES.E_PERF_BUDGET, 'warning')).toBe(
+      'W_PERF_BUDGET'
+    )
+  })
+
+  // Every code, both severities: an error never reads W_ and a warning
+  // never reads E_, whether the pairing throws or resolves.
+  it.each(
+    Object.values(CODES)
+  )('reports %s under the prefix of the severity or not at all', (code) => {
+    for (const [severity, prefix] of [
+      ['error', 'E_'],
+      ['warning', 'W_']
+    ] as const) {
+      const twin = `${prefix}${code.slice(2)}`
+
+      if (Object.hasOwn(CODES, twin)) {
+        expect(codeForSeverity(code, severity)).toBe(twin)
+      } else {
+        expect(() => codeForSeverity(code, severity)).toThrow(
+          `${code} has no ${prefix} name in CODES`
+        )
+      }
+    }
+  })
+
+  it('drops the code on a user run where the class has no name for the severity', () => {
+    vi.stubEnv('VITEST', '')
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', '')
+
+    try {
+      for (const code of Object.values(CODES)) {
+        expect(codeForSeverity(code, 'error') ?? 'E_').toMatch(/^E_/)
+        expect(codeForSeverity(code, 'warning') ?? 'W_').toMatch(/^W_/)
+      }
+
+      expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
+      expect(toDiagnostic(named('BackgroundRequired'), 'warning')).toEqual({
+        message: 'text',
+        severity: 'warning',
+        name: 'BackgroundRequired'
+      })
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('carries one code on the diagnostic a frame lists', () => {
@@ -328,7 +392,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(36)
+    expect(WARNING_NAMES.length).toBe(40)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

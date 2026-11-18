@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. A W_ code is a warning: the run carried on past it. An E_ code is a failure. A class that can do both has one row under each prefix with the same stem. Twenty warnings shipped under an E_ name before the W_ prefix existed. Each of those E_ names that never marked a failure has a 'folded' row pointing at its W_ name. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it; its 'reason' says what keeps it reserved.",
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed, with one exception: the release that introduced the W_ prefix moved nineteen warnings from an E_ name to the W_ name with the same stem. A code retired after it shipped keeps a 'folded' row naming the code the same path reports now. A folded row is a record for a reader of this table: nothing at run time reads it, no envelope carries a folded name and no alias exists, so a consumer that matches a folded name has to switch to the code the row names. A W_ code is a warning: the run carried on past it. An E_ code is a failure. A class that can do both has one row under each prefix with the same stem. Eleven of the nineteen E_ names that moved never marked a failure, and each has a 'folded' row naming its W_ name. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it; its 'reason' says what keeps it reserved.",
   "codes": {
     "E_ARGS": {
       "area": "usage",
@@ -157,6 +157,12 @@
     "E_CONTENT_SCRIPT_SYNTAX": {
       "area": "compile",
       "summary": "A content script failed to parse."
+    },
+    "E_PERF_BUDGET": {
+      "area": "compile",
+      "summary": "An asset exceeds its size budget, and the project asked for that to fail the build.",
+      "reserved": true,
+      "reason": "Nothing fails a build on a budget overrun yet, so an overrun is only ever W_PERF_BUDGET. The name is held for the setting that will."
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
@@ -625,6 +631,26 @@
       "area": "compile",
       "summary": "A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script.",
       "warn": true
+    },
+    "W_CDP_NOT_CONNECTED": {
+      "area": "debug-protocol",
+      "summary": "A dev session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_CDP_TIMEOUT": {
+      "area": "debug-protocol",
+      "summary": "A CDP command or load timed out after launch, and the dev session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_CDP_OP_FAILED": {
+      "area": "debug-protocol",
+      "summary": "An extension operation over CDP failed after launch, and the dev session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_BROWSER_CONNECTION_CLOSED": {
+      "area": "debug-protocol",
+      "summary": "The debug socket closed after launch, and the dev session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
     }
   },
   "legacy": {
@@ -742,7 +768,6 @@
     "E_PROD_LOOPBACK_ORIGIN": "W_PROD_LOOPBACK_ORIGIN",
     "E_NO_ENTRYPOINTS": "W_NO_ENTRYPOINTS",
     "E_REMOTE_RESOURCE_BLOCKED": "W_REMOTE_RESOURCE_BLOCKED",
-    "E_PERF_BUDGET": "W_PERF_BUDGET",
     "E_ENV_NO_MATCH": "W_ENV_NO_MATCH",
     "E_LAUNCH_SKIPPED_COMPILE_ERRORS": "W_LAUNCH_SKIPPED_COMPILE_ERRORS",
     "E_UNINSTALL_NOOP": "W_UNINSTALL_NOOP",

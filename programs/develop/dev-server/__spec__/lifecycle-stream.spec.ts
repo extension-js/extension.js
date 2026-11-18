@@ -295,6 +295,34 @@ describe('lifecycle stream transitions', () => {
         runId: 'run-abc',
         port: 8081,
         pid: 4242,
+        cdpFaultCode: 'W_CDP_TIMEOUT',
+        cdpFaultMessage: 'ensureLoaded timeout (10000ms)'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.ready()
+    const [frame] = parseFrames(lines)
+    expect(frame.status).toBe('ready')
+    expect(frame.ok).toBe(true)
+    expect(frame.warnings).toEqual([
+      'W_CDP_TIMEOUT: ensureLoaded timeout (10000ms)'
+    ])
+
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('reads a fault an older launcher stamped under its E_ name as the warning', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        schemaVersion: 2,
+        status: 'ready',
+        runId: 'run-abc',
+        port: 8081,
+        pid: 4242,
         cdpFaultCode: 'E_CDP_TIMEOUT',
         cdpFaultMessage: 'ensureLoaded timeout (10000ms)'
       })
@@ -306,8 +334,34 @@ describe('lifecycle stream transitions', () => {
     expect(frame.status).toBe('ready')
     expect(frame.ok).toBe(true)
     expect(frame.warnings).toEqual([
-      'E_CDP_TIMEOUT: ensureLoaded timeout (10000ms)'
+      'W_CDP_TIMEOUT: ensureLoaded timeout (10000ms)'
     ])
+
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('leaves a fault whose class has no warning name off the ready frame', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        schemaVersion: 2,
+        status: 'ready',
+        runId: 'run-abc',
+        port: 8081,
+        pid: 4242,
+        cdpFaultCode: 'E_COMPILE',
+        cdpFaultMessage: 'ensureLoaded timeout (10000ms)'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.ready()
+    const [frame] = parseFrames(lines)
+    expect(frame.status).toBe('ready')
+    expect(frame.ok).toBe(true)
+    expect(frame.warnings).toEqual([])
 
     fs.rmSync(dir, {recursive: true, force: true})
   })
