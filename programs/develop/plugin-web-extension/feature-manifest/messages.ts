@@ -144,6 +144,27 @@ export function missingGeckoDataCollectionPermissions() {
   return lines.join('\n')
 }
 
+export function missingGeckoAddonId(declared: unknown) {
+  const lines: string[] = []
+  const field = colors.blue('browser_specific_settings.gecko.id')
+
+  lines.push(
+    declared == null
+      ? `${prefix('warn')} The manifest sets no ${field}, so Firefox has no add-on ID for this extension.`
+      : `${prefix('warn')} Firefox refuses the add-on ID ${colors.yellow(JSON.stringify(declared))} in ${field}, so this extension has none.`
+  )
+
+  lines.push(
+    `Without one, Firefox gives the add-on a new ID on each launch, so its storage does not survive a relaunch, and addons.mozilla.org assigns one on the first upload that every later upload must carry.`
+  )
+
+  lines.push(
+    `Set ${colors.yellow('firefox:browser_specific_settings.gecko.id')} in ${colors.yellow('manifest.json')} to an email-like string such as ${colors.yellow('my-extension@example.com')}.`
+  )
+
+  return lines.join('\n')
+}
+
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
   const lines: string[] = []
   lines.push(`Can't read your ${colors.blue('manifest.json')} file.`)
@@ -314,6 +335,14 @@ export function sidebarKeyTranslatedForBrowser(
     `${prefix('info')} The build folded ${colors.yellow(from)} into ${colors.yellow(to)} for ${colors.blue(browser)}, which reads a sidebar only from ${colors.yellow(to)}${permission}. ` +
     `The panel opens and points at the same compiled page.\n` +
     `Declare both keys to ship a panel of its own per vendor, or scope ${colors.yellow(from)} with a prefix to keep it off this build.`
+  )
+}
+
+export function geckoServiceWorkerTranslated(browser: string) {
+  return (
+    `${prefix('info')} The build moved ${colors.yellow('background.service_worker')} into ${colors.yellow('background.scripts')} for ${colors.blue(browser)}, which never starts a service worker. ` +
+    `The background runs as an event page from the same compiled script.\n` +
+    `Declare ${colors.yellow('scripts')} beside ${colors.yellow('service_worker')}, or a ${colors.yellow('firefox:background')} key, to state the Firefox background in the source.`
   )
 }
 

@@ -7,7 +7,7 @@
 
 # plugin-static-assets
 
-> Asset rules for images, SVG, fonts and other files, with the `?url` and `?raw` import queries.
+> Asset rules for images, SVG, fonts and other files, with the `?url` and `?raw` import queries and `.wasm` resolution.
 
 ### What it does
 
@@ -19,6 +19,14 @@
 - **Namespace imports**: `import * as t from './notes.txt'` read as a value (`String(t)`, `` `${t}` ``) is a build error named `NamespaceImportReadAsValue`, since it reaches the browser as `[object Module]`. `t.default`, `t?.default` and `typeof t` build fine. Imports from `node_modules` are not checked.
 - **User rules**: A rule in `extension.config.js` with a RegExp `test` and a `type`, `use` or `loader` owns its extensions, and the defaults keep the rest (a `.png` rule leaves `.jpg` to them). A rule scoped by `resourceQuery` claims only that query (SVGR's `?react`). A rule scoped by `include`, `exclude`, `resource`, `issuer` or `issuerLayer`, or an asset-typed rule with a string, array or function `test`, claims only its scope. A user rule whose `resourceQuery` matches `?url` or `?raw` replaces that rule for every file type.
 - **Not seen yet**: user rules nested in `oneOf` or `rules`, and a loader rule with a function or array `test`. The default rule still applies after them, and the last matching type wins.
+
+### WebAssembly
+
+- **Modules**: `import('./codec.wasm')` and a static import compile as async WebAssembly modules, which rspack turns on by default. Setting `experiments.asyncWebAssembly: false` from the `config` function in `extension.config.js` turns them off.
+- **Resolution**: When the config lists `resolve.extensions`, `.wasm` is appended once and the entries already there are kept. A config with no list is left alone.
+- **Bytes on request**: `import url from './codec.wasm?url'` emits the binary under `assets/` and returns its URL, for Emscripten-style loaders that fetch their own bytes.
+- **No package aliases**: A runtime file of `@ffmpeg/core`, `@imagemagick/magick-wasm`, `tesseract-wasm` or any other package resolves like every package file. When the package's `exports` hides the file, the build fails with `Package subpath './dist/esm/ffmpeg-core.js' is not defined by "exports"`, and an alias from the `config` function reaches it: `config.resolve.alias['@ffmpeg/core/dist/esm/ffmpeg-core.js'] = path.resolve(__dirname, 'node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js')`.
+- **Budget**: The perf-budgets plugin budgets a `.wasm` binary only extension pages and workers reach as `wasm` (32 MiB), and one a content script or the service worker reaches as `runtime` (1 MiB). Raise `perfBudgets.wasm` or `perfBudgets.runtime`, or list the file under `perfBudgets.ignore` in `extension.config.js`.
 
 ### Usage
 

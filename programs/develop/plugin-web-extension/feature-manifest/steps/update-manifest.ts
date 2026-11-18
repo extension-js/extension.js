@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {readGeckoManifestId} from '../../../lib/extension-id'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {
   getCanonicalContentScriptJsAssetName,
@@ -57,7 +58,8 @@ import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {
   hasEmptyGeckoBackgroundScripts,
-  patchGeckoBackground
+  patchGeckoBackground,
+  translatesGeckoServiceWorker
 } from './patch-gecko-background'
 import {patchWebkitBackground} from './patch-webkit-background'
 import {reportGeckoUnsupportedApis} from './warn-gecko-unsupported-apis'
@@ -73,11 +75,15 @@ export class UpdateManifest {
   // A sidebar key folded for the target is said once per session, as a note:
   // the build fixed it, so a warning would claim a panel that does open.
   private reportedSidebarFolds = new Set<string>()
+  // The service worker moved into background.scripts is a note on the same terms.
+  private reportedWorkerMoves = new Set<string>()
   // Same contract for the Safari unsupported-API warning, which fires in
   // development too: one line per distinct call, not one on every save.
   private reportedUnsupportedApis = new Set<string>()
   // A page kept at its authored path is said once per session too.
   private reportedKeptPages = new Set<string>()
+  // The missing add-on ID warning is said once per build and once per session.
+  private reportedGeckoAddonId = false
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -217,6 +223,16 @@ export class UpdateManifest {
                   )
                 )
               }
+            }
+
+            if (
+              translatesGeckoServiceWorker(forBrowser, this.browser) &&
+              !this.reportedWorkerMoves.has(String(this.browser))
+            ) {
+              this.reportedWorkerMoves.add(String(this.browser))
+              humanLine(
+                messages.geckoServiceWorkerTranslated(String(this.browser))
+              )
             }
 
             if (hasUnsupportedMv3BackgroundPage(forBrowser, this.browser)) {
@@ -480,6 +496,27 @@ export class UpdateManifest {
               warn.name = 'AmoDataCollectionWarning'
               warn.file = 'manifest.json'
               compilation.warnings.push(warn)
+            }
+
+            // Without an add-on ID Firefox mints a new one per temporary
+            // install, so storage is lost on relaunch. Dev says it too.
+            if (
+              !this.reportedGeckoAddonId &&
+              isGeckoBasedBrowser(String(this.browser))
+            ) {
+              const geckoId = readGeckoManifestId(
+                patchedManifest as Record<string, unknown>
+              )
+
+              if (!geckoId.valid) {
+                this.reportedGeckoAddonId = true
+                const warn = new WebpackError(
+                  messages.missingGeckoAddonId(geckoId.declared)
+                ) as Error & {file?: string; name?: string}
+                warn.name = 'GeckoAddonIdWarning'
+                warn.file = 'manifest.json'
+                compilation.warnings.push(warn)
+              }
             }
 
             // Two warnings share one scan. On Gecko it is a store-readiness
