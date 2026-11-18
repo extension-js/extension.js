@@ -26,7 +26,8 @@ export interface DevWatchSession {
 export async function openDevWatchSession(
   root: string,
   browser = 'chrome',
-  onCompiler?: (compiler: Compiler) => void
+  onCompiler?: (compiler: Compiler) => void,
+  devOptions: Record<string, unknown> = {}
 ): Promise<DevWatchSession> {
   const projectStructure = await getProjectStructure(root)
   const distPath = path.join(root, 'dist', browser)
@@ -35,7 +36,8 @@ export async function openDevWatchSession(
     mode: 'development',
     metadataCommand: 'dev',
     silent: true,
-    output: {clean: false, path: distPath}
+    output: {clean: false, path: distPath},
+    ...devOptions
   } as any)
   config.plugins = (config.plugins || []).filter(
     (plugin) =>

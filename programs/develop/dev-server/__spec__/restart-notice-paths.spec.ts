@@ -46,4 +46,19 @@ describe('the dev restart notice', () => {
 
     expect(line.split('\n').slice(1)).toEqual(['AFTER options.html'])
   })
+
+  it('says a styles restart is for a PostCSS setup change and names the file', () => {
+    const cwd = process.cwd()
+    const line = devServerRestarting({
+      reason: 'styles',
+      pathChanged: path.join(cwd, 'postcss.config.js')
+    }).replace(ANSI, '')
+
+    expect(line.split('\n')).toEqual([
+      expect.stringMatching(
+        /Restarting the dev server to pick up a PostCSS setup change…$/
+      ),
+      'CHANGED postcss.config.js'
+    ])
+  })
 })

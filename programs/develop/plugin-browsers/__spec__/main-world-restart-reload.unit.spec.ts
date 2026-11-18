@@ -76,8 +76,25 @@ async function launchedSession() {
   plugin.apply(fake.compiler)
 
   // The same rebuild in its two halves, for a build that is slow to end.
-  const begin = (files: string[] = ['manifest.json']) => {
-    const compilation = fakeCompilation({context: root, output: at('dist')})
+  // A build that names web resources emits a manifest listing them.
+  const begin = (
+    files: string[] = ['manifest.json'],
+    webResources?: string[]
+  ) => {
+    const compilation = fakeCompilation({
+      context: root,
+      output: at('dist'),
+      ...(webResources
+        ? {
+            manifest: {
+              manifest_version: 3,
+              web_accessible_resources: [
+                {resources: webResources, matches: ['<all_urls>']}
+              ]
+            }
+          }
+        : {})
+    })
 
     fake.watchRun(files)
     fake.thisCompilation(compilation)
@@ -214,6 +231,33 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
 
     expect(isAwaitingMainWorldRestart(undefined, held.compilation)).toBe(true)
     expect(isAwaitingMainWorldRestart(undefined, plain.compilation)).toBe(false)
+  })
+
+  // Pins today's behavior, reported with the move of this state to the
+  // reload plugin: the held build never reached the browser.
+  it('compares the next build with a held build the browser never loaded', async () => {
+    const scheduler = new DevSessionRestartScheduler(0)
+
+    scheduler.setHandler(vi.fn())
+    bindDevSessionRestart(scheduler)
+
+    const dev = await launchedSession()
+
+    await dev.begin(['pages/options.html'], ['111.js']).finish()
+    expect(dev.broadcastReload).toHaveBeenCalledTimes(1)
+    expect(dev.broadcastReload.mock.calls[0][0]).toMatchObject({type: 'full'})
+
+    dev.write(`${IDLE}${REGISTRATION}`)
+    await dev.begin(['background.js'], ['222.js']).finish()
+    expect(dev.broadcastReload).toHaveBeenCalledTimes(1)
+
+    dev.write(`${IDLE}// taken back\n`)
+    await dev.begin(['pages/options.html'], ['222.js']).finish()
+
+    expect(dev.broadcastReload.mock.calls.map((call) => call[0].type)).toEqual([
+      'full',
+      'page'
+    ])
   })
 
   it('reloads as usual in a session that can only warn about the change', async () => {

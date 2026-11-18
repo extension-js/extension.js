@@ -160,7 +160,7 @@ export function getDirs(struct: ProjectStructure): {
   return {manifestDir, packageJsonDir}
 }
 
-export function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
+function getNodeModulesDir(packageJsonDir: AbsolutePath): AbsolutePath {
   return asAbsolute(path.join(packageJsonDir, 'node_modules'))
 }
 

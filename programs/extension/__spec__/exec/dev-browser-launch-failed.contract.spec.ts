@@ -92,9 +92,13 @@ async function waitForLaunchFailure(session: Session, timeoutMs = 60_000) {
     'the launch failure on the contract, the timeline and the terminal'
   )
 
-  // The last line of the block: a ready line would have come before it.
+  // The last line of the block: a ready line would have come before it. A
+  // value the user set ends the session instead of keeping it watching.
   await session.cli.waitFor(
-    () => session.output().includes('The dev server keeps watching'),
+    () =>
+      /The dev server keeps watching|The dev session ends here/.test(
+        session.output()
+      ),
     timeoutMs,
     'the end of the failure block'
   )
@@ -206,6 +210,8 @@ describe.skipIf(process.platform === 'win32')(
       )
 
       expect(output, output).toMatch(/Can't find a Chromium binary/)
+      expect(output, output).toMatch(/The dev session ends here/)
+      expect(output, output).not.toMatch(/The dev server keeps watching/)
       expect(output, output).not.toMatch(/ready for development/)
 
       const ready = session.ready()

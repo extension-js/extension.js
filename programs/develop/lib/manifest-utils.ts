@@ -13,7 +13,7 @@ import {parseJsonSafe} from './parse-json-safe'
 
 // chrome: and edge: name one vendor. Up to 4.1.18 they reached every
 // Chromium-family target, which is why a drop elsewhere gets a warning.
-export const CHROMIUM_VENDOR_PREFIXES = ['chrome', 'edge'] as const
+const CHROMIUM_VENDOR_PREFIXES = ['chrome', 'edge'] as const
 
 export interface FilterKeysOptions {
   // Extra prefixes this build also accepts, like ['firefox'] for a Safari

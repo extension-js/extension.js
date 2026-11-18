@@ -17,6 +17,7 @@ import {
   managedProfileBaseDir
 } from '../../browsers-lib/ready-stamp'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
+import {defaultChromiumOutputPath} from './extension-output-path'
 import {
   LAUNCH_TAB_URL,
   resolveStartingUrl,
@@ -436,8 +437,7 @@ export function browserConfig(
   }
 
   const outPath =
-    compilation?.options?.output?.path ||
-    path.resolve(process.cwd(), 'dist/chrome')
+    compilation?.options?.output?.path || defaultChromiumOutputPath()
   const managedBaseDir = managedProfileBaseDir(
     outPath,
     String(configOptions.browser)

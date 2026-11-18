@@ -30,7 +30,7 @@ export const TERMINATION_SIGNALS: readonly TerminationSignal[] = [
  * WHY THIS HANDLER USUALLY DOES NOT EXIT THE PROCESS. `dev`, `start` and
  * `preview` install their own signal handlers, and those own the shutdown:
  * they terminate the browser child, close the dev server, and `run-only`
- * schedules a `process.exit(0)` ten milliseconds after the signal. Exiting from
+ * exits once the browser has closed, or at once on a second signal. Exiting from
  * here would race that teardown and cut it short for a measurement, which
  * inverts the priority. So the exit is taken only when nothing else is
  * listening, which is the case this handler created by registering at all: a

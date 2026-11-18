@@ -6,8 +6,8 @@ import {
   canLink,
   expectNothingPrivate,
   linkPackages,
-  makeWorkspace,
   MARKER,
+  makeWorkspace,
   manifest,
   PAGE,
   project
