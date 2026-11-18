@@ -110,6 +110,69 @@ describe('toMachineText prints a path the reader can open', () => {
     }
   })
 
+  it('names a file behind a linked folder of the project from the project root', () => {
+    const holder = fs.mkdtempSync(
+      path.join(fs.realpathSync.native(os.tmpdir()), 'extjs-machine-text-')
+    )
+    const project = path.join(holder, 'project')
+    const outside = path.join(holder, 'outside-folder')
+
+    try {
+      fs.mkdirSync(project)
+      fs.mkdirSync(outside)
+      fs.symlinkSync(outside, path.join(project, 'linked-folder'), 'junction')
+
+      const raw = `NOT FOUND ${path.join(project, 'linked-folder', 'inner.txt')}`
+
+      expect(toMachineText(raw, project)).toBe(
+        'NOT FOUND linked-folder/inner.txt'
+      )
+    } finally {
+      fs.rmSync(holder, {recursive: true, force: true})
+    }
+  })
+
+  it('names a dot-named file, at the root and below, from the project root', () => {
+    const raw = [
+      `NOT FOUND ${inProject('.env')}`,
+      `NOT FOUND ${inProject('.env.png')}`,
+      `NOT FOUND ${inProject('sub', '.env.png')}`,
+      `NOT FOUND ${inProject('node_modules', 'pkg', '.env')}`,
+      `NOT FOUND ${inProject('..env')}`,
+      `NOT FOUND ${inProject('..hidden', 'icon.png')}`
+    ].join('\n')
+
+    expect(toMachineText(raw, PROJECT)).toBe(
+      [
+        'NOT FOUND .env',
+        'NOT FOUND .env.png',
+        'NOT FOUND sub/.env.png',
+        'NOT FOUND node_modules/pkg/.env',
+        'NOT FOUND ..env',
+        'NOT FOUND ..hidden/icon.png'
+      ].join('\n')
+    )
+  })
+
+  it('keeps a root URL to a dot-named file as the page wrote it', () => {
+    const raw = [
+      'Update the /.env reference to point to a file that exists.',
+      'Update the /sub/.env.png reference to point to a file that exists.',
+      'Update the /a/../.envrc reference to point to a file that exists.',
+      'Update the /%2e%2e/outside.txt reference to point to a file that exists.'
+    ].join('\n')
+
+    expect(toMachineText(raw, PROJECT)).toBe(raw)
+  })
+
+  it('keeps a path that climbs out of the project as given', () => {
+    const climbing = `${PROJECT}${path.sep}..${path.sep}outside.txt`
+
+    expect(toMachineText(`NOT FOUND ${climbing}`, PROJECT)).toBe(
+      `NOT FOUND ${climbing}`
+    )
+  })
+
   it('keeps a path outside the project in its real form', () => {
     const outside = path.resolve(path.sep, 'work', 'shared', 'theme.css')
     const sibling = `${PROJECT}-two${path.sep}a.css`
