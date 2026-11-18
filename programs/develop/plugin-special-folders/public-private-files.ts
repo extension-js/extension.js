@@ -99,6 +99,35 @@ export function hasPrivateFileName(relativePath: string): boolean {
     .some((name) => privateFileKind(name) !== undefined)
 }
 
+// The name as written and as the browser reads it, where `%2e%2e` is `..`.
+export function browserSpellings(outputName: string): string[] {
+  const spellings = [outputName]
+
+  try {
+    spellings.push(decodeURIComponent(outputName))
+  } catch {
+    // Not a valid escape, so the browser asks for the name as written.
+  }
+
+  return spellings.map((spelling) =>
+    path.posix.normalize(spelling.replace(/\\/g, '/'))
+  )
+}
+
+// A normalized name that leaves the extension root.
+export function climbsOut(normalized: string): boolean {
+  return normalized === '..' || normalized.startsWith('../')
+}
+
+// Whether a root-absolute URL is refused as written, before any file is
+// looked up: it climbs out of the extension root or carries a private name.
+// The path is the URL's and never the machine's: `/abs/x.txt` is `abs/x.txt`.
+export function rootAbsolutePathIsWithheld(ref: string): boolean {
+  return browserSpellings(ref.replace(/^\/+/, '')).some(
+    (name) => climbsOut(name) || hasPrivateFileName(name)
+  )
+}
+
 // How the build came to a source path. `named`: the author wrote the path
 // of this one file. `walked`: a folder entry or a pattern reached it.
 export type SourceAsk = 'named' | 'walked'

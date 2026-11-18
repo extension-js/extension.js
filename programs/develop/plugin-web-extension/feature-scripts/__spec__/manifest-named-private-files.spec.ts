@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {
   build,
   canLink,
+  expectNothingPrivate,
   linkPackages,
   linkWorkspace,
   MARKER,
@@ -52,15 +53,12 @@ const UNDER_BACKGROUND: Field = {
   })
 }
 
-// The opening of each fake private file, which no message may quote.
-const OPENINGS = ['PRIVATE_K', 'export PR', '# FAKE', 'FAKE-MARK']
-
 const foldsCase = fs.existsSync(__filename.toUpperCase())
 
 const FILES: Record<string, string> = {
   '.git/hooks/pre-push.sh': `# ${MARKER}-git-hook\n`,
   'node_modules/pkg/lib.js': 'var lib = "installed"\n',
-  '.env.example': 'PRIVATE_KEY=\n',
+  '.env.example': 'EXAMPLE_KEY=\n',
   'public/hosted.txt': 'hosted',
   'sw.js': 'console.log("worker")\n'
 }
@@ -87,10 +85,8 @@ async function rowFor(root: string): Promise<Row> {
     said.add(`${match[2]}: ${match[1]}`)
   }
 
-  // No message carries what a file holds, its opening characters included.
-  for (const text of [MARKER, ...OPENINGS]) {
-    expect(result.printed).not.toContain(text)
-  }
+  // No message and no output file carries what a private file holds.
+  expectNothingPrivate(result)
 
   return {
     shipped: result.shipped,
@@ -323,7 +319,7 @@ describe('a file a custom key names and the build withholds', () => {
       expect(times('under the custom key')).toBe(2)
       expect(result.shipped).toEqual(['hosted.txt'])
       expect(result.marked).toEqual([])
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
       expect(result.errors).toBe(0)
     },
     TIMEOUT

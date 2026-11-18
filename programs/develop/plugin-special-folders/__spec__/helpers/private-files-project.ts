@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, vi} from 'vitest'
+import {afterAll, expect, vi} from 'vitest'
 import {listOutput} from './compile-harness'
 
 // A fixture project of fake private files, one folder below a holder that
@@ -46,9 +46,9 @@ export function project(files: Record<string, string>) {
     '.npmrc': `# ${MARKER}-npmrc\n`,
     '.git/config': `# ${MARKER}-git\n`,
     'package.json': JSON.stringify({
+      private: true,
       name: 'root-refs',
       version: '1.0.0',
-      private: true,
       description: `${MARKER}-package`
     }),
     'extension.config.js': 'export default {}\n',
@@ -167,11 +167,61 @@ const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, 'g')
 const withoutHash = (name: string) =>
   name.replace(/\.[0-9a-f]{8}(?=\.|$)/, '.<hash>')
 
+// A parse error once quoted the first characters of the file it read.
+const OPENING_LENGTH = 10
+
+// The marker and the opening characters of every fake private file under
+// the holder. An opening a plain fixture file shares says nothing, so it is
+// left out.
+function privateTextOf(holder: string): string[] {
+  const marked = new Set<string>()
+  const plain = new Set<string>()
+
+  const walk = (dir: string) => {
+    for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+      const full = path.join(dir, entry.name)
+
+      if (entry.isDirectory()) {
+        if (full !== path.join(holder, 'project', 'dist')) walk(full)
+
+        continue
+      }
+
+      if (!entry.isFile()) continue
+
+      const contents = fs.readFileSync(full, 'utf-8')
+      const opening = contents.slice(0, OPENING_LENGTH)
+
+      if (contents.includes(MARKER)) marked.add(opening)
+      else plain.add(opening)
+    }
+  }
+
+  walk(holder)
+
+  return [MARKER, ...[...marked].filter((opening) => !plain.has(opening))]
+}
+
+// The paths a build names as not found, in the order of the alphabet. The
+// summary repeats each message as JSON, where a line ends in a written \n.
+export function notFoundPaths(printed: string): string[] {
+  const found = new Set<string>()
+
+  for (const match of printed.matchAll(/NOT FOUND (\S+?)(?=\\n|\s|$)/g)) {
+    found.add(match[1])
+  }
+
+  return [...found].sort()
+}
+
 export interface Built {
   // Every file in the output folder but the page and the manifest.
   shipped: string[]
   // The files that carry a marker, which no build should hold.
   marked: string[]
+  // Where the marker or the opening of a fake private file shows: a line
+  // per output file that holds one, and one for the text the build printed.
+  exposed: {output: string[]; printed: string[]}
   // The refs a warning or an error names as missing.
   missing: string[]
   printed: string
@@ -181,7 +231,19 @@ export interface Built {
 const isError = (diagnostic: unknown) =>
   (diagnostic as {severity?: string}).severity === 'error'
 
-export async function build(root: string): Promise<Built> {
+// No fake private file shows, by its marker or by its opening characters,
+// in the output folder or in anything the build printed. `printed` is for a
+// build whose output another step is known to fill.
+export function expectNothingPrivate(
+  result: Built,
+  where: 'everywhere' | 'printed' = 'everywhere'
+) {
+  expect(result.exposed.printed).toEqual([])
+
+  if (where === 'everywhere') expect(result.exposed.output).toEqual([])
+}
+
+export async function build(root: string, browser = 'chrome'): Promise<Built> {
   const {extensionBuild} = await import('../../../command-build')
   const lines: string[] = []
 
@@ -213,7 +275,7 @@ export async function build(root: string): Promise<Built> {
     // A build that fails writes no output folder and rejects with its errors.
     try {
       summary = await extensionBuild(root, {
-        browser: 'chrome',
+        browser,
         silent: false,
         install: false,
         mode: 'production',
@@ -224,7 +286,7 @@ export async function build(root: string): Promise<Built> {
       if (!Array.isArray(failure.diagnostics)) throw error
     }
 
-    const out = listOutput(path.join(root, 'dist', 'chrome'))
+    const out = listOutput(path.join(root, 'dist', browser))
     const printed = [lines.join('\n'), JSON.stringify(summary ?? failure)]
       .join('\n')
       .replace(ANSI, '')
@@ -236,7 +298,19 @@ export async function build(root: string): Promise<Built> {
       missing.add(match[1] || match[2])
     }
 
+    const privateText = privateTextOf(path.dirname(root))
+
     return {
+      exposed: {
+        output: Object.keys(out)
+          .sort()
+          .flatMap((name) =>
+            privateText
+              .filter((text) => out[name].includes(text))
+              .map((text) => `${withoutHash(name)}: ${text}`)
+          ),
+        printed: privateText.filter((text) => printed.includes(text))
+      },
       shipped: Object.keys(out)
         .filter((name) => !/^(?:action\/index\.\w+|manifest\.json)$/.test(name))
         .map(withoutHash)

@@ -3,10 +3,13 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 import {
+  browserSpellings,
+  climbsOut,
   findPublicEnvFiles,
   isEnvTemplateFileName,
   privateFileIgnoreGlobs,
   privateFileKind,
+  rootAbsolutePathIsWithheld,
   sourceFileMayShip
 } from '../public-private-files'
 import {
@@ -776,5 +779,97 @@ describe('a watch session over public/ with private files', () => {
     expect(envWarnings(before)).toHaveLength(1)
     expect(envWarnings(after)).toHaveLength(0)
     expect(after.emitted['.env']).toBeUndefined()
+  })
+})
+
+describe('whether a root-absolute path is refused as written', () => {
+  it('refuses a path that climbs out of the extension root, in any spelling', () => {
+    for (const ref of [
+      '/../outside.txt',
+      '/a/../../outside.txt',
+      '/%2e%2e/outside.txt',
+      '/%2E%2E/outside.txt',
+      '/a/%2E%2E/%2e%2e/outside.txt',
+      '/..',
+      '/..\\outside.txt',
+      '../outside.txt',
+      '//../outside.txt'
+    ]) {
+      expect(rootAbsolutePathIsWithheld(ref), ref).toBe(true)
+    }
+  })
+
+  it('refuses a private name anywhere along the path, in any spelling', () => {
+    for (const ref of [
+      '/.env',
+      '/.ENV',
+      '/.env.local',
+      '/cfg/.env.production',
+      '/.git/config',
+      '/a/../.env',
+      '/%2eenv',
+      '/%2Egit/config',
+      '/node_modules/pkg/.npmrc',
+      '.env'
+    ]) {
+      expect(rootAbsolutePathIsWithheld(ref), ref).toBe(true)
+    }
+  })
+
+  it('lets every other path go on to the file lookup', () => {
+    for (const ref of [
+      '/data/ok.json',
+      '/a/../data/ok.json',
+      '/.env.example',
+      '/.well-known/links.json',
+      '/node_modules/pkg/worker.js',
+      '/a%20b.txt',
+      // Not a valid escape, so the browser asks for the name as written.
+      '/100%.txt',
+      '/',
+      ''
+    ]) {
+      expect(rootAbsolutePathIsWithheld(ref), ref).toBe(false)
+    }
+  })
+
+  it('reads a leading slash as the extension root, never as the disk root', () => {
+    const holder = fs.realpathSync(makeFixtureRoot())
+    const root = path.join(holder, 'project')
+    const outside = path.join(holder, 'outside.txt')
+
+    writeFixtureFiles(holder, {
+      'outside.txt': `${MARKER}-outside`,
+      'project/data/ok.json': '{}',
+      'project/.env': env('root')
+    })
+
+    const inside = path.join(root, 'data', 'ok.json')
+
+    // A real file outside the project and a real one inside get the answer
+    // any path under the extension root gets, and no file is looked at.
+    expect(fs.existsSync(outside)).toBe(true)
+    expect(rootAbsolutePathIsWithheld(outside)).toBe(false)
+    expect(rootAbsolutePathIsWithheld(inside)).toBe(false)
+    expect(rootAbsolutePathIsWithheld('/abs/path/outside.txt')).toBe(false)
+    expect(rootAbsolutePathIsWithheld('/etc/hosts')).toBe(false)
+    // The private name still decides, wherever the path seems to lead.
+    expect(rootAbsolutePathIsWithheld(path.join(root, '.env'))).toBe(true)
+    expect(rootAbsolutePathIsWithheld('/abs/path/.npmrc')).toBe(true)
+  })
+
+  it('spells a name the way it was written and the way the browser reads it', () => {
+    expect(browserSpellings('a/%2e%2e/b.txt')).toEqual([
+      'a/%2e%2e/b.txt',
+      'b.txt'
+    ])
+
+    expect(browserSpellings('%2e%2e/x')).toEqual(['%2e%2e/x', '../x'])
+    expect(browserSpellings('a\\..\\..\\x')).toEqual(['../x', '../x'])
+    expect(browserSpellings('100%.txt')).toEqual(['100%.txt'])
+    expect(climbsOut('..')).toBe(true)
+    expect(climbsOut('../x')).toBe(true)
+    expect(climbsOut('..x/y')).toBe(false)
+    expect(climbsOut('a/../x')).toBe(false)
   })
 })

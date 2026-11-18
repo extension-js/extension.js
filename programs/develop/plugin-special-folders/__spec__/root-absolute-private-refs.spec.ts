@@ -5,6 +5,7 @@ import {
   type Built,
   build,
   canLink,
+  expectNothingPrivate,
   linkPackages,
   MARKER,
   manifest,
@@ -129,7 +130,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result, 'printed')
     },
     TIMEOUT
   )
@@ -149,7 +150,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result, 'printed')
     },
     TIMEOUT
   )
@@ -200,7 +201,7 @@ describe('a root-absolute path that names a file outside public/', () => {
 
       expect(result.missing).toEqual(['/nothing.txt'])
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result, 'printed')
     },
     TIMEOUT
   )
@@ -242,7 +243,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       )
 
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result, 'printed')
     },
     TIMEOUT
   )
@@ -291,7 +292,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       }
 
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result, 'printed')
     },
     TIMEOUT
   )
@@ -327,7 +328,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       }
 
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -342,7 +343,7 @@ describe('a root-absolute path that names a file outside public/', () => {
         '/alias.txt'
       ]
       const root = packaged({
-        '.env.example': 'PRIVATE_KEY=\n',
+        '.env.example': 'EXAMPLE_KEY=\n',
         '.well-known/links.json': '[]',
         'data/real.txt': 'real',
         'fonts/face.woff2': 'font',
@@ -388,6 +389,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       ])
 
       expect(result.errors).toBe(0)
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )

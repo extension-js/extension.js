@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {
   build,
   canLink,
+  expectNothingPrivate,
   linkPackages,
   linkWorkspace,
   MARKER,
@@ -114,6 +115,8 @@ const FINDINGS: Array<[string, RegExp]> = [
 async function rowFor(root: string): Promise<Row> {
   const result = await build(root)
   const said = new Set<string>()
+
+  expectNothingPrivate(result)
 
   for (const [kind, pattern] of FINDINGS) {
     for (const match of result.printed.matchAll(pattern)) {
@@ -259,7 +262,7 @@ describe.each([RULES, SCHEMA])('$name', (field) => {
       }
 
       expect(result.printed).not.toContain("Can't parse the JSON file")
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
       expect(result.errors).toBe(1)
     },
     TIMEOUT

@@ -6,10 +6,12 @@ import {describe, expect, it, vi} from 'vitest'
 import {
   build,
   canLink,
+  expectNothingPrivate,
   linkPackages,
   linkWorkspace,
   MARKER,
   manifest,
+  notFoundPaths,
   project
 } from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
 
@@ -122,9 +124,6 @@ const TRACERS: Record<string, Tracer> = {
     targets: FEW
   }
 }
-
-// The opening of each fake private file, which no message may quote.
-const OPENINGS = ['PRIVATE_K', 'export PR', '# FAKE', 'FAKE-MARK', 'KEY=']
 
 const FILES: Record<string, string> = {
   '.git/hooks/pre-push.sh': `# ${MARKER}-git-hook\n`,
@@ -303,10 +302,8 @@ async function rowFor(tracer: Tracer, target: string): Promise<string> {
     }
   }
 
-  // No message carries what a file holds, its opening characters included.
-  for (const text of [MARKER, ...OPENINGS]) {
-    expect(result.printed, target).not.toContain(text)
-  }
+  // No message and no output file carries what a private file holds.
+  expectNothingPrivate(result)
 
   const read = opened.filter((file) => {
     const at = baseline.indexOf(file)
@@ -789,6 +786,7 @@ describe('a file the code names and the build withholds', () => {
       }
 
       expect(times(result.printed, "isn't in the output.")).toBe(2)
+      expect(notFoundPaths(result.printed)).toEqual(['.env'])
       expect(result.shipped).toEqual([
         'background/service_worker.js',
         'hosted.txt'
@@ -797,9 +795,7 @@ describe('a file the code names and the build withholds', () => {
       expect(result.marked).toEqual([])
       expect(result.errors).toBe(0)
 
-      for (const text of [MARKER, ...OPENINGS]) {
-        expect(result.printed).not.toContain(text)
-      }
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -827,12 +823,32 @@ describe('a file the code names and the build withholds', () => {
         expect(times(result.printed, sentence), sentence).toBe(4)
       }
 
+      expect(notFoundPaths(result.printed)).toEqual([
+        'background/shared/logo.txt',
+        'shared/logo.txt'
+      ])
+
       expect(result.marked).toEqual([])
       expect(result.errors).toBe(0)
+      expectNothingPrivate(result)
+    },
+    TIMEOUT
+  )
 
-      for (const text of [MARKER, ...OPENINGS]) {
-        expect(result.printed).not.toContain(text)
-      }
+  it(
+    'is withheld from a Firefox build the same way',
+    async () => {
+      const root = project({
+        ...FILES,
+        'background.js': 'fetch("/.env")\nbrowser.runtime.getURL(".npmrc")\n',
+        'manifest.json': manifest({background: {scripts: ['background.js']}})
+      })
+      const result = await build(root, 'firefox')
+
+      expect(result.shipped).toEqual(['background/scripts.js', 'hosted.txt'])
+      expect(notFoundPaths(result.printed)).toEqual(['.env', '.npmrc'])
+      expect(result.errors).toBe(0)
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )

@@ -4,6 +4,7 @@ import {describe, expect, it} from 'vitest'
 import {
   build,
   canLink,
+  expectNothingPrivate,
   linkPackages,
   MARKER,
   manifest,
@@ -61,7 +62,7 @@ const FILES: Record<string, string> = {
   'sub/deep/keep.txt': 'keep',
   'images/logo.png': 'png',
   'images/.DS_Store': `${MARKER}-ds-store`,
-  '.env.example': 'PRIVATE_KEY=\n',
+  '.env.example': 'EXAMPLE_KEY=\n',
   '.well-known/links.json': '[]',
   'public/hosted.txt': 'hosted',
   'frame.html': PAGE.replace(
@@ -111,7 +112,8 @@ async function rowFor(version: 2 | 3, entry: string): Promise<Row> {
   }
 
   // No message carries what a file holds, and no build fails over an entry.
-  expect(result.printed, entry).not.toContain(MARKER)
+  // The output is read row by row: a project file may carry a marker.
+  expectNothingPrivate(result, 'printed')
   expect(result.errors, entry).toBe(0)
 
   return {
@@ -639,7 +641,7 @@ describe('a web_accessible_resources entry the build withholds', () => {
       ).toBe(entries.length * 2)
 
       expect(result.marked).toEqual([])
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
       expect(result.errors).toBe(0)
     },
     TIMEOUT
@@ -665,7 +667,7 @@ describe('a web_accessible_resources entry the build withholds', () => {
         )
       }
 
-      expect(result.printed).not.toContain(MARKER)
+      expectNothingPrivate(result)
       expect(result.errors).toBe(0)
     },
     TIMEOUT
