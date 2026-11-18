@@ -225,6 +225,7 @@ describe('env preload follows the running mode', () => {
   it('lists the files strongest first, browser files above the shared ones', () => {
     const forNames = (mode: string, names: string[]) => [
       ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
+      `.env.${mode}.local`,
       `.env.${mode}`,
       '.env.local',
       '.env'

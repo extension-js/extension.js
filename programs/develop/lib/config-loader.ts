@@ -55,7 +55,7 @@ export type ConfigEnvTarget = {mode?: string; browser?: string}
 // The files the compiled bundle picks from, strongest first, in the order the
 // env plugin uses. Without a browser only the files no browser owns apply.
 export function envFileCandidates(mode: string, browser?: string): string[] {
-  const shared = [`.env.${mode}`, '.env.local', '.env']
+  const shared = [`.env.${mode}.local`, `.env.${mode}`, '.env.local', '.env']
   if (!browser) return shared
 
   const isChromiumTarget =

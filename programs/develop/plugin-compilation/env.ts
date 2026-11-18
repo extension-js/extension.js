@@ -294,11 +294,12 @@ export function isEnvFileForAnotherTarget(file: string): boolean {
     return KNOWN_ENV_MODES.has(parts[0]) || KNOWN_ENV_BROWSERS.has(parts[0])
   }
 
-  return (
-    parts.length === 2 &&
-    KNOWN_ENV_BROWSERS.has(parts[0]) &&
-    KNOWN_ENV_MODES.has(parts[1])
-  )
+  if (parts.length !== 2) return false
+
+  // .env.<mode>.local is the private twin of another mode's file.
+  if (KNOWN_ENV_MODES.has(parts[0])) return parts[1] === 'local'
+
+  return KNOWN_ENV_BROWSERS.has(parts[0]) && KNOWN_ENV_MODES.has(parts[1])
 }
 
 const SECRET_SEGMENTS = new Set([

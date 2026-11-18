@@ -114,6 +114,7 @@ describe('EnvPlugin env file selection', () => {
       '.env.edge',
       '.env.chromium-based.development',
       '.env.chromium-based',
+      '.env.development.local',
       '.env.development',
       '.env.local',
       '.env'
@@ -259,6 +260,7 @@ describe('EnvPlugin env file layers', () => {
       '.env',
       '.env.local',
       '.env.development',
+      '.env.development.local',
       '.env.chromium-based',
       '.env.chromium-based.development',
       '.env.edge',
@@ -408,7 +410,8 @@ describe('EnvPlugin env file layers', () => {
         '.env.edge',
         '.env.edge.production',
         '.env.local',
-        '.env.production'
+        '.env.production',
+        '.env.production.local'
       ]
     })
 
