@@ -284,6 +284,19 @@ What is stable and what is not:
   itself after a change that needs a new compiler (a manifest entry, an env file, a public
   folder) and could not. `ok` is `false`, `value.serving` is `true`, and
   the previous build keeps serving.
+- A `dev` stream ends with exactly one terminal frame, and nothing is written after it. The
+  terminal statuses are `failed`, `usage`, `load-refused`, `browser-exited` and `stopped`.
+  Stop reading at the first one.
+- A session that ends on its own with nothing wrong, such as one with an auto-exit deadline,
+  writes a `stopped` frame with `ok: true`. Its `value` describes the session and carries
+  `exitCode: 0`. A session stopped by a signal writes `stopped` with `ok: false` and the code
+  `E_INTERRUPTED`.
+- A `failed` frame that reports an error on the ready contract also ends the stream. The
+  session can go on compiling, and a later compile that recovers writes no `ready` frame.
+- A host that starts `dev` from the library gets a rejected promise when the dev server cannot
+  start. The error carries `session`, the same description a frame's `value` holds, and
+  `framed`. `framed` is `true` only when the engine wrote the `failed` frame to the stream, so
+  a host that prints frames writes its own only when `framed` is not `true`.
 - `browser` is optional and names the session a frame is about, so a reader of `doctor`
   knows which browser the result describes. Commands with no session leave it absent.
 
