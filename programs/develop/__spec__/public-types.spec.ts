@@ -44,6 +44,23 @@ export const refused: FileConfig = {
 }
 `
 
+// The map key names the target, so only a block may leave browser out.
+const browserRequired = `import type {BuildOptions, DevOptions, FileConfig} from 'extension-develop'
+
+export const keyed: FileConfig = {
+  browser: {
+    chrome: {startingUrl: 'https://example.com'},
+    firefox: {browser: 'firefox', noOpen: true}
+  }
+}
+
+// @ts-expect-error a dev call has no map key to name the target
+export const dev: DevOptions = {mode: 'development'}
+
+// @ts-expect-error a build call has no map key to name the target
+export const build: BuildOptions = {zip: true}
+`
+
 function readmeUsageExample(): string {
   const readme = readReadme()
   const usage = readme.slice(
@@ -151,7 +168,7 @@ function optionTableProgram(tables: OptionTable[]): string {
   return lines.join('\n')
 }
 
-function typecheck(files: Record<string, string>) {
+function writeProject(files: Record<string, string>): string {
   const root = tempFolder('extjs-public-types-')
 
   for (const [name, source] of Object.entries(files)) {
@@ -182,6 +199,29 @@ function typecheck(files: Record<string, string>) {
       files: Object.keys(files)
     })
   )
+
+  return root
+}
+
+// The keys of one commands block in the shipped FileConfig whose doc comment
+// carries a deprecated tag. tsc never reports that tag, so the text is read.
+function deprecatedKeys(command: string, next: string): string[] {
+  const declarations = fs.readFileSync(path.join(distDir, 'types.d.ts'), 'utf8')
+  const start = declarations.indexOf(`\n        ${command}?: Pick<`)
+  const end = declarations.indexOf(`\n        ${next}?: Pick<`, start)
+
+  expect(start, `no commands.${command} block`).toBeGreaterThan(-1)
+  expect(end, `no commands.${next} block`).toBeGreaterThan(start)
+
+  return [
+    ...declarations
+      .slice(start, end)
+      .matchAll(/\/\*\*[^/]*@deprecated[^/]*\*\/\s*(\w+)\?:/g)
+  ].map((match) => match[1])
+}
+
+function typecheck(files: Record<string, string>) {
+  const root = writeProject(files)
 
   const run = spawnSync(
     process.execPath,
@@ -219,6 +259,23 @@ describe('the declarations extension-develop ships', () => {
     expect(result.errors).toEqual([])
     expect(result.status).toBe(0)
   }, 120_000)
+
+  it('want browser wherever no map key names the target', () => {
+    const result = typecheck({'browser-required.ts': browserRequired})
+
+    expect(result.errors).toEqual([])
+    expect(result.status).toBe(0)
+  }, 120_000)
+
+  it('mark the two keys commands.preview never reads as deprecated', () => {
+    expect(deprecatedKeys('preview', 'build')).toEqual([
+      'transpilePackages',
+      'define'
+    ])
+
+    expect(deprecatedKeys('start', 'preview')).toEqual([])
+    expect(deprecatedKeys('dev', 'start')).toEqual([])
+  })
 
   it('compile the Usage example of the README as written', () => {
     const example = readmeUsageExample()

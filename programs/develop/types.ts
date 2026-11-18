@@ -708,7 +708,9 @@ export interface FileConfig {
       preferences?: Record<string, unknown>
       persistProfile?: boolean
       extensions?: CompanionExtensionsConfig
+      /** @deprecated Preview serves an existing build and ignores it. */
       transpilePackages?: string[]
+      /** @deprecated Preview serves an existing build and ignores it. */
       define?: Record<string, unknown>
       folders?: SpecialFoldersConfig
     }
