@@ -14,7 +14,11 @@ import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
+import {
+  EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+  parseCanonicalContentScriptEntryIndex
+} from '../contracts'
+import * as messages from '../messages'
 import {
   getCssEntries,
   getScriptEntries,
@@ -29,6 +33,18 @@ const isScriptsFolderFeature = (feature: string) =>
   feature.startsWith('scripts/')
 const isBackgroundScriptsFeature = (feature: string) =>
   feature === 'background/scripts'
+
+// The field as the manifest writes it: a content script group lists its
+// scripts and its stylesheets apart, under the index of the group.
+function manifestFieldOf(feature: string, entry: string): string {
+  const group = parseCanonicalContentScriptEntryIndex(feature)
+
+  if (group === undefined) return feature.replace('/', '.')
+
+  const list = /\.(?:css|scss|sass|less)$/i.test(entry) ? 'css' : 'js'
+
+  return `content_scripts[${group}].${list}`
+}
 
 export function createSequentialEntryModule(
   feature: string,
@@ -50,7 +66,7 @@ export function createSequentialEntryModule(
   }
 
   const source = [
-    `/* extension.js sequential entry: ${feature} */`,
+    `/* Extension.js sequential entry: ${feature} */`,
     ...jsFiles.map(
       (entryImport) => `import ${JSON.stringify(String(entryImport))};`
     )
@@ -83,88 +99,99 @@ export class AddScripts {
       ...bridgeScripts
     }
 
-    if (compiler?.hooks?.thisCompilation?.tap) {
-      compiler.hooks.thisCompilation.tap(
-        'scripts:validate-include-list',
-        (compilation) => {
-          try {
-            const manifestDir = path.dirname(this.manifestPath)
-            const outputRoot = compilation.options?.output?.path || ''
-            const ErrorCtor = compiler.rspack?.WebpackError || Error
-            const projectPath =
-              (compiler.options.context as string) || manifestDir
-            const listOf = (raw: FilepathList[string]): string[] =>
-              Array.isArray(raw)
-                ? (raw as string[]).filter(Boolean)
-                : raw
-                  ? [raw as string]
-                  : []
-            // A withheld file is reported in the words a missing one gets.
-            const named = [
-              ...Object.entries(scriptFields).map(
-                ([feature, raw]) => [feature, listOf(raw), false] as const
-              ),
-              ...Object.entries(this.withheldList).map(
-                ([feature, raw]) => [feature, listOf(raw), true] as const
-              )
-            ]
+    compiler.hooks.thisCompilation.tap(
+      'scripts:validate-include-list',
+      (compilation) => {
+        const ErrorCtor = compiler.rspack?.WebpackError || Error
 
-            for (const [feature, rawEntries, isWithheld] of named) {
-              for (const entry of rawEntries) {
-                if (!entry || typeof entry !== 'string' || isRemoteUrl(entry)) {
-                  continue
-                }
+        try {
+          const manifestDir = path.dirname(this.manifestPath)
+          const outputRoot = compilation.options?.output?.path || ''
 
-                let resolved = entry
+          const projectPath =
+            (compiler.options.context as string) || manifestDir
+          const listOf = (raw: FilepathList[string]): string[] =>
+            Array.isArray(raw)
+              ? (raw as string[]).filter(Boolean)
+              : raw
+                ? [raw as string]
+                : []
+          // A withheld file is reported in the words a missing one gets.
+          const named = [
+            ...Object.entries(scriptFields).map(
+              ([feature, raw]) => [feature, listOf(raw), false] as const
+            ),
+            ...Object.entries(this.withheldList).map(
+              ([feature, raw]) => [feature, listOf(raw), true] as const
+            )
+          ]
 
-                if (isWithheld) {
-                  resolved = resolveScriptEntryPath(
-                    entry,
-                    manifestDir,
-                    projectPath
-                  )
-                } else if (!fs.existsSync(resolved)) {
-                  resolved = path.isAbsolute(entry)
-                    ? entry
-                    : entry.startsWith('/')
-                      ? path.join(manifestDir, entry.slice(1))
-                      : path.join(manifestDir, entry)
-                }
-
-                if (!isWithheld && fs.existsSync(resolved)) continue
-
-                const isPublicRoot =
-                  entry.startsWith('/') && !path.isAbsolute(entry)
-                const displayPath = isPublicRoot
-                  ? outputRoot
-                    ? path.join(outputRoot, entry.slice(1))
-                    : entry
-                  : resolved
-
-                const err = new ErrorCtor(
-                  [
-                    `Check the ${feature.replace('/', '.')} field in your manifest.json file.`,
-                    `The script path must point to an existing file that will be bundled.`,
-                    isPublicRoot
-                      ? `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
-                      : '',
-                    '',
-                    `NOT FOUND ${displayPath}`
-                  ]
-                    .filter(Boolean)
-                    .join('\n')
-                ) as Error & {file?: string; name?: string}
-                err.file = 'manifest.json'
-                err.name = 'ScriptsMissingFile'
-                ;(compilation.errors ||= []).push(err)
+          for (const [feature, rawEntries, isWithheld] of named) {
+            for (const entry of rawEntries) {
+              if (!entry || typeof entry !== 'string' || isRemoteUrl(entry)) {
+                continue
               }
+
+              let resolved = entry
+
+              if (isWithheld) {
+                resolved = resolveScriptEntryPath(
+                  entry,
+                  manifestDir,
+                  projectPath
+                )
+              } else if (!fs.existsSync(resolved)) {
+                resolved = path.isAbsolute(entry)
+                  ? entry
+                  : entry.startsWith('/')
+                    ? path.join(manifestDir, entry.slice(1))
+                    : path.join(manifestDir, entry)
+              }
+
+              if (!isWithheld && fs.existsSync(resolved)) continue
+
+              // A withheld file is on disk, so its own path is the one named.
+              const isPublicRoot =
+                !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
+              const displayPath = isPublicRoot
+                ? outputRoot
+                  ? path.join(outputRoot, entry.slice(1))
+                  : entry
+                : resolved
+
+              const err = new ErrorCtor(
+                messages.scriptsMissingFile(
+                  isPublicRoot
+                    ? entry
+                    : path
+                        .relative(manifestDir, resolved)
+                        .split(path.sep)
+                        .join('/'),
+                  manifestFieldOf(feature, entry),
+                  displayPath,
+                  isPublicRoot
+                )
+              ) as Error & {file?: string; name?: string}
+              err.file = 'manifest.json'
+              err.name = 'ScriptsMissingFile'
+              ;(compilation.errors ||= []).push(err)
             }
-          } catch {
-            // ignore guard errors
           }
+        } catch (error) {
+          // A check that stops half way reports nothing for the files it
+          // never reached, so the build says so instead of passing quietly.
+          const failure = new ErrorCtor(
+            messages.scriptPathsCheckFailed(
+              String((error as Error)?.message || error)
+            )
+          ) as Error & {file?: string; cause?: unknown}
+          failure.file = 'manifest.json'
+          failure.name = 'ScriptsPathCheckFailed'
+          failure.cause = error
+          ;(compilation.errors ||= []).push(failure)
         }
-      )
-    }
+      }
+    )
 
     const newEntries: Record<
       string,

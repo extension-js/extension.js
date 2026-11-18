@@ -13,10 +13,12 @@ import {
   WarnMainWorldRegistrationChanged
 } from '../../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import {BrowsersPlugin} from '../index'
+import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const roots: string[] = []
 
 beforeEach(() => {
+  expect.hasAssertions()
   vi.useFakeTimers()
   vi.spyOn(console, 'log').mockImplementation(() => {})
   vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -39,7 +41,7 @@ const IDLE = 'console.log("nothing registered")\n'
 
 // A launched dev session past its first build: the step that asks for the
 // restart and the plugin that reloads after a build share one compiler.
-function launchedSession() {
+async function launchedSession() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-reload-'))
   roots.push(root)
 
@@ -50,27 +52,7 @@ function launchedSession() {
   fs.writeFileSync(at('scripts/hook.js'), 'window.__PAGE_HOOK__ = 1\n')
   fs.writeFileSync(at('background.js'), IDLE)
 
-  const taps: Record<string, Array<(...args: any[]) => unknown>> = {}
-
-  const hook = (name: string) => {
-    const tap = (_name: string, callback: (...args: any[]) => unknown) => {
-      taps[name] = [...(taps[name] || []), callback]
-    }
-
-    return {tap, tapPromise: tap}
-  }
-
-  const compiler = {
-    options: {mode: 'development', context: root},
-    modifiedFiles: new Set<string>(),
-    hooks: {
-      thisCompilation: hook('thisCompilation'),
-      watchRun: hook('watchRun'),
-      watchClose: hook('watchClose'),
-      assetEmitted: hook('assetEmitted'),
-      done: hook('done')
-    }
-  }
+  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: root})
 
   new WarnMainWorldRegistrationChanged({
     manifestPath: at('manifest.json'),
@@ -78,52 +60,47 @@ function launchedSession() {
       'background/service_worker': at('background.js'),
       'scripts/hook': at('scripts/hook.js')
     }
-  }).apply(compiler as any)
+  }).apply(fake.compiler)
 
+  const launcher = vi.fn().mockResolvedValue({
+    enableUnifiedLogging: vi.fn(),
+    getExtensionLoadRefusal: () => null
+  })
   const plugin = new BrowsersPlugin({
-    launcher: vi.fn(),
+    launcher,
     browserOptions: {browser: 'chrome'}
-  } as never)
+  })
   const broadcastReload = vi.fn((_instruction: {type: string}) => 0)
 
   plugin.setReloadBroker({broadcastReload})
-  Object.assign(plugin as object, {
-    isFirstCompile: false,
-    controller: {getExtensionLoadRefusal: () => null}
-  })
+  plugin.apply(fake.compiler)
 
-  plugin.apply(compiler as any)
+  // The same rebuild in its two halves, for a build that is slow to end.
+  const begin = (files: string[] = ['manifest.json']) => {
+    const compilation = fakeCompilation({context: root, output: at('dist')})
+
+    fake.watchRun(files)
+    fake.thisCompilation(compilation)
+
+    return {
+      compilation,
+      finish: () => fake.done(compilation)
+    }
+  }
+
+  // The first build launches the browser, as it does in a session.
+  await begin([]).finish()
+  expect(launcher).toHaveBeenCalledTimes(1)
 
   return {
     broadcastReload,
     begin,
     write: (contents: string) =>
       fs.writeFileSync(at('background.js'), contents),
-    compiler,
+    compiler: fake.compiler as object,
     // One watch rebuild after a save to the manifest, which always reloads.
     rebuild: async () => {
       await begin().finish()
-    }
-  }
-
-  // The same rebuild in its two halves, for a build that is slow to end.
-  function begin() {
-    compiler.modifiedFiles = new Set([at('manifest.json')])
-
-    const compilation = {
-      warnings: [],
-      errors: [],
-      options: {context: root, output: {path: at('dist')}}
-    }
-
-    for (const run of taps.watchRun || []) run(compiler)
-    for (const run of taps.thisCompilation || []) run(compilation)
-
-    return {
-      compilation,
-      finish: async () => {
-        for (const run of taps.done || []) await run({compilation})
-      }
     }
   }
 }
@@ -131,7 +108,7 @@ function launchedSession() {
 describe('the reload after a build that asked for a MAIN world restart', () => {
   it('reloads after an edit that leaves the registrations alone', async () => {
     bindDevSessionRestart(new DevSessionRestartScheduler(0))
-    const dev = launchedSession()
+    const dev = await launchedSession()
 
     await dev.rebuild()
 
@@ -148,7 +125,7 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
     scheduler.setHandler(restarts)
     bindDevSessionRestart(scheduler)
 
-    const dev = launchedSession()
+    const dev = await launchedSession()
 
     dev.write(`${IDLE}${REGISTRATION}`)
     await dev.rebuild()
@@ -169,7 +146,7 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
     scheduler.setHandler(restarts)
     bindDevSessionRestart(scheduler)
 
-    const dev = launchedSession()
+    const dev = await launchedSession()
 
     dev.write(`${IDLE}${REGISTRATION}`)
     await dev.rebuild()
@@ -191,7 +168,7 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
     scheduler.setHandler(restarts)
     bindDevSessionRestart(scheduler)
 
-    const dev = launchedSession()
+    const dev = await launchedSession()
 
     dev.write(`${IDLE}${REGISTRATION}`)
 
@@ -219,7 +196,7 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
   // same build before it reloads, so one answer serves both.
   it('answers for the build, whichever path asks', async () => {
     bindDevSessionRestart(new DevSessionRestartScheduler(0))
-    const dev = launchedSession()
+    const dev = await launchedSession()
     const plain = dev.begin()
 
     expect(isAwaitingMainWorldRestart(dev.compiler, plain.compilation)).toBe(
@@ -240,7 +217,7 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
   })
 
   it('reloads as usual in a session that can only warn about the change', async () => {
-    const dev = launchedSession()
+    const dev = await launchedSession()
 
     dev.write(`${IDLE}${REGISTRATION}`)
     await dev.rebuild()

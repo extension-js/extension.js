@@ -20,7 +20,7 @@ import {
   createProjectNameQuestion
 } from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
-import {isJsonOutput} from '../helpers/output-flag'
+import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
   askProjectName,
   canPromptForProjectName,
@@ -152,6 +152,7 @@ export function registerCreateCommand(program: Command) {
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
     )
+    .hook('preAction', refuseUnreadableOutput())
     .addHelpText('after', renderCreateTemplateHelp())
     .action(
       async (

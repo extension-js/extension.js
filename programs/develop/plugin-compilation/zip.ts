@@ -18,6 +18,7 @@ import {debugLine, isDebug} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {REMOTE_SOURCE_PROVENANCE_FILE} from '../lib/zip'
 import type {DevOptions} from '../types'
+import * as compilationMessages from './compilation-lib/messages'
 import {recordZipArtifact, recordZipFailure} from './zip-artifacts'
 import {dropEdgeStoreKey} from './zip-edge-key'
 
@@ -365,11 +366,10 @@ function warnOnMissingDefaultLocale(
 
   stats?.compilation?.warnings?.push(
     new Error(
-      `ZipPlugin: manifest.json declares default_locale "${String(
-        manifest.default_locale
-      )}" but ${messagesPath} does not exist. Stores reject packages ` +
-        `without their default locale: restore the _locales folder ` +
-        `before shipping this zip.`
+      compilationMessages.zipMissingDefaultLocale(
+        String(manifest.default_locale),
+        messagesPath
+      )
     )
   )
 }
@@ -584,7 +584,7 @@ export class ZipPlugin {
         // Surface error in build output but do not crash dev builds
         if (stats?.compilation?.warnings) {
           stats.compilation.warnings.push(
-            new Error(`ZipPlugin: Failed to create zip(s): ${String(error)}`)
+            new Error(compilationMessages.zipCreationFailed(error))
           )
         }
       }

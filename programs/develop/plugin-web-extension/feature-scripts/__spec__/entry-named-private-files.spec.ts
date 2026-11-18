@@ -232,7 +232,10 @@ function fixture(field: Field, target: string) {
 
 // What a build says of a file a field names and the output does not hold.
 const SAID: Array<[string, RegExp]> = [
-  ['missing', /Check the (\S+) field in your manifest\.json file\./g],
+  [
+    'missing',
+    /([^\s"]+ does not exist\. Check the \S+ field) in your manifest\.json file\./g
+  ],
   ['withheld', /names '([^']+)', but the build doesn't copy it\./g]
 ]
 
@@ -266,7 +269,8 @@ async function rowFor(field: Field, target: string): Promise<string> {
 
   for (const [kind, pattern] of SAID) {
     for (const match of result.printed.matchAll(pattern)) {
-      said.add(`${kind} ${match[1]}`)
+      // A field that holds an absolute path names it below the temp folder.
+      said.add(`${kind} ${match[1].replace(/^\S*\/project\//, '<root>/')}`)
     }
   }
 
@@ -291,239 +295,306 @@ const TIMEOUT = 600_000
 
 const EXPECTED: Record<string, Table> = {
   contentScriptsJs: {
-    '.envrc': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.npmrc': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.env': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.env.local': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.env.js': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+    '.npmrc':
+      'nothing | said missing .npmrc does not exist. Check the content_scripts[0].js field | errors 1',
+    '.env':
+      'nothing | said missing .env does not exist. Check the content_scripts[0].js field | errors 1',
+    '.env.local':
+      'nothing | said missing .env.local does not exist. Check the content_scripts[0].js field | errors 1',
+    '.env.js':
+      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
     '.env.local.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .env.local.js does not exist. Check the content_scripts[0].js field | errors 1',
     'a/../.envrc':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
     'a/../.env.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
-    '/.env.js': 'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
+    '/.env.js':
+      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
     '../outside.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the content_scripts[0].js field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the content_scripts[0].js field | errors 1',
     'linked-out.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing linked-out.js does not exist. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing node_modules/pkg/.env does not exist. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the content_scripts[0].js field | errors 1',
     '.git/tool.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .git/tool.js does not exist. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in content_scripts/content-0.js',
     'linked-in.js': 'inside.js in content_scripts/content-0.js',
     '.env.example': 'nothing | errors 1',
     '.env.example.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .env.example.js does not exist. Check the content_scripts[0].js field | errors 1',
     'ok.js': 'ok.js in content_scripts/content-0.js',
-    '/hosted.js': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '/hosted.js':
+      'nothing | said missing hosted.js does not exist. Check the content_scripts[0].js field | errors 1',
     'public/hosted.js':
       'public/hosted.js in content_scripts/content-0.js + public/hosted.js in hosted.js',
-    'absent.js': 'nothing | said missing content_scripts.content-0 | errors 1'
+    'absent.js':
+      'nothing | said missing absent.js does not exist. Check the content_scripts[0].js field | errors 1'
   },
   contentScriptsJsGroup: {
-    '.envrc': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.env.js': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+    '.env.js':
+      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
     '../outside.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the content_scripts[0].js field | errors 1',
     'linked-out.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing linked-out.js does not exist. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in content_scripts/content-0.js',
     'ok.js': 'ok.js in content_scripts/content-0.js',
-    'absent.js': 'nothing | said missing content_scripts.content-0 | errors 1'
+    'absent.js':
+      'nothing | said missing absent.js does not exist. Check the content_scripts[0].js field | errors 1'
   },
   contentScriptsCss: {
-    '.envrc': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.npmrc': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.env': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.env.local': 'nothing | said missing content_scripts.content-0 | errors 1',
-    '.env.css': 'nothing | said missing content_scripts.content-0 | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+    '.npmrc':
+      'nothing | said missing .npmrc does not exist. Check the content_scripts[0].js field | errors 1',
+    '.env':
+      'nothing | said missing .env does not exist. Check the content_scripts[0].js field | errors 1',
+    '.env.local':
+      'nothing | said missing .env.local does not exist. Check the content_scripts[0].js field | errors 1',
+    '.env.css':
+      'nothing | said missing .env.css does not exist. Check the content_scripts[0].css field | errors 1',
     '.env.local.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .env.local.css does not exist. Check the content_scripts[0].css field | errors 1',
     'a/../.envrc':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
     'a/../.env.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
-    '/.env.css': 'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .env.css does not exist. Check the content_scripts[0].css field | errors 1',
+    '/.env.css':
+      'nothing | said missing .env.css does not exist. Check the content_scripts[0].css field | errors 1',
     '../outside.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing ../outside.css does not exist. Check the content_scripts[0].css field | errors 1',
     'a/../../outside.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing ../outside.css does not exist. Check the content_scripts[0].css field | errors 1',
     'linked-out.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing linked-out.css does not exist. Check the content_scripts[0].css field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing node_modules/pkg/.env does not exist. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/.env.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing node_modules/pkg/.env.css does not exist. Check the content_scripts[0].css field | errors 1',
     '.git/tool.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .git/tool.css does not exist. Check the content_scripts[0].css field | errors 1',
     'node_modules/pkg/theme.css':
       'node_modules/pkg/theme.css in content_scripts/content-0.css',
     'linked-in.css': 'inside.css in content_scripts/content-0.css',
     '.env.example': 'nothing | errors 1',
     '.env.example.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing .env.example.css does not exist. Check the content_scripts[0].css field | errors 1',
     'ok.css': 'ok.css in content_scripts/content-0.css',
     '/hosted.css':
-      'nothing | said missing content_scripts.content-0 | errors 1',
+      'nothing | said missing hosted.css does not exist. Check the content_scripts[0].css field | errors 1',
     'public/hosted.css':
       'public/hosted.css in content_scripts/content-0.css + public/hosted.css in hosted.css',
-    'absent.css': 'nothing | said missing content_scripts.content-0 | errors 1'
+    'absent.css':
+      'nothing | said missing absent.css does not exist. Check the content_scripts[0].css field | errors 1'
   },
   serviceWorker: {
-    '.envrc': 'nothing | said missing background.service_worker | errors 1',
-    '.npmrc': 'nothing | said missing background.service_worker | errors 1',
-    '.env': 'nothing | said missing background.service_worker | errors 1',
-    '.env.local': 'nothing | said missing background.service_worker | errors 1',
-    '.env.js': 'nothing | said missing background.service_worker | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the background.service_worker field | errors 1',
+    '.npmrc':
+      'nothing | said missing .npmrc does not exist. Check the background.service_worker field | errors 1',
+    '.env':
+      'nothing | said missing .env does not exist. Check the background.service_worker field | errors 1',
+    '.env.local':
+      'nothing | said missing .env.local does not exist. Check the background.service_worker field | errors 1',
+    '.env.js':
+      'nothing | said missing .env.js does not exist. Check the background.service_worker field | errors 1',
     '.env.local.js':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing .env.local.js does not exist. Check the background.service_worker field | errors 1',
     'a/../.envrc':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing .envrc does not exist. Check the background.service_worker field | errors 1',
     'a/../.env.js':
-      'nothing | said missing background.service_worker | errors 1',
-    '/.env.js': 'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing .env.js does not exist. Check the background.service_worker field | errors 1',
+    '/.env.js':
+      'nothing | said missing .env.js does not exist. Check the background.service_worker field | errors 1',
     '../outside.js':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the background.service_worker field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the background.service_worker field | errors 1',
     'linked-out.js':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing linked-out.js does not exist. Check the background.service_worker field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing node_modules/pkg/.env does not exist. Check the background.service_worker field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the background.service_worker field | errors 1',
     '.git/tool.js':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing .git/tool.js does not exist. Check the background.service_worker field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/service_worker.js',
     'linked-in.js': 'inside.js in background/service_worker.js',
     '.env.example': 'nothing | errors 1',
     '.env.example.js':
-      'nothing | said missing background.service_worker | errors 1',
+      'nothing | said missing .env.example.js does not exist. Check the background.service_worker field | errors 1',
     'ok.js': 'ok.js in background/service_worker.js',
-    '/hosted.js': 'nothing | said missing background.service_worker | errors 1',
+    '/hosted.js':
+      'nothing | said missing hosted.js does not exist. Check the background.service_worker field | errors 1',
     'public/hosted.js':
       'public/hosted.js in background/service_worker.js + public/hosted.js in hosted.js',
-    'absent.js': 'nothing | said missing background.service_worker | errors 1'
+    'absent.js':
+      'nothing | said missing absent.js does not exist. Check the background.service_worker field | errors 1'
   },
   backgroundScripts: {
-    '.envrc': 'nothing | said missing background.scripts | errors 1',
-    '.npmrc': 'nothing | said missing background.scripts | errors 1',
-    '.env': 'nothing | said missing background.scripts | errors 1',
-    '.env.local': 'nothing | said missing background.scripts | errors 1',
-    '.env.js': 'nothing | said missing background.scripts | errors 1',
-    '.env.local.js': 'nothing | said missing background.scripts | errors 1',
-    'a/../.envrc': 'nothing | said missing background.scripts | errors 1',
-    'a/../.env.js': 'nothing | said missing background.scripts | errors 1',
-    '/.env.js': 'nothing | said missing background.scripts | errors 1',
-    '../outside.js': 'nothing | said missing background.scripts | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the background.scripts field | errors 1',
+    '.npmrc':
+      'nothing | said missing .npmrc does not exist. Check the background.scripts field | errors 1',
+    '.env':
+      'nothing | said missing .env does not exist. Check the background.scripts field | errors 1',
+    '.env.local':
+      'nothing | said missing .env.local does not exist. Check the background.scripts field | errors 1',
+    '.env.js':
+      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+    '.env.local.js':
+      'nothing | said missing .env.local.js does not exist. Check the background.scripts field | errors 1',
+    'a/../.envrc':
+      'nothing | said missing .envrc does not exist. Check the background.scripts field | errors 1',
+    'a/../.env.js':
+      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+    '/.env.js':
+      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+    '../outside.js':
+      'nothing | said missing ../outside.js does not exist. Check the background.scripts field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing background.scripts | errors 1',
-    'linked-out.js': 'nothing | said missing background.scripts | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the background.scripts field | errors 1',
+    'linked-out.js':
+      'nothing | said missing linked-out.js does not exist. Check the background.scripts field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing background.scripts | errors 1',
+      'nothing | said missing node_modules/pkg/.env does not exist. Check the background.scripts field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing background.scripts | errors 1',
-    '.git/tool.js': 'nothing | said missing background.scripts | errors 1',
+      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the background.scripts field | errors 1',
+    '.git/tool.js':
+      'nothing | said missing .git/tool.js does not exist. Check the background.scripts field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/scripts.js',
     'linked-in.js': 'inside.js in background/scripts.js',
     '.env.example': 'nothing | errors 1',
-    '.env.example.js': 'nothing | said missing background.scripts | errors 1',
+    '.env.example.js':
+      'nothing | said missing .env.example.js does not exist. Check the background.scripts field | errors 1',
     'ok.js': 'ok.js in background/scripts.js',
-    '/hosted.js': 'nothing | said missing background.scripts | errors 1',
+    '/hosted.js':
+      'nothing | said missing hosted.js does not exist. Check the background.scripts field | errors 1',
     'public/hosted.js':
       'public/hosted.js in background/scripts.js + public/hosted.js in hosted.js',
-    'absent.js': 'nothing | said missing background.scripts | errors 1'
+    'absent.js':
+      'nothing | said missing absent.js does not exist. Check the background.scripts field | errors 1'
   },
   backgroundScriptsFirefox: {
-    '.envrc': 'nothing | said missing background.scripts | errors 1',
-    '.env.js': 'nothing | said missing background.scripts | errors 1',
-    '../outside.js': 'nothing | said missing background.scripts | errors 1',
-    'linked-out.js': 'nothing | said missing background.scripts | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the background.scripts field | errors 1',
+    '.env.js':
+      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+    '../outside.js':
+      'nothing | said missing ../outside.js does not exist. Check the background.scripts field | errors 1',
+    'linked-out.js':
+      'nothing | said missing linked-out.js does not exist. Check the background.scripts field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing background.scripts | errors 1',
+      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the background.scripts field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/scripts.js',
     'ok.js': 'ok.js in background/scripts.js',
-    'absent.js': 'nothing | said missing background.scripts | errors 1'
+    'absent.js':
+      'nothing | said missing absent.js does not exist. Check the background.scripts field | errors 1'
   },
   userScripts: {
-    '.envrc': 'nothing | said missing user_scripts.api_script | errors 1',
-    '.npmrc': 'nothing | said missing user_scripts.api_script | errors 1',
-    '.env': 'nothing | said missing user_scripts.api_script | errors 1',
-    '.env.local': 'nothing | said missing user_scripts.api_script | errors 1',
-    '.env.js': 'nothing | said missing user_scripts.api_script | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the user_scripts.api_script field | errors 1',
+    '.npmrc':
+      'nothing | said missing .npmrc does not exist. Check the user_scripts.api_script field | errors 1',
+    '.env':
+      'nothing | said missing .env does not exist. Check the user_scripts.api_script field | errors 1',
+    '.env.local':
+      'nothing | said missing .env.local does not exist. Check the user_scripts.api_script field | errors 1',
+    '.env.js':
+      'nothing | said missing .env.js does not exist. Check the user_scripts.api_script field | errors 1',
     '.env.local.js':
-      'nothing | said missing user_scripts.api_script | errors 1',
-    'a/../.envrc': 'nothing | said missing user_scripts.api_script | errors 1',
-    'a/../.env.js': 'nothing | said missing user_scripts.api_script | errors 1',
-    '/.env.js': 'nothing | said missing user_scripts.api_script | errors 1',
+      'nothing | said missing .env.local.js does not exist. Check the user_scripts.api_script field | errors 1',
+    'a/../.envrc':
+      'nothing | said missing .envrc does not exist. Check the user_scripts.api_script field | errors 1',
+    'a/../.env.js':
+      'nothing | said missing .env.js does not exist. Check the user_scripts.api_script field | errors 1',
+    '/.env.js':
+      'nothing | said missing .env.js does not exist. Check the user_scripts.api_script field | errors 1',
     '../outside.js':
-      'nothing | said missing user_scripts.api_script | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the user_scripts.api_script field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing user_scripts.api_script | errors 1',
+      'nothing | said missing ../outside.js does not exist. Check the user_scripts.api_script field | errors 1',
     'linked-out.js':
-      'nothing | said missing user_scripts.api_script | errors 1',
+      'nothing | said missing linked-out.js does not exist. Check the user_scripts.api_script field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing user_scripts.api_script | errors 1',
+      'nothing | said missing node_modules/pkg/.env does not exist. Check the user_scripts.api_script field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing user_scripts.api_script | errors 1',
-    '.git/tool.js': 'nothing | said missing user_scripts.api_script | errors 1',
+      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the user_scripts.api_script field | errors 1',
+    '.git/tool.js':
+      'nothing | said missing .git/tool.js does not exist. Check the user_scripts.api_script field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in user_scripts/api_script.js',
     'linked-in.js': 'inside.js in user_scripts/api_script.js',
     '.env.example': 'nothing',
     '.env.example.js':
-      'nothing | said missing user_scripts.api_script | errors 1',
+      'nothing | said missing .env.example.js does not exist. Check the user_scripts.api_script field | errors 1',
     'ok.js': 'ok.js in user_scripts/api_script.js',
-    '/hosted.js': 'nothing | said missing user_scripts.api_script | errors 1',
+    '/hosted.js':
+      'nothing | said missing hosted.js does not exist. Check the user_scripts.api_script field | errors 1',
     'public/hosted.js':
       'public/hosted.js in hosted.js + public/hosted.js in user_scripts/api_script.js',
-    'absent.js': 'nothing | said missing user_scripts.api_script | errors 1'
+    'absent.js':
+      'nothing | said missing absent.js does not exist. Check the user_scripts.api_script field | errors 1'
   },
   themeExperiment: {
-    '.envrc': 'nothing | said missing theme_experiment. | errors 1',
-    '.npmrc': 'nothing | said missing theme_experiment. | errors 1',
-    '.env': 'nothing | said missing theme_experiment. | errors 1',
-    '.env.local': 'nothing | said missing theme_experiment..env | errors 1',
-    '.env.css': 'nothing | said missing theme_experiment..env | errors 1',
+    '.envrc':
+      'nothing | said missing .envrc does not exist. Check the theme_experiment. field | errors 1',
+    '.npmrc':
+      'nothing | said missing .npmrc does not exist. Check the theme_experiment. field | errors 1',
+    '.env':
+      'nothing | said missing .env does not exist. Check the theme_experiment. field | errors 1',
+    '.env.local':
+      'nothing | said missing .env.local does not exist. Check the theme_experiment..env field | errors 1',
+    '.env.css':
+      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
     '.env.local.css':
-      'nothing | said missing theme_experiment..env.local | errors 1',
-    'a/../.envrc': 'nothing | said missing theme_experiment. | errors 1',
-    'a/../.env.css': 'nothing | said missing theme_experiment..env | errors 1',
-    '/.env.css': 'nothing | said missing theme_experiment..env | errors 1',
+      'nothing | said missing .env.local.css does not exist. Check the theme_experiment..env.local field | errors 1',
+    'a/../.envrc':
+      'nothing | said missing .envrc does not exist. Check the theme_experiment. field | errors 1',
+    'a/../.env.css':
+      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
+    '/.env.css':
+      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
     '../outside.css':
-      'nothing | said missing theme_experiment.outside | errors 1',
+      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.outside field | errors 1',
     'a/../../outside.css':
-      'nothing | said missing theme_experiment.outside | errors 1',
+      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.outside field | errors 1',
     'linked-out.css':
-      'nothing | said missing theme_experiment.linked-out | errors 1',
+      'nothing | said missing linked-out.css does not exist. Check the theme_experiment.linked-out field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing theme_experiment. | errors 1',
+      'nothing | said missing node_modules/pkg/.env does not exist. Check the theme_experiment. field | errors 1',
     'node_modules/pkg/.env.css':
-      'nothing | said missing theme_experiment..env | errors 1',
-    '.git/tool.css': 'nothing | said missing theme_experiment.tool | errors 1',
+      'nothing | said missing node_modules/pkg/.env.css does not exist. Check the theme_experiment..env field | errors 1',
+    '.git/tool.css':
+      'nothing | said missing .git/tool.css does not exist. Check the theme_experiment.tool field | errors 1',
     'node_modules/pkg/theme.css':
       'node_modules/pkg/theme.css in theme_experiment/theme.css',
     'linked-in.css': 'inside.css in theme_experiment/linked-in.css',
     '.env.example': 'nothing | errors 1',
     '.env.example.css':
-      'nothing | said missing theme_experiment..env.example | errors 1',
+      'nothing | said missing .env.example.css does not exist. Check the theme_experiment..env.example field | errors 1',
     'ok.css': 'ok.css in theme_experiment/ok.css',
     '/hosted.css': 'public/hosted.css in hosted.css',
     'public/hosted.css': 'public/hosted.css in hosted.css',
-    'absent.css': 'nothing | said missing theme_experiment.absent | errors 1'
+    'absent.css':
+      'nothing | said missing <root>/absent.css does not exist. Check the theme_experiment.absent field | errors 1'
   },
   webAccessibleScript: {
     '.envrc': 'nothing',
@@ -664,24 +735,35 @@ describe('a file a compiled field names and the build withholds', () => {
       )
       const result = await build(root)
 
-      for (const sentence of [
-        'Check the content_scripts.content-0 field in your manifest.json file.',
-        'Check the background.service_worker field in your manifest.json file.'
-      ]) {
-        expect(result.printed, sentence).toContain(sentence)
+      // The whole message a missing file gets, once on the human channel
+      // and once in the result the build returns.
+      const message = (file: string, field: string) =>
+        [
+          `${file} does not exist. Check the ${field} field in your manifest.json file.`,
+          'The path must point to an existing file that will be bundled.',
+          `NOT FOUND ${root}/${file}`
+        ].join('\n')
+      const diagnostics = JSON.parse(
+        result.printed.slice(result.printed.lastIndexOf('\n{"code"'))
+      ).diagnostics as Array<{message: string; name: string}>
+
+      expect(
+        diagnostics.map((diagnostic) => diagnostic.message).sort()
+      ).toEqual(
+        [
+          message('.env.css', 'content_scripts[0].css'),
+          message('.env.js', 'content_scripts[0].js'),
+          message('.envrc', 'background.service_worker')
+        ].sort()
+      )
+
+      for (const diagnostic of diagnostics) {
+        expect(diagnostic.name).toBe('ScriptsMissingFile')
       }
 
-      // Each is printed once and carried once in the result the build returns.
       for (const file of ['.env.js', '.env.css', '.envrc']) {
         expect(times(result.printed, `NOT FOUND ${root}/${file}`), file).toBe(2)
       }
-
-      expect(
-        times(
-          result.printed,
-          'The script path must point to an existing file that will be bundled.'
-        )
-      ).toBe(6)
 
       expect(result.errors).toBe(3)
       expect(result.shipped).toEqual([])

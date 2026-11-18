@@ -1,18 +1,10 @@
-import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
+import {runCli} from '../helpers/run-cli'
+import {trackTempFolders} from '../helpers/temp-folders'
 
-const ANSI = /\x1b\[[0-9;]*m/g
-
-function cliBin(): string {
-  const root = path.resolve(__dirname, '../..')
-  const cjs = path.join(root, 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(root, 'dist', 'cli.js')
-}
+const makeTempFolder = trackTempFolders()
 
 // Windows names the binary chrome.exe and judges it by that name alone.
 const CHROME = process.platform === 'win32' ? 'chrome.exe' : 'chrome'
@@ -69,33 +61,14 @@ function runInstall(
   env: Record<string, string>,
   binDir: string
 ) {
-  // Windows spells the variable Path, and a child reads one spelling only.
-  const base = {...process.env}
-
-  for (const key of Object.keys(base)) {
-    if (key === 'npm_execpath' || key.toLowerCase() === 'path') {
-      Reflect.deleteProperty(base, key)
-    }
-  }
-
-  const result = spawnSync(process.execPath, [cliBin(), ...args], {
-    encoding: 'utf8',
+  return runCli(args, {
     env: {
-      ...base,
-      EXTENSION_ENV: 'test',
-      EXTENSION_TELEMETRY: '0',
       // A plain npm agent selects npx, which the stand-in on PATH answers.
       npm_config_user_agent: 'npm/10.0.0 node/v22.0.0',
       PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
       ...env
     }
   })
-
-  return {
-    status: result.status,
-    stdout: result.stdout.replace(ANSI, ''),
-    stderr: result.stderr.replace(ANSI, '')
-  }
 }
 
 // The npx.cmd stand-in has never run on Windows, so this stays off there
@@ -108,20 +81,16 @@ describe.skipIf(process.platform === 'win32')(
     let binDir = ''
 
     beforeEach(() => {
-      work = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-install-door-'))
+      work = makeTempFolder('extjs-install-door-')
       cacheRoot = path.join(work, 'cache')
       binDir = path.join(work, 'bin')
       fs.mkdirSync(binDir, {recursive: true})
     })
 
-    afterEach(() => {
-      fs.rmSync(work, {recursive: true, force: true})
-    })
-
-    it('frames a truncated download as E_BROWSER_DOWNLOAD and removes the tree', () => {
+    it('frames a truncated download as E_BROWSER_DOWNLOAD and removes the tree', async () => {
       writeFakeNpx(binDir, 'truncated')
 
-      const result = runInstall(
+      const result = await runInstall(
         ['install', 'chrome', '--output', 'json'],
         {EXT_BROWSERS_CACHE_DIR: cacheRoot},
         binDir
@@ -145,10 +114,10 @@ describe.skipIf(process.platform === 'win32')(
       expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
     })
 
-    it('says so in text, with no success line, and exits non-zero', () => {
+    it('says so in text, with no success line, and exits non-zero', async () => {
       writeFakeNpx(binDir, 'truncated')
 
-      const result = runInstall(
+      const result = await runInstall(
         ['install', 'chrome'],
         {EXT_BROWSERS_CACHE_DIR: cacheRoot},
         binDir
@@ -156,7 +125,7 @@ describe.skipIf(process.platform === 'win32')(
 
       expect(result.status).toBe(1)
       expect(result.stdout).not.toMatch(/is installed/)
-      expect(result.stderr).toMatch(/Couldn't download chrome/)
+      expect(result.stderr).toMatch(/^⏵⏵⏵ Couldn't download chrome\./)
       expect(result.stderr).toContain(path.join(cacheRoot, 'chrome'))
       expect(result.stderr).toMatch(/Run the install again/)
       expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
@@ -164,10 +133,10 @@ describe.skipIf(process.platform === 'win32')(
 
     // PATH is the empty bin folder alone, so no package runner can start:
     // the stand-in is not written and the machine's own npx is out of reach.
-    it('frames a package runner that is not there as its own failure, not a retry', () => {
+    it('frames a package runner that is not there as its own failure, not a retry', async () => {
       expect(fs.readdirSync(binDir)).toEqual([])
 
-      const result = runInstall(
+      const result = await runInstall(
         ['install', 'chrome', '--output', 'json'],
         {EXT_BROWSERS_CACHE_DIR: cacheRoot, PATH: binDir},
         binDir
@@ -197,14 +166,14 @@ describe.skipIf(process.platform === 'win32')(
       expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
     })
 
-    it('stops an installer that never ends at EXTENSION_INSTALL_TIMEOUT_MS and frames it as E_BROWSER_INSTALL_TIMEOUT', () => {
+    it('stops an installer that never ends at EXTENSION_INSTALL_TIMEOUT_MS and frames it as E_BROWSER_INSTALL_TIMEOUT', async () => {
       writeFakeNpx(binDir, 'hangs')
 
-      const result = runInstall(
+      const result = await runInstall(
         ['install', 'chrome', '--output', 'json'],
         {
           EXT_BROWSERS_CACHE_DIR: cacheRoot,
-          EXTENSION_INSTALL_TIMEOUT_MS: '700'
+          EXTENSION_INSTALL_TIMEOUT_MS: '3000'
         },
         binDir
       )
@@ -216,9 +185,12 @@ describe.skipIf(process.platform === 'win32')(
       const error = frame.error as {code: string; message: string}
 
       expect(error.code).toBe('E_BROWSER_INSTALL_TIMEOUT')
-      // A slow start may be stopped before the stand-in wrote a file.
-      expect(error.message).toMatch(
-        /^Couldn't install Chrome\. The installer didn't finish within 700 ms and was stopped\. (The incomplete files were removed\. )?Set EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, then run the install again\.$/
+      // Three seconds, so the stand-in has written its file by the stop.
+      expect(error.message).toBe(
+        "Couldn't install Chrome. The installer didn't finish within 3 seconds " +
+          'and was stopped. The incomplete files were removed. Set ' +
+          'EXTENSION_INSTALL_TIMEOUT_MS to a larger number of milliseconds, ' +
+          'then run the install again.'
       )
 
       expect(frame.hint).toBe(
@@ -231,14 +203,14 @@ describe.skipIf(process.platform === 'win32')(
 
     // EXT_BROWSERS_CACHE_DIR pointed at an application folder, where the
     // chrome folder is a browser profile. Built from nothing, in a temp folder.
-    it('refuses to install over a folder that holds a browser profile, and changes nothing in it', () => {
+    it('refuses to install over a folder that holds a browser profile, and changes nothing in it', async () => {
       writeFakeNpx(binDir, 'complete')
       const profile = path.join(cacheRoot, 'chrome')
       fs.mkdirSync(path.join(profile, 'Default'), {recursive: true})
       fs.writeFileSync(path.join(profile, 'Default', 'Preferences'), '{"a":1}')
       fs.writeFileSync(path.join(profile, 'Local State'), '{"b":2}')
 
-      const result = runInstall(
+      const result = await runInstall(
         ['install', 'chrome', '--output', 'json'],
         {EXT_BROWSERS_CACHE_DIR: cacheRoot},
         binDir
@@ -270,10 +242,10 @@ describe.skipIf(process.platform === 'win32')(
       )
     })
 
-    it('still reports a finished download as installed', () => {
+    it('still reports a finished download as installed', async () => {
       writeFakeNpx(binDir, 'complete')
 
-      const result = runInstall(
+      const result = await runInstall(
         ['install', 'chrome', '--output', 'json'],
         {EXT_BROWSERS_CACHE_DIR: cacheRoot},
         binDir

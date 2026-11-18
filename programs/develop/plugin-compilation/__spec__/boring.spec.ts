@@ -38,13 +38,11 @@ function makeStats({hasErrors = false} = {}) {
 }
 
 describe('BoringPlugin done tap vs invalid manifest JSON', () => {
-  const previousLaunchEnv = process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
   let tmpDir: string
   let manifestPath: string
   let logSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = '0'
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'boring-spec-'))
     manifestPath = path.join(tmpDir, 'manifest.json')
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined)
@@ -53,17 +51,16 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
   afterEach(() => {
     logSpy.mockRestore()
     fs.rmSync(tmpDir, {recursive: true, force: true})
-    if (previousLaunchEnv === undefined) {
-      delete process.env.EXTENSION_BROWSER_LAUNCH_ENABLED
-    } else process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = previousLaunchEnv
   })
 
   it('does not throw when the manifest on disk is invalid JSON', () => {
     fs.writeFileSync(manifestPath, '{ "manifest_version": 3, "name": "Trunc')
     const {compiler, getDoneTap} = makeCompiler()
-    new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
-      compiler as never
-    )
+    new BoringPlugin({
+      manifestPath,
+      browser: 'chromium',
+      browserLaunchEnabled: false
+    }).apply(compiler as never)
 
     expect(() => getDoneTap()(makeStats({hasErrors: true}))).not.toThrow()
     expect(logSpy).toHaveBeenCalledTimes(1)
@@ -77,9 +74,11 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
     )
 
     const {compiler, getDoneTap} = makeCompiler()
-    new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
-      compiler as never
-    )
+    new BoringPlugin({
+      manifestPath,
+      browser: 'chromium',
+      browserLaunchEnabled: false
+    }).apply(compiler as never)
 
     getDoneTap()(makeStats())
     expect(String(logSpy.mock.calls[0][0])).toContain('My App')
@@ -96,9 +95,11 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
     )
 
     const {compiler, getDoneTap} = makeCompiler()
-    new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
-      compiler as never
-    )
+    new BoringPlugin({
+      manifestPath,
+      browser: 'chromium',
+      browserLaunchEnabled: false
+    }).apply(compiler as never)
 
     getDoneTap()(makeStats())
     expect(String(logSpy.mock.calls[0][0])).toContain('My App')
@@ -132,9 +133,11 @@ describe('BoringPlugin done tap vs invalid manifest JSON', () => {
     )
 
     const {compiler, getDoneTap} = makeCompiler()
-    new BoringPlugin({manifestPath, browser: 'chromium'}).apply(
-      compiler as never
-    )
+    new BoringPlugin({
+      manifestPath,
+      browser: 'chromium',
+      browserLaunchEnabled: false
+    }).apply(compiler as never)
 
     getDoneTap()(makeStats())
     const line = String(logSpy.mock.calls[0][0])
