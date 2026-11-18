@@ -1,4 +1,3 @@
-import {type ChildProcess, spawn} from 'node:child_process'
 import {
   mkdirSync,
   mkdtempSync,
@@ -8,14 +7,9 @@ import {
 } from 'node:fs'
 import {createServer} from 'node:net'
 import {tmpdir} from 'node:os'
-import {dirname, join, resolve} from 'node:path'
-import {fileURLToPath} from 'node:url'
+import {join} from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = dirname(__filename)
-const cliRoot = resolve(__dirname, '../..')
-const cliBin = resolve(cliRoot, 'dist', 'cli.cjs')
+import {type CliSession, everyLineAsFrame, startCli} from '../helpers/run-cli'
 
 interface Frame {
   ok: boolean
@@ -23,23 +17,6 @@ interface Frame {
   status: string
   value: Record<string, unknown> | null
   error: {code: string; message: string} | null
-}
-
-function cliEnv(): NodeJS.ProcessEnv {
-  const env: NodeJS.ProcessEnv = {
-    ...process.env,
-    NO_COLOR: '1',
-    FORCE_COLOR: '0',
-    EXTENSION_ENV: 'test',
-    EXTENSION_TELEMETRY: '0'
-  }
-  delete env.VITEST
-  delete env.VITEST_WORKER_ID
-  delete env.EXTENSION_INSTANCE_ID
-  delete env.EXTENSION_DEV_INSTANCE_ID
-  delete env.EXTJS_INSTANCE_ID
-
-  return env
 }
 
 function sleep(ms: number) {
@@ -59,21 +36,17 @@ function freePort(): Promise<number> {
 }
 
 function parseFrames(stdout: string): Frame[] {
-  return stdout
-    .split('\n')
-    .filter((line) => line.trim())
-    .map((line) => JSON.parse(line) as Frame)
+  return everyLineAsFrame<Frame>(stdout)
 }
 
+// The helper's env carries no instance id, so each case names its own.
 function runDev(
   projectDir: string,
   extraArgs: string[],
   env: Record<string, string> = {}
 ) {
-  const child = spawn(
-    process.execPath,
+  const session = startCli(
     [
-      cliBin,
       'dev',
       projectDir,
       '--browser',
@@ -84,37 +57,33 @@ function runDev(
       'json',
       ...extraArgs
     ],
-    {cwd: cliRoot, stdio: 'pipe', env: {...cliEnv(), ...env}}
-  )
-  const out = {stdout: '', stderr: ''}
-  child.stdout.on('data', (chunk) => (out.stdout += chunk.toString()))
-  child.stderr.on('data', (chunk) => (out.stderr += chunk.toString()))
-  const closed = new Promise<number | null>((resolvePromise) =>
-    child.once('close', (code) => resolvePromise(code))
+    {env}
   )
 
-  return {child, out, closed}
-}
-
-async function stop(child: ChildProcess, closed: Promise<number | null>) {
-  if (child.exitCode !== null) return
-
-  child.kill('SIGTERM')
-  await Promise.race([closed, sleep(15_000).then(() => child.kill('SIGKILL'))])
+  return {
+    session,
+    child: session.child,
+    out: {
+      get stdout() {
+        return session.read().stdout
+      },
+      get stderr() {
+        return session.read().stderr
+      }
+    },
+    closed: session.closed.then((exit) => exit.status)
+  }
 }
 
 describe.skipIf(process.platform === 'win32')(
   'a second dev session over a live one is refused before it touches the session files',
   () => {
     const leftovers: string[] = []
-    const children: Array<{
-      child: ChildProcess
-      closed: Promise<number | null>
-    }> = []
+    const children: Array<{session: CliSession}> = []
 
     afterEach(async () => {
       for (const running of children.splice(0)) {
-        await stop(running.child, running.closed)
+        await running.session.stop('SIGTERM', 15_000)
       }
 
       for (const dir of leftovers.splice(0)) {
@@ -140,14 +109,11 @@ describe.skipIf(process.platform === 'win32')(
       const first = runDev(projectDir, ['--port', String(firstPort)])
       children.push(first)
 
-      const deadline = Date.now() + 60_000
-
-      while (
-        Date.now() < deadline &&
-        !parseFrames(first.out.stdout).some((frame) => frame.status === 'ready')
-      ) {
-        await sleep(250)
-      }
+      await first.session.waitFor(
+        () => first.out.stdout.includes('"status":"ready"'),
+        60_000,
+        'the ready frame of the first session'
+      )
 
       const readyFrame = parseFrames(first.out.stdout).find(
         (frame) => frame.status === 'ready'
@@ -220,14 +186,11 @@ describe.skipIf(process.platform === 'win32')(
       })
       children.push(first)
 
-      const deadline = Date.now() + 60_000
-
-      while (
-        Date.now() < deadline &&
-        !parseFrames(first.out.stdout).some((frame) => frame.status === 'ready')
-      ) {
-        await sleep(250)
-      }
+      await first.session.waitFor(
+        () => first.out.stdout.includes('"status":"ready"'),
+        60_000,
+        'the ready frame of the first session'
+      )
 
       expect(
         parseFrames(first.out.stdout).find((frame) => frame.status === 'ready'),

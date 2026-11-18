@@ -9,18 +9,24 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {codedError} from './coded-error'
+import {corepackRegistryOrigin} from './corepack-registry'
+import {
+  isDevelopWatchRunning,
+  missingDevelopBuildEntries,
+  waitForDevelopBuildEntries
+} from './develop-build-entries'
 import {findExtensionDevelopRoot} from './develop-context'
 import {classifyInstallFailure} from './install-registry-failure'
 import * as messages from './messages'
 import {CODES, isDebug, isMachineOutput} from './messaging'
 import {
+  buildExecEnv,
   buildInstallCommand,
   execInstallCommand,
   findWorkspaceMember,
   type InstallCommandError,
   installScriptSuppression,
   projectInstallTarget,
-  resolveNpmPackageManager,
   resolvePackageManager,
   workspaceManagerOverride
 } from './package-manager'
@@ -85,7 +91,32 @@ async function installWithRegistryRetry(
         {directDependencies}
       )
 
-      if (!failure.retry) throw error
+      if (failure.kind === 'release-too-young') {
+        throw codedError(
+          CODES.E_DEPENDENCY_INSTALL,
+          messages.projectInstallReleaseTooYoung(failure, pmName)
+        )
+      }
+
+      if (failure.kind === 'manager-not-downloaded') {
+        // Mirrors the spawn: the same environment and the same folder.
+        const origin = corepackRegistryOrigin(
+          buildExecEnv() || process.env,
+          spawnOptions.cwd
+        )
+        const ours = origin && origin.registry === failure.registry
+
+        throw codedError(
+          CODES.E_DEPENDENCY_INSTALL,
+          messages.projectInstallManagerNotDownloaded(
+            failure,
+            pmName,
+            ours ? origin.from : undefined
+          )
+        )
+      }
+
+      if (!failure.retry) throw installFailed(pmName, error)
 
       if (attempt >= attempts) {
         throw codedError(
@@ -111,8 +142,22 @@ async function installWithRegistryRetry(
   }
 }
 
-function isRegistryNotReady(error: unknown): boolean {
-  return (error as {code?: string})?.code === CODES.E_DEPENDENCY_INSTALL
+// A second manager would build a tree the lockfile does not describe and
+// install past the project's own policy, so the first failure is final.
+function installFailed(pmName: string, error: unknown): Error {
+  const failed = error as InstallCommandError & {code?: string}
+
+  if (failed?.code === 'ENOENT') {
+    return codedError(
+      CODES.E_DEPENDENCY_INSTALL,
+      messages.projectInstallManagerNotFound(pmName)
+    )
+  }
+
+  return codedError(
+    CODES.E_DEPENDENCY_INSTALL,
+    messages.projectInstallFailed(pmName, failed?.exitCode, failed?.message)
+  )
 }
 
 // CI and prebuild scripts set this once the dependencies are in place, which
@@ -154,58 +199,67 @@ export async function ensureUserProjectDependencies(
     console.warn(messages.projectInstallInWorkspaceRoot(target.cwd, pm.name))
   }
 
-  const directDependencies = directDependencyNames(packageJsonDir)
-
-  try {
-    await installWithRegistryRetry(
-      pm.name,
-      cmd,
-      {cwd: target.cwd, env: suppression.env},
-      directDependencies,
-      retry
-    )
-  } catch (error) {
-    // npm reads the same registry, so it would only fail the same way.
-    if (isRegistryNotReady(error)) throw error
-    // The resolved manager can fail through no fault of the project (e.g. a
-    // `packageManager` pin too old for Node); one npm retry keeps the build alive.
-    if (pm.name === 'npm') throw error
-    // A Deno project's dependencies live in deno.json(c) `npm:` imports,
-    // npm cannot install those (and may have no package.json to read at all).
-    if (pm.name === 'deno') throw error
-
-    console.warn(messages.projectInstallFallbackToNpm(pm.name))
-
-    const npmPm = resolveNpmPackageManager()
-    const npmSuppression = installScriptSuppression(npmPm)
-    const npmCmd = buildInstallCommand(npmPm, [
-      'install',
-      '--no-package-lock',
-      ...npmSuppression.args
-    ])
-    await installWithRegistryRetry(
-      npmPm.name,
-      npmCmd,
-      {cwd: packageJsonDir, env: npmSuppression.env},
-      directDependencies,
-      retry
-    )
-  }
+  await installWithRegistryRetry(
+    pm.name,
+    cmd,
+    {cwd: target.cwd, env: suppression.env},
+    directDependencyNames(packageJsonDir),
+    retry
+  )
 }
 
-export async function ensureDevelopArtifacts() {
+// Only a source checkout carries the build config. An installed copy that
+// lost a file cannot rebuild, so it stops and names what is gone.
+function canRebuildDevelopArtifacts(developRoot: string): boolean {
+  return fs.existsSync(path.join(developRoot, 'rslib.config.ts'))
+}
+
+// A first watch build takes about fifteen seconds on a laptop, so a minute
+// covers a slow machine before the wait gives up and names the files.
+const WATCH_BUILD_WAIT_MS = 60000
+const WATCH_BUILD_POLL_MS = 100
+
+export type DevelopArtifactsOptions = {
+  watchWaitMs?: number
+  watchPollMs?: number
+}
+
+export async function ensureDevelopArtifacts(
+  options?: DevelopArtifactsOptions
+) {
   const developRoot = findExtensionDevelopRoot()
   if (!developRoot) return
 
-  const requiredFiles = [
-    path.join(developRoot, 'dist', 'ensure-hmr-for-scripts.js'),
-    path.join(developRoot, 'dist', 'minimum-script-file.js')
-  ]
-  const missing = requiredFiles.filter((file) => !fs.existsSync(file))
+  const missing = missingDevelopBuildEntries(developRoot)
   if (missing.length === 0) return
+
+  if (!canRebuildDevelopArtifacts(developRoot)) {
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(missing)
+    )
+  }
+
+  // The running watch writes the missing files itself, so this waits for
+  // it. A compile here would be a second build writing the same dist.
+  if (isDevelopWatchRunning(developRoot)) {
+    const unwritten = await waitForDevelopBuildEntries(
+      developRoot,
+      options?.watchWaitMs ?? WATCH_BUILD_WAIT_MS,
+      options?.watchPollMs ?? WATCH_BUILD_POLL_MS
+    )
+
+    if (unwritten.length === 0) return
+
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(unwritten, {watching: true})
+    )
+  }
 
   const pm = resolvePackageManager({cwd: developRoot})
   const command = buildInstallCommand(pm, ['run', 'compile'])
+  const rebuild = [command.command, ...command.args].join(' ')
   const isAuthor = isDebug()
   const stdio = isAuthor ? 'inherit' : 'ignore'
 
@@ -217,8 +271,28 @@ export async function ensureDevelopArtifacts() {
     )
   }
 
-  await execInstallCommand(command.command, command.args, {
-    cwd: developRoot,
-    stdio
-  })
+  try {
+    await execInstallCommand(command.command, command.args, {
+      cwd: developRoot,
+      stdio
+    })
+  } catch {
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(missing, {command: rebuild, developRoot})
+    )
+  }
+
+  // A build that exits clean and still skips an entry would fail much later.
+  const stillMissing = missingDevelopBuildEntries(developRoot)
+
+  if (stillMissing.length > 0) {
+    throw codedError(
+      CODES.E_INTERNAL,
+      messages.developArtifactsMissing(stillMissing, {
+        command: rebuild,
+        developRoot
+      })
+    )
+  }
 }

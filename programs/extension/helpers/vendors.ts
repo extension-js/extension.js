@@ -80,6 +80,8 @@ export function parseOptionalBoolean(value?: string): boolean {
   return !['false', '0', 'no', 'off'].includes(normalized)
 }
 
+// An empty item stays in the list, so validateVendors refuses it. Dropped, an
+// empty --browser selected no browser and the run did nothing and exited 0.
 export const vendors = (browser?: Browser | 'all') => {
   const value = (browser ?? 'chromium') as string
 
@@ -88,7 +90,21 @@ export const vendors = (browser?: Browser | 'all') => {
     : String(value)
         .split(',')
         .map((part) => part.trim())
-        .filter(Boolean)
+}
+
+// The plain refusal for an empty --browser value, for envelopes and throws.
+export function emptyBrowserValueMessage(supported: string[]): string {
+  return `--browser got an empty value. Choose one of: ${supported.join(', ')}.`
+}
+
+// One text for a refused --browser on every command, empty value included.
+export function unsupportedBrowserMessage(
+  value: string,
+  supported: string[]
+): string {
+  return value
+    ? `Unsupported browser: ${value}. Choose one of: ${supported.join(', ')}.`
+    : emptyBrowserValueMessage(supported)
 }
 
 // Names `extension install` / `extension uninstall` accept, including family
@@ -122,7 +138,9 @@ export const MANAGED_INSTALL_BINARIES = [
 // cover Chromium, the default dev/start launch target. Same expansion for
 // uninstall so both commands operate on one binary set.
 export const installTargets = (browser?: Browser | 'all') => {
-  return browser === 'all' ? [...MANAGED_INSTALL_BINARIES] : vendors(browser)
+  return browser === 'all'
+    ? [...MANAGED_INSTALL_BINARIES]
+    : vendors(browser).filter(Boolean)
 }
 
 // Reports validity instead of exiting: a shared helper that calls
@@ -130,16 +148,22 @@ export const installTargets = (browser?: Browser | 'all') => {
 export function validateVendors(
   vendorsList: string[],
   onInvalid: (invalid: string, supported: string[]) => void,
-  options: {allowEmulator?: boolean} = {}
+  options: {allowEmulator?: boolean; listSafari?: boolean} = {}
 ): boolean {
   const supported =
     options.allowEmulator === false
       ? SUPPORTED_BROWSER_TARGETS.filter((target) => !isEmulatorVendor(target))
       : [...SUPPORTED_BROWSER_TARGETS]
+  // Safari still passes here so a command can give its own refusal, but a
+  // list of choices names only what the command can run.
+  const listed =
+    options.listSafari === false
+      ? supported.filter((target) => !isSafariVendor(target))
+      : supported
 
   for (const v of vendorsList) {
     if (!supported.includes(v)) {
-      onInvalid(v, supported)
+      onInvalid(v, listed)
 
       return false
     }

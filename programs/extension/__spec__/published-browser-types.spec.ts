@@ -489,7 +489,7 @@ describe('the default extension API types', () => {
       )
     )
 
-    expect(result.status).not.toBe(0)
+    expect(result.status).toBe(1)
     expect(errorsIn(result.output, 'src/sidebar/page-title.ts')).toEqual([
       'TS2769',
       'TS2694'

@@ -6,7 +6,6 @@ import {registerPublishCommand} from '../commands/publish'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
 
 const fetchMock = vi.fn()
-const ORIG_ENV = {...process.env}
 
 let logSpy: ReturnType<typeof vi.spyOn>
 let errorSpy: ReturnType<typeof vi.spyOn>
@@ -19,13 +18,13 @@ beforeEach(() => {
   errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
   // Keep the developer's real stored login out of the no-token tests.
   configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-publish-cmd-'))
-  process.env.XDG_CONFIG_HOME = configDir
-  process.env.APPDATA = configDir
-  process.env.EXTENSION_DEV_API_URL = 'https://platform.test'
+  vi.stubEnv('XDG_CONFIG_HOME', configDir)
+  vi.stubEnv('APPDATA', configDir)
+  vi.stubEnv('EXTENSION_DEV_API_URL', 'https://platform.test')
 })
 
 afterEach(() => {
-  process.env = {...ORIG_ENV}
+  vi.unstubAllEnvs()
   fs.rmSync(configDir, {recursive: true, force: true})
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
@@ -46,7 +45,7 @@ function respondWith(status: number, body: string) {
 
 describe('extension publish', () => {
   it('exits 1 with the token hint and no docs link when no token is available', async () => {
-    delete process.env.EXTENSION_DEV_TOKEN
+    vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
     expect(await run(['publish'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('EXTENSION_DEV_TOKEN')
     expect(String(errorSpy.mock.calls[0][0])).not.toContain('Get a token')
@@ -54,20 +53,20 @@ describe('extension publish', () => {
   })
 
   it('names the platform login in the no-token refusal', async () => {
-    delete process.env.EXTENSION_DEV_TOKEN
+    vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
     expect(await run(['publish'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('platform MCP')
   })
 
   it('refuses before any request when no platform URL is configured', async () => {
-    delete process.env.EXTENSION_DEV_API_URL
+    vi.stubEnv('EXTENSION_DEV_API_URL', undefined)
     expect(await run(['publish', '--token', 'tok'])).toBe(1)
     expect(String(errorSpy.mock.calls[0][0])).toContain('EXTENSION_DEV_API_URL')
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('publishes with the stored device login when no flag or env is set', async () => {
-    delete process.env.EXTENSION_DEV_TOKEN
+    vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
     const dir = path.join(configDir, 'extension-dev')
     fs.mkdirSync(dir, {recursive: true})
     fs.writeFileSync(
@@ -120,7 +119,7 @@ describe('extension publish', () => {
   })
 
   it('emits E_AUTH_REQUIRED on stdout when no token is available', async () => {
-    delete process.env.EXTENSION_DEV_TOKEN
+    vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
     expect(await run(['publish', '--output', 'json'])).toBe(1)
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(frame).toMatchObject({
@@ -233,7 +232,7 @@ describe('extension publish', () => {
   })
 
   it('keeps E_AUTH_REQUIRED for the no-token case with a hint that skips --api', async () => {
-    delete process.env.EXTENSION_DEV_TOKEN
+    vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
     expect(await run(['publish', '--output', 'json'])).toBe(1)
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(frame.status).toBe('denied')
@@ -244,7 +243,7 @@ describe('extension publish', () => {
   })
 
   it('reports a missing platform URL as E_ARGS usage, not an auth problem', async () => {
-    delete process.env.EXTENSION_DEV_API_URL
+    vi.stubEnv('EXTENSION_DEV_API_URL', undefined)
     expect(await run(['publish', '--token', 'tok', '--output', 'json'])).toBe(1)
     const frame = JSON.parse(String(logSpy.mock.calls[0][0]))
     expect(frame.status).toBe('usage')
@@ -259,7 +258,7 @@ describe('extension publish', () => {
     let projectDir = ''
 
     beforeEach(() => {
-      delete process.env.EXTENSION_DEV_TOKEN
+      vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
       projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ext-publish-scope-'))
       fs.writeFileSync(
         path.join(projectDir, 'package.json'),
@@ -327,7 +326,7 @@ describe('extension publish', () => {
 
   describe('an expired stored login never reaches the wire', () => {
     function writeStoredLogin(expiresAt: unknown) {
-      delete process.env.EXTENSION_DEV_TOKEN
+      vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
       const dir = path.join(configDir, 'extension-dev')
       fs.mkdirSync(dir, {recursive: true})
       fs.writeFileSync(

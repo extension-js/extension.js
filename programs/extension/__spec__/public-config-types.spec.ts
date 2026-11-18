@@ -79,39 +79,27 @@ describe('public config types (extension package)', () => {
   })
 
   it('accepts config and configResolved hooks that read the second argument', () => {
-    const seen: ConfigHookContext[] = []
-    const config: FileConfig = {
-      config: (bundler, context) => {
-        seen.push(context)
+    // Compiled by the typecheck gate, never run: both hook arities stay
+    // assignable and the context keeps the four fields a hook may read.
+    const fixtures: FileConfig[] = [
+      {
+        config: (bundler, context) =>
+          context.browser === 'edge' ? bundler : bundler,
+        configResolved: (bundler, context) => {
+          const read: ConfigHookContext = {
+            browser: context.browser,
+            mode: context.mode,
+            command: context.command,
+            rspack: context.rspack
+          }
 
-        return context.browser === 'edge' ? bundler : bundler
+          return read ? bundler : bundler
+        }
       },
-      configResolved: (bundler, context) => {
-        seen.push({
-          browser: context.browser,
-          mode: context.mode,
-          command: context.command,
-          rspack: context.rspack
-        })
+      {config: (bundler) => bundler, configResolved: (bundler) => bundler}
+    ]
 
-        return bundler
-      }
-    }
-    const legacy: FileConfig = {
-      config: (bundler) => bundler,
-      configResolved: (bundler) => bundler
-    }
-    const context: ConfigHookContext = {
-      browser: 'edge',
-      mode: 'production',
-      command: 'build',
-      rspack: {ProvidePlugin: class {}}
-    }
-
-    config.config?.({}, context)
-    config.configResolved?.({}, context)
-    legacy.config?.({}, context)
-    expect(seen).toEqual([context, context])
+    void fixtures
 
     const dts = fs.readFileSync(
       path.join(pkgRoot, path.dirname(pkg.types), 'config-types.d.ts'),
@@ -136,6 +124,7 @@ describe('public config types (extension package)', () => {
   // command loses a key the loader reads. The emitted declaration is what a
   // project annotating its config with the package type gets.
   it('accepts folders under every command, in the same shape as the top level', () => {
+    // Compiled by the typecheck gate, never read: the shape must stay assignable.
     const config: FileConfig = {
       folders: {scripts: 'src/scripts'},
       commands: {
@@ -145,7 +134,8 @@ describe('public config types (extension package)', () => {
         build: {folders: {scripts: false, pages: false, public: 'static'}}
       }
     }
-    expect(Object.keys(config.commands || {})).toHaveLength(4)
+
+    void config
 
     const dts = fs.readFileSync(
       path.join(pkgRoot, path.dirname(pkg.types), 'config-types.d.ts'),

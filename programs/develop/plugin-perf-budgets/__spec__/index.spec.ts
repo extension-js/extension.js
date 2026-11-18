@@ -357,8 +357,8 @@ describe('PerfBudgetsPlugin', () => {
     let processAssetsCb: () => void = () => {}
 
     compilation.hooks = {
-      processAssets: {
-        tap: (_opts: unknown, fn: () => void) => {
+      afterProcessAssets: {
+        tap: (_name: string, fn: () => void) => {
           processAssetsCb = fn
         }
       }
