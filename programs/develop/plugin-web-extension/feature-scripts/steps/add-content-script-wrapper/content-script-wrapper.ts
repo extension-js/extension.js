@@ -195,6 +195,16 @@ function importsScriptsFile(
   }
 }
 
+// One spelling for a folder and a file under it: a temp folder can come
+// short (RUNNER~1) on one side and long on the other.
+function realPath(file: string): string {
+  try {
+    return fs.realpathSync.native(file)
+  } catch {
+    return file
+  }
+}
+
 // The loaders that ran before this one and are not the build's own: its own
 // sit in one folder, and the bundler's carry no path of a file.
 function loadersOfTheProject(
@@ -210,7 +220,7 @@ function loadersOfTheProject(
     .map((loader) => String(loader?.path || ''))
     .filter((file) => path.isAbsolute(file) && path.dirname(file) !== ownDir)
     .map((file) => {
-      const relative = path.relative(projectDir, file)
+      const relative = path.relative(realPath(projectDir), realPath(file))
       const inside = !relative.startsWith('..') && !path.isAbsolute(relative)
 
       return (inside ? relative : file).split(path.sep).join('/')
