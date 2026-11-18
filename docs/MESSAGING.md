@@ -320,7 +320,9 @@ What is stable and what is not:
   start. The error carries `session`, the same description a frame's `value` holds, and
   `framed`. `framed` is `true` when the stream already carries its terminal frame, the one this
   failure wrote or an earlier one, so a host that prints frames writes its own only when
-  `framed` is not `true`.
+  `framed` is not `true`. A second start of a project and browser that a session of the same
+  host still runs is refused with `E_SESSION_EXISTS` and `framed: false`, and the engine writes
+  no frame for it, because the stream belongs to the running session. The host reports it.
 - A library host can pass `hintFor(code)` with the dev options. The engine calls it for a
   terminal `failed` or `usage` frame that carries no `hint` and adds the string it returns.
   A frame with a hint of its own keeps it, and a resolver that throws or returns nothing leaves

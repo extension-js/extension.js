@@ -330,6 +330,7 @@ async function twoStartsInOneTick() {
   const results = [await first.session, await second.session]
   const running = [first, second][results.findIndex((r) => r.started)]
   await until(() => running?.isReady())
+  const firstId = readyField(dir, 'instanceId')
   const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
   const released = await until(() => listeners().join() === before.join())
   const third = start(dir)
@@ -339,7 +340,12 @@ async function twoStartsInOneTick() {
   await until(() => listeners().join() === before.join())
 
   return {
-    results: results.map(({started, code}) => ({started, code})),
+    results: results.map(({started, code, framed}) => ({
+      started,
+      code,
+      framed
+    })),
+    firstId,
     ended,
     released,
     third: {started: thirdResult.started, code: thirdResult.code}

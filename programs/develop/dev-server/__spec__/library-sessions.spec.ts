@@ -308,21 +308,39 @@ describe('a host that starts dev sessions from the library', () => {
   }, 180_000)
 
   it('runs one of two starts of one project in one tick and refuses the other, coded', async () => {
-    const {result} = await runHost<{
-      results: Array<{started: boolean; code?: string}>
+    const {result, frames} = await runHost<{
+      results: Array<{started: boolean; code?: string; framed?: boolean}>
+      firstId: string
       ended: boolean
       released: boolean
       third: {started: boolean; code?: string}
-    }>('same-tick')
+    }>('same-tick', {EXTENSION_OUTPUT: 'ndjson'})
 
     expect(result.results.map((entry) => entry.started).sort()).toEqual([
       false,
       true
     ])
 
-    expect(result.results.find((entry) => !entry.started)?.code).toBe(
-      'E_SESSION_EXISTS'
-    )
+    // The refusal is the host's to report: the stdout it would write to is
+    // the running session's, and a frame there reads as that session's end.
+    expect(result.results.find((entry) => !entry.started)).toEqual({
+      started: false,
+      code: 'E_SESSION_EXISTS',
+      framed: false
+    })
+
+    expect(
+      frames.every((frame) => typeof frame.value?.instanceId === 'string')
+    ).toBe(true)
+
+    expect(
+      frames
+        .filter((frame) => frame.value?.instanceId === result.firstId)
+        .filter((frame) => frame.ok === false)
+        .map((frame) => frame.error?.code)
+    ).toEqual(['E_PARENT_GONE'])
+
+    expect(JSON.stringify(frames)).not.toContain('E_SESSION_EXISTS')
 
     // Once the running one has ended, the project takes a new session.
     expect(result.ended).toBe(true)

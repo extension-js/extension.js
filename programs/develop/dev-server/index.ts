@@ -427,6 +427,8 @@ export function devConfigHookContext(
 // What a session holds before its first start, for a start that fails.
 interface SessionStartup {
   started: boolean
+  // False for this host's own second start: the stdout is the live session's.
+  framesFailure: boolean
   release: (() => Promise<void>) | null
   lifecycle: LifecycleStream | null
 }
@@ -480,6 +482,7 @@ export async function devServer(
 ) {
   const startup: SessionStartup = {
     started: false,
+    framesFailure: true,
     release: null,
     lifecycle: null
   }
@@ -488,7 +491,9 @@ export async function devServer(
     await startDevSession(projectStructure, devOptions, startup)
   } catch (error) {
     if (!startup.started) {
-      frameFailedStart(error, startup.lifecycle, projectStructure, devOptions)
+      if (startup.framesFailure) {
+        frameFailedStart(error, startup.lifecycle, projectStructure, devOptions)
+      }
 
       // A session that never started leaves nothing in a host that goes on:
       // no listener, no port, no open file, no guard on the manifest.
@@ -582,9 +587,15 @@ async function startDevSession(
   const releaseClaim = claimDevSession(packageJsonDir, sessionBrowser)
 
   if (!releaseClaim) {
-    throw codedError(
-      CODES.E_SESSION_EXISTS,
-      anotherDevSessionRefused(sessionBrowser, process.pid, null)
+    // A frame here would read as the end of the session that holds the claim.
+    startup.framesFailure = false
+
+    throw Object.assign(
+      codedError(
+        CODES.E_SESSION_EXISTS,
+        anotherDevSessionRefused(sessionBrowser, process.pid, null)
+      ),
+      {framed: false}
     )
   }
 
