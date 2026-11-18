@@ -225,6 +225,16 @@ export class FirefoxLaunchPlugin {
       } as BrowserLogger
     }
 
+    // A skipped launch is not a launch: no ready line, and a later call may
+    // still start the browser.
+    if ((compilation as {errors?: unknown[]})?.errors?.length) {
+      this.ctx.logger?.info?.(
+        messages.skippingBrowserLaunchDueToCompileErrors()
+      )
+
+      return
+    }
+
     try {
       await this.launch(compilation, options)
     } catch (error) {
@@ -399,17 +409,6 @@ export class FirefoxLaunchPlugin {
   }
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
-    const compilationErrors: unknown[] =
-      (compilation as {errors?: unknown[]})?.errors || []
-
-    if (compilationErrors.length > 0) {
-      this.ctx.logger?.info?.(
-        messages.skippingBrowserLaunchDueToCompileErrors()
-      )
-
-      return
-    }
-
     if (isDebug()) {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled(this.host.browser))
     }
