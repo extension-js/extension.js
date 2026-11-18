@@ -11,6 +11,7 @@ import {
   managedProfileBaseDir,
   readReadyExecutorAttached,
   readReadyRunId,
+  readyPathFor,
   stampReadyBrowserExited,
   stampReadyBrowserLaunch,
   stampReadyBrowserLaunchFailed,
@@ -21,7 +22,8 @@ import {
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
   stampReadyProfileLocked,
-  stampReadyRdpPort
+  stampReadyRdpPort,
+  stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
@@ -82,6 +84,43 @@ describe('stampReadyRdpPort', () => {
     const waiting = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     expect(waiting.status).toBe('starting')
     expect(waiting.rdpPort).toBe(6006)
+  })
+
+  it('turns a held dev compile ready on the reason Firefox opened no port', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        command: 'dev',
+        status: 'starting',
+        compiledAt: '2026-11-01T00:00:00.000Z',
+        rdpPort: 6006
+      })
+    )
+
+    stampReadyRdpPortError(outputPath, 'the port never opened')
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.status).toBe('ready')
+    expect(ready.rdpPortError).toBe('the port never opened')
+    expect(ready.rdpPort).toBeUndefined()
+  })
+
+  it('leaves a held compile at starting while a code stands on the record', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        command: 'dev',
+        status: 'starting',
+        compiledAt: '2026-11-01T00:00:00.000Z',
+        code: 'profile_locked'
+      })
+    )
+
+    stampReadyRdpPort(outputPath, 6006)
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(ready.status).toBe('starting')
+    expect(ready.rdpPort).toBe(6006)
   })
 
   it('is a no-op when the contract file does not exist yet', () => {
@@ -923,6 +962,24 @@ describe('stampReadyExtensionBaseUrl', () => {
     expect(
       'extensionBaseUrl' in JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ).toBe(false)
+  })
+})
+
+describe('readyPathFor', () => {
+  it('names the contract in the session root beside the build folder', () => {
+    expect(readyPathFor('/work/app/dist/chrome')).toBe(
+      path.join('/work/app/dist/extension-js/chrome/ready.json')
+    )
+  })
+
+  it('follows a build folder that is not under dist, and keeps a relative one relative', () => {
+    expect(readyPathFor('/work/app/build/firefox')).toBe(
+      path.join('/work/app/build/extension-js/firefox/ready.json')
+    )
+
+    expect(readyPathFor(path.join('dist', 'edge'))).toBe(
+      path.join('dist', 'extension-js', 'edge', 'ready.json')
+    )
   })
 })
 
