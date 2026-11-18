@@ -17,18 +17,26 @@ export const DEFAULT_START_TIMEOUT_MS = 30000
 // The longest delay a timer takes. A longer one fires after 1 ms instead.
 export const MAX_TIMER_MS = 2147483647
 
+// A wait in milliseconds as a setting spells it: whole digits only, so
+// "1e5" and "1.5" are no value at all. Capped at what a timer holds.
+export function readTimerMs(value: string | number | undefined): number | null {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : /^\d+$/.test(String(value ?? '').trim())
+        ? Number(String(value).trim())
+        : Number.NaN
+
+  // Digits past what a number holds still mean a long wait, so they cap.
+  return parsed > 0 ? Math.min(parsed, MAX_TIMER_MS) : null
+}
+
 // Anything but a positive whole number would arm the slow-start warning for
 // the wrong moment, so it falls back to the default.
 export function readStartTimeoutMs(
   env: Readonly<Record<string, string | undefined>> = process.env
 ) {
-  const raw = String(env.EXTENSION_START_TIMEOUT_MS ?? '').trim()
-  // Digits past what a number holds still mean a long wait, so they cap.
-  const parsed = /^\d+$/.test(raw) ? Number(raw) : 0
-
-  if (!(parsed > 0)) return DEFAULT_START_TIMEOUT_MS
-
-  return Math.min(parsed, MAX_TIMER_MS)
+  return readTimerMs(env.EXTENSION_START_TIMEOUT_MS) ?? DEFAULT_START_TIMEOUT_MS
 }
 
 // For a start whose caller reports the failure itself.

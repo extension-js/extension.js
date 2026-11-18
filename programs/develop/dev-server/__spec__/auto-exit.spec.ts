@@ -27,6 +27,33 @@ describe('auto-exit', () => {
     expect(process.exit).not.toHaveBeenCalled()
   })
 
+  it.each([
+    '1e5',
+    '1.5',
+    '12ms',
+    '-5',
+    '0',
+    ''
+  ])('reads %j as no auto-exit at all, not as a one millisecond one', async (value) => {
+    const onCleanup = vi.fn(async () => {})
+    const cancel = setupAutoExit(value, undefined as any, onCleanup)
+
+    await vi.advanceTimersByTimeAsync(200_000)
+    expect(onCleanup).not.toHaveBeenCalled()
+    cancel()
+  })
+
+  it('reads whole digits with spaces around them as the wait', async () => {
+    const onCleanup = vi.fn(async () => {})
+    const cancel = setupAutoExit(' 1500 ', '60000', onCleanup)
+
+    await vi.advanceTimersByTimeAsync(1499)
+    expect(onCleanup).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onCleanup).toHaveBeenCalledTimes(1)
+    cancel()
+  })
+
   it('triggers cleanup and force-exit after timeouts', async () => {
     const onCleanup = vi.fn().mockResolvedValue(undefined)
     const cancel = setupAutoExit(1000, 2000, onCleanup)

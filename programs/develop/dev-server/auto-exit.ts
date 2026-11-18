@@ -8,7 +8,7 @@
 
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
-import {MAX_TIMER_MS} from './start-bundler'
+import {MAX_TIMER_MS, readTimerMs} from './start-bundler'
 
 // How long after the auto-exit deadline the default backstop waits.
 const FORCE_KILL_DEFAULT_GRACE_MS = 4000
@@ -16,20 +16,6 @@ const FORCE_KILL_DEFAULT_GRACE_MS = 4000
 // A backstop that cuts a teardown short is a truncated session, never a
 // completed one.
 export const FORCE_KILL_EXIT_CODE = 1
-
-// Capped at what a timer holds: past it the timer fires after 1 ms.
-function parseMilliseconds(value: string | number | undefined) {
-  const parsed =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string'
-        ? parseInt(value, 10)
-        : Number.NaN
-
-  return Number.isFinite(parsed) && parsed > 0
-    ? Math.min(parsed, MAX_TIMER_MS)
-    : null
-}
 
 export function setupAutoExit(
   autoExitMsRaw: string | number | undefined,
@@ -40,7 +26,7 @@ export function setupAutoExit(
   let forceKillTimer: NodeJS.Timeout | null = null
   let teardownStarted = false
 
-  const autoExitMs = parseMilliseconds(autoExitMsRaw)
+  const autoExitMs = readTimerMs(autoExitMsRaw)
 
   if (autoExitMs === null) {
     return () => {}
@@ -66,7 +52,7 @@ export function setupAutoExit(
   // An explicit value is absolute from session start, so one set below the
   // auto-exit deadline stays the shorter knob it always was.
   const forceKillMs =
-    parseMilliseconds(forceKillMsRaw) ??
+    readTimerMs(forceKillMsRaw) ??
     Math.min(autoExitMs + FORCE_KILL_DEFAULT_GRACE_MS, MAX_TIMER_MS)
 
   forceKillTimer = setTimeout(() => {
