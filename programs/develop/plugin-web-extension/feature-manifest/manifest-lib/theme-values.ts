@@ -9,7 +9,7 @@
 import type {Manifest} from '../../../types'
 import {NAMED_CSS_COLORS} from './named-css-colors'
 
-export interface ThemeValueIssue {
+export interface ThemeArrayIssue {
   field: string
   value: string
   write: string
@@ -113,10 +113,10 @@ function isChromiumTint(value: unknown): boolean {
   )
 }
 
-export function collectThemeValueIssues(
+export function collectThemeArrayIssues(
   manifest: Manifest | undefined | null
-): ThemeValueIssue[] {
-  const issues: ThemeValueIssue[] = []
+): ThemeArrayIssue[] {
+  const issues: ThemeArrayIssue[] = []
   const theme = (manifest as Record<string, unknown> | undefined | null)?.theme
 
   if (!theme || typeof theme !== 'object') return issues

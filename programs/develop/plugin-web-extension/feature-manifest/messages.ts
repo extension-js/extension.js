@@ -96,7 +96,7 @@ export function manifestFieldMistyped(
   return lines.join('\n')
 }
 
-export function themeValuesRefused(
+export function themeArraysRefused(
   browser: string,
   issues: Array<{field: string; value: string; write: string}>
 ) {

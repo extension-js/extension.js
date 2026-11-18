@@ -16,10 +16,10 @@ import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
-import {collectThemeValueIssues} from '../manifest-lib/theme-values'
+import {collectThemeArrayIssues} from '../manifest-lib/theme-values'
 import * as messages from '../messages'
 
-export class ValidateThemeValues {
+export class ValidateThemeArrays {
   public static readonly name: string = 'manifest:validate-theme-values'
 
   public readonly manifestPath: string
@@ -40,11 +40,11 @@ export class ValidateThemeValues {
     if (!isChromiumBasedBrowser(browserName) && !webkitTarget) return
 
     compiler.hooks.thisCompilation.tap(
-      ValidateThemeValues.name,
+      ValidateThemeArrays.name,
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: ValidateThemeValues.name,
+            name: ValidateThemeArrays.name,
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
@@ -73,16 +73,16 @@ export class ValidateThemeValues {
               return
             }
 
-            const issues = collectThemeValueIssues(manifest)
+            const issues = collectThemeArrayIssues(manifest)
 
             if (issues.length > 0) {
               reportToCompilation(
                 compilation,
                 compiler,
-                messages.themeValuesRefused(browserName, issues),
+                messages.themeArraysRefused(browserName, issues),
                 'error',
                 'manifest.json',
-                'ThemeValueInvalid'
+                'ThemeArrayInvalid'
               )
             }
           }

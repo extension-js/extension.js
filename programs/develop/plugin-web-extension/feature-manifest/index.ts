@@ -17,7 +17,7 @@ import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 import {PatchWAR} from './steps/patch-war'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {UpdateManifest} from './steps/update-manifest'
-import {ValidateThemeValues} from './steps/validate-theme-values'
+import {ValidateThemeArrays} from './steps/validate-theme-values'
 import {WarnContentScriptHostAccess} from './steps/warn-content-script-host-access'
 import {WarnDescriptionLength} from './steps/warn-description-length'
 import {WarnIgnoredHostPermissions} from './steps/warn-ignored-host-permissions'
@@ -51,7 +51,7 @@ export class ManifestPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    new ValidateThemeValues({
+    new ValidateThemeArrays({
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)

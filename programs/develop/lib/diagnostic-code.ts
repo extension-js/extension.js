@@ -26,7 +26,7 @@ interface IssueLike {
 const NAMED_CODES: Record<string, ErrorCode> = {
   WARInvalidMatchPattern: CODES.E_WAR_INVALID,
   WARStringEntryInMv3: CODES.E_WAR_INVALID,
-  ThemeValueInvalid: CODES.E_THEME_INVALID,
+  ThemeArrayInvalid: CODES.E_THEME_INVALID,
   LocalesLayoutWarning: CODES.E_LOCALES_LAYOUT,
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,

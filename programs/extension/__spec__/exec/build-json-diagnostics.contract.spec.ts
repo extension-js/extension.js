@@ -323,7 +323,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                   'chromium loads theme.colors and theme.tints only as number arrays, and the build cannot translate these values from your manifest.json exactly:\n  theme.colors.frame "#1b263bcc", write [27, 38, 59, 0.8]\n  theme.tints.buttons "#fff", write [H, S, L]\nA color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].\nThe browser refuses the whole extension over one such value, so the build stops here.',
                 file: 'manifest.json',
                 severity: 'error',
-                name: 'ThemeValueInvalid'
+                name: 'ThemeArrayInvalid'
               }
             ]
           },

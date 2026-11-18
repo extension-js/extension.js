@@ -2,12 +2,12 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {collectThemeValueIssues} from '../manifest-lib/theme-values'
-import {ValidateThemeValues} from '../steps/validate-theme-values'
+import {collectThemeArrayIssues} from '../manifest-lib/theme-values'
+import {ValidateThemeArrays} from '../steps/validate-theme-values'
 
-describe('collectThemeValueIssues', () => {
+describe('collectThemeArrayIssues', () => {
   const themed = (theme: Record<string, unknown>) =>
-    collectThemeValueIssues({
+    collectThemeArrayIssues({
       manifest_version: 3,
       name: 'x',
       version: '1.0.0',
@@ -83,12 +83,12 @@ describe('collectThemeValueIssues', () => {
   })
 
   it('stays silent without a theme', () => {
-    expect(collectThemeValueIssues({} as any)).toEqual([])
-    expect(collectThemeValueIssues(undefined)).toEqual([])
+    expect(collectThemeArrayIssues({} as any)).toEqual([])
+    expect(collectThemeArrayIssues(undefined)).toEqual([])
   })
 })
 
-describe('ValidateThemeValues step', () => {
+describe('ValidateThemeArrays step', () => {
   let tmp = ''
 
   beforeEach(() => {
@@ -133,12 +133,12 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'chrome'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
       compiler
     )
 
     expect(compilation.errors).toHaveLength(1)
-    expect(compilation.errors[0].name).toBe('ThemeValueInvalid')
+    expect(compilation.errors[0].name).toBe('ThemeArrayInvalid')
     const message = String(compilation.errors[0].message)
     expect(message).toContain(
       'theme.colors.toolbar [40.5,48,72], write [R, G, B]'
@@ -157,7 +157,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'chrome'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
       compiler
     )
 
@@ -180,7 +180,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'chrome'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
       compiler
     )
 
@@ -196,7 +196,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'firefox'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'firefox'} as any).apply(
       compiler
     )
 
@@ -214,7 +214,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'safari'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'safari'} as any).apply(
       compiler
     )
 
@@ -233,7 +233,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'safari'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'safari'} as any).apply(
       compiler
     )
 
@@ -250,7 +250,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({
+    new ValidateThemeArrays({
       manifestPath,
       browser: 'webkit-based'
     } as any).apply(compiler)
@@ -268,7 +268,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'chrome'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
       compiler
     )
 
