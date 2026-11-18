@@ -204,6 +204,72 @@ describe('commanderHumanError', () => {
   })
 })
 
+describe('a command handed more arguments than it takes', () => {
+  const excess = {
+    code: 'commander.excessArguments',
+    message:
+      "error: too many arguments for 'dev'. Expected 1 argument but got 3: my, extension, folder."
+  }
+
+  it('names the arguments past the last one the command takes', () => {
+    expect(humanLines(excess, 'dev')).toEqual([
+      '⏵⏵⏵ Unexpected arguments: extension, folder. extension dev takes 1 argument.',
+      'Put quotes around a path that has spaces, or run extension dev --help to see the arguments.'
+    ])
+  })
+
+  it('names a single extra argument in the singular', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.excessArguments',
+        message:
+          "error: too many arguments for 'doctor'. Expected 0 arguments but got 1: now."
+      },
+      'doctor'
+    )
+
+    expect(lines[0]).toBe(
+      '⏵⏵⏵ Unexpected argument: now. extension doctor takes no arguments.'
+    )
+  })
+
+  it('keeps E_ARGS and carries the first extra argument and the remedy in the frame', () => {
+    const frame = commanderErrorEnvelope(excess, 'dev')
+
+    expect(frame.status).toBe('usage')
+    expect(frame.error?.code).toBe('E_ARGS')
+    expect(frame.error?.refs).toEqual({argument: 'extension'})
+    expect(frame.hint).toBe(
+      'Put quotes around a path that has spaces, or run extension dev --help to see the arguments.'
+    )
+  })
+
+  it('falls back to the commander wording when the list cannot be read back', () => {
+    const lines = humanLines(
+      {
+        code: 'commander.excessArguments',
+        message:
+          "error: too many arguments for 'dev'. Expected 1 argument but got 2: a, b, c."
+      },
+      'dev'
+    )
+
+    expect(lines[0]).toBe(
+      "⏵⏵⏵ Too many arguments for 'dev'. Expected 1 argument but got 2: a, b, c."
+    )
+    expect(
+      commanderErrorEnvelope(
+        {
+          code: 'commander.excessArguments',
+          message:
+            'error: too many arguments. Expected 1 argument but got 2: a, b, c.'
+        },
+        'dev'
+      ).error?.refs
+    ).toBeUndefined()
+  })
+})
+
 describe('commanderHumanError for verbs other scaffolders use', () => {
   for (const verb of ['init', 'new']) {
     it(`points ${verb} at create`, () => {
