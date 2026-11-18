@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeEach, describe, expect, it} from 'vitest'
 import {devWatchOptions} from '../../__spec__/helpers/dev-watch-options'
 import {getProjectStructure} from '../../lib/project'
 import {
@@ -13,6 +13,7 @@ import {
 import webpackConfig from '../../rspack-config'
 import {withGoneEntryOutputsPruned} from '../session-gone-outputs'
 import {withSessionStartPrune} from '../session-start-prune'
+import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
 const roots: string[] = []
 
@@ -208,6 +209,8 @@ async function compileOnce(
 
   return shipped(path.join(root, 'dist', browser))
 }
+
+beforeEach(skipWithoutDevelopDist)
 
 describe('the browser folder after a dev session restart', () => {
   for (const browser of ['chrome', 'firefox']) {

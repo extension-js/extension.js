@@ -7,19 +7,19 @@
 
 # plugin-compatibility
 
-> Cross‑browser compatibility helpers for extension `manifest.json` and the `browser` global.
+> The `browser` global on Chromium: an opt-in polyfill, and a warning when a build reads it without one.
 
-This plugin bundles two features that make an extension project portable across browsers:
+This plugin does one of two things for a Chromium-based target, and nothing for Firefox or Safari:
 
-- Browser‑specific manifest fields are normalized so you can author once and target Chrome/Edge/Firefox/Safari via namespaced keys.
-- Optionally provides the `browser` global using `webextension-polyfill` for Chromium‑based browsers when `polyfill: true`. It is off by default in `dev`, `start` and `build`. Firefox and Safari already ship a native promise-based `browser` namespace, so the polyfill is never injected for those families.
+- With `polyfill: true`, it provides the `browser` global using `webextension-polyfill`. It is off by default in `dev`, `start` and `build`. Firefox and Safari already ship a native promise-based `browser` namespace, so the polyfill is never injected for those families.
+- With the polyfill off, it warns when the extension's own code reads `browser.*` and the manifest does not declare a Chromium version that has the namespace natively.
 
 ### Feature overview
 
 |                                                                            | Feature                                                                                                       |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Browser‑specific manifest fields**<br/>Normalize namespaced keys (e.g. `chrome:action`) into vendor output. |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **`browser` polyfill**<br/>Optionally maps the `browser` global via `webextension-polyfill` for Chromium.     |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **`browser` read warning**<br/>Warns when a build reads `browser.*` with the polyfill off.                    |
 
 ### Usage
 
@@ -51,8 +51,10 @@ export class CompatibilityPlugin {
       | 'chromium-based'
       | 'gecko-based'
     polyfill?: boolean
+    devSession?: boolean
+    command?: 'dev' | 'start' | 'build'
   })
-  apply(compiler: import('@rspack/core').Compiler): Promise<void>
+  apply(compiler: import('@rspack/core').Compiler): void
 }
 ```
 

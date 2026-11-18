@@ -9,7 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
-import type {DevOptions, Manifest} from '../../../types'
+import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
+import type {DevOptions, FilepathList, Manifest} from '../../../types'
 
 export const isRemoteUrl = (entry: string) =>
   /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
@@ -30,6 +31,53 @@ export function resolveScriptEntryPath(
   if (path.isAbsolute(entry)) return entry
 
   return path.join(manifestDir, entry)
+}
+
+// The files the manifest names apart from the ones the build withholds: a
+// withheld file is never an entry, so no step reads it or compiles it. A
+// scripts/ file is found by a walk of that folder, which no field names.
+export function splitWithheldEntries(
+  includeList: FilepathList,
+  manifestDir: string,
+  projectPath: string
+): {kept: FilepathList; withheld: FilepathList} {
+  const kept: FilepathList = {}
+  const withheld: FilepathList = {}
+
+  const isWithheld = (entry: unknown) => {
+    if (typeof entry !== 'string' || !entry || isRemoteUrl(entry)) return false
+
+    const resolved = resolveScriptEntryPath(entry, manifestDir, projectPath)
+
+    return (
+      fs.existsSync(resolved) &&
+      !sourceFileMayShip(resolved, [projectPath, manifestDir])
+    )
+  }
+
+  for (const [feature, value] of Object.entries(includeList)) {
+    if (feature.startsWith('scripts/')) {
+      kept[feature] = value
+      continue
+    }
+
+    if (Array.isArray(value)) {
+      const refused = value.filter(isWithheld)
+
+      kept[feature] = refused.length
+        ? value.filter((entry) => !refused.includes(entry))
+        : value
+
+      if (refused.length) withheld[feature] = refused
+
+      continue
+    }
+
+    if (isWithheld(value)) withheld[feature] = value
+    else kept[feature] = value
+  }
+
+  return {kept, withheld}
 }
 
 // The background entry AddScripts will actually create for an MV3 worker
@@ -56,17 +104,22 @@ export function getBackgroundWorkerEntryName(options: {
   const projectPath = options.projectPath || manifestDir
   const resolve = (entry: string) =>
     resolveScriptEntryPath(entry, manifestDir, projectPath)
+  // A file the build withholds is no entry either, like one that is absent.
+  const entriesOf = (declared: string[]) =>
+    getScriptEntries(
+      declared
+        .map(resolve)
+        .filter((file) => sourceFileMayShip(file, [projectPath, manifestDir]))
+    )
 
   if (background.service_worker) {
-    const workerEntries = getScriptEntries([
-      resolve(String(background.service_worker))
-    ])
+    const workerEntries = entriesOf([String(background.service_worker)])
     if (workerEntries.length > 0) return 'background/service_worker'
   }
 
   const scripts = Array.isArray(background.scripts) ? background.scripts : []
-  const scriptEntries = getScriptEntries(
-    scripts.filter((script) => typeof script === 'string').map(resolve)
+  const scriptEntries = entriesOf(
+    scripts.filter((script) => typeof script === 'string')
   )
   if (scriptEntries.length > 0) return 'background/scripts'
 

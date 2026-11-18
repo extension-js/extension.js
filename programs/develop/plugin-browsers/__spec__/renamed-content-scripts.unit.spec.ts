@@ -1,82 +1,50 @@
-import {describe, expect, it, vi} from 'vitest'
+import {beforeEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadInstruction} from '../../plugin-reload'
-import {type BrowserController, BrowsersPlugin} from '../index'
+import {BrowsersPlugin} from '../index'
+import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
 
+beforeEach(() => {
+  expect.hasAssertions()
+})
+
 // Gecko keeps the hashed bundle names in the manifest it registers, so each
 // compile hands the done hook the manifest with this compile's names.
 function createHarness(browser = 'firefox') {
-  const reload = vi.fn()
-  const controller: BrowserController = {
+  const reload = vi.fn<(instruction: ReloadInstruction) => void>()
+  const launcher = vi.fn().mockResolvedValue({
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-  }
-  const launcher = vi.fn().mockResolvedValue(controller)
-  const plugin = new BrowsersPlugin({
-    launcher,
-    browserOptions: {browser} as never
   })
+  const plugin = new BrowsersPlugin({launcher, browserOptions: {browser}})
   plugin.extensionsToLoad = [OUTPUT]
-  plugin.emitter.on(
-    'compiled',
-    (ev: {reloadInstruction?: ReloadInstruction}) => {
-      if (ev.reloadInstruction) reload(ev.reloadInstruction)
-    }
-  )
+  plugin.emitter.on('compiled', (ev) => {
+    if (ev.reloadInstruction) reload(ev.reloadInstruction)
+  })
 
-  let watchRunCb: (() => void) | undefined
-  const doneSync: Array<(stats: unknown) => void> = []
-  let doneCb: ((stats: unknown) => Promise<void>) | undefined
-
-  const compiler: any = {
-    options: {context: CONTEXT},
-    modifiedFiles: undefined as ReadonlySet<string> | undefined,
-    hooks: {
-      watchRun: {tap: (_: string, fn: () => void) => (watchRunCb = fn)},
-      done: {
-        tap: (_: string, fn: (s: unknown) => void) => {
-          doneSync.push(fn)
-        },
-        tapPromise: (_: string, fn: (s: unknown) => Promise<void>) =>
-          (doneCb = fn)
-      },
-      assetEmitted: {tap: () => {}}
-    }
-  }
-
-  plugin.apply(compiler)
+  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
+  plugin.apply(fake.compiler)
 
   return {
     launcher,
     reload,
     async compile(contentScript: string, modifiedFiles: string[] = []) {
-      compiler.modifiedFiles = new Set(
-        modifiedFiles.map((file) => `${CONTEXT}/${file}`)
+      fake.watchRun(modifiedFiles)
+
+      await fake.done(
+        fakeCompilation({
+          context: CONTEXT,
+          output: OUTPUT,
+          manifest: {
+            manifest_version: 3,
+            name: 'fake',
+            version: '0',
+            background: {scripts: ['background/scripts.js']},
+            content_scripts: [{matches: ['<all_urls>'], js: [contentScript]}]
+          }
+        })
       )
-
-      watchRunCb?.()
-
-      const manifestSource = JSON.stringify({
-        manifest_version: 3,
-        name: 'fake',
-        version: '0',
-        background: {scripts: ['background/scripts.js']},
-        content_scripts: [{matches: ['<all_urls>'], js: [contentScript]}]
-      })
-      const stats = {
-        compilation: {
-          errors: [],
-          options: {context: CONTEXT, output: {path: OUTPUT}},
-          getAsset: (name: string) =>
-            name === 'manifest.json'
-              ? {source: {source: () => manifestSource}}
-              : undefined
-        }
-      }
-
-      for (const fn of doneSync) fn(stats)
-      await doneCb?.(stats)
     }
   }
 }

@@ -46,8 +46,6 @@ export class PruneRemovedPublicFiles {
   }
 
   apply(compiler: Compiler) {
-    if (!compiler?.hooks?.done?.tap) return
-
     compiler.hooks.done.tap(PruneRemovedPublicFiles.name, (stats) => {
       const compilation = stats.compilation
       const outputPath = compiler.options.output?.path

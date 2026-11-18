@@ -77,7 +77,7 @@ export function reloadSurvivingPackage(
 }
 
 // A save burst collapses to one package, so its reloads collapse to one signal,
-// labelled by the newest content edit. Entries union across the burst, because
+// labeled by the newest content edit. Entries union across the burst, because
 // every content entry it touched still has to reach its open tabs.
 function mergeInstructions(
   previous: ReloadInstruction | undefined,

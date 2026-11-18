@@ -4,14 +4,10 @@ packages:
   - './programs/install'
   - './programs/develop'
   - './extensions/*'
-  # Keep staging/template/browser-extension runnable as standalone projects.
-  # They are intentionally excluded from the monorepo workspace lockfile scope.
-  - '!./extensions/staging'
-  - '!./extensions/staging/**'
+  # A local browser-extension fixture (read by the optional-deps smoke) and the
+  # hydrated templates stay standalone, outside the workspace lockfile.
   - '!./extensions/browser-extension'
   - '!./extensions/browser-extension/**'
-  - '!./browser-extension'
-  - '!./browser-extension/**'
   - '!./templates'
   - '!./templates/**'
   # Ignore dist folders used for testing

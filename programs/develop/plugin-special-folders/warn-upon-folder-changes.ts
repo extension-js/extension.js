@@ -28,7 +28,63 @@ type PendingChange = {
   filePath: string
 }
 
+function readSpecialFolderFiles(roots: SpecialFoldersRoots): Set<string> {
+  const found = new Set<string>()
+  const SKIP_DIRS = new Set([
+    'node_modules',
+    'dist',
+    'build',
+    '.git',
+    '.turbo',
+    '.next',
+    'coverage'
+  ])
+
+  const walk = (dir: string) => {
+    let entries: fs.Dirent[]
+
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      if (entry.name.startsWith('.')) continue
+      if (SKIP_DIRS.has(entry.name)) continue
+
+      const full = path.join(dir, entry.name)
+      if (entry.isFile()) found.add(full)
+      else if (entry.isDirectory()) walk(full)
+    }
+  }
+
+  for (const folderPath of Object.values(roots)) {
+    if (fs.existsSync(folderPath)) walk(folderPath)
+  }
+
+  return found
+}
+
+export interface WarnUponFolderChangesOptions {
+  // The files under the folders right now. The disk walk by default.
+  readFolderFiles?: (roots: SpecialFoldersRoots) => Set<string>
+  // Asks the live session to restart. False means no session can.
+  requestRestart?: typeof requestDevSessionRestart
+}
+
 export class WarnUponFolderChanges {
+  private readonly readFolderFiles: (roots: SpecialFoldersRoots) => Set<string>
+  private readonly requestRestart: typeof requestDevSessionRestart
+
+  constructor({
+    readFolderFiles = readSpecialFolderFiles,
+    requestRestart = requestDevSessionRestart
+  }: WarnUponFolderChangesOptions = {}) {
+    this.readFolderFiles = readFolderFiles
+    this.requestRestart = requestRestart
+  }
+
   private pendingChanges: PendingChange[] = []
   // Snapshot of files present in pages/ and scripts/ at first compile, used to
   // distinguish "newly added" from "modified" on subsequent invalidations.
@@ -50,44 +106,6 @@ export class WarnUponFolderChanges {
     this.filesOnDisk = this.readFolderFiles(roots)
 
     for (const file of this.filesOnDisk) this.knownFolderFiles.add(file)
-  }
-
-  private readFolderFiles(roots: SpecialFoldersRoots): Set<string> {
-    const found = new Set<string>()
-    const SKIP_DIRS = new Set([
-      'node_modules',
-      'dist',
-      'build',
-      '.git',
-      '.turbo',
-      '.next',
-      'coverage'
-    ])
-
-    const walk = (dir: string) => {
-      let entries: fs.Dirent[]
-
-      try {
-        entries = fs.readdirSync(dir, {withFileTypes: true})
-      } catch {
-        return
-      }
-
-      for (const entry of entries) {
-        if (entry.name.startsWith('.')) continue
-        if (SKIP_DIRS.has(entry.name)) continue
-
-        const full = path.join(dir, entry.name)
-        if (entry.isFile()) found.add(full)
-        else if (entry.isDirectory()) walk(full)
-      }
-    }
-
-    for (const folderPath of Object.values(roots)) {
-      if (fs.existsSync(folderPath)) walk(folderPath)
-    }
-
-    return found
   }
 
   // A folder that exists is watched whole. One that does not is watched by
@@ -129,7 +147,7 @@ export class WarnUponFolderChanges {
     if (isAddition) {
       // A live session picks the new entry up by restarting itself.
       if (
-        requestDevSessionRestart(compilation.compiler, {
+        this.requestRestart(compilation.compiler, {
           reason: folder === 'pages' ? 'html' : 'scripts',
           pathAfter: filePath
         })
@@ -153,7 +171,7 @@ export class WarnUponFolderChanges {
     // A live session drops the entry by restarting itself, which also clears
     // its outputs. With no session to restart, the removal stays an error.
     if (
-      requestDevSessionRestart(compilation.compiler, {
+      this.requestRestart(compilation.compiler, {
         reason: folder === 'pages' ? 'html' : 'scripts',
         pathBefore: filePath
       })
@@ -314,7 +332,7 @@ export class WarnUponFolderChanges {
 
       if (added.length !== 1 || removed.length !== 1) continue
 
-      const renamed = requestDevSessionRestart(compilation.compiler, {
+      const renamed = this.requestRestart(compilation.compiler, {
         reason: folder === 'pages' ? 'html' : 'scripts',
         pathBefore: removed[0].filePath,
         pathAfter: added[0].filePath

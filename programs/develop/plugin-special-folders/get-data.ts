@@ -449,11 +449,14 @@ function filterPublicEntrypoints(
 // The fields package scans `<dir>/pages`, `<dir>/scripts` and `<dir>/public`
 // for one dir. A folder moved elsewhere (`src/scripts`) is read from its own
 // parent and only that folder is taken from the scan; `false` turns it off.
+export type ScanSpecialFolders = typeof getSpecialFoldersData
+
 function scanSpecialFolders(
   projectRoot: string,
-  folders: SpecialFoldersConfig
+  folders: SpecialFoldersConfig,
+  scan: ScanSpecialFolders
 ): ReturnType<typeof getSpecialFoldersData> {
-  const base = getSpecialFoldersData({
+  const base = scan({
     manifestPath: path.join(projectRoot, 'package.json')
   })
   const next = {...base}
@@ -472,7 +475,7 @@ function scanSpecialFolders(
 
     if (path.resolve(projectRoot, name) === abs) continue
 
-    const scanned = getSpecialFoldersData({
+    const scanned = scan({
       manifestPath: path.join(path.dirname(abs), 'package.json')
     })
 
@@ -513,12 +516,13 @@ export function getSpecialFoldersDataForCompiler(
 export function getSpecialFoldersDataForProjectRoot(
   projectRoot: string,
   folders: SpecialFoldersConfig = rememberedFolders(projectRoot),
-  mode?: CompileMode
+  mode?: CompileMode,
+  {scan = getSpecialFoldersData}: {scan?: ScanSpecialFolders} = {}
 ): SpecialFoldersData {
   const setting = publicFolderSetting(projectRoot)
   const publicDir =
     setting.kind === 'path' ? setting.dir : path.join(projectRoot, 'public')
-  const data = scanSpecialFolders(projectRoot, folders)
+  const data = scanSpecialFolders(projectRoot, folders, scan)
 
   return finalizeSpecialFoldersData(data, projectRoot, publicDir, mode)
 }
