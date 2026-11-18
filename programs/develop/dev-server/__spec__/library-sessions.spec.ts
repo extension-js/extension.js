@@ -240,12 +240,12 @@ describe('a host that starts dev sessions from the library', () => {
     expect(result.sessions.map((session) => session.readyRunId)).toEqual(runIds)
   }, 180_000)
 
-  it('writes one failed frame and no stopped one when the host ends the session as failed', async () => {
+  it('writes one failed frame and exits 1 when the CLI host ends the session as failed', async () => {
     const {result, frames} = await runHost<{
       before: boolean
       ended: boolean
       exitCode: number | null
-    }>('end-as-failed', {EXTENSION_OUTPUT: 'ndjson'})
+    }>('end-as-failed-cli', {EXTENSION_OUTPUT: 'ndjson'})
 
     // No session was live at the first call, and one was at the second.
     expect(result).toEqual({before: false, ended: true, exitCode: 1})
@@ -260,6 +260,51 @@ describe('a host that starts dev sessions from the library', () => {
       hint: 'host hint for E_PARENT_GONE',
       value: {pid: expect.any(Number), port: expect.any(Number)}
     })
+  }, 180_000)
+
+  it('ends one of two library sessions as failed and leaves the host and the other running', async () => {
+    const {result, frames} = await runHost<{
+      bothReady: boolean
+      unknown: boolean
+      ended: boolean
+      again: boolean
+      newerSettled: boolean
+      olderRestarted: boolean
+      olderId: string
+      newerId: string
+    }>('end-as-failed', {EXTENSION_OUTPUT: 'ndjson'})
+
+    // The host printed its result and exited on its own, so it lived on.
+    expect(result).toMatchObject({
+      bothReady: true,
+      unknown: false,
+      ended: true,
+      again: false,
+      newerSettled: true,
+      olderRestarted: true
+    })
+
+    expect(result.olderId).not.toBe(result.newerId)
+
+    const failed = frames.filter((frame) => frame.status === 'failed')
+    expect(failed).toHaveLength(1)
+    expect(failed[0]).toMatchObject({
+      error: {code: 'E_PARENT_GONE', message: 'the owner is gone'},
+      value: {instanceId: result.newerId}
+    })
+
+    // The older stream goes on past it and ends only with the host's own
+    // clean exit.
+    const older = frames.filter(
+      (frame) => frame.value?.instanceId === result.olderId
+    )
+    expect(
+      older
+        .filter((frame) =>
+          ['failed', 'usage', 'stopped'].includes(frame.status)
+        )
+        .map((frame) => [frame.status, frame.ok, frame.value?.exitCode])
+    ).toEqual([['stopped', true, 0]])
   }, 180_000)
 
   it('keeps an older session restarting after a newer one lost its server', async () => {

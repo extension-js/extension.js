@@ -10,7 +10,7 @@ describe('a host ending the dev sessions of its process as failed', () => {
     )
   })
 
-  it('has each live session write its one failed frame and nothing after', () => {
+  it('has the newest live session write its one failed frame and nothing after', () => {
     const saved = process.env.EXTENSION_OUTPUT
     process.env.EXTENSION_OUTPUT = 'ndjson'
     const lines: string[] = []
@@ -22,12 +22,14 @@ describe('a host ending the dev sessions of its process as failed', () => {
       write: (line) => lines.push(line)
     })
     // Wired as the dev server wires a session.
-    const unregister = registerLiveSession((code, message) => {
+    const unregisterBroken = registerLiveSession('broken', () => {
+      throw new Error('this session could not end')
+    })
+    const unregister = registerLiveSession('newest', (code, message) => {
       stream.failed(message, code)
       ended.push('shutdown')
-    })
-    const unregisterBroken = registerLiveSession(() => {
-      throw new Error('this session could not end')
+
+      return true
     })
 
     try {
@@ -67,6 +69,43 @@ describe('a host ending the dev sessions of its process as failed', () => {
       if (saved === undefined) {
         Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
       } else process.env.EXTENSION_OUTPUT = saved
+    }
+  })
+})
+
+describe('a host naming the dev session it ends as failed', () => {
+  it('ends only the session it names, or the newest, and says when none was', () => {
+    const ended: string[] = []
+    const session = (id: string) =>
+      registerLiveSession(id, () => {
+        if (ended.includes(id)) return false
+
+        ended.push(id)
+
+        return true
+      })
+    const unregister = [session('older'), session('newer')]
+
+    try {
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone', 'missing')).toBe(
+        false
+      )
+
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone', 'older')).toBe(
+        true
+      )
+
+      expect(ended).toEqual(['older'])
+
+      // A session that is already ending says so and nothing else ends.
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone', 'older')).toBe(
+        false
+      )
+
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone')).toBe(true)
+      expect(ended).toEqual(['older', 'newer'])
+    } finally {
+      for (const off of unregister) off()
     }
   })
 })

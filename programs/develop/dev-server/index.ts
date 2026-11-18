@@ -1388,12 +1388,32 @@ async function startDevSession(
   )
   holdings.addForRelease(disposeCleanupHandlers)
 
-  // A host that knows the session cannot go on ends it through here, so the
-  // one terminal frame is the stream's own and the shutdown is the usual one.
+  // A host that knows the session cannot go on ends it through here. The CLI
+  // shuts down and exits 1, a library host keeps running with one session less.
   holdings.addEarly(
-    registerLiveSession((code, message) => {
+    registerLiveSession(currentInstance.instanceId, (code, message) => {
+      // A session already stopping keeps the frame and exit code it has.
+      if (isShuttingDown) return false
+
       lifecycle.failed(message, code)
-      void disposeCleanupHandlers.endAsFailed()
+
+      if (exitOnStartFailure) {
+        void disposeCleanupHandlers.endAsFailed()
+
+        return true
+      }
+
+      isShuttingDown = true
+      sessionRestart.dispose()
+      unbindDevSessionRestart(sessionRestart)
+      void releaseEndedSession({
+        server: currentServer ?? {},
+        releasePort: () => portManager.terminateCurrentInstance(),
+        closeControlBridge: controlBridge.close,
+        holdings
+      })
+
+      return true
     })
   )
 }
