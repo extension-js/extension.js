@@ -47,6 +47,8 @@ export interface CompileOptions {
   // Copied verbatim from context, so the asset hooks see real .json and .html.
   copy?: string[]
   nodeEnv?: string | false
+  // Last word on the config, for a spec that needs what the real config sets.
+  configure?: (config: Configuration) => void
 }
 
 export function createCompiler(options: CompileOptions): Compiler {
@@ -75,6 +77,8 @@ export function createCompiler(options: CompileOptions): Compiler {
     stats: false,
     infrastructureLogging: {level: 'none'}
   }
+
+  options.configure?.(config)
 
   return rspack(config)
 }

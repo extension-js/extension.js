@@ -317,6 +317,14 @@ export function sidebarKeyTranslatedForBrowser(
   )
 }
 
+export function geckoServiceWorkerTranslated(browser: string) {
+  return (
+    `${prefix('info')} The build moved ${colors.yellow('background.service_worker')} into ${colors.yellow('background.scripts')} for ${colors.blue(browser)}, which never starts a service worker. ` +
+    `The background runs as an event page from the same compiled script.\n` +
+    `Declare ${colors.yellow('scripts')} beside ${colors.yellow('service_worker')}, or a ${colors.yellow('firefox:background')} key, to state the Firefox background in the source.`
+  )
+}
+
 export function pageKeptAtAuthoredPath(
   fields: string[],
   authored: string,
