@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {strFromU8, unzipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {ZipPlugin} from '../zip'
+import {findSessionFolders, ZipPlugin} from '../zip'
 
 function readZip(zipPath: string): Record<string, string> {
   const unzipped = unzipSync(new Uint8Array(fs.readFileSync(zipPath)))
@@ -96,78 +96,192 @@ describe('the source zip and a build folder that is not the top-level dist', () 
     fs.rmSync(root, {recursive: true, force: true})
   })
 
-  // Pins today's behavior: a build run from src leaves src/dist behind.
-  it('packs a nested dist and the session folder inside it', async () => {
+  // A build run from src leaves src/dist behind, session folder included.
+  it('leaves out a nested dist that holds a session folder', async () => {
     const outPath = path.join(root, 'dist', 'chrome')
     write(path.join(outPath, 'manifest.json'), BUILT_MANIFEST)
     writeSessionFolder(path.join(root, 'dist', 'extension-js'), 'TOP')
     write(path.join(root, 'src', 'dist', 'chrome', 'manifest.json'), 'OLD')
     writeSessionFolder(path.join(root, 'src', 'dist', 'extension-js'), 'NESTED')
 
-    await zipProject(root, outPath, {zipSource: true})
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
 
+    expect(Object.keys(packed).sort()).toEqual([
+      'manifest.json',
+      'src/background.ts'
+    ])
+
+    expect(Object.values(packed).join('\n')).not.toMatch(/NESTED|TOP|OLD/)
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/The source zip left out a folder/)
+    expect(warnings[0]).toMatch(/LEFT OUT\S* src\/dist\n/)
+  })
+
+  it('leaves out a session folder that sits outside any dist', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    writeSessionFolder(path.join(root, 'tools', 'extension-js'), 'LOOSE')
+    write(path.join(root, 'tools', 'release.mjs'), 'SCRIPT')
+
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
     const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
 
     expect(Object.keys(packed).sort()).toEqual([
       'manifest.json',
       'src/background.ts',
-      'src/dist/chrome/manifest.json',
-      'src/dist/extension-js/.gitignore',
-      'src/dist/extension-js/chrome/control-token',
-      'src/dist/extension-js/chrome/events.ndjson',
-      'src/dist/extension-js/chrome/ready.json',
-      'src/dist/extension-js/profiles/chrome-profile/dev/Cookies'
+      'tools/release.mjs'
     ])
 
-    expect(packed['src/dist/extension-js/chrome/ready.json']).toBe(
-      'NESTED-READY'
-    )
-
-    expect(
-      packed['src/dist/extension-js/profiles/chrome-profile/dev/Cookies']
-    ).toBe('NESTED-PROFILE')
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/LEFT OUT\S* tools\/extension-js\n/)
   })
 
-  // Pins today's behavior for a session folder with no dist above it.
-  it('packs a session folder that sits outside any dist', async () => {
-    const outPath = path.join(root, 'dist', 'chrome')
-    fs.mkdirSync(outPath, {recursive: true})
-    writeSessionFolder(path.join(root, 'tools', 'extension-js'), 'LOOSE')
-
-    await zipProject(root, outPath, {zipSource: true})
-
-    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
-
-    expect(packed['tools/extension-js/chrome/ready.json']).toBe('LOOSE-READY')
-    expect(
-      packed['tools/extension-js/profiles/chrome-profile/dev/Cookies']
-    ).toBe('LOOSE-PROFILE')
-  })
-
-  // Pins today's behavior under a custom output folder such as build/chrome.
-  it('packs the session folder beside a custom output folder', async () => {
+  // The folder beside the current output is expected, so nothing is said.
+  it('leaves out the session folder beside a custom output folder', async () => {
     const outPath = path.join(root, 'build', 'chrome')
     write(path.join(outPath, 'manifest.json'), BUILT_MANIFEST)
     writeSessionFolder(path.join(root, 'build', 'extension-js'), 'CUSTOM')
 
-    await zipProject(root, outPath, {zipSource: true})
-
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
     const packed = readZip(path.join(root, 'build', 'packed-1.0.0-source.zip'))
 
-    expect(packed['build/extension-js/chrome/ready.json']).toBe('CUSTOM-READY')
-    expect(packed['build/chrome/manifest.json']).toBeUndefined()
+    expect(Object.keys(packed).sort()).toEqual([
+      'manifest.json',
+      'src/background.ts'
+    ])
+
+    expect(warnings).toEqual([])
   })
 
+  // A vendored library ships its own dist, and a reviewer needs it to build.
   it('keeps a source folder named dist that holds no session folder', async () => {
     const outPath = path.join(root, 'dist', 'chrome')
     fs.mkdirSync(outPath, {recursive: true})
     write(path.join(root, 'vendor', 'lib', 'dist', 'lib.min.js'), 'LIB')
 
-    await zipProject(root, outPath, {zipSource: true})
-
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
     const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
 
     expect(packed['vendor/lib/dist/lib.min.js']).toBe('LIB')
+    expect(warnings).toEqual([])
+  })
+
+  it('keeps a package named extension-js and leaves out the dist it built', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    const pkg = path.join(root, 'packages', 'extension-js')
+    write(path.join(pkg, 'package.json'), '{"name":"mine"}')
+    write(path.join(pkg, 'src', 'index.ts'), 'export const b = 2')
+    write(path.join(pkg, 'dist', 'chrome', 'manifest.json'), 'OLD')
+    writeSessionFolder(path.join(pkg, 'dist', 'extension-js'), 'PKG')
+
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
+
+    expect(Object.keys(packed).sort()).toEqual([
+      'manifest.json',
+      'packages/extension-js/package.json',
+      'packages/extension-js/src/index.ts',
+      'src/background.ts'
+    ])
+
+    expect(warnings[0]).toMatch(/LEFT OUT\S* packages\/extension-js\/dist\n/)
+  })
+
+  // The name alone is enough to leave a folder out, and the warning says so.
+  it('leaves out a folder named extension-js that holds no package.json', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(path.join(root, 'docs', 'extension-js', 'notes.md'), 'NOTES')
+
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
+
+    expect(packed['docs/extension-js/notes.md']).toBeUndefined()
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/LEFT OUT\S* docs\/extension-js\n/)
+    expect(warnings[0]).toMatch(/packed once it holds a package\.json/)
+  })
+
+  it('says nothing about a nested dist the root .gitignore already covers', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(path.join(root, '.gitignore'), 'dist\n')
+    writeSessionFolder(path.join(root, 'src', 'dist', 'extension-js'), 'NESTED')
+
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
+
+    expect(Object.keys(packed).sort()).toEqual([
+      '.gitignore',
+      'manifest.json',
+      'src/background.ts'
+    ])
+
+    expect(warnings).toEqual([])
+  })
+})
+
+describe('findSessionFolders', () => {
+  const session = [
+    'src/dist/chrome/manifest.json',
+    'src/dist/extension-js/chrome/ready.json',
+    'tools/extension-js/profiles/chrome-profile/dev/Cookies',
+    'packages/extension-js/package.json',
+    'packages/extension-js/src/index.ts',
+    'src/extension-js.ts'
+  ]
+
+  it('names the same folders whichever separator the listing uses', () => {
+    const windows = session.map((file) => file.replace(/\//g, '\\'))
+
+    expect(findSessionFolders(session, 'source')).toEqual([
+      'src/dist',
+      'tools/extension-js'
+    ])
+
+    expect(findSessionFolders(windows, 'source')).toEqual([
+      'src/dist',
+      'tools/extension-js'
+    ])
+  })
+
+  it('takes a dist that holds the folder whole, a package.json inside or not', () => {
+    expect(
+      findSessionFolders(
+        ['a/dist/extension-js/package.json', 'a/dist/index.js'],
+        'source'
+      )
+    ).toEqual(['a/dist'])
+  })
+
+  it('takes a package of its own once it holds session files', () => {
+    expect(
+      findSessionFolders(
+        ['extension-js/package.json', 'extension-js/firefox/events.ndjson'],
+        'source'
+      )
+    ).toEqual(['extension-js'])
+  })
+
+  it('names an outer folder once when a session folder sits inside another', () => {
+    expect(
+      findSessionFolders(
+        ['extension-js/profiles/p/extension-js/chrome/ready.json'],
+        'source'
+      )
+    ).toEqual(['extension-js'])
+  })
+
+  it('needs session files in build output, where the name alone is an asset', () => {
+    expect(findSessionFolders(['extension-js/logo.png'], 'output')).toEqual([])
+    expect(
+      findSessionFolders(
+        ['extension-js\\logo.png', 'extension-js\\chrome\\ready.json'],
+        'output'
+      )
+    ).toEqual(['extension-js'])
   })
 })
 

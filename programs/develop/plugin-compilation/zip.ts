@@ -236,6 +236,90 @@ function isUnder(file: string, root: string | undefined): boolean {
   return file === root || file.startsWith(`${root}/`)
 }
 
+// A build writes its session folder beside the browser folder of whatever
+// output it used, so one can sit anywhere a build once ran.
+const SESSION_DIR = 'extension-js'
+const SESSION_SUBDIRS = new Set(['profiles', 'binaries'])
+const SESSION_FILES = new Set([
+  'ready.json',
+  'events.ndjson',
+  'logs.ndjson',
+  'actions.ndjson',
+  'build-summary.json',
+  'control-port'
+])
+
+interface SessionDirFacts {
+  ownPackage: boolean
+  sessionFiles: boolean
+}
+
+function sessionDirFacts(files: string[]): Map<string, SessionDirFacts> {
+  const facts = new Map<string, SessionDirFacts>()
+
+  for (const file of files) {
+    const segments = toPosix(file).split('/')
+
+    for (let index = 0; index < segments.length - 1; index++) {
+      if (segments[index] !== SESSION_DIR) continue
+
+      const dir = segments.slice(0, index + 1).join('/')
+      const rest = segments.slice(index + 1)
+      const known = facts.get(dir) || {ownPackage: false, sessionFiles: false}
+
+      if (rest.length === 1 && rest[0] === 'package.json') {
+        known.ownPackage = true
+      }
+
+      if (
+        (rest.length > 1 && SESSION_SUBDIRS.has(rest[0])) ||
+        (rest.length === 2 && SESSION_FILES.has(rest[1]))
+      ) {
+        known.sessionFiles = true
+      }
+
+      facts.set(dir, known)
+    }
+  }
+
+  return facts
+}
+
+// In source the name alone decides, unless the folder is a package of its
+// own. In build output only session files do, so a same-named asset ships.
+export function findSessionFolders(
+  files: string[],
+  within: 'source' | 'output'
+): string[] {
+  const folders = new Set<string>()
+
+  for (const [dir, known] of sessionDirFacts(files)) {
+    const parent = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : ''
+    const parentName = parent.slice(parent.lastIndexOf('/') + 1)
+    // A dist that holds the folder is a build: the whole of it goes.
+    const insideDist = within === 'source' && parentName === DEFAULT_OUTPUT_DIR
+    const isSession =
+      known.sessionFiles ||
+      insideDist ||
+      (within === 'source' && !known.ownPackage)
+
+    if (isSession) folders.add(insideDist ? parent : dir)
+  }
+
+  const sorted = inArchiveOrder([...folders])
+
+  return sorted.filter(
+    (folder) =>
+      !sorted.some((other) => other !== folder && isUnder(folder, other))
+  )
+}
+
+function isUnderAny(file: string, folders: string[]): boolean {
+  const posix = toPosix(file)
+
+  return folders.some((folder) => isUnder(posix, folder))
+}
+
 function relativeWithin(
   projectDir: string,
   target: string
@@ -265,6 +349,10 @@ export function isBuildOutput(
 
   if (isUnder(posix, relativeWithin(projectDir, output.outPath))) return true
 
+  const sessionDir = path.join(path.dirname(output.outPath), SESSION_DIR)
+
+  if (isUnder(posix, relativeWithin(projectDir, sessionDir))) return true
+
   const fileDir = posix.includes('/')
     ? posix.slice(0, posix.lastIndexOf('/'))
     : ''
@@ -282,7 +370,11 @@ export function isBuildOutput(
 export async function getFilesToZip(
   projectDir: string,
   output?: BuildOutput
-): Promise<{files: string[]; skippedLinks: string[]}> {
+): Promise<{
+  files: string[]
+  skippedLinks: string[]
+  skippedFolders: string[]
+}> {
   const gitignorePath = path.join(projectDir, '.gitignore')
   const ig = ignore()
 
@@ -308,13 +400,19 @@ export async function getFilesToZip(
     })
   ).map(toPosix)
 
-  const kept = files.filter(
+  const candidates = files.filter(
     (file) =>
       !isDeniedFromSourceZip(file) &&
       !(output && isBuildOutput(file, projectDir, output)) &&
       !ig.ignores(file) &&
       !isCompanionExtension(file)
   )
+  // Read from the whole listing, so an ignore rule cannot hide the files
+  // that tell a session folder apart. Only folders that lost a file are named.
+  const skippedFolders = findSessionFolders(files, 'source').filter((folder) =>
+    candidates.some((file) => isUnder(file, folder))
+  )
+  const kept = candidates.filter((file) => !isUnderAny(file, skippedFolders))
   // tiny-glob lists a symlink as a regular file and does not descend into it,
   // so reading one threw EISDIR or ENOENT and took the whole archive down.
   const regularFiles: string[] = []
@@ -325,7 +423,7 @@ export async function getFilesToZip(
     else skippedLinks.push(file)
   }
 
-  return {files: regularFiles, skippedLinks}
+  return {files: regularFiles, skippedLinks, skippedFolders}
 }
 
 function isRegularFile(absPath: string): boolean {
@@ -452,11 +550,25 @@ export class ZipPlugin {
         // take the dist zip down with it, and neither was reported as missing.
         if (this.zipData.zipSource) {
           try {
-            const {files, skippedLinks} = await getFilesToZip(packageJsonDir, {
-              outPath,
-              archives: [sourcePath, distPath],
-              archiveDir: this.zipData.zipDir
-            })
+            const {files, skippedLinks, skippedFolders} = await getFilesToZip(
+              packageJsonDir,
+              {
+                outPath,
+                archives: [sourcePath, distPath],
+                archiveDir: this.zipData.zipDir
+              }
+            )
+
+            if (skippedFolders.length) {
+              stats?.compilation?.warnings?.push(
+                new Error(
+                  compilationMessages.zipLeftOutSessionFolders(
+                    'source',
+                    skippedFolders
+                  )
+                )
+              )
+            }
 
             if (skippedLinks.length) {
               stats?.compilation?.warnings?.push(

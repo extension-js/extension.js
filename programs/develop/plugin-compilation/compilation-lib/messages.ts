@@ -50,6 +50,25 @@ export function zipMissingDefaultLocale(
   )
 }
 
+// A folder left out is named, so a source folder that shares the session
+// folder's name is never dropped without a word.
+export function zipLeftOutSessionFolders(
+  kind: 'source' | 'dist',
+  folders: string[]
+) {
+  const one = folders.length === 1
+  const archive = kind === 'source' ? 'source zip' : 'extension zip'
+
+  return (
+    `${prefix('warn')} The ${archive} left out ${one ? 'a folder' : `${folders.length} folders`} that Extension.js writes while it builds and runs, not part of the extension.\n` +
+    `${colors.gray('LEFT OUT')} ${folders.join(', ')}\n` +
+    `Delete ${one ? 'it' : 'them'} while no session is running.` +
+    (kind === 'source'
+      ? ' A folder of your own named extension-js is packed once it holds a package.json.'
+      : '')
+  )
+}
+
 export function zipCreationFailed(error: unknown) {
   return `ZipPlugin: Failed to create zip(s): ${String(error)}`
 }
