@@ -8,6 +8,7 @@ import {
   stubProcessExit
 } from './command-harness'
 import {trackTempFolders} from './helpers/temp-folders'
+import {developStandIn} from './helpers/engine-stand-ins'
 
 // A real folder: a typed path that is not there is refused before the engine.
 const PROJECT = trackTempFolders()('extjs-dev-spec-')
@@ -38,17 +39,18 @@ const deps: DevDeps = {
   },
   // The real one sends a failure row through the CLI's own telemetry.
   reportFailure: () => {},
-  loadDevelop: async () => ({
-    extensionDev: async (...call: EngineCall) => {
-      engineCalls.push(call)
-      await engine(...call)
-    },
-    loadCommandConfig: async (...args: unknown[]) => {
-      configReads.push(args)
+  loadDevelop: async () =>
+    developStandIn({
+      extensionDev: async (...call: EngineCall) => {
+        engineCalls.push(call)
+        await engine(...call)
+      },
+      loadCommandConfig: async (...args: unknown[]) => {
+        configReads.push(args)
 
-      return commandConfig
-    }
-  }),
+        return commandConfig
+      }
+    }),
   launcher,
   safariPreflight: () => preflightIssue,
   armParentWatchdog: ((pid: number, options: {emitFrame: () => void}) => {

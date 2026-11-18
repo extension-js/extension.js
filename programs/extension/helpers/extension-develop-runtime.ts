@@ -33,6 +33,9 @@ export type DevelopFor<K extends keyof DevelopModule = never> = Pick<
 > &
   Partial<Pick<DevelopModule, 'loadCommandConfig'>>
 
+// The engine is refused at any other version, so its bridge has every export.
+export type DevelopBridge = typeof import('extension-develop/bridge')
+
 export type DevelopBrowser = import('extension-develop').BrowserType
 export type DevelopLauncher = import('extension-develop').BrowserLauncherFn
 export type DevelopPreviewLauncher =
@@ -397,7 +400,7 @@ export async function loadExtensionDevelopPreviewModule<
 
 // Load only the lightweight agent-bridge entry for extension logs;
 // avoids pulling in rspack like preview does.
-export async function loadExtensionDevelopBridgeModule<T = AnyDevelopModule>(
+export async function loadExtensionDevelopBridgeModule<T = DevelopBridge>(
   startDir: string = __dirname
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)

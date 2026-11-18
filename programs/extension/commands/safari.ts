@@ -29,7 +29,7 @@ import {
 } from '../browsers/run-safari/safari-ui'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
+  type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -55,7 +55,7 @@ const COMMAND = 'safari'
 // What an action reaches outside this file. Production takes every default.
 interface SafariCommandDeps {
   createUiTools?: () => SafariUiTools
-  loadBridge?: () => Promise<AnyDevelopModule>
+  loadBridge?: () => Promise<DevelopBridge>
 }
 
 function writeFrame(frame: unknown): void {
@@ -147,7 +147,7 @@ export interface ResolvedSafariTarget {
 export async function resolveSafariTarget(
   projectPathArg: string | undefined,
   opts: SafariCommandOptions,
-  loadBridge: () => Promise<AnyDevelopModule> = loadExtensionDevelopBridgeModule
+  loadBridge: () => Promise<DevelopBridge> = loadExtensionDevelopBridgeModule
 ): Promise<ResolvedSafariTarget> {
   const bridge = await loadBridge()
   const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
@@ -211,7 +211,7 @@ async function runAction(
   projectPathArg: string | undefined,
   opts: SafariCommandOptions,
   createUiTools: () => SafariUiTools,
-  loadBridge: () => Promise<AnyDevelopModule>
+  loadBridge: () => Promise<DevelopBridge>
 ): Promise<unknown> {
   const tools = createUiTools()
 

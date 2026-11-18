@@ -31,42 +31,44 @@ const marks = {failures: [] as Array<Record<string, unknown>>}
 
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
-const loadBridge = async () => ({
-  readReadyContract: (_projectPath: string, browser: string) => {
-    bridge.sessionReads.push(browser)
+const loadBridge = async () =>
+  bridgeStandIn({
+    readReadyContract: (_projectPath: string, browser: string) => {
+      bridge.sessionReads.push(browser)
 
-    return typeof bridge.ready === 'function'
-      ? (bridge.ready as (b: string) => unknown)(browser)
-      : bridge.ready
-  },
-  readReadyContractDocument: () => bridge.readyDoc,
-  readControlToken: (...args: unknown[]) => {
-    bridge.tokenReads.push(args)
+      return typeof bridge.ready === 'function'
+        ? (bridge.ready as (b: string) => unknown)(browser)
+        : bridge.ready
+    },
+    readReadyContractDocument: () => bridge.readyDoc,
+    readControlToken: (...args: unknown[]) => {
+      bridge.tokenReads.push(args)
 
-    return bridge.token
-  },
-  BridgeController: class {
-    opts: any
-    closed = false
-    constructor(opts: any) {
-      this.opts = opts
-      bridge.controllers.push(this)
-    }
-    async connect() {
-      if (bridge.connectError) throw bridge.connectError
-    }
-    async command(payload: any) {
-      bridge.commands.push(payload)
-      if (bridge.commandError) throw bridge.commandError
+      return bridge.token
+    },
+    BridgeController: class {
+      opts: any
+      closed = false
+      constructor(opts: any) {
+        this.opts = opts
+        bridge.controllers.push(this)
+      }
+      async connect() {
+        if (bridge.connectError) throw bridge.connectError
+      }
+      async command(payload: any) {
+        bridge.commands.push(payload)
+        if (bridge.commandError) throw bridge.commandError
 
-      return bridge.result
+        return bridge.result
+      }
+      close() {
+        this.closed = true
+      }
     }
-    close() {
-      this.closed = true
-    }
-  }
-})
+  })
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>

@@ -20,7 +20,7 @@ import {declaredErrorCode} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
+  type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import {
@@ -491,7 +491,7 @@ async function browserCheck(
 
 // What a diagnosis reaches outside this file. Production takes every default.
 export interface DoctorDeps {
-  loadBridge?: () => Promise<AnyDevelopModule>
+  loadBridge?: () => Promise<DevelopBridge>
   engineVersion?: typeof engineRspackVersion
   scanPeers?: typeof scanRspackPeers
   pidStartedAt?: typeof pidStartedAtMs
@@ -642,7 +642,7 @@ export async function runDoctor(
 
   // The reader keeps only the fields it types; why a session failed (`code`,
   // `message`, `errors`) is on the document itself.
-  const failure = {...ready, ...(document ?? {})}
+  const failure: Record<string, unknown> = {...ready, ...(document ?? {})}
 
   if (ready.status === 'ready') {
     results.push({

@@ -13,7 +13,7 @@ import {refuseUnlistedChoices} from '../helpers/choice-flags'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
+  type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
@@ -315,7 +315,7 @@ function writeFrame(frame: unknown): void {
 
 // The bridge loader is the one thing the action reaches outside this file.
 interface LogsCommandDeps {
-  loadBridge?: () => Promise<AnyDevelopModule>
+  loadBridge?: () => Promise<DevelopBridge>
 }
 
 export function registerLogsCommand(
@@ -560,7 +560,7 @@ async function followLogs(
   browser: string,
   format: 'pretty' | 'json' | 'ndjson',
   matches: (e: LogEventLike) => boolean,
-  loadBridge: () => Promise<AnyDevelopModule>
+  loadBridge: () => Promise<DevelopBridge>
 ) {
   const bridge = await loadBridge()
   const {BridgeConsumer, readReadyContract} = bridge
@@ -624,7 +624,7 @@ async function followLogs(
     const current = readReadyContract(projectPath, browser)
 
     return (
-      Boolean(current) &&
+      current !== null &&
       current.status !== 'stopped' &&
       current.instanceId === ready.instanceId &&
       current.controlPort === ready.controlPort

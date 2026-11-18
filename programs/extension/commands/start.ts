@@ -26,9 +26,9 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type DevelopBrowser,
-  type DevelopPreviewLauncher,
-  type AnyDevelopModule,
   type DevelopFor,
+  type DevelopModule,
+  type DevelopPreviewLauncher,
   type DevelopPreviewModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
@@ -126,8 +126,8 @@ function failAndExit(
 
 // What the action reaches outside this file. Production takes every default.
 interface StartCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
-  loadPreview?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
+  loadPreview?: () => Promise<DevelopPreviewModule>
   runBrowser?: typeof runOnlyPreviewBrowser
   waitForReady?: typeof runWaitMode
   noteBrowsers?: typeof noteRunBrowsers

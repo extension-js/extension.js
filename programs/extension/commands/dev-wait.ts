@@ -20,7 +20,7 @@ import {
   markErrorFramed
 } from '../helpers/cli-failure'
 import {
-  type AnyDevelopModule,
+  type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -77,7 +77,7 @@ export type RunWaitModeOptions = {
 export type WaitModeDeps = {
   now?: () => number
   sleep?: (ms: number) => Promise<void>
-  loadBridge?: () => Promise<AnyDevelopModule>
+  loadBridge?: () => Promise<DevelopBridge>
   pidStartedAt?: (pid: number | null | undefined) => number | null
 }
 
@@ -105,12 +105,12 @@ function isHttpUrl(value?: string): boolean {
 // argument has to resolve the way dev resolves it, not as given.
 async function resolveProjectPath(
   pathOrRemoteUrl: string | undefined,
-  loadBridge: () => Promise<AnyDevelopModule>
+  loadBridge: () => Promise<DevelopBridge>
 ): Promise<{
   projectPath: string
-  bridge: unknown
+  bridge: DevelopBridge | undefined
 }> {
-  let bridge: unknown
+  let bridge: DevelopBridge | undefined
 
   // A coded refusal (no engine, an unbuilt one, another version) means no
   // session of this install can come up, so the wait answers it at once. An

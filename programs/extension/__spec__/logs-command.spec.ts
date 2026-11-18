@@ -20,15 +20,18 @@ import {
 } from '../../develop/dev-server/control-bridge/log-rule'
 import {LOG_CONTEXTS, registerLogsCommand} from '../commands/logs'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
-const loadBridge = async () => ({
-  ...(await import('../../develop/dev-server/control-bridge/logs-query')),
-  readReadyContract: (...args: unknown[]) => readReadyContract(...(args as [])),
-  BridgeConsumer: class {
-    start() {}
-    close() {}
-  }
-})
+const loadBridge = async () =>
+  bridgeStandIn({
+    ...(await import('../../develop/dev-server/control-bridge/logs-query')),
+    readReadyContract: (...args: unknown[]) =>
+      readReadyContract(...(args as [])),
+    BridgeConsumer: class {
+      start() {}
+      close() {}
+    }
+  })
 
 const EVENTS = [
   {v: 1, type: 'header', runId: 'r'},

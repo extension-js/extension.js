@@ -11,6 +11,7 @@ import {
   stubProcessExit
 } from './command-harness'
 import {trackTempFolders} from './helpers/temp-folders'
+import {developStandIn} from './helpers/engine-stand-ins'
 
 // A real folder: a typed path that is not there is refused before the engine.
 const PROJECT = trackTempFolders()('extjs-build-spec-')
@@ -37,18 +38,19 @@ const deps: BuildDeps = {
   noteBrowsers: (resolved) => {
     notedBrowsers.push([...resolved])
   },
-  loadDevelop: async () => ({
-    extensionBuild: async (...call: EngineCall) => {
-      builds.push(call)
+  loadDevelop: async () =>
+    developStandIn({
+      extensionBuild: async (...call: EngineCall) => {
+        builds.push(call)
 
-      return build()
-    },
-    loadCommandConfig: async (...args: unknown[]) => {
-      configReads.push(args)
+        return build()
+      },
+      loadCommandConfig: async (...args: unknown[]) => {
+        configReads.push(args)
 
-      return commandConfig
-    }
-  }),
+        return commandConfig
+      }
+    }),
   safariPreflight: () => preflight as Preflight,
   // The real packager drives Xcode, so the factory records what build asked of it.
   createPackager: ((options: unknown) => {

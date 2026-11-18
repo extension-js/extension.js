@@ -21,6 +21,11 @@ import {
   stubProcessExit
 } from './command-harness'
 import {trackTempFolders} from './helpers/temp-folders'
+import {
+  bridgeStandIn,
+  developStandIn,
+  previewStandIn
+} from './helpers/engine-stand-ins'
 
 const makeTempFolder = trackTempFolders()
 
@@ -31,19 +36,21 @@ const runBrowser = vi.fn(async () => {})
 const consumerCloses = vi.fn()
 const readReadyContract = vi.fn((): unknown => null)
 
-const loadDevelop = async () => ({extensionBuild, loadCommandConfig})
-const loadPreview = async () => ({extensionPreview})
+const loadDevelop = async () =>
+  developStandIn({extensionBuild, loadCommandConfig})
+const loadPreview = async () => previewStandIn({extensionPreview})
 
-const loadBridge = async () => ({
-  ...(await import('../../develop/dev-server/control-bridge/logs-query')),
-  readReadyContract: () => readReadyContract(),
-  BridgeConsumer: class {
-    start() {}
-    close() {
-      consumerCloses()
+const loadBridge = async () =>
+  bridgeStandIn({
+    ...(await import('../../develop/dev-server/control-bridge/logs-query')),
+    readReadyContract: () => readReadyContract(),
+    BridgeConsumer: class {
+      start() {}
+      close() {
+        consumerCloses()
+      }
     }
-  }
-})
+  })
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>
