@@ -1,93 +1,66 @@
 import * as path from 'node:path'
-import {beforeEach, describe, expect, it, vi} from 'vitest'
-
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<any>('fs')
-
-  return {
-    ...actual,
-    existsSync: vi.fn(() => true),
-    lstatSync: vi.fn(() => ({isFile: () => true}))
-  }
-})
-
-const producerCtor = vi.hoisted(() =>
-  vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-)
-const relayCtor = vi.hoisted(() =>
-  vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-)
-const inert = vi.hoisted(
-  () => () =>
-    vi.fn(function (this: any) {
-      this.apply = () => {}
-    })
-)
-
-vi.mock('../steps/setup-reload-strategy', () => ({
-  SetupReloadStrategy: inert()
-}))
-
-vi.mock('../steps/strip-content-script-dev-server-runtime', () => ({
-  StripContentScriptDevServerRuntime: inert()
-}))
-
-vi.mock('../steps/inject-scripts-replay-shim', () => ({
-  InjectScriptsReplayShim: inert()
-}))
-
-vi.mock('../steps/prune-stale-hot-updates', () => ({
-  PruneStaleHotUpdates: inert()
-}))
-
-const devContentScriptsCtor = vi.hoisted(() =>
-  vi.fn(function (this: any) {
-    this.apply = () => {}
-  })
-)
-
-vi.mock('../steps/setup-dev-content-scripts', () => ({
-  SetupDevContentScripts: devContentScriptsCtor
-}))
-
-vi.mock('../steps/inject-bridge-producer', () => ({
-  InjectBridgeProducer: producerCtor
-}))
-
-vi.mock('../steps/inject-bridge-relay', () => ({
-  InjectBridgeRelay: relayCtor
-}))
-
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  idleCompiler,
+  tapsAddedBy,
+  writeProject
+} from '../../__spec__/helpers/real-compiler'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {ReloadPlugin} from '../index'
 
-const manifestPath = path.join(__dirname, '__fixtures__', 'manifest.json')
-const compiler = {options: {mode: 'development', module: {rules: []}}} as any
+const makeTempFolder = trackTempFolders()
+
+function thisCompilationTaps(browser: string) {
+  const root = writeProject(makeTempFolder('extjs-reload-engine-'), {
+    'manifest.json': {
+      manifest_version: 3,
+      name: 'engine',
+      version: '1.0.0',
+      background: {service_worker: 'src/background.js'},
+      content_scripts: [{matches: ['<all_urls>'], js: ['src/content.js']}]
+    },
+    'src/background.js': '',
+    'src/content.js': ''
+  })
+  const compiler = idleCompiler(root, 'development')
+  const taps = tapsAddedBy(compiler, () =>
+    new ReloadPlugin({
+      manifestPath: path.join(root, 'manifest.json'),
+      browser
+    } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
+  )
+
+  return taps.thisCompilation
+}
+
+beforeEach(() => {
+  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+  vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 describe('ReloadPlugin producer injection per engine', () => {
-  beforeEach(() => {
-    producerCtor.mockClear()
-    relayCtor.mockClear()
-    devContentScriptsCtor.mockClear()
-  })
-
   it('injects the reload producer and relay for chromium', () => {
-    new ReloadPlugin({manifestPath, browser: 'chromium'} as any).apply(compiler)
-    expect(producerCtor).toHaveBeenCalledTimes(1)
-    expect(relayCtor).toHaveBeenCalledTimes(1)
-    expect(devContentScriptsCtor).toHaveBeenCalledTimes(1)
+    expect(thisCompilationTaps('chromium')).toEqual([
+      'StripContentScriptDevServerRuntime',
+      'StableContentScriptNames',
+      'NoDangerNamePlugin',
+      'InjectScriptsReplayShim',
+      'SetupDevContentScripts',
+      'InjectBridgeProducer',
+      'InjectBridgeRelay'
+    ])
   })
 
   it('never injects them into the user background for chromium-emulator', () => {
-    new ReloadPlugin({manifestPath, browser: 'chromium-emulator'} as any).apply(
-      compiler
-    )
-
-    expect(producerCtor).not.toHaveBeenCalled()
-    expect(relayCtor).not.toHaveBeenCalled()
-    expect(devContentScriptsCtor).not.toHaveBeenCalled()
+    expect(thisCompilationTaps('chromium-emulator')).toEqual([
+      'StripContentScriptDevServerRuntime',
+      'StableContentScriptNames',
+      'NoDangerNamePlugin',
+      'InjectScriptsReplayShim'
+    ])
   })
 })

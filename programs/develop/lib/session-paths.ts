@@ -9,8 +9,15 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import * as messages from './messages'
+import {humanLine} from './messaging'
+import {
+  browserArtifactsDir,
+  readyContractPath,
+  sessionArtifactsRootDir
+} from './session-contract'
+
+export {browserArtifactsDir, readyContractPath, sessionArtifactsRootDir}
 
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
@@ -61,10 +68,6 @@ export function ensureSessionStateIgnoreFile(projectPath: string): void {
   } catch {
     // A hygiene guard must never break a dev session or build.
   }
-}
-
-export function sessionArtifactsRootDir(projectPath: string): string {
-  return path.resolve(projectPath, 'dist', 'extension-js')
 }
 
 // dist/extension-js holds a full managed browser profile; a '*' .gitignore
@@ -233,13 +236,6 @@ export function ensureSessionStateInProjectGitignore(
   }
 }
 
-export function browserArtifactsDir(
-  projectPath: string,
-  browser: string
-): string {
-  return path.join(sessionArtifactsRootDir(projectPath), browser)
-}
-
 // The managed-profile root for one project+browser. A run's leaf under it is
 // 'dev' when persisted and a generated name otherwise, so only ready.json can
 // name the full profile path of an ephemeral run.
@@ -256,13 +252,6 @@ export function browserProfileRootDir(
 
 export function browserDistDir(projectPath: string, browser: string): string {
   return path.resolve(projectPath, 'dist', browser)
-}
-
-export function readyContractPath(
-  projectPath: string,
-  browser: string
-): string {
-  return path.join(browserArtifactsDir(projectPath, browser), 'ready.json')
 }
 
 export function eventsPath(projectPath: string, browser: string): string {

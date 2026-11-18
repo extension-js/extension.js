@@ -1,16 +1,22 @@
 import {createHash} from 'node:crypto'
-import {afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
+  type ReloadBroker,
   type ReloadInstruction,
   readContentScriptDigests,
   reloadForRewrittenContentScripts
 } from '../../plugin-reload'
-import {type BrowserController, BrowsersPlugin} from '../index'
+import {BrowsersPlugin} from '../index'
+import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
 const BUNDLE = 'content_scripts/content-0.e5213110.js'
 const SHEET = 'content_scripts/content-0.css'
+
+beforeEach(() => {
+  expect.hasAssertions()
+})
 
 interface Emitted {
   js?: string[]
@@ -21,93 +27,56 @@ interface Emitted {
 
 // Gecko registers the manifest it loaded, and a content script stylesheet
 // keeps one name across compiles while a bundle is renamed by its hash.
-function createHarness(
-  browser = 'firefox',
-  broker?: {broadcastReload: (frame: unknown) => number}
-) {
-  const reload = vi.fn()
-  const controller: BrowserController = {
-    enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-  }
+function createHarness(browser = 'firefox', broker?: ReloadBroker) {
+  const reload = vi.fn<(instruction: ReloadInstruction) => void>()
   const plugin = new BrowsersPlugin({
-    launcher: vi.fn().mockResolvedValue(controller),
-    browserOptions: {browser} as never
+    launcher: vi.fn().mockResolvedValue({
+      enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
+    }),
+    browserOptions: {browser}
   })
   plugin.extensionsToLoad = [OUTPUT]
-  if (broker) plugin.setReloadBroker(broker as never)
+  if (broker) plugin.setReloadBroker(broker)
 
-  plugin.emitter.on(
-    'compiled',
-    (ev: {reloadInstruction?: ReloadInstruction}) => {
-      if (ev.reloadInstruction) reload(ev.reloadInstruction)
-    }
-  )
+  plugin.emitter.on('compiled', (ev) => {
+    if (ev.reloadInstruction) reload(ev.reloadInstruction)
+  })
 
-  let watchRunCb: (() => void) | undefined
-  const doneSync: Array<(stats: unknown) => void> = []
-  let doneCb: ((stats: unknown) => Promise<void>) | undefined
-
-  const compiler: any = {
-    options: {context: CONTEXT},
-    modifiedFiles: undefined as ReadonlySet<string> | undefined,
-    hooks: {
-      watchRun: {tap: (_: string, fn: () => void) => (watchRunCb = fn)},
-      done: {
-        tap: (_: string, fn: (s: unknown) => void) => {
-          doneSync.push(fn)
-        },
-        tapPromise: (_: string, fn: (s: unknown) => Promise<void>) =>
-          (doneCb = fn)
-      },
-      assetEmitted: {tap: () => {}}
-    }
-  }
-
-  plugin.apply(compiler)
+  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
+  plugin.apply(fake.compiler)
 
   return {
     reload,
     async compile(emitted: Emitted, modifiedFiles: string[] = []) {
-      compiler.modifiedFiles = new Set(
-        modifiedFiles.map((file) => `${CONTEXT}/${file}`)
-      )
+      fake.watchRun(modifiedFiles)
 
-      watchRunCb?.()
-
-      const assets: Record<string, string> = {
-        ...emitted.assets,
-        'manifest.json': JSON.stringify({
-          manifest_version: 3,
-          name: 'fake',
-          version: '0',
-          background: {scripts: ['background/scripts.js']},
-          content_scripts: [
-            {
-              matches: ['<all_urls>'],
-              js: emitted.js ?? [BUNDLE],
-              ...(emitted.css ? {css: emitted.css} : {})
-            }
-          ],
-          ...(emitted.resources
-            ? {
-                web_accessible_resources: [
-                  {resources: emitted.resources, matches: ['<all_urls>']}
-                ]
+      await fake.done(
+        fakeCompilation({
+          context: CONTEXT,
+          output: OUTPUT,
+          assets: emitted.assets,
+          manifest: {
+            manifest_version: 3,
+            name: 'fake',
+            version: '0',
+            background: {scripts: ['background/scripts.js']},
+            content_scripts: [
+              {
+                matches: ['<all_urls>'],
+                js: emitted.js ?? [BUNDLE],
+                ...(emitted.css ? {css: emitted.css} : {})
               }
-            : {})
+            ],
+            ...(emitted.resources
+              ? {
+                  web_accessible_resources: [
+                    {resources: emitted.resources, matches: ['<all_urls>']}
+                  ]
+                }
+              : {})
+          }
         })
-      }
-      const stats = {
-        compilation: {
-          errors: [],
-          options: {context: CONTEXT, output: {path: OUTPUT}},
-          getAsset: (name: string) =>
-            name in assets ? {source: {source: () => assets[name]}} : undefined
-        }
-      }
-
-      for (const fn of doneSync) fn(stats)
-      await doneCb?.(stats)
+      )
     }
   }
 }
@@ -209,7 +178,7 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
     const h = createHarness('firefox', {
       broadcastReload,
       deliverLatchedReload: vi.fn().mockResolvedValue(false)
-    } as never)
+    })
     const named = () =>
       h.reload.mock.calls.map((call) =>
         (call[0].refreshedStylesheets ?? []).map(

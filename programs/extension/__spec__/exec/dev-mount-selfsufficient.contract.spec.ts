@@ -1,6 +1,4 @@
-import {spawnSync} from 'node:child_process'
 import {
-  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -10,20 +8,10 @@ import {
 } from 'node:fs'
 import path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
-
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
-
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
 
 function createFixture(): string {
   const projectDir = realpathSync(makeTempFolder('extjs-mount-guard-'))
@@ -78,23 +66,12 @@ function readEmittedContentScript(projectDir: string): string {
 }
 
 describe('content-script self-mount build contract', () => {
-  it('a dev build emits a self-mounting content-script bundle (no controller needed)', () => {
+  it('a dev build emits a self-mounting content-script bundle (no controller needed)', async () => {
     const projectDir = createFixture()
 
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'build', '--mode', 'development', projectDir],
-      {
-        cwd: cliRoot(),
-        encoding: 'utf8',
-        env: {...process.env, EXTENSION_ENV: 'test'}
-      }
-    )
+    const result = await runCli(['build', '--mode', 'development', projectDir])
 
-    expect(
-      result.status,
-      `build failed:\n${result.stdout}\n${result.stderr}`
-    ).toBe(0)
+    expect(result.status, `build failed:\n${result.output}`).toBe(0)
 
     const bundle = readEmittedContentScript(projectDir)
 
@@ -102,26 +79,20 @@ describe('content-script self-mount build contract', () => {
     expect(bundle).toContain('data-extension-root')
   }, 120000)
 
-  it('self-mounts even when the project root is a symlinked path (macOS $TMPDIR / CI temp dirs)', () => {
+  it('self-mounts even when the project root is a symlinked path (macOS $TMPDIR / CI temp dirs)', async () => {
     const realProject = createFixture()
     const linkRoot = realpathSync(makeTempFolder('extjs-link-'))
     const symlinkedProject = path.join(linkRoot, 'project-link')
     symlinkSync(realProject, symlinkedProject, 'dir')
 
-    const result = spawnSync(
-      process.execPath,
-      [cliBin(), 'build', '--mode', 'development', symlinkedProject],
-      {
-        cwd: cliRoot(),
-        encoding: 'utf8',
-        env: {...process.env, EXTENSION_ENV: 'test'}
-      }
-    )
+    const result = await runCli([
+      'build',
+      '--mode',
+      'development',
+      symlinkedProject
+    ])
 
-    expect(
-      result.status,
-      `build failed:\n${result.stdout}\n${result.stderr}`
-    ).toBe(0)
+    expect(result.status, `build failed:\n${result.output}`).toBe(0)
 
     const bundle = readEmittedContentScript(symlinkedProject)
     expect(bundle).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')

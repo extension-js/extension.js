@@ -4,14 +4,14 @@ import * as path from 'node:path'
 import vm from 'node:vm'
 import {rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
-import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {
   EXTENSION_BASE_GLOBAL,
   readTakeBlock
 } from '../../../lib/extension-base-from-stack'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
+import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
 
 const roots: string[] = []
@@ -1159,9 +1159,10 @@ describe('the extension base a MAIN-world bundle reads off the page', () => {
         )
         expect(built.errors).toEqual([])
 
-        for (const file of built.emitted.filter((entry) =>
-          entry.endsWith('.js')
-        )) {
+        const scripts = built.emitted.filter((entry) => entry.endsWith('.js'))
+        expect(scripts.length, `${browser} ${mode}`).toBeGreaterThan(0)
+
+        for (const file of scripts) {
           expect(built.read(file), `${browser} ${mode} ${file}`).not.toContain(
             EXTENSION_BASE_GLOBAL
           )

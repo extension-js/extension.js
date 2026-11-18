@@ -98,8 +98,7 @@ export class HintImportOnlyScripts {
   apply(compiler: Compiler) {
     const name = HintImportOnlyScripts.name
 
-    // Unit specs hand this plugin a compiler stub that has no such hook.
-    compiler.hooks.compilation?.tap(name, (compilation) => {
+    compiler.hooks.compilation.tap(name, (compilation) => {
       compilation.hooks.finishModules.tap(name, (modules) => {
         const projectRoot = compiler.options.context || ''
         const entries = scriptsFolderEntries(compiler)

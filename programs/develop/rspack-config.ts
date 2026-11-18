@@ -46,13 +46,14 @@ import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
 import {PlaywrightPlugin} from './plugin-playwright'
-import {ReloadPlugin, SetupChunkLoadingTarget} from './plugin-reload'
+import {ReloadPlugin} from './plugin-reload'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder'
 import {StaticAssetsPlugin} from './plugin-static-assets'
 import {WasmPlugin} from './plugin-wasm'
 import {WebExtensionPlugin} from './plugin-web-extension'
+import {SetupChunkLoadingTarget} from './plugin-web-extension/feature-chunk-loading'
 import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
 import {manifestFieldMistyped} from './plugin-web-extension/feature-manifest/messages'
 import type {WebpackConfigOptions} from './types'
@@ -187,7 +188,6 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
-      clean: devOptions.output.clean,
       zip: devOptions.zip === true,
       zipSource: devOptions.zipSource === true,
       zipFilename: devOptions.zipFilename,
@@ -613,6 +613,9 @@ export default function webpackConfig(
       // Ignore paths by SEGMENT, never by substring: a path merely containing
       // "dist" must stay watched or the dev session silently never recompiles.
       ignored: [
+        // Setting this replaces the bundler's default, which is where .git
+        // was ignored: a commit or a fetch is not a source change.
+        '**/.git/**',
         // When transpiling workspace packages from node_modules symlinks, avoid
         // blanket node_modules ignore so edits from those packages can trigger HMR.
         ...(transpilePackageDirs.length > 0 ? [] : ['**/node_modules/**']),

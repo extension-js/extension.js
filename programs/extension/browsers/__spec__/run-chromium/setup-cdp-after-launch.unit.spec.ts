@@ -1,4 +1,4 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
 const ctorSpy = vi.fn()
 const connectSpy = vi.fn(async () => {})
@@ -78,6 +78,16 @@ import {readyPathFor} from '../../browsers-lib/ready-stamp'
 import * as controllerModule from '../../run-chromium/cdp/cdp-extension-controller'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
 
+// Folders of the spec's own: /workspace and /tmp/extension-profile can exist
+// on a shared machine, and the code under test reads and writes a profile.
+const SCRATCH = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-setup-cdp-'))
+const WORKSPACE = path.join(SCRATCH, 'workspace')
+const PROFILE = path.join(SCRATCH, 'extension-profile')
+
+afterAll(() => {
+  fs.rmSync(SCRATCH, {recursive: true, force: true})
+})
+
 const tempDirs: string[] = []
 
 function makeExtensionDir(manifest: Record<string, unknown>): string {
@@ -142,11 +152,11 @@ describe('setupCdpAfterLaunch', () => {
       browserVersionLine: 'Chromium 123'
     }
 
-    const userExtensionPath = '/workspace/templates/react/dist/chromium'
+    const userExtensionPath = `${WORKSPACE}/templates/react/dist/chromium`
     const chromiumArgs = [
-      '--load-extension=/workspace/programs/develop/dist/extension-js-devtools/chromium,/workspace/programs/develop/dist/extension-js-theme/chromium,/workspace/templates/react/dist/chromium',
+      `--load-extension=${WORKSPACE}/programs/develop/dist/extension-js-devtools/chromium,${WORKSPACE}/programs/develop/dist/extension-js-theme/chromium,${WORKSPACE}/templates/react/dist/chromium`,
       '--remote-debugging-port=9333',
-      '--user-data-dir=/tmp/extension-profile'
+      `--user-data-dir=${PROFILE}`
     ]
 
     const compilation: any = {
@@ -162,7 +172,7 @@ describe('setupCdpAfterLaunch', () => {
     expect(firstCallArgs).toMatchObject({
       browser: 'chromium',
       outPath: userExtensionPath,
-      profilePath: '/tmp/extension-profile'
+      profilePath: PROFILE
     })
 
     for (const [callArgs] of printDevBannerOnceSpy.mock.calls) {
@@ -221,6 +231,41 @@ describe('setupCdpAfterLaunch', () => {
     }
   })
 
+  it.each([
+    ['answered', () => {}],
+    [
+      'failed',
+      () => ensureLoadedSpy.mockRejectedValueOnce(new Error('load failed'))
+    ]
+  ])('clears the ten second load timer once the load has %s', async (_how, arrange) => {
+    vi.useFakeTimers()
+
+    try {
+      arrange()
+
+      const compilation: any = {
+        options: {
+          mode: 'development',
+          output: {path: `${WORKSPACE}/dist/chromium`}
+        }
+      }
+
+      await setupCdpAfterLaunch(
+        compilation,
+        {browser: 'chromium', port: 9333, instanceId: 'test-instance'} as any,
+        [
+          `--load-extension=${WORKSPACE}/dist/chromium`,
+          '--remote-debugging-port=9333'
+        ]
+      )
+
+      expect(ensureLoadedSpy).toHaveBeenCalledTimes(1)
+      expect(vi.getTimerCount()).toBe(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('turns developer mode on for the profile it launched', async () => {
     const plugin: any = {
       browser: 'chromium',
@@ -234,7 +279,7 @@ describe('setupCdpAfterLaunch', () => {
       {
         options: {
           mode: 'development',
-          output: {path: '/workspace/dist/chromium'}
+          output: {path: `${WORKSPACE}/dist/chromium`}
         }
       } as any,
       plugin,
@@ -262,7 +307,7 @@ describe('setupCdpAfterLaunch', () => {
       {
         options: {
           mode: 'development',
-          output: {path: '/workspace/dist/chromium'}
+          output: {path: `${WORKSPACE}/dist/chromium`}
         }
       } as any,
       plugin,
@@ -279,7 +324,10 @@ describe('setupCdpAfterLaunch', () => {
       instanceId: 'dev-mode'
     }
     const compilation: any = {
-      options: {mode: 'development', output: {path: '/workspace/dist/chromium'}}
+      options: {
+        mode: 'development',
+        output: {path: `${WORKSPACE}/dist/chromium`}
+      }
     }
 
     await setupCdpAfterLaunch(compilation, plugin, [
@@ -302,7 +350,10 @@ describe('setupCdpAfterLaunch', () => {
 
   describe('the startup choice of a profile that outlives the session', () => {
     const compilation: any = {
-      options: {mode: 'development', output: {path: '/workspace/dist/chromium'}}
+      options: {
+        mode: 'development',
+        output: {path: `${WORKSPACE}/dist/chromium`}
+      }
     }
     const plugin = () =>
       ({browser: 'chromium', port: 9333, instanceId: 'startup'}) as any
@@ -330,13 +381,15 @@ describe('setupCdpAfterLaunch', () => {
     it('is made through the browser when the seeded one was dropped', async () => {
       const dir = profile({Preferences: seeded, 'Secure Preferences': {}})
 
-      await setupCdpAfterLaunch(compilation, plugin(), [
-        '--remote-debugging-port=9333',
-        `--user-data-dir=${dir}`
-      ])
+      await setupCdpAfterLaunch(
+        compilation,
+        {...plugin(), startingUrl: 'https://example.com/'},
+        ['--remote-debugging-port=9333', `--user-data-dir=${dir}`]
+      )
 
       expect(ensureStartupNewTabSpy).toHaveBeenCalledTimes(1)
-      expect(openStartingUrlSpy.mock.invocationCallOrder[0] ?? 0).toBeLessThan(
+      expect(openStartingUrlSpy).toHaveBeenCalledTimes(1)
+      expect(openStartingUrlSpy.mock.invocationCallOrder[0]).toBeLessThan(
         ensureStartupNewTabSpy.mock.invocationCallOrder[0]
       )
     })
@@ -433,11 +486,11 @@ describe('setupCdpAfterLaunch', () => {
       browserVersionLine: 'Chromium 123'
     }
 
-    const userExtensionPath = '/workspace/templates/react/dist/chromium'
+    const userExtensionPath = `${WORKSPACE}/templates/react/dist/chromium`
     const chromiumArgs = [
-      '--load-extension=/workspace/programs/develop/dist/extension-js-devtools/chromium,/workspace/programs/develop/dist/extension-js-theme/chromium,/workspace/templates/react/dist/chromium',
+      `--load-extension=${WORKSPACE}/programs/develop/dist/extension-js-devtools/chromium,${WORKSPACE}/programs/develop/dist/extension-js-theme/chromium,${WORKSPACE}/templates/react/dist/chromium`,
       '--remote-debugging-port=9333',
-      '--user-data-dir=/tmp/extension-profile'
+      `--user-data-dir=${PROFILE}`
     ]
 
     const compilation: any = {
@@ -451,7 +504,7 @@ describe('setupCdpAfterLaunch', () => {
       expect.objectContaining({
         outPath: userExtensionPath,
         extensionPaths: [userExtensionPath],
-        profilePath: '/tmp/extension-profile',
+        profilePath: PROFILE,
         cdpPort: 9333
       })
     )
@@ -473,7 +526,7 @@ describe('setupCdpAfterLaunch', () => {
     const chromiumArgs = [
       `--load-extension=${[companionDir, themeDir, userDir].join()}`,
       '--remote-debugging-port=9333',
-      '--user-data-dir=/tmp/extension-profile'
+      `--user-data-dir=${PROFILE}`
     ]
     const compilation: any = {
       options: {mode: 'development', output: {path: userDir}}
@@ -501,7 +554,7 @@ describe('setupCdpAfterLaunch', () => {
     const chromiumArgs = [
       `--load-extension=${[companionDir, userDir].join()}`,
       '--remote-debugging-port=9333',
-      '--user-data-dir=/tmp/extension-profile'
+      `--user-data-dir=${PROFILE}`
     ]
     const compilation: any = {
       options: {mode: 'development', output: {path: userDir}}
@@ -528,7 +581,7 @@ describe('setupCdpAfterLaunch', () => {
     const chromiumArgs = [
       `--load-extension=${extDir}`,
       '--remote-debugging-port=9333',
-      '--user-data-dir=/tmp/extension-profile'
+      `--user-data-dir=${PROFILE}`
     ]
     const compilation: any = {
       options: {mode: 'development', output: {path: extDir}}
@@ -549,7 +602,7 @@ describe('setupCdpAfterLaunch', () => {
     const chromiumArgs = [
       `--load-extension=${extDir}`,
       '--remote-debugging-port=9333',
-      '--user-data-dir=/tmp/extension-profile'
+      `--user-data-dir=${PROFILE}`
     ]
     const compilation: any = {
       options: {mode: 'development', output: {path: extDir}}
@@ -588,7 +641,7 @@ describe('setupCdpAfterLaunch', () => {
       [
         `--load-extension=${extDir}`,
         '--remote-debugging-port=9333',
-        '--user-data-dir=/tmp/extension-profile'
+        `--user-data-dir=${PROFILE}`
       ]
     )
 
@@ -676,7 +729,7 @@ describe('setupCdpAfterLaunch', () => {
     const chromiumArgs = [
       `--load-extension=${extDir}`,
       '--remote-debugging-port=9333',
-      '--user-data-dir=/tmp/extension-profile'
+      `--user-data-dir=${PROFILE}`
     ]
     const compilation: any = {
       options: {mode: 'development', output: {path: extDir}}
@@ -804,7 +857,7 @@ describe('setupCdpAfterLaunch', () => {
       [
         `--load-extension=${[companionDir, userDir].join()}`,
         '--remote-debugging-port=9333',
-        '--user-data-dir=/tmp/extension-profile',
+        `--user-data-dir=${PROFILE}`,
         '--headless=new'
       ]
     )
@@ -828,7 +881,7 @@ describe('setupCdpAfterLaunch', () => {
         [
           `--load-extension=${userDir}`,
           '--remote-debugging-port=9333',
-          '--user-data-dir=/tmp/extension-profile'
+          `--user-data-dir=${PROFILE}`
         ]
       )
     }
@@ -848,7 +901,7 @@ describe('setupCdpAfterLaunch', () => {
       [
         `--load-extension=${userDir}`,
         '--remote-debugging-port=9333',
-        '--user-data-dir=/tmp/extension-profile',
+        `--user-data-dir=${PROFILE}`,
         '--headless=new'
       ]
     )
@@ -874,7 +927,7 @@ describe('setupCdpAfterLaunch', () => {
       [
         `--load-extension=${[companionDir, userDir].join()}`,
         '--remote-debugging-port=9333',
-        '--user-data-dir=/tmp/extension-profile',
+        `--user-data-dir=${PROFILE}`,
         '--headless'
       ]
     )
@@ -898,7 +951,7 @@ describe('setupCdpAfterLaunch', () => {
         [
           `--load-extension=${userDir}`,
           '--remote-debugging-port=9333',
-          '--user-data-dir=/tmp/extension-profile',
+          `--user-data-dir=${PROFILE}`,
           '--headless=new'
         ]
       )
@@ -938,7 +991,7 @@ describe('setupCdpAfterLaunch', () => {
         [
           `--load-extension=${extDir}`,
           '--remote-debugging-port=9333',
-          '--user-data-dir=/tmp/extension-profile'
+          `--user-data-dir=${PROFILE}`
         ]
       )
 
@@ -946,7 +999,7 @@ describe('setupCdpAfterLaunch', () => {
         .map((call) => String(call[0] || ''))
         .join('\n')
       expect(output).toContain('profile=chrome')
-      expect(output).toContain('/tmp/extension-profile')
+      expect(output).toContain(PROFILE)
     } finally {
       logSpy.mockRestore()
       if (previousDebug === undefined) {
@@ -977,7 +1030,7 @@ describe('setupCdpAfterLaunch', () => {
         [
           `--load-extension=${extDir}`,
           '--remote-debugging-port=9333',
-          '--user-data-dir=/tmp/extension-profile'
+          `--user-data-dir=${PROFILE}`
         ]
       )
 
@@ -987,11 +1040,11 @@ describe('setupCdpAfterLaunch', () => {
       expect(output).not.toContain('profile=chrome')
 
       const devCalls = vi.mocked(banner.printDevBannerOnce).mock.calls
-      expect(devCalls.length).toBeGreaterThan(0)
+      expect(devCalls).toHaveLength(2)
 
       for (const [callArgs] of devCalls) {
         expect(callArgs).toMatchObject({
-          profilePath: '/tmp/extension-profile'
+          profilePath: PROFILE
         })
       }
     } finally {

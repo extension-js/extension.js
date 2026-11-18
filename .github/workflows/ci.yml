@@ -18,9 +18,11 @@ on:
 permissions:
   contents: read
 
+# A newer push supersedes a pull request run, but every run of main finishes
+# so its red lane report names the commit that broke it.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   quality:
@@ -76,34 +78,28 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      # Release-notes generator is pure Node + git; no build needed.
-      - name: Test release-notes generator
+      # Every spec under scripts/__spec__, pure Node and git with no build.
+      - name: Run the script specs
         run: pnpm test:scripts
 
-      # The bundled javascript template is synced from extension-js/templates,
-      # and publish-release.yml gates every release on it being in sync. That
-      # gate lived ONLY at release time and nightly, so a push to the examples
-      # repo could redden a release hours later with no warning, which is what
-      # killed the 4.0.24 attempt on 2026-07-30 twenty one seconds in. Running
-      # it here surfaces the drift on the push that causes it instead of at the
-      # moment somebody is trying to ship. The release gate stays as a backstop.
+      # The bundled template must match the templates repo at the pinned commit,
+      # so a pin move or a bundled edit that drifts fails here, not at release.
       - name: Check bundled create template drift
         run: bash scripts/check-bundled-template-drift.sh
 
   tests:
+    # Every event runs each suite once, on the engines floor. Newer Node runs
+    # on main and nightly, where a break is caught before a release.
     name: Run test suite (${{ matrix.suite }})
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
       fail-fast: false
-      # Every entry is a distinct suite. The per-plugin names that used to sit
-      # here were all aliases of ci:test:develop, nine green rows for one run.
       matrix:
         suite:
           - ci:test:develop
           - ci:test:cli
           - ci:test:create
-          - ci:test:toolchain-preflight
 
     steps:
       - name: Checkout
@@ -143,7 +139,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 22
+          node-version: '22.12'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -153,16 +149,16 @@ jobs:
         run: pnpm run ${{ matrix.suite }}
 
   tests-node:
-    # The main matrix runs on Node 22 only. The engine floor is 22.12 and
-    # current is 24, and a Node API that moved between them (globSync string
-    # excludes landed in 22.14) reaches users before it reaches CI otherwise.
+    # Current Node, for an API that changed after the floor. Pull requests skip
+    # it, so it runs on main here and every night in programs-nightly.yml.
     name: Node ${{ matrix.node }} (${{ matrix.suite }})
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        node: ['22.12', 24]
+        node: [24]
         suite:
           - ci:test:develop
           - ci:test:cli
@@ -238,7 +234,7 @@ jobs:
         run: node scripts/check-emitted-types.mjs
 
   bundled-extensions:
-    name: Bundled extensions build (chromium)
+    name: Bundled extensions build
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -262,15 +258,10 @@ jobs:
           pnpm --filter extension-develop compile
           pnpm --filter extension compile
 
-      # The bundled devtools/theme extensions are otherwise only built by
-      # publish-release.yml and the nightly, so a breaking dependency bump
-      # in extensions/ merges green here and reddens the next release
-      # (the react-table 9 bump did exactly that). One engine is enough to
-      # catch API breaks; the release gate still builds all four.
-      - name: Build bundled extensions for chromium
-        run: |
-          pnpm --filter extension-js-devtools run build:chromium
-          pnpm --filter @extension-js/theme run build:chromium
+      # A dependency bump in extensions/ can break one engine only, and the
+      # release builds all four. The script also checks its own build stamp.
+      - name: Build bundled extensions for every engine
+        run: node scripts/build-extensions.cjs
 
   deno-runtime:
     name: Deno runtime (${{ matrix.deno }} / ${{ matrix.os }})
@@ -377,12 +368,35 @@ jobs:
       - name: Run the Bun runtime smoke
         run: pnpm smoke:bun
 
-  tests-windows:
-    name: Run test suite (Windows)
+  # The Windows suites run as two parallel jobs, so the slowest half sets the
+  # wait instead of the sum of all four.
+  tests-windows-develop:
+    name: Run test suite (Windows, develop)
     runs-on: windows-latest
-    timeout-minutes: 40
-    # Only run Windows tests on PRs and main, skip on workflow_dispatch unless explicitly needed
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the develop suite
+        run: pnpm test:dev
+
+  tests-windows-cli:
+    name: Run test suite (Windows, CLI, install and create)
+    runs-on: windows-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -405,8 +419,11 @@ jobs:
       - name: Prove the system Edge is found with an empty managed cache
         run: node scripts/verify-edge-system-locate.mjs
 
-      - name: Run full test suite
-        run: pnpm test
+      - name: Run the CLI and install suites
+        run: pnpm test:cli
+
+      - name: Run the create suite
+        run: pnpm ci:test:create
 
   ci-passed:
     # The one check branch protection requires. It waits on every CI job and
@@ -421,9 +438,14 @@ jobs:
       - bundled-extensions
       - deno-runtime
       - bun-runtime
-      - tests-windows
+      - tests-windows-develop
+      - tests-windows-cli
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      # report-red-lane.sh opens or comments on the red lane issue
+      issues: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -432,3 +454,18 @@ jobs:
         env:
           RESULTS: ${{ join(needs.*.result, ' ') }}
         run: bash scripts/check-ci-results.sh "${RESULTS}"
+
+      - name: Report a red lane
+        if: failure() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RED_LANE_REPRO: |
+            pnpm install --frozen-lockfile
+            pnpm test
+        run: bash scripts/report-red-lane.sh "CI"
+
+      - name: Close the red lane
+        if: success() && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash scripts/close-red-lane.sh "CI"

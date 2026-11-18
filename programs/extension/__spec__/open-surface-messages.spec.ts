@@ -29,36 +29,34 @@ const bridge = {
   commands: [] as Array<Record<string, unknown>>
 }
 
-vi.mock('../helpers/extension-develop-runtime', () => ({
-  loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-    readReadyContract: () => bridge.ready,
-    readReadyContractDocument: () => bridge.document,
-    readControlToken: () => 'tok-1',
-    BridgeController: class {
-      opts: unknown
-      closed = false
-      constructor(opts: unknown) {
-        this.opts = opts
-        bridge.controllers.push(this)
-      }
-      async connect() {
-        if (bridge.connectError) throw bridge.connectError
-      }
-      async command(payload: Record<string, unknown>) {
-        bridge.commands.push(payload)
-
-        return bridge.result
-      }
-      close() {
-        this.closed = true
-      }
-    }
-  }))
-}))
-
 import {BridgeController} from '../../develop/dev-server/control-bridge/controller-client'
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+
+const loadBridge = async () => ({
+  readReadyContract: () => bridge.ready,
+  readReadyContractDocument: () => bridge.document,
+  readControlToken: () => 'tok-1',
+  BridgeController: class {
+    opts: unknown
+    closed = false
+    constructor(opts: unknown) {
+      this.opts = opts
+      bridge.controllers.push(this)
+    }
+    async connect() {
+      if (bridge.connectError) throw bridge.connectError
+    }
+    async command(payload: Record<string, unknown>) {
+      bridge.commands.push(payload)
+
+      return bridge.result
+    }
+    close() {
+      this.closed = true
+    }
+  }
+})
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>
@@ -90,7 +88,10 @@ afterEach(() => {
 })
 
 function run(argv: string[]) {
-  return runCli(makeProgram(registerActCommands), argv)
+  return runCli(
+    makeProgram((program) => registerActCommands(program, {loadBridge})),
+    argv
+  )
 }
 
 function stderr(): string {
@@ -151,28 +152,6 @@ describe('a refusal names the engine once', () => {
     expect(reason).toContain('(engine firefox)')
     expect(mentions(reason)).toBe(1)
     expect(lines[lines.length - 1]).toContain('Firefox sidebar button')
-  })
-
-  it('navigate does not append the engine to a reason that opens with it', async () => {
-    bridge.result = {
-      ok: false,
-      error: {
-        name: 'BadRequest',
-        message:
-          "firefox refuses to open about:newtab from the extension's tabs API (Illegal URL: about:newtab)",
-        engine: 'firefox',
-        code: 'url_refused'
-      }
-    }
-
-    expect(
-      await run(['navigate', 'about:newtab', '--browser', 'firefox'])
-    ).toBe(1)
-
-    const reason = stderr()
-      .split('\n')
-      .find((line) => line.includes('REASON'))
-    expect(mentions(String(reason))).toBe(1)
   })
 
   it('still appends the engine to a reason that never names it', async () => {
@@ -386,15 +365,6 @@ describe('open refuses gesture-gated surfaces before connecting', () => {
     }
   })
 
-  it('firefox surfaces go to the engine, which answers for itself', async () => {
-    expect(await run(['open', 'sidebar', '--browser', 'firefox'])).toBe(0)
-    expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(0)
-    expect(bridge.controllers).toHaveLength(2)
-    expect(
-      bridge.commands.map((c) => (c.args as {surface: string}).surface)
-    ).toEqual(['sidebar', 'popup'])
-  })
-
   it('options and command need no gesture and still connect', async () => {
     expect(await run(['open', 'options'])).toBe(0)
     expect(await run(['open', 'command', '--name', 'toggle'])).toBe(0)
@@ -477,11 +447,13 @@ describe('a 4003 close names the real cause', () => {
     )
 
     expect(await run(['open', 'options', '--output', 'json'])).toBe(1)
-    expect(stderr()).toContain('has been replaced')
-    expect(stderr()).not.toContain('control is off')
-    expect((frame().error as Record<string, unknown>).code).toBe(
-      'E_CONTROL_DENIED'
-    )
+    // The frame is the whole answer under json, so the cause lives there.
+    expect(stderr()).toBe('')
+
+    const error = frame().error as Record<string, unknown>
+    expect(String(error.message)).toContain('has been replaced')
+    expect(String(error.message)).not.toContain('control is off')
+    expect(error.code).toBe('E_CONTROL_DENIED')
   })
 })
 

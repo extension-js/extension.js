@@ -30,7 +30,9 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
     ensureLoaded.mockRejectedValue(new Error('install failed'))
     getAddonInstallRefusalReason.mockReturnValue('Extension is invalid')
 
-    await setupRdpAfterLaunch(plugin(), compilation, 9222).catch(() => {})
+    await expect(
+      setupRdpAfterLaunch(plugin(), compilation, 9222)
+    ).rejects.toThrow('install failed')
 
     expect(disconnect).toHaveBeenCalledTimes(1)
   })
@@ -67,7 +69,9 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
     ensureLoaded.mockRejectedValue(new Error('install failed'))
     getAddonInstallRefusalReason.mockReturnValue('Extension is invalid')
 
-    await setupRdpAfterLaunch(plugin(), compilation, 9222).catch(() => {})
+    await expect(
+      setupRdpAfterLaunch(plugin(), compilation, 9222)
+    ).rejects.toThrow('install failed')
 
     expect(ensureLoaded).toHaveBeenCalledTimes(1)
   })
@@ -77,9 +81,49 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
     ensureLoaded.mockRejectedValue(new Error('socket closed'))
     getAddonInstallRefusalReason.mockReturnValue(null)
 
-    await setupRdpAfterLaunch(plugin(), compilation, 9222).catch(() => {})
+    await expect(
+      setupRdpAfterLaunch(plugin(), compilation, 9222, 1)
+    ).rejects.toThrow('socket closed')
 
-    expect(ensureLoaded.mock.calls.length).toBeGreaterThan(1)
+    expect(ensureLoaded).toHaveBeenCalledTimes(5)
+  })
+
+  // The pause after the fifth failure is how it behaves today: the error
+  // only surfaces once that last pause has run out.
+  it('doubles a 150 ms pause after each failure when the caller names none', async () => {
+    vi.useFakeTimers()
+
+    try {
+      ensureLoaded.mockRejectedValue(new Error('socket closed'))
+      getAddonInstallRefusalReason.mockReturnValue(null)
+
+      let outcome: unknown
+      void setupRdpAfterLaunch(plugin(), compilation, 9222).catch(
+        (error: unknown) => {
+          outcome = error
+        }
+      )
+
+      await vi.advanceTimersByTimeAsync(0)
+      expect(ensureLoaded).toHaveBeenCalledTimes(1)
+
+      for (const [index, pause] of [150, 300, 600, 1200].entries()) {
+        await vi.advanceTimersByTimeAsync(pause - 1)
+        expect(ensureLoaded).toHaveBeenCalledTimes(index + 1)
+
+        await vi.advanceTimersByTimeAsync(1)
+        expect(ensureLoaded).toHaveBeenCalledTimes(index + 2)
+      }
+
+      await vi.advanceTimersByTimeAsync(2399)
+      expect(outcome).toBeUndefined()
+
+      await vi.advanceTimersByTimeAsync(1)
+      expect((outcome as Error).message).toBe('socket closed')
+      expect(ensureLoaded).toHaveBeenCalledTimes(5)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   // Without a reason the launcher must keep treating the failure as a launch
@@ -88,9 +132,12 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
     ensureLoaded.mockRejectedValue(new Error('socket closed'))
     getAddonInstallRefusalReason.mockReturnValue(null)
 
-    const error = await setupRdpAfterLaunch(plugin(), compilation, 9222).catch(
-      (e: unknown) => e
-    )
+    const error = await setupRdpAfterLaunch(
+      plugin(),
+      compilation,
+      9222,
+      1
+    ).catch((e: unknown) => e)
 
     expect(
       (error as {extensionLoadRefusedReason?: string})

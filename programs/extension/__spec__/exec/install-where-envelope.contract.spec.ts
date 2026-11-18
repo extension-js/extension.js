@@ -1,40 +1,31 @@
-import {spawnSync} from 'node:child_process'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {beforeEach, describe, expect, it} from 'vitest'
+import {cliHome, everyLineAsFrame, runCli} from '../helpers/run-cli'
+import {trackTempFolders} from '../helpers/temp-folders'
 
-function cliRoot(): string {
-  return path.resolve(__dirname, '../..')
-}
+const makeTempFolder = trackTempFolders()
 
-function cliBin(): string {
-  const cjs = path.join(cliRoot(), 'dist', 'cli.cjs')
-  if (fs.existsSync(cjs)) return cjs
-
-  return path.join(cliRoot(), 'dist', 'cli.js')
-}
-
+// The helper's env keeps every case off this machine: the cache root is an
+// empty temp folder and the system scan is off, so no Edge is asked for.
 function run(args: string[], env: Record<string, string> = {}) {
-  return spawnSync(process.execPath, [cliBin(), ...args], {
-    cwd: cliRoot(),
-    encoding: 'utf8',
-    env: {
-      ...process.env,
-      EXTENSION_ENV: 'test',
-      // No case may ask this machine for its own Edge.
-      EXTENSION_INTERNAL_SKIP_SYSTEM_BROWSERS: '1',
-      ...env
-    }
-  })
+  return runCli(args, {env})
 }
 
-function stdoutFrames(stdout: string): Array<Record<string, unknown>> {
-  return stdout
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
+type ErrorFrame = {
+  command: string
+  status: string
+  error: {code: string; message: string}
+}
+
+async function refusal(args: string[]) {
+  const result = await run(args)
+  const frames = everyLineAsFrame<ErrorFrame>(result.stdout)
+
+  expect(result.status, result.output).toBe(1)
+  expect(frames).toHaveLength(1)
+
+  return frames[0]
 }
 
 describe('install/uninstall refusal codes under --output json', () => {
@@ -43,110 +34,105 @@ describe('install/uninstall refusal codes under --output json', () => {
   //   known, never fetch → E_BROWSER_NOT_INSTALLABLE
   //   managed download   → E_BROWSER_DOWNLOAD (covered in unit tests)
   // Install and uninstall, with and without --where, must agree.
+  it.each([
+    'install',
+    'uninstall'
+  ])('%s frames an unknown name as E_UNSUPPORTED_BROWSER', async (command) => {
+    const frame = await refusal([command, 'netscape', '--output', 'json'])
 
-  it('frames an unknown name as E_UNSUPPORTED_BROWSER', () => {
-    for (const command of ['install', 'uninstall'] as const) {
-      const result = run([command, 'netscape', '--output', 'json'])
-      expect(result.status).toBe(1)
-      const frames = stdoutFrames(result.stdout)
-      expect(frames).toHaveLength(1)
-      expect(frames[0].command).toBe(command)
-      expect(frames[0].status).toBe('usage')
-      expect((frames[0].error as {code: string}).code).toBe(
-        'E_UNSUPPORTED_BROWSER'
-      )
-
-      expect(String((frames[0].error as {message: string}).message)).toMatch(
-        /netscape/i
-      )
-    }
+    expect(frame).toMatchObject({command, status: 'usage'})
+    expect(frame.error).toEqual({
+      code: 'E_UNSUPPORTED_BROWSER',
+      message: 'Unsupported browser: netscape.'
+    })
   })
 
-  it('frames brave as E_BROWSER_NOT_INSTALLABLE, never a download error', () => {
-    for (const args of [
-      ['install', 'brave', '--output', 'json'],
-      ['install', 'brave', '--where', '--output', 'json'],
-      ['uninstall', 'brave', '--output', 'json'],
-      ['uninstall', 'brave', '--where', '--output', 'json']
-    ]) {
-      const result = run(args)
-      expect(result.status).toBe(1)
-      const frames = stdoutFrames(result.stdout)
-      expect(frames).toHaveLength(1)
-      const error = frames[0].error as Record<string, unknown>
-      expect(error.code).toBe('E_BROWSER_NOT_INSTALLABLE')
-      expect(String(error.message)).toMatch(
-        /never downloads|cannot be installed/i
-      )
+  it.each([
+    [['install', 'brave', '--output', 'json']],
+    [['install', 'brave', '--where', '--output', 'json']],
+    [['uninstall', 'brave', '--output', 'json']],
+    [['uninstall', 'brave', '--where', '--output', 'json']]
+  ])('frames brave as E_BROWSER_NOT_INSTALLABLE, with what to do instead: %j', async (args) => {
+    const frame = await refusal(args)
 
-      expect(String(error.message)).not.toMatch(/Retry/)
-      expect(result.stdout).not.toMatch(/at normalizeBrowserName/)
-    }
+    expect(frame).toMatchObject({command: args[0], status: 'usage'})
+    expect(frame.error).toEqual({
+      code: 'E_BROWSER_NOT_INSTALLABLE',
+      message:
+        'brave cannot be installed by Extension.js. This CLI never downloads ' +
+        'it. It is located from the system when present. Install it ' +
+        'yourself, then run with --browser=brave. Managed installs cover: ' +
+        'chrome, chromium, edge, firefox.'
+    })
   })
 
-  it('frames safari as E_BROWSER_NOT_INSTALLABLE with the Xcode guidance', () => {
-    const result = run(['install', 'safari', '--where', '--output', 'json'])
-
-    expect(result.status).toBe(1)
-    const frames = stdoutFrames(result.stdout)
-    expect(frames).toHaveLength(1)
-    expect((frames[0].error as {code: string}).code).toBe(
-      'E_BROWSER_NOT_INSTALLABLE'
-    )
-
-    expect(String((frames[0].error as {message: string}).message)).toMatch(
-      /Safari|Xcode/i
-    )
-  })
-
-  it('accepts comma lists on uninstall the same as install', () => {
-    const installWhere = run([
+  it('frames safari as E_BROWSER_NOT_INSTALLABLE with the Xcode guidance', async () => {
+    const frame = await refusal([
       'install',
-      'chrome,edge',
-      '--where',
-      '--output',
-      'json'
-    ])
-    const uninstallWhere = run([
-      'uninstall',
-      'chrome,edge',
+      'safari',
       '--where',
       '--output',
       'json'
     ])
 
-    expect(installWhere.status).toBe(0)
-    expect(uninstallWhere.status).toBe(0)
-
-    const installPaths = (
-      stdoutFrames(installWhere.stdout)[0].value as {paths: string[]}
-    ).paths
-    const uninstallPaths = (
-      stdoutFrames(uninstallWhere.stdout)[0].value as {paths: string[]}
-    ).paths
-    expect(installPaths).toEqual(uninstallPaths)
-    expect(installPaths).toHaveLength(2)
-    expect(installPaths[0]).toMatch(/chrome/)
-    expect(installPaths[1]).toMatch(/edge/)
+    expect(frame.error).toEqual({
+      code: 'E_BROWSER_NOT_INSTALLABLE',
+      message:
+        'There is no Safari binary to install. Safari ships with macOS. ' +
+        'Safari builds need the full Xcode app instead (Mac App Store), ' +
+        'then run `extension build --browser safari`.'
+    })
   })
 
-  it('still locates managed browsers as a success envelope', () => {
-    const result = run(['install', 'chrome', '--where', '--output', 'json'])
+  it('accepts comma lists on uninstall the same as install', async () => {
+    const root = cliHome().browsersCache
+    const expected = [path.join(root, 'chrome'), path.join(root, 'edge')]
+
+    for (const command of ['install', 'uninstall']) {
+      const result = await run([
+        command,
+        'chrome,edge',
+        '--where',
+        '--output',
+        'json'
+      ])
+
+      expect(result.status, result.output).toBe(0)
+      expect(everyLineAsFrame(result.stdout)).toEqual([
+        {
+          schema: 1,
+          ok: true,
+          command,
+          status: 'located',
+          value: {paths: expected},
+          error: null,
+          warnings: []
+        }
+      ])
+    }
+  })
+
+  it('still locates managed browsers as a success envelope', async () => {
+    const result = await run([
+      'install',
+      'chrome',
+      '--where',
+      '--output',
+      'json'
+    ])
 
     expect(result.status).toBe(0)
-    const frames = stdoutFrames(result.stdout)
-    expect(frames).toHaveLength(1)
-    expect(frames[0]).toMatchObject({
-      schema: 1,
-      ok: true,
-      command: 'install',
-      status: 'located'
-    })
-
-    const value = frames[0].value as {paths: string[]}
-    expect(Array.isArray(value.paths)).toBe(true)
-    expect(value.paths.length).toBe(1)
-    expect(value.paths[0]).toMatch(/chrome/)
+    expect(everyLineAsFrame(result.stdout)).toEqual([
+      {
+        schema: 1,
+        ok: true,
+        command: 'install',
+        status: 'located',
+        value: {paths: [path.join(cliHome().browsersCache, 'chrome')]},
+        error: null,
+        warnings: []
+      }
+    ])
   })
 })
 
@@ -155,18 +141,14 @@ describe('uninstall under --output json against a temp cache root', () => {
   let cacheRoot = ''
 
   beforeEach(() => {
-    cacheRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-uninstall-cli-'))
+    cacheRoot = makeTempFolder('extjs-uninstall-cli-')
     // A build folder as the installer names it. An empty folder holds no
     // browser, so removing one is reported as nothing to remove.
     fs.mkdirSync(path.join(cacheRoot, 'chrome', BUILD), {recursive: true})
   })
 
-  afterEach(() => {
-    fs.rmSync(cacheRoot, {recursive: true, force: true})
-  })
-
-  it('puts exactly one JSON document on stdout for a real removal', () => {
-    const result = run(['uninstall', 'chrome', '--output', 'json'], {
+  it('puts exactly one JSON document on stdout for a real removal', async () => {
+    const result = await run(['uninstall', 'chrome', '--output', 'json'], {
       EXT_BROWSERS_CACHE_DIR: cacheRoot
     })
 
@@ -190,8 +172,8 @@ describe('uninstall under --output json against a temp cache root', () => {
     expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
   })
 
-  it('warns E_UNINSTALL_NOOP when the browser was never there', () => {
-    const result = run(['uninstall', 'edge', '--output', 'json'], {
+  it('warns E_UNINSTALL_NOOP when the browser was never there', async () => {
+    const result = await run(['uninstall', 'edge', '--output', 'json'], {
       EXT_BROWSERS_CACHE_DIR: cacheRoot
     })
 
@@ -210,10 +192,13 @@ describe('uninstall under --output json against a temp cache root', () => {
     expect(value.results.map((entry) => entry.outcome)).toEqual(['absent'])
   })
 
-  it('removes a name given twice once', () => {
-    const result = run(['uninstall', 'chrome,chrome', '--output', 'json'], {
-      EXT_BROWSERS_CACHE_DIR: cacheRoot
-    })
+  it('removes a name given twice once', async () => {
+    const result = await run(
+      ['uninstall', 'chrome,chrome', '--output', 'json'],
+      {
+        EXT_BROWSERS_CACHE_DIR: cacheRoot
+      }
+    )
 
     expect(result.status).toBe(0)
     const frame = JSON.parse(result.stdout) as Record<string, unknown>
@@ -230,18 +215,21 @@ describe('uninstall under --output json against a temp cache root', () => {
   // removal failure a test can stage without a second process. Root ignores it.
   it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
     'keeps going past a folder that will not go, then exits 1 with every outcome',
-    () => {
+    async () => {
       const locked = path.join(cacheRoot, 'chrome', BUILD)
       fs.writeFileSync(path.join(locked, 'chrome'), 'stub')
       fs.mkdirSync(path.join(cacheRoot, 'firefox', BUILD), {recursive: true})
       fs.chmodSync(locked, 0o555)
 
-      let result: ReturnType<typeof run>
+      let result: Awaited<ReturnType<typeof run>>
 
       try {
-        result = run(['uninstall', 'chrome,firefox', '--output', 'json'], {
-          EXT_BROWSERS_CACHE_DIR: cacheRoot
-        })
+        result = await run(
+          ['uninstall', 'chrome,firefox', '--output', 'json'],
+          {
+            EXT_BROWSERS_CACHE_DIR: cacheRoot
+          }
+        )
       } finally {
         fs.chmodSync(locked, 0o755)
       }
@@ -281,7 +269,7 @@ describe('uninstall under --output json against a temp cache root', () => {
 
   // The chrome folder of an application folder is a browser profile. Built
   // from nothing here, and nothing in it may change.
-  it('leaves a folder that holds a browser profile alone under --all, and exits 1', () => {
+  it('leaves a folder that holds a browser profile alone under --all, and exits 1', async () => {
     const profile = path.join(cacheRoot, 'chrome')
     fs.rmSync(path.join(profile, BUILD), {recursive: true})
     fs.mkdirSync(path.join(profile, 'Default'))
@@ -289,7 +277,7 @@ describe('uninstall under --output json against a temp cache root', () => {
     fs.writeFileSync(path.join(profile, 'Local State'), '{"b":2}')
     fs.mkdirSync(path.join(cacheRoot, 'firefox', BUILD), {recursive: true})
 
-    const result = run(['uninstall', '--all', '--output', 'json'], {
+    const result = await run(['uninstall', '--all', '--output', 'json'], {
       EXT_BROWSERS_CACHE_DIR: cacheRoot
     })
 
@@ -328,8 +316,8 @@ describe('uninstall under --output json against a temp cache root', () => {
     )
   })
 
-  it('reports per-target outcomes under --all', () => {
-    const result = run(['uninstall', '--all', '--output', 'json'], {
+  it('reports per-target outcomes under --all', async () => {
+    const result = await run(['uninstall', '--all', '--output', 'json'], {
       EXT_BROWSERS_CACHE_DIR: cacheRoot
     })
 

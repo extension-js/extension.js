@@ -1,208 +1,196 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
+import {
+  compileFiles,
+  idleCompiler,
+  tapsAddedBy,
+  writeProject
+} from '../../__spec__/helpers/real-compiler'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {SetupReloadStrategy} from '../steps/setup-reload-strategy/index'
 
-const captured = vi.hoisted(() => ({
-  webExtension: [] as any[],
-  backgroundEntry: [] as any[]
-}))
+const makeTempFolder = trackTempFolders()
 
-vi.mock('fs', () => ({
-  readFileSync: vi.fn(() => JSON.stringify(currentManifest)),
-  existsSync: vi.fn(() => currentFilesExist)
-}))
-
-vi.mock('../steps/setup-reload-strategy/setup-background-entry', () => ({
-  SetupBackgroundEntry: class {
-    constructor(options: any) {
-      captured.backgroundEntry.push(options)
-    }
-    apply() {}
-  }
-}))
-
-vi.mock(
-  '../steps/setup-reload-strategy/webpack-target-webextension-fork',
-  () => ({
-    default: class {
-      constructor(options: any) {
-        captured.webExtension.push(options)
-      }
-      apply() {}
-    }
+// Applies the strategy to an idle dev compiler over a real manifest and
+// reads back the taps and the entries it added.
+function run(
+  manifest: object,
+  options: {browser?: string; files?: string[]} = {}
+) {
+  const root = makeTempFolder('extjs-reload-strategy-')
+  writeProject(root, {
+    'manifest.json': manifest,
+    ...Object.fromEntries((options.files ?? []).map((file) => [file, '']))
   })
-)
 
-let currentManifest: any = {}
-let currentFilesExist = true
+  const compiler = idleCompiler(root, 'development')
+  const taps = tapsAddedBy(compiler, () =>
+    new SetupReloadStrategy({
+      manifestPath: path.join(root, 'manifest.json'),
+      ...(options.browser ? {browser: options.browser} : {})
+    } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(compiler)
+  )
+  const entry = compiler.options.entry as Record<string, {import: string[]}>
 
-const {SetupReloadStrategy} = await import(
-  '../steps/setup-reload-strategy/index'
-)
-
-function run(manifest: any, browser = 'chrome') {
-  currentManifest = manifest
-  captured.webExtension.length = 0
-  captured.backgroundEntry.length = 0
-  new SetupReloadStrategy({
-    manifestPath: '/project/manifest.json',
-    browser
-  } as any).apply({options: {}} as any)
-
-  return captured.webExtension[0]
+  return {
+    root,
+    taps,
+    entries: Object.fromEntries(
+      Object.entries(entry).map(([name, value]) => [
+        name,
+        value.import.map((file) => path.basename(file).replace(/\..*$/, ''))
+      ])
+    )
+  }
 }
 
-describe('SetupReloadStrategy background entry', () => {
-  beforeEach(() => {
-    currentManifest = {}
-    currentFilesExist = true
+// The background bundles that answer a content script asking for a chunk,
+// read off a real dev compile of the entries the scripts feature creates.
+async function fallbackListeners(
+  manifest: object,
+  entry: Record<string, string>
+): Promise<string[]> {
+  const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
+    'manifest.json': manifest,
+    'b.js': ''
   })
+  const {errors, files} = await compileFiles(
+    root,
+    entry,
+    new SetupReloadStrategy({
+      manifestPath: path.join(root, 'manifest.json'),
+      browser: 'chrome'
+    } as ConstructorParameters<typeof SetupReloadStrategy>[0]),
+    'development'
+  )
 
-  it('uses a service worker entry for MV3 on chromium', () => {
-    const opts = run({
-      manifest_version: 3,
-      background: {service_worker: 'b.js'}
+  expect(errors).toEqual([])
+
+  return Object.keys(files).filter((name) =>
+    files[name].includes('type != "WTW_INJECT"')
+  )
+}
+
+// The exact option objects per manifest shape are pinned in
+// get-background-entry-name.spec.ts, this file checks what a compile gets.
+describe('SetupReloadStrategy background entry', () => {
+  it('uses a service worker entry for MV3 on chromium', async () => {
+    const manifest = {manifest_version: 3, background: {service_worker: 'b.js'}}
+
+    expect(run(manifest, {files: ['b.js']}).entries).toEqual({
+      'background/service_worker': ['b']
     })
-    expect(opts.background).toEqual({
-      serviceWorkerEntry: 'background/service_worker',
-      tryCatchWrapper: true,
-      eagerChunkLoading: false
-    })
+
+    expect(
+      await fallbackListeners(manifest, {'background/service_worker': 'b.js'})
+    ).toEqual(['background/service_worker.js'])
   })
 
   // Chromium runs a Firefox-style MV3 background.scripts bundle as a worker
-  // under the background/scripts entry. Naming background/service_worker here
-  // crashed production builds, where no such entry is ever synthesized.
-  it('uses the background/scripts entry for MV3 background.scripts on chromium', () => {
-    const opts = run({
-      manifest_version: 3,
-      background: {scripts: ['b.js']}
-    })
-    expect(opts.background.serviceWorkerEntry).toBe('background/scripts')
+  // under the background/scripts entry, so the fallback is answered there.
+  it('uses the background/scripts entry for MV3 background.scripts on chromium', async () => {
+    expect(
+      await fallbackListeners(
+        {manifest_version: 3, background: {scripts: ['b.js']}},
+        {'background/scripts': 'b.js'}
+      )
+    ).toEqual(['background/scripts.js'])
   })
 
-  // A missing file produces no entry at all, and naming one trips the fork's
-  // entryOption assert before the curated missing-file error can surface.
-  it('omits the worker entry when the declared background file is missing', () => {
-    currentFilesExist = false
-    const opts = run({
+  // A missing file produces no entry at all, and the missing-file error is
+  // the one report the build gets.
+  it('adds no worker entry when the declared background file is missing', () => {
+    const result = run({
       manifest_version: 3,
       background: {service_worker: 'b.js'}
     })
-    expect(opts.background.serviceWorkerEntry).toBeUndefined()
-    expect(opts.background.pageEntry).toBeUndefined()
+
+    expect(result.entries).toEqual({})
+    expect(result.taps.thisCompilation).toContain(
+      'plugin-reload:setup-background-entry'
+    )
   })
 
   it('uses a page entry for MV2 on chromium', () => {
-    const opts = run({manifest_version: 2, background: {scripts: ['b.js']}})
-    expect(opts.background.pageEntry).toBe('background/script')
-    expect(opts.background.serviceWorkerEntry).toBeUndefined()
+    const result = run(
+      {manifest_version: 2, background: {scripts: ['b.js']}},
+      {files: ['b.js']}
+    )
+
+    expect(result.taps.compilation).toContain('ChunkLoaderRuntime')
   })
 
   it('uses a page entry on gecko even when the manifest is MV3', () => {
-    const opts = run(
+    const result = run(
       {manifest_version: 3, background: {service_worker: 'b.js'}},
-      'firefox'
+      {browser: 'firefox', files: ['b.js']}
     )
-    expect(opts.background.pageEntry).toBe('background/script')
-    expect(opts.background.serviceWorkerEntry).toBeUndefined()
+
+    expect(result.taps.compilation).toContain('ChunkLoaderRuntime')
   })
 
-  it('falls back to a plain background entry when the manifest declares none', () => {
-    const opts = run({manifest_version: 3})
-    expect(opts.background.pageEntry).toBe('background')
-  })
-})
+  it('adds the minimum worker as an entry when the manifest declares none', () => {
+    const result = run({manifest_version: 3})
 
-describe('SetupReloadStrategy content script metadata', () => {
-  it('is empty when the manifest declares no content scripts', () => {
-    expect(run({manifest_version: 3}).contentScriptsMeta).toEqual({})
-  })
-
-  it('maps each ordinary content script to the extension world', () => {
-    const meta = run({
-      manifest_version: 3,
-      content_scripts: [{matches: ['<all_urls>']}, {matches: ['<all_urls>']}]
-    }).contentScriptsMeta
-
-    expect(meta['content_scripts/content-0.js']).toEqual({
-      index: 0,
-      bundleId: 'content_scripts/content-0.js',
-      world: 'extension'
+    expect(result.entries).toEqual({
+      'background/service_worker': ['minimum-chromium-file']
     })
-
-    expect(meta['content_scripts/content-1.js'].index).toBe(1)
-  })
-
-  it('pairs a MAIN world script with a bridge indexed past the original count', () => {
-    const meta = run({
-      manifest_version: 3,
-      content_scripts: [
-        {matches: ['<all_urls>'], world: 'MAIN'},
-        {matches: ['<all_urls>']}
-      ]
-    }).contentScriptsMeta
-
-    expect(meta['content_scripts/content-0.js']).toEqual({
-      index: 0,
-      bundleId: 'content_scripts/content-0.js',
-      world: 'main',
-      bridgeBundleId: 'content_scripts/content-2.js'
-    })
-
-    expect(meta['content_scripts/content-2.js']).toEqual({
-      index: 2,
-      bundleId: 'content_scripts/content-2.js',
-      world: 'extension',
-      role: 'main_world_bridge',
-      mainBundleId: 'content_scripts/content-0.js'
-    })
-
-    expect(meta['content_scripts/content-1.js'].world).toBe('extension')
-  })
-
-  it('gives each MAIN world script its own bridge', () => {
-    const meta = run({
-      manifest_version: 3,
-      content_scripts: [
-        {matches: ['<all_urls>'], world: 'MAIN'},
-        {matches: ['<all_urls>'], world: 'MAIN'}
-      ]
-    }).contentScriptsMeta
-
-    expect(meta['content_scripts/content-0.js'].bridgeBundleId).toBe(
-      'content_scripts/content-2.js'
-    )
-
-    expect(meta['content_scripts/content-1.js'].bridgeBundleId).toBe(
-      'content_scripts/content-3.js'
-    )
-
-    expect(meta['content_scripts/content-3.js'].mainBundleId).toBe(
-      'content_scripts/content-1.js'
-    )
-  })
-
-  it('survives a malformed content_scripts value instead of failing the build', () => {
-    const opts = run({manifest_version: 3, content_scripts: 'not-an-array'})
-    expect(opts.contentScriptsMeta).toEqual({})
   })
 })
 
 describe('SetupReloadStrategy wiring', () => {
-  it('forwards the manifest path and browser to the background entry step', () => {
-    run({manifest_version: 3}, 'edge')
-    expect(captured.backgroundEntry[0]).toEqual({
-      manifestPath: '/project/manifest.json',
-      browser: 'edge'
+  it('hands the browser to the background entry step', () => {
+    expect(run({manifest_version: 3}, {browser: 'firefox'}).entries).toEqual({
+      'background/script': ['minimum-firefox-file']
     })
   })
 
   it('defaults the browser to chrome', () => {
-    currentManifest = {manifest_version: 3}
-    captured.backgroundEntry.length = 0
-    new SetupReloadStrategy({
-      manifestPath: '/project/manifest.json'
-    } as any).apply({options: {}} as any)
+    expect(run({manifest_version: 3}).entries).toEqual({
+      'background/service_worker': ['minimum-chromium-file']
+    })
+  })
+})
 
-    expect(captured.backgroundEntry[0].browser).toBe('chrome')
+describe('SetupReloadStrategy in a development compile', () => {
+  // The loader a lazy chunk gets depends on the world the strategy hands the
+  // chunk loader, so a MAIN world script must come out with the bridge loader.
+  it('hands the content script worlds to the chunk loader', async () => {
+    const lazyImport = "import('./lazy.js').then((m) => console.log(m))\n"
+    const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
+      'manifest.json': {
+        manifest_version: 3,
+        name: 'worlds',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'},
+        content_scripts: [
+          {matches: ['<all_urls>'], js: ['content/isolated.js']},
+          {matches: ['<all_urls>'], js: ['content/main.js'], world: 'MAIN'}
+        ]
+      },
+      'background.js': '',
+      'content/isolated.js': lazyImport,
+      'content/main.js': lazyImport,
+      'content/lazy.js': 'export const a = 1\n'
+    })
+    const {errors, files} = await compileFiles(
+      root,
+      {
+        'content_scripts/content-0': 'content/isolated.js',
+        'content_scripts/content-1': 'content/main.js'
+      },
+      new SetupReloadStrategy({
+        manifestPath: path.join(root, 'manifest.json'),
+        browser: 'chrome'
+      } as ConstructorParameters<typeof SetupReloadStrategy>[0]),
+      'development'
+    )
+
+    expect(errors).toEqual([])
+    expect(files['content_scripts/content-0.js']).not.toContain(
+      'EXTJS_WTW_LOAD'
+    )
+
+    expect(files['content_scripts/content-1.js']).toContain('EXTJS_WTW_LOAD')
   })
 })
