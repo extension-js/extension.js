@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
@@ -8,6 +9,7 @@ import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import {bundledFileToken} from '../css-lib/inline-content-script-css'
 import {
   inlineCssImports,
+  realPath,
   whyNotRead,
   workspaceRootOf
 } from '../css-lib/inline-css-imports'
@@ -30,6 +32,23 @@ function inline(root: string, sheet: string) {
     roots: [path.join(root, 'public'), root],
     projectPath: root
   })
+}
+
+// The same folder by a link beside it. A junction needs no privilege on Windows.
+function linkTo(folder: string): string {
+  const link = `${folder}-link`
+
+  fs.symlinkSync(folder, link, 'junction')
+
+  return link
+}
+
+// The folder as the system spells its temp folder, before links or short
+// names are resolved. The same spelling where nothing differs.
+function tempSpelling(folder: string): string {
+  const temp = realPath(os.tmpdir())
+
+  return path.join(os.tmpdir(), path.relative(temp, folder))
 }
 
 // A content-script sheet reaches the page as a data: URL. A relative @import
@@ -278,7 +297,7 @@ describe('the sheets a content-script sheet imports', () => {
       'app/ok.css': '.ok{}\n'
     })
     const result = inlineApp(root)
-    const real = fs.realpathSync(path.join(root, 'shared', 'tokens.css'))
+    const real = realPath(path.join(root, 'shared', 'tokens.css'))
 
     expect(result.css).toBe(
       '@import "../shared/tokens.css";\n.ok{}\n\n.own{}\n'
@@ -338,7 +357,7 @@ describe('the sheets a content-script sheet imports', () => {
       'shared/tokens.css': '.tokens{}\n',
       'app/styles.css': '@import "../shared/tokens.css";\n.own{}\n'
     })
-    const real = fs.realpathSync(path.join(root, 'shared', 'tokens.css'))
+    const real = realPath(path.join(root, 'shared', 'tokens.css'))
 
     expect(inlineApp(root).unreadable.map((left) => left.reason)).toEqual([
       `The file sits outside the project, at ${real.split(path.sep).join('/')}.`
@@ -364,7 +383,7 @@ describe('the sheets a content-script sheet imports', () => {
       [path.posix.join('app', request)]: '.x{}\n',
       'app/styles.css': `@import "${request}";\n.own{}\n`
     })
-    const real = fs.realpathSync(path.join(root, 'app', request))
+    const real = realPath(path.join(root, 'app', request))
     const reason =
       why === 'outside'
         ? `The file sits outside the project, at ${real.split(path.sep).join('/')}.`
@@ -462,7 +481,7 @@ describe('the sheets a content-script sheet imports', () => {
       )
 
       const result = inlineApp(root)
-      const real = fs.realpathSync(path.join(root, 'outside.css'))
+      const real = realPath(path.join(root, 'outside.css'))
 
       expect(result.css).toBe('@import "./linked.css";\n.own{}\n')
       expect(result.unreadable.map((left) => left.reason)).toEqual([
@@ -507,7 +526,7 @@ describe('the sheets a content-script sheet imports', () => {
         path.join(root, 'app', 'linked.css')
       )
 
-      const real = fs.realpathSync(path.join(root, 'node_modules/up/x.css'))
+      const real = realPath(path.join(root, 'node_modules/up/x.css'))
 
       expect(inlineApp(root).unreadable.map((left) => left.reason)).toEqual([
         `The file sits outside the project, at ${real}.`
@@ -1455,7 +1474,7 @@ describe('the loader run that brings imports into a content-script sheet', () =>
           `${WARN} Couldn't bring an @import into this content script stylesheet, so the rules of that file will not load.`,
           'PATH content/styles.css',
           'IMPORT ../../shared/tokens.css',
-          `REASON The file sits outside the project, at ${fs.realpathSync(tokens).split(path.sep).join('/')}.`,
+          `REASON The file sits outside the project, at ${realPath(tokens).split(path.sep).join('/')}.`,
           'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
           'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
         ].join('\n')
@@ -2355,5 +2374,26 @@ describe('the workspace root of a project', () => {
       whyNotRead(path.join(root, 'ws', file), path.join(root, 'ws', 'app')) ===
         undefined
     ).toBe(read)
+  })
+
+  // A bundler names a file by its real path. The project can be named by
+  // another spelling of the same folder: a link, or a short name on Windows.
+  it.each([
+    ['through a link', (ws: string) => linkTo(ws)],
+    ['as the system names its temp folder', (ws: string) => tempSpelling(ws)]
+  ])('reads a sibling by its real path, the project named %s', (_label, spell) => {
+    const root = makeProject({
+      'ws/package.json': pkg({workspaces: ['*']}),
+      'ws/app/styles.css': '.own{}\n',
+      'ws/shared/a.css': '.a{}\n',
+      'ws/shared/.env': 'KEY=1\n'
+    })
+    const ws = path.join(root, 'ws')
+    const app = path.join(spell(ws), 'app')
+
+    expect(whyNotRead(path.join(ws, 'shared', 'a.css'), app)).toBeUndefined()
+    expect(whyNotRead(path.join(ws, 'shared', '.env'), app)?.reason).toBe(
+      'The path holds .env, a name the build keeps private.'
+    )
   })
 })

@@ -287,9 +287,12 @@ function isFileNamedExactly(folder: string, relative: string): boolean {
   return isFile(at)
 }
 
-function realPath(file: string): string {
+// Every path this module compares is spelled this way. Specs build theirs
+// with it too.
+export function realPath(file: string): string {
   try {
-    // The native call answers in the letter case the disk holds.
+    // The native call answers in the letter case the disk holds, and on
+    // Windows in long names where a short one like RUNNER~1 was given.
     return fs.realpathSync.native(file)
   } catch {
     return path.resolve(file)
@@ -433,16 +436,34 @@ function inWorkspaceSources(file: string, workspaceRoot: string): boolean {
     .some((part) => part === 'node_modules' || /^\.(?!\.?$)/.test(part))
 }
 
+// The folder, of a few spellings of one, that a path climbs out of the least.
+function nearestSpelling(file: string, spellings: string[]): string {
+  const climbs = (folder: string) => {
+    const relative = path.relative(folder, file)
+
+    return path.isAbsolute(relative)
+      ? Number.POSITIVE_INFINITY
+      : relative.split(path.sep).filter((part) => part === '..').length
+  }
+
+  return spellings.reduce((best, folder) =>
+    climbs(folder) < climbs(best) ? folder : best
+  )
+}
+
 // Whether the rules of a sheet may be read into another one: undefined when
 // they may, or the reason they may not with the fix. Links are followed.
 export function whyNotRead(
   file: string,
   projectRoot: string
 ): {reason: string; fix: string} | undefined {
-  const written = path.resolve(projectRoot)
   const root = realPath(projectRoot)
   const asked = path.resolve(file)
   const real = realPath(file)
+  // A bundler asks by the real path, and the project can be named by a link
+  // or a short name, so the path asked for is read from the spelling it shares.
+  const spellings = [path.resolve(projectRoot), root]
+  const written = nearestSpelling(asked, spellings)
   // No name along the path asked for, or the one it leads to, is private.
   const privateName = [
     ...path.relative(written, asked).split(path.sep),
@@ -465,7 +486,7 @@ export function whyNotRead(
   // A package is asked for through node_modules, and a package manager may
   // link it from there into the store it keeps at the project or above it.
   if (
-    inInstalledModules(asked, [written, root]) &&
+    inInstalledModules(asked, spellings) &&
     inInstalledModules(real, [root])
   ) {
     return undefined
