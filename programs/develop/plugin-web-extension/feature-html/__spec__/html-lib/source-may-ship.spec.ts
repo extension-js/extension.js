@@ -73,28 +73,23 @@ const ask = (
 
 describe('sourceMayShip', () => {
   it('ships project content, dot-named or not', () => {
-    expect(ask('project/src/logo.png')).toEqual({ship: true})
-    expect(ask('project/src/.env.example')).toEqual({ship: true})
-    expect(ask('project/src/.well-known/links.json')).toEqual({ship: true})
-    expect(ask('project/shared/logo.png')).toEqual({ship: true})
+    expect(ask('project/src/logo.png')).toBe(true)
+    expect(ask('project/src/.env.example')).toBe(true)
+    expect(ask('project/src/.well-known/links.json')).toBe(true)
+    expect(ask('project/shared/logo.png')).toBe(true)
   })
 
   it('withholds a private name anywhere along the path', () => {
-    const reason = {ship: false, reason: 'private-name'}
-
-    expect(ask('project/src/.env')).toEqual(reason)
-    expect(ask('project/src/.ENV')).toEqual(reason)
-    expect(ask('project/.git/config')).toEqual(reason)
-    expect(ask('design/.npmrc')).toEqual(reason)
-    // Not on disk: the name alone decides.
-    expect(ask('project/src/.env.local')).toEqual(reason)
+    expect(ask('project/src/.env')).toBe(false)
+    expect(ask('project/src/.ENV')).toBe(false)
+    expect(ask('project/.git/config')).toBe(false)
+    expect(ask('design/.npmrc')).toBe(false)
+    // A file that is not there is not shipped either.
+    expect(ask('project/src/nothing.png')).toBe(false)
   })
 
   it('withholds a file inside an installed package', () => {
-    expect(ask('project/node_modules/pkg/data.json')).toEqual({
-      ship: false,
-      reason: 'installed-package'
-    })
+    expect(ask('project/node_modules/pkg/data.json')).toBe(false)
   })
 
   it('reads a root URL as the browser does', () => {
@@ -103,17 +98,13 @@ describe('sourceMayShip', () => {
         rootRef
       })
 
-    expect(at('/logo.png')).toEqual({ship: true})
-    expect(at('/logo.png?v=2#top')).toEqual({ship: true})
-    expect(at('/%2Eenv')).toEqual({ship: false, reason: 'private-name'})
-    expect(at('/a/../.envrc')).toEqual({ship: false, reason: 'private-name'})
-    expect(at('/../logo.png')).toEqual({ship: false, reason: 'climbs-out'})
-    expect(at('/%2e%2e/logo.png')).toEqual({ship: false, reason: 'climbs-out'})
-    expect(at('/a/../../logo.png')).toEqual({ship: false, reason: 'climbs-out'})
-    expect(at('/node_modules/pkg/data.json')).toEqual({
-      ship: false,
-      reason: 'installed-package'
-    })
+    expect(at('/logo.png')).toBe(true)
+    expect(at('/logo.png?v=2#top')).toBe(true)
+    expect(at('/%2Eenv')).toBe(false)
+    expect(at('/a/../.envrc')).toBe(false)
+    expect(at('/../logo.png')).toBe(false)
+    expect(at('/%2e%2e/logo.png')).toBe(false)
+    expect(at('/a/../../logo.png')).toBe(false)
   })
 
   it('withholds a root URL that is an address outside the project', () => {
@@ -121,46 +112,38 @@ describe('sourceMayShip', () => {
 
     expect(
       sourceMayShip(outside, root, extensionRoot, {rootRef: outside})
-    ).toEqual({ship: false, reason: 'outside-project'})
+    ).toBe(false)
   })
 
   it('takes an address inside the project as a file, not a root URL', () => {
     const inside = path.join(root, 'shared', 'logo.png')
 
-    expect(
-      sourceMayShip(inside, root, extensionRoot, {rootRef: inside})
-    ).toEqual({ship: true})
+    expect(sourceMayShip(inside, root, extensionRoot, {rootRef: inside})).toBe(
+      true
+    )
   })
 
-  it('ships a file outside the project that a relative path names', () => {
-    expect(ask('design/logo.png')).toEqual({ship: true})
+  it('withholds a file outside the project, however it is named', () => {
+    expect(ask('design/logo.png')).toBe(false)
   })
 
   it.runIf(canLink)('follows a link to the file it names', () => {
-    expect(ask('project/src/alias.png')).toEqual({ship: true})
-    expect(ask('project/src/out.txt')).toEqual({
-      ship: false,
-      reason: 'outside-project'
-    })
+    expect(ask('project/src/alias.png')).toBe(true)
+    expect(ask('project/src/out.txt')).toBe(false)
 
-    expect(ask('project/src/installed.json')).toEqual({
-      ship: false,
-      reason: 'installed-package'
-    })
+    expect(ask('project/src/installed.json')).toBe(false)
 
-    expect(ask('project/src/settings.txt')).toEqual({
-      ship: false,
-      reason: 'private-name'
-    })
+    expect(ask('project/src/settings.txt')).toBe(false)
   })
 
   it('answers for public/ by name alone, as the copier does', () => {
     const publicDir = path.join(root, 'public')
 
-    expect(ask('project/public/.htaccess', {publicDir})).toEqual({ship: true})
-    expect(ask('project/public/.env', {publicDir})).toEqual({
-      ship: false,
-      reason: 'private-name'
-    })
+    expect(ask('project/public/.htaccess', {publicDir})).toBe(true)
+    expect(ask('project/public/.env', {publicDir})).toBe(false)
+    // A private name in the reference is asked before the folder answers.
+    expect(
+      ask('project/public/.htaccess', {publicDir, rootRef: '/%2Eenv'})
+    ).toBe(false)
   })
 })

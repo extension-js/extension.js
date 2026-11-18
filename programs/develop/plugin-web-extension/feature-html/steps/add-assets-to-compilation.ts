@@ -253,12 +253,12 @@ function emitNestedHtmlAndReferencedAssets(params: {
     }
 
     const authored = htmlAssets?.authored?.[assetFromHtml] || assetFromHtml
-    const verdict = sourceMayShip(assetFromHtml, projectRoot, manifestDir, {
+    const mayShip = sourceMayShip(assetFromHtml, projectRoot, manifestDir, {
       rootRef: authored.startsWith('/') ? assetFromHtml : undefined,
       publicDir
     })
 
-    if (!verdict.ship) {
+    if (!mayShip) {
       reportToCompilation(
         compilation,
         compiler,
@@ -436,15 +436,12 @@ export class AddAssetsToCompilation {
               const asRootUrl =
                 isRootUrl ||
                 (authored.startsWith('/') && !isOsPathUnder(projectRoot, asset))
-              const withheld = !sourceMayShip(
-                absoluteFsPath,
-                projectRoot,
-                manifestDir,
-                {
+              const withheld =
+                fs.existsSync(absoluteFsPath) &&
+                !sourceMayShip(absoluteFsPath, projectRoot, manifestDir, {
                   rootRef: asRootUrl ? asset : undefined,
                   publicDir: publicRootForResource
-                }
-              ).ship
+                })
 
               if (
                 !withheld &&

@@ -1,34 +1,32 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {vi} from 'vitest'
+import {
+  MARKER,
+  project
+} from '../../../../plugin-special-folders/__spec__/helpers/private-files-project'
 
-// A fixture project for whole builds: files a build should never copy sit
-// beside the manifest, in an installed package and outside the project.
+export {
+  canLink,
+  MARKER,
+  manifest,
+  PAGE
+} from '../../../../plugin-special-folders/__spec__/helpers/private-files-project'
 
-// Obvious fakes: no file here holds a real value.
-export const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
-export const canLink = process.platform !== 'win32'
+// The shared fixture project of fake private files, plus dot-named files in
+// public/ that a build ships, and a build that reads a failed run as well.
 
-const holders: string[] = []
-
-export function removeProjects() {
-  for (const holder of holders.splice(0)) {
-    fs.rmSync(holder, {recursive: true, force: true})
-  }
+export const PUBLIC_FILES = {
+  'public/.well-known/links.json': '[]',
+  'public/.env.example': 'PRIVATE_KEY=\n',
+  'public/logo.png': 'png'
 }
 
-export const PAGE = '<!doctype html><html><head></head><body></body></html>'
-
-export function manifest(extra: Record<string, unknown> = {}) {
-  return JSON.stringify({
-    manifest_version: 3,
-    name: 'private-files',
-    version: '1.0.0',
-    action: {default_popup: 'popup.html'},
-    ...extra
-  })
-}
+export const PUBLIC_OUTPUT = [
+  '.env.example',
+  '.well-known/links.json',
+  'logo.png'
+]
 
 export interface Project {
   root: string
@@ -36,59 +34,10 @@ export interface Project {
   outsideFile: string
 }
 
-// The project sits one folder down, so a climbing path has a file to reach.
 export function makeProject(files: Record<string, string> = {}): Project {
-  const holder = fs.realpathSync.native(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-private-files-'))
-  )
-  holders.push(holder)
+  const root = project({...PUBLIC_FILES, ...files})
 
-  const root = path.join(holder, 'project')
-  const all: Record<string, string> = {
-    '.env': `PRIVATE_KEY=${MARKER}-env\n`,
-    '.env.local': `PRIVATE_KEY=${MARKER}-env-local\n`,
-    '.envrc': `export PRIVATE_KEY=${MARKER}-envrc\n`,
-    '.npmrc': `# ${MARKER}-npmrc\n`,
-    '.git/config': `# ${MARKER}-git\n`,
-    'package.json': JSON.stringify({
-      name: 'private-files',
-      version: '1.0.0',
-      private: true
-    }),
-    'node_modules/pkg/data.json': `{"value":"${MARKER}-node-modules"}`,
-    'a/keep.txt': 'keep',
-    'data/ok.json': '{"ok":true}',
-    'public/.well-known/links.json': '[]',
-    'public/.env.example': 'PRIVATE_KEY=\n',
-    'public/logo.png': 'png',
-    'manifest.json': manifest(),
-    'popup.html': PAGE,
-    ...files
-  }
-
-  for (const [relative, contents] of Object.entries(all)) {
-    const target = path.join(root, relative)
-    fs.mkdirSync(path.dirname(target), {recursive: true})
-    fs.writeFileSync(target, contents)
-  }
-
-  const outsideFile = path.join(holder, 'outside.txt')
-  fs.writeFileSync(outsideFile, `${MARKER}-outside\n`)
-  fs.mkdirSync(path.join(holder, 'outside-folder'))
-  fs.writeFileSync(
-    path.join(holder, 'outside-folder', 'inner.txt'),
-    `${MARKER}-outside-folder\n`
-  )
-
-  if (canLink) {
-    fs.symlinkSync(outsideFile, path.join(root, 'linked.txt'))
-    fs.symlinkSync(
-      path.join(holder, 'outside-folder'),
-      path.join(root, 'linked-folder')
-    )
-  }
-
-  return {root, outsideFile}
+  return {root, outsideFile: path.join(path.dirname(root), 'outside.txt')}
 }
 
 function listOutput(dir: string, prefix = ''): Record<string, string> {
@@ -120,13 +69,18 @@ export interface Built {
   marked: string[]
   // The refs a page warning names as missing.
   missing: string[]
+  // The built pages that hold the text "own page".
+  pages: string[]
   // The paths a finding shows after NOT FOUND.
   notFound: string[]
   printed: string
   errors: number
 }
 
-export async function buildProject(root: string): Promise<Built> {
+export async function buildProject(
+  root: string,
+  browser: 'chrome' | 'firefox' = 'chrome'
+): Promise<Built> {
   const {extensionBuild} = await import('../../../../command-build')
   const lines: string[] = []
 
@@ -157,7 +111,7 @@ export async function buildProject(root: string): Promise<Built> {
 
     try {
       summary = await extensionBuild(root, {
-        browser: 'chrome',
+        browser,
         silent: false,
         install: false,
         mode: 'production',
@@ -168,7 +122,10 @@ export async function buildProject(root: string): Promise<Built> {
       failure = error as {diagnostics?: unknown[]}
     }
 
-    const out = listOutput(path.join(root, 'dist', 'chrome'))
+    const failedWith = failure?.diagnostics?.filter(
+      (finding) => (finding as {severity?: string}).severity === 'error'
+    ).length
+    const out = listOutput(path.join(root, 'dist', browser))
     const printed = [
       lines.join('\n'),
       JSON.stringify(summary ?? failure?.diagnostics)
@@ -198,12 +155,13 @@ export async function buildProject(root: string): Promise<Built> {
         .filter((name) => out[name].includes(MARKER))
         .map(withoutHash)
         .sort(),
+      pages: Object.keys(out)
+        .filter((name) => out[name].includes('own page'))
+        .sort(),
       missing: [...missing].sort(),
       notFound: [...notFound].sort(),
       printed,
-      errors: Number(
-        summary?.errors_count ?? failure?.diagnostics?.length ?? -1
-      )
+      errors: Number(summary?.errors_count ?? failedWith ?? -1)
     }
   } finally {
     for (const spy of spies) spy.mockRestore()

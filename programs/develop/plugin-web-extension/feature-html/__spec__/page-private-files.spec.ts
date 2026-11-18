@@ -1,19 +1,17 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   buildProject,
   canLink,
   MARKER,
   makeProject,
   PAGE,
-  removeProjects
+  PUBLIC_OUTPUT
 } from './helpers/private-files-project'
 
 // Whole builds of a fixture project whose page names files a build never
 // copies, and dot-named files in public/ that it does.
-
-afterAll(removeProjects)
 
 const TIMEOUT = 120_000
 
@@ -37,12 +35,7 @@ const KEPT = [
   '/data/ok.json'
 ]
 
-const KEPT_OUTPUT = [
-  '.env.example',
-  '.well-known/links.json',
-  'data/ok.json',
-  'logo.png'
-]
+const KEPT_OUTPUT = [...PUBLIC_OUTPUT, 'data/ok.json'].sort()
 
 type Writer = (refs: string[]) => {head?: string; body?: string}
 
@@ -121,12 +114,9 @@ describe('a page that names a file the build never copies', () => {
       const result = await buildProject(root)
 
       expect(result.marked).toEqual([])
-      expect(result.shipped).toEqual([
-        '.env.example',
-        '.well-known/links.json',
-        'assets/ok.<hash>.json',
-        'logo.png'
-      ])
+      expect(result.shipped).toEqual(
+        [...PUBLIC_OUTPUT, 'assets/ok.<hash>.json'].sort()
+      )
 
       expect(result.notFound).toEqual(
         [
@@ -198,11 +188,7 @@ describe('a page that names a file the build never copies', () => {
       const result = await buildProject(root)
 
       expect(result.marked).toEqual([])
-      expect(result.shipped).toEqual([
-        '.env.example',
-        '.well-known/links.json',
-        'logo.png'
-      ])
+      expect(result.shipped).toEqual(PUBLIC_OUTPUT)
 
       expect(result.missing).toEqual([
         './public/.env',
@@ -228,11 +214,7 @@ describe('a page that names a dot-named file public/ ships', () => {
       })
       const result = await buildProject(root)
 
-      expect(result.shipped).toEqual([
-        '.env.example',
-        '.well-known/links.json',
-        'logo.png'
-      ])
+      expect(result.shipped).toEqual(PUBLIC_OUTPUT)
 
       expect(result.missing).toEqual([])
       expect(result.notFound).toEqual([])

@@ -214,12 +214,12 @@ export class EmitFile {
                 const isThemeImage = group === 'theme' && sub === 'images'
 
                 // A withheld file is reported the way a missing one is.
-                const withheld = !sourceMayShip(
-                  resolved,
-                  projectPath,
-                  manifestDir,
-                  {rootRef, publicDir}
-                ).ship
+                const withheld =
+                  fs.existsSync(resolved) &&
+                  !sourceMayShip(resolved, projectPath, manifestDir, {
+                    rootRef,
+                    publicDir
+                  })
 
                 if (withheld || !fs.existsSync(resolved)) {
                   // Leading '/' (extension-root style) maps to the output/public root;
