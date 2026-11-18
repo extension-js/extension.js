@@ -9,6 +9,7 @@ import {
   maybeUsePostCss
 } from '../../css-tools/postcss'
 import {cssProjects} from '../helpers/css-project'
+import {canImportTypeScript} from '../helpers/typescript-import'
 
 const makeProject = cssProjects()
 const POSTCSS_LOADER = createRequire(import.meta.url).resolve('postcss-loader')
@@ -309,7 +310,7 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
     ])
   })
 
-  it('reads a TypeScript config itself where Node strips types, else leaves it to postcss-loader', async () => {
+  it('reads a TypeScript config itself where it can import one, else leaves it to postcss-loader', async () => {
     const root = makeProject({
       'postcss.config.ts': "export default {plugins: {'fake-plugin': {}}}\n"
     })
@@ -318,9 +319,8 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
-    // process.features.typescript is set from Node 22.10 when stripping is on.
     expect(rule.options.postcssOptions).toEqual(
-      (process.features as {typescript?: unknown}).typescript
+      (await canImportTypeScript())
         ? {cwd: root, config: false, plugins: [{postcssPlugin: 'fake-plugin'}]}
         : {cwd: root, config: path.join(root, 'postcss.config.ts')}
     )
@@ -412,7 +412,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     expect(pluginNames(rule)).toEqual([...SHIMS, '@tailwindcss/postcss'])
   })
 
-  it('injects Tailwind for a TypeScript config, read here where Node strips types', async () => {
+  it('injects Tailwind for a TypeScript config, read here where it can import one', async () => {
     const root = makeProject({
       'package.json': packageJson({
         devDependencies: {'@tailwindcss/postcss': '^4.0.0'}
@@ -426,7 +426,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     const instance = {postcssPlugin: '@tailwindcss/postcss'}
 
     expect(rule.options.postcssOptions).toEqual(
-      (process.features as {typescript?: unknown}).typescript
+      (await canImportTypeScript())
         ? {cwd: root, config: false, plugins: [instance]}
         : {
             cwd: root,

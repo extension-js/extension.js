@@ -114,7 +114,8 @@ describe('dead url() in a content-script stylesheet', () => {
   ])('asks the watcher for each place a dead file could appear, strict refs %s', (strict) => {
     process.env.EXTENSION_STRICT_REFS = strict
     const dir = createProject()
-    const root = fs.realpathSync(dir)
+    // The loader expands a Windows 8.3 short path, and only the native call does.
+    const root = fs.realpathSync.native(dir)
     fs.mkdirSync(path.join(dir, 'content'), {recursive: true})
     fs.mkdirSync(path.join(dir, 'public'))
     fs.writeFileSync(path.join(dir, 'content', 'logo.png'), '', 'utf8')
