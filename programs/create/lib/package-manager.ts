@@ -6,11 +6,11 @@
 //  ╚═════╝╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as fs from 'node:fs'
 import type {
   SpawnSyncOptionsWithStringEncoding,
   SpawnSyncReturns
 } from 'node:child_process'
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {sync as spawnSync} from 'cross-spawn'
 import {getPackageManagerSpec} from 'prefers-yarn'
