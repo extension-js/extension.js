@@ -264,7 +264,7 @@ const EXPECTED: Record<string, Table> = {
     '.npmrc':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/.npmrc" | said withheld .npmrc',
     '../outside.png':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/outside.png"',
+      'injected.css | url ../outside.png | said withheld ../outside.png',
     './linked.png':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/linked.png" | said withheld ./linked.png',
     './node_modules/pkg/.env':
@@ -292,7 +292,7 @@ const EXPECTED: Record<string, Table> = {
     '.npmrc':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/.npmrc" | said withheld .npmrc',
     '../outside.png':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/outside.png"',
+      'injected.css | url ../outside.png | said withheld ../outside.png',
     './linked.png':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/linked.png" | said withheld ./linked.png',
     './node_modules/pkg/.env':
@@ -320,7 +320,7 @@ const EXPECTED: Record<string, Table> = {
     '.npmrc':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/.npmrc" | said withheld .npmrc',
     '../outside.png':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/outside.png"',
+      'injected.css | url ../outside.png | said withheld ../outside.png',
     './linked.png':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/linked.png" | said withheld ./linked.png',
     './node_modules/pkg/.env':
@@ -348,7 +348,7 @@ const EXPECTED: Record<string, Table> = {
     '.npmrc':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/.npmrc" | said withheld .npmrc',
     '../outside.png':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/outside.png"',
+      'injected.css | url ../outside.png | said withheld ../outside.png',
     './linked.png':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/linked.png" | said withheld ./linked.png',
     './node_modules/pkg/.env':
