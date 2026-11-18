@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {readGeckoManifestId} from '../../../lib/extension-id'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {
   getCanonicalContentScriptJsAssetName,
@@ -86,6 +87,8 @@ export class UpdateManifest {
   private reportedUnsupportedApis = new Set<string>()
   // A page kept at its authored path is said once per session too.
   private reportedKeptPages = new Set<string>()
+  // The missing add-on ID warning is said once per build and once per session.
+  private reportedGeckoAddonId = false
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -517,6 +520,27 @@ export class UpdateManifest {
               warn.name = 'AmoDataCollectionWarning'
               warn.file = 'manifest.json'
               compilation.warnings.push(warn)
+            }
+
+            // Without an add-on ID Firefox mints a new one per temporary
+            // install, so storage is lost on relaunch. Dev says it too.
+            if (
+              !this.reportedGeckoAddonId &&
+              isGeckoBasedBrowser(String(this.browser))
+            ) {
+              const geckoId = readGeckoManifestId(
+                patchedManifest as Record<string, unknown>
+              )
+
+              if (!geckoId.valid) {
+                this.reportedGeckoAddonId = true
+                const warn = new WebpackError(
+                  messages.missingGeckoAddonId(geckoId.declared)
+                ) as Error & {file?: string; name?: string}
+                warn.name = 'GeckoAddonIdWarning'
+                warn.file = 'manifest.json'
+                compilation.warnings.push(warn)
+              }
             }
 
             // Two warnings share one scan. On Gecko it is a store-readiness
