@@ -12,6 +12,11 @@ import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import {debugLine} from '../../../lib/messaging'
 import {
+  hasPrivateFileName,
+  privateFileKind,
+  sourceFileMayShip
+} from '../../../plugin-special-folders/public-private-files'
+import {
   type AssetHashOptions,
   bundledAssetOutputName
 } from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
@@ -21,11 +26,6 @@ import {
   resolveExtensionPath
 } from '../../feature-scripts/steps/trace-runtime-loaded-files'
 import {unixify} from '../../shared/paths'
-import {
-  hasPrivateFileName,
-  privateFileKind,
-  sourceFileMayShip
-} from '../../../plugin-special-folders/public-private-files'
 import * as warMessages from './messages'
 
 function isPublicRootLike(possiblePath: string) {

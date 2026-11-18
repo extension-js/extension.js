@@ -9,6 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
+import {isOsPathUnder} from '../lib/real-path'
+import * as cssMessages from '../plugin-css/css-lib/messages'
+import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
 import * as messages from '../plugin-web-extension/feature-scripts/messages'
 import {
   type CompileRequest,
@@ -16,15 +19,12 @@ import {
   planTracedFile,
   type TracedFilePlan
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
-import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
-import * as cssMessages from '../plugin-css/css-lib/messages'
 import * as folderMessages from './messages'
 import {
   rootAbsolutePathIsWithheld,
   sourceFileMayShip
 } from './public-private-files'
-import {isOsPathUnder} from '../lib/real-path'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {
