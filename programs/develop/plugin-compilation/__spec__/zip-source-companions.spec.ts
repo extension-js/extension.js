@@ -3,7 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {ZipPlugin} from '../zip'
+import {isCompanionExtension, ZipPlugin} from '../zip'
+import {readZip, zipProject} from './helpers/zip-archive'
 
 function readZipEntries(zipPath: string): string[] {
   return Object.keys(unzipSync(new Uint8Array(fs.readFileSync(zipPath))))
@@ -115,5 +116,110 @@ describe('a source zip never carries a companion extension', () => {
     )
     expect(added).toContain('extensions-helper.js')
     expect(added).toContain('src/extensions/util.js')
+  })
+})
+
+// The project is one folder under ./extensions and the root has no manifest.
+describe('a source zip of a project that lives under ./extensions', () => {
+  let tmp: string
+  let outPath: string
+
+  const NESTED = JSON.stringify({
+    name: 'Nested',
+    version: '1.0.0',
+    manifest_version: 3
+  })
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-companions-'))
+    outPath = path.join(tmp, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  async function sourceZip(manifestPath: string) {
+    const {warnings} = await zipProject(
+      tmp,
+      outPath,
+      {zipSource: true},
+      manifestPath
+    )
+    const zipPath = path.join(tmp, 'dist', 'nested-1.0.0-source.zip')
+
+    return {warnings, names: Object.keys(readZip(zipPath)).sort()}
+  }
+
+  it('packs the folder that holds the manifest and no folder beside it', async () => {
+    const manifestPath = path.join(tmp, 'extensions', 'my-ext', 'manifest.json')
+    write(manifestPath, NESTED)
+    write(path.join(tmp, 'extensions', 'my-ext', 'bg.js'), 'OWN')
+    write(path.join(tmp, 'extensions', 'other-ext', 'manifest.json'), NESTED)
+    write(path.join(tmp, 'extensions', 'other-ext', 'bg.js'), 'OTHER')
+    write(path.join(tmp, 'extensions', 'my-ext-2', 'bg.js'), 'OTHER')
+
+    const {warnings, names} = await sourceZip(manifestPath)
+
+    expect(names).toEqual([
+      'extensions/my-ext/bg.js',
+      'extensions/my-ext/manifest.json'
+    ])
+
+    expect(warnings).toEqual([])
+  })
+
+  it('packs ./extensions whole when the manifest sits directly in it', async () => {
+    const manifestPath = path.join(tmp, 'extensions', 'manifest.json')
+    write(manifestPath, NESTED)
+    write(path.join(tmp, 'extensions', 'bg.js'), 'OWN')
+
+    const {warnings, names} = await sourceZip(manifestPath)
+
+    expect(names).toEqual(['extensions/bg.js', 'extensions/manifest.json'])
+    expect(warnings).toEqual([])
+  })
+
+  it('warns when every file is left out and the archive is empty', async () => {
+    const manifestPath = path.join(tmp, 'extensions', 'my-ext', 'manifest.json')
+    write(manifestPath, NESTED)
+    write(path.join(tmp, '.gitignore'), 'extensions\n.gitignore\n')
+
+    const {warnings, names} = await sourceZip(manifestPath)
+
+    expect(names).toEqual([])
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/The source zip holds no files/)
+  })
+
+  it('reads the folder of the manifest in either separator style', () => {
+    const own = 'extensions/my-ext'
+    const windows = (file: string) => file.replace(/\//g, '\\')
+
+    for (const style of [(file: string) => file, windows]) {
+      expect(isCompanionExtension(style('extensions/my-ext/bg.js'))).toBe(true)
+      expect(
+        isCompanionExtension(style('extensions/my-ext/bg.js'), style(own))
+      ).toBe(false)
+
+      expect(
+        isCompanionExtension(style('extensions/my-ext/src/a.js'), style(own))
+      ).toBe(false)
+
+      expect(
+        isCompanionExtension(style('extensions/other-ext/bg.js'), style(own))
+      ).toBe(true)
+
+      expect(
+        isCompanionExtension(style('extensions/my-ext-2/bg.js'), style(own))
+      ).toBe(true)
+
+      expect(
+        isCompanionExtension(style('extensions/other/bg.js'), 'extensions')
+      ).toBe(false)
+
+      expect(isCompanionExtension(style('src/extensions/a.js'))).toBe(false)
+    }
   })
 })
