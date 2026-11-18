@@ -95,26 +95,27 @@ describe('the files a css url() request could name', () => {
 // An @import may leave .css off, and both checks of a dead reference read
 // the same list, so neither calls such an import dead while the other keeps it.
 describe('the .css sheet an extensionless request can name', () => {
+  // Resolved, so Windows reads the root path on the current drive too.
   const context = {
-    issuerDir: path.join(path.sep, 'project', 'content'),
-    roots: [path.join(path.sep, 'project', 'public')]
+    issuerDir: path.resolve(path.sep, 'project', 'content'),
+    roots: [path.resolve(path.sep, 'project', 'public')]
   }
 
   it('is listed after the file as written, for a relative and a root request', () => {
     expect(cssUrlRefFiles('./theme', context)).toEqual([
-      path.join(path.sep, 'project', 'content', 'theme'),
-      path.join(path.sep, 'project', 'content', 'theme.css')
+      path.resolve(path.sep, 'project', 'content', 'theme'),
+      path.resolve(path.sep, 'project', 'content', 'theme.css')
     ])
 
     expect(cssUrlRefFiles('/theme?v=1', context)).toEqual([
-      path.join(path.sep, 'project', 'public', 'theme'),
-      path.join(path.sep, 'project', 'public', 'theme.css')
+      path.resolve(path.sep, 'project', 'public', 'theme'),
+      path.resolve(path.sep, 'project', 'public', 'theme.css')
     ])
   })
 
   it('is not added to a request that names an extension', () => {
     expect(cssUrlRefFiles('./theme.png', context)).toEqual([
-      path.join(path.sep, 'project', 'content', 'theme.png')
+      path.resolve(path.sep, 'project', 'content', 'theme.png')
     ])
   })
 
