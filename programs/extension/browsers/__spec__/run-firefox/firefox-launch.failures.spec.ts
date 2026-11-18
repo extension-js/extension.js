@@ -122,6 +122,22 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       })
     })
 
+    it('leaves the record of a run that replaced this one during the launch', async () => {
+      const {launch} = await start({pinned: false})
+      const next = {command: 'preview', status: 'starting', runId: 'run-2'}
+
+      fake.deps.locate.firefox = () => {
+        fake.project.writeReady(next)
+
+        return null
+      }
+
+      const error = await failure(launch())
+
+      expect(error.code).toBe('E_BROWSER_NOT_FOUND')
+      expect(fake.project.readReady()).toEqual(next)
+    })
+
     it('prints the fork guidance block for a fork that is not installed', async () => {
       const {launch} = await start({pinned: false, browser: 'floorp'})
       const error = await failure(launch())

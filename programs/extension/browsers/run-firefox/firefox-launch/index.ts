@@ -284,7 +284,7 @@ export class FirefoxLaunchPlugin {
     stampReadyBrowserLaunchFailed(
       outputPath,
       describeLaunchFailure(error),
-      this.launchRunId ?? readReadyRunId(outputPath),
+      this.launchRunId,
       launchFailureCode(error)
     )
   }
@@ -295,11 +295,7 @@ export class FirefoxLaunchPlugin {
     const outputPath =
       this.extensionOutputPath ?? this.resolveExtensionOutputPath()
 
-    stampReadyRdpPortError(
-      outputPath,
-      reason,
-      this.launchRunId ?? readReadyRunId(outputPath)
-    )
+    stampReadyRdpPortError(outputPath, reason, this.launchRunId)
   }
 
   // The user extension's dist dir anchors ready.json, so companions are
@@ -409,6 +405,9 @@ export class FirefoxLaunchPlugin {
   }
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
+    this.extensionOutputPath = this.resolveExtensionOutputPath()
+    this.launchRunId = readReadyRunId(this.extensionOutputPath)
+
     if (isDebug()) {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled(this.host.browser))
     }
@@ -679,9 +678,6 @@ export class FirefoxLaunchPlugin {
         // Otherwise the banner falls back to the generic browser label
       }
     }
-
-    this.extensionOutputPath = this.resolveExtensionOutputPath()
-    this.launchRunId = readReadyRunId(this.extensionOutputPath)
 
     const desiredDebugPort = deriveDebugPortWithInstance(
       this.host.port,

@@ -366,6 +366,9 @@ async function launchPreviewSession(
   // Every stamp the launchers write lands on the contract this session owns,
   // which is not beside the loaded directory when that is a source folder.
   claimReadyPath(opts.outPath, opts.readyPath)
+  // Read once here: read again at each stamp it names whoever owns the record
+  // by then, so a run that replaced this one would be written over.
+  const runId = readReadyRunId(opts.outPath)
 
   const compilationLike = createPreviewCompilationLike(opts)
   const previewPluginOptions = buildPreviewPluginOptions(opts)
@@ -379,7 +382,7 @@ async function launchPreviewSession(
     stampReadyBrowserLaunchFailed(
       opts.outPath,
       describeLaunchFailure(error),
-      readReadyRunId(opts.outPath),
+      runId,
       launchFailureCode(error)
     )
 
@@ -408,11 +411,7 @@ async function launchPreviewSession(
         )
 
     if (debugPortClaim) {
-      stampReadyCdpPort(
-        opts.outPath,
-        debugPortClaim.port,
-        readReadyRunId(opts.outPath)
-      )
+      stampReadyCdpPort(opts.outPath, debugPortClaim.port, runId)
     }
 
     // Identity before the launch: the card is the header for the session, not
@@ -429,7 +428,7 @@ async function launchPreviewSession(
       debugPortClaim?.release()
 
       if (!launcher.spawnedBrowser) {
-        clearReadyCdpPort(opts.outPath, readReadyRunId(opts.outPath))
+        clearReadyCdpPort(opts.outPath, runId)
       }
 
       throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)

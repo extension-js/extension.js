@@ -285,6 +285,9 @@ export class ChromiumLaunchPlugin {
   private didSpawn = false
   // Chrome's own refusal reason, when it declined to load the guest at launch.
   private extensionLoadRefused: string | undefined
+  // The run that owned the record when the launch began, so a stamp cannot
+  // land on a run that replaced this one while the launch was under way.
+  private launchRunId: string | undefined
 
   // The browser's refusal reason for this session, or null when it loaded.
   // Read by the launcher's controller so a later compile can re-offer the dist.
@@ -367,7 +370,7 @@ export class ChromiumLaunchPlugin {
     stampReadyBrowserLaunchFailed(
       outputPath,
       describeLaunchFailure(error),
-      readReadyRunId(outputPath),
+      this.launchRunId,
       launchFailureCode(error)
     )
   }
@@ -463,6 +466,10 @@ export class ChromiumLaunchPlugin {
     compilation: CompilationLike,
     opts?: ChromiumRunOptions
   ) {
+    this.launchRunId = readReadyRunId(
+      getExtensionOutputPath(compilation, undefined)
+    )
+
     // A bad --chromium-binary is a pin error on every target, said before
     // anything looks for a browser, so it never reads as "not installed".
     if (this.options?.chromiumBinary) {
@@ -1156,7 +1163,7 @@ export class ChromiumLaunchPlugin {
         stampReadyExtensionLoadRefused(
           refusedOutputPath,
           `the build is missing ${incomplete.missing.join(', ')}`,
-          readReadyRunId(refusedOutputPath)
+          this.launchRunId
         )
 
         throw Object.assign(
@@ -1205,7 +1212,7 @@ export class ChromiumLaunchPlugin {
             message: error.message,
             owner: error.profileLockOwner
           },
-          readReadyRunId(lockedOutputPath)
+          this.launchRunId
         )
 
         // Framed, so the CLI prints the refusal alone and not a stack trace.
@@ -1632,7 +1639,7 @@ export class ChromiumLaunchPlugin {
       stampReadyExtensionLoadRefused(
         refusedOutputPath,
         GENERAL_REFUSAL_REASON,
-        readReadyRunId(refusedOutputPath)
+        this.launchRunId
       )
     }
 

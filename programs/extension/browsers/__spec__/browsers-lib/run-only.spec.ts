@@ -161,6 +161,53 @@ describe('runOnlyPreviewBrowser', () => {
     }
   })
 
+  it('leaves the port of a run that replaced this one when the launch fails', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-next-'))
+    const outPath = path.join(dir, 'dist', 'chrome')
+    const readyPath = path.join(
+      dir,
+      'dist',
+      'extension-js',
+      'chrome',
+      'ready.json'
+    )
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-1', command: 'preview', status: 'starting'})
+    )
+
+    const next = {
+      runId: 'run-2',
+      command: 'preview',
+      status: 'starting',
+      cdpPort: 9333
+    }
+    const refused = new Error('spawn EACCES')
+    chromiumRunOnce.mockImplementationOnce(async () => {
+      fs.writeFileSync(readyPath, JSON.stringify(next))
+
+      throw refused
+    })
+
+    try {
+      await expect(
+        runOnlyPreviewBrowser({
+          browser: 'chrome',
+          outPath,
+          readyPath,
+          contextDir: dir,
+          extensionsToLoad: [outPath]
+        })
+      ).rejects.toMatchObject({code: 'E_BROWSER_LAUNCH', cause: refused})
+
+      expect(JSON.parse(fs.readFileSync(readyPath, 'utf8'))).toEqual(next)
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   // Shell-script fixture: not executable on Windows, posix-only case.
   it.skipIf(process.platform === 'win32')(
     'describes a chrome-target pin on the card, not the system chrome',

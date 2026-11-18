@@ -161,6 +161,22 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.spawns).toEqual([])
     })
 
+    it('leaves the record of a run that replaced this one during the launch', async () => {
+      const {runOnly} = await start({pinned: false})
+      const next = {command: 'preview', status: 'starting', runId: 'run-2'}
+
+      fake.deps.locate.chrome = () => {
+        fake.project.writeReady(next)
+
+        return null
+      }
+
+      const error = await failure(runOnly())
+
+      expect(error.code).toBe('E_BROWSER_NOT_FOUND')
+      expect(fake.project.readReady()).toEqual(next)
+    })
+
     it('runs the binary the system scan found for a fork', async () => {
       fake = await fakeChromium({browser: 'brave'})
       const system = fake.project.plantBinary('system-brave')
