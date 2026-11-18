@@ -397,59 +397,97 @@ describe('publish when the platform misbehaves', () => {
     vi.stubEnv('EXTENSION_DEV_TOKEN', undefined)
   })
 
-  it('waits without a bound on a request that never answers', async () => {
+  it('gives up on a request that never answers after 30 s, with E_NETWORK', async () => {
     const project = makeTempFolder('extjs-publish-project-')
 
     fs.writeFileSync(path.join(project, 'package.json'), '{"name":"probe"}')
-    fetchMock.mockReturnValue(new Promise(() => {}))
-
-    const publishing = run(['publish', project, '--token', 'tok'])
-
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1))
-
-    // Pins today's behavior: the request carries no abort signal, so no timeout.
-    expect(fetchMock.mock.calls[0][0]).toBe(
-      'http://127.0.0.1:9/api/cli/publish'
+    // Answers nothing, and rejects the way fetch does once its signal aborts.
+    fetchMock.mockImplementation(
+      (_url: string, init: {signal: AbortSignal}) =>
+        new Promise((_resolve, reject) => {
+          init.signal.addEventListener('abort', () =>
+            reject(Object.assign(new Error('aborted'), {name: 'AbortError'}))
+          )
+        })
     )
 
-    expect(Object.keys(fetchMock.mock.calls[0][1]).sort()).toEqual([
-      'body',
-      'headers',
-      'method'
-    ])
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
 
-    expect(
-      await Promise.race([
-        publishing.then(() => 'settled'),
-        new Promise((resolve) => setTimeout(() => resolve('pending'), 50))
+    try {
+      const publishing = run([
+        'publish',
+        project,
+        '--token',
+        'tok',
+        '--output',
+        'json'
       ])
-    ).toBe('pending')
 
-    expect(exitSpy).not.toHaveBeenCalled()
-    expect(logSpy).not.toHaveBeenCalled()
-    expect(errorSpy).not.toHaveBeenCalled()
+      // setImmediate is not faked, so this waits for the request without
+      // moving the clock the bound is read on.
+      for (let turn = 0; turn < 100 && !fetchMock.mock.calls.length; turn++) {
+        await new Promise((resolve) => setImmediate(resolve))
+      }
+
+      expect(fetchMock.mock.calls[0][0]).toBe(
+        'http://127.0.0.1:9/api/cli/publish'
+      )
+
+      const signal = fetchMock.mock.calls[0][1].signal as AbortSignal
+
+      await vi.advanceTimersByTimeAsync(29_999)
+      expect(signal.aborted).toBe(false)
+
+      await vi.advanceTimersByTimeAsync(1)
+      await vi.advanceTimersByTimeAsync(5000)
+
+      expect(await publishing).toBe(1)
+    } finally {
+      vi.useRealTimers()
+    }
+
+    expect(frames()).toMatchObject([
+      {
+        ok: false,
+        command: 'publish',
+        status: 'failed',
+        error: {
+          code: 'E_NETWORK',
+          message:
+            'http://127.0.0.1:9/api/cli/publish did not answer within 30 s.'
+        }
+      }
+    ])
   })
 
-  it('lets a body that fails to read escape unframed, with no exit', async () => {
+  it('frames a body that fails to read as E_NETWORK', async () => {
     const project = makeTempFolder('extjs-publish-project-')
-    const failure = new TypeError('terminated')
 
     fs.writeFileSync(path.join(project, 'package.json'), '{"name":"probe"}')
     fetchMock.mockResolvedValue({
       ok: true,
       status: 200,
       text: async () => {
-        throw failure
+        throw new TypeError('terminated')
       }
     })
 
-    // Pins today's behavior: no E_NETWORK frame, the entry files it E_INTERNAL.
-    await expect(
-      run(['publish', project, '--token', 'tok', '--output', 'json'])
-    ).rejects.toBe(failure)
+    expect(
+      await run(['publish', project, '--token', 'tok', '--output', 'json'])
+    ).toBe(1)
 
-    expect(exitSpy).not.toHaveBeenCalled()
-    expect(logSpy).not.toHaveBeenCalled()
-    expect(errorSpy).not.toHaveBeenCalled()
+    expect(frames()).toMatchObject([
+      {
+        ok: false,
+        status: 'failed',
+        error: {
+          code: 'E_NETWORK',
+          message:
+            'Could not reach http://127.0.0.1:9/api/cli/publish: terminated'
+        }
+      }
+    ])
+
+    expect(exitSpy).toHaveBeenCalledWith(1)
   })
 })
