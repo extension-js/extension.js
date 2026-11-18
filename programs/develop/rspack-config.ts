@@ -16,6 +16,7 @@ import {
   type RspackPluginInstance,
   SwcJsMinimizerRspackPlugin
 } from '@rspack/core'
+import {FileEventAssistPlugin} from './dev-server/file-event-assist'
 import {makeSanitizedConsole} from './lib/branding'
 import {codedError} from './lib/coded-error'
 import {isChromiumBasedBrowser} from './lib/constants'
@@ -290,6 +291,9 @@ export default function webpackConfig(
     } satisfies RspackPluginInstance,
     new NodeBuiltinsPlugin(),
     new OneDiagnosticPerLocationPlugin(),
+    // A watch session sees an edit when the file reports it, not when a busy
+    // macOS gets to the folder event. Inert outside a watch.
+    new FileEventAssistPlugin(),
     // Warn (don't fail) for bare require() calls that resolve nowhere. The
     // require stays verbatim in the bundle, matching how Chrome loads the script.
     {
