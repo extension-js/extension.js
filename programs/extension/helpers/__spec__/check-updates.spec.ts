@@ -22,17 +22,32 @@ interface Asked {
   headers: http.IncomingHttpHeaders
 }
 
-// A loopback registry the test owns. `answer` null accepts and never answers.
-async function startRegistry(answer: {status: number; body: string} | null) {
+type Answer = {status: number; body: string} | 'never' | 'endless'
+
+// A loopback registry the test owns. 'never' accepts and never answers,
+// 'endless' answers 200 and keeps sending body bytes until the client leaves.
+async function startRegistry(answer: Answer) {
   const asked: Asked[] = []
   const sockets = new Set<Socket>()
   const closed: Socket[] = []
   const server = http.createServer((request, response) => {
     asked.push({url: String(request.url), headers: request.headers})
-    if (!answer) return
+    if (answer === 'never') return
 
-    response.writeHead(answer.status, {'content-type': 'application/json'})
-    response.end(answer.body)
+    response.writeHead(answer === 'endless' ? 200 : answer.status, {
+      'content-type': 'application/json'
+    })
+
+    if (answer !== 'endless') {
+      response.end(answer.body)
+
+      return
+    }
+
+    const chunk = `{"pad":"${'x'.repeat(64 * 1024)}`
+    const timer = setInterval(() => response.write(chunk), 5)
+
+    response.on('close', () => clearInterval(timer))
   })
 
   server.on('connection', (socket) => {
@@ -56,14 +71,15 @@ async function startRegistry(answer: {status: number; body: string} | null) {
   }
 }
 
+// The dist-tag document: the package.json of the version the tag names.
 const latestIs = (version: string) => ({
   status: 200,
-  body: JSON.stringify({'dist-tags': {latest: version}})
+  body: JSON.stringify({name: 'extension', version})
 })
 
 let registries: Array<{close(): Promise<void>}> = []
 
-async function registry(answer: {status: number; body: string} | null) {
+async function registry(answer: Answer) {
   const started = await startRegistry(answer)
 
   registries.push(started)
@@ -224,25 +240,25 @@ describe('the registry the check asks', () => {
 })
 
 describe('the update check against a loopback registry', () => {
-  it('asks for the CLI package only and prints the notice', async () => {
+  it('asks for the latest dist-tag of the CLI package only and prints the notice', async () => {
     const answering = await registry(latestIs('2.1.0'))
     const env = isolatedEnv({npm_config_registry: answering.url})
     const result = await checkUpdates(deps(env))
 
     expect(result?.message).toMatch(/update is available/i)
     expect(result?.suffix).toMatch(/2\.1\.0/)
-    expect(answering.asked.map((entry) => entry.url)).toEqual(['/extension'])
+    expect(answering.asked.map((entry) => entry.url)).toEqual([
+      '/extension/latest'
+    ])
 
     // Nothing that names the user, the machine or the project.
     const {headers} = answering.asked[0]
 
-    expect(Object.keys(headers).sort()).toEqual([
-      'accept',
-      'connection',
-      'host'
-    ])
-
-    expect(headers.authorization).toBeUndefined()
+    expect(headers).toEqual({
+      accept: 'application/json',
+      connection: 'close',
+      host: new URL(answering.url).host
+    })
   })
 
   it('sends no credentials from the registry URL', async () => {
@@ -314,16 +330,18 @@ describe('the update check against a loopback registry', () => {
   })
 
   it('a registry that never answers ends the check within its bound', async () => {
-    const silent = await registry(null)
+    const silent = await registry('never')
     const env = isolatedEnv({npm_config_registry: silent.url})
     const started = Date.now()
 
     expect(await checkUpdates(deps(env, {boundMs: 300}))).toBeNull()
     expect(Date.now() - started).toBeLessThan(UPDATE_CHECK_BOUND_MS)
-    expect(silent.asked).toHaveLength(1)
-
-    // The request is torn down, not left open on the socket.
-    await vi.waitFor(() => expect(silent.closedConnections()).toBe(1))
+    // The request is torn down, not left open on the socket. The server side
+    // can see the connection after the client gave up, so both are awaited.
+    await vi.waitFor(() => {
+      expect(silent.connections()).toBe(1)
+      expect(silent.closedConnections()).toBe(1)
+    })
   })
 
   it('the default bound is two seconds', () => {
@@ -332,7 +350,7 @@ describe('the update check against a loopback registry', () => {
 
   // The CLI never awaits the check, so a pending one must not hold the process.
   it('a pending lookup does not keep a process alive', async () => {
-    const silent = await registry(null)
+    const silent = await registry('never')
     const scratch = makeTempFolder('extjs-update-child-')
     const script = path.join(scratch, 'pending-lookup.mjs')
     const moduleUrl = pathToFileURL(
@@ -378,10 +396,29 @@ describe('the update check against a loopback registry', () => {
   })
 
   it('lookupLatest rejects on a bound, never later', async () => {
-    const silent = await registry(null)
+    const silent = await registry('never')
 
     await expect(
       lookupLatest('extension', new URL(silent.url), 200)
     ).rejects.toThrow(/200 ms/)
+  })
+
+  it('an answer over 1 MB is cut off before the bound', async () => {
+    const endless = await registry('endless')
+    const started = Date.now()
+
+    await expect(
+      lookupLatest('extension', new URL(endless.url), 30_000)
+    ).rejects.toThrow(/over 1 MB/)
+
+    expect(Date.now() - started).toBeLessThan(30_000)
+    await vi.waitFor(() => expect(endless.closedConnections()).toBe(1))
+  })
+
+  it('an oversized answer gives no notice', async () => {
+    const endless = await registry('endless')
+    const env = isolatedEnv({npm_config_registry: endless.url})
+
+    expect(await checkUpdates(deps(env, {boundMs: 30_000}))).toBeNull()
   })
 })
