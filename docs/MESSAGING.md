@@ -321,6 +321,18 @@ What is stable and what is not:
   `framed`. `framed` is `true` when the stream already carries its terminal frame, the one this
   failure wrote or an earlier one, so a host that prints frames writes its own only when
   `framed` is not `true`.
+- A library host can pass `hintFor(code)` with the dev options. The engine calls it for a
+  terminal `failed` or `usage` frame that carries no `hint` and adds the string it returns.
+  A frame with a hint of its own keeps it, and a resolver that throws or returns nothing leaves
+  the frame as it was.
+- A host that learns a session cannot go on calls `endSessionAsFailed(code, message,
+  instanceId?)`, exported by the engine. It ends the session that `instanceId` names, the one
+  in `value.instanceId`, or the newest live session when none is named. That session writes
+  one `failed` frame with the code and message, on its own stream only. With `exitOnError`
+  (what the CLI passes) the process then shuts down and exits 1. Without it the session lets
+  go of its server, port and listeners and the host and its other sessions keep running. It
+  returns `false` when no such session is live or the session is already stopping, and the
+  host then reports the failure itself.
 - `browser` is optional and names the session a frame is about, so a reader of `doctor`
   knows which browser the result describes. Commands with no session leave it absent.
 
