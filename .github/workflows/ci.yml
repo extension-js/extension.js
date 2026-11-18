@@ -233,6 +233,11 @@ jobs:
       - name: Check the emitted declarations
         run: node scripts/check-emitted-types.mjs
 
+      # Dry-run packs each package the smoke above compiled and fails on an
+      # exports, main, types or bin entry whose file is not in the tarball.
+      - name: Check every manifest entry is in its tarball
+        run: pnpm check:packed-exports
+
   bundled-extensions:
     name: Bundled extensions build
     runs-on: ubuntu-latest
