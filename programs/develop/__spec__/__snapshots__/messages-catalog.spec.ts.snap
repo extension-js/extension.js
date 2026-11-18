@@ -345,6 +345,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "buildConstantNeverDefined: function(3)",
     "codeNamedFileNotShipped: function(3)",
     "compiledSourceSpelling: function(4)",
+    "contentScriptTopLevelAwait: function(4)",
     "contentScriptWithoutDefaultExport: function(2)",
     "defaultExportCalledAgain: function(2)",
     "defaultExportLostToLoaders: function(3)",
