@@ -26,8 +26,7 @@ import {
 
 // The compiled background entry the runtime is prepended to; the same shapes
 // the bridge producer targets, since both must ride the one worker bundle.
-const BACKGROUND_ASSET =
-  /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
+const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 function putAsset(compilation: Compilation, name: string, text: string) {
   const source = new sources.RawSource(text)

@@ -49,21 +49,85 @@ describe('buildServerConfig', () => {
   })
 
   it.each([
-    ['/proj/dist/chrome/background.js', true],
+    ['/proj/dist/chrome/background.js', '/proj/dist/chrome', true],
+    ['/proj/dist/chrome/manifest.json', '/proj/dist/chrome', false],
+    ['/proj/dist/chrome/MANIFEST.JSON', '/proj/dist/chrome', false],
+    ['/proj/dist/chrome/manifest.json', '/proj/dist/chrome/', false],
+    ['/proj/dist/chrome/./manifest.json', '/proj/dist/chrome', false],
+    ['manifest.json', '/proj/dist/chrome', false],
+    ['/proj/dist/chrome/app/manifest.json', '/proj/dist/chrome', true],
+    ['/proj/dist/chrome/a/b/manifest.json', '/proj/dist/chrome', true],
+    ['app/manifest.json', '/proj/dist/chrome', true],
+    ['/proj/dist/chrome/manifest.json.map', '/proj/dist/chrome', true],
+    ['/proj/dist/chrome/web.manifest.json', '/proj/dist/chrome', true],
+    ['/proj/dist/chrome/../src/index.js', '/proj/dist/chrome', false],
+    ['/proj/dist/chrome/app/../manifest.json', '/proj/dist/chrome', false],
+    // A sibling folder whose name only starts like the output folder.
+    ['/proj/dist/chrome-beta/manifest.json', '/proj/dist/chrome', true],
+    ['C:\\proj\\dist\\chrome\\manifest.json', 'C:\\proj\\dist\\chrome', false],
+    [
+      'C:\\proj\\dist\\chrome\\manifest.json',
+      'C:\\proj\\dist\\chrome\\',
+      false
+    ],
+    ['c:\\Proj\\Dist\\Chrome\\Manifest.json', 'C:\\proj\\dist\\chrome', false],
+    ['C:/proj/dist/chrome/manifest.json', 'C:\\proj\\dist\\chrome', false],
+    ['C:\\proj\\dist\\chrome\\manifest.json', 'C:/proj/dist/chrome', false],
+    [
+      '\\\\?\\C:\\proj\\dist\\chrome\\manifest.json',
+      'C:\\proj\\dist\\chrome',
+      false
+    ],
+    ['\\\\host\\share\\dist\\manifest.json', '\\\\host\\share\\dist', false],
+    [
+      'C:\\proj\\dist\\chrome\\app\\manifest.json',
+      'C:\\proj\\dist\\chrome',
+      true
+    ],
+    ['C:/proj/dist/chrome/app/manifest.json', 'C:\\proj\\dist\\chrome', true],
+    ['C:\\proj\\dist\\chrome\\app/manifest.json', 'C:/proj/dist/chrome', true],
+    ['D:\\proj\\dist\\chrome\\manifest.json', 'C:\\proj\\dist\\chrome', true],
+    [
+      'C:\\proj\\dist\\chrome\\..\\src\\index.js',
+      'C:\\proj\\dist\\chrome',
+      false
+    ]
+  ])('writes %s under %s to disk: %s', (file, outputPath, expected) => {
+    expect(shouldWriteAssetToDisk(file, outputPath)).toBe(expected)
+  })
+
+  it.each([
     ['/proj/dist/chrome/manifest.json', false],
-    ['/proj/dist/chrome/MANIFEST.JSON', false],
-    ['manifest.json', false],
-    ['C:\\proj\\dist\\chrome\\manifest.json', false],
-    ['/proj/dist/chrome/../src/index.js', false],
-    ['/proj/dist/chrome/manifest.json.map', true]
-  ])('writes %s to disk: %s', (file, expected) => {
-    const config = buildServerConfig(input())
+    ['/proj/dist/chrome/app/manifest.json', false],
+    ['C:\\proj\\dist\\chrome\\app\\Manifest.json', false],
+    ['/proj/dist/chrome/background.js', true]
+  ])('with no output folder known, writes %s to disk: %s', (file, expected) => {
+    expect(shouldWriteAssetToDisk(file, undefined)).toBe(expected)
+  })
+
+  it('judges a file against the output folder of the live compiler', () => {
+    let outputPath: string | undefined = '/proj/dist/chrome'
+    const config = buildServerConfig(
+      input({
+        activeCompiler: () =>
+          (outputPath
+            ? {options: {output: {path: outputPath}}}
+            : null) as ReturnType<ServerConfigInput['activeCompiler']>
+      })
+    )
     const writeToDisk = config.devMiddleware?.writeToDisk as (
       file: string
     ) => boolean
 
-    expect(writeToDisk).toBe(shouldWriteAssetToDisk)
-    expect(writeToDisk(file)).toBe(expected)
+    expect(writeToDisk('/proj/dist/chrome/manifest.json')).toBe(false)
+    expect(writeToDisk('/proj/dist/chrome/app/manifest.json')).toBe(true)
+
+    // A restart can swap in a compiler that writes to another folder.
+    outputPath = '/proj/dist/firefox'
+    expect(writeToDisk('/proj/dist/firefox/manifest.json')).toBe(false)
+
+    outputPath = undefined
+    expect(writeToDisk('/proj/dist/chrome/app/manifest.json')).toBe(false)
   })
 
   it('serves public/ without the stock watcher and watches it through watchFiles', () => {

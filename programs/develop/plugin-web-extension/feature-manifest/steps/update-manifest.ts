@@ -57,7 +57,8 @@ import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {
   hasEmptyGeckoBackgroundScripts,
-  patchGeckoBackground
+  patchGeckoBackground,
+  translatesGeckoServiceWorker
 } from './patch-gecko-background'
 import {patchWebkitBackground} from './patch-webkit-background'
 import {reportGeckoUnsupportedApis} from './warn-gecko-unsupported-apis'
@@ -73,6 +74,8 @@ export class UpdateManifest {
   // A sidebar key folded for the target is said once per session, as a note:
   // the build fixed it, so a warning would claim a panel that does open.
   private reportedSidebarFolds = new Set<string>()
+  // The service worker moved into background.scripts is a note on the same terms.
+  private reportedWorkerMoves = new Set<string>()
   // Same contract for the Safari unsupported-API warning, which fires in
   // development too: one line per distinct call, not one on every save.
   private reportedUnsupportedApis = new Set<string>()
@@ -217,6 +220,16 @@ export class UpdateManifest {
                   )
                 )
               }
+            }
+
+            if (
+              translatesGeckoServiceWorker(forBrowser, this.browser) &&
+              !this.reportedWorkerMoves.has(String(this.browser))
+            ) {
+              this.reportedWorkerMoves.add(String(this.browser))
+              humanLine(
+                messages.geckoServiceWorkerTranslated(String(this.browser))
+              )
             }
 
             if (hasUnsupportedMv3BackgroundPage(forBrowser, this.browser)) {
