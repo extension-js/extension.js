@@ -104,7 +104,7 @@ afterEach(() => {
 })
 
 describe('a copied file in a folder named like a compiled entry', () => {
-  it('gets the dev runtime of the entry it is named like', async () => {
+  it('ships as authored, without the dev runtime of that entry', async () => {
     const {distPath, errors} = await devCompile(scaffold())
 
     expect(errors).toEqual([])
@@ -118,7 +118,20 @@ describe('a copied file in a folder named like a compiled entry', () => {
     )
 
     expect(
-      COPIED.filter((file) => read(distPath, file) !== AUTHORED).sort()
-    ).toEqual([...COPIED].sort())
+      fs
+        .readdirSync(path.join(distPath, 'content_scripts'))
+        .filter((file) => file.endsWith('.js'))
+        .map((file) =>
+          read(distPath, `content_scripts/${file}`).includes(
+            '__extjsBridgeRelayInstalled'
+          )
+            ? 'relay'
+            : file
+        )
+    ).toContain('relay')
+
+    expect(COPIED.filter((file) => read(distPath, file) !== AUTHORED)).toEqual(
+      []
+    )
   }, 120_000)
 })
