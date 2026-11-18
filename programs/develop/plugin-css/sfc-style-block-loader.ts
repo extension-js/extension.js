@@ -21,6 +21,7 @@ import {
 } from './css-lib/sfc-style-block'
 import {
   type DeadCssUrlLoaderContext,
+  inlineStylesheetImports,
   inlineStylesheetUrls
 } from './dead-css-url-loader'
 
@@ -86,9 +87,14 @@ export default function sfcStyleBlockLoader(
   // The component reads an inline block as text and places it itself.
   if (inline) return source
 
+  // The block is added to the page as text, which gives a relative @import
+  // no base, so the rules of each project sheet it imports come in first.
   const {css, bundledRequests} = inlineStylesheetUrls(
     this,
-    this.mode === 'production' ? dropSourceMapComment(source) : source
+    inlineStylesheetImports(
+      this,
+      this.mode === 'production' ? dropSourceMapComment(source) : source
+    )
   )
   const {projectPath, gecko, baseAttribute, baseScheme} =
     this.getOptions() || {}
