@@ -11,6 +11,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import {isFailureStep, isTelemetryErrorClass} from './telemetry-error-class'
 
 // Where the public telemetry page lives. An npm install has no docs folder.
 export const TELEMETRY_DOCS_URL =
@@ -41,6 +42,9 @@ export type TelemetryProps = {
   deps_install_seconds?: number
   // One word from INSTALL_TARGETS, on install only.
   install_target?: string
+  // Fixed words from telemetry-error-class, on an E_INTERNAL failure only.
+  error_class?: string
+  error_step?: string
 }
 
 /* @invariant THIS CAP USED TO BE THIRTY-TWO AND IT WAS SILENTLY MANGLING THE
@@ -1003,6 +1007,18 @@ export class Telemetry {
       // nothing else, so the two properties that name the cause travel.
       const code = catalogCode(props.code)
       if (code) enforcedProps.code = code
+
+      // An unclassified failure says what kind of error it was and where,
+      // each re-checked here as a word from its fixed list.
+      if (code === 'E_INTERNAL') {
+        if (isTelemetryErrorClass(props.error_class)) {
+          enforcedProps.error_class = props.error_class
+        }
+
+        if (isFailureStep(props.error_step)) {
+          enforcedProps.error_step = props.error_step
+        }
+      }
 
       const exitCode = smallExitCode(props.exit_code)
       if (exitCode !== undefined) enforcedProps.exit_code = exitCode

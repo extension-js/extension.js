@@ -18,6 +18,11 @@ import {readDependencyInstall} from './dependency-install-outcome'
 import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
 import {CODES} from './messaging'
 import {
+  type FailureStep,
+  isFailureStep,
+  telemetryErrorClass
+} from './telemetry-error-class'
+import {
   createTelemetryKit,
   TELEMETRY_DOCS_URL,
   Telemetry,
@@ -256,6 +261,25 @@ export interface CommandFailureDetails {
   // A CODES value. Anything else is dropped, so a message never travels.
   code?: unknown
   exitCode?: unknown
+  // Read only on an E_INTERNAL row, and only as a word from a fixed list.
+  error?: unknown
+  step?: FailureStep
+}
+
+// What an unclassified failure can say about itself: the error's class and
+// where it was thrown, each a fixed word. Nothing for any other code.
+function internalFailureContext(
+  code: string | undefined,
+  details: CommandFailureDetails
+): {error_class?: string; error_step?: FailureStep} {
+  if (code !== CODES.E_INTERNAL) return {}
+
+  return {
+    ...('error' in details
+      ? {error_class: telemetryErrorClass(details.error)}
+      : {}),
+    ...(isFailureStep(details.step) ? {error_step: details.step} : {})
+  }
 }
 
 // Only a catalog code travels. An error message carries paths and project
@@ -517,6 +541,7 @@ export function createTelemetryCli(
       version,
       ...(code ? {code} : {}),
       ...(exitCode === undefined ? {} : {exit_code: exitCode}),
+      ...internalFailureContext(code, details),
       ...commandContextWith(
         readers,
         command,

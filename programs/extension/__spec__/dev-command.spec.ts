@@ -791,3 +791,88 @@ describe('extension dev tells telemetry which browsers it resolved', () => {
     expect(configReads).toEqual([])
   })
 })
+
+// An unclassified failure says what kind of error it was and where it was
+// thrown, so the row tells a missing engine from an engine that threw.
+describe('extension dev tells telemetry where an unclassified failure came from', () => {
+  const reported: unknown[] = []
+
+  function runWith(overrides: Partial<DevDeps>, argv: string[]) {
+    return runCli(
+      makeProgram((program) =>
+        registerDevCommand(program, {
+          ...deps,
+          reportFailure: (details) => {
+            reported.push(details)
+          },
+          ...overrides
+        })
+      ),
+      argv
+    )
+  }
+
+  afterEach(() => {
+    reported.length = 0
+  })
+
+  it('names the engine when the engine rejects under --output json', async () => {
+    const thrown = new TypeError('engine broke')
+
+    engine = async () => {
+      throw thrown
+    }
+
+    expect(await runWith({}, ['dev', PROJECT, '--output', 'json'])).toBe(1)
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine'}
+    ])
+  })
+
+  it('names the engine for a failure the engine reports itself', async () => {
+    const thrown = new RangeError('engine broke')
+
+    engine = async (_path, options) => {
+      ;(options.onExitError as (error: unknown) => void)(thrown)
+    }
+
+    expect(await runWith({}, ['dev', PROJECT])).toBe(0)
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine'}
+    ])
+  })
+
+  it('names the engine load when the engine module cannot be loaded', async () => {
+    let loads = 0
+
+    const counting = async () => {
+      loads += 1
+
+      return deps.loadDevelop!()
+    }
+
+    expect(await runWith({loadDevelop: counting}, ['dev', PROJECT])).toBe(0)
+    const loadsBeforeTheEngine = loads
+    const thrown = Object.assign(new Error('Cannot find module'), {
+      code: 'MODULE_NOT_FOUND'
+    })
+
+    loads = 0
+    reported.length = 0
+
+    const failing = async () => {
+      loads += 1
+      if (loads === loadsBeforeTheEngine) throw thrown
+
+      return deps.loadDevelop!()
+    }
+
+    await expect(
+      runWith({loadDevelop: failing}, ['dev', PROJECT])
+    ).rejects.toBe(thrown)
+
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine_load'}
+    ])
+  })
+})
