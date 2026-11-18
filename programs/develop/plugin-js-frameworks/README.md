@@ -13,7 +13,7 @@ Wires JavaScript frameworks and TypeScript into the Rspack build Extension.js ru
 - Compiles scripts with SWC. The file extension picks the parser (`.ts`, `.tsx`, `.jsx`, `.js` and their `m`/`c` forms), the installed framework picks the automatic JSX runtime (`solid-js`, then `preact` when React is absent, then `vue` when React and Preact are absent, else `react`)
 - Parses decorators in every script. `experimentalDecorators` in the `tsconfig.json` or `jsconfig.json` (read through `extends`) compiles them as TypeScript's legacy decorators, with `emitDecoratorMetadata` honored, otherwise they compile as standard decorators (the 2022-03 proposal)
 - Takes the SWC targets from the manifest: `minimum_chrome_version` for a Chromium build, the Gecko `strict_min_version` for a Firefox build, `chrome >= 100` otherwise
-- Compiles content scripts in their own layer as classic scripts, and compiles a `"type": "module"` service worker or a `<script type="module">` page script as an ES module
+- Compiles content scripts in their own layer as classic scripts, each file once, and compiles a `"type": "module"` service worker or a `<script type="module">` page script as an ES module
 - Points `resolve.tsConfig` at the project's `tsconfig.json`, or its `jsconfig.json` in a JavaScript project, so path aliases resolve
 - Writes a default `tsconfig.json` when the build reaches TypeScript sources and the project has none
 - Configures everything before the first compilation: on `beforeRun` in production, eagerly in development

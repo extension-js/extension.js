@@ -175,8 +175,8 @@ function usesSwc(rule: LooseRule) {
   )
 }
 
-// The four SWC rules by role: content scripts by path, their imports by
-// issuer, every other script, and the platform-declared modules.
+// The four SWC rules by role: content scripts by path, the rest of what
+// they import by issuer, every other script, and the platform-declared modules.
 export function swcRules(compiler: Compiler) {
   const rules = rulesOf(compiler).filter(usesSwc)
   const notContent = (rule: LooseRule) =>

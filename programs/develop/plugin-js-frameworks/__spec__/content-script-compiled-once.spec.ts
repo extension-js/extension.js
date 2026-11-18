@@ -298,21 +298,23 @@ describe('a content script entry goes through the transpiler once', () => {
         runs: [1]
       })
     })
-
-    it(`a module an entry imports, ${mode}`, async () => {
-      const root = project({
-        scripts: {
-          'content/main.js': `import {said} from './said'\nexport default function main() { globalThis.said = said }\n`
-        },
-        files: {'content/said.ts': `export const said: string = 'imported'\n`}
-      })
-      const summary = await build(root, mode)
-
-      expect(summary.errors_count).toBe(0)
-      expect(swcRuns(root, 'content/main.js').runs).toEqual([1])
-      expect(swcRuns(root, 'content/said.ts').runs).toEqual([1])
-    })
   }
+
+  // A production build folds the import into the entry, so only a
+  // development build lists it as a module of its own.
+  it('a module an entry imports', async () => {
+    const root = project({
+      scripts: {
+        'content/main.js': `import {said} from './said'\nexport default function main() { globalThis.said = said }\n`
+      },
+      files: {'content/said.ts': `export const said: string = 'imported'\n`}
+    })
+    const summary = await build(root, 'development')
+
+    expect(summary.errors_count).toBe(0)
+    expect(swcRuns(root, 'content/main.js').runs).toEqual([1])
+    expect(swcRuns(root, 'content/said.ts').runs).toEqual([1])
+  })
 
   it('a Firefox entry', async () => {
     const root = project({scripts: {'content/main.js': MOUNT}})
