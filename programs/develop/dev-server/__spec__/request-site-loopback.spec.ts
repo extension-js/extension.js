@@ -15,6 +15,7 @@ import {
   type LoopbackSession,
   waitFor
 } from './helpers/loopback-dev-server'
+import {settleFixture} from './helpers/settled-fixture'
 
 // The stock rspack dev server on loopback with this folder's config and a
 // bare compiler: every client shape of the dev server, one request each.
@@ -75,6 +76,8 @@ async function boot(
 ) {
   const root = createFixture('extjs-request-site-')
   roots.push(root)
+  // Unsettled, the fixture rebuilt late and changed the bytes the rows compare.
+  await settleFixture(root)
   const session = await bootLoopback({root, ...options})
   sessions.push(session)
   await session.firstCompile

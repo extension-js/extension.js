@@ -10,6 +10,14 @@ import {
 } from '../../dev-server/session-restart'
 import {EnvPlugin} from '../env'
 import {WatchEnvFilesPlugin} from '../watch-env-files'
+import {
+  createCompiler,
+  makeTempRoot,
+  removeTempRoots,
+  runCompiler,
+  runScript,
+  writeFiles
+} from './helpers/real-compile'
 
 type Compilation = {
   warnings: Array<Error & {name?: string}>
@@ -97,6 +105,7 @@ afterEach(() => {
   }
 
   tempDirs.clear()
+  removeTempRoots()
 })
 
 function bindScheduler() {
@@ -204,5 +213,67 @@ describe('the env plugin wiring', () => {
     compiler.__cycle(compilation)
 
     expect([...compilation.fileDependencies]).toEqual([])
+  })
+})
+
+describe('an env file edited under a real watch', () => {
+  const READ_GREETING =
+    "const key = 'EXTENSION_PUBLIC_GREETING'\nconsole.log(process.env.EXTENSION_PUBLIC_GREETING, process.env[key], import.meta.env[key])\n"
+
+  function compilerFor(root: string) {
+    return createCompiler({
+      context: root,
+      outputPath: path.join(root, 'out'),
+      entry: {entry: './entry.js'},
+      plugins: [new EnvPlugin({browser: 'chromium'})]
+    })
+  }
+
+  async function until(check: () => boolean): Promise<void> {
+    const giveUpAt = Date.now() + 20000
+
+    while (!check() && Date.now() < giveUpAt) {
+      await new Promise((resolve) => setTimeout(resolve, 25))
+    }
+  }
+
+  it('asks for a restart, and the compiler a restart builds reads the new value', async () => {
+    const root = makeTempRoot('env-watch')
+    const envPath = path.join(root, '.env.chromium')
+    const output = path.join(root, 'out', 'entry.js')
+    writeFiles(root, {
+      '.env.chromium': 'EXTENSION_PUBLIC_GREETING=first\n',
+      'entry.js': READ_GREETING
+    })
+
+    bindScheduler()
+
+    let builds = 0
+    const running = compilerFor(root)
+    running.hooks.done.tap('spec', () => {
+      builds++
+    })
+
+    const watching = running.watch({aggregateTimeout: 20}, () => {})
+
+    try {
+      await until(() => builds > 0)
+      expect(runScript(output)).toEqual(['first first first'])
+
+      const seen = builds
+      fs.writeFileSync(envPath, 'EXTENSION_PUBLIC_GREETING=second\n')
+      await until(() => requests.length > 0 && builds > seen)
+
+      expect(requests.map((request) => request.reason)).toEqual(['env'])
+      expect(requests[0].pathChanged).toBe(envPath)
+      // The running compiler read the file once, so its rebuild is stale.
+      expect(runScript(output)).toEqual(['first first first'])
+    } finally {
+      await new Promise<void>((resolve) => watching.close(() => resolve()))
+      await new Promise<void>((resolve) => running.close(() => resolve()))
+    }
+
+    await runCompiler(compilerFor(root))
+    expect(runScript(output)).toEqual(['second second second'])
   })
 })
