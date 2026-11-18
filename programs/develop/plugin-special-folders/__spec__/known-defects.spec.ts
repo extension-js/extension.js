@@ -92,7 +92,7 @@ describe('D1: the scan walks every public/ file for a list nothing reads', () =>
       }
     })
 
-    // Pins today's behavior. Ledger 1395 D1.
+    // Pins today's behavior.
     expect(counted).toEqual([62])
     expect(Object.keys(data)).toContain('public')
     expect(reads).toEqual([])
@@ -121,7 +121,7 @@ describe('D3: an unreadable folder under the scan', () => {
       thrown = error
     }
 
-    // Pins today's behavior. Ledger 1395 D3.
+    // Pins today's behavior.
     expect(thrown).toBe(denied)
   })
 })
@@ -139,7 +139,7 @@ describe('D4: a public/ file whose output name an entry already emits', () => {
 
     expect(result.outputPath).toBe(path.join(result.root, 'dist'))
     expect(result.emitted['main.js']).toContain('entry-marker')
-    // Pins today's behavior. Ledger 1395 D4.
+    // Pins today's behavior.
     expect(result.emitted['main.js']).not.toContain('public-marker')
     expect(result.errors).toEqual([])
     expect(result.warnings).toEqual([])
@@ -169,7 +169,7 @@ describe('D5: an include source missing when the session starts', () => {
       const after = await runCompiler(root, compiler)
 
       expect(after.errors).toEqual([])
-      // Pins today's behavior. Ledger 1395 D5.
+      // Pins today's behavior.
       expect(after.assets['models/x.bin']).toBeUndefined()
       expect(after.emitted['models/x.bin']).toBeUndefined()
     } finally {
@@ -242,7 +242,7 @@ describe('D6: the scan and the watcher disagree on what scripts/ holds', () => {
         .scripts || {}
     ).sort()
 
-    // Pins today's behavior. Ledger 1395 D6.
+    // Pins today's behavior.
     expect(scanned).toEqual([
       'scripts/.late',
       'scripts/build/late',
@@ -270,7 +270,7 @@ describe('D6: the scan and the watcher disagree on what scripts/ holds', () => {
         .scripts || {}
     )
 
-    // Pins today's behavior. Ledger 1395 D6.
+    // Pins today's behavior.
     expect(scanned).toEqual(['scripts/content'])
     expect(session.requests).toEqual([{reason: 'scripts', pathAfter: upper}])
   })
@@ -289,7 +289,7 @@ describe('D7: a public folder spelled Public/', () => {
       isDir: (candidate) => candidate === onDisk
     })
 
-    // Pins today's behavior. Ledger 1395 D7.
+    // Pins today's behavior.
     expect(insensitive.publicDir).toBe(path.join(root, 'public'))
     expect(sensitive).toEqual({
       publicDir: undefined,
@@ -321,7 +321,7 @@ describe('D9: a symlinked file inside scripts/', () => {
       fs.lstatSync(path.join(root, 'scripts', 'linked.js')).isSymbolicLink()
     ).toBe(true)
 
-    // Pins today's behavior. Ledger 1395 D9.
+    // Pins today's behavior.
     expect(scanned).toEqual({
       'scripts/content': path.join(root, 'scripts', 'content.js')
     })
