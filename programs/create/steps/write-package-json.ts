@@ -153,11 +153,16 @@ export function resolveExtensionDevDependencyVersion(
   return resolved.includes('-') ? resolved : `^${resolved}`
 }
 
+export interface OverridePackageJsonResult {
+  // The packageManager field as written, absent when the file has none.
+  packageManagerSpec?: string
+}
+
 export async function overridePackageJson(
   projectPath: string,
   options: OverridePackageJsonOptions,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
-) {
+): Promise<OverridePackageJsonResult> {
   const {template = 'javascript', cliVersion} = options
   const extensionBinary = await resolveExtensionBinary()
 
@@ -276,4 +281,10 @@ export async function overridePackageJson(
       messages.packageManagerUndeclared(packageManager, declaration.undeclared)
     )
   }
+
+  const written = (packageMetadata as {packageManager?: unknown}).packageManager
+
+  return typeof written === 'string' && written
+    ? {packageManagerSpec: written}
+    : {}
 }
