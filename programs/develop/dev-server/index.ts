@@ -1294,7 +1294,6 @@ async function startDevSession(
   // A start that fails rejects to a caller that keeps running, and the
   // release of everything opened so far is the one devServer runs.
   await startSessionBundler(firstBundle.server)
-  startup.started = true
 
   let isShuttingDown = false
   const restartFailure = createRestartFailure({
@@ -1445,4 +1444,8 @@ async function startDevSession(
       ])
     })
   )
+
+  // Only now is the session live: a throw in the wiring above still releases
+  // the claim, the port and the server through the failed start.
+  startup.started = true
 }

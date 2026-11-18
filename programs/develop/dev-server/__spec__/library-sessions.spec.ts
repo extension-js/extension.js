@@ -348,6 +348,22 @@ describe('a host that starts dev sessions from the library', () => {
     expect(result.third).toEqual({started: true})
   }, 180_000)
 
+  it('lets the project start again after the wiring past the server start threw', async () => {
+    const {result} = await runHost<{
+      first: {started: boolean; message?: string}
+      released: boolean
+      second: {started: boolean; code?: string}
+    }>('wiring')
+
+    expect(result.first).toEqual({
+      started: false,
+      message: 'the host refused a listener'
+    })
+
+    expect(result.released).toBe(true)
+    expect(result.second).toEqual({started: true})
+  }, 180_000)
+
   it('answers false and writes no frame when the host ends a session before any is live', async () => {
     const {result, frames} = await runHost<{
       ended: boolean

@@ -352,6 +352,40 @@ async function twoStartsInOneTick() {
   }
 }
 
+// The wiring after the server starts throws: the claim must come off with
+// the rest, so the next start of the project runs.
+async function wiringThrowsAfterTheServerStarts() {
+  const before = listeners()
+  const dir = project('wiring', CONFIGS.start)
+  const on = process.on
+  let armed = true
+
+  process.on = function (event, listener) {
+    if (armed && event === 'uncaughtException') {
+      armed = false
+
+      throw new Error('the host refused a listener')
+    }
+
+    return on.call(this, event, listener)
+  }
+
+  const first = await start(dir).session
+  process.on = on
+  const released = await until(() => listeners().join() === before.join())
+  const second = start(dir)
+  const secondResult = await second.session
+  await until(() => second.isReady())
+  endSessionAsFailed('E_PARENT_GONE', 'done')
+  await until(() => listeners().join() === before.join())
+
+  return {
+    first: {started: first.started, message: first.message},
+    released,
+    second: {started: secondResult.started, code: secondResult.code}
+  }
+}
+
 // The engine is loaded and no session is live: the host's call is answered
 // false, and nothing the engine left behind writes a frame after it.
 async function endedBeforeAnySession() {
@@ -371,15 +405,17 @@ async function endedBeforeAnySession() {
 const result =
   scenario === 'same-tick'
     ? await twoStartsInOneTick()
-    : scenario === 'end-before-session'
-      ? await endedBeforeAnySession()
-      : scenario === 'restart'
-        ? await restartWhileAnotherSessionLives()
-        : scenario === 'end-as-failed'
-          ? await endedAsFailedByALibraryHost()
-          : scenario === 'end-as-failed-cli'
-            ? await endedAsFailedByTheCli()
-            : await failingStarts()
+    : scenario === 'wiring'
+      ? await wiringThrowsAfterTheServerStarts()
+      : scenario === 'end-before-session'
+        ? await endedBeforeAnySession()
+        : scenario === 'restart'
+          ? await restartWhileAnotherSessionLives()
+          : scenario === 'end-as-failed'
+            ? await endedAsFailedByALibraryHost()
+            : scenario === 'end-as-failed-cli'
+              ? await endedAsFailedByTheCli()
+              : await failingStarts()
 
 process.stdout.write(`\nRESULT ${JSON.stringify(result)}\n`)
 process.exit(0)
