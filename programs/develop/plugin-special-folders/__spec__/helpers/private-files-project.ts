@@ -88,6 +88,28 @@ export function project(files: Record<string, string>) {
   return root
 }
 
+// A package of a workspace: `shared` links a folder its siblings own, and
+// `alias.json` links a file of the project itself.
+export function linkWorkspace(root: string, shared: Record<string, string>) {
+  const holder = path.dirname(root)
+  const folder = path.join(holder, 'shared-assets')
+
+  fs.writeFileSync(path.join(holder, 'pnpm-workspace.yaml'), 'packages: []\n')
+  fs.mkdirSync(folder)
+
+  for (const [name, contents] of Object.entries(shared)) {
+    fs.writeFileSync(path.join(folder, name), contents)
+  }
+
+  if (canLink) {
+    fs.symlinkSync(folder, path.join(root, 'shared'))
+    fs.symlinkSync(
+      path.join(root, 'data', 'ok.json'),
+      path.join(root, 'alias.json')
+    )
+  }
+}
+
 const ESC = String.fromCharCode(27)
 const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, 'g')
 
@@ -105,6 +127,9 @@ export interface Built {
   printed: string
   errors: number
 }
+
+const isError = (diagnostic: unknown) =>
+  (diagnostic as {severity?: string}).severity === 'error'
 
 export async function build(root: string): Promise<Built> {
   const {extensionBuild} = await import('../../../command-build')
@@ -132,15 +157,25 @@ export async function build(root: string): Promise<Built> {
   process.env.VITEST = 'true'
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: false,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)
+    let summary: {errors_count?: number} | undefined
+    let failure: {diagnostics?: unknown[]} | undefined
+
+    // A build that fails writes no output folder and rejects with its errors.
+    try {
+      summary = await extensionBuild(root, {
+        browser: 'chrome',
+        silent: false,
+        install: false,
+        mode: 'production',
+        exitOnError: false
+      } as never)
+    } catch (error) {
+      failure = error as {diagnostics?: unknown[]}
+      if (!Array.isArray(failure.diagnostics)) throw error
+    }
+
     const out = listOutput(path.join(root, 'dist', 'chrome'))
-    const printed = [lines.join('\n'), JSON.stringify(summary)]
+    const printed = [lines.join('\n'), JSON.stringify(summary ?? failure)]
       .join('\n')
       .replace(ANSI, '')
     const missing = new Set<string>()
@@ -162,7 +197,9 @@ export async function build(root: string): Promise<Built> {
         .sort(),
       missing: [...missing].sort(),
       printed,
-      errors: Number(summary?.errors_count ?? -1)
+      errors: failure
+        ? (failure.diagnostics || []).filter(isError).length
+        : Number(summary?.errors_count ?? -1)
     }
   } finally {
     for (const spy of spies) spy.mockRestore()
