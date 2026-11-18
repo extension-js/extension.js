@@ -604,6 +604,59 @@ describe('lifecycle stream transitions', () => {
     expect(frame.value?.exitCode).toBe(9)
   })
 
+  it.each([
+    [
+      'the ready report',
+      (stream: ReturnType<typeof makeStream>['stream']) => stream.ready()
+    ],
+    [
+      'the process exit',
+      (stream: ReturnType<typeof makeStream>['stream']) => stream.exited(1)
+    ],
+    [
+      'the exit watcher',
+      (stream: ReturnType<typeof makeStream>['stream']) =>
+        stream.browserExited()
+    ]
+  ])('writes the same browser-exited frame when %s reads the exit first', (_name, notice) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-lifecycle-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'browser_exited',
+        message: 'the chromium process exited (code 0); nothing is running',
+        browserExitedAt: '2026-10-03T00:00:00.000Z',
+        browserExitCode: 0
+      })
+    )
+
+    try {
+      const {stream, lines} = makeStream({readyPath})
+      stream.starting({requestedPort: 8080, port: 8080})
+      notice(stream)
+      stream.ready()
+      stream.browserExited()
+      stream.exited(1)
+
+      const frames = parseFrames(lines)
+      expect(frames.map((frame) => frame.status)).toEqual([
+        'starting',
+        'browser-exited'
+      ])
+
+      expect(frames[1].error?.code).toBe('E_BROWSER_LAUNCH')
+      expect(frames[1].value).toMatchObject({
+        readyCode: 'browser_exited',
+        exitCode: 0,
+        browserExitedAt: '2026-10-03T00:00:00.000Z'
+      })
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   it('upgrades browser-exited to E_PROFILE_LOCKED when the contract says so', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')

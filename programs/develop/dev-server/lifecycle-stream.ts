@@ -343,6 +343,8 @@ export class LifecycleStream {
     const ready = readReadyContract(this.options.readyPath)
 
     if (ready && ready.status === 'error') {
+      // A browser that exited reads the same here as from the exit watcher.
+      if (ready.code === 'browser_exited') return this.browserExited()
       if (this.readyErrorEmitted) return null
 
       this.readyErrorEmitted = true
@@ -415,6 +417,8 @@ export class LifecycleStream {
     const ready = readReadyContract(this.options.readyPath)
 
     if (ready && ready.status === 'error') {
+      if (ready.code === 'browser_exited') return this.browserExited()
+
       return this.contractError(
         ready,
         ready.code === 'browser_launch_failed'
@@ -477,7 +481,8 @@ export class LifecycleStream {
         : {}),
       ...(typeof ready?.browserExitedAt === 'string'
         ? {browserExitedAt: ready.browserExitedAt}
-        : {})
+        : {}),
+      ...(typeof ready?.code === 'string' ? {readyCode: ready.code} : {})
     })
 
     return this.emit(frame)

@@ -148,23 +148,18 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
     expect(flat(table.legacy.ready[readyCode])[0]).toBe(expected.wait)
 
     const frames = await streamFrames(readyPath)
-    const ready = frames.filter((frame) => frame.status === 'failed')
-    const exits = frames.filter((frame) => frame.status === 'browser-exited')
 
-    // The ready report keeps one code for every contract error and carries
-    // the contract's own id beside it, which is what a consumer resolves.
-    expect(ready).toHaveLength(1)
-    expect(ready[0].error?.code).toBe(expected.streamReady.code)
-    expect(ready[0].value?.readyCode).toBe(readyCode)
+    // One frame per verdict, whichever of the report and the watcher saw it
+    // first, and it carries the contract's own id, which a consumer resolves.
+    expect(frames).toHaveLength(1)
+    expect(frames[0].value?.readyCode).toBe(readyCode)
 
     if (expected.streamExit) {
-      expect(exits).toHaveLength(1)
-      expect(exits[0].error?.code).toBe(expected.streamExit.code)
+      expect(frames[0].status).toBe('browser-exited')
+      expect(frames[0].error?.code).toBe(expected.streamExit.code)
     } else {
-      expect(exits).toEqual([])
+      expect(frames[0].error?.code).toBe(expected.streamReady.code)
     }
-
-    expect(frames).toHaveLength(expected.streamExit ? 2 : 1)
   })
 
   // The launcher stamps the code it refused with, and every surface carries
