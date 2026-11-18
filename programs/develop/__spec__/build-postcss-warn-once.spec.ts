@@ -13,7 +13,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-function project(postCssConfig: string) {
+function project(postCssConfig: string, extra: Record<string, string> = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-postcss-once-'))
   roots.push(root)
 
@@ -41,7 +41,8 @@ function project(postCssConfig: string) {
     'page.css': '.b { color: blue; }\n',
     'options.html':
       '<!doctype html><html><head><link rel="stylesheet" href="page.css"></head><body></body></html>',
-    'postcss.config.js': postCssConfig
+    'postcss.config.js': postCssConfig,
+    ...extra
   }
 
   for (const [rel, content] of Object.entries(files)) {
@@ -159,6 +160,61 @@ describe('a PostCSS config problem is said once per build', () => {
     expect(printed(spies, "Couldn't resolve the PostCSS plugin")).toHaveLength(
       2
     )
+  }, 120_000)
+})
+
+// The CLI ships no PostCSS preset, so a config that names one by string gets
+// the copy the project installed and nothing else.
+describe('a config naming postcss-preset-env as a string', () => {
+  const config = "module.exports = {plugins: {'postcss-preset-env': {}}}\n"
+
+  it('builds without it and says once how to install it when the project has none', async () => {
+    const root = project(config)
+    const spies = consoleSpies()
+
+    await build(root, 'chrome')
+
+    const css = emittedCss(root, 'chrome')
+    const said = printed(spies, "Couldn't resolve the PostCSS plugin")
+
+    expect(css).toContain('.a{color:red}')
+    expect(css).toContain('.b{color:#00f}')
+    expect(said).toHaveLength(1)
+    expect(said[0]).toMatch(
+      /Couldn't resolve the PostCSS plugin \S*postcss-preset-env/
+    )
+
+    expect(said[0].split('\n').at(-1)).toMatch(
+      /^Install it in your project to re-enable it: .*postcss-preset-env/
+    )
+  }, 120_000)
+
+  it('applies the copy in the node_modules of the project', async () => {
+    const root = project(config, {
+      [path.join('node_modules', 'postcss-preset-env', 'package.json')]:
+        JSON.stringify({
+          name: 'postcss-preset-env',
+          version: '0.0.0',
+          main: 'index.js'
+        }),
+      [path.join('node_modules', 'postcss-preset-env', 'index.js')]: [
+        'module.exports = () => ({',
+        "  postcssPlugin: 'postcss-preset-env',",
+        "  Once(root) { root.append('.from-the-project-preset{order:7}') }",
+        '})',
+        'module.exports.postcss = true',
+        ''
+      ].join('\n')
+    })
+    const spies = consoleSpies()
+
+    await build(root, 'chrome')
+
+    const css = emittedCss(root, 'chrome')
+
+    expect(css).toContain('.a{color:red}')
+    expect(css.match(/\.from-the-project-preset\{order:7\}/g)).toHaveLength(2)
+    expect(printed(spies, "Couldn't resolve the PostCSS plugin")).toEqual([])
   }, 120_000)
 })
 
