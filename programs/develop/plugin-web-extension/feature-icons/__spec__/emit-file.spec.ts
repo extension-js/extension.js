@@ -342,8 +342,11 @@ describe('EmitFile step', () => {
       includeList: {icons: ['/abs/design/logo.png']}
     } as any).apply(compiler as any)
 
+    // The workspace check reads package.json files above, never the icon.
+    const read = FS.readFileSync.mock.calls.map((c: any[]) => toPosix(c[0]))
+
     expect(compilation.emitAsset).not.toHaveBeenCalled()
-    expect(FS.readFileSync).not.toHaveBeenCalled()
+    expect(read).not.toContain('/abs/design/logo.png')
     expect(compilation.errors.length).toBe(1)
     expect(String(compilation.errors[0])).toMatch(/NOT FOUND.*logo\.png/)
   })
