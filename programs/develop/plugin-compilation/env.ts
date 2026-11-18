@@ -17,12 +17,10 @@ import {
   WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
-import {getPreloadedEnvKeys} from '../lib/config-loader'
+import {envFileCandidates, getPreloadedEnvKeys} from '../lib/config-loader'
 import {
   CHROMIUM_FAMILY_ALIASES,
   GECKO_FAMILY_ALIASES,
-  isChromiumBasedBrowser,
-  isGeckoBasedBrowser,
   SUPPORTED_BROWSERS,
   WEBKIT_BASED_BROWSERS
 } from '../lib/constants'
@@ -252,38 +250,17 @@ function resolveEnvLayers(projectPath: string, layerNames: string[]) {
   }
 }
 
-// Env files resolve family-wide, mirroring the manifest-prefix contract; the
-// exact browser name wins, Safari/webkit inherit the chromium family.
+// One list for the config file and the bundle, strongest first. The config
+// loader owns it, so the two can never read different files or another order.
 export function getEnvFileCandidates(
   browser: DevOptions['browser'],
   mode: string
 ): string[] {
-  const browserName = String(browser)
-  const isChromiumTarget =
-    isChromiumBasedBrowser(browserName) ||
-    browserName === 'safari' ||
-    browserName.includes('webkit')
-
-  const familyNames = isChromiumTarget
-    ? CHROMIUM_FAMILY_ALIASES
-    : isGeckoBasedBrowser(browserName)
-      ? GECKO_FAMILY_ALIASES
-      : []
-  const names = [
-    browserName,
-    ...familyNames.filter((name) => name !== browserName)
-  ]
-
-  return [
-    ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
-    `.env.${mode}`,
-    '.env.local',
-    '.env'
-  ]
+  return envFileCandidates(mode, String(browser))
 }
 
-// Weakest first: .env.defaults, then the candidates from last to first. It
-// mirrors the order the config loader preloads, so a build reads one environment.
+// Weakest first: .env.defaults, then the shared candidates from last to
+// first, which is how the config loader layers them before the config runs.
 export function getEnvFileLayers(
   browser: DevOptions['browser'],
   mode: string
