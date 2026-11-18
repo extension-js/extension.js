@@ -399,9 +399,18 @@ describe('a root-absolute path that names a file outside public/', () => {
 function warningsOf(result: Built, root: string): string[] {
   const summary = result.printed.slice(result.printed.lastIndexOf('\n{"'))
 
-  return (JSON.parse(summary).warnings as string[])
-    .map((warning) => warning.split(path.dirname(root)).join('<holder>'))
-    .sort()
+  return (
+    (JSON.parse(summary).warnings as string[])
+      // A Windows build spells each path natively, so a row reads one way.
+      .map((warning) =>
+        warning
+          .split(path.dirname(root))
+          .join('<holder>')
+          .split(path.sep)
+          .join('/')
+      )
+      .sort()
+  )
 }
 
 describe('a withheld root-absolute reference and a missing one', () => {

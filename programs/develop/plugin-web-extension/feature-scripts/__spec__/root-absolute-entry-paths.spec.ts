@@ -126,7 +126,9 @@ async function rowFor(name: string, field: Field, layout: Layout) {
     ...(inManifest ? [`manifest names ${inManifest}`] : []),
     ...(said.length ? [`said ${[...new Set(said)].join(', ')}`] : []),
     ...notFoundPaths(result.printed).map(
-      (missing) => `NOT FOUND ${missing.replace(root, '<root>')}`
+      // A Windows build spells the path natively, so the row reads one way.
+      (missing) =>
+        `NOT FOUND ${missing.replace(root, '<root>').split(path.sep).join('/')}`
     ),
     ...(result.errors ? [`errors ${result.errors}`] : [])
   ].join(' | ')
