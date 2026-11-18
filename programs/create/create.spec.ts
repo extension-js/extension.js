@@ -145,7 +145,15 @@ describe('extension create', () => {
 
 // The file list npm would publish, read from a dry run that packs nothing and
 // asks no registry. npm prints an array before version 11 and a map after.
+// One run serves every test: npm takes over half a minute on a slow runner.
+let packedFiles: string[] | undefined
+
 function publishedFiles(): string[] {
+  packedFiles ??= listPublishedFiles()
+  return packedFiles
+}
+
+function listPublishedFiles(): string[] {
   const run = spawnSync(
     'npm',
     ['pack', '--dry-run', '--json', '--ignore-scripts', '--offline'],
@@ -180,7 +188,7 @@ describe('the published extension-create package', () => {
         (file) => /\.[cm]?tsx?$/.test(file) && !/\.d\.[cm]?ts$/.test(file)
       )
     ).toEqual([])
-  }, 30000)
+  }, 120000)
 
   it('ships every file its exports, main and types name', () => {
     const manifest = JSON.parse(
@@ -205,5 +213,5 @@ describe('the published extension-create package', () => {
     expect(
       targets.filter((target) => !files.includes(target.replace(/^\.\//, '')))
     ).toEqual([])
-  }, 30000)
+  }, 120000)
 })
