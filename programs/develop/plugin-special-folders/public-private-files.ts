@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 
 // Why a name under public/ never ships. An env file is the one kind a project
@@ -119,6 +120,17 @@ export function climbsOut(normalized: string): boolean {
   return normalized === '..' || normalized.startsWith('../')
 }
 
+// A root-absolute ref that climbs out of the extension root, as written or
+// as the browser decodes it. A plain relative ref answers false.
+export function rootAbsoluteClimbsOut(ref: string): boolean {
+  const unix = ref.replace(/\\/g, '/')
+
+  return (
+    unix.startsWith('/') &&
+    browserSpellings(unix.replace(/^\/+/, '')).some(climbsOut)
+  )
+}
+
 // Whether a root-absolute URL is refused as written, before any file is
 // looked up: it climbs out of the extension root or carries a private name.
 // The path is the URL's and never the machine's: `/abs/x.txt` is `abs/x.txt`.
@@ -165,38 +177,153 @@ function isInAncestorNodeModules(relativePath: string): boolean {
   )
 }
 
+function isBelow(relativePath: string): boolean {
+  return (
+    relativePath !== '' &&
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath)
+  )
+}
+
+// A file the workspace shares with its packages: below the workspace root,
+// through no dot-folder and no `node_modules` of another package.
+function isWorkspaceSharedPath(fromWorkspace: string): boolean {
+  return (
+    isBelow(fromWorkspace) &&
+    !fromWorkspace
+      .split(/[\\/]+/)
+      .some((name) => name.startsWith('.') || isNodeModules(name))
+  )
+}
+
+const WORKSPACE_FILE = 'pnpm-workspace.yaml'
+const workspaceRoots = new Map<string, string>()
+
+function realOrResolved(file: string): string {
+  try {
+    return fs.realpathSync(file)
+  } catch {
+    return path.resolve(file)
+  }
+}
+
+// A `workspaces` field npm, Yarn and Bun read: a list of folders, or an
+// object whose `packages` is that list.
+function holdsWorkspaceMarker(dir: string): boolean {
+  if (fs.existsSync(path.join(dir, WORKSPACE_FILE))) return true
+
+  let workspaces: unknown
+
+  try {
+    const read = JSON.parse(
+      fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+    ) as {workspaces?: unknown} | null
+    workspaces = read?.workspaces
+  } catch {
+    return false
+  }
+
+  return (
+    Array.isArray(workspaces) ||
+    (typeof workspaces === 'object' &&
+      workspaces !== null &&
+      Array.isArray((workspaces as {packages?: unknown}).packages))
+  )
+}
+
+// The nearest folder at or above the project that declares a workspace. A
+// marker in the home folder or above it is no workspace of this project.
+export function workspaceRootOf(
+  projectRoot: string,
+  homeDir: string = os.homedir()
+): string {
+  const project = realOrResolved(projectRoot)
+  const home = homeDir ? realOrResolved(homeDir) : ''
+  const key = `${project}\n${home}`
+  const cached = workspaceRoots.get(key)
+
+  if (cached !== undefined) return cached
+
+  const fromHome = home ? path.relative(home, project) : '..'
+  const insideHome = fromHome === '' || isBelow(fromHome)
+  let found = project
+  let dir = project
+
+  while (true) {
+    if (insideHome && !isBelow(path.relative(home, dir))) break
+
+    if (holdsWorkspaceMarker(dir)) {
+      found = dir
+      break
+    }
+
+    const parent = path.dirname(dir)
+    if (parent === dir) break
+
+    dir = parent
+  }
+
+  workspaceRoots.set(key, found)
+
+  return found
+}
+
+function realPathOf(file: string): string | undefined {
+  try {
+    return fs.realpathSync(file)
+  } catch {
+    return undefined
+  }
+}
+
 // Whether the build may copy a source file or folder into the output. Both
-// the path as given and the place a link leads to must be project content.
+// the path as given and where a link leads must be project or workspace content.
 export function sourceFileMayShip(
   sourcePath: string,
   projectRoots: string[],
   ask: SourceAsk = 'named'
 ): boolean {
   const given = path.resolve(sourcePath)
-  const givenInside = projectRoots.some((root) =>
-    isProjectContentPath(path.relative(path.resolve(root), given), ask)
-  )
+  const givenInside = projectRoots.some((root) => {
+    const fromRoot = path.relative(path.resolve(root), given)
+
+    if (isProjectContentPath(fromRoot, ask)) return true
+    if (ask !== 'named' || hasPrivateFileName(fromRoot)) return false
+
+    const realRoot = realPathOf(root)
+    if (!realRoot) return false
+
+    // The path as written, read from the real root, keeps its own names.
+    const fromWorkspace = path.relative(
+      workspaceRootOf(realRoot),
+      path.resolve(realRoot, fromRoot)
+    )
+
+    return (
+      isWorkspaceSharedPath(fromWorkspace) ||
+      (isBelow(fromWorkspace) && isInAncestorNodeModules(fromRoot))
+    )
+  })
   if (!givenInside) return false
 
-  let real: string
-
-  try {
-    real = fs.realpathSync(sourcePath)
-  } catch {
-    return false
-  }
+  const real = realPathOf(sourcePath)
+  if (!real) return false
 
   return projectRoots.some((root) => {
-    try {
-      const fromRoot = path.relative(fs.realpathSync(root), real)
+    const realRoot = realPathOf(root)
+    if (!realRoot) return false
 
-      return (
-        isProjectContentPath(fromRoot, ask) ||
-        (ask === 'named' && isInAncestorNodeModules(fromRoot))
-      )
-    } catch {
-      return false
-    }
+    const fromRoot = path.relative(realRoot, real)
+
+    if (isProjectContentPath(fromRoot, ask)) return true
+    if (ask !== 'named') return false
+    if (isInAncestorNodeModules(fromRoot)) return true
+
+    return (
+      !hasPrivateFileName(fromRoot) &&
+      isWorkspaceSharedPath(path.relative(workspaceRootOf(realRoot), real))
+    )
   })
 }
 
@@ -281,6 +408,69 @@ export function findPublicEnvFiles(publicDir: string): string[] {
       } else if (!kind && entry.isDirectory()) {
         walk(path.join(dir, entry.name), `${prefix}${entry.name}/`)
       }
+    }
+  }
+
+  walk(publicDir, '')
+
+  return found.sort()
+}
+
+// Links under public/ the copier must not follow, by their path inside it: a
+// link whose real place leaves the project or enters node_modules. A folder
+// such a link names is listed with a trailing slash and never walked.
+export function findPublicLinksLeftOut(
+  publicDir: string,
+  projectRoots: string[]
+): string[] {
+  const found: string[] = []
+  const seen = new Set<string>()
+
+  const walk = (dir: string, prefix: string) => {
+    let real: string
+
+    try {
+      real = fs.realpathSync(dir)
+    } catch {
+      return
+    }
+
+    // A link back to a folder already walked would walk it forever.
+    if (seen.has(real)) return
+
+    seen.add(real)
+
+    let entries: fs.Dirent[] = []
+
+    try {
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      // The copier leaves these names out already.
+      if (privateFileKind(entry.name)) continue
+
+      const full = path.join(dir, entry.name)
+      const name = `${prefix}${entry.name}`
+      let isDir = entry.isDirectory()
+
+      if (entry.isSymbolicLink()) {
+        try {
+          isDir = fs.statSync(full).isDirectory()
+        } catch {
+          // A link to nothing copies nothing.
+          continue
+        }
+
+        if (!sourceFileMayShip(full, projectRoots, 'walked')) {
+          found.push(isDir ? `${name}/` : name)
+          continue
+        }
+      }
+
+      if (isDir) walk(full, `${name}/`)
     }
   }
 
