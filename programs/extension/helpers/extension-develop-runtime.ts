@@ -127,6 +127,16 @@ function resolveInstalledDevelopRoot(startDir: string): string | undefined {
 
 type DevelopRootSource = 'workspace' | 'env' | 'installed' | 'missing'
 
+const ignoredDevelopRoots = new Set<string>()
+
+function warnDevelopRootIgnored(envRoot: string): void {
+  if (ignoredDevelopRoots.has(envRoot)) return
+
+  ignoredDevelopRoots.add(envRoot)
+  // eslint-disable-next-line no-console
+  console.warn(messages.developRootIgnored(envRoot))
+}
+
 function resolvePreferredDevelopRoot(startDir: string): {
   root: string | undefined
   source: DevelopRootSource
@@ -134,12 +144,12 @@ function resolvePreferredDevelopRoot(startDir: string): {
   const workspaceRoot = resolveWorkspaceDevelopRoot(startDir)
   if (workspaceRoot) return {root: workspaceRoot, source: 'workspace'}
 
-  const envRoot = process.env.EXTENSION_DEVELOP_ROOT
-    ? resolveDevelopRootFromDir(
-        path.resolve(process.env.EXTENSION_DEVELOP_ROOT)
-      )
+  const envValue = process.env.EXTENSION_DEVELOP_ROOT
+  const envRoot = envValue
+    ? resolveDevelopRootFromDir(path.resolve(envValue))
     : undefined
   if (envRoot) return {root: envRoot, source: 'env'}
+  if (envValue) warnDevelopRootIgnored(path.resolve(envValue))
 
   const installedRoot = resolveInstalledDevelopRoot(startDir)
   if (installedRoot) return {root: installedRoot, source: 'installed'}

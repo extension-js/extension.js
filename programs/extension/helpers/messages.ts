@@ -364,6 +364,15 @@ export function developVersionMismatch(
   )
 }
 
+// The variable is how a local engine is run on purpose, so a wrong one is said
+// once rather than passed over for the installed engine in silence.
+export function developRootIgnored(envRoot: string) {
+  return (
+    `${getLoggingPrefix('warn')} ${code('EXTENSION_DEVELOP_ROOT')} points at ` +
+    `${envRoot}, which holds no extension-develop package, so it is ignored.`
+  )
+}
+
 // A local engine is the user's own choice, so the run goes on and says once
 // which pair is running.
 export function localDevelopVersionDiffers(

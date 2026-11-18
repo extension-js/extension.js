@@ -40,6 +40,8 @@ export async function resolveNoBrowser(
 
     return config.noBrowser === true
   } catch {
+    // The engine loads the same config before it builds or launches and fails
+    // the run with its own code, so answering unset here keeps one report.
     return false
   }
 }
