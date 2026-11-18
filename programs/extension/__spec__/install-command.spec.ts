@@ -1228,3 +1228,76 @@ describe('the code a refused run reports to telemetry', () => {
     ).toEqual([])
   })
 })
+
+// One word from a fixed list, so a failure count can be read by browser. A
+// list of several names, an alias or anything typed by hand sends nothing.
+describe('the browser an install row names', () => {
+  async function installRow(argv: string[], arrange: () => void = () => {}) {
+    const box = sandbox({
+      env: {EXTENSION_TELEMETRY: '1', EXTENSION_TELEMETRY_SAMPLE_RATE: '1'}
+    })
+    const {cli} = cliRun(box, {argv: ['node', 'extension', ...argv]})
+
+    arrange()
+    const exitCode = await runCli(
+      makeProgram((program) =>
+        registerInstallCommand(program, {telemetry: cli})
+      ),
+      argv
+    )
+
+    // The entry point marks a success once the action resolves.
+    if (exitCode === 0) cli.markCommandSuccess()
+
+    await cli.telemetry.flush()
+
+    const rows = box
+      .sentRows()
+      .filter((row) => row.properties.command === argv[0])
+
+    expect(rows).toHaveLength(1)
+
+    return rows[0].properties
+  }
+
+  it.each([
+    [['install', 'chrome'], 'chrome'],
+    [['install', 'firefox'], 'firefox'],
+    [['install', '--browser', 'edge'], 'edge'],
+    [['install'], 'chromium'],
+    [['install', 'all'], 'all'],
+    [['install', 'chrome', 'all'], 'all']
+  ])('sends install_target for %j', async (argv, target) => {
+    expect((await installRow(argv)).install_target).toBe(target)
+  })
+
+  it.each([
+    [['install', 'chrome', 'firefox']],
+    [['install', 'chrome,firefox']],
+    [['install', 'chromium-based']],
+    [['install', 'netscape']],
+    [['install', 'brave']]
+  ])('sends no install_target for %j', async (argv) => {
+    expect(await installRow(argv)).not.toHaveProperty('install_target')
+  })
+
+  it('names the browser on a failed download beside its code', async () => {
+    const row = await installRow(['install', 'firefox'], () => {
+      vi.mocked(extensionInstall).mockRejectedValueOnce(
+        new BrowserInstallFailedError('404 from CDN')
+      )
+    })
+
+    expect(row).toMatchObject({
+      success: false,
+      code: 'E_BROWSER_DOWNLOAD',
+      install_target: 'firefox'
+    })
+  })
+
+  it('never puts the name on an uninstall row', async () => {
+    expect(await installRow(['uninstall', 'chrome'])).not.toHaveProperty(
+      'install_target'
+    )
+  })
+})
