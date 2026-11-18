@@ -47,7 +47,8 @@ import {
   firstInvalidWholeNumberFlag,
   isReverseDnsBundleId,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {
   refuseUnreadableOutput,
@@ -651,7 +652,7 @@ export function registerDevCommand(
           const logContexts = parseLogContexts(logContextOption)
           // Only forward logLevel when the user typed --logs. The stock `off`
           // and commands.dev.logLevel live in develop's merge layers.
-          const logLevel = logsOption || undefined
+          const logLevel = parseLogLevel(logsOption)
 
           // Pass only values the user typed. Stock defaults and
           // extension.config.js are applied inside extensionDev (defaults,
