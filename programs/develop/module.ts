@@ -6,18 +6,15 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import './lib/rust-min-stack'
-import {extensionBuild} from './command-build'
-import {extensionDev} from './command-dev'
-import {extensionPreview} from './command-preview'
 import type {BuildSummary, SafariPackageSummary} from './lib/build-summary'
-import {
-  type BrowserController,
-  type BrowserLauncherFn,
-  type BrowserLaunchOptions,
-  BuildEmitter,
-  type BuildErrorEvent,
-  type CompiledEvent
+import {ensureRustMinStack} from './lib/rust-min-stack'
+import type {
+  BrowserController,
+  BrowserLauncherFn,
+  BrowserLaunchOptions,
+  BuildEmitter as BuildEmitterInstance,
+  BuildErrorEvent,
+  CompiledEvent
 } from './plugin-browsers'
 import type {ReloadInstruction, ReloadType} from './plugin-reload'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
@@ -34,37 +31,49 @@ import type {
   StartOptions
 } from './types'
 
-export {
-  loadCommandConfig,
-  loadProjectConfigDefaults
-} from './lib/config-loader'
-export {
-  extensionBuild,
-  type BuildOptions,
-  extensionDev,
-  type DevOptions,
-  // extensionPreview is re-exported for backward compatibility; new consumers
-  // should import 'extension-develop/preview' to skip the bundler toolchain.
-  extensionPreview,
-  type PreviewOptions,
-  type StartOptions,
-  type FileConfig,
-  type BrowserConfig,
-  type BrowserType,
-  type CompanionExtensionsConfig,
-  type Manifest,
-  // extensionBuild resolves to a BuildSummary; naming it required reaching
+// The rspack binding sizes its threads when it loads and never reads the
+// variable again, so every module that reaches rspack loads after this call.
+ensureRustMinStack()
+
+const [build, dev, preview, browsers, config] = await Promise.all([
+  import('./command-build'),
+  import('./command-dev'),
+  import('./command-preview'),
+  import('./plugin-browsers'),
+  import('./lib/config-loader')
+])
+
+export const extensionBuild = build.extensionBuild
+export const extensionDev = dev.extensionDev
+// extensionPreview is re-exported for backward compatibility. The same
+// function is the only export of 'extension-develop/preview'.
+export const extensionPreview = preview.extensionPreview
+export const BuildEmitter = browsers.BuildEmitter
+export type BuildEmitter = BuildEmitterInstance
+export const loadCommandConfig = config.loadCommandConfig
+export const loadProjectConfigDefaults = config.loadProjectConfigDefaults
+
+export type {
+  BuildOptions,
+  DevOptions,
+  PreviewOptions,
+  StartOptions,
+  FileConfig,
+  BrowserConfig,
+  BrowserType,
+  CompanionExtensionsConfig,
+  Manifest,
+  // extensionBuild resolves to a BuildSummary. Naming it required reaching
   // into the package's internals before this export existed.
-  type BuildSummary,
-  type SafariPackageSummary,
-  type SafariPackagerFn,
-  type SafariPackagerOverrides,
-  BuildEmitter,
-  type CompiledEvent,
-  type BuildErrorEvent,
-  type ReloadType,
-  type ReloadInstruction,
-  type BrowserLauncherFn,
-  type BrowserLaunchOptions,
-  type BrowserController
+  BuildSummary,
+  SafariPackageSummary,
+  SafariPackagerFn,
+  SafariPackagerOverrides,
+  CompiledEvent,
+  BuildErrorEvent,
+  ReloadType,
+  ReloadInstruction,
+  BrowserLauncherFn,
+  BrowserLaunchOptions,
+  BrowserController
 }
