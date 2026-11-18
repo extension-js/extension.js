@@ -51,7 +51,6 @@ import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder'
 import {StaticAssetsPlugin} from './plugin-static-assets'
-import {WasmPlugin} from './plugin-wasm'
 import {WebExtensionPlugin} from './plugin-web-extension'
 import {SetupChunkLoadingTarget} from './plugin-web-extension/feature-chunk-loading'
 import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
@@ -127,7 +126,9 @@ export default function webpackConfig(
     projectRoot: packageJsonDir,
     config: devOptions.extensions,
     browser: devOptions.browser,
-    manifestPath
+    manifestPath,
+    // The runner plugin is handed over only by a session that opens a browser.
+    launchesBrowser: Boolean(devOptions.browsersPlugin)
   })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(
@@ -205,10 +206,6 @@ export default function webpackConfig(
     new CssPlugin({
       manifestPath,
       browser: devOptions.browser
-    }),
-    new WasmPlugin({
-      manifestPath,
-      mode: devOptions.mode
     }),
     new JsFrameworksPlugin({
       manifestPath,

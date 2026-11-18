@@ -1,4 +1,5 @@
 import {spawn} from 'node:child_process'
+import {once} from 'node:events'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -258,18 +259,21 @@ describe('Chromium profile flags', () => {
 
   it.skipIf(process.platform === 'win32')(
     'throws when a live browser holds the explicit profile',
-    () => {
+    async () => {
       const explicitProfile = makeTempFolder('extjs-explicit-profile-live-')
+      // Named chromium in the process table, the way a browser would be. `--`
+      // keeps the flag an argument of the script, or node refuses it and exits.
       const holder = spawn(
         process.execPath,
         [
           '-e',
           'setTimeout(() => {}, 30000)',
-          'chromium',
+          '--',
           `--user-data-dir=${explicitProfile}`
         ],
-        {stdio: 'ignore'}
+        {stdio: 'ignore', argv0: 'chromium'}
       )
+      await once(holder, 'spawn')
 
       try {
         fs.symlinkSync(

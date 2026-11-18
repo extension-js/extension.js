@@ -6,36 +6,63 @@
 //  ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝     ╚═╝╚══════╝╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═══╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Stats} from '@rspack/core'
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
 import {displayPath} from '../../lib/paths'
 
-export function boring(manifestName: string, durationMs: number, stats: Stats) {
+export interface CompileReport {
+  errors: number
+  warnings: number
+  // Where the warnings print relative to this line, unset when it follows them.
+  warningsListed?: 'below' | 'above and below'
+}
+
+const counted = (count: number, noun: string) =>
+  `${count} ${noun}${count === 1 ? '' : 's'}`
+
+export function boring(
+  manifestName: string,
+  durationMs: number,
+  report: CompileReport
+) {
   const now = new Date()
   const hh = String(now.getHours()).padStart(2, '0')
   const mm = String(now.getMinutes()).padStart(2, '0')
   const ss = String(now.getSeconds()).padStart(2, '0')
   const timestamp = colors.gray(`[${hh}:${mm}:${ss}]`)
 
-  const hasErrors = stats.hasErrors()
-  const hasWarnings = stats.hasWarnings()
+  const {errors, warnings, warningsListed} = report
 
   // One glyph across all five channels; the color carries the severity.
-  const arrow = hasErrors
-    ? prefix('error')
-    : hasWarnings
-      ? prefix('warn')
-      : prefix('info')
-  const status = hasErrors
-    ? `compiled ${colors.red('with errors')}`
-    : hasWarnings
-      ? `compiled ${colors.yellow('with warnings')}`
-      : 'compiled'
-  const app = manifestName
+  const arrow =
+    errors > 0
+      ? prefix('error')
+      : warnings > 0
+        ? prefix('warn')
+        : prefix('info')
   const time = `${durationMs} ms`
 
-  return `${arrow} ${timestamp} ${app} ${status} in ${time}.`
+  // A failed compile never reads as one that went through.
+  if (errors > 0) {
+    const also =
+      warnings > 0 ? ` and ${colors.yellow(counted(warnings, 'warning'))}` : ''
+    const status = `failed to compile ${colors.red(
+      `with ${counted(errors, 'error')}`
+    )}${also}`
+
+    return `${arrow} ${timestamp} ${manifestName} ${status} in ${time}.`
+  }
+
+  if (warnings > 0) {
+    const status = `compiled ${colors.yellow(
+      `with ${counted(warnings, 'warning')}`
+    )}`
+    const where = warningsListed ? `, listed ${warningsListed}` : ''
+
+    return `${arrow} ${timestamp} ${manifestName} ${status} in ${time}${where}.`
+  }
+
+  return `${arrow} ${timestamp} ${manifestName} compiled in ${time}.`
 }
 
 export function zipMissingDefaultLocale(
@@ -129,8 +156,9 @@ export function zipPackagingSkipped(reason: string) {
   return `${prefix('debug')} zip      skipped=true reason="${reason}"`
 }
 
-export function envSelectedFile(envPath: string) {
-  return `${prefix('debug')} env      file=${envPath || 'none'}`
+// Weakest first, the order the files are merged in.
+export function envSelectedFile(envPaths: string[]) {
+  return `${prefix('debug')} env      files=${envPaths.join(',') || 'none'}`
 }
 
 export function envInjectedPublicVars(count: number) {
@@ -178,6 +206,47 @@ export function envPublicSecretName(names: string[]) {
     `Keep the secret on a server the extension calls, under a name without the ` +
     `${colors.yellow('EXTENSION_PUBLIC_')} prefix. If the value is public by ` +
     `design, such as a Firebase web API key, this warning does not apply to it.`
+  )
+}
+
+// Names the placeholder and the asset, never the value it would have written.
+export function envPrivatePlaceholder(
+  placeholders: Array<{name: string; assets: string[]}>
+) {
+  const example = placeholders[0].name.replace(
+    /^EXTENSION_/,
+    'EXTENSION_PUBLIC_'
+  )
+
+  return (
+    placeholders
+      .map(
+        ({name, assets}) =>
+          `${colors.yellow(`$${name}`)} in ` +
+          `${assets.map((asset) => colors.yellow(asset)).join(', ')} ` +
+          `was left as written.\n`
+      )
+      .join('') +
+    `Placeholders in emitted .json and .html files are filled only from ` +
+    `${colors.yellow('EXTENSION_PUBLIC_*')} variables, because those files ` +
+    `ship to every user.\n` +
+    `If the value is meant to ship, rename the variable with that prefix, ` +
+    `such as ${colors.yellow(example)}.`
+  )
+}
+
+// Names the variable and the file, never the value the file gave it.
+export function envReservedName(entries: Array<{name: string; file: string}>) {
+  return (
+    entries
+      .map(
+        ({name, file}) =>
+          `${colors.yellow(name)} in ${colors.yellow(file)} is reserved for ` +
+          `the build target, so the file value is ignored.\n`
+      )
+      .join('') +
+    `The build sets the browser and mode names itself, from the target it ` +
+    `compiles for. Use another name for a value of your own.`
   )
 }
 

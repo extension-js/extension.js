@@ -36,17 +36,12 @@ export class StaticAssetsPlugin {
       compiler.options.output.assetModuleFilename = filenamePattern
     }
 
-    const defaultSvgRule: RuleSetRule = {
-      test: /\.svg$/i,
-      type: 'asset',
-      generator: {
-        filename: filenamePattern
-      },
-      parser: {
-        dataUrlCondition: {
-          maxSize: 2 * 1024
-        }
-      }
+    // An extensionless import reaches a .wasm file. A config with no list is
+    // left alone: a list set here would replace rspack's per-type defaults.
+    const extensions = compiler.options.resolve?.extensions
+
+    if (extensions && !extensions.includes('.wasm')) {
+      compiler.options.resolve.extensions = [...extensions, '.wasm']
     }
 
     type InspectableRule = {
@@ -125,36 +120,16 @@ export class StaticAssetsPlugin {
       return conditions as RuleSetRule
     }
 
-    const partialScopesFor = (extensions: string[]): RuleSetRule[] => {
-      const seen = new Set<unknown>()
-      const scopes: RuleSetRule[] = []
+    const partialRulesFor = (extensions: string[]): InspectableRule[] => {
+      const partials = new Set<InspectableRule>()
 
       for (const thisRule of compiler.options.module.rules) {
-        if (seen.has(thisRule)) continue
-
         if (extensions.some((ext) => isPartialRuleFor(thisRule, `.${ext}`))) {
-          seen.add(thisRule)
-          scopes.push(scopeConditionsOf(thisRule as InspectableRule))
+          partials.add(thisRule as InspectableRule)
         }
       }
 
-      return scopes
-    }
-
-    const withPartialScopes = (
-      rule: RuleSetRule,
-      extensions: string[]
-    ): RuleSetRule => {
-      const scopes = partialScopesFor(extensions)
-      if (!scopes.length) return rule
-
-      const {test, resourceQuery, ...effects} = rule
-
-      return {
-        test,
-        ...(resourceQuery ? {resourceQuery} : {}),
-        oneOf: [...scopes, effects]
-      }
+      return Array.from(partials)
     }
 
     // Query slices claimed by scoped custom rules: the default rule excludes
@@ -228,32 +203,68 @@ export class StaticAssetsPlugin {
 
     const inlineKB = 2
 
-    const defaultRuleFor = (extensions: string[]): RuleSetRule | null => {
-      const remaining = unclaimedExtensions(extensions)
-      if (!remaining.length) return null
+    const GROUPS: Array<[label: string, extensions: string[]]> = [
+      ['SVG', ['svg']],
+      ['Images', IMAGE_EXTENSIONS],
+      ['Fonts', FONT_EXTENSIONS],
+      ['Files', FILE_EXTENSIONS]
+    ]
 
-      const scoped = scopedQueriesForAll(remaining)
-
-      return withPartialScopes(
-        {
-          test: new RegExp(`\\.(${remaining.join('|')})$`, 'i'),
-          type: 'asset',
-          generator: {
-            filename: filenamePattern
-          },
-          parser: {dataUrlCondition: {maxSize: inlineKB * 1024}},
-          ...(scoped.length ? {resourceQuery: {not: scoped}} : {})
-        },
-        remaining
-      )
+    type DefaultSlice = {
+      extensions: string[]
+      queries: RegExp[]
+      partials: InspectableRule[]
     }
 
-    const hasCustomSvgRule = unclaimedExtensions(['svg']).length === 0
-    // Every rule sets the 2 KB threshold itself: a rule with no parser block
-    // falls back to rspack's default of 8096 bytes.
-    const imagesRule = defaultRuleFor(IMAGE_EXTENSIONS)
-    const fontsRule = defaultRuleFor(FONT_EXTENSIONS)
-    const filesRule = defaultRuleFor(FILE_EXTENSIONS)
+    // Groups the user rules treat alike share one default rule. A group a
+    // scoped user rule sets apart keeps its own, with that rule's carve-outs.
+    const slices = new Map<string, DefaultSlice>()
+    const customGroups = new Set<string>()
+    const userRules = compiler.options.module.rules as unknown[]
+
+    for (const [label, extensions] of GROUPS) {
+      const remaining = unclaimedExtensions(extensions)
+
+      if (!remaining.length) {
+        customGroups.add(label)
+        continue
+      }
+
+      const queries = scopedQueriesForAll(remaining)
+      const partials = partialRulesFor(remaining)
+      const key = JSON.stringify([
+        queries.map(String).sort(),
+        partials.map((rule) => userRules.indexOf(rule))
+      ])
+      const slice = slices.get(key)
+
+      if (slice) slice.extensions.push(...remaining)
+      else slices.set(key, {extensions: remaining, queries, partials})
+    }
+
+    // The rule sets the 2 KB threshold itself: without a parser block it
+    // would fall back to rspack's default of 8096 bytes.
+    const defaultRules = Array.from(slices.values()).map(
+      ({extensions, queries, partials}): RuleSetRule => {
+        const test = new RegExp(`\\.(${extensions.join('|')})$`, 'i')
+        const resourceQuery = queries.length ? {not: queries} : undefined
+        const effects: RuleSetRule = {
+          type: 'asset',
+          generator: {filename: filenamePattern},
+          parser: {dataUrlCondition: {maxSize: inlineKB * 1024}}
+        }
+
+        return {
+          test,
+          ...(resourceQuery ? {resourceQuery} : {}),
+          ...(partials.length
+            ? {oneOf: [...partials.map(scopeConditionsOf), effects]}
+            : effects)
+        }
+      }
+    )
+
+    const hasCustomSvgRule = customGroups.has('SVG')
 
     const hasResourceQueryRule = (query: string) =>
       compiler.options.module.rules.some((thisRule) => {
@@ -266,22 +277,8 @@ export class StaticAssetsPlugin {
     const hasUrlResourceQueryRule = hasResourceQueryRule('?url')
     const hasRawResourceQueryRule = hasResourceQueryRule('?raw')
 
-    const svgScopedQueries = scopedQueriesFor('.svg')
-
     const loaders: RuleSetRule[] = [
-      ...(hasCustomSvgRule
-        ? []
-        : [
-            withPartialScopes(
-              svgScopedQueries.length
-                ? {...defaultSvgRule, resourceQuery: {not: svgScopedQueries}}
-                : defaultSvgRule,
-              ['svg']
-            )
-          ]),
-      ...(imagesRule ? [imagesRule] : []),
-      ...(fontsRule ? [fontsRule] : []),
-      ...(filesRule ? [filesRule] : []),
+      ...defaultRules,
       // Last on purpose: rspack resolves overlapping rules last-wins, so the
       // ?url contract (always a file URL) must outrank the inlining rules.
       ...(hasUrlResourceQueryRule
@@ -316,11 +313,13 @@ export class StaticAssetsPlugin {
     ].filter((rule): rule is RuleSetRule => Boolean(rule))
 
     if (isDebug()) {
-      const rulesEnabled: string[] = []
-      rulesEnabled.push(hasCustomSvgRule ? 'SVG(custom)' : 'SVG(default)')
-      rulesEnabled.push(imagesRule ? 'Images' : 'Images(custom)')
-      rulesEnabled.push(fontsRule ? 'Fonts' : 'Fonts(custom)')
-      rulesEnabled.push(filesRule ? 'Files' : 'Files(custom)')
+      const rulesEnabled = GROUPS.map(([label]) =>
+        customGroups.has(label)
+          ? `${label}(custom)`
+          : label === 'SVG'
+            ? 'SVG(default)'
+            : label
+      )
 
       debugLine(messages.assetsRulesEnabled(rulesEnabled))
 

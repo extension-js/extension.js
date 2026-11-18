@@ -7,18 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type * as parse5utilities from 'parse5-utilities'
-import {cleanAssetUrl} from './utils'
-
-function isUrl(src: string) {
-  try {
-    // eslint-disable-next-line no-new
-    new URL(src)
-
-    return true
-  } catch (err) {
-    return false
-  }
-}
+import {cleanAssetUrl, isUrl} from './utils'
 
 function emitSrcsetCandidates(
   srcset: string,

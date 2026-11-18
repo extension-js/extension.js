@@ -7,14 +7,11 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import type {
-  SpawnSyncOptionsWithStringEncoding,
-  SpawnSyncReturns
-} from 'node:child_process'
 import * as path from 'node:path'
-import {sync as spawnSync} from 'cross-spawn'
+import {spawn} from 'cross-spawn'
 import {getPackageManagerSpec} from 'prefers-yarn'
 import {corepackRegistryEnv} from './corepack-registry'
+import {endProcessTree, type SpawnProcess} from './install-runner'
 
 const NODE_PACKAGE_MANAGERS = ['pnpm', 'yarn', 'bun', 'npm'] as const
 
@@ -125,12 +122,26 @@ export function readPinnedPackageManager(
   }
 }
 
+export interface VersionProbeOptions {
+  stdio: ['ignore', 'pipe', 'ignore']
+  timeout: number
+  env: NodeJS.ProcessEnv
+  cwd?: string
+}
+
+// What one `--version` run came to. A run that outlived its limit carries an
+// ETIMEDOUT error, the way a synchronous spawn reports it.
+export interface VersionProbeAnswer {
+  status: number | null
+  stdout: string
+  error?: Error
+}
+
 export type VersionProbe = (
   command: string,
   args: string[],
-  options: SpawnSyncOptionsWithStringEncoding
-) => Pick<SpawnSyncReturns<string>, 'status' | 'stdout'> &
-  Partial<Pick<SpawnSyncReturns<string>, 'error'>>
+  options: VersionProbeOptions
+) => VersionProbeAnswer | Promise<VersionProbeAnswer>
 
 // Why no version could be learned, for the line the create prints about it.
 export type UndeclaredReason =
@@ -178,25 +189,89 @@ function spawnFailure(error: unknown, timeoutMs: number): UndeclaredReason {
   return {kind: 'spawn', code: code || 'unknown error'}
 }
 
+// Starts the manager and waits without blocking, so the create can say it is
+// waiting and can end the whole child tree when the limit runs out.
+export function versionProbeWith(
+  spawnProcess: SpawnProcess = spawn,
+  platform: NodeJS.Platform = process.platform
+): VersionProbe {
+  return (command, args, options) =>
+    new Promise<VersionProbeAnswer>((resolve) => {
+      // Windows installs the managers as .cmd shims. cross-spawn resolves the
+      // shim itself, so the probe never goes through a shell string.
+      const child = spawnProcess(command, args, {
+        stdio: options.stdio,
+        env: options.env,
+        cwd: options.cwd,
+        windowsHide: true
+      })
+      let stdout = ''
+
+      // Answered here and not on close: a child that survives can hold the
+      // pipe open, and close would then never arrive.
+      const timer = setTimeout(() => {
+        endProcessTree(child, spawnProcess, platform)
+        // Neither the pipe nor the child may keep the create from ending.
+        child.stdout?.destroy()
+        child.unref()
+
+        resolve({
+          status: null,
+          stdout,
+          error: Object.assign(new Error(`spawn ${command} ETIMEDOUT`), {
+            code: 'ETIMEDOUT'
+          })
+        })
+      }, options.timeout)
+
+      child.stdout?.on('data', (chunk) => {
+        stdout += chunk.toString()
+      })
+
+      child.on('error', (error) => {
+        clearTimeout(timer)
+        resolve({status: null, stdout, error})
+      })
+
+      child.on('close', (status) => {
+        clearTimeout(timer)
+        resolve({status, stdout})
+      })
+    })
+}
+
+// Where the manager is started. A shim answers for the manifest nearest to
+// that folder, so the project is the place to ask from.
+export function versionProbeFolder(
+  projectPath: string,
+  platform: NodeJS.Platform = process.platform
+): string | undefined {
+  // Windows runs a file named like the manager from the folder it starts
+  // in before any on PATH, and a downloaded template must never answer.
+  if (platform === 'win32') return undefined
+
+  // A folder that is gone would read as a manager that is missing.
+  return fs.existsSync(projectPath) ? projectPath : undefined
+}
+
 type ProbeAnswer =
   | {version: string}
   | {failure: UndeclaredReason; askAgain: boolean}
 
-function askVersion(
+async function askVersion(
   manager: NodePackageManager,
   projectPath: string,
   timeoutMs: number,
   probeVersion: VersionProbe
-): ProbeAnswer {
-  let probe: ReturnType<VersionProbe>
+): Promise<ProbeAnswer> {
+  const cwd = versionProbeFolder(projectPath)
+  let probe: VersionProbeAnswer
 
   try {
-    // Windows installs the managers as .cmd shims. cross-spawn resolves the
-    // shim itself, so the probe never goes through a shell string.
-    probe = probeVersion(manager, ['--version'], {
-      encoding: 'utf8',
+    probe = await probeVersion(manager, ['--version'], {
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: timeoutMs,
+      ...(cwd === undefined ? {} : {cwd}),
       env: {
         ...process.env,
         ...corepackRegistryEnv(process.env, projectPath)
@@ -227,15 +302,20 @@ function askVersion(
   }
 }
 
+// Told when a probe ran out of time and the manager is being asked again, so
+// the create can print why it is still waiting.
+export type AskingAgain = (waitedSeconds: number, limitSeconds: number) => void
+
 // The `name@version` the project declares for that manager: the template's
 // own pin, else the invoking manager's spec when it is the same manager,
 // else the installed binary's version. A host with no user agent still gets
 // a usable declaration this way instead of an empty field.
-export function declarePackageManager(
+export async function declarePackageManager(
   projectPath: string,
   manager: ScaffoldPackageManager,
-  probeVersion: VersionProbe = spawnSync
-): PackageManagerDeclaration {
+  probeVersion: VersionProbe = versionProbeWith(),
+  onAskingAgain?: AskingAgain
+): Promise<PackageManagerDeclaration> {
   if (manager === 'deno') return {}
 
   try {
@@ -247,16 +327,28 @@ export function declarePackageManager(
   }
 
   const fromEnv = getPackageManagerSpec()
-  if (fromEnv && fromEnv.startsWith(`${manager}@`)) return {spec: fromEnv}
+  if (fromEnv?.startsWith(`${manager}@`)) return {spec: fromEnv}
 
   let undeclared: UndeclaredReason = {kind: 'no-version'}
 
-  for (const timeoutMs of VERSION_PROBE_TIMEOUTS_MS) {
-    const answer = askVersion(manager, projectPath, timeoutMs, probeVersion)
+  for (const [attempt, timeoutMs] of VERSION_PROBE_TIMEOUTS_MS.entries()) {
+    const answer = await askVersion(
+      manager,
+      projectPath,
+      timeoutMs,
+      probeVersion
+    )
     if ('version' in answer) return {spec: `${manager}@${answer.version}`}
 
     undeclared = answer.failure
     if (!answer.askAgain) break
+
+    const nextMs = VERSION_PROBE_TIMEOUTS_MS[attempt + 1]
+
+    // A blank answer comes back at once, so only a wait is worth a line.
+    if (nextMs !== undefined && undeclared.kind === 'timeout') {
+      onAskingAgain?.(timeoutMs / 1000, nextMs / 1000)
+    }
   }
 
   return {undeclared}
