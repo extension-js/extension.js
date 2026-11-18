@@ -86,20 +86,39 @@ function resolveWorkspaceDevelopRoot(startDir: string): string | undefined {
   return undefined
 }
 
-function resolveInstalledDevelopRoot(): string | undefined {
+// Node's own lookup from one folder, or from this file when none is given.
+function resolveInstalledDevelopRootFrom(
+  startDir: string | undefined
+): string | undefined {
+  const options = startDir ? {paths: [startDir]} : undefined
+
   try {
-    const packageJsonPath = require.resolve('extension-develop/package.json')
+    const packageJsonPath = require.resolve(
+      'extension-develop/package.json',
+      options
+    )
 
     return resolveDevelopRootFromDir(path.dirname(packageJsonPath))
   } catch {
-    try {
-      const entryPath = require.resolve('extension-develop')
+    const entryPath = require.resolve('extension-develop', options)
 
-      return resolveDevelopRootFromDir(path.dirname(path.dirname(entryPath)))
-    } catch {
-      return undefined
+    return resolveDevelopRootFromDir(path.dirname(path.dirname(entryPath)))
+  }
+}
+
+// The engine installed for the CLI at startDir is the one beside it. Only a
+// start folder that reaches no install at all falls back to this file's lookup.
+function resolveInstalledDevelopRoot(startDir: string): string | undefined {
+  for (const from of [startDir, undefined]) {
+    try {
+      return resolveInstalledDevelopRootFrom(from)
+    } catch (error) {
+      // An install that is there and broken is the answer, not a miss.
+      if ((error as {code?: unknown})?.code !== 'MODULE_NOT_FOUND') break
     }
   }
+
+  return undefined
 }
 
 function resolvePreferredDevelopRoot(startDir: string): {
@@ -116,7 +135,7 @@ function resolvePreferredDevelopRoot(startDir: string): {
     : undefined
   if (envRoot) return {root: envRoot, source: 'env'}
 
-  const installedRoot = resolveInstalledDevelopRoot()
+  const installedRoot = resolveInstalledDevelopRoot(startDir)
   if (installedRoot) return {root: installedRoot, source: 'installed'}
 
   return {root: undefined, source: 'missing'}
