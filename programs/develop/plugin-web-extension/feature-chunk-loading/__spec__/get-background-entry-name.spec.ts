@@ -2,8 +2,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import type {Manifest} from '../../types'
-import {getBackgroundEntryName} from '../steps/setup-reload-strategy'
+import type {Manifest} from '../../../types'
+import {getBackgroundEntryName} from '../background-entry-name'
 
 const tempDirs: string[] = []
 
@@ -26,9 +26,8 @@ function makeProject(files: string[] = []) {
   return dir
 }
 
-// The name handed to the fork's ServiceWorkerPlugin must match an entry
-// AddScripts will create, because the plugin asserts at entryOption that the
-// entry exists and a wrong name hard-crashes the whole build.
+// The name must match an entry AddScripts will create, because the chunk
+// loader puts the background side of its message fallback in that entry.
 describe('getBackgroundEntryName', () => {
   it('names the declared service worker when its file exists', () => {
     const manifestDir = makeProject(['background/index.js'])
@@ -38,9 +37,7 @@ describe('getBackgroundEntryName', () => {
     } as Manifest
 
     expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
-      serviceWorkerEntry: 'background/service_worker',
-      tryCatchWrapper: true,
-      eagerChunkLoading: false
+      serviceWorkerEntry: 'background/service_worker'
     })
   })
 
@@ -52,9 +49,7 @@ describe('getBackgroundEntryName', () => {
     } as Manifest
 
     expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
-      serviceWorkerEntry: 'background/scripts',
-      tryCatchWrapper: true,
-      eagerChunkLoading: false
+      serviceWorkerEntry: 'background/scripts'
     })
   })
 
@@ -76,10 +71,9 @@ describe('getBackgroundEntryName', () => {
       background: {service_worker: 'background/missing.js'}
     } as Manifest
 
-    expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
-      tryCatchWrapper: true,
-      eagerChunkLoading: false
-    })
+    expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual(
+      {}
+    )
   })
 
   it('omits the worker entry when no background.scripts file exists', () => {

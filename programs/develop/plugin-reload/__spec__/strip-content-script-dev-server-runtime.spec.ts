@@ -1,8 +1,8 @@
 import {describe, expect, it, vi} from 'vitest'
+import {compileIssues, writeProject} from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {stripDevServerStartupFromContentScript} from '../steps/remove-content-script-dev-server-runtime'
 import {StripContentScriptDevServerRuntime} from '../steps/strip-content-script-dev-server-runtime'
-import {compileIssues, writeProject} from './helpers/real-compiler'
 
 const makeTempFolder = trackTempFolders()
 
