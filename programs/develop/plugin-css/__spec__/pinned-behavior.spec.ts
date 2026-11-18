@@ -92,7 +92,7 @@ describe('postcss-preset-env and postcss-scss', () => {
       )
     })
 
-    // Pins today's behavior. Ledger 1390 D1.
+    // Pins today's behavior.
     expect(
       getOptionalDependencyContract('sass').installPackages.map((spec) =>
         spec.replace(/(.)@.*$/, '$1')
