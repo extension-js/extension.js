@@ -342,7 +342,7 @@ describe('profile lock detection', () => {
     expect(printed).toContain('A running browser already uses this profile.')
     expect(printed).toContain('42 on host-a')
     expect(printed).not.toMatch(/\n\s+at /)
-    expect(printed).not.toContain('Error:')
+    expect(printed.match(/Error:/g)).toHaveLength(1)
   })
 
   it('does not classify an unrelated launch failure as a lock', () => {

@@ -49,7 +49,7 @@ describe('extension create', () => {
 
     expect(error).toBeInstanceOf(Error)
     expect(stripVTControlCharacters((error as Error).message)).toBe(
-      '⏵⏵⏵ A project name is required.\n' +
+      '⏵⏵⏵ Error: A project name is required.\n' +
         'Pass a name, for example extension create my-extension.\n' +
         'Run extension create --help for the full usage.'
     )
@@ -115,7 +115,9 @@ describe('extension create', () => {
 
       expect(
         stripVTControlCharacters(String(withInstall?.message)).split('\n')[0]
-      ).toBe("⏵⏵⏵ Couldn't install the dependencies for install-forwarded.")
+      ).toBe(
+        "⏵⏵⏵ Error: Couldn't install the dependencies for install-forwarded."
+      )
 
       expect(withInstall?.cause).toMatchObject({
         code: 'EEXIST',

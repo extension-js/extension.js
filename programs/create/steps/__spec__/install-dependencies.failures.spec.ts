@@ -85,7 +85,7 @@ describe('installDependencies failure paths', () => {
     const failure = await installFailure(install.run('pnpm', 'react'))
 
     expect(failure.name).toBe('Error')
-    expect(failure.frame.replace(/^\S+ /, '')).toBe(
+    expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies for ghost.\n" +
         'REASON Error: spawn pnpm ENOENT\n' +
         'The install process exited unexpectedly.\n' +
@@ -136,7 +136,7 @@ describe('installDependencies failure paths', () => {
 
     expect(failure.name).toBe('Error')
     expect(failure.frame.split('\n').slice(0, 3)).toEqual([
-      "⏵⏵⏵ Couldn't install the dependencies for ghost.",
+      "⏵⏵⏵ Error: Couldn't install the dependencies for ghost.",
       "REASON TypeError: Cannot read properties of undefined (reading 'code')",
       'The install process exited unexpectedly.'
     ])
@@ -164,7 +164,7 @@ describe('installDependencies failure paths', () => {
 
     expect(install.calls[0].signals).toEqual(['SIGTERM'])
     expect(failure.name).toBe('Error')
-    expect(failure.frame.replace(/^\S+ /, '')).toBe(
+    expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies.\n" +
         'COMMAND pnpm install\n' +
         'EXIT null\n' +
@@ -239,7 +239,7 @@ describe('installDependencies failure paths', () => {
 
     expect(shown.join('')).toContain('No matching version found')
     expect(shown.join('')).toContain('network socket hang up')
-    expect(failure.frame.replace(/^\S+ /, '')).toBe(
+    expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies.\n" +
         'COMMAND npm install\n' +
         'EXIT 7\n' +
@@ -274,7 +274,7 @@ describe('installDependencies failure paths', () => {
     const failure = await installFailure(install.run('npm', 'react'))
 
     expect(failure.name).toBe('Error')
-    expect(failure.frame.replace(/^\S+ /, '')).toBe(
+    expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies.\n" +
         'COMMAND npm install\n' +
         'EXIT 7\n' +

@@ -280,7 +280,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'a browser name nobody supports',
     argv: ['--browser', 'netscape'],
     stderr: [
-      `⏵⏵⏵ Unsupported --browser value: netscape.\nChoose one of: ${EVERY_TARGET}.`
+      `⏵⏵⏵ Error: Unsupported --browser value: netscape.\nChoose one of: ${EVERY_TARGET}.`
     ],
     frame: {
       status: 'usage',
@@ -295,7 +295,7 @@ const REFUSALS: RefusalRow[] = [
     argv: [],
     config: {browser: 'nope'},
     stderr: [
-      `⏵⏵⏵ Unsupported --browser value: nope.\nChoose one of: ${EVERY_TARGET}.`
+      `⏵⏵⏵ Error: Unsupported --browser value: nope.\nChoose one of: ${EVERY_TARGET}.`
     ],
     frame: {
       status: 'usage',
@@ -308,7 +308,9 @@ const REFUSALS: RefusalRow[] = [
   {
     name: 'a --mode it does not know',
     argv: ['--mode', 'fastest'],
-    stderr: ['⏵⏵⏵ --mode got "fastest". Use development, production or none.'],
+    stderr: [
+      '⏵⏵⏵ Error: --mode got "fastest". Use development, production or none.'
+    ],
     frame: {
       status: 'usage',
       error: {
@@ -321,7 +323,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'a safari-only flag on a chromium target',
     argv: ['--app-name', 'My App'],
     stderr: [
-      '⏵⏵⏵ --app-name only applies to Safari targets.\nAdd --browser safari (or webkit-based).'
+      '⏵⏵⏵ Error: --app-name only applies to Safari targets.\nAdd --browser safari (or webkit-based).'
     ],
     frame: {
       status: 'usage',
@@ -335,7 +337,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'several safari-only flags on a chromium target',
     argv: ['--open', '--force-regenerate'],
     stderr: [
-      '⏵⏵⏵ --open, --force-regenerate only apply to Safari targets.\nAdd --browser safari (or webkit-based).'
+      '⏵⏵⏵ Error: --open, --force-regenerate only apply to Safari targets.\nAdd --browser safari (or webkit-based).'
     ],
     frame: {
       status: 'usage',
@@ -351,7 +353,7 @@ const REFUSALS: RefusalRow[] = [
     name: '--macos-only false on a chromium target',
     argv: ['--macos-only', 'false'],
     stderr: [
-      '⏵⏵⏵ --macos-only only applies to Safari targets.\nAdd --browser safari (or webkit-based).'
+      '⏵⏵⏵ Error: --macos-only only applies to Safari targets.\nAdd --browser safari (or webkit-based).'
     ],
     frame: {
       status: 'usage',
@@ -365,7 +367,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'a malformed safari bundle id',
     argv: ['--browser', 'safari', '--bundle-id', 'bad id'],
     stderr: [
-      '⏵⏵⏵ --bundle-id got "bad id". Use reverse DNS form, such as com.example.bad-id.'
+      '⏵⏵⏵ Error: --bundle-id got "bad id". Use reverse DNS form, such as com.example.bad-id.'
     ],
     frame: {
       status: 'usage',
@@ -380,7 +382,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'a safari bundle id with no dot',
     argv: ['--browser', 'safari', '--bundle-id', 'myapp'],
     stderr: [
-      '⏵⏵⏵ --bundle-id got "myapp". Use reverse DNS form, such as com.example.myapp.'
+      '⏵⏵⏵ Error: --bundle-id got "myapp". Use reverse DNS form, such as com.example.myapp.'
     ],
     frame: {
       status: 'usage',
@@ -395,7 +397,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'a safari bundle id of symbols only',
     argv: ['--browser', 'safari', '--bundle-id', '!!'],
     stderr: [
-      '⏵⏵⏵ --bundle-id got "!!". Use reverse DNS form, such as com.example.my-extension.'
+      '⏵⏵⏵ Error: --bundle-id got "!!". Use reverse DNS form, such as com.example.my-extension.'
     ],
     frame: {
       status: 'usage',

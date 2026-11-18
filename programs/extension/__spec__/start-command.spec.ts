@@ -389,7 +389,7 @@ const RUN_ONLY_TARGETS = SUPPORTED_BROWSER_TARGETS.filter(
 // Same contract as preview: the refusal has to hand the user a command, and
 // it has to give the measured reason for having no Safari path.
 const SAFARI_REFUSAL =
-  "⏵⏵⏵ start can't load an extension into Safari.\n" +
+  "⏵⏵⏵ Error: start can't load an extension into Safari.\n" +
   'Safari loads an extension only from an app it has registered, and that app is enabled by hand once installed.\n' +
   'Its automation route can load a folder but grants no website access, so content scripts never run.\n' +
   'Run a live Safari session: extension dev --browser safari\n' +
@@ -411,7 +411,7 @@ const REFUSALS: RefusalRow[] = [
       name: `${argv.join(' ')} with no wait to time`,
       argv,
       stderr: [
-        '⏵⏵⏵ --wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
+        '⏵⏵⏵ Error: --wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
       ],
       frame: {
         status: 'usage',
@@ -437,7 +437,7 @@ const REFUSALS: RefusalRow[] = [
     return {
       name: `${flag} ${value}`,
       argv: [flag, value],
-      stderr: [`⏵⏵⏵ ${message}`],
+      stderr: [`⏵⏵⏵ Error: ${message}`],
       frame: {status: 'usage', error: {code: 'E_INVALID_OPTION', message}}
     }
   }),
@@ -445,7 +445,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'a browser name nobody supports',
     argv: ['--browser', 'netscape'],
     stderr: [
-      `⏵⏵⏵ Unsupported --browser value: netscape.\nChoose one of: ${RUN_ONLY_TARGETS}.`
+      `⏵⏵⏵ Error: Unsupported --browser value: netscape.\nChoose one of: ${RUN_ONLY_TARGETS}.`
     ],
     frame: {
       status: 'usage',
@@ -476,7 +476,7 @@ const REFUSALS: RefusalRow[] = [
     argv: ['--wait'],
     env: {EXTENSION_CLI_NO_BROWSER: '1'},
     stderr: [
-      '⏵⏵⏵ --no-browser and --wait cannot run in the same process.\n--no-browser runs the server without a browser, and --wait only reads the ready contract another process writes.\nRUN extension start --no-browser\nTHEN extension start --wait --output json in a second process'
+      '⏵⏵⏵ Error: --no-browser and --wait cannot run in the same process.\n--no-browser runs the server without a browser, and --wait only reads the ready contract another process writes.\nRUN extension start --no-browser\nTHEN extension start --wait --output json in a second process'
     ],
     frame: {
       status: 'usage',

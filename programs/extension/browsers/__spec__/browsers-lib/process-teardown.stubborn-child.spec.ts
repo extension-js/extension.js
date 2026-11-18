@@ -191,7 +191,7 @@ describe.skipIf(process.platform === 'win32')(
       expect(deps.killTree).not.toHaveBeenCalled()
       expect(deps.sweep).not.toHaveBeenCalled()
       expect(printed).toEqual([
-        `⏵⏵⏵ Chrome (pid ${child.pid}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
+        `⏵⏵⏵ Warning: Chrome (pid ${child.pid}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
           `To stop it, run kill -9 ${child.pid}.`
       ])
 
@@ -364,7 +364,7 @@ describe('gracefulTerminatePid', () => {
     expect(deps.killTree).not.toHaveBeenCalled()
     expect(deps.sweep).not.toHaveBeenCalled()
     expect(printed).toEqual([
-      `⏵⏵⏵ Firefox (pid ${pid}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
+      `⏵⏵⏵ Warning: Firefox (pid ${pid}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
         `To stop it, run ${command.replace('<pid>', String(pid))}.`
     ])
   })

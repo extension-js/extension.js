@@ -743,7 +743,7 @@ describe('extensionInstall on a temp cache root', () => {
 
       expect(lookup.mock.calls).toEqual([['which', 'microsoft-edge']])
       expect(warned).toEqual([
-        '⏵⏵⏵ Skipping the Edge channel install, it needs elevated privileges.\n' +
+        '⏵⏵⏵ Warning: Skipping the Edge channel install, it needs elevated privileges.\n' +
           'Using the Edge binary already on this system instead.\n' +
           `PATH ${LINUX_EDGE}`
       ])
@@ -905,7 +905,7 @@ describe('extensionInstall on a temp cache root', () => {
       ).toBe('installed')
 
       expect(warned).toEqual([
-        '⏵⏵⏵ Skipping the Edge channel install, it needs elevated privileges.\n' +
+        '⏵⏵⏵ Warning: Skipping the Edge channel install, it needs elevated privileges.\n' +
           'Using the Edge binary already on this system instead.\n' +
           `PATH ${LINUX_EDGE}`
       ])
@@ -1145,7 +1145,7 @@ describe('the two messages no install path printed before', () => {
     expect(
       stripVTControlCharacters(messages.edgeInstallUsingSystemBinary(MAC_EDGE))
     ).toBe(
-      '⏵⏵⏵ Skipping the Edge channel install, it needs elevated privileges.\n' +
+      '⏵⏵⏵ Warning: Skipping the Edge channel install, it needs elevated privileges.\n' +
         'Using the Edge binary already on this system instead.\n' +
         `PATH ${MAC_EDGE}`
     )

@@ -85,7 +85,7 @@ describe('initializeGitRepository when git fails', () => {
 
     expect(notices).toHaveLength(1)
     expect(notices[0]).toMatch(
-      /^\S+ Skipping the git init for my-extension\.\nREASON git not found\nRun git init yourself if you want version control\.$/
+      /^\S+ Warning: Skipping the git init for my-extension\.\nREASON git not found\nRun git init yourself if you want version control\.$/
     )
 
     expect(calls.map((call) => call.command)).toEqual(['git', 'git'])
@@ -158,7 +158,7 @@ describe('initializeGitRepository when git fails', () => {
     ).resolves.toBeUndefined()
 
     expect(notices).toHaveLength(1)
-    expect(notices[0].replace(/^\S+ /, '')).toBe(notice)
+    expect(notices[0].replace(/^\S+ Warning: /, '')).toBe(notice)
     // Three lines and no stack: the headline, the reason, the way forward.
     expect(notices[0].split('\n')).toHaveLength(3)
     expect(notices[0]).not.toMatch(/^\s+at /m)
@@ -228,7 +228,7 @@ describe('initializeGitRepository when git fails', () => {
     )
 
     expect(notices).toHaveLength(1)
-    expect(notices[0].replace(/^\S+ /, '')).toBe(
+    expect(notices[0].replace(/^\S+ Warning: /, '')).toBe(
       'Left my-extension uncommitted.\n' +
         'REASON no git user identity\n' +
         'Run git add -A && git commit to record the scaffold.'

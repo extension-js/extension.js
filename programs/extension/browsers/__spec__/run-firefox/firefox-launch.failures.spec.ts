@@ -266,7 +266,7 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       // The port probe and five dials, and their one reason is printed once.
       expect(fake.dials).toEqual(Array.from({length: 6}, () => 'dies'))
       expect(said('error')).toEqual([
-        `⏵⏵⏵ Firefox hit an unexpected error.\n${error.message}`
+        `⏵⏵⏵ Error: Firefox hit an unexpected error.\n${error.message}`
       ])
 
       expect(fake.packets).toEqual([])

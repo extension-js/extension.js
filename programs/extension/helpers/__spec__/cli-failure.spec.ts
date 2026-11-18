@@ -134,7 +134,7 @@ describe('commanderHumanError', () => {
       'build'
     )
 
-    expect(lines[0]).toBe('⏵⏵⏵ Unknown option --nope.')
+    expect(lines[0]).toBe('⏵⏵⏵ Error: Unknown option --nope.')
     expect(lines[1]).toBe('Run extension build --help to see the options.')
   })
 
@@ -147,7 +147,7 @@ describe('commanderHumanError', () => {
       'dev'
     )
 
-    expect(lines[0]).toBe('⏵⏵⏵ Unknown option --brower.')
+    expect(lines[0]).toBe('⏵⏵⏵ Error: Unknown option --brower.')
     expect(lines[1]).toBe('Did you mean --browser?')
   })
 
@@ -160,7 +160,7 @@ describe('commanderHumanError', () => {
       'nonexistent-cmd'
     )
 
-    expect(lines[0]).toBe('⏵⏵⏵ Unknown command nonexistent-cmd.')
+    expect(lines[0]).toBe('⏵⏵⏵ Error: Unknown command nonexistent-cmd.')
     expect(lines[1]).toBe('Run extension --help to see the commands.')
   })
 
@@ -173,7 +173,7 @@ describe('commanderHumanError', () => {
       'buidl'
     )
 
-    expect(lines[0]).toBe('⏵⏵⏵ Unknown command buidl.')
+    expect(lines[0]).toBe('⏵⏵⏵ Error: Unknown command buidl.')
     expect(lines[1]).toBe('Did you mean build?')
   })
 
@@ -186,7 +186,7 @@ describe('commanderHumanError', () => {
       'dev'
     )
 
-    expect(lines[0]).toBe('⏵⏵⏵ Missing value for --browser.')
+    expect(lines[0]).toBe('⏵⏵⏵ Error: Missing value for --browser.')
     expect(lines[1]).toBe('Run extension dev --help to see the options.')
   })
 
@@ -199,7 +199,10 @@ describe('commanderHumanError', () => {
       'create'
     )
 
-    expect(lines[0]).toBe("⏵⏵⏵ Missing required argument 'pathOrRemoteUrl'.")
+    expect(lines[0]).toBe(
+      "⏵⏵⏵ Error: Missing required argument 'pathOrRemoteUrl'."
+    )
+
     expect(lines[1]).toBe('Run extension create --help to see the options.')
   })
 })
@@ -215,7 +218,7 @@ describe('commanderHumanError for verbs other scaffolders use', () => {
         'extension'
       )
 
-      expect(lines[0]).toBe(`⏵⏵⏵ Unknown command ${verb}.`)
+      expect(lines[0]).toBe(`⏵⏵⏵ Error: Unknown command ${verb}.`)
       expect(lines[1]).toBe(
         'Run extension create my-extension to start a new extension.'
       )

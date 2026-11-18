@@ -144,7 +144,7 @@ describe('the automation Safari a session quits on its way out', () => {
 
   function leftRunningLine() {
     return (
-      `⏵⏵⏵ Safari (pid ${safari}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
+      `⏵⏵⏵ Warning: Safari (pid ${safari}) did not stop and could not be confirmed as the browser this run started, so it was left running. ` +
       `To stop it, run kill -9 ${safari}.`
     )
   }

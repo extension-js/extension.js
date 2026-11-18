@@ -159,7 +159,7 @@ describe('an empty --browser', () => {
       expect(runBrowser).not.toHaveBeenCalled()
       expect(logSpy).not.toHaveBeenCalled()
       expect(errorSpy.mock.calls.map((call) => String(call[0]))).toEqual([
-        `⏵⏵⏵ --browser got an empty value.\nChoose one of: ${targets}.`
+        `⏵⏵⏵ Error: --browser got an empty value.\nChoose one of: ${targets}.`
       ])
     })
 
@@ -228,7 +228,7 @@ describe('--parent-pid values that are not a whole number', () => {
     expect(await run(['dev', '.', '--parent-pid', '1e3'])).toBe(1)
     expect(armParentWatchdog).not.toHaveBeenCalled()
     expect(errorSpy.mock.calls.map((call) => String(call[0]))).toEqual([
-      '⏵⏵⏵ --parent-pid got "1e3". Use the process id to watch, in digits, such as 4242.'
+      '⏵⏵⏵ Error: --parent-pid got "1e3". Use the process id to watch, in digits, such as 4242.'
     ])
   })
 })

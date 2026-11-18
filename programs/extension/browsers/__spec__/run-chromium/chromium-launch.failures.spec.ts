@@ -127,7 +127,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.offeredInstalls).toEqual([])
       expect(said('error')).toHaveLength(1)
       expect(said('error')[0].split('\n').slice(0, 5)).toEqual([
-        "⏵⏵⏵ Edge isn't installed.",
+        "⏵⏵⏵ Warning: Edge isn't installed.",
         '',
         'Install Edge system-wide (the installer may ask for an administrator password):',
         '',

@@ -14,7 +14,7 @@ describe('the last frame a failure passes through', () => {
 
     expect(printed).toBe(rendered)
     expect(plain(printed).match(new RegExp(GLYPH, 'g'))).toHaveLength(1)
-    expect(printed).not.toContain('Error: ')
+    expect(plain(printed).match(/Error: /g)).toHaveLength(1)
     expect(printed).not.toContain('    at ')
   })
 
@@ -39,7 +39,7 @@ describe('the last frame a failure passes through', () => {
   })
 
   it('frames a thrown string and an unknown value the same way', () => {
-    expect(plain(unhandledError('boom'))).toBe(`${GLYPH} boom`)
+    expect(plain(unhandledError('boom'))).toBe(`${GLYPH} Error: boom`)
     expect(plain(unhandledError(undefined))).toContain('Unknown error')
   })
 })
