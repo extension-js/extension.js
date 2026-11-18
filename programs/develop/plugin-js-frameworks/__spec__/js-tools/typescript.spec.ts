@@ -171,6 +171,14 @@ describe('defaultTypeScriptConfig', () => {
     expect(compilerOptions.module).toBe('esnext')
   })
 
+  it('treats a file with no import as a module, as the bundler does', () => {
+    const {compilerOptions} = defaultTypeScriptConfig(
+      makeProject({'package.json': {}})
+    )
+
+    expect(compilerOptions.moduleDetection).toBe('force')
+  })
+
   // One case per framework: tsc reads jsxImportSource to find the JSX runtime,
   // so it has to name the package the project installed, not react by default.
   it.each([
