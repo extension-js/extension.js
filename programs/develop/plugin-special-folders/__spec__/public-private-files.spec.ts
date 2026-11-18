@@ -4,6 +4,7 @@ import {afterEach, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 import {
   findPublicEnvFiles,
+  isEnvTemplateFileName,
   privateFileIgnoreGlobs,
   privateFileKind
 } from '../public-private-files'
@@ -201,25 +202,93 @@ describe('files in public/ that are not extension content', () => {
     expectNoMarker(result)
   })
 
-  it('keeps only the exact .env.example among the names that start like it', async () => {
+  it('keeps the template env files and leaves out every other name that starts like one', async () => {
+    const kept = [
+      '.env.example',
+      'a/.env.sample',
+      'a/.env.template',
+      'a/.env.local.example',
+      'a/.env.production.sample',
+      'a/.env.staging.template',
+      'a/.env..example',
+      'b/.ENV.SAMPLE',
+      'b/.Env.Local.Template',
+      // A folder with a template name ships with what it holds.
+      'c/.env.example/notes.txt'
+    ]
+    const leftOut = [
+      'a/.env.',
+      'a/.env.e',
+      'a/.env.le',
+      'a/.env.exa',
+      'a/.env.exampl',
+      'a/.env.ample',
+      'a/.env.xample',
+      'a/.env.examples',
+      'a/.env.example.local',
+      'a/.env.sample.local',
+      'a/.env.samples',
+      'a/.env.xsample',
+      'a/.env.template.local',
+      'a/.env.emplate',
+      'a/.env.templates',
+      'a/.env.localexample',
+      'a/.env.local.exampl',
+      'a/.env.development.local',
+      'a/.env.te',
+      'a/.env.late'
+    ]
     const result = await build({
-      'public/.env.example': 'EXAMPLE_KEY=\n',
-      'public/a/.env.e': env('e'),
-      'public/a/.env.exa': env('exa'),
-      'public/a/.env.exampl': env('exampl'),
-      'public/a/.env.examples': env('examples'),
-      'public/a/.env.example.local': env('example-local'),
-      'public/a/.env.sample': env('sample'),
-      'public/a/.env.': env('trailing-dot'),
-      'public/a/.env.development.local': env('two-suffixes')
+      ...Object.fromEntries(kept.map((file) => [`public/${file}`, 'KEY=\n'])),
+      ...Object.fromEntries(
+        leftOut.map((file) => [`public/${file}`, env(file)])
+      )
     })
 
-    expect(Object.keys(result.emitted).sort()).toEqual([
-      '.env.example',
-      'main.js'
-    ])
+    expect(Object.keys(result.emitted).sort()).toEqual(
+      [...kept, 'main.js'].sort()
+    )
+
+    // The warning lists what the copier left out, name for name.
+    expect(envWarnings(result)).toHaveLength(1)
+    expect(findPublicEnvFiles(path.join(result.root, 'public'))).toEqual(
+      [...leftOut].sort()
+    )
 
     expectNoMarker(result)
+  })
+
+  it('agrees with the copier on every name, one predicate for both', () => {
+    for (const name of [
+      '.env.example',
+      '.env.sample',
+      '.env.template',
+      '.env.local.example',
+      '.env.production.sample',
+      '.ENV.TEMPLATE'
+    ]) {
+      expect(isEnvTemplateFileName(name), name).toBe(true)
+      expect(privateFileKind(name), name).toBeUndefined()
+    }
+
+    for (const name of [
+      '.env',
+      '.envrc',
+      '.env.',
+      '.env.local',
+      '.env.example.local',
+      '.env.examples',
+      '.env.localexample',
+      '.envexample',
+      '.envrc.example',
+      'env.example',
+      'config.example'
+    ]) {
+      expect(isEnvTemplateFileName(name), name).toBe(false)
+    }
+
+    expect(privateFileKind('.env.localexample')).toBe('env')
+    expect(privateFileKind('.env.example.local')).toBe('env')
   })
 
   it('applies the same rules to a public folder whose path holds glob characters', async () => {
@@ -260,6 +329,10 @@ describe('the private name rules', () => {
         '.env',
         '.env.local',
         '.env.example',
+        '.env.sample',
+        '.env.template',
+        '.env.local.example',
+        '.env.example.local',
         '.envrc',
         '.git',
         '.gitkeep',
@@ -280,6 +353,10 @@ describe('the private name rules', () => {
       '.env': 'env',
       '.env.local': 'env',
       '.env.example': undefined,
+      '.env.sample': undefined,
+      '.env.template': undefined,
+      '.env.local.example': undefined,
+      '.env.example.local': 'env',
       '.envrc': 'env',
       '.git': 'tooling',
       '.gitkeep': 'tooling',

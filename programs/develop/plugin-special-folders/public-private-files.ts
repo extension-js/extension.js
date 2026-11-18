@@ -34,10 +34,10 @@ const PRIVATE_NAMES: Array<[PrivateFileKind, string]> = [
   ['tooling', '*~']
 ]
 
-// `.env.<anything>` is an env file, except the template a project commits to
-// document its keys, which holds no value worth hiding.
+// `.env.<anything>` is an env file, except a template a project commits to
+// document its keys. By convention it holds no value worth hiding.
 const ENV_VARIANT_PREFIX = '.env.'
-const ENV_TEMPLATE_SUFFIX = 'example'
+const ENV_TEMPLATE_ENDINGS = ['.example', '.sample', '.template']
 
 const GLOB_SPECIAL = /[[\]{}()*?]/g
 
@@ -68,13 +68,20 @@ const PRIVATE_MATCHERS = PRIVATE_NAMES.map(
   ([kind, name]) => [kind, nameToRegExp(name)] as const
 )
 
-export function privateFileKind(name: string): PrivateFileKind | undefined {
+// True for `.env.example`, `.env.sample`, `.env.template` and any longer
+// `.env.*` name with one of those endings, in any letter case.
+export function isEnvTemplateFileName(name: string): boolean {
   const lower = name.toLowerCase()
 
-  if (lower.startsWith(ENV_VARIANT_PREFIX)) {
-    return lower === ENV_VARIANT_PREFIX + ENV_TEMPLATE_SUFFIX
-      ? undefined
-      : 'env'
+  return (
+    lower.startsWith(ENV_VARIANT_PREFIX) &&
+    ENV_TEMPLATE_ENDINGS.some((ending) => lower.endsWith(ending))
+  )
+}
+
+export function privateFileKind(name: string): PrivateFileKind | undefined {
+  if (name.toLowerCase().startsWith(ENV_VARIANT_PREFIX)) {
+    return isEnvTemplateFileName(name) ? undefined : 'env'
   }
 
   for (const [kind, matcher] of PRIVATE_MATCHERS) {
@@ -92,20 +99,41 @@ export function hasPrivateFileName(relativePath: string): boolean {
     .some((name) => privateFileKind(name) !== undefined)
 }
 
-// A glob has no "all but this name", so every `.env.<suffix>` other than the
-// template is spelled out: a first differing letter, a shorter or longer name.
+// A glob has no "all but these endings", so every other `.env.<rest>` is
+// spelled out by where its tail, read from the end, first leaves a template
+// ending: at a letter no ending has there, or by running out of name.
 function envVariantGlobs(): string[] {
   const prefix = anyCase(ENV_VARIANT_PREFIX)
-  const globs: string[] = []
+  // A template ending without its dot, which the prefix already carries.
+  const tails = ENV_TEMPLATE_ENDINGS.map((ending) => ending.slice(1))
+  const shared = new Set<string>([''])
 
-  for (let index = 0; index < ENV_TEMPLATE_SUFFIX.length; index += 1) {
-    const shared = prefix + anyCase(ENV_TEMPLATE_SUFFIX.slice(0, index))
-    const letter = ENV_TEMPLATE_SUFFIX[index]
-
-    globs.push(shared, `${shared}[!${letter}${letter.toUpperCase()}]*`)
+  for (const tail of tails) {
+    for (let length = 1; length <= tail.length; length += 1) {
+      shared.add(tail.slice(-length))
+    }
   }
 
-  globs.push(`${prefix}${anyCase(ENV_TEMPLATE_SUFFIX)}?*`)
+  const globs: string[] = []
+
+  for (const end of shared) {
+    const whole = tails.includes(end)
+    const before = new Set<string>()
+
+    for (const tail of tails) {
+      if (tail !== end && tail.endsWith(end)) {
+        before.add(tail[tail.length - end.length - 1])
+      }
+    }
+
+    const letters = [...before]
+      .map((letter) => letter + letter.toUpperCase())
+      .join('')
+
+    // A whole ending is a template when a dot comes before it.
+    globs.push(`${prefix}*[!${letters}${whole ? '.' : ''}]${anyCase(end)}`)
+    if (!whole) globs.push(prefix + anyCase(end))
+  }
 
   return globs
 }

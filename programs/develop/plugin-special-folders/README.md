@@ -58,10 +58,12 @@ Every file in the build output is readable by anyone who installs the extension,
 | Kind | Names | Said in the build |
 | ---- | ----- | ----------------- |
 | OS metadata | `.DS_Store`, `Thumbs.db`, `desktop.ini` | Nothing. |
-| Env files | `.env`, `.env.*` (all but `.env.example`), `.envrc` | One warning per build that names the files, never what they hold. A watch session says it again only when the list changes. |
+| Env files | `.env`, `.env.*` (all but the templates below), `.envrc` | One warning per build that names the files, never what they hold. A watch session says it again only when the list changes. |
 | Repository and editor files | `.git`, `.gitignore`, `.gitattributes`, `.gitmodules`, `.gitkeep`, `.npmrc`, `.yarnrc.yml`, `.*.swp`, `.*.swo`, `.*.swn`, `*~` | Nothing. |
 
-Every other dot-file ships as authored: `.well-known/`, `.nojekyll`, `.htaccess`, `.env.example` and any dot-folder of the project's own. The list is by name on purpose, since a dot-file can be content a page fetches.
+A template env file holds no real value by convention, so a `.env.*` name that ends in `.example`, `.sample` or `.template` ships: `.env.example`, `.env.sample`, `.env.template`, `.env.local.example`, `.env.production.sample`. A name that only starts like one (`.env.example.local`) is an env file.
+
+Every other dot-file ships as authored: `.well-known/`, `.nojekyll`, `.htaccess` and any dot-folder of the project's own. The list is by name on purpose, since a dot-file can be content a page fetches.
 
 A page or a stylesheet that names one of them by a root-absolute path (`/.env`) gets the missing-file warning of that surface, whether or not `public/` holds the file.
 
