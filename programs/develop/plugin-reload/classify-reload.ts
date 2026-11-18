@@ -928,8 +928,8 @@ export function reloadForNewWebResources(
   }
 }
 
-// What the browser last read through the manifest's content_scripts, taken
-// to be the first compile and each full reload when nothing launched it.
+// What the browser last read through the manifest: the build a caller notes
+// as loaded, then each reload of the extension or its worker after it.
 export function createLoadedContentScripts(options: {refreshInPlace: boolean}) {
   let files: string[] = []
   let digests: Record<string, string> = {}
