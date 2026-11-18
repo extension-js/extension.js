@@ -347,7 +347,7 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
-  it('keeps a launch that failed terminal, stamped with a code or not', () => {
+  it('keeps the stream open past a launch that failed, since the next compile tries again', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')
     fs.writeFileSync(
@@ -361,12 +361,37 @@ describe('lifecycle stream transitions', () => {
 
     const {stream, lines} = makeStream({readyPath})
     stream.ready()
+    stream.ready()
+
+    // The next compile tried and the launcher refused a pin, with its code.
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedCode: 'E_BROWSER_BINARY_INVALID',
+        browserLaunchFailedAt: '2026-10-03T00:00:05.000Z',
+        message: 'bad pin'
+      })
+    )
+
+    stream.ready()
     stream.interrupted('SIGINT')
     const frames = parseFrames(lines)
-    expect(frames.map((frame) => frame.status)).toEqual(['failed'])
+    expect(frames.map((frame) => frame.status)).toEqual([
+      'ready-failed',
+      'ready-failed',
+      'stopped'
+    ])
+
+    expect(frames[1].error?.code).toBe('E_BROWSER_BINARY_INVALID')
     // The code --wait and the exit frame give the same contract state.
     expect(frames[0].error?.code).toBe('E_BROWSER_LAUNCH')
     expect(frames[0].value?.readyCode).toBe('browser_launch_failed')
+    expect((frames[0] as {hint?: string}).hint).toContain(
+      'the next compile tries the launch again'
+    )
+
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
@@ -531,7 +556,7 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
-  it('ends the stream with a failed frame when the launcher exits the process', () => {
+  it('ends the stream with a failed frame when the process exits on a launch that failed', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')
     fs.writeFileSync(
@@ -621,7 +646,7 @@ describe('lifecycle stream transitions', () => {
     ],
     [
       'the contract reports a launch that failed and a signal follows',
-      ['failed'],
+      ['ready-failed', 'stopped'],
       (stream: ReturnType<typeof makeStream>['stream']) => {
         stream.ready()
         stream.interrupted('SIGINT')
@@ -947,8 +972,9 @@ describe('lifecycle stream transitions', () => {
       )
 
       const usage = makeStream({readyPath, hintFor})
-      usage.stream.ready()
-      const [frame] = parseFrames(usage.lines) as Array<{
+      usage.stream.starting({requestedPort: 8080, port: 8080})
+      usage.stream.exited(1)
+      const [, frame] = parseFrames(usage.lines) as Array<{
         status: string
         hint?: string
       }>

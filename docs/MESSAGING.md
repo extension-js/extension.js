@@ -301,17 +301,21 @@ What is stable and what is not:
   extension again on the next compile. `error.code` is `E_EXTENSION_LOAD_REFUSED` and
   `value.readyCode` is `extension_load_refused`. A compile the browser takes writes `ready`,
   and a refusal after that is written again.
-- `ready-failed` is a `dev` status that does not end the stream: a compile finished and the
-  ready contract still reports an error that carries no browser verdict of its own. `ok` is
-  `false`, and `error.code` is the code `codes.json` maps the contract's id to, the one
-  `--wait` reports for the same contract (`E_PROFILE_LOCKED` for `profile_locked`), or
-  `E_READY_ERROR_STATUS` for an id the table does not list. `value` describes the session and
-  carries `readyCode`, the contract's own id. The session keeps running, and a later compile
-  that clears the error writes `ready`.
-- A launch that failed is reported as `failed`, or as `usage` when the launcher refused a value
-  the user set, with the code the launcher stamped. A process that exits with an error on the
-  contract writes one `failed` frame (or `usage`) that carries the contract's code and
-  `value.readyCode`, a browser exit or a refused load included.
+- `ready-failed` is a `dev` status that does not end the stream. It is written in two cases:
+  - a compile finished and the ready contract still reports an error that carries no browser
+    verdict of its own. `error.code` is the code `codes.json` maps the contract's id to, the
+    one `--wait` reports for the same contract (`E_PROFILE_LOCKED` for `profile_locked`), or
+    `E_READY_ERROR_STATUS` for an id the table does not list. A later compile that clears the
+    error writes `ready`.
+  - the browser launch failed. `error.code` is the code the launcher stamped, or
+    `E_BROWSER_LAUNCH` when it stamped none, and the hint says the next compile tries the
+    launch again. Each launch that fails again writes one more `ready-failed` frame.
+
+  In both, `ok` is `false`, `value` describes the session and carries `readyCode`, the
+  contract's own id, and the session keeps running.
+- A process that exits with an error on the contract writes one terminal frame that carries the
+  contract's code and `value.readyCode`, a browser exit or a refused load included. A launch
+  that failed is `failed` there, or `usage` when the launcher refused a value the user set.
 - A host that starts `dev` from the library gets a rejected promise when the dev server cannot
   start. The error carries `session`, the same description a frame's `value` holds, and
   `framed`. `framed` is `true` when the stream already carries its terminal frame, the one this

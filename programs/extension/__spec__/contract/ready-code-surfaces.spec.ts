@@ -22,6 +22,7 @@ const flat = (value: string | string[]): string[] =>
 interface Frame {
   ok: boolean
   status: string
+  hint?: string
   value: {readyCode?: string} | null
   error: {code: string; message: string} | null
 }
@@ -53,7 +54,8 @@ const SURFACES: Record<
       browserLaunchFailedReason: 'spawn /nowhere/chrome EACCES'
     },
     wait: 'E_BROWSER_LAUNCH',
-    streamReady: {status: 'failed', code: 'E_BROWSER_LAUNCH'},
+    // The session lives on and the next compile tries the launch again.
+    streamReady: {status: 'ready-failed', code: 'E_BROWSER_LAUNCH'},
     // Nothing exited, so the stream has no exit frame to code.
     streamExit: null
   },
@@ -143,6 +145,23 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
     return lines.map((line) => JSON.parse(line) as Frame)
   }
 
+  // The process ends with the contract still in error.
+  function exitFrame(readyPath: string): Frame {
+    const lines: string[] = []
+    const stream = createLifecycleStream({
+      command: 'dev',
+      browser: 'chromium',
+      distPath: path.join(path.dirname(readyPath), 'dist'),
+      readyPath,
+      write: (line) => lines.push(line)
+    })
+
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.exited(1)
+
+    return JSON.parse(lines[lines.length - 1]) as Frame
+  }
+
   it.each(
     Object.keys(SURFACES)
   )('%s reads as one pinned code on --wait, the stream and the table', async (readyCode) => {
@@ -175,7 +194,9 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
   })
 
   // The launcher stamps the code it refused with, and every surface carries
-  // that code instead of the id's family code. The table lists each one.
+  // that code instead of the id's family code. The table lists each one. The
+  // dev stream reads it as ready-failed while the session lives, and as the
+  // terminal status only when the process exits with it.
   const CODED_LAUNCH_FAILURES: Array<[string, 'usage' | 'failed']> = [
     ['E_BROWSER_BINARY_INVALID', 'usage'],
     ['E_BROWSER_BINARY_REQUIRED', 'usage'],
@@ -190,7 +211,7 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
 
   it.each(
     CODED_LAUNCH_FAILURES
-  )('a launch stamped %s reads as that code on --wait and the stream, as %s', async (code, status) => {
+  )('a launch stamped %s reads as that code on --wait and the stream, and exits as %s', async (code, status) => {
     const {projectDir, readyPath} = writeContract('browser_launch_failed', {
       browserLaunchFailedAt: '2026-10-03T00:00:00.000Z',
       browserLaunchFailedReason: `refused as ${code}`,
@@ -202,9 +223,14 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
 
     const frames = await streamFrames(readyPath)
     expect(frames).toHaveLength(1)
-    expect(frames[0].status).toBe(status)
+    expect(frames[0].status).toBe('ready-failed')
     expect(frames[0].error?.code).toBe(code)
+    expect(frames[0].hint).toContain('the next compile tries the launch again')
     expect(frames[0].value?.readyCode).toBe('browser_launch_failed')
+
+    const last = exitFrame(readyPath)
+    expect(last.status).toBe(status)
+    expect(last.error?.code).toBe(code)
   })
 
   it('lists on the table exactly the codes a launch can be stamped with', () => {

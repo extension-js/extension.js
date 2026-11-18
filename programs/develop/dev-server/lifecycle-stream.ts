@@ -390,8 +390,9 @@ export class LifecycleStream {
       // A browser that exited reads the same here as from the exit watcher.
       if (ready.code === 'browser_exited') return this.browserExited()
 
-      // One frame per verdict, however many compiles find it still there.
-      const verdict = String(ready.code ?? '')
+      // One frame per verdict, however many compiles find it still there, and
+      // one per launch the next compiles try and fail again.
+      const verdict = `${String(ready.code ?? '')} ${String(ready.browserLaunchFailedAt ?? '')}`
       if (this.reportedReadyError === verdict) return null
 
       this.reportedReadyError = verdict
@@ -421,9 +422,10 @@ export class LifecycleStream {
   ): Envelope<unknown> | null {
     const launchCode = stampedLaunchFailureCode(ready)
     const loadRefused = ready.code === 'extension_load_refused'
-    // Read while the session runs, only a launch that failed ends the stream.
-    // A refused load is retried and any other error may clear on a compile.
-    const survivable = sessionGoesOn && ready.code !== 'browser_launch_failed'
+    const launchFailed = ready.code === 'browser_launch_failed'
+    // Read while the session runs, every error is retried by the next compile:
+    // the launch, the load, or the build. Only the exit makes one terminal.
+    const survivable = sessionGoesOn
     const status = survivable
       ? loadRefused
         ? 'load-refused'
@@ -434,7 +436,9 @@ export class LifecycleStream {
     const hint = survivable
       ? loadRefused
         ? 'The session keeps running. Fix what the browser names and save: the next compile offers the extension again.'
-        : 'The session keeps running. A later compile that clears the error writes the ready frame.'
+        : launchFailed
+          ? 'The session keeps running with no browser. Fix what the launch names and save: the next compile tries the launch again.'
+          : 'The session keeps running. A later compile that clears the error writes the ready frame.'
       : loadRefused
         ? 'Fix what the browser names, then run the command again.'
         : undefined
