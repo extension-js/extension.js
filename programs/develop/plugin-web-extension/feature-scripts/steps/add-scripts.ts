@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import type {Compilation, Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
@@ -95,6 +95,18 @@ function contentScriptSheets(
   return sheets
 }
 
+// The bundler's own report for an entry request that names one of the
+// files, whatever way the platform spells the path in it.
+function isUnresolvedEntryReport(message: string, files: string[]): boolean {
+  const spelled = (text: string) => text.replace(/\\+/g, '/').toLowerCase()
+  const text = spelled(message)
+
+  return files.some((file) => text.includes(`can't resolve '${spelled(file)}'`))
+}
+
+type EntryDependency = Parameters<Compilation['addEntry']>[1]
+type EntryOptions = Exclude<Parameters<Compilation['addEntry']>[2], string>
+
 export function createSequentialEntryModule(
   feature: string,
   scriptImports: string[]
@@ -152,6 +164,7 @@ export class AddScripts {
       'scripts:validate-include-list',
       (compilation) => {
         const ErrorCtor = compiler.rspack?.WebpackError || Error
+        const missing: string[] = []
 
         try {
           const manifestDir = path.dirname(this.manifestPath)
@@ -194,6 +207,11 @@ export class AddScripts {
 
               if (!isWithheld && fs.existsSync(resolved)) continue
 
+              if (!isWithheld) {
+                missing.push(resolved)
+                restoreOnReturn(feature, resolved)
+              }
+
               const isPublicRoot =
                 !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
 
@@ -234,16 +252,71 @@ export class AddScripts {
           failure.cause = error
           ;(compilation.errors ||= []).push(failure)
         }
+
+        if (missing.length === 0) return
+
+        // One report per missing file, and this step's names the field.
+        compilation.hooks.seal.tap(
+          'scripts:one-report-per-missing-file',
+          () => {
+            const reports = Array.from(compilation.errors)
+            const kept = reports.filter(
+              (report) =>
+                !isUnresolvedEntryReport(String(report?.message), missing)
+            )
+
+            if (kept.length !== reports.length) compilation.errors = kept
+          }
+        )
       }
     )
 
-    const newEntries: Record<
+    // The bundler does not build an entry file again once its request has
+    // failed, so a file seen missing is entered anew when it is back on disk.
+    const restored = new Map<
       string,
-      Exclude<
-        Compiler['options']['entry'],
-        (...args: never[]) => unknown
-      >[string]
-    > = {}
+      {feature: string; file: string; dependency: EntryDependency}
+    >()
+
+    const restoreOnReturn = (feature: string, file: string) => {
+      const key = `${feature}\0${file}`
+      const entry = newEntries[feature]
+
+      if (restored.has(key) || !entry?.import?.includes(file)) return
+
+      restored.set(key, {
+        feature,
+        file,
+        dependency: compiler.rspack.EntryPlugin.createDependency(file)
+      })
+    }
+
+    compiler.hooks.make.tapPromise(
+      'scripts:restore-entry-files',
+      async (compilation) => {
+        for (const {feature, file, dependency} of restored.values()) {
+          if (!fs.existsSync(file)) {
+            // Watched, so the build runs again when the file is written.
+            compilation.missingDependencies.add(file)
+
+            continue
+          }
+
+          const {import: _imports, ...options} = newEntries[feature]
+
+          await new Promise<void>((resolve, reject) => {
+            compilation.addEntry(
+              projectPath,
+              dependency,
+              {name: feature, ...options},
+              (error) => (error ? reject(error) : resolve())
+            )
+          })
+        }
+      }
+    )
+
+    const newEntries: Record<string, EntryOptions & {import: string[]}> = {}
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
     let manifestJson: {

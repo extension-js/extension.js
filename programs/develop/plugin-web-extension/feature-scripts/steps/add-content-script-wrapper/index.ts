@@ -32,6 +32,7 @@ import {
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
   parseCanonicalContentScriptAsset
 } from '../../contracts'
+import {ResolveClassicConcat} from '../../../shared/classic-concat'
 import {addRulesInFront} from '../../scripts-lib/front-rules'
 import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
@@ -194,6 +195,12 @@ export class AddContentScriptWrapper {
         }
       ]
     })
+
+    // A joined entry is named for its first file, which may be deleted
+    // while the session runs. The files left still build.
+    new ResolveClassicConcat({loader: this.resolveConcatLoader()}).apply(
+      compiler
+    )
 
     // Loaders run from the last rule to the first. In front of the rules
     // extension.config.js added, the wrapper reads what their loaders return.
