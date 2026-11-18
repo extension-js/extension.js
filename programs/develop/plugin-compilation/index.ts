@@ -146,16 +146,21 @@ export class CompilationPlugin {
       }
     }
 
+    // The build path renders errors and warnings once through the stats
+    // handler in command-build, so only dev keeps this raw renderer.
+    const diagnosticsFollow =
+      this.command === 'build' || this.command === 'start'
+
+    // Tapped first, so the compile line comes after the findings it counts.
+    if (!diagnosticsFollow) {
+      setupCompilerDoneDiagnostics(compiler, this.port, this.manifestPath)
+    }
+
     new BoringPlugin({
       manifestPath: this.manifestPath,
       browser: this.browser || 'chrome',
-      browserLaunchEnabled: this.browserLaunchEnabled
+      browserLaunchEnabled: this.browserLaunchEnabled,
+      diagnosticsFollow
     }).apply(compiler)
-
-    // The build path renders errors and warnings once through the stats
-    // handler in command-build, so only dev keeps this raw renderer.
-    if (this.command !== 'build' && this.command !== 'start') {
-      setupCompilerDoneDiagnostics(compiler, this.port, this.manifestPath)
-    }
   }
 }
