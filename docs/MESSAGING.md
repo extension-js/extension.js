@@ -130,7 +130,10 @@ The encoded rules:
 
 - The order is compiled, then card, then ready, in both launch modes.
 - The compile line keeps its timestamp and never says "successfully". The marked variants
-  are the failures: "compiled with warnings in N ms.", "compiled with errors in N ms."
+  count what they mark: "compiled with 2 warnings in N ms.", "failed to compile with 1 error
+  in N ms." A failed compile never says "compiled".
+- In `dev` and `preview` the line follows the diagnostics it counts. In `build` and `start`
+  it comes first, so a warning line ends ", listed below."
 - Exactly one blank line above and below the card. The card prints once per
   (browser, dist) pair.
 - The ready line is green, uses `artifactNoun()`, names no browser, and states the watch
@@ -273,12 +276,72 @@ What is stable and what is not:
 - `error.message` and `hint` are free copy. They can change in any release. **Do not parse
   them, and do not match on the pretty output either.** If you need a signal that is not in
   `ok`, `status`, or `error.code`, open an issue and it will be added to the envelope.
-- `value` carries the payload on success, `null` otherwise.
+- `value` carries the payload on success. On a failure it is `null`, except on a session frame
+  of `dev`, where it still describes the session.
 - `error.details` is present when a compile failed and lists each diagnostic behind it, errors
   first, as `{code?, message, file?, line?, column?, severity, name?}`. `code` is the table
   code the diagnostic resolves to and is absent when none does, `severity` is `error` or
   `warning`, and `file` is relative to the project root. The list is capped at twenty entries
   and the frame sets `truncated: true` when it was cut.
+- `restart-failed` is a `dev` status that does not end the stream: the session tried to rebuild
+  itself after a change that needs a new compiler (a manifest entry, an env file, a public
+  folder) and could not. `ok` is `false`, `value.serving` is `true`, and
+  the previous build keeps serving.
+- A `dev` stream ends with exactly one terminal frame, and nothing is written after it. A
+  terminal frame means the process is ending. The terminal statuses are `failed`, `usage` and
+  `stopped`. Stop reading at the first one. Every other `ok: false` frame leaves the session
+  running and the stream open, so do not start the command again on one of them: the session
+  is still alive and a second one is refused with `E_SESSION_EXISTS`.
+- A session that ends on its own with nothing wrong, such as one with an auto-exit deadline,
+  writes a `stopped` frame with `ok: true`. Its `value` describes the session and carries
+  `exitCode: 0`. A session stopped by a signal writes `stopped` with `ok: false` and the code
+  `E_INTERRUPTED`.
+- `browser-exited` does not end a `dev` stream: the dev server outlives its browser and goes on
+  compiling. It is written once per exit, by whichever of the ready report and the exit watcher
+  reads the exit first, with `error.code` `E_BROWSER_LAUNCH` (or `E_PROFILE_LOCKED`) and
+  `value.readyCode`. Stop the session before running `dev` again.
+- `load-refused` does not end a `dev` stream: the session keeps running and offers the
+  extension again on the next compile. `error.code` is `E_EXTENSION_LOAD_REFUSED` and
+  `value.readyCode` is `extension_load_refused`. A compile the browser takes writes `ready`,
+  and a refusal after that is written again.
+- `ready-failed` is a `dev` status that does not end the stream. It is written in two cases:
+  - a compile finished and the ready contract still reports an error that carries no browser
+    verdict of its own. `error.code` is the code `codes.json` maps the contract's id to, the
+    one `--wait` reports for the same contract (`E_PROFILE_LOCKED` for `profile_locked`), or
+    `E_READY_ERROR_STATUS` for an id the table does not list. A later compile that clears the
+    error writes `ready`.
+  - the browser launch failed. `error.code` is the code the launcher stamped, or
+    `E_BROWSER_LAUNCH` when it stamped none, and the hint says the next compile tries the
+    launch again. Each launch that fails again writes one more `ready-failed` frame. A launch
+    refused over a value you set is not this case: a binary pin that is missing or not
+    executable, a Chromium-based or Gecko-based run with no binary, or system profile mode on a
+    Gecko browser writes one `usage` frame and ends the session with exit code 1, since no
+    compile changes the value.
+
+  In both, `ok` is `false`, `value` describes the session and carries `readyCode`, the
+  contract's own id, and the session keeps running.
+- A process that exits with an error on the contract writes one terminal frame that carries the
+  contract's code and `value.readyCode`, a browser exit or a refused load included. A launch
+  that failed is `failed` there, or `usage` when the launcher refused a value the user set.
+- A host that starts `dev` from the library gets a rejected promise when the dev server cannot
+  start. The error carries `session`, the same description a frame's `value` holds, and
+  `framed`. `framed` is `true` when the stream already carries its terminal frame, the one this
+  failure wrote or an earlier one, so a host that prints frames writes its own only when
+  `framed` is not `true`. A second start of a project and browser that a session of the same
+  host still runs is refused with `E_SESSION_EXISTS` and `framed: false`, and the engine writes
+  no frame for it, because the stream belongs to the running session. The host reports it.
+- A library host can pass `hintFor(code)` with the dev options. The engine calls it for a
+  terminal `failed` or `usage` frame that carries no `hint` and adds the string it returns.
+  A frame with a hint of its own keeps it, and a resolver that throws or returns nothing leaves
+  the frame as it was.
+- A host that learns a session cannot go on calls `endSessionAsFailed(code, message,
+  instanceId?)`, exported by the engine. It ends the session that `instanceId` names, the one
+  in `value.instanceId`, or the newest live session when none is named. That session writes
+  one `failed` frame with the code and message, on its own stream only. With `exitOnError`
+  (what the CLI passes) the process then shuts down and exits 1. Without it the session lets
+  go of its server, port and listeners and the host and its other sessions keep running. It
+  returns `false` when no such session is live or the session is already stopping, and the
+  host then reports the failure itself.
 - `browser` is optional and names the session a frame is about, so a reader of `doctor`
   knows which browser the result describes. Commands with no session leave it absent.
 
@@ -355,7 +418,7 @@ programs/install/lib/messaging.ts
 ```
 
 There is no shared package. `create` and `install` are small enough that depending on the
-develop engine for a sixty-line helper would drag the entire bundler graph behind it, and the
+develop engine for one messaging module would drag the entire bundler graph behind it, and the
 browser runner is deliberately extractable as a standalone bundle. A test asserts the four
 copies are byte-identical and points at the canonical when they are not. Edit the canonical,
 then copy it over the others.

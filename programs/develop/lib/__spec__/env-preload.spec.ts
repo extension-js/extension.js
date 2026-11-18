@@ -223,27 +223,38 @@ describe('env preload follows the running mode', () => {
     expect(config.perfBudgets?.seen).toBe('from-firefox')
   })
 
-  it('lists the files in the order the env plugin picks them', () => {
+  // Written out, since the env plugin takes this same list and would agree
+  // with any order. Exact name first, then the family, then the shared files.
+  it('lists the files strongest first, browser files above the shared ones', () => {
+    const forNames = (mode: string, names: string[]) => [
+      ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
+      `.env.${mode}.local`,
+      `.env.${mode}`,
+      '.env.local',
+      '.env'
+    ]
+    const chromium = ['chromium', 'chrome', 'edge', 'chromium-based']
+    const gecko = ['firefox', 'gecko-based']
+    const expected: Record<string, string[]> = {
+      chrome: ['chrome', 'chromium', 'edge', 'chromium-based'],
+      edge: ['edge', 'chromium', 'chrome', 'chromium-based'],
+      'chromium-based': ['chromium-based', 'chromium', 'chrome', 'edge'],
+      firefox: gecko,
+      'gecko-based': ['gecko-based', 'firefox'],
+      safari: ['safari', ...chromium],
+      'acme-webkit': ['acme-webkit', ...chromium],
+      netscape: ['netscape']
+    }
+
     for (const mode of ['development', 'production', 'none']) {
-      for (const browser of [
-        'chrome',
-        'edge',
-        'chromium-based',
-        'firefox',
-        'gecko-based',
-        'safari',
-        'acme-webkit'
-      ]) {
-        expect(envFileCandidates(mode, browser)).toEqual(
-          getEnvFileCandidates(browser as never, mode)
+      for (const [browser, names] of Object.entries(expected)) {
+        expect(envFileCandidates(mode, browser)).toEqual(forNames(mode, names))
+        expect(getEnvFileCandidates(browser as never, mode)).toEqual(
+          envFileCandidates(mode, browser)
         )
       }
 
-      expect(envFileCandidates(mode)).toEqual([
-        `.env.${mode}`,
-        '.env.local',
-        '.env'
-      ])
+      expect(envFileCandidates(mode)).toEqual(forNames(mode, []))
     }
   })
 

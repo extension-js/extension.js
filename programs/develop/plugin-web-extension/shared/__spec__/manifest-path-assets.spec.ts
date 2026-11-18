@@ -54,6 +54,27 @@ describe('themeExperimentStylesheetEntries', () => {
     })
   })
 
+  it('names a stylesheet that is not there where it would sit', () => {
+    const {dir, manifestPath} = manifestWith({
+      theme_experiment: {stylesheet: 'theme/absent.css'}
+    })
+
+    expect(themeExperimentStylesheetEntries(manifestPath)).toEqual({
+      'theme_experiment/absent': [path.join(dir, 'theme', 'absent.css')]
+    })
+  })
+
+  it('keeps the whole name of a dot-file with no ending', () => {
+    const {dir, manifestPath} = manifestWith(
+      {theme_experiment: {stylesheet: '.sheet'}},
+      ['.sheet']
+    )
+
+    expect(themeExperimentStylesheetEntries(manifestPath)).toEqual({
+      'theme_experiment/.sheet': [path.join(dir, '.sheet')]
+    })
+  })
+
   it('leaves public-hosted stylesheets to the copier', () => {
     const {manifestPath} = manifestWith({
       theme_experiment: {stylesheet: 'public/chrome.css'}

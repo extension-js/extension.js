@@ -8,11 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {Compilation, type Compiler, rspack} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
+import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
+import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {
   DevOptions,
   ExcludeFilesConfig,
@@ -28,15 +30,35 @@ import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './folders-config'
+import {
+  getSpecialFoldersDataForCompiler,
+  walkedScriptsLeftOut
+} from './get-data'
 import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
 import {
+  findPublicEnvFiles,
+  findPublicLinksLeftOut,
+  literalPathGlob,
+  privateFileIgnoreGlobs
+} from './public-private-files'
+import {
   inspectPublicFolders,
   rememberPublicRoots
 } from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
+
+// The env files a watch session already named, by public folder. It
+// outlives a compiler, so a session restart does not say them again.
+const saidEnvFiles = new Map<string, string>()
+
+// The same for the links under public/ a session named as left out.
+const saidPublicLinks = new Map<string, string>()
+
+// The same for the scripts/ files a session named as left out, by project.
+const saidLeftOutScripts = new Map<string, string>()
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -44,6 +66,49 @@ interface SpecialFoldersPluginOptions {
   folders?: SpecialFoldersConfig
   include?: IncludeFilesConfig
   exclude?: ExcludeFilesConfig
+}
+
+// The source file of each page the build emits, from the list the page step
+// emits them from. Read once a withheld ref asks, and once per compilation.
+function pageSources(
+  compiler: Compiler,
+  manifestPath: string,
+  browser: DevOptions['browser']
+): (assetName: string) => string | undefined {
+  let pages: Map<string, string> | undefined
+
+  return (assetName) => {
+    if (!pages) {
+      const projectPath = compiler.options.context || path.dirname(manifestPath)
+      const fields = getResolvedManifestFieldsData({
+        manifestPath,
+        browser,
+        projectPath
+      })
+      const entries = htmlPageEntries({
+        manifestPath,
+        browser,
+        projectPath,
+        mode: compiler.options.mode,
+        manifestHtml: fields.html,
+        manifestScripts: fields.scripts,
+        specialFolderPages: getSpecialFoldersDataForCompiler(compiler).pages
+      })
+
+      pages = new Map()
+
+      for (const [feature, file] of Object.entries(entries)) {
+        if (typeof file === 'string' && file) {
+          pages.set(
+            `${feature}.html`,
+            path.resolve(path.dirname(manifestPath), file)
+          )
+        }
+      }
+    }
+
+    return pages.get(assetName)
+  }
 }
 
 export class SpecialFoldersPlugin {
@@ -66,6 +131,32 @@ export class SpecialFoldersPlugin {
     new IncludeFiles({include, projectRoot: context}).apply(compiler)
 
     new HintImportOnlyScripts().apply(compiler)
+
+    // A file put in scripts/ is expected in the output, so one the build
+    // leaves out is said once, and in a watch session when the list changes.
+    compiler.hooks.thisCompilation.tap(
+      SpecialFoldersPlugin.name,
+      (compilation: Compilation) => {
+        const leftOut = walkedScriptsLeftOut(context)
+        const key = leftOut.join('\n')
+        const alreadySaid =
+          compiler.watchMode && saidLeftOutScripts.get(context) === key
+
+        if (compiler.watchMode) saidLeftOutScripts.set(context, key)
+
+        if (leftOut.length > 0 && !alreadySaid) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'ScriptsFolderFilesLeftOutWarning',
+            messages.scriptsFolderFilesLeftOut(
+              leftOut,
+              String(browser || 'chrome')
+            )
+          )
+        }
+      }
+    )
 
     const excluded = excludedFiles(context)
 
@@ -101,6 +192,10 @@ export class SpecialFoldersPlugin {
     const publicDir = inspection.publicDir || inspection.fromRoot
     // The reload classifier asks for this root later, from the compilation.
     rememberPublicRoots(compiler, readsPublicFolder ? [publicDir] : [])
+    // The copier follows links, so one that leads out is named to it to skip.
+    const publicLinksLeftOut = readsPublicFolder
+      ? findPublicLinksLeftOut(publicDir, [context, path.dirname(manifestPath)])
+      : []
 
     // Chrome resolves a leading '/' from the extension root; a root-absolute ref
     // public/ does not satisfy is served from the source root instead.
@@ -137,11 +232,7 @@ export class SpecialFoldersPlugin {
           {
             name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
             // Late enough that HTML and CSS assets exist to be scanned.
-            stage: (
-              compilation.constructor as unknown as {
-                PROCESS_ASSETS_STAGE_SUMMARIZE: number
-              }
-            ).PROCESS_ASSETS_STAGE_SUMMARIZE
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () =>
             // Root refs resolve from the EXTENSION root (the manifest dir),
@@ -150,7 +241,9 @@ export class SpecialFoldersPlugin {
               compilation,
               path.dirname(manifestPath),
               publicDir,
-              !readsPublicFolder
+              !readsPublicFolder,
+              context,
+              pageSources(compiler, manifestPath, browser || 'chrome')
             )
         )
       }
@@ -171,14 +264,12 @@ export class SpecialFoldersPlugin {
       compiler.hooks.thisCompilation.tap(
         SpecialFoldersPlugin.name,
         (compilation: Compilation) => {
-          // A file only the copier ships (a DNR ruleset, a fetched data file)
-          // has no module or manifest reference to watch it, so watch the folder.
-          // A folder that is not there yet is watched by its own path as a
-          // missing dependency, so its creation is the next compile's trigger.
-          if (fs.existsSync(publicDir)) {
-            compilation.contextDependencies?.add(publicDir)
-          } else {
+          // The copier watches the folder it reads. One that is not there yet
+          // is watched by its own path, so creating it triggers a compile.
+          if (!fs.existsSync(publicDir)) {
             compilation.missingDependencies?.add(publicDir)
+          } else if (!copierWired) {
+            compilation.contextDependencies?.add(publicDir)
           }
 
           // A folder that appeared mid-session needs the copier the session
@@ -202,14 +293,56 @@ export class SpecialFoldersPlugin {
             }
           }
 
+          // An env file was put there on purpose, so leaving it out is said:
+          // once per build, and in a watch session only when the list changes.
+          const envFiles = findPublicEnvFiles(publicDir).map((file) =>
+            path.posix.join(path.basename(publicDir), file)
+          )
+          const envKey = envFiles.join('\n')
+          const alreadySaid =
+            compiler.watchMode && saidEnvFiles.get(publicDir) === envKey
+
+          if (compiler.watchMode) saidEnvFiles.set(publicDir, envKey)
+
+          if (envFiles.length > 0 && !alreadySaid) {
+            pushLayoutWarning(
+              compiler,
+              compilation,
+              'PublicEnvFilesWarning',
+              messages.publicEnvFilesLeftOut(
+                envFiles,
+                String(browser || 'chrome')
+              )
+            )
+          }
+
+          // A link that leads out is left out of the copy, and said like an
+          // env file: once per build, and in a watch session on a change.
+          const leftOutLinks = publicLinksLeftOut.map((file) =>
+            path.posix.join(path.basename(publicDir), file)
+          )
+          const linksKey = leftOutLinks.join('\n')
+          const linksSaid =
+            compiler.watchMode && saidPublicLinks.get(publicDir) === linksKey
+
+          if (compiler.watchMode) saidPublicLinks.set(publicDir, linksKey)
+
+          if (leftOutLinks.length > 0 && !linksSaid) {
+            pushLayoutWarning(
+              compiler,
+              compilation,
+              'PublicLinkedFilesWarning',
+              messages.publicLinkedFilesLeftOut(
+                leftOutLinks,
+                String(browser || 'chrome')
+              )
+            )
+          }
+
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,
-              stage: (
-                compilation.constructor as unknown as {
-                  PROCESS_ASSETS_STAGE_PRE_PROCESS: number
-                }
-              ).PROCESS_ASSETS_STAGE_PRE_PROCESS
+              stage: Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS
             },
             () => {
               checkManifestInPublic(compilation, publicDir)
@@ -221,11 +354,7 @@ export class SpecialFoldersPlugin {
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:collisions`,
-              stage: (
-                compilation.constructor as unknown as {
-                  PROCESS_ASSETS_STAGE_REPORT: number
-                }
-              ).PROCESS_ASSETS_STAGE_REPORT
+              stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
             },
             () => {
               explainPublicOutputCollision(compilation, publicDir)
@@ -237,22 +366,29 @@ export class SpecialFoldersPlugin {
       // Only ignore the root public/manifest.json to avoid overwriting the generated
       // manifest; nested public/**/manifest.json is copied through. The glob
       // matches full paths, so a bare filename here would never exclude it.
-      // A locale tree a file browser opened holds OS metadata files, and a
-      // store package is no place for them, nor for a locale folder that has
-      // no messages.json (the locales plugin names it in a warning).
-      const publicLocales = path.join(publicDir, '_locales').replace(/\\/g, '/')
+      // A locale folder that has no messages.json stays out as well (the
+      // locales plugin names it in a warning).
+      const publicLocales = path.join(publicDir, '_locales')
       const copyIgnore = [
-        path.join(publicDir, 'manifest.json').replace(/\\/g, '/'),
-        ...['.DS_Store', 'Thumbs.db', 'desktop.ini'].map(
-          (name) => `${publicLocales}/**/${name}`
-        ),
+        literalPathGlob(path.join(publicDir, 'manifest.json')),
+        // The package is readable by anyone who installs the extension, so
+        // OS metadata, env files and repository files never enter it.
+        ...privateFileIgnoreGlobs(publicDir),
         ...localeDirsWithoutMessages(publicLocales).map(
-          (dir) => `${publicLocales}/${path.basename(dir)}/**`
+          (dir) => `${literalPathGlob(dir)}/**`
         ),
         // A public file the `exclude` config names stays out of this build.
         ...[...excluded]
           .filter((file) => isUnderDir(file, publicDir))
-          .map((file) => file.replace(/\\/g, '/'))
+          .map(literalPathGlob),
+        // A link that leads out, and all a folder link holds.
+        ...publicLinksLeftOut.flatMap((file) => {
+          const full = literalPathGlob(path.join(publicDir, file))
+
+          return file.endsWith('/')
+            ? [full.replace(/\/$/, ''), `${full}**`]
+            : [full]
+        })
       ]
 
       if (copierWired) {
@@ -304,10 +440,7 @@ function pushLayoutWarning(
   name: string,
   message: string
 ) {
-  const ErrorConstructor =
-    (compiler as {rspack?: {WebpackError?: typeof Error}} | undefined)?.rspack
-      ?.WebpackError || Error
-  const warning = new ErrorConstructor(message)
+  const warning = new compiler.rspack.WebpackError(message)
   warning.name = name
   if (!compilation.warnings) compilation.warnings = []
 

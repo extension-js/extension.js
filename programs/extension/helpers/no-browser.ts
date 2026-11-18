@@ -8,6 +8,7 @@
 
 import {
   type AnyDevelopModule,
+  type DevelopFor,
   loadExtensionDevelopModule
 } from './extension-develop-runtime'
 
@@ -32,12 +33,7 @@ export async function resolveNoBrowser(
   if (process.env.EXTENSION_CLI_NO_BROWSER === '1') return true
 
   try {
-    const develop: {
-      loadCommandConfig?: (
-        p: string,
-        c: 'dev' | 'build' | 'start' | 'preview'
-      ) => Promise<unknown>
-    } = await loadDevelop()
+    const develop: DevelopFor = await loadDevelop()
     if (typeof develop.loadCommandConfig !== 'function') return false
 
     const config = await develop.loadCommandConfig(projectPath, command)

@@ -125,10 +125,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8723961e3833f3c42c9635a70d992eaa55e515ed # main, 2026-11-17
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@3745385c923930525da5241b0b024b4ffae737be # main, 2026-11-17
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 8723961e3833f3c42c9635a70d992eaa55e515ed
+      ref: 3745385c923930525da5241b0b024b4ffae737be
       safari: true
 
   # The templates suite, every example built and driven in real browsers, run
@@ -138,10 +138,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@6bf4322a021df5d0204bf970ed797e72f3412923 # main, 2026-11-16
+    uses: extension-js/templates/.github/workflows/ci.yml@255e7b57c6be400bde4ed8744257bc64e27e4012 # main, 2026-11-18
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 6bf4322a021df5d0204bf970ed797e72f3412923
+      ref: 255e7b57c6be400bde4ed8744257bc64e27e4012
 
   publish:
     needs: [corpus-target, corpus-gate, templates-gate]
@@ -299,14 +299,20 @@ jobs:
           pnpm --filter extension compile
           node scripts/build-extensions.cjs
 
+      # The tests read workspace packages from source, so only this reads the
+      # declarations the build above just compiled for the four packages.
+      - name: Check the emitted declarations
+        run: node scripts/check-emitted-types.mjs
+
       - name: Run tests (CLI + Develop)
         run: pnpm -w test
 
       - name: Validate inputs
         id: validate
+        env:
+          RAW: ${{ inputs.version }}
+          CHANNEL: ${{ inputs.channel }}
         run: |
-          RAW='${{ inputs.version }}'
-          CHANNEL='${{ inputs.channel }}'
           VERSION=$(echo "$RAW" | xargs)
           if [ "$CHANNEL" = "stable" ] && [ -z "$VERSION" ]; then
             echo "version required for stable" >&2
@@ -409,6 +415,7 @@ jobs:
         env:
           VERSION: ${{ steps.validate.outputs.version }}
           SHOULD_TAG: ${{ steps.validate.outputs.should_tag }}
+          CHANNEL: ${{ inputs.channel }}
         run: |
           node -e "const fs=require('fs');const v=process.env.VERSION;for(const p of ['programs/extension/package.json','programs/develop/package.json','programs/create/package.json','programs/install/package.json']){const j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=v;fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n')}"
           if [ "$SHOULD_TAG" = "true" ]; then
@@ -418,8 +425,8 @@ jobs:
             git add programs/create/steps/import-external-template.ts programs/extension/helpers/template-corpus.generated.ts
             # --no-verify: hooks run tree code, and the release job never runs
             # tree code beside a credential (HUSKY=0 on the job backs this up).
-            if ! git diff --cached --quiet; then git commit --no-verify -m "Release ${{ inputs.channel }} v${{ steps.validate.outputs.version }}"; fi
-            git tag "v${{ steps.validate.outputs.version }}"
+            if ! git diff --cached --quiet; then git commit --no-verify -m "Release $CHANNEL v$VERSION"; fi
+            git tag "v$VERSION"
           else
             echo "Canary channel: skipping commit/tag/push."
           fi
@@ -808,6 +815,7 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           VERSION: ${{ steps.validate.outputs.version }}
+          CHANNEL: ${{ inputs.channel }}
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -818,7 +826,7 @@ jobs:
               repo,
               deployment_id: Number('${{ steps.create_deployment.outputs.id }}'),
               state: 'success',
-              environment: '${{ inputs.channel }}',
+              environment: process.env.CHANNEL,
               log_url: logUrl,
               environment_url: `https://www.npmjs.com/package/extension/v/${process.env.VERSION}`,
               auto_inactive: true
@@ -837,10 +845,10 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8723961e3833f3c42c9635a70d992eaa55e515ed # main, 2026-11-17
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@3745385c923930525da5241b0b024b4ffae737be # main, 2026-11-17
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 8723961e3833f3c42c9635a70d992eaa55e515ed
+      ref: 3745385c923930525da5241b0b024b4ffae737be
       # A stable already read Safari in the gate before the publish, and a
       # packaging fault shows on any browser. A canary has no gate, so it reads it.
       safari: ${{ inputs.channel == 'canary' }}
@@ -852,7 +860,7 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@6bf4322a021df5d0204bf970ed797e72f3412923 # main, 2026-11-16
+    uses: extension-js/templates/.github/workflows/ci.yml@255e7b57c6be400bde4ed8744257bc64e27e4012 # main, 2026-11-18
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 6bf4322a021df5d0204bf970ed797e72f3412923
+      ref: 255e7b57c6be400bde4ed8744257bc64e27e4012

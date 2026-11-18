@@ -78,13 +78,9 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
       const url = String(initialTab.url || initialTab.pendingUrl || '')
       const isInitialPage = isStartPage(url, browser)
 
-// Always attempt first-run handling on Firefox: it does not always start on an
-
-// initial page, so ensure the welcome page is still available.
+      // Firefox does not always start on an initial page, so first-run
+      // handling always runs there to keep the welcome page reachable.
       if (isFirefox) {
-        // Always attempt first-run handling on Firefox.
-        // Firefox does not always start on an initial page,
-        // so we ensure the welcome page is still available.
         await handleFirstRun(undefined, {welcomeBehind: session.startingUrl})
         if (!isInitialPage) {
           createExtensionsPageTab(initialTab)

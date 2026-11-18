@@ -28,32 +28,13 @@ const shouldGenerateDts = (() => {
   }
 })()
 
-const externals = [
-  'react-refresh',
-  '@rspack/plugin-react-refresh',
-  '@rspack/plugin-preact-refresh',
-  '@prefresh/core',
-  '@prefresh/utils',
-  '@prefresh/webpack',
-
-  'vue-loader',
-  '@vue/compiler-sfc',
-  'vue-style-loader',
-  'svelte-loader',
-  'solid-js/h',
-
-  'sass-loader',
-  'less-loader',
-  'postcss-loader',
-  'postcss-preset-env',
-
-  // Agent-bridge control WS (Node-side, required at runtime)
-  'ws'
-]
+// autoExternal already keeps every package.json dependency out of the bundle.
+// solid-js is the user's own package, so it is named here.
+const externals = ['solid-js/h']
 
 // Browser-side runtime files run INSIDE the user's extension; they must not
-// receive the Node-only createRequire banner (node:module is unresolvable there).
-const browserEntries = {
+// receive the Node-only require shim (node:module is unresolvable there).
+export const browserEntries = {
   'minimum-script-file': path.resolve(
     __dirname,
     './plugin-web-extension/feature-html/steps/minimum-script-file.ts'
@@ -81,13 +62,19 @@ const browserEntries = {
   )
 }
 
+// Wire constants and frame types only, web target and no shim, so the
+// emitted chunk imports nothing and browser bundles can consume it.
+export const contractsEntries = {
+  contracts: path.resolve(__dirname, './contracts-entry.ts')
+}
+
 // The canonical machine contract lives in the extension program's spec tree;
 // the published package ships a byte-for-byte copy under dist/contract.
 const contractDir = path.resolve(__dirname, '../extension/__spec__/contract')
 
 // Node-side entries and rspack loaders run at build time on Node, so they need
-// the CJS-shim banner for bundled bare require()/require.resolve() sites.
-const nodeEntries = {
+// the require shim for bundled bare require()/require.resolve() sites.
+export const nodeEntries = {
   module: path.resolve(__dirname, './module.ts'),
   preview: path.resolve(__dirname, './preview-entry.ts'),
   bridge: path.resolve(__dirname, './bridge-entry.ts'),
@@ -149,15 +136,7 @@ const nodeEntries = {
 export default defineConfig({
   tools: {
     // Disable caching to avoid rspack module graph panics in CI builds.
-    rspack: {
-      cache: false,
-      // Polyfill CJS globals in ESM output (target: node): __dirname/__filename
-      // would otherwise hit ReferenceError after the ESM flip.
-      node: {
-        __dirname: 'node-module',
-        __filename: 'node-module'
-      }
-    }
+    rspack: {cache: false}
   },
   lib: [
     {
@@ -165,15 +144,11 @@ export default defineConfig({
       syntax: 'es2022',
       dts: shouldGenerateDts,
       source: {entry: nodeEntries},
-      // Inject a CJS-style require for bundled bare require() sites in Node-side
-      // code; limited to node-target lib so browser wrappers skip node:module.
-      banner: {
-        js: 'import { createRequire as __extjsCreateRequire } from "node:module"; const require = __extjsCreateRequire(import.meta.url);'
-      },
+      // Bundled require() and __dirname sites need CJS globals in ESM output.
+      // Node lib only, so browser entries never import node:module.
+      shims: {esm: {require: true, __dirname: true, __filename: true}},
       output: {
         target: 'node',
-        // Emit ESM-aware polyfills for __dirname/__filename so they keep working
-        // after the format flip to ESM.
         filename: {js: '[name].mjs'},
         // Ship the contract JSON (schema plus any golden envelopes) so the MCP
         // can byte-compare against node_modules/extension-develop/dist/contract.
@@ -197,21 +172,16 @@ export default defineConfig({
         externals
       }
     },
-    // Wire constants and frame types only, web target and no banner, so the
-    // emitted chunk imports nothing and browser bundles can consume it.
     {
       format: 'esm',
       syntax: 'es2022',
       // No dts here: the node lib's pass already emits every declaration, and
       // a second pass would rewrite the same files while the first still runs.
-      source: {
-        entry: {contracts: path.resolve(__dirname, './contracts-entry.ts')}
-      },
+      source: {entry: contractsEntries},
       output: {
         target: 'web',
         filename: {js: '[name].mjs'}
       }
     }
-  ],
-  plugins: []
+  ]
 } satisfies RslibConfig)

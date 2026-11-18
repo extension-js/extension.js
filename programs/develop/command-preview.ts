@@ -89,10 +89,6 @@ export interface ResolvedPreviewOptions {
 }
 
 /**
- * Browser launcher callback. When provided, extensionPreview calls it
- * instead of requiring plugin-browsers internally.
- */
-/**
  * What a launcher may hand back about the browser it started.
  */
 export interface PreviewBrowserSession {
@@ -100,6 +96,8 @@ export interface PreviewBrowserSession {
   wakeBackground?(): Promise<boolean>
 }
 
+// The browser launcher the CLI injects. extensionPreview refuses to run
+// without one, since develop never launches a browser by itself.
 export type PreviewLauncherFn = (
   opts: ResolvedPreviewOptions
 ) => Promise<PreviewBrowserSession> | Promise<void>
@@ -504,7 +502,9 @@ export async function extensionPreview(
     resolveCompanionExtensionDirsFromSpecialFolders({
       projectRoot: packageJsonDir,
       config: merged.extensions,
-      browser
+      browser,
+      // The no-browser run returned above, and a dry run opens nothing.
+      launchesBrowser: !merged.dryRun
     })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(

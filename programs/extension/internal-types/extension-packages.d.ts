@@ -31,36 +31,6 @@ declare module 'extension-create' {
   ): Promise<CreateResult>
 }
 
-declare module 'extension-develop' {
-  export type BuildOptions = Record<string, unknown>
-  export type DevOptions = Record<string, unknown>
-  export type PreviewOptions = Record<string, unknown>
-  export type FileConfig = Record<string, unknown>
-  export type Manifest = Record<string, unknown>
-
-  export function extensionBuild(
-    pathOrRemoteUrl: string,
-    options: BuildOptions
-  ): Promise<unknown>
-  export function extensionDev(
-    pathOrRemoteUrl: string | undefined,
-    options: DevOptions
-  ): Promise<unknown>
-  export function extensionPreview(
-    pathOrRemoteUrl: string | undefined,
-    options: PreviewOptions
-  ): Promise<unknown>
-}
-
-declare module 'extension-develop/preview' {
-  export type PreviewOptions = Record<string, unknown>
-
-  export function extensionPreview(
-    pathOrRemoteUrl: string | undefined,
-    options: PreviewOptions
-  ): Promise<unknown>
-}
-
 declare module 'extension-install' {
   export interface InstallOptions {
     browser: string

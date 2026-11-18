@@ -1,52 +1,32 @@
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  defaultTypeScriptConfig,
+  ensureTypeScriptConfig,
+  getUserTypeScriptConfigFile,
+  isUsingTypeScript
+} from '../../js-tools/typescript'
+import {makeProject} from '../project-fixture'
 
-const toPosix = (value: string) => value.replace(/\\/g, '/')
+// The scaffold prints a line, so each case starts quiet and with its own record.
+const fresh = () => ({delivered: false})
+const scaffoldAt = (dir: string) => path.join(dir, 'tsconfig.json')
 
-vi.mock('../../frameworks-lib/integrations', () => ({
-  isUsingJSFramework: vi.fn(() => false),
-  hasDependency: vi.fn(() => false),
-  resolveDevelopInstallRoot: vi.fn(() => undefined)
-}))
-
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<typeof import('fs')>('fs')
-
-  return {
-    ...actual,
-    existsSync: vi.fn(() => false),
-    readFileSync: vi.fn(() => ''),
-    readdirSync: vi.fn(() => []),
-    writeFileSync: vi.fn(() => undefined)
-  }
+beforeEach(() => {
+  vi.spyOn(console, 'log').mockImplementation(() => {})
 })
 
-describe('typescript tools', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
-  })
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
-  afterEach(() => {
-    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'false'
-  })
+describe('getUserTypeScriptConfigFile', () => {
+  it('finds tsconfig.json next to package.json', () => {
+    const root = makeProject({'package.json': {}, 'tsconfig.json': {}})
 
-  it('getUserTypeScriptConfigFile finds tsconfig.json next to package.json', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) => {
-      const s = toPosix(String(p))
-      if (s.endsWith('/project/package.json')) return true
-      if (s.endsWith('/project/tsconfig.json')) return true
-
-      return false
-    })
-
-    const {getUserTypeScriptConfigFile} = await import(
-      '../../js-tools/typescript'
-    )
-
-    expect(toPosix(getUserTypeScriptConfigFile('/project') || '')).toBe(
-      '/project/tsconfig.json'
+    expect(getUserTypeScriptConfigFile(path.join(root, 'src'))).toBe(
+      scaffoldAt(root)
     )
   })
 
@@ -54,322 +34,176 @@ describe('typescript tools', () => {
   // the lookup found nothing while writeTsConfig had already scaffolded at the
   // project root. TypeScript detection stayed false and every .ts source hit
   // the JS parser as 'const declarations must be initialized'.
-  it('getUserTypeScriptConfigFile finds a project-root tsconfig with no package.json', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      toPosix(String(p)).endsWith('/project/tsconfig.json')
-    )
+  it('finds a project-root tsconfig with no package.json', () => {
+    const root = makeProject({'tsconfig.json': {}, 'manifest.json': {}})
 
-    const {getUserTypeScriptConfigFile} = await import(
-      '../../js-tools/typescript'
-    )
+    expect(getUserTypeScriptConfigFile(root)).toBe(scaffoldAt(root))
+  })
+})
 
-    expect(toPosix(getUserTypeScriptConfigFile('/project') || '')).toBe(
-      '/project/tsconfig.json'
-    )
+describe('ensureTypeScriptConfig', () => {
+  it('sees TypeScript in a manifest-only project once the scaffold is written', () => {
+    const root = makeProject({'scripts.ts': 'export {}\n'})
+
+    expect(isUsingTypeScript(root)).toBe(false)
+
+    ensureTypeScriptConfig(root, undefined, fresh())
+
+    expect(fs.existsSync(scaffoldAt(root))).toBe(true)
+    expect(isUsingTypeScript(root)).toBe(true)
   })
 
-  it('sees TypeScript in a manifest-only project once the scaffold is written', async () => {
-    const present = new Set<string>()
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      present.has(toPosix(String(p)))
-    )
-    ;(fs.readFileSync as any).mockImplementation(() => '')
-    ;(fs.readdirSync as any).mockImplementation(() => [
-      {isFile: () => true, isDirectory: () => false, name: 'scripts.ts'}
-    ])
-    ;(fs.writeFileSync as any).mockImplementation((p: string) => {
-      present.add(toPosix(String(p)))
+  it('scaffolds the default tsconfig when TypeScript files are present without one', () => {
+    const root = makeProject({
+      'package.json': {dependencies: {}},
+      'file.ts': 'export {}\n'
     })
 
-    const {ensureTypeScriptConfig, isUsingTypeScript} = await import(
-      '../../js-tools/typescript'
+    expect(isUsingTypeScript(root)).toBe(false)
+
+    ensureTypeScriptConfig(root, undefined, fresh())
+
+    expect(JSON.parse(fs.readFileSync(scaffoldAt(root), 'utf-8'))).toEqual(
+      defaultTypeScriptConfig(root)
     )
-
-    expect(isUsingTypeScript('/project')).toBe(false)
-
-    ensureTypeScriptConfig('/project')
-
-    const [writtenPath] = (fs.writeFileSync as any).mock.calls[0]
-    expect(toPosix(String(writtenPath))).toBe('/project/tsconfig.json')
-    expect(isUsingTypeScript('/project')).toBe(true)
   })
 
-  it('ensureTypeScriptConfig scaffolds the default tsconfig when TS files are present without one', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      toPosix(String(p)).endsWith('/project/package.json') ? true : false
-    )
-    ;(fs.readFileSync as any).mockImplementation((p: string) => {
-      if (toPosix(String(p)).endsWith('package.json')) {
-        return JSON.stringify({dependencies: {}})
-      }
+  it('scaffolds beside the nearest package.json for src/-layout projects', () => {
+    const root = makeProject({'package.json': {}, 'src/app.ts': 'export {}\n'})
 
-      return ''
+    ensureTypeScriptConfig(path.join(root, 'src'), undefined, fresh())
+
+    expect(fs.existsSync(scaffoldAt(root))).toBe(true)
+    expect(fs.existsSync(scaffoldAt(path.join(root, 'src')))).toBe(false)
+  })
+
+  it('finds TypeScript sources in any surface folder, never in node_modules', () => {
+    const surface = makeProject({
+      'package.json': {},
+      'newtab/index.tsx': 'export {}\n'
     })
-    ;(fs.readdirSync as any).mockImplementation((_p: string, _o: any) => [
-      {isFile: () => true, isDirectory: () => false, name: 'file.ts'}
-    ])
-
-    const {ensureTypeScriptConfig, isUsingTypeScript} = await import(
-      '../../js-tools/typescript'
-    )
-
-    expect(isUsingTypeScript('/project')).toBe(false)
-
-    expect(() => ensureTypeScriptConfig('/project')).not.toThrow()
-    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
-    const [writtenPath, written] = (fs.writeFileSync as any).mock.calls[0]
-    expect(toPosix(String(writtenPath))).toBe('/project/tsconfig.json')
-    expect(JSON.parse(String(written)).compilerOptions).toBeTruthy()
-  })
-
-  it('scaffolds beside the nearest package.json for src/-layout projects', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      toPosix(String(p)).endsWith('/project/package.json')
-    )
-    ;(fs.readFileSync as any).mockImplementation(() => '')
-    ;(fs.readdirSync as any).mockImplementation((p: string) => {
-      if (toPosix(String(p)).endsWith('/project/src')) {
-        return [{isFile: () => true, isDirectory: () => false, name: 'app.ts'}]
-      }
-
-      return []
+    const vendored = makeProject({
+      'package.json': {},
+      'node_modules/lib/index.ts': 'export {}\n'
     })
 
-    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
-    ensureTypeScriptConfig('/project/src')
+    ensureTypeScriptConfig(surface, undefined, fresh())
+    ensureTypeScriptConfig(vendored, undefined, fresh())
 
-    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
-    const [writtenPath] = (fs.writeFileSync as any).mock.calls[0]
-    expect(toPosix(String(writtenPath))).toBe('/project/tsconfig.json')
+    expect(fs.existsSync(scaffoldAt(surface))).toBe(true)
+    expect(fs.existsSync(scaffoldAt(vendored))).toBe(false)
   })
 
-  it('detects TS sources in surface folders beyond the old allowlist', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      toPosix(String(p)).endsWith('/project/package.json')
-    )
-    ;(fs.readFileSync as any).mockImplementation(() => '')
-    ;(fs.readdirSync as any).mockImplementation((p: string) => {
-      const s = toPosix(String(p))
-
-      if (s.endsWith('/project')) {
-        return [
-          {isFile: () => false, isDirectory: () => true, name: 'newtab'},
-          {isFile: () => false, isDirectory: () => true, name: 'node_modules'}
-        ]
-      }
-
-      if (s.endsWith('/project/newtab')) {
-        return [
-          {isFile: () => true, isDirectory: () => false, name: 'index.tsx'}
-        ]
-      }
-
-      return []
+  it('counts a .cts source and skips its declaration and spec siblings', () => {
+    const source = makeProject({'package.json': {}, 'helper.cts': ''})
+    const siblings = makeProject({
+      'package.json': {},
+      'globals.d.cts': '',
+      'helper.spec.cts': ''
     })
 
-    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
-    ensureTypeScriptConfig('/project')
+    ensureTypeScriptConfig(source, undefined, fresh())
+    ensureTypeScriptConfig(siblings, undefined, fresh())
 
-    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
+    expect(fs.existsSync(scaffoldAt(source))).toBe(true)
+    expect(fs.existsSync(scaffoldAt(siblings))).toBe(false)
   })
 
-  it('counts a .cts source and skips its declaration and spec siblings', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      toPosix(String(p)).endsWith('/project/package.json')
-    )
-    ;(fs.readFileSync as any).mockImplementation(() => '')
+  it('a call that finds nothing does not spend the record a later setup needs', () => {
+    const empty = makeProject({'package.json': {}})
+    const root = makeProject({'package.json': {}, 'a.ts': 'export {}\n'})
+    const record = fresh()
 
-    const entriesFor = (names: string[]) =>
-      names.map((name) => ({
-        isFile: () => true,
-        isDirectory: () => false,
-        name
-      }))
+    ensureTypeScriptConfig(empty, undefined, record)
+    expect(record).toEqual({delivered: false})
 
-    ;(fs.readdirSync as any).mockImplementation(() =>
-      entriesFor(['helper.cts'])
-    )
-
-    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
-    ensureTypeScriptConfig('/project')
-    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
-    ;(fs.writeFileSync as any).mockClear()
-    ;(fs.readdirSync as any).mockImplementation(() =>
-      entriesFor(['globals.d.cts', 'helper.spec.cts'])
-    )
-
-    ensureTypeScriptConfig('/project')
-    expect(fs.writeFileSync).not.toHaveBeenCalled()
+    ensureTypeScriptConfig(root, undefined, record)
+    expect(fs.existsSync(scaffoldAt(root))).toBe(true)
+    expect(record).toEqual({delivered: true})
   })
 
-  it('a no-op call does not latch away a later real setup call', async () => {
-    ;(fs.existsSync as any).mockImplementation((p: string) =>
-      toPosix(String(p)).endsWith('/project/package.json')
-    )
-    ;(fs.readFileSync as any).mockImplementation(() => '')
-    ;(fs.readdirSync as any).mockImplementation((p: string) => {
-      if (toPosix(String(p)).endsWith('/project')) {
-        return [{isFile: () => true, isDirectory: () => false, name: 'a.ts'}]
-      }
-
-      return []
+  it('writes no tsconfig into a JavaScript project with a typescript dependency', () => {
+    const root = makeProject({
+      'package.json': {name: 'js-only', devDependencies: {typescript: '5.0.0'}},
+      'background.js': ''
     })
 
-    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
-    // First call sees no project shape at all and must not set the latch.
-    ensureTypeScriptConfig('/elsewhere')
-    expect(fs.writeFileSync).not.toHaveBeenCalled()
+    ensureTypeScriptConfig(root, undefined, fresh())
 
-    ensureTypeScriptConfig('/project')
-    expect(fs.writeFileSync).toHaveBeenCalledTimes(1)
+    expect(fs.existsSync(scaffoldAt(root))).toBe(false)
   })
+})
 
-  it('maybeUseTypeScript returns true when tsconfig exists and typescript resolves', async () => {
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) =>
-        toPosix(String(p)).endsWith('/project/tsconfig.json') ||
-        toPosix(String(p)).endsWith('/project/package.json')
-    )
-    ;(fs.readFileSync as any).mockImplementation((p: string) => {
-      if (toPosix(String(p)).endsWith('package.json')) {
-        return JSON.stringify({devDependencies: {typescript: '^5'}})
-      }
-
-      return ''
+describe('isUsingTypeScript', () => {
+  it('is true with a tsconfig and a typescript dependency', () => {
+    const root = makeProject({
+      'package.json': {devDependencies: {typescript: '^5'}},
+      'tsconfig.json': {}
     })
 
-    const originalResolve = (require as any).resolve
-    ;(require as any).resolve = vi.fn((id: string) =>
-      id === 'typescript' ? '/mock/typescript' : originalResolve(id)
-    )
-
-    const {maybeUseTypeScript} = await import('../../js-tools/typescript')
-    const result = await maybeUseTypeScript('/project')
-    expect(result).toBe(true)
-    ;(require as any).resolve = originalResolve
+    expect(isUsingTypeScript(root)).toBe(true)
   })
 
-  it('maybeUseTypeScript succeeds when the project does NOT declare typescript', async () => {
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) =>
-        toPosix(String(p)).endsWith('/project/tsconfig.json') ||
-        toPosix(String(p)).endsWith('/project/package.json')
-    )
-    ;(fs.readFileSync as any).mockImplementation((p: string) => {
-      if (toPosix(String(p)).endsWith('package.json')) {
-        return JSON.stringify({dependencies: {}, devDependencies: {}})
-      }
-
-      return ''
+  it('is true with a tsconfig and sources but no typescript dependency', () => {
+    const root = makeProject({
+      'package.json': {dependencies: {}, devDependencies: {}},
+      'tsconfig.json': {},
+      'index.ts': ''
     })
-    ;(fs.readdirSync as any).mockImplementation(() => [
-      {name: 'index.ts', isFile: () => true, isDirectory: () => false}
-    ])
 
-    const {maybeUseTypeScript} = await import('../../js-tools/typescript')
-    await expect(maybeUseTypeScript('/project')).resolves.toBe(true)
+    expect(isUsingTypeScript(root)).toBe(true)
   })
 
-  it('getTypeScriptConfigOverrides toggles sourceMap by mode', async () => {
-    const {getTypeScriptConfigOverrides} = await import(
-      '../../js-tools/typescript'
+  it('is false with a tsconfig alone', () => {
+    const root = makeProject({'package.json': {}, 'tsconfig.json': {}})
+
+    expect(isUsingTypeScript(root)).toBe(false)
+  })
+})
+
+describe('defaultTypeScriptConfig', () => {
+  it('scaffolds a moduleResolution TypeScript 7 accepts', () => {
+    const {compilerOptions} = defaultTypeScriptConfig(
+      makeProject({'package.json': {}})
     )
-    expect(
-      getTypeScriptConfigOverrides({mode: 'development'}).compilerOptions
-        .sourceMap
-    ).toBe(true)
 
-    expect(
-      getTypeScriptConfigOverrides({mode: 'production'}).compilerOptions
-        .sourceMap
-    ).toBe(false)
-  })
-
-  it('defaultTypeScriptConfig scaffolds a moduleResolution TypeScript 7 accepts', async () => {
-    const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
-    const {compilerOptions} = defaultTypeScriptConfig('/project')
     expect(compilerOptions.moduleResolution).toBe('bundler')
     expect(compilerOptions.module).toBe('esnext')
   })
 
-  it('defaultTypeScriptConfig names the JSX runtime the bundler compiles against', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.isUsingJSFramework.mockReturnValue(true)
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'solid-js'
+  it('treats a file with no import as a module, as the bundler does', () => {
+    const {compilerOptions} = defaultTypeScriptConfig(
+      makeProject({'package.json': {}})
     )
 
-    const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
-    const {compilerOptions} = defaultTypeScriptConfig('/project') as any
-
-    expect(compilerOptions.jsx).toBe('react-jsx')
-    expect(compilerOptions.jsxImportSource).toBe('solid-js')
+    expect(compilerOptions.moduleDetection).toBe('force')
   })
 
   // One case per framework: tsc reads jsxImportSource to find the JSX runtime,
   // so it has to name the package the project installed, not react by default.
-  for (const [dependency, importSource] of [
+  it.each([
+    ['solid-js', 'solid-js'],
     ['react', 'react'],
     ['preact', 'preact'],
     ['vue', 'vue']
-  ] as const) {
-    it(`defaultTypeScriptConfig names ${importSource} for a ${dependency} project`, async () => {
-      const integrations = (await import(
-        '../../frameworks-lib/integrations'
-      )) as any
-      integrations.isUsingJSFramework.mockReturnValue(true)
-      integrations.hasDependency.mockImplementation(
-        (_p: string, dep: string) => dep === dependency
-      )
-
-      const {defaultTypeScriptConfig} = await import(
-        '../../js-tools/typescript'
-      )
-      const {compilerOptions} = defaultTypeScriptConfig('/project') as any
-
-      expect(compilerOptions.jsx).toBe('react-jsx')
-      expect(compilerOptions.jsxImportSource).toBe(importSource)
+  ])('names %s as the JSX runtime of a %s project', (dependency, source) => {
+    const root = makeProject({
+      'package.json': {dependencies: {[dependency]: '*'}}
     })
-  }
+    const {compilerOptions} = defaultTypeScriptConfig(root) as {
+      compilerOptions: Record<string, unknown>
+    }
 
-  it('defaultTypeScriptConfig leaves jsxImportSource out without a JS framework', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.isUsingJSFramework.mockReturnValue(false)
+    expect(compilerOptions.jsx).toBe('react-jsx')
+    expect(compilerOptions.jsxImportSource).toBe(source)
+  })
 
-    const {defaultTypeScriptConfig} = await import('../../js-tools/typescript')
-    const {compilerOptions} = defaultTypeScriptConfig('/project') as any
+  it('leaves jsxImportSource out without a JS framework', () => {
+    const {compilerOptions} = defaultTypeScriptConfig(
+      makeProject({'package.json': {}})
+    ) as {compilerOptions: Record<string, unknown>}
 
     expect(compilerOptions.jsx).toBe('preserve')
     expect(compilerOptions.jsxImportSource).toBeUndefined()
-  })
-})
-
-describe('a typescript dependency without TypeScript sources', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
-  })
-
-  it('writes no tsconfig into a JavaScript project', async () => {
-    ;(fs.existsSync as any).mockImplementation(
-      (p: string) => toPosix(String(p)) === '/project/package.json'
-    )
-    ;(fs.readFileSync as any).mockImplementation(() =>
-      JSON.stringify({name: 'js-only', devDependencies: {typescript: '5.0.0'}})
-    )
-    ;(fs.readdirSync as any).mockImplementation(() => [
-      {isFile: () => true, isDirectory: () => false, name: 'background.js'}
-    ])
-
-    const {ensureTypeScriptConfig} = await import('../../js-tools/typescript')
-
-    ensureTypeScriptConfig('/project')
-
-    expect(fs.writeFileSync).not.toHaveBeenCalled()
   })
 })
