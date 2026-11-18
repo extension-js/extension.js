@@ -265,8 +265,7 @@ describe('enableSafariExtension', () => {
     )
   })
 
-  // Pins today's behavior. Ledger 1374 D24.
-  it('sleeps one whole poll before its first read, so a 30 ms prompt wait takes a second', async () => {
+  it('keeps a 30 ms prompt wait to 30 ms, with one read at its end', async () => {
     const tools = fakeSafariUiTools({unsignedSticks: true})
     const {value: report, waitedMs} = await onFakeClock(() =>
       enableSafariExtension({
@@ -277,7 +276,8 @@ describe('enableSafariExtension', () => {
       })
     )
 
-    expect(waitedMs).toBe(1000)
+    // One step of the fake clock, which moves 50 ms at a time.
+    expect(waitedMs).toBe(50)
     expect(tools.calls.filter((call) => call === 'unsigned:read')).toEqual([
       'unsigned:read'
     ])
@@ -767,8 +767,9 @@ describe('dev --enable-extension through the pipeline', () => {
       promptWaitMs: 30
     })
 
-    // The box is read again one second after the click, the default pause.
-    expect(waitedMs).toBe(6000)
+    // The five second app wait, then the 30 ms prompt wait. The fake clock
+    // moves in 50 ms steps.
+    expect(waitedMs).toBe(5050)
 
     expect(ui.calls).toEqual([
       'probe',
@@ -865,7 +866,7 @@ describe('dev --enable-extension through the pipeline', () => {
     })
     const ready = readReady()
 
-    expect(waitedMs).toBe(6000)
+    expect(waitedMs).toBe(5050)
 
     expect(ready.safari).toMatchObject({
       enableAttempted: true,
