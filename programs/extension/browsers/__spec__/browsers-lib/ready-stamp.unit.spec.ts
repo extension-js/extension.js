@@ -1179,11 +1179,13 @@ describe('the time a launcher stamp leaves on the record', () => {
         }),
       'error'
     ]
-  ])('keeps the old date on the status %s writes', (_name, record, stamp, status) => {
+  ])('dates the status %s writes', (_name, record, stamp, status) => {
+    const before = Date.now()
     const ready = stamped(record, stamp)
 
     expect(ready.status).toBe(status)
-    expect(ready.ts).toBe(WRITTEN)
+    expect(ready.ts).toMatch(ISO_INSTANT)
+    expect(Date.parse(ready.ts)).toBeGreaterThanOrEqual(before)
   })
 
   it.each<[string, Record<string, unknown>, (out: string) => void]>([
@@ -1232,13 +1234,13 @@ describe('the time a launcher stamp leaves on the record', () => {
     expect(ready).not.toEqual({...record, ts: WRITTEN})
   })
 
-  it('lets a waiting reader take an error the launcher wrote late as old', () => {
+  it('lets a waiting reader take an error the launcher wrote late as recent', () => {
     const ready = stamped({...up, command: 'start'}, (out) =>
       stampReadyBrowserExited(out, 1)
     )
 
     expect(ready.code).toBe('browser_exited')
-    expect(isFreshContractPayload(ready)).toBe(false)
+    expect(isFreshContractPayload(ready)).toBe(true)
   })
 })
 

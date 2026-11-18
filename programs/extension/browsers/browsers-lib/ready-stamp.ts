@@ -98,6 +98,12 @@ function isForeignRun(ready: unknown, runId: string | undefined): boolean {
   return typeof owner === 'string' && owner !== '' && owner !== runId
 }
 
+// A reader dates the status by ts, so a status written here moves it. A fact
+// beside the status leaves it, or a late one would read as a fresh start.
+function dateStatus(ready: {ts?: unknown}) {
+  ready.ts = new Date().toISOString()
+}
+
 // Publish the Gecko RDP debugger-server port next to Chromium's cdpPort so
 // downstream tooling can pair protocol clients from the ready contract alone.
 export function stampReadyRdpPort(
@@ -121,7 +127,8 @@ export function stampReadyRdpPort(
     // waits for, so the stamp that names it is the one that turns it ready.
     ready.rdpPort = rdpPort
     delete ready.rdpPortError
-    releaseHeldReady(ready, {rdpPort: true})
+    if (releaseHeldReady(ready, {rdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -149,7 +156,8 @@ export function stampReadyRdpPortError(
       String(reason || '').trim() ||
       'Firefox did not open its remote debugging port'
 
-    releaseHeldReady(ready, {rdpPort: true})
+    if (releaseHeldReady(ready, {rdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -176,7 +184,8 @@ export function stampReadyCdpPort(
     if (ready.cdpPort === cdpPort && !held) return
 
     ready.cdpPort = cdpPort
-    releaseHeldReady(ready, {cdpPort: true})
+    if (releaseHeldReady(ready, {cdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -466,6 +475,7 @@ export function stampReadyBrowserLaunch(
         ready.status = 'ready'
         delete ready.code
         delete ready.message
+        dateStatus(ready)
       }
     }
 
@@ -575,6 +585,7 @@ export function stampReadyBrowserLaunchFailed(
 
     ready.status = 'error'
     ready.code = 'browser_launch_failed'
+    dateStatus(ready)
     ready.message = `the ${ready.browser || 'browser'} process could not start (${detail}), nothing is running`
     ready.browserLaunchFailedAt = new Date().toISOString()
     ready.browserLaunchFailedReason = detail
@@ -731,7 +742,8 @@ export function stampReadyCdpFault(
 
     // The browser is up with no port to name, which is all a held dev
     // contract was waiting to learn.
-    releaseHeldReady(ready, {cdpPort: true})
+    if (releaseHeldReady(ready, {cdpPort: true})) dateStatus(ready)
+
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort, never block launch on this
@@ -812,6 +824,7 @@ export function stampReadyExtensionLoadRefused(
 
     ready.status = 'error'
     ready.code = 'extension_load_refused'
+    dateStatus(ready)
     const browserLabel = String(ready.browser || 'the browser')
     ready.message = `${
       browserLabel.charAt(0).toUpperCase() + browserLabel.slice(1)
@@ -856,6 +869,7 @@ export function stampReadyProfileLocked(
 
     ready.status = 'error'
     ready.code = 'profile_locked'
+    dateStatus(ready)
     ready.message =
       String(details?.message || '').trim() ||
       'the browser profile is already in use by another session'
@@ -901,10 +915,12 @@ export function stampReadyBrowserExited(
     if (ready.command === 'preview' || ready.command === 'start') {
       ready.status = 'error'
       ready.code = 'browser_exited'
+      dateStatus(ready)
       ready.message = `the ${ready.browser || 'browser'} process exited (${how}); nothing is running`
     } else if (details.beforeReady) {
       ready.status = 'error'
       ready.code = 'browser_exited'
+      dateStatus(ready)
       ready.message = `the ${ready.browser || 'browser'} process exited (${how}) before the extension loaded, nothing is running`
     }
 
