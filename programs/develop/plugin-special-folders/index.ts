@@ -21,6 +21,8 @@ import type {
 } from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
 import {explainPublicOutputCollision} from './check-public-output-collision'
+import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
+import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {
   excludedFiles,
@@ -28,7 +30,10 @@ import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './folders-config'
-import {walkedScriptsLeftOut} from './get-data'
+import {
+  getSpecialFoldersDataForCompiler,
+  walkedScriptsLeftOut
+} from './get-data'
 import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'
@@ -57,6 +62,49 @@ interface SpecialFoldersPluginOptions {
   folders?: SpecialFoldersConfig
   include?: IncludeFilesConfig
   exclude?: ExcludeFilesConfig
+}
+
+// The source file of each page the build emits, from the list the page step
+// emits them from. Read once a withheld ref asks, and once per compilation.
+function pageSources(
+  compiler: Compiler,
+  manifestPath: string,
+  browser: DevOptions['browser']
+): (assetName: string) => string | undefined {
+  let pages: Map<string, string> | undefined
+
+  return (assetName) => {
+    if (!pages) {
+      const projectPath = compiler.options.context || path.dirname(manifestPath)
+      const fields = getResolvedManifestFieldsData({
+        manifestPath,
+        browser,
+        projectPath
+      })
+      const entries = htmlPageEntries({
+        manifestPath,
+        browser,
+        projectPath,
+        mode: compiler.options.mode,
+        manifestHtml: fields.html,
+        manifestScripts: fields.scripts,
+        specialFolderPages: getSpecialFoldersDataForCompiler(compiler).pages
+      })
+
+      pages = new Map()
+
+      for (const [feature, file] of Object.entries(entries)) {
+        if (typeof file === 'string' && file) {
+          pages.set(
+            `${feature}.html`,
+            path.resolve(path.dirname(manifestPath), file)
+          )
+        }
+      }
+    }
+
+    return pages.get(assetName)
+  }
 }
 
 export class SpecialFoldersPlugin {
@@ -186,7 +234,8 @@ export class SpecialFoldersPlugin {
               path.dirname(manifestPath),
               publicDir,
               !readsPublicFolder,
-              context
+              context,
+              pageSources(compiler, manifestPath, browser || 'chrome')
             )
         )
       }

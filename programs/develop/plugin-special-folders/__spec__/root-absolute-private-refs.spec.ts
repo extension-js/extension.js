@@ -406,8 +406,8 @@ function warningsOf(result: Built, root: string): string[] {
 
 describe('a withheld root-absolute reference and a missing one', () => {
   // A path that climbs out of the extension root from either page.
-  const climbing = (dir: string) =>
-    `/${dir}a/${dir ? '../' : ''}../../outside.txt`
+  const climbing = (dir: string, ext = 'txt') =>
+    `/${dir}a/${dir ? '../' : ''}../../outside.${ext}`
   const tags = (dir: string) =>
     PAGE.replace(
       '<head>',
@@ -417,7 +417,9 @@ describe('a withheld root-absolute reference and a missing one', () => {
         `<link rel="stylesheet" href="/${dir}.npmrc">` +
         `<link rel="stylesheet" href="/${dir}missing">` +
         `<script src="/${dir}.env.js"></script>` +
-        `<script src="/${dir}missing.js"></script>`
+        `<script src="/${dir}missing.js"></script>` +
+        `<link rel="stylesheet" href="${climbing(dir, 'css')}">` +
+        `<script src="${climbing(dir, 'js')}"></script>`
     ).replace(
       '<body>',
       `<body><img src="${climbing(dir)}"><img src="/${dir}missing.png">`
@@ -487,6 +489,21 @@ describe('a withheld root-absolute reference and a missing one', () => {
           page,
           `<holder>/project/${dir}missing.png`,
           asset(`/${dir}missing.png`)
+        ),
+        // The page step says a climbing script and sheet itself, once.
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a script file',
+          page,
+          '<holder>/outside.js',
+          script
+        ),
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a stylesheet',
+          page,
+          '<holder>/outside.css',
+          sheet
         )
       ]
       const withheld = (page: string, dir: string) => [
@@ -520,13 +537,41 @@ describe('a withheld root-absolute reference and a missing one', () => {
         )
       ]
 
-      expect(warningsOf(result, root)).toEqual(
+      const warnings = warningsOf(result, root)
+      // The noun and the PATH a warning opens on, without its code.
+      const opening = (notFound: string) =>
+        warnings
+          .find((warning) => warning.includes(`NOT FOUND ${notFound}\n`))
+          ?.replace(/^(?:E_\w+: |⚠ )/, '')
+          .split('\n')
+          .slice(0, 2)
+
+      expect(warnings).toEqual(
         [
           ...missing('<holder>/project/popup.html', ''),
           ...missing('<holder>/project/settings/options.html', 'o/'),
-          ...withheld('action/index.html', ''),
-          ...withheld('options/index.html', 'o/')
+          ...withheld('<holder>/project/popup.html', ''),
+          ...withheld('<holder>/project/settings/options.html', 'o/')
         ].sort()
+      )
+
+      // Each withheld ref opens as a missing one of the same tag.
+      for (const dir of ['', 'o/']) {
+        for (const [kept, absent] of [
+          ['.env.js', 'missing.js'],
+          ['.env.css', 'missing.css'],
+          ['.npmrc', 'missing']
+        ]) {
+          const at = `<holder>/project/${dir}`
+
+          expect(opening(`${at}${kept}`), kept).toEqual(
+            opening(`${at}${absent}`)
+          )
+        }
+      }
+
+      expect(opening('<holder>/project/outside.txt')).toEqual(
+        opening('<holder>/project/missing.png')
       )
 
       expect(result.errors).toBe(0)
