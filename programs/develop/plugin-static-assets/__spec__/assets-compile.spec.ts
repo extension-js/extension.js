@@ -1,7 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
-import {WasmPlugin} from '../../plugin-wasm'
 import {StaticAssetsPlugin} from '../index'
 import {bundledAssetOutputName} from '../static-assets-lib/asset-output-name'
 import {
@@ -78,7 +77,7 @@ describe('static assets through a real compile', () => {
       const build = await compileFixture({
         mode,
         files,
-        plugins: [new StaticAssetsPlugin(), new WasmPlugin()]
+        plugins: [new StaticAssetsPlugin()]
       })
 
       expect(build.errors).toEqual([])
@@ -146,7 +145,7 @@ describe('static assets through a real compile', () => {
         compileFixture({
           mode,
           files,
-          plugins: [new StaticAssetsPlugin(), new WasmPlugin()]
+          plugins: [new StaticAssetsPlugin()]
         })
       )
     )
