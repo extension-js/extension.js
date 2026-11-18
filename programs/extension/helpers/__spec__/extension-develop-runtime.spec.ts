@@ -1,8 +1,11 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {internalErrorEnvelope} from '../cli-failure'
 import {getCliPackageJson} from '../cli-package-json'
+import {developVersionMismatch, localDevelopVersionDiffers} from '../messages'
+import {stripChannelPrefix} from '../messaging'
+import {telemetryFailureCode} from '../telemetry-cli'
 import {
   loadExtensionDevelopBridgeModule,
   loadExtensionDevelopModule,
@@ -28,17 +31,18 @@ const LOADERS = [
 ] as const
 
 // A stand-in engine with the three entries a command can load.
-function writeEngine(root: string, manifest: string, label: string) {
+function writeEngine(root: string, manifest: string, entrySource: string) {
   fs.mkdirSync(path.join(root, 'dist'), {recursive: true})
   fs.writeFileSync(path.join(root, 'package.json'), manifest)
 
   for (const entry of ['module', 'preview', 'bridge']) {
-    fs.writeFileSync(
-      path.join(root, 'dist', `${entry}.mjs`),
-      `export const extensionDev = ${JSON.stringify(label)}\n`
-    )
+    fs.writeFileSync(path.join(root, 'dist', `${entry}.mjs`), entrySource)
   }
 }
+
+const LOADS = 'export const extensionDev = "stand-in"\n'
+// An entry that gives itself away, for a refusal that has to come first.
+const MUST_NOT_BE_IMPORTED = 'throw new Error("the engine was imported")\n'
 
 function engineManifest(version: string): string {
   return JSON.stringify({name: 'extension-develop', version})
@@ -46,16 +50,42 @@ function engineManifest(version: string): string {
 
 // An install as a package manager lays it out: the CLI and, beside it, the
 // engine Node resolves for it. The real path, as Node reports a resolution.
-function installBesideTheCli(manifest: string) {
+function installBesideTheCli(manifest: string, entrySource: string = LOADS) {
   const consumer = fs.realpathSync(makeTempFolder('extjs-develop-install-'))
   const modules = path.join(consumer, 'node_modules')
   const startDir = path.join(modules, 'extension', 'dist')
   const engineRoot = path.join(modules, 'extension-develop')
 
   fs.mkdirSync(startDir, {recursive: true})
-  writeEngine(engineRoot, manifest, 'installed')
+  writeEngine(engineRoot, manifest, entrySource)
 
   return {startDir, engineRoot}
+}
+
+// A checkout of the engine somewhere else, as EXTENSION_DEVELOP_ROOT names it.
+function localEngine(version: string) {
+  const engineRoot = path.join(
+    fs.realpathSync(makeTempFolder('extjs-develop-local-')),
+    'extension-develop'
+  )
+
+  writeEngine(engineRoot, engineManifest(version), LOADS)
+
+  return engineRoot
+}
+
+// The folder of an installed CLI with no stand-in engine beside it.
+function installedCliFolder() {
+  const startDir = path.join(
+    fs.realpathSync(makeTempFolder('extjs-develop-cli-')),
+    'node_modules',
+    'extension',
+    'dist'
+  )
+
+  fs.mkdirSync(startDir, {recursive: true})
+
+  return startDir
 }
 
 describe('extension-develop runtime resolution', () => {
@@ -63,6 +93,8 @@ describe('extension-develop runtime resolution', () => {
   const previousCreateRoot = process.env.EXTENSION_CREATE_DEVELOP_ROOT
 
   afterEach(() => {
+    vi.restoreAllMocks()
+
     if (previousDevelopRoot === undefined) {
       delete process.env.EXTENSION_DEVELOP_ROOT
     } else {
@@ -138,9 +170,10 @@ describe('extension-develop runtime resolution', () => {
       version: '9.9.9'
     })
 
+    // The engine beside the CLI is its install, so the version has to match.
     writeJson(path.join(envDevelopRoot, 'package.json'), {
       name: 'extension-develop',
-      version: '1.2.3'
+      version: CLI_VERSION
     })
 
     fs.mkdirSync(path.join(envDevelopRoot, 'dist'), {recursive: true})
@@ -208,24 +241,173 @@ describe('extension-develop runtime resolution', () => {
     const {startDir, engineRoot} = installBesideTheCli(
       engineManifest(CLI_VERSION)
     )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     Reflect.deleteProperty(process.env, 'EXTENSION_DEVELOP_ROOT')
 
     expect(resolveExtensionDevelopRoot(startDir)).toBe(engineRoot)
     await expect(
       (load as typeof loadExtensionDevelopBridgeModule)(startDir)
-    ).resolves.toMatchObject({extensionDev: 'installed'})
+    ).resolves.toMatchObject({extensionDev: 'stand-in'})
+
+    expect(warn).not.toHaveBeenCalled()
   })
 
-  it('loads an installed engine of another version', async () => {
-    const {startDir} = installBesideTheCli(engineManifest('0.0.1'))
+  it.each(
+    LOADERS
+  )('refuses %s of an installed engine of another version before importing it', async (_entry, load) => {
+    const {startDir, engineRoot} = installBesideTheCli(
+      engineManifest('0.0.1'),
+      MUST_NOT_BE_IMPORTED
+    )
+    const refusal = developVersionMismatch(CLI_VERSION, '0.0.1', engineRoot)
 
     Reflect.deleteProperty(process.env, 'EXTENSION_DEVELOP_ROOT')
 
-    // Pins today's behavior.
+    const error = await load(startDir).catch((caught: unknown) => caught)
+
+    expect(error).toMatchObject({
+      code: 'E_RUNTIME_NOT_FOUND',
+      message: refusal
+    })
+
+    expect(internalErrorEnvelope(error, 'build')).toEqual({
+      schema: 1,
+      ok: false,
+      command: 'build',
+      status: 'failed',
+      value: null,
+      error: {
+        code: 'E_RUNTIME_NOT_FOUND',
+        message: stripChannelPrefix(refusal),
+        name: 'Error'
+      },
+      warnings: []
+    })
+
+    expect(telemetryFailureCode((error as {code?: unknown}).code)).toBe(
+      'E_RUNTIME_NOT_FOUND'
+    )
+  })
+
+  it('says both versions, where the engine is and the one command that fixes it', () => {
+    expect(
+      stripChannelPrefix(
+        developVersionMismatch('4.1.42-canary.3', '4.1.41', '/app/engine')
+      )
+    ).toBe(
+      'extension@4.1.42-canary.3 found extension-develop@4.1.41 at /app/engine. ' +
+        'The two run together only at the same version.\n' +
+        'Reinstall so both are 4.1.42-canary.3: npm install extension@4.1.42-canary.3\n' +
+        'To run a local engine on purpose, set EXTENSION_DEVELOP_ROOT to its folder.'
+    )
+  })
+
+  it('reads a prerelease of the same release as another version', async () => {
+    const {startDir} = installBesideTheCli(
+      engineManifest(`${CLI_VERSION}-canary.3`),
+      MUST_NOT_BE_IMPORTED
+    )
+
+    Reflect.deleteProperty(process.env, 'EXTENSION_DEVELOP_ROOT')
+
+    await expect(loadExtensionDevelopModule(startDir)).rejects.toMatchObject({
+      code: 'E_RUNTIME_NOT_FOUND'
+    })
+  })
+
+  it('refuses an installed engine whose manifest has no version', async () => {
+    const {startDir, engineRoot} = installBesideTheCli(
+      JSON.stringify({name: 'extension-develop'}),
+      MUST_NOT_BE_IMPORTED
+    )
+
+    Reflect.deleteProperty(process.env, 'EXTENSION_DEVELOP_ROOT')
+
+    await expect(loadExtensionDevelopModule(startDir)).rejects.toMatchObject({
+      code: 'E_RUNTIME_NOT_FOUND',
+      message: developVersionMismatch(CLI_VERSION, 'unknown', engineRoot)
+    })
+  })
+
+  // The CLI writes the root it found to EXTENSION_DEVELOP_ROOT at startup, so
+  // the variable alone does not say the user chose a local engine.
+  it('still refuses once the CLI itself has written the installed root to EXTENSION_DEVELOP_ROOT', async () => {
+    const {startDir, engineRoot} = installBesideTheCli(
+      engineManifest('0.0.1'),
+      MUST_NOT_BE_IMPORTED
+    )
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    Reflect.deleteProperty(process.env, 'EXTENSION_DEVELOP_ROOT')
+    resolveExtensionDevelopRoot(startDir)
+
+    expect(process.env.EXTENSION_DEVELOP_ROOT).toBe(engineRoot)
+    await expect(loadExtensionDevelopModule(startDir)).rejects.toMatchObject({
+      code: 'E_RUNTIME_NOT_FOUND'
+    })
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('warns once across loads when EXTENSION_DEVELOP_ROOT names a local engine of another version', async () => {
+    const startDir = installedCliFolder()
+    const engineRoot = localEngine('0.0.1')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    process.env.EXTENSION_DEVELOP_ROOT = engineRoot
+
+    for (const [, load] of LOADERS) {
+      await expect(
+        (load as typeof loadExtensionDevelopBridgeModule)(startDir)
+      ).resolves.toMatchObject({extensionDev: 'stand-in'})
+    }
+
+    await loadExtensionDevelopModule(startDir)
+
+    expect(warn.mock.calls).toEqual([
+      [localDevelopVersionDiffers(CLI_VERSION, '0.0.1', engineRoot)]
+    ])
+
+    expect(stripChannelPrefix(String(warn.mock.calls[0][0]))).toBe(
+      `EXTENSION_DEVELOP_ROOT runs extension-develop@0.0.1 from ${engineRoot} ` +
+        `with extension@${CLI_VERSION}. The versions differ, so a failure here may come from the pair.`
+    )
+  })
+
+  it('says nothing when EXTENSION_DEVELOP_ROOT names a local engine of the same version', async () => {
+    const startDir = installedCliFolder()
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    process.env.EXTENSION_DEVELOP_ROOT = localEngine(CLI_VERSION)
+
     await expect(
       loadExtensionDevelopModule<{extensionDev: string}>(startDir)
-    ).resolves.toMatchObject({extensionDev: 'installed'})
+    ).resolves.toMatchObject({extensionDev: 'stand-in'})
+
+    expect(warn).not.toHaveBeenCalled()
+  })
+
+  // The monorepo and a linked CLI run the engine of the same checkout.
+  it('does not compare versions for the engine of the checkout the CLI runs from', async () => {
+    const root = fs.realpathSync(makeTempFolder('extjs-develop-checkout-'))
+    const startDir = path.join(root, 'programs', 'extension', 'dist')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    fs.mkdirSync(startDir, {recursive: true})
+    writeEngine(
+      path.join(root, 'programs', 'develop'),
+      engineManifest('0.0.1'),
+      LOADS
+    )
+
+    for (const [, load] of LOADERS) {
+      await expect(
+        (load as typeof loadExtensionDevelopBridgeModule)(startDir)
+      ).resolves.toMatchObject({extensionDev: 'stand-in'})
+    }
+
+    expect(warn).not.toHaveBeenCalled()
   })
 
   it.each([
@@ -242,8 +424,10 @@ describe('extension-develop runtime resolution', () => {
         message: 'Unable to locate the extension-develop runtime.'
       })
     )
+
     await expect(loadExtensionDevelopModule(startDir)).rejects.toMatchObject({
-      code: 'E_RUNTIME_NOT_FOUND'
+      code: 'E_RUNTIME_NOT_FOUND',
+      message: 'Unable to locate the extension-develop runtime.'
     })
   })
 })
