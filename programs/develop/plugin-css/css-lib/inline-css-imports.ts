@@ -56,8 +56,9 @@ export interface InlinedCssImports {
   moved: PlacedCssImport[]
   // An import of an address left inside a block, where a browser skips it.
   skipped: SkippedCssImport[]
-  // An import with no ./ ahead of a name a file beside the sheet also has.
-  bare: PlacedCssImport[]
+  // Each name with no ./ ahead of it that no file beside its sheet has, with
+  // the folder of that sheet. It is a package, which the bundler looks up.
+  packages: Array<{request: string; context: string}>
   // Each run of sheets that import one another, closed by its first sheet.
   cycles: string[][]
 }
@@ -264,30 +265,102 @@ function realPath(file: string): string {
   }
 }
 
+// Whole names of a file or a folder that no build reads, in any letter
+// case. `*` stands for any run of characters.
+const PRIVATE_NAMES = [
+  '.DS_Store',
+  'Thumbs.db',
+  'desktop.ini',
+  '.env',
+  '.envrc',
+  '.git',
+  '.gitignore',
+  '.gitattributes',
+  '.gitmodules',
+  '.gitkeep',
+  '.npmrc',
+  '.yarnrc.yml',
+  '.*.swp',
+  '.*.swo',
+  '.*.swn',
+  '*~'
+].map(
+  (name) =>
+    new RegExp(
+      `^${name
+        .split('*')
+        .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+        .join('.*')}$`,
+      'i'
+    )
+)
+
+// `.env.<anything>` is an env file, except a template a project commits to
+// document its keys.
+const ENV_TEMPLATE_ENDINGS = ['.example', '.sample', '.template']
+
+function isPrivateName(name: string): boolean {
+  const lower = name.toLowerCase()
+
+  if (lower.startsWith('.env.')) {
+    return !ENV_TEMPLATE_ENDINGS.some((ending) => lower.endsWith(ending))
+  }
+
+  return PRIVATE_NAMES.some((matcher) => matcher.test(name))
+}
+
 const KEEP_IN_PROJECT =
-  'Keep the sheets a content script stylesheet imports inside the project, outside node_modules and folders that start with a dot.'
+  'Keep the sheets a content script stylesheet imports inside the project, or in a package it installs.'
+const NO_PRIVATE_NAME =
+  'Give the sheet a path with no private file or folder name along it.'
 
 // Whether the rules of a sheet may be read into another one: undefined when
-// they may, or the reason they may not. Links are followed before the check.
-function whyNotRead(file: string, projectRoot: string): string | undefined {
-  const inside = path.relative(realPath(projectRoot), realPath(file))
-  const parts = inside.split(path.sep)
+// they may, or the reason they may not with the fix. A sheet may sit in the
+// project or in a node_modules folder of the project or of a folder above
+// it, and no name along its path may be a private one. Links are followed.
+function whyNotRead(
+  file: string,
+  projectRoot: string
+): {reason: string; fix: string} | undefined {
+  const root = realPath(projectRoot)
+  const real = realPath(file)
+  const names = [
+    ...path.relative(root, path.resolve(file)).split(path.sep),
+    ...path.relative(root, real).split(path.sep)
+  ]
+  const privateName = names.find(isPrivateName)
 
-  if (!inside || parts[0] === '..' || path.isAbsolute(inside)) {
-    return 'The file is outside the project.'
+  if (privateName) {
+    return {
+      reason: `The path holds ${privateName}, a name the build keeps private.`,
+      fix: NO_PRIVATE_NAME
+    }
   }
 
-  const folders = parts.slice(0, -1)
+  const inside = path.relative(root, real)
 
-  if (folders.includes('node_modules')) {
-    return 'The file belongs to a package in node_modules.'
+  if (inside && !inside.startsWith('..') && !path.isAbsolute(inside)) {
+    return undefined
   }
 
-  const hidden = folders.find((folder) => folder.startsWith('.'))
+  // Where a package manager keeps what the project installed: beside the
+  // project, or beside a folder above it in a workspace.
+  const parts = real.split(path.sep)
+  const modulesAt = parts.indexOf('node_modules')
+  const owner =
+    modulesAt === -1 ? undefined : parts.slice(0, modulesAt).join(path.sep)
 
-  return hidden
-    ? `The file is inside ${hidden}, a folder the build does not read.`
-    : undefined
+  if (
+    owner !== undefined &&
+    (root === owner || root.startsWith(`${owner}${path.sep}`))
+  ) {
+    return undefined
+  }
+
+  return {
+    reason: `The file sits outside the project, at ${toPosixPath(real)}.`,
+    fix: KEEP_IN_PROJECT
+  }
 }
 
 // A relative request is written from its own sheet's folder, and its text
@@ -486,7 +559,7 @@ interface Inlining {
   kept: string[]
   moved: PlacedCssImport[]
   skipped: SkippedCssImport[]
-  bare: PlacedCssImport[]
+  packages: InlinedCssImports['packages']
   cycles: string[][]
   // Layers whose order the first sheet states before anything else.
   orderedLayers: Set<string>
@@ -637,14 +710,27 @@ function inlineSheet(
     if (node.name.toLowerCase() !== 'import') return
 
     const parsed = parseImport(rule.params)
-    // The one rule for which files a request names. A name with no ./
-    // ahead of it is a package there, never a file beside the sheet.
+    const plain = parsed ? parsed.request.split('?')[0].split('#')[0] : ''
+    // A name with no ./ ahead of it: a file when one beside the sheet has
+    // exactly that name, the way CSS reads it, and a package when none has.
+    const named =
+      parsed !== undefined &&
+      !parsed.request.includes('!') &&
+      /^[^./~#][^:]*$/.test(plain)
+    const beside = named ? path.resolve(issuerDir, plain) : undefined
+    // The one rule for which files a path names.
     const candidates =
       parsed && !parsed.opaque && !parsed.request.includes('!')
-        ? cssUrlRefFiles(parsed.request, {issuerDir, roots: state.roots})
+        ? beside && isFile(beside)
+          ? [beside]
+          : cssUrlRefFiles(parsed.request, {issuerDir, roots: state.roots})
         : []
+    // A private file is no sheet whatever it is called, and is answered
+    // for by name the way a sheet in a private folder is.
     const target = candidates.find(
-      (candidate) => /\.css$/i.test(candidate) && isFile(candidate)
+      (candidate) =>
+        isFile(candidate) &&
+        (/\.css$/i.test(candidate) || isPrivateName(path.basename(candidate)))
     )
 
     if (!parsed || !target) {
@@ -655,13 +741,11 @@ function inlineSheet(
         if (!fs.existsSync(candidate)) state.missing.add(candidate)
       }
 
-      if (
-        parsed &&
-        !parsed.opaque &&
-        /^[\w-][^:?#!]*\.css$/i.test(parsed.request) &&
-        isFile(path.resolve(issuerDir, parsed.request))
-      ) {
-        state.bare.push({statement: written, file})
+      if (named && beside && !isFile(beside)) {
+        // Writing a file by that name beside the sheet changes the answer.
+        if (/\.css$/i.test(plain)) state.missing.add(beside)
+
+        state.packages.push({request: plain, context: issuerDir})
       }
 
       // Once another sheet's rules come in, an @import that stays would
@@ -772,15 +856,25 @@ function inlineSheet(
       return
     }
 
+    // A name that stays in a sheet that came in is read from another folder
+    // from then on, so it is written as the path it stood for.
+    const keepAsPath = () => {
+      if (top || target !== beside) return
+
+      edits.push({
+        start,
+        end,
+        text: css
+          .slice(start, end)
+          .replace(parsed.request, `./${parsed.request}`)
+      })
+    }
+
     const refused = whyNotRead(target, state.projectPath)
 
     if (refused) {
-      state.unreadable.push({
-        request: parsed.request,
-        file: target,
-        reason: refused,
-        fix: KEEP_IN_PROJECT
-      })
+      state.unreadable.push({request: parsed.request, file: target, ...refused})
+      keepAsPath()
 
       return
     }
@@ -801,6 +895,7 @@ function inlineSheet(
 
     if (typeof inner !== 'string') {
       state.unreadable.push({request: parsed.request, file: target, ...inner})
+      keepAsPath()
 
       return
     }
@@ -857,7 +952,7 @@ export function inlineCssImports(
     kept: [],
     moved: [],
     skipped: [],
-    bare: [],
+    packages: [],
     cycles: [],
     orderedLayers: new Set(),
     filledLayers: new Set()
@@ -871,7 +966,7 @@ export function inlineCssImports(
       unreadable: [],
       moved: [],
       skipped: [],
-      bare: [],
+      packages: [],
       cycles: []
     }
   }
@@ -893,7 +988,7 @@ export function inlineCssImports(
     unreadable: state.unreadable,
     moved: state.moved,
     skipped: state.skipped,
-    bare: state.bare,
+    packages: state.packages,
     cycles: state.cycles
   }
 }

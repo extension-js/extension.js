@@ -168,16 +168,6 @@ export function cssImportCycle(issuerPath: string, files: string[]) {
   ].join('\n')
 }
 
-export function cssImportReadAsPackage(issuerPath: string, statement: string) {
-  return [
-    `${prefix('warn')} An ${colors.blue('@import')} in this content script stylesheet names a package, and a file by that name sits beside the sheet.`,
-    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
-    `${colors.gray('IMPORT')} ${colors.blue(statement)}`,
-    `A name with no ${colors.blue('./')} ahead of it is looked up as a package, so the rules of that file did not come in.`,
-    `Start the name with ${colors.blue('./')} to bring the file in.`
-  ].join('\n')
-}
-
 // The import leads the sheet so it loads at all, at the cost of its place.
 export function cssImportMovedAhead(
   issuerPath: string,

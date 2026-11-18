@@ -164,7 +164,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cssImportCycle: function(2)",
     "cssImportLeftAsWritten: function(3)",
     "cssImportMovedAhead: function(3)",
-    "cssImportReadAsPackage: function(2)",
     "cssImportSkippedInBlock: function(4)",
     "cssIntegrationsEnabled: function(1)",
     "cssMinifierDroppedRules: function(2)",

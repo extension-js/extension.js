@@ -23,7 +23,10 @@ import {
   rewriteInlinedCssUrls,
   toRuntimeStylesheetModule
 } from './css-lib/inline-content-script-css'
-import {inlineCssImports} from './css-lib/inline-css-imports'
+import {
+  type InlinedCssImports,
+  inlineCssImports
+} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {isSfcStyleBlock} from './css-lib/sfc-style-block'
 
@@ -51,6 +54,14 @@ export interface DeadCssUrlLoaderContext {
   emitError(error: Error): void
   addDependency?(file: string): void
   addMissingDependency?(file: string): void
+  async?(): (error: Error | null, content?: string) => void
+  getResolve?(options: {
+    dependencyType: string
+  }): (
+    context: string,
+    request: string,
+    callback: (error: Error | null, result?: string | false) => void
+  ) => void
   _compilation?: CompilationLike
 }
 
@@ -187,7 +198,8 @@ export function inlineStylesheetUrls(
 // gives a relative @import no base, so the browser would never fetch one.
 export function inlineStylesheetImports(
   loader: DeadCssUrlLoaderContext,
-  source: string
+  source: string,
+  packages: InlinedCssImports['packages'] = []
 ): string {
   const {manifestPath, projectPath} = loader.getOptions() || {}
 
@@ -244,9 +256,6 @@ export function inlineStylesheetImports(
           why
         )
       ),
-      ...inlined.bare.map(({statement}) =>
-        messages.cssImportReadAsPackage(issuer, statement)
-      ),
       ...inlined.cycles.map((files) =>
         messages.cssImportCycle(
           issuer,
@@ -260,6 +269,8 @@ export function inlineStylesheetImports(
         Object.assign(new Error(message), {name: 'CssParseWarning'})
       )
     }
+
+    packages.push(...inlined.packages)
 
     return inlined.css
   } catch (error) {
@@ -277,14 +288,63 @@ export function inlineStylesheetImports(
 export default function deadCssUrlLoader(
   this: DeadCssUrlLoaderContext,
   source: string
-): string {
+): string | undefined {
   // A component's style block is still CSS for the loaders after this one.
   // Its own loader turns it into a module once the framework is done with it.
   if (isSfcStyleBlock(this)) return source
 
   const options = this.getOptions() || {}
 
-  if (options.inlineImports) return inlineStylesheetImports(this, source)
+  if (options.inlineImports) {
+    const packages: InlinedCssImports['packages'] = []
+    const css = inlineStylesheetImports(this, source, packages)
+    const resolve = this.getResolve?.({dependencyType: 'css-import'})
+
+    if (packages.length === 0 || !resolve || !this.async) return css
+
+    // A name that is no file beside its sheet is for the bundler to find,
+    // which fails the build for one it cannot, as it does in a page sheet.
+    const done = this.async()
+    const errors = this._compilation?.errors
+    const {manifestPath} = options
+    const resourcePath = canonicalizeResourcePath(this.resourcePath)
+    const issuer = toPosixPath(
+      manifestPath
+        ? path.relative(
+            canonicalizeDir(path.dirname(manifestPath)),
+            resourcePath
+          )
+        : resourcePath
+    )
+    const asked = new Map<string, {request: string; context: string}>()
+
+    for (const entry of packages) {
+      asked.set(`${entry.context}\0${entry.request}`, entry)
+    }
+
+    let left = asked.size
+
+    for (const {request, context} of asked.values()) {
+      resolve(context, request, (error) => {
+        if (error) {
+          const report = new WebpackError(
+            `Module not found: Can't resolve '${request}' in '${context}'`
+          )
+          ;(report as Error & {file?: string}).file = issuer
+          report.name = 'ModuleNotFoundError'
+
+          // Straight onto the compilation, so it reads as the error the
+          // bundler gives a page sheet and not as one of this loader.
+          if (errors) errors.push(report)
+          else this.emitError(report)
+        }
+
+        if (--left === 0) done(null, css)
+      })
+    }
+
+    return undefined
+  }
 
   const {css, bundledRequests} = inlineStylesheetUrls(this, source)
 

@@ -77,22 +77,22 @@ describe('an @import in the style block of a content script component', () => {
 
   it('says why a sheet it may not read did not come in', () => {
     const root = makeProject({
-      'node_modules/pkg/x.css': '.pkg{}\n'
+      'content/.git/x.css': '.x{}\n'
     })
 
     const {warnings} = runBlock(
       root,
       'content/Widget.vue',
       VUE_QUERY,
-      '@import "../node_modules/pkg/x.css";\n.probe{color:red}\n'
+      '@import "./.git/x.css";\n.probe{color:red}\n'
     )
 
     expect(warnings.map((w) => w.message.split('\n').slice(0, 4))).toEqual([
       [
         `${WARN} Couldn't bring an @import into this content script stylesheet, so the rules of that file will not load.`,
         'PATH content/Widget.vue',
-        'IMPORT ../node_modules/pkg/x.css',
-        'REASON The file belongs to a package in node_modules.'
+        'IMPORT ./.git/x.css',
+        'REASON The path holds .git, a name the build keeps private.'
       ]
     ])
   })

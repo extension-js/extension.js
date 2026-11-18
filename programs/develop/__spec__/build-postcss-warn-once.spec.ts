@@ -120,6 +120,33 @@ describe('a PostCSS finding is said once per build', () => {
     ])
   }, 120_000)
 
+  // What `build --output json` answers with is this list.
+  it('lists each finding once in the warnings the build answers with', async () => {
+    const root = project(
+      "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}, 'postcss-second-missing-plugin': {}}}\n"
+    )
+
+    consoleSpies()
+
+    const summary = (await build(root, 'chrome')) as {
+      warnings_count: number
+      warnings: string[]
+    }
+
+    expect(summary.warnings_count).toBe(2)
+    expect(
+      summary.warnings
+        .map(
+          (warning) =>
+            /Couldn't resolve the PostCSS plugin (\S+)\./.exec(warning)?.[1]
+        )
+        .sort()
+    ).toEqual([
+      'postcss-plugin-nobody-installed',
+      'postcss-second-missing-plugin'
+    ])
+  }, 120_000)
+
   it('says it again in the next build of the same project', async () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}}}\n"
