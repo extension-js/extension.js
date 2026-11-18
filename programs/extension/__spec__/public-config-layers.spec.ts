@@ -36,6 +36,26 @@ const everyLayerNamesWhatTheLoaderReads: [
 
 void everyLayerNamesWhatTheLoaderReads
 
+// Budgets belong to the start layer, and preview builds nothing, so it takes
+// none. The compiler is what checks both values.
+const startTakesBudgets: FileConfig = {
+  commands: {
+    start: {
+      perfBudgets: {'service-worker': 10},
+      noOpen: true,
+      startingUrl: 'https://example.com'
+    },
+    preview: {noOpen: true, startingUrl: 'https://example.com'}
+  }
+}
+const previewRefusesBudgets: FileConfig = {
+  // @ts-expect-error preview builds nothing, so no budget applies
+  commands: {preview: {perfBudgets: {'service-worker': 10}}}
+}
+
+void startTakesBudgets
+void previewRefusesBudgets
+
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(
   fs.readFileSync(path.join(pkgRoot, 'package.json'), 'utf8')
@@ -85,27 +105,5 @@ describe('public config types, per layer', () => {
         new RegExp(`export interface ${layer} extends [^{]*\\bSafariConfig\\b`)
       )
     }
-  })
-
-  it('takes budgets under start and refuses them under preview', () => {
-    const config: FileConfig = {
-      commands: {
-        start: {
-          perfBudgets: {'service-worker': 10},
-          noOpen: true,
-          startingUrl: 'https://example.com'
-        },
-        preview: {noOpen: true, startingUrl: 'https://example.com'}
-      }
-    }
-    const refused: FileConfig = {
-      // @ts-expect-error preview builds nothing, so no budget applies
-      commands: {preview: {perfBudgets: {'service-worker': 10}}}
-    }
-
-    expect(config.commands?.start?.perfBudgets).toEqual({'service-worker': 10})
-    expect(Object.keys(refused.commands?.preview || {})).toEqual([
-      'perfBudgets'
-    ])
   })
 })
