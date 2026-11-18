@@ -1245,13 +1245,17 @@ describe('lifecycle stream transitions', () => {
     const stop = stream.watchBrowserLaunchFailure(5, (ready) =>
       seen.push(ready.browserLaunchFailedAt)
     )
-    const wait = () => new Promise((resolve) => setTimeout(resolve, 40))
+    const seenCount = (count: number) =>
+      vi.waitFor(() => expect(seen.length).toBeGreaterThanOrEqual(count), {
+        timeout: 2000,
+        interval: 5
+      })
 
     try {
       failedAt('2026-10-03T00:00:00.000Z')
-      await wait()
+      await seenCount(1)
       failedAt('2026-10-03T00:00:05.000Z')
-      await wait()
+      await seenCount(2)
       expect(seen).toEqual([
         '2026-10-03T00:00:00.000Z',
         '2026-10-03T00:00:05.000Z'
