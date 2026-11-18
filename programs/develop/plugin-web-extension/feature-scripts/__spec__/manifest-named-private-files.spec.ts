@@ -69,7 +69,7 @@ function fixture(field: Field, target: string) {
     'manifest.json': manifest(field.declare(target))
   })
 
-  linkWorkspace(root, {'logo.txt': `${MARKER}-workspace\n`})
+  linkWorkspace(root, {'logo.txt': 'workspace-shared\n'})
   linkPackages(root)
 
   return root
@@ -135,11 +135,13 @@ const PRIVATE_TARGETS = [
   'node_modules/plain-pkg/.env',
   'node_modules/.npmrc'
 ]
-const LINKED_PACKAGES_OUT = [
-  'node_modules/stray-pkg/data.json',
-  'node_modules/far-pkg/data.json'
+const LINKED_PACKAGES_OUT = ['node_modules/far-pkg/data.json']
+// Links that lead beside the project, into the workspace it belongs to.
+const LINKS_TO_WORKSPACE = [
+  'linked.txt',
+  'linked-folder/inner.txt',
+  'shared/logo.txt'
 ]
-const LINKS_OUT = ['linked.txt', 'linked-folder/inner.txt', 'shared/logo.txt']
 
 const withheldEach = (field: Field, targets: string[]): Table =>
   Object.fromEntries(targets.map((target) => [target, withheld(field, target)]))
@@ -154,11 +156,6 @@ const neverRead = (field: Field): Table => ({
   'nothing.txt': landed(field)
 })
 
-const links = (field: Field): Table => ({
-  ...withheldEach(field, LINKS_OUT),
-  'alias.json': landed(field, ['alias.json'])
-})
-
 const landedEach = (field: Field, targets: string[]): Table =>
   Object.fromEntries(
     targets.map((target) => [
@@ -166,6 +163,11 @@ const landedEach = (field: Field, targets: string[]): Table =>
       landed(field, [target.replace(/^\//, '')])
     ])
   )
+
+const links = (field: Field): Table => ({
+  ...landedEach(field, LINKS_TO_WORKSPACE),
+  'alias.json': landed(field, ['alias.json'])
+})
 
 // A file the author names ships from an installed package.
 const packageFiles = (field: Field): Table =>
@@ -181,7 +183,9 @@ const packageFiles = (field: Field): Table =>
 const linkedPackageFiles = (field: Field): Table => ({
   ...landedEach(field, [
     'node_modules/store-pkg/data.json',
-    'node_modules/workspace-pkg/data.json'
+    'node_modules/workspace-pkg/data.json',
+    // The link leads to a folder of the workspace.
+    'node_modules/stray-pkg/data.json'
   ]),
   ...withheldEach(field, LINKED_PACKAGES_OUT)
 })
@@ -311,7 +315,7 @@ describe('a file a custom key names and the build withholds', () => {
         "manifest.json names '.env' under the custom key my_files, but the file isn't in the output.",
         'NOT FOUND .env',
         'A read of it fails at runtime.',
-        'The build never copies env files, tooling files or files outside the project.'
+        'The build copies only files the project or its workspace shares, never env files or tooling files.'
       ]) {
         expect(times(sentence), sentence).toBe(2)
       }

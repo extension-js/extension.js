@@ -21,6 +21,8 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopFor,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -41,7 +43,10 @@ import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
-import {noteRunBrowsers} from '../helpers/telemetry-cli'
+import {
+  noteRunBrowsers,
+  reportCommandFailureNow
+} from '../helpers/telemetry-cli'
 import {
   BROWSER_TARGETS_HELP,
   type Browser,
@@ -81,7 +86,8 @@ export type BuildOptions = {
 
 // Under --output json a bare exit leaves stdout empty, so a machine consumer
 // reads exit 1 and has nothing to explain it. Print the frame before exiting.
-function failAndExit(
+function failAndExitWith(
+  reportFailure: typeof reportCommandFailureNow,
   asJson: boolean,
   status: string,
   error: {code: ErrorCode; message: string},
@@ -94,7 +100,7 @@ function failAndExit(
     )
   }
 
-  exitWithFailure(error.code)
+  exitWithFailure(error.code, 1, reportFailure)
 }
 
 // What the action reaches outside this file. Production takes every default.
@@ -103,6 +109,7 @@ interface BuildCommandDeps {
   safariPreflight?: typeof safariBuildPreflight
   createPackager?: typeof createSafariPackager
   noteBrowsers?: typeof noteRunBrowsers
+  reportFailure?: typeof reportCommandFailureNow
 }
 
 export function registerBuildCommand(
@@ -111,9 +118,17 @@ export function registerBuildCommand(
     loadDevelop = loadExtensionDevelopModule,
     safariPreflight = safariBuildPreflight,
     createPackager = createSafariPackager,
-    noteBrowsers = noteRunBrowsers
+    noteBrowsers = noteRunBrowsers,
+    reportFailure = reportCommandFailureNow
   }: BuildCommandDeps = {}
 ) {
+  const failAndExit: (
+    asJson: boolean,
+    status: string,
+    error: {code: ErrorCode; message: string},
+    hint?: string
+  ) => never = (...args) => failAndExitWith(reportFailure, ...args)
+
   program
     .command('build')
     .arguments('[project-name]')
@@ -190,7 +205,7 @@ export function registerBuildCommand(
     )
     .option(
       '--mode <development|production|none>',
-      'bundler mode override (also sets NODE_ENV). Defaults to `production`'
+      'bundler mode override (also sets NODE_ENV, except `none`). Defaults to `production`'
     )
     .option(
       '--open [boolean]',
@@ -232,8 +247,8 @@ export function registerBuildCommand(
         'deprecated alias for --debug'
       ).hideHelp()
     )
-    .hook('preAction', refuseUnreadableOutput())
-    .hook('preAction', refuseUnlistedChoices())
+    .hook('preAction', refuseUnreadableOutput({reportFailure}))
+    .hook('preAction', refuseUnlistedChoices({reportFailure}))
     .action(
       async (
         pathOrRemoteUrl: string,
@@ -384,7 +399,8 @@ export function registerBuildCommand(
           }
         }
 
-        const {extensionBuild} = await loadDevelop()
+        const {extensionBuild}: DevelopFor<'extensionBuild'> =
+          await loadDevelop()
 
         const cliVersion = checkProjectCliVersion(
           path.resolve(pathOrRemoteUrl || process.cwd()),
@@ -413,12 +429,7 @@ export function registerBuildCommand(
         for (const vendor of list) {
           try {
             const summary = await extensionBuild(pathOrRemoteUrl, {
-              browser: vendor as BuildOptions['browser'],
-              // CLI surface: a failed build ends this process with the clean
-              // error line. Library imports of extensionBuild reject instead.
-              // Under --output json we catch instead, so the failure can be
-              // reported as one envelope rather than a bare exit code.
-              exitOnError: !asJson,
+              browser: vendor as DevelopBrowser,
               polyfill: buildOptions.polyfill,
               zip: buildOptions.zip,
               zipSource: buildOptions.zipSource,
@@ -451,38 +462,42 @@ export function registerBuildCommand(
             built.push(vendor)
             if (summary) summaries.push(summary)
           } catch (error) {
-            if (!asJson) throw error
+            const code = declaredErrorCode(error) ?? CODES.E_COMPILE
 
-            // The engine lists each diagnostic behind the failure on the
-            // error it rejects with, and the frame carries them as details.
-            const {diagnostics, truncated} = (error ?? {}) as {
-              diagnostics?: Diagnostic[]
-              truncated?: boolean
-            }
+            // The engine printed the failure before it rejected, so pretty
+            // mode adds no line and only the frame is left to write.
+            if (asJson) {
+              // The engine lists each diagnostic behind the failure on the
+              // error it rejects with, and the frame carries them as details.
+              const {diagnostics, truncated} = (error ?? {}) as {
+                diagnostics?: Diagnostic[]
+                truncated?: boolean
+              }
 
-            // eslint-disable-next-line no-console
-            console.log(
-              JSON.stringify(
-                ENVELOPE.fail(
-                  'build',
-                  'build-failed',
-                  {
-                    code: declaredErrorCode(error) ?? CODES.E_COMPILE,
-                    message:
-                      error instanceof Error ? error.message : String(error),
-                    ...(Array.isArray(diagnostics) && diagnostics.length > 0
-                      ? {details: diagnostics}
-                      : {})
-                  },
-                  {
-                    hint: `Fix the error above and run build again.`,
-                    truncated: truncated === true
-                  }
+              // eslint-disable-next-line no-console
+              console.log(
+                JSON.stringify(
+                  ENVELOPE.fail(
+                    'build',
+                    'build-failed',
+                    {
+                      code,
+                      message:
+                        error instanceof Error ? error.message : String(error),
+                      ...(Array.isArray(diagnostics) && diagnostics.length > 0
+                        ? {details: diagnostics}
+                        : {})
+                    },
+                    {
+                      hint: `Fix the error above and run build again.`,
+                      truncated: truncated === true
+                    }
+                  )
                 )
               )
-            )
+            }
 
-            exitWithFailure(declaredErrorCode(error) ?? CODES.E_COMPILE)
+            exitWithFailure(code, 1, reportFailure)
           }
         }
 

@@ -7,19 +7,19 @@
 
 # plugin-css
 
-> Automatically wires CSS handling into the Rspack build used by Extension.js. It:
+> Wires CSS handling into the Rspack build used by Extension.js. It:
 
-- Detects CSS entries and applies targeted pipelines for HTML and content scripts
-- Adds optional SASS/LESS support and PostCSS when present
-- Integrates Stylelint when a config exists
+- Adds stylesheet rules per surface: page sheets, content script sheets and CSS modules
+- Compiles Sass and Less when the project depends on `sass` or `less`, and runs PostCSS when the project has a PostCSS config (a file or the `postcss` key in `package.json`) or depends on Tailwind
+- Ships a sheet the CSS parser rejects as authored, with one warning, the way a browser error-recovers it
+- Warns about a `url()` that points to no file instead of failing the build (`EXTENSION_STRICT_REFS=true` makes it an error)
 
-|                                                                            | Feature                                                                                              |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Content script CSS**<br/>Emits CSS as assets and wires HMR; plays nicely with Shadow DOM wrappers. |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **HTML CSS**<br/>Standard CSS handling for HTML entries.                                             |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **SASS/LESS (optional)**<br/>Auto‑enables when dependencies exist; emits as assets for scripts.      |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Stylelint (optional)**<br/>Enables style linting if installed/configured.                          |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **PostCSS (optional)**<br/>Auto‑enables for Tailwind/PostCSS config.                                 |
+|                                                                            | Feature                                                                                                                                                                       |
+| -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Content script CSS**<br/>A sheet a content script imports becomes a module that answers a `data:text/css` URL. A sheet the manifest lists under `content_scripts[].css` ships as a file. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Page CSS**<br/>Native Rspack CSS for HTML pages, with CSS modules for `.module.*` files.                                                                                     |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Sass and Less (optional)**<br/>Enabled when the project depends on `sass` or `less`. Without them, `.scss` and `.less` files ship uncompiled with a warning.                |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **PostCSS and Tailwind (optional)**<br/>Reads the project's PostCSS config and resolves its plugins from the project.                                                         |
 
 ### Content script styles on a page with a strict style policy
 
@@ -64,7 +64,7 @@ export default {
 ```ts
 export class CssPlugin {
   static readonly name: 'plugin-css'
-  constructor(options: {manifestPath: string})
+  constructor(options: {manifestPath: string; browser?: string})
   apply(compiler: import('@rspack/core').Compiler): Promise<void>
 }
 ```

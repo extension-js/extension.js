@@ -157,12 +157,6 @@ export class ScriptsPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // import(chrome.runtime.getURL(...)) resolves at runtime; no module map can
-    // satisfy it, so the call must stay a NATIVE import() in the emitted bundle.
-    new KeepGetURLImportsNative({
-      manifestPath: this.manifestPath
-    }).apply(compiler)
-
     // The wrapper is load-bearing in every mode: it emits the __EXTENSIONJS_mount
     // call; without it rspack tree-shakes the entire entry body in production.
     new AddContentScriptWrapper({
@@ -171,6 +165,12 @@ export class ScriptsPlugin {
       pageList: this.pageList,
       browser: this.browser,
       devSession: this.devSession
+    }).apply(compiler)
+
+    // import(chrome.runtime.getURL(...)) resolves at runtime, so the call stays
+    // a native import(). Applied after the wrapper, whose output it reads.
+    new KeepGetURLImportsNative({
+      manifestPath: this.manifestPath
     }).apply(compiler)
 
     if (compiler.options.mode === 'production') {

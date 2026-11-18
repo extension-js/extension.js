@@ -55,6 +55,7 @@ import {
 import * as messages from '../messages'
 import {INJECTED_CLASSIC_QUERY} from '../scripts-lib/completion-value'
 import {
+  climbsOutOfSheetRoot,
   noteInjectedSheetTarget,
   noteNamedInjectedSheet,
   notePublicInjectedSheet
@@ -918,6 +919,7 @@ export class TraceRuntimeLoadedFiles {
       | {kind: 'html'; content: string; baseRel: string}
       | {kind: 'css'; content: string; baseRel: string; injected?: string}
 
+    const climbingSaid = new Set<string>()
     let pending: PendingScan[] = [
       ...run.jsAssets(only).map((asset) => ({
         kind: 'js' as const,
@@ -985,6 +987,23 @@ export class TraceRuntimeLoadedFiles {
               ? resolveExtensionPath(literal, baseRel)
               : besideCaller
           if (!distRel) continue
+
+          // A target climbing out of the extension root stays as written and
+          // is said once, whether or not a file sits there, confirming none.
+          if (
+            item.kind === 'css' &&
+            item.injected &&
+            climbsOutOfSheetRoot(literal, baseRel)
+          ) {
+            const said = `${baseRel}\n${literal}`
+
+            if (!climbingSaid.has(said)) {
+              climbingSaid.add(said)
+              run.sayNotShipped(assetName, literal, distRel)()
+            }
+
+            continue
+          }
 
           // The visited page fetches what an injected sheet names, so the
           // manifest step hears of each file. An @import is not fetched.

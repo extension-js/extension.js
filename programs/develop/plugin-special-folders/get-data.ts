@@ -24,6 +24,7 @@ import {
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
+import {guardWalkedScripts, type WalkedScripts} from './walked-scripts'
 
 export {rememberSpecialFoldersConfig}
 
@@ -456,6 +457,16 @@ function scanSpecialFolders(
   folders: SpecialFoldersConfig,
   scan: ScanSpecialFolders
 ): ReturnType<typeof getSpecialFoldersData> {
+  const {data, walked} = scanWithWalkedScripts(projectRoot, folders, scan)
+
+  return {...data, scripts: walked.kept}
+}
+
+function scanWithWalkedScripts(
+  projectRoot: string,
+  folders: SpecialFoldersConfig,
+  scan: ScanSpecialFolders
+): {data: ReturnType<typeof getSpecialFoldersData>; walked: WalkedScripts} {
   const base = scan({
     manifestPath: path.join(projectRoot, 'package.json')
   })
@@ -482,9 +493,28 @@ function scanSpecialFolders(
     next[name] = path.basename(abs) === name ? scanned[name] : {}
   }
 
-  next.scripts = onlyScriptEntries(next.scripts)
+  // Asked ahead of every step below, some of which read the file.
+  const walked = guardWalkedScripts(
+    onlyScriptEntries(next.scripts),
+    projectRoot,
+    folders
+  )
 
-  return next
+  return {data: next, walked}
+}
+
+// The scripts/ files the build leaves out for a private name or for a place
+// outside the project, by their path from the project root.
+export function walkedScriptsLeftOut(
+  projectRoot: string,
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot),
+  {scan = getSpecialFoldersData}: {scan?: ScanSpecialFolders} = {}
+): string[] {
+  return scanWithWalkedScripts(projectRoot, folders, scan)
+    .walked.leftOut.map((file) =>
+      path.relative(projectRoot, file).split(path.sep).join('/')
+    )
+    .sort()
 }
 
 function onlyScriptEntries(
