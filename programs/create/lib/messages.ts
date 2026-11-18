@@ -632,6 +632,19 @@ function undeclaredReasonText(manager: string, reason: UndeclaredReason) {
   }
 }
 
+// The second probe may wait three times as long, so the wait is explained
+// before it starts and the create never sits silent past the first limit.
+export function packageManagerAskedAgain(
+  manager: Exclude<ScaffoldPackageManager, 'deno'>,
+  waitedSeconds: number,
+  limitSeconds: number
+) {
+  return (
+    `${prefix('info')} ${colors.blue(`${manager} --version`)} did not answer within ${waitedSeconds}s. ` +
+    `Asking once more, for up to ${limitSeconds}s…`
+  )
+}
+
 // The create still succeeds without the field, so its absence is said once
 // with the cause, and the line to add is spelled out for the user to paste.
 export function packageManagerUndeclared(

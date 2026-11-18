@@ -1,15 +1,18 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {sync as spawnSync} from 'cross-spawn'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {declarePackageManager, type VersionProbe} from '../package-manager'
+import {
+  declarePackageManager,
+  type VersionProbe,
+  versionProbeWith
+} from '../package-manager'
 
 // Only the manager is a stand-in here. The product code and cross-spawn
 // start a real child, through a .cmd shim on Windows.
 const ATTEMPT_ENV = 'EXTJS_SPEC_PROBE_ATTEMPT'
 // Far past any limit a test hands the probe, and short enough that a child
-// Windows could not end with its shim is gone soon after.
+// nothing ended is gone soon after.
 const HANG = 'setTimeout(() => {}, 8000)'
 const dirs: string[] = []
 
@@ -20,8 +23,9 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs()
 
+  // Windows keeps a folder busy until the child that started in it is gone.
   for (const dir of dirs.splice(0)) {
-    fs.rmSync(dir, {recursive: true, force: true})
+    fs.rmSync(dir, {recursive: true, force: true, maxRetries: 20})
   }
 })
 
@@ -55,10 +59,11 @@ function standInManager(name: string, body: string): string {
   return dir
 }
 
-// The real cross-spawn, on a PATH that holds the stand-in folder alone.
+// The probe the create uses, on a PATH that holds the stand-in folder alone.
 // `limitsMs` cuts short an attempt that is meant to run out of time.
 function probeOn(binDir: string, limitsMs: Array<number | undefined> = []) {
   const asked: Array<number | undefined> = []
+  const startManager = versionProbeWith()
 
   const probe: VersionProbe = (command, args, options) => {
     asked.push(options.timeout)
@@ -72,7 +77,7 @@ function probeOn(binDir: string, limitsMs: Array<number | undefined> = []) {
     env.PATH = binDir
     env[ATTEMPT_ENV] = String(asked.length)
 
-    return spawnSync(command, args, {
+    return startManager(command, args, {
       ...options,
       timeout: limitsMs[asked.length - 1] ?? options.timeout,
       env
@@ -92,29 +97,31 @@ function unpinnedProject(): string {
 // A real child on a loaded runner can take seconds to start, and none of
 // these tests is about how fast that is.
 describe('the version probe against a real child', {timeout: 60_000}, () => {
-  it('reads the version a manager prints', () => {
+  it('reads the version a manager prints', async () => {
     const {probe, asked} = probeOn(
       standInManager('npm', "console.log('10.9.2')")
     )
 
-    expect(declarePackageManager(unpinnedProject(), 'npm', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'npm', probe)
+    ).toEqual({
       spec: 'npm@10.9.2'
     })
 
     expect(asked).toEqual([5000])
   })
 
-  it('starts the manager itself when no probe is handed in', () => {
+  it('starts the manager itself when no probe is handed in', async () => {
     // The default probe reads the PATH of this process, changed for this test
     // only and put back by afterEach.
     vi.stubEnv('PATH', standInManager('npm', "console.log('10.9.2')"))
 
-    expect(declarePackageManager(unpinnedProject(), 'npm')).toEqual({
+    expect(await declarePackageManager(unpinnedProject(), 'npm')).toEqual({
       spec: 'npm@10.9.2'
     })
   })
 
-  it('lets a shim answer for the project folder it is started in', () => {
+  it('lets a shim answer for the project folder it is started in', async () => {
     // Stands in for a shim that picks its version from the nearest manifest.
     const {probe} = probeOn(
       standInManager(
@@ -126,12 +133,14 @@ describe('the version probe against a real child', {timeout: 60_000}, () => {
       )
     )
 
-    expect(declarePackageManager(unpinnedProject(), 'pnpm', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'pnpm', probe)
+    ).toEqual({
       spec: 'pnpm@9.9.9'
     })
   })
 
-  it('declares the manager when it is slow once and then answers', () => {
+  it('declares the manager when it is slow once and then answers', async () => {
     const {probe, asked} = probeOn(
       standInManager(
         'npm',
@@ -141,34 +150,71 @@ describe('the version probe against a real child', {timeout: 60_000}, () => {
       [300]
     )
 
-    expect(declarePackageManager(unpinnedProject(), 'npm', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'npm', probe)
+    ).toEqual({
       spec: 'npm@10.9.2'
     })
 
     expect(asked).toEqual([5000, 15000])
   })
 
-  it('reports a timeout when the manager never answers', () => {
+  it('reports a timeout when the manager never answers', async () => {
     const {probe, asked} = probeOn(standInManager('npm', HANG), [300, 300])
 
-    expect(declarePackageManager(unpinnedProject(), 'npm', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'npm', probe)
+    ).toEqual({
       undeclared: {kind: 'timeout', seconds: 15}
     })
 
     expect(asked).toEqual([5000, 15000])
   })
 
-  it('asks twice, then reports no version, when a clean exit prints nothing', () => {
+  it('ends the manager that ran out of time, not only its launcher', async () => {
+    // The stand-in names itself in a file of its own folder, then hangs.
+    const pidFile = path.join(tempDir('pid'), 'manager.pid')
+    const {probe} = probeOn(
+      standInManager(
+        'npm',
+        "import {writeFileSync} from 'node:fs'\n" +
+          `writeFileSync(${JSON.stringify(pidFile)}, String(process.pid))\n` +
+          HANG
+      ),
+      // The second attempt has time to start and write the file.
+      [300, 4000]
+    )
+
+    expect(
+      await declarePackageManager(unpinnedProject(), 'npm', probe)
+    ).toEqual({undeclared: {kind: 'timeout', seconds: 15}})
+
+    const pid = Number(fs.readFileSync(pidFile, 'utf8'))
+    expect(pid).toBeGreaterThan(0)
+
+    // Signal 0 only asks whether the stand-in this test started still runs,
+    // and the wait ends well before the stand-in would stop by itself.
+    await vi.waitFor(
+      () => {
+        expect(() => process.kill(pid, 0)).toThrow(/ESRCH/)
+      },
+      {timeout: 2000, interval: 100}
+    )
+  })
+
+  it('asks twice, then reports no version, when a clean exit prints nothing', async () => {
     const {probe, asked} = probeOn(standInManager('npm', ''))
 
-    expect(declarePackageManager(unpinnedProject(), 'npm', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'npm', probe)
+    ).toEqual({
       undeclared: {kind: 'no-version'}
     })
 
     expect(asked).toHaveLength(2)
   })
 
-  it('reads the version after a warning line on stdout', () => {
+  it('reads the version after a warning line on stdout', async () => {
     const {probe, asked} = probeOn(
       standInManager(
         'pnpm',
@@ -176,14 +222,16 @@ describe('the version probe against a real child', {timeout: 60_000}, () => {
       )
     )
 
-    expect(declarePackageManager(unpinnedProject(), 'pnpm', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'pnpm', probe)
+    ).toEqual({
       spec: 'pnpm@9.9.9'
     })
 
     expect(asked).toHaveLength(1)
   })
 
-  it('ignores what the manager writes to stderr', () => {
+  it('ignores what the manager writes to stderr', async () => {
     const {probe} = probeOn(
       standInManager(
         'npm',
@@ -191,30 +239,36 @@ describe('the version probe against a real child', {timeout: 60_000}, () => {
       )
     )
 
-    expect(declarePackageManager(unpinnedProject(), 'npm', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'npm', probe)
+    ).toEqual({
       spec: 'npm@10.9.2'
     })
   })
 
-  it('reports the exit code of a manager that fails, and asks once', () => {
+  it('reports the exit code of a manager that fails, and asks once', async () => {
     const {probe, asked} = probeOn(
       standInManager('yarn', "console.log('1.22.22')\nprocess.exitCode = 3")
     )
 
-    expect(declarePackageManager(unpinnedProject(), 'yarn', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'yarn', probe)
+    ).toEqual({
       undeclared: {kind: 'exit', code: 3}
     })
 
     expect(asked).toHaveLength(1)
   })
 
-  it('reports a manager that is not on PATH, and asks once', () => {
+  it('reports a manager that is not on PATH, and asks once', async () => {
     // The folder holds an npm stand-in only, so bun is nowhere on this PATH.
     const {probe, asked} = probeOn(
       standInManager('npm', "console.log('10.9.2')")
     )
 
-    expect(declarePackageManager(unpinnedProject(), 'bun', probe)).toEqual({
+    expect(
+      await declarePackageManager(unpinnedProject(), 'bun', probe)
+    ).toEqual({
       undeclared: {kind: 'missing'}
     })
 

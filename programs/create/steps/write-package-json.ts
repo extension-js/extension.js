@@ -186,10 +186,21 @@ export async function overridePackageJson(
 
   const packageManager =
     options.packageManager ?? resolveProjectPackageManager(projectPath)
-  const declaration = declarePackageManager(
+  const declaration = await declarePackageManager(
     projectPath,
     packageManager,
-    options.probeVersion
+    options.probeVersion,
+    (waitedSeconds, limitSeconds) => {
+      if (packageManager === 'deno') return
+
+      logger.log(
+        messages.packageManagerAskedAgain(
+          packageManager,
+          waitedSeconds,
+          limitSeconds
+        )
+      )
+    }
   )
   const packageManagerSpec = declaration.spec
 
