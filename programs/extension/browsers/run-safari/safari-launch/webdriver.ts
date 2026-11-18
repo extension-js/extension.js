@@ -412,18 +412,30 @@ async function requestSession(
     return {reason: refusalReason(created), retry: false}
   }
 
-  // Listed now, since the exit path cannot wait for the process table.
-  const raisedAtOpen = (await tools.listAutomationPids()).filter(
-    (pid) => !before.has(pid)
-  )
+  // Listed and dated now, since the exit path cannot list by arguments. A pid
+  // that no longer carries its start time at exit belongs to another process.
+  const raisedAtOpen: Array<{pid: number; started: number}> = []
+
+  for (const pid of await tools.listAutomationPids()) {
+    const started = before.has(pid) ? null : deps.startedAt(pid)
+    if (started !== null) raisedAtOpen.push({pid, started})
+  }
 
   activeDrivers.set(driver, () => {
     const driverStarted = provenDriverStart(driver.pid, spawnedAt, deps)
 
     driver.stop()
 
-    for (const pid of provenAutomation(raisedAtOpen, driverStarted, deps)) {
-      deps.kill(pid, 'SIGTERM')
+    for (const mark of raisedAtOpen) {
+      if (deps.startedAt(mark.pid) !== mark.started) continue
+
+      if (driverStarted !== null && mark.started >= driverStarted) {
+        deps.kill(mark.pid, 'SIGTERM')
+      } else {
+        deps.print(
+          messages.browserLeftRunning('safari', mark.pid, deps.platform)
+        )
+      }
     }
   })
 

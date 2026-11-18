@@ -329,6 +329,18 @@ describe('the automation Safari a session quits on its way out', () => {
       expect(printed).toEqual([])
     })
 
+    it('sends nothing to a pid that a new process took after the session opened', async () => {
+      await openSession(
+        scripted({
+          driver: [DRIVER_STARTED],
+          safari: [DRIVER_STARTED + 2000, DRIVER_STARTED + 9000]
+        })
+      )
+
+      expect(events).toEqual(['dated driver', 'driver stopped', 'dated safari'])
+      expect(printed).toEqual([])
+    })
+
     it('leaves a Safari that started before its driver and says so', async () => {
       await openSession(
         scripted({driver: [DRIVER_STARTED], safari: [DRIVER_STARTED - 1000]})
