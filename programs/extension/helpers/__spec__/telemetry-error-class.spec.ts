@@ -47,6 +47,8 @@ describe('the class of an error, as one word from a fixed list', () => {
       systemError('ERR_UNSUPPORTED_ESM_URL_SCHEME'),
       'ERR_UNSUPPORTED_ESM_URL_SCHEME'
     ],
+    [systemError('ERR_DLOPEN_FAILED'), 'ERR_DLOPEN_FAILED'],
+    [systemError('ERR_SOME_PACKAGE_MADE_THIS_UP'), 'Error'],
     [new TemplateCopyError('x'), 'other'],
     [Object.assign(new Error('x'), {name: 'TemplateNotFoundError'}), 'other'],
     [Object.assign(new Error('x'), {code: 'my private code'}), 'Error'],
@@ -61,6 +63,7 @@ describe('the class of an error, as one word from a fixed list', () => {
     expect(isTelemetryErrorClass('TemplateCopyError')).toBe(false)
     expect(isTelemetryErrorClass(PRIVATE_FOLDER)).toBe(false)
     expect(isTelemetryErrorClass('ERR_ with a space')).toBe(false)
+    expect(isTelemetryErrorClass('ERR_SOME_PACKAGE_MADE_THIS_UP')).toBe(false)
   })
 })
 

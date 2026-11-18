@@ -48,8 +48,29 @@ const SYSTEM_CODES: ReadonlySet<string> = new Set([
   'MODULE_NOT_FOUND'
 ])
 
-// Node's own error codes share one shape, which leaves no room for a message.
-const NODE_ERROR_CODE = /^ERR_[A-Z][A-Z0-9_]{1,62}$/
+// Node's own codes a failed load or a bad call carries. A code outside this
+// list could be a dependency's free text, so it is not sent.
+const NODE_ERROR_CODES: ReadonlySet<string> = new Set([
+  'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
+  'ERR_DLOPEN_FAILED',
+  'ERR_INTERNAL_ASSERTION',
+  'ERR_INVALID_ARG_TYPE',
+  'ERR_INVALID_ARG_VALUE',
+  'ERR_INVALID_MODULE_SPECIFIER',
+  'ERR_INVALID_PACKAGE_CONFIG',
+  'ERR_INVALID_URL',
+  'ERR_MODULE_NOT_FOUND',
+  'ERR_OUT_OF_RANGE',
+  'ERR_PACKAGE_IMPORT_NOT_DEFINED',
+  'ERR_PACKAGE_PATH_NOT_EXPORTED',
+  'ERR_REQUIRE_ASYNC_MODULE',
+  'ERR_REQUIRE_ESM',
+  'ERR_STREAM_PREMATURE_CLOSE',
+  'ERR_UNKNOWN_FILE_EXTENSION',
+  'ERR_UNSUPPORTED_DIR_IMPORT',
+  'ERR_UNSUPPORTED_ESM_URL_SCHEME',
+  'ERR_WORKER_OUT_OF_MEMORY'
+])
 
 export const OTHER_ERROR_CLASS = 'other'
 
@@ -57,7 +78,7 @@ function systemCode(error: object): string | undefined {
   const code = (error as {code?: unknown}).code
   if (typeof code !== 'string') return undefined
 
-  return SYSTEM_CODES.has(code) || NODE_ERROR_CODE.test(code) ? code : undefined
+  return SYSTEM_CODES.has(code) || NODE_ERROR_CODES.has(code) ? code : undefined
 }
 
 // A system code when the error has one, else a built-in class name, else
@@ -91,7 +112,7 @@ export function isTelemetryErrorClass(value: unknown): value is string {
     value === OTHER_ERROR_CLASS ||
     BUILT_IN_ERRORS.has(value) ||
     SYSTEM_CODES.has(value) ||
-    NODE_ERROR_CODE.test(value)
+    NODE_ERROR_CODES.has(value)
   )
 }
 
