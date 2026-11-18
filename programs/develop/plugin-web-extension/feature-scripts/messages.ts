@@ -252,7 +252,7 @@ function neverCopiedLines(expectedPath: string) {
   return [
     `${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`,
     `A read of it fails at runtime.`,
-    `The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
+    `The build copies only files the project or its workspace shares, never env files or tooling files. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
   ]
 }
 
@@ -612,7 +612,7 @@ export function scriptsWithheldFile(
   lines.push(
     kind === 'private'
       ? `The build never bundles env files, tooling files or repository files. Move the code into a file with another name.`
-      : `The file is outside the project. Move it into the project.`
+      : `The file is not one the project or its workspace shares. Move it into the project.`
   )
 
   lines.push('')

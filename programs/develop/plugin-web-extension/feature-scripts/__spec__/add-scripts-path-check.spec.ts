@@ -265,7 +265,7 @@ describe.skipIf(process.platform === 'win32')(
           file: 'manifest.json',
           lines: [
             'linked.js is not bundled. Check the content_scripts[0].js field in your manifest.json file.',
-            'The file is outside the project. Move it into the project.',
+            'The file is not one the project or its workspace shares. Move it into the project.',
             'NOT FOUND <root>/linked.js'
           ]
         }

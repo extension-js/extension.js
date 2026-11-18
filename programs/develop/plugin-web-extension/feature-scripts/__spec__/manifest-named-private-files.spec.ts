@@ -315,7 +315,7 @@ describe('a file a custom key names and the build withholds', () => {
         "manifest.json names '.env' under the custom key my_files, but the file isn't in the output.",
         'NOT FOUND .env',
         'A read of it fails at runtime.',
-        'The build never copies env files, tooling files or files outside the project.'
+        'The build copies only files the project or its workspace shares, never env files or tooling files.'
       ]) {
         expect(times(sentence), sentence).toBe(2)
       }

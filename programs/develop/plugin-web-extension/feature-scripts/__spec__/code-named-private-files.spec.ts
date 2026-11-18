@@ -821,7 +821,7 @@ describe('a file the code names and the build withholds', () => {
       for (const sentence of [
         `background/service_worker.js names '${target}', but the file isn't in the output.`,
         'A read of it fails at runtime.',
-        'The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in public/.'
+        'The build copies only files the project or its workspace shares, never env files or tooling files. Keep what the extension reads in a project file under another name, or in public/.'
       ]) {
         expect(times(result.printed, sentence), sentence).toBe(4)
       }

@@ -243,7 +243,7 @@ const SAID: Array<[string, RegExp]> = [
   ],
   [
     'outside',
-    /([^\s"]+ is not bundled\. Check the \S+ field) in your manifest\.json file\.(?:\n|\\n)[^A-Za-z]*The file is outside the project\. Move it into the project\./g
+    /([^\s"]+ is not bundled\. Check the \S+ field) in your manifest\.json file\.(?:\n|\\n)[^A-Za-z]*The file is not one the project or its workspace shares\. Move it into the project\./g
   ]
 ]
 
