@@ -400,23 +400,23 @@ describe('lifecycle stream transitions', () => {
   })
 
   // start, preview, doctor and the act verbs name a refused load this way.
-  it('reports a load the browser refused with its own status and code', () => {
+  it('reports a load the browser refused with its own status and code, and the session goes on', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')
-    fs.writeFileSync(
-      readyPath,
-      JSON.stringify({
-        status: 'error',
-        code: 'extension_load_refused',
-        message: 'Chrome refused to load the extension at /proj/dist/chrome'
-      })
-    )
+    const refused = JSON.stringify({
+      status: 'error',
+      code: 'extension_load_refused',
+      message: 'Chrome refused to load the extension at /proj/dist/chrome'
+    })
+    fs.writeFileSync(readyPath, refused)
 
+    const compiler = fakeCompiler()
     const {stream, lines} = makeStream({readyPath})
+    attachLifecycleStream(compiler, stream)
+    compiler.taps.done(fakeStats({assets: 1}))
     stream.ready()
-    stream.ready()
-    expect(lines).toHaveLength(1)
-    const [frame] = parseFrames(lines)
+    expect(lines).toHaveLength(2)
+    const frame = parseFrames(lines)[1]
     expect(frame.status).toBe('load-refused')
     expect(frame.ok).toBe(false)
     expect(frame.error?.code).toBe('E_EXTENSION_LOAD_REFUSED')
@@ -424,11 +424,70 @@ describe('lifecycle stream transitions', () => {
       'Chrome refused to load the extension at /proj/dist/chrome'
     )
 
+    // The session is alive, so the hint must not send the reader to a rerun
+    // that would be refused as a second session.
     expect((frame as {hint?: string}).hint).toBe(
-      'Fix what the browser names, then run the command again.'
+      'The session keeps running. Fix what the browser names and save: the next compile offers the extension again.'
     )
 
     expect(frame.value?.readyCode).toBe('extension_load_refused')
+
+    // A compile that leaves it refused says so once, the one the browser
+    // takes says ready, and a refusal after that is a verdict of its own.
+    compiler.taps.done(fakeStats({assets: 1}))
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready', port: 8080}))
+    compiler.taps.done(fakeStats({assets: 1}))
+    compiler.taps.done(fakeStats({assets: 1}))
+    fs.writeFileSync(readyPath, refused)
+    compiler.taps.done(fakeStats({assets: 1}))
+    stream.interrupted('SIGINT')
+
+    expect(parseFrames(lines).map((entry) => entry.status)).toEqual([
+      'compiled',
+      'load-refused',
+      'recompiled',
+      'recompiled',
+      'ready',
+      'recompiled',
+      'recompiled',
+      'load-refused',
+      'stopped'
+    ])
+
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('ends with one failed frame that carries the refusal when the process exits on it', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'extension_load_refused',
+        message: 'Chrome refused to load the extension'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.ready()
+    stream.exited(1)
+    stream.exited(1)
+
+    const frames = parseFrames(lines)
+    expect(frames.map((entry) => entry.status)).toEqual([
+      'starting',
+      'load-refused',
+      'failed'
+    ])
+
+    expect(frames[2].error?.code).toBe('E_EXTENSION_LOAD_REFUSED')
+    expect(frames[2].value?.readyCode).toBe('extension_load_refused')
+    expect((frames[2] as {hint?: string}).hint).toBe(
+      'Fix what the browser names, then run the command again.'
+    )
+
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
@@ -514,7 +573,7 @@ describe('lifecycle stream transitions', () => {
   it.each([
     [
       'the browser exits and a signal follows',
-      'browser-exited',
+      ['browser-exited', 'stopped'],
       (stream: ReturnType<typeof makeStream>['stream']) => {
         stream.browserExited({exitCode: 9})
         stream.interrupted('SIGINT')
@@ -522,7 +581,7 @@ describe('lifecycle stream transitions', () => {
     ],
     [
       'the contract reports a launch that failed and a signal follows',
-      'failed',
+      ['failed'],
       (stream: ReturnType<typeof makeStream>['stream']) => {
         stream.ready()
         stream.interrupted('SIGINT')
@@ -530,7 +589,7 @@ describe('lifecycle stream transitions', () => {
     ],
     [
       'a signal arrives and the first compile lands after it',
-      'stopped',
+      ['stopped'],
       (stream: ReturnType<typeof makeStream>['stream']) => {
         const compiler = fakeCompiler()
         attachLifecycleStream(compiler, stream)
@@ -542,20 +601,20 @@ describe('lifecycle stream transitions', () => {
     ],
     [
       'the server never binds and the browser exit is read after',
-      'failed',
+      ['failed'],
       (stream: ReturnType<typeof makeStream>['stream']) => {
         stream.failed('listen EADDRINUSE')
         stream.browserExited({exitCode: 9})
         stream.interrupted('SIGTERM')
       }
     ]
-  ])('writes one terminal frame and nothing after it when %s', (_name, status, drive) => {
+  ])('writes one terminal frame and nothing after it when %s', (_name, statuses, drive) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-lifecycle-'))
     const readyPath = path.join(dir, 'ready.json')
     fs.writeFileSync(
       readyPath,
       JSON.stringify(
-        status === 'failed' && _name.startsWith('the contract')
+        _name.startsWith('the contract')
           ? {
               status: 'error',
               code: 'browser_launch_failed',
@@ -575,7 +634,7 @@ describe('lifecycle stream transitions', () => {
 
       expect(parseFrames(lines).map((frame) => frame.status)).toEqual([
         'starting',
-        status
+        ...statuses
       ])
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
@@ -592,18 +651,33 @@ describe('lifecycle stream transitions', () => {
     expect(frames[1].error?.code).toBe('E_INTERRUPTED')
   })
 
-  it('adds no second terminal frame at exit after a failed or browser-exited one', () => {
+  it('adds no second terminal frame at exit after a failed one', () => {
     const failed = makeStream()
     failed.stream.starting({requestedPort: 8080, port: 8080})
     failed.stream.failed('listen EADDRINUSE')
     failed.stream.exited(1)
     expect(failed.lines).toHaveLength(2)
+  })
 
+  it('still owes the terminal frame at exit after a browser exit, which ends nothing', () => {
     const exited = makeStream()
     exited.stream.starting({requestedPort: 8080, port: 8080})
     exited.stream.browserExited({exitCode: 9})
+    exited.stream.compiled({assets: 1})
     exited.stream.exited(1)
-    expect(exited.lines).toHaveLength(2)
+    exited.stream.exited(1)
+
+    const frames = parseFrames(exited.lines)
+    expect(frames.map((frame) => frame.status)).toEqual([
+      'starting',
+      'browser-exited',
+      'compiled',
+      'failed'
+    ])
+
+    expect((frames[1] as {hint?: string}).hint).toBe(
+      'The dev server keeps running with no browser. Stop it, then run the command again to launch one.'
+    )
   })
 
   it('leaves a failure before the starting frame to the command layer', () => {
@@ -650,15 +724,11 @@ describe('lifecycle stream transitions', () => {
       (stream: ReturnType<typeof makeStream>['stream']) => stream.ready()
     ],
     [
-      'the process exit',
-      (stream: ReturnType<typeof makeStream>['stream']) => stream.exited(1)
-    ],
-    [
       'the exit watcher',
       (stream: ReturnType<typeof makeStream>['stream']) =>
         stream.browserExited()
     ]
-  ])('writes the same browser-exited frame when %s reads the exit first', (_name, notice) => {
+  ])('writes the same browser-exited frame, once, when %s reads the exit first', (_name, notice) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-lifecycle-'))
     const readyPath = path.join(dir, 'ready.json')
     fs.writeFileSync(
@@ -678,12 +748,17 @@ describe('lifecycle stream transitions', () => {
       notice(stream)
       stream.ready()
       stream.browserExited()
-      stream.exited(1)
+      // The server keeps compiling with no browser until it is stopped.
+      stream.compiled({assets: 1})
+      stream.ready()
+      stream.interrupted('SIGINT')
 
       const frames = parseFrames(lines)
       expect(frames.map((frame) => frame.status)).toEqual([
         'starting',
-        'browser-exited'
+        'browser-exited',
+        'compiled',
+        'stopped'
       ])
 
       expect(frames[1].error?.code).toBe('E_BROWSER_LAUNCH')
@@ -692,6 +767,38 @@ describe('lifecycle stream transitions', () => {
         exitCode: 0,
         browserExitedAt: '2026-10-03T00:00:00.000Z'
       })
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('ends with one failed frame coded as the browser exit when the process exits on it', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-lifecycle-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'browser_exited',
+        message: 'the chromium process exited (code 0); nothing is running',
+        browserExitedAt: '2026-10-03T00:00:00.000Z'
+      })
+    )
+
+    try {
+      const {stream, lines} = makeStream({readyPath})
+      stream.starting({requestedPort: 8080, port: 8080})
+      stream.exited(1)
+      stream.browserExited()
+
+      const frames = parseFrames(lines)
+      expect(frames.map((frame) => frame.status)).toEqual([
+        'starting',
+        'failed'
+      ])
+
+      expect(frames[1].error?.code).toBe('E_BROWSER_LAUNCH')
+      expect(frames[1].value?.readyCode).toBe('browser_exited')
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }

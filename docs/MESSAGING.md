@@ -284,23 +284,37 @@ What is stable and what is not:
   itself after a change that needs a new compiler (a manifest entry, an env file, a public
   folder) and could not. `ok` is `false`, `value.serving` is `true`, and
   the previous build keeps serving.
-- A `dev` stream ends with exactly one terminal frame, and nothing is written after it. The
-  terminal statuses are `failed`, `usage`, `load-refused`, `browser-exited` and `stopped`.
-  Stop reading at the first one.
+- A `dev` stream ends with exactly one terminal frame, and nothing is written after it. A
+  terminal frame means the process is ending. The terminal statuses are `failed`, `usage` and
+  `stopped`. Stop reading at the first one. Every other `ok: false` frame leaves the session
+  running and the stream open, so do not start the command again on one of them: the session
+  is still alive and a second one is refused with `E_SESSION_EXISTS`.
 - A session that ends on its own with nothing wrong, such as one with an auto-exit deadline,
   writes a `stopped` frame with `ok: true`. Its `value` describes the session and carries
   `exitCode: 0`. A session stopped by a signal writes `stopped` with `ok: false` and the code
   `E_INTERRUPTED`.
+- `browser-exited` does not end a `dev` stream: the dev server outlives its browser and goes on
+  compiling. It is written once per exit, by whichever of the ready report and the exit watcher
+  reads the exit first, with `error.code` `E_BROWSER_LAUNCH` (or `E_PROFILE_LOCKED`) and
+  `value.readyCode`. Stop the session before running `dev` again.
+- `load-refused` does not end a `dev` stream: the session keeps running and offers the
+  extension again on the next compile. `error.code` is `E_EXTENSION_LOAD_REFUSED` and
+  `value.readyCode` is `extension_load_refused`. A compile the browser takes writes `ready`,
+  and a refusal after that is written again.
 - `ready-failed` is a `dev` status that does not end the stream: a compile finished and the
   ready contract still reports an error that carries no browser verdict of its own. `ok` is
   `false`, `error.code` is `E_READY_ERROR_STATUS`, and `value` describes the session and
   carries `readyCode`, the contract's own id. The session keeps running, and a later compile
-  that clears the error writes `ready`. A launch that failed, a refused load and a browser
-  that exited keep their own statuses (`failed` or `usage`, `load-refused`, `browser-exited`).
+  that clears the error writes `ready`.
+- A launch that failed is reported as `failed`, or as `usage` when the launcher refused a value
+  the user set, with the code the launcher stamped. A process that exits with an error on the
+  contract writes one `failed` frame (or `usage`) that carries the contract's code and
+  `value.readyCode`, a browser exit or a refused load included.
 - A host that starts `dev` from the library gets a rejected promise when the dev server cannot
   start. The error carries `session`, the same description a frame's `value` holds, and
-  `framed`. `framed` is `true` only when the engine wrote the `failed` frame to the stream, so
-  a host that prints frames writes its own only when `framed` is not `true`.
+  `framed`. `framed` is `true` when the stream already carries its terminal frame, the one this
+  failure wrote or an earlier one, so a host that prints frames writes its own only when
+  `framed` is not `true`.
 - `browser` is optional and names the session a frame is about, so a reader of `doctor`
   knows which browser the result describes. Commands with no session leave it absent.
 
