@@ -10,16 +10,12 @@ import * as path from 'node:path'
 import type {Compiler, RuleSetRule} from '@rspack/core'
 import {debugLine, isDebug} from '../lib/messaging'
 import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
-import type {DevOptions, PluginInterface} from '../types'
 import {CheckNamespaceImports} from './check-namespace-imports'
 import {ASSET_FILENAME_PATTERN} from './static-assets-lib/asset-output-name'
 import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {
   public static readonly name: string = 'plugin-static-assets'
-
-  // biome-ignore lint/complexity/noUselessConstructor: rspack-config.ts passes the shared options, nothing here reads them
-  constructor(_options?: PluginInterface & {mode?: DevOptions['mode']}) {}
 
   public apply(compiler: Compiler) {
     new CheckNamespaceImports().apply(compiler)
