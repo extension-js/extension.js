@@ -154,13 +154,14 @@ const PRODUCTION = [
 
 const sorted = (...lists: string[][]) => lists.flat().sort()
 
+// In rule order, and loaders run from the last rule to the first: the
+// concatenation, any rule the project added, the wrapper, the getURL loader.
 const WRAPPED = [
   'feature-scripts-native-geturl-import-loader',
   'feature-scripts-content-script-wrapper',
-  'feature-scripts-classic-concat-loader',
   'feature-scripts-content-script-wrapper',
   'feature-scripts-content-script-wrapper',
-  'feature-scripts-content-script-wrapper'
+  'feature-scripts-classic-concat-loader'
 ]
 
 describe('ScriptsPlugin steps on a real compiler', () => {
@@ -199,7 +200,7 @@ describe('ScriptsPlugin steps on a real compiler', () => {
       expect(loaders.map(({loader}) => loader)).toEqual(WRAPPED)
       expect(
         loaders.filter(({options}) => options).map(({options}) => options.mode)
-      ).toEqual([mode, mode, mode, mode])
+      ).toEqual([mode, mode, mode])
     }
   })
 
@@ -212,7 +213,6 @@ describe('ScriptsPlugin steps on a real compiler', () => {
     expect(wrapperOptions(plain.loaders).map((o) => o.devSession)).toEqual([
       false,
       false,
-      false,
       false
     ])
 
@@ -222,7 +222,7 @@ describe('ScriptsPlugin steps on a real compiler', () => {
 
     expect(
       wrapperOptions(session.loaders).map((o) => 'devSession' in o)
-    ).toEqual([false, false, false, false])
+    ).toEqual([false, false, false])
 
     expect(session.taps).not.toContain(
       'thisCompilation:scripts:warn-missing-build-constants'
