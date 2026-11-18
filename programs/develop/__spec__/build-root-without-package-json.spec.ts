@@ -1,5 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {unzipSync} from 'fflate'
 import {describe, expect, it, vi} from 'vitest'
 import {extensionBuild} from '../command-build'
 import {getDirs} from '../lib/paths'
@@ -301,5 +302,51 @@ describe('output an earlier build left beside the manifest', () => {
     } finally {
       log.mockRestore()
     }
+  })
+})
+
+describe('a manifest found deeper below the named folder', () => {
+  it('writes dist at the named folder and zips the source from there', async () => {
+    const root = fs.realpathSync(tempFolder('extjs-root-deep-'))
+    const deep = path.join(root, 'apps', 'web', 'ext')
+
+    fs.mkdirSync(deep, {recursive: true})
+    fs.writeFileSync(
+      path.join(deep, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Deep Probe',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'}
+      })
+    )
+
+    fs.writeFileSync(path.join(deep, 'background.js'), 'console.log("deep")\n')
+
+    await build(root, {zip: true, zipSource: true})
+
+    const sourceZip = unzipSync(
+      new Uint8Array(
+        fs.readFileSync(path.join(root, 'dist', 'deep-probe-1.0.0-source.zip'))
+      )
+    )
+
+    expect({
+      manifest: fs.existsSync(
+        path.join(root, 'dist', 'chromium', 'manifest.json')
+      ),
+      zips: filesUnder(path.join(root, 'dist')).filter((entry) =>
+        entry.endsWith('.zip')
+      ),
+      besideManifest: fs.readdirSync(deep).sort(),
+      between: fs.readdirSync(path.join(root, 'apps', 'web')),
+      source: Object.keys(sourceZip).sort()
+    }).toEqual({
+      manifest: true,
+      zips: ['deep-probe-1.0.0-chromium.zip', 'deep-probe-1.0.0-source.zip'],
+      besideManifest: ['background.js', 'manifest.json'],
+      between: ['ext'],
+      source: ['apps/web/ext/background.js', 'apps/web/ext/manifest.json']
+    })
   })
 })
