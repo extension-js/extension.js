@@ -8,45 +8,55 @@
 
 import {isChromiumBasedBrowser} from '../../../lib/constants'
 import type {DevOptions, Manifest} from '../../../types'
-import {parseCssThemeColor} from '../manifest-lib/theme-values'
+import {translateThemeColor} from '../manifest-lib/theme-values'
 
-// Firefox parses theme.colors as CSS strings, Chrome only as integer arrays.
-// Convert CSS color strings (hex, named, rgb()) for chromium targets so one
-// manifest serves both; gecko keeps the string form and values outside the
-// grammar pass through untouched for the validator to refuse.
-export function patchChromiumThemeColors(
+export interface TranslatedThemeColor {
+  key: string
+  rgb: number[]
+}
+
+// Firefox reads theme.colors as CSS strings, Chromium only as number arrays.
+// The colors with one exact array reading are the ones a Chromium build ports.
+export function translatedThemeColors(
   manifest: Manifest,
   browser: DevOptions['browser']
-): Manifest {
-  if (!isChromiumBasedBrowser(String(browser))) return manifest
+): TranslatedThemeColor[] {
+  if (!isChromiumBasedBrowser(String(browser))) return []
 
   const theme = (manifest as Record<string, unknown>).theme as
     | Record<string, unknown>
     | undefined
-
-  if (!theme || typeof theme !== 'object' || Array.isArray(theme)) {
-    return manifest
-  }
-
-  const colors = theme.colors as Record<string, unknown> | undefined
+  const colors = theme?.colors
 
   if (!colors || typeof colors !== 'object' || Array.isArray(colors)) {
-    return manifest
+    return []
   }
 
-  let converted = false
-  const patchedColors: Record<string, unknown> = {}
+  const translated: TranslatedThemeColor[] = []
 
   for (const [key, value] of Object.entries(colors)) {
-    const rgb = parseCssThemeColor(value)
-    patchedColors[key] = rgb ?? value
-    if (rgb) converted = true
+    const rgb = translateThemeColor(value)
+    if (rgb) translated.push({key, rgb})
   }
 
-  if (!converted) return manifest
+  return translated
+}
 
-  return {
-    ...manifest,
-    theme: {...theme, colors: patchedColors}
-  } as Manifest
+export function patchChromiumThemeColors(
+  manifest: Manifest,
+  browser: DevOptions['browser']
+): Manifest {
+  const translated = translatedThemeColors(manifest, browser)
+
+  if (translated.length === 0) return manifest
+
+  const theme = (manifest as Record<string, unknown>).theme as Record<
+    string,
+    unknown
+  >
+  const colors = {...(theme.colors as Record<string, unknown>)}
+
+  for (const {key, rgb} of translated) colors[key] = rgb
+
+  return {...manifest, theme: {...theme, colors}} as Manifest
 }

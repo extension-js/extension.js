@@ -1,69 +1,46 @@
 import {describe, expect, it} from 'vitest'
+import {translateThemeColor} from '../manifest-lib/theme-values'
 import {
-  parseCssThemeColor,
-  parseHexThemeColor
-} from '../manifest-lib/theme-values'
-import {patchChromiumThemeColors} from '../steps/patch-chromium-theme-colors'
+  patchChromiumThemeColors,
+  translatedThemeColors
+} from '../steps/patch-chromium-theme-colors'
 
-describe('parseHexThemeColor', () => {
-  it('parses long-form hex', () => {
-    expect(parseHexThemeColor('#ff0000')).toEqual([255, 0, 0])
-    expect(parseHexThemeColor('#FFFFFF')).toEqual([255, 255, 255])
+describe('translateThemeColor', () => {
+  it('reads six and three digit hex in either case', () => {
+    expect(translateThemeColor('#ff0000')).toEqual([255, 0, 0])
+    expect(translateThemeColor('#FFFFFF')).toEqual([255, 255, 255])
+    expect(translateThemeColor('#e53')).toEqual([238, 85, 51])
+    expect(translateThemeColor(' #000 ')).toEqual([0, 0, 0])
   })
 
-  it('parses shorthand hex', () => {
-    expect(parseHexThemeColor('#000')).toEqual([0, 0, 0])
-    expect(parseHexThemeColor('#e53')).toEqual([238, 85, 51])
+  it('reads rgb() with three whole channels', () => {
+    expect(translateThemeColor('rgb(0, 0, 0)')).toEqual([0, 0, 0])
+    expect(translateThemeColor('RGB(255,128,0)')).toEqual([255, 128, 0])
   })
 
-  it('parses alpha forms into a 0-1 alpha channel', () => {
-    expect(parseHexThemeColor('#00000000')).toEqual([0, 0, 0, 0])
-    expect(parseHexThemeColor('#000000ff')).toEqual([0, 0, 0, 1])
-    expect(parseHexThemeColor('#00000080')).toEqual([0, 0, 0, 0.502])
-    expect(parseHexThemeColor('#000f')).toEqual([0, 0, 0, 1])
+  // Each of these has no single exact [R, G, B] reading, or needs a table
+  // the author should see, so the build refuses instead of guessing.
+  it.each([
+    '#00000080',
+    '#000f',
+    'rgba(255, 0, 0, 0.5)',
+    'rgb(0, 0, 0, 1)',
+    'rgb(100%, 0%, 0%)',
+    'rgb(300, 0, 0)',
+    'rgb(0, 0)',
+    'hsl(0, 100%, 50%)',
+    'red',
+    'transparent',
+    '#00',
+    '#ggg',
+    '000000'
+  ])('leaves %s untranslated', (value) => {
+    expect(translateThemeColor(value)).toBeUndefined()
   })
 
-  it('rejects everything that is not a hex color string', () => {
-    expect(parseHexThemeColor('red')).toBeUndefined()
-    expect(parseHexThemeColor('rgb(0, 0, 0)')).toBeUndefined()
-    expect(parseHexThemeColor('#00')).toBeUndefined()
-    expect(parseHexThemeColor('#ggg')).toBeUndefined()
-    expect(parseHexThemeColor('000000')).toBeUndefined()
-    expect(parseHexThemeColor([0, 0, 0])).toBeUndefined()
-    expect(parseHexThemeColor(undefined)).toBeUndefined()
-  })
-})
-
-describe('parseCssThemeColor', () => {
-  it('parses named colors case-insensitively', () => {
-    expect(parseCssThemeColor('blue')).toEqual([0, 0, 255])
-    expect(parseCssThemeColor('BLACK')).toEqual([0, 0, 0])
-    expect(parseCssThemeColor(' rebeccapurple ')).toEqual([102, 51, 153])
-  })
-
-  it('parses transparent as a zero-alpha color', () => {
-    expect(parseCssThemeColor('transparent')).toEqual([0, 0, 0, 0])
-  })
-
-  it('parses numeric rgb() and rgba()', () => {
-    expect(parseCssThemeColor('rgb(0, 0, 0)')).toEqual([0, 0, 0])
-    expect(parseCssThemeColor('rgb(255,128,0)')).toEqual([255, 128, 0])
-    expect(parseCssThemeColor('rgba(255, 0, 0, 0.5)')).toEqual([255, 0, 0, 0.5])
-    expect(parseCssThemeColor('rgba(0, 0, 0, 1)')).toEqual([0, 0, 0, 1])
-  })
-
-  it('keeps hex parsing intact', () => {
-    expect(parseCssThemeColor('#e53')).toEqual([238, 85, 51])
-    expect(parseCssThemeColor('#00000080')).toEqual([0, 0, 0, 0.502])
-  })
-
-  it('refuses what the grammar does not cover', () => {
-    expect(parseCssThemeColor('notacolor')).toBeUndefined()
-    expect(parseCssThemeColor('hsl(0, 100%, 50%)')).toBeUndefined()
-    expect(parseCssThemeColor('rgb(300, 0, 0)')).toBeUndefined()
-    expect(parseCssThemeColor('rgb(0, 0)')).toBeUndefined()
-    expect(parseCssThemeColor([0, 0, 0])).toBeUndefined()
-    expect(parseCssThemeColor(undefined)).toBeUndefined()
+  it('leaves non-strings untranslated', () => {
+    expect(translateThemeColor([0, 0, 0])).toBeUndefined()
+    expect(translateThemeColor(undefined)).toBeUndefined()
   })
 })
 
@@ -76,48 +53,39 @@ describe('patchChromiumThemeColors', () => {
       theme: {colors, images: {theme_frame: 'frame.png'}}
     }) as any
 
-  it('converts hex colors to arrays for chromium targets', () => {
-    const patched: any = patchChromiumThemeColors(
-      themedManifest({tab_text: '#000', frame: '#e53935', bg: '#00000080'}),
-      'chrome'
-    )
+  it('writes hex and rgb() as arrays for chromium targets and names them', () => {
+    const manifest = themedManifest({
+      tab_text: '#000',
+      frame: '#e53935',
+      toolbar: 'rgb(1, 2, 3)',
+      bar: [4, 5, 6]
+    })
+    const patched: any = patchChromiumThemeColors(manifest, 'chrome')
+
     expect(patched.theme.colors).toEqual({
       tab_text: [0, 0, 0],
       frame: [229, 57, 53],
-      bg: [0, 0, 0, 0.502]
+      toolbar: [1, 2, 3],
+      bar: [4, 5, 6]
     })
-  })
 
-  it('converts named colors and rgb() for chromium targets', () => {
-    const patched: any = patchChromiumThemeColors(
-      themedManifest({frame: 'blue', tab_text: 'BLACK', bg: 'rgb(255, 0, 0)'}),
-      'chrome'
-    )
-    expect(patched.theme.colors).toEqual({
-      frame: [0, 0, 255],
-      tab_text: [0, 0, 0],
-      bg: [255, 0, 0]
-    })
-  })
-
-  it('keeps sibling theme keys and unconvertible values untouched', () => {
-    const patched: any = patchChromiumThemeColors(
-      themedManifest({frame: '#000', toolbar: [1, 2, 3], odd: 'notacolor'}),
-      'chromium'
-    )
     expect(patched.theme.images).toEqual({theme_frame: 'frame.png'})
-    expect(patched.theme.colors.toolbar).toEqual([1, 2, 3])
-    expect(patched.theme.colors.odd).toBe('notacolor')
+    expect(manifest.theme.colors.frame).toBe('#e53935')
+    expect(
+      translatedThemeColors(manifest, 'chromium').map(({key}) => key)
+    ).toEqual(['tab_text', 'frame', 'toolbar'])
   })
 
-  it('returns the manifest unchanged for gecko targets', () => {
+  it('returns gecko manifests unchanged and names nothing', () => {
     const manifest = themedManifest({frame: '#000'})
     expect(patchChromiumThemeColors(manifest, 'firefox')).toBe(manifest)
+    expect(translatedThemeColors(manifest, 'firefox')).toEqual([])
   })
 
-  it('returns the manifest unchanged without convertible colors', () => {
+  it('returns the manifest unchanged with nothing to translate', () => {
     const manifest = themedManifest({frame: [0, 0, 0]})
     expect(patchChromiumThemeColors(manifest, 'chrome')).toBe(manifest)
+    expect(translatedThemeColors(manifest, 'chrome')).toEqual([])
     const themeless = {manifest_version: 3, name: 'x', version: '1.0.0'} as any
     expect(patchChromiumThemeColors(themeless, 'chrome')).toBe(themeless)
   })

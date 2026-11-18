@@ -507,6 +507,32 @@ describe('JsFrameworksPlugin script kinds', () => {
     })
   })
 
+  it('hands a content script path to one of the two content script rules', async () => {
+    const root = makeProject({
+      'package.json': {},
+      'manifest.json': {
+        ...MANIFEST,
+        content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}]
+      }
+    })
+    const {contentByPath, contentByIssuer} = swcRules(await configure(root))
+    const byPath = callable(contentByPath?.include)
+    const leftToByPath = callable((contentByIssuer?.exclude as unknown[])[1])
+
+    for (const file of ['content.js', 'helper.js']) {
+      const resource = path.join(root, file)
+
+      expect(leftToByPath(resource)).toBe(byPath(resource))
+    }
+
+    expect(byPath(path.join(root, 'content.js'))).toBe(true)
+    expect(byPath(path.join(root, 'helper.js'))).toBe(false)
+    // Both compile the same way, so which one takes a file changes nothing.
+    expect(swcOptionsFor(contentByIssuer, '/x/a.tsx')).toEqual(
+      swcOptionsFor(contentByPath, '/x/a.tsx')
+    )
+  })
+
   it('marks only <script type="module"> page scripts as ESM', async () => {
     const root = makeProject({
       'package.json': {},
