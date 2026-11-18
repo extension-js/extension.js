@@ -7,14 +7,17 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {spawnSync} from 'node:child_process'
-import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as messages from './messages'
 import {humanLine} from './messaging'
-import {linkFreePath} from './real-path'
-import {sessionArtifactsRootDir as projectArtifactsRootDir} from './session-contract'
+import {
+  browserArtifactsDir,
+  readyContractPath,
+  sessionArtifactsRootDir
+} from './session-contract'
+
+export {browserArtifactsDir, readyContractPath, sessionArtifactsRootDir}
 
 export function sessionStateDir(projectPath: string): string {
   return path.resolve(projectPath, '.extension-js')
@@ -67,165 +70,6 @@ export function ensureSessionStateIgnoreFile(projectPath: string): void {
   }
 }
 
-// The roots this process settled on: a previewed build keeps its state
-// outside itself, and a command that compiles keeps it in the project.
-const settledArtifactsRoots = new Map<string, string>()
-
-function isWritableDir(dir: string): boolean {
-  try {
-    fs.accessSync(dir, fs.constants.W_OK)
-
-    return fs.statSync(dir).isDirectory()
-  } catch {
-    return false
-  }
-}
-
-function besideArtifactsRoot(buildDir: string): string {
-  return path.join(path.dirname(path.resolve(buildDir)), 'extension-js')
-}
-
-function tempArtifactsRoot(buildDir: string): string {
-  const key = createHash('sha1')
-    .update(linkFreePath(path.resolve(buildDir)))
-    .digest('hex')
-    .slice(0, 12)
-
-  return path.join(os.tmpdir(), 'extension-js', key)
-}
-
-// Only a dist folder is a place made for builds, and the root beside a build
-// in it is the project's own. Any other parent is left as the user keeps it.
-function sitsInDistFolder(buildDir: string): boolean {
-  return path.basename(path.dirname(path.resolve(buildDir))) === 'dist'
-}
-
-// Beside a build under dist/, where its own summary already sits. Anywhere
-// else, or with a dist/ that takes no write, a temp root keyed by the folder.
-export function previewedBuildArtifactsRoot(buildDir: string): string {
-  const beside = besideArtifactsRoot(buildDir)
-  const usable =
-    sitsInDistFolder(buildDir) &&
-    (fs.existsSync(beside)
-      ? isWritableDir(beside)
-      : isWritableDir(path.dirname(beside)))
-
-  return usable ? beside : tempArtifactsRoot(buildDir)
-}
-
-// The folder a preview loads as it is: a zip or a browser load of it would
-// carry any session state written inside, so none is written there.
-export function keepSessionArtifactsOutOfBuild(buildDir: string): string {
-  const root = previewedBuildArtifactsRoot(buildDir)
-
-  settledArtifactsRoots.set(path.resolve(buildDir), root)
-
-  return root
-}
-
-// A command that compiles this folder owns dist/ under it, whatever an
-// earlier preview of the same folder left beside it.
-export function keepSessionArtifactsInProject(projectPath: string): void {
-  settledArtifactsRoots.set(
-    path.resolve(projectPath),
-    projectArtifactsRootDir(projectPath)
-  )
-}
-
-function newestContractNaming(
-  root: string,
-  manifestDir?: string
-): number | undefined {
-  let newest: number | undefined
-
-  try {
-    for (const entry of fs.readdirSync(root)) {
-      const readyFile = path.join(root, entry, 'ready.json')
-
-      try {
-        const writtenAt = fs.statSync(readyFile).mtimeMs
-
-        if (manifestDir) {
-          const contract = JSON.parse(fs.readFileSync(readyFile, 'utf-8'))
-
-          if (typeof contract?.manifestPath !== 'string') continue
-
-          if (
-            linkFreePath(path.dirname(contract.manifestPath)) !== manifestDir
-          ) {
-            continue
-          }
-        }
-
-        if (newest === undefined || writtenAt > newest) newest = writtenAt
-      } catch {
-        // No contract in this folder, or one that cannot be read.
-      }
-    }
-  } catch {
-    // No such root.
-  }
-
-  return newest
-}
-
-// Another process previewed this folder as a build: its contract names the
-// folder's manifest from outside it. The latest record of the two wins.
-function previewedElsewhereRoot(
-  projectPath: string,
-  own: string
-): string | undefined {
-  if (!fs.existsSync(path.join(projectPath, 'manifest.json'))) return undefined
-  if (fs.existsSync(path.join(projectPath, 'package.json'))) return undefined
-
-  const folder = linkFreePath(path.resolve(projectPath))
-  let found: {root: string; writtenAt: number} | undefined
-
-  for (const root of [
-    ...(sitsInDistFolder(projectPath)
-      ? [besideArtifactsRoot(projectPath)]
-      : []),
-    tempArtifactsRoot(projectPath)
-  ]) {
-    const writtenAt = newestContractNaming(root, folder)
-
-    if (writtenAt === undefined) continue
-    if (!found || writtenAt > found.writtenAt) found = {root, writtenAt}
-  }
-
-  if (!found) return undefined
-
-  const ownWrittenAt = newestContractNaming(own)
-
-  return ownWrittenAt !== undefined && ownWrittenAt > found.writtenAt
-    ? undefined
-    : found.root
-}
-
-export function sessionArtifactsRootDir(projectPath: string): string {
-  const own = projectArtifactsRootDir(projectPath)
-
-  return (
-    settledArtifactsRoots.get(path.resolve(projectPath)) ??
-    previewedElsewhereRoot(projectPath, own) ??
-    own
-  )
-}
-
-export function browserArtifactsDir(
-  projectPath: string,
-  browser: string
-): string {
-  return path.join(sessionArtifactsRootDir(projectPath), browser)
-}
-
-export function readyContractPath(
-  projectPath: string,
-  browser: string
-): string {
-  return path.join(browserArtifactsDir(projectPath, browser), 'ready.json')
-}
-
 // dist/extension-js holds a full managed browser profile; a '*' .gitignore
 // inside the session root defends adopted projects from committing personal data.
 export const SESSION_ARTIFACTS_IGNORE_CONTENT =
@@ -250,19 +94,6 @@ const SESSION_ARTIFACTS_README_CONTENT =
   '- `<browser>/logs.ndjson`, `<browser>/actions.ndjson`: dev session logs\n' +
   '- `profiles/`: managed browser profiles (cookies, history, logins)\n\n' +
   'The builds themselves are the sibling folders, such as `dist/chrome`.\n'
-
-// The same folder kept in the temp directory, for a previewed build that has
-// no dist/ of a project around it. What it says has to be true there.
-const RELOCATED_SESSION_ARTIFACTS_README_CONTENT =
-  '# Extension.js session state\n\n' +
-  'Extension.js writes this folder for a build it previewed from a folder\n' +
-  'that no project owns, so that nothing is written inside that build. It is\n' +
-  'not a browser build and is safe to delete while no session is running.\n\n' +
-  '- `<browser>/ready.json`: the session contract (status, ports, browser\n' +
-  '  pid). Its `distPath` names the folder that was previewed\n' +
-  '- `<browser>/events.ndjson`: the lifecycle events of the latest session\n' +
-  '- `<browser>/logs.ndjson`, `<browser>/actions.ndjson`: session logs\n' +
-  '- `profiles/`: managed browser profiles (cookies, history, logins)\n'
 
 function sessionArtifactsReadmePath(projectPath: string): string {
   return path.join(sessionArtifactsRootDir(projectPath), 'README.md')
@@ -295,13 +126,7 @@ export function ensureSessionArtifactsIgnoreFile(projectPath: string): void {
     const readme = sessionArtifactsReadmePath(projectPath)
 
     if (!fs.existsSync(readme)) {
-      fs.writeFileSync(
-        readme,
-        path.basename(path.dirname(readme)) === 'extension-js' &&
-          path.basename(path.dirname(path.dirname(readme))) === 'dist'
-          ? SESSION_ARTIFACTS_README_CONTENT
-          : RELOCATED_SESSION_ARTIFACTS_README_CONTENT
-      )
+      fs.writeFileSync(readme, SESSION_ARTIFACTS_README_CONTENT)
     }
   } catch {
     // A hygiene guard must never break a dev session or build.

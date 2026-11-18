@@ -33,15 +33,13 @@ import {type AbsolutePath, asAbsolute} from '../lib/paths'
 import {ownProcessStartedAt} from '../lib/process-started-at'
 import {renameSyncWithRetry} from '../lib/rename-with-retry'
 import {
+  browserArtifactsDir,
   type OwedDebuggerPorts,
   owedPortsSettled,
+  readyContractPath,
   releaseHeldReady as releaseHeld
 } from '../lib/session-contract'
-import {
-  browserArtifactsDir,
-  readyContractPath,
-  eventsPath as sessionEventsPath
-} from '../lib/session-paths'
+import {eventsPath as sessionEventsPath} from '../lib/session-paths'
 import packageJson from '../package.json'
 
 export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'

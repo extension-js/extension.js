@@ -107,7 +107,6 @@ import {
   buildSummaryPath,
   ensureSessionArtifactsIgnoreFile,
   ensureSessionStateInProjectGitignore,
-  keepSessionArtifactsInProject,
   readyContractPath
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
@@ -381,7 +380,6 @@ async function runBuild(
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
-    keepSessionArtifactsInProject(packageJsonDir)
     announceLeftoverOutputFolder(projectStructure)
 
     // A browser passed in wins; with none, commands.<cmd>.browser from the

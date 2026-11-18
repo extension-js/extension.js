@@ -33,7 +33,6 @@ import {
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
-import {keepSessionArtifactsInProject} from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   type BrowserLauncherFn,
@@ -92,7 +91,6 @@ export async function extensionDev(
     const debug = isAuthor
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
-    keepSessionArtifactsInProject(packageJsonDir)
     announceLeftoverOutputFolder(projectStructure)
     await ensureDevelopArtifacts()
 

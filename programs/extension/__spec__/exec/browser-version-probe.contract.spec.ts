@@ -1,10 +1,8 @@
-import {createHash} from 'node:crypto'
 import {
   chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
-  realpathSync,
   statSync,
   writeFileSync
 } from 'node:fs'
@@ -148,23 +146,13 @@ async function probeRun(
   )
 
   const stand = plantHangingBinary(join(work, 'bin'), browser)
-  // A preview of a folder no project owns keeps its state outside it, in
-  // the child's temp folder, under a key made from the folder's real path.
-  const tempFolder = join(work, 'tmp')
-  mkdirSync(tempFolder)
-  const readyPath =
-    command === 'preview'
-      ? join(
-          tempFolder,
-          'extension-js',
-          createHash('sha1')
-            .update(realpathSync(projectDir))
-            .digest('hex')
-            .slice(0, 12),
-          browser,
-          'ready.json'
-        )
-      : join(projectDir, 'dist', 'extension-js', browser, 'ready.json')
+  const readyPath = join(
+    projectDir,
+    'dist',
+    'extension-js',
+    browser,
+    'ready.json'
+  )
   const wait = (timeoutMs: number) =>
     runCli(
       [
@@ -191,7 +179,7 @@ async function probeRun(
     'json'
   ]
   const started = Date.now()
-  const session = startCli(args, {home, tempFolder})
+  const session = startCli(args, {home})
   const ceiling = setTimeout(() => session.killGroup(), EXIT_CEILING_MS)
   const run: Partial<ProbeRun> = {binary: stand.binary}
 

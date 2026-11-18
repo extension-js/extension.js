@@ -57,7 +57,6 @@ import {remoteArchiveCacheRoot} from './lib/remote-archive'
 import {sanitize} from './lib/sanitize'
 import {
   ensureSessionArtifactsIgnoreFile,
-  keepSessionArtifactsOutOfBuild,
   sessionArtifactsRootDir
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
@@ -341,16 +340,6 @@ export async function extensionPreview(
   const distPath =
     unpackedDir ||
     (namedFolderIsTheBuild ? outputPath : getDistPath(packageJsonDir, browser))
-
-  // A local folder no project owns is loaded as it is, so the session keeps
-  // its state beside that folder and a zip or a load of it carries none.
-  if (
-    !userManifestPath &&
-    !isArchiveSource(pathOrRemoteUrl ?? '') &&
-    path.resolve(outputPath) === path.resolve(packageJsonDir)
-  ) {
-    keepSessionArtifactsOutOfBuild(packageJsonDir)
-  }
 
   // A build names its browser in the summary kept beside it. A folder with
   // no summary (a download, a hand-made folder) is loaded as asked.

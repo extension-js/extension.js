@@ -1,4 +1,3 @@
-import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -75,179 +74,28 @@ function everyFileUnder(dir: string): string[] {
     .sort()
 }
 
-// Where a preview keeps the state of a folder that is not under dist/.
-function tempRootOf(build: string) {
-  const key = createHash('sha1').update(build).digest('hex').slice(0, 12)
-  const tempRoot = path.join(os.tmpdir(), 'extension-js', key)
-
-  created.push(tempRoot)
-
-  return tempRoot
-}
-
 function readJson(file: string) {
   return JSON.parse(fs.readFileSync(file, 'utf-8'))
 }
 
-describe('previewing a build folder no project owns', () => {
-  it('writes nothing inside a build under a project that does not own it', async () => {
-    const root = tree({
-      'package.json': '{"name":"repo","private":true}',
-      'dist/chrome/manifest.json': MANIFEST
-    })
-    const build = path.join(root, 'dist', 'chrome')
+describe('where a preview keeps its session state', () => {
+  it('keeps it under dist in a folder no project owns, and nowhere else', async () => {
+    const root = tree({'unpacked/manifest.json': MANIFEST})
+    const build = path.join(root, 'unpacked')
+    const state = path.join('dist', 'extension-js')
 
     await preview(build)
 
-    expect(everyFileUnder(build)).toEqual(['manifest.json'])
+    expect(fs.readdirSync(root)).toEqual(['unpacked'])
+    expect(
+      everyFileUnder(build).filter((file) => !file.startsWith(state + path.sep))
+    ).toEqual(['manifest.json'])
 
-    const ready = readJson(
-      path.join(root, 'dist', 'extension-js', 'chrome', 'ready.json')
-    )
+    const ready = readJson(path.join(build, state, 'chrome', 'ready.json'))
 
     expect(ready.status).toBe('ready')
     expect(ready.command).toBe('preview')
     expect(ready.distPath).toBe(build)
-  })
-
-  it('keeps the session in a temp root keyed by a folder outside dist', async () => {
-    const root = tree({'unpacked/manifest.json': MANIFEST})
-    const build = path.join(root, 'unpacked')
-
-    await preview(build)
-
-    // Nothing appears in a folder the user did not make for builds.
-    expect(fs.readdirSync(root)).toEqual(['unpacked'])
-    expect(everyFileUnder(build)).toEqual(['manifest.json'])
-
-    const ready = readJson(path.join(tempRootOf(build), 'chrome', 'ready.json'))
-    const readme = fs.readFileSync(
-      path.join(tempRootOf(build), 'README.md'),
-      'utf-8'
-    )
-
-    expect(ready.status).toBe('ready')
-    expect(ready.distPath).toBe(build)
-    expect(readme).toContain('a folder\nthat no project owns')
-    expect(readme).not.toContain('dist/')
-    expect(readme).not.toContain('sibling')
-  })
-
-  it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
-    'uses the temp root when dist takes no write',
-    async () => {
-      const root = tree({'dist/chrome/manifest.json': MANIFEST})
-      const dist = path.join(root, 'dist')
-      const build = path.join(dist, 'chrome')
-
-      fs.chmodSync(dist, 0o555)
-
-      try {
-        await preview(build)
-      } finally {
-        fs.chmodSync(dist, 0o755)
-      }
-
-      expect(fs.readdirSync(dist)).toEqual(['chrome'])
-      expect(everyFileUnder(build)).toEqual(['manifest.json'])
-      expect(
-        readJson(path.join(tempRootOf(build), 'chrome', 'ready.json')).distPath
-      ).toBe(build)
-    }
-  )
-
-  it('lets another process find each of two sibling folders on its own', async () => {
-    const root = tree({
-      'first/manifest.json': MANIFEST,
-      'second/manifest.json': MANIFEST,
-      'never/manifest.json': MANIFEST
-    })
-    const first = path.join(root, 'first')
-    const second = path.join(root, 'second')
-
-    await preview(first)
-    await preview(second)
-    // A process that did not run the previews has only the disk to go by.
-    vi.resetModules()
-
-    const paths = await import('../lib/session-paths')
-    const {resolveSessionProjectRoot} = await import(
-      '../lib/session-project-root'
-    )
-
-    for (const build of [first, second]) {
-      const sessionRoot = resolveSessionProjectRoot(build)
-      const readyPath = paths.readyContractPath(sessionRoot, 'chrome')
-
-      expect(sessionRoot).toBe(build)
-      expect(readyPath).toBe(
-        path.join(tempRootOf(build), 'chrome', 'ready.json')
-      )
-
-      expect(readJson(readyPath).distPath).toBe(build)
-      expect(paths.eventsPath(sessionRoot, 'chrome')).toBe(
-        path.join(tempRootOf(build), 'chrome', 'events.ndjson')
-      )
-    }
-
-    expect(tempRootOf(first)).not.toBe(tempRootOf(second))
-    // The folder next to them was never previewed, so it keeps its own root.
-    expect(paths.readyContractPath(path.join(root, 'never'), 'chrome')).toBe(
-      path.join(root, 'never', 'dist', 'extension-js', 'chrome', 'ready.json')
-    )
-  })
-
-  it('lets another process find a build previewed from under dist', async () => {
-    const root = tree({
-      'package.json': '{"name":"repo","private":true}',
-      'dist/chrome/manifest.json': MANIFEST
-    })
-    const build = path.join(root, 'dist', 'chrome')
-
-    await preview(build)
-    vi.resetModules()
-
-    const paths = await import('../lib/session-paths')
-
-    expect(paths.readyContractPath(build, 'chrome')).toBe(
-      path.join(root, 'dist', 'extension-js', 'chrome', 'ready.json')
-    )
-  })
-
-  it('leaves a folder that a command compiles with its own dist', async () => {
-    const root = tree({'plain/manifest.json': MANIFEST})
-    const project = path.join(root, 'plain')
-
-    await preview(project)
-    vi.resetModules()
-
-    const paths = await import('../lib/session-paths')
-
-    paths.keepSessionArtifactsInProject(project)
-
-    expect(paths.sessionArtifactsRootDir(project)).toBe(
-      path.join(project, 'dist', 'extension-js')
-    )
-  })
-
-  it('reads the newer record when an earlier version left one inside', async () => {
-    const root = tree({
-      'unpacked/manifest.json': MANIFEST,
-      'unpacked/dist/extension-js/chrome/ready.json': '{"status":"ready"}'
-    })
-    const build = path.join(root, 'unpacked')
-    const inside = path.join(build, 'dist', 'extension-js', 'chrome')
-    const before = new Date(Date.now() - 60_000)
-
-    fs.utimesSync(path.join(inside, 'ready.json'), before, before)
-    await preview(build)
-    vi.resetModules()
-
-    const paths = await import('../lib/session-paths')
-
-    expect(paths.readyContractPath(build, 'chrome')).toBe(
-      path.join(tempRootOf(build), 'chrome', 'ready.json')
-    )
   })
 
   it('keeps a project with its own package.json where it was', async () => {
