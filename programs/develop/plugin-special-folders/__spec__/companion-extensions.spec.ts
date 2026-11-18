@@ -553,3 +553,131 @@ describe('a companion folder named in the config, by where it sits', () => {
     )
   })
 })
+
+describe('the folder scanned for companion extensions, by where it sits', () => {
+  const canLink = process.platform !== 'win32'
+
+  // A project one folder down, so `..` has somewhere real to land.
+  function layout() {
+    const holder = fs.realpathSync(tmpDir('extjs-companion-dir-'))
+    const root = path.join(holder, 'project')
+
+    for (const dir of [
+      'extensions/one',
+      'extensions/set/inner',
+      'vendor/two',
+      'node_modules/kept/three'
+    ]) {
+      writeManifest(path.join(root, dir))
+    }
+
+    writeManifest(path.join(holder, 'outside', 'four'))
+
+    if (canLink) {
+      fs.symlinkSync(
+        path.join(holder, 'outside'),
+        path.join(root, 'linked-dir')
+      )
+
+      fs.symlinkSync(
+        path.join(holder, 'outside'),
+        path.join(root, 'extensions', 'linked-set')
+      )
+
+      fs.symlinkSync(path.join(root, 'vendor'), path.join(root, 'linked-in'))
+    }
+
+    return {holder, root}
+  }
+
+  // What a session loads for one `dir`, or the refusal it gets.
+  async function outcome(root: string, dir: string) {
+    try {
+      const config = await resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: {dir}
+      })
+
+      return resolveCompanionExtensionDirs({
+        projectRoot: root,
+        config,
+        browser: 'chrome'
+      }).map((found) => toPosix(path.relative(root, found)))
+    } catch (error) {
+      return String((error as Error).message)
+    }
+  }
+
+  const refusal = (root: string, dir: string) =>
+    `extensions.dir must be inside ${path.resolve(root, 'extensions')}.\n` +
+    `Invalid dir: ${path.isAbsolute(dir) ? dir : path.resolve(root, dir)}`
+
+  const REFUSED = 'refused'
+  // A subfolder that is no extension is read one level down.
+  const DEFAULT_SET = ['extensions/one', 'extensions/set/inner']
+
+  it.each([
+    ['extensions', DEFAULT_SET],
+    ['./extensions', DEFAULT_SET],
+    ['extensions/set', ['extensions/set/inner']],
+    ['./vendor', REFUSED],
+    ['node_modules/kept', REFUSED],
+    ['.', REFUSED],
+    ['./', REFUSED],
+    ['../outside', REFUSED],
+    // A folder that is not there scans nothing, without a word.
+    ['extensions/missing', []],
+    ['missing', REFUSED]
+  ])('%s', async (dir, expected) => {
+    const {root} = layout()
+
+    expect(await outcome(root, dir)).toEqual(
+      expected === REFUSED ? refusal(root, dir) : expected
+    )
+  })
+
+  it('an absolute path, inside the project or not', async () => {
+    const {holder, root} = layout()
+    const outside = path.join(holder, 'outside')
+    const vendor = path.join(root, 'vendor')
+
+    expect(await outcome(root, outside)).toBe(refusal(root, outside))
+    expect(await outcome(root, vendor)).toBe(refusal(root, vendor))
+    expect(await outcome(root, path.join(root, 'extensions'))).toEqual(
+      DEFAULT_SET
+    )
+  })
+
+  it.skipIf(!canLink)('a link, by where it leads', async () => {
+    const {root} = layout()
+
+    expect(await outcome(root, 'linked-dir')).toBe(refusal(root, 'linked-dir'))
+    expect(await outcome(root, 'linked-in')).toBe(refusal(root, 'linked-in'))
+    // The spelling sits under extensions/, so the folder outside is scanned.
+    expect(await outcome(root, 'extensions/linked-set')).toEqual([
+      'extensions/linked-set/four'
+    ])
+  })
+
+  it.skipIf(!canLink)(
+    'never follows a link that is one entry of the scanned folder',
+    async () => {
+      const {holder, root} = layout()
+
+      fs.symlinkSync(
+        path.join(holder, 'outside', 'four'),
+        path.join(root, 'extensions', 'linked-out')
+      )
+
+      fs.symlinkSync(
+        path.join(root, 'vendor', 'two'),
+        path.join(root, 'extensions', 'linked-two')
+      )
+
+      // The scan reads folders only, and a link is not one, so neither the
+      // link that leads out nor the one that stays in loads anything.
+      expect(await outcome(root, 'extensions')).toEqual(DEFAULT_SET)
+    }
+  )
+})
