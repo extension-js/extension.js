@@ -426,7 +426,8 @@ export class BrowsersPlugin implements RunnerPlugin {
           console.error(
             messages.browserLaunchFailed(
               this.options.browserOptions.browser as DevOptions['browser'],
-              reason
+              reason,
+              (error as {code?: unknown} | null)?.code
             )
           )
 

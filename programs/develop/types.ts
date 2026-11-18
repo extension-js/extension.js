@@ -12,6 +12,7 @@ import type {
 } from '@rspack/core'
 import type {LogContext} from './dev-server/control-bridge/contracts'
 import type {ManifestV2, ManifestV3} from './lib/manifest-types'
+import type {ErrorCode} from './lib/messaging'
 
 /**
  * Firefox-only `theme_experiment` manifest key.
@@ -281,6 +282,8 @@ export interface DevOptions extends BrowserOptionsBase {
   // When true, a failed dev session calls process.exit(1) (CLI wrapper passes
   // this); defaults to false: as a library, a failure is a rejected promise.
   exitOnError?: boolean
+  /** The hint a host wants on the terminal `failed` or `usage` frame of a code. */
+  hintFor?: (code: ErrorCode) => string | undefined
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
