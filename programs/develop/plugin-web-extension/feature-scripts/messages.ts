@@ -675,6 +675,47 @@ export function defaultExportUnreadable(file: string, reason: string) {
   )
 }
 
+// The wrapper reads what the loaders of extension.config.js return. With a
+// reason the parser stopped in that text, without one the export is gone.
+export function defaultExportLostToLoaders(
+  file: string,
+  loaders: string[],
+  reason?: string
+) {
+  return (
+    `${prefix('error')} Extension.js could not find the default export of ${file} in what a loader returned.\n` +
+    `${colors.gray('PATH')} ${colors.underline(file)}\n` +
+    `${colors.gray('LOADERS')} ${loaders.join(', ')}\n` +
+    (reason
+      ? `${colors.gray('REASON')} ${reason}\n` +
+        `The build parses a content script to find the function it mounts. It read this one after the loaders named above, and the parser stopped in the text they returned before it reached the export, so the script would never run.\n`
+      : `The file has a default export as written, which is the function the build mounts. The build read the file after the loaders named above, and the text they returned has no default export, so the script would never run.\n`) +
+    `Keep the default export in what the loaders return, as plain JavaScript, TypeScript or JSX, or narrow their rule so it skips this file.`
+  )
+}
+
+// Thrown, so the bundler's parse error of the wrapped text never shows.
+export function contentScriptTopLevelAwait(
+  file: string,
+  line: number,
+  column: number,
+  declared: boolean
+) {
+  const runsAs = declared
+    ? 'A content script declared in the manifest runs as a classic script'
+    : 'A file a scripting call injects runs as a classic script'
+
+  return (
+    `${prefix('error')} ${file} uses await at the top level, outside any function.\n` +
+    `${colors.gray('PATH')} ${colors.underline(`${file}:${line}:${column}`)}\n` +
+    `${runsAs}, and a classic script only allows await inside an async function. This file has no import or export, so the build compiles it as that classic script too.\n` +
+    `Wrap the code in an async function that runs right away:\n` +
+    `  ${colors.blue('(async () => {')}\n` +
+    `    // the code that uses await\n` +
+    `  ${colors.blue('})()')}`
+  )
+}
+
 // Chromium drops an @import in a sheet it injects, so one the build could
 // not write into the sheet is a rule that styles nothing there.
 export function injectedSheetImportKept(
