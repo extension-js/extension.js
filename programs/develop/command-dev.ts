@@ -65,6 +65,8 @@ export async function extensionDev(
     // Called with the failure right before exitOnError ends the process, so
     // a caller can report a run that died after its session was announced.
     onExitError?: (error: unknown, code?: string) => void
+    // Read by the dev server: an author session prints the debug lines.
+    authorMode?: boolean
   }
 ): Promise<BuildEmitter> {
   let browsersPlugin: RunnerPlugin | undefined

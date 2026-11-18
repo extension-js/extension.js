@@ -217,7 +217,7 @@ export type SafariPackagerFn = (
 ) => Promise<SafariPackageSummary | void>
 
 export interface DevOptions extends BrowserOptionsBase {
-  mode: 'development' | 'production' | 'none'
+  mode?: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
   /**

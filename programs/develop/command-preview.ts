@@ -67,14 +67,19 @@ import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-
 import {resolveCompanionExtensionDirs as resolveCompanionExtensionDirsFromSpecialFolders} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {getSpecialFoldersDataForProjectRoot} from './plugin-special-folders/get-data'
-import type {BrowserConfig, PreviewOptions, SpecialFoldersConfig} from './types'
+import type {
+  BrowserConfig,
+  BrowserType,
+  PreviewOptions,
+  SpecialFoldersConfig
+} from './types'
 
 /**
  * Resolved browser launch options returned by extensionPreview.
  * The caller is responsible for actually launching the browser.
  */
 export interface ResolvedPreviewOptions {
-  browser: string
+  browser: BrowserType
   outPath: string
   // Set when outPath is a copy that carries the control channel: the folder
   // the copy was made from, which holds the author's code alone.
@@ -120,7 +125,7 @@ export interface PreviewBrowserSession {
 
 export type PreviewLauncherFn = (
   opts: ResolvedPreviewOptions
-) => Promise<PreviewBrowserSession> | Promise<void>
+) => Promise<PreviewBrowserSession | undefined | void>
 
 function readReadyField(
   readyPath: string,
