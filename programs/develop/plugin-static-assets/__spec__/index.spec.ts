@@ -11,33 +11,36 @@ function createCompiler() {
   } as any
 }
 
-function findRuleByTest(rules: any[], regex: RegExp) {
-  return rules.find(
-    (r) => r?.test instanceof RegExp && String(r.test) === String(regex)
+// The default rules are the ones typed `asset` that carry the output name.
+function defaultRulesOf(rules: any[]) {
+  return rules.filter(
+    (r) =>
+      r?.type === 'asset' &&
+      r.generator?.filename === 'assets/[name].[contenthash:8][ext]'
   )
 }
 
+function defaultRuleFor(rules: any[], sample: string) {
+  return defaultRulesOf(rules).find((r) => r.test.test(sample))
+}
+
 describe('StaticAssetsPlugin', () => {
-  it('gives every default rule a content-hashed name and the 2 KB inline threshold', () => {
+  it('claims every default extension with one rule that inlines up to 2 KB', () => {
     const compiler = createCompiler()
     new StaticAssetsPlugin().apply(compiler)
 
-    const rules = compiler.options.module.rules as any[]
-    const defaults = [
-      /\.svg$/i,
-      /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i,
-      /\.(woff|woff2|eot|ttf|otf)$/i,
-      /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
-    ].map((test) => findRuleByTest(rules, test))
+    const defaults = defaultRulesOf(compiler.options.module.rules)
 
-    for (const rule of defaults) {
-      expect(rule.type).toBe('asset')
-      expect(rule.generator?.filename).toBe(
-        'assets/[name].[contenthash:8][ext]'
+    expect(defaults).toHaveLength(1)
+    expect(String(defaults[0].test)).toBe(
+      String(
+        /\.(svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|woff|woff2|eot|ttf|otf|txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
       )
+    )
 
-      expect(rule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
-    }
+    expect(defaults[0].parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
+    expect(defaults[0].resourceQuery).toBeUndefined()
+    expect(defaults[0].oneOf).toBeUndefined()
   })
 
   it('respects existing custom SVG rule (does not add default svg asset rule)', () => {
@@ -77,16 +80,11 @@ describe('StaticAssetsPlugin', () => {
     expect(fontRules.length).toBe(1)
     expect(fontRules[0].type).toBe('asset/inline')
 
-    expect(
-      findRuleByTest(rules, /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i)
-    ).toBeTruthy()
-
-    expect(
-      findRuleByTest(
-        rules,
-        /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
-      )
-    ).toBeTruthy()
+    expect(defaultRuleFor(rules, 'font.woff2')).toBeUndefined()
+    expect(defaultRuleFor(rules, 'image.png')).toBeTruthy()
+    expect(defaultRuleFor(rules, 'doc.pdf')).toBe(
+      defaultRuleFor(rules, 'image.png')
+    )
   })
 
   it('lets a user image rule win for its extension and keeps the default for the siblings', () => {
@@ -170,17 +168,17 @@ describe('StaticAssetsPlugin', () => {
     new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
-    const svgRules = rules.filter(
-      (r) => r?.test instanceof RegExp && String(r.test) === String(/\.svg$/i)
-    )
-    // The scoped SVGR rule only claims ?react imports, so plain imports still
-    // need the default rule.
-    expect(svgRules.length).toBe(2)
+    const defaultSvg = defaultRuleFor(rules, 'icon.svg')
 
-    const defaultRule = svgRules.find((r) => r.type === 'asset')
-    expect(defaultRule).toBeTruthy()
-    // The default excludes the SVGR query so it cannot clobber ?react imports.
-    expect(defaultRule.resourceQuery?.not).toEqual([/react/])
+    // The scoped SVGR rule only claims ?react imports, so plain imports still
+    // need the default, which excludes that query for SVG and nothing else.
+    expect(String(defaultSvg.test)).toBe(String(/\.(svg)$/i))
+    expect(defaultSvg.resourceQuery?.not).toEqual([/react/])
+    expect(defaultRulesOf(rules)).toHaveLength(2)
+    expect(defaultRuleFor(rules, 'image.png').resourceQuery).toBeUndefined()
+    expect(defaultRuleFor(rules, 'font.woff2')).toBe(
+      defaultRuleFor(rules, 'image.png')
+    )
   })
 
   it('keeps the default fonts rule when the custom rule is resourceQuery-scoped', () => {
@@ -225,5 +223,22 @@ describe('StaticAssetsPlugin', () => {
     expect(compiler.options.output.assetModuleFilename).toBe(
       'media/[name][ext]'
     )
+  })
+
+  it('appends .wasm to the extensions the config lists, once, and sets no list of its own', () => {
+    const withUser = createCompiler()
+    const withWasm = createCompiler()
+    const withNone = createCompiler()
+    withUser.options.resolve.extensions = ['.ts', '.js']
+    withWasm.options.resolve.extensions = ['.wasm', '.ts']
+
+    new StaticAssetsPlugin().apply(withUser)
+    new StaticAssetsPlugin().apply(withWasm)
+    new StaticAssetsPlugin().apply(withNone)
+
+    expect(withUser.options.resolve.extensions).toEqual(['.ts', '.js', '.wasm'])
+    expect(withWasm.options.resolve.extensions).toEqual(['.wasm', '.ts'])
+    expect(withNone.options.resolve.extensions).toBeUndefined()
+    expect(withUser.options.resolve.alias).toEqual({})
   })
 })

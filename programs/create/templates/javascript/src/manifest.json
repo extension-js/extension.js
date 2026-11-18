@@ -5,10 +5,7 @@
   "version": "1.0.0",
   "firefox:browser_specific_settings": {
     "gecko": {
-      "id": "javascript@extension.js",
-      "data_collection_permissions": {
-        "required": ["none"]
-      }
+      "id": "javascript@extension.js"
     }
   },
   "name": "JavaScript Sidebar Example",
