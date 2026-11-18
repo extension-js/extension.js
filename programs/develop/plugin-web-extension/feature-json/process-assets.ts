@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {debugLine, isDebug} from '../../lib/messaging'
+import {sourceFileMayShip} from '../../plugin-special-folders/public-private-files'
 import {isFolder} from '../shared/paths'
 import {isCriticalJsonFeature, validateJsonAsset} from './json-validation'
 import * as messages from './messages'
@@ -72,7 +73,9 @@ export function processJsonAssets(
           projectPath
         )
 
-        if (!fs.existsSync(abs)) {
+        // A file the build withholds is never opened, so no message can
+        // quote it. It gets the finding a missing file gets.
+        if (!sourceFileMayShip(abs, [projectPath, manifestDir])) {
           const displayPath = abs
           const isFatal = isCriticalJsonFeature(feature)
           const notFound = new WebpackError(

@@ -75,7 +75,7 @@ real compiler takes per mode and browser.
   Keeps `import(chrome.runtime.getURL(...))` a native `import()` in the emitted bundle.
 
 - `steps/add-public-path-runtime-module.ts`
-  Injects the production public-path runtime module for content bundles.
+  Injects the production public-path runtime module for content bundles. In a dev session the public path comes from `feature-chunk-loading` instead.
 
 - `steps/validate-emitted-script-syntax.ts`
   Fails loudly on syntax errors swc tolerates but browsers silently refuse to inject.
