@@ -11,9 +11,15 @@ import {NAMED_CSS_COLORS} from './named-css-colors'
 
 export interface ThemeValueIssue {
   field: string
-  detail: string
   value: string
+  write: string
 }
+
+const HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i
+const HEX_WITH_ALPHA = /^#([0-9a-f]{4}|[0-9a-f]{8})$/i
+const RGB = /^rgb\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)$/i
+const RGB_WITH_ALPHA =
+  /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d*\.?\d+)\s*\)$/i
 
 const isChannel = (entry: unknown): boolean =>
   typeof entry === 'number' &&
@@ -21,91 +27,90 @@ const isChannel = (entry: unknown): boolean =>
   entry >= 0 &&
   entry <= 255
 
-const isFiniteNumber = (entry: unknown): boolean =>
+const isFiniteNumber = (entry: unknown): entry is number =>
   typeof entry === 'number' && Number.isFinite(entry)
 
-// Firefox accepts CSS hex strings in theme.colors while Chrome wants integer
-// arrays; hex is unambiguous, so the chromium build converts it instead of
-// refusing. Returns [R, G, B] or [R, G, B, A] with a 0-1 alpha, or undefined.
-export function parseHexThemeColor(value: unknown): number[] | undefined {
-  if (typeof value !== 'string') return undefined
+const isAlpha = (entry: unknown): boolean =>
+  isFiniteNumber(entry) && entry >= 0 && entry <= 1
 
-  const match = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.exec(value.trim())
-  if (!match) return undefined
-
-  const hex = match[1]
-  const digits =
+function hexBytes(hex: string): number[] {
+  const pairs =
     hex.length >= 6
       ? (hex.match(/../g) as string[])
       : hex.split('').map((digit) => digit + digit)
-  const bytes = digits.map((pair) => parseInt(pair, 16))
 
-  if (bytes.length === 3) return bytes
-
-  return [...bytes.slice(0, 3), Math.round((bytes[3] / 255) * 1000) / 1000]
+  return pairs.map((pair) => parseInt(pair, 16))
 }
 
-// Firefox accepts the whole CSS <color> grammar in theme.colors. Everything
-// unambiguous converts for chromium the same way hex does: named keywords,
-// transparent, and numeric rgb()/rgba(). Values outside that grammar keep
-// refusing, so the guard on what Chrome genuinely rejects stays intact.
-export function parseCssThemeColor(value: unknown): number[] | undefined {
-  const hex = parseHexThemeColor(value)
-  if (hex) return hex
+function channels(match: RegExpExecArray): number[] | undefined {
+  const rgb = match.slice(1, 4).map(Number)
+
+  return rgb.every(isChannel) ? rgb : undefined
+}
+
+// Only the forms with one exact [R, G, B] reading translate for Chromium.
+// An alpha, a percentage, hsl() or a color name stays the author's call.
+export function translateThemeColor(value: unknown): number[] | undefined {
   if (typeof value !== 'string') return undefined
 
-  const keyword = value.trim().toLowerCase()
-  if (keyword === 'transparent') return [0, 0, 0, 0]
+  const text = value.trim()
+  const hex = HEX.exec(text)
+  if (hex) return hexBytes(hex[1])
 
-  const named = NAMED_CSS_COLORS[keyword]
-  if (named) return [...named]
+  const rgb = RGB.exec(text)
 
-  const match =
-    /^rgba?\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*,\s*(\d{1,3})\s*(?:,\s*(0|1|0?\.\d+|1\.0+)\s*)?\)$/.exec(
-      keyword
-    )
-  if (!match) return undefined
-
-  const channels = match.slice(1, 4).map(Number)
-  if (channels.some((channel) => channel > 255)) return undefined
-  if (match[4] === undefined) return channels
-
-  return [...channels, Number(match[4])]
+  return rgb ? channels(rgb) : undefined
 }
 
-// Chrome's theme_handler.cc: colors are [R, G, B] or [R, G, B, A] with integer
-// channels and a numeric alpha, anything else refuses the whole extension.
-// CSS color strings pass because the chromium manifest writer converts them.
-function colorValueDetail(value: unknown): string | undefined {
-  if (parseCssThemeColor(value)) return undefined
-
-  if (!Array.isArray(value) || (value.length !== 3 && value.length !== 4)) {
-    return 'Chrome only accepts an [R, G, B] or [R, G, B, A] array here.'
-  }
-
-  for (const entry of value.slice(0, 3)) {
-    if (!isChannel(entry)) {
-      return 'Chrome only accepts integer color channels from 0 to 255 here.'
-    }
-  }
-
-  if (value.length === 4 && !isFiniteNumber(value[3])) {
-    return 'Chrome only accepts a numeric alpha channel here.'
-  }
-
-  return undefined
+export function formatThemeArray(entries: number[]): string {
+  return `[${entries.join(', ')}]`
 }
 
-function tintValueDetail(value: unknown): string | undefined {
-  if (
-    !Array.isArray(value) ||
-    value.length !== 3 ||
-    !value.every(isFiniteNumber)
-  ) {
-    return 'Chrome only accepts a [hue, saturation, lightness] array of 3 numbers here.'
+// The array the author can write in place of a value the build refuses,
+// worked out when the value names one, the bare shape otherwise.
+function colorToWrite(value: unknown): string {
+  if (Array.isArray(value) && value.length === 4) return '[R, G, B, A]'
+  if (typeof value !== 'string') return '[R, G, B]'
+
+  const text = value.trim().toLowerCase()
+  const hex = HEX_WITH_ALPHA.exec(text)
+
+  if (hex) {
+    const bytes = hexBytes(hex[1])
+    const alpha = Math.round((bytes[3] / 255) * 100) / 100
+
+    return formatThemeArray([...bytes.slice(0, 3), alpha])
   }
 
-  return undefined
+  const rgba = RGB_WITH_ALPHA.exec(text)
+  const rgb = rgba && channels(rgba)
+
+  if (rgb && isAlpha(Number(rgba[4]))) {
+    return formatThemeArray([...rgb, Number(rgba[4])])
+  }
+
+  if (text === 'transparent') return formatThemeArray([0, 0, 0, 0])
+
+  const named = NAMED_CSS_COLORS[text]
+
+  return named ? formatThemeArray(named) : '[R, G, B]'
+}
+
+// Chrome's theme handler loads a color as [R, G, B] integers with an optional
+// numeric alpha. Channels stay within 0 to 255 and the alpha within 0 to 1.
+function isChromiumColor(value: unknown): boolean {
+  if (translateThemeColor(value)) return true
+  if (!Array.isArray(value)) return false
+  if (value.length !== 3 && value.length !== 4) return false
+  if (!value.slice(0, 3).every(isChannel)) return false
+
+  return value.length === 3 || isAlpha(value[3])
+}
+
+function isChromiumTint(value: unknown): boolean {
+  return (
+    Array.isArray(value) && value.length === 3 && value.every(isFiniteNumber)
+  )
 }
 
 export function collectThemeValueIssues(
@@ -117,13 +122,23 @@ export function collectThemeValueIssues(
   if (!theme || typeof theme !== 'object') return issues
 
   const groups: Array<
-    [string, unknown, (value: unknown) => string | undefined]
+    [string, unknown, (value: unknown) => boolean, (value: unknown) => string]
   > = [
-    ['colors', (theme as Record<string, unknown>).colors, colorValueDetail],
-    ['tints', (theme as Record<string, unknown>).tints, tintValueDetail]
+    [
+      'colors',
+      (theme as Record<string, unknown>).colors,
+      isChromiumColor,
+      colorToWrite
+    ],
+    [
+      'tints',
+      (theme as Record<string, unknown>).tints,
+      isChromiumTint,
+      () => '[H, S, L]'
+    ]
   ]
 
-  for (const [group, container, detailFor] of groups) {
+  for (const [group, container, accepts, toWrite] of groups) {
     if (
       !container ||
       typeof container !== 'object' ||
@@ -135,15 +150,13 @@ export function collectThemeValueIssues(
     for (const [key, value] of Object.entries(
       container as Record<string, unknown>
     )) {
-      const detail = detailFor(value)
+      if (accepts(value)) continue
 
-      if (detail) {
-        issues.push({
-          field: `theme.${group}.${key}`,
-          detail,
-          value: JSON.stringify(value)
-        })
-      }
+      issues.push({
+        field: `theme.${group}.${key}`,
+        value: JSON.stringify(value),
+        write: toWrite(value)
+      })
     }
   }
 

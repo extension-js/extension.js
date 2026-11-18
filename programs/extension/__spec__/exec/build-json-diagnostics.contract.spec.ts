@@ -293,6 +293,65 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
     }
   },
   {
+    code: 'E_THEME_INVALID',
+    label: 'a theme color with an alpha and a tint written as hex',
+    files: {
+      'manifest.json': mv3({
+        theme: {
+          colors: {frame: '#1b263bcc', toolbar: '#000'},
+          tints: {buttons: '#fff'}
+        }
+      })
+    },
+    args: [],
+    expected: {
+      status: 1,
+      frames: [
+        {
+          schema: 1,
+          ok: false,
+          command: 'build',
+          status: 'build-failed',
+          value: null,
+          error: {
+            code: 'E_COMPILE',
+            message: 'Build failed with errors',
+            details: [
+              {
+                code: 'E_THEME_INVALID',
+                message:
+                  'chromium loads theme.colors and theme.tints only as number arrays, and the build cannot translate these values from your manifest.json exactly:\n  theme.colors.frame "#1b263bcc", write [27, 38, 59, 0.8]\n  theme.tints.buttons "#fff", write [H, S, L]\nA color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].\nThe browser refuses the whole extension over one such value, so the build stops here.',
+                file: 'manifest.json',
+                severity: 'error',
+                name: 'ThemeValueInvalid'
+              }
+            ]
+          },
+          warnings: [],
+          hint: 'Fix the error above and run build again.'
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '⏵⏵⏵ Build error in manifest.json.',
+        '    × chromium loads theme.colors and theme.tints only as number arrays, and the build cannot translate these values from your manifest.json exactly:',
+        '    │   theme.colors.frame "#1b263bcc", write [27, 38, 59, 0.8]',
+        '    │   theme.tints.buttons "#fff", write [H, S, L]',
+        '    │ A color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].',
+        '    │ The browser refuses the whole extension over one such value, so the build stops here.',
+        '',
+        '⏵⏵⏵ Build failed with 1 error.',
+        ''
+      ].join('\n')
+    }
+  },
+  {
     code: 'E_CSS_PARSE',
     label: 'a content script stylesheet that does not parse',
     files: {

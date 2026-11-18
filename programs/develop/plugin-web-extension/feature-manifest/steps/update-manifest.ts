@@ -53,7 +53,10 @@ import {
   hasUnsupportedMv3BackgroundPage,
   patchChromiumBackground
 } from './patch-chromium-background'
-import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
+import {
+  patchChromiumThemeColors,
+  translatedThemeColors
+} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {
   hasEmptyGeckoBackgroundScripts,
@@ -76,6 +79,8 @@ export class UpdateManifest {
   private reportedSidebarFolds = new Set<string>()
   // The service worker moved into background.scripts is a note on the same terms.
   private reportedWorkerMoves = new Set<string>()
+  // So are the theme colors written as arrays for a Chromium build.
+  private reportedThemeColors = new Set<string>()
   // Same contract for the Safari unsupported-API warning, which fires in
   // development too: one line per distinct call, not one on every save.
   private reportedUnsupportedApis = new Set<string>()
@@ -232,6 +237,25 @@ export class UpdateManifest {
               )
             }
 
+            const themeColors = translatedThemeColors(forBrowser, this.browser)
+            const themeSignature = [
+              String(this.browser),
+              ...themeColors.map(({key}) => key)
+            ].join('\0')
+
+            if (
+              themeColors.length > 0 &&
+              !this.reportedThemeColors.has(themeSignature)
+            ) {
+              this.reportedThemeColors.add(themeSignature)
+              humanLine(
+                messages.themeColorsTranslated(
+                  String(this.browser),
+                  themeColors
+                )
+              )
+            }
+
             if (hasUnsupportedMv3BackgroundPage(forBrowser, this.browser)) {
               reportToCompilation(
                 compilation,
@@ -359,8 +383,8 @@ export class UpdateManifest {
               this.browser
             )
 
-            // Firefox reads theme.colors as CSS strings, Chrome as integer
-            // arrays. Convert hex for chromium so one manifest serves both.
+            // Firefox reads theme.colors as CSS strings, Chromium as number
+            // arrays. Port the exact ones so one manifest serves both.
             patchedManifest = patchChromiumThemeColors(
               patchedManifest,
               this.browser

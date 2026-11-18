@@ -35,7 +35,7 @@ export class ValidateThemeValues {
     const webkitTarget = isWebkitBasedBrowser(browserName)
 
     // Firefox parses theme colors with its own schema (CSS strings included),
-    // so only the Chromium family gets Chrome's integer-array contract.
+    // so only the Chromium family gets Chromium's number-array contract.
     // Safari has no theme surface at all, which deserves a warning, not silence.
     if (!isChromiumBasedBrowser(browserName) && !webkitTarget) return
 
@@ -73,17 +73,16 @@ export class ValidateThemeValues {
               return
             }
 
-            for (const issue of collectThemeValueIssues(manifest)) {
+            const issues = collectThemeValueIssues(manifest)
+
+            if (issues.length > 0) {
               reportToCompilation(
                 compilation,
                 compiler,
-                messages.invalidThemeValue(
-                  issue.field,
-                  issue.detail,
-                  issue.value
-                ),
+                messages.themeValuesRefused(browserName, issues),
                 'error',
-                'manifest.json'
+                'manifest.json',
+                'ThemeValueInvalid'
               )
             }
           }

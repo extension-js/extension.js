@@ -168,6 +168,10 @@
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected."
     },
+    "E_THEME_INVALID": {
+      "area": "compile",
+      "summary": "A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly."
+    },
     "E_PROD_LOOPBACK_ORIGIN": {
       "area": "compile",
       "summary": "A production manifest names a loopback origin (localhost, 127.0.0.0/8, [::1] or 0.0.0.0), which store reviewers read as unexplained host access.",
