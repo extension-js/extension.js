@@ -168,8 +168,11 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "nodeBuiltinStandInHint: function(1)",
     "projectConfigChangedRestartRequired: function(1)",
     "zipCreationFailed: function(1)",
+    "zipLeftOut: function(2)",
+    "zipLeftOutSessionFolders: function(2)",
     "zipMissingDefaultLocale: function(2)",
     "zipPackagingSkipped: function(1)",
+    "zipSourceEmpty: function(0)",
   ],
   "plugin-css/css-lib/messages.ts": [
     "cssConfigsDetected: function(3)",
@@ -362,6 +365,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "sidebarKeyTranslatedForBrowser: function(3)",
     "themeNotSupportedByBrowser: function(1)",
     "vendorPrefixedKeyDropped: function(4)",
+    "webAssemblyFetchedFromRemote: function(1)",
+    "webAssemblyPolicyMissing: function(5)",
     "webkitUnsupportedKeysDropped: function(2)",
   ],
   "plugin-web-extension/feature-scripts/messages.ts": [
