@@ -353,13 +353,14 @@ export function projectCliVersionMismatch(
 export function developVersionMismatch(
   cliVersion: string,
   engineVersion: string,
-  engineRoot: string
+  engineRoot: string,
+  reinstall = `npm install extension@${cliVersion}`
 ) {
   return (
     `${getLoggingPrefix('error')} ${code(`extension@${cliVersion}`)} found ` +
     `${code(`extension-develop@${engineVersion}`)} at ${engineRoot}. ` +
     `The two run together only at the same version.\n` +
-    `Reinstall so both are ${cliVersion}: ${code(`npm install extension@${cliVersion}`)}\n` +
+    `Reinstall so both are ${cliVersion}: ${code(reinstall)}\n` +
     `To run a local engine on purpose, set ${code('EXTENSION_DEVELOP_ROOT')} to its folder.`
   )
 }
