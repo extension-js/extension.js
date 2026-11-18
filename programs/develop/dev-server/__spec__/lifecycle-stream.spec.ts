@@ -28,6 +28,7 @@ function makeStream(
     readyPath?: string
     noBrowser?: boolean
     hintFor?: (code: string) => string | undefined
+    onUsageRefusal?: (code: string, message: string) => void
   } = {}
 ) {
   const lines: string[] = []
@@ -39,6 +40,7 @@ function makeStream(
     eventsPath: '/proj/.extension-js/chromium/events.ndjson',
     noBrowser: options.noBrowser,
     hintFor: options.hintFor,
+    onUsageRefusal: options.onUsageRefusal,
     write: (line) => lines.push(line)
   })
 
@@ -391,6 +393,37 @@ describe('lifecycle stream transitions', () => {
     expect((frames[0] as {hint?: string}).hint).toContain(
       'the next compile tries the launch again'
     )
+
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('ends on usage, and tells the host, when a launch is refused over a value the user set', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedCode: 'E_FLAG_NOT_SUPPORTED_HERE',
+        browserLaunchFailedAt: '2026-10-03T00:00:05.000Z',
+        message: 'system profile mode'
+      })
+    )
+
+    const ended: string[] = []
+    const {stream, lines} = makeStream({
+      readyPath,
+      onUsageRefusal: (code, message) => ended.push(`${code} ${message}`)
+    })
+    stream.ready()
+    stream.interrupted('SIGINT')
+    const frames = parseFrames(lines)
+
+    expect(frames.map((frame) => frame.status)).toEqual(['usage'])
+    expect(frames[0].error?.code).toBe('E_FLAG_NOT_SUPPORTED_HERE')
+    expect(frames[0].value?.readyCode).toBe('browser_launch_failed')
+    expect(ended).toEqual(['E_FLAG_NOT_SUPPORTED_HERE system profile mode'])
 
     fs.rmSync(dir, {recursive: true, force: true})
   })

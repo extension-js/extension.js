@@ -31,7 +31,7 @@ import {
 } from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {anotherDevSessionRefused} from '../lib/messages'
-import {CODES, debugLine, isDebug} from '../lib/messaging'
+import {CODES, debugLine, type ErrorCode, isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -977,6 +977,12 @@ async function startDevSession(
   stampExecutorDetached = () => metadata.stampExecutorDetached()
   stampReload = (kind, label) => metadata.stampReload(kind, label)
 
+  // Bound once the session can end itself. A usage refusal the first compile
+  // reports before then waits here for it.
+  let endOnUsageRefusal: ((code: ErrorCode, message: string) => void) | null =
+    null
+  const pendingUsageRefusal: Array<[ErrorCode, string]> = []
+
   // One schema-1 frame per lifecycle transition, on stdout, only when the
   // command layer asked for machine output (EXTENSION_OUTPUT=ndjson).
   const lifecycle = createLifecycleStream({
@@ -986,7 +992,11 @@ async function startDevSession(
     readyPath: metadata.readyPath,
     eventsPath: metadata.eventsPath,
     noBrowser: Boolean(devOptions.noBrowser),
-    hintFor: devOptions.hintFor
+    hintFor: devOptions.hintFor,
+    onUsageRefusal: (code, message) => {
+      if (endOnUsageRefusal) endOnUsageRefusal(code, message)
+      else pendingUsageRefusal.push([code, message])
+    }
   })
   startup.lifecycle = lifecycle
   holdings.addForRelease(lifecycle.emitOnExit())
@@ -1413,6 +1423,35 @@ async function startDevSession(
   )
   holdings.addForRelease(disposeCleanupHandlers)
 
+  // Writes the frame, then exits the CLI or releases a library host's session.
+  const endSession = (
+    writeFrame: () => void,
+    first: Array<() => unknown> = []
+  ) => {
+    if (exitOnStartFailure) {
+      return endAfterFrame(writeFrame, [
+        ...first,
+        () => disposeCleanupHandlers.endAsFailed()
+      ])
+    }
+
+    return endAfterFrame(writeFrame, [
+      ...first,
+      () => {
+        isShuttingDown = true
+      },
+      () => sessionRestart.dispose(),
+      () => unbindDevSessionRestart(sessionRestart),
+      () =>
+        releaseEndedSession({
+          server: currentServer ?? {},
+          releasePort: () => portManager.terminateCurrentInstance(),
+          closeControlBridge: controlBridge.close,
+          holdings
+        })
+    ])
+  }
+
   // A host that knows the session cannot go on ends it through here. The CLI
   // shuts down and exits 1, a library host keeps running with one session less.
   holdings.addEarly(
@@ -1420,30 +1459,23 @@ async function startDevSession(
       // A session already stopping keeps the frame and exit code it has.
       if (isShuttingDown) return false
 
-      const writeFrame = () => lifecycle.failed(message, code)
-
-      if (exitOnStartFailure) {
-        return endAfterFrame(writeFrame, [
-          () => disposeCleanupHandlers.endAsFailed()
-        ])
-      }
-
-      return endAfterFrame(writeFrame, [
-        () => {
-          isShuttingDown = true
-        },
-        () => sessionRestart.dispose(),
-        () => unbindDevSessionRestart(sessionRestart),
-        () =>
-          releaseEndedSession({
-            server: currentServer ?? {},
-            releasePort: () => portManager.terminateCurrentInstance(),
-            closeControlBridge: controlBridge.close,
-            holdings
-          })
-      ])
+      return endSession(() => lifecycle.failed(message, code))
     })
   )
+
+  // The usage frame is already out. The CLI host exits through onExitError
+  // under --output json, where nothing here exits the process.
+  endOnUsageRefusal = (code, message) => {
+    if (isShuttingDown) return
+
+    const refusal = Object.assign(new Error(message), {code})
+
+    endSession(() => {}, [() => extendedOptions.onExitError?.(refusal, code)])
+  }
+
+  for (const [code, message] of pendingUsageRefusal.splice(0)) {
+    endOnUsageRefusal(code, message)
+  }
 
   // Only now is the session live: a throw in the wiring above still releases
   // the claim, the port and the server through the failed start.

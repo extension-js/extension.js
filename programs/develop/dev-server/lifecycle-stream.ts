@@ -161,6 +161,9 @@ export interface LifecycleStreamOptions {
   noBrowser?: boolean
   // The host's hint for a code, for a terminal failure that carries none.
   hintFor?: (code: ErrorCode) => string | undefined
+  // Ends the session once a launch refused over a value the user set is
+  // framed as usage. Without it the refusal reads as a survivable one.
+  onUsageRefusal?: (code: ErrorCode, message: string) => void
   // Spec seam: every frame goes through one writer.
   write?: (line: string) => void
 }
@@ -397,6 +400,23 @@ export class LifecycleStream {
 
       this.reportedReadyError = verdict
       this.readyEmitted = false
+
+      // No compile changes a bad pin or a refused profile mode, so the
+      // session ends on the usage frame instead of serving with no browser.
+      const launchCode = stampedLaunchFailureCode(ready)
+      const onUsageRefusal = this.options.onUsageRefusal
+
+      if (launchCode && USAGE_LAUNCH_CODES.has(launchCode) && onUsageRefusal) {
+        const frame = this.contractError(ready, false)
+
+        try {
+          onUsageRefusal(launchCode, String(ready.message || launchCode))
+        } catch {
+          // The usage frame is out, and the exit hook still ends the run.
+        }
+
+        return frame
+      }
 
       return this.contractError(ready, true)
     }
