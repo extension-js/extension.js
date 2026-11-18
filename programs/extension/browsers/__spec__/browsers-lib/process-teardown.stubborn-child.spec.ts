@@ -92,7 +92,14 @@ afterEach(async () => {
     }
 
     const exited = once(child, 'exit')
-    process.kill(child.pid, 'SIGKILL')
+
+    try {
+      process.kill(child.pid, 'SIGKILL')
+    } catch (error) {
+      // A row already ended it, and its exit event is still on the way.
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error
+    }
+
     await exited
   }
 })
