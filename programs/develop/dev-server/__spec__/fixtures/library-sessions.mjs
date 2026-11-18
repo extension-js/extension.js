@@ -320,14 +320,42 @@ async function endedAsFailedByALibraryHost() {
   }
 }
 
+// Two starts of one project and browser in one tick: one runs, the other is
+// refused, and once the first has ended a new start is taken.
+async function twoStartsInOneTick() {
+  const before = listeners()
+  const dir = project('same', CONFIGS.start)
+  const first = start(dir)
+  const second = start(dir)
+  const results = [await first.session, await second.session]
+  const running = [first, second][results.findIndex((r) => r.started)]
+  await until(() => running?.isReady())
+  const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
+  const released = await until(() => listeners().join() === before.join())
+  const third = start(dir)
+  const thirdResult = await third.session
+  await until(() => third.isReady())
+  endSessionAsFailed('E_PARENT_GONE', 'done')
+  await until(() => listeners().join() === before.join())
+
+  return {
+    results: results.map(({started, code}) => ({started, code})),
+    ended,
+    released,
+    third: {started: thirdResult.started, code: thirdResult.code}
+  }
+}
+
 const result =
-  scenario === 'restart'
-    ? await restartWhileAnotherSessionLives()
-    : scenario === 'end-as-failed'
-      ? await endedAsFailedByALibraryHost()
-      : scenario === 'end-as-failed-cli'
-        ? await endedAsFailedByTheCli()
-        : await failingStarts()
+  scenario === 'same-tick'
+    ? await twoStartsInOneTick()
+    : scenario === 'restart'
+      ? await restartWhileAnotherSessionLives()
+      : scenario === 'end-as-failed'
+        ? await endedAsFailedByALibraryHost()
+        : scenario === 'end-as-failed-cli'
+          ? await endedAsFailedByTheCli()
+          : await failingStarts()
 
 process.stdout.write(`\nRESULT ${JSON.stringify(result)}\n`)
 process.exit(0)

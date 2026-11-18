@@ -307,6 +307,29 @@ describe('a host that starts dev sessions from the library', () => {
     ).toEqual([['stopped', true, 0]])
   }, 180_000)
 
+  it('runs one of two starts of one project in one tick and refuses the other, coded', async () => {
+    const {result} = await runHost<{
+      results: Array<{started: boolean; code?: string}>
+      ended: boolean
+      released: boolean
+      third: {started: boolean; code?: string}
+    }>('same-tick')
+
+    expect(result.results.map((entry) => entry.started).sort()).toEqual([
+      false,
+      true
+    ])
+
+    expect(result.results.find((entry) => !entry.started)?.code).toBe(
+      'E_SESSION_EXISTS'
+    )
+
+    // Once the running one has ended, the project takes a new session.
+    expect(result.ended).toBe(true)
+    expect(result.released).toBe(true)
+    expect(result.third).toEqual({started: true})
+  }, 180_000)
+
   it('keeps an older session restarting after a newer one lost its server', async () => {
     const {result} = await runHost<TwoSessionsResult>('restart')
 

@@ -111,6 +111,7 @@ import * as messages from './messages'
 import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig} from './server-config'
+import {claimDevSession} from './session-claim'
 import {registerLiveSession} from './session-end'
 import {exportSessionEnv} from './session-env'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
@@ -574,6 +575,20 @@ async function startDevSession(
 
   const {manifestPath} = projectStructure
   const packageJsonDir = resolveDevProjectRoot(projectStructure)
+  const sessionBrowser = String(devOptions.browser || 'chromium')
+
+  // Taken before the first await, so a second start of this host in the same
+  // tick is refused here, where the contract check below cannot see it.
+  const releaseClaim = claimDevSession(packageJsonDir, sessionBrowser)
+
+  if (!releaseClaim) {
+    throw codedError(
+      CODES.E_SESSION_EXISTS,
+      anotherDevSessionRefused(sessionBrowser, process.pid, null)
+    )
+  }
+
+  holdings.add(releaseClaim)
 
   const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
