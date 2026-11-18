@@ -12,7 +12,10 @@ import type {Compilation} from '@rspack/core'
 import {debugLine, isDebug} from '../../lib/messaging'
 import {sourceFileMayShip} from '../../plugin-special-folders/public-private-files'
 import * as messages from './messages'
-import {resolveJsonResource} from './resolve-json-resource'
+import {
+  jsonFieldClimbsOutOfRoot,
+  resolveJsonResource
+} from './resolve-json-resource'
 
 export function trackJsonDependencies(
   compilation: Compilation,
@@ -31,7 +34,7 @@ export function trackJsonDependencies(
   let added = 0
 
   for (const field of Object.entries(jsonFields)) {
-    const [, resource] = field
+    const [feature, resource] = field
 
     const resourceArr: Array<string | undefined> = Array.isArray(resource)
       ? resource
@@ -54,7 +57,12 @@ export function trackJsonDependencies(
 
         // A file the build withholds is never read, so a change to it has
         // nothing to rebuild.
-        if (!sourceFileMayShip(abs, [projectPath, manifestDir])) continue
+        if (
+          jsonFieldClimbsOutOfRoot(compilation, manifestPath, feature) ||
+          !sourceFileMayShip(abs, [projectPath, manifestDir])
+        ) {
+          continue
+        }
 
         if (!compilation.fileDependencies.has(abs)) {
           compilation.fileDependencies.add(abs)

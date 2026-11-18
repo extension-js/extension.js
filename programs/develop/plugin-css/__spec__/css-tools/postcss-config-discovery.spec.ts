@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import postcss from 'postcss'
+import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   findPostCssConfig,
@@ -138,33 +138,59 @@ describe('postcss config discovery', () => {
     expect(findPostCssConfig(cjs)).toBe(path.join(cjs, '.postcssrc.js'))
   })
 
-  it('hands a postcss.config.ts to postcss-loader with the user plugins', async () => {
+  // Node reads the file where it strips types and postcss-loader reads it
+  // elsewhere. Either way the sheet has to come out through its plugins.
+  it('compiles a sheet through the plugins of a postcss.config.ts', async () => {
     const dir = createProject({
       'package.json': JSON.stringify({
         name: 'postcss-ts-fixture',
-        devDependencies: {autoprefixer: '^10.0.0', postcss: '^8.0.0'}
+        devDependencies: {postcss: '^8.0.0'}
       }),
-      'postcss.config.ts':
-        "export default {plugins: {autoprefixer: {overrideBrowserslist: ['safari 12']}}}\n"
+      'postcss.config.ts': [
+        "const marker: string = 'ts-config-ran'",
+        'export default {',
+        '  plugins: [',
+        '    {',
+        "      postcssPlugin: 'ts-marker',",
+        '      Declaration(decl: {value: string}) {',
+        '        decl.value = marker',
+        '      }',
+        '    }',
+        '  ]',
+        '}',
+        ''
+      ].join('\n'),
+      'entry.js': 'import "./styles.css"\n',
+      'styles.css': '.a { content: authored }\n'
     })
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
       const rule = await maybeUsePostCss(dir, {mode: 'production'})
-      expect(rule.loader).toBeDefined()
+      const compiler = rspack({
+        context: dir,
+        mode: 'production',
+        devtool: false,
+        entry: {main: './entry.js'},
+        output: {path: path.join(dir, 'out')},
+        module: {rules: [{test: /\.css$/, type: 'css', use: [rule as never]}]},
+        optimization: {minimize: false}
+      })
 
-      const options = rule.options?.postcssOptions
-      expect(options?.cwd).toBe(dir)
-
-      if (options?.config === false) {
-        const out = await postcss(options?.plugins as never).process(
-          '.a { user-select: none }',
-          {from: undefined}
+      const errors = await new Promise<string[]>((resolve, reject) =>
+        compiler.run((error, stats) =>
+          compiler.close(() =>
+            error || !stats
+              ? reject(error)
+              : resolve(stats.compilation.errors.map((e) => e.message))
+          )
         )
-        expect(out.css).toContain('-webkit-user-select')
-      } else {
-        expect(options?.config).toBe(path.join(dir, 'postcss.config.ts'))
-      }
+      )
+
+      expect(errors).toEqual([])
+      expect(
+        fs.readFileSync(path.join(dir, 'out', 'main.css'), 'utf8')
+      ).toContain('content: ts-config-ran')
 
       expect(warn.mock.calls.flat().join(' ')).not.toContain(
         'postcss.config.ts'

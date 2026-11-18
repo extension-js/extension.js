@@ -338,8 +338,10 @@ export interface BuildOptions {
    */
   minify?: boolean
   /**
-   * Override the bundler mode (and NODE_ENV). Defaults to 'production' to
-   * preserve historical behavior. Setting 'development' is useful for
+   * Override the bundler mode. 'development' and 'production' also set
+   * NODE_ENV for the length of the build, and 'none' leaves it as the
+   * caller set it. Defaults to 'production' to preserve historical
+   * behavior. Setting 'development' is useful for
    * staging/QA dists that should still pass through the bundler's debug
    * pipeline (sourcemaps, looser minification). Mirrors `vite build --mode`
    * and `webpack --mode`. The artifact stays shippable: it carries the
@@ -351,9 +353,13 @@ export interface BuildOptions {
    * [internal] Auto-install project dependencies when missing.
    */
   install?: boolean
+  /**
+   * @deprecated Nothing reads it. A build never fails on a warning.
+   */
   failOnWarning?: boolean
-  // When true, a failed build calls process.exit(1) (CLI wrapper passes this);
-  // defaults to false: as a library, a failed build is a rejected promise.
+  /**
+   * @deprecated A build ignores it. A failed build rejects and the caller owns the exit.
+   */
   exitOnError?: boolean
   /**
    * Internal: the command stamped into ready.json/events.ndjson. Defaults to
@@ -536,7 +542,8 @@ export type OutputConfig = {
  * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
  * under `browser.<vendor>.perfBudgets`, or under
  * `commands.build.perfBudgets` (strongest below a CLI flag). Budgets are
- * checked on a production build only.
+ * checked on a production build only. `onExceed: 'error'` makes an overrun
+ * fail the build instead of warning.
  */
 export type PerfBudgetsConfig =
   import('./plugin-perf-budgets').PerfBudgetsConfig

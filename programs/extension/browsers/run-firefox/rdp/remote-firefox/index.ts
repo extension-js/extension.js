@@ -266,10 +266,11 @@ export class RemoteFirefox {
       )
     )
 
-    // If two are present, heuristic: path containing '/extensions/<browser>-manager' is manager
+    // A path holding extensions/<browser>-manager is the manager, written with
+    // either separator so a Windows path reads the same.
     const userFirst = unique.sort((a: string, b: string): number => {
-      const isAManager = /extensions\/[a-z-]+-manager/.test(a)
-      const isBManager = /extensions\/[a-z-]+-manager/.test(b)
+      const isAManager = /extensions[\\/][a-z-]+-manager/.test(a)
+      const isBManager = /extensions[\\/][a-z-]+-manager/.test(b)
       if (isAManager && !isBManager) return 1
       if (!isAManager && isBManager) return -1
 
