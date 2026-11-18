@@ -290,6 +290,21 @@ export interface ServeCommandConfig
   exclude?: ExcludeFilesConfig
 }
 
+/**
+ * `commands.preview` overrides. Preview serves a build that already exists, so
+ * the keys that shape a build do nothing here.
+ */
+export interface PreviewCommandConfig extends ServeCommandConfig {
+  /** @deprecated Preview serves an existing build and ignores it. */
+  polyfill?: boolean
+  /** @deprecated Preview serves an existing build and ignores it. */
+  define?: Record<string, unknown>
+  /** @deprecated Preview serves an existing build and ignores it. */
+  include?: IncludeFilesConfig
+  /** @deprecated Preview serves an existing build and ignores it. */
+  exclude?: ExcludeFilesConfig
+}
+
 /** `commands.build` overrides. */
 export interface BuildCommandConfig extends SafariConfig {
   browser?: BrowserType
@@ -373,7 +388,7 @@ export interface FileConfig {
   commands?: {
     dev?: DevCommandConfig
     start?: ServeCommandConfig
-    preview?: ServeCommandConfig
+    preview?: PreviewCommandConfig
     build?: BuildCommandConfig
   }
   /**
