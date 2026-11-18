@@ -13,6 +13,7 @@ import {getDevServerHmrImports} from '../../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
+import {sourceMayShip} from '../html-lib/source-may-ship'
 import * as htmlUtils from '../html-lib/utils'
 
 export class AddScriptsAndStylesToCompilation {
@@ -49,23 +50,22 @@ export class AddScriptsAndStylesToCompilation {
         // module to bundle; the file is served from the output root instead.
         const looksLikePublicRootUrl = (p: string) =>
           p.startsWith('/public/') ||
-          (p.startsWith('/') && !p.startsWith(projectRoot))
+          htmlUtils.isWrittenAsRootUrl(p, projectRoot, htmlAssets?.authored)
         // Chrome silently 404s a missing <script src>/<link href> and runs the page;
         // drop missing local files from the entry instead of failing the build.
         const isMissingLocalFile = (p: string) =>
           path.isAbsolute(p) && !fs.existsSync(p)
-        const jsAssets = (htmlAssets?.js || []).filter(
-          (asset) =>
-            !looksLikePublicRootUrl(asset) &&
-            !isRemoteUrl(asset) &&
-            !isMissingLocalFile(asset)
-        )
-        const cssAssets = (htmlAssets?.css || []).filter(
-          (asset) =>
-            !looksLikePublicRootUrl(asset) &&
-            !isRemoteUrl(asset) &&
-            !isMissingLocalFile(asset)
-        )
+        // The bundler compiles an entry into the page's bundle, so a file
+        // the build never copies is dropped here, before it is one.
+        const isWithheld = (p: string) =>
+          path.isAbsolute(p) && !sourceMayShip(p, projectRoot, manifestDir)
+        const isEntry = (asset: string) =>
+          !looksLikePublicRootUrl(asset) &&
+          !isRemoteUrl(asset) &&
+          !isMissingLocalFile(asset) &&
+          !isWithheld(asset)
+        const jsAssets = (htmlAssets?.js || []).filter(isEntry)
+        const cssAssets = (htmlAssets?.css || []).filter(isEntry)
 
         // Classic <script src> tags share one global scope; when every page script is
         // classic (or one classic file has inline consumers), use the classic-concat loader.
