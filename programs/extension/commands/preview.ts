@@ -50,6 +50,7 @@ import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
   parseLogContexts,
+  parseLogFormat,
   parseLogLevel
 } from '../helpers/normalize-options'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
@@ -420,7 +421,7 @@ export function registerPreviewCommand(
                 // commands.preview.* are applied inside extensionPreview.
                 logLevel: parseLogLevel(logsOption),
                 logContexts,
-                logFormat: previewOptions.logFormat,
+                logFormat: parseLogFormat(previewOptions.logFormat),
                 logTimestamps: explicitCliValue(
                   command,
                   'logTimestamps',

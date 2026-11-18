@@ -46,6 +46,7 @@ import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
   parseLogContexts,
+  parseLogFormat,
   parseLogLevel
 } from '../helpers/normalize-options'
 import {
@@ -565,7 +566,7 @@ export function registerStartCommand(
               logContexts,
               // Only pass logger values the user typed. Stock defaults and
               // commands.start.* are applied inside extensionPreview.
-              logFormat: startOptions.logFormat,
+              logFormat: parseLogFormat(startOptions.logFormat),
               logTimestamps: explicitCliValue(
                 command,
                 'logTimestamps',
