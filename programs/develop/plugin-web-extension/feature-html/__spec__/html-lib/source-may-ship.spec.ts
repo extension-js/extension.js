@@ -32,6 +32,7 @@ beforeAll(() => {
   write('project/src/.well-known/links.json')
   write('project/.git/config')
   write('project/node_modules/pkg/data.json')
+  write('project/node_modules/pkg/.env')
   write('project/shared/logo.png')
   write('project/public/.env')
   write('project/public/.htaccess')
@@ -88,8 +89,9 @@ describe('sourceMayShip', () => {
     expect(ask('project/src/nothing.png')).toBe(false)
   })
 
-  it('withholds a file inside an installed package', () => {
-    expect(ask('project/node_modules/pkg/data.json')).toBe(false)
+  it('ships a named file of an installed package, but no private name', () => {
+    expect(ask('project/node_modules/pkg/data.json')).toBe(true)
+    expect(ask('project/node_modules/pkg/.env')).toBe(false)
   })
 
   it('reads a root URL as the browser does', () => {
@@ -131,7 +133,7 @@ describe('sourceMayShip', () => {
     expect(ask('project/src/alias.png')).toBe(true)
     expect(ask('project/src/out.txt')).toBe(false)
 
-    expect(ask('project/src/installed.json')).toBe(false)
+    expect(ask('project/src/installed.json')).toBe(true)
 
     expect(ask('project/src/settings.txt')).toBe(false)
   })

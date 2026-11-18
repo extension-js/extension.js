@@ -2,7 +2,6 @@ import {describe, expect, it} from 'vitest'
 import {
   buildProject,
   canLink,
-  MARKER,
   makeProject,
   manifest,
   PAGE
@@ -16,7 +15,7 @@ const TIMEOUT = 120_000
 const WITHHELD = [
   '.env',
   '.git/config',
-  'node_modules/pkg/data.json',
+  'node_modules/pkg/.env',
   '../outside.txt',
   ...(canLink ? ['linked.txt'] : [])
 ]
@@ -66,7 +65,7 @@ describe('a manifest page field that names a file the build never copies', () =>
       const result = await buildProject(root, browser)
 
       expect(result.marked).toEqual([])
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
       expect(result.printed).toContain(
         `Can't find the page listed in ${label}.`
       )
@@ -80,13 +79,24 @@ describe('a manifest page field that names a file the build never copies', () =>
   )
 })
 
-describe('a manifest page field that names a page of the project', () => {
-  it.each(FIELDS)(
-    '%s: ships the page',
-    async (_label, _stops, field, browser) => {
+const SHIPPED_PAGES = [
+  ['a page of the project', 'pages/own.html'],
+  ['a page of an installed package', 'node_modules/pkg/page.html']
+] as const
+
+const SHIPPED_CASES = FIELDS.flatMap(([label, , field, browser]) =>
+  SHIPPED_PAGES.map(
+    ([what, page]) => [label, what, page, field, browser] as const
+  )
+)
+
+describe('a manifest page field that names a page the build ships', () => {
+  it.each(SHIPPED_CASES)(
+    '%s: ships %s',
+    async (_label, _what, page, field, browser) => {
       const {root} = makeProject({
         'pages/own.html': PAGE.replace('<body>', '<body>own page'),
-        'manifest.json': manifest(field('pages/own.html'))
+        'manifest.json': manifest(field(page))
       })
       const result = await buildProject(root, browser)
 

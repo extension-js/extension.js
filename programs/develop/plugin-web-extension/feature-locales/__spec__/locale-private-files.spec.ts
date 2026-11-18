@@ -30,8 +30,7 @@ describe('a _locales folder that holds a file the build never copies', () => {
         '_locales/en/privacy.md': 'privacy',
         '_locales/en/.env': `KEY=${MARKER}-locale-env\n`,
         '_locales/en/.env.example': 'KEY=\n',
-        '_locales/en/.npmrc': `# ${MARKER}-locale-npmrc\n`,
-        '_locales/en/node_modules/pkg/data.json': `"${MARKER}-locale-pkg"`
+        '_locales/en/.npmrc': `# ${MARKER}-locale-npmrc\n`
       })
       const result = await buildProject(root)
 
@@ -47,13 +46,9 @@ describe('a _locales folder that holds a file the build never copies', () => {
         "Can't find the file listed in _locales/en/.env."
       )
 
-      expect(result.printed).toContain(
-        "Can't find the file listed in _locales/en/node_modules/pkg/data.json."
-      )
-
       // A repository leftover is skipped without a word.
       expect(result.printed).not.toContain('_locales/en/.npmrc')
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
@@ -64,14 +59,13 @@ describe('a _locales folder that holds a file the build never copies', () => {
       const {root} = makeProject({
         'manifest.json': manifest({default_locale: 'en'}),
         '_locales/en/messages.json': CATALOG,
-        '_locales/.env/messages.json': MARKED_CATALOG,
-        '_locales/node_modules/messages.json': MARKED_CATALOG
+        '_locales/.env/messages.json': MARKED_CATALOG
       })
       const result = await buildProject(root)
 
       expect(result.marked).toEqual([])
       expect(locales(result.shipped)).toEqual(['_locales/en/messages.json'])
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
@@ -100,7 +94,7 @@ describe('a _locales folder that holds a file the build never copies', () => {
         "Can't find the file listed in _locales/en/messages.json."
       )
 
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
@@ -122,7 +116,7 @@ describe('a _locales folder that holds a file the build never copies', () => {
       expect(result.errors).toBe(1)
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual([])
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )

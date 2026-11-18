@@ -22,6 +22,19 @@ export const PUBLIC_FILES = {
   'public/logo.png': 'png'
 }
 
+// A file of an installed package that the project names ships, and a
+// private name inside the package does not.
+export const PACKAGE_FILES = {
+  'node_modules/pkg/icon.png': 'png-in-package',
+  'node_modules/pkg/page.html':
+    '<!doctype html><html><head></head><body>own page</body></html>',
+  'node_modules/pkg/.env': `PRIVATE_KEY=${MARKER}-package-env\n`
+}
+
+// How each fake private file opens. A finding that quotes the first
+// characters of a file it read shows one of these, whole marker or not.
+const OPENINGS = ['PRIVATE_K', 'export PR', MARKER.slice(0, 6), '{"value"']
+
 export const PUBLIC_OUTPUT = [
   '.env.example',
   '.well-known/links.json',
@@ -35,7 +48,7 @@ export interface Project {
 }
 
 export function makeProject(files: Record<string, string> = {}): Project {
-  const root = project({...PUBLIC_FILES, ...files})
+  const root = project({...PUBLIC_FILES, ...PACKAGE_FILES, ...files})
 
   return {root, outsideFile: path.join(path.dirname(root), 'outside.txt')}
 }
@@ -71,6 +84,8 @@ export interface Built {
   missing: string[]
   // The built pages that hold the text "own page".
   pages: string[]
+  // The openings of private files that the output quotes.
+  quoted: string[]
   // The paths a finding shows after NOT FOUND.
   notFound: string[]
   printed: string
@@ -159,6 +174,7 @@ export async function buildProject(
         .filter((name) => out[name].includes('own page'))
         .sort(),
       missing: [...missing].sort(),
+      quoted: OPENINGS.filter((opening) => printed.includes(opening)),
       notFound: [...notFound].sort(),
       printed,
       errors: Number(summary?.errors_count ?? failedWith ?? -1)

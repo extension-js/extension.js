@@ -23,7 +23,7 @@ const WITHHELD = [
   '/.npmrc',
   '/.git/config',
   '/a/../.envrc',
-  '/node_modules/pkg/data.json',
+  '/node_modules/pkg/.env',
   '/%2Eenv',
   ...LINKED
 ]
@@ -32,10 +32,15 @@ const KEPT = [
   '/.well-known/links.json',
   '/.env.example',
   '/logo.png',
-  '/data/ok.json'
+  '/data/ok.json',
+  '/node_modules/pkg/icon.png'
 ]
 
-const KEPT_OUTPUT = [...PUBLIC_OUTPUT, 'data/ok.json'].sort()
+const KEPT_OUTPUT = [
+  ...PUBLIC_OUTPUT,
+  'data/ok.json',
+  'node_modules/pkg/icon.png'
+].sort()
 
 type Writer = (refs: string[]) => {head?: string; body?: string}
 
@@ -91,7 +96,7 @@ describe('a page that names a file the build never copies', () => {
       expect(result.shipped).toEqual(KEPT_OUTPUT)
       expect(result.missing).toEqual([...WITHHELD, project.outsideFile].sort())
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
@@ -102,9 +107,10 @@ describe('a page that names a file the build never copies', () => {
       const refs = [
         './.envrc',
         '.npmrc',
-        'node_modules/pkg/data.json',
+        'node_modules/pkg/.env',
         ...(canLink ? ['./linked.txt'] : []),
-        './data/ok.json'
+        './data/ok.json',
+        './node_modules/pkg/icon.png'
       ]
       const {root} = makeProject({
         'popup.html': page({
@@ -122,13 +128,13 @@ describe('a page that names a file the build never copies', () => {
         [
           path.join(root, '.envrc'),
           path.join(root, '.npmrc'),
-          path.join(root, 'node_modules/pkg/data.json'),
+          path.join(root, 'node_modules/pkg/.env'),
           ...(canLink ? [path.join(root, 'linked.txt')] : [])
         ].sort()
       )
 
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
@@ -151,8 +157,9 @@ describe('a page that names a file the build never copies', () => {
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toContain('assets/ok.<hash>.json')
+      expect(result.shipped).toContain('assets/icon.<hash>.png')
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
@@ -196,7 +203,7 @@ describe('a page that names a file the build never copies', () => {
         '/public/.npmrc'
       ])
 
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )

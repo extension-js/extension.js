@@ -3,7 +3,6 @@ import {describe, expect, it} from 'vitest'
 import {
   buildProject,
   canLink,
-  MARKER,
   makeProject,
   manifest,
   PUBLIC_OUTPUT
@@ -18,7 +17,7 @@ const WITHHELD = [
   '.env',
   '/.env.local',
   '.git/config',
-  'node_modules/pkg/data.json',
+  'node_modules/pkg/.env',
   '../outside.txt',
   '/a/../.envrc',
   '/%2Eenv',
@@ -69,7 +68,7 @@ describe('a manifest icon that names a file the build never copies', () => {
           : `Can't find an icon file listed in ${feature}.`
       )
 
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
@@ -82,7 +81,7 @@ describe('a manifest icon that names a file the build never copies', () => {
           icons: {16: '/.env', 32: './.npmrc'},
           action: {
             default_popup: 'popup.html',
-            default_icon: {16: '/node_modules/pkg/data.json'}
+            default_icon: {16: '/node_modules/pkg/.env'}
           }
         })
       })
@@ -94,29 +93,40 @@ describe('a manifest icon that names a file the build never copies', () => {
         [
           path.join(root, '.env'),
           path.join(root, '.npmrc'),
-          path.join(root, 'node_modules/pkg/data.json')
+          path.join(root, 'node_modules/pkg/.env')
         ].sort()
       )
 
-      expect(result.printed).not.toContain(MARKER)
+      expect(result.quoted).toEqual([])
     },
     TIMEOUT
   )
 })
 
+const SHIPPED_ICONS = [
+  ['an ordinary icon', 'icons/own.png', 'own.png'],
+  ['an icon of an installed package', 'node_modules/pkg/icon.png', 'icon.png']
+] as const
+
+const SHIPPED_CASES = FIELDS.flatMap(([label, , field]) =>
+  SHIPPED_ICONS.map(
+    ([what, icon, name]) => [label, what, icon, name, field] as const
+  )
+)
+
 describe('a manifest icon that names a file the build ships', () => {
-  it.each(FIELDS)(
-    '%s: keeps an ordinary icon',
-    async (_label, _feature, field) => {
+  it.each(SHIPPED_CASES)(
+    '%s: keeps %s',
+    async (_label, _what, icon, name, field) => {
       const {root} = makeProject({
         'icons/own.png': 'png',
-        'manifest.json': manifest(field('icons/own.png'))
+        'manifest.json': manifest(field(icon))
       })
       const result = await buildProject(root)
 
       expect(result.errors).toBe(0)
       expect(
-        result.shipped.filter((name) => name.endsWith('own.png'))
+        result.shipped.filter((shipped) => shipped.endsWith(name))
       ).toHaveLength(1)
 
       expect(result.printed).not.toContain("Can't find an icon file")
