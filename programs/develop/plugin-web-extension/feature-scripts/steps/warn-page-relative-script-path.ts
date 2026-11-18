@@ -31,7 +31,6 @@ export class WarnPageRelativeScriptPath {
 
   public apply(compiler: Compiler): void {
     if (!isGeckoBasedBrowser(String(this.browser))) return
-    if (!compiler?.hooks?.thisCompilation?.tap) return
 
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir

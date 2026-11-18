@@ -29,8 +29,12 @@ import {
 import {debugLine, isDebug} from '../lib/messaging'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
+import {toJsStringLiteral} from './compilation-lib/js-literal'
 import * as messages from './compilation-lib/messages'
+import {processModuleRequest} from './process-module'
 import {WatchEnvFilesPlugin} from './watch-env-files'
+
+export {toJsStringLiteral}
 
 // Extension pages and workers keep their own URL, content scripts get the
 // extension root, and a MAIN world script without a runtime gets the page URL.
@@ -43,15 +47,6 @@ export function importMetaUrlForEmitPath(emitPath: string): string {
   const request = emitPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
   return `(function(){try{var g=globalThis;return (g.browser||g.chrome).runtime.getURL(${toJsStringLiteral(request)})}catch(_){return ${IMPORT_META_URL_RUNTIME}}})()`
-}
-
-// The literal lands inside emitted code. JSON.stringify leaves "</script>",
-// U+2028/U+2029 and other non-ASCII intact, so those become \u escapes too.
-export function toJsStringLiteral(value: string): string {
-  return JSON.stringify(value).replace(
-    /[<>\u007f-\uffff]/g,
-    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`
-  )
 }
 
 export function escapeForJsonAsset(value: string): string {
@@ -189,16 +184,6 @@ function parsesAsJson(text: string): boolean {
     return true
   } catch {
     return false
-  }
-}
-
-function resolveProcessShim(): string | undefined {
-  const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
-
-  try {
-    return fs.existsSync(candidate) ? candidate : undefined
-  } catch {
-    return undefined
   }
 }
 
@@ -544,7 +529,7 @@ export class EnvPlugin {
 
     // Define bare import.meta.env as an object of every injected var (Vite
     // parity); otherwise rspack rewrites it to (void 0) and reads crash at boot.
-    const importMetaEnvObject: Record<string, unknown> = {}
+    const importMetaEnvObject: Record<string, string> = {}
 
     for (const [key, value] of Object.entries(filteredEnvVars)) {
       if (key.startsWith('import.meta.env.')) {
@@ -578,18 +563,6 @@ export class EnvPlugin {
       debugLine(messages.envInjectedPublicVars(injectedCount))
     }
 
-    // Provide a real browser process object so free process.* reads don't throw;
-    // EXTENSION_PUBLIC_* reads are still statically inlined and tree-shakeable.
-    const processShim = resolveProcessShim()
-
-    if (!processShim) {
-      // Fallback (shim missing from the install): merge a minimal-but-complete
-      // stub into the single DefinePlugin so bundled `process` access is safe.
-      filteredEnvVars['process.env'] = '{}'
-      filteredEnvVars.process =
-        '({env:{},argv:[],platform:"browser",browser:true,versions:{},nextTick:function(cb){Promise.resolve().then(function(){cb()})}})'
-    }
-
     new DefinePlugin(filteredEnvVars).apply(compiler)
 
     // rspack inlines a bare import.meta.url as the module's file:// path, which
@@ -603,9 +576,11 @@ export class EnvPlugin {
     importMetaUrl.affectedHooks = 'thisCompilation'
     importMetaUrl.apply(compiler)
 
-    if (processShim) {
-      new ProvidePlugin({process: processShim}).apply(compiler)
-    }
+    // A dotted process.env.KEY read is inlined above and never gets here. Any
+    // other read of process is answered by a module generated for this build.
+    new ProvidePlugin({
+      process: processModuleRequest(importMetaEnvObject)
+    }).apply(compiler)
 
     // JSON/HTML `$VAR` templating must resolve to the same values JS sees at
     // runtime (DefinePlugin + env files). Build one lookup shared by every asset.
