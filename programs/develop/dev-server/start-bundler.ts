@@ -137,7 +137,11 @@ export function devServerStartError(error: unknown): DevServerStartError {
 }
 
 export interface StartFailureTargets {
-  metadata: {writeError: (code: string, message: string) => void}
+  metadata: {
+    writeError: (code: string, message: string) => void
+    // Keeps the error on ready.json past the watch close of the ended session.
+    writeEndedAsFailed?: (code: string, message: string) => void
+  }
   lifecycle: {
     failed: (message: string) => unknown
     sessionValue: () => Record<string, unknown>
@@ -160,6 +164,11 @@ export function createStartFailure(targets: StartFailureTargets) {
   return (error: unknown): never => {
     targets.metadata.writeError(
       'dev_server_start_failed',
+      error instanceof Error ? error.message : String(error)
+    )
+
+    targets.metadata.writeEndedAsFailed?.(
+      CODES.E_DEV_SERVER_START,
       error instanceof Error ? error.message : String(error)
     )
 
@@ -204,7 +213,11 @@ function errorMessage(error: unknown): string {
 }
 
 export interface RestartFailureTargets {
-  metadata: {writeError: (code: string, message: string) => void}
+  metadata: {
+    writeError: (code: string, message: string) => void
+    // Keeps the error on ready.json past the watch close of the ended session.
+    writeEndedAsFailed?: (code: string, message: string) => void
+  }
   lifecycle: {
     failed: (message: string) => void
     restartFailed: (args: {code: ErrorCode; message: string}) => void
@@ -253,6 +266,11 @@ export function createRestartFailure(targets: RestartFailureTargets) {
     ): Promise<void> {
       targets.metadata.writeError(
         'dev_server_start_failed',
+        errorMessage(error)
+      )
+
+      targets.metadata.writeEndedAsFailed?.(
+        CODES.E_DEV_SERVER_START,
         errorMessage(error)
       )
 

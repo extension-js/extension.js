@@ -1476,7 +1476,10 @@ async function startDevSession(
       // A session already stopping keeps the frame and exit code it has.
       if (isShuttingDown) return false
 
-      return endSession(() => lifecycle.failed(message, code))
+      return endSession(() => {
+        metadata.writeEndedAsFailed(code, message)
+        lifecycle.failed(message, code)
+      })
     })
   )
 
@@ -1487,10 +1490,10 @@ async function startDevSession(
 
     const refusal = Object.assign(new Error(message), {code})
 
-    endSession(
-      () => recordLaunchFailure(ready),
-      [() => extendedOptions.onExitError?.(refusal, code)]
-    )
+    endSession(() => {
+      recordLaunchFailure(ready)
+      metadata.writeEndedAsFailed(code, message)
+    }, [() => extendedOptions.onExitError?.(refusal, code)])
   }
 
   for (const [code, message, ready] of pendingUsageRefusal.splice(0)) {

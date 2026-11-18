@@ -316,7 +316,63 @@ async function endedAsFailedByALibraryHost() {
     newerSettled,
     olderRestarted,
     olderId: readyField(older, 'instanceId'),
-    newerId: readyField(newer, 'instanceId')
+    newerId: readyField(newer, 'instanceId'),
+    newerStatus: readyField(newer, 'status'),
+    newerEndedAs: readyField(newer, 'endedAsFailedCode')
+  }
+}
+
+// A launcher that refuses a pin the way the real one does: it stamps the
+// contract, then throws the usage code. The library host is released.
+async function usageRefusalKeepsTheContract() {
+  const before = listeners()
+  const dir = project('usage', CONFIGS.start)
+  const file = path.join(dir, 'dist', 'extension-js', 'chromium', 'ready.json')
+  let launches = 0
+
+  const launcher = async () => {
+    launches += 1
+    const ready = JSON.parse(fs.readFileSync(file, 'utf8'))
+    Object.assign(ready, {
+      status: 'error',
+      code: 'browser_launch_failed',
+      message:
+        'the chromium process could not start (bad pin), nothing is running',
+      browserLaunchFailedAt: new Date().toISOString(),
+      browserLaunchFailedReason: 'bad pin',
+      browserLaunchFailedCode: 'E_BROWSER_BINARY_INVALID'
+    })
+
+    fs.writeFileSync(file, JSON.stringify(ready))
+
+    throw Object.assign(new Error('bad pin'), {
+      code: 'E_BROWSER_BINARY_INVALID'
+    })
+  }
+
+  const started = await extensionDev(dir, {
+    browser: 'chromium',
+    port: 0,
+    install: false,
+    launcher
+  }).then(
+    () => true,
+    () => false
+  )
+  // The watch closes during the release, and the exit listener comes off last.
+  const released = await until(() => listeners().join() === before.join())
+  const ready = JSON.parse(fs.readFileSync(file, 'utf8'))
+
+  return {
+    started,
+    launches,
+    released,
+    ready: {
+      status: ready.status,
+      code: ready.code,
+      browserLaunchFailedCode: ready.browserLaunchFailedCode,
+      endedAsFailedCode: ready.endedAsFailedCode
+    }
   }
 }
 
@@ -403,19 +459,21 @@ async function endedBeforeAnySession() {
 }
 
 const result =
-  scenario === 'same-tick'
-    ? await twoStartsInOneTick()
-    : scenario === 'wiring'
-      ? await wiringThrowsAfterTheServerStarts()
-      : scenario === 'end-before-session'
-        ? await endedBeforeAnySession()
-        : scenario === 'restart'
-          ? await restartWhileAnotherSessionLives()
-          : scenario === 'end-as-failed'
-            ? await endedAsFailedByALibraryHost()
-            : scenario === 'end-as-failed-cli'
-              ? await endedAsFailedByTheCli()
-              : await failingStarts()
+  scenario === 'usage-refusal'
+    ? await usageRefusalKeepsTheContract()
+    : scenario === 'same-tick'
+      ? await twoStartsInOneTick()
+      : scenario === 'wiring'
+        ? await wiringThrowsAfterTheServerStarts()
+        : scenario === 'end-before-session'
+          ? await endedBeforeAnySession()
+          : scenario === 'restart'
+            ? await restartWhileAnotherSessionLives()
+            : scenario === 'end-as-failed'
+              ? await endedAsFailedByALibraryHost()
+              : scenario === 'end-as-failed-cli'
+                ? await endedAsFailedByTheCli()
+                : await failingStarts()
 
 process.stdout.write(`\nRESULT ${JSON.stringify(result)}\n`)
 process.exit(0)

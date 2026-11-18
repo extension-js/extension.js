@@ -262,6 +262,30 @@ describe('a host that starts dev sessions from the library', () => {
     })
   }, 180_000)
 
+  it('keeps the error contract of a session a usage launch refusal ended', async () => {
+    const {result, frames} = await runHost<{
+      started: boolean
+      launches: number
+      released: boolean
+      ready: Record<string, unknown>
+    }>('usage-refusal', {EXTENSION_OUTPUT: 'ndjson'})
+
+    expect(result).toMatchObject({started: true, launches: 1, released: true})
+    // Read after the watch closed, which stamps a clean end as stopped.
+    expect(result.ready).toEqual({
+      status: 'error',
+      code: 'browser_launch_failed',
+      browserLaunchFailedCode: 'E_BROWSER_BINARY_INVALID',
+      endedAsFailedCode: 'E_BROWSER_BINARY_INVALID'
+    })
+
+    const ends = frames.filter((frame) =>
+      ['failed', 'usage', 'stopped', 'ready-failed'].includes(frame.status)
+    )
+    expect(ends.map((frame) => frame.status)).toEqual(['usage'])
+    expect(ends[0].error?.code).toBe('E_BROWSER_BINARY_INVALID')
+  }, 180_000)
+
   it('ends one of two library sessions as failed and leaves the host and the other running', async () => {
     const {result, frames} = await runHost<{
       bothReady: boolean
@@ -272,6 +296,8 @@ describe('a host that starts dev sessions from the library', () => {
       olderRestarted: boolean
       olderId: string
       newerId: string
+      newerStatus: string
+      newerEndedAs: string
     }>('end-as-failed', {EXTENSION_OUTPUT: 'ndjson'})
 
     // The host printed its result and exited on its own, so it lived on.
@@ -285,6 +311,9 @@ describe('a host that starts dev sessions from the library', () => {
     })
 
     expect(result.olderId).not.toBe(result.newerId)
+    // A session ended as failed never reads as a clean stop, watch closed.
+    expect(result.newerStatus).toBe('error')
+    expect(result.newerEndedAs).toBe('E_PARENT_GONE')
 
     const failed = frames.filter((frame) => frame.status === 'failed')
     expect(failed).toHaveLength(1)
