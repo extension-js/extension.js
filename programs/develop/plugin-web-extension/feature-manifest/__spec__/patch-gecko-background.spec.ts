@@ -2,7 +2,8 @@ import {describe, expect, it} from 'vitest'
 import type {Manifest} from '../../../types'
 import {
   hasEmptyGeckoBackgroundScripts,
-  patchGeckoBackground
+  patchGeckoBackground,
+  translatesGeckoServiceWorker
 } from '../steps/patch-gecko-background'
 
 const sw = (extra: Record<string, unknown> = {}): Manifest =>
@@ -100,5 +101,21 @@ describe('patchGeckoBackground', () => {
   it('is a no-op when there is no background', () => {
     const m = {manifest_version: 3, name: 'x', version: '1'} as Manifest
     expect(patchGeckoBackground(m, 'firefox')).toBe(m)
+  })
+})
+
+describe('translatesGeckoServiceWorker', () => {
+  it('is true only for a gecko service worker with no scripts list', () => {
+    expect(translatesGeckoServiceWorker(sw(), 'firefox')).toBe(true)
+    expect(translatesGeckoServiceWorker(sw(), 'gecko-based')).toBe(true)
+    expect(translatesGeckoServiceWorker(sw(), 'chrome')).toBe(false)
+    expect(
+      translatesGeckoServiceWorker(sw({scripts: ['bg.js']}), 'firefox')
+    ).toBe(false)
+
+    // An empty list has its own warning, so it is not counted twice.
+    expect(translatesGeckoServiceWorker(sw({scripts: []}), 'firefox')).toBe(
+      false
+    )
   })
 })

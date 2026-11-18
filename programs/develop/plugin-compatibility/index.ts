@@ -62,10 +62,7 @@ export class CompatibilityPlugin {
           )
         }
 
-        new PolyfillPlugin({
-          manifestPath: this.manifestPath,
-          browser: this.browser || 'chrome'
-        }).apply(compiler)
+        new PolyfillPlugin({browser: this.browser}).apply(compiler)
       } else {
         if (isDebug()) {
           debugLine(

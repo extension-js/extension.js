@@ -1,12 +1,17 @@
-import {describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it} from 'vitest'
 import {StaticAssetsPlugin} from '../index'
+import {bundledAssetOutputName} from '../static-assets-lib/asset-output-name'
+import {compileFixture, removeFixtureRoots} from './helpers/compile-harness'
+import {SMALL_SVG} from './helpers/fixtures'
 
-function applyPlugin(mode: 'development' | 'production' = 'production') {
+afterAll(() => removeFixtureRoots())
+
+function applyPlugin() {
   const compiler: any = {
     options: {module: {rules: []}},
     hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
   }
-  new StaticAssetsPlugin({mode} as any).apply(compiler)
+  new StaticAssetsPlugin().apply(compiler)
 
   return compiler.options.module.rules as any[]
 }
@@ -63,23 +68,24 @@ describe('StaticAssetsPlugin url resourceQuery rule', () => {
     }
   })
 
-  it('resolves a small svg?url to asset/resource under last-wins rule merging', () => {
-    const rules = applyPlugin()
-
-    // Mirror rspack's effective-type resolution: every matching rule applies
-    // in order and the last matching rule's type wins.
-    const matching = rules.filter((r) => {
-      const testOk = r?.test instanceof RegExp ? r.test.test('icon.svg') : true
-      const queryOk =
-        r?.resourceQuery instanceof RegExp ? r.resourceQuery.test('?url') : true
-
-      return Boolean(r) && testOk && queryOk
+  it('makes a small svg?url a file URL in a real compile, not a data URI', async () => {
+    const build = await compileFixture({
+      plugins: [new StaticAssetsPlugin()],
+      files: {
+        'icon.svg': SMALL_SVG,
+        'index.js':
+          "import icon from './icon.svg'\nimport iconUrl from './icon.svg?url'\nself.out = {icon, iconUrl}\n"
+      }
     })
-    const effectiveType = matching.reduce(
-      (acc: string | undefined, r) => r?.type ?? acc,
-      undefined
+    expect(build.errors).toEqual([])
+
+    const out = await build.evaluate()
+    const name = bundledAssetOutputName('/p/icon.svg', Buffer.from(SMALL_SVG))
+
+    expect(out.iconUrl).toBe(`/${name}`)
+    expect(out.icon).toBe(
+      `data:image/svg+xml;base64,${Buffer.from(SMALL_SVG).toString('base64')}`
     )
-    expect(effectiveType).toBe('asset/resource')
   })
 })
 
@@ -99,20 +105,24 @@ describe('StaticAssetsPlugin raw resourceQuery rule', () => {
     expect(re.test('?__extensionjs_classic_concat__=raw')).toBe(false)
   })
 
-  it('wins over the typed asset rules for a ?raw import', () => {
-    const rules = applyPlugin()
-    const matching = rules.filter((r) => {
-      const testOk = r?.test instanceof RegExp ? r.test.test('notes.md') : true
-      const queryOk =
-        r?.resourceQuery instanceof RegExp ? r.resourceQuery.test('?raw') : true
-
-      return Boolean(r) && testOk && queryOk
+  it('gives a ?raw import of a typed asset its text in a real compile', async () => {
+    const notes = '# notes\n\nplain text\n'
+    const build = await compileFixture({
+      plugins: [new StaticAssetsPlugin()],
+      files: {
+        'notes.md': notes,
+        'index.js':
+          "import raw from './notes.md?raw'\nimport asset from './notes.md'\nself.out = {raw, asset}\n"
+      }
     })
-    const effectiveType = matching.reduce(
-      (acc: string | undefined, r) => r?.type ?? acc,
-      undefined
+    expect(build.errors).toEqual([])
+
+    const out = await build.evaluate()
+
+    expect(out.raw).toBe(notes)
+    expect(out.asset).toBe(
+      `data:text/markdown;base64,${Buffer.from(notes).toString('base64')}`
     )
-    expect(effectiveType).toBe('asset/source')
   })
 
   it('leaves a user ?raw rule alone', () => {
@@ -121,7 +131,7 @@ describe('StaticAssetsPlugin raw resourceQuery rule', () => {
       options: {module: {rules: [mine]}},
       hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
     }
-    new StaticAssetsPlugin({mode: 'production'} as any).apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
     const rawRules = compiler.options.module.rules.filter(
       (r: any) =>
         r?.resourceQuery instanceof RegExp && r.resourceQuery.test('?raw')
