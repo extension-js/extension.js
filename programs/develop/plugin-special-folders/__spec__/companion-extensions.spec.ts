@@ -710,7 +710,7 @@ describe('the folder scanned for companion extensions, by where it sits', () => 
   })
 
   it.skipIf(!canLink)(
-    'never follows a link that is one entry of the scanned folder',
+    'follows a link that is one entry of the scanned folder while it stays inside',
     async () => {
       const {holder, root} = layout()
 
@@ -724,9 +724,12 @@ describe('the folder scanned for companion extensions, by where it sits', () => 
         path.join(root, 'extensions', 'linked-two')
       )
 
-      // The scan reads folders only, and a link is not one, so neither the
-      // link that leads out nor the one that stays in loads anything.
-      expect(await outcome(root, 'extensions')).toEqual(DEFAULT_SET)
+      // The link that stays in loads like a folder, the one that leads out
+      // loads nothing.
+      expect(await outcome(root, 'extensions')).toEqual([
+        'extensions/linked-two',
+        ...DEFAULT_SET
+      ])
     }
   )
 })

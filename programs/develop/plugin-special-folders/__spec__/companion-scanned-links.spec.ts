@@ -63,9 +63,7 @@ function scan(root: string, launchesBrowser = true) {
     config: {dir: './extensions'},
     browser: 'chrome',
     launchesBrowser
-  } as Parameters<typeof resolveCompanionExtensionDirs>[0]).map((dir) =>
-    path.relative(root, dir).replace(/\\/g, '/')
-  )
+  }).map((dir) => path.relative(root, dir).replace(/\\/g, '/'))
 
   return {loaded, said, coded: takeCodedWarnings()}
 }
@@ -87,8 +85,14 @@ describe('an entry of the scanned companion folder', () => {
     link(root, 'linked-in', path.join(root, 'vendor', 'in'))
     link(root, 'linked-set', path.join(root, 'vendor', 'set'))
 
+    // It loads like any folder, and one that groups extensions is read one
+    // level down like any folder too.
     expect(scan(root)).toEqual({
-      loaded: ['extensions/real'],
+      loaded: [
+        'extensions/linked-in',
+        'extensions/real',
+        'extensions/linked-set/grouped'
+      ],
       said: [],
       coded: []
     })
@@ -100,7 +104,28 @@ describe('an entry of the scanned companion folder', () => {
     link(root, 'linked-out', path.join(holder, 'outside', 'out'))
     link(root, 'linked-out-set', path.join(holder, 'outside', 'set'))
 
+    const warning = (entry: string, target: string) =>
+      [
+        'A companion extension entry leads outside the project, so it is not loaded.',
+        `ENTRY ./extensions/${entry}`,
+        `LEADS TO ${path.join(holder, 'outside', target)}`,
+        'Companion extensions must be inside the project. Copy the folder into the project, or remove the link.'
+      ].join('\n')
+    const said = [
+      warning('linked-out', 'out'),
+      warning('linked-out-set', 'set')
+    ]
+
+    // Each is said once and carried once under its code, the rest goes on.
     expect(scan(root)).toEqual({
+      loaded: ['extensions/real'],
+      said,
+      coded: said.map((text) => `E_COMPANION_EXTENSION_PATH: ${text}`)
+    })
+
+    // A caller that launches no browser leaves the words to the path that
+    // says them there, and loads the same set.
+    expect(scan(root, false)).toEqual({
       loaded: ['extensions/real'],
       said: [],
       coded: []
@@ -118,6 +143,8 @@ describe('an entry of the scanned companion folder', () => {
       link(root, 'around', path.join(root, 'extensions'))
       link(root, 'project', root)
 
+      // None is a folder to load, none is said, and the scan ends: a folder
+      // reached twice is one extension.
       expect(scan(root)).toEqual({
         loaded: ['extensions/real'],
         said: [],

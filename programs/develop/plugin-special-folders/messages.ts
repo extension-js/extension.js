@@ -221,6 +221,16 @@ export function includeOutputPathInvalid(outputPath: string, reason: string) {
   )
 }
 
+// Plain on purpose: the same four lines are printed where no browser runs.
+export function scannedCompanionOutsideProject(entry: string, target: string) {
+  return [
+    'A companion extension entry leads outside the project, so it is not loaded.',
+    `ENTRY ${entry}`,
+    `LEADS TO ${target}`,
+    'Companion extensions must be inside the project. Copy the folder into the project, or remove the link.'
+  ].join('\n')
+}
+
 // One line on purpose: a build has a single place to say it, and the fix is
 // one config key whichever of the listed files the project meant to inject.
 export function scriptsEntriesOnlyImported(
