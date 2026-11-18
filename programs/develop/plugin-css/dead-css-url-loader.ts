@@ -330,13 +330,13 @@ export default function deadCssUrlLoader(
   this: DeadCssUrlLoaderContext,
   source: string
 ): string {
-  // A component's style block is still CSS for the loaders after this one.
-  // Its own loader turns it into a module once the framework is done with it.
-  if (isSfcStyleBlock(this)) return source
-
   const options = this.getOptions() || {}
 
   if (options.inlineImports) return inlineStylesheetImports(this, source)
+
+  // A component's style block is still CSS for the loaders after this one.
+  // Its own loader turns it into a module once the framework is done with it.
+  if (isSfcStyleBlock(this)) return source
 
   const {css, bundledRequests} = inlineStylesheetUrls(this, source)
 

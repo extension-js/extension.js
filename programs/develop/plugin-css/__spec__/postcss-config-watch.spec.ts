@@ -131,7 +131,12 @@ async function dev(root: string): Promise<DevSession> {
         (candidate) => startedBy.get(candidate)?.includes('styles.css') === true
       )
 
-      if (!build || startedBy.get(build)?.length === 1) return build
+      // A watcher may name the folder of the sheet beside the sheet.
+      const others = (startedBy.get(build as Build) ?? []).filter(
+        (file) => file !== 'styles.css' && file !== ''
+      )
+
+      if (!build || others.length === 0) return build
     }
 
     return undefined
@@ -242,6 +247,43 @@ describe('a PostCSS config edited while a dev session runs', () => {
     })
   })
 
+  // The helper two requires down is no config file, and changes the answer.
+  it('an edit to a file a helper of the config requires rebuilds with the new value', async () => {
+    const file = 'postcss.config.cjs'
+    const deep = (word: string) => `module.exports = '${word}'\n`
+    const root = makeProject({
+      ...SHEET,
+      [file]: [
+        "const word = require('./tokens/index.cjs')",
+        'module.exports = {',
+        "  plugins: [{postcssPlugin: 'stamp', Rule(rule) { rule.append({prop: '--stamp', value: word}) }}]",
+        '}',
+        ''
+      ].join('\n'),
+      'tokens/index.cjs': "module.exports = require('./deep.cjs')\n",
+      'tokens/deep.cjs': deep('first')
+    })
+    const session = await dev(root)
+    const first = {
+      css: '.a{color:red;--stamp:first}',
+      setupWarnings: [],
+      errors: []
+    }
+
+    expect(await session.firstBuild).toEqual(first)
+    expect(await session.buildAfter(saveSheet(root))).toEqual(first)
+
+    const rebuilt = await session.buildAfter(() =>
+      fs.writeFileSync(path.join(root, 'tokens', 'deep.cjs'), deep('second'))
+    )
+
+    expect(rebuilt).toEqual({
+      css: '.a{color:red;--stamp:second}',
+      setupWarnings: [],
+      errors: []
+    })
+  })
+
   it('a config written into a project that had no PostCSS asks for a restart, once', async () => {
     const root = makeProject(SHEET)
     const config = path.join(root, 'postcss.config.cjs')
@@ -273,9 +315,9 @@ describe('a PostCSS config edited while a dev session runs', () => {
     expect(next).toEqual({css: '.a{color:blue}', setupWarnings: [], errors: []})
   })
 
-  // A finding about the config belongs to the build, where every reporter
-  // and the JSON output read it, and it goes away with its cause.
-  it('a config PostCSS cannot use is reported on the build, until it is fixed', async () => {
+  // A finding about the config belongs to the build that read the config,
+  // where every reporter and the JSON output read it, and is said once.
+  it('a config PostCSS cannot use is reported on the build that read it, once', async () => {
     const root = makeProject({
       ...SHEET,
       '.postcssrc.json': JSON.stringify({
@@ -318,6 +360,26 @@ describe('a PostCSS config edited while a dev session runs', () => {
       setupWarnings: [],
       errors: []
     })
+  })
+})
+
+describe('a dev session that opens a second compiler on the same project', () => {
+  it('says a finding about the config once, in the first of them', async () => {
+    const root = makeProject({
+      ...SHEET,
+      '.postcssrc.json': JSON.stringify({
+        plugins: {'postcss-plugin-nowhere': {}}
+      })
+    })
+    const first = await dev(root)
+
+    expect((await first.firstBuild)?.setupWarnings).toHaveLength(1)
+
+    await sessions.pop()?.close()
+
+    const second = await dev(root)
+
+    expect((await second.firstBuild)?.setupWarnings).toEqual([])
   })
 })
 

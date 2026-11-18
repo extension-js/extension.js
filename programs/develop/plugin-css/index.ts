@@ -40,7 +40,10 @@ import {
   SFC_STYLE_BLOCK_QUERY,
   SVELTE_STYLE_BLOCK_TEST
 } from './css-lib/sfc-style-block'
-import {beginStyleDiagnostics} from './css-lib/style-diagnostics'
+import {
+  beginStyleDiagnostics,
+  reportStyleDiagnostic
+} from './css-lib/style-diagnostics'
 import {
   forgetVerbatimCss,
   minifierDroppedTokens,
@@ -52,6 +55,7 @@ import {
   findIgnoredPostCssConfigs,
   findPostCssConfig,
   type PostCssCompilerReader,
+  postCssConfigHelpers,
   postCssReaderForOneCompiler,
   postCssSetupFiles
 } from './css-tools/postcss'
@@ -103,21 +107,17 @@ export class CssPlugin {
       baseScheme: extensionSchemeFor(String(this.browser))
     }
 
-    // A reading that repeats what the one before it said adds nothing.
-    let saidBefore = new Set<string>()
-    let said = new Set<string>()
-
+    // A reading that repeats what the one before it said adds nothing, in
+    // this compiler or in the one a dev session opened before it.
     this.postCss = postCssReaderForOneCompiler((message) => {
-      said.add(message)
-
-      if (!saidBefore.has(message)) this.setupWarnings.push(message)
+      reportStyleDiagnostic(projectPath, message, (told) =>
+        this.setupWarnings.push(told)
+      )
     })
 
     const reread = this.postCss.reread
 
     this.postCss.reread = () => {
-      saidBefore = said
-      said = new Set()
       beginStyleDiagnostics(projectPath, String(mode))
 
       return reread()
@@ -442,12 +442,14 @@ export class CssPlugin {
     const files = postCssSetupFiles(projectPath).map((file) =>
       path.resolve(file)
     )
-    const watched = new Set(files)
+    // The project files a config requires are known once it was read.
+    const setupFiles = () => [...files, ...postCssConfigHelpers(projectPath)]
     let needsRestart: string | undefined
 
     compiler.hooks.watchRun.tapPromise(`${CssPlugin.name}:setup`, async () => {
       await configured
 
+      const watched = new Set(setupFiles())
       const changed = [
         ...(compiler.modifiedFiles || []),
         ...(compiler.removedFiles || [])
@@ -466,7 +468,7 @@ export class CssPlugin {
 
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:setup-files`, (c) => {
       // A project with no sheet yet has no module that watches these.
-      for (const file of files) {
+      for (const file of setupFiles()) {
         if (fs.existsSync(file)) c.fileDependencies.add(file)
         else c.missingDependencies.add(file)
       }

@@ -104,58 +104,97 @@ const TWO_BUILDS = [
   ''
 ].join('\n')
 
-// The test runner loads a CommonJS postcss.config.js its own way, so this
-// one runs the built engine in a plain Node process.
-describe('a CommonJS postcss.config.js in a process that builds twice', () => {
-  it('reads an edit to a file the config requires, or one that file requires', () => {
-    const engine = path.join(
-      path.dirname(resolveDevelopDistFile('dead-css-url-loader')),
-      'module.mjs'
-    )
+// A dev session with no browser: waits for the first stamp, edits the file
+// two requires down from the config, and waits for the stamp to follow.
+const WATCH = [
+  "import fs from 'node:fs'",
+  "import path from 'node:path'",
+  "import {pathToFileURL} from 'node:url'",
+  'const [engine, root] = process.argv.slice(2)',
+  'const {extensionDev} = await import(pathToFileURL(engine).href)',
+  'const stamp = () => {',
+  "  const dist = path.join(root, 'dist', 'chrome')",
+  '  if (!fs.existsSync(dist)) return undefined',
+  '  for (const file of fs.readdirSync(dist, {recursive: true})) {',
+  "    if (!String(file).endsWith('.css')) continue",
+  "    const found = /--stamp:\\s*(\\w+)/.exec(fs.readFileSync(path.join(dist, String(file)), 'utf8'))?.[1]",
+  '    if (found) return found',
+  '  }',
+  '}',
+  'const until = async (word) => {',
+  '  for (let turn = 0; turn < 400 && stamp() !== word; turn++) {',
+  '    await new Promise((resolve) => setTimeout(resolve, 100))',
+  '  }',
+  '  return stamp()',
+  '}',
+  "extensionDev(root, {browser: 'chrome', noBrowser: true, install: false, open: false}).catch((error) => console.log('DEV ' + error?.message))",
+  "const first = await until('first')",
+  'await new Promise((resolve) => setTimeout(resolve, 1500))',
+  "fs.writeFileSync(path.join(root, 'tokens', 'deep.cjs'), \"module.exports = 'second'\\n\")",
+  "console.log('STAMPS ' + [first, await until('second')].join(','))",
+  'process.exit(0)',
+  ''
+].join('\n')
 
-    if (!fs.existsSync(engine)) {
-      throw new Error(
-        `This spec builds with programs/develop/dist and ${engine} is missing. ` +
-          'Run `pnpm --filter extension-develop compile` first.'
+// The test runner loads a CommonJS postcss.config.js its own way, so these
+// run the built engine in a plain Node process.
+describe('a CommonJS postcss.config.js that requires a helper, in plain Node', () => {
+  it.each([
+    ['two builds in one process read', TWO_BUILDS],
+    ['a dev session rebuilds on', WATCH]
+  ])(
+    '%s an edit to a file the helper requires',
+    (_label, script) => {
+      const engine = path.join(
+        path.dirname(resolveDevelopDistFile('dead-css-url-loader')),
+        'module.mjs'
       )
-    }
 
-    const root = makeProject({
-      'two-builds.mjs': TWO_BUILDS,
-      'app/package.json': JSON.stringify({private: true, name: 'reread'}),
-      'app/manifest.json': JSON.stringify({
-        manifest_version: 3,
-        name: 'reread',
-        version: '1.0.0',
-        action: {default_popup: 'popup.html'}
-      }),
-      'app/popup.html':
-        '<!doctype html><link rel="stylesheet" href="./styles.css"><p>x</p>\n',
-      'app/styles.css': '.a{color:red}\n',
-      'app/tokens/index.cjs': "module.exports = require('./deep.cjs')\n",
-      'app/tokens/deep.cjs': "module.exports = 'first'\n",
-      'app/postcss.config.js': [
-        "const word = require('./tokens/index.cjs')",
-        "module.exports = {plugins: [{postcssPlugin: 'stamp', Rule(rule) { rule.append({prop: '--stamp', value: word}) }}]}",
-        ''
-      ].join('\n')
-    })
-
-    const output = execFileSync(
-      process.execPath,
-      [path.join(root, 'two-builds.mjs'), engine, path.join(root, 'app')],
-      {
-        encoding: 'utf8',
-        env: {
-          ...process.env,
-          EXTENSION_TELEMETRY_DISABLED: '1',
-          DO_NOT_TRACK: '1'
-        }
+      if (!fs.existsSync(engine)) {
+        throw new Error(
+          `This spec builds with programs/develop/dist and ${engine} is missing. ` +
+            'Run `pnpm --filter extension-develop compile` first.'
+        )
       }
-    )
 
-    expect(
-      output.split('\n').filter((line) => line.startsWith('STAMPS'))
-    ).toEqual(['STAMPS first,second'])
-  }, 120_000)
+      const root = makeProject({
+        'run.mjs': script,
+        'app/package.json': JSON.stringify({private: true, name: 'reread'}),
+        'app/manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'reread',
+          version: '1.0.0',
+          action: {default_popup: 'popup.html'}
+        }),
+        'app/popup.html':
+          '<!doctype html><link rel="stylesheet" href="./styles.css"><p>x</p>\n',
+        'app/styles.css': '.a{color:red}\n',
+        'app/tokens/index.cjs': "module.exports = require('./deep.cjs')\n",
+        'app/tokens/deep.cjs': "module.exports = 'first'\n",
+        'app/postcss.config.js': [
+          "const word = require('./tokens/index.cjs')",
+          "module.exports = {plugins: [{postcssPlugin: 'stamp', Rule(rule) { rule.append({prop: '--stamp', value: word}) }}]}",
+          ''
+        ].join('\n')
+      })
+
+      const output = execFileSync(
+        process.execPath,
+        [path.join(root, 'run.mjs'), engine, path.join(root, 'app')],
+        {
+          encoding: 'utf8',
+          env: {
+            ...process.env,
+            EXTENSION_TELEMETRY_DISABLED: '1',
+            DO_NOT_TRACK: '1'
+          }
+        }
+      )
+
+      expect(
+        output.split('\n').filter((line) => line.startsWith('STAMPS'))
+      ).toEqual(['STAMPS first,second'])
+    },
+    120_000
+  )
 })

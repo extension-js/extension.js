@@ -152,6 +152,57 @@ function realPathOf(file: string): string {
   }
 }
 
+// The project files each config ran when it was last read, by project and
+// by config. An edit to one of them changes what the config answers with.
+const configHelpers = new Map<string, Map<string, Set<string>>>()
+
+function noteConfigHelpers(
+  projectPath: string,
+  configPath: string,
+  loaded: string[],
+  registry: RequireRegistry,
+  failed: boolean
+) {
+  const root = realPathOf(projectPath)
+  const found = new Set<string>()
+
+  const visit = (file: string) => {
+    if (found.has(file) || !isProjectModule(file, root)) return
+
+    found.add(file)
+
+    for (const child of registry[file]?.children ?? []) visit(child.filename)
+  }
+
+  for (const file of loaded) visit(file)
+
+  const ofProject = configHelpers.get(root) ?? new Map<string, Set<string>>()
+
+  // A helper that threw is gone from the registry, and fixing it is the
+  // very edit to wait for, so a failed read keeps what the last one found.
+  if (failed) {
+    for (const file of ofProject.get(configPath) ?? []) found.add(file)
+  }
+
+  found.delete(configPath)
+  found.delete(realPathOf(configPath))
+  ofProject.set(configPath, found)
+  configHelpers.set(root, ofProject)
+}
+
+// Every project file a config of this project ran when it was last read,
+// under the path the project was given by, which is how a watcher names it.
+export function postCssConfigHelpers(projectPath: string): string[] {
+  const root = realPathOf(projectPath)
+  const files = [...(configHelpers.get(root)?.values() ?? [])].flatMap(
+    (found) => [...found]
+  )
+
+  return [...new Set(files)].map((file) =>
+    path.join(projectPath, path.relative(root, file))
+  )
+}
+
 // One number for each read in this process. A file time would repeat for two
 // saves inside one tick of the clock, or on a disk that keeps whole seconds.
 let freshImports = 0
@@ -168,7 +219,24 @@ async function importFresh(
   dropProjectModules(realPathOf(file), root, registry)
   dropProjectModules(file, root, registry)
 
-  return import(`${pathToFileURL(file).href}?t=${++freshImports}`)
+  let failed = true
+
+  try {
+    const loaded = await import(
+      `${pathToFileURL(file).href}?t=${++freshImports}`
+    )
+
+    failed = false
+
+    return loaded
+  } finally {
+    // Node lists a CommonJS config it imported, with what it required.
+    const children = [realPathOf(file), file].flatMap((own) =>
+      (registry[own]?.children ?? []).map((child) => child.filename)
+    )
+
+    noteConfigHelpers(projectPath, file, children, registry, failed)
+  }
 }
 
 // A YAML config, read with the parser postcss-loader itself reads it with.
@@ -524,6 +592,8 @@ function tryLoadCjsConfig(
     const exportsObj = moduleObj.exports
     const load = createRequire(configPath)
     const root = realPathOf(options.projectPath ?? path.dirname(configPath))
+    const required: string[] = []
+    let failed = true
     // A project file the config requires is run again on each read, or an
     // edit to it would not show until the process ends.
     const req = Object.assign((id: string) => {
@@ -532,6 +602,7 @@ function tryLoadCjsConfig(
 
         if (isProjectModule(file, root)) {
           dropProjectModules(file, root, load.cache)
+          required.push(file)
         }
       } catch {
         // The require below reports a module that does not resolve.
@@ -547,7 +618,13 @@ function tryLoadCjsConfig(
       '__dirname',
       source
     )
-    fn(req, moduleObj, exportsObj, configPath, path.dirname(configPath))
+
+    try {
+      fn(req, moduleObj, exportsObj, configPath, path.dirname(configPath))
+      failed = false
+    } finally {
+      noteConfigHelpers(root, configPath, required, load.cache, failed)
+    }
 
     return moduleObj.exports
   } catch (error) {
@@ -707,7 +784,7 @@ function withSetupFilesWatched(
     {
       postcssPlugin: SETUP_FILES_PLUGIN,
       Once(_root: unknown, {result}: {result: {messages: unknown[]}}) {
-        for (const file of files) {
+        for (const file of [...files, ...postCssConfigHelpers(projectPath)]) {
           // A config that is not there yet counts too, once it is written.
           result.messages.push({
             type: fs.existsSync(file) ? 'dependency' : 'missing-dependency',

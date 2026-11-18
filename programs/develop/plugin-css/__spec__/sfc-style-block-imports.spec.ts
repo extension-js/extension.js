@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {workspacePackage} from '../../__spec__/helpers/workspace-package'
-import sfcStyleBlockLoader from '../sfc-style-block-loader'
+import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
 
 const makeProject = cssProjects()
@@ -10,6 +10,7 @@ const WARN = '⏵⏵⏵'
 
 const VUE_QUERY = '?vue&type=style&index=0&id=731d5dd6&lang=css'
 
+// The run ahead of PostCSS, on the request the framework makes for a block.
 function runBlock(
   root: string,
   resource: string,
@@ -18,23 +19,14 @@ function runBlock(
 ) {
   const warnings: Error[] = []
   const watched: string[] = []
-  const output = sfcStyleBlockLoader.call(
+  const output = deadCssUrlLoader.call(
     {
       resourcePath: path.join(root, resource),
       resourceQuery,
-      mode: 'production',
-      loaderIndex: 0,
-      loaders: [
-        {path: '/develop/dist/sfc-style-block-loader.mjs'},
-        {
-          path: resource.includes('.svelte')
-            ? '/svelte-loader/index.js'
-            : '/vue-loader/dist/index.js'
-        }
-      ],
       getOptions: () => ({
         manifestPath: path.join(root, 'manifest.json'),
-        projectPath: root
+        projectPath: root,
+        inlineImports: true
       }),
       emitWarning: (warning: Error) => warnings.push(warning),
       emitError() {},
@@ -44,7 +36,7 @@ function runBlock(
     source
   )
 
-  return {output: String(output), warnings, watched}
+  return {output, warnings, watched}
 }
 
 // A component's style block in a content script is added to the page as
@@ -54,7 +46,7 @@ describe('an @import in the style block of a content script component', () => {
     ['Vue', 'content/Widget.vue', VUE_QUERY],
     // svelte-loader reads the block back from the component, under its path.
     ['Svelte', 'content/Widget.svelte', '']
-  ])('%s: the rules of the imported sheet come in, and the sheet is watched', (_label, resource, query) => {
+  ])('%s: the rules of the imported sheet come in as CSS, and the sheet is watched', (_label, resource, query) => {
     const root = makeProject({
       'content/tokens.css': '.token{color:green}\n'
     })
@@ -66,13 +58,22 @@ describe('an @import in the style block of a content script component', () => {
       '@import "./tokens.css";\n.probe{color:red}\n'
     )
 
-    expect(output).toContain(
-      JSON.stringify('.token{color:green}\n\n.probe{color:red}\n')
-    )
-
-    expect(output).not.toContain('@import')
+    expect(output).toBe('.token{color:green}\n\n.probe{color:red}\n')
     expect(watched).toEqual([path.join(root, 'content', 'tokens.css')])
     expect(warnings).toEqual([])
+  })
+
+  // The first request for a Vue block names the one that compiles it.
+  it('leaves the request a framework wrote for the block as it is', () => {
+    const root = makeProject({})
+    const proxy =
+      '@import "/x/Widget.vue.0.css!=!-!/x/loader.js!/x/Widget.vue?vue&type=style&index=0";\n'
+
+    expect(runBlock(root, 'content/Widget.vue', VUE_QUERY, proxy)).toEqual({
+      output: proxy,
+      warnings: [],
+      watched: []
+    })
   })
 
   it('says why a sheet it may not read did not come in', () => {
@@ -104,7 +105,7 @@ const VUE_SCOPE = workspacePackage('@vue/runtime-dom')
 describe.skipIf(!VUE_PACKAGE || !VUE_SCOPE || process.platform === 'win32')(
   'a Vue content script whose style block imports a sheet, built',
   () => {
-    it('ships the imported rules in the script, with no @import left', async () => {
+    async function build(files: Record<string, string>) {
       const root = makeProject({
         'package.json': JSON.stringify({
           private: true,
@@ -128,9 +129,7 @@ describe.skipIf(!VUE_PACKAGE || !VUE_SCOPE || process.platform === 'win32')(
           'createApp(Widget).mount(host)',
           ''
         ].join('\n'),
-        'content/Widget.vue':
-          '<template><p class="probe">x</p></template>\n<style>\n@import "./tokens.css";\n.probe{color:red}\n</style>\n',
-        'content/tokens.css': '.token_from_import{color:green}\n'
+        ...files
       })
 
       fs.mkdirSync(path.join(root, 'node_modules'), {recursive: true})
@@ -152,14 +151,19 @@ describe.skipIf(!VUE_PACKAGE || !VUE_SCOPE || process.platform === 'win32')(
       process.env.VITEST = 'true'
 
       try {
-        const summary = await extensionBuild(root, {
+        const summary = (await extensionBuild(root, {
           browser: 'chrome',
           silent: true,
           install: false,
           mode: 'production',
           exitOnError: false
-        } as never)
+        } as never)) as {
+          errors_count: number
+          warnings_count: number
+          warnings?: string[]
+        }
 
+        expect(summary.warnings ?? []).toEqual([])
         expect(summary.errors_count).toBe(0)
         expect(summary.warnings_count).toBe(0)
       } finally {
@@ -168,14 +172,51 @@ describe.skipIf(!VUE_PACKAGE || !VUE_SCOPE || process.platform === 'win32')(
       }
 
       const dist = path.join(root, 'dist', 'chrome')
-      const scripts = (fs.readdirSync(dist, {recursive: true}) as string[])
+
+      return (fs.readdirSync(dist, {recursive: true}) as string[])
         .filter((entry) => entry.endsWith('.js'))
         .map((entry) => fs.readFileSync(path.join(dist, entry), 'utf8'))
         .join('\n')
+    }
+
+    it('ships the imported rules in the script, with no @import left', async () => {
+      const scripts = await build({
+        'content/Widget.vue':
+          '<template><p class="probe">x</p></template>\n<style>\n@import "./tokens.css";\n.probe{color:red}\n</style>\n',
+        'content/tokens.css': '.token_from_import{color:green}\n'
+      })
 
       expect(scripts).toContain('.token_from_import')
       expect(scripts).toContain('.probe')
       expect(scripts).not.toMatch(/@import\s*["']\.\/tokens\.css/)
+    }, 120_000)
+
+    // The sheet comes in ahead of PostCSS and of the scoping of the block.
+    it('runs the imported rules through the PostCSS config and the scoping of the block', async () => {
+      const scripts = await build({
+        'content/Widget.vue':
+          '<template><p class="probe">x</p></template>\n<style scoped>\n@import "./card.css";\n.probe{color:red}\n</style>\n',
+        'content/card.css': '.card_from_import{color:green}\n',
+        'postcss.config.cjs': [
+          'module.exports = {',
+          '  plugins: [',
+          '    {',
+          "      postcssPlugin: 'marker',",
+          '      Rule(rule) {',
+          "        rule.prepend({prop: '--seen', value: 'yes'})",
+          '      }',
+          '    }',
+          '  ]',
+          '}',
+          ''
+        ].join('\n')
+      })
+
+      expect(
+        scripts.match(/\.card_from_import\[data-v-[0-9a-f]+\]\{[^}]*\}/g)
+      ).toEqual([
+        expect.stringMatching(/\{--seen:\s*yes;\s*color:\s*green;?\}$/)
+      ])
     }, 120_000)
   }
 )
