@@ -574,6 +574,53 @@ describe('ready.json writer preservation', () => {
     expect(after.message).toBe('the preview session ended')
   })
 
+  it('writeEndedAsFailed turns a ready contract into error that a shutdown keeps', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    writer.writeEndedAsFailed('E_PARENT_GONE', 'the host ended the session')
+
+    const ended = readContract(writer.readyPath)
+    expect(ended.status).toBe('error')
+    expect(ended.code).toBe('shutdown')
+    expect(ended.message).toBe('the host ended the session')
+    expect(ended.endedAsFailedCode).toBe('E_PARENT_GONE')
+    expect(typeof ended.endedAsFailedAt).toBe('string')
+
+    writer.writeShutdown()
+
+    const after = readContract(writer.readyPath)
+    expect(after.status).toBe('error')
+    expect(after.code).toBe('shutdown')
+    expect(after.endedAsFailedCode).toBe('E_PARENT_GONE')
+  })
+
+  it('writeEndedAsFailed keeps the launch failure a contract already names', () => {
+    const writer = makeWriter()
+    writer.writeReady()
+
+    patchContract(writer.readyPath, {
+      status: 'error',
+      code: 'browser_launch_failed',
+      message: 'the browser binary was not found',
+      browserLaunchFailedCode: 'E_BROWSER_BINARY_INVALID'
+    })
+
+    const failed = readContract(writer.readyPath)
+
+    writer.writeEndedAsFailed('E_BROWSER_BINARY_INVALID', 'another message')
+
+    const {endedAsFailedAt, endedAsFailedCode, ts, ...rest} = readContract(
+      writer.readyPath
+    )
+    const {ts: _failedTs, ...before} = failed
+
+    expect(rest).toEqual(before)
+    expect(endedAsFailedCode).toBe('E_BROWSER_BINARY_INVALID')
+    expect(typeof endedAsFailedAt).toBe('string')
+    expect(typeof ts).toBe('string')
+  })
+
   it('writeShutdown is a no-op when no contract was ever written', () => {
     const writer = makeWriter()
     writer.writeShutdown()
