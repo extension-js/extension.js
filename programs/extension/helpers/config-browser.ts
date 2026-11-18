@@ -24,7 +24,7 @@ export async function resolveConfigBrowser(
     if (typeof develop.loadCommandConfig !== 'function') return undefined
 
     const config = await develop.loadCommandConfig(projectPath, command)
-    const browser = (config as {browser?: unknown})?.browser
+    const browser = config.browser
 
     return typeof browser === 'string' && browser.length > 0
       ? browser

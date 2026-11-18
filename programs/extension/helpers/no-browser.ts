@@ -38,7 +38,7 @@ export async function resolveNoBrowser(
 
     const config = await develop.loadCommandConfig(projectPath, command)
 
-    return (config as {noBrowser?: unknown})?.noBrowser === true
+    return config.noBrowser === true
   } catch {
     return false
   }
