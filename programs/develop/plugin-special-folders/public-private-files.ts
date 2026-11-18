@@ -120,6 +120,17 @@ export function climbsOut(normalized: string): boolean {
   return normalized === '..' || normalized.startsWith('../')
 }
 
+// A root-absolute ref that climbs out of the extension root, as written or
+// as the browser decodes it. A plain relative ref answers false.
+export function rootAbsoluteClimbsOut(ref: string): boolean {
+  const unix = ref.replace(/\\/g, '/')
+
+  return (
+    unix.startsWith('/') &&
+    browserSpellings(unix.replace(/^\/+/, '')).some(climbsOut)
+  )
+}
+
 // Whether a root-absolute URL is refused as written, before any file is
 // looked up: it climbs out of the extension root or carries a private name.
 // The path is the URL's and never the machine's: `/abs/x.txt` is `abs/x.txt`.

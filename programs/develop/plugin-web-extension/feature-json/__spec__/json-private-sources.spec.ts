@@ -191,6 +191,8 @@ const PRIVATE_FILES: Table = {
   'sub/../../outside.txt': stopped('unparsed: ../outside.txt'),
   '%2e%2e/outside.txt': stopped('missing: %2e%2e/outside.txt'),
   '/%2e%2e/outside.json': stopped('missing: %2e%2e/outside.json'),
+  // A page refuses a root path that climbs out of the extension root.
+  '/../outside.json': stopped('missing: ../outside.json'),
   'nothing.json': stopped('missing: nothing.json'),
   // The copier leaves this one out of public/, so no field may name it.
   'public/.env.local': stopped('missing: public/.env.local')
@@ -200,7 +202,6 @@ const PRIVATE_FILES: Table = {
 // that holds JSON ships, one that does not stops the build as any would.
 const workspaceFiles = (field: Field): Table => ({
   '../outside.json': landed(field),
-  '/../outside.json': landed(field),
   '../outside.txt': stopped('unparsed: ../outside.txt')
 })
 

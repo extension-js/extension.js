@@ -146,7 +146,13 @@ const IN_WORKSPACE: Row = {
 }
 
 const PRIVATE_FILES: Table = {
-  '/../outside.txt': IN_WORKSPACE,
+  // A page refuses a root path that climbs out of the extension root.
+  '/../outside.txt': {
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['../outside.txt'],
+    reported: ['../outside.txt']
+  },
   '../outside.txt': IN_WORKSPACE,
   'sub/../../outside.txt': IN_WORKSPACE,
   '/%2e%2e/outside.txt': {
