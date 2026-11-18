@@ -1,10 +1,8 @@
 import * as path from 'node:path'
-import type {RspackPluginInstance} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {
   compileFixture,
   type FixtureFiles,
-  makeFixtureRoot,
   removeFixtureRoots
 } from '../../plugin-static-assets/__spec__/helpers/compile-harness'
 import {WasmPlugin} from '../index'
@@ -35,64 +33,74 @@ function ffmpegCore(
 
 const INDEX = `import core from '${REQUEST}'\nself.out = {core}\n`
 
-// The alias walk starts from a temp folder, never from the repository.
-function withAliases(start: string): RspackPluginInstance {
-  return {apply: (compiler) => new WasmPlugin().apply(compiler, start)}
-}
-
-async function compileBoth(files: FixtureFiles, start = makeFixtureRoot({})) {
+// `bare` is rspack alone, `built` adds the plugin. They must agree.
+async function compileBoth(files: FixtureFiles) {
   const config = () => ({resolve: {extensions: ['.js', '.json']}})
   const bare = await compileFixture({files, plugins: [], config})
-  const aliased = await compileFixture({
+  const built = await compileFixture({
     files,
-    plugins: [withAliases(start)],
+    plugins: [new WasmPlugin()],
     config
   })
 
-  return {bare, aliased}
+  return {bare, built}
 }
 
-describe('the ffmpeg-core alias against plain resolution', () => {
-  it('changes nothing for a package installed in the project that exposes the file', async () => {
-    const {bare, aliased} = await compileBoth({
+describe('a known wasm runtime file resolves like any other package file', () => {
+  it('resolves a file the package installed in the project exposes', async () => {
+    const {bare, built} = await compileBoth({
       ...ffmpegCore('', 'project copy'),
       'index.js': INDEX
     })
 
-    expect(bare.errors).toEqual([])
-    expect(aliased.errors).toEqual([])
-    expect(await bare.evaluate()).toEqual({core: 'project copy'})
-    expect(await aliased.evaluate()).toEqual({core: 'project copy'})
-    expect(aliased.main).toBe(bare.main)
+    expect(built.errors).toEqual([])
+    expect(await built.evaluate()).toEqual({core: 'project copy'})
+    expect(built.main).toBe(bare.main)
   })
 
-  it('reaches a file the package exports field hides', async () => {
-    const {bare, aliased} = await compileBoth({
+  it('refuses a file the package exports field hides, and a user alias reaches it', async () => {
+    const files = {
       ...ffmpegCore('', 'hidden file', {'.': './index.js'}),
       'index.js': INDEX
+    }
+    const {bare, built} = await compileBoth(files)
+    const hidden = (root: string) =>
+      path.join(root, 'node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js')
+
+    expect(built.errors).toEqual([
+      `  × Package subpath './dist/esm/ffmpeg-core.js' is not defined by "exports" in ${path.join(built.root, 'node_modules/@ffmpeg/core/package.json')}\n`
+    ])
+
+    expect(built.errors[0].replace(built.root, bare.root)).toBe(bare.errors[0])
+
+    const aliased = await compileFixture({
+      files,
+      plugins: [new WasmPlugin()],
+      config: (root) => ({
+        resolve: {
+          extensions: ['.js', '.json'],
+          alias: {[REQUEST]: hidden(root)}
+        }
+      })
     })
 
+    expect(aliased.errors).toEqual([])
     expect(await aliased.evaluate()).toEqual({core: 'hidden file'})
-    expect(bare.errors).toEqual([
-      `  × Package subpath './dist/esm/ffmpeg-core.js' is not defined by "exports" in ${path.join(bare.root, 'node_modules/@ffmpeg/core/package.json')}\n`
-    ])
   })
 
-  it('finds a copy that exists only above the start folder', async () => {
-    const elsewhere = makeFixtureRoot(ffmpegCore('', 'copy above the start'))
-    const start = path.join(elsewhere, 'nested', 'folder')
+  it('does not look for a copy outside the folders rspack searches', async () => {
+    const {bare, built} = await compileBoth({'index.js': INDEX})
 
-    const {bare, aliased} = await compileBoth({'index.js': INDEX}, start)
-
-    expect(await aliased.evaluate()).toEqual({core: 'copy above the start'})
-    expect(bare.errors).toHaveLength(1)
-    expect(bare.errors[0]).toContain(
+    expect(built.errors).toHaveLength(1)
+    expect(built.errors[0]).toContain(
       `Module not found: Can't resolve '${REQUEST}'`
     )
+
+    expect(bare.errors).toHaveLength(1)
   })
 
-  it('hands a dependency the top-level copy instead of its own nested one', async () => {
-    const {bare, aliased} = await compileBoth({
+  it('hands a dependency its own nested copy', async () => {
+    const {bare, built} = await compileBoth({
       ...ffmpegCore('', 'top-level copy'),
       ...ffmpegCore('node_modules/wrapper/', 'nested copy'),
       'node_modules/wrapper/package.json': JSON.stringify({
@@ -104,7 +112,7 @@ describe('the ffmpeg-core alias against plain resolution', () => {
       'index.js': "import core from 'wrapper'\nself.out = {core}\n"
     })
 
-    expect(await bare.evaluate()).toEqual({core: 'nested copy'})
-    expect(await aliased.evaluate()).toEqual({core: 'top-level copy'})
+    expect(await built.evaluate()).toEqual({core: 'nested copy'})
+    expect(built.main).toBe(bare.main)
   })
 })
