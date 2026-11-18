@@ -96,6 +96,29 @@ describe('the package manager version probe', () => {
     expect(options.stdio).toEqual(['ignore', 'pipe', 'ignore'])
   })
 
+  // A Corepack shim answers for the nearest manifest above where it starts.
+  it('asks from the project folder, not from where the create was started', () => {
+    const dir = unpinnedProject(null)
+    const {probe, calls} = recordingProbe({status: 0, stdout: '9.9.9\n'})
+
+    declarePackageManager(dir, 'pnpm', probe)
+
+    expect(calls[0][2].cwd).toBe(dir)
+    expect(dir).not.toBe(process.cwd())
+  })
+
+  it('names no folder to start in when the project folder is gone', () => {
+    const dir = path.join(unpinnedProject(null), 'never-made')
+    const {probe, calls} = recordingProbe({status: 0, stdout: '9.9.9\n'})
+
+    // A folder that does not exist would read as a manager that is missing.
+    expect(declarePackageManager(dir, 'pnpm', probe)).toEqual({
+      spec: 'pnpm@9.9.9'
+    })
+
+    expect(calls[0][2]).not.toHaveProperty('cwd')
+  })
+
   it('sets no Corepack registry for a project that pins none', () => {
     const {probe, calls} = recordingProbe({status: 0, stdout: '9.9.9\n'})
 

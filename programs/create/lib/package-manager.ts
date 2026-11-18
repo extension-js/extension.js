@@ -197,6 +197,9 @@ function askVersion(
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
       timeout: timeoutMs,
+      // A shim answers for the manifest nearest to where it starts, and a
+      // folder that is gone would read as a manager that is missing.
+      ...(fs.existsSync(projectPath) ? {cwd: projectPath} : {}),
       env: {
         ...process.env,
         ...corepackRegistryEnv(process.env, projectPath)
