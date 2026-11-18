@@ -1,6 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {
+  getSpecialFoldersDataForProjectRoot,
+  walkedScriptsLeftOut
+} from '../get-data'
 import {listOutput} from './helpers/compile-harness'
 import {
   build,
@@ -106,6 +110,17 @@ async function tableFor(root: string) {
   return {table, result}
 }
 
+// The whole warning for the files left out, as the build prints it.
+const leftOut = (files: string[], browser = 'chrome') =>
+  [
+    `${files.join(', ')} ${files.length === 1 ? 'is' : 'are'} left out of the ${browser} build.`,
+    `The build never bundles env files, tooling files or repository files, or a file that leads outside the project. To build ${files.length === 1 ? 'it as a script, give it another name or copy it' : 'them as scripts, give them another name or copy them'} into the project.`
+  ].join('\n')
+
+// How many times the build said a file was left out, in any words.
+const timesSaid = (printed: string) =>
+  printed.split('left out of the').length - 1
+
 const TIMEOUT = 600_000
 
 describe.skipIf(!canLink)('a file the walk of scripts/ finds', () => {
@@ -114,21 +129,31 @@ describe.skipIf(!canLink)('a file the walk of scripts/ finds', () => {
     async () => {
       const {table, result} = await tableFor(fixture({}))
 
-      // The rows that carry a private name change in the commit that follows.
+      // A private name is no entry, and neither is an installed package. A
+      // dot-file the rule does not list is built as authored.
       expect(table).toEqual({
-        'scripts/.env.js': 'scripts/.env.js',
-        'scripts/.env.local.js': 'scripts/.env.local.js',
-        'scripts/.env.example.js': 'scripts/.env.example.js',
-        'scripts/.git/tool.js': 'scripts/.git/tool.js',
-        'scripts/nested/.git/tool.js': 'scripts/nested/.git/tool.js',
         'scripts/ok.js': 'scripts/ok.js',
         'scripts/nested/deep/ok.js': 'scripts/nested/deep/ok.js',
-        'scripts/.hidden.js': 'scripts/.hidden.js',
-        'scripts/node_modules/pkg/lib.js': 'scripts/node_modules/pkg/lib.js'
+        'scripts/.hidden.js': 'scripts/.hidden.js'
       })
 
+      // Not an error: no field names these files. One warning names them,
+      // and the installed package is passed over without a word.
       expect(result.errors).toBe(0)
-      expect(result.printed).not.toContain('left out')
+      expect(result.printed).toContain(
+        leftOut([
+          'scripts/.env.example.js',
+          'scripts/.env.js',
+          'scripts/.env.local.js',
+          'scripts/.git/tool.js',
+          'scripts/nested/.git/tool.js'
+        ])
+      )
+
+      // Once on the human channel and once in the result the build returns.
+      expect(timesSaid(result.printed)).toBe(2)
+      expect(result.printed).not.toContain('node_modules/pkg/lib.js')
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -166,13 +191,13 @@ describe.skipIf(!canLink)('a file the walk of scripts/ finds', () => {
         fixture({scripts: '../outside-scripts'}, ['scripts/'])
       )
 
-      // Both rows change in the commit that follows.
-      expect(table).toEqual({
-        '../outside-scripts/tool.js': 'scripts/tool.js',
-        '../outside-scripts/nested/tool.js': 'scripts/nested/tool.js'
-      })
-
+      expect(table).toEqual({})
       expect(result.errors).toBe(0)
+      expect(result.printed).toContain(
+        leftOut(['scripts/nested/tool.js', 'scripts/tool.js'])
+      )
+
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -190,8 +215,85 @@ describe.skipIf(!canLink)('a file the walk of scripts/ finds', () => {
       })
 
       expect(result.errors).toBe(0)
+      expect(timesSaid(result.printed)).toBe(0)
       expectNothingPrivate(result)
     },
     TIMEOUT
   )
+
+  it(
+    'sits in the folder the config names, inside the project',
+    async () => {
+      const {table, result} = await tableFor(
+        fixture(
+          {},
+          ['scripts/'],
+          'export default {folders: {scripts: "src/scripts"}}\n'
+        )
+      )
+
+      expect(table).toEqual({
+        'src/scripts/moved.js': 'scripts/moved.js',
+        'src/scripts/nested/moved.js': 'scripts/nested/moved.js'
+      })
+
+      expect(result.errors).toBe(0)
+      expect(timesSaid(result.printed)).toBe(0)
+      expectNothingPrivate(result)
+    },
+    TIMEOUT
+  )
+})
+
+describe('the list of walked scripts', () => {
+  const keysOf = (root: string, folders = {}) =>
+    Object.keys(
+      getSpecialFoldersDataForProjectRoot(root, folders).scripts ?? {}
+    ).sort()
+
+  it('holds no private name and no installed package', () => {
+    const root = fixture({})
+
+    expect(keysOf(root)).toEqual([
+      'scripts/.hidden',
+      'scripts/nested/deep/ok',
+      'scripts/ok'
+    ])
+
+    expect(walkedScriptsLeftOut(root)).toEqual([
+      'scripts/.env.example.js',
+      'scripts/.env.js',
+      'scripts/.env.local.js',
+      'scripts/.git/tool.js',
+      'scripts/nested/.git/tool.js'
+    ])
+  })
+
+  it('is whole for a folder the config names outside the project', () => {
+    const root = fixture({})
+    const folders = {scripts: '../outside-scripts/scripts'}
+    const moved = path.join(path.dirname(root), 'outside-scripts', 'scripts')
+
+    fs.mkdirSync(path.join(moved, '.git'), {recursive: true})
+    fs.writeFileSync(path.join(moved, 'shared.js'), 'console.log("shared")\n')
+    fs.writeFileSync(path.join(moved, '.env.js'), codeOf('scripts/.env.js'))
+    fs.writeFileSync(
+      path.join(moved, '.git', 'tool.js'),
+      codeOf('scripts/.git/tool.js')
+    )
+
+    // The author named the folder, and a private name in it stays out.
+    expect(keysOf(root, folders)).toEqual(['scripts/shared'])
+    expect(walkedScriptsLeftOut(root, folders)).toEqual([
+      '../outside-scripts/scripts/.env.js',
+      '../outside-scripts/scripts/.git/tool.js'
+    ])
+  })
+
+  it('is left as scanned once the config turns the folder off', () => {
+    const root = fixture({})
+
+    expect(keysOf(root, {scripts: false})).toEqual([])
+    expect(walkedScriptsLeftOut(root, {scripts: false})).toEqual([])
+  })
 })

@@ -137,6 +137,27 @@ export function publicEnvFilesLeftOut(
   )
 }
 
+// Names only, like the public one above: no file is opened to say this.
+export function scriptsFolderFilesLeftOut(
+  relativePaths: string[],
+  browser: string
+) {
+  const one = relativePaths.length === 1
+  const shown = relativePaths.slice(0, 10)
+  const more = relativePaths.length - shown.length
+  const list =
+    shown.map((entry) => colors.yellow(entry)).join(', ') +
+    (more > 0 ? ` and ${more} more` : '')
+
+  return (
+    `${list} ${one ? 'is' : 'are'} left out of the ${colors.blue(browser)} build.\n` +
+    'The build never bundles env files, tooling files or repository files, ' +
+    'or a file that leads outside the project. To build ' +
+    `${one ? 'it as a script' : 'them as scripts'}, give ${one ? 'it' : 'them'} another name or ` +
+    `copy ${one ? 'it' : 'them'} into the project.`
+  )
+}
+
 export function publicFileCollidesWithEntry(
   publicPath: string,
   emittedPath: string

@@ -28,6 +28,7 @@ import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './folders-config'
+import {walkedScriptsLeftOut} from './get-data'
 import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'
@@ -46,6 +47,9 @@ import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 // The env files a watch session already named, by public folder. It
 // outlives a compiler, so a session restart does not say them again.
 const saidEnvFiles = new Map<string, string>()
+
+// The same for the scripts/ files a session named as left out, by project.
+const saidLeftOutScripts = new Map<string, string>()
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -75,6 +79,32 @@ export class SpecialFoldersPlugin {
     new IncludeFiles({include, projectRoot: context}).apply(compiler)
 
     new HintImportOnlyScripts().apply(compiler)
+
+    // A file put in scripts/ is expected in the output, so one the build
+    // leaves out is said once, and in a watch session when the list changes.
+    compiler.hooks.thisCompilation.tap(
+      SpecialFoldersPlugin.name,
+      (compilation: Compilation) => {
+        const leftOut = walkedScriptsLeftOut(context)
+        const key = leftOut.join('\n')
+        const alreadySaid =
+          compiler.watchMode && saidLeftOutScripts.get(context) === key
+
+        if (compiler.watchMode) saidLeftOutScripts.set(context, key)
+
+        if (leftOut.length > 0 && !alreadySaid) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'ScriptsFolderFilesLeftOutWarning',
+            messages.scriptsFolderFilesLeftOut(
+              leftOut,
+              String(browser || 'chrome')
+            )
+          )
+        }
+      }
+    )
 
     const excluded = excludedFiles(context)
 
