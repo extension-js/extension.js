@@ -361,8 +361,8 @@ describe('the exit hooks', () => {
     [undefined, 'command_executed'],
     [0, 'command_executed'],
     [2, 'command_failed'],
-    // Pins today's behavior. Ledger 1372 D35.
-    ['0', 'command_failed']
+    ['0', 'command_executed'],
+    ['2', 'command_failed']
   ])('reports an exit code of %j at beforeExit as %s', async (exitCode, event) => {
     const box = sandbox({
       env: {EXTENSION_TELEMETRY: '1'},

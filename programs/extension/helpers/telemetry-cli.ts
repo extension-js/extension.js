@@ -508,7 +508,8 @@ export function createTelemetryCli(
 
     host.on('beforeExit', async () => {
       if (!tracked) {
-        if ((host.exitCode() ?? 0) === 0) {
+        // Node takes an exit code written as a string ('0') as that number.
+        if (Number(host.exitCode() ?? 0) === 0) {
           markCommandSuccess()
         } else {
           markCommandFailure()
