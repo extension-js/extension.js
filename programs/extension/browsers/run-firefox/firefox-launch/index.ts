@@ -187,6 +187,7 @@ export class FirefoxLaunchPlugin {
   // The process that owns the session once Firefox hands it off and lets the
   // spawned child exit. Null while the child itself is the browser.
   private livePid: number | null = null
+  private livePidAdoptedAt = 0
   private liveExitWatcher?: NodeJS.Timeout
   private browserGone = false
   private didReportReady = false
@@ -935,7 +936,10 @@ export class FirefoxLaunchPlugin {
       this.host.browser as FirefoxBrowserKind,
       () => this.child,
       () => this.cleanupInstance(),
-      () => this.livePid,
+      () =>
+        this.livePid
+          ? {pid: this.livePid, adoptedAt: this.livePidAdoptedAt}
+          : null,
       // A session that exits on a signal is gone before the browser's close
       // event runs, so the fresh profile is reclaimed as the process ends.
       () => removeManagedEphemeralProfile(this.host.launchProfilePath)
@@ -1070,6 +1074,7 @@ export class FirefoxLaunchPlugin {
     if (this.livePid === pid) return
 
     this.livePid = pid
+    this.livePidAdoptedAt = Date.now()
     stampReadyBrowserLaunch(
       this.extensionOutputPath,
       {
