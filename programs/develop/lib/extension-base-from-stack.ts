@@ -32,7 +32,7 @@ export function closedOnSlash(name: string): string {
 
 export const GECKO_EXTENSION_SCHEME = 'moz-extension'
 export const CHROMIUM_EXTENSION_SCHEME = 'chrome-extension'
-export const WEBKIT_EXTENSION_SCHEME = 'safari-web-extension'
+const WEBKIT_EXTENSION_SCHEME = 'safari-web-extension'
 
 // Each engine serves an extension under one scheme, so a build accepts a
 // base in that scheme and in no other.
