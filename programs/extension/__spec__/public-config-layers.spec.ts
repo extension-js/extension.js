@@ -5,7 +5,8 @@ import type {
   BuildCommandConfig,
   DevCommandConfig,
   FileConfig,
-  ServeCommandConfig
+  PreviewCommandConfig,
+  StartCommandConfig
 } from '../config-types'
 
 // The published config type is hand-kept beside the one the loader reads, so
@@ -25,11 +26,12 @@ const browserLayer: NoGaps<InternalBrowser, BrowserConfig> = true
 const devLayer: NoGaps<NonNullable<Commands['dev']>, DevCommandConfig> = true
 const startLayer: NoGaps<
   NonNullable<Commands['start']>,
-  ServeCommandConfig
+  StartCommandConfig
 > = true
+// Preview builds nothing. The CLI keeps these keys, marked deprecated.
 const previewLayer: NoGaps<
   NonNullable<Commands['preview']>,
-  ServeCommandConfig
+  PreviewCommandConfig
 > = true
 const buildLayer: NoGaps<
   NonNullable<Commands['build']>,
@@ -64,5 +66,27 @@ describe('public config types, per layer', () => {
     }
 
     expect(config.browser?.safari?.appIcon).toBe('./assets/app-icon-1024.png')
+  })
+
+  it('takes budgets under start and refuses them under preview', () => {
+    const config: FileConfig = {
+      commands: {
+        start: {
+          perfBudgets: {'service-worker': 10},
+          noOpen: true,
+          startingUrl: 'https://example.com'
+        },
+        preview: {noOpen: true, startingUrl: 'https://example.com'}
+      }
+    }
+    const refused: FileConfig = {
+      // @ts-expect-error preview builds nothing, so no budget applies
+      commands: {preview: {perfBudgets: {'service-worker': 10}}}
+    }
+
+    expect(config.commands?.start?.perfBudgets).toEqual({'service-worker': 10})
+    expect(Object.keys(refused.commands?.preview || {})).toEqual([
+      'perfBudgets'
+    ])
   })
 })
