@@ -186,7 +186,9 @@ export class LifecycleStream {
     return frame
   }
 
-  private sessionValue(extra: Record<string, unknown> = {}) {
+  public sessionValue(
+    extra: Record<string, unknown> = {}
+  ): Record<string, unknown> {
     const ready = readReadyContract(this.options.readyPath)
     const port = toFiniteNumber(ready?.port) ?? this.boundPort
 

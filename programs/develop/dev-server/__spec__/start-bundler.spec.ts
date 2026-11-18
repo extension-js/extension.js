@@ -1,8 +1,12 @@
 import {EventEmitter} from 'node:events'
+import fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {codedError} from '../../lib/coded-error'
 import {CODES} from '../../lib/messaging'
 import {setupCleanupHandlers} from '../cleanup'
+import {LogsFileWriter} from '../control-bridge/logs-file'
 import {createLifecycleStream, stripAnsi} from '../lifecycle-stream'
 import {createSessionHoldings} from '../session-holdings'
 import {
@@ -104,7 +108,7 @@ describe('starting the bundler', () => {
     })
     const fail = createStartFailure({
       metadata: {writeError},
-      lifecycle: {failed, endWithoutFrame: () => {}},
+      lifecycle: {failed, endWithoutFrame: () => {}, sessionValue: () => ({})},
       onExitError,
       print: (line) => {
         order.push('print')
@@ -144,7 +148,11 @@ describe('starting the bundler', () => {
     })
     const fail = createStartFailure({
       metadata: {writeError: () => {}},
-      lifecycle: {failed: () => {}, endWithoutFrame: () => {}},
+      lifecycle: {
+        failed: () => {},
+        endWithoutFrame: () => {},
+        sessionValue: () => ({})
+      },
       onExitError: () => {
         throw new Error('report broke')
       },
@@ -163,7 +171,11 @@ describe('starting the bundler', () => {
     try {
       const fail = createStartFailure({
         metadata: {writeError: () => {}},
-        lifecycle: {failed: () => {}, endWithoutFrame: () => {}},
+        lifecycle: {
+          failed: () => {},
+          endWithoutFrame: () => {},
+          sessionValue: () => ({})
+        },
         print: () => {}
       })
 
@@ -193,7 +205,11 @@ describe('starting the bundler', () => {
     try {
       const fail = createStartFailure({
         metadata: {writeError},
-        lifecycle: {failed, endWithoutFrame},
+        lifecycle: {
+          failed,
+          endWithoutFrame,
+          sessionValue: () => ({pid: 7, port: 8080})
+        },
         onExitError,
         print,
         exit,
@@ -211,7 +227,8 @@ describe('starting the bundler', () => {
       expect(rejection).toMatchObject({
         code: 'E_DEV_SERVER_START',
         message: 'listen EADDRINUSE 127.0.0.1:8080',
-        cause: failure
+        cause: failure,
+        session: {pid: 7, port: 8080}
       })
 
       // The session records still say why it ended.
@@ -442,13 +459,13 @@ describe('a session that ended without a process exit', () => {
     const scheduler = new DevSessionRestartScheduler(300)
     scheduler.setHandler(handler)
     bindDevSessionRestart(scheduler)
-    holdings.add(() => {
+    holdings.addEarly(() => {
       scheduler.dispose()
       unbindDevSessionRestart(scheduler)
     })
 
-    holdings.add(lifecycle.watchBrowserExit(1000, () => {}))
-    holdings.add(lifecycle.watchBrowserLaunchFailure(1000, () => {}))
+    holdings.addEarly(lifecycle.watchBrowserExit(1000, () => {}))
+    holdings.addEarly(lifecycle.watchBrowserLaunchFailure(1000, () => {}))
     holdings.addForRelease(
       setupCleanupHandlers(
         () => null,
@@ -490,7 +507,7 @@ describe('a session that ended without a process exit', () => {
         closeControlBridge: async () => {
           order.push('bridge')
         },
-        releaseHoldings: session.holdings.releaseAll
+        holdings: session.holdings
       })
 
       expect(order).toEqual(['stop', 'bridge', 'port'])
@@ -516,22 +533,94 @@ describe('a session that ended without a process exit', () => {
     const events = new EventEmitter()
     const ran: string[] = []
     const holdings = createSessionHoldings(events)
-    holdings.add(() => ran.push('first'))
-    holdings.add(() => {
-      throw new Error('close failed')
+    holdings.add(() => ran.push('file'))
+    holdings.addEarly(() => ran.push('poller'))
+    holdings.addEarly(() => {
+      throw new Error('stop failed')
     })
 
-    holdings.add(() => ran.push('last'))
+    holdings.addEarly(() => ran.push('restart'))
     holdings.addForRelease(() => ran.push('release only'))
 
     expect(events.listenerCount('exit')).toBe(1)
     events.emit('exit', 0)
 
-    // The exit keeps what only a release may remove, newest first.
-    expect(ran).toEqual(['last', 'first'])
+    // The exit keeps what only a release may remove, and closes files last.
+    expect(ran).toEqual(['restart', 'poller', 'file'])
+    holdings.beginRelease()
     holdings.releaseAll()
     events.emit('exit', 0)
-    expect(ran).toEqual(['last', 'first'])
+    expect(ran).toEqual(['restart', 'poller', 'file'])
+
+    // A release runs in two parts, and an exit between them does the rest.
+    const later = new EventEmitter()
+    const order: string[] = []
+    const ending = createSessionHoldings(later)
+    ending.add(() => order.push('file'))
+    ending.addEarly(() => order.push('restart'))
+    ending.addForRelease(() => order.push('release only'))
+    ending.beginRelease()
+    ending.beginRelease()
+    expect(order).toEqual(['release only', 'restart'])
+    expect(later.listenerCount('exit')).toBe(1)
+    later.emit('exit', 0)
+    expect(order).toEqual(['release only', 'restart', 'file'])
+  })
+
+  it('keeps the log file open until the server has stopped', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ended-session-'))
+    const filePath = path.join(root, 'logs.ndjson')
+    const logFile = new LogsFileWriter({filePath, runId: 'run-1'})
+    const row = (message: string) =>
+      ({level: 'info', message, timestamp: 1}) as never
+    const order: string[] = []
+    const holdings = createSessionHoldings(new EventEmitter())
+    holdings.add(() => {
+      order.push('log file closed')
+      logFile.close()
+    })
+
+    holdings.addEarly(() => order.push('restart disposed'))
+    holdings.addForRelease(() => order.push('handlers removed'))
+
+    try {
+      logFile.start()
+      logFile.write(row('before the session ended'))
+
+      await releaseEndedSession({
+        server: {
+          stop: async () => {
+            order.push('stop')
+            logFile.write(row('while the server stopped'))
+          }
+        },
+        closeControlBridge: async () => {
+          order.push('bridge')
+          logFile.write(row('while the bridge closed'))
+        },
+        releasePort: async () => {
+          order.push('port')
+        },
+        holdings
+      })
+
+      expect(order).toEqual([
+        'handlers removed',
+        'restart disposed',
+        'stop',
+        'bridge',
+        'port',
+        'log file closed'
+      ])
+
+      const written = fs.readFileSync(filePath, 'utf8')
+      expect(written).toContain('before the session ended')
+      expect(written).toContain('while the server stopped')
+      expect(written).toContain('while the bridge closed')
+    } finally {
+      logFile.close()
+      fs.rmSync(root, {recursive: true, force: true})
+    }
   })
 
   it('unbinds only the scheduler the session bound', () => {
@@ -556,10 +645,20 @@ describe('a start failure the caller frames itself', () => {
     const saved = process.env.EXTENSION_OUTPUT
     process.env.EXTENSION_OUTPUT = 'ndjson'
     const lines: string[] = []
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-start-failure-'))
+    const readyPath = path.join(root, 'ready.json')
+    const eventsPath = path.join(root, 'events.ndjson')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({port: 8080, runId: 'run-1', instanceId: 'instance-1'})
+    )
+
     const lifecycle = createLifecycleStream({
       command: 'dev',
       browser: 'chromium',
       distPath: '/proj/dist/chromium',
+      readyPath,
+      eventsPath,
       write: (line) => lines.push(line)
     })
 
@@ -572,18 +671,33 @@ describe('a start failure the caller frames itself', () => {
         exitOnError: false
       })
 
+      // The caller's frame still says which session failed.
       await expect(
         startBundler(
           {start: async () => Promise.reject(new Error('watch broke'))},
           {timeoutMs: 30000, onSlowStart: () => {}, onFailure: fail}
         )
-      ).rejects.toMatchObject({code: 'E_DEV_SERVER_START'})
+      ).rejects.toMatchObject({
+        code: 'E_DEV_SERVER_START',
+        session: {
+          command: 'dev',
+          browser: 'chromium',
+          pid: process.pid,
+          port: 8080,
+          readyPath,
+          eventsPath,
+          runId: 'run-1',
+          instanceId: 'instance-1'
+        }
+      })
 
       // The caller's own failed frame is the only terminal one on the stream.
       lifecycle.exited(1)
 
       expect(lines.map((line) => JSON.parse(line).status)).toEqual(['starting'])
     } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+
       if (saved === undefined) {
         Reflect.deleteProperty(process.env, 'EXTENSION_OUTPUT')
       } else process.env.EXTENSION_OUTPUT = saved

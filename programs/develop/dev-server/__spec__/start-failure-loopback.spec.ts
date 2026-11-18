@@ -53,7 +53,8 @@ describe('a dev server that cannot bind its port', () => {
       metadata: {writeError: (code) => records.push(code)},
       lifecycle: {
         failed: (message) => records.push(message),
-        endWithoutFrame: () => records.push('ended without a frame')
+        endWithoutFrame: () => records.push('ended without a frame'),
+        sessionValue: () => ({})
       },
       exitOnError: false
     })

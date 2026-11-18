@@ -11,21 +11,30 @@ type Release = () => void
 type ExitEvents = Pick<NodeJS.EventEmitter, 'once' | 'removeListener'>
 
 export interface SessionHoldings {
-  // Runs at process exit and at a release, whichever comes first.
-  add: (release: Release) => void
-  // Runs at a release only: the process exit needs it in place, as it does
-  // the listener that writes the last frame.
+  // What could still act for the session: a restart, a poller. Runs at
+  // process exit, and first at a release.
+  addEarly: (release: Release) => void
+  // Runs first at a release and never at process exit, which needs it in
+  // place, as it does the handlers that run the shutdown.
   addForRelease: (release: Release) => void
+  // What the teardown still writes to: a log file. Runs at process exit,
+  // and last at a release.
+  add: (release: Release) => void
+  // Before the server stops.
+  beginRelease: () => void
+  // After the server, the bridge and the port are gone.
   releaseAll: () => void
 }
 
 // What one dev session registered in its host: listeners, timers, open
-// files. One exit listener covers all of it, so sessions do not stack them.
+// files. One exit listener here covers all of it, beside the one the
+// lifecycle stream keeps for its last frame, so sessions do not stack them.
 export function createSessionHoldings(
   events: ExitEvents = process
 ): SessionHoldings {
-  const atExit: Release[] = []
+  const early: Release[] = []
   const atRelease: Release[] = []
+  const late: Release[] = []
   let done = false
 
   const run = (releases: Release[]) => {
@@ -42,17 +51,27 @@ export function createSessionHoldings(
     if (done) return
 
     done = true
-    run(atExit)
+    run(early)
+    run(late)
   }
 
   events.once('exit', onExit)
 
   return {
-    add: (release) => {
-      atExit.push(release)
+    addEarly: (release) => {
+      early.push(release)
     },
     addForRelease: (release) => {
       atRelease.push(release)
+    },
+    add: (release) => {
+      late.push(release)
+    },
+    beginRelease: () => {
+      if (done) return
+
+      run(atRelease)
+      run(early)
     },
     releaseAll: () => {
       if (done) return
@@ -60,7 +79,8 @@ export function createSessionHoldings(
       done = true
       events.removeListener('exit', onExit)
       run(atRelease)
-      run(atExit)
+      run(early)
+      run(late)
     }
   }
 }

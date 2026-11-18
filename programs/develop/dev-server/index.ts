@@ -1127,7 +1127,7 @@ export async function devServer(
       server: firstBundle.server,
       releasePort: () => portManager.terminateCurrentInstance(),
       closeControlBridge: controlBridge.close,
-      releaseHoldings: holdings.releaseAll
+      holdings
     })
 
     throw error
@@ -1147,7 +1147,7 @@ export async function devServer(
         server,
         releasePort: () => portManager.terminateCurrentInstance(),
         closeControlBridge: controlBridge.close,
-        releaseHoldings: holdings.releaseAll
+        holdings
       }),
     onExitError: extendedOptions.onExitError,
     exitOnError: exitOnStartFailure
@@ -1178,7 +1178,7 @@ export async function devServer(
   )
 
   bindDevSessionRestart(sessionRestart)
-  holdings.add(() => {
+  holdings.addEarly(() => {
     sessionRestart.dispose()
     unbindDevSessionRestart(sessionRestart)
   })
@@ -1231,8 +1231,8 @@ export async function devServer(
     }
   )
 
-  holdings.add(stopBrowserExitWatch)
-  holdings.add(stopLaunchFailureWatch)
+  holdings.addEarly(stopBrowserExitWatch)
+  holdings.addEarly(stopLaunchFailureWatch)
 
   const disposeCleanupHandlers = setupCleanupHandlers(
     () => currentServer,

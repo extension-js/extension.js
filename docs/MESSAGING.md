@@ -274,7 +274,7 @@ What is stable and what is not:
   them, and do not match on the pretty output either.** If you need a signal that is not in
   `ok`, `status`, or `error.code`, open an issue and it will be added to the envelope.
 - `value` carries the payload on success. On a failure it is `null`, except on a session frame
-  of `dev`, `start` or `preview`, where it still describes the session.
+  of `dev`, where it still describes the session.
 - `error.details` is present when a compile failed and lists each diagnostic behind it, errors
   first, as `{code?, message, file?, line?, column?, severity, name?}`. `code` is the table
   code the diagnostic resolves to and is absent when none does, `severity` is `error` or

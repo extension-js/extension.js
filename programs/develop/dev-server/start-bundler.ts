@@ -111,6 +111,8 @@ export function createBindFailureRelay() {
 // with no color or glyph, and the error the server gave as its cause.
 export interface DevServerStartError extends CodedError {
   cause: unknown
+  // The session the failed frame of a caller describes: pid, port, paths.
+  session?: Record<string, unknown>
 }
 
 export function devServerStartError(error: unknown): DevServerStartError {
@@ -130,6 +132,7 @@ export interface StartFailureTargets {
     failed: (message: string) => void
     // Ends the stream with no frame, for a caller that writes its own.
     endWithoutFrame: () => void
+    sessionValue: () => Record<string, unknown>
   }
   onExitError?: (error: unknown, code?: string) => void
   print?: (line: string) => void
@@ -152,9 +155,11 @@ export function createStartFailure(targets: StartFailureTargets) {
     // The caller prints and frames its own rejection, so nothing is said
     // twice: a frame from here would be a second terminal one.
     if (!exitOnError) {
+      const coded = devServerStartError(error)
+      coded.session = targets.lifecycle.sessionValue()
       targets.lifecycle.endWithoutFrame()
 
-      throw devServerStartError(error)
+      throw coded
     }
 
     targets.lifecycle.failed(
@@ -278,7 +283,7 @@ export interface FailedStartRelease {
 
 export interface EndedSessionRelease extends FailedStartRelease {
   // Everything the session registered in the host, see session-holdings.
-  releaseHoldings: () => void
+  holdings: {beginRelease: () => void; releaseAll: () => void}
 }
 
 // A session that ended without a process exit leaves nothing registered in
@@ -286,13 +291,21 @@ export interface EndedSessionRelease extends FailedStartRelease {
 export async function releaseEndedSession(
   release: EndedSessionRelease
 ): Promise<void> {
+  // Nothing new may start while the server stops, and the log file stays
+  // open until it has, so what the teardown logs still reaches it.
   try {
-    release.releaseHoldings()
+    release.holdings.beginRelease()
   } catch {
     // Ignore
   }
 
   await releaseFailedStart(release)
+
+  try {
+    release.holdings.releaseAll()
+  } catch {
+    // Ignore
+  }
 }
 
 // Best effort and bounded: a server that never listened may not answer stop,
