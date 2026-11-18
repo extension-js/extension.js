@@ -257,7 +257,7 @@ describe.each(MODES)('EnvPlugin private values in a %s build', (mode) => {
     expect(filesCarrying(result.outputPath, 'public-4')).toEqual([
       'index.html',
       'manifest.json',
-      'public/config.json',
+      path.join('public', 'config.json'),
       'read.js',
       'read.js.map',
       'whole.js',
