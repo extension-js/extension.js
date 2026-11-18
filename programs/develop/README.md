@@ -25,41 +25,39 @@ pnpm add extension-develop
 
 ```ts
 import {
-  extensionDev,
   extensionBuild,
-  extensionStart,
-  extensionPreview,
-  type DevOptions,
   type BuildOptions,
-  type StartOptions,
-  type PreviewOptions
+  type BuildSummary
 } from 'extension-develop'
+import {
+  extensionPreview,
+  type PreviewLauncherFn,
+  type PreviewOptions
+} from 'extension-develop/preview'
 
-async function run() {
-  // Development server
-  await extensionDev(undefined, {
-    browser: 'chrome',
-    open: true
-  } satisfies DevOptions)
+// Production build of the project in the current folder, with a zip
+const summary: BuildSummary = await extensionBuild(undefined, {
+  browser: 'chrome',
+  zip: true
+} satisfies BuildOptions)
 
-  // Production build + zip
-  await extensionBuild(undefined, {
-    browser: 'firefox',
-    zip: true
-  } satisfies BuildOptions)
+console.log(summary.errors_count)
 
-  // Build then preview from dist/<browser>
-  await extensionStart(undefined, {browser: 'edge'} satisfies StartOptions)
-
-  // Preview using an existing output folder or project path
-  await extensionPreview(undefined, {
-    browser: 'chrome',
-    mode: 'production'
-  } satisfies PreviewOptions)
+// This package starts no browser. The caller passes the launcher, which
+// receives the built folder and every unpacked extension to load.
+const launcher: PreviewLauncherFn = async ({browser, extensionsToLoad}) => {
+  console.log(`Start ${browser} with`, extensionsToLoad)
 }
 
-run()
+// Runs the build in dist/chrome with no dev server
+await extensionPreview(
+  undefined,
+  {browser: 'chrome', mode: 'production'} satisfies PreviewOptions,
+  launcher
+)
 ```
+
+The `extension-develop/manifest` entry is deprecated and is removed in the next minor.
 
 ## Features
 
@@ -302,9 +300,9 @@ dist/
 | Name                 | Group | Summary                                                                                                                                                                                                         |
 | -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
-| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
+| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist                                                                    |
 | plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
-| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
+| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules<br/>- Appends `.wasm` to the resolve extensions |
 | plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
 | plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |

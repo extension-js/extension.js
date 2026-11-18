@@ -23,8 +23,9 @@ them into a local `templates/` directory via `scripts/hydrate-templates-from-exa
 
 ### What is inside `templates/*/node_modules`
 
-The hydrate script clones the examples repo, copies every example into `templates/`,
-records the examples commit in `templates/.examples-commit`, and then runs
+The hydrate script clones the extension-js/templates repo, copies every folder under its
+`examples/` directory into `templates/`, records the resolved commit in
+`templates/.examples-commit`, and then runs
 `pnpm install --ignore-workspace --prefer-offline` inside `templates/` and inside each
 template folder. `templates/` is gitignored and excluded from the workspace, so each
 template is a standalone package and its `node_modules` holds only what its own
@@ -140,7 +141,7 @@ New functionality lands with a spec next to the unit it changes, and a bug fix l
 
 A spec that resolves an installed package must find it under both pnpm layouts. CI installs with the isolated linker, where a dependency of a workspace package lives under `node_modules/.pnpm/node_modules`, while a machine set to `node-linker=hoisted` sees it in the nearest `node_modules`. Resolve it with `workspacePackage()` from `programs/develop/__spec__/helpers/workspace-package.ts`, which walks both, and never gate a case on a bare `require.resolve` that only one layout answers, or the case skips on CI while it runs locally.
 
-To refresh one snapshot, put the file filter before the update flag: `pnpm exec vitest run __spec__/messages-catalog.spec.ts -u` inside the package. With `-u` first, vitest reads the path as the flag's value and rewrites every snapshot in the package.
+To refresh one snapshot, put the file filter before the update flag, for example `pnpm exec vitest run __spec__/messages-catalog.spec.ts -u` inside `programs/develop`. The messages catalog spec sits at a different path in each program: `__spec__/messages-catalog.spec.ts` in `programs/develop`, `lib/__spec__/messages-catalog.spec.ts` in `programs/create` and `helpers/__spec__/messages-catalog.spec.ts` in `programs/extension`. With `-u` first, vitest reads the path as the flag's value and rewrites every snapshot in the package.
 
 ## Testing on Windows
 
@@ -150,7 +151,7 @@ The test suite runs on Windows in CI. To avoid regressions:
 - **Spawning (pnpm, npm, etc.):** Resolve the binary (e.g. from `process.execPath`’s directory or `node_modules/.bin`) and pass it to `spawnSync`/`spawn`; on Windows use `shell: true` when the command is a `.cmd`/`.bat` file so the child runs correctly.
 - **Symlinks:** On Windows, creating symlinks often requires Developer Mode or admin. Prefer `fs.realpathSync()` + `fs.cpSync()` for test fixtures when copying from the pnpm store, or use copy-only paths on Windows.
 
-Run `pnpm test` locally on Windows (or rely on the **Run test suite (Windows)** CI job) before submitting changes that touch tests or spawn logic.
+Run `pnpm test` locally on Windows (or rely on the two **Run test suite (Windows, ...)** CI jobs) before submitting changes that touch tests or spawn logic.
 
 ## Debugging & troubleshooting
 

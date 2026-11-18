@@ -8,6 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {
+  isDevSessionStarting,
+  readyContractPathBesideBuild,
+  releaseHeldReady,
+  sessionArtifactsRootDirBesideBuild
+} from '../../../develop/lib/session-contract'
 import {stripChannelPrefix} from '../../helpers/messaging'
 import {pidStartedAtIso} from './resolve-live-pid'
 import {writeJsonAtomic} from './write-json-atomic'
@@ -34,7 +40,7 @@ export function managedProfileBaseDir(
   const owned = ownedReadyPaths.get(path.resolve(extensionOutputPath))
   const sessionRoot = owned
     ? path.dirname(path.dirname(owned))
-    : path.join(path.dirname(extensionOutputPath), 'extension-js')
+    : sessionArtifactsRootDirBesideBuild(extensionOutputPath)
 
   return path.resolve(sessionRoot, 'profiles', `${browser}-profile`)
 }
@@ -46,8 +52,7 @@ export function earlierManagedProfileBaseDir(
   browser: string
 ): string | undefined {
   const earlier = path.resolve(
-    path.dirname(extensionOutputPath),
-    'extension-js',
+    sessionArtifactsRootDirBesideBuild(extensionOutputPath),
     'profiles',
     `${browser}-profile`
   )
@@ -60,12 +65,7 @@ export function earlierManagedProfileBaseDir(
 export function readyPathFor(extensionOutputPath: string): string {
   return (
     ownedReadyPaths.get(path.resolve(extensionOutputPath)) ??
-    path.join(
-      path.dirname(extensionOutputPath),
-      'extension-js',
-      path.basename(extensionOutputPath),
-      'ready.json'
-    )
+    readyContractPathBesideBuild(extensionOutputPath)
   )
 }
 
@@ -98,22 +98,6 @@ function isForeignRun(ready: unknown, runId: string | undefined): boolean {
   return typeof owner === 'string' && owner !== '' && owner !== runId
 }
 
-// A dev session's compile leaves the contract at starting until the
-// launcher knows the debugger port, so a reader never takes ready without it.
-// The port, or the reason there is none, is what turns it ready, unless the
-// dev server is still holding it for the background's first hello.
-function promoteHeldDevReady(ready: Record<string, unknown>) {
-  if (
-    ready.command === 'dev' &&
-    ready.status === 'starting' &&
-    typeof ready.compiledAt === 'string' &&
-    typeof ready.awaitingExecutorSince !== 'string' &&
-    !ready.code
-  ) {
-    ready.status = 'ready'
-  }
-}
-
 // Publish the Gecko RDP debugger-server port next to Chromium's cdpPort so
 // downstream tooling can pair protocol clients from the ready contract alone.
 export function stampReadyRdpPort(
@@ -127,12 +111,14 @@ export function stampReadyRdpPort(
     if (!fs.existsSync(readyPath)) return
 
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    const held = ready.command === 'dev' && ready.status === 'starting'
+    const held = isDevSessionStarting(ready)
     if (ready.rdpPort === rdpPort && !ready.rdpPortError && !held) return
 
+    // The port, or the reason there is none, is what a held dev compile
+    // waits for, so the stamp that names it is the one that turns it ready.
     ready.rdpPort = rdpPort
     delete ready.rdpPortError
-    promoteHeldDevReady(ready)
+    releaseHeldReady(ready, {rdpPort: true})
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -160,7 +146,7 @@ export function stampReadyRdpPortError(
       String(reason || '').trim() ||
       'Firefox did not open its remote debugging port'
 
-    promoteHeldDevReady(ready)
+    releaseHeldReady(ready, {rdpPort: true})
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -183,11 +169,11 @@ export function stampReadyCdpPort(
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (isForeignRun(ready, runId)) return
 
-    const held = ready.command === 'dev' && ready.status === 'starting'
+    const held = isDevSessionStarting(ready)
     if (ready.cdpPort === cdpPort && !held) return
 
     ready.cdpPort = cdpPort
-    promoteHeldDevReady(ready)
+    releaseHeldReady(ready, {cdpPort: true})
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort; never block launch on this
@@ -742,7 +728,7 @@ export function stampReadyCdpFault(
 
     // The browser is up with no port to name, which is all a held dev
     // contract was waiting to learn.
-    promoteHeldDevReady(ready)
+    releaseHeldReady(ready, {cdpPort: true})
     writeJsonAtomic(readyPath, ready)
   } catch {
     // best-effort, never block launch on this

@@ -1,184 +1,104 @@
 import * as path from 'node:path'
-import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {rememberSpecialFoldersConfig} from '../../plugin-special-folders/folders-config'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
+import type {DevOptions} from '../../types'
+import {
+  callable,
+  configure,
+  MANIFEST,
+  makeProject,
+  swcRules
+} from './project-fixture'
 
-const projectFilesMocks = vi.hoisted(() => ({
-  manifest: {} as Record<string, any>
-}))
-
-vi.mock('../js-tools/react', () => ({
-  resolveReactRefreshEntry: vi.fn(() => undefined),
-  isUsingReact: vi.fn(() => true),
-  maybeUseReact: vi.fn(async () => ({alias: {}, loaders: [], plugins: []}))
-}))
-
-vi.mock('../js-tools/preact', () => ({
-  isUsingPreact: vi.fn(() => false),
-  maybeUsePreact: vi.fn(async () => undefined)
-}))
-
-vi.mock('../js-tools/vue', () => ({
-  isUsingVue: vi.fn(() => false),
-  maybeUseVue: vi.fn(async () => undefined)
-}))
-
-vi.mock('../js-tools/solid', () => ({
-  isUsingSolid: vi.fn(() => false),
-  maybeUseSolid: vi.fn(async () => undefined)
-}))
-
-vi.mock('../js-tools/svelte', () => ({
-  maybeUseSvelte: vi.fn(async () => undefined)
-}))
-
-vi.mock('../js-tools/typescript', () => ({
-  isUsingTypeScript: vi.fn(() => false),
-  ensureTypeScriptConfig: vi.fn(),
-  getUserTypeScriptConfigFile: vi.fn(() => undefined),
-  getUserJsConfigFile: vi.fn(() => undefined)
-}))
-
-vi.mock('../../lib/transpile-packages', async () => ({
-  ...(await vi.importActual('../../lib/transpile-packages')),
-  resolveTranspilePackageDirs: vi.fn(() => []),
-  isSubPath: vi.fn(
-    (resourcePath: string, directoryPath: string) =>
-      resourcePath === directoryPath ||
-      resourcePath.startsWith(`${directoryPath}/`)
-  )
-}))
-
-vi.mock('../../plugin-special-folders/get-data', () => ({
-  getSpecialFoldersDataForCompiler: vi.fn(() => ({pages: {}, scripts: {}}))
-}))
-
-vi.mock('../../plugin-web-extension/shared/manifest-fields', () => ({
-  getResolvedManifestFieldsData: vi.fn(() => ({html: {}}))
-}))
-
-vi.mock('fs', async () => {
-  const actual = await vi.importActual<typeof import('fs')>('fs')
-
-  return {
-    ...actual,
-    readFileSync: vi.fn((filePath: any) => {
-      if (String(filePath).endsWith('manifest.json')) {
-        return JSON.stringify(projectFilesMocks.manifest)
-      }
-
-      return (actual.readFileSync as any)(filePath)
-    })
-  }
-})
-
-import {JsFrameworksPlugin} from '../index'
-
-function createCompiler() {
-  return {
-    options: {
-      mode: 'development',
-      context: '/project',
-      plugins: [] as any[],
-      resolve: {alias: {}, extensions: [] as string[]},
-      module: {rules: [] as any[]}
-    },
-    hooks: {
-      beforeRun: {tapPromise: vi.fn()},
-      watchRun: {tapPromise: vi.fn()}
-    }
-  } as any
+function project(manifest: Record<string, unknown> = {}) {
+  return makeProject({
+    'package.json': {},
+    'manifest.json': {...MANIFEST, ...manifest}
+  })
 }
 
+// The content-script layer's path test, asked with a project-relative path.
 async function contentScriptLayerInclude(
-  manifest: Record<string, unknown>,
-  browser: string
+  root: string,
+  browser: DevOptions['browser']
 ) {
-  projectFilesMocks.manifest = manifest
-  const compiler = createCompiler()
-  await new JsFrameworksPlugin({
-    manifestPath: path.join('/project', 'manifest.json'),
-    browser: browser as any,
-    mode: 'development'
-  }).apply(compiler)
-
-  const layerRule = compiler.options.module.rules.find(
-    (rule: any) =>
-      rule?.layer === EXTENSIONJS_CONTENT_SCRIPT_LAYER &&
-      typeof rule?.include === 'function'
+  const include = callable(
+    swcRules(await configure(root, {browser})).contentByPath?.include
   )
 
-  return layerRule.include as (resourcePath: string) => boolean
+  return (relative: string) => include(path.join(root, relative))
 }
 
 describe('JsFrameworksPlugin content-script layer, browser-prefixed keys', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
   it('claims a content script declared under firefox:content_scripts', async () => {
-    const include = await contentScriptLayerInclude(
-      {'firefox:content_scripts': [{js: ['content/script.js']}]},
-      'firefox'
-    )
-    expect(include('/project/content/script.js')).toBe(true)
+    const root = project({
+      'firefox:content_scripts': [{js: ['content/script.js']}]
+    })
+    const include = await contentScriptLayerInclude(root, 'firefox')
+
+    expect(include('content/script.js')).toBe(true)
   })
 
   it('claims a chromium:-prefixed content script on any chromium target', async () => {
-    const include = await contentScriptLayerInclude(
-      {'chromium:content_scripts': [{js: ['content/script.js']}]},
-      'edge'
-    )
-    expect(include('/project/content/script.js')).toBe(true)
+    const root = project({
+      'chromium:content_scripts': [{js: ['content/script.js']}]
+    })
+    const include = await contentScriptLayerInclude(root, 'edge')
+
+    expect(include('content/script.js')).toBe(true)
   })
 
   it('leaves a chrome:-prefixed content script out of an edge build', async () => {
-    const include = await contentScriptLayerInclude(
-      {'chrome:content_scripts': [{js: ['content/script.js']}]},
-      'edge'
-    )
-    expect(include('/project/content/script.js')).toBe(false)
+    const root = project({
+      'chrome:content_scripts': [{js: ['content/script.js']}]
+    })
+    const include = await contentScriptLayerInclude(root, 'edge')
+
+    expect(include('content/script.js')).toBe(false)
   })
 
   it('leaves another browser prefix out of this build', async () => {
-    const include = await contentScriptLayerInclude(
-      {'firefox:content_scripts': [{js: ['content/script.js']}]},
-      'chrome'
-    )
-    expect(include('/project/content/script.js')).toBe(false)
+    const root = project({
+      'firefox:content_scripts': [{js: ['content/script.js']}]
+    })
+    const include = await contentScriptLayerInclude(root, 'chrome')
+
+    expect(include('content/script.js')).toBe(false)
   })
 
   it('still claims a plain content script', async () => {
-    const include = await contentScriptLayerInclude(
-      {content_scripts: [{js: ['content/script.js']}]},
-      'chrome'
-    )
-    expect(include('/project/content/script.js')).toBe(true)
+    const root = project({content_scripts: [{js: ['content/script.js']}]})
+    const include = await contentScriptLayerInclude(root, 'chrome')
+
+    expect(include('content/script.js')).toBe(true)
+    expect(include('content/other.js')).toBe(false)
   })
 
   it('claims a file under scripts/ until the folder is turned off', async () => {
-    const claimed = await contentScriptLayerInclude({}, 'chrome')
-    expect(claimed('/project/scripts/inject.js')).toBe(true)
+    const root = project()
+    const claimed = await contentScriptLayerInclude(root, 'chrome')
+    expect(claimed('scripts/inject.js')).toBe(true)
 
-    rememberSpecialFoldersConfig('/project', {scripts: false})
+    rememberSpecialFoldersConfig(root, {scripts: false})
 
     try {
-      const plain = await contentScriptLayerInclude({}, 'chrome')
-      expect(plain('/project/scripts/inject.js')).toBe(false)
+      const plain = await contentScriptLayerInclude(root, 'chrome')
+      expect(plain('scripts/inject.js')).toBe(false)
     } finally {
-      rememberSpecialFoldersConfig('/project', undefined)
+      rememberSpecialFoldersConfig(root, undefined)
     }
   })
 
   it('follows scripts/ to the folder it was moved to', async () => {
-    rememberSpecialFoldersConfig('/project', {scripts: 'src/scripts'})
+    const root = project()
+    rememberSpecialFoldersConfig(root, {scripts: 'src/scripts'})
 
     try {
-      const include = await contentScriptLayerInclude({}, 'chrome')
-      expect(include('/project/src/scripts/inject.js')).toBe(true)
-      expect(include('/project/scripts/inject.js')).toBe(false)
+      const include = await contentScriptLayerInclude(root, 'chrome')
+      expect(include('src/scripts/inject.js')).toBe(true)
+      expect(include('scripts/inject.js')).toBe(false)
     } finally {
-      rememberSpecialFoldersConfig('/project', undefined)
+      rememberSpecialFoldersConfig(root, undefined)
     }
   })
 })

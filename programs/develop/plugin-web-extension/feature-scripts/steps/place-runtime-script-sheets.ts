@@ -44,8 +44,6 @@ export class PlaceRuntimeScriptSheets {
   }
 
   public apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     const entries = Object.keys(this.includeList).filter((feature) =>
       feature.startsWith('scripts/')
     )

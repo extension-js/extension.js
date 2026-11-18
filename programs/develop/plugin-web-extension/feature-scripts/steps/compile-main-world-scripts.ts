@@ -237,6 +237,47 @@ function outputFilenameFor(compiler: Compiler, entryName: string): string {
   return `${entryName}.js`
 }
 
+type ChildIssue = Compilation['errors'][number]
+
+// The mark a child opens an issue with, colored or not.
+// eslint-disable-next-line no-control-regex
+const CHILD_FRAME = /^\s*(?:\u001b\[[0-9;]*m)*[×⚠](?:\u001b\[[0-9;]*m)*\s?/
+
+// The parent holds no module of the child's graph, so it reports a forwarded
+// issue with no file. A copy names it the way the parent names its own.
+function namedForParent(compiler: Compiler, issue: ChildIssue): ChildIssue {
+  const resource = (issue.module as {resource?: unknown} | undefined)?.resource
+
+  if (typeof resource !== 'string' || !resource) return issue
+
+  const relative = path
+    .relative(compiler.context, resource)
+    .split(path.sep)
+    .join('/')
+  const lines = String(issue.message).split('\n')
+  // The copy is framed again, so the frame the child drew comes off first.
+  const frame = CHILD_FRAME.exec(lines[0])
+  const named = new compiler.rspack.WebpackError(
+    frame
+      ? lines
+          .map((line, index) =>
+            index === 0
+              ? line.slice(frame[0].length)
+              : line.replace(/^ {2}/, '')
+          )
+          .join('\n')
+      : String(issue.message)
+  ) as ChildIssue
+
+  named.name = issue.name
+  named.file = relative.startsWith('.') ? relative : `./${relative}`
+  named.loc = issue.loc
+  named.module = issue.module
+  named.error = issue.error
+
+  return named
+}
+
 async function compileGroup(
   compiler: Compiler,
   compilation: Compilation,
@@ -306,11 +347,11 @@ async function compileGroup(
 
       if (childCompilation) {
         for (const childError of childCompilation.errors) {
-          compilation.errors.push(childError)
+          compilation.errors.push(namedForParent(compiler, childError))
         }
 
         for (const childWarning of childCompilation.warnings) {
-          compilation.warnings.push(childWarning)
+          compilation.warnings.push(namedForParent(compiler, childWarning))
         }
 
         try {
