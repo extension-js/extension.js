@@ -53,7 +53,7 @@ const isTyped = (extension: string) => /^\.[cm]?tsx?$/.test(extension)
 const hasNoJsx = (extension: string) => /^\.[cm]?ts$/.test(extension)
 
 // The wrapper runs before the transpiler, so it reads TypeScript and JSX as
-// written: acorn for plain JavaScript, Babel's parser for everything else.
+// written or as a loader returned them: acorn first, then Babel's parser.
 function parseProgram(
   source: string,
   resourcePath: string
@@ -106,7 +106,8 @@ function unparsed(
   source: string,
   resourcePath: string,
   label: string,
-  reason: string
+  reason: string,
+  loaders: string[]
 ): DefaultExportReading {
   const extension = path.extname(resourcePath).toLowerCase()
 
@@ -133,8 +134,13 @@ function unparsed(
     return {kind: 'broken'}
   }
 
+  // The text is what those loaders returned, so the advice is about them.
   throw Object.assign(
-    new Error(messages.defaultExportUnreadable(label, reason)),
+    new Error(
+      loaders.length > 0
+        ? messages.defaultExportLostToLoaders(label, loaders, reason)
+        : messages.defaultExportUnreadable(label, reason)
+    ),
     {name: 'ContentScriptSyntax'}
   )
 }
@@ -225,14 +231,16 @@ export function readDefaultExport(
   source: string,
   resourcePath: string,
   label: string = resourcePath,
-  parse: typeof parseProgram = parseProgram
+  parse: typeof parseProgram = parseProgram,
+  // The loaders of extension.config.js that ran before this reading.
+  loaders: string[] = []
 ): DefaultExportReading {
   if (!/\bdefault\b/.test(source)) return {kind: 'none'}
 
   const program = parse(source, resourcePath)
 
   if ('error' in program) {
-    return unparsed(source, resourcePath, label, program.error)
+    return unparsed(source, resourcePath, label, program.error, loaders)
   }
 
   const edits: Edit[] = []
@@ -361,4 +369,29 @@ export function readDefaultExport(
     removedCalls,
     keptCalls
   }
+}
+
+// A loader that drops the default export the author wrote leaves a script
+// that builds and never mounts, so the build stops and names the loader.
+export function refuseDefaultExportLostToLoaders(
+  authored: string,
+  resourcePath: string,
+  label: string,
+  loaders: string[]
+): void {
+  let wasWritten = true
+
+  try {
+    wasWritten =
+      readDefaultExport(authored, resourcePath, label).kind === 'found'
+  } catch {
+    // Only a file with a default export is refused as unreadable.
+  }
+
+  if (!wasWritten) return
+
+  throw Object.assign(
+    new Error(messages.defaultExportLostToLoaders(label, loaders)),
+    {name: 'ContentScriptSyntax'}
+  )
 }
