@@ -367,6 +367,40 @@ export function isBuildOutput(
   )
 }
 
+// A folder the tooling fills with a browser profile ignores itself with a
+// file of its own, which a reading of the root file alone never sees.
+function nestedIgnoreRules(
+  projectDir: string,
+  files: string[]
+): Array<{dir: string; rules: ReturnType<typeof ignore>}> {
+  const nested: Array<{dir: string; rules: ReturnType<typeof ignore>}> = []
+
+  for (const file of files) {
+    if (!file.endsWith('/.gitignore') || isDeniedFromSourceZip(file)) continue
+
+    try {
+      const content = fs.readFileSync(path.join(projectDir, file), 'utf8')
+      const dir = file.slice(0, -'/.gitignore'.length)
+
+      nested.push({dir, rules: ignore().add(content)})
+    } catch {
+      // Ignore: an unreadable file adds no exclusions of its own.
+    }
+  }
+
+  return nested
+}
+
+function isIgnoredByNestedRules(
+  file: string,
+  nested: Array<{dir: string; rules: ReturnType<typeof ignore>}>
+): boolean {
+  return nested.some(
+    ({dir, rules}) =>
+      file.startsWith(`${dir}/`) && rules.ignores(file.slice(dir.length + 1))
+  )
+}
+
 export async function getFilesToZip(
   projectDir: string,
   output?: BuildOutput
@@ -400,11 +434,13 @@ export async function getFilesToZip(
     })
   ).map(toPosix)
 
+  const nested = nestedIgnoreRules(projectDir, files)
   const candidates = files.filter(
     (file) =>
       !isDeniedFromSourceZip(file) &&
       !(output && isBuildOutput(file, projectDir, output)) &&
       !ig.ignores(file) &&
+      !isIgnoredByNestedRules(file, nested) &&
       !isCompanionExtension(file)
   )
   // Read from the whole listing, so an ignore rule cannot hide the files

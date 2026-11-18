@@ -42,8 +42,8 @@ function write(file: string, contents: string) {
 }
 
 // Plain text stand-ins for what a dev session leaves in its session folder.
+// The folder's own .gitignore is left out, as in a folder an older run made.
 function writeSessionFolder(sessionRoot: string, marker: string) {
-  write(path.join(sessionRoot, '.gitignore'), '*\n')
   write(path.join(sessionRoot, 'chrome', 'ready.json'), `${marker}-READY`)
   write(path.join(sessionRoot, 'chrome', 'events.ndjson'), `${marker}-EVENTS`)
   write(path.join(sessionRoot, 'chrome', 'control-token'), `${marker}-TOKEN`)
@@ -220,6 +220,81 @@ describe('the source zip and a build folder that is not the top-level dist', () 
     ])
 
     expect(warnings).toEqual([])
+  })
+})
+
+describe('the source zip and a folder that ignores itself', () => {
+  let root: string
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-build-output-'))
+    writeProject(root)
+  })
+
+  afterEach(() => {
+    fs.rmSync(root, {recursive: true, force: true})
+  })
+
+  // A profile folder the config points at carries a .gitignore of its own.
+  it('leaves out a configured profile folder with its own .gitignore', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(path.join(root, '.gitignore'), 'coverage\n')
+    write(path.join(root, 'my-profile', '.gitignore'), '# kept local\n*\n')
+    write(path.join(root, 'my-profile', 'README.md'), 'CONFIGURED-README')
+    write(path.join(root, 'my-profile', 'Default', 'Cookies'), 'CONFIGURED')
+
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
+
+    expect(Object.keys(packed).sort()).toEqual([
+      '.gitignore',
+      'manifest.json',
+      'src/background.ts'
+    ])
+
+    expect(warnings).toEqual([])
+  })
+
+  it('says nothing about a session folder its own .gitignore covers', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    writeSessionFolder(path.join(root, 'tools', 'extension-js'), 'LOOSE')
+    write(path.join(root, 'tools', 'extension-js', '.gitignore'), '*\n')
+
+    const {warnings} = await zipProject(root, outPath, {zipSource: true})
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
+
+    expect(Object.keys(packed).sort()).toEqual([
+      'manifest.json',
+      'src/background.ts'
+    ])
+
+    expect(warnings).toEqual([])
+  })
+
+  it('reads a nested .gitignore against its own folder only', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(path.join(root, 'src', 'gen', '.gitignore'), 'out/\n*.tmp\n')
+    write(path.join(root, 'src', 'gen', 'out', 'made.js'), 'MADE')
+    write(path.join(root, 'src', 'gen', 'a.tmp'), 'TMP')
+    write(path.join(root, 'src', 'gen', 'keep.ts'), 'KEEP')
+    write(path.join(root, 'src', 'out', 'kept.js'), 'KEPT')
+    write(path.join(root, 'b.tmp'), 'KEPT')
+
+    await zipProject(root, outPath, {zipSource: true})
+
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
+
+    expect(Object.keys(packed).sort()).toEqual([
+      'b.tmp',
+      'manifest.json',
+      'src/background.ts',
+      'src/gen/.gitignore',
+      'src/gen/keep.ts',
+      'src/out/kept.js'
+    ])
   })
 })
 
