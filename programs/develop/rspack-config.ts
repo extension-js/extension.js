@@ -25,13 +25,16 @@ import {computeExtensionsToLoad} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
 import {CODES, debugLine, isDebug} from './lib/messaging'
+import {
+  installedPackageDir,
+  MissingReferenceWatch
+} from './lib/missing-reference-watch'
 import {parseAuthoredJson} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
 import {forgetResolvedModuleFolders} from './lib/resource-path'
 import {sessionStateDir} from './lib/session-paths'
 import {defaultSplitChunks} from './lib/split-chunks'
-import {StableLoaderPathsPlugin} from './lib/stable-loader-paths'
 import {diagnosticsHaveColor} from './lib/stats-handler'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
 import {CompatibilityPlugin} from './plugin-compatibility'
@@ -176,6 +179,10 @@ export default function webpackConfig(
   // in vendored scripts): collected below and warned, left verbatim in output.
   const unresolvedBareRequires = new Map<string, string>()
 
+  // Both kinds of reference above name a target that may be written later,
+  // which a dev session has to notice: see MissingReferenceWatch.
+  const missingReferences = new MissingReferenceWatch()
+
   // Node builtins stubbed via `resolve.fallback` below. The raw externals
   // resolver does not apply fallback, so the bare-require tolerance skips these.
   const nodeFallbacks: Record<string, false> = {
@@ -285,6 +292,7 @@ export default function webpackConfig(
         )
       }
     } satisfies RspackPluginInstance,
+    missingReferences,
     new NodeBuiltinsPlugin(),
     new OneDiagnosticPerLocationPlugin(),
     // Warn (don't fail) for bare require() calls that resolve nowhere. The
@@ -428,11 +436,6 @@ export default function webpackConfig(
     plugins.push(browsersPlugin)
   }
 
-  // Last, so it sees every rule the plugins above attach: the loader paths
-  // inside the module identifiers (which the deterministic ids hash) are
-  // named through the project's node_modules, not where the package sits.
-  plugins.push(new StableLoaderPathsPlugin())
-
   // A top-level resolve list without '...' wipes rspack's per-type defaults,
   // so every dependency type is restated here, the mode condition included.
   const modeCondition =
@@ -501,6 +504,11 @@ export default function webpackConfig(
             if (assetPath && !fs.existsSync(path.resolve(context, assetPath))) {
               const leaveUnresolved = () => {
                 missingCssAssets.add(request)
+                missingReferences.record(
+                  path.resolve(context, assetPath),
+                  contextInfo?.issuer
+                )
+
                 callback(null, request, 'asset')
               }
 
@@ -552,6 +560,11 @@ export default function webpackConfig(
                 unresolvedBareRequires.set(request, contextInfo?.issuer || '')
               }
 
+              missingReferences.record(
+                installedPackageDir(packageJsonDir, bareRequest),
+                contextInfo?.issuer
+              )
+
               callback(null, request, 'commonjs')
             } else {
               callback()
@@ -565,7 +578,6 @@ export default function webpackConfig(
       }
     ] as Configuration['externals'],
     context: packageJsonDir,
-    cache: false,
     // "module" keeps every loader map (swc, the content-script wrapper, the
     // classic concat map) so the emitted maps describe the author's source,
     // not the transpiled text; a cheap devtool discarded them all. No eval
@@ -805,6 +817,8 @@ export default function webpackConfig(
           minimizerOptions: cssMinimizerOptions(rawManifest, devOptions.browser)
         })
       ],
+      // Tree shaking runs in development as it does in production, so a
+      // module a build would drop is already gone while editing.
       sideEffects: true,
       usedExports: 'global',
       // Concatenate modules in prod only: in dev, scope hoisting breaks
@@ -813,14 +827,13 @@ export default function webpackConfig(
       // HTML pages share the framework runtime and their common modules
       // through stable sibling files. Every other surface keeps one file.
       splitChunks: defaultSplitChunks(devOptions.browser),
-      // The runtime stays inside each entry: a page loads its siblings from
-      // the HTML, a background or content script loads nothing else.
-      runtimeChunk: false,
       // A hashed id is the hash of every loader path in the module request,
       // so it follows where the CLI is installed. Production counts instead.
       moduleIds: devOptions.mode === 'production' ? 'natural' : 'deterministic',
       chunkIds: devOptions.mode === 'production' ? 'natural' : 'deterministic'
     },
+    // The bundler ignores this flag now, and vue-loader still reads it to
+    // hand a component's style blocks to the built-in CSS pipeline.
     experiments: {
       css: true
     }
