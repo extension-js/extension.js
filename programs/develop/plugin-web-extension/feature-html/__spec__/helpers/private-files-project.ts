@@ -82,6 +82,8 @@ export interface Built {
   marked: string[]
   // The refs a page warning names as missing.
   missing: string[]
+  // Every file in the output folder that holds a text.
+  holding: (text: string) => string[]
   // The built pages that hold the text "own page".
   pages: string[]
   // The openings of private files that the output quotes.
@@ -170,6 +172,10 @@ export async function buildProject(
         .filter((name) => out[name].includes(MARKER))
         .map(withoutHash)
         .sort(),
+      holding: (text) =>
+        Object.keys(out)
+          .filter((name) => out[name].includes(text))
+          .sort(),
       pages: Object.keys(out)
         .filter((name) => out[name].includes('own page'))
         .sort(),

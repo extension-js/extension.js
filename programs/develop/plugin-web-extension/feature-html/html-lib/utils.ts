@@ -330,6 +330,23 @@ export function isSpecialScheme(u: string): boolean {
   return /^(data:|blob:|chrome-extension:|javascript:|about:)/i.test(u)
 }
 
+// Whether a script or stylesheet path is a root URL. A relative reference
+// that climbs out of the project resolves to a path that also starts with
+// a slash, so the reference as written decides when it is known.
+export function isWrittenAsRootUrl(
+  resolved: string,
+  projectRoot: string,
+  authored?: Record<string, string>
+): boolean {
+  if (!resolved.startsWith('/') || resolved.startsWith(projectRoot)) {
+    return false
+  }
+
+  const written = authored?.[resolved]
+
+  return written === undefined || written.startsWith('/')
+}
+
 // A leading dot belongs to the name: `/.well-known/x` is not `well-known/x`.
 export function cleanLeading(s: string): string {
   return s.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '')

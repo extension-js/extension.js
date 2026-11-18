@@ -210,16 +210,42 @@ describe('a root-absolute path that names a file outside public/', () => {
   it(
     'in a manifest field',
     async () => {
+      const resources = [
+        {
+          resources: TARGETS.filter((ref) => ref !== '/.env'),
+          matches: ['<all_urls>']
+        }
+      ]
+      const withheld = [
+        ...PRIVATE_TARGETS,
+        ...CLIMBING_TARGETS,
+        ...LINKED_TARGETS
+      ].filter((ref) => ref !== '/.env')
+
+      // An icon the build never copies stops the build, so nothing is
+      // written, the resource list included.
+      const root = project({
+        'manifest.json': manifest({
+          icons: {16: '/.env'},
+          web_accessible_resources: resources
+        })
+      })
+      const stopped = await build(root)
+
+      expect(stopped.errors).toBe(1)
+      expect(stopped.shipped).toEqual([])
+      expect(stopped.marked).toEqual([])
+      expect(stopped.printed).toContain(
+        "Can't find an icon file listed in icons."
+      )
+
+      expect(stopped.printed).toContain(`NOT FOUND ${path.join(root, '.env')}`)
+      expect(stopped.printed).not.toContain(MARKER)
+
+      // Without the icon the same resource list builds.
       const result = await build(
         project({
-          'manifest.json': manifest({
-            web_accessible_resources: [
-              {
-                resources: TARGETS.filter((ref) => ref !== '/.env'),
-                matches: ['<all_urls>']
-              }
-            ]
-          })
+          'manifest.json': manifest({web_accessible_resources: resources})
         })
       )
 
@@ -233,13 +259,7 @@ describe('a root-absolute path that names a file outside public/', () => {
 
       expect(result.marked).toEqual(['package.json'])
 
-      for (const ref of [
-        ...PRIVATE_TARGETS,
-        ...CLIMBING_TARGETS,
-        ...LINKED_TARGETS
-      ]) {
-        if (ref === '/.env') continue
-
+      for (const ref of withheld) {
         expect(result.printed).toContain(
           `Can't find the file ${ref.slice(1)} listed in web_accessible_resources.`
         )

@@ -70,6 +70,27 @@ describe('a _locales folder that holds a file the build never copies', () => {
     TIMEOUT
   )
 
+  it(
+    'never walks into node_modules, and says nothing about it',
+    async () => {
+      const {root} = makeProject({
+        'manifest.json': manifest({default_locale: 'en'}),
+        '_locales/en/messages.json': CATALOG,
+        '_locales/en/node_modules/pkg/data.json': `"${MARKER}-locale-pkg"`,
+        '_locales/en/Node_Modules/pkg/data.json': `"${MARKER}-locale-pkg2"`,
+        '_locales/node_modules/messages.json': MARKED_CATALOG
+      })
+      const result = await buildProject(root)
+
+      expect(result.errors).toBe(0)
+      expect(result.marked).toEqual([])
+      expect(locales(result.shipped)).toEqual(['_locales/en/messages.json'])
+      expect(result.printed.toLowerCase()).not.toContain('node_modules')
+      expect(result.quoted).toEqual([])
+    },
+    TIMEOUT
+  )
+
   it.runIf(canLink)(
     'leaves out a _locales folder that leads outside the project',
     async () => {

@@ -25,6 +25,7 @@ import {
   isFromIncludeList,
   isHttpLike,
   isSpecialScheme,
+  isWrittenAsRootUrl,
   resolveAbsoluteFsPath,
   rootUrlPath
 } from '../html-lib/utils'
@@ -94,6 +95,7 @@ function warnMissingPublicRootResources(params: {
   outputRoot: string
   js?: string[]
   css?: string[]
+  authored?: Record<string, string>
 }) {
   const {
     compilation,
@@ -104,7 +106,8 @@ function warnMissingPublicRootResources(params: {
     publicRootForResource,
     outputRoot,
     js,
-    css
+    css,
+    authored
   } = params
 
   const check = (publicRootUrl: string) => {
@@ -115,7 +118,7 @@ function warnMissingPublicRootResources(params: {
       if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) return
     }
 
-    if (!publicRootUrl.startsWith('/')) return
+    if (!isWrittenAsRootUrl(publicRootUrl, projectRoot, authored)) return
 
     const trimmed = publicRootUrl.replace(/^\//, '')
     const publicRootAbs = path.join(publicRootForResource, trimmed)
@@ -180,9 +183,18 @@ function checkMissingLocalEntries(params: {
   projectRoot: string
   js?: string[]
   css?: string[]
+  authored?: Record<string, string>
 }) {
-  const {compilation, compiler, resource, manifestDir, projectRoot, js, css} =
-    params
+  const {
+    compilation,
+    compiler,
+    resource,
+    manifestDir,
+    projectRoot,
+    js,
+    css,
+    authored
+  } = params
 
   // Chrome silently 404s a missing local ref and runs the page, so a dead ref
   // warns by default; EXTENSION_STRICT_REFS=true restores the failure for CI.
@@ -193,9 +205,10 @@ function checkMissingLocalEntries(params: {
 
     // Treat root URLs as public-root references (handled elsewhere): a root ref is
     // a '/'-path that does NOT live inside the project.
-    if (url.startsWith('/') && !url.startsWith(projectRoot)) return
+    if (isWrittenAsRootUrl(url, projectRoot, authored)) return
 
-    if (!fs.existsSync(url)) {
+    // A file the entry step dropped is reported the way a missing one is.
+    if (!fs.existsSync(url) || !sourceMayShip(url, projectRoot, manifestDir)) {
       const displayFile = path.relative(manifestDir, resource)
       reportToCompilation(
         compilation,
@@ -405,7 +418,8 @@ export class AddAssetsToCompilation {
               publicRootForResource,
               outputRoot,
               js: parsedAssets?.js,
-              css: parsedAssets?.css
+              css: parsedAssets?.css,
+              authored: parsedAssets?.authored
             })
 
             checkMissingLocalEntries({
@@ -415,7 +429,8 @@ export class AddAssetsToCompilation {
               manifestDir,
               projectRoot,
               js: parsedAssets?.js,
-              css: parsedAssets?.css
+              css: parsedAssets?.css,
+              authored: parsedAssets?.authored
             })
 
             const fileAssets = [...new Set(staticAssets)]
