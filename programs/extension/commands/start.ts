@@ -52,7 +52,10 @@ import {
   missingProjectFolder,
   missingProjectRefusal
 } from '../helpers/project-folder'
-import {markCommandSessionStart} from '../helpers/telemetry-cli'
+import {
+  markCommandSessionStart,
+  noteRunBrowsers
+} from '../helpers/telemetry-cli'
 import {
   type Browser,
   isSafariVendor,
@@ -121,6 +124,7 @@ interface StartCommandDeps {
   loadPreview?: () => Promise<AnyDevelopModule>
   runBrowser?: typeof runOnlyPreviewBrowser
   waitForReady?: typeof runWaitMode
+  noteBrowsers?: typeof noteRunBrowsers
 }
 
 export function registerStartCommand(
@@ -129,7 +133,8 @@ export function registerStartCommand(
     loadDevelop = loadExtensionDevelopModule,
     loadPreview = loadExtensionDevelopPreviewModule,
     runBrowser = runOnlyPreviewBrowser,
-    waitForReady = runWaitMode
+    waitForReady = runWaitMode,
+    noteBrowsers = noteRunBrowsers
   }: StartCommandDeps = {}
 ) {
   program
@@ -330,6 +335,7 @@ export function registerStartCommand(
         if (asJson) process.env.EXTENSION_OUTPUT = 'json'
 
         const list = vendors(browser)
+        noteBrowsers(list)
         let unsupportedBrowser = ''
         let supportedBrowsers: string[] = []
 

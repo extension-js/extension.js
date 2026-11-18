@@ -67,7 +67,6 @@ export class WarnMainWorldRegistrationChanged {
 
   public apply(compiler: Compiler): void {
     if (compiler.options.mode !== 'development') return
-    if (!compiler?.hooks?.thisCompilation?.tap) return
 
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir

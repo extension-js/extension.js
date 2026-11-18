@@ -87,8 +87,9 @@ describe('the audit log stays bounded', () => {
   })
 
   it('keeps writing when the rotation itself fails', () => {
+    // Twenty rows have to stay under ten times the cap, where the file drops.
     const box = sandbox({
-      env: {EXTENSION_TELEMETRY_AUDIT_MAX_BYTES: '600'},
+      env: {EXTENSION_TELEMETRY_AUDIT_MAX_BYTES: '900'},
       deps: {
         fs: fsWith({
           renameSync: () => {

@@ -6,6 +6,8 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import path from 'node:path'
+import {fileURLToPath} from 'node:url'
 import spawn from 'cross-spawn'
 import {withRepoBin} from './lib/repo-bin-env.mjs'
 
@@ -21,31 +23,24 @@ const runCommand = (command, args, options = {}) =>
     child.on('close', (code) => resolve(code ?? 1))
   })
 
-const run = async () => {
-  const primaryCode = await runCommand('dotenv', [
-    '--',
-    'turbo',
-    'run',
-    'compile'
-  ])
-
-  if (primaryCode === 0) {
-    return 0
+// Only a runner that never started earns the fallback: a turbo compile that
+// failed used to build every package a second time and print each error twice.
+export async function runCompile(run = runCommand) {
+  try {
+    return await run('dotenv', ['--', 'turbo', 'run', 'compile'])
+  } catch {
+    return run('pnpm', ['-r', '--filter', './programs/*', 'run', 'compile'])
   }
-
-  return runCommand('pnpm', [
-    '-r',
-    '--filter',
-    './programs/*',
-    'run',
-    'compile'
-  ])
 }
 
-try {
-  const exitCode = await run()
-  process.exit(exitCode)
-} catch (error) {
-  console.error(error)
-  process.exit(1)
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  try {
+    process.exit(await runCompile())
+  } catch (error) {
+    console.error(error)
+    process.exit(1)
+  }
 }

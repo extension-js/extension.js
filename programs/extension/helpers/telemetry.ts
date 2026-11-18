@@ -12,6 +12,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
+// Where the public telemetry page lives. An npm install has no docs folder.
+export const TELEMETRY_DOCS_URL =
+  'https://github.com/extension-js/extension.js/blob/main/docs/TELEMETRY.md'
+
 export type TelemetryEvent = 'command_executed' | 'command_failed'
 
 export type TelemetryProps = {
@@ -28,6 +32,8 @@ export type TelemetryProps = {
   // integer. They are re-checked below, since this is the last gate.
   code?: string
   exit_code?: number
+  // One word from TELEMETRY_BROWSERS, on dev, start, preview and build.
+  browser?: string
   browser_install?: string
   browser_install_browser?: string
   browser_install_seconds?: number
@@ -72,6 +78,21 @@ function catalogCode(value: unknown): string | undefined {
 
   return CATALOG_CODE.test(value) ? value : undefined
 }
+
+// Every value the `browser` property can take. A fork or a custom binary is
+// its engine family, so no product name, path or version ever travels.
+export const TELEMETRY_BROWSERS = [
+  'chrome',
+  'edge',
+  'firefox',
+  'safari',
+  'chromium-based',
+  'gecko-based'
+] as const
+
+export type TelemetryBrowser = (typeof TELEMETRY_BROWSERS)[number]
+
+const BROWSER_WORDS: Set<string> = new Set(TELEMETRY_BROWSERS)
 
 const BROWSER_INSTALL_OUTCOMES = new Set([
   'offered',
@@ -125,7 +146,13 @@ function sanitizeTag(value: string): string {
     .slice(0, 64)
 }
 
-export type TelemetrySource = 'env' | 'flag' | 'config' | 'ci' | 'default'
+export type TelemetrySource =
+  | 'env'
+  | 'flag'
+  | 'config'
+  | 'ci'
+  | 'storage'
+  | 'default'
 
 type TelemetryInit = {
   app: string
@@ -180,7 +207,6 @@ export interface TelemetryDeps {
   platform: NodeJS.Platform
   homedir: () => string
   tmpdir: () => string
-  cwd: () => string
   now: () => number
   random: () => number
   isCI: () => boolean
@@ -289,10 +315,7 @@ export function isSourceCheckout(startDir: string = __dirname): boolean {
   )
 }
 
-type PlaceDeps = Pick<
-  TelemetryDeps,
-  'env' | 'platform' | 'homedir' | 'tmpdir' | 'cwd'
->
+type PlaceDeps = Pick<TelemetryDeps, 'env' | 'platform' | 'homedir' | 'tmpdir'>
 
 function configDir({env, platform, homedir}: PlaceDeps): string {
   const xdg = env.XDG_CONFIG_HOME
@@ -352,15 +375,26 @@ function ensureWritableDir(
   }
 }
 
+// The project folder is never a candidate: an ID, a consent or an audit log
+// written there could be committed with the project.
 function telemetryCandidates(place: PlaceDeps): string[] {
   const candidates = [
     configDir(place),
     cacheDir(place),
-    path.join(place.tmpdir(), 'extensionjs'),
-    path.join(place.cwd(), '.cache', 'extensionjs')
+    path.join(place.tmpdir(), 'extensionjs')
   ].filter(Boolean) as string[]
 
   return Array.from(new Set(candidates))
+}
+
+function storageAt(telemetryDir: string): TelemetryStorage {
+  return {
+    telemetryDir,
+    auditFile: path.join(telemetryDir, 'events.jsonl'),
+    idFile: path.join(telemetryDir, 'anonymous-id'),
+    consentFile: path.join(telemetryDir, 'consent'),
+    noticeFile: path.join(telemetryDir, 'notice-shown')
+  }
 }
 
 function resolveStorageWith(deps: TelemetryDeps): TelemetryStorage | null {
@@ -368,16 +402,70 @@ function resolveStorageWith(deps: TelemetryDeps): TelemetryStorage | null {
     const telemetryDir = path.join(base, 'telemetry')
     if (!ensureWritableDir(deps.fs, telemetryDir, deps.now)) continue
 
-    return {
-      telemetryDir,
-      auditFile: path.join(telemetryDir, 'events.jsonl'),
-      idFile: path.join(telemetryDir, 'anonymous-id'),
-      consentFile: path.join(telemetryDir, 'consent'),
-      noticeFile: path.join(telemetryDir, 'notice-shown')
+    return storageAt(telemetryDir)
+  }
+
+  return null
+}
+
+// A status read must leave the disk as it found it, so this finds the folder
+// a run would use without creating it or writing a probe.
+function locateStorageWith(deps: TelemetryDeps): TelemetryStorage | null {
+  for (const base of deps.storageFolders()) {
+    const telemetryDir = path.join(base, 'telemetry')
+
+    try {
+      if (!deps.fs.existsSync(telemetryDir)) continue
+
+      deps.fs.accessSync(telemetryDir, fs.constants.W_OK)
+
+      return storageAt(telemetryDir)
+    } catch {
+      // Not usable, the next one may be.
     }
   }
 
   return null
+}
+
+export type TelemetryReset = {
+  ok: boolean
+  removed: string[]
+  clearedOptOut: boolean
+}
+
+// Every candidate is cleared, not only the one in use: an earlier run may
+// have fallen back to another folder and left an ID there.
+function resetStateWith(deps: TelemetryDeps): TelemetryReset {
+  const removed: string[] = []
+  let ok = true
+  let clearedOptOut = false
+
+  for (const base of deps.storageFolders()) {
+    const storage = storageAt(path.join(base, 'telemetry'))
+    const refused = readConsentFile(deps.fs, storage.consentFile) === 'disabled'
+
+    for (const file of [
+      storage.idFile,
+      storage.consentFile,
+      storage.noticeFile,
+      storage.auditFile,
+      `${storage.auditFile}.1`
+    ]) {
+      try {
+        if (!deps.fs.existsSync(file)) continue
+
+        deps.fs.rmSync(file, {force: true})
+        removed.push(file)
+
+        if (refused && file === storage.consentFile) clearedOptOut = true
+      } catch {
+        ok = false
+      }
+    }
+  }
+
+  return {ok, removed, clearedOptOut}
 }
 
 // Telemetry state inside a git worktree arrived with a checkout, not with a
@@ -443,6 +531,20 @@ function machineScopedId(rawId: string): string {
   ].join('-')
 }
 
+// The ID a run would send, or null when none is stored. Never creates one.
+function readIdWith(deps: TelemetryDeps, file: string): string | null {
+  try {
+    const stored = deps.fs.readFileSync(file, 'utf8').trim()
+    if (!stored) return null
+
+    return isInsideGitWorkTreeWith(deps, path.dirname(file))
+      ? machineScopedId(stored)
+      : stored
+  } catch {
+    return null
+  }
+}
+
 function loadOrCreateIdWith(deps: TelemetryDeps, file: string): string {
   const inWorkTree = isInsideGitWorkTreeWith(deps, path.dirname(file))
 
@@ -490,9 +592,20 @@ function readConsentFile(
   return null
 }
 
-export type TelemetryConsent = {enabled: boolean; source: TelemetrySource}
+// `variable` names the environment variable that decided, when one did.
+export type TelemetryConsent = {
+  enabled: boolean
+  source: TelemetrySource
+  variable?: TelemetryVariable
+}
 
-function envDisables(env: TelemetryEnv): boolean {
+export type TelemetryVariable =
+  | 'EXTENSION_TELEMETRY_DISABLED'
+  | 'EXTENSION_TELEMETRY'
+  | 'DO_NOT_TRACK'
+
+// The variable that turns telemetry off, the CLI's own names read first.
+function disablingVariable(env: TelemetryEnv): TelemetryVariable | undefined {
   // Next.js-style presence flag: any truthy value disables.
   const disabled = String(env.EXTENSION_TELEMETRY_DISABLED ?? '')
     .trim()
@@ -504,16 +617,29 @@ function envDisables(env: TelemetryEnv): boolean {
     disabled === 'on' ||
     disabled === 'yes'
   ) {
-    return true
+    return 'EXTENSION_TELEMETRY_DISABLED'
   }
 
   // Back-compat with the original `EXTENSION_TELEMETRY=0` form.
   const raw = String(env.EXTENSION_TELEMETRY ?? '')
     .trim()
     .toLowerCase()
-  if (!raw) return false
 
-  return raw === '0' || raw === 'false' || raw === 'off' || raw === 'no'
+  if (raw === '0' || raw === 'false' || raw === 'off' || raw === 'no') {
+    return 'EXTENSION_TELEMETRY'
+  }
+
+  // The cross-tool convention of consoledonottrack.com: any value other
+  // than empty, 0 or false is a refusal.
+  const doNotTrack = String(env.DO_NOT_TRACK ?? '')
+    .trim()
+    .toLowerCase()
+
+  if (doNotTrack && doNotTrack !== '0' && doNotTrack !== 'false') {
+    return 'DO_NOT_TRACK'
+  }
+
+  return undefined
 }
 
 function envExplicitlyEnables(env: TelemetryEnv): boolean {
@@ -562,12 +688,21 @@ function resolveConsentWith(
   deps: TelemetryDeps,
   argv: string[]
 ): TelemetryConsent {
-  if (envDisables(deps.env)) return {enabled: false, source: 'env'}
+  const refusedBy = disablingVariable(deps.env)
+  if (refusedBy) return {enabled: false, source: 'env', variable: refusedBy}
   if (argv.includes('--no-telemetry')) return {enabled: false, source: 'flag'}
-  if (envExplicitlyEnables(deps.env)) return {enabled: true, source: 'env'}
+
+  if (envExplicitlyEnables(deps.env)) {
+    return {enabled: true, source: 'env', variable: 'EXTENSION_TELEMETRY'}
+  }
 
   const storage = resolveStorageWith(deps)
-  const stored = storage ? readConsentFile(deps.fs, storage.consentFile) : null
+
+  // With nowhere to keep the ID, the consent or the audit log, the run
+  // reports nothing instead of sending rows no file accounts for.
+  if (!storage) return {enabled: false, source: 'storage'}
+
+  const stored = readConsentFile(deps.fs, storage.consentFile)
 
   if (stored === 'disabled') return {enabled: false, source: 'config'}
 
@@ -581,7 +716,6 @@ function resolveConsentWith(
   // `disabled` above is a refusal and inheriting silence harms nobody.
   if (
     stored === 'enabled' &&
-    storage &&
     !isInsideGitWorkTreeWith(deps, storage.telemetryDir)
   ) {
     return {enabled: true, source: 'config'}
@@ -661,6 +795,9 @@ function postFromChild(
 export interface TelemetryKit {
   deps: TelemetryDeps
   resolveStorage(): TelemetryStorage | null
+  locateStorage(): TelemetryStorage | null
+  readId(file: string): string | null
+  resetState(): TelemetryReset
   resolveConsent(argv: string[]): TelemetryConsent
   writeConsent(value: 'enabled' | 'disabled'): boolean
   claimFirstRunNotice(): boolean
@@ -677,8 +814,7 @@ export function createTelemetryKit(
     env,
     platform: overrides.platform ?? process.platform,
     homedir: overrides.homedir ?? (() => os.homedir()),
-    tmpdir: overrides.tmpdir ?? (() => os.tmpdir()),
-    cwd: overrides.cwd ?? (() => process.cwd())
+    tmpdir: overrides.tmpdir ?? (() => os.tmpdir())
   }
   const deps: TelemetryDeps = {
     ...place,
@@ -697,6 +833,9 @@ export function createTelemetryKit(
   return {
     deps,
     resolveStorage: () => resolveStorageWith(deps),
+    locateStorage: () => locateStorageWith(deps),
+    readId: (file) => readIdWith(deps, file),
+    resetState: () => resetStateWith(deps),
     resolveConsent: (argv) => resolveConsentWith(deps, argv),
     writeConsent: (value) => writeConsentWith(deps, value),
     claimFirstRunNotice: () => claimFirstRunNoticeWith(deps),
@@ -793,6 +932,9 @@ export class Telemetry {
 
       if (this.storage) {
         this.anonId = kit.loadOrCreateId(this.storage.idFile)
+      } else {
+        // An explicit opt-in still needs a folder for the ID and the log.
+        this.disabled = true
       }
     }
   }
@@ -844,6 +986,9 @@ export class Telemetry {
       const exitCode = smallExitCode(props.exit_code)
       if (exitCode !== undefined) enforcedProps.exit_code = exitCode
 
+      const browser = fixedWord(props.browser, BROWSER_WORDS)
+      if (browser) enforcedProps.browser = browser
+
       // The install outcomes were documented as sent and dropped right here,
       // so each one passes only as a fixed word or a bounded whole number.
       const browserInstall = fixedWord(
@@ -873,8 +1018,8 @@ export class Telemetry {
         enforcedProps.deps_install_seconds = depsSeconds
       }
 
-      // A null $ip is not an opt out on the capture endpoint, the project
-      // drops the address at ingestion and this keeps GeoIP from reading it.
+      // $ip and $geoip_disable keep the request address and any location
+      // out, $process_person_profile keeps a per-machine profile from forming.
       const payload = {
         event,
         properties: {
@@ -882,7 +1027,8 @@ export class Telemetry {
           ...this.common,
           app: this.app,
           $ip: null as unknown as undefined,
-          $geoip_disable: true
+          $geoip_disable: true,
+          $process_person_profile: false
         },
         distinct_id: this.anonId
       }
