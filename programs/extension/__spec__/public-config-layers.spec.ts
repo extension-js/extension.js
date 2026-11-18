@@ -26,6 +26,7 @@ import type {
   IncludeFileEntry,
   IncludeFilesConfig,
   PerfBudgetsConfig,
+  PreviewCommandConfig,
   SafariConfig,
   ServeCommandConfig,
   SpecialFoldersConfig
@@ -53,9 +54,9 @@ const everyLayerAgreesWithTheLoader: [
   >,
   Agrees<DevCommandConfig, NonNullable<Commands['dev']>>,
   Agrees<ServeCommandConfig, NonNullable<Commands['start']>>,
-  // Preview builds nothing, so these three keys of the shared type do nothing.
+  // Preview builds nothing. The CLI keeps these keys, marked deprecated.
   Agrees<
-    ServeCommandConfig,
+    PreviewCommandConfig,
     NonNullable<Commands['preview']>,
     'polyfill' | 'include' | 'exclude'
   >,
