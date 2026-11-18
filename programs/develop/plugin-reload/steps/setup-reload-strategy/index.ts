@@ -12,148 +12,13 @@ import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {extensionSchemeFor} from '../../../lib/extension-base-from-stack'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
+import {getBackgroundEntryName} from '../../../plugin-web-extension/feature-chunk-loading/background-entry-name'
+import {ChunkLoadingTarget} from '../../../plugin-web-extension/feature-chunk-loading/chunk-loading-target'
+import {buildContentScriptsMeta} from '../../../plugin-web-extension/feature-chunk-loading/content-scripts-meta'
 import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {getCanonicalContentScriptJsAssetName} from '../../../plugin-web-extension/feature-scripts/contracts'
 import {extensionBaseAttributeFor} from '../../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
-import {getBackgroundWorkerEntryName} from '../../../plugin-web-extension/feature-scripts/scripts-lib/utils'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {SetupBackgroundEntry} from './setup-background-entry'
-import WebExtension from './webpack-target-webextension-fork'
-
-// The background entry name the chunk-loading target keys its runtime off.
-// It resolves against the entries AddScripts will actually create, so both
-// the dev reload strategy and the production chunk-loading target can share it.
-export function getBackgroundEntryName(
-  manifest: Manifest,
-  browser: DevOptions['browser'],
-  context: {manifestDir: string; projectPath?: string}
-): {
-  pageEntry?: string
-  serviceWorkerEntry?: string
-  tryCatchWrapper: boolean
-  eagerChunkLoading: boolean
-} {
-  if (manifest.background) {
-    // A background page is compiled as the background/index HTML surface, so
-    // the runtime belongs in that entry and not in a script entry nothing loads.
-    const backgroundPage = manifest.background.page
-    const backgroundScripts = manifest.background.scripts
-    const hasScriptEntry = Boolean(
-      manifest.background.service_worker ||
-        (Array.isArray(backgroundScripts) && backgroundScripts.length > 0)
-    )
-
-    if (
-      typeof backgroundPage === 'string' &&
-      backgroundPage &&
-      !hasScriptEntry
-    ) {
-      return {
-        pageEntry: 'background/index',
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
-      }
-    }
-
-    if (isGeckoBasedBrowser(String(browser))) {
-      return {
-        pageEntry: 'background/script',
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
-      }
-    }
-
-    if (manifest.manifest_version === 3) {
-      const serviceWorkerEntry = getBackgroundWorkerEntryName({
-        manifest,
-        browser,
-        manifestDir: context.manifestDir,
-        projectPath: context.projectPath
-      })
-
-      // Naming an entry that will not exist makes the fork assert at
-      // entryOption and kill the build before the scripts feature can report
-      // the real problem, such as a missing service worker file.
-      if (!serviceWorkerEntry) {
-        return {
-          tryCatchWrapper: true,
-          eagerChunkLoading: false
-        }
-      }
-
-      return {
-        serviceWorkerEntry,
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
-      }
-    }
-
-    if (manifest.manifest_version === 2) {
-      return {
-        pageEntry: 'background/script',
-        tryCatchWrapper: true,
-        eagerChunkLoading: false
-      }
-    }
-  }
-
-  return {
-    pageEntry: 'background',
-    tryCatchWrapper: true,
-    eagerChunkLoading: false
-  }
-}
-
-// Which world each content-script bundle runs in, so the chunk loader can pick
-// a loading strategy that world can actually use.
-export function buildContentScriptsMeta(
-  patchedManifest: Manifest
-): Record<string, unknown> {
-  const contentScriptsMeta: Record<string, unknown> = {}
-
-  try {
-    const csList = Array.isArray(patchedManifest.content_scripts)
-      ? patchedManifest.content_scripts
-      : []
-    const originalCount = csList.length
-    let bridgeOrdinal = 0
-
-    for (let i = 0; i < csList.length; i++) {
-      const cs = csList[i]
-      const bundleId = getCanonicalContentScriptJsAssetName(i)
-      const isMain = cs?.world === 'MAIN'
-
-      if (isMain) {
-        const bridgeIndex = originalCount + bridgeOrdinal++
-        const bridgeBundleId = getCanonicalContentScriptJsAssetName(bridgeIndex)
-        contentScriptsMeta[bundleId] = {
-          index: i,
-          bundleId,
-          world: 'main',
-          bridgeBundleId
-        }
-
-        contentScriptsMeta[bridgeBundleId] = {
-          index: bridgeIndex,
-          bundleId: bridgeBundleId,
-          world: 'extension',
-          role: 'main_world_bridge',
-          mainBundleId: bundleId
-        }
-      } else {
-        contentScriptsMeta[bundleId] = {
-          index: i,
-          bundleId,
-          world: 'extension'
-        }
-      }
-    }
-  } catch {
-    // ignore - runtime has safe defaults
-  }
-
-  return contentScriptsMeta
-}
 
 export class SetupReloadStrategy {
   private readonly manifestPath: string
@@ -177,19 +42,30 @@ export class SetupReloadStrategy {
       browser: this.browser
     }).apply(compiler)
 
-    new WebExtension({
+    new ChunkLoadingTarget({
       background: getBackgroundEntryName(patchedManifest, this.browser, {
         manifestDir: path.dirname(this.manifestPath),
         projectPath: compiler.options.context as string | undefined
       }),
-      hmrConfig: false,
       weakRuntimeCheck: true,
       contentScriptsMeta,
       gecko: isGeckoBasedBrowser(String(this.browser)),
       baseAttribute: extensionBaseAttributeFor(this.manifestPath, this.browser),
       baseScheme: extensionSchemeFor(String(this.browser))
-    }).apply(
-      compiler as Parameters<InstanceType<typeof WebExtension>['apply']>[0]
-    )
+    }).apply(compiler)
+
+    // Hot update files drop the suffix the dev server adds, so a session
+    // fetches and prunes them under hot/ by chunk and build hash alone.
+    compiler.hooks.environment.tap('plugin-reload:hot-update-names', () => {
+      const {output} = compiler.options
+
+      if (output.hotUpdateChunkFilename !== undefined) {
+        output.hotUpdateChunkFilename = 'hot/[id].[fullhash].js'
+      }
+
+      if (output.hotUpdateMainFilename !== undefined) {
+        output.hotUpdateMainFilename = 'hot/[runtime].[fullhash].json'
+      }
+    })
   }
 }

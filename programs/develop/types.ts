@@ -482,7 +482,9 @@ export interface StartOptions extends BrowserOptionsBase {
   logTab?: number | string
 }
 
-export interface BrowserConfig extends BrowserOptionsBase {
+export interface BrowserConfig extends Omit<BrowserOptionsBase, 'browser'> {
+  /** Optional: the key of the `browser` map already names the target. */
+  browser?: BrowserType
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
   preferences?: Record<string, unknown>
@@ -502,6 +504,12 @@ export interface BrowserConfig extends BrowserOptionsBase {
   include?: IncludeFilesConfig
   /** Files this browser's build leaves out, added to the top-level `exclude`. */
   exclude?: ExcludeFilesConfig
+  /** Transpile allowlist for this browser, over the top-level list. */
+  transpilePackages?: string[]
+  /** Compile-time constants for this browser, over the top-level map. */
+  define?: Record<string, unknown>
+  /** Asset budgets for this browser, over the top-level budgets. */
+  perfBudgets?: PerfBudgetsConfig
   /**
    * Companion extensions (load-only) scoped to a browser config.
    * Useful for per-browser store URLs or local unpacked extensions.
@@ -526,9 +534,9 @@ export type OutputConfig = {
  * globs). A `.wasm` file only pages and workers reach is budgeted as `wasm`
  * (32 MiB); one a content script or the service worker reaches stays
  * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
- * under `browser.<vendor>.perfBudgets`, or per command via
- * `commands.dev.perfBudgets` / `commands.build.perfBudgets` (strongest
- * below a CLI flag).
+ * under `browser.<vendor>.perfBudgets`, or under
+ * `commands.build.perfBudgets` (strongest below a CLI flag). Budgets are
+ * checked on a production build only.
  */
 export type PerfBudgetsConfig =
   import('./plugin-perf-budgets').PerfBudgetsConfig
@@ -754,8 +762,8 @@ export interface FileConfig {
   define?: Record<string, unknown>
   /**
    * Default per-category asset budgets for all commands, the weakest layer.
-   * `browser.<vendor>.perfBudgets` overrides it, and per-command
-   * `commands.dev|build.perfBudgets` overrides both.
+   * `browser.<vendor>.perfBudgets` overrides it, and
+   * `commands.build.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
   /**

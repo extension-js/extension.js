@@ -11,19 +11,29 @@ import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {
+  readyContractPath,
+  sessionArtifactsRootDir
+} from '../../develop/lib/session-contract'
 import {isFirefoxBrowser} from '../browsers/browsers-lib/browser-family'
-import {isPidAlive} from '../browsers/browsers-lib/resolve-live-pid'
+import {
+  isPidAlive,
+  pidStartedAtMs
+} from '../browsers/browsers-lib/resolve-live-pid'
 import {declaredErrorCode} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
-import {loadExtensionDevelopBridgeModule} from '../helpers/extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  loadExtensionDevelopBridgeModule
+} from '../helpers/extension-develop-runtime'
 import {
   commandDescriptions,
   doctorHeader,
   doctorRemedy
 } from '../helpers/messages'
 import {CODES, ENVELOPE, type ErrorCode} from '../helpers/messaging'
-import {isJsonOutput} from '../helpers/output-flag'
+import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {recordedLoadRefusal} from '../helpers/ready-contract-codes'
 import {
   describeRspackPeerConflicts,
@@ -279,7 +289,7 @@ function scanReadyContracts(projectPath: string): {
   running: string[]
   receipts: string[]
 } {
-  const sessionsRoot = path.join(projectPath, 'dist', 'extension-js')
+  const sessionsRoot = sessionArtifactsRootDir(projectPath)
   const sessions: string[] = []
   const running: string[] = []
   const receipts: string[] = []
@@ -293,7 +303,7 @@ function scanReadyContracts(projectPath: string): {
 
     for (const browser of browsers) {
       const document = readReadyDocument(
-        path.join(sessionsRoot, browser, 'ready.json')
+        readyContractPath(projectPath, browser)
       )
 
       if (!document) continue
@@ -355,8 +365,12 @@ export function resolveDoctorBrowser(
   }
 }
 
-function peerRspackCheck(projectPath: string): DoctorCheckResult {
-  const engine = engineRspackVersion(projectPath)
+function peerRspackCheck(
+  projectPath: string,
+  engineVersion: typeof engineRspackVersion,
+  scanPeers: typeof scanRspackPeers
+): DoctorCheckResult {
+  const engine = engineVersion(projectPath)
 
   if (!engine) {
     return {
@@ -366,7 +380,7 @@ function peerRspackCheck(projectPath: string): DoctorCheckResult {
     }
   }
 
-  const {conflicts, unreadable} = scanRspackPeers(projectPath, engine)
+  const {conflicts, unreadable} = scanPeers(projectPath, engine)
   const unverified = unreadable.length
     ? describeUnreadableDependencies(unreadable)
     : ''
@@ -479,11 +493,25 @@ async function browserCheck(
   }
 }
 
+// What a diagnosis reaches outside this file. Production takes every default.
+export interface DoctorDeps {
+  loadBridge?: () => Promise<AnyDevelopModule>
+  engineVersion?: typeof engineRspackVersion
+  scanPeers?: typeof scanRspackPeers
+  pidStartedAt?: typeof pidStartedAtMs
+}
+
 export async function runDoctor(
   projectPathArg: string | undefined,
-  opts: DoctorOptions
+  opts: DoctorOptions,
+  {
+    loadBridge = loadExtensionDevelopBridgeModule,
+    engineVersion = engineRspackVersion,
+    scanPeers = scanRspackPeers,
+    pidStartedAt = pidStartedAtMs
+  }: DoctorDeps = {}
 ): Promise<DoctorReport> {
-  const bridge = await loadExtensionDevelopBridgeModule()
+  const bridge = await loadBridge()
   const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
   const {browser, sessionBrowsers, sessionsEnded} = resolveDoctorBrowser(
     projectPath,
@@ -516,7 +544,7 @@ export async function runDoctor(
   // 0. peer-rspack needs only the project, so it runs before the session legs.
   // A dependency whose @rspack/core peer range misses the engine is why
   // `npm install` fails with ERESOLVE next to Extension.js.
-  results.push(peerRspackCheck(projectPath))
+  results.push(peerRspackCheck(projectPath, engineVersion, scanPeers))
 
   const skip = (check: DoctorCheck, blockedBy: string) => {
     results.push({
@@ -715,7 +743,7 @@ export async function runDoctor(
     // A live pid is only half the evidence: the other half is that it is still
     // the process the contract was written by.
     const stale = isPidAlive(ready.pid)
-      ? reusedPidEvidence(ready)
+      ? reusedPidEvidence(ready, pidStartedAt)
       : 'the process is gone'
 
     if (stale) {
@@ -1038,7 +1066,10 @@ export function doctorFailureCode(row: DoctorCheckResult): ErrorCode {
   )
 }
 
-export function registerDoctorCommand(program: Command): void {
+export function registerDoctorCommand(
+  program: Command,
+  deps: DoctorDeps = {}
+): void {
   program
     .command('doctor')
     .argument(
@@ -1053,13 +1084,14 @@ export function registerDoctorCommand(program: Command): void {
       '--output <pretty|json>',
       'result format. Use json for a schema-1 envelope on stdout'
     )
+    .hook('preAction', refuseUnreadableOutput())
     .description(commandDescriptions.doctor)
     .action(async (projectPathArg: string | undefined, opts: DoctorOptions) => {
       const asJson = isJsonOutput(opts)
       let report: DoctorReport
 
       try {
-        report = await runDoctor(projectPathArg, opts)
+        report = await runDoctor(projectPathArg, opts, deps)
       } catch (err) {
         const message = String((err as Error | undefined)?.message || err)
 

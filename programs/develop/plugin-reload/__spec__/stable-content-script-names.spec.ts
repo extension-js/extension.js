@@ -86,6 +86,16 @@ function compileOnce(compiler: Compiler) {
       if (error) return reject(error)
       if (!stats) return reject(new Error('no stats'))
 
+      // Assets of a failed compile prove nothing about the names, so the
+      // errors are the failure, a missing dist loader most often.
+      if (stats.hasErrors()) {
+        return reject(
+          new Error(
+            stats.compilation.errors.map((error) => error.message).join('\n')
+          )
+        )
+      }
+
       const out: Record<string, string> = {}
 
       for (const asset of stats.compilation.getAssets()) {

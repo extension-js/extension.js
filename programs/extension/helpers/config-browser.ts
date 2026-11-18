@@ -6,21 +6,21 @@
 //  ╚═════╝ ╚═════╝ ╚═╝  ╚═══╝╚═╝     ╚═╝ ╚═════╝       ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {loadExtensionDevelopModule} from './extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  type DevelopFor,
+  loadExtensionDevelopModule
+} from './extension-develop-runtime'
 
 // The wrapper picks the vendor list before calling develop, so the file
 // config's commands.<cmd>.browser must be read here; a typed flag wins.
 export async function resolveConfigBrowser(
   projectPath: string,
-  command: 'dev' | 'build' | 'start' | 'preview'
+  command: 'dev' | 'build' | 'start' | 'preview',
+  loadDevelop: () => Promise<AnyDevelopModule> = loadExtensionDevelopModule
 ): Promise<string | undefined> {
   try {
-    const develop = await loadExtensionDevelopModule<{
-      loadCommandConfig?: (
-        p: string,
-        c: 'dev' | 'build' | 'start' | 'preview'
-      ) => Promise<unknown>
-    }>()
+    const develop: DevelopFor = await loadDevelop()
     if (typeof develop.loadCommandConfig !== 'function') return undefined
 
     const config = await develop.loadCommandConfig(projectPath, command)

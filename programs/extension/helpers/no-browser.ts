@@ -6,7 +6,11 @@
 // ╚═╝  ╚═══╝ ╚═════╝       ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {loadExtensionDevelopModule} from './extension-develop-runtime'
+import {
+  type AnyDevelopModule,
+  type DevelopFor,
+  loadExtensionDevelopModule
+} from './extension-develop-runtime'
 
 // --no-browser and --no-open used to read as the same sentence. One line, shared
 // by every command that takes both, names the one that stops the launch.
@@ -23,17 +27,13 @@ export const NO_OPEN_FLAG_DESCRIPTION =
 // file config's commands.<cmd>.noBrowser reaches the same decision, flag wins.
 export async function resolveNoBrowser(
   projectPath: string,
-  command: 'dev' | 'start' | 'preview'
+  command: 'dev' | 'start' | 'preview',
+  loadDevelop: () => Promise<AnyDevelopModule> = loadExtensionDevelopModule
 ): Promise<boolean> {
   if (process.env.EXTENSION_CLI_NO_BROWSER === '1') return true
 
   try {
-    const develop = await loadExtensionDevelopModule<{
-      loadCommandConfig?: (
-        p: string,
-        c: 'dev' | 'build' | 'start' | 'preview'
-      ) => Promise<unknown>
-    }>()
+    const develop: DevelopFor = await loadDevelop()
     if (typeof develop.loadCommandConfig !== 'function') return false
 
     const config = await develop.loadCommandConfig(projectPath, command)

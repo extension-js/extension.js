@@ -18,15 +18,24 @@ function isStableVersion(version: string | undefined) {
   return Boolean(v && v.prerelease.length === 0)
 }
 
-export default async function checkUpdates(): Promise<{
+// The registry lookup and the manifest it asks about, real ones when left out.
+type UpdateCheckDeps = {
+  check?: (pkg: object) => Promise<{latest: string} | null>
+  readPackageJson?: typeof getCliPackageJson
+}
+
+export default async function checkUpdates({
+  check = checkForUpdate,
+  readPackageJson = getCliPackageJson
+}: UpdateCheckDeps = {}): Promise<{
   suffix: string
   message: string
 } | null> {
-  const packageJson = getCliPackageJson()
+  const packageJson = readPackageJson()
   let update = null
 
   try {
-    update = await checkForUpdate(packageJson)
+    update = await check(packageJson)
   } catch (err) {
     if (isDebug()) {
       console.error(messages.updateFailed(err))

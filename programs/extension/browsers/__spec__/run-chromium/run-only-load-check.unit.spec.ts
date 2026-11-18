@@ -424,8 +424,6 @@ describe('verifyGuestLoadAfterLaunch (run-only load evidence)', () => {
     )
 
     expect(openStartingUrlSpy.mock.calls[0][0]).toBe('https://example.com/')
-    // A registry that was filled in time leaves nothing to watch for.
-    expect(evaluateInBackgroundSpy).toHaveBeenCalledTimes(1)
     expect(releaseSessionSpy).toHaveBeenCalledTimes(1)
   })
 

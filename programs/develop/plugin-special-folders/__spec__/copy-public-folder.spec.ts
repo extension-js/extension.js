@@ -1,280 +1,172 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
-import {rememberSpecialFoldersConfig} from '../folders-config'
+import {
+  compileFixture,
+  type FixtureBuild,
+  type FixtureFiles,
+  removeFixtureRoots
+} from './helpers/compile-harness'
 
-const toPosix = (value: string) => value.replace(/\\/g, '/')
-
-const FS = vi.hoisted(() => ({
-  existsSync: vi.fn(),
-  statSync: vi.fn(),
-  readdirSync: vi.fn()
-}))
-vi.mock('fs', () => ({...FS}))
-
-const copyApply = vi.fn()
-let lastCopyOptions: any = null
-vi.mock('@rspack/core', async () => {
-  const actual = await vi.importActual<any>('@rspack/core')
-
-  return {
-    ...actual,
-    rspack: {
-      ...actual.rspack,
-      CopyRspackPlugin: vi.fn().mockImplementation(function (
-        this: any,
-        options: any
-      ) {
-        lastCopyOptions = options
-        this.apply = copyApply
-      })
-    }
-  }
+afterEach(() => {
+  removeFixtureRoots()
 })
 
-const warnApply = vi.fn()
-vi.mock('../warn-upon-folder-changes', () => ({
-  WarnUponFolderChanges: vi.fn().mockImplementation(function (this: any) {
-    this.apply = warnApply
-  })
-}))
+const ENTRY = {'index.js': 'self.out = 1\n'}
 
-const createFakeCompiler = (
-  mode: 'development' | 'production',
-  withWatch = false
-) => {
-  const hooks: any = {
-    thisCompilation: {
-      tap: (_name: string, callback: (c: any) => void) => {
-        const compilation: any = {
-          errors: [],
-          hooks: {
-            processAssets: {
-              tap: (_opts: any, fn: () => void) => fn(),
-              tapPromise: (_opts: any, fn: () => Promise<void>) => {
-                void fn()
-              }
-            }
-          },
-          getAssets: () => [],
-          getAsset: () => undefined,
-          emitAsset: () => {},
-          fileDependencies: new Set<string>(),
-          contextDependencies: new Set<string>(),
-          missingDependencies: new Set<string>(),
-          compiler: {
-            webpack: {WebpackError: class WebpackError extends Error {}}
-          }
+async function build(
+  files: FixtureFiles,
+  options: {
+    manifest?: string
+    mode?: 'development' | 'production'
+    folders?: {public?: string | false}
+  } = {}
+): Promise<FixtureBuild> {
+  const manifest = options.manifest || 'manifest.json'
+  const result = await compileFixture({
+    files: {...ENTRY, [manifest]: '{"manifest_version": 3}', ...files},
+    mode: options.mode,
+    plugins: [
+      {
+        apply(compiler) {
+          new SpecialFoldersPlugin({
+            manifestPath: path.join(String(compiler.options.context), manifest),
+            folders: options.folders
+          }).apply(compiler)
         }
-        callback(compilation)
       }
-    }
-  }
+    ]
+  })
 
-  const compiler: any = {
-    options: {
-      mode,
-      context: '/project',
-      watchOptions: withWatch ? {} : undefined
-    },
-    hooks
-  }
+  // Every compile writes inside its own temp folder, never into the repo.
+  expect(result.outputPath).toBe(path.join(result.root, 'dist'))
+  expect(
+    path.relative(fs.realpathSync(os.tmpdir()), result.root).startsWith('..')
+  ).toBe(false)
 
-  return compiler
+  return result
 }
 
-describe('SpecialFoldersPlugin (public copying and guards)', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    lastCopyOptions = null
+const copied = (result: FixtureBuild) =>
+  Object.entries(result.assets)
+    .filter(([, info]) => info.copied)
+    .map(([name]) => name)
+    .sort()
+
+describe('SpecialFoldersPlugin copies public/ in a real compile', () => {
+  it('ships public/ as authored, minus the root manifest and locale metadata', async () => {
+    const result = await build({
+      'public/logo.txt': 'logo',
+      'public/manifest.json': '{"name": "public copy"}',
+      'public/nested/manifest.json': '{"nested": true}',
+      'public/_locales/en/messages.json': '{"a": {"message": "A"}}',
+      'public/_locales/en/.DS_Store': 'finder',
+      'public/_locales/xx/readme.txt': 'no messages here'
+    })
+
+    expect(copied(result)).toEqual([
+      '_locales/en/messages.json',
+      'logo.txt',
+      'nested/manifest.json'
+    ])
+
+    expect(Object.keys(result.assets).sort()).toEqual([
+      '_locales/en/messages.json',
+      'logo.txt',
+      'main.js',
+      'nested/manifest.json'
+    ])
   })
 
-  afterEach(() => {
-    vi.clearAllMocks()
-    // The folders config is remembered per project root, so a `public: false`
-    // case would otherwise answer for every later test on the same root.
-    rememberSpecialFoldersConfig('/project', undefined)
-  })
+  it('wires no copier when public/ is not there yet and waits for it by path', async () => {
+    const result = await build({}, {mode: 'development'})
 
-  it('applies CopyRspackPlugin when public exists (excludes manifest.json)', async () => {
-    ;(FS.existsSync as any).mockImplementation(
-      (absPath: string) => toPosix(absPath) === '/project/public'
-    )
-    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
-      isDirectory: () => true
-    }))
-
-    const compiler = createFakeCompiler('production')
-    new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
-      compiler as any
+    expect(copied(result)).toEqual([])
+    expect(result.missingDependencies).toContain(
+      path.join(result.root, 'public')
     )
 
-    expect(copyApply).toHaveBeenCalledTimes(1)
-    // Full path, not a bare filename: the copy glob matches full paths, so
-    // only the root public/manifest.json is excluded and nested ones copy.
-    expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
-      '/project/public/manifest.json'
-    )
-
-    expect(lastCopyOptions?.patterns?.[0]?.globOptions?.ignore).toContain(
-      '/project/public/_locales/**/.DS_Store'
-    )
-  })
-
-  it('wires no copier when public/ is not there yet', async () => {
-    ;(FS.existsSync as any).mockReturnValue(false)
-
-    const compiler = createFakeCompiler('development', true)
-    new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
-      compiler as any
-    )
-
-    expect(copyApply).not.toHaveBeenCalled()
-  })
-
-  it('watches the missing folder by its own path, never the project root', async () => {
-    ;(FS.existsSync as any).mockReturnValue(false)
-
-    let watched = new Set<string>()
-    let awaited = new Set<string>()
-    const compiler = createFakeCompiler('development', true)
-    const originalTap = compiler.hooks.thisCompilation.tap
-    compiler.hooks.thisCompilation.tap = (
-      name: string,
-      callback: (c: any) => void
-    ) =>
-      originalTap(name, (compilation: any) => {
-        watched = compilation.contextDependencies
-        awaited = compilation.missingDependencies
-        callback(compilation)
-      })
-
-    new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
-      compiler as any
-    )
-
-    expect([...watched].map(toPosix)).not.toContain('/project')
-    expect([...awaited].map(toPosix)).toContain('/project/public')
+    expect(result.contextDependencies).not.toContain(result.root)
   })
 
   it('reads no folder at all when public is turned off', async () => {
-    ;(FS.existsSync as any).mockReturnValue(false)
-    const compiler = createFakeCompiler('development', true)
-    new SpecialFoldersPlugin({
-      manifestPath: '/project/manifest.json',
-      folders: {public: false}
-    }).apply(compiler as any)
+    const result = await build(
+      {'public/logo.txt': 'logo'},
+      {folders: {public: false}, mode: 'development'}
+    )
 
-    expect(copyApply).not.toHaveBeenCalled()
+    expect(copied(result)).toEqual([])
+    expect(result.missingDependencies).not.toContain(
+      path.join(result.root, 'public')
+    )
+
+    expect(result.contextDependencies).not.toContain(
+      path.join(result.root, 'public')
+    )
   })
 
-  it('emits an error when public/ contains manifest.json', async () => {
-    ;(FS.existsSync as any).mockImplementation(
-      (absPath: string) =>
-        toPosix(absPath) === '/project/public' ||
-        toPosix(absPath) === '/project/public/manifest.json'
-    )
-    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
-      isDirectory: () => true
-    }))
+  it('refuses a manifest.json at the root of public/', async () => {
+    const result = await build({
+      'public/manifest.json': '{"name": "public copy"}'
+    })
 
-    const compiler = createFakeCompiler('production')
-    let capturedErrors: any[] = []
-    const originalTap = (compiler as any).hooks.thisCompilation.tap
-    ;(compiler as any).hooks.thisCompilation.tap = (
-      name: string,
-      callback: (c: any) => void
-    ) => {
-      originalTap(name, (c: any) => {
-        capturedErrors = c.errors
-        callback(c)
-      })
+    expect(result.errors.map((error) => error.message)).toContain(
+      `manifest.json must not be placed under public/: ${path.join(result.root, 'public', 'manifest.json')}`
+    )
+
+    expect(result.assets['manifest.json']).toBeUndefined()
+    // A production build with an error writes nothing at all.
+    expect(result.emitted).toEqual({})
+  })
+
+  it('watches pages/ and scripts/ in development only', async () => {
+    const development = await build({}, {mode: 'development'})
+    const production = await build({}, {mode: 'production'})
+
+    for (const folder of ['pages', 'scripts']) {
+      expect(development.missingDependencies).toContain(
+        path.join(development.root, folder)
+      )
+
+      expect(production.missingDependencies).not.toContain(
+        path.join(production.root, folder)
+      )
     }
-
-    new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
-      compiler as any
-    )
-
-    expect(capturedErrors.length).toBeGreaterThan(0)
-    expect(String(capturedErrors[0])).toMatch(
-      /manifest\.json must not be placed under public\//i
-    )
   })
 
-  it('wires WarnUponFolderChanges in development when watchOptions present', async () => {
-    ;(FS.existsSync as any).mockReturnValue(false)
-    const compiler = createFakeCompiler('development', true)
-    new SpecialFoldersPlugin({manifestPath: '/project/manifest.json'}).apply(
-      compiler as any
+  it('copies from the folder beside the manifest and notes the placement', async () => {
+    const result = await build(
+      {'src/public/beside.txt': 'beside'},
+      {manifest: 'src/manifest.json'}
     )
 
-    expect(warnApply).toHaveBeenCalledTimes(1)
-  })
-
-  it('copies from the folder beside the manifest and notes the placement', () => {
-    ;(FS.existsSync as any).mockImplementation(
-      (absPath: string) => toPosix(absPath) === '/project/src/public'
+    expect(copied(result)).toEqual(['beside.txt'])
+    const layout = result.warnings.filter(
+      (warning) => warning.name === 'PublicLayoutWarning'
     )
-    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
-      isDirectory: () => true
-    }))
-
-    const warnings: any[] = []
-    const compiler = createFakeCompiler('production')
-    const originalTap = compiler.hooks.thisCompilation.tap
-    compiler.hooks.thisCompilation.tap = (
-      name: string,
-      callback: (c: any) => void
-    ) =>
-      originalTap(name, (compilation: any) => {
-        compilation.warnings = warnings
-        callback(compilation)
-      })
-
-    new SpecialFoldersPlugin({
-      manifestPath: '/project/src/manifest.json'
-    }).apply(compiler as any)
-
-    expect(copyApply).toHaveBeenCalled()
-    expect(toPosix(lastCopyOptions.patterns[0].from)).toBe(
-      '/project/src/public'
-    )
-
-    expect(warnings.map((w) => w.name)).toContain('PublicLayoutWarning')
+    expect(layout).toHaveLength(1)
     // Both rows print relative to the project, the way the card prints paths.
-    expect(String(warnings[0].message)).toMatch(/^GOT src[\\/]public$/m)
-    expect(String(warnings[0].message)).toMatch(/^EXPECTED public$/m)
+    expect(layout[0].message).toMatch(/^GOT src[\\/]public$/m)
+    expect(layout[0].message).toMatch(/^EXPECTED public$/m)
   })
 
-  it('names the winner when both folders exist', () => {
-    ;(FS.existsSync as any).mockImplementation((absPath: string) =>
-      ['/project/public', '/project/src/public'].includes(toPosix(absPath))
+  it('ships the project-root folder when both exist and names the winner', async () => {
+    const result = await build(
+      {
+        'public/root.txt': 'root',
+        'src/public/beside.txt': 'beside'
+      },
+      {manifest: 'src/manifest.json'}
     )
-    ;(FS.statSync as any).mockImplementation((_absPath: string) => ({
-      isDirectory: () => true
-    }))
 
-    const warnings: any[] = []
-    const compiler = createFakeCompiler('production')
-    const originalTap = compiler.hooks.thisCompilation.tap
-    compiler.hooks.thisCompilation.tap = (
-      name: string,
-      callback: (c: any) => void
-    ) =>
-      originalTap(name, (compilation: any) => {
-        compilation.warnings = warnings
-        callback(compilation)
-      })
-
-    new SpecialFoldersPlugin({
-      manifestPath: '/project/src/manifest.json'
-    }).apply(compiler as any)
-
-    expect(toPosix(lastCopyOptions.patterns[0].from)).toBe('/project/public')
-    const shadowed = warnings.find(
-      (w) => w.name === 'PublicFolderShadowedWarning'
+    expect(copied(result)).toEqual(['root.txt'])
+    const shadowed = result.warnings.filter(
+      (warning) => warning.name === 'PublicFolderShadowedWarning'
     )
-    expect(shadowed).toBeDefined()
-    expect(String(shadowed.message)).toMatch(/^USING public$/m)
-    expect(String(shadowed.message)).toMatch(/^IGNORED src[\\/]public$/m)
+    expect(shadowed).toHaveLength(1)
+    expect(shadowed[0].message).toMatch(/^USING public$/m)
+    expect(shadowed[0].message).toMatch(/^IGNORED src[\\/]public$/m)
   })
 })

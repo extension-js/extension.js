@@ -42,8 +42,9 @@ describe('messages helpers', () => {
 
   it('renders unsupported browser flag message', () => {
     const msg = unsupportedBrowserFlag('opera', ['chrome', 'edge', 'firefox'])
-    expect(msg).toMatch(/Unsupported --browser value: opera/)
-    expect(msg).toMatch(/chrome, edge, firefox|chrome,edge,firefox/)
+    expect(stripAnsi(msg)).toBe(
+      '⏵⏵⏵ Unsupported --browser value: opera.\nChoose one of: chrome, edge, firefox.'
+    )
   })
 
   it('program user help mentions key sections and commands', () => {

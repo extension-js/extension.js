@@ -20,22 +20,28 @@ export const RELAY_TARGETS: ReadonlyArray<{
   re: RegExp
   context: LogContext
 }> = [
-  {re: /(^|\/)content_scripts\/.+\.js$/i, context: 'content'},
-  {re: /(^|\/)action\/index\.js$/i, context: 'popup'},
-  {re: /(^|\/)options\/index\.js$/i, context: 'options'},
-  {re: /(^|\/)sidebar\/index\.js$/i, context: 'sidebar'},
-  {re: /(^|\/)devtools\/index\.js$/i, context: 'devtools'},
+  {re: /^content_scripts\/.+\.js$/i, context: 'content'},
+  {re: /^action\/index\.js$/i, context: 'popup'},
+  {re: /^options\/index\.js$/i, context: 'options'},
+  {re: /^sidebar\/index\.js$/i, context: 'sidebar'},
+  {re: /^devtools\/index\.js$/i, context: 'devtools'},
   // chrome_url_overrides pages are extension pages tab-targeted chrome.scripting
   // can never reach; the relay is their only console/inspect/eval route.
-  {re: /(^|\/)chrome_url_overrides\/newtab\.js$/i, context: 'newtab'},
-  {re: /(^|\/)chrome_url_overrides\/history\.js$/i, context: 'history'},
-  {re: /(^|\/)chrome_url_overrides\/bookmarks\.js$/i, context: 'bookmarks'}
+  {re: /^chrome_url_overrides\/newtab\.js$/i, context: 'newtab'},
+  {re: /^chrome_url_overrides\/history\.js$/i, context: 'history'},
+  {re: /^chrome_url_overrides\/bookmarks\.js$/i, context: 'bookmarks'}
 ]
 
 export class InjectBridgeRelay {
+  private readonly env: NodeJS.ProcessEnv
+
+  constructor(options: {env?: NodeJS.ProcessEnv} = {}) {
+    this.env = options.env ?? process.env
+  }
+
   apply(compiler: Compiler) {
     const controlPort = parseInt(
-      String(process.env.EXTENSION_CONTROL_PORT || ''),
+      String(this.env.EXTENSION_CONTROL_PORT || ''),
       10
     )
     if (!Number.isFinite(controlPort) || controlPort < 1) return
