@@ -74,7 +74,7 @@ const matrix = [1, 2, 3, 4].flatMap((count) =>
 
 describe('the bridge index rule, written three times', () => {
   it('places every bridge at the declared count plus its ordinal in all three', () => {
-    // Pins today's behavior. Ledger 1384 D5.
+    // Pins today's behavior.
     for (const {count, mains} of matrix) {
       const manifest = {
         manifest_version: 3,
@@ -94,7 +94,7 @@ describe('the bridge index rule, written three times', () => {
   })
 
   it('disagrees on a MAIN world group left with no file for this browser', () => {
-    // Pins today's behavior. Ledger 1384 D5.
+    // Pins today's behavior.
     const manifest = {
       manifest_version: 3,
       content_scripts: [

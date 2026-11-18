@@ -135,7 +135,7 @@ describe('main-world bridge helpers', () => {
   })
 
   it('gives no bridge and says nothing when the manifest does not parse', () => {
-    // Pins today's behavior. Ledger 1384 D8.
+    // Pins today's behavior.
     const manifestPath = path.join(
       createTempDir('extjs-bridge-unparsed-'),
       'manifest.json'

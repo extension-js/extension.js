@@ -74,7 +74,7 @@ async function build(
 
 describe('the step that names a build constant nothing defines', () => {
   it('warns once, naming the file, the constant and the entry', async () => {
-    // Pins today's behavior. Ledger 1384 D7.
+    // Pins today's behavior.
     expect(await build('console.log(API_URL)\n')).toEqual({
       errors: [],
       warnings: [
