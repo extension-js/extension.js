@@ -116,9 +116,31 @@ interface LocalInstanceInfo {
   instanceExplicit: boolean
 }
 
+// Ids a session of this host drew and exported for its own compilers. One
+// still in the environment is not a pin, so the next session draws its own.
+const exportedInstanceIds = new Set<string>()
+
+// Returns what puts the environment back when the session ends.
+export function exportInstanceId(instanceId: string): () => void {
+  const previous = process.env.EXTENSION_INSTANCE_ID
+  exportedInstanceIds.add(instanceId)
+  process.env.EXTENSION_INSTANCE_ID = instanceId
+
+  return () => {
+    if (process.env.EXTENSION_INSTANCE_ID !== instanceId) return
+
+    if (previous === undefined || exportedInstanceIds.has(previous)) {
+      Reflect.deleteProperty(process.env, 'EXTENSION_INSTANCE_ID')
+    } else {
+      process.env.EXTENSION_INSTANCE_ID = previous
+    }
+  }
+}
+
 function resolveInstanceIdOverride(): string | undefined {
+  const exported = process.env.EXTENSION_INSTANCE_ID
   const raw =
-    process.env.EXTENSION_INSTANCE_ID ||
+    (exported && !exportedInstanceIds.has(exported) ? exported : '') ||
     process.env.EXTENSION_DEV_INSTANCE_ID ||
     process.env.EXTJS_INSTANCE_ID ||
     ''

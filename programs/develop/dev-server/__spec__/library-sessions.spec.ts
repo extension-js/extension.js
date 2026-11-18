@@ -1,0 +1,169 @@
+import {execFile} from 'node:child_process'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterAll, beforeEach, describe, expect, it} from 'vitest'
+import {skipWithoutDevelopDist} from './helpers/develop-dist'
+
+// Dev sessions started from the built library in a host that goes on
+// running, through the real entry: see fixtures/library-sessions.mjs.
+const fixture = path.join(__dirname, 'fixtures', 'library-sessions.mjs')
+const roots: string[] = []
+
+interface FailedSession {
+  started: boolean
+  code?: string
+  message?: string
+  instanceId?: string
+  framed?: boolean
+}
+
+interface HostResult {
+  before: number[]
+  after: number[]
+  sessions: FailedSession[]
+  listening: number[]
+  instanceIdLeft: string | null
+  manifestWriteGoesThrough: boolean
+}
+
+interface TwoSessionsResult {
+  before: number[]
+  live: number[]
+  afterNewerEnded: number[]
+  started: Array<{started: boolean}>
+  bothReady: boolean
+  newerReleased: boolean
+  olderRestarted: boolean
+}
+
+function runHost<Result>(scenario: string, env: Record<string, string> = {}) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-library-host-'))
+  roots.push(root)
+
+  // The host starts with no output mode and no pinned id of its own.
+  const hostEnv: Record<string, string | undefined> = {
+    ...process.env,
+    EXTENSION_TELEMETRY_DISABLED: '1',
+    DO_NOT_TRACK: '1'
+  }
+
+  for (const key of [
+    'EXTENSION_OUTPUT',
+    'EXTENSION_INSTANCE_ID',
+    'EXTENSION_DEV_INSTANCE_ID',
+    'EXTJS_INSTANCE_ID',
+    'VITEST'
+  ]) {
+    Reflect.deleteProperty(hostEnv, key)
+  }
+
+  return new Promise<{result: Result; frames: Array<Record<string, any>>}>(
+    (resolve, reject) => {
+      execFile(
+        process.execPath,
+        [fixture, scenario, root],
+        {
+          env: {...hostEnv, ...env} as NodeJS.ProcessEnv,
+          timeout: 150_000,
+          killSignal: 'SIGKILL',
+          maxBuffer: 32 * 1024 * 1024
+        },
+        (error, stdout) => {
+          const lines = String(stdout).split('\n')
+          const line = lines.find((entry) => entry.startsWith('RESULT '))
+
+          if (!line) {
+            reject(error ?? new Error('the host printed no result'))
+
+            return
+          }
+
+          resolve({
+            result: JSON.parse(line.slice('RESULT '.length)) as Result,
+            frames: lines
+              .filter((entry) => entry.startsWith('{'))
+              .map((entry) => JSON.parse(entry))
+          })
+        }
+      )
+    }
+  )
+}
+
+beforeEach(skipWithoutDevelopDist)
+
+afterAll(() => {
+  for (const root of roots.splice(0)) {
+    fs.rmSync(root, {recursive: true, force: true})
+  }
+})
+
+describe('a host that starts dev sessions from the library', () => {
+  it.each([
+    ['its config is refused before a compiler exists', 'config', 'config hook'],
+    ['its bundle throws once the manifest is guarded', 'bundle', 'tap broke'],
+    ['its server cannot start', 'start', 'watch broke']
+  ])(
+    'is left as it was by four sessions that fail because %s',
+    async (_name, scenario, message) => {
+      const {result} = await runHost<HostResult>(scenario)
+
+      expect(result.sessions).toHaveLength(4)
+
+      for (const session of result.sessions) {
+        expect(session.started).toBe(false)
+        expect(session.message).toContain(message)
+      }
+
+      // No listener, no socket, no id in the environment, no guard on fs.
+      expect(result.after).toEqual(result.before)
+      expect(result.listening).toEqual([])
+      expect(result.instanceIdLeft).toBeNull()
+      expect(result.manifestWriteGoesThrough).toBe(true)
+    },
+    180_000
+  )
+
+  it('gives each session its own instance id and one failed frame that names it', async () => {
+    const {result, frames} = await runHost<HostResult>('start', {
+      EXTENSION_OUTPUT: 'ndjson'
+    })
+    const ids = result.sessions.map((session) => session.instanceId)
+
+    expect(new Set(ids).size).toBe(4)
+
+    for (const session of result.sessions) {
+      expect(session.code).toBe('E_DEV_SERVER_START')
+      expect(session.framed).toBe(true)
+    }
+
+    // Each stream: one starting frame, then the one terminal frame.
+    expect(frames.map((frame) => frame.status)).toEqual(
+      ids.flatMap(() => ['starting', 'failed'])
+    )
+
+    expect(
+      frames
+        .filter((frame) => frame.status === 'failed')
+        .map((frame) => frame.value?.instanceId)
+    ).toEqual(ids)
+
+    expect(result.after).toEqual(result.before)
+  }, 180_000)
+
+  it('keeps an older session restarting after a newer one lost its server', async () => {
+    const {result} = await runHost<TwoSessionsResult>('restart')
+
+    expect(result.started).toEqual([{started: true}, {started: true}])
+    expect(result.bothReady).toBe(true)
+
+    // The newer session is released whole, and the older one keeps its own.
+    expect(result.newerReleased).toBe(true)
+    expect(result.afterNewerEnded).toEqual(
+      result.live.map((count, index) => (count + result.before[index]) / 2)
+    )
+
+    expect(result.olderRestarted).toBe(true)
+  }, 180_000)
+})

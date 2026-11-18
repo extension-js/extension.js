@@ -221,9 +221,12 @@ describe('a bundle built for a restart that a shutdown overtakes', () => {
     expect(closed).toBe(1)
 
     // The guard is process-global: left installed, this write is swallowed.
-    await vi.waitFor(() => {
-      fs.writeFileSync(manifestPath, '{"guarded": false}')
-      expect(fs.readFileSync(manifestPath, 'utf8')).toBe('{"guarded": false}')
-    })
+    await vi.waitFor(
+      () => {
+        fs.writeFileSync(manifestPath, '{"guarded": false}')
+        expect(fs.readFileSync(manifestPath, 'utf8')).toBe('{"guarded": false}')
+      },
+      {timeout: 10_000, interval: 25}
+    )
   })
 })

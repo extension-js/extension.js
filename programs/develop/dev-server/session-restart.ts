@@ -131,7 +131,14 @@ export class DevSessionRestartScheduler {
   }
 }
 
+// The newest live session, which takes a request no compiler is named for.
 let boundScheduler: DevSessionRestartScheduler | null = null
+
+// Every live session of this host, oldest first.
+const boundSchedulers = new Set<DevSessionRestartScheduler>()
+
+// The session each compiler was built for, so its request reaches its own.
+const schedulerByCompiler = new WeakMap<object, DevSessionRestartScheduler>()
 
 // Compilers whose next build a restart will supersede. Their diagnostics
 // about entries the old include list could not emit are noise.
@@ -140,17 +147,35 @@ const restartingCompilers = new WeakSet<object>()
 export function bindDevSessionRestart(
   scheduler: DevSessionRestartScheduler
 ): void {
+  boundSchedulers.delete(scheduler)
+  boundSchedulers.add(scheduler)
   boundScheduler = scheduler
 }
 
-// A session passes its own scheduler and unbinds only that one: a second
-// session in the same host may have bound its own since.
+export function assignCompilerToDevSession(
+  compiler: object,
+  scheduler: DevSessionRestartScheduler
+): void {
+  schedulerByCompiler.set(compiler, scheduler)
+}
+
+// A session passes its own scheduler and unbinds only that one: the other
+// sessions of the same host go on restarting.
 export function unbindDevSessionRestart(
   scheduler?: DevSessionRestartScheduler
 ): void {
-  if (scheduler && boundScheduler !== scheduler) return
+  if (!scheduler) {
+    boundSchedulers.clear()
+    boundScheduler = null
 
-  boundScheduler = null
+    return
+  }
+
+  boundSchedulers.delete(scheduler)
+
+  if (boundScheduler === scheduler) {
+    boundScheduler = [...boundSchedulers].pop() ?? null
+  }
 }
 
 export function canAutoRestartDevSession(): boolean {
@@ -163,10 +188,17 @@ export function requestDevSessionRestart(
   compiler: object | undefined,
   request: DevSessionRestartRequest
 ): boolean {
-  if (!boundScheduler) return false
+  const own = compiler ? schedulerByCompiler.get(compiler) : undefined
+
+  // A compiler whose session ended has no restart to ask for.
+  if (own && !boundSchedulers.has(own)) return false
+
+  const scheduler = own ?? boundScheduler
+
+  if (!scheduler) return false
   if (compiler) restartingCompilers.add(compiler)
 
-  boundScheduler.request(request)
+  scheduler.request(request)
 
   return true
 }

@@ -1,5 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
+  assignCompilerToDevSession,
   bindDevSessionRestart,
   canAutoRestartDevSession,
   type DevSessionRestartRequest,
@@ -175,5 +176,52 @@ describe('requestDevSessionRestart', () => {
     expect(isCompilerRestarting(compiler)).toBe(false)
     endCompilerRestart(undefined)
     scheduler.dispose()
+  })
+
+  it('sends a request to the session its compiler belongs to', async () => {
+    const handlerA = vi.fn()
+    const handlerB = vi.fn()
+    const a = new DevSessionRestartScheduler(0)
+    const b = new DevSessionRestartScheduler(0)
+    a.setHandler(handlerA)
+    b.setHandler(handlerB)
+    const compilerA = {}
+    const compilerB = {}
+    assignCompilerToDevSession(compilerA, a)
+    assignCompilerToDevSession(compilerB, b)
+
+    // Two sessions live in one host, the second bound after the first.
+    bindDevSessionRestart(a)
+    bindDevSessionRestart(b)
+
+    expect(
+      requestDevSessionRestart(compilerA, {reason: 'scripts', pathAfter: '/a'})
+    ).toBe(true)
+
+    await tick()
+    expect(handlerA).toHaveBeenCalledTimes(1)
+    expect(handlerB).not.toHaveBeenCalled()
+
+    // The newer session ends first and the older one goes on restarting.
+    unbindDevSessionRestart(b)
+    expect(canAutoRestartDevSession()).toBe(true)
+    expect(
+      requestDevSessionRestart(compilerB, {reason: 'scripts', pathAfter: '/b'})
+    ).toBe(false)
+
+    expect(isCompilerRestarting(compilerB)).toBe(false)
+    expect(
+      requestDevSessionRestart(compilerA, {reason: 'env', pathChanged: '/.env'})
+    ).toBe(true)
+
+    // A request that names no known compiler goes to the session still live.
+    expect(requestDevSessionRestart({}, {reason: 'env'})).toBe(true)
+    await tick()
+    expect(handlerA).toHaveBeenCalledTimes(3)
+    expect(handlerB).not.toHaveBeenCalled()
+
+    unbindDevSessionRestart(a)
+    expect(canAutoRestartDevSession()).toBe(false)
+    expect(requestDevSessionRestart(compilerA, {reason: 'env'})).toBe(false)
   })
 })

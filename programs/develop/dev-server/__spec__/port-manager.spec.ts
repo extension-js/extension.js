@@ -1,6 +1,6 @@
 import * as net from 'node:net'
 import {afterEach, describe, expect, it} from 'vitest'
-import {PortManager} from '../port-manager'
+import {exportInstanceId, PortManager} from '../port-manager'
 
 // A base the OS just handed out sits inside a range this host can bind, which
 // a constant cannot promise: Windows runners exclude whole blocks of the
@@ -45,6 +45,60 @@ describe('PortManager instance ids', () => {
     const allocation = await manager.allocatePorts()
 
     expect(allocation.instanceId).toMatch(/^[a-f0-9]{16}$/)
+  })
+})
+
+describe('the instance id a session exports for its compilers', () => {
+  const OLD_ENV = {...process.env}
+
+  afterEach(() => {
+    process.env = {...OLD_ENV}
+  })
+
+  it('is not read as a pin by the next session of the same host', async () => {
+    process.env = {...OLD_ENV}
+    delete process.env.EXTENSION_INSTANCE_ID
+    delete process.env.EXTENSION_DEV_INSTANCE_ID
+    delete process.env.EXTJS_INSTANCE_ID
+
+    // Two sessions live at once, then one after both ended.
+    const first = new PortManager(await freeBase())
+    const a = await first.allocatePorts()
+    const restoreA = exportInstanceId(a.instanceId)
+    expect(process.env.EXTENSION_INSTANCE_ID).toBe(a.instanceId)
+
+    const second = new PortManager(await freeBase())
+    const b = await second.allocatePorts()
+    const restoreB = exportInstanceId(b.instanceId)
+    expect(b.instanceId).not.toBe(a.instanceId)
+    expect(second.getCurrentInstance()?.instanceExplicit).toBe(false)
+
+    restoreB()
+    restoreA()
+    expect(process.env.EXTENSION_INSTANCE_ID).toBeUndefined()
+
+    const third = new PortManager(await freeBase())
+    const c = await third.allocatePorts()
+    expect([a.instanceId, b.instanceId]).not.toContain(c.instanceId)
+
+    for (const manager of [first, second, third]) {
+      await manager.terminateCurrentInstance()
+    }
+  })
+
+  it('gives the environment back the pin a user set', async () => {
+    process.env = {...OLD_ENV, EXTENSION_INSTANCE_ID: 'pinned'}
+
+    const manager = new PortManager(await freeBase())
+    const allocation = await manager.allocatePorts()
+    expect(allocation.instanceId).toBe('pinned')
+    expect(manager.getCurrentInstance()?.instanceExplicit).toBe(true)
+
+    // A drawn id exported over a pin puts the pin back when it leaves.
+    const restore = exportInstanceId('drawn-by-a-session')
+    restore()
+    expect(process.env.EXTENSION_INSTANCE_ID).toBe('pinned')
+    await manager.terminateCurrentInstance()
   })
 })
 

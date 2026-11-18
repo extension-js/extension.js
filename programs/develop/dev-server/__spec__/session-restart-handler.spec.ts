@@ -322,6 +322,70 @@ describe('a dev session restart', () => {
     expect(s.current()).toBe(s.next)
   })
 
+  it('ends the session as a failed start when a step throws once the old server is set aside', async () => {
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+    const s = session({
+      fullReloadsDelivered: () => {
+        throw new Error('broker read broke')
+      }
+    })
+    await s.restart()
+
+    // The port hold is lifted and the next server is handed to the release.
+    expect(s.first.stop).toHaveBeenCalledTimes(1)
+    expect(s.current()).toBeNull()
+    expect(s.calls).toEqual([
+      'createBundle',
+      'holdPort',
+      'endPortHold',
+      'writeError dev_server_start_failed',
+      'onExitError E_DEV_SERVER_START',
+      'exit 1'
+    ])
+
+    expect(s.printed[1]).toContain('broker read broke')
+    expect(s.printed[1]).toContain('The session has no server left.')
+    expect(s.frames().map((frame) => frame.status)).toEqual(['failed'])
+
+    // For a caller that keeps running, the unadopted server is released.
+    const library = session(
+      {
+        fullReloadsDelivered: () => {
+          throw new Error('broker read broke')
+        }
+      },
+      {exitOnError: false}
+    )
+    await library.restart()
+    expect(library.calls).toContain('endPortHold')
+    expect(library.calls).toContain('release next')
+  })
+
+  it('runs the queued restart after one that failed, and fails it the same way', async () => {
+    process.env.EXTENSION_OUTPUT = 'ndjson'
+
+    let builds = 0
+    const s = session({
+      createBundle: async () => {
+        // A second change lands while the first restart builds its bundle.
+        if (builds++ === 0) s.request()
+
+        throw new Error(`config hook broke ${builds}`)
+      }
+    })
+    await s.restart()
+
+    // The first failure leaves the marker to the queued restart, and the
+    // second, with nothing queued behind it, puts the compiler back.
+    expect(builds).toBe(2)
+    expect(s.calls).toEqual(['keepServing'])
+    expect(s.current()).toBe(s.first)
+    expect(s.frames().map((frame) => frame.error?.message)).toEqual([
+      'config hook broke 1',
+      'config hook broke 2'
+    ])
+  })
+
   it('leaves the old compiler marked while another restart is queued', async () => {
     process.env.EXTENSION_OUTPUT = 'ndjson'
 
