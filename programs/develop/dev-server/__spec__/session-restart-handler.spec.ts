@@ -80,6 +80,7 @@ function session(
     onBundleFailure: failure.bundle,
     onStopFailure: failure.stop,
     onStartFailure: failure.start,
+    isShuttingDown: () => false,
     fullReloadsDelivered: () => 3,
     reloadAfterRestart: async (before) => {
       calls.push(`reload after ${before}`)
@@ -334,7 +335,57 @@ describe('a dev session restart', () => {
     expect(starting.calls).toEqual(['createBundle', 'holdPort', 'endPortHold'])
     expect(starting.printed).toHaveLength(1)
 
-    for (const s of [building, stopping, starting]) {
+    // Shutdown begins once the next server listens: no reload is sent.
+    shuttingDown = false
+    const compiling = session({
+      startBundler: async () => {
+        shuttingDown = true
+      },
+      isShuttingDown: () => shuttingDown
+    })
+    await compiling.restart()
+
+    expect(compiling.calls).toEqual(['createBundle', 'holdPort', 'endPortHold'])
+    expect(compiling.current()).toBe(compiling.next)
+
+    // A bundle that fails after shutdown began reports nothing.
+    shuttingDown = false
+    const failing = session({
+      createBundle: async () => {
+        shuttingDown = true
+
+        throw new Error('config hook broke')
+      },
+      isShuttingDown: () => shuttingDown
+    })
+    await failing.restart()
+
+    expect(failing.calls).toEqual([])
+    expect(failing.printed).toHaveLength(1)
+    expect(failing.current()).toBe(failing.first)
+
+    // Nor does an old server whose stop rejects once shutdown owns it.
+    shuttingDown = false
+    const rejecting = session({isShuttingDown: () => shuttingDown})
+    rejecting.first.stop.mockImplementationOnce(async () => {
+      shuttingDown = true
+
+      throw new Error('close EBUSY')
+    })
+
+    await rejecting.restart()
+
+    expect(rejecting.calls).toEqual(['createBundle', 'holdPort', 'endPortHold'])
+    expect(rejecting.printed).toHaveLength(1)
+
+    for (const s of [
+      building,
+      stopping,
+      starting,
+      compiling,
+      failing,
+      rejecting
+    ]) {
       expect(s.frames()).toEqual([])
     }
   })

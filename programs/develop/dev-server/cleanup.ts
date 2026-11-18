@@ -59,7 +59,7 @@ async function closeAll(
 ): Promise<void> {
   let failed = false
 
-  // Each step runs whatever the one before it did, and any failure still
+  // Each step runs even when the one before it failed, and any failure still
   // leaves the browser plugins their grace before the exit.
   const steps = [
     () => devServer?.stop?.(),

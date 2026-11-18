@@ -31,7 +31,7 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
   // The next server could not start after the old one stopped.
   onStartFailure: (error: unknown, server: Server) => void | Promise<void>
   // True once the session is being torn down, which owns the servers then.
-  isShuttingDown?: () => boolean
+  isShuttingDown: () => boolean
   fullReloadsDelivered: () => number
   reloadAfterRestart: (fullReloadsBefore: number) => Promise<unknown>
 }
@@ -49,13 +49,16 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     try {
       nextBundle = await steps.createBundle()
     } catch (error) {
+      // A session that is ending has said so, and reports nothing after it.
+      if (steps.isShuttingDown()) return
+
       steps.onBundleFailure(error, request)
 
       return
     }
 
     // Shutdown stops the current server itself and frees the port for good.
-    if (steps.isShuttingDown?.()) return
+    if (steps.isShuttingDown()) return
 
     const previous = steps.currentServer()
     steps.setCurrentServer(null)
@@ -68,7 +71,7 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
       try {
         await previous.stop()
       } catch (error) {
-        steps.onStopFailure(error)
+        if (!steps.isShuttingDown()) steps.onStopFailure(error)
       }
     }
 
@@ -76,7 +79,7 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     // build can add to it before the reload below is decided.
     const fullReloadsBefore = steps.fullReloadsDelivered()
 
-    if (steps.isShuttingDown?.()) {
+    if (steps.isShuttingDown()) {
       steps.endPortHold()
 
       return
@@ -88,7 +91,7 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
       await steps.startBundler(nextBundle.server)
     } catch (error) {
       // A start cut short by the shutdown is not a failure of the restart.
-      if (steps.isShuttingDown?.()) return
+      if (steps.isShuttingDown()) return
 
       steps.setCurrentServer(null)
       await steps.onStartFailure(error, nextBundle.server)
@@ -99,6 +102,9 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
     }
 
     const stats = await nextBundle.firstCompile
+
+    // The bridge closes with the session, so no reload goes through it.
+    if (steps.isShuttingDown()) return
 
     if (stats && typeof stats.hasErrors === 'function' && stats.hasErrors()) {
       return

@@ -78,6 +78,7 @@ describe('a restart whose next bundle cannot be built', () => {
         onBundleFailure: failure.bundle,
         onStopFailure: failure.stop,
         onStartFailure: failure.start,
+        isShuttingDown: () => false,
         fullReloadsDelivered: () => 0,
         reloadAfterRestart: async () => {}
       })
