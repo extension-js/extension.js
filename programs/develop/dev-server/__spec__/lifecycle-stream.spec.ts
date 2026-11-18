@@ -941,6 +941,34 @@ describe('lifecycle stream transitions', () => {
     expect(stream.ended).toBe(true)
   })
 
+  it('still owes the terminal frame after a write of it threw', () => {
+    const lines: string[] = []
+    let refuse = true
+    const stream = createLifecycleStream({
+      command: 'dev',
+      browser: 'chromium',
+      distPath: '/proj/dist/chromium',
+      write: (line) => {
+        if (refuse && line.includes('"failed"')) {
+          refuse = false
+
+          throw new Error('EPIPE')
+        }
+
+        lines.push(line)
+      }
+    })
+
+    stream.starting({requestedPort: 8080, port: 8080})
+    expect(stream.failed('listen EADDRINUSE')).toBeNull()
+    expect(stream.ended).toBe(false)
+
+    stream.exited(1)
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual(['starting', 'failed'])
+    expect(stream.ended).toBe(true)
+  })
+
   it('emits a failed frame when the dev server never binds', () => {
     const {stream, lines} = makeStream()
     stream.failed('listen EADDRINUSE')

@@ -203,21 +203,28 @@ export class LifecycleStream {
 
     const terminal = TERMINAL_STATUSES.has(frame.status)
 
-    if (terminal) this.terminalEmitted = true
-    if (!this.enabled) return null
+    if (!this.enabled) {
+      if (terminal) this.terminalEmitted = true
+
+      return null
+    }
 
     if (frame.status === 'failed' || frame.status === 'usage') {
       this.addHostHint(frame)
     }
 
-    // A closed pipe must not replace the failure this frame reports.
+    // A closed pipe must not replace the failure this frame reports, and a
+    // write that threw leaves the terminal frame to the next one that tries.
     try {
       this.writeLine(`${JSON.stringify(frame)}\n`)
     } catch {
       return null
     }
 
-    if (terminal) this.terminalWritten = true
+    if (terminal) {
+      this.terminalEmitted = true
+      this.terminalWritten = true
+    }
 
     return frame
   }
