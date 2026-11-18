@@ -117,6 +117,8 @@ When a single manifest content-script group declares multiple files, `AddScripts
 
 That keeps the user-facing manifest contract intact while giving the bundler and reload layer one canonical content entry to track.
 
+When every file of a group, or every script of a page, is a classic script, `classic-concat-loader` joins them into one module, the way the browser runs them in one scope. A file of that list deleted during a session is left out of the joined module. The step that owns the reference reports it: `feature-html` for a page script (a warning, an error under `EXTENSION_STRICT_REFS=true`), `AddScripts` for a manifest field (an error). The first file of the list is the module's own path, so deleting that one still fails in the bundler's resolver.
+
 ## MAIN world support
 
 MAIN-world content scripts get wrapper-side bridge script generation in `add-content-script-wrapper`. Dev-mode bridge metadata for reinjection is built by `plugin-reload`'s `SetupReloadStrategy`.
