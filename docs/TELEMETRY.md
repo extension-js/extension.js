@@ -15,7 +15,7 @@ Per CLI run, at most one of these, except for a watch session, which is explaine
 | event              | sampled                           | properties                     |
 | ------------------ | --------------------------------- | ------------------------------ |
 | `command_executed` | 20% (configurable, see below). `create` and session rows are never sampled | `command`, `success: true`, `version` |
-| `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version`, `code`, `exit_code` |
+| `command_failed`   | 100% (failures are always tracked)| `command`, `success: false`, `version`, `code`, `exit_code`, and on `E_INTERNAL` `error_class`, `error_step` |
 
 Common context attached to every event: `os` (`darwin`/`linux`/`win32`), `arch`, `node_major`, `is_ci`, `is_source_build`, `package_manager`, and `app`, which is always the word `extension`. Nothing else.
 
@@ -31,6 +31,18 @@ A failure adds two more properties so a failure count can be read as a cause rat
 `code` is checked against the catalog before it is sent. A Node errno, a message, or any
 value that is not a catalog name is dropped and the event reports `E_INTERNAL` instead, so
 no error text ever travels.
+
+A failure with `code` `E_INTERNAL` is one the CLI did not expect, so the code alone cannot say
+what broke. That row adds two more properties, each a word from a fixed list:
+
+| property      | value                                                                      |
+| ------------- | -------------------------------------------------------------------------- |
+| `error_class` | a Node system code from a fixed list, such as `ENOENT`, `EPERM` or `ERR_MODULE_NOT_FOUND`, when the error has one of them, else a built-in class: `Error`, `TypeError`, `RangeError`, `SyntaxError`, `ReferenceError`, `EvalError`, `URIError` or `AggregateError`, else `other` |
+| `error_step`  | where it was thrown: `action` (the command itself), `engine_load` (loading the build engine), `engine` (the build engine running) or `scaffold` (`create` copying a template), or absent |
+
+A system code is sent only when it is in Node's own table of codes. Any other class, including
+the CLI's own and every dependency's, is sent as `other`. The step is a word the CLI chose, never
+a function name, so the message, the stack, the path and the user name stay on the machine.
 
 `command` is always one of the CLI's registered command names. A word that is not one, such as
 a typo or a project folder, is reported as `unknown` with `code` `E_UNKNOWN_COMMAND`, and the
@@ -102,6 +114,14 @@ the offer can be told apart from a dead end:
 | `browser_install`         | `offered`, `accepted`, `declined` or `failed`      |
 | `browser_install_browser` | the managed browser name, for example `chrome`     |
 | `browser_install_seconds` | whole seconds the download took, when one ran      |
+
+`extension install` adds one property, so its failures can be counted by browser:
+
+| property         | value                                                        |
+| ---------------- | ------------------------------------------------------------ |
+| `install_target` | `chrome`, `chromium`, `edge`, `firefox` or `all`, or absent |
+
+A bare `extension install` sends `chromium`, the browser it installs. The property is absent when several browsers are named (`extension install chrome firefox`), for a family alias such as `chromium-based`, and for any name outside the list, so a typed value is never sent.
 
 The `create` command adds four properties, so a broken advertised starter shows up in its failure counts and a slow or failed dependency install can be told apart from a project nobody ran:
 

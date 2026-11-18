@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
+  type CommandFailureDetails,
   reportCommandFailureNow,
   type TelemetryCli,
   telemetryCli
@@ -85,10 +86,11 @@ function markOutcomeForExit(cli: ExitTelemetry, code: number): void {
 export function exitWithFailure(
   code?: unknown,
   exitCode = 1,
-  reportFailure = reportCommandFailureNow
+  reportFailure = reportCommandFailureNow,
+  where: Pick<CommandFailureDetails, 'error' | 'step'> = {}
 ): never {
   try {
-    reportFailure({code, exitCode})
+    reportFailure({code, exitCode, ...where})
   } catch {
     // Ignore
   }
