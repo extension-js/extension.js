@@ -1067,7 +1067,9 @@ export async function maybeUsePostCss(
             // Keep compatibility with plugin versions that don't accept options.
             try {
               instance = tailwindMod()
-            } catch {
+            } catch (error) {
+              setupError = error
+
               // Recovery: if direct tailwindcss execution fails (e.g. v4), try loading
               // @tailwindcss/postcss anchored to the project root.
               if (tailwindPluginId === 'tailwindcss') {
