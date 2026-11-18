@@ -196,7 +196,9 @@ describe('build: a web_accessible_resources file outside the project root shares
       expect(sheet).not.toContain(CHROMIUM_EXTENSION_ROOT)
       expect(
         (summary.warnings ?? []).filter((warning) =>
-          warning.includes('url(../../../shared/outside-picture.png)')
+          warning.includes(
+            '../../../shared/outside-picture.png is not bundled.'
+          )
         )
       ).toHaveLength(1)
 
