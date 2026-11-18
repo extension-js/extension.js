@@ -8,6 +8,7 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
+import {isUsageLaunchCode} from '../dev-server/ready-contract-codes'
 import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
 import {humanLine} from '../lib/messaging'
@@ -457,7 +458,8 @@ export class BrowsersPlugin implements RunnerPlugin {
           console.error(
             messages.browserLaunchFailed(
               this.options.browserOptions.browser as DevOptions['browser'],
-              reason
+              reason,
+              isUsageLaunchCode((error as {code?: unknown} | null)?.code)
             )
           )
 

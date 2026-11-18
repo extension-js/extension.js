@@ -18,7 +18,7 @@ import {
   isMachineOutput
 } from '../lib/messaging'
 import {shouldWarnPortConflict} from './messages'
-import {readyContractErrorCode} from './ready-contract-codes'
+import {isUsageLaunchCode, readyContractErrorCode} from './ready-contract-codes'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
 // one schema-1 frame per lifecycle transition, one JSON document per line.
@@ -97,14 +97,6 @@ function isProfileLocked(ready: Record<string, unknown> | null): boolean {
   return /profile\s+is\s+locked|singletonlock/i.test(message)
 }
 
-// A launch refused over a value the user set, which every other command
-// reports as usage rather than as a run that failed.
-const USAGE_LAUNCH_CODES: ReadonlySet<string> = new Set([
-  CODES.E_BROWSER_BINARY_INVALID,
-  CODES.E_BROWSER_BINARY_REQUIRED,
-  CODES.E_FLAG_NOT_SUPPORTED_HERE
-])
-
 // The launcher stamps the code it refused with beside the generic id, and a
 // code the table declares outranks the contract's own status code.
 function stampedLaunchFailureCode(
@@ -163,7 +155,11 @@ export interface LifecycleStreamOptions {
   hintFor?: (code: ErrorCode) => string | undefined
   // Ends the session once a launch refused over a value the user set is
   // framed as usage. Without it the refusal reads as a survivable one.
-  onUsageRefusal?: (code: ErrorCode, message: string) => void
+  onUsageRefusal?: (
+    code: ErrorCode,
+    message: string,
+    ready: Record<string, unknown>
+  ) => void
   // Spec seam: every frame goes through one writer.
   write?: (line: string) => void
 }
@@ -406,11 +402,11 @@ export class LifecycleStream {
       const launchCode = stampedLaunchFailureCode(ready)
       const onUsageRefusal = this.options.onUsageRefusal
 
-      if (launchCode && USAGE_LAUNCH_CODES.has(launchCode) && onUsageRefusal) {
+      if (launchCode && isUsageLaunchCode(launchCode) && onUsageRefusal) {
         const frame = this.contractError(ready, false)
 
         try {
-          onUsageRefusal(launchCode, String(ready.message || launchCode))
+          onUsageRefusal(launchCode, String(ready.message || launchCode), ready)
         } catch {
           // The usage frame is out, and the exit hook still ends the run.
         }
@@ -450,7 +446,7 @@ export class LifecycleStream {
       ? loadRefused
         ? 'load-refused'
         : 'ready-failed'
-      : launchCode && USAGE_LAUNCH_CODES.has(launchCode)
+      : isUsageLaunchCode(launchCode)
         ? 'usage'
         : 'failed'
     const hint = survivable

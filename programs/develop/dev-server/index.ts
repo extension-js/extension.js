@@ -979,9 +979,16 @@ async function startDevSession(
 
   // Bound once the session can end itself. A usage refusal the first compile
   // reports before then waits here for it.
-  let endOnUsageRefusal: ((code: ErrorCode, message: string) => void) | null =
-    null
-  const pendingUsageRefusal: Array<[ErrorCode, string]> = []
+  let endOnUsageRefusal:
+    | ((
+        code: ErrorCode,
+        message: string,
+        ready: Record<string, unknown>
+      ) => void)
+    | null = null
+  const pendingUsageRefusal: Array<
+    [ErrorCode, string, Record<string, unknown>]
+  > = []
 
   // One schema-1 frame per lifecycle transition, on stdout, only when the
   // command layer asked for machine output (EXTENSION_OUTPUT=ndjson).
@@ -993,9 +1000,9 @@ async function startDevSession(
     eventsPath: metadata.eventsPath,
     noBrowser: Boolean(devOptions.noBrowser),
     hintFor: devOptions.hintFor,
-    onUsageRefusal: (code, message) => {
-      if (endOnUsageRefusal) endOnUsageRefusal(code, message)
-      else pendingUsageRefusal.push([code, message])
+    onUsageRefusal: (code, message, ready) => {
+      if (endOnUsageRefusal) endOnUsageRefusal(code, message, ready)
+      else pendingUsageRefusal.push([code, message, ready])
     }
   })
   startup.lifecycle = lifecycle
@@ -1385,21 +1392,31 @@ async function startDevSession(
 
   // Same mirror for a browser that never came up: the launcher stamps why on
   // the contract, and the timeline says so beside the compile that tried.
+  // A usage refusal ends the session before the next poll, so it writes the
+  // event itself. The stamp keeps the two writers to one line per launch.
+  let recordedLaunchFailure: string | null = null
+
+  const recordLaunchFailure = (ready: Record<string, unknown>) => {
+    const stamp = String(ready.browserLaunchFailedAt)
+    if (stamp === recordedLaunchFailure) return
+
+    recordedLaunchFailure = stamp
+    metadata.appendEvent({
+      type: 'browser_launch_failed',
+      ts: new Date().toISOString(),
+      command: 'dev',
+      browser: browserName,
+      browserLaunchFailedAt: stamp,
+      reason:
+        typeof ready.browserLaunchFailedReason === 'string'
+          ? ready.browserLaunchFailedReason
+          : undefined
+    })
+  }
+
   const stopLaunchFailureWatch = lifecycle.watchBrowserLaunchFailure(
     1000,
-    (ready) => {
-      metadata.appendEvent({
-        type: 'browser_launch_failed',
-        ts: new Date().toISOString(),
-        command: 'dev',
-        browser: browserName,
-        browserLaunchFailedAt: String(ready.browserLaunchFailedAt),
-        reason:
-          typeof ready.browserLaunchFailedReason === 'string'
-            ? ready.browserLaunchFailedReason
-            : undefined
-      })
-    }
+    recordLaunchFailure
   )
 
   holdings.addEarly(stopBrowserExitWatch)
@@ -1465,16 +1482,19 @@ async function startDevSession(
 
   // The usage frame is already out. The CLI host exits through onExitError
   // under --output json, where nothing here exits the process.
-  endOnUsageRefusal = (code, message) => {
+  endOnUsageRefusal = (code, message, ready) => {
     if (isShuttingDown) return
 
     const refusal = Object.assign(new Error(message), {code})
 
-    endSession(() => {}, [() => extendedOptions.onExitError?.(refusal, code)])
+    endSession(
+      () => recordLaunchFailure(ready),
+      [() => extendedOptions.onExitError?.(refusal, code)]
+    )
   }
 
-  for (const [code, message] of pendingUsageRefusal.splice(0)) {
-    endOnUsageRefusal(code, message)
+  for (const [code, message, ready] of pendingUsageRefusal.splice(0)) {
+    endOnUsageRefusal(code, message, ready)
   }
 
   // Only now is the session live: a throw in the wiring above still releases
