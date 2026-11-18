@@ -509,7 +509,14 @@ describe('a withheld root-absolute reference and a missing one', () => {
           `<holder>/project/${dir}missing.png`,
           asset(`/${dir}missing.png`)
         ),
-        // The page step says a climbing script and sheet itself, once.
+        // The page step says a climbing ref itself, once, with its code.
+        said(
+          'E_ASSET_MISSING: ',
+          'an asset',
+          page,
+          '<holder>/project/outside.txt',
+          asset(climbing(dir))
+        ),
         said(
           'E_ENTRY_NOT_FOUND: ',
           'a script file',
@@ -546,13 +553,6 @@ describe('a withheld root-absolute reference and a missing one', () => {
           page,
           `<holder>/project/${dir}.npmrc`,
           asset(`/${dir}.npmrc`)
-        ),
-        said(
-          '⚠ ',
-          'an asset',
-          page,
-          '<holder>/project/outside.txt',
-          asset(climbing(dir))
         )
       ]
 

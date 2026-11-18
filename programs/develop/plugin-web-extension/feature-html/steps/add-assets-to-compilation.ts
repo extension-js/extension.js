@@ -118,7 +118,8 @@ function warnMissingPublicRootResources(params: {
     authored
   } = params
 
-  const check = (publicRootUrl: string, kind: 'script' | 'style') => {
+  // A root URL keeps the words its ending picks, as a withheld one reads.
+  const check = (publicRootUrl: string) => {
     if (!publicRootUrl || isSpecialScheme(publicRootUrl)) return
 
     if (path.isAbsolute(publicRootUrl)) {
@@ -171,8 +172,7 @@ function warnMissingPublicRootResources(params: {
         compiler,
         messages.fileNotFound(resource, displayPath, {
           publicRootHint: true,
-          refLabel: publicRootUrl,
-          kind
+          refLabel: publicRootUrl
         }),
         'warning',
         path.relative(manifestDir, resource),
@@ -181,8 +181,8 @@ function warnMissingPublicRootResources(params: {
     }
   }
 
-  for (const url of js || []) check(url, 'script')
-  for (const url of css || []) check(url, 'style')
+  for (const url of js || []) check(url)
+  for (const url of css || []) check(url)
 }
 
 function checkMissingLocalEntries(params: {
