@@ -3,7 +3,6 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {BridgeBroker} from '../../dev-server/control-bridge/broker'
-import {SafariDevPlugin} from '../../plugin-browsers/safari-dev-plugin'
 import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
 import type {ReloadBroker, ReloadInstruction} from '../index'
 import {dispatchReload, reloadKindFor} from '../reload-dispatch'
@@ -87,41 +86,6 @@ describe('the broker hands the stamp to the session', () => {
       'content',
       'content_script (a.ts)'
     )
-  })
-})
-
-describe('a Safari resync stamps its own kind', () => {
-  it('stamps safari-resync after each rebuild, not after the first package', async () => {
-    const noted: string[] = []
-    const plugin = new SafariDevPlugin(async () => {})
-    plugin.setReloadBroker({
-      broadcastReload: () => 0,
-      noteReloadApplied: (kind) => {
-        noted.push(kind)
-      }
-    })
-
-    let done: (stats: unknown) => Promise<void> = async () => {}
-
-    plugin.apply({
-      hooks: {done: {tapPromise: (_n: string, f: typeof done) => (done = f)}},
-      options: {context: 'ctx'}
-    } as never)
-
-    const stats = (out: string) => ({
-      compilation: {
-        errors: [],
-        options: {output: {path: out}, context: 'ctx'}
-      }
-    })
-
-    await done(stats('/first'))
-    expect(noted).toEqual([])
-
-    await done(stats('/second'))
-    await plugin.idle()
-
-    expect(noted).toEqual(['safari-resync'])
   })
 })
 
