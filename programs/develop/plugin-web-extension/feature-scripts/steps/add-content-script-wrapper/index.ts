@@ -26,13 +26,13 @@ import type {
   Manifest,
   PluginInterface
 } from '../../../../types'
+import {ResolveClassicConcat} from '../../../shared/classic-concat'
 import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
   createContentScriptCssProbeMarkerPattern,
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
   parseCanonicalContentScriptAsset
 } from '../../contracts'
-import {ResolveClassicConcat} from '../../../shared/classic-concat'
 import {addRulesInFront} from '../../scripts-lib/front-rules'
 import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
