@@ -7,11 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import spawn from 'cross-spawn'
+import {withRepoBin} from './lib/repo-bin-env.mjs'
 
 const runCommand = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       stdio: 'inherit',
+      env: withRepoBin(),
       ...options
     })
 
@@ -20,30 +22,21 @@ const runCommand = (command, args, options = {}) =>
   })
 
 const run = async () => {
-  const env = {
-    ...process.env,
-    EXTENSION_DEV_NO_BROWSER: '1'
-  }
-
-  const compileCode = await runCommand('pnpm', ['run', 'compile'], {env})
+  const compileCode = await runCommand('pnpm', ['run', 'compile'])
 
   if (compileCode !== 0) {
     return compileCode
   }
 
-  return runCommand(
-    'dotenv',
-    [
-      '--',
-      'turbo',
-      'run',
-      'watch',
-      '--filter',
-      './programs/*',
-      '--concurrency=5'
-    ],
-    {env}
-  )
+  return runCommand('dotenv', [
+    '--',
+    'turbo',
+    'run',
+    'watch',
+    '--filter',
+    './programs/*',
+    '--concurrency=5'
+  ])
 }
 
 try {

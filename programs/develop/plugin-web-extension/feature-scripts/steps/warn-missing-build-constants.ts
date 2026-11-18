@@ -124,8 +124,6 @@ export class WarnMissingBuildConstants {
   }
 
   apply(compiler: Compiler) {
-    if (!compiler?.hooks?.thisCompilation) return
-
     if (compiler.options.mode === 'development' && this.devSession !== false) {
       return
     }

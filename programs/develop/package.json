@@ -39,8 +39,7 @@
   "types": "./dist/module.d.ts",
   "sideEffects": false,
   "files": [
-    "dist",
-    "runtime"
+    "dist"
   ],
   "name": "extension-develop",
   "version": "4.1.41",
@@ -137,7 +136,6 @@
     "ws": "^8.20.1"
   },
   "devDependencies": {
-    "@prefresh/webpack": "4.0.6",
     "@rslib/core": "^1.0.6",
     "@types/case-sensitive-paths-webpack-plugin": "^2.1.9",
     "@types/chrome": "^0.1.33",
@@ -150,7 +148,6 @@
     "svelte": "5.55.9",
     "typescript": "7.0.2",
     "vitest": "^5.0.5",
-    "vue-style-loader": "4.1.3",
     "webpack": "^5.104.1"
   }
 }
