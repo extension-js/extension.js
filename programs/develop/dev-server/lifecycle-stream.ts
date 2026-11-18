@@ -647,9 +647,8 @@ export class LifecycleStream {
     return stop
   }
 
-  // Poll the ready contract for the launcher's launch-failure stamp. There is
-  // no frame of its own to emit: ready() already reports the contract's error
-  // status. The caller lands the stamp on the events timeline.
+  // Hands each new launch-failure stamp to the caller, for the events file.
+  // ready() writes the frame, and a later compile may fail its launch again.
   public watchBrowserLaunchFailure(
     intervalMs = 1000,
     onFailure: (ready: Record<string, unknown>) => void
@@ -663,12 +662,15 @@ export class LifecycleStream {
     if (!this.options.readyPath) return stop
     if (this.launchFailureWatcher) return stop
 
+    let lastStamp: string | null = null
+
     this.launchFailureWatcher = setInterval(() => {
       const ready = readReadyContract(this.options.readyPath)
-      if (typeof ready?.browserLaunchFailedAt !== 'string') return
+      const stamp = ready?.browserLaunchFailedAt
+      if (!ready || typeof stamp !== 'string' || stamp === lastStamp) return
 
+      lastStamp = stamp
       onFailure(ready)
-      stop()
     }, intervalMs)
 
     this.launchFailureWatcher.unref?.()

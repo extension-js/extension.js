@@ -1171,6 +1171,40 @@ describe('lifecycle stream transitions', () => {
     expect(frame.error?.message).toBe('config is invalid')
   })
 
+  it('hands each failed launch to the caller once, the second one too', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-launch-'))
+    const readyPath = path.join(dir, 'ready.json')
+    const failedAt = (at: string) =>
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({
+          status: 'error',
+          code: 'browser_launch_failed',
+          browserLaunchFailedAt: at
+        })
+      )
+    const {stream} = makeStream({readyPath})
+    const seen: unknown[] = []
+    const stop = stream.watchBrowserLaunchFailure(5, (ready) =>
+      seen.push(ready.browserLaunchFailedAt)
+    )
+    const wait = () => new Promise((resolve) => setTimeout(resolve, 40))
+
+    try {
+      failedAt('2026-10-03T00:00:00.000Z')
+      await wait()
+      failedAt('2026-10-03T00:00:05.000Z')
+      await wait()
+      expect(seen).toEqual([
+        '2026-10-03T00:00:00.000Z',
+        '2026-10-03T00:00:05.000Z'
+      ])
+    } finally {
+      stop()
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   it('hands the exit stamp to the caller even while the stream is off', async () => {
     // The dev server tells the broker and the events file from this poll, in
     // pretty mode too, so the watcher cannot be gated on machine output.
