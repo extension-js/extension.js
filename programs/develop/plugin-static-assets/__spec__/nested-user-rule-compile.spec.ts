@@ -109,6 +109,21 @@ describe('a user loader rule with a function test is honored', () => {
     expect(out.small).toBe(PIXEL_DATA_URI)
   })
 
+  it('an svg loader rule with an array test keeps its output', async () => {
+    const out = await compile(
+      {icon: './icon.svg', small: './small.png'},
+      (root) => [
+        {
+          test: [/\.svg$/i],
+          use: [{loader: path.join(root, 'custom-loader.cjs')}]
+        }
+      ]
+    )
+
+    expect(out.icon).toBe('custom')
+    expect(out.small).toBe(PIXEL_DATA_URI)
+  })
+
   it('a function test that accepts every file is not read as an asset rule', async () => {
     const out = await compile(
       {icon: './icon.svg', small: './small.png'},

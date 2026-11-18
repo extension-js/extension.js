@@ -6,6 +6,7 @@
 // ╚══════╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚═╝ ╚═════╝ ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import type {Compiler, RuleSetRule} from '@rspack/core'
 import {debugLine, isDebug} from '../lib/messaging'
 import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
@@ -46,6 +47,8 @@ export class StaticAssetsPlugin {
 
     type InspectableRule = {
       test?: unknown
+      oneOf?: unknown
+      rules?: unknown
       use?: unknown
       loader?: unknown
       type?: unknown
@@ -65,6 +68,124 @@ export class StaticAssetsPlugin {
       'issuerLayer'
     ] as const
 
+    const CONDITION_KEYS = ['test', 'resourceQuery', ...SCOPE_KEYS] as const
+
+    // The user rules as rspack applies them: a rule nested in oneOf or rules
+    // also carries its parents' conditions. Top-level rules keep their identity.
+    const flattenRules = (
+      rules: unknown,
+      inherited: InspectableRule | undefined,
+      out: InspectableRule[]
+    ) => {
+      if (!Array.isArray(rules)) return out
+
+      for (const thisRule of rules) {
+        if (!thisRule || typeof thisRule !== 'object') continue
+
+        const rule = thisRule as NonNullable<InspectableRule>
+        let effective: NonNullable<InspectableRule> = rule
+
+        if (inherited) {
+          effective = {...rule}
+
+          for (const key of CONDITION_KEYS) {
+            const parent = inherited[key]
+            const own = rule[key]
+            if (parent === undefined) continue
+
+            // Two excludes skip either match, every other pair must both match.
+            effective[key] =
+              own === undefined
+                ? parent
+                : key === 'exclude'
+                  ? [parent, own].flat()
+                  : {and: [parent, own]}
+          }
+        }
+
+        out.push(effective)
+        flattenRules(effective.oneOf, effective, out)
+        flattenRules(effective.rules, effective, out)
+      }
+
+      return out
+    }
+
+    const userRules = flattenRules(compiler.options.module.rules, undefined, [])
+
+    const sampleFor = (ext: string) =>
+      path.join(compiler.context || process.cwd(), `file.${ext}`)
+
+    // true when the test certainly matches a file of this extension, false when
+    // it certainly does not, undefined when it depends on the path (a string).
+    const testMatches = (test: unknown, ext: string): boolean | undefined => {
+      if (test instanceof RegExp) return test.test(`.${ext}`)
+
+      if (typeof test === 'function') {
+        try {
+          return Boolean(test(sampleFor(ext)))
+        } catch {
+          return undefined
+        }
+      }
+
+      if (Array.isArray(test)) return anyOf(test, ext)
+
+      if (test && typeof test === 'object') {
+        const {and, or, not} = test as {
+          and?: unknown
+          or?: unknown
+          not?: unknown
+        }
+        const parts: Array<boolean | undefined> = []
+
+        if (Array.isArray(and)) parts.push(allOf(and, ext))
+        if (Array.isArray(or)) parts.push(anyOf(or, ext))
+
+        if (not !== undefined) {
+          const negated = testMatches(not, ext)
+          parts.push(negated === undefined ? undefined : !negated)
+        }
+
+        return parts.length ? allOfResults(parts) : undefined
+      }
+
+      return undefined
+    }
+
+    const anyOf = (tests: unknown[], ext: string) => {
+      const results = tests.map((test) => testMatches(test, ext))
+      if (results.includes(true)) return true
+
+      return results.includes(undefined) ? undefined : false
+    }
+
+    const allOfResults = (results: Array<boolean | undefined>) => {
+      if (results.includes(false)) return false
+
+      return results.includes(undefined) ? undefined : true
+    }
+
+    const allOf = (tests: unknown[], ext: string) =>
+      allOfResults(tests.map((test) => testMatches(test, ext)))
+
+    // A RegExp keeps its plain reading. Any other test must also turn away a
+    // made-up extension, so a catch-all function never claims every asset.
+    const UNCLAIMED_PROBE = 'extensionjs-unclaimed-probe'
+
+    const claimsExtension = (rule: InspectableRule, sample: string) => {
+      const test = rule?.test
+      const ext = sample.replace(/^\./, '')
+
+      if (test instanceof RegExp) return test.test(sample)
+      if (test === undefined) return false
+
+      return (
+        testMatches(test, ext) === true &&
+        testMatches(test, UNCLAIMED_PROBE) === false
+      )
+    }
+
     const hasEffect = (rule: InspectableRule) =>
       Boolean(
         rule &&
@@ -83,8 +204,7 @@ export class StaticAssetsPlugin {
 
       return Boolean(
         rule &&
-          rule.test instanceof RegExp &&
-          rule.test.test(sample) &&
+          claimsExtension(rule, sample) &&
           hasEffect(rule) &&
           rule.resourceQuery === undefined &&
           !hasScope(rule)
@@ -104,6 +224,8 @@ export class StaticAssetsPlugin {
         return rule.test.test(sample) && hasScope(rule)
       }
 
+      if (claimsExtension(rule, sample)) return hasScope(rule)
+
       const assetTyped =
         typeof rule.type === 'string' && rule.type.startsWith('asset')
 
@@ -113,7 +235,7 @@ export class StaticAssetsPlugin {
     const scopeConditionsOf = (rule: InspectableRule): RuleSetRule => {
       const conditions: Record<string, unknown> = {}
 
-      for (const key of ['test', 'resourceQuery', ...SCOPE_KEYS] as const) {
+      for (const key of CONDITION_KEYS) {
         if (rule?.[key] !== undefined) conditions[key] = rule[key]
       }
 
@@ -123,9 +245,9 @@ export class StaticAssetsPlugin {
     const partialRulesFor = (extensions: string[]): InspectableRule[] => {
       const partials = new Set<InspectableRule>()
 
-      for (const thisRule of compiler.options.module.rules) {
+      for (const thisRule of userRules) {
         if (extensions.some((ext) => isPartialRuleFor(thisRule, `.${ext}`))) {
-          partials.add(thisRule as InspectableRule)
+          partials.add(thisRule)
         }
       }
 
@@ -135,13 +257,11 @@ export class StaticAssetsPlugin {
     // Query slices claimed by scoped custom rules: the default rule excludes
     // them so a later default cannot clobber the scoped rule's module type.
     const scopedQueriesFor = (sample: string): RegExp[] =>
-      compiler.options.module.rules
-        .map((thisRule) => thisRule as InspectableRule)
+      userRules
         .filter((rule) =>
           Boolean(
             rule &&
-              rule.test instanceof RegExp &&
-              rule.test.test(sample) &&
+              claimsExtension(rule, sample) &&
               hasEffect(rule) &&
               rule.resourceQuery instanceof RegExp &&
               !hasScope(rule)
@@ -186,7 +306,7 @@ export class StaticAssetsPlugin {
     const unclaimedExtensions = (extensions: string[]) =>
       extensions.filter(
         (ext) =>
-          !compiler.options.module.rules.some((thisRule) =>
+          !userRules.some((thisRule) =>
             isFullCustomRuleFor(thisRule, `.${ext}`)
           )
       )
@@ -220,7 +340,6 @@ export class StaticAssetsPlugin {
     // scoped user rule sets apart keeps its own, with that rule's carve-outs.
     const slices = new Map<string, DefaultSlice>()
     const customGroups = new Set<string>()
-    const userRules = compiler.options.module.rules as unknown[]
 
     for (const [label, extensions] of GROUPS) {
       const remaining = unclaimedExtensions(extensions)
@@ -266,45 +385,51 @@ export class StaticAssetsPlugin {
 
     const hasCustomSvgRule = customGroups.has('SVG')
 
-    const hasResourceQueryRule = (query: string) =>
-      compiler.options.module.rules.some((thisRule) => {
-        const rule = thisRule as {resourceQuery?: unknown} | null
-        const resourceQuery = rule?.resourceQuery
-        if (!(resourceQuery instanceof RegExp)) return false
+    // A user rule for a query on every file replaces the default query rule.
+    // One limited by test or scope is carved out of it instead, so ?url on
+    // the other types keeps its default.
+    const queryRule = (query: string, rule: RuleSetRule): RuleSetRule[] => {
+      const owners = userRules.filter(
+        (thisRule) =>
+          thisRule?.resourceQuery instanceof RegExp &&
+          thisRule.resourceQuery.test(query)
+      )
 
-        return resourceQuery.test(query)
-      })
-    const hasUrlResourceQueryRule = hasResourceQueryRule('?url')
-    const hasRawResourceQueryRule = hasResourceQueryRule('?raw')
+      if (
+        owners.some((owner) => owner?.test === undefined && !hasScope(owner))
+      ) {
+        return []
+      }
+
+      if (!owners.length) return [rule]
+
+      const {resourceQuery, ...effects} = rule
+
+      return [
+        {resourceQuery, oneOf: [...owners.map(scopeConditionsOf), effects]}
+      ]
+    }
 
     const loaders: RuleSetRule[] = [
       ...defaultRules,
       // Last on purpose: rspack resolves overlapping rules last-wins, so the
       // ?url contract (always a file URL) must outrank the inlining rules.
-      ...(hasUrlResourceQueryRule
-        ? []
-        : [
-            {
-              // Match only the standalone ?url import query: an unanchored /url/ also hit
-              // "url" inside classic-concat payloads and hijacked whole entries.
-              resourceQuery: /(?:^\?|&)url(?:&|=|$)/,
-              type: 'asset/resource',
-              generator: {
-                filename: filenamePattern
-              }
-            }
-          ]),
+      ...queryRule('?url', {
+        // Match only the standalone ?url import query: an unanchored /url/ also hit
+        // "url" inside classic-concat payloads and hijacked whole entries.
+        resourceQuery: /(?:^\?|&)url(?:&|=|$)/,
+        type: 'asset/resource',
+        generator: {
+          filename: filenamePattern
+        }
+      }),
       // Vite's ?raw: the file's text as the default export, whatever the
       // extension. The compiling rules exclude this query so no loader
       // rewrites the text before it lands here.
-      ...(hasRawResourceQueryRule
-        ? []
-        : [
-            {
-              resourceQuery: RAW_RESOURCE_QUERY,
-              type: 'asset/source'
-            }
-          ])
+      ...queryRule('?raw', {
+        resourceQuery: RAW_RESOURCE_QUERY,
+        type: 'asset/source'
+      })
     ]
 
     compiler.options.module.rules = [
