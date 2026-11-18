@@ -32,33 +32,33 @@ import {
   type DevOptions,
   type BuildOptions,
   type StartOptions,
-  type PreviewOptions,
-} from "extension-develop";
+  type PreviewOptions
+} from 'extension-develop'
 
 async function run() {
   // Development server
   await extensionDev(undefined, {
-    browser: "chrome",
-    open: true,
-  } satisfies DevOptions);
+    browser: 'chrome',
+    open: true
+  } satisfies DevOptions)
 
   // Production build + zip
   await extensionBuild(undefined, {
-    browser: "firefox",
-    zip: true,
-  } satisfies BuildOptions);
+    browser: 'firefox',
+    zip: true
+  } satisfies BuildOptions)
 
   // Build then preview from dist/<browser>
-  await extensionStart(undefined, { browser: "edge" } satisfies StartOptions);
+  await extensionStart(undefined, {browser: 'edge'} satisfies StartOptions)
 
   // Preview using an existing output folder or project path
   await extensionPreview(undefined, {
-    browser: "chrome",
-    mode: "production",
-  } satisfies PreviewOptions);
+    browser: 'chrome',
+    mode: 'production'
+  } satisfies PreviewOptions)
 }
 
-run();
+run()
 ```
 
 ## Features
@@ -89,15 +89,15 @@ Options accepted by each command. Values shown are typical types or enumerations
 
 ### Common (browser/runtime)
 
-| Option         | Type / Values                                              | Description                                                     |
-| -------------- | ---------------------------------------------------------- | --------------------------------------------------------------- |
-| browser        | chrome, edge, firefox, safari, chromium-based, gecko-based | Target browser/runtime                                          |
-| profile        | string or false                                            | Profile path or disable profile persistence                     |
-| startingUrl    | string                                                     | Initial URL to open                                             |
-| open           | boolean                                                    | Focus/open the browser window (CLI: use `--no-open` to disable) |
-| --no-browser   | boolean                                                    | Skip launching the browser                                      |
-| chromiumBinary | string                                                     | Custom Chromium-based executable path                           |
-| geckoBinary    | string                                                     | Custom Gecko-based executable path                              |
+| Option         | Type / Values                                      | Description                                                     |
+| -------------- | -------------------------------------------------- | --------------------------------------------------------------- |
+| browser        | chrome, edge, firefox, safari, chromium-based, gecko-based | Target browser/runtime                                  |
+| profile        | string or false                                    | Profile path or disable profile persistence                     |
+| startingUrl    | string                                             | Initial URL to open                                             |
+| open           | boolean                                            | Focus/open the browser window (CLI: use `--no-open` to disable) |
+| --no-browser   | boolean                                            | Skip launching the browser                                      |
+| chromiumBinary | string                                             | Custom Chromium-based executable path                           |
+| geckoBinary    | string                                             | Custom Gecko-based executable path                              |
 
 ### dev
 
@@ -145,10 +145,10 @@ A host that learns a session cannot go on calls `endSessionAsFailed(code, messag
 
 ### start
 
-| Option   | Type / Values | Description                                 |
-| -------- | ------------- | ------------------------------------------- |
-| mode     | `production`  | Build mode                                  |
-| polyfill | boolean       | Bundle `webextension-polyfill`, default off |
+| Option   | Type / Values | Description                                   |
+| -------- | ------------- | --------------------------------------------- |
+| mode     | `production`  | Build mode                                    |
+| polyfill | boolean       | Bundle `webextension-polyfill`, default off   |
 
 ### preview
 
@@ -216,16 +216,16 @@ Example:
 export default {
   // Applies to dev/start/preview unless overridden per-command
   extensions: {
-    dir: "./extensions",
-    paths: ["./vendor/some-unpacked-extension"],
+    dir: './extensions',
+    paths: ['./vendor/some-unpacked-extension']
   },
   commands: {
     dev: {
       // Override only for dev
-      extensions: ["./extensions/debug-helper"],
-    },
-  },
-};
+      extensions: ['./extensions/debug-helper']
+    }
+  }
+}
 ```
 
 ### Environment variables in `extension.config.*`
@@ -248,28 +248,28 @@ export default {
   browser: {
     chrome: {
       startingUrl:
-        process.env.EXTENSION_PUBLIC_START_URL || "https://example.com",
-    },
+        process.env.EXTENSION_PUBLIC_START_URL || 'https://example.com'
+    }
   },
   commands: {
     dev: {
       // Unified logger defaults for `extension dev`
-      logLevel: "off",
+      logLevel: 'off',
       // omit or set to undefined to include all
-      logContexts: ["background", "content"],
-      logFormat: "pretty",
+      logContexts: ['background', 'content'],
+      logFormat: 'pretty',
       logTimestamps: true,
       logColor: true,
       // Optional filters
-      logUrl: "/example\\.com/i",
-      logTab: 123,
-    },
+      logUrl: '/example\\.com/i',
+      logTab: 123
+    }
   },
   // Either a function
-  config: (config) => config,
+  config: (config) => config
   // Or a plain object to merge
   // config: { resolve: { alias: { react: 'preact/compat' } } }
-};
+}
 ```
 
 ## Safety and ergonomics
@@ -303,14 +303,14 @@ dist/
 
 ## Plugins
 
-| Name                 | Group | Summary                                                                                                                                                                                                |
-| -------------------- | ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output     |
-| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                           |
-| plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production |
-| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules   |
-| plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                             |
-| plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                            |
+| Name                 | Group | Summary                                                                                                                                                                                                         |
+| -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
+| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
+| plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
+| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules            |
+| plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
+| plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
 
 ## Notes and compatibility
 
