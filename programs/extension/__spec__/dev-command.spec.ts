@@ -986,6 +986,8 @@ describe('extension dev when the --parent-pid owner goes away', () => {
       if (!sessionLive) return false
 
       engineFrame('failed', {code, message})
+      // An ended session is no longer live, as in the engine.
+      sessionLive = false
 
       return true
     })
@@ -1040,7 +1042,9 @@ describe('extension dev when the --parent-pid owner goes away', () => {
     parentAlive = false
     vi.advanceTimersByTime(POLL_MS)
 
+    // Asked again until no session is left, and the second ask finds none.
     expect(endSessionAsFailed.mock.calls).toEqual([
+      ['E_PARENT_GONE', PARENT_GONE],
       ['E_PARENT_GONE', PARENT_GONE]
     ])
 
