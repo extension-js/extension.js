@@ -117,6 +117,49 @@ describe('browser launch slot', () => {
     ])
   })
 
+  // The launcher showed the failure with the tool's own output before it
+  // threw, so a second block here would say the same thing twice.
+  it('prints nothing for a launch failure the launcher already printed', async () => {
+    const dev = session(
+      vi
+        .fn<Launcher>()
+        .mockRejectedValueOnce(
+          Object.assign(new Error('xcodebuild failed (exit 65)'), {
+            code: 'E_SAFARI_TOOLCHAIN',
+            printed: true
+          })
+        )
+        .mockResolvedValueOnce(controller())
+    )
+
+    await dev.compile()
+
+    expect(printed.error).toEqual([])
+    expect(dev.errors).toEqual([{errors: ['xcodebuild failed (exit 65)']}])
+    expect(dev.events).toEqual(['settled', 'error', 'compiled'])
+
+    await dev.compile()
+
+    expect(dev.launch).toHaveBeenCalledTimes(2)
+    expect(dev.events.slice(3)).toEqual(['settled', 'ready', 'compiled'])
+  })
+
+  it.each([
+    false,
+    'true',
+    undefined
+  ])('prints a launch failure whose printed mark is %j', async (mark) => {
+    const dev = session(async () => {
+      throw Object.assign(new Error('Chrome binary not found'), {printed: mark})
+    })
+
+    await dev.compile()
+
+    expect(printed.error).toEqual([
+      messages.browserLaunchFailed('chrome', 'Chrome binary not found')
+    ])
+  })
+
   it('reports the retried compile as the first one', async () => {
     const dev = session(
       vi
