@@ -262,6 +262,34 @@ describe('companion extensions resolver', () => {
     ).rejects.toThrow(/neither a store link nor a folder path/)
   })
 
+  it('refuses a bare entry even when a folder of that name is in the project', async () => {
+    const root = tmpDir('extjs-companion-bare-folder-')
+    const id = 'fmkadmapgofadopljbjfkapdkoienihi'
+    writeManifest(path.join(root, 'my-ext'))
+    writeManifest(path.join(root, id))
+    writeManifest(path.join(root, 'extensions', 'inner'))
+
+    const resolve = (entry: string) =>
+      resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: [entry]
+      })
+
+    // Pins today's behavior.
+    await expect(resolve('my-ext')).rejects.toThrow(
+      /neither a store link nor a folder path: my-ext/
+    )
+
+    await expect(resolve('extensions')).rejects.toThrow(
+      /neither a store link nor a folder path: extensions/
+    )
+
+    await expect(resolve(id)).rejects.toThrow(
+      /looks like a store id, not a store link/
+    )
+  })
+
   it('keeps skipping the other browser link quietly, in every link form', async () => {
     const root = tmpDir('extjs-companion-other-browser-')
     const resolved = await resolveCompanionExtensionsConfig({
