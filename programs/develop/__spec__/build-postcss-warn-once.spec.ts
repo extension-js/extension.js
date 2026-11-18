@@ -61,7 +61,9 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   try {
     return await extensionBuild(root, {
       browser,
-      silent: true,
+      // The findings are warnings of the build, which a silent one keeps
+      // to itself.
+      silent: false,
       install: false,
       mode: 'production',
       exitOnError: false
@@ -72,7 +74,15 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   }
 }
 
-// Every line either console method printed that holds the given text.
+function consoleSpies() {
+  return [
+    vi.spyOn(console, 'log').mockImplementation(() => {}),
+    vi.spyOn(console, 'error').mockImplementation(() => {}),
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  ]
+}
+
+// Every line a console method printed that holds the given text.
 function printed(spies: Array<{mock: {calls: unknown[][]}}>, text: string) {
   return spies
     .flatMap((spy) => spy.mock.calls)
@@ -90,16 +100,19 @@ describe('a PostCSS finding is said once per build', () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}, 'postcss-second-missing-plugin': {}}}\n"
     )
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, browser)
 
+    // The build prints its warnings together, so the names are read from
+    // everything it printed.
     expect(
-      printed(spies, "Couldn't resolve the PostCSS plugin")
-        .map((line) => line.split('\n')[0].replace(/^.*plugin /, ''))
+      [
+        ...printed(spies, "Couldn't resolve the PostCSS plugin")
+          .join('\n')
+          .matchAll(/Couldn't resolve the PostCSS plugin (\S+)/g)
+      ]
+        .map((match) => match[1])
         .sort()
     ).toEqual([
       'postcss-plugin-nobody-installed.',
@@ -111,10 +124,7 @@ describe('a PostCSS finding is said once per build', () => {
     const root = project(
       "module.exports = {plugins: {'postcss-plugin-nobody-installed': {}}}\n"
     )
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, 'chrome')
     await build(root, 'chrome')
@@ -171,10 +181,7 @@ describe.each(unusableConfigs)('$name is set aside', ({config, says}) => {
     'firefox'
   ] as const)('warns once and still ships the styles on %s', async (browser) => {
     const root = project(config)
-    const spies = [
-      vi.spyOn(console, 'error').mockImplementation(() => {}),
-      vi.spyOn(console, 'warn').mockImplementation(() => {})
-    ]
+    const spies = consoleSpies()
 
     await build(root, browser)
 
