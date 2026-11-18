@@ -38,17 +38,46 @@ export function isDebug(): boolean {
   )
 }
 
-export function prefix(type: Channel): string {
-  if (type === 'error') return colors.red(GLYPH)
-  if (type === 'warn') return colors.brightYellow(GLYPH)
-  if (type === 'success') return colors.green(GLYPH)
-  if (type === 'debug') return colors.dim(colors.gray(DEBUG_GLYPH))
-
-  return colors.gray(GLYPH)
-}
-
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\[[0-9;]*m/g
+
+// Color alone tells the channels apart, so a stream that takes none gets
+// the severity as a word a text search finds.
+const SEVERITY_WORDS: Partial<Record<Channel, string>> = {
+  warn: 'Warning',
+  error: 'Error'
+}
+
+// A line that already opens with its severity ("Warning 2:", "Build error
+// in") says it once, so the word is left off rather than printed twice.
+function opensWithSeverity(text: string, word: string): boolean {
+  return new RegExp(`^(?:build )?${word}\\b`, 'i').test(
+    text.replace(ANSI_PATTERN, '').trimStart()
+  )
+}
+
+// Pass the text that follows when it may name its own severity. The glyph
+// comes back unpainted exactly when color is off, which is when the word goes on.
+export function prefix(type: Channel, text?: string): string {
+  const paint =
+    type === 'error'
+      ? colors.red
+      : type === 'warn'
+        ? colors.brightYellow
+        : type === 'success'
+          ? colors.green
+          : colors.gray
+
+  if (type === 'debug') return colors.dim(colors.gray(DEBUG_GLYPH))
+
+  const glyph = paint(GLYPH)
+  const word = SEVERITY_WORDS[type]
+
+  if (!word || glyph !== GLYPH) return glyph
+  if (text !== undefined && opensWithSeverity(text, word)) return glyph
+
+  return `${GLYPH} ${word}:`
+}
 
 // True when the text already opens with the channel glyph, so a frame that
 // adds its own would print two glyphs on one line.
@@ -59,13 +88,20 @@ export function hasChannelPrefix(text: string): boolean {
     .startsWith(GLYPH)
 }
 
+// The glyph plus the severity word a plain stream gets right after it. A
+// word anywhere else belongs to the message and stays.
+const CHANNEL_MARK = new RegExp(
+  `${GLYPH}(?: (?:${Object.values(SEVERITY_WORDS).join('|')}):(?=\\s|$))?`
+)
+const CHANNEL_MARKS = new RegExp(`${CHANNEL_MARK.source} ?`, 'g')
+
 // Machine output carries no terminal decoration, so a frame reused as an
 // envelope message loses its glyph and colors rather than shipping them.
 export function stripChannelPrefix(text: string): string {
   return String(text || '')
     .replace(ANSI_PATTERN, '')
     .split('\n')
-    .map((line) => line.replace(GLYPH, '').trimStart())
+    .map((line) => line.replace(CHANNEL_MARK, '').trimStart())
     .join('\n')
     .trim()
 }
@@ -547,9 +583,9 @@ function withoutGlyph(error: EnvelopeError): EnvelopeError {
   if (!message.includes(GLYPH)) return error
 
   // A nested block has its glyph mid-line, so every one goes, not the first.
-  const bare = message.replace(ANSI_PATTERN, '').split(`${GLYPH} `).join('')
+  const bare = message.replace(ANSI_PATTERN, '').replace(CHANNEL_MARKS, '')
 
-  return {...error, message: stripChannelPrefix(bare).split(GLYPH).join('')}
+  return {...error, message: stripChannelPrefix(bare)}
 }
 
 export const ENVELOPE = {

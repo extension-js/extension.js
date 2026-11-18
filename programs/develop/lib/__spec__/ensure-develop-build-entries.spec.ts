@@ -151,7 +151,7 @@ describe('ensureDevelopArtifacts', () => {
     expect(execInstallCommand).not.toHaveBeenCalled()
     expect(code).toBe('E_INTERNAL')
     expect(lines).toEqual([
-      '⏵⏵⏵ Extension.js is missing 1 of its own build files.',
+      '⏵⏵⏵ Error: Extension.js is missing 1 of its own build files.',
       `  ${developBuildEntryFile(root, LOADER)}`,
       'Reinstall extension, then run the command again.'
     ])
@@ -163,7 +163,7 @@ describe('ensureDevelopArtifacts', () => {
     const {lines} = await refusal()
 
     expect(lines[0]).toBe(
-      `⏵⏵⏵ Extension.js is missing ${DEVELOP_BUILD_ENTRIES.length} of its own build files.`
+      `⏵⏵⏵ Error: Extension.js is missing ${DEVELOP_BUILD_ENTRIES.length} of its own build files.`
     )
 
     expect(lines.slice(1, 6)).toEqual(
@@ -225,7 +225,7 @@ describe('ensureDevelopArtifacts', () => {
     expect(execInstallCommand).toHaveBeenCalledTimes(1)
     expect(code).toBe('E_INTERNAL')
     expect(lines).toEqual([
-      '⏵⏵⏵ Extension.js is missing 1 of its own build files and could not rebuild.',
+      '⏵⏵⏵ Error: Extension.js is missing 1 of its own build files and could not rebuild.',
       `  ${developBuildEntryFile(root, LOADER)}`,
       `Run pnpm run compile in ${root} to see the build error.`
     ])
@@ -277,7 +277,7 @@ describe('ensureDevelopArtifacts beside the watch build', () => {
     expect(execInstallCommand).not.toHaveBeenCalled()
     expect(code).toBe('E_INTERNAL')
     expect(lines).toEqual([
-      '⏵⏵⏵ Extension.js is missing 1 of its own build files and the running watch build did not write them.',
+      '⏵⏵⏵ Error: Extension.js is missing 1 of its own build files and the running watch build did not write them.',
       `  ${developBuildEntryFile(root, LOADER)}`,
       'Fix the build error the watch prints, then run the command again.'
     ])

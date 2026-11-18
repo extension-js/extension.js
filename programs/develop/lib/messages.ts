@@ -28,8 +28,8 @@ import {asAskedPath} from './paths'
 // from this module, and the definition now lives in messaging.ts.
 export {fmt}
 
-function getLoggingPrefix(type: Channel): string {
-  return prefix(type)
+function getLoggingPrefix(type: Channel, text?: string): string {
+  return prefix(type, text)
 }
 
 function isPathLike(input: string) {
@@ -936,7 +936,7 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
 
     if (!message) {
       blocks.push(
-        `${getLoggingPrefix('warn')} Warning ${index + 1}: details were suppressed by tool output.\n` +
+        `${getLoggingPrefix('warn', 'Warning')} Warning ${index + 1}: details were suppressed by tool output.\n` +
           `${formatWarningLabelLine('Source', colors.gray(source))}\n` +
           `${formatWarningLabelLine(
             'Hint',
@@ -976,7 +976,7 @@ export function buildWarningsDetails(warnings: LooseBuildWarning[]): string {
     const explained = body.length > 0
     const artifactSuffix = artifact ? ` ${colors.gray(`(${artifact})`)}` : ''
     blocks.push(
-      `${getLoggingPrefix('warn')} ${category}: ${headline}${artifactSuffix}\n` +
+      `${getLoggingPrefix('warn', category)} ${category}: ${headline}${artifactSuffix}\n` +
         body.map((line) => `${line}\n`).join('') +
         formatWarningLabelLine('Source', colors.gray(source)) +
         (explained ? '' : `\n${formatWarningLabelLine('Hint', hint)}`)
@@ -1668,9 +1668,9 @@ export function buildCommandFailed(error: unknown) {
   })()
   // A message carrying its own error glyph is already a rendered block, so a
   // second "Build failed." headline on top of it would double the label line.
-  if (message.includes(getLoggingPrefix('error'))) return message
+  if (message.includes(getLoggingPrefix('error', 'Error'))) return message
 
-  return `${getLoggingPrefix('error')} ${colors.red(fmt.truncate(message, 1200))}`
+  return `${getLoggingPrefix('error', message)} ${colors.red(fmt.truncate(message, 1200))}`
 }
 
 export function devCommandFailed(error: unknown) {
