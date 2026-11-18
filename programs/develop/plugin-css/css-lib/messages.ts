@@ -145,7 +145,8 @@ export function postCssConfigNeedsRestart(configPath: string) {
 export function cssImportLeftAsWritten(
   issuerPath: string,
   request: string,
-  reason: string
+  reason: string,
+  fix = 'Fix the imported file so its rules ship with this stylesheet.'
 ) {
   return [
     `${prefix('warn')} Couldn't bring an ${colors.blue('@import')} into this content script stylesheet, so it stayed as written.`,
@@ -153,7 +154,27 @@ export function cssImportLeftAsWritten(
     `${colors.gray('IMPORT')} ${colors.blue(request)}`,
     `${colors.gray('REASON')} ${reason}`,
     'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
-    'Fix the imported file so its rules ship with this stylesheet.'
+    fix
+  ].join('\n')
+}
+
+export function cssImportCycle(issuerPath: string, files: string[]) {
+  return [
+    `${prefix('warn')} Sheets this content script stylesheet brings in with ${colors.blue('@import')} import one another, so the import that closes the loop was dropped.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('LOOP')} ${files.map((file) => colors.underline(file)).join(' > ')}`,
+    'Each sheet came in once, where it was first imported.',
+    `Remove one of these ${colors.blue('@import')} rules to say which sheet comes first.`
+  ].join('\n')
+}
+
+export function cssImportReadAsPackage(issuerPath: string, statement: string) {
+  return [
+    `${prefix('warn')} An ${colors.blue('@import')} in this content script stylesheet names a package, and a file by that name sits beside the sheet.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('IMPORT')} ${colors.blue(statement)}`,
+    `A name with no ${colors.blue('./')} ahead of it is looked up as a package, so the rules of that file did not come in.`,
+    `Start the name with ${colors.blue('./')} to bring the file in.`
   ].join('\n')
 }
 

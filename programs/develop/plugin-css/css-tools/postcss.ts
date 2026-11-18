@@ -110,22 +110,90 @@ export function postCssSetupFiles(projectPath: string): string[] {
   ].map((name) => path.join(projectPath, name))
 }
 
-// Node keeps every module it imported, so an edited config would come back
-// as the one read first. A new address and a dropped require entry reload it.
-async function importFresh(file: string): Promise<AnyModule> {
-  let stamp = 0
-  const registry = createRequire(import.meta.url).cache
+type RequireRegistry = NodeJS.Require['cache']
 
-  try {
-    stamp = fs.statSync(file).mtimeMs
-    delete registry[fs.realpathSync(file)]
-  } catch {
-    // The import below reports a file that is not there.
+function isProjectModule(file: string, projectPath: string): boolean {
+  const inside = path.relative(projectPath, file).split(path.sep)
+
+  return (
+    inside[0] !== '..' &&
+    !path.isAbsolute(inside.join(path.sep)) &&
+    !inside.includes('node_modules')
+  )
+}
+
+// Forgets a module and each project file it loaded, so the next read of a
+// config runs the helpers it requires again. Packages stay as loaded.
+function dropProjectModules(
+  file: string,
+  projectPath: string,
+  registry: RequireRegistry,
+  seen = new Set<string>()
+) {
+  const entry = registry[file]
+  if (!entry || seen.has(file)) return
+
+  seen.add(file)
+
+  for (const child of entry.children) {
+    if (isProjectModule(child.filename, projectPath)) {
+      dropProjectModules(child.filename, projectPath, registry, seen)
+    }
   }
 
   delete registry[file]
+}
 
-  return import(`${pathToFileURL(file).href}?t=${stamp}`)
+function realPathOf(file: string): string {
+  try {
+    return fs.realpathSync(file)
+  } catch {
+    return file
+  }
+}
+
+// One number for each read in this process. A file time would repeat for two
+// saves inside one tick of the clock, or on a disk that keeps whole seconds.
+let freshImports = 0
+
+// Node keeps every module it imported, so an edited config would come back
+// as the one read first. A new address and a dropped require entry reload it.
+async function importFresh(
+  file: string,
+  projectPath: string
+): Promise<AnyModule> {
+  const registry = createRequire(import.meta.url).cache
+  const root = realPathOf(projectPath)
+
+  dropProjectModules(realPathOf(file), root, registry)
+  dropProjectModules(file, root, registry)
+
+  return import(`${pathToFileURL(file).href}?t=${++freshImports}`)
+}
+
+// A YAML config, read with the parser postcss-loader itself reads it with.
+// Undefined when that parser is not found, and the loader then reads the file.
+async function readYamlConfig(
+  configPath: string,
+  projectPath: string
+): Promise<AnyModule | undefined> {
+  try {
+    const loader = await ensureOptionalContractPackageResolved({
+      contractId: 'postcss',
+      projectPath,
+      dependencyId: 'postcss-loader'
+    })
+    const fromLoader = createRequire(
+      fs.statSync(loader).isDirectory()
+        ? path.join(loader, 'package.json')
+        : loader
+    )
+    const yaml = createRequire(fromLoader.resolve('cosmiconfig'))('js-yaml')
+
+    return yaml.load(fs.readFileSync(configPath, 'utf8'))
+  } catch {
+    return undefined
+  }
 }
 
 function isTypeModuleProject(projectPath: string): boolean {
@@ -226,7 +294,9 @@ export async function loadUserPostCssConfigObject(
   configPath: string,
   projectPath: string,
   mode: string,
-  outcome: {refused: boolean} = {refused: false}
+  outcome: {refused: boolean} = {refused: false},
+  report: (message: string) => void = (message) =>
+    reportStyleDiagnostic(projectPath, message)
 ): Promise<AnyModule | undefined> {
   let loaded: AnyModule
 
@@ -240,10 +310,13 @@ export async function loadUserPostCssConfigObject(
     ) {
       loaded = JSON.parse(fs.readFileSync(configPath, 'utf8'))
     } else if (configPath.endsWith('.yaml') || configPath.endsWith('.yml')) {
-      // No YAML parser available here; let postcss-loader handle it.
-      return undefined
+      // Read here, a plugin it names resolves from the project. Left to
+      // postcss-loader, the name resolves from the loader's own folder.
+      loaded = await readYamlConfig(configPath, projectPath)
+
+      if (loaded === undefined) return undefined
     } else if (configPath.endsWith('.cjs')) {
-      loaded = tryLoadCjsConfig(configPath, {report: true, projectPath})
+      loaded = tryLoadCjsConfig(configPath, {report, projectPath})
 
       if (loaded === undefined) {
         outcome.refused = true
@@ -252,22 +325,19 @@ export async function loadUserPostCssConfigObject(
       }
     } else {
       try {
-        const mod = await importFresh(configPath)
+        const mod = await importFresh(configPath, projectPath)
         loaded = mod?.default ?? mod
       } catch (importError) {
         // A CJS-shaped file under an ESM import fails on `module`; the
         // hand-rolled CJS load gets its own turn, and only if that fails
         // too is the file reported as unreadable.
-        loaded = tryLoadCjsConfig(configPath, {report: false})
+        loaded = tryLoadCjsConfig(configPath, {projectPath})
 
         if (loaded === undefined) {
           // A TypeScript config this Node build cannot strip is not broken:
           // postcss-loader reads it with the jiti loader it ships.
           if (!isTypeScriptConfig(configPath)) {
-            reportStyleDiagnostic(
-              projectPath,
-              messages.postCssConfigUnreadable(configPath, importError)
-            )
+            report(messages.postCssConfigUnreadable(configPath, importError))
 
             outcome.refused = true
           }
@@ -277,10 +347,7 @@ export async function loadUserPostCssConfigObject(
       }
     }
   } catch (error) {
-    reportStyleDiagnostic(
-      projectPath,
-      messages.postCssConfigUnreadable(configPath, error)
-    )
+    report(messages.postCssConfigUnreadable(configPath, error))
 
     outcome.refused = true
 
@@ -291,10 +358,7 @@ export async function loadUserPostCssConfigObject(
     try {
       loaded = loaded({env: mode, mode, cwd: projectPath})
     } catch (error) {
-      reportStyleDiagnostic(
-        projectPath,
-        messages.postCssConfigUnreadable(configPath, error)
-      )
+      report(messages.postCssConfigUnreadable(configPath, error))
 
       outcome.refused = true
 
@@ -314,10 +378,7 @@ export async function loadUserPostCssConfigObject(
     !Array.isArray(plugins) &&
     typeof plugins !== 'object'
   ) {
-    reportStyleDiagnostic(
-      projectPath,
-      messages.postCssConfigPluginsShape(configPath, typeof plugins)
-    )
+    report(messages.postCssConfigPluginsShape(configPath, typeof plugins))
 
     outcome.refused = true
 
@@ -455,13 +516,29 @@ function resolveConfigPluginList(
 
 function tryLoadCjsConfig(
   configPath: string,
-  options: {report: boolean; projectPath?: string} = {report: true}
+  options: {report?: (message: string) => void; projectPath?: string} = {}
 ): AnyModule | undefined {
   try {
     const source = fs.readFileSync(configPath, 'utf8')
     const moduleObj: {exports: AnyModule} = {exports: {}}
     const exportsObj = moduleObj.exports
-    const req = createRequire(configPath)
+    const load = createRequire(configPath)
+    const root = realPathOf(options.projectPath ?? path.dirname(configPath))
+    // A project file the config requires is run again on each read, or an
+    // edit to it would not show until the process ends.
+    const req = Object.assign((id: string) => {
+      try {
+        const file = load.resolve(id)
+
+        if (isProjectModule(file, root)) {
+          dropProjectModules(file, root, load.cache)
+        }
+      } catch {
+        // The require below reports a module that does not resolve.
+      }
+
+      return load(id)
+    }, load)
     const fn = new Function(
       'require',
       'module',
@@ -474,12 +551,7 @@ function tryLoadCjsConfig(
 
     return moduleObj.exports
   } catch (error) {
-    if (options.report) {
-      reportStyleDiagnostic(
-        options.projectPath ?? path.dirname(configPath),
-        messages.postCssConfigUnreadable(configPath, error)
-      )
-    }
+    options.report?.(messages.postCssConfigUnreadable(configPath, error))
 
     return undefined
   }
@@ -735,6 +807,12 @@ export async function maybeUsePostCss(
     pkgHasPostCss && !!pkgPostCssConfig && typeof pkgPostCssConfig === 'object'
   const fileOutcome = {refused: false}
   let fileConfigObject: AnyModule
+  // Inside a compiler a finding goes onto the build it belongs to. A caller
+  // with no build to put it on prints it.
+  const report = (message: string, print?: (message: string) => void) =>
+    opts.warn
+      ? opts.warn(message)
+      : reportStyleDiagnostic(projectPath, message, print)
 
   if (foundPostCssConfig && !packageJsonConfigWins) {
     try {
@@ -742,7 +820,8 @@ export async function maybeUsePostCss(
         foundPostCssConfig,
         projectPath,
         String(opts.mode || 'development'),
-        fileOutcome
+        fileOutcome,
+        report
       )
     } catch {
       fileConfigObject = undefined
@@ -875,7 +954,7 @@ export async function maybeUsePostCss(
                 // project path, avoiding cwd-dependent misses in monorepos.
                 if (isLikelyCjsTailwindConfig(configFile)) {
                   const loaded = tryLoadCjsConfig(configFile, {
-                    report: true,
+                    report,
                     projectPath
                   })
 
@@ -1018,8 +1097,7 @@ export async function maybeUsePostCss(
       // Said above, with the command that installs it.
       if (tailwindMissing && TAILWIND_PLUGIN_IDS.includes(pluginName)) continue
 
-      reportStyleDiagnostic(
-        projectPath,
+      report(
         messages.postCssPluginNotResolved(
           pluginName,
           projectPath,

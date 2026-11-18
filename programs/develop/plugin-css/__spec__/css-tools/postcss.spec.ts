@@ -222,10 +222,30 @@ describe('maybeUsePostCss reads each config shape', () => {
     })
   })
 
-  it('hands a YAML config to postcss-loader, which has the parser', async () => {
+  // Left to postcss-loader, a plugin a YAML config names resolves from the
+  // loader's own folder, where no project file or package is.
+  it('reads a YAML config and resolves its plugins from the project', async () => {
     const root = makeProject({
-      '.postcssrc.yml': 'plugins:\n  fake-plugin: {}\n'
+      '.postcssrc.yml':
+        'plugins:\n  fake-plugin: {}\n  ./local-plugin.cjs: {}\n',
+      'local-plugin.cjs':
+        "module.exports = () => ({postcssPlugin: 'local-plugin'})\n"
     })
+    fakePackage(root, 'fake-plugin')
+
+    const rule = await maybeUsePostCss(root, {mode: 'development'})
+
+    expect(rule.options.postcssOptions).toEqual({
+      cwd: root,
+      config: false,
+      plugins: [{postcssPlugin: 'fake-plugin'}, {postcssPlugin: 'local-plugin'}]
+    })
+
+    expect(calls(root)).toEqual([{id: 'fake-plugin', opts: {}}])
+  })
+
+  it('hands a YAML config it cannot parse to postcss-loader by its path', async () => {
+    const root = makeProject({'.postcssrc.yml': 'plugins: [\n'})
 
     const rule = await maybeUsePostCss(root, {mode: 'development'})
 
@@ -233,8 +253,6 @@ describe('maybeUsePostCss reads each config shape', () => {
       cwd: root,
       config: path.join(root, '.postcssrc.yml')
     })
-
-    expect(calls(root)).toEqual([])
   })
 
   it('points postcss-loader at the project for an empty postcss key', async () => {
@@ -565,7 +583,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     expect(calls(root)).toEqual([{id: 'tailwindcss', opts: null}])
   })
 
-  it('injects Tailwind next to a YAML config postcss-loader reads', async () => {
+  it('resolves the Tailwind a YAML config names from the project', async () => {
     const root = makeProject({
       'package.json': packageJson({
         devDependencies: {'@tailwindcss/postcss': '^4.0.0'}
@@ -578,8 +596,8 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     expect(rule.options.postcssOptions).toEqual({
       cwd: root,
-      config: path.join(root, '.postcssrc.yml'),
-      plugins: [...SHIMS, {postcssPlugin: '@tailwindcss/postcss'}]
+      config: false,
+      plugins: [{postcssPlugin: '@tailwindcss/postcss'}]
     })
   })
 

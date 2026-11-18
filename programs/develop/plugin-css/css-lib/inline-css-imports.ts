@@ -9,13 +9,15 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import postcss, {type AtRule, type Root} from 'postcss'
-import {replaceCssUrlRefs, toPosixPath} from './dead-url-refs'
+import {cssUrlRefFiles, toPosixPath} from './dead-url-refs'
 
 export interface InlineCssImportsContext {
   resourcePath: string
   // Where a root-absolute request can live: the public folder, then the
   // manifest folder, the order every other reference check uses.
   roots: string[]
+  // No sheet from outside this folder comes in.
+  projectPath: string
 }
 
 export interface PlacedCssImport {
@@ -31,12 +33,22 @@ export interface InlinedCssImports {
   files: string[]
   // Every place a sheet that was not found could appear later.
   missing: string[]
-  // A sheet that was found and could not be read as CSS.
-  unreadable: Array<{request: string; file: string; reason: string}>
+  // A sheet that was found and did not come in: one that is not valid CSS,
+  // or one this step may not read. `fix` is there when the reason has its own.
+  unreadable: Array<{
+    request: string
+    file: string
+    reason: string
+    fix?: string
+  }>
   // An import that now leads rules it used to follow.
   moved: PlacedCssImport[]
   // An import left inside a block, where a browser skips it.
   skipped: PlacedCssImport[]
+  // An import with no ./ ahead of a name a file beside the sheet also has.
+  bare: PlacedCssImport[]
+  // Each run of sheets that import one another, closed by its first sheet.
+  cycles: string[][]
 }
 
 interface ImportConditions {
@@ -187,30 +199,38 @@ function isFile(candidate: string): boolean {
   }
 }
 
-// The files a request could name, or none for a request that is not a path
-// in the project: a URL with a scheme, a package, an alias.
-function importCandidates(
-  request: string,
-  issuerDir: string,
-  roots: string[]
-): string[] {
-  const req = request.split('?')[0].split('#')[0]
+function realPath(file: string): string {
+  try {
+    return fs.realpathSync(file)
+  } catch {
+    return path.resolve(file)
+  }
+}
 
-  if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
-    return []
+const KEEP_IN_PROJECT =
+  'Keep the sheets a content script stylesheet imports inside the project, outside node_modules and folders that start with a dot.'
+
+// Whether the rules of a sheet may be read into another one: undefined when
+// they may, or the reason they may not. Links are followed before the check.
+function whyNotRead(file: string, projectRoot: string): string | undefined {
+  const inside = path.relative(realPath(projectRoot), realPath(file))
+  const parts = inside.split(path.sep)
+
+  if (!inside || parts[0] === '..' || path.isAbsolute(inside)) {
+    return 'The file is outside the project.'
   }
 
-  if (req.startsWith('~') || req.startsWith('@') || request.includes('!')) {
-    return []
+  const folders = parts.slice(0, -1)
+
+  if (folders.includes('node_modules')) {
+    return 'The file belongs to a package in node_modules.'
   }
 
-  const named = req.startsWith('/')
-    ? roots.map((root) => path.join(root, req.slice(1)))
-    : [path.resolve(issuerDir, req)]
+  const hidden = folders.find((folder) => folder.startsWith('.'))
 
-  return path.extname(req)
-    ? named
-    : [...named, ...named.map((file) => `${file}.css`)]
+  return hidden
+    ? `The file is inside ${hidden}, a folder the build does not read.`
+    : undefined
 }
 
 // A relative request is written from its own sheet's folder, and its text
@@ -224,10 +244,129 @@ function rebaseRequest(request: string, fromDir: string, toDir: string) {
   return `${moved.startsWith('../') ? moved : `./${moved}`}${suffix}`
 }
 
+// Where the string that opens at `at` ends, its closing quote included.
+function stringEnd(css: string, at: number): number {
+  const quote = css[at]
+  let end = at + 1
+
+  while (end < css.length && css[end] !== quote && css[end] !== '\n') {
+    end += css[end] === '\\' ? 2 : 1
+  }
+
+  return Math.min(end + 1, css.length)
+}
+
+const IDENT = /[a-z_-][\w-]*/iy
+const URL_STRING_FUNCTIONS = new Set(['url', 'image-set', '-webkit-image-set'])
+
+// The sheet with each address it names passed through `rewrite`. Reads the
+// text the way CSS does, so a url( inside a string or a comment is left.
+function rewriteCssUrls(
+  css: string,
+  rewrite: (request: string, isImport: boolean) => string | undefined
+): string {
+  const functions: string[] = []
+  let out = ''
+  let copied = 0
+  let at = 0
+  let inImport = false
+
+  const put = (start: number, end: number, request: string, quote?: string) => {
+    const next = request.includes('\\') ? undefined : rewrite(request, inImport)
+    if (next === undefined) return
+
+    const text = quote
+      ? next.split(quote).join(`\\${quote}`)
+      : /[\s()'"]/.test(next)
+        ? `"${next.split('"').join('\\"')}"`
+        : next
+
+    out += css.slice(copied, start) + text
+    copied = end
+  }
+
+  while (at < css.length) {
+    const char = css[at]
+
+    if (char === '\\') {
+      at += 2
+    } else if (char === '/' && css[at + 1] === '*') {
+      const end = css.indexOf('*/', at + 2)
+
+      at = end === -1 ? css.length : end + 2
+    } else if (char === '"' || char === "'") {
+      const end = stringEnd(css, at)
+      const closed = css[end - 1] === char && end - 1 > at
+      const named = functions[functions.length - 1]
+
+      // A string is an address after @import and inside these functions.
+      if (
+        closed &&
+        (named === undefined ? inImport : URL_STRING_FUNCTIONS.has(named))
+      ) {
+        put(at + 1, end - 1, css.slice(at + 1, end - 1), char)
+      }
+
+      if (named === undefined) inImport = false
+
+      at = end
+    } else if (char === '(') {
+      functions.push('')
+      at++
+    } else if (char === ')') {
+      functions.pop()
+      at++
+    } else if (char === ';' || char === '{' || char === '}') {
+      functions.length = 0
+      inImport = false
+      at++
+    } else if (char === '@') {
+      IDENT.lastIndex = at + 1
+      const name = IDENT.exec(css)?.[0] ?? ''
+
+      inImport = name.toLowerCase() === 'import'
+      at += name.length + 1
+    } else {
+      IDENT.lastIndex = at
+      const name = IDENT.exec(css)?.[0]
+
+      if (!name) {
+        at++
+      } else if (css[at + name.length] !== '(') {
+        at += name.length
+      } else if (name.toLowerCase() !== 'url') {
+        functions.push(name.toLowerCase())
+        at += name.length + 1
+      } else {
+        let start = at + name.length + 1
+
+        while (/\s/.test(css[start] ?? '')) start++
+
+        if (css[start] === '"' || css[start] === "'") {
+          functions.push('url')
+          at = start
+        } else {
+          // An unquoted address runs to the closing parenthesis.
+          const close = css.indexOf(')', start)
+          const end = close === -1 ? css.length : close
+          const request = css.slice(start, end).trim()
+
+          if (request) put(start, start + request.length, request)
+
+          inImport = false
+          at = Math.min(end + 1, css.length)
+        }
+      }
+    }
+  }
+
+  return out + css.slice(copied)
+}
+
 function rebaseUrls(css: string, fromDir: string, toDir: string): string {
   if (fromDir === toDir) return css
 
-  return replaceCssUrlRefs(css, (request) => {
+  return rewriteCssUrls(css, (request, isImport) => {
     if (
       !request ||
       /^[/#~@]/.test(request) ||
@@ -235,6 +374,9 @@ function rebaseUrls(css: string, fromDir: string, toDir: string): string {
     ) {
       return undefined
     }
+
+    // After @import a name with no ./ ahead of it is a package.
+    if (isImport && !/^\.{1,2}\//.test(request)) return undefined
 
     return rebaseRequest(request, fromDir, toDir)
   })
@@ -277,6 +419,7 @@ function importStatement(
 
 interface Inlining {
   roots: string[]
+  projectPath: string
   // The folder of the sheet every other one comes into.
   topDir: string
   files: Set<string>
@@ -286,31 +429,64 @@ interface Inlining {
   kept: string[]
   moved: PlacedCssImport[]
   skipped: PlacedCssImport[]
+  bare: PlacedCssImport[]
+  cycles: string[][]
   // Layers whose order the first sheet states before anything else.
   orderedLayers: Set<string>
 }
 
+interface NotInlined {
+  reason: string
+  fix?: string
+}
+
+const IMPORT_RUN = new Set(['charset', 'import'])
+
 // The sheet with every @import of a project .css file replaced by that
-// file's rules. `frames` holds the conditions of each import on the way here.
+// file's rules. `frames` holds the conditions of each import on the way here,
+// and `chain` the sheets on the way here, each by the file it really is.
 function inlineSheet(
   css: string,
   file: string,
   chain: string[],
   state: Inlining,
   frames: ImportConditions[]
-): string | undefined {
+): string | NotInlined {
   let root: Root
 
   try {
     root = postcss.parse(css, {from: file})
   } catch {
-    return undefined
+    return {reason: 'The file is not valid CSS.'}
   }
 
   const top = chain.length === 1
   const issuerDir = path.dirname(file)
-  const firstBlock = root.nodes.findIndex((node) =>
-    Array.isArray((node as {nodes?: unknown}).nodes)
+  // @namespace has to lead every rule of its sheet and speaks for that
+  // sheet alone, so such a sheet neither moves into another nor takes one in.
+  const namespaced = root.nodes.some(
+    (node) => node.type === 'atrule' && node.name.toLowerCase() === 'namespace'
+  )
+
+  if (namespaced && !top) {
+    return {
+      reason:
+        'The file sets an @namespace, which reads differently once its rules sit in another stylesheet.',
+      fix: 'Import that file from the script instead, or move its @namespace rules out of it.'
+    }
+  }
+
+  let toldNamespace = false
+  // A browser reads an @import only ahead of every rule: comments, @charset,
+  // other imports and a list of layer names are all that may come before it.
+  const runEnd = root.nodes.findIndex(
+    (node) =>
+      node.type !== 'comment' &&
+      !(
+        node.type === 'atrule' &&
+        (IMPORT_RUN.has(node.name.toLowerCase()) ||
+          (node.name.toLowerCase() === 'layer' && !node.nodes))
+      )
   )
   const edits: Array<{start: number; end: number; text: string}> = []
   // Where an import that stays goes: a browser reads @charset and a list of
@@ -341,7 +517,7 @@ function inlineSheet(
   root.nodes.forEach((node, index) => {
     if (node.type !== 'atrule' || node.name.toLowerCase() !== 'import') return
     // A browser skips an @import that follows a rule, and so does this step.
-    if (firstBlock !== -1 && index > firstBlock) return
+    if (runEnd !== -1 && index > runEnd) return
 
     const rule = node as AtRule
     const start = rule.source?.start?.offset
@@ -349,9 +525,11 @@ function inlineSheet(
     if (typeof start !== 'number' || typeof end !== 'number') return
 
     const parsed = parseImport(rule.params)
+    // The one rule for which files a request names. A name with no ./
+    // ahead of it is a package there, never a file beside the sheet.
     const candidates =
-      parsed && !parsed.opaque
-        ? importCandidates(parsed.request, issuerDir, state.roots)
+      parsed && !parsed.opaque && !parsed.request.includes('!')
+        ? cssUrlRefFiles(parsed.request, {issuerDir, roots: state.roots})
         : []
     const target = candidates.find(
       (candidate) => /\.css$/i.test(candidate) && isFile(candidate)
@@ -359,12 +537,19 @@ function inlineSheet(
 
     if (!parsed || !target) {
       const written = `${css.slice(start, end).replace(/;$/, '').trim()};`
-      // A bare name is most often a package, which no project path awaits.
       const relative = parsed !== undefined && /^\.{1,2}\//.test(parsed.request)
-      const namesPath = relative || parsed?.request.startsWith('/')
 
-      for (const candidate of namesPath ? candidates : []) {
+      for (const candidate of candidates) {
         if (!fs.existsSync(candidate)) state.missing.add(candidate)
+      }
+
+      if (
+        parsed &&
+        !parsed.opaque &&
+        /^[\w-][^:?#!]*\.css$/i.test(parsed.request) &&
+        isFile(path.resolve(issuerDir, parsed.request))
+      ) {
+        state.bare.push({statement: written, file})
       }
 
       // Once another sheet's rules come in, an @import that stays would
@@ -407,39 +592,61 @@ function inlineSheet(
       return
     }
 
+    if (namespaced) {
+      if (!toldNamespace) {
+        state.unreadable.push({
+          request: parsed.request,
+          file: target,
+          reason:
+            'This stylesheet sets an @namespace, which has to come before every rule, so no imported rules can come in ahead of it.',
+          fix: 'Import that file from the script instead, or move the @namespace rules to a sheet of their own.'
+        })
+      }
+
+      toldNamespace = true
+
+      return
+    }
+
+    const real = realPath(target)
+
     // A sheet that imports itself, however far down, adds nothing new.
-    if (chain.includes(target)) {
+    if (chain.includes(real)) {
+      state.cycles.push([...chain.slice(chain.indexOf(real)), real])
       edits.push({start, end, text: ''})
 
       return
     }
 
-    let inner: string | undefined
+    const refused = whyNotRead(target, state.projectPath)
 
-    try {
-      inner = inlineSheet(
-        fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''),
-        target,
-        [...chain, target],
-        state,
-        isConditional(parsed) ? [...frames, parsed] : frames
-      )
-    } catch (error) {
+    if (refused) {
       state.unreadable.push({
         request: parsed.request,
         file: target,
-        reason: error instanceof Error ? error.message : String(error)
+        reason: refused,
+        fix: KEEP_IN_PROJECT
       })
 
       return
     }
 
-    if (inner === undefined) {
-      state.unreadable.push({
-        request: parsed.request,
-        file: target,
-        reason: 'The file is not valid CSS.'
-      })
+    let inner: string | NotInlined
+
+    try {
+      inner = inlineSheet(
+        fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''),
+        target,
+        [...chain, real],
+        state,
+        isConditional(parsed) ? [...frames, parsed] : frames
+      )
+    } catch (error) {
+      inner = {reason: error instanceof Error ? error.message : String(error)}
+    }
+
+    if (typeof inner !== 'string') {
+      state.unreadable.push({request: parsed.request, file: target, ...inner})
 
       return
     }
@@ -486,6 +693,7 @@ export function inlineCssImports(
 ): InlinedCssImports {
   const state: Inlining = {
     roots: context.roots,
+    projectPath: context.projectPath,
     topDir: path.dirname(context.resourcePath),
     files: new Set(),
     missing: new Set(),
@@ -493,43 +701,42 @@ export function inlineCssImports(
     kept: [],
     moved: [],
     skipped: [],
+    bare: [],
+    cycles: [],
     orderedLayers: new Set()
   }
-  const untouched: InlinedCssImports = {
-    css: source,
-    files: [],
-    missing: [],
-    unreadable: [],
-    moved: [],
-    skipped: []
-  }
 
-  if (!/@import/i.test(source)) return untouched
+  if (!/@import/i.test(source)) {
+    return {
+      css: source,
+      files: [],
+      missing: [],
+      unreadable: [],
+      moved: [],
+      skipped: [],
+      bare: [],
+      cycles: []
+    }
+  }
 
   // The parser drops a byte order mark and counts every place without it.
   const css = inlineSheet(
     source.replace(/^\uFEFF/, ''),
     context.resourcePath,
-    [context.resourcePath],
+    [realPath(context.resourcePath)],
     state,
     []
   )
 
-  // Nothing came in, so nothing has to move: the sheet stays as written.
-  if (css === undefined || state.files.size === 0) {
-    return {
-      ...untouched,
-      missing: [...state.missing],
-      unreadable: state.unreadable
-    }
-  }
-
   return {
-    css,
+    // Nothing came in, so nothing has to move: the sheet stays as written.
+    css: typeof css !== 'string' || state.files.size === 0 ? source : css,
     files: [...state.files],
     missing: [...state.missing],
     unreadable: state.unreadable,
     moved: state.moved,
-    skipped: state.skipped
+    skipped: state.skipped,
+    bare: state.bare,
+    cycles: state.cycles
   }
 }

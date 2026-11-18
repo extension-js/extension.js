@@ -21,6 +21,9 @@ interface DevSession {
     act: () => void,
     matches?: (build: Build) => boolean
   ) => Promise<Build | undefined>
+  // The build one save of the sheet alone starts: the watcher names the files
+  // behind each build, so a late event for an earlier write is told apart.
+  buildOfSheetAlone: (contents: string) => Promise<Build | undefined>
   close: () => Promise<void>
 }
 
@@ -63,12 +66,20 @@ async function dev(root: string): Promise<DevSession> {
   )
 
   const builds: Build[] = []
+  const startedBy = new WeakMap<Build, string[]>()
   const waiters = new Set<() => void>()
+  let changed: string[] = []
+
+  compiler.hooks.watchRun.tap('spec', () => {
+    changed = [
+      ...(compiler.modifiedFiles || []),
+      ...(compiler.removedFiles || [])
+    ].map((file) => path.relative(root, file))
+  })
 
   compiler.hooks.done.tap('spec', (stats) => {
     const sheet = path.join(root, 'out', 'main.css')
-
-    builds.push({
+    const build: Build = {
       css: fs.existsSync(sheet)
         ? fs.readFileSync(sheet, 'utf8').replace(/\s+/g, '')
         : '',
@@ -76,7 +87,10 @@ async function dev(root: string): Promise<DevSession> {
         .filter((w) => w.name === 'CssSetupWarning')
         .map((w) => w.message.replace(/^\s*(?:⚠|│)\s?/gm, '').trimEnd()),
       errors: stats.compilation.errors.map((e) => e.message)
-    })
+    }
+
+    startedBy.set(build, changed)
+    builds.push(build)
 
     for (const wake of [...waiters]) wake()
   })
@@ -106,12 +120,30 @@ async function dev(root: string): Promise<DevSession> {
     })
   }
 
+  const buildOfSheetAlone: DevSession['buildOfSheetAlone'] = async (
+    contents
+  ) => {
+    // A build that also answers an older write says nothing about this one,
+    // so the sheet is saved again until a build has it for its only cause.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const build = await buildAfter(
+        () => fs.writeFileSync(path.join(root, 'styles.css'), contents),
+        (candidate) => startedBy.get(candidate)?.includes('styles.css') === true
+      )
+
+      if (!build || startedBy.get(build)?.length === 1) return build
+    }
+
+    return undefined
+  }
+
   let watching: ReturnType<Compiler['watch']> | undefined
   const session: DevSession = {
     firstBuild: buildAfter(() => {
       watching = compiler.watch({aggregateTimeout: 20}, () => {})
     }),
     buildAfter,
+    buildOfSheetAlone,
     close: () =>
       new Promise<void>((resolve) => {
         watching?.close(() => compiler.close(() => resolve()))
@@ -139,12 +171,11 @@ function stampingConfig(file: string, word: string) {
     ''
   ].join('\n')
 
-  // A YAML config is the one postcss-loader reads itself, and it resolves a
-  // plugin from its own folder, so the plugin is named by its full path.
+  // A config that is data names its plugin by a path from the project.
   return file.endsWith('.json')
     ? JSON.stringify({plugins: {[`./stamp-${word}.cjs`]: {}}})
     : file.endsWith('.yaml')
-      ? `plugins:\n  ${JSON.stringify(path.join(path.dirname(file), `stamp-${word}.cjs`))}: {}\n`
+      ? `plugins:\n  ./stamp-${word}.cjs: {}\n`
       : file.endsWith('.mjs')
         ? `export default ${body}`
         : `module.exports = ${body}`
@@ -237,11 +268,78 @@ describe('a PostCSS config edited while a dev session runs', () => {
     })
 
     // The next save of a sheet is not a config change, so nothing repeats.
-    const next = await session.buildAfter(() =>
-      fs.writeFileSync(path.join(root, 'styles.css'), '.a{color:blue}\n')
-    )
+    const next = await session.buildOfSheetAlone('.a{color:blue}\n')
 
     expect(next).toEqual({css: '.a{color:blue}', setupWarnings: [], errors: []})
+  })
+
+  // A finding about the config belongs to the build, where every reporter
+  // and the JSON output read it, and it goes away with its cause.
+  it('a config PostCSS cannot use is reported on the build, until it is fixed', async () => {
+    const root = makeProject({
+      ...SHEET,
+      '.postcssrc.json': JSON.stringify({
+        plugins: {'postcss-plugin-nowhere': {}}
+      }),
+      'package.json': JSON.stringify({
+        name: 'css-fixture',
+        packageManager: 'pnpm@10.0.0'
+      })
+    })
+    const config = path.join(root, '.postcssrc.json')
+    const session = await dev(root)
+
+    expect(await session.firstBuild).toEqual({
+      css: '.a{color:red}',
+      setupWarnings: [
+        [
+          `${WARN} Couldn't resolve the PostCSS plugin postcss-plugin-nowhere.`,
+          'The plugin was skipped so the build can continue.',
+          'Styles it would generate are missing from the output.',
+          `PATH ${root}`,
+          'Install it in your project to re-enable it: pnpm add -D postcss-plugin-nowhere'
+        ].join('\n')
+      ],
+      errors: []
+    })
+
+    expect(await session.buildAfter(saveSheet(root))).toEqual({
+      css: '.a{color:red}',
+      setupWarnings: [],
+      errors: []
+    })
+
+    const fixed = await session.buildAfter(() =>
+      fs.writeFileSync(config, stampingConfig(config, 'first'))
+    )
+
+    expect(fixed).toEqual({
+      css: '.a{color:red;--stamp:first}',
+      setupWarnings: [],
+      errors: []
+    })
+  })
+})
+
+describe('a PostCSS config whose plugins are not a list or a map', () => {
+  it('is reported on the build, and the sheets compile without it', async () => {
+    const root = makeProject({
+      ...SHEET,
+      '.postcssrc.json': JSON.stringify({plugins: 5})
+    })
+    const session = await dev(root)
+
+    expect(await session.firstBuild).toEqual({
+      css: '.a{color:red}',
+      setupWarnings: [
+        [
+          `${WARN} The PostCSS config at ${path.join(root, '.postcssrc.json')} lists plugins as number.`,
+          'PostCSS expects an array or an object keyed by plugin name.',
+          'The build continues without this config, so none of its plugins run.'
+        ].join('\n')
+      ],
+      errors: []
+    })
   })
 })
 
@@ -266,9 +364,7 @@ describe('a config under a name PostCSS never reads', () => {
       errors: []
     })
 
-    const next = await session.buildAfter(() =>
-      fs.writeFileSync(path.join(root, 'styles.css'), '.a{color:blue}\n')
-    )
+    const next = await session.buildOfSheetAlone('.a{color:blue}\n')
 
     expect(next?.setupWarnings).toEqual([])
   })

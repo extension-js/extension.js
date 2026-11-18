@@ -201,7 +201,8 @@ export function inlineStylesheetImports(
     const resourcePath = canonicalizeResourcePath(loader.resourcePath)
     const inlined = inlineCssImports(source, {
       resourcePath,
-      roots: [publicRoot, manifestDir]
+      roots: [publicRoot, manifestDir],
+      projectPath
     })
 
     // Keep watch mode honest: an edit to an imported sheet rebuilds this
@@ -209,7 +210,7 @@ export function inlineStylesheetImports(
     for (const file of inlined.files) loader.addDependency?.(file)
     for (const file of inlined.missing) loader.addMissingDependency?.(file)
 
-    for (const {request, file, reason} of inlined.unreadable) {
+    for (const {request, file, reason, fix} of inlined.unreadable) {
       loader.addDependency?.(file)
       loader.emitWarning(
         Object.assign(
@@ -217,7 +218,8 @@ export function inlineStylesheetImports(
             messages.cssImportLeftAsWritten(
               toPosixPath(path.relative(manifestDir, resourcePath)),
               request,
-              reason
+              reason,
+              fix
             )
           ),
           {name: 'CssParseWarning'}
@@ -235,6 +237,15 @@ export function inlineStylesheetImports(
           issuer,
           statement,
           toPosixPath(path.relative(manifestDir, file))
+        )
+      ),
+      ...inlined.bare.map(({statement}) =>
+        messages.cssImportReadAsPackage(issuer, statement)
+      ),
+      ...inlined.cycles.map((files) =>
+        messages.cssImportCycle(
+          issuer,
+          files.map((file) => toPosixPath(path.relative(manifestDir, file)))
         )
       )
     ]
