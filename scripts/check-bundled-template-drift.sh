@@ -54,7 +54,7 @@ report_pin_health() {
 }
 
 if [[ "${EXTENSION_SKIP_TEMPLATE_DRIFT:-}" == "1" ]]; then
-  echo "EXTENSION_SKIP_TEMPLATE_DRIFT=1 — skipping bundled template drift check."
+  echo "EXTENSION_SKIP_TEMPLATE_DRIFT=1 is set, so the bundled template drift check is skipped."
   exit 0
 fi
 

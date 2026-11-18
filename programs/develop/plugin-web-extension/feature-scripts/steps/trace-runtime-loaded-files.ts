@@ -35,6 +35,7 @@ import {
   type CompileMode,
   getSpecialFoldersDataForProjectRoot
 } from '../../../plugin-special-folders/get-data'
+import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
 import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
@@ -290,6 +291,8 @@ interface ApplyContext {
   context: LoadContext
   onMissing: () => void
   onSourceSpelling: (emitPath: string, spelledAs: string) => void
+  // The file exists and the build may not copy it. Left out, the miss speaks.
+  onWithheld?: () => void
 }
 
 export class TraceRuntimeLoadedFiles {
@@ -376,16 +379,14 @@ export class TraceRuntimeLoadedFiles {
 
     const seen = run.seen.getURL
 
-    for (const literal of customManifestFileReferences(manifest)) {
+    for (const {key, literal} of customManifestFileReferences(manifest)) {
       const distRel = resolveExtensionPath(literal, '')
       if (!distRel || seen.has(distRel)) continue
 
-      const plan = planTracedFile({
-        manifestDir: run.manifestDir,
+      const plan = run.plan({
         sourceRel: distRel,
         distRel,
-        loadsAs: 'by-shape',
-        hasAsset: run.hasAsset
+        loadsAs: 'by-shape'
       })
       // A string under a custom key is a file only when one exists at that
       // path. Anything else is the extension's own data and stays untouched.
@@ -396,7 +397,14 @@ export class TraceRuntimeLoadedFiles {
       run.apply(plan, {
         context: 'getURL',
         onMissing: () => {},
-        onSourceSpelling: () => {}
+        onSourceSpelling: () => {},
+        // The value names a real file, so the build says why it is absent.
+        onWithheld: () =>
+          run.warn(
+            'ManifestNamedFileNotShipped',
+            'manifest.json',
+            messages.manifestNamedFileNotShipped(key, literal, distRel)
+          )
       })
     }
   }
@@ -450,13 +458,7 @@ export class TraceRuntimeLoadedFiles {
 
           seen.add(distRel)
 
-          const plan = planTracedFile({
-            manifestDir: run.manifestDir,
-            sourceRel,
-            distRel,
-            loadsAs: 'classic',
-            hasAsset: run.hasAsset
-          })
+          const plan = run.plan({sourceRel, distRel, loadsAs: 'classic'})
           const copied = run.apply(plan, {
             context: 'importScripts',
             onMissing: () =>
@@ -491,9 +493,12 @@ export class TraceRuntimeLoadedFiles {
 
           // wasm-bindgen --target no-modules pairs X.js with X_bg.wasm via a
           // computed fetch, so copy the sibling through when it exists.
-          if (plan.kind !== 'missing' && sourceRel.endsWith('.js')) {
-            copyIfExists(
-              run.compilation,
+          if (
+            plan.kind !== 'missing' &&
+            !run.withheld.has(distRel) &&
+            sourceRel.endsWith('.js')
+          ) {
+            run.copySibling(
               path.join(
                 run.manifestDir,
                 sourceRel.replace(/\.js$/, '_bg.wasm')
@@ -565,20 +570,32 @@ export class TraceRuntimeLoadedFiles {
             isFile(candidate)
         )
 
+        // Only extensioned paths warn: a bare "/v1/users"-style literal is far
+        // likelier an API route than a file the author expected in the package.
+        const missing = /\.[a-zA-Z0-9]{1,8}$/.test(distRel)
+          ? () =>
+              run.warn(
+                'RuntimeFetchedFileMissing',
+                asset.name,
+                messages.fetchedFileDependencyMissing(
+                  asset.name,
+                  literal,
+                  distRel
+                )
+              )
+          : undefined
+
         if (abs) {
-          run.emitCopy(abs, distRel)
+          run.emitCopy(
+            abs,
+            distRel,
+            missing ?? run.sayNotShipped(asset.name, literal, distRel)
+          )
+
           continue
         }
 
-        // Only extensioned paths warn: a bare "/v1/users"-style literal is far
-        // likelier an API route than a file the author expected in the package.
-        if (/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
-          run.warn(
-            'RuntimeFetchedFileMissing',
-            asset.name,
-            messages.fetchedFileDependencyMissing(asset.name, literal, distRel)
-          )
-        }
+        missing?.()
       }
     }
   }
@@ -754,7 +771,13 @@ export class TraceRuntimeLoadedFiles {
 
           const abs = path.join(run.manifestDir, distRel)
 
-          if (isFile(abs)) run.emitCopy(abs, distRel)
+          if (isFile(abs)) {
+            run.emitCopy(
+              abs,
+              distRel,
+              run.sayNotShipped(asset.name, literal, distRel)
+            )
+          }
         }
       }
     }
@@ -1038,13 +1061,49 @@ export class TraceRuntimeLoadedFiles {
           }
 
           // getURL paths are root-anchored, so source and dist paths match.
-          const plan = planTracedFile({
-            manifestDir: run.manifestDir,
-            sourceRel,
-            distRel,
-            loadsAs: 'by-shape',
-            hasAsset: run.hasAsset
-          })
+          const plan = run.plan({sourceRel, distRel, loadsAs: 'by-shape'})
+          // Warn only for extensioned getURL misses found in JS: HTML
+          // misses are the page author's problem, extensionless args
+          // often origin math.
+          const missSpeaks =
+            item.kind === 'js' && /\.[a-zA-Z0-9]{1,8}$/.test(distRel)
+
+          const sayMissing = () => {
+            const {expectedPath, foundOutside} = this.missingFileHint(
+              run,
+              sourceRel
+            )
+
+            run.warn(
+              isStaticImport
+                ? 'RuntimeStaticImportFileMissing'
+                : isRuntimeSurface
+                  ? 'RuntimeSetSurfaceFileMissing'
+                  : 'RuntimeGetURLFileMissing',
+              assetName,
+              isStaticImport
+                ? messages.staticImportDependencyMissing(
+                    assetName,
+                    literal,
+                    expectedPath,
+                    foundOutside
+                  )
+                : isRuntimeSurface
+                  ? messages.runtimeSetSurfaceDependencyMissing(
+                      assetName,
+                      literal,
+                      expectedPath,
+                      foundOutside
+                    )
+                  : messages.getURLDependencyMissing(
+                      assetName,
+                      literal,
+                      expectedPath,
+                      foundOutside
+                    )
+            )
+          }
+
           const copied = run.apply(plan, {
             context: item.kind === 'js' ? 'getURL' : 'html',
             onMissing: () => {
@@ -1053,46 +1112,15 @@ export class TraceRuntimeLoadedFiles {
               shippedByWar ??= this.webAccessibleOutputs(run)
               if (shippedByWar.has(distRel)) return
 
-              // Warn only for extensioned getURL misses found in JS: HTML
-              // misses are the page author's problem, extensionless args
-              // often origin math.
-              if (item.kind !== 'js' || !/\.[a-zA-Z0-9]{1,8}$/.test(distRel)) {
-                return
-              }
+              if (missSpeaks) sayMissing()
+            },
+            // A withheld file is said where a miss stays quiet, since the
+            // file is there and the author cannot tell why it did not ship.
+            onWithheld: () => {
+              if (quiet) return
 
-              const {expectedPath, foundOutside} = this.missingFileHint(
-                run,
-                sourceRel
-              )
-
-              run.warn(
-                isStaticImport
-                  ? 'RuntimeStaticImportFileMissing'
-                  : isRuntimeSurface
-                    ? 'RuntimeSetSurfaceFileMissing'
-                    : 'RuntimeGetURLFileMissing',
-                assetName,
-                isStaticImport
-                  ? messages.staticImportDependencyMissing(
-                      assetName,
-                      literal,
-                      expectedPath,
-                      foundOutside
-                    )
-                  : isRuntimeSurface
-                    ? messages.runtimeSetSurfaceDependencyMissing(
-                        assetName,
-                        literal,
-                        expectedPath,
-                        foundOutside
-                      )
-                    : messages.getURLDependencyMissing(
-                        assetName,
-                        literal,
-                        expectedPath,
-                        foundOutside
-                      )
-              )
+              if (missSpeaks) sayMissing()
+              else run.sayNotShipped(assetName, literal, distRel)()
             },
             onSourceSpelling: (emitPath) =>
               run.warn(
@@ -1231,7 +1259,11 @@ export class TraceRuntimeLoadedFiles {
           if (!abs) continue
 
           seen.add(distRel)
-          run.emitCopy(abs, distRel)
+          run.emitCopy(
+            abs,
+            distRel,
+            run.sayNotShipped(asset.name, literal, distRel)
+          )
         }
       }
     }
@@ -1240,7 +1272,7 @@ export class TraceRuntimeLoadedFiles {
   // Prebuilt webpack bundles are finished output, so their numeric chunks are
   // copied as-is.
   private traceWebpackChunkSiblings(run: TraceRun, only?: Set<string>) {
-    const {compilation, manifestDir, entrySourceDirs} = run
+    const {manifestDir, entrySourceDirs} = run
 
     for (const asset of run.jsAssets(only)) {
       const content = run.textOf(asset)
@@ -1273,10 +1305,10 @@ export class TraceRuntimeLoadedFiles {
           const abs = path.join(sourceDir, file)
           // publicPath is "" (page-relative) in some prebuilt bundles and
           // "/" (root-anchored) in others, emit at both resolutions.
-          copyIfExists(compilation, abs, file)
+          run.copySibling(abs, file)
 
           if (assetDirRel && assetDirRel !== '.') {
-            copyIfExists(compilation, abs, `${assetDirRel}/${file}`)
+            run.copySibling(abs, `${assetDirRel}/${file}`)
           }
         }
       }
@@ -1295,12 +1327,10 @@ export class TraceRuntimeLoadedFiles {
 
         seen.add(distRel)
 
-        const plan = planTracedFile({
-          manifestDir: run.manifestDir,
+        const plan = run.plan({
           sourceRel: distRel,
           distRel,
-          loadsAs: 'classic',
-          hasAsset: run.hasAsset
+          loadsAs: 'classic'
         })
         const copied = run.apply(plan, {
           context: 'injected',
@@ -1342,13 +1372,7 @@ export class TraceRuntimeLoadedFiles {
 
       seen.add(distRel)
 
-      const plan = planTracedFile({
-        manifestDir: run.manifestDir,
-        sourceRel: distRel,
-        distRel,
-        loadsAs: 'classic',
-        hasAsset: run.hasAsset
-      })
+      const plan = run.plan({sourceRel: distRel, distRel, loadsAs: 'classic'})
       // Held to what a literal is, the warning naming the source file.
       const copied = run.apply(plan, {
         context: 'injected',
@@ -1402,6 +1426,9 @@ class TraceRun {
   private chunkEntries?: Map<string, Set<string>>
   private readonly builtSheets = new Set<string>()
   private readonly licensedDirs = new Set<string>()
+  // The output paths of files the code names and the build may not copy.
+  readonly withheld = new Set<string>()
+  private readonly projectRoots: string[]
 
   constructor(
     readonly compilation: Compilation,
@@ -1413,6 +1440,60 @@ class TraceRun {
     this.excluded = excludedFiles(
       (compiler.options.context as string | undefined) || manifestDir
     )
+
+    this.projectRoots = [
+      (compiler.options.context as string | undefined) || manifestDir,
+      manifestDir
+    ]
+  }
+
+  // The one guard every traced file passes before it is read: a private
+  // name, a place outside the project or a link to either never ships.
+  private readonly mayShip = (abs: string) =>
+    sourceFileMayShip(abs, this.projectRoots)
+
+  // Nothing is emitted for the path, and the build says so once.
+  private withhold(distRel: string, say: () => void) {
+    if (this.withheld.has(distRel)) return
+
+    this.withheld.add(distRel)
+    say()
+  }
+
+  // For a trace that stays quiet about a miss: the file is there, so the
+  // author is told why the output lacks it.
+  sayNotShipped(assetName: string, literal: string, distRel: string) {
+    return () =>
+      this.warn(
+        'CodeNamedFileNotShipped',
+        assetName,
+        messages.codeNamedFileNotShipped(assetName, literal, distRel)
+      )
+  }
+
+  plan(opts: {
+    sourceRel: string
+    distRel: string
+    loadsAs: TracedLoad
+  }): TracedFilePlan {
+    return planTracedFile({
+      ...opts,
+      manifestDir: this.manifestDir,
+      hasAsset: this.hasAsset,
+      mayRead: this.mayShip
+    })
+  }
+
+  // A file that rides along with a traced one, which no code names.
+  copySibling(abs: string, distRel: string) {
+    if (this.hasAsset(distRel) || !isFile(abs) || !this.mayShip(abs)) return
+
+    this.compilation.emitAsset(
+      distRel,
+      new sources.RawSource(fs.readFileSync(abs))
+    )
+
+    this.watch(abs)
   }
 
   // The paths injection calls name through a constant, read from every
@@ -1478,7 +1559,7 @@ class TraceRun {
     copied: string | null,
     plan: TracedFilePlan
   ) {
-    if (!/\.css$/i.test(distRel)) return
+    if (!/\.css$/i.test(distRel) || this.withheld.has(distRel)) return
 
     // A public/ file ships byte for byte, and the copier has it in the
     // output before this trace runs, so the folder says whose file it is.
@@ -1690,6 +1771,15 @@ class TraceRun {
       return null
     }
 
+    if (
+      (plan.kind === 'copy' || plan.kind === 'compile') &&
+      !this.mayShip(plan.sourcePath)
+    ) {
+      this.withhold(plan.emitPath, ctx.onWithheld ?? ctx.onMissing)
+
+      return null
+    }
+
     switch (plan.kind) {
       case 'skip':
         if (plan.reason === 'compiled-elsewhere') {
@@ -1702,7 +1792,7 @@ class TraceRun {
 
         return null
       case 'copy':
-        return this.emitCopy(plan.sourcePath, plan.emitPath)
+        return this.emitCopy(plan.sourcePath, plan.emitPath, () => {})
 
       case 'compile': {
         if (plan.spelledAs) ctx.onSourceSpelling(plan.emitPath, plan.spelledAs)
@@ -1727,8 +1817,14 @@ class TraceRun {
     }
   }
 
-  emitCopy(abs: string, distRel: string): string {
+  emitCopy(abs: string, distRel: string, onWithheld: () => void): string {
     if (isExcludedEntry(abs, this.excluded)) return ''
+
+    if (!this.mayShip(abs)) {
+      this.withhold(distRel, onWithheld)
+
+      return ''
+    }
 
     const buffer = fs.readFileSync(abs)
     this.compilation.emitAsset(distRel, new sources.RawSource(buffer))
@@ -1769,7 +1865,11 @@ class TraceRun {
       const abs = path.join(sourceDir, entry.name)
       const distRel = `${distDir}/${entry.name}`
 
-      if (this.hasAsset(distRel) || isExcludedEntry(abs, this.excluded)) {
+      if (
+        this.hasAsset(distRel) ||
+        isExcludedEntry(abs, this.excluded) ||
+        !this.mayShip(abs)
+      ) {
         continue
       }
 
@@ -1869,8 +1969,12 @@ export function planTracedFile(opts: {
   distRel: string
   loadsAs: TracedLoad
   hasAsset: (name: string) => boolean
+  // Asked before a source is opened to tell its shape. A file it refuses
+  // is planned as a copy, unread, for the caller's guard to withhold.
+  mayRead?: (abs: string) => boolean
 }): TracedFilePlan {
   const {manifestDir, sourceRel, distRel, loadsAs, hasAsset} = opts
+  const unread = (abs: string) => Boolean(opts.mayRead && !opts.mayRead(abs))
 
   // Already produced by the compilation (an emitted chunk or a previously
   // traced file), nothing to do.
@@ -1888,7 +1992,7 @@ export function planTracedFile(opts: {
   const ext = path.posix.extname(distRel).toLowerCase()
 
   if (inside && isFile(abs)) {
-    if (!SCRIPT_EXTENSIONS.has(ext)) {
+    if (!SCRIPT_EXTENSIONS.has(ext) || unread(abs)) {
       return {kind: 'copy', sourcePath: abs, emitPath: distRel}
     }
 
@@ -1937,6 +2041,10 @@ export function planTracedFile(opts: {
   // same mapping the manifest pipeline applies to scripts/ files.
   if (inside && ext === '.js') {
     const sibling = findSourceSibling(abs)
+
+    if (sibling && unread(sibling)) {
+      return {kind: 'copy', sourcePath: sibling, emitPath: distRel}
+    }
 
     if (sibling) {
       return {
@@ -2255,23 +2363,6 @@ function hasWebpackChunkLoadingRuntime(source: string): boolean {
   )
 }
 
-function copyIfExists(
-  compilation: Compilation,
-  abs: string,
-  distRel: string
-): void {
-  if (compilation.getAsset(distRel)) return
-  if (!isFile(abs)) return
-
-  compilation.emitAsset(distRel, new sources.RawSource(fs.readFileSync(abs)))
-
-  try {
-    compilation.fileDependencies.add(abs)
-  } catch {
-    // Ignore, watch registration is best-effort
-  }
-}
-
 // The source next to a missing .js literal (injected.ts for "injected.js"),
 // which the build compiles to that .js name.
 function findSourceSibling(abs: string): string | undefined {
@@ -2454,41 +2545,43 @@ function manifestDeclaredSourcePaths(
 // keys nested in background, that is spelled like a file path.
 function customManifestFileReferences(
   manifest: Record<string, unknown>
-): string[] {
-  const refs: string[] = []
+): Array<{key: string; literal: string}> {
+  const refs: Array<{key: string; literal: string}> = []
 
-  const collect = (value: unknown) => {
+  const collect = (key: string, value: unknown) => {
     if (typeof value === 'string') {
       const trimmed = value.trim()
 
       if (/\.[a-zA-Z0-9]{1,8}$/.test(trimmed) && !/\s/.test(trimmed)) {
-        refs.push(trimmed)
+        refs.push({key, literal: trimmed})
       }
 
       return
     }
 
     if (Array.isArray(value)) {
-      value.forEach(collect)
+      for (const item of value) collect(key, item)
 
       return
     }
 
     if (value && typeof value === 'object') {
-      Object.values(value).forEach(collect)
+      for (const item of Object.values(value)) collect(key, item)
     }
   }
 
   for (const [key, value] of Object.entries(manifest)) {
     if (!STANDARD_MANIFEST_KEYS.has(key)) {
-      collect(value)
+      collect(key, value)
       continue
     }
 
     if (key !== 'background' || !value || typeof value !== 'object') continue
 
     for (const [subKey, subValue] of Object.entries(value)) {
-      if (!STANDARD_BACKGROUND_KEYS.has(subKey)) collect(subValue)
+      if (!STANDARD_BACKGROUND_KEYS.has(subKey)) {
+        collect(`background.${subKey}`, subValue)
+      }
     }
   }
 

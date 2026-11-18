@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {RspackDevServer} from '@rspack/dev-server'
-import {afterAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeEach, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
 import {
@@ -13,6 +13,7 @@ import {
   EMULATOR_FILES_PATH,
   type EmulatorFileIndexHolder
 } from '../emulator-lane'
+import {skipWithoutDevelopDist} from './helpers/develop-dist'
 
 type FilesIndex = {
   version: number
@@ -131,6 +132,8 @@ async function startRun(
 
   return {server, port, nextCompile, compiles: () => compiles}
 }
+
+beforeEach(skipWithoutDevelopDist)
 
 describe('files.json across a dev server restart', () => {
   afterAll(() => {

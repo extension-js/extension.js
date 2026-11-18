@@ -7,22 +7,53 @@ It is responsible for:
 - turning manifest script declarations into Rspack entries
 - wrapping content scripts so they can mount into isolated roots
 - keeping content-script runtime behavior separate from page/script entries
-- enforcing the canonical content-script contract used by `plugin-reload` and `plugin-browsers`
+- enforcing the canonical content-script contract the rest of the pipeline reads (see below)
 
-The dev-only reload/HMR strategy is NOT part of this feature. It lives in
-`programs/develop/plugin-reload`, which registers after this plugin and
-decorates the entries created here.
+The dev reload and HMR strategy lives in `programs/develop/plugin-reload`, which
+registers after this plugin and decorates the entries created here. Two pieces
+of dev reload logic still sit in this folder until the maintainer rules on their
+home: the reinject runtime the wrapper loader writes into each content script in
+a dev session, and the restart state of `warn-main-world-registration-changed`,
+which `plugin-browsers` and `dev-server` read through `isAwaitingMainWorldRestart`.
 
 ## Entry point
 
-The feature is wired from `index.ts`, in every mode:
+`index.ts` applies nothing when the manifest path is not a file. Otherwise it
+applies these steps in this order. A step with no note runs in every mode and
+for every browser. `__spec__/scripts-plugin-steps.spec.ts` pins which steps a
+real compiler takes per mode and browser.
 
-1. `AddScripts`
-2. `TraceRuntimeLoadedFiles`
-3. `KeepGetURLImportsNative`
-4. `AddContentScriptWrapper`
-5. `AddPublicPathRuntimeModule` (production only)
-6. `ValidateContentScriptSyntax`
+1. `AddScripts`: script entries from the manifest and `scripts/`
+2. `CompileMainWorldScripts`: in development, MAIN world files compile apart
+   from the HMR runtime. In production, a MAIN world copy gets its own layer
+3. `KeepCompletionValue`: a `scripts/` file ends on its own value
+4. `PlaceRuntimeScriptSheets`: a `scripts/` file carries the sheet of its CSS
+   modules. Development also prunes stale sheets after each build
+5. `RootInjectedSheetUrls`: injected sheets name their `url()` targets from the
+   extension (not on WebKit)
+6. `TakeExtensionBase`: defines the base attribute and scheme everywhere, and
+   on Gecko opens each MAIN world file on the read of the base
+7. `PairRuntimeMainWorldBridges`: pairs runtime MAIN world registrations with a
+   bridge (Gecko only)
+8. `RouteMainWorldCopies`: routes MAIN world calls to the copy build (only when
+   a file runs in the MAIN world at runtime)
+9. `TraceRuntimeLoadedFiles`
+10. `KeepGetURLImportsNative`
+11. `AddContentScriptWrapper`
+12. `AddPublicPathRuntimeModule` (production only)
+13. `AddBaseUriRuntimeModule`
+14. `PruneMainWorldBridges` (production only)
+15. `ValidateEmittedScriptSyntax`
+16. `StampWebkitUtf8Bom` (WebKit only)
+17. `WarnSplitInitialChunks`
+18. `WarnPageContextWorker`
+19. `WarnPageRelativeScriptPath` (Gecko only)
+20. `WarnMovedPageRelativeUrls`
+21. `WarnUnknownRegistrationWorld`
+22. `WarnMainWorldRegistrationChanged` (development only)
+23. `WarnMissingBuildConstants` (production, and a development build with no
+    dev session)
+24. `WarnUnshippedRuntimeAssets`
 
 ## Important files
 
@@ -42,29 +73,36 @@ The feature is wired from `index.ts`, in every mode:
   Keeps `import(chrome.runtime.getURL(...))` a native `import()` in the emitted bundle.
 
 - `steps/add-public-path-runtime-module.ts`
-  Injects the production public-path runtime module for content bundles.
+  Injects the production public-path runtime module for content bundles. In a dev session the public path comes from `feature-chunk-loading` instead.
 
 - `steps/validate-emitted-script-syntax.ts`
   Fails loudly on syntax errors swc tolerates but browsers silently refuse to inject.
 
+- `steps/compile-main-world-scripts.ts`
+  Compiles MAIN world groups in child compilations during development, so the HMR runtime never lands on the page.
+
+- `steps/warn-*.ts`
+  Build warnings for mistakes the build would otherwise pass in silence. Each file names the case it warns about.
+
 - `scripts-lib/*`
-  Shared helpers for manifest/script discovery and minimum runtime files.
+  Shared helpers: script entry paths (`utils.ts`), MAIN world discovery from source (`runtime-main-world-scripts.ts`, `registration-worlds.ts`), the bridge pairing and copy routing wrappers, injected sheet URLs, build constants, the taken extension base and completion values.
 
 ## Canonical contract
 
 The rest of the dev pipeline does not infer content entries from user folder names. It relies on the canonical contract exported by `contracts.ts`.
 
 - Entry names: `content_scripts/content-${index}`
-- JS assets: `content_scripts/content-${index}.js`
-- CSS assets: `content_scripts/content-${index}.css`
+- JS assets: `content_scripts/content-${index}.js` (a dev session adds a hash segment before `.js`)
+- CSS assets: `content_scripts/content-${index}.css` (same hash rule)
 - Layer: `extensionjs-content-script`
 
 That contract is consumed by:
 
-- `feature-manifest`
-- `feature-html`
-- `plugin-reload` (classifier + reload strategy)
-- `plugin-browsers`
+- `feature-manifest` (manifest overrides, dev content script paths, dev injected hosts)
+- `feature-html` (keeps the page HMR loader off content entries)
+- `feature-web-resources` (web accessible resources)
+- `plugin-reload` (classifier, dev content script registry, reload strategy)
+- `plugin-css` and `plugin-js-frameworks` (the content script layer)
 
 If this contract changes, update those consumers together.
 
@@ -76,7 +114,7 @@ That keeps the user-facing manifest contract intact while giving the bundler and
 
 ## MAIN world support
 
-MAIN-world content scripts get wrapper-side bridge script generation in `add-content-script-wrapper`; dev-mode bridge metadata for reinjection is built by `plugin-reload`'s `SetupReloadStrategy`.
+MAIN-world content scripts get wrapper-side bridge script generation in `add-content-script-wrapper`. Dev-mode bridge metadata for reinjection is built by `plugin-reload`'s `SetupReloadStrategy`.
 
 The main bundle and bridge bundle are both registered under canonical content asset names so browser-side reinjection and source tracking stay deterministic.
 
@@ -108,11 +146,13 @@ Focused unit coverage for this feature lives in `__spec__/`.
 
 High-signal specs include:
 
+- `scripts-plugin-steps.spec.ts` (which steps a real compiler takes per mode and browser)
 - `add-scripts.spec.ts`
 - `content-script-wrapper.spec.ts`
 - `contracts.spec.ts`
 - `get-bridge-scripts.spec.ts`
-- `scripts-plugin-wrapper-gating.spec.ts`
+
+`production-page-exposure.spec.ts` and `production-bundle-payload.spec.ts` run real builds and resolve the loaders from `programs/develop/dist`, so they need `pnpm compile` in `programs/develop` first.
 
 Reload-strategy specs live in `plugin-reload/__spec__/`. Behavioral reload verification is covered by the scripts templates in the public [extension-js/templates](https://github.com/extension-js/templates) repo.
 
