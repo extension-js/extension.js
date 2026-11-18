@@ -272,6 +272,21 @@ describe('profile lock detection', () => {
     })
   })
 
+  it('still refuses for a program of any name that was started on this data dir', () => {
+    fs.writeFileSync(
+      path.join(profile, 'SingletonLock'),
+      `${os.hostname()}-${process.pid}`,
+      'utf8'
+    )
+
+    expect(() =>
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: () =>
+          `/opt/builds/1234/headless_shell --user-data-dir=${profile} --no-sandbox`
+      })
+    ).toThrow(/already in use by process/)
+  })
+
   describe('an owner the system will not let this user signal', () => {
     afterEach(() => vi.restoreAllMocks())
 

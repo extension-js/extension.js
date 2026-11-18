@@ -333,6 +333,15 @@ function commandHoldsChromiumProfile(
     command
   )
 
+  // Started on exactly this data dir, it holds it whatever it is named.
+  const startedHere = profilePaths.some((p) =>
+    ['', '"', "'"].some((quote) =>
+      namesWholePath(command, `--user-data-dir=${quote}${p}`)
+    )
+  )
+
+  if (startedHere) return true
+
   // The program itself, not a word anywhere in its arguments.
   const program = path.basename(binary.split(/\s-/)[0].trim())
 
