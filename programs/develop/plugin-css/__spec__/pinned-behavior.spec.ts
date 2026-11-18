@@ -77,8 +77,8 @@ function productionSources(dir: string): string[] {
   return found
 }
 
-describe('postcss-preset-env and postcss-scss', () => {
-  it('are listed by the sass contract and imported by no production file', () => {
+describe('postcss-scss and postcss-preset-env', () => {
+  it('are imported by no production file, and the sass contract lists only the first', () => {
     const importOf = (name: string) =>
       new RegExp(
         `(from\\s*|require\\(\\s*|import\\(\\s*)['"]${name}(/[^'"]*)?['"]`
@@ -97,12 +97,7 @@ describe('postcss-preset-env and postcss-scss', () => {
       getOptionalDependencyContract('sass').installPackages.map((spec) =>
         spec.replace(/(.)@.*$/, '$1')
       )
-    ).toEqual([
-      'postcss-loader',
-      'postcss-scss',
-      'postcss-preset-env',
-      'sass-loader'
-    ])
+    ).toEqual(['postcss-loader', 'postcss-scss', 'sass-loader'])
 
     expect(importers).toEqual([])
   })
