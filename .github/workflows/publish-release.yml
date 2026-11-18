@@ -304,6 +304,11 @@ jobs:
       - name: Check the emitted declarations
         run: node scripts/check-emitted-types.mjs
 
+      # A manifest entry that names a file the tarball lacks breaks every
+      # consumer whose resolver follows it. The dry run packs what npm will.
+      - name: Check every manifest entry is in its tarball
+        run: pnpm check:packed-exports
+
       - name: Run tests (CLI + Develop)
         run: pnpm -w test
 

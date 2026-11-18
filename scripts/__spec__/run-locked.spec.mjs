@@ -14,6 +14,10 @@ import path from 'node:path'
 import {test} from 'node:test'
 import {fileURLToPath} from 'node:url'
 import {
+  workspaceSourceAliases,
+  workspaceSourceEntries
+} from '../lib/workspace-source-entries.mjs'
+import {
   acquireLock,
   isProcessAlive,
   lockDirFor,
@@ -205,36 +209,69 @@ test('the develop compile runs under the lock and one lib emits declarations', (
 })
 
 test('the typecheck resolves workspace packages to source, not to dist', () => {
-  const scripts = JSON.parse(
-    fs.readFileSync(path.join(root, 'package.json'), 'utf8')
-  ).scripts
-  const develop = JSON.parse(
-    fs.readFileSync(
-      path.join(root, 'programs', 'develop', 'package.json'),
-      'utf8'
+  const tsconfig = JSON.parse(
+    fs
+      .readFileSync(path.join(root, 'tsconfig.json'), 'utf8')
+      .replace(/^\s*\/\/.*$/gm, '')
+  )
+  const paths = tsconfig.compilerOptions.paths
+
+  // The typecheck and the specs of the CLI read one map, so they cannot differ.
+  assert.deepEqual(
+    paths,
+    Object.fromEntries(
+      Object.entries(workspaceSourceEntries).map(([specifier, file]) => [
+        specifier,
+        [`./${file}`]
+      ])
     )
   )
-  const passes = scripts.typecheck.split('&&')
 
-  assert.equal(passes.length, 3)
-
-  for (const pass of passes) {
-    assert.ok(pass.includes('--customConditions development'), pass)
+  for (const file of Object.values(workspaceSourceEntries)) {
+    assert.ok(fs.existsSync(path.join(root, file)), file)
   }
 
-  // Every typed entry needs a source target, or that entry falls back to dist.
-  for (const [subpath, entry] of Object.entries(develop.exports)) {
-    if (typeof entry !== 'object' || !entry.types) continue
-
-    assert.ok(
-      typeof entry.development === 'string' &&
-        entry.development.endsWith('.ts') &&
-        fs.existsSync(
-          path.join(root, 'programs', 'develop', entry.development)
-        ),
-      `exports["${subpath}"] has no source file under "development"`
+  // Every typed entry needs a source file, or that entry falls back to dist.
+  for (const name of ['create', 'develop', 'install']) {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(root, 'programs', name, 'package.json'), 'utf8')
     )
 
-    assert.equal(Object.keys(entry)[0], 'development')
+    for (const [subpath, entry] of Object.entries(manifest.exports)) {
+      if (typeof entry !== 'object' || !entry.types) continue
+
+      const specifier = path.posix.join(manifest.name, subpath)
+
+      assert.ok(
+        workspaceSourceEntries[specifier]?.startsWith(`programs/${name}/`),
+        `${specifier} has no source file in workspace-source-entries.mjs`
+      )
+    }
   }
+})
+
+test('the specs of the CLI read the sibling packages from the same map', () => {
+  const config = fs.readFileSync(
+    path.join(root, 'programs', 'extension', 'vitest.config.ts'),
+    'utf8'
+  )
+  const aliases = workspaceSourceAliases(root)
+
+  assert.ok(config.includes('alias: workspaceSourceAliases()'))
+  assert.equal(aliases.length, Object.keys(workspaceSourceEntries).length)
+
+  const [preview] = aliases.filter(({find}) =>
+    find.test('extension-develop/preview')
+  )
+
+  assert.equal(
+    preview.replacement,
+    path.join(root, 'programs', 'develop', 'preview-entry.ts')
+  )
+
+  // A deeper import of a package is not an entry and keeps its own path.
+  assert.deepEqual(
+    aliases.filter(({find}) => find.test('extension-develop/contract/a.json')),
+    []
+  )
 })

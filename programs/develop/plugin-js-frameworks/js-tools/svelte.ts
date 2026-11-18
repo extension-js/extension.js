@@ -126,6 +126,43 @@ export function chooseSvelteRoot(input: {
   }
 }
 
+type ResolveOptions = NonNullable<
+  import('@rspack/core').Compiler['options']['resolve']
+>
+
+// Svelte libraries publish under the `svelte` export condition, often with no
+// other key, so a Svelte project offers it first, as vite-plugin-svelte does.
+export function withSvelteCondition(
+  conditionNames: ResolveOptions['conditionNames']
+): ResolveOptions['conditionNames'] {
+  if (!Array.isArray(conditionNames)) return conditionNames
+  if (conditionNames.includes('svelte')) return conditionNames
+
+  return ['svelte', ...conditionNames]
+}
+
+// Only the script resolvers take it: the stylesheet ones keep their own list.
+export function withSvelteConditionByDependency(
+  byDependency: ResolveOptions['byDependency']
+): ResolveOptions['byDependency'] {
+  if (!byDependency) return byDependency
+
+  const next: NonNullable<ResolveOptions['byDependency']> = {}
+
+  for (const [dependencyType, options] of Object.entries(byDependency)) {
+    const names = options?.conditionNames
+    const isScript =
+      Array.isArray(names) &&
+      (names.includes('import') || names.includes('require'))
+
+    next[dependencyType] = isScript
+      ? {...options, conditionNames: withSvelteCondition(names)}
+      : options
+  }
+
+  return next
+}
+
 export function isUsingSvelte(
   projectPath: string,
   notice: {delivered: boolean} = svelteNotice
@@ -293,10 +330,16 @@ export async function maybeUseSvelte(
 
       const dedupe = (arr: string[]) => Array.from(new Set(arr))
 
+      const {conditionNames, byDependency} = compiler.options.resolve || {}
+
       compiler.options.resolve = {
         ...compiler.options.resolve,
-        // Keep the host bundler/browser conditions untouched: a `svelte` export
-        // condition can resolve server entries that pull node: built-ins.
+        ...(conditionNames
+          ? {conditionNames: withSvelteCondition(conditionNames)}
+          : {}),
+        ...(byDependency
+          ? {byDependency: withSvelteConditionByDependency(byDependency)}
+          : {}),
         extensions: dedupe(['.svelte', ...existingExtensions]),
         modules: dedupe([
           path.join(projectPath, 'node_modules'),
