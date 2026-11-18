@@ -18,6 +18,7 @@ import {
   stampReadyBrowserUpNotAttached,
   stampReadyCdpFault,
   stampReadyCdpPort,
+  stampReadyDevBrowserFlag,
   stampReadyExtensionBaseUrl,
   stampReadyExtensionId,
   stampReadyExtensionLoadRefused,
@@ -25,6 +26,7 @@ import {
   stampReadyRdpPort,
   stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
+import {isFreshContractPayload} from '../../../commands/dev-wait'
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
 // Every stamp time is written with toISOString.
@@ -1083,6 +1085,160 @@ describe('stampReadyExtensionBaseUrl', () => {
     expect(
       'extensionBaseUrl' in JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     ).toBe(false)
+  })
+})
+
+describe('the time a launcher stamp leaves on the record', () => {
+  const WRITTEN = '2026-11-01T00:00:00.000Z'
+  const held = {command: 'dev', status: 'starting', compiledAt: WRITTEN}
+  const up = {command: 'dev', status: 'ready', compiledAt: WRITTEN}
+
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-ts-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const stamped = (
+    record: Record<string, unknown>,
+    stamp: (out: string) => void
+  ) => {
+    fs.writeFileSync(readyPath, JSON.stringify({...record, ts: WRITTEN}))
+    stamp(outputPath)
+
+    return JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+  }
+
+  it.each<
+    [string, Record<string, unknown>, (out: string) => void, 'ready' | 'error']
+  >([
+    ['the RDP port', held, (out) => stampReadyRdpPort(out, 6006), 'ready'],
+    [
+      'the reason there is no RDP port',
+      held,
+      (out) => stampReadyRdpPortError(out, 'never opened'),
+      'ready'
+    ],
+    ['the CDP port', held, (out) => stampReadyCdpPort(out, 9222), 'ready'],
+    [
+      'a CDP fault',
+      held,
+      (out) => stampReadyCdpFault(out, 'E_CDP_PORT_CLOSED', 'closed'),
+      'ready'
+    ],
+    [
+      'a launch after one that failed',
+      {
+        ...up,
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedAt: WRITTEN
+      },
+      (out) => stampReadyBrowserLaunch(out, {profilePath: '/tmp/profile'}),
+      'ready'
+    ],
+    [
+      'a failed launch',
+      up,
+      (out) => stampReadyBrowserLaunchFailed(out, 'no binary'),
+      'error'
+    ],
+    [
+      'a refused load',
+      up,
+      (out) => stampReadyExtensionLoadRefused(out, 'bad manifest'),
+      'error'
+    ],
+    [
+      'a locked profile',
+      up,
+      (out) => stampReadyProfileLocked(out, {}),
+      'error'
+    ],
+    [
+      'a browser that left a start session',
+      {...up, command: 'start'},
+      (out) => stampReadyBrowserExited(out, 1),
+      'error'
+    ],
+    [
+      'a browser that left before the extension loaded',
+      up,
+      (out) =>
+        stampReadyBrowserExited(out, 1, null, undefined, {
+          beforeReady: true
+        }),
+      'error'
+    ]
+  ])('keeps the old date on the status %s writes', (_name, record, stamp, status) => {
+    const ready = stamped(record, stamp)
+
+    expect(ready.status).toBe(status)
+    expect(ready.ts).toBe(WRITTEN)
+  })
+
+  it.each<[string, Record<string, unknown>, (out: string) => void]>([
+    ['a port on a ready record', up, (out) => stampReadyRdpPort(out, 6006)],
+    [
+      'a port a held record still cannot go ready on',
+      {...held, awaitingExecutorSince: WRITTEN},
+      (out) => stampReadyCdpPort(out, 9222)
+    ],
+    [
+      'the extension ID',
+      up,
+      (out) => stampReadyExtensionId(out, 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa')
+    ],
+    [
+      'the extension base URL',
+      up,
+      (out) => stampReadyExtensionBaseUrl(out, 'moz-extension://host-1234/')
+    ],
+    [
+      'the launch details',
+      up,
+      (out) => stampReadyBrowserLaunch(out, {profilePath: '/tmp/profile'})
+    ],
+    [
+      'a browser flag',
+      up,
+      (out) => stampReadyDevBrowserFlag(out, {kind: '', value: '--flag'})
+    ],
+    [
+      'a browser that left a dev session',
+      up,
+      (out) => stampReadyBrowserExited(out, 0)
+    ],
+    [
+      'the hint that nothing attached',
+      {...up, compiledAt: null},
+      (out) =>
+        stampReadyBrowserUpNotAttached(out, {waitedMs: 10_000, hint: 'hint'})
+    ]
+  ])('leaves the date alone for %s, a fact beside the status', (_name, record, stamp) => {
+    const ready = stamped(record, stamp)
+
+    expect(ready.status).toBe(record.status)
+    expect(ready.ts).toBe(WRITTEN)
+    expect(ready).not.toEqual({...record, ts: WRITTEN})
+  })
+
+  it('lets a waiting reader take an error the launcher wrote late as old', () => {
+    const ready = stamped({...up, command: 'start'}, (out) =>
+      stampReadyBrowserExited(out, 1)
+    )
+
+    expect(ready.code).toBe('browser_exited')
+    expect(isFreshContractPayload(ready)).toBe(false)
   })
 })
 
