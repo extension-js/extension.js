@@ -14,7 +14,7 @@ import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
 import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
 import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList} from '../../../types'
-import {handleStaticAsset} from './assets'
+import {handleStaticAsset, isWithheldPageAsset} from './assets'
 import {bakeBaseHref} from './base-href'
 import {findCompiledRootRefSource} from './compiled-root-ref'
 import {createScriptTag, injectJsScript, scriptTagAttrs} from './inject'
@@ -379,7 +379,10 @@ export function patchHtmlNested(
                     cleanPath + (search || '') + (hash || '')
                   )
                 } else {
-                  if (fs.existsSync(absolutePath)) {
+                  if (
+                    fs.existsSync(absolutePath) &&
+                    !isWithheldPageAsset(compilation, absolutePath, manifestDir)
+                  ) {
                     const filepath = htmlStaticAssetOutputName(
                       manifestDir,
                       htmlEntry,

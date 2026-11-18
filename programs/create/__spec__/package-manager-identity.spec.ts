@@ -71,7 +71,9 @@ describe('one package-manager identity per scaffold', () => {
     vi.stubEnv('npm_config_user_agent', npmUserAgent)
     const dir = await project({name: 'seed', packageManager: 'pnpm@8.15.0'})
     expect(resolveProjectPackageManager(dir)).toBe('pnpm')
-    expect(declarePackageManager(dir, 'pnpm', noProbe).spec).toBe('pnpm@8.15.0')
+    expect((await declarePackageManager(dir, 'pnpm', noProbe)).spec).toBe(
+      'pnpm@8.15.0'
+    )
   })
 
   it('reads a shipped pnpm workspace file as a pnpm layout', async () => {
@@ -84,7 +86,9 @@ describe('one package-manager identity per scaffold', () => {
     vi.stubEnv('npm_config_user_agent', npmUserAgent)
     const dir = await project({name: 'seed'})
     expect(resolveProjectPackageManager(dir)).toBe('npm')
-    expect(declarePackageManager(dir, 'npm', noProbe).spec).toBe('npm@11.11.0')
+    expect((await declarePackageManager(dir, 'npm', noProbe)).spec).toBe(
+      'npm@11.11.0'
+    )
   })
 
   it('still declares a usable manager when the environment names none', async () => {
@@ -103,7 +107,7 @@ describe('one package-manager identity per scaffold', () => {
       return {status: 0, stdout: '10.9.2\n'}
     }
 
-    expect(declarePackageManager(dir, 'npm', installed)).toEqual({
+    expect(await declarePackageManager(dir, 'npm', installed)).toEqual({
       spec: 'npm@10.9.2'
     })
 

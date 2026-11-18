@@ -129,7 +129,9 @@ export default function webpackConfig(
     projectRoot: packageJsonDir,
     config: devOptions.extensions,
     browser: devOptions.browser,
-    manifestPath
+    manifestPath,
+    // The runner plugin is handed over only by a session that opens a browser.
+    launchesBrowser: Boolean(devOptions.browsersPlugin)
   })
 
   const unpackedExtensionDirsToLoad = computeExtensionsToLoad(

@@ -127,11 +127,10 @@ describe('the order Firefox is handed the add-ons in', () => {
     }
   )
 
-  // Pins today's behavior. Ledger 1374 D14.
-  it('installs a manager named with backslashes first, as if it were the user add-on', async () => {
+  it('installs the user add-on before a manager named with backslashes', async () => {
     // One folder with a backslash in its name here, a nested one on Windows.
     const manager = addonAt(path.join(project, 'extensions\\firefox-manager'))
 
-    expect(await firstInstall(manager)).toEqual([manager])
+    expect(await firstInstall(manager)).toEqual([dist])
   })
 })
