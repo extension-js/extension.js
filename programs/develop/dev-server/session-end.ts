@@ -25,6 +25,27 @@ export function registerLiveSession(
   }
 }
 
+// Writes the failed frame, then each step that ends the session. True once
+// the frame is out, and a step that throws does not skip the ones after it.
+export function endAfterFrame(
+  writeFrame: () => void,
+  steps: Array<() => unknown>
+): true {
+  writeFrame()
+
+  for (const step of steps) {
+    try {
+      const result = step()
+
+      if (result instanceof Promise) result.catch(() => {})
+    } catch {
+      // The frame says the session ended, so the rest of it still goes.
+    }
+  }
+
+  return true
+}
+
 // For a host that learns a session cannot go on: the named one, or the newest.
 // False when it is not live, and the host then reports the failure itself.
 export function endSessionAsFailed(

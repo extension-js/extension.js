@@ -1,7 +1,12 @@
 import {describe, expect, it} from 'vitest'
 import {CODES} from '../../lib/messaging'
+import type {ErrorCode} from '../../module'
 import {createLifecycleStream} from '../lifecycle-stream'
-import {endSessionAsFailed, registerLiveSession} from '../session-end'
+import {
+  endAfterFrame,
+  endSessionAsFailed,
+  registerLiveSession
+} from '../session-end'
 
 describe('a host ending the dev sessions of its process as failed', () => {
   it('says no session is live, so the host reports the failure itself', () => {
@@ -34,6 +39,11 @@ describe('a host ending the dev sessions of its process as failed', () => {
 
     try {
       stream.starting({requestedPort: 8080, port: 8080})
+
+      // Named, the session that throws answers false and writes nothing.
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone', 'broken')).toBe(
+        false
+      )
 
       expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'the owner is gone')).toBe(
         true
@@ -107,5 +117,40 @@ describe('a host naming the dev session it ends as failed', () => {
     } finally {
       for (const off of unregister) off()
     }
+  })
+})
+
+describe('a dev session that throws while it ends as failed', () => {
+  it('answers true once its frame is out and still runs the release', () => {
+    const steps: string[] = []
+    const unregister = registerLiveSession('throws', (code, message) =>
+      endAfterFrame(
+        () => steps.push(`frame ${code} ${message}`),
+        [
+          () => {
+            throw new Error('the restart would not stop')
+          },
+          () => Promise.reject(new Error('the bridge would not close')),
+          () => steps.push('release')
+        ]
+      )
+    )
+
+    try {
+      expect(endSessionAsFailed(CODES.E_PARENT_GONE, 'gone', 'throws')).toBe(
+        true
+      )
+
+      expect(steps).toEqual(['frame E_PARENT_GONE gone', 'release'])
+    } finally {
+      unregister()
+    }
+  })
+
+  it('types a host hint resolver by the codes the package exports', () => {
+    const hintFor = (code: ErrorCode) =>
+      code === CODES.E_PARENT_GONE ? 'the owner is gone' : undefined
+
+    expect(hintFor(CODES.E_PARENT_GONE)).toBe('the owner is gone')
   })
 })

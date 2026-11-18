@@ -112,7 +112,7 @@ import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig} from './server-config'
 import {claimDevSession} from './session-claim'
-import {registerLiveSession} from './session-end'
+import {endAfterFrame, registerLiveSession} from './session-end'
 import {exportSessionEnv} from './session-env'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {createSessionHoldings} from './session-holdings'
@@ -1421,25 +1421,28 @@ async function startDevSession(
       // A session already stopping keeps the frame and exit code it has.
       if (isShuttingDown) return false
 
-      lifecycle.failed(message, code)
+      const writeFrame = () => lifecycle.failed(message, code)
 
       if (exitOnStartFailure) {
-        void disposeCleanupHandlers.endAsFailed()
-
-        return true
+        return endAfterFrame(writeFrame, [
+          () => disposeCleanupHandlers.endAsFailed()
+        ])
       }
 
-      isShuttingDown = true
-      sessionRestart.dispose()
-      unbindDevSessionRestart(sessionRestart)
-      void releaseEndedSession({
-        server: currentServer ?? {},
-        releasePort: () => portManager.terminateCurrentInstance(),
-        closeControlBridge: controlBridge.close,
-        holdings
-      })
-
-      return true
+      return endAfterFrame(writeFrame, [
+        () => {
+          isShuttingDown = true
+        },
+        () => sessionRestart.dispose(),
+        () => unbindDevSessionRestart(sessionRestart),
+        () =>
+          releaseEndedSession({
+            server: currentServer ?? {},
+            releasePort: () => portManager.terminateCurrentInstance(),
+            closeControlBridge: controlBridge.close,
+            holdings
+          })
+      ])
     })
   )
 }
