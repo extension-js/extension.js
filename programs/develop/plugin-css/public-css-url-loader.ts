@@ -14,6 +14,7 @@ import {
 } from '../plugin-special-folders/resolve-public-folder'
 import {publicOwnedOutputName, replaceCssUrlRefs} from './css-lib/dead-url-refs'
 import {lineRewriteSourceMap} from './css-lib/line-rewrite-source-map'
+import * as messages from './css-lib/messages'
 
 export const PUBLIC_ROOT_SCHEME = 'https://extensionjs-public.invalid'
 
@@ -25,6 +26,7 @@ export interface PublicCssUrlLoaderOptions {
 interface PublicCssUrlLoaderContext {
   resourcePath?: string
   getOptions(): PublicCssUrlLoaderOptions
+  emitWarning?(warning: Error): void
   addDependency?(file: string): void
   callback(error: null, content: string, map?: unknown): void
 }
@@ -104,8 +106,16 @@ export default function publicCssUrlLoader(
           ? {issuerDir: path.dirname(this.resourcePath), publicDir}
           : undefined
       )
-    } catch {
+    } catch (error) {
       // A reference rewrite must never break a build the browser would accept.
+      this.emitWarning?.(
+        Object.assign(
+          new Error(
+            messages.cssUrlRewriteSkipped(this.resourcePath || '', error)
+          ),
+          {name: 'CssUrlRewriteWarning'}
+        )
+      )
     }
   }
 
