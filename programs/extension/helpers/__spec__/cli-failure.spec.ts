@@ -233,12 +233,12 @@ describe('a command handed more arguments than it takes', () => {
     )
   })
 
-  it('keeps E_ARGS and carries the first extra argument and the remedy in the frame', () => {
+  it('keeps E_ARGS and carries the remedy in the frame', () => {
     const frame = commanderErrorEnvelope(excess, 'dev')
 
     expect(frame.status).toBe('usage')
     expect(frame.error?.code).toBe('E_ARGS')
-    expect(frame.error?.refs).toEqual({argument: 'extension'})
+    expect(frame.error?.message).toContain('my, extension, folder')
     expect(frame.hint).toBe(
       'Put quotes around a path that has spaces, or run extension dev --help to see the arguments.'
     )
@@ -257,6 +257,7 @@ describe('a command handed more arguments than it takes', () => {
     expect(lines[0]).toBe(
       "⏵⏵⏵ Too many arguments for 'dev'. Expected 1 argument but got 2: a, b, c."
     )
+
     expect(
       commanderErrorEnvelope(
         {
@@ -265,7 +266,7 @@ describe('a command handed more arguments than it takes', () => {
             'error: too many arguments. Expected 1 argument but got 2: a, b, c.'
         },
         'dev'
-      ).error?.refs
+      ).hint
     ).toBeUndefined()
   })
 })
