@@ -31,7 +31,7 @@ import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/sc
 import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {toPosixPath} from './css-lib/dead-url-refs'
+import {cssUrlRefCandidates, toPosixPath} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
@@ -323,8 +323,6 @@ export class CssPlugin {
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || process.cwd()
     let roots = [manifestDir]
-    const assetExt =
-      /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
     let compilation: import('@rspack/core').Compilation | null = null
     const warned = new Set<string>()
 
@@ -359,33 +357,11 @@ export class CssPlugin {
             // way from a `.vue.css` issuer; cancelling it drops the block.
             if (raw.includes('!')) return
 
-            const req = raw.split('?')[0].split('#')[0]
-
-            if (
-              !req ||
-              req.startsWith('//') ||
-              /^[a-z][a-z0-9+.-]*:/i.test(req)
-            ) {
-              return
-            }
-
-            if (req.startsWith('~') || req.startsWith('@')) return
-
-            const isRootRef = req.startsWith('/')
-            const isRelativeRef = req.startsWith('./') || req.startsWith('../')
-            const isBareAssetRef =
-              !isRootRef && !isRelativeRef && assetExt.test(req)
-            if (!isRootRef && !isRelativeRef && !isBareAssetRef) return
-
             const issuerDir = String(data?.context || path.dirname(issuer))
-            const candidates = isRootRef
-              ? roots.map((root) => path.join(root, req.slice(1)))
-              : [
-                  path.resolve(issuerDir, req),
-                  ...(isBareAssetRef
-                    ? roots.map((root) => path.join(root, req))
-                    : [])
-                ]
+            const candidates = cssUrlRefCandidates(raw, {issuerDir, roots})
+            if (candidates.length === 0) return
+
+            const req = raw.split('?')[0].split('#')[0]
             const withCssExtension = path.extname(req)
               ? []
               : candidates.map((candidate) => `${candidate}.css`)

@@ -30,31 +30,44 @@ export interface DeadUrlRefContext {
   roots: string[]
 }
 
-export function isDeadCssUrlRef(
+// Every file a url() request could name. None for a request that names no
+// project file: a URL with a scheme, a data: URI, a package, a bare word.
+export function cssUrlRefCandidates(
   rawRequest: string,
-  {issuerDir, roots}: DeadUrlRefContext
-): boolean {
+  {issuerDir, roots}: DeadUrlRefContext,
+  pathApi: Pick<typeof path, 'join' | 'resolve'> = path
+): string[] {
   const req = String(rawRequest).split('?')[0].split('#')[0]
 
   if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
-    return false
+    return []
   }
 
-  if (req.startsWith('~') || req.startsWith('@')) return false
+  if (req.startsWith('~') || req.startsWith('@')) return []
 
   const isRootRef = req.startsWith('/')
   const isRelativeRef = req.startsWith('./') || req.startsWith('../')
   const isBareAssetRef = !isRootRef && !isRelativeRef && ASSET_EXT.test(req)
-  if (!isRootRef && !isRelativeRef && !isBareAssetRef) return false
+  if (!isRootRef && !isRelativeRef && !isBareAssetRef) return []
 
-  const candidates = isRootRef
-    ? roots.map((root) => path.join(root, req.slice(1)))
+  return isRootRef
+    ? roots.map((root) => pathApi.join(root, req.slice(1)))
     : [
-        path.resolve(issuerDir, req),
-        ...(isBareAssetRef ? roots.map((root) => path.join(root, req)) : [])
+        pathApi.resolve(issuerDir, req),
+        ...(isBareAssetRef ? roots.map((root) => pathApi.join(root, req)) : [])
       ]
+}
 
-  return !candidates.some((candidate) => fs.existsSync(candidate))
+export function isDeadCssUrlRef(
+  rawRequest: string,
+  context: DeadUrlRefContext
+): boolean {
+  const candidates = cssUrlRefCandidates(rawRequest, context)
+
+  return (
+    candidates.length > 0 &&
+    !candidates.some((candidate) => fs.existsSync(candidate))
+  )
 }
 
 // A file inside the folder the public copier ships is already at the output

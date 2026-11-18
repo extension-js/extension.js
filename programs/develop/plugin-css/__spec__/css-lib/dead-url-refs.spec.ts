@@ -2,7 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {extractCssUrlRefs, replaceCssUrlRefs} from '../../css-lib/dead-url-refs'
+import {
+  cssUrlRefCandidates,
+  extractCssUrlRefs,
+  replaceCssUrlRefs
+} from '../../css-lib/dead-url-refs'
 import {
   keepPublicRootRefs,
   PUBLIC_ROOT_SCHEME
@@ -16,6 +20,73 @@ afterEach(() => {
   for (const dir of tempDirs) fs.rmSync(dir, {recursive: true, force: true})
 
   tempDirs.length = 0
+})
+
+describe('the files a css url() request could name', () => {
+  const posix = {
+    issuerDir: '/project/src/content',
+    roots: ['/project/public', '/project/src']
+  }
+  const win32 = {
+    issuerDir: 'C:\\project\\src\\content',
+    roots: ['C:\\project\\public', 'C:\\project\\src']
+  }
+
+  it.each([
+    ['./a.png', ['/project/src/content/a.png']],
+    ['../img/a.png', ['/project/src/img/a.png']],
+    ['./a.png?x#y', ['/project/src/content/a.png']],
+    ['./a.png#y?x', ['/project/src/content/a.png']],
+    ['/img/a.png', ['/project/public/img/a.png', '/project/src/img/a.png']],
+    ['/img/a.png?v=2', ['/project/public/img/a.png', '/project/src/img/a.png']],
+    [
+      'a.png',
+      [
+        '/project/src/content/a.png',
+        '/project/public/a.png',
+        '/project/src/a.png'
+      ]
+    ]
+  ])('reads %s with forward slashes', (request, expected) => {
+    expect(cssUrlRefCandidates(request, posix, path.posix)).toEqual(expected)
+  })
+
+  it.each([
+    ['./a.png', ['C:\\project\\src\\content\\a.png']],
+    ['../img/a.png', ['C:\\project\\src\\img\\a.png']],
+    ['./a.png?x#y', ['C:\\project\\src\\content\\a.png']],
+    [
+      '/img/a.png',
+      ['C:\\project\\public\\img\\a.png', 'C:\\project\\src\\img\\a.png']
+    ],
+    [
+      'a.png',
+      [
+        'C:\\project\\src\\content\\a.png',
+        'C:\\project\\public\\a.png',
+        'C:\\project\\src\\a.png'
+      ]
+    ]
+  ])('reads %s with backslashes', (request, expected) => {
+    expect(cssUrlRefCandidates(request, win32, path.win32)).toEqual(expected)
+  })
+
+  it.each([
+    ['an absolute URL', 'https://example.com/a.png'],
+    ['a protocol-relative URL', '//example.com/a.png'],
+    ['a data: URI', 'data:image/png;base64,AAAA'],
+    ['a browser scheme', 'chrome-extension://id/a.png'],
+    ['a Windows drive path', 'C:/project/a.png'],
+    ['a scoped package', '@scope/pkg/a.png'],
+    ['a tilde package', '~pkg/a.png'],
+    ['a package sheet', 'some-pkg/styles.css'],
+    ['a fragment alone', '#gradient'],
+    ['a query alone', '?v=2'],
+    ['nothing', '']
+  ])('names no file for %s', (_label, request) => {
+    expect(cssUrlRefCandidates(request, posix, path.posix)).toEqual([])
+    expect(cssUrlRefCandidates(request, win32, path.win32)).toEqual([])
+  })
 })
 
 // A commented-out url() is not a reference a browser requests.
