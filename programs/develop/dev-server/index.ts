@@ -12,10 +12,12 @@ import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {Writable} from 'node:stream'
+import {isDeepStrictEqual} from 'node:util'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {type Configuration, RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
+import {recordCodedWarning} from '../lib/coded-warnings'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -29,9 +31,20 @@ import {
   isGeckoBasedBrowser,
   isWebkitBasedBrowser
 } from '../lib/constants'
+import {
+  companionsDeclaredIn,
+  isFirstCompanionWarning,
+  unresolvedNamedCompanions
+} from '../lib/extensions-to-load'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {anotherDevSessionRefused} from '../lib/messages'
-import {CODES, debugLine, isDebug} from '../lib/messaging'
+import {
+  CODES,
+  debugLine,
+  humanWarn,
+  isDebug,
+  stripChannelPrefix
+} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDirs, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -917,6 +930,38 @@ export async function devServer(
     browser: devOptions.browser,
     config: mergedExtensionsConfig
   })
+
+  // The caller hands over options it already merged with the config, so a
+  // list equal to what the config layers give was not typed as a flag.
+  const configuredExtensions =
+    safeCommandConfig.extensions ??
+    safeBrowserConfig.extensions ??
+    safeProjectConfig.extensions
+
+  // Said here, where the layer that named the companion is known. The
+  // compiler config finds the same entry and leaves it to this line.
+  for (const companion of unresolvedNamedCompanions({
+    projectRoot: packageJsonDir,
+    resolved: resolvedExtensionsConfig,
+    declared: mergedExtensionsConfig,
+    declaredIn: companionsDeclaredIn('dev', {
+      flag: isDeepStrictEqual(safeDevOptions.extensions, configuredExtensions)
+        ? undefined
+        : safeDevOptions.extensions,
+      command: safeCommandConfig.extensions,
+      browser: safeBrowserConfig.extensions,
+      project: safeProjectConfig.extensions
+    })
+  })) {
+    if (!isFirstCompanionWarning(companion.manifestPath)) continue
+
+    recordCodedWarning(
+      CODES.E_COMPANION_EXTENSION_PATH,
+      stripChannelPrefix(companion.frame)
+    )
+
+    humanWarn(companion.frame)
+  }
 
   // An act verb reaches the browser through the extension's background, so a
   // session that takes them and opens a browser holds ready for its hello.
