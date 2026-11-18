@@ -117,6 +117,8 @@ async function made(
 // Taps every build takes, whatever the mode or browser.
 const EVERY_BUILD = [
   'compilation:BaseUriRuntimeModule',
+  'initialize:scripts:add-content-script-wrapper',
+  'initialize:scripts:keep-geturl-imports-native',
   'thisCompilation:TraceRuntimeLoadedFiles',
   'thisCompilation:WarnMovedPageRelativeUrls',
   'thisCompilation:WarnUnshippedRuntimeAssets',

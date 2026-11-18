@@ -32,6 +32,7 @@ import {
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
   parseCanonicalContentScriptAsset
 } from '../../contracts'
+import {addRulesInFront} from '../../scripts-lib/front-rules'
 import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
 
@@ -247,7 +248,11 @@ export class AddContentScriptWrapper {
       })
     }
 
-    compiler.options.module.rules.unshift(...wrapperRules)
+    addRulesInFront(
+      compiler,
+      'scripts:add-content-script-wrapper',
+      wrapperRules
+    )
 
     compiler.hooks.thisCompilation.tap(
       'scripts:add-content-script-wrapper',
