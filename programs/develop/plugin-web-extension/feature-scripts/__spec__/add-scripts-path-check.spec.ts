@@ -82,11 +82,15 @@ async function compile(
 
 // The whole production configuration on a project written to a temp folder,
 // without the plugins that start a browser.
-async function buildProject(manifest: Record<string, unknown>) {
+async function buildProject(
+  manifest: Record<string, unknown>,
+  files: (root: string) => void = () => {}
+) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-paths-project-'))
   )
   roots.push(root)
+  files(root)
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -216,6 +220,61 @@ describe('a manifest that names files that do not exist', () => {
     ])
   })
 })
+
+// A fake env file in the project and a file a link leads to outside it.
+function withheldFiles(root: string) {
+  const outside = fs.realpathSync(
+    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-script-paths-outside-'))
+  )
+  roots.push(outside)
+
+  fs.writeFileSync(
+    path.join(root, '.env.js'),
+    'globalThis.fake = "FAKE-MARKER-NOT-A-REAL-VALUE"\n'
+  )
+
+  fs.writeFileSync(path.join(outside, 'far.js'), 'globalThis.far = 1\n')
+  fs.symlinkSync(path.join(outside, 'far.js'), path.join(root, 'linked.js'))
+}
+
+describe.skipIf(process.platform === 'win32')(
+  'a manifest that names files the build withholds',
+  () => {
+    it('reports an env file and a link out of the project in full', async () => {
+      const errors = await buildProject(
+        {
+          content_scripts: [
+            {matches: ['<all_urls>'], js: ['.env.js', 'linked.js']}
+          ]
+        },
+        withheldFiles
+      )
+
+      expect(errors).toEqual([
+        {
+          code: 'ScriptsMissingFile',
+          file: 'manifest.json',
+          lines: [
+            '.env.js does not exist. Check the content_scripts[0].js field in your manifest.json file.',
+            MUST_EXIST,
+            'NOT FOUND <root>/.env.js'
+          ]
+        },
+        {
+          code: 'ScriptsMissingFile',
+          file: 'manifest.json',
+          lines: [
+            'linked.js does not exist. Check the content_scripts[0].js field in your manifest.json file.',
+            MUST_EXIST,
+            'NOT FOUND <root>/linked.js'
+          ]
+        }
+      ])
+
+      expect(JSON.stringify(errors)).not.toContain('FAKE-MARKER')
+    })
+  }
+)
 
 describe('the script path check of a real compilation', () => {
   it('reports a check that throws, where it used to pass with nothing said', async () => {
