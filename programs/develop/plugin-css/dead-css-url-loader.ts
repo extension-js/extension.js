@@ -27,7 +27,7 @@ import {
 import {
   inlineCssImports,
   readCssImports,
-  whyNotShipped
+  whyNotRead
 } from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {isSfcStyleBlock} from './css-lib/sfc-style-block'
@@ -81,7 +81,7 @@ function reportDeadRefs(
   const compilation = loader._compilation
 
   const answered = answeredImports.get(importsKey(loader))
-  const {projectPath, manifestPath} = loader.getOptions() || {}
+  const projectPath = loader.getOptions()?.projectPath
 
   for (const request of extractCssUrlRefs(source)) {
     // A file the build withholds is told the way one that is not there is,
@@ -93,7 +93,7 @@ function reportDeadRefs(
       found !== undefined &&
       projectPath !== undefined &&
       !answered?.has(found) &&
-      whyNotShipped(found, projectPath, manifestPath) !== undefined
+      whyNotRead(found, projectPath) !== undefined
 
     if (!withheld && !isDeadCssUrlRef(request, {issuerDir, roots})) continue
 
@@ -189,8 +189,7 @@ function resolveTargets(
     manifestDir,
     publicRoot,
     publicDir,
-    projectPath: loader.getOptions()?.projectPath,
-    manifestPath: loader.getOptions()?.manifestPath
+    projectPath: loader.getOptions()?.projectPath
   })
   const bundledRequests: string[] = []
 

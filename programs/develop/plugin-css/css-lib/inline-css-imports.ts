@@ -410,49 +410,6 @@ export function whyNotRead(
   }
 }
 
-// Each file the manifest names by its full path under web_accessible_resources.
-function webAccessibleFiles(manifestPath: string): string[] {
-  try {
-    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'))
-    const entries: unknown[] = Array.isArray(manifest?.web_accessible_resources)
-      ? manifest.web_accessible_resources
-      : []
-
-    return entries
-      .flatMap((entry) =>
-        typeof entry === 'string'
-          ? [entry]
-          : Array.isArray((entry as {resources?: unknown})?.resources)
-            ? (entry as {resources: unknown[]}).resources
-            : []
-      )
-      .filter((name): name is string => typeof name === 'string')
-      .filter((name) => !name.includes('*'))
-      .map((name) =>
-        realPath(
-          path.resolve(path.dirname(manifestPath), name.replace(/^\/+/, ''))
-        )
-      )
-  } catch {
-    return []
-  }
-}
-
-// Whether a file a url() names may ship. The manifest ships each file it
-// lists for web pages anyway, so that one is the author's to choose.
-export function whyNotShipped(
-  file: string,
-  projectRoot: string,
-  manifestPath?: string
-): {reason: string; fix: string} | undefined {
-  const why = whyNotRead(file, projectRoot)
-  if (!why || !manifestPath) return why
-
-  return webAccessibleFiles(manifestPath).includes(realPath(file))
-    ? undefined
-    : why
-}
-
 // A relative request is written from its own sheet's folder, and its text
 // now sits in a sheet that lives somewhere else.
 function rebaseRequest(request: string, fromDir: string, toDir: string) {
