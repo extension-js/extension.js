@@ -11,7 +11,7 @@
 
 This module adds support for special folders in a browser extension project and is part of the [Extension.js](https://extension.js.org) project. It uses Rspack's `CopyRspackPlugin` to emit static assets under `public/` (for proper watch/incremental behavior). In development watch mode, adding or removing an HTML file in `pages/` or a script in `scripts/` changes the entrypoints, so a live dev session restarts itself to pick the change up. It also defines a conventional `extensions/` folder for load-only companion extensions.
 
-- Emits everything from the exact `public/` directory into the build output root, preserving the folder structure, via `CopyRspackPlugin`.
+- Emits the exact `public/` directory into the build output root, preserving the folder structure, via `CopyRspackPlugin`. Files that are not extension content stay out (see "Files public/ never ships").
 - In development with watch enabled, monitors `pages/` and `scripts/`:
   - Adding or removing a supported file restarts the live dev session, and a rename asks for one restart that names both paths.
   - With no session to restart, an addition is a warning and a removal is a compilation error that asks for a restart.
@@ -50,6 +50,18 @@ export default {
 - A `.js`, `.mjs` or `.cjs` file `include` copies is minified in a production build (a `.min.js` is left alone): names are shortened and comments dropped, no statement is rewritten, so the value `executeScript` reads off the file stays and a `/*!` banner stays in the file. `{from: 'vendor/lib.js', minify: false}` in place of the path ships that file as authored, and so does `--no-minify` for every file. Files under `public/` always ship as authored.
 - `exclude` names files relative to the project root that a build leaves out: a page or script there gets no entry, and a file under `public/` is not copied. An entry with no file behind it is a warning that names the browser.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
+
+## Files public/ never ships
+
+Every file in the build output is readable by anyone who installs the extension, so a few names are left out of the copy wherever they sit under `public/`, in any letter case. A folder with one of these names is left out with everything inside it.
+
+| Kind | Names | Said in the build |
+| ---- | ----- | ----------------- |
+| OS metadata | `.DS_Store`, `Thumbs.db`, `desktop.ini` | Nothing. |
+| Env files | `.env`, `.env.*` (all but `.env.example`), `.envrc` | One warning per build that names the files, never what they hold. A watch session says it again only when the list changes. |
+| Repository and editor files | `.git`, `.gitignore`, `.gitattributes`, `.gitmodules`, `.gitkeep`, `.npmrc`, `.yarnrc.yml`, `.*.swp`, `.*.swo`, `.*.swn`, `*~` | Nothing. |
+
+Every other dot-file ships as authored: `.well-known/`, `.nojekyll`, `.htaccess`, `.env.example` and any dot-folder of the project's own. The list is by name on purpose, since a dot-file can be content a page fetches.
 
 ## Path resolution convention (consistent across @plugin-extension)
 
@@ -94,6 +106,7 @@ export class SpecialFoldersPlugin {
 ## Tested behaviors
 
 - Copies `public/**` into output root during builds and mirrors add/change/unlink in development watch.
+- Leaves OS metadata, env files and repository files out of the copy in a build and in a watch session, and names the env files in one warning.
 - In dev watch, adding or removing HTML under `pages/` or supported scripts under `scripts/` restarts the live session. Without one, an addition warns and a removal is an error.
 
 ## License

@@ -116,6 +116,27 @@ export function packageScriptLeftOut(relativePaths: string[]) {
   )
 }
 
+// Names only: what an env file holds never reaches a message.
+export function publicEnvFilesLeftOut(
+  relativePaths: string[],
+  browser: string
+) {
+  const one = relativePaths.length === 1
+  const shown = relativePaths.slice(0, 10)
+  const more = relativePaths.length - shown.length
+  const list =
+    shown.map((entry) => colors.yellow(entry)).join(', ') +
+    (more > 0 ? ` and ${more} more` : '')
+
+  return (
+    `${list} ${one ? 'is an env file' : 'are env files'}, and ` +
+    `${one ? 'it is' : 'they are'} left out of the ${colors.blue(browser)} build.\n` +
+    'Every file in the public folder ships inside the extension, where ' +
+    'anyone who installs it can read it. Env files are read from the ' +
+    `project root, so move ${one ? 'it' : 'them'} there, or delete ${one ? 'it' : 'them'}.`
+  )
+}
+
 export function publicFileCollidesWithEntry(
   publicPath: string,
   emittedPath: string
