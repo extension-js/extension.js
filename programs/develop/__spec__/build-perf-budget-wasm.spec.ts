@@ -97,7 +97,9 @@ function summaryLine(): string {
     call.map(String).join(' ')
   )
 
-  return lines.find((line: string) => /compiled.* in \d+ ms\./.test(line)) || ''
+  return (
+    lines.find((line: string) => /compiled.* in \d+ ms[.,]/.test(line)) || ''
+  )
 }
 
 async function build(root: string) {
@@ -142,7 +144,7 @@ describe('a wasm runtime under the performance budget of a production build', ()
     expect(summary.warnings_count).toBe(0)
     expect(summary.warnings).toBeUndefined()
     expect(line).toMatch(/ compiled in \d+ ms\./)
-    expect(line).not.toContain('with warnings')
+    expect(line).not.toContain('warning')
   }, 180_000)
 
   it('still warns for the same core when a content script reaches it', async () => {
@@ -157,7 +159,7 @@ describe('a wasm runtime under the performance budget of a production build', ()
 
     expect(warning).toContain('reached by a content script')
     expect(warning).not.toMatch(/assets\/core\.[0-9a-f]{8}\.wasm/)
-    expect(line).toContain('with warnings')
+    expect(line).toContain('with 1 warning')
   }, 180_000)
 
   it('is silenced by perfBudgets.ignore in extension.config.js', async () => {
@@ -175,6 +177,6 @@ describe('a wasm runtime under the performance budget of a production build', ()
 
     expect(summary.warnings_count).toBe(0)
     expect(line).toMatch(/ compiled in \d+ ms\./)
-    expect(line).not.toContain('with warnings')
+    expect(line).not.toContain('warning')
   }, 180_000)
 })
