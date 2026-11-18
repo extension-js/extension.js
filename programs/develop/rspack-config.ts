@@ -399,7 +399,7 @@ export default function webpackConfig(
       manifestPath,
       port: devOptions.port,
       // Connectable host clients dial (HMR + control bridge). Resolved once by
-      // dev-server/index.ts per session; falls back to the bind host.
+      // dev-server/index.ts per session. Falls back to the bind host.
       host:
         devOptions.connectableHost ||
         process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
