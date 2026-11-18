@@ -27,6 +27,17 @@ export interface PlacedCssImport {
   file: string
 }
 
+// Why an import could not carry the conditions its sheet came in under.
+export type CssImportSkipReason =
+  | 'unnamed-layer'
+  | 'media-never'
+  | 'media-not-joined'
+  | 'unknown-function'
+
+export interface SkippedCssImport extends PlacedCssImport {
+  why: CssImportSkipReason
+}
+
 export interface InlinedCssImports {
   css: string
   // Every sheet whose text is now part of this one.
@@ -43,8 +54,8 @@ export interface InlinedCssImports {
   }>
   // An import that now leads rules it used to follow.
   moved: PlacedCssImport[]
-  // An import left inside a block, where a browser skips it.
-  skipped: PlacedCssImport[]
+  // An import of an address left inside a block, where a browser skips it.
+  skipped: SkippedCssImport[]
   // An import with no ./ ahead of a name a file beside the sheet also has.
   bare: PlacedCssImport[]
   // Each run of sheets that import one another, closed by its first sheet.
@@ -64,8 +75,17 @@ interface ParsedImport extends ImportConditions {
   opaque?: string
 }
 
+// Either order of the mark. The parser drops both.
+const BYTE_ORDER_MARK = /^[\uFEFF\uFFFE]/
+
 const IMPORT_TARGET =
   /^(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s"']*))\s*\)|"([^"]*)"|'([^']*)')\s*([\s\S]*)$/i
+
+const MEDIA_MATH = new Set(
+  'calc min max clamp round mod rem sin cos tan asin acos atan atan2 pow sqrt hypot log exp abs sign env'.split(
+    ' '
+  )
+)
 
 // Reads the text between a function's parentheses, nested ones included.
 function takeFunction(
@@ -117,8 +137,13 @@ function parseImport(params: string): ParsedImport | undefined {
     rest = supports.rest
   }
 
-  // What is left is a media query list, which calls no function.
-  if (/(^|[\s,(])[a-z-]+\(/i.test(rest)) return {request, opaque: tail}
+  // What is left is a media query list, where only math is a function.
+  const called = rest.match(/[a-z-][\w-]*(?=\()/gi) ?? []
+
+  if (called.some((name) => !MEDIA_MATH.has(name.toLowerCase()))) {
+    return {request, opaque: tail}
+  }
+
   if (rest) parsed.media = rest
 
   return parsed
@@ -134,12 +159,31 @@ function supportsCondition(supports: string): string {
   return /^[\w-]+\s*:/.test(supports) ? `(${supports})` : supports
 }
 
+// Whether a comma splits the text into several queries. One inside the
+// parentheses of a function splits nothing.
+function isQueryList(media: string): boolean {
+  let depth = 0
+
+  for (const char of media) {
+    if (char === '(') depth++
+    if (char === ')') depth--
+    if (char === ',' && depth === 0) return true
+  }
+
+  return false
+}
+
+// The media type a query opens with, or none for a query of features alone.
+function mediaType(query: string): string | undefined {
+  return /^(?:only\s+)?([a-z-]+)/i.exec(query)?.[1].toLowerCase()
+}
+
 // One set of conditions that says what the nested ones say together, or
-// undefined when an @import has no way to write that.
+// the reason an @import has no way to write that.
 function combineConditions(
   outer: ImportConditions[],
   own: ImportConditions
-): ImportConditions | undefined {
+): ImportConditions | CssImportSkipReason {
   const combined: ImportConditions = {}
   const frames = [...outer, own]
   const outerLayers = outer.flatMap((frame) =>
@@ -148,8 +192,8 @@ function combineConditions(
 
   // An unnamed layer is a new one each time it is written, so an import
   // has no way to name one that a block opened, or one inside another.
-  if (outerLayers.includes('')) return undefined
-  if (own.layer === '' && outerLayers.length > 0) return undefined
+  if (outerLayers.includes('')) return 'unnamed-layer'
+  if (own.layer === '' && outerLayers.length > 0) return 'unnamed-layer'
 
   if (own.layer !== undefined || outerLayers.length > 0) {
     combined.layer = [
@@ -173,16 +217,29 @@ function combineConditions(
 
   if (media.length > 1) {
     // Only a plain list of features can be joined with "and".
-    const typed = media.filter((query) => !query.startsWith('('))
+    let typed = media.filter((query) => !query.startsWith('('))
     const features = media.filter((query) => query.startsWith('('))
 
     if (
-      typed.length > 1 ||
-      media.some((query) => query.includes(',')) ||
+      media.some(isQueryList) ||
       typed.some((query) => /^not\b/i.test(query)) ||
       features.some((query) => /\bor\b/i.test(query))
     ) {
-      return undefined
+      return 'media-not-joined'
+    }
+
+    if (typed.length > 1) {
+      const types = new Set(typed.map(mediaType))
+
+      // No device is two media types at once.
+      if (types.size > 1 && !types.has('all')) return 'media-never'
+
+      // The same type said twice with nothing else is that type once.
+      if (types.size > 1 || typed.some((query) => /\s/.test(query))) {
+        return 'media-not-joined'
+      }
+
+      typed = [typed[0]]
     }
 
     combined.media = [...typed, ...features].join(' and ')
@@ -428,7 +485,7 @@ interface Inlining {
   // The imports that stay, in the order they were met, to lead the result.
   kept: string[]
   moved: PlacedCssImport[]
-  skipped: PlacedCssImport[]
+  skipped: SkippedCssImport[]
   bare: PlacedCssImport[]
   cycles: string[][]
   // Layers whose order the first sheet states before anything else.
@@ -614,10 +671,18 @@ function inlineSheet(
           ? combineConditions(frames, parsed)
           : frames.length === 0
             ? {}
-            : undefined
+            : 'unknown-function'
 
-      if (!conditions) {
-        state.skipped.push({statement: written, file})
+      if (typeof conditions === 'string') {
+        // A package name left in a block is for a PostCSS plugin to bring
+        // in, as the one at the head is. An address is for the browser,
+        // which skips an @import inside a block.
+        if (
+          !parsed ||
+          /^(?:[a-z][a-z0-9+.-]*:|\.{0,2}\/)/i.test(parsed.request)
+        ) {
+          state.skipped.push({statement: written, file, why: conditions})
+        }
 
         return
       }
@@ -724,7 +789,7 @@ function inlineSheet(
 
     try {
       inner = inlineSheet(
-        fs.readFileSync(target, 'utf8').replace(/^\uFEFF/, ''),
+        fs.readFileSync(target, 'utf8').replace(BYTE_ORDER_MARK, ''),
         target,
         [...chain, real],
         state,
@@ -813,7 +878,7 @@ export function inlineCssImports(
 
   // The parser drops a byte order mark and counts every place without it.
   const css = inlineSheet(
-    source.replace(/^\uFEFF/, ''),
+    source.replace(BYTE_ORDER_MARK, ''),
     context.resourcePath,
     [realPath(context.resourcePath)],
     state,

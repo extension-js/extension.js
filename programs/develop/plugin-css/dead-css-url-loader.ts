@@ -229,14 +229,19 @@ export function inlineStylesheetImports(
 
     const issuer = toPosixPath(path.relative(manifestDir, resourcePath))
     const placed = [
-      ...inlined.moved.map(({statement}) =>
-        messages.cssImportMovedAhead(issuer, statement)
-      ),
-      ...inlined.skipped.map(({statement, file}) =>
-        messages.cssImportSkippedInBlock(
+      ...inlined.moved.map(({statement, file}) =>
+        messages.cssImportMovedAhead(
           issuer,
           statement,
           toPosixPath(path.relative(manifestDir, file))
+        )
+      ),
+      ...inlined.skipped.map(({statement, file, why}) =>
+        messages.cssImportSkippedInBlock(
+          issuer,
+          statement,
+          toPosixPath(path.relative(manifestDir, file)),
+          why
         )
       ),
       ...inlined.bare.map(({statement}) =>

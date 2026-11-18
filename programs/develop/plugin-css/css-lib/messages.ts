@@ -149,7 +149,7 @@ export function cssImportLeftAsWritten(
   fix = 'Fix the imported file so its rules ship with this stylesheet.'
 ) {
   return [
-    `${prefix('warn')} Couldn't bring an ${colors.blue('@import')} into this content script stylesheet, so it stayed as written.`,
+    `${prefix('warn')} Couldn't bring an ${colors.blue('@import')} into this content script stylesheet, so the rules of that file will not load.`,
     `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
     `${colors.gray('IMPORT')} ${colors.blue(request)}`,
     `${colors.gray('REASON')} ${reason}`,
@@ -179,28 +179,54 @@ export function cssImportReadAsPackage(issuerPath: string, statement: string) {
 }
 
 // The import leads the sheet so it loads at all, at the cost of its place.
-export function cssImportMovedAhead(issuerPath: string, statement: string) {
+export function cssImportMovedAhead(
+  issuerPath: string,
+  statement: string,
+  writtenIn?: string
+) {
   return [
     `${prefix('warn')} Moved an ${colors.blue('@import')} to the top of this content script stylesheet, ahead of rules it used to follow.`,
     `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
     `${colors.gray('IMPORT')} ${colors.blue(statement)}`,
+    ...(writtenIn && writtenIn !== issuerPath
+      ? [`${colors.gray('WRITTEN IN')} ${colors.underline(writtenIn)}`]
+      : []),
     'The sheets imported before it are now rules in this file, and a browser skips an @import that follows a rule.',
     `Write this ${colors.blue('@import')} first, or set the order with ${colors.blue('@layer')}, to keep the cascade you wrote.`
   ].join('\n')
 }
 
+const IMPORT_SKIP_REASONS = {
+  'unnamed-layer': [
+    'Its sheet came in under an unnamed layer, which no @import can name, and a browser skips an @import inside a block.',
+    `Name the layer on the import that brings its sheet in, as in ${colors.blue('layer(name)')}.`
+  ],
+  'media-never': [
+    'Its sheet came in under one media type and this import asks for another, and no device is both.',
+    `Remove this ${colors.blue('@import')}, or change one of the two media types.`
+  ],
+  'media-not-joined': [
+    'Its sheet came in under a media query that cannot be joined with the one on this import, and a browser skips an @import inside a block.',
+    `Move this ${colors.blue('@import')} to the content script stylesheet itself, with both conditions written out.`
+  ],
+  'unknown-function': [
+    'It carries a function CSS does not define and its sheet came in under a condition, and a browser skips an @import inside a block.',
+    `Move this ${colors.blue('@import')} to the content script stylesheet itself.`
+  ]
+}
+
 export function cssImportSkippedInBlock(
   issuerPath: string,
   statement: string,
-  writtenIn: string
+  writtenIn: string,
+  why: keyof typeof IMPORT_SKIP_REASONS
 ) {
   return [
     `${prefix('warn')} An ${colors.blue('@import')} in a sheet this content script stylesheet imports will not load.`,
     `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
     `${colors.gray('IMPORT')} ${colors.blue(statement)}`,
     `${colors.gray('WRITTEN IN')} ${colors.underline(writtenIn)}`,
-    'Its sheet came in under a layer, media or supports condition this import cannot carry, and a browser skips an @import inside a block.',
-    `Move this ${colors.blue('@import')} to the content script stylesheet itself.`
+    ...IMPORT_SKIP_REASONS[why]
   ].join('\n')
 }
 

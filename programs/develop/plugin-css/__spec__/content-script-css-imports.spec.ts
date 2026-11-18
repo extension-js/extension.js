@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
@@ -374,10 +375,13 @@ describe('the sheets a content-script sheet imports', () => {
   })
 
   // The parser drops the mark and counts every place from the text after it.
-  it('come in whole when the sheet opens with a byte order mark', () => {
+  it.each([
+    ['in the order of the file', BOM],
+    ['in the other order', String.fromCharCode(0xfffe)]
+  ])('come in whole when the sheet opens with a byte order mark %s', (_label, mark) => {
     const root = makeProject({
-      'styles.css': `${BOM}@import "./a.css";\n.own{}\n`,
-      'a.css': `${BOM}.a{}\n`
+      'styles.css': `${mark}@import "./a.css";\n.own{}\n`,
+      'a.css': `${mark}.a{}\n`
     })
 
     expect(inline(root, 'styles.css').css).toBe('.a{}\n\n.own{}\n')
@@ -466,11 +470,45 @@ describe('the sheets a content-script sheet imports', () => {
   })
 
   it.each([
-    ['an unnamed layer', 'layer', 'layer(fonts)'],
-    ['two lists of media queries', 'screen, print', '(min-width: 600px)'],
-    ['two media types', 'screen', 'print'],
-    ['a function CSS does not define', 'screen', 'theme(reference)']
-  ])('leave an import in place, and say so, under %s', (_label, outer, own) => {
+    ['an unnamed layer', 'layer', 'layer(fonts)', 'unnamed-layer'],
+    [
+      'an unnamed layer of its own inside a named one',
+      'layer(a)',
+      'layer',
+      'unnamed-layer'
+    ],
+    [
+      'two lists of media queries',
+      'screen, print',
+      '(min-width: 600px)',
+      'media-not-joined'
+    ],
+    [
+      'a query that opens with not',
+      'not screen',
+      '(min-width: 600px)',
+      'media-not-joined'
+    ],
+    [
+      'features joined by or',
+      '(hover) or (pointer)',
+      'screen',
+      'media-not-joined'
+    ],
+    [
+      'one type with two sets of features',
+      'screen and (hover)',
+      'screen and (pointer)',
+      'media-not-joined'
+    ],
+    ['two media types', 'screen', 'print', 'media-never'],
+    [
+      'a function CSS does not define',
+      'screen',
+      'theme(reference)',
+      'unknown-function'
+    ]
+  ])('leave an import in place, and say so, under %s', (_label, outer, own, why) => {
     const root = makeProject({
       'styles.css': `@import "./a.css" ${outer};\n.own{}\n`,
       'a.css': `@import "https://example.com/x.css" ${own};\n.a{}\n`
@@ -484,8 +522,156 @@ describe('the sheets a content-script sheet imports', () => {
     expect(result.skipped).toEqual([
       {
         statement: `@import "https://example.com/x.css" ${own};`,
+        file: path.join(root, 'a.css'),
+        why
+      }
+    ])
+
+    expect(result.moved).toEqual([])
+  })
+
+  it.each([
+    [
+      'a range',
+      '(400px <= width <= 700px)',
+      'screen',
+      'screen and (400px <= width <= 700px)'
+    ],
+    [
+      'only and a type',
+      'only screen',
+      '(min-width: 600px)',
+      'only screen and (min-width: 600px)'
+    ],
+    ['the same type twice', 'screen', 'screen', 'screen'],
+    [
+      'math in a feature',
+      '(min-width: calc(10px + 2em))',
+      '(max-width: max(600px, 50vw))',
+      '(min-width: calc(10px + 2em)) and (max-width: max(600px, 50vw))'
+    ],
+    [
+      'selector() in supports',
+      'supports(selector(:has(a)))',
+      'supports(display: grid)',
+      'supports((selector(:has(a))) and (display: grid))'
+    ],
+    ['an outer layer and none of its own', 'layer(base)', '', 'layer(base)']
+  ])('join %s on an import that stays', (_label, outer, own, joined) => {
+    const root = makeProject({
+      'styles.css': `@import "./a.css" ${outer};\n`,
+      'a.css': `@import "https://example.com/x.css" ${own};\n.a{}\n`
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.css.split('\n')[0]).toBe(
+      `@import "https://example.com/x.css" ${joined};`
+    )
+
+    expect(result.files).toEqual([path.join(root, 'a.css')])
+    expect(result.skipped).toEqual([])
+  })
+
+  it('join the conditions of every import on the way, three sheets down', () => {
+    const root = makeProject({
+      'styles.css': '@import "./a.css" layer(one);\n',
+      'a.css': '@import "./b.css" supports(display: grid);\n',
+      'b.css': '@import "./c.css" layer(two) screen;\n',
+      'c.css': '@import "https://example.com/x.css" (min-width: 600px);\n.c{}\n'
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.css.split('\n')[0]).toBe(
+      '@import "https://example.com/x.css" layer(one.two) supports(display: grid) screen and (min-width: 600px);'
+    )
+
+    expect(result.css.replace(/\s+/g, '')).toBe(
+      '@import"https://example.com/x.css"layer(one.two)supports(display:grid)screenand(min-width:600px);@layerone{@supports(display:grid){@layertwo{@mediascreen{.c{}}}}}'
+    )
+  })
+
+  // A plugin that runs after this step brings a package in wherever its
+  // @import stands, so one left in a block is not reported as lost.
+  it('leave a package in place under a condition, with nothing to say', () => {
+    const root = makeProject({
+      'styles.css': '@import "./a.css" layer;\n.own{}\n',
+      'a.css': '@import "tailwindcss/preflight.css";\n.a{}\n'
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.css).toBe(
+      '@layer {\n@import "tailwindcss/preflight.css";\n.a{}\n\n}\n.own{}\n'
+    )
+
+    expect(result.skipped).toEqual([])
+  })
+
+  // A block ends the run of imports, and so the place an import can lead from.
+  it('place an import that stays ahead of a layer block that ends the head', () => {
+    const root = makeProject({
+      'styles.css':
+        '@layer a, b;\n@import "./x.css";\n@import "https://example.com/k.css";\n@layer {\n.z{}\n}\n@layer c;\n@import "./late.css";\n',
+      'x.css': '.x{}\n',
+      'late.css': '.late{}\n'
+    })
+
+    expect(inline(root, 'styles.css').css).toBe(
+      '@layer a, b;\n@import "https://example.com/k.css";\n.x{}\n\n\n@layer {\n.z{}\n}\n@layer c;\n@import "./late.css";\n'
+    )
+  })
+
+  // A name with no ./ ahead of it is a package in every sheet, so it goes to
+  // the head as written and no file is awaited for it.
+  it('keep a name with no ./ as written when it stays from a sheet in another folder', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "../shared/a.css";\n.own{}\n',
+      'shared/a.css': '@import "x.css";\n@import "pkg/y.css";\n.a{}\n',
+      'shared/x.css': '.x{}\n'
+    })
+    const result = inline(root, 'content/styles.css')
+
+    expect(result.css).toBe(
+      '@import "x.css";\n@import "pkg/y.css";\n\n\n.a{}\n\n.own{}\n'
+    )
+
+    expect(result.missing).toEqual([])
+    expect(result.bare).toEqual([
+      {
+        statement: '@import "x.css";',
+        file: path.join(root, 'shared', 'a.css')
+      }
+    ])
+  })
+
+  // Two places where the check leans toward a warning it may not owe.
+  it('warn for an import into a layer that a list it took to the head already orders', () => {
+    const root = makeProject({
+      'styles.css': '@import "./a.css";\n',
+      'a.css':
+        '@layer base, theme;\n@import "https://example.com/x.css" layer(theme);\n@import "./b.css";\n@import "https://example.com/y.css" layer(base);\n',
+      'b.css': '.b{}\n'
+    })
+
+    expect(inline(root, 'styles.css').moved).toEqual([
+      {
+        statement: '@import "https://example.com/y.css" layer(base);',
         file: path.join(root, 'a.css')
       }
+    ])
+  })
+
+  it('say nothing of the rules of the sheet an import is written in, which it led before too', () => {
+    const root = makeProject({
+      'styles.css':
+        '@layer theme;\n@import "./z.css";\n@import "./a.css" layer(theme);\n',
+      'z.css': '.z{}\n',
+      'a.css': '@import "https://example.com/x.css";\n.a{}\n'
+    })
+    const result = inline(root, 'styles.css')
+
+    expect(result.css.split('\n').slice(0, 2)).toEqual([
+      '@layer theme;',
+      '@import "https://example.com/x.css" layer(theme);'
     ])
 
     expect(result.moved).toEqual([])
@@ -792,7 +978,7 @@ describe('the loader run that brings imports into a content-script sheet', () =>
       [
         'CssParseWarning',
         [
-          `${WARN} Couldn't bring an @import into this content script stylesheet, so it stayed as written.`,
+          `${WARN} Couldn't bring an @import into this content script stylesheet, so the rules of that file will not load.`,
           'PATH content/styles.css',
           'IMPORT ./broken.css',
           'REASON The file is not valid CSS.',
@@ -819,7 +1005,7 @@ describe('the loader run that brings imports into a content-script sheet', () =>
       [
         'CssParseWarning',
         [
-          `${WARN} Couldn't bring an @import into this content script stylesheet, so it stayed as written.`,
+          `${WARN} Couldn't bring an @import into this content script stylesheet, so the rules of that file will not load.`,
           'PATH content/styles.css',
           'IMPORT ../node_modules/pkg/x.css',
           'REASON The file belongs to a package in node_modules.',
@@ -910,19 +1096,55 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     ])
   })
 
-  it('warns once for an import left in a block, where a browser skips it', () => {
+  it.each([
+    [
+      'an unnamed layer',
+      'layer',
+      '',
+      [
+        'Its sheet came in under an unnamed layer, which no @import can name, and a browser skips an @import inside a block.',
+        'Name the layer on the import that brings its sheet in, as in layer(name).'
+      ]
+    ],
+    [
+      'another media type',
+      'print',
+      ' screen',
+      [
+        'Its sheet came in under one media type and this import asks for another, and no device is both.',
+        'Remove this @import, or change one of the two media types.'
+      ]
+    ],
+    [
+      'a media query that cannot be joined',
+      'screen, print',
+      ' (min-width: 600px)',
+      [
+        'Its sheet came in under a media query that cannot be joined with the one on this import, and a browser skips an @import inside a block.',
+        'Move this @import to the content script stylesheet itself, with both conditions written out.'
+      ]
+    ],
+    [
+      'a function CSS does not define',
+      'screen',
+      ' theme(reference)',
+      [
+        'It carries a function CSS does not define and its sheet came in under a condition, and a browser skips an @import inside a block.',
+        'Move this @import to the content script stylesheet itself.'
+      ]
+    ]
+  ])('warns once, with the fix that fits, for an import left in a block under %s', (_label, outer, own, lines) => {
     const root = makeProject({
-      'content/styles.css': '@import "./parts/other.css" layer;\n.own{}\n',
-      'content/parts/other.css':
-        '@import "https://example.com/x.css";\n.imported{}\n'
+      'content/styles.css': `@import "./parts/other.css" ${outer};\n.own{}\n`,
+      'content/parts/other.css': `@import "https://example.com/x.css"${own};\n.imported{}\n`
     })
 
     const {output, warnings} = runLoader(root, 'content/styles.css', {
       inlineImports: true
     })
 
-    expect(output).toBe(
-      '@layer {\n@import "https://example.com/x.css";\n.imported{}\n\n}\n.own{}\n'
+    expect(output).toContain(
+      `{\n@import "https://example.com/x.css"${own};\n.imported{}\n\n}\n.own{}\n`
     )
 
     expect(warnings.map((w) => [w.name, w.message])).toEqual([
@@ -931,11 +1153,31 @@ describe('the loader run that brings imports into a content-script sheet', () =>
         [
           `${WARN} An @import in a sheet this content script stylesheet imports will not load.`,
           'PATH content/styles.css',
-          'IMPORT @import "https://example.com/x.css";',
+          `IMPORT @import "https://example.com/x.css"${own};`,
           'WRITTEN IN content/parts/other.css',
-          'Its sheet came in under a layer, media or supports condition this import cannot carry, and a browser skips an @import inside a block.',
-          'Move this @import to the content script stylesheet itself.'
+          ...lines
         ].join('\n')
+      ]
+    ])
+  })
+
+  it('names the sheet that wrote an import it moved', () => {
+    const root = makeProject({
+      'content/styles.css':
+        '@import "./one.css";\n@import "./parts/two.css";\n',
+      'content/one.css': '.one{}\n',
+      'content/parts/two.css': '@import "https://example.com/x.css";\n.two{}\n'
+    })
+
+    const {warnings} = runLoader(root, 'content/styles.css', {
+      inlineImports: true
+    })
+
+    expect(warnings.map((w) => w.message.split('\n').slice(1, 4))).toEqual([
+      [
+        'PATH content/styles.css',
+        'IMPORT @import "https://example.com/x.css";',
+        'WRITTEN IN content/parts/two.css'
       ]
     ])
   })
@@ -978,6 +1220,25 @@ describe('the loader run that brings imports into a content-script sheet', () =>
     expect(second[sink === 'errors' ? 'warnings' : 'errors']).toEqual([])
   })
 })
+
+// The workspace's own copy of a package, linked into a fixture project.
+function linkWorkspacePackage(root: string, name: string) {
+  const entry = createRequire(import.meta.url).resolve(name)
+  const marker = `${path.sep}node_modules${path.sep}${name.split('/').join(path.sep)}`
+  const source = entry.slice(0, entry.lastIndexOf(marker) + marker.length)
+  const dest = path.join(root, 'node_modules', name)
+
+  fs.mkdirSync(path.dirname(dest), {recursive: true})
+
+  try {
+    if (process.platform === 'win32') throw new Error('copy')
+
+    fs.symlinkSync(source, dest, 'dir')
+  } catch {
+    // Windows needs a privilege to link, so the package is copied there.
+    fs.cpSync(fs.realpathSync(source), dest, {recursive: true})
+  }
+}
 
 // The processed text the runtime stylesheet module keeps as one literal.
 function emittedSheet(distDir: string): string {
@@ -1071,6 +1332,34 @@ describe('a content script that imports a sheet with an @import, compiled', () =
 
     expect(await compileContentScript(root)).toBe(
       '.imported{color:green}\n\n.own{color:red}\n'
+    )
+  }, 60_000)
+
+  // The Tailwind plugin brings a package in wherever its @import stands, a
+  // block included, so this step says nothing of one it leaves there.
+  it('leaves a package under an unnamed layer to Tailwind, which brings it in there', async () => {
+    const root = makeProject({
+      'package.json': JSON.stringify({
+        name: 'css-fixture',
+        devDependencies: {
+          tailwindcss: '^4.0.0',
+          '@tailwindcss/postcss': '^4.0.0'
+        }
+      }),
+      'content/scripts.js': SCRIPT,
+      'content/styles.css': '@import "./other.css" layer;\n.own{color:red}\n',
+      'content/other.css':
+        '@import "tailwindcss/preflight.css";\n.imported{color:green}\n'
+    })
+
+    linkWorkspacePackage(root, 'tailwindcss')
+    linkWorkspacePackage(root, '@tailwindcss/postcss')
+
+    const sheet = await compileContentScript(root)
+
+    expect(sheet).not.toContain('@import')
+    expect(sheet.replace(/\s+/g, '')).toMatch(
+      /@layer\{\*,::after.*box-sizing:border-box.*\.imported\{color:green;?\}\}\.own\{color:red;?\}$/
     )
   }, 60_000)
 
