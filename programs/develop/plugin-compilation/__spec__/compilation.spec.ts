@@ -84,15 +84,15 @@ describe('CompilationPlugin on a real compiler', () => {
     dev: [
       'plugin-compilation:warm-ancestor-watchers',
       'CaseSensitivePathsPlugin',
-      'develop:brand',
-      'extension.js:done'
+      'extension.js:done',
+      'develop:brand'
     ],
     preview: [
       'plugin-compilation:warm-ancestor-watchers',
       'CaseSensitivePathsPlugin',
       'plugin-zip',
-      'develop:brand',
-      'extension.js:done'
+      'extension.js:done',
+      'develop:brand'
     ],
     build: [
       'plugin-compilation:warm-ancestor-watchers',
