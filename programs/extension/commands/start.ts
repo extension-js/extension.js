@@ -25,10 +25,10 @@ import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type DevelopBrowser,
-  type DevelopPreviewLauncher,
   type AnyDevelopModule,
+  type DevelopBrowser,
   type DevelopFor,
+  type DevelopPreviewLauncher,
   type DevelopPreviewModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
@@ -59,7 +59,8 @@ import {
 } from '../helpers/project-folder'
 import {
   markCommandSessionStart,
-  noteRunBrowsers
+  noteRunBrowsers,
+  reportCommandFailureNow
 } from '../helpers/telemetry-cli'
 import {
   type Browser,
@@ -110,7 +111,8 @@ function printFrame(frame: unknown): void {
 
 // Under --output json a bare exit leaves stdout empty, so a machine consumer
 // reads exit 1 and has nothing to explain it. Print the frame before exiting.
-function failAndExit(
+function failAndExitWith(
+  reportFailure: typeof reportCommandFailureNow,
   asJson: boolean,
   status: string,
   error: {code: ErrorCode; message: string},
@@ -120,7 +122,7 @@ function failAndExit(
     printFrame(ENVELOPE.fail('start', status, error, hint ? {hint} : {}))
   }
 
-  exitWithFailure(error.code)
+  exitWithFailure(error.code, 1, reportFailure)
 }
 
 // What the action reaches outside this file. Production takes every default.
@@ -130,6 +132,7 @@ interface StartCommandDeps {
   runBrowser?: typeof runOnlyPreviewBrowser
   waitForReady?: typeof runWaitMode
   noteBrowsers?: typeof noteRunBrowsers
+  reportFailure?: typeof reportCommandFailureNow
 }
 
 export function registerStartCommand(
@@ -139,9 +142,17 @@ export function registerStartCommand(
     loadPreview = loadExtensionDevelopPreviewModule,
     runBrowser = runOnlyPreviewBrowser,
     waitForReady = runWaitMode,
-    noteBrowsers = noteRunBrowsers
+    noteBrowsers = noteRunBrowsers,
+    reportFailure = reportCommandFailureNow
   }: StartCommandDeps = {}
 ) {
+  const failAndExit: (
+    asJson: boolean,
+    status: string,
+    error: {code: ErrorCode; message: string},
+    hint?: string
+  ) => never = (...args) => failAndExitWith(reportFailure, ...args)
+
   program
     .command('start')
     .arguments('[project-path|remote-url]')
@@ -259,8 +270,8 @@ export function registerStartCommand(
         'deprecated alias for --debug'
       ).hideHelp()
     )
-    .hook('preAction', refuseUnreadableOutput())
-    .hook('preAction', refuseUnlistedChoices())
+    .hook('preAction', refuseUnreadableOutput({reportFailure}))
+    .hook('preAction', refuseUnlistedChoices({reportFailure}))
     .action(
       async (
         pathOrRemoteUrl: string,
@@ -488,11 +499,6 @@ export function registerStartCommand(
           try {
             await extensionBuild(pathOrRemoteUrl, {
               browser: vendor as DevelopBrowser,
-              // CLI surface: a failed build ends this process with the clean
-              // error line. Library imports of extensionBuild reject instead.
-              // Under --output json we catch instead, so the failure can be
-              // reported as one envelope rather than a bare exit code.
-              exitOnError: !asJson,
               // The build-phase receipt should name the command the user ran.
               metadataCommand: 'start',
               // With a launch ahead the receipt is not the session being
@@ -510,22 +516,26 @@ export function registerStartCommand(
               silent: true
             })
           } catch (error) {
-            if (!asJson) throw error
+            const code = declaredErrorCode(error) ?? CODES.E_COMPILE
 
-            printFrame(
-              ENVELOPE.fail(
-                'start',
-                'build-failed',
-                {
-                  code: declaredErrorCode(error) ?? CODES.E_COMPILE,
-                  message:
-                    error instanceof Error ? error.message : String(error)
-                },
-                {hint: 'Fix the error above and run start again.'}
+            // The engine printed the failure before it rejected, so pretty
+            // mode adds no line and only the frame is left to write.
+            if (asJson) {
+              printFrame(
+                ENVELOPE.fail(
+                  'start',
+                  'build-failed',
+                  {
+                    code,
+                    message:
+                      error instanceof Error ? error.message : String(error)
+                  },
+                  {hint: 'Fix the error above and run start again.'}
+                )
               )
-            )
+            }
 
-            exitWithFailure(declaredErrorCode(error) ?? CODES.E_COMPILE)
+            exitWithFailure(code, 1, reportFailure)
           }
 
           if (noBrowser) {

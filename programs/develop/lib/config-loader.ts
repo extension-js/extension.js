@@ -585,7 +585,15 @@ export async function loadCustomConfig(
         if (userConfig && typeof userConfig.config === 'function') {
           const hook = userConfig.config
 
-          return (config: Configuration) => hook(config, context)
+          // A hook that throws is the author's to fix, like a config that
+          // does not load, and reports under the same code.
+          return (config: Configuration) => {
+            try {
+              return hook(config, context)
+            } catch (cause) {
+              throw configLoadError(configPath, cause)
+            }
+          }
         }
 
         if (userConfig?.config && typeof userConfig.config === 'object') {
