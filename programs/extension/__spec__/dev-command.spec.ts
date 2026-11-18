@@ -682,6 +682,54 @@ describe('extension dev', () => {
   })
 })
 
+// A start failure reaches the command as a rejection. The engine may have
+// written the terminal frame already, and it says so on the error.
+describe('extension dev when the engine fails to start under --output json', () => {
+  const startFailure = (extra: Record<string, unknown> = {}) =>
+    Object.assign(new Error('listen EADDRINUSE'), {
+      code: 'E_DEV_SERVER_START',
+      ...extra
+    })
+
+  it('prints the one failed frame when the engine wrote none', async () => {
+    engine = async () => {
+      throw startFailure()
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+
+    expect(frames()).toMatchObject([
+      {
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        error: {code: 'E_DEV_SERVER_START', message: 'listen EADDRINUSE'}
+      }
+    ])
+  })
+
+  it.each([
+    ['false', false],
+    ['a truthy value that is not true', 'yes']
+  ])('still prints its frame when framed is %s', async (_name, framed) => {
+    engine = async () => {
+      throw startFailure({framed})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toHaveLength(1)
+  })
+
+  it('prints no second frame when the engine already wrote it, and still exits 1', async () => {
+    engine = async () => {
+      throw startFailure({framed: true})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(stdout).toEqual([])
+  })
+})
+
 // The engine ends a session whose restart left no server by writing its own
 // terminal frame and calling onExitError. Under --output json it never exits.
 describe('extension dev after the engine ends a running session', () => {

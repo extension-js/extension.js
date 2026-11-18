@@ -761,22 +761,26 @@ export function registerDevCommand(
             // untagged is an internal fault rather than a known class.
             const code = declaredErrorCode(error) ?? CODES.E_INTERNAL
 
-            printFrame(
-              ENVELOPE.fail(
-                'dev',
-                'failed',
-                {
-                  code,
-                  message:
-                    error instanceof Error ? error.message : String(error)
-                },
-                {
-                  hint:
-                    failureHint(code) ??
-                    'Fix the error above and run dev again.'
-                }
+            // A session has one terminal frame. An engine that already wrote
+            // it says so on the error, and a second one would break readers.
+            if ((error as {framed?: unknown} | null)?.framed !== true) {
+              printFrame(
+                ENVELOPE.fail(
+                  'dev',
+                  'failed',
+                  {
+                    code,
+                    message:
+                      error instanceof Error ? error.message : String(error)
+                  },
+                  {
+                    hint:
+                      failureHint(code) ??
+                      'Fix the error above and run dev again.'
+                  }
+                )
               )
-            )
+            }
 
             exitWithFailure(code, 1, reportFailure)
           }
