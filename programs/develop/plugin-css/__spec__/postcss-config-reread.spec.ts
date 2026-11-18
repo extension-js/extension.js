@@ -1,6 +1,8 @@
+import {execFileSync} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {loadUserPostCssConfigObject} from '../css-tools/postcss'
 import {cssProjects} from './helpers/css-project'
 
@@ -44,10 +46,8 @@ describe('a PostCSS config read twice in one process', () => {
 
   // A config that is CommonJS loads its helpers through require, whose
   // registry this step can clear for the files of the project.
-  it.each([
-    'postcss.config.js',
-    'postcss.config.cjs'
-  ])('%s: an edit to a file it requires, or one that file requires, is read', async (file) => {
+  it('postcss.config.cjs: an edit to a file it requires, or one that file requires, is read', async () => {
+    const file = 'postcss.config.cjs'
     const root = makeProject({
       [file]: configSource(file, "require('./tokens/index.cjs')"),
       'tokens/index.cjs': "module.exports = require('./deep.cjs')\n",
@@ -81,4 +81,82 @@ describe('a PostCSS config read twice in one process', () => {
     expect(await marker(root, 'postcss.config.cjs')).toBe(1)
     expect(await marker(root, 'postcss.config.cjs')).toBe(1)
   })
+})
+
+// Two builds in one process, with the file the config requires edited in
+// between. Each prints the word its build stamped on the sheet.
+const TWO_BUILDS = [
+  "import fs from 'node:fs'",
+  "import path from 'node:path'",
+  "import {pathToFileURL} from 'node:url'",
+  'const [engine, root] = process.argv.slice(2)',
+  'const {extensionBuild} = await import(pathToFileURL(engine).href)',
+  'const words = []',
+  "for (const word of ['first', 'second']) {",
+  "  fs.writeFileSync(path.join(root, 'tokens', 'deep.cjs'), `module.exports = '${word}'\\n`)",
+  "  await extensionBuild(root, {browser: 'chrome', silent: true, install: false, mode: 'production', exitOnError: false})",
+  "  const dist = path.join(root, 'dist', 'chrome')",
+  "  const sheet = fs.readdirSync(dist, {recursive: true}).find((file) => String(file).endsWith('.css'))",
+  "  words.push(/--stamp:\\s*(\\w+)/.exec(fs.readFileSync(path.join(dist, String(sheet)), 'utf8'))?.[1])",
+  '}',
+  "console.log('STAMPS ' + words.join(','))",
+  'process.exit(0)',
+  ''
+].join('\n')
+
+// Node itself loads a CommonJS postcss.config.js that is asked for by
+// import(), and the test runner loads it another way, so this one runs the
+// built engine in a process of its own.
+describe('a CommonJS postcss.config.js in a process that builds twice', () => {
+  it('reads an edit to a file the config requires, or one that file requires', () => {
+    const engine = path.join(
+      path.dirname(resolveDevelopDistFile('dead-css-url-loader')),
+      'module.mjs'
+    )
+
+    if (!fs.existsSync(engine)) {
+      throw new Error(
+        `This spec builds with programs/develop/dist and ${engine} is missing. ` +
+          'Run `pnpm --filter extension-develop compile` first.'
+      )
+    }
+
+    const root = makeProject({
+      'two-builds.mjs': TWO_BUILDS,
+      'app/package.json': JSON.stringify({private: true, name: 'reread'}),
+      'app/manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'reread',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'}
+      }),
+      'app/popup.html':
+        '<!doctype html><link rel="stylesheet" href="./styles.css"><p>x</p>\n',
+      'app/styles.css': '.a{color:red}\n',
+      'app/tokens/index.cjs': "module.exports = require('./deep.cjs')\n",
+      'app/tokens/deep.cjs': "module.exports = 'first'\n",
+      'app/postcss.config.js': [
+        "const word = require('./tokens/index.cjs')",
+        "module.exports = {plugins: [{postcssPlugin: 'stamp', Rule(rule) { rule.append({prop: '--stamp', value: word}) }}]}",
+        ''
+      ].join('\n')
+    })
+
+    const output = execFileSync(
+      process.execPath,
+      [path.join(root, 'two-builds.mjs'), engine, path.join(root, 'app')],
+      {
+        encoding: 'utf8',
+        env: {
+          ...process.env,
+          EXTENSION_TELEMETRY_DISABLED: '1',
+          DO_NOT_TRACK: '1'
+        }
+      }
+    )
+
+    expect(
+      output.split('\n').filter((line) => line.startsWith('STAMPS'))
+    ).toEqual(['STAMPS first,second'])
+  }, 120_000)
 })
