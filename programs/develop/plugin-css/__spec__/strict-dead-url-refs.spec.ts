@@ -135,35 +135,13 @@ describe('a dead url() across every kind of stylesheet', () => {
   })
 
   it.each(
-    REQUESTS
-  )('fails a strict build for a sheet a content script imports naming %s', async (request) => {
+    CASES
+  )('fails a strict build for a sheet %s naming %s', async (sheet, request) => {
     vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
 
-    expect(await findings('a content script imports', request)).toEqual({
+    expect(await findings(sheet, request)).toEqual({
       warnings: [],
-      errors: ['CssDeadRef E_CSS_DEAD_REF hint']
-    })
-  })
-
-  it.each(
-    Object.keys(SHEETS).slice(1)
-  )('passes a strict build for a sheet %s naming a relative file', async (sheet) => {
-    vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
-
-    expect(await findings(sheet, './missing.png')).toEqual({
-      warnings: ['MissingCssAssetWarning E_ASSET_MISSING'],
-      errors: []
-    })
-  })
-
-  it.each(
-    Object.keys(SHEETS).slice(1)
-  )('fails a strict build under another code for a sheet %s naming a root file', async (sheet) => {
-    vi.stubEnv('EXTENSION_STRICT_REFS', 'true')
-
-    expect(await findings(sheet, '/img/missing.png')).toEqual({
-      warnings: [],
-      errors: ['Error E_MODULE_NOT_FOUND']
+      errors: ['CssDeadRef E_CSS_DEAD_REF']
     })
   })
 })

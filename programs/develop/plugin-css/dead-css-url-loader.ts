@@ -77,7 +77,9 @@ function reportDeadRefs(
       loader.addMissingDependency?.(candidate)
     }
 
-    const report = new WebpackError(messages.deadCssUrlRef(issuerPath, request))
+    const report = new WebpackError(
+      messages.deadCssUrlRef(issuerPath, request, strict)
+    )
     ;(report as Error & {file?: string}).file = issuerPath
     report.name = 'CssDeadRef'
 

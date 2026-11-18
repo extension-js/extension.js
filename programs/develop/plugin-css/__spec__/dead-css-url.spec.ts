@@ -64,15 +64,17 @@ function unframed(message: string) {
     .join('\n')
 }
 
-const deadRef = (issuer: string, request: string) => ({
-  name: 'CssDeadRef',
-  message: [
+const deadRefText = (issuer: string, request: string) =>
+  [
     `A url(${request}) reference points to a file that exists nowhere in the project.`,
     `PATH ${issuer}`,
     `NOT FOUND ${request}`,
-    "Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
-    'Set EXTENSION_STRICT_REFS=true to make this a build error.'
+    "Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code."
   ].join('\n')
+
+const deadRef = (issuer: string, request: string) => ({
+  name: 'CssDeadRef',
+  message: `${deadRefText(issuer, request)}\nSet EXTENSION_STRICT_REFS=true to make this a build error.`
 })
 
 describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
@@ -157,9 +159,11 @@ describe('CssPlugin dead url() tolerance: Chrome silently 404s them', () => {
     })
     const {warnings, errors} = await compile(root)
 
+    // The same finding as an error, minus the hint to set the variable.
     expect(warnings).toEqual([])
-    expect(errors).toHaveLength(1)
-    expect(errors[0]).toContain("Can't resolve '/img/missing.png'")
+    expect(errors.map(unframed)).toEqual([
+      deadRefText('cs.css', '/img/missing.png')
+    ])
   })
 
   // vue-loader re-issues each <style> block as an inline match resource

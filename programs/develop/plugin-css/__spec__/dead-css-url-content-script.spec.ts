@@ -81,6 +81,9 @@ describe('dead url() in a content-script stylesheet', () => {
 
     expect(warnings).toHaveLength(0)
     expect(errors).toHaveLength(1)
+    expect(errors[0].message).toContain('/missing-probe.png')
+    // The reader already set the variable, so the text stops naming it.
+    expect(errors[0].message).not.toContain('EXTENSION_STRICT_REFS')
   })
 
   it('stays quiet for a reference that resolves, and for remote or data urls', () => {

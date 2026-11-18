@@ -318,7 +318,7 @@ export class CssPlugin {
   }
 
   // A url() to a nonexistent file is fatal to rspack but Chrome 404s it silently
-  // and applies the rest; cancel and warn. EXTENSION_STRICT_REFS restores fatal.
+  // and applies the rest: cancel and warn. EXTENSION_STRICT_REFS makes it an error.
   private tolerateDeadUrlRefs(compiler: Compiler) {
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || process.cwd()
@@ -374,8 +374,6 @@ export class CssPlugin {
               return
             }
 
-            if (process.env.EXTENSION_STRICT_REFS === 'true') return
-
             // Cancelled before rspack resolves it, so nothing watches for the
             // file. Watch every place it could appear, or a later write is lost.
             compilation?.missingDependencies.addAll([
@@ -385,17 +383,22 @@ export class CssPlugin {
 
             const key = `${issuer}|${req}`
 
-            if (!warned.has(key) && compilation?.warnings) {
+            // Strict refs fails the build here, under the same name and code.
+            // Left to rspack, a relative one came back as a warning.
+            const strict = process.env.EXTENSION_STRICT_REFS === 'true'
+            const sink = strict ? compilation?.errors : compilation?.warnings
+
+            if (!warned.has(key) && sink) {
               warned.add(key)
               const issuerPath = toPosixPath(
                 path.relative(manifestDir, issuer) || issuer
               )
-              const warning = new WebpackError(
-                messages.deadCssUrlRef(issuerPath, raw)
+              const report = new WebpackError(
+                messages.deadCssUrlRef(issuerPath, raw, strict)
               )
-              ;(warning as Error & {file?: string}).file = issuerPath
-              warning.name = 'CssDeadRef'
-              compilation?.warnings.push(warning)
+              ;(report as Error & {file?: string}).file = issuerPath
+              report.name = 'CssDeadRef'
+              sink.push(report)
             }
 
             return false

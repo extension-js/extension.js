@@ -125,13 +125,22 @@ export function cssUrlRewriteSkipped(resourcePath: string, error: unknown) {
   ].join('\n')
 }
 
-export function deadCssUrlRef(issuerPath: string, request: string) {
+// Under strict refs the reader already set the variable the hint names.
+export function deadCssUrlRef(
+  issuerPath: string,
+  request: string,
+  strict = false
+) {
   return [
     `A ${colors.blue(`url(${request})`)} reference points to a file that exists nowhere in the project.`,
     `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
     `${colors.gray('NOT FOUND')} ${colors.underline(request)}`,
     `Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.`,
-    `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+    ...(strict
+      ? []
+      : [
+          `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+        ])
   ].join('\n')
 }
 
