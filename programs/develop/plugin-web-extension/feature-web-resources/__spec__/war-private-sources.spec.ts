@@ -133,22 +133,22 @@ const VERSIONS = [3, 2] as const
 
 const PRIVATE_FILES: Table = {
   '/../outside.txt': {
-    shipped: ['assets/outside.<hash>.txt', 'hosted.txt'],
-    marked: ['assets/outside.<hash>.txt'],
-    listed: ['assets/outside.<hash>.txt'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['../outside.txt'],
+    reported: ['../outside.txt']
   },
   '../outside.txt': {
-    shipped: ['assets/outside.<hash>.txt', 'hosted.txt'],
-    marked: ['assets/outside.<hash>.txt'],
-    listed: ['assets/outside.<hash>.txt'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['../outside.txt'],
+    reported: ['../outside.txt']
   },
   'sub/../../outside.txt': {
-    shipped: ['assets/outside.<hash>.txt', 'hosted.txt'],
-    marked: ['assets/outside.<hash>.txt'],
-    listed: ['assets/outside.<hash>.txt'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['sub/../../outside.txt'],
+    reported: ['sub/../../outside.txt']
   },
   '/%2e%2e/outside.txt': {
     shipped: ['hosted.txt'],
@@ -163,82 +163,82 @@ const PRIVATE_FILES: Table = {
     reported: ['%2e%2e/outside.txt']
   },
   '/.env': {
-    shipped: ['.env', 'hosted.txt'],
-    marked: ['.env'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.env'],
-    reported: []
+    reported: ['.env']
   },
   '.env': {
-    shipped: ['.env', 'hosted.txt'],
-    marked: ['.env'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.env'],
-    reported: []
+    reported: ['.env']
   },
   './.env': {
-    shipped: ['.env', 'hosted.txt'],
-    marked: ['.env'],
-    listed: ['.env'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['./.env'],
+    reported: ['./.env']
   },
   '/.env.local': {
-    shipped: ['.env.local', 'hosted.txt'],
-    marked: ['.env.local'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.env.local'],
-    reported: []
+    reported: ['.env.local']
   },
   '/.npmrc': {
-    shipped: ['.npmrc', 'hosted.txt'],
-    marked: ['.npmrc'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.npmrc'],
-    reported: []
+    reported: ['.npmrc']
   },
   '/.git/config': {
-    shipped: ['.git/config', 'hosted.txt'],
-    marked: ['.git/config'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.git/config'],
-    reported: []
+    reported: ['.git/config']
   },
   '.git/config': {
-    shipped: ['.git/config', 'hosted.txt'],
-    marked: ['.git/config'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.git/config'],
-    reported: []
+    reported: ['.git/config']
   },
   '/a/../.envrc': {
-    shipped: ['.envrc', 'hosted.txt'],
-    marked: ['.envrc'],
-    listed: ['.envrc'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['a/../.envrc'],
+    reported: ['a/../.envrc']
   },
   'sub/../.env': {
-    shipped: ['.env', 'hosted.txt'],
-    marked: ['.env'],
-    listed: ['.env'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['sub/../.env'],
+    reported: ['sub/../.env']
   },
   'sub/.env': {
-    shipped: ['hosted.txt', 'sub/.env'],
-    marked: ['sub/.env'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['sub/.env'],
-    reported: []
+    reported: ['sub/.env']
   },
   '.ENV': {
-    shipped: ['.ENV', 'hosted.txt'],
-    marked: ['.ENV'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.ENV'],
-    reported: []
+    reported: ['.ENV']
   },
   '/node_modules/pkg/data.json': {
-    shipped: ['hosted.txt', 'node_modules/pkg/data.json'],
-    marked: ['node_modules/pkg/data.json'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['node_modules/pkg/data.json'],
-    reported: []
+    reported: ['node_modules/pkg/data.json']
   },
   'node_modules/pkg/data.json': {
-    shipped: ['hosted.txt', 'node_modules/pkg/data.json'],
-    marked: ['node_modules/pkg/data.json'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['node_modules/pkg/data.json'],
-    reported: []
+    reported: ['node_modules/pkg/data.json']
   },
   '/nothing.txt': {
     shipped: ['hosted.txt'],
@@ -255,52 +255,40 @@ const PRIVATE_FILES: Table = {
 }
 const PRIVATE_FOLDERS: Table = {
   '.git': {
-    shipped: ['.git/config', 'hosted.txt'],
-    marked: ['.git/config'],
-    listed: ['.git/*'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['.git'],
+    reported: ['.git']
   },
   '.git/': {
-    shipped: ['.git/config', 'hosted.txt'],
-    marked: ['.git/config'],
-    listed: ['.git/*'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['.git/'],
+    reported: ['.git/']
   },
   node_modules: {
-    shipped: ['hosted.txt', 'node_modules/pkg/data.json'],
-    marked: ['node_modules/pkg/data.json'],
-    listed: ['node_modules/*'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['node_modules'],
+    reported: ['node_modules']
   },
   'node_modules/pkg/': {
-    shipped: ['hosted.txt', 'node_modules/pkg/data.json'],
-    marked: ['node_modules/pkg/data.json'],
-    listed: ['node_modules/pkg/*'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['node_modules/pkg/'],
+    reported: ['node_modules/pkg/']
   },
   sub: {
-    shipped: [
-      'hosted.txt',
-      'sub/.env',
-      'sub/deep/.npmrc',
-      'sub/deep/keep.txt',
-      'sub/keep.txt'
-    ],
-    marked: ['sub/.env', 'sub/deep/.npmrc'],
+    shipped: ['hosted.txt', 'sub/deep/keep.txt', 'sub/keep.txt'],
+    marked: [],
     listed: ['sub/*'],
-    reported: []
+    reported: ['sub/.env']
   },
   'sub/': {
-    shipped: [
-      'hosted.txt',
-      'sub/.env',
-      'sub/deep/.npmrc',
-      'sub/deep/keep.txt',
-      'sub/keep.txt'
-    ],
-    marked: ['sub/.env', 'sub/deep/.npmrc'],
+    shipped: ['hosted.txt', 'sub/deep/keep.txt', 'sub/keep.txt'],
+    marked: [],
     listed: ['sub/*'],
-    reported: []
+    reported: ['sub/.env']
   }
 }
 const PATTERNS: Table = {
@@ -335,46 +323,34 @@ const PATTERNS: Table = {
     reported: []
   },
   'sub/*': {
-    shipped: [
-      'hosted.txt',
-      'sub/.env',
-      'sub/deep/.npmrc',
-      'sub/deep/keep.txt',
-      'sub/keep.txt'
-    ],
-    marked: ['sub/.env', 'sub/deep/.npmrc'],
+    shipped: ['hosted.txt', 'sub/deep/keep.txt', 'sub/keep.txt'],
+    marked: [],
     listed: ['sub/*'],
-    reported: []
+    reported: ['sub/.env']
   },
   '/sub/*': {
-    shipped: [
-      'hosted.txt',
-      'sub/.env',
-      'sub/deep/.npmrc',
-      'sub/deep/keep.txt',
-      'sub/keep.txt'
-    ],
-    marked: ['sub/.env', 'sub/deep/.npmrc'],
+    shipped: ['hosted.txt', 'sub/deep/keep.txt', 'sub/keep.txt'],
+    marked: [],
     listed: ['/sub/*'],
-    reported: []
+    reported: ['sub/.env']
   },
   'sub/.e*': {
-    shipped: ['hosted.txt', 'sub/.env'],
-    marked: ['sub/.env'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['sub/.e*'],
-    reported: []
+    reported: ['sub/.env']
   },
   '.git/*': {
-    shipped: ['.git/config', 'hosted.txt'],
-    marked: ['.git/config'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['.git/*'],
-    reported: []
+    reported: ['.git/*']
   },
   'node_modules/pkg/*': {
-    shipped: ['hosted.txt', 'node_modules/pkg/data.json'],
-    marked: ['node_modules/pkg/data.json'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['node_modules/pkg/*'],
-    reported: []
+    reported: ['node_modules/pkg/*']
   },
   '../*.txt': {
     shipped: ['hosted.txt'],
@@ -383,66 +359,66 @@ const PATTERNS: Table = {
     reported: []
   },
   'images/*': {
-    shipped: ['hosted.txt', 'images/.DS_Store', 'images/logo.png'],
-    marked: ['images/.DS_Store'],
+    shipped: ['hosted.txt', 'images/logo.png'],
+    marked: [],
     listed: ['images/*'],
     reported: []
   }
 }
 const LINKS: Table = {
   '/linked.txt': {
-    shipped: ['hosted.txt', 'linked.txt'],
-    marked: ['linked.txt'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['linked.txt'],
-    reported: []
+    reported: ['linked.txt']
   },
   'linked.txt': {
-    shipped: ['hosted.txt', 'linked.txt'],
-    marked: ['linked.txt'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['linked.txt'],
-    reported: []
+    reported: ['linked.txt']
   },
   '/linked-folder/inner.txt': {
-    shipped: ['hosted.txt', 'linked-folder/inner.txt'],
-    marked: ['linked-folder/inner.txt'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['linked-folder/inner.txt'],
-    reported: []
+    reported: ['linked-folder/inner.txt']
   },
   'linked-folder/inner.txt': {
-    shipped: ['hosted.txt', 'linked-folder/inner.txt'],
-    marked: ['linked-folder/inner.txt'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['linked-folder/inner.txt'],
-    reported: []
+    reported: ['linked-folder/inner.txt']
   },
   'linked-folder': {
-    shipped: ['hosted.txt', 'linked-folder/inner.txt'],
-    marked: ['linked-folder/inner.txt'],
-    listed: ['linked-folder/*'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['linked-folder'],
+    reported: ['linked-folder']
   },
   'linked-folder/*': {
-    shipped: ['hosted.txt', 'linked-folder/inner.txt'],
-    marked: ['linked-folder/inner.txt'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['linked-folder/*'],
-    reported: []
+    reported: ['linked-folder/*']
   },
   'shared/logo.txt': {
-    shipped: ['hosted.txt', 'shared/logo.txt'],
-    marked: ['shared/logo.txt'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['shared/logo.txt'],
-    reported: []
+    reported: ['shared/logo.txt']
   },
   shared: {
-    shipped: ['hosted.txt', 'shared/logo.txt'],
-    marked: ['shared/logo.txt'],
-    listed: ['shared/*'],
-    reported: []
+    shipped: ['hosted.txt'],
+    marked: [],
+    listed: ['shared'],
+    reported: ['shared']
   },
   'shared/*': {
-    shipped: ['hosted.txt', 'shared/logo.txt'],
-    marked: ['shared/logo.txt'],
+    shipped: ['hosted.txt'],
+    marked: [],
     listed: ['shared/*'],
-    reported: []
+    reported: ['shared/*']
   },
   'alias.json': {
     shipped: ['alias.json', 'hosted.txt'],
@@ -559,6 +535,71 @@ describe.each(
       expect(await tableFor(version, Object.keys(PROJECT_CONTENT))).toEqual(
         PROJECT_CONTENT
       )
+    },
+    TIMEOUT
+  )
+})
+
+describe('a web_accessible_resources entry the build withholds', () => {
+  it(
+    'is said in the words a missing file gets, once',
+    async () => {
+      const entries = ['.env', '../outside.txt', 'nothing.txt']
+      const root = project({...FILES, 'manifest.json': declare(3, entries)})
+      const result = await build(root)
+      const times = (part: string) => result.printed.split(part).length - 1
+
+      // The text is read twice over: the printed lines, then the summary.
+      for (const entry of entries) {
+        expect(
+          times(
+            `Can't find the file ${entry} listed in web_accessible_resources.`
+          ),
+          entry
+        ).toBe(2)
+      }
+
+      expect(
+        times(
+          'Relative paths must point to a real source file so the build can emit it.'
+        )
+      ).toBe(entries.length * 2)
+
+      expect(
+        times(
+          'Create the missing file, or update the path to an existing source file.'
+        )
+      ).toBe(entries.length * 2)
+
+      expect(result.marked).toEqual([])
+      expect(result.printed).not.toContain(MARKER)
+      expect(result.errors).toBe(0)
+    },
+    TIMEOUT
+  )
+
+  it(
+    'is not answered by a file of the same name in public/',
+    async () => {
+      const root = project({
+        'public/.env': `PRIVATE_KEY=${MARKER}-public-env\n`,
+        'public/.npmrc': `# ${MARKER}-public-npmrc\n`,
+        'public/hosted.txt': 'hosted',
+        'manifest.json': declare(3, ['/.env', '.npmrc', '/hosted.txt'])
+      })
+      const result = await build(root)
+
+      expect(result.shipped).toEqual(['hosted.txt'])
+      expect(result.marked).toEqual([])
+
+      for (const entry of ['.env', '.npmrc']) {
+        expect(result.printed).toContain(
+          `Can't find the file ${entry} listed in web_accessible_resources.`
+        )
+      }
+
+      expect(result.printed).not.toContain(MARKER)
+      expect(result.errors).toBe(0)
     },
     TIMEOUT
   )

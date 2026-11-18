@@ -6,7 +6,8 @@ import {
   findPublicEnvFiles,
   isEnvTemplateFileName,
   privateFileIgnoreGlobs,
-  privateFileKind
+  privateFileKind,
+  sourceFileMayShip
 } from '../public-private-files'
 import {
   compileFixture,
@@ -422,6 +423,130 @@ async function buildWith(
     if (shows(result)) return result
   }
 }
+
+describe('whether a source file may ship', () => {
+  // The project sits one folder down, so there is an outside to reach.
+  function holderProject() {
+    const holder = fs.realpathSync(makeFixtureRoot())
+    const root = path.join(holder, 'project')
+
+    writeFixtureFiles(holder, {
+      'outside.txt': `${MARKER}-outside`,
+      'outside-folder/inner.txt': `${MARKER}-outside-folder`,
+      'project/.env': env('root'),
+      'project/.git/config': `# ${MARKER}-git`,
+      'project/node_modules/pkg/data.json': '{}',
+      'project/data/ok.json': '{}',
+      'project/data/.DS_Store': '',
+      'project/.well-known/links.json': '[]',
+      'project/.env.example': 'EXAMPLE_KEY=\n',
+      'project/src/manifest.json': '{}',
+      'project/src/logo.png': 'png'
+    })
+
+    return {holder, root}
+  }
+
+  it('says yes to project content, by either root it is given', () => {
+    const {root} = holderProject()
+    const src = path.join(root, 'src')
+
+    for (const file of [
+      'data/ok.json',
+      'data',
+      '.well-known/links.json',
+      '.env.example',
+      'src/logo.png',
+      'data/../data/ok.json'
+    ]) {
+      expect(sourceFileMayShip(path.join(root, file), [root]), file).toBe(true)
+    }
+
+    expect(sourceFileMayShip(path.join(src, 'logo.png'), [src])).toBe(true)
+    // The manifest folder alone does not own a file beside it.
+    expect(sourceFileMayShip(path.join(root, 'data/ok.json'), [src])).toBe(
+      false
+    )
+
+    expect(
+      sourceFileMayShip(path.join(root, 'data/ok.json'), [src, root])
+    ).toBe(true)
+  })
+
+  it('says no to a private name, an installed package, a climb and a missing file', () => {
+    const {holder, root} = holderProject()
+
+    for (const file of [
+      '.env',
+      '.ENV',
+      '.git/config',
+      '.git',
+      'data/.DS_Store',
+      'node_modules/pkg/data.json',
+      'node_modules',
+      'data/../.env',
+      '../outside.txt',
+      'data/../../outside.txt',
+      'nothing.txt',
+      '.'
+    ]) {
+      expect(sourceFileMayShip(path.join(root, file), [root]), file).toBe(false)
+    }
+
+    expect(sourceFileMayShip(path.join(holder, 'outside.txt'), [root])).toBe(
+      false
+    )
+
+    expect(sourceFileMayShip(path.join(root, 'data/ok.json'), [])).toBe(false)
+  })
+
+  it.skipIf(process.platform === 'win32')(
+    'follows a link to the place it leads',
+    () => {
+      const {holder, root} = holderProject()
+      const link = (target: string, name: string) =>
+        fs.symlinkSync(target, path.join(root, name))
+
+      link(path.join(root, 'data', 'ok.json'), 'alias.json')
+      link(path.join(root, 'data'), 'alias-folder')
+      link(path.join(holder, 'outside.txt'), 'linked.txt')
+      link(path.join(holder, 'outside-folder'), 'linked-folder')
+      link(path.join(root, '.env'), 'settings.txt')
+      link(path.join(root, 'node_modules', 'pkg'), 'vendor')
+      link(path.join(root, 'data', 'ok.json'), '.npmrc')
+      link(path.join(root, 'nowhere.txt'), 'broken.txt')
+
+      const answers = Object.fromEntries(
+        [
+          'alias.json',
+          'alias-folder/ok.json',
+          'linked.txt',
+          'linked-folder',
+          'linked-folder/inner.txt',
+          'settings.txt',
+          'vendor/data.json',
+          '.npmrc',
+          'broken.txt'
+        ].map((file) => [
+          file,
+          sourceFileMayShip(path.join(root, file), [root])
+        ])
+      )
+
+      expect(answers).toEqual({
+        'alias.json': true,
+        'alias-folder/ok.json': true,
+        'linked.txt': false,
+        'linked-folder': false,
+        'linked-folder/inner.txt': false,
+        'settings.txt': false,
+        'vendor/data.json': false,
+        '.npmrc': false,
+        'broken.txt': false
+      })
+    }
+  )
+})
 
 describe('a watch session over public/ with private files', () => {
   it('never ships one added mid-session and names an env file once per change of the list', async () => {

@@ -3,7 +3,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {resolveUserDeclaredWAR} from '../web-resources-lib/resolve-war'
+import {
+  declaredResourceSource,
+  resolveUserDeclaredWAR
+} from '../web-resources-lib/resolve-war'
 
 const created: string[] = []
 
@@ -209,5 +212,106 @@ describe('web_accessible_resources that the project root owns', () => {
 
     expect(resolved.v3.length).toBe(0)
     expect(compilation.warnings.length).toBe(1)
+  })
+})
+
+describe('web_accessible_resources of a manifest below the project root', () => {
+  // Obvious fakes: no file here holds a real value.
+  const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
+
+  function holderProject() {
+    const holder = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'war-root-edge-'))
+    )
+    created.push(holder)
+
+    const files: Record<string, string> = {
+      'outside.txt': `${MARKER}-outside`,
+      'project/.env': `PRIVATE_KEY=${MARKER}-env`,
+      'project/node_modules/pkg/data.json': `"${MARKER}-package"`,
+      'project/docs/terms.txt': 'terms',
+      'project/src/manifest.json': '{}',
+      'project/src/.npmrc': `# ${MARKER}-npmrc`,
+      'project/src/beside.txt': 'beside'
+    }
+
+    for (const [rel, content] of Object.entries(files)) {
+      const abs = path.join(holder, rel)
+      fs.mkdirSync(path.dirname(abs), {recursive: true})
+      fs.writeFileSync(abs, content)
+    }
+
+    const root = path.join(holder, 'project')
+
+    return {root, manifestPath: path.join(root, 'src', 'manifest.json')}
+  }
+
+  const WITHHELD = [
+    '.env',
+    '../.env',
+    '.npmrc',
+    'node_modules/pkg/data.json',
+    '../node_modules/pkg/data.json',
+    '../../outside.txt',
+    '../docs/../../outside.txt'
+  ]
+
+  it('copies nothing the project root does not own and reports each entry', () => {
+    const {root, manifestPath} = holderProject()
+    const {compilation, emitAsset} = compilationFor(root, [])
+    const resolved = resolveUserDeclaredWAR(
+      compilation,
+      manifestPath,
+      {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {
+            matches: ['<all_urls>'],
+            resources: [...WITHHELD, '../docs/terms.txt', 'beside.txt']
+          }
+        ]
+      } as never,
+      'chrome'
+    )
+
+    const shipped = ['assets/terms.<hash>.txt', 'beside.txt']
+    const withoutHash = (name: string) =>
+      name.replace(/\.[0-9a-f]{8}(?=\.)/, '.<hash>')
+
+    expect(
+      emitAsset.mock.calls.map(([name]) => withoutHash(String(name))).sort()
+    ).toEqual(shipped)
+
+    expect(
+      Array.from(resolved.v3[0].resources).map(withoutHash).sort()
+    ).toEqual(shipped)
+
+    const said = compilation.warnings.map((warning) => String(warning.message))
+
+    expect(said).toHaveLength(WITHHELD.length)
+
+    for (const [index, entry] of WITHHELD.entries()) {
+      expect(said[index]).toContain(`Can't find the file`)
+      expect(said[index]).toContain(entry)
+      expect(said[index]).not.toContain(MARKER)
+      expect((compilation.warnings[index] as {name?: string}).name).toBe(
+        'WARRelativeAssetMissing'
+      )
+    }
+  })
+
+  it('names no source file for an entry the build withholds', () => {
+    const {root, manifestPath} = holderProject()
+
+    for (const entry of WITHHELD) {
+      expect(declaredResourceSource(manifestPath, root, entry), entry).toBe(
+        undefined
+      )
+    }
+
+    expect(declaredResourceSource(manifestPath, root, 'beside.txt')).toEqual({
+      source: path.join(root, 'src', 'beside.txt'),
+      output: 'beside.txt'
+    })
   })
 })

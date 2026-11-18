@@ -229,36 +229,28 @@ describe('a root-absolute path that names a file outside public/', () => {
         })
       )
 
-      // The manifest features ship these, not the special folders plugin.
-      expect(result.shipped).toEqual(
-        [
-          '.env',
-          '.env.local',
-          '.envrc',
-          '.git/config',
-          '.npmrc',
-          'assets/outside.<hash>.txt',
-          'data/ok.json',
-          'extension.config.js',
-          ...LINKED_OUTPUT,
-          'node_modules/pkg/data.json',
-          'package.json'
-        ].sort()
-      )
+      // The icons step ships the env file. The resource list ships only
+      // project content and names every other entry as missing.
+      expect(result.shipped).toEqual([
+        '.env',
+        'data/ok.json',
+        'extension.config.js',
+        'package.json'
+      ])
 
-      expect(result.marked).toEqual(
-        [
-          '.env',
-          '.env.local',
-          '.envrc',
-          '.git/config',
-          '.npmrc',
-          'assets/outside.<hash>.txt',
-          ...LINKED_OUTPUT,
-          'node_modules/pkg/data.json',
-          'package.json'
-        ].sort()
-      )
+      expect(result.marked).toEqual(['.env', 'package.json'])
+
+      for (const ref of [
+        ...PRIVATE_TARGETS,
+        ...CLIMBING_TARGETS,
+        ...LINKED_TARGETS
+      ]) {
+        if (ref === '/.env') continue
+
+        expect(result.printed).toContain(
+          `Can't find the file ${ref.slice(1)} listed in web_accessible_resources.`
+        )
+      }
 
       expect(result.errors).toBe(0)
       expect(result.printed).not.toContain(MARKER)

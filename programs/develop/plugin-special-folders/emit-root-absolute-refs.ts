@@ -20,7 +20,7 @@ import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/mes
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
 import * as cssMessages from '../plugin-css/css-lib/messages'
 import * as folderMessages from './messages'
-import {hasPrivateFileName} from './public-private-files'
+import {hasPrivateFileName, sourceFileMayShip} from './public-private-files'
 import {isOsPathUnder} from '../lib/real-path'
 
 // The asset a ref was read from, which names the surface in a warning.
@@ -37,13 +37,6 @@ interface WithheldRef {
 }
 
 export type RootAbsoluteRefPlan = TracedFilePlan | WithheldRef
-
-// Installed packages are not project content.
-function isInNodeModules(relativePath: string): boolean {
-  return relativePath
-    .split(/[\\/]+/)
-    .some((name) => name.toLowerCase() === 'node_modules')
-}
 
 // The name as written and as the browser reads it, where `%2e%2e` is `..`.
 function browserSpellings(outputName: string): string[] {
@@ -62,37 +55,6 @@ function browserSpellings(outputName: string): string[] {
 
 function climbsOut(normalized: string): boolean {
   return normalized === '..' || normalized.startsWith('../')
-}
-
-// A link is followed to the file it names, which has to be project content
-// too: inside the project, under no private name, in no installed package.
-function resolvesToProjectContent(sourcePath: string, roots: string[]) {
-  let real: string
-
-  try {
-    real = fs.realpathSync(sourcePath)
-  } catch {
-    return false
-  }
-
-  return roots.some((root) => {
-    let relative: string
-
-    try {
-      relative = path.relative(fs.realpathSync(root), real)
-    } catch {
-      return false
-    }
-
-    return (
-      relative !== '' &&
-      relative !== '..' &&
-      !relative.startsWith(`..${path.sep}`) &&
-      !path.isAbsolute(relative) &&
-      !hasPrivateFileName(relative) &&
-      !isInNodeModules(relative)
-    )
-  })
 }
 
 // Decide how a root-absolute ref ships, with the tracer's rule: data files
@@ -146,7 +108,7 @@ export function planRootAbsoluteRef(
 
   if (
     (plan.kind === 'copy' || plan.kind === 'compile') &&
-    !resolvesToProjectContent(plan.sourcePath, [projectRoot, context])
+    !sourceFileMayShip(plan.sourcePath, [projectRoot, context])
   ) {
     return {kind: 'withheld', emitPath: outputName}
   }
