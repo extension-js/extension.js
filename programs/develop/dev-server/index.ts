@@ -112,6 +112,7 @@ import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
+  endCompilerRestart,
   unbindDevSessionRestart
 } from './session-restart'
 import {createSessionRestartHandler} from './session-restart-handler'
@@ -120,6 +121,7 @@ import {
   announceReadyOnCleanCompile,
   createBindFailureRelay,
   createReadyAnnouncer,
+  createRestartFailure,
   createStartFailure,
   readStartTimeoutMs,
   releaseFailedStart,
@@ -823,6 +825,8 @@ export async function devServer(
 
   // The middleware reads the live compiler's output; a restart swaps it.
   let activeCompiler: Compiler | null = null
+  // Set while a bundle is being built, for a build that throws partway.
+  let releaseUnfinishedBundle: (() => void) | null = null
   const bindFailure = createBindFailureRelay()
   // Same rule as the dev command: only a caller that asked for it is exited.
   const exitOnStartFailure =
@@ -915,6 +919,7 @@ export async function devServer(
 
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)
+    releaseUnfinishedBundle = uninstallManifestGuard
 
     // Under --no-browser no CDP controller owns reload, so broadcast the same
     // classified reload decision over the control bridge; gated to avoid double-reload.
@@ -1055,7 +1060,34 @@ export async function devServer(
       }
     }
 
+    releaseUnfinishedBundle = null
+
     return {compiler, server, firstCompile}
+  }
+
+  // A restart that cannot build its next bundle leaves the session exactly
+  // as it was: the serving compiler stays the one the middleware reads.
+  async function createRestartBundle() {
+    const serving = activeCompiler
+
+    try {
+      return await createCompilerAndServer({isRestart: true})
+    } catch (error) {
+      const abandoned = activeCompiler
+      activeCompiler = serving
+      releaseUnfinishedBundle?.()
+      releaseUnfinishedBundle = null
+
+      if (abandoned && abandoned !== serving) {
+        try {
+          abandoned.close(() => {})
+        } catch {
+          // Ignore
+        }
+      }
+
+      throw error
+    }
   }
 
   const failStart = createStartFailure({
@@ -1065,14 +1097,17 @@ export async function devServer(
     exitOnError: exitOnStartFailure
   })
 
-  const startSessionBundler = (server: RspackDevServer) =>
+  const startSessionBundler = (
+    server: RspackDevServer,
+    onFailure: (error: unknown) => void = failStart
+  ) =>
     startBundler(
       {start: () => bindFailure.during(() => server.start())},
       {
         timeoutMs: START_TIMEOUT_MS,
         onSlowStart: () =>
           console.error(messages.devServerStartTimeout(START_TIMEOUT_MS)),
-        onFailure: failStart
+        onFailure
       }
     )
 
@@ -1104,18 +1139,39 @@ export async function devServer(
 
   // Plugins that find an entrypoint change ask for this; the request outlives
   // the compiler that noticed it because the scheduler belongs to the session.
+  const restartFailure = createRestartFailure({
+    metadata,
+    lifecycle,
+    keepServing: () => endCompilerRestart(activeCompiler ?? undefined),
+    release: (server) =>
+      releaseFailedStart({
+        server,
+        releasePort: () => portManager.terminateCurrentInstance(),
+        closeControlBridge: controlBridge.close
+      }),
+    onExitError: extendedOptions.onExitError,
+    exitOnError: exitOnStartFailure
+  })
   const sessionRestart = new DevSessionRestartScheduler()
+  sessionRestart.setFailureHandler(restartFailure.unexpected)
   sessionRestart.setHandler(
     createSessionRestartHandler<RspackDevServer>({
       announce: (request) => humanLine(messages.devServerRestarting(request)),
-      createBundle: () => createCompilerAndServer({isRestart: true}),
+      createBundle: createRestartBundle,
       currentServer: () => currentServer,
       setCurrentServer: (server) => {
         currentServer = server
       },
       holdPort: () => portManager.holdPortAcrossRestart(),
       endPortHold: () => portManager.endRestartHold(),
-      startBundler: startSessionBundler,
+      // A restart reports its own failure, so the start only rejects here.
+      startBundler: (server) =>
+        startSessionBundler(server, (error) => {
+          throw error
+        }),
+      onBundleFailure: restartFailure.bundle,
+      onStopFailure: restartFailure.stop,
+      onStartFailure: restartFailure.start,
       fullReloadsDelivered: () => fullReloadsDeliveredTo(bridgeBroker),
       reloadAfterRestart: (fullReloadsBefore) =>
         dispatchRestartReload({broker: bridgeBroker}, fullReloadsBefore)
@@ -1177,6 +1233,7 @@ export async function devServer(
     portManager,
     (signal) => {
       lifecycle.interrupted(signal)
-    }
+    },
+    {closeControlBridge: controlBridge.close}
   )
 }

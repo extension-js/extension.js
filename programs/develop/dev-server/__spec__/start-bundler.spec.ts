@@ -1,10 +1,13 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {codedError} from '../../lib/coded-error'
+import {CODES} from '../../lib/messaging'
 import {stripAnsi} from '../lifecycle-stream'
 import {
   announceReadyOnCleanCompile,
   createBindFailureRelay,
   createReadyAnnouncer,
   createStartFailure,
+  declaredErrorCode,
   devServerStartError,
   readStartTimeoutMs,
   releaseFailedStart,
@@ -316,10 +319,14 @@ describe('starting the bundler', () => {
     expect(readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: '5000'})).toBe(5000)
   })
 
-  // Pins today's behavior. Ledger 1391 D8.
-  it('warns at once when EXTENSION_START_TIMEOUT_MS is not a number', async () => {
+  it.each([
+    ['a word', 'soon'],
+    ['zero', '0'],
+    ['a negative number', '-5'],
+    ['an empty value', '']
+  ])('keeps the default start timeout for %s', async (_name, value) => {
     vi.useFakeTimers()
-    const timeoutMs = readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: 'soon'})
+    const timeoutMs = readStartTimeoutMs({EXTENSION_START_TIMEOUT_MS: value})
     const onSlowStart = vi.fn()
 
     let finish: () => void = () => {}
@@ -329,10 +336,25 @@ describe('starting the bundler', () => {
       {timeoutMs, onSlowStart, onFailure: () => {}}
     )
 
-    expect(timeoutMs).toBeNaN()
-    await vi.advanceTimersByTimeAsync(1)
-    expect(onSlowStart).toHaveBeenCalledTimes(1)
+    expect(timeoutMs).toBe(30000)
+    await vi.advanceTimersByTimeAsync(29999)
+    expect(onSlowStart).not.toHaveBeenCalled()
     finish()
     await started
+  })
+})
+
+describe('the code a restart failure is reported under', () => {
+  it('keeps a code the catalog knows and drops any other', () => {
+    expect(declaredErrorCode(codedError(CODES.E_CONFIG_LOAD, 'x'))).toBe(
+      'E_CONFIG_LOAD'
+    )
+
+    expect(
+      declaredErrorCode(Object.assign(new Error('x'), {code: 'EADDRINUSE'}))
+    ).toBeUndefined()
+
+    expect(declaredErrorCode(new Error('x'))).toBeUndefined()
+    expect(declaredErrorCode(null)).toBeUndefined()
   })
 })

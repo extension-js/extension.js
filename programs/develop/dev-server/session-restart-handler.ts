@@ -25,6 +25,11 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
   holdPort: () => void
   endPortHold: () => void
   startBundler: (server: Server) => Promise<void>
+  // The next compiler could not be built. The current server was not touched.
+  onBundleFailure: (error: unknown, request: DevSessionRestartRequest) => void
+  onStopFailure: (error: unknown) => void
+  // The next server could not start after the old one stopped.
+  onStartFailure: (error: unknown, server: Server) => void | Promise<void>
   fullReloadsDelivered: () => number
   reloadAfterRestart: (fullReloadsBefore: number) => Promise<unknown>
 }
@@ -36,14 +41,30 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
 ) {
   return async (request: DevSessionRestartRequest): Promise<void> => {
     steps.announce(request)
-    const nextBundle = await steps.createBundle()
+
+    let nextBundle: RestartBundle<Server>
+
+    try {
+      nextBundle = await steps.createBundle()
+    } catch (error) {
+      steps.onBundleFailure(error, request)
+
+      return
+    }
+
     const previous = steps.currentServer()
     steps.setCurrentServer(null)
 
     steps.holdPort()
 
     if (previous && typeof previous.stop === 'function') {
-      await previous.stop()
+      // A server that did not stop cleanly is still replaced: the session is
+      // left with nothing serving only when the next one cannot start.
+      try {
+        await previous.stop()
+      } catch (error) {
+        steps.onStopFailure(error)
+      }
     }
 
     // Read once the old compiler is stopped, so only the new one's first
@@ -54,6 +75,11 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
 
     try {
       await steps.startBundler(nextBundle.server)
+    } catch (error) {
+      steps.setCurrentServer(null)
+      await steps.onStartFailure(error, nextBundle.server)
+
+      return
     } finally {
       steps.endPortHold()
     }

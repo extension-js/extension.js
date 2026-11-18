@@ -571,6 +571,34 @@ describe('lifecycle stream transitions', () => {
     expect(frame.error?.message).toBe('listen EADDRINUSE')
   })
 
+  it('reports a failed restart without ending the session', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.restartFailed({
+      code: CODES.E_CONFIG_LOAD,
+      message: '\u001b[31mextension.config.js threw\u001b[39m'
+    })
+
+    // Not terminal: a later crash still gets its own frame at exit.
+    stream.exited(1)
+
+    const frames = parseFrames(lines) as Array<Frame & {hint?: string}>
+    expect(frames.map((frame) => frame.status)).toEqual([
+      'starting',
+      'restart-failed',
+      'failed'
+    ])
+
+    expect(frames[1].ok).toBe(false)
+    expect(frames[1].error).toEqual({
+      code: 'E_CONFIG_LOAD',
+      message: 'extension.config.js threw'
+    })
+
+    expect(frames[1].value).toMatchObject({serving: true, port: 8080})
+    expect(frames[1].hint).toContain('The previous build keeps serving.')
+  })
+
   it('ends an interrupted session with one stopped frame coded E_INTERRUPTED', () => {
     const {stream, lines} = makeStream()
     stream.interrupted('SIGINT')

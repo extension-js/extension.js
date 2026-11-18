@@ -191,15 +191,14 @@ describe('opening the control bridge', () => {
     expect(logFile.close).not.toHaveBeenCalled()
   })
 
-  // Pins today's behavior. Ledger 1391 D8.
-  it('takes a 16 MiB frame on the control socket', async () => {
+  async function controlSocket() {
     const frames: unknown[] = []
     const broker = {
       pingProducers: () => {},
       onFrame: (_conn: unknown, frame: unknown) => frames.push(frame),
       onClose: () => {}
     }
-    const {startControlServer} = await import(
+    const {startControlServer, MAX_CONTROL_FRAME_BYTES} = await import(
       '../control-bridge/ws-control-server'
     )
     const {WebSocket} = await import('ws')
@@ -212,26 +211,45 @@ describe('opening the control bridge', () => {
     const socket = new WebSocket(
       `ws://127.0.0.1:${server.port}${CONTROL_WS_PATH}`
     )
-    closers.push(
-      () =>
-        new Promise<void>((resolve) => {
-          if (socket.readyState === WebSocket.CLOSED) return resolve()
-
-          socket.once('close', () => resolve())
-          socket.terminate()
-        })
-    )
+    const closed = new Promise<number>((resolve) => {
+      socket.once('close', (code) => resolve(code))
+    })
+    closers.push(async () => {
+      socket.terminate()
+      await closed
+    })
 
     await new Promise<void>((resolve, reject) => {
       socket.once('open', () => resolve())
       socket.once('error', reject)
     })
 
-    const payload = 'x'.repeat(16 * 1024 * 1024)
+    // The server ends the socket mid-send, which the client reports here.
+    socket.on('error', () => {})
+
+    return {frames, socket, closed, limit: MAX_CONTROL_FRAME_BYTES, WebSocket}
+  }
+
+  it('takes a frame far above what a producer sends', async () => {
+    const {frames, socket, WebSocket} = await controlSocket()
+    const payload = 'x'.repeat(1024 * 1024)
     socket.send(JSON.stringify({type: 'pin', payload}))
 
     await vi.waitFor(() => expect(frames).toHaveLength(1), {timeout: 10000})
     expect((frames[0] as {payload: string}).payload.length).toBe(payload.length)
     expect(socket.readyState).toBe(WebSocket.OPEN)
+  })
+
+  it('closes a socket that sends a frame above the limit and keeps serving', async () => {
+    const {frames, socket, closed, limit} = await controlSocket()
+    socket.send(JSON.stringify({type: 'pin', payload: 'x'.repeat(limit)}))
+
+    // 1009 is the WebSocket close code for a message that is too big.
+    expect(await closed).toBe(1009)
+    expect(frames).toEqual([])
+
+    const next = await controlSocket()
+    next.socket.send(JSON.stringify({type: 'pin', payload: 'small'}))
+    await vi.waitFor(() => expect(next.frames).toHaveLength(1))
   })
 })

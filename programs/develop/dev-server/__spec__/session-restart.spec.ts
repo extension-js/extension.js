@@ -4,6 +4,7 @@ import {
   canAutoRestartDevSession,
   type DevSessionRestartRequest,
   DevSessionRestartScheduler,
+  endCompilerRestart,
   isCompilerRestarting,
   requestDevSessionRestart,
   unbindDevSessionRestart
@@ -81,6 +82,46 @@ describe('DevSessionRestartScheduler', () => {
     expect(handler).toHaveBeenCalledTimes(2)
   })
 
+  it('hands a restart that threw to the failure handler with its request', async () => {
+    const failures: Array<[unknown, DevSessionRestartRequest]> = []
+    const boom = new Error('boom')
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setFailureHandler((error, request) =>
+      failures.push([error, request])
+    )
+
+    scheduler.setHandler(async () => {
+      throw boom
+    })
+
+    scheduler.request({reason: 'html', pathAfter: '/a.html'})
+    await tick()
+    await tick()
+
+    expect(failures).toEqual([[boom, {reason: 'html', pathAfter: '/a.html'}]])
+    expect(scheduler.isPending()).toBe(false)
+  })
+
+  it('runs the next restart after a failure handler that throws', async () => {
+    const handler = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValue(undefined)
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setFailureHandler(() => {
+      throw new Error('report broke')
+    })
+
+    scheduler.setHandler(handler)
+    scheduler.request({reason: 'html', pathAfter: '/a.html'})
+    await tick()
+    await tick()
+    scheduler.request({reason: 'html', pathAfter: '/b.html'})
+    await tick()
+    await tick()
+    expect(handler).toHaveBeenCalledTimes(2)
+  })
+
   it('drops queued work on dispose', async () => {
     const handler = vi.fn()
     const scheduler = new DevSessionRestartScheduler(20)
@@ -119,5 +160,20 @@ describe('requestDevSessionRestart', () => {
     expect(isCompilerRestarting({})).toBe(false)
     await tick()
     expect(handler).toHaveBeenCalledTimes(1)
+  })
+
+  it('lets a compiler report again once its restart is abandoned', () => {
+    const scheduler = new DevSessionRestartScheduler(20)
+    scheduler.setHandler(() => {})
+    bindDevSessionRestart(scheduler)
+    const compiler = {}
+
+    requestDevSessionRestart(compiler, {reason: 'env', pathChanged: '/.env'})
+    expect(isCompilerRestarting(compiler)).toBe(true)
+
+    endCompilerRestart(compiler)
+    expect(isCompilerRestarting(compiler)).toBe(false)
+    endCompilerRestart(undefined)
+    scheduler.dispose()
   })
 })

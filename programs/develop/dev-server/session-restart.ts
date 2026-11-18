@@ -36,9 +36,15 @@ type RestartHandler = (
   request: DevSessionRestartRequest
 ) => void | Promise<void>
 
+type RestartFailureHandler = (
+  error: unknown,
+  request: DevSessionRestartRequest
+) => void
+
 export class DevSessionRestartScheduler {
   private readonly debounceMs: number
   private handler: RestartHandler | null = null
+  private failureHandler: RestartFailureHandler | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
   private latest: DevSessionRestartRequest | null = null
   private inFlight = false
@@ -49,6 +55,11 @@ export class DevSessionRestartScheduler {
 
   setHandler(handler: RestartHandler | null): void {
     this.handler = handler
+  }
+
+  // Told about a restart that threw, so no failure ends here unseen.
+  setFailureHandler(handler: RestartFailureHandler | null): void {
+    this.failureHandler = handler
   }
 
   // The newest request wins; a request that lands while a restart is running
@@ -70,6 +81,7 @@ export class DevSessionRestartScheduler {
     this.timer = undefined
     this.latest = null
     this.handler = null
+    this.failureHandler = null
   }
 
   private schedule(): void {
@@ -101,9 +113,12 @@ export class DevSessionRestartScheduler {
 
     try {
       await handler(request)
-    } catch {
-      // Nothing reports a failed restart: the error ends here unseen, and the
-      // old server keeps serving only if the failure came before its stop.
+    } catch (error) {
+      try {
+        this.failureHandler?.(error, request)
+      } catch {
+        // Best-effort: a report that throws must not stop the next restart.
+      }
     } finally {
       this.inFlight = false
       if (this.latest) this.schedule()
@@ -143,6 +158,12 @@ export function requestDevSessionRestart(
   boundScheduler.request(request)
 
   return true
+}
+
+// A restart that could not build its next compiler leaves this one serving,
+// so it reports its own diagnostics again.
+export function endCompilerRestart(compiler: object | undefined): void {
+  if (compiler) restartingCompilers.delete(compiler)
 }
 
 export function isCompilerRestarting(compiler: object | undefined): boolean {

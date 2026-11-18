@@ -19,6 +19,10 @@ import {
 
 const SLOW_CONSUMER_BYTES = 8 * 1024 * 1024
 
+// The largest frame a peer may send. A producer caps a result at 256 KiB, so
+// this leaves room for a long log line and still bounds what one frame holds.
+export const MAX_CONTROL_FRAME_BYTES = 8 * 1024 * 1024
+
 // MV3 service workers idle out after ~30s; a WebSocket message resets that
 // timer (Chrome 116+), so ping producers faster to keep the SW reachable.
 const PRODUCER_KEEPALIVE_INTERVAL_MS = 20_000
@@ -71,6 +75,7 @@ export function startControlServer(
       host,
       port: options.port ?? 0,
       path,
+      maxPayload: MAX_CONTROL_FRAME_BYTES,
       verifyClient: (info: {origin: string}) =>
         isAdmittedOrigin(info.origin, options.viewerOrigin)
     })

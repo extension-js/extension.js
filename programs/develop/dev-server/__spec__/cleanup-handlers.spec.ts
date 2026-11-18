@@ -1,9 +1,15 @@
 import {EventEmitter} from 'node:events'
 import * as net from 'node:net'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {setupCleanupHandlers} from '../cleanup'
+import {
+  FORCED_SHUTDOWN_EXIT_CODE,
+  REPEATED_SIGNAL_GRACE_MS,
+  SHUTDOWN_TIMEOUT_MS,
+  setupCleanupHandlers
+} from '../cleanup'
 import type {BridgeBroker} from '../control-bridge/broker'
 import {startControlServer} from '../control-bridge/ws-control-server'
+import {stripAnsi} from '../lifecycle-stream'
 import type {PortManager} from '../port-manager'
 
 const LISTENED = [
@@ -50,11 +56,13 @@ describe('setupCleanupHandlers', () => {
     expect(counts()).toEqual(before)
   })
 
-  // Pins today's behavior. Ledger 1391 D5.
-  it('returns early on a second signal while stop is pending and exits nothing', async () => {
+  function hangingSession(
+    dependencies: Parameters<typeof setupCleanupHandlers>[3] = {}
+  ) {
     const events = new EventEmitter()
     const exit = vi.fn()
     const onSignal = vi.fn()
+    const printed: string[] = []
 
     let finishStop: () => void = () => {}
 
@@ -70,33 +78,125 @@ describe('setupCleanupHandlers', () => {
       setupCleanupHandlers(() => ({stop}) as never, portManager, onSignal, {
         events,
         exit,
-        env: {}
+        env: {},
+        print: (line) => printed.push(stripAnsi(line)),
+        ...dependencies
       })
     )
 
-    events.emit('SIGINT', 'SIGINT')
-    events.emit('SIGINT', 'SIGINT')
-    events.emit('SIGTERM', 'SIGTERM')
-    await new Promise((resolve) => setImmediate(resolve))
+    return {
+      events,
+      exit,
+      onSignal,
+      printed,
+      stop,
+      terminateCurrentInstance,
+      finishStop: () => finishStop()
+    }
+  }
 
-    expect(stop).toHaveBeenCalledTimes(1)
-    expect(onSignal.mock.calls).toEqual([['SIGINT']])
-    expect(terminateCurrentInstance).not.toHaveBeenCalled()
-    expect(exit).not.toHaveBeenCalled()
-
+  it('ends the process with a line when the server never stops', async () => {
     vi.useFakeTimers()
-    finishStop()
-    await vi.waitFor(() =>
-      expect(terminateCurrentInstance).toHaveBeenCalledTimes(1)
+    const s = hangingSession()
+
+    s.events.emit('SIGINT', 'SIGINT')
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS - 1)
+    expect(s.exit).not.toHaveBeenCalled()
+    expect(s.printed).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(s.exit.mock.calls).toEqual([[FORCED_SHUTDOWN_EXIT_CODE]])
+    expect(s.printed).toHaveLength(1)
+    expect(s.printed[0]).toContain(
+      `didn't shut down within ${SHUTDOWN_TIMEOUT_MS} ms`
     )
 
-    expect(exit).not.toHaveBeenCalled()
-    await vi.advanceTimersByTimeAsync(500)
-    expect(exit.mock.calls).toEqual([[]])
+    expect(s.stop).toHaveBeenCalledTimes(1)
+    expect(s.terminateCurrentInstance).not.toHaveBeenCalled()
   })
 
-  // Pins today's behavior. Ledger 1391 D8.
-  it('leaves the control server listening after shutdown', async () => {
+  it('ends the process at once on a second signal while stop is pending', async () => {
+    vi.useFakeTimers()
+    const s = hangingSession()
+
+    s.events.emit('SIGINT', 'SIGINT')
+    await vi.advanceTimersByTimeAsync(REPEATED_SIGNAL_GRACE_MS)
+    s.events.emit('SIGINT', 'SIGINT')
+
+    expect(s.exit.mock.calls).toEqual([[FORCED_SHUTDOWN_EXIT_CODE]])
+    expect(s.printed).toHaveLength(1)
+    expect(s.printed[0]).toContain('Received SIGINT again during shutdown')
+    expect(s.stop).toHaveBeenCalledTimes(1)
+    expect(s.onSignal.mock.calls).toEqual([['SIGINT']])
+
+    // The bound is disarmed with the exit, so nothing exits a second time.
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS)
+    expect(s.exit).toHaveBeenCalledTimes(1)
+    expect(s.printed).toHaveLength(1)
+  })
+
+  it('reads a repeat that lands with the first signal as the same request', async () => {
+    vi.useFakeTimers()
+    const s = hangingSession()
+
+    s.events.emit('SIGINT', 'SIGINT')
+    s.events.emit('SIGINT', 'SIGINT')
+    await vi.advanceTimersByTimeAsync(REPEATED_SIGNAL_GRACE_MS - 1)
+    s.events.emit('SIGTERM', 'SIGTERM')
+
+    expect(s.stop).toHaveBeenCalledTimes(1)
+    expect(s.onSignal.mock.calls).toEqual([['SIGINT']])
+    expect(s.exit).not.toHaveBeenCalled()
+    expect(s.printed).toEqual([])
+
+    s.finishStop()
+    await vi.waitFor(() =>
+      expect(s.terminateCurrentInstance).toHaveBeenCalledTimes(1)
+    )
+
+    await vi.advanceTimersByTimeAsync(500)
+    expect(s.exit.mock.calls).toEqual([[]])
+
+    // A clean shutdown disarms the bound as well.
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS)
+    expect(s.exit).toHaveBeenCalledTimes(1)
+  })
+
+  it('exits 1 and says so when the server stop rejects', async () => {
+    vi.useFakeTimers()
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const events = new EventEmitter()
+    const exit = vi.fn()
+    const terminateCurrentInstance = vi.fn(async () => {})
+    const closeControlBridge = vi.fn(async () => {})
+    const stop = vi.fn(async () => {
+      throw new Error('close EBUSY')
+    })
+    disposers.push(
+      setupCleanupHandlers(
+        () => ({stop}) as never,
+        {terminateCurrentInstance} as unknown as PortManager,
+        undefined,
+        {events, exit, env: {}, closeControlBridge}
+      )
+    )
+
+    try {
+      events.emit('SIGTERM', 'SIGTERM')
+      await vi.advanceTimersByTimeAsync(500)
+
+      expect(exit.mock.calls).toEqual([[1]])
+      expect(terminateCurrentInstance).toHaveBeenCalledTimes(1)
+      expect(closeControlBridge).toHaveBeenCalledTimes(1)
+      expect(stripAnsi(String(consoleError.mock.calls[0][0]))).toContain(
+        'The dev server could not shut down cleanly: close EBUSY'
+      )
+    } finally {
+      consoleError.mockRestore()
+    }
+  })
+
+  it('closes the control server on shutdown', async () => {
     const events = new EventEmitter()
     const exit = vi.fn()
     const broker = {
@@ -111,16 +211,18 @@ describe('setupCleanupHandlers', () => {
     })
 
     try {
-      vi.useFakeTimers({toFake: ['setTimeout']})
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
       disposers.push(
         setupCleanupHandlers(() => null, fakePortManager(), undefined, {
           events,
           exit,
-          env: {}
+          env: {},
+          closeControlBridge: () => control.close()
         })
       )
 
       events.emit('SIGINT', 'SIGINT')
+      await vi.waitFor(() => expect(vi.getTimerCount()).toBe(2))
       await vi.advanceTimersByTimeAsync(500)
       expect(exit.mock.calls).toEqual([[]])
       vi.useRealTimers()
@@ -135,7 +237,7 @@ describe('setupCleanupHandlers', () => {
         socket.once('error', () => resolve(false))
       })
 
-      expect(reached).toBe(true)
+      expect(reached).toBe(false)
     } finally {
       vi.useRealTimers()
       await control.close()

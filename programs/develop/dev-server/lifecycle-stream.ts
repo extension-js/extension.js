@@ -31,6 +31,7 @@ export type LifecycleStatus =
   | 'compiled'
   | 'recompiled'
   | 'compile-failed'
+  | 'restart-failed'
   | 'ready'
   | 'browser-exited'
   | 'load-refused'
@@ -487,6 +488,25 @@ export class LifecycleStream {
     }) as Envelope<unknown>
     frame.value = this.sessionValue()
     this.terminalEmitted = true
+
+    return this.emit(frame)
+  }
+
+  // The next compiler could not be built and the session goes on with the
+  // build it had, so this frame ends nothing.
+  public restartFailed(args: {
+    code: ErrorCode
+    message: string
+  }): Envelope<unknown> | null {
+    const frame = ENVELOPE.fail(
+      this.options.command,
+      'restart-failed',
+      {code: args.code, message: stripAnsi(args.message)},
+      {
+        hint: 'The previous build keeps serving. Fix the error, then save the changed file again to retry.'
+      }
+    ) as Envelope<unknown>
+    frame.value = this.sessionValue({serving: true})
 
     return this.emit(frame)
   }
