@@ -107,6 +107,17 @@ export function perfBudgetWarning(assets: OversizedAsset[]): string {
   return `${header}\n\n${lines.join('\n')}\n\n${remediation}`
 }
 
+// The same facts as the warning, plus the setting that made them fatal and
+// the way back to a warning.
+export function perfBudgetError(assets: OversizedAsset[]): string {
+  return (
+    `${perfBudgetWarning(assets)}\n\n` +
+    "The build failed because perfBudgets.onExceed is 'error' in " +
+    "extension.config.js. Remove it or set it to 'warn' to report an " +
+    'overrun without failing.'
+  )
+}
+
 function describeValue(value: unknown): string {
   if (Array.isArray(value)) return 'an array'
   if (value === null) return 'null'
@@ -146,6 +157,20 @@ export function perfBudgetInvalid(
     `${prefix('error')} ${colors.blue(`perfBudgets.${key}`)} in ${colors.blue('extension.config.js')} must be a finite number of bytes above 0, found ${describeValue(value)}.` +
     `${pathLine(configPath)}\n` +
     `Write the budget in bytes, for example ${colors.blue(`'${key}': 2 * 1024 * 1024`)}. To stop budgeting a file, list it under ${colors.blue('perfBudgets.ignore')}.`
+  )
+}
+
+export function perfBudgetsOnExceedInvalid(
+  value: unknown,
+  accepted: readonly string[],
+  configPath?: string
+) {
+  const choices = accepted.map((choice) => `'${choice}'`).join(' or ')
+
+  return (
+    `${prefix('error')} ${colors.blue('perfBudgets.onExceed')} in ${colors.blue('extension.config.js')} must be ${choices}, found ${describeValue(value)}.` +
+    `${pathLine(configPath)}\n` +
+    `Write ${colors.blue("onExceed: 'error'")} to fail the build when a file is over its budget, or leave it out to keep the warning.`
   )
 }
 

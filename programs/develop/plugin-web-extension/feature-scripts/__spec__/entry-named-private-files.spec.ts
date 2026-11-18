@@ -236,7 +236,15 @@ const SAID: Array<[string, RegExp]> = [
     'missing',
     /([^\s"]+ does not exist\. Check the \S+ field) in your manifest\.json file\./g
   ],
-  ['withheld', /names '([^']+)', but the build doesn't copy it\./g]
+  ['withheld', /names '([^']+)', but the build doesn't copy it\./g],
+  [
+    'private',
+    /([^\s"]+ is not bundled\. Check the \S+ field) in your manifest\.json file\.(?:\n|\\n)[^A-Za-z]*The build never bundles env files, tooling files or repository files\. Move the code into a file with another name\./g
+  ],
+  [
+    'outside',
+    /([^\s"]+ is not bundled\. Check the \S+ field) in your manifest\.json file\.(?:\n|\\n)[^A-Za-z]*The file is not one the project or its workspace shares\. Move it into the project\./g
+  ]
 ]
 
 const withoutHash = (name: string) =>
@@ -296,44 +304,44 @@ const TIMEOUT = 600_000
 const EXPECTED: Record<string, Table> = {
   contentScriptsJs: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the content_scripts[0].js field | errors 1',
     '.npmrc':
-      'nothing | said missing .npmrc does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .npmrc is not bundled. Check the content_scripts[0].js field | errors 1',
     '.env':
-      'nothing | said missing .env does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env is not bundled. Check the content_scripts[0].js field | errors 1',
     '.env.local':
-      'nothing | said missing .env.local does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.local is not bundled. Check the content_scripts[0].js field | errors 1',
     '.env.js':
-      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the content_scripts[0].js field | errors 1',
     '.env.local.js':
-      'nothing | said missing .env.local.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.local.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'a/../.envrc':
-      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the content_scripts[0].js field | errors 1',
     'a/../.env.js':
-      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the content_scripts[0].js field | errors 1',
     '/.env.js':
-      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the content_scripts[0].js field | errors 1',
     '../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'linked-out.js':
-      'nothing | said missing linked-out.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said outside linked-out.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing node_modules/pkg/.env does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private node_modules/pkg/.env is not bundled. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private node_modules/pkg/.env.js is not bundled. Check the content_scripts[0].js field | errors 1',
     '.git/tool.js':
-      'nothing | said missing .git/tool.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .git/tool.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in content_scripts/content-0.js',
     'linked-in.js': 'inside.js in content_scripts/content-0.js',
     '.env.example': 'nothing | errors 1',
     '.env.example.js':
-      'nothing | said missing .env.example.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.example.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'ok.js': 'ok.js in content_scripts/content-0.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'public/hosted.js in content_scripts/content-0.js + public/hosted.js in hosted.js',
     'public/hosted.js':
       'public/hosted.js in content_scripts/content-0.js + public/hosted.js in hosted.js',
     'absent.js':
@@ -341,15 +349,15 @@ const EXPECTED: Record<string, Table> = {
   },
   contentScriptsJsGroup: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the content_scripts[0].js field | errors 1',
     '.env.js':
-      'nothing | said missing .env.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the content_scripts[0].js field | errors 1',
     '../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'linked-out.js':
-      'nothing | said missing linked-out.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said outside linked-out.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private node_modules/pkg/.env.js is not bundled. Check the content_scripts[0].js field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in content_scripts/content-0.js',
     'ok.js': 'ok.js in content_scripts/content-0.js',
@@ -358,44 +366,44 @@ const EXPECTED: Record<string, Table> = {
   },
   contentScriptsCss: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the content_scripts[0].css field | errors 1',
     '.npmrc':
-      'nothing | said missing .npmrc does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .npmrc is not bundled. Check the content_scripts[0].css field | errors 1',
     '.env':
-      'nothing | said missing .env does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env is not bundled. Check the content_scripts[0].css field | errors 1',
     '.env.local':
-      'nothing | said missing .env.local does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .env.local is not bundled. Check the content_scripts[0].css field | errors 1',
     '.env.css':
-      'nothing | said missing .env.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said private .env.css is not bundled. Check the content_scripts[0].css field | errors 1',
     '.env.local.css':
-      'nothing | said missing .env.local.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said private .env.local.css is not bundled. Check the content_scripts[0].css field | errors 1',
     'a/../.envrc':
-      'nothing | said missing .envrc does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the content_scripts[0].css field | errors 1',
     'a/../.env.css':
-      'nothing | said missing .env.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said private .env.css is not bundled. Check the content_scripts[0].css field | errors 1',
     '/.env.css':
-      'nothing | said missing .env.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said private .env.css is not bundled. Check the content_scripts[0].css field | errors 1',
     '../outside.css':
-      'nothing | said missing ../outside.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said outside ../outside.css is not bundled. Check the content_scripts[0].css field | errors 1',
     'a/../../outside.css':
-      'nothing | said missing ../outside.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said outside ../outside.css is not bundled. Check the content_scripts[0].css field | errors 1',
     'linked-out.css':
-      'nothing | said missing linked-out.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said outside linked-out.css is not bundled. Check the content_scripts[0].css field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing node_modules/pkg/.env does not exist. Check the content_scripts[0].js field | errors 1',
+      'nothing | said private node_modules/pkg/.env is not bundled. Check the content_scripts[0].css field | errors 1',
     'node_modules/pkg/.env.css':
-      'nothing | said missing node_modules/pkg/.env.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said private node_modules/pkg/.env.css is not bundled. Check the content_scripts[0].css field | errors 1',
     '.git/tool.css':
-      'nothing | said missing .git/tool.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said private .git/tool.css is not bundled. Check the content_scripts[0].css field | errors 1',
     'node_modules/pkg/theme.css':
       'node_modules/pkg/theme.css in content_scripts/content-0.css',
     'linked-in.css': 'inside.css in content_scripts/content-0.css',
     '.env.example': 'nothing | errors 1',
     '.env.example.css':
-      'nothing | said missing .env.example.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'nothing | said private .env.example.css is not bundled. Check the content_scripts[0].css field | errors 1',
     'ok.css': 'ok.css in content_scripts/content-0.css',
     '/hosted.css':
-      'nothing | said missing hosted.css does not exist. Check the content_scripts[0].css field | errors 1',
+      'public/hosted.css in content_scripts/content-0.css + public/hosted.css in hosted.css',
     'public/hosted.css':
       'public/hosted.css in content_scripts/content-0.css + public/hosted.css in hosted.css',
     'absent.css':
@@ -403,44 +411,44 @@ const EXPECTED: Record<string, Table> = {
   },
   serviceWorker: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the background.service_worker field | errors 1',
     '.npmrc':
-      'nothing | said missing .npmrc does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .npmrc is not bundled. Check the background.service_worker field | errors 1',
     '.env':
-      'nothing | said missing .env does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .env is not bundled. Check the background.service_worker field | errors 1',
     '.env.local':
-      'nothing | said missing .env.local does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .env.local is not bundled. Check the background.service_worker field | errors 1',
     '.env.js':
-      'nothing | said missing .env.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the background.service_worker field | errors 1',
     '.env.local.js':
-      'nothing | said missing .env.local.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .env.local.js is not bundled. Check the background.service_worker field | errors 1',
     'a/../.envrc':
-      'nothing | said missing .envrc does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the background.service_worker field | errors 1',
     'a/../.env.js':
-      'nothing | said missing .env.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the background.service_worker field | errors 1',
     '/.env.js':
-      'nothing | said missing .env.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the background.service_worker field | errors 1',
     '../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the background.service_worker field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the background.service_worker field | errors 1',
     'linked-out.js':
-      'nothing | said missing linked-out.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said outside linked-out.js is not bundled. Check the background.service_worker field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing node_modules/pkg/.env does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private node_modules/pkg/.env is not bundled. Check the background.service_worker field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private node_modules/pkg/.env.js is not bundled. Check the background.service_worker field | errors 1',
     '.git/tool.js':
-      'nothing | said missing .git/tool.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .git/tool.js is not bundled. Check the background.service_worker field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/service_worker.js',
     'linked-in.js': 'inside.js in background/service_worker.js',
     '.env.example': 'nothing | errors 1',
     '.env.example.js':
-      'nothing | said missing .env.example.js does not exist. Check the background.service_worker field | errors 1',
+      'nothing | said private .env.example.js is not bundled. Check the background.service_worker field | errors 1',
     'ok.js': 'ok.js in background/service_worker.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the background.service_worker field | errors 1',
+      'public/hosted.js in background/service_worker.js + public/hosted.js in hosted.js',
     'public/hosted.js':
       'public/hosted.js in background/service_worker.js + public/hosted.js in hosted.js',
     'absent.js':
@@ -448,44 +456,44 @@ const EXPECTED: Record<string, Table> = {
   },
   backgroundScripts: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the background.scripts field | errors 1',
     '.npmrc':
-      'nothing | said missing .npmrc does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .npmrc is not bundled. Check the background.scripts field | errors 1',
     '.env':
-      'nothing | said missing .env does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env is not bundled. Check the background.scripts field | errors 1',
     '.env.local':
-      'nothing | said missing .env.local does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env.local is not bundled. Check the background.scripts field | errors 1',
     '.env.js':
-      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the background.scripts field | errors 1',
     '.env.local.js':
-      'nothing | said missing .env.local.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env.local.js is not bundled. Check the background.scripts field | errors 1',
     'a/../.envrc':
-      'nothing | said missing .envrc does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the background.scripts field | errors 1',
     'a/../.env.js':
-      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the background.scripts field | errors 1',
     '/.env.js':
-      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the background.scripts field | errors 1',
     '../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the background.scripts field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the background.scripts field | errors 1',
     'linked-out.js':
-      'nothing | said missing linked-out.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said outside linked-out.js is not bundled. Check the background.scripts field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing node_modules/pkg/.env does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private node_modules/pkg/.env is not bundled. Check the background.scripts field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private node_modules/pkg/.env.js is not bundled. Check the background.scripts field | errors 1',
     '.git/tool.js':
-      'nothing | said missing .git/tool.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .git/tool.js is not bundled. Check the background.scripts field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/scripts.js',
     'linked-in.js': 'inside.js in background/scripts.js',
     '.env.example': 'nothing | errors 1',
     '.env.example.js':
-      'nothing | said missing .env.example.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env.example.js is not bundled. Check the background.scripts field | errors 1',
     'ok.js': 'ok.js in background/scripts.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the background.scripts field | errors 1',
+      'public/hosted.js in background/scripts.js + public/hosted.js in hosted.js',
     'public/hosted.js':
       'public/hosted.js in background/scripts.js + public/hosted.js in hosted.js',
     'absent.js':
@@ -493,15 +501,15 @@ const EXPECTED: Record<string, Table> = {
   },
   backgroundScriptsFirefox: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the background.scripts field | errors 1',
     '.env.js':
-      'nothing | said missing .env.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the background.scripts field | errors 1',
     '../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the background.scripts field | errors 1',
     'linked-out.js':
-      'nothing | said missing linked-out.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said outside linked-out.js is not bundled. Check the background.scripts field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the background.scripts field | errors 1',
+      'nothing | said private node_modules/pkg/.env.js is not bundled. Check the background.scripts field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in background/scripts.js',
     'ok.js': 'ok.js in background/scripts.js',
@@ -510,44 +518,44 @@ const EXPECTED: Record<string, Table> = {
   },
   userScripts: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the user_scripts.api_script field | errors 1',
     '.npmrc':
-      'nothing | said missing .npmrc does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .npmrc is not bundled. Check the user_scripts.api_script field | errors 1',
     '.env':
-      'nothing | said missing .env does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .env is not bundled. Check the user_scripts.api_script field | errors 1',
     '.env.local':
-      'nothing | said missing .env.local does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .env.local is not bundled. Check the user_scripts.api_script field | errors 1',
     '.env.js':
-      'nothing | said missing .env.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the user_scripts.api_script field | errors 1',
     '.env.local.js':
-      'nothing | said missing .env.local.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .env.local.js is not bundled. Check the user_scripts.api_script field | errors 1',
     'a/../.envrc':
-      'nothing | said missing .envrc does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the user_scripts.api_script field | errors 1',
     'a/../.env.js':
-      'nothing | said missing .env.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the user_scripts.api_script field | errors 1',
     '/.env.js':
-      'nothing | said missing .env.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .env.js is not bundled. Check the user_scripts.api_script field | errors 1',
     '../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the user_scripts.api_script field | errors 1',
     'a/../../outside.js':
-      'nothing | said missing ../outside.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said outside ../outside.js is not bundled. Check the user_scripts.api_script field | errors 1',
     'linked-out.js':
-      'nothing | said missing linked-out.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said outside linked-out.js is not bundled. Check the user_scripts.api_script field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing node_modules/pkg/.env does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private node_modules/pkg/.env is not bundled. Check the user_scripts.api_script field | errors 1',
     'node_modules/pkg/.env.js':
-      'nothing | said missing node_modules/pkg/.env.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private node_modules/pkg/.env.js is not bundled. Check the user_scripts.api_script field | errors 1',
     '.git/tool.js':
-      'nothing | said missing .git/tool.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .git/tool.js is not bundled. Check the user_scripts.api_script field | errors 1',
     'node_modules/pkg/lib.js':
       'node_modules/pkg/lib.js in user_scripts/api_script.js',
     'linked-in.js': 'inside.js in user_scripts/api_script.js',
     '.env.example': 'nothing',
     '.env.example.js':
-      'nothing | said missing .env.example.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'nothing | said private .env.example.js is not bundled. Check the user_scripts.api_script field | errors 1',
     'ok.js': 'ok.js in user_scripts/api_script.js',
     '/hosted.js':
-      'nothing | said missing hosted.js does not exist. Check the user_scripts.api_script field | errors 1',
+      'public/hosted.js in hosted.js + public/hosted.js in user_scripts/api_script.js',
     'public/hosted.js':
       'public/hosted.js in hosted.js + public/hosted.js in user_scripts/api_script.js',
     'absent.js':
@@ -555,46 +563,46 @@ const EXPECTED: Record<string, Table> = {
   },
   themeExperiment: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '.npmrc':
-      'nothing | said missing .npmrc does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said private .npmrc is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '.env':
-      'nothing | said missing .env does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said private .env is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '.env.local':
-      'nothing | said missing .env.local does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said private .env.local is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '.env.css':
-      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said private .env.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '.env.local.css':
-      'nothing | said missing .env.local.css does not exist. Check the theme_experiment..env.local field | errors 1',
+      'nothing | said private .env.local.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'a/../.envrc':
-      'nothing | said missing .envrc does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said private .envrc is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'a/../.env.css':
-      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said private .env.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '/.env.css':
-      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said private .env.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '../outside.css':
-      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.outside field | errors 1',
+      'nothing | said outside ../outside.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'a/../../outside.css':
-      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.outside field | errors 1',
+      'nothing | said outside ../outside.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'linked-out.css':
-      'nothing | said missing linked-out.css does not exist. Check the theme_experiment.linked-out field | errors 1',
+      'nothing | said outside linked-out.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing node_modules/pkg/.env does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said private node_modules/pkg/.env is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'node_modules/pkg/.env.css':
-      'nothing | said missing node_modules/pkg/.env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said private node_modules/pkg/.env.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     '.git/tool.css':
-      'nothing | said missing .git/tool.css does not exist. Check the theme_experiment.tool field | errors 1',
+      'nothing | said private .git/tool.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'node_modules/pkg/theme.css':
       'node_modules/pkg/theme.css in theme_experiment/theme.css',
     'linked-in.css': 'inside.css in theme_experiment/linked-in.css',
     '.env.example': 'nothing | errors 1',
     '.env.example.css':
-      'nothing | said missing .env.example.css does not exist. Check the theme_experiment..env.example field | errors 1',
+      'nothing | said private .env.example.css is not bundled. Check the theme_experiment.stylesheet field | errors 1',
     'ok.css': 'ok.css in theme_experiment/ok.css',
     '/hosted.css': 'public/hosted.css in hosted.css',
     'public/hosted.css': 'public/hosted.css in hosted.css',
     'absent.css':
-      'nothing | said missing <root>/absent.css does not exist. Check the theme_experiment.absent field | errors 1'
+      'nothing | said missing <root>/absent.css does not exist. Check the theme_experiment.stylesheet field | errors 1'
   },
   webAccessibleScript: {
     '.envrc': 'nothing',
@@ -738,7 +746,7 @@ describe('a file a compiled field names and the build withholds', () => {
   }
 
   it(
-    'fails the build in the words a missing file gets, once for a file',
+    'fails the build in words of its own, once for a file',
     async () => {
       const root = fixture(
         {
@@ -755,12 +763,13 @@ describe('a file a compiled field names and the build withholds', () => {
       )
       const result = await build(root)
 
-      // The whole message a missing file gets, once on the human channel
+      // The whole message a withheld file gets, once on the human channel
       // and once in the result the build returns.
       const message = (file: string, field: string) =>
         [
-          `${file} does not exist. Check the ${field} field in your manifest.json file.`,
-          'The path must point to an existing file that will be bundled.',
+          `${file} is not bundled. Check the ${field} field in your manifest.json file.`,
+          'The build never bundles env files, tooling files or repository files. Move the code into a file with another name.',
+          '',
           `NOT FOUND ${file}`
         ].join('\n')
       const diagnostics = JSON.parse(
