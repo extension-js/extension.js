@@ -107,13 +107,13 @@ describe('the polyfill in a real build', () => {
     expect(withPolyfill['plain.js']).not.toMatch(PROVIDED)
   })
 
-  // Pins today's behavior. Ledger 1401 D1.
+  // Pins today's behavior.
   it('bundles the polyfill into an entry that only asks typeof browser', () => {
     expect(withPolyfill['guarded.js']).toContain(POLYFILL_MARK)
     expect(withPolyfill['guarded.js']).toMatch(PROVIDED)
   })
 
-  // Pins today's behavior. Ledger 1401 D1.
+  // Pins today's behavior.
   it('bundles the polyfill into an entry on the MAIN world import layer', () => {
     expect(withPolyfill['main-world.js']).toContain(POLYFILL_MARK)
     expect(withPolyfill['main-world.js']).toMatch(PROVIDED)
