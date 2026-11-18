@@ -23,7 +23,7 @@ import {
   geckoBinaryOption
 } from '../helpers/cli-options'
 import {resolveConfigBrowser} from '../helpers/config-browser'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {
   type DevelopBrowser,
   type DevelopModule,
@@ -487,7 +487,7 @@ export function registerPreviewCommand(
                 )
               )
 
-              await exitAfterDrain(1)
+              await exitFailedAfterDrain({code: declared, exitCode: 1})
 
               return
             }
@@ -515,7 +515,14 @@ export function registerPreviewCommand(
               )
             )
 
-            await exitAfterDrain(1)
+            await exitFailedAfterDrain({
+              code: nothingToPreview
+                ? CODES.E_PREVIEW_NO_DIST
+                : CODES.E_INTERNAL,
+              exitCode: 1,
+              error,
+              step: 'engine'
+            })
 
             return
           }

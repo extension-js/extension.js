@@ -18,7 +18,7 @@ import {
 } from '../browsers/browsers-lib/resolve-live-pid'
 import {declaredErrorCode} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {
   type DevelopBridge,
   loadExtensionDevelopBridgeModule
@@ -1106,7 +1106,12 @@ export function registerDoctorCommand(
           console.error(message)
         }
 
-        await exitAfterDrain(1)
+        await exitFailedAfterDrain({
+          code: declaredErrorCode(err) ?? CODES.E_INTERNAL,
+          exitCode: 1,
+          error: err,
+          step: 'action'
+        })
 
         return
       }
