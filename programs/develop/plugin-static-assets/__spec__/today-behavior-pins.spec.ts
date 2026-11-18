@@ -13,8 +13,6 @@ import {NOTES_TXT, PIXEL_PNG, pngOfSize, SMALL_SVG} from './helpers/fixtures'
 
 afterAll(() => removeFixtureRoots())
 
-const PIXEL_DATA_URI = `data:image/png;base64,${PIXEL_PNG.toString('base64')}`
-
 // A loader that turns any file into a module whose default is "custom".
 const CUSTOM_LOADER =
   'module.exports = function () { return \'export default "custom"\' }\n'
@@ -40,46 +38,42 @@ const customLoader = (root: string) => [
   {loader: path.join(root, 'custom-loader.cjs')}
 ]
 
-describe('user rules the default rules do not see', () => {
-  it('an SVG-only rule scoped to ?url turns the global ?url rule off for a png', async () => {
-    // Pins today's behavior. Ledger 1386 D1.
+const PNG_FILE_URL = /^\/assets\/small\.[0-9a-f]{8}\.png$/
+
+describe('user rules the default rules step aside for', () => {
+  it('an SVG-only rule scoped to ?url leaves the global ?url rule on for a png', async () => {
     const out = await smallPngWith(() => ({
       test: /\.svg$/i,
       resourceQuery: /url/,
       type: 'asset'
     }))
 
-    expect(out.smallUrl).toBe(PIXEL_DATA_URI)
+    expect(out.smallUrl).toMatch(PNG_FILE_URL)
   })
 
-  it('a png rule nested in oneOf loses to the default image rule', async () => {
-    // Pins today's behavior. Ledger 1386 D2.
+  it('a png rule nested in oneOf wins over the default image rule', async () => {
     const out = await smallPngWith(() => ({
       oneOf: [{test: /\.png$/i, type: 'asset/resource'}]
     }))
 
-    expect(out.small).toBe(PIXEL_DATA_URI)
+    expect(out.small).toMatch(PNG_FILE_URL)
   })
 
-  it('a png rule nested in rules loses to the default image rule', async () => {
-    // Pins today's behavior. Ledger 1386 D2.
+  it('a png rule nested in rules wins over the default image rule', async () => {
     const out = await smallPngWith(() => ({
       rules: [{test: /\.png$/i, type: 'asset/resource'}]
     }))
 
-    expect(out.small).toBe(PIXEL_DATA_URI)
+    expect(out.small).toMatch(PNG_FILE_URL)
   })
 
-  it('a loader rule with a function test has its output inlined as the asset', async () => {
-    // Pins today's behavior. Ledger 1386 D2.
+  it('a loader rule with a function test wins', async () => {
     const out = await smallPngWith((root) => ({
       test: (resource: string) => resource.endsWith('.png'),
       use: customLoader(root)
     }))
 
-    expect(out.small).toBe(
-      `data:image/png;base64,${Buffer.from('export default "custom"').toString('base64')}`
-    )
+    expect(out.small).toBe('custom')
   })
 
   it('the same loader rule with a RegExp test wins', async () => {
@@ -97,7 +91,7 @@ describe('user rules the default rules do not see', () => {
       type: 'asset/resource'
     }))
 
-    expect(out.small).toMatch(/^\/assets\/small\.[0-9a-f]{8}\.png$/)
+    expect(out.small).toMatch(PNG_FILE_URL)
   })
 })
 
