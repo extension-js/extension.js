@@ -44,6 +44,7 @@ const NAMED_CODES: Record<string, ErrorCode> = {
   WARRelativeAssetMissing: CODES.E_ASSET_MISSING,
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeSetSurfaceFileMissing: CODES.E_ASSET_MISSING,
   UnresolvedBareRequireWarning: CODES.E_SCRIPT_DEP_MISSING,
   NodeBuiltinNotAvailable: CODES.E_MODULE_NOT_FOUND,
   RemoteResourceBlocked: CODES.E_REMOTE_RESOURCE_BLOCKED,
