@@ -33,10 +33,19 @@ import {IncludeFiles} from './include-files'
 import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
 import {
+  findPublicEnvFiles,
+  literalPathGlob,
+  privateFileIgnoreGlobs
+} from './public-private-files'
+import {
   inspectPublicFolders,
   rememberPublicRoots
 } from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
+
+// The env files a watch session already named, by public folder. It
+// outlives a compiler, so a session restart does not say them again.
+const saidEnvFiles = new Map<string, string>()
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -146,7 +155,8 @@ export class SpecialFoldersPlugin {
               compilation,
               path.dirname(manifestPath),
               publicDir,
-              !readsPublicFolder
+              !readsPublicFolder,
+              context
             )
         )
       }
@@ -196,6 +206,29 @@ export class SpecialFoldersPlugin {
             }
           }
 
+          // An env file was put there on purpose, so leaving it out is said:
+          // once per build, and in a watch session only when the list changes.
+          const envFiles = findPublicEnvFiles(publicDir).map((file) =>
+            path.posix.join(path.basename(publicDir), file)
+          )
+          const envKey = envFiles.join('\n')
+          const alreadySaid =
+            compiler.watchMode && saidEnvFiles.get(publicDir) === envKey
+
+          if (compiler.watchMode) saidEnvFiles.set(publicDir, envKey)
+
+          if (envFiles.length > 0 && !alreadySaid) {
+            pushLayoutWarning(
+              compiler,
+              compilation,
+              'PublicEnvFilesWarning',
+              messages.publicEnvFilesLeftOut(
+                envFiles,
+                String(browser || 'chrome')
+              )
+            )
+          }
+
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,
@@ -223,22 +256,21 @@ export class SpecialFoldersPlugin {
       // Only ignore the root public/manifest.json to avoid overwriting the generated
       // manifest; nested public/**/manifest.json is copied through. The glob
       // matches full paths, so a bare filename here would never exclude it.
-      // A locale tree a file browser opened holds OS metadata files, and a
-      // store package is no place for them, nor for a locale folder that has
-      // no messages.json (the locales plugin names it in a warning).
-      const publicLocales = path.join(publicDir, '_locales').replace(/\\/g, '/')
+      // A locale folder that has no messages.json stays out as well (the
+      // locales plugin names it in a warning).
+      const publicLocales = path.join(publicDir, '_locales')
       const copyIgnore = [
-        path.join(publicDir, 'manifest.json').replace(/\\/g, '/'),
-        ...['.DS_Store', 'Thumbs.db', 'desktop.ini'].map(
-          (name) => `${publicLocales}/**/${name}`
-        ),
+        literalPathGlob(path.join(publicDir, 'manifest.json')),
+        // The package is readable by anyone who installs the extension, so
+        // OS metadata, env files and repository files never enter it.
+        ...privateFileIgnoreGlobs(publicDir),
         ...localeDirsWithoutMessages(publicLocales).map(
-          (dir) => `${publicLocales}/${path.basename(dir)}/**`
+          (dir) => `${literalPathGlob(dir)}/**`
         ),
         // A public file the `exclude` config names stays out of this build.
         ...[...excluded]
           .filter((file) => isUnderDir(file, publicDir))
-          .map((file) => file.replace(/\\/g, '/'))
+          .map(literalPathGlob)
       ]
 
       if (copierWired) {
