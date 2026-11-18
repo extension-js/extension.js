@@ -16,7 +16,22 @@ import {
   type RestartBundle,
   type SessionRestartSteps
 } from '../session-restart-handler'
-import {createRestartFailure} from '../start-bundler'
+import {
+  createRestartFailure,
+  type RestartFailureTargets,
+  type StartFailureTargets
+} from '../start-bundler'
+
+type IsRequired<T, K extends keyof T> =
+  Record<string, never> extends Pick<T, K> ? false : true
+
+// A host that leaves one out would swallow a throw, leave the compiler marked
+// restarting, or write a second terminal frame, so the type refuses it.
+const HOOKS_A_HOST_MUST_PASS: [
+  IsRequired<SessionRestartSteps<FakeServer>, 'onUnexpectedFailure'>,
+  IsRequired<RestartFailureTargets, 'hasQueuedRestart'>,
+  IsRequired<StartFailureTargets['lifecycle'], 'ended'>
+] = [true, true, true]
 
 type Frame = {
   ok: boolean
@@ -123,6 +138,10 @@ afterEach(() => {
 
   if (savedOutput === undefined) delete process.env.EXTENSION_OUTPUT
   else process.env.EXTENSION_OUTPUT = savedOutput
+})
+
+it('requires the restart and start hooks a host passes', () => {
+  expect(HOOKS_A_HOST_MUST_PASS).toEqual([true, true, true])
 })
 
 describe('a dev session restart', () => {

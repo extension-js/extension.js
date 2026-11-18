@@ -99,23 +99,28 @@ const distManifest = (dir) =>
   path.join(dir, 'dist', 'chromium', 'manifest.json')
 
 // The run the contract on disk names, read once its session has ended.
-function readyRunId(dir) {
+function readyField(dir, field) {
   const file = path.join(dir, 'dist', 'extension-js', 'chromium', 'ready.json')
 
   try {
-    return JSON.parse(fs.readFileSync(file, 'utf8')).runId ?? null
+    return JSON.parse(fs.readFileSync(file, 'utf8'))[field] ?? null
   } catch {
     return null
   }
 }
 
-function start(dir) {
+const readyRunId = (dir) => readyField(dir, 'runId')
+
+function start(dir, options = {}) {
   let ready = false
   const session = extensionDev(dir, {
+    ...options,
     browser: 'chromium',
     noBrowser: true,
     port: 0,
     install: false,
+    // As a CLI host does, for the terminal frame the engine writes.
+    hintFor: (code) => `host hint for ${code}`,
     onReady: () => {
       ready = true
     }
@@ -239,11 +244,11 @@ async function restartWhileAnotherSessionLives() {
   }
 }
 
-// The host learns the session cannot go on, as a watchdog would, says so
-// through the engine and then signals itself. The shutdown ends the process.
-async function endedAsFailedByTheHost() {
+// As the CLI host does: the session exits the process, and a signal the host
+// sends itself next changes nothing. Windows ends a process on any signal.
+async function endedAsFailedByTheCli() {
   const before = endSessionAsFailed('E_PARENT_GONE', 'too early')
-  const session = start(project('ended', CONFIGS.start))
+  const session = start(project('ended', CONFIGS.start), {exitOnError: true})
   await session.session
   await until(() => session.isReady())
 
@@ -256,18 +261,161 @@ async function endedAsFailedByTheHost() {
     )
   })
 
-  process.kill(process.pid, 'SIGTERM')
+  if (process.platform !== 'win32') process.kill(process.pid, 'SIGTERM')
+
   await wait(30000)
 
   return {before, ended, exitCode: null}
 }
 
+// A library host ends the newer of two sessions as failed and goes on, and
+// the older one keeps its server and restarts on the next entry change.
+async function endedAsFailedByALibraryHost() {
+  const older = project('older', CONFIGS.start)
+  const newer = project('newer', CONFIGS.start)
+  const a = start(older)
+  await a.session
+  await until(() => a.isReady())
+  const olderAlone = listeners()
+  const b = start(newer)
+  await b.session
+  const bothReady = await until(() => a.isReady() && b.isReady())
+  const unknown = endSessionAsFailed('E_PARENT_GONE', 'gone', 'no-such-id')
+  const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
+  const again = endSessionAsFailed(
+    'E_PARENT_GONE',
+    'gone',
+    readyField(newer, 'instanceId')
+  )
+  const newerSettled = await until(
+    () => listeners().join() === olderAlone.join()
+  )
+
+  fs.writeFileSync(
+    path.join(older, 'manifest.json'),
+    manifest({
+      content_scripts: [{matches: ['https://example.com/*'], js: ['cs.js']}]
+    })
+  )
+
+  const olderRestarted = await until(() => {
+    try {
+      return fs
+        .readdirSync(path.join(older, 'dist', 'chromium', 'content_scripts'))
+        .some((name) => /^content-0\..*\.js$/.test(name))
+    } catch {
+      return false
+    }
+  })
+
+  return {
+    bothReady,
+    unknown,
+    ended,
+    again,
+    newerSettled,
+    olderRestarted,
+    olderId: readyField(older, 'instanceId'),
+    newerId: readyField(newer, 'instanceId')
+  }
+}
+
+// Two starts of one project and browser in one tick: one runs, the other is
+// refused, and once the first has ended a new start is taken.
+async function twoStartsInOneTick() {
+  const before = listeners()
+  const dir = project('same', CONFIGS.start)
+  const first = start(dir)
+  const second = start(dir)
+  const results = [await first.session, await second.session]
+  const running = [first, second][results.findIndex((r) => r.started)]
+  await until(() => running?.isReady())
+  const firstId = readyField(dir, 'instanceId')
+  const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
+  const released = await until(() => listeners().join() === before.join())
+  const third = start(dir)
+  const thirdResult = await third.session
+  await until(() => third.isReady())
+  endSessionAsFailed('E_PARENT_GONE', 'done')
+  await until(() => listeners().join() === before.join())
+
+  return {
+    results: results.map(({started, code, framed}) => ({
+      started,
+      code,
+      framed
+    })),
+    firstId,
+    ended,
+    released,
+    third: {started: thirdResult.started, code: thirdResult.code}
+  }
+}
+
+// The wiring after the server starts throws: the claim must come off with
+// the rest, so the next start of the project runs.
+async function wiringThrowsAfterTheServerStarts() {
+  const before = listeners()
+  const dir = project('wiring', CONFIGS.start)
+  const on = process.on
+  let armed = true
+
+  process.on = function (event, listener) {
+    if (armed && event === 'uncaughtException') {
+      armed = false
+
+      throw new Error('the host refused a listener')
+    }
+
+    return on.call(this, event, listener)
+  }
+
+  const first = await start(dir).session
+  process.on = on
+  const released = await until(() => listeners().join() === before.join())
+  const second = start(dir)
+  const secondResult = await second.session
+  await until(() => second.isReady())
+  endSessionAsFailed('E_PARENT_GONE', 'done')
+  await until(() => listeners().join() === before.join())
+
+  return {
+    first: {started: first.started, message: first.message},
+    released,
+    second: {started: secondResult.started, code: secondResult.code}
+  }
+}
+
+// The engine is loaded and no session is live: the host's call is answered
+// false, and nothing the engine left behind writes a frame after it.
+async function endedBeforeAnySession() {
+  const before = listeners()
+  const ended = endSessionAsFailed('E_PARENT_GONE', 'no session yet')
+  const after = listeners()
+
+  process.stdout.write(`\nRESULT ${JSON.stringify({ended, before, after})}\n`)
+
+  if (process.platform === 'win32') process.exit(1)
+
+  process.kill(process.pid, 'SIGTERM')
+  await wait(30000)
+  process.exit(1)
+}
+
 const result =
-  scenario === 'restart'
-    ? await restartWhileAnotherSessionLives()
-    : scenario === 'end-as-failed'
-      ? await endedAsFailedByTheHost()
-      : await failingStarts()
+  scenario === 'same-tick'
+    ? await twoStartsInOneTick()
+    : scenario === 'wiring'
+      ? await wiringThrowsAfterTheServerStarts()
+      : scenario === 'end-before-session'
+        ? await endedBeforeAnySession()
+        : scenario === 'restart'
+          ? await restartWhileAnotherSessionLives()
+          : scenario === 'end-as-failed'
+            ? await endedAsFailedByALibraryHost()
+            : scenario === 'end-as-failed-cli'
+              ? await endedAsFailedByTheCli()
+              : await failingStarts()
 
 process.stdout.write(`\nRESULT ${JSON.stringify(result)}\n`)
 process.exit(0)

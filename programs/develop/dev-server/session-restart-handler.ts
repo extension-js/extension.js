@@ -36,7 +36,7 @@ export interface SessionRestartSteps<Server extends RestartableServer> {
   onStartFailure: (error: unknown, server: Server) => void | Promise<void>
   // A throw no step above owns. previousServing says whether the server the
   // restart began with was still untouched.
-  onUnexpectedFailure?: (
+  onUnexpectedFailure: (
     error: unknown,
     state: {previousServing: boolean}
   ) => void
@@ -186,13 +186,13 @@ export function createSessionRestartHandler<Server extends RestartableServer>(
         try {
           await steps.onStartFailure(error, unadopted.server)
         } catch (failure) {
-          steps.onUnexpectedFailure?.(failure, state)
+          steps.onUnexpectedFailure(failure, state)
         }
 
         return
       }
 
-      steps.onUnexpectedFailure?.(error, state)
+      steps.onUnexpectedFailure(error, state)
     }
   }
 }

@@ -108,7 +108,7 @@ describe('starting the bundler', () => {
     })
     const fail = createStartFailure({
       metadata: {writeError},
-      lifecycle: {failed, sessionValue: () => ({})},
+      lifecycle: {failed, sessionValue: () => ({}), ended: false},
       onExitError,
       print: (line) => {
         order.push('print')
@@ -150,7 +150,8 @@ describe('starting the bundler', () => {
       metadata: {writeError: () => {}},
       lifecycle: {
         failed: () => {},
-        sessionValue: () => ({})
+        sessionValue: () => ({}),
+        ended: false
       },
       onExitError: () => {
         throw new Error('report broke')
@@ -172,7 +173,8 @@ describe('starting the bundler', () => {
         metadata: {writeError: () => {}},
         lifecycle: {
           failed: () => {},
-          sessionValue: () => ({})
+          sessionValue: () => ({}),
+          ended: false
         },
         print: () => {}
       })

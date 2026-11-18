@@ -139,6 +139,8 @@ function devSession(serving: Compiler) {
       restartFailed: (frame) => frames.push(frame)
     },
     keepServing: () => endCompilerRestart(active ?? undefined),
+    // The step is under test, so a failure always puts the serving compiler back.
+    hasQueuedRestart: () => false,
     release: async () => {},
     print: (line) => lines.push(line.replace(ANSI, '')),
     exit: () => {},
@@ -171,6 +173,7 @@ function devSession(serving: Compiler) {
       onBundleFailure: failure.bundle,
       onStopFailure: failure.stop,
       onStartFailure: failure.start,
+      onUnexpectedFailure: failure.unexpected,
       fullReloadsDelivered: () => 0,
       reloadAfterRestart: async () => {}
     })

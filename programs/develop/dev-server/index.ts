@@ -111,7 +111,8 @@ import * as messages from './messages'
 import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig} from './server-config'
-import {registerLiveSession} from './session-end'
+import {claimDevSession} from './session-claim'
+import {endAfterFrame, registerLiveSession} from './session-end'
 import {exportSessionEnv} from './session-env'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
 import {createSessionHoldings} from './session-holdings'
@@ -426,6 +427,8 @@ export function devConfigHookContext(
 // What a session holds before its first start, for a start that fails.
 interface SessionStartup {
   started: boolean
+  // False for this host's own second start: the stdout is the live session's.
+  framesFailure: boolean
   release: (() => Promise<void>) | null
   lifecycle: LifecycleStream | null
 }
@@ -455,7 +458,8 @@ function frameFailedStart(
         distPath: getDistPath(
           asAbsolute(resolveDevProjectRoot(projectStructure)),
           browser
-        )
+        ),
+        hintFor: devOptions.hintFor
       })
 
     stream.failed(
@@ -478,6 +482,7 @@ export async function devServer(
 ) {
   const startup: SessionStartup = {
     started: false,
+    framesFailure: true,
     release: null,
     lifecycle: null
   }
@@ -486,7 +491,9 @@ export async function devServer(
     await startDevSession(projectStructure, devOptions, startup)
   } catch (error) {
     if (!startup.started) {
-      frameFailedStart(error, startup.lifecycle, projectStructure, devOptions)
+      if (startup.framesFailure) {
+        frameFailedStart(error, startup.lifecycle, projectStructure, devOptions)
+      }
 
       // A session that never started leaves nothing in a host that goes on:
       // no listener, no port, no open file, no guard on the manifest.
@@ -573,6 +580,26 @@ async function startDevSession(
 
   const {manifestPath} = projectStructure
   const packageJsonDir = resolveDevProjectRoot(projectStructure)
+  const sessionBrowser = String(devOptions.browser || 'chromium')
+
+  // Taken before the first await, so a second start of this host in the same
+  // tick is refused here, where the contract check below cannot see it.
+  const releaseClaim = claimDevSession(packageJsonDir, sessionBrowser)
+
+  if (!releaseClaim) {
+    // A frame here would read as the end of the session that holds the claim.
+    startup.framesFailure = false
+
+    throw Object.assign(
+      codedError(
+        CODES.E_SESSION_EXISTS,
+        anotherDevSessionRefused(sessionBrowser, process.pid, null)
+      ),
+      {framed: false}
+    )
+  }
+
+  holdings.add(releaseClaim)
 
   const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
@@ -958,7 +985,8 @@ async function startDevSession(
     distPath: primaryDistPath,
     readyPath: metadata.readyPath,
     eventsPath: metadata.eventsPath,
-    noBrowser: Boolean(devOptions.noBrowser)
+    noBrowser: Boolean(devOptions.noBrowser),
+    hintFor: devOptions.hintFor
   })
   startup.lifecycle = lifecycle
   holdings.addForRelease(lifecycle.emitOnExit())
@@ -1266,7 +1294,6 @@ async function startDevSession(
   // A start that fails rejects to a caller that keeps running, and the
   // release of everything opened so far is the one devServer runs.
   await startSessionBundler(firstBundle.server)
-  startup.started = true
 
   let isShuttingDown = false
   const restartFailure = createRestartFailure({
@@ -1386,12 +1413,39 @@ async function startDevSession(
   )
   holdings.addForRelease(disposeCleanupHandlers)
 
-  // A host that knows the session cannot go on ends it through here, so the
-  // one terminal frame is the stream's own and the shutdown is the usual one.
+  // A host that knows the session cannot go on ends it through here. The CLI
+  // shuts down and exits 1, a library host keeps running with one session less.
   holdings.addEarly(
-    registerLiveSession((code, message) => {
-      lifecycle.failed(message, code)
-      void disposeCleanupHandlers.endAsFailed()
+    registerLiveSession(currentInstance.instanceId, (code, message) => {
+      // A session already stopping keeps the frame and exit code it has.
+      if (isShuttingDown) return false
+
+      const writeFrame = () => lifecycle.failed(message, code)
+
+      if (exitOnStartFailure) {
+        return endAfterFrame(writeFrame, [
+          () => disposeCleanupHandlers.endAsFailed()
+        ])
+      }
+
+      return endAfterFrame(writeFrame, [
+        () => {
+          isShuttingDown = true
+        },
+        () => sessionRestart.dispose(),
+        () => unbindDevSessionRestart(sessionRestart),
+        () =>
+          releaseEndedSession({
+            server: currentServer ?? {},
+            releasePort: () => portManager.terminateCurrentInstance(),
+            closeControlBridge: controlBridge.close,
+            holdings
+          })
+      ])
     })
   )
+
+  // Only now is the session live: a throw in the wiring above still releases
+  // the claim, the port and the server through the failed start.
+  startup.started = true
 }

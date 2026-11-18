@@ -126,6 +126,10 @@ Options accepted by each command. Values shown are typical types or enumerations
 | logColor            | boolean                             | Colorize pretty output                                                            |
 | logUrl              | string or /regex/flags              | Filter by URL substring or JS-style regex literal                                 |
 | logTab              | number                              | Filter by tabId                                                                   |
+| exitOnError         | boolean                             | Exit the process with code 1 on a failed session, off by default for a library    |
+| hintFor             | (code) => string or undefined       | The hint for a terminal `failed` or `usage` frame that carries none               |
+
+A host that learns a session cannot go on calls `endSessionAsFailed(code, message, instanceId?)`, exported beside `extensionDev`. It ends the named session, or the newest one, with one `failed` frame and answers `false` when that session is not live or is already stopping. A host that did not pass `exitOnError` keeps running.
 
 ### build
 
