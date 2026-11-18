@@ -1,11 +1,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {takeVerbatimCss} from '../css-lib/verbatim-css'
 import {pitch} from '../css-parse-guard-loader'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
+
+// eslint-disable-next-line no-control-regex
+const ANSI = /\u001b\[[0-9;]*m/g
 
 const BROKEN_CSS = [
   '.ok { color: red; }',
@@ -15,7 +18,11 @@ const BROKEN_CSS = [
   '.also-ok { display: none; }'
 ].join('\n')
 
-function runPitch(resourcePath: string, module?: {type: string}) {
+function runPitch(
+  resourcePath: string,
+  module?: {type: string},
+  rootContext?: string
+) {
   return new Promise<{
     result: string | undefined
     warnings: Error[]
@@ -23,6 +30,7 @@ function runPitch(resourcePath: string, module?: {type: string}) {
     const warnings: Error[] = []
     const ctx = {
       resourcePath,
+      rootContext,
       _module: module,
       emitWarning: (w: Error) => warnings.push(w),
       async: () => (err: Error | null, content?: string) =>
@@ -55,6 +63,18 @@ describe('css-parse-guard-loader', () => {
     expect(warnings.length).toBe(1)
     expect(String(warnings[0])).toMatch(/doesn't parse/i)
     expect(String(warnings[0])).toMatch(/copied as-is/i)
+  })
+
+  it('names the stylesheet by its path inside the project', async () => {
+    const root = makeTempFolder('css-guard-root-')
+    fs.mkdirSync(path.join(root, 'content'))
+    const file = path.join(root, 'content', 'styles.css')
+    fs.writeFileSync(file, 'a { color: red\n.b { }}} {{\n')
+
+    const {warnings} = await runPitch(file, undefined, root)
+    const lines = warnings[0].message.replace(ANSI, '').split('\n')
+    expect(lines[1]).toBe('PATH content/styles.css')
+    expect(warnings[0].message).not.toContain(root)
   })
 
   it('ignores non-.css resources (preprocessor errors stay fatal)', async () => {

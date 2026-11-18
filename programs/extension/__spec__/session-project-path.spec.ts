@@ -3,60 +3,60 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-// The mocked bridge carries the real develop-side walk so these specs prove
-// the readers agree with dev, not with a stand-in.
-const state = vi.hoisted(() => ({
-  ready: null as unknown,
-  readyReads: [] as unknown[][],
-  commands: [] as unknown[]
-}))
-
-vi.mock('../helpers/extension-develop-runtime', async () => {
-  const {resolveSessionProjectRoot} = await import(
-    '../../develop/lib/session-project-root'
-  )
-
-  return {
-    loadExtensionDevelopBridgeModule: vi.fn(async () => ({
-      ...(await import('../../develop/dev-server/control-bridge/log-rule')),
-      resolveSessionProjectRoot,
-      readReadyContract: (...args: unknown[]) => {
-        state.readyReads.push(args)
-
-        return state.ready
-      },
-      readControlToken: () => 'tok',
-      readPersistedControlPort: () => 4001,
-      controlPortFilePath: (p: string, b: string) =>
-        `${p}/.extension-js/control-port-${b}`,
-      BridgeController: class {
-        async connect() {
-          return {capabilities: {storage: true, reload: true}}
-        }
-        async command(payload: unknown) {
-          state.commands.push(payload)
-
-          return {ok: true, value: {}}
-        }
-        close() {}
-      },
-      BridgeConsumer: class {
-        start() {}
-        close() {}
-      }
-    }))
-  }
-})
-
+import {resolveSessionProjectRoot} from '../../develop/lib/session-project-root'
 import {readRecentConsole, registerActCommands} from '../commands/act'
 import {runWaitMode} from '../commands/dev-wait'
-import {runDoctor} from '../commands/doctor'
+import {runDoctor as runDoctorWith} from '../commands/doctor'
 import {registerLogsCommand} from '../commands/logs'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+
+// The fake bridge carries the real develop-side walk so these specs prove
+// the readers agree with dev, not with a stand-in.
+const state = {
+  ready: null as unknown,
+  readyReads: [] as unknown[][],
+  commands: [] as unknown[]
+}
+
+const loadBridge = async () => ({
+  ...(await import('../../develop/dev-server/control-bridge/log-rule')),
+  resolveSessionProjectRoot,
+  readReadyContract: (...args: unknown[]) => {
+    state.readyReads.push(args)
+
+    return state.ready
+  },
+  readControlToken: () => 'tok',
+  readPersistedControlPort: () => 4001,
+  controlPortFilePath: (p: string, b: string) =>
+    `${p}/.extension-js/control-port-${b}`,
+  BridgeController: class {
+    async connect() {
+      return {capabilities: {storage: true, reload: true}}
+    }
+    async command(payload: unknown) {
+      state.commands.push(payload)
+
+      return {ok: true, value: {}}
+    }
+    close() {}
+  },
+  BridgeConsumer: class {
+    start() {}
+    close() {}
+  }
+})
+
+// The engine is out of reach of a scratch project, so the peer leg skips.
+const runDoctor = (
+  projectPath: string,
+  opts: Parameters<typeof runDoctorWith>[1]
+) =>
+  runDoctorWith(projectPath, opts, {loadBridge, engineVersion: () => undefined})
 
 let root: string
 let src: string
@@ -165,7 +165,11 @@ describe('doctor given the manifest folder', () => {
 })
 
 describe('session verbs given the manifest folder', () => {
-  const run = (argv: string[]) => runCli(makeProgram(registerActCommands), argv)
+  const run = (argv: string[]) =>
+    runCli(
+      makeProgram((program) => registerActCommands(program, {loadBridge})),
+      argv
+    )
 
   it('opens a surface through the root session', async () => {
     state.ready = {controlPort: 9123, instanceId: 'inst-1'}
@@ -195,7 +199,11 @@ describe('session verbs given the manifest folder', () => {
 })
 
 describe('logs given the manifest folder', () => {
-  const run = (argv: string[]) => runCli(makeProgram(registerLogsCommand), argv)
+  const run = (argv: string[]) =>
+    runCli(
+      makeProgram((program) => registerLogsCommand(program, {loadBridge})),
+      argv
+    )
 
   it('reads the root log file in one-shot mode', async () => {
     writeSessionLogs('chromium')
@@ -226,13 +234,16 @@ describe('dev --wait given the manifest folder', () => {
       })
     )
 
-    const result = await runWaitMode({
-      command: 'dev',
-      pathOrRemoteUrl: src,
-      browsers: ['chromium'],
-      waitTimeout: '2000',
-      waitFormat: 'json'
-    })
+    const result = await runWaitMode(
+      {
+        command: 'dev',
+        pathOrRemoteUrl: src,
+        browsers: ['chromium'],
+        waitTimeout: '2000',
+        waitFormat: 'json'
+      },
+      {loadBridge}
+    )
     expect(result.results[0]).toMatchObject({browser: 'chromium'})
   })
 })
