@@ -26,12 +26,39 @@ import {
   type EmulatorFileIndexHolder
 } from './emulator-lane'
 
-export function shouldWriteAssetToDisk(filePath: string) {
+// Both separators, either letter case and the long-path prefix name one
+// file on Windows, so two spellings of a path compare equal here.
+function comparablePath(filePath: string) {
+  const forward = filePath.replace(/\\/g, '/').replace(/^\/\/\?\//, '')
+
+  return path.posix.normalize(forward).toLowerCase()
+}
+
+// Only manifest.json at the root of the output folder is the extension's own.
+// A nested one is an ordinary file, copied the way a production build does.
+export function isRootManifestPath(
+  filePath: string,
+  outputPath: string | undefined
+) {
+  const file = comparablePath(filePath)
+
+  if (file === 'manifest.json') return true
+
+  // With no output folder to compare against, protect every manifest.json.
+  if (!outputPath) return /(?:^|\/)manifest\.json$/.test(file)
+
+  return file === comparablePath(`${outputPath}/manifest.json`)
+}
+
+export function shouldWriteAssetToDisk(
+  filePath: string,
+  outputPath: string | undefined
+) {
   // A `..` segment means an emitted asset NAME escapes the output dir; writing
   // it would clobber a SOURCE file and start a self-feeding recompile loop.
   if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
 
-  return !/(?:^|[/\\])manifest\.json$/i.test(filePath)
+  return !isRootManifestPath(filePath, outputPath)
 }
 
 export interface ServerConfigInput {
@@ -82,7 +109,11 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     devMiddleware: {
       // Manifest writes must stay atomic; let the manifest plugin own disk
       // persistence so Chromium never reads an in-place truncated file.
-      writeToDisk: shouldWriteAssetToDisk,
+      writeToDisk: (filePath: string) =>
+        shouldWriteAssetToDisk(
+          filePath,
+          input.activeCompiler()?.options?.output?.path
+        ),
       stats: {all: false},
       // A one-byte asset is served empty by the middleware, see the helper.
       modifyResponseData: createResponseDataRepair({

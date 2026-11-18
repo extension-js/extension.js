@@ -15,39 +15,9 @@ export {
   readReadyContract,
   readReadyContractDocument
 } from './dev-server/control-bridge/consumer-client'
-export type {
-  BridgeRefusalCode,
-  BridgeTarget,
-  CommandOp,
-  GapFrame,
-  LogContext,
-  LogEvent,
-  LogLevel,
-  ReadyFrame,
-  ResultFrame
-} from './dev-server/control-bridge/contracts'
-// The wire constants a consumer needs to dial the channel by hand, instead of
-// copying '/extjs-control' and the envelope version into its own source. The
-// CLOSE_ codes are why the server hung up: without them a client is left
-// inferring "anything >= 4000 was probably deliberate", which reports an
-// envelope-version refusal as "no logs" rather than as a refusal.
-export {
-  CLOSE_BAD_HELLO,
-  CLOSE_BAD_INSTANCE,
-  CLOSE_CONTROL_UNAVAILABLE,
-  CLOSE_SLOW_CONSUMER,
-  CONTROL_ENVELOPE_VERSION,
-  CONTROL_WS_PATH,
-  LOG_CONTEXTS,
-  LOG_EVENT_VERSION,
-  REFUSAL_API_UNAVAILABLE,
-  REFUSAL_NEEDS_HEADED_WINDOW,
-  REFUSAL_NEEDS_USER_GESTURE,
-  REFUSAL_SURFACE_NOT_DECLARED,
-  REFUSAL_SURFACE_NOT_OPEN,
-  REFUSAL_TAB_NOT_FOUND,
-  REFUSAL_URL_REFUSED
-} from './dev-server/control-bridge/contracts'
+// Every wire constant and frame type, straight from the file that defines
+// them, so a new REFUSAL_ or CLOSE_ code is public the day it is added.
+export * from './dev-server/control-bridge/contracts'
 export {
   controlPortFilePath,
   readPersistedControlPort

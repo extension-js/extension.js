@@ -104,7 +104,9 @@ export async function emitRootAbsoluteRefs(
   publicDir: string,
   // `folders: {public: false}`: a ref public/ satisfies has no copier.
   publicIsOff = false,
-  projectRoot: string = context
+  projectRoot: string = context,
+  // The source file of an emitted page, which a missing ref names as PATH.
+  pageSourceOf: (assetName: string) => string | undefined = () => undefined
 ): Promise<void> {
   const scanned = new Set<string>()
   const warned = new Set<string>()
@@ -156,7 +158,14 @@ export async function emitRootAbsoluteRefs(
       if (plan.kind === 'withheld') {
         if (!warned.has(ref)) {
           warned.add(ref)
-          reportWithheld(compilation, context, origin, ref, plan.emitPath)
+          reportWithheld(
+            compilation,
+            context,
+            origin,
+            ref,
+            plan.emitPath,
+            pageSourceOf
+          )
         }
 
         continue
@@ -273,7 +282,8 @@ function reportWithheld(
   context: string,
   origin: RefOrigin,
   ref: string,
-  emitPath: string
+  emitPath: string,
+  pageSourceOf: (assetName: string) => string | undefined
 ) {
   if (origin.kind === 'css') {
     const strict = process.env.EXTENSION_STRICT_REFS === 'true'
@@ -294,20 +304,30 @@ function reportWithheld(
     return
   }
 
+  // The page as the page step names it for a missing ref of the same tag.
+  const page = pageSourceOf(origin.asset)
+  const file = page ? path.relative(context, page) : origin.asset
+  // Where the page step looks for the ref, which it names when it says so.
+  const lookedAt = path.join(context, ref.replace(/^\//, ''))
+
   // Spread first: the bundler's list answers `some` without visiting a thing.
-  const alreadySaid = [...(compilation.warnings || [])].some((warning) =>
-    String(warning?.message || '')
-      .replace(ANSI, '')
-      .includes(`Update the ${ref} reference`)
-  )
+  const alreadySaid = [...(compilation.warnings || [])].some((warning) => {
+    const said = String(warning?.message || '').replace(ANSI, '')
+
+    return (
+      said.includes(`Update the ${ref} reference`) ||
+      ((warning as {file?: string})?.file === file &&
+        said.includes(`NOT FOUND ${lookedAt}`))
+    )
+  })
   if (alreadySaid) return
 
   warn(
     compilation,
-    origin.asset,
+    file,
     // A climbing path is shown where the browser would look, at the root.
     htmlMessages.fileNotFound(
-      origin.asset,
+      page || origin.asset,
       path.join(context, path.posix.normalize(`/${emitPath}`)),
       {publicRootHint: true, refLabel: ref}
     ),

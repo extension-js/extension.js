@@ -14,10 +14,27 @@ import {CODES} from './messaging'
 
 const require = createRequire(import.meta.url)
 
-// The develop program is loaded dynamically at runtime; its module shape is
-// caller-defined, so the loaders default to the loosest view in one place.
+// The loosest view of the engine, for the bridge entry and for the loaders a
+// spec injects. The build and preview loaders default to the real types.
 // biome-ignore lint/suspicious/noExplicitAny: dynamic module loading boundary, callers narrow per import
 export type AnyDevelopModule = any
+
+// The engine's own types, so a call into it is checked against what it exports.
+export type DevelopModule = typeof import('extension-develop')
+export type DevelopPreviewModule = typeof import('extension-develop/preview')
+
+// The part of the engine one call site reads. An engine that predates
+// loadCommandConfig is read as having no config.
+export type DevelopFor<K extends keyof DevelopModule = never> = Pick<
+  DevelopModule,
+  K
+> &
+  Partial<Pick<DevelopModule, 'loadCommandConfig'>>
+
+export type DevelopBrowser = import('extension-develop').BrowserType
+export type DevelopLauncher = import('extension-develop').BrowserLauncherFn
+export type DevelopPreviewLauncher =
+  import('extension-develop/preview').PreviewLauncherFn
 
 function parseJsonSafe(filePath: string): AnyDevelopModule {
   return JSON.parse(fs.readFileSync(filePath, 'utf8'))
@@ -164,7 +181,7 @@ async function importModule<T = AnyDevelopModule>(
   ) as T
 }
 
-export async function loadExtensionDevelopModule<T = AnyDevelopModule>(
+export async function loadExtensionDevelopModule<T = DevelopModule>(
   startDir: string = __dirname
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
@@ -184,9 +201,9 @@ export async function loadExtensionDevelopModule<T = AnyDevelopModule>(
 
 // Load only the lightweight preview entry, avoiding rspack and the full build
 // toolchain, so extension preview starts significantly faster.
-export async function loadExtensionDevelopPreviewModule<T = AnyDevelopModule>(
-  startDir: string = __dirname
-): Promise<T> {
+export async function loadExtensionDevelopPreviewModule<
+  T = DevelopPreviewModule
+>(startDir: string = __dirname): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)
   const {source} = resolvePreferredDevelopRoot(startDir)
   const previewEntry = resolveDevelopDistEntry(root, 'preview')
