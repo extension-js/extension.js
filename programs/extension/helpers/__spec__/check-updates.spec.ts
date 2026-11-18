@@ -1,18 +1,16 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import checkUpdates from '../check-updates'
+import checkUpdatesWith from '../check-updates'
 
-vi.mock('../cli-package-json', () => ({
-  getCliPackageJson: () => ({name: 'extension', version: '2.0.0'})
-}))
+const updateCheck = vi.fn()
 
-vi.mock('update-check', () => ({
-  default: vi.fn()
-}))
-
-const updateCheck = (await import('update-check')).default as unknown as any
+// The real lookup asks the npm registry about the installed CLI.
+const checkUpdates = () =>
+  checkUpdatesWith({
+    check: updateCheck,
+    readPackageJson: () => ({name: 'extension', version: '2.0.0'})
+  })
 
 describe('check-updates', () => {
-  const originalEnv = process.env.EXTENSION_AUTHOR_MODE
   let errorSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
@@ -20,8 +18,9 @@ describe('check-updates', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     vi.clearAllMocks()
-    process.env.EXTENSION_AUTHOR_MODE = originalEnv
+    vi.unstubAllEnvs()
   })
 
   it('prints update message for stable latest versions', async () => {
@@ -40,7 +39,7 @@ describe('check-updates', () => {
   })
 
   it('logs error in development when update check fails', async () => {
-    process.env.EXTENSION_AUTHOR_MODE = 'true'
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', 'true')
     updateCheck.mockRejectedValueOnce(new Error('network error'))
     await checkUpdates()
     expect(errorSpy).toHaveBeenCalled()

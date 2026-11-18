@@ -6,11 +6,7 @@
 // ╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝          ╚═════╝  ╚═════╝ ╚═════╝  ╚═════╝ ╚══════╝   ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {
-  classifyEntrySurface,
-  type EntrySurface,
-  SHARED_CHUNK_DIR
-} from '../lib/split-chunks'
+import {type EntrySurface, SHARED_CHUNK_DIR} from '../lib/split-chunks'
 
 export const ASSET_CATEGORIES = [
   'content-script',
@@ -27,12 +23,25 @@ export const ASSET_CATEGORIES = [
 // hand, and a spec there compares both so a new category cannot be left out.
 export type AssetCategory = (typeof ASSET_CATEGORIES)[number]
 
-const isCodeAsset = (name: string) => /\.(js|css|wasm)$/i.test(name)
+// `ignored` is what a file no budget applies to is called, never a budget.
+export type BudgetCategory = Exclude<AssetCategory, 'ignored'>
+
+export const BUDGET_CATEGORIES = ASSET_CATEGORIES.filter(
+  (category): category is BudgetCategory => category !== 'ignored'
+)
+
+// The files the emitted manifest loads on a hot path, by output path.
+export interface ManifestEntries {
+  background: ReadonlySet<string>
+  contentScripts: ReadonlySet<string>
+}
+
+const isCodeAsset = (name: string) => /\.(js|mjs|cjs|css|wasm)$/i.test(name)
 const isSourceMap = (name: string) => /\.map$/i.test(name)
 const isHotUpdate = (name: string) => /(^|\/)hot\//.test(name)
 const isSharedChunk = (name: string) => name.startsWith(`${SHARED_CHUNK_DIR}/`)
-const isServiceWorkerFile = (name: string) =>
-  /(^|\/)service[-_]?worker\.(js|css|wasm)$/i.test(name)
+const isRootServiceWorkerFile = (name: string) =>
+  /^service[-_]?worker\.(js|mjs|cjs)$/i.test(name)
 const isWasm = (name: string) => /\.wasm$/i.test(name)
 
 // The surfaces that pay for a file on every navigation or on every cold
@@ -43,6 +52,64 @@ const HOT_SURFACES: ReadonlySet<EntrySurface> = new Set([
   'script'
 ])
 
+// Whole first folder, so `backgrounds/x.js` is a page and not a background.
+// The MV2 background page counts as background: it loads at browser start.
+export function budgetSurfaceOf(name: string): EntrySurface {
+  const [folder, ...rest] = name.replace(/\\/g, '/').split('/')
+
+  if (rest.length === 0) return 'page'
+  if (folder === 'background') return 'background'
+  if (folder === 'content_scripts') return 'content_script'
+  if (folder === 'scripts' || folder === 'user_scripts') return 'script'
+
+  return 'page'
+}
+
+function outputPathOf(value: unknown): string {
+  return typeof value === 'string'
+    ? value.replace(/\\/g, '/').replace(/^\.?\/+/, '')
+    : ''
+}
+
+// Reads the manifest as emitted, so a path the author chose is still known
+// as the service worker or a content script wherever it lands.
+export function manifestEntriesOf(manifestJson: string): ManifestEntries {
+  const background = new Set<string>()
+  const contentScripts = new Set<string>()
+
+  try {
+    const manifest = JSON.parse(manifestJson) as {
+      background?: {service_worker?: unknown; scripts?: unknown}
+      content_scripts?: unknown
+    }
+    const scripts = manifest?.background?.scripts
+
+    for (const file of [
+      manifest?.background?.service_worker,
+      ...(Array.isArray(scripts) ? scripts : [])
+    ]) {
+      if (outputPathOf(file)) background.add(outputPathOf(file))
+    }
+
+    const groups = Array.isArray(manifest?.content_scripts)
+      ? (manifest.content_scripts as Array<{js?: unknown; css?: unknown}>)
+      : []
+
+    for (const group of groups) {
+      for (const file of [
+        ...(Array.isArray(group?.js) ? group.js : []),
+        ...(Array.isArray(group?.css) ? group.css : [])
+      ]) {
+        if (outputPathOf(file)) contentScripts.add(outputPathOf(file))
+      }
+    }
+  } catch {
+    // A manifest that does not parse fails the build on its own
+  }
+
+  return {background, contentScripts}
+}
+
 // The layout split-chunks reads: the script surfaces load one file each,
 // every other folder is a page the HTML links. A file the public/ copier
 // shipped as authored is told apart by its asset info, not by its path, and
@@ -50,7 +117,8 @@ const HOT_SURFACES: ReadonlySet<EntrySurface> = new Set([
 export function categorizeAsset(
   rawName: string,
   info?: {copied?: boolean},
-  referrers?: Iterable<EntrySurface>
+  referrers?: Iterable<EntrySurface>,
+  manifestEntries?: ManifestEntries
 ): AssetCategory {
   const name = String(rawName || '').replace(/\\/g, '/')
   if (!name) return 'ignored'
@@ -58,13 +126,15 @@ export function categorizeAsset(
   if (isSourceMap(name)) return 'ignored'
   if (isHotUpdate(name)) return 'ignored'
   if (info?.copied) return 'public'
+  if (manifestEntries?.background.has(name)) return 'service-worker'
+  if (manifestEntries?.contentScripts.has(name)) return 'content-script'
   if (isSharedChunk(name)) return 'shared'
 
-  const surface = classifyEntrySurface(name)
+  const surface = budgetSurfaceOf(name)
 
-  // MV3 service worker and MV2 background scripts both wake from cold and share
-  // one budget; match both emitted names plus the top-level fallback.
-  if (surface === 'background' || isServiceWorkerFile(name)) {
+  // MV3 service worker and MV2 background scripts both wake from cold and
+  // share one budget: both emitted names plus the top-level fallback.
+  if (surface === 'background' || isRootServiceWorkerFile(name)) {
     return 'service-worker'
   }
 

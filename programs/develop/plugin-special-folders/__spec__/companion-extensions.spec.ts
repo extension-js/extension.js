@@ -199,7 +199,7 @@ describe('companion extensions resolver', () => {
     expect(fs.existsSync(path.join(target, 'manifest.json'))).toBe(true)
   })
 
-  it('recognises legacy, scheme-less and www store links as the same chrome id', async () => {
+  it('recognizes legacy, scheme-less and www store links as the same chrome id', async () => {
     const id = 'fmkadmapgofadopljbjfkapdkoienihi'
 
     for (const link of [
@@ -224,7 +224,7 @@ describe('companion extensions resolver', () => {
     }
   })
 
-  it('reports a link it cannot recognise as a link, not as a folder', async () => {
+  it('reports a link it cannot recognize as a link, not as a folder', async () => {
     const root = tmpDir('extjs-companion-bad-link-')
 
     for (const link of [
@@ -239,11 +239,11 @@ describe('companion extensions resolver', () => {
           config: [link]
         }),
         link
-      ).rejects.toThrow(/not a store link this resolver recognises/)
+      ).rejects.toThrow(/not a store link this resolver recognizes/)
     }
   })
 
-  it('reports a bare store id and an unrecognisable entry instead of dropping them', async () => {
+  it('reports a bare store id and an unrecognizable entry instead of dropping them', async () => {
     const root = tmpDir('extjs-companion-bare-')
     await expect(
       resolveCompanionExtensionsConfig({

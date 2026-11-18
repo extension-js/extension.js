@@ -187,7 +187,6 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
-      clean: devOptions.output.clean,
       zip: devOptions.zip === true,
       zipSource: devOptions.zipSource === true,
       zipFilename: devOptions.zipFilename,
@@ -613,6 +612,9 @@ export default function webpackConfig(
       // Ignore paths by SEGMENT, never by substring: a path merely containing
       // "dist" must stay watched or the dev session silently never recompiles.
       ignored: [
+        // Setting this replaces the bundler's default, which is where .git
+        // was ignored: a commit or a fetch is not a source change.
+        '**/.git/**',
         // When transpiling workspace packages from node_modules symlinks, avoid
         // blanket node_modules ignore so edits from those packages can trigger HMR.
         ...(transpilePackageDirs.length > 0 ? [] : ['**/node_modules/**']),

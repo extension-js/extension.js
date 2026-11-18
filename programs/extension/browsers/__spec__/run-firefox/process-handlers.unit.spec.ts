@@ -20,6 +20,7 @@ describe('setupFirefoxProcessHandlers lifecycle', () => {
     'SIGINT',
     'SIGTERM',
     'SIGHUP',
+    'SIGBREAK',
     'exit',
     'beforeExit',
     'uncaughtException',
@@ -33,10 +34,10 @@ describe('setupFirefoxProcessHandlers lifecycle', () => {
     const d2 = setupFirefoxProcessHandlers('firefox', noChild, noCleanup)
     const after2 = events.map((e) => process.listenerCount(e))
 
-    events.forEach((_event, i) => {
-      expect(after2[i]).toBe(after1[i])
-      expect(after1[i]).toBeLessThanOrEqual(before[i] + 1)
-    })
+    // This is the first setup in the file, so it adds exactly one listener
+    // per event, and the second setup adds none.
+    expect(after1).toEqual(before.map((count) => count + 1))
+    expect(after2).toEqual(after1)
 
     d1()
     d2()
@@ -69,10 +70,11 @@ describe('the exit cleanup of a Firefox session', () => {
     }
   }
 
+  // The fakes carry no pid: on Windows the teardown hands it to taskkill,
+  // and a made-up number can name a real process.
   it('kills the browser first and then runs the exit cleanup', () => {
     const order: string[] = []
     const child: any = {
-      pid: 12345,
       kill: vi.fn((signal: string) => {
         order.push(`kill ${signal}`)
 

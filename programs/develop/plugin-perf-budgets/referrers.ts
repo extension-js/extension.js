@@ -7,7 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compilation} from '@rspack/core'
-import {classifyEntrySurface, type EntrySurface} from '../lib/split-chunks'
+import type {EntrySurface} from '../lib/split-chunks'
+import {budgetSurfaceOf} from './categorize'
 
 type ChunkLike = {
   name?: string | null
@@ -48,10 +49,15 @@ function keyOf(chunk: ChunkLike): unknown {
   return id === null || id === undefined ? chunk : `id:${String(id)}`
 }
 
-function identifierOf(module: ModuleLike | null | undefined): string {
+function identifierOf(
+  module: ModuleLike | null | undefined,
+  onUnreadable?: () => void
+): string {
   try {
     return module?.identifier ? String(module.identifier()) : ''
   } catch {
+    onUnreadable?.()
+
     return ''
   }
 }
@@ -67,8 +73,11 @@ type ChunkGraphLike = {
 // A production build concatenates that module into its entry, and the chunk
 // graph no longer answers for it, so every chunk's modules, inner ones
 // included, are indexed by identifier as the fallback.
+// `onUnreadable` hears every read the graph refused, so the caller knows
+// the answer may be missing a surface and must not loosen a budget on it.
 export function collectAssetReferrers(
-  compilation: Pick<Compilation, 'chunkGraph'> & {chunks?: Iterable<ChunkLike>}
+  compilation: Pick<Compilation, 'chunkGraph'> & {chunks?: Iterable<ChunkLike>},
+  onUnreadable?: () => void
 ): AssetReferrers {
   const chunks = toArray<ChunkLike>(compilation.chunks)
   const chunkGraph = compilation.chunkGraph as ChunkGraphLike | undefined
@@ -85,7 +94,7 @@ export function collectAssetReferrers(
   const chunkKeysByModule = new Map<string, Set<unknown>>()
 
   const indexModule = (module: ModuleLike, key: unknown) => {
-    const id = identifierOf(module)
+    const id = identifierOf(module, onUnreadable)
     if (!id) return
 
     const known = chunkKeysByModule.get(id) || new Set<unknown>()
@@ -99,6 +108,7 @@ export function collectAssetReferrers(
     try {
       modules = toArray(chunkGraph?.getChunkModulesIterable?.(chunk))
     } catch {
+      onUnreadable?.()
       modules = []
     }
 
@@ -110,6 +120,7 @@ export function collectAssetReferrers(
       try {
         inner = toArray(module?.modules)
       } catch {
+        onUnreadable?.()
         inner = []
       }
 
@@ -119,6 +130,7 @@ export function collectAssetReferrers(
 
   const chunkKeysOfModule = (module: ModuleLike): Set<unknown> => {
     const keys = new Set<unknown>()
+    let refused = false
 
     try {
       for (const chunk of toArray(
@@ -128,11 +140,18 @@ export function collectAssetReferrers(
       }
     } catch {
       // The graph does not answer for a module it concatenated away
+      refused = true
     }
 
-    for (const key of chunkKeysByModule.get(identifierOf(module)) || []) {
+    const id = identifierOf(module, onUnreadable)
+
+    for (const key of chunkKeysByModule.get(id) || []) {
       keys.add(key)
     }
+
+    // The identifier index is the answer for a concatenated module, so the
+    // read is lost only when that index has nothing for it either.
+    if (refused && keys.size === 0) onUnreadable?.()
 
     return keys
   }
@@ -183,7 +202,7 @@ export function collectAssetReferrers(
     const owners = ownersByChunk.get(keyOf(chunk))
     if (!owners) continue
 
-    const surfaces = [...owners].map((owner) => classifyEntrySurface(owner))
+    const surfaces = [...owners].map((owner) => budgetSurfaceOf(owner))
     const files = [...toArray(chunk.files), ...toArray(chunk.auxiliaryFiles)]
 
     for (const file of files) {

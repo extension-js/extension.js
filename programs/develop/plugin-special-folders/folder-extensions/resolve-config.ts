@@ -9,17 +9,17 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
-import {isGeckoBasedBrowser} from '../../lib/constants'
 import {debugLine, isDebug} from '../../lib/messaging'
+import {isSameOrInsidePath} from '../../lib/real-path'
 import type {CompanionExtensionsConfig} from './types'
 import {
+  companionFolderForBrowser,
   isDir,
   isFile,
   isValidExtensionRoot,
   normalizeCompanionConfig,
   toAbs
 } from './utils'
-import {isSameOrInsidePath} from '../../lib/real-path'
 
 type StoreBrowser = 'chrome' | 'edge' | 'firefox'
 
@@ -28,18 +28,6 @@ function isPathLike(value: string): boolean {
   if (value.startsWith('./') || value.startsWith('../')) return true
 
   return value.includes('/') || value.includes('\\')
-}
-
-function getBrowserFolder(browser: string | undefined): StoreBrowser {
-  // Gecko family (firefox + forks like waterfox/librewolf) maps to the firefox
-  // companion-extensions store folder.
-  if (browser && isGeckoBasedBrowser(String(browser))) {
-    return 'firefox'
-  }
-
-  if (browser === 'edge') return 'edge'
-
-  return 'chrome'
 }
 
 // The web store moved hosts; the old chrome.google.com/webstore links still
@@ -242,7 +230,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
   if (!config) return undefined
 
   const normalized = normalizeCompanionConfig(config)
-  const runtimeBrowser = getBrowserFolder(browser)
+  const runtimeBrowser = companionFolderForBrowser(browser)
   const resolvedPaths: string[] = []
   const localPaths: string[] = []
 
@@ -257,7 +245,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
 
       if (!parsedStore) {
         throw new Error(
-          `Companion extension link is not a store link this resolver recognises: ${entry}\n` +
+          `Companion extension link is not a store link this resolver recognizes: ${entry}\n` +
             'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
             'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
             'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'

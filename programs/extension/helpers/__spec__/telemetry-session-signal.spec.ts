@@ -1,530 +1,724 @@
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {EventEmitter} from 'node:events'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import {exitAfterDrain} from '../exit-after-drain'
+import type {TelemetryCli} from '../telemetry-cli'
+import {
+  createTelemetrySignals,
+  type TerminationSignal,
+  type TerminationSignalDeps
+} from '../telemetry-signals'
+import {cliRun, type Sandbox, useTelemetrySandbox} from './telemetry-sandbox'
 
 // A killed `dev` session used to report nothing at all: the success mark ran
 // after `parseAsync` resolved, which a watch loop never does, and Node emits no
 // `beforeExit` for a signal death. These specs pin both halves of the fix, the
 // event that leaves at session start and the flush that survives the signal.
 
-type SentEvent = {
-  event: string
-  properties: Record<string, unknown>
-  distinct_id: string
-}
+const sandbox = useTelemetrySandbox()
 
-// Each load registers this module's own process hooks, and the specs load it
-// many times on purpose. The cap is about leaks, and these are deliberate.
-process.setMaxListeners(50)
+afterEach(() => {
+  vi.useRealTimers()
+})
 
-const originalEnv = {...process.env}
-const originalArgv = [...process.argv]
-const sandboxes: string[] = []
-
-function restoreEnv() {
-  for (const key of Object.keys(process.env)) {
-    if (!(key in originalEnv)) delete process.env[key]
-  }
-
-  for (const [key, value] of Object.entries(originalEnv)) {
-    process.env[key] = value
-  }
-}
-
-function isolatedHome(): string {
-  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-session-'))
-  sandboxes.push(home)
-
-  return home
-}
-
-async function loadTelemetry(
+// An opted-in run with sampling at zero, so anything that arrives proves it
+// was never up for sampling.
+function reportingRun(
   env: Record<string, string | undefined> = {},
   argv: string[] = ['node', 'extension', 'dev']
 ) {
-  const home = isolatedHome()
-  process.env.XDG_CONFIG_HOME = home
-  process.env.XDG_CACHE_HOME = home
-  // Explicit opt-in so a CI marker on the machine running the suite does not
-  // decide the outcome of a test about consent.
-  process.env.EXTENSION_TELEMETRY = '1'
-  delete process.env.EXTENSION_TELEMETRY_DISABLED
-  process.env.POSTHOG_HOST = 'http://127.0.0.1:1'
-  process.env.POSTHOG_KEY = 'phc_test_key'
-  // Zero, so anything that arrives proves it was never up for sampling.
-  process.env.EXTENSION_TELEMETRY_SAMPLE_RATE = '0'
+  const box = sandbox({
+    env: {
+      EXTENSION_TELEMETRY: '1',
+      EXTENSION_TELEMETRY_SAMPLE_RATE: '0',
+      ...env
+    },
+    deps: {random: () => 0.5}
+  })
 
-  for (const [key, value] of Object.entries(env)) {
-    if (value === undefined) delete process.env[key]
-    else process.env[key] = value
-  }
-
-  process.argv = argv
-
-  vi.resetModules()
-  const cli = await import('../telemetry-cli')
-  const signals = await import('../telemetry-signals')
-
-  return {cli, signals}
+  return {box, ...cliRun(box, {argv})}
 }
 
-function captureSends(): SentEvent[] {
-  const sent: SentEvent[] = []
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async (_url: unknown, init?: {body?: string}) => {
-      const body = JSON.parse(String(init?.body ?? '{}')) as {
-        batch?: SentEvent[]
-      }
-      for (const event of body.batch ?? []) sent.push(event)
-
-      return new Response('{"status":1}', {status: 200})
-    })
-  )
-
-  return sent
-}
-
-function fakeDeps(
-  overrides: Partial<{
-    sessionStarted: boolean
-    othersOwnTermination: boolean
-    markInterrupted: (exitCode: number) => void
-    flush: () => Promise<void>
-  }> = {}
-) {
-  const exits: number[] = []
-  const order: string[] = []
-  const deps = {
-    sessionStarted: () => Boolean(overrides.sessionStarted),
-    markInterrupted:
-      overrides.markInterrupted ??
-      (() => {
-        order.push('mark')
-      }),
-    flush:
-      overrides.flush ??
-      (async () => {
-        order.push('flush')
-      }),
-    othersOwnTermination: () => Boolean(overrides.othersOwnTermination),
-    exit: async (code: number) => {
-      order.push('exit')
-      exits.push(code)
-    }
-  }
-
-  return {deps, exits, order}
-}
-
-beforeEach(() => {
-  process.env.XDG_CONFIG_HOME = isolatedHome()
-})
-
-afterEach(() => {
-  vi.unstubAllGlobals()
-  vi.restoreAllMocks()
-  restoreEnv()
-  process.argv = [...originalArgv]
-
-  for (const dir of sandboxes.splice(0)) {
-    fs.rmSync(dir, {recursive: true, force: true})
-  }
-})
+const settle = () => new Promise((resolve) => setImmediate(resolve))
 
 describe('a watch session is counted when it starts', () => {
   it('sends command_executed for dev without waiting for an exit', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionStart('dev')
+    await settle()
 
-    expect(sent).toHaveLength(1)
-    expect(sent[0].event).toBe('command_executed')
-    expect(sent[0].properties.command).toBe('dev')
-    expect(sent[0].properties.success).toBe(true)
-    expect(sent[0].properties.session).toBe('started')
+    expect(box.sentRows()).toEqual([
+      {
+        event: 'command_executed',
+        distinct_id: expect.any(String),
+        properties: expect.objectContaining({
+          command: 'dev',
+          success: true,
+          session: 'started',
+          version: '9.9.9'
+        })
+      }
+    ])
   })
 
   it('keeps the markers that separate real users from this repo and from CI', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionStart('start')
+    await settle()
 
-    expect(typeof sent[0].properties.is_source_build).toBe('boolean')
-    expect(typeof sent[0].properties.is_ci).toBe('boolean')
-    expect(sent[0].properties.$ip).toBeNull()
+    expect(box.sentRows()[0].properties).toMatchObject({
+      is_ci: false,
+      is_source_build: true,
+      $ip: null,
+      $geoip_disable: true,
+      $process_person_profile: false
+    })
   })
 
-  it('is not sampled away, so the failure rate has a matching denominator', async () => {
-    // Sampling is zero for this load: an ordinary command_executed cannot
-    // survive it, and the session row has to.
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+  it('is not sampled away, while an ordinary success row is', async () => {
+    const session = reportingRun()
 
-    cli.markCommandSessionStart('preview')
-    expect(sent).toHaveLength(1)
+    session.cli.markCommandSessionStart('preview')
+    await settle()
+    expect(session.box.sentRows()).toHaveLength(1)
 
-    const other = await loadTelemetry()
-    const otherSent = captureSends()
-    other.cli.markCommandSuccess('build')
-    await other.cli.telemetry.flush()
-    expect(otherSent).toHaveLength(0)
+    const ordinary = reportingRun()
+
+    ordinary.cli.markCommandSuccess('build')
+    await ordinary.cli.telemetry.flush()
+    expect(ordinary.box.sentRows()).toEqual([])
   })
 
   it('counts one run once, and still lets a later failure travel', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionStart('dev')
     cli.markCommandSuccess('dev')
     await cli.telemetry.flush()
-    expect(sent).toHaveLength(1)
+    expect(box.sentRows()).toHaveLength(1)
 
     cli.markCommandFailure('dev', {code: 'E_COMPILE', exitCode: 1})
     await cli.telemetry.flush()
-    expect(sent).toHaveLength(2)
-    expect(sent[1].event).toBe('command_failed')
-    expect(sent[1].properties.code).toBe('E_COMPILE')
-  })
 
-  it('sends nothing at all when the run opted out', async () => {
-    const {cli} = await loadTelemetry({EXTENSION_TELEMETRY_DISABLED: '1'})
-    const sent = captureSends()
-
-    cli.markCommandSessionStart('dev')
-    await cli.telemetry.flush()
-
-    expect(sent).toEqual([])
-  })
-
-  it('sends nothing at all under --no-telemetry', async () => {
-    const {cli} = await loadTelemetry({EXTENSION_TELEMETRY: undefined}, [
-      'node',
-      'extension',
-      'dev',
-      '--no-telemetry'
+    expect(
+      box.sentRows().map((row) => [row.event, row.properties.code])
+    ).toEqual([
+      ['command_executed', undefined],
+      ['command_failed', 'E_COMPILE']
     ])
-    const sent = captureSends()
+  })
 
-    cli.markCommandSessionStart('dev')
-    await cli.telemetry.flush()
+  it('names the invoked verb when the caller names none', async () => {
+    const {box, cli} = reportingRun({}, ['node', 'extension', 'preview'])
 
-    expect(sent).toEqual([])
+    cli.markCommandSessionStart()
+    await settle()
+
+    expect(box.sentRows()[0].properties.command).toBe('preview')
   })
 })
 
 describe('a dev session says once that it became ready', () => {
   it('sends a ready row beside the started row, inside the debounce window', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionStart('dev')
     cli.markCommandSessionReady('dev')
+    await settle()
 
-    expect(sent.map((row) => row.event)).toEqual([
-      'command_executed',
-      'command_executed'
+    expect(
+      box.sentRows().map((row) => [row.event, row.properties.session])
+    ).toEqual([
+      ['command_executed', 'started'],
+      ['command_executed', 'ready']
     ])
-
-    expect(sent.map((row) => row.properties.session)).toEqual([
-      'started',
-      'ready'
-    ])
-
-    expect(sent[1].properties.command).toBe('dev')
-    expect(sent[1].properties.success).toBe(true)
   })
 
   it('reports ready once, however many browsers say so', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionStart('dev')
     cli.markCommandSessionReady('dev')
     cli.markCommandSessionReady('dev')
+    await settle()
 
-    expect(sent).toHaveLength(2)
-  })
-
-  it('is not sampled away, so ready and started share a denominator', async () => {
-    // Sampling is zero for this load, and both session rows still arrive.
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
-
-    cli.markCommandSessionStart('dev')
-    cli.markCommandSessionReady('dev')
-
-    expect(sent).toHaveLength(2)
+    expect(box.sentRows()).toHaveLength(2)
   })
 
   it('says nothing for a session that was never counted at its start', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionReady('dev')
     await cli.telemetry.flush()
 
-    expect(sent).toEqual([])
+    expect(box.sentRows()).toEqual([])
   })
 
   it('says nothing after the session already reported its failure', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionStart('dev')
     cli.markCommandFailure('dev', {code: 'E_BROWSER_LAUNCH', exitCode: 1})
     cli.markCommandSessionReady('dev')
     await cli.telemetry.flush()
 
-    expect(sent.map((row) => row.properties.session)).toEqual([
-      'started',
-      undefined
+    expect(
+      box.sentRows().map((row) => [row.event, row.properties.session])
+    ).toEqual([
+      ['command_executed', 'started'],
+      ['command_failed', undefined]
     ])
-
-    expect(sent[1].event).toBe('command_failed')
   })
 
-  it('sends nothing at all when the run opted out', async () => {
-    const {cli} = await loadTelemetry({EXTENSION_TELEMETRY_DISABLED: '1'})
-    const sent = captureSends()
+  it.each<[string, Record<string, string | undefined>, string[]]>([
+    [
+      'the run opted out',
+      {EXTENSION_TELEMETRY_DISABLED: '1'},
+      ['node', 'extension', 'dev']
+    ],
+    [
+      '--no-telemetry',
+      {EXTENSION_TELEMETRY: undefined},
+      ['node', 'extension', 'dev', '--no-telemetry']
+    ]
+  ])('sends nothing at all when %s', async (_name, env, argv) => {
+    const {box, cli} = reportingRun(env, argv)
 
     cli.markCommandSessionStart('dev')
     cli.markCommandSessionReady('dev')
+    cli.markCommandFailure('dev', {code: 'E_COMPILE'})
     await cli.telemetry.flush()
 
-    expect(sent).toEqual([])
-  })
-
-  it('sends nothing at all under --no-telemetry', async () => {
-    const {cli} = await loadTelemetry({EXTENSION_TELEMETRY: undefined}, [
-      'node',
-      'extension',
-      'dev',
-      '--no-telemetry'
-    ])
-    const sent = captureSends()
-
-    cli.markCommandSessionStart('dev')
-    cli.markCommandSessionReady('dev')
-    await cli.telemetry.flush()
-
-    expect(sent).toEqual([])
+    expect(box.sentRows()).toEqual([])
+    expect(fs.existsSync(box.places.config)).toBe(false)
   })
 
   it('carries no property the started row does not already carry', async () => {
-    const {cli} = await loadTelemetry()
-    const sent = captureSends()
+    const {box, cli} = reportingRun()
 
     cli.markCommandSessionStart('dev')
     cli.markCommandSessionReady('dev')
+    await settle()
 
-    expect(Object.keys(sent[1].properties).sort()).toEqual(
-      Object.keys(sent[0].properties).sort()
+    const [started, ready] = box.sentRows()
+    expect(Object.keys(ready.properties).sort()).toEqual(
+      Object.keys(started.properties).sort()
     )
 
-    expect(sent[1].distinct_id).toBe(sent[0].distinct_id)
+    expect(ready.distinct_id).toBe(started.distinct_id)
+  })
+})
+
+describe('the failure the run reports', () => {
+  it('keeps a catalog code and a small exit code, and nothing else', async () => {
+    const {box, cli} = reportingRun()
+
+    cli.markCommandFailure('build', {code: 'toString', exitCode: 300})
+    await cli.telemetry.flush()
+
+    expect(box.sentRows()[0].properties).not.toHaveProperty('code')
+    expect(box.sentRows()[0].properties).not.toHaveProperty('exit_code')
+  })
+
+  it('sends a refusal right away through the crash sender', () => {
+    const {box, cli} = reportingRun()
+
+    cli.reportCommandFailureNow({code: 'E_ARGS', exitCode: 1})
+
+    expect(
+      box.crashSent.map((send) => ({
+        budgetMs: send.budgetMs,
+        rows: send.rows.map((row) => [
+          row.properties.code,
+          row.properties.exit_code
+        ])
+      }))
+    ).toEqual([{budgetMs: 1000, rows: [['E_ARGS', 1]]}])
+  })
+
+  it('carries the install outcomes the readers hold', async () => {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: '1'}})
+    const {cli} = cliRun(box, {
+      argv: [
+        'node',
+        'extension',
+        'create',
+        'x',
+        '--template',
+        'nope',
+        '--source',
+        'templates'
+      ],
+      readBrowserInstall: () => ({outcome: 'declined', browser: 'firefox'}),
+      readDependencyInstall: () => ({outcome: 'installed', seconds: 12})
+    })
+
+    cli.markCommandFailure('create', {code: 'E_ARGS'})
+    await cli.telemetry.flush()
+
+    expect(box.sentRows()[0].properties).toMatchObject({
+      browser_install: 'declined',
+      browser_install_browser: 'firefox',
+      deps_install: 'installed',
+      deps_install_seconds: 12,
+      source: 'templates'
+    })
+
+    expect(box.sentRows()[0].properties).not.toHaveProperty('template')
+  })
+})
+
+describe('the first-run notice', () => {
+  function defaultRun(box: Sandbox) {
+    const run = cliRun(box)
+
+    run.cli.start()
+
+    return run
+  }
+
+  it('prints once per machine and stores the consent it showed', () => {
+    const box = sandbox()
+    const first = defaultRun(box)
+    const second = defaultRun(box)
+
+    expect(first.cli.getConsent()).toEqual({enabled: true, source: 'default'})
+    expect(first.notices).toHaveLength(1)
+    expect(first.notices[0]).toContain('collects anonymous, opt-out telemetry')
+    expect(second.cli.getConsent()).toEqual({enabled: true, source: 'config'})
+    expect(second.notices).toEqual([])
+  })
+
+  it('prints once inside a worktree, where the stored consent is not honored', () => {
+    const box = sandbox()
+    fs.mkdirSync(path.join(box.root, '.git'))
+    const first = defaultRun(box)
+    const second = defaultRun(box)
+
+    expect(first.notices).toHaveLength(1)
+    expect(second.notices).toEqual([])
+    expect(second.cli.getConsent()).toEqual({enabled: true, source: 'default'})
+  })
+
+  it('prints nothing for a consent the env or a file already gave', () => {
+    expect(
+      defaultRun(sandbox({env: {EXTENSION_TELEMETRY: '1'}})).notices
+    ).toEqual([])
+
+    expect(defaultRun(sandbox({env: {CI: '1'}})).notices).toEqual([])
+  })
+
+  it('prints nothing and sends nothing with no storage', async () => {
+    const box = sandbox({deps: {storageFolders: () => [], random: () => 0}})
+    const run = defaultRun(box)
+
+    run.cli.markCommandFailure('build', {code: 'E_ARGS'})
+    await run.cli.telemetry.flush()
+
+    expect(run.notices).toEqual([])
+    expect(run.cli.getConsent()).toEqual({enabled: false, source: 'storage'})
+    expect(run.hooks).toEqual({})
+    expect(box.sent).toEqual([])
+  })
+
+  it('names the documented switches and a full link, not a repo path', () => {
+    const notice = defaultRun(sandbox()).notices[0]
+
+    expect(notice).toBe(
+      '⏵⏵⏵ Extension.js collects anonymous, opt-out telemetry (two events: ' +
+        'command_executed + command_failed). Disable with ' +
+        'extension telemetry disable, EXTENSION_TELEMETRY_DISABLED=1, ' +
+        'DO_NOT_TRACK=1, or --no-telemetry. Details: ' +
+        'https://github.com/extension-js/extension.js/blob/main/docs/TELEMETRY.md'
+    )
+  })
+
+  it('prints nothing under DO_NOT_TRACK and leaves no file behind', () => {
+    const box = sandbox({env: {DO_NOT_TRACK: '1'}})
+    const run = defaultRun(box)
+
+    expect(run.notices).toEqual([])
+    expect(run.cli.telemetry.isEnabled).toBe(false)
+    expect(fs.existsSync(box.places.config)).toBe(false)
+  })
+})
+
+describe('the exit hooks', () => {
+  it('registers nothing for a run that opted out', () => {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: '0'}})
+    const {cli, hooks, notices} = cliRun(box)
+
+    cli.start()
+
+    expect(hooks).toEqual({})
+    expect(notices).toEqual([])
+  })
+
+  it.each<[number | string | undefined, string]>([
+    [undefined, 'command_executed'],
+    [0, 'command_executed'],
+    [2, 'command_failed'],
+    // Pins today's behavior. Ledger 1372 D35.
+    ['0', 'command_failed']
+  ])('reports an exit code of %j at beforeExit as %s', async (exitCode, event) => {
+    const box = sandbox({
+      env: {EXTENSION_TELEMETRY: '1'},
+      deps: {random: () => 0}
+    })
+    const {cli, hooks, host} = cliRun(box, {
+      argv: ['node', 'extension', 'build']
+    })
+
+    cli.start()
+    host.state.exitCode = exitCode
+    await hooks.beforeExit[0]()
+
+    expect(
+      box.sentRows().map((row) => [row.event, row.properties.command])
+    ).toEqual([[event, 'build']])
+  })
+
+  it('adds nothing at beforeExit for a run that already reported', async () => {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: '1'}})
+    const {cli, hooks} = cliRun(box)
+
+    cli.start()
+    cli.markCommandFailure('dev', {code: 'E_ARGS'})
+    await hooks.beforeExit[0]()
+
+    expect(box.sentRows().map((row) => row.event)).toEqual(['command_failed'])
+  })
+
+  it('sends a crash through the crash sender when nothing else catches it', () => {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: '1'}})
+    const {cli, hooks} = cliRun(box)
+
+    cli.start()
+    hooks.uncaughtExceptionMonitor[0]()
+
+    expect(box.crashSent.map((send) => send.budgetMs)).toEqual([1000])
+    expect(box.sent).toEqual([])
+  })
+
+  it('leaves a crash someone catches to the usual flush', async () => {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: '1'}})
+    const {cli, hooks, host} = cliRun(box)
+
+    cli.start()
+    host.state.uncaughtListeners = 1
+    hooks.uncaughtExceptionMonitor[0]()
+    await settle()
+
+    expect(box.crashSent).toEqual([])
+    expect(box.sentRows().map((row) => row.event)).toEqual(['command_failed'])
+  })
+})
+
+describe('the consent the run writes', () => {
+  it('stores a refusal and stops this run at once', async () => {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: undefined}})
+    const {cli} = cliRun(box)
+
+    expect(cli.setConsent('disabled')).toEqual({
+      ok: true,
+      path: path.join(box.configDir, 'consent')
+    })
+
+    cli.markCommandFailure('telemetry', {code: 'E_ARGS'})
+    await cli.telemetry.flush()
+
+    expect(cli.telemetry.isEnabled).toBe(false)
+    expect(box.sentRows()).toEqual([])
+  })
+
+  it('stores an opt-in for the next run and leaves this one as it was', () => {
+    const box = sandbox({env: {EXTENSION_TELEMETRY: '0'}})
+    const {cli} = cliRun(box)
+
+    expect(cli.setConsent('enabled').ok).toBe(true)
+    expect(cli.telemetry.isEnabled).toBe(false)
+    expect(fs.readFileSync(path.join(box.configDir, 'consent'), 'utf8')).toBe(
+      'enabled'
+    )
+  })
+
+  it('answers no path when there is nowhere to write', () => {
+    const box = sandbox({deps: {storageFolders: () => []}})
+
+    expect(cliRun(box).cli.setConsent('enabled')).toEqual({
+      ok: false,
+      path: null
+    })
   })
 })
 
 describe('a signal is an ending the CLI has to report', () => {
-  it('flushes a command_failed for a run interrupted before it finished', async () => {
-    const {cli, signals} = await loadTelemetry()
-    const sent = captureSends()
-
-    await signals.handleTerminationSignal('SIGINT', {
-      sessionStarted: () => false,
-      markInterrupted: (exitCode) =>
-        cli.markCommandFailure('build', {code: 'E_INTERRUPTED', exitCode}),
-      flush: () => cli.telemetry.flush(),
-      othersOwnTermination: () => false,
-      exit: async () => {}
+  function signalRun(
+    options: {
+      sessionStarted?: boolean
+      othersListen?: boolean
+      env?: Record<string, string | undefined>
+    } = {}
+  ) {
+    const run = reportingRun(options.env)
+    const target = new EventEmitter()
+    const exits: number[] = []
+    const signals = createTelemetrySignals({
+      cli: run.cli,
+      target: target as never,
+      exit: (code) => {
+        exits.push(code)
+      }
     })
 
-    expect(sent).toHaveLength(1)
-    expect(sent[0].event).toBe('command_failed')
-    expect(sent[0].properties.command).toBe('build')
-    expect(sent[0].properties.code).toBe('E_INTERRUPTED')
-    expect(sent[0].properties.exit_code).toBe(130)
-  })
+    if (options.sessionStarted) run.cli.markCommandSessionStart('dev')
 
-  it('flushes before it exits, never after', async () => {
-    const {signals} = await loadTelemetry()
-    const {deps, order, exits} = fakeDeps()
+    signals.install()
 
-    await signals.handleTerminationSignal('SIGINT', deps)
+    if (options.othersListen) {
+      target.on('SIGINT', () => {})
+    }
 
-    expect(order).toEqual(['mark', 'flush', 'exit'])
+    return {...run, target, exits, signals}
+  }
+
+  async function raise(target: EventEmitter, signal: TerminationSignal) {
+    target.emit(signal)
+    await settle()
+    await settle()
+  }
+
+  it('flushes a command_failed for a run interrupted before it finished', async () => {
+    const {box, target, exits} = signalRun()
+
+    await raise(target, 'SIGINT')
+
+    expect(
+      box
+        .sentRows()
+        .map((row) => [
+          row.event,
+          row.properties.code,
+          row.properties.exit_code
+        ])
+    ).toEqual([['command_failed', 'E_INTERRUPTED', 130]])
+
     expect(exits).toEqual([130])
   })
 
+  it('exits with 143 for a SIGTERM', async () => {
+    const {box, target, exits} = signalRun()
+
+    await raise(target, 'SIGTERM')
+
+    expect(box.sentRows()[0].properties.exit_code).toBe(143)
+    expect(exits).toEqual([143])
+  })
+
   it('adds no second row when the session already reported its start', async () => {
-    const {signals} = await loadTelemetry()
-    const {deps, order, exits} = fakeDeps({sessionStarted: true})
+    const {box, target, exits} = signalRun({sessionStarted: true})
 
-    await signals.handleTerminationSignal('SIGTERM', deps)
+    await raise(target, 'SIGTERM')
 
-    expect(order).toEqual(['flush', 'exit'])
+    expect(box.sentRows().map((row) => row.properties.session)).toEqual([
+      'started'
+    ])
+
     // A session that came up ends the way it always has, at zero.
     expect(exits).toEqual([0])
   })
 
-  it('leaves the exit to the dev server and browser handlers that own it', async () => {
-    const {signals} = await loadTelemetry()
-    const {deps, exits} = fakeDeps({
-      sessionStarted: true,
-      othersOwnTermination: true
-    })
+  it('leaves the exit and the outcome to the handlers that own the shutdown', async () => {
+    const {box, target, exits} = signalRun({othersListen: true})
 
-    await signals.handleTerminationSignal('SIGINT', deps)
+    await raise(target, 'SIGINT')
 
+    // Inventing a failure for a watch session's Ctrl-C is the artifact, not
+    // the measurement.
+    expect(box.sentRows()).toEqual([])
     expect(exits).toEqual([])
   })
 
-  it('never calls a Ctrl-C of a watch session a failure', async () => {
-    const {signals} = await loadTelemetry()
-    const marks: number[] = []
-    const {deps} = fakeDeps({
-      othersOwnTermination: true,
-      markInterrupted: (exitCode) => marks.push(exitCode)
-    })
-
-    await signals.handleTerminationSignal('SIGINT', deps)
-
-    // The dev server owns this shutdown, and its session already reported
-    // itself. Inventing a failure here is the artifact, not the measurement.
-    expect(marks).toEqual([])
-  })
-
   it('fires once for a SIGINT followed by a SIGTERM', async () => {
-    const {signals} = await loadTelemetry()
-    const {deps, exits} = fakeDeps()
+    const {box, target, exits} = signalRun()
 
-    await signals.handleTerminationSignal('SIGINT', deps)
-    await signals.handleTerminationSignal('SIGTERM', deps)
+    await raise(target, 'SIGINT')
+    await raise(target, 'SIGTERM')
 
+    expect(box.sentRows()).toHaveLength(1)
     expect(exits).toEqual([130])
   })
 
-  it('gives up on a collector that never answers instead of hanging', async () => {
-    const {cli, signals} = await loadTelemetry()
-    // Queued but never sent: the send below is the one that never comes back.
+  it('installs one listener per signal, once, for a run that reports', () => {
+    const {target, signals} = signalRun()
+
+    signals.install()
+
+    expect(target.listenerCount('SIGINT')).toBe(1)
+    expect(target.listenerCount('SIGTERM')).toBe(1)
+  })
+
+  it('installs nothing for a run that opted out', () => {
+    const {target} = signalRun({env: {EXTENSION_TELEMETRY_DISABLED: '1'}})
+
+    expect(target.eventNames()).toEqual([])
+  })
+
+  it('exits half a second in when the collector never answers', async () => {
+    vi.useFakeTimers()
+    const box = sandbox({
+      env: {EXTENSION_TELEMETRY: '1'},
+      deps: {send: () => new Promise(() => {})}
+    })
+    const {cli} = cliRun(box)
+    const exits: number[] = []
+    const target = new EventEmitter()
+
+    createTelemetrySignals({
+      cli,
+      target: target as never,
+      exit: (code) => {
+        exits.push(code)
+      }
+    }).install()
+
+    target.emit('SIGINT')
+    await vi.advanceTimersByTimeAsync(499)
+    expect(exits).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(exits).toEqual([130])
+  })
+
+  it('gives up on a collector that never answers within the deadline it is given', async () => {
+    vi.useFakeTimers()
+    const box = sandbox({
+      env: {EXTENSION_TELEMETRY: '1'},
+      deps: {send: () => new Promise(() => {})}
+    })
+    const {cli} = cliRun(box)
+    let done = false
+
     cli.markCommandFailure('dev', {code: 'E_INTERRUPTED', exitCode: 130})
-    vi.stubGlobal(
-      'fetch',
-      vi.fn(() => new Promise(() => {}))
-    )
+    void createTelemetrySignals({cli, target: new EventEmitter() as never})
+      .flushTelemetryWithin(60)
+      .then(() => {
+        done = true
+      })
 
-    const started = Date.now()
-    await signals.flushTelemetryWithin(60)
-
-    expect(Date.now() - started).toBeLessThan(1000)
-  })
-})
-
-describe('the signal listener respects the opt-out', () => {
-  it('installs nothing for a run that opted out', async () => {
-    const {signals} = await loadTelemetry({EXTENSION_TELEMETRY_DISABLED: '1'})
-    const before = process.listenerCount('SIGINT')
-
-    signals.installTelemetrySignalHandlers()
-
-    expect(process.listenerCount('SIGINT')).toBe(before)
-    signals.__resetTelemetrySignalsForTest()
+    await vi.advanceTimersByTimeAsync(59)
+    expect(done).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(done).toBe(true)
   })
 
-  it('installs one listener per signal for a run that reports', async () => {
-    const {signals} = await loadTelemetry()
-    const beforeInt = process.listenerCount('SIGINT')
-    const beforeTerm = process.listenerCount('SIGTERM')
+  it('runs mark, flush and exit in that order', async () => {
+    const order: string[] = []
+    const deps: TerminationSignalDeps = {
+      sessionStarted: () => false,
+      markInterrupted: () => order.push('mark'),
+      flush: async () => {
+        order.push('flush')
+      },
+      othersOwnTermination: () => false,
+      exit: () => {
+        order.push('exit')
+      }
+    }
 
-    signals.installTelemetrySignalHandlers()
-    signals.installTelemetrySignalHandlers()
+    await createTelemetrySignals({
+      cli: reportingRun().cli,
+      target: new EventEmitter() as never
+    }).handleTerminationSignal('SIGINT', deps)
 
-    expect(process.listenerCount('SIGINT')).toBe(beforeInt + 1)
-    expect(process.listenerCount('SIGTERM')).toBe(beforeTerm + 1)
-
-    signals.__resetTelemetrySignalsForTest()
-    expect(process.listenerCount('SIGINT')).toBe(beforeInt)
-    expect(process.listenerCount('SIGTERM')).toBe(beforeTerm)
+    expect(order).toEqual(['mark', 'flush', 'exit'])
   })
 })
 
 describe('a command that exits on purpose still reports', () => {
-  async function loadExitPath(command: string) {
-    const loaded = await loadTelemetry({EXTENSION_TELEMETRY_SAMPLE_RATE: '1'}, [
+  function exitRun(command: string) {
+    const run = reportingRun({EXTENSION_TELEMETRY_SAMPLE_RATE: '1'}, [
       'node',
       'extension',
       command
     ])
-    const exit = vi
-      .spyOn(process, 'exit')
-      .mockImplementation((() => undefined) as never)
-    const {exitAfterDrain} = await import('../exit-after-drain')
+    const exits: number[] = []
+    const drain = (code: number, cli: TelemetryCli = run.cli) =>
+      exitAfterDrain(code, {cli, exit: (exitCode) => exits.push(exitCode)})
 
-    return {...loaded, exit, exitAfterDrain}
+    return {...run, exits, drain}
   }
 
   it('sends command_executed for a success path that calls exitAfterDrain', async () => {
-    const {exit, exitAfterDrain} = await loadExitPath('doctor')
-    const sent = captureSends()
+    const {box, exits, drain} = exitRun('doctor')
 
-    await exitAfterDrain(0)
+    await drain(0)
 
-    expect(sent).toHaveLength(1)
-    expect(sent[0].event).toBe('command_executed')
-    expect(sent[0].properties.command).toBe('doctor')
-    expect(sent[0].properties.success).toBe(true)
-    expect(typeof sent[0].properties.is_source_build).toBe('boolean')
-    expect(exit).toHaveBeenCalledWith(0)
+    expect(
+      box.sentRows().map((row) => [row.event, row.properties.command])
+    ).toEqual([['command_executed', 'doctor']])
+
+    expect(exits).toEqual([0])
   })
 
   it('sends command_failed with the caller exit code, and keeps that code', async () => {
-    const {exit, exitAfterDrain} = await loadExitPath('publish')
-    const sent = captureSends()
+    const {box, exits, drain} = exitRun('publish')
 
-    await exitAfterDrain(1)
+    await drain(1)
 
-    expect(sent).toHaveLength(1)
-    expect(sent[0].event).toBe('command_failed')
-    expect(sent[0].properties.command).toBe('publish')
-    expect(sent[0].properties.exit_code).toBe(1)
-    expect(exit).toHaveBeenCalledWith(1)
+    expect(
+      box.sentRows().map((row) => [row.event, row.properties.exit_code])
+    ).toEqual([['command_failed', 1]])
+
+    expect(exits).toEqual([1])
   })
 
   it('leaves a failure that already named its catalog code alone', async () => {
-    const {cli, exitAfterDrain} = await loadExitPath('publish')
-    const sent = captureSends()
+    const {box, cli, drain} = exitRun('publish')
 
-    cli.markCommandFailure('publish', {
-      code: 'E_PUBLISH_REJECTED',
-      exitCode: 1
-    })
+    cli.markCommandFailure('publish', {code: 'E_PUBLISH_REJECTED', exitCode: 1})
+    await drain(1)
 
-    await exitAfterDrain(1)
-
-    expect(sent).toHaveLength(1)
-    expect(sent[0].properties.code).toBe('E_PUBLISH_REJECTED')
+    expect(box.sentRows().map((row) => row.properties.code)).toEqual([
+      'E_PUBLISH_REJECTED'
+    ])
   })
 
   it('reports nothing for a verb the CLI does not recognize', async () => {
-    const {exitAfterDrain} = await loadExitPath('--ai-help')
-    const sent = captureSends()
+    const {box, exits, drain} = exitRun('--ai-help')
 
-    await exitAfterDrain(0)
+    await drain(0)
 
-    expect(sent).toEqual([])
+    expect(box.sentRows()).toEqual([])
+    expect(exits).toEqual([0])
   })
 
   it('reports nothing on the run that turned telemetry off', async () => {
-    const {cli, exitAfterDrain} = await loadExitPath('telemetry')
-    const sent = captureSends()
+    const {box, cli, drain} = exitRun('telemetry')
 
-    cli.setTelemetryConsent('disabled')
-    await exitAfterDrain(0)
+    cli.setConsent('disabled')
+    await drain(0)
 
-    expect(sent).toEqual([])
+    expect(box.sentRows()).toEqual([])
+  })
+
+  it('still exits, with its code, when the collector never answers', async () => {
+    vi.useFakeTimers()
+    const box = sandbox({
+      env: {EXTENSION_TELEMETRY: '1'},
+      deps: {send: () => new Promise(() => {})}
+    })
+    const {cli} = cliRun(box, {argv: ['node', 'extension', 'build']})
+    const exits: number[] = []
+
+    void exitAfterDrain(3, {cli, exit: (code) => exits.push(code)})
+    await vi.advanceTimersByTimeAsync(499)
+    expect(exits).toEqual([])
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(exits).toEqual([3])
   })
 })

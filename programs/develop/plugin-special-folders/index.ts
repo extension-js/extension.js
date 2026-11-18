@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {Compilation, type Compiler, rspack} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
@@ -137,11 +137,7 @@ export class SpecialFoldersPlugin {
           {
             name: `${SpecialFoldersPlugin.name}:root-absolute-refs`,
             // Late enough that HTML and CSS assets exist to be scanned.
-            stage: (
-              compilation.constructor as unknown as {
-                PROCESS_ASSETS_STAGE_SUMMARIZE: number
-              }
-            ).PROCESS_ASSETS_STAGE_SUMMARIZE
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () =>
             // Root refs resolve from the EXTENSION root (the manifest dir),
@@ -171,14 +167,12 @@ export class SpecialFoldersPlugin {
       compiler.hooks.thisCompilation.tap(
         SpecialFoldersPlugin.name,
         (compilation: Compilation) => {
-          // A file only the copier ships (a DNR ruleset, a fetched data file)
-          // has no module or manifest reference to watch it, so watch the folder.
-          // A folder that is not there yet is watched by its own path as a
-          // missing dependency, so its creation is the next compile's trigger.
-          if (fs.existsSync(publicDir)) {
-            compilation.contextDependencies?.add(publicDir)
-          } else {
+          // The copier watches the folder it reads. One that is not there yet
+          // is watched by its own path, so creating it triggers a compile.
+          if (!fs.existsSync(publicDir)) {
             compilation.missingDependencies?.add(publicDir)
+          } else if (!copierWired) {
+            compilation.contextDependencies?.add(publicDir)
           }
 
           // A folder that appeared mid-session needs the copier the session
@@ -205,11 +199,7 @@ export class SpecialFoldersPlugin {
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:guards`,
-              stage: (
-                compilation.constructor as unknown as {
-                  PROCESS_ASSETS_STAGE_PRE_PROCESS: number
-                }
-              ).PROCESS_ASSETS_STAGE_PRE_PROCESS
+              stage: Compilation.PROCESS_ASSETS_STAGE_PRE_PROCESS
             },
             () => {
               checkManifestInPublic(compilation, publicDir)
@@ -221,11 +211,7 @@ export class SpecialFoldersPlugin {
           compilation.hooks.processAssets.tap(
             {
               name: `${SpecialFoldersPlugin.name}:collisions`,
-              stage: (
-                compilation.constructor as unknown as {
-                  PROCESS_ASSETS_STAGE_REPORT: number
-                }
-              ).PROCESS_ASSETS_STAGE_REPORT
+              stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
             },
             () => {
               explainPublicOutputCollision(compilation, publicDir)
@@ -304,10 +290,7 @@ function pushLayoutWarning(
   name: string,
   message: string
 ) {
-  const ErrorConstructor =
-    (compiler as {rspack?: {WebpackError?: typeof Error}} | undefined)?.rspack
-      ?.WebpackError || Error
-  const warning = new ErrorConstructor(message)
+  const warning = new compiler.rspack.WebpackError(message)
   warning.name = name
   if (!compilation.warnings) compilation.warnings = []
 

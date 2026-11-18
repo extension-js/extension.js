@@ -200,6 +200,10 @@ Which runtime the CLI then executes on is a separate question, answered below.
 | <picture><source media="(prefers-color-scheme: dark)" srcset="https://media.extension.land/logos/package-managers/deno-dark.svg"><img alt="Deno" src="https://media.extension.land/logos/package-managers/deno.svg" width="64"></picture> | Deno | ✅&nbsp;2.5&nbsp;and&nbsp;newer | `deno run -A npm:extension@latest`. Deno 2.8.0 is refused because it cannot load `node:querystring`, fixed in 2.8.1 |
 | <img alt="Bun" src="https://media.extension.land/logos/package-managers/bun.svg" width="64"> | Bun | ✅&nbsp;1.2&nbsp;and&nbsp;newer | `bunx --bun extension` and `bun run --bun`. Plain `bunx` runs the CLI on Node.js instead, through the published bin |
 
+## Telemetry
+
+Extension.js collects a tiny amount of anonymous telemetry to understand which commands are used and which fail, and never source code, file paths, URLs or project content. Turn it off with `EXTENSION_TELEMETRY_DISABLED=1`, `DO_NOT_TRACK=1` or `extension telemetry disable`. The full list is in [docs/TELEMETRY.md](https://github.com/extension-js/extension.js/blob/main/docs/TELEMETRY.md).
+
 ## Community
 
 - Star the repo if Extension.js helped you ship faster
