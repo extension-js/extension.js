@@ -211,7 +211,8 @@ export function notFoundPaths(printed: string): string[] {
   for (const match of printed.matchAll(
     /NOT FOUND ([^\s"]+?)(?=\\n|[\s"]|$)/g
   )) {
-    found.add(match[1])
+    // JSON doubles each Windows separator, so both spellings name one path.
+    found.add(match[1].replace(/\\\\/g, '\\'))
   }
 
   return [...found].sort()
