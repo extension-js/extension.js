@@ -30,31 +30,44 @@ export interface DeadUrlRefContext {
   roots: string[]
 }
 
-export function isDeadCssUrlRef(
+// Every file a url() request could name. None for a request that names no
+// project file: a URL with a scheme, a data: URI, a package, a bare word.
+export function cssUrlRefCandidates(
   rawRequest: string,
-  {issuerDir, roots}: DeadUrlRefContext
-): boolean {
+  {issuerDir, roots}: DeadUrlRefContext,
+  pathApi: Pick<typeof path, 'join' | 'resolve'> = path
+): string[] {
   const req = String(rawRequest).split('?')[0].split('#')[0]
 
   if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
-    return false
+    return []
   }
 
-  if (req.startsWith('~') || req.startsWith('@')) return false
+  if (req.startsWith('~') || req.startsWith('@')) return []
 
   const isRootRef = req.startsWith('/')
   const isRelativeRef = req.startsWith('./') || req.startsWith('../')
   const isBareAssetRef = !isRootRef && !isRelativeRef && ASSET_EXT.test(req)
-  if (!isRootRef && !isRelativeRef && !isBareAssetRef) return false
+  if (!isRootRef && !isRelativeRef && !isBareAssetRef) return []
 
-  const candidates = isRootRef
-    ? roots.map((root) => path.join(root, req.slice(1)))
+  return isRootRef
+    ? roots.map((root) => pathApi.join(root, req.slice(1)))
     : [
-        path.resolve(issuerDir, req),
-        ...(isBareAssetRef ? roots.map((root) => path.join(root, req)) : [])
+        pathApi.resolve(issuerDir, req),
+        ...(isBareAssetRef ? roots.map((root) => pathApi.join(root, req)) : [])
       ]
+}
 
-  return !candidates.some((candidate) => fs.existsSync(candidate))
+export function isDeadCssUrlRef(
+  rawRequest: string,
+  context: DeadUrlRefContext
+): boolean {
+  const candidates = cssUrlRefCandidates(rawRequest, context)
+
+  return (
+    candidates.length > 0 &&
+    !candidates.some((candidate) => fs.existsSync(candidate))
+  )
 }
 
 // A file inside the folder the public copier ships is already at the output
@@ -97,14 +110,55 @@ export function replaceCssUrlRefs(
   })
 }
 
+// Where each comment of a sheet starts and ends. Strings, escapes and an
+// unquoted url() body are read the way CSS reads them, so a /* there opens none.
+function commentRanges(source: string): Array<[number, number]> {
+  const ranges: Array<[number, number]> = []
+  let at = 0
+
+  while (at < source.length) {
+    const char = source[at]
+
+    if (char === '\\') {
+      at += 2
+    } else if (char === '"' || char === "'") {
+      at++
+
+      while (at < source.length && source[at] !== char && source[at] !== '\n') {
+        at += source[at] === '\\' ? 2 : 1
+      }
+
+      at++
+    } else if (char === '/' && source[at + 1] === '*') {
+      const end = source.indexOf('*/', at + 2)
+      const close = end === -1 ? source.length : end + 2
+
+      ranges.push([at, close])
+      at = close
+    } else if (/^url\(\s*[^\s'"]/i.test(source.slice(at, at + 64))) {
+      const close = source.indexOf(')', at)
+
+      at = close === -1 ? source.length : close + 1
+    } else {
+      at++
+    }
+  }
+
+  return ranges
+}
+
 export function extractCssUrlRefs(source: string): string[] {
   const found: string[] = []
   const seen = new Set<string>()
+  const comments = commentRanges(source)
 
   URL_REF.lastIndex = 0
   let match: RegExpExecArray | null
 
   while ((match = URL_REF.exec(source)) !== null) {
+    const at = match.index
+    if (comments.some(([start, end]) => at >= start && at < end)) continue
+
     const request = match[1] ?? match[2] ?? match[3] ?? ''
     if (!request || seen.has(request)) continue
 
