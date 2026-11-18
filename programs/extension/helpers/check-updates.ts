@@ -24,8 +24,9 @@ type Env = Record<string, string | undefined>
 
 const CACHE_INTERVAL_MS = 60 * 60 * 1000
 const PUBLIC_REGISTRY = 'https://registry.npmjs.org/'
-const ABBREVIATED_PACKUMENT =
-  'application/vnd.npm.install-v1+json; q=1.0, application/json; q=0.8, */*'
+// The dist-tag document is a few kilobytes, the full package document is
+// hundreds and grows with every release. Anything past this cap is refused.
+const MAX_ANSWER_BYTES = 1024 * 1024
 const COMMANDS_THAT_CHECK = new Set(['dev', 'start', 'preview', 'build'])
 
 export interface UpdateNotice {
@@ -125,19 +126,19 @@ export function resolveRegistry(
   return url
 }
 
-// One GET for the CLI's own package. No auth, no user agent, nothing about
-// the project. The socket and the timer never hold the process open.
+// One GET for the latest dist-tag of the CLI's own package. No auth, no user
+// agent, nothing about the project. Socket and timer never hold the process.
 export function lookupLatest(
   name: string,
   registry: URL,
   boundMs: number = UPDATE_CHECK_BOUND_MS
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const url = new URL(encodeURIComponent(name), registry)
+    const url = new URL(`${encodeURIComponent(name)}/latest`, registry)
     const client = url.protocol === 'https:' ? https : http
     const request = client.get(url, {
       agent: false,
-      headers: {accept: ABBREVIATED_PACKUMENT}
+      headers: {accept: 'application/json'}
     })
     const timer = setTimeout(() => {
       request.destroy(new Error(`No answer from the registry in ${boundMs} ms`))
@@ -155,17 +156,30 @@ export function lookupLatest(
         return
       }
 
-      let body = ''
+      const chunks: Buffer[] = []
+      let received = 0
 
-      response.setEncoding('utf8')
-      response.on('data', (chunk: string) => {
-        body += chunk
+      response.on('data', (chunk: Buffer) => {
+        received += chunk.length
+
+        if (received > MAX_ANSWER_BYTES) {
+          const tooLarge = new Error('The registry answer is over 1 MB')
+
+          reject(tooLarge)
+          request.destroy(tooLarge)
+
+          return
+        }
+
+        chunks.push(chunk)
       })
 
       response.on('error', reject)
       response.on('end', () => {
         try {
-          const latest = JSON.parse(body)?.['dist-tags']?.latest
+          const latest = JSON.parse(
+            Buffer.concat(chunks).toString('utf8')
+          )?.version
 
           if (typeof latest !== 'string') {
             throw new Error('The registry answer has no latest version')

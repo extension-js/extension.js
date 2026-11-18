@@ -42,7 +42,7 @@ describe('the update check of a spawned CLI', () => {
     server = http.createServer((request, response) => {
       asked.push(String(request.url))
       response.writeHead(200, {'content-type': 'application/json'})
-      response.end(JSON.stringify({'dist-tags': {latest: '99.0.0'}}))
+      response.end(JSON.stringify({name: 'extension', version: '99.0.0'}))
     })
 
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
@@ -73,7 +73,7 @@ describe('the update check of a spawned CLI', () => {
     })
 
     expect(run.status, run.output).toBe(0)
-    expect(asked).toEqual(['/extension'])
+    expect(asked).toEqual(['/extension/latest'])
     expect(run.output).toContain(NOTICE)
   })
 
@@ -86,7 +86,7 @@ describe('the update check of a spawned CLI', () => {
     })
 
     expect(run.status, run.output).toBe(0)
-    expect(asked).toEqual(['/extension'])
+    expect(asked).toEqual(['/extension/latest'])
     expect(run.output).toContain(NOTICE)
   })
 
@@ -125,7 +125,7 @@ describe('the update check of a spawned CLI', () => {
     })
 
     expect(run.status, run.output).toBe(0)
-    expect(asked).toEqual(['/extension'])
+    expect(asked).toEqual(['/extension/latest'])
     expect(run.output).toContain(NOTICE)
   })
 
@@ -166,7 +166,7 @@ describe('the update check of a spawned CLI', () => {
     })
 
     expect(first.status, first.output).toBe(0)
-    expect(asked).toEqual(['/extension'])
+    expect(asked).toEqual(['/extension/latest'])
     expect(first.stdout.split('\n')).toContain(`${BANNER} (${NOTICE})`)
 
     asked.length = 0
