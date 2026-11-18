@@ -31,6 +31,35 @@ export function manifest(extra: Record<string, unknown> = {}) {
   })
 }
 
+// A fixture without a workspace marker means one only while no folder above
+// the temp folder holds one, so a spec checks that first.
+export function expectNoWorkspaceAboveTemp() {
+  let dir = fs.realpathSync(os.tmpdir())
+
+  while (true) {
+    let workspaces: unknown
+
+    try {
+      workspaces = JSON.parse(
+        fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
+      )?.workspaces
+    } catch {
+      workspaces = undefined
+    }
+
+    expect(fs.existsSync(path.join(dir, 'pnpm-workspace.yaml')), dir).toBe(
+      false
+    )
+
+    expect(workspaces, dir).toBeUndefined()
+
+    const parent = path.dirname(dir)
+    if (parent === dir) return
+
+    dir = parent
+  }
+}
+
 // The project sits one folder down, so a climbing path has a file to reach.
 export function project(files: Record<string, string>) {
   const holder = fs.realpathSync(
@@ -88,13 +117,32 @@ export function project(files: Record<string, string>) {
   return root
 }
 
+// Whether the holder is a workspace root, where a file beside the project is
+// one the workspace shares and so carries no marker.
+export function isWorkspaceHolder(holder: string) {
+  return fs.existsSync(path.join(holder, 'pnpm-workspace.yaml'))
+}
+
+// Makes the holder a workspace root: what sits beside the project is shared
+// now, so it holds plain text. `shared` links a folder its siblings own.
+export function makeWorkspace(root: string) {
+  const holder = path.dirname(root)
+
+  fs.writeFileSync(path.join(holder, 'pnpm-workspace.yaml'), 'packages: []\n')
+  fs.writeFileSync(path.join(holder, 'outside.txt'), 'workspace-outside\n')
+  fs.writeFileSync(
+    path.join(holder, 'outside-folder', 'inner.txt'),
+    'workspace-outside-folder\n'
+  )
+}
+
 // A package of a workspace: `shared` links a folder its siblings own, and
 // `alias.json` links a file of the project itself.
 export function linkWorkspace(root: string, shared: Record<string, string>) {
   const holder = path.dirname(root)
   const folder = path.join(holder, 'shared-assets')
 
-  fs.writeFileSync(path.join(holder, 'pnpm-workspace.yaml'), 'packages: []\n')
+  makeWorkspace(root)
   fs.mkdirSync(folder)
 
   for (const [name, contents] of Object.entries(shared)) {
@@ -141,7 +189,7 @@ export function linkPackages(
 
   write(
     path.join(holder, 'elsewhere/stray-pkg/data.json'),
-    data(`${MARKER}-stray`)
+    data(isWorkspaceHolder(holder) ? 'workspace-stray' : `${MARKER}-stray`)
   )
 
   write(
@@ -202,20 +250,56 @@ function privateTextOf(holder: string): string[] {
   return [MARKER, ...[...marked].filter((opening) => !plain.has(opening))]
 }
 
-// The paths a build names as not found, in the order of the alphabet. The
-// summary repeats each message as JSON, where a line ends in a written \n
-// and the last one in a quote.
+// Each string a printed line holds: the line itself, or the strings of the
+// JSON summary, read back so a Windows `\node_modules` is not a newline.
+function printedTexts(printed: string): string[] {
+  const texts: string[] = []
+
+  const collect = (value: unknown) => {
+    if (typeof value === 'string') texts.push(value)
+    else if (value && typeof value === 'object') {
+      for (const item of Object.values(value)) collect(item)
+    }
+  }
+
+  for (const line of printed.split('\n')) {
+    try {
+      collect(JSON.parse(line))
+    } catch {
+      texts.push(line)
+    }
+  }
+
+  return texts
+}
+
+// The paths a build names as not found, in the order of the alphabet.
 export function notFoundPaths(printed: string): string[] {
   const found = new Set<string>()
 
-  for (const match of printed.matchAll(
-    /NOT FOUND ([^\s"]+?)(?=\\n|[\s"]|$)/g
-  )) {
-    // JSON doubles each Windows separator, so both spellings name one path.
-    found.add(match[1].replace(/\\\\/g, '\\'))
+  for (const text of printedTexts(printed)) {
+    for (const match of text.matchAll(/NOT FOUND ([^\s"]+)/g)) {
+      found.add(match[1])
+    }
   }
 
   return [...found].sort()
+}
+
+// The refs a warning or an error names as missing, in the order of the
+// alphabet. A machine path on Windows starts with its drive letter.
+export function missingRefs(printed: string): string[] {
+  const missing = new Set<string>()
+
+  for (const text of printedTexts(printed)) {
+    for (const match of text.matchAll(
+      /Update the ((?:\/|[A-Za-z]:\\)\S+) reference to point|A url\((\/[^)]+)\) reference points to a file that exists nowhere/g
+    )) {
+      missing.add(match[1] || match[2])
+    }
+  }
+
+  return [...missing].sort()
 }
 
 export interface Built {
@@ -294,14 +378,6 @@ export async function build(root: string, browser = 'chrome'): Promise<Built> {
     const printed = [lines.join('\n'), JSON.stringify(summary ?? failure)]
       .join('\n')
       .replace(ANSI, '')
-    const missing = new Set<string>()
-
-    for (const match of printed.matchAll(
-      /Update the (\/\S+) reference to point|A url\((\/[^)]+)\) reference points to a file that exists nowhere/g
-    )) {
-      missing.add(match[1] || match[2])
-    }
-
     const privateText = privateTextOf(path.dirname(root))
 
     return {
@@ -323,7 +399,7 @@ export async function build(root: string, browser = 'chrome'): Promise<Built> {
         .filter((name) => out[name].includes(MARKER))
         .map(withoutHash)
         .sort(),
-      missing: [...missing].sort(),
+      missing: missingRefs(printed),
       printed,
       errors: failure
         ? (failure.diagnostics || []).filter(isError).length

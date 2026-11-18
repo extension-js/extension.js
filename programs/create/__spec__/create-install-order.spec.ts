@@ -301,6 +301,7 @@ describe('create with install personalizes and commits after the install', () =>
       depsInstalled: true,
       installSeconds: expect.any(Number),
       packageManager: 'npm',
+      packageManagerSpec: 'npm@11.11.0',
       templateProvenance: {
         template: TEMPLATE,
         source: catalog.url('/catalog.zip')
@@ -340,6 +341,7 @@ describe('create without install starts no package manager', () => {
       template: TEMPLATE,
       depsInstalled: false,
       packageManager: 'npm',
+      packageManagerSpec: 'npm@11.11.0',
       templateProvenance: {
         template: TEMPLATE,
         source: catalog.url('/catalog.zip')

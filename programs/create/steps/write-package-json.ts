@@ -13,7 +13,7 @@ import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import {
-  resolvePackageManagerSpec,
+  declarePackageManager,
   resolveProjectPackageManager,
   type ScaffoldPackageManager,
   type VersionProbe
@@ -153,11 +153,16 @@ export function resolveExtensionDevDependencyVersion(
   return resolved.includes('-') ? resolved : `^${resolved}`
 }
 
+export interface OverridePackageJsonResult {
+  // The packageManager field as written, absent when the file has none.
+  packageManagerSpec?: string
+}
+
 export async function overridePackageJson(
   projectPath: string,
   options: OverridePackageJsonOptions,
   logger: {log(...args: unknown[]): void; error(...args: unknown[]): void}
-) {
+): Promise<OverridePackageJsonResult> {
   const {template = 'javascript', cliVersion} = options
   const extensionBinary = await resolveExtensionBinary()
 
@@ -186,11 +191,23 @@ export async function overridePackageJson(
 
   const packageManager =
     options.packageManager ?? resolveProjectPackageManager(projectPath)
-  const packageManagerSpec = resolvePackageManagerSpec(
+  const declaration = await declarePackageManager(
     projectPath,
     packageManager,
-    options.probeVersion
+    options.probeVersion,
+    (waitedSeconds, limitSeconds) => {
+      if (packageManager === 'deno') return
+
+      logger.log(
+        messages.packageManagerAskedAgain(
+          packageManager,
+          waitedSeconds,
+          limitSeconds
+        )
+      )
+    }
   )
+  const packageManagerSpec = declaration.spec
 
   // Pre-approve dependency build scripts so one install just works on pnpm/bun;
   // native ML builds only approved when the project pulls the transformers stack.
@@ -231,6 +248,10 @@ export async function overridePackageJson(
   const templateFields: Record<string, unknown> = {...packageJson}
   delete templateFields.author
 
+  // A pin kept here is one the project does not use, and the line printed
+  // below says the file has no such field.
+  if (declaration.undeclared) delete templateFields.packageManager
+
   const packageMetadata = {
     ...templateFields,
     name: path.basename(projectPath),
@@ -256,4 +277,18 @@ export async function overridePackageJson(
   } catch (error) {
     throw failStep(messages.writingPackageJsonMetadataError(error), error)
   }
+
+  // The field is left out only when no version could be learned, and the
+  // file that lacks it is on disk by now, so this is where the create says so.
+  if (declaration.undeclared && packageManager !== 'deno') {
+    logger.log(
+      messages.packageManagerUndeclared(packageManager, declaration.undeclared)
+    )
+  }
+
+  const written = (packageMetadata as {packageManager?: unknown}).packageManager
+
+  return typeof written === 'string' && written
+    ? {packageManagerSpec: written}
+    : {}
 }

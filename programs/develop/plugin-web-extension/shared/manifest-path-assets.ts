@@ -80,7 +80,9 @@ function localFile(
     return undefined
   }
 
-  return resolved.startsWith('/') && !fs.existsSync(resolved)
+  // Only a path written from the root is read under the manifest folder: a
+  // missing file of the project is named where it would sit.
+  return value.startsWith('/') && !fs.existsSync(resolved)
     ? path.join(manifestDir, resolved.slice(1))
     : resolved
 }
@@ -101,7 +103,8 @@ export function themeExperimentStylesheetEntries(
   )
   if (!file) return {}
 
-  const name = path.basename(file).replace(/\.[^.]+$/, '')
+  // A dot-file with no ending keeps its whole name, never an empty one.
+  const name = path.parse(file).name
 
   return {[`theme_experiment/${name}`]: [file]}
 }

@@ -79,8 +79,7 @@ export function resolveSassImplementation(
 }
 
 export function createSassLoaderOptions(
-  projectPath: string,
-  mode: 'development' | 'production'
+  projectPath: string
 ): Record<string, AnyModule> {
   const implementation = resolveSassImplementation(projectPath)
   const usingSass = isUsingSass(projectPath)
@@ -94,7 +93,6 @@ export function createSassLoaderOptions(
   }
 
   const base: Record<string, AnyModule> = {
-    sourceMap: mode === 'development',
     sassOptions: {
       outputStyle: 'expanded'
     }

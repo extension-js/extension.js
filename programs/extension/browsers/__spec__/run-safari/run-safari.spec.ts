@@ -580,7 +580,7 @@ describe('tool output tail', () => {
 })
 
 describe('launchBrowser safari boundary', () => {
-  it('reports safari/webkit-based as unsupported for launching', async () => {
+  it('refuses safari and webkit-based with the unsupported browser code', async () => {
     const folder = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-'))
 
     try {
@@ -593,7 +593,10 @@ describe('launchBrowser safari boundary', () => {
             extensionsToLoad: [folder],
             dryRun: true
           })
-        ).rejects.toThrow(`Unsupported browser: ${browser}`)
+        ).rejects.toMatchObject({
+          code: 'E_UNSUPPORTED_BROWSER',
+          message: expect.stringContaining(`Unsupported browser: ${browser}.`)
+        })
       }
     } finally {
       fs.rmSync(folder, {recursive: true, force: true})

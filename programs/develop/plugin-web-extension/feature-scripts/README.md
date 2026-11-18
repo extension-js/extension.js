@@ -30,7 +30,8 @@ real compiler takes per mode and browser.
 4. `PlaceRuntimeScriptSheets`: a `scripts/` file carries the sheet of its CSS
    modules. Development also prunes stale sheets after each build
 5. `RootInjectedSheetUrls`: injected sheets name their `url()` targets from the
-   extension (not on WebKit)
+   extension (not on WebKit). A target that climbs out of the extension root
+   stays as written, and the build warns once that the file isn't in the output
 6. `TakeExtensionBase`: defines the base attribute and scheme everywhere, and
    on Gecko opens each MAIN world file on the read of the base
 7. `PairRuntimeMainWorldBridges`: pairs runtime MAIN world registrations with a
@@ -65,6 +66,8 @@ real compiler takes per mode and browser.
 
 - `steps/add-content-script-wrapper/*`
   Adds the loader/wrapper layer for content scripts and emits MAIN-world bridge scripts when needed. The wrapper is load-bearing in every mode: it converts `export default fn` into the `__EXTENSIONJS_mount(...)` call that invokes the user's default export, without it, production tree-shakes the entire content-script body.
+
+  The wrapper rules sit at the front of `module.rules`, ahead of every rule `extension.config.js` added, and loaders run from the last rule to the first. A loader of the project with no `enforce`, or with `enforce: 'pre'`, is handed the file as written, and the wrapper reads what it returns before the transpiler does. A loader with `enforce: 'post'` is handed the wrapped and transpiled text. When a loader returns text with no default export for a file that has one as written, the build stops and names the file and the loader. The wrapper applies in production too, with no option to turn it off.
 
 - `steps/trace-runtime-loaded-files.ts`
   Copies through runtime-loaded files the module graph cannot see (classic worker `importScripts(...)`, `executeScript`/`insertCSS` `files` payloads, `{file}` entries of `contentScripts.register` and `userScripts.register`). A data or media file that a script names as a plain string inside a folder also ships, at the path the page or worker asks for, and a copied stylesheet brings its `url()` targets.
@@ -152,7 +155,7 @@ High-signal specs include:
 - `contracts.spec.ts`
 - `get-bridge-scripts.spec.ts`
 
-`production-page-exposure.spec.ts` and `production-bundle-payload.spec.ts` run real builds and resolve the loaders from `programs/develop/dist`, so they need `pnpm compile` in `programs/develop` first.
+`production-page-exposure.spec.ts`, `production-bundle-payload.spec.ts` and `user-loader-order.spec.ts` (what a loader of the project is handed, and that the wrapper reads what it returns) run real builds and resolve the loaders from `programs/develop/dist`, so they need `pnpm compile` in `programs/develop` first.
 
 Reload-strategy specs live in `plugin-reload/__spec__/`. Behavioral reload verification is covered by the scripts templates in the public [extension-js/templates](https://github.com/extension-js/templates) repo.
 
