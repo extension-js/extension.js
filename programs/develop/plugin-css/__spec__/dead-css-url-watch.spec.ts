@@ -143,7 +143,7 @@ describe('a dead url() in a watch session', () => {
       './missing.png?v=2#icon',
       'styles/missing.png'
     ]
-  ])('rebuilds nothing when the file %s is written', async (_label, request, target) => {
+  ])('rebuilds without the finding once the file %s is written', async (_label, request, target) => {
     const {root, saveSheet} = project(request)
     const file = path.join(root, target)
     const session = watch(root)
@@ -152,18 +152,12 @@ describe('a dead url() in a watch session', () => {
     // A save the watcher answers shows it is live before the file lands.
     expect(await session.buildAfter(saveSheet)).toEqual(DEAD)
 
-    const rebuilt = await session.buildAfter(
-      () => {
-        fs.mkdirSync(path.dirname(file), {recursive: true})
-        fs.writeFileSync(file, 'image')
-      },
-      isClean,
-      2000
-    )
+    const rebuilt = await session.buildAfter(() => {
+      fs.mkdirSync(path.dirname(file), {recursive: true})
+      fs.writeFileSync(file, 'image')
+    }, isClean)
 
-    expect(rebuilt).toBeUndefined()
-    // Only saving the sheet again makes the build read the new file.
-    expect(await session.buildAfter(saveSheet, isClean)).toEqual(FOUND)
+    expect(rebuilt).toEqual(FOUND)
   })
 
   it('reports the finding once a referenced file is deleted', async () => {

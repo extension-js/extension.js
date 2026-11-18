@@ -14,6 +14,7 @@ import {
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
 import {
+  cssUrlRefCandidates,
   extractCssUrlRefs,
   isDeadCssUrlRef,
   toPosixPath
@@ -45,6 +46,7 @@ export interface DeadCssUrlLoaderContext {
   emitWarning(warning: Error): void
   emitError(error: Error): void
   addDependency?(file: string): void
+  addMissingDependency?(file: string): void
   _compilation?: CompilationLike
 }
 
@@ -69,6 +71,11 @@ function reportDeadRefs(
 
   for (const request of extractCssUrlRefs(source)) {
     if (!isDeadCssUrlRef(request, {issuerDir, roots})) continue
+
+    // Keep watch mode honest: writing the file later should rebuild the sheet.
+    for (const candidate of cssUrlRefCandidates(request, {issuerDir, roots})) {
+      loader.addMissingDependency?.(candidate)
+    }
 
     const report = new WebpackError(messages.deadCssUrlRef(issuerPath, request))
     ;(report as Error & {file?: string}).file = issuerPath

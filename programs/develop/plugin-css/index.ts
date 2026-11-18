@@ -376,6 +376,13 @@ export class CssPlugin {
 
             if (process.env.EXTENSION_STRICT_REFS === 'true') return
 
+            // Cancelled before rspack resolves it, so nothing watches for the
+            // file. Watch every place it could appear, or a later write is lost.
+            compilation?.missingDependencies.addAll([
+              ...candidates,
+              ...withCssExtension
+            ])
+
             const key = `${issuer}|${req}`
 
             if (!warned.has(key) && compilation?.warnings) {
