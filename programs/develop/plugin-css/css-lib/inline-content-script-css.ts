@@ -19,7 +19,7 @@ import {
 } from '../../lib/extension-base-from-stack'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
 import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
-import {rewriteCssUrls, whyNotRead} from './inline-css-imports'
+import {rewriteCssUrls, whyNotShipped} from './inline-css-imports'
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'
 
@@ -48,6 +48,8 @@ export interface RewriteInlinedCssUrlsContext {
   publicDir?: string
   // A file the build withholds keeps its address and is never bundled.
   projectPath?: string
+  // The manifest, whose web_accessible_resources ship whatever they list.
+  manifestPath?: string
 }
 
 function isFile(candidate: string): boolean {
@@ -135,7 +137,11 @@ export function rewriteInlinedCssUrls(
         if (
           !target.publicOwned &&
           context.projectPath &&
-          whyNotRead(target.absolutePath, context.projectPath)
+          whyNotShipped(
+            target.absolutePath,
+            context.projectPath,
+            context.manifestPath
+          )
         ) {
           return undefined
         }

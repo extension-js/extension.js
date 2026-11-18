@@ -33,7 +33,7 @@ import {usesStyleTools} from './common-style-loaders'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
 import {cssUrlRefFiles, toPosixPath} from './css-lib/dead-url-refs'
-import {whyNotRead} from './css-lib/inline-css-imports'
+import {whyNotShipped} from './css-lib/inline-css-imports'
 import * as messages from './css-lib/messages'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
@@ -401,7 +401,7 @@ export class CssPlugin {
             if (
               found &&
               (/\.(css|scss|sass|less)$/i.test(req) ||
-                !whyNotRead(found, projectPath))
+                !whyNotShipped(found, projectPath, this.manifestPath))
             ) {
               return
             }

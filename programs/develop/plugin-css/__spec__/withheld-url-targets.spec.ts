@@ -161,5 +161,67 @@ describe.skipIf(process.platform === 'win32')(
       },
       120_000
     )
+
+    // The manifest ships a file it lists for web pages, so the sheet may too.
+    it('a content script sheet ships a file outside the project the manifest lists', async () => {
+      const root = makeProject({
+        'app/package.json': JSON.stringify({
+          private: true,
+          name: 'listed',
+          version: '0.0.0'
+        }),
+        'app/manifest.json': JSON.stringify({
+          manifest_version: 3,
+          name: 'listed',
+          version: '1.0.0',
+          content_scripts: [
+            {matches: ['<all_urls>'], js: ['content/scripts.js']}
+          ],
+          web_accessible_resources: [
+            {resources: ['../shared/listed.png'], matches: ['<all_urls>']}
+          ]
+        }),
+        'app/content/scripts.js':
+          "import href from './styles.css'\ndocument.head.append(Object.assign(document.createElement('link'), {rel: 'stylesheet', href}))\n",
+        'app/content/styles.css':
+          '.a{background:url(../../shared/listed.png)}\n',
+        'shared/listed.png': 'LISTED_OUTSIDE_IMAGE\n'
+      })
+      const app = path.join(root, 'app')
+      const {extensionBuild} = await import('../../command-build')
+      const previous = process.env.VITEST
+
+      process.env.VITEST = 'true'
+
+      let summary: {errors_count: number; warnings?: string[]}
+
+      try {
+        summary = (await extensionBuild(app, {
+          browser: 'chrome',
+          silent: true,
+          install: false,
+          mode: 'production',
+          exitOnError: false
+        } as never)) as typeof summary
+      } finally {
+        if (previous === undefined) delete process.env.VITEST
+        else process.env.VITEST = previous
+      }
+
+      const dist = path.join(app, 'dist', 'chrome')
+      const shipped = (fs.readdirSync(dist, {recursive: true}) as string[])
+        .filter((entry) => fs.statSync(path.join(dist, entry)).isFile())
+        .map((entry) => fs.readFileSync(path.join(dist, entry), 'utf8'))
+        .join('\n')
+
+      expect(summary.errors_count).toBe(0)
+      expect(summary.warnings ?? []).toEqual([])
+      expect(
+        shipped.includes('LISTED_OUTSIDE_IMAGE') ||
+          shipped.includes(inlined('LISTED_OUTSIDE_IMAGE'))
+      ).toBe(true)
+
+      expect(shipped).not.toContain('url(../../shared/listed.png)')
+    }, 120_000)
   }
 )
