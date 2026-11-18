@@ -1102,7 +1102,8 @@ async function runSafariPipeline(
 
   // Only a dev session is still around to quit the app it raised on the way
   // out. A build run exits at once and the app it opened is the deliverable.
-  if (host.announceDevReady) {
+  // Opening the Xcode project raises no app, so there is none to wait for.
+  if (host.announceDevReady && target === appPath) {
     await rememberRaisedContainerApp(tools, appPath, appsBefore)
   }
 

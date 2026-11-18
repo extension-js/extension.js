@@ -225,8 +225,7 @@ describe('a Safari packaging tool that fails', () => {
 })
 
 describe('a Safari dev session whose build left no app', () => {
-  // Pins today's behavior. Ledger 1374 D23.
-  it('opens the Xcode project and then looks five seconds for an app that was never started', async () => {
+  it('opens the Xcode project and does not wait for an app it never started', async () => {
     const tools = fakeSafariTools()
     let appLookups = 0
 
@@ -251,8 +250,8 @@ describe('a Safari dev session whose build left no app', () => {
     expect(tools.calls.openApp).toEqual([xcodeProjectPath(config())])
     expect(tools.calls.pluginkitAdd).toEqual([])
 
-    // One look before the open, then one every 250 ms until five seconds pass.
-    expect(appLookups).toBe(21)
-    expect(waitedMs).toBe(5000)
+    // The one look before the open, and no wait after it.
+    expect(appLookups).toBe(1)
+    expect(waitedMs).toBe(0)
   })
 })
