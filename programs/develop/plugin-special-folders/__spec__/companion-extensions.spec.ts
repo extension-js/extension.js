@@ -164,7 +164,7 @@ describe('companion extensions resolver', () => {
     expect(dirs).toEqual(['extensions/my-helper/dist'])
   })
 
-  it('rejects local paths outside ./extensions', async () => {
+  it('rejects local paths outside the project', async () => {
     const root = tmpDir('extjs-companion-outside-')
 
     await expect(
@@ -262,6 +262,117 @@ describe('companion extensions resolver', () => {
     ).rejects.toThrow(/neither a store link nor a folder path/)
   })
 
+  describe('a bare entry with no slash and no dot', () => {
+    const id = 'fmkadmapgofadopljbjfkapdkoienihi'
+    const resolve = (root: string, entry: string) =>
+      resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: [entry]
+      })
+
+    it('is a folder when a folder of that name is in the project', async () => {
+      const root = tmpDir('extjs-companion-bare-folder-')
+      writeManifest(path.join(root, 'extensions', 'inner'))
+
+      await expect(resolve(root, 'extensions')).resolves.toEqual({
+        paths: [path.join(root, 'extensions')]
+      })
+    })
+
+    it('may sit at the project root like any other folder', async () => {
+      const root = tmpDir('extjs-companion-bare-outside-')
+      writeManifest(path.join(root, 'my-ext'))
+
+      await expect(resolve(root, 'my-ext')).resolves.toEqual({
+        paths: [path.join(root, 'my-ext')]
+      })
+    })
+
+    it('is a folder even when it reads like a store ID', async () => {
+      const root = tmpDir('extjs-companion-bare-id-folder-')
+      writeManifest(path.join(root, id))
+
+      // The folder answers, so nothing is fetched and no store hint is said.
+      await expect(resolve(root, id)).resolves.toEqual({
+        paths: [path.join(root, id)]
+      })
+
+      expect(fetchExtensionFromStore).not.toHaveBeenCalled()
+    })
+
+    it('stays an unknown entry when no folder has that name', async () => {
+      const root = tmpDir('extjs-companion-bare-missing-')
+      fs.mkdirSync(path.join(root, 'extensions'))
+
+      await expect(resolve(root, 'my-ext')).rejects.toThrow(
+        /neither a store link nor a folder path: my-ext/
+      )
+
+      await expect(resolve(root, id)).rejects.toThrow(
+        /looks like a store id, not a store link/
+      )
+
+      // An empty entry resolves to the project itself, which names nothing.
+      await expect(resolve(root, '')).rejects.toThrow(
+        /neither a store link nor a folder path/
+      )
+    })
+
+    it('stays an unknown entry when the name belongs to a file', async () => {
+      const root = tmpDir('extjs-companion-bare-file-')
+      fs.writeFileSync(path.join(root, 'my-ext'), 'a file, not a folder')
+      fs.writeFileSync(path.join(root, id), 'a file, not a folder')
+
+      await expect(resolve(root, 'my-ext')).rejects.toThrow(
+        /neither a store link nor a folder path: my-ext/
+      )
+
+      await expect(resolve(root, id)).rejects.toThrow(
+        /looks like a store id, not a store link/
+      )
+    })
+
+    it('leaves an absolute path as it was, inside the project or not', async () => {
+      const holder = tmpDir('extjs-companion-absolute-')
+      const root = path.join(holder, 'project')
+      const inside = path.join(root, 'extensions', 'inner')
+      const atRoot = path.join(root, 'my-ext')
+      const outside = path.join(holder, 'elsewhere')
+      writeManifest(inside)
+      writeManifest(atRoot)
+      writeManifest(outside)
+
+      await expect(resolve(root, inside)).resolves.toEqual({paths: [inside]})
+      await expect(resolve(root, atRoot)).resolves.toEqual({paths: [atRoot]})
+      await expect(resolve(root, outside)).rejects.toThrow(
+        `Companion extensions must be inside the project.\nInvalid path: ${outside}`
+      )
+
+      // A path is a path whether or not anything is there.
+      await expect(
+        resolve(root, path.join(root, 'extensions', 'missing'))
+      ).resolves.toEqual({paths: [path.join(root, 'extensions', 'missing')]})
+    })
+
+    it('reads a backslash as a separator only where the platform does', async () => {
+      const root = tmpDir('extjs-companion-backslash-')
+      writeManifest(path.join(root, 'extensions', 'inner'))
+      const attempt = resolve(root, 'extensions\\inner')
+
+      if (process.platform === 'win32') {
+        await expect(attempt).resolves.toEqual({
+          paths: [path.join(root, 'extensions', 'inner')]
+        })
+      } else {
+        // One file name with a backslash in it, at the project root.
+        await expect(attempt).resolves.toEqual({
+          paths: [path.join(root, 'extensions\\inner')]
+        })
+      }
+    })
+  })
+
   it('keeps skipping the other browser link quietly, in every link form', async () => {
     const root = tmpDir('extjs-companion-other-browser-')
     const resolved = await resolveCompanionExtensionsConfig({
@@ -297,4 +408,328 @@ describe('companion extensions resolver', () => {
     expect(resolvedPaths).toEqual([target])
     expect(fetchMock).not.toHaveBeenCalled()
   })
+})
+
+describe('a companion folder named in the config, by where it sits', () => {
+  const REFUSED = 'refused'
+  const canLink = process.platform !== 'win32'
+
+  // A project one folder down, so `..` has somewhere real to land.
+  function layout() {
+    const holder = fs.realpathSync(tmpDir('extjs-companion-places-'))
+    const root = path.join(holder, 'project')
+
+    for (const dir of [
+      'my-ext',
+      'tools/my-ext',
+      'extensions/my-ext',
+      'node_modules/some-ext'
+    ]) {
+      writeManifest(path.join(root, dir))
+    }
+
+    writeManifest(path.join(holder, 'outside'))
+    fs.mkdirSync(path.join(root, 'extensions', 'no-manifest'))
+    fs.mkdirSync(path.join(root, 'tools', 'no-manifest'))
+    fs.writeFileSync(path.join(root, 'extensions', 'a-file.txt'), 'a file')
+    fs.writeFileSync(path.join(root, 'tools', 'a-file.txt'), 'a file')
+
+    if (canLink) {
+      for (const dir of ['extensions', 'tools']) {
+        fs.symlinkSync(
+          path.join(holder, 'outside'),
+          path.join(root, dir, 'linked-out')
+        )
+
+        fs.symlinkSync(
+          path.join(root, 'my-ext'),
+          path.join(root, dir, 'linked-in')
+        )
+      }
+    }
+
+    return {holder, root}
+  }
+
+  // What a session loads for one entry, or the refusal it gets.
+  async function outcome(root: string, entry: string) {
+    try {
+      const config = await resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: [entry]
+      })
+
+      return resolveCompanionExtensionDirs({
+        projectRoot: root,
+        config,
+        browser: 'chrome'
+      }).map((dir) => toPosix(path.relative(root, dir)))
+    } catch (error) {
+      return String((error as Error).message)
+    }
+  }
+
+  const refusal = (root: string, entry: string) =>
+    'Companion extensions must be inside the project.\n' +
+    `Invalid path: ${path.isAbsolute(entry) ? entry : path.resolve(root, entry)}`
+
+  it.each([
+    ['my-ext', ['my-ext']],
+    ['tools/my-ext', ['tools/my-ext']],
+    ['./tools/my-ext', ['tools/my-ext']],
+    ['extensions/my-ext', ['extensions/my-ext']],
+    // The user named it, so it loads from there like from anywhere else.
+    ['node_modules/some-ext', ['node_modules/some-ext']],
+    ['../outside', REFUSED],
+    ['tools/../../outside', REFUSED],
+    ['..', REFUSED],
+    // The project itself is not a folder inside the project.
+    ['./', REFUSED],
+    // A folder with no manifest, a file and a missing folder pass the place
+    // check, and the session then loads nothing for them, without a word.
+    ['extensions/no-manifest', []],
+    ['tools/no-manifest', []],
+    ['extensions/a-file.txt', []],
+    ['tools/a-file.txt', []],
+    ['tools/missing', []]
+  ])('%s', async (entry, expected) => {
+    const {root} = layout()
+
+    expect(await outcome(root, entry)).toEqual(
+      expected === REFUSED ? refusal(root, entry) : expected
+    )
+  })
+
+  it('an absolute path, inside the project or not', async () => {
+    const {holder, root} = layout()
+    const outside = path.join(holder, 'outside')
+
+    expect(await outcome(root, outside)).toBe(refusal(root, outside))
+    expect(await outcome(root, path.join(root, 'tools', 'my-ext'))).toEqual([
+      'tools/my-ext'
+    ])
+
+    expect(
+      await outcome(root, path.join(root, 'extensions', 'my-ext'))
+    ).toEqual(['extensions/my-ext'])
+  })
+
+  it.skipIf(!canLink)('a link, by where it leads', async () => {
+    const {root} = layout()
+
+    // Real paths are compared, so a link out of the project is refused
+    // wherever it sits, extensions/ included.
+    for (const entry of ['extensions/linked-out', 'tools/linked-out']) {
+      expect(await outcome(root, entry), entry).toBe(refusal(root, entry))
+    }
+
+    for (const entry of ['extensions/linked-in', 'tools/linked-in']) {
+      expect(await outcome(root, entry), entry).toEqual([entry])
+    }
+  })
+
+  it.skipIf(!canLink)('a project reached through a link', async () => {
+    const {holder, root} = layout()
+    const linkedRoot = path.join(holder, 'linked-project')
+    fs.symlinkSync(root, linkedRoot)
+
+    expect(await outcome(linkedRoot, 'tools/my-ext')).toEqual(['tools/my-ext'])
+    expect(await outcome(linkedRoot, path.join(root, 'my-ext'))).toEqual([
+      '../project/my-ext'
+    ])
+
+    expect(await outcome(linkedRoot, '../outside')).toBe(
+      refusal(linkedRoot, '../outside')
+    )
+  })
+
+  it('names a folder inside the project when an entry is no path and no link', async () => {
+    const {root} = layout()
+
+    expect(await outcome(root, 'not-there')).toBe(
+      'Companion extension entry is neither a store link nor a folder path: not-there\n' +
+        'Give a store link or the path of a folder inside the project'
+    )
+  })
+})
+
+describe('the folder scanned for companion extensions, by where it sits', () => {
+  const canLink = process.platform !== 'win32'
+
+  // A project one folder down, so `..` has somewhere real to land.
+  function layout() {
+    const holder = fs.realpathSync(tmpDir('extjs-companion-dir-'))
+    const root = path.join(holder, 'project')
+
+    for (const dir of [
+      'extensions/one',
+      'extensions/set/inner',
+      'vendor/two',
+      'node_modules/kept/three'
+    ]) {
+      writeManifest(path.join(root, dir))
+    }
+
+    writeManifest(path.join(holder, 'outside', 'four'))
+
+    if (canLink) {
+      fs.symlinkSync(
+        path.join(holder, 'outside'),
+        path.join(root, 'linked-dir')
+      )
+
+      fs.symlinkSync(
+        path.join(holder, 'outside'),
+        path.join(root, 'extensions', 'linked-set')
+      )
+
+      fs.symlinkSync(path.join(root, 'vendor'), path.join(root, 'linked-in'))
+    }
+
+    return {holder, root}
+  }
+
+  // What a session loads for one `dir`, or the refusal it gets.
+  async function outcome(root: string, dir: string) {
+    try {
+      const config = await resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: {dir}
+      })
+
+      return resolveCompanionExtensionDirs({
+        projectRoot: root,
+        config,
+        browser: 'chrome'
+      }).map((found) => toPosix(path.relative(root, found)))
+    } catch (error) {
+      return String((error as Error).message)
+    }
+  }
+
+  const refusal = (root: string, dir: string) =>
+    'extensions.dir must be inside the project.\n' +
+    `Invalid dir: ${path.isAbsolute(dir) ? dir : path.resolve(root, dir)}`
+
+  const REFUSED = 'refused'
+  // A subfolder that is no extension is read one level down.
+  const DEFAULT_SET = ['extensions/one', 'extensions/set/inner']
+
+  it.each([
+    ['extensions', DEFAULT_SET],
+    ['./extensions', DEFAULT_SET],
+    ['extensions/set', ['extensions/set/inner']],
+    ['./vendor', ['vendor/two']],
+    // The user named it, so it is scanned like any other folder.
+    ['node_modules/kept', ['node_modules/kept/three']],
+    // The project itself is not a folder inside the project.
+    ['.', REFUSED],
+    ['./', REFUSED],
+    ['..', REFUSED],
+    ['../outside', REFUSED],
+    ['vendor/../../outside', REFUSED],
+    // A folder that is not there scans nothing, without a word, when the
+    // place it would sit at is inside the project.
+    ['extensions/missing', []],
+    ['missing', []],
+    ['../missing', REFUSED]
+  ])('%s', async (dir, expected) => {
+    const {root} = layout()
+
+    expect(await outcome(root, dir)).toEqual(
+      expected === REFUSED ? refusal(root, dir) : expected
+    )
+  })
+
+  it('an absolute path, inside the project or not', async () => {
+    const {holder, root} = layout()
+    const outside = path.join(holder, 'outside')
+    const vendor = path.join(root, 'vendor')
+
+    expect(await outcome(root, outside)).toBe(refusal(root, outside))
+    expect(await outcome(root, root)).toBe(refusal(root, root))
+    expect(await outcome(root, vendor)).toEqual(['vendor/two'])
+    expect(await outcome(root, path.join(root, 'extensions'))).toEqual(
+      DEFAULT_SET
+    )
+  })
+
+  it.skipIf(!canLink)('a link, by where it leads', async () => {
+    const {root} = layout()
+
+    // Real paths are compared, so a link out of the project is refused
+    // wherever it sits, extensions/ included.
+    for (const dir of ['linked-dir', 'extensions/linked-set']) {
+      expect(await outcome(root, dir), dir).toBe(refusal(root, dir))
+    }
+
+    expect(await outcome(root, 'linked-in')).toEqual(['linked-in/two'])
+  })
+
+  it.skipIf(!canLink)('a project reached through a link', async () => {
+    const {holder, root} = layout()
+    const linkedRoot = path.join(holder, 'linked-project')
+    fs.symlinkSync(root, linkedRoot)
+
+    expect(await outcome(linkedRoot, 'vendor')).toEqual(['vendor/two'])
+    expect(await outcome(linkedRoot, path.join(root, 'vendor'))).toEqual([
+      '../project/vendor/two'
+    ])
+
+    expect(await outcome(linkedRoot, '../outside')).toBe(
+      refusal(linkedRoot, '../outside')
+    )
+  })
+
+  it('refuses with a code a machine reader can match on', async () => {
+    const {root} = layout()
+
+    const refused = async (config: {dir: string} | string[]) => {
+      try {
+        await resolveCompanionExtensionsConfig({
+          projectRoot: root,
+          browser: 'chrome',
+          config
+        })
+      } catch (error) {
+        return (error as {code?: string}).code
+      }
+
+      return 'accepted'
+    }
+
+    expect(await refused({dir: '../outside'})).toBe(
+      'E_COMPANION_EXTENSION_PATH'
+    )
+
+    expect(await refused({dir: '.'})).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(await refused(['../outside'])).toBe('E_COMPANION_EXTENSION_PATH')
+    expect(await refused({dir: './vendor'})).toBe('accepted')
+  })
+
+  it.skipIf(!canLink)(
+    'follows a link that is one entry of the scanned folder while it stays inside',
+    async () => {
+      const {holder, root} = layout()
+
+      fs.symlinkSync(
+        path.join(holder, 'outside', 'four'),
+        path.join(root, 'extensions', 'linked-out')
+      )
+
+      fs.symlinkSync(
+        path.join(root, 'vendor', 'two'),
+        path.join(root, 'extensions', 'linked-two')
+      )
+
+      // The link that stays in loads like a folder, the one that leads out
+      // loads nothing.
+      expect(await outcome(root, 'extensions')).toEqual([
+        'extensions/linked-two',
+        ...DEFAULT_SET
+      ])
+    }
+  )
 })
