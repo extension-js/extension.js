@@ -409,16 +409,25 @@ export function registerDevCommand(
         }
 
         const parentPid = parseParentPid(devOptions.parentPid)
+        // Set once the engine is loaded. Before that no session can be live.
+        let endEngineSession:
+          | ((code: ErrorCode, message: string) => boolean)
+          | undefined
 
         if (parentPid !== undefined) {
+          const parentGone = `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
+
           armParentWatchdog(parentPid, {
+            // A live session's stream writes the one terminal frame itself.
+            endSession: () =>
+              endEngineSession?.(CODES.E_PARENT_GONE, parentGone) === true,
             emitFrame: () => {
               if (!asJson) return
 
               printFrame(
                 ENVELOPE.fail('dev', 'failed', {
                   code: CODES.E_PARENT_GONE,
-                  message: `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
+                  message: parentGone
                 })
               )
             }
@@ -654,7 +663,11 @@ export function registerDevCommand(
           if (asJson) void exitDrained(1)
         }
 
-        const {extensionDev} = await loadDevelop()
+        const {extensionDev, endSessionAsFailed} = await loadDevelop()
+
+        if (typeof endSessionAsFailed === 'function') {
+          endEngineSession = endSessionAsFailed
+        }
 
         for (const vendor of list) {
           const logsOption = devOptions.logs

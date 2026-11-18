@@ -619,7 +619,12 @@ describe('extension dev', () => {
 
   it('arms the parent watchdog with a valid --parent-pid', async () => {
     expect(await run(['dev', '.', '--parent-pid', '4242'])).toBe(0)
-    expect(watchdogs).toEqual([[4242, {emitFrame: expect.any(Function)}]])
+    expect(watchdogs).toEqual([
+      [
+        4242,
+        {endSession: expect.any(Function), emitFrame: expect.any(Function)}
+      ]
+    ])
   })
 
   it('frames a parent-gone shutdown under --output json', async () => {
@@ -939,27 +944,38 @@ describe('extension dev when the --parent-pid owner goes away', () => {
       TERMINAL.has(String((frame as {status?: unknown}).status))
     )
 
-  it('writes two terminal frames once the session is live', async () => {
+  it.each([
+    ['under --output json', ['--output', 'json']],
+    ['in pretty mode', []]
+  ])('ends a live session through the engine %s, with one terminal frame', async (_name, flags) => {
     expect(
-      await runWithRealWatchdog([
-        'dev',
-        '.',
-        '--parent-pid',
-        '4242',
-        '--output',
-        'json'
-      ])
+      await runWithRealWatchdog(['dev', '.', '--parent-pid', '4242', ...flags])
     ).toBe(0)
 
+    stdout.length = 0
     parentAlive = false
     vi.advanceTimersByTime(POLL_MS)
 
-    expect(terminalFrames()).toMatchObject([
-      {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}},
-      {status: 'stopped'}
+    expect(endSessionAsFailed.mock.calls).toEqual([
+      ['E_PARENT_GONE', PARENT_GONE]
     ])
 
-    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+    expect(terminalFrames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        error: {code: 'E_PARENT_GONE', message: PARENT_GONE}
+      }
+    ])
+
+    // The engine runs the shutdown and the exit, so nothing is signaled.
+    expect(kill).not.toHaveBeenCalled()
+
+    // No backstop exit is left behind either.
+    vi.advanceTimersByTime(60_000)
+    expect(process.exit).not.toHaveBeenCalled()
   })
 
   it('frames the failure itself and signals itself before any session is live', async () => {

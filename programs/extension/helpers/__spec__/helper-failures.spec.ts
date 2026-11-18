@@ -259,6 +259,49 @@ describe('the parent watchdog shutdown', () => {
     expect(exit.mock.calls).toEqual([[1]])
   })
 
+  it('leaves the frame, the signal and the exit to a session that ended itself', () => {
+    const {kill, exit} = watchShutdown()
+    const emitFrame = vi.fn()
+    const endSession = vi.fn(() => true)
+
+    setupParentWatchdog(PARENT, {
+      log: () => {},
+      endSession,
+      emitFrame,
+      isAlive: () => false
+    })
+
+    expect(endSession).toHaveBeenCalledTimes(1)
+    expect(emitFrame).not.toHaveBeenCalled()
+    expect(kill).not.toHaveBeenCalled()
+
+    vi.advanceTimersByTime(60_000)
+    expect(exit).not.toHaveBeenCalled()
+  })
+
+  it.each([
+    ['no session is live', () => false],
+    [
+      'ending the session throws',
+      () => {
+        throw new Error('engine gone')
+      }
+    ]
+  ])('frames and signals itself when %s', (_name, endSession) => {
+    const {kill} = watchShutdown()
+    const emitFrame = vi.fn()
+
+    setupParentWatchdog(PARENT, {
+      log: () => {},
+      endSession,
+      emitFrame,
+      isAlive: () => false
+    })
+
+    expect(emitFrame).toHaveBeenCalledTimes(1)
+    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+  })
+
   it('exits 1 at once when the signal to itself cannot be sent', () => {
     const {kill, exit} = watchShutdown()
 
