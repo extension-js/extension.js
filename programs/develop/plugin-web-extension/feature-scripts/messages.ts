@@ -231,6 +231,27 @@ export function getURLDependencyMissing(
   return lines.join('\n')
 }
 
+// The value names a file that exists, so staying quiet would hide why the
+// extension cannot read it once installed.
+export function manifestNamedFileNotShipped(
+  manifestKey: string,
+  literal: string,
+  expectedPath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `manifest.json names '${literal}' under the custom key ${colors.blue(manifestKey)}, but the file isn't in the output.`
+  )
+
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`)
+  lines.push(`A read of it fails at runtime.`)
+  lines.push(
+    `The build never copies env files, tooling files, installed packages or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
+  )
+
+  return lines.join('\n')
+}
+
 // The page the literal opens was declared only under a key the WebKit filter
 // drops, so the build emitted nothing for it and the open fails in Safari.
 export function webkitDroppedPageOpened(

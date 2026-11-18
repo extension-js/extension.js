@@ -35,6 +35,7 @@ import {
   type CompileMode,
   getSpecialFoldersDataForProjectRoot
 } from '../../../plugin-special-folders/get-data'
+import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
 import type {DevOptions, Manifest} from '../../../types'
 import {webkitDroppedSurfacePages} from '../../feature-manifest/manifest-lib/webkit-unsupported-keys'
 import {declaredResourceSource} from '../../feature-web-resources/web-resources-lib/resolve-war'
@@ -376,7 +377,12 @@ export class TraceRuntimeLoadedFiles {
 
     const seen = run.seen.getURL
 
-    for (const literal of customManifestFileReferences(manifest)) {
+    const projectRoots = [
+      run.compiler.options.context || run.manifestDir,
+      run.manifestDir
+    ]
+
+    for (const {key, literal} of customManifestFileReferences(manifest)) {
       const distRel = resolveExtensionPath(literal, '')
       if (!distRel || seen.has(distRel)) continue
 
@@ -392,6 +398,21 @@ export class TraceRuntimeLoadedFiles {
       if (plan.kind === 'missing') continue
 
       seen.add(distRel)
+
+      // A private file or one outside the project is never copied or
+      // compiled, and the build says so in place of dropping it unheard.
+      if (
+        (plan.kind === 'copy' || plan.kind === 'compile') &&
+        !sourceFileMayShip(plan.sourcePath, projectRoots)
+      ) {
+        run.warn(
+          'ManifestNamedFileNotShipped',
+          'manifest.json',
+          messages.manifestNamedFileNotShipped(key, literal, distRel)
+        )
+
+        continue
+      }
 
       run.apply(plan, {
         context: 'getURL',
@@ -2454,41 +2475,43 @@ function manifestDeclaredSourcePaths(
 // keys nested in background, that is spelled like a file path.
 function customManifestFileReferences(
   manifest: Record<string, unknown>
-): string[] {
-  const refs: string[] = []
+): Array<{key: string; literal: string}> {
+  const refs: Array<{key: string; literal: string}> = []
 
-  const collect = (value: unknown) => {
+  const collect = (key: string, value: unknown) => {
     if (typeof value === 'string') {
       const trimmed = value.trim()
 
       if (/\.[a-zA-Z0-9]{1,8}$/.test(trimmed) && !/\s/.test(trimmed)) {
-        refs.push(trimmed)
+        refs.push({key, literal: trimmed})
       }
 
       return
     }
 
     if (Array.isArray(value)) {
-      value.forEach(collect)
+      for (const item of value) collect(key, item)
 
       return
     }
 
     if (value && typeof value === 'object') {
-      Object.values(value).forEach(collect)
+      for (const item of Object.values(value)) collect(key, item)
     }
   }
 
   for (const [key, value] of Object.entries(manifest)) {
     if (!STANDARD_MANIFEST_KEYS.has(key)) {
-      collect(value)
+      collect(key, value)
       continue
     }
 
     if (key !== 'background' || !value || typeof value !== 'object') continue
 
     for (const [subKey, subValue] of Object.entries(value)) {
-      if (!STANDARD_BACKGROUND_KEYS.has(subKey)) collect(subValue)
+      if (!STANDARD_BACKGROUND_KEYS.has(subKey)) {
+        collect(`background.${subKey}`, subValue)
+      }
     }
   }
 

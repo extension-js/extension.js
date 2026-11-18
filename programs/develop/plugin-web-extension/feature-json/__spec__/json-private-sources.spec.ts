@@ -67,8 +67,6 @@ const SCHEMA: Field = {
   valid: (text) => JSON.stringify({type: 'object', description: text})
 }
 
-const foldsCase = fs.existsSync(__filename.toUpperCase())
-
 // The opening of each fake private file, which a parse error would quote.
 const OPENINGS = ['PRIVATE_K', 'export PR', '# FAKE', 'FAKE-MARK']
 
@@ -77,7 +75,8 @@ function files(field: Field): Record<string, string> {
     'node_modules/pkg/data.json': field.valid(`${MARKER}-node-modules`),
     'data/ok.json': field.valid('ok'),
     'public/hosted.json': field.valid('hosted'),
-    '.env.example': field.valid('example')
+    '.env.example': field.valid('example'),
+    'public/.env.local': field.valid(`${MARKER}-public-env`)
   }
 }
 
@@ -144,18 +143,18 @@ async function tableFor(field: Field, targets: string[]): Promise<Table> {
 const TIMEOUT = 300_000
 
 // A build that stops with one error, and so writes no output folder.
-const stopped = (said: string, quoted: string[] = []): Row => ({
+const stopped = (said: string): Row => ({
   shipped: [],
   marked: [],
   said: [said],
-  quoted,
+  quoted: [],
   errors: 1
 })
 
-// A build that lands the field's file, with a marker inside or without one.
-const landed = (field: Field, marked = false): Row => ({
+// A build that lands the field's file beside the one public/ holds.
+const landed = (field: Field): Row => ({
   shipped: [field.output, 'hosted.json'].sort(),
-  marked: marked ? [field.output] : [],
+  marked: [],
   said: [],
   quoted: [],
   errors: 0
@@ -170,25 +169,29 @@ const HOSTED: Row = {
   errors: 0
 }
 
-const privateFiles = (field: Field): Table => ({
-  '/.env': stopped('unparsed: .env', ['PRIVATE_K']),
-  '.env': stopped('unparsed: .env', ['PRIVATE_K']),
-  './.env': stopped('unparsed: .env', ['PRIVATE_K']),
-  '.env.local': stopped('unparsed: .env.local', ['PRIVATE_K']),
-  '.npmrc': stopped('unparsed: .npmrc', ['# FAKE']),
-  '.git/config': stopped('unparsed: .git/config', ['# FAKE']),
-  'a/../.envrc': stopped('unparsed: .envrc', ['export PR']),
-  'node_modules/pkg/data.json': landed(field, true),
-  '../outside.txt': stopped('unparsed: ../outside.txt', ['FAKE-MARK']),
-  '../outside.json': landed(field, true),
-  'sub/../../outside.txt': stopped('unparsed: ../outside.txt', ['FAKE-MARK']),
+// A withheld file is said in the words a missing one gets, and never opened.
+const PRIVATE_FILES: Table = {
+  '/.env': stopped('missing: .env'),
+  '.env': stopped('missing: .env'),
+  './.env': stopped('missing: .env'),
+  '.ENV': stopped('missing: .ENV'),
+  '.env.local': stopped('missing: .env.local'),
+  '.npmrc': stopped('missing: .npmrc'),
+  '.git/config': stopped('missing: .git/config'),
+  'a/../.envrc': stopped('missing: .envrc'),
+  'node_modules/pkg/data.json': stopped('missing: node_modules/pkg/data.json'),
+  '../outside.txt': stopped('missing: ../outside.txt'),
+  '../outside.json': stopped('missing: ../outside.json'),
+  'sub/../../outside.txt': stopped('missing: ../outside.txt'),
   '%2e%2e/outside.txt': stopped('missing: %2e%2e/outside.txt'),
-  'nothing.json': stopped('missing: nothing.json')
-})
+  'nothing.json': stopped('missing: nothing.json'),
+  // The copier leaves this one out of public/, so no field may name it.
+  'public/.env.local': stopped('missing: public/.env.local')
+}
 
 const links = (field: Field): Table => ({
-  'linked.txt': stopped('unparsed: linked.txt', ['FAKE-MARK']),
-  'shared/data.json': landed(field, true),
+  'linked.txt': stopped('missing: linked.txt'),
+  'shared/data.json': stopped('missing: shared/data.json'),
   'alias.json': landed(field)
 })
 
@@ -208,20 +211,31 @@ describe.each([RULES, SCHEMA])('$name', (field) => {
   it(
     'names a private file or a file outside the project',
     async () => {
-      const expected = privateFiles(field)
-
-      expect(await tableFor(field, keys(expected))).toEqual(expected)
+      expect(await tableFor(field, keys(PRIVATE_FILES))).toEqual(PRIVATE_FILES)
     },
     TIMEOUT
   )
 
-  // A file system that folds letter case reads `.ENV` as the env file.
-  it.skipIf(!foldsCase)(
-    'names a private file in another letter case',
+  it(
+    'says a withheld file in the words a missing one gets, once',
     async () => {
-      expect(await tableFor(field, ['.ENV'])).toEqual({
-        '.ENV': stopped('unparsed: .ENV', ['PRIVATE_K'])
-      })
+      const result = await build(fixture(field, '.env'))
+      const times = (part: string) => result.printed.split(part).length - 1
+      const feature = field.output.replace(/\.json$/, '')
+
+      // The text is read twice over: the printed lines, then the failure.
+      for (const sentence of [
+        `Can't find the JSON file listed in ${feature}.`,
+        'Browsers can reject or crash the extension when required JSON files like rulesets are missing.',
+        'The build stops here.',
+        'Update the JSON path in your manifest.json to a file that ships with the extension.'
+      ]) {
+        expect(times(sentence), sentence).toBe(2)
+      }
+
+      expect(result.printed).not.toContain("Can't parse the JSON file")
+      expect(result.printed).not.toContain(MARKER)
+      expect(result.errors).toBe(1)
     },
     TIMEOUT
   )

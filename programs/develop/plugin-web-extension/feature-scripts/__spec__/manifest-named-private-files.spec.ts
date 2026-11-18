@@ -111,28 +111,36 @@ async function tableFor(field: Field, targets: string[]): Promise<Table> {
 const TIMEOUT = 300_000
 
 // A build that lands the files given beside what the fixture always lands.
-const landed = (field: Field, files: string[] = [], marked = false): Row => ({
+const landed = (field: Field, files: string[] = []): Row => ({
   shipped: [...field.always, ...files].sort(),
-  marked: marked ? files : [],
+  marked: [],
   said: [],
   errors: 0
 })
 
-const privateFiles = (field: Field): Table => ({
-  '/.env': landed(field, ['.env'], true),
-  '.env': landed(field, ['.env'], true),
-  './.env': landed(field, ['.env'], true),
-  '.env.local': landed(field, ['.env.local'], true),
-  '.npmrc': landed(field, ['.npmrc'], true),
-  '.git/hooks/pre-push.sh': landed(field, ['.git/hooks/pre-push.sh'], true),
-  'a/../.envrc': landed(field, ['.envrc'], true),
-  'node_modules/pkg/data.json': landed(
-    field,
-    ['node_modules/pkg/data.json'],
-    true
-  ),
-  'node_modules/pkg/lib.js': landed(field, ['node_modules/pkg/lib.js'], true)
+// A build that copies nothing for the value and says so, once.
+const withheld = (field: Field, literal: string): Row => ({
+  shipped: field.always,
+  marked: [],
+  said: [`${field.key}: ${literal}`],
+  errors: 0
 })
+
+const PRIVATE_TARGETS = [
+  '/.env',
+  '.env',
+  './.env',
+  '.env.local',
+  '.npmrc',
+  '.git/hooks/pre-push.sh',
+  'a/../.envrc',
+  'node_modules/pkg/data.json',
+  'node_modules/pkg/lib.js'
+]
+const LINKS_OUT = ['linked.txt', 'linked-folder/inner.txt', 'shared/logo.txt']
+
+const withheldEach = (field: Field, targets: string[]): Table =>
+  Object.fromEntries(targets.map((target) => [target, withheld(field, target)]))
 
 // A value is read as a file name only when it ends like one, and a path is
 // resolved the way a URL is, so it never climbs above the manifest folder.
@@ -145,9 +153,7 @@ const neverRead = (field: Field): Table => ({
 })
 
 const links = (field: Field): Table => ({
-  'linked.txt': landed(field, ['linked.txt'], true),
-  'linked-folder/inner.txt': landed(field, ['linked-folder/inner.txt'], true),
-  'shared/logo.txt': landed(field, ['shared/logo.txt'], true),
+  ...withheldEach(field, LINKS_OUT),
   'alias.json': landed(field, ['alias.json'])
 })
 
@@ -165,7 +171,7 @@ describe.each([TOP_LEVEL, UNDER_BACKGROUND])('$name', (field) => {
   it(
     'names a private file',
     async () => {
-      const expected = privateFiles(field)
+      const expected = withheldEach(field, PRIVATE_TARGETS)
 
       expect(await tableFor(field, keys(expected))).toEqual(expected)
     },
@@ -177,7 +183,7 @@ describe.each([TOP_LEVEL, UNDER_BACKGROUND])('$name', (field) => {
     'names a private file in another letter case',
     async () => {
       expect(await tableFor(field, ['.ENV'])).toEqual({
-        '.ENV': landed(field, ['.ENV'], true)
+        '.ENV': withheld(field, '.ENV')
       })
     },
     TIMEOUT
@@ -232,6 +238,40 @@ describe.each([TOP_LEVEL, UNDER_BACKGROUND])('$name', (field) => {
 
       // The climbing value is clamped to the manifest folder and finds nothing.
       expect(await rowFor(root)).toEqual(landed(field, ['assets/list.txt']))
+    },
+    TIMEOUT
+  )
+})
+
+describe('a file a custom key names and the build withholds', () => {
+  it(
+    'is said once, however many values name it',
+    async () => {
+      const root = project({
+        ...FILES,
+        'manifest.json': manifest({
+          my_files: ['.env', './.env'],
+          other: {file: '/.env'}
+        })
+      })
+      const result = await build(root)
+      const times = (part: string) => result.printed.split(part).length - 1
+
+      // The text is read twice over: the printed lines, then the summary.
+      for (const sentence of [
+        "manifest.json names '.env' under the custom key my_files, but the file isn't in the output.",
+        'NOT FOUND .env',
+        'A read of it fails at runtime.',
+        'The build never copies env files, tooling files, installed packages or files outside the project.'
+      ]) {
+        expect(times(sentence), sentence).toBe(2)
+      }
+
+      expect(times('under the custom key')).toBe(2)
+      expect(result.shipped).toEqual(['hosted.txt'])
+      expect(result.marked).toEqual([])
+      expect(result.printed).not.toContain(MARKER)
+      expect(result.errors).toBe(0)
     },
     TIMEOUT
   )
