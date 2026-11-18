@@ -14,6 +14,7 @@ import checkUpdates, {
 } from '../check-updates'
 
 const makeTempFolder = trackTempFolders()
+type Env = Record<string, string | undefined>
 const CLI = {name: 'extension', version: '2.0.0'}
 
 interface Asked {
@@ -70,7 +71,7 @@ async function registry(answer: {status: number; body: string} | null) {
   return started
 }
 
-function isolatedEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
+function isolatedEnv(extra: Env = {}): Env {
   const home = makeTempFolder('extjs-update-home-')
 
   return {
@@ -81,7 +82,7 @@ function isolatedEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   }
 }
 
-function deps(env: NodeJS.ProcessEnv, extra: object = {}) {
+function deps(env: Env, extra: object = {}) {
   return {
     env,
     homedir: () => String(env.HOME),
@@ -138,11 +139,24 @@ describe('when the update check runs', () => {
 })
 
 describe('the registry the check asks', () => {
-  it('takes npm_config_registry first', () => {
+  it('takes npm_registry first, the name the earlier check read', () => {
     const env = isolatedEnv({
-      npm_config_registry: 'http://127.0.0.1:1/mirror',
+      npm_config_registry: 'http://127.0.0.1:1/',
       npm_registry: 'http://127.0.0.1:2/'
     })
+
+    expect(resolveRegistry(env, () => String(env.HOME))?.href).toBe(
+      'http://127.0.0.1:2/'
+    )
+  })
+
+  it('then npm_config_registry, over the user .npmrc', () => {
+    const env = isolatedEnv({npm_config_registry: 'http://127.0.0.1:1/mirror'})
+
+    fs.writeFileSync(
+      path.join(String(env.HOME), '.npmrc'),
+      'registry=http://127.0.0.1:3/\n'
+    )
 
     expect(resolveRegistry(env, () => String(env.HOME))?.href).toBe(
       'http://127.0.0.1:1/mirror/'
@@ -154,14 +168,6 @@ describe('the registry the check asks', () => {
 
     expect(resolveRegistry(env, () => String(env.HOME))?.href).toBe(
       'http://127.0.0.1:1/'
-    )
-  })
-
-  it('then npm_registry', () => {
-    const env = isolatedEnv({npm_registry: 'http://127.0.0.1:2/'})
-
-    expect(resolveRegistry(env, () => String(env.HOME))?.href).toBe(
-      'http://127.0.0.1:2/'
     )
   })
 
@@ -235,6 +241,7 @@ describe('the update check against a loopback registry', () => {
       'connection',
       'host'
     ])
+
     expect(headers.authorization).toBeUndefined()
   })
 

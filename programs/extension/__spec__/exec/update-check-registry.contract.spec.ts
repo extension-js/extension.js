@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {
   CLI_ROOT,
+  type CliHome,
   cliHome,
   cliTempFolder,
   DEAD_REGISTRY,
@@ -20,19 +21,17 @@ const {version} = JSON.parse(
 )
 const BANNER = ` 🧩 Extension.js ${version}`
 
-// The cached answers left under a home, one per temp folder a child used.
-function cachedAnswers(home: string): string[] {
-  return fs
-    .readdirSync(home)
-    .filter((name) => name.startsWith('tmp-'))
-    .map((name) =>
-      path.join(home, name, 'update-check', 'extension-latest.json')
-    )
-    .filter((file) => fs.existsSync(file))
+// The answers a home's cache folder keeps, one per registry asked.
+function cachedAnswers(home: CliHome): string[] {
+  const file = path.join(home.cacheHome, 'extensionjs', 'update-check.json')
+
+  return fs.existsSync(file)
+    ? Object.keys(JSON.parse(fs.readFileSync(file, 'utf8')))
+    : []
 }
 
-// Every CLI start asks a registry for the latest version, and the suite's
-// network guard patches this process only, so a child needs a pin of its own.
+// dev, start, preview and build ask a registry for the latest version, and the
+// suite's network guard patches this process only, so a child needs a pin.
 describe('the update check of a spawned CLI', () => {
   let server: http.Server
   let registry = ''
@@ -78,6 +77,42 @@ describe('the update check of a spawned CLI', () => {
     expect(run.output).toContain(NOTICE)
   })
 
+  it('asks the registry npm_config_registry names', async () => {
+    asked.length = 0
+
+    const run = await runCli(['build', projectDir], {
+      home: freshCliHome(),
+      env: {npm_registry: undefined, npm_config_registry: registry}
+    })
+
+    expect(run.status, run.output).toBe(0)
+    expect(asked).toEqual(['/extension'])
+    expect(run.output).toContain(NOTICE)
+  })
+
+  it.each([
+    ['under --output json', ['build', '--output', 'json'], {}],
+    ['for a command that prints no banner', ['doctor'], {}],
+    [
+      'with EXTENSION_NO_UPDATE_CHECK=1',
+      ['build'],
+      {EXTENSION_NO_UPDATE_CHECK: '1'}
+    ],
+    ['with NO_UPDATE_NOTIFIER=1', ['build'], {NO_UPDATE_NOTIFIER: '1'}],
+    ['under CI', ['build'], {CI: 'true'}]
+  ])('asks nothing %s', async (_name, args, env) => {
+    asked.length = 0
+
+    const [command, ...rest] = args
+    const run = await runCli([command, projectDir, ...rest], {
+      home: freshCliHome(),
+      env: {npm_registry: registry, ...env}
+    })
+
+    expect(asked).toEqual([])
+    expect(run.output).not.toContain(NOTICE)
+  })
+
   it('asks the registry the home .npmrc names when no pin is set', async () => {
     const home = freshCliHome()
 
@@ -94,15 +129,9 @@ describe('the update check of a spawned CLI', () => {
     expect(run.output).toContain(NOTICE)
   })
 
-  // Pins today's behavior. Ledger 1375 N9.
-  it('replays a cached notice to a later run that shares the temp folder', async () => {
+  it('keeps its answer in the home cache, not in a shared temp folder', async () => {
     const home = freshCliHome()
     const tempFolder = cliTempFolder(home)
-    const cacheFile = path.join(
-      tempFolder,
-      'update-check',
-      'extension-latest.json'
-    )
     const first = await runCli(['build', projectDir], {
       home,
       tempFolder,
@@ -110,14 +139,12 @@ describe('the update check of a spawned CLI', () => {
     })
 
     expect(first.status, first.output).toBe(0)
-    expect(JSON.parse(fs.readFileSync(cacheFile, 'utf8'))).toEqual({
-      latest: '99.0.0',
-      lastUpdate: expect.any(Number)
-    })
+    expect(cachedAnswers(home)).toHaveLength(1)
+    expect(fs.readdirSync(tempFolder)).not.toContain('update-check')
 
     asked.length = 0
 
-    // The pin points at a dead port, so only the cache can print the notice.
+    // Another home on the same temp folder gets no answer it did not ask for.
     const later = await runCli(['build', projectDir], {
       home: freshCliHome(),
       tempFolder
@@ -126,11 +153,11 @@ describe('the update check of a spawned CLI', () => {
     expect(later.status, later.output).toBe(0)
     expect(asked).toEqual([])
     expect(later.stderr).toBe('')
-    expect(later.stdout.split('\n')).toContain(`${BANNER} (${NOTICE})`)
+    expect(later.output).not.toContain(NOTICE)
   })
 
   it('prints no cached notice to a later run with default options', async () => {
-    const home = cliHome().home
+    const home = cliHome()
 
     asked.length = 0
 
@@ -151,12 +178,11 @@ describe('the update check of a spawned CLI', () => {
     expect(later.stderr).toBe('')
     expect(later.output).not.toContain(NOTICE)
     expect(later.stdout.split('\n')).toContain(BANNER)
-    // The answer was cached, in the first run's own folder.
+    // One answer cached, for the registry that gave it.
     expect(cachedAnswers(home)).toHaveLength(1)
   })
 
-  // Pins today's behavior. Ledger 1375 N10.
-  it('a registry that never answers keeps a finished build running', async () => {
+  it('a registry that never answers does not keep a finished build running', async () => {
     const silent = http.createServer(() => {})
 
     await new Promise<void>((resolve) => silent.listen(0, '127.0.0.1', resolve))
@@ -174,15 +200,13 @@ describe('the update check of a spawned CLI', () => {
         'the built line'
       )
 
-      // Twice the check's own timeout, so a fixed CLI would be gone by now.
+      // Twice the check's own bound: the CLI is gone by then.
       const exited = await Promise.race([
-        session.closed.then(() => true),
-        new Promise<boolean>((resolve) =>
-          setTimeout(() => resolve(false), 4000)
-        )
+        session.closed,
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000))
       ])
 
-      expect(exited).toBe(false)
+      expect(exited).toEqual({status: 0, signal: null})
       expect(session.read().stderr).toBe('')
     } finally {
       session.killGroup()
