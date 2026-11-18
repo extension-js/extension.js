@@ -20,6 +20,7 @@ import {
 } from './lib/config-loader'
 import {withDarkMode} from './lib/dark-mode'
 import {
+  companionScanDirInsideProject,
   companionsDeclaredIn,
   computeExtensionsToLoad,
   namedCompanionFoldersInsideProject,
@@ -508,10 +509,11 @@ export async function extensionPreview(
       projectRoot: packageJsonDir,
       resolved: previewOptions.noBrowser
         ? {
-            dir: Array.isArray(mergedExtensionsConfig)
-              ? undefined
-              : mergedExtensionsConfig?.dir,
             paths: namedCompanionFoldersInsideProject(
+              mergedExtensionsConfig,
+              packageJsonDir
+            ),
+            dir: companionScanDirInsideProject(
               mergedExtensionsConfig,
               packageJsonDir
             )

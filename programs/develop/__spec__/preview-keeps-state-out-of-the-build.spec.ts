@@ -332,14 +332,13 @@ describe('a named companion that is not an extension, with no browser', () => {
     expect(withBrowser?.warnings).toEqual(quiet.warnings)
   })
 
-  it('fetches no store companion and refuses no entry', async () => {
+  it('fetches no store companion and leaves a link alone', async () => {
     const root = project()
     const {warnings} = await preview(root, {
       extensions: [
         'https://chromewebstore.google.com/detail/some-name/abcdefghijklmnopabcdefghijklmnop',
         'chromewebstore.google.com/detail/some-name/abcdefghijklmnopabcdefghijklmnop',
         'https://example.com/not-a-store',
-        'abcdefghijklmnopabcdefghijklmnop',
         'extensions/gone'
       ]
     })
@@ -354,7 +353,7 @@ describe('a named companion that is not an extension, with no browser', () => {
     ).toBe('ready')
   })
 
-  it('warns about a folder that is there and holds no manifest, though its name reads as a host', async () => {
+  it('warns about a path whose first part reads as a host, on disk or not', async () => {
     const root = project()
 
     fs.mkdirSync(path.join(root, 'my.ext', 'foo'), {recursive: true})
@@ -363,12 +362,14 @@ describe('a named companion that is not an extension, with no browser', () => {
       extensions: ['my.ext/foo', 'my.ext/gone']
     })
 
-    // The entry with no folder behind it still reads as a link and is left.
-    expect(warnings).toHaveLength(1)
+    // A path with a slash is a folder path, on disk or not, as with a browser.
+    expect(warnings).toHaveLength(2)
     expect(warnings[0]).toContain('ENTRY my.ext/foo')
     expect(warnings[0]).toContain(
       `NOT FOUND ${path.join(root, 'my.ext', 'foo', 'manifest.json')}`
     )
+
+    expect(warnings[1]).toContain('ENTRY my.ext/gone')
 
     expect(store.fetch).not.toHaveBeenCalled()
   })

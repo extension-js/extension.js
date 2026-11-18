@@ -129,3 +129,88 @@ describe('preview --no-browser and where a named companion sits', () => {
     expect((await preview(root, './extensions/linked'))?.warnings).toEqual([])
   })
 })
+
+function previewWith(root: string, extensions: unknown) {
+  return extensionPreview(root, {
+    browser: 'chromium',
+    noBrowser: true,
+    extensions
+  } as never)
+}
+
+describe('preview --no-browser and where extensions.dir sits', () => {
+  function dirRefusal(folder: string) {
+    return {
+      code: 'E_COMPANION_EXTENSION_PATH',
+      message: `extensions.dir must be inside the project.\nInvalid dir: ${folder}`
+    }
+  }
+
+  it('scans a folder inside the project', async () => {
+    const {root} = builtProject()
+
+    extensionAt(path.join(root, 'vendor', 'companions', 'one'))
+
+    expect(
+      (await previewWith(root, {dir: './vendor/companions'}))?.warnings
+    ).toEqual([])
+  })
+
+  it('refuses a folder outside the project', async () => {
+    const {root, outside} = builtProject()
+
+    await expect(
+      previewWith(root, {dir: '../outside-ext'})
+    ).rejects.toMatchObject(dirRefusal(outside))
+  })
+
+  it('refuses a link inside the project that leads outside it', async () => {
+    const {root, outside} = builtProject()
+    const link = path.join(root, 'companions')
+
+    fs.symlinkSync(outside, link, 'junction')
+
+    await expect(
+      previewWith(root, {dir: './companions'})
+    ).rejects.toMatchObject(dirRefusal(link))
+  })
+})
+
+describe('preview --no-browser and an entry that is neither link nor folder', () => {
+  it('refuses a bare name that is not on disk', async () => {
+    const {root} = builtProject()
+
+    await expect(preview(root, 'my-ext')).rejects.toMatchObject({
+      code: 'E_COMPANION_EXTENSION_PATH',
+      message:
+        'Companion extension entry is neither a store link nor a folder path: my-ext\n' +
+        'Give a store link or the path of a folder inside the project'
+    })
+  })
+
+  it('refuses a store id given without its store link', async () => {
+    const {root} = builtProject()
+    const id = 'abcdefghijklmnopabcdefghijklmnop'
+
+    await expect(preview(root, id)).rejects.toMatchObject({
+      code: 'E_COMPANION_EXTENSION_PATH',
+      message:
+        `Companion extension entry looks like a store id, not a store link: ${id}\n` +
+        'Use the full store link so the browser it belongs to is known, ' +
+        `for example https://chromewebstore.google.com/detail/<name>/${id}`
+    })
+  })
+
+  it('passes a store link without fetching it', async () => {
+    const {root} = builtProject()
+
+    expect(
+      (
+        await preview(
+          root,
+          'https://chromewebstore.google.com/detail/some-name/abcdefghijklmnopabcdefghijklmnop'
+        )
+      )?.warnings
+    ).toEqual([])
+  })
+})

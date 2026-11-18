@@ -126,54 +126,121 @@ function isFolderAsSpelled(target: string): boolean {
   }
 }
 
-// The entries that name a folder, told apart from a store link without the
-// resolver that would fetch one: a link has a scheme or opens with a host.
-export function namedCompanionFolders(
-  config: unknown,
-  projectRoot?: string
-): string[] {
-  return explicitCompanionEntries(config).filter((entry) => {
-    // A folder that is there is a folder, whatever its name looks like.
-    if (projectRoot && isFolder(path.resolve(projectRoot, entry))) return true
+const STORE_HOSTS: ReadonlySet<string> = new Set([
+  'chromewebstore.google.com',
+  'chrome.google.com',
+  'microsoftedge.microsoft.com',
+  'addons.mozilla.org'
+])
 
-    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(entry)) return false
-    if (path.isAbsolute(entry) || entry.startsWith('.')) return true
+// A link carries a web scheme, or opens with a store host and no scheme.
+// Nothing is fetched without a browser, so a link is only told apart here.
+function isWebLink(entry: string): boolean {
+  try {
+    const {protocol} = new URL(entry)
 
-    const [first, ...rest] = entry.split(/[\\/]/)
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    // Not an absolute URL, so only the scheme-less store form is left.
+  }
 
-    return rest.length > 0 && !first.includes('.')
-  })
+  const host = /^([a-z0-9.-]+)(?:[/?#].*)?$/i.exec(entry)?.[1]
+
+  return host
+    ? STORE_HOSTS.has(host.toLowerCase().replace(/^www\./, ''))
+    : false
 }
 
-// A companion the user names may sit anywhere inside the project. Real paths
-// are compared, so a link inside the project that leads out is refused too.
+function isPathLike(entry: string, projectRoot: string): boolean {
+  if (path.isAbsolute(entry)) return true
+  if (entry.includes('/') || entry.includes('\\')) return true
+
+  // A folder that is there is a folder, whatever its name looks like.
+  return entry.trim().length > 0 && isFolder(path.resolve(projectRoot, entry))
+}
+
+type PlaceInProject = 'same' | 'inside' | 'outside'
+
+// Real paths on both sides, so a link inside the project that leads out of
+// it counts as outside.
+function placeInProject(projectRoot: string, target: string): PlaceInProject {
+  const fromRoot = path.relative(realPath(projectRoot), realPath(target))
+
+  if (fromRoot === '') return 'same'
+
+  return fromRoot === '..' ||
+    fromRoot.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(fromRoot)
+    ? 'outside'
+    : 'inside'
+}
+
+// Every refusal below reads word for word as the launch path throws it, so
+// the same entry gets the same answer with or without a browser.
+function companionRefusal(text: string): Error {
+  return codedError(CODES.E_COMPANION_EXTENSION_PATH, text)
+}
+
+// The folders a config names, once every entry passed the rules the launch
+// path applies: inside the project, and either a link or a folder path.
 export function namedCompanionFoldersInsideProject(
   config: unknown,
   projectRoot: string
 ): string[] {
-  const root = realPath(projectRoot)
+  const folders: string[] = []
 
-  return namedCompanionFolders(config, projectRoot).map((entry) => {
+  for (const entry of explicitCompanionEntries(config)) {
+    if (isWebLink(entry)) continue
+
+    if (!isPathLike(entry, projectRoot)) {
+      if (/^[a-p]{32}$/i.test(entry)) {
+        throw companionRefusal(
+          `Companion extension entry looks like a store id, not a store link: ${entry}\n` +
+            'Use the full store link so the browser it belongs to is known, ' +
+            `for example https://chromewebstore.google.com/detail/<name>/${entry}`
+        )
+      }
+
+      throw companionRefusal(
+        `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
+          'Give a store link or the path of a folder inside the project'
+      )
+    }
+
     const folder = path.resolve(projectRoot, entry)
-    const fromRoot = path.relative(root, realPath(folder))
-    // The project itself is the extension being run, never its companion.
-    const outside =
-      fromRoot === '' ||
-      fromRoot === '..' ||
-      fromRoot.startsWith(`..${path.sep}`) ||
-      path.isAbsolute(fromRoot)
 
-    if (outside) {
-      // Word for word what the launch path throws, so both read the same.
-      throw codedError(
-        CODES.E_COMPANION_EXTENSION_PATH,
+    // The project itself is the extension being run, never its companion.
+    if (placeInProject(projectRoot, folder) !== 'inside') {
+      throw companionRefusal(
         'Companion extensions must be inside the project.\n' +
           `Invalid path: ${folder}`
       )
     }
 
-    return entry
-  })
+    folders.push(entry)
+  }
+
+  return folders
+}
+
+// The folder a config says to scan, once it is known to sit in the project.
+export function companionScanDirInsideProject(
+  config: unknown,
+  projectRoot: string
+): string | undefined {
+  const dir = declaredScanDir(config)
+
+  if (!dir) return undefined
+
+  const folder = path.resolve(projectRoot, dir)
+
+  if (placeInProject(projectRoot, folder) === 'outside') {
+    throw companionRefusal(
+      'extensions.dir must be inside the project.\n' + `Invalid dir: ${folder}`
+    )
+  }
+
+  return dir
 }
 
 // Which layer the companions came from, in the order the commands merge them.
