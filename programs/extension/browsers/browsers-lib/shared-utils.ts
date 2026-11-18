@@ -327,13 +327,16 @@ function commandHoldsChromiumProfile(
   profilePath: string
 ): boolean {
   const profilePaths = [profilePath, realpathOrSelf(profilePath)]
-  const namesProfile = profilePaths.some((p) => command.includes(p))
+  const namesProfile = profilePaths.some((p) => namesWholePath(command, p))
   const binary = profilePaths.reduce(
     (text, p) => text.split(p).join(''),
     command
   )
 
-  if (!CHROMIUM_FAMILY_BINARY.test(binary)) return false
+  // The program itself, not a word anywhere in its arguments.
+  const program = path.basename(binary.split(/\s-/)[0].trim())
+
+  if (!CHROMIUM_FAMILY_BINARY.test(program)) return false
   if (namesProfile) return true
 
   // No flag means the browser's default data dir, and a relative one cannot
@@ -341,6 +344,19 @@ function commandHoldsChromiumProfile(
   const dataDir = /--user-data-dir=(\S*)/.exec(command)
 
   return !dataDir || !path.isAbsolute(dataDir[1].replace(/^["']/, ''))
+}
+
+// <profile>-copy holds no lock of <profile>, so the name has to end there.
+function namesWholePath(command: string, target: string): boolean {
+  for (let at = command.indexOf(target); at !== -1; ) {
+    const next = command.slice(at + target.length).replace(/^[\\/]/, '')
+
+    if (next === '' || /^[\s"']/.test(next)) return true
+
+    at = command.indexOf(target, at + 1)
+  }
+
+  return false
 }
 
 function realpathOrSelf(target: string): string {

@@ -176,15 +176,11 @@ describe('profile lock detection', () => {
     it.skipIf(process.platform === 'win32')(
       'refuses when the live process is a browser running on the profile',
       () => {
+        // A stand-in that the process table names as a Chromium binary.
         bystander = spawn(
           process.execPath,
-          [
-            '-e',
-            'setTimeout(() => {}, 30000)',
-            'chromium',
-            `--user-data-dir=${profile}`
-          ],
-          {stdio: 'ignore'}
+          ['-e', 'setTimeout(() => {}, 30000)', `--user-data-dir=${profile}`],
+          {stdio: 'ignore', argv0: 'chromium'}
         )
 
         lockTo(bystander.pid as number)
@@ -236,40 +232,34 @@ describe('profile lock detection', () => {
         'utf8'
       )
 
-    // Pins today's behavior. Ledger 1374 D4.
-    it('refuses when the browser runs on a sibling folder whose name starts with the profile', () => {
+    it('clears the lock when the browser runs on a sibling folder whose name starts with the profile', () => {
       lockToThisProcess()
 
-      let caught: unknown
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: browserOn(`${profile}-copy`)
+      })
 
-      try {
-        prepareChromiumProfileForLaunch(profile, {
-          readCommand: browserOn(`${profile}-copy`)
-        })
-      } catch (error) {
-        caught = error
-      }
-
-      expect(isProfileLockedError(caught)).toBe(true)
-      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(true)
+      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(false)
     })
 
-    // Pins today's behavior. Ledger 1374 D4.
-    it('refuses for any program whose command line carries a browser family word', () => {
+    it('still refuses for a browser on the profile written with a trailing separator', () => {
       lockToThisProcess()
 
-      let caught: unknown
-
-      try {
+      expect(() =>
         prepareChromiumProfileForLaunch(profile, {
-          readCommand: () => '/usr/local/bin/node /srv/opera-tickets/server.js'
+          readCommand: browserOn(`${profile}${path.sep}`)
         })
-      } catch (error) {
-        caught = error
-      }
+      ).toThrow(/already in use by process/)
+    })
 
-      expect(isProfileLockedError(caught)).toBe(true)
-      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(true)
+    it('clears the lock for a program that only carries a browser family word in its arguments', () => {
+      lockToThisProcess()
+
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: () => '/usr/local/bin/node /srv/opera-tickets/server.js'
+      })
+
+      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(false)
     })
   })
 
