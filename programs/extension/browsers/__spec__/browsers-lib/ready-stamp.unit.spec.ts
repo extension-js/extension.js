@@ -26,6 +26,7 @@ import {
   stampReadyRdpPort,
   stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
+import {readyContractPath} from '../../../../develop/lib/session-contract'
 import {isFreshContractPayload} from '../../../commands/dev-wait'
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
@@ -1280,6 +1281,22 @@ describe('readyPathFor', () => {
 
     expect(readyPathFor(path.join('dist', 'edge'))).toBe(
       path.join('dist', 'extension-js', 'edge', 'ready.json')
+    )
+  })
+
+  // A dev session always loads dist/<browser> (the dev server's output path),
+  // so the launcher finds the record the engine writes for any browser name.
+  it.each([
+    'chrome',
+    'brave',
+    'chromium-based',
+    'gecko-based',
+    'safari'
+  ])('names the record the engine writes for a %s dev build', (browser) => {
+    const project = path.resolve('/', 'work', 'app')
+
+    expect(readyPathFor(path.join(project, 'dist', browser))).toBe(
+      readyContractPath(project, browser)
     )
   })
 })
