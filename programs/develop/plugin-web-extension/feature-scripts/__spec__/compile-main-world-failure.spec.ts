@@ -123,7 +123,7 @@ describe('a MAIN world group whose child compilation fails', () => {
 
     // One frame, the parent's: the one the child drew is not kept inside it.
     expect(child.errors[0].message).toMatch(
-      /^ {2}\u00d7 Module parse failed:\n {2}\u2502 \u2570\u2500\u25b6 {3}\u00d7 JavaScript parse error: Unexpected token `=`/
+      /^ {2}\u00d7 Module parse failed:\n {2}\u2502 \u2570\u2500\u25b6 {3}\u00d7 JavaScript parse error: Unexpected token '=' in binding pattern/
     )
 
     expect(child.errors[0].message).not.toContain('MAIN world')
