@@ -14,6 +14,7 @@ export type DevSessionRestartReason =
   | 'env'
   | 'public'
   | 'main-world'
+  | 'styles'
 
 export interface DevSessionRestartRequest {
   reason: DevSessionRestartReason
@@ -36,9 +37,15 @@ type RestartHandler = (
   request: DevSessionRestartRequest
 ) => void | Promise<void>
 
+type RestartFailureHandler = (
+  error: unknown,
+  request: DevSessionRestartRequest
+) => void
+
 export class DevSessionRestartScheduler {
   private readonly debounceMs: number
   private handler: RestartHandler | null = null
+  private failureHandler: RestartFailureHandler | null = null
   private timer: ReturnType<typeof setTimeout> | undefined
   private latest: DevSessionRestartRequest | null = null
   private inFlight = false
@@ -51,6 +58,11 @@ export class DevSessionRestartScheduler {
     this.handler = handler
   }
 
+  // Told about a restart that threw, so no failure ends here unseen.
+  setFailureHandler(handler: RestartFailureHandler | null): void {
+    this.failureHandler = handler
+  }
+
   // The newest request wins; a request that lands while a restart is running
   // is kept and served by one more restart once the current one settles.
   request(request: DevSessionRestartRequest): void {
@@ -58,6 +70,11 @@ export class DevSessionRestartScheduler {
     if (this.inFlight) return
 
     this.schedule()
+  }
+
+  // A request waiting behind the restart that is running, or for its timer.
+  hasQueuedRequest(): boolean {
+    return this.latest != null
   }
 
   isPending(): boolean {
@@ -70,6 +87,7 @@ export class DevSessionRestartScheduler {
     this.timer = undefined
     this.latest = null
     this.handler = null
+    this.failureHandler = null
   }
 
   private schedule(): void {
@@ -101,9 +119,12 @@ export class DevSessionRestartScheduler {
 
     try {
       await handler(request)
-    } catch {
-      // Nothing reports a failed restart: the error ends here unseen, and the
-      // old server keeps serving only if the failure came before its stop.
+    } catch (error) {
+      try {
+        this.failureHandler?.(error, request)
+      } catch {
+        // Best-effort: a report that throws must not stop the next restart.
+      }
     } finally {
       this.inFlight = false
       if (this.latest) this.schedule()
@@ -111,7 +132,17 @@ export class DevSessionRestartScheduler {
   }
 }
 
+// The newest live session, which takes a request no compiler is named for.
 let boundScheduler: DevSessionRestartScheduler | null = null
+
+// Every live session of this host, oldest first.
+const boundSchedulers = new Set<DevSessionRestartScheduler>()
+
+// The session each compiler was built for, so its request reaches its own.
+const schedulerByCompiler = new WeakMap<object, DevSessionRestartScheduler>()
+
+// Compilers that will not serve again. A WeakSet, so they are not kept.
+const retiredCompilers = new WeakSet<object>()
 
 // Compilers whose next build a restart will supersede. Their diagnostics
 // about entries the old include list could not emit are noise.
@@ -120,15 +151,69 @@ const restartingCompilers = new WeakSet<object>()
 export function bindDevSessionRestart(
   scheduler: DevSessionRestartScheduler
 ): void {
+  boundSchedulers.delete(scheduler)
+  boundSchedulers.add(scheduler)
   boundScheduler = scheduler
 }
 
-export function unbindDevSessionRestart(): void {
-  boundScheduler = null
+export function assignCompilerToDevSession(
+  compiler: object,
+  scheduler: DevSessionRestartScheduler
+): void {
+  retiredCompilers.delete(compiler)
+  schedulerByCompiler.set(compiler, scheduler)
 }
 
-export function canAutoRestartDevSession(): boolean {
-  return boundScheduler != null
+// A compiler that will not serve again, replaced or never adopted, has no
+// session left: what it still asks reaches no other session of the host.
+export function releaseCompilerFromDevSession(
+  compiler: object | undefined
+): void {
+  if (!compiler) return
+
+  schedulerByCompiler.delete(compiler)
+  retiredCompilers.add(compiler)
+}
+
+// The live session a compiler speaks for. One that names no known compiler
+// speaks for the newest session.
+function liveSessionOf(
+  compiler: object | undefined
+): DevSessionRestartScheduler | null {
+  if (!compiler) return boundScheduler
+  if (retiredCompilers.has(compiler)) return null
+
+  const own = schedulerByCompiler.get(compiler)
+
+  // A compiler whose session ended, or is not bound yet, has none.
+  if (own) return boundSchedulers.has(own) ? own : null
+
+  return boundScheduler
+}
+
+// A session passes its own scheduler and unbinds only that one: the other
+// sessions of the same host go on restarting.
+export function unbindDevSessionRestart(
+  scheduler?: DevSessionRestartScheduler
+): void {
+  if (!scheduler) {
+    boundSchedulers.clear()
+    boundScheduler = null
+
+    return
+  }
+
+  boundSchedulers.delete(scheduler)
+
+  if (boundScheduler === scheduler) {
+    boundScheduler = [...boundSchedulers].pop() ?? null
+  }
+}
+
+// Asked for the session the compiler belongs to, so another live session
+// of the host does not answer for one that is not bound yet.
+export function canAutoRestartDevSession(compiler?: object): boolean {
+  return liveSessionOf(compiler) != null
 }
 
 // True when a live session will carry the change; a false return means the
@@ -137,14 +222,28 @@ export function requestDevSessionRestart(
   compiler: object | undefined,
   request: DevSessionRestartRequest
 ): boolean {
-  if (!boundScheduler) return false
+  const scheduler = liveSessionOf(compiler)
+
+  if (!scheduler) return false
   if (compiler) restartingCompilers.add(compiler)
 
-  boundScheduler.request(request)
+  scheduler.request(request)
 
   return true
 }
 
+// A restart that could not build its next compiler leaves this one serving,
+// so it reports its own diagnostics again.
+export function endCompilerRestart(compiler: object | undefined): void {
+  if (compiler) restartingCompilers.delete(compiler)
+}
+
 export function isCompilerRestarting(compiler: object | undefined): boolean {
   return compiler != null && restartingCompilers.has(compiler)
+}
+
+// True while a restart is queued or running. One that failed can leave
+// another in line, which a caller must not take for a restart given up on.
+export function isDevSessionRestartPending(compiler?: object): boolean {
+  return liveSessionOf(compiler)?.isPending() ?? false
 }

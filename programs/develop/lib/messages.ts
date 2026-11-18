@@ -13,6 +13,7 @@ import type {DevOptions, Manifest} from '../types'
 import {stripLoaderWrapper} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import type {InstallFailure} from './install-registry-failure'
+import {isUsageLaunchCode} from './launch-codes'
 import {
   artifactNoun,
   type Channel,
@@ -214,14 +215,18 @@ export function extensionLoadStillRefused(reason: string) {
 // emitter alone cannot report it: its default 'error' listener discards.
 export function browserLaunchFailed(
   browser: DevOptions['browser'],
-  reason: string
+  reason: string,
+  code?: unknown
 ) {
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} couldn't start, so the extension isn't running.\n` +
     // The reason is often a block of its own. Inside this one it is a detail,
     // so it loses its glyph and the frame stays one frame.
     `${hasChannelPrefix(reason) ? stripChannelPrefix(reason) : reason}\n` +
-    `The dev server keeps watching, but nothing will load until this is fixed.`
+    // A value the user set ends the session, since no compile can change it.
+    (isUsageLaunchCode(code)
+      ? `The dev session ends here. Fix the value, then run the command again.`
+      : `The dev server keeps watching, but nothing will load until this is fixed.`)
   )
 }
 
