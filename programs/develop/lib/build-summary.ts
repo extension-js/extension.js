@@ -53,6 +53,9 @@ export type BuildSummary = {
   /** Plain-text warning messages (ANSI-stripped, capped) so programmatic
    * consumers get a structured channel instead of scraping stdout. */
   warnings?: string[]
+  /** What failed after the compile, such as an archive that was asked for
+   * and not written. Absent on a green build. */
+  errors?: string[]
   /** Present only for safari/webkit-based builds that ran the packager. */
   safari?: SafariPackageSummary
   addon_lint?: AddonLintSummary

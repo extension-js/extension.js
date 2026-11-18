@@ -713,6 +713,32 @@ describe('a file the bundler reads and the wrapper cannot', () => {
     expect(read('export const fallback: string = "default"\n')).toBeUndefined()
   })
 
+  it('names the loaders that returned the text when the parser stopped in it', () => {
+    let error: Error | undefined
+
+    try {
+      readDefaultExport(
+        'export default function main(): void {}\n',
+        '/project/content/main.ts',
+        'content/main.ts',
+        stopped,
+        ['loaders/first.cjs', 'node_modules/second-loader/index.js']
+      )
+    } catch (thrown) {
+      error = thrown as Error
+    }
+
+    expect(error?.name).toBe('ContentScriptSyntax')
+    expect(error?.message.split('\n')).toEqual([
+      '\u23f5\u23f5\u23f5 Extension.js could not find the default export of content/main.ts in what a loader returned.',
+      'PATH content/main.ts',
+      'LOADERS loaders/first.cjs, node_modules/second-loader/index.js',
+      'REASON Unexpected token (2:7)',
+      'The build parses a content script to find the function it mounts. It read this one after the loaders named above, and the parser stopped in the text they returned before it reached the export, so the script would never run.',
+      'Keep the default export in what the loaders return, as plain JavaScript, TypeScript or JSX, or narrow their rule so it skips this file.'
+    ])
+  })
+
   it('lets a file the bundler rejects through to the error of the build', () => {
     expect(read('export default function main( {\n')).toBeUndefined()
   })
