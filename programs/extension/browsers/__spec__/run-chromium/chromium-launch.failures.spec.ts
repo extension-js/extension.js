@@ -201,16 +201,12 @@ describe('a Chromium launch that does not reach a running extension', () => {
         const profile = fs.realpathSync(
           fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-locked-profile-'))
         )
-        // A node child of this spec stands in for the browser on the profile.
+        // A node child of this spec, named chromium in the process table,
+        // stands in for the browser on the profile.
         const holder = spawn(
           process.execPath,
-          [
-            '-e',
-            'setInterval(() => {}, 1000)',
-            'chromium',
-            `--user-data-dir=${profile}`
-          ],
-          {stdio: 'ignore'}
+          ['-e', 'setInterval(() => {}, 1000)', `--user-data-dir=${profile}`],
+          {stdio: 'ignore', argv0: 'chromium'}
         )
 
         try {
@@ -273,13 +269,12 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.project.readReady()).not.toHaveProperty('browserPid')
     })
 
-    // Pins today's behavior. Ledger 1374 D6.
-    it('keeps the debugging port claim it took before the spawn', async () => {
+    it('gives back the debugging port claim it took before the spawn', async () => {
       const {runOnly} = await start({script: {spawnError: refused}})
       await failure(runOnly())
 
       expect(fake.claims).toEqual([
-        {requested: 9222, port: fake.port, released: 0}
+        {requested: 9222, port: fake.port, released: 1}
       ])
     })
   })

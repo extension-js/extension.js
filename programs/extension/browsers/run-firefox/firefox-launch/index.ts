@@ -765,7 +765,20 @@ export class FirefoxLaunchPlugin {
     if (profilePath) {
       const {binary, args} = plan
       this.host.launchProfilePath = profilePath
-      this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
+
+      try {
+        this.child = await this.spawnFirefoxChild(
+          binary,
+          args,
+          wslFallbackBinary
+        )
+      } catch (error) {
+        // No browser will bind the port, so the next session may take it.
+        portClaim.release()
+
+        throw error
+      }
+
       // The contract names the executable that ran, the same fields the
       // Chromium launch stamps, so a reader can tell a fork from Firefox.
       stampReadyBrowserLaunch(

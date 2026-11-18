@@ -228,13 +228,12 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       expect(fake.project.readReady()).not.toHaveProperty('browserPid')
     })
 
-    // Pins today's behavior. Ledger 1374 D6.
-    it('keeps the debugging port claim it took before the spawn', async () => {
+    it('gives back the debugging port claim it took before the spawn', async () => {
       const {launch} = await start({script: {spawnError: refused}})
       await failure(launch())
 
       expect(fake.claims).toEqual([
-        {requested: 9222, port: fake.port, released: 0}
+        {requested: 9222, port: fake.port, released: 1}
       ])
     })
   })

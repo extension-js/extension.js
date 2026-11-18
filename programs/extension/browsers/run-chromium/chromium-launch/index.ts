@@ -1343,11 +1343,22 @@ export class ChromiumLaunchPlugin {
       runId: launchRunId
     }
 
-    const child = await this.launchWithDirectSpawn(
-      browserBinaryLocation,
-      chromiumConfig,
-      usePipe
-    )
+    let child: Awaited<
+      ReturnType<ChromiumLaunchPlugin['launchWithDirectSpawn']>
+    >
+
+    try {
+      child = await this.launchWithDirectSpawn(
+        browserBinaryLocation,
+        chromiumConfig,
+        usePipe
+      )
+    } catch (error) {
+      // No browser will bind the port, so the next session may take it.
+      portClaim.release()
+
+      throw error
+    }
 
     this.didSpawn = true
 
