@@ -868,3 +868,39 @@ export function manifestDescriptionMissingForStore(
     `Add a description of ${limit} characters or fewer.`
   ].join('\n')
 }
+
+// The browser refuses to compile a module the pages policy does not allow,
+// and nothing in the build output says so until the page stays blank.
+export function webAssemblyPolicyMissing(
+  browser: string,
+  files: readonly string[],
+  field: string,
+  policy: string,
+  hasPolicy: boolean
+) {
+  const fix = hasPolicy
+    ? `Add ${colors.yellow("'wasm-unsafe-eval'")} to the script-src of ${colors.blue(field)} in manifest.json, for example:`
+    : `Add ${colors.blue(field)} to manifest.json with this value:`
+
+  return [
+    `${prefix('warn')} The build emits WebAssembly that manifest.json does not allow ${colors.blue(browser)} to run.`,
+    ...files.map((file) => `${colors.gray('FILE')} ${colors.underline(file)}`),
+    `Extension pages and the background refuse to compile it unless the pages policy lists ${colors.yellow("'wasm-unsafe-eval'")}.`,
+    fix,
+    `${colors.gray('VALUE')} ${policy}`
+  ].join('\n')
+}
+
+export function webAssemblyFetchedFromRemote(
+  hits: ReadonlyArray<{file: string; address: string}>
+) {
+  return [
+    `${prefix('warn')} The built code fetches WebAssembly from another origin at run time.`,
+    ...hits.map(
+      (hit) =>
+        `${colors.gray('FILE')} ${colors.underline(hit.file)} ${colors.gray('ADDRESS')} ${colors.underline(hit.address)}`
+    ),
+    'Stores treat a binary loaded from the network as remotely hosted code, and it fails offline.',
+    `Ship the binary in the package: import it with ${colors.blue("new URL('./file.wasm', import.meta.url)")} or place it in ${colors.blue('public/')}, then hand the loader that path.`
+  ].join('\n')
+}

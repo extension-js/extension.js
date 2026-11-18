@@ -22,6 +22,7 @@ import {WarnContentScriptHostAccess} from './steps/warn-content-script-host-acce
 import {WarnDescriptionLength} from './steps/warn-description-length'
 import {WarnIgnoredHostPermissions} from './steps/warn-ignored-host-permissions'
 import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
+import {WarnWebAssembly} from './steps/warn-webassembly'
 
 export class ManifestPlugin {
   public readonly manifestPath: string
@@ -89,6 +90,8 @@ export class ManifestPlugin {
     new WarnIgnoredHostPermissions().apply(compiler)
 
     new WarnContentScriptHostAccess({browser: this.browser}).apply(compiler)
+
+    new WarnWebAssembly({browser: this.browser}).apply(compiler)
 
     new AddDependencies([this.manifestPath]).apply(compiler)
 
