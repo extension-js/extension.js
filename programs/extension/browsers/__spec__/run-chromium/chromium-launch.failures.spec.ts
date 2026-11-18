@@ -494,7 +494,8 @@ describe('a Chromium launch that does not reach a running extension', () => {
     })
 
     it('ends a run-only session the same way, without a second stop', async () => {
-      const {runOnly} = await start({script: crash})
+      const {plugin, runOnly} = await start({script: crash})
+      expect(plugin.browserClosed).toBe(false)
       await onFakeClock(runOnly)
 
       expect(said('error')[0]).toBe(
@@ -508,6 +509,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
 
       expect(fake.terminated).toEqual([])
       expect(fake.claims[0].released).toBe(1)
+      expect(plugin.browserClosed).toBe(true)
     })
   })
 })

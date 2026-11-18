@@ -211,6 +211,12 @@ export class FirefoxLaunchPlugin {
     return this.child !== null
   }
 
+  // Whether the browser has exited, an adopted process included, so a caller
+  // ending the session can wait for the close instead of killing it.
+  public get browserClosed(): boolean {
+    return this.browserGone
+  }
+
   // Run the Firefox launch flow without a bundler compiler instance;
   // intended for run-only preview paths.
   public async runOnce(

@@ -3,13 +3,20 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-const {chromiumOptions, chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} =
-  vi.hoisted(() => ({
-    chromiumOptions: vi.fn((_options: Record<string, unknown>) => {}),
-    chromiumRunOnce: vi.fn(async () => {}),
-    firefoxRunOnce: vi.fn(async () => {}),
-    printProdBannerOnce: vi.fn(async () => true)
-  }))
+const {
+  chromiumOptions,
+  chromiumRunOnce,
+  firefoxRunOnce,
+  printProdBannerOnce,
+  launched
+} = vi.hoisted(() => ({
+  chromiumOptions: vi.fn((_options: Record<string, unknown>) => {}),
+  chromiumRunOnce: vi.fn(async () => {}),
+  firefoxRunOnce: vi.fn(async () => {}),
+  printProdBannerOnce: vi.fn(async () => true),
+  // What the stand-in launchers say about the browser they started.
+  launched: {spawned: false, closed: false}
+}))
 
 vi.mock('../../run-chromium/chromium-context', () => ({
   createChromiumContext: vi.fn(() => ({}))
@@ -25,6 +32,14 @@ vi.mock('../../run-chromium/chromium-launch', () => ({
   ChromiumLaunchPlugin: class {
     runOnce = chromiumRunOnce
 
+    get spawnedBrowser() {
+      return launched.spawned
+    }
+
+    get browserClosed() {
+      return launched.closed
+    }
+
     constructor(options: Record<string, unknown>) {
       chromiumOptions(options)
     }
@@ -34,6 +49,14 @@ vi.mock('../../run-chromium/chromium-launch', () => ({
 vi.mock('../../run-firefox/firefox-launch', () => ({
   FirefoxLaunchPlugin: class {
     runOnce = firefoxRunOnce
+
+    get spawnedBrowser() {
+      return launched.spawned
+    }
+
+    get browserClosed() {
+      return launched.closed
+    }
   }
 }))
 
@@ -504,6 +527,96 @@ describe('the signal listeners of a run-only session', () => {
 
     expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
     expect(counts()).toEqual(before.map((count) => count + 1))
+  })
+
+  describe('on a signal', () => {
+    let exit: ReturnType<typeof vi.spyOn>
+
+    // The listener this session added, called alone: emitting the signal
+    // would also run every other handler in the test process.
+    const signal = (name: (typeof SIGNALS)[number]) => {
+      const added = process
+        .listeners(name)
+        .filter((listener) => !listenersBefore.get(name)?.includes(listener))
+
+      expect(added).toHaveLength(1)
+      ;(added[0] as () => void)()
+    }
+
+    const session = (browser: 'chromium' | 'firefox') => {
+      const outPath = browser === 'chromium' ? EXT : EXT_FIREFOX
+
+      return runOnlyPreviewBrowser({
+        browser,
+        outPath,
+        contextDir: scratch,
+        extensionsToLoad: [outPath]
+      })
+    }
+
+    beforeEach(() => {
+      launched.spawned = true
+      launched.closed = false
+      exit = vi
+        .spyOn(process, 'exit')
+        .mockImplementation((() => undefined) as never)
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+      launched.spawned = false
+      launched.closed = false
+    })
+
+    it.each([
+      'chromium',
+      'firefox'
+    ] as const)('exits once the %s browser has closed, not before', async (browser) => {
+      await session(browser)
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGINT')
+      vi.advanceTimersByTime(2000)
+      expect(exit).not.toHaveBeenCalled()
+
+      launched.closed = true
+      vi.advanceTimersByTime(100)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
+
+    it('exits after the stop grace period when the browser never closes', async () => {
+      await session('chromium')
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGTERM')
+      vi.advanceTimersByTime(5000)
+      expect(exit).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(1000)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
+
+    it('exits at once on a second signal', async () => {
+      await session('chromium')
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGINT')
+      vi.advanceTimersByTime(100)
+      expect(exit).not.toHaveBeenCalled()
+
+      signal('SIGINT')
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
+
+    it('exits at once when no browser was started', async () => {
+      launched.spawned = false
+      await session('chromium')
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGHUP')
+      vi.advanceTimersByTime(50)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
   })
 })
 

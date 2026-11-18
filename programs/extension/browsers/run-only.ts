@@ -22,6 +22,7 @@ import {
   runOnlyUnsupportedBrowser
 } from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
+import {FORCE_KILL_GRACE_MS} from './browsers-lib/process-teardown'
 import {
   claimReadyPath,
   clearReadyCdpPort,
@@ -322,6 +323,16 @@ export function warnIgnoredHostPermissionPatterns(opts: {
 
 const SESSION_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
 
+// Past the stop grace period, so a browser that ignored the ask has been
+// killed by then. Polled at this interval until the browser is gone.
+const EXIT_DEADLINE_MS = FORCE_KILL_GRACE_MS + 500
+const EXIT_POLL_MS = 50
+
+interface LaunchedBrowser {
+  spawnedBrowser: boolean
+  browserClosed: boolean
+}
+
 export async function runOnlyPreviewBrowser(
   opts: PreviewRunOptions
 ): Promise<PreviewBrowserSession | undefined> {
@@ -334,21 +345,43 @@ export async function runOnlyPreviewBrowser(
   }
 
   let exitScheduled = false
+  let launcher: LaunchedBrowser | undefined
 
+  // The launchers ask the browser to stop on the same signal. Exiting before
+  // it closes would SIGKILL it at once, so the exit waits for the close.
   const scheduleExitOnSignal = () => {
-    if (exitScheduled) return
+    if (exitScheduled) {
+      process.exit(0)
+
+      return
+    }
 
     exitScheduled = true
-    // Mirror `dev` behavior: exit promptly after cleanup kicks in.
-    setTimeout(() => process.exit(0), 10)
+    const deadline = Date.now() + EXIT_DEADLINE_MS
+
+    const exitOnceClosed = () => {
+      const running = launcher?.spawnedBrowser && !launcher.browserClosed
+
+      if (!running || Date.now() >= deadline) {
+        process.exit(0)
+
+        return
+      }
+
+      setTimeout(exitOnceClosed, EXIT_POLL_MS)
+    }
+
+    setTimeout(exitOnceClosed, 10)
   }
 
   for (const signal of SESSION_SIGNALS) {
-    process.once(signal, scheduleExitOnSignal)
+    process.on(signal, scheduleExitOnSignal)
   }
 
   try {
-    return await launchPreviewSession(opts)
+    return await launchPreviewSession(opts, (launched) => {
+      launcher = launched
+    })
   } catch (error) {
     // No session came of this call, so its listeners have nothing to end.
     // After a launch they stay: they are what ends the session on Ctrl+C.
@@ -361,7 +394,8 @@ export async function runOnlyPreviewBrowser(
 }
 
 async function launchPreviewSession(
-  opts: PreviewRunOptions
+  opts: PreviewRunOptions,
+  onLauncher: (launcher: LaunchedBrowser) => void
 ): Promise<PreviewBrowserSession | undefined> {
   // Every stamp the launchers write lands on the contract this session owns,
   // which is not beside the loaded directory when that is a source folder.
@@ -399,6 +433,7 @@ async function launchPreviewSession(
     const ctx = createChromiumContext()
     const chromiumOptions = buildPreviewChromiumOptions(opts)
     const launcher = new ChromiumLaunchPlugin(chromiumOptions, ctx)
+    onLauncher(launcher)
     // A reader waits for the card, so the port is claimed and on the record
     // before it prints. The launch clears it if the browser opens none.
     const debugPortClaim = opts.dryRun
@@ -443,6 +478,7 @@ async function launchPreviewSession(
     buildPreviewFirefoxOptions(opts),
     ctx
   )
+  onLauncher(launcher)
   // Identity before the launch here too: the add-on install still verifies
   // through the banner's nameability verdict, which survives a dedupe hit.
   await printProdBannerOnce(bannerOptions)

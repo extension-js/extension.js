@@ -283,6 +283,8 @@ export class ChromiumLaunchPlugin {
   // Set once a browser process exists. A launch that throws before this is a
   // launch that never spawned anything, and the contract has to say so.
   private didSpawn = false
+  // Set by the child's close handler on every exit, asked or not.
+  private didClose = false
   // Chrome's own refusal reason, when it declined to load the guest at launch.
   private extensionLoadRefused: string | undefined
   // The run that owned the record when the launch began, so a stamp cannot
@@ -333,6 +335,12 @@ export class ChromiumLaunchPlugin {
   // that never spawned from a failure that followed a live browser.
   public get spawnedBrowser(): boolean {
     return this.didSpawn
+  }
+
+  // Whether the spawned browser has exited, so a caller ending the session
+  // can wait for the close instead of killing it.
+  public get browserClosed(): boolean {
+    return this.didClose
   }
 
   // Run the Chromium launch flow without a bundler compiler instance;
@@ -1865,6 +1873,8 @@ export class ChromiumLaunchPlugin {
         .replace(/^"|"$/g, '')
 
       child.on('close', (code: number | null, signal: string | null) => {
+        this.didClose = true
+
         if (isDebug()) {
           this.logger.info(messages.chromeProcessExited(code || 0))
         }

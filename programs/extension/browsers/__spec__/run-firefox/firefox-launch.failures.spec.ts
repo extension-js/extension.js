@@ -410,6 +410,7 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       ])
 
       expect(plugin.spawnedBrowser).toBe(true)
+      expect(plugin.browserClosed).toBe(true)
       expect(fake.packets).toEqual([])
       expect(fake.child()?.signals).toEqual([])
       expect(fake.signalWatchers).toEqual({registered: 1, disposed: 1})
