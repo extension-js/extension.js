@@ -912,6 +912,9 @@ export interface ReadyContract {
   /** Set with `status: 'error'` or `'stopped'`, and its sentence. */
   code?: string
   message?: string
+  /** Set once the session ended as a failure, with the code that ended it. */
+  endedAsFailedAt?: string
+  endedAsFailedCode?: string
   instanceId?: string
   instanceExplicit?: boolean
   controlPort: number | null

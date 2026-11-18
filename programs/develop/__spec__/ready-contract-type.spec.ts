@@ -130,7 +130,9 @@ const WRITER_OWNED = new Set([
   'message',
   'managedExtensions',
   'devAdditions',
-  'awaitingExecutorSince'
+  'awaitingExecutorSince',
+  'endedAsFailedAt',
+  'endedAsFailedCode'
 ])
 
 function launcherStamps(
@@ -176,6 +178,16 @@ function fieldsTheWriterWrites(): string[] {
   dev.writer.writeShutdown()
   dev.record()
   keep(dev.seen)
+
+  // A session a host ended as failed, which the watch close leaves as is.
+  const ended = session(makeProject())
+  ended.writer.writeStarting()
+  ended.writer.writeReady()
+  ended.writer.writeEndedAsFailed('E_HOST', 'the host ended the session')
+  ended.record()
+  ended.writer.writeShutdown()
+  ended.record()
+  keep(ended.seen)
 
   // A session whose control channel could not bind, on the emulator target.
   const emulator = session(makeProject(), {
