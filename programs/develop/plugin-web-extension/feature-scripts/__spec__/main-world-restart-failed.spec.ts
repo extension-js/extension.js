@@ -147,6 +147,7 @@ function devSession(serving: Compiler) {
   scheduler.setFailureHandler(failure.unexpected)
   scheduler.setHandler(
     createSessionRestartHandler<{stop?: () => Promise<void>}>({
+      isShuttingDown: () => false,
       announce: (request) => announced.push(request),
       createBundle: () =>
         buildRestartBundle({
