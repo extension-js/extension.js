@@ -55,7 +55,7 @@ export type ConfigEnvTarget = {mode?: string; browser?: string}
 // The files the compiled bundle picks from, strongest first, in the order the
 // env plugin uses. Without a browser only the files no browser owns apply.
 export function envFileCandidates(mode: string, browser?: string): string[] {
-  const shared = [`.env.${mode}`, '.env.local', '.env']
+  const shared = [`.env.${mode}.local`, `.env.${mode}`, '.env.local', '.env']
   if (!browser) return shared
 
   const isChromiumTarget =
@@ -149,6 +149,72 @@ export function requireCommonJsCopyBesideSource(absolutePath: string) {
       fs.rmSync(siblingCjsPath, {force: true})
     } catch {
       // Ignore
+    }
+  }
+}
+
+function looksLikeCommonJsInEsModuleScope(importError: unknown): boolean {
+  const message = String((importError as Error | undefined)?.message || '')
+
+  return (
+    message.includes('require is not defined in ES module scope') ||
+    message.includes('Cannot use import statement outside a module')
+  )
+}
+
+// Errors this loader caught and reports itself, held for one turn of the
+// event loop: long enough for Node to announce a promise that shares one.
+const claimedConfigErrors = new Set<unknown>()
+let openClaimWindows = 0
+
+function onRejectionDuringClaim(reason: unknown): void {
+  if (claimedConfigErrors.has(reason)) return
+
+  // Any other rejection keeps its normal fate: another listener decides, and
+  // with none it is raised the way Node raises it when nobody listens.
+  if (process.listenerCount('unhandledRejection') > 1) return
+
+  throw reason
+}
+
+// Node 22.12 rejects a promise no code can reach when require() loads an ES
+// module that throws. The same error object is already on its way out, coded.
+function claimRejectionOf(caught: unknown): void {
+  if (openClaimWindows === 0) {
+    process.on('unhandledRejection', onRejectionDuringClaim)
+  }
+
+  openClaimWindows += 1
+  claimedConfigErrors.add(caught)
+
+  setImmediate(() => {
+    openClaimWindows -= 1
+    if (openClaimWindows > 0) return
+
+    claimedConfigErrors.clear()
+    process.off('unhandledRejection', onRejectionDuringClaim)
+  })
+}
+
+// The retry runs the file as CommonJS text and never hands it to require(),
+// so a throwing ES module is not loaded a second time through that path.
+function loadCommonJsConfigAfterFailedImport(
+  absolutePath: string,
+  importError: unknown
+) {
+  try {
+    return loadCommonJsConfigWithStableDirname(absolutePath)
+  } catch (wrapperError) {
+    claimRejectionOf(wrapperError)
+
+    if (!looksLikeCommonJsInEsModuleScope(importError)) throw wrapperError
+
+    try {
+      return requireCommonJsCopyBesideSource(absolutePath)
+    } catch (copyError) {
+      claimRejectionOf(copyError)
+
+      throw copyError
     }
   }
 }
@@ -479,40 +545,17 @@ async function loadConfigFileUncached(
   } catch (err: unknown) {
     const error = err as Error
 
-    try {
-      if (!absolutePath.endsWith('.mjs')) {
-        const requireFn = createRequire(import.meta.url)
-        let required: ParsedJson
+    claimRejectionOf(error)
 
-        try {
-          required = requireFn(absolutePath)
-        } catch (requireErr) {
-          // If Node refuses to require a CJS-content .js file (package.json "type":
-          // "module"), copy to a temporary .cjs and require that instead.
-          const message =
-            String(error?.message || '') +
-            ' ' +
-            String((requireErr as Error | undefined)?.message || '')
-          const looksLikeCommonJsInEsm =
-            message.includes('require is not defined in ES module scope') ||
-            message.includes('Cannot use import statement outside a module') ||
-            message.includes('ERR_REQUIRE_ESM')
-
-          if (looksLikeCommonJsInEsm) {
-            try {
-              required = loadCommonJsConfigWithStableDirname(absolutePath)
-            } catch {
-              required = requireCommonJsCopyBesideSource(absolutePath)
-            }
-          } else {
-            throw requireErr
-          }
-        }
-
-        return unwrapDefaultExport(required) as FileConfig
+    // An .mjs file is an ES module by name, so it has no CommonJS reading.
+    if (!absolutePath.endsWith('.mjs')) {
+      try {
+        return unwrapDefaultExport(
+          loadCommonJsConfigAfterFailedImport(absolutePath, error)
+        ) as FileConfig
+      } catch {
+        // Ignore
       }
-    } catch {
-      // Ignore
     }
 
     try {

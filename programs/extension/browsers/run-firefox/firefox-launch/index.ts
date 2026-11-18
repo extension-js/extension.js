@@ -187,6 +187,7 @@ export class FirefoxLaunchPlugin {
   // The process that owns the session once Firefox hands it off and lets the
   // spawned child exit. Null while the child itself is the browser.
   private livePid: number | null = null
+  private livePidAdoptedAt = 0
   private liveExitWatcher?: NodeJS.Timeout
   private browserGone = false
   private didReportReady = false
@@ -210,6 +211,12 @@ export class FirefoxLaunchPlugin {
     return this.child !== null
   }
 
+  // Whether the browser has exited, an adopted process included, so a caller
+  // ending the session can wait for the close instead of killing it.
+  public get browserClosed(): boolean {
+    return this.browserGone
+  }
+
   // Run the Firefox launch flow without a bundler compiler instance;
   // intended for run-only preview paths.
   public async runOnce(
@@ -223,6 +230,16 @@ export class FirefoxLaunchPlugin {
         error: (...a: unknown[]) => humanError(...a),
         debug: (...a: unknown[]) => console?.debug?.(...a)
       } as BrowserLogger
+    }
+
+    // A skipped launch is not a launch: no ready line, and a later call may
+    // still start the browser.
+    if ((compilation as {errors?: unknown[]})?.errors?.length) {
+      this.ctx.logger?.info?.(
+        messages.skippingBrowserLaunchDueToCompileErrors()
+      )
+
+      return
     }
 
     try {
@@ -274,7 +291,7 @@ export class FirefoxLaunchPlugin {
     stampReadyBrowserLaunchFailed(
       outputPath,
       describeLaunchFailure(error),
-      this.launchRunId ?? readReadyRunId(outputPath),
+      this.launchRunId,
       launchFailureCode(error)
     )
   }
@@ -285,11 +302,7 @@ export class FirefoxLaunchPlugin {
     const outputPath =
       this.extensionOutputPath ?? this.resolveExtensionOutputPath()
 
-    stampReadyRdpPortError(
-      outputPath,
-      reason,
-      this.launchRunId ?? readReadyRunId(outputPath)
-    )
+    stampReadyRdpPortError(outputPath, reason, this.launchRunId)
   }
 
   // The user extension's dist dir anchors ready.json, so companions are
@@ -399,16 +412,8 @@ export class FirefoxLaunchPlugin {
   }
 
   private async launch(compilation: CompilationLike, options: LaunchOptions) {
-    const compilationErrors: unknown[] =
-      (compilation as {errors?: unknown[]})?.errors || []
-
-    if (compilationErrors.length > 0) {
-      this.ctx.logger?.info?.(
-        messages.skippingBrowserLaunchDueToCompileErrors()
-      )
-
-      return
-    }
+    this.extensionOutputPath = this.resolveExtensionOutputPath()
+    this.launchRunId = readReadyRunId(this.extensionOutputPath)
 
     if (isDebug()) {
       this.ctx.logger?.info?.(messages.firefoxLaunchCalled(this.host.browser))
@@ -681,9 +686,6 @@ export class FirefoxLaunchPlugin {
       }
     }
 
-    this.extensionOutputPath = this.resolveExtensionOutputPath()
-    this.launchRunId = readReadyRunId(this.extensionOutputPath)
-
     const desiredDebugPort = deriveDebugPortWithInstance(
       this.host.port,
       this.host.instanceId
@@ -763,7 +765,20 @@ export class FirefoxLaunchPlugin {
     if (profilePath) {
       const {binary, args} = plan
       this.host.launchProfilePath = profilePath
-      this.child = await this.spawnFirefoxChild(binary, args, wslFallbackBinary)
+
+      try {
+        this.child = await this.spawnFirefoxChild(
+          binary,
+          args,
+          wslFallbackBinary
+        )
+      } catch (error) {
+        // No browser will bind the port, so the next session may take it.
+        portClaim.release()
+
+        throw error
+      }
+
       // The contract names the executable that ran, the same fields the
       // Chromium launch stamps, so a reader can tell a fork from Firefox.
       stampReadyBrowserLaunch(
@@ -812,7 +827,11 @@ export class FirefoxLaunchPlugin {
         // timeout) stays a launch failure and keeps propagating as before.
         if (!reason) {
           if (portWait.open) {
-            stampReadyRdpPort(this.extensionOutputPath, debugPort)
+            stampReadyRdpPort(
+              this.extensionOutputPath,
+              debugPort,
+              this.launchRunId
+            )
           }
 
           // A process exists and the add-on never reached it, so the contract
@@ -837,7 +856,7 @@ export class FirefoxLaunchPlugin {
         this.host.retryAddonInstall = () =>
           this.retryAddonInstall(compilation, debugPort)
 
-        stampReadyRdpPort(this.extensionOutputPath, debugPort)
+        stampReadyRdpPort(this.extensionOutputPath, debugPort, this.launchRunId)
         this.scheduleWatchTimeout()
 
         return
@@ -845,11 +864,17 @@ export class FirefoxLaunchPlugin {
 
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
-      stampReadyRdpPort(this.extensionOutputPath, debugPort)
-      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyRdpPort(this.extensionOutputPath, debugPort, this.launchRunId)
+      stampReadyExtensionId(
+        this.extensionOutputPath,
+        ctrl.getExtensionId(),
+        this.launchRunId
+      )
+
       stampReadyExtensionBaseUrl(
         this.extensionOutputPath,
-        ctrl.getExtensionBaseUrl()
+        ctrl.getExtensionBaseUrl(),
+        this.launchRunId
       )
 
       this.scheduleWatchTimeout()
@@ -930,7 +955,10 @@ export class FirefoxLaunchPlugin {
       this.host.browser as FirefoxBrowserKind,
       () => this.child,
       () => this.cleanupInstance(),
-      () => this.livePid,
+      () =>
+        this.livePid
+          ? {pid: this.livePid, adoptedAt: this.livePidAdoptedAt}
+          : null,
       // A session that exits on a signal is gone before the browser's close
       // event runs, so the fresh profile is reclaimed as the process ends.
       () => removeManagedEphemeralProfile(this.host.launchProfilePath)
@@ -1065,6 +1093,7 @@ export class FirefoxLaunchPlugin {
     if (this.livePid === pid) return
 
     this.livePid = pid
+    this.livePidAdoptedAt = Date.now()
     stampReadyBrowserLaunch(
       this.extensionOutputPath,
       {
@@ -1113,10 +1142,16 @@ export class FirefoxLaunchPlugin {
       this.host.rdpController = ctrl
       this.ctx.setController(ctrl)
       this.host.extensionLoadRefused = undefined
-      stampReadyExtensionId(this.extensionOutputPath, ctrl.getExtensionId())
+      stampReadyExtensionId(
+        this.extensionOutputPath,
+        ctrl.getExtensionId(),
+        this.launchRunId
+      )
+
       stampReadyExtensionBaseUrl(
         this.extensionOutputPath,
-        ctrl.getExtensionBaseUrl()
+        ctrl.getExtensionBaseUrl(),
+        this.launchRunId
       )
 
       return {status: 'loaded'}

@@ -11,6 +11,8 @@ import {type Compiler, WebpackError} from '@rspack/core'
 import {
   canAutoRestartDevSession,
   DEV_SESSION_RESTART_DEBOUNCE_MS,
+  isCompilerRestarting,
+  isDevSessionRestartPending,
   requestDevSessionRestart
 } from '../../../dev-server/session-restart'
 import type {FilepathList, PluginInterface} from '../../../types'
@@ -67,7 +69,6 @@ export class WarnMainWorldRegistrationChanged {
 
   public apply(compiler: Compiler): void {
     if (compiler.options.mode !== 'development') return
-    if (!compiler?.hooks?.thisCompilation?.tap) return
 
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || manifestDir
@@ -98,6 +99,13 @@ export class WarnMainWorldRegistrationChanged {
       requested = undefined
       awaitingRestart.delete(compiler)
     }
+
+    // False once the restart asked for here ended with this compiler still
+    // serving, which only a restart that could not build its bundle does.
+    const restartIsComing = () =>
+      settling !== undefined ||
+      isCompilerRestarting(compiler) ||
+      isDevSessionRestartPending()
 
     // Asked once the set has held, and read from disk again first: a save
     // that put the call back may not have reached a compilation yet.
@@ -153,10 +161,17 @@ export class WarnMainWorldRegistrationChanged {
         }
 
         // This compiler already took this set, the restart is on its way.
-        if (requested === signature) {
+        if (requested === signature && restartIsComing()) {
           heldBuilds.add(compilation)
 
           return
+        }
+
+        // The restart failed and this compiler kept serving, so the build a
+        // save makes asks for it again, as the failure told the author.
+        if (requested === signature) {
+          standDown()
+          lastRequested.delete(this.manifestPath)
         }
 
         const changed: Array<{files: string[]; registeredBy?: string}> = []

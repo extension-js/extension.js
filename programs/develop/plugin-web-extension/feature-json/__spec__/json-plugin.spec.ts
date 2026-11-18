@@ -5,6 +5,15 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn()
 }))
 
+// The paths here are imaginary, so a file may ship when the fake disk has
+// it. Whole builds in json-private-sources.spec.ts run the real answer.
+vi.mock('../../../plugin-special-folders/public-private-files', async () => ({
+  ...(await vi.importActual<object>(
+    '../../../plugin-special-folders/public-private-files'
+  )),
+  sourceFileMayShip: (file: string) => fs.existsSync(file)
+}))
+
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {JsonPlugin} from '../index'

@@ -71,10 +71,6 @@ export function verbatimCssModulePlaceholder(id: string, raw: string): string {
   )
 }
 
-export function takeVerbatimCss(id: string): string | undefined {
-  return registry().get(id)?.raw
-}
-
 // The relative files a sheet names: @import targets and url() assets. A
 // verbatim sheet skipped the parser, so nothing else ships them.
 export function cssRelativeRefs(text: string): string[] {
@@ -110,6 +106,27 @@ function hash(text: string): number {
   }
 
   return value
+}
+
+// The registry ids the emitted sheets still name. A sheet left uncompiled
+// in a watch rebuild keeps its placeholder, so its id is still in use.
+export function verbatimCssIdsIn(
+  compilation: Pick<Compilation, 'getAssets'>
+): Set<string> {
+  const ids = new Set<string>()
+
+  for (const asset of compilation.getAssets()) {
+    if (!asset.name.endsWith('.css')) continue
+
+    const match = VERBATIM_CSS_MARKER.exec(asset.source.source().toString())
+    if (match) ids.add(match[1])
+  }
+
+  return ids
+}
+
+export function forgetVerbatimCss(ids: Iterable<string>): void {
+  for (const id of ids) registry().delete(id)
 }
 
 // Runs after the minimizer: the placeholder rule survived it, the raw sheet

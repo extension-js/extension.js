@@ -12,6 +12,7 @@ import type {
 } from '@rspack/core'
 import type {LogContext} from './dev-server/control-bridge/contracts'
 import type {ManifestV2, ManifestV3} from './lib/manifest-types'
+import type {ErrorCode} from './lib/messaging'
 
 /**
  * Firefox-only `theme_experiment` manifest key.
@@ -281,6 +282,8 @@ export interface DevOptions extends BrowserOptionsBase {
   // When true, a failed dev session calls process.exit(1) (CLI wrapper passes
   // this); defaults to false: as a library, a failure is a rejected promise.
   exitOnError?: boolean
+  /** The hint a host wants on the terminal `failed` or `usage` frame of a code. */
+  hintFor?: (code: ErrorCode) => string | undefined
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
@@ -504,7 +507,9 @@ export interface StartOptions extends BrowserOptionsBase {
   logTab?: number | string
 }
 
-export interface BrowserConfig extends BrowserOptionsBase {
+export interface BrowserConfig extends Omit<BrowserOptionsBase, 'browser'> {
+  /** Optional: the key of the `browser` map already names the target. */
+  browser?: BrowserType
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
   preferences?: Record<string, unknown>
@@ -524,6 +529,12 @@ export interface BrowserConfig extends BrowserOptionsBase {
   include?: IncludeFilesConfig
   /** Files this browser's build leaves out, added to the top-level `exclude`. */
   exclude?: ExcludeFilesConfig
+  /** Transpile allowlist for this browser, over the top-level list. */
+  transpilePackages?: string[]
+  /** Compile-time constants for this browser, over the top-level map. */
+  define?: Record<string, unknown>
+  /** Asset budgets for this browser, over the top-level budgets. */
+  perfBudgets?: PerfBudgetsConfig
   /**
    * Companion extensions (load-only) scoped to a browser config.
    * Useful for per-browser store URLs or local unpacked extensions.
@@ -550,7 +561,8 @@ export type OutputConfig = {
  * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
  * under `browser.<vendor>.perfBudgets`, or under
  * `commands.build.perfBudgets` (strongest below a CLI flag). Budgets are
- * checked on a production build only.
+ * checked on a production build only. `onExceed: 'error'` makes an overrun
+ * fail the build instead of warning.
  */
 export type PerfBudgetsConfig =
   import('./plugin-perf-budgets').PerfBudgetsConfig

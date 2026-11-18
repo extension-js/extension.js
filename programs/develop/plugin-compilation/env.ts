@@ -17,20 +17,22 @@ import {
   WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
-import {getPreloadedEnvKeys} from '../lib/config-loader'
+import {envFileCandidates, getPreloadedEnvKeys} from '../lib/config-loader'
 import {
   CHROMIUM_FAMILY_ALIASES,
   GECKO_FAMILY_ALIASES,
-  isChromiumBasedBrowser,
-  isGeckoBasedBrowser,
   SUPPORTED_BROWSERS,
   WEBKIT_BASED_BROWSERS
 } from '../lib/constants'
 import {debugLine, isDebug} from '../lib/messaging'
 import {setCurrentManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, PluginInterface} from '../types'
+import {toJsStringLiteral} from './compilation-lib/js-literal'
 import * as messages from './compilation-lib/messages'
+import {processModuleRequest} from './process-module'
 import {WatchEnvFilesPlugin} from './watch-env-files'
+
+export {toJsStringLiteral}
 
 // Extension pages and workers keep their own URL, content scripts get the
 // extension root, and a MAIN world script without a runtime gets the page URL.
@@ -43,15 +45,6 @@ export function importMetaUrlForEmitPath(emitPath: string): string {
   const request = emitPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
   return `(function(){try{var g=globalThis;return (g.browser||g.chrome).runtime.getURL(${toJsStringLiteral(request)})}catch(_){return ${IMPORT_META_URL_RUNTIME}}})()`
-}
-
-// The literal lands inside emitted code. JSON.stringify leaves "</script>",
-// U+2028/U+2029 and other non-ASCII intact, so those become \u escapes too.
-export function toJsStringLiteral(value: string): string {
-  return JSON.stringify(value).replace(
-    /[<>\u007f-\uffff]/g,
-    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`
-  )
 }
 
 export function escapeForJsonAsset(value: string): string {
@@ -192,16 +185,6 @@ function parsesAsJson(text: string): boolean {
   }
 }
 
-function resolveProcessShim(): string | undefined {
-  const candidate = path.join(__dirname, '..', 'runtime', 'process-shim.cjs')
-
-  try {
-    return fs.existsSync(candidate) ? candidate : undefined
-  } catch {
-    return undefined
-  }
-}
-
 function findNearestWorkspaceRoot(startDir: string): string | undefined {
   let current = path.isAbsolute(startDir)
     ? path.normalize(startDir)
@@ -222,86 +205,76 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
   }
 }
 
-function resolveEnvPaths(projectPath: string, envFiles: string[]) {
-  const localEnvPath =
-    envFiles
-      .map((file) => path.join(projectPath, file))
-      .find((filePath) => fs.existsSync(filePath)) || ''
-  const localDefaultsPath = path.join(projectPath, '.env.defaults')
+const ENV_DEFAULTS_FILE = '.env.defaults'
 
-  if (localEnvPath) {
+// Every matching file of one folder is read, never one folder's files mixed
+// with another's. Only .env.defaults falls through from the workspace root.
+function resolveEnvLayers(projectPath: string, layerNames: string[]) {
+  const matchedIn = (dir: string) =>
+    layerNames
+      .filter((file) => file !== ENV_DEFAULTS_FILE)
+      .map((file) => path.join(dir, file))
+      .filter((filePath) => fs.existsSync(filePath))
+  const localDefaultsPath = path.join(projectPath, ENV_DEFAULTS_FILE)
+  const localMatched = matchedIn(projectPath)
+
+  if (localMatched.length > 0) {
     return {
-      envPath: localEnvPath,
-      defaultsPath: localDefaultsPath
+      envDir: projectPath,
+      defaultsPaths: [localDefaultsPath],
+      matchedPaths: localMatched
     }
   }
 
   const workspaceRoot = findNearestWorkspaceRoot(projectPath)
 
   if (workspaceRoot && workspaceRoot !== projectPath) {
-    const workspaceEnvPath =
-      envFiles
-        .map((file) => path.join(workspaceRoot, file))
-        .find((filePath) => fs.existsSync(filePath)) || ''
-    const workspaceDefaultsPath = path.join(workspaceRoot, '.env.defaults')
+    const workspaceDefaultsPath = path.join(workspaceRoot, ENV_DEFAULTS_FILE)
+    const workspaceMatched = matchedIn(workspaceRoot)
 
-    if (workspaceEnvPath || fs.existsSync(workspaceDefaultsPath)) {
+    if (workspaceMatched.length > 0 || fs.existsSync(workspaceDefaultsPath)) {
       return {
-        // .env.defaults is the always-merged layer and is deliberately not a
-        // selectable file, so a local one must not cancel the root search.
-        // A local one still wins over the root's for the keys it declares.
-        envPath: workspaceEnvPath,
-        defaultsPath: fs.existsSync(localDefaultsPath)
-          ? localDefaultsPath
-          : workspaceDefaultsPath,
-        fallbackDefaultsPath: fs.existsSync(localDefaultsPath)
-          ? workspaceDefaultsPath
-          : undefined
+        envDir: workspaceRoot,
+        // .env.defaults is the always-merged layer and matches no target, so
+        // a local one does not cancel the root search. It still wins by key.
+        defaultsPaths: [workspaceDefaultsPath, localDefaultsPath],
+        matchedPaths: workspaceMatched
       }
     }
   }
 
-  if (fs.existsSync(localDefaultsPath)) {
-    return {
-      envPath: localEnvPath,
-      defaultsPath: localDefaultsPath
-    }
-  }
-
   return {
-    envPath: '',
-    defaultsPath: localDefaultsPath
+    envDir: projectPath,
+    defaultsPaths: [localDefaultsPath],
+    matchedPaths: [] as string[]
   }
 }
 
-// Env files resolve family-wide, mirroring the manifest-prefix contract; the
-// exact browser name wins, Safari/webkit inherit the chromium family.
+// One list for the config file and the bundle, strongest first. The config
+// loader owns it, so the two can never read different files or another order.
 export function getEnvFileCandidates(
   browser: DevOptions['browser'],
   mode: string
 ): string[] {
-  const browserName = String(browser)
-  const isChromiumTarget =
-    isChromiumBasedBrowser(browserName) ||
-    browserName === 'safari' ||
-    browserName.includes('webkit')
+  return envFileCandidates(mode, String(browser))
+}
 
-  const familyNames = isChromiumTarget
-    ? CHROMIUM_FAMILY_ALIASES
-    : isGeckoBasedBrowser(browserName)
-      ? GECKO_FAMILY_ALIASES
-      : []
-  const names = [
-    browserName,
-    ...familyNames.filter((name) => name !== browserName)
-  ]
+// Weakest first: .env.defaults, then the shared candidates from last to
+// first, which is how the config loader layers them before the config runs.
+export function getEnvFileLayers(
+  browser: DevOptions['browser'],
+  mode: string
+): string[] {
+  return [ENV_DEFAULTS_FILE, ...getEnvFileCandidates(browser, mode).reverse()]
+}
 
-  return [
-    ...names.flatMap((name) => [`.env.${name}.${mode}`, `.env.${name}`]),
-    `.env.${mode}`,
-    '.env.local',
-    '.env'
-  ]
+// The build sets these from its own target after the env files are read, so
+// a file can never change them. BROWSER and MODE are left to other tools.
+const RESERVED_ENV_NAMES: Record<string, 'browser' | 'mode'> = {
+  EXTENSION_PUBLIC_BROWSER: 'browser',
+  EXTENSION_BROWSER: 'browser',
+  EXTENSION_PUBLIC_MODE: 'mode',
+  EXTENSION_MODE: 'mode'
 }
 
 const KNOWN_ENV_MODES = new Set(['development', 'production', 'test', 'none'])
@@ -321,11 +294,12 @@ export function isEnvFileForAnotherTarget(file: string): boolean {
     return KNOWN_ENV_MODES.has(parts[0]) || KNOWN_ENV_BROWSERS.has(parts[0])
   }
 
-  return (
-    parts.length === 2 &&
-    KNOWN_ENV_BROWSERS.has(parts[0]) &&
-    KNOWN_ENV_MODES.has(parts[1])
-  )
+  if (parts.length !== 2) return false
+
+  // .env.<mode>.local is the private twin of another mode's file.
+  if (KNOWN_ENV_MODES.has(parts[0])) return parts[1] === 'local'
+
+  return KNOWN_ENV_BROWSERS.has(parts[0]) && KNOWN_ENV_MODES.has(parts[1])
 }
 
 const SECRET_SEGMENTS = new Set([
@@ -375,58 +349,60 @@ export class EnvPlugin {
     // Collect .env files by browser (family-wide) and mode. .env.example is
     // intentionally NOT included: placeholder values, never a real source.
     const envFiles = getEnvFileCandidates(this.browser, mode)
-
-    const {envPath, defaultsPath, fallbackDefaultsPath} = resolveEnvPaths(
+    const envLayers = getEnvFileLayers(this.browser, mode)
+    const {envDir, defaultsPaths, matchedPaths} = resolveEnvLayers(
       projectPath,
-      envFiles
+      envLayers
     )
 
     if (isDebug()) {
-      debugLine(messages.envSelectedFile(envPath))
+      debugLine(messages.envSelectedFile(matchedPaths))
     }
 
-    // Watch every path resolveEnvPaths consults, not only the one it picked,
-    // so creating a better match mid-session counts as a change as well.
+    // Watch every layer of each folder consulted, present or not, so writing
+    // a file that was missing mid-session counts as a change as well.
     if (projectPath && compiler.options.watchOptions) {
-      new WatchEnvFilesPlugin([
-        ...envFiles.map((file) => path.join(projectPath, file)),
-        path.join(projectPath, '.env.defaults'),
-        envPath,
-        defaultsPath,
-        fallbackDefaultsPath
-      ]).apply(compiler)
+      new WatchEnvFilesPlugin(
+        [...new Set([projectPath, envDir])].flatMap((dir) =>
+          envLayers.map((file) => path.join(dir, file))
+        )
+      ).apply(compiler)
     }
 
     // dotenv.parse (not .config) on purpose: .config mutates process.env, which
     // wins the merge, so the first build's values would leak into later builds.
-    const envVars = envPath ? dotenv.parse(fs.readFileSync(envPath)) : {}
-    const readDefaults = (filePath: string | undefined) =>
-      filePath && fs.existsSync(filePath)
-        ? dotenv.parse(fs.readFileSync(filePath))
-        : {}
-    const defaultsVars = {
-      ...readDefaults(fallbackDefaultsPath),
-      ...readDefaults(defaultsPath)
+    const fileVars: Record<string, string> = {}
+    const fileOfVar = new Map<string, string>()
+
+    // Later layers override earlier ones key by key, so the last file wins.
+    for (const filePath of [...defaultsPaths, ...matchedPaths]) {
+      if (!fs.existsSync(filePath)) continue
+
+      for (const [key, value] of Object.entries(
+        dotenv.parse(fs.readFileSync(filePath))
+      )) {
+        fileVars[key] = value
+        fileOfVar.set(key, path.basename(filePath))
+      }
     }
 
     // process.env is the highest precedence layer because a shell or CI value
     // must win. Keys the config loader itself put there by reading a dotenv
     // file are not shell values, so they are dropped back to their file layer,
-    // otherwise .env.defaults would outrank the selected .env.<browser> file.
+    // otherwise .env.defaults would outrank a stronger .env.<browser> file.
     const preloadedKeys = getPreloadedEnvKeys()
     const systemEnv = Object.fromEntries(
       Object.entries(process.env).filter(([key]) => !preloadedKeys.has(key))
     )
 
     const combinedVars = {
-      ...defaultsVars,
-      ...envVars,
+      ...fileVars,
       ...systemEnv
     }
 
     // The project ships .env files but none match this browser and mode. A
     // file named for another target is skipped quietly, any other earns a warning.
-    if (!envPath && projectPath) {
+    if (matchedPaths.length === 0 && projectPath) {
       let presentEnvFiles: string[] = []
 
       try {
@@ -503,6 +479,31 @@ export class EnvPlugin {
       }
     }
 
+    // A reserved name in a file loses to the build target without a word, so
+    // the build names it. A value that already agrees changes nothing.
+    const targetOf = {browser: String(this.browser), mode: String(mode)}
+    const reservedInFiles = Object.keys(fileVars)
+      .filter(
+        (key) =>
+          Object.prototype.hasOwnProperty.call(RESERVED_ENV_NAMES, key) &&
+          fileVars[key] !== targetOf[RESERVED_ENV_NAMES[key]]
+      )
+      .sort()
+      .map((name) => ({name, file: fileOfVar.get(name) || ''}))
+
+    if (reservedInFiles.length > 0) {
+      compiler.hooks.thisCompilation.tap(
+        'env:warn-reserved-name',
+        (compilation) => {
+          const warn = new WebpackError(
+            messages.envReservedName(reservedInFiles)
+          ) as Error & {name?: string}
+          warn.name = 'EnvReservedName'
+          compilation.warnings.push(warn)
+        }
+      )
+    }
+
     const filteredEnvVars = Object.keys(combinedVars)
       .filter((key) => key.startsWith('EXTENSION_PUBLIC_'))
       .reduce(
@@ -544,7 +545,7 @@ export class EnvPlugin {
 
     // Define bare import.meta.env as an object of every injected var (Vite
     // parity); otherwise rspack rewrites it to (void 0) and reads crash at boot.
-    const importMetaEnvObject: Record<string, unknown> = {}
+    const importMetaEnvObject: Record<string, string> = {}
 
     for (const [key, value] of Object.entries(filteredEnvVars)) {
       if (key.startsWith('import.meta.env.')) {
@@ -578,18 +579,6 @@ export class EnvPlugin {
       debugLine(messages.envInjectedPublicVars(injectedCount))
     }
 
-    // Provide a real browser process object so free process.* reads don't throw;
-    // EXTENSION_PUBLIC_* reads are still statically inlined and tree-shakeable.
-    const processShim = resolveProcessShim()
-
-    if (!processShim) {
-      // Fallback (shim missing from the install): merge a minimal-but-complete
-      // stub into the single DefinePlugin so bundled `process` access is safe.
-      filteredEnvVars['process.env'] = '{}'
-      filteredEnvVars.process =
-        '({env:{},argv:[],platform:"browser",browser:true,versions:{},nextTick:function(cb){Promise.resolve().then(function(){cb()})}})'
-    }
-
     new DefinePlugin(filteredEnvVars).apply(compiler)
 
     // rspack inlines a bare import.meta.url as the module's file:// path, which
@@ -603,13 +592,16 @@ export class EnvPlugin {
     importMetaUrl.affectedHooks = 'thisCompilation'
     importMetaUrl.apply(compiler)
 
-    if (processShim) {
-      new ProvidePlugin({process: processShim}).apply(compiler)
-    }
+    // A dotted process.env.KEY read is inlined above and never gets here. Any
+    // other read of process is answered by a module generated for this build.
+    new ProvidePlugin({
+      process: processModuleRequest(importMetaEnvObject)
+    }).apply(compiler)
 
     // JSON/HTML `$VAR` templating must resolve to the same values JS sees at
     // runtime (DefinePlugin + env files). Build one lookup shared by every asset.
     const templateVars = buildTemplateVars(combinedVars, this.browser, mode)
+    const privateNames = findPrivateTemplateNames(combinedVars, templateVars)
 
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
@@ -622,6 +614,7 @@ export class EnvPlugin {
           (assets) => {
             // Prefer compilation assets to be robust against different bundler versions
             const files = Object.keys(compilation.assets || assets)
+            const unfilled = new Map<string, Set<string>>()
 
             files.forEach((filename) => {
               if (filename.endsWith('.json') || filename.endsWith('.html')) {
@@ -637,6 +630,15 @@ export class EnvPlugin {
                   if (
                     !Object.prototype.hasOwnProperty.call(templateVars, name)
                   ) {
+                    // A name that is set but private is worth a warning. An
+                    // unset name stays quiet, the way a typo always has.
+                    if (privateNames.has(name)) {
+                      unfilled.set(
+                        name,
+                        (unfilled.get(name) || new Set()).add(filename)
+                      )
+                    }
+
                     // Preserve the placeholder when the var is unknown, matching
                     // the pre-substitution form so authors can spot typos.
                     return `$${name}`
@@ -700,6 +702,19 @@ export class EnvPlugin {
                 }
               }
             })
+
+            if (unfilled.size > 0) {
+              const warn = new WebpackError(
+                messages.envPrivatePlaceholder(
+                  [...unfilled.keys()].sort().map((name) => ({
+                    name,
+                    assets: [...(unfilled.get(name) || [])].sort()
+                  }))
+                )
+              ) as Error & {name?: string}
+              warn.name = 'EnvPrivatePlaceholder'
+              compilation.warnings.push(warn)
+            }
           }
         )
       }
@@ -715,12 +730,15 @@ export function buildTemplateVars(
   const vars: Record<string, string> = {}
 
   for (const [key, value] of Object.entries(combinedVars)) {
-    if (typeof value === 'string' && key.startsWith('EXTENSION_')) {
+    // Same gate as JavaScript: an emitted asset ships to every user, so a
+    // value without the public prefix never reaches one.
+    if (typeof value === 'string' && key.startsWith('EXTENSION_PUBLIC_')) {
       vars[key] = value
     }
   }
 
   // Always win: same overrides DefinePlugin applies after reading .env files.
+  // These four are the build target, the only names filled without a variable.
   const browserValue = String(browser)
   const modeValue = String(mode)
   vars.EXTENSION_BROWSER = browserValue
@@ -729,4 +747,17 @@ export function buildTemplateVars(
   vars.EXTENSION_PUBLIC_MODE = modeValue
 
   return vars
+}
+
+// Names set in the environment but held back from placeholders, so a build
+// can tell a private variable apart from a typo.
+export function findPrivateTemplateNames(
+  combinedVars: Record<string, unknown>,
+  templateVars: Record<string, string>
+): Set<string> {
+  return new Set(
+    Object.keys(combinedVars).filter(
+      (key) => !Object.prototype.hasOwnProperty.call(templateVars, key)
+    )
+  )
 }

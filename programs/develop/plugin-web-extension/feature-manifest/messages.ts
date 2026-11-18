@@ -144,6 +144,27 @@ export function missingGeckoDataCollectionPermissions() {
   return lines.join('\n')
 }
 
+export function missingGeckoAddonId(declared: unknown) {
+  const lines: string[] = []
+  const field = colors.blue('browser_specific_settings.gecko.id')
+
+  lines.push(
+    declared == null
+      ? `${prefix('warn')} The manifest sets no ${field}, so Firefox has no add-on ID for this extension.`
+      : `${prefix('warn')} Firefox refuses the add-on ID ${colors.yellow(JSON.stringify(declared))} in ${field}, so this extension has none.`
+  )
+
+  lines.push(
+    `Without one, Firefox gives the add-on a new ID on each launch, so its storage does not survive a relaunch, and addons.mozilla.org assigns one on the first upload that every later upload must carry.`
+  )
+
+  lines.push(
+    `Set ${colors.yellow('firefox:browser_specific_settings.gecko.id')} in ${colors.yellow('manifest.json')} to an email-like string such as ${colors.yellow('my-extension@example.com')}.`
+  )
+
+  return lines.join('\n')
+}
+
 export function manifestInvalidError(error: NodeJS.ErrnoException) {
   const lines: string[] = []
   lines.push(`Can't read your ${colors.blue('manifest.json')} file.`)
@@ -314,6 +335,14 @@ export function sidebarKeyTranslatedForBrowser(
     `${prefix('info')} The build folded ${colors.yellow(from)} into ${colors.yellow(to)} for ${colors.blue(browser)}, which reads a sidebar only from ${colors.yellow(to)}${permission}. ` +
     `The panel opens and points at the same compiled page.\n` +
     `Declare both keys to ship a panel of its own per vendor, or scope ${colors.yellow(from)} with a prefix to keep it off this build.`
+  )
+}
+
+export function geckoServiceWorkerTranslated(browser: string) {
+  return (
+    `${prefix('info')} The build moved ${colors.yellow('background.service_worker')} into ${colors.yellow('background.scripts')} for ${colors.blue(browser)}, which never starts a service worker. ` +
+    `The background runs as an event page from the same compiled script.\n` +
+    `Declare ${colors.yellow('scripts')} beside ${colors.yellow('service_worker')}, or a ${colors.yellow('firefox:background')} key, to state the Firefox background in the source.`
   )
 }
 
@@ -815,5 +844,41 @@ export function manifestDescriptionMissingForStore(
   return [
     `${prefix('warn')} manifest.json has no ${colors.blue('description')}, and ${store} refuses a ${browser} build without one (Apple error 90849).`,
     `Add a description of ${limit} characters or fewer.`
+  ].join('\n')
+}
+
+// The browser refuses to compile a module the pages policy does not allow,
+// and nothing in the build output says so until the page stays blank.
+export function webAssemblyPolicyMissing(
+  browser: string,
+  files: readonly string[],
+  field: string,
+  policy: string,
+  hasPolicy: boolean
+) {
+  const fix = hasPolicy
+    ? `Add ${colors.yellow("'wasm-unsafe-eval'")} to the script-src of ${colors.blue(field)} in manifest.json, for example:`
+    : `Add ${colors.blue(field)} to manifest.json with this value:`
+
+  return [
+    `${prefix('warn')} The build emits WebAssembly that manifest.json does not allow ${colors.blue(browser)} to run.`,
+    ...files.map((file) => `${colors.gray('FILE')} ${colors.underline(file)}`),
+    `Extension pages and the background refuse to compile it unless the pages policy lists ${colors.yellow("'wasm-unsafe-eval'")}.`,
+    fix,
+    `${colors.gray('VALUE')} ${policy}`
+  ].join('\n')
+}
+
+export function webAssemblyFetchedFromRemote(
+  hits: ReadonlyArray<{file: string; address: string}>
+) {
+  return [
+    `${prefix('warn')} The built code fetches WebAssembly from another origin at run time.`,
+    ...hits.map(
+      (hit) =>
+        `${colors.gray('FILE')} ${colors.underline(hit.file)} ${colors.gray('ADDRESS')} ${colors.underline(hit.address)}`
+    ),
+    'Stores treat a binary loaded from the network as remotely hosted code, and it fails offline.',
+    `Ship the binary in the package: import it with ${colors.blue("new URL('./file.wasm', import.meta.url)")} or place it in ${colors.blue('public/')}, then hand the loader that path.`
   ].join('\n')
 }

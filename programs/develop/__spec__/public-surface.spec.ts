@@ -1,7 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {pathToFileURL} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import * as bridge from '../bridge-entry'
+import {sessionArtifactsRootDirBesideBuild} from '../lib/session-contract'
 
 // Everything a host can only get by reading this package's internals is a
 // capability the CLI has and a library caller does not. These pin the ones
@@ -15,24 +17,31 @@ function source(relative: string): string {
 
 describe('the extension-develop entry (module.ts)', () => {
   const moduleSource = source('module.ts')
+  // The names inside the entry's `export type {...}` block.
+  const exportedTypes = String(
+    moduleSource.match(/^export type \{([\s\S]*?)^\}/m)?.[1]
+  )
+    .split('\n')
+    .map((line) => line.trim().replace(/,$/, ''))
+    .filter((line) => /^[A-Za-z]+$/.test(line))
 
   it('names the type extensionBuild resolves to', () => {
     expect(
-      moduleSource,
-      'extensionBuild returns a BuildSummary; without this export a TypeScript ' +
-        'caller cannot name its own result.'
-    ).toContain('type BuildSummary')
+      exportedTypes,
+      'extensionBuild returns a BuildSummary. Without this export a ' +
+        'TypeScript caller cannot name its own result.'
+    ).toContain('BuildSummary')
   })
 
   it('exports the Safari packaging contract a caller has to satisfy', () => {
     for (const name of [
-      'type SafariPackagerFn',
-      'type SafariPackagerOverrides',
-      'type SafariPackageSummary'
+      'SafariPackagerFn',
+      'SafariPackagerOverrides',
+      'SafariPackageSummary'
     ]) {
       expect(
-        moduleSource,
-        `${name} is part of the injected-packager contract; develop packages ` +
+        exportedTypes,
+        `${name} is part of the injected-packager contract. Develop packages ` +
           'nothing for safari unless the caller supplies safariPackager.'
       ).toContain(name)
     }
@@ -40,12 +49,12 @@ describe('the extension-develop entry (module.ts)', () => {
 
   it('exports the option and config types the commands accept', () => {
     for (const name of [
-      'type BrowserType',
-      'type BrowserConfig',
-      'type CompanionExtensionsConfig',
-      'type StartOptions'
+      'BrowserType',
+      'BrowserConfig',
+      'CompanionExtensionsConfig',
+      'StartOptions'
     ]) {
-      expect(moduleSource).toContain(name)
+      expect(exportedTypes).toContain(name)
     }
   })
 })
@@ -162,8 +171,14 @@ describe('the extension-develop/bridge entry', () => {
       )
       .replace(/\s+/g, ' ')
 
-    expect(helper).toContain("'extension-js'")
+    expect(helper).toContain('sessionArtifactsRootDirBesideBuild(')
     expect(helper).toContain("'profiles', `${browser}-profile`")
+
+    expect(
+      sessionArtifactsRootDirBesideBuild(
+        bridge.browserDistDir('/p', 'chromium')
+      )
+    ).toBe(bridge.sessionArtifactsRootDir('/p'))
   })
 
   it('publishes the whole-document ready reader beside the narrow one', () => {
@@ -255,6 +270,31 @@ describe('the extension-develop/bridge entry', () => {
       expect(producerSource, `the producer never sends ${code}`).toContain(
         `"${code}"`
       )
+    }
+  })
+
+  it('exports every constant the control bridge defines', async () => {
+    const contractsSource = source('dev-server/control-bridge/contracts.ts')
+    const defined = [
+      ...contractsSource.matchAll(/^export const ([A-Z][A-Z0-9_]*)\b/gm)
+    ].map((match) => match[1])
+
+    // A read that finds nothing would pass every check below.
+    expect(defined).toContain('CLOSE_TOKEN_REQUIRED')
+    expect(defined).toContain('REFUSAL_NO_BACKGROUND')
+
+    const builtEntry = path.join(developRoot, 'dist', 'bridge.mjs')
+    const built = (await import(pathToFileURL(builtEntry).href)) as Record<
+      string,
+      unknown
+    >
+    const fromSource = bridge as Record<string, unknown>
+
+    expect(defined.filter((name) => fromSource[name] === undefined)).toEqual([])
+    expect(defined.filter((name) => built[name] === undefined)).toEqual([])
+
+    for (const name of defined) {
+      expect(built[name], name).toEqual(fromSource[name])
     }
   })
 

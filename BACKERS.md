@@ -21,7 +21,7 @@ _This tier is open._
 
 ## Bronze sponsors
 
-- [TestMu AI](https://www.testmuai.com/?utm_medium=sponsor&utm_source=extensionjs)
+- [TestMu AI](https://www.testmuai.com/)
 
 ## Generous backers
 

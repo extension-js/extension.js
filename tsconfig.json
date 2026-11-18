@@ -2,8 +2,6 @@
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Default",
   "compilerOptions": {
-    // "types": ["chrome", "firefox-webext-browser", "node"],
-    // "jsx": "react-jsx",
     "types": ["node", "chrome"],
     "target": "ES2021",
     "lib": ["ES2021"],
@@ -21,7 +19,6 @@
   "exclude": [
     "node_modules",
     "**/dist",
-    "**/spec",
     "**/__spec__/**",
     "**/*.spec.ts",
     "./examples/**",

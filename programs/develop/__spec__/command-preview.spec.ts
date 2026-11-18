@@ -959,6 +959,25 @@ describe('webpack/command-preview (run-only)', () => {
     )
   })
 
+  it.each([
+    ['a run that opens a browser', {}, true],
+    ['a dry run', {dryRun: true}, false]
+  ])('tells the companion scan whether a browser opens: %s', async (_run, options, launches) => {
+    ;(fs.existsSync as any).mockImplementation(
+      (p: string) => p === path.join('/proj', 'dist', 'chrome', 'manifest.json')
+    )
+
+    await extensionPreview(
+      '/proj',
+      {browser: 'chrome', ...options} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(resolveDirsMod.resolveCompanionExtensionDirs).toHaveBeenCalledWith(
+      expect.objectContaining({launchesBrowser: launches})
+    )
+  })
+
   it('passes built-in devtools + theme + user output to preview runner', async () => {
     ;(fs.existsSync as any).mockImplementation((p: string) => {
       if (p === path.join('/proj', 'dist', 'chrome', 'manifest.json')) {

@@ -8,10 +8,14 @@
 
 import type {RuleSetRule} from '@rspack/core'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
-import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
+import {
+  ensureOptionalContractPackageResolved,
+  formatInstallHint
+} from '../../lib/optional-deps-resolver'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
 import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
+import type {PostCssRuleReader} from '../css-tools/postcss'
 import {createSassLoaderOptions} from '../css-tools/sass'
 
 // The request the bundler makes for an @import in a sheet it parses.
@@ -20,13 +24,14 @@ export const CSS_IMPORT_DEPENDENCY = 'css-import'
 export interface PreprocessorUsage {
   useSass?: boolean
   useLess?: boolean
+  // The compiler's one reader of the PostCSS config, shared by every rule.
+  postCss?: PostCssRuleReader
 }
 
 type PreprocessorLoader = 'sass-loader' | 'less-loader'
 
-// Same absolute path the vue, svelte and postcss loaders already get. A bare
-// name only resolves beside the project or beside extension-develop, and a
-// hoisted install keeps the loader above both, so Node resolves it instead.
+// Same absolute path the vue, svelte and postcss loaders already get. A
+// hoisted install keeps the loader above the project, so Node resolves it.
 async function resolvePreprocessorLoader(
   loader: PreprocessorLoader,
   projectPath: string
@@ -55,8 +60,7 @@ interface BuildCssRulesOptions {
   // The kind of request that reached the sheet, an @import among them.
   dependency?: RuleSetRule['dependency']
   // Set for inlined stylesheets, whose url() children never reach the module
-  // graph. The sheet then leaves the loader chain as a JavaScript module that
-  // resolves its url() targets at runtime, and its rule type follows.
+  // graph. The sheet leaves the chain as a module that resolves them at runtime.
   manifestPath?: string
   // A Gecko MAIN world file opens on the read that takes the extension base,
   // and its inlined sheet resolves the extension root from that copy.
@@ -73,7 +77,7 @@ export async function buildCssRules(
   usage: PreprocessorUsage,
   opts: BuildCssRulesOptions
 ): Promise<RuleSetRule[]> {
-  const {useSass = true, useLess = true} = usage
+  const {useSass = true, useLess = true, postCss} = usage
   const {nonModuleType, issuer, issuerLayer, manifestPath, gecko} = opts
   const {dependency} = opts
   const {baseAttribute, baseScheme} = opts
@@ -155,34 +159,56 @@ export async function buildCssRules(
         ])
   ]
 
+  // Asked only when a warning prints, and once: naming the package manager
+  // of a project can start a process.
+  const hints = new Map<string, string>()
+
+  const install = (tool: 'sass' | 'less'): string => {
+    const hint = hints.get(tool) ?? formatInstallHint(projectPath, [tool])
+
+    hints.set(tool, hint)
+
+    return hint
+  }
+
   return Promise.all(
     fileTypes.map(async ({test, exclude, type, loader, missingTool}) => {
+      // An inlined sheet has no base for a relative @import, so the rules it
+      // imports come in before PostCSS reads the sheet.
+      const afterPreprocessor =
+        type === 'asset/inline' && manifestPath
+          ? {
+              loader: resolveDevelopDistFile('dead-css-url-loader'),
+              options: {manifestPath, projectPath, inlineImports: true}
+            }
+          : undefined
       const use = loader
         ? await commonStyleLoaders(projectPath, {
             mode: mode as 'development' | 'production',
+            postCss,
+            afterPreprocessor,
             loader: await resolvePreprocessorLoader(loader, projectPath),
+            // commonStyleLoaders sets sourceMap from the mode for both.
             loaderOptions:
               loader === 'sass-loader'
-                ? createSassLoaderOptions(
-                    projectPath,
-                    mode as 'development' | 'production'
-                  )
-                : {sourceMap: true}
+                ? createSassLoaderOptions(projectPath)
+                : {}
           })
         : await commonStyleLoaders(projectPath, {
-            mode: mode as 'development' | 'production'
+            mode: mode as 'development' | 'production',
+            postCss,
+            afterPreprocessor
           })
 
       if (missingTool) {
         ;(use as Array<Record<string, unknown>>).push({
-          loader: resolveDevelopDistFile('preprocessor-passthrough-loader')
+          loader: resolveDevelopDistFile('preprocessor-passthrough-loader'),
+          options: {install}
         })
       }
 
       // Runs last, right before rspack's native CSS parser, which fails the
       // module on an @import after other rules that browsers simply skip.
-      // The parse guard pitches ahead of it in every project, PostCSS or
-      // not: a sheet the parser rejects ships as authored with one warning.
       if (type === 'css' || type === 'css/module') {
         const guard = resolveDevelopDistFile('css-parse-guard-loader')
         const list = use as Array<Record<string, unknown>>
@@ -197,9 +223,7 @@ export async function buildCssRules(
       }
 
       // First in the list runs LAST, so the scan reads the final CSS a
-      // preprocessor produced, not the .scss or .less it was authored in.
-      // Its output is the runtime stylesheet module, hence the JS type: an
-      // inlined data: URL could never name the extension root in a url().
+      // preprocessor produced. Its output is a module, hence the JS type.
       let ruleType = type
 
       // A sheet that ships as a file names what public/ owns by the root path
@@ -218,6 +242,7 @@ export async function buildCssRules(
             manifestPath,
             projectPath,
             ...(gecko ? {gecko} : {}),
+            ...(missingTool ? {uncompiled: true} : {}),
             baseAttribute,
             baseScheme
           }

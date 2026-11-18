@@ -21,6 +21,8 @@ import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
   type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopFor,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -397,7 +399,8 @@ export function registerBuildCommand(
           }
         }
 
-        const {extensionBuild} = await loadDevelop()
+        const {extensionBuild}: DevelopFor<'extensionBuild'> =
+          await loadDevelop()
 
         const cliVersion = checkProjectCliVersion(
           path.resolve(pathOrRemoteUrl || process.cwd()),
@@ -426,7 +429,7 @@ export function registerBuildCommand(
         for (const vendor of list) {
           try {
             const summary = await extensionBuild(pathOrRemoteUrl, {
-              browser: vendor as BuildOptions['browser'],
+              browser: vendor as DevelopBrowser,
               polyfill: buildOptions.polyfill,
               zip: buildOptions.zip,
               zipSource: buildOptions.zipSource,

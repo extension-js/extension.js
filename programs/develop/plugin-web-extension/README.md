@@ -17,14 +17,16 @@ Builds your extension into a shippable bundle. Pages get one script and optional
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **HTML pages**<br/>Emits HTML pages, injects one JS and optional CSS per page, preserves public root URLs, and rewrites relative assets to stable public paths.     |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Scripts**<br/>Creates entries for background/service worker/content/user scripts, wraps content scripts for isolation and HMR, and ensures reliable public paths. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Chunk loading**<br/>Loads lazy chunks the way each world of an extension allows: a native import in the isolated world, a bridge in the MAIN world.                    |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Manifest**<br/>Emits a normalized manifest, validates references, and rewrites paths so shipped files match what the store and runtime expect.                    |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Icons**<br/>Emits all icon sizes and variants into the correct folders and watches for changes during development.                                                |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Web resources**<br/>Collects assets imported by content scripts and adds them to `web_accessible_resources` so pages can safely access them.                      |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **JSON assets**<br/>Emits rulesets and other JSON files (e.g., DNR, managed schema) and keeps them in sync during development.                                      |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Locales**<br/>Discovers `_locales/**/messages.json` and ships them where browsers expect for localized UI.                                                        |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Special folders**<br/>Copies `public/` as is; recognizes `pages/` and `scripts/`; surfaces structure changes early in development.                                |
 
 Feature-local architecture notes live next to each feature. For the scripts pipeline, see `feature-scripts/README.md`.
+
+Chunk loading is the one feature `WebExtensionPlugin` does not apply itself. `feature-chunk-loading` exports `SetupChunkLoadingTarget`, which `rspack-config.ts` registers after this plugin for a production build, and `plugin-reload` applies the same target in a dev session. See `feature-chunk-loading/README.md`, which also carries the notice for the code derived from `webpack-target-webextension`.
 
 ### Usage
 
@@ -55,6 +57,8 @@ export class WebExtensionPlugin {
       | 'safari'
       | 'chromium-based'
       | 'gecko-based'
+    devSession?: boolean
+    define?: Record<string, unknown>
   })
   apply(compiler: import('@rspack/core').Compiler): void
 }

@@ -7,13 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'node:path'
-import {type Compiler, DefinePlugin, type WebpackError} from '@rspack/core'
+import type {Compiler, WebpackError} from '@rspack/core'
 import CaseSensitivePathsPlugin from 'case-sensitive-paths-webpack-plugin'
 import {setupCompilerDoneDiagnostics} from '../dev-server/compiler-hooks'
 import {debugLine, isDebug} from '../lib/messaging'
 import type {PluginInterface} from '../types'
 import {BoringPlugin} from './boring'
-import {CleanDistFolderPlugin} from './clean-dist'
 import * as messages from './compilation-lib/messages'
 import {EnvPlugin} from './env'
 import {FileRequestsPlugin} from './resolve-file-requests'
@@ -27,7 +26,6 @@ export class CompilationPlugin {
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
-  public readonly clean: boolean
   public readonly zip?: boolean
   public readonly zipSource?: boolean
   public readonly zipFilename?: string
@@ -35,9 +33,10 @@ export class CompilationPlugin {
   public readonly port?: number
   public readonly command?: 'dev' | 'start' | 'preview' | 'build'
   public readonly define?: Record<string, unknown>
+  public readonly browserLaunchEnabled?: boolean
 
   constructor(
-    options: PluginInterface & {clean: boolean} & {
+    options: PluginInterface & {
       zip?: boolean
       zipSource?: boolean
       zipFilename?: string
@@ -45,18 +44,19 @@ export class CompilationPlugin {
       port?: number
       command?: 'dev' | 'start' | 'preview' | 'build'
       define?: Record<string, unknown>
+      browserLaunchEnabled?: boolean
     }
   ) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.define = options.define
-    this.clean = options.clean ?? true
     this.zip = options.zip
     this.zipSource = options.zipSource
     this.zipFilename = options.zipFilename
     this.zipDir = options.zipDir
     this.port = options.port
     this.command = options.command
+    this.browserLaunchEnabled = options.browserLaunchEnabled
   }
 
   private applyIgnoreWarnings(compiler: Compiler): void {
@@ -122,32 +122,6 @@ export class CompilationPlugin {
       new WarmAncestorWatchersPlugin().apply(compiler)
     }
 
-    // CleanDistFolderPlugin removes dist before compilation, a problem for preview
-    // mode which serves from that folder.
-    if (this.clean) {
-      new CleanDistFolderPlugin({
-        browser: this.browser || 'chrome'
-      }).apply(compiler)
-    }
-
-    // Define NODE_ENV only under a real Rspack compiler; unit tests pass stubs
-    // without the internals builtin plugins require.
-    try {
-      const hasRspackInternals =
-        typeof (compiler as {__internal__registerBuiltinPlugin?: unknown})
-          .__internal__registerBuiltinPlugin === 'function'
-
-      if (hasRspackInternals) {
-        new DefinePlugin({
-          'process.env.NODE_ENV': JSON.stringify(
-            compiler.options.mode || 'development'
-          )
-        }).apply(compiler)
-      }
-    } catch {
-      // Ignore
-    }
-
     // A zip is a shippable artifact: any build command may produce one,
     // production or a development-mode staging build alike. Only the dev
     // session, which serves from disk, never packages.
@@ -172,15 +146,21 @@ export class CompilationPlugin {
       }
     }
 
-    new BoringPlugin({
-      manifestPath: this.manifestPath,
-      browser: this.browser || 'chrome'
-    }).apply(compiler)
-
     // The build path renders errors and warnings once through the stats
     // handler in command-build, so only dev keeps this raw renderer.
-    if (this.command !== 'build' && this.command !== 'start') {
+    const diagnosticsFollow =
+      this.command === 'build' || this.command === 'start'
+
+    // Tapped first, so the compile line comes after the findings it counts.
+    if (!diagnosticsFollow) {
       setupCompilerDoneDiagnostics(compiler, this.port, this.manifestPath)
     }
+
+    new BoringPlugin({
+      manifestPath: this.manifestPath,
+      browser: this.browser || 'chrome',
+      browserLaunchEnabled: this.browserLaunchEnabled,
+      diagnosticsFollow
+    }).apply(compiler)
   }
 }

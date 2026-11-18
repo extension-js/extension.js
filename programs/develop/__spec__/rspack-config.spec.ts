@@ -632,6 +632,62 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 })
 
+describe('a scanned companion entry that leads outside the project', () => {
+  function configFor(options: Record<string, unknown>) {
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const outside = makeTempFolder('extjs-webpack-config-outside-')
+    const said: string[] = []
+
+    fs.writeFileSync(
+      path.join(outside, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'out', version: '1.0.0'})
+    )
+
+    fs.mkdirSync(path.join(root, 'extensions'))
+    fs.symlinkSync(outside, path.join(root, 'extensions', 'linked-out'))
+
+    const spy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation((...parts: unknown[]) => {
+        said.push(parts.map(String).join(' '))
+      })
+
+    try {
+      webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode: 'development',
+          extensions: {dir: './extensions'},
+          output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+          ...options
+        } as any
+      )
+    } finally {
+      spy.mockRestore()
+    }
+
+    return said.filter((text) => text.includes('leads outside the project'))
+  }
+
+  it.skipIf(process.platform === 'win32')(
+    'is said by a session that opens a browser',
+    () => {
+      const browsersPlugin = {apply() {}, extensionsToLoad: []}
+
+      expect(configFor({browsersPlugin})).toHaveLength(1)
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'is not said by a session that opens none',
+    () => {
+      expect(configFor({noBrowser: true})).toEqual([])
+    }
+  )
+})
+
 describe('webpack-config MV2 on chromium warning', () => {
   const buildConfig = (manifest: Record<string, unknown>) => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
