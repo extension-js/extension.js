@@ -99,6 +99,55 @@ export function hasPrivateFileName(relativePath: string): boolean {
     .some((name) => privateFileKind(name) !== undefined)
 }
 
+// Installed packages are not project content.
+function isInNodeModules(relativePath: string): boolean {
+  return relativePath
+    .split(/[\\/]+/)
+    .some((name) => name.toLowerCase() === 'node_modules')
+}
+
+// A path from a project root to a file the project owns: it stays below the
+// root, carries no private name and enters no installed package.
+function isProjectContentPath(relativePath: string): boolean {
+  return (
+    relativePath !== '' &&
+    relativePath !== '..' &&
+    !relativePath.startsWith(`..${path.sep}`) &&
+    !path.isAbsolute(relativePath) &&
+    !hasPrivateFileName(relativePath) &&
+    !isInNodeModules(relativePath)
+  )
+}
+
+// Whether the build may copy a source file or folder into the output. Both
+// the path as given and the place a link leads to must be project content.
+export function sourceFileMayShip(
+  sourcePath: string,
+  projectRoots: string[]
+): boolean {
+  const given = path.resolve(sourcePath)
+  const givenInside = projectRoots.some((root) =>
+    isProjectContentPath(path.relative(path.resolve(root), given))
+  )
+  if (!givenInside) return false
+
+  let real: string
+
+  try {
+    real = fs.realpathSync(sourcePath)
+  } catch {
+    return false
+  }
+
+  return projectRoots.some((root) => {
+    try {
+      return isProjectContentPath(path.relative(fs.realpathSync(root), real))
+    } catch {
+      return false
+    }
+  })
+}
+
 // A glob has no "all but these endings", so every other `.env.<rest>` is
 // spelled out by where its tail, read from the end, first leaves a template
 // ending: at a letter no ending has there, or by running out of name.

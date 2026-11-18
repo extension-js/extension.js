@@ -86,6 +86,8 @@ A root-absolute path (`/data/config.json`) in a page or in a stylesheet that shi
 
 Each of those is reported as a missing file, in the words the surface uses for one, and nothing is copied. A link that stays inside the project is followed.
 
+The decision is one function, `sourceFileMayShip` in `public-private-files.ts`. The `web_accessible_resources` step asks it too, for every file, folder and pattern match it would copy.
+
 ## Path resolution convention (consistent across @plugin-extension)
 
 - Leading `/` means extension root (public root) relative to the directory containing `manifest.json`.
