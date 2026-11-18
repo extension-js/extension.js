@@ -98,7 +98,9 @@ function configHost(connectableHost: string, controlPort: number) {
 }
 
 describe('the connectable host a bridge producer compiles in', () => {
-  it('is the environment for both of two sessions with their own hosts', async () => {
+  it('is the one each of two sessions was given, not the environment', async () => {
+    vi.stubEnv(HOST_ENV, 'from-env.example')
+
     const first = await compiledHost({
       controlPort: 9001,
       connectableHost: 'session-a.example'
@@ -108,8 +110,14 @@ describe('the connectable host a bridge producer compiles in', () => {
       connectableHost: 'session-b.example'
     })
 
-    expect(first).toBe(SECOND_SESSION_ENV)
-    expect(second).toBe(SECOND_SESSION_ENV)
+    expect(first).toBe('session-a.example')
+    expect(second).toBe('session-b.example')
+  })
+
+  it('is loopback for a blank option, whatever the environment', async () => {
+    expect(await compiledHost({controlPort: 9001, connectableHost: '  '})).toBe(
+      '127.0.0.1'
+    )
   })
 
   it('is the environment when no option names one', async () => {
@@ -118,8 +126,10 @@ describe('the connectable host a bridge producer compiles in', () => {
 })
 
 describe('the connectable host of a dev session config', () => {
-  it('is the environment for both of two sessions with their own hosts', () => {
-    expect(configHost('session-a.example', 50111)).toBe(SECOND_SESSION_ENV)
-    expect(configHost('session-b.example', 50222)).toBe(SECOND_SESSION_ENV)
+  it('is the one each of two sessions was given, not the environment', () => {
+    vi.stubEnv(HOST_ENV, 'from-env.example')
+
+    expect(configHost('session-a.example', 50111)).toBe('session-a.example')
+    expect(configHost('session-b.example', 50222)).toBe('session-b.example')
   })
 })
