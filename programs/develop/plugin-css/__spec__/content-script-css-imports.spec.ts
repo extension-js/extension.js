@@ -182,6 +182,7 @@ describe('the sheets a content-script sheet imports', () => {
         {
           request: './svg.css',
           file: path.join(root, 'svg.css'),
+          from: path.join(root, 'styles.css'),
           reason:
             'The file sets an @namespace, which reads differently once its rules sit in another stylesheet.',
           fix: 'Import that file from the script instead, or move its @namespace rules out of it.'
@@ -210,6 +211,7 @@ describe('the sheets a content-script sheet imports', () => {
       ['a', 'b'].map((name) => ({
         request: `./${name}.css`,
         file: path.join(root, `${name}.css`),
+        from: path.join(root, 'styles.css'),
         reason:
           'This stylesheet sets an @namespace, which has to come before every rule, so no imported rules can come in ahead of it.',
         fix: 'Import that file from the script instead, or move the @namespace rules to a sheet of their own.'
@@ -282,6 +284,7 @@ describe('the sheets a content-script sheet imports', () => {
       {
         request: '../shared/tokens.css',
         file: path.join(root, 'shared', 'tokens.css'),
+        from: path.join(root, 'app', 'styles.css'),
         reason: `The file sits outside the project, at ${real.split(path.sep).join('/')}.`,
         fix: KEEP
       }
@@ -320,6 +323,7 @@ describe('the sheets a content-script sheet imports', () => {
       {
         request,
         file: path.resolve(root, 'app', request),
+        from: path.join(root, 'app', 'styles.css'),
         reason: `The path holds ${name}, a name the build keeps private.`,
         fix: NO_PRIVATE_NAME
       }
@@ -1191,6 +1195,7 @@ describe('the sheets a content-script sheet imports', () => {
         {
           request: './broken.css',
           file: path.join(root, 'broken.css'),
+          from: path.join(root, 'styles.css'),
           reason: 'The file is not valid CSS.'
         }
       ],
@@ -1326,6 +1331,27 @@ describe('the loader run that brings imports into a content-script sheet', () =>
         'REASON The path holds .env, a name the build keeps private.',
         'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
         'Give the sheet a path with no private file or folder name along it.'
+      ]
+    ])
+  })
+
+  it('names the sheet that wrote an import it could not bring in', () => {
+    const root = makeProject({
+      'content/styles.css': '@import "../shared/a.css";\n.own{}\n',
+      'shared/a.css': '@import "./broken.css";\n.a{}\n',
+      'shared/broken.css': '.a{color:red\n'
+    })
+
+    const {warnings} = runLoader(root, 'content/styles.css', {
+      inlineImports: true
+    })
+
+    expect(warnings.map((w) => w.message.split('\n').slice(1, 5))).toEqual([
+      [
+        'PATH content/styles.css',
+        'IMPORT ./broken.css',
+        'WRITTEN IN shared/a.css',
+        'REASON The file is not valid CSS.'
       ]
     ])
   })

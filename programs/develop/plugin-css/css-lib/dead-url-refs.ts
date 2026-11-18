@@ -18,9 +18,8 @@ const ASSET_EXT =
 
 const URL_REF = /url\(\s*(?:"([^"\n]*)"|'([^'\n]*)'|([^)'"\s]*))\s*\)/gi
 
-// A stylesheet path is shown the way the extension addresses it, so it must not
-// change shape with the host OS: path.relative hands back `content\\styles.css`
-// on Windows, and the same defect then reads as two different messages.
+// A stylesheet path is shown the way the extension addresses it, whatever the
+// host OS: path.relative hands back `content\\styles.css` on Windows.
 export function toPosixPath(value: string): string {
   return String(value).split(path.sep).join('/')
 }

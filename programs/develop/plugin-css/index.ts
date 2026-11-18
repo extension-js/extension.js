@@ -254,12 +254,8 @@ export class CssPlugin {
     }
   }
 
-  // A sheet the parser rejected went through as a placeholder rule; once the
-  // minimizer is done, the emitted asset becomes the sheet as authored.
-  // Production keeps every rule development keeps: a sheet the parser
-  // rejected comes back as authored once the minimizer is done, and a sheet
-  // the minimizer error-recovered into fewer rules than the browser would
-  // keep ships unminified, with a warning naming what it dropped.
+  // Production keeps every rule development keeps: a sheet the parser rejected
+  // or the minimizer cut short ships as authored, with a warning for the cut.
   private keepCssParityInProduction(compiler: Compiler) {
     // The registry outlives a compilation, so each compiler drops the sheets
     // it no longer emits, and never one another compiler may still emit.
@@ -385,10 +381,8 @@ export class CssPlugin {
 
             const raw = String(data?.request || '')
 
-            // A request with loader syntax (`!=!` inline match resource, `-!`
-            // or `!!` prefixes) is a module request some loader built, never
-            // a url() to a file. vue-loader re-issues each <style> block this
-            // way from a `.vue.css` issuer; cancelling it drops the block.
+            // A request with loader syntax is one some loader built, never a
+            // url() to a file. Cancelling one vue-loader made drops its block.
             if (raw.includes('!')) return
 
             const issuerDir = String(data?.context || path.dirname(issuer))
@@ -512,11 +506,8 @@ export class CssPlugin {
       return
     }
 
-    // dev/watch: configure eagerly and gate the first compilation on the one
-    // promise from both hooks. watchRun covers the dev server; beforeRun covers
-    // a one-shot development build (compiler.run), which otherwise read the
-    // rules before the css rules existed and sent a manifest stylesheet entry
-    // to the JavaScript parser.
+    // dev/watch: configure eagerly and gate the first compilation on it.
+    // watchRun covers the dev server and beforeRun a one-shot development build.
     const configuring = this.configureOptions(compiler)
     compiler.hooks.beforeRun.tapPromise(CssPlugin.name, () => configuring)
     compiler.hooks.watchRun.tapPromise(CssPlugin.name, () => configuring)

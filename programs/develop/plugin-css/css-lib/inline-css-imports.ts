@@ -50,6 +50,8 @@ export interface InlinedCssImports {
   unreadable: Array<{
     request: string
     file: string
+    // The sheet the @import was written in.
+    from: string
     reason: string
     fix?: string
   }>
@@ -408,9 +410,9 @@ function stringEnd(css: string, at: number): number {
 const IDENT = /[a-z_-][\w-]*/iy
 const URL_STRING_FUNCTIONS = new Set(['url', 'image-set', '-webkit-image-set'])
 
-// Where an address stands: the string of an @import, inside url(), or a
-// string of a function that takes addresses as strings.
-export type CssAddressPlace = 'import' | 'url' | 'set'
+// Where an address stands: the string of an @import, the url() of one,
+// any other url(), or a string of a function that takes addresses.
+export type CssAddressPlace = 'import' | 'import-url' | 'url' | 'set'
 
 // The sheet with each address it names passed through `rewrite`. Reads the
 // text the way CSS does, so a url( inside a string or a comment is left.
@@ -425,6 +427,8 @@ export function rewriteCssUrls(
   let copied = 0
   let at = 0
   let inImport = false
+  // Where the name of the url() being read starts.
+  let urlAt = -1
 
   const put = (
     start: number,
@@ -438,8 +442,13 @@ export function rewriteCssUrls(
 
     if (doubleQuoted) {
       const wide = quote ? 1 : 0
+      const inUrl = where === 'url' || where === 'import-url'
+      // The name is written in lower case, as the one address form.
+      const lead = inUrl
+        ? `${css.slice(copied, urlAt)}url${css.slice(urlAt + 3, start - wide)}`
+        : css.slice(copied, start - wide)
 
-      out += `${css.slice(copied, start - wide)}"${next.replace(/["\\]/g, '\\$&')}"`
+      out += `${lead}"${next.replace(/["\\]/g, '\\$&')}"`
       copied = end + wide
 
       return
@@ -478,7 +487,13 @@ export function rewriteCssUrls(
           at + 1,
           end - 1,
           css.slice(at + 1, end - 1),
-          named === undefined ? 'import' : named === 'url' ? 'url' : 'set',
+          named === undefined
+            ? 'import'
+            : named !== 'url'
+              ? 'set'
+              : inImport
+                ? 'import-url'
+                : 'url',
           char
         )
       }
@@ -516,6 +531,8 @@ export function rewriteCssUrls(
       } else {
         let start = at + name.length + 1
 
+        urlAt = at
+
         while (/\s/.test(css[start] ?? '')) start++
 
         if (css[start] === '"' || css[start] === "'") {
@@ -527,7 +544,14 @@ export function rewriteCssUrls(
           const end = close === -1 ? css.length : close
           const request = css.slice(start, end).trim()
 
-          if (request) put(start, start + request.length, request, 'url')
+          if (request) {
+            put(
+              start,
+              start + request.length,
+              request,
+              inImport ? 'import-url' : 'url'
+            )
+          }
 
           inImport = false
           at = Math.min(end + 1, css.length)
@@ -883,6 +907,7 @@ function inlineSheet(
       state.unreadable.push({
         request: parsed.request,
         file: target,
+        from: file,
         reason:
           'This stylesheet sets an @namespace, which has to come before every rule, so no imported rules can come in ahead of it.',
         fix: 'Import that file from the script instead, or move the @namespace rules to a sheet of their own.'
@@ -920,7 +945,13 @@ function inlineSheet(
     const refused = whyNotRead(target, state.projectPath)
 
     if (refused) {
-      state.unreadable.push({request: parsed.request, file: target, ...refused})
+      state.unreadable.push({
+        request: parsed.request,
+        file: target,
+        from: file,
+        ...refused
+      })
+
       state.answered.add(target)
       keepAsPath()
 
@@ -942,7 +973,13 @@ function inlineSheet(
     }
 
     if (typeof inner !== 'string') {
-      state.unreadable.push({request: parsed.request, file: target, ...inner})
+      state.unreadable.push({
+        request: parsed.request,
+        file: target,
+        from: file,
+        ...inner
+      })
+
       state.answered.add(target)
       keepAsPath()
 

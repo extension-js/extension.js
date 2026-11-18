@@ -263,7 +263,7 @@ export function inlineStylesheetImports(
     for (const file of inlined.files) loader.addDependency?.(file)
     for (const file of inlined.missing) loader.addMissingDependency?.(file)
 
-    for (const {request, file, reason, fix} of inlined.unreadable) {
+    for (const {request, file, from, reason, fix} of inlined.unreadable) {
       loader.addDependency?.(file)
       loader.emitWarning(
         Object.assign(
@@ -272,7 +272,8 @@ export function inlineStylesheetImports(
               toPosixPath(path.relative(manifestDir, resourcePath)),
               request,
               reason,
-              fix
+              fix,
+              toPosixPath(path.relative(manifestDir, from))
             )
           ),
           {name: 'CssParseWarning'}

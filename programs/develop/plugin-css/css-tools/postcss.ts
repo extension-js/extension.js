@@ -396,9 +396,8 @@ export async function loadUserPostCssConfigObject(
         const mod = await importFresh(configPath, projectPath)
         loaded = mod?.default ?? mod
       } catch (importError) {
-        // A CJS-shaped file under an ESM import fails on `module`; the
-        // hand-rolled CJS load gets its own turn, and only if that fails
-        // too is the file reported as unreadable.
+        // A CJS-shaped file under an ESM import fails on `module`, so the
+        // CJS load gets its turn before the file is reported as unreadable.
         loaded = tryLoadCjsConfig(configPath, {projectPath})
 
         if (loaded === undefined) {
@@ -1245,11 +1244,8 @@ export async function maybeUsePostCss(
     }
   }
 
-  // Let postcss-loader load the user's config; we only signal PostCSS use, point
-  // it at the right project root, and optionally inject a pre-resolved Tailwind.
-  // The found file goes over as is: the loader's own search order differs,
-  // and a project that keeps two configs must not get the other one here.
-  // A config that was set aside stays out, or the loader fails on it again.
+  // postcss-loader loads the config. The found file goes over as is, since
+  // its own search order differs, and a config that was set aside stays out.
   const postcssOptions: AnyModule = {
     cwd: projectPath,
     config:

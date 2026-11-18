@@ -66,8 +66,7 @@ export function resolveSassImplementation(
   }
 
   try {
-    // Fallback to Extension.js's own optional-dependency install, primarily for
-    // npm/npx usage installing SASS into the extension-develop cache.
+    // Fallback to Extension.js's own optional-dependency install, for npm/npx.
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     let mod = cjsRequire('sass')
 

@@ -30,9 +30,8 @@ export interface PreprocessorUsage {
 
 type PreprocessorLoader = 'sass-loader' | 'less-loader'
 
-// Same absolute path the vue, svelte and postcss loaders already get. A bare
-// name only resolves beside the project or beside extension-develop, and a
-// hoisted install keeps the loader above both, so Node resolves it instead.
+// Same absolute path the vue, svelte and postcss loaders already get. A
+// hoisted install keeps the loader above the project, so Node resolves it.
 async function resolvePreprocessorLoader(
   loader: PreprocessorLoader,
   projectPath: string
@@ -61,8 +60,7 @@ interface BuildCssRulesOptions {
   // The kind of request that reached the sheet, an @import among them.
   dependency?: RuleSetRule['dependency']
   // Set for inlined stylesheets, whose url() children never reach the module
-  // graph. The sheet then leaves the loader chain as a JavaScript module that
-  // resolves its url() targets at runtime, and its rule type follows.
+  // graph. The sheet leaves the chain as a module that resolves them at runtime.
   manifestPath?: string
   // A Gecko MAIN world file opens on the read that takes the extension base,
   // and its inlined sheet resolves the extension root from that copy.
@@ -211,8 +209,6 @@ export async function buildCssRules(
 
       // Runs last, right before rspack's native CSS parser, which fails the
       // module on an @import after other rules that browsers simply skip.
-      // The parse guard pitches ahead of it in every project, PostCSS or
-      // not: a sheet the parser rejects ships as authored with one warning.
       if (type === 'css' || type === 'css/module') {
         const guard = resolveDevelopDistFile('css-parse-guard-loader')
         const list = use as Array<Record<string, unknown>>
@@ -227,9 +223,7 @@ export async function buildCssRules(
       }
 
       // First in the list runs LAST, so the scan reads the final CSS a
-      // preprocessor produced, not the .scss or .less it was authored in.
-      // Its output is the runtime stylesheet module, hence the JS type: an
-      // inlined data: URL could never name the extension root in a url().
+      // preprocessor produced. Its output is a module, hence the JS type.
       let ruleType = type
 
       // A sheet that ships as a file names what public/ owns by the root path

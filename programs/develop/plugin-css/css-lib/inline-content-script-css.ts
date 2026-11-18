@@ -110,7 +110,7 @@ export function rewriteInlinedCssUrls(
   const css = rewriteCssUrls(
     source,
     (request, where) => {
-      if (where !== 'url') return undefined
+      if (where !== 'url' && where !== 'import-url') return undefined
 
       const suffixAt = request.search(/[?#]/)
       const req = suffixAt === -1 ? request : request.slice(0, suffixAt)

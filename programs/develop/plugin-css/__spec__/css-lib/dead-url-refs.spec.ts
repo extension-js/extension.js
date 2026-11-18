@@ -218,6 +218,22 @@ describe('css url() refs are read case-insensitively, the way CSS is', () => {
   }
 })
 
+// A string is text, whatever it spells.
+it('leaves a url( that is the text of a string as written', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-css-'))
+  tempDirs.push(dir)
+  fs.writeFileSync(path.join(dir, 'a.png'), 'image')
+
+  expect(
+    keepPublicRootRefs(
+      '.a::before{content:"url(/a.png)"}\n.b{background:url(/a.png)}\n',
+      dir
+    )
+  ).toBe(
+    `.a::before{content:"url(/a.png)"}\n.b{background:url("${PUBLIC_ROOT_SCHEME}/a.png")}\n`
+  )
+})
+
 const SPELLINGS = [
   '/images/x.png',
   '../public/images/x.png',

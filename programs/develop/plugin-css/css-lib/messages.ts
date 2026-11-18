@@ -146,12 +146,16 @@ export function cssImportLeftAsWritten(
   issuerPath: string,
   request: string,
   reason: string,
-  fix = 'Fix the imported file so its rules ship with this stylesheet.'
+  fix = 'Fix the imported file so its rules ship with this stylesheet.',
+  writtenIn?: string
 ) {
   return [
     `${prefix('warn')} Couldn't bring an ${colors.blue('@import')} into this content script stylesheet, so the rules of that file will not load.`,
     `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
     `${colors.gray('IMPORT')} ${colors.blue(request)}`,
+    ...(writtenIn && writtenIn !== issuerPath
+      ? [`${colors.gray('WRITTEN IN')} ${colors.underline(writtenIn)}`]
+      : []),
     `${colors.gray('REASON')} ${reason}`,
     'A content script stylesheet loads from a data: URL, where the browser fetches no relative import.',
     fix
@@ -322,9 +326,8 @@ export function postCssConfigPluginsShape(configPath: string, found: string) {
   )
 }
 
-// The production minimizer error-recovers differently from a browser and can
-// drop the rest of a sheet after a construct the browser skips; shipping the
-// unminified sheet keeps production and development on the same rules.
+// The production minimizer can drop the rest of a sheet after a construct a
+// browser skips, and the unminified sheet keeps both modes on the same rules.
 export function cssMinifierDroppedRules(assetName: string, tokens: string[]) {
   return (
     `${prefix('warn')} The CSS minimizer dropped ${tokens.join(', ')} from ${colors.gray(assetName)}.\n` +
