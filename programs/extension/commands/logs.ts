@@ -39,7 +39,7 @@ import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
 // How `--since` is read, resolved by the develop bridge's query helpers so
 // the command and the published query agree: a sequence number, or a point
 // in time compared against the event clock.
-type LogSince = {seq: number} | {time: number}
+type LogSince = import('extension-develop/bridge').LogSince
 type SinceHelpers = {
   parseLogSince: (value: unknown) => LogSince | null | undefined
   isAfterSince: (event: LogEventLike, since: LogSince) => boolean
