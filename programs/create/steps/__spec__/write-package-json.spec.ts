@@ -702,6 +702,43 @@ describe('overridePackageJson when the manager version cannot be learned', () =>
     })
   })
 
+  // A template pin for another manager is replaced when a version is known,
+  // so it is not kept when none is: the warning says the field is absent.
+  it.each([
+    ['names another manager', 'foo@1.0.0'],
+    ['carries no version', 'npm']
+  ])('drops a template pin that %s when no version is learned', async (_label, pin) => {
+    await withTempDir(async (projectPath) => {
+      vi.stubEnv('npm_config_user_agent', '')
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({name: 'x', packageManager: pin})
+      )
+
+      const logger = linesLogger()
+
+      const written = await overridePackageJson(
+        projectPath,
+        {
+          packageManager: 'npm',
+          probeVersion: () => ({status: 2, stdout: ''}),
+          cliVersion: '4.0.1'
+        },
+        logger
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg).not.toHaveProperty('packageManager')
+      expect(written).toEqual({})
+      expect(logger.lines.join('\n')).toContain(
+        'Left package.json without a packageManager field.'
+      )
+    })
+  })
+
   it('prints nothing for Deno, which declares no manager by design', async () => {
     await withTempDir(async (projectPath) => {
       const {pkg, lines} = await scaffoldWith(projectPath, 'deno', () => {

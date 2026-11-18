@@ -248,6 +248,10 @@ export async function overridePackageJson(
   const templateFields: Record<string, unknown> = {...packageJson}
   delete templateFields.author
 
+  // A pin kept here is one the project does not use, and the line printed
+  // below says the file has no such field.
+  if (declaration.undeclared) delete templateFields.packageManager
+
   const packageMetadata = {
     ...templateFields,
     name: path.basename(projectPath),
