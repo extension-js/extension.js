@@ -168,8 +168,6 @@ export class WarnMovedPageRelativeUrls {
   }
 
   public apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(
       WarnMovedPageRelativeUrls.name,
       (compilation) => {
