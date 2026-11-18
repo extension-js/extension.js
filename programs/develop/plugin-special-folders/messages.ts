@@ -152,7 +152,8 @@ export function scriptsFolderFilesLeftOut(
   return (
     `${list} ${one ? 'is' : 'are'} left out of the ${colors.blue(browser)} build.\n` +
     'The build never bundles env files, tooling files or repository files, ' +
-    'or a file that leads outside the project. To build ' +
+    'or a file a link brings from outside the project or from ' +
+    'node_modules. To build ' +
     `${one ? 'it as a script' : 'them as scripts'}, give ${one ? 'it' : 'them'} another name or ` +
     `copy ${one ? 'it' : 'them'} into the project.`
   )

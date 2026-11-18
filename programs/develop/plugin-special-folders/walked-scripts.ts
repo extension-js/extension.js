@@ -6,9 +6,10 @@
 // ╚══════╝╚═╝     ╚══════╝ ╚═════╝╚═╝╚═╝  ╚═╝╚══════╝ ╚═╝      ╚═════╝ ╚══════╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import fs from 'node:fs'
 import path from 'node:path'
 import type {SpecialFoldersConfig} from '../types'
-import {foldersRoots} from './folders-config'
+import {foldersRoots, isScriptsFolderEntry} from './folders-config'
 import {sourceFileMayShip} from './public-private-files'
 
 const isPackageFolder = (name: string) => name.toLowerCase() === 'node_modules'
@@ -32,6 +33,78 @@ function walkedScriptsRoots(
   const named = typeof folders.scripts === 'string'
 
   return {dir, roots: named ? [projectRoot, dir] : [projectRoot]}
+}
+
+// The scan passes over a link, so a linked file or folder is walked here
+// and asked the same way. A folder reached twice is walked once.
+function walkLinkedScripts(
+  folder: {dir: string; roots: string[]},
+  kept: Record<string, string>,
+  leftOut: string[]
+) {
+  const walked = new Set<string>()
+
+  const walk = (dir: string, belowLink: boolean) => {
+    let entries: fs.Dirent[]
+
+    try {
+      const real = fs.realpathSync(dir)
+
+      if (walked.has(real)) return
+
+      walked.add(real)
+      entries = fs.readdirSync(dir, {withFileTypes: true})
+    } catch {
+      return
+    }
+
+    // Real folders first, so a link to one of them is the second visit.
+    const ordered = [...entries].sort(
+      (a, b) => Number(a.isSymbolicLink()) - Number(b.isSymbolicLink())
+    )
+
+    for (const entry of ordered) {
+      if (isPackageFolder(entry.name)) continue
+
+      const full = path.join(dir, entry.name)
+      const isLink = entry.isSymbolicLink()
+
+      if (!isLink && !belowLink) {
+        if (entry.isDirectory()) walk(full, false)
+
+        continue
+      }
+
+      let stat: fs.Stats
+
+      try {
+        stat = fs.statSync(full)
+      } catch {
+        continue
+      }
+
+      const isScript = stat.isFile() && isScriptsFolderEntry(full)
+
+      if (!isScript && !stat.isDirectory()) continue
+
+      if (!sourceFileMayShip(full, folder.roots, 'walked')) {
+        if (isScript || isLink) leftOut.push(full)
+
+        continue
+      }
+
+      if (stat.isDirectory()) {
+        walk(full, true)
+        continue
+      }
+
+      const name = path.relative(folder.dir, full).split(path.sep).join('/')
+
+      kept[`scripts/${name.slice(0, -path.extname(name).length)}`] = full
+    }
+  }
+
+  walk(folder.dir, false)
 }
 
 // No field names a walked file, so one the build withholds is no entry and
@@ -73,6 +146,8 @@ export function guardWalkedScripts(
       ? (entries as unknown as string)
       : String(entries[0])
   }
+
+  walkLinkedScripts(folder, kept, leftOut)
 
   return {kept, leftOut}
 }

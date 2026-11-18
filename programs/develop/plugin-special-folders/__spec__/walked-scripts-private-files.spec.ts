@@ -114,7 +114,7 @@ async function tableFor(root: string) {
 const leftOut = (files: string[], browser = 'chrome') =>
   [
     `${files.join(', ')} ${files.length === 1 ? 'is' : 'are'} left out of the ${browser} build.`,
-    `The build never bundles env files, tooling files or repository files, or a file that leads outside the project. To build ${files.length === 1 ? 'it as a script, give it another name or copy it' : 'them as scripts, give them another name or copy them'} into the project.`
+    `The build never bundles env files, tooling files or repository files, or a file a link brings from outside the project or from node_modules. To build ${files.length === 1 ? 'it as a script, give it another name or copy it' : 'them as scripts, give them another name or copy them'} into the project.`
   ].join('\n')
 
 // How many times the build said a file was left out, in any words.
@@ -168,18 +168,40 @@ describe.skipIf(!canLink)('a file the walk of scripts/ finds', () => {
           'scripts/linked-private.js': '.env.js',
           'scripts/linked-out.js': '../outside.js',
           'scripts/linked-folder-out': '../outside-scripts',
-          'scripts/loop': 'scripts'
+          'scripts/linked-package.js': 'scripts/node_modules/pkg/lib.js',
+          'scripts/broken.js': 'lib/gone.js',
+          'scripts/loop': 'scripts',
+          'scripts/nested/again': 'scripts/nested/deep'
         })
       )
 
-      const linked = Object.fromEntries(
-        Object.entries(table).filter(([file]) => !file.startsWith('scripts/'))
-      )
-
-      // No link is an entry today, wherever it leads.
-      expect(linked).toEqual({})
+      // A link that stays inside the project is an entry under its own
+      // name, and a folder reached twice is built once.
+      expect(table).toEqual({
+        'scripts/ok.js': 'scripts/ok.js',
+        'scripts/nested/deep/ok.js': 'scripts/nested/deep/ok.js',
+        'scripts/.hidden.js': 'scripts/.hidden.js',
+        'lib/inside.js': 'scripts/linked-in.js',
+        'lib/more/inner.js': 'scripts/linked-folder-in/inner.js'
+      })
 
       expect(result.errors).toBe(0)
+      expect(result.printed).toContain(
+        leftOut([
+          'scripts/.env.example.js',
+          'scripts/.env.js',
+          'scripts/.env.local.js',
+          'scripts/.git/tool.js',
+          'scripts/linked-folder-out',
+          'scripts/linked-out.js',
+          'scripts/linked-package.js',
+          'scripts/linked-private.js',
+          'scripts/nested/.git/tool.js'
+        ])
+      )
+
+      expect(timesSaid(result.printed)).toBe(2)
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
