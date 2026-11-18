@@ -37,7 +37,7 @@ what broke. That row adds two more properties, each a word from a fixed list:
 
 | property      | value                                                                      |
 | ------------- | -------------------------------------------------------------------------- |
-| `error_class` | a Node system code such as `ENOENT`, `EPERM` or `ERR_MODULE_NOT_FOUND` when the error has one, else a built-in class: `Error`, `TypeError`, `RangeError`, `SyntaxError`, `ReferenceError`, `EvalError`, `URIError` or `AggregateError`, else `other` |
+| `error_class` | a Node system code from a fixed list, such as `ENOENT`, `EPERM` or `ERR_MODULE_NOT_FOUND`, when the error has one of them, else a built-in class: `Error`, `TypeError`, `RangeError`, `SyntaxError`, `ReferenceError`, `EvalError`, `URIError` or `AggregateError`, else `other` |
 | `error_step`  | where it was thrown: `action` (the command itself), `engine_load` (loading the build engine), `engine` (the build engine running) or `scaffold` (`create` copying a template), or absent |
 
 A system code is sent only when it is in Node's own table of codes. Any other class, including
