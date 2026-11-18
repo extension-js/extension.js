@@ -207,10 +207,7 @@ export default function webpackConfig(
           : devOptions.port,
       command: devOptions.metadataCommand
     }),
-    new StaticAssetsPlugin({
-      manifestPath,
-      mode: devOptions.mode
-    }),
+    new StaticAssetsPlugin(),
     new CssPlugin({
       manifestPath,
       browser: devOptions.browser
