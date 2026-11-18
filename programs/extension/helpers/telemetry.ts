@@ -246,6 +246,17 @@ const DEFAULT_DEBOUNCE_MS = 60_000
 const DEFAULT_TIMEOUT_MS = 2000
 const DEFAULT_AUDIT_MAX_BYTES = 1024 * 1024
 
+// A knob that does not read as a number keeps its default. NaN used to reach
+// the clamps below, where it aborted every send or turned the cap off.
+function numericKnob(raw: string | undefined, fallback: number): number {
+  const text = String(raw ?? '').trim()
+  if (!text) return fallback
+
+  const value = Number(text)
+
+  return Number.isFinite(value) ? value : fallback
+}
+
 function auditMaxBytes(env: TelemetryEnv): number {
   const raw = Number(env.EXTENSION_TELEMETRY_AUDIT_MAX_BYTES)
 
@@ -531,11 +542,14 @@ function machineScopedId(rawId: string): string {
   ].join('-')
 }
 
+const STORED_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 // The ID a run would send, or null when none is stored. Never creates one.
 function readIdWith(deps: TelemetryDeps, file: string): string | null {
   try {
     const stored = deps.fs.readFileSync(file, 'utf8').trim()
-    if (!stored) return null
+    if (!STORED_ID.test(stored)) return null
 
     return isInsideGitWorkTreeWith(deps, path.dirname(file))
       ? machineScopedId(stored)
@@ -548,11 +562,15 @@ function readIdWith(deps: TelemetryDeps, file: string): string | null {
 function loadOrCreateIdWith(deps: TelemetryDeps, file: string): string {
   const inWorkTree = isInsideGitWorkTreeWith(deps, path.dirname(file))
 
+  // Only a UUID is an id the CLI wrote. An empty or damaged file is replaced,
+  // or every machine with one would report under the same distinct_id.
   try {
     if (deps.fs.existsSync(file)) {
       const stored = deps.fs.readFileSync(file, 'utf8').trim()
 
-      return inWorkTree ? machineScopedId(stored) : stored
+      if (STORED_ID.test(stored)) {
+        return inWorkTree ? machineScopedId(stored) : stored
+      }
     }
   } catch {
     // Ignore
@@ -895,7 +913,7 @@ export class Telemetry {
     this.host = init.host ?? (env.POSTHOG_HOST || BUILT_IN_POSTHOG_HOST)
     this.sampleRate = clamp(
       init.sampleRate ??
-        Number(env.EXTENSION_TELEMETRY_SAMPLE_RATE || DEFAULT_SAMPLE_RATE),
+        numericKnob(env.EXTENSION_TELEMETRY_SAMPLE_RATE, DEFAULT_SAMPLE_RATE),
       0,
       1
     )
@@ -903,19 +921,19 @@ export class Telemetry {
     this.maxEventsPerRun = Math.max(
       0,
       init.maxEventsPerRun ??
-        Number(env.EXTENSION_TELEMETRY_MAX_EVENTS || DEFAULT_MAX_EVENTS)
+        numericKnob(env.EXTENSION_TELEMETRY_MAX_EVENTS, DEFAULT_MAX_EVENTS)
     )
 
     this.debounceMs = Math.max(
       0,
       init.debounceMs ??
-        Number(env.EXTENSION_TELEMETRY_DEBOUNCE_MS || DEFAULT_DEBOUNCE_MS)
+        numericKnob(env.EXTENSION_TELEMETRY_DEBOUNCE_MS, DEFAULT_DEBOUNCE_MS)
     )
 
     this.timeoutMs = Math.max(
       1,
       init.timeoutMs ??
-        Number(env.EXTENSION_TELEMETRY_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+        numericKnob(env.EXTENSION_TELEMETRY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
     )
 
     this.common = {
