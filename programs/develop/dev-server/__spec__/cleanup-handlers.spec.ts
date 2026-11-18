@@ -162,6 +162,41 @@ describe('setupCleanupHandlers', () => {
     expect(s.exit).toHaveBeenCalledTimes(1)
   })
 
+  it('logs an unhandled rejection and keeps the session serving', async () => {
+    const events = new EventEmitter()
+    const exit = vi.fn()
+    const stop = vi.fn(async () => {})
+    const onSignal = vi.fn()
+    const onShutdownStart = vi.fn()
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    disposers.push(
+      setupCleanupHandlers(
+        () => ({stop}) as never,
+        fakePortManager(),
+        onSignal,
+        {events, exit, env: {}, onShutdownStart}
+      )
+    )
+
+    events.emit('unhandledRejection', new Error('a stray CDP reply'))
+    await new Promise((resolve) => setTimeout(resolve, 20))
+
+    // The session survives it, so nothing stops and no frame ends the stream:
+    // the interrupted frame is written by onSignal, and it was not called.
+    expect(stripAnsi(String(logged.mock.calls[0]?.[0]))).toContain(
+      'a stray CDP reply'
+    )
+
+    expect(logged).toHaveBeenCalledTimes(1)
+    expect(stop).not.toHaveBeenCalled()
+    expect(onShutdownStart).not.toHaveBeenCalled()
+    expect(onSignal).not.toHaveBeenCalled()
+    expect(exit).not.toHaveBeenCalled()
+
+    logged.mockRestore()
+  })
+
   it('ends as a failure with the usual shutdown and exit code 1', async () => {
     vi.useFakeTimers()
     const events = new EventEmitter()

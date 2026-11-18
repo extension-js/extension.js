@@ -103,7 +103,9 @@ import {attachHtmlRefresh} from './html-refresh'
 import {
   attachLifecycleStream,
   createLifecycleStream,
-  humanLine
+  humanLine,
+  isLifecycleStreamEnabled,
+  type LifecycleStream
 } from './lifecycle-stream'
 import * as messages from './messages'
 import {exportInstanceId, PortManager} from './port-manager'
@@ -132,6 +134,7 @@ import {
   createReadyAnnouncer,
   createRestartFailure,
   createStartFailure,
+  declaredErrorCode,
   readStartTimeoutMs,
   releaseEndedSession,
   rethrowStartFailure,
@@ -424,18 +427,67 @@ export function devConfigHookContext(
 interface SessionStartup {
   started: boolean
   release: (() => Promise<void>) | null
+  lifecycle: LifecycleStream | null
+}
+
+// Once the stream is on, a start that failed ends it with the one failed
+// frame, however early it failed. One already written is left alone.
+function frameFailedStart(
+  error: unknown,
+  lifecycle: LifecycleStream | null,
+  projectStructure: ProjectStructure,
+  devOptions: DevOptions
+): void {
+  const failure = error as {
+    framed?: boolean
+    session?: Record<string, unknown>
+  } | null
+
+  if (!isLifecycleStreamEnabled() || failure?.framed === true) return
+
+  try {
+    const browser = String(devOptions.browser || 'chromium')
+    const stream =
+      lifecycle ??
+      createLifecycleStream({
+        command: 'dev',
+        browser,
+        distPath: getDistPath(
+          asAbsolute(resolveDevProjectRoot(projectStructure)),
+          browser
+        )
+      })
+
+    stream.failed(
+      error instanceof Error ? error.message : String(error),
+      declaredErrorCode(error) ?? CODES.E_INTERNAL
+    )
+
+    if (failure && typeof failure === 'object') {
+      failure.framed = stream.ended
+      failure.session ??= stream.sessionValue()
+    }
+  } catch {
+    // Best-effort: the caller is owed the failure itself.
+  }
 }
 
 export async function devServer(
   projectStructure: ProjectStructure,
   devOptions: DevOptions
 ) {
-  const startup: SessionStartup = {started: false, release: null}
+  const startup: SessionStartup = {
+    started: false,
+    release: null,
+    lifecycle: null
+  }
 
   try {
     await startDevSession(projectStructure, devOptions, startup)
   } catch (error) {
     if (!startup.started) {
+      frameFailedStart(error, startup.lifecycle, projectStructure, devOptions)
+
       // A session that never started leaves nothing in a host that goes on:
       // no listener, no port, no open file, no guard on the manifest.
       try {
@@ -908,6 +960,7 @@ async function startDevSession(
     eventsPath: metadata.eventsPath,
     noBrowser: Boolean(devOptions.noBrowser)
   })
+  startup.lifecycle = lifecycle
   holdings.addForRelease(lifecycle.emitOnExit())
 
   // Say so when the requested port was taken. Compare numerically: a CLI

@@ -183,6 +183,37 @@ describe('a host that starts dev sessions from the library', () => {
     expect(result.after).toEqual(result.before)
   }, 180_000)
 
+  it('ends a start that failed before the starting frame with one failed frame', async () => {
+    const {result, frames} = await runHost<HostResult>('config', {
+      EXTENSION_OUTPUT: 'ndjson'
+    })
+
+    // Nothing but the terminal frame, once per session, and the rejection
+    // says it is written.
+    expect(frames.map((frame) => frame.status)).toEqual([
+      'failed',
+      'failed',
+      'failed',
+      'failed'
+    ])
+
+    for (const frame of frames) {
+      expect(frame).toMatchObject({
+        ok: false,
+        command: 'dev',
+        error: {code: 'E_INTERNAL', message: 'config hook broke'},
+        value: {command: 'dev', browser: 'chromium', pid: expect.any(Number)}
+      })
+    }
+
+    expect(result.sessions.map((session) => session.framed)).toEqual([
+      true,
+      true,
+      true,
+      true
+    ])
+  }, 180_000)
+
   it('gives each session in turn its own run, named by its frames and its contract', async () => {
     const {result, frames} = await runHost<HostResult>('start', {
       EXTENSION_OUTPUT: 'ndjson'
