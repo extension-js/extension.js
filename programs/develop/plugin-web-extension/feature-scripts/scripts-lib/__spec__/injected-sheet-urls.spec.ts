@@ -147,8 +147,7 @@ describe('the targets of a sheet shipped as written and injected by file', () =>
           '.a{background:url(img/a.png)}',
           '.b{background:url("./img/b.png?v=1#frag")}',
           ".c{src:url('../fonts/c.woff2')}",
-          '.d{background:url(/img/d.png)}',
-          '.e{background:url(../../above/e.png)}'
+          '.d{background:url(/img/d.png)}'
         ].join('\n')
       )
     ).toBe(
@@ -156,8 +155,7 @@ describe('the targets of a sheet shipped as written and injected by file', () =>
         `.a{background:url("${CHROMIUM_EXTENSION_ROOT}styles/img/a.png")}`,
         `.b{background:url("${CHROMIUM_EXTENSION_ROOT}styles/img/b.png?v=1#frag")}`,
         `.c{src:url("${CHROMIUM_EXTENSION_ROOT}fonts/c.woff2")}`,
-        `.d{background:url("${CHROMIUM_EXTENSION_ROOT}img/d.png")}`,
-        `.e{background:url("${CHROMIUM_EXTENSION_ROOT}above/e.png")}`
+        `.d{background:url("${CHROMIUM_EXTENSION_ROOT}img/d.png")}`
       ].join('\n')
     )
   })
@@ -171,6 +169,17 @@ describe('the targets of a sheet shipped as written and injected by file', () =>
       '.c{background:url(data:image/png;base64,AAAA)}',
       '.d{background:url(#gradient)}',
       `.e{background:url(${CHROMIUM_EXTENSION_ROOT}img/e.png)}`
+    ].join('\n')
+
+    expect(from(css)).toBe(css)
+  })
+
+  it('leaves a target that climbs out of the extension root as written', () => {
+    const css = [
+      '.a{background:url(../../above/a.png)}',
+      '.b{background:url(/../b.png)}',
+      '.c{background:url(%2e%2e/%2e%2e/c.png)}',
+      '.d{background:url("../../d.png?v=1")}'
     ].join('\n')
 
     expect(from(css)).toBe(css)
