@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {unhandledError} from '../messages'
 import {hasChannelPrefix, prefix} from '../messaging'
 
@@ -36,6 +36,20 @@ describe('the last frame a failure passes through', () => {
     expect(hasChannelPrefix(printed)).toBe(true)
     expect(printed).toContain('read ECONNRESET')
     expect(printed).toContain('    at ')
+  })
+
+  it('says Error: once on an unhandled crash when color is off', () => {
+    vi.stubEnv('FORCE_COLOR', undefined as unknown as string)
+    vi.stubEnv('NO_COLOR', '1')
+
+    try {
+      const head = unhandledError(new Error('read ECONNRESET')).split('\n')[0]
+
+      expect(head).toBe(`${GLYPH} Error: read ECONNRESET`)
+      expect(unhandledError('Error: boom')).toBe(`${GLYPH} Error: boom`)
+    } finally {
+      vi.unstubAllEnvs()
+    }
   })
 
   it('frames a thrown string and an unknown value the same way', () => {

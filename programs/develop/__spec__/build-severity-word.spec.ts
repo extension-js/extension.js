@@ -140,6 +140,13 @@ describe('a build with one warning, read without color (built CLI)', () => {
       'Declare {"required": ["none"]} if this extension transmits no data.'
     )
 
+    // The summary says "with warnings" itself, so it opens with the glyph alone.
+    expect(lines[0]).toMatch(
+      new RegExp(
+        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper compiled with warnings in \\d+ ms\\.$`
+      )
+    )
+
     // Info and success lines keep the bare glyph.
     const built = lines.find((line) => line.includes('built for production'))
     expect(built).toMatch(new RegExp(`^${GLYPH} Add-on built`))
@@ -188,6 +195,12 @@ describe('a build that fails, read without color (built CLI)', () => {
     const lines = result.stderr.split('\n')
 
     expect(result.status).toBe(1)
+    expect(result.stdout.split('\n')[0]).toMatch(
+      new RegExp(
+        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper compiled with errors in \\d+ ms\\.$`
+      )
+    )
+
     expect(lines[0]).toMatch(
       new RegExp(
         `^${GLYPH} Build error in \\./src/background\\.js 1:1-\\d+\\.$`
