@@ -6,8 +6,8 @@ import {
 import {
   answeredAll,
   CALLING_STYLES,
-  callIn,
   type CallingStyle,
+  callIn,
   fakeEngine,
   type Script
 } from './scripting-calling-styles'
@@ -73,7 +73,7 @@ describe.each(
   ) => {
     if (handsBack) {
       const resolved = await outcome.returned
-      if (value !== undefined) expect(resolved).toEqual(value)
+      expect(resolved).toEqual(value)
     } else {
       expect(outcome.returned).toBeUndefined()
     }
@@ -82,7 +82,7 @@ describe.each(
 
     if (withCallback) {
       expect(outcome.errors).toEqual([null])
-      if (value !== undefined) expect(outcome.answers[0][0]).toEqual(value)
+      expect(outcome.answers[0][0]).toEqual(value)
     }
 
     expect(logged).not.toHaveBeenCalled()

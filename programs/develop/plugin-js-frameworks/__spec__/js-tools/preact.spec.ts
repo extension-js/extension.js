@@ -1,121 +1,88 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import * as path from 'node:path'
+import {describe, expect, it} from 'vitest'
+import {maybeUsePreact} from '../../js-tools/preact'
+import {fakePackage, makeProject} from '../project-fixture'
 
-vi.mock('../../frameworks-lib/integrations', () => ({
-  hasDependency: vi.fn(() => false),
-  resolveDevelopInstallRoot: vi.fn(() => undefined)
-}))
-
-const originalResolve = (require as any).resolve
-beforeEach(() => {
-  ;(require as any).resolve = vi.fn((id: string) =>
-    id === '@rspack/plugin-preact-refresh'
-      ? '/mock/prefresh'
-      : originalResolve(id)
+// Preact's sub-paths exist only through its exports map, as in the real package.
+function preactProject(dependencies: Record<string, string>) {
+  const root = makeProject({'package.json': {dependencies}})
+  const dir = fakePackage(
+    root,
+    'preact',
+    {
+      version: '10.0.0',
+      exports: {
+        '.': './dist/preact.js',
+        './compat': './compat/dist/compat.js',
+        './test-utils': './test-utils/dist/testUtils.js',
+        './jsx-runtime': './jsx-runtime/dist/jsxRuntime.js',
+        './jsx-dev-runtime': './jsx-runtime/dist/jsxRuntime.js',
+        './package.json': './package.json'
+      }
+    },
+    {
+      'dist/preact.js': '',
+      'compat/dist/compat.js': '',
+      'test-utils/dist/testUtils.js': '',
+      'jsx-runtime/dist/jsxRuntime.js': ''
+    }
   )
-})
 
-afterEach(() => {
-  ;(require as any).resolve = originalResolve
-})
+  return {root, dir}
+}
 
-describe('preact tools', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
+describe('maybeUsePreact', () => {
+  it('aliases the JSX runtimes first, then preact, then the React names to compat', async () => {
+    const {root, dir} = preactProject({preact: '10'})
+    const result = await maybeUsePreact(root)
+    const jsxRuntime = path.join(dir, 'jsx-runtime', 'dist', 'jsxRuntime.js')
+    const compat = path.join(dir, 'compat', 'dist', 'compat.js')
+
+    expect(result?.plugins).toEqual([])
+    expect(result?.loaders).toBeUndefined()
+    // rspack takes the first alias key that matches, in insertion order.
+    expect(Object.entries(result?.alias || {})).toEqual([
+      ['preact/jsx-runtime', jsxRuntime],
+      ['preact/jsx-dev-runtime', jsxRuntime],
+      ['preact', dir],
+      ['react', compat],
+      ['react-dom', compat],
+      [
+        'react-dom/test-utils',
+        path.join(dir, 'test-utils', 'dist', 'testUtils.js')
+      ],
+      ['react/jsx-runtime', jsxRuntime],
+      ['react/jsx-dev-runtime', jsxRuntime]
+    ])
   })
 
-  it('isUsingPreact logs once when dependency present; maybeUsePreact returns aliases and no fast-refresh plugin', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'preact'
-    )
+  it('keeps only its own keys where React is declared too', async () => {
+    const {root, dir} = preactProject({preact: '10', react: '19'})
+    const result = await maybeUsePreact(root)
 
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const PreactRefreshPluginMock = function (this: any) {
-      this.apply = vi.fn()
-    } as any
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = ((id: string) => {
-          if (id === '@rspack/plugin-preact-refresh') {
-            return {default: PreactRefreshPluginMock}
-          }
+    expect(Object.keys(result?.alias || {})).toEqual([
+      'preact/jsx-runtime',
+      'preact/jsx-dev-runtime',
+      'preact'
+    ])
 
-          throw new Error(`Cannot find module ${id}`)
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-
-        return req
-      }
-    }))
-
-    const {isUsingPreact, maybeUsePreact} = await import(
-      '../../js-tools/preact'
-    )
-
-    expect(isUsingPreact('/p')).toBe(true)
-    expect(isUsingPreact('/p')).toBe(true)
-    expect(logSpy).toHaveBeenCalledTimes(1)
-
-    const result = await maybeUsePreact('/p')
-    expect(result?.plugins).toEqual([])
-    expect(result?.alias?.react).toContain(
-      '/project/node_modules/preact/compat'
-    )
-
-    expect(result?.alias?.['react-dom']).toContain(
-      '/project/node_modules/preact/compat'
-    )
-
-    expect(result?.alias?.['react-dom/test-utils']).toContain(
-      '/project/node_modules/preact/test-utils'
-    )
-
-    expect(result?.alias?.['react/jsx-runtime']).toContain(
-      '/project/node_modules/preact/jsx-runtime'
-    )
-
-    expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
-      '/project/node_modules/preact/jsx-dev-runtime'
-    )
-
-    expect(result?.alias?.preact).toBe('/project/node_modules/preact')
+    expect(result?.alias?.preact).toBe(dir)
   })
 
-  it('does not attempt to load @rspack/plugin-preact-refresh (fast-refresh disabled)', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'preact'
-    )
+  it('never loads the Preact refresh plugin, since fast refresh is off', async () => {
+    const {root} = preactProject({preact: '10'})
+    await maybeUsePreact(root)
 
-    let pluginRequested = false
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = ((id: string) => {
-          if (id === '@rspack/plugin-preact-refresh') {
-            pluginRequested = true
+    expect(
+      Object.keys(require.cache).filter((id) =>
+        id.includes(`${path.sep}plugin-preact-refresh${path.sep}`)
+      )
+    ).toEqual([])
+  })
 
-            throw new Error(`Cannot find module ${id}`)
-          }
-
-          throw new Error(`Cannot find module ${id}`)
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-
-        return req
-      }
-    }))
-
-    const {maybeUsePreact} = await import('../../js-tools/preact')
-    const result = await maybeUsePreact('/p')
-
-    expect(pluginRequested).toBe(false)
-    expect(result?.plugins).toEqual([])
-    expect(result?.alias?.preact).toBe('/project/node_modules/preact')
+  it('returns undefined when preact is not a dependency', async () => {
+    expect(
+      await maybeUsePreact(makeProject({'package.json': {}}))
+    ).toBeUndefined()
   })
 })
