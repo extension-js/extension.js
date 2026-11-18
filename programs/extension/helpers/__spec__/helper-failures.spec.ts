@@ -27,12 +27,11 @@ afterEach(() => {
 })
 
 describe('the safari command and the known command list', () => {
-  it('leaves safari out, so its runs report as unknown', () => {
-    // Pins today's behavior. Ledger 1372 D8.
-    expect(KNOWN_COMMANDS.has('safari' as never)).toBe(false)
+  it('counts safari runs under their own name', () => {
+    expect(KNOWN_COMMANDS.has('safari')).toBe(true)
     expect(
       detectInvokedCommand(['node', 'extension', 'safari', 'button'])
-    ).toBe('unknown')
+    ).toBe('safari')
   })
 })
 
