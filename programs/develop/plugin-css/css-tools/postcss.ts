@@ -466,6 +466,30 @@ function unwrapDefaultExport(mod: AnyModule): AnyModule {
 
 const TAILWIND_PLUGIN_IDS = ['@tailwindcss/postcss', 'tailwindcss']
 
+// Loads a package only from a node_modules folder at or above base. Node also
+// looks in NODE_PATH, which a package manager can point outside the project.
+export function requireFromProject(base: string, id: string): AnyModule {
+  const req = createRequire(path.join(base, '__extensionjs__.js'))
+
+  if (id.startsWith('.') || path.isAbsolute(id)) return req(id)
+
+  const resolved = fs.realpathSync(req.resolve(id))
+
+  for (let dir = path.resolve(base); ; dir = path.dirname(dir)) {
+    const packageDir = path.join(dir, 'node_modules', ...id.split('/'))
+
+    if (fs.existsSync(packageDir)) {
+      const real = fs.realpathSync(packageDir)
+
+      if (resolved.startsWith(real + path.sep)) return req(id)
+    }
+
+    if (path.dirname(dir) === dir) break
+  }
+
+  throw new Error(`Cannot find module '${id}' from ${base}`)
+}
+
 // Resolve string plugin names project-first: postcss-loader resolves relative
 // to itself, so a CLI outside the project never sees project node_modules.
 function resolveConfigPluginModule(
@@ -479,9 +503,7 @@ function resolveConfigPluginModule(
 
   for (const base of bases) {
     try {
-      const req = createRequire(path.join(base, '__extensionjs__.js'))
-
-      return unwrapDefaultExport(req(name))
+      return unwrapDefaultExport(requireFromProject(base, name))
     } catch {
       // Ignore
     }
@@ -994,11 +1016,9 @@ export async function maybeUsePostCss(
 
       for (const base of bases) {
         try {
-          const req = createRequire(path.join(base, '__extensionjs__.js'))
-
           for (const id of pluginCandidates) {
             try {
-              tailwindMod = req(id)
+              tailwindMod = requireFromProject(base, id)
               tailwindPluginId = id
               break
             } catch {
@@ -1075,10 +1095,10 @@ export async function maybeUsePostCss(
               if (tailwindPluginId === 'tailwindcss') {
                 for (const base of bases) {
                   try {
-                    const req = createRequire(
-                      path.join(base, '__extensionjs__.js')
+                    let postcssMod = requireFromProject(
+                      base,
+                      '@tailwindcss/postcss'
                     )
-                    let postcssMod = req('@tailwindcss/postcss')
 
                     if (
                       postcssMod &&
@@ -1229,8 +1249,7 @@ export async function maybeUsePostCss(
   if (userConfigIsCjsInEsm || bypassUserConfigForTailwindCompat) {
     try {
       if (hasDependency(projectPath, 'autoprefixer')) {
-        const req = createRequire(path.join(projectPath, 'package.json'))
-        const autoprefixerMod = req('autoprefixer')
+        const autoprefixerMod = requireFromProject(projectPath, 'autoprefixer')
         const autoprefixerPlugin =
           typeof autoprefixerMod === 'function'
             ? autoprefixerMod()

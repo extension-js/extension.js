@@ -458,6 +458,40 @@ describe('maybeUsePostCss with Tailwind', () => {
     ])
   })
 
+  // A package manager can set NODE_PATH to its own store, outside the project.
+  it('takes no Tailwind from a NODE_PATH folder outside the project', async () => {
+    const outside = makeProject({}, 'extjs-css-node-path-')
+    fakePackage(outside, '@tailwindcss/postcss')
+    const root = makeProject({
+      'package.json': packageJson({
+        packageManager: 'pnpm@10.0.0',
+        devDependencies: {'@tailwindcss/postcss': '^4.0.0'}
+      })
+    })
+    const warned: string[] = []
+    const previous = process.env.NODE_PATH
+    const Module = createRequire(import.meta.url)('node:module')
+
+    process.env.NODE_PATH = path.join(outside, 'node_modules')
+    Module._initPaths()
+
+    try {
+      const rule = await maybeUsePostCss(root, {
+        mode: 'development',
+        warn: (message) => warned.push(message)
+      })
+
+      expect(rule.options.postcssOptions).toEqual({cwd: root, config: root})
+      expect(calls(outside)).toEqual([])
+      expect(warned).toHaveLength(1)
+    } finally {
+      if (previous === undefined) delete process.env.NODE_PATH
+      else process.env.NODE_PATH = previous
+
+      Module._initPaths()
+    }
+  })
+
   it('says once that a Tailwind named in the config is not installed', async () => {
     const root = makeProject({
       'package.json': packageJson({
