@@ -15,19 +15,23 @@ const REFUSAL = 'Could not create a session: refused by the test'
 const DRIVER_PID = 2 ** 30
 const DRIVER_STARTED = Date.parse('2026-11-17T10:00:05.000Z')
 
-// A safaridriver that is up and refuses the session, served in this process.
-function refusingDriver(port: number): Promise<http.Server> {
+// A safaridriver that is up and refuses the session, or grants it, served in
+// this process.
+function refusingDriver(port: number, grants = false): Promise<http.Server> {
   return new Promise((resolve) => {
     const server = http.createServer((req, res) => {
       req.resume()
       req.on('end', () => {
         const ready = req.method === 'GET' && req.url === '/status'
-        res.writeHead(ready ? 200 : 500, {'Content-Type': 'application/json'})
+        const ok = ready || grants
+        res.writeHead(ok ? 200 : 500, {'Content-Type': 'application/json'})
         res.end(
           JSON.stringify({
             value: ready
               ? {ready: true}
-              : {error: 'session not created', message: REFUSAL}
+              : grants
+                ? {sessionId: 'session-1'}
+                : {error: 'session not created', message: REFUSAL}
           })
         )
       })
@@ -93,9 +97,9 @@ describe('the automation Safari a session quits on its way out', () => {
     await exited
   })
 
-  function useDriver(pid: number | undefined) {
+  function useDriver(pid: number | undefined, grants = false) {
     tools.startWebDriver = async (port) => {
-      const server = await refusingDriver(port)
+      const server = await refusingDriver(port, grants)
       servers.push(server)
 
       return {
@@ -285,5 +289,53 @@ describe('the automation Safari a session quits on its way out', () => {
     ])
 
     expect(printed).toEqual([])
+  })
+
+  describe('when the process exits with the session still open', () => {
+    // A fresh module, so its exit handler is installed for this test alone.
+    async function openSession(teardown: SafariQuitDependencies) {
+      vi.resetModules()
+      const fresh = await import('../../run-safari/safari-launch/webdriver')
+      useDriver(DRIVER_PID, true)
+
+      const outcome = await fresh.openSafariWebDriverSession(tools, {
+        attempts: 1,
+        teardown
+      })
+
+      expect(outcome.session?.sessionId).toBe('session-1')
+      events.length = 0
+
+      const added = process
+        .listeners('exit')
+        .filter((listener) => !listenersBefore.get('exit')?.includes(listener))
+
+      expect(added).toHaveLength(1)
+      ;(added[0] as (code: number) => void)(0)
+    }
+
+    it('quits the Safari the session raised, after its driver', async () => {
+      await openSession(
+        scripted({driver: [DRIVER_STARTED], safari: [DRIVER_STARTED + 2000]})
+      )
+
+      expect(events).toEqual([
+        'dated driver',
+        'driver stopped',
+        'dated safari',
+        'sent SIGTERM to safari'
+      ])
+
+      expect(printed).toEqual([])
+    })
+
+    it('leaves a Safari that started before its driver and says so', async () => {
+      await openSession(
+        scripted({driver: [DRIVER_STARTED], safari: [DRIVER_STARTED - 1000]})
+      )
+
+      expect(events).toEqual(['dated driver', 'driver stopped', 'dated safari'])
+      expect(printed).toEqual([leftRunningLine()])
+    })
   })
 })

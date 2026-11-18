@@ -46,7 +46,9 @@ interface DriverReply {
 }
 
 const activeSessions = new Set<SafariWebDriverSession>()
-const activeDrivers = new Set<SafariWebDriverProcess>()
+// Each driver this process runs, with what ends it at exit, where nothing
+// asynchronous can run: the driver, then the Safari its session raised.
+const activeDrivers = new Map<SafariWebDriverProcess, () => void>()
 let handlersInstalled = false
 
 function freePort(): Promise<number> {
@@ -138,7 +140,7 @@ function refusalReason(reply: DriverReply): string {
 }
 
 function stopAllDriversOnExit() {
-  for (const driver of activeDrivers) driver.stop()
+  for (const stopOnExit of activeDrivers.values()) stopOnExit()
 }
 
 function closeAllOnSignal() {
@@ -191,6 +193,24 @@ async function quitRaisedAutomation(
   const raised = (await tools.listAutomationPids()).filter(
     (pid) => !before.has(pid)
   )
+  const ours = provenAutomation(raised, driverStarted, deps)
+
+  for (const pid of ours) deps.kill(pid, 'SIGTERM')
+
+  const deadline = Date.now() + AUTOMATION_QUIT_MS
+
+  while (Date.now() < deadline && ours.some(deps.isAlive)) {
+    await new Promise((resolve) => setTimeout(resolve, DRIVER_POLL_MS))
+  }
+}
+
+// The raised pids that started no earlier than our driver. Each other one is
+// left running with a line that says how to stop it.
+function provenAutomation(
+  raised: number[],
+  driverStarted: number | null,
+  deps: SafariQuitDependencies
+): number[] {
   const ours: number[] = []
 
   for (const pid of raised) {
@@ -208,13 +228,7 @@ async function quitRaisedAutomation(
     }
   }
 
-  for (const pid of ours) deps.kill(pid, 'SIGTERM')
-
-  const deadline = Date.now() + AUTOMATION_QUIT_MS
-
-  while (Date.now() < deadline && ours.some(deps.isAlive)) {
-    await new Promise((resolve) => setTimeout(resolve, DRIVER_POLL_MS))
-  }
+  return ours
 }
 
 // Points the automation window at a page. Answers null once Safari loaded it,
@@ -328,7 +342,7 @@ async function requestSession(
     }
   }
 
-  activeDrivers.add(driver)
+  activeDrivers.set(driver, () => driver.stop())
   installHandlersOnce()
 
   const spawnedAt = driver.pid ? deps.startedAt(driver.pid) : null
@@ -397,6 +411,21 @@ async function requestSession(
 
     return {reason: refusalReason(created), retry: false}
   }
+
+  // Listed now, since the exit path cannot wait for the process table.
+  const raisedAtOpen = (await tools.listAutomationPids()).filter(
+    (pid) => !before.has(pid)
+  )
+
+  activeDrivers.set(driver, () => {
+    const driverStarted = provenDriverStart(driver.pid, spawnedAt, deps)
+
+    driver.stop()
+
+    for (const pid of provenAutomation(raisedAtOpen, driverStarted, deps)) {
+      deps.kill(pid, 'SIGTERM')
+    }
+  })
 
   let closing: Promise<void> | null = null
 
