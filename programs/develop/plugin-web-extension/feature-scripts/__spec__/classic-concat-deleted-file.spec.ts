@@ -9,9 +9,8 @@ import {classicConcatEntry} from '../../shared/classic-concat'
 import classicConcatLoader from '../steps/add-content-script-wrapper/classic-concat-loader'
 import {AddScripts} from '../steps/add-scripts'
 
-// Classic scripts joined by the loader in a real watch session, with one
-// of the files deleted after the first build. The step that owns the
-// reference (the page, or the manifest) is the one that reports it.
+// Classic scripts joined in a real watch session, with one file deleted
+// after the first build. The step that owns the reference reports it.
 const roots: string[] = []
 const watching: Compiler[] = []
 const before = process.env.EXTENSION_STRICT_REFS
