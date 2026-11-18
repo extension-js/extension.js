@@ -26,6 +26,7 @@ describe('diagnosticCode', () => {
     ['WARRelativeAssetMissing', 'E_ASSET_MISSING'],
     ['MissingCssAssetWarning', 'E_ASSET_MISSING'],
     ['RuntimeLoadedFileCompileFailed', 'E_SCRIPT_DEP_MISSING'],
+    ['CodeNamedFileNotShipped', 'E_SCRIPT_DEP_MISSING'],
     ['UnresolvedBareRequireWarning', 'E_SCRIPT_DEP_MISSING'],
     ['RemoteResourceBlocked', 'E_REMOTE_RESOURCE_BLOCKED'],
     ['ReservedScriptsFolder', 'E_RESERVED_FOLDER'],

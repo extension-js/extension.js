@@ -555,46 +555,46 @@ const EXPECTED: Record<string, Table> = {
   },
   themeExperiment: {
     '.envrc':
-      'nothing | said missing .envrc does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said missing .envrc does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '.npmrc':
-      'nothing | said missing .npmrc does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said missing .npmrc does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '.env':
-      'nothing | said missing .env does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said missing .env does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '.env.local':
-      'nothing | said missing .env.local does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said missing .env.local does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '.env.css':
-      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said missing .env.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '.env.local.css':
-      'nothing | said missing .env.local.css does not exist. Check the theme_experiment..env.local field | errors 1',
+      'nothing | said missing .env.local.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'a/../.envrc':
-      'nothing | said missing .envrc does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said missing .envrc does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'a/../.env.css':
-      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said missing .env.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '/.env.css':
-      'nothing | said missing .env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said missing .env.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '../outside.css':
-      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.outside field | errors 1',
+      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'a/../../outside.css':
-      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.outside field | errors 1',
+      'nothing | said missing ../outside.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'linked-out.css':
-      'nothing | said missing linked-out.css does not exist. Check the theme_experiment.linked-out field | errors 1',
+      'nothing | said missing linked-out.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'node_modules/pkg/.env':
-      'nothing | said missing node_modules/pkg/.env does not exist. Check the theme_experiment. field | errors 1',
+      'nothing | said missing node_modules/pkg/.env does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'node_modules/pkg/.env.css':
-      'nothing | said missing node_modules/pkg/.env.css does not exist. Check the theme_experiment..env field | errors 1',
+      'nothing | said missing node_modules/pkg/.env.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     '.git/tool.css':
-      'nothing | said missing .git/tool.css does not exist. Check the theme_experiment.tool field | errors 1',
+      'nothing | said missing .git/tool.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'node_modules/pkg/theme.css':
       'node_modules/pkg/theme.css in theme_experiment/theme.css',
     'linked-in.css': 'inside.css in theme_experiment/linked-in.css',
     '.env.example': 'nothing | errors 1',
     '.env.example.css':
-      'nothing | said missing .env.example.css does not exist. Check the theme_experiment..env.example field | errors 1',
+      'nothing | said missing .env.example.css does not exist. Check the theme_experiment.stylesheet field | errors 1',
     'ok.css': 'ok.css in theme_experiment/ok.css',
     '/hosted.css': 'public/hosted.css in hosted.css',
     'public/hosted.css': 'public/hosted.css in hosted.css',
     'absent.css':
-      'nothing | said missing <root>/absent.css does not exist. Check the theme_experiment.absent field | errors 1'
+      'nothing | said missing absent.css does not exist. Check the theme_experiment.stylesheet field | errors 1'
   },
   webAccessibleScript: {
     '.envrc': 'nothing',

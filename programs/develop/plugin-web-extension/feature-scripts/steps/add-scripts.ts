@@ -37,6 +37,11 @@ const isBackgroundScriptsFeature = (feature: string) =>
 // The field as the manifest writes it: a content script group lists its
 // scripts and its stylesheets apart, under the index of the group.
 function manifestFieldOf(feature: string, entry: string): string {
+  // The theme entry is named after its file, and the field has one name.
+  if (feature.startsWith('theme_experiment/')) {
+    return 'theme_experiment.stylesheet'
+  }
+
   const group = parseCanonicalContentScriptEntryIndex(feature)
 
   if (group === undefined) return feature.replace('/', '.')
