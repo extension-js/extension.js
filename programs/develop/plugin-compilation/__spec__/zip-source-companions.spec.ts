@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {ZipPlugin} from '../zip'
+import {isCompanionExtension, ZipPlugin} from '../zip'
 import {readZip, zipProject} from './helpers/zip-archive'
 
 function readZipEntries(zipPath: string): string[] {
@@ -152,27 +152,74 @@ describe('a source zip of a project that lives under ./extensions', () => {
     return {warnings, names: Object.keys(readZip(zipPath)).sort()}
   }
 
-  it('writes an empty archive and says nothing', async () => {
+  it('packs the folder that holds the manifest and no folder beside it', async () => {
     const manifestPath = path.join(tmp, 'extensions', 'my-ext', 'manifest.json')
     write(manifestPath, NESTED)
     write(path.join(tmp, 'extensions', 'my-ext', 'bg.js'), 'OWN')
     write(path.join(tmp, 'extensions', 'other-ext', 'manifest.json'), NESTED)
     write(path.join(tmp, 'extensions', 'other-ext', 'bg.js'), 'OTHER')
+    write(path.join(tmp, 'extensions', 'my-ext-2', 'bg.js'), 'OTHER')
 
     const {warnings, names} = await sourceZip(manifestPath)
 
-    expect(names).toEqual([])
+    expect(names).toEqual([
+      'extensions/my-ext/bg.js',
+      'extensions/my-ext/manifest.json'
+    ])
+
     expect(warnings).toEqual([])
   })
 
-  it('writes an empty archive for a manifest directly in ./extensions', async () => {
+  it('packs ./extensions whole when the manifest sits directly in it', async () => {
     const manifestPath = path.join(tmp, 'extensions', 'manifest.json')
     write(manifestPath, NESTED)
     write(path.join(tmp, 'extensions', 'bg.js'), 'OWN')
 
     const {warnings, names} = await sourceZip(manifestPath)
 
-    expect(names).toEqual([])
+    expect(names).toEqual(['extensions/bg.js', 'extensions/manifest.json'])
     expect(warnings).toEqual([])
+  })
+
+  it('warns when every file is left out and the archive is empty', async () => {
+    const manifestPath = path.join(tmp, 'extensions', 'my-ext', 'manifest.json')
+    write(manifestPath, NESTED)
+    write(path.join(tmp, '.gitignore'), 'extensions\n.gitignore\n')
+
+    const {warnings, names} = await sourceZip(manifestPath)
+
+    expect(names).toEqual([])
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toMatch(/The source zip holds no files/)
+  })
+
+  it('reads the folder of the manifest in either separator style', () => {
+    const own = 'extensions/my-ext'
+    const windows = (file: string) => file.replace(/\//g, '\\')
+
+    for (const style of [(file: string) => file, windows]) {
+      expect(isCompanionExtension(style('extensions/my-ext/bg.js'))).toBe(true)
+      expect(
+        isCompanionExtension(style('extensions/my-ext/bg.js'), style(own))
+      ).toBe(false)
+
+      expect(
+        isCompanionExtension(style('extensions/my-ext/src/a.js'), style(own))
+      ).toBe(false)
+
+      expect(
+        isCompanionExtension(style('extensions/other-ext/bg.js'), style(own))
+      ).toBe(true)
+
+      expect(
+        isCompanionExtension(style('extensions/my-ext-2/bg.js'), style(own))
+      ).toBe(true)
+
+      expect(
+        isCompanionExtension(style('extensions/other/bg.js'), 'extensions')
+      ).toBe(false)
+
+      expect(isCompanionExtension(style('src/extensions/a.js'))).toBe(false)
+    }
   })
 })

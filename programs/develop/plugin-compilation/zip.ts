@@ -178,10 +178,18 @@ export function inArchiveOrder(files: string[]): string[] {
 // someone downloads and trusts.
 const COMPANION_DIR = 'extensions'
 
-function isCompanionExtension(file: string): boolean {
-  const [first] = toPosix(file).split('/')
+// A project can itself live under ./extensions. The folder that holds its
+// own manifest is its source, and only the folders beside it are companions.
+export function isCompanionExtension(
+  file: string,
+  ownFolder?: string
+): boolean {
+  const posix = toPosix(file)
+  const [first] = posix.split('/')
 
-  return first === COMPANION_DIR
+  if (first !== COMPANION_DIR) return false
+
+  return !(ownFolder && isUnder(posix, toPosix(ownFolder)))
 }
 
 // The source zip is the artifact the share feature hands to strangers, so
@@ -611,7 +619,8 @@ function isIgnoredByNestedRules(
 
 export async function getFilesToZip(
   projectDir: string,
-  output?: BuildOutput
+  output?: BuildOutput,
+  manifestPath?: string
 ): Promise<{
   files: string[]
   skippedLinks: string[]
@@ -644,13 +653,16 @@ export async function getFilesToZip(
   ).map(toPosix)
 
   const nested = nestedIgnoreRules(projectDir, files)
+  const ownFolder = manifestPath
+    ? relativeWithin(projectDir, path.dirname(manifestPath))
+    : undefined
   const candidates = files.filter(
     (file) =>
       !isDeniedFromSourceZip(file) &&
       !(output && isBuildOutput(file, projectDir, output)) &&
       !ig.ignores(file) &&
       !isIgnoredByNestedRules(file, nested) &&
-      !isCompanionExtension(file)
+      !isCompanionExtension(file, ownFolder)
   )
   // Read from the whole listing, so an ignore rule cannot hide the files
   // that tell a session folder apart. Only folders that lost a file are named.
@@ -814,11 +826,21 @@ export class ZipPlugin {
         if (this.zipData.zipSource) {
           try {
             const {files, skippedLinks, skippedFolders, leftOut} =
-              await getFilesToZip(packageJsonDir, {
-                outPath,
-                archives: [sourcePath, distPath],
-                archiveDir: this.zipData.zipDir
-              })
+              await getFilesToZip(
+                packageJsonDir,
+                {
+                  outPath,
+                  archives: [sourcePath, distPath],
+                  archiveDir: this.zipData.zipDir
+                },
+                sourceManifestPath
+              )
+
+            if (!files.length) {
+              stats?.compilation?.warnings?.push(
+                new Error(compilationMessages.zipSourceEmpty())
+              )
+            }
 
             if (leftOut.length) {
               stats?.compilation?.warnings?.push(
