@@ -640,6 +640,16 @@ describe.skipIf(!canLink).each(Object.keys(FIELDS))('%s', (key) => {
   )
 })
 
+describe('the paths a Windows build names as not found', () => {
+  it('are one path for a line and its JSON copy', () => {
+    const file = 'C:\\Users\\RUNNER~1\\Temp\\project\\.env.js'
+    const message = `.env.js does not exist.\nNOT FOUND ${file}`
+    const printed = `${message}\n${JSON.stringify({diagnostics: [{message}]})}`
+
+    expect(notFoundPaths(printed)).toEqual([file])
+  })
+})
+
 describe('a manifest kept in src/', () => {
   // The fields are read from the manifest's folder, and the project root one
   // level up is still the project.
@@ -670,7 +680,7 @@ describe('a manifest kept in src/', () => {
       }
     }
 
-    return {held, result}
+    return {held, result, root}
   }
 
   it(
@@ -702,18 +712,18 @@ describe('a manifest kept in src/', () => {
   it(
     'names a private file of the project and a file outside the project',
     async () => {
-      const {held, result} = await rowsFor({
+      const {held, result, root} = await rowsFor({
         content_scripts: [{matches: MATCHES, js: ['../.env.js']}],
         background: {service_worker: '../../outside.js'}
       })
 
-      const root = result.printed.match(/NOT FOUND (\S+)\/\.env\.js/)?.[1] ?? ''
-
       expect(held).toEqual([])
-      expect(notFoundPaths(result.printed)).toEqual([
-        `${path.dirname(root)}/outside.js`,
-        `${root}/.env.js`
-      ])
+      expect(notFoundPaths(result.printed)).toEqual(
+        [
+          path.join(path.dirname(root), 'outside.js'),
+          path.join(root, '.env.js')
+        ].sort()
+      )
 
       expect(result.errors).toBe(2)
       expectNothingPrivate(result)
@@ -724,6 +734,13 @@ describe('a manifest kept in src/', () => {
 
 describe('a file a compiled field names and the build withholds', () => {
   const times = (text: string, part: string) => text.split(part).length - 1
+
+  // The JSON copy of a message doubles each Windows separator.
+  const asWrittenAndAsJson = (text: string, part: string) => {
+    const json = JSON.stringify(part).slice(1, -1)
+
+    return times(text, part) + (json === part ? 0 : times(text, json))
+  }
 
   it(
     'fails the build in words of its own, once for a file',
@@ -750,7 +767,7 @@ describe('a file a compiled field names and the build withholds', () => {
           `${file} is not bundled. Check the ${field} field in your manifest.json file.`,
           'The build never bundles env files, tooling files or repository files. Move the code into a file with another name.',
           '',
-          `NOT FOUND ${root}/${file}`
+          `NOT FOUND ${path.join(root, file)}`
         ].join('\n')
       const diagnostics = JSON.parse(
         result.printed.slice(result.printed.lastIndexOf('\n{"code"'))
@@ -771,7 +788,13 @@ describe('a file a compiled field names and the build withholds', () => {
       }
 
       for (const file of ['.env.js', '.env.css', '.envrc']) {
-        expect(times(result.printed, `NOT FOUND ${root}/${file}`), file).toBe(2)
+        expect(
+          asWrittenAndAsJson(
+            result.printed,
+            `NOT FOUND ${path.join(root, file)}`
+          ),
+          file
+        ).toBe(2)
       }
 
       expect(result.errors).toBe(3)

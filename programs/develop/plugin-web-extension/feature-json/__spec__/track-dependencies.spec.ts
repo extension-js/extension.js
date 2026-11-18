@@ -83,7 +83,8 @@ describe('the JSON files a watch session follows', () => {
           '.env',
           '.git/config',
           'node_modules/pkg/.npmrc',
-          'linked.json'
+          // Windows runners make no link, so the name would only be missing.
+          ...(canLink ? ['linked.json'] : [])
         ],
         'storage/managed_schema': 'absent.json'
       })
