@@ -156,6 +156,30 @@ describe('preview --no-browser and where extensions.dir sits', () => {
     ).toEqual([])
   })
 
+  for (const dir of ['.', './']) {
+    it(`refuses the project itself, written as ${dir}`, async () => {
+      const {root} = builtProject()
+
+      await expect(previewWith(root, {dir})).rejects.toMatchObject(
+        dirRefusal(root)
+      )
+    })
+  }
+
+  it.skipIf(process.platform === 'win32')(
+    'refuses a link whose real path is the project',
+    async () => {
+      const {root} = builtProject()
+      const link = path.join(root, 'loop')
+
+      fs.symlinkSync(root, link)
+
+      await expect(previewWith(root, {dir: './loop'})).rejects.toMatchObject(
+        dirRefusal(link)
+      )
+    }
+  )
+
   it('refuses a folder outside the project', async () => {
     const {root, outside} = builtProject()
 
@@ -213,4 +237,87 @@ describe('preview --no-browser and an entry that is neither link nor folder', ()
       )?.warnings
     ).toEqual([])
   })
+})
+
+describe('preview --no-browser and a link the scan meets', () => {
+  function scannedOut(entry: string, leadsTo: string) {
+    return (
+      'E_COMPANION_EXTENSION_PATH: A companion extension entry leads outside the project, so it is not loaded.\n' +
+      `ENTRY ${entry}\n` +
+      `LEADS TO ${leadsTo}\n` +
+      'Companion extensions must be inside the project. Copy the folder into the project, or remove the link.'
+    )
+  }
+
+  it.skipIf(process.platform === 'win32')(
+    'warns once about a link under extensions that leads outside',
+    async () => {
+      const {root, outside} = builtProject()
+
+      extensionAt(path.join(root, 'extensions', 'real'))
+      fs.symlinkSync(outside, path.join(root, 'extensions', 'linked-out'))
+      fs.symlinkSync(
+        extensionAt(path.join(root, 'vendor', 'inside')),
+        path.join(root, 'extensions', 'linked-in')
+      )
+
+      const result = await extensionPreview(root, {
+        browser: 'chromium',
+        noBrowser: true
+      } as never)
+
+      expect(result?.warnings).toEqual([
+        scannedOut('./extensions/linked-out', outside)
+      ])
+
+      expect(
+        vi
+          .mocked(console.warn)
+          .mock.calls.map((call) => String(call[0]))
+          .filter((line) => line.includes('leads outside the project'))
+      ).toHaveLength(1)
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'names a link met in a declared dir and in a grouping folder below it',
+    async () => {
+      const {root, outside} = builtProject()
+
+      fs.mkdirSync(path.join(root, 'vendor', 'companions', 'chromium'), {
+        recursive: true
+      })
+
+      fs.symlinkSync(
+        outside,
+        path.join(root, 'vendor', 'companions', 'chromium', 'linked-out')
+      )
+
+      expect(
+        (await previewWith(root, {dir: 'vendor/companions/'}))?.warnings
+      ).toEqual([scannedOut('vendor/companions/chromium/linked-out', outside)])
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'stays quiet about a scanned link that stays inside the project',
+    async () => {
+      const {root} = builtProject()
+
+      fs.mkdirSync(path.join(root, 'extensions'))
+      fs.symlinkSync(
+        extensionAt(path.join(root, 'vendor', 'inside')),
+        path.join(root, 'extensions', 'linked-in')
+      )
+
+      expect(
+        (
+          await extensionPreview(root, {
+            browser: 'chromium',
+            noBrowser: true
+          } as never)
+        )?.warnings
+      ).toEqual([])
+    }
+  )
 })

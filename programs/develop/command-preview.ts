@@ -24,6 +24,7 @@ import {
   companionsDeclaredIn,
   computeExtensionsToLoad,
   namedCompanionFoldersInsideProject,
+  scannedCompanionsOutsideProject,
   unresolvedNamedCompanions
 } from './lib/extensions-to-load'
 import {
@@ -505,20 +506,21 @@ export async function extensionPreview(
 
     // The session goes on without a named companion that is not an extension,
     // browser or not, and the caller reads which one beside the other warnings.
+    const checkedWithoutBrowser = previewOptions.noBrowser
+      ? {
+          paths: namedCompanionFoldersInsideProject(
+            mergedExtensionsConfig,
+            packageJsonDir
+          ),
+          dir: companionScanDirInsideProject(
+            mergedExtensionsConfig,
+            packageJsonDir
+          )
+        }
+      : undefined
     const missingCompanions = unresolvedNamedCompanions({
       projectRoot: packageJsonDir,
-      resolved: previewOptions.noBrowser
-        ? {
-            paths: namedCompanionFoldersInsideProject(
-              mergedExtensionsConfig,
-              packageJsonDir
-            ),
-            dir: companionScanDirInsideProject(
-              mergedExtensionsConfig,
-              packageJsonDir
-            )
-          }
-        : resolvedExtensionsConfig,
+      resolved: checkedWithoutBrowser ?? resolvedExtensionsConfig,
       declared: mergedExtensionsConfig,
       declaredIn: companionsDeclaredIn(metadataCommand, {
         flag: safePreviewOptions.extensions,
@@ -527,6 +529,16 @@ export async function extensionPreview(
         project: safeProjectConfig.extensions
       })
     })
+
+    // With a browser the launch path scans the folder and speaks for itself.
+    if (checkedWithoutBrowser) {
+      missingCompanions.push(
+        ...scannedCompanionsOutsideProject({
+          projectRoot: packageJsonDir,
+          dir: checkedWithoutBrowser.dir
+        })
+      )
+    }
 
     const warnAboutMissingCompanions = () => {
       for (const companion of missingCompanions) {

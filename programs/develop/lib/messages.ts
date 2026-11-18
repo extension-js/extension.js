@@ -1730,6 +1730,15 @@ export function companionExtensionNotResolved(
   )
 }
 
+export function scannedCompanionOutsideProject(entry: string, leadsTo: string) {
+  return (
+    `${getLoggingPrefix('warn')} A companion extension entry leads outside the project, so it is not loaded.\n` +
+    `${colors.gray('ENTRY')} ${colors.underline(entry)}\n` +
+    `${colors.gray('LEADS TO')} ${colors.underline(leadsTo)}\n` +
+    `Companion extensions must be inside the project. Copy the folder into the project, or remove the link.`
+  )
+}
+
 export function companionExtensionsFolderNotFound(
   dir: string,
   folderPath: string,

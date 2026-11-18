@@ -234,13 +234,79 @@ export function companionScanDirInsideProject(
 
   const folder = path.resolve(projectRoot, dir)
 
-  if (placeInProject(projectRoot, folder) === 'outside') {
+  // A scan of the project itself would meet its own source and output.
+  if (placeInProject(projectRoot, folder) !== 'inside') {
     throw companionRefusal(
       'extensions.dir must be inside the project.\n' + `Invalid dir: ${folder}`
     )
   }
 
   return dir
+}
+
+function linksIn(folder: string): string[] {
+  try {
+    return fs
+      .readdirSync(folder, {withFileTypes: true})
+      .filter((entry) => entry.isSymbolicLink() && !entry.name.startsWith('.'))
+      .map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
+function plainFoldersIn(folder: string): string[] {
+  try {
+    return fs
+      .readdirSync(folder, {withFileTypes: true})
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
+// The scan meets entries nobody named. A link among them that leads out of
+// the project is left out and said, and the entries beside it are untouched.
+export function scannedCompanionsOutsideProject(input: {
+  projectRoot: string
+  // The scan folder as the config spells it, already known to be inside.
+  dir?: string
+}): UnresolvedCompanion[] {
+  if (!input.dir) return []
+
+  const scanRoot = path.resolve(input.projectRoot, input.dir)
+  // The scan reads the folder and one level of grouping folders below it.
+  const groups = [
+    '',
+    ...plainFoldersIn(scanRoot).filter(
+      (name) => !fs.existsSync(path.join(scanRoot, name, 'manifest.json'))
+    )
+  ]
+  const outside: UnresolvedCompanion[] = []
+
+  for (const group of groups) {
+    for (const name of linksIn(path.join(scanRoot, group))) {
+      const link = path.join(scanRoot, group, name)
+
+      if (placeInProject(input.projectRoot, link) !== 'outside') continue
+
+      const frame = messages.scannedCompanionOutsideProject(
+        [input.dir.replace(/[\\/]+$/, ''), group, name]
+          .filter(Boolean)
+          .join('/'),
+        realPath(link)
+      )
+
+      outside.push({
+        manifestPath: link,
+        frame,
+        coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+      })
+    }
+  }
+
+  return outside
 }
 
 // Which layer the companions came from, in the order the commands merge them.

@@ -51,6 +51,7 @@ vi.mock('../lib/extensions-to-load', () => ({
   companionsDeclaredIn: vi.fn(),
   namedCompanionFoldersInsideProject: vi.fn(() => []),
   companionScanDirInsideProject: vi.fn(),
+  scannedCompanionsOutsideProject: vi.fn(() => []),
   unresolvedNamedCompanions: vi.fn(() => []),
   computeExtensionsToLoad: vi.fn(() => ['/theme', '/comp/a', '/out'])
 }))
