@@ -117,13 +117,32 @@ export function project(files: Record<string, string>) {
   return root
 }
 
+// Whether the holder is a workspace root, where a file beside the project is
+// one the workspace shares and so carries no marker.
+export function isWorkspaceHolder(holder: string) {
+  return fs.existsSync(path.join(holder, 'pnpm-workspace.yaml'))
+}
+
+// Makes the holder a workspace root: what sits beside the project is shared
+// now, so it holds plain text. `shared` links a folder its siblings own.
+export function makeWorkspace(root: string) {
+  const holder = path.dirname(root)
+
+  fs.writeFileSync(path.join(holder, 'pnpm-workspace.yaml'), 'packages: []\n')
+  fs.writeFileSync(path.join(holder, 'outside.txt'), 'workspace-outside\n')
+  fs.writeFileSync(
+    path.join(holder, 'outside-folder', 'inner.txt'),
+    'workspace-outside-folder\n'
+  )
+}
+
 // A package of a workspace: `shared` links a folder its siblings own, and
 // `alias.json` links a file of the project itself.
 export function linkWorkspace(root: string, shared: Record<string, string>) {
   const holder = path.dirname(root)
   const folder = path.join(holder, 'shared-assets')
 
-  fs.writeFileSync(path.join(holder, 'pnpm-workspace.yaml'), 'packages: []\n')
+  makeWorkspace(root)
   fs.mkdirSync(folder)
 
   for (const [name, contents] of Object.entries(shared)) {
@@ -170,7 +189,7 @@ export function linkPackages(
 
   write(
     path.join(holder, 'elsewhere/stray-pkg/data.json'),
-    data(`${MARKER}-stray`)
+    data(isWorkspaceHolder(holder) ? 'workspace-stray' : `${MARKER}-stray`)
   )
 
   write(

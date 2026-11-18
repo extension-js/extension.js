@@ -145,24 +145,24 @@ function fixture(tracer: Tracer, target: string) {
   })
   const holder = path.dirname(root)
 
-  linkWorkspace(root, {'logo.txt': `${MARKER}-workspace\n`})
+  linkWorkspace(root, {'logo.txt': 'workspace-shared\n'})
   linkPackages(root)
 
-  // Scripts outside the project: one the browser runs as written, one the
-  // build would have to compile.
+  // Scripts beside the project, which the workspace shares: one the browser
+  // runs as written, one the build would have to compile.
   fs.writeFileSync(
     path.join(holder, 'outside.js'),
-    `var outside = "${MARKER}-outside-script"\n`
+    'var outside = "workspace-outside-script"\n'
   )
 
   fs.writeFileSync(
     path.join(holder, 'outside-module.js'),
-    `export const outside = "${MARKER}-outside-module"\nconsole.log(outside)\n`
+    'export const outside = "workspace-outside-module"\nconsole.log(outside)\n'
   )
 
   fs.writeFileSync(
     path.join(holder, 'outside.png'),
-    `${MARKER}-outside-image\n`
+    'workspace-outside-image\n'
   )
 
   if (canLink) {
@@ -204,8 +204,9 @@ const SAID: Array<[string, RegExp]> = [
 
 const PRIVATE_NAME =
   /(?:^|\/)(?:\.env(?:\.local)?|\.envrc|\.npmrc|\.git)(?:\/|$)/
-const OUTSIDE =
-  /^(?:outside|elsewhere\/|other-project\/|shared-assets\/|outside-folder\/)/
+// Beside the project sits the workspace, whose files are no private ones,
+// apart from the `node_modules` of another package.
+const OUTSIDE = /^other-project\//
 
 // The fake private files a build opened from JavaScript, by where they sit.
 async function readsOf<T>(holder: string, run: () => Promise<T>) {
@@ -374,6 +375,8 @@ const TARGETS = [
   'node_modules/.npmrc'
 ]
 
+// The links, the scripts and the stray package beside the project lead into
+// the workspace, so they ship like project files.
 const EXPECTED: Record<string, Table> = {
   importScripts: {
     '.env': 'nothing | said importScripts .env',
@@ -392,14 +395,13 @@ const EXPECTED: Record<string, Table> = {
     'sub/../../outside.txt':
       'nothing | said importScripts sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said importScripts %2e%2e/outside.txt',
-    'linked.txt': 'nothing | said importScripts linked.txt',
+    'linked.txt': 'background/linked.txt',
     'linked-folder/inner.txt':
-      'nothing | said importScripts linked-folder/inner.txt, withheld linked-folder/inner.txt',
-    'shared/logo.txt':
-      'nothing | said importScripts shared/logo.txt, withheld shared/logo.txt',
-    'out.js': 'nothing | said importScripts out.js',
-    'out-module.js': 'nothing | said importScripts out-module.js',
-    'out.png': 'nothing | said importScripts out.png',
+      'background/linked-folder/inner.txt + linked-folder/inner.txt',
+    'shared/logo.txt': 'background/shared/logo.txt + shared/logo.txt',
+    'out.js': 'background/out.js',
+    'out-module.js': 'background/out-module.js',
+    'out.png': 'background/out.png',
     'alias.json': 'background/alias.json',
     '.env.example': 'background/.env.example',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
@@ -416,7 +418,7 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'background/node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'nothing | said importScripts node_modules/stray-pkg/data.json',
+      'background/node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
       'nothing | said importScripts node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
@@ -438,12 +440,12 @@ const EXPECTED: Record<string, Table> = {
     '../outside.txt': 'nothing | said fetch ../outside.txt',
     'sub/../../outside.txt': 'nothing | said fetch sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said fetch %2e%2e/outside.txt',
-    'linked.txt': 'nothing | said fetch linked.txt',
-    'linked-folder/inner.txt': 'nothing | said fetch linked-folder/inner.txt',
-    'shared/logo.txt': 'nothing | said fetch shared/logo.txt',
-    'out.js': 'nothing | said fetch out.js',
-    'out-module.js': 'nothing | said fetch out-module.js',
-    'out.png': 'nothing | said fetch out.png',
+    'linked.txt': 'background/linked.txt',
+    'linked-folder/inner.txt': 'background/linked-folder/inner.txt',
+    'shared/logo.txt': 'background/shared/logo.txt',
+    'out.js': 'background/out.js',
+    'out-module.js': 'background/out-module.js',
+    'out.png': 'background/out.png',
     'alias.json': 'background/alias.json',
     '.env.example': 'background/.env.example',
     'data/ok.json': 'background/data/ok.json',
@@ -460,7 +462,7 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/workspace-pkg/data.json':
       'background/node_modules/workspace-pkg/data.json',
     'node_modules/stray-pkg/data.json':
-      'nothing | said fetch node_modules/stray-pkg/data.json',
+      'background/node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
       'nothing | said fetch node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
@@ -482,12 +484,12 @@ const EXPECTED: Record<string, Table> = {
     '../outside.txt': 'nothing | said getURL ../outside.txt',
     'sub/../../outside.txt': 'nothing | said getURL sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said getURL %2e%2e/outside.txt',
-    'linked.txt': 'nothing | said getURL linked.txt',
-    'linked-folder/inner.txt': 'nothing | said getURL linked-folder/inner.txt',
-    'shared/logo.txt': 'nothing | said getURL shared/logo.txt',
-    'out.js': 'nothing | said getURL out.js',
-    'out-module.js': 'nothing | said getURL out-module.js',
-    'out.png': 'nothing | said getURL out.png',
+    'linked.txt': 'linked.txt',
+    'linked-folder/inner.txt': 'linked-folder/inner.txt',
+    'shared/logo.txt': 'shared/logo.txt',
+    'out.js': 'out.js',
+    'out-module.js': 'out-module.js',
+    'out.png': 'out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'data/ok.json',
@@ -501,8 +503,7 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/store-pkg/data.json': 'node_modules/store-pkg/data.json',
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said getURL node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
       'nothing | said getURL node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
@@ -524,14 +525,13 @@ const EXPECTED: Record<string, Table> = {
     '../outside.txt': 'nothing | said injected ../outside.txt',
     'sub/../../outside.txt': 'nothing | said injected sub/../../outside.txt',
     '%2e%2e/outside.txt': 'nothing | said injected %2e%2e/outside.txt',
-    'linked.txt': 'nothing | said injected linked.txt',
+    'linked.txt': 'linked.txt',
     'linked-folder/inner.txt':
-      'nothing | said injected linked-folder/inner.txt, withheld linked-folder/inner.txt',
-    'shared/logo.txt':
-      'nothing | said injected shared/logo.txt, withheld shared/logo.txt',
-    'out.js': 'nothing | said injected out.js',
-    'out-module.js': 'nothing | said injected out-module.js',
-    'out.png': 'nothing | said injected out.png',
+      'background/linked-folder/inner.txt + linked-folder/inner.txt',
+    'shared/logo.txt': 'background/shared/logo.txt + shared/logo.txt',
+    'out.js': 'out.js',
+    'out-module.js': 'out-module.js',
+    'out.png': 'out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
@@ -545,8 +545,7 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/store-pkg/data.json': 'node_modules/store-pkg/data.json',
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said injected node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
       'nothing | said injected node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
@@ -556,39 +555,36 @@ const EXPECTED: Record<string, Table> = {
   insertCSS: {
     '.env': 'nothing | said injected .env',
     '.git/logo.png': 'nothing | said injected .git/logo.png',
-    'linked.txt': 'nothing | said injected linked.txt',
-    'out.js': 'nothing | said injected out.js',
-    'out.png': 'nothing | said injected out.png',
+    'linked.txt': 'linked.txt',
+    'out.js': 'out.js',
+    'out.png': 'out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said injected node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
       'nothing | said injected node_modules/plain-pkg/.env'
   },
   tabsExecuteScript: {
     '.env': 'nothing | said injected .env',
     '.git/logo.png': 'nothing | said injected .git/logo.png',
-    'linked.txt': 'nothing | said injected linked.txt',
-    'out.js': 'nothing | said injected out.js',
-    'out.png': 'nothing | said injected out.png',
+    'linked.txt': 'linked.txt',
+    'out.js': 'out.js',
+    'out.png': 'out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said injected node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
       'nothing | said injected node_modules/plain-pkg/.env'
   },
   registerContentScripts: {
     '.env': 'nothing | said injected .env',
     '.git/logo.png': 'nothing | said injected .git/logo.png',
-    'linked.txt': 'nothing | said injected linked.txt',
-    'out.js': 'nothing | said injected out.js',
-    'out.png': 'nothing | said injected out.png',
+    'linked.txt': 'linked.txt',
+    'out.js': 'out.js',
+    'out.png': 'out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said injected node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
       'nothing | said injected node_modules/plain-pkg/.env'
   },
@@ -597,7 +593,7 @@ const EXPECTED: Record<string, Table> = {
     '.git/logo.png': 'nothing | said surface .git/logo.png',
     'linked.txt': 'nothing',
     'out.js': 'nothing',
-    'out.png': 'nothing | said surface out.png',
+    'out.png': 'background/out.png',
     'data/ok.json': 'background/data/ok.json + data/ok.json',
     'node_modules/plain-pkg/data.json': 'nothing',
     'node_modules/stray-pkg/data.json': 'nothing',
@@ -620,8 +616,8 @@ const EXPECTED: Record<string, Table> = {
     '%2e%2e/outside.txt': 'nothing',
     'linked.txt': 'nothing',
     'linked-folder/inner.txt':
-      'nothing | said withheld linked-folder/inner.txt',
-    'shared/logo.txt': 'nothing | said withheld shared/logo.txt',
+      'background/linked-folder/inner.txt + linked-folder/inner.txt',
+    'shared/logo.txt': 'background/shared/logo.txt + shared/logo.txt',
     'out.js': 'nothing',
     'out-module.js': 'nothing',
     'out.png': 'nothing',
@@ -657,13 +653,12 @@ const EXPECTED: Record<string, Table> = {
     '../outside.txt': 'nothing',
     'sub/../../outside.txt': 'nothing',
     '%2e%2e/outside.txt': 'nothing',
-    'linked.txt': 'nothing | said withheld linked.txt',
-    'linked-folder/inner.txt':
-      'nothing | said withheld linked-folder/inner.txt',
-    'shared/logo.txt': 'nothing | said withheld shared/logo.txt',
-    'out.js': 'nothing | said withheld out.js',
-    'out-module.js': 'nothing | said withheld out-module.js',
-    'out.png': 'nothing | said withheld out.png',
+    'linked.txt': 'linked.txt',
+    'linked-folder/inner.txt': 'linked-folder/inner.txt',
+    'shared/logo.txt': 'shared/logo.txt',
+    'out.js': 'out.js',
+    'out-module.js': 'out-module.js',
+    'out.png': 'out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'data/ok.json',
@@ -677,8 +672,7 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/store-pkg/data.json': 'node_modules/store-pkg/data.json',
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said withheld node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
       'nothing | said withheld node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
@@ -700,13 +694,12 @@ const EXPECTED: Record<string, Table> = {
     '../outside.txt': 'nothing',
     'sub/../../outside.txt': 'nothing',
     '%2e%2e/outside.txt': 'nothing',
-    'linked.txt': 'nothing | said withheld linked.txt',
-    'linked-folder/inner.txt':
-      'nothing | said withheld linked-folder/inner.txt',
-    'shared/logo.txt': 'nothing | said withheld shared/logo.txt',
-    'out.js': 'nothing | said withheld out.js',
-    'out-module.js': 'nothing | said withheld out-module.js',
-    'out.png': 'nothing | said withheld out.png',
+    'linked.txt': 'linked.txt',
+    'linked-folder/inner.txt': 'linked-folder/inner.txt',
+    'shared/logo.txt': 'shared/logo.txt',
+    'out.js': 'out.js',
+    'out-module.js': 'out-module.js',
+    'out.png': 'out.png',
     'alias.json': 'alias.json',
     '.env.example': '.env.example',
     'data/ok.json': 'data/ok.json',
@@ -720,8 +713,7 @@ const EXPECTED: Record<string, Table> = {
     'node_modules/store-pkg/data.json': 'node_modules/store-pkg/data.json',
     'node_modules/workspace-pkg/data.json':
       'node_modules/workspace-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said withheld node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/far-pkg/data.json':
       'nothing | said withheld node_modules/far-pkg/data.json',
     'node_modules/plain-pkg/.env':
@@ -731,13 +723,12 @@ const EXPECTED: Record<string, Table> = {
   copiedScript: {
     '.env': 'nothing | said getURL .env',
     '.git/logo.png': 'nothing | said getURL .git/logo.png',
-    'linked.txt': 'nothing | said getURL linked.txt',
-    'out.js': 'nothing | said getURL out.js',
-    'out.png': 'nothing | said getURL out.png',
+    'linked.txt': 'linked.txt',
+    'out.js': 'out.js',
+    'out.png': 'out.png',
     'data/ok.json': 'data/ok.json',
     'node_modules/plain-pkg/data.json': 'node_modules/plain-pkg/data.json',
-    'node_modules/stray-pkg/data.json':
-      'nothing | said getURL node_modules/stray-pkg/data.json',
+    'node_modules/stray-pkg/data.json': 'node_modules/stray-pkg/data.json',
     'node_modules/plain-pkg/.env':
       'nothing | said getURL node_modules/plain-pkg/.env'
   }
@@ -802,20 +793,33 @@ describe('a file the code names and the build withholds', () => {
   it.skipIf(!canLink)(
     'is said in words of its own where a missing file gets none',
     async () => {
-      const root = fixture(TRACERS.plainString, 'shared/logo.txt')
+      const target = 'far-folder/data.json'
+      const root = fixture(TRACERS.plainString, target)
+
+      // A folder link through the `node_modules` of another package.
+      fs.symlinkSync(
+        path.join(
+          path.dirname(root),
+          'other-project',
+          'node_modules',
+          'far-pkg'
+        ),
+        path.join(root, 'far-folder')
+      )
+
       const result = await build(root)
 
       // One finding for each place the worker could mean: the root, then
       // beside the worker.
       for (const sentence of [
-        'NOT FOUND shared/logo.txt',
-        'NOT FOUND background/shared/logo.txt'
+        `NOT FOUND ${target}`,
+        `NOT FOUND background/${target}`
       ]) {
         expect(times(result.printed, sentence), sentence).toBe(2)
       }
 
       for (const sentence of [
-        "background/service_worker.js names 'shared/logo.txt', but the file isn't in the output.",
+        `background/service_worker.js names '${target}', but the file isn't in the output.`,
         'A read of it fails at runtime.',
         'The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in public/.'
       ]) {
@@ -823,8 +827,8 @@ describe('a file the code names and the build withholds', () => {
       }
 
       expect(notFoundPaths(result.printed)).toEqual([
-        'background/shared/logo.txt',
-        'shared/logo.txt'
+        `background/${target}`,
+        target
       ])
 
       expect(result.marked).toEqual([])

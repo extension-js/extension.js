@@ -37,6 +37,8 @@ const rules = (text: string) =>
 // build must never copy carries the marker.
 const WORKSPACE_FILES: Record<string, string> = {
   'shared/logo.png': token('shared/logo.png'),
+  // A link in the project leads here, so a row of it stands apart.
+  'shared/linked.png': token('shared/linked.png'),
   'shared/rules.json': rules(token('shared/rules.json')),
   'packages/ui/logo.png': token('packages/ui/logo.png'),
   'packages/ui/tokens.json': rules(token('packages/ui/tokens.json')),
@@ -115,7 +117,7 @@ function fixture(
 
   if (canLink) {
     fs.symlinkSync(
-      path.join(ws, 'shared', 'logo.png'),
+      path.join(ws, 'shared', 'linked.png'),
       path.join(root, 'linked-in.png')
     )
 
@@ -152,7 +154,7 @@ const REFS: Record<string, string> = {
   '../../node_modules/dep/data.json': 'node_modules/dep/data.json',
   '../../../outside.json': 'outside.json',
   ...(canLink
-    ? {'linked-in.png': 'shared/logo.png', 'linked-out.json': 'outside.json'}
+    ? {'linked-in.png': 'shared/linked.png', 'linked-out.json': 'outside.json'}
     : {})
 }
 
@@ -204,7 +206,7 @@ interface Route {
   refs: string[]
   // The project files that make the route name every ref.
   project: (refs: string[]) => Record<string, string>
-  // The refs a finding of this route names.
+  // The refs a warning of this route names.
   said: RegExp
 }
 
@@ -249,7 +251,7 @@ const ROUTES: Route[] = [
   }
 ]
 
-// A row: where the file landed in the output, then whether a finding named it.
+// A row: where the file landed in the output, then whether a warning named it.
 type Table = Record<string, string>
 
 async function routeTable(
@@ -344,7 +346,7 @@ const each = (refs: string[], row: string, except: Table = {}): Table => ({
 
 const LINK_REFS = canLink ? ['linked-in.png', 'linked-out.json'] : []
 
-// Today a named file outside the project never ships, wherever it sits.
+// Without a workspace a named file outside the project never ships.
 const OUTSIDE_PROJECT: Record<string, Table> = {
   web_accessible_resources: each(CODE_REFS, 'nothing | said'),
   'a custom manifest key': {
@@ -361,10 +363,49 @@ const OUTSIDE_PROJECT: Record<string, Table> = {
   json: each(JSON_REFS, 'nothing | said | errors 1')
 }
 
-const EXPECTED: Record<string, Record<string, Table>> = Object.fromEntries(
-  Object.keys(MARKERS).map((name) => [name, OUTSIDE_PROJECT])
-)
-const NESTED = {outer: [], nearest: []}
+// A named file of the workspace ships, at the path each route gives it. A
+// path a URL resolves never climbs out of the extension root, so it reaches
+// the workspace only through a link. Two files of one name land apart.
+const IN_WORKSPACE: Record<string, Table> = {
+  web_accessible_resources: {
+    ...OUTSIDE_PROJECT.web_accessible_resources,
+    '../../shared/logo.png': 'assets/logo.<hash>.png',
+    '../../packages/ui/logo.png': 'assets/logo.<hash>.png',
+    '../../packages/ui/tokens.json': 'assets/tokens.<hash>.json',
+    '../../node_modules/dep/data.json': 'assets/data.<hash>.json',
+    ...(canLink ? {'linked-in.png': 'linked-in.png'} : {})
+  },
+  'a custom manifest key': {
+    ...OUTSIDE_PROJECT['a custom manifest key'],
+    ...(canLink ? {'linked-in.png': 'linked-in.png'} : {})
+  },
+  'runtime.getURL()': {
+    ...OUTSIDE_PROJECT['runtime.getURL()'],
+    ...(canLink ? {'linked-in.png': 'linked-in.png'} : {})
+  },
+  'fetch()': {
+    ...OUTSIDE_PROJECT['fetch()'],
+    ...(canLink ? {'linked-in.png': 'background/linked-in.png'} : {})
+  },
+  json: {
+    ...OUTSIDE_PROJECT.json,
+    '../../shared/rules.json': 'declarative_net_request/rules.json',
+    '../../packages/ui/tokens.json': 'declarative_net_request/rules.json',
+    '../../node_modules/dep/data.json': 'declarative_net_request/rules.json'
+  }
+}
+
+const EXPECTED: Record<string, Record<string, Table>> = {
+  'pnpm-workspace.yaml': IN_WORKSPACE,
+  'workspaces list': IN_WORKSPACE,
+  'workspaces object': IN_WORKSPACE,
+  'no marker': OUTSIDE_PROJECT,
+  'a lockfile alone': OUTSIDE_PROJECT,
+  'a .git folder alone': OUTSIDE_PROJECT,
+  'lerna.json alone': OUTSIDE_PROJECT
+}
+
+const NESTED = {outer: [], nearest: ['assets/logo.<hash>.png']}
 
 describe.each(
   Object.keys(MARKERS)
@@ -461,6 +502,35 @@ describe.skipIf(!canLink)('a walk that reaches a workspace file', () => {
       expect(result.errors).toBe(0)
       expect([...landings(root).keys()].sort()).toEqual([])
       expect(result.shipped).toContain('kept.txt')
+    },
+    TIMEOUT
+  )
+})
+
+describe('two workspace files of one name', () => {
+  it(
+    'land as two files, each with its own content',
+    async () => {
+      const {root} = fixture(
+        MARKERS['pnpm-workspace.yaml'],
+        ROUTES[0].project([
+          '../../shared/logo.png',
+          '../../packages/ui/logo.png'
+        ])
+      )
+      const result = await build(root)
+      const assets = path.join(root, 'dist', 'chrome', 'assets')
+      const held = fs
+        .readdirSync(assets)
+        .filter((name) => name.endsWith('.png'))
+        .map((name) => fs.readFileSync(path.join(assets, name), 'utf8'))
+        .sort()
+
+      expect(result.errors).toBe(0)
+      expect(held).toEqual([
+        token('packages/ui/logo.png'),
+        token('shared/logo.png')
+      ])
     },
     TIMEOUT
   )

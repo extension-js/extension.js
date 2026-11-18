@@ -6,6 +6,7 @@ import {
   canLink,
   expectNothingPrivate,
   linkPackages,
+  makeWorkspace,
   MARKER,
   manifest,
   PAGE,
@@ -77,12 +78,12 @@ function workspaceProject(version: 2 | 3, entry: string) {
   const root = project({...FILES, 'manifest.json': declare(version, [entry])})
   const holder = path.dirname(root)
 
+  makeWorkspace(root)
   linkPackages(root)
-  fs.writeFileSync(path.join(holder, 'pnpm-workspace.yaml'), 'packages: []\n')
   fs.mkdirSync(path.join(holder, 'shared-assets'))
   fs.writeFileSync(
     path.join(holder, 'shared-assets', 'logo.txt'),
-    `${MARKER}-workspace\n`
+    'workspace-shared\n'
   )
 
   if (canLink) {
@@ -135,25 +136,19 @@ async function tableFor(version: 2 | 3, entries: string[]): Promise<Table> {
 const TIMEOUT = 300_000
 const VERSIONS = [3, 2] as const
 
+// The holder is the workspace root, so a file beside the project ships once,
+// as an asset the manifest lists in place of the entry.
+const IN_WORKSPACE: Row = {
+  shipped: ['assets/outside.<hash>.txt', 'hosted.txt'],
+  marked: [],
+  listed: ['assets/outside.<hash>.txt'],
+  reported: []
+}
+
 const PRIVATE_FILES: Table = {
-  '/../outside.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['../outside.txt'],
-    reported: ['../outside.txt']
-  },
-  '../outside.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['../outside.txt'],
-    reported: ['../outside.txt']
-  },
-  'sub/../../outside.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['sub/../../outside.txt'],
-    reported: ['sub/../../outside.txt']
-  },
+  '/../outside.txt': IN_WORKSPACE,
+  '../outside.txt': IN_WORKSPACE,
+  'sub/../../outside.txt': IN_WORKSPACE,
   '/%2e%2e/outside.txt': {
     shipped: ['hosted.txt'],
     marked: [],
@@ -278,7 +273,8 @@ const LINKED_PACKAGE_FILES: Table = {
   'node_modules/workspace-pkg/data.json': vendored(
     'node_modules/workspace-pkg/data.json'
   ),
-  'node_modules/stray-pkg/data.json': refused(
+  // The link leads to a folder of the workspace.
+  'node_modules/stray-pkg/data.json': vendored(
     'node_modules/stray-pkg/data.json'
   ),
   'node_modules/far-pkg/data.json': refused('node_modules/far-pkg/data.json')
@@ -404,31 +400,12 @@ const PATTERNS: Table = {
     reported: []
   }
 }
+// A link into the workspace ships the file it leads to, at the link's path.
 const LINKS: Table = {
-  '/linked.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['linked.txt'],
-    reported: ['linked.txt']
-  },
-  'linked.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['linked.txt'],
-    reported: ['linked.txt']
-  },
-  '/linked-folder/inner.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['linked-folder/inner.txt'],
-    reported: ['linked-folder/inner.txt']
-  },
-  'linked-folder/inner.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['linked-folder/inner.txt'],
-    reported: ['linked-folder/inner.txt']
-  },
+  '/linked.txt': vendored('linked.txt'),
+  'linked.txt': vendored('linked.txt'),
+  '/linked-folder/inner.txt': vendored('linked-folder/inner.txt'),
+  'linked-folder/inner.txt': vendored('linked-folder/inner.txt'),
   'linked-folder': {
     shipped: ['hosted.txt'],
     marked: [],
@@ -441,12 +418,7 @@ const LINKS: Table = {
     listed: ['linked-folder/*'],
     reported: ['linked-folder/*']
   },
-  'shared/logo.txt': {
-    shipped: ['hosted.txt'],
-    marked: [],
-    listed: ['shared/logo.txt'],
-    reported: ['shared/logo.txt']
-  },
+  'shared/logo.txt': vendored('shared/logo.txt'),
   shared: {
     shipped: ['hosted.txt'],
     marked: [],

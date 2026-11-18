@@ -106,7 +106,7 @@ const withoutHash = (name: string) =>
   name.replace(/\.[0-9a-f]{8}(?=\.|$)/, '.<hash>')
 
 // A row: the output files that hold the picture, what the written manifest
-// lists, and the entries the missing-resource finding names.
+// lists, and the entries the missing-resource warning names.
 interface Row {
   marked: string[]
   listed: string[]
@@ -150,6 +150,9 @@ const copiedBySheet = (ref: string): Row => ({
   reported: [ref]
 })
 
+// In a workspace the entry ships the file once, sheet or not.
+const SHIPS_ONCE: Row = {marked: [PICTURE], listed: [PICTURE], reported: []}
+
 const FROM_ROOT = '../shared/outside-picture.png'
 const FROM_SRC = '../../shared/outside-picture.png'
 
@@ -177,22 +180,22 @@ const ROWS: Array<[string, Layout, Row]> = [
   [
     'at the root, alone, in a workspace',
     {manifestIn: '', sheet: false, marker: true},
-    refused(FROM_ROOT)
+    SHIPS_ONCE
   ],
   [
     'in src/, alone, in a workspace',
     {manifestIn: 'src', sheet: false, marker: true},
-    refused(FROM_SRC)
+    SHIPS_ONCE
   ],
   [
     'at the root, with a sheet, in a workspace',
     {manifestIn: '', sheet: true, marker: true},
-    copiedBySheet(FROM_ROOT)
+    SHIPS_ONCE
   ],
   [
     'in src/, with a sheet, in a workspace',
     {manifestIn: 'src', sheet: true, marker: true},
-    copiedBySheet(FROM_SRC)
+    SHIPS_ONCE
   ]
 ]
 
