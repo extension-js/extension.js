@@ -281,7 +281,7 @@ describe('a url() that names a file the build withholds, built', () => {
       for (const {request} of LINES.filter((line) => line.kept)) {
         expect(shipped).toMatch(
           new RegExp(
-            `url\\(\\\\?["']?${request.replace(/[.]/g, '\\.')}\\\\?["']?\\)`
+            `url\\(\\\\?["']?${request.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&')}\\\\?["']?\\)`
           )
         )
       }
