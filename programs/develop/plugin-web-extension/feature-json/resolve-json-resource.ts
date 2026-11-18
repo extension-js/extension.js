@@ -8,8 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
+import type {Compilation} from '@rspack/core'
+import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {isInsidePath, isOsPathUnder} from '../../lib/real-path'
+import {rootAbsoluteClimbsOut} from '../../plugin-special-folders/public-private-files'
+import {inspectPublicFolders} from '../../plugin-special-folders/resolve-public-folder'
+import {getOriginalManifestContent} from '../feature-manifest/manifest-lib/manifest'
 
 export interface ResolvedJsonResource {
   abs: string
@@ -107,4 +111,57 @@ export function resolveJsonResource(
     isUnderPublic,
     isPublicRoot
   }
+}
+
+// The path the author wrote for a field, keyed the way the fields package
+// keys it. Undefined for a key it does not read from the manifest.
+function authoredJsonPath(
+  manifest: unknown,
+  feature: string
+): string | undefined {
+  const read = (manifest || {}) as {
+    declarative_net_request?: {rule_resources?: unknown}
+    storage?: {managed_schema?: unknown}
+  }
+
+  if (feature === 'storage/managed_schema') {
+    const value = read.storage?.managed_schema
+
+    return typeof value === 'string' ? value : undefined
+  }
+
+  const rules = read.declarative_net_request?.rule_resources
+
+  if (
+    !feature.startsWith('declarative_net_request/') ||
+    !Array.isArray(rules)
+  ) {
+    return undefined
+  }
+
+  const id = feature.slice('declarative_net_request/'.length)
+  const rule = rules.find(
+    (entry) => entry && String((entry as {id?: unknown}).id) === id
+  ) as {path?: unknown} | undefined
+
+  return typeof rule?.path === 'string' ? rule.path : undefined
+}
+
+// The fields package joins `/../x` and `../x` to one path, so the authored
+// text tells which one a page would refuse for climbing out of the root.
+export function jsonFieldClimbsOutOfRoot(
+  compilation: Compilation,
+  manifestPath: string,
+  feature: string
+): boolean {
+  const original = getOriginalManifestContent(compilation)
+  let manifest: unknown
+
+  try {
+    manifest = parseJsonSafe(original ?? fs.readFileSync(manifestPath, 'utf8'))
+  } catch {
+    return false
+  }
+
+  return rootAbsoluteClimbsOut(authoredJsonPath(manifest, feature) ?? '')
 }

@@ -31,7 +31,7 @@ import {resolveScriptEntryPath} from '../plugin-web-extension/feature-scripts/sc
 import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {cssInContentScriptLoader} from './css-in-content-script-loader'
 import {cssInHtmlLoader} from './css-in-html-loader'
-import {toPosixPath} from './css-lib/dead-url-refs'
+import {cssUrlRefCandidates, toPosixPath} from './css-lib/dead-url-refs'
 import * as messages from './css-lib/messages'
 import {
   SFC_INLINE_STYLE_BLOCK_QUERY,
@@ -41,11 +41,16 @@ import {
 } from './css-lib/sfc-style-block'
 import {beginStyleDiagnostics} from './css-lib/style-diagnostics'
 import {
+  forgetVerbatimCss,
   minifierDroppedTokens,
-  restoreVerbatimCssAssets
+  restoreVerbatimCssAssets,
+  verbatimCssIdsIn
 } from './css-lib/verbatim-css'
 import {maybeUseLess} from './css-tools/less'
-import {findPostCssConfig} from './css-tools/postcss'
+import {
+  findPostCssConfig,
+  postCssReaderForOneCompiler
+} from './css-tools/postcss'
 import {maybeUseSass} from './css-tools/sass'
 import {getTailwindConfigFile} from './css-tools/tailwind'
 import {PUBLIC_ROOT_SCHEME} from './public-css-url-loader'
@@ -55,6 +60,9 @@ export class CssPlugin {
 
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
+
+  // Setup failures found while building the rules, said once per compiler.
+  private readonly setupWarnings: string[] = []
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -85,21 +93,23 @@ export class CssPlugin {
       baseScheme: extensionSchemeFor(String(this.browser))
     }
 
+    const usage = {
+      useSass: usingSass,
+      useLess: usingLess,
+      postCss: postCssReaderForOneCompiler((message) =>
+        this.setupWarnings.push(message)
+      )
+    }
+
     const loaders: RuleSetRule[] = [
       ...(await cssInContentScriptLoader(
         projectPath,
         manifestPath,
         mode,
-        {
-          useSass: usingSass,
-          useLess: usingLess
-        },
+        usage,
         this.browser
       )),
-      ...(await cssInHtmlLoader(projectPath, mode, manifestPath, {
-        useSass: usingSass,
-        useLess: usingLess
-      })),
+      ...(await cssInHtmlLoader(projectPath, mode, manifestPath, usage)),
       // Post, so it runs after the framework has scoped the block. The block
       // is imported for its effect alone, which sideEffects: false would drop.
       {
@@ -169,8 +179,8 @@ export class CssPlugin {
       }
     ]
 
-    // Rspack's native CSS already bakes a content-hash into [name] for split CSS
-    // chunks, so plain [name].css suffices in dev and production.
+    // [name] is the entry name, or the chunk id for an unnamed split chunk,
+    // so every sheet gets its own file without a hash in dev and production.
     compiler.options.output.cssFilename = '[name].css'
     compiler.options.output.cssChunkFilename = '[name].css'
 
@@ -217,11 +227,11 @@ export class CssPlugin {
   // the minimizer error-recovered into fewer rules than the browser would
   // keep ships unminified, with a warning naming what it dropped.
   private keepCssParityInProduction(compiler: Compiler) {
-    if (!compiler.hooks?.thisCompilation?.tap) return
+    // The registry outlives a compilation, so each compiler drops the sheets
+    // it no longer emits, and never one another compiler may still emit.
+    let idsInUse = new Set<string>()
 
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:parity`, (c) => {
-      if (!c?.hooks?.processAssets?.tap) return
-
       const beforeMinify = new Map<string, string>()
       c.hooks.processAssets.tap(
         {
@@ -243,7 +253,11 @@ export class CssPlugin {
           stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE + 1
         },
         () => {
+          const ids = verbatimCssIdsIn(c)
           const restored = new Set(restoreVerbatimCssAssets(c))
+
+          forgetVerbatimCss([...idsInUse].filter((id) => !ids.has(id)))
+          idsInUse = ids
 
           for (const asset of c.getAssets()) {
             if (!asset.name.endsWith('.css') || restored.has(asset.name)) {
@@ -274,11 +288,7 @@ export class CssPlugin {
   // A page sheet's url() to a file public/ owns left the loader chain behind
   // a scheme rspack does not request; the emitted sheet names the root path.
   private restorePublicRootRefs(compiler: Compiler) {
-    if (!compiler.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:public`, (c) => {
-      if (!c?.hooks?.processAssets?.tap) return
-
       c.hooks.processAssets.tap(
         {
           name: `${CssPlugin.name}:public-root-restore`,
@@ -308,24 +318,13 @@ export class CssPlugin {
   }
 
   // A url() to a nonexistent file is fatal to rspack but Chrome 404s it silently
-  // and applies the rest; cancel and warn. EXTENSION_STRICT_REFS restores fatal.
+  // and applies the rest: cancel and warn. EXTENSION_STRICT_REFS makes it an error.
   private tolerateDeadUrlRefs(compiler: Compiler) {
     const manifestDir = path.dirname(this.manifestPath)
     const projectPath = (compiler.options.context as string) || process.cwd()
     let roots = [manifestDir]
-    const assetExt =
-      /\.(png|jpe?g|gif|webp|svg|avif|ico|bmp|cur|woff2?|ttf|otf|eot|mp3|mp4|webm|ogg|wav)$/i
     let compilation: import('@rspack/core').Compilation | null = null
     const warned = new Set<string>()
-
-    // Minimal/mock compilers in specs don't carry these hooks.
-    if (
-      !compiler.hooks?.thisCompilation?.tap ||
-      !(compiler.hooks as {normalModuleFactory?: {tap?: unknown}})
-        ?.normalModuleFactory?.tap
-    ) {
-      return
-    }
 
     compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:dead-url`, (c) => {
       compilation = c
@@ -358,33 +357,11 @@ export class CssPlugin {
             // way from a `.vue.css` issuer; cancelling it drops the block.
             if (raw.includes('!')) return
 
-            const req = raw.split('?')[0].split('#')[0]
-
-            if (
-              !req ||
-              req.startsWith('//') ||
-              /^[a-z][a-z0-9+.-]*:/i.test(req)
-            ) {
-              return
-            }
-
-            if (req.startsWith('~') || req.startsWith('@')) return
-
-            const isRootRef = req.startsWith('/')
-            const isRelativeRef = req.startsWith('./') || req.startsWith('../')
-            const isBareAssetRef =
-              !isRootRef && !isRelativeRef && assetExt.test(req)
-            if (!isRootRef && !isRelativeRef && !isBareAssetRef) return
-
             const issuerDir = String(data?.context || path.dirname(issuer))
-            const candidates = isRootRef
-              ? roots.map((root) => path.join(root, req.slice(1)))
-              : [
-                  path.resolve(issuerDir, req),
-                  ...(isBareAssetRef
-                    ? roots.map((root) => path.join(root, req))
-                    : [])
-                ]
+            const candidates = cssUrlRefCandidates(raw, {issuerDir, roots})
+            if (candidates.length === 0) return
+
+            const req = raw.split('?')[0].split('#')[0]
             const withCssExtension = path.extname(req)
               ? []
               : candidates.map((candidate) => `${candidate}.css`)
@@ -397,21 +374,31 @@ export class CssPlugin {
               return
             }
 
-            if (process.env.EXTENSION_STRICT_REFS === 'true') return
+            // Cancelled before rspack resolves it, so nothing watches for the
+            // file. Watch every place it could appear, or a later write is lost.
+            compilation?.missingDependencies.addAll([
+              ...candidates,
+              ...withCssExtension
+            ])
 
             const key = `${issuer}|${req}`
 
-            if (!warned.has(key) && compilation?.warnings) {
+            // Strict refs fails the build here, under the same name and code.
+            // Left to rspack, a relative one came back as a warning.
+            const strict = process.env.EXTENSION_STRICT_REFS === 'true'
+            const sink = strict ? compilation?.errors : compilation?.warnings
+
+            if (!warned.has(key) && sink) {
               warned.add(key)
               const issuerPath = toPosixPath(
                 path.relative(manifestDir, issuer) || issuer
               )
-              const warning = new WebpackError(
-                messages.deadCssUrlRef(issuerPath, raw)
+              const report = new WebpackError(
+                messages.deadCssUrlRef(issuerPath, raw, strict)
               )
-              ;(warning as Error & {file?: string}).file = issuerPath
-              warning.name = 'CssDeadRef'
-              compilation?.warnings.push(warning)
+              ;(report as Error & {file?: string}).file = issuerPath
+              report.name = 'CssDeadRef'
+              sink.push(report)
             }
 
             return false
@@ -421,9 +408,19 @@ export class CssPlugin {
     )
   }
 
+  private reportSetupWarnings(compiler: Compiler) {
+    compiler.hooks.thisCompilation.tap(`${CssPlugin.name}:setup`, (c) => {
+      for (const message of this.setupWarnings.splice(0)) {
+        const warning = new compiler.rspack.WebpackError(message)
+
+        warning.name = 'CssSetupWarning'
+        c.warnings.push(warning)
+      }
+    })
+  }
+
   public async apply(compiler: Compiler) {
-    // Parity first: a minimal compiler in a spec keeps one thisCompilation
-    // tap, and the dead-url guard is the one those specs exercise.
+    this.reportSetupWarnings(compiler)
     this.keepCssParityInProduction(compiler)
     this.restorePublicRootRefs(compiler)
     this.tolerateDeadUrlRefs(compiler)

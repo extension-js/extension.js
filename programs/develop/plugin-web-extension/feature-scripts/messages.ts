@@ -252,7 +252,7 @@ function neverCopiedLines(expectedPath: string) {
   return [
     `${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`,
     `A read of it fails at runtime.`,
-    `The build never copies env files, tooling files or files outside the project. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
+    `The build copies only files the project or its workspace shares, never env files or tooling files. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
   ]
 }
 
@@ -596,6 +596,31 @@ export function scriptsMissingFile(
   return lines.join('\n')
 }
 
+// A file on disk the build will not bundle: saying it does not exist would
+// send the author looking for a file that is right there.
+export function scriptsWithheldFile(
+  file: string,
+  field: string,
+  kind: 'private' | 'outside',
+  notFound: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `${file} is not bundled. Check the ${field} field in your manifest.json file.`
+  )
+
+  lines.push(
+    kind === 'private'
+      ? `The build never bundles env files, tooling files or repository files. Move the code into a file with another name.`
+      : `The file is not one the project or its workspace shares. Move it into the project.`
+  )
+
+  lines.push('')
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(notFound)}`)
+
+  return lines.join('\n')
+}
+
 export function scriptPathsCheckFailed(reason: string) {
   const lines: string[] = []
   lines.push(
@@ -647,6 +672,47 @@ export function defaultExportUnreadable(file: string, reason: string) {
     `${colors.gray('REASON')} ${reason}\n` +
     `The build parses a content script to find the function it mounts, and the parser stopped before it reached the export, so the script would never run.\n` +
     `Move the code named above into a module this file imports, and keep the default export in a file of plain JavaScript, TypeScript or JSX.`
+  )
+}
+
+// The wrapper reads what the loaders of extension.config.js return. With a
+// reason the parser stopped in that text, without one the export is gone.
+export function defaultExportLostToLoaders(
+  file: string,
+  loaders: string[],
+  reason?: string
+) {
+  return (
+    `${prefix('error')} Extension.js could not find the default export of ${file} in what a loader returned.\n` +
+    `${colors.gray('PATH')} ${colors.underline(file)}\n` +
+    `${colors.gray('LOADERS')} ${loaders.join(', ')}\n` +
+    (reason
+      ? `${colors.gray('REASON')} ${reason}\n` +
+        `The build parses a content script to find the function it mounts. It read this one after the loaders named above, and the parser stopped in the text they returned before it reached the export, so the script would never run.\n`
+      : `The file has a default export as written, which is the function the build mounts. The build read the file after the loaders named above, and the text they returned has no default export, so the script would never run.\n`) +
+    `Keep the default export in what the loaders return, as plain JavaScript, TypeScript or JSX, or narrow their rule so it skips this file.`
+  )
+}
+
+// Thrown, so the bundler's parse error of the wrapped text never shows.
+export function contentScriptTopLevelAwait(
+  file: string,
+  line: number,
+  column: number,
+  declared: boolean
+) {
+  const runsAs = declared
+    ? 'A content script declared in the manifest runs as a classic script'
+    : 'A file a scripting call injects runs as a classic script'
+
+  return (
+    `${prefix('error')} ${file} uses await at the top level, outside any function.\n` +
+    `${colors.gray('PATH')} ${colors.underline(`${file}:${line}:${column}`)}\n` +
+    `${runsAs}, and a classic script only allows await inside an async function. This file has no import or export, so the build compiles it as that classic script too.\n` +
+    `Wrap the code in an async function that runs right away:\n` +
+    `  ${colors.blue('(async () => {')}\n` +
+    `    // the code that uses await\n` +
+    `  ${colors.blue('})()')}`
   )
 }
 

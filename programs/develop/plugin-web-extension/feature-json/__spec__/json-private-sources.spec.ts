@@ -88,11 +88,11 @@ function fixture(field: Field, target: string) {
     'manifest.json': manifest(field.declare(target))
   })
 
-  linkWorkspace(root, {'data.json': field.valid(`${MARKER}-workspace`)})
+  linkWorkspace(root, {'data.json': field.valid('workspace-shared')})
   linkPackages(root, field.valid)
   fs.writeFileSync(
     path.join(path.dirname(root), 'outside.json'),
-    field.valid(`${MARKER}-outside`)
+    field.valid('workspace-outside')
   )
 
   return root
@@ -188,14 +188,22 @@ const PRIVATE_FILES: Table = {
     'missing: node_modules/plain-pkg/.env'
   ),
   'node_modules/.npmrc': stopped('missing: node_modules/.npmrc'),
-  '../outside.txt': stopped('missing: ../outside.txt'),
-  '../outside.json': stopped('missing: ../outside.json'),
-  'sub/../../outside.txt': stopped('missing: ../outside.txt'),
+  'sub/../../outside.txt': stopped('unparsed: ../outside.txt'),
   '%2e%2e/outside.txt': stopped('missing: %2e%2e/outside.txt'),
+  '/%2e%2e/outside.json': stopped('missing: %2e%2e/outside.json'),
+  // A page refuses a root path that climbs out of the extension root.
+  '/../outside.json': stopped('missing: ../outside.json'),
   'nothing.json': stopped('missing: nothing.json'),
   // The copier leaves this one out of public/, so no field may name it.
   'public/.env.local': stopped('missing: public/.env.local')
 }
+
+// Beside the project sits the workspace root, so a file there is read: one
+// that holds JSON ships, one that does not stops the build as any would.
+const workspaceFiles = (field: Field): Table => ({
+  '../outside.json': landed(field),
+  '../outside.txt': stopped('unparsed: ../outside.txt')
+})
 
 // A file the author names ships from an installed package.
 const packageFiles = (field: Field): Table => ({
@@ -209,17 +217,16 @@ const packageFiles = (field: Field): Table => ({
 const linkedPackageFiles = (field: Field): Table => ({
   'node_modules/store-pkg/data.json': landed(field),
   'node_modules/workspace-pkg/data.json': landed(field),
-  'node_modules/stray-pkg/data.json': stopped(
-    'missing: node_modules/stray-pkg/data.json'
-  ),
+  // The link leads to a folder of the workspace.
+  'node_modules/stray-pkg/data.json': landed(field),
   'node_modules/far-pkg/data.json': stopped(
     'missing: node_modules/far-pkg/data.json'
   )
 })
 
 const links = (field: Field): Table => ({
-  'linked.txt': stopped('missing: linked.txt'),
-  'shared/data.json': stopped('missing: shared/data.json'),
+  'linked.txt': stopped('unparsed: linked.txt'),
+  'shared/data.json': landed(field),
   'alias.json': landed(field)
 })
 
@@ -240,6 +247,16 @@ describe.each([RULES, SCHEMA])('$name', (field) => {
     'names a private file or a file outside the project',
     async () => {
       expect(await tableFor(field, keys(PRIVATE_FILES))).toEqual(PRIVATE_FILES)
+    },
+    TIMEOUT
+  )
+
+  it(
+    'names a file of the workspace beside the project',
+    async () => {
+      const expected = workspaceFiles(field)
+
+      expect(await tableFor(field, keys(expected))).toEqual(expected)
     },
     TIMEOUT
   )
