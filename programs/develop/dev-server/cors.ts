@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {IncomingMessage, ServerResponse} from 'node:http'
+import {isWildcardHost} from './connectable-host'
 import {isSameWebOrigin, normalizeWebOrigin} from './emulator-lane'
 
 // chrome-extension://, moz-extension://, safari-web-extension://: the scheme
@@ -172,6 +173,217 @@ export function withHostCheckMiddleware<T>(
   )
 }
 
+export const REQUEST_SITE_MIDDLEWARE_NAME = 'cross-origin-header-check'
+
+const FETCH_SITES: ReadonlySet<string> = new Set([
+  'same-origin',
+  'same-site',
+  'cross-site',
+  'none'
+])
+const LOOPBACK_NAMES = ['localhost', '127.0.0.1', '::1']
+
+// What makes a request part of one session: the address the browser reaches
+// the server at, the origins the session named, and its own extension.
+export interface RequestSiteSession {
+  port: number
+  // Host names the server answers on, without brackets or a port.
+  sessionHosts: readonly string[]
+  // Hosts the developer named with --allowed-hosts, the dev server's convention.
+  namedHosts: readonly string[]
+  allowedWebOrigins: readonly (string | null | undefined)[]
+  isSessionExtensionOrigin: SessionExtensionOriginCheck
+}
+
+type RequestHeaders = Readonly<Record<string, string | string[] | undefined>>
+
+function headerText(value: string | string[] | undefined): string {
+  return String((Array.isArray(value) ? value[0] : value) ?? '').trim()
+}
+
+function bareHostName(host: string): string {
+  return host
+    .trim()
+    .toLowerCase()
+    .replace(/^\[(.*)\]$/, '$1')
+}
+
+function isNamedHost(name: string, namedHosts: readonly string[]): boolean {
+  return namedHosts.some((entry) => {
+    const named = entry.toLowerCase()
+
+    if (!named.startsWith('.')) return bareHostName(named) === name
+
+    return name === named.slice(1) || name.endsWith(named)
+  })
+}
+
+// A web origin is the session's own when it is the address this request
+// dialed, a name the server answers on with its port, or one the session named.
+export function isSessionWebOrigin(
+  value: unknown,
+  hostHeader: unknown,
+  session: RequestSiteSession
+): boolean {
+  const origin = normalizeWebOrigin(value)
+  if (!origin) return false
+
+  const url = new URL(origin)
+  const dialed = String(hostHeader ?? '').trim()
+
+  if (dialed) {
+    try {
+      if (new URL(`${url.protocol}//${dialed}`).host === url.host) return true
+    } catch {
+      // Not a parseable authority, so it proves nothing.
+    }
+  }
+
+  const name = bareHostName(url.hostname)
+  const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80))
+
+  if (port === session.port && session.sessionHosts.includes(name)) return true
+  if (isNamedHost(name, session.namedHosts)) return true
+
+  return session.allowedWebOrigins.some((allowed) =>
+    isSameWebOrigin(origin, allowed)
+  )
+}
+
+function isSessionOrigin(
+  origin: string,
+  hostHeader: unknown,
+  session: RequestSiteSession
+): boolean {
+  return isExtensionOrigin(origin)
+    ? session.isSessionExtensionOrigin(origin)
+    : isSessionWebOrigin(origin, hostHeader, session)
+}
+
+// Whether the browser says this request belongs to the session. A request
+// with no fetch metadata passes, as it does through the stock server.
+export function isRequestFromSession(
+  headers: RequestHeaders,
+  session: RequestSiteSession
+): boolean {
+  const site = headerText(headers['sec-fetch-site']).toLowerCase()
+  if (!FETCH_SITES.has(site)) return true
+
+  const hostHeader = headerText(headers[':authority'] ?? headers.host)
+  const origin = headerText(headers.origin)
+
+  if (origin) return isSessionOrigin(origin, hostHeader, session)
+  if (site === 'same-origin' || site === 'none') return true
+
+  // A same-site request can come from another port, so only a referrer that
+  // is the session's own settles a request that carries no Origin.
+  return isSessionWebOrigin(headerText(headers.referer), hostHeader, session)
+}
+
+// Whether the reload socket may open for this upgrade. An extension dials
+// before it has said hello, so its scheme is left to the stock check.
+export function isSocketFromSession(
+  headers: RequestHeaders,
+  session: RequestSiteSession
+): boolean {
+  const origin = headerText(headers.origin)
+
+  if (!origin || isExtensionOrigin(origin)) return true
+
+  return isSessionWebOrigin(
+    origin,
+    headerText(headers[':authority'] ?? headers.host),
+    session
+  )
+}
+
+// The verifyClient the socket server runs before the upgrade completes.
+export function createSocketVerifier(
+  session: RequestSiteSession,
+  onRefused: (origin: string) => void
+) {
+  return (
+    info: {req: Pick<IncomingMessage, 'headers'>},
+    done: (verified: boolean, code?: number, message?: string) => void
+  ) => {
+    if (isSocketFromSession(info.req.headers, session)) {
+      done(true)
+
+      return
+    }
+
+    onRefused(refusedRequestOrigin(info.req.headers))
+    done(false, 403, 'Forbidden')
+  }
+}
+
+// The origin a refused request named, for the one printed line.
+export function refusedRequestOrigin(headers: RequestHeaders): string {
+  const origin = headerText(headers.origin)
+  const named =
+    origin && origin !== 'null'
+      ? origin
+      : (normalizeWebOrigin(headerText(headers.referer)) ?? '')
+
+  return named.replace(/[^A-Za-z0-9.:_/[\]-]/g, '?').slice(0, 255)
+}
+
+export const REFUSED_REQUEST_RESPONSE =
+  'Extension.js dev server refused a request from another site.\n' +
+  'Open this address directly in the browser to load it.\n'
+
+export function createRequestSiteMiddleware(
+  session: RequestSiteSession,
+  onRefused: (origin: string) => void
+) {
+  return (req: IncomingMessage, res: ServerResponse, next: () => void) => {
+    if (isRequestFromSession(req.headers, session)) {
+      next()
+
+      return
+    }
+
+    // An extension is known to the session only once it says hello, so its
+    // refusal is not printed as a page from outside.
+    if (!isExtensionOrigin(req.headers.origin)) {
+      onRefused(refusedRequestOrigin(req.headers))
+    }
+
+    res.statusCode = 403
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+    res.setHeader('X-Content-Type-Options', 'nosniff')
+    res.setHeader('Cache-Control', 'no-store')
+    res.setHeader('Vary', 'Origin, Sec-Fetch-Site')
+    res.end(REFUSED_REQUEST_RESPONSE)
+  }
+}
+
+// Takes the stock check's place, or the slot right after the host check, so
+// it runs before any file is served.
+export function withRequestSiteMiddleware<T>(
+  middlewares: T[],
+  session: RequestSiteSession,
+  onRefused: (origin: string) => void
+): T[] {
+  const entry = {
+    name: REQUEST_SITE_MIDDLEWARE_NAME,
+    middleware: createRequestSiteMiddleware(session, onRefused)
+  } as unknown as T
+  const indexOf = (name: string) =>
+    middlewares.findIndex((item) => (item as {name?: string})?.name === name)
+  const stock = indexOf(REQUEST_SITE_MIDDLEWARE_NAME)
+
+  if (stock !== -1) {
+    return middlewares.map((item, position) =>
+      position === stock ? entry : item
+    )
+  }
+
+  const after = indexOf(HOST_CHECK_MIDDLEWARE_NAME) + 1
+
+  return [...middlewares.slice(0, after), entry, ...middlewares.slice(after)]
+}
+
 // The HTTP surface one session needs and no more: the Host check names the
 // hosts clients actually dial, and allow-origin is reflected, never starred.
 export function devServerAccessConfig(options: {
@@ -179,18 +391,28 @@ export function devServerAccessConfig(options: {
   emulatorOrigin?: string | null
   allowedHosts?: unknown
   isSessionExtensionOrigin: SessionExtensionOriginCheck
+  // The bind host and port, which decide the origins the session calls its own.
+  host?: string
+  port?: number
 }): {
   allowedHosts: string[]
   headers: (req: IncomingMessage) => Array<{key: string; value: string}>
+  requestSite: RequestSiteSession
 } {
   const viewerOrigin = normalizeWebOrigin(options.emulatorOrigin)
   const viewerHost = viewerOrigin ? new URL(viewerOrigin).hostname : null
   const allowedWebOrigins = viewerOrigin ? [viewerOrigin] : []
-  const hosts = [
-    options.connectableHost,
-    viewerHost,
-    ...parseAllowedHosts(options.allowedHosts)
-  ].filter((host): host is string => Boolean(host))
+  const namedHosts = parseAllowedHosts(options.allowedHosts)
+  const hosts = [options.connectableHost, viewerHost, ...namedHosts].filter(
+    (host): host is string => Boolean(host)
+  )
+  const bind = bareHostName(String(options.host ?? ''))
+  const answersOnLoopback =
+    isWildcardHost(options.host) || LOOPBACK_NAMES.includes(bind)
+  const sessionHosts = [
+    bareHostName(options.connectableHost),
+    ...(answersOnLoopback ? LOOPBACK_NAMES : [])
+  ]
 
   return {
     allowedHosts: [...new Set(hosts)],
@@ -199,6 +421,13 @@ export function devServerAccessConfig(options: {
         req.headers.origin,
         allowedWebOrigins,
         options.isSessionExtensionOrigin
-      )
+      ),
+    requestSite: {
+      port: Number(options.port ?? 0),
+      sessionHosts: [...new Set(sessionHosts)],
+      namedHosts,
+      allowedWebOrigins,
+      isSessionExtensionOrigin: options.isSessionExtensionOrigin
+    }
   }
 }

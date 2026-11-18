@@ -1,4 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import type {BrowserLaunchOptions} from '../index'
 
 const registers = vi.fn((_compilation: object | undefined) => false)
 
@@ -12,6 +13,7 @@ vi.mock('../../plugin-reload', async () => {
 })
 
 const {BrowsersPlugin} = await import('../index')
+const {fakeCompilation, fakeCompiler} = await import('./fake-compiler')
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/chrome'
@@ -19,60 +21,38 @@ const OUTPUT = '/tmp/ext/dist/chrome'
 type Wait = (timeoutMs: number) => Promise<'settled' | 'timeout'>
 
 async function launchOnce(broker?: {awaitBootRegistrations?: Wait}) {
-  const launcher = vi.fn().mockResolvedValue({
+  const launcher = vi.fn(async (_options: BrowserLaunchOptions) => ({
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-  })
+  }))
   const plugin = new BrowsersPlugin({
     launcher,
     browserOptions: {browser: 'chrome'}
-  } as never)
+  })
   plugin.extensionsToLoad = [OUTPUT]
 
   if (broker) {
-    plugin.setReloadBroker({broadcastReload: () => 0, ...broker} as never)
+    plugin.setReloadBroker({broadcastReload: () => 0, ...broker})
   }
 
-  const doneSync: Array<(stats: unknown) => void> = []
-  let doneCb: ((stats: unknown) => Promise<void>) | undefined
-  const compiler: any = {
-    options: {context: CONTEXT},
-    hooks: {
-      watchRun: {tap: () => {}},
-      done: {
-        tap: (_: string, fn: (s: unknown) => void) => doneSync.push(fn),
-        tapPromise: (_: string, fn: (s: unknown) => Promise<void>) =>
-          (doneCb = fn)
-      },
-      assetEmitted: {tap: () => {}}
-    }
-  }
+  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
+  plugin.apply(fake.compiler)
 
-  plugin.apply(compiler)
+  await fake.done(
+    fakeCompilation({
+      context: CONTEXT,
+      output: OUTPUT,
+      manifest: {manifest_version: 3, name: 'fake', version: '0'}
+    })
+  )
 
-  const manifest = JSON.stringify({
-    manifest_version: 3,
-    name: 'fake',
-    version: '0'
-  })
-  const stats = {
-    compilation: {
-      errors: [],
-      options: {context: CONTEXT, output: {path: OUTPUT}},
-      getAsset: (name: string) =>
-        name === 'manifest.json'
-          ? {source: {source: () => manifest}}
-          : undefined
-    }
-  }
+  expect(launcher).toHaveBeenCalledTimes(1)
 
-  for (const fn of doneSync) fn(stats)
-  await doneCb?.(stats)
-
-  return launcher.mock.calls[0]?.[0] as {awaitBootRegistrations?: Wait}
+  return launcher.mock.calls[0][0]
 }
 
 describe('the hold a launch is handed for boot registrations', () => {
   beforeEach(() => {
+    expect.hasAssertions()
     registers.mockReset()
   })
 
@@ -94,7 +74,6 @@ describe('the hold a launch is handed for boot registrations', () => {
     const awaitBootRegistrations = vi.fn<Wait>().mockResolvedValue('settled')
     const options = await launchOnce({awaitBootRegistrations})
 
-    expect(options).toBeDefined()
     expect('awaitBootRegistrations' in options).toBe(false)
     expect(awaitBootRegistrations).not.toHaveBeenCalled()
   })
