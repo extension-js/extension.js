@@ -2,8 +2,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
-  buildProject,
+  build,
   canLink,
+  expectNothingPrivate,
   MARKER,
   makeProject,
   manifest
@@ -32,7 +33,7 @@ describe('a _locales folder that holds a file the build never copies', () => {
         '_locales/en/.env.example': 'KEY=\n',
         '_locales/en/.npmrc': `# ${MARKER}-locale-npmrc\n`
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.errors).toBe(0)
       expect(result.marked).toEqual([])
@@ -48,7 +49,7 @@ describe('a _locales folder that holds a file the build never copies', () => {
 
       // A repository leftover is skipped without a word.
       expect(result.printed).not.toContain('_locales/en/.npmrc')
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -61,11 +62,11 @@ describe('a _locales folder that holds a file the build never copies', () => {
         '_locales/en/messages.json': CATALOG,
         '_locales/.env/messages.json': MARKED_CATALOG
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(locales(result.shipped)).toEqual(['_locales/en/messages.json'])
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -80,13 +81,13 @@ describe('a _locales folder that holds a file the build never copies', () => {
         '_locales/en/Node_Modules/pkg/data.json': `"${MARKER}-locale-pkg2"`,
         '_locales/node_modules/messages.json': MARKED_CATALOG
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.errors).toBe(0)
       expect(result.marked).toEqual([])
       expect(locales(result.shipped)).toEqual(['_locales/en/messages.json'])
       expect(result.printed.toLowerCase()).not.toContain('node_modules')
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -107,7 +108,7 @@ describe('a _locales folder that holds a file the build never copies', () => {
 
       fs.symlinkSync(outside, path.join(root, '_locales'))
 
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(locales(result.shipped)).toEqual([])
@@ -115,7 +116,7 @@ describe('a _locales folder that holds a file the build never copies', () => {
         "Can't find the file listed in _locales/en/messages.json."
       )
 
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -132,12 +133,12 @@ describe('a _locales folder that holds a file the build never copies', () => {
       fs.mkdirSync(outside, {recursive: true})
       fs.writeFileSync(path.join(outside, 'messages.json'), MARKED_CATALOG)
 
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.errors).toBe(1)
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual([])
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )

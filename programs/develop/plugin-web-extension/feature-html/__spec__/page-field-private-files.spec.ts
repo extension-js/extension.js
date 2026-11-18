@@ -1,9 +1,11 @@
 import {describe, expect, it} from 'vitest'
 import {
-  buildProject,
+  build,
   canLink,
+  expectNothingPrivate,
   makeProject,
   manifest,
+  outputHolding,
   PAGE
 } from './helpers/private-files-project'
 
@@ -62,10 +64,10 @@ describe('a manifest page field that names a file the build never copies', () =>
     '%s: leaves %s out and calls the page missing',
     async (label, ref, stops, field, browser) => {
       const {root} = makeProject({'manifest.json': manifest(field(ref))})
-      const result = await buildProject(root, browser)
+      const result = await build(root, browser)
 
       expect(result.marked).toEqual([])
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
       expect(result.printed).toContain(
         `Can't find the page listed in ${label}.`
       )
@@ -80,7 +82,7 @@ describe('a manifest page field that names a file the build never copies', () =>
 })
 
 const SHIPPED_PAGES = [
-  ['a page of the project', 'pages/own.html'],
+  ['a page of the project', 'views/own.html'],
   ['a page of an installed package', 'node_modules/pkg/page.html']
 ] as const
 
@@ -95,14 +97,14 @@ describe('a manifest page field that names a page the build ships', () => {
     '%s: ships %s',
     async (_label, _what, page, field, browser) => {
       const {root} = makeProject({
-        'pages/own.html': PAGE.replace('<body>', '<body>own page'),
+        'views/own.html': PAGE.replace('<body>', '<body>own page'),
         'manifest.json': manifest(field(page))
       })
-      const result = await buildProject(root, browser)
+      const result = await build(root, browser)
 
       expect(result.errors).toBe(0)
       expect(result.printed).not.toContain("Can't find the page")
-      expect(result.pages).toHaveLength(1)
+      expect(outputHolding(root, 'own page', browser)).toHaveLength(1)
     },
     TIMEOUT
   )

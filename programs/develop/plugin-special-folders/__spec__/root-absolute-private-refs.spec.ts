@@ -88,6 +88,16 @@ const MISSING_FROM_A_PAGE = [
   '/nothing.txt'
 ].sort()
 
+// The project's own package.json is a file the build ships when named, and
+// the fixture marks it. No other output file may hold private text.
+function expectOnlyProjectManifestMarked(result: Built) {
+  expectNothingPrivate(result, 'printed')
+
+  expect(
+    result.exposed.output.filter((line) => !line.startsWith('package.json: '))
+  ).toEqual([])
+}
+
 const times = (text: string, part: string) => text.split(part).length - 1
 
 // Each ref is said once, in the words a missing page asset gets. The text is
@@ -118,7 +128,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )
@@ -138,7 +148,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       expect(result.missing).toEqual(MISSING_FROM_A_PAGE)
       expect(result.errors).toBe(0)
       expectEachSaidOnce(result)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )
@@ -231,7 +241,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       )
 
       expect(result.errors).toBe(0)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )
@@ -298,7 +308,7 @@ describe('a root-absolute path that names a file outside public/', () => {
       }
 
       expect(result.errors).toBe(0)
-      expectNothingPrivate(result, 'printed')
+      expectOnlyProjectManifestMarked(result)
     },
     TIMEOUT
   )

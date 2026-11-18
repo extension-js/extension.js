@@ -1,10 +1,12 @@
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
-  buildProject,
+  build,
   canLink,
+  expectNothingPrivate,
   makeProject,
   manifest,
+  notFoundPaths,
   PUBLIC_OUTPUT
 } from '../../feature-html/__spec__/helpers/private-files-project'
 
@@ -57,7 +59,7 @@ describe('a manifest icon that names a file the build never copies', () => {
     '%s: stops the build over %s',
     async (_label, ref, feature, field) => {
       const {root} = makeProject({'manifest.json': manifest(field(ref))})
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual([])
@@ -68,7 +70,7 @@ describe('a manifest icon that names a file the build never copies', () => {
           : `Can't find an icon file listed in ${feature}.`
       )
 
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -85,11 +87,11 @@ describe('a manifest icon that names a file the build never copies', () => {
           }
         })
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual([])
-      expect(result.notFound).toEqual(
+      expect(notFoundPaths(result.printed)).toEqual(
         [
           path.join(root, '.env'),
           path.join(root, '.npmrc'),
@@ -97,7 +99,7 @@ describe('a manifest icon that names a file the build never copies', () => {
         ].sort()
       )
 
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -122,7 +124,7 @@ describe('a manifest icon that names a file the build ships', () => {
         'icons/own.png': 'png',
         'manifest.json': manifest(field(icon))
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.errors).toBe(0)
       expect(
@@ -146,7 +148,7 @@ describe('a manifest icon that names a file the build ships', () => {
           }
         })
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.errors).toBe(0)
       expect(result.shipped).toEqual(PUBLIC_OUTPUT)

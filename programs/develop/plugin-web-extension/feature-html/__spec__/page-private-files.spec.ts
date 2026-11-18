@@ -2,10 +2,12 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
-  buildProject,
+  build,
   canLink,
+  expectNothingPrivate,
   MARKER,
   makeProject,
+  notFoundPaths,
   PAGE,
   PUBLIC_OUTPUT
 } from './helpers/private-files-project'
@@ -90,13 +92,13 @@ describe('a page that names a file the build never copies', () => {
       const refs = [...WITHHELD, project.outsideFile, ...KEPT]
       fs.writeFileSync(path.join(root, 'popup.html'), page(write(refs)))
 
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual(KEPT_OUTPUT)
       expect(result.missing).toEqual([...WITHHELD, project.outsideFile].sort())
       expect(result.errors).toBe(0)
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -117,14 +119,18 @@ describe('a page that names a file the build never copies', () => {
           body: refs.map((ref) => `<img src="${ref}">`).join('')
         })
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual(
-        [...PUBLIC_OUTPUT, 'assets/ok.<hash>.json'].sort()
+        [
+          ...PUBLIC_OUTPUT,
+          'assets/icon.<hash>.png',
+          'assets/ok.<hash>.json'
+        ].sort()
       )
 
-      expect(result.notFound).toEqual(
+      expect(notFoundPaths(result.printed)).toEqual(
         [
           path.join(root, '.envrc'),
           path.join(root, '.npmrc'),
@@ -134,7 +140,7 @@ describe('a page that names a file the build never copies', () => {
       )
 
       expect(result.errors).toBe(0)
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -153,13 +159,13 @@ describe('a page that names a file the build never copies', () => {
           body: refs.map((ref) => `<img src="${ref}">`).join('')
         })
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toContain('assets/ok.<hash>.json')
-      expect(result.shipped).toContain('assets/icon.<hash>.png')
+      expect(result.shipped).toContain('assets/data.<hash>.json')
       expect(result.errors).toBe(0)
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -170,9 +176,9 @@ describe('a page that names a file the build never copies', () => {
       const {root} = makeProject({
         'popup.html': page({body: '<img src="/.env"><img src="/.missing">'})
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
-      expect(result.notFound).toEqual([
+      expect(notFoundPaths(result.printed)).toEqual([
         path.join(root, '.env'),
         path.join(root, '.missing')
       ])
@@ -192,18 +198,15 @@ describe('a page that names a file the build never copies', () => {
           body: '<img src="/.env"><img src="/public/.npmrc"><img src="./public/.env">'
         })
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual(PUBLIC_OUTPUT)
 
-      expect(result.missing).toEqual([
-        './public/.env',
-        '/.env',
-        '/public/.npmrc'
-      ])
+      expect(result.missing).toEqual(['/.env', '/public/.npmrc'])
+      expect(result.printed).toContain('Update the ./public/.env reference')
 
-      expect(result.quoted).toEqual([])
+      expectNothingPrivate(result)
     },
     TIMEOUT
   )
@@ -219,12 +222,12 @@ describe('a page that names a dot-named file public/ ships', () => {
           body: '<img src="/.env.example"><img src="/logo.png">'
         })
       })
-      const result = await buildProject(root)
+      const result = await build(root)
 
       expect(result.shipped).toEqual(PUBLIC_OUTPUT)
 
       expect(result.missing).toEqual([])
-      expect(result.notFound).toEqual([])
+      expect(notFoundPaths(result.printed)).toEqual([])
       expect(result.printed).not.toContain("doesn't exist")
       expect(result.errors).toBe(0)
     },

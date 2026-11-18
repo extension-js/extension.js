@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import {
   hasPrivateFileName,
+  rootAbsolutePathIsWithheld,
   sourceFileMayShip
 } from '../../../plugin-special-folders/public-private-files'
 
@@ -36,22 +37,6 @@ function insideOf(folder: string, file: string): string | undefined {
   return relative
 }
 
-// The name as written and as the browser reads it, where `%2e%2e` is `..`.
-function browserSpellings(rootRef: string): string[] {
-  const written = rootRef.split(/[?#]/)[0].replace(/^\/+/, '')
-  const spellings = [written]
-
-  try {
-    spellings.push(decodeURIComponent(written))
-  } catch {
-    // Not a valid escape, so the browser asks for the name as written.
-  }
-
-  return spellings.map((spelling) =>
-    path.posix.normalize(spelling.replace(/\\/g, '/'))
-  )
-}
-
 // Whether a build may copy this source file into the output folder. A file
 // that may not is reported as missing by the step that asked.
 export function sourceMayShip(
@@ -64,17 +49,12 @@ export function sourceMayShip(
   const {rootRef, publicDir} = question
 
   // An address inside the project is a file on disk, read as one below.
-  if (rootRef !== undefined && !roots.some((root) => insideOf(root, rootRef))) {
-    const spellings = browserSpellings(rootRef)
-
-    if (
-      spellings.some(
-        (name) =>
-          name === '..' || name.startsWith('../') || hasPrivateFileName(name)
-      )
-    ) {
-      return false
-    }
+  if (
+    rootRef !== undefined &&
+    !roots.some((root) => insideOf(root, rootRef)) &&
+    rootAbsolutePathIsWithheld(rootRef.split(/[?#]/)[0])
+  ) {
+    return false
   }
 
   // The copier leaves a private name out of public/ and ships the rest, so

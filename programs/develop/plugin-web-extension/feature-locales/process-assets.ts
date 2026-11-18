@@ -114,7 +114,7 @@ export function processLocaleAssets(
       // A file the build never copies is left out the way a missing one is.
       const withheld =
         fs.existsSync(thisResource) &&
-        !sourceFileMayShip(thisResource, projectRoots)
+        !sourceFileMayShip(thisResource, projectRoots, 'walked')
 
       if (withheld || !fs.existsSync(thisResource)) {
         const leftOutKind = withheld
