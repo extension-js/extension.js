@@ -46,7 +46,8 @@ import {
 import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
@@ -414,7 +415,7 @@ export function registerPreviewCommand(
                 allowEval: Boolean(previewOptions.allowEval),
                 // Only pass logger values the user typed. Stock defaults and
                 // commands.preview.* are applied inside extensionPreview.
-                logLevel: logsOption || undefined,
+                logLevel: parseLogLevel(logsOption),
                 logContexts,
                 logFormat: previewOptions.logFormat,
                 logTimestamps: explicitCliValue(

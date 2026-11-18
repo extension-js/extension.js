@@ -41,7 +41,8 @@ import {
 import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {
   refuseUnreadableOutput,
@@ -477,7 +478,7 @@ export function registerStartCommand(
           const logContexts = parseLogContexts(logContextOption)
           // Unset stays undefined so commands.start.* and stock defaults
           // apply inside develop instead of a forced value here.
-          const logLevel = logsOption || undefined
+          const logLevel = parseLogLevel(logsOption)
 
           try {
             await extensionBuild(pathOrRemoteUrl, {
