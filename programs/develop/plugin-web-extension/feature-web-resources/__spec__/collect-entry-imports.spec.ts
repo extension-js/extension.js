@@ -302,3 +302,118 @@ describe('collectContentScriptAsyncChunkFiles', () => {
     })
   })
 })
+
+describe('how often collectContentScriptEntryImports reads the compilation', () => {
+  // Two entries with entrypoints, one of them split over three chunks, plus
+  // one compiled apart, with a counter on every read of the compilation.
+  function countingCompilation(sources: Record<string, string>) {
+    const split = [
+      {files: new Set(['content_scripts/content-0.js']), auxiliaryFiles: []},
+      {files: new Set(['vendor.js', 'vendor.css']), auxiliaryFiles: []},
+      {files: new Set(['lazy.js']), auxiliaryFiles: new Set(['lazy.woff2'])}
+    ]
+    // A dev bundle carries a hash, so the logical name is a file of its own.
+    const hashed = [
+      {
+        files: new Set(['content_scripts/content-1.abc123.js']),
+        auxiliaryFiles: []
+      }
+    ]
+    const reads = {getAssets: 0, sources: {} as Record<string, number>}
+
+    const compilation = {
+      entrypoints: new Map([
+        ['content_scripts/content-0', {chunks: split}],
+        ['content_scripts/content-1', {chunks: hashed}],
+        ['background/service_worker', {chunks: [{files: new Set(['bg.js'])}]}]
+      ]),
+      chunkGraph: {
+        getChunkModulesIterable: () => [],
+        getModuleChunks: () => []
+      },
+      getAsset(name: string) {
+        if (!(name in sources)) return undefined
+
+        reads.sources[name] = (reads.sources[name] || 0) + 1
+
+        return {name, source: {source: () => sources[name]}}
+      },
+      getAssets() {
+        reads.getAssets += 1
+
+        return [
+          ...Object.keys(sources),
+          'vendor.css',
+          'lazy.woff2',
+          'assets/a.png',
+          'assets/b.png',
+          'assets/c.png',
+          'assets/d.png',
+          'assets/e.png',
+          'model.bin',
+          'unused.bin'
+        ].map((name) => ({name}))
+      }
+    } as unknown as Compilation
+
+    return {compilation, reads}
+  }
+
+  const sources = {
+    'content_scripts/content-0.js': 'load("assets/a.png")',
+    'vendor.js': 'load("assets/b.png"); load("model.bin")',
+    'lazy.js': 'load("assets/c.png")',
+    'content_scripts/content-1.abc123.js': 'load("assets/d.png")',
+    'content_scripts/content-1.js': 'load("assets/e.png")',
+    'scripts/hook.js': 'load("assets/a.png"); load("unused.bin")',
+    'bg.js': 'load("assets/b.png")'
+  }
+  const includeList: FilepathList = {
+    'scripts/hook': 'scripts/hook.js',
+    'background/service_worker': 'background.js'
+  }
+
+  it('collects from every chunk, the logical bundle and an entry compiled apart', () => {
+    const {compilation} = countingCompilation(sources)
+
+    expect(collectContentScriptEntryImports(compilation, includeList)).toEqual({
+      'content_scripts/content-0': [
+        'assets/a.png',
+        'vendor.css',
+        'assets/b.png',
+        'model.bin',
+        'lazy.woff2',
+        'assets/c.png'
+      ],
+      'content_scripts/content-1': ['assets/d.png', 'assets/e.png'],
+      'scripts/hook': ['assets/a.png', 'unused.bin']
+    })
+  })
+
+  it('lists the emitted assets once and reads each bundle once', () => {
+    const {compilation, reads} = countingCompilation(sources)
+    collectContentScriptEntryImports(compilation, includeList)
+
+    expect(reads).toEqual({
+      getAssets: 1,
+      sources: {
+        'content_scripts/content-0.js': 1,
+        'vendor.js': 1,
+        'lazy.js': 1,
+        'content_scripts/content-1.abc123.js': 1,
+        'content_scripts/content-1.js': 1,
+        'scripts/hook.js': 1
+      }
+    })
+  })
+
+  it('lists no assets when no entry runs in a page', () => {
+    const {compilation, reads} = countingCompilation(sources)
+    const entrypoints = compilation.entrypoints as Map<string, unknown>
+    entrypoints.delete('content_scripts/content-0')
+    entrypoints.delete('content_scripts/content-1')
+
+    expect(collectContentScriptEntryImports(compilation, {})).toEqual({})
+    expect(reads).toEqual({getAssets: 0, sources: {}})
+  })
+})

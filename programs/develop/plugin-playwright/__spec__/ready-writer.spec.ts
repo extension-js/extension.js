@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {chromiumExtensionId} from '../../lib/extension-id'
 import {
+  forgetSessionRun,
   getSessionRunId,
   stampReadyDistExtensionId,
   stampReadyKnownExtensionId
@@ -236,6 +237,26 @@ describe('ready.json writer preservation', () => {
     expect(ready.runId).toBe(getSessionRunId(tmp, 'chromium'))
     // A different browser is a different session identity.
     expect(getSessionRunId(tmp, 'firefox')).not.toBe(ready.runId)
+  })
+
+  it('gives the next session in the same process a run id of its own', () => {
+    const first = getSessionRunId(tmp, 'chromium')
+    const other = getSessionRunId(tmp, 'firefox')
+
+    // Asked again while the session lives, it is the same run.
+    expect(getSessionRunId(tmp, 'chromium')).toBe(first)
+
+    forgetSessionRun(tmp, 'chromium')
+
+    const second = getSessionRunId(tmp, 'chromium')
+    expect(second).not.toBe(first)
+    expect(getSessionRunId(tmp, 'chromium')).toBe(second)
+    // Another browser of the same project is another session, left alone.
+    expect(getSessionRunId(tmp, 'firefox')).toBe(other)
+
+    const writer = makeWriter()
+    writer.writeReady()
+    expect(readContract(writer.readyPath).runId).toBe(second)
   })
 
   it('does not invent the fields when the launcher never stamped them', () => {
