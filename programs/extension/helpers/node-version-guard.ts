@@ -123,9 +123,8 @@ function wantsJsonOutput(argv: string[]): boolean {
   )
 }
 
-// Built by hand because nothing may be imported before this check runs. The
-// shape is the schema-1 failure envelope every other early refusal writes.
-// Node, Bun and Deno share one code: the runtime is too old, the text names it.
+// Built by hand, as nothing may be imported before this check runs. Node, Bun
+// and Deno share E_NODE_VERSION: the runtime is too old, the text names it.
 function unsupportedRuntimeFrame(
   message: string,
   argv: string[]

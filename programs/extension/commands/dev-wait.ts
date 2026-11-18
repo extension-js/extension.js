@@ -112,9 +112,8 @@ async function resolveProjectPath(
 }> {
   let bridge: DevelopBridge | undefined
 
-  // A coded refusal (no engine, an unbuilt one, another version) means no
-  // session of this install can come up, so the wait answers it at once. An
-  // uncoded load failure falls back to the plain dist/extension-js path.
+  // A coded refusal means no session of this install can come up, so it is the
+  // answer. An uncoded failure falls back to the plain dist/extension-js path.
   try {
     bridge = await loadBridge()
   } catch (error) {
