@@ -1233,7 +1233,7 @@ async function startDevSession(
 
     // Tapped after the ready-contract writer, so ready.json is on disk when the
     // ready frame reads it.
-    attachLifecycleStream(compiler, lifecycle)
+    attachLifecycleStream(compiler, lifecycle, {restart: opts.isRestart})
 
     // Surface invalidation/fatal startup diagnostics during startup. Done-hook
     // warning/error output is registered earlier so it prints before launch hooks.
