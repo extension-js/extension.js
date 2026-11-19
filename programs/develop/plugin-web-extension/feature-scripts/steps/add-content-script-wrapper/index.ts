@@ -32,7 +32,8 @@ import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
   createContentScriptCssProbeMarkerPattern,
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
-  parseCanonicalContentScriptAsset
+  parseCanonicalContentScriptAsset,
+  setRuntimeMainWorldEntries
 } from '../../contracts'
 import {addRulesInFront} from '../../scripts-lib/front-rules'
 import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
@@ -145,6 +146,12 @@ export class AddContentScriptWrapper {
     const mainWorldScripts = runtimeMainWorld
       .filter((entry) => !entry.copyOf)
       .flatMap((entry) => entry.files.map(canonicalizeResourcePath))
+
+    setRuntimeMainWorldEntries(
+      compiler,
+      new Map(runtimeMainWorld.map(({entryName, files}) => [entryName, files]))
+    )
+
     // A file both worlds run is a MAIN world file in its copy's bundle
     // alone, which the path it shares with the isolated build cannot say.
     const mainWorldCopies = runtimeMainWorld

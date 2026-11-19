@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {EXTENSIONJS_SANDBOX_LAYER} from '../../../feature-scripts/contracts'
 import {AddScriptsAndStylesToCompilation} from '../../steps/add-scripts-and-styles-to-compilation'
 
 const tmpRoots: string[] = []
@@ -75,6 +76,32 @@ describe('AddScriptsAndStylesToCompilation', () => {
         p.endsWith('/styles.css')
       )
     ).toBe(false)
+  })
+
+  it('puts a sandbox page entry on the sandbox layer and leaves a normal page entry off it', () => {
+    const tmp = makeTmp('steps-sandbox-layer')
+    const htmlPath = path.join(tmp, 'index.html')
+    fs.writeFileSync(
+      htmlPath,
+      `<html><body><script src="main.js"></script></body></html>`
+    )
+
+    fs.writeFileSync(path.join(tmp, 'main.js'), '// main')
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(manifestPath, '{}')
+    const compiler: any = {options: {mode: 'production', entry: {}}}
+
+    new AddScriptsAndStylesToCompilation({
+      manifestPath,
+      includeList: {'sandbox/page-0': htmlPath, 'action/index': htmlPath}
+    }).apply(compiler as any)
+
+    expect(EXTENSIONJS_SANDBOX_LAYER).toEqual(expect.any(String))
+    expect(compiler.options.entry['sandbox/page-0'].layer).toBe(
+      EXTENSIONJS_SANDBOX_LAYER
+    )
+
+    expect('layer' in compiler.options.entry['action/index']).toBe(false)
   })
 
   it('drops a <script src> whose file does not exist instead of failing the bundle', () => {

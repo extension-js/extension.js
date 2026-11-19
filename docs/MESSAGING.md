@@ -303,6 +303,10 @@ What is stable and what is not:
   writes a `stopped` frame with `ok: true`. Its `value` describes the session and carries
   `exitCode: 0`. A session stopped by a signal writes `stopped` with `ok: false` and the code
   `E_INTERRUPTED`.
+- A stop that does not finish within its 10 second shutdown bound ends the process with exit
+  code 1. When nothing wrote a terminal frame before that stop (an auto-exit deadline, for
+  example), the last frame is `failed` with the code `E_SHUTDOWN_TIMEOUT`, and its `value`
+  carries `exitCode` and `shutdownTimeoutMs`. A signal keeps its `stopped` frame.
 - `browser-exited` does not end a `dev` stream: the dev server outlives its browser and goes on
   compiling. It is written once per exit, by whichever of the ready report and the exit watcher
   reads the exit first, with `error.code` `E_BROWSER_LAUNCH` (or `E_PROFILE_LOCKED`) and

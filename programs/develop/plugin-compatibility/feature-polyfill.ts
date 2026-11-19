@@ -10,7 +10,10 @@ import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
-import {EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
+import {
+  EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
+  EXTENSIONJS_SANDBOX_LAYER
+} from '../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions} from '../types'
 import * as messages from './compatibility-lib/messages'
 import {
@@ -105,6 +108,7 @@ export class PolyfillPlugin {
 
             if (
               issuerLayer === EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER ||
+              issuerLayer === EXTENSIONJS_SANDBOX_LAYER ||
               noExtensionApi.has(resourceKey(issuer))
             ) {
               data.request = PAGE_BROWSER_GLOBAL
