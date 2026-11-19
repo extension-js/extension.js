@@ -101,6 +101,15 @@ function contentScriptSheets(
   return sheets
 }
 
+// The bundler's own report for an entry request that names one of the
+// files, whatever way the platform spells the path in it.
+function isUnresolvedEntryReport(message: string, files: string[]): boolean {
+  const spelled = (text: string) => text.replace(/\\+/g, '/').toLowerCase()
+  const text = spelled(message)
+
+  return files.some((file) => text.includes(`can't resolve '${spelled(file)}'`))
+}
+
 export function createSequentialEntryModule(
   feature: string,
   scriptImports: string[]
@@ -158,6 +167,7 @@ export class AddScripts {
       'scripts:validate-include-list',
       (compilation) => {
         const ErrorCtor = compiler.rspack?.WebpackError || Error
+        const missing: string[] = []
 
         try {
           const manifestDir = path.dirname(this.manifestPath)
@@ -200,6 +210,8 @@ export class AddScripts {
 
               if (!isWithheld && fs.existsSync(resolved)) continue
 
+              if (!isWithheld) missing.push(resolved)
+
               const isPublicRoot =
                 !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
 
@@ -240,6 +252,22 @@ export class AddScripts {
           failure.cause = error
           ;(compilation.errors ||= []).push(failure)
         }
+
+        if (missing.length === 0) return
+
+        // One report per missing file, and this step's names the field.
+        compilation.hooks.seal.tap(
+          'scripts:one-report-per-missing-file',
+          () => {
+            const reports = Array.from(compilation.errors)
+            const kept = reports.filter(
+              (report) =>
+                !isUnresolvedEntryReport(String(report?.message), missing)
+            )
+
+            if (kept.length !== reports.length) compilation.errors = kept
+          }
+        )
       }
     )
 

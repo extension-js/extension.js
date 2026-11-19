@@ -50,6 +50,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   PublicFolderOffRef: CODES.E_ASSET_MISSING,
   RootAbsoluteRefCompiledSource: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeSetSurfaceFileMissing: CODES.E_ASSET_MISSING,
   CodeNamedFileNotShipped: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeFetchedFileMissing: CODES.E_SCRIPT_DEP_MISSING,
   ImportScriptsDependencyMissing: CODES.E_SCRIPT_DEP_MISSING,

@@ -72,6 +72,32 @@ export function isCanonicalContentScriptAsset(assetName: string): boolean {
   return parseCanonicalContentScriptAsset(assetName) !== undefined
 }
 
+// A dev session ships these beside the content script bundles, one set per
+// manifest group, and no feature may treat them as a file the author wrote.
+export function devContentScriptStubAssetName(index: number): string {
+  return `content_scripts/dev-stub-${index}.js`
+}
+
+// A CSS-only entry has no bundle to mark its world, so this script stands in
+// for one: Chromium injects it beside the stylesheet and stamps the frame.
+export function devContentScriptCssMarkerAssetName(index: number): string {
+  return `content_scripts/dev-css-${index}.js`
+}
+
+// Chromium adds a registered sheet at document start and offers no way to ask
+// whether it did. A one-rule sheet registered with the entry's own answers.
+export function devContentScriptSheetProbeAssetName(index: number): string {
+  return `content_scripts/dev-sheet-${index}.css`
+}
+
+const DEV_CONTENT_SCRIPT_STAND_IN_ASSET =
+  /^content_scripts\/(?:dev-(?:stub|css)-\d+\.js|dev-sheet-\d+\.css)$/
+
+// True for the three names above: a stub, a CSS marker or a sheet probe.
+export function isDevContentScriptStandInAsset(assetName: string): boolean {
+  return DEV_CONTENT_SCRIPT_STAND_IN_ASSET.test(assetName)
+}
+
 // The wrapper loader runs before assets exist, so it cannot know whether the
 // bundle gets a sibling stylesheet; it bakes this marker and a processAssets
 // pass resolves it to the emitted path, or to nothing, once assets are final.
