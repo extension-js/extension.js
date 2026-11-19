@@ -18,9 +18,9 @@ import {
   buildRestartBundle,
   createSessionRestartHandler
 } from '../../../dev-server/session-restart-handler'
+import {isAwaitingMainWorldRestart} from '../../../dev-server/session-restart-holds'
 import {createRestartFailure} from '../../../dev-server/start-bundler'
 import {
-  isAwaitingMainWorldRestart,
   MAIN_WORLD_SETTLE_MS,
   WarnMainWorldRegistrationChanged
 } from '../steps/warn-main-world-registration-changed'

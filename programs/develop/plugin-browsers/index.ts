@@ -8,6 +8,7 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
+import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
 import {CODES, humanLine, humanWarn} from '../lib/messaging'
@@ -23,7 +24,6 @@ import {
   readContentScriptCount,
   readDevBuild
 } from '../plugin-reload'
-import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
 import {waitAtMost} from './bounded-wait'
 import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'

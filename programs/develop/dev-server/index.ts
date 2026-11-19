@@ -82,7 +82,6 @@ import {
   rememberSpecialFoldersConfig
 } from '../plugin-special-folders/get-data'
 import {publicFolderOrDefault} from '../plugin-special-folders/resolve-public-folder'
-import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import webpackConfig from '../rspack-config'
 import type {
   CommonWebpackOptions,
@@ -142,6 +141,7 @@ import {
   buildRestartBundle,
   createSessionRestartHandler
 } from './session-restart-handler'
+import {isAwaitingMainWorldRestart} from './session-restart-holds'
 import {withSessionStartPrune} from './session-start-prune'
 import {
   announceReadyOnCleanCompile,
