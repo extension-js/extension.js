@@ -280,10 +280,66 @@ describe('WarnUponFolderChanges', () => {
       newFile
     )
 
+    compiler.hooks.done.__invokeAll(compilation)
     compilation.warnings.length = 0
     compiler.modifiedFiles = new Set([newFile])
     runCycle(compiler, compilation)
     expect(compilation.warnings.length).toBe(0)
+  })
+
+  it('reports an added page again when a second watchRun supersedes the compile', () => {
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    const page = path.join(projectRoot, 'pages', 'extra.html')
+    const superseded = {...compilation, warnings: [], errors: []}
+    compiler.modifiedFiles = new Set([page])
+    runCycle(compiler, superseded)
+
+    compiler.modifiedFiles = new Set([
+      path.join(projectRoot, 'pages', 'other.css')
+    ])
+
+    runCycle(compiler, compilation)
+
+    expect(compilation.warnings.length).toBe(1)
+    expectRestartNotice(
+      compilation.warnings[0],
+      'Adding',
+      'HTML pages',
+      'pages',
+      page
+    )
+  })
+
+  it('drops the noise of a removal a second watchRun inside one compile saw', () => {
+    bindRestartHandler()
+    const {compiler, projectRoot} = createFakeCompiler()
+    tempDirs.add(projectRoot)
+    fs.mkdirSync(path.join(projectRoot, 'pages'), {recursive: true})
+    new WarnUponFolderChanges().apply(compiler as any)
+
+    const pageScript = path.join(projectRoot, 'pages', 'extra.js')
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set([
+      path.join(projectRoot, 'pages', 'extra.html'),
+      pageScript
+    ])
+
+    runCycle(compiler, {...compilation, warnings: [], errors: []})
+
+    compiler.removedFiles = new Set()
+    runCycle(compiler, compilation)
+
+    compilation.errors.push(
+      new Error(`Module not found: Can't resolve '${pageScript}'`)
+    )
+
+    compiler.hooks.done.__invokeAll(compilation)
+
+    expect(compilation.errors).toEqual([])
   })
 
   it('watches a missing special folder by its own path, never the project root', () => {
