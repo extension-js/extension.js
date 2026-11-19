@@ -13,6 +13,7 @@ import {
   sessionReadyPath
 } from '../helpers/session-project-path'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
 // The fake bridge carries the real develop-side walk so these specs prove
 // the readers agree with dev, not with a stand-in.
@@ -22,34 +23,35 @@ const state = {
   commands: [] as unknown[]
 }
 
-const loadBridge = async () => ({
-  ...(await import('../../develop/dev-server/control-bridge/log-rule')),
-  resolveSessionProjectRoot,
-  readReadyContract: (...args: unknown[]) => {
-    state.readyReads.push(args)
+const loadBridge = async () =>
+  bridgeStandIn({
+    ...(await import('../../develop/dev-server/control-bridge/log-rule')),
+    resolveSessionProjectRoot,
+    readReadyContract: (...args: unknown[]) => {
+      state.readyReads.push(args)
 
-    return state.ready
-  },
-  readControlToken: () => 'tok',
-  readPersistedControlPort: () => 4001,
-  controlPortFilePath: (p: string, b: string) =>
-    `${p}/.extension-js/control-port-${b}`,
-  BridgeController: class {
-    async connect() {
-      return {capabilities: {storage: true, reload: true}}
-    }
-    async command(payload: unknown) {
-      state.commands.push(payload)
+      return state.ready
+    },
+    readControlToken: () => 'tok',
+    readPersistedControlPort: () => 4001,
+    controlPortFilePath: (p: string, b: string) =>
+      `${p}/.extension-js/control-port-${b}`,
+    BridgeController: class {
+      async connect() {
+        return {capabilities: {storage: true, reload: true}}
+      }
+      async command(payload: unknown) {
+        state.commands.push(payload)
 
-      return {ok: true, value: {}}
+        return {ok: true, value: {}}
+      }
+      close() {}
+    },
+    BridgeConsumer: class {
+      start() {}
+      close() {}
     }
-    close() {}
-  },
-  BridgeConsumer: class {
-    start() {}
-    close() {}
-  }
-})
+  })
 
 // The engine is out of reach of a scratch project, so the peer leg skips.
 const runDoctor = (

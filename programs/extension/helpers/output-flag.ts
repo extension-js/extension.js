@@ -52,6 +52,14 @@ export function isJsonOutput(opts: {
   return resolveOutputFormat(opts) === 'json'
 }
 
+// The entry rewrites --format to --output before parsing, so a refusal of
+// that value has to be told which of the two the user typed.
+let outputSpelledAs: '--output' | '--format' = '--output'
+
+export function outputFlagTypedAs(flag: '--output' | '--format'): void {
+  outputSpelledAs = flag
+}
+
 // The refusal for the first output flag typed with a value that is neither
 // pretty nor json. A typo read as pretty printed prose where JSON was expected.
 export function invalidOutputFlagMessage(
@@ -63,7 +71,7 @@ export function invalidOutputFlagMessage(
   choices: readonly string[] = OUTPUT_CHOICES
 ): string | undefined {
   const typed = [
-    ['--output', opts.output],
+    [outputSpelledAs, opts.output],
     ['--format', opts.format],
     ['--wait-format', opts.waitFormat]
   ] as const

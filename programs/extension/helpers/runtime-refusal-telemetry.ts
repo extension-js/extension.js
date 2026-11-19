@@ -12,10 +12,13 @@ import {createTelemetryKit, Telemetry, type TelemetryDeps} from './telemetry'
 
 const UNSUPPORTED_RUNTIME_FLUSH_MS = 1500
 
+// The first word that names a command. Which flags take a value is not known
+// before Commander loads, so a flag's value or a project path is skipped by name.
 export function commandFromArgv(argv: string[]): string {
-  for (let index = 2; index < argv.length; index += 1) {
-    if (argv[index] === '--output') index += 1
-    else if (!argv[index].startsWith('-')) return argv[index]
+  for (const arg of argv.slice(2)) {
+    if (arg !== 'unknown' && KNOWN_COMMANDS.has(arg as KnownCommand)) {
+      return arg
+    }
   }
 
   return 'extension'

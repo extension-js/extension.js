@@ -7,8 +7,8 @@ import {workspaceSourceEntries} from '../../../scripts/lib/workspace-source-entr
 type DevelopModule = typeof import('extension-develop')
 type DevelopPreviewModule = typeof import('extension-develop/preview')
 
-// An ambient `declare module` wins over the package it names, so one for the
-// engine would swap its real types for whatever the declaration says.
+// An ambient `declare module` wins over the package it names, so one for a
+// sibling package would swap its real types for whatever the declaration says.
 
 const extensionRoot = path.resolve(__dirname, '..')
 const SKIPPED_FOLDERS = new Set(['node_modules', 'dist'])
@@ -28,20 +28,27 @@ function declarationFiles(dir: string): string[] {
 function shadowedEngineModules(text: string): string[] {
   return [
     ...text.matchAll(
-      /declare\s+module\s+['"`](extension-develop(?:\/[^'"`]*)?)['"`]/g
+      /declare\s+module\s+['"`](extension-(?:develop|create|install)(?:\/[^'"`]*)?)['"`]/g
     )
   ].map((match) => match[1])
 }
 
 describe('the types the CLI reads for the build engine', () => {
-  it('finds a declaration of the engine and of any of its subpaths', () => {
+  it('finds a declaration of a sibling package and of any of its subpaths', () => {
     expect(
       shadowedEngineModules(
         "declare module 'extension-develop' {}\n" +
           'declare  module "extension-develop/preview" {}\n' +
-          "declare module 'extension-create' {}\n"
+          "declare module 'extension-create' {}\n" +
+          "declare module 'extension-install' {}\n" +
+          "declare module 'extension-other' {}\n"
       )
-    ).toEqual(['extension-develop', 'extension-develop/preview'])
+    ).toEqual([
+      'extension-develop',
+      'extension-develop/preview',
+      'extension-create',
+      'extension-install'
+    ])
   })
 
   it('are never declared by hand in a .d.ts of this package', () => {
@@ -55,27 +62,27 @@ describe('the types the CLI reads for the build engine', () => {
     expect(files.length).toBeGreaterThan(0)
     expect(
       shadowed,
-      'An ambient declaration replaces the types extension-develop exports, ' +
+      'An ambient declaration replaces the types the package exports, ' +
         'so the calls into it stop being checked. Import the real types.'
     ).toEqual([])
   })
 
-  it('come from the engine source in the declaration build of this package', () => {
+  it('come from the sibling sources in the declaration build of this package', () => {
     const tsconfig = JSON.parse(
       fs.readFileSync(path.join(extensionRoot, 'tsconfig.json'), 'utf8')
     )
 
-    // Without these the declaration build reads the dist of the engine, which a
+    // Without these the declaration build reads the dist of a sibling, which a
     // fresh clone that compiles this package alone does not have.
     const engineEntries = Object.entries(
       workspaceSourceEntries as Record<string, string>
-    ).filter(([specifier]) => /^extension-develop(\/|$)/.test(specifier))
-    // Through the linked package, so the engine files count as a library and
+    )
+    // Through the linked package, so the sibling files count as a library and
     // the declarations of this package keep `import('extension-develop')`.
     const expected = Object.fromEntries(
       engineEntries.map(([specifier, file]) => [
         specifier,
-        [`./node_modules/extension-develop/${path.basename(file)}`]
+        [`./node_modules/${specifier.split('/')[0]}/${path.basename(file)}`]
       ])
     )
 

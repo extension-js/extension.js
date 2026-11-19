@@ -82,19 +82,28 @@ describe('a committed anonymous-id never aggregates strangers', () => {
   })
 
   it.each([
-    ['', ''],
-    ['  \n', ''],
-    ['not-a-uuid', 'not-a-uuid']
-  ])('adopts a stored id of %j as %j', (stored, adopted) => {
+    ['empty', ''],
+    ['blank', '  \n'],
+    ['not a UUID', 'not-a-uuid']
+  ])('replaces a stored id that is %s with a fresh one, and keeps it', (_label, stored) => {
     const box = sandbox()
     const file = storedId(box.configDir, stored)
+    const kit = box.kit()
+    const id = kit.loadOrCreateId(file)
 
-    // Pins today's behavior. Ledger 1372 D15.
-    expect(box.kit().loadOrCreateId(file)).toBe(adopted)
-    expect(fs.readFileSync(file, 'utf8')).toBe(stored)
+    expect(id).toMatch(UUID)
+    expect(fs.readFileSync(file, 'utf8')).toBe(id)
+    expect(kit.loadOrCreateId(file)).toBe(id)
   })
 
-  it('audits events under an empty distinct_id when the stored id is empty', () => {
+  it('takes a stored id with a newline or capitals as it is', () => {
+    const box = sandbox()
+    const file = storedId(box.configDir, `${COMMITTED_ID.toUpperCase()}\n`)
+
+    expect(box.kit().loadOrCreateId(file)).toBe(COMMITTED_ID.toUpperCase())
+  })
+
+  it('audits events under a fresh id when the stored one is empty', () => {
     const box = sandbox()
 
     storedId(box.configDir, '')
@@ -106,8 +115,8 @@ describe('a committed anonymous-id never aggregates strangers', () => {
 
     const rows = readRows(path.join(box.configDir, 'events.jsonl'))
 
-    // Pins today's behavior. Ledger 1372 D15.
-    expect(rows.map((row) => row.distinct_id)).toEqual([''])
+    expect(rows).toHaveLength(1)
+    expect(rows[0].distinct_id).toMatch(UUID)
   })
 })
 

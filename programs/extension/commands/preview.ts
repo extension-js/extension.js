@@ -23,10 +23,10 @@ import {
   geckoBinaryOption
 } from '../helpers/cli-options'
 import {resolveConfigBrowser} from '../helpers/config-browser'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
   type DevelopBrowser,
+  type DevelopModule,
   type DevelopPreviewLauncher,
   type DevelopPreviewModule,
   loadExtensionDevelopModule,
@@ -50,6 +50,7 @@ import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
   parseLogContexts,
+  parseLogFormat,
   parseLogLevel
 } from '../helpers/normalize-options'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
@@ -123,8 +124,8 @@ export const PREVIEW_NOT_FOUND_NEEDLES = [
 
 // What the action reaches outside this file. Production takes every default.
 interface PreviewCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
-  loadPreview?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
+  loadPreview?: () => Promise<DevelopPreviewModule>
   runBrowser?: typeof runOnlyPreviewBrowser
   noteBrowsers?: typeof noteRunBrowsers
 }
@@ -420,7 +421,7 @@ export function registerPreviewCommand(
                 // commands.preview.* are applied inside extensionPreview.
                 logLevel: parseLogLevel(logsOption),
                 logContexts,
-                logFormat: previewOptions.logFormat,
+                logFormat: parseLogFormat(previewOptions.logFormat),
                 logTimestamps: explicitCliValue(
                   command,
                   'logTimestamps',
@@ -486,7 +487,7 @@ export function registerPreviewCommand(
                 )
               )
 
-              await exitAfterDrain(1)
+              await exitFailedAfterDrain({code: declared, exitCode: 1})
 
               return
             }
@@ -514,7 +515,14 @@ export function registerPreviewCommand(
               )
             )
 
-            await exitAfterDrain(1)
+            await exitFailedAfterDrain({
+              code: nothingToPreview
+                ? CODES.E_PREVIEW_NO_DIST
+                : CODES.E_INTERNAL,
+              exitCode: 1,
+              error,
+              step: 'engine'
+            })
 
             return
           }

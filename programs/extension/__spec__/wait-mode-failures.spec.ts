@@ -11,6 +11,7 @@ import {
   type WaitCommand
 } from '../commands/dev-wait'
 import {CODES} from '../helpers/messaging'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
@@ -38,7 +39,7 @@ function fakeClock(onSleep: (now: number) => void = () => {}) {
 }
 
 // An older bridge with no path exports, so the contract sits under dist.
-const loadBridge = async () => ({})
+const loadBridge = async () => bridgeStandIn({})
 
 function readyPathIn(project: string, browser = 'chromium'): string {
   return path.join(project, 'dist', 'extension-js', browser, 'ready.json')
@@ -426,7 +427,7 @@ describe('wait mode failures', () => {
     })
   })
 
-  it('reads a pid it may not signal as a dead process', async () => {
+  it('reads a pid it may not signal as a live process', async () => {
     const project = makeTempFolder('extjs-wait-')
     const clock = fakeClock()
     // No signal leaves this process: the probe is answered here, as EPERM.
@@ -440,15 +441,33 @@ describe('wait mode failures', () => {
       pid: process.pid
     })
 
-    // Pins today's behavior. Ledger 1372 D9.
+    const result = await wait(project, clock)
+
+    expect(result.results).toMatchObject([
+      {browser: 'chromium', status: 'ready', pid: process.pid}
+    ])
+
+    expect(clock.sleeps).toEqual([])
+    expect(new Set(probe.mock.calls.map((call) => call.join(':')))).toEqual(
+      new Set([`${process.pid}:0`])
+    )
+  })
+
+  it('reads a pid that is gone as a dead process', async () => {
+    const project = makeTempFolder('extjs-wait-')
+    const clock = fakeClock()
+
+    writeContract(project, {
+      status: 'ready',
+      command: 'dev',
+      pid: await reapedPid()
+    })
+
     await expect(wait(project, clock)).rejects.toMatchObject({
       code: CODES.E_READY_TIMEOUT
     })
 
     expect(clock.elapsed()).toBe(1000)
-    expect(new Set(probe.mock.calls.map((call) => call.join(':')))).toEqual(
-      new Set([`${process.pid}:0`])
-    )
   })
 
   it('answers the recent error of a dev run that exited with its own code at once', async () => {
@@ -638,18 +657,14 @@ describe('wait mode failures', () => {
     expect(clock.sleeps).toEqual([])
   })
 
-  it('accepts an inherited object key as a catalog code', () => {
-    const failure = describeWaitError(
-      Object.assign(new Error('odd'), {code: 'toString'})
-    )
-
-    // Pins today's behavior. Ledger 1372 D12.
-    expect(failure).toEqual({
-      code: 'toString',
-      status: 'failed',
-      message: 'odd',
-      hint: 'Read the server output for the failure behind the ready contract.'
-    })
+  it.each([
+    'toString',
+    'constructor',
+    '__proto__'
+  ])('files an inherited object key %j as E_INTERNAL', (code) => {
+    expect(
+      describeWaitError(Object.assign(new Error('odd'), {code}))
+    ).toMatchObject({code: CODES.E_INTERNAL, status: 'failed', message: 'odd'})
   })
 
   it('files a tagged error under no catalog code as E_INTERNAL', () => {
@@ -658,11 +673,10 @@ describe('wait mode failures', () => {
     ).toMatchObject({code: CODES.E_INTERNAL, status: 'failed', message: 'odd'})
   })
 
-  it('surfaces a bridge that failed to load as a timeout', async () => {
+  it('answers a bridge that failed to load with its own code at once', async () => {
     const project = makeTempFolder('extjs-wait-')
     const clock = fakeClock()
 
-    // Pins today's behavior. Ledger 1372 D13.
     await expect(
       runWaitMode(
         {
@@ -683,11 +697,40 @@ describe('wait mode failures', () => {
       )
     ).rejects.toMatchObject({
       name: 'WaitModeError',
-      code: CODES.E_READY_TIMEOUT,
-      message: `Timed out waiting for ready contract at ${readyPathIn(project)} (1000 ms)`
+      code: CODES.E_RUNTIME_NOT_FOUND,
+      message: 'no runtime'
     })
 
-    expect(clock.elapsed()).toBe(1000)
+    expect(clock.sleeps).toEqual([])
+  })
+
+  it('reads the plain dist path when the bridge fails to load uncoded', async () => {
+    const project = makeTempFolder('extjs-wait-')
+    const clock = fakeClock()
+
+    writeContract(project, {status: 'ready', command: 'dev', pid: process.pid})
+
+    const result = await runWaitMode(
+      {
+        command: 'dev',
+        pathOrRemoteUrl: project,
+        browsers: ['chromium'],
+        waitTimeout: 1000
+      },
+      {
+        now: clock.now,
+        sleep: clock.sleep,
+        loadBridge: async () => {
+          throw new SyntaxError('Unexpected token')
+        }
+      }
+    )
+
+    expect(result.results).toMatchObject([
+      {browser: 'chromium', status: 'ready'}
+    ])
+
+    expect(clock.sleeps).toEqual([])
   })
 })
 

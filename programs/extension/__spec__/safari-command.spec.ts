@@ -27,11 +27,13 @@ import {fakeSafariUiTools} from '../browsers/__spec__/safari-fake-ui-tools'
 import type {SafariUiTools} from '../browsers/run-safari/safari-ui'
 import {registerSafariCommand} from '../commands/safari'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
-const loadBridge = async () => ({
-  readReadyContract: () => bridge.ready,
-  resolveSessionProjectRoot: (input: string) => input
-})
+const loadBridge = async () =>
+  bridgeStandIn({
+    readReadyContract: () => bridge.ready,
+    resolveSessionProjectRoot: (input: string) => input
+  })
 
 let uiTools: SafariUiTools | undefined
 

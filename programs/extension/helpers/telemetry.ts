@@ -11,6 +11,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import {isFailureStep, isTelemetryErrorClass} from './telemetry-error-class'
 
 // Where the public telemetry page lives. An npm install has no docs folder.
 export const TELEMETRY_DOCS_URL =
@@ -39,6 +40,11 @@ export type TelemetryProps = {
   browser_install_seconds?: number
   deps_install?: string
   deps_install_seconds?: number
+  // One word from INSTALL_TARGETS, on install only.
+  install_target?: string
+  // Fixed words from telemetry-error-class, on an E_INTERNAL failure only.
+  error_class?: string
+  error_step?: string
 }
 
 /* @invariant THIS CAP USED TO BE THIRTY-TWO AND IT WAS SILENTLY MANGLING THE
@@ -101,6 +107,7 @@ const BROWSER_INSTALL_OUTCOMES = new Set([
   'failed'
 ])
 const INSTALLABLE_BROWSERS = new Set(['chrome', 'chromium', 'edge', 'firefox'])
+const INSTALL_TARGETS = new Set([...INSTALLABLE_BROWSERS, 'all'])
 const DEPS_INSTALL_OUTCOMES = new Set(['skipped', 'installed', 'failed'])
 const MAX_INSTALL_SECONDS = 86_400
 
@@ -245,6 +252,17 @@ const DEFAULT_DEBOUNCE_MS = 60_000
  */
 const DEFAULT_TIMEOUT_MS = 2000
 const DEFAULT_AUDIT_MAX_BYTES = 1024 * 1024
+
+// A knob that does not read as a number keeps its default. NaN used to reach
+// the clamps below, where it aborted every send or turned the cap off.
+function numericKnob(raw: string | undefined, fallback: number): number {
+  const text = String(raw ?? '').trim()
+  if (!text) return fallback
+
+  const value = Number(text)
+
+  return Number.isFinite(value) ? value : fallback
+}
 
 function auditMaxBytes(env: TelemetryEnv): number {
   const raw = Number(env.EXTENSION_TELEMETRY_AUDIT_MAX_BYTES)
@@ -531,11 +549,14 @@ function machineScopedId(rawId: string): string {
   ].join('-')
 }
 
+const STORED_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 // The ID a run would send, or null when none is stored. Never creates one.
 function readIdWith(deps: TelemetryDeps, file: string): string | null {
   try {
     const stored = deps.fs.readFileSync(file, 'utf8').trim()
-    if (!stored) return null
+    if (!STORED_ID.test(stored)) return null
 
     return isInsideGitWorkTreeWith(deps, path.dirname(file))
       ? machineScopedId(stored)
@@ -548,11 +569,15 @@ function readIdWith(deps: TelemetryDeps, file: string): string | null {
 function loadOrCreateIdWith(deps: TelemetryDeps, file: string): string {
   const inWorkTree = isInsideGitWorkTreeWith(deps, path.dirname(file))
 
+  // Only a UUID is an id the CLI wrote. An empty or damaged file is replaced,
+  // or every machine with one would report under the same distinct_id.
   try {
     if (deps.fs.existsSync(file)) {
       const stored = deps.fs.readFileSync(file, 'utf8').trim()
 
-      return inWorkTree ? machineScopedId(stored) : stored
+      if (STORED_ID.test(stored)) {
+        return inWorkTree ? machineScopedId(stored) : stored
+      }
     }
   } catch {
     // Ignore
@@ -895,7 +920,7 @@ export class Telemetry {
     this.host = init.host ?? (env.POSTHOG_HOST || BUILT_IN_POSTHOG_HOST)
     this.sampleRate = clamp(
       init.sampleRate ??
-        Number(env.EXTENSION_TELEMETRY_SAMPLE_RATE || DEFAULT_SAMPLE_RATE),
+        numericKnob(env.EXTENSION_TELEMETRY_SAMPLE_RATE, DEFAULT_SAMPLE_RATE),
       0,
       1
     )
@@ -903,19 +928,19 @@ export class Telemetry {
     this.maxEventsPerRun = Math.max(
       0,
       init.maxEventsPerRun ??
-        Number(env.EXTENSION_TELEMETRY_MAX_EVENTS || DEFAULT_MAX_EVENTS)
+        numericKnob(env.EXTENSION_TELEMETRY_MAX_EVENTS, DEFAULT_MAX_EVENTS)
     )
 
     this.debounceMs = Math.max(
       0,
       init.debounceMs ??
-        Number(env.EXTENSION_TELEMETRY_DEBOUNCE_MS || DEFAULT_DEBOUNCE_MS)
+        numericKnob(env.EXTENSION_TELEMETRY_DEBOUNCE_MS, DEFAULT_DEBOUNCE_MS)
     )
 
     this.timeoutMs = Math.max(
       1,
       init.timeoutMs ??
-        Number(env.EXTENSION_TELEMETRY_TIMEOUT_MS || DEFAULT_TIMEOUT_MS)
+        numericKnob(env.EXTENSION_TELEMETRY_TIMEOUT_MS, DEFAULT_TIMEOUT_MS)
     )
 
     this.common = {
@@ -983,6 +1008,18 @@ export class Telemetry {
       const code = catalogCode(props.code)
       if (code) enforcedProps.code = code
 
+      // An unclassified failure says what kind of error it was and where,
+      // each re-checked here as a word from its fixed list.
+      if (code === 'E_INTERNAL') {
+        if (isTelemetryErrorClass(props.error_class)) {
+          enforcedProps.error_class = props.error_class
+        }
+
+        if (isFailureStep(props.error_step)) {
+          enforcedProps.error_step = props.error_step
+        }
+      }
+
       const exitCode = smallExitCode(props.exit_code)
       if (exitCode !== undefined) enforcedProps.exit_code = exitCode
 
@@ -1017,6 +1054,9 @@ export class Telemetry {
       if (depsSeconds !== undefined) {
         enforcedProps.deps_install_seconds = depsSeconds
       }
+
+      const installTarget = fixedWord(props.install_target, INSTALL_TARGETS)
+      if (installTarget) enforcedProps.install_target = installTarget
 
       // $ip and $geoip_disable keep the request address and any location
       // out, $process_person_profile keeps a per-machine profile from forming.

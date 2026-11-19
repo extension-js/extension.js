@@ -13,6 +13,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn, previewStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // A real folder: a typed path that is not there is refused before the engine.
@@ -54,30 +55,32 @@ const deps: StartDeps = {
   noteBrowsers: (resolved) => {
     notedBrowsers.push([...resolved])
   },
-  loadDevelop: async () => ({
-    extensionBuild: async (...call: EngineCall) => {
-      events.push('build')
-      builds.push(call)
-      await build()
-    },
-    loadCommandConfig: async (...args: unknown[]) => {
-      configReads.push(args)
+  loadDevelop: async () =>
+    developStandIn({
+      extensionBuild: async (...call: EngineCall) => {
+        events.push('build')
+        builds.push(call)
+        await build()
+      },
+      loadCommandConfig: async (...args: unknown[]) => {
+        configReads.push(args)
 
-      return commandConfig
-    }
-  }),
-  loadPreview: async () => ({
-    extensionPreview: async (
-      projectPath: string,
-      options: Record<string, unknown>,
-      runBrowser: (launch: unknown) => unknown
-    ) => {
-      events.push('preview')
-      previews.push([projectPath, options])
-      await preview()
-      await runBrowser({launched: true})
-    }
-  }),
+        return commandConfig
+      }
+    }),
+  loadPreview: async () =>
+    previewStandIn({
+      extensionPreview: async (
+        projectPath: string,
+        options: Record<string, unknown>,
+        runBrowser: (launch: unknown) => unknown
+      ) => {
+        events.push('preview')
+        previews.push([projectPath, options])
+        await preview()
+        await runBrowser({launched: true})
+      }
+    }),
   runBrowser: (async (launch: unknown) => {
     browserRuns.push(launch)
   }) as never,

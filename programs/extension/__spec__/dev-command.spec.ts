@@ -7,6 +7,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // A real folder: a typed path that is not there is refused before the engine.
@@ -38,17 +39,18 @@ const deps: DevDeps = {
   },
   // The real one sends a failure row through the CLI's own telemetry.
   reportFailure: () => {},
-  loadDevelop: async () => ({
-    extensionDev: async (...call: EngineCall) => {
-      engineCalls.push(call)
-      await engine(...call)
-    },
-    loadCommandConfig: async (...args: unknown[]) => {
-      configReads.push(args)
+  loadDevelop: async () =>
+    developStandIn({
+      extensionDev: async (...call: EngineCall) => {
+        engineCalls.push(call)
+        await engine(...call)
+      },
+      loadCommandConfig: async (...args: unknown[]) => {
+        configReads.push(args)
 
-      return commandConfig
-    }
-  }),
+        return commandConfig
+      }
+    }),
   launcher,
   safariPreflight: () => preflightIssue,
   armParentWatchdog: ((pid: number, options: {emitFrame: () => void}) => {
@@ -802,7 +804,15 @@ describe('extension dev after the engine ends a running session', () => {
   it('exits 1 after the report under --output json, with no frame of its own', async () => {
     const reported = await endSession(['dev', '.', '--output', 'json'])
 
-    expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
+    expect(reported).toEqual([
+      {
+        code: 'E_DEV_SERVER_START',
+        exitCode: 1,
+        error: lostServer,
+        step: 'engine'
+      }
+    ])
+
     expect(drainedExits).toEqual([{code: 1, reportedFirst: true}])
     expect(stdout).toEqual([])
   })
@@ -848,7 +858,15 @@ describe('extension dev after the engine ends a running session', () => {
   it('leaves the exit to the engine in pretty mode, which ends the process itself', async () => {
     const reported = await endSession(['dev', '.'])
 
-    expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
+    expect(reported).toEqual([
+      {
+        code: 'E_DEV_SERVER_START',
+        exitCode: 1,
+        error: lostServer,
+        step: 'engine'
+      }
+    ])
+
     expect(drainedExits).toEqual([])
     expect(process.exit).not.toHaveBeenCalled()
   })
@@ -957,5 +975,90 @@ describe('extension dev tells telemetry which browsers it resolved', () => {
     expect(await run(['dev', PROJECT, '--output', 'xml'])).toBe(1)
     expect(notedBrowsers).toEqual([])
     expect(configReads).toEqual([])
+  })
+})
+
+// An unclassified failure says what kind of error it was and where it was
+// thrown, so the row tells a missing engine from an engine that threw.
+describe('extension dev tells telemetry where an unclassified failure came from', () => {
+  const reported: unknown[] = []
+
+  function runWith(overrides: Partial<DevDeps>, argv: string[]) {
+    return runCli(
+      makeProgram((program) =>
+        registerDevCommand(program, {
+          ...deps,
+          reportFailure: (details) => {
+            reported.push(details)
+          },
+          ...overrides
+        })
+      ),
+      argv
+    )
+  }
+
+  afterEach(() => {
+    reported.length = 0
+  })
+
+  it('names the engine when the engine rejects under --output json', async () => {
+    const thrown = new TypeError('engine broke')
+
+    engine = async () => {
+      throw thrown
+    }
+
+    expect(await runWith({}, ['dev', PROJECT, '--output', 'json'])).toBe(1)
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine'}
+    ])
+  })
+
+  it('names the engine for a failure the engine reports itself', async () => {
+    const thrown = new RangeError('engine broke')
+
+    engine = async (_path, options) => {
+      ;(options.onExitError as (error: unknown) => void)(thrown)
+    }
+
+    expect(await runWith({}, ['dev', PROJECT])).toBe(0)
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine'}
+    ])
+  })
+
+  it('names the engine load when the engine module cannot be loaded', async () => {
+    let loads = 0
+
+    const counting = async () => {
+      loads += 1
+
+      return deps.loadDevelop!()
+    }
+
+    expect(await runWith({loadDevelop: counting}, ['dev', PROJECT])).toBe(0)
+    const loadsBeforeTheEngine = loads
+    const thrown = Object.assign(new Error('Cannot find module'), {
+      code: 'MODULE_NOT_FOUND'
+    })
+
+    loads = 0
+    reported.length = 0
+
+    const failing = async () => {
+      loads += 1
+      if (loads === loadsBeforeTheEngine) throw thrown
+
+      return deps.loadDevelop!()
+    }
+
+    await expect(
+      runWith({loadDevelop: failing}, ['dev', PROJECT])
+    ).rejects.toBe(thrown)
+
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine_load'}
+    ])
   })
 })
