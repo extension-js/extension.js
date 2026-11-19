@@ -198,8 +198,8 @@ export type PerfBudgetCategory =
  * Per-category asset size budgets (bytes) for compiling commands, plus
  * `ignore`, the output paths no budget applies to: exact paths as the
  * warning prints them, or globs where `*` stays inside one folder and `**`
- * spans folders. Set at the top level, or per command via
- * `commands.dev|build.perfBudgets`.
+ * spans folders. Set at the top level, under `browser.<vendor>.perfBudgets`
+ * or under `commands.build.perfBudgets`. Only a production build checks them.
  *
  * @example
  * export default {
@@ -401,8 +401,9 @@ export interface FileConfig {
    */
   transpilePackages?: string[]
   /**
-   * Default per-category asset budgets for all commands. Per-command
-   * `commands.dev|build.perfBudgets` overrides this value.
+   * Default per-category asset budgets, checked on a production build only.
+   * `browser.<vendor>.perfBudgets` overrides them key by key, and
+   * `commands.build.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
   /**
