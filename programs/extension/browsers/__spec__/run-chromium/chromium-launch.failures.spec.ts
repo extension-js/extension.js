@@ -111,7 +111,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
       )
 
       expect(fake.offeredInstalls).toEqual(['chrome'])
-      expect(new Set(fake.located)).toEqual(new Set(['chrome']))
+      expect(fake.located).toEqual(['chrome'])
       expect(said('error')).toHaveLength(1)
       expect(said('error')[0]).toContain(
         "Chrome for Testing isn't available in the managed browser cache."
