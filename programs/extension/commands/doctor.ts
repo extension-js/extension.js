@@ -42,7 +42,11 @@ import {
   remedyRspackPeerConflicts,
   scanRspackPeers
 } from '../helpers/rspack-peer-check'
-import {portAnswers, reusedPidEvidence} from '../helpers/session-liveness'
+import {
+  type BrowserSessionCommand,
+  portAnswers,
+  reusedPidEvidence
+} from '../helpers/session-liveness'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -231,8 +235,6 @@ function readReadyDocument(readyPath: string): Record<string, unknown> | null {
     return null
   }
 }
-
-type SessionCommand = 'dev' | 'start' | 'preview'
 
 function productionCommand(
   document: Record<string, unknown> | null
@@ -632,7 +634,8 @@ export async function runDoctor(
 
   // A start or preview session serves a built folder: no dev server and no
   // compile, so the rows name the command that owns the process.
-  const sessionCommand: SessionCommand = productionCommand(document) ?? 'dev'
+  const sessionCommand: BrowserSessionCommand =
+    productionCommand(document) ?? 'dev'
   const production = sessionCommand !== 'dev'
   const sessionNoun = production
     ? `extension ${sessionCommand} session`

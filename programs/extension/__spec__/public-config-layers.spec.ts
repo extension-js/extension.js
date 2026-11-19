@@ -28,8 +28,8 @@ import type {
   PerfBudgetsConfig,
   PreviewCommandConfig,
   SafariConfig,
-  ServeCommandConfig,
-  SpecialFoldersConfig
+  SpecialFoldersConfig,
+  StartCommandConfig
 } from '../config-types'
 import type {Agrees, Same} from './helpers/type-agreement'
 
@@ -46,7 +46,7 @@ type InternalSafari = Omit<SafariOptions, keyof BrowserOptionsBase>
 const everyLayerAgreesWithTheLoader: [
   Agrees<BrowserConfig, InternalBrowser>,
   Agrees<DevCommandConfig, NonNullable<Commands['dev']>>,
-  Agrees<ServeCommandConfig, NonNullable<Commands['start']>>,
+  Agrees<StartCommandConfig, NonNullable<Commands['start']>>,
   // Preview builds nothing. The CLI keeps these keys, marked deprecated.
   Agrees<
     PreviewCommandConfig,
@@ -83,6 +83,26 @@ const everyLayerAgreesWithTheLoader: [
 ]
 
 void everyLayerAgreesWithTheLoader
+
+// Budgets belong to the start layer, and preview builds nothing, so it takes
+// none. The compiler is what checks both values.
+const startTakesBudgets: FileConfig = {
+  commands: {
+    start: {
+      perfBudgets: {'service-worker': 10},
+      noOpen: true,
+      startingUrl: 'https://example.com'
+    },
+    preview: {noOpen: true, startingUrl: 'https://example.com'}
+  }
+}
+const previewRefusesBudgets: FileConfig = {
+  // @ts-expect-error preview builds nothing, so no budget applies
+  commands: {preview: {perfBudgets: {'service-worker': 10}}}
+}
+
+void startTakesBudgets
+void previewRefusesBudgets
 
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(

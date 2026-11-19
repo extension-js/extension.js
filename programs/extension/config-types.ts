@@ -261,6 +261,8 @@ export interface ServeCommandConfig
   profile?: string | false
   chromiumBinary?: string
   geckoBinary?: string
+  noOpen?: boolean
+  startingUrl?: string
   noBrowser?: boolean
   polyfill?: boolean
   port?: string | number
@@ -289,13 +291,21 @@ export interface ServeCommandConfig
   exclude?: ExcludeFilesConfig
 }
 
+/** `commands.start` overrides. */
+export interface StartCommandConfig extends ServeCommandConfig {
+  /** Asset budgets for the build `start` runs. */
+  perfBudgets?: PerfBudgetsConfig
+}
+
 /**
- * `commands.preview` overrides. Preview serves a build that already exists, so
- * the keys that shape a build do nothing here.
+ * `commands.preview` overrides. Preview serves a build that already exists,
+ * so the keys that shape a build do nothing here.
  */
 export interface PreviewCommandConfig extends ServeCommandConfig {
   /** @deprecated Preview serves an existing build and ignores it. */
   polyfill?: boolean
+  /** @deprecated Preview serves an existing build and ignores it. */
+  transpilePackages?: string[]
   /** @deprecated Preview serves an existing build and ignores it. */
   define?: Record<string, unknown>
   /** @deprecated Preview serves an existing build and ignores it. */
@@ -386,7 +396,7 @@ export interface FileConfig {
   /** Per-command overrides. */
   commands?: {
     dev?: DevCommandConfig
-    start?: ServeCommandConfig
+    start?: StartCommandConfig
     preview?: PreviewCommandConfig
     build?: BuildCommandConfig
   }

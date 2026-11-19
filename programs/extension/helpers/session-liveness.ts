@@ -24,7 +24,7 @@ export interface SessionContract {
   controlPort?: number
 }
 
-export type SessionCommand = 'dev' | 'start' | 'preview'
+export type BrowserSessionCommand = 'dev' | 'start' | 'preview'
 
 // How far the process table's start time may sit from the stamped one. ps
 // answers in whole seconds and Windows stamps its own clock.
@@ -36,13 +36,13 @@ const CONTROL_PORT_PROBE_TIMEOUT_MS = 1000
 
 export function sessionCommandOf(
   ready: {command?: unknown} | null | undefined
-): SessionCommand {
+): BrowserSessionCommand {
   return ready?.command === 'start' || ready?.command === 'preview'
     ? ready.command
     : 'dev'
 }
 
-export function sessionNounOf(command: SessionCommand): string {
+export function sessionNounOf(command: BrowserSessionCommand): string {
   return command === 'dev' ? 'dev session' : `extension ${command} session`
 }
 
