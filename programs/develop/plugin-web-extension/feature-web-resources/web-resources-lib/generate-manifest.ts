@@ -91,10 +91,6 @@ function getAssetSource(compilation: Compilation, filename: string) {
   return ''
 }
 
-function hasWildcardPattern(pattern: string) {
-  return /[*?[\]]/.test(pattern)
-}
-
 // Files a stylesheet reaches for at runtime. A page loads them itself, so a
 // content script's CSS needs each one web-accessible or the browser blocks it.
 function emittedFilesReferencedByCss(
@@ -134,37 +130,6 @@ function emittedFilesReferencedByCss(
   return [...found]
 }
 
-function escapeRegex(s: string) {
-  return s.replace(/[.+^${}()|\\]/g, '\\$&')
-}
-
-function globToRegex(pattern: string) {
-  const escaped = pattern
-    .split('*')
-    .map((seg) => escapeRegex(seg))
-    .join('.*')
-
-  return new RegExp(`^${escaped}$`)
-}
-
-function isCoveredByExistingGlobs(
-  existingPatterns: string[],
-  candidate: string
-) {
-  for (const existingPattern of existingPatterns) {
-    if (hasWildcardPattern(existingPattern)) {
-      try {
-        const re = globToRegex(existingPattern)
-        if (re.test(candidate)) return true
-      } catch {
-        // Ignore
-      }
-    }
-  }
-
-  return false
-}
-
 // Fields that change how a listed resource is addressed, rather than which
 // pages may read it. A generated asset must never inherit one by accident.
 const ADDRESSABILITY_FIELDS = ['use_dynamic_url', 'extension_ids'] as const
@@ -191,7 +156,7 @@ export function mergeIntoV3Group(
       !dynamicGroups.some(
         (group) =>
           group.resources.includes(resource) ||
-          isCoveredByExistingGlobs(group.resources, resource)
+          isResourceCovered(group.resources, resource)
       )
   )
 
@@ -220,7 +185,7 @@ export function mergeIntoV3Group(
     const candidates = resources.filter(
       (resource) =>
         !existing.resources.includes(resource) &&
-        !isCoveredByExistingGlobs(existing.resources, resource)
+        !isResourceCovered(existing.resources, resource)
     )
 
     existing.resources = Array.from(
@@ -271,7 +236,7 @@ function collectUnfetchedEntrySheets(
 ): Set<string> {
   const unfetched = new Set<string>()
 
-  // A dev session reinjects sheets through its own runtime, by other names.
+  // A development build names its sheets by hash, not by these names.
   if ((compilation.options?.mode || 'development') !== 'production') {
     return unfetched
   }
@@ -500,7 +465,7 @@ export function generateManifestPatches(
       : Array.from(resolved.v2)
   const declaredByAuthor = (resource: string) =>
     authorDeclared.includes(resource) ||
-    isCoveredByExistingGlobs(authorDeclared, resource)
+    isResourceCovered(authorDeclared, resource)
   const widenedByEntry = new Map<string, Set<string>>()
 
   // A scripting API file or a user script runs on whichever page the

@@ -1,6 +1,7 @@
 import * as path from 'node:path'
 import {Compilation, rspack, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {toDiagnostic} from '../../lib/compilation-diagnostics'
 import {
   cssSelectorTokens,
   minifierDroppedTokens,
@@ -241,9 +242,13 @@ describe('minifier parity only where a minimizer runs', () => {
         shipped
       )
 
-      expect(
-        compilation.warnings.filter((w) => /minimizer dropped/.test(w.message))
-      ).toHaveLength(warned)
+      const dropped = compilation.warnings.filter((w) =>
+        /minimizer dropped/.test(w.message)
+      )
+      expect(dropped).toHaveLength(warned)
+      expect(dropped.map((w) => toDiagnostic(w, 'warning').code)).toEqual(
+        dropped.map(() => 'W_CSS_PARSE')
+      )
     } finally {
       await new Promise<void>((resolve) => compiler.close(() => resolve()))
     }

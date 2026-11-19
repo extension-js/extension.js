@@ -43,10 +43,12 @@ const table: CodesTable = JSON.parse(
 const READY_CODES = [
   'browser_exited',
   'browser_launch_failed',
+  'build_failed',
   'compile_error',
   'compile_failed',
   'dev_server_start_failed',
   'extension_load_refused',
+  'preview_failed',
   'preview_manifest_missing',
   'profile_locked',
   'shutdown'

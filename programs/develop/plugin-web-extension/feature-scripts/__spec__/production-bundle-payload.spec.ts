@@ -8,9 +8,9 @@ import webpackConfig from '../../../rspack-config'
 
 const roots: string[] = []
 
-// Dev scaffolding the wrapper installs so a bundle can replace itself in a
-// live page. None of it has a job in a bundle the browser injects once.
-const DEV_REINJECT_MARKERS = [
+// What a dev session adds so a bundle can replace itself in a live page.
+// None of it has a job in a bundle the browser injects once.
+const DEV_SESSION_MARKERS = [
   '__EXTENSIONJS_DEV_REINJECT__',
   'data-extjs-reinject-owner',
   'data-extjs-reinject-build'
@@ -40,13 +40,13 @@ function scaffold(name: string, files: Record<string, string>) {
   return root
 }
 
-async function compile(root: string, mode: 'development' | 'production') {
+async function compile(root: string) {
   const distPath = path.join(root, 'dist', 'chrome')
   const projectStructure = await getProjectStructure(root)
   const config = webpackConfig(projectStructure, {
     browser: 'chrome',
-    mode,
-    metadataCommand: mode === 'production' ? 'build' : 'dev',
+    mode: 'production',
+    metadataCommand: 'build',
     silent: true,
     output: {clean: true, path: distPath}
   } as any)
@@ -86,7 +86,7 @@ async function compile(root: string, mode: 'development' | 'production') {
 }
 
 function countMarkers(text: string) {
-  return DEV_REINJECT_MARKERS.map((marker) => ({
+  return DEV_SESSION_MARKERS.map((marker) => ({
     marker,
     hits: text.split(marker).length - 1
   }))
@@ -99,7 +99,7 @@ afterAll(() => {
 })
 
 describe('what a production bundle ships', () => {
-  it('keeps the reinject scaffolding out of a production content script', async () => {
+  it('keeps the dev session scaffolding out of a production content script', async () => {
     const root = scaffold('content-script', {
       'manifest.json': JSON.stringify({
         manifest_version: 3,
@@ -112,39 +112,18 @@ describe('what a production bundle ships', () => {
       'content/index.ts': 'console.log("CS_ONLY")\nexport {}\n'
     })
 
-    const production = await compile(root, 'production')
+    const production = await compile(root)
     expect(production.errors).toEqual([])
 
     const productionBundle = production.read('content_scripts/content-0.js')
 
     expect(countMarkers(productionBundle)).toEqual(
-      DEV_REINJECT_MARKERS.map((marker) => ({marker, hits: 0}))
+      DEV_SESSION_MARKERS.map((marker) => ({marker, hits: 0}))
     )
 
     // A ceiling, not a measurement: the scaffolding was 7.2 KB of it, and
     // nothing but a regression puts that kind of weight back.
     expect(Buffer.byteLength(productionBundle, 'utf-8')).toBeLessThan(1024)
-
-    const development = await compile(root, 'development')
-    expect(development.errors).toEqual([])
-
-    // The same fixture in development still carries the mechanism, which is
-    // what makes the production assertion a mode gate and not a deletion.
-    // Development cache-busts the bundle name, so match it by its entry.
-    const developmentName = development.emitted.find((entry) =>
-      /^content_scripts\/content-0.*\.js$/.test(entry)
-    )
-
-    expect(developmentName, development.emitted.join(', ')).toBeTruthy()
-
-    const developmentBundle = development.read(String(developmentName))
-
-    expect(
-      developmentBundle.split('__EXTENSIONJS_DEV_REINJECT__').length - 1
-    ).toBeGreaterThan(0)
-
-    expect(developmentBundle).toContain('data-extjs-reinject-owner')
-    expect(developmentBundle).toContain('data-extjs-reinject-build')
   }, 180_000)
 
   it('still hydrates a production content script that ships a stylesheet', async () => {
@@ -176,13 +155,13 @@ describe('what a production bundle ships', () => {
         '}\n'
     })
 
-    const production = await compile(root, 'production')
+    const production = await compile(root)
     expect(production.errors).toEqual([])
 
     const bundle = production.read('content_scripts/content-0.js')
 
     expect(countMarkers(bundle)).toEqual(
-      DEV_REINJECT_MARKERS.map((marker) => ({marker, hits: 0}))
+      DEV_SESSION_MARKERS.map((marker) => ({marker, hits: 0}))
     )
 
     expect(production.emitted).toContain('content_scripts/content-0.css')
@@ -210,7 +189,7 @@ describe('what a production bundle ships', () => {
       'scripts/injected.ts': 'console.log("INJECTED_MARKER")\nexport {}\n'
     })
 
-    const production = await compile(root, 'production')
+    const production = await compile(root)
     expect(production.errors).toEqual([])
 
     const manifest = JSON.parse(production.read('manifest.json')) as {
@@ -235,6 +214,6 @@ describe('what a production bundle ships', () => {
 
     expect(
       countMarkers(production.read('background/service_worker.js'))
-    ).toEqual(DEV_REINJECT_MARKERS.map((marker) => ({marker, hits: 0})))
+    ).toEqual(DEV_SESSION_MARKERS.map((marker) => ({marker, hits: 0})))
   }, 180_000)
 })
