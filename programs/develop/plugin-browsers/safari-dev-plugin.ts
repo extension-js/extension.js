@@ -18,6 +18,7 @@ import {
   reloadForBuild,
   reloadSurvivingPackage
 } from '../plugin-reload'
+import type {SafariPackagerFn} from '../types'
 import {waitAtMost} from './bounded-wait'
 import {BuildEmitter, type RunnerPlugin, reportLaunchFailure} from './index'
 import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
@@ -29,13 +30,6 @@ export const SAFARI_FIRST_PACKAGE_TIMEOUT_MS = 10 * 60_000
 
 // A resync is xcodebuild alone, with no step that waits on the user.
 export const SAFARI_RESYNC_TIMEOUT_MS = 5 * 60_000
-
-// The dev plugin ignores whatever the packager reports back (only `build`
-// folds it into a summary), so the return is deliberately unconstrained.
-export type SafariPackagerFn = (
-  distPath: string,
-  mode: 'full' | 'resync'
-) => Promise<unknown>
 
 // Safari reloads through the same control bridge every other engine uses, and
 // the dev server runs the bundler in watch mode. This plugin rides that watch

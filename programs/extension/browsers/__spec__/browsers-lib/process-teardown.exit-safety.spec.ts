@@ -57,7 +57,7 @@ describe('windowsTaskkillPath', () => {
       '../../browsers-lib/process-teardown'
     )
 
-    expect(windowsTaskkillPath(env)).toBe(expected)
+    expect(windowsTaskkillPath(env as NodeJS.ProcessEnv)).toBe(expected)
   })
 })
 

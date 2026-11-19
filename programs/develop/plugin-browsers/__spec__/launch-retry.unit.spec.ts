@@ -18,10 +18,6 @@ import {fakeCompilation, fakeCompiler} from './fake-compiler'
 // @ts-expect-error 'close' is not a public build event
 type _NoCloseEvent = BuildEventMap['close']
 
-// The launcher is handed a browser the engine knows, never any string.
-// @ts-expect-error 'netscape' is not a browser the engine runs
-const _unknownBrowser: BrowserLaunchOptions['browser'] = 'netscape'
-
 const CONTEXT = '/tmp/project'
 const OUTPUT = '/tmp/project/dist/chrome'
 
