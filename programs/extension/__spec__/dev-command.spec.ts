@@ -804,7 +804,15 @@ describe('extension dev after the engine ends a running session', () => {
   it('exits 1 after the report under --output json, with no frame of its own', async () => {
     const reported = await endSession(['dev', '.', '--output', 'json'])
 
-    expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
+    expect(reported).toEqual([
+      {
+        code: 'E_DEV_SERVER_START',
+        exitCode: 1,
+        error: lostServer,
+        step: 'engine'
+      }
+    ])
+
     expect(drainedExits).toEqual([{code: 1, reportedFirst: true}])
     expect(stdout).toEqual([])
   })
@@ -850,7 +858,15 @@ describe('extension dev after the engine ends a running session', () => {
   it('leaves the exit to the engine in pretty mode, which ends the process itself', async () => {
     const reported = await endSession(['dev', '.'])
 
-    expect(reported).toEqual([{code: 'E_DEV_SERVER_START', exitCode: 1}])
+    expect(reported).toEqual([
+      {
+        code: 'E_DEV_SERVER_START',
+        exitCode: 1,
+        error: lostServer,
+        step: 'engine'
+      }
+    ])
+
     expect(drainedExits).toEqual([])
     expect(process.exit).not.toHaveBeenCalled()
   })

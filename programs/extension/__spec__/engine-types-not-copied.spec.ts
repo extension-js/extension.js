@@ -17,6 +17,8 @@ import type {
 } from 'extension-develop/manifest'
 import type {PreviewLauncherFn} from 'extension-develop/preview'
 import {describe, expect, it} from 'vitest'
+// @ts-expect-error plain ESM script without types, shared with the script specs
+import {workspaceSourceEntries} from '../../../scripts/lib/workspace-source-entries.mjs'
 import type {
   BrowserController,
   BrowserLaunchOptions,
@@ -120,6 +122,7 @@ const engineTargets: Record<EngineBrowserType, true> = {
 }
 
 const extensionRoot = path.resolve(__dirname, '..')
+const repoRoot = path.resolve(extensionRoot, '..', '..')
 const engineRoot = path.resolve(extensionRoot, '..', 'develop')
 // The packages this one loads at run time and must not retype by hand.
 const siblingRoots = ['develop', 'create', 'install'].map((name) =>
@@ -280,20 +283,12 @@ function resolveSource(fromFile: string, specifier: string): string | null {
   return null
 }
 
-// The entry files a package.json exports, in source form.
+// The entry files a package exports, in source form. The published manifest
+// names built files only, so the workspace map is where the sources are read.
 function entryFiles(packageRoot: string): string[] {
-  const manifest = JSON.parse(
-    fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')
-  )
-
-  return Object.values(manifest.exports as Record<string, unknown>)
-    .map((target) =>
-      target && typeof target === 'object'
-        ? (target as {development?: unknown}).development
-        : undefined
-    )
-    .filter((file): file is string => typeof file === 'string')
-    .map((file) => path.resolve(packageRoot, file))
+  return Object.values(workspaceSourceEntries as Record<string, string>)
+    .map((file) => path.resolve(repoRoot, file))
+    .filter((file) => path.dirname(file) === packageRoot)
 }
 
 // What an entry exports comes from the files it names, so every type those
