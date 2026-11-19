@@ -375,6 +375,31 @@ function budgetSpentBy(error: unknown, budget: FetchBudget): boolean {
   )
 }
 
+// The request never left this machine: no name resolved, or no route out.
+// A refused or reset connection reached a host, so those still retry.
+const OFFLINE_CODES = new Set([
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'ENETUNREACH',
+  'ENETDOWN',
+  'EHOSTUNREACH'
+])
+
+function isOffline(error: unknown): boolean {
+  const failure = error as {
+    code?: unknown
+    response?: unknown
+    cause?: {code?: unknown}
+  } | null
+
+  if (!failure || failure.response !== undefined) return false
+
+  return (
+    OFFLINE_CODES.has(String(failure.code)) ||
+    OFFLINE_CODES.has(String(failure.cause?.code))
+  )
+}
+
 // Fetch an archive over plain HTTP (codeload or a template ZIP URL), NOT a git
 // pack negotiation: no git child, so no credential-helper hang (#56). Both
 // downloads share this one retry and abort policy.
@@ -424,6 +449,10 @@ async function downloadArchive(
       if (abort.signal.aborted || budgetSpentBy(error, budget)) {
         throw fetchBudgetSpent(budget)
       }
+
+      // A wait does not bring the network back, and the default create
+      // falls back to the bundled template the sooner this answers.
+      if (isOffline(error)) break
 
       // A deterministic 4xx (a ref that does not exist) will not change on a
       // retry; only back off for network errors, rate limits, and 5xx.
@@ -533,6 +562,8 @@ async function importFromExamplesCatalog(
       if (insecure) throw insecure
 
       lastError = error
+      // Every candidate is on the same host, so none can answer offline.
+      if (isOffline(error)) break
     }
   }
 
