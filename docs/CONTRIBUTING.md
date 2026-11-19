@@ -45,7 +45,7 @@ pnpm links packages into `node_modules/.pnpm` with relative paths. Keep every `d
 folder under `node_modules`, since packages such as `vue` and `preact` ship their code
 there. If the copy skips the template's own build output, skip only the top level `dist/`
 of the template, never `node_modules/**/dist`. A copy that drops either one reports
-"compiled with errors" for unresolved modules that have nothing to do with the change
+"failed to compile" for unresolved modules that have nothing to do with the change
 under test.
 
 ## Prerequisites
@@ -151,7 +151,7 @@ The test suite runs on Windows in CI. To avoid regressions:
 - **Spawning (pnpm, npm, etc.):** Resolve the binary (e.g. from `process.execPath`’s directory or `node_modules/.bin`) and pass it to `spawnSync`/`spawn`; on Windows use `shell: true` when the command is a `.cmd`/`.bat` file so the child runs correctly.
 - **Symlinks:** On Windows, creating symlinks often requires Developer Mode or admin. Prefer `fs.realpathSync()` + `fs.cpSync()` for test fixtures when copying from the pnpm store, or use copy-only paths on Windows.
 
-Run `pnpm test` locally on Windows (or rely on the **Run test suite (Windows)** CI job) before submitting changes that touch tests or spawn logic.
+Run `pnpm test` locally on Windows (or rely on the two **Run test suite (Windows, ...)** CI jobs) before submitting changes that touch tests or spawn logic.
 
 ## Debugging & troubleshooting
 

@@ -11,6 +11,10 @@ import * as os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
 import colors from 'pintor'
+import {
+  readyContractPath,
+  sessionArtifactsRootDir
+} from '../../develop/lib/session-contract'
 import {isFirefoxBrowser} from '../browsers/browsers-lib/browser-family'
 import {
   isPidAlive,
@@ -285,7 +289,7 @@ function scanReadyContracts(projectPath: string): {
   running: string[]
   receipts: string[]
 } {
-  const sessionsRoot = path.join(projectPath, 'dist', 'extension-js')
+  const sessionsRoot = sessionArtifactsRootDir(projectPath)
   const sessions: string[] = []
   const running: string[] = []
   const receipts: string[] = []
@@ -299,7 +303,7 @@ function scanReadyContracts(projectPath: string): {
 
     for (const browser of browsers) {
       const document = readReadyDocument(
-        path.join(sessionsRoot, browser, 'ready.json')
+        readyContractPath(projectPath, browser)
       )
 
       if (!document) continue

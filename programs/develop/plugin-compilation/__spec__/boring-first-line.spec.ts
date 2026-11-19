@@ -162,7 +162,7 @@ describe('BoringPlugin startup line', () => {
 
     // One warning line, one success line, duplicates of each suppressed.
     expect(logSpy).toHaveBeenCalledTimes(2)
-    expect(String(logSpy.mock.calls[0][0])).toContain('with warnings')
+    expect(String(logSpy.mock.calls[0][0])).toContain('with 1 warning')
     expect(String(logSpy.mock.calls[1][0])).toContain('compiled in')
   })
 

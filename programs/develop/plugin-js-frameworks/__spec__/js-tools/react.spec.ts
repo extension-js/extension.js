@@ -1,195 +1,115 @@
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
+import {describe, expect, it, vi} from 'vitest'
+import * as resolver from '../../../lib/optional-deps-resolver'
+import {maybeUseReact} from '../../js-tools/react'
+import {fakePackage, makeProject} from '../project-fixture'
 
-let ReactRefreshPluginCtor: any = class ReactRefreshPluginMock {
-  options: any
-  apply: any
+// The one fake in this file: every React tooling package resolves from
+// Extension.js in this workspace, so only a stand-in can make one go missing.
+vi.mock('../../../lib/optional-deps-resolver', async (importOriginal) => {
+  const actual = await importOriginal<typeof resolver>()
 
-  constructor(options: any) {
-    this.options = options
-    this.apply = vi.fn()
+  return {
+    ...actual,
+    resolveOptionalContractPackageWithoutInstall: vi.fn(
+      actual.resolveOptionalContractPackageWithoutInstall
+    )
+  }
+})
+
+const fromDevelop = createRequire(
+  path.join(__dirname, '..', '..', '..', 'x.js')
+)
+const {ReactRefreshRspackPlugin} = fromDevelop('@rspack/plugin-react-refresh')
+
+function reactProject() {
+  const root = makeProject({
+    'package.json': {dependencies: {react: '19.0.0', 'react-dom': '19.0.0'}}
+  })
+
+  fakePackage(
+    root,
+    'react',
+    {version: '19.0.0', main: 'index.js'},
+    {'index.js': '', 'jsx-runtime.js': '', 'jsx-dev-runtime.js': ''}
+  )
+
+  fakePackage(
+    root,
+    'react-dom',
+    {version: '19.0.0', main: 'index.js'},
+    {'index.js': '', 'client.js': ''}
+  )
+
+  return root
+}
+
+function expectedAlias(root: string) {
+  const modules = path.join(root, 'node_modules')
+
+  return {
+    react$: path.join(modules, 'react', 'index.js'),
+    'react-dom$': path.join(modules, 'react-dom', 'index.js'),
+    'react-dom/client': path.join(modules, 'react-dom', 'client.js'),
+    'react/jsx-runtime': path.join(modules, 'react', 'jsx-runtime.js'),
+    'react/jsx-dev-runtime': path.join(modules, 'react', 'jsx-dev-runtime.js')
   }
 }
 
-vi.mock('../../frameworks-lib/integrations', () => ({
-  hasDependency: vi.fn(() => false),
-  resolveDevelopInstallRoot: vi.fn(() => undefined)
-}))
+describe('maybeUseReact', () => {
+  it('aliases React to the project copy and adds the refresh plugin with the given exclude', async () => {
+    const root = reactProject()
+    const refreshExclude = (resource: string) => resource.includes('content')
+    const result = await maybeUseReact(root, {refreshExclude})
 
-vi.mock('../../../lib/optional-deps-resolver', () => ({
-  resolveOptionalContractPackageWithoutInstall: vi.fn(
-    () => '/mock/react-refresh'
-  ),
-  loadOptionalContractModuleWithoutInstall: vi.fn(() => ReactRefreshPluginCtor)
-}))
+    expect(result?.alias).toEqual(expectedAlias(root))
+    expect(result?.loaders).toBeUndefined()
+    expect(result?.plugins).toHaveLength(1)
 
-const originalResolve = (require as any).resolve
-beforeEach(() => {
-  ;(require as any).resolve = vi.fn((id: string) =>
-    id === 'react-refresh' ? '/mock/react-refresh' : originalResolve(id)
-  )
-})
-
-afterEach(() => {
-  ;(require as any).resolve = originalResolve
-})
-
-describe('react tools', () => {
-  beforeEach(() => {
-    vi.resetModules()
-    vi.clearAllMocks()
-    ReactRefreshPluginCtor = class ReactRefreshPluginMock {
-      options: any
-      apply: any
-
-      constructor(options: any) {
-        this.options = options
-        this.apply = vi.fn()
-      }
-    }
-    ;(process as any).env.EXTENSION_AUTHOR_MODE = 'true'
+    const [plugin] = result?.plugins || []
+    // v2 exports the class by name only (regression for #474).
+    expect(plugin).toBeInstanceOf(ReactRefreshRspackPlugin)
+    expect((plugin as unknown as {options: unknown}).options).toMatchObject({
+      exclude: refreshExclude,
+      // The plugin's own entry stays off: page entries get it from JsFrameworksPlugin.
+      injectEntry: false,
+      injectLoader: true
+    })
   })
 
-  it('isUsingReact logs once when dependency present; maybeUseReact returns aliases and plugin', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'react'
-    )
+  it('leaves the refresh plugin out when refresh is disabled', async () => {
+    const root = reactProject()
+    const result = await maybeUseReact(root, {disableRefresh: true})
 
-    ReactRefreshPluginCtor = function (this: any, options: any) {
-      this.options = options
-      this.apply = vi.fn()
-    } as any
-
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = ((id: string) => {
-          if (id === '@rspack/plugin-react-refresh') {
-            return {default: ReactRefreshPluginCtor}
-          }
-
-          throw new Error(`Cannot find module ${id}`)
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-
-        return req
-      }
-    }))
-
-    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    const {isUsingReact, maybeUseReact} = await import('../../js-tools/react')
-
-    expect(isUsingReact('/p')).toBe(true)
-    expect(isUsingReact('/p')).toBe(true)
-    expect(logSpy).toHaveBeenCalledTimes(1)
-
-    const refreshExclude = vi.fn(() => false)
-    const result = await maybeUseReact('/p', {refreshExclude})
-    expect(result?.plugins?.length).toBeGreaterThan(0)
-    expect((result?.plugins?.[0] as any)?.options?.exclude).toBe(refreshExclude)
-    expect(result?.alias?.react$).toContain('/project/node_modules/react')
-    expect(result?.alias?.['react-dom$']).toContain(
-      '/project/node_modules/react-dom'
-    )
-
-    expect(result?.alias?.['react/jsx-runtime']).toContain(
-      '/project/node_modules/react/jsx-runtime'
-    )
-
-    expect(result?.alias?.['react/jsx-dev-runtime']).toContain(
-      '/project/node_modules/react/jsx-dev-runtime'
-    )
+    expect(result).toEqual({
+      plugins: [],
+      loaders: undefined,
+      alias: expectedAlias(root)
+    })
   })
 
-  it('resolves the @rspack/plugin-react-refresh v2 named export (regression for #474)', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'react'
-    )
+  it('aliases nothing it cannot resolve from the project', async () => {
+    const root = makeProject({'package.json': {dependencies: {react: '19'}}})
+    const result = await maybeUseReact(root, {disableRefresh: true})
 
-    const optionalResolver = (await import(
-      '../../../lib/optional-deps-resolver'
-    )) as any
-    optionalResolver.loadOptionalContractModuleWithoutInstall.mockImplementationOnce(
-      (opts: any) => {
-        const namespaceWithNamedExportOnly = {
-          ReactRefreshRspackPlugin: ReactRefreshPluginCtor
-        }
+    expect(result?.alias).toEqual({})
+  })
 
-        return opts?.moduleAdapter
-          ? opts.moduleAdapter(namespaceWithNamedExportOnly)
-          : namespaceWithNamedExportOnly
-      }
-    )
-
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = ((id: string) => {
-          throw new Error(`Cannot find module ${id}`)
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-
-        return req
-      }
-    }))
-
-    const {maybeUseReact} = await import('../../js-tools/react')
-    const result = await maybeUseReact('/p', {})
-
-    expect(result?.plugins?.length).toBeGreaterThan(0)
-    expect(result?.plugins?.[0]).toBeInstanceOf(ReactRefreshPluginCtor)
+  it('returns undefined when react is not a dependency', async () => {
+    expect(
+      await maybeUseReact(makeProject({'package.json': {}}))
+    ).toBeUndefined()
   })
 
   it('throws when optional react tooling cannot be resolved', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'react'
-    )
+    const missing = new Error('optional deps missing')
+    vi.mocked(
+      resolver.resolveOptionalContractPackageWithoutInstall
+    ).mockImplementationOnce(() => {
+      throw missing
+    })
 
-    const optionalResolver = (await import(
-      '../../../lib/optional-deps-resolver'
-    )) as any
-    optionalResolver.resolveOptionalContractPackageWithoutInstall.mockImplementationOnce(
-      () => {
-        throw new Error('optional deps missing')
-      }
-    )
-
-    vi.doMock('module', () => ({
-      createRequire: () => {
-        const req = (() => {
-          throw new Error('not expected')
-        }) as any
-        req.resolve = (id: string) => `/project/node_modules/${id}`
-
-        return req
-      }
-    }))
-
-    const {maybeUseReact} = await import('../../js-tools/react')
-    await expect(maybeUseReact('/p')).rejects.toThrow(
-      new Error('optional deps missing')
-    )
-  })
-
-  it('skips react refresh plugin when disabled explicitly', async () => {
-    const integrations = (await import(
-      '../../frameworks-lib/integrations'
-    )) as any
-    integrations.hasDependency.mockImplementation(
-      (_p: string, dep: string) => dep === 'react'
-    )
-
-    const {maybeUseReact} = await import('../../js-tools/react')
-    const result = await maybeUseReact('/p', {disableRefresh: true})
-
-    expect(result?.plugins).toEqual([])
-    expect(result?.alias?.react$).toContain('/project/node_modules/react')
+    await expect(maybeUseReact(reactProject())).rejects.toBe(missing)
   })
 })

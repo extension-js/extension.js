@@ -21,6 +21,8 @@ type BuildDeps = NonNullable<Parameters<typeof registerBuildCommand>[1]>
 type Preflight = ReturnType<NonNullable<BuildDeps['safariPreflight']>>
 
 const builds: EngineCall[] = []
+// The one call that sends a failure row, so a spec can read what would travel.
+const reportFailure = vi.fn()
 const configReads: unknown[][] = []
 const packagerOptions: unknown[] = []
 const packaged: unknown[][] = []
@@ -59,7 +61,8 @@ const deps: BuildDeps = {
     return async (...args: unknown[]) => {
       packaged.push(args)
     }
-  }) as never
+  }) as never,
+  reportFailure
 }
 
 let stdout: string[]
@@ -90,6 +93,7 @@ afterEach(() => {
   notedBrowsers.length = 0
   vi.restoreAllMocks()
   vi.unstubAllEnvs()
+  reportFailure.mockClear()
 
   for (const list of [builds, configReads, packagerOptions, packaged]) {
     list.length = 0
@@ -132,7 +136,6 @@ function flagsIn(argv: string[]): string[] {
 // decides. A row states only the keys its flags change.
 const UNTYPED = {
   browser: 'chromium',
-  exitOnError: true,
   polyfill: undefined,
   zip: undefined,
   zipSource: undefined,
@@ -223,7 +226,7 @@ const FORWARDING: ForwardingRow[] = [
     argv: [...SAFARI, '--force-regenerate'],
     options: {browser: 'safari', forceRegenerate: true}
   },
-  {argv: ['--output', 'json'], options: {exitOnError: false}},
+  {argv: ['--output', 'json'], options: {}},
   {argv: ['--output', 'pretty'], options: {}},
   {argv: ['--debug'], options: {}},
   {argv: ['--author'], options: {}},
@@ -248,6 +251,16 @@ describe('extension build flag forwarding', () => {
 
     expect(await run(['build', PROJECT, ...argv])).toBe(0)
     expect(builds).toEqual([[PROJECT, {...UNTYPED, ...options}]])
+  })
+
+  // The engine never ends the process, so the exit is the command's to own
+  // in both output modes and no key may ask the engine for it.
+  it.each([
+    [[]],
+    [['--output', 'json']]
+  ])('never asks the engine to end the process for build %j', async (argv) => {
+    expect(await run(['build', PROJECT, ...argv])).toBe(0)
+    expect(builds[0][1]).not.toHaveProperty('exitOnError')
   })
 
   it('builds once per browser of a list, in order', async () => {
@@ -448,6 +461,70 @@ describe.each(REFUSALS)('extension build refuses $name', (row) => {
 
     expect(stderr).toEqual([])
     expect(builds).toEqual([])
+  })
+})
+
+interface RejectionRow {
+  name: string
+  error: unknown
+  code: string
+}
+
+const REJECTIONS: RejectionRow[] = [
+  {
+    name: 'a compile failure that names no code',
+    error: new Error('Build failed with errors'),
+    code: 'E_COMPILE'
+  },
+  {
+    name: 'an archive that was asked for and not written',
+    error: Object.assign(new Error('The distribution zip was not created'), {
+      code: 'E_ZIP_SKIPPED'
+    }),
+    code: 'E_ZIP_SKIPPED'
+  },
+  {
+    name: 'an output folder the build refuses to replace',
+    error: Object.assign(new Error('--out-dir points at the project root'), {
+      code: 'E_INVALID_OPTION'
+    }),
+    code: 'E_INVALID_OPTION'
+  }
+]
+
+describe.each(
+  REJECTIONS
+)('extension build when the engine rejects with $name', ({error, code}) => {
+  beforeEach(() => {
+    build = async () => {
+      throw error
+    }
+  })
+
+  // The engine prints the failure before it rejects, so a line from the
+  // command here would show the same failure twice.
+  it('exits 1 in pretty mode and prints nothing of its own', async () => {
+    expect(await run(['build', '.'])).toBe(1)
+    expect(stderr).toEqual([])
+    expect(stdout).toEqual([])
+    expect(warned).toEqual([])
+    expect(reportFailure.mock.calls).toEqual([[{code, exitCode: 1}]])
+  })
+
+  it('exits 1 with one frame under --output json', async () => {
+    expect(await run(['build', '.', '--output', 'json'])).toBe(1)
+    expect(frames().map((frame) => [frame.status, frame.error.code])).toEqual([
+      ['build-failed', code]
+    ])
+
+    expect(stderr).toEqual([])
+    expect(reportFailure.mock.calls).toEqual([[{code, exitCode: 1}]])
+  })
+
+  it('stops at the first browser of a list that fails', async () => {
+    expect(await run(['build', '.', '--browser', 'chrome,firefox'])).toBe(1)
+    expect(builds.map(([, options]) => options.browser)).toEqual(['chrome'])
+    expect(reportFailure).toHaveBeenCalledTimes(1)
   })
 })
 

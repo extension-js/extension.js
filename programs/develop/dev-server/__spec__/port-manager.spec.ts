@@ -1,6 +1,6 @@
 import * as net from 'node:net'
 import {afterEach, describe, expect, it} from 'vitest'
-import {PortManager} from '../port-manager'
+import {exportInstanceId, PortManager} from '../port-manager'
 
 // A base the OS just handed out sits inside a range this host can bind, which
 // a constant cannot promise: Windows runners exclude whole blocks of the
@@ -45,6 +45,60 @@ describe('PortManager instance ids', () => {
     const allocation = await manager.allocatePorts()
 
     expect(allocation.instanceId).toMatch(/^[a-f0-9]{16}$/)
+  })
+})
+
+describe('the instance id a session exports for its compilers', () => {
+  const OLD_ENV = {...process.env}
+
+  afterEach(() => {
+    process.env = {...OLD_ENV}
+  })
+
+  it('is not read as a pin by the next session of the same host', async () => {
+    process.env = {...OLD_ENV}
+    delete process.env.EXTENSION_INSTANCE_ID
+    delete process.env.EXTENSION_DEV_INSTANCE_ID
+    delete process.env.EXTJS_INSTANCE_ID
+
+    // Two sessions live at once, then one after both ended.
+    const first = new PortManager(await freeBase())
+    const a = await first.allocatePorts()
+    const restoreA = exportInstanceId(a.instanceId)
+    expect(process.env.EXTENSION_INSTANCE_ID).toBe(a.instanceId)
+
+    const second = new PortManager(await freeBase())
+    const b = await second.allocatePorts()
+    const restoreB = exportInstanceId(b.instanceId)
+    expect(b.instanceId).not.toBe(a.instanceId)
+    expect(second.getCurrentInstance()?.instanceExplicit).toBe(false)
+
+    restoreB()
+    restoreA()
+    expect(process.env.EXTENSION_INSTANCE_ID).toBeUndefined()
+
+    const third = new PortManager(await freeBase())
+    const c = await third.allocatePorts()
+    expect([a.instanceId, b.instanceId]).not.toContain(c.instanceId)
+
+    for (const manager of [first, second, third]) {
+      await manager.terminateCurrentInstance()
+    }
+  })
+
+  it('gives the environment back the pin a user set', async () => {
+    process.env = {...OLD_ENV, EXTENSION_INSTANCE_ID: 'pinned'}
+
+    const manager = new PortManager(await freeBase())
+    const allocation = await manager.allocatePorts()
+    expect(allocation.instanceId).toBe('pinned')
+    expect(manager.getCurrentInstance()?.instanceExplicit).toBe(true)
+
+    // A drawn id exported over a pin puts the pin back when it leaves.
+    const restore = exportInstanceId('drawn-by-a-session')
+    restore()
+    expect(process.env.EXTENSION_INSTANCE_ID).toBe('pinned')
+    await manager.terminateCurrentInstance()
   })
 })
 
@@ -153,17 +207,48 @@ describe('PortManager exhaustion', () => {
   })
 })
 
+function listenOn(port: number, host: string): Promise<net.Server> {
+  return new Promise((resolve, reject) => {
+    const server = net.createServer()
+    server.once('error', reject)
+    server.listen(port, host, () => resolve(server))
+  })
+}
+
+async function portWithFreeNeighbor(host: string): Promise<number> {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const first = await listenOn(0, host)
+    const {port} = first.address() as net.AddressInfo
+    const start = port > 60000 ? port - 2000 : port
+    await new Promise((resolve) => first.close(resolve))
+
+    try {
+      const pair = [await listenOn(start, host)]
+
+      try {
+        pair.push(await listenOn(start + 1, host))
+      } finally {
+        await Promise.all(
+          pair.map((server) => new Promise((resolve) => server.close(resolve)))
+        )
+      }
+
+      if (pair.length === 2) return start
+    } catch {
+      // Held or reserved, so another start is tried.
+    }
+  }
+
+  throw new Error('no port with a free neighbor to probe')
+}
+
 describe('PortManager host-aware probing', () => {
   it('probes the requested host, skipping a port taken there', async () => {
     const host = '127.0.0.1'
-    const blocker = net.createServer()
-    // An ephemeral port, since any fixed one can already be held on the host.
-    await new Promise<void>((resolve, reject) => {
-      blocker.once('error', reject)
-      blocker.listen(0, host, resolve)
-    })
-
-    const taken = (blocker.address() as net.AddressInfo).port
+    // A port the system names with a free neighbor above it, since on a busy
+    // host the ports beside an ephemeral one can all be held or reserved.
+    const taken = await portWithFreeNeighbor(host)
+    const blocker = await listenOn(taken, host)
 
     try {
       const allocation = await new PortManager().allocatePorts(taken, host)

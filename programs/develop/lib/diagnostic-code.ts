@@ -26,10 +26,12 @@ interface IssueLike {
 const NAMED_CODES: Record<string, ErrorCode> = {
   WARInvalidMatchPattern: CODES.E_WAR_INVALID,
   WARStringEntryInMv3: CODES.E_WAR_INVALID,
+  ThemeArrayInvalid: CODES.E_THEME_INVALID,
   LocalesLayoutWarning: CODES.E_LOCALES_LAYOUT,
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,
   PerfBudgetWarning: CODES.E_PERF_BUDGET,
+  PerfBudgetError: CODES.E_PERF_BUDGET,
   EnvNoMatchingFile: CODES.E_ENV_NO_MATCH,
   JSONMissingFile: CODES.E_ENTRY_NOT_FOUND,
   LocalesPluginMissingFile: CODES.E_ENTRY_NOT_FOUND,
@@ -37,12 +39,17 @@ const NAMED_CODES: Record<string, ErrorCode> = {
   ScriptsMissingFile: CODES.E_ENTRY_NOT_FOUND,
   ManifestPageMissing: CODES.E_ENTRY_NOT_FOUND,
   ManifestFilesNotEmitted: CODES.E_ENTRY_NOT_FOUND,
+  ManifestNamedFileNotShipped: CODES.E_ENTRY_NOT_FOUND,
   IconsMissingFile: CODES.E_ASSET_MISSING,
   HtmlAssetMissing: CODES.E_ASSET_MISSING,
   HtmlPublicAssetMissing: CODES.E_ASSET_MISSING,
   WARRelativeAssetMissing: CODES.E_ASSET_MISSING,
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
+  CodeNamedFileNotShipped: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeFetchedFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  ImportScriptsDependencyMissing: CODES.E_SCRIPT_DEP_MISSING,
+  InjectedScriptFilesMissing: CODES.E_SCRIPT_DEP_MISSING,
   UnresolvedBareRequireWarning: CODES.E_SCRIPT_DEP_MISSING,
   NodeBuiltinNotAvailable: CODES.E_MODULE_NOT_FOUND,
   RemoteResourceBlocked: CODES.E_REMOTE_RESOURCE_BLOCKED,
@@ -99,6 +106,17 @@ function isSyntaxFailure(err: IssueLike): boolean {
   )
 }
 
+// The late @import loader warns through a plain Error, so the loader the
+// bundler names in its header is what tells this warning from any other.
+function isLateCssImport(err: IssueLike): boolean {
+  return (
+    err.name === 'ModuleWarning' &&
+    /^[^\n]*\(from [^\n]*late-css-import-loader[^\n]*\):/.test(
+      text(err.message)
+    )
+  )
+}
+
 function resource(err: IssueLike): string {
   return text(err.module?.resource)
 }
@@ -126,6 +144,10 @@ export function diagnosticCode(
   if (err.name === 'ModuleParseError' && STYLESHEET.test(resource(err))) {
     return CODES.E_CSS_PARSE
   }
+
+  // The bundler's own parser fails the module on this rule, which is the
+  // same finding the loader reports once it has blanked the rule out.
+  if (isLateCssImport(err)) return CODES.E_CSS_PARSE
 
   return undefined
 }

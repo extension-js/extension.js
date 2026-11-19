@@ -35,6 +35,8 @@ const loadCommandConfig = vi.fn(async () => ({}))
 const runBrowser = vi.fn(async () => {})
 const consumerCloses = vi.fn()
 const readReadyContract = vi.fn((): unknown => null)
+// The one call that sends a build failure row, so a spec reads what travels.
+const reportBuildFailure = vi.fn()
 
 const loadDevelop = async () =>
   developStandIn({extensionBuild, loadCommandConfig})
@@ -85,7 +87,8 @@ function run(argv: string[]) {
     makeProgram((program) => {
       registerBuildCommand(program, {
         loadDevelop,
-        safariPreflight: () => ({severity: 'ok', message: ''}) as never
+        safariPreflight: () => ({severity: 'ok', message: ''}) as never,
+        reportFailure: reportBuildFailure
       })
 
       registerPreviewCommand(program, {
@@ -109,7 +112,7 @@ function stderrText(): string {
   return errorSpy.mock.calls.map((call) => call.join(' ')).join('\n')
 }
 
-describe('build when the engine rejects under --output json', () => {
+describe('build when the engine rejects', () => {
   const diagnostics = [
     {
       code: 'E_COMPILE',
@@ -192,14 +195,22 @@ describe('build when the engine rejects under --output json', () => {
     ])
   })
 
-  it('rethrows the engine error unframed in pretty mode', async () => {
-    const failure = new Error('Build failed with 1 error')
+  // The engine printed the failure before it rejected, so the command adds
+  // no line of its own and ends the run with the code the error declared.
+  it('exits 1 unframed in pretty mode, with the declared code reported', async () => {
+    extensionBuild.mockRejectedValueOnce(
+      Object.assign(new Error('The bundler crashed'), {
+        code: 'E_COMPILE_FATAL'
+      })
+    )
 
-    extensionBuild.mockRejectedValueOnce(failure)
-
-    await expect(run(['build', '.'])).rejects.toBe(failure)
+    expect(await run(['build', '.'])).toBe(1)
     expect(logSpy).not.toHaveBeenCalled()
-    expect(exitSpy).not.toHaveBeenCalled()
+    expect(errorSpy).not.toHaveBeenCalled()
+    expect(exitSpy.mock.calls).toEqual([[1]])
+    expect(reportBuildFailure.mock.calls).toEqual([
+      [{code: 'E_COMPILE_FATAL', exitCode: 1}]
+    ])
   })
 })
 

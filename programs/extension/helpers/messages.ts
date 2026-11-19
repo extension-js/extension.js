@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import {CODES, type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
+import {type Channel, CODES, fmt, hasChannelPrefix, prefix} from './messaging'
 import {TELEMETRY_DOCS_URL} from './telemetry'
 import {
   BUNDLED_TEMPLATES,

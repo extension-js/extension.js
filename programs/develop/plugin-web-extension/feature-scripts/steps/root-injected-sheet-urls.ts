@@ -35,8 +35,6 @@ export class RootInjectedSheetUrls {
   }
 
   public apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     const root = injectedSheetRoot(String(this.browser))
     if (!root) return
 

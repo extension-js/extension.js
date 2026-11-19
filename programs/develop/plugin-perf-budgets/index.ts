@@ -20,9 +20,11 @@ import {
 } from './categorize'
 import {
   type OversizedAsset,
+  perfBudgetError,
   perfBudgetInvalid,
   perfBudgetsIgnoreInvalid,
   perfBudgetsNoEffectInDev,
+  perfBudgetsOnExceedInvalid,
   perfBudgetsReferrersUnreadable,
   perfBudgetsUnknownKeys,
   perfBudgetsWrongShape,
@@ -30,10 +32,15 @@ import {
 } from './messages'
 import {collectAssetReferrers} from './referrers'
 
+export const ON_EXCEED_VALUES = ['warn', 'error'] as const
+
+export type PerfBudgetsOnExceed = (typeof ON_EXCEED_VALUES)[number]
+
 // The `perfBudgets` key of extension.config.js: a budget per category in
-// bytes, plus the output paths no budget applies to.
+// bytes, the output paths no budget applies to, and what an overrun does.
 export type PerfBudgetsConfig = Partial<Record<BudgetCategory, number>> & {
   ignore?: string[]
+  onExceed?: PerfBudgetsOnExceed
 }
 
 interface PerfBudgetsPluginOptions {
@@ -49,7 +56,8 @@ const BUDGET_KEYS: ReadonlySet<string> = new Set(BUDGET_CATEGORIES)
 
 export const PERF_BUDGETS_KEYS: readonly string[] = [
   ...BUDGET_CATEGORIES,
-  'ignore'
+  'ignore',
+  'onExceed'
 ]
 
 function escapeRegExp(text: string): string {
@@ -73,6 +81,7 @@ export function ignorePatternToRegExp(pattern: string): RegExp {
 export interface ResolvedPerfBudgets {
   budgets: Record<AssetCategory, number>
   ignore: string[]
+  onExceed: PerfBudgetsOnExceed
   unknownKeys: string[]
 }
 
@@ -85,7 +94,7 @@ export function resolvePerfBudgets(
   const budgets: Record<AssetCategory, number> = {...BUDGET_BYTES}
 
   if (config === undefined || config === null) {
-    return {budgets, ignore: [], unknownKeys: []}
+    return {budgets, ignore: [], onExceed: 'warn', unknownKeys: []}
   }
 
   if (typeof config !== 'object' || Array.isArray(config)) {
@@ -97,6 +106,7 @@ export function resolvePerfBudgets(
 
   const unknownKeys: string[] = []
   let ignore: string[] = []
+  let onExceed: PerfBudgetsOnExceed = 'warn'
 
   for (const [key, value] of Object.entries(config)) {
     if (value === undefined) continue
@@ -116,6 +126,18 @@ export function resolvePerfBudgets(
       continue
     }
 
+    if (key === 'onExceed') {
+      if (!ON_EXCEED_VALUES.includes(value as PerfBudgetsOnExceed)) {
+        throw codedError(
+          CODES.E_CONFIG_LOAD,
+          perfBudgetsOnExceedInvalid(value, ON_EXCEED_VALUES, configPath)
+        )
+      }
+
+      onExceed = value as PerfBudgetsOnExceed
+      continue
+    }
+
     if (!BUDGET_KEYS.has(key)) {
       unknownKeys.push(key)
       continue
@@ -131,7 +153,7 @@ export function resolvePerfBudgets(
     budgets[key as BudgetCategory] = value
   }
 
-  return {budgets, ignore, unknownKeys}
+  return {budgets, ignore, onExceed, unknownKeys}
 }
 
 // One notice per config file per process: a dev restart builds again.
@@ -194,7 +216,7 @@ export class PerfBudgetsPlugin {
 
     const projectPath = String(compiler.options?.context || '')
     const configPath = projectPath ? findConfigFile(projectPath) : undefined
-    const {budgets, ignore, unknownKeys} = resolvePerfBudgets(
+    const {budgets, ignore, onExceed, unknownKeys} = resolvePerfBudgets(
       this.options.budgets,
       configPath
     )
@@ -259,6 +281,22 @@ export class PerfBudgetsPlugin {
       oversized.sort((a, b) => b.size - a.size)
 
       const ErrorConstructor = compiler?.rspack?.WebpackError || Error
+
+      // The author asked for an overrun to stop the build, so it is an error
+      // of the compilation and nothing is written over the last good output.
+      if (onExceed === 'error') {
+        const error = new ErrorConstructor(perfBudgetError(oversized))
+        ;(error as Error).name = 'PerfBudgetError'
+
+        if (!compilation.errors) {
+          compilation.errors = []
+        }
+
+        compilation.errors.push(error)
+
+        return
+      }
+
       const warning = new ErrorConstructor(perfBudgetWarning(oversized))
       ;(warning as Error).name = 'PerfBudgetWarning'
 

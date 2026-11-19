@@ -1,11 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {internalErrorEnvelope} from '../cli-failure'
 import {getCliPackageJson} from '../cli-package-json'
-import {developVersionMismatch, localDevelopVersionDiffers} from '../messages'
-import {stripChannelPrefix} from '../messaging'
-import {telemetryFailureCode} from '../telemetry-cli'
 import {
   loadExtensionDevelopBridgeModule,
   loadExtensionDevelopModule,
@@ -14,7 +12,9 @@ import {
   resolveExtensionDevelopRoot,
   resolveExtensionDevelopVersion
 } from '../extension-develop-runtime'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {developVersionMismatch, localDevelopVersionDiffers} from '../messages'
+import {stripChannelPrefix} from '../messaging'
+import {telemetryFailureCode} from '../telemetry-cli'
 
 const makeTempFolder = trackTempFolders()
 

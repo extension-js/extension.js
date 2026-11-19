@@ -9,13 +9,21 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
-import type {DevOptions, Manifest} from '../../../types'
+import {
+  hasPrivateFileName,
+  sourceFileMayShip
+} from '../../../plugin-special-folders/public-private-files'
+import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
+import type {DevOptions, FilepathList, Manifest} from '../../../types'
 
 export const isRemoteUrl = (entry: string) =>
   /^([a-z][a-z0-9+.-]*:)?\/\//i.test(entry)
 
-// Root-relative paths point at the extension output root (served from
-// public/), which maps to the project directory in source space.
+const isRootRelative = (entry: string) =>
+  entry.startsWith('/') && !path.isAbsolute(entry)
+
+// The one answer to where a manifest entry is read from, for the check that
+// it exists and for the bundler entry alike, so the two cannot disagree.
 export function resolveScriptEntryPath(
   entry: string,
   manifestDir: string,
@@ -23,13 +31,130 @@ export function resolveScriptEntryPath(
 ) {
   if (!entry || isRemoteUrl(entry)) return entry
 
-  if (entry.startsWith('/') && !path.isAbsolute(entry)) {
+  const source = sourcePathOf(entry, manifestDir, projectPath)
+
+  if (fs.existsSync(source)) return source
+
+  // public/ ships at the extension root, so a file it holds answers a path
+  // that names no source file. The path looked at stays the source one.
+  const fromRoot = path.relative(
+    isRootRelative(entry) ? projectPath : manifestDir,
+    source
+  )
+
+  if (!fromRoot || fromRoot.startsWith('..') || path.isAbsolute(fromRoot)) {
+    return source
+  }
+
+  return (
+    findPublicFile(
+      path.join(manifestDir, 'manifest.json'),
+      projectPath,
+      fromRoot.split(path.sep).join('/')
+    ) || source
+  )
+}
+
+// Root-relative paths point at the extension output root (served from
+// public/), which maps to the project directory in source space.
+function sourcePathOf(entry: string, manifestDir: string, projectPath: string) {
+  if (isRootRelative(entry)) {
     return path.join(projectPath, entry.slice(1))
   }
 
   if (path.isAbsolute(entry)) return entry
 
   return path.join(manifestDir, entry)
+}
+
+// The files the manifest names apart from the ones the build withholds: a
+// withheld file is never an entry, so no step reads it or compiles it. A
+// scripts/ file is found by a walk of that folder, which no field names.
+export function splitWithheldEntries(
+  includeList: FilepathList,
+  manifestDir: string,
+  projectPath: string
+): {kept: FilepathList; withheld: FilepathList} {
+  const kept: FilepathList = {}
+  const withheld: FilepathList = {}
+
+  const isWithheld = (entry: unknown) => {
+    if (typeof entry !== 'string' || !entry || isRemoteUrl(entry)) return false
+
+    const resolved = resolveScriptEntryPath(entry, manifestDir, projectPath)
+
+    return (
+      fs.existsSync(resolved) &&
+      !sourceFileMayShip(resolved, [projectPath, manifestDir])
+    )
+  }
+
+  for (const [feature, value] of Object.entries(includeList)) {
+    if (feature.startsWith('scripts/')) {
+      kept[feature] = value
+      continue
+    }
+
+    if (Array.isArray(value)) {
+      const refused = value.filter(isWithheld)
+
+      kept[feature] = refused.length
+        ? value.filter((entry) => !refused.includes(entry))
+        : value
+
+      if (refused.length) withheld[feature] = refused
+
+      continue
+    }
+
+    if (isWithheld(value)) withheld[feature] = value
+    else kept[feature] = value
+  }
+
+  return {kept, withheld}
+}
+
+// Why the build withholds a file it may not ship: a private name along the
+// path as named or where a link leads, or else a place outside the project.
+export function withheldEntryKind(
+  sourcePath: string,
+  projectRoots: string[]
+): 'private' | 'outside' {
+  const hasPrivateNameBelow = (root: string, file: string) => {
+    const fromRoot = path.relative(root, file)
+
+    return (
+      fromRoot !== '' &&
+      fromRoot !== '..' &&
+      !fromRoot.startsWith(`..${path.sep}`) &&
+      !path.isAbsolute(fromRoot) &&
+      hasPrivateFileName(fromRoot)
+    )
+  }
+
+  const given = path.resolve(sourcePath)
+
+  if (
+    projectRoots.some((root) => hasPrivateNameBelow(path.resolve(root), given))
+  ) {
+    return 'private'
+  }
+
+  try {
+    const real = fs.realpathSync(sourcePath)
+
+    if (
+      projectRoots.some((root) =>
+        hasPrivateNameBelow(fs.realpathSync(root), real)
+      )
+    ) {
+      return 'private'
+    }
+  } catch {
+    // A path that cannot be read through is no private name either.
+  }
+
+  return 'outside'
 }
 
 // The background entry AddScripts will actually create for an MV3 worker
@@ -56,17 +181,22 @@ export function getBackgroundWorkerEntryName(options: {
   const projectPath = options.projectPath || manifestDir
   const resolve = (entry: string) =>
     resolveScriptEntryPath(entry, manifestDir, projectPath)
+  // A file the build withholds is no entry either, like one that is absent.
+  const entriesOf = (declared: string[]) =>
+    getScriptEntries(
+      declared
+        .map(resolve)
+        .filter((file) => sourceFileMayShip(file, [projectPath, manifestDir]))
+    )
 
   if (background.service_worker) {
-    const workerEntries = getScriptEntries([
-      resolve(String(background.service_worker))
-    ])
+    const workerEntries = entriesOf([String(background.service_worker)])
     if (workerEntries.length > 0) return 'background/service_worker'
   }
 
   const scripts = Array.isArray(background.scripts) ? background.scripts : []
-  const scriptEntries = getScriptEntries(
-    scripts.filter((script) => typeof script === 'string').map(resolve)
+  const scriptEntries = entriesOf(
+    scripts.filter((script) => typeof script === 'string')
   )
   if (scriptEntries.length > 0) return 'background/scripts'
 

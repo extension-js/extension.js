@@ -168,12 +168,9 @@ export interface BrowserConfig extends BrowserLaunchConfig, SafariConfig {
   include?: IncludeFilesConfig
   /** Files this browser's build leaves out, added to the top-level `exclude`. */
   exclude?: ExcludeFilesConfig
-  /**
-   * Compile-time constants for this browser. Adds to the top-level `define`
-   * and overrides it for the keys it declares.
-   */
+  /** Compile-time constants for this browser, over the top-level map. */
   define?: Record<string, unknown>
-  /** Asset budgets for this browser. Overrides the top-level `perfBudgets`. */
+  /** Asset budgets for this browser, over the top-level budgets. */
   perfBudgets?: PerfBudgetsConfig
 }
 
@@ -216,6 +213,8 @@ export type PerfBudgetsConfig = Partial<
   Record<Exclude<PerfBudgetCategory, 'ignored'>, number>
 > & {
   ignore?: string[]
+  /** `'warn'` (default) reports an overrun, `'error'` fails the build. */
+  onExceed?: 'warn' | 'error'
 }
 
 /** `commands.dev` overrides. */

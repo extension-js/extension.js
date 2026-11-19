@@ -11,8 +11,8 @@ import type {
   FileConfig as InternalFileConfig,
   IncludeFileEntry as InternalIncludeFileEntry,
   IncludeFilesConfig as InternalIncludeFilesConfig,
-  SafariOptions,
-  SpecialFoldersConfig as InternalSpecialFoldersConfig
+  SpecialFoldersConfig as InternalSpecialFoldersConfig,
+  SafariOptions
 } from '../../develop/types'
 import type {
   BrowserConfig,
@@ -44,14 +44,7 @@ type InternalBrowser = NonNullable<
 type InternalSafari = Omit<SafariOptions, keyof BrowserOptionsBase>
 
 const everyLayerAgreesWithTheLoader: [
-  // The engine reads these three from a browser block and its type omits
-  // them. It also asks for `browser` inside a block the key already names.
-  Agrees<
-    BrowserConfig,
-    InternalBrowser,
-    'transpilePackages' | 'define' | 'perfBudgets',
-    'browser'
-  >,
+  Agrees<BrowserConfig, InternalBrowser>,
   Agrees<DevCommandConfig, NonNullable<Commands['dev']>>,
   Agrees<ServeCommandConfig, NonNullable<Commands['start']>>,
   // Preview builds nothing. The CLI keeps these keys, marked deprecated.
@@ -61,8 +54,7 @@ const everyLayerAgreesWithTheLoader: [
     'polyfill' | 'include' | 'exclude'
   >,
   Agrees<BuildCommandConfig, NonNullable<Commands['build']>>,
-  // `browser` differs only through the browser block compared above.
-  Agrees<FileConfig, InternalFileConfig, never, 'browser'>,
+  Agrees<FileConfig, InternalFileConfig>,
   Agrees<SafariConfig, InternalSafari>,
   Agrees<SpecialFoldersConfig, InternalSpecialFoldersConfig>,
   Agrees<IncludeFileEntry, InternalIncludeFileEntry>,

@@ -2,7 +2,6 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {scaffoldReady} from '../messages'
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: strips the colors
 const ANSI = /\[[0-9;]*m/g
 
 async function nextSteps(

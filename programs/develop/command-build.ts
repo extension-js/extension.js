@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {AsyncResource} from 'node:async_hooks'
 import * as fs from 'node:fs'
 import * as nodePath from 'node:path'
 import type {Configuration} from '@rspack/core'
@@ -23,11 +24,17 @@ import {
   removeStaleStagingDirs,
   stagingDistPathFor
 } from './lib/atomic-dist'
+import {holdsForeignFiles, protectedFolderAt} from './lib/build-output-guard'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {codedError} from './lib/coded-error'
-import {recordCodedWarning, takeCodedWarnings} from './lib/coded-warnings'
+import {
+  outsideCodedWarnings,
+  recordCodedWarning,
+  takeCodedWarnings,
+  withCodedWarnings
+} from './lib/coded-warnings'
 import {
   compilationDiagnostics,
   warningCodes
@@ -66,13 +73,15 @@ import {
   claimCardKey,
   debugLine,
   holdHumanLines,
-  isDebug
+  isDebug,
+  isMachineOutput
 } from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
 import {parseJsonSafe} from './lib/parse-json-safe'
 import {
   asAskedPath,
+  browserOptionOrThrow,
   collapseHomeDir,
   configBrowserOrThrow,
   displayPath,
@@ -81,7 +90,7 @@ import {
   normalizeBrowser
 } from './lib/paths'
 import {getProjectStructure} from './lib/project'
-import {isSamePath} from './lib/real-path'
+import {isSameOrInsidePath, isSamePath} from './lib/real-path'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {
   browserDistDir,
@@ -103,6 +112,7 @@ import {
   stampReadyKnownExtensionId
 } from './plugin-playwright'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
+import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
 import {
   getSpecialFoldersDataForProjectRoot,
@@ -171,23 +181,67 @@ function printBuildCard(
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
 }
 
+// The build retires and deletes whatever sits at <outDir>/<browser>, so the
+// folder is checked before anything is written or removed.
 function resolveOutDir(
   raw: unknown,
-  packageJsonDir: string
+  packageJsonDir: string,
+  browser: string
 ): string | undefined {
   if (raw === undefined || raw === null) return undefined
 
   if (typeof raw !== 'string' || !raw.trim()) {
-    throw new Error(messages.buildOutDirInvalid(String(raw)))
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildOutDirInvalid(String(raw), 'project-root')
+    )
   }
 
-  const resolved = nodePath.resolve(packageJsonDir, raw.trim())
+  const value = raw.trim()
+  const base = nodePath.resolve(packageJsonDir, value)
 
-  if (resolved === nodePath.resolve(packageJsonDir)) {
-    throw new Error(messages.buildOutDirInvalid(raw))
+  if (isSamePath(base, packageJsonDir)) {
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildOutDirInvalid(raw, 'project-root')
+    )
   }
 
-  return raw.trim()
+  const target = nodePath.join(base, browser)
+  const baseRefusal = protectedFolderAt(base, packageJsonDir, {
+    cwd: false,
+    replaced: false
+  })
+
+  if (baseRefusal) {
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildOutDirInvalid(value, baseRefusal, base)
+    )
+  }
+
+  const targetRefusal = protectedFolderAt(target, packageJsonDir)
+
+  if (targetRefusal) {
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildOutDirInvalid(value, targetRefusal, target)
+    )
+  }
+
+  if (holdsForeignFiles(target)) {
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildOutDirInvalid(
+        value,
+        'not-a-build',
+        target,
+        isSameOrInsidePath(packageJsonDir, target) ? 'inside' : 'outside'
+      )
+    )
+  }
+
+  return value
 }
 
 // A relative folder stays inside the project, and an absolute one is taken
@@ -200,7 +254,10 @@ function resolveZipDir(
   if (raw === undefined || raw === null) return undefined
 
   if (typeof raw !== 'string' || !raw.trim()) {
-    throw new Error(messages.buildZipDirInvalid(String(raw), 'empty'))
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildZipDirInvalid(String(raw), 'empty')
+    )
   }
 
   const value = raw.trim()
@@ -213,7 +270,10 @@ function resolveZipDir(
       fromProject.startsWith(`..${nodePath.sep}`) ||
       nodePath.isAbsolute(fromProject))
   ) {
-    throw new Error(messages.buildZipDirInvalid(value, 'outside', resolved))
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildZipDirInvalid(value, 'outside', resolved)
+    )
   }
 
   const fromDist = nodePath.relative(distPath, resolved)
@@ -222,14 +282,17 @@ function resolveZipDir(
     fromDist === '' ||
     (!fromDist.startsWith('..') && !nodePath.isAbsolute(fromDist))
   ) {
-    throw new Error(messages.buildZipDirInvalid(value, 'inside-build'))
+    throw codedError(
+      CODES.E_INVALID_OPTION,
+      messages.buildZipDirInvalid(value, 'inside-build')
+    )
   }
 
   return resolved
 }
 
 // Reads the promoted manifest, so the warning names exactly what ships.
-function warnProductionLoopbackOrigins(distPath: string): void {
+function warnProductionLoopbackOrigins(distPath: string, quiet: boolean): void {
   let manifest: unknown
 
   try {
@@ -248,7 +311,7 @@ function warnProductionLoopbackOrigins(distPath: string): void {
     messages.productionLoopbackOriginsText(origins)
   )
 
-  console.warn(messages.productionLoopbackOrigins(origins))
+  if (!quiet) console.warn(messages.productionLoopbackOrigins(origins))
 }
 
 export async function extensionBuild(
@@ -266,7 +329,9 @@ export async function extensionBuild(
   if (buildOptions?.silent === true) goSilent()
 
   try {
-    return await runBuild(pathOrRemoteUrl, buildOptions, goSilent)
+    return await withCodedWarnings(() =>
+      runBuild(pathOrRemoteUrl, buildOptions, goSilent)
+    )
   } finally {
     releaseHumanLines?.()
   }
@@ -277,42 +342,55 @@ async function runBuild(
   buildOptions: BuildOptions | undefined,
   goSilent: () => void
 ): Promise<BuildSummary> {
-  const projectStructure = await getProjectStructure(pathOrRemoteUrl)
-  const isVitest = process.env.VITEST === 'true'
-  // The CLI wrapper passes exitOnError=true; as a library import a failed
-  // build must be a rejected promise, never a process.exit inside the host.
-  const shouldExitOnError = (buildOptions?.exitOnError ?? false) && !isVitest
-  const {manifestDir, packageJsonDir} = getDirs(projectStructure)
-
   // `extension start` builds with commands.start values and a silent build.
   // Plain `extension build` uses commands.build.
   const commandKey =
     buildOptions?.metadataCommand === 'start' ? 'start' : 'build'
 
-  // A browser passed in wins; with none, commands.<cmd>.browser from the
-  // project config decides the target before the stock default does.
-  const configBrowser = buildOptions?.browser
-    ? undefined
-    : configBrowserOrThrow(
-        (await loadCommandConfig(packageJsonDir, commandKey)).browser,
-        commandKey
-      )
-  const browser = normalizeBrowser(
-    buildOptions?.browser || configBrowser || 'chrome',
-    buildOptions?.chromiumBinary,
-    buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
-    buildOptions?.safariBinary
-  )
-
   // The out dir comes from the command config, which loads inside the try so
   // a throwing config reports like every other build failure.
   let distPath = ''
   let stagingDistPath = ''
+  let failureCount = 1
+  let compilerToClose: {close?: (done: () => void) => void} | undefined
   const isAuthor = isDebug()
+  // Whoever imports the build keeps the NODE_ENV they started it with.
+  const nodeEnvBefore = process.env.NODE_ENV
+  let nodeEnvChanged = false
+  // Finding the project and its browser comes before any build work, and a
+  // refusal there is the whole answer: under machine output the frame has it.
+  let findingProject = true
 
   try {
-    // What an earlier run in this process warned about is not this build's.
-    takeCodedWarnings()
+    const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+    const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+
+    // A browser passed in wins; with none, commands.<cmd>.browser from the
+    // project config decides the target before the stock default does.
+    const askedBrowser = browserOptionOrThrow(buildOptions?.browser)
+    const configBrowser = askedBrowser
+      ? undefined
+      : configBrowserOrThrow(
+          (await loadCommandConfig(packageJsonDir, commandKey)).browser,
+          commandKey
+        )
+    const namesBinary = Boolean(
+      buildOptions?.chromiumBinary ||
+        buildOptions?.geckoBinary ||
+        buildOptions?.firefoxBinary ||
+        buildOptions?.safariBinary
+    )
+    // A binary with no name picks its own family, so the stock default only
+    // applies when neither was given.
+    const browser = normalizeBrowser(
+      askedBrowser || configBrowser || (namesBinary ? undefined : 'chromium'),
+      buildOptions?.chromiumBinary,
+      buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
+      buildOptions?.safariBinary
+    )
+
+    findingProject = false
+
     await ensureDevelopArtifacts()
 
     if (buildOptions?.install !== false) {
@@ -322,12 +400,10 @@ async function runBuild(
     // Heavy deps are intentionally imported lazily so `preview` can run with a minimal install.
     const [
       {rspack},
-      {merge},
       {handleStatsErrors, isEmitTimeWarning},
       {default: webpackConfig}
     ] = await Promise.all([
       import('@rspack/core'),
-      import('webpack-merge'),
       import('./lib/stats-handler'),
       import('./rspack-config')
     ])
@@ -344,9 +420,19 @@ async function runBuild(
     const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
     const outDir = resolveOutDir(
       buildOptions?.outDir ?? commandConfig.outDir,
-      packageJsonDir
+      packageJsonDir,
+      browser
     )
     distPath = getBuildDistPath(packageJsonDir, browser, outDir)
+
+    // The stock folder is replaced under the rule an asked one follows.
+    if (!outDir && holdsForeignFiles(distPath)) {
+      throw codedError(
+        CODES.E_INVALID_OPTION,
+        messages.buildOutputFolderForeign(distPath)
+      )
+    }
+
     // Assets are emitted into this staging sibling and a rename publishes it,
     // so an interrupted build can never leave a manifest without its pages.
     stagingDistPath = stagingDistPathFor(distPath)
@@ -416,6 +502,8 @@ async function runBuild(
     }
 
     const silent = Boolean(mergedBuildOptions.silent)
+    // The start leg is silent by default and still speaks for its session.
+    const quiet = silent && commandKey !== 'start'
 
     // A config layer can ask for it too, known only once the layers merge.
     if (silent) goSilent()
@@ -454,11 +542,16 @@ async function runBuild(
       browserConfig.extensions ??
       projectConfig.extensions ??
       specialFoldersData.extensions
-    const resolvedExtensionsConfig = await resolveCompanionExtensionsConfig({
-      projectRoot: packageJsonDir,
-      browser,
-      config: mergedExtensionsConfig
-    })
+    // Nothing a build writes loads a companion. Only the start leg, whose
+    // launch follows, resolves them, which is where a store download happens.
+    const resolvedExtensionsConfig: CompanionExtensionsConfig | undefined =
+      commandKey === 'start'
+        ? await resolveCompanionExtensionsConfig({
+            projectRoot: packageJsonDir,
+            browser,
+            config: mergedExtensionsConfig
+          })
+        : undefined
 
     const resolvedMode: 'development' | 'production' | 'none' =
       buildOptions?.mode === 'development' ||
@@ -467,7 +560,9 @@ async function runBuild(
         ? buildOptions.mode
         : 'production'
 
+    // `none` leaves NODE_ENV as the caller set it.
     if (resolvedMode === 'development' || resolvedMode === 'production') {
+      nodeEnvChanged = true
       process.env.NODE_ENV = resolvedMode
     }
 
@@ -517,7 +612,7 @@ async function runBuild(
       plugins: buildPlugins
     })
 
-    const compilerConfig = applySplitChunksGuard(merge(userConfig))
+    const compilerConfig = applySplitChunksGuard(userConfig)
     compilerConfig.stats = false
 
     const configResolved = await loadConfigResolvedHook(packageJsonDir)
@@ -530,11 +625,10 @@ async function runBuild(
     }
 
     // A user config that re-points output.path opts out of the staging swap
-    // and keeps the legacy direct-emit contract, including the upfront wipe.
-    // The bundler resolves a relative output.path against the compiler
-    // context, never the shell's cwd, so the wipe, the receipt and the zip
-    // remap must resolve it the same way or a build run from another folder
-    // deletes that folder's build/ and reports a directory nothing landed in.
+    // and keeps the legacy direct-emit contract, where the bundler empties
+    // the folder first. The bundler resolves a relative output.path against
+    // the compiler context, never the shell's cwd, so the guard, the receipt
+    // and the zip remap must resolve it the same way.
     const compileContext =
       typeof compilerConfig.context === 'string' && compilerConfig.context
         ? nodePath.resolve(compilerConfig.context)
@@ -551,14 +645,20 @@ async function runBuild(
       useStagingSwap || !mergedOutputPath ? distPath : mergedOutputPath
 
     if (!useStagingSwap && mergedOutputPath) {
-      try {
-        fs.rmSync(mergedOutputPath, {recursive: true, force: true})
-      } catch {
-        // Ignore
+      const refusal = protectedFolderAt(mergedOutputPath, packageJsonDir)
+
+      if (refusal) {
+        throw codedError(
+          CODES.E_INVALID_OPTION,
+          messages.buildOutputPathRefused(mergedOutputPath, refusal)
+        )
       }
+
+      compilerConfig.output = {...compilerConfig.output, clean: true}
     }
 
     const compiler = rspack(compilerConfig)
+    compilerToClose = compiler
 
     let summary: BuildSummary = {
       browser,
@@ -572,21 +672,29 @@ async function runBuild(
     }
 
     await new Promise<void>((resolve, reject) => {
-      compiler.run(async (err, stats) => {
+      // Every throw below settles the build as a rejection, never a callback
+      // the bundler swallows while the promise stays pending.
+      const settle = async (
+        err: Error | null,
+        stats: Parameters<Parameters<typeof compiler.run>[0]>[1]
+      ) => {
         if (err) {
-          console.error(err.stack || err)
-          removeStagingDir(stagingDistPath)
-
-          return reject(err)
+          return reject(
+            hasDeclaredCode(err)
+              ? err
+              : Object.assign(
+                  codedError(CODES.E_COMPILE_FATAL, err.message || String(err)),
+                  {cause: err}
+                )
+          )
         }
 
         // Guard against silent-success scenarios where the bundler callback
         // does not provide stats, which means we cannot trust emission output.
         if (!stats || typeof stats.hasErrors !== 'function') {
-          removeStagingDir(stagingDistPath)
-
           return reject(
-            new Error(
+            codedError(
+              CODES.E_COMPILE_FATAL,
               'Build failed: bundler returned invalid stats output (no reliable compilation result).'
             )
           )
@@ -630,9 +738,18 @@ async function runBuild(
             try {
               promoteStagingDist(stagingDistPath, distPath)
             } catch (promoteError) {
-              removeStagingDir(stagingDistPath)
-
-              return reject(promoteError)
+              return reject(
+                Object.assign(
+                  codedError(
+                    CODES.E_DESTINATION_NOT_WRITABLE,
+                    messages.buildOutputNotPublished(
+                      displayPath(distPath),
+                      promoteError
+                    )
+                  ),
+                  {cause: promoteError}
+                )
+              )
             }
 
             if (!liveDevSession) {
@@ -640,16 +757,21 @@ async function runBuild(
             }
           }
 
+          let keptArtifactsLine = ''
+
           if (buildType === 'production') {
             const pruned = removeDevelopmentArtifacts(displayDistPath)
 
             if (pruned.kept.length > 0) {
-              console.warn(
-                messages.developmentArtifactsKept(displayDistPath, pruned.kept)
+              keptArtifactsLine = messages.developmentArtifactsKept(
+                displayDistPath,
+                pruned.kept
               )
+
+              if (!quiet) console.warn(keptArtifactsLine)
             }
 
-            warnProductionLoopbackOrigins(displayDistPath)
+            warnProductionLoopbackOrigins(displayDistPath, quiet)
           }
 
           // Anonymized aggregates (no filenames or paths)
@@ -669,7 +791,8 @@ async function runBuild(
               info,
               asAskedPath(displayDistPath),
               outputFiles,
-              warningCodes(stats.compilation)
+              warningCodes(stats.compilation),
+              packageJsonDir
             ),
             toolchain: getBuildToolchain()
           }
@@ -683,6 +806,18 @@ async function runBuild(
               ...summary,
               warnings_count: summary.warnings_count + codedWarnings.length,
               warnings: [...(summary.warnings || []), ...codedWarnings]
+            }
+          }
+
+          // A silent caller reads it here, where every other warning is.
+          if (keptArtifactsLine) {
+            summary = {
+              ...summary,
+              warnings_count: summary.warnings_count + 1,
+              warnings: [
+                ...(summary.warnings || []),
+                stripAnsi(keptArtifactsLine)
+              ]
             }
           }
 
@@ -796,6 +931,27 @@ async function runBuild(
             summary = {...summary, zip_artifacts: zipArtifacts}
           }
 
+          // An archive the caller asked for and did not get is a failure, not a
+          // warning: `build --zip && upload dist/*.zip` used to exit 0 with none.
+          // It is settled here, so neither the summary on disk nor the closer
+          // below ever calls this build a success.
+          const zipFailures = getZipFailures(stats.compilation)
+
+          if (zipFailures.length > 0) {
+            summary = {
+              ...summary,
+              errors_count: zipFailures.length,
+              errors: zipFailures.map(
+                (failure) =>
+                  `${CODES.E_ZIP_SKIPPED}: ${messages.zipArtifactNotCreatedText(
+                    failure.kind,
+                    displayPath(failure.path),
+                    failure.reason
+                  )}`
+              )
+            }
+          }
+
           // Hosts that shell out to `extension build` cannot see the returned
           // summary, so persist it next to ready.json. Best-effort only.
           try {
@@ -806,6 +962,25 @@ async function runBuild(
             fs.writeFileSync(summaryFile, JSON.stringify(summary))
           } catch {
             // Never fail a green build over the informational contract.
+          }
+
+          if (zipFailures.length > 0) {
+            failureCount = zipFailures.length
+
+            return reject(
+              codedError(
+                CODES.E_ZIP_SKIPPED,
+                zipFailures
+                  .map((failure) =>
+                    messages.zipArtifactNotCreated(
+                      failure.kind,
+                      displayPath(failure.path),
+                      failure.reason
+                    )
+                  )
+                  .join('\n')
+              )
+            )
           }
 
           if ((info?.warnings || []).length > 0) {
@@ -861,34 +1036,6 @@ async function runBuild(
             humanLine(messages.zipArtifactReady(zipDisplay, artifact.size))
           }
 
-          // An archive the caller asked for and did not get is a failure, not a
-          // warning: `build --zip && upload dist/*.zip` used to exit 0 with none.
-          const zipFailures = getZipFailures(stats.compilation)
-
-          if (zipFailures.length > 0) {
-            for (const failure of zipFailures) {
-              const failureDisplay = displayPath(failure.path)
-              console.error(
-                messages.zipArtifactNotCreated(
-                  failure.kind,
-                  failureDisplay,
-                  failure.reason
-                )
-              )
-            }
-
-            reject(
-              Object.assign(
-                new Error(
-                  `${zipFailures.length} requested archive${zipFailures.length === 1 ? ' was' : 's were'} not created`
-                ),
-                {code: 'E_ZIP_SKIPPED'}
-              )
-            )
-
-            return
-          }
-
           resolve()
         } else {
           // A failed compile keeps the last-good dist: nothing was written to
@@ -907,34 +1054,40 @@ async function runBuild(
 
           console.error(messages.buildFailed(errorCount))
 
-          if (!shouldExitOnError) {
-            const {details, truncated} = compilationDiagnostics(
-              stats.compilation,
-              packageJsonDir
-            )
-            const failure = Object.assign(
-              new Error('Build failed with errors'),
-              {
-                code: CODES.E_COMPILE,
-                diagnostics: details,
-                truncated
-              }
-            )
-            reportedBuildFailures.add(failure)
+          const {details, truncated} = compilationDiagnostics(
+            stats.compilation,
+            packageJsonDir
+          )
+          const failure = Object.assign(new Error('Build failed with errors'), {
+            code: CODES.E_COMPILE,
+            diagnostics: details,
+            truncated
+          })
+          reportedBuildFailures.add(failure)
 
-            return reject(failure)
-          }
-
-          process.exit(1)
+          return reject(failure)
         }
-      })
+      }
+
+      // The bundler starts outside this build's scope and calls back from its
+      // own thread hop, so the callback is bound to read this build's warnings.
+      const settled = AsyncResource.bind(
+        (err: Error | null, stats: Parameters<typeof settle>[1]) => {
+          settle(err, stats).catch(reject)
+        }
+      )
+
+      outsideCodedWarnings(() => compiler.run(settled))
     })
 
     // The packager reads the folder the bundler actually emitted into, which
     // under a re-pointed output.path is not dist/<browser>.
     if (safariPackager && safariIdentity) {
       if (!fs.existsSync(displayDistPath)) {
-        throw new Error(messages.safariBuildOutputNotFound(displayDistPath))
+        throw codedError(
+          CODES.E_PREVIEW_NO_DIST,
+          messages.safariBuildOutputNotFound(displayDistPath)
+        )
       }
 
       const safari = await safariPackager(
@@ -971,26 +1124,70 @@ async function runBuild(
     }
 
     return summary
-  } catch (error) {
+  } catch (thrown) {
     if (stagingDistPath) removeStagingDir(stagingDistPath)
 
-    const alreadyReported =
-      error instanceof Error && reportedBuildFailures.has(error)
+    // The line below and every caller read the message of the failure, so a
+    // thrown value with none is wrapped before it is printed and passed on.
+    const error = readableFailure(thrown)
 
-    if (!alreadyReported) {
+    const frameCarriesIt = findingProject && isMachineOutput()
+
+    if (!frameCarriesIt && !reportedBuildFailures.has(error)) {
       if (isDebug()) {
         console.error(error)
       } else {
         console.error(messages.buildCommandFailed(error))
       }
 
-      console.error(messages.buildFailed(1))
+      console.error(messages.buildFailed(failureCount))
     }
 
-    if (!shouldExitOnError) {
-      throw error
+    // The caller owns the exit: a CLI maps this to its code, a host keeps
+    // running.
+    throw error
+  } finally {
+    if (nodeEnvChanged) {
+      if (nodeEnvBefore === undefined) delete process.env.NODE_ENV
+      else process.env.NODE_ENV = nodeEnvBefore
     }
 
-    process.exit(1)
+    await closeCompiler(compilerToClose)
+  }
+}
+
+function readableFailure(thrown: unknown): Error {
+  try {
+    if (thrown instanceof Error && typeof thrown.message === 'string') {
+      return thrown
+    }
+  } catch {
+    // Ignore
+  }
+
+  return Object.assign(new Error(messages.thrownValueText(thrown)), {
+    cause: thrown
+  })
+}
+
+function hasDeclaredCode(error: unknown): boolean {
+  const code = (error as {code?: unknown} | null)?.code
+
+  return (
+    typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, code)
+  )
+}
+
+// A compiler left open keeps its watchers and cache handles in the host.
+async function closeCompiler(
+  compiler: {close?: (done: () => void) => void} | undefined
+): Promise<void> {
+  if (typeof compiler?.close !== 'function') return
+
+  try {
+    await new Promise<void>((resolve) => compiler.close?.(() => resolve()))
+  } catch {
+    // Ignore
   }
 }

@@ -11,6 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {test} from 'node:test'
 import {fileURLToPath} from 'node:url'
+import {workspaceSourceEntries} from '../lib/workspace-source-entries.mjs'
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -22,6 +23,14 @@ const BUILD = 'rslib build'
 
 function readJson(...segments) {
   return JSON.parse(fs.readFileSync(path.join(root, ...segments), 'utf8'))
+}
+
+function isSourceTarget(target) {
+  return (
+    typeof target === 'string' &&
+    /\.[cm]?tsx?$/.test(target) &&
+    !/\.d\.[cm]?ts$/.test(target)
+  )
 }
 
 // Every workspace package whose build config asks for declarations.
@@ -149,29 +158,30 @@ test('the release workflow compiles each published package by its compile script
   }
 })
 
-test('every typed export with a development target points it at source', () => {
+test('no export names source, and a sibling import still resolves to it', () => {
   for (const name of declarationPackages()) {
     const manifest = readJson('programs', name, 'package.json')
 
+    // A consumer follows any condition it knows, and source is never packed.
     for (const [subpath, entry] of Object.entries(manifest.exports)) {
-      if (typeof entry !== 'object' || !('development' in entry)) continue
+      if (typeof entry !== 'object') continue
 
-      assert.ok(
-        entry.development.endsWith('.ts') &&
-          !entry.development.includes('dist') &&
-          fs.existsSync(path.join(root, 'programs', name, entry.development)),
-        `${manifest.name} exports["${subpath}"].development is ${entry.development}`
-      )
-
-      assert.equal(Object.keys(entry)[0], 'development')
+      for (const [condition, target] of Object.entries(entry)) {
+        assert.ok(
+          !isSourceTarget(target),
+          `${manifest.name} exports["${subpath}"].${condition} is ${target}`
+        )
+      }
     }
   }
 
   // These three are imported by a sibling, so the typecheck resolves them.
   for (const name of ['create', 'develop', 'install']) {
-    const entry = readJson('programs', name, 'package.json').exports['.']
+    const manifest = readJson('programs', name, 'package.json')
+    const source = workspaceSourceEntries[manifest.name]
 
-    assert.equal(typeof entry.development, 'string', name)
+    assert.equal(source, `programs/${name}/module.ts`, name)
+    assert.ok(fs.existsSync(path.join(root, source)), source)
   }
 })
 

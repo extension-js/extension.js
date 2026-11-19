@@ -13,7 +13,7 @@ import type {OutputFile} from './output-files'
 
 // Below this a second copy costs nothing a reader would act on, and hashing
 // every small file of a large build would cost more than it finds.
-export const DUPLICATE_OUTPUT_THRESHOLD_BYTES = 256 * 1024
+const DUPLICATE_OUTPUT_THRESHOLD_BYTES = 256 * 1024
 
 export interface DuplicateOutputGroup {
   names: string[]

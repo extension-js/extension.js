@@ -8,6 +8,8 @@
 
 import {readFileSync} from 'node:fs'
 import {defineConfig, type Plugin} from 'vitest/config'
+// @ts-expect-error plain ESM script without types, shared with the script specs
+import {workspaceSourceAliases} from '../../scripts/lib/workspace-source-entries.mjs'
 
 // Vitest caches each transform with its imports already resolved, keyed on the
 // importer alone. A linked package's manifest picks those paths, so key on it.
@@ -37,7 +39,10 @@ function keyModuleCacheOnLinkedManifests(): Plugin {
 export default defineConfig({
   plugins: [keyModuleCacheOnLinkedManifests()],
   resolve: {
-    conditions: ['development', 'node', 'import', 'default']
+    // Specs read the sibling packages from source, so no build stands between
+    // an edit there and a run here.
+    alias: workspaceSourceAliases(),
+    conditions: ['node', 'import', 'default']
   },
   test: {
     globals: true,

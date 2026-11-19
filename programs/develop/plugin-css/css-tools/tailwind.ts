@@ -34,15 +34,15 @@ export function isUsingTailwind(projectPath: string) {
   return isUsingTailwind
 }
 
-export function getTailwindConfigFile(projectPath: string) {
-  const candidates = [
-    'tailwind.config.mjs',
-    'tailwind.config.cjs',
-    'tailwind.config.ts',
-    'tailwind.config.js'
-  ]
+export const TAILWIND_CONFIG_NAMES = [
+  'tailwind.config.mjs',
+  'tailwind.config.cjs',
+  'tailwind.config.ts',
+  'tailwind.config.js'
+]
 
-  for (const candidate of candidates) {
+export function getTailwindConfigFile(projectPath: string) {
+  for (const candidate of TAILWIND_CONFIG_NAMES) {
     const configPath = path.join(projectPath, candidate)
     if (fs.existsSync(configPath)) return configPath
   }

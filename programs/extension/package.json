@@ -34,6 +34,7 @@
   "types": "./dist/extension/index.d.ts",
   "files": [
     "dist",
+    "!dist/develop",
     "bin",
     "types"
   ],
@@ -117,6 +118,7 @@
     "pintor": "0.3.0",
     "semver": "^7.7.3",
     "unique-names-generator": "^4.7.1",
+    "update-check": "^1.5.4",
     "vivaldi-location2": "2.1.1",
     "waterfox-location": "2.1.1",
     "ws": "^8.20.1",
