@@ -12,6 +12,7 @@ import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
 import {isReloadSession} from '../lib/reload-session'
 import type {DevOptions, PluginInterface} from '../types'
 import {
+  type BridgeCoordinates,
   InjectBridgeProducer,
   readBootRegistrations,
   readDevBuild
@@ -72,11 +73,18 @@ export class ReloadPlugin {
   public readonly manifestPath: string
   public readonly browser?: DevOptions['browser']
   private readonly devSession?: boolean
+  private readonly bridge: BridgeCoordinates
 
-  constructor(options: PluginInterface) {
+  // Each dev session names its own bridge, and the environment is the
+  // fallback for a config built without one.
+  constructor(options: PluginInterface & BridgeCoordinates) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
+    this.bridge = {
+      instanceId: options.instanceId,
+      controlPort: options.controlPort
+    }
   }
 
   public apply(compiler: Compiler): void {
@@ -124,11 +132,13 @@ export class ReloadPlugin {
     if (!isEmulatorBrowser(this.browser)) {
       // Inject the agent-bridge producer so the background SW forwards console
       // output to the dev-server control WS; no-op when the bridge is unavailable.
-      new InjectBridgeProducer().apply(compiler)
+      new InjectBridgeProducer(this.bridge).apply(compiler)
 
       // Forward content-script console to the SW relay (multi-context logs).
       // No-ops when the control bridge is unavailable.
-      new InjectBridgeRelay().apply(compiler)
+      new InjectBridgeRelay({controlPort: this.bridge.controlPort}).apply(
+        compiler
+      )
     }
 
     // Hot chunks are fetched from the extension origin (disk), so prune superseded

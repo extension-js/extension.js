@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {detectLiveDevSessionOwner} from '../index'
+import {detectLiveDevSessionOwner, forgetSessionRun} from '../index'
 import {
   contractPath,
   makeWriter,
@@ -346,5 +346,34 @@ describe('the attach stamp beside another live dev session', () => {
     preview.stampReload('full', 'full reload')
 
     expect(fs.readFileSync(readyPath, 'utf-8')).toBe(before)
+  })
+})
+
+// The engine refuses a second session of one process on a target before its
+// writers open, so the writers of one session never read each other as owner.
+describe('a dev session of this same process', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('keeps one run and warns nothing when its compiler restarts', () => {
+    const projectDir = makeTempFolder('extjs-owner-')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const plugin = makeWriter(projectDir)
+
+    makeWriter(projectDir)
+    plugin.writeStarting()
+
+    const runId = readContract(contractPath(projectDir)).runId
+
+    // A restart builds a new compiler, and its plugin opens a writer again.
+    const next = makeWriter(projectDir)
+
+    next.writeStarting()
+    plugin.writeStarting()
+
+    expect(readContract(contractPath(projectDir)).runId).toBe(runId)
+    expect(detectLiveDevSessionOwner(contractPath(projectDir))).toBeNull()
+    expect(warn).not.toHaveBeenCalled()
+
+    forgetSessionRun(projectDir, 'chromium')
   })
 })

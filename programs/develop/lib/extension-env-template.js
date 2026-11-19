@@ -13,38 +13,58 @@ export const EXTENSION_ENV_TYPES_PACKAGE = 'extension'
 
 const OWN_CHROME_TYPES = '@types/chrome'
 
-function listsOwnChromeTypes(projectDir) {
+function readJson(file) {
   try {
-    const pkg = JSON.parse(
-      readFileSync(path.join(projectDir, 'package.json'), 'utf8')
-    )
-
-    return Boolean(
-      pkg.dependencies?.[OWN_CHROME_TYPES] ||
-        pkg.devDependencies?.[OWN_CHROME_TYPES]
-    )
+    return JSON.parse(readFileSync(file, 'utf8'))
   } catch {
-    return false
+    return undefined
   }
 }
 
-// @types/chrome and chrome-types both declare the chrome global, so only one
-// may load. A project that lists or can resolve its own copy keeps it.
-export function projectBringsOwnChromeTypes(projectDir) {
-  if (listsOwnChromeTypes(projectDir)) return true
-
+// The first node_modules/<name> on the walk up from the project, the folder
+// TypeScript and Node would resolve.
+function findUp(projectDir, name) {
   let dir = path.resolve(projectDir)
 
   while (true) {
-    if (existsSync(path.join(dir, 'node_modules', OWN_CHROME_TYPES))) {
-      return true
-    }
+    const candidate = path.join(dir, 'node_modules', name)
+    if (existsSync(candidate)) return candidate
 
     const parent = path.dirname(dir)
-    if (parent === dir) return false
+    if (parent === dir) return undefined
 
     dir = parent
   }
+}
+
+// TypeScript 5 and older load every @types package above the project unless
+// `types` is set, TypeScript 6 and later load none unless they are referenced.
+function typescriptLoadsAllAtTypes(projectDir) {
+  const typescriptDir = findUp(projectDir, 'typescript')
+  if (!typescriptDir) return false
+
+  const version = readJson(path.join(typescriptDir, 'package.json'))?.version
+  const major = Number.parseInt(String(version), 10)
+
+  return Number.isFinite(major) && major < 6
+}
+
+// @types/chrome and chrome-types both declare the chrome global, so only one
+// may load. A hoisted copy counts only where TypeScript would load it anyway.
+export function projectBringsOwnChromeTypes(projectDir) {
+  const pkg = readJson(path.join(projectDir, 'package.json'))
+
+  if (
+    pkg?.dependencies?.[OWN_CHROME_TYPES] ||
+    pkg?.devDependencies?.[OWN_CHROME_TYPES]
+  ) {
+    return true
+  }
+
+  return (
+    typescriptLoadsAllAtTypes(projectDir) &&
+    Boolean(findUp(projectDir, OWN_CHROME_TYPES))
+  )
 }
 
 const STYLE_TYPE = 'Readonly<Record<string, string>>'

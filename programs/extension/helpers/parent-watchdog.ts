@@ -29,6 +29,9 @@ export function setupParentWatchdog(
   parentPid: number,
   options?: {
     log?: (message: string) => void
+    // Ends a live session through its engine, which writes the one terminal
+    // frame. True when it did, and the frame and signal here are skipped.
+    endSession?: () => boolean
     // The last thing a machine consumer sees, so it is written before the
     // shutdown that closes stdout behind it.
     emitFrame?: () => void
@@ -56,10 +59,20 @@ export function setupParentWatchdog(
       }
     })
 
+  const endedBySession = () => {
+    try {
+      return options?.endSession?.() === true
+    } catch {
+      return false
+    }
+  }
+
   const onParentDeath = () => {
     log(
       `[Extension.js] Parent process ${parentPid} is gone (--parent-pid). Shutting down.`
     )
+
+    if (endedBySession()) return
 
     options?.emitFrame?.()
     shutdown()
