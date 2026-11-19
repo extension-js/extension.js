@@ -13,6 +13,7 @@ import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import {
   type InstallRunner,
+  isMissingCommand,
   runInstall as runInstallCommand
 } from '../lib/install-runner'
 import * as messages from '../lib/messages'
@@ -339,12 +340,17 @@ async function installOptionalDependencies(
     cwd: developRoot,
     stdio
   }).catch((error: unknown) => {
+    const projectName = path.basename(projectPath)
+    const retry = {projectPath, template}
+
     throw failStep(
-      messages.installingDependenciesProcessError(
-        path.basename(projectPath),
-        error,
-        {projectPath, template}
-      ),
+      isMissingCommand(error, pm)
+        ? messages.packageManagerNotInstalled(projectName, pm, args, retry)
+        : messages.installingDependenciesProcessError(
+            projectName,
+            error,
+            retry
+          ),
       error
     )
   })

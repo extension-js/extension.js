@@ -139,6 +139,13 @@ export function installTimedOutReason(ms: number): string {
   return `The install did not finish within ${formatDuration(ms)} (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
 }
 
+// Node and cross-spawn reject this way when the command is not on PATH.
+export function isMissingCommand(error: unknown, command: string): boolean {
+  const failure = error as {code?: unknown; syscall?: unknown} | null
+
+  return failure?.code === 'ENOENT' && failure.syscall === `spawn ${command}`
+}
+
 export type SpawnProcess = (
   command: string,
   args: string[],

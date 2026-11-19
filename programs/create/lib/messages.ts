@@ -561,6 +561,23 @@ export function installingDependenciesProcessError(
   )
 }
 
+// The manager never started, so there is no exit and no output to quote.
+// What is missing is the manager itself, and that is what the frame says.
+export function packageManagerNotInstalled(
+  projectName: string,
+  pmCommand: string,
+  pmArgs: string[],
+  retry?: ScaffoldRetry
+) {
+  return (
+    `${prefix('error')} Couldn't install the dependencies for ${colors.blue(projectName)}.\n` +
+    `${fmt.label('COMMAND')} ${fmt.val(`${pmCommand} ${pmArgs.join(' ')}`)}\n` +
+    `${fmt.label('REASON')} ${fmt.val(`${pmCommand} is not installed, or not on PATH`)}\n` +
+    `${colors.red(`Install ${pmCommand} or add it to PATH.`)}\n` +
+    createAgainStep(retry)
+  )
+}
+
 export function manifestNotFound(projectPath: string, searchDepth: number) {
   return (
     `${prefix('error')} Couldn't read a manifest.json for this scaffold.\n` +
