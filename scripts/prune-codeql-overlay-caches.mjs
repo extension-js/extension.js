@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import {spawnSync} from 'node:child_process'
-import path from 'node:path'
+import fs from 'node:fs'
 import {fileURLToPath} from 'node:url'
 
 // The CodeQL action saves one overlay base per run of main, keyed by commit,
@@ -69,7 +69,7 @@ export function pruneOverlayCaches(repo) {
   console.log(`Removed ${stale.length} older CodeQL overlay bases`)
 }
 
-const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : ''
+const invokedPath = process.argv[1] ? fs.realpathSync(process.argv[1]) : ''
 
 if (invokedPath === fileURLToPath(import.meta.url)) {
   const repo = process.env.GITHUB_REPOSITORY
