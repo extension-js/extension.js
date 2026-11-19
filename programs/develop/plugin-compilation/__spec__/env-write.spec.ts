@@ -3,6 +3,23 @@ import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {diagnosticCode} from '../../lib/diagnostic-code'
 import {EnvPlugin} from '../env'
 import {keepEnvWrites} from '../env-write-loader'
+
+// Every acorn parse the loader makes in this file is counted here.
+const acornParses = vi.hoisted(() => ({count: 0}))
+
+vi.mock('acorn', async (importOriginal) => {
+  const real = await importOriginal<typeof import('acorn')>()
+
+  return {
+    ...real,
+    parse: (...args: Parameters<typeof real.parse>) => {
+      acornParses.count++
+
+      return real.parse(...args)
+    }
+  }
+})
+
 import {
   compile,
   makeTempRoot,
@@ -36,7 +53,13 @@ async function build(mode: Mode, files: Record<string, string>) {
       code: diagnosticCode(warning),
       message: stripAnsi(warning.message)
     })),
-    logs: () => runScript(path.join(outputPath, 'entry.js'))
+    logs: () => runScript(path.join(outputPath, 'entry.js')),
+    // What each module looked like once its loaders ran, by its path.
+    sources: Object.fromEntries(
+      (stats.toJson({all: false, modules: true, source: true}).modules || [])
+        .filter((module) => typeof module.source === 'string')
+        .map((module) => [String(module.name), String(module.source)])
+    )
   }
 }
 
@@ -156,5 +179,48 @@ describe('keepEnvWrites', () => {
     const source = 'process.env.A = <div />\n'
 
     expect(keepEnvWrites(source)).toEqual({code: source, writes: []})
+  })
+})
+
+describe('a build that reads env names and never writes one', () => {
+  // Reads in every shape the text test sees beside an operator or a bracket.
+  const READS = {
+    'entry.js': [
+      "import './a.js'",
+      "import './node_modules/dep/index.js'",
+      "if (process.env.EXTENSION_PUBLIC_X === 'v') console.log('eq')",
+      "if (process.env.EXTENSION_PUBLIC_X !== 'w') console.log('ne')",
+      'console.log(process.env.EXTENSION_PUBLIC_X >= "a", process.env.EXTENSION_PUBLIC_X <= "z")',
+      ''
+    ].join('\n'),
+    'a.js': [
+      "const key = 'EXTENSION_PUBLIC_X'",
+      'const {EXTENSION_PUBLIC_X} = process.env',
+      'const config = {x: process.env.EXTENSION_PUBLIC_X, y: import.meta.env.EXTENSION_PUBLIC_X}',
+      'console.log(EXTENSION_PUBLIC_X, config.x, process.env[key] ?? process.env.EXTENSION_PUBLIC_X)',
+      ''
+    ].join('\n'),
+    'node_modules/dep/index.js':
+      "module.exports = process.env.NODE_ENV === 'production' ? 'prod' : 'dev'\n"
+  }
+
+  it('hands acorn none of its modules', async () => {
+    const result = await build('production', READS)
+    const sources = Object.values(result.sources)
+
+    expect(result.errors).toEqual([])
+    expect(sources.length).toBeGreaterThanOrEqual(3)
+
+    acornParses.count = 0
+
+    for (const source of sources) {
+      expect(keepEnvWrites(source)).toEqual({code: source, writes: []})
+    }
+
+    expect(acornParses.count).toBe(0)
+
+    // The counter is live: one write is one parse.
+    keepEnvWrites("process.env.EXTENSION_PUBLIC_X = 'w'\n")
+    expect(acornParses.count).toBe(1)
   })
 })
