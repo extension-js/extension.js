@@ -743,12 +743,13 @@ describe('createChangedSourcesTracker', () => {
   })
 
   it('forces a full reload for the manifest the plugin was given and its _locales', () => {
-    const {compiler, fireWatchRun} = fakeCompiler()
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
     noteManifestPath(compiler, '/proj/extension/manifest.json')
     const tracker = createChangedSourcesTracker(compiler)
 
     compiler.modifiedFiles = new Set(['/proj/extension/manifest.json'])
     fireWatchRun()
+    fireDone()
     expect(tracker.snapshot().forcedFull).toBe(true)
 
     compiler.modifiedFiles = new Set([
@@ -756,18 +757,21 @@ describe('createChangedSourcesTracker', () => {
     ])
 
     fireWatchRun()
+    fireDone()
     expect(tracker.snapshot().forcedFull).toBe(true)
 
     compiler.modifiedFiles = new Set(['/proj/src/manifest.json'])
     fireWatchRun()
+    fireDone()
     expect(tracker.snapshot().forcedFull).toBe(false)
   })
 
-  it('resets on each watchRun (no stale carryover)', () => {
-    const {compiler, fireWatchRun} = fakeCompiler()
+  it('resets on the watchRun after a compile ended (no stale carryover)', () => {
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
     compiler.modifiedFiles = new Set(['/proj/src/manifest.json'])
     fireWatchRun()
+    fireDone()
     expect(tracker.snapshot().forcedFull).toBe(true)
 
     compiler.modifiedFiles = new Set()

@@ -540,11 +540,19 @@ export function createChangedSourcesTracker(
     forcedFull = true
   }
 
+  // A save during a compile starts the next one and the first never reaches
+  // done, so its files still wait for a reload.
+  let compileEnded = true
+
   compiler.hooks.watchRun.tap('extjs-reload-changed-sources', () => {
-    forcedFull = false
-    changedSources = []
-    writtenAssets = []
-    changedFolders = []
+    if (compileEnded) {
+      forcedFull = false
+      changedSources = []
+      writtenAssets = []
+      changedFolders = []
+    }
+
+    compileEnded = false
     ingest(changesOf(compiler), changedSources, markForced)
   })
 
@@ -555,6 +563,7 @@ export function createChangedSourcesTracker(
     }) => {
       const compilation = stats?.compilation
       const failed = Boolean(compilation?.errors?.length)
+      compileEnded = true
       ingest(compilation?.modifiedFiles, changedSources, markForced)
       ingest(changesOf(compiler), changedSources, markForced)
       keepFilesTheBuildRead(compilation, failed)
