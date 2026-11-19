@@ -37,16 +37,26 @@ export class SetupReloadStrategy {
 
     const contentScriptsMeta = buildContentScriptsMeta(patchedManifest)
 
-    new SetupBackgroundEntry({
+    const backgroundEntry = new SetupBackgroundEntry({
       manifestPath: this.manifestPath,
       browser: this.browser
-    }).apply(compiler)
+    })
+    backgroundEntry.apply(compiler)
+
+    const authored = getBackgroundEntryName(patchedManifest, this.browser, {
+      manifestDir: path.dirname(this.manifestPath),
+      projectPath: compiler.options.context as string | undefined
+    })
+    const namesAnEntry = Boolean(
+      authored.pageEntry || authored.serviceWorkerEntry
+    )
 
     new ChunkLoadingTarget({
-      background: getBackgroundEntryName(patchedManifest, this.browser, {
-        manifestDir: path.dirname(this.manifestPath),
-        projectPath: compiler.options.context as string | undefined
-      }),
+      // The browser runs the authored background when there is one, and the
+      // one this session generated otherwise. The fallback is answered there.
+      background: namesAnEntry
+        ? authored
+        : (backgroundEntry.generated ?? authored),
       weakRuntimeCheck: true,
       contentScriptsMeta,
       gecko: isGeckoBasedBrowser(String(this.browser)),

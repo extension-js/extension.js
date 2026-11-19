@@ -8,8 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {codedError} from './coded-error'
+import * as messages from './messages'
+import {CODES, stripChannelPrefix} from './messaging'
 import {parseAuthoredJson} from './parse-json-safe'
 import {devtoolsEngineFor} from './paths'
+import {realPath} from './real-path'
 
 function hasNewTabOverride(extensionDir: string): boolean {
   const manifestPath = path.join(extensionDir, 'manifest.json')
@@ -27,6 +31,8 @@ function hasNewTabOverride(extensionDir: string): boolean {
   }
 }
 
+// A built-in companion that is not there is left out without a word: the
+// session runs the same, and its absence is the package's state, not the user's.
 function resolveBuiltInExtensionForBrowser(input: {
   baseDir: string
   packageName: 'extension-js-devtools' | 'extension-js-theme'
@@ -90,6 +96,350 @@ function isReservedBuiltInPath(extensionPath: string): boolean {
   return segments.some((segment) => RESERVED_BUILT_IN_NAMES.has(segment))
 }
 
+function explicitCompanionEntries(config: unknown): string[] {
+  const entries = Array.isArray(config)
+    ? config
+    : (config as {paths?: unknown} | null | undefined)?.paths
+
+  return Array.isArray(entries)
+    ? entries.filter((entry): entry is string => typeof entry === 'string')
+    : []
+}
+
+function isFolder(target: string): boolean {
+  try {
+    return fs.statSync(target).isDirectory()
+  } catch {
+    return false
+  }
+}
+
+// The scan reads a folder only under the spelling the config gave it, so a
+// folder that differs by case on a case-blind disk counts as not there.
+function isFolderAsSpelled(target: string): boolean {
+  if (!isFolder(target)) return false
+
+  try {
+    return fs.readdirSync(path.dirname(target)).includes(path.basename(target))
+  } catch {
+    return false
+  }
+}
+
+const STORE_HOSTS: ReadonlySet<string> = new Set([
+  'chromewebstore.google.com',
+  'chrome.google.com',
+  'microsoftedge.microsoft.com',
+  'addons.mozilla.org'
+])
+
+// A link carries a web scheme, or opens with a store host and no scheme.
+// Nothing is fetched without a browser, so a link is only told apart here.
+function isWebLink(entry: string): boolean {
+  try {
+    const {protocol} = new URL(entry)
+
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    // Not an absolute URL, so only the scheme-less store form is left.
+  }
+
+  const host = /^([a-z0-9.-]+)(?:[/?#].*)?$/i.exec(entry)?.[1]
+
+  return host
+    ? STORE_HOSTS.has(host.toLowerCase().replace(/^www\./, ''))
+    : false
+}
+
+function isPathLike(entry: string, projectRoot: string): boolean {
+  if (path.isAbsolute(entry)) return true
+  if (entry.includes('/') || entry.includes('\\')) return true
+
+  // A folder that is there is a folder, whatever its name looks like.
+  return entry.trim().length > 0 && isFolder(path.resolve(projectRoot, entry))
+}
+
+type PlaceInProject = 'same' | 'inside' | 'outside'
+
+// Real paths on both sides, so a link inside the project that leads out of
+// it counts as outside.
+function placeInProject(projectRoot: string, target: string): PlaceInProject {
+  const fromRoot = path.relative(realPath(projectRoot), realPath(target))
+
+  if (fromRoot === '') return 'same'
+
+  return fromRoot === '..' ||
+    fromRoot.startsWith(`..${path.sep}`) ||
+    path.isAbsolute(fromRoot)
+    ? 'outside'
+    : 'inside'
+}
+
+// Every refusal below reads word for word as the launch path throws it, so
+// the same entry gets the same answer with or without a browser.
+function companionRefusal(text: string): Error {
+  return codedError(CODES.E_COMPANION_EXTENSION_PATH, text)
+}
+
+// The folders a config names, once every entry passed the rules the launch
+// path applies: inside the project, and either a link or a folder path.
+export function namedCompanionFoldersInsideProject(
+  config: unknown,
+  projectRoot: string
+): string[] {
+  const folders: string[] = []
+
+  for (const entry of explicitCompanionEntries(config)) {
+    if (isWebLink(entry)) continue
+
+    if (!isPathLike(entry, projectRoot)) {
+      if (/^[a-p]{32}$/i.test(entry)) {
+        throw companionRefusal(
+          `Companion extension entry looks like a store id, not a store link: ${entry}\n` +
+            'Use the full store link so the browser it belongs to is known, ' +
+            `for example https://chromewebstore.google.com/detail/<name>/${entry}`
+        )
+      }
+
+      throw companionRefusal(
+        `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
+          'Give a store link or the path of a folder inside the project'
+      )
+    }
+
+    const folder = path.resolve(projectRoot, entry)
+
+    // The project itself is the extension being run, never its companion.
+    if (placeInProject(projectRoot, folder) !== 'inside') {
+      throw companionRefusal(
+        'Companion extensions must be inside the project.\n' +
+          `Invalid path: ${folder}`
+      )
+    }
+
+    folders.push(entry)
+  }
+
+  return folders
+}
+
+// The folder a config says to scan, once it is known to sit in the project.
+export function companionScanDirInsideProject(
+  config: unknown,
+  projectRoot: string
+): string | undefined {
+  const dir = declaredScanDir(config)
+
+  if (!dir) return undefined
+
+  const folder = path.resolve(projectRoot, dir)
+
+  // A scan of the project itself would meet its own source and output.
+  if (placeInProject(projectRoot, folder) !== 'inside') {
+    throw companionRefusal(
+      'extensions.dir must be inside the project.\n' + `Invalid dir: ${folder}`
+    )
+  }
+
+  return dir
+}
+
+function linksIn(folder: string): string[] {
+  try {
+    return fs
+      .readdirSync(folder, {withFileTypes: true})
+      .filter((entry) => entry.isSymbolicLink() && !entry.name.startsWith('.'))
+      .map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
+function plainFoldersIn(folder: string): string[] {
+  try {
+    return fs
+      .readdirSync(folder, {withFileTypes: true})
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .map((entry) => entry.name)
+  } catch {
+    return []
+  }
+}
+
+// The scan meets entries nobody named. A link among them that leads out of
+// the project is left out and said, and the entries beside it are untouched.
+export function scannedCompanionsOutsideProject(input: {
+  projectRoot: string
+  // The scan folder as the config spells it, already known to be inside.
+  dir?: string
+}): UnresolvedCompanion[] {
+  if (!input.dir) return []
+
+  const scanRoot = path.resolve(input.projectRoot, input.dir)
+  // The scan reads the folder and one level of grouping folders below it.
+  const groups = [
+    '',
+    ...plainFoldersIn(scanRoot).filter(
+      (name) => !fs.existsSync(path.join(scanRoot, name, 'manifest.json'))
+    )
+  ]
+  const outside: UnresolvedCompanion[] = []
+
+  for (const group of groups) {
+    for (const name of linksIn(path.join(scanRoot, group))) {
+      const link = path.join(scanRoot, group, name)
+
+      if (placeInProject(input.projectRoot, link) !== 'outside') continue
+
+      const frame = messages.scannedCompanionOutsideProject(
+        [input.dir.replace(/[\\/]+$/, ''), group, name]
+          .filter(Boolean)
+          .join('/'),
+        realPath(link)
+      )
+
+      outside.push({
+        manifestPath: link,
+        frame,
+        coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+      })
+    }
+  }
+
+  return outside
+}
+
+// Which layer the companions came from, in the order the commands merge them.
+// A folder scan names no companion, so it answers nothing.
+export function companionsDeclaredIn(
+  command: string,
+  layers: {
+    flag?: unknown
+    command?: unknown
+    browser?: unknown
+    project?: unknown
+  }
+): string | undefined {
+  if (layers.flag != null) return 'the --extensions flag'
+
+  if (layers.command != null) {
+    return `commands.${command}.extensions in extension.config.js`
+  }
+
+  if (layers.browser != null) {
+    return 'the browser section of extension.config.js'
+  }
+
+  if (layers.project != null) return 'extensions in extension.config.js'
+
+  return undefined
+}
+
+// The folder the commands scan when no layer says which one. Its absence
+// is the usual state of a project, so it is never spoken of on its own.
+const STOCK_SCAN_DIR = './extensions'
+
+function declaredScanDir(config: unknown): string | undefined {
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    return undefined
+  }
+
+  const dir = (config as {dir?: unknown}).dir
+
+  return typeof dir === 'string' && dir.trim() ? dir.trim() : undefined
+}
+
+export interface UnresolvedCompanion {
+  // What was looked for and is not there: the manifest.json of a named
+  // companion, or the folder a declared extensions.dir names.
+  manifestPath: string
+  // The framed sentence a terminal reads.
+  frame: string
+  // The same sentence with its code, as an envelope's warnings array holds it.
+  coded: string
+}
+
+// A companion named by path that is not an unpacked extension is left out of
+// the load, and without a word a typo runs the session one extension short.
+export function unresolvedNamedCompanions(input: {
+  projectRoot: string
+  // The entries once store links became folders.
+  resolved: unknown
+  // The entries as written, to name the one that fails the way it was typed.
+  declared?: unknown
+  declaredIn?: string
+}): UnresolvedCompanion[] {
+  const asWritten = new Map<string, string>()
+
+  for (const entry of explicitCompanionEntries(input.declared)) {
+    asWritten.set(path.resolve(input.projectRoot, entry), entry)
+  }
+
+  const unresolved: UnresolvedCompanion[] = []
+  const scanDir = declaredScanDir(input.resolved)
+
+  // A folder some layer declared and that is not there loads nothing, and
+  // without a word a typo runs the session with no companion at all.
+  if (scanDir && (input.declaredIn || scanDir !== STOCK_SCAN_DIR)) {
+    const folder = path.resolve(input.projectRoot, scanDir)
+
+    if (!isFolderAsSpelled(folder)) {
+      const frame = messages.companionExtensionsFolderNotFound(
+        scanDir,
+        folder,
+        input.declaredIn ?? 'the extensions option'
+      )
+
+      unresolved.push({
+        manifestPath: folder,
+        frame,
+        coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+      })
+    }
+  }
+
+  for (const entry of explicitCompanionEntries(input.resolved)) {
+    const folder = path.resolve(input.projectRoot, entry)
+    const manifestPath = path.join(folder, 'manifest.json')
+
+    try {
+      if (fs.statSync(manifestPath).isFile()) continue
+    } catch {
+      // Reported below, the same as a manifest.json that is a folder.
+    }
+
+    if (unresolved.some((known) => known.manifestPath === manifestPath)) {
+      continue
+    }
+
+    const frame = messages.companionExtensionNotResolved(
+      asWritten.get(folder) ?? entry,
+      manifestPath,
+      input.declaredIn ?? 'the extensions option'
+    )
+
+    unresolved.push({
+      manifestPath,
+      frame,
+      coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+    })
+  }
+
+  return unresolved
+}
+
+// The compiler config is built again on every restart of a session, and by
+// then the command may have said it already with the layer it came from.
+const companionsWarnedAbout = new Set<string>()
+
+export function isFirstCompanionWarning(manifestPath: string): boolean {
+  if (companionsWarnedAbout.has(manifestPath)) return false
+
+  companionsWarnedAbout.add(manifestPath)
+
+  return true
+}
+
 function dedupeByResolvedPath(paths: string[]): string[] {
   const seen = new Set<string>()
   const result: string[] = []
@@ -116,11 +466,16 @@ export function computeExtensionsToLoad(
   const list: string[] = []
 
   try {
-    const devtoolsForBrowser = resolveBuiltInExtensionForBrowser({
-      baseDir,
-      packageName: 'extension-js-devtools',
-      browser
-    })
+    // The devtools companion serves a development session. A production
+    // build is loaded as it ships, with the theme alone beside it.
+    const devtoolsForBrowser =
+      mode === 'production'
+        ? undefined
+        : resolveBuiltInExtensionForBrowser({
+            baseDir,
+            packageName: 'extension-js-devtools',
+            browser
+          })
     const themeForBrowser = resolveBuiltInExtensionForBrowser({
       baseDir,
       packageName: 'extension-js-theme',
@@ -149,7 +504,7 @@ export function computeExtensionsToLoad(
       list.push(themeForBrowser)
     }
   } catch {
-    // Ignore
+    // Built-ins are optional, so one that cannot be read is left out.
   }
 
   // Add companions (load-only) before the user extension; skip paths that

@@ -24,6 +24,11 @@ describe('the project root a dev session reads its config from', () => {
       'the manifest folder when there is no project manifest',
       {manifestPath: p('ext', 'manifest.json')},
       p('ext')
+    ],
+    [
+      'the named folder when the manifest sits below it with no project manifest',
+      {manifestPath: p('src', 'manifest.json'), projectRoot: p()},
+      p()
     ]
   ])('is %s', (_name, structure, expected) => {
     expect(resolveDevProjectRoot(structure)).toBe(expected)

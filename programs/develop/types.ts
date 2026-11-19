@@ -236,7 +236,7 @@ export interface LogOptions {
 // Each Public*Options type is what the package entry exports under the plain
 // name. The plain name here adds the fields only the CLI and the engine set.
 export interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
-  mode: 'development' | 'production' | 'none'
+  mode?: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
   /**
@@ -402,8 +402,16 @@ export interface BuildOptions extends PublicBuildOptions {
 }
 
 export interface PublicPreviewOptions extends BrowserOptionsBase, LogOptions {
-  mode: 'production'
+  /**
+   * @deprecated Nothing reads it: a preview always runs a finished build.
+   * Kept optional so a caller that still passes it compiles.
+   */
+  mode?: 'production'
   outputPath?: string
+  // Launch options the config file also takes. A value passed here wins.
+  browserFlags?: string[]
+  excludeBrowserFlags?: string[]
+  preferences?: Record<string, unknown>
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
@@ -431,12 +439,14 @@ export interface PublicPreviewOptions extends BrowserOptionsBase, LogOptions {
    * Dry run mode (no browser launch) for diagnostics.
    */
   dryRun?: boolean
-  // Port forwarding to browser runner (e.g., debugging/logging server)
+  /**
+   * Seeds the browser's debugging port, which the launcher derives from it.
+   * This command serves nothing, so it is not a server port.
+   */
   port?: string | number
   /**
-   * Host to bind the dev server to.
-   * Use '0.0.0.0' for Docker/devcontainer environments.
-   * Defaults to '127.0.0.1'.
+   * Host the control channel binds to when `allowControl` or `allowEval`
+   * opens one. Nothing else listens. Defaults to '127.0.0.1'.
    */
   host?: string
   /**
@@ -461,6 +471,10 @@ export interface PreviewOptions extends PublicPreviewOptions {
 export interface PublicStartOptions extends BrowserOptionsBase, LogOptions {
   mode: 'production'
   polyfill?: boolean
+  // Launch options the config file also takes. A value passed here wins.
+  browserFlags?: string[]
+  excludeBrowserFlags?: string[]
+  preferences?: Record<string, unknown>
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
@@ -472,12 +486,14 @@ export interface PublicStartOptions extends BrowserOptionsBase, LogOptions {
    * Skip launching the browser (build still runs).
    */
   noBrowser?: boolean
-  // Port forwarding to browser runner (e.g., debugging/logging server)
+  /**
+   * Seeds the browser's debugging port, which the launcher derives from it.
+   * This command serves nothing, so it is not a server port.
+   */
   port?: string | number
   /**
-   * Host to bind the dev server to.
-   * Use '0.0.0.0' for Docker/devcontainer environments.
-   * Defaults to '127.0.0.1'.
+   * Host the control channel binds to when `allowControl` or `allowEval`
+   * opens one. Nothing else listens. Defaults to '127.0.0.1'.
    */
   host?: string
   /**

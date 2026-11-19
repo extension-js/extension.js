@@ -23,7 +23,7 @@ import {
   stripChannelPrefix
 } from './messaging'
 import {foldOutputFiles, type OutputFile} from './output-files'
-import {asAskedPath} from './paths'
+import {asAskedPath, displayPath} from './paths'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
@@ -58,14 +58,19 @@ export function resolvedWorkspaceManifest(
 // folders and install all silently belong to a project the author never named.
 export function declinedProjectRoot(
   projectManifestPath: string,
-  manifestPath: string
+  manifestPath: string,
+  previewing = false,
+  rootDir = path.dirname(manifestPath)
 ) {
-  const manifestDir = path.dirname(manifestPath)
+  // A preview compiles nothing, so there is no build to keep anything out of.
+  const consequence = previewing
+    ? 'That project does not depend on Extension.js, so its dist, its special folders and its config stay out of this preview. Name that project folder, or depend on Extension.js there, to use it as the project root.'
+    : 'That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.'
 
   return (
-    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(manifestDir)}/ as the project root.`)}\n` +
+    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(rootDir)}/ as the project root.`)}\n` +
     `${colors.gray('IGNORED')} ${colors.underline(projectManifestPath)}\n` +
-    `${colors.gray('That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.')}`
+    `${colors.gray(consequence)}`
   )
 }
 
@@ -475,6 +480,14 @@ export function buildOutputFolderForeign(resolved: string) {
   return (
     `${getLoggingPrefix('error')} The build output folder ${fmt.code(resolved)} holds files no extension build wrote.\n` +
     `The build replaces that folder, so nothing was deleted. Move or delete it, or build beside it with ${fmt.code('--out-dir build')}.`
+  )
+}
+
+// Output used to land beside a manifest found below the named folder.
+export function leftoverOutputFolder(leftover: string, current: string) {
+  return (
+    `${getLoggingPrefix('warn')} An earlier build left output in ${fmt.code(displayPath(leftover))}, and that folder is no longer written.\n` +
+    `Output now goes to ${fmt.code(displayPath(current))} at the project root. The old folder was left as it is and can be removed.`
   )
 }
 
@@ -1176,6 +1189,12 @@ export function zipArtifactNotCreatedText(
   return `The ${kind === 'source' ? 'source' : 'distribution'} zip was requested and not created at ${zipPath}: ${reason}`
 }
 
+// What ready.json says when the folder was built and a later step failed:
+// a reader told only "failed" would not know the folder can be loaded.
+export function buildFailedOutputInPlace(reasons: string[], distPath: string) {
+  return `${reasons.join(' ')} The output folder ${distPath} is in place and loads as built.`
+}
+
 export function zipArtifactReady(zipPath: string, sizeInBytes: number) {
   return (
     `${getLoggingPrefix('success')} Packaged ${colors.underline(zipPath)} ` +
@@ -1666,6 +1685,34 @@ export function previewingCustomOutput(
   )
 }
 
+// A library call that launches a browser has to bring the launcher: the
+// engine holds no browser code of its own.
+export function previewLauncherRequired() {
+  return (
+    `${getLoggingPrefix('error')} extensionPreview was called without a browser launcher.\n` +
+    `Pass a launcher as the third argument, or set noBrowser to launch none.`
+  )
+}
+
+// The control channel of a production run lives in the browser it opens.
+export function controlNeedsBrowser(command: string) {
+  return (
+    `${getLoggingPrefix('error')} --no-browser cannot be combined with --allow-control or --allow-eval on ${command}.\n` +
+    `The control channel is carried by the browser this command opens, and --no-browser opens none. Drop --no-browser, or drop --allow-control and --allow-eval.`
+  )
+}
+
+export function previewBuildBrowserMismatch(
+  outputPath: string,
+  builtFor: string,
+  asked: string
+) {
+  return (
+    `${getLoggingPrefix('error')} ${asAskedPath(outputPath)} was built for ${builtFor} and cannot be previewed in ${asked}.\n` +
+    `Run \`extension build --browser ${asked}\` and preview that build, or pass \`--browser ${builtFor}\`.`
+  )
+}
+
 export function productionControlOpen(
   browser: DevOptions['browser'],
   controlledPath: string,
@@ -1703,6 +1750,43 @@ export function debugExtensionsToLoad(extensions: string[]) {
   return (
     `${prefix('debug')} extensions count=${extensions.length} ` +
     `paths=${extensions.join(',')}`
+  )
+}
+
+export function companionExtensionNotResolved(
+  entry: string,
+  manifestPath: string,
+  declaredIn: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} A companion extension entry is not an unpacked extension folder, so it is not loaded.\n` +
+    `${colors.gray('ENTRY')} ${colors.underline(entry)}\n` +
+    `${colors.gray('DECLARED IN')} ${declaredIn}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(manifestPath)}\n` +
+    `Point the entry at a folder that holds a manifest.json, or remove it.`
+  )
+}
+
+export function scannedCompanionOutsideProject(entry: string, leadsTo: string) {
+  return (
+    `${getLoggingPrefix('warn')} A companion extension entry leads outside the project, so it is not loaded.\n` +
+    `${colors.gray('ENTRY')} ${colors.underline(entry)}\n` +
+    `${colors.gray('LEADS TO')} ${colors.underline(leadsTo)}\n` +
+    `Companion extensions must be inside the project. Copy the folder into the project, or remove the link.`
+  )
+}
+
+export function companionExtensionsFolderNotFound(
+  dir: string,
+  folderPath: string,
+  declaredIn: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} The companion extensions folder does not exist, so no extension is loaded from it.\n` +
+    `${colors.gray('DIR')} ${colors.underline(dir)}\n` +
+    `${colors.gray('DECLARED IN')} ${declaredIn}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(folderPath)}\n` +
+    `Create the folder, or remove extensions.dir.`
   )
 }
 

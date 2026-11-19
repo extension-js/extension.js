@@ -6,6 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -23,8 +24,13 @@ import {
   mergeOptionLayers
 } from './lib/merge-options'
 import * as messages from './lib/messages'
-import {debugLine, isDebug} from './lib/messaging'
-import {getDirs, normalizeBrowser} from './lib/paths'
+import {debugLine, isDebug, isMachineOutput} from './lib/messaging'
+import {
+  browserOptionOrThrow,
+  configBrowserOrThrow,
+  getDirs,
+  normalizeBrowser
+} from './lib/paths'
 import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
@@ -58,6 +64,8 @@ export async function extensionDev(
     // Called with the failure right before exitOnError ends the process, so
     // a caller can report a run that died after its session was announced.
     onExitError?: (error: unknown, code?: string) => void
+    // Read by the dev server: an author session prints the debug lines.
+    authorMode?: boolean
   }
 ): Promise<BuildEmitter> {
   let browsersPlugin: RunnerPlugin | undefined
@@ -65,16 +73,25 @@ export async function extensionDev(
 
   // The CLI wrapper passes exitOnError=true; as a library import a failed dev
   // session must be a rejected promise, never a process.exit inside the host.
-  const shouldExitOnError =
-    (devOptions.exitOnError ?? false) && process.env.VITEST !== 'true'
-
-  const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+  const shouldExitOnError = devOptions.exitOnError === true
+  // A refusal while the project is being found is the whole answer, and
+  // under machine output the frame has it. Later failures keep their lines.
+  let findingProject = true
 
   try {
+    // A name nobody knows is refused before anything is fetched or installed.
+    const askedBrowser = browserOptionOrThrow(devOptions.browser)
+    // Inside the try, so a missing manifest fails the way every other dev
+    // failure does.
+    const projectStructure = await getProjectStructure(pathOrRemoteUrl)
+
+    findingProject = false
+
     const isAuthor = isDebug()
     const debug = isAuthor
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
+    announceLeftoverOutputFolder(projectStructure)
     await ensureDevelopArtifacts()
 
     if (devOptions.install !== false) {
@@ -91,16 +108,24 @@ export async function extensionDev(
     // commands.dev.browser must be read before the target is picked, or the
     // config file can never choose the browser when no --browser flag arrived.
     const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
-    const configBrowser = (commandConfig as {browser?: DevOptions['browser']})
-      .browser
-
+    const configBrowser = askedBrowser
+      ? undefined
+      : configBrowserOrThrow(
+          (commandConfig as {browser?: unknown}).browser,
+          'dev'
+        )
+    const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
+    const namesBinary = Boolean(
+      devOptions.chromiumBinary || geckoBinary || devOptions.safariBinary
+    )
+    // The same stock default as build. A binary with no name picks its own
+    // family, so the default only applies when neither was given.
     const browser = normalizeBrowser(
-      devOptions.browser || configBrowser || 'chrome',
+      askedBrowser || configBrowser || (namesBinary ? undefined : 'chromium'),
       devOptions.chromiumBinary,
-      devOptions.geckoBinary || devOptions.firefoxBinary,
+      geckoBinary,
       devOptions.safariBinary
     )
-    const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
 
     if (debug) {
       debugLine(messages.debugDirs(manifestDir, packageJsonDir))
@@ -193,10 +218,6 @@ export async function extensionDev(
       emitter = browsersPlugin.emitter
     }
 
-    if (process.env.EXTENSION_DEV_DRY_RUN === 'true') {
-      return emitter
-    }
-
     // Heavy deps are imported lazily so preview can stay minimal.
     const {devServer} = await import('./dev-server')
 
@@ -216,17 +237,23 @@ export async function extensionDev(
 
     return emitter
   } catch (error) {
-    // Always surface a minimal error: contract errors print once, clean, no stack;
-    // author mode keeps the full trace.
+    // A library caller gets the rejection and prints what it wants of it.
+    // Printing here too showed the same failure twice.
+    const framedByCaller = !shouldExitOnError && isMachineOutput()
+
+    if (!shouldExitOnError && !(framedByCaller && !findingProject)) {
+      throw error
+    }
+
+    // One printed block: clean, with no stack, unless author mode asks for
+    // the full trace. A frame on stdout leaves the human lines to stderr.
     if (isDebug()) {
       console.error(error)
     } else {
       console.error(messages.devCommandFailed(error))
     }
 
-    if (!shouldExitOnError) {
-      throw error
-    }
+    if (framedByCaller) throw error
 
     try {
       devOptions.onExitError?.(error)

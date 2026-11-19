@@ -105,6 +105,8 @@ describe('cli flags the help promises (built entry)', () => {
     const preview = await cli([
       'preview',
       built,
+      '--browser',
+      'firefox',
       '--no-browser',
       '--output',
       ' Json '
@@ -178,6 +180,8 @@ describe('the deprecated --format alias', () => {
     const run = await cli([
       'preview',
       built,
+      '--browser',
+      'firefox',
       '--no-browser',
       '--format',
       'json'
