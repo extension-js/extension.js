@@ -10,10 +10,10 @@ import {
   sources
 } from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {suppressManifestOutputWrites} from '../../../dev-server'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {writeOutputAsADevSessionDoes} from './helpers/dev-output-writes'
 
 type Mode = 'development' | 'production'
 
@@ -117,7 +117,7 @@ async function compile(root: string, mode: Mode, plugins: unknown[] = []) {
   // file on disk there is only what the persist step writes.
   const release =
     mode === 'development'
-      ? suppressManifestOutputWrites(compiler, manifestOutputPath)
+      ? writeOutputAsADevSessionDoes(compiler, distPath)
       : () => {}
 
   try {

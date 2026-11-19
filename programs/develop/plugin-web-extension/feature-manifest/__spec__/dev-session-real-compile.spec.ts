@@ -4,10 +4,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {suppressManifestOutputWrites} from '../../../dev-server'
 import {devAdditionsOf} from '../../../lib/dev-additions'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {writeOutputAsADevSessionDoes} from './helpers/dev-output-writes'
 
 const roots: string[] = []
 
@@ -68,10 +68,7 @@ async function devSession(
   config.stats = false
 
   const compiler: Compiler = rspack(config)
-  const release = suppressManifestOutputWrites(
-    compiler,
-    path.join(distPath, 'manifest.json')
-  )
+  const release = writeOutputAsADevSessionDoes(compiler, distPath)
   tap(compiler)
 
   let finished: ((stats: Stats) => void) | undefined
