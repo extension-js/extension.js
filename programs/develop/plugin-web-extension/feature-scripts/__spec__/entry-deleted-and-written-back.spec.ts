@@ -32,6 +32,8 @@ interface Report {
 interface Built {
   errors: Report[]
   warnings: Report[]
+  // The layer of each module built from the file.
+  layers: Array<string | null>
 }
 
 interface Row {
@@ -155,23 +157,23 @@ function session(row: Row) {
   watching.push(compiler)
 
   const builds: Built[] = []
-  const layers: Array<string | undefined> = []
   const waiting: Array<() => void> = []
 
   compiler.hooks.done.tap('spec', (stats) => {
     const pick = (list: Report[] = []) =>
       list.map(({name, message, file}) => ({name, message, file}))
 
+    const layersOf = (modules: Iterable<unknown>) =>
+      Array.from(modules)
+        .map((module) => module as {resource?: string; layer?: string | null})
+        .filter(({resource}) => resource === file)
+        .map(({layer}) => layer ?? null)
+
     builds.push({
       errors: pick(stats.compilation.errors as Report[]),
-      warnings: pick(stats.compilation.warnings as Report[])
+      warnings: pick(stats.compilation.warnings as Report[]),
+      layers: layersOf(stats.compilation.modules)
     })
-
-    for (const module of stats.compilation.modules) {
-      const {resource, layer} = module as {resource?: string; layer?: string}
-
-      if (resource === file) layers.push(layer ?? undefined)
-    }
 
     for (const resolve of waiting.splice(0)) resolve()
   })
@@ -205,19 +207,26 @@ function session(row: Row) {
   const emitted = () =>
     fs.readFileSync(at('dist', ...row.output.split('/')), 'utf8')
 
-  return {file, builds, layers, next, emitted}
+  return {file, builds, next, emitted}
 }
+
+// Exactly one module of the file, in the layer its entry names.
+const builtIn = (row: Row) => ({layers: [row.layer ?? null]})
+const clean = {errors: [], warnings: []}
 
 describe.each(ROWS)('$title, deleted in a watch session', (row) => {
   it('fails once with the file and the manifest field', async () => {
     const {file, builds, next, emitted} = session(row)
 
-    expect(await next(0)).toEqual({errors: [], warnings: []})
+    expect(await next(0)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('written first')
 
     fs.rmSync(file)
 
     const rebuilt = await next(builds.length)
+
+    expect(rebuilt).toMatchObject({layers: []})
+
     const reports = rebuilt.errors.filter(
       ({name}) => name === 'ScriptsMissingFile'
     )
@@ -231,22 +240,20 @@ describe.each(ROWS)('$title, deleted in a watch session', (row) => {
   }, 120000)
 
   it('builds the new text once the file is written back', async () => {
-    const {file, builds, layers, next, emitted} = session(row)
+    const {file, builds, next, emitted} = session(row)
 
     await next(0)
     fs.rmSync(file)
     await next(builds.length)
     fs.writeFileSync(file, row.text('written back'))
 
-    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(await next(builds.length)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('written back')
     expect(emitted()).not.toContain('written first')
-    expect(layers.length).toBeGreaterThan(1)
-    expect([...new Set(layers)]).toEqual([row.layer])
 
     fs.writeFileSync(file, row.text('edited after'))
 
-    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(await next(builds.length)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('edited after')
   }, 120000)
 
@@ -268,7 +275,7 @@ describe.each(ROWS)('$title, deleted in a watch session', (row) => {
 
     fs.writeFileSync(file, row.text('written a third time'))
 
-    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(await next(builds.length)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('written a third time')
   }, 120000)
 })
