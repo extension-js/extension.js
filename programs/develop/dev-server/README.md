@@ -17,7 +17,7 @@
 - **One session per browser.** A live session that owns the same `ready.json` makes a second one fail with `E_SESSION_EXISTS`.
 - **The control bridge.** `control-bridge-start.ts` opens the WebSocket control server (`control-bridge/`) on the previous session's port when it can, else on a free one. When neither binds, the session says so and runs without reload.
 - **Hosts and headers.** `cors.ts` builds the allowed-hosts list from the connectable host, the emulator viewer and `--allowed-hosts`, reflects `Access-Control-Allow-Origin` for the session's own extension only, and replaces the stock host check with one that names the refused host and the fix. It also replaces the stock cross-site check with one that serves a browser request only when it comes from the session: the server's own address, a host named with `--allowed-hosts`, the emulator viewer or the session's extension. A request with no fetch metadata passes, as it does through the stock server. The reload socket at `/ws` opens for the same web origins and for any extension, since the session's extension dials before it is known.
-- **Restarts.** A plugin that finds an entrypoint change asks `session-restart.ts` for a restart. `session-restart-handler.ts` builds the next compiler and server, stops the old server, starts the new one and sends one full reload.
+- **Restarts.** A plugin that finds an entrypoint change asks `session-restart.ts` for a restart. `session-restart-handler.ts` builds the next compiler and server, stops the old server, starts the new one and sends one full reload. `main-world-restart.ts` restarts a session whose MAIN world script set changed, once the edit settles, and `session-restart-holds.ts` marks the builds that restart replaces, so `plugin-browsers` does not reload for them.
 - **Output pruning.** `session-start-prune.ts` removes what an earlier session left in `dist/<browser>`. `session-gone-outputs.ts` removes the outputs of entries a restart dropped.
 - **Shutdown.** `cleanup.ts` stops the server on `SIGINT`, `SIGTERM` and `SIGHUP`, exits non-zero on an uncaught exception, and returns a disposer that removes its listeners.
 - **Output for people and machines.** `messages.ts` holds the text. `lifecycle-stream.ts` writes one frame per lifecycle step when `EXTENSION_OUTPUT=ndjson`.
@@ -37,7 +37,7 @@
 | --- | --- |
 | `EXTENSION_BROWSER_LAUNCH_ENABLED` | `plugin-compilation/boring.ts` |
 | `EXTENSION_DEV_SERVER_PROTOCOL`, `EXTENSION_DEV_SERVER_HOST`, `EXTENSION_DEV_SERVER_PORT`, `EXTENSION_DEV_SERVER_PATH` | `lib/dev-server-client-import.ts` |
-| `EXTENSION_DEV_SERVER_CONNECTABLE_HOST` | `rspack-config.ts`, `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts`, `HMRDevServer.ts` in the `plugin-reload` webextension fork |
+| `EXTENSION_DEV_SERVER_CONNECTABLE_HOST` | `rspack-config.ts`, `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts`, `command-build.ts` (the Playwright metadata host) |
 | `EXTENSION_INSTANCE_ID` | `port-manager.ts`, `lib/messages.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |
 | `EXTENSION_CONTROL_PORT` | `plugin-reload/steps/inject-bridge-producer.ts`, `plugin-reload/steps/inject-bridge-relay.ts` |
 
