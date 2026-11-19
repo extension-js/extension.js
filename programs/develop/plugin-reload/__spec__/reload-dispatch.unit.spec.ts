@@ -811,6 +811,23 @@ describe('createChangedSourcesTracker', () => {
     expect(tracker.snapshot().changedSources).toEqual(['src/parts/a.js'])
   })
 
+  // A save during a compile starts the next one, and the first never ends.
+  it('keeps the files of a compile a newer save superseded', () => {
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+
+    compiler.modifiedFiles = new Set(['/proj/src/background.ts'])
+    fireWatchRun()
+    compiler.modifiedFiles = new Set(['/proj/src/popup/index.js'])
+    fireWatchRun()
+    fireDone()
+
+    expect(tracker.snapshot()).toEqual({
+      forcedFull: false,
+      changedSources: ['src/background.ts', 'src/popup/index.js']
+    })
+  })
+
   it('holds a failed compile so the next success reloads every pending change', () => {
     const {compiler, fireWatchRun, fireDone} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
