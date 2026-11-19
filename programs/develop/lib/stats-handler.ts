@@ -187,7 +187,10 @@ export function wrapStatsBlocks(raw: string): string {
       const kind = errorHead ? 'error' : 'warning'
       const channel = errorHead ? ('error' as const) : ('warn' as const)
       const location = file ? ` in ${file}` : ''
-      wrapped.push(`${prefix(channel)} Build ${kind}${location}.`)
+      wrapped.push(
+        `${prefix(channel, `Build ${kind}`)} Build ${kind}${location}.`
+      )
+
       if (headIsMessage) wrapped.push(`    ${messageOfHead(line)}`)
 
       inBlock = true

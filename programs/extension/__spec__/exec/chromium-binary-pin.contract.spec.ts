@@ -93,7 +93,7 @@ describe.skipIf(process.platform === 'win32')(
       // The whole of stderr, so no install advice can ride along.
       expect(result.status).toBe(1)
       expect(result.stderr).toBe(
-        "⏵⏵⏵ Can't find a Chromium binary at the given path.\n" +
+        "⏵⏵⏵ Error: Can't find a Chromium binary at the given path.\n" +
           `NOT FOUND ${missing}\n` +
           'Pass --chromium-binary <abs-path> with a working path.\n'
       )

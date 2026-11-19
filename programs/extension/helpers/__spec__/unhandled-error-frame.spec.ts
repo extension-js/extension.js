@@ -18,7 +18,7 @@ describe('the last frame a failure passes through', () => {
 
     expect(printed).toBe(rendered)
     expect(plain(printed).match(new RegExp(GLYPH, 'g'))).toHaveLength(1)
-    expect(printed).not.toContain('Error: ')
+    expect(plain(printed).match(/Error: /g)).toHaveLength(1)
     expect(printed).not.toContain('    at ')
   })
 
@@ -59,7 +59,7 @@ describe('the last frame a failure passes through', () => {
       unhandledError(Object.assign(new Error(message), {code}))
     )
 
-    expect(printed).toBe(`${GLYPH} ${message}`)
+    expect(printed).toBe(`${GLYPH} Error: ${message}`)
   })
 
   it('keeps the stack of a coded refusal under EXTENSION_DEBUG', () => {
@@ -84,8 +84,22 @@ describe('the last frame a failure passes through', () => {
     expect(plain(unhandledError(error))).toContain('    at ')
   })
 
+  it('says Error: once on an unhandled crash when color is off', () => {
+    vi.stubEnv('FORCE_COLOR', undefined as unknown as string)
+    vi.stubEnv('NO_COLOR', '1')
+
+    try {
+      const head = unhandledError(new Error('read ECONNRESET')).split('\n')[0]
+
+      expect(head).toBe(`${GLYPH} Error: read ECONNRESET`)
+      expect(unhandledError('Error: boom')).toBe(`${GLYPH} Error: boom`)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('frames a thrown string and an unknown value the same way', () => {
-    expect(plain(unhandledError('boom'))).toBe(`${GLYPH} boom`)
+    expect(plain(unhandledError('boom'))).toBe(`${GLYPH} Error: boom`)
     expect(plain(unhandledError(undefined))).toContain('Unknown error')
   })
 })

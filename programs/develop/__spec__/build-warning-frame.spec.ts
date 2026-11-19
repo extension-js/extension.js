@@ -120,7 +120,10 @@ describe('build warnings that frame themselves (real build)', () => {
 
     const head = lines[index]
     expect(count(head, GLYPH)).toBe(1)
-    expect(head).toMatch(new RegExp(`^${GLYPH} [A-Za-z-]+: The public folder`))
+    expect(head).toMatch(
+      new RegExp(`^${GLYPH} Warning: [A-Za-z-]+: The public folder`)
+    )
+
     expect(lines[index + 1]).toBe(`GOT ${path.join('src', 'public')}`)
     expect(lines[index + 2]).toBe('EXPECTED public')
     expect(lines[index + 6]).toMatch(/^│ {2}Source: /)
@@ -140,7 +143,7 @@ describe('build warnings that frame themselves (real build)', () => {
     expect(index).toBeGreaterThan(-1)
 
     expect(lines[index]).toBe(
-      `${GLYPH} Deprecation: The _locales folder sits in the legacy next-to-manifest location.`
+      `${GLYPH} Warning: Deprecation: The _locales folder sits in the legacy next-to-manifest location.`
     )
 
     expect(lines[index + 1]).toBe(`GOT ${path.join('src', '_locales')}`)
