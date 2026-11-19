@@ -646,7 +646,7 @@ describe('the dev session hint for a default export the script also calls', () =
 
   it('says once per file that the function runs more than once, and why it matters', () => {
     expect(hintsFor(CALLED_LATER, 'development', 3)).toEqual([
-      '\u23f5\u23f5\u23f5 content/main.js calls main() itself, and Extension.js also runs the default export once the page is ready, so main runs more than once.\n' +
+      '\u23f5\u23f5\u23f5 Warning: content/main.js calls main() itself, and Extension.js also runs the default export once the page is ready, so main runs more than once.\n' +
         'Only the run Extension.js starts has its cleanup called before the next copy in this dev session, so what the other run adds stays on the page.\n' +
         'Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.'
     ])
@@ -697,7 +697,7 @@ describe('a file the bundler reads and the wrapper cannot', () => {
 
     expect(error?.name).toBe('ContentScriptSyntax')
     expect(error?.message.split('\n')).toEqual([
-      '\u23f5\u23f5\u23f5 Extension.js could not read the default export of content/main.ts.',
+      '\u23f5\u23f5\u23f5 Error: Extension.js could not read the default export of content/main.ts.',
       'PATH content/main.ts',
       'REASON Unexpected token (2:7)',
       'The build parses a content script to find the function it mounts, and the parser stopped before it reached the export, so the script would never run.',
@@ -730,7 +730,7 @@ describe('a file the bundler reads and the wrapper cannot', () => {
 
     expect(error?.name).toBe('ContentScriptSyntax')
     expect(error?.message.split('\n')).toEqual([
-      '\u23f5\u23f5\u23f5 Extension.js could not find the default export of content/main.ts in what a loader returned.',
+      '\u23f5\u23f5\u23f5 Error: Extension.js could not find the default export of content/main.ts in what a loader returned.',
       'PATH content/main.ts',
       'LOADERS loaders/first.cjs, node_modules/second-loader/index.js',
       'REASON Unexpected token (2:7)',
