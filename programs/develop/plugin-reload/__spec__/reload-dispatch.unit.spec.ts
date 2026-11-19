@@ -635,12 +635,18 @@ describe('createChangedSourcesTracker', () => {
     return {
       compiler,
       fireWatchRun: () => runner?.(),
-      fireDone: (errors: any[] = [], extra?: {modifiedFiles?: string[]}) =>
+      fireDone: (
+        errors: any[] = [],
+        extra?: {modifiedFiles?: string[]; fileDependencies?: string[]}
+      ) =>
         doneRunner?.({
           compilation: {
             errors,
             modifiedFiles: extra?.modifiedFiles
               ? new Set(extra.modifiedFiles)
+              : undefined,
+            fileDependencies: extra?.fileDependencies
+              ? new Set(extra.fileDependencies)
               : undefined
           }
         }),
@@ -738,6 +744,42 @@ describe('createChangedSourcesTracker', () => {
     compiler.modifiedFiles = new Set()
     fireWatchRun()
     expect(tracker.snapshot()).toEqual({forcedFull: false, changedSources: []})
+  })
+
+  it('drops a saved file the build never read and keeps the ones it did', () => {
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+
+    compiler.modifiedFiles = new Set([
+      '/proj/notes.md',
+      '/proj/src/content/scripts.js',
+      '/proj/src/manifest.json'
+    ])
+
+    fireWatchRun()
+    fireDone([], {fileDependencies: ['/proj/src/content/scripts.js']})
+
+    expect(tracker.snapshot()).toEqual({
+      forcedFull: true,
+      changedSources: ['src/content/scripts.js', 'src/manifest.json']
+    })
+  })
+
+  it('keeps a deleted file the compile before it read', () => {
+    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+    const read = ['/proj/src/content/scripts.js', '/proj/src/parts/a.js']
+
+    compiler.modifiedFiles = new Set()
+    fireWatchRun()
+    fireDone([], {fileDependencies: read})
+
+    compiler.modifiedFiles = new Set()
+    compiler.removedFiles = new Set(['/proj/src/parts/a.js', '/proj/old.md'])
+    fireWatchRun()
+    fireDone([], {fileDependencies: read.slice(0, 1)})
+
+    expect(tracker.snapshot().changedSources).toEqual(['src/parts/a.js'])
   })
 
   it('holds a failed compile so the next success reloads every pending change', () => {
