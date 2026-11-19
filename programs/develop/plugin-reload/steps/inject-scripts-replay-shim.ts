@@ -6,11 +6,11 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Compiler} from '@rspack/core'
+import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {BACKGROUND_ASSET} from '../background-asset'
 import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
-import {RELOAD_STAGE} from './stages'
+import {RELOAD_STAGE_AFTER_REPORT} from './stages'
 
 // Prepends the dev-only scripts-replay shim to the compiled background asset.
 // A processAssets post-process (not BannerPlugin) so only that asset is touched.
@@ -24,7 +24,9 @@ export class InjectScriptsReplayShim {
             name: InjectScriptsReplayShim.name,
             // Run late, after StripContentScriptDevServerRuntime, so its
             // source modifications don't undo our prepend.
-            stage: RELOAD_STAGE
+            stage:
+              Compilation.PROCESS_ASSETS_STAGE_REPORT +
+              RELOAD_STAGE_AFTER_REPORT
           },
           () => {
             for (const asset of compilation.getAssets()) {
