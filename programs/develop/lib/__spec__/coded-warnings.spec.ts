@@ -1,6 +1,7 @@
 import {AsyncLocalStorage} from 'node:async_hooks'
 import {describe, expect, it} from 'vitest'
 import {
+  keepCodedWarningsOf,
   outsideCodedWarnings,
   recordCodedWarning,
   takeCodedWarnings,
@@ -68,6 +69,58 @@ describe('coded warnings', () => {
 
     expect(await second).toEqual(['W_PERF_BUDGET: from the second build'])
     expect(takeCodedWarnings()).toEqual([])
+  })
+
+  it('hands a hook line to the build of the compiler it names', async () => {
+    const compilers = {first: {}, second: {}}
+
+    let release = () => {}
+
+    const mayFinish = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const run = (compiler: object) =>
+      withCodedWarnings(async () => {
+        keepCodedWarningsOf(compiler)
+        await mayFinish
+
+        return takeCodedWarnings()
+      })
+
+    const first = run(compilers.first)
+    const second = run(compilers.second)
+
+    // Both builds are running, and each hook records outside any scope.
+    recordCodedWarning(CODES.E_PERF_BUDGET, 'second hook', compilers.second)
+    recordCodedWarning(CODES.E_PERF_BUDGET, 'first hook', compilers.first)
+    release()
+
+    expect(await first).toEqual(['E_PERF_BUDGET: first hook'])
+    expect(await second).toEqual(['E_PERF_BUDGET: second hook'])
+    expect(takeCodedWarnings()).toEqual([])
+  })
+
+  it('gives a line from no scope to the one build that is running', async () => {
+    let release = () => {}
+
+    const mayFinish = new Promise<void>((resolve) => {
+      release = resolve
+    })
+
+    const only = withCodedWarnings(async () => {
+      await mayFinish
+
+      return takeCodedWarnings()
+    })
+
+    recordCodedWarning(CODES.E_TYPES_EMIT, 'from a hook of the only build')
+    release()
+
+    expect(await only).toEqual(['E_TYPES_EMIT: from a hook of the only build'])
+
+    // Nothing is left for a build that starts later to pick up.
+    expect(await withCodedWarnings(async () => takeCodedWarnings())).toEqual([])
   })
 
   it('runs the bundler start with no async scope open and hands back its value', async () => {

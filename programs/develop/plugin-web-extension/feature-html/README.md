@@ -11,16 +11,18 @@
 
 This module is part of the [Extension.js](https://extension.js.org) project. It processes HTML pages declared by the extension manifest (and additional includes), discovers referenced assets, and emits a predictable, “pure HTML”-like output:
 
-- Injects a single JS bundle per page (public-root references are rewritten to relative output paths).
-- Injects a CSS bundle per page when applicable (public-root references are rewritten to relative output paths).
+- Injects a single JS bundle per page. A script whose `src` starts with `/` is not bundled and keeps its URL as written.
+- Injects a CSS bundle per page when applicable. A stylesheet whose `href` starts with `/` is not bundled and keeps its URL as written.
 - Rewrites relative static assets to stable public paths and emits them.
 - Preserves `?query`/`#hash` fragments in URLs.
 
 - Emits HTML for pages declared in the manifest and via `includeList`.
 - Consolidates local JS/CSS referenced by the HTML into page-level bundles.
-- Public-root absolute URLs (leading `/`) for scripts/styles are rewritten to relative paths; assets under `public/` are still handled by the special‑folders plugin.
+- Extension-root URLs (leading `/`) for scripts, styles and static assets stay as written in the page. The file ships at that path from the project or from `public/`, which the special‑folders plugin copies.
 - Rewrites relative static assets (images/fonts/etc.) to `assets/<name>.<contenthash>.<ext>`, the name the bundler gives the same file from a stylesheet or an import, so one build ships one copy of it. A nested HTML page keeps `assets/<relative path>`. The script, stylesheet and static files a nested page names are copied as they are under that same hashed name, and the nested page's references point at the copies.
-- Tracks every local file a page or a nested page names as a file dependency (a missing one as a missing dependency, a file the build leaves out not at all), so a save recompiles. In a watch session a copy whose source was edited, deleted or dropped from the page is removed from the output. Provides HMR hooks for local scripts during development, and warns if page entry lists change (restart required).
+- Tracks every local file a page or a nested page names as a file dependency (a missing one as a missing dependency, a file the build leaves out not at all), and keeps watching while the build has an error, so a save recompiles. In a watch session a copy whose source was edited, deleted or dropped from the page is removed from the output.
+- During `dev`, lets the scripts a page names accept their own hot update. No other entry gets that code (a background script has no page to redraw), and it is left out when React, Vue or Svelte owns refresh.
+- Asks for a dev server restart when the list of scripts or stylesheets of a page changes, and when a script or stylesheet that was missing at startup is created. A live session restarts by itself.
 - Gives a Chromium `options_ui` page that opens in the embedded dialog (`open_in_tab` not `true`) a `<link rel="stylesheet" href="/options/dialog-floor.css" data-extension-js="options-dialog-floor">` first in `<head>`, and ships `options/dialog-floor.css` holding `html{min-height:32px}`. It is a file and not a `<style>` tag because an extension policy of `style-src 'self'` blocks an inline style, and the dialog would then never open. Chrome opens that dialog on the page's first non-empty layout and stops drawing a guest shorter than 8px, so a page that paints empty until data arrives would never open it, and a 1px first paint would open it and never grow. Author styles come later and win. Pages that open in a tab, the legacy `options_page`, Gecko and Safari builds are left untouched.
 
 ### Path resolution convention (consistent across @plugin-extension)
@@ -31,24 +33,24 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 
 ### Public folder convention and early failure
 
-- Public-root references are resolved to the project’s `public/` folder, but output paths are normalized to be relative in emitted HTML:
-  - `/foo` → `<project>/public/foo` → `foo`
-  - `./public/foo` → `<project>/public/foo` → `foo`
-  - `public/foo` → `<project>/public/foo` → `foo`
-    Output preserves the `public/` structure via the special‑folders plugin; this plugin only emits non‑public assets (under `assets/`).
-- Missing HTML entrypoints referenced by the manifest fail the compilation via the manifest feature checks and are printed to stderr before any browser start. This prevents browsers from crashing on load or rejecting the extension when a page is missing.
+- A reference into the project’s `public/` folder is never emitted here. The special‑folders plugin copies that folder onto the output root, and the page ends up naming the copy by its root URL:
+  - `/foo` stays `/foo`
+  - a relative reference that lands inside `public/`, such as `./public/foo` from a page at the project root, becomes `/foo`
+    This plugin only emits non‑public assets (under `assets/`), and a root URL that names a project file outside `public/`, at that same path.
+- A missing popup, options, devtools or background page named by the manifest fails the compilation, since the browser refuses to load such an extension. A missing sandbox or sidebar page warns. A missing page of the `pages/` folder and a missing page that only a script opens, such as a devtools panel, warn by file name, and fail under `EXTENSION_STRICT_REFS=true`.
+- A page script or stylesheet with no file warns and is left out of the page, the same way in a production build, at dev startup and when the file is deleted while the session runs. `EXTENSION_STRICT_REFS=true` makes it an error.
 - Missing static assets referenced from within HTML (that are not produced by other plugins) generate warnings during compilation so you can iterate without a hard stop.
-- The hint “Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.” is shown only when the original HTML attribute used an extension‑root absolute path (leading '/'). Relative paths and absolute filesystem paths do not show this hint.
+- The hint “A path starting with '/' resolves from the extension root, so the file must sit at that path in your project or in public/.” is shown only when the original HTML attribute used an extension‑root absolute path (leading '/'). Relative paths and absolute filesystem paths do not show this hint. A nested page (an `.html` file another page links to) gets the same warning, with the missing file named, once per page.
 
 ### Output mapping
 
-| Source                                    | Output path                         | Notes                                        |
-| ----------------------------------------- | ----------------------------------- | -------------------------------------------- |
-| Manifest/Include HTML (`<feature>`)       | `<feature>.html`                    | E.g., `pages/main` → `pages/main.html`       |
-| Consolidated JS                           | `<feature>.js`                      | E.g., `pages/main.js`                        |
-| Consolidated CSS                          | `<feature>.css`                     | E.g., `pages/main.css`                       |
-| Relative static assets referenced by HTML | `assets/<name>.<contenthash>.<ext>` | One copy, shared with stylesheets and imports |
-| Public-root assets in HTML (leading `/`)  | normalized to relative output paths | E.g., `<img src="img/logo.png">`             |
+| Source                                      | Output path                         | Notes                                                  |
+| ------------------------------------------- | ----------------------------------- | ------------------------------------------------------ |
+| Manifest/Include HTML (`<feature>`)         | `<feature>.html`                    | E.g., `pages/main` → `pages/main.html`                 |
+| Consolidated JS                             | `<feature>.js`                      | E.g., `pages/main.js`                                  |
+| Consolidated CSS                            | `<feature>.css`                     | E.g., `pages/main.css`                                 |
+| Relative static assets referenced by HTML   | `assets/<name>.<contenthash>.<ext>` | One copy, shared with stylesheets and imports          |
+| Extension-root assets in HTML (leading `/`) | the same path, URL kept as written  | E.g., `<img src="/img/logo.png">` ships `img/logo.png` |
 
 ## Supported pages/fields
 
@@ -77,21 +79,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 
 ## Usage
 
-Typical usage:
-
-```ts
-import {HtmlPlugin} from './feature-html'
-
-export default {
-  plugins: [
-    new HtmlPlugin({
-      manifestPath: '/abs/path/to/manifest.json'
-    })
-  ]
-}
-```
-
-Standalone (manual lists):
+The plugin compiles the pages of its `includeList` and reads no page from the manifest by itself. Inside Extension.js the list comes from `plugin-web-extension`, which collects the manifest pages, the `pages/` folder and the pages a script opens.
 
 ```ts
 import * as path from 'path'

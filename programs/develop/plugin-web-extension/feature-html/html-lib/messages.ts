@@ -177,19 +177,6 @@ export function fileNotFound(
   }
 }
 
-export function htmlFileNotFoundMessageOnly(
-  context: 'script' | 'style' | 'static' = 'static'
-) {
-  const label =
-    context === 'script'
-      ? '<script>'
-      : context === 'style'
-        ? '<link>'
-        : '*.<ext>'
-
-  return `Check your ${label} references.`
-}
-
 export function remoteResourceWarning(
   errorSourcePath: string,
   remoteUrl: string,
@@ -221,6 +208,21 @@ export function serverRestartRequiredFromHtml(absoluteHtmlPath: string) {
   lines.push(
     `Restart the dev server to pick up changes to ${colors.blue('<script>')} and ${colors.blue('<link rel="stylesheet">')} entries.`
   )
+
+  return lines.join('\n')
+}
+
+// A script or stylesheet that was missing at startup is not in the page
+// entry, and an entry cannot grow while the compiler runs.
+export function serverRestartRequiredFromCreatedFile(
+  absoluteHtmlPath: string,
+  createdFilePath: string
+) {
+  const lines: string[] = []
+  lines.push(`A file the page references was created.`)
+  lines.push(`${colors.gray('PATH')} ${colors.underline(absoluteHtmlPath)}`)
+  lines.push(`${colors.gray('FILE')} ${colors.underline(createdFilePath)}`)
+  lines.push(`Restart the dev server to add it to the page.`)
 
   return lines.join('\n')
 }
@@ -269,15 +271,15 @@ export function manifestPageMissing(
   return lines.join('\n')
 }
 
-export function manifestFieldMessageOnly(manifestField: string) {
-  const manifestFieldName = manifestField.startsWith('content_scripts')
-    ? `content_scripts`
-    : manifestField.replace('/', '.')
-  const contentIndex = manifestField.split('-')[1]
-  const isContentScripts = manifestField.startsWith('content_scripts')
-  const fieldLabel = isContentScripts
-    ? `content_scripts (index ${contentIndex})`
-    : manifestFieldName
+// A page the pages folder or a script names has no manifest field to
+// point at, so the message names the file the build looked for.
+export function pageFileMissing(pageName: string, missingFilePath: string) {
+  const lines: string[] = []
+  lines.push(`Can't find the file of the page ${colors.blue(pageName)}.`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(missingFilePath)}`)
+  lines.push(
+    `Add the file back, or restart the dev server if you removed the page.`
+  )
 
-  return `Check the ${colors.blue(fieldLabel)} field in your ${colors.blue('manifest.json')} file.`
+  return lines.join('\n')
 }

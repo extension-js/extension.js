@@ -23,10 +23,10 @@ When any of the above is misconfigured, the build emits a compilation error so y
 
 ## What it does
 
-- Scans `_<locales>/<locale>/*` at the project root, next to your `manifest.json`, or inside `public/`. A `public/_locales` is shipped by the public copier, so this plugin emits nothing for it.
+- Scans `_locales/<locale>/*` at the project root, next to your `manifest.json`, or inside `public/`. A `public/_locales` is shipped by the public copier, so this plugin emits nothing for it.
 - Emits every file under each `_locales/<locale>/` folder, nested folders included, at `_locales/<locale>/...` in the output. A `privacy.md` or a data file beside `messages.json` ships with it. OS metadata files such as `.DS_Store` are the only files left out.
 - Leaves out a locale folder that has no `messages.json`, since stores reject it, and names the folder in a build warning so you can add the file or delete the folder.
-- Adds the discovered `.json` files to the compilation file dependencies so a `messages.json` change is picked up during `dev`. The other files under `_locales` are emitted but not watched.
+- Watches every file it emits and the `_locales` folder itself during `dev`, so an edit, a new locale folder or a new file beside `messages.json` rebuilds. A project with no `_locales` folder yet is watched for one at the project root and next to `manifest.json`.
 
 ## Usage
 
@@ -49,12 +49,10 @@ export default {
 export class LocalesPlugin {
   readonly manifestPath: string
   readonly browser: DevOptions['browser']
-  readonly includeList?: string[]
 
   constructor(options: {
     manifestPath: string
     browser?: DevOptions['browser']
-    includeList?: string[]
   })
   apply(compiler: unknown): void
 }
@@ -62,7 +60,6 @@ export class LocalesPlugin {
 
 - **manifestPath**: Absolute path to your `manifest.json`.
 - **browser**: Target browser whose manifest keys are resolved before validation. Defaults to `chrome`.
-- **includeList**: Optional file path list to include.
 
 ## License
 

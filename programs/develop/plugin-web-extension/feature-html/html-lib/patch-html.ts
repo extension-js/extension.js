@@ -8,12 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, WebpackError} from '@rspack/core'
+import type {Compilation} from '@rspack/core'
 import * as parse5utilities from 'parse5-utilities'
 import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
 import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
 import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList} from '../../../types'
+import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder} from '../../shared/paths'
 import {handleStaticAsset, isWithheldPageAsset} from './assets'
 import {bakeBaseHref} from './base-href'
@@ -53,18 +54,20 @@ function warnIfPublicRootAssetMissing(
   if (fs.existsSync(path.join(projectDir, cleanPath.slice(1)))) return
   if (findCompiledRootRefSource(cleanPath, projectDir, publicDir)) return
 
-  const warn = new WebpackError(
-    messages.fileNotFound(htmlEntry, cleanPath)
-  ) as Error & {name?: string; file?: string}
-  warn.name = 'HtmlPublicAssetMissing'
-  warn.file = htmlEntry
-
-  const filtered = String(warn.message)
-    .split('\n')
-    .filter((line) => !line.includes(String(cleanPath)))
-  warn.message = filtered.join('\n').trim()
-
-  compilation.warnings.push(warn)
+  // The same text and the same name the top page gets for a root URL, said
+  // once per page however many tags or rebuilds repeat the reference.
+  reportToCompilation(
+    compilation,
+    compilation.compiler,
+    messages.fileNotFound(
+      htmlEntry,
+      path.join(projectDir, cleanPath.slice(1)),
+      {publicRootHint: true, refLabel: cleanPath}
+    ),
+    'warning',
+    manifestDir ? path.relative(manifestDir, htmlEntry) : htmlEntry,
+    'HtmlPublicAssetMissing'
+  )
 }
 
 // Inserts a node right before a sibling inside the same parent.
@@ -339,7 +342,8 @@ export function patchHtmlNested(
                   manifestDir,
                   htmlEntry,
                   absolutePath,
-                  compilation.outputOptions
+                  compilation.outputOptions,
+                  compilation
                 ),
                 '',
                 true

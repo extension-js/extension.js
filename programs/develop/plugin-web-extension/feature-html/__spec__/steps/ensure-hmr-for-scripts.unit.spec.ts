@@ -197,16 +197,4 @@ describe('ensureHMRForScripts loader', () => {
     expect(out).not.toMatch(/getElementById\(\s*['"]app['"]\s*\)/)
     expect(out).not.toContain('data-extension-root')
   })
-
-  it('stays out of pages whose framework owns refresh', async () => {
-    const src = 'export const label = "hi"\n'
-    const out = await runLoader(
-      makeLoaderCtx({
-        manifestPath: '/proj/manifest.json',
-        frameworkOwnsRefresh: true
-      }),
-      src
-    )
-    expect(out).toBe(src)
-  })
 })

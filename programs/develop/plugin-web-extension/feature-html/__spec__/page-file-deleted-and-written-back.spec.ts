@@ -133,8 +133,15 @@ describe('a file a page names, deleted and written back in a watch session', () 
 
     const gone = await watching.doneAfter(beforeDelete)
 
-    expect(errorsOf(gone)).toHaveLength(1)
-    expect(errorsOf(gone)[0]).toContain(path.join(root, target))
+    // A page file deleted mid-session warns, as it does at startup.
+    const warned = gone.compilation.warnings.map((warning) =>
+      String(warning.message)
+    )
+
+    expect(errorsOf(gone)).toEqual([])
+    expect(
+      warned.filter((text) => text.includes(path.join(root, target)))
+    ).toHaveLength(1)
 
     // The failed build is left to settle, so the write lands on a session
     // that has given up on the file.
