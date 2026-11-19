@@ -26,7 +26,6 @@ import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-t
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
 import {EmitHtmlFile} from './steps/emit-html-file'
 import {HandleCommonErrors} from './steps/handle-common-errors'
-import {PruneReplacedPageAssets} from './steps/prune-replaced-page-assets'
 import {ThrowIfRecompileIsNeeded} from './steps/throw-if-recompile-is-needed'
 import {UpdateHtmlFile} from './steps/update-html-file'
 
@@ -77,10 +76,6 @@ export class HtmlPlugin {
       (compiler.options.mode || 'development') !== 'production'
 
     if (devSession) {
-      // A one-shot build starts from an empty folder. Only a session that
-      // keeps writing into the same one can leave a replaced copy behind.
-      new PruneReplacedPageAssets().apply(compiler)
-
       const contentScriptEntryPaths = new Set<string>()
 
       try {

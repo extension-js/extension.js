@@ -110,9 +110,7 @@ export function processJsonAssets(
           const folder = new WebpackError(
             messages.jsonPathIsFolder(feature, abs, {fatal: isFatal})
           )
-          // A folder is no file to ship, so it reports under the name and
-          // the code a missing file has, the way icons and pages do.
-          folder.name = 'JSONMissingFile'
+          folder.name = 'JSONPathIsFolder'
           // @ts-expect-error file is not typed
           folder.file = 'manifest.json'
 
