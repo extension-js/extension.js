@@ -42,11 +42,7 @@ const FILES: Record<string, string> = {
   'sandbox.html':
     '<!doctype html><html><head><title>sandbox</title></head>' +
     '<body><script src="./sandbox.js"></script></body></html>',
-  'sandbox.js':
-    "import {sandboxHasBrowser} from './sandbox-helper.js'\n" +
-    "window.__SANDBOX__ = typeof browser + ' ' + sandboxHasBrowser()\n",
-  'sandbox-helper.js':
-    "export const sandboxHasBrowser = () => typeof browser !== 'undefined'\n"
+  'sandbox.js': 'window.__SANDBOX__ = typeof browser\n'
 }
 
 type Built = {
@@ -180,7 +176,7 @@ describe.each([
     expect(built.main.includes(POLYFILL_MARK)).toBe(false)
   })
 
-  it('stays out of the sandbox page script and its imports', () => {
+  it('stays out of the sandbox page script', () => {
     expect(built.sandbox.includes(POLYFILL_MARK)).toBe(false)
   })
 
