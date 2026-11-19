@@ -9,6 +9,7 @@ import {
   rspack,
   type Stats
 } from '@rspack/core'
+import {FileEventAssistPlugin} from '../../../dev-server/file-event-assist'
 
 // Bare rspack and the plugins under test, on a fixture project in a temp
 // folder. No compiled dist, no loader from another plugin, no browser.
@@ -220,9 +221,17 @@ export interface FixtureWatch {
   close: () => Promise<void>
 }
 
-export function watchFixture(root: string, compiler: Compiler): FixtureWatch {
+export function watchFixture(
+  root: string,
+  compiler: Compiler,
+  options: {assist?: boolean} = {}
+): FixtureWatch {
   const builds: FixtureBuild[] = []
   const waiters = new Set<() => void>()
+
+  // The dev config watches with this beside it. Without it a macOS folder
+  // event can be lost for good, and the session never rebuilds.
+  if (options.assist !== false) new FileEventAssistPlugin().apply(compiler)
 
   const watching = compiler.watch({aggregateTimeout: 50}, (error, stats) => {
     if (!error && stats) builds.push(readBuild(root, stats.compilation))
@@ -253,5 +262,20 @@ export function watchFixture(root: string, compiler: Compiler): FixtureWatch {
       })
     },
     close: () => new Promise<void>((resolve) => watching.close(() => resolve()))
+  }
+}
+
+// Two writes can land in one build or in two, so wait for the build that
+// shows the last of them.
+export async function buildWith(
+  watch: FixtureWatch,
+  from: number,
+  shows: (result: FixtureBuild) => boolean,
+  timeoutMs = 10_000
+): Promise<FixtureBuild> {
+  for (let count = from; ; count += 1) {
+    const result = await watch.waitForBuild(count, timeoutMs)
+    if (!result) throw new Error(`no build number ${count} arrived`)
+    if (shows(result)) return result
   }
 }
