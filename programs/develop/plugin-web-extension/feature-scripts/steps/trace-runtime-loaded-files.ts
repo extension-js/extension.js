@@ -1427,6 +1427,31 @@ export class TraceRuntimeLoadedFiles {
 
 // One tracing pass over a compilation: the dedupe sets every step shares, the
 // files queued for the bundler, and the emit helpers.
+// The bundler keeps only the fields it knows on a warning, so what a run
+// said it left out is kept here for the step that reads the same file next.
+const SAID_NOT_SHIPPED = new WeakMap<object, Set<string>>()
+
+function noteSaidNotShipped(
+  compilation: object,
+  assetName: string,
+  distRel: string
+) {
+  const said = SAID_NOT_SHIPPED.get(compilation) || new Set<string>()
+
+  said.add(`${assetName}\n${distRel}`)
+  SAID_NOT_SHIPPED.set(compilation, said)
+}
+
+export function saidNotShipped(
+  compilation: object,
+  assetName: string,
+  distRel: string
+): boolean {
+  return Boolean(
+    SAID_NOT_SHIPPED.get(compilation)?.has(`${assetName}\n${distRel}`)
+  )
+}
+
 class TraceRun {
   readonly seen = {
     importScripts: new Set<string>(),
@@ -1489,12 +1514,14 @@ class TraceRun {
   // For a trace that stays quiet about a miss: the file is there, so the
   // author is told why the output lacks it.
   sayNotShipped(assetName: string, literal: string, distRel: string) {
-    return () =>
+    return () => {
+      noteSaidNotShipped(this.compilation, assetName, distRel)
       this.warn(
         'CodeNamedFileNotShipped',
         assetName,
         messages.codeNamedFileNotShipped(assetName, literal, distRel)
       )
+    }
   }
 
   plan(opts: {

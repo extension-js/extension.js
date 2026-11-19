@@ -351,7 +351,11 @@ describe('a summary names the causes its code covers', () => {
     ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
     ['E_CONFIG_LOAD', /threw/, /not export an object/],
     ['E_RUNTIME_NOT_FOUND', /uncompiled/, /another version than the CLI/],
-    ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/]
+    ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/],
+    // A file that is there and kept out of the build reports under these too.
+    ['E_ENTRY_NOT_FOUND', /missing/, /not bundled/],
+    ['E_ASSET_MISSING', /missing/, /not bundled/],
+    ['E_CSS_DEAD_REF', /missing/, /not bundled/]
   ])('%s', (code, first, second) => {
     const summary = table.codes[code]?.summary ?? ''
 

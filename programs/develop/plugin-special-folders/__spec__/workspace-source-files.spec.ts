@@ -165,7 +165,8 @@ describe('sourceFileMayShip for a project inside a workspace', () => {
 // Folders made under the temp folder, standing for a home folder and what
 // sits above and below it. Nothing is read or written outside it.
 function tree(files: Record<string, string>) {
-  const holder = fs.realpathSync(
+  // Spelled as the walk spells its answer, or a row fails on Windows.
+  const holder = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-workspace-root-'))
   )
   holders.push(holder)
@@ -294,6 +295,20 @@ describe('workspaceRootOf', () => {
 
     expect(rootOf(holder, 'home/me/links/ext')).toBe('home/me/ws')
   })
+
+  // A volume that ignores letter case answers for a second spelling of a
+  // folder, the way Windows answers for a short name beside the long one.
+  it.skipIf(!fs.existsSync(os.tmpdir().toUpperCase()))(
+    'answers in the spelling the disk holds for a project spelled another way',
+    () => {
+      const holder = tree({...PROJECT, 'home/me/ws/pnpm-workspace.yaml': PNPM})
+      const me = path.join(holder, 'home', 'me')
+
+      expect(
+        workspaceRootOf(path.join(me, 'WS', 'APPS', 'ext'), me.toUpperCase())
+      ).toBe(path.join(me, 'ws'))
+    }
+  )
 
   it('keeps its first answer for a project root', () => {
     const holder = tree(PROJECT)

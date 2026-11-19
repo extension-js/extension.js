@@ -200,12 +200,23 @@ function isWorkspaceSharedPath(fromWorkspace: string): boolean {
 const WORKSPACE_FILE = 'pnpm-workspace.yaml'
 const workspaceRoots = new Map<string, string>()
 
-function realOrResolved(file: string): string {
+// The native call answers in the spelling the disk holds, and on Windows in
+// long names where a short one was given, as the paths these meet are spelled.
+function realPathOf(file: string): string | undefined {
   try {
-    return fs.realpathSync(file)
+    return fs.realpathSync.native(file)
   } catch {
-    return path.resolve(file)
+    // Some volumes refuse the native call for a file that is there.
+    try {
+      return fs.realpathSync(file)
+    } catch {
+      return undefined
+    }
   }
+}
+
+function realOrResolved(file: string): string {
+  return realPathOf(file) ?? path.resolve(file)
 }
 
 // A `workspaces` field npm, Yarn and Bun read: a list of folders, or an
@@ -267,14 +278,6 @@ export function workspaceRootOf(
   workspaceRoots.set(key, found)
 
   return found
-}
-
-function realPathOf(file: string): string | undefined {
-  try {
-    return fs.realpathSync(file)
-  } catch {
-    return undefined
-  }
 }
 
 // Whether the build may copy a source file or folder into the output. Both
