@@ -38,12 +38,30 @@ interface BuildOptions {
   mode?: 'development' | 'production'
   copy?: string[]
   extraPlugins?: Array<{apply: (compiler: Compiler) => void}>
+  // Runs the first build of a watch, where the env files are tracked.
+  watch?: boolean
+}
+
+// The first build of a watch, closed once it is done.
+async function firstWatchBuild(compiler: Compiler): Promise<Stats> {
+  const stats = await new Promise<Stats>((resolve, reject) => {
+    const watching = compiler.watch({aggregateTimeout: 20}, (error, result) => {
+      watching.close(() => {
+        if (error || !result) reject(error || new Error('no stats'))
+        else resolve(result)
+      })
+    })
+  })
+
+  await new Promise<void>((resolve) => compiler.close(() => resolve()))
+
+  return stats
 }
 
 async function build(root: string, options: BuildOptions = {}) {
   const context = options.context || root
   const outputPath = path.join(root, 'out')
-  const stats: Stats = await compile({
+  const compileOptions = {
     context,
     outputPath,
     mode: options.mode || 'development',
@@ -56,7 +74,10 @@ async function build(root: string, options: BuildOptions = {}) {
       }),
       ...(options.extraPlugins || [])
     ]
-  })
+  } as const
+  const stats: Stats = options.watch
+    ? await firstWatchBuild(createCompiler(compileOptions))
+    : await compile(compileOptions)
 
   return {
     stats,
@@ -382,7 +403,7 @@ describe('EnvPlugin env file layers', () => {
     )
   })
 
-  it('tracks each layer as a dependency, present or missing', async () => {
+  it('tracks each layer as a dependency under a watch, present or missing', async () => {
     const root = project({'.env': 'EXTENSION_PUBLIC_FOO=dotenv\n'})
     const dependencies = (result: Awaited<ReturnType<typeof build>>) => ({
       file: [...result.stats.compilation.fileDependencies]
@@ -394,7 +415,7 @@ describe('EnvPlugin env file layers', () => {
         .map((file) => path.relative(root, file))
         .sort()
     })
-    const first = await build(root, {mode: 'production'})
+    const first = await build(root, {mode: 'production', watch: true})
 
     expect(first.logs()).toEqual(['dotenv'])
     expect(dependencies(first)).toEqual({
@@ -416,7 +437,7 @@ describe('EnvPlugin env file layers', () => {
     })
 
     writeFiles(root, {'.env.local': 'EXTENSION_PUBLIC_FOO=local\n'})
-    const second = await build(root, {mode: 'production'})
+    const second = await build(root, {mode: 'production', watch: true})
 
     expect(second.logs()).toEqual(['local'])
     expect(dependencies(second).file).toEqual(['.env', '.env.local'])
@@ -436,7 +457,7 @@ describe('EnvPlugin env file layers', () => {
     })
 
     const context = path.join(root, 'packages', 'ext')
-    const result = await build(root, {context})
+    const result = await build(root, {context, watch: true})
 
     expect(result.logs()).toEqual(['rootDevelopment rootOnly'])
     // A file written at either level later has to count as a change.
@@ -872,8 +893,7 @@ describe('EnvPlugin private names in emitted .json and .html', () => {
 })
 
 describe('EnvPlugin failure paths as they stand', () => {
-  // Pins current behavior: a raw filesystem error, with no code of our own.
-  it('throws a raw EISDIR while the compiler is created when an env file is a folder', () => {
+  it('throws a coded error naming the folder while the compiler is created', () => {
     for (const name of ['.env', '.env.defaults']) {
       const root = project({})
       fs.mkdirSync(path.join(root, name))
@@ -891,9 +911,8 @@ describe('EnvPlugin failure paths as they stand', () => {
       }
 
       expect(thrown).toMatchObject({
-        code: 'EISDIR',
-        syscall: 'read',
-        message: 'EISDIR: illegal operation on a directory, read'
+        code: 'E_ENV_FILE_UNREADABLE',
+        message: expect.stringContaining(`${name} is a folder`)
       })
 
       expect(fs.existsSync(path.join(root, 'out'))).toBe(false)
