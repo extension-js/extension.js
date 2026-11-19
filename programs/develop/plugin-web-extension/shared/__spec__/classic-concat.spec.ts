@@ -2,7 +2,12 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
-import {isClassicScript} from '../classic-concat'
+import {
+  classicConcatEntry,
+  classicConcatFiles,
+  classicConcatRequest,
+  isClassicScript
+} from '../classic-concat'
 
 const makeTempFolder = trackTempFolders()
 
@@ -56,5 +61,54 @@ describe('isClassicScript', () => {
     expect(classic(`import("./lazy.js")\n${view}`, 'view.jsx')).toBe(true)
     expect(classic(`import a from "./a.js"\n${view}`, 'view.jsx')).toBe(false)
     expect(classic(`${view}export default view\n`, 'view.jsx')).toBe(false)
+  })
+})
+
+describe('classicConcatRequest', () => {
+  function joined(present: string[]) {
+    const folder = makeTempFolder('extjs-classic-')
+    const files = ['a.js', 'b.js', 'c.js'].map((name) =>
+      path.join(folder, name)
+    )
+
+    for (const file of files) {
+      if (present.includes(path.basename(file))) fs.writeFileSync(file, '')
+    }
+
+    const entry = classicConcatEntry('content_scripts/content-0', files)
+
+    return {files, entry, query: entry.slice(files[0].length)}
+  }
+
+  it('keeps the request as written while the first file exists', () => {
+    const {entry} = joined(['a.js', 'c.js'])
+
+    expect(classicConcatRequest(entry)).toBe(entry)
+    expect(classicConcatRequest(entry, 'loader.cjs')).toBe(entry)
+  })
+
+  it('moves to the first file left when the first one is gone', () => {
+    const {files, entry, query} = joined(['c.js'])
+    const moved = classicConcatRequest(entry, 'loader.cjs')
+
+    expect(moved).toBe(`${files[2]}${query}`)
+    expect(classicConcatFiles(moved)).toEqual(files)
+  })
+
+  it('hands the query to the loader when no file is left', () => {
+    const {files, entry, query} = joined([])
+    const moved = classicConcatRequest(entry, 'loader.cjs')
+
+    expect(moved).toBe(`!!loader.cjs!loader.cjs${query}`)
+    expect(classicConcatFiles(moved)).toEqual(files)
+    expect(classicConcatRequest(entry)).toBe(entry)
+  })
+
+  it('leaves any other request alone', () => {
+    const missing = path.join(makeTempFolder('extjs-classic-'), 'no.js')
+
+    expect(classicConcatRequest(missing)).toBe(missing)
+    expect(classicConcatRequest(`${missing}?raw`)).toBe(`${missing}?raw`)
+    expect(classicConcatRequest('./relative.js')).toBe('./relative.js')
   })
 })

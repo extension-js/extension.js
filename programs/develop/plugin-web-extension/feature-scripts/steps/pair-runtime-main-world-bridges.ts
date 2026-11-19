@@ -25,8 +25,9 @@ import {extensionBaseGlobalFor} from '../scripts-lib/taken-extension-base'
 import {resolveMainWorldBridgeSourcePath} from './add-content-script-wrapper/get-bridge-scripts'
 import {getBaseReaderRequirements} from './prune-main-world-bridges'
 
+// From the output root alone: a deeper folder of that name is the project's.
 export const BACKGROUND_ASSET =
-  /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
+  /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 // The file that starts a page entry, which runs ahead of the page's code.
 export function pageBundleNames(
