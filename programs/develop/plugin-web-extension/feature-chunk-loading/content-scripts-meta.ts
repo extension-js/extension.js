@@ -7,7 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import type {Manifest} from '../../types'
-import {getCanonicalContentScriptJsAssetName} from '../feature-scripts/contracts'
+import {
+  getCanonicalContentScriptJsAssetName,
+  mainWorldBridgeIndexes
+} from '../feature-scripts/contracts'
 import type {ContentScriptsMeta} from './options'
 
 // Which world each content-script bundle runs in, so the chunk loader can pick
@@ -17,45 +20,43 @@ export function buildContentScriptsMeta(
 ): ContentScriptsMeta {
   const contentScriptsMeta: ContentScriptsMeta = {}
 
-  try {
-    const csList = Array.isArray(patchedManifest.content_scripts)
-      ? patchedManifest.content_scripts
-      : []
-    const originalCount = csList.length
-    let bridgeOrdinal = 0
+  const csList = Array.isArray(patchedManifest.content_scripts)
+    ? patchedManifest.content_scripts
+    : []
+  const bridgeOf = new Map(
+    mainWorldBridgeIndexes(csList).map(({mainIndex, bridgeIndex}) => [
+      mainIndex,
+      bridgeIndex
+    ])
+  )
 
-    for (let i = 0; i < csList.length; i++) {
-      const cs = csList[i]
-      const bundleId = getCanonicalContentScriptJsAssetName(i)
-      const isMain = cs?.world === 'MAIN'
+  for (let i = 0; i < csList.length; i++) {
+    const bundleId = getCanonicalContentScriptJsAssetName(i)
+    const bridgeIndex = bridgeOf.get(i)
 
-      if (isMain) {
-        const bridgeIndex = originalCount + bridgeOrdinal++
-        const bridgeBundleId = getCanonicalContentScriptJsAssetName(bridgeIndex)
-        contentScriptsMeta[bundleId] = {
-          index: i,
-          bundleId,
-          world: 'main',
-          bridgeBundleId
-        }
+    if (bridgeIndex !== undefined) {
+      const bridgeBundleId = getCanonicalContentScriptJsAssetName(bridgeIndex)
+      contentScriptsMeta[bundleId] = {
+        index: i,
+        bundleId,
+        world: 'main',
+        bridgeBundleId
+      }
 
-        contentScriptsMeta[bridgeBundleId] = {
-          index: bridgeIndex,
-          bundleId: bridgeBundleId,
-          world: 'extension',
-          role: 'main_world_bridge',
-          mainBundleId: bundleId
-        }
-      } else {
-        contentScriptsMeta[bundleId] = {
-          index: i,
-          bundleId,
-          world: 'extension'
-        }
+      contentScriptsMeta[bridgeBundleId] = {
+        index: bridgeIndex,
+        bundleId: bridgeBundleId,
+        world: 'extension',
+        role: 'main_world_bridge',
+        mainBundleId: bundleId
+      }
+    } else {
+      contentScriptsMeta[bundleId] = {
+        index: i,
+        bundleId,
+        world: csList[i]?.world === 'MAIN' ? 'main' : 'extension'
       }
     }
-  } catch {
-    // ignore - runtime has safe defaults
   }
 
   return contentScriptsMeta
