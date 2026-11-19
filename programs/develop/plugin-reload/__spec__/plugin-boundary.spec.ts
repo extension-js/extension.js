@@ -94,6 +94,15 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
     expect(reached.filter((from) => !allowed.has(from))).toEqual([])
   })
 
+  // Every step that prepends to the background must find the same bundle.
+  it('names the compiled background bundle in one module', () => {
+    const pattern = /=\s*\/\^background\\\//
+
+    expect(
+      files.filter(({text}) => pattern.test(text)).map(({file}) => file)
+    ).toEqual(['background-asset.ts'])
+  })
+
   it('takes the hold of a pending restart from its caller', () => {
     expect(
       files
