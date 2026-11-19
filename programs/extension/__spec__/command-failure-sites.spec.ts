@@ -261,6 +261,31 @@ describe('preview when the launch rejects with a declared code', () => {
     ])
   })
 
+  it('frames a launch with no free debugging port as failed, naming the way out', async () => {
+    extensionPreview.mockRejectedValueOnce(
+      Object.assign(new Error('No free browser debugging port.'), {
+        code: 'E_PORT_UNAVAILABLE'
+      })
+    )
+
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'preview',
+        status: 'failed',
+        value: null,
+        error: {
+          code: 'E_PORT_UNAVAILABLE',
+          message: 'No free browser debugging port.'
+        },
+        warnings: [],
+        hint: 'Close the browsers or sessions holding those ports, or pass --port <port> to search from another one.'
+      }
+    ])
+  })
+
   it('believes the declared code over the nothing-to-preview wording', async () => {
     extensionPreview.mockRejectedValueOnce(
       Object.assign(new Error('Manifest file not found'), {

@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import colors from 'pintor'
 import {scanArgvValue} from './cli-argv'
-import {profileLockedHint} from './messages'
+import {portUnavailableHint, profileLockedHint} from './messages'
 import {
   CODES,
   ENVELOPE,
@@ -295,7 +295,10 @@ export function loadRefusedEnvelope(
 // The way out of these failures is the same on every command, so dev, start
 // and preview read it from here and their frames cannot drift apart.
 export function failureHint(code: ErrorCode | undefined): string | undefined {
-  return code === CODES.E_PROFILE_LOCKED ? profileLockedHint() : undefined
+  if (code === CODES.E_PROFILE_LOCKED) return profileLockedHint()
+  if (code === CODES.E_PORT_UNAVAILABLE) return portUnavailableHint()
+
+  return undefined
 }
 
 export function internalErrorEnvelope(

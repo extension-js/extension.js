@@ -206,7 +206,8 @@ describe('a browser verdict on the ready contract, across the surfaces that repo
     ['E_BROWSER_CONNECT', 'failed'],
     ['E_BROWSER_CONNECTION_CLOSED', 'failed'],
     ['E_RDP_PROTOCOL', 'failed'],
-    ['E_ADDON_INSTALL', 'failed']
+    ['E_ADDON_INSTALL', 'failed'],
+    ['E_PORT_UNAVAILABLE', 'failed']
   ]
 
   it.each(
