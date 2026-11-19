@@ -12,10 +12,11 @@ It is responsible for:
 The dev reload and HMR strategy lives in `programs/develop/plugin-reload`, which
 registers after this plugin and decorates the entries created here. The reinject
 runtime a dev session adds to each content script lives there too, and reaches the
-wrapper through its extension points (see below). One piece of dev reload logic
-still sits in this folder until the maintainer rules on its home: the restart
-state of `warn-main-world-registration-changed`, which `plugin-browsers` and
-`dev-server` read through `isAwaitingMainWorldRestart`.
+wrapper through its extension points (see below). When a MAIN world registration
+changes, `warn-main-world-registration-changed` asks the dev server for a restart
+and marks the builds it replaces. Which builds those are lives in
+`dev-server/session-restart-holds.ts`, where `plugin-browsers` and the dev server
+read it through `isAwaitingMainWorldRestart`.
 
 ## Entry point
 

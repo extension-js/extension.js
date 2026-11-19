@@ -28,6 +28,11 @@ import {StableContentScriptNames} from './steps/stable-content-script-names'
 import {StripContentScriptDevServerRuntime} from './steps/strip-content-script-dev-server-runtime'
 
 export {
+  type LoadedContentScripts,
+  loadedContentScriptsFor,
+  reloadForBuild
+} from './build-reload'
+export {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   createLoadedContentScripts,

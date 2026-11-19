@@ -15,6 +15,11 @@ import {
   isDevSessionRestartPending,
   requestDevSessionRestart
 } from '../../../dev-server/session-restart'
+import {
+  holdBuildForMainWorldRestart,
+  holdForMainWorldRestart,
+  releaseMainWorldRestartHold
+} from '../../../dev-server/session-restart-holds'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {unixify} from '../../shared/paths'
 import * as messages from '../messages'
@@ -27,25 +32,6 @@ const lastRequested = new Map<string, string>()
 // How long a changed set has to hold before a restart is asked for. An edit
 // taken back inside it leaves the session on the compiler it already has.
 export const MAIN_WORLD_SETTLE_MS = DEV_SESSION_RESTART_DEBOUNCE_MS
-
-// Compilers whose set differs from the one they were made with, while the
-// restart for it settles or runs. That restart reloads the extension once.
-const awaitingRestart = new WeakSet<object>()
-
-// Builds made while the set differed. A slow one can end after the set was
-// taken back, and it still must not reload for what it was built with.
-const heldBuilds = new WeakSet<object>()
-
-// True for a build the restart is about to replace. Reloading for it too
-// would start the background twice for the one edit.
-export function isAwaitingMainWorldRestart(
-  compiler: object | undefined,
-  compilation?: object
-): boolean {
-  if (compilation != null && heldBuilds.has(compilation)) return true
-
-  return compiler != null && awaitingRestart.has(compiler)
-}
 
 function signatureOf(entries: Map<string, unknown>): string {
   return [...entries.keys()].sort().join('\n')
@@ -97,7 +83,7 @@ export class WarnMainWorldRegistrationChanged {
     const standDown = () => {
       stopSettling()
       requested = undefined
-      awaitingRestart.delete(compiler)
+      releaseMainWorldRestartHold(compiler)
     }
 
     // False once the restart asked for here ended with this compiler still
@@ -162,7 +148,7 @@ export class WarnMainWorldRegistrationChanged {
 
         // This compiler already took this set, the restart is on its way.
         if (requested === signature && restartIsComing()) {
-          heldBuilds.add(compilation)
+          holdBuildForMainWorldRestart(compilation)
 
           return
         }
@@ -199,8 +185,7 @@ export class WarnMainWorldRegistrationChanged {
           canAutoRestartDevSession(compiler)
         ) {
           requested = signature
-          awaitingRestart.add(compiler)
-          heldBuilds.add(compilation)
+          holdForMainWorldRestart(compiler, compilation)
           askOnceSettled(signature, {
             reason: 'main-world',
             pathChanged: changed[0].files[0],

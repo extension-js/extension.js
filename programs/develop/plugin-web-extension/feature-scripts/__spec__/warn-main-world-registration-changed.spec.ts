@@ -9,8 +9,8 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
+import {isAwaitingMainWorldRestart} from '../../../dev-server/session-restart-holds'
 import {
-  isAwaitingMainWorldRestart,
   MAIN_WORLD_SETTLE_MS,
   WarnMainWorldRegistrationChanged
 } from '../steps/warn-main-world-registration-changed'
