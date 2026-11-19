@@ -36,9 +36,9 @@ export function boring(
   // One glyph across all five channels; the color carries the severity.
   const arrow =
     errors > 0
-      ? prefix('error')
+      ? prefix('error', 'Error')
       : warnings > 0
-        ? prefix('warn')
+        ? prefix('warn', 'Warning')
         : prefix('info')
   const time = `${durationMs} ms`
 

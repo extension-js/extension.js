@@ -287,7 +287,7 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
 
     expect(await maybeUsePostCss(root, {mode: 'development'})).toEqual({})
     expect(output.warned()).toEqual([
-      `⏵⏵⏵ Could not load the PostCSS config at ${path.join(root, 'postcss.config.cjs')}.\n` +
+      `⏵⏵⏵ Warning: Could not load the PostCSS config at ${path.join(root, 'postcss.config.cjs')}.\n` +
         'boom in config\n' +
         'The build continues without it, so none of its plugins run. Fix the file or remove it.'
     ])
@@ -301,7 +301,7 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
 
     expect(await maybeUsePostCss(root, {mode: 'development'})).toEqual({})
     expect(output.warned()).toEqual([
-      `⏵⏵⏵ The PostCSS config at ${path.join(root, '.postcssrc.json')} lists plugins as string.\n` +
+      `⏵⏵⏵ Warning: The PostCSS config at ${path.join(root, '.postcssrc.json')} lists plugins as string.\n` +
         'PostCSS expects an array or an object keyed by plugin name.\n' +
         'The build continues without this config, so none of its plugins run.'
     ])
@@ -324,7 +324,7 @@ describe('maybeUsePostCss reports a config it cannot use', () => {
 
     expect(pluginNames(rule)).toEqual(['fake-plugin'])
     expect(output.errored()).toEqual([
-      "⏵⏵⏵ Couldn't resolve the PostCSS plugin postcss-plugin-nowhere-installed.\n" +
+      "⏵⏵⏵ Warning: Couldn't resolve the PostCSS plugin postcss-plugin-nowhere-installed.\n" +
         'The plugin was skipped so the build can continue.\n' +
         'Styles it would generate are missing from the output.\n' +
         `PATH ${root}\n` +
@@ -450,7 +450,7 @@ describe('maybeUsePostCss with Tailwind', () => {
     expect(rule.options.postcssOptions).toEqual({cwd: root, config: root})
     expect(warned).toEqual([
       [
-        "⏵⏵⏵ Couldn't find the Tailwind PostCSS plugin in this project, so the build ran without it.",
+        "⏵⏵⏵ Warning: Couldn't find the Tailwind PostCSS plugin in this project, so the build ran without it.",
         `PATH ${root}`,
         'Tailwind classes are missing from the output CSS.',
         `Install it in your project: ${fix}`
@@ -761,7 +761,7 @@ describe('maybeUsePostCss with Tailwind', () => {
 
     expect(warned).toEqual([
       [
-        "⏵⏵⏵ Couldn't start the Tailwind PostCSS plugin tailwindcss, so the build ran without it.",
+        "⏵⏵⏵ Warning: Couldn't start the Tailwind PostCSS plugin tailwindcss, so the build ran without it.",
         `PATH ${root}`,
         `REASON ${refusal}`,
         'Tailwind classes are missing from the output CSS.',

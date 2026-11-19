@@ -1305,7 +1305,7 @@ describe('webpack/command-build', () => {
       String(text)
         // eslint-disable-next-line no-control-regex
         .replace(/\u001b\[[0-9;]*m/g, '')
-        .replace(/^\S+ /, '')
+        .replace(/^\S+ (?:(?:Warning|Error): )?/, '')
 
     async function tmpProject(prefix: string) {
       const os = await import('node:os')

@@ -42,7 +42,7 @@ describe('pre-command failures under --output json', () => {
     expect(frame.error.code).toBe('E_UNKNOWN_COMMAND')
     expect(frame.error.refs).toEqual({command: 'nonexistent-cmd'})
     expect(result.stderr).toBe(
-      '⏵⏵⏵ Unknown command nonexistent-cmd.\n' +
+      '⏵⏵⏵ Error: Unknown command nonexistent-cmd.\n' +
         'Run extension --help to see the commands.\n'
     )
   })
@@ -64,7 +64,7 @@ describe('pre-command failures under --output json', () => {
     expect(frame).toMatchObject({command: 'eval', status: 'usage'})
     expect(frame.error.code).toBe('E_ARGS')
     expect(result.stderr).toBe(
-      "⏵⏵⏵ Missing required argument 'expression'.\n" +
+      "⏵⏵⏵ Error: Missing required argument 'expression'.\n" +
         'Run extension eval --help to see the options.\n'
     )
   })
@@ -82,7 +82,7 @@ describe('pre-command failures under --output json', () => {
     expect(frame.error.code).toBe('E_FLAG_VALUE_INVALID')
     expect(frame.error.refs).toEqual({flag: '--browser'})
     expect(result.stderr).toBe(
-      '⏵⏵⏵ Missing value for --browser.\n' +
+      '⏵⏵⏵ Error: Missing value for --browser.\n' +
         'Run extension build --help to see the options.\n'
     )
   })
@@ -150,7 +150,7 @@ describe('pre-command failures under --output json', () => {
     expect(plain.status).toBe(1)
     expect(plain.stdout).toBe('')
     expect(plain.stderr).toBe(
-      '⏵⏵⏵ Unknown option -o.\n' +
+      '⏵⏵⏵ Error: Unknown option -o.\n' +
         'Run extension json --help to see the options.\n'
     )
 
@@ -171,7 +171,7 @@ describe('pre-command failures under --output json', () => {
     })
 
     expect(run.stderr).toBe(
-      '⏵⏵⏵ Unsupported --browser value: --output.\n' +
+      '⏵⏵⏵ Error: Unsupported --browser value: --output.\n' +
         'Choose one of: chrome, chromium, edge, firefox, brave, opera, ' +
         'vivaldi, yandex, waterfox, librewolf, zen, floorp, chromium-based, ' +
         'gecko-based, firefox-based, safari, webkit-based, chromium-emulator.\n'
@@ -181,7 +181,7 @@ describe('pre-command failures under --output json', () => {
   // Pins current behavior: unknown option although dev takes --browser.
   it('--browser chrome before dev sends the reader to dev --help', async () => {
     const remedy =
-      '⏵⏵⏵ Unknown option --browser.\n' +
+      '⏵⏵⏵ Error: Unknown option --browser.\n' +
       'Run extension dev --help to see the options.\n'
     const plain = await runCli(['--browser', 'chrome', 'dev'])
 
@@ -258,7 +258,7 @@ describe('pre-command failures under --output json', () => {
     expect(result.status).toBe(1)
     expect(result.stdout).toBe('')
     expect(result.stderr).toBe(
-      '⏵⏵⏵ Unknown option --frobnicate.\n' +
+      '⏵⏵⏵ Error: Unknown option --frobnicate.\n' +
         'Run extension build --help to see the options.\n'
     )
   })
@@ -269,7 +269,7 @@ describe('pre-command failures under --output json', () => {
     expect(result.status).toBe(1)
     expect(result.stdout).toBe('')
     expect(result.stderr).toBe(
-      '⏵⏵⏵ Unknown option --not-a-real-flag.\n' +
+      '⏵⏵⏵ Error: Unknown option --not-a-real-flag.\n' +
         'Run extension capabilities --help to see the options.\n'
     )
   })
@@ -279,7 +279,7 @@ describe('pre-command failures under --output json', () => {
 
     expect(result.status).toBe(1)
     expect(result.stderr).toBe(
-      '⏵⏵⏵ Unknown command nonexistent-cmd.\n' +
+      '⏵⏵⏵ Error: Unknown command nonexistent-cmd.\n' +
         'Run extension --help to see the commands.\n'
     )
   })
@@ -290,7 +290,7 @@ describe('pre-command failures under --output json', () => {
     expect(result.status).toBe(1)
     expect(result.stdout).toBe('')
     expect(result.stderr).toBe(
-      '⏵⏵⏵ Unknown command init.\n' +
+      '⏵⏵⏵ Error: Unknown command init.\n' +
         'Run extension create my-extension to start a new extension.\n'
     )
   })
@@ -300,7 +300,7 @@ describe('pre-command failures under --output json', () => {
 
     expect(result.status).toBe(1)
     expect(result.stderr).toBe(
-      '⏵⏵⏵ Unknown option --brower.\nDid you mean --browser?\n'
+      '⏵⏵⏵ Error: Unknown option --brower.\nDid you mean --browser?\n'
     )
   })
 

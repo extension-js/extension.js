@@ -290,7 +290,7 @@ const RUN_ONLY_TARGETS = SUPPORTED_BROWSER_TARGETS.filter(
 // A refusal that names no next command leaves a Safari user stuck, so the
 // copy is pinned to the two Safari paths that work, and to the reason.
 const SAFARI_REFUSAL =
-  "⏵⏵⏵ preview can't load an extension into Safari.\n" +
+  "⏵⏵⏵ Error: preview can't load an extension into Safari.\n" +
   'Safari loads an extension only from an app it has registered, and that app is enabled by hand once installed.\n' +
   'Its automation route can load a folder but grants no website access, so content scripts never run.\n' +
   'Run a live Safari session: extension dev --browser safari\n' +
@@ -307,7 +307,7 @@ const REFUSALS: RefusalRow[] = [
     return {
       name: `--port ${value}`,
       argv: ['--port', value],
-      stderr: [`⏵⏵⏵ ${message}`],
+      stderr: [`⏵⏵⏵ Error: ${message}`],
       frame: {status: 'usage', error: {code: 'E_INVALID_OPTION', message}}
     }
   }),
@@ -315,7 +315,7 @@ const REFUSALS: RefusalRow[] = [
     name: 'a browser name nobody supports',
     argv: ['--browser', 'netscape'],
     stderr: [
-      `⏵⏵⏵ Unsupported --browser value: netscape.\nChoose one of: ${RUN_ONLY_TARGETS}.`
+      `⏵⏵⏵ Error: Unsupported --browser value: netscape.\nChoose one of: ${RUN_ONLY_TARGETS}.`
     ],
     frame: {
       status: 'usage',

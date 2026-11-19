@@ -17,7 +17,7 @@ import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
 
 const makeProject = cssProjects()
-const WARN = '⏵⏵⏵'
+const WARN = '⏵⏵⏵ Warning:'
 const BOM = String.fromCharCode(0xfeff)
 
 afterEach(() => {

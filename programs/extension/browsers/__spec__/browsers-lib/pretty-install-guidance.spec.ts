@@ -87,7 +87,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     )
 
     expect(msg.split('\n').slice(0, 7)).toEqual([
-      "⏵⏵⏵ Edge isn't installed.",
+      "⏵⏵⏵ Warning: Edge isn't installed.",
       '',
       'Install Edge system-wide (the installer may ask for an administrator password):',
       '',
@@ -128,7 +128,7 @@ describe('prettyPuppeteerInstallGuidance', () => {
     )
 
     expect(msg.split('\n')).toEqual([
-      "⏵⏵⏵ Edge isn't installed.",
+      "⏵⏵⏵ Warning: Edge isn't installed.",
       '',
       'Install Edge system-wide (the installer may ask for an administrator password):',
       '',
