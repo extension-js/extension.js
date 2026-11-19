@@ -181,12 +181,12 @@ const SAID: Array<[string, RegExp]> = [
   ]
 ]
 
-// The stylesheet plugin tells a file it withholds the way it tells one that
-// is not there. Both read the terminal text, so each warning counts once.
+// The stylesheet plugin says a file it withholds is not bundled, by a url()
+// or an @import alike. Both read the terminal text, so each counts once.
 const NOT_FOUND =
   /A url\(([^)]+)\) reference points to a file that exists nowhere in the project\. \(([^)]+)\)/g
-const IMPORT_KEPT_PRIVATE =
-  /IMPORT (\S+)\nREASON The path holds \S+, a name the build keeps private\./g
+const NOT_BUNDLED =
+  /(\S+) is not bundled\. Check the url\(\) or @import that names it in this stylesheet\. \(([^)]+)\)/g
 
 // A marker a data URL carries, which a search of the text does not find.
 function inlinesMarker(text: string): boolean {
@@ -232,8 +232,8 @@ async function rowFor(caller: Caller, css: string): Promise<string> {
     told.push(`not found ${match[1]} in ${match[2]}`)
   }
 
-  for (const match of result.printed.matchAll(IMPORT_KEPT_PRIVATE)) {
-    told.push(`import kept private ${match[1]}`)
+  for (const match of result.printed.matchAll(NOT_BUNDLED)) {
+    told.push(`not bundled ${match[1]} in ${match[2]}`)
   }
 
   // Nothing a private file holds is printed or in the output, by any route.
@@ -407,25 +407,25 @@ const EXPECTED: Record<string, Table> = {
   },
   manifestCss: {
     './.env':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.env | said not found ./.env in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.env | said not bundled ./.env in injected.css',
     '"./.env.local"':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.env.local | said not found ./.env.local in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.env.local | said not bundled ./.env.local in injected.css',
     '.npmrc':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url .npmrc | said not found .npmrc in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url .npmrc | said not bundled .npmrc in injected.css',
     '../outside.png':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url ../outside.png | said not found ../outside.png in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ../outside.png | said not bundled ../outside.png in injected.css',
     './linked.png':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url ./linked.png | said not found ./linked.png in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./linked.png | said not bundled ./linked.png in injected.css',
     './node_modules/pkg/.env':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url ./node_modules/pkg/.env | said not found ./node_modules/pkg/.env in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./node_modules/pkg/.env | said not bundled ./node_modules/pkg/.env in injected.css',
     // The special folders step reads the emitted sheet and says it again.
     '/.env':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in content_scripts/content-0.css, not found /.env in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/.env" | said not bundled /.env in injected.css, not found /.env in content_scripts/content-0.css',
     // The bundler drops an @import it does not follow, so the sheet is empty.
     '@import ./.env':
-      'content_scripts/content-0.css + content_scripts/content-0.js | said not found ./.env in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | said not bundled ./.env in injected.css',
     '@font-face ./.git/font.woff2':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.git/font.woff2 | said not found ./.git/font.woff2 in injected.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url ./.git/font.woff2 | said not bundled ./.git/font.woff2 in injected.css',
     './logo.png':
       'content_scripts/content-0.css + content_scripts/content-0.js | url data:image/png;base64,<data>',
     './node_modules/pkg/icon.png':
@@ -438,23 +438,23 @@ const EXPECTED: Record<string, Table> = {
   // The sheet rides inside the script, where the address stays as written.
   importedByContentScript: {
     './.env':
-      'content_scripts/content-0.js | said not found ./.env in injected.css',
+      'content_scripts/content-0.js | said not bundled ./.env in injected.css',
     '"./.env.local"':
-      'content_scripts/content-0.js | said not found ./.env.local in injected.css',
+      'content_scripts/content-0.js | said not bundled ./.env.local in injected.css',
     '.npmrc':
-      'content_scripts/content-0.js | said not found .npmrc in injected.css',
+      'content_scripts/content-0.js | said not bundled .npmrc in injected.css',
     '../outside.png':
-      'content_scripts/content-0.js | said not found ../outside.png in injected.css',
+      'content_scripts/content-0.js | said not bundled ../outside.png in injected.css',
     './linked.png':
-      'content_scripts/content-0.js | said not found ./linked.png in injected.css',
+      'content_scripts/content-0.js | said not bundled ./linked.png in injected.css',
     './node_modules/pkg/.env':
-      'content_scripts/content-0.js | said not found ./node_modules/pkg/.env in injected.css',
+      'content_scripts/content-0.js | said not bundled ./node_modules/pkg/.env in injected.css',
     '/.env':
-      'content_scripts/content-0.js | said not found /.env in injected.css',
+      'content_scripts/content-0.js | said not bundled /.env in injected.css',
     '@import ./.env':
-      'content_scripts/content-0.js | said import kept private ./.env',
+      'content_scripts/content-0.js | said not bundled ./.env in injected.css',
     '@font-face ./.git/font.woff2':
-      'content_scripts/content-0.js | said not found ./.git/font.woff2 in injected.css',
+      'content_scripts/content-0.js | said not bundled ./.git/font.woff2 in injected.css',
     './logo.png': 'content_scripts/content-0.js',
     './node_modules/pkg/icon.png': 'content_scripts/content-0.js',
     './linked-in.png': 'content_scripts/content-0.js',
@@ -462,20 +462,21 @@ const EXPECTED: Record<string, Table> = {
       'assets/.env.<hash>.example + content_scripts/content-0.js'
   },
   importedByScriptsFile: {
-    './.env': 'scripts/tool.js | said not found ./.env in injected.css',
+    './.env': 'scripts/tool.js | said not bundled ./.env in injected.css',
     '"./.env.local"':
-      'scripts/tool.js | said not found ./.env.local in injected.css',
-    '.npmrc': 'scripts/tool.js | said not found .npmrc in injected.css',
+      'scripts/tool.js | said not bundled ./.env.local in injected.css',
+    '.npmrc': 'scripts/tool.js | said not bundled .npmrc in injected.css',
     '../outside.png':
-      'scripts/tool.js | said not found ../outside.png in injected.css',
+      'scripts/tool.js | said not bundled ../outside.png in injected.css',
     './linked.png':
-      'scripts/tool.js | said not found ./linked.png in injected.css',
+      'scripts/tool.js | said not bundled ./linked.png in injected.css',
     './node_modules/pkg/.env':
-      'scripts/tool.js | said not found ./node_modules/pkg/.env in injected.css',
-    '/.env': 'scripts/tool.js | said not found /.env in injected.css',
-    '@import ./.env': 'scripts/tool.js | said import kept private ./.env',
+      'scripts/tool.js | said not bundled ./node_modules/pkg/.env in injected.css',
+    '/.env': 'scripts/tool.js | said not bundled /.env in injected.css',
+    '@import ./.env':
+      'scripts/tool.js | said not bundled ./.env in injected.css',
     '@font-face ./.git/font.woff2':
-      'scripts/tool.js | said not found ./.git/font.woff2 in injected.css',
+      'scripts/tool.js | said not bundled ./.git/font.woff2 in injected.css',
     './logo.png': 'scripts/tool.js',
     './node_modules/pkg/icon.png': 'scripts/tool.js',
     './linked-in.png': 'scripts/tool.js',

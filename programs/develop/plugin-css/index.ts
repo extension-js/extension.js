@@ -24,6 +24,11 @@ import {debugLine, isDebug} from '../lib/messaging'
 import {parseAuthoredJson} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../lib/resource-query'
+import {
+  noteWithheldCssRef,
+  WITHHELD_CSS_REF,
+  type WithheldKind
+} from '../lib/withheld-file'
 import {publicContainmentRoot} from '../plugin-special-folders/resolve-public-folder'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import {extensionBaseAttributeFor} from '../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
@@ -373,7 +378,7 @@ export class CssPlugin {
 
     // Strict refs fails the build here, under the same name and code. Left
     // to rspack, a relative one came back as a warning.
-    const report = (issuer: string, raw: string) => {
+    const report = (issuer: string, raw: string, withheld?: WithheldKind) => {
       const req = raw.split('?')[0].split('#')[0]
       const key = `${issuer}|${req}`
       const strict = process.env.EXTENSION_STRICT_REFS === 'true'
@@ -386,10 +391,15 @@ export class CssPlugin {
         path.relative(manifestDir, issuer) || issuer
       )
       const error = new WebpackError(
-        messages.deadCssUrlRef(issuerPath, raw, strict)
+        withheld
+          ? messages.withheldCssRef(issuerPath, raw, withheld, strict)
+          : messages.deadCssUrlRef(issuerPath, raw, strict)
       )
       ;(error as Error & {file?: string}).file = issuerPath
-      error.name = 'CssDeadRef'
+      error.name = withheld ? WITHHELD_CSS_REF : 'CssDeadRef'
+
+      if (withheld) noteWithheldCssRef(compilation, raw, issuerPath)
+
       sink.push(error)
     }
 
@@ -437,15 +447,14 @@ export class CssPlugin {
               fs.existsSync(candidate)
             )
 
-            // A file the build withholds is told the way one that is not
+            // A file the build withholds is cancelled the way one that is not
             // there is. Which file a url() leads to is checked once resolved.
-            if (
-              found &&
-              (/\.(css|scss|sass|less)$/i.test(req) ||
-                !whyNotRead(found, projectPath))
-            ) {
-              return
-            }
+            const refused =
+              found && !/\.(css|scss|sass|less)$/i.test(req)
+                ? whyNotRead(found, projectPath)
+                : undefined
+
+            if (found && !refused) return
 
             // An alias or a package can place a bare name no candidate holds.
             // The file it leads to is then checked once resolved, like any other.
@@ -456,7 +465,7 @@ export class CssPlugin {
             // Cancelled before rspack resolves it, so nothing watches for the
             // file. Watch every place it could appear, or a later write is lost.
             compilation?.missingDependencies.addAll(candidates)
-            report(issuer, raw)
+            report(issuer, raw, refused?.kind)
 
             return false
           }
@@ -481,11 +490,13 @@ export class CssPlugin {
               /[?#]/
             )[0]
 
-            if (!path.isAbsolute(file) || !whyNotRead(file, projectPath)) {
-              return
-            }
+            const refused = path.isAbsolute(file)
+              ? whyNotRead(file, projectPath)
+              : undefined
 
-            report(issuer.split('?')[0], raw)
+            if (!refused) return
+
+            report(issuer.split('?')[0], raw, refused.kind)
 
             return false
           }
