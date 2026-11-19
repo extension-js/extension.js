@@ -7,8 +7,8 @@ import {after, test} from 'node:test'
 import {fileURLToPath} from 'node:url'
 import {
   enterRunTempFolder,
-  REAL_TEMP_ENV,
-  keepRealTempDirectory
+  keepRealTempDirectory,
+  REAL_TEMP_ENV
 } from '../lib/spec-temp-folder.mjs'
 import {listScriptSpecs} from '../run-script-specs.mjs'
 
@@ -151,9 +151,9 @@ test('each package suite and the script suite run inside a run folder', () => {
 
     assert.ok(config, `${name} has a vitest config`)
     assert.ok(
-      fs
-        .readFileSync(path.join(dir, config), 'utf8')
-        .includes("globalSetup: ['../../scripts/lib/spec-temp-folder.mjs']"),
+      /globalSetup: \[\s*'\.\.\/\.\.\/scripts\/lib\/spec-temp-folder\.mjs'/.test(
+        fs.readFileSync(path.join(dir, config), 'utf8')
+      ),
       `${name} sets the run temp folder`
     )
   }
