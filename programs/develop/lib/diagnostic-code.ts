@@ -26,6 +26,7 @@ interface IssueLike {
 const NAMED_CODES: Record<string, ErrorCode> = {
   WARInvalidMatchPattern: CODES.E_WAR_INVALID,
   WARStringEntryInMv3: CODES.E_WAR_INVALID,
+  ThemeArrayInvalid: CODES.E_THEME_INVALID,
   LocalesLayoutWarning: CODES.E_LOCALES_LAYOUT,
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,
@@ -45,6 +46,7 @@ const NAMED_CODES: Record<string, ErrorCode> = {
   WARRelativeAssetMissing: CODES.E_ASSET_MISSING,
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeSetSurfaceFileMissing: CODES.E_ASSET_MISSING,
   CodeNamedFileNotShipped: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeFetchedFileMissing: CODES.E_SCRIPT_DEP_MISSING,
   ImportScriptsDependencyMissing: CODES.E_SCRIPT_DEP_MISSING,
@@ -55,6 +57,7 @@ const NAMED_CODES: Record<string, ErrorCode> = {
   ReservedScriptsFolder: CODES.E_RESERVED_FOLDER,
   CssPreprocessorMissing: CODES.E_CSS_PREPROCESSOR_MISSING,
   CssDeadRef: CODES.E_CSS_DEAD_REF,
+  CssWithheldRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
   BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
   ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX
@@ -105,6 +108,17 @@ function isSyntaxFailure(err: IssueLike): boolean {
   )
 }
 
+// The late @import loader warns through a plain Error, so the loader the
+// bundler names in its header is what tells this warning from any other.
+function isLateCssImport(err: IssueLike): boolean {
+  return (
+    err.name === 'ModuleWarning' &&
+    /^[^\n]*\(from [^\n]*late-css-import-loader[^\n]*\):/.test(
+      text(err.message)
+    )
+  )
+}
+
 function resource(err: IssueLike): string {
   return text(err.module?.resource)
 }
@@ -132,6 +146,10 @@ export function diagnosticCode(
   if (err.name === 'ModuleParseError' && STYLESHEET.test(resource(err))) {
     return CODES.E_CSS_PARSE
   }
+
+  // The bundler's own parser fails the module on this rule, which is the
+  // same finding the loader reports once it has blanked the rule out.
+  if (isLateCssImport(err)) return CODES.E_CSS_PARSE
 
   return undefined
 }

@@ -67,7 +67,9 @@ real compiler takes per mode and browser.
 - `steps/add-content-script-wrapper/*`
   Adds the loader/wrapper layer for content scripts and emits MAIN-world bridge scripts when needed. The wrapper is load-bearing in every mode: it converts `export default fn` into the `__EXTENSIONJS_mount(...)` call that invokes the user's default export, without it, production tree-shakes the entire content-script body.
 
-  The wrapper rules sit at the front of `module.rules`, ahead of every rule `extension.config.js` added, and loaders run from the last rule to the first. A loader of the project with no `enforce`, or with `enforce: 'pre'`, is handed the file as written, and the wrapper reads what it returns before the transpiler does. A loader with `enforce: 'post'` is handed the wrapped and transpiled text. When a loader returns text with no default export for a file that has one as written, the build stops and names the file and the loader. The wrapper applies in production too, with no option to turn it off.
+  The wrapper rules sit at the front of `module.rules`, ahead of every rule `extension.config.js` added, and loaders run from the last rule to the first. A loader of the project with no `enforce`, or with `enforce: 'pre'`, is handed the file as written, and the wrapper reads what it returns before the transpiler does. A loader with `enforce: 'post'` is handed the wrapped and transpiled text. A plugin of the project applies after this one, so a rule it puts in front of the list as it applies would run after the wrapper: `scripts-lib/front-rules.ts` takes the front again once every plugin has applied, and that rule is handed the file as written too. When a loader returns text with no default export for a file that has one as written, the build stops and names the file and the loader. The wrapper applies in production too, with no option to turn it off.
+
+  A content script with an `import` or an `export` may await at the top level, and its default export mounts only once that `await` ends, so a `run_at: document_start` script that awaits mounts later than `document_start`. In a dev session a copy that is still waiting when the next one is injected is cleaned up and never mounts.
 
 - `steps/trace-runtime-loaded-files.ts`
   Copies through runtime-loaded files the module graph cannot see (classic worker `importScripts(...)`, `executeScript`/`insertCSS` `files` payloads, `{file}` entries of `contentScripts.register` and `userScripts.register`). A data or media file that a script names as a plain string inside a folder also ships, at the path the page or worker asks for, and a copied stylesheet brings its `url()` targets.
@@ -114,6 +116,10 @@ If this contract changes, update those consumers together.
 When a single manifest content-script group declares multiple files, `AddScripts` emits a sequential data-url module that imports all resolved JS and CSS inputs in order.
 
 That keeps the user-facing manifest contract intact while giving the bundler and reload layer one canonical content entry to track.
+
+When every file of a group, or every script of a page, is a classic script, `classic-concat-loader` joins them into one module, the way the browser runs them in one scope. A file of that list deleted during a session is left out of the joined module. The step that owns the reference reports it: `feature-html` for a page script (a warning, an error under `EXTENSION_STRICT_REFS=true`), `AddScripts` for a manifest field (an error). The module is named for the first file of the list. When that one is deleted, `ResolveClassicConcat` (`shared/classic-concat.ts`) names the module for the first file left, and for the loader itself when none is left, so the session keeps building and picks the files up again when they return.
+
+A file that is the whole of an entry (one content script, a stylesheet of a group, a service worker, one background script) and is deleted during a session gets the same `AddScripts` error, and only that one: the bundler's own report for the entry request is dropped. The bundler builds the entry again when the file is back on disk.
 
 ## MAIN world support
 

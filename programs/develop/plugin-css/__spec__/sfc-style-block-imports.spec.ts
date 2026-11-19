@@ -6,7 +6,6 @@ import deadCssUrlLoader from '../dead-css-url-loader'
 import {cssProjects} from './helpers/css-project'
 
 const makeProject = cssProjects()
-const WARN = '⏵⏵⏵'
 
 const VUE_QUERY = '?vue&type=style&index=0&id=731d5dd6&lang=css'
 
@@ -76,7 +75,7 @@ describe('an @import in the style block of a content script component', () => {
     })
   })
 
-  it('says why a sheet it may not read did not come in', () => {
+  it('says a sheet it may not read is not bundled', () => {
     const root = makeProject({
       'content/.git/x.css': '.x{}\n'
     })
@@ -88,12 +87,11 @@ describe('an @import in the style block of a content script component', () => {
       '@import "./.git/x.css";\n.probe{color:red}\n'
     )
 
-    expect(warnings.map((w) => w.message.split('\n').slice(0, 4))).toEqual([
+    expect(warnings.map((w) => w.message.split('\n').slice(0, 3))).toEqual([
       [
-        `${WARN} Couldn't bring an @import into this content script stylesheet, so the rules of that file will not load.`,
-        'PATH content/Widget.vue',
-        'IMPORT ./.git/x.css',
-        'REASON The path holds .git, a name the build keeps private.'
+        './.git/x.css is not bundled. Check the url() or @import that names it in this stylesheet.',
+        'The build never bundles env files, tooling files or repository files. Move the contents into a file with another name.',
+        'PATH content/Widget.vue'
       ]
     ])
   })

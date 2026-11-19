@@ -11,27 +11,22 @@
   },
   "exports": {
     ".": {
-      "development": "./module.ts",
       "types": "./dist/module.d.ts",
       "import": "./dist/module.mjs"
     },
     "./preview": {
-      "development": "./preview-entry.ts",
       "types": "./dist/preview-entry.d.ts",
       "import": "./dist/preview.mjs"
     },
     "./bridge": {
-      "development": "./bridge-entry.ts",
       "types": "./dist/bridge-entry.d.ts",
       "import": "./dist/bridge.mjs"
     },
     "./manifest": {
-      "development": "./manifest-entry.ts",
       "types": "./dist/manifest-entry.d.ts",
       "import": "./dist/manifest.mjs"
     },
     "./contracts": {
-      "development": "./contracts-entry.ts",
       "types": "./dist/contracts-entry.d.ts",
       "browser": "./dist/contracts.mjs",
       "import": "./dist/contracts.mjs",
@@ -100,7 +95,7 @@
     "@babel/preset-typescript": "7.29.7",
     "@prefresh/core": "1.5.9",
     "@prefresh/utils": "1.2.1",
-    "@rspack/core": "2.2.3",
+    "@rspack/core": "2.3.3",
     "@rspack/dev-server": "2.1.0",
     "@rspack/plugin-preact-refresh": "2.0.1",
     "@rspack/plugin-react-refresh": "2.0.2",
@@ -124,7 +119,6 @@
     "pintor": "0.3.0",
     "postcss": "8.5.23",
     "postcss-loader": "8.2.1",
-    "postcss-preset-env": "11.1.1",
     "postcss-scss": "4.0.9",
     "preact": "11.0.0",
     "prefers-yarn": "2.0.1",

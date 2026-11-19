@@ -32,11 +32,6 @@ import {CODES, debugLine, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 import {resolveProjectStructureSync} from './project'
 
-type EnvPreloadResult = {
-  loadedAny: boolean
-  envDir: string
-}
-
 // Keys this module introduced into process.env by loading a dotenv file, as
 // opposed to keys the shell or CI really set. dotenv.config mutates
 // process.env, and the compilation merge treats process.env as the highest
@@ -88,6 +83,27 @@ function envPreloadOrder(mode: string, browser?: string): string[] {
   return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
 }
 
+// The file order each config was last read with. A loader that is told no
+// mode and no browser reads the config the way the run last did.
+const envOrderByConfigPath = new Map<string, string[]>()
+
+// What each preloaded key was set to, so a value something else wrote over
+// it since is recognized as not a file value and left where it is.
+const preloadedEnvValues = new Map<string, string>()
+
+// One process can load two projects, and the first one's file values are not
+// the second one's. What is left afterwards is what the shell really set.
+function forgetPreloadedEnv(): void {
+  for (const key of preloadedEnvKeys) {
+    if (process.env[key] === preloadedEnvValues.get(key)) {
+      delete process.env[key]
+    }
+  }
+
+  preloadedEnvKeys.clear()
+  preloadedEnvValues.clear()
+}
+
 function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
   const parsed = dotenv.parse(fs.readFileSync(filePath))
 
@@ -96,6 +112,7 @@ function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
 
     process.env[key] = value
     preloadedEnvKeys.add(key)
+    preloadedEnvValues.set(key, value)
   }
 }
 
@@ -109,33 +126,40 @@ function unwrapDefaultExport(loaded: unknown): unknown {
   return loaded
 }
 
-function loadCommonJsConfigWithStableDirname(absolutePath: string) {
+// Compiling and running are two steps on purpose: a file that does not parse
+// as CommonJS never started, and only then may another route read it.
+function compileCommonJsConfig(absolutePath: string): () => unknown {
   const code = fs.readFileSync(absolutePath, 'utf-8')
   const dirname = path.dirname(absolutePath)
   const requireFn = createRequire(absolutePath)
 
   // Emulate Node's CJS wrapper so __filename/__dirname match the real file,
   // avoiding the temp-.cjs copy that broke __dirname-relative configs.
-  const module = {exports: {} as ParsedJson}
-  const exports = module.exports
-
   const wrapped = `(function (exports, require, module, __filename, __dirname) {\n${code}\n})`
   const fn = new vm.Script(wrapped, {
     filename: absolutePath
   }).runInThisContext()
 
-  fn(exports, requireFn, module, absolutePath, dirname)
+  return () => {
+    const module = {exports: {} as ParsedJson}
 
-  return unwrapDefaultExport(module.exports)
+    fn(module.exports, requireFn, module, absolutePath, dirname)
+
+    return module.exports
+  }
 }
 
 // Node's CJS loader covers what the vm wrapper cannot (a hashbang line). A
 // sibling copy keeps relative requires and __dirname pointing at the project.
+function copyBesideSourcePrefix(absolutePath: string): string {
+  return `.${path.basename(absolutePath, path.extname(absolutePath))}.${process.pid}-`
+}
+
 export function requireCommonJsCopyBesideSource(absolutePath: string) {
   const requireFn = createRequire(absolutePath)
   const siblingCjsPath = path.join(
     path.dirname(absolutePath),
-    `.${path.basename(absolutePath, path.extname(absolutePath))}.${process.pid}-${Date.now()}.cjs`
+    `${copyBesideSourcePrefix(absolutePath)}${Date.now()}.cjs`
   )
 
   try {
@@ -150,6 +174,101 @@ export function requireCommonJsCopyBesideSource(absolutePath: string) {
     } catch {
       // Ignore
     }
+  }
+}
+
+// Node's own words for a CommonJS global (require, module, exports,
+// __dirname) read in a file it ran as an ES module: the file is the other kind.
+function isCommonJsInEsModuleScope(importError: unknown): boolean {
+  const message = String((importError as Error | undefined)?.message || '')
+
+  return message.includes('is not defined in ES module scope')
+}
+
+// A parse failure is raised by Node's module loader with no frame inside the
+// file. A SyntaxError the author's own code threw has one, and it did run.
+function failedToParse(error: unknown, fileMarker: string): boolean {
+  const {name, stack} = (error || {}) as Partial<Error>
+  if (name !== 'SyntaxError' || typeof stack !== 'string') return false
+
+  const frames = stack.split('\n').filter((line) => /^\s+at /.test(line))
+
+  return (
+    frames.length > 0 &&
+    frames[0].includes('node:internal/modules/') &&
+    !frames.some((frame) => frame.includes(fileMarker))
+  )
+}
+
+// Errors this loader caught and reports itself, held for one turn of the
+// event loop: long enough for Node to announce a promise that shares one.
+const claimedConfigErrors = new Set<unknown>()
+let openClaimWindows = 0
+
+function onRejectionDuringClaim(reason: unknown): void {
+  if (claimedConfigErrors.has(reason)) return
+
+  // Any other rejection keeps its normal fate: another listener decides, and
+  // with none it is raised the way Node raises it when nobody listens.
+  if (process.listenerCount('unhandledRejection') > 1) return
+
+  throw reason
+}
+
+// Node 22.12 rejects a promise no code can reach when require() loads an ES
+// module that throws. The same error object is already on its way out, coded.
+function claimRejectionOf(caught: unknown): void {
+  if (openClaimWindows === 0) {
+    process.on('unhandledRejection', onRejectionDuringClaim)
+  }
+
+  openClaimWindows += 1
+  claimedConfigErrors.add(caught)
+
+  setImmediate(() => {
+    openClaimWindows -= 1
+    if (openClaimWindows > 0) return
+
+    claimedConfigErrors.clear()
+    process.off('unhandledRejection', onRejectionDuringClaim)
+  })
+}
+
+type CommonJsRetry = {loaded: unknown} | {reason: unknown}
+
+// The retry runs the file as CommonJS text and never hands it to require(),
+// so a throwing ES module is not loaded a second time through that path.
+// Whatever the file throws once it runs is the reason, and nothing runs after.
+function loadCommonJsConfigAfterFailedImport(
+  absolutePath: string,
+  importError: unknown
+): CommonJsRetry {
+  let run: () => unknown
+
+  try {
+    run = compileCommonJsConfig(absolutePath)
+  } catch {
+    if (!isCommonJsInEsModuleScope(importError)) return {reason: importError}
+
+    try {
+      return {loaded: requireCommonJsCopyBesideSource(absolutePath)}
+    } catch (copyError) {
+      claimRejectionOf(copyError)
+
+      return {
+        reason: failedToParse(copyError, copyBesideSourcePrefix(absolutePath))
+          ? importError
+          : copyError
+      }
+    }
+  }
+
+  try {
+    return {loaded: run()}
+  } catch (wrapperError) {
+    claimRejectionOf(wrapperError)
+
+    return {reason: wrapperError}
   }
 }
 
@@ -171,30 +290,22 @@ function findNearestWorkspaceRoot(startDir: string): string | undefined {
   }
 }
 
-function preloadEnvFilesFromDir(
-  envDir: string,
-  order: string[]
-): EnvPreloadResult {
-  let loadedAny = false
+function preloadEnvFilePaths(filePaths: string[]): void {
   // Snapshot before any file loads: a later, stronger file may override an
   // earlier file's value but never a value the shell or CI exported.
   const shellOwned = new Set(
     Object.keys(process.env).filter((key) => !preloadedEnvKeys.has(key))
   )
 
-  for (const filename of order) {
-    const filePath = path.join(envDir, filename)
+  for (const filePath of filePaths) {
     if (!fs.existsSync(filePath)) continue
 
     try {
       applyEnvFile(filePath, shellOwned)
-      loadedAny = true
     } catch {
       // Ignore
     }
   }
-
-  return {loadedAny, envDir}
 }
 
 const PROJECT_CONFIG_FILENAMES = [
@@ -258,17 +369,43 @@ export function projectConfigCandidatePaths(projectPath: string): string[] {
   return dirs.flatMap((dir) => configCandidatesIn(dir))
 }
 
+const ENV_DEFAULTS_FILE = '.env.defaults'
+
+// The folder rule of the bundle's env plugin. .env.defaults is the layer that
+// always merges and never a file a folder is picked for, so it ends no search.
 function preloadEnvFiles(projectDir: string, order: string[]) {
-  const local = preloadEnvFilesFromDir(projectDir, order)
-  if (local.loadedAny) return local
+  forgetPreloadedEnv()
 
-  const workspaceRoot = findNearestWorkspaceRoot(projectDir)
+  const selectable = order.filter((name) => name !== ENV_DEFAULTS_FILE)
+  const inDir = (dir: string, names: string[]) =>
+    names.map((name) => path.join(dir, name))
+  const hasEnvFile = (dir: string) =>
+    inDir(dir, selectable).some((filePath) => fs.existsSync(filePath))
+  const localDefaults = path.join(projectDir, ENV_DEFAULTS_FILE)
 
-  if (workspaceRoot && workspaceRoot !== projectDir) {
-    return preloadEnvFilesFromDir(workspaceRoot, order)
+  if (!hasEnvFile(projectDir)) {
+    const workspaceRoot = findNearestWorkspaceRoot(projectDir)
+    const rootDefaults = workspaceRoot
+      ? path.join(workspaceRoot, ENV_DEFAULTS_FILE)
+      : ''
+
+    if (
+      workspaceRoot &&
+      workspaceRoot !== projectDir &&
+      (hasEnvFile(workspaceRoot) || fs.existsSync(rootDefaults))
+    ) {
+      // The package's defaults win over the root's for the keys they declare.
+      preloadEnvFilePaths([
+        rootDefaults,
+        localDefaults,
+        ...inDir(workspaceRoot, selectable)
+      ])
+
+      return
+    }
   }
 
-  return local
+  preloadEnvFilePaths([localDefaults, ...inDir(projectDir, selectable)])
 }
 
 // import.meta.env is not a Node property, so a config that reads it needs the
@@ -367,7 +504,19 @@ function isConfigLoadError(error: unknown): boolean {
   return (error as {code?: unknown} | null)?.code === CODES.E_CONFIG_LOAD
 }
 
+// Keyed by the file and the env file values it is read under. The mode and
+// the browser reach a config only through those files, so they are the key.
 const loadedConfigCache = new Map<string, Promise<FileConfig>>()
+
+// How many times each config file ran to the end, so a later run under other
+// env values is a fresh evaluation and not Node's cached module.
+const configEvaluations = new Map<string, number>()
+
+function preloadedEnvFingerprint(): string {
+  return JSON.stringify(
+    [...preloadedEnvValues].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+  )
+}
 
 // Four loaders each report before rethrowing, so one bad config printed the
 // same frame once per entry point. The command-level handler prints the reason.
@@ -425,45 +574,88 @@ function assertConfigShape(configPath: string, value: unknown): void {
   }
 }
 
+// One config loads at a time: the env files of the one being evaluated are
+// on process.env, and a second project preloading in between would swap them.
+let configLoadQueue: Promise<unknown> = Promise.resolve()
+
 async function loadConfigFile(
   configPath: string,
-  envOrder: string[] = envPreloadOrder(envModeFor())
+  envOrder?: string[]
 ): Promise<FileConfig> {
   const absolutePath = path.resolve(configPath)
 
-  const cached = loadedConfigCache.get(absolutePath)
-  if (cached) return cached
+  const turn = configLoadQueue.then(() => {
+    const order =
+      envOrder ||
+      envOrderByConfigPath.get(absolutePath) ||
+      envPreloadOrder(envModeFor())
 
-  const loading = loadConfigFileUncached(absolutePath, envOrder).then(
-    (value) => {
+    // Every call gets its own files on process.env, so the answer never
+    // depends on which loader, or which project, happened to run before it.
+    preloadEnvFiles(path.dirname(absolutePath), order)
+    envOrderByConfigPath.set(absolutePath, order)
+
+    const cacheKey = `${absolutePath}\0${preloadedEnvFingerprint()}`
+    const cached = loadedConfigCache.get(cacheKey)
+    if (cached) return cached
+
+    const loading = loadConfigFileUncached(absolutePath).then((value) => {
       assertConfigShape(absolutePath, value)
+      configEvaluations.set(
+        absolutePath,
+        (configEvaluations.get(absolutePath) || 0) + 1
+      )
 
       return value
-    }
+    })
+    loadedConfigCache.set(cacheKey, loading)
+
+    return loading.catch((error: unknown) => {
+      // Don't poison the cache with a transient failure.
+      loadedConfigCache.delete(cacheKey)
+
+      throw error
+    })
+  })
+
+  configLoadQueue = turn.catch(() => undefined)
+
+  return turn
+}
+
+// A config file with side effects runs once per load. Another route may read
+// it only when the first failure proves the file never ran as that kind.
+function canRetryAsCommonJs(absolutePath: string, importError: unknown) {
+  // An .mjs file is an ES module by name, and require() already read a .cjs.
+  if (/\.[cm]js$/.test(absolutePath)) return false
+
+  return (
+    isCommonJsInEsModuleScope(importError) ||
+    failedToParse(importError, `${path.basename(absolutePath)}:`)
   )
-  loadedConfigCache.set(absolutePath, loading)
-
-  try {
-    return await loading
-  } catch (error) {
-    // Don't poison the cache with a transient failure.
-    loadedConfigCache.delete(absolutePath)
-
-    throw error
-  }
 }
 
 async function loadConfigFileUncached(
-  absolutePath: string,
-  envOrder: string[]
+  absolutePath: string
 ): Promise<FileConfig> {
-  const projectDir = path.dirname(absolutePath)
+  const requireFn = createRequire(import.meta.url)
+  const earlierRuns = configEvaluations.get(absolutePath) || 0
 
-  preloadEnvFiles(projectDir, envOrder)
+  // Node keeps a module it already ran. A run under other env values has to
+  // read the file again, or it would hand back the first run's answer.
+  if (earlierRuns > 0) {
+    delete requireFn.cache[absolutePath]
+
+    try {
+      // require() files a module under its real path, past any symlink.
+      delete requireFn.cache[fs.realpathSync(absolutePath)]
+    } catch {
+      // Ignore: a file that is gone fails below with its own reason.
+    }
+  }
 
   try {
     if (absolutePath.endsWith('.cjs')) {
-      const requireFn = createRequire(import.meta.url)
       const required = requireFn(absolutePath)
 
       return unwrapDefaultExport(required) as FileConfig
@@ -473,46 +665,25 @@ async function loadConfigFileUncached(
     // and import.meta.dirname is the project, which a temp copy both broke.
     prepareImportMetaEnv(absolutePath)
 
-    const module = await import(pathToFileURL(absolutePath).href)
+    const fileUrl = pathToFileURL(absolutePath).href
+    const module = await import(
+      earlierRuns > 0 ? `${fileUrl}?env=${earlierRuns}` : fileUrl
+    )
 
     return unwrapDefaultExport(module) as FileConfig
   } catch (err: unknown) {
-    const error = err as Error
+    let reason = err
 
-    try {
-      if (!absolutePath.endsWith('.mjs')) {
-        const requireFn = createRequire(import.meta.url)
-        let required: ParsedJson
+    claimRejectionOf(err)
 
-        try {
-          required = requireFn(absolutePath)
-        } catch (requireErr) {
-          // If Node refuses to require a CJS-content .js file (package.json "type":
-          // "module"), copy to a temporary .cjs and require that instead.
-          const message =
-            String(error?.message || '') +
-            ' ' +
-            String((requireErr as Error | undefined)?.message || '')
-          const looksLikeCommonJsInEsm =
-            message.includes('require is not defined in ES module scope') ||
-            message.includes('Cannot use import statement outside a module') ||
-            message.includes('ERR_REQUIRE_ESM')
+    if (canRetryAsCommonJs(absolutePath, err)) {
+      const retry = loadCommonJsConfigAfterFailedImport(absolutePath, err)
 
-          if (looksLikeCommonJsInEsm) {
-            try {
-              required = loadCommonJsConfigWithStableDirname(absolutePath)
-            } catch {
-              required = requireCommonJsCopyBesideSource(absolutePath)
-            }
-          } else {
-            throw requireErr
-          }
-        }
-
-        return unwrapDefaultExport(required) as FileConfig
+      if ('loaded' in retry) {
+        return unwrapDefaultExport(retry.loaded) as FileConfig
       }
-    } catch {
-      // Ignore
+
+      reason = retry.reason
     }
 
     try {
@@ -520,7 +691,7 @@ async function loadConfigFileUncached(
 
       return JSON.parse(content)
     } catch {
-      throw configLoadError(absolutePath, error)
+      throw configLoadError(absolutePath, reason)
     }
   }
 }
@@ -696,9 +867,16 @@ export async function loadProjectConfigDefaults(
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
+        // Told nothing about the run, this reads the config as the run last
+        // did, and never as a production build in the middle of a dev session.
         const userConfig = (await loadConfigFile(
           configPath,
-          envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
+          envTarget?.mode || envTarget?.browser
+            ? envPreloadOrder(
+                envModeFor(undefined, envTarget),
+                envTarget?.browser
+              )
+            : undefined
         )) as ProjectConfigDefaults | undefined
 
         return {

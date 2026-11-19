@@ -35,6 +35,12 @@ const isScriptsFolderFeature = (feature: string) =>
 const isBackgroundScriptsFeature = (feature: string) =>
   feature === 'background/scripts'
 
+// The development manifest names a script for a group that lists only
+// stylesheets, and the bundler emits none for an entry made of sheets alone.
+const SHEET_ONLY_GROUP_SCRIPT = `data:text/javascript;charset=utf-8,${encodeURIComponent(
+  '/* Extension.js stylesheet group */'
+)}`
+
 // The field as the manifest writes it: a content script group lists its
 // scripts and its stylesheets apart, under the index of the group.
 function manifestFieldOf(
@@ -95,6 +101,15 @@ function contentScriptSheets(
   return sheets
 }
 
+// The bundler's own report for an entry request that names one of the
+// files, whatever way the platform spells the path in it.
+function isUnresolvedEntryReport(message: string, files: string[]): boolean {
+  const spelled = (text: string) => text.replace(/\\+/g, '/').toLowerCase()
+  const text = spelled(message)
+
+  return files.some((file) => text.includes(`can't resolve '${spelled(file)}'`))
+}
+
 export function createSequentialEntryModule(
   feature: string,
   scriptImports: string[]
@@ -152,6 +167,7 @@ export class AddScripts {
       'scripts:validate-include-list',
       (compilation) => {
         const ErrorCtor = compiler.rspack?.WebpackError || Error
+        const missing: string[] = []
 
         try {
           const manifestDir = path.dirname(this.manifestPath)
@@ -194,6 +210,8 @@ export class AddScripts {
 
               if (!isWithheld && fs.existsSync(resolved)) continue
 
+              if (!isWithheld) missing.push(resolved)
+
               const isPublicRoot =
                 !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
 
@@ -234,6 +252,22 @@ export class AddScripts {
           failure.cause = error
           ;(compilation.errors ||= []).push(failure)
         }
+
+        if (missing.length === 0) return
+
+        // One report per missing file, and this step's names the field.
+        compilation.hooks.seal.tap(
+          'scripts:one-report-per-missing-file',
+          () => {
+            const reports = Array.from(compilation.errors)
+            const kept = reports.filter(
+              (report) =>
+                !isUnresolvedEntryReport(String(report?.message), missing)
+            )
+
+            if (kept.length !== reports.length) compilation.errors = kept
+          }
+        )
       }
     )
 
@@ -307,9 +341,16 @@ export class AddScripts {
         (isContentScriptFeature(feature) ||
           isBackgroundScriptsFeature(feature)) &&
         scriptImports.length > 1
+      const needsDevelopmentScript =
+        compiler.options.mode === 'development' &&
+        isContentScriptFeature(feature) &&
+        scriptImports.length === 0 &&
+        cssImports.length > 0
       const finalEntryImports = shouldUseSequentialEntryModule
         ? [createSequentialEntryModule(feature, scriptImports), ...cssImports]
-        : entryImports
+        : needsDevelopmentScript
+          ? [SHEET_ONLY_GROUP_SCRIPT, ...cssImports]
+          : entryImports
 
       if (!finalEntryImports.length) continue
 

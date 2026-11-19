@@ -7,7 +7,8 @@ import type {
   BuildCommandConfig,
   DevCommandConfig,
   FileConfig,
-  ServeCommandConfig
+  PreviewCommandConfig,
+  StartCommandConfig
 } from '../config-types'
 
 // The published config type is hand-kept beside the one the loader reads, so
@@ -27,12 +28,33 @@ type NoGaps<Internal, Public> = [Gaps<Internal, Public>] extends [never]
 const everyLayerNamesWhatTheLoaderReads: [
   NoGaps<InternalBrowser, BrowserConfig>,
   NoGaps<NonNullable<Commands['dev']>, DevCommandConfig>,
-  NoGaps<NonNullable<Commands['start']>, ServeCommandConfig>,
-  NoGaps<NonNullable<Commands['preview']>, ServeCommandConfig>,
+  NoGaps<NonNullable<Commands['start']>, StartCommandConfig>,
+  // Preview builds nothing. The CLI keeps these keys, marked deprecated.
+  NoGaps<NonNullable<Commands['preview']>, PreviewCommandConfig>,
   NoGaps<NonNullable<Commands['build']>, BuildCommandConfig>
 ] = [true, true, true, true, true]
 
 void everyLayerNamesWhatTheLoaderReads
+
+// Budgets belong to the start layer, and preview builds nothing, so it takes
+// none. The compiler is what checks both values.
+const startTakesBudgets: FileConfig = {
+  commands: {
+    start: {
+      perfBudgets: {'service-worker': 10},
+      noOpen: true,
+      startingUrl: 'https://example.com'
+    },
+    preview: {noOpen: true, startingUrl: 'https://example.com'}
+  }
+}
+const previewRefusesBudgets: FileConfig = {
+  // @ts-expect-error preview builds nothing, so no budget applies
+  commands: {preview: {perfBudgets: {'service-worker': 10}}}
+}
+
+void startTakesBudgets
+void previewRefusesBudgets
 
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(

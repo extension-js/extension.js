@@ -25,6 +25,15 @@ describe('a dev failure block that wraps a framed refusal', () => {
     expect(block).toContain('The dev server keeps watching')
   })
 
+  it('says the session ends when the launch refused a value the user set', () => {
+    const block = messages
+      .browserLaunchFailed('chrome', framed, 'E_BROWSER_BINARY_INVALID')
+      .replace(ANSI, '')
+
+    expect(block).toContain('The dev session ends here.')
+    expect(block).not.toContain('keeps watching')
+  })
+
   it('keeps one glyph in the dev command failure block', () => {
     const block = messages.devCommandFailed(new Error(framed)).replace(ANSI, '')
 

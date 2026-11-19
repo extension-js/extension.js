@@ -421,14 +421,19 @@ export class BrowsersPlugin implements RunnerPlugin {
           if (!this.controller) this.isFirstCompile = true
 
           const reason = error instanceof Error ? error.message : String(error)
+          const failure = error as {code?: unknown; printed?: unknown} | null
+
           // Print before emitting: the emitter's default 'error' listener
-          // swallows, so this is the only surface the operator ever sees.
-          console.error(
-            messages.browserLaunchFailed(
-              this.options.browserOptions.browser as DevOptions['browser'],
-              reason
+          // swallows. A launcher that printed the failure says so on the error.
+          if (failure?.printed !== true) {
+            console.error(
+              messages.browserLaunchFailed(
+                this.options.browserOptions.browser as DevOptions['browser'],
+                reason,
+                failure?.code
+              )
             )
-          )
+          }
 
           this.emitter.emit('error', {errors: [reason]})
         }

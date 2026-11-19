@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {BuildToolchain} from './build-toolchain'
+import {toMachineText} from './machine-text'
 
 /**
  * What the injected Safari packager reports back about the app it produced.
@@ -95,7 +96,8 @@ export function getBuildSummary(
   } | null,
   outputPath?: string,
   outputFiles?: Array<{size: number; name?: string}>,
-  codes?: ReadonlyMap<string, string>
+  codes?: ReadonlyMap<string, string>,
+  projectPath?: string
 ): Omit<BuildSummary, 'buildType'> {
   // The stats list leaves out source maps, so the files found in the output
   // folder are what the totals count whenever the folder could be read.
@@ -116,11 +118,11 @@ export function getBuildSummary(
           : String(warning ?? '')
       const raw = message.replace(ANSI_PATTERN, '').trim()
       const code = codes?.get(raw)
-      const text = stripLoaderWrapper(raw)
+      const text = toMachineText(raw, projectPath)
 
       // A warning that resolves to a code reads the way the frame's own
-      // warnings do: the code, a colon, the text without the bundler glyph.
-      return code ? `${code}: ${text.replace(/^[×⚠]\s*/, '')}` : text
+      // warnings do: the code, a colon, the text with no terminal frame.
+      return code && text ? `${code}: ${text}` : text
     })
     .filter(Boolean)
 

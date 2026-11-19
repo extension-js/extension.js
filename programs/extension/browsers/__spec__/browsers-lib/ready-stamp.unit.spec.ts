@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {readyContractPath} from '../../../../develop/lib/session-contract'
+import {isFreshContractPayload} from '../../../commands/dev-wait'
 import {
   claimReadyPath,
   clearReadyCdpPort,
@@ -26,8 +28,6 @@ import {
   stampReadyRdpPort,
   stampReadyRdpPortError
 } from '../../browsers-lib/ready-stamp'
-import {readyContractPath} from '../../../../develop/lib/session-contract'
-import {isFreshContractPayload} from '../../../commands/dev-wait'
 import {CDPClient} from '../../run-chromium/cdp/cdp-client'
 
 // Every stamp time is written with toISOString.

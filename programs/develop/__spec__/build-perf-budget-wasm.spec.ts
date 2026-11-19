@@ -55,7 +55,11 @@ function project(kind: 'page-and-worker' | 'content-script', config?: string) {
     manifest_version: 3,
     name: 'wasm-budget',
     version: '1.0.0',
-    options_page: 'engine/index.html'
+    options_page: 'engine/index.html',
+    // Lets the pages run the binary, so the budget is the only warning left.
+    content_security_policy: {
+      extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+    }
   }
 
   if (kind === 'content-script') {

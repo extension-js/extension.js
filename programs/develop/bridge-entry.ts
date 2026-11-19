@@ -71,3 +71,6 @@ export type {
   ReadyMetadata,
   ReadyStatus
 } from './plugin-playwright'
+// ready.json with every field the engine writes, launcher stamps it carries
+// across a recompile included.
+export type {ReadyContract} from './types'

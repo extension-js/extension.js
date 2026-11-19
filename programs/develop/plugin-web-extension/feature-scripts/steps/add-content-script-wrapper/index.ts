@@ -26,12 +26,14 @@ import type {
   Manifest,
   PluginInterface
 } from '../../../../types'
+import {ResolveClassicConcat} from '../../../shared/classic-concat'
 import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
   createContentScriptCssProbeMarkerPattern,
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
   parseCanonicalContentScriptAsset
 } from '../../contracts'
+import {addRulesInFront} from '../../scripts-lib/front-rules'
 import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
 
@@ -194,6 +196,12 @@ export class AddContentScriptWrapper {
       ]
     })
 
+    // A joined entry is named for its first file, which may be deleted
+    // while the session runs. The files left still build.
+    new ResolveClassicConcat({loader: this.resolveConcatLoader()}).apply(
+      compiler
+    )
+
     // Loaders run from the last rule to the first. In front of the rules
     // extension.config.js added, the wrapper reads what their loaders return.
     const wrapperRules: typeof compiler.options.module.rules = []
@@ -247,7 +255,11 @@ export class AddContentScriptWrapper {
       })
     }
 
-    compiler.options.module.rules.unshift(...wrapperRules)
+    addRulesInFront(
+      compiler,
+      'scripts:add-content-script-wrapper',
+      wrapperRules
+    )
 
     compiler.hooks.thisCompilation.tap(
       'scripts:add-content-script-wrapper',

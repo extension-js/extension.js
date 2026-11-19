@@ -1,6 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+// @ts-expect-error plain ESM script without types, shared with the script specs
+import {workspaceSourceEntries} from '../../../scripts/lib/workspace-source-entries.mjs'
 
 type DevelopModule = typeof import('extension-develop')
 type DevelopPreviewModule = typeof import('extension-develop/preview')
@@ -63,9 +65,27 @@ describe('the types the CLI reads for the build engine', () => {
       fs.readFileSync(path.join(extensionRoot, 'tsconfig.json'), 'utf8')
     )
 
-    // Without it the declaration build reads the dist of the engine, which a
+    // Without these the declaration build reads the dist of the engine, which a
     // fresh clone that compiles this package alone does not have.
-    expect(tsconfig.compilerOptions.customConditions).toContain('development')
+    const engineEntries = Object.entries(
+      workspaceSourceEntries as Record<string, string>
+    ).filter(([specifier]) => /^extension-develop(\/|$)/.test(specifier))
+    // Through the linked package, so the engine files count as a library and
+    // the declarations of this package keep `import('extension-develop')`.
+    const expected = Object.fromEntries(
+      engineEntries.map(([specifier, file]) => [
+        specifier,
+        [`./node_modules/extension-develop/${path.basename(file)}`]
+      ])
+    )
+
+    expect(engineEntries.length).toBeGreaterThan(0)
+    expect(tsconfig.compilerOptions.customConditions).toBeUndefined()
+    expect(tsconfig.compilerOptions.paths).toEqual(expected)
+
+    for (const [target] of Object.values(expected)) {
+      expect(fs.existsSync(path.join(extensionRoot, target)), target).toBe(true)
+    }
   })
 
   it('refuse an option the engine does not declare', () => {

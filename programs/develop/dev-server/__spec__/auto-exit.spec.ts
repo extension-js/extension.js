@@ -27,6 +27,33 @@ describe('auto-exit', () => {
     expect(process.exit).not.toHaveBeenCalled()
   })
 
+  it.each([
+    '1e5',
+    '1.5',
+    '12ms',
+    '-5',
+    '0',
+    ''
+  ])('reads %j as no auto-exit at all, not as a one millisecond one', async (value) => {
+    const onCleanup = vi.fn(async () => {})
+    const cancel = setupAutoExit(value, undefined as any, onCleanup)
+
+    await vi.advanceTimersByTimeAsync(200_000)
+    expect(onCleanup).not.toHaveBeenCalled()
+    cancel()
+  })
+
+  it('reads whole digits with spaces around them as the wait', async () => {
+    const onCleanup = vi.fn(async () => {})
+    const cancel = setupAutoExit(' 1500 ', '60000', onCleanup)
+
+    await vi.advanceTimersByTimeAsync(1499)
+    expect(onCleanup).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onCleanup).toHaveBeenCalledTimes(1)
+    cancel()
+  })
+
   it('triggers cleanup and force-exit after timeouts', async () => {
     const onCleanup = vi.fn().mockResolvedValue(undefined)
     const cancel = setupAutoExit(1000, 2000, onCleanup)
@@ -76,5 +103,31 @@ describe('auto-exit', () => {
     vi.advanceTimersByTime(500)
     expect(process.exit).toHaveBeenCalledTimes(1)
     expect(process.exit).toHaveBeenCalledWith(1)
+  })
+
+  it('caps a force kill the timer could not hold', () => {
+    const onCleanup = vi.fn().mockResolvedValue(undefined)
+    setupAutoExit(60_000, '3000000000', onCleanup)
+
+    // Uncapped, this timer fires after one millisecond and exits 0.
+    vi.advanceTimersByTime(59_999)
+    expect(process.exit).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(onCleanup).toHaveBeenCalledTimes(1)
+    expect(process.exit).not.toHaveBeenCalled()
+  })
+
+  it('caps the auto-exit and the default backstop near the limit', () => {
+    const onCleanup = vi.fn().mockResolvedValue(undefined)
+    setupAutoExit(2147483647, undefined as any, onCleanup)
+    vi.advanceTimersByTime(60_000)
+    expect(onCleanup).not.toHaveBeenCalled()
+    expect(process.exit).not.toHaveBeenCalled()
+
+    const later = vi.fn().mockResolvedValue(undefined)
+    setupAutoExit('9007199254740993', undefined as any, later)
+    vi.advanceTimersByTime(60_000)
+    expect(later).not.toHaveBeenCalled()
+    expect(process.exit).not.toHaveBeenCalled()
   })
 })
