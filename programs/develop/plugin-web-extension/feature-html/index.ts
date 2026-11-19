@@ -34,12 +34,14 @@ export class HtmlPlugin {
   public readonly includeList?: FilepathList
   private readonly browser: DevOptions['browser']
   private readonly devSession?: boolean
+  private readonly connectableHost?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.devSession = options.devSession
     this.browser = options.browser || 'chrome'
+    this.connectableHost = options.connectableHost
   }
 
   public apply(compiler: Compiler): void {
@@ -62,7 +64,8 @@ export class HtmlPlugin {
     new AddScriptsAndStylesToCompilation({
       manifestPath: this.manifestPath,
       includeList,
-      browser: this.browser
+      browser: this.browser,
+      connectableHost: this.connectableHost
     }).apply(compiler)
 
     new UpdateHtmlFile({

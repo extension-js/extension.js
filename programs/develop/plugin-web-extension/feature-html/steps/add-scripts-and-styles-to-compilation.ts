@@ -20,11 +20,13 @@ export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
   public readonly browser?: string
+  public readonly connectableHost?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.browser = options.browser
+    this.connectableHost = options.connectableHost
   }
 
   public apply(compiler: Compiler) {
@@ -33,7 +35,7 @@ export class AddScriptsAndStylesToCompilation {
     const projectRoot = (compiler.options.context as string) || manifestDir
     const devServerHmrImports =
       compiler.options.mode === 'development'
-        ? getDevServerHmrImports(compiler)
+        ? getDevServerHmrImports(compiler, this.connectableHost)
         : []
 
     for (const field of Object.entries(htmlEntries)) {

@@ -41,12 +41,14 @@ export class WebExtensionPlugin {
   public readonly browser: DevOptions['browser']
   public readonly devSession?: boolean
   public readonly define?: Record<string, unknown>
+  public readonly connectableHost?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
     this.define = options.define
+    this.connectableHost = options.connectableHost
   }
 
   public apply(compiler: Compiler): void {
@@ -101,6 +103,7 @@ export class WebExtensionPlugin {
     new ManifestPlugin({
       browser: this.browser,
       devSession: this.devSession,
+      connectableHost: this.connectableHost,
       manifestPath,
       includeList: {
         ...manifestFieldsData.html,
@@ -124,6 +127,7 @@ export class WebExtensionPlugin {
 
     new HtmlPlugin({
       devSession: this.devSession,
+      connectableHost: this.connectableHost,
       manifestPath,
       browser: this.browser,
       includeList: pageEntries

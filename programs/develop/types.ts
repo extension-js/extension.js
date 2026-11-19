@@ -83,6 +83,9 @@ export type PluginInterface = {
    * (dev CSP, injected permissions, reload client, page HMR) on. A build in
    * development mode is shippable and keeps the author's manifest. */
   devSession?: boolean
+  /** The host this dev session's browser dials, given by the session that
+   * builds the config, so another session's environment does not name it. */
+  connectableHost?: string
 }
 
 export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
@@ -605,6 +608,11 @@ export interface CommonWebpackOptions {
    * PlaywrightPlugin can advertise them in ready.json. Not user-configurable.
    */
   controlPort?: number | null
+  /**
+   * The host this session's browser dials for the control bridge, given by
+   * the dev session that builds the config. Not user-configurable.
+   */
+  connectableHost?: string
   controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string

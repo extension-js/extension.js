@@ -71,7 +71,10 @@ function resolveHmrHotPath(): string {
   return _resolvedHotPath
 }
 
-export function getDevServerHmrImports(compiler: Compiler): string[] {
+export function getDevServerHmrImports(
+  compiler: Compiler,
+  connectableHost?: string
+): string[] {
   interface DevServerClientConfig {
     webSocketURL?: {
       protocol?: unknown
@@ -115,10 +118,12 @@ export function getDevServerHmrImports(compiler: Compiler): string[] {
   const protocol = String(webSocketURL.protocol || envProtocol || 'ws')
   // The HMR client must dial a CONNECTABLE host: the bind host can be a wildcard
   // (0.0.0.0) the browser can't connect to; rewrite wildcards to loopback.
-  const envConnectableHost = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
+  // The session's own host wins over the environment another session wrote.
+  const sessionHost =
+    connectableHost ?? process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
   const hostname = String(
     webSocketURL.hostname ||
-      envConnectableHost ||
+      sessionHost ||
       resolveConnectableHost(devServer?.host || envHost)
   )
   const port =
