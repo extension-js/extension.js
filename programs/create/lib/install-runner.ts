@@ -301,7 +301,14 @@ export async function runInstall(
   const ownGroup =
     platform !== 'win32' && opts.stdio !== 'inherit' && opts.stdio !== 'tee'
   const child = spawnProcess(command, args, {
-    stdio: opts.stdio === 'tee' ? ['inherit', 'pipe', 'pipe'] : opts.stdio,
+    // A captured run has no one to answer a prompt, so its stdin is closed
+    // and a manager that asks reads the end at once, not at the timeout.
+    stdio:
+      opts.stdio === 'tee'
+        ? ['inherit', 'pipe', 'pipe']
+        : opts.stdio === 'pipe'
+          ? ['ignore', 'pipe', 'pipe']
+          : opts.stdio,
     cwd: opts.cwd,
     // cross-spawn runs the .cmd shims on Windows and escapes each argument,
     // so the project path never becomes part of a shell string.
