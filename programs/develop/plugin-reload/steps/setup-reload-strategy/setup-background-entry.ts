@@ -19,6 +19,10 @@ import type {DevOptions, Manifest} from '../../../types'
 import * as reloadMessages from '../../messages'
 
 export class SetupBackgroundEntry {
+  // The entry this step generated for a manifest that declares no
+  // background the browser can run, set once the step is applied.
+  public generated?: {pageEntry?: string; serviceWorkerEntry?: string}
+
   private manifestPath: string
   private browser: DevOptions['browser']
 
@@ -110,6 +114,7 @@ export class SetupBackgroundEntry {
         if (maybeError) hookError(maybeError)
       } else if (!hasBackgroundPage) {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
+        this.generated = {pageEntry: 'background/script'}
       }
 
       return
@@ -127,6 +132,7 @@ export class SetupBackgroundEntry {
         if (maybeError) hookError(maybeError)
       } else if (!hasBackgroundPage) {
         this.addDefaultEntry(compiler, 'background/script', minimumBgScript)
+        this.generated = {pageEntry: 'background/script'}
       }
     } else {
       const serviceWorker = manifestBg?.service_worker
@@ -152,6 +158,8 @@ export class SetupBackgroundEntry {
           'background/service_worker',
           minimumBgScript
         )
+
+        this.generated = {serviceWorkerEntry: 'background/service_worker'}
       }
     }
   }

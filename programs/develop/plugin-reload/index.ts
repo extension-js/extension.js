@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
 import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
+import {isReloadSession} from '../lib/reload-session'
 import type {DevOptions, PluginInterface} from '../types'
 import {
   InjectBridgeProducer,
@@ -79,12 +80,9 @@ export class ReloadPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    if (
-      compiler.options.mode === 'production' ||
-      // A shippable development build carries no reload client.
-      this.devSession === false ||
-      process.env.EXTENSION_NO_RELOAD === 'true'
-    ) {
+    // The web extension plugin reads the same answer, so the chunk loading
+    // target this pipeline installs is installed by exactly one of the two.
+    if (!isReloadSession(compiler.options.mode, this.devSession)) {
       return
     }
 
