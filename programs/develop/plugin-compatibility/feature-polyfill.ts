@@ -12,7 +12,8 @@ import {recordCodedWarning} from '../lib/coded-warnings'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
 import {
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
-  EXTENSIONJS_SANDBOX_LAYER
+  EXTENSIONJS_SANDBOX_LAYER,
+  isMainWorldCompiler
 } from '../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions} from '../types'
 import * as messages from './compatibility-lib/messages'
@@ -98,7 +99,11 @@ export class PolyfillPlugin {
     // which compiles apart, is covered too.
     compiler.hooks.compilation.tap(
       PolyfillPlugin.name,
-      (_compilation, {normalModuleFactory}) => {
+      (compilation, {normalModuleFactory}) => {
+        // A dev MAIN world compiler builds page code alone, so a file the
+        // isolated world shares gets no polyfill in this copy either.
+        const onPage = isMainWorldCompiler(compilation.compiler)
+
         normalModuleFactory.hooks.beforeResolve.tap(
           PolyfillPlugin.name,
           (data) => {
@@ -107,6 +112,7 @@ export class PolyfillPlugin {
             const {issuer, issuerLayer} = data.contextInfo || {}
 
             if (
+              onPage ||
               issuerLayer === EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER ||
               issuerLayer === EXTENSIONJS_SANDBOX_LAYER ||
               noExtensionApi.has(resourceKey(issuer))
