@@ -1,9 +1,11 @@
 import {spawn} from 'node:child_process'
 import {once} from 'node:events'
 import * as fs from 'node:fs'
+import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {claimDebugPortNear} from '../../browsers-lib/debug-port-claim'
 import {createChromiumContext} from '../../run-chromium/chromium-context'
 import {ChromiumLaunchPlugin} from '../../run-chromium/chromium-launch'
 import {
@@ -51,9 +53,18 @@ describe('a Chromium launch that does not reach a running extension', () => {
       pinned?: boolean
       host?: Record<string, unknown>
       command?: 'dev' | 'preview'
+      realClaim?: {maxAttempts: number}
     } = {}
   ) => {
     fake = await fakeChromium({script: input.script, browser: input.browser})
+
+    if (input.realClaim) {
+      const {claimDir} = fake
+      const {maxAttempts} = input.realClaim
+      fake.deps.claimPort = (startPort) =>
+        claimDebugPortNear(startPort, {dir: claimDir, maxAttempts})
+    }
+
     fake.project.writeReady({
       command: input.command ?? 'preview',
       status: 'starting',
@@ -282,6 +293,63 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.claims).toEqual([
         {requested: 9222, port: fake.port, released: 1}
       ])
+    })
+  })
+
+  describe('every debugging port taken', () => {
+    let holder: net.Server
+
+    beforeEach(async () => {
+      holder = net.createServer()
+      await new Promise<void>((resolve) =>
+        holder.listen(0, '127.0.0.1', resolve)
+      )
+    })
+
+    afterEach(async () => {
+      await new Promise((resolve) => holder.close(resolve))
+    })
+
+    // The debugging port is --port plus 100, so this run starts its search
+    // on the port the holder listens on, with room for one attempt.
+    const startOnHeldPort = async (command: 'dev' | 'preview') => {
+      const held = (holder.address() as net.AddressInfo).port
+      const launch = await start({
+        host: {port: held - 100},
+        command,
+        realClaim: {maxAttempts: 1}
+      })
+
+      return {held, ...launch}
+    }
+
+    it('refuses a run-only launch with E_PORT_UNAVAILABLE and records the code', async () => {
+      const {held, plugin, runOnly} = await startOnHeldPort('preview')
+      const error = await failure(runOnly())
+
+      expect(error.code).toBe('E_PORT_UNAVAILABLE')
+      expect(error.message).toContain(`from ${held} to ${held}`)
+      expect(plugin.spawnedBrowser).toBe(false)
+      expect(fake.spawns).toEqual([])
+      expect(fake.project.readReady()).toMatchObject({
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedCode: 'E_PORT_UNAVAILABLE'
+      })
+    })
+
+    it('refuses a dev launch the same way', async () => {
+      const {plugin, dev} = await startOnHeldPort('dev')
+      const error = await failure(dev())
+
+      expect(error.code).toBe('E_PORT_UNAVAILABLE')
+      expect(plugin.spawnedBrowser).toBe(false)
+      expect(fake.spawns).toEqual([])
+      expect(fake.project.readReady()).toMatchObject({
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedCode: 'E_PORT_UNAVAILABLE'
+      })
     })
   })
 

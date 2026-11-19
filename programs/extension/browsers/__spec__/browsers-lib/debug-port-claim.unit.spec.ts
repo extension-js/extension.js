@@ -151,22 +151,18 @@ describe('claimDebugPortNear', () => {
     second.release()
   })
 
-  // Pins current behavior: the busy start port comes back with a no-op release.
-  it('hands back the start port with nothing to release once every attempt found a listener', async () => {
+  // A busy port handed on would launch a browser that cannot bind it.
+  it('refuses with E_PORT_UNAVAILABLE, naming the range, once every attempt found a listener', async () => {
     const servers = [await listenOn(start), await listenOn(start + 1)]
 
     try {
-      const claim = await claimDebugPortNear(start, {dir, maxAttempts: 2})
-
-      expect(claim.port).toBe(start)
-      expect(fs.readdirSync(dir)).toEqual([])
-
-      // The port it answered with is still taken, and no claim covers it.
-      await expect(listenOn(claim.port)).rejects.toMatchObject({
-        code: 'EADDRINUSE'
+      await expect(
+        claimDebugPortNear(start, {dir, maxAttempts: 2})
+      ).rejects.toMatchObject({
+        code: 'E_PORT_UNAVAILABLE',
+        message: `No free browser debugging port from ${start} to ${start + 1}. Close the browsers or sessions holding them, or pass --port <port> to move the range.`
       })
 
-      claim.release()
       expect(fs.readdirSync(dir)).toEqual([])
     } finally {
       for (const server of servers) {

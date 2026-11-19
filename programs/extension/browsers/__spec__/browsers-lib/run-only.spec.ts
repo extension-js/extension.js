@@ -1,5 +1,6 @@
 import {type ChildProcess, spawn} from 'node:child_process'
 import * as fs from 'node:fs'
+import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
@@ -64,6 +65,28 @@ vi.mock('../../run-firefox/firefox-launch', () => ({
 vi.mock('../../browsers-lib/banner', () => ({
   printProdBannerOnce
 }))
+
+// The real claim, with options a case may narrow.
+const {claimOptions} = vi.hoisted(() => ({
+  claimOptions: {current: {} as {maxAttempts?: number; dir?: string}}
+}))
+
+vi.mock('../../browsers-lib/debug-port-claim', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../browsers-lib/debug-port-claim')>()
+
+  return {
+    ...actual,
+    claimDebugPortNear: (
+      startPort: number,
+      options?: Parameters<typeof actual.claimDebugPortNear>[1]
+    ) =>
+      actual.claimDebugPortNear(startPort, {
+        ...options,
+        ...claimOptions.current
+      })
+  }
+})
 
 import {createPlaywrightMetadataWriter} from '../../../../develop/plugin-playwright'
 import {
@@ -229,6 +252,56 @@ describe('runOnlyPreviewBrowser', () => {
 
       expect(JSON.parse(fs.readFileSync(readyPath, 'utf8'))).toEqual(next)
     } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('refuses with E_PORT_UNAVAILABLE before the card when no debugging port is free, and records the code', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-busy-'))
+    const outPath = path.join(dir, 'dist', 'chrome')
+    const readyPath = path.join(
+      dir,
+      'dist',
+      'extension-js',
+      'chrome',
+      'ready.json'
+    )
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-1', command: 'preview', status: 'starting'})
+    )
+
+    const holder = net.createServer()
+    await new Promise<void>((resolve) => holder.listen(0, '127.0.0.1', resolve))
+    const held = (holder.address() as net.AddressInfo).port
+    // One attempt, in a claim folder of this spec's own.
+    claimOptions.current = {maxAttempts: 1, dir: path.join(dir, 'claims')}
+
+    try {
+      await expect(
+        runOnlyPreviewBrowser({
+          browser: 'chrome',
+          outPath,
+          readyPath,
+          contextDir: dir,
+          extensionsToLoad: [outPath],
+          // The debugging port is --port plus 100.
+          port: held - 100
+        })
+      ).rejects.toMatchObject({code: 'E_PORT_UNAVAILABLE'})
+
+      expect(printProdBannerOnce).not.toHaveBeenCalled()
+      expect(chromiumRunOnce).not.toHaveBeenCalled()
+      expect(JSON.parse(fs.readFileSync(readyPath, 'utf8'))).toMatchObject({
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedCode: 'E_PORT_UNAVAILABLE'
+      })
+    } finally {
+      claimOptions.current = {}
+      await new Promise((resolve) => holder.close(resolve))
       fs.rmSync(dir, {recursive: true, force: true})
     }
   })
