@@ -138,10 +138,10 @@ describe('when a compile of a launched session may reload', () => {
     await dev.compile({bundle: FIRST})
     await dev.compile({bundle: SECOND, files: ['src/manifest.json']})
 
+    // The failed launch reports on 'error', so only the relaunch is compiled.
     expect(dev.launch).toHaveBeenCalledTimes(2)
     expect(dev.frames).toEqual([])
     expect(dev.compiled.map((event) => event.reloadInstruction)).toEqual([
-      undefined,
       undefined
     ])
 

@@ -309,11 +309,13 @@ export class BrowsersPlugin implements RunnerPlugin {
     }
   }
 
+  // True when a browser came up with this build. A launch that failed or is
+  // still out reports on 'error', and the build is not reported compiled.
   private async launchBrowser(
     compilation: object,
     outputPath: string,
     contextDir: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     const browser = this.options.browserOptions.browser
     const launch = Promise.resolve().then(() =>
       this.options.launcher({
@@ -335,11 +337,11 @@ export class BrowsersPlugin implements RunnerPlugin {
 
     if (outcome.state === 'resolved') {
       this.controller = outcome.value
-      await this.enableBrowserLogs()
+      await this.enableBrowserLogs(outputPath)
       this.announceLaunchSettled()
       this.announceReady()
 
-      return
+      return true
     }
 
     this.announceLaunchSettled()
@@ -350,7 +352,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       // The launcher stamped the contract itself before it threw.
       reportLaunchFailure(this.emitter, {browser, error: outcome.error})
 
-      return
+      return false
     }
 
     // The launcher never came back to stamp anything, so the stamp is ours.
@@ -372,19 +374,31 @@ export class BrowsersPlugin implements RunnerPlugin {
         this.controller = controller
         this.isFirstCompile = false
         clearLaunchTimedOut(outputPath)
-        await this.enableBrowserLogs()
+        await this.enableBrowserLogs(outputPath)
         this.announceReady()
+        this.emitCompiled({
+          outputPath,
+          contextDir,
+          isFirstCompile: true,
+          extensionsToLoad: this.extensionsToLoad
+        })
       },
       (error: unknown) => {
         this.launchStillRunning = false
         reportLaunchFailure(this.emitter, {browser, error})
       }
     )
+
+    return false
+  }
+
+  private emitCompiled(event: CompiledEvent): void {
+    this.emitter.emit('compiled', event)
   }
 
   // The browser is already up with the extension, so a capture that fails is
   // a warning on a session that still goes ready, never a failed launch.
-  private async enableBrowserLogs(): Promise<void> {
+  private async enableBrowserLogs(outputPath: string): Promise<void> {
     const browserOptions = this.options.browserOptions
     const logLevel = browserOptions.logLevel || 'off'
 
@@ -544,8 +558,12 @@ export class BrowsersPlugin implements RunnerPlugin {
 
         if (this.launchStillRunning) {
           this.isFirstCompile = true
-        } else {
-          await this.launchBrowser(compilation, outputPath, contextDir)
+
+          return
+        }
+
+        if (!(await this.launchBrowser(compilation, outputPath, contextDir))) {
+          return
         }
       } else if (await this.retryRefusedExtensionLoad()) {
         // The guest was absent until this compile, so there is nothing to
@@ -563,7 +581,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         this.loadedContentScripts?.settle(delivered)
       }
 
-      this.emitter.emit('compiled', {
+      this.emitCompiled({
         outputPath,
         contextDir,
         isFirstCompile: wasFirstCompile,
