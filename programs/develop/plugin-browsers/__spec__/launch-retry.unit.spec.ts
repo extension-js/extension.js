@@ -1,3 +1,6 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../lib/messages'
 import {
@@ -12,13 +15,18 @@ import {fakeCompilation, fakeCompiler} from './fake-compiler'
 const CONTEXT = '/tmp/project'
 const OUTPUT = '/tmp/project/dist/chrome'
 
-let printed: {log: string[]; error: string[]}
+let printed: {log: string[]; warn: string[]; error: string[]}
+const roots: string[] = []
 
 beforeEach(() => {
   expect.hasAssertions()
-  printed = {log: [], error: []}
+  printed = {log: [], warn: [], error: []}
   vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
     printed.log.push(parts.join(' '))
+  })
+
+  vi.spyOn(console, 'warn').mockImplementation((...parts: unknown[]) => {
+    printed.warn.push(parts.join(' '))
   })
 
   vi.spyOn(console, 'error').mockImplementation((...parts: unknown[]) => {
@@ -28,7 +36,36 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+
+  for (const root of roots.splice(0)) {
+    fs.rmSync(root, {recursive: true, force: true})
+  }
 })
+
+// A dev session's contract on disk, beside the build folder the launcher is
+// handed, the way the engine writes it before the first compile ends.
+function sessionContract(browser = 'chrome') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-browsers-'))
+  roots.push(root)
+  const output = path.join(root, 'dist', browser)
+  const readyPath = path.join(
+    root,
+    'dist',
+    'extension-js',
+    browser,
+    'ready.json'
+  )
+  fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  fs.writeFileSync(
+    readyPath,
+    JSON.stringify({status: 'ready', browser, pid: process.pid})
+  )
+
+  return {
+    output,
+    read: () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+  }
+}
 
 const controller = (
   overrides: Partial<BrowserController> = {}
@@ -43,7 +80,8 @@ type Launcher = (options: BrowserLaunchOptions) => Promise<BrowserController>
 // listener call it makes is recorded, in order.
 function session(
   launcher: Launcher,
-  browserOptions: {browser: string; logLevel?: string} = {browser: 'chrome'}
+  browserOptions: {browser: string; logLevel?: string} = {browser: 'chrome'},
+  output = OUTPUT
 ) {
   const launch = vi.fn(launcher)
   const plugin = new BrowsersPlugin({launcher: launch, browserOptions})
@@ -80,7 +118,7 @@ function session(
       await fake.done(
         fakeCompilation({
           context: CONTEXT,
-          output: OUTPUT,
+          output,
           manifest: {manifest_version: 3, name: 'fake', version: '0'}
         })
       )
@@ -210,9 +248,9 @@ describe('browser launch slot', () => {
     expect(dev.launch).toHaveBeenCalledTimes(1)
   })
 
-  // Pins current behavior: the browser runs with the extension, yet the
-  // logging failure reads as a failed launch and ready never fires.
-  it('reports a logging setup failure as a browser that could not start, and never says ready', async () => {
+  // The browser runs with the extension, so a logging failure is a warning
+  // beside a session that still says ready, never a failed launch.
+  it('reports a logging setup failure as a warning and still says ready', async () => {
     const dev = session(
       async () =>
         controller({
@@ -226,13 +264,54 @@ describe('browser launch slot', () => {
     await dev.compile()
     await dev.compile()
 
-    expect(printed.error).toEqual([
-      messages.browserLaunchFailed('chrome', 'logging refused')
-    ])
+    expect(printed.error).toEqual([])
+    expect(printed.warn).toHaveLength(1)
+    expect(printed.warn[0]).toContain('Chrome is running with the extension')
+    expect(printed.warn[0]).toContain('logging refused')
+    expect(dev.errors).toEqual([])
+    expect(dev.events).toEqual(['settled', 'ready', 'compiled', 'compiled'])
+  })
 
-    expect(printed.error[0]).toContain("Chrome couldn't start")
-    expect(dev.errors).toEqual([{errors: ['logging refused']}])
-    expect(dev.events).toEqual(['settled', 'error', 'compiled', 'compiled'])
+  it('names the logging fault on the session contract under a warning code', async () => {
+    const contract = sessionContract()
+    const dev = session(
+      async () =>
+        controller({
+          enableUnifiedLogging: vi.fn(async () => {
+            throw Object.assign(new Error('Log.enable timed out'), {
+              code: 'E_CDP_TIMEOUT'
+            })
+          })
+        }),
+      {browser: 'chrome', logLevel: 'info'},
+      contract.output
+    )
+
+    await dev.compile()
+
+    expect(contract.read()).toMatchObject({
+      status: 'ready',
+      cdpFaultCode: 'W_CDP_TIMEOUT',
+      cdpFaultMessage: expect.stringContaining('Log.enable timed out')
+    })
+  })
+
+  it('files a logging fault with no class of its own under the catch-all warning', async () => {
+    const contract = sessionContract()
+    const dev = session(
+      async () =>
+        controller({
+          enableUnifiedLogging: vi.fn(async () => {
+            throw new Error('logging refused')
+          })
+        }),
+      {browser: 'chrome', logLevel: 'info'},
+      contract.output
+    )
+
+    await dev.compile()
+
+    expect(contract.read().cdpFaultCode).toBe('W_CDP_OP_FAILED')
   })
 
   // Pins current behavior: only the message reaches the public error event.
