@@ -24,7 +24,11 @@ import {
   removeStaleStagingDirs,
   stagingDistPathFor
 } from './lib/atomic-dist'
-import {holdsForeignFiles, protectedFolderAt} from './lib/build-output-guard'
+import {
+  announceLeftoverOutputFolder,
+  holdsForeignFiles,
+  protectedFolderAt
+} from './lib/build-output-guard'
 import {type BuildSummary, getBuildSummary} from './lib/build-summary'
 import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
@@ -56,6 +60,11 @@ import {
   ensureDevelopArtifacts,
   ensureUserProjectDependencies
 } from './lib/ensure-develop-artifacts'
+import {
+  companionsDeclaredIn,
+  isFirstCompanionWarning,
+  unresolvedNamedCompanions
+} from './lib/extensions-to-load'
 import {generateExtensionTypes} from './lib/generate-extension-types'
 import {findLiveDevSession} from './lib/live-dev-session'
 import {resolveLocalizedManifestName} from './lib/localized-manifest-name'
@@ -74,7 +83,8 @@ import {
   debugLine,
   holdHumanLines,
   isDebug,
-  isMachineOutput
+  isMachineOutput,
+  stripChannelPrefix
 } from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
 import {listOutputFiles} from './lib/output-files'
@@ -96,7 +106,8 @@ import {
   browserDistDir,
   buildSummaryPath,
   ensureSessionArtifactsIgnoreFile,
-  ensureSessionStateInProjectGitignore
+  ensureSessionStateInProjectGitignore,
+  readyContractPath
 } from './lib/session-paths'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
@@ -108,6 +119,8 @@ import {
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
 import {
+  createPlaywrightMetadataWriter,
+  getSessionRunId,
   stampReadyDistExtensionId,
   stampReadyKnownExtensionId
 } from './plugin-playwright'
@@ -121,7 +134,8 @@ import {
 import type {
   BuildOptions,
   CommonWebpackOptions,
-  ConfigHookContext
+  ConfigHookContext,
+  WebpackConfigOptions
 } from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
@@ -353,6 +367,7 @@ async function runBuild(
   let stagingDistPath = ''
   let failureCount = 1
   let compilerToClose: {close?: (done: () => void) => void} | undefined
+  let recordBuildFailure: ((error: unknown) => void) | undefined
   const isAuthor = isDebug()
   // Whoever imports the build keeps the NODE_ENV they started it with.
   const nodeEnvBefore = process.env.NODE_ENV
@@ -364,6 +379,8 @@ async function runBuild(
   try {
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
+
+    announceLeftoverOutputFolder(projectStructure)
 
     // A browser passed in wins; with none, commands.<cmd>.browser from the
     // project config decides the target before the stock default does.
@@ -553,6 +570,28 @@ async function runBuild(
           })
         : undefined
 
+    // Said here, where the layer that named the companion is known. The
+    // compiler config finds the same entry and leaves it to this line.
+    for (const companion of unresolvedNamedCompanions({
+      projectRoot: packageJsonDir,
+      resolved: resolvedExtensionsConfig,
+      declared: mergedExtensionsConfig,
+      declaredIn: companionsDeclaredIn(commandKey, {
+        flag: buildOptions?.extensions,
+        command: commandConfig.extensions,
+        browser: browserConfig.extensions,
+        project: projectConfig.extensions
+      })
+    })) {
+      isFirstCompanionWarning(companion.manifestPath)
+      recordCodedWarning(
+        CODES.E_COMPANION_EXTENSION_PATH,
+        stripChannelPrefix(companion.frame)
+      )
+
+      if (!quiet) console.warn(companion.frame)
+    }
+
     const resolvedMode: 'development' | 'production' | 'none' =
       buildOptions?.mode === 'development' ||
       buildOptions?.mode === 'none' ||
@@ -575,7 +614,8 @@ async function runBuild(
       distPath
     )
 
-    const baseConfig: Configuration = webpackConfig(projectStructure, {
+    const metadataCommand = buildOptions?.metadataCommand || 'build'
+    const configOptions: WebpackConfigOptions = {
       ...mergedBuildOptions,
       zipDir,
       extensions: resolvedExtensionsConfig,
@@ -583,13 +623,20 @@ async function runBuild(
       mode: resolvedMode,
       // Opera Add-ons rejects minified first-party code on review.
       minify: mergedBuildOptions.minify ?? browser !== 'opera',
-      metadataCommand: buildOptions?.metadataCommand || 'build',
+      metadataCommand,
+      // The compile ends with the output still in staging, so the plugin
+      // stamps the compile only and this command says ready once it is placed.
+      launchFollows: true,
       output: {
         clean: false,
         path: stagingDistPath,
         finalPath: distPath
       }
-    })
+    }
+    const baseConfig: Configuration = webpackConfig(
+      projectStructure,
+      configOptions
+    )
 
     const buildPlugins = baseConfig.plugins?.filter((plugin) => {
       const name = plugin?.constructor.name
@@ -659,6 +706,56 @@ async function runBuild(
 
     const compiler = rspack(compilerConfig)
     compilerToClose = compiler
+
+    // Opened after the plugin's own writer, with the options the plugin got,
+    // so the document keeps every field the compile wrote.
+    const openReceipt = () =>
+      createPlaywrightMetadataWriter({
+        packageJsonDir,
+        browser: String(browser),
+        command: metadataCommand,
+        distPath,
+        manifestPath: projectStructure.manifestPath,
+        port: configOptions.port,
+        host:
+          process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
+          (configOptions as {host?: string}).host,
+        instanceId: configOptions.instanceId,
+        instanceExplicit: configOptions.instanceExplicit,
+        controlPort: configOptions.controlPort,
+        controlPortUnavailableReason:
+          configOptions.controlPortUnavailableReason,
+        controlPath: configOptions.controlPath,
+        logsPath: configOptions.logsPath
+      })
+
+    // The receipt this run's compile left open: its own run, still starting.
+    const heldReceipt = (): {compiledAt?: unknown} | undefined => {
+      if (liveDevSession) return undefined
+
+      try {
+        const contract = JSON.parse(
+          fs.readFileSync(readyContractPath(packageJsonDir, browser), 'utf-8')
+        )
+        const ownRun =
+          contract?.runId === getSessionRunId(packageJsonDir, String(browser))
+
+        return ownRun && contract.status === 'starting' ? contract : undefined
+      } catch {
+        return undefined
+      }
+    }
+
+    recordBuildFailure = (error) => {
+      if (!heldReceipt()) return
+
+      openReceipt().writeError(
+        'build_failed',
+        stripChannelPrefix(
+          error instanceof Error ? error.message : String(error)
+        )
+      )
+    }
 
     let summary: BuildSummary = {
       browser,
@@ -964,6 +1061,34 @@ async function runBuild(
             // Never fail a green build over the informational contract.
           }
 
+          // Ready names a folder a reader can open: promoted, pruned and
+          // summarized. A launch that follows stamps its own ready later.
+          // A failed archive leaves that folder in place and the command
+          // failing, so the receipt says both and no reader takes it for green.
+          if (zipFailures.length > 0) {
+            if (heldReceipt()) {
+              openReceipt().writeError(
+                'build_failed',
+                messages.buildFailedOutputInPlace(
+                  zipFailures.map((failure) =>
+                    messages.zipArtifactNotCreatedText(
+                      failure.kind,
+                      failure.path,
+                      failure.reason
+                    )
+                  ),
+                  distPath
+                ),
+                summary.errors
+              )
+            }
+          } else if (
+            mergedBuildOptions.launchFollows !== true &&
+            typeof heldReceipt()?.compiledAt === 'string'
+          ) {
+            openReceipt().writeReady()
+          }
+
           if (zipFailures.length > 0) {
             failureCount = zipFailures.length
 
@@ -1130,6 +1255,14 @@ async function runBuild(
     // The line below and every caller read the message of the failure, so a
     // thrown value with none is wrapped before it is printed and passed on.
     const error = readableFailure(thrown)
+
+    // A compile that passed and a build that then failed must not be left
+    // reading as still starting, or as ready, for whoever waits on it.
+    try {
+      recordBuildFailure?.(error)
+    } catch {
+      // The failure being thrown is the one that matters.
+    }
 
     const frameCarriesIt = findingProject && isMachineOutput()
 

@@ -83,7 +83,7 @@ The `extension-develop/manifest` entry is deprecated and is removed in the next 
 
 ## Command options
 
-Each table lists fields of the exported option types `DevOptions`, `BuildOptions`, `StartOptions` and `PreviewOptions`, under the commands whose type has them. Every field is optional except `browser` and, outside `build`, `mode`.
+Each table lists fields of the exported option types `DevOptions`, `BuildOptions`, `StartOptions` and `PreviewOptions`, under the commands whose type has them. Every field is optional except `browser` and, for `start`, `mode`.
 
 `extensionDev` and `extensionPreview` start a browser only through a launcher the caller passes. This package exports no `extensionStart`. `StartOptions` types the `start` command the CLI runs as `extensionBuild` followed by `extensionPreview`.
 
@@ -119,6 +119,9 @@ Each table lists fields of the exported option types `DevOptions`, `BuildOptions
 | `logColor`           | boolean                                                                                            | Colors in `pretty` output, on by default                                                                                               |
 | `logUrl`             | string                                                                                             | Print only logs whose URL holds this text or matches this `/regex/flags` literal                                                       |
 | `logTab`             | number or string                                                                                   | Print only logs from this tab id                                                                                                       |
+| `preferences`        | object                                                                                             | Browser preferences to set in the profile                                                                                              |
+| `browserFlags`       | string[]                                                                                           | Extra flags for the browser command line                                                                                               |
+| `excludeBrowserFlags` | string[]                                                                                           | Default flags to leave off the browser command line                                                                                    |
 
 ### dev and build
 
@@ -145,9 +148,6 @@ Each table lists fields of the exported option types `DevOptions`, `BuildOptions
 | Option                | Type / Values      | Description                                                                                                              |
 | --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
 | `allowedHosts`        | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain                                            |
-| `preferences`         | object             | Browser preferences to set in the profile                                                                                |
-| `browserFlags`        | string[]           | Extra flags for the browser command line                                                                                 |
-| `excludeBrowserFlags` | string[]           | Default flags to leave off the browser command line                                                                      |
 | `hashContentScripts`  | boolean            | Put a content hash in each content script file name, on by default                                                       |
 | `allowControl`        | boolean            | Open the control channel for the act verbs                                                                               |
 | `allowEval`           | boolean            | Also allow the `eval` verb. Implies `allowControl`                                                                       |
