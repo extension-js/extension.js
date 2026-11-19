@@ -13,7 +13,8 @@ import {canonicalizeDir, toProjectRelativePath} from './resource-path'
 
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
-const CHANNEL_GLYPH = /^\s*⏵⏵⏵\s*/
+// The glyph, with the severity word a plain stream gets right after it.
+const CHANNEL_GLYPH = /^\s*⏵⏵⏵\s*(?:(?:Warning|Error):(?:\s+|$))?/
 const PATH_CHARACTER = /[\w.~\\/-]/
 const PACKAGE_NAME = 'extension-develop'
 

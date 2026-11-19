@@ -1215,7 +1215,7 @@ describe('extension open', () => {
   it('refuses a surface context for reload before touching the bridge', async () => {
     expect(await run(['reload', '--context', 'popup'])).toBe(1)
     expect(errorSpy.mock.calls.map((call) => String(call[0]))).toEqual([
-      '⏵⏵⏵ --context got "popup". Use background, content or page.\n' +
+      '⏵⏵⏵ Error: --context got "popup". Use background, content or page.\n' +
         'A popup page reloads with the extension: run extension reload without --context.'
     ])
 
@@ -1224,7 +1224,7 @@ describe('extension open', () => {
     errorSpy.mockClear()
     expect(await run(['reload', '--context', 'nowhere'])).toBe(1)
     expect(errorSpy.mock.calls.map((call) => String(call[0]))).toEqual([
-      '⏵⏵⏵ --context got "nowhere". Use background, content or page.'
+      '⏵⏵⏵ Error: --context got "nowhere". Use background, content or page.'
     ])
 
     expect(bridge.commands).toHaveLength(0)
@@ -1294,7 +1294,7 @@ describe('extension open', () => {
     expect(await run(['open', 'action'])).toBe(0)
     expect(logSpy.mock.calls.map((c) => String(c[0]))).toEqual([
       '⏵⏵⏵ Replayed 1 onClicked listener without a user gesture.',
-      '⏵⏵⏵ Replayed without a user gesture: activeTab is NOT granted.'
+      '⏵⏵⏵ Warning: Replayed without a user gesture: activeTab is NOT granted.'
     ])
 
     logSpy.mockClear()
@@ -1376,7 +1376,7 @@ describe('extension open', () => {
 
     expect(await run(['open', 'popup', '--browser', 'firefox'])).toBe(1)
     const text = String(errorSpy.mock.calls[0][0])
-    expect(text).toContain("⏵⏵⏵ Can't open the popup.")
+    expect(text).toContain("⏵⏵⏵ Error: Can't open the popup.")
     expect(text).toContain(
       'REASON openPopup: Could not find an active browser window.'
     )
@@ -1397,7 +1397,7 @@ describe('extension open', () => {
 
     expect(await run(['open', 'sidebar', '--browser', 'firefox'])).toBe(1)
     const gated = String(errorSpy.mock.calls[0][0]).split('\n')
-    expect(gated[0]).toBe("⏵⏵⏵ Can't open the side panel.")
+    expect(gated[0]).toBe("⏵⏵⏵ Error: Can't open the side panel.")
     expect(gated[1]).toContain('REASON sidePanel.open:')
     expect(gated[2]).toContain('Click the extension in the browser toolbar')
   })

@@ -10,7 +10,7 @@ async function freshModule() {
 
 function notice(flag: string): string {
   return (
-    `⏵⏵⏵ ${flag} is deprecated and maps to --output.\n` +
+    `⏵⏵⏵ Warning: ${flag} is deprecated and maps to --output.\n` +
     'Pass --output <pretty|json> instead.'
   )
 }

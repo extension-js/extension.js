@@ -125,7 +125,7 @@ describe.skipIf(process.platform === 'win32')(
 
       expect(result.status).toBe(1)
       expect(result.stdout).not.toMatch(/is installed/)
-      expect(result.stderr).toMatch(/^⏵⏵⏵ Couldn't download chrome\./)
+      expect(result.stderr).toMatch(/^⏵⏵⏵ Error: Couldn't download chrome\./)
       expect(result.stderr).toContain(path.join(cacheRoot, 'chrome'))
       expect(result.stderr).toMatch(/Run the install again/)
       expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
