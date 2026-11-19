@@ -1,4 +1,7 @@
-import {describe, expect, it, vi} from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import {runInstall} from '../install-runner'
 
 // Nothing is faked here on purpose: the sibling spec drives the runner
@@ -98,6 +101,93 @@ describe('install-runner runInstall (real spawn)', () => {
       interval: 50
     })
   }, 20_000)
+
+  describe.skipIf(process.platform === 'win32')('on POSIX', () => {
+    const started: number[] = []
+    const tmpRoots: string[] = []
+
+    afterEach(() => {
+      // Only a pid these rows started and never saw end, so it is still theirs.
+      for (const pid of started.splice(0)) {
+        try {
+          process.kill(pid, 'SIGKILL')
+        } catch {
+          // Already gone, which is the point.
+        }
+      }
+
+      for (const dir of tmpRoots.splice(0)) {
+        fs.rmSync(dir, {recursive: true, force: true})
+      }
+    })
+
+    // A package manager stand-in, written where only this row reads it.
+    function standIn(source: string) {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-install-tree-'))
+      tmpRoots.push(dir)
+      const script = path.join(dir, 'manager.cjs')
+      fs.writeFileSync(script, source)
+
+      return {dir, script}
+    }
+
+    it('ends what the manager started, the way a postinstall would run', async () => {
+      const {dir, script} = standIn(`
+        const {spawn} = require('node:child_process')
+        const late = spawn(process.execPath, ['-e', ${JSON.stringify(
+          "setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), 1500)"
+        )}, process.argv[2]], {stdio: 'ignore'})
+        console.log(late.pid)
+        setInterval(() => {}, 1000)
+      `)
+      const marker = path.join(dir, 'postinstall-ran')
+
+      const result = await runInstall(process.execPath, [script, marker], {
+        cwd: dir,
+        stdio: 'pipe',
+        timeoutMs: 500
+      })
+
+      const grandchild = Number(result.stdout.trim())
+      expect(grandchild).toBeGreaterThan(0)
+      started.push(grandchild)
+
+      await vi.waitFor(() => expect(isRunning(grandchild)).toBe(false), {
+        timeout: 5000,
+        interval: 50
+      })
+
+      started.splice(started.indexOf(grandchild), 1)
+      // Past the moment the grandchild would have written.
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      expect(fs.existsSync(marker)).toBe(false)
+    }, 20_000)
+
+    it('kills a manager that ignores SIGTERM once the grace runs out', async () => {
+      const {dir, script} = standIn(`
+        process.on('SIGTERM', () => {})
+        console.log(process.pid)
+        setInterval(() => {}, 1000)
+      `)
+
+      const result = await runInstall(process.execPath, [script], {
+        cwd: dir,
+        stdio: 'pipe',
+        timeoutMs: 500
+      })
+
+      const pid = Number(result.stdout.trim())
+      expect(pid).toBeGreaterThan(0)
+      started.push(pid)
+
+      await vi.waitFor(() => expect(isRunning(pid)).toBe(false), {
+        timeout: 8000,
+        interval: 50
+      })
+
+      started.splice(started.indexOf(pid), 1)
+    }, 20_000)
+  })
 
   // The control variable is the point: a lane where no npm_config_* reaches the
   // child reads "unset" for the stripped key too, and the assertion would then
