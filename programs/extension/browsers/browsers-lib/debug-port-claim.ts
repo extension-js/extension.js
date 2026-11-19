@@ -10,6 +10,8 @@ import * as fs from 'node:fs'
 import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {CODES} from '../../helpers/messaging'
+import {debugPortsUnavailable} from './messages'
 import {isPidAlive} from './resolve-live-pid'
 
 export interface DebugPortClaim {
@@ -170,5 +172,9 @@ export async function claimDebugPortNear(
     dropClaim(file)
   }
 
-  return {port: startPort, release: () => {}}
+  // A busy port handed on would launch a browser that cannot bind it.
+  throw Object.assign(
+    new Error(debugPortsUnavailable(startPort, startPort + maxAttempts - 1)),
+    {code: CODES.E_PORT_UNAVAILABLE}
+  )
 }

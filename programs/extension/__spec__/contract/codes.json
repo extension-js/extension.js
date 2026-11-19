@@ -362,7 +362,7 @@
     },
     "E_PORT_UNAVAILABLE": {
       "area": "dev-server",
-      "summary": "No free port could be bound near the requested one."
+      "summary": "No free port could be bound near the requested one: the dev server port, or the browser debugging port a launch claims."
     },
     "E_SESSION_NOT_FOUND": {
       "area": "ready",
@@ -516,7 +516,8 @@
         "E_BROWSER_CONNECT",
         "E_BROWSER_CONNECTION_CLOSED",
         "E_RDP_PROTOCOL",
-        "E_ADDON_INSTALL"
+        "E_ADDON_INSTALL",
+        "E_PORT_UNAVAILABLE"
       ],
       "extension_load_refused": "E_EXTENSION_LOAD_REFUSED",
       "profile_locked": "E_PROFILE_LOCKED"

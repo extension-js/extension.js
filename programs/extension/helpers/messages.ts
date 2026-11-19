@@ -689,6 +689,10 @@ export function profileLockedHint(): string {
   return 'Close the browser that has this profile open, or pass --profile <path> to use another one.'
 }
 
+export function portUnavailableHint(): string {
+  return 'Close the browsers or sessions holding those ports, or pass --port <port> to search from another one.'
+}
+
 export function waitTimeoutWithoutWait(): string {
   return '--wait-timeout applies only with --wait. Add --wait, or drop --wait-timeout.'
 }
