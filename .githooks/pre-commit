@@ -1,2 +1,3 @@
 #!/usr/bin/env sh
 . "$(dirname "$0")/h"
+run_hook node scripts/pre-commit-lint-staged.mjs
