@@ -328,8 +328,7 @@ const REFUSALS: RefusalRow[] = [
   {
     code: 'E_PARENT_GONE',
     label: 'dev told to follow a parent pid that is gone',
-    // Pins current behavior: the frame, then a SIGTERM to itself, so the
-    // parent sees a signal and no exit code.
+    // Gone before the engine loads: one frame and exit 1, no signal.
     setup: (dir) => {
       put(path.join(dir, 'manifest.json'), mv3)
 
@@ -338,8 +337,8 @@ const REFUSALS: RefusalRow[] = [
       }
     },
     expected: {
-      status: null,
-      signal: 'SIGTERM',
+      status: 1,
+      signal: null,
       frames: [
         {
           schema: 1,
@@ -356,15 +355,14 @@ const REFUSALS: RefusalRow[] = [
         }
       ],
       stderr: [
-        '[Extension.js] Parent process 999999999 is gone (--parent-pid). Shutting down.',
+        '⏵⏵⏵ Error: Parent process 999999999 is gone (--parent-pid). Shutting down.',
         ''
       ].join('\n')
     }
   }
 ]
 
-// Rows written for posix: native path separators, the ENOTDIR text, and the
-// SIGTERM the E_PARENT_GONE run sends itself.
+// Rows written for posix: native path separators and the ENOTDIR text.
 describe.skipIf(process.platform === 'win32')(
   'a refusal one command gives before any browser, read whole',
   () => {

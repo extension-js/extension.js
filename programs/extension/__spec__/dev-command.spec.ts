@@ -627,7 +627,11 @@ describe('extension dev', () => {
     expect(watchdogs).toEqual([
       [
         4242,
-        {endSession: expect.any(Function), emitFrame: expect.any(Function)}
+        {
+          endSession: expect.any(Function),
+          emitFrame: expect.any(Function),
+          onDeath: expect.any(Function)
+        }
       ]
     ])
   })
