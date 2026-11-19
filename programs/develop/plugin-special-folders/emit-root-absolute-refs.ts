@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
 import {isOsPathUnder} from '../lib/real-path'
 import {WITHHELD_CSS_REF, withheldCssRefs} from '../lib/withheld-file'
+import {templateCopiedAsset} from '../plugin-compilation/copied-asset-env'
 import {whyNotRead} from '../plugin-css/css-lib/inline-css-imports'
 import * as cssMessages from '../plugin-css/css-lib/messages'
 import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
@@ -227,7 +228,9 @@ export async function emitRootAbsoluteRefs(
             const buffer = fs.readFileSync(plan.sourcePath)
             compilation.emitAsset(
               plan.emitPath,
-              new rspack.sources.RawSource(buffer)
+              new rspack.sources.RawSource(
+                templateCopiedAsset(compilation, plan.emitPath, buffer)
+              )
             )
 
             // Keep watch mode honest: editing the file should rebuild.
