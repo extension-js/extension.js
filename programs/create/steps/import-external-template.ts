@@ -375,8 +375,9 @@ function budgetSpentBy(error: unknown, budget: FetchBudget): boolean {
   )
 }
 
-// Fetch a repo tarball over plain HTTP (codeload), NOT a git pack negotiation:
-// no git child, so no credential-helper hang (#56). One retry with backoff.
+// Fetch an archive over plain HTTP (codeload or a template ZIP URL), NOT a git
+// pack negotiation: no git child, so no credential-helper hang (#56). Both
+// downloads share this one retry and abort policy.
 async function downloadArchive(
   url: string,
   budget: FetchBudget,
@@ -389,15 +390,28 @@ async function downloadArchive(
     const remaining = budget.deadline - Date.now()
     if (remaining <= 0) throw fetchBudgetSpent(budget)
 
+    // axios times out an idle socket and not a reply that trickles in, so
+    // the budget aborts the request itself and its socket goes with it.
+    const abort = new AbortController()
+
     try {
-      const {data, headers} = await fetchTemplate(url, {
-        responseType: 'arraybuffer',
-        maxRedirects: 5,
-        timeout: remaining,
-        signal: AbortSignal.timeout(remaining),
-        headers: {'User-Agent': 'extension-create'},
-        beforeRedirect: refuseHttpRedirect
-      })
+      const {data, headers} = await withTimeout(
+        fetchTemplate(url, {
+          responseType: 'arraybuffer',
+          maxRedirects: 5,
+          timeout: remaining,
+          signal: abort.signal,
+          headers: {'User-Agent': 'extension-create'},
+          beforeRedirect: refuseHttpRedirect
+        }),
+        remaining,
+        () => {
+          const spent = fetchBudgetSpent(budget)
+          abort.abort(spent)
+
+          return spent
+        }
+      )
 
       return {
         body: Buffer.from(data),
@@ -406,7 +420,10 @@ async function downloadArchive(
     } catch (error) {
       lastError = error
       if (findInsecureTemplateUrlError(error)) break
-      if (budgetSpentBy(error, budget)) throw fetchBudgetSpent(budget)
+
+      if (abort.signal.aborted || budgetSpentBy(error, budget)) {
+        throw fetchBudgetSpent(budget)
+      }
 
       // A deterministic 4xx (a ref that does not exist) will not change on a
       // retry; only back off for network errors, rate limits, and 5xx.
@@ -1116,14 +1133,19 @@ export async function importExternalTemplate(
     }
 
     const fetchZipArchive = async () => {
-      const {data, headers} = await fetchTemplate(template, {
-        responseType: 'arraybuffer',
-        maxRedirects: 5,
-        timeout: timeoutMs,
-        beforeRedirect: refuseHttpRedirect
+      // A refusal to downgrade keeps its own type, and every other failure
+      // of the download is a download failure.
+      const {body, contentType} = await downloadArchive(
+        template,
+        startFetchBudget(timeoutMs),
+        options?.downloadRetry,
+        fetchTemplate
+      ).catch((fetchError: unknown) => {
+        throw (
+          findInsecureTemplateUrlError(fetchError) ??
+          new TemplateDownloadError(template, fetchError)
+        )
       })
-      const contentType = String(headers?.['content-type'] || '')
-      const body = Buffer.from(data)
       const looksZip =
         /zip|octet-stream/i.test(contentType) ||
         template.toLowerCase().endsWith('.zip')
@@ -1164,26 +1186,8 @@ export async function importExternalTemplate(
     } else if (isHttp) {
       // Typed for the same reason as the GitHub branch above: a ZIP URL that
       // answers with a 404 or an HTML page is the user's URL to fix, not a
-      // fault to report with our stack. axios times out an idle socket and
-      // not a reply that trickles in, so the whole fetch gets one budget.
-      const budget = startFetchBudget(timeoutMs)
-      const data = await withTimeout(fetchZipArchive(), budget.ms, () =>
-        fetchBudgetSpent(budget)
-      ).catch((fetchError: unknown) => {
-        // A downgrade refusal and a reply that is not an archive are their
-        // own frames and must keep their own types.
-        throw (
-          findInsecureTemplateUrlError(fetchError) ??
-          (fetchError instanceof TemplateNotZipError
-            ? fetchError
-            : new TemplateDownloadError(
-                template,
-                budgetSpentBy(fetchError, budget)
-                  ? fetchBudgetSpent(budget)
-                  : fetchError
-              ))
-        )
-      })
+      // fault to report with our stack.
+      const data = await fetchZipArchive()
 
       await extractZipBufferTo(data, tempPath, template)
       const sourcePath = await getZipSourcePath(tempPath, template)
