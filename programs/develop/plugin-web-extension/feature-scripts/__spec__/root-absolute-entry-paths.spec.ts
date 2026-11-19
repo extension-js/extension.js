@@ -116,6 +116,9 @@ async function rowFor(name: string, field: Field, layout: Layout) {
     )
   ].map((match) => match[1])
   const named = JSON.parse(out['manifest.json'] ?? '{}')
+  // The printed lines name a missing file in full, and the diagnostics a
+  // failed build rejects with name it from the project root.
+  const cut = result.printed.lastIndexOf('\n{"')
   const inManifest =
     name === 'background.service_worker'
       ? named.background?.service_worker
@@ -125,10 +128,13 @@ async function rowFor(name: string, field: Field, layout: Layout) {
     held.length ? `${file} in ${held.join(' + ')}` : 'nothing',
     ...(inManifest ? [`manifest names ${inManifest}`] : []),
     ...(said.length ? [`said ${[...new Set(said)].join(', ')}`] : []),
-    ...notFoundPaths(result.printed).map(
+    ...notFoundPaths(result.printed.slice(0, cut)).map(
       // A Windows build spells the path natively, so the row reads one way.
       (missing) =>
         `NOT FOUND ${missing.replace(root, '<root>').split(path.sep).join('/')}`
+    ),
+    ...notFoundPaths(result.printed.slice(cut)).map(
+      (missing) => `diagnostic NOT FOUND ${missing}`
     ),
     ...(result.errors ? [`errors ${result.errors}`] : [])
   ].join(' | ')
@@ -155,11 +161,11 @@ const EXPECTED: Record<string, Record<string, string>> = {
   },
   'a file at the root, manifest in src/': {
     'content_scripts[0].js':
-      'nothing | said content.js does not exist. Check the content_scripts[0].js field in your manifest.json file. | NOT FOUND <root>/src/content.js | errors 1',
+      'nothing | said content.js does not exist. Check the content_scripts[0].js field in your manifest.json file. | NOT FOUND <root>/src/content.js | diagnostic NOT FOUND src/content.js | errors 1',
     'content_scripts[0].css':
-      'nothing | said content.css does not exist. Check the content_scripts[0].css field in your manifest.json file. | NOT FOUND <root>/src/content.css | errors 1',
+      'nothing | said content.css does not exist. Check the content_scripts[0].css field in your manifest.json file. | NOT FOUND <root>/src/content.css | diagnostic NOT FOUND src/content.css | errors 1',
     'background.service_worker':
-      'nothing | said content.js does not exist. Check the background.service_worker field in your manifest.json file. | NOT FOUND <root>/src/content.js | errors 1'
+      'nothing | said content.js does not exist. Check the background.service_worker field in your manifest.json file. | NOT FOUND <root>/src/content.js | diagnostic NOT FOUND src/content.js | errors 1'
   },
   'a file in src/, manifest in src/': {
     'content_scripts[0].js':
@@ -179,11 +185,11 @@ const EXPECTED: Record<string, Record<string, string>> = {
   },
   'no file at all, manifest at the root': {
     'content_scripts[0].js':
-      'nothing | said content.js does not exist. Check the content_scripts[0].js field in your manifest.json file. | NOT FOUND <root>/content.js | errors 1',
+      'nothing | said content.js does not exist. Check the content_scripts[0].js field in your manifest.json file. | NOT FOUND <root>/content.js | diagnostic NOT FOUND content.js | errors 1',
     'content_scripts[0].css':
-      'nothing | said content.css does not exist. Check the content_scripts[0].css field in your manifest.json file. | NOT FOUND <root>/content.css | errors 1',
+      'nothing | said content.css does not exist. Check the content_scripts[0].css field in your manifest.json file. | NOT FOUND <root>/content.css | diagnostic NOT FOUND content.css | errors 1',
     'background.service_worker':
-      'nothing | said content.js does not exist. Check the background.service_worker field in your manifest.json file. | NOT FOUND <root>/content.js | errors 1'
+      'nothing | said content.js does not exist. Check the background.service_worker field in your manifest.json file. | NOT FOUND <root>/content.js | diagnostic NOT FOUND content.js | errors 1'
   }
 }
 

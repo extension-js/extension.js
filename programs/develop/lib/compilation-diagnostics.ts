@@ -8,8 +8,9 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {MAX_SUMMARY_WARNINGS, stripLoaderWrapper} from './build-summary'
+import {MAX_SUMMARY_WARNINGS} from './build-summary'
 import {type DiagnosticContext, diagnosticCode} from './diagnostic-code'
+import {toMachineText} from './machine-text'
 import type {Diagnostic, ErrorCode} from './messaging'
 
 export interface CompilationLike {
@@ -35,20 +36,6 @@ const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
 
 function finite(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
-}
-
-// The bundler renders a glyph and a gutter in front of its message text,
-// which a consumer of a structured field should never have to peel off.
-function plainMessage(raw: unknown): string {
-  return stripLoaderWrapper(String(raw ?? '').replace(ANSI_PATTERN, ''))
-    .split('\n')
-    .map((line, index) =>
-      index === 0
-        ? line.replace(/^\s*[×⚠]\s*/, '')
-        : line.replace(/^\s*│ ?/, '')
-    )
-    .join('\n')
-    .trim()
 }
 
 // The bundler reports a symlink-resolved resource, so the root is tried as
@@ -93,8 +80,8 @@ export function toDiagnostic(
   ) as CompilerIssue
   const message =
     typeof issue === 'string'
-      ? plainMessage(issue)
-      : plainMessage(error.message)
+      ? toMachineText(issue, root)
+      : toMachineText(error.message, root)
   const code = diagnosticCode(issue, context)
   const file = fileOf(error, root)
   const line = finite(error.loc?.start?.line)
