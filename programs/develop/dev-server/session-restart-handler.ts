@@ -222,8 +222,6 @@ export interface RestartBundleBuild<Compiler, Bundle> {
   build: () => Promise<Bundle>
   activeCompiler: () => Compiler | null
   setActiveCompiler: (compiler: Compiler | null) => void
-  // What a build that threw partway still holds, taken so it runs once.
-  takeUnfinishedRelease: () => (() => void) | null
 }
 
 // A restart that cannot build its next bundle leaves the session exactly
@@ -239,7 +237,6 @@ export async function buildRestartBundle<
   } catch (error) {
     const abandoned = steps.activeCompiler()
     steps.setActiveCompiler(serving)
-    steps.takeUnfinishedRelease()?.()
 
     if (abandoned && abandoned !== serving) {
       try {
