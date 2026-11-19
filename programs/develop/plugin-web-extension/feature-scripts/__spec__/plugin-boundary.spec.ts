@@ -75,9 +75,6 @@ describe('what the scripts feature knows about reloading', () => {
       )
     )
 
-    expect([...reached].sort()).toEqual([
-      'session-restart',
-      'session-restart-holds'
-    ])
+    expect([...reached].sort()).toEqual(['main-world-restart'])
   })
 })

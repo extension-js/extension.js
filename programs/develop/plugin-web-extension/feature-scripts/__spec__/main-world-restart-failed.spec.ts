@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {MAIN_WORLD_SETTLE_MS} from '../../../dev-server/main-world-restart'
 import {
   assignCompilerToDevSession,
   bindDevSessionRestart,
@@ -20,10 +21,7 @@ import {
 } from '../../../dev-server/session-restart-handler'
 import {isAwaitingMainWorldRestart} from '../../../dev-server/session-restart-holds'
 import {createRestartFailure} from '../../../dev-server/start-bundler'
-import {
-  MAIN_WORLD_SETTLE_MS,
-  WarnMainWorldRegistrationChanged
-} from '../steps/warn-main-world-registration-changed'
+import {WarnMainWorldRegistrationChanged} from '../steps/warn-main-world-registration-changed'
 
 const roots: string[] = []
 const compilers: Compiler[] = []
