@@ -336,13 +336,18 @@ describe('the template catalog download', () => {
       const frame = stripVTControlCharacters(error.message)
 
       expect(error.name).toBe('TemplateDownloadError')
-      expect(stripVTControlCharacters(String(error.cause?.message))).toContain(
-        "Couldn't fetch the template content within 60s."
+      expect(error.cause?.message).toBe(
+        'No answer within 60 seconds (EXTENSION_CREATE_TIMEOUT_MS)'
       )
 
+      // One frame: the REASON row is the cause, never a second frame.
+      expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
       expect(frame).toContain("Couldn't fetch the template from that URL.")
       expect(frame).toContain(`URL ${url}`)
-      expect(frame).toContain('EXTENSION_CREATE_TIMEOUT_MS')
+      expect(frame).toContain(
+        'REASON No answer within 60 seconds (EXTENSION_CREATE_TIMEOUT_MS)\n'
+      )
+
       expect(fs.existsSync(projectPath)).toBe(false)
     })
   })
