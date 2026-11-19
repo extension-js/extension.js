@@ -59,3 +59,83 @@ describe('BrowsersPlugin hands the session instance to the launcher', () => {
     expect('instanceId' in options).toBe(false)
   })
 })
+
+describe('BrowsersPlugin hands the launcher what the dev server set', () => {
+  it('passes the log sink and the emulator viewer URL it was given', async () => {
+    const sink = vi.fn()
+    const launcher = vi.fn(async (_options: BrowserLaunchOptions) => ({
+      enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
+    }))
+    const plugin = new BrowsersPlugin({
+      launcher,
+      browserOptions: {browser: 'chrome'}
+    })
+    plugin.setLogSink(sink)
+    plugin.setEmulatorViewerUrl('http://127.0.0.1:8080/emulator')
+
+    const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
+    plugin.apply(fake.compiler)
+    await fake.done(fakeCompilation({context: CONTEXT, output: OUTPUT}))
+
+    expect(launcher.mock.calls[0][0]).toMatchObject({
+      logSink: sink,
+      emulatorViewerUrl: 'http://127.0.0.1:8080/emulator'
+    })
+  })
+
+  it('names no emulator viewer when none was set', async () => {
+    const options = await launchOnce({browser: 'chrome'})
+
+    expect('emulatorViewerUrl' in options).toBe(false)
+    expect(options.logSink).toBeUndefined()
+  })
+})
+
+describe('BrowsersPlugin wakes a suspended background through the browser', () => {
+  async function launched(wakeBackground?: () => Promise<boolean>) {
+    const plugin = new BrowsersPlugin({
+      launcher: async () => ({
+        enableUnifiedLogging: vi.fn().mockResolvedValue(undefined),
+        ...(wakeBackground ? {wakeBackground} : {})
+      }),
+      browserOptions: {browser: 'firefox'}
+    })
+    const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
+    plugin.apply(fake.compiler)
+
+    return {
+      plugin,
+      launch: () =>
+        fake.done(fakeCompilation({context: CONTEXT, output: OUTPUT}))
+    }
+  }
+
+  it('answers false until a browser is up', async () => {
+    const wake = vi.fn(async () => true)
+    const {plugin, launch} = await launched(wake)
+
+    expect(await plugin.wakeBackground()).toBe(false)
+    expect(wake).not.toHaveBeenCalled()
+
+    await launch()
+
+    expect(await plugin.wakeBackground()).toBe(true)
+    expect(wake).toHaveBeenCalledTimes(1)
+  })
+
+  it.each([
+    ['cannot be asked', undefined],
+    ['answers anything but true', async () => 'yes' as unknown as boolean],
+    [
+      'throws',
+      async () => {
+        throw new Error('RDP socket closed')
+      }
+    ]
+  ])('answers false for a browser that %s', async (_title, wake) => {
+    const {plugin, launch} = await launched(wake)
+    await launch()
+
+    expect(await plugin.wakeBackground()).toBe(false)
+  })
+})
