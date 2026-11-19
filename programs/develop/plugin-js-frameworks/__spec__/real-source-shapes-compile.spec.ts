@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {rspack, type Stats} from '@rspack/core'
+import {DefinePlugin, rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
@@ -74,20 +74,33 @@ function scaffold(
   return root
 }
 
-async function compileDev(root: string) {
+interface CompileOptions {
+  mode?: 'development' | 'production'
+  // The `define` key of extension.config.js, as the run hands it over.
+  define?: Record<string, unknown>
+  // What a `config` hook in extension.config.js appends.
+  configPlugins?: DefinePlugin[]
+}
+
+async function compileDev(root: string, options: CompileOptions = {}) {
   const projectStructure = await getProjectStructure(root)
+  const mode = options.mode || 'development'
   const config = webpackConfig(projectStructure, {
     browser: 'chrome',
-    mode: 'development',
-    metadataCommand: 'dev',
+    mode,
+    metadataCommand: mode === 'development' ? 'dev' : 'build',
     silent: true,
+    define: options.define,
     output: {clean: false, path: path.join(root, 'dist', 'chrome')}
   } as any)
-  config.plugins = (config.plugins || []).filter(
-    (plugin) =>
-      plugin?.constructor.name !== 'plugin-browsers' &&
-      plugin?.constructor.name !== 'plugin-playwright'
-  )
+  config.plugins = [
+    ...(config.plugins || []).filter(
+      (plugin) =>
+        plugin?.constructor.name !== 'plugin-browsers' &&
+        plugin?.constructor.name !== 'plugin-playwright'
+    ),
+    ...(options.configPlugins || [])
+  ]
 
   config.stats = false
 
@@ -110,9 +123,12 @@ async function compileDev(root: string) {
     .map((entry) => fs.readFileSync(path.join(distPath, entry), 'utf-8'))
     .join('\n')
 
+  const json = stats.toJson({all: false, errors: true, warnings: true})
+
   return {
-    errors: (stats.toJson({errors: true}).errors || []).map(
-      (error) => error.message || String(error)
+    errors: (json.errors || []).map((error) => error.message || String(error)),
+    warnings: (json.warnings || []).map(
+      (warning) => warning.message || String(warning)
     ),
     emitted
   }
@@ -184,5 +200,101 @@ describe('source shapes an installed dependency and TS NodeNext produce', () => 
     expect(emitted).toContain('ctsHelloFromNodeNext')
     expect(emitted).toContain('ctsByeExplicit')
     expect(emitted).toContain('ctsPlainExtensionless')
+  }, 180_000)
+
+  it('compiles a .vue component that ships inside node_modules, TypeScript script included', async () => {
+    const root = scaffold(
+      'vue-dep',
+      {vue: '*'},
+      {
+        'popup.html':
+          '<!doctype html><html><body><script type="module" src="./popup.js"></script></body></html>',
+        'popup.js':
+          "import {createApp} from 'vue'\n" +
+          "import Button from 'fancy-vue-lib/Button.vue'\n" +
+          "createApp(Button, {label: 'ok'}).mount(document.body)\n",
+        'node_modules/fancy-vue-lib/package.json': JSON.stringify({
+          name: 'fancy-vue-lib',
+          version: '1.0.0',
+          main: 'index.js'
+        }),
+        'node_modules/fancy-vue-lib/index.js': 'export default {}\n',
+        'node_modules/fancy-vue-lib/Button.vue':
+          '<script setup lang="ts">\n' +
+          'const props = defineProps<{label: string}>()\n' +
+          "const kind: string = 'fancyVueLibButton'\n" +
+          '</script>\n' +
+          '<template><button :class="kind">{{ props.label }}</button></template>\n'
+      }
+    )
+
+    const {errors, emitted} = await compileDev(root)
+
+    expect(errors).toEqual([])
+    expect(emitted).toContain('fancyVueLibButton')
+    expect(emitted).not.toContain('defineProps<')
+  }, 180_000)
+
+  const FLAG_PROBE =
+    'globalThis.flagProbe = [__VUE_OPTIONS_API__, __VUE_PROD_DEVTOOLS__]\n'
+
+  const vueFlagsProject = (name: string) =>
+    scaffold(
+      name,
+      {vue: '*'},
+      {
+        'popup.html':
+          '<!doctype html><html><body><script type="module" src="./popup.js"></script></body></html>',
+        'popup.js': `import {createApp} from 'vue'\ncreateApp({}).mount(document.body)\n${FLAG_PROBE}`
+      }
+    )
+
+  const conflicts = (warnings: string[]) =>
+    warnings.filter((warning) => /Conflicting values/.test(warning))
+
+  it('keeps the Vue feature flag defaults when the project defines none', async () => {
+    const {errors, warnings, emitted} = await compileDev(
+      vueFlagsProject('vue-flags-default'),
+      {mode: 'production'}
+    )
+
+    expect(errors).toEqual([])
+    expect(conflicts(warnings)).toEqual([])
+    expect(emitted).toMatch(
+      /flagProbe\s*=\s*\[\s*(true|!0)\s*,\s*(false|!1)\s*\]/
+    )
+  }, 180_000)
+
+  it.each([
+    'development',
+    'production'
+  ] as const)('lets the define key replace a Vue feature flag, %s', async (mode) => {
+    const {errors, warnings, emitted} = await compileDev(
+      vueFlagsProject(`vue-flags-define-${mode}`),
+      {mode, define: {__VUE_OPTIONS_API__: false}}
+    )
+
+    expect(errors).toEqual([])
+    expect(conflicts(warnings)).toEqual([])
+    expect(emitted).toMatch(/flagProbe\s*=\s*\[\s*(false|!1)\s*,/)
+  }, 180_000)
+
+  it.each([
+    'development',
+    'production'
+  ] as const)('lets a DefinePlugin from the config hook replace a Vue feature flag, %s', async (mode) => {
+    const {errors, warnings, emitted} = await compileDev(
+      vueFlagsProject(`vue-flags-hook-${mode}`),
+      {
+        mode,
+        configPlugins: [
+          new DefinePlugin({__VUE_OPTIONS_API__: JSON.stringify(false)})
+        ]
+      }
+    )
+
+    expect(errors).toEqual([])
+    expect(conflicts(warnings)).toEqual([])
+    expect(emitted).toMatch(/flagProbe\s*=\s*\[\s*(false|!1)\s*,/)
   }, 180_000)
 })
