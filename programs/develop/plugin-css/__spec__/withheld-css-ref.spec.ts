@@ -153,9 +153,9 @@ describe('a stylesheet reference to a file the build withholds, built', () => {
         warnings.filter((warning) => warning.includes('is not bundled')).sort()
       ).toEqual(
         [
-          `E_CSS_DEAD_REF: ${said('./.env', PRIVATE_WHY, sheet)}`,
-          `E_CSS_DEAD_REF: ${said('./.npmrc', PRIVATE_WHY, sheet)}`,
-          `E_CSS_DEAD_REF: ${said('../../shared/outside.png', OUTSIDE_WHY, sheet)}`
+          `W_CSS_DEAD_REF: ${said('./.env', PRIVATE_WHY, sheet)}`,
+          `W_CSS_DEAD_REF: ${said('./.npmrc', PRIVATE_WHY, sheet)}`,
+          `W_CSS_DEAD_REF: ${said('../../shared/outside.png', OUTSIDE_WHY, sheet)}`
         ].sort()
       )
 

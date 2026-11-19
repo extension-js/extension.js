@@ -101,7 +101,7 @@ describe('a namespace import of an asset', () => {
     'index.js': `import * as t from './notes.txt'\nself.out = {value: ${use}}\n`
   })
 
-  it('read as a value is exactly one build error, which carries no code', async () => {
+  it('read as a value is exactly one build error, coded E_ASSET_IMPORT_SHAPE', async () => {
     const build = await compileFixture({
       plugins: [new StaticAssetsPlugin()],
       files: files('String(t)')
@@ -118,8 +118,7 @@ describe('a namespace import of an asset', () => {
       'NamespaceImportReadAsValue'
     )
 
-    // Pins today's behavior. Ledger 1386 D5.
-    expect(diagnosticCode(build.rawErrors[0])).toBeUndefined()
+    expect(diagnosticCode(build.rawErrors[0])).toBe('E_ASSET_IMPORT_SHAPE')
   })
 
   it('read through .default builds with no error', async () => {
@@ -137,7 +136,8 @@ describe('a namespace import of an asset', () => {
 
 describe('bundledAssetOutputName against a user assetModuleFilename', () => {
   it('matches a file the default rules claim and misses one they do not', async () => {
-    // Pins today's behavior. Ledger 1386 D6.
+    // Pins current behavior: the computed name ignores a user
+    // assetModuleFilename.
     const large = pngOfSize(5000)
     const clip = Buffer.alloc(5000, 0x43)
     const build = await compileFixture({

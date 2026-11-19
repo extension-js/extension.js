@@ -106,7 +106,7 @@ export async function generateExtensionTypes(
       await fs.writeFile(extensionEnvFile, fileContent)
     } catch (writeErr) {
       recordCodedWarning(
-        CODES.E_TYPES_EMIT,
+        CODES.W_TYPES_EMIT,
         `Writing ${extensionEnvFile} failed: ${
           writeErr instanceof Error ? writeErr.message : String(writeErr)
         }`

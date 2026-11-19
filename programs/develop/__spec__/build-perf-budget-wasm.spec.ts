@@ -156,7 +156,7 @@ describe('a wasm runtime under the performance budget of a production build', ()
 
     expect(summary.warnings_count).toBe(1)
     const warning = String(summary.warnings?.[0] || '')
-    expect(warning).toContain('E_PERF_BUDGET')
+    expect(warning).toContain('W_PERF_BUDGET')
     expect(warning).toMatch(
       /assets\/ort-wasm-simd-threaded\.asyncify\.[0-9a-f]{8}\.wasm/
     )

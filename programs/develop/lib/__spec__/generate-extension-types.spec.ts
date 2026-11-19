@@ -580,7 +580,7 @@ describe('generate-extension-types', () => {
 
     const coded = takeCodedWarnings()
     expect(coded).toHaveLength(1)
-    expect(coded[0]).toContain(`E_TYPES_EMIT: Writing ${target} failed: `)
+    expect(coded[0]).toContain(`W_TYPES_EMIT: Writing ${target} failed: `)
     expect(coded[0]).toContain('EISDIR')
   })
 

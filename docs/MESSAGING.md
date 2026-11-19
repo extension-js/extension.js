@@ -272,7 +272,9 @@ What is stable and what is not:
 
 - `schema` is the version of this envelope. It only changes when a field changes meaning.
 - `ok` and `status` are the contract. Branch on these.
-- `error.code` is stable and greppable. Codes match `E_[A-Z0-9_]+`.
+- `error.code` is stable and greppable. It matches `E_[A-Z0-9_]+`. A code that starts with
+  `W_` is a warning the run carried on past, and it appears only in `warnings` and on an
+  `error.details` entry whose `severity` is `warning`.
 - `error.message` and `hint` are free copy. They can change in any release. **Do not parse
   them, and do not match on the pretty output either.** If you need a signal that is not in
   `ok`, `status`, or `error.code`, open an issue and it will be added to the envelope.
@@ -361,9 +363,13 @@ The schema, golden envelopes, and the full error-code table (`codes.json`, with 
 from the legacy `ready.json` codes, bridge error names, and doctor check ids) live under
 `programs/extension/__spec__/contract/`. Copy them if you are building a tool on top of the
 CLI. They are also what the CLI's own tests validate against, so they cannot go stale. Codes
-may be added over time, and an existing code is never renamed within a schema. A code retired
-after it shipped keeps a row under `folded` that points at the code the same path reports now,
-so a consumer that still lists the old name resolves it.
+may be added over time, and an existing code is never renamed within a schema, with one
+exception: the release that introduced the `W_` prefix moved twenty-four warnings from an `E_` name
+to the `W_` name with the same stem. Five of them are CDP faults a session carries on past, so
+the `cdpFaultCode` value in `ready.json` was renamed with them. A code retired after it shipped keeps a row under `folded`
+that names the code the same path reports now. That row is a record for a reader of the table.
+Nothing at run time reads it and no alias exists, so a consumer that matches a folded name has
+to switch to the code the row names.
 
 A row marked `reserved` in `codes.json` is a code the table declares and the CLI does not emit
 today, so no envelope carries it yet, and its `reason` says what keeps it off the wire. The

@@ -546,6 +546,7 @@ function codedWarningsOf(summaries: unknown[]): string[] {
       const code = line.slice(0, line.indexOf(': '))
 
       if (
+        code.startsWith('W_') &&
         Object.prototype.hasOwnProperty.call(CODES, code) &&
         !coded.includes(line)
       ) {

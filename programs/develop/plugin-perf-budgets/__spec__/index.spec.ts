@@ -425,7 +425,8 @@ describe('PerfBudgetsPlugin', () => {
     expect(msg).not.toContain('Lazy-load with dynamic import()')
   })
 
-  // The ledger case: onnxruntime-web's 26 MB core, reached by one page.
+  // The case that motivated the WASM budget: onnxruntime-web's 26 MB core,
+  // reached by one page.
   function pageGraph(auxiliaryFiles: string[]): FakeGraph {
     return {
       chunks: [

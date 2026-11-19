@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {AsyncLocalStorage, AsyncResource} from 'node:async_hooks'
-import type {ErrorCode} from './messaging'
+import type {WarningCode} from './diagnostic-code'
 
 // A warning the run carries on past, in the shape the envelope's warnings
 // array speaks: the declared code, a colon, one plain sentence.
@@ -32,7 +32,7 @@ function listFor(compiler: object | undefined): string[] {
 }
 
 export function recordCodedWarning(
-  code: ErrorCode,
+  code: WarningCode,
   text: string,
   compiler?: object
 ): void {

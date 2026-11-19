@@ -77,7 +77,7 @@ describe('events.ndjson budget and rotation', () => {
     expect('truncated' in row).toBe(false)
   })
 
-  // Pins today's behavior. Ledger 1383.
+  // Pins current behavior: the count survives while every error is dropped.
   it('drops every error when trimming each one still leaves the row over the cap', () => {
     const writer = makeWriter()
 
@@ -93,7 +93,7 @@ describe('events.ndjson budget and rotation', () => {
     expect(row.truncated).toBe(true)
   })
 
-  // Pins today's behavior. Ledger 1383.
+  // Pins current behavior: only the errors are trimmed, so the row stays large.
   it('writes a row over the cap when the oversize is not in the errors', () => {
     const writer = makeWriter()
 
@@ -113,7 +113,8 @@ describe('events.ndjson budget and rotation', () => {
     expect(row.truncated).toBe(true)
   })
 
-  // Pins today's behavior. Ledger 1383 D5.
+  // Pins current behavior: a failed rotation goes unnoticed and the file
+  // keeps growing.
   it('resets the budget after a rotation that failed, so the file grows past it', () => {
     const writer = makeWriter()
     const oldest = writer.eventsPath.replace(/\.ndjson$/, '.3.ndjson')
