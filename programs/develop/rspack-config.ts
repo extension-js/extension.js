@@ -275,7 +275,8 @@ export default function webpackConfig(
       browser: devOptions.browser,
       devSession,
       instanceId: devOptions.instanceId,
-      controlPort: devOptions.controlPort
+      controlPort: devOptions.controlPort,
+      connectableHost: devOptions.connectableHost
     }),
     // rspack's own loader appends a <script> to the host page, which never
     // reaches an isolated world. A reload session installs this target itself.
@@ -433,9 +434,10 @@ export default function webpackConfig(
       outputPath: publishedExtensionOutputDir,
       manifestPath,
       port: devOptions.port,
-      // Connectable host clients dial (HMR + control bridge). Resolved once by
-      // dev-server/index.ts and exported via env; falls back to the bind host.
+      // Connectable host clients dial (HMR + control bridge), resolved by
+      // dev-server/index.ts for each session. The bind host is the fallback.
       host:
+        devOptions.connectableHost ||
         process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
         (devOptions as {host?: string}).host,
       instanceId: devOptions.instanceId,
