@@ -40,8 +40,9 @@ It is responsible for:
   the manifest path is not a file. The first three are `isReloadSession`
   in `lib/reload-session.ts`, which `plugin-web-extension` reads too, so a
   build this plugin skips still gets the chunk loading target, once.
-- the classifier/dispatch API (`classifyReloadFromSources`,
-  `buildSourceFeatureIndex`, `createLoadedContentScripts`, `dispatchReload`,
+- the classifier/dispatch API (`reloadForBuild`, `loadedContentScriptsFor`,
+  `classifyReloadFromSources`, `buildSourceFeatureIndex`,
+  `createLoadedContentScripts`, `dispatchReload`,
   `createChangedSourcesTracker`, `readDevBuild`, …) consumed by
   `plugin-browsers`' `BrowsersPlugin` (launched-browser path) and
   `SafariDevPlugin` (which adds `reloadSurvivingPackage` and
@@ -71,6 +72,12 @@ names one, otherwise any mode but production), so it also runs under
 10. `PruneUnreachableChunks`
 
 ## Important files
+
+- `build-reload.ts`
+  The one call each reload path makes after a build. `reloadForBuild` reads
+  the tracker's snapshot, classifies it and, when given what the browser last
+  read, resolves against it. `loadedContentScriptsFor` maps a browser name to
+  that record: none for the emulator, an in-place sheet swap for Gecko.
 
 - `classify-reload.ts`
   The pure reload classifier. Decision order per changed file: forced-full
@@ -218,6 +225,7 @@ consumes that contract. It does not define it, and nothing in
 - `reload-plugin-gating.spec.ts`, `reload-plugin-emulator.spec.ts`, which
   steps a real compiler gets per mode, session, opt-out and engine
 - `classify-reload.unit.spec.ts`, classifier decisions
+- `build-reload.unit.spec.ts`, the per-build call and the browser mapping
 - `reload-dispatch.unit.spec.ts`, dispatch seam and the changed-sources
   tracker
 - `reload-stamp.unit.spec.ts`, the reload kind a dispatch stamps into
