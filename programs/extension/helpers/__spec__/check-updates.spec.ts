@@ -77,7 +77,7 @@ const latestIs = (version: string) => ({
   body: JSON.stringify({name: 'extension', version})
 })
 
-let registries: Array<{close(): Promise<void>}> = []
+const registries: Array<{close(): Promise<void>}> = []
 
 async function registry(answer: Answer) {
   const started = await startRegistry(answer)
