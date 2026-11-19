@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {processStartedAtMs} from './process-started-at'
 import {readyContractPath} from './session-paths'
 
 export interface LiveDevSession {
@@ -15,7 +16,8 @@ export interface LiveDevSession {
   pid: number
 }
 
-function isProcessAlive(pid: number): boolean {
+// EPERM is a process that exists under another user: alive, not ours to signal.
+export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0)
 
@@ -23,6 +25,34 @@ function isProcessAlive(pid: number): boolean {
   } catch (error) {
     return (error as NodeJS.ErrnoException)?.code === 'EPERM'
   }
+}
+
+// How far the process table's start time may sit from the stamped one. ps
+// answers in whole seconds, and Windows stamps the writer's own clock.
+const PID_START_TOLERANCE_MS = 2000
+
+export interface SessionPidProbes {
+  isAlive?: (pid: number) => boolean
+  startedAtOf?: (pid: number) => number | null
+}
+
+// A pid is handed to another process once its owner exits, so a live pid
+// counts only while it started when the contract says its writer did.
+export function isSessionPidLive(
+  contract: {pid?: unknown; pidStartedAt?: unknown},
+  probes: SessionPidProbes = {}
+): boolean {
+  const pid = Number(contract.pid)
+  if (!Number.isInteger(pid) || pid <= 0) return false
+  if (!(probes.isAlive ?? isProcessAlive)(pid)) return false
+
+  const stampedAt = Date.parse(String(contract.pidStartedAt ?? ''))
+  if (Number.isNaN(stampedAt)) return true
+
+  const startedAt = (probes.startedAtOf ?? processStartedAtMs)(pid)
+  if (startedAt == null) return true
+
+  return Math.abs(startedAt - stampedAt) <= PID_START_TOLERANCE_MS
 }
 
 // A dev session owns ready.json while its producer lives. A stopped, errored
@@ -48,7 +78,7 @@ export function findLiveDevSession(
   const pid = Number(contract.pid)
 
   if (!Number.isInteger(pid) || pid <= 0 || pid === process.pid) return null
-  if (!isProcessAlive(pid)) return null
+  if (!isSessionPidLive(contract)) return null
 
   const distPath =
     typeof contract.distPath === 'string' && contract.distPath

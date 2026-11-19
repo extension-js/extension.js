@@ -7,6 +7,7 @@ import {detectLiveDevSessionOwner, forgetSessionRun} from '../index'
 import {
   contractPath,
   makeWriter,
+  patchContract,
   readContract,
   stampReadyExtensionLoadRefused
 } from './helpers/contract'
@@ -188,7 +189,7 @@ describe("the notice about a live dev session owning another command's target", 
 
     return warn.mock.calls
       .map((call) => String(call[0]))
-      .filter((line) => line.includes('a live dev session (pid'))
+      .filter((line) => line.includes('A live dev session (PID'))
   }
 
   it('prints when a build writes the folder the dev session serves', () => {
@@ -201,7 +202,7 @@ describe("the notice about a live dev session owning another command's target", 
       path.join(projectDir, 'dist', browser)
     )
     expect(notices).toHaveLength(1)
-    expect(notices[0]).toContain('The output dir is shared')
+    expect(notices[0]).toContain('The output folder is shared')
   })
 
   it('stays quiet when the build writes another folder', () => {
@@ -217,35 +218,53 @@ describe("the notice about a live dev session owning another command's target", 
   })
 })
 
-describe('the live-session check reads pid liveness only', () => {
+describe('the live-session check dates the pid it finds alive', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  // Pins current behavior: the recorded pid start time is ignored, so a
-  // reused pid still counts as the owner.
-  it('takes a live pid whose start time does not match as the owner', () => {
-    const probed: number[] = []
-    const readyPath = writeReadyFixture({
-      pidStartedAt: '2000-01-01T00:00:00.000Z'
-    })
+  const stamped = '2026-11-01T10:00:00.000Z'
+  const stampedMs = Date.parse(stamped)
 
-    const owner = detectLiveDevSessionOwner(readyPath, (pid) => {
-      probed.push(pid)
+  // A pid is handed to another process once its owner exits, so a live pid
+  // that started at another time is not the session that wrote the contract.
+  it('takes no owner from a live pid whose start time does not match', () => {
+    const readyPath = writeReadyFixture({pidStartedAt: stamped})
 
-      return true
-    })
-
-    expect(probed).toEqual([424242])
-    expect(owner).toEqual({
-      pid: 424242,
-      port: null,
-      runId: 'f3a9',
-      instanceId: 'alpha',
-      instanceExplicit: false
-    })
+    expect(
+      detectLiveDevSessionOwner(readyPath, alive, () => stampedMs + 60_000)
+    ).toBeNull()
   })
 
-  // Pins current behavior: a reused pid still blocks the build receipt.
-  it('a build drops its receipt beside a reused pid', () => {
+  it('keeps the owner when the start time matches within tolerance', () => {
+    const readyPath = writeReadyFixture({pidStartedAt: stamped})
+
+    expect(
+      detectLiveDevSessionOwner(readyPath, alive, () => stampedMs + 900)
+    ).toMatchObject({pid: 424242, runId: 'f3a9'})
+  })
+
+  it('keeps the owner when the process table cannot date the pid', () => {
+    const readyPath = writeReadyFixture({pidStartedAt: stamped})
+
+    expect(
+      detectLiveDevSessionOwner(readyPath, alive, () => null)
+    ).toMatchObject({pid: 424242})
+  })
+
+  it('does not date a pid the contract carries no start time for', () => {
+    const probed: number[] = []
+    const readyPath = writeReadyFixture()
+
+    const owner = detectLiveDevSessionOwner(readyPath, alive, (pid) => {
+      probed.push(pid)
+
+      return 0
+    })
+
+    expect(owner).toMatchObject({pid: 424242})
+    expect(probed).toEqual([])
+  })
+
+  it('a build writes its receipt beside a reused pid', () => {
     const projectDir = makeTempFolder('extjs-owner-')
     const readyPath = writeLiveSession(projectDir, 'chromium', {
       runId: 'a-run-whose-pid-was-reused',
@@ -258,8 +277,8 @@ describe('the live-session check reads pid liveness only', () => {
     build.writeReady()
 
     const after = readContract(readyPath)
-    expect(after.command).toBe('dev')
-    expect(after.runId).toBe('a-run-whose-pid-was-reused')
+    expect(after.command).toBe('build')
+    expect(after.runId).not.toBe('a-run-whose-pid-was-reused')
   })
 
   // Pins current behavior: a half-written contract is replaced, not kept.
@@ -292,29 +311,21 @@ describe('the attach stamp beside another live dev session', () => {
     return {readyPath, preview: makeWriter(projectDir, {command: 'preview'})}
   }
 
-  // Pins current behavior: the attach stamp runs no ownership check, unlike
-  // the detach and reload stamps below.
-  it("stampExecutorAttached flips the live session's contract to attached and turns its held ready ready", () => {
+  // The attach stamp checks ownership like the detach and reload stamps.
+  it("stampExecutorAttached leaves the live session's held ready alone", () => {
     const {readyPath, preview} = previewBesideLiveSession({
       status: 'starting',
       compiledAt: '2026-11-01T00:00:00.000Z',
       awaitingExecutorSince: '2026-11-01T00:00:00.000Z'
     })
+    const before = fs.readFileSync(readyPath, 'utf-8')
 
     preview.stampExecutorAttached()
 
-    const after = readContract(readyPath)
-    expect(after.runId).toBe('a-live-dev-run')
-    expect(after.pid).toBe(process.ppid)
-    expect(after.runtime).toBe('attached')
-    expect(typeof after.executorAttachedAt).toBe('string')
-    expect(after.status).toBe('ready')
-    expect('awaitingExecutorSince' in after).toBe(false)
+    expect(fs.readFileSync(readyPath, 'utf-8')).toBe(before)
   })
 
-  // Pins current behavior: the attach stamp clears a load refusal it does
-  // not own.
-  it("stampExecutorAttached wipes the live session's recorded load refusal", () => {
+  it("stampExecutorAttached leaves the live session's load refusal alone", () => {
     const {readyPath, preview} = previewBesideLiveSession({})
     stampReadyExtensionLoadRefused(readyPath, {
       status: 'error',
@@ -324,14 +335,23 @@ describe('the attach stamp beside another live dev session', () => {
       extensionLoadRefusedReason: 'Manifest is not valid JSON.'
     })
 
+    const before = fs.readFileSync(readyPath, 'utf-8')
+
     preview.stampExecutorAttached()
 
-    const after = readContract(readyPath)
-    expect(after.status).toBe('ready')
-    expect('code' in after).toBe(false)
-    expect('message' in after).toBe(false)
-    expect('extensionLoadRefusedAt' in after).toBe(false)
-    expect('extensionLoadRefusedReason' in after).toBe(false)
+    expect(fs.readFileSync(readyPath, 'utf-8')).toBe(before)
+  })
+
+  it('stampExecutorAttached leaves a record of another run in this process alone', () => {
+    const projectDir = makeTempFolder('extjs-owner-')
+    const writer = makeWriter(projectDir)
+    writer.writeReady()
+    patchContract(writer.readyPath, {runId: 'a-run-that-already-ended'})
+    const before = fs.readFileSync(writer.readyPath, 'utf-8')
+
+    writer.stampExecutorAttached()
+
+    expect(fs.readFileSync(writer.readyPath, 'utf-8')).toBe(before)
   })
 
   // The two stamps that do check ownership, for contrast with the rows above.

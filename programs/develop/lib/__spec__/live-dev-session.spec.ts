@@ -55,6 +55,17 @@ describe('findLiveDevSession', () => {
     })
   })
 
+  it('finds nobody behind a live pid that started after its contract said', () => {
+    const project = projectWith({
+      command: 'dev',
+      status: 'ready',
+      pid: live.pid,
+      pidStartedAt: '2000-01-01T00:00:00.000Z'
+    })
+
+    expect(findLiveDevSession(project, 'chrome')).toBeNull()
+  })
+
   it('counts a session that is still starting', () => {
     const project = projectWith({
       command: 'dev',
