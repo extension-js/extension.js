@@ -583,10 +583,11 @@ describe('installInternalDependencies', () => {
     const frame = plain(String(error.message))
 
     expect(asked).toEqual(['npm'])
-    expect(frame.split('\n').slice(0, 3)).toEqual([
+    expect(frame.split('\n').slice(0, 4)).toEqual([
       `⏵⏵⏵ Error: Couldn't install the dependencies for ${path.basename(projectRoot)}.`,
-      'REASON Error: spawn npm ENOENT',
-      'The install process exited unexpectedly.'
+      'COMMAND npm install vue-loader @vue/compiler-sfc --save-optional --legacy-peer-deps',
+      'REASON npm is not installed, or not on PATH',
+      'Install npm or add it to PATH.'
     ])
 
     expect(frame).toContain('--template vue --install')

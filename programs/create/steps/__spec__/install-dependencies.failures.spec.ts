@@ -87,8 +87,9 @@ describe('installDependencies failure paths', () => {
     expect(failure.name).toBe('Error')
     expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies for ghost.\n" +
-        'REASON Error: spawn pnpm ENOENT\n' +
-        'The install process exited unexpectedly.\n' +
+        'COMMAND pnpm install\n' +
+        'REASON pnpm is not installed, or not on PATH\n' +
+        'Install pnpm or add it to PATH.\n' +
         'The new project files were removed. Fix the error above, then run ' +
         `extension create ${shellQuote(projectPath)} --template react --install again.`
     )
