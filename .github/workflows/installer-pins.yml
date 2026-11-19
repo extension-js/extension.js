@@ -1,0 +1,35 @@
+name: CI – Installer Pins
+
+# `extension install` hands each download to a pinned package runner version
+# (programs/install/lib/installer-versions.ts). A pin the registry no longer
+# serves breaks every first install, so a change to the install program asks
+# the registry for each pin's version document. No tarball is downloaded.
+on:
+  pull_request:
+    paths:
+      - 'programs/install/**'
+      - 'scripts/check-installer-pins.mjs'
+      - '.github/workflows/installer-pins.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: installer-pins-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pins:
+    name: Installer pins resolve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Check that every installer pin resolves
+        run: node scripts/check-installer-pins.mjs
