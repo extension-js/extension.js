@@ -1,7 +1,6 @@
 import fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {installManifestDiskWriteGuard} from '../index'
 import {
   bootLoopback,
   closeSocket,
@@ -146,13 +145,12 @@ describe('the dev server on loopback', () => {
     })
   })
 
-  it('keeps the compiled manifest off disk until its guard is released', async () => {
-    const root = createFixture('extjs-loopback-guard-')
+  it('keeps the compiled manifest off disk and leaves node:fs alone', async () => {
+    const root = createFixture('extjs-loopback-manifest-')
     roots.push(root)
     const manifest = path.join(root, 'dist', 'chrome', 'manifest.json')
-    const uninstall = installManifestDiskWriteGuard(manifest)
+    const writeFileSync = fs.writeFileSync
     let session: LoopbackSession | undefined
-    let released = false
 
     try {
       session = await bootLoopback({root})
@@ -177,24 +175,12 @@ describe('the dev server on loopback', () => {
 
       expect(fs.existsSync(manifest)).toBe(false)
 
+      // The middleware's filter is the only gate: an in-process write lands.
+      expect(fs.writeFileSync).toBe(writeFileSync)
       fs.writeFileSync(manifest, 'sync')
-      await new Promise<void>((resolve) =>
-        fs.writeFile(manifest, 'callback', () => resolve())
-      )
-
-      await fs.promises.writeFile(manifest, 'promise')
-      expect(fs.existsSync(manifest)).toBe(false)
-
-      await session.server.stop()
-      session = undefined
-      uninstall()
-      released = true
-
-      fs.writeFileSync(manifest, 'after release')
-      expect(fs.readFileSync(manifest, 'utf8')).toBe('after release')
+      expect(fs.readFileSync(manifest, 'utf8')).toBe('sync')
     } finally {
       await session?.server.stop()
-      if (!released) uninstall()
     }
   })
 })
