@@ -114,7 +114,7 @@ import {
 import * as messages from './messages'
 import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
-import {buildServerConfig} from './server-config'
+import {buildServerConfig, sessionSocketPath} from './server-config'
 import {claimDevSession} from './session-claim'
 import {endAfterFrame, registerLiveSession} from './session-end'
 import {exportSessionEnv} from './session-env'
@@ -396,7 +396,9 @@ async function startDevSession(
   exportEnv('EXTENSION_DEV_SERVER_HOST', devServerHost)
   exportEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', connectableHost)
   exportEnv('EXTENSION_DEV_SERVER_PORT', String(port))
-  exportEnv('EXTENSION_DEV_SERVER_PATH', '/ws')
+  // Each session's extension dials a socket path that names the session.
+  const socketPath = sessionSocketPath(currentInstance.instanceId)
+  exportEnv('EXTENSION_DEV_SERVER_PATH', socketPath)
 
   const browserName = String(devOptions.browser || 'chromium')
   const emulatorLane = isEmulatorBrowser(browserName)
@@ -799,6 +801,7 @@ async function startDevSession(
     publicFolder,
     packageJsonDir,
     emulatorFiles,
+    socketPath,
     activeCompiler: () => activeCompiler,
     onHostRefused: (host) => humanLine(messages.devServerHostRefused(host)),
     onSiteRefused: (origin) =>
@@ -836,6 +839,18 @@ async function startDevSession(
     const compilerConfig = applySplitChunksGuard(
       merge(customWebpackConfig(baseConfig), {})
     )
+    // The page HMR client of this compiler dials this session's socket, even
+    // when a later session in the same process rewrote the environment.
+    const devServerOptions = compilerConfig.devServer || {}
+    const client = Object(devServerOptions.client)
+    compilerConfig.devServer = {
+      ...devServerOptions,
+      client: {
+        ...client,
+        webSocketURL: {...Object(client.webSocketURL), pathname: socketPath}
+      }
+    }
+
     const configResolved = await loadConfigResolvedHook(packageJsonDir)
 
     if (configResolved) {

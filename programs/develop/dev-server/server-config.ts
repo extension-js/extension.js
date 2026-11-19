@@ -115,6 +115,14 @@ export interface ServerConfigInput {
   onSiteRefused: (origin: string) => void
   server: Configuration['server']
   env?: Readonly<Record<string, string | undefined>>
+  // The reload socket path the session's own extension is built with.
+  socketPath: string
+}
+
+// The reload socket names the session, so only an extension this session
+// built can open it. The stock server answers no other path.
+export function sessionSocketPath(instanceId: string): string {
+  return `/ws/${encodeURIComponent(instanceId)}`
 }
 
 export function buildServerConfig(input: ServerConfigInput): Configuration {
@@ -186,6 +194,7 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     webSocketServer: {
       type: 'ws',
       options: {
+        path: input.socketPath,
         verifyClient: createSocketVerifier(
           access.requestSite,
           announceSiteRefusal

@@ -242,8 +242,11 @@ export function isSessionWebOrigin(
   const name = bareHostName(url.hostname)
   const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80))
 
-  if (port === session.port && session.sessionHosts.includes(name)) return true
-  if (isNamedHost(name, session.namedHosts)) return true
+  // A name the session answers on, or one it was given, counts on its own port.
+  if (port === session.port) {
+    if (session.sessionHosts.includes(name)) return true
+    if (isNamedHost(name, session.namedHosts)) return true
+  }
 
   return session.allowedWebOrigins.some((allowed) =>
     isSameWebOrigin(origin, allowed)
