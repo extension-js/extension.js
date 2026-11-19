@@ -12,7 +12,10 @@ import type {Compiler} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
 import {canonicalizeResourcePath} from '../../lib/resource-path'
-import {parseCanonicalContentScriptEntryIndex} from '../../plugin-web-extension/feature-scripts/contracts'
+import {
+  getRuntimeMainWorldEntries,
+  parseCanonicalContentScriptEntryIndex
+} from '../../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions, Manifest} from '../../types'
 
 export function resourceKey(resource: string): string {
@@ -54,7 +57,7 @@ function contentScriptGroups(
   }
 }
 
-// The files a MAIN world content script or a sandboxed page runs directly.
+// The files a MAIN world script or a sandboxed page runs directly.
 // A file another entry also runs keeps what that entry needs.
 export function filesWithNoExtensionApi(
   compiler: Compiler,
@@ -80,6 +83,16 @@ export function filesWithNoExtensionApi(
     }
   }
 
+  // A dev build compiles these apart too, so their files are named here.
+  const runtimeMainWorld = getRuntimeMainWorldEntries(compiler)
+
+  for (const files of runtimeMainWorld.values()) {
+    for (const file of files) {
+      const key = resourceKey(file)
+      if (key) without.add(key)
+    }
+  }
+
   const entries = compiler.options.entry
 
   if (entries && typeof entries === 'object') {
@@ -87,6 +100,7 @@ export function filesWithNoExtensionApi(
       const index = parseCanonicalContentScriptEntryIndex(name)
       const noApi =
         name.startsWith('sandbox/') ||
+        runtimeMainWorld.has(name) ||
         (index !== undefined && groups[index]?.world === 'MAIN')
 
       const target = noApi ? without : within
