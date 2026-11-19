@@ -431,6 +431,26 @@ async function runBuild(
         )
     const envTarget = {mode: resolvedMode, browser: String(browser)}
 
+    // A refusal before the compiler writes its receipt must not leave the last
+    // run's ready.json standing. A live dev session's own file is left alone.
+    recordBuildFailure = (error) => {
+      if (!fs.existsSync(readyContractPath(packageJsonDir, browser))) return
+      if (findLiveDevSession(packageJsonDir, browser)) return
+
+      createPlaywrightMetadataWriter({
+        packageJsonDir,
+        browser: String(browser),
+        command: buildOptions?.metadataCommand || 'build',
+        distPath: distPath || getBuildDistPath(packageJsonDir, browser),
+        manifestPath: projectStructure.manifestPath
+      }).writeError(
+        'build_failed',
+        stripChannelPrefix(
+          error instanceof Error ? error.message : String(error)
+        )
+      )
+    }
+
     findingProject = false
 
     await ensureDevelopArtifacts()

@@ -206,6 +206,47 @@ describe('perfBudgets.onExceed on a real production build', () => {
     expect(emitted(root)).toBe(false)
   }, 180_000)
 
+  it("leaves the last run's ready.json reading error when the value is refused", async () => {
+    // The loader keeps a config per process until an env value it read moves.
+    const root = project(
+      config(`{${TIGHT}, onExceed: process.env.BUDGET_ON_EXCEED || 'warn'}`)
+    )
+    const readyPath = path.join(
+      root,
+      'dist',
+      'extension-js',
+      'chrome',
+      'ready.json'
+    )
+    const ready = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+    await build(root)
+    expect(ready().status).toBe('ready')
+
+    vi.stubEnv('BUDGET_ON_EXCEED', 'fail')
+    const failure = await failureOf(root).finally(() => vi.unstubAllEnvs())
+
+    expect(failure.code).toBe('E_CONFIG_LOAD')
+    expect(ready()).toMatchObject({
+      status: 'error',
+      code: 'build_failed',
+      command: 'build',
+      pid: process.pid
+    })
+
+    expect(ready().message).toContain(
+      "perfBudgets.onExceed in extension.config.js must be 'warn' or 'error'"
+    )
+  }, 180_000)
+
+  it('creates no ready.json for a refusal in a project that never built', async () => {
+    const root = project(config(`{${TIGHT}, onExceed: 'fail'}`))
+
+    await failureOf(root)
+
+    expect(fs.existsSync(path.join(root, 'dist'))).toBe(false)
+  }, 180_000)
+
   it("builds in development mode with 'error', where no budget is checked", async () => {
     const root = project(config(`{${TIGHT}, onExceed: 'error'}`))
     const summary = await build(root, 'development')
