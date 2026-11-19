@@ -130,6 +130,13 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function signalListenerCounts() {
+  return {
+    SIGINT: process.listenerCount('SIGINT'),
+    SIGTERM: process.listenerCount('SIGTERM')
+  }
+}
+
 // Timers that hold the process open, a reconnect backoff among them.
 function pendingTimers(): number {
   return process.getActiveResourcesInfo().filter((kind) => kind === 'Timeout')
@@ -190,6 +197,7 @@ describe('extension logs --follow over the live control channel', () => {
       broker.ingestLog(incoming(message))
     }
 
+    const listenersBefore = signalListenerCounts()
     const exit = run(['logs', dir, '--follow', '--output', 'ndjson'])
     await until(() => broker.consumerCount === 1, 'the follower to attach')
 
@@ -259,6 +267,10 @@ describe('extension logs --follow over the live control channel', () => {
     expect(
       errorLines().some((line) => line.includes('the control channel closed'))
     ).toBe(true)
+
+    // A follow that ended leaves no signal handler behind to act on a later
+    // Ctrl+C in the same process.
+    expect(signalListenerCounts()).toEqual(listenersBefore)
 
     // Nothing else may print: the consumer is closed, so no reconnect backoff
     // is left pending to dial the port again.
