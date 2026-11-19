@@ -24,9 +24,9 @@
 
 ### What it hands to the rspack dev server
 
-`server-config.ts` builds the `@rspack/dev-server` configuration. The stock server owns listening, static serving of `public/`, the HMR WebSocket at `/ws` (`hot` and `liveReload` on, client injection off) and `@rspack/dev-middleware`, which keeps compiled files in memory. Two things are set on purpose:
+`server-config.ts` builds the `@rspack/dev-server` configuration. The stock server owns listening, static serving of `public/` (a name the build leaves out of `public/` answers 404 here too), the HMR WebSocket at `/ws` (`hot` and `liveReload` on, client injection off) and `@rspack/dev-middleware`, which keeps compiled files in memory. Two things are set on purpose:
 
-- `writeToDisk` writes every asset except `manifest.json` and any name with a `..` segment. The manifest plugin owns the manifest on disk, and `installManifestDiskWriteGuard` in `index.ts` keeps other in-process writes off it.
+- `writeToDisk` writes every asset except `manifest.json` and any name with a `..` segment. The manifest plugin owns the manifest on disk and writes it whole. Nothing patches `node:fs`, so a host's own writes go through.
 - `setupExitSignals: false`, because `cleanup.ts` owns the signals.
 
 `dev-middleware-body.ts` repairs one-byte assets that `@rspack/dev-middleware` 2.0.3 serves empty.

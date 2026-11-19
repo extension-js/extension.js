@@ -10,6 +10,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {toProjectRelativePath} from '../lib/resource-path'
 import {
+  hasPrivateFileName,
+  rootAbsolutePathIsWithheld
+} from '../plugin-special-folders/public-private-files'
+import {
   publicContainmentRoot,
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
@@ -70,7 +74,10 @@ function publicPathOfRelativeRef(
   const absolutePath = path.resolve(issuerDir, req)
   if (!isFile(absolutePath)) return undefined
 
-  return publicOwnedOutputName(absolutePath, publicDir)
+  const publicPath = publicOwnedOutputName(absolutePath, publicDir)
+
+  // The copier leaves these names out, so public/ does not hold them.
+  return publicPath && !hasPrivateFileName(publicPath) ? publicPath : undefined
 }
 
 export function keepPublicRootRefs(
@@ -92,7 +99,8 @@ export function keepPublicRootRefs(
 
       if (req.startsWith('/')) {
         const rel = req.slice(1)
-        if (!rel || !isFile(path.join(publicRoot, rel))) return undefined
+        if (!rel || rootAbsolutePathIsWithheld(req)) return undefined
+        if (!isFile(path.join(publicRoot, rel))) return undefined
 
         return `${PUBLIC_ROOT_SCHEME}${request}`
       }

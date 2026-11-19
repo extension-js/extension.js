@@ -19,6 +19,10 @@ import {
 } from '../../lib/extension-base-from-stack'
 import type {WithheldKind} from '../../lib/withheld-file'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
+import {
+  hasPrivateFileName,
+  rootAbsolutePathIsWithheld
+} from '../../plugin-special-folders/public-private-files'
 import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
 import {rewriteCssUrls, whyNotRead} from './inline-css-imports'
 
@@ -73,6 +77,9 @@ function resolveTarget(
   // public/ keeps precedence for a root-absolute ref: it is the documented
   // output-root contract, and the same order the dead-reference scan uses.
   if (req.startsWith('/')) {
+    // The copier leaves these names out, so they read as missing.
+    if (rootAbsolutePathIsWithheld(req)) return undefined
+
     const rel = req.slice(1)
     const fromPublic = path.join(publicRoot, rel)
 
@@ -96,6 +103,8 @@ function resolveTarget(
   const publicPath = publicOwnedOutputName(absolutePath, publicDir)
 
   if (publicPath) {
+    if (hasPrivateFileName(publicPath)) return undefined
+
     return {absolutePath, outputName: publicPath, publicOwned: true}
   }
 

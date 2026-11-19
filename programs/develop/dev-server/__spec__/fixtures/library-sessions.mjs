@@ -49,7 +49,7 @@ async function until(read, timeoutMs = 30000) {
 const CONFIGS = {
   // Refused before a compiler exists.
   config: `export default {config: () => { throw new Error('config hook broke') }}`,
-  // Thrown while the bundle is wired, after the manifest guard is installed.
+  // Thrown while the bundle is wired, after the compiler exists.
   bundle: `export default {config: (config) => {
     config.plugins = [...(config.plugins || []), {apply(compiler) {
       compiler.hooks.done.tapPromise = () => { throw new Error('tap broke') }
@@ -140,7 +140,19 @@ function start(dir, options = {}) {
   return {session, isReady: () => ready}
 }
 
-// Left installed, the process-global guard swallows this write.
+// The node:fs functions a session could patch, to compare with later.
+const fsSurface = () => [
+  fs.writeFile,
+  fs.writeFileSync,
+  fs.createWriteStream,
+  fs.open,
+  fs.openSync,
+  fs.rename,
+  fs.renameSync,
+  fs.promises.writeFile
+]
+
+// A host's own write to a session's output manifest lands on disk.
 function manifestWriteGoesThrough(dir) {
   const file = distManifest(dir)
   fs.mkdirSync(path.dirname(file), {recursive: true})
@@ -185,6 +197,7 @@ async function failingStarts() {
 // and is released, and the older one must go on restarting.
 async function restartWhileAnotherSessionLives() {
   const before = listeners()
+  const fsBefore = fsSurface()
   const older = project('older', CONFIGS.start)
   const newer = project('newer', CONFIGS.start)
   const a = start(older)
@@ -199,6 +212,10 @@ async function restartWhileAnotherSessionLives() {
   const bothReady = await until(() => a.isReady() && b.isReady())
   const live = listeners()
   const listeningLive = listening().length
+  const fsAsFoundWhileLive = fsSurface().every(
+    (fn, index) => fn === fsBefore[index]
+  )
+  const manifestWriteGoesThroughWhileLive = manifestWriteGoesThrough(newer)
   const withContentScript = manifest({
     content_scripts: [{matches: ['https://example.com/*'], js: ['cs.js']}]
   })
@@ -239,6 +256,8 @@ async function restartWhileAnotherSessionLives() {
     envChangedByNewer,
     started,
     bothReady,
+    fsAsFoundWhileLive,
+    manifestWriteGoesThroughWhileLive,
     newerReleased,
     olderRestarted
   }

@@ -47,6 +47,8 @@ interface TwoSessionsResult {
   envChangedByNewer: string[]
   started: Array<{started: boolean}>
   bothReady: boolean
+  fsAsFoundWhileLive: boolean
+  manifestWriteGoesThroughWhileLive: boolean
   newerReleased: boolean
   olderRestarted: boolean
 }
@@ -123,7 +125,7 @@ describe('a host that starts dev sessions from the library', () => {
       'config',
       "Couldn't load extension.config.js."
     ],
-    ['its bundle throws once the manifest is guarded', 'bundle', 'tap broke'],
+    ['its bundle throws once the compiler exists', 'bundle', 'tap broke'],
     ['its server cannot start', 'start', 'watch broke']
   ])(
     'is left as it was by four sessions that fail because %s',
@@ -150,7 +152,7 @@ describe('a host that starts dev sessions from the library', () => {
         []
       ])
 
-      // No listener, no socket, no id in the environment, no guard on fs.
+      // No listener, no socket, no id in the environment, fs as it was.
       expect(result.after).toEqual(result.before)
       expect(result.socketsClosed).toBe(true)
       expect(result.listening).toEqual([])
@@ -420,6 +422,11 @@ describe('a host that starts dev sessions from the library', () => {
 
     expect(result.started).toEqual([{started: true}, {started: true}])
     expect(result.bothReady).toBe(true)
+
+    // A live session leaves node:fs as the host had it, so the host's own
+    // write to an output manifest lands.
+    expect(result.fsAsFoundWhileLive).toBe(true)
+    expect(result.manifestWriteGoesThroughWhileLive).toBe(true)
 
     // The newer session is released whole, and the older one keeps its own:
     // its listeners, and the environment its next compiler reads.
