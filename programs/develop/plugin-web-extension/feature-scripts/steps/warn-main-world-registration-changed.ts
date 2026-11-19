@@ -9,36 +9,20 @@
 import * as path from 'node:path'
 import {type Compiler, WebpackError} from '@rspack/core'
 import {
-  canAutoRestartDevSession,
-  DEV_SESSION_RESTART_DEBOUNCE_MS,
-  isCompilerRestarting,
-  isDevSessionRestartPending,
-  requestDevSessionRestart
-} from '../../../dev-server/session-restart'
-import {
-  holdBuildForMainWorldRestart,
-  holdForMainWorldRestart,
-  releaseMainWorldRestartHold
-} from '../../../dev-server/session-restart-holds'
+  type MainWorldScriptChange,
+  trackMainWorldRestart
+} from '../../../dev-server/main-world-restart'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {unixify} from '../../shared/paths'
 import * as messages from '../messages'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
-
-// The set a restart was last asked for, by manifest. A compiler that finds
-// that same set again was not put in line by the restart, so it warns.
-const lastRequested = new Map<string, string>()
-
-// How long a changed set has to hold before a restart is asked for. An edit
-// taken back inside it leaves the session on the compiler it already has.
-export const MAIN_WORLD_SETTLE_MS = DEV_SESSION_RESTART_DEBOUNCE_MS
 
 function signatureOf(entries: Map<string, unknown>): string {
   return [...entries.keys()].sort().join('\n')
 }
 
 // The steps that build a MAIN world file take their list once, when the
-// compiler is made, so a call written mid-session needs a new session.
+// compiler is made. The dev server restarts a session whose set changed.
 export class WarnMainWorldRegistrationChanged {
   public static readonly name: string =
     'scripts:warn-main-world-registration-changed'
@@ -70,101 +54,24 @@ export class WarnMainWorldRegistrationChanged {
     const atStart = new Map(
       find().map((entry) => [entry.entryName, entry.files])
     )
-    const startSignature = signatureOf(atStart)
-    let requested: string | undefined
-    let settling: ReturnType<typeof setTimeout> | undefined
-
-    const stopSettling = () => {
-      if (settling) clearTimeout(settling)
-
-      settling = undefined
-    }
-
-    const standDown = () => {
-      stopSettling()
-      requested = undefined
-      releaseMainWorldRestartHold(compiler)
-    }
-
-    // False once the restart asked for here ended with this compiler still
-    // serving, which only a restart that could not build its bundle does.
-    const restartIsComing = () =>
-      settling !== undefined ||
-      isCompilerRestarting(compiler) ||
-      isDevSessionRestartPending(compiler)
-
-    // Asked once the set has held, and read from disk again first: a save
-    // that put the call back may not have reached a compilation yet.
-    const askOnceSettled = (
-      signature: string,
-      request: Parameters<typeof requestDevSessionRestart>[1]
-    ) => {
-      stopSettling()
-
-      settling = setTimeout(() => {
-        settling = undefined
-
-        const settled = signatureOf(
-          new Map(find().map((entry) => [entry.entryName, entry]))
-        )
-
-        if (
-          settled === startSignature ||
-          !requestDevSessionRestart(compiler, request)
-        ) {
-          standDown()
-
-          return
-        }
-
-        lastRequested.set(this.manifestPath, signature)
-      }, MAIN_WORLD_SETTLE_MS)
-
-      settling.unref?.()
-    }
-
-    // A compiler that is closed was replaced, and its successor took the list
-    // as it stood, so a restart still settling here has nothing left to do.
-    for (const hook of ['watchClose', 'shutdown'] as const) {
-      compiler.hooks[hook]?.tap?.(
-        WarnMainWorldRegistrationChanged.name,
-        stopSettling
-      )
-    }
+    const noteMainWorldSet = trackMainWorldRestart(compiler, {
+      name: WarnMainWorldRegistrationChanged.name,
+      key: this.manifestPath,
+      startSignature: signatureOf(atStart),
+      readSignature: () =>
+        signatureOf(new Map(find().map((entry) => [entry.entryName, entry])))
+    })
 
     compiler.hooks.thisCompilation.tap(
       WarnMainWorldRegistrationChanged.name,
       (compilation) => {
         // Read on every compilation, so a call taken back stops warning.
         const now = new Map(find().map((entry) => [entry.entryName, entry]))
-        const signature = signatureOf(now)
-
-        if (signature === startSignature) {
-          standDown()
-          lastRequested.delete(this.manifestPath)
-
-          return
-        }
-
-        // This compiler already took this set, the restart is on its way.
-        if (requested === signature && restartIsComing()) {
-          holdBuildForMainWorldRestart(compilation)
-
-          return
-        }
-
-        // The restart failed and this compiler kept serving, so the build a
-        // save makes asks for it again, as the failure told the author.
-        if (requested === signature) {
-          standDown()
-          lastRequested.delete(this.manifestPath)
-        }
-
-        const changed: Array<{files: string[]; registeredBy?: string}> = []
+        const changed: MainWorldScriptChange[] = []
 
         // A file and its MAIN world copy are two entries of one script,
         // which the author is told about once.
-        const note = (entry: {files: string[]; registeredBy?: string}) => {
+        const note = (entry: MainWorldScriptChange) => {
           if (changed.some(({files}) => files[0] === entry.files[0])) return
 
           changed.push(entry)
@@ -178,26 +85,7 @@ export class WarnMainWorldRegistrationChanged {
           if (!now.has(entryName)) note({files})
         }
 
-        // A live session rebuilds itself with the new list. Without one, or
-        // after a restart that did not take, the author is told to restart.
-        if (
-          lastRequested.get(this.manifestPath) !== signature &&
-          canAutoRestartDevSession(compiler)
-        ) {
-          requested = signature
-          holdForMainWorldRestart(compiler, compilation)
-          askOnceSettled(signature, {
-            reason: 'main-world',
-            pathChanged: changed[0].files[0],
-            registeredBy: changed[0].registeredBy,
-            alsoChanged: changed.length - 1
-          })
-
-          return
-        }
-
-        // The set a restart did not take is warned about and reloads as usual.
-        standDown()
+        if (noteMainWorldSet(compilation, signatureOf(now), changed)) return
 
         for (const {files, registeredBy} of changed) {
           const scriptPath = relative(files[0])
