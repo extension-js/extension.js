@@ -782,15 +782,16 @@ describe('generateManifestPatches', () => {
       expect(compilation.errors.length).toBe(0)
     })
 
-    it('preserves public-root path and warns if missing under public/', () => {
-      const pub = '/img/logo.png'
+    it('lists a public-root path that public/ holds by its output path', () => {
+      fs.mkdirSync(path.join(tmpRoot, 'public', 'img'), {recursive: true})
+      fs.writeFileSync(path.join(tmpRoot, 'public', 'img', 'logo.png'), 'img')
 
       const result = runWith(
         {},
         {
           manifest_version: 3,
           web_accessible_resources: [
-            {matches: ['<all_urls>'], resources: [pub]}
+            {matches: ['<all_urls>'], resources: ['/img/logo.png']}
           ]
         }
       )
@@ -800,6 +801,50 @@ describe('generateManifestPatches', () => {
         resources: string[]
       }[]
       expect(groups[0].resources).toEqual(['img/logo.png'])
+    })
+
+    it('leaves out a public-root path public/ lacks, warning in production only', () => {
+      const declared = {
+        manifest_version: 3,
+        web_accessible_resources: [
+          {matches: ['<all_urls>'], resources: ['/img/logo.png']}
+        ]
+      }
+
+      for (const mode of ['development', 'production']) {
+        const compilation: any = {
+          options: {mode, context: tmpRoot, output: {path: tmpRoot}},
+          outputOptions: {path: tmpRoot},
+          errors: [],
+          warnings: [],
+          assets: {},
+          getAsset: () => undefined,
+          emitAsset: vi.fn(),
+          fileDependencies: new Set<string>()
+        }
+
+        const resolved = resolveUserDeclaredWAR(
+          compilation as Compilation,
+          manifestPath,
+          declared,
+          'chrome'
+        )
+
+        expect(resolved.v3, mode).toEqual([])
+        expect(compilation.errors, mode).toEqual([])
+
+        if (mode === 'development') {
+          expect(compilation.warnings).toEqual([])
+          continue
+        }
+
+        expect(compilation.warnings).toHaveLength(1)
+        const message = String(compilation.warnings[0].message)
+        expect(message).toContain('/img/logo.png')
+        expect(message).toContain('public/img/logo.png')
+        expect(message).toContain('To reference files in')
+        expect(message).not.toContain(tmpRoot)
+      }
     })
 
     it('de-dupes between user-declared and auto-collected resources', () => {

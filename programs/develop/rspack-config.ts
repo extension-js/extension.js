@@ -261,7 +261,9 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
-      devSession
+      devSession,
+      connectableHost: devOptions.connectableHost,
+      port: devOptions.port
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.
