@@ -7,8 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
-import {getOriginalManifestContent} from '../manifest-lib/manifest'
+import {getOriginalManifest} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 
 const HOST_PERMISSION_KEYS = ['host_permissions', 'optional_host_permissions']
@@ -79,12 +78,10 @@ export class WarnIgnoredHostPermissions {
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
           },
           () => {
-            const original = getOriginalManifestContent(compilation)
-            if (!original) return
+            const authored = getOriginalManifest(compilation)
+            if (!authored) return
 
-            const hits = findIgnoredHostPermissionPatterns(
-              parseJsonSafe(original)
-            )
+            const hits = findIgnoredHostPermissionPatterns(authored)
             if (!hits.length) return
 
             const signature = JSON.stringify(hits)

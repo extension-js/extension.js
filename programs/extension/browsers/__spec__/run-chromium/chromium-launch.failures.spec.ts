@@ -332,7 +332,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
 
       expect(fake.project.readReady()).toMatchObject({
         status: 'starting',
-        cdpFaultCode: 'E_CDP_TIMEOUT',
+        cdpFaultCode: 'W_CDP_TIMEOUT',
         cdpFaultMessage:
           'The browser gave the extension load check no answer within 45s.'
       })
@@ -361,7 +361,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
 
       expect(said('log').join('\n')).not.toMatch(/ready for development/i)
       expect(fake.project.readReady()).toMatchObject({
-        cdpFaultCode: 'E_CDP_TIMEOUT',
+        cdpFaultCode: 'W_CDP_TIMEOUT',
         browserUpNotAttachedWaitMs: 15_000
       })
 
@@ -384,7 +384,7 @@ describe('a Chromium launch that does not reach a running extension', () => {
       expect(fake.project.readReady()).toMatchObject({
         status: 'starting',
         browserPid: FAKE_BROWSER_PID,
-        cdpFaultCode: 'E_BROWSER_CONNECTION_CLOSED',
+        cdpFaultCode: 'W_BROWSER_CONNECTION_CLOSED',
         cdpFaultMessage: 'CDP pipe closed'
       })
 

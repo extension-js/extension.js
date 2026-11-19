@@ -8,21 +8,18 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {
-  Compilation,
-  type Compiler,
-  type StatsError,
-  WebpackError
-} from '@rspack/core'
+import {Compilation, type Compiler, type StatsError} from '@rspack/core'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {reportToCompilation} from '../../shared/compilation-issues'
 import * as messages from '../html-lib/messages'
 import {getAssetsFromHtml} from '../html-lib/utils'
 
-function handleCantResolveError(
+// The page and the file behind a "Module not found" of a page entry.
+function missingPageEntry(
   includesList: FilepathList,
   error: StatsError,
   manifestDir: string
-) {
+): {page: string; missing: string; isPublicRoot: boolean} | null {
   const raw = String(error.message || '')
   const patterns = [
     "Module not found: Error: Can't resolve ",
@@ -42,7 +39,8 @@ function handleCantResolveError(
 
       // Resources from the manifest lib can come as undefined.
       if (resource) {
-        if (!fs.existsSync(resource as string)) return null
+        // One page without a file says nothing about the pages after it.
+        if (!fs.existsSync(resource as string)) continue
 
         const htmlAssets = getAssetsFromHtml(resource as string)
         const rawJsAssets = htmlAssets?.js || []
@@ -96,17 +94,11 @@ function handleCantResolveError(
               ? path.join(dir, matchedRawAttr)
               : wrongFilename
 
-          const errorMsg = messages.fileNotFound(
-            resource as string,
-            (overrideNotFoundPath || wrongFilename) as string,
-            {publicRootHint: isPublicRoot}
-          )
-          const warn = new WebpackError(errorMsg)
-          warn.name = 'HtmlEntrypointMissing'
-          // @ts-expect-error - file is not a property of WebpackError
-          warn.file = path.relative(manifestDir, resource as string)
-
-          return warn
+          return {
+            page: resource as string,
+            missing: (overrideNotFoundPath || wrongFilename) as string,
+            isPublicRoot
+          }
         }
       }
     }
@@ -127,71 +119,90 @@ export class HandleCommonErrors {
   }
 
   apply(compiler: Compiler) {
-    compiler.hooks.compilation.tap(
+    // The top compilation only: a `compilation` tap is copied into every
+    // child compiler, which would run the same rewrite again per child.
+    compiler.hooks.thisCompilation.tap(
       'html:handle-common-errors',
       (compilation) => {
-        const hasProcessAssets = Boolean(compilation?.hooks?.processAssets?.tap)
+        const manifestDir = path.dirname(this.manifestPath)
+        // A script deleted while the session runs reads as it does at
+        // startup and in a production build: a dead reference warns.
+        const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
+        const deadRefs: Array<{page: string; missing: string; hint: boolean}> =
+          []
 
-        if (hasProcessAssets) {
-          compilation.hooks.processAssets.tap(
-            {
-              name: 'html:handle-common-errors',
-              stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
-            },
-            () => {
-              const errs = [...compilation.errors]
-              errs.forEach((error, index) => {
-                // Handle "Module not found": entrypoints can't recompile at runtime. Static
-                // assets are covered by AddAssetsToCompilationPlugin instead.
-                const cantResolveError = handleCantResolveError(
-                  this.includeList || {},
-                  error as StatsError,
-                  path.dirname(this.manifestPath)
-                )
+        const report = (ref: (typeof deadRefs)[number]) =>
+          reportToCompilation(
+            compilation,
+            compiler,
+            messages.fileNotFound(ref.page, ref.missing, {
+              publicRootHint: ref.hint,
+              deadRefHint: !strictRefs
+            }),
+            strictRefs ? 'error' : 'warning',
+            ref.page,
+            'HtmlEntrypointMissing'
+          )
 
-                if (cantResolveError) {
-                  compilation.errors[index] = cantResolveError
-                }
+        // The first asset stage: a module that cannot be found is known
+        // by then, and the steps that skip a failed build run after it.
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:handle-common-errors',
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+          },
+          () => {
+            const others: Error[] = []
+
+            for (const error of [...compilation.errors]) {
+              // A page entry that is gone fails as "Module not found". The
+              // static files a page names are reported by the emit step.
+              const entry = missingPageEntry(
+                this.includeList || {},
+                error as StatsError,
+                manifestDir
+              )
+
+              if (!entry) {
+                others.push(error as Error)
+                continue
+              }
+
+              deadRefs.push({
+                page: path.relative(manifestDir, entry.page),
+                missing: entry.missing,
+                hint: entry.isPublicRoot
               })
             }
-          )
 
-          return
-        }
+            if (deadRefs.length === 0) return
 
-        // Fallback for minimal/mock compilations without processAssets hook
-        try {
-          const transformed = (compilation.errors || []).map((error) => {
-            const replaced = handleCantResolveError(
-              this.includeList || {},
-              error as unknown as StatsError,
-              path.dirname(this.manifestPath)
-            )
+            compilation.errors = others as typeof compilation.errors
 
-            return replaced || error
-          })
-          compilation.errors = transformed
-        } catch {
-          // Ignore
-        }
+            if (strictRefs) deadRefs.splice(0).forEach(report)
+          }
+        )
+
+        // The asset step warns about the same file when the build is clean.
+        // This one speaks only when that step was skipped over another error.
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:handle-common-errors',
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+          },
+          () => {
+            for (const ref of deadRefs.splice(0)) {
+              const said = Array.from(compilation.warnings).some(
+                (warning) =>
+                  warning.name === 'HtmlEntrypointMissing' &&
+                  String(warning.message).includes(ref.missing)
+              )
+
+              if (!said) report(ref)
+            }
+          }
+        )
       }
     )
-
-    if (compiler.hooks?.done?.tap) {
-      compiler.hooks.done.tap('html:handle-common-errors:done', (stats) => {
-        const compilation = stats.compilation as unknown as Compilation
-        const transformed = (compilation.errors || []).map((error) => {
-          const replaced = handleCantResolveError(
-            this.includeList || {},
-            error as unknown as StatsError,
-            path.dirname(this.manifestPath)
-          )
-
-          return replaced || error
-        })
-
-        compilation.errors = transformed
-      })
-    }
   }
 }

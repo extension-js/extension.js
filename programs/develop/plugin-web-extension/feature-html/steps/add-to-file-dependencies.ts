@@ -22,6 +22,7 @@ import {
   getAssetsFromHtml,
   isHttpLike,
   isSpecialScheme,
+  missingPageEntryFiles,
   resolveAbsoluteFsPath
 } from '../html-lib/utils'
 
@@ -104,6 +105,15 @@ export class AddToFileDependencies {
               if (!fs.existsSync(page)) continue
 
               compilation.fileDependencies.add(page)
+
+              // A script or stylesheet with no file is left out of the page
+              // entry, so the bundler never watches for it. Creating it has
+              // to rebuild for the restart notice to reach the author.
+              for (const file of missingPageEntryFiles(page, projectRoot)) {
+                if (missingSourceWouldShip(file, projectRoot, manifestDir)) {
+                  compilation.missingDependencies?.add(file)
+                }
+              }
 
               const parsed = getAssetsFromHtml(page)
 

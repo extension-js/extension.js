@@ -151,7 +151,7 @@ describe('claimDebugPortNear', () => {
     second.release()
   })
 
-  // Pins today's behavior. Ledger 1374 D6.
+  // Pins current behavior: the busy start port comes back with a no-op release.
   it('hands back the start port with nothing to release once every attempt found a listener', async () => {
     const servers = [await listenOn(start), await listenOn(start + 1)]
 

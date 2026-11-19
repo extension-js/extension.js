@@ -38,6 +38,21 @@ export function resolveLocalesFolder(
   return undefined
 }
 
+// Where a _locales folder may appear when the project has none yet. A
+// public/_locales is the public copier's to watch.
+export function localesFolderCandidates(
+  manifestPath: string,
+  projectRoot?: string
+): string[] {
+  const candidates = new Set<string>()
+
+  if (projectRoot) candidates.add(path.join(projectRoot, '_locales'))
+
+  candidates.add(path.join(path.dirname(manifestPath), '_locales'))
+
+  return [...candidates]
+}
+
 function publicLocalesFolder(
   manifestPath: string,
   projectRoot?: string

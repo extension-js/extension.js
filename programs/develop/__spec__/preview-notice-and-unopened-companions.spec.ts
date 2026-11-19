@@ -156,7 +156,7 @@ describe('a named companion that is not an extension, with no browser', () => {
     const quiet = await preview(root, {extensions: named})
 
     expect(quiet.warnings).toHaveLength(1)
-    expect(quiet.warnings[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+    expect(quiet.warnings[0]).toMatch(/^W_COMPANION_EXTENSION_PATH: /)
     expect(quiet.warnings[0]).toContain('ENTRY ./extensions/gone')
     expect(quiet.warnings[0]).toContain('DECLARED IN the --extensions flag')
     expect(quiet.warnings[0]).toContain(
@@ -228,7 +228,7 @@ describe('a named companion that is not an extension, with no browser', () => {
     const quiet = await preview(root, declared)
 
     expect(quiet.warnings).toHaveLength(1)
-    expect(quiet.warnings[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+    expect(quiet.warnings[0]).toMatch(/^W_COMPANION_EXTENSION_PATH: /)
     expect(quiet.warnings[0]).toContain('DIR ./extensions/none')
     expect(quiet.warnings[0]).toContain('DECLARED IN the --extensions flag')
     expect(quiet.warnings[0]).toContain(

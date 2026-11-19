@@ -9,13 +9,8 @@ import {
 import {onFakeClock} from '../fake-clock'
 import {type FakeSafariTools, fakeSafariTools} from '../safari-fake-tools'
 
-// Safari keeps an extension's storage under "<appex id> (<team id>)" in its
-// WebKit data, with UNSIGNED in the team slot for an ad-hoc build, so the
-// store survives a rebuild even though every ad-hoc signature carries a new
-// cdhash. Measured on Safari 27.0 (macOS 26.5.2): a storage.local key written
-// by build A read back unchanged after two ad-hoc rebuilds (ledger 1043). An
-// earlier warning said the opposite and asked for a team id, so a dev session
-// never says a rebuild resets storage, signed or not.
+// Safari 27 keys storage by appex id and team (UNSIGNED when ad hoc), so it
+// survives a rebuild: a dev session never says a rebuild resets storage.
 const STORAGE_RESET =
   /reset the extension's storage|storage[^.\n]*--development-team|--development-team[^.\n]*storage/
 

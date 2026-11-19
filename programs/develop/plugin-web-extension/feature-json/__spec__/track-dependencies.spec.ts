@@ -33,7 +33,7 @@ function project(files: Record<string, string>) {
   return {holder, root: path.join(holder, 'project')}
 }
 
-function watched(root: string, fields: Record<string, string | string[]>) {
+function watched(root: string, fields: Record<string, string>) {
   const compilation = {
     compiler: {options: {context: root}},
     options: {context: root},
@@ -77,15 +77,13 @@ describe('the JSON files a watch session follows', () => {
 
     expect(
       watched(root, {
-        'declarative_net_request/rules': [
-          'data/rules.json',
-          'node_modules/pkg/rules.json',
-          '.env',
-          '.git/config',
-          'node_modules/pkg/.npmrc',
-          // Windows runners make no link, so the name would only be missing.
-          ...(canLink ? ['linked.json'] : [])
-        ],
+        'declarative_net_request/rules_1': 'data/rules.json',
+        'declarative_net_request/rules_2': 'node_modules/pkg/rules.json',
+        'declarative_net_request/rules_3': '.env',
+        'declarative_net_request/rules_4': '.git/config',
+        'declarative_net_request/rules_5': 'node_modules/pkg/.npmrc',
+        // Windows runners make no link, so the name would only be missing.
+        ...(canLink ? {'declarative_net_request/rules_6': 'linked.json'} : {}),
         'storage/managed_schema': 'absent.json'
       })
     ).toEqual({

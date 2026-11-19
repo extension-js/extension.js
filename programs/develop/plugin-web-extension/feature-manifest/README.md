@@ -32,11 +32,7 @@ export default {
   plugins: [
     new ManifestPlugin({
       manifestPath: path.resolve(__dirname, 'manifest.json'),
-      browser: 'chrome',
-      includeList: {
-        // Map of feature keys to absolute file paths (string or string[])
-        // e.g. 'content_scripts/content-0': ['/abs/project/content/script.ts']
-      }
+      browser: 'chrome'
     })
   ]
 }
@@ -45,11 +41,8 @@ export default {
 ## API
 
 ```ts
-export type FilepathList = Record<string, string | string[] | undefined>
-
 export interface PluginInterface {
   manifestPath: string
-  includeList?: FilepathList
   browser?: 'chrome' | 'firefox' | 'edge' | 'chromium' | string
 }
 
@@ -61,9 +54,9 @@ export class ManifestPlugin {
 
 ### What gets patched
 
-- Common fields: `background.page`, `chrome_url_overrides`, `content_scripts`, `devtools_page`, `icons`, `options_page`, `options_ui.page`, `sandbox.pages`, `storage.managed_schema`, `theme.images`, `user_scripts.api_script`, `web_accessible_resources`, `omnibox`, `commands`, `permissions`.
+- Common fields: `background.page`, `chrome_url_overrides`, `content_scripts`, `devtools_page`, `icons`, `options_page`, `options_ui.page`, `sandbox.pages`, `storage.managed_schema`, `theme.images`, `user_scripts.api_script`, `web_accessible_resources`, `omnibox`.
 - MV2 fields: `background.scripts`, `browser_action`, `page_action`, `sidebar_action`, `chrome_settings_overrides`, `theme_experiment`.
-- MV3 fields: `action`, `background.service_worker`, `declarative_net_request`, `host_permissions`, `side_panel`.
+- MV3 fields: `action`, `background.service_worker`, `declarative_net_request`, `side_panel`.
 
 Paths are normalized and rewritten to match the final output structure.
 
@@ -74,32 +67,9 @@ Paths are normalized and rewritten to match the final output structure.
 - Public folder convention: files referenced from `public/` (or `/...` which maps to the extension root) are copied to the output root by the special-folders plugin. Manifest paths declared as `public/foo.png` are rewritten to `foo.png` in the emitted manifest so browsers can load them from the root. For background and sidebar HTML/script entries, Extension.js always emits canonical output paths (see table below), even when the source uses `public/`.
 - Leading `/` in manifest paths is treated as extension root (relative to the directory containing `manifest.json`), not the OS filesystem root. This matches industry expectations where `/` denotes public root in web bundles.
 - Early failure: manifest-referenced files (icons, JSON, scripts, HTML) are validated during compilation. Missing files cause compilation errors and are logged to stderr before any browser start.
-- **Manifest writer order:** Path resolution runs in `UpdateManifest` at `PROCESS_ASSETS_STAGE_SUMMARIZE`. Any other step that reads and rewrites `manifest.json` (e.g. dev defaults, WAR) must run at a **later** stage (e.g. `REPORT`) so it reads the manifest with resolved paths and does not overwrite them with source paths. Otherwise the browser can fail with errors like "Side panel file path must exist".
-
-## Include semantics
-
-- includeList: map of feature keys to absolute file paths (string or string[]). Keys follow the output structure, for example:
-  - `action/default_popup`
-  - `content_scripts/content-0`
-  - `options_ui/page`
-  - `background/service_worker`
-    Values are absolute file paths. When provided, the plugin uses these lists to validate and, when applicable, rewrite paths.
-
-Example:
-
-```ts
-import * as path from 'path'
-import {ManifestPlugin} from './feature-manifest'
-
-new ManifestPlugin({
-  manifestPath: path.resolve(__dirname, 'manifest.json'),
-  includeList: {
-    // map output keys to absolute source files
-    'content_scripts/content-0': path.resolve(__dirname, 'content/scripts.ts'),
-    'options_ui/page': path.resolve(__dirname, 'options.html')
-  }
-})
-```
+- **Manifest writer order:** `EmitManifest` emits the `manifest.json` asset at `PROCESS_ASSETS_STAGE_PRE_PROCESS`, the `$EXTENSION_*` values are filled in at `PROCESS_ASSETS_STAGE_SUMMARIZE`, and path resolution runs in `UpdateManifest` at `PROCESS_ASSETS_STAGE_SUMMARIZE + 1`. Any other step that reads and rewrites `manifest.json` (the dev defaults, `web_accessible_resources`) must run at a **later** stage (`REPORT` or after) so it reads the manifest with resolved paths and does not overwrite them with source paths. Otherwise the browser can fail with errors like "Side panel file path must exist".
+- **One copy of the manifest:** every step reads the `manifest.json` asset of the compilation and writes its result back to that asset. The manifest written to disk is the asset as it stands once every `processAssets` stage is over, in development and in production. A plugin of the project that edits the asset with `compilation.updateAsset('manifest.json', ...)` at any stage therefore has its edit in the output. An edit made before `SUMMARIZE + 1` goes through path resolution like an authored field, and one made at `REPORT` or later is written as is.
+- **Checks on authored fields** (deprecated paths, ignored host patterns, content script host access, theme values) read the manifest as the author wrote it, which `EmitManifest` keeps per compilation. The description length check reads the asset at `REPORT`, so it measures the text after the `$EXTENSION_*` values are filled in.
 
 ## Output mapping (representative)
 

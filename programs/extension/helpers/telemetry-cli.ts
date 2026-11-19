@@ -283,9 +283,10 @@ function internalFailureContext(
 }
 
 // Only a catalog code travels. An error message carries paths and project
-// names, and a freeform code would be the same leak by another name.
+// names, and a freeform code would be the same leak by another name. A W_
+// name is a warning, and a run that only warned did not fail.
 export function telemetryFailureCode(code: unknown): string | undefined {
-  if (typeof code !== 'string') return undefined
+  if (typeof code !== 'string' || !code.startsWith('E_')) return undefined
 
   return Object.prototype.hasOwnProperty.call(CODES, code) ? code : undefined
 }

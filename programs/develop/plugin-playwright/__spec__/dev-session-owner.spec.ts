@@ -220,7 +220,8 @@ describe("the notice about a live dev session owning another command's target", 
 describe('the live-session check reads pid liveness only', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  // Pins today's behavior. Ledger 1383 D3.
+  // Pins current behavior: the recorded pid start time is ignored, so a
+  // reused pid still counts as the owner.
   it('takes a live pid whose start time does not match as the owner', () => {
     const probed: number[] = []
     const readyPath = writeReadyFixture({
@@ -243,7 +244,7 @@ describe('the live-session check reads pid liveness only', () => {
     })
   })
 
-  // Pins today's behavior. Ledger 1383 D3.
+  // Pins current behavior: a reused pid still blocks the build receipt.
   it('a build drops its receipt beside a reused pid', () => {
     const projectDir = makeTempFolder('extjs-owner-')
     const readyPath = writeLiveSession(projectDir, 'chromium', {
@@ -261,7 +262,7 @@ describe('the live-session check reads pid liveness only', () => {
     expect(after.runId).toBe('a-run-whose-pid-was-reused')
   })
 
-  // Pins today's behavior. Ledger 1383.
+  // Pins current behavior: a half-written contract is replaced, not kept.
   it('reads a malformed contract as no owner, so a build replaces it', () => {
     const projectDir = makeTempFolder('extjs-owner-')
     const readyPath = contractPath(projectDir)
@@ -291,7 +292,8 @@ describe('the attach stamp beside another live dev session', () => {
     return {readyPath, preview: makeWriter(projectDir, {command: 'preview'})}
   }
 
-  // Pins today's behavior. Ledger 1383 D2.
+  // Pins current behavior: the attach stamp runs no ownership check, unlike
+  // the detach and reload stamps below.
   it("stampExecutorAttached flips the live session's contract to attached and turns its held ready ready", () => {
     const {readyPath, preview} = previewBesideLiveSession({
       status: 'starting',
@@ -310,7 +312,8 @@ describe('the attach stamp beside another live dev session', () => {
     expect('awaitingExecutorSince' in after).toBe(false)
   })
 
-  // Pins today's behavior. Ledger 1383 D2.
+  // Pins current behavior: the attach stamp clears a load refusal it does
+  // not own.
   it("stampExecutorAttached wipes the live session's recorded load refusal", () => {
     const {readyPath, preview} = previewBesideLiveSession({})
     stampReadyExtensionLoadRefused(readyPath, {
@@ -331,7 +334,7 @@ describe('the attach stamp beside another live dev session', () => {
     expect('extensionLoadRefusedReason' in after).toBe(false)
   })
 
-  // Pins today's behavior. Ledger 1383 D2.
+  // The two stamps that do check ownership, for contrast with the rows above.
   it("stampExecutorDetached and stampReload leave the live session's contract alone", () => {
     const {readyPath, preview} = previewBesideLiveSession({
       runtime: 'attached',

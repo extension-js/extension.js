@@ -872,7 +872,7 @@ describe('EnvPlugin private names in emitted .json and .html', () => {
 })
 
 describe('EnvPlugin failure paths as they stand', () => {
-  // Pins today's behavior. Ledger 1388 D8.
+  // Pins current behavior: a raw filesystem error, with no code of our own.
   it('throws a raw EISDIR while the compiler is created when an env file is a folder', () => {
     for (const name of ['.env', '.env.defaults']) {
       const root = project({})
@@ -900,7 +900,7 @@ describe('EnvPlugin failure paths as they stand', () => {
     }
   })
 
-  // Pins today's behavior. Ledger 1388 D8.
+  // Pins current behavior: the failed folder read is swallowed.
   it('says nothing about stray env files when the project folder cannot be listed', () => {
     const root = project({'.env.staging': 'EXTENSION_PUBLIC_FOO=staging\n'})
 
