@@ -125,10 +125,14 @@ function refsFromMessage(
     code === 'commander.invalidArgument' ||
     code === 'commander.optionMissingArgument'
   ) {
-    const option = firstQuoted(message, /option '([^']+)'/)
-    const flag = option?.split(/\s+/)[0]
+    // `-b, --browser <name>` names the flag twice. The long name is the one
+    // help lists first and the one a reader types.
+    const names = (firstQuoted(message, /option '([^']+)'/) ?? '')
+      .split(/[\s,|]+/)
+      .filter((part) => part.startsWith('-'))
+    const flag = names.find((part) => part.startsWith('--')) ?? names[0]
 
-    return flag?.startsWith('-') ? {flag} : undefined
+    return flag ? {flag} : undefined
   }
 
   return undefined
@@ -148,28 +152,20 @@ export function codeForCommanderError(code: string): ErrorCode {
   return CODES.E_ARGS
 }
 
+// The frame says what stderr says, so a reader of either sees one answer.
 export function commanderErrorEnvelope(
   err: CommanderErrorLike,
   command: string
 ): ReturnType<typeof ENVELOPE.fail> {
-  const commanderCode = String(err.code)
-  const message = String(err.message || 'the command line could not be parsed')
-    .replace(/^error:\s*/i, '')
-    .trim()
+  const described = describeCommanderError(err, command)
   const error: EnvelopeError = {
-    code: codeForCommanderError(commanderCode),
-    message,
+    code: codeForCommanderError(String(err.code)),
+    message: described.label,
     name: 'CliError'
   }
-  const refs = refsFromMessage(commanderCode, message)
-  if (refs) error.refs = refs
+  if (described.refs) error.refs = described.refs
 
-  const hint =
-    commanderCode === 'commander.excessArguments' && excessArguments(message)
-      ? excessRemedy(`${helpCommandFor(command)} --help`)
-      : undefined
-
-  return ENVELOPE.fail(command, 'usage', error, hint ? {hint} : {})
+  return ENVELOPE.fail(command, 'usage', error, {hint: described.remedy})
 }
 
 const SUGGESTION_PATTERN = /\(Did you mean (one of )?(.+)\?\)/
@@ -191,6 +187,22 @@ export function commanderHumanError(
   err: CommanderErrorLike,
   command: string
 ): string {
+  const {label, styledRemedy} = describeCommanderError(err, command)
+
+  return `${prefix('error', label)} ${label}\n${styledRemedy}`
+}
+
+interface DescribedCommanderError {
+  label: string
+  remedy: string
+  styledRemedy: string
+  refs?: EnvelopeErrorRefs
+}
+
+function describeCommanderError(
+  err: CommanderErrorLike,
+  command: string
+): DescribedCommanderError {
   const commanderCode = String(err.code)
   const message = String(err.message || 'the command line could not be parsed')
     .replace(/^error:\s*/i, '')
@@ -232,15 +244,21 @@ export function commanderHumanError(
   const startsAProject =
     commanderCode === 'commander.unknownCommand' &&
     PROJECT_START_VERBS.has(String(refs?.command))
-  const remedy = startsAProject
-    ? `Run ${colors.blue('extension create my-extension')} to start a new extension.`
-    : excess
-      ? excessRemedy(colors.blue(`${helpTarget} --help`))
-      : suggestion
-        ? `Did you mean ${suggestion[1] || ''}${colors.blue(suggestion[2])}?`
-        : `Run ${colors.blue(`${helpTarget} --help`)} to see the ${noun}.`
+  const remedyWith = (style: (text: string) => string) =>
+    startsAProject
+      ? `Run ${style('extension create my-extension')} to start a new extension.`
+      : excess
+        ? excessRemedy(style(`${helpTarget} --help`))
+        : suggestion
+          ? `Did you mean ${suggestion[1] || ''}${style(suggestion[2])}?`
+          : `Run ${style(`${helpTarget} --help`)} to see the ${noun}.`
 
-  return `${prefix('error', label)} ${label}\n${remedy}`
+  return {
+    label,
+    remedy: remedyWith((text) => text),
+    styledRemedy: remedyWith(colors.blue),
+    refs
+  }
 }
 
 // A refusal raised deeper in the engine names its own failure class, so the
