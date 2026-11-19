@@ -26,7 +26,6 @@ import {
   returnWithMap
 } from '../../../../lib/loader-source-maps'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
-import {humanLine} from '../../../../lib/messaging'
 import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
@@ -38,7 +37,8 @@ import {
   CONTENT_SCRIPT_OWNER_KEY_ATTRIBUTE,
   CONTENT_SCRIPT_OWNER_KEY_GLOBAL,
   type ContentScriptWrapperExtension,
-  type ContentScriptWrapperPoint
+  type ContentScriptWrapperPoint,
+  type ContentScriptWrapperReadModule
 } from '../../../shared/content-script-wrapper-extensions'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
@@ -225,11 +225,6 @@ function loadersOfTheProject(
       return (inside ? relative : file).split(path.sep).join('/')
     })
 }
-
-// One hint per entry per process: a dev session recompiles the entry on every
-// save, and the advice does not change between them.
-const hintedEntriesWithoutDefaultExport = new Set<string>()
-const hintedEntriesCallingTheirDefault = new Set<string>()
 
 const __EXTENSIONJS_manifestParseCache = new Map<
   string,
@@ -428,6 +423,8 @@ export default function contentScriptWrapper(
         extension.textAt(point, {source: rewrittenSource, isMainWorld})
       )
       .join('')
+  const adoptsRoots = extensions.some((extension) => extension.adoptsRoots)
+  const loadsFiles = extensions.some((extension) => extension.loadsFiles)
   // A runtime file shares one bridge with every file of its registration,
   // so it clears the base once they have all run instead of at once.
   const sharesBridgeBase =
@@ -568,13 +565,11 @@ export default function contentScriptWrapper(
     '        for (var i = 0; i < hosts.length; i++) {\n' +
     '          var host = hosts[i];\n' +
     '          if (!host || !host.shadowRoot || typeof host.getAttribute !== "function") continue;\n' +
-    // A development session may add its own owner checks here. A shipped
-    // bundle stamps no owner, so it asks the two questions that have answers.
-    at('style-host-filter') +
-    (isShippedBundle
-      ? '          if (__EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
-        '          if (__EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n'
-      : '') +
+    // An extension that stamps owners checks hosts by owner instead. With
+    // no owner on any root, the two questions left are these.
+    (at('style-host-filter') ||
+      '          if (__EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
+        '          if (__EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n') +
     '          var sr = host.shadowRoot;\n' +
     '          var styles = Array.from(sr.querySelectorAll("style"));\n' +
     '          var hasUserStyle = styles.some(function(styleEl){\n' +
@@ -670,10 +665,10 @@ export default function contentScriptWrapper(
     `  return String(${CONTENT_SCRIPT_OWNER_KEY_GLOBAL} || "") + (extId ? "@" + extId : "");\n` +
     '}\n' +
     at('after-owner-token') +
-    // Roots that predate our mount must never be adopted. Only a development
-    // session and the hydration ever adopt a root, so a bundle with neither
-    // keeps the stub and never walks the document to fill a list nobody reads.
-    (!isShippedBundle || bundleCssHydrationEnabled
+    // Roots that predate our mount must never be adopted. Only the hydration
+    // and an extension that adopts roots read this list, so a bundle with
+    // neither keeps the stub and never walks the document to fill it.
+    (adoptsRoots || bundleCssHydrationEnabled
       ? 'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
         'function __EXTENSIONJS_snapshotPreMountRoots(){\n' +
         '  try {\n' +
@@ -719,9 +714,9 @@ export default function contentScriptWrapper(
         '} catch (error) {}\n') +
     at('before-asset-base') +
     // The public path only matters to a bundle that resolves something its
-    // module graph brought in: an emitted asset, a split chunk or, in
-    // development, the update chunks the refresh runtime fetches.
-    (!isShippedBundle || hasModuleGraph
+    // module graph brought in, an emitted asset or a split chunk, or to an
+    // extension whose runtime loads files of the extension.
+    (loadsFiles || hasModuleGraph
       ? 'function __EXTENSIONJS_syncAssetBase(){\n' +
         '  try {\n' +
         '    var base = "";\n' +
@@ -826,6 +821,22 @@ export default function contentScriptWrapper(
     projectLoaders
   )
 
+  const readModule = (
+    read: ContentScriptWrapperReadModule['defaultExport']
+  ) => {
+    for (const extension of extensions) {
+      extension.readModule?.({
+        source: rewrittenSource,
+        isMainWorld,
+        file: projectRelativePath,
+        resourcePath: resourceAbsPath,
+        browser: String(browser),
+        isDeclaredEntry: Boolean(declaredEntry),
+        defaultExport: read
+      })
+    }
+  }
+
   if (defaultExport.kind === 'none' && projectLoaders.length > 0) {
     let authored = rewrittenSource
 
@@ -860,22 +871,7 @@ export default function contentScriptWrapper(
       }
     )
 
-    // A declared entry that starts itself at import cannot be cleaned up, so
-    // each dev re-inject adds a copy. Said in the session, where it bites.
-    if (
-      !isShippedBundle &&
-      declaredEntry &&
-      defaultExport.kind === 'none' &&
-      !hintedEntriesWithoutDefaultExport.has(resourceAbsPath)
-    ) {
-      hintedEntriesWithoutDefaultExport.add(resourceAbsPath)
-      humanLine(
-        messages.contentScriptWithoutDefaultExport(
-          projectRelativePath,
-          isChromiumBasedBrowser(browser)
-        )
-      )
-    }
+    readModule({kind: defaultExport.kind})
 
     const prefix =
       `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
@@ -925,18 +921,11 @@ export default function contentScriptWrapper(
     )
   }
 
-  // The runtime cannot see a call the script makes to its own function, so
-  // the extra run is said here, in the session where its leftovers show.
-  if (
-    !isShippedBundle &&
-    defaultExport.keptCalls > 0 &&
-    !hintedEntriesCallingTheirDefault.has(resourceAbsPath)
-  ) {
-    hintedEntriesCallingTheirDefault.add(resourceAbsPath)
-    humanLine(
-      messages.defaultExportCalledAgain(projectRelativePath, defaultName)
-    )
-  }
+  readModule({
+    kind: 'found',
+    name: defaultName,
+    callsElsewhere: defaultExport.keptCalls
+  })
 
   const wrapPrefix =
     `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +

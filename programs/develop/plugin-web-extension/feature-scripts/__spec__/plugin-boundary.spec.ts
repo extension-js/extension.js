@@ -102,3 +102,61 @@ describe('what plugin-web-extension knows about reload sessions', () => {
     ).toEqual([])
   })
 })
+
+// What a later copy of a content script needs, the hints about it and the
+// names of the files a dev session ships beside a bundle live in
+// plugin-reload, and the wrapper only answers what an extension asks.
+describe('what the scripts feature leaves to plugin-reload', () => {
+  const read = (folder: string) =>
+    sourceFiles(folder).map((file) => ({
+      file: path.relative(FOLDER, file).split(path.sep).join('/'),
+      text: fs.readFileSync(file, 'utf8')
+    }))
+  const files = [
+    ...read(FOLDER),
+    ...read(path.resolve(FOLDER, '..', 'feature-web-resources'))
+  ]
+  const wrapper = fs.readFileSync(
+    path.join(
+      FOLDER,
+      'steps',
+      'add-content-script-wrapper',
+      'content-script-wrapper.ts'
+    ),
+    'utf8'
+  )
+  const matching = (pattern: RegExp) =>
+    files.filter(({text}) => pattern.test(text)).map(({file}) => file)
+
+  it('reads the web resources feature too', () => {
+    expect(files.map(({file}) => file)).toContain(
+      '../feature-web-resources/web-resources-lib/generate-manifest.ts'
+    )
+  })
+
+  it('says nothing of re-injecting a copy, in code, comments or copy', () => {
+    expect(matching(/re-?inject/i)).toEqual([])
+  })
+
+  it('prints no hint about the copy a re-inject leaves', () => {
+    expect(
+      matching(/contentScriptWithoutDefaultExport|defaultExportCalledAgain/)
+    ).toEqual([])
+
+    expect(wrapper).not.toMatch(/\bhumanLine\b/)
+  })
+
+  it('keys no wrapper text on a dev session for a later copy', () => {
+    expect(wrapper).not.toMatch(/!isShippedBundle\s*\|\|/)
+    expect(wrapper).toMatch(/\badoptsRoots\s*\|\|\s*bundleCssHydrationEnabled/)
+    expect(wrapper).toMatch(/\bloadsFiles\s*\|\|\s*hasModuleGraph/)
+  })
+
+  it('names none of the files a dev session ships beside a bundle', () => {
+    expect(
+      matching(
+        /devContentScript(?:Stub|CssMarker|SheetProbe)AssetName|content_scripts\/dev-(?:stub|css|sheet)-\$\{/
+      )
+    ).toEqual([])
+  })
+})

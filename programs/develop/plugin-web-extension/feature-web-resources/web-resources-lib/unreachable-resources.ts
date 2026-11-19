@@ -14,7 +14,7 @@ export function normalizeResourcePath(value: string): string {
 }
 
 function escapeRegex(value: string): string {
-  return value.replace(/[.+^${}()|[\]\\]/g, '\\$&')
+  return value.replace(/[.+?^${}()|[\]\\]/g, '\\$&')
 }
 
 function globToRegex(pattern: string): RegExp {
