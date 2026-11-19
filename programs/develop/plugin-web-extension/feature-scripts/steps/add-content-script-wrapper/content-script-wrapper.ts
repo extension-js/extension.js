@@ -423,6 +423,8 @@ export default function contentScriptWrapper(
         extension.textAt(point, {source: rewrittenSource, isMainWorld})
       )
       .join('')
+  const adoptsRoots = extensions.some((extension) => extension.adoptsRoots)
+  const loadsFiles = extensions.some((extension) => extension.loadsFiles)
   // A runtime file shares one bridge with every file of its registration,
   // so it clears the base once they have all run instead of at once.
   const sharesBridgeBase =
@@ -563,13 +565,11 @@ export default function contentScriptWrapper(
     '        for (var i = 0; i < hosts.length; i++) {\n' +
     '          var host = hosts[i];\n' +
     '          if (!host || !host.shadowRoot || typeof host.getAttribute !== "function") continue;\n' +
-    // A development session may add its own owner checks here. A shipped
-    // bundle stamps no owner, so it asks the two questions that have answers.
-    at('style-host-filter') +
-    (isShippedBundle
-      ? '          if (__EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
-        '          if (__EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n'
-      : '') +
+    // An extension that stamps owners checks hosts by owner instead. With
+    // no owner on any root, the two questions left are these.
+    (at('style-host-filter') ||
+      '          if (__EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
+        '          if (__EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n') +
     '          var sr = host.shadowRoot;\n' +
     '          var styles = Array.from(sr.querySelectorAll("style"));\n' +
     '          var hasUserStyle = styles.some(function(styleEl){\n' +
@@ -665,10 +665,10 @@ export default function contentScriptWrapper(
     `  return String(${CONTENT_SCRIPT_OWNER_KEY_GLOBAL} || "") + (extId ? "@" + extId : "");\n` +
     '}\n' +
     at('after-owner-token') +
-    // Roots that predate our mount must never be adopted. Only a development
-    // session and the hydration ever adopt a root, so a bundle with neither
-    // keeps the stub and never walks the document to fill a list nobody reads.
-    (!isShippedBundle || bundleCssHydrationEnabled
+    // Roots that predate our mount must never be adopted. Only the hydration
+    // and an extension that adopts roots read this list, so a bundle with
+    // neither keeps the stub and never walks the document to fill it.
+    (adoptsRoots || bundleCssHydrationEnabled
       ? 'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
         'function __EXTENSIONJS_snapshotPreMountRoots(){\n' +
         '  try {\n' +
@@ -714,9 +714,9 @@ export default function contentScriptWrapper(
         '} catch (error) {}\n') +
     at('before-asset-base') +
     // The public path only matters to a bundle that resolves something its
-    // module graph brought in: an emitted asset, a split chunk or, in
-    // development, the update chunks the refresh runtime fetches.
-    (!isShippedBundle || hasModuleGraph
+    // module graph brought in, an emitted asset or a split chunk, or to an
+    // extension whose runtime loads files of the extension.
+    (loadsFiles || hasModuleGraph
       ? 'function __EXTENSIONJS_syncAssetBase(){\n' +
         '  try {\n' +
         '    var base = "";\n' +

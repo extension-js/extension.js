@@ -697,3 +697,82 @@ describe('what the wrapper hands an extension about each module', () => {
     ])
   })
 })
+
+// A dev session and a shipped build differ here only by what an extension
+// asks for, so the wrapper alone writes one text in every mode.
+describe('what an extension asks of the wrapper', () => {
+  function wrapWith(
+    source: string,
+    mode: string,
+    extensions: Array<Record<string, unknown>>
+  ) {
+    const entry = writeDeclaredEntry()
+    const context = createLoaderContext(
+      entry.resourcePath,
+      entry.manifestPath,
+      undefined,
+      mode
+    )
+    const options = context.getOptions()
+
+    return String(
+      contentScriptWrapper.call(
+        {...context, getOptions: () => ({...options, extensions})} as any,
+        source
+      )
+    )
+  }
+
+  const PLAIN = 'var started = true\n'
+
+  it('writes the same text in development and production with no extension', () => {
+    expect(wrapWith(PLAIN, 'development', [])).toBe(
+      wrapWith(PLAIN, 'production', [])
+    )
+
+    expect(wrapWith(PLAIN, 'development', [])).toContain(
+      'function __EXTENSIONJS_snapshotPreMountRoots(){}\n'
+    )
+
+    expect(wrapWith(PLAIN, 'development', [])).not.toContain(
+      '__EXTENSIONJS_syncAssetBase'
+    )
+  })
+
+  it('fills the list of older roots for an extension that adopts roots', () => {
+    const wrapped = wrapWith(PLAIN, 'production', [
+      {textAt: () => '', adoptsRoots: true}
+    ])
+
+    expect(wrapped).toContain('var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n')
+    expect(wrapped).not.toContain('__EXTENSIONJS_syncAssetBase')
+  })
+
+  it('sets the public path for an extension whose runtime loads files', () => {
+    const wrapped = wrapWith(PLAIN, 'production', [
+      {textAt: () => '', loadsFiles: true}
+    ])
+
+    expect(wrapped).toContain('function __EXTENSIONJS_syncAssetBase(){')
+    expect(wrapped).toContain(
+      'function __EXTENSIONJS_snapshotPreMountRoots(){}\n'
+    )
+  })
+
+  it('puts the host checks of an extension in place of its own', () => {
+    const styled = 'import "./panel.css"\nexport default function main() {}\n'
+    const ownCheck = '          if (__EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n'
+    const filter = '          /* host filter */\n'
+
+    expect(wrapWith(styled, 'development', [])).toContain(ownCheck)
+
+    const extended = wrapWith(styled, 'development', [
+      {
+        textAt: (point: string) => (point === 'style-host-filter' ? filter : '')
+      }
+    ])
+
+    expect(extended).toContain(filter)
+    expect(extended).not.toContain(ownCheck)
+  })
+})

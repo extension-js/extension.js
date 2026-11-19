@@ -187,7 +187,11 @@ names one, otherwise any mode but production), so it also runs under
   `plugin-web-extension/shared/content-script-wrapper-extensions.ts`. The
   runtime reads the owner key the wrapper writes for every bundle, and in a
   MAIN world bundle it leaves out the DOM instrumentation, which would land
-  on the page itself.
+  on the page itself. It asks the wrapper for the list of roots older than
+  the mount and for the public path in every bundle, puts its owner checks
+  in place of the wrapper's own host checks, and prints the two hints about
+  a declared entry with no default export and a default export the script
+  also calls, from what the wrapper read of each module.
 
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
@@ -243,8 +247,8 @@ consumes that contract. It does not define it, and nothing in
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
 - `content-script-reinject.spec.ts`, `reinject-during-pending-await.spec.ts`,
   the reinject runtime in the wrapper output, its generations across
-  injections, a copy injected while an earlier one awaits, and when the
-  plugin adds it
+  injections, a copy injected while an earlier one awaits, when the
+  plugin adds it, and the two default export hints
 - `inject-bridge-steps.spec.ts`, `inject-bridge-boot-registrations.spec.ts`,
   the control-bridge producer and relay
 - `inject-scripts-replay-shim.spec.ts`, `scripts-replay-shim.runtime.spec.ts`,

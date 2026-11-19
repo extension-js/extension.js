@@ -208,6 +208,26 @@ describe('the reinject runtime in a content script', () => {
     expect(devSessionBundle).toBe(wrap(entry, MOUNTS))
   })
 
+  // A copy adopts the roots its own mount made, and the hot update runtime
+  // fetches update chunks, so even a bundle with no imports gets both.
+  it('has the wrapper keep older roots and the public path in a dev session', () => {
+    const entry = writeDeclaredEntry()
+    const plain = 'var started = true\n'
+
+    for (const [wrapped, inSession] of [
+      [wrap(entry, plain), true],
+      [wrap(entry, plain, 'production'), false]
+    ] as const) {
+      expect(wrapped.includes('var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];')).toBe(
+        inSession
+      )
+
+      expect(wrapped.includes('function __EXTENSIONJS_syncAssetBase(){')).toBe(
+        inSession
+      )
+    }
+  })
+
   it('keeps the host page instrumentation out of a MAIN world bundle', () => {
     const mainWorld = wrap(writeDeclaredEntry('MAIN'), MOUNTS)
 

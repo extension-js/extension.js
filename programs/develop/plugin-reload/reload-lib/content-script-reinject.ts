@@ -490,7 +490,11 @@ function readModule(module: ContentScriptWrapperReadModule): void {
   }
 }
 
+// A copy adopts the roots its mount creates, and the hot update runtime of
+// a dev session loads update chunks from the extension.
 export const contentScriptReinject: ContentScriptWrapperExtension = {
   textAt,
+  adoptsRoots: true,
+  loadsFiles: true,
   readModule
 }
