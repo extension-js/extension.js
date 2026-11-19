@@ -17,7 +17,11 @@ function typeErrors(source: string): string[] {
 
   fs.writeFileSync(
     path.join(root, 'probe.ts'),
-    source.replace('./types', path.join(developRoot, 'types'))
+    // Forward slashes: a backslash in an import string is an escape.
+    source.replace(
+      './types',
+      path.join(developRoot, 'types').split(path.sep).join('/')
+    )
   )
 
   fs.writeFileSync(
