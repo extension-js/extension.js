@@ -2,7 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {resolveAbsoluteFsPath} from '../../html-lib/utils'
+import {
+  cleanLeading,
+  resolveAbsoluteFsPath,
+  rootUrlPath
+} from '../../html-lib/utils'
 
 let root: string
 beforeAll(() => {
@@ -17,6 +21,10 @@ beforeAll(() => {
 
   fs.mkdirSync(path.join(root, 'public'), {recursive: true})
   fs.writeFileSync(path.join(root, 'public', 'logo.png'), 'png')
+  fs.mkdirSync(path.join(root, 'public', '.well-known'), {recursive: true})
+  fs.writeFileSync(path.join(root, 'public', '.well-known', 'links.json'), '[]')
+  fs.writeFileSync(path.join(root, 'public', '.env'), 'KEY=\n')
+  fs.writeFileSync(path.join(root, '.env'), 'KEY=\n')
 })
 
 afterAll(() => {
@@ -59,5 +67,59 @@ describe('resolveAbsoluteFsPath root URLs', () => {
     expect(absoluteFsPath.startsWith(path.join(root, 'dist', 'chromium'))).toBe(
       false
     )
+  })
+
+  const resolve = (asset: string) =>
+    resolveAbsoluteFsPath({
+      asset,
+      projectRoot: root,
+      publicRootForResource: path.join(root, 'public'),
+      outputRoot: path.join(root, 'dist', 'chromium'),
+      manifestRoot: root
+    })
+
+  it('keeps the leading dot of a name', () => {
+    expect(resolve('/.well-known/links.json')).toEqual({
+      absoluteFsPath: path.join(root, 'public', '.well-known', 'links.json'),
+      isUnderPublicRoot: true,
+      isRootUrl: true
+    })
+
+    expect(resolve('/.missing').absoluteFsPath).toBe(
+      path.join(root, '.missing')
+    )
+  })
+
+  it('does not let public/ answer for a name the copier leaves out', () => {
+    expect(resolve('/.env')).toEqual({
+      absoluteFsPath: path.join(root, '.env'),
+      isUnderPublicRoot: false,
+      isRootUrl: true
+    })
+  })
+
+  it('resolves dot segments the way the browser does', () => {
+    expect(resolve('/pages/../.env').absoluteFsPath).toBe(
+      path.join(root, '.env')
+    )
+
+    expect(resolve('/../pages/nested.html').absoluteFsPath).toBe(
+      path.join(root, 'pages', 'nested.html')
+    )
+  })
+})
+
+describe('root URL paths', () => {
+  it('strips slashes and ./ and nothing else', () => {
+    expect(cleanLeading('/.env')).toBe('.env')
+    expect(cleanLeading('./public/a.png')).toBe('public/a.png')
+    expect(cleanLeading('//a/b')).toBe('a/b')
+    expect(cleanLeading('.well-known/x')).toBe('.well-known/x')
+  })
+
+  it('never climbs above the extension root', () => {
+    expect(rootUrlPath('/a/../.envrc')).toBe('.envrc')
+    expect(rootUrlPath('/../../x.txt')).toBe('x.txt')
+    expect(rootUrlPath('/logo.png')).toBe('logo.png')
   })
 })

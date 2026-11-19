@@ -38,7 +38,7 @@ export function identityLineMap(
   }
 }
 
-export function isLoaderSourceMap(value: unknown): value is LoaderSourceMap {
+function isLoaderSourceMap(value: unknown): value is LoaderSourceMap {
   return Boolean(
     value &&
       typeof value === 'object' &&

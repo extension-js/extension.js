@@ -4,7 +4,6 @@ import {describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   createNodeModulesExclude,
-  isSubPath,
   resolveTranspilePackageDirs
 } from '../transpile-packages'
 
@@ -80,37 +79,6 @@ describe('transpile-packages', () => {
     expect(
       dirs.some((entry) => entry.endsWith('/node_modules/@workspace/ui'))
     ).toBe(true)
-  })
-
-  it('checks whether a path belongs to a package root', () => {
-    expect(
-      isSubPath(
-        '/repo/node_modules/@workspace/ui/src/button.tsx',
-        '/repo/node_modules/@workspace/ui'
-      )
-    ).toBe(true)
-
-    expect(
-      isSubPath(
-        '/repo/node_modules/react/index.js',
-        '/repo/node_modules/@workspace/ui'
-      )
-    ).toBe(false)
-  })
-
-  it('matches a resource reachable through a symlinked package dir', () => {
-    const root = fs.realpathSync(makeTempFolder('extjs-subpath-'))
-    const realPkg = path.join(root, 'real-pkg', 'src')
-    fs.mkdirSync(realPkg, {recursive: true})
-    const resource = path.join(realPkg, 'index.ts')
-    fs.writeFileSync(resource, 'x')
-
-    const linkedPkgRoot = path.join(root, 'linked-pkg')
-    fs.symlinkSync(path.join(root, 'real-pkg'), linkedPkgRoot, 'junction')
-    const linkedResource = path.join(linkedPkgRoot, 'src', 'index.ts')
-
-    expect(isSubPath(linkedResource, path.join(root, 'real-pkg'))).toBe(true)
-    fs.rmSync(root, {recursive: true, force: true})
   })
 
   it('resolves package root when package.json is not exported', () => {

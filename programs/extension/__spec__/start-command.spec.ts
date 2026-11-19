@@ -22,6 +22,8 @@ type EngineCall = [projectPath: string, options: Record<string, unknown>]
 type StartDeps = NonNullable<Parameters<typeof registerStartCommand>[1]>
 
 const builds: EngineCall[] = []
+// The one call that sends a failure row, so a spec can read what would travel.
+const reportFailure = vi.fn()
 const previews: EngineCall[] = []
 const browserRuns: unknown[] = []
 const configReads: unknown[][] = []
@@ -83,7 +85,8 @@ const deps: StartDeps = {
     waitInputs.push(input)
 
     return wait()
-  }) as never
+  }) as never,
+  reportFailure
 }
 
 let stdout: string[]
@@ -109,6 +112,7 @@ afterEach(() => {
   notedBrowsers.length = 0
   vi.unstubAllEnvs()
   vi.restoreAllMocks()
+  reportFailure.mockClear()
 
   for (const list of [
     builds,
@@ -170,7 +174,6 @@ function flagsIn(argv: string[]): string[] {
 // only the keys its flags change, and both objects are compared whole.
 const UNTYPED_BUILD = {
   browser: 'chromium',
-  exitOnError: true,
   metadataCommand: 'start',
   launchFollows: true,
   polyfill: undefined,
@@ -265,6 +268,8 @@ const FORWARDING: ForwardingRow[] = [
   },
   {argv: ['--log-context', 'all']},
   {argv: ['--logs', 'debug'], launch: {logLevel: 'debug'}},
+  // The flag is read in any case, and the engine compares the level exactly.
+  {argv: ['--logs', ' OFF '], launch: {logLevel: 'off'}},
   {argv: ['--log-format', 'ndjson'], launch: {logFormat: 'ndjson'}},
   {argv: ['--no-log-timestamps'], launch: {logTimestamps: false}},
   {argv: ['--no-log-color'], launch: {logColor: false}},
@@ -280,9 +285,9 @@ const FORWARDING: ForwardingRow[] = [
   {argv: ['--install'], build: {install: true}},
   {argv: ['--install', 'false'], build: {install: false}},
   {argv: ['--wait', 'false']},
-  {argv: ['--output', 'json'], build: {exitOnError: false}},
+  {argv: ['--output', 'json']},
   {argv: ['--output', 'pretty']},
-  {argv: ['--wait-format', 'json'], build: {exitOnError: false}},
+  {argv: ['--wait-format', 'json']},
   {argv: ['--debug']},
   {argv: ['--author']},
   {argv: ['--author-mode']},
@@ -343,6 +348,17 @@ describe('extension start flag forwarding', () => {
 
     // The runner learns which command launched it, on top of what it was given.
     expect(browserRuns).toEqual([{launched: true, command: 'start'}])
+  })
+
+  // The engine never ends the process, so the exit is the command's to own
+  // in both output modes and no key may ask the engine for it.
+  it.each([
+    [[]],
+    [['--output', 'json']],
+    [['--wait-format', 'json']]
+  ])('never asks the engine to end the process for start %j', async (argv) => {
+    expect(await run(['start', PROJECT, ...argv])).toBe(0)
+    expect(builds[0][1]).not.toHaveProperty('exitOnError')
   })
 
   it('builds and launches once per browser of a list, in order', async () => {
@@ -602,19 +618,52 @@ describe('extension start --output json', () => {
     ])
 
     expect(previews).toEqual([])
+    expect(reportFailure.mock.calls).toEqual([
+      [{code: CODES.E_COMPILE, exitCode: 1}]
+    ])
   })
 
-  it('rejects with the build error, unframed, in pretty mode', async () => {
+  it('keeps the code the build declared in the frame and the failure row', async () => {
     build = async () => {
-      throw new Error('Build failed with errors')
+      throw Object.assign(new Error('The bundler crashed'), {
+        code: CODES.E_COMPILE_FATAL
+      })
     }
 
-    await expect(run(['start', '.'])).rejects.toThrow(
-      'Build failed with errors'
-    )
+    expect(await run(['start', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([
+      {
+        status: 'build-failed',
+        error: {code: CODES.E_COMPILE_FATAL, message: 'The bundler crashed'}
+      }
+    ])
 
+    expect(reportFailure.mock.calls).toEqual([
+      [{code: CODES.E_COMPILE_FATAL, exitCode: 1}]
+    ])
+  })
+
+  // The engine prints the failure before it rejects, so a line from the
+  // command here would show the same failure twice.
+  it.each([
+    [new Error('Build failed with errors'), CODES.E_COMPILE],
+    [
+      Object.assign(new Error('The bundler crashed'), {
+        code: CODES.E_COMPILE_FATAL
+      }),
+      CODES.E_COMPILE_FATAL
+    ]
+  ])('exits 1 in pretty mode on %s, prints nothing and launches nothing', async (error, code) => {
+    build = async () => {
+      throw error
+    }
+
+    expect(await run(['start', '.'])).toBe(1)
+    expect(stderr).toEqual([])
     expect(stdout).toEqual([])
     expect(previews).toEqual([])
+    expect(browserRuns).toEqual([])
+    expect(reportFailure.mock.calls).toEqual([[{code, exitCode: 1}]])
   })
 
   it('prints no ok frame when the launch rejects', async () => {

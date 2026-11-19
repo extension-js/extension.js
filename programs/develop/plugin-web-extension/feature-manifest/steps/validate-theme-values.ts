@@ -15,10 +15,10 @@ import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {getOriginalManifest} from '../manifest-lib/manifest'
-import {collectThemeValueIssues} from '../manifest-lib/theme-values'
+import {collectThemeArrayIssues} from '../manifest-lib/theme-values'
 import * as messages from '../messages'
 
-export class ValidateThemeValues {
+export class ValidateThemeArrays {
   public static readonly name: string = 'manifest:validate-theme-values'
 
   public readonly manifestPath: string
@@ -34,16 +34,16 @@ export class ValidateThemeValues {
     const webkitTarget = isWebkitBasedBrowser(browserName)
 
     // Firefox parses theme colors with its own schema (CSS strings included),
-    // so only the Chromium family gets Chrome's integer-array contract.
+    // so only the Chromium family gets Chromium's number-array contract.
     // Safari has no theme surface at all, which deserves a warning, not silence.
     if (!isChromiumBasedBrowser(browserName) && !webkitTarget) return
 
     compiler.hooks.thisCompilation.tap(
-      ValidateThemeValues.name,
+      ValidateThemeArrays.name,
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: ValidateThemeValues.name,
+            name: ValidateThemeArrays.name,
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
@@ -71,17 +71,16 @@ export class ValidateThemeValues {
               return
             }
 
-            for (const issue of collectThemeValueIssues(manifest)) {
+            const issues = collectThemeArrayIssues(manifest)
+
+            if (issues.length > 0) {
               reportToCompilation(
                 compilation,
                 compiler,
-                messages.invalidThemeValue(
-                  issue.field,
-                  issue.detail,
-                  issue.value
-                ),
+                messages.themeArraysRefused(browserName, issues),
                 'error',
-                'manifest.json'
+                'manifest.json',
+                'ThemeArrayInvalid'
               )
             }
           }

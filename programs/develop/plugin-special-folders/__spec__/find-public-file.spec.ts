@@ -92,6 +92,42 @@ describe('findPublicFile', () => {
     expect(findPublicFile(manifest, root, '')).toBeUndefined()
   })
 
+  it('answers undefined for a name the copier leaves out of the build', () => {
+    const {root, manifest} = project([
+      'manifest.json',
+      'public/.env',
+      'public/.env.example',
+      'public/cfg/.env.local',
+      'public/.git/config',
+      'public/.DS_Store',
+      'public/.well-known/links.json',
+      'public/node_modules/pkg/a.js'
+    ])
+
+    for (const ref of [
+      '.env',
+      '/.env',
+      'public/.env',
+      '/.ENV',
+      'cfg/.env.local',
+      '.git/config',
+      '.DS_Store'
+    ]) {
+      expect(findPublicFile(manifest, root, ref), ref).toBeUndefined()
+    }
+
+    // The copier ships these, so the folder answers for them.
+    for (const ref of [
+      '.env.example',
+      '.well-known/links.json',
+      'node_modules/pkg/a.js'
+    ]) {
+      expect(findPublicFile(manifest, root, ref), ref).toBe(
+        path.join(root, 'public', ...ref.split('/'))
+      )
+    }
+  })
+
   it('uses the manifest folder alone when no project root is known', () => {
     const {manifest, root} = project(['src/manifest.json', 'src/public/a.png'])
     expect(findPublicFile(manifest, undefined, 'a.png')).toBe(

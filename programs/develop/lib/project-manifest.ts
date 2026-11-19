@@ -18,7 +18,7 @@ export const PROJECT_MANIFEST_FILENAMES = [
   'deno.json'
 ] as const
 
-export const DENO_CONFIG_FILENAMES = ['deno.jsonc', 'deno.json'] as const
+const DENO_CONFIG_FILENAMES = ['deno.jsonc', 'deno.json'] as const
 
 // Removes JSONC extensions (comments, trailing commas) so the result parses
 // with JSON.parse; string contents are preserved verbatim.
@@ -150,7 +150,7 @@ export function parseNpmSpecifier(
   return name ? {name, version} : undefined
 }
 
-export function findDenoConfigPath(projectDir: string): string | undefined {
+function findDenoConfigPath(projectDir: string): string | undefined {
   for (const filename of DENO_CONFIG_FILENAMES) {
     const candidate = path.join(projectDir, filename)
 
@@ -306,7 +306,7 @@ export function findNearestProjectManifestSync(
 }
 
 // Walks up from the extension manifest to the nearest deno.json(c),
-// mirroring findNearestPackageJson's contract.
+// mirroring findNearestPackageJsonSync's contract.
 export function findNearestDenoConfigSync(manifestPath: string): string | null {
   // A remote URL joined with a file name is a relative path with no
   // manifest anywhere above it (path.join writes backslashes on Windows).

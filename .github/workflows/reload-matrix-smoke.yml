@@ -49,8 +49,9 @@ jobs:
         # Reconstruct the gitignored vendored path the harness expects. Try the
         # ref as a branch/tag first, then fall back to a full clone + checkout
         # for a raw commit SHA.
+        env:
+          REF: ${{ github.event.inputs.examples_ref }}
         run: |
-          REF="${{ github.event.inputs.examples_ref }}"
           mkdir -p _FUTURE
           if git clone --depth 1 --branch "$REF" https://github.com/extension-js/templates _FUTURE/examples 2>/dev/null; then
             :

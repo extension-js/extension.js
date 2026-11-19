@@ -10,6 +10,7 @@ import {
   ZipPlugin
 } from '../zip'
 import {getZipArtifacts, getZipFailures} from '../zip-artifacts'
+import {compile} from './helpers/real-compile'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -462,24 +463,39 @@ describe('ZipPlugin', () => {
     expect(artifacts[0].size).toBeGreaterThan(0)
   })
 
-  it('pushes warning on error without throwing', async () => {
-    const root = makeTempDir('zip-spec-')
+  // Pins today's behavior. Ledger 1388 D2.
+  it('records no zip failure when the output has no manifest.json, only a warning', async () => {
+    const root = fs.realpathSync(makeTempDir('zip-spec-'))
     const outPath = path.join(root, 'dist', 'chrome')
-    fs.mkdirSync(outPath, {recursive: true})
-
-    const {compiler, emitDone} = makeCompiler(root, outPath)
-    const plugin = new ZipPlugin({
-      browser: 'chrome',
-      zipData: {zip: true},
-      manifestPath: path.join(root, 'missing', 'manifest.json')
-    })
-    plugin.apply(compiler)
-
-    const stats = await emitDone({compilation: {warnings: []}})
-    expect(stats.compilation.warnings.length).toBe(1)
-    expect(String(stats.compilation.warnings[0].message)).toMatch(
-      /ZipPlugin: Failed/
+    write(path.join(root, 'background.js'), 'globalThis.ran = 1\n')
+    write(
+      path.join(root, 'manifest.json'),
+      JSON.stringify({name: 'My App', version: '1.0.0', manifest_version: 3})
     )
+
+    // The source manifest exists, the emitted one does not: nothing copies it.
+    const stats = await compile({
+      context: root,
+      outputPath: outPath,
+      mode: 'production',
+      entry: {background: './background.js'},
+      plugins: [
+        new ZipPlugin({
+          browser: 'chrome',
+          zipData: {zip: true},
+          manifestPath: path.join(root, 'manifest.json')
+        })
+      ]
+    })
+
+    expect(getZipFailures(stats.compilation)).toEqual([])
+    expect(getZipArtifacts(stats.compilation)).toEqual([])
+    expect(fs.readdirSync(path.dirname(outPath))).toEqual(['chrome'])
+    expect(Array.from(stats.compilation.warnings, (w) => w.message)).toEqual([
+      "  ⚠ ZipPlugin: Failed to create zip(s): Error: ENOENT: no such file or directory, open '" +
+        path.join(outPath, 'manifest.json') +
+        "'\n"
+    ])
   })
 
   // One symlink used to take both archives down: it is listed as a file,

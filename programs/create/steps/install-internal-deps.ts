@@ -208,12 +208,7 @@ export function detectOptionalDependencies(
   }
 
   if (usesSass) {
-    addIntegration('Sass', [
-      'sass-loader',
-      'postcss-loader',
-      'postcss-scss',
-      'postcss-preset-env'
-    ])
+    addIntegration('Sass', ['sass-loader', 'postcss-loader', 'postcss-scss'])
   }
 
   if (usesLess) {

@@ -11,7 +11,8 @@ import colors from 'pintor'
 import {fmt, isDebug, prefix} from './messaging'
 import {
   resolveScaffoldPackageManager,
-  type ScaffoldPackageManager
+  type ScaffoldPackageManager,
+  type UndeclaredReason
 } from './package-manager'
 import {shellQuote} from './utils'
 
@@ -611,6 +612,49 @@ export function writingPackageJsonMetadataError(error: unknown) {
     `${prefix('error')} Couldn't write ${colors.blue('package.json')}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
     `${colors.red('Check the file permissions, then try again.')}`
+  )
+}
+
+function undeclaredReasonText(manager: string, reason: UndeclaredReason) {
+  const probe = `${manager} --version`
+
+  switch (reason.kind) {
+    case 'missing':
+      return `${manager} is not on PATH`
+    case 'timeout':
+      return `${probe} did not answer within ${reason.seconds}s`
+    case 'exit':
+      return `${probe} exited with code ${reason.code}`
+    case 'spawn':
+      return `${probe} could not start (${reason.code})`
+    default:
+      return `${probe} printed no version`
+  }
+}
+
+// The second probe may wait three times as long, so the wait is explained
+// before it starts and the create never sits silent past the first limit.
+export function packageManagerAskedAgain(
+  manager: Exclude<ScaffoldPackageManager, 'deno'>,
+  waitedSeconds: number,
+  limitSeconds: number
+) {
+  return (
+    `${prefix('info')} ${colors.blue(`${manager} --version`)} did not answer within ${waitedSeconds}s. ` +
+    `Asking once more, for up to ${limitSeconds}s…`
+  )
+}
+
+// The create still succeeds without the field, so its absence is said once
+// with the cause, and the line to add is spelled out for the user to paste.
+export function packageManagerUndeclared(
+  manager: Exclude<ScaffoldPackageManager, 'deno'>,
+  reason: UndeclaredReason
+) {
+  return (
+    `${prefix('warn')} Left ${colors.blue('package.json')} without a ${colors.blue('packageManager')} field.\n` +
+    `${fmt.label('REASON')} ${fmt.val(undeclaredReasonText(manager, reason))}\n` +
+    `The project is fine. Add ${colors.blue(`"packageManager": "${manager}@<version>"`)} to pin the manager.`
   )
 }
 

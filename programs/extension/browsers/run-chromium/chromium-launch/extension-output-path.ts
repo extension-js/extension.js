@@ -9,6 +9,12 @@
 import * as path from 'node:path'
 import type {CompilationLike} from '../../browsers-types'
 
+// A compile that names no output folder: the build a Chromium launch loads
+// and the session root its profile sits in are read from this one path.
+export function defaultChromiumOutputPath(): string {
+  return path.resolve(process.cwd(), 'dist', 'chrome')
+}
+
 export function getExtensionOutputPath(
   compilation: CompilationLike | undefined,
   loadExtensionFlag: string | undefined
@@ -16,7 +22,7 @@ export function getExtensionOutputPath(
   if (!loadExtensionFlag) {
     return (
       (compilation?.options?.output?.path as string) ||
-      path.join(process.cwd(), 'dist')
+      defaultChromiumOutputPath()
     )
   }
 

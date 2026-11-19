@@ -23,7 +23,7 @@ vi.mock('../steps/emit-manifest', () => ({
 }))
 
 vi.mock('../steps/validate-theme-values', () => ({
-  ValidateThemeValues: recorder('ValidateThemeValues')
+  ValidateThemeArrays: recorder('ValidateThemeArrays')
 }))
 
 vi.mock('../steps/update-manifest', () => ({
@@ -64,6 +64,10 @@ vi.mock('../steps/legacy-warnings', () => ({
   ManifestLegacyWarnings: recorder('ManifestLegacyWarnings')
 }))
 
+vi.mock('../steps/warn-webassembly', () => ({
+  WarnWebAssembly: recorder('WarnWebAssembly')
+}))
+
 import {ManifestPlugin} from '../index'
 
 const manifestPath = '/abs/path/manifest.json'
@@ -82,7 +86,7 @@ describe('ManifestPlugin', () => {
 
     expect(applied.map((entry) => entry.step)).toEqual([
       'EmitManifest',
-      'ValidateThemeValues',
+      'ValidateThemeArrays',
       'UpdateManifest',
       'PatchWAR',
       'ApplyDevDefaults',
@@ -91,6 +95,7 @@ describe('ManifestPlugin', () => {
       'WarnDescriptionLength',
       'WarnIgnoredHostPermissions',
       'WarnContentScriptHostAccess',
+      'WarnWebAssembly',
       'AddDependencies',
       'ManifestLegacyWarnings'
     ])
@@ -131,6 +136,7 @@ describe('ManifestPlugin', () => {
 
     expect(optionsOf('PersistManifestToDisk')).toEqual({manifestPath})
     expect(optionsOf('WarnDescriptionLength')).toEqual({browser: 'firefox'})
+    expect(optionsOf('WarnWebAssembly')).toEqual({browser: 'firefox'})
     expect(optionsOf('AddDependencies')).toEqual([manifestPath])
   })
 

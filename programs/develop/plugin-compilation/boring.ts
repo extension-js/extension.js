@@ -8,27 +8,68 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import type {Compiler, Stats} from '@rspack/core'
 import {humanLine} from '../dev-server/lifecycle-stream'
 import {resolveLocalizedManifestName} from '../lib/localized-manifest-name'
 import {parseJsonSafe} from '../lib/parse-json-safe'
+import {isInsidePath, isSameOrInsidePath} from '../lib/real-path'
+import {isEmitTimeWarning} from '../lib/stats-handler'
 import type {PluginInterface} from '../types'
 import * as messages from './compilation-lib/messages'
-import {isInsidePath, isSameOrInsidePath} from '../lib/real-path'
+
+// Past every stage a plugin picks, so the line is the last word of the hook.
+const LAST_TAP_STAGE = 2147483647
+
+// Read when the line prints, so a finding a done tap added is counted too.
+function countDiagnostics(stats: Stats): {
+  errors: number
+  warnings: number
+  warningsAtEmit: number
+} {
+  try {
+    const info = stats.toJson({all: false, errors: true, warnings: true})
+    const warnings = info.warnings || []
+
+    return {
+      errors: (info.errors || []).length,
+      warnings: warnings.length,
+      warningsAtEmit: warnings.filter((warning) => isEmitTimeWarning(warning))
+        .length
+    }
+  } catch {
+    // A stats object with no lists still says whether it has any.
+    return {
+      errors: stats?.hasErrors?.() ? 1 : 0,
+      warnings: stats?.hasWarnings?.() ? 1 : 0,
+      warningsAtEmit: 0
+    }
+  }
+}
+
+export interface BoringPluginOptions extends PluginInterface {
+  browserLaunchEnabled?: boolean
+  // True when the caller prints the diagnostics after the done hook returns.
+  diagnosticsFollow?: boolean
+}
 
 export class BoringPlugin {
   public static readonly name: string = 'plugin-boring'
 
   public readonly manifestPath: string
   public readonly browser: PluginInterface['browser']
+  private readonly browserLaunchEnabled?: boolean
+  private readonly diagnosticsFollow: boolean
   private sawUserInvalidation = false
   private printedStartupSuccess = false
   private printedStartupWarning = false
   private lastKnownManifestName?: string
 
-  constructor(options: PluginInterface) {
+  // Unset reads the dev server's environment flag at each compile, as before.
+  constructor(options: BoringPluginOptions) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
+    this.browserLaunchEnabled = options.browserLaunchEnabled
+    this.diagnosticsFollow = options.diagnosticsFollow === true
   }
 
   public apply(compiler: Compiler): void {
@@ -38,10 +79,18 @@ export class BoringPlugin {
       this.printedStartupWarning = false
     })
 
-    compiler.hooks.done.tap('develop:brand', (stats) => {
-      const hasErrors = Boolean(stats?.hasErrors?.())
-      const hasWarnings = Boolean(stats?.hasWarnings?.())
+    // A build's line runs last, so a tap that fails the build is counted or
+    // ends the hook before a line that reads as success is printed.
+    const tap = this.diagnosticsFollow
+      ? {name: 'develop:brand', stage: LAST_TAP_STAGE}
+      : 'develop:brand'
+
+    compiler.hooks.done.tap(tap, (stats) => {
+      const counts = countDiagnostics(stats)
+      const hasErrors = counts.errors > 0
+      const hasWarnings = counts.warnings > 0
       const browserLaunchEnabled =
+        this.browserLaunchEnabled ??
         String(process.env.EXTENSION_BROWSER_LAUNCH_ENABLED || '1') !== '0'
 
       stats.compilation.name = undefined
@@ -73,7 +122,20 @@ export class BoringPlugin {
         manifestName = this.lastKnownManifestName
       }
 
-      const line = messages.boring(manifestName || 'Extension', duration, stats)
+      // Warnings a plugin printed at emit sit above the line, the rest below.
+      const warningsListed = !this.diagnosticsFollow
+        ? undefined
+        : counts.warningsAtEmit === 0
+          ? 'below'
+          : counts.warningsAtEmit < counts.warnings
+            ? 'above and below'
+            : undefined
+
+      const line = messages.boring(manifestName || 'Extension', duration, {
+        errors: counts.errors,
+        warnings: counts.warnings,
+        warningsListed
+      })
 
       try {
         // Rspack does not always populate modifiedFiles for asset-only rebuilds; merge

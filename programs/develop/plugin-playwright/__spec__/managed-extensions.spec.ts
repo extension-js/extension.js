@@ -3,7 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {chromiumExtensionIdFromPath} from '../../lib/extension-id'
-import {createPlaywrightMetadataWriter} from '../index'
+import {
+  makeWriter as makeProjectWriter,
+  readContract,
+  writeManifest
+} from './helpers/contract'
 
 describe('ready.json records the extensions the engine loads on its own behalf', () => {
   let tmp: string
@@ -12,11 +16,7 @@ describe('ready.json records the extensions the engine loads on its own behalf',
   beforeEach(() => {
     tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'managed-extensions-'))
     companionDir = path.join(tmp, 'companion')
-    fs.mkdirSync(companionDir)
-    fs.writeFileSync(
-      path.join(companionDir, 'manifest.json'),
-      JSON.stringify({name: 'companion', version: '1'})
-    )
+    writeManifest(companionDir, {name: 'companion', version: '1'})
   })
 
   afterEach(() => {
@@ -24,25 +24,19 @@ describe('ready.json records the extensions the engine loads on its own behalf',
   })
 
   const makeWriter = (managedExtensionDirs?: string[]) =>
-    createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command: 'dev',
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json'),
-      managedExtensionDirs
-    })
+    makeProjectWriter(tmp, {managedExtensionDirs})
+
+  const companionRecord = () => ({
+    path: path.resolve(companionDir),
+    id: chromiumExtensionIdFromPath(companionDir)
+  })
 
   it('stamps managedExtensions with resolved path and id', () => {
     const writer = makeWriter([companionDir])
     writer.writeStarting()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(ready.managedExtensions).toEqual([
-      {
-        path: path.resolve(companionDir),
-        id: chromiumExtensionIdFromPath(companionDir)
-      }
+    expect(readContract(writer.readyPath).managedExtensions).toEqual([
+      companionRecord()
     ])
   })
 
@@ -51,7 +45,7 @@ describe('ready.json records the extensions the engine loads on its own behalf',
     writer.writeStarting()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.status).toBe('ready')
     expect(ready.managedExtensions).toHaveLength(1)
   })
@@ -63,12 +57,8 @@ describe('ready.json records the extensions the engine loads on its own behalf',
     const unaware = makeWriter()
     unaware.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(unaware.readyPath, 'utf-8'))
-    expect(ready.managedExtensions).toEqual([
-      {
-        path: path.resolve(companionDir),
-        id: chromiumExtensionIdFromPath(companionDir)
-      }
+    expect(readContract(unaware.readyPath).managedExtensions).toEqual([
+      companionRecord()
     ])
   })
 
@@ -77,33 +67,27 @@ describe('ready.json records the extensions the engine loads on its own behalf',
     writer.setManagedExtensionDirs([companionDir])
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(ready.managedExtensions).toHaveLength(1)
-    expect(ready.managedExtensions[0].id).toBe(
-      chromiumExtensionIdFromPath(companionDir)
-    )
+    expect(readContract(writer.readyPath).managedExtensions).toEqual([
+      companionRecord()
+    ])
   })
 
   it('omits the field when the engine loads nothing of its own', () => {
     const writer = makeWriter([])
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    expect(ready.managedExtensions).toBeUndefined()
+    expect(readContract(writer.readyPath).managedExtensions).toBeUndefined()
   })
 
   it('an explicit empty list clears companions another writer left behind', () => {
     const writer = makeWriter([companionDir])
     writer.writeReady()
-    expect(
-      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')).managedExtensions
-    ).toHaveLength(1)
+    expect(readContract(writer.readyPath).managedExtensions).toHaveLength(1)
 
     const clearer = makeWriter([])
     clearer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(clearer.readyPath, 'utf-8'))
-    expect(ready.managedExtensions).toBeUndefined()
+    expect(readContract(clearer.readyPath).managedExtensions).toBeUndefined()
   })
 
   it('setManagedExtensionDirs([]) clears and a later unaware write stays clear', () => {
@@ -112,14 +96,10 @@ describe('ready.json records the extensions the engine loads on its own behalf',
     writer.setManagedExtensionDirs([])
     writer.writeReady()
 
-    expect(
-      JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8')).managedExtensions
-    ).toBeUndefined()
+    expect(readContract(writer.readyPath).managedExtensions).toBeUndefined()
 
     const unaware = makeWriter()
     unaware.writeReady()
-    expect(
-      JSON.parse(fs.readFileSync(unaware.readyPath, 'utf-8')).managedExtensions
-    ).toBeUndefined()
+    expect(readContract(unaware.readyPath).managedExtensions).toBeUndefined()
   })
 })
