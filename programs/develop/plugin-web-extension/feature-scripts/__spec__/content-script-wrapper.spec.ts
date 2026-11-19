@@ -819,4 +819,70 @@ describe('what an extension asks of the wrapper', () => {
     expect(extended).toContain(filter)
     expect(extended).not.toContain(ownCheck)
   })
+
+  // A page with no shadow root of ours has nothing to style, so a dev build
+  // asks for its sheet when a root needs it, the way the shipped one does.
+  it('reads the stylesheet only once a shadow root wants it, in both modes', async () => {
+    const {manifestPath, resourcePath} = writeDeclaredEntry()
+    const source = [
+      "import './styles.css'",
+      'export default function mount() {',
+      '  return () => {}',
+      '}'
+    ].join('\n')
+
+    for (const mode of ['development', 'production']) {
+      const wrapped = String(
+        contentScriptWrapper.call(
+          createLoaderContext(
+            resourcePath,
+            manifestPath,
+            'chrome',
+            mode
+          ) as any,
+          source
+        )
+      )
+      const script = wrapped
+        .replace(/^import .*$/gm, '')
+        .replace(/^export default .*$/gm, '')
+        .replaceAll('import.meta.url', '"chrome-extension://spec/c.js"')
+      const realm = createRealm()
+      const hosts: unknown[] = []
+      const timers: Array<() => void> = []
+      const fetched: string[] = []
+      const doc = {
+        ...realm.document,
+        querySelectorAll: () => hosts
+      }
+
+      new Function('globalThis', 'document', 'fetch', 'setTimeout', script)(
+        realm.sandbox,
+        doc,
+        (url: string) => {
+          fetched.push(url)
+
+          return Promise.resolve({ok: true, text: () => Promise.resolve('')})
+        },
+        (fn: () => void) => timers.push(fn)
+      )
+
+      const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
+
+      for (let i = 0; i < 3; i++) timers.shift()?.()
+      await settle()
+
+      expect(fetched, mode).toEqual([])
+
+      hosts.push({
+        shadowRoot: {querySelectorAll: () => []},
+        getAttribute: () => null
+      })
+
+      timers.shift()?.()
+      await settle()
+
+      expect(fetched, mode).toEqual(['chrome-extension://spec/styles.css'])
+    }
+  })
 })
