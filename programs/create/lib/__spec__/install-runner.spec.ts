@@ -13,6 +13,7 @@ import {
   buildExecEnv,
   installTimeoutMs,
   invokingNpmrcReleaseAge,
+  KILL_GRACE_MS,
   runInstall,
   withoutInheritedReleaseAge
 } from '../install-runner'
@@ -232,7 +233,102 @@ describe('install-runner runInstall', () => {
       ])
 
       expect(calls[1].options).toEqual({stdio: 'ignore'})
+      expect(calls[0].options).not.toHaveProperty('detached')
       expect(calls[0].signals).toEqual([])
+    })
+
+    it('ends the whole group on POSIX, then kills what is left after the grace', async () => {
+      vi.useFakeTimers()
+      const {spawn, calls} = fakeSpawn(() => ({}))
+      const signaled: Array<[number, string]> = []
+
+      const run = runInstall('pnpm', ['install'], {
+        cwd: os.tmpdir(),
+        stdio: 'pipe',
+        spawn,
+        platform: 'linux',
+        timeoutMs: 5000,
+        signalGroup: (pid, signal) => {
+          signaled.push([pid, signal])
+        }
+      })
+
+      expect(calls[0].options.detached).toBe(true)
+
+      await vi.advanceTimersByTimeAsync(5000)
+      await expect(run).resolves.toMatchObject({code: null})
+      expect(signaled).toEqual([[calls[0].pid, 'SIGTERM']])
+
+      await vi.advanceTimersByTimeAsync(KILL_GRACE_MS)
+      expect(signaled).toEqual([
+        [calls[0].pid, 'SIGTERM'],
+        [calls[0].pid, 'SIGKILL']
+      ])
+
+      // The group got the signals, never the leader alone.
+      expect(calls[0].signals).toEqual([])
+    })
+
+    it('keeps a child that shares the terminal in its group', async () => {
+      vi.useFakeTimers()
+      const {spawn, calls} = fakeSpawn(() => ({}))
+      const signaled: string[] = []
+      vi.spyOn(process.stdout, 'write').mockReturnValue(true)
+
+      const run = runInstall('pnpm', ['install'], {
+        cwd: os.tmpdir(),
+        stdio: 'tee',
+        spawn,
+        platform: 'linux',
+        timeoutMs: 5000,
+        signalGroup: (_pid, signal) => {
+          signaled.push(signal)
+        }
+      })
+
+      await vi.advanceTimersByTimeAsync(5000)
+      await expect(run).resolves.toMatchObject({code: null})
+      vi.restoreAllMocks()
+
+      expect(calls[0].options).not.toHaveProperty('detached')
+      expect(calls[0].signals).toEqual(['SIGTERM'])
+      expect(signaled).toEqual([])
+    })
+
+    it('passes Ctrl+C on to the group and stops listening once it ends', async () => {
+      vi.useFakeTimers()
+      const {spawn, calls} = fakeSpawn(() => ({}))
+      const signaled: Array<[number, string]> = []
+
+      // Another listener keeps the forwarded signal from ending this run.
+      const keepAlive = () => {}
+
+      process.on('SIGINT', keepAlive)
+      const before = process.listenerCount('SIGINT')
+
+      try {
+        const run = runInstall('pnpm', ['install'], {
+          cwd: os.tmpdir(),
+          stdio: 'pipe',
+          spawn,
+          platform: 'linux',
+          timeoutMs: 5000,
+          signalGroup: (pid, signal) => {
+            signaled.push([pid, signal])
+          }
+        })
+
+        expect(process.listenerCount('SIGINT')).toBe(before + 1)
+        process.emit('SIGINT', 'SIGINT')
+
+        expect(signaled).toEqual([[calls[0].pid, 'SIGINT']])
+        expect(process.listenerCount('SIGINT')).toBe(before)
+
+        await vi.advanceTimersByTimeAsync(5000)
+        await expect(run).resolves.toMatchObject({code: null})
+      } finally {
+        process.off('SIGINT', keepAlive)
+      }
     })
 
     it('leaves a child that ends in time alone and arms nothing after it', async () => {
