@@ -7,16 +7,33 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler} from '@rspack/core'
-import type {DevOptions, FilepathList, PluginInterface} from '../../types'
+import type {DevOptions} from '../../types'
+import * as messages from './messages'
 import {processJsonAssets} from './process-assets'
 import {trackJsonDependencies} from './track-dependencies'
 
+// One output file per key: the key is the output path and the value its
+// source. A list had every file write the same output, the last one kept.
+export type JsonIncludeList = Record<string, string | undefined>
+
+export interface JsonPluginOptions {
+  manifestPath: string
+  includeList?: JsonIncludeList
+  browser?: DevOptions['browser']
+}
+
 export class JsonPlugin {
   public readonly manifestPath: string
-  public readonly includeList?: FilepathList
+  public readonly includeList?: JsonIncludeList
   public readonly browser?: DevOptions['browser'] | 'chrome'
 
-  constructor(options: PluginInterface) {
+  constructor(options: JsonPluginOptions) {
+    for (const [key, value] of Object.entries(options.includeList || {})) {
+      if (value !== undefined && typeof value !== 'string') {
+        throw new TypeError(messages.jsonIncludeValueNotOneString(key, value))
+      }
+    }
+
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.browser = options.browser

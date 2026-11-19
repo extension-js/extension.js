@@ -12,8 +12,10 @@ function makeCompiler(htmlAbsPath: string, htmlContent: string) {
         tap: (_: any, cb: any) => cb()
       }
     },
+    // The page asset is named after its include-list key, as the emit step
+    // names it.
     getAsset: (name: string) => {
-      if (name === path.basename(htmlAbsPath)) {
+      if (name === 'feature.html') {
         return {source: {source: () => htmlContent}}
       }
 

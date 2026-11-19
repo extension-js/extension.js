@@ -7,9 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {createRequire} from 'node:module'
 import type {Compilation} from '@rspack/core'
-import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import {
+  filterKeysForThisBrowser,
+  isStaticTheme,
+  isStaticThemeSource
+} from '../../../lib/manifest-utils'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
 import {
@@ -36,25 +39,16 @@ import {
   reportIconVariantsFallback
 } from './icon-variants-fallback'
 
-const cjsRequire = createRequire(import.meta.url)
-
-// Manifest source strings ride per compilation; a WeakMap keeps them typed
-// instead of stashing untyped string properties on the compilation object.
-const manifestSourceStore = new WeakMap<
+// The manifest as the author wrote it rides per compilation, since later
+// steps rewrite the asset and the checks on authored fields need the source.
+const authoredManifestStore = new WeakMap<
   Compilation,
-  {original?: string; current?: string}
+  {text: string; parsed?: Manifest}
 >()
 
-function manifestSourceEntry(compilation: Compilation) {
-  let entry = manifestSourceStore.get(compilation)
-
-  if (!entry) {
-    entry = {}
-    manifestSourceStore.set(compilation, entry)
-  }
-
-  return entry
-}
+// Text handed over by steps outside this folder. Only a compilation that
+// cannot hand its assets back, a spec double, is ever answered from it.
+const handedOverManifestText = new WeakMap<Compilation, string>()
 
 function readAssetSource(asset: {source?: unknown} | null | undefined): string {
   if (!asset) return ''
@@ -78,88 +72,108 @@ function readAssetSource(asset: {source?: unknown} | null | undefined): string {
   return ''
 }
 
+// The manifest.json asset is the one copy every step and every project
+// plugin shares, so whatever edited it last is what the next reader gets.
+export function readManifestAssetText(
+  compilation: Compilation
+): string | undefined {
+  const getAsset = compilation.getAsset
+
+  if (typeof getAsset === 'function') {
+    const text = readAssetSource(
+      getAsset.call(compilation, 'manifest.json') as
+        | {source?: unknown}
+        | null
+        | undefined
+    )
+
+    if (text) return text
+  }
+
+  return readAssetSource(compilation.assets?.['manifest.json']) || undefined
+}
+
 export function setOriginalManifestContent(
   compilation: Compilation,
   source: string
 ): void {
-  manifestSourceEntry(compilation).original = source
+  authoredManifestStore.set(compilation, {text: source})
 }
 
 export function getOriginalManifestContent(
   compilation: Compilation
 ): string | undefined {
-  return manifestSourceStore.get(compilation)?.original
+  return authoredManifestStore.get(compilation)?.text
 }
 
+// One parse serves every check that only reads the authored manifest.
+// Callers must not change the object they get.
+export function getOriginalManifest(
+  compilation: Compilation
+): Manifest | undefined {
+  const entry = authoredManifestStore.get(compilation)
+  if (!entry) return undefined
+
+  entry.parsed ??= parseJsonSafe(entry.text) as Manifest
+
+  return entry.parsed
+}
+
+// A theme is told from the manifest as authored, since the dev patches add
+// keys no theme carries. The disk is read only when no step emitted one.
+export function isStaticThemeCompilation(
+  compilation: Compilation,
+  manifestPath: string | undefined,
+  browser: DevOptions['browser'] | string | undefined
+): boolean {
+  let authored: Manifest | undefined
+
+  try {
+    authored = getOriginalManifest(compilation)
+  } catch {
+    return false
+  }
+
+  if (!authored) return isStaticThemeSource(manifestPath, browser)
+
+  return isStaticTheme(
+    filterKeysForThisBrowser(authored, browser as DevOptions['browser'])
+  )
+}
+
+// Kept for the steps outside this folder that still call it. Those steps
+// update the asset in the same breath, and the asset is what gets read.
 export function setCurrentManifestContent(
   compilation: Compilation,
   source: string
 ): void {
-  manifestSourceEntry(compilation).current = source
+  handedOverManifestText.set(compilation, source)
 }
 
+// Kept for the same callers: the text of the manifest.json asset.
 export function getCurrentManifestContent(
   compilation: Compilation
 ): string | undefined {
-  return manifestSourceStore.get(compilation)?.current
+  if (typeof compilation.getAsset === 'function') {
+    return readManifestAssetText(compilation)
+  }
+
+  return handedOverManifestText.get(compilation)
 }
 
 export function getManifestContent(
   compilation: Compilation,
   manifestPath: string
 ): Manifest {
-  const currentManifest = getCurrentManifestContent(compilation)
+  const text =
+    readManifestAssetText(compilation) ??
+    getOriginalManifestContent(compilation)
 
-  if (currentManifest) {
-    return parseJsonSafe(currentManifest)
-  }
+  if (text) return parseJsonSafe(text)
 
-  const getAsset = compilation.getAsset
-
-  if (typeof getAsset === 'function') {
-    const manifestAsset = getAsset.call(compilation, 'manifest.json') as
-      | {source?: unknown}
-      | null
-      | undefined
-    const manifest = readAssetSource(manifestAsset)
-
-    if (manifest) {
-      return parseJsonSafe(manifest)
-    }
-  }
-
-  const manifestAsset = compilation.assets?.['manifest.json']
-
-  if (manifestAsset) {
-    const manifest = readAssetSource(manifestAsset)
-
-    if (manifest) {
-      return parseJsonSafe(manifest)
-    }
-  }
-
-  const originalManifest = getOriginalManifestContent(compilation)
-
-  if (originalManifest) {
-    return parseJsonSafe(originalManifest)
-  }
-
-  // Prefer direct fs read to support ESM and test environments reliably
-  try {
-    const text = fs.readFileSync(manifestPath, 'utf8')
-
-    return parseJsonSafe(text)
-  } catch {
-    try {
-      const resolved = cjsRequire.resolve(manifestPath)
-      delete cjsRequire.cache[resolved]
-    } catch {
-      // resolve() can throw for unusual paths; fall through to a plain require
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    return cjsRequire(manifestPath)
-  }
+  // No step has emitted a manifest for this compilation yet, so the file
+  // the author saved is the only copy there is.
+  return parseJsonSafe(fs.readFileSync(manifestPath, 'utf8'))
 }
 
 // Re-export the canonical resolver so emission, feature-scripts, and

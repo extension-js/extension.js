@@ -9,6 +9,7 @@ import {
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
 import {markPageReportedMissing} from '../../shared/reported-missing-pages'
+import * as messages from '../messages'
 import {PersistManifestToDisk} from '../steps/persist-manifest'
 
 const makeTempFolder = trackTempFolders()
@@ -20,7 +21,7 @@ afterEach(() => {
 type FakeCompilation = {
   errors: any[]
   outputOptions: {path: string}
-  hooks: {processAssets: {tap: (opts: any, fn: () => void) => void}}
+  hooks: {afterProcessAssets: {tap: (opts: any, fn: () => void) => void}}
   getAsset: (name: string) => any
 }
 
@@ -35,7 +36,7 @@ function makeCompiler(
   const compilationProxy: any = {
     ...compilation,
     hooks: {
-      processAssets: {
+      afterProcessAssets: {
         tap: (_opts: any, fn: () => void) => {
           processAssetsFn = fn
         }
@@ -74,7 +75,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: [],
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => '{\n  "name": "x"\n}'}}
@@ -113,7 +114,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -167,7 +168,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -197,7 +198,7 @@ describe('PersistManifestToDisk', () => {
       makeCompiler(outputDir, () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -227,7 +228,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -245,7 +246,7 @@ describe('PersistManifestToDisk', () => {
     expect(
       String(compilationErrors[0].message).split('\n').slice(0, 2)
     ).toEqual([
-      'manifest.json references files that were not emitted to disk for this build:',
+      'manifest.json names files that this build did not write to the output folder:',
       '  - sidebar/index.html'
     ])
   })
@@ -281,7 +282,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -313,7 +314,7 @@ describe('PersistManifestToDisk', () => {
       () => ({
         errors: compilationErrors,
         outputOptions: {path: outputDir},
-        hooks: {processAssets: {tap: () => undefined}},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
         getAsset: (name: string) =>
           name === 'manifest.json'
             ? {source: {source: () => manifestSource}}
@@ -332,5 +333,109 @@ describe('PersistManifestToDisk', () => {
     expect(fs.existsSync(path.join(outputDir, 'manifest.json'))).toBe(false)
     expect(compilationErrors).toHaveLength(0)
     scheduler.dispose()
+  })
+
+  it('lists five missing files and counts the rest', () => {
+    const outputDir = makeTempFolder('persist-manifest-many-')
+    const files = [0, 1, 2, 3, 4, 5, 6].map(
+      (index) => `content_scripts/content-${index}.js`
+    )
+    const manifestSource = JSON.stringify({
+      manifest_version: 3,
+      content_scripts: [{js: files}]
+    })
+    const compilationErrors: any[] = []
+    const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
+      outputDir,
+      () => ({
+        errors: compilationErrors,
+        outputOptions: {path: outputDir},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => manifestSource}}
+            : undefined
+      })
+    )
+
+    new PersistManifestToDisk().apply(compiler)
+    runProcessAssets()
+    runAfterEmit()
+
+    expect(compilationErrors).toHaveLength(1)
+    expect(compilationErrors[0].message).toBe(
+      messages.manifestFilesNotEmitted(files)
+    )
+
+    const lines = String(compilationErrors[0].message).split('\n')
+    expect(lines.slice(1, 7)).toEqual([
+      ...files.slice(0, 5).map((file) => `  - ${file}`),
+      '  and 2 more'
+    ])
+
+    // Advice that was true for one old release is gone.
+    expect(compilationErrors[0].message).not.toMatch(/4\.0\.0|npm ls/)
+  })
+
+  it('names the reason when the manifest cannot be written', () => {
+    const outputDir = makeTempFolder('persist-manifest-unwritable-')
+    // A folder sits where the file goes, so the write has to fail.
+    fs.mkdirSync(path.join(outputDir, 'manifest.json', 'held'), {
+      recursive: true
+    })
+
+    const compilationErrors: any[] = []
+    const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
+      outputDir,
+      () => ({
+        errors: compilationErrors,
+        outputOptions: {path: outputDir},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => '{"name":"x"}'}}
+            : undefined
+      })
+    )
+
+    new PersistManifestToDisk().apply(compiler)
+    runProcessAssets()
+    runAfterEmit()
+
+    expect(compilationErrors).toHaveLength(1)
+    expect(compilationErrors[0].name).toBe('ManifestPersistFailed')
+    expect(compilationErrors[0].file).toBe('manifest.json')
+    expect(String(compilationErrors[0].message).split('\n')[0]).toBe(
+      'The build could not write manifest.json to the output folder.'
+    )
+
+    expect(String(compilationErrors[0].message)).toMatch(/REASON \S/)
+  })
+
+  it('writes what the asset holds once every stage is over', () => {
+    const outputDir = makeTempFolder('persist-manifest-late-edit-')
+    let source = '{"name":"built in"}'
+    const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
+      outputDir,
+      () => ({
+        errors: [],
+        outputOptions: {path: outputDir},
+        hooks: {afterProcessAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => source}}
+            : undefined
+      })
+    )
+
+    new PersistManifestToDisk().apply(compiler)
+    // A plugin of the project rewrites the asset at a late stage.
+    source = '{"name":"edited by the project"}'
+    runProcessAssets()
+    runAfterEmit()
+
+    expect(fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf8')).toBe(
+      '{"name":"edited by the project"}'
+    )
   })
 })
