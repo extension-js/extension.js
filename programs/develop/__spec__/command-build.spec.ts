@@ -130,8 +130,7 @@ describe('webpack/command-build', () => {
     rspackMock.mockClear()
     logSpy.mockClear()
     errorSpy.mockClear()
-    process.env.VITEST = undefined
-    process.env.EXTENSION_VERBOSE = undefined
+    delete process.env.EXTENSION_VERBOSE
     ;(fs.existsSync as any)?.mockReset?.()
     ;(fs.readdirSync as any)?.mockReset?.()
     ;(genTypesMod as any).generateExtensionTypes?.mockClear?.()
