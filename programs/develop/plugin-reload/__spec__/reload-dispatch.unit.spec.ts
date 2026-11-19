@@ -1168,30 +1168,40 @@ function recordingBroker(answers: {
 }
 
 describe('dispatchReload when the broker fails', () => {
-  // Pins current behavior: a broker failure is not caught here.
-  it('rejects with the error a throwing broadcast raised', async () => {
-    const gone = new Error('socket gone')
+  // A broker fault must not fail the compile: the edit is said to be unsent.
+  it('warns and reports false when the broadcast throws', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const {broker, sent} = recordingBroker({
       broadcast: () => {
-        throw gone
+        throw new Error('socket gone')
       }
     })
 
-    await expect(dispatchReload(CS, {broker})).rejects.toBe(gone)
+    await expect(dispatchReload(CS, {broker})).resolves.toBe(false)
     expect(sent).toHaveLength(1)
     expect(fullReloadsDeliveredTo(broker)).toBe(0)
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining(
+        'content_script (src/content/scripts.js) compiled but the extension never confirmed the reload'
+      )
+    ])
   })
 
-  it('rejects with the error a rejected ack wait raised', async () => {
-    const lost = new Error('ack channel closed')
-    const {broker, sent} = recordingBroker({ack: () => Promise.reject(lost)})
+  it('warns and reports false when the ack wait rejects', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const {broker, sent} = recordingBroker({
+      ack: () => Promise.reject(new Error('ack channel closed'))
+    })
 
     await expect(
       dispatchReload({type: 'full', label: 'extension'}, {broker})
-    ).rejects.toBe(lost)
+    ).resolves.toBe(false)
 
     expect(sent).toHaveLength(1)
     expect(fullReloadsDeliveredTo(broker)).toBe(0)
+    expect(warn.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining('extension compiled but the extension never')
+    ])
   })
 })
 

@@ -14,6 +14,40 @@ const makeTempFolder = trackTempFolders()
 
 const count = (n: number) => () => n
 
+describe('classifyReloadFromSources with an unreadable bundle index', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  const classify = () =>
+    classifyReloadFromSources({
+      changedSources: ['src/popup/index.js'],
+      getContentScriptCount: count(0),
+      getSourceFeatureIndex: () => {
+        throw new Error('module graph gone')
+      }
+    })
+
+  it('says so in a debug session and still classifies by name', () => {
+    vi.stubEnv('EXTENSION_DEBUG', '1')
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(classify()?.type).toBe('page')
+    expect(log.mock.calls.map((call) => String(call[0]))).toEqual([
+      expect.stringContaining('module graph gone')
+    ])
+  })
+
+  it('prints nothing outside a debug session', () => {
+    vi.stubEnv('EXTENSION_DEBUG', '0')
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(classify()?.type).toBe('page')
+    expect(log).not.toHaveBeenCalled()
+  })
+})
+
 describe('classifyReloadFromSources', () => {
   it('returns undefined when nothing changed', () => {
     expect(
