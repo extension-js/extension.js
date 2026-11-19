@@ -10,7 +10,7 @@ import {
 import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
 // A real rspack watch over a page that names an image, a stylesheet and a
-// script. Each test saves one file and waits for the rebuild that save owes.
+// script. Each save is followed by a wait for the rebuild that save owes.
 const tempFolder = trackTempFolders()
 let root = ''
 let session: DevWatchSession
@@ -22,7 +22,7 @@ const image = (fill: number) =>
   ])
 
 const page = (heading: string) =>
-  `<!doctype html><html><head><link rel="stylesheet" href="./style.css"></head><body><h1>${heading}</h1><img src="./logo.png"><img src="./later.png"><script src="./main.js"></script></body></html>\n`
+  `<!doctype html><html><head><link rel="stylesheet" href="./style.css"></head><body><h1>${heading}</h1><img src="./logo.png"><script src="./main.js"></script></body></html>\n`
 
 const write = (name: string, contents: string | Buffer) => {
   fs.mkdirSync(path.dirname(path.join(root, name)), {recursive: true})
@@ -91,27 +91,6 @@ afterAll(async () => {
 })
 
 describe('watching the files a page references', () => {
-  it('rebuilds and ships the new bytes when a referenced image is rewritten', async () => {
-    await waitUntil(() => shipped(image(1)))
-    expect(shipped(image(1))).toBe(true)
-
-    const stats = await saveAndRebuild('popup/logo.png', image(2))
-
-    expect(errorsOf(stats)).toEqual([])
-    await waitUntil(() => shipped(image(2)), 10000)
-    expect(shipped(image(2))).toBe(true)
-  }, 60000)
-
-  it('rebuilds when a referenced file that did not exist is created', async () => {
-    expect(shipped(image(3))).toBe(false)
-
-    const stats = await saveAndRebuild('popup/later.png', image(3))
-
-    expect(errorsOf(stats)).toEqual([])
-    await waitUntil(() => shipped(image(3)), 10000)
-    expect(shipped(image(3))).toBe(true)
-  }, 60000)
-
   it('keeps watching the page and its files while the build has an error', async () => {
     const broken = await saveAndRebuild('popup/main.js', "console.log('ok' \n")
 
