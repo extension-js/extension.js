@@ -27,34 +27,34 @@ pnpm add extension-develop
 import {
   extensionBuild,
   type BuildOptions,
-  type BuildSummary,
-} from "extension-develop";
+  type BuildSummary
+} from 'extension-develop'
 import {
   extensionPreview,
   type PreviewLauncherFn,
-  type PreviewOptions,
-} from "extension-develop/preview";
+  type PreviewOptions
+} from 'extension-develop/preview'
 
 // Production build of the project in the current folder, with a zip
 const summary: BuildSummary = await extensionBuild(undefined, {
-  browser: "chrome",
-  zip: true,
-} satisfies BuildOptions);
+  browser: 'chrome',
+  zip: true
+} satisfies BuildOptions)
 
-console.log(summary.errors_count);
+console.log(summary.errors_count)
 
 // This package starts no browser. The caller passes the launcher, which
 // receives the built folder and every unpacked extension to load.
-const launcher: PreviewLauncherFn = async ({ browser, extensionsToLoad }) => {
-  console.log(`Start ${browser} with`, extensionsToLoad);
-};
+const launcher: PreviewLauncherFn = async ({browser, extensionsToLoad}) => {
+  console.log(`Start ${browser} with`, extensionsToLoad)
+}
 
 // Runs the build in dist/chrome with no dev server
 await extensionPreview(
   undefined,
-  { browser: "chrome", mode: "production" } satisfies PreviewOptions,
-  launcher,
-);
+  {browser: 'chrome', mode: 'production'} satisfies PreviewOptions,
+  launcher
+)
 ```
 
 The `extension-develop/manifest` entry is deprecated and is removed in the next minor.
@@ -83,7 +83,7 @@ The `extension-develop/manifest` entry is deprecated and is removed in the next 
 
 ## Command options
 
-Each table lists fields of the exported option types `DevOptions`, `BuildOptions`, `StartOptions` and `PreviewOptions`, under the commands whose type has them. Every field is optional except `browser` and, outside `build`, `mode`.
+Each table lists fields of the exported option types `DevOptions`, `BuildOptions`, `StartOptions` and `PreviewOptions`, under the commands whose type has them. Every field is optional except `browser` and, for `start`, `mode`.
 
 `extensionDev` and `extensionPreview` start a browser only through a launcher the caller passes. This package exports no `extensionStart`. `StartOptions` types the `start` command the CLI runs as `extensionBuild` followed by `extensionPreview`.
 
@@ -100,27 +100,27 @@ Each table lists fields of the exported option types `DevOptions`, `BuildOptions
 
 ### dev, start and preview
 
-| Option                | Type / Values                                                                                      | Description                                                                                                                            |
-| --------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `noOpen`              | boolean                                                                                            | Start the browser without opening a tab for the extension                                                                              |
-| `noBrowser`           | boolean                                                                                            | Start no browser at all                                                                                                                |
-| `profile`             | string or false                                                                                    | Profile folder to use. `false` asks for the browser's own default profile. Defaults to a fresh managed profile                         |
-| `persistProfile`      | boolean                                                                                            | Reuse one managed profile across runs, off by default                                                                                  |
-| `keepProfileChanges`  | boolean                                                                                            | Keep the managed profile and what the run changed in it                                                                                |
-| `copyFromProfile`     | string                                                                                             | Seed the managed profile from a copy of this profile folder, on first creation                                                         |
-| `startingUrl`         | string                                                                                             | Page to open when the browser starts                                                                                                   |
-| `port`                | number or string                                                                                   | `dev`: the dev server port, 8080 by default. `start` and `preview`: handed to the launcher, which seeds the browser debug port from it |
-| `host`                | string                                                                                             | Address to bind, 127.0.0.1 by default. `dev` binds the dev server, `start` and `preview` bind the control channel                      |
-| `publicHost`          | string                                                                                             | `dev`: the address the browser dials when it differs from `host`. Accepted and unused by `start` and `preview`                         |
-| `logLevel`            | off, error, warn, info, debug, trace, all                                                          | Lowest level of browser log printed in the terminal, `off` by default                                                                  |
-| `logContexts`         | array of: background, content, page, popup, options, sidebar, devtools, newtab, history, bookmarks | Contexts whose logs print. Leave unset for all of them                                                                                 |
-| `logFormat`           | pretty, json, ndjson                                                                               | Output format of the printed logs, `pretty` by default                                                                                 |
-| `logTimestamps`       | boolean                                                                                            | Timestamps in `pretty` output, on by default                                                                                           |
-| `logColor`            | boolean                                                                                            | Colors in `pretty` output, on by default                                                                                               |
-| `logUrl`              | string                                                                                             | Print only logs whose URL holds this text or matches this `/regex/flags` literal                                                       |
-| `logTab`              | number or string                                                                                   | Print only logs from this tab id                                                                                                       |
-| `preferences`         | object                                                                                             | Browser preferences to set in the profile                                                                                              |
-| `browserFlags`        | string[]                                                                                           | Extra flags for the browser command line                                                                                               |
+| Option               | Type / Values                                                                                      | Description                                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `noOpen`             | boolean                                                                                            | Start the browser without opening a tab for the extension                                                                              |
+| `noBrowser`          | boolean                                                                                            | Start no browser at all                                                                                                                |
+| `profile`            | string or false                                                                                    | Profile folder to use. `false` asks for the browser's own default profile. Defaults to a fresh managed profile                         |
+| `persistProfile`     | boolean                                                                                            | Reuse one managed profile across runs, off by default                                                                                  |
+| `keepProfileChanges` | boolean                                                                                            | Keep the managed profile and what the run changed in it                                                                                |
+| `copyFromProfile`    | string                                                                                             | Seed the managed profile from a copy of this profile folder, on first creation                                                         |
+| `startingUrl`        | string                                                                                             | Page to open when the browser starts                                                                                                   |
+| `port`               | number or string                                                                                   | `dev`: the dev server port, 8080 by default. `start` and `preview`: handed to the launcher, which seeds the browser debug port from it |
+| `host`               | string                                                                                             | Address to bind, 127.0.0.1 by default. `dev` binds the dev server, `start` and `preview` bind the control channel                      |
+| `publicHost`         | string                                                                                             | `dev`: the address the browser dials when it differs from `host`. Accepted and unused by `start` and `preview`                         |
+| `logLevel`           | off, error, warn, info, debug, trace, all                                                          | Lowest level of browser log printed in the terminal, `off` by default                                                                  |
+| `logContexts`        | array of: background, content, page, popup, options, sidebar, devtools, newtab, history, bookmarks | Contexts whose logs print. Leave unset for all of them                                                                                 |
+| `logFormat`          | pretty, json, ndjson                                                                               | Output format of the printed logs, `pretty` by default                                                                                 |
+| `logTimestamps`      | boolean                                                                                            | Timestamps in `pretty` output, on by default                                                                                           |
+| `logColor`           | boolean                                                                                            | Colors in `pretty` output, on by default                                                                                               |
+| `logUrl`             | string                                                                                             | Print only logs whose URL holds this text or matches this `/regex/flags` literal                                                       |
+| `logTab`             | number or string                                                                                   | Print only logs from this tab id                                                                                                       |
+| `preferences`        | object                                                                                             | Browser preferences to set in the profile                                                                                              |
+| `browserFlags`       | string[]                                                                                           | Extra flags for the browser command line                                                                                               |
 | `excludeBrowserFlags` | string[]                                                                                           | Default flags to leave off the browser command line                                                                                    |
 
 ### dev and build
@@ -145,13 +145,13 @@ Each table lists fields of the exported option types `DevOptions`, `BuildOptions
 
 ### dev
 
-| Option               | Type / Values      | Description                                                                                                              |
-| -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `allowedHosts`       | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain                                            |
-| `hashContentScripts` | boolean            | Put a content hash in each content script file name, on by default                                                       |
-| `allowControl`       | boolean            | Open the control channel for the act verbs                                                                               |
-| `allowEval`          | boolean            | Also allow the `eval` verb. Implies `allowControl`                                                                       |
-| `hintFor`            | function           | The hint for a terminal `failed` or `usage` frame that carries none. Called with the code, returns a string or undefined |
+| Option                | Type / Values      | Description                                                                                                              |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `allowedHosts`        | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain                                            |
+| `hashContentScripts`  | boolean            | Put a content hash in each content script file name, on by default                                                       |
+| `allowControl`        | boolean            | Open the control channel for the act verbs                                                                               |
+| `allowEval`           | boolean            | Also allow the `eval` verb. Implies `allowControl`                                                                       |
+| `hintFor`             | function           | The hint for a terminal `failed` or `usage` frame that carries none. Called with the code, returns a string or undefined |
 
 A host that learns a session cannot go on calls `endSessionAsFailed(code, message, instanceId?)`, exported beside `extensionDev`. It ends the named session, or the newest one, with one `failed` frame and answers `false` when that session is not live or is already stopping. A host that did not pass `exitOnError` keeps running.
 
@@ -239,16 +239,16 @@ Example:
 export default {
   // Applies to dev/start/preview unless overridden per-command
   extensions: {
-    dir: "./extensions",
-    paths: ["./vendor/some-unpacked-extension"],
+    dir: './extensions',
+    paths: ['./vendor/some-unpacked-extension']
   },
   commands: {
     dev: {
       // Override only for dev
-      extensions: ["./extensions/debug-helper"],
-    },
-  },
-};
+      extensions: ['./extensions/debug-helper']
+    }
+  }
+}
 ```
 
 ### Environment variables in `extension.config.*`
@@ -273,28 +273,28 @@ export default {
   browser: {
     chrome: {
       startingUrl:
-        process.env.EXTENSION_PUBLIC_START_URL || "https://example.com",
-    },
+        process.env.EXTENSION_PUBLIC_START_URL || 'https://example.com'
+    }
   },
   commands: {
     dev: {
       // Unified logger defaults for `extension dev`
-      logLevel: "off",
+      logLevel: 'off',
       // omit or set to undefined to include all
-      logContexts: ["background", "content"],
-      logFormat: "pretty",
+      logContexts: ['background', 'content'],
+      logFormat: 'pretty',
       logTimestamps: true,
       logColor: true,
       // Optional filters
-      logUrl: "/example\\.com/i",
-      logTab: 123,
-    },
+      logUrl: '/example\\.com/i',
+      logTab: 123
+    }
   },
   // Either a function
-  config: (config) => config,
+  config: (config) => config
   // Or a plain object to merge
   // config: { resolve: { alias: { react: 'preact/compat' } } }
-};
+}
 ```
 
 ## Safety and ergonomics
@@ -328,20 +328,20 @@ dist/
 
 ## Plugins
 
-| Name                   | Group | Summary                                                                                                                                                                                                                                              |
-| ---------------------- | ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| plugin-web-extension   | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output                                                   |
-| plugin-css             | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist                                                                                                                                                    |
-| plugin-js-frameworks   | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production                                               |
-| plugin-static-assets   | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules<br/>- Appends `.wasm` to the resolve extensions |
-| plugin-compatibility   | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                                                           |
-| plugin-compilation     | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                                                          |
-| plugin-special-folders | core  | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists                                        |
-| plugin-wasm            | core  | - Enables async WebAssembly<br/>- Resolves `.wasm` imports<br/>- Aliases runtime wasm assets                                                                                                                                                         |
-| plugin-perf-budgets    | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold                                                                                                                                                              |
-| plugin-reload          | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session                                                                    |
-| plugin-playwright      | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation                                                                                                      |
-| plugin-browsers        | dev   | - Launches the target browser with the built extension loaded<br/>- Passed in by the CLI, absent under `--no-browser`                                                                                                                                |
+| Name                 | Group | Summary                                                                                                                                                                                                         |
+| -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
+| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist                                                                    |
+| plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
+| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules<br/>- Appends `.wasm` to the resolve extensions |
+| plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
+| plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
+| plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |
+| plugin-wasm          | core  | - Enables async WebAssembly<br/>- Resolves `.wasm` imports<br/>- Aliases runtime wasm assets |
+| plugin-perf-budgets  | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold |
+| plugin-reload        | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session |
+| plugin-playwright    | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |
+| plugin-browsers      | dev   | - Launches the target browser with the built extension loaded<br/>- Passed in by the CLI, absent under `--no-browser` |
 
 ## Notes and compatibility
 
