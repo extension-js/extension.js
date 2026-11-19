@@ -44,6 +44,19 @@ export class AddScriptsAndStylesToCompilation {
           })
         : []
 
+    // The dev client opens its socket through this class, which names the
+    // page it shows, so a saved page reloads only the tabs showing it.
+    if (devServerHmrImports.length > 0) {
+      const ProvidePlugin = compiler.rspack?.ProvidePlugin
+
+      if (ProvidePlugin) {
+        new ProvidePlugin({
+          __rspack_dev_server_client__:
+            resolveDevelopDistFile('page-socket-client')
+        }).apply(compiler)
+      }
+    }
+
     for (const field of Object.entries(htmlEntries)) {
       const [feature, resource] = field
 
