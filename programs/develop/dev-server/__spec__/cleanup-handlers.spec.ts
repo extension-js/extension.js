@@ -2,6 +2,7 @@ import {EventEmitter} from 'node:events'
 import * as net from 'node:net'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
+  EXIT_DELAY_MS,
   FORCED_SHUTDOWN_EXIT_CODE,
   REPEATED_SIGNAL_GRACE_MS,
   SHUTDOWN_TIMEOUT_MS,
@@ -113,6 +114,52 @@ describe('setupCleanupHandlers', () => {
 
     expect(s.stop).toHaveBeenCalledTimes(1)
     expect(s.terminateCurrentInstance).not.toHaveBeenCalled()
+  })
+
+  it('lets an auto-exit stop that takes seconds finish and exit 0', async () => {
+    vi.useFakeTimers()
+    const processExit = vi
+      .spyOn(process, 'exit')
+      .mockImplementation((() => undefined) as never)
+
+    try {
+      const s = hangingSession({env: {EXTENSION_AUTO_EXIT_MS: '1000'}})
+
+      await vi.advanceTimersByTimeAsync(1000)
+      expect(s.stop).toHaveBeenCalledTimes(1)
+
+      // Closing the file watchers on macOS can hold the stop this long.
+      await vi.advanceTimersByTimeAsync(6000)
+      s.finishStop()
+      await vi.advanceTimersByTimeAsync(EXIT_DELAY_MS)
+
+      expect(processExit).not.toHaveBeenCalled()
+      expect(s.exit.mock.calls).toEqual([[]])
+      expect(s.printed).toEqual([])
+    } finally {
+      processExit.mockRestore()
+    }
+  })
+
+  it('ends an auto-exit stop that never settles on the shutdown bound', async () => {
+    vi.useFakeTimers()
+    const processExit = vi
+      .spyOn(process, 'exit')
+      .mockImplementation((() => undefined) as never)
+
+    try {
+      const s = hangingSession({env: {EXTENSION_AUTO_EXIT_MS: '1000'}})
+
+      await vi.advanceTimersByTimeAsync(1000 + SHUTDOWN_TIMEOUT_MS)
+
+      expect(processExit).not.toHaveBeenCalled()
+      expect(s.exit.mock.calls).toEqual([[FORCED_SHUTDOWN_EXIT_CODE]])
+      expect(s.printed.join('\n')).toContain(
+        `didn't shut down within ${SHUTDOWN_TIMEOUT_MS} ms`
+      )
+    } finally {
+      processExit.mockRestore()
+    }
   })
 
   it('ends the process at once on a second signal while stop is pending', async () => {

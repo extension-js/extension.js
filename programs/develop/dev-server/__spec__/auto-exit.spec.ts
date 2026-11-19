@@ -78,6 +78,17 @@ describe('auto-exit', () => {
     expect(process.exit).toHaveBeenCalledWith(1)
   })
 
+  it('waits the grace its caller names before the default backstop', () => {
+    const onCleanup = vi.fn(() => new Promise<void>(() => {}))
+    setupAutoExit(500, undefined, onCleanup, 11_000)
+    vi.advanceTimersByTime(500)
+    expect(onCleanup).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(10_999)
+    expect(process.exit).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(1)
+    expect(process.exit).toHaveBeenCalledWith(1)
+  })
+
   it('honors a force kill set below the auto-exit deadline as the shorter knob', () => {
     const onCleanup = vi.fn().mockResolvedValue(undefined)
     setupAutoExit(60_000, 5000, onCleanup)

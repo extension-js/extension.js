@@ -136,6 +136,58 @@ describe('create scaffolds from a ZIP template URL', {timeout: 30_000}, () => {
     expect(fs.existsSync(path.join(dest, 'content-react.edge'))).toBe(false)
   })
 
+  it('keeps the files beside a folder named after the archive', async () => {
+    const served = await serving({
+      '/starter.zip': {
+        body: zipOf({
+          'starter/manifest.json': manifest,
+          'NOTES.md': '# starter notes\n',
+          LICENSE: 'MIT\n'
+        })
+      }
+    })
+    const dest = path.join(workDir, 'my-remote-siblings-ext')
+
+    await extensionCreate(dest, {
+      template: served.url('/starter.zip'),
+      logger: noopLogger
+    })
+
+    // Not a wrapper, so the archive's root is the template, as it was packed.
+    expect(fs.existsSync(path.join(dest, 'starter', 'manifest.json'))).toBe(
+      true
+    )
+
+    expect(await fsp.readFile(path.join(dest, 'NOTES.md'), 'utf8')).toContain(
+      'starter'
+    )
+
+    expect(await fsp.readFile(path.join(dest, 'LICENSE'), 'utf8')).toBe('MIT\n')
+  })
+
+  it('unwraps that folder past what macOS adds to an archive', async () => {
+    const served = await serving({
+      '/starter.zip': {
+        body: zipOf({
+          'starter/manifest.json': manifest,
+          '__MACOSX/starter/._manifest.json': 'resource fork',
+          '.DS_Store': 'finder'
+        })
+      }
+    })
+    const dest = path.join(workDir, 'my-remote-finder-ext')
+
+    await extensionCreate(dest, {
+      template: served.url('/starter.zip'),
+      logger: noopLogger
+    })
+
+    expect(fs.existsSync(path.join(dest, 'manifest.json'))).toBe(true)
+    expect(fs.existsSync(path.join(dest, 'starter'))).toBe(false)
+    expect(fs.existsSync(path.join(dest, '__MACOSX'))).toBe(false)
+    expect(fs.existsSync(path.join(dest, '.DS_Store'))).toBe(false)
+  })
+
   it('refuses plain http unless the opt-in is set, and scaffolds nothing', async () => {
     delete process.env.EXTENSION_ALLOW_HTTP_TEMPLATE
     const served = await serving({

@@ -27,6 +27,7 @@ import type {
   PluginInterface
 } from '../../../../types'
 import {ResolveClassicConcat} from '../../../shared/classic-concat'
+import {contentScriptWrapperExtensionsFor} from '../../../shared/content-script-wrapper-extensions'
 import {
   CONTENT_SCRIPT_CSS_PROBE_MARKER_PREFIX,
   createContentScriptCssProbeMarkerPattern,
@@ -162,7 +163,9 @@ export class AddContentScriptWrapper {
       browser: this.browser,
       mainWorldScripts,
       ...(mainWorldCopies.length > 0 ? {mainWorldCopies} : {}),
-      scriptsFolder: scriptsRoot ? canonicalizeDir(scriptsRoot) : false
+      scriptsFolder: scriptsRoot ? canonicalizeDir(scriptsRoot) : false,
+      // Filled by plugins applied after this one, read when a module builds.
+      extensions: contentScriptWrapperExtensionsFor(compiler)
     }
 
     // A module a MAIN world entry imports rides that entry's bundle onto the

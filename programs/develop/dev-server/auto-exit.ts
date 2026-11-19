@@ -10,8 +10,9 @@ import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
 import {MAX_TIMER_MS, readTimerMs} from './start-bundler'
 
-// How long after the auto-exit deadline the default backstop waits.
-const FORCE_KILL_DEFAULT_GRACE_MS = 4000
+// How long after the auto-exit deadline the default backstop waits, unless
+// the caller names the shutdown bound it must outlast.
+export const FORCE_KILL_DEFAULT_GRACE_MS = 4000
 
 // A backstop that cuts a teardown short is a truncated session, never a
 // completed one.
@@ -20,7 +21,8 @@ export const FORCE_KILL_EXIT_CODE = 1
 export function setupAutoExit(
   autoExitMsRaw: string | number | undefined,
   forceKillMsRaw: string | number | undefined,
-  onCleanup: () => Promise<void>
+  onCleanup: () => Promise<void>,
+  defaultGraceMs: number = FORCE_KILL_DEFAULT_GRACE_MS
 ): () => void {
   let autoExitTimer: NodeJS.Timeout | null = null
   let forceKillTimer: NodeJS.Timeout | null = null
@@ -53,7 +55,7 @@ export function setupAutoExit(
   // auto-exit deadline stays the shorter knob it always was.
   const forceKillMs =
     readTimerMs(forceKillMsRaw) ??
-    Math.min(autoExitMs + FORCE_KILL_DEFAULT_GRACE_MS, MAX_TIMER_MS)
+    Math.min(autoExitMs + defaultGraceMs, MAX_TIMER_MS)
 
   forceKillTimer = setTimeout(() => {
     try {

@@ -35,6 +35,12 @@ import {
 } from '../../../../lib/resource-path'
 import type {DevOptions, Manifest} from '../../../../types'
 import {
+  CONTENT_SCRIPT_OWNER_KEY_ATTRIBUTE,
+  CONTENT_SCRIPT_OWNER_KEY_GLOBAL,
+  type ContentScriptWrapperExtension,
+  type ContentScriptWrapperPoint
+} from '../../../shared/content-script-wrapper-extensions'
+import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
   getCanonicalContentScriptEntryName,
   getContentScriptCssProbeMarker,
@@ -63,6 +69,7 @@ interface ContentScriptLoaderContext {
     mainWorldCopies?: string[]
     mainWorldBundle?: boolean
     scriptsFolder?: string | false
+    extensions?: ContentScriptWrapperExtension[]
   }
   resourcePath: string
   resourceQuery?: string
@@ -82,7 +89,8 @@ const schema = {
     mainWorldScripts: {type: 'array', items: {type: 'string'}},
     mainWorldCopies: {type: 'array', items: {type: 'string'}},
     mainWorldBundle: {type: 'boolean'},
-    scriptsFolder: {anyOf: [{type: 'string'}, {const: false}]}
+    scriptsFolder: {anyOf: [{type: 'string'}, {const: false}]},
+    extensions: {type: 'array', items: {type: 'object'}}
   }
 } as Parameters<typeof validate>[0]
 
@@ -97,16 +105,6 @@ function escapeCodeString(str: string): string {
 
     return map[ch] || ch
   })
-}
-
-function createBuildToken(source: string): string {
-  let hash = 0
-
-  for (let index = 0; index < source.length; index++) {
-    hash = (hash * 31 + source.charCodeAt(index)) >>> 0
-  }
-
-  return hash.toString(16)
 }
 
 function detectNodeJsShapedScript(source: unknown): string[] {
@@ -298,10 +296,6 @@ export default function contentScriptWrapper(
       ? options.devSession
       : String(options?.mode || '').toLowerCase() !== 'production'
   const isShippedBundle = !devSession
-  // The reinject scaffolding (a global registry, its DOM markers and the root
-  // sweeps) only exists so a bundle can replace itself in a live page. A
-  // production bundle is injected once, so none of that text ships.
-  const devOnly = (code: string): string => (isShippedBundle ? '' : code)
   const rewrittenSource = String(source)
 
   const declaredContentJsAbsEntries: Array<{
@@ -425,7 +419,15 @@ export default function contentScriptWrapper(
     declaredEntry?.world === 'MAIN' ||
     isRuntimeMainWorld ||
     options.mainWorldBundle === true
-  const hostInstrumentationEnabled = !isShippedBundle && !isMainWorld
+  // Another plugin adds its own text at named points of the wrapper, and a
+  // build with none registered emits the wrapper alone.
+  const extensions = options.extensions || []
+  const at = (point: ContentScriptWrapperPoint): string =>
+    extensions
+      .map((extension) =>
+        extension.textAt(point, {source: rewrittenSource, isMainWorld})
+      )
+      .join('')
   // A runtime file shares one bridge with every file of its registration,
   // so it clears the base once they have all run instead of at once.
   const sharesBridgeBase =
@@ -465,10 +467,9 @@ export default function contentScriptWrapper(
     : isMainWorldCopy
       ? scriptKey.replace(/(\.[^./]+)?$/, `${MAIN_WORLD_COPY_SUFFIX}$1`)
       : scriptKey
-  const reinjectKey = declaredEntry
+  const ownerKey = declaredEntry
     ? `${bundleKey}::script-${declaredEntry.scriptIndex}`
     : bundleKey
-  const buildToken = createBuildToken(rewrittenSource)
   // Whether a sibling stylesheet gets emitted is only known after assets
   // exist; the plugin resolves this marker to the real path, or to nothing.
   const cssProbeMarker = getContentScriptCssProbeMarker(bundleKey)
@@ -567,17 +568,9 @@ export default function contentScriptWrapper(
     '        for (var i = 0; i < hosts.length; i++) {\n' +
     '          var host = hosts[i];\n' +
     '          if (!host || !host.shadowRoot || typeof host.getAttribute !== "function") continue;\n' +
-    // Owner tokens are extension-id qualified: never restyle a root owned by a
-    // DIFFERENT extension (the devtools companion shares our bundle key). Only
-    // the reinject marker ever stamps an owner, so a production bundle reads
-    // nothing here and asks the two questions that still have answers.
-    devOnly(
-      '          var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
-        '          if (hostOwner && hostOwner !== __extjsToken) continue;\n' +
-        '          if (!hostOwner && __EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
-        '          if (!hostOwner && __EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n' +
-        '          if (!hostOwner && String(host.getAttribute("data-extjs-reinject-key") || "") && String(host.getAttribute("data-extjs-reinject-key") || "") !== String(__EXTENSIONJS_BUNDLE_KEY || "")) continue;\n'
-    ) +
+    // A development session may add its own owner checks here. A shipped
+    // bundle stamps no owner, so it asks the two questions that have answers.
+    at('style-host-filter') +
     (isShippedBundle
       ? '          if (__EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
         '          if (__EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n'
@@ -601,7 +594,7 @@ export default function contentScriptWrapper(
     '            if (!injected) {\n' +
     '              injected = document.createElement("style");\n' +
     '              injected.setAttribute("data-extjs-bundle-css", "true");\n' +
-    '              injected.setAttribute("data-extjs-reinject-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
+    `              injected.setAttribute("${CONTENT_SCRIPT_OWNER_KEY_ATTRIBUTE}", String(${CONTENT_SCRIPT_OWNER_KEY_GLOBAL} || ""));\n` +
     '              sr.insertBefore(injected, sr.firstChild || null);\n' +
     '            }\n' +
     '            injected.setAttribute("data-extjs-style-owner", __extjsToken);\n' +
@@ -643,295 +636,9 @@ export default function contentScriptWrapper(
     String(packageJsonDir || '')
   )
 
-  // Dev-only DOM instrumentation: it patches the Node.prototype removal
-  // APIs, installs a whole-document MutationObserver and writes
-  // data-extjs-debug-* attributes. A production bundle and a MAIN world
-  // bundle never carry it, since both would land on the page's own world.
-  const hostInstrumentationInline = hostInstrumentationEnabled
-    ? 'function __EXTENSIONJS_debugObserveOwnedRootRemoval(){\n' +
-      '  try {\n' +
-      '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
-      '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__) return;\n' +
-      '    if (typeof MutationObserver !== "function" || typeof document === "undefined") return;\n' +
-      '    var target = document.documentElement || document.body || document;\n' +
-      '    if (!target) return;\n' +
-      '    var observer = new MutationObserver(function(records){\n' +
-      '      try {\n' +
-      '        var ownedKey = __EXTENSIONJS_ownerToken();\n' +
-      '        var findOwnedRoot = function(node){\n' +
-      '          try {\n' +
-      '            if (!node || node.nodeType !== 1) return null;\n' +
-      '            if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === ownedKey) return node;\n' +
-      '            if (typeof node.querySelector === "function") {\n' +
-      '              return node.querySelector("[data-extjs-reinject-owner=\\"" + ownedKey.replace(/"/g, "\\\\\\"") + "\\"]");\n' +
-      '            }\n' +
-      '          } catch (error) {}\n' +
-      '          return null;\n' +
-      '        };\n' +
-      '        for (var r = 0; r < records.length; r++) {\n' +
-      '          var removedNodes = Array.from(records[r].removedNodes || []);\n' +
-      '          for (var n = 0; n < removedNodes.length; n++) {\n' +
-      '            var node = removedNodes[n];\n' +
-      '            var ownedRoot = findOwnedRoot(node);\n' +
-      '            if (!ownedRoot || typeof ownedRoot.getAttribute !== "function") continue;\n' +
-      '            var owner = String(ownedRoot.getAttribute("data-extjs-reinject-owner") || "");\n' +
-      '            if (!owner || owner !== ownedKey) continue;\n' +
-      '            var pageRoot = document.documentElement;\n' +
-      '            if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal")) pageRoot.setAttribute("data-extjs-debug-last-removal", "mutation-observer");\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-key")) pageRoot.setAttribute("data-extjs-debug-last-removal-key", owner);\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-source")) pageRoot.setAttribute("data-extjs-debug-last-removal-source", "mutation-observer");\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-tag")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(node.tagName || "").toLowerCase());\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-id")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-id", String(node.id || ""));\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-class")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-class", String(node.className || ""));\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removed-node-direct")) pageRoot.setAttribute("data-extjs-debug-last-removed-node-direct", String(node === ownedRoot));\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-ready-state")) pageRoot.setAttribute("data-extjs-debug-last-removal-ready-state", String(document.readyState || ""));\n' +
-      '              if (!pageRoot.getAttribute("data-extjs-debug-last-removal-url")) pageRoot.setAttribute("data-extjs-debug-last-removal-url", String(location.href || ""));\n' +
-      '              pageRoot.setAttribute("data-extjs-debug-stage", "root-removed-observed");\n' +
-      '            }\n' +
-      '            return;\n' +
-      '          }\n' +
-      '        }\n' +
-      '      } catch (error) {}\n' +
-      '    });\n' +
-      '    observer.observe(target, { childList: true, subtree: true });\n' +
-      '    globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__ = observer;\n' +
-      '  } catch (error) {}\n' +
-      '}\n' +
-      'function __EXTENSIONJS_patchDomRemovalApis(){\n' +
-      '  try {\n' +
-      '    if (!__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) return;\n' +
-      '    if (typeof globalThis !== "object" || !globalThis || globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__) return;\n' +
-      '    var record = function(source, node, parent){\n' +
-      '      try {\n' +
-      '        var pageRoot = document.documentElement;\n' +
-      '        if (!pageRoot || typeof pageRoot.setAttribute !== "function") return;\n' +
-      '        var ownedRoot = null;\n' +
-      '        if (node && node.nodeType === 1) {\n' +
-      '          if (typeof node.getAttribute === "function" && String(node.getAttribute("data-extjs-reinject-owner") || "") === __EXTENSIONJS_ownerToken()) ownedRoot = node;\n' +
-      '          else if (typeof node.querySelector === "function") ownedRoot = node.querySelector("[data-extjs-reinject-owner=\\"" + __EXTENSIONJS_ownerToken().replace(/"/g, "\\\\\\"") + "\\"]");\n' +
-      '        }\n' +
-      '        if (!ownedRoot) return;\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-stage", "dom-api-removal");\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removal", source);\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removal-source", source);\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(node && node.tagName || "").toLowerCase());\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-id", String(node && node.id || ""));\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-class", String(node && node.className || ""));\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removed-node-direct", String(node === ownedRoot));\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removal-ready-state", String(document.readyState || ""));\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removal-url", String(location.href || ""));\n' +
-      '        pageRoot.setAttribute("data-extjs-debug-last-removal-parent-tag", String(parent && parent.tagName || "").toLowerCase());\n' +
-      '      } catch (error) {}\n' +
-      '    };\n' +
-      '    try {\n' +
-      '      var originalRemoveChild = Node.prototype.removeChild;\n' +
-      '      if (typeof originalRemoveChild === "function") {\n' +
-      '        Node.prototype.removeChild = function(child){\n' +
-      '          record("Node.removeChild", child, this);\n' +
-      '          return originalRemoveChild.call(this, child);\n' +
-      '        };\n' +
-      '      }\n' +
-      '    } catch (error) {}\n' +
-      '    try {\n' +
-      '      var originalReplaceChildren = Element.prototype.replaceChildren;\n' +
-      '      if (typeof originalReplaceChildren === "function") {\n' +
-      '        Element.prototype.replaceChildren = function(){\n' +
-      '          try {\n' +
-      '            var existing = Array.from(this.childNodes || []);\n' +
-      '            for (var i = 0; i < existing.length; i++) record("Element.replaceChildren", existing[i], this);\n' +
-      '          } catch (error) {}\n' +
-      '          return originalReplaceChildren.apply(this, arguments);\n' +
-      '        };\n' +
-      '      }\n' +
-      '    } catch (error) {}\n' +
-      '    globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__ = true;\n' +
-      '  } catch (error) {}\n' +
-      '}\n' +
-      'if (__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) {\n' +
-      '  try { __EXTENSIONJS_debugObserveOwnedRootRemoval(); } catch (error) {}\n' +
-      '  try { __EXTENSIONJS_patchDomRemovalApis(); } catch (error) {}\n' +
-      '}\n'
-    : ''
-
-  // Reinject markers and the root sweeps they drive: a development bundle
-  // can be injected many times into one live page, so it has to find and
-  // retire whatever its previous generation left behind.
-  const reinjectMarkerInline =
-    'function __EXTENSIONJS_setReinjectMarker(key, generation, status){\n' +
-    '  try {\n' +
-    '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED || typeof document === "undefined") return;\n' +
-    '    var root = document.body || document.documentElement;\n' +
-    '    if (!root) return;\n' +
-    '    var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
-    '    var marker = null;\n' +
-    '    try {\n' +
-    '      var markers = Array.from(document.querySelectorAll("[data-extjs-reinject-marker=\\"true\\"]"));\n' +
-    '      for (var i = 0; i < markers.length; i++) {\n' +
-    '        var current = markers[i];\n' +
-    '        if (!current || typeof current.getAttribute !== "function") continue;\n' +
-    // Match by qualified owner (key + extension id): distinct extensions share
-    // bundle keys, and sharing a marker element corrupts generation tracking.
-    '        var currentOwner = String(current.getAttribute("data-extjs-marker-owner") || "");\n' +
-    '        if (currentOwner === __extjsToken) { marker = current; break; }\n' +
-    '        if (!currentOwner && current.getAttribute("data-extjs-reinject-key") === key) { marker = current; break; }\n' +
-    '      }\n' +
-    '    } catch (error) {}\n' +
-    '    if (!marker && typeof document.createElement === "function") {\n' +
-    '      marker = document.createElement("div");\n' +
-    '      marker.setAttribute("data-extjs-reinject-marker", "true");\n' +
-    '      marker.setAttribute("hidden", "");\n' +
-    '      marker.setAttribute("aria-hidden", "true");\n' +
-    '      try { marker.style.display = "none"; } catch (error) {}\n' +
-    '      root.appendChild(marker);\n' +
-    '    }\n' +
-    '    if (!marker) return;\n' +
-    '    marker.setAttribute("data-extjs-reinject-key", String(__EXTENSIONJS_BUNDLE_KEY || key || ""));\n' +
-    '    marker.setAttribute("data-extjs-marker-owner", __extjsToken);\n' +
-    '    marker.setAttribute("data-extjs-reinject-generation", String(generation));\n' +
-    '    marker.setAttribute("data-extjs-reinject-status", String(status || "mounted"));\n' +
-    '    marker.setAttribute("data-extjs-reinject-build", String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || ""));\n' +
-    '    try { marker.textContent = String(__EXTENSIONJS_BUNDLE_KEY || key || "") + ":" + String(generation) + ":" + String(status || "mounted"); } catch (error) {}\n' +
-    '    try {\n' +
-    '      var roots = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
-    '      var ownedRootCount = 0;\n' +
-    '      for (var j = 0; j < roots.length; j++) {\n' +
-    '        var host = roots[j];\n' +
-    '        if (!host || typeof host.setAttribute !== "function") continue;\n' +
-    '        var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
-    '        if (hostOwner && hostOwner !== __extjsToken) continue;\n' +
-    // Companion extensions (devtools/theme) never adopt anonymous roots, an
-    // unowned root in the shared DOM belongs to the USER extension mid-mount.
-    '        if (!hostOwner && __EXTENSIONJS_NO_FOREIGN_ADOPT) continue;\n' +
-    // Adopt only roots OUR mount created: anything unowned that predates the
-    // mount belongs to a sibling script or another extension.
-    '        if (!hostOwner && __EXTENSIONJS_PRE_MOUNT_ROOTS.indexOf(host) !== -1) continue;\n' +
-    '        ownedRootCount++;\n' +
-    '        host.setAttribute("data-extjs-reinject-owner", __extjsToken);\n' +
-    '        host.setAttribute("data-extjs-reinject-key", String(__EXTENSIONJS_BUNDLE_KEY || key || ""));\n' +
-    '        host.setAttribute("data-extjs-reinject-generation", String(generation));\n' +
-    '        host.setAttribute("data-extjs-reinject-status", String(status || "mounted"));\n' +
-    '        host.setAttribute("data-extjs-reinject-build", String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || ""));\n' +
-    '        try {\n' +
-    '          if (!host.__extjsDebugRemovePatched) {\n' +
-    '            host.__extjsDebugRemovePatched = true;\n' +
-    '            var __extjsOriginalRemove = typeof host.remove === "function" ? host.remove.bind(host) : null;\n' +
-    '            if (__extjsOriginalRemove) {\n' +
-    '              host.remove = function(){\n' +
-    '                try {\n' +
-    '                  var pageRoot = document.documentElement;\n' +
-    '                  if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
-    '                    pageRoot.setAttribute("data-extjs-debug-stage", "root-remove-called");\n' +
-    '                    pageRoot.setAttribute("data-extjs-debug-last-removal", "remove()");\n' +
-    '                    pageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
-    '                    pageRoot.setAttribute("data-extjs-debug-last-removal-source", "patched-host-remove");\n' +
-    '                  }\n' +
-    '                } catch (error) {}\n' +
-    '                return __extjsOriginalRemove();\n' +
-    '              };\n' +
-    '            }\n' +
-    '          }\n' +
-    '        } catch (error) {}\n' +
-    '      }\n' +
-    '      try {\n' +
-    '        marker.setAttribute("data-extjs-debug-stage", String(status || ""));\n' +
-    '        marker.setAttribute("data-extjs-debug-root-count", String(roots.length));\n' +
-    '        marker.setAttribute("data-extjs-debug-owned-root-count", String(ownedRootCount));\n' +
-    '        marker.setAttribute("data-extjs-debug-marker-count", String(markers.length));\n' +
-    '      } catch (error) {}\n' +
-    '    } catch (error) {}\n' +
-    '    try {\n' +
-    '      var pageRoot = document.documentElement;\n' +
-    '      if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
-    '        pageRoot.setAttribute("data-extjs-last-reinject-key", String(__EXTENSIONJS_BUNDLE_KEY || key || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-last-reinject-generation", String(generation));\n' +
-    '        pageRoot.setAttribute("data-extjs-last-reinject-status", String(status || "mounted"));\n' +
-    '        pageRoot.setAttribute("data-extjs-last-reinject-build", String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-stage", marker.getAttribute("data-extjs-debug-stage") || String(status || ""));\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-root-count", marker.getAttribute("data-extjs-debug-root-count") || "0");\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-owned-root-count", marker.getAttribute("data-extjs-debug-owned-root-count") || "0");\n' +
-    '        pageRoot.setAttribute("data-extjs-debug-marker-count", marker.getAttribute("data-extjs-debug-marker-count") || "0");\n' +
-    '      }\n' +
-    '    } catch (error) {}\n' +
-    '  } catch (error) {}\n' +
-    '}\n' +
-    'function __EXTENSIONJS_cleanupKnownRoots(staleEvenIfSameBuild){\n' +
-    '  try {\n' +
-    '    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;\n' +
-    '    var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
-    '    var roots = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
-    '    for (var i = 0; i < roots.length; i++) {\n' +
-    '      var host = roots[i];\n' +
-    '      if (!host || typeof host.getAttribute !== "function") continue;\n' +
-    '      var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
-    '      if (!hostOwner || hostOwner !== __extjsToken) continue;\n' +
-    '      // Build-aware: only remove hosts owned by us whose build token does NOT\n' +
-    '      // match the current bundle. Fresh roots from the current mount carry\n' +
-    '      // the active build token and must be preserved; orphans from a prior\n' +
-    '      // build (e.g. the old isolated world after `chrome.runtime.reload`)\n' +
-    '      // carry stale tokens and should be cleared so we never end up with two\n' +
-    '      // hosts owned by the same key.\n' +
-    '      // EXCEPT when this bundle starts in a FRESH world (no registry entry,\n' +
-    '      // because the old isolated world was destroyed by `chrome.runtime.reload`):\n' +
-    '      // a same-build root then predates this execution and is a stale zombie\n' +
-    '      // (its scripts died with the world). Unedited sibling scripts in a\n' +
-    '      // multi-script entry keep their build token across recompiles, so the\n' +
-    '      // token equality alone must not protect them here.\n' +
-    '      var hostBuild = String(host.getAttribute("data-extjs-reinject-build") || "");\n' +
-    '      var currentBuild = String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || "");\n' +
-    '      if (!staleEvenIfSameBuild && hostBuild && currentBuild && hostBuild === currentBuild) continue;\n' +
-    '      try {\n' +
-    '        var pageRoot = document.documentElement;\n' +
-    '        if (pageRoot && typeof pageRoot.setAttribute === "function") {\n' +
-    '          pageRoot.setAttribute("data-extjs-debug-stage", "cleanup-known-roots");\n' +
-    '          pageRoot.setAttribute("data-extjs-debug-last-removal", "cleanup-known-roots");\n' +
-    '          pageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
-    '          pageRoot.setAttribute("data-extjs-debug-last-removal-source", "cleanup-known-roots");\n' +
-    '          pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(host.tagName || "").toLowerCase());\n' +
-    '        }\n' +
-    '      } catch (error) {}\n' +
-    '      try { host.remove(); } catch (error) {}\n' +
-    '    }\n' +
-    '  } catch (error) {}\n' +
-    '}\n' +
-    'function __EXTENSIONJS_cleanupOrphanRoots(){\n' +
-    '  try {\n' +
-    '    // At bundle execution start, before this run has mounted anything, any\n' +
-    '    // `data-extension-root` host without `data-extjs-reinject-owner` is an\n' +
-    '    // orphan from a prior session that died before `setReinjectMarker`\n' +
-    '    // could tag it (typically: the previous isolated world was destroyed\n' +
-    '    // by a `chrome.runtime.reload` mid-mount, or its `whenReady`-deferred\n' +
-    '    // `apply` never fired). We have not created our own root yet, so any\n' +
-    '    // untagged host we touch here is by definition not from THIS run, but\n' +
-    '    // it may belong to a DIFFERENT extension mid-mount in the same DOM.\n' +
-    '    // Companion extensions never sweep, and everyone else sweeps only when\n' +
-    '    // a reinject marker proves a prior generation of THIS script ran here.\n' +
-    '    if (typeof document === "undefined" || typeof document.querySelectorAll !== "function") return;\n' +
-    '    if (__EXTENSIONJS_NO_FOREIGN_ADOPT) return;\n' +
-    '    var __extjsToken = __EXTENSIONJS_ownerToken();\n' +
-    '    var sawPriorGeneration = false;\n' +
-    '    try {\n' +
-    '      var markers = Array.from(document.querySelectorAll("[data-extjs-reinject-marker=\\"true\\"]"));\n' +
-    '      for (var m = 0; m < markers.length; m++) {\n' +
-    '        if (markers[m] && typeof markers[m].getAttribute === "function" && String(markers[m].getAttribute("data-extjs-marker-owner") || "") === __extjsToken) { sawPriorGeneration = true; break; }\n' +
-    '      }\n' +
-    '    } catch (error) {}\n' +
-    '    if (!sawPriorGeneration) return;\n' +
-    '    var roots = Array.from(document.querySelectorAll("[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
-    '    for (var i = 0; i < roots.length; i++) {\n' +
-    '      var host = roots[i];\n' +
-    '      if (!host || typeof host.getAttribute !== "function") continue;\n' +
-    '      var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
-    '      if (hostOwner) continue;\n' +
-    '      try { host.remove(); } catch (error) {}\n' +
-    '    }\n' +
-    '  } catch (error) {}\n' +
-    '}\n'
-
   const bootstrap =
     `var __EXTENSIONJS_BUNDLE_KEY=${JSON.stringify(bundleKey)};\n` +
-    `var __EXTENSIONJS_REINJECT_KEY=${JSON.stringify(reinjectKey)};\n` +
+    `var ${CONTENT_SCRIPT_OWNER_KEY_GLOBAL}=${JSON.stringify(ownerKey)};\n` +
     // Later readers, a lazy chunk included, find the base on the require
     // function, which no page script can reach. The bundle's own stack names
     // it first, and the bridge attribute is only the fallback.
@@ -950,31 +657,22 @@ export default function contentScriptWrapper(
         '  if (__EXTENSIONJS_BRIDGE_BASE && typeof __webpack_require__ === "function") __webpack_require__.extjsBase = __EXTENSIONJS_BRIDGE_BASE;\n' +
         '} catch (error) {}\n'
       : '') +
-    devOnly(
-      `var __EXTENSIONJS_REINJECT_BUILD_TOKEN=${JSON.stringify(buildToken)};\n`
-    ) +
+    at('after-bridge-base') +
     `var __EXTENSIONJS_NO_FOREIGN_ADOPT=${JSON.stringify(isBuiltInCompanion)};\n` +
-    // Distinct extensions run this wrapper with IDENTICAL reinject keys, so bare
-    // keys cannot express ownership; qualify with the runtime extension id.
+    // Distinct extensions run this wrapper with identical owner keys, so the
+    // runtime extension id qualifies the key.
     'function __EXTENSIONJS_ownerToken(){\n' +
     '  var extId = "";\n' +
     '  try {\n' +
     '    var rt = (typeof globalThis === "object" && globalThis && ((globalThis.browser && globalThis.browser.runtime) || (globalThis.chrome && globalThis.chrome.runtime))) || null;\n' +
     '    if (rt && rt.id) extId = String(rt.id);\n' +
     '  } catch (error) {}\n' +
-    '  return String(__EXTENSIONJS_REINJECT_KEY || "") + (extId ? "@" + extId : "");\n' +
+    `  return String(${CONTENT_SCRIPT_OWNER_KEY_GLOBAL} || "") + (extId ? "@" + extId : "");\n` +
     '}\n' +
-    devOnly(
-      `var __EXTENSIONJS_DEV_MARKERS_ENABLED=${JSON.stringify(!isShippedBundle)};\n` +
-        // A MAIN world script shares the page's own globals and DOM prototypes,
-        // so the observer and the removal API patches would land on the host
-        // page itself, those stay in the isolated world.
-        `var __EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED=${JSON.stringify(hostInstrumentationEnabled)};\n`
-    ) +
-    // Roots that predate OUR mount must never be adopted: stamping unowned roots
-    // corrupts ownership and roots accumulate across reinjects. Only the markers
-    // and the hydration ever adopt a root, so a bundle with neither keeps the
-    // stub and never walks the document to fill a list nobody reads.
+    at('after-owner-token') +
+    // Roots that predate our mount must never be adopted. Only a development
+    // session and the hydration ever adopt a root, so a bundle with neither
+    // keeps the stub and never walks the document to fill a list nobody reads.
     (!isShippedBundle || bundleCssHydrationEnabled
       ? 'var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];\n' +
         'function __EXTENSIONJS_snapshotPreMountRoots(){\n' +
@@ -986,24 +684,9 @@ export default function contentScriptWrapper(
         '__EXTENSIONJS_snapshotPreMountRoots();\n'
       : 'function __EXTENSIONJS_snapshotPreMountRoots(){}\n') +
     `${cssAssetUrlsInline}` +
-    devOnly(
-      'var __EXTENSIONJS_REINJECT_REGISTRY=(typeof globalThis==="object" && globalThis ? (globalThis.__EXTENSIONJS_DEV_REINJECT__ || (globalThis.__EXTENSIONJS_DEV_REINJECT__={})) : {});\n'
-    ) +
+    at('after-style-urls') +
     'var __EXTENSIONJS_REGISTERED_CLEANUPS=[];\n' +
-    devOnly(
-      'function __EXTENSIONJS_readReinjectGeneration(entry){\n' +
-        '  try {\n' +
-        '    if (!entry) return 0;\n' +
-        '    if (typeof entry === "function" && typeof entry.__extjsGeneration === "number") return entry.__extjsGeneration;\n' +
-        '    if (typeof entry === "object") {\n' +
-        '      if (typeof entry.__extjsGeneration === "number") return entry.__extjsGeneration;\n' +
-        '      if (typeof entry.generation === "number") return entry.generation;\n' +
-        '      if (typeof entry.cleanup === "function" && typeof entry.cleanup.__extjsGeneration === "number") return entry.cleanup.__extjsGeneration;\n' +
-        '    }\n' +
-        '  } catch (error) {}\n' +
-        '  return 0;\n' +
-        '}\n'
-    ) +
+    at('after-cleanup-list') +
     'function __EXTENSIONJS_runCleanups(list){\n' +
     '  try {\n' +
     '    if (!Array.isArray(list)) return;\n' +
@@ -1016,35 +699,15 @@ export default function contentScriptWrapper(
     '  if (typeof fn === "function") __EXTENSIONJS_REGISTERED_CLEANUPS.push(fn);\n' +
     '  return fn;\n' +
     '}\n' +
-    devOnly(reinjectMarkerInline) +
+    at('after-register-cleanup') +
     'function __EXTENSIONJS_composeCleanup(primaryCleanup){\n' +
     '  return function(){\n' +
     '    try { if (typeof primaryCleanup === "function") primaryCleanup(); } catch (error) {}\n' +
     '    try { __EXTENSIONJS_runCleanups(__EXTENSIONJS_REGISTERED_CLEANUPS); } catch (error) {}\n' +
-    devOnly(
-      '    try { __EXTENSIONJS_cleanupKnownRoots(); } catch (error) {}\n' +
-        '    try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "cleaned"); } catch (error) {}\n'
-    ) +
+    at('in-composed-cleanup') +
     '  };\n' +
     '}\n' +
-    devOnly(
-      'function __EXTENSIONJS_recordExecutionSnapshot(stage){\n' +
-        '  try {\n' +
-        '    if (!__EXTENSIONJS_DEV_MARKERS_ENABLED) return;\n' +
-        '    if (typeof document === "undefined") return;\n' +
-        '    var pageRoot = document.documentElement;\n' +
-        '    if (!pageRoot || typeof pageRoot.getAttribute !== "function" || typeof pageRoot.setAttribute !== "function") return;\n' +
-        '    var currentCount = Number(pageRoot.getAttribute("data-extjs-debug-execution-count") || "0");\n' +
-        '    var nextCount = Number.isFinite(currentCount) ? currentCount + 1 : 1;\n' +
-        '    var roots = [];\n' +
-        '    try { roots = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])")); } catch (error) {}\n' +
-        '    pageRoot.setAttribute("data-extjs-debug-execution-count", String(nextCount));\n' +
-        '    pageRoot.setAttribute("data-extjs-debug-last-execution-stage", String(stage || ""));\n' +
-        '    pageRoot.setAttribute("data-extjs-debug-last-execution-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
-        '    pageRoot.setAttribute("data-extjs-debug-existing-root-count-before-cleanup", String(roots.length));\n' +
-        '  } catch (error) {}\n' +
-        '}\n'
-    ) +
+    at('after-composed-cleanup') +
     // A shipped MAIN world bundle runs on the host page's own window, where
     // the global would tell any page script an extension is installed.
     (isShippedBundle && isMainWorld
@@ -1054,49 +717,7 @@ export default function contentScriptWrapper(
         '    globalThis.__EXTENSIONJS_registerCleanup = __EXTENSIONJS_registerCleanup;\n' +
         '  }\n' +
         '} catch (error) {}\n') +
-    hostInstrumentationInline +
-    devOnly(
-      'if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
-        '  try { __EXTENSIONJS_recordExecutionSnapshot("bootstrap"); } catch (error) {}\n' +
-        '}\n' +
-        'var __EXTENSIONJS_previousEntry=__EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY];\n' +
-        'var __EXTENSIONJS_REINJECT_GENERATION=__EXTENSIONJS_readReinjectGeneration(__EXTENSIONJS_previousEntry);\n' +
-        '// Sweep untagged orphans (prior-session roots that died before tagging)\n' +
-        '// before any further cleanup runs. Safe here because our mount has not\n' +
-        '// produced any roots yet, any untagged host is by definition not ours.\n' +
-        'try { __EXTENSIONJS_cleanupOrphanRoots(); } catch (error) {}\n' +
-        'try {\n' +
-        '  var __EXTENSIONJS_previousCleanup=typeof __EXTENSIONJS_previousEntry === "function" ? __EXTENSIONJS_previousEntry : (__EXTENSIONJS_previousEntry && typeof __EXTENSIONJS_previousEntry.cleanup === "function" ? __EXTENSIONJS_previousEntry.cleanup : null);\n' +
-        '  if (typeof __EXTENSIONJS_previousCleanup === "function") {\n' +
-        '    if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
-        '      try {\n' +
-        '        var __extjsPageRoot = document.documentElement;\n' +
-        '        if (__extjsPageRoot && typeof __extjsPageRoot.setAttribute === "function") {\n' +
-        '          __extjsPageRoot.setAttribute("data-extjs-debug-stage", "previous-cleanup");\n' +
-        '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal", "previous-cleanup");\n' +
-        '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
-        '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-source", "previous-cleanup");\n' +
-        '        }\n' +
-        '      } catch (error) {}\n' +
-        '    }\n' +
-        '    __EXTENSIONJS_previousCleanup();\n' +
-        '  }\n' +
-        '} catch (error) {}\n' +
-        // No registry entry = fresh isolated world: any root we own predates this
-        // execution and must go, even when its build token still matches.
-        'try { __EXTENSIONJS_cleanupKnownRoots(!__EXTENSIONJS_previousEntry); } catch (error) {}\n' +
-        // A top-level await ends this run before the script mounts, so the
-        // next injection has to find this copy and retire it while it waits.
-        'var __EXTENSIONJS_retired=false;\n' +
-        'function __EXTENSIONJS_retire(){\n' +
-        '  __EXTENSIONJS_retired = true;\n' +
-        '  try { __EXTENSIONJS_composeCleanup(null)(); } catch (error) {}\n' +
-        '}\n' +
-        'try {\n' +
-        '  __EXTENSIONJS_retire.__extjsGeneration = __EXTENSIONJS_REINJECT_GENERATION;\n' +
-        '  __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_retire;\n' +
-        '} catch (error) {}\n'
-    ) +
+    at('before-asset-base') +
     // The public path only matters to a bundle that resolves something its
     // module graph brought in: an emitted asset, a split chunk or, in
     // development, the update chunks the refresh runtime fetches.
@@ -1172,10 +793,7 @@ export default function contentScriptWrapper(
     '  var cleanup = function(){};\n' +
     '  var cancelReady = function(){};\n' +
     '  if (typeof mount !== "function") {\n' +
-    devOnly(
-      '    try { __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {}\n' +
-        '    try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {}\n'
-    ) +
+    at('mount-without-function') +
     '    try { __EXTENSIONJS_scheduleBundleCssHydration(); } catch (error) {}\n' +
     '    return __EXTENSIONJS_composeCleanup(null);\n' +
     '  }\n' +
@@ -1184,18 +802,11 @@ export default function contentScriptWrapper(
     '      __EXTENSIONJS_snapshotPreMountRoots();\n' +
     '      var nextCleanup = mount();\n' +
     '      cleanup = __EXTENSIONJS_composeCleanup(nextCleanup);\n' +
-    devOnly(
-      '      __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1;\n' +
-        // The registry stores unmount, so the generation has to ride on it.
-        '      try { unmount.__extjsGeneration = __EXTENSIONJS_REINJECT_GENERATION; unmount.__extjsKey = __EXTENSIONJS_REINJECT_KEY; } catch (error) {}\n' +
-        '      try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, __EXTENSIONJS_REINJECT_GENERATION, "mounted"); } catch (error) {}\n'
-    ) +
+    at('after-mount') +
     '      try { __EXTENSIONJS_scheduleBundleCssHydration(); } catch (error) {}\n' +
     '    } catch (error) {\n' +
     '      try { console.warn("Extension.js: the content script default export failed to run.", error); } catch (ignored) {}\n' +
-    devOnly(
-      '      try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "mount-error"); } catch (ignored) {}\n'
-    ) +
+    at('mount-failed') +
     '    }\n' +
     '  }\n' +
     "  function unmount(){ try { cancelReady && cancelReady(); } catch (error) {} try { if (typeof cleanup === 'function') cleanup(); } catch (error) {} }\n" +
@@ -1271,22 +882,11 @@ export default function contentScriptWrapper(
       `${bootstrap}` +
       `${runtimeInline}`
     const suffix =
-      devOnly(
-        `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {
-        // Ignore
-      }\n` +
-          `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {
-        // Ignore
-      }\n`
-      ) +
+      at('end-before-styles') +
       `try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {
         // Ignore
       }\n` +
-      devOnly(
-        `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {
-        // Ignore
-      }\n`
-      )
+      at('end-after-styles')
     // executeScript resolves with the value an injected file ends on. Only
     // a scripts/ file can be injected, and a module it imports is no entry.
     const endsOnItsValue =
@@ -1347,16 +947,12 @@ export default function contentScriptWrapper(
     defaultExport.binding +
     `var __EXTENSIONJS_cleanup = function(){};\n` +
     // A copy the next injection retired while it waited mounts nothing.
-    `try { ${devOnly('if (!__EXTENSIONJS_retired) ')}__EXTENSIONJS_cleanup = __EXTENSIONJS_mount(${MOUNT_NAME}, ${JSON.stringify(
+    `try { ${at('before-mount-call')}__EXTENSIONJS_cleanup = __EXTENSIONJS_mount(${MOUNT_NAME}, ${JSON.stringify(
       runAt
     )}) } catch (error) {
       // Ignore
     }\n` +
-    devOnly(
-      `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {
-      // Ignore
-    }\n`
-    ) +
+    at('after-mount-call') +
     (defaultExport.keepsOwnExport ? '' : `export default ${MOUNT_NAME}\n`)
   const wrappedResult = `${wrapPrefix}${cleaned}\n${wrapSuffix}`
 
