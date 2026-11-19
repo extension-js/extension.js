@@ -457,11 +457,8 @@ export function registerLogsCommand(
         rule
       )
 
-      // An advertised filter that silently matches nothing teaches the wrong
-      // lesson (ledger 181, same class as 179): the user reads the silence as
-      // "my extension has no signals" when the truth is that nothing produces
-      // them. The warning goes to stderr so json/ndjson stdout stays clean,
-      // and it covers both the one-shot and --follow paths.
+      // Silence would read as "my extension has no signals" when nothing emits
+      // them. Warn on stderr so JSON stdout stays clean, one-shot and --follow.
       if (options.signalsOnly) {
         // eslint-disable-next-line no-console
         console.error(

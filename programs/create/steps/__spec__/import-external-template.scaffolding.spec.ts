@@ -63,7 +63,7 @@ describe('removeTemplateScaffoldingFiles (issue #476)', () => {
   })
 })
 
-describe('removeStaleTemplateLockfiles (BUGS_TO_FIX 123)', () => {
+describe('removeStaleTemplateLockfiles', () => {
   it('drops every lockfile flavor a template could commit', async () => {
     const project = makeProject()
 

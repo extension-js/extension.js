@@ -76,7 +76,8 @@ function put(file: string, body: unknown): void {
 }
 
 const REFUSALS: RefusalRow[] = [
-  // Pins today's behavior. Ledger 1375 N16.
+  // Pins current behavior: a not-found message, a generic hint and an empty
+  // stderr for a manifest that sits in public.
   {
     code: 'E_MANIFEST_IN_PUBLIC',
     label: 'build pointed at the public folder that holds the manifest',
@@ -325,7 +326,8 @@ const REFUSALS: RefusalRow[] = [
   {
     code: 'E_PARENT_GONE',
     label: 'dev told to follow a parent pid that is gone',
-    // Pins today's behavior. Ledger 1375 N12.
+    // Pins current behavior: the frame, then a SIGTERM to itself, so the
+    // parent sees a signal and no exit code.
     setup: (dir) => {
       put(path.join(dir, 'manifest.json'), mv3)
 
