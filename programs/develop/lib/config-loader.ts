@@ -84,6 +84,13 @@ function envPreloadOrder(mode: string, browser?: string): string[] {
   return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
 }
 
+// A target that names nothing leaves the order to the run's last read.
+function namedEnvOrder(target?: ConfigEnvTarget): string[] | undefined {
+  return target?.mode || target?.browser
+    ? envPreloadOrder(envModeFor(undefined, target), target.browser)
+    : undefined
+}
+
 // The file order each config was last read with. A loader that is told no
 // mode and no browser reads the config the way the run last did.
 const envOrderByConfigPath = new Map<string, string[]>()
@@ -797,10 +804,7 @@ export async function loadConfigResolvedHook(
   if (!configPath) return undefined
   if (!(await isUsingExperimentalConfig(projectPath))) return undefined
 
-  const userConfig = await loadConfigFile(
-    configPath,
-    envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
-  )
+  const userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
 
   return typeof userConfig?.configResolved === 'function'
     ? userConfig.configResolved
@@ -856,10 +860,7 @@ export async function loadDefineTypes(
   let userConfig: FileConfig | undefined
 
   try {
-    userConfig = await loadConfigFile(
-      configPath,
-      envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
-    )
+    userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
   } catch {
     return {}
   }
@@ -915,12 +916,7 @@ export async function loadProjectConfigDefaults(
         // did, and never as a production build in the middle of a dev session.
         const userConfig = (await loadConfigFile(
           configPath,
-          envTarget?.mode || envTarget?.browser
-            ? envPreloadOrder(
-                envModeFor(undefined, envTarget),
-                envTarget?.browser
-              )
-            : undefined
+          namedEnvOrder(envTarget)
         )) as ProjectConfigDefaults | undefined
 
         return {
@@ -1011,7 +1007,7 @@ export async function loadBrowserConfig(
       try {
         const userConfig = await loadConfigFile(
           configPath,
-          envPreloadOrder(envModeFor(undefined, envTarget), envTarget?.browser)
+          namedEnvOrder(envTarget)
         )
 
         if (userConfig?.browser) {

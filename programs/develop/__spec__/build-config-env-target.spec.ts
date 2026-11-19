@@ -113,9 +113,9 @@ describe('build: the config reads the env files of the running build (real rspac
     expect(built.bundle).not.toContain('from-production')
   }, 120_000)
 
-  // The config has to run to name the browser, so it runs once and before
-  // the browser's own file can be chosen for it. The bundle still reads it.
-  it('runs once when the config itself names the browser', async () => {
+  // The config has to run to name the browser, so it runs for the mode
+  // first and once more with the file of the browser it named.
+  it('runs again for the browser when the config itself names it', async () => {
     const key = 'EXTENSION_PUBLIC_NAMED_STAGE'
     const root = project(key, {
       '.env.firefox': `${key}=from-firefox\n`,
@@ -129,7 +129,7 @@ describe('build: the config reads the env files of the running build (real rspac
 
     const built = await build(root, {mode: 'development'})
 
-    expect(built.configRuns).toEqual(['from-development'])
+    expect(built.configRuns).toEqual(['from-development', 'from-firefox'])
     expect(built.bundle).toContain('from-firefox')
   }, 120_000)
 })
