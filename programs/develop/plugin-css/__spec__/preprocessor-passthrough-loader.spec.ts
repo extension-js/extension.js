@@ -13,6 +13,9 @@ function run(resourcePath: string, source: string, rootContext?: string) {
     {
       resourcePath,
       rootContext,
+      getOptions: () => ({
+        install: (tool: 'sass' | 'less') => `pnpm add -D ${tool}`
+      }),
       emitWarning: (w: Error) => warnings.push(w)
     } as any,
     source
@@ -29,7 +32,9 @@ describe('preprocessor-passthrough-loader', () => {
     expect(warnings.length).toBe(1)
     expect(String(warnings[0])).toMatch(/shipped uncompiled/)
     expect(String(warnings[0])).toMatch(/The sass package isn't installed/)
-    expect(String(warnings[0])).toMatch(/npm install --save-dev sass/)
+    expect(String(warnings[0])).toMatch(
+      /Install it to compile this file: pnpm add -D sass$/
+    )
   })
 
   it('names the file by its path inside the project', () => {
@@ -63,6 +68,8 @@ describe('preprocessor-passthrough-loader', () => {
     expect(warnings.length).toBe(1)
     expect(String(warnings[0])).toMatch(/shipped uncompiled/)
     expect(String(warnings[0])).toMatch(/The less package isn't installed/)
-    expect(String(warnings[0])).toMatch(/npm install --save-dev less/)
+    expect(String(warnings[0])).toMatch(
+      /Install it to compile this file: pnpm add -D less$/
+    )
   })
 })

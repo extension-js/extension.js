@@ -10,7 +10,11 @@ import type {RuleSetRule} from '@rspack/core'
 import {resolveDevelopDistFile} from '../lib/develop-context'
 import type {DevOptions} from '../types'
 import {isUsingLess} from './css-tools/less'
-import {isUsingPostCss, maybeUsePostCss} from './css-tools/postcss'
+import {
+  isUsingPostCss,
+  maybeUsePostCss,
+  type PostCssRuleReader
+} from './css-tools/postcss'
 import {isUsingSass} from './css-tools/sass'
 import {isUsingTailwind} from './css-tools/tailwind'
 
@@ -18,6 +22,21 @@ export interface StyleLoaderOptions {
   mode: DevOptions['mode']
   loader?: string
   loaderOptions?: Record<string, unknown>
+  postCss?: PostCssRuleReader
+  // Hears a setup failure the build survives, to say it once per compiler.
+  warn?: (message: string) => void
+  // Runs on what the preprocessor wrote, ahead of PostCSS.
+  afterPreprocessor?: {loader: string; options?: Record<string, unknown>}
+}
+
+// Whether any rule of this project asks PostCSS what to do with a sheet.
+export function usesStyleTools(projectPath: string): boolean {
+  return (
+    isUsingPostCss(projectPath) ||
+    isUsingTailwind(projectPath) ||
+    isUsingSass(projectPath) ||
+    isUsingLess(projectPath)
+  )
 }
 
 export async function commonStyleLoaders(
@@ -26,13 +45,9 @@ export async function commonStyleLoaders(
 ): Promise<RuleSetRule['use']> {
   const styleLoaders: RuleSetRule['use'] = []
 
-  if (
-    isUsingPostCss(projectPath) ||
-    isUsingTailwind(projectPath) ||
-    isUsingSass(projectPath) ||
-    isUsingLess(projectPath)
-  ) {
-    const maybeInstallPostCss = await maybeUsePostCss(projectPath, opts)
+  if (usesStyleTools(projectPath)) {
+    const readPostCss = opts.postCss ?? maybeUsePostCss
+    const maybeInstallPostCss = await readPostCss(projectPath, opts)
 
     if (maybeInstallPostCss.loader) {
       // Pitches ahead of postcss-loader: a plain .css file that doesn't parse ships
@@ -40,11 +55,14 @@ export async function commonStyleLoaders(
       styleLoaders.push({
         loader: resolveDevelopDistFile('css-parse-guard-loader')
       })
-      ;(styleLoaders as Array<Record<string, unknown>>).push(
-        maybeInstallPostCss as Record<string, unknown>
-      )
+      // A copy per rule: every rule of one compiler shares the one read.
+      ;(styleLoaders as Array<Record<string, unknown>>).push({
+        ...maybeInstallPostCss
+      })
     }
   }
+
+  if (opts.afterPreprocessor) styleLoaders.push(opts.afterPreprocessor)
 
   if (opts.loader) {
     styleLoaders.push({

@@ -125,10 +125,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8723961e3833f3c42c9635a70d992eaa55e515ed # main, 2026-11-17
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@3745385c923930525da5241b0b024b4ffae737be # main, 2026-11-17
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 8723961e3833f3c42c9635a70d992eaa55e515ed
+      ref: 3745385c923930525da5241b0b024b4ffae737be
       safari: true
 
   # The templates suite, every example built and driven in real browsers, run
@@ -138,10 +138,10 @@ jobs:
     if: ${{ needs.corpus-target.outputs.canary != '' }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@6bf4322a021df5d0204bf970ed797e72f3412923 # main, 2026-11-16
+    uses: extension-js/templates/.github/workflows/ci.yml@255e7b57c6be400bde4ed8744257bc64e27e4012 # main, 2026-11-18
     with:
       cli-version: ${{ needs.corpus-target.outputs.canary }}
-      ref: 6bf4322a021df5d0204bf970ed797e72f3412923
+      ref: 255e7b57c6be400bde4ed8744257bc64e27e4012
 
   publish:
     needs: [corpus-target, corpus-gate, templates-gate]
@@ -298,6 +298,16 @@ jobs:
           pnpm --filter extension-install compile
           pnpm --filter extension compile
           node scripts/build-extensions.cjs
+
+      # The tests read workspace packages from source, so only this reads the
+      # declarations the build above just compiled for the four packages.
+      - name: Check the emitted declarations
+        run: node scripts/check-emitted-types.mjs
+
+      # A manifest entry that names a file the tarball lacks breaks every
+      # consumer whose resolver follows it. The dry run packs what npm will.
+      - name: Check every manifest entry is in its tarball
+        run: pnpm check:packed-exports
 
       - name: Run tests (CLI + Develop)
         run: pnpm -w test
@@ -840,10 +850,10 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
-    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@8723961e3833f3c42c9635a70d992eaa55e515ed # main, 2026-11-17
+    uses: extension-js/corpus/.github/workflows/corpus-gate.yml@3745385c923930525da5241b0b024b4ffae737be # main, 2026-11-17
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 8723961e3833f3c42c9635a70d992eaa55e515ed
+      ref: 3745385c923930525da5241b0b024b4ffae737be
       # A stable already read Safari in the gate before the publish, and a
       # packaging fault shows on any browser. A canary has no gate, so it reads it.
       safari: ${{ inputs.channel == 'canary' }}
@@ -855,7 +865,7 @@ jobs:
     if: ${{ !cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings) }}
     permissions:
       contents: read
-    uses: extension-js/templates/.github/workflows/ci.yml@6bf4322a021df5d0204bf970ed797e72f3412923 # main, 2026-11-16
+    uses: extension-js/templates/.github/workflows/ci.yml@255e7b57c6be400bde4ed8744257bc64e27e4012 # main, 2026-11-18
     with:
       cli-version: ${{ needs.publish.outputs.version }}
-      ref: 6bf4322a021df5d0204bf970ed797e72f3412923
+      ref: 255e7b57c6be400bde4ed8744257bc64e27e4012

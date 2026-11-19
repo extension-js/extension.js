@@ -229,6 +229,8 @@ async function scaffoldProject({
     .toLowerCase()
     .includes('monorepo')
 
+  let packageManagerSpec: string | undefined
+
   if (isDenoRuntime() && !isMonorepoTemplate) {
     await writeDenoJsonc(
       projectPath,
@@ -236,7 +238,7 @@ async function scaffoldProject({
       logger
     )
   } else {
-    await overridePackageJson(
+    const written = await overridePackageJson(
       projectPath,
       {
         template: scaffoldedTemplate,
@@ -246,6 +248,8 @@ async function scaffoldProject({
       },
       logger
     )
+
+    packageManagerSpec = written.packageManagerSpec
 
     await writeDenoJsonc(projectPath, {template: scaffoldedTemplate}, logger)
   }
@@ -331,6 +335,7 @@ async function scaffoldProject({
     depsInstalled: install,
     ...(installSeconds === undefined ? {} : {installSeconds}),
     packageManager,
+    ...(packageManagerSpec === undefined ? {} : {packageManagerSpec}),
     templateProvenance
   }
 }

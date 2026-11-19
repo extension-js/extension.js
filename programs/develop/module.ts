@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {BuildSummary, SafariPackageSummary} from './lib/build-summary'
+import type {ErrorCode} from './lib/messaging'
 import {ensureRustMinStack} from './lib/rust-min-stack'
 import type {
   BrowserController,
@@ -18,29 +19,32 @@ import type {
 } from './plugin-browsers'
 import type {ReloadInstruction, ReloadType} from './plugin-reload'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
+// The option types a caller names are the public ones. The fields only the
+// CLI and the engine set stay on the types the command files read.
 import type {
   BrowserConfig,
   BrowserType,
-  BuildOptions,
-  DevOptions,
+  PublicBuildOptions as BuildOptions,
+  PublicDevOptions as DevOptions,
   FileConfig,
   Manifest,
-  PreviewOptions,
+  PublicPreviewOptions as PreviewOptions,
   SafariPackagerFn,
   SafariPackagerOverrides,
-  StartOptions
+  PublicStartOptions as StartOptions
 } from './types'
 
 // The rspack binding sizes its threads when it loads and never reads the
 // variable again, so every module that reaches rspack loads after this call.
 ensureRustMinStack()
 
-const [build, dev, preview, browsers, config] = await Promise.all([
+const [build, dev, preview, browsers, config, sessionEnd] = await Promise.all([
   import('./command-build'),
   import('./command-dev'),
   import('./command-preview'),
   import('./plugin-browsers'),
-  import('./lib/config-loader')
+  import('./lib/config-loader'),
+  import('./dev-server/session-end')
 ])
 
 export const extensionBuild = build.extensionBuild
@@ -52,8 +56,12 @@ export const BuildEmitter = browsers.BuildEmitter
 export type BuildEmitter = BuildEmitterInstance
 export const loadCommandConfig = config.loadCommandConfig
 export const loadProjectConfigDefaults = config.loadProjectConfigDefaults
+// Ends one dev session of this process as a failure the host names.
+export const endSessionAsFailed = sessionEnd.endSessionAsFailed
 
 export type {
+  // The codes a host's hintFor resolver is called with.
+  ErrorCode,
   BuildOptions,
   DevOptions,
   PreviewOptions,

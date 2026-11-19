@@ -42,11 +42,16 @@ import {
 } from '../../contracts'
 import * as messages from '../../messages'
 import {keepCompletionValue} from '../../scripts-lib/completion-value'
-import {MOUNT_NAME, readDefaultExport} from '../../scripts-lib/default-export'
+import {
+  MOUNT_NAME,
+  readDefaultExport,
+  refuseDefaultExportLostToLoaders
+} from '../../scripts-lib/default-export'
 import {
   extensionBaseAttributeFor,
   extensionBaseGlobalFor
 } from '../../scripts-lib/taken-extension-base'
+import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 
 interface ContentScriptLoaderContext {
   getOptions(): {
@@ -61,6 +66,8 @@ interface ContentScriptLoaderContext {
   }
   resourcePath: string
   resourceQuery?: string
+  loaders?: Array<{path?: string}>
+  loaderIndex?: number
   emitWarning?(warning: Error): void
   callback(err: Error | null, content?: string, sourceMap?: unknown): void
 }
@@ -187,6 +194,38 @@ function importsScriptsFile(
     // Source the lexer cannot read: a relative import is taken at its word.
     return /\bfrom\s*["']\.|\bimport\s*["']\./.test(source)
   }
+}
+
+// One spelling for a folder and a file under it: a temp folder can come
+// short (RUNNER~1) on one side and long on the other.
+function realPath(file: string): string {
+  try {
+    return fs.realpathSync.native(file)
+  } catch {
+    return file
+  }
+}
+
+// The loaders that ran before this one and are not the build's own: its own
+// sit in one folder, and the bundler's carry no path of a file.
+function loadersOfTheProject(
+  context: ContentScriptLoaderContext,
+  projectDir: string
+): string[] {
+  const loaders = context.loaders || []
+  const index = context.loaderIndex ?? loaders.length - 1
+  const ownDir = path.dirname(String(loaders[index]?.path || ''))
+
+  return loaders
+    .slice(index + 1)
+    .map((loader) => String(loader?.path || ''))
+    .filter((file) => path.isAbsolute(file) && path.dirname(file) !== ownDir)
+    .map((file) => {
+      const relative = path.relative(realPath(projectDir), realPath(file))
+      const inside = !relative.startsWith('..') && !path.isAbsolute(relative)
+
+      return (inside ? relative : file).split(path.sep).join('/')
+    })
 }
 
 // One hint per entry per process: a dev session recompiles the entry on every
@@ -1156,13 +1195,49 @@ export default function contentScriptWrapper(
   const projectRelativePath =
     path.relative(packageJsonDir, resourceAbsPath).split(path.sep).join('/') ||
     resourceAbsPath
+  const projectLoaders = loadersOfTheProject(this, packageJsonDir)
   const defaultExport = readDefaultExport(
     rewrittenSource,
     this.resourcePath,
-    projectRelativePath
+    projectRelativePath,
+    undefined,
+    projectLoaders
   )
 
+  if (defaultExport.kind === 'none' && projectLoaders.length > 0) {
+    let authored = rewrittenSource
+
+    try {
+      authored = fs.readFileSync(this.resourcePath, 'utf8')
+    } catch {
+      // A module with no file on disk has nothing written to compare.
+    }
+
+    if (authored !== rewrittenSource) {
+      refuseDefaultExportLostToLoaders(
+        authored,
+        this.resourcePath,
+        projectRelativePath,
+        projectLoaders
+      )
+    }
+  }
+
   if (defaultExport.kind !== 'found') {
+    refuseTopLevelAwait(
+      rewrittenSource,
+      this.resourcePath,
+      projectRelativePath,
+      Boolean(declaredEntry),
+      () => {
+        try {
+          return fs.readFileSync(this.resourcePath, 'utf8')
+        } catch {
+          return undefined
+        }
+      }
+    )
+
     // A declared entry that starts itself at import cannot be cleaned up, so
     // each dev re-inject adds a copy. Said in the session, where it bites.
     if (

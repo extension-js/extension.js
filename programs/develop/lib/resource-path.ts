@@ -122,6 +122,17 @@ export function toResourceKey(resourcePath: string): string {
   return key
 }
 
+// A path from one folder down to another, with forward slashes. A name that
+// only opens with two dots, such as `..env`, climbs nowhere.
+function pathInside(folder: string, resourcePath: string): string | undefined {
+  const relative = path.relative(folder, resourcePath)
+  const climbs = relative === '..' || relative.startsWith(`..${path.sep}`)
+
+  if (!relative || climbs || path.isAbsolute(relative)) return undefined
+
+  return relative.split(path.sep).join('/')
+}
+
 // The spelling a message prints: relative to the project with forward
 // slashes, and the path as given when it sits outside the project.
 export function toProjectRelativePath(
@@ -130,16 +141,16 @@ export function toProjectRelativePath(
 ): string {
   if (!projectPath || !resourcePath) return resourcePath
 
-  const relative = path.relative(
-    canonicalizeDir(projectPath),
-    canonicalizeResourcePath(resourcePath)
+  const root = canonicalizeDir(projectPath)
+
+  // The spelling as given comes first, so a file behind a linked folder of
+  // the project keeps the path the reader can open from the project root.
+  return (
+    pathInside(projectPath, resourcePath) ??
+    pathInside(root, resourcePath) ??
+    pathInside(root, canonicalizeResourcePath(resourcePath)) ??
+    resourcePath
   )
-
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    return resourcePath
-  }
-
-  return relative.split(path.sep).join('/')
 }
 
 // True when resource resolves inside any of dirs (already canonicalized);

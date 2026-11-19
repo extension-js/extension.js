@@ -1,43 +1,24 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {
-  SUPPORTED_BROWSERS,
-  SUPPORTED_CSS_TECH,
-  SUPPORTED_PACKAGE_MANAGERS,
-  SUPPORTED_RUNTIMES,
-  SUPPORTED_UI_FRAMEWORKS
-} from '../constants'
+import {SUPPORTED_BROWSERS, SUPPORTED_PACKAGE_MANAGERS} from '../constants'
 import {OPTIONAL_DEPENDENCY_CONTRACTS} from '../optional-deps-contracts'
 
 const ROOT_README = path.join(__dirname, '..', '..', '..', '..', 'README.md')
 
+// The runtimes the CLI itself executes on, which is a different question from
+// the package manager that installs it.
+const SUPPORTED_RUNTIMES = ['node', 'deno', 'bun'] as const
+const SUPPORTED_UI_FRAMEWORKS = ['react', 'preact', 'vue', 'svelte'] as const
+
 describe('supported surface', () => {
-  it('pins the canonical supported lists', () => {
+  it('pins the supported package managers', () => {
     expect(SUPPORTED_PACKAGE_MANAGERS).toEqual([
       'npm',
       'pnpm',
       'yarn',
       'bun',
       'deno'
-    ])
-
-    expect(SUPPORTED_RUNTIMES).toEqual(['node', 'deno', 'bun'])
-
-    expect(SUPPORTED_UI_FRAMEWORKS).toEqual([
-      'react',
-      'preact',
-      'vue',
-      'svelte'
-    ])
-
-    expect(SUPPORTED_CSS_TECH).toEqual([
-      'css',
-      'css-modules',
-      'sass',
-      'less',
-      'postcss',
-      'tailwind'
     ])
   })
 

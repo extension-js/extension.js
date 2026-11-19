@@ -2,12 +2,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {classifyReloadFromSources, type ReloadBroker} from '../../plugin-reload'
-import {
-  reloadSurvivingPackage,
-  SafariDevPlugin,
-  type SafariPackagerFn
-} from '../safari-dev-plugin'
+import type {ReloadBroker} from '../../plugin-reload'
+import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 beforeEach(() => {
@@ -276,6 +272,10 @@ const CONTENT_EDIT = {
 const BACKGROUND_EDIT = {changedFiles: ['src/background.js']}
 
 describe('SafariDevPlugin reload seam', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   it('reloads only after the package that replaced the appex', async () => {
     const {broker, sent} = makeBroker()
     const h = harness(broker)
@@ -337,6 +337,38 @@ describe('SafariDevPlugin reload seam', () => {
     expect(h.modes()).toEqual(['full:/init', 'resync:/v2', 'resync:/v4'])
     expect(sent).toHaveLength(2)
     expect(sent.every((s) => s.type === 'content-scripts')).toBe(true)
+  })
+
+  // A tool waiting for the rebuild to be live reads this stamp, and only
+  // the plugin that replaced the appex knows when to write it.
+  it('stamps safari-resync after each rebuild, not after the first package', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const noted: Array<[string, string | undefined]> = []
+    const h = harness(
+      {
+        broadcastReload: () => 0,
+        noteReloadApplied: (kind, label) => {
+          noted.push([kind, label])
+        }
+      },
+      '/project'
+    )
+
+    await settleFirst(h)
+    expect(noted).toEqual([])
+
+    await h.trigger('/second')
+    h.callFor('/second').resolve()
+    await h.plugin.idle()
+
+    await h.trigger('/third', CONTENT_EDIT)
+    h.callFor('/third').resolve()
+    await h.plugin.idle()
+
+    expect(noted).toEqual([
+      ['safari-resync', undefined],
+      ['safari-resync', 'content_script (src/content/scripts.js)']
+    ])
   })
 
   it('packages normally with no broker attached', async () => {
@@ -424,71 +456,6 @@ describe('SafariDevPlugin undelivered reload after a package', () => {
   })
 })
 
-// The package restarts the extension by itself, so the only reload still worth
-// sending is the one a restart cannot deliver.
-describe('reloadSurvivingPackage', () => {
-  const CONTENT_ENTRY = 'content_scripts/content-0'
-
-  it('drops a full reload, which would restart what just started', () => {
-    expect(
-      reloadSurvivingPackage({
-        type: 'full',
-        changedAssets: ['src/manifest.json'],
-        label: 'extension (src/manifest.json)'
-      })
-    ).toBeUndefined()
-  })
-
-  it('drops a background-only service-worker reload', () => {
-    expect(
-      reloadSurvivingPackage({
-        type: 'service-worker',
-        changedAssets: ['src/background.js'],
-        label: 'service_worker (src/background.js)'
-      })
-    ).toBeUndefined()
-  })
-
-  it('keeps a content-scripts reload untouched', () => {
-    const instruction = {
-      type: 'content-scripts' as const,
-      changedContentScriptEntries: [CONTENT_ENTRY],
-      changedAssets: ['src/content/scripts.js'],
-      label: 'content_script (src/content/scripts.js)'
-    }
-    expect(reloadSurvivingPackage(instruction)).toEqual(instruction)
-  })
-
-  it('downgrades a shared background + content edit to its content half', () => {
-    expect(
-      reloadSurvivingPackage({
-        type: 'service-worker',
-        changedContentScriptEntries: [CONTENT_ENTRY],
-        changedAssets: ['src/shared.ts'],
-        label: 'service_worker + content_script (src/shared.ts)'
-      })
-    ).toEqual({
-      type: 'content-scripts',
-      changedContentScriptEntries: [CONTENT_ENTRY],
-      changedAssets: ['src/shared.ts'],
-      label: 'content_script (src/shared.ts)'
-    })
-  })
-
-  it('keeps a notify-only page instruction, which restarts nothing', () => {
-    const instruction = {
-      type: 'page' as const,
-      changedAssets: ['src/popup/index.js'],
-      label: 'popup page (src/popup/index.js)'
-    }
-    expect(reloadSurvivingPackage(instruction)).toEqual(instruction)
-  })
-
-  it('is a no-op for no instruction', () => {
-    expect(reloadSurvivingPackage(undefined)).toBeUndefined()
-  })
-})
-
 describe('SafariDevPlugin reload trimming after a package', () => {
   afterEach(() => {
     vi.restoreAllMocks()
@@ -556,6 +523,62 @@ describe('SafariDevPlugin reload trimming after a package', () => {
     expect(sent[0].type).toBe('content-scripts')
   })
 
+  // One package answers the whole burst, so one frame does too: the content
+  // edit keeps its label and its entries when a page edit lands after it.
+  it('sends a burst of a content edit and a page edit as the content edit', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, sent} = makeBroker()
+    const h = harness(broker, '/project')
+    await settleFirst(h)
+
+    const p2 = h.trigger('/v2', MANIFEST_EDIT)
+    await flush()
+    void h.trigger('/v3', CONTENT_EDIT)
+    void h.trigger('/v4', {changedFiles: ['src/popup/index.js']})
+    await flush()
+
+    h.callFor('/v2').resolve()
+    await p2
+    await flush()
+    h.callFor('/v4').resolve()
+    await h.plugin.idle()
+
+    expect(sent).toEqual([
+      {
+        type: 'content-scripts',
+        label: 'content_script (src/content/scripts.js)',
+        entries: ['content_scripts/content-0']
+      }
+    ])
+  })
+
+  it('sends a burst of page edits as the newest one', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker, sent} = makeBroker()
+    const h = harness(broker, '/project')
+    await settleFirst(h)
+
+    const p2 = h.trigger('/v2', MANIFEST_EDIT)
+    await flush()
+    void h.trigger('/v3', {changedFiles: ['src/popup/index.js']})
+    void h.trigger('/v4', {changedFiles: ['src/options/index.js']})
+    await flush()
+
+    h.callFor('/v2').resolve()
+    await p2
+    await flush()
+    h.callFor('/v4').resolve()
+    await h.plugin.idle()
+
+    expect(sent).toEqual([
+      {
+        type: 'page',
+        label: 'options page (src/options/index.js)',
+        entries: undefined
+      }
+    ])
+  })
+
   it('says nothing at all when the whole instruction is dropped', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -579,7 +602,7 @@ describe('SafariDevPlugin reload trimming after a package', () => {
   })
 })
 
-describe('SafariDevPlugin failures and reloads it does not report', () => {
+describe('SafariDevPlugin failures it does not report and the page it does', () => {
   const roots: string[] = []
 
   afterEach(() => {
@@ -619,8 +642,9 @@ describe('SafariDevPlugin failures and reloads it does not report', () => {
     expect(plugin.emitter.listenerCount('error')).toBe(1)
   })
 
-  // Pins today's behavior. Ledger 1382 D5.
-  it('sends a copied page edit with no standalone page, so its open tabs are not refreshed', async () => {
+  // Only a classifier told both folders can see that the build copied the
+  // page, which is what makes the producer reload the tabs that show it.
+  it('hands over the output folder and the project root, so a copied page names itself', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-page-'))
     roots.push(root)
@@ -662,18 +686,9 @@ describe('SafariDevPlugin failures and reloads it does not report', () => {
         type: 'page',
         label: 'options page (pages/options.html)',
         changedContentScriptEntries: undefined,
-        changedFiles: ['pages/options.html']
+        changedFiles: ['pages/options.html'],
+        standalonePages: ['pages/options.html']
       }
     ])
-
-    // The same edit names the page once the classifier is told the root.
-    expect(
-      classifyReloadFromSources({
-        changedSources: ['pages/options.html'],
-        getContentScriptCount: () => 0,
-        outputPath: output,
-        contextDir: root
-      })?.standalonePages
-    ).toEqual(['pages/options.html'])
   })
 })

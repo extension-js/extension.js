@@ -65,7 +65,7 @@ export function pageInitialChunks(chunk: ChunkNameLike): boolean {
 
 // The UI framework runtimes an extension page ships. Matched on the package
 // directory so a pnpm store path and a flat node_modules both qualify.
-export const FRAMEWORK_PACKAGE_PATTERN =
+const FRAMEWORK_PACKAGE_PATTERN =
   /[\\/]node_modules[\\/](react|react-dom|scheduler|preact|vue|@vue|svelte|solid-js|lit|lit-html|lit-element|@lit)[\\/]/
 
 // Only script modules move: a stylesheet shared by two pages stays in each

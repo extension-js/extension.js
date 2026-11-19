@@ -305,6 +305,37 @@ describe('the answers of a start or preview session', () => {
   })
 })
 
+// Only the background at the root of the build is the one the browser runs.
+describe('a built file in a nested folder named background', () => {
+  it('is copied as built while the real background carries the producer', async () => {
+    const {projectDir, distPath} = makeProject()
+    const vendored = 'export const vendored = true\n'
+    const nested = path.join('vendor', 'background', 'index.js')
+
+    fs.mkdirSync(path.dirname(path.join(distPath, nested)), {recursive: true})
+    fs.writeFileSync(path.join(distPath, nested), vendored)
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      distPath,
+      allowControl: true
+    })
+
+    expect(
+      fs.readFileSync(path.join(session.controlledPath, nested), 'utf-8')
+    ).toBe(vendored)
+
+    expect(session.backgroundAssets).toEqual(['background/service_worker.js'])
+    expect(
+      fs.readFileSync(
+        path.join(session.controlledPath, 'background', 'service_worker.js'),
+        'utf-8'
+      )
+    ).toContain('__extjsBridgeProducerInstalled')
+  })
+})
+
 // A build made by another tool keeps its own file names, so the producer
 // follows what the manifest declares and not only the paths this build emits.
 describe('a build whose background sits where its manifest says', () => {

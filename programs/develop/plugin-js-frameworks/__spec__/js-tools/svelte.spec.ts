@@ -137,14 +137,22 @@ describe('maybeUseSvelte', () => {
     })
   })
 
-  it('adds .svelte to the extensions and the project node_modules to the modules', async () => {
+  it('adds .svelte, the project node_modules and the svelte condition to resolve', async () => {
     const {root} = svelteProject()
     const [resolverPlugin] = (await maybeUseSvelte(root, 'development'))
       ?.plugins as Array<{apply(compiler: unknown): void}>
+    const importResolve = {conditionNames: ['browser', 'import', 'default']}
     const compiler = {
       options: {
         resolve: {
           conditionNames: ['browser', 'import'],
+          byDependency: {
+            esm: importResolve,
+            worker: importResolve,
+            commonjs: {conditionNames: ['browser', 'require', 'default']},
+            'css-import': {conditionNames: ['development', 'style']},
+            url: {preferRelative: true}
+          },
           extensions: ['.js', '.svelte'],
           modules: ['node_modules']
         }
@@ -154,10 +162,46 @@ describe('maybeUseSvelte', () => {
     resolverPlugin.apply(compiler)
 
     expect(compiler.options.resolve).toEqual({
-      conditionNames: ['browser', 'import'],
+      conditionNames: ['svelte', 'browser', 'import'],
+      byDependency: {
+        esm: {conditionNames: ['svelte', 'browser', 'import', 'default']},
+        worker: {conditionNames: ['svelte', 'browser', 'import', 'default']},
+        commonjs: {conditionNames: ['svelte', 'browser', 'require', 'default']},
+        'css-import': {conditionNames: ['development', 'style']},
+        url: {preferRelative: true}
+      },
       extensions: ['.svelte', '.js'],
       modules: [path.join(root, 'node_modules'), 'node_modules']
     })
+
+    // The shared list the config hands several dependency types stays as is.
+    expect(importResolve.conditionNames).toEqual([
+      'browser',
+      'import',
+      'default'
+    ])
+  })
+
+  it('adds the svelte condition once, and leaves an unset list to the bundler', async () => {
+    const {root} = svelteProject()
+    const [resolverPlugin] = (await maybeUseSvelte(root, 'development'))
+      ?.plugins as Array<{apply(compiler: unknown): void}>
+    const already = {
+      options: {resolve: {conditionNames: ['browser', 'svelte', 'import']}}
+    }
+    const unset = {options: {resolve: {} as Record<string, unknown>}}
+
+    resolverPlugin.apply(already)
+    resolverPlugin.apply(unset)
+
+    expect(already.options.resolve.conditionNames).toEqual([
+      'browser',
+      'svelte',
+      'import'
+    ])
+
+    expect(unset.options.resolve.conditionNames).toBeUndefined()
+    expect(unset.options.resolve.byDependency).toBeUndefined()
   })
 
   it('reads svelte from the fallback folder only when the project has none', async () => {
