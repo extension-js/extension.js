@@ -52,6 +52,7 @@ type Compilation = {
   contextDependencies: Set<string>
   missingDependencies: Set<string>
   fileDependencies: Set<string>
+  getAssets: () => unknown[]
   hooks: {
     processAssets: {
       tap: (options: unknown, fn: () => void) => void
