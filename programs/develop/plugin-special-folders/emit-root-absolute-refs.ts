@@ -10,7 +10,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
 import {isOsPathUnder} from '../lib/real-path'
-import {withheldCssRefs} from '../lib/withheld-file'
+import {WITHHELD_CSS_REF, withheldCssRefs} from '../lib/withheld-file'
+import {whyNotRead} from '../plugin-css/css-lib/inline-css-imports'
 import * as cssMessages from '../plugin-css/css-lib/messages'
 import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
 import {missingRefName} from '../plugin-web-extension/feature-html/steps/add-assets-to-compilation'
@@ -167,7 +168,8 @@ export async function emitRootAbsoluteRefs(
             origin,
             ref,
             plan.emitPath,
-            pageSourceOf
+            pageSourceOf,
+            projectRoot
           )
         }
 
@@ -286,7 +288,8 @@ function reportWithheld(
   origin: RefOrigin,
   ref: string,
   emitPath: string,
-  pageSourceOf: (assetName: string) => string | undefined
+  pageSourceOf: (assetName: string) => string | undefined,
+  projectRoot: string = context
 ) {
   if (origin.kind === 'css') {
     // The stylesheet step or the trace of an injected sheet said this ref.
@@ -300,11 +303,22 @@ function reportWithheld(
     }
 
     const strict = process.env.EXTENSION_STRICT_REFS === 'true'
-    const report = diagnostic(
-      cssMessages.deadCssUrlRef(origin.asset, ref),
-      origin.asset,
-      'CssDeadRef'
-    )
+    // A file that is there gets the words the stylesheet step gives it.
+    const onDisk = path.join(context, ref)
+    const why = fs.existsSync(onDisk)
+      ? whyNotRead(onDisk, projectRoot)
+      : undefined
+    const report = why
+      ? diagnostic(
+          cssMessages.withheldCssRef(origin.asset, ref, why.kind, strict),
+          origin.asset,
+          WITHHELD_CSS_REF
+        )
+      : diagnostic(
+          cssMessages.deadCssUrlRef(origin.asset, ref, strict),
+          origin.asset,
+          'CssDeadRef'
+        )
 
     if (strict) {
       compilation.errors ||= []
