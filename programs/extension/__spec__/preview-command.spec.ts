@@ -192,7 +192,7 @@ const FORWARDING: ForwardingRow[] = [
   {argv: ['--port', '9000'], options: {port: '9000'}},
   {argv: ['--port', '0'], options: {port: '0'}},
   {
-    argv: ['--log-context', 'background, nope ,content'],
+    argv: ['--log-context', 'background, CONTENT '],
     options: {logContexts: ['background', 'content']}
   },
   {argv: ['--log-context', 'all'], options: {}},

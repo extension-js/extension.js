@@ -266,7 +266,7 @@ const FORWARDING: ForwardingRow[] = [
   // dev. start serves nothing, so the value is taken and never forwarded.
   {argv: ['--public-host', '203.0.113.7']},
   {
-    argv: ['--log-context', 'background, nope ,content'],
+    argv: ['--log-context', 'background, CONTENT '],
     launch: {logContexts: ['background', 'content']}
   },
   {argv: ['--log-context', 'all']},

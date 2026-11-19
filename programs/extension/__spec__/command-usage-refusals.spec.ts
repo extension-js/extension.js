@@ -16,6 +16,7 @@ import {type DevOptions, registerDevCommand} from '../commands/dev'
 import {type PreviewOptions, registerPreviewCommand} from '../commands/preview'
 import {registerStartCommand, type StartOptions} from '../commands/start'
 import {declaredChoices} from '../helpers/choice-flags'
+import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {missingProjectFolder} from '../helpers/project-folder'
 import {
   isEmulatorVendor,
@@ -617,5 +618,61 @@ describe('every flag that declares a closed list of choices', async () => {
 
     expect(logSpy).not.toHaveBeenCalled()
     expect(action).not.toHaveBeenCalled()
+  })
+})
+
+// An unknown context used to be dropped, and a list left empty that way
+// showed every context: the opposite of the filter that was typed.
+describe('--log-context names only contexts that exist', () => {
+  const contexts = `${LOG_CONTEXTS.join(', ')} or all`
+
+  describe.each(['dev', 'start', 'preview'])('on %s', (command) => {
+    it.each([
+      ['popp', 'popp'],
+      ['background, nope ,content', 'nope'],
+      ['nope,popp', 'nope, popp']
+    ])('refuses %j on stderr before anything runs', async (value, unknown) => {
+      const project = makeTempFolder('extjs-log-context-')
+
+      expect(await run([command, project, '--log-context', value])).toBe(1)
+      expect(stderrLines()).toEqual([
+        `⏵⏵⏵ Error: --log-context got "${unknown}". Use ${contexts}.`
+      ])
+
+      expect(logSpy).not.toHaveBeenCalled()
+      expect(engineCalls()).toBe(0)
+    })
+
+    it('frames the refusal as E_INVALID_OPTION usage under --output json', async () => {
+      const project = makeTempFolder('extjs-log-context-')
+
+      expect(
+        await run([
+          command,
+          project,
+          '--log-context',
+          'popp',
+          '--output',
+          'json'
+        ])
+      ).toBe(1)
+
+      expect(frames()).toEqual([
+        {
+          schema: 1,
+          ok: false,
+          command,
+          status: 'usage',
+          value: null,
+          error: {
+            code: 'E_INVALID_OPTION',
+            message: `--log-context got "popp". Use ${contexts}.`
+          },
+          warnings: []
+        }
+      ])
+
+      expect(engineCalls()).toBe(0)
+    })
   })
 })
