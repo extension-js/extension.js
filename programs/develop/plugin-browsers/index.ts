@@ -204,7 +204,7 @@ export interface BrowsersPluginOptions {
 export class BrowsersPlugin implements RunnerPlugin {
   static readonly name = 'plugin-browsers'
 
-  /** EventEmitter for build lifecycle events (compiled, error, close). */
+  /** EventEmitter for build lifecycle events (compiled, error). */
   readonly emitter = new BuildEmitter()
 
   /**
