@@ -32,7 +32,7 @@ import {
 } from './folders-config'
 import {
   getSpecialFoldersDataForCompiler,
-  walkedScriptsLeftOut
+  walkedEntriesLeftOut
 } from './get-data'
 import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
@@ -57,7 +57,7 @@ const saidEnvFiles = new Map<string, string>()
 // The same for the links under public/ a session named as left out.
 const saidPublicLinks = new Map<string, string>()
 
-// The same for the scripts/ files a session named as left out, by project.
+// The same for the pages/ and scripts/ files a session named as left out.
 const saidLeftOutScripts = new Map<string, string>()
 
 interface SpecialFoldersPluginOptions {
@@ -132,12 +132,12 @@ export class SpecialFoldersPlugin {
 
     new HintImportOnlyScripts().apply(compiler)
 
-    // A file put in scripts/ is expected in the output, so one the build
-    // leaves out is said once, and in a watch session when the list changes.
+    // A file put in pages/ or scripts/ is expected in the output, so one the
+    // build leaves out is said once, and in a watch session on a change.
     compiler.hooks.thisCompilation.tap(
       SpecialFoldersPlugin.name,
       (compilation: Compilation) => {
-        const leftOut = walkedScriptsLeftOut(context)
+        const leftOut = walkedEntriesLeftOut(context)
         const key = leftOut.join('\n')
         const alreadySaid =
           compiler.watchMode && saidLeftOutScripts.get(context) === key
@@ -149,7 +149,7 @@ export class SpecialFoldersPlugin {
             compiler,
             compilation,
             'ScriptsFolderFilesLeftOutWarning',
-            messages.scriptsFolderFilesLeftOut(
+            messages.entryFolderFilesLeftOut(
               leftOut,
               String(browser || 'chrome')
             )

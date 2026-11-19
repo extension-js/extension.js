@@ -160,7 +160,7 @@ export function publicLinkedFilesLeftOut(
 }
 
 // Names only, like the public one above: no file is opened to say this.
-export function scriptsFolderFilesLeftOut(
+export function entryFolderFilesLeftOut(
   relativePaths: string[],
   browser: string
 ) {
@@ -176,7 +176,7 @@ export function scriptsFolderFilesLeftOut(
     'The build never bundles env files, tooling files or repository files, ' +
     'or a file a link brings from outside the project or from ' +
     'node_modules. To build ' +
-    `${one ? 'it as a script' : 'them as scripts'}, give ${one ? 'it' : 'them'} another name or ` +
+    `${one ? 'it' : 'them'}, give ${one ? 'it' : 'them'} another name or ` +
     `copy ${one ? 'it' : 'them'} into the project.`
   )
 }

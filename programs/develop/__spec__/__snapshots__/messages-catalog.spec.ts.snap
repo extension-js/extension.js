@@ -250,6 +250,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-special-folders/messages.ts": [
     "devOnlyEntriesLeftOut: function(1)",
+    "entryFolderFilesLeftOut: function(2)",
     "excludeEntryMissing: function(2)",
     "excludedEntriesLeftOut: function(1)",
     "includeOutputPathInvalid: function(2)",
@@ -265,7 +266,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "publicMustBeAtProjectRoot: function(3)",
     "scannedCompanionOutsideProject: function(2)",
     "scriptsEntriesOnlyImported: function(2)",
-    "scriptsFolderFilesLeftOut: function(2)",
     "serverRestartRequiredFromSpecialFolderMessageOnly: function(3)",
     "specialFolderChangeDetected: function(3)",
     "specialFoldersSetupSummary: function(3)",

@@ -26,7 +26,7 @@ type Verdict =
       minify: boolean
     }
   | {kind: 'invalid'; output: string; reason: string}
-  | {kind: 'missing'; output: string; source: string}
+  | {kind: 'missing'; output: string; source: string; minify: boolean}
 
 function judgeOutputPath(output: string): string | undefined {
   const trimmed = String(output || '').trim()
@@ -134,7 +134,7 @@ export function judgeIncludeFiles(
     try {
       isDir = fs.statSync(abs).isDirectory()
     } catch {
-      verdicts.push({kind: 'missing', output, source: abs})
+      verdicts.push({kind: 'missing', output, source: abs, minify: read.minify})
       continue
     }
 
@@ -170,7 +170,25 @@ export class IncludeFiles {
     if (!include || Object.keys(include).length === 0) return
 
     const verdicts = judgeIncludeFiles(include, projectRoot)
-    const copies = verdicts.filter((v) => v.kind === 'ok')
+    // A source missing at start keeps its pattern, so the file ships on the
+    // compile after it appears. Its kind is read from the path until then.
+    const copies = verdicts.flatMap((verdict) =>
+      verdict.kind === 'ok'
+        ? [verdict]
+        : verdict.kind === 'missing'
+          ? [
+              {
+                output: verdict.output
+                  .trim()
+                  .split(/[\\/]+/)
+                  .join('/'),
+                source: verdict.source,
+                isDir: path.extname(verdict.source) === '',
+                minify: verdict.minify
+              }
+            ]
+          : []
+    )
 
     if (copies.length > 0) {
       new rspack.CopyRspackPlugin({
@@ -208,6 +226,11 @@ export class IncludeFiles {
           if (verdict.kind === 'ok') {
             compilation.fileDependencies?.add(verdict.source)
             continue
+          }
+
+          // Watched by its own path, so creating it starts the next compile.
+          if (verdict.kind === 'missing') {
+            compilation.missingDependencies?.add(verdict.source)
           }
 
           const error = new ErrorCtor(
