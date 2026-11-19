@@ -105,7 +105,7 @@ export class WarnMainWorldRegistrationChanged {
     const restartIsComing = () =>
       settling !== undefined ||
       isCompilerRestarting(compiler) ||
-      isDevSessionRestartPending()
+      isDevSessionRestartPending(compiler)
 
     // Asked once the set has held, and read from disk again first: a save
     // that put the call back may not have reached a compilation yet.
@@ -196,7 +196,7 @@ export class WarnMainWorldRegistrationChanged {
         // after a restart that did not take, the author is told to restart.
         if (
           lastRequested.get(this.manifestPath) !== signature &&
-          canAutoRestartDevSession()
+          canAutoRestartDevSession(compiler)
         ) {
           requested = signature
           awaitingRestart.add(compiler)
