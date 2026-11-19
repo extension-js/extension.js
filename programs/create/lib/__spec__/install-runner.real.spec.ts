@@ -81,6 +81,22 @@ describe('install-runner runInstall (real spawn)', () => {
     expect(shown.join('')).toBe('registry said no')
   })
 
+  it('ends a child that waits on stdin at once instead of at the timeout', async () => {
+    const startedAt = Date.now()
+
+    const result = await runInstall(
+      process.execPath,
+      [
+        '-e',
+        "process.stdout.write('Continue? [Y/n] '); process.stdin.resume(); process.stdin.on('end', () => process.exit(4))"
+      ],
+      {cwd: process.cwd(), stdio: 'pipe', timeoutMs: 10_000}
+    )
+
+    expect(result).toEqual({code: 4, stdout: 'Continue? [Y/n] ', stderr: ''})
+    expect(Date.now() - startedAt).toBeLessThan(5_000)
+  }, 20_000)
+
   it('kills a child that outlives the timeout', async () => {
     const result = await runInstall(
       process.execPath,

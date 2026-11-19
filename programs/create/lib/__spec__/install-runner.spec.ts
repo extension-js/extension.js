@@ -82,7 +82,8 @@ describe('install-runner runInstall', () => {
     expect(calls[0].args).toEqual(args)
     expect(calls[0].options).not.toHaveProperty('shell')
     expect(calls[0].options.cwd).toBe(cwd)
-    expect(calls[0].options.stdio).toBe('pipe')
+    // Stdin is closed: a manager that asks a question reads its end at once.
+    expect(calls[0].options.stdio).toEqual(['ignore', 'pipe', 'pipe'])
     // The child gets the built env, which the table below reads directly.
     expect(calls[0].options.env).toEqual(buildExecEnv(process.env, cwd))
   })
