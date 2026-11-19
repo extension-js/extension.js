@@ -9,6 +9,7 @@
 import {supportsColor} from 'pintor'
 import {scrubBrand} from './branding'
 import {isDebug, prefix} from './messaging'
+import {unwrapNamedCauses} from './named-cause'
 
 // eslint-disable-next-line no-control-regex
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g
@@ -223,7 +224,11 @@ export function renderStatsBlocks(
   if (!filtered.trim()) return ''
 
   const blocks = wrapStatsBlocks(
-    scrubBrand(humanizeCaseMismatchBlocks(filtered))
+    scrubBrand(
+      humanizeCaseMismatchBlocks(
+        unwrapNamedCauses(filtered, {keepStack: isDebug()})
+      )
+    )
   )
 
   // The bundler styles words inside a message whatever it was asked, and
