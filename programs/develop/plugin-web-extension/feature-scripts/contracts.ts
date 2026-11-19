@@ -34,6 +34,18 @@ export function getRuntimeMainWorldEntries(
   return runtimeMainWorldEntries.get(compiler) || new Map()
 }
 
+// The child compilers a dev build gives MAIN world code, where every module
+// runs on the page, even one the isolated world also runs.
+const mainWorldCompilers = new WeakSet<object>()
+
+export function markMainWorldCompiler(compiler: object): void {
+  mainWorldCompilers.add(compiler)
+}
+
+export function isMainWorldCompiler(compiler: object | undefined): boolean {
+  return Boolean(compiler) && mainWorldCompilers.has(compiler as object)
+}
+
 // A browser runs one file once in a frame whatever worlds name it, and each
 // world needs its own build, so the MAIN world copy ships beside the file.
 export const MAIN_WORLD_COPY_SUFFIX = '.extjs-main-world'
