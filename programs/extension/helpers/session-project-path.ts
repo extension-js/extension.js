@@ -8,6 +8,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
+import {browserArtifactsDir} from '../../develop/lib/session-contract'
 import type {DevelopBridge} from './extension-develop-runtime'
 
 // No bridge at all when wait mode could not load one, or a spec's stand-in.
@@ -51,7 +52,7 @@ function sessionFilePath(
     }
   }
 
-  return path.join(projectPath, 'dist', 'extension-js', browser, fileName)
+  return path.join(browserArtifactsDir(projectPath, browser), fileName)
 }
 
 export function sessionReadyPath(
