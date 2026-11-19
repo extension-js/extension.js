@@ -42,6 +42,21 @@ describe('process-teardown shared module', () => {
   })
 })
 
+// A taskkill earlier on PATH, such as one a project folder ships, never runs.
+describe('windowsTaskkillPath', () => {
+  it.each([
+    [{SystemRoot: 'D:\\Windows'}, 'D:\\Windows\\System32\\taskkill.exe'],
+    [{windir: 'E:\\WINNT'}, 'E:\\WINNT\\System32\\taskkill.exe'],
+    [{}, 'C:\\Windows\\System32\\taskkill.exe']
+  ])('names the system copy for %o', async (env, expected) => {
+    const {windowsTaskkillPath} = await import(
+      '../../browsers-lib/process-teardown'
+    )
+
+    expect(windowsTaskkillPath(env)).toBe(expected)
+  })
+})
+
 function withCapturedProcessOn() {
   const registered = new Map<string, Function[]>()
   const original = process.on
