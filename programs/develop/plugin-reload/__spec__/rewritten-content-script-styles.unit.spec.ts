@@ -1,8 +1,11 @@
 import {createHash} from 'node:crypto'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import type {ReloadBroker, ReloadInstruction} from '../../plugin-reload'
-import {BrowsersPlugin} from '../index'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../plugin-browsers/__spec__/fake-compiler'
+import {BrowsersPlugin} from '../../plugin-browsers/index'
+import type {ReloadBroker, ReloadInstruction} from '../index'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
@@ -81,7 +84,7 @@ const sheet = (color: string) => ({
   assets: {[SHEET]: `.probe { color: ${color}; }\n`}
 })
 
-describe('BrowsersPlugin after a compile rewrites a content script stylesheet', () => {
+describe('the reload after a compile rewrites a content script stylesheet', () => {
   afterEach(() => {
     vi.restoreAllMocks()
   })
