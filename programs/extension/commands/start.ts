@@ -10,7 +10,10 @@ import * as path from 'node:path'
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {refuseUnlistedChoices} from '../helpers/choice-flags'
+import {
+  refuseUnknownListItems,
+  refuseUnlistedChoices
+} from '../helpers/choice-flags'
 import {
   explicitCliValue,
   explicitOptionalBoolean
@@ -273,6 +276,12 @@ export function registerStartCommand(
     )
     .hook('preAction', refuseUnreadableOutput({reportFailure}))
     .hook('preAction', refuseUnlistedChoices({reportFailure}))
+    .hook(
+      'preAction',
+      refuseUnknownListItems('--log-context', [...LOG_CONTEXTS, 'all'], {
+        reportFailure
+      })
+    )
     .action(
       async (
         pathOrRemoteUrl: string,

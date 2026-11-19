@@ -9,7 +9,10 @@
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {refuseUnlistedChoices} from '../helpers/choice-flags'
+import {
+  refuseUnknownListItems,
+  refuseUnlistedChoices
+} from '../helpers/choice-flags'
 import {explicitCliValue} from '../helpers/cli-explicit'
 import {
   declaredErrorCode,
@@ -227,6 +230,10 @@ export function registerPreviewCommand(
     )
     .hook('preAction', refuseUnreadableOutput())
     .hook('preAction', refuseUnlistedChoices())
+    .hook(
+      'preAction',
+      refuseUnknownListItems('--log-context', [...LOG_CONTEXTS, 'all'])
+    )
     .action(
       async (
         pathOrRemoteUrl: string,
