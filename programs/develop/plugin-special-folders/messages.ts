@@ -328,14 +328,21 @@ export function publicFilesShadowedByEntries(
   )
 }
 
-// The name is matched exactly on every system, so a project builds the same
-// on a disk that ignores letter case and on one that does not.
-export function publicFolderMiscased(found: string, projectRoot: string) {
-  return (
-    `${displayPath(found, projectRoot)} is not the public folder, which is ` +
-    `spelled ${colors.yellow('public/')} in lowercase on every system, so nothing in it ships.\n` +
-    `Rename the folder to ${colors.yellow('public/')}.`
-  )
+// A disk that ignores letter case still ships the folder, so the warning
+// says what changes next. Anywhere else nothing in it was ever read.
+export function publicFolderMiscased(
+  found: string,
+  projectRoot: string,
+  ships: boolean
+) {
+  const name = displayPath(found, projectRoot)
+
+  return ships
+    ? `${name} ships as the public folder only because this disk ignores letter case. ` +
+        `The folder must be named ${colors.yellow('public/')}, and another spelling stops working in the next major version.\n` +
+        `Rename the folder to ${colors.yellow('public/')}.`
+    : `${name} is not read: the public folder must be named ${colors.yellow('public/')} in lowercase, so nothing in it ships.\n` +
+        `Rename the folder to ${colors.yellow('public/')}.`
 }
 
 export function manifestInPublicFolder(relativePath: string) {

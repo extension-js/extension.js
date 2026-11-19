@@ -29,13 +29,42 @@ function namesIn(dir: string): string[] {
   }
 }
 
-// The folder exists under the name as written, letter case included, on a
-// disk that ignores case as on one that does not.
+// The folder the copier would read. A disk that ignores letter case answers
+// for `Public/` too, which ships as before and is warned about.
 export function publicFolderExists(
   dir: string,
-  {isDir = isUsableDir, readNames = namesIn}: PublicFolderProbe = {}
+  {isDir = isUsableDir}: PublicFolderProbe = {}
 ): boolean {
-  return readNames(path.dirname(dir)).includes(path.basename(dir)) && isDir(dir)
+  return isDir(dir)
+}
+
+function swapCase(name: string): string {
+  return [...name]
+    .map((char) =>
+      char === char.toLowerCase() ? char.toUpperCase() : char.toLowerCase()
+    )
+    .join('')
+}
+
+// Whether a disk ignores letter case, asked once per folder by reading the
+// found folder through its case-flipped name.
+const ignoresCaseByDir = new Map<string, boolean>()
+
+function readsThroughOtherCase(
+  found: string,
+  isDir: (candidate: string) => boolean,
+  cache: boolean
+): boolean {
+  const parent = path.dirname(found)
+  const known = cache ? ignoresCaseByDir.get(parent) : undefined
+
+  if (known !== undefined) return known
+
+  const answer = isDir(path.join(parent, swapCase(path.basename(found))))
+
+  if (cache) ignoresCaseByDir.set(parent, answer)
+
+  return answer
 }
 
 export interface PublicFolderInspection {
@@ -47,8 +76,9 @@ export interface PublicFolderInspection {
   usedFallback: boolean
   // Both folders exist and differ; the project-root one wins.
   bothExist: boolean
-  // A folder spelled in another letter case (`Public/`), which never ships.
-  miscased?: string
+  // A folder spelled in another letter case (`Public/`), and whether this
+  // disk still ships it because it ignores letter case.
+  miscased?: {dir: string; ships: boolean}
 }
 
 export interface PublicFolderProbe {
@@ -74,18 +104,11 @@ export function inspectPublicFolders(
         ? path.join(projectRoot, 'public')
         : fromManifest
   const sameLocation = path.resolve(fromRoot) === path.resolve(fromManifest)
-  // The default name is matched as written on disk, so a disk that ignores
-  // letter case does not ship a folder another disk leaves out.
-  const isExactDir = (candidate: string) =>
-    publicFolderExists(candidate, {isDir, readNames})
   // A configured folder is the only one read, and `false` reads none.
-  const rootOk =
-    setting.kind === 'path'
-      ? isDir(fromRoot)
-      : setting.kind === 'default' && isExactDir(fromRoot)
+  const rootOk = setting.kind !== 'off' && isDir(fromRoot)
   const manifestOk =
-    setting.kind === 'default' && !sameLocation && isExactDir(fromManifest)
-  const miscased =
+    setting.kind === 'default' && !sameLocation && isDir(fromManifest)
+  const found =
     setting.kind === 'default'
       ? [...new Set([path.dirname(fromRoot), path.dirname(fromManifest)])]
           .flatMap((dir) =>
@@ -97,6 +120,12 @@ export function inspectPublicFolders(
           )
           .find((candidate) => isDir(candidate))
       : undefined
+  const miscased = found
+    ? {
+        dir: found,
+        ships: readsThroughOtherCase(found, isDir, isDir === isUsableDir)
+      }
+    : undefined
 
   return {
     publicDir: rootOk ? fromRoot : manifestOk ? fromManifest : undefined,

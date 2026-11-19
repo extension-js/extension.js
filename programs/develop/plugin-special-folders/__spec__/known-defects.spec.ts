@@ -320,32 +320,42 @@ describe('D7: a public folder spelled Public/', () => {
   const onDisk = path.join(root, 'Public')
   const readNames = (dir: string) =>
     dir === root ? ['Public', 'manifest.json'] : []
+  const base = {
+    fromRoot: path.join(root, 'public'),
+    fromManifest: path.join(root, 'public'),
+    usedFallback: false,
+    bothExist: false
+  }
 
-  it('ships on no disk, whatever its case rule, and is named', () => {
+  it('ships as today on a disk that ignores letter case, and is named', () => {
     const insensitive = inspectPublicFolders(manifest, root, {
       isDir: (candidate) => candidate.toLowerCase() === onDisk.toLowerCase(),
       readNames
     })
+
+    // Fixed: the folder still ships, and the warning says the name changes.
+    expect(insensitive).toEqual({
+      ...base,
+      publicDir: path.join(root, 'public'),
+      miscased: {dir: onDisk, ships: true}
+    })
+  })
+
+  it('ships nothing on a disk that keeps letter case, and is named', () => {
     const sensitive = inspectPublicFolders(manifest, root, {
       isDir: (candidate) => candidate === onDisk,
       readNames
     })
 
-    // Fixed: one answer on both disks, and the folder is named for renaming.
-    const expected = {
+    // Fixed: nothing ships, as before, and the folder is no longer silent.
+    expect(sensitive).toEqual({
+      ...base,
       publicDir: undefined,
-      fromRoot: path.join(root, 'public'),
-      fromManifest: path.join(root, 'public'),
-      usedFallback: false,
-      bothExist: false,
-      miscased: onDisk
-    }
-
-    expect(insensitive).toEqual(expected)
-    expect(sensitive).toEqual(expected)
+      miscased: {dir: onDisk, ships: false}
+    })
   })
 
-  it('warns in a real compile and copies nothing from it', async () => {
+  it('warns in a real compile, with the words for this disk', async () => {
     const result = await compileFixture({
       files: {
         'index.js': 'self.out = 1\n',
@@ -354,15 +364,20 @@ describe('D7: a public folder spelled Public/', () => {
       },
       plugins: [plugin()]
     })
+    const ignoresCase = fs.existsSync(path.join(result.root, 'pUBLIC'))
 
-    expect(result.emitted['logo.txt']).toBeUndefined()
+    expect(result.emitted['logo.txt']).toBe(ignoresCase ? 'logo' : undefined)
     expect(result.warnings.map((warning) => warning.name)).toEqual([
       'PublicFolderCaseWarning'
     ])
 
     expect(stripAnsi(result.warnings[0].message)).toBe(
-      'Public is not the public folder, which is spelled public/ in lowercase on every system, so nothing in it ships.\n' +
-        'Rename the folder to public/.'
+      ignoresCase
+        ? 'Public ships as the public folder only because this disk ignores letter case. ' +
+            'The folder must be named public/, and another spelling stops working in the next major version.\n' +
+            'Rename the folder to public/.'
+        : 'Public is not read: the public folder must be named public/ in lowercase, so nothing in it ships.\n' +
+            'Rename the folder to public/.'
     )
   })
 })

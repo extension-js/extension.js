@@ -216,7 +216,11 @@ export class SpecialFoldersPlugin {
             compiler,
             compilation,
             'PublicFolderCaseWarning',
-            messages.publicFolderMiscased(inspection.miscased, context)
+            messages.publicFolderMiscased(
+              inspection.miscased.dir,
+              context,
+              inspection.miscased.ships
+            )
           )
         }
 
