@@ -17,8 +17,8 @@ import {
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
 
-// Point manifest content_scripts at the hashed dev bundles so page reloads
-// load the same bytes as reinject. Stale prior-build files go once it is done.
+// Point manifest content_scripts at the hashed dev bundles so every read
+// loads the current bytes. Stale prior-build files go once it is done.
 export function patchDevContentScriptManifestPaths(
   compilation: Compilation,
   manifest: Manifest
