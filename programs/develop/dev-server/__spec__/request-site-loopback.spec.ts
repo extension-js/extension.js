@@ -265,6 +265,30 @@ describe('requests to the dev server on loopback', () => {
     expect(answer.status).toBe(403)
   })
 
+  // A page could otherwise forge the forwarded host the proxy rule trusts,
+  // so no preflight grants it the header.
+  it('grants no page the forwarded host header', async () => {
+    for (const origin of [own(), EXTENSION]) {
+      const answer = await request(
+        session.port,
+        BUNDLE,
+        {
+          'sec-fetch-site': 'cross-site',
+          'sec-fetch-mode': 'cors',
+          origin,
+          'access-control-request-method': 'GET',
+          'access-control-request-headers': 'x-forwarded-host'
+        },
+        'OPTIONS'
+      )
+      const granted = String(
+        answer.headers['access-control-allow-headers'] ?? ''
+      ).toLowerCase()
+
+      expect(granted).not.toMatch(/x-forwarded-host|\*/)
+    }
+  })
+
   it("runs before the server's own routes", async () => {
     const compiles = session.compiles()
     const answer = await request(
