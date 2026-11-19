@@ -31,6 +31,7 @@ import * as messages from './messages'
 import {CODES, debugLine, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 import {resolveProjectStructureSync} from './project'
+import {thrownFrom} from './thrown-location'
 
 // Keys this module introduced into process.env by loading a dotenv file, as
 // opposed to keys the shell or CI really set. dotenv.config mutates
@@ -81,6 +82,13 @@ function envModeFor(command?: string, target?: ConfigEnvTarget): string {
 // A key the shell already owns is never touched by any of them.
 function envPreloadOrder(mode: string, browser?: string): string[] {
   return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
+}
+
+// A target that names nothing leaves the order to the run's last read.
+function namedEnvOrder(target?: ConfigEnvTarget): string[] | undefined {
+  return target?.mode || target?.browser
+    ? envPreloadOrder(envModeFor(undefined, target), target.browser)
+    : undefined
 }
 
 // The file order each config was last read with. A loader that is told no
@@ -488,15 +496,40 @@ class ConfigShapeError extends Error {
   public readonly code = CODES.E_CONFIG_LOAD
 }
 
+// The hook is synchronous, so a promise is as much a missing config as
+// undefined, and the bundler would read keys off either.
+function isBundlerConfig(value: unknown): value is Configuration {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as {then?: unknown}).then !== 'function'
+  )
+}
+
 // A config that throws is the author's to fix: one finished block naming the
 // file and the reason, coded so a JSON reader gets the documented class.
 function configLoadError(configPath: string, cause: unknown): CodedError {
   return Object.assign(
     codedError(
       CODES.E_CONFIG_LOAD,
-      messages.configLoadingError(configPath, cause)
+      messages.configLoadingError(configPath, reasonOf(configPath, cause))
     ),
     {cause}
+  )
+}
+
+// An error with an empty message reads as the bare word Error, so the place
+// it was thrown from is the reason given.
+function reasonOf(configPath: string, cause: unknown): unknown {
+  try {
+    if (!(cause instanceof Error) || String(cause.message).trim()) return cause
+  } catch {
+    return cause
+  }
+
+  return messages.errorWithoutMessageText(
+    thrownFrom(cause, path.dirname(configPath))
   )
 }
 
@@ -716,11 +749,21 @@ export async function loadCustomConfig(
           // A hook that throws is the author's to fix, like a config that
           // does not load, and reports under the same code.
           return (config: Configuration) => {
+            let changed: unknown
+
             try {
-              return hook(config, context)
+              changed = hook(config, context)
             } catch (cause) {
               throw configLoadError(configPath, cause)
             }
+
+            if (!isBundlerConfig(changed)) {
+              throw new ConfigShapeError(
+                messages.configHookReturnedNoConfig(configPath, changed)
+              )
+            }
+
+            return changed
           }
         }
 
@@ -754,13 +797,14 @@ export async function loadCustomConfig(
 // The late hook: the bundler config with every loader rule attached, right
 // before the first build. Absent when the config file has none.
 export async function loadConfigResolvedHook(
-  projectPath: string
+  projectPath: string,
+  envTarget?: ConfigEnvTarget
 ): Promise<FileConfig['configResolved'] | undefined> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return undefined
   if (!(await isUsingExperimentalConfig(projectPath))) return undefined
 
-  const userConfig = await loadConfigFile(configPath)
+  const userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
 
   return typeof userConfig?.configResolved === 'function'
     ? userConfig.configResolved
@@ -806,7 +850,8 @@ function collectDefineTypes(
 // Every `define` key the config file declares, at the top level and under
 // each browser and command, with the type its values resolve to.
 export async function loadDefineTypes(
-  projectPath: string
+  projectPath: string,
+  envTarget?: ConfigEnvTarget
 ): Promise<Record<string, string>> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return {}
@@ -815,7 +860,7 @@ export async function loadDefineTypes(
   let userConfig: FileConfig | undefined
 
   try {
-    userConfig = await loadConfigFile(configPath)
+    userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
   } catch {
     return {}
   }
@@ -871,12 +916,7 @@ export async function loadProjectConfigDefaults(
         // did, and never as a production build in the middle of a dev session.
         const userConfig = (await loadConfigFile(
           configPath,
-          envTarget?.mode || envTarget?.browser
-            ? envPreloadOrder(
-                envModeFor(undefined, envTarget),
-                envTarget?.browser
-              )
-            : undefined
+          namedEnvOrder(envTarget)
         )) as ProjectConfigDefaults | undefined
 
         return {
@@ -957,14 +997,18 @@ export async function loadCommandConfig(
 
 export async function loadBrowserConfig(
   projectPath: string,
-  browser: DevOptions['browser'] = 'chrome'
+  browser: DevOptions['browser'] = 'chrome',
+  envTarget?: ConfigEnvTarget
 ): Promise<BrowserConfig> {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
-        const userConfig = await loadConfigFile(configPath)
+        const userConfig = await loadConfigFile(
+          configPath,
+          namedEnvOrder(envTarget)
+        )
 
         if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {collectThemeArrayIssues} from '../manifest-lib/theme-values'
 import {ValidateThemeArrays} from '../steps/validate-theme-values'
 
@@ -105,6 +106,12 @@ describe('ValidateThemeArrays step', () => {
       errors: [],
       warnings: []
     }
+    // The step validates the manifest EmitManifest read, never the disk.
+    setOriginalManifestContent(
+      compilation,
+      fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8')
+    )
+
     const compiler: any = {
       hooks: {
         thisCompilation: {

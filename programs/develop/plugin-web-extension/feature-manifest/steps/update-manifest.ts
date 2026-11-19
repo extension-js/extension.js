@@ -18,8 +18,7 @@ import {
 import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
 import {
   buildCanonicalManifestWithOverrides,
-  getManifestContent,
-  setCurrentManifestContent
+  getManifestContent
 } from '../manifest-lib/manifest'
 import {
   findMistypedManifestFields,
@@ -559,7 +558,6 @@ export class UpdateManifest {
 
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)
-            setCurrentManifestContent(compilation, source)
 
             if (compilation.getAsset('manifest.json')) {
               compilation.updateAsset('manifest.json', rawSource)

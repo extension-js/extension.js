@@ -13,20 +13,44 @@ import type {ErrorCode} from './messaging'
 // array speaks: the declared code, a colon, one plain sentence.
 const pending: string[] = []
 const scopes = new AsyncLocalStorage<string[]>()
-let activeBuilds = 0
+const activeBuilds = new Set<string[]>()
+const compilerLists = new WeakMap<object, string[]>()
 
 // Bound while no scope is open, so whatever it calls sees none.
 const outsideScopes = AsyncResource.bind(<T>(run: () => T): T => run())
 
-export function recordCodedWarning(code: ErrorCode, text: string): void {
+// A bundler hook runs outside the build's async scope, so a plugin passes the
+// compiler it was applied to and the line lands in that compiler's build.
+function listFor(compiler: object | undefined): string[] {
+  const named = compiler ? compilerLists.get(compiler) : undefined
+  const own = named ?? scopes.getStore()
+
+  if (own) return own
+
+  // With one build running, a line from nowhere can only be its own.
+  return activeBuilds.size === 1 ? [...activeBuilds][0] : pending
+}
+
+export function recordCodedWarning(
+  code: ErrorCode,
+  text: string,
+  compiler?: object
+): void {
   const line = `${code}: ${text}`
-  const lines = scopes.getStore() ?? pending
+  const lines = listFor(compiler)
 
   if (!lines.includes(line)) lines.push(line)
 }
 
-// A bundler hook runs outside the build's async scope, so what a plugin
-// records sits in the shared list and the build that asks first takes it.
+// Called by the build that made the compiler, inside its own scope.
+export function keepCodedWarningsOf(compiler: object): void {
+  const own = scopes.getStore()
+
+  if (own) compilerLists.set(compiler, own)
+}
+
+// The shared list holds what no build could be named for, and the build that
+// asks first takes it.
 export function takeCodedWarnings(): string[] {
   const own = scopes.getStore()
   const shared = pending.splice(0)
@@ -37,14 +61,16 @@ export function takeCodedWarnings(): string[] {
 // What an earlier run left behind is not this build's. A second build that
 // starts while one is running leaves the first one's warnings alone.
 export async function withCodedWarnings<T>(run: () => Promise<T>): Promise<T> {
-  if (activeBuilds === 0) pending.length = 0
+  if (activeBuilds.size === 0) pending.length = 0
 
-  activeBuilds += 1
+  const own: string[] = []
+
+  activeBuilds.add(own)
 
   try {
-    return await scopes.run([], run)
+    return await scopes.run(own, run)
   } finally {
-    activeBuilds -= 1
+    activeBuilds.delete(own)
   }
 }
 

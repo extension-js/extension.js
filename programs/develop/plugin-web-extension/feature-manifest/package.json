@@ -3,14 +3,14 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Internal placeholder for future extraction from extension.js (plugin-extension/feature-manifest).",
+  "description": "Internal placeholder for future extraction from extension.js (plugin-web-extension/feature-manifest).",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/extension-js/extension.js.git",
-    "directory": "programs/develop/plugin-extension/feature-manifest"
+    "directory": "programs/develop/plugin-web-extension/feature-manifest"
   },
-  "x-internal-path": "programs/develop/plugin-extension/feature-manifest",
+  "x-internal-path": "programs/develop/plugin-web-extension/feature-manifest",
   "x-legacy-npm": [
     "webpack-browser-extension-manifest",
     "webpack-browser-extension-manifest-compat"
