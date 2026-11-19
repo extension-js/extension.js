@@ -1088,6 +1088,7 @@ export async function importExternalTemplate(
       }
 
       const abort = new AbortController()
+      const budget = startFetchBudget(timeoutMs)
 
       try {
         await withTimeout(
@@ -1097,11 +1098,10 @@ export async function importExternalTemplate(
             messages.installingFromTemplate(templateName),
             abort.signal
           ),
-          timeoutMs,
+          budget.ms,
           () => {
-            const timedOut = new Error(
-              messages.templateFetchTimedOut(templateName, timeoutMs)
-            )
+            // The reason alone: the URL frame around it is the one frame.
+            const timedOut = fetchBudgetSpent(budget)
             abort.abort(timedOut)
 
             return timedOut

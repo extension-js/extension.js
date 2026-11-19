@@ -202,16 +202,6 @@ export function templateUrlNotHttps(url: string) {
   )
 }
 
-export function templateFetchTimedOut(templateName: string, ms: number) {
-  return (
-    `${prefix('error')} Couldn't fetch the template ` +
-    `${colors.blue(templateName)} within ` +
-    `${Math.round(ms / 1000)}s.\n` +
-    `${colors.red('- Check your network connection.')}\n` +
-    `${colors.red('- Set')} ${colors.blue('EXTENSION_CREATE_TIMEOUT_MS')} ${colors.red('to allow more time.')}`
-  )
-}
-
 // A genuine "this slug is not in the catalog", distinct from a download/timeout
 // failure, which the old code mislabelled as "template not found" (#56).
 export function templateNotFoundInCatalog(
