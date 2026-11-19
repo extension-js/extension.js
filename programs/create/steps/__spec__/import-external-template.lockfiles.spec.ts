@@ -11,10 +11,8 @@ import {
 } from '../../__spec__/loopback-template-server'
 import {importExternalTemplate} from '../import-external-template'
 
-// The sidebar-monorepo-turborepo shape from BUGS_TO_FIX 123: the one catalog
-// template that committed a package-lock.json upstream. create injects the
-// `extension` devDependency after the copy, so a copied lockfile can only be
-// stale and `npm ci` fails on Missing: extension@<version> from lock file.
+// The one catalog template that committed lockfiles upstream. create adds the
+// `extension` devDependency after the copy, so a copied lockfile breaks `npm ci`.
 function makeCatalogZipWithLockfiles(): Buffer {
   const root = 'examples-main/examples/sidebar-monorepo-turborepo'
 
@@ -35,7 +33,7 @@ function makeCatalogZipWithLockfiles(): Buffer {
   )
 }
 
-describe('importExternalTemplate strips upstream lockfiles (BUGS_TO_FIX 123)', () => {
+describe('importExternalTemplate strips upstream lockfiles', () => {
   const savedEnv = {
     EXTENSION_ENV: process.env.EXTENSION_ENV,
     EXTENSION_ALLOW_HTTP_TEMPLATE: process.env.EXTENSION_ALLOW_HTTP_TEMPLATE,

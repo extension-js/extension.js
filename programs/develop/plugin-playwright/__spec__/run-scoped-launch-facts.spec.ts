@@ -98,7 +98,8 @@ describe('launch facts are scoped to the run that produced them', () => {
     expect(next.binaryProvenance).toBe('pinned')
   })
 
-  // Pins today's behavior. Ledger 1383 D1.
+  // Pins current behavior: a recompile keeps the binary and drops the other
+  // fields the launcher stamped.
   it.each([
     ['binary', '/browsers/chrome-pinned'],
     ['binaryProvenance', 'pinned'],

@@ -5,11 +5,15 @@ import fs from 'node:fs'
 
 const EM_DASH = '—'
 
+// The repository is public, so no file may point at the private bug tracker.
+// Bracketed letters keep the pattern from matching its own source.
+const TRACKER_REF = /BUGS[_]TO[_]FIX|\bl[e]dger\s+\d{2,}/i
+
 const EXTENSIONS = /\.(ts|tsx|js|jsx|mjs|cjs|md|mdx|json|yml|yaml|sh)$/
 
 // Paths where the character is data rather than prose.
 const EXCLUDED_PATHS = [
-  // This checker necessarily contains the character it searches for.
+  // This checker necessarily contains the patterns it searches for.
   'scripts/check-prose.mjs'
 ]
 
@@ -30,6 +34,7 @@ const tracked = execSync('git ls-files --cached --others --exclude-standard', {
   .filter((f) => !EXCLUDED_PATHS.some((p) => f.includes(p)))
 
 const offenders = []
+const trackerRefs = []
 
 for (const file of tracked) {
   let text
@@ -40,9 +45,16 @@ for (const file of tracked) {
     continue
   }
 
-  if (!text.includes(EM_DASH)) continue
+  const hasEmDash = text.includes(EM_DASH)
+  const hasTrackerRef = TRACKER_REF.test(text)
+
+  if (!hasEmDash && !hasTrackerRef) continue
 
   text.split('\n').forEach((line, i) => {
+    if (hasTrackerRef && TRACKER_REF.test(line)) {
+      trackerRefs.push({file, line: i + 1, text: line.trim()})
+    }
+
     if (!line.includes(EM_DASH)) return
     // Chinese typography uses a double em dash and is left alone.
     if (line.includes(EM_DASH + EM_DASH)) return
@@ -52,18 +64,35 @@ for (const file of tracked) {
   })
 }
 
-if (offenders.length === 0) {
-  console.log(`check-prose: no em dashes in ${tracked.length} tracked files`)
+if (offenders.length === 0 && trackerRefs.length === 0) {
+  console.log(
+    `check-prose: no em dashes or tracker references in ${tracked.length} tracked files`
+  )
+
   process.exit(0)
 }
 
-console.error(`check-prose: found ${offenders.length} em dash(es)\n`)
-
-for (const o of offenders) {
-  const snippet = o.text.length > 100 ? `${o.text.slice(0, 100)}...` : o.text
-  console.error(`  ${o.file}:${o.line}`)
-  console.error(`    ${snippet}\n`)
+function report(list) {
+  for (const o of list) {
+    const snippet = o.text.length > 100 ? `${o.text.slice(0, 100)}...` : o.text
+    console.error(`  ${o.file}:${o.line}`)
+    console.error(`    ${snippet}\n`)
+  }
 }
 
-console.error('Use a comma, a colon, or parentheses instead.')
+if (offenders.length > 0) {
+  console.error(`check-prose: found ${offenders.length} em dash(es)\n`)
+  report(offenders)
+  console.error('Use a comma, a colon, or parentheses instead.\n')
+}
+
+if (trackerRefs.length > 0) {
+  console.error(
+    `check-prose: found ${trackerRefs.length} private tracker reference(s)\n`
+  )
+
+  report(trackerRefs)
+  console.error('Say what the code or test does, without the tracker number.')
+}
+
 process.exit(1)

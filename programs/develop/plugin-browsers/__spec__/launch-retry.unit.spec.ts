@@ -210,7 +210,8 @@ describe('browser launch slot', () => {
     expect(dev.launch).toHaveBeenCalledTimes(1)
   })
 
-  // Pins today's behavior. Ledger 1382 D1.
+  // Pins current behavior: the browser runs with the extension, yet the
+  // logging failure reads as a failed launch and ready never fires.
   it('reports a logging setup failure as a browser that could not start, and never says ready', async () => {
     const dev = session(
       async () =>
@@ -234,7 +235,7 @@ describe('browser launch slot', () => {
     expect(dev.events).toEqual(['settled', 'error', 'compiled', 'compiled'])
   })
 
-  // Pins today's behavior. Ledger 1382 D6.
+  // Pins current behavior: only the message reaches the public error event.
   it("drops the launcher's error code from the emitted error", async () => {
     const dev = session(async () => {
       throw Object.assign(new Error('Chrome binary not found'), {
@@ -248,7 +249,7 @@ describe('browser launch slot', () => {
     expect(JSON.stringify(dev.errors)).not.toContain('E_BROWSER_NOT_FOUND')
   })
 
-  // Pins today's behavior. Ledger 1382 D7.
+  // Pins current behavior: 'close' is declared on the plugin and never fires.
   it("never emits the declared 'close' event, and taps no hook that could", async () => {
     const dev = session(async () => controller())
 
