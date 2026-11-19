@@ -14,7 +14,10 @@ import {
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
 import {builtBackgroundNamesRegistration} from './browsers-lib/built-boot-registrations'
-import {claimDebugPortNear} from './browsers-lib/debug-port-claim'
+import {
+  claimDebugPortNear,
+  type DebugPortClaim
+} from './browsers-lib/debug-port-claim'
 import {findIgnoredHostPermissionPatterns} from './browsers-lib/manifest-refusal'
 import {
   browserNeverStarted,
@@ -485,14 +488,28 @@ async function launchPreviewSession(
     onLauncher(launcher)
     // A reader waits for the card, so the port is claimed and on the record
     // before it prints. The launch clears it if the browser opens none.
-    const debugPortClaim = opts.dryRun
-      ? undefined
-      : await claimDebugPortNear(
-          deriveDebugPortWithInstance(
-            chromiumOptions.port,
-            chromiumOptions.instanceId
+    let debugPortClaim: DebugPortClaim | undefined
+
+    try {
+      debugPortClaim = opts.dryRun
+        ? undefined
+        : await claimDebugPortNear(
+            deriveDebugPortWithInstance(
+              chromiumOptions.port,
+              chromiumOptions.instanceId
+            )
           )
-        )
+    } catch (error) {
+      // No launcher runs to stamp it, so the refusal is recorded here.
+      stampReadyBrowserLaunchFailed(
+        opts.outPath,
+        describeLaunchFailure(error),
+        runId,
+        launchFailureCode(error)
+      )
+
+      throw error
+    }
 
     if (debugPortClaim) {
       stampReadyCdpPort(opts.outPath, debugPortClaim.port, runId)
