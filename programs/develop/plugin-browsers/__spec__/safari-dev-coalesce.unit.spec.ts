@@ -654,10 +654,10 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
   }
 
   // Neither of the two failures the packager prints for itself (converter
-  // and xcodebuild), so this plugin is the only one that can name it.
-  it('prints a first-package failure of its own and stamps the session contract', async () => {
+  // and xcodebuild), so this plugin is the only one that can name it. The
+  // packager stamps the session contract before it throws.
+  it('prints a first-package failure of its own and never says ready', async () => {
     const errors = printedErrors()
-    const contract = safariContract()
     const ready = vi.fn()
     const plugin = new SafariDevPlugin(async () => {
       throw new Error("EACCES: permission denied, open 'Info.plist'")
@@ -666,44 +666,36 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     const {compiler, trigger} = makeCompiler()
     plugin.apply(compiler)
 
-    await trigger(contract.output)
+    await trigger('/out1')
 
     expect(errors).toHaveLength(1)
     expect(errors[0]).toContain("Safari couldn't start")
     expect(errors[0]).toContain('EACCES: permission denied')
     expect(ready).not.toHaveBeenCalled()
-    expect(contract.read()).toMatchObject({
-      status: 'error',
-      code: 'browser_launch_failed',
-      browserLaunchFailedReason: "EACCES: permission denied, open 'Info.plist'"
-    })
   })
 
-  it('stamps a failure the packager already printed without printing it again', async () => {
+  it('prints nothing more for a first-package failure the packager already printed', async () => {
     const errors = printedErrors()
-    const contract = safariContract()
+    const failed: unknown[] = []
     const plugin = new SafariDevPlugin(async () => {
       throw Object.assign(new Error('xcodebuild failed (exit 65)'), {
         code: 'E_SAFARI_TOOLCHAIN',
         printed: true
       })
     })
+    plugin.emitter.on('error', (event) => failed.push(event))
     const {compiler, trigger} = makeCompiler()
     plugin.apply(compiler)
 
-    await trigger(contract.output)
+    await trigger('/out1')
 
     expect(errors).toEqual([])
-    expect(contract.read()).toMatchObject({
-      status: 'error',
-      code: 'browser_launch_failed',
-      browserLaunchFailedCode: 'E_SAFARI_TOOLCHAIN'
-    })
+    expect(failed).toEqual([{errors: ['xcodebuild failed (exit 65)']}])
   })
 
   // Safari still runs the build it took before, so a resync that failed is
   // said out loud and the session stays up.
-  it('prints a resync failure of its own and leaves the session contract ready', async () => {
+  it('prints a resync failure of its own', async () => {
     const errors = printedErrors()
     const contract = safariContract()
     const pkg = makeDeferredPackager()
@@ -727,8 +719,6 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     expect(errors).toHaveLength(1)
     expect(errors[0]).toContain('still runs the previous build')
     expect(errors[0]).toContain('EACCES: permission denied')
-    expect(contract.read()).toMatchObject({status: 'ready'})
-    expect(contract.read().code).toBeUndefined()
   })
 
   it('prints nothing more for a resync failure the packager already printed', async () => {

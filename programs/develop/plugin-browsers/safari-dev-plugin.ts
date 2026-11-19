@@ -20,8 +20,8 @@ import {
   reloadSurvivingPackage
 } from '../plugin-reload'
 import {waitAtMost} from './bounded-wait'
-import {clearLaunchFailed} from './contract-stamps'
 import {BuildEmitter, type RunnerPlugin, reportLaunchFailure} from './index'
+import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
 import * as browserMessages from './messages'
 
 // A cold xcodebuild takes minutes and the guided enable waits on the user, so
@@ -197,36 +197,33 @@ export class SafariDevPlugin implements RunnerPlugin {
 
     // A failed first package keeps firstRun true, so the next compile retries.
     if (outcome.state === 'rejected') {
-      this.reportFailure(target, 'full', outcome.error)
+      this.reportFailure('full', outcome.error)
 
       return
     }
 
+    // The packager never came back to stamp anything, so the stamp is ours.
+    const reason = browserMessages.safariFirstPackageTimedOut(
+      SAFARI_FIRST_PACKAGE_TIMEOUT_MS
+    )
+    stampLaunchTimedOut(target.outputPath, reason)
     this.reportFailure(
-      target,
       'full',
-      Object.assign(
-        new Error(
-          browserMessages.safariFirstPackageTimedOut(
-            SAFARI_FIRST_PACKAGE_TIMEOUT_MS
-          )
-        ),
-        {code: CODES.E_BROWSER_START_TIMEOUT}
-      )
+      Object.assign(new Error(reason), {code: CODES.E_BROWSER_START_TIMEOUT})
     )
 
     this.firstPackageStillRunning = true
     run.then(
       async () => {
         this.firstPackageStillRunning = false
-        clearLaunchFailed(target.outputPath, CODES.E_BROWSER_START_TIMEOUT)
+        clearLaunchTimedOut(target.outputPath)
         await this.afterPackage(target, 'full')
         this.drainQueuedSave()
       },
       (error: unknown) => {
         this.firstPackageStillRunning = false
         this.pending = null
-        this.reportFailure(target, 'full', error)
+        this.reportFailure('full', error)
       }
     )
   }
@@ -246,7 +243,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       await this.packager(target.outputPath, 'resync')
     } catch (error) {
       // A failed resync still drains pending.
-      this.reportFailure(target, 'resync', error)
+      this.reportFailure('resync', error)
 
       return
     }
@@ -298,20 +295,11 @@ export class SafariDevPlugin implements RunnerPlugin {
     })
   }
 
-  // The packager is Safari's launcher but stamps no failure, so a first
-  // package that failed takes the launch failure path with the stamp added.
-  // A resync leaves Safari on the previous build, which the line says.
-  private reportFailure(
-    target: SafariPackageTarget,
-    mode: 'full' | 'resync',
-    error: unknown
-  ) {
+  // A first package that failed takes the launch failure path, and the
+  // packager has stamped the contract. A resync leaves the previous build up.
+  private reportFailure(mode: 'full' | 'resync', error: unknown) {
     if (mode === 'full') {
-      reportLaunchFailure(this.emitter, {
-        browser: 'safari',
-        error,
-        stampOutputPath: target.outputPath
-      })
+      reportLaunchFailure(this.emitter, {browser: 'safari', error})
 
       return
     }

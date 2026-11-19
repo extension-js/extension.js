@@ -26,11 +26,7 @@ import {
 import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
 import {waitAtMost} from './bounded-wait'
-import {
-  clearLaunchFailed,
-  stampLaunchFailed,
-  stampLogCaptureFault
-} from './contract-stamps'
+import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
 import * as browserMessages from './messages'
 
 // The launcher bounds each step it waits on, the longest at 45 seconds, so a
@@ -65,18 +61,14 @@ export class BuildEmitter extends EventEmitter<BuildEventMap> {
 }
 
 // The one failure path for every engine: the line unless the launcher printed
-// it, the contract stamp when no launcher wrote one, then the public event.
+// it, then the public event. The launcher stamps the contract before it throws.
 export function reportLaunchFailure(
   emitter: BuildEmitter,
-  failure: {browser: string; error: unknown; stampOutputPath?: string}
+  failure: {browser: string; error: unknown}
 ): void {
   const {error} = failure
   const reason = error instanceof Error ? error.message : String(error)
   const fault = error as {code?: unknown; printed?: unknown} | null
-
-  if (failure.stampOutputPath) {
-    stampLaunchFailed(failure.stampOutputPath, error)
-  }
 
   // Print before emitting: the emitter's default 'error' listener swallows.
   if (fault?.printed !== true) {
@@ -345,7 +337,7 @@ export class BrowsersPlugin implements RunnerPlugin {
 
     if (outcome.state === 'resolved') {
       this.controller = outcome.value
-      await this.enableBrowserLogs(outputPath)
+      await this.enableBrowserLogs()
       this.announceLaunchSettled()
       this.announceReady()
 
@@ -364,15 +356,15 @@ export class BrowsersPlugin implements RunnerPlugin {
     }
 
     // The launcher never came back to stamp anything, so the stamp is ours.
+    const reason = browserMessages.browserLaunchTimedOut(
+      BROWSER_LAUNCH_TIMEOUT_MS
+    )
+    stampLaunchTimedOut(outputPath, reason)
     reportLaunchFailure(this.emitter, {
       browser,
-      error: Object.assign(
-        new Error(
-          browserMessages.browserLaunchTimedOut(BROWSER_LAUNCH_TIMEOUT_MS)
-        ),
-        {code: CODES.E_BROWSER_START_TIMEOUT}
-      ),
-      stampOutputPath: outputPath
+      error: Object.assign(new Error(reason), {
+        code: CODES.E_BROWSER_START_TIMEOUT
+      })
     })
 
     this.launchStillRunning = true
@@ -381,8 +373,8 @@ export class BrowsersPlugin implements RunnerPlugin {
         this.launchStillRunning = false
         this.controller = controller
         this.isFirstCompile = false
-        clearLaunchFailed(outputPath, CODES.E_BROWSER_START_TIMEOUT)
-        await this.enableBrowserLogs(outputPath)
+        clearLaunchTimedOut(outputPath)
+        await this.enableBrowserLogs()
         this.announceReady()
       },
       (error: unknown) => {
@@ -394,7 +386,7 @@ export class BrowsersPlugin implements RunnerPlugin {
 
   // The browser is already up with the extension, so a capture that fails is
   // a warning on a session that still goes ready, never a failed launch.
-  private async enableBrowserLogs(outputPath: string): Promise<void> {
+  private async enableBrowserLogs(): Promise<void> {
     const browserOptions = this.options.browserOptions
     const logLevel = browserOptions.logLevel || 'off'
 
@@ -429,7 +421,8 @@ export class BrowsersPlugin implements RunnerPlugin {
             {code: CODES.E_CDP_TIMEOUT}
           )
 
-    stampLogCaptureFault(outputPath, error)
+    // A rejection was stamped by the launcher. A capture that never answered
+    // is only warned about, as nothing came back to stamp it.
     humanWarn(
       browserMessages.browserLogCaptureFailed(
         browserOptions.browser,

@@ -273,48 +273,6 @@ describe('browser launch slot', () => {
     expect(dev.events).toEqual(['settled', 'ready', 'compiled', 'compiled'])
   })
 
-  it('names the logging fault on the session contract under a warning code', async () => {
-    const contract = sessionContract()
-    const dev = session(
-      async () =>
-        controller({
-          enableUnifiedLogging: vi.fn(async () => {
-            throw Object.assign(new Error('Log.enable timed out'), {
-              code: 'E_CDP_TIMEOUT'
-            })
-          })
-        }),
-      {browser: 'chrome', logLevel: 'info'},
-      contract.output
-    )
-
-    await dev.compile()
-
-    expect(contract.read()).toMatchObject({
-      status: 'ready',
-      cdpFaultCode: 'W_CDP_TIMEOUT',
-      cdpFaultMessage: expect.stringContaining('Log.enable timed out')
-    })
-  })
-
-  it('files a logging fault with no class of its own under the catch-all warning', async () => {
-    const contract = sessionContract()
-    const dev = session(
-      async () =>
-        controller({
-          enableUnifiedLogging: vi.fn(async () => {
-            throw new Error('logging refused')
-          })
-        }),
-      {browser: 'chrome', logLevel: 'info'},
-      contract.output
-    )
-
-    await dev.compile()
-
-    expect(contract.read().cdpFaultCode).toBe('W_CDP_OP_FAILED')
-  })
-
   // Pins current behavior: only the message reaches the public error event.
   it("drops the launcher's error code from the emitted error", async () => {
     const dev = session(async () => {
@@ -483,12 +441,10 @@ describe('a launch that never comes back', () => {
 
   it('stops waiting on a log capture that never answers, warns and says ready', async () => {
     vi.useFakeTimers()
-    const contract = sessionContract()
     const dev = session(
       async () =>
         controller({enableUnifiedLogging: () => new Promise<void>(() => {})}),
-      {browser: 'chrome', logLevel: 'info'},
-      contract.output
+      {browser: 'chrome', logLevel: 'info'}
     )
 
     void dev.compile()
@@ -496,10 +452,7 @@ describe('a launch that never comes back', () => {
 
     expect(dev.events).toEqual(['settled', 'ready', 'compiled'])
     expect(printed.warn).toHaveLength(1)
-    expect(contract.read()).toMatchObject({
-      status: 'ready',
-      cdpFaultCode: 'W_CDP_TIMEOUT'
-    })
+    expect(printed.warn[0]).toContain('did not answer')
   })
 
   it('launches again on the next compile after a late launch failed', async () => {
