@@ -720,12 +720,21 @@ async function followLogs(
     void exitAfterDrain(0)
   }
 
-  process.on('SIGINT', () => shutdown('SIGINT'))
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  const onSigint = () => shutdown('SIGINT')
+  const onSigterm = () => shutdown('SIGTERM')
+
+  process.on('SIGINT', onSigint)
+  process.on('SIGTERM', onSigterm)
 
   consumer.start()
+
   // The socket keeps the process alive while following. Returning once the
   // channel is gone for good lets the process end on its own, so the
   // beforeExit telemetry flush still runs and the exit code stays 0.
-  await settled
+  try {
+    await settled
+  } finally {
+    process.off('SIGINT', onSigint)
+    process.off('SIGTERM', onSigterm)
+  }
 }
