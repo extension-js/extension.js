@@ -216,7 +216,7 @@ describe('a command handed more arguments than it takes', () => {
 
   it('names the arguments past the last one the command takes', () => {
     expect(humanLines(excess, 'dev')).toEqual([
-      '⏵⏵⏵ Unexpected arguments: extension, folder. extension dev takes 1 argument.',
+      '⏵⏵⏵ Error: Unexpected arguments: extension, folder. extension dev takes 1 argument.',
       'Put quotes around a path that has spaces, or run extension dev --help to see the arguments.'
     ])
   })
@@ -232,7 +232,7 @@ describe('a command handed more arguments than it takes', () => {
     )
 
     expect(lines[0]).toBe(
-      '⏵⏵⏵ Unexpected argument: now. extension doctor takes no arguments.'
+      '⏵⏵⏵ Error: Unexpected argument: now. extension doctor takes no arguments.'
     )
   })
 
@@ -258,7 +258,7 @@ describe('a command handed more arguments than it takes', () => {
     )
 
     expect(lines[0]).toBe(
-      "⏵⏵⏵ Too many arguments for 'dev'. Expected 1 argument but got 2: a, b, c."
+      "⏵⏵⏵ Error: Too many arguments for 'dev'. Expected 1 argument but got 2: a, b, c."
     )
 
     expect(

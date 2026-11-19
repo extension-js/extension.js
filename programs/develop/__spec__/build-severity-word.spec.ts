@@ -25,8 +25,8 @@ const AMO_WARNING =
 // Captured from a build of this fixture before the word existed.
 const WARNING_FRAME_TEXT =
   `W_STORE_READINESS: ${AMO_WARNING}\n` +
-  'Declare {"required": ["none"]} if this extension transmits no data.\n' +
-  'See https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/ for details.'
+  "The extension's owner declares what the extension collects. The build proposes no value.\n" +
+  'See https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/ for the accepted values.'
 const ERROR_FRAME = {
   code: 'E_COMPILE',
   message: 'Build failed with errors',
@@ -137,13 +137,13 @@ describe('a build with one warning, read without color (built CLI)', () => {
 
     // The lines under it are the same block, so they take no word.
     expect(lines[at + 1]).toBe(
-      'Declare {"required": ["none"]} if this extension transmits no data.'
+      "The extension's owner declares what the extension collects. The build proposes no value."
     )
 
-    // The summary says "with warnings" itself, so it opens with the glyph alone.
+    // The summary names the warning count itself, so it opens with the glyph alone.
     expect(lines[0]).toMatch(
       new RegExp(
-        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper compiled with warnings in \\d+ ms\\.$`
+        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper compiled with 1 warning in \\d+ ms, listed below\\.$`
       )
     )
 
@@ -197,7 +197,7 @@ describe('a build that fails, read without color (built CLI)', () => {
     expect(result.status).toBe(1)
     expect(result.stdout.split('\n')[0]).toMatch(
       new RegExp(
-        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper compiled with errors in \\d+ ms\\.$`
+        `^${GLYPH} \\[\\d\\d:\\d\\d:\\d\\d\\] Quote Keeper failed to compile with 1 error in \\d+ ms\\.$`
       )
     )
 

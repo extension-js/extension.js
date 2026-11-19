@@ -1521,7 +1521,7 @@ describe('webpack/command-build', () => {
       )
 
       const block =
-        'The distribution zip was requested and not created.\n' +
+        'Error: The distribution zip was requested and not created.\n' +
         `PATH ${zipPath}\n` +
         'ENOSPC: no space left on device'
 
@@ -1622,7 +1622,10 @@ describe('webpack/command-build', () => {
 
         expect(failure?.code).toBe('E_DESTINATION_NOT_WRITABLE')
         const lines = plain(failure?.message).split('\n')
-        expect(lines[0]).toBe("Couldn't move the finished build into place.")
+        expect(lines[0]).toBe(
+          "Error: Couldn't move the finished build into place."
+        )
+
         expect(lines[1]).toBe(`PATH ${path.join(tmp, 'dist', 'chrome')}`)
         expect(lines[2]).toContain('ENOENT')
         expect(lines[3]).toBe(
@@ -1655,7 +1658,7 @@ describe('webpack/command-build', () => {
 
         expect(failure?.code).toBe('E_PREVIEW_NO_DIST')
         expect(plain(failure?.message).split('\n')[0]).toBe(
-          'No build output to package for Safari.'
+          'Error: No build output to package for Safari.'
         )
       } finally {
         realFs.rmSync(tmp, {recursive: true, force: true})

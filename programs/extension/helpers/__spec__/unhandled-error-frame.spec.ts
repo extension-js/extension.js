@@ -59,7 +59,7 @@ describe('the last frame a failure passes through', () => {
       unhandledError(Object.assign(new Error(message), {code}))
     )
 
-    expect(printed).toBe(`${GLYPH} ${message}`)
+    expect(printed).toBe(`${GLYPH} Error: ${message}`)
   })
 
   it('keeps the stack of a coded refusal under EXTENSION_DEBUG', () => {

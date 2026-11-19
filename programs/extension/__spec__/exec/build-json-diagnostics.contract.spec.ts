@@ -347,7 +347,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ A color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].',
         '    │ The browser refuses the whole extension over one such value, so the build stops here.',
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -929,7 +929,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ NOT FOUND ./nope.png',
         "    │ Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -978,7 +978,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    × default_locale is set, but the _locales folder is missing.',
         '    │ Add _locales/<default>/messages.json.',
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }

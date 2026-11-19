@@ -257,7 +257,7 @@ describe('perfBudgets.onExceed', () => {
     ).toEqual({
       code: 'E_CONFIG_LOAD',
       message:
-        `⏵⏵⏵ perfBudgets.onExceed in extension.config.js must be 'warn' or 'error', found ${found}.\n` +
+        `⏵⏵⏵ Error: perfBudgets.onExceed in extension.config.js must be 'warn' or 'error', found ${found}.\n` +
         'PATH /project/extension.config.js\n' +
         "Write onExceed: 'error' to fail the build when a file is over its budget, or leave it out to keep the warning."
     })
