@@ -7,13 +7,28 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
-  devContentScriptCssMarkerAssetName,
-  devContentScriptSheetProbeAssetName,
-  devContentScriptStubAssetName,
   getCanonicalContentScriptEntryName,
   parseCanonicalContentScriptAsset
 } from '../../plugin-web-extension/feature-scripts/contracts'
 import type {Manifest} from '../../types'
+
+// One set per manifest group. `isDevContentScriptStandInAsset` in the
+// scripts contracts knows all three names, so a feature skips them.
+export function devContentScriptStubAssetName(index: number): string {
+  return `content_scripts/dev-stub-${index}.js`
+}
+
+// A CSS-only entry has no bundle to mark its world, so this script stands in
+// for one: Chromium injects it beside the stylesheet and stamps the frame.
+export function devContentScriptCssMarkerAssetName(index: number): string {
+  return `content_scripts/dev-css-${index}.js`
+}
+
+// Chromium adds a registered sheet at document start and offers no way to ask
+// whether it did. A one-rule sheet registered with the entry's own answers.
+export function devContentScriptSheetProbeAssetName(index: number): string {
+  return `content_scripts/dev-sheet-${index}.css`
+}
 
 // Chromium loads a static content script's bytes once, at extension load, so
 // an edit can never reach a page through the manifest entry. In development
