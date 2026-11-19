@@ -27,6 +27,9 @@ import * as browserMessages from './messages'
 // the first package gets a long bound. Only a hung tool reaches it.
 export const SAFARI_FIRST_PACKAGE_TIMEOUT_MS = 10 * 60_000
 
+// A resync is xcodebuild alone, with no step that waits on the user.
+export const SAFARI_RESYNC_TIMEOUT_MS = 5 * 60_000
+
 // The dev plugin ignores whatever the packager reports back (only `build`
 // folds it into a summary), so the return is deliberately unconstrained.
 export type SafariPackagerFn = (
@@ -36,11 +39,11 @@ export type SafariPackagerFn = (
 
 // Safari reloads through the same control bridge every other engine uses, and
 // the dev server runs the bundler in watch mode. This plugin rides that watch
-// loop: the first
-// successful compile blocks for the full package
-// (convert > xcodebuild > open > guided enable); every later compile resyncs
-// xcodebuild in the background so the bundler loop is never blocked, and a
-// burst of saves collapses to a single follow-up against the newest output.
+// loop: the first successful compile blocks for the full package (convert >
+// xcodebuild > open > guided enable), and every later compile blocks for its
+// resync, so no build writes into the dist xcodebuild is reading. Each wait is
+// bounded, and builds that end while a package still runs collapse into one
+// follow-up against the newest output.
 type SafariPackageTarget = {
   outputPath: string
   contextDir: string
@@ -155,8 +158,7 @@ export class SafariDevPlugin implements RunnerPlugin {
         return
       }
 
-      this.active = true
-      void this.drain(target)
+      await this.resync(target)
     })
   }
 
@@ -168,20 +170,40 @@ export class SafariDevPlugin implements RunnerPlugin {
     return new Promise<void>((resolve) => this.idleWaiters.push(resolve))
   }
 
-  private async drain(target: SafariPackageTarget) {
-    try {
-      let next: SafariPackageTarget | null = target
+  // Waits on its own package only. A follow-up queued behind it runs on,
+  // and a run past the bound keeps going while the hook returns.
+  private async resync(target: SafariPackageTarget) {
+    this.active = true
+    const run = this.runResync(target)
+    const outcome = await waitAtMost(run, SAFARI_RESYNC_TIMEOUT_MS)
 
-      while (next) {
-        await this.runResync(next)
-        // Collapse everything queued during the run into one follow-up.
-        next = this.pending
-        this.pending = null
-      }
-    } finally {
-      this.active = false
-      this.settleIdle()
+    if (outcome.state !== 'timeout') {
+      this.resyncFinished()
+
+      return
     }
+
+    this.reportFailure(
+      'resync',
+      new Error(browserMessages.safariPackageTimedOut(SAFARI_RESYNC_TIMEOUT_MS))
+    )
+
+    void run.then(() => this.resyncFinished())
+  }
+
+  // Collapse everything queued during the run into one follow-up.
+  private resyncFinished() {
+    const next = this.pending
+    this.pending = null
+
+    if (next) {
+      void this.resync(next)
+
+      return
+    }
+
+    this.active = false
+    this.settleIdle()
   }
 
   private async runFirst(target: SafariPackageTarget) {
@@ -204,7 +226,7 @@ export class SafariDevPlugin implements RunnerPlugin {
     }
 
     // The packager never came back to stamp anything, so the stamp is ours.
-    const reason = browserMessages.safariFirstPackageTimedOut(
+    const reason = browserMessages.safariPackageTimedOut(
       SAFARI_FIRST_PACKAGE_TIMEOUT_MS
     )
     stampLaunchTimedOut(target.outputPath, reason)
@@ -235,8 +257,7 @@ export class SafariDevPlugin implements RunnerPlugin {
     if (!next || this.active) return
 
     this.pending = null
-    this.active = true
-    void this.drain(next)
+    void this.resync(next)
   }
 
   private async runResync(target: SafariPackageTarget) {
@@ -292,7 +313,8 @@ export class SafariDevPlugin implements RunnerPlugin {
     this.emitter.emit('compiled', {
       outputPath: target.outputPath,
       contextDir: target.contextDir,
-      isFirstCompile: wasFirstRun
+      isFirstCompile: wasFirstRun,
+      ...(target.instruction ? {reloadInstruction: target.instruction} : {})
     })
   }
 

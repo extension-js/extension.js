@@ -31,7 +31,8 @@ export function browserLogCaptureTimedOut(ms: number) {
   return `The browser did not answer the request to capture logs within ${minutes(ms)}.`
 }
 
-export function safariFirstPackageTimedOut(ms: number) {
+// The first package and a resync share it: either way a later finish counts.
+export function safariPackageTimedOut(ms: number) {
   return `The Safari package did not finish within ${minutes(ms)}, so the dev server stopped waiting for it. A package that finishes later is still picked up.`
 }
 
