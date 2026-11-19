@@ -159,15 +159,22 @@ function printBuildCard(
   manifestPath: string,
   browser: string,
   distPath: string,
-  projectRoot: string
+  projectRoot: string,
+  writtenDir: string
 ) {
   if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return
 
   let extensionLabel = ''
 
   try {
-    const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+    // The written manifest has its $EXTENSION_PUBLIC_* values filled, so the
+    // card names what ships. The source stands in when none was written.
+    const written = nodePath.join(writtenDir, 'manifest.json')
+    const manifest = parseJsonSafe(
+      fs.readFileSync(fs.existsSync(written) ? written : manifestPath, 'utf-8')
+    )
     const name = resolveLocalizedManifestName(manifest, [
+      writtenDir,
       nodePath.dirname(manifestPath),
       projectRoot
     ])
@@ -862,7 +869,8 @@ async function runBuild(
             projectStructure.manifestPath,
             browser,
             displayDistPath,
-            packageJsonDir
+            packageJsonDir,
+            useStagingSwap ? stagingDistPath : displayDistPath
           )
 
           if (!silent) {
