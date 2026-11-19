@@ -777,6 +777,24 @@ describe('extension dev and the hint of a failed start', () => {
       {code: 'E_PROFILE_LOCKED', ...extra}
     )
 
+  it.each([
+    [
+      'E_MANIFEST_NOT_FOUND',
+      'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+    ],
+    [
+      'E_MANIFEST_IN_PUBLIC',
+      'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+    ]
+  ])('frames %s as usage with the way out', async (code, hint) => {
+    engine = async () => {
+      throw Object.assign(new Error('Manifest file not found.'), {code})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'usage', error: {code}, hint}])
+  })
+
   it('puts the hint on the frame it prints itself', async () => {
     engine = async () => {
       throw locked()
