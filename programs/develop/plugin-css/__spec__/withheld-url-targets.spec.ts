@@ -183,6 +183,13 @@ const deadRefRequests = (warnings: string[] = []) =>
     .filter(Boolean)
     .sort()
 
+// A file that is there and withheld is told so, in words of its own.
+const withheldRequests = (warnings: string[] = []) =>
+  warnings
+    .map((warning) => /(\S+) is not bundled\./.exec(warning)?.[1])
+    .filter(Boolean)
+    .sort()
+
 const ALIAS_CONFIG = [
   "const path = require('path')",
   'module.exports = {',
@@ -286,7 +293,7 @@ describe('a url() that names a file the build withholds, built', () => {
         )
       }
 
-      expect(deadRefRequests(summary.warnings)).toEqual(
+      expect(withheldRequests(summary.warnings)).toEqual(
         LINES.filter((line) => line.warns.includes(folder))
           .map((line) => line.request)
           .sort()
@@ -356,7 +363,7 @@ describe('a url() that names a file the build withholds, built', () => {
     expect(shipped).not.toContain(inlined('MARKER_SIBLING_ENV'))
     expect(
       (summary.warnings ?? []).map(
-        (warning) => /A url\((\S+)\) reference points/.exec(warning)?.[1]
+        (warning) => /(\S+) is not bundled\./.exec(warning)?.[1]
       )
     ).toEqual(['../../shared/.env'])
   }, 120_000)
@@ -467,7 +474,7 @@ describe('a url() that names a file the build withholds, built', () => {
           shipped.includes(inlined('ALLOWED_BLOCK_IMAGE'))
       ).toBe(true)
 
-      expect(deadRefRequests(summary.warnings)).toEqual(['./.env.css', '.env'])
+      expect(withheldRequests(summary.warnings)).toEqual(['./.env.css', '.env'])
     },
     120_000
   )
@@ -549,7 +556,7 @@ describe('a url() that names a file the build withholds, built', () => {
         expect(shipped).toContain(`url(${request})`)
       }
 
-      expect(deadRefRequests(summary.warnings)).toEqual(requests)
+      expect(withheldRequests(summary.warnings)).toEqual(requests)
     },
     120_000
   )
@@ -608,7 +615,7 @@ describe('a url() that names a file the build withholds, built', () => {
         expect(shipped).not.toContain(inlined(marker))
       }
 
-      expect(deadRefRequests(summary.warnings)).toEqual([request])
+      expect(withheldRequests(summary.warnings)).toEqual([request])
     },
     120_000
   )
@@ -683,6 +690,7 @@ describe('a page sheet url() an alias places, built', () => {
       expect(summary.errors_count).toBe(0)
       expect(ships(shipped, text)).toBe(true)
       expect(deadRefRequests(summary.warnings)).toEqual([])
+      expect(withheldRequests(summary.warnings)).toEqual([])
     },
     120_000
   )
@@ -700,7 +708,7 @@ describe('a page sheet url() an alias places, built', () => {
       expect(summary.errors_count).toBe(0)
       expect(ships(shipped, marker)).toBe(false)
       expect(shipped).toContain(`url(${name})`)
-      expect(deadRefRequests(summary.warnings)).toEqual([name])
+      expect(withheldRequests(summary.warnings)).toEqual([name])
     },
     120_000
   )
