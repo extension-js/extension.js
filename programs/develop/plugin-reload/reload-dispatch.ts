@@ -359,10 +359,32 @@ export interface ChangedSourcesTracker {
   snapshot(): ChangedSourcesSnapshot
 }
 
-function isForcedFullPath(normalized: string): boolean {
-  return (
-    normalized.includes('manifest.json') || normalized.includes('_locales/')
-  )
+// The manifest each compiler builds, as ReloadPlugin was given it.
+const manifestPaths = new WeakMap<object, string>()
+
+export function noteManifestPath(compiler: object, manifestPath: string) {
+  manifestPaths.set(compiler, manifestPath)
+}
+
+// The project-relative manifest a full reload is forced for. Without one
+// noted, the two places a project keeps it.
+function manifestSources(compiler: Compiler, contextDir: string): string[] {
+  const noted = manifestPaths.get(compiler)
+
+  if (noted) return [projectRelative(contextDir, noted)]
+
+  return ['manifest.json', 'src/manifest.json']
+}
+
+// Only the manifest itself and the _locales folder beside it are read once
+// at load, so only they need the whole extension reloaded.
+function isForcedFullPath(normalized: string, manifests: string[]): boolean {
+  return manifests.some((manifest) => {
+    const folder = path.posix.dirname(manifest)
+    const locales = folder === '.' ? '_locales/' : `${folder}/_locales/`
+
+    return normalized === manifest || normalized.startsWith(locales)
+  })
 }
 
 function isHotAsset(normalized: string): boolean {
@@ -401,12 +423,13 @@ function pushChanged(
   into: string[],
   file: string,
   contextDir: string,
+  manifests: string[],
   markForced: () => void
 ): void {
   const normalized = normalizeChangedPath(file, contextDir)
   if (!normalized) return
   if (!into.includes(normalized)) into.push(normalized)
-  if (isForcedFullPath(normalized)) markForced()
+  if (isForcedFullPath(normalized, manifests)) markForced()
 }
 
 // Taps watchRun and records changed files for the next compile, shared by both
@@ -438,6 +461,7 @@ export function createChangedSourcesTracker(
     if (!files) return
 
     const ctx = contextDir()
+    const manifests = manifestSources(compiler, ctx)
 
     for (const file of files) {
       const raw = String(file || '')
@@ -445,7 +469,7 @@ export function createChangedSourcesTracker(
       if (path.isAbsolute(raw) && isDirectory(raw)) {
         if (!changedFolders.includes(raw)) changedFolders.push(raw)
       } else {
-        pushChanged(into, file, ctx, markForced)
+        pushChanged(into, file, ctx, manifests, markForced)
       }
     }
   }
@@ -462,6 +486,7 @@ export function createChangedSourcesTracker(
     if (!reads) return
 
     const ctx = contextDir()
+    const manifests = manifestSources(compiler, ctx)
     const named = filesBehindFolders({
       contextDir: ctx,
       folders: changedFolders,
@@ -469,13 +494,15 @@ export function createChangedSourcesTracker(
       readBefore
     })
 
-    for (const rel of named) pushChanged(changedSources, rel, ctx, markForced)
+    for (const rel of named) {
+      pushChanged(changedSources, rel, ctx, manifests, markForced)
+    }
 
     const publicRoots = relativePublicRootsOf(compiler, ctx)
 
     changedSources = changedSources.filter(
       (rel) =>
-        isForcedFullPath(rel) ||
+        isForcedFullPath(rel, manifests) ||
         wasReadByBuild(rel, {contextDir: ctx, reads, readBefore, publicRoots})
     )
 
@@ -502,7 +529,8 @@ export function createChangedSourcesTracker(
     forcedFull =
       forcedFull ||
       heldForcedFull ||
-      writtenAssets.some((file) => isForcedFullPath(file))
+      // Emitted names are relative to the output root.
+      writtenAssets.some((file) => isForcedFullPath(file, ['manifest.json']))
 
     heldSources = []
     heldForcedFull = false
