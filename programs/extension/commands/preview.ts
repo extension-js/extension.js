@@ -120,8 +120,10 @@ export const PREVIEW_FAILED_CODES: ReadonlySet<ErrorCode> = new Set([
   CODES.E_REMOTE_FETCH_TIMEOUT
 ])
 
-// Copy the preview failure path is matched on, pinned by a spec against the
-// real producers so a rewrite fails loudly instead of downgrading to E_INTERNAL.
+const PREVIEW_NO_DIST_HINT = 'Run `extension build` before previewing.'
+
+// Copy matched only when the engine throws uncoded, pinned against the real
+// producers so a rewrite fails loudly instead of downgrading to E_INTERNAL.
 export const PREVIEW_NOT_FOUND_NEEDLES = [
   'Preview is run-only',
   'Manifest file not found'
@@ -485,11 +487,16 @@ export function registerPreviewCommand(
 
             if (declared) {
               // A browser, config or remote archive that failed is a failed
-              // run and not a mistyped command.
-              const status = PREVIEW_FAILED_CODES.has(declared)
-                ? 'failed'
-                : 'usage'
-              const hint = failureHint(declared)
+              // run and not a mistyped command. Nothing built yet is its own.
+              const nothingBuilt = declared === CODES.E_PREVIEW_NO_DIST
+              const status = nothingBuilt
+                ? 'not-found'
+                : PREVIEW_FAILED_CODES.has(declared)
+                  ? 'failed'
+                  : 'usage'
+              const hint = nothingBuilt
+                ? PREVIEW_NO_DIST_HINT
+                : failureHint(declared)
 
               emit(
                 ENVELOPE.fail(
@@ -522,9 +529,7 @@ export function registerPreviewCommand(
                     : CODES.E_INTERNAL,
                   message
                 },
-                nothingToPreview
-                  ? {hint: 'Run `extension build` before previewing.'}
-                  : {}
+                nothingToPreview ? {hint: PREVIEW_NO_DIST_HINT} : {}
               )
             )
 
