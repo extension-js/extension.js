@@ -450,6 +450,7 @@ const PREVIEW_KEYS = [
   'open',
   'startingUrl',
   'port',
+  'host',
   'logs',
   'logContext',
   'logFormat',
