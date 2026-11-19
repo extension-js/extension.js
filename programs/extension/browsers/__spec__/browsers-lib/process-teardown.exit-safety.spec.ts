@@ -6,18 +6,22 @@ describe('process-teardown shared module', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it('gracefulTerminateChild asks the child to stop, and is a no-op once killed', async () => {
-    const {gracefulTerminateChild} = await import(
+    const {gracefulTerminateChild, teardownDefaults} = await import(
       '../../browsers-lib/process-teardown'
     )
+    // Windows asks the tree instead of signaling, a row of its own covers it.
+    const deps = {...teardownDefaults, platform: 'linux' as const}
     const child: any = {killed: false, kill: vi.fn()}
-    gracefulTerminateChild(child, 'chrome' as any)
+    gracefulTerminateChild(child, 'chrome' as any, undefined, deps)
     expect(child.kill).toHaveBeenCalledWith('SIGTERM')
 
     const killed: any = {killed: true, kill: vi.fn()}
-    gracefulTerminateChild(killed, 'chrome' as any)
+    gracefulTerminateChild(killed, 'chrome' as any, undefined, deps)
     expect(killed.kill).not.toHaveBeenCalled()
 
-    expect(() => gracefulTerminateChild(null, 'chrome' as any)).not.toThrow()
+    expect(() =>
+      gracefulTerminateChild(null, 'chrome' as any, undefined, deps)
+    ).not.toThrow()
   })
 
   it('forceKillChildOnExit SIGKILLs synchronously and survives an already-dead child', async () => {
@@ -102,7 +106,10 @@ describe('chromium exit handler force-kills a stubborn child', () => {
       h()
     })
 
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM')
+    // Windows asks the process tree to close rather than signal it.
+    expect(child.kill.mock.calls).toEqual(
+      process.platform === 'win32' ? [] : [['SIGTERM']]
+    )
 
     cap.registered.get('exit')?.forEach((h) => {
       h()
@@ -143,7 +150,10 @@ describe('firefox exit handler force-kills a stubborn child', () => {
     })
 
     await new Promise((r) => setTimeout(r, 20))
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM')
+    // Windows asks the process tree to close rather than signal it.
+    expect(child.kill.mock.calls).toEqual(
+      process.platform === 'win32' ? [] : [['SIGTERM']]
+    )
 
     cap.registered.get('exit')?.forEach((h) => {
       h()

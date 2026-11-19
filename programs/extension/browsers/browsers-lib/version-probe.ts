@@ -13,6 +13,7 @@ import {getEdgeVersion} from 'edge-location'
 import {getFirefoxVersion} from 'firefox-location2'
 import {CODES} from '../../helpers/messaging'
 import * as messages from './messages'
+import {windowsTaskkillPath} from './process-teardown'
 
 export const VERSION_PROBE_TIMEOUT_MS = 10_000
 
@@ -27,7 +28,7 @@ function killProbeTree(pid: number | undefined): void {
 
   try {
     if (process.platform === 'win32') {
-      spawn('taskkill', ['/PID', String(pid), '/T', '/F'], {
+      spawn(windowsTaskkillPath(), ['/PID', String(pid), '/T', '/F'], {
         stdio: 'ignore',
         windowsHide: true
       }).on('error', () => {})
