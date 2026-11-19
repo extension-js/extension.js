@@ -43,8 +43,6 @@ export default {
 ```ts
 export class StaticAssetsPlugin {
   static readonly name: 'plugin-static-assets'
-  // rspack-config.ts passes the shared plugin options. None is read.
-  constructor(options?: {manifestPath: string; mode?: 'development' | 'production'})
   apply(compiler: import('@rspack/core').Compiler): void
 }
 ```
