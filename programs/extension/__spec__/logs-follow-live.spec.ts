@@ -137,11 +137,9 @@ function signalListenerCounts() {
   }
 }
 
-// Timers that hold the process open, a reconnect backoff among them.
-function pendingTimers(): number {
-  return process.getActiveResourcesInfo().filter((kind) => kind === 'Timeout')
-    .length
-}
+// Longer than the follower's first reconnect backoff (250 ms), so a follower
+// that would dial again has done so inside it.
+const RECONNECT_WINDOW_MS = 750
 
 // A CI runner that is starved by a sibling suite can take well over three
 // seconds to spawn the follower, so the window widens there.
@@ -191,7 +189,8 @@ describe('extension logs --follow over the live control channel', () => {
       ring: new LogRingBuffer(2)
     })
     server = await startControlServer({broker})
-    writeReady({controlPort: server.port})
+    const port = server.port
+    writeReady({controlPort: port})
 
     for (const message of ['boot', 'second', 'third']) {
       broker.ingestLog(incoming(message))
@@ -247,8 +246,6 @@ describe('extension logs --follow over the live control channel', () => {
 
     // The engine ends a session by stamping the contract before the channel
     // goes away. The follower must notice and hand back the terminal.
-    const timersWhileFollowing = pendingTimers()
-
     writeReady({controlPort: server.port, status: 'stopped'})
     await server.close()
     server = null
@@ -272,9 +269,12 @@ describe('extension logs --follow over the live control channel', () => {
     // Ctrl+C in the same process.
     expect(signalListenerCounts()).toEqual(listenersBefore)
 
-    // Nothing else may print: the consumer is closed, so no reconnect backoff
-    // is left pending to dial the port again.
-    expect(pendingTimers()).toBe(timersWhileFollowing)
+    // The consumer is closed, so nothing dials the port again. Read on the
+    // wire: a count of the process's timers also sees every other timer.
+    server = await startControlServer({broker, port})
+    await sleep(RECONNECT_WINDOW_MS)
+
+    expect(broker.consumerCount).toBe(0)
   })
 
   it('rides out a server restart and ends on a refused hello', async () => {
