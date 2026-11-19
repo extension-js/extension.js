@@ -627,6 +627,58 @@ describe('extension build', () => {
     ])
   })
 
+  it('carries the coded warnings of a failed build in the failure frame', async () => {
+    const coded = 'W_CSS_NOT_APPLIED: a coded warning'
+    const perf = 'W_PERF_BUDGET: an asset over budget'
+    let call = 0
+
+    // The first browser builds with a warning, the second fails carrying it
+    // again plus its own, so the frame lists each coded line once.
+    build = async () => {
+      call += 1
+
+      if (call === 1) return {browser: 'chrome', warnings: [coded]}
+
+      throw Object.assign(new Error('Build failed with errors'), {
+        code: 'E_COMPILE',
+        warnings: [coded, 'a plain warning', perf, perf]
+      })
+    }
+
+    expect(
+      await run([
+        'build',
+        '.',
+        '--browser',
+        'chrome,firefox',
+        '--output',
+        'json'
+      ])
+    ).toBe(1)
+
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'build',
+        status: 'build-failed',
+        value: null,
+        error: {code: 'E_COMPILE', message: 'Build failed with errors'},
+        hint: 'Fix the error above and run build again.',
+        warnings: [coded, perf]
+      }
+    ])
+  })
+
+  it('gives a failure frame an empty warnings array when none were carried', async () => {
+    build = async () => {
+      throw new Error('Build failed with errors')
+    }
+
+    expect(await run(['build', '.', '--output', 'json'])).toBe(1)
+    expect(frames().map((frame) => frame.warnings)).toEqual([[]])
+  })
+
   // The golden envelope is what a host reads to learn the build frame's shape
   // without running a build. It shipped documenting `{projectPath, browsers,
   // mode}` long after `summaries` joined `value`, so a reader was told the
