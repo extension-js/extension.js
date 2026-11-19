@@ -628,8 +628,8 @@ describe('extension build', () => {
   })
 
   it('carries the coded warnings of a failed build in the failure frame', async () => {
-    const coded = 'E_CONFIG_LOAD: a coded warning'
-    const perf = 'E_PERF_BUDGET: an asset over budget'
+    const coded = 'W_CSS_NOT_APPLIED: a coded warning'
+    const perf = 'W_PERF_BUDGET: an asset over budget'
     let call = 0
 
     // The first browser builds with a warning, the second fails carrying it
