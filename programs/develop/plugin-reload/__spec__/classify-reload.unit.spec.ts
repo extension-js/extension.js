@@ -14,40 +14,6 @@ const makeTempFolder = trackTempFolders()
 
 const count = (n: number) => () => n
 
-describe('classifyReloadFromSources with an unreadable bundle index', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    vi.restoreAllMocks()
-  })
-
-  const classify = () =>
-    classifyReloadFromSources({
-      changedSources: ['src/popup/index.js'],
-      getContentScriptCount: count(0),
-      getSourceFeatureIndex: () => {
-        throw new Error('module graph gone')
-      }
-    })
-
-  it('says so in a debug session and still classifies by name', () => {
-    vi.stubEnv('EXTENSION_DEBUG', '1')
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    expect(classify()?.type).toBe('page')
-    expect(log.mock.calls.map((call) => String(call[0]))).toEqual([
-      expect.stringContaining('module graph gone')
-    ])
-  })
-
-  it('prints nothing outside a debug session', () => {
-    vi.stubEnv('EXTENSION_DEBUG', '0')
-    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-
-    expect(classify()?.type).toBe('page')
-    expect(log).not.toHaveBeenCalled()
-  })
-})
-
 describe('classifyReloadFromSources', () => {
   it('returns undefined when nothing changed', () => {
     expect(
@@ -843,8 +809,7 @@ describe('classifyReloadFromSources with a source index that throws', () => {
     throw new Error('chunk graph unreadable')
   }
 
-  // Pins current behavior: a throwing source index leaves no debug line.
-  it('falls back to the name heuristics and prints nothing, debug on', () => {
+  it('falls back to the name heuristics and says so, debug on', () => {
     vi.stubEnv('EXTENSION_DEBUG', '1')
     const printed = [
       vi.spyOn(console, 'log').mockImplementation(() => {}),
@@ -871,6 +836,20 @@ describe('classifyReloadFromSources with a source index that throws', () => {
       ]
     })
 
-    expect(printed.map((spy) => spy.mock.calls)).toEqual([[], [], [], []])
+    const [log, ...others] = printed
+
+    expect(log.mock.calls.map((call) => String(call[0]))).toEqual(
+      Array(3).fill(expect.stringContaining('chunk graph unreadable'))
+    )
+
+    expect(others.map((spy) => spy.mock.calls)).toEqual([[], [], []])
+  })
+
+  it('prints nothing outside a debug session', () => {
+    vi.stubEnv('EXTENSION_DEBUG', '0')
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(classify('src/lib/util.ts', throwing)?.type).toBe('content-scripts')
+    expect(log).not.toHaveBeenCalled()
   })
 })

@@ -257,94 +257,110 @@ export async function dispatchReload(
   if (workerAlreadyRuns(instruction, executor)) return true
 
   if (executor.broker) {
-    let notified = viaBroker(executor.broker, instruction, executor.build)
-
-    // Firefox suspends an idle event page and its producer with it, so an
-    // edit after a quiet spell finds nobody until the page is started again.
-    if (notified === 0 && (await wakeDelivered(executor.broker))) notified = 1
-
-    // Announce only when the extension confirmed it applied the edit. A
-    // producer that cannot ack resolves 'not-expected', so those sessions keep
-    // announcing on a confirmed send rather than warning on every save.
-    if (notified > 0) {
-      const ack = (await executor.broker.awaitReloadAck?.()) ?? 'not-expected'
-
-      if (ack === 'unacked') {
-        if (instruction.label) {
-          console.warn(formatUnappliedReloadLine(instruction.label))
-        }
-
-        return false
-      }
-
-      executor.broker.noteReloadApplied?.(
-        reloadKindFor(instruction.type),
-        instruction.label
-      )
-
-      if (instruction.type === 'full') {
-        fullReloadsDelivered.set(
-          executor.broker,
-          fullReloadsDeliveredTo(executor.broker) + 1
-        )
-      }
-
+    try {
+      return await dispatchViaBroker(instruction, executor, executor.broker)
+    } catch {
+      // A broker fault must not fail the compile that produced the edit.
       if (instruction.label) {
-        humanLine(appliedReloadLine(instruction, executor.broker))
+        console.warn(formatUnappliedReloadLine(instruction.label))
       }
 
-      // The restart outlives this dispatch, so its verdict is reported when it
-      // arrives and never holds the next compile.
-      const label = instruction.label
-      const restart = executor.broker.awaitReloadRestart?.()
-      const lateRestart = executor.broker.awaitLateReloadRestart?.()
-
-      if (restart && label) {
-        void restart.then(
-          (outcome) => {
-            if (outcome !== 'not-restarted') return
-
-            console.warn(formatNotRestartedLine(label))
-
-            void lateRestart?.then(
-              (late) => {
-                if (!late) return
-
-                if (late.runsBuild) {
-                  humanLine(formatLateRestartLine(label, late))
-                } else {
-                  console.warn(formatLateRestartLine(label, late))
-                }
-              },
-              () => undefined
-            )
-          },
-          () => undefined
-        )
-      }
-
-      return true
+      return false
     }
+  }
 
-    // Zero producers: the edit compiled but reached no page. Surface the broker's
-    // deduped hint past the grace window so the no-op is diagnosable.
-    const warning = executor.broker.undeliveredReloadWarning?.(
-      executor.producerRestartExpected
-        ? {producerRestartExpected: true}
-        : undefined
-    )
+  return false
+}
 
-    if (warning) {
-      console.warn(warning)
+async function dispatchViaBroker(
+  instruction: ReloadInstruction,
+  executor: ReloadExecutor,
+  broker: ReloadBroker
+): Promise<boolean> {
+  let notified = viaBroker(broker, instruction, executor.build)
+
+  // Firefox suspends an idle event page and its producer with it, so an
+  // edit after a quiet spell finds nobody until the page is started again.
+  if (notified === 0 && (await wakeDelivered(broker))) notified = 1
+
+  // Announce only when the extension confirmed it applied the edit. A
+  // producer that cannot ack resolves 'not-expected', so those sessions keep
+  // announcing on a confirmed send rather than warning on every save.
+  if (notified > 0) {
+    const ack = (await broker.awaitReloadAck?.()) ?? 'not-expected'
+
+    if (ack === 'unacked') {
+      if (instruction.label) {
+        console.warn(formatUnappliedReloadLine(instruction.label))
+      }
 
       return false
     }
 
-    // A restart the caller caused is not a failure, so name what happens to this
-    // edit rather than leaving the save loop with nothing to show.
-    if (executor.producerRestartExpected && instruction.label) {
-      humanLine(formatQueuedReloadLine(instruction.label))
+    broker.noteReloadApplied?.(
+      reloadKindFor(instruction.type),
+      instruction.label
+    )
+
+    if (instruction.type === 'full') {
+      fullReloadsDelivered.set(broker, fullReloadsDeliveredTo(broker) + 1)
     }
+
+    if (instruction.label) {
+      humanLine(appliedReloadLine(instruction, broker))
+    }
+
+    // The restart outlives this dispatch, so its verdict is reported when it
+    // arrives and never holds the next compile.
+    const label = instruction.label
+    const restart = broker.awaitReloadRestart?.()
+    const lateRestart = broker.awaitLateReloadRestart?.()
+
+    if (restart && label) {
+      void restart.then(
+        (outcome) => {
+          if (outcome !== 'not-restarted') return
+
+          console.warn(formatNotRestartedLine(label))
+
+          void lateRestart?.then(
+            (late) => {
+              if (!late) return
+
+              if (late.runsBuild) {
+                humanLine(formatLateRestartLine(label, late))
+              } else {
+                console.warn(formatLateRestartLine(label, late))
+              }
+            },
+            () => undefined
+          )
+        },
+        () => undefined
+      )
+    }
+
+    return true
+  }
+
+  // Zero producers: the edit compiled but reached no page. Surface the broker's
+  // deduped hint past the grace window so the no-op is diagnosable.
+  const warning = broker.undeliveredReloadWarning?.(
+    executor.producerRestartExpected
+      ? {producerRestartExpected: true}
+      : undefined
+  )
+
+  if (warning) {
+    console.warn(warning)
+
+    return false
+  }
+
+  // A restart the caller caused is not a failure, so name what happens to this
+  // edit rather than leaving the save loop with nothing to show.
+  if (executor.producerRestartExpected && instruction.label) {
+    humanLine(formatQueuedReloadLine(instruction.label))
   }
 
   return false

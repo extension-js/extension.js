@@ -66,3 +66,10 @@ export function defaultExportCalledAgain(file: string, name: string) {
     `Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.`
   )
 }
+
+// The reload kind then comes from file names, which can pick a wider reload.
+export function debugSourceIndexUnreadable(error: unknown) {
+  const reason = error instanceof Error ? error.message : String(error)
+
+  return `${prefix('debug')} reload  could not read which bundle holds each file (${reason}), so the reload kind comes from file names`
+}
