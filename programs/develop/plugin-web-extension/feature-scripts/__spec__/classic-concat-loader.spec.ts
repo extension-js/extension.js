@@ -71,6 +71,42 @@ describe('classic-concat-loader', () => {
     expect(sourceMap.mappings).toBeTruthy()
   })
 
+  it('maps each line to its own file when a file in the middle is gone', () => {
+    const dir = createTempProject()
+    const firstPath = path.join(dir, 'first.js')
+    const gonePath = path.join(dir, 'gone.js')
+    const lastPath = path.join(dir, 'last.js')
+    fs.writeFileSync(firstPath, 'var first = 1\n', 'utf8')
+    fs.writeFileSync(lastPath, 'var last = 2\n', 'utf8')
+
+    const ctx = createLoaderContext(firstPath, {
+      feature: 'sidebar/index',
+      js: [firstPath, gonePath, lastPath]
+    })
+
+    classicConcatLoader.call(ctx as any, '')
+
+    const [err, output, sourceMap] = ctx.callback.mock.calls[0]
+
+    expect(err).toBeNull()
+    expect(output).toContain('var first = 1')
+    expect(output).toContain('var last = 2')
+    expect(sourceMap.sources).toEqual([firstPath, lastPath])
+    expect(sourceMap.sourcesContent).toEqual([
+      'var first = 1\n',
+      'var last = 2\n'
+    ])
+
+    // One segment per line of a file: column 0, then the source it is in.
+    const sourceSteps = sourceMap.mappings
+      .split(';')
+      .filter(Boolean)
+      .map((segment: string) => segment[1])
+
+    // A: the same source as the line before, C: the next one.
+    expect(sourceSteps).toEqual(['A', 'A', 'C', 'A'])
+  })
+
   it("resolves a later file's import() from that file's folder", () => {
     const dir = createTempProject()
     fs.mkdirSync(path.join(dir, 'lib', 'katex'), {recursive: true})

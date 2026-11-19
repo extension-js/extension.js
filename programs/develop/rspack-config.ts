@@ -273,12 +273,12 @@ export default function webpackConfig(
       browser: devOptions.browser,
       devSession
     }),
-    // The web-extension chunk-loading target, which dev gets via ReloadPlugin.
-    // Production needs it too: rspack's web-target loader appends a <script> to
-    // the host page, which never reaches a content script's isolated world.
+    // rspack's own loader appends a <script> to the host page, which never
+    // reaches an isolated world. A reload session installs this target itself.
     new SetupChunkLoadingTarget({
       manifestPath,
-      browser: devOptions.browser
+      browser: devOptions.browser,
+      devSession
     }),
     new SpecialFoldersPlugin({
       manifestPath,
