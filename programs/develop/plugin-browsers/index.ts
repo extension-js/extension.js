@@ -24,7 +24,11 @@ import {
 } from '../plugin-reload'
 import type {DevOptions} from '../types'
 import {waitAtMost} from './bounded-wait'
-import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
+import {
+  clearLaunchTimedOut,
+  stampLaunchTimedOut,
+  stampLogCaptureTimedOut
+} from './launch-timeout-stamp'
 import * as browserMessages from './messages'
 
 // The launcher bounds each step it waits on, the longest at 45 seconds, so a
@@ -434,7 +438,11 @@ export class BrowsersPlugin implements RunnerPlugin {
           )
 
     // A rejection was stamped by the launcher. A capture that never answered
-    // is only warned about, as nothing came back to stamp it.
+    // left nothing to stamp it, so the stamp is ours.
+    if (outcome.state === 'timeout') {
+      stampLogCaptureTimedOut(outputPath, (error as Error).message)
+    }
+
     humanWarn(
       browserMessages.browserLogCaptureFailed(
         browserOptions.browser,
