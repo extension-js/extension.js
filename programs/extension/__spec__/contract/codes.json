@@ -151,7 +151,7 @@
     },
     "E_CSS_DEAD_REF": {
       "area": "compile",
-      "summary": "A CSS url() points at nothing.",
+      "summary": "A CSS url() or @import names a file that is missing or not bundled.",
       "warn": true
     },
     "E_POLYFILL_NOT_FOUND": {

@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
 import {isOsPathUnder} from '../lib/real-path'
+import {withheldCssRefs} from '../lib/withheld-file'
 import * as cssMessages from '../plugin-css/css-lib/messages'
 import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
 import * as messages from '../plugin-web-extension/feature-scripts/messages'
@@ -17,6 +18,7 @@ import {
   type CompileRequest,
   compileRuntimeLoadedFiles,
   planTracedFile,
+  saidNotShipped,
   type TracedFilePlan
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
@@ -286,6 +288,16 @@ function reportWithheld(
   pageSourceOf: (assetName: string) => string | undefined
 ) {
   if (origin.kind === 'css') {
+    // The stylesheet step or the trace of an injected sheet said this ref.
+    if (
+      withheldCssRefs(compilation).some(
+        (noted) => noted.ref.split(/[?#]/)[0] === ref
+      ) ||
+      saidNotShipped(compilation, origin.asset, emitPath)
+    ) {
+      return
+    }
+
     const strict = process.env.EXTENSION_STRICT_REFS === 'true'
     const report = diagnostic(
       cssMessages.deadCssUrlRef(origin.asset, ref),
