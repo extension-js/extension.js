@@ -9,7 +9,8 @@
       "!.claude",
       "!test-results",
       "!test-results.json",
-      "!extensions",
+      "!extensions/browser-extension",
+      "!**/extension-env.d.ts",
       "!templates",
       "!templates-artifacts",
       "!.prod-dist",
@@ -54,12 +55,15 @@
   },
   "overrides": [
     {
-      "includes": [
-        "programs/**",
-        "!programs/develop/plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/**",
-        "!**/__spec__/**",
-        "!**/*.spec.ts"
-      ],
+      "includes": ["extensions/extension-js-devtools/**/*.css"],
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
+        }
+      }
+    },
+    {
+      "includes": ["programs/**", "!**/__spec__/**", "!**/*.spec.ts"],
       "linter": {
         "rules": {
           "suspicious": {

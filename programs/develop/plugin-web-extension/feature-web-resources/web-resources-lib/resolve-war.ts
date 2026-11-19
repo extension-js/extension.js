@@ -12,6 +12,12 @@ import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import {debugLine} from '../../../lib/messaging'
 import {
+  hasPrivateFileName,
+  privateFileKind,
+  rootAbsoluteClimbsOut,
+  sourceFileMayShip
+} from '../../../plugin-special-folders/public-private-files'
+import {
   type AssetHashOptions,
   bundledAssetOutputName
 } from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
@@ -52,7 +58,9 @@ function toPublicOutput(possiblePath: string) {
 function emitDirectoryAsAssets(
   compilation: Compilation,
   absDir: string,
-  baseDir: string
+  baseDir: string,
+  mayShip: (abs: string) => boolean,
+  onWithheld: (abs: string) => void
 ): void {
   const walk = (dir: string) => {
     let entries: fs.Dirent[]
@@ -65,6 +73,11 @@ function emitDirectoryAsAssets(
 
     for (const entry of entries) {
       const full = path.join(dir, entry.name)
+
+      if (!mayShip(full)) {
+        onWithheld(full)
+        continue
+      }
 
       if (entry.isDirectory()) {
         walk(full)
@@ -100,7 +113,10 @@ function emitGlobMatches(
   compilation: Compilation,
   manifestDir: string,
   projectPath: string,
-  res: string
+  res: string,
+  mayShip: (abs: string) => boolean,
+  // `named` is true for the folder the pattern itself spells out.
+  onWithheld: (abs: string, named?: boolean) => void
 ): void {
   const pattern = unixify(res).replace(/^\.?\//, '')
   const prefix = pattern.slice(0, pattern.indexOf('*')).replace(/[^/]*$/, '')
@@ -111,6 +127,12 @@ function emitGlobMatches(
 
   const base = path.join(manifestDir, folder)
   if (!isDirectory(base)) return
+
+  if (!mayShip(base)) {
+    onWithheld(base, true)
+
+    return
+  }
 
   const matcher = new RegExp(
     `^${pattern
@@ -132,7 +154,10 @@ function emitGlobMatches(
       const full = path.join(dir, entry.name)
 
       if (entry.isDirectory()) {
-        if (!GLOB_SKIP_DIRS.has(entry.name)) walk(full)
+        if (GLOB_SKIP_DIRS.has(entry.name)) continue
+
+        if (mayShip(full)) walk(full)
+        else onWithheld(full)
 
         continue
       }
@@ -141,6 +166,11 @@ function emitGlobMatches(
 
       const outName = unixify(path.relative(manifestDir, full))
       if (!matcher.test(outName) || GLOB_SKIP_SOURCES.test(outName)) continue
+
+      if (!mayShip(full)) {
+        onWithheld(full)
+        continue
+      }
 
       if (!compilation.getAsset(outName)) {
         compilation.emitAsset(
@@ -371,6 +401,8 @@ export function declaredResourceSource(
 ): {source: string; output: string} | undefined {
   const manifestDir = path.dirname(manifestPath)
   const root = projectPath || manifestDir
+  // A source the build withholds ships nowhere, so it names no output.
+  const mayShip = (abs: string) => sourceFileMayShip(abs, [root, manifestDir])
 
   if (!res || path.isAbsolute(res) || /[*?[\]{}]/.test(res)) return undefined
   if (isPublicRootLike(res)) return undefined
@@ -390,12 +422,14 @@ export function declaredResourceSource(
   if (rootRel) {
     const rootAbs = path.join(root, rootRel)
 
-    return isFile(rootAbs) ? {source: rootAbs, output: rootRel} : undefined
+    return isFile(rootAbs) && mayShip(rootAbs)
+      ? {source: rootAbs, output: rootRel}
+      : undefined
   }
 
   const output = unixify(path.relative(manifestDir, abs))
 
-  return isFile(abs) && !output.startsWith('..')
+  return isFile(abs) && !output.startsWith('..') && mayShip(abs)
     ? {source: abs, output}
     : undefined
 }
@@ -434,6 +468,42 @@ export function resolveUserDeclaredWAR(
     runtimeNamedPaths ??= collectRuntimeNamedPaths(compilation)
 
     return runtimeNamedPaths.has(outputPath)
+  }
+
+  // An entry that names one file may reach into an installed package. A
+  // folder entry or a pattern is walked, and a walk never enters one.
+  const mayShip = (abs: string) =>
+    sourceFileMayShip(abs, [projectPath, manifestDir])
+  const mayShipWalked = (abs: string) =>
+    sourceFileMayShip(abs, [projectPath, manifestDir], 'walked')
+  const saidWithheld = new Set<string>()
+
+  // A source the build will not copy gets the finding a missing file gets.
+  const reportWithheld = (abs: string, ref: string) => {
+    const said = `${ref}\n${abs}`
+    if (saidWithheld.has(said)) return
+
+    saidWithheld.add(said)
+
+    // Named from the project, so no line carries a path of the machine.
+    const warn = new WebpackError(
+      warMessages.warFieldError(unixify(path.relative(projectPath, abs)), {
+        relativeRef: ref
+      })
+    ) as Error & {file?: string; name?: string}
+    warn.file = 'manifest.json'
+    warn.name = 'WARRelativeAssetMissing'
+    compilation.warnings = compilation.warnings || []
+    compilation.warnings.push(warn)
+  }
+
+  // Inside a folder or a pattern, OS metadata and repository files are left
+  // out without a word, the way the public/ copy leaves them out.
+  const reportWithheldInside = (abs: string) => {
+    const kind = privateFileKind(path.basename(abs))
+    if (kind === 'os' || kind === 'tooling') return
+
+    reportWithheld(abs, unixify(path.relative(manifestDir, abs)))
   }
 
   let authorGroupHasNoMatches = false
@@ -483,6 +553,25 @@ export function resolveUserDeclaredWAR(
     // `public/../x` joins to a real file outside public/, and the raw `..`
     // path would land in the manifest; a `..` ref is never a public file.
     const escapesPublic = normalizedOutput.split('/').includes('..')
+    const isPattern = /[*?[\]{}]/.test(res)
+
+    // The manifest step keeps a climbing root path as written, slash first.
+    const climbsOut = rootAbsoluteClimbsOut(res)
+
+    // Asked before public/: the copier leaves these names out as well, so
+    // the folder cannot answer for one. A page refuses `/../x` the same way.
+    if (
+      !isPattern &&
+      (climbsOut ||
+        hasPrivateFileName(path.posix.normalize(unixify(normalizedOutput))))
+    ) {
+      reportWithheld(
+        path.join(manifestDir, normalizedOutput),
+        climbsOut ? normalizedOutput : res
+      )
+
+      return
+    }
 
     if (!escapesPublic && fs.existsSync(publicCandidate)) {
       pushResource(matches, normalizedOutput, extra)
@@ -490,7 +579,7 @@ export function resolveUserDeclaredWAR(
       return
     }
 
-    if (/[*?[\]{}]/.test(res)) {
+    if (isPattern) {
       // A pattern with a parent segment names nothing inside the build, and
       // copying its matches would write outside the output folder.
       if (unixify(res).split('/').includes('..')) {
@@ -500,11 +589,28 @@ export function resolveUserDeclaredWAR(
         warn.file = 'manifest.json'
         warn.name = 'WARPatternLeavesRoot'
         compilation.warnings!.push(warn)
-      } else {
-        emitGlobMatches(compilation, manifestDir, projectPath, res)
+
+        return
       }
 
-      pushResource(matches, res, extra)
+      // A pattern whose own folder is withheld matches nothing that ships.
+      let folderWithheld = false
+
+      emitGlobMatches(
+        compilation,
+        manifestDir,
+        projectPath,
+        res,
+        mayShipWalked,
+        (abs, named) => {
+          if (!named) return reportWithheldInside(abs)
+
+          folderWithheld = true
+          reportWithheld(abs, res)
+        }
+      )
+
+      if (!folderWithheld) pushResource(matches, res, extra)
 
       return
     }
@@ -579,6 +685,23 @@ export function resolveUserDeclaredWAR(
     // the compiled asset at its root-relative path, or ships the file there.
     const rootRel = rootRelativeOf(projectPath, manifestDir, abs, res)
 
+    // A file or a folder the build may not copy is never read: a private
+    // name, a place outside the project, or a folder of installed packages.
+    const withheld = [
+      abs,
+      rootRel ? path.join(projectPath, rootRel) : abs
+    ].find(
+      (candidate) =>
+        fs.existsSync(candidate) &&
+        !(isDirectory(candidate) ? mayShipWalked : mayShip)(candidate)
+    )
+
+    if (withheld) {
+      reportWithheld(withheld, res)
+
+      return
+    }
+
     if (rootRel) {
       const compiled =
         typeof compilation.getAsset === 'function'
@@ -644,14 +767,17 @@ export function resolveUserDeclaredWAR(
       // original source exists, say so: WAR entries are copied, not compiled.
       const sourceSibling = findSourceSibling(abs)
 
-      // Warn only when the path is neither in public/ nor emitted; the entry is
-      // dropped from the manifest, keeping it just moves the failure to runtime.
-      const msg = warMessages.warFieldError(abs, {
-        relativeRef: res,
-        sourceSibling: sourceSibling
-          ? path.relative(manifestDir, sourceSibling)
-          : undefined
-      })
+      // Warn only when the path is neither in public/ nor emitted. The entry is
+      // left out of the manifest: keeping it moves the failure to runtime.
+      const msg = warMessages.warFieldError(
+        unixify(path.relative(projectPath, abs)),
+        {
+          relativeRef: res,
+          sourceSibling: sourceSibling
+            ? path.relative(manifestDir, sourceSibling)
+            : undefined
+        }
+      )
       const warn = new WebpackError(msg) as Error & {
         file?: string
         name?: string
@@ -666,7 +792,14 @@ export function resolveUserDeclaredWAR(
     // A directory entry (e.g. `icons/`), emit its files and declare a glob so
     // Chrome serves them all, instead of reading the directory as a file (EISDIR).
     if (fs.statSync(abs).isDirectory()) {
-      emitDirectoryAsAssets(compilation, abs, manifestDir)
+      emitDirectoryAsAssets(
+        compilation,
+        abs,
+        manifestDir,
+        mayShipWalked,
+        reportWithheldInside
+      )
+
       const dirResource = `${unixify(res).replace(/\/+$/, '')}/*`
       pushResource(matches, dirResource, extra)
 

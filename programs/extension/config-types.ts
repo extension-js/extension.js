@@ -6,17 +6,11 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Public type surface for `extension.config.js`.
-//
-// This file is published with the `extension` package and is the source of the
-// `import('extension').FileConfig` type used to annotate `extension.config.js`.
-//
-// It is intentionally self-contained: the full internal definition lives in
-// `extension-develop` (programs/develop/types.ts), but that package does not
-// publish declaration files, and its `FileConfig` pulls in `@rspack/core`
-// types via the `config` hook, which consumers of `extension` should not be
-// required to install. Keep the shape here in sync with the internal
-// `FileConfig` when the config contract changes.
+// The published types for extension.config.js, and the source of the
+// `import('extension').FileConfig` annotation. The engine has its own.
+
+// Kept apart from the engine's so a project that annotates its config loads
+// no bundler types. A spec compares the two key by key.
 
 /** A browser target accepted by Extension.js commands. */
 export type BrowserType =
@@ -174,6 +168,10 @@ export interface BrowserConfig extends BrowserLaunchConfig, SafariConfig {
   include?: IncludeFilesConfig
   /** Files this browser's build leaves out, added to the top-level `exclude`. */
   exclude?: ExcludeFilesConfig
+  /** Compile-time constants for this browser, over the top-level map. */
+  define?: Record<string, unknown>
+  /** Asset budgets for this browser, over the top-level budgets. */
+  perfBudgets?: PerfBudgetsConfig
 }
 
 /**
@@ -200,8 +198,8 @@ export type PerfBudgetCategory =
  * Per-category asset size budgets (bytes) for compiling commands, plus
  * `ignore`, the output paths no budget applies to: exact paths as the
  * warning prints them, or globs where `*` stays inside one folder and `**`
- * spans folders. Set at the top level, or per command via
- * `commands.dev|build.perfBudgets`.
+ * spans folders. Set at the top level, under `browser.<vendor>.perfBudgets`
+ * or under `commands.build.perfBudgets`. Only a production build checks them.
  *
  * @example
  * export default {
@@ -211,8 +209,12 @@ export type PerfBudgetCategory =
  *   }
  * }
  */
-export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>> & {
+export type PerfBudgetsConfig = Partial<
+  Record<Exclude<PerfBudgetCategory, 'ignored'>, number>
+> & {
   ignore?: string[]
+  /** `'warn'` (default) reports an overrun, `'error'` fails the build. */
+  onExceed?: 'warn' | 'error'
 }
 
 /** `commands.dev` overrides. */
@@ -259,6 +261,8 @@ export interface ServeCommandConfig
   profile?: string | false
   chromiumBinary?: string
   geckoBinary?: string
+  noOpen?: boolean
+  startingUrl?: string
   noBrowser?: boolean
   polyfill?: boolean
   port?: string | number
@@ -284,6 +288,29 @@ export interface ServeCommandConfig
    * Files this command's build leaves out. Adds to the top-level and
    * per-browser `exclude`.
    */
+  exclude?: ExcludeFilesConfig
+}
+
+/** `commands.start` overrides. */
+export interface StartCommandConfig extends ServeCommandConfig {
+  /** Asset budgets for the build `start` runs. */
+  perfBudgets?: PerfBudgetsConfig
+}
+
+/**
+ * `commands.preview` overrides. Preview serves a build that already exists,
+ * so the keys that shape a build do nothing here.
+ */
+export interface PreviewCommandConfig extends ServeCommandConfig {
+  /** @deprecated Preview serves an existing build and ignores it. */
+  polyfill?: boolean
+  /** @deprecated Preview serves an existing build and ignores it. */
+  transpilePackages?: string[]
+  /** @deprecated Preview serves an existing build and ignores it. */
+  define?: Record<string, unknown>
+  /** @deprecated Preview serves an existing build and ignores it. */
+  include?: IncludeFilesConfig
+  /** @deprecated Preview serves an existing build and ignores it. */
   exclude?: ExcludeFilesConfig
 }
 
@@ -369,8 +396,8 @@ export interface FileConfig {
   /** Per-command overrides. */
   commands?: {
     dev?: DevCommandConfig
-    start?: ServeCommandConfig
-    preview?: ServeCommandConfig
+    start?: StartCommandConfig
+    preview?: PreviewCommandConfig
     build?: BuildCommandConfig
   }
   /**
@@ -384,8 +411,9 @@ export interface FileConfig {
    */
   transpilePackages?: string[]
   /**
-   * Default per-category asset budgets for all commands. Per-command
-   * `commands.dev|build.perfBudgets` overrides this value.
+   * Default per-category asset budgets, checked on a production build only.
+   * `browser.<vendor>.perfBudgets` overrides them key by key, and
+   * `commands.build.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
   /**

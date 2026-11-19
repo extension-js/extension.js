@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
+import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
 import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
@@ -31,8 +32,6 @@ export class EmitHtmlFile {
 
   public apply(compiler: Compiler): void {
     compiler.hooks.thisCompilation.tap('html:emit-html-file', (compilation) => {
-      const processAssetsHook = compilation.hooks?.processAssets
-
       const runner = () => {
         const htmlFields = Object.entries(this.includeList || {})
 
@@ -51,12 +50,22 @@ export class EmitHtmlFile {
                 ? path.join(projectDir, resource.slice(1))
                 : path.join(projectDir, resource)
 
-            if (!fs.existsSync(resolved)) {
+            // A file the build never copies is no page. It is reported the
+            // way a missing page is, and its contents are not read.
+            const withheld =
+              fs.existsSync(resolved) &&
+              !sourceFileMayShip(
+                resolved,
+                [compiler.options.context as string, projectDir].filter(Boolean)
+              )
+
+            if (withheld || !fs.existsSync(resolved)) {
               // A ref that public/ owns is served verbatim at the output root;
               // nothing to compile and nothing missing.
               const relToProject = path.relative(projectDir, resolved)
 
               if (
+                !withheld &&
                 relToProject &&
                 !relToProject.startsWith('..') &&
                 !path.isAbsolute(relToProject) &&
@@ -69,13 +78,24 @@ export class EmitHtmlFile {
                 continue
               }
 
-              if (featureName.startsWith('pages/')) {
-                // Non-entrypoint HTML (special pages/*) only warns.
+              const manifestField = featureName.startsWith('pages/')
+                ? undefined
+                : manifestFieldForHtmlFeature(
+                    featureName,
+                    this.manifestPath,
+                    this.browser
+                  )
+
+              if (!manifestField) {
+                // A page of the pages folder or one only a script opens: the
+                // browser loads the extension without it, so a dead one warns.
                 reportToCompilation(
                   compilation,
                   compiler,
-                  messages.manifestFieldMessageOnly(featureName),
-                  'warning',
+                  messages.pageFileMissing(featureName, resolved),
+                  process.env.EXTENSION_STRICT_REFS === 'true'
+                    ? 'error'
+                    : 'warning',
                   undefined,
                   'ManifestPageMissing'
                 )
@@ -86,17 +106,11 @@ export class EmitHtmlFile {
                   !featureName.startsWith('sandbox/') &&
                   featureName !== 'sidebar/index' &&
                   featureName !== 'sidebar_action/index'
+
                 reportToCompilation(
                   compilation,
                   compiler,
-                  messages.manifestPageMissing(
-                    manifestFieldForHtmlFeature(
-                      featureName,
-                      this.manifestPath,
-                      this.browser
-                    ),
-                    resolved
-                  ),
+                  messages.manifestPageMissing(manifestField, resolved),
                   isLoadChecked ? 'error' : 'warning',
                   'manifest.json',
                   'ManifestPageMissing'
@@ -121,31 +135,49 @@ export class EmitHtmlFile {
         }
       }
 
-      if (processAssetsHook && typeof processAssetsHook.tap === 'function') {
-        processAssetsHook.tap(
-          {
-            name: 'AddAssetsToCompilationPlugin',
-            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
-          },
-          () => runner()
-        )
-      } else {
-        // Fallback for environments without processAssets support (tests)
-        runner()
-      }
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'html:emit-html-file',
+          stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL
+        },
+        () => runner()
+      )
     })
   }
+}
+
+// Whether web_accessible_resources names this page by its literal path.
+function isWebAccessiblePage(
+  manifest: Record<string, unknown>,
+  featureName: string
+): boolean {
+  const declared = manifest.web_accessible_resources
+  if (!Array.isArray(declared)) return false
+
+  return declared
+    .flatMap((entry) =>
+      typeof entry === 'string'
+        ? [entry]
+        : Array.isArray(entry?.resources)
+          ? entry.resources
+          : []
+    )
+    .some(
+      (resource) =>
+        typeof resource === 'string' &&
+        resource.replace(/^\.?\/+/, '').replace(/\.html$/i, '') === featureName
+    )
 }
 
 // Map an HTML includeList feature key back to the manifest field the user
 // wrote. The manifest is filtered for the target browser first, the same
 // view the include list was built from, so a firefox: key never labels a
-// chrome build.
+// chrome build. A page only a script names has no field and maps to none.
 export function manifestFieldForHtmlFeature(
   featureName: string,
   manifestPath: string,
   browser?: PluginInterface['browser']
-): string {
+): string | undefined {
   let manifest: Record<string, unknown> = {}
 
   try {
@@ -199,6 +231,12 @@ export function manifestFieldForHtmlFeature(
     case 'sidebar_action/index':
       return 'sidebar_action.default_panel'
     default:
-      return featureName.replace('/', '.')
+      if (/^chrome_settings_overrides\/startup-\d+$/.test(featureName)) {
+        return 'chrome_settings_overrides.startup_pages'
+      }
+
+      return isWebAccessiblePage(manifest, featureName)
+        ? 'web_accessible_resources'
+        : undefined
   }
 }

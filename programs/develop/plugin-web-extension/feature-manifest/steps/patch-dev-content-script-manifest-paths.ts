@@ -18,7 +18,7 @@ import {
 } from '../../feature-scripts/contracts'
 
 // Point manifest content_scripts at the hashed dev bundles so page reloads
-// load the same bytes as reinject; stale prior-build files are removed.
+// load the same bytes as reinject. Stale prior-build files go once it is done.
 export function patchDevContentScriptManifestPaths(
   compilation: Compilation,
   manifest: Manifest
@@ -30,11 +30,7 @@ export function patchDevContentScriptManifestPaths(
   // No entry is left to name a bundle, so the last removed one's files go
   // here. Only a file named like an entry bundle can be such a leftover.
   if (!Array.isArray(cs)) {
-    purgeStaleHashedContentScripts(
-      compilation,
-      new Set(),
-      isCanonicalContentScriptAsset
-    )
+    purgeStaleWhenDone(compilation, new Set(), isCanonicalContentScriptAsset)
 
     return manifest
   }
@@ -58,7 +54,7 @@ export function patchDevContentScriptManifestPaths(
     return {...group, js: resolvedJs, css: resolvedCss}
   })
 
-  purgeStaleHashedContentScripts(compilation, currentHashedNames)
+  purgeStaleWhenDone(compilation, currentHashedNames)
 
   return {...manifest, content_scripts: next}
 }
@@ -99,12 +95,50 @@ function findHashedContentScriptAsset(
   return undefined
 }
 
+interface StalePurge {
+  currentNames: Set<string>
+  isPurgeable: (assetName: string) => boolean
+}
+
+const purgeByCompilation = new WeakMap<object, StalePurge>()
+const compilersWithPurge = new WeakSet<object>()
+
+// The manifest and the registry on disk name the last build's files until
+// this build is written, so the purge waits for the compiler to finish.
+function purgeStaleWhenDone(
+  compilation: Compilation,
+  currentNames: Set<string>,
+  isPurgeable: (assetName: string) => boolean = () => true
+) {
+  const compiler = compilation.compiler
+  if (!compiler?.hooks?.done) return
+
+  purgeByCompilation.set(compilation, {currentNames, isPurgeable})
+
+  if (compilersWithPurge.has(compiler)) return
+
+  compilersWithPurge.add(compiler)
+
+  compiler.hooks.done.tap('manifest:purge-stale-content-scripts', (stats) => {
+    const finished = stats.compilation
+    const purge = purgeByCompilation.get(finished)
+    // A failed build wrote nothing new, so the last build's files stay.
+    if (!purge || finished.errors.length > 0) return
+
+    purgeStaleHashedContentScripts(
+      finished,
+      purge.currentNames,
+      purge.isPurgeable
+    )
+  })
+}
+
 // Delete hashed content-script files no longer referenced by the manifest;
 // getAssets() is the source of truth for what this compile emitted.
 function purgeStaleHashedContentScripts(
   compilation: Compilation,
   currentNames: Set<string>,
-  isPurgeable: (assetName: string) => boolean = () => true
+  isPurgeable: (assetName: string) => boolean
 ) {
   const outputPath = compilation.options.output?.path
   if (!outputPath) return

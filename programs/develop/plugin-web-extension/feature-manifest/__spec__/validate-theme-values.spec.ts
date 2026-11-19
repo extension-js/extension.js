@@ -2,84 +2,78 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {collectThemeValueIssues} from '../manifest-lib/theme-values'
-import {ValidateThemeValues} from '../steps/validate-theme-values'
+import {setOriginalManifestContent} from '../manifest-lib/manifest'
+import {collectThemeArrayIssues} from '../manifest-lib/theme-values'
+import {ValidateThemeArrays} from '../steps/validate-theme-values'
 
-describe('collectThemeValueIssues', () => {
+describe('collectThemeArrayIssues', () => {
   const themed = (theme: Record<string, unknown>) =>
-    collectThemeValueIssues({
+    collectThemeArrayIssues({
       manifest_version: 3,
       name: 'x',
       version: '1.0.0',
       theme
     } as any)
 
-  it('accepts integer RGB arrays', () => {
-    expect(themed({colors: {toolbar: [229, 57, 53]}})).toEqual([])
+  it('accepts the arrays and strings a Chromium build loads or translates', () => {
+    expect(
+      themed({
+        colors: {
+          a: [229, 57, 53],
+          b: [0, 0, 0, 0.5],
+          c: [0, 0, 0, 1],
+          d: [0, 0, 0, 0],
+          e: '#ff0000',
+          f: '#000',
+          g: 'rgb(1, 2, 3)'
+        },
+        tints: {buttons: [0.5, -1, 0.5]}
+      })
+    ).toEqual([])
   })
 
-  it('accepts RGBA with a float alpha, which Chrome allows', () => {
-    expect(themed({colors: {frame: [0, 0, 0, 0.5]}})).toEqual([])
+  it.each([
+    ['#00000080', '[0, 0, 0, 0.5]'],
+    ['#0008', '[0, 0, 0, 0.53]'],
+    ['rgba(255, 0, 0, 0.5)', '[255, 0, 0, 0.5]'],
+    ['rgb(255, 0, 0, 1)', '[255, 0, 0, 1]'],
+    ['white', '[255, 255, 255]'],
+    ['transparent', '[0, 0, 0, 0]'],
+    ['rgba(255, 0, 0, 2)', '[R, G, B]'],
+    ['rgb(100%, 0%, 0%)', '[R, G, B]'],
+    ['hsl(0, 100%, 50%)', '[R, G, B]'],
+    ['notacolor', '[R, G, B]'],
+    ['#00', '[R, G, B]'],
+    [[40.5, 48, 72], '[R, G, B]'],
+    [[300, 0, 0], '[R, G, B]'],
+    [[-1, 0, 0], '[R, G, B]'],
+    [[0, 0], '[R, G, B]'],
+    [[0, 0, 0, 1, 5], '[R, G, B]'],
+    [['a', 0, 0], '[R, G, B]'],
+    [[0, 0, 0, 'x'], '[R, G, B, A]'],
+    [[0, 0, 0, 2], '[R, G, B, A]'],
+    [[0, 0, 0, -0.1], '[R, G, B, A]']
+  ])('refuses %j and offers %s to write', (value, write) => {
+    expect(themed({colors: {frame: value}})).toEqual([
+      {field: 'theme.colors.frame', value: JSON.stringify(value), write}
+    ])
   })
 
-  it('accepts RGBA with an integer alpha', () => {
-    expect(themed({colors: {frame: [0, 0, 0, 1]}})).toEqual([])
+  it('refuses tints that are not three numbers', () => {
+    for (const value of [[0.5, 0.5], ['a', 1, 1], '#fff', [1, 2, 3, 4]]) {
+      expect(themed({tints: {buttons: value}})).toEqual([
+        {
+          field: 'theme.tints.buttons',
+          value: JSON.stringify(value),
+          write: '[H, S, L]'
+        }
+      ])
+    }
   })
 
-  it('rejects non-integer color channels', () => {
-    const issues = themed({colors: {toolbar: [40.5, 48, 72]}})
-    expect(issues).toHaveLength(1)
-    expect(issues[0].field).toBe('theme.colors.toolbar')
-    expect(issues[0].detail).toMatch(/integer/i)
-  })
-
-  it('rejects channels outside 0-255', () => {
-    expect(themed({colors: {frame: [300, 0, 0]}})).toHaveLength(1)
-    expect(themed({colors: {frame: [-1, 0, 0]}})).toHaveLength(1)
-  })
-
-  it('rejects arrays that are not length 3 or 4', () => {
-    expect(themed({colors: {frame: [0, 0]}})).toHaveLength(1)
-    expect(themed({colors: {frame: [0, 0, 0, 1, 5]}})).toHaveLength(1)
-  })
-
-  it('rejects non-array and non-numeric values', () => {
-    expect(themed({colors: {frame: 'notacolor'}})).toHaveLength(1)
-    expect(themed({colors: {frame: 'hsl(0, 100%, 50%)'}})).toHaveLength(1)
-    expect(themed({colors: {frame: ['a', 0, 0]}})).toHaveLength(1)
-    expect(themed({colors: {frame: [0, 0, 0, 'x']}})).toHaveLength(1)
-  })
-
-  it('accepts named colors and rgb(), which the chromium writer converts', () => {
-    expect(themed({colors: {frame: 'red'}})).toEqual([])
-    expect(themed({colors: {frame: 'BLUE'}})).toEqual([])
-    expect(themed({colors: {frame: 'transparent'}})).toEqual([])
-    expect(themed({colors: {frame: 'rgb(0, 0, 0)'}})).toEqual([])
-    expect(themed({colors: {frame: 'rgba(255, 0, 0, 0.5)'}})).toEqual([])
-  })
-
-  it('accepts hex strings, which the chromium writer converts to arrays', () => {
-    expect(themed({colors: {frame: '#ff0000'}})).toEqual([])
-    expect(themed({colors: {tab_text: '#000'}})).toEqual([])
-    expect(themed({colors: {frame: '#00000080'}})).toEqual([])
-    expect(themed({colors: {frame: '#0008'}})).toEqual([])
-  })
-
-  it('still rejects malformed hex-like strings', () => {
-    expect(themed({colors: {frame: '#00'}})).toHaveLength(1)
-    expect(themed({colors: {frame: '#ggg'}})).toHaveLength(1)
-    expect(themed({colors: {frame: '000000'}})).toHaveLength(1)
-  })
-
-  it('accepts tints of 3 numbers and rejects other tint shapes', () => {
-    expect(themed({tints: {buttons: [0.5, 0.5, 0.5]}})).toEqual([])
-    expect(themed({tints: {buttons: [0.5, 0.5]}})).toHaveLength(1)
-    expect(themed({tints: {buttons: ['a', 1, 1]}})).toHaveLength(1)
-  })
-
-  it('reports every malformed key', () => {
+  it('reports every refused key in manifest order', () => {
     const issues = themed({
-      colors: {frame: [40.5, 48, 72], toolbar: 'notacolor'},
+      colors: {frame: [40.5, 48, 72], ok: '#fff', toolbar: 'notacolor'},
       tints: {buttons: [1, 2]}
     })
     expect(issues.map((issue) => issue.field)).toEqual([
@@ -90,12 +84,12 @@ describe('collectThemeValueIssues', () => {
   })
 
   it('stays silent without a theme', () => {
-    expect(collectThemeValueIssues({} as any)).toEqual([])
-    expect(collectThemeValueIssues(undefined)).toEqual([])
+    expect(collectThemeArrayIssues({} as any)).toEqual([])
+    expect(collectThemeArrayIssues(undefined)).toEqual([])
   })
 })
 
-describe('ValidateThemeValues step', () => {
+describe('ValidateThemeArrays step', () => {
   let tmp = ''
 
   beforeEach(() => {
@@ -112,6 +106,12 @@ describe('ValidateThemeValues step', () => {
       errors: [],
       warnings: []
     }
+    // The step validates the manifest EmitManifest read, never the disk.
+    setOriginalManifestContent(
+      compilation,
+      fs.readFileSync(path.join(tmp, 'manifest.json'), 'utf8')
+    )
+
     const compiler: any = {
       hooks: {
         thisCompilation: {
@@ -140,15 +140,39 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'chrome'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
       compiler
     )
 
     expect(compilation.errors).toHaveLength(1)
-    const message = String(compilation.errors[0])
-    expect(message).toContain('theme.colors.toolbar')
-    expect(message).toMatch(/INVALID VALUE/)
-    expect(message).toContain('[40.5,48,72]')
+    expect(compilation.errors[0].name).toBe('ThemeArrayInvalid')
+    const message = String(compilation.errors[0].message)
+    expect(message).toContain(
+      'theme.colors.toolbar [40.5,48,72], write [R, G, B]'
+    )
+  })
+
+  it('raises one error that lists every refused key', () => {
+    const manifestPath = writeManifest({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      theme: {
+        colors: {frame: 'red', toolbar: '#fff'},
+        tints: {buttons: [1, 2]}
+      }
+    })
+    const {compiler, compilation} = makeCompiler()
+
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
+      compiler
+    )
+
+    expect(compilation.errors).toHaveLength(1)
+    const message = String(compilation.errors[0].message)
+    expect(message).toContain('theme.colors.frame "red", write [255, 0, 0]')
+    expect(message).toContain('theme.tints.buttons [1,2], write [H, S, L]')
+    expect(message).not.toContain('theme.colors.toolbar')
   })
 
   it('passes a valid theme untouched', () => {
@@ -163,7 +187,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'chrome'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
       compiler
     )
 
@@ -179,7 +203,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'firefox'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'firefox'} as any).apply(
       compiler
     )
 
@@ -197,7 +221,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'safari'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'safari'} as any).apply(
       compiler
     )
 
@@ -216,7 +240,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'safari'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'safari'} as any).apply(
       compiler
     )
 
@@ -233,7 +257,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({
+    new ValidateThemeArrays({
       manifestPath,
       browser: 'webkit-based'
     } as any).apply(compiler)
@@ -251,7 +275,7 @@ describe('ValidateThemeValues step', () => {
     })
     const {compiler, compilation} = makeCompiler()
 
-    new ValidateThemeValues({manifestPath, browser: 'chrome'} as any).apply(
+    new ValidateThemeArrays({manifestPath, browser: 'chrome'} as any).apply(
       compiler
     )
 

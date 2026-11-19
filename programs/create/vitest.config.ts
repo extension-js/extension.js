@@ -26,6 +26,12 @@ export default defineConfig({
     // One temp folder for the whole run, removed when the run ends.
     globalSetup: ['../../scripts/lib/spec-temp-folder.mjs'],
     setupFiles: ['./__spec__/forbid-network.ts'],
+    // A run started outside a package manager names none, and every create
+    // in it would then start the real npm to ask its version.
+    env: {
+      npm_config_user_agent:
+        process.env.npm_config_user_agent || 'npm/11.11.0 node/v22.12.0'
+    },
     // A test that runs no assertion fails instead of passing empty.
     expect: {requireAssertions: true},
     coverage: {

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 
@@ -81,8 +82,10 @@ function createFakeCompiler(projectRoot: string) {
 
   return {
     options: {mode: 'development', watchOptions: {}, context: projectRoot},
+    rspack,
     __internal__registerBuiltinPlugin: () => {},
     hooks: {
+      compilation: noop,
       thisCompilation: {
         tap: (_name: string, cb: (compilation: Compilation) => void) =>
           thisCompilation.push(cb)
@@ -121,6 +124,8 @@ describe('an output collision from a public folder that appeared later', () => {
     compiler.__compile(compilation)
 
     expect(collisionErrorsFrom(compilation)).toContain('PublicOutputCollision')
+    // No copier reads a folder that appeared late, so the plugin watches it.
+    expect(compilation.contextDependencies).toContain(path.join(root, 'public'))
     const explained = compilation.errors.find(
       (error) => (error as Error & {name?: string}).name
     ) as Error & {file?: string}
@@ -140,6 +145,10 @@ describe('an output collision from a public folder that appeared later', () => {
     compiler.__compile(compilation)
 
     expect(collisionErrorsFrom(compilation)).toContain('PublicOutputCollision')
+    // The copier watches a folder it reads; the plugin adds nothing itself.
+    expect(compilation.contextDependencies).not.toContain(
+      path.join(root, 'public')
+    )
   })
 
   it('stays quiet while no folder has appeared', () => {

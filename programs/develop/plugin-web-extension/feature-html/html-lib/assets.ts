@@ -14,6 +14,7 @@ import type {AssetHashOptions} from '../../../plugin-static-assets/static-assets
 import type {FilepathList} from '../../../types'
 import {isFromFilepathList} from '../../shared/paths'
 import type {HtmlStaticAttribute} from './parse-html'
+import {sourceMayShip} from './source-may-ship'
 import {
   applyRewrittenStaticUrl,
   getFilePath,
@@ -39,6 +40,28 @@ function resolvePublicRelativePath(
   }
 
   return undefined
+}
+
+// A file the build never copies keeps its reference as written, and is not
+// read to name an asset the output will not hold.
+export function isWithheldPageAsset(
+  compilation: unknown,
+  absolutePath: string,
+  manifestDir?: string
+): boolean {
+  const holder = compilation as
+    | {
+        options?: {context?: string}
+        compiler?: {options?: {context?: string}}
+      }
+    | undefined
+  const projectRoot =
+    holder?.options?.context || holder?.compiler?.options?.context || ''
+
+  if (!projectRoot && !manifestDir) return false
+  if (!fs.existsSync(absolutePath)) return false
+
+  return !sourceMayShip(absolutePath, projectRoot, manifestDir || '')
 }
 
 export function handleStaticAsset(
@@ -105,6 +128,8 @@ export function handleStaticAsset(
     return node
   }
 
+  if (isWithheldPageAsset(compilation, absolutePath, manifestDir)) return node
+
   // The emitter and this rewrite name the asset from the same helper (a
   // <base href> plays no part here: the built page carries no base tag).
   const filepath = htmlStaticAssetOutputName(
@@ -112,7 +137,8 @@ export function handleStaticAsset(
     htmlEntry,
     absolutePath,
     (compilation as {outputOptions?: AssetHashOptions} | undefined)
-      ?.outputOptions
+      ?.outputOptions,
+    compilation && typeof compilation === 'object' ? compilation : undefined
   )
 
   if (fs.existsSync(absolutePath)) {

@@ -8,7 +8,9 @@
 
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../../lib/constants'
-import {prefix} from '../../lib/messaging'
+import {browserDisplayName, prefix} from '../../lib/messaging'
+import type {ShadowedDeclaration} from './manifest-lib/shadowed-declaration'
+import {formatThemeArray} from './manifest-lib/theme-values'
 
 export function serverRestartRequiredFromManifestError(
   fileAdded: string,
@@ -41,6 +43,113 @@ export function manifestFilesInTurnedOffPublic(files: string[]) {
     `The public folder is turned off, ${colors.blue('folders.public')} is ${colors.blue('false')} in extension.config.js, so nothing inside public/ ships.`,
     'Turn the folder back on, or move these files out of public/ and name them by their path in the project.'
   ].join('\n')
+}
+
+// The manifest names a file that is not in the output folder, so the
+// browser would refuse the extension. Names each file and the usual cause.
+export function manifestFilesNotEmitted(files: string[]) {
+  const shown = files.slice(0, 5)
+
+  return [
+    'manifest.json names files that this build did not write to the output folder:',
+    ...shown.map((file) => `  - ${file}`),
+    ...(files.length > shown.length
+      ? [`  and ${files.length - shown.length} more`]
+      : []),
+    '',
+    'A dev session keeps the manifest.json of the last good build, so the browser never loads one that names a missing file.',
+    'Most often a plugin or a config hook of the project edits manifest.json and names a file that no entry produces. Name a file the build writes, or emit that file from the same plugin.',
+    'When nothing in the project edits manifest.json, the manifest and the files the build wrote disagree. Save a source file to build again, and report it with the list above if the same files come back.'
+  ].join('\n')
+}
+
+export function manifestPersistFailed(reason: string) {
+  return [
+    'The build could not write manifest.json to the output folder.',
+    `${colors.gray('REASON')} ${reason}`,
+    'Check that the output folder is writable and that no other program holds manifest.json open, then save a file to build again.'
+  ].join('\n')
+}
+
+// How a missing permission warning opens and which key its fix names. A
+// prefixed key that took the plain list's place is named, not "undeclared".
+export function undeclaredPermissionWording(
+  api: string,
+  shadow?: ShadowedDeclaration
+): {lead: string; fixKey: string} {
+  if (shadow?.kind === 'replaced') {
+    return {
+      lead:
+        `manifest.json lists the "${api}" permission under ` +
+        `${shadow.listedUnder}, and ${shadow.readKey} replaces that key in ` +
+        `the ${shadow.browser} build. A prefixed key replaces the ` +
+        `unprefixed one for that browser and does not merge with it, so ` +
+        `this build has no "${api}", but `,
+      fixKey: shadow.readKey
+    }
+  }
+
+  if (shadow?.kind === 'elsewhere') {
+    return {
+      lead:
+        `manifest.json lists the "${api}" permission under ` +
+        `${shadow.listedUnder}, a key the ${shadow.browser} build does not ` +
+        `read, but `,
+      fixKey: shadow.readKey
+    }
+  }
+
+  return {
+    lead: `manifest.json does not declare the "${api}" permission, but `,
+    fixKey: 'permissions'
+  }
+}
+
+// A shippable build grants nothing on its own, so a call that leans on a
+// permission the manifest never declared fails there. Names the file.
+export function undeclaredPermissionInBuild(use: {
+  api: string
+  location: string
+  tabField?: string
+  activeTabDeclared: boolean
+  outcome: string
+  shadow?: ShadowedDeclaration
+}) {
+  const {api, location, tabField, activeTabDeclared, outcome} = use
+  const {lead, fixKey} = undeclaredPermissionWording(api, use.shadow)
+
+  if (api !== 'tabs') {
+    return (
+      `${lead}${location} uses chrome.${api}. Nothing grants it here, so ` +
+      `${outcome} Add "${api}" to ${fixKey} in manifest.json.`
+    )
+  }
+
+  const reads = tabField
+    ? `reads the ${tabField} of a tab, which "tabs" gates`
+    : 'uses chrome.tabs'
+
+  // The plain advice names no key, and a replaced list needs the one to edit.
+  const toShadowKey = use.shadow ? ` to ${fixKey}` : ''
+
+  if (activeTabDeclared) {
+    return (
+      `${lead}${location} ${reads}. "activeTab" is declared, and it ` +
+      `grants url, title and favIconUrl for the tab the person invoked ` +
+      `the extension on (toolbar click, shortcut, context menu) and ` +
+      `captureVisibleTab of that tab. A read of any other tab comes ` +
+      `back without those fields. Add "tabs"${toShadowKey} only if the code reads ` +
+      `tabs the person did not invoke it on.`
+    )
+  }
+
+  return (
+    `${lead}${location} ${reads}. Nothing grants it here, so ` +
+    `${outcome} Add "tabs" to ${fixKey} in manifest.json ` +
+    `(Chrome then shows "Read your browsing history" at install), ` +
+    `or drop the read. tabs.create, update, remove and sendMessage ` +
+    `need no permission.`
+  )
 }
 
 export function legacyManifestPathWarning(
@@ -95,25 +204,46 @@ export function manifestFieldMistyped(
   return lines.join('\n')
 }
 
-export function invalidThemeValue(
-  field: string,
-  detail: string,
-  value: string
+export function themeArraysRefused(
+  browser: string,
+  issues: Array<{field: string; value: string; write: string}>
 ) {
   const lines: string[] = []
   lines.push(
-    `Check the ${colors.yellow(field)} field in your ${colors.yellow('manifest.json')} file.`
+    `${colors.blue(browserDisplayName(browser))} loads ${colors.yellow('theme.colors')} and ${colors.yellow('theme.tints')} only as number arrays, and the build cannot translate these values from your ${colors.yellow('manifest.json')} exactly:`
   )
 
-  lines.push(detail)
+  for (const issue of issues) {
+    lines.push(
+      `  ${colors.yellow(issue.field)} ${issue.value}, write ${issue.write}`
+    )
+  }
+
   lines.push(
-    `Chrome rejects the whole extension when this value is malformed.\nThe build stops here to protect you.`
+    `A color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].`
   )
 
-  lines.push('')
-  lines.push(`${colors.red('INVALID VALUE')} ${value}`)
+  lines.push(
+    `The browser refuses the whole extension over one such value, so the build stops here.`
+  )
 
   return lines.join('\n')
+}
+
+export function themeColorsTranslated(
+  browser: string,
+  translated: Array<{key: string; rgb: number[]}>
+) {
+  const keys = translated
+    .map(({key}) => colors.yellow(`theme.colors.${key}`))
+    .join(', ')
+  const [first] = translated
+
+  return (
+    `${prefix('info')} The build wrote ${keys} as [R, G, B] arrays for ${colors.blue(browserDisplayName(browser))}, which loads theme colors only as number arrays. ` +
+    `Each array holds the exact color of the string in the source.\n` +
+    `Write the arrays in ${colors.yellow('manifest.json')}, ${colors.yellow(first.key)} as ${formatThemeArray(first.rgb)} for one, to state the Chromium colors in the source. Firefox reads the same arrays.`
+  )
 }
 
 export function themeNotSupportedByBrowser(browser: string) {
@@ -134,11 +264,32 @@ export function missingGeckoDataCollectionPermissions() {
   )
 
   lines.push(
-    `Declare ${colors.blue('{"required": ["none"]}')} if this extension transmits no data.`
+    `The extension's owner declares what the extension collects. The build proposes no value.`
   )
 
   lines.push(
-    `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for details.`
+    `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for the accepted values.`
+  )
+
+  return lines.join('\n')
+}
+
+export function missingGeckoAddonId(declared: unknown) {
+  const lines: string[] = []
+  const field = colors.blue('browser_specific_settings.gecko.id')
+
+  lines.push(
+    declared == null
+      ? `${prefix('warn')} The manifest sets no ${field}, so Firefox has no add-on ID for this extension.`
+      : `${prefix('warn')} Firefox refuses the add-on ID ${colors.yellow(JSON.stringify(declared))} in ${field}, so this extension has none.`
+  )
+
+  lines.push(
+    `Without one, Firefox gives the add-on a new ID on each launch, so its storage does not survive a relaunch, and addons.mozilla.org assigns one on the first upload that every later upload must carry.`
+  )
+
+  lines.push(
+    `Set ${colors.yellow('firefox:browser_specific_settings.gecko.id')} in ${colors.yellow('manifest.json')} to an email-like string such as ${colors.yellow('my-extension@example.com')}.`
   )
 
   return lines.join('\n')
@@ -314,6 +465,14 @@ export function sidebarKeyTranslatedForBrowser(
     `${prefix('info')} The build folded ${colors.yellow(from)} into ${colors.yellow(to)} for ${colors.blue(browser)}, which reads a sidebar only from ${colors.yellow(to)}${permission}. ` +
     `The panel opens and points at the same compiled page.\n` +
     `Declare both keys to ship a panel of its own per vendor, or scope ${colors.yellow(from)} with a prefix to keep it off this build.`
+  )
+}
+
+export function geckoServiceWorkerTranslated(browser: string) {
+  return (
+    `${prefix('info')} The build moved ${colors.yellow('background.service_worker')} into ${colors.yellow('background.scripts')} for ${colors.blue(browser)}, which never starts a service worker. ` +
+    `The background runs as an event page from the same compiled script.\n` +
+    `Declare ${colors.yellow('scripts')} beside ${colors.yellow('service_worker')}, or a ${colors.yellow('firefox:background')} key, to state the Firefox background in the source.`
   )
 }
 
@@ -789,7 +948,8 @@ const hostGatedOutcomeOnChromium: Record<string, string> = {
 // that works on Firefox finds no host for these permissions on Chrome.
 export function contentScriptMatchesGrantNoHostOnChromium(
   permissions: readonly string[],
-  matches: readonly string[]
+  matches: readonly string[],
+  replacedHosts?: ShadowedDeclaration
 ) {
   const names = permissions
     .map((permission) => colors.yellow(`"${permission}"`))
@@ -799,11 +959,19 @@ export function contentScriptMatchesGrantNoHostOnChromium(
     .filter(Boolean)
     .join(', ')
 
+  // An empty prefixed list took the place of the hosts the plain key names.
+  const head = replacedHosts
+    ? `manifest.json declares ${names} and lists hosts under ${colors.blue(replacedHosts.listedUnder)}, but ${colors.yellow(replacedHosts.readKey)} replaces that key in the ${replacedHosts.browser} build and names none. A prefixed key replaces the unprefixed one for that browser and does not merge with it, and Chromium takes no host from ${colors.blue('content_scripts')} matches.`
+    : `manifest.json declares ${names} and no host permission, and Chromium takes none from ${colors.blue('content_scripts')} matches.`
+  const fix = replacedHosts
+    ? `Add the hosts to ${colors.yellow(replacedHosts.readKey)}, or remove that key so the build reads ${colors.blue(replacedHosts.listedUnder)}.`
+    : `Add the hosts to ${colors.blue('host_permissions')}, or to ${colors.yellow('chromium:host_permissions')} to keep them out of the other builds.`
+
   return [
-    `${prefix('warn')} manifest.json declares ${names} and no host permission, and Chromium takes none from ${colors.blue('content_scripts')} matches.`,
+    `${prefix('warn')} ${head}`,
     `${colors.gray('MATCHES')} ${matches.join(', ')}`,
     `The content script still runs on those pages, but on Chrome the permission reaches none of them: ${outcomes}. Firefox reads the same matches as host access, so this works on Firefox and not on Chrome.`,
-    `Add the hosts to ${colors.blue('host_permissions')}, or to ${colors.yellow('chromium:host_permissions')} to keep them out of the other builds.`
+    fix
   ].join('\n')
 }
 
@@ -815,5 +983,41 @@ export function manifestDescriptionMissingForStore(
   return [
     `${prefix('warn')} manifest.json has no ${colors.blue('description')}, and ${store} refuses a ${browser} build without one (Apple error 90849).`,
     `Add a description of ${limit} characters or fewer.`
+  ].join('\n')
+}
+
+// The browser refuses to compile a module the pages policy does not allow,
+// and nothing in the build output says so until the page stays blank.
+export function webAssemblyPolicyMissing(
+  browser: string,
+  files: readonly string[],
+  field: string,
+  policy: string,
+  hasPolicy: boolean
+) {
+  const fix = hasPolicy
+    ? `Add ${colors.yellow("'wasm-unsafe-eval'")} to the script-src of ${colors.blue(field)} in manifest.json, for example:`
+    : `Add ${colors.blue(field)} to manifest.json with this value:`
+
+  return [
+    `${prefix('warn')} The build emits WebAssembly that manifest.json does not allow ${colors.blue(browser)} to run.`,
+    ...files.map((file) => `${colors.gray('FILE')} ${colors.underline(file)}`),
+    `Extension pages and the background refuse to compile it unless the pages policy lists ${colors.yellow("'wasm-unsafe-eval'")}.`,
+    fix,
+    `${colors.gray('VALUE')} ${policy}`
+  ].join('\n')
+}
+
+export function webAssemblyFetchedFromRemote(
+  hits: ReadonlyArray<{file: string; address: string}>
+) {
+  return [
+    `${prefix('warn')} The built code fetches WebAssembly from another origin at run time.`,
+    ...hits.map(
+      (hit) =>
+        `${colors.gray('FILE')} ${colors.underline(hit.file)} ${colors.gray('ADDRESS')} ${colors.underline(hit.address)}`
+    ),
+    'Stores treat a binary loaded from the network as remotely hosted code, and it fails offline.',
+    `Ship the binary in the package: import it with ${colors.blue("new URL('./file.wasm', import.meta.url)")} or place it in ${colors.blue('public/')}, then hand the loader that path.`
   ].join('\n')
 }

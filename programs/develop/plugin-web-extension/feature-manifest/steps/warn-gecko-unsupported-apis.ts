@@ -457,7 +457,7 @@ export function findGeckoUnsupportedApiUses(
       const resource = scannableSourcePath(module.resource)
       if (!resource) continue
 
-      const source = readProjectSource(resource)
+      const source = readProjectSource(resource, compilation)
       if (source === undefined) continue
 
       for (const target of targets) {
@@ -511,7 +511,7 @@ export function findGeckoUnsupportedApiUses(
 
 // The module graph names a file by its real path while the project path
 // may go through a symlink, so a label is tried against both spellings.
-function relativeToProject(projectPath: string, file: string): string {
+export function relativeToProject(projectPath: string, file: string): string {
   const candidates = [projectPath]
 
   try {

@@ -1,127 +1,56 @@
-import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {StaticAssetsPlugin} from '../index'
 
 function createCompiler() {
   return {
     options: {
-      mode: 'development',
       module: {rules: [] as any[]},
       resolve: {alias: {} as Record<string, string>}
     },
-    hooks: {
-      afterEmit: {
-        tap: vi.fn()
-      },
-      compilation: {
-        tap: vi.fn()
-      }
-    }
+    hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
   } as any
 }
 
-function findRuleByTest(rules: any[], regex: RegExp) {
-  return rules.find(
-    (r) => r?.test instanceof RegExp && String(r.test) === String(regex)
+// The default rules are the ones typed `asset` that carry the output name.
+function defaultRulesOf(rules: any[]) {
+  return rules.filter(
+    (r) =>
+      r?.type === 'asset' &&
+      r.generator?.filename === 'assets/[name].[contenthash:8][ext]'
   )
 }
 
+function defaultRuleFor(rules: any[], sample: string) {
+  return defaultRulesOf(rules).find((r) => r.test.test(sample))
+}
+
 describe('StaticAssetsPlugin', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  it('content-hashes asset filenames in development and keeps the SVG inline threshold', async () => {
+  it('claims every default extension with one rule that inlines up to 2 KB', () => {
     const compiler = createCompiler()
-    const plugin = new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    })
+    new StaticAssetsPlugin().apply(compiler)
 
-    await plugin.apply(compiler)
+    const defaults = defaultRulesOf(compiler.options.module.rules)
 
-    const rules = compiler.options.module.rules as any[]
-
-    const svgRule = findRuleByTest(rules, /\.svg$/i)
-    expect(svgRule).toBeTruthy()
-    expect(svgRule.type).toBe('asset')
-    expect(svgRule.generator?.filename).toBe(
-      'assets/[name].[contenthash:8][ext]'
-    )
-
-    expect(svgRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
-
-    const imagesRule = findRuleByTest(
-      rules,
-      /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i
-    )
-    expect(imagesRule).toBeTruthy()
-    expect(imagesRule.type).toBe('asset')
-    expect(imagesRule.generator?.filename).toBe(
-      'assets/[name].[contenthash:8][ext]'
-    )
-
-    expect(imagesRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
-
-    const fontsRule = findRuleByTest(rules, /\.(woff|woff2|eot|ttf|otf)$/i)
-    expect(fontsRule).toBeTruthy()
-    expect(fontsRule.type).toBe('asset')
-    expect(fontsRule.generator?.filename).toBe(
-      'assets/[name].[contenthash:8][ext]'
-    )
-
-    const filesRule = findRuleByTest(
-      rules,
-      /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
-    )
-    expect(filesRule).toBeTruthy()
-    expect(filesRule.type).toBe('asset')
-    expect(filesRule.generator?.filename).toBe(
-      'assets/[name].[contenthash:8][ext]'
-    )
-
-    expect(filesRule.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
-  })
-
-  it('uses production filenames with contenthash in production mode', async () => {
-    const compiler = createCompiler()
-    const plugin = new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'production'
-    })
-
-    await plugin.apply(compiler)
-    const rules = compiler.options.module.rules as any[]
-
-    const svgRule = findRuleByTest(rules, /\.svg$/i)
-    const imagesRule = findRuleByTest(
-      rules,
-      /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i
-    )
-    const fontsRule = findRuleByTest(rules, /\.(woff|woff2|eot|ttf|otf)$/i)
-    const filesRule = findRuleByTest(
-      rules,
-      /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
-    )
-
-    for (const rule of [svgRule, imagesRule, fontsRule, filesRule]) {
-      expect(rule.generator?.filename).toBe(
-        'assets/[name].[contenthash:8][ext]'
+    expect(defaults).toHaveLength(1)
+    expect(String(defaults[0].test)).toBe(
+      String(
+        /\.(svg|png|jpg|jpeg|gif|webp|avif|ico|bmp|woff|woff2|eot|ttf|otf|txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
       )
-    }
+    )
+
+    expect(defaults[0].parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
+    expect(defaults[0].resourceQuery).toBeUndefined()
+    expect(defaults[0].oneOf).toBeUndefined()
   })
 
-  it('respects existing custom SVG rule (does not add default svg asset rule)', async () => {
+  it('respects existing custom SVG rule (does not add default svg asset rule)', () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
       test: /\.svg$/i,
       use: [{loader: 'custom-svg-loader'}]
     })
 
-    const plugin = new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    })
-    await plugin.apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
     const svgRules = rules.filter(
@@ -132,18 +61,14 @@ describe('StaticAssetsPlugin', () => {
     expect(svgRules[0].type).toBeUndefined()
   })
 
-  it('respects existing custom fonts rule (does not add default fonts asset rule)', async () => {
+  it('respects existing custom fonts rule (does not add default fonts asset rule)', () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
       test: /\.(woff|woff2|eot|ttf|otf)$/i,
       type: 'asset/inline'
     })
 
-    const plugin = new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    })
-    await plugin.apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
     const fontRules = rules.filter(
@@ -155,29 +80,21 @@ describe('StaticAssetsPlugin', () => {
     expect(fontRules.length).toBe(1)
     expect(fontRules[0].type).toBe('asset/inline')
 
-    expect(
-      findRuleByTest(rules, /\.(png|jpg|jpeg|gif|webp|avif|ico|bmp)$/i)
-    ).toBeTruthy()
-
-    expect(
-      findRuleByTest(
-        rules,
-        /\.(txt|md|csv|tsv|xml|pdf|docx|doc|xls|xlsx|ppt|pptx|zip|gz|gzip|tgz)$/i
-      )
-    ).toBeTruthy()
+    expect(defaultRuleFor(rules, 'font.woff2')).toBeUndefined()
+    expect(defaultRuleFor(rules, 'image.png')).toBeTruthy()
+    expect(defaultRuleFor(rules, 'doc.pdf')).toBe(
+      defaultRuleFor(rules, 'image.png')
+    )
   })
 
-  it('lets a user image rule win for its extension and keeps the default for the siblings', async () => {
+  it('lets a user image rule win for its extension and keeps the default for the siblings', () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
       test: /\.png$/i,
       type: 'asset/resource'
     })
 
-    await new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    }).apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
     const defaultImages = rules.filter(
@@ -198,17 +115,14 @@ describe('StaticAssetsPlugin', () => {
     expect(pngRules[0].type).toBe('asset/resource')
   })
 
-  it('lets a user documents rule win for its extension too', async () => {
+  it('lets a user documents rule win for its extension too', () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
       test: /\.pdf$/i,
       type: 'asset/resource'
     })
 
-    await new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    }).apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
     const pdfRules = rules.filter(
@@ -226,32 +140,14 @@ describe('StaticAssetsPlugin', () => {
     expect(defaultFiles.test.test('.pdf')).toBe(false)
   })
 
-  it('gives fonts the same explicit inline threshold the reporter prints', async () => {
-    const compiler = createCompiler()
-    await new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    }).apply(compiler)
-
-    const rules = compiler.options.module.rules as any[]
-    const fonts = rules.find(
-      (r) => r?.test instanceof RegExp && r.test.test('.woff2')
-    )
-    expect(fonts.parser?.dataUrlCondition?.maxSize).toBe(2 * 1024)
-  })
-
-  it('respects a type-only custom SVG rule, matching the fonts detector', async () => {
+  it('respects a type-only custom SVG rule, matching the fonts detector', () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
       test: /\.svg$/i,
       type: 'asset/inline'
     })
 
-    const plugin = new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    })
-    await plugin.apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
     const svgRules = rules.filter(
@@ -261,7 +157,7 @@ describe('StaticAssetsPlugin', () => {
     expect(svgRules[0].type).toBe('asset/inline')
   })
 
-  it('keeps the default SVG rule when the custom rule is resourceQuery-scoped (SVGR split)', async () => {
+  it('keeps the default SVG rule when the custom rule is resourceQuery-scoped (SVGR split)', () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
       test: /\.svg$/i,
@@ -269,27 +165,23 @@ describe('StaticAssetsPlugin', () => {
       use: ['@svgr/webpack']
     })
 
-    const plugin = new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    })
-    await plugin.apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
-    const svgRules = rules.filter(
-      (r) => r?.test instanceof RegExp && String(r.test) === String(/\.svg$/i)
-    )
-    // The scoped SVGR rule only claims ?react imports, so plain imports still
-    // need the default rule.
-    expect(svgRules.length).toBe(2)
+    const defaultSvg = defaultRuleFor(rules, 'icon.svg')
 
-    const defaultRule = svgRules.find((r) => r.type === 'asset')
-    expect(defaultRule).toBeTruthy()
-    // The default excludes the SVGR query so it cannot clobber ?react imports.
-    expect(defaultRule.resourceQuery?.not).toEqual([/react/])
+    // The scoped SVGR rule only claims ?react imports, so plain imports still
+    // need the default, which excludes that query for SVG and nothing else.
+    expect(String(defaultSvg.test)).toBe(String(/\.(svg)$/i))
+    expect(defaultSvg.resourceQuery?.not).toEqual([/react/])
+    expect(defaultRulesOf(rules)).toHaveLength(2)
+    expect(defaultRuleFor(rules, 'image.png').resourceQuery).toBeUndefined()
+    expect(defaultRuleFor(rules, 'font.woff2')).toBe(
+      defaultRuleFor(rules, 'image.png')
+    )
   })
 
-  it('keeps the default fonts rule when the custom rule is resourceQuery-scoped', async () => {
+  it('keeps the default fonts rule when the custom rule is resourceQuery-scoped', () => {
     const compiler = createCompiler()
     compiler.options.module.rules.push({
       test: /\.(woff|woff2|eot|ttf|otf)$/i,
@@ -297,11 +189,7 @@ describe('StaticAssetsPlugin', () => {
       type: 'asset/inline'
     })
 
-    const plugin = new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'development'
-    })
-    await plugin.apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     const rules = compiler.options.module.rules as any[]
     const fontRules = rules.filter(
@@ -316,30 +204,41 @@ describe('StaticAssetsPlugin', () => {
     expect(defaultRule.resourceQuery?.not).toEqual([/inline/])
   })
 
-  it('names an asset no rule claims under assets/ like every other asset', async () => {
+  it('names an asset no rule claims under assets/ like every other asset', () => {
     const compiler = createCompiler()
 
-    await new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'production'
-    }).apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     expect(compiler.options.output.assetModuleFilename).toBe(
       'assets/[name].[contenthash:8][ext]'
     )
   })
 
-  it('keeps an assetModuleFilename the user configured', async () => {
+  it('keeps an assetModuleFilename the user configured', () => {
     const compiler = createCompiler()
     compiler.options.output = {assetModuleFilename: 'media/[name][ext]'}
 
-    await new StaticAssetsPlugin({
-      manifestPath: '/project/manifest.json',
-      mode: 'production'
-    }).apply(compiler)
+    new StaticAssetsPlugin().apply(compiler)
 
     expect(compiler.options.output.assetModuleFilename).toBe(
       'media/[name][ext]'
     )
+  })
+
+  it('appends .wasm to the extensions the config lists, once, and sets no list of its own', () => {
+    const withUser = createCompiler()
+    const withWasm = createCompiler()
+    const withNone = createCompiler()
+    withUser.options.resolve.extensions = ['.ts', '.js']
+    withWasm.options.resolve.extensions = ['.wasm', '.ts']
+
+    new StaticAssetsPlugin().apply(withUser)
+    new StaticAssetsPlugin().apply(withWasm)
+    new StaticAssetsPlugin().apply(withNone)
+
+    expect(withUser.options.resolve.extensions).toEqual(['.ts', '.js', '.wasm'])
+    expect(withWasm.options.resolve.extensions).toEqual(['.wasm', '.ts'])
+    expect(withNone.options.resolve.extensions).toBeUndefined()
+    expect(withUser.options.resolve.alias).toEqual({})
   })
 })

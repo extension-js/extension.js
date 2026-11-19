@@ -6,20 +6,19 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import {Compilation, type Compiler} from '@rspack/core'
 import {
   isChromiumBasedBrowser,
   isWebkitBasedBrowser
 } from '../../../lib/constants'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
-import {collectThemeValueIssues} from '../manifest-lib/theme-values'
+import {getOriginalManifest} from '../manifest-lib/manifest'
+import {collectThemeArrayIssues} from '../manifest-lib/theme-values'
 import * as messages from '../messages'
 
-export class ValidateThemeValues {
+export class ValidateThemeArrays {
   public static readonly name: string = 'manifest:validate-theme-values'
 
   public readonly manifestPath: string
@@ -35,29 +34,28 @@ export class ValidateThemeValues {
     const webkitTarget = isWebkitBasedBrowser(browserName)
 
     // Firefox parses theme colors with its own schema (CSS strings included),
-    // so only the Chromium family gets Chrome's integer-array contract.
+    // so only the Chromium family gets Chromium's number-array contract.
     // Safari has no theme surface at all, which deserves a warning, not silence.
     if (!isChromiumBasedBrowser(browserName) && !webkitTarget) return
 
     compiler.hooks.thisCompilation.tap(
-      ValidateThemeValues.name,
+      ValidateThemeArrays.name,
       (compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: ValidateThemeValues.name,
+            name: ValidateThemeArrays.name,
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            let manifest: Manifest
+            // The manifest EmitManifest read for this compilation, so a save
+            // that lands mid-build is not validated ahead of its own build.
+            const authored = getOriginalManifest(compilation)
+            if (!authored) return
 
-            try {
-              manifest = filterKeysForThisBrowser(
-                parseJsonSafe(fs.readFileSync(this.manifestPath, 'utf8')),
-                this.browser
-              )
-            } catch {
-              return
-            }
+            const manifest: Manifest = filterKeysForThisBrowser(
+              authored,
+              this.browser
+            )
 
             if (webkitTarget) {
               if ((manifest as Record<string, unknown>).theme) {
@@ -73,17 +71,16 @@ export class ValidateThemeValues {
               return
             }
 
-            for (const issue of collectThemeValueIssues(manifest)) {
+            const issues = collectThemeArrayIssues(manifest)
+
+            if (issues.length > 0) {
               reportToCompilation(
                 compilation,
                 compiler,
-                messages.invalidThemeValue(
-                  issue.field,
-                  issue.detail,
-                  issue.value
-                ),
+                messages.themeArraysRefused(browserName, issues),
                 'error',
-                'manifest.json'
+                'manifest.json',
+                'ThemeArrayInvalid'
               )
             }
           }

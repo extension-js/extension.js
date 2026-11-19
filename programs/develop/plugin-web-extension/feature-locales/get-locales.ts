@@ -38,6 +38,21 @@ export function resolveLocalesFolder(
   return undefined
 }
 
+// Where a _locales folder may appear when the project has none yet. A
+// public/_locales is the public copier's to watch.
+export function localesFolderCandidates(
+  manifestPath: string,
+  projectRoot?: string
+): string[] {
+  const candidates = new Set<string>()
+
+  if (projectRoot) candidates.add(path.join(projectRoot, '_locales'))
+
+  candidates.add(path.join(path.dirname(manifestPath), '_locales'))
+
+  return [...candidates]
+}
+
 function publicLocalesFolder(
   manifestPath: string,
   projectRoot?: string
@@ -62,10 +77,17 @@ export function localesFolderIsCopiedByPublic(
   return path.resolve(localesFolder) === path.resolve(fromPublic)
 }
 
+// Installed packages are not locale content, so no walk goes into them.
+function isInstalledPackagesFolder(name: string): boolean {
+  return name.toLowerCase() === 'node_modules'
+}
+
 function listLocaleDirs(folder: string): string[] {
   const out: string[] = []
 
   for (const locale of fs.readdirSync(folder)) {
+    if (isInstalledPackagesFolder(locale)) continue
+
     const localeDir = path.join(folder, locale)
 
     try {
@@ -118,8 +140,11 @@ function walk(dir: string, out: string[]): void {
 
     const abs = path.join(dir, entry.name)
 
-    if (entry.isDirectory()) walk(abs, out)
-    else out.push(abs)
+    if (entry.isDirectory()) {
+      if (!isInstalledPackagesFolder(entry.name)) walk(abs, out)
+    } else {
+      out.push(abs)
+    }
   }
 }
 

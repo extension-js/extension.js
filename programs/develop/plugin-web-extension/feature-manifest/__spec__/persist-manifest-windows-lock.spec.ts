@@ -39,7 +39,7 @@ function runPersist(outputDir: string, manifestSource: string) {
     errors,
     outputOptions: {path: outputDir},
     hooks: {
-      processAssets: {
+      afterProcessAssets: {
         tap: (_opts: unknown, fn: () => void) => {
           processAssets = fn
         }

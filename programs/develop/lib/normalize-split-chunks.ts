@@ -144,7 +144,7 @@ export function applySplitChunksGuard(config: Configuration): Configuration {
 
 // A separate runtime file only reaches an HTML page. The background and the
 // content scripts load one file, so a runtime split out of them never runs.
-export function keepRuntimeInline(config: Configuration): Configuration {
+function keepRuntimeInline(config: Configuration): Configuration {
   const runtimeChunk = config.optimization?.runtimeChunk
 
   if (!runtimeChunk) return config

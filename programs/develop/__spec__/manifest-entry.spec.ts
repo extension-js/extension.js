@@ -67,7 +67,6 @@ describe('the public manifest entry', () => {
     )
 
     expect(pkg.exports['./manifest']).toEqual({
-      development: './manifest-entry.ts',
       types: './dist/manifest-entry.d.ts',
       import: './dist/manifest.mjs'
     })

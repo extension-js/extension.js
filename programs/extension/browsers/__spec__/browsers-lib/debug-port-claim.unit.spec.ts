@@ -13,13 +13,35 @@ function listenOn(port: number): Promise<net.Server> {
   })
 }
 
-// A run of ports nothing listens on, found by asking the system for one.
-async function freeStartPort(): Promise<number> {
-  const server = await listenOn(0)
-  const {port} = server.address() as net.AddressInfo
-  await new Promise((resolve) => server.close(resolve))
+// How many ports in a row the cases below count on being free.
+const RUN_LENGTH = 4
 
-  return port > 60000 ? port - 2000 : port
+async function isFree(port: number): Promise<boolean> {
+  try {
+    const server = await listenOn(port)
+    await new Promise((resolve) => server.close(resolve))
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+// A run of ports nothing listens on. The system names the first, and each
+// neighbor is tried too, since another process may hold any of them.
+async function freeStartPort(): Promise<number> {
+  for (let attempt = 0; attempt < 50; attempt++) {
+    const server = await listenOn(0)
+    const {port} = server.address() as net.AddressInfo
+    await new Promise((resolve) => server.close(resolve))
+
+    const start = port > 60000 ? port - 2000 : port
+    const run = Array.from({length: RUN_LENGTH}, (_, index) => start + index)
+
+    if ((await Promise.all(run.map(isFree))).every(Boolean)) return start
+  }
+
+  throw new Error('no run of free ports to test a debug port claim on')
 }
 
 // A pid that named a process once and names none now.
@@ -129,7 +151,7 @@ describe('claimDebugPortNear', () => {
     second.release()
   })
 
-  // Pins today's behavior. Ledger 1374 D6.
+  // Pins current behavior: the busy start port comes back with a no-op release.
   it('hands back the start port with nothing to release once every attempt found a listener', async () => {
     const servers = [await listenOn(start), await listenOn(start + 1)]
 

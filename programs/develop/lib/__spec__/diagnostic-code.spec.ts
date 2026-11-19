@@ -1,4 +1,4 @@
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {toDiagnostic} from '../compilation-diagnostics'
 import {
   codeForSeverity,
@@ -22,6 +22,7 @@ describe('diagnosticCode', () => {
     ['LocalesFolderWithoutMessages', 'E_LOCALES_LAYOUT'],
     ['LocalesValidationError', 'E_LOCALES_LAYOUT'],
     ['PerfBudgetWarning', 'W_PERF_BUDGET'],
+    ['PerfBudgetError', 'E_PERF_BUDGET'],
     ['EnvNoMatchingFile', 'W_ENV_NO_MATCH'],
     ['JSONMissingFile', 'E_ENTRY_NOT_FOUND'],
     ['LocalesPluginMissingFile', 'E_ENTRY_NOT_FOUND'],
@@ -30,6 +31,7 @@ describe('diagnosticCode', () => {
     ['ManifestPageMissing', 'E_ENTRY_NOT_FOUND'],
     ['ManifestFilesNotEmitted', 'E_ENTRY_NOT_FOUND'],
     ['JSONPathIsFolder', 'E_ENTRY_NOT_FOUND'],
+    ['ManifestNamedFileNotShipped', 'E_ENTRY_NOT_FOUND'],
     ['IconsMissingFile', 'E_ASSET_MISSING'],
     ['HtmlAssetMissing', 'E_ASSET_MISSING'],
     ['HtmlPublicAssetMissing', 'E_ASSET_MISSING'],
@@ -37,15 +39,16 @@ describe('diagnosticCode', () => {
     ['MissingCssAssetWarning', 'E_ASSET_MISSING'],
     ['PublicFolderOffRef', 'E_ASSET_MISSING'],
     ['RootAbsoluteRefCompiledSource', 'E_ASSET_MISSING'],
+    ['RuntimeSetSurfaceFileMissing', 'E_ASSET_MISSING'],
     ['RuntimeLoadedFileCompileFailed', 'E_SCRIPT_DEP_MISSING'],
-    ['UnresolvedBareRequireWarning', 'E_SCRIPT_DEP_MISSING'],
-    ['ImportScriptsDependencyMissing', 'E_SCRIPT_DEP_MISSING'],
-    ['ImportScriptsCompiledSource', 'E_SCRIPT_DEP_MISSING'],
-    ['InjectedScriptFilesMissing', 'E_SCRIPT_DEP_MISSING'],
-    ['InjectedScriptCompiledSource', 'E_SCRIPT_DEP_MISSING'],
+    ['CodeNamedFileNotShipped', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeFetchedFileMissing', 'E_SCRIPT_DEP_MISSING'],
+    ['ImportScriptsDependencyMissing', 'E_SCRIPT_DEP_MISSING'],
+    ['InjectedScriptFilesMissing', 'E_SCRIPT_DEP_MISSING'],
+    ['UnresolvedBareRequireWarning', 'E_SCRIPT_DEP_MISSING'],
+    ['ImportScriptsCompiledSource', 'E_SCRIPT_DEP_MISSING'],
+    ['InjectedScriptCompiledSource', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeStaticImportFileMissing', 'E_SCRIPT_DEP_MISSING'],
-    ['RuntimeSetSurfaceFileMissing', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeGetURLFileMissing', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeGetURLCompiledSource', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeAssetFolderNotShipped', 'E_SCRIPT_DEP_MISSING'],
@@ -57,6 +60,7 @@ describe('diagnosticCode', () => {
     ['ScriptsFolderEntryOnlyImported', 'W_RESERVED_FOLDER'],
     ['CssPreprocessorMissing', 'E_CSS_PREPROCESSOR_MISSING'],
     ['CssDeadRef', 'E_CSS_DEAD_REF'],
+    ['CssWithheldRef', 'E_CSS_DEAD_REF'],
     ['CssParseWarning', 'E_CSS_PARSE'],
     ['BackgroundRequired', 'E_BACKGROUND_REQUIRED'],
     ['ContentScriptSyntax', 'E_CONTENT_SCRIPT_SYNTAX'],
@@ -64,6 +68,8 @@ describe('diagnosticCode', () => {
     ['ManifestFatalShapeWarning', 'W_MANIFEST_INVALID'],
     ['MainWorldScriptCompileFailed', 'E_COMPILE'],
     ['ContentScriptDevServerRuntimeWarning', 'W_INTERNAL'],
+    ['ScriptsPathCheckFailed', 'E_INTERNAL'],
+    ['CssUrlRewriteWarning', 'W_INTERNAL'],
     ['SpecialFoldersRemoval', 'E_RESTART_REQUIRED'],
     ['HtmlEntrypointChanged', 'E_RESTART_REQUIRED'],
     ['EnvFileChange', 'W_RESTART_REQUIRED'],
@@ -71,6 +77,7 @@ describe('diagnosticCode', () => {
     ['SpecialFoldersChange', 'W_RESTART_REQUIRED'],
     ['MainWorldRegistrationChange', 'W_RESTART_REQUIRED'],
     ['PublicFolderAppearedWarning', 'W_RESTART_REQUIRED'],
+    ['CssSetupWarning', 'W_RESTART_REQUIRED'],
     ['JSONInvalidSyntax', 'E_JSON_INVALID'],
     ['DNRInvalidRuleset', 'E_JSON_INVALID'],
     ['DNRInvalidRule', 'E_JSON_INVALID'],
@@ -85,12 +92,18 @@ describe('diagnosticCode', () => {
     ['PublicFolderShadowedWarning', 'W_PROJECT_LAYOUT'],
     ['PublicLayoutWarning', 'W_PROJECT_LAYOUT'],
     ['ExcludeFilesWarning', 'W_PROJECT_LAYOUT'],
+    ['ScriptsFolderFilesLeftOutWarning', 'W_PROJECT_LAYOUT'],
+    ['PublicEnvFilesWarning', 'W_PROJECT_LAYOUT'],
+    ['PublicLinkedFilesWarning', 'W_PROJECT_LAYOUT'],
     ['NamespaceImportReadAsValue', 'E_ASSET_IMPORT_SHAPE'],
     ['ManifestV2OnChromiumWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestLegacyWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestHostPermissionWarning', 'W_MANIFEST_COMPAT'],
+    ['GeckoAddonIdWarning', 'W_MANIFEST_COMPAT'],
+    ['WebAssemblyPolicyWarning', 'W_MANIFEST_COMPAT'],
     ['ManifestDescriptionWarning', 'W_STORE_READINESS'],
     ['AmoDataCollectionWarning', 'W_STORE_READINESS'],
+    ['RemoteWebAssemblyWarning', 'W_STORE_READINESS'],
     ['UndeclaredPermissionWarning', 'W_PERMISSION_MISMATCH'],
     ['ContentScriptHostAccessWarning', 'W_PERMISSION_MISMATCH'],
     ['DevInjectedPermissionWarning', 'W_PERMISSION_MISMATCH'],
@@ -110,6 +123,8 @@ describe('diagnosticCode', () => {
     ['PublicInjectedSheetPageRelativeTarget', 'W_CSS_NOT_APPLIED'],
     ['EnvPublicSecretName', 'W_ENV_SECRET_PUBLIC'],
     ['MissingBuildConstantWarning', 'W_BUILD_CONSTANT_UNDEFINED'],
+    ['EnvPrivatePlaceholder', 'W_BUILD_CONSTANT_UNDEFINED'],
+    ['EnvReservedName', 'W_ENV_NAME_RESERVED'],
     ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN']
   ])('maps a diagnostic named %s to %s', (name, code) => {
     expect(diagnosticCode(named(name))).toBe(code)
@@ -239,7 +254,8 @@ const ERRORS_ONLY = new Set<ErrorCode>([
   CODES.E_MANIFEST_NOT_FOUND,
   CODES.E_COMPILE,
   CODES.E_ASSET_IMPORT_SHAPE,
-  CODES.E_OUTPUT_NOT_WRITABLE
+  CODES.E_OUTPUT_NOT_WRITABLE,
+  CODES.E_THEME_INVALID
 ])
 
 const WARNING_NAMES = Object.values(CODES).filter((code) =>
@@ -279,15 +295,109 @@ describe('the warning class', () => {
     )
   })
 
-  it('keeps a warning-only class on its W_ name when a build fails on it', () => {
-    expect(codeForSeverity(CODES.W_STORE_READINESS, 'error')).toBe(
-      'W_STORE_READINESS'
+  // The bundler opens a warning with its own glyph, not the error one.
+  it('codes a module the bundler could not find and warned about', () => {
+    const warning = new Error("  ⚠ Module not found: Can't resolve './nope'")
+
+    expect(toDiagnostic(warning, 'warning').code).toBe('W_MODULE_NOT_FOUND')
+    expect(
+      toDiagnostic(
+        new Error("  × Module not found: Can't resolve 'x'"),
+        'error'
+      ).code
+    ).toBe('E_MODULE_NOT_FOUND')
+  })
+
+  it('refuses a warning-only class on an error', () => {
+    expect(() => codeForSeverity(CODES.W_STORE_READINESS, 'error')).toThrow(
+      'W_STORE_READINESS has no E_ name in CODES'
     )
   })
 
-  it('leaves an errors-only class as it is on a warning', () => {
+  it('refuses an errors-only class on a warning', () => {
     expect(warningCodeOf(CODES.E_COMPILE)).toBeUndefined()
-    expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBe('E_COMPILE')
+    expect(() => codeForSeverity(CODES.E_COMPILE, 'warning')).toThrow(
+      'E_COMPILE has no W_ name in CODES'
+    )
+  })
+
+  it('reports a budget overrun under the name of its severity', () => {
+    expect(codeForSeverity(CODES.W_PERF_BUDGET, 'error')).toBe('E_PERF_BUDGET')
+    expect(codeForSeverity(CODES.E_PERF_BUDGET, 'warning')).toBe(
+      'W_PERF_BUDGET'
+    )
+  })
+
+  // Every code, both severities: an error never reads W_ and a warning
+  // never reads E_, whether the pairing throws or resolves.
+  it.each(
+    Object.values(CODES)
+  )('reports %s under the prefix of the severity or not at all', (code) => {
+    for (const [severity, prefix] of [
+      ['error', 'E_'],
+      ['warning', 'W_']
+    ] as const) {
+      const twin = `${prefix}${code.slice(2)}`
+
+      if (Object.hasOwn(CODES, twin)) {
+        expect(codeForSeverity(code, severity)).toBe(twin)
+      } else {
+        expect(() => codeForSeverity(code, severity)).toThrow(
+          `${code} has no ${prefix} name in CODES`
+        )
+      }
+    }
+  })
+
+  it('drops the code on a user run where the class has no name for the severity', () => {
+    vi.stubEnv('VITEST', '')
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', '')
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      for (const code of Object.values(CODES)) {
+        expect(codeForSeverity(code, 'error') ?? 'E_').toMatch(/^E_/)
+        expect(codeForSeverity(code, 'warning') ?? 'W_').toMatch(/^W_/)
+      }
+
+      expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
+      expect(toDiagnostic(named('BackgroundRequired'), 'warning')).toEqual({
+        message: 'text',
+        severity: 'warning',
+        name: 'BackgroundRequired'
+      })
+
+      expect(stderr).not.toHaveBeenCalled()
+    } finally {
+      stderr.mockRestore()
+      vi.unstubAllEnvs()
+    }
+  })
+
+  // An author's run is a real session too, so it is told and carries on.
+  it('tells an author in one stderr line and drops the code, without throwing', () => {
+    vi.stubEnv('VITEST', '')
+    vi.stubEnv('EXTENSION_AUTHOR_MODE', 'true')
+    const stderr = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    try {
+      expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
+      // A rebuild meets the same gap again, and the line is not repeated.
+      expect(codeForSeverity(CODES.E_COMPILE, 'warning')).toBeUndefined()
+      expect(stderr).toHaveBeenCalledTimes(1)
+      expect(String(stderr.mock.calls[0][0])).toContain(
+        'E_COMPILE has no W_ name in CODES, so it cannot be reported as a warning.'
+      )
+
+      expect(codeForSeverity(CODES.E_ASSET_MISSING, 'warning')).toBe(
+        'W_ASSET_MISSING'
+      )
+
+      expect(stderr).toHaveBeenCalledTimes(1)
+    } finally {
+      stderr.mockRestore()
+      vi.unstubAllEnvs()
+    }
   })
 
   it('carries one code on the diagnostic a frame lists', () => {
@@ -328,7 +438,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(36)
+    expect(WARNING_NAMES.length).toBe(43)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

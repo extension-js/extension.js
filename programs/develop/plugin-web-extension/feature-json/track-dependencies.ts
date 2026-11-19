@@ -10,13 +10,17 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {debugLine, isDebug} from '../../lib/messaging'
+import {sourceFileMayShip} from '../../plugin-special-folders/public-private-files'
 import * as messages from './messages'
-import {resolveJsonResource} from './resolve-json-resource'
+import {
+  jsonFieldClimbsOutOfRoot,
+  resolveJsonResource
+} from './resolve-json-resource'
 
 export function trackJsonDependencies(
   compilation: Compilation,
   manifestPath: string,
-  includeList: Record<string, string | string[] | undefined>
+  includeList: Record<string, string | undefined>
 ): void {
   // Tracked even when this build errored: a malformed ruleset or schema is
   // exactly the file whose fix must trigger the next rebuild.
@@ -29,33 +33,31 @@ export function trackJsonDependencies(
     manifestDir
   let added = 0
 
-  for (const field of Object.entries(jsonFields)) {
-    const [, resource] = field
+  for (const [feature, resource] of Object.entries(jsonFields)) {
+    // Resources from the manifest lib can come as undefined.
+    if (!resource) continue
 
-    const resourceArr: Array<string | undefined> = Array.isArray(resource)
-      ? resource
-      : [resource]
+    const {abs} = resolveJsonResource(resource, manifestDir, projectPath)
 
-    for (const thisResource of resourceArr) {
-      if (thisResource) {
-        const {abs} = resolveJsonResource(
-          thisResource,
-          manifestDir,
-          projectPath
-        )
+    // Check the live set directly: copying compilation.fileDependencies per
+    // resource iteration just to call .has was a real cost.
+    if (!fs.existsSync(abs)) {
+      compilation.missingDependencies?.add(abs)
+      continue
+    }
 
-        // Check the live set directly: copying compilation.fileDependencies per
-        // resource iteration just to call .has was a real cost.
-        if (!fs.existsSync(abs)) {
-          compilation.missingDependencies?.add(abs)
-          continue
-        }
+    // A file the build withholds is never read, so a change to it has
+    // nothing to rebuild.
+    if (
+      jsonFieldClimbsOutOfRoot(compilation, manifestPath, feature) ||
+      !sourceFileMayShip(abs, [projectPath, manifestDir])
+    ) {
+      continue
+    }
 
-        if (!compilation.fileDependencies.has(abs)) {
-          compilation.fileDependencies.add(abs)
-          added++
-        }
-      }
+    if (!compilation.fileDependencies.has(abs)) {
+      compilation.fileDependencies.add(abs)
+      added++
     }
   }
 

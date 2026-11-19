@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {describe, expect, it} from 'vitest'
 import {DOCTOR_CHECK_CODES, DOCTOR_CHECKS} from '../../commands/doctor'
-import {CODES} from '../../helpers/messaging'
+import {CDP_FAULT_STEMS, CODES} from '../../helpers/messaging'
 import {
   READY_CONTRACT_CODES,
   readyContractErrorCode
@@ -190,12 +190,15 @@ function validateEnvelope(frame: Record<string, unknown>): string[] {
             )
           }
 
+          // An error reads E_ and a warning reads W_, as the schema ties them.
+          const prefix = detail?.severity === 'error' ? 'E' : 'W'
+
           if (
             'code' in detail &&
-            !/^[EW]_[A-Z0-9_]+$/.test(String(detail.code))
+            !new RegExp(`^${prefix}_[A-Z0-9_]+$`).test(String(detail.code))
           ) {
             problems.push(
-              `error.details[${index}].code is not an E_ or W_ identifier`
+              `error.details[${index}].code is not a ${prefix}_ identifier`
             )
           }
 
@@ -362,7 +365,12 @@ describe('a summary names the causes its code covers', () => {
     ['E_BROWSER_BINARY_INVALID', /version probe/, /within 10 seconds/],
     ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
     ['E_CONFIG_LOAD', /threw/, /not export an object/],
-    ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/]
+    ['E_RUNTIME_NOT_FOUND', /uncompiled/, /another version than the CLI/],
+    ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/],
+    // A file that is there and kept out of the build reports under these too.
+    ['E_ENTRY_NOT_FOUND', /missing/, /not bundled/],
+    ['E_ASSET_MISSING', /missing/, /not bundled/],
+    ['E_CSS_DEAD_REF', /missing/, /not bundled/]
   ])('%s', (code, first, second) => {
     const summary = table.codes[code]?.summary ?? ''
 
@@ -379,20 +387,78 @@ describe('a summary names the causes its code covers', () => {
   })
 })
 
+// A CDP fault a session carries on past is stamped under its W_ name.
+const CDP_FAULT_STAMP: [string, string, string] = [
+  'extension/browsers/browsers-lib/ready-stamp.ts',
+  'The session carried on, so the fault reads under a warning name.',
+  'ready.cdpFaultCode = cdpFaultWarningCode(code)'
+]
+
+// W_ names no source line spells, each beside the place that warns under the
+// E_ name: file, the line marking it, and a sink within 15 lines of that.
+const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
+  W_MODULE_NOT_FOUND: [
+    'develop/lib/diagnostic-code.ts',
+    'function isModuleNotFound',
+    '[×⚠]'
+  ],
+  W_ENTRY_NOT_FOUND: [
+    'develop/plugin-web-extension/feature-locales/process-assets.ts',
+    "'LocalesPluginMissingFile'",
+    'compilation.warnings.push('
+  ],
+  W_ASSET_MISSING: [
+    'develop/plugin-web-extension/feature-html/html-lib/patch-html.ts',
+    "'HtmlPublicAssetMissing'",
+    "'warning',"
+  ],
+  W_SCRIPT_DEP_MISSING: [
+    'develop/rspack-config.ts',
+    "'UnresolvedBareRequireWarning'",
+    'compilation.warnings.push('
+  ],
+  W_CSS_PARSE: [
+    'develop/plugin-css/css-parse-guard-loader.ts',
+    "'CssParseWarning'",
+    'this.emitWarning('
+  ],
+  W_CSS_PREPROCESSOR_MISSING: [
+    'develop/plugin-css/preprocessor-passthrough-loader.ts',
+    "'CssPreprocessorMissing'",
+    'this.emitWarning('
+  ],
+  W_CSS_DEAD_REF: [
+    'develop/plugin-css/index.ts',
+    "'CssDeadRef'",
+    ': compilation?.warnings'
+  ],
+  W_LOCALES_LAYOUT: [
+    'develop/plugin-web-extension/feature-locales/validation.ts',
+    "'LocalesLayoutWarning'",
+    'compilation.warnings.push('
+  ],
+  W_CDP_NOT_CONNECTED: CDP_FAULT_STAMP,
+  W_CDP_TIMEOUT: CDP_FAULT_STAMP,
+  W_BROWSER_CONNECTION_CLOSED: CDP_FAULT_STAMP,
+  W_EXTENSION_ID_UNKNOWN: CDP_FAULT_STAMP
+}
+
 describe('every declared code is emitted or marked reserved', () => {
   const files = collectSources(programsDir)
   const lines = files.flatMap((file) =>
     codeLines(path.relative(programsDir, file), fs.readFileSync(file, 'utf8'))
   )
 
+  const namedInSource = (code: string) => emitSites(code, lines).length > 0
+
   // A warning of a class that can also fail gets its W_ name from the E_
-  // name at run time, so the E_ sites are its emit sites too.
+  // name at run time, so it counts only with a witness that it does warn.
   const emitted = new Set<string>(
     Object.values(CODES).filter(
       (code) =>
-        emitSites(code, lines).length > 0 ||
-        (code.startsWith('W_') &&
-          emitSites(`E_${code.slice(2)}`, lines).length > 0)
+        namedInSource(code) ||
+        (Object.hasOwn(WARNS_UNDER_THE_E_NAME, code) &&
+          namedInSource(`E_${code.slice(2)}`))
     )
   )
 
@@ -419,6 +485,46 @@ describe('every declared code is emitted or marked reserved', () => {
     )
 
     expect(emitSites('E_SAMPLE', sample).map(({line}) => line)).toEqual([5, 6])
+  })
+
+  // The list is exact, so a W_ name added with no line of its own has to
+  // arrive with the place that produces it or it reads as never emitted.
+  it('lists exactly the W_ names that reach the wire through an E_ name', () => {
+    const unnamed = Object.values(CODES).filter(
+      (code) => code.startsWith('W_') && !namedInSource(code)
+    )
+
+    expect(unnamed.sort()).toEqual(Object.keys(WARNS_UNDER_THE_E_NAME).sort())
+  })
+
+  it.each(
+    Object.entries(WARNS_UNDER_THE_E_NAME)
+  )('finds where %s is reported as a warning', (_code, [file, mark, sink]) => {
+    const source = fs.readFileSync(path.join(programsDir, file), 'utf8')
+    const text = source.split('\n')
+    const at = text.findIndex((line) => line.includes(mark))
+
+    expect(at, `${file} no longer has ${mark}`).toBeGreaterThanOrEqual(0)
+
+    const nearby = text.slice(Math.max(0, at - 15), at + 16).join('\n')
+
+    expect(nearby, `${mark} in ${file} no longer warns`).toContain(sink)
+  })
+
+  // The stamp renames whatever it is handed, so each name it can write is
+  // real only while the CDP code under the Chromium runner still raises it.
+  it.each(
+    CDP_FAULT_STEMS
+  )('finds %s raised as a failure by the CDP code', (stem) => {
+    expect(CODES).toHaveProperty(`W_${stem}`)
+
+    const raised = emitSites(`E_${stem}`, lines).filter(({file}) =>
+      file.startsWith(path.join('extension', 'browsers', 'run-chromium', 'cdp'))
+    )
+
+    expect(raised.length, `E_${stem} is raised nowhere there`).toBeGreaterThan(
+      0
+    )
   })
 
   it('marks every code no source can produce as reserved in the table', () => {
@@ -467,6 +573,38 @@ describe('the golden envelope fixtures', () => {
     expect(fixtures).toContain('golden.open.headed-window-required.json')
     expect(fixtures).toContain('golden.eval.target-not-found.json')
     expect(fixtures).toContain('golden.eval.csp-blocks-eval.page.json')
+  })
+
+  it('ties the prefix of a detail code to its severity, as the schema does', () => {
+    const items = schema.properties.error.oneOf[1].properties.details.items
+
+    expect(items.if).toEqual({properties: {severity: {const: 'error'}}})
+    expect(items.then).toEqual({properties: {code: {pattern: '^E_'}}})
+    expect(items.else).toEqual({properties: {code: {pattern: '^W_'}}})
+
+    const frame = (severity: string, code: string) => ({
+      schema: 1,
+      ok: false,
+      command: 'build',
+      status: 'build-failed',
+      value: null,
+      error: {
+        code: 'E_COMPILE',
+        message: 'm',
+        details: [{code, message: 'm', severity}]
+      },
+      warnings: []
+    })
+
+    expect(validateEnvelope(frame('error', 'E_CSS_PARSE'))).toEqual([])
+    expect(validateEnvelope(frame('warning', 'W_CSS_PARSE'))).toEqual([])
+    expect(validateEnvelope(frame('error', 'W_CSS_PARSE'))).toEqual([
+      'error.details[0].code is not a E_ identifier'
+    ])
+
+    expect(validateEnvelope(frame('warning', 'E_CSS_PARSE'))).toEqual([
+      'error.details[0].code is not a W_ identifier'
+    ])
   })
 
   it.each(fixtures)('%s validates against envelope.schema.json', (name) => {

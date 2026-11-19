@@ -9,22 +9,41 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
+import {isOsPathUnder} from '../lib/real-path'
+import {WITHHELD_CSS_REF, withheldCssRefs} from '../lib/withheld-file'
+import {whyNotRead} from '../plugin-css/css-lib/inline-css-imports'
+import * as cssMessages from '../plugin-css/css-lib/messages'
+import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
+import {missingRefName} from '../plugin-web-extension/feature-html/steps/add-assets-to-compilation'
 import * as messages from '../plugin-web-extension/feature-scripts/messages'
 import {
   type CompileRequest,
   compileRuntimeLoadedFiles,
   planTracedFile,
+  saidNotShipped,
   type TracedFilePlan
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
 import * as folderMessages from './messages'
-import {isOsPathUnder} from '../lib/real-path'
+import {
+  rootAbsolutePathIsWithheld,
+  sourceFileMayShip
+} from './public-private-files'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {
   asset: string
   kind: 'html' | 'css'
 }
+
+// A ref the build will not answer from the source folder: a private name, or
+// a file that sits or resolves outside the project. It is reported as missing.
+interface WithheldRef {
+  kind: 'withheld'
+  emitPath: string
+}
+
+export type RootAbsoluteRefPlan = TracedFilePlan | WithheldRef
 
 // Decide how a root-absolute ref ships, with the tracer's rule: data files
 // and classic hand-written .js copy verbatim, anything the browser cannot run
@@ -34,8 +53,10 @@ export function planRootAbsoluteRef(
   ref: string,
   context: string,
   publicDir: string,
-  hasAsset: (name: string) => boolean
-): TracedFilePlan | null {
+  hasAsset: (name: string) => boolean,
+  // The manifest can sit below the project root, in src/ for one.
+  projectRoot: string = context
+): RootAbsoluteRefPlan | null {
   if (!ref || !ref.startsWith('/')) return null
   // A protocol-relative URL is an address, not a file.
   if (ref.startsWith('//')) return null
@@ -45,19 +66,40 @@ export function planRootAbsoluteRef(
   const outputName = ref.replace(/^\/+/, '')
   if (!outputName) return null
 
+  // The compilation already holds it, under the name as written or the one
+  // the browser asks for, so another step owns that file.
+  if (hasAsset(outputName) || hasAsset(path.posix.normalize(outputName))) {
+    return {kind: 'skip', reason: 'emitted', emitPath: outputName}
+  }
+
+  // Asked before public/: the copier leaves these names out as well, so the
+  // folder cannot answer for one.
+  if (rootAbsolutePathIsWithheld(outputName)) {
+    return {kind: 'withheld', emitPath: outputName}
+  }
+
   // public/ keeps precedence. It is the documented output-root contract.
   if (isFile(path.join(publicDir, outputName))) {
     return {kind: 'skip', reason: 'public', emitPath: outputName}
   }
 
   // Root refs are root-anchored, so source and dist paths match.
-  return planTracedFile({
+  const plan = planTracedFile({
     manifestDir: context,
     sourceRel: outputName,
     distRel: outputName,
     loadsAs: 'by-shape',
     hasAsset
   })
+
+  if (
+    (plan.kind === 'copy' || plan.kind === 'compile') &&
+    !sourceFileMayShip(plan.sourcePath, [projectRoot, context])
+  ) {
+    return {kind: 'withheld', emitPath: outputName}
+  }
+
+  return plan
 }
 
 export async function emitRootAbsoluteRefs(
@@ -65,7 +107,10 @@ export async function emitRootAbsoluteRefs(
   context: string,
   publicDir: string,
   // `folders: {public: false}`: a ref public/ satisfies has no copier.
-  publicIsOff = false
+  publicIsOff = false,
+  projectRoot: string = context,
+  // The source file of an emitted page, which a missing ref names as PATH.
+  pageSourceOf: (assetName: string) => string | undefined = () => undefined
 ): Promise<void> {
   const scanned = new Set<string>()
   const warned = new Set<string>()
@@ -105,8 +150,31 @@ export async function emitRootAbsoluteRefs(
     let emitted = 0
 
     for (const [ref, origin] of refs) {
-      const plan = planRootAbsoluteRef(ref, context, publicDir, hasAsset)
+      const plan = planRootAbsoluteRef(
+        ref,
+        context,
+        publicDir,
+        hasAsset,
+        projectRoot
+      )
       if (!plan) continue
+
+      if (plan.kind === 'withheld') {
+        if (!warned.has(ref)) {
+          warned.add(ref)
+          reportWithheld(
+            compilation,
+            context,
+            origin,
+            ref,
+            plan.emitPath,
+            pageSourceOf,
+            projectRoot
+          )
+        }
+
+        continue
+      }
 
       // The ref spells a source the build compiles to .js, so the browser
       // would ask for a path the output does not contain.
@@ -209,6 +277,94 @@ export async function emitRootAbsoluteRefs(
   }
 }
 
+const ESC = String.fromCharCode(27)
+const ANSI = new RegExp(`${ESC}\\[[0-9;]*m`, 'g')
+
+// The finding a missing file gets for that kind of ref, in its own words.
+// The page step says it first for some refs, so it is not said twice.
+function reportWithheld(
+  compilation: Compilation,
+  context: string,
+  origin: RefOrigin,
+  ref: string,
+  emitPath: string,
+  pageSourceOf: (assetName: string) => string | undefined,
+  projectRoot: string = context
+) {
+  if (origin.kind === 'css') {
+    // The stylesheet step or the trace of an injected sheet said this ref.
+    if (
+      withheldCssRefs(compilation).some(
+        (noted) => noted.ref.split(/[?#]/)[0] === ref
+      ) ||
+      saidNotShipped(compilation, origin.asset, emitPath)
+    ) {
+      return
+    }
+
+    const strict = process.env.EXTENSION_STRICT_REFS === 'true'
+    // A file that is there gets the words the stylesheet step gives it.
+    const onDisk = path.join(context, ref)
+    const why = fs.existsSync(onDisk)
+      ? whyNotRead(onDisk, projectRoot)
+      : undefined
+    const report = why
+      ? diagnostic(
+          cssMessages.withheldCssRef(origin.asset, ref, why.kind, strict),
+          origin.asset,
+          WITHHELD_CSS_REF
+        )
+      : diagnostic(
+          cssMessages.deadCssUrlRef(origin.asset, ref, strict),
+          origin.asset,
+          'CssDeadRef'
+        )
+
+    if (strict) {
+      compilation.errors ||= []
+      compilation.errors.push(report)
+    } else {
+      compilation.warnings ||= []
+      compilation.warnings.push(report)
+    }
+
+    return
+  }
+
+  // The page as the page step names it for a missing ref of the same tag.
+  const page = pageSourceOf(origin.asset)
+  const file = page ? path.relative(context, page) : origin.asset
+  // Where the page step looks for the ref, which it names when it says so.
+  const lookedAt = path.join(context, ref.replace(/^\//, ''))
+
+  // Spread first: the bundler's list answers `some` without visiting a thing.
+  const alreadySaid = [...(compilation.warnings || [])].some((warning) => {
+    const said = String(warning?.message || '').replace(ANSI, '')
+
+    return (
+      said.includes(`Update the ${ref} reference`) ||
+      ((warning as {file?: string})?.file === file &&
+        said.includes(`NOT FOUND ${lookedAt}`))
+    )
+  })
+  if (alreadySaid) return
+
+  // A climbing path is shown where the browser would look, at the root.
+  const shownAt = path.join(context, path.posix.normalize(`/${emitPath}`))
+
+  warn(
+    compilation,
+    file,
+    htmlMessages.fileNotFound(page || origin.asset, shownAt, {
+      publicRootHint: true,
+      refLabel: ref
+    }),
+    // The page step's name for a missing file of the same tag, so both
+    // carry one code. The bundler drops a code set on the warning itself.
+    missingRefName(shownAt)
+  )
+}
+
 function rewriteHtmlRef(
   compilation: Compilation,
   assetName: string,
@@ -241,14 +397,16 @@ function warn(
   message: string,
   name = 'RootAbsoluteRefCompiledSource'
 ) {
-  const warning = new WebpackError(message) as Error & {
-    file?: string
-    name?: string
-  }
-  warning.name = name
-  warning.file = file
   compilation.warnings ||= []
-  compilation.warnings.push(warning)
+  compilation.warnings.push(diagnostic(message, file, name))
+}
+
+function diagnostic(message: string, file: string, name: string) {
+  const report = new WebpackError(message) as Error & {file?: string}
+  report.name = name
+  report.file = file
+
+  return report
 }
 
 function watch(compilation: Compilation, abs: string) {

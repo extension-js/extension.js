@@ -73,7 +73,12 @@ async function build(root: string, extra: Record<string, unknown> = {}) {
   expect(summary.errors_count).toBe(0)
   const output = lines.join('\n')
 
-  return {budgetWarned: /budget/i.test(output), output, root}
+  return {
+    budgetWarned: /budget/i.test(output),
+    warnings: summary.warnings_count,
+    output,
+    root
+  }
 }
 
 const STRICT = "{'service-worker': 10}"
@@ -107,6 +112,28 @@ describe('config layer specificity for perfBudgets', () => {
       project(`module.exports = {perfBudgets: ${GENEROUS}}`)
     )
     expect(generous.budgetWarned).toBe(false)
+  }, 120_000)
+
+  it('commands.start decides for the build that start runs', async () => {
+    const strictStart = project(
+      `module.exports = {perfBudgets: ${GENEROUS}, commands: {start: {perfBudgets: ${STRICT}}}}`
+    )
+    const generousStart = project(
+      `module.exports = {perfBudgets: ${STRICT}, commands: {start: {perfBudgets: ${GENEROUS}}}}`
+    )
+
+    // The start build is silent, so the summary count is what tells.
+    expect(
+      (await build(strictStart, {metadataCommand: 'start'})).warnings
+    ).toBeGreaterThan(0)
+
+    expect(
+      (await build(generousStart, {metadataCommand: 'start'})).warnings
+    ).toBe(0)
+
+    // A plain build never reads the start block.
+    expect((await build(strictStart)).warnings).toBe(0)
+    expect((await build(generousStart)).warnings).toBeGreaterThan(0)
   }, 120_000)
 
   it('a CLI value beats every config layer', async () => {

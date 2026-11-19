@@ -13,6 +13,7 @@ import type {DevOptions, Manifest} from '../types'
 import {stripLoaderWrapper} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import type {InstallFailure} from './install-registry-failure'
+import {isUsageLaunchCode} from './launch-codes'
 import {
   artifactNoun,
   type Channel,
@@ -22,7 +23,7 @@ import {
   stripChannelPrefix
 } from './messaging'
 import {foldOutputFiles, type OutputFile} from './output-files'
-import {asAskedPath} from './paths'
+import {asAskedPath, displayPath} from './paths'
 
 // Imported for local use and re-exported: consumers and snapshots read fmt
 // from this module, and the definition now lives in messaging.ts.
@@ -57,14 +58,19 @@ export function resolvedWorkspaceManifest(
 // folders and install all silently belong to a project the author never named.
 export function declinedProjectRoot(
   projectManifestPath: string,
-  manifestPath: string
+  manifestPath: string,
+  previewing = false,
+  rootDir = path.dirname(manifestPath)
 ) {
-  const manifestDir = path.dirname(manifestPath)
+  // A preview compiles nothing, so there is no build to keep anything out of.
+  const consequence = previewing
+    ? 'That project does not depend on Extension.js, so its dist, its special folders and its config stay out of this preview. Name that project folder, or depend on Extension.js there, to use it as the project root.'
+    : 'That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.'
 
   return (
-    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(manifestDir)}/ as the project root.`)}\n` +
+    `${getLoggingPrefix('info')} ${colors.gray(`Using ${path.basename(rootDir)}/ as the project root.`)}\n` +
     `${colors.gray('IGNORED')} ${colors.underline(projectManifestPath)}\n` +
-    `${colors.gray('That project does not depend on Extension.js, so its dist, its special folders and its dependencies stay out of this build. Add a package.json next to your manifest, or depend on Extension.js there, to use it as the project root.')}`
+    `${colors.gray(consequence)}`
   )
 }
 
@@ -214,14 +220,18 @@ export function extensionLoadStillRefused(reason: string) {
 // emitter alone cannot report it: its default 'error' listener discards.
 export function browserLaunchFailed(
   browser: DevOptions['browser'],
-  reason: string
+  reason: string,
+  code?: unknown
 ) {
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} couldn't start, so the extension isn't running.\n` +
     // The reason is often a block of its own. Inside this one it is a detail,
     // so it loses its glyph and the frame stays one frame.
     `${hasChannelPrefix(reason) ? stripChannelPrefix(reason) : reason}\n` +
-    `The dev server keeps watching, but nothing will load until this is fixed.`
+    // A value the user set ends the session, since no compile can change it.
+    (isUsageLaunchCode(code)
+      ? `The dev session ends here. Fix the value, then run the command again.`
+      : `The dev server keeps watching, but nothing will load until this is fixed.`)
   )
 }
 
@@ -433,10 +443,73 @@ export function anotherDevSessionActive(
   )
 }
 
-export function buildOutDirInvalid(value: string) {
+const PROTECTED_FOLDER_NAMES = {
+  project: 'the project root or a folder above it',
+  cwd: 'the current folder or a folder above it',
+  home: 'the home folder or a folder above it',
+  'session-state': 'where Extension.js keeps session state and browser profiles'
+} as const
+
+export function buildOutDirInvalid(
+  value: string,
+  reason: 'project-root' | 'not-a-build' | keyof typeof PROTECTED_FOLDER_NAMES,
+  resolved?: string,
+  where: 'inside' | 'outside' = 'outside'
+) {
+  if (reason === 'project-root') {
+    return (
+      `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} needs a folder path other than the project root, got ${fmt.code(value || '(empty)')}.\n` +
+      `Pass a folder such as ${fmt.code('--out-dir build')}, and the build writes ${fmt.code('build/<browser>')}.`
+    )
+  }
+
+  const why =
+    reason === 'not-a-build'
+      ? `got ${fmt.code(value)}, and ${fmt.code(String(resolved))} is ${where} the project and holds files no extension build wrote`
+      : `got ${fmt.code(value)}, which resolves to ${fmt.code(String(resolved))}, ${PROTECTED_FOLDER_NAMES[reason]}`
+  const fix =
+    reason === 'not-a-build'
+      ? `The build replaces that folder, so nothing was deleted. Pass a folder that does not exist yet, or one a previous build wrote, which holds ${fmt.code('manifest.json')}.`
+      : `The build replaces ${fmt.code('<out-dir>/<browser>')}, so nothing was deleted. Pass a folder of its own such as ${fmt.code('--out-dir build')}.`
+
+  return `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} ${why}.\n${fix}`
+}
+
+// The stock dist/<browser> holding something a build did not write.
+export function buildOutputFolderForeign(resolved: string) {
   return (
-    `${getLoggingPrefix('error')} ${fmt.code('--out-dir')} needs a folder path other than the project root, got ${fmt.code(value || '(empty)')}.\n` +
-    `Pass a folder such as ${fmt.code('--out-dir build')}, and the build writes ${fmt.code('build/<browser>')}.`
+    `${getLoggingPrefix('error')} The build output folder ${fmt.code(resolved)} holds files no extension build wrote.\n` +
+    `The build replaces that folder, so nothing was deleted. Move or delete it, or build beside it with ${fmt.code('--out-dir build')}.`
+  )
+}
+
+// Output used to land beside a manifest found below the named folder.
+export function leftoverOutputFolder(leftover: string, current: string) {
+  return (
+    `${getLoggingPrefix('warn')} An earlier build left output in ${fmt.code(displayPath(leftover))}, and that folder is no longer written.\n` +
+    `Output now goes to ${fmt.code(displayPath(current))} at the project root. The old folder was left as it is and can be removed.`
+  )
+}
+
+// A config hook can point the bundler anywhere, and the bundler empties the
+// folder it is pointed at.
+export function buildOutputPathRefused(
+  resolved: string,
+  reason: keyof typeof PROTECTED_FOLDER_NAMES
+) {
+  return (
+    `${getLoggingPrefix('error')} ${fmt.code('output.path')} in the extension config resolves to ${fmt.code(resolved)}, ${PROTECTED_FOLDER_NAMES[reason]}.\n` +
+    `The build empties its output folder before it writes, so nothing was built and nothing was deleted. Point ${fmt.code('output.path')} at a folder of its own such as ${fmt.code('build')}.`
+  )
+}
+
+// The compile is done and the finished folder could not take its place.
+export function buildOutputNotPublished(distPath: string, error: unknown) {
+  return (
+    `${getLoggingPrefix('error')} Couldn't move the finished build into place.\n` +
+    `${colors.gray('PATH')} ${colors.underline(distPath)}\n` +
+    `${colors.red(describeThrown(error))}\n` +
+    `Close whatever holds that folder open, check that it is writable, then run the build again.`
   )
 }
 
@@ -695,13 +768,18 @@ export function addonLintMore(hiddenCount: number, distDisplay: string) {
   )
 }
 
+// A build that ran no lint to the end says where the last lint's note went.
+function retiredReviewerNote(staleNote: string | null) {
+  return staleNote
+    ? ` The reviewer note of the last lint moved to ${colors.underline(staleNote)}, since it does not describe this build.`
+    : ''
+}
+
 export function addonLintNotInstalled(
   installHint: string,
   staleNote: string | null = null
 ) {
-  const retired = staleNote
-    ? ` The reviewer note of the last lint moved to ${colors.underline(staleNote)}, since it does not describe this build.`
-    : ''
+  const retired = retiredReviewerNote(staleNote)
 
   return (
     `${getLoggingPrefix('info')} Skipped the addons.mozilla.org lint: addons-linter is not installed. ` +
@@ -710,10 +788,45 @@ export function addonLintNotInstalled(
   )
 }
 
-export function addonLintFailed(reason: string, distDisplay: string) {
+export function addonLintFailed(
+  reason: string,
+  distDisplay: string,
+  staleNote: string | null = null
+) {
   return (
     `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
-    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.`
+    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.` +
+    retiredReviewerNote(staleNote)
+  )
+}
+
+// npx would run the same install that just failed to load, so the advice is
+// the one step that replaces it.
+export function addonLintUnusable(
+  reason: string,
+  installHint: string,
+  staleNote: string | null = null
+) {
+  return (
+    `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
+    `The build is complete. Reinstall the linter with ${colors.blue(installHint)} and build again to see what AMO would flag, ` +
+    `or turn the lint off with ${colors.blue('--no-addon-lint')}.` +
+    retiredReviewerNote(staleNote)
+  )
+}
+
+// Another install stood in for a copy that threw, which changes the version
+// in use, so the copy that failed and the one that loaded are both named.
+export function optionalCopyFellBack(
+  dependencyId: string,
+  failed: {copy: string; why: string}[],
+  usedCopy: string
+) {
+  const broken = failed.map(({copy, why}) => `${copy} (${why})`).join(', ')
+
+  return (
+    `${getLoggingPrefix('warn')} ${dependencyId} could not be loaded from ${broken}. ` +
+    `The copy at ${usedCopy} is used instead. Install ${dependencyId} in the project to choose the copy yourself.`
   )
 }
 
@@ -1065,6 +1178,21 @@ export function zipArtifactNotCreated(
     `${colors.gray('PATH')} ${colors.underline(zipPath)}\n` +
     `${colors.red(reason)}`
   )
+}
+
+// The same failure as one plain sentence, for the summary's errors list.
+export function zipArtifactNotCreatedText(
+  kind: 'source' | 'dist',
+  zipPath: string,
+  reason: string
+) {
+  return `The ${kind === 'source' ? 'source' : 'distribution'} zip was requested and not created at ${zipPath}: ${reason}`
+}
+
+// What ready.json says when the folder was built and a later step failed:
+// a reader told only "failed" would not know the folder can be loaded.
+export function buildFailedOutputInPlace(reasons: string[], distPath: string) {
+  return `${reasons.join(' ')} The output folder ${distPath} is in place and loads as built.`
 }
 
 export function zipArtifactReady(zipPath: string, sizeInBytes: number) {
@@ -1557,6 +1685,34 @@ export function previewingCustomOutput(
   )
 }
 
+// A library call that launches a browser has to bring the launcher: the
+// engine holds no browser code of its own.
+export function previewLauncherRequired() {
+  return (
+    `${getLoggingPrefix('error')} extensionPreview was called without a browser launcher.\n` +
+    `Pass a launcher as the third argument, or set noBrowser to launch none.`
+  )
+}
+
+// The control channel of a production run lives in the browser it opens.
+export function controlNeedsBrowser(command: string) {
+  return (
+    `${getLoggingPrefix('error')} --no-browser cannot be combined with --allow-control or --allow-eval on ${command}.\n` +
+    `The control channel is carried by the browser this command opens, and --no-browser opens none. Drop --no-browser, or drop --allow-control and --allow-eval.`
+  )
+}
+
+export function previewBuildBrowserMismatch(
+  outputPath: string,
+  builtFor: string,
+  asked: string
+) {
+  return (
+    `${getLoggingPrefix('error')} ${asAskedPath(outputPath)} was built for ${builtFor} and cannot be previewed in ${asked}.\n` +
+    `Run \`extension build --browser ${asked}\` and preview that build, or pass \`--browser ${builtFor}\`.`
+  )
+}
+
 export function productionControlOpen(
   browser: DevOptions['browser'],
   controlledPath: string,
@@ -1594,6 +1750,43 @@ export function debugExtensionsToLoad(extensions: string[]) {
   return (
     `${prefix('debug')} extensions count=${extensions.length} ` +
     `paths=${extensions.join(',')}`
+  )
+}
+
+export function companionExtensionNotResolved(
+  entry: string,
+  manifestPath: string,
+  declaredIn: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} A companion extension entry is not an unpacked extension folder, so it is not loaded.\n` +
+    `${colors.gray('ENTRY')} ${colors.underline(entry)}\n` +
+    `${colors.gray('DECLARED IN')} ${declaredIn}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(manifestPath)}\n` +
+    `Point the entry at a folder that holds a manifest.json, or remove it.`
+  )
+}
+
+export function scannedCompanionOutsideProject(entry: string, leadsTo: string) {
+  return (
+    `${getLoggingPrefix('warn')} A companion extension entry leads outside the project, so it is not loaded.\n` +
+    `${colors.gray('ENTRY')} ${colors.underline(entry)}\n` +
+    `${colors.gray('LEADS TO')} ${colors.underline(leadsTo)}\n` +
+    `Companion extensions must be inside the project. Copy the folder into the project, or remove the link.`
+  )
+}
+
+export function companionExtensionsFolderNotFound(
+  dir: string,
+  folderPath: string,
+  declaredIn: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} The companion extensions folder does not exist, so no extension is loaded from it.\n` +
+    `${colors.gray('DIR')} ${colors.underline(dir)}\n` +
+    `${colors.gray('DECLARED IN')} ${declaredIn}\n` +
+    `${colors.gray('NOT FOUND')} ${colors.underline(folderPath)}\n` +
+    `Create the folder, or remove extensions.dir.`
   )
 }
 
@@ -1639,6 +1832,22 @@ export function configWrongShape(configPath: string, value: unknown) {
   )
 }
 
+// A hook that hands back nothing leaves the build with no config at all.
+export function configHookReturnedNoConfig(configPath: string, value: unknown) {
+  const found =
+    value === undefined
+      ? 'undefined'
+      : typeof (value as {then?: unknown} | null)?.then === 'function'
+        ? 'a promise'
+        : shapeOf(value)
+
+  return (
+    `${getLoggingPrefix('error')} The ${colors.blue('config')} hook in ${colors.blue('extension.config.js')} must return the config, found ${found}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    `End the hook with ${colors.blue('return config')}, then run the command again.`
+  )
+}
+
 export function configUnknownKeys(
   configPath: string,
   keys: string[],
@@ -1658,6 +1867,24 @@ export function configLoadingError(configPath: string, error: unknown) {
     `${colors.red(describeThrown(error))}\n` +
     `Fix the config file, then run the command again.`
   )
+}
+
+// What a build rejects with when the thrown value has no message to read.
+export function thrownValueText(thrown: unknown): string {
+  if (typeof thrown === 'string' && thrown.trim()) return thrown
+
+  try {
+    return `A value that is not an Error was thrown: ${describeThrown(thrown) || 'an empty string'}.`
+  } catch {
+    return 'A value that cannot be read was thrown.'
+  }
+}
+
+// What a build says for an Error thrown with an empty message.
+export function errorWithoutMessageText(thrownAt?: string): string {
+  return thrownAt
+    ? `An error with no message was thrown at ${thrownAt}.`
+    : 'An error with no message was thrown, and its stack names no file.'
 }
 
 export function buildCommandFailed(error: unknown) {

@@ -463,7 +463,7 @@ describe('ZipPlugin', () => {
     expect(artifacts[0].size).toBeGreaterThan(0)
   })
 
-  // Pins today's behavior. Ledger 1388 D2.
+  // Pins current behavior: build --zip can finish with no zip and no failure.
   it('records no zip failure when the output has no manifest.json, only a warning', async () => {
     const root = fs.realpathSync(makeTempDir('zip-spec-'))
     const outPath = path.join(root, 'dist', 'chrome')

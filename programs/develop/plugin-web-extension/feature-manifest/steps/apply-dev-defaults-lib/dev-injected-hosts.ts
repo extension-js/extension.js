@@ -6,8 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../feature-scripts/contracts'
+import {readProjectSource} from './emitted-evidence'
 
 // The single source for the hosts the dev build grants. The manifest patch,
 // the optional-promotion warning and the undeclared-fetch warning all read
@@ -225,7 +225,8 @@ export function findInjectedOnlyHostUses(
   modules: Iterable<ScannableModule>,
   injected: readonly string[],
   declared: readonly string[],
-  optional: readonly string[]
+  optional: readonly string[],
+  compile?: object
 ): InjectedOnlyHostUse[] {
   if (!injected.length) return []
 
@@ -236,16 +237,8 @@ export function findInjectedOnlyHostUses(
     if (!resource) continue
     if (isContentScriptModule(module)) continue
 
-    let source: string
-
-    try {
-      const stat = fs.statSync(resource)
-      if (stat.size > 1024 * 1024) continue
-
-      source = fs.readFileSync(resource, 'utf-8')
-    } catch {
-      continue
-    }
+    const source = readProjectSource(resource, compile)
+    if (source === undefined) continue
 
     for (const url of findAbsoluteRequestUrls(source)) {
       if (declared.some((pattern) => matchesHostPermission(pattern, url))) {

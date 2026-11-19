@@ -2,6 +2,7 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import type {VersionProbe} from '../../lib/package-manager'
 import {
   overridePackageJson,
   resolveExtensionDevDependencyVersion
@@ -566,6 +567,186 @@ describe('overridePackageJson with a template package.json it cannot use', () =>
 
       expect(pkg.scripts.dev).toBe('extension dev')
       expect(logger.errors).toEqual([])
+    })
+  })
+})
+
+// A project with no packageManager field still works, so the create goes on.
+// What it may not do is drop the field and say nothing.
+describe('overridePackageJson when the manager version cannot be learned', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  function linesLogger() {
+    const lines: string[] = []
+
+    const record = (...args: unknown[]) => {
+      lines.push(args.map(String).join(' ').replace(ANSI, ''))
+    }
+
+    return {lines, log: record, error: record}
+  }
+
+  async function scaffoldWith(
+    projectPath: string,
+    manager: 'npm' | 'pnpm' | 'deno',
+    probeVersion: VersionProbe
+  ) {
+    // No invoker to copy the version from, so the binary is the only source.
+    vi.stubEnv('npm_config_user_agent', '')
+    await fs.writeFile(path.join(projectPath, 'package.json'), '{"name":"x"}')
+    const logger = linesLogger()
+
+    await overridePackageJson(
+      projectPath,
+      {packageManager: manager, probeVersion, cliVersion: '4.0.1'},
+      logger
+    )
+
+    const pkg = JSON.parse(
+      await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+    )
+
+    return {pkg, lines: logger.lines}
+  }
+
+  const timeout = Object.assign(new Error('spawnSync ETIMEDOUT'), {
+    code: 'ETIMEDOUT'
+  })
+  const missing = Object.assign(new Error('spawn ENOENT'), {code: 'ENOENT'})
+
+  it.each<[string, 'npm' | 'pnpm', Awaited<ReturnType<VersionProbe>>, string]>([
+    [
+      'is not installed',
+      'pnpm',
+      {status: null, stdout: '', error: missing},
+      'pnpm is not on PATH'
+    ],
+    [
+      'fails',
+      'pnpm',
+      {status: 2, stdout: ''},
+      'pnpm --version exited with code 2'
+    ],
+    [
+      'prints something else',
+      'npm',
+      {status: 0, stdout: 'hello\n'},
+      'npm --version printed no version'
+    ],
+    [
+      'cannot be started',
+      'npm',
+      {
+        status: null,
+        stdout: '',
+        error: Object.assign(new Error('EACCES'), {code: 'EACCES'})
+      },
+      'npm --version could not start (EACCES)'
+    ]
+  ])('writes no field and says why when the binary %s', async (_label, manager, answer, reason) => {
+    await withTempDir(async (projectPath) => {
+      const {pkg, lines} = await scaffoldWith(
+        projectPath,
+        manager,
+        () => answer
+      )
+
+      expect(pkg).not.toHaveProperty('packageManager')
+      expect(pkg.devDependencies).toEqual({extension: '^4.0.1'})
+      expect(lines).toEqual([
+        '⏵⏵⏵ Left package.json without a packageManager field.\n' +
+          `REASON ${reason}\n` +
+          `The project is fine. Add "packageManager": "${manager}@<version>" to pin the manager.`
+      ])
+    })
+  })
+
+  const askedAgain =
+    '⏵⏵⏵ npm --version did not answer within 5s. Asking once more, for up to 15s…'
+
+  it('says it is asking again, then why no field was written, when the binary never answers', async () => {
+    await withTempDir(async (projectPath) => {
+      const {pkg, lines} = await scaffoldWith(projectPath, 'npm', () => ({
+        status: null,
+        stdout: '',
+        error: timeout
+      }))
+
+      expect(pkg).not.toHaveProperty('packageManager')
+      expect(lines).toEqual([
+        askedAgain,
+        '⏵⏵⏵ Left package.json without a packageManager field.\n' +
+          'REASON npm --version did not answer within 15s\n' +
+          'The project is fine. Add "packageManager": "npm@<version>" to pin the manager.'
+      ])
+    })
+  })
+
+  it('says it is asking again, then declares the manager once the second probe answers', async () => {
+    await withTempDir(async (projectPath) => {
+      const answers: Array<Awaited<ReturnType<VersionProbe>>> = [
+        {status: null, stdout: '', error: timeout},
+        {status: 0, stdout: 'npm notice from a wrapper\r\n10.9.2\r\n'}
+      ]
+      const {pkg, lines} = await scaffoldWith(
+        projectPath,
+        'npm',
+        () => answers.shift() as Awaited<ReturnType<VersionProbe>>
+      )
+
+      expect(pkg.packageManager).toBe('npm@10.9.2')
+      expect(answers).toEqual([])
+      expect(lines).toEqual([askedAgain])
+    })
+  })
+
+  // A template pin for another manager is replaced when a version is known,
+  // so it is not kept when none is: the warning says the field is absent.
+  it.each([
+    ['names another manager', 'foo@1.0.0'],
+    ['carries no version', 'npm']
+  ])('drops a template pin that %s when no version is learned', async (_label, pin) => {
+    await withTempDir(async (projectPath) => {
+      vi.stubEnv('npm_config_user_agent', '')
+      await fs.writeFile(
+        path.join(projectPath, 'package.json'),
+        JSON.stringify({name: 'x', packageManager: pin})
+      )
+
+      const logger = linesLogger()
+
+      const written = await overridePackageJson(
+        projectPath,
+        {
+          packageManager: 'npm',
+          probeVersion: () => ({status: 2, stdout: ''}),
+          cliVersion: '4.0.1'
+        },
+        logger
+      )
+
+      const pkg = JSON.parse(
+        await fs.readFile(path.join(projectPath, 'package.json'), 'utf8')
+      )
+
+      expect(pkg).not.toHaveProperty('packageManager')
+      expect(written).toEqual({})
+      expect(logger.lines.join('\n')).toContain(
+        'Left package.json without a packageManager field.'
+      )
+    })
+  })
+
+  it('prints nothing for Deno, which declares no manager by design', async () => {
+    await withTempDir(async (projectPath) => {
+      const {pkg, lines} = await scaffoldWith(projectPath, 'deno', () => {
+        throw new Error('the version probe ran')
+      })
+
+      expect(pkg).not.toHaveProperty('packageManager')
+      expect(lines).toEqual([])
     })
   })
 })

@@ -24,9 +24,10 @@ describe('the published ExtensionBrowser type', () => {
       path.join(packageRoot, 'types', 'env.d.ts'),
       'ExtensionBrowser'
     )
-    const launcher = unionMembers(
+    // The launchers re-export the config list, so there is one to read.
+    const launcher = fs.readFileSync(
       path.join(packageRoot, 'browsers', 'browsers-types.ts'),
-      'BrowserType'
+      'utf8'
     )
     const config = unionMembers(
       path.join(packageRoot, 'config-types.ts'),
@@ -35,7 +36,10 @@ describe('the published ExtensionBrowser type', () => {
 
     expect(published).toContain('safari')
     expect(published).toContain('firefox')
-    expect(published).toEqual(launcher)
+    expect(launcher).toContain(
+      "export type {BrowserType} from '../config-types'"
+    )
+
     expect(published).toEqual(config)
   })
 })

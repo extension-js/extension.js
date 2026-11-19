@@ -122,6 +122,22 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       })
     })
 
+    it('leaves the record of a run that replaced this one during the launch', async () => {
+      const {launch} = await start({pinned: false})
+      const next = {command: 'preview', status: 'starting', runId: 'run-2'}
+
+      fake.deps.locate.firefox = () => {
+        fake.project.writeReady(next)
+
+        return null
+      }
+
+      const error = await failure(launch())
+
+      expect(error.code).toBe('E_BROWSER_NOT_FOUND')
+      expect(fake.project.readReady()).toEqual(next)
+    })
+
     it('prints the fork guidance block for a fork that is not installed', async () => {
       const {launch} = await start({pinned: false, browser: 'floorp'})
       const error = await failure(launch())
@@ -212,13 +228,12 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       expect(fake.project.readReady()).not.toHaveProperty('browserPid')
     })
 
-    // Pins today's behavior. Ledger 1374 D6.
-    it('keeps the debugging port claim it took before the spawn', async () => {
+    it('gives back the debugging port claim it took before the spawn', async () => {
       const {launch} = await start({script: {spawnError: refused}})
       await failure(launch())
 
       expect(fake.claims).toEqual([
-        {requested: 9222, port: fake.port, released: 0}
+        {requested: 9222, port: fake.port, released: 1}
       ])
     })
   })
@@ -394,6 +409,7 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       ])
 
       expect(plugin.spawnedBrowser).toBe(true)
+      expect(plugin.browserClosed).toBe(true)
       expect(fake.packets).toEqual([])
       expect(fake.child()?.signals).toEqual([])
       expect(fake.signalWatchers).toEqual({registered: 1, disposed: 1})

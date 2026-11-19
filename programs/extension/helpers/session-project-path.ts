@@ -8,13 +8,17 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import type {AnyDevelopModule} from './extension-develop-runtime'
+import {browserArtifactsDir} from '../../develop/lib/session-contract'
+import type {DevelopBridge} from './extension-develop-runtime'
+
+// No bridge at all when wait mode could not load one, or a spec's stand-in.
+type SessionBridge = Partial<DevelopBridge> | undefined
 
 // dev anchors its session files at the package root it walks up to from the
-// manifest, so readers ask the same walk; an older bridge without it keeps
-// the argument as given.
+// manifest, so readers ask the same walk; with no bridge the argument is kept
+// as given.
 export function resolveSessionProjectPath(
-  bridge: AnyDevelopModule,
+  bridge: SessionBridge,
   pathArg?: string
 ): string {
   const inputPath = path.resolve(pathArg || process.cwd())
@@ -31,7 +35,7 @@ export function resolveSessionProjectPath(
 }
 
 function sessionFilePath(
-  bridge: AnyDevelopModule,
+  bridge: SessionBridge,
   exportName: 'readyContractPath' | 'logsPath',
   projectPath: string,
   browser: string,
@@ -48,11 +52,11 @@ function sessionFilePath(
     }
   }
 
-  return path.join(projectPath, 'dist', 'extension-js', browser, fileName)
+  return path.join(browserArtifactsDir(projectPath, browser), fileName)
 }
 
 export function sessionReadyPath(
-  bridge: AnyDevelopModule,
+  bridge: SessionBridge,
   projectPath: string,
   browser: string
 ): string {
@@ -66,7 +70,7 @@ export function sessionReadyPath(
 }
 
 export function sessionLogsPath(
-  bridge: AnyDevelopModule,
+  bridge: SessionBridge,
   projectPath: string,
   browser: string
 ): string {
@@ -82,7 +86,7 @@ export function sessionLogsPath(
 // A command that defaults to one browser while the only session runs another
 // should name that one, not send the user off to start a second session.
 export function otherSessionBrowsers(
-  bridge: AnyDevelopModule,
+  bridge: SessionBridge,
   projectPath: string,
   browser: string,
   hasSession: (candidate: string) => boolean

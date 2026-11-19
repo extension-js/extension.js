@@ -1,4 +1,4 @@
-// Declaration twin for styles.css so its side-effect imports typecheck
-// under allowArbitraryExtensions (the wildcard *.css ambient module does
-// not apply to relative or path-mapped imports).
 export {}
+
+// The wildcard *.css module skips relative and path-mapped imports, so this
+// twin lets the side-effect import of styles.css typecheck.

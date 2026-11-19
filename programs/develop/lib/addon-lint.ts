@@ -17,13 +17,16 @@ import {
 import type {AddonLintSummary} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import {type ChunkProvenance, chunkFileOf} from './chunk-dependency-provenance'
+import {codedError} from './coded-error'
 import {isGeckoBasedBrowser} from './constants'
 import * as messages from './messages'
+import {CODES} from './messaging'
 import {
   type AnyModule,
   ensureOptionalModuleLoaded,
   formatInstallHint
 } from './optional-deps-resolver'
+import {canonicalizeDir, canonicalizeResourcePath} from './resource-path'
 import {classifyEntrySurface} from './split-chunks'
 
 // The one place the default lives. Flip it here and the CLI flag, the config
@@ -119,7 +122,10 @@ function toModule(loaded: AnyModule): LinterModule {
   const candidate = loaded?.createInstance ? loaded : loaded?.default
 
   if (typeof candidate?.createInstance !== 'function') {
-    throw new Error(`${ADDON_LINT_PACKAGE} exports no createInstance`)
+    throw codedError(
+      CODES.E_OPTIONAL_DEP_LOAD,
+      `${ADDON_LINT_PACKAGE} exports no createInstance`
+    )
   }
 
   return candidate as LinterModule
@@ -437,9 +443,16 @@ export async function runAddonLint(
 
   try {
     linter = await (input.loadLinter || defaultLoadLinter)(input.projectPath)
-  } catch {
+  } catch (error) {
     // No lint ran, so a note an earlier lint wrote describes another dist.
     const staleNote = retireAddonReviewerNote(input.distPath)
+
+    // The package is there and cannot be used, so installing it is no answer.
+    if (
+      (error as {code?: unknown} | null)?.code === CODES.E_OPTIONAL_DEP_LOAD
+    ) {
+      return unusableAddonLint(error, input, staleNote)
+    }
 
     if (hintedProjects.has(input.projectPath)) {
       return {status: 'missing', hint: null}
@@ -451,9 +464,7 @@ export async function runAddonLint(
       status: 'missing',
       hint: messages.addonLintNotInstalled(
         formatInstallHint(input.projectPath, [ADDON_LINT_PACKAGE]),
-        staleNote
-          ? path.join(path.dirname(input.distDisplay), path.basename(staleNote))
-          : null
+        staleNoteDisplay(staleNote, input.distDisplay)
       )
     }
   }
@@ -495,24 +506,91 @@ export async function runAddonLint(
       reviewerNote: reviewerNoteFor(input, output, chunkProvenance)
     }
   } catch (error) {
-    return failedAddonLint(error, input.distDisplay)
+    return failedAddonLint(error, input.distDisplay, input.distPath)
   }
 }
 
+// The note sits beside the dist folder, so it is shown the way dist is.
+function staleNoteDisplay(
+  staleNote: string | null,
+  distDisplay: string
+): string | null {
+  return staleNote
+    ? path.join(path.dirname(distDisplay), path.basename(staleNote))
+    : null
+}
+
+// With the dist path, the note of an earlier lint is retired: a lint that
+// crashed or timed out wrote none, so the one on disk is another build's.
 export function failedAddonLint(
   error: unknown,
-  distDisplay: string
+  distDisplay: string,
+  distPath?: string
 ): Extract<AddonLintResult, {status: 'failed'}> {
   const message = String((error as Error)?.message || error)
   const reason =
     error instanceof AddonLintTimeout
       ? `${ADDON_LINT_PACKAGE} ${message}`
       : `${ADDON_LINT_PACKAGE} crashed: ${message}`
+  const staleNote = distPath ? retireAddonReviewerNote(distPath) : null
 
   return {
     status: 'failed',
     reason,
-    line: messages.addonLintFailed(reason, distDisplay),
+    line: messages.addonLintFailed(
+      reason,
+      distDisplay,
+      staleNoteDisplay(staleNote, distDisplay)
+    ),
+    debugLine: messages.addonLintFailedDebug(reason)
+  }
+}
+
+// A copy inside the project reads the way the project names its files, and
+// one outside it keeps the full path, since that is the only way to find it.
+function copyDisplay(copy: string, projectPath: string): string {
+  // Both paths as given first, then both resolved: one short and one long
+  // spelling of the same Windows folder would never read as inside.
+  const pairs = [
+    [projectPath, copy],
+    [canonicalizeDir(projectPath), canonicalizeResourcePath(copy)]
+  ]
+
+  for (const [root, file] of pairs) {
+    const relative = path.relative(root, file)
+    const climbs = relative === '..' || relative.startsWith(`..${path.sep}`)
+
+    if (relative && !climbs && !path.isAbsolute(relative)) return relative
+  }
+
+  return copy
+}
+
+function unusableAddonLint(
+  error: unknown,
+  input: RunAddonLintInput,
+  staleNote: string | null
+): Extract<AddonLintResult, {status: 'failed'}> {
+  const {cause, message, resolvedPath} = error as {
+    cause?: unknown
+    message?: unknown
+    resolvedPath?: unknown
+  }
+  const why = String((cause as Error | undefined)?.message || cause || message)
+  const where =
+    typeof resolvedPath === 'string' && resolvedPath
+      ? ` at ${copyDisplay(resolvedPath, input.projectPath)}`
+      : ''
+  const reason = `${ADDON_LINT_PACKAGE}${where} is installed but cannot be used: ${why.split('\n')[0]}`
+
+  return {
+    status: 'failed',
+    reason,
+    line: messages.addonLintUnusable(
+      reason,
+      formatInstallHint(input.projectPath, [ADDON_LINT_PACKAGE]),
+      staleNoteDisplay(staleNote, input.distDisplay)
+    ),
     debugLine: messages.addonLintFailedDebug(reason)
   }
 }

@@ -1,15 +1,23 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import {describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it} from 'vitest'
 import {patchHtml, patchHtmlNested} from '../../html-lib/patch-html'
 
-function makeTmp(name: string) {
-  const tmp = path.join(__dirname, `.tmp-${name}`)
-  fs.rmSync(tmp, {recursive: true, force: true})
-  fs.mkdirSync(tmp, {recursive: true})
+const tmpRoots: string[] = []
 
-  return tmp
+afterAll(() => {
+  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
+})
+
+function makeTmp(name: string) {
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-patch-html-${name}-`)
+  )
+  tmpRoots.push(created)
+
+  return fs.realpathSync(created)
 }
 
 function makeCompilation(mode: 'development' | 'production'): Compilation {
@@ -152,6 +160,38 @@ describe('patchHtmlNested root-absolute refs', () => {
     expect(warnings[0]).toContain(
       "The page references a script file that doesn't exist."
     )
+  })
+
+  it('names the missing file and where a root path resolves from', () => {
+    const {tmp, htmlPath} = makeNestedFixture('nested-named', SCRIPT)
+    const compilation = makeCompilation('production')
+    patchHtmlNested(compilation, htmlPath, tmp)
+    const [warning] = compilation.warnings as Array<{
+      message: string
+      file?: string
+    }>
+
+    expect(warning.message).toContain(
+      `NOT FOUND ${path.join(tmp, 'lib', 'widget.js')}`
+    )
+
+    expect(warning.message).toContain(
+      "A path starting with '/' resolves from the extension root"
+    )
+
+    expect(warning.file).toBe(path.join('pages', 'nested.html'))
+  })
+
+  it('warns once when the page repeats the reference or is patched again', () => {
+    const {tmp, htmlPath} = makeNestedFixture(
+      'nested-repeat',
+      `<html><body><script src="/lib/widget.js"></script><script src="/lib/widget.js"></script></body></html>`
+    )
+    const compilation = makeCompilation('production')
+    patchHtmlNested(compilation, htmlPath, tmp)
+    patchHtmlNested(compilation, htmlPath, tmp)
+
+    expect(missingWarnings(compilation)).toHaveLength(1)
   })
 
   it('does not warn when a source sibling will be compiled to the .js path', () => {

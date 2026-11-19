@@ -28,6 +28,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn, previewStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
@@ -41,12 +42,13 @@ const waitForReady = vi.fn(async () => {
 })
 const reportFailure = vi.fn()
 
-const loadDevelop = async () => ({
-  extensionBuild,
-  extensionDev,
-  loadCommandConfig
-})
-const loadPreview = async () => ({extensionPreview})
+const loadDevelop = async () =>
+  developStandIn({
+    extensionBuild,
+    extensionDev,
+    loadCommandConfig
+  })
+const loadPreview = async () => previewStandIn({extensionPreview})
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>

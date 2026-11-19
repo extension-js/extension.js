@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
+import {browserArtifactsDir} from '../../develop/lib/session-contract'
 import {
   isChromiumBrowser,
   isFirefoxBrowser
@@ -29,10 +30,10 @@ import {LOAD_REFUSED_STATUS} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
+  type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
-import {LOG_CONTEXTS} from '../helpers/log-contexts'
+import {LOG_CONTEXTS, type LogContext} from '../helpers/log-contexts'
 import {
   alreadyNamesEngine,
   commandDescriptions,
@@ -88,11 +89,8 @@ export function readRecentConsole(
   target: {context?: string; tabId?: number},
   limit: number
 ): unknown[] {
-  const file = path.resolve(
-    projectPath,
-    'dist',
-    'extension-js',
-    browser,
+  const file = path.join(
+    browserArtifactsDir(projectPath, browser),
     'logs.ndjson'
   )
   let lines: string[]
@@ -141,27 +139,11 @@ export function readRecentConsole(
   return out.slice(Math.max(0, out.length - limit))
 }
 
-type ActContext =
-  | 'background'
-  | 'popup'
-  | 'options'
-  | 'sidebar'
-  | 'devtools'
-  | 'newtab'
-  | 'history'
-  | 'bookmarks'
-  | 'content'
-  | 'page'
+// Every context a log line can carry is one a verb can be sent to.
+type ActContext = LogContext
 
-type CommandOp =
-  | 'eval'
-  | 'storage.get'
-  | 'storage.set'
-  | 'reload'
-  | 'open'
-  | 'tabs.query'
-  | 'tabs.navigate'
-  | 'inspect'
+// The verbs are the engine's to name, so its own list is the one read here.
+type CommandOp = import('extension-develop/bridge').CommandOp
 
 // Bridge command results are dynamic frames; this loose view names the
 // fields the CLI probes.
@@ -206,7 +188,7 @@ interface RunInput {
   opts: CommonActOptions
   pretty?: PrettyResult
   preflight?: (
-    bridge: AnyDevelopModule,
+    bridge: DevelopBridge,
     projectPath: string,
     browser: string
   ) => Refusal | undefined
@@ -525,7 +507,7 @@ function positiveIntFlag(
 // The manifest as the session sees it: the emitted copy first, then the
 // source the session names, then the project root.
 function readSessionManifest(
-  bridge: AnyDevelopModule,
+  bridge: DevelopBridge,
   projectPath: string,
   browser: string
 ): Record<string, unknown> | undefined {
@@ -572,7 +554,7 @@ function readSessionManifest(
 // the CLI names the missing key before asking the browser at all.
 function optionsNotDeclaredRefusal(
   surface: string,
-  bridge: AnyDevelopModule,
+  bridge: DevelopBridge,
   projectPath: string,
   browser: string
 ): Refusal | undefined {
@@ -612,7 +594,7 @@ function manifestDeclaresPopup(manifest: Record<string, unknown>): boolean {
 // onClicked listeners, which no gesture rule guards.
 function gestureRefusal(
   surface: string,
-  bridge: AnyDevelopModule,
+  bridge: DevelopBridge,
   projectPath: string,
   browser: string
 ): Refusal | undefined {
@@ -847,7 +829,7 @@ function surfaceIsNotDeclared(result: ActResultLike | undefined): boolean {
 }
 
 async function geckoProtocolEval(
-  bridge: AnyDevelopModule,
+  bridge: DevelopBridge,
   projectPath: string,
   browser: string,
   context: string,
@@ -922,7 +904,7 @@ export function pickTargetTabUrl(
 // A page whose own policy forbids eval refuses the in-page executor, and the
 // tab's console actor sits outside that policy the way a devtools console does.
 async function geckoProtocolPageEval(
-  bridge: AnyDevelopModule,
+  bridge: DevelopBridge,
   projectPath: string,
   browser: string,
   listTabs: () => Promise<ActResultLike>,
@@ -1010,7 +992,7 @@ const EXTENSION_PAGE_UNREACHED_HINT =
 // The tab is an extension document, so it is read where the popup and the
 // options page are on Firefox, over the debugger, and not by injection.
 async function extensionPageTabEval(
-  bridge: AnyDevelopModule,
+  bridge: DevelopBridge,
   projectPath: string,
   browser: string,
   listTabs: () => Promise<ActResultLike>,
@@ -1116,7 +1098,7 @@ export function refusedSessionEndedMessage(
 
 // What a run reaches outside this file. Production takes every default.
 interface ActCommandDeps {
-  loadBridge?: () => Promise<AnyDevelopModule>
+  loadBridge?: () => Promise<DevelopBridge>
   markFailure?: typeof markCommandFailure
   evaluateGecko?: typeof evaluateExtensionDocument
   evaluateGeckoTab?: typeof evaluateTabDocument
@@ -1291,7 +1273,9 @@ async function runCommand(
   try {
     result = await controller.command({
       op: input.op,
-      target: input.target,
+      // The engine's BridgeTarget lists 7 of the 10 contexts the CLI routes. The
+      // cast goes once its context is the engine's own LogContext.
+      target: input.target as import('extension-develop/bridge').BridgeTarget,
       args: input.args,
       timeoutMs
     })

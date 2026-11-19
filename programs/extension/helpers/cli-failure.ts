@@ -74,6 +74,37 @@ function firstQuoted(message: string, pattern: RegExp): string | undefined {
   return match?.[1]
 }
 
+const EXCESS_PATTERN = /Expected (\d+) arguments? but got (\d+): (.*)\.$/
+
+// The values past the last one a command takes. Nothing when commander's list
+// cannot be split back into exactly the values it received.
+function excessArguments(
+  message: string
+): {expected: number; extra: string[]} | undefined {
+  const match = EXCESS_PATTERN.exec(message.split('\n')[0])
+  if (!match) return undefined
+
+  const expected = Number(match[1])
+  const values = match[3].split(', ')
+
+  if (values.length !== Number(match[2]) || values.length <= expected) {
+    return undefined
+  }
+
+  return {expected, extra: values.slice(expected)}
+}
+
+// An unquoted path with spaces is the usual way to get here, so that comes first.
+function excessRemedy(helpCommand: string): string {
+  return `Put quotes around a path that has spaces, or run ${helpCommand} to see the arguments.`
+}
+
+function helpCommandFor(command: string): string {
+  return command && command !== 'extension'
+    ? `extension ${command}`
+    : 'extension'
+}
+
 function refsFromMessage(
   code: string,
   message: string
@@ -133,7 +164,12 @@ export function commanderErrorEnvelope(
   const refs = refsFromMessage(commanderCode, message)
   if (refs) error.refs = refs
 
-  return ENVELOPE.fail(command, 'usage', error)
+  const hint =
+    commanderCode === 'commander.excessArguments' && excessArguments(message)
+      ? excessRemedy(`${helpCommandFor(command)} --help`)
+      : undefined
+
+  return ENVELOPE.fail(command, 'usage', error, hint ? {hint} : {})
 }
 
 const SUGGESTION_PATTERN = /\(Did you mean (one of )?(.+)\?\)/
@@ -163,6 +199,10 @@ export function commanderHumanError(
 
   let label: string | undefined
   let noun: 'options' | 'commands' = 'options'
+  const excess =
+    commanderCode === 'commander.excessArguments'
+      ? excessArguments(message)
+      : undefined
 
   if (commanderCode === 'commander.unknownOption' && refs?.flag) {
     label = `Unknown option ${refs.flag}.`
@@ -174,23 +214,31 @@ export function commanderHumanError(
     refs?.flag
   ) {
     label = `Missing value for ${refs.flag}.`
+  } else if (excess) {
+    const takes =
+      excess.expected === 0
+        ? 'no arguments'
+        : `${excess.expected} argument${excess.expected === 1 ? '' : 's'}`
+
+    label =
+      `Unexpected argument${excess.extra.length === 1 ? '' : 's'}: ` +
+      `${excess.extra.join(', ')}. ${helpCommandFor(command)} takes ${takes}.`
   }
 
   if (!label) label = sentenceCase(message.split('\n')[0])
 
-  const helpTarget =
-    noun === 'options' && command && command !== 'extension'
-      ? `extension ${command}`
-      : 'extension'
+  const helpTarget = noun === 'options' ? helpCommandFor(command) : 'extension'
   const suggestion = SUGGESTION_PATTERN.exec(message)
   const startsAProject =
     commanderCode === 'commander.unknownCommand' &&
     PROJECT_START_VERBS.has(String(refs?.command))
   const remedy = startsAProject
     ? `Run ${colors.blue('extension create my-extension')} to start a new extension.`
-    : suggestion
-      ? `Did you mean ${suggestion[1] || ''}${colors.blue(suggestion[2])}?`
-      : `Run ${colors.blue(`${helpTarget} --help`)} to see the ${noun}.`
+    : excess
+      ? excessRemedy(colors.blue(`${helpTarget} --help`))
+      : suggestion
+        ? `Did you mean ${suggestion[1] || ''}${colors.blue(suggestion[2])}?`
+        : `Run ${colors.blue(`${helpTarget} --help`)} to see the ${noun}.`
 
   return `${prefix('error', label)} ${label}\n${remedy}`
 }

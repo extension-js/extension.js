@@ -1,7 +1,23 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
+
+const tmpRoots: string[] = []
+
+afterAll(() => {
+  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
+})
+
+function makeTmp(name: string) {
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-add-assets-${name}-`)
+  )
+  tmpRoots.push(created)
+
+  return fs.realpathSync(created)
+}
 
 function makeCompilation() {
   const assets: Record<string, any> = {}
@@ -31,9 +47,7 @@ function makeCompilation() {
 
 describe('AddAssetsToCompilation', () => {
   it('emits public-root static assets preserving structure', () => {
-    const tmp = path.join(__dirname, '.tmp-assets')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('assets')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}', 'utf8')
     const publicDir = path.join(tmp, 'public')
@@ -84,9 +98,7 @@ describe('AddAssetsToCompilation', () => {
     }
 
     function writeDeadRefFixture(name: string) {
-      const tmp = path.join(__dirname, `.tmp-${name}`)
-      fs.rmSync(tmp, {recursive: true, force: true})
-      fs.mkdirSync(tmp, {recursive: true})
+      const tmp = makeTmp(name)
       const manifestPath = path.join(tmp, 'manifest.json')
       fs.writeFileSync(manifestPath, '{}', 'utf8')
       const html = path.join(tmp, 'index.html')
@@ -159,9 +171,7 @@ describe('AddAssetsToCompilation', () => {
     }
 
     function writeRootRefFixture(name: string, files: Record<string, string>) {
-      const tmp = path.join(__dirname, `.tmp-${name}`)
-      fs.rmSync(tmp, {recursive: true, force: true})
-      fs.mkdirSync(tmp, {recursive: true})
+      const tmp = makeTmp(name)
       const manifestPath = path.join(tmp, 'manifest.json')
       fs.writeFileSync(manifestPath, '{}', 'utf8')
       const html = path.join(tmp, 'popup.html')

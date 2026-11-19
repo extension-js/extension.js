@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
+import {withheldFileLines} from '../../lib/withheld-file'
 
 export function importScriptsDependencyMissing(
   workerPath: string,
@@ -229,6 +230,44 @@ export function getURLDependencyMissing(
   lines.push(moveFileHint(expectedPath, foundOutside))
 
   return lines.join('\n')
+}
+
+// The value names a file that exists, so staying quiet would hide why the
+// extension cannot read it once installed.
+export function manifestNamedFileNotShipped(
+  manifestKey: string,
+  literal: string,
+  expectedPath: string
+) {
+  const lines: string[] = []
+  lines.push(
+    `manifest.json names '${literal}' under the custom key ${colors.blue(manifestKey)}, but the file isn't in the output.`
+  )
+
+  lines.push(...neverCopiedLines(expectedPath))
+
+  return lines.join('\n')
+}
+
+function neverCopiedLines(expectedPath: string) {
+  return [
+    `${colors.gray('NOT FOUND')} ${colors.underline(expectedPath)}`,
+    `A read of it fails at runtime.`,
+    `The build copies only files the project or its workspace shares, never env files or tooling files. Keep what the extension reads in a project file under another name, or in ${colors.blue('public/')}.`
+  ]
+}
+
+// The same finding for a path found in code, where a missing file of that
+// kind is not worth a word and one the build withholds is.
+export function codeNamedFileNotShipped(
+  assetName: string,
+  literal: string,
+  expectedPath: string
+) {
+  return [
+    `${assetName} names '${literal}', but the file isn't in the output.`,
+    ...neverCopiedLines(expectedPath)
+  ].join('\n')
 }
 
 // The page the literal opens was declared only under a key the WebKit filter
@@ -529,6 +568,145 @@ export function contentScriptWithoutDefaultExport(
     `${prefix('warn')} ${colors.yellow(file)} has no default export, so each re-inject in this dev session runs it again and the copy before it keeps running.\n` +
     `Export a default function that mounts the script and returns a cleanup, and Extension.js calls that cleanup before the next copy starts.\n` +
     afterWholeReload
+  )
+}
+
+// One detail per file, opening with the file: two missing files of one
+// field would otherwise read as the same error twice.
+export function scriptsMissingFile(
+  file: string,
+  field: string,
+  notFound: string,
+  fromOutputRoot: boolean
+) {
+  const lines: string[] = []
+  lines.push(
+    `${file} does not exist. Check the ${field} field in your manifest.json file.`
+  )
+
+  lines.push(`The path must point to an existing file that will be bundled.`)
+
+  if (fromOutputRoot) {
+    lines.push(
+      `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
+    )
+  }
+
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(notFound)}`)
+
+  return lines.join('\n')
+}
+
+// A file on disk the build will not bundle: saying it does not exist would
+// send the author looking for a file that is right there.
+export function scriptsWithheldFile(
+  file: string,
+  field: string,
+  kind: 'private' | 'outside',
+  notFound: string
+) {
+  const lines: string[] = withheldFileLines(file, kind, {
+    check: `Check the ${field} field in your manifest.json file.`
+  })
+
+  lines.push('')
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(notFound)}`)
+
+  return lines.join('\n')
+}
+
+export function scriptPathsCheckFailed(reason: string) {
+  const lines: string[] = []
+  lines.push(
+    `Extension.js could not finish checking the script paths in manifest.json: ${reason}`
+  )
+
+  lines.push(
+    `The check that every script and stylesheet the manifest names exists stopped early, so a missing file may go unreported in this build.`
+  )
+
+  lines.push(
+    `This is a fault in Extension.js, not in your project. Run the build again, and report it if it repeats.`
+  )
+
+  return lines.join('\n')
+}
+
+export function topLevelMountCallRemoved(file: string, name: string) {
+  const lines: string[] = []
+  lines.push(
+    `${file} calls ${name}() at the top level and also exports ${name} as default, so the call was left out of the build.`
+  )
+
+  lines.push(`${colors.gray('FILE')} ${colors.underline(file)}`)
+  lines.push(
+    `Extension.js runs the default export once the page is ready, and the call would run it a second time.`
+  )
+
+  lines.push(
+    `Remove the ${colors.blue(`${name}()`)} call, or drop the default export if the script should start itself.`
+  )
+
+  return lines.join('\n')
+}
+
+export function defaultExportCalledAgain(file: string, name: string) {
+  return (
+    `${prefix('warn')} ${colors.yellow(file)} calls ${name}() itself, and Extension.js also runs the default export once the page is ready, so ${name} runs more than once.\n` +
+    `Only the run Extension.js starts has its cleanup called before the next copy in this dev session, so what the other run adds stays on the page.\n` +
+    `Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.`
+  )
+}
+
+// Thrown, so the build stops where the script would otherwise ship unmounted.
+export function defaultExportUnreadable(file: string, reason: string) {
+  return (
+    `${prefix('error')} Extension.js could not read the default export of ${file}.\n` +
+    `${colors.gray('PATH')} ${colors.underline(file)}\n` +
+    `${colors.gray('REASON')} ${reason}\n` +
+    `The build parses a content script to find the function it mounts, and the parser stopped before it reached the export, so the script would never run.\n` +
+    `Move the code named above into a module this file imports, and keep the default export in a file of plain JavaScript, TypeScript or JSX.`
+  )
+}
+
+// The wrapper reads what the loaders of extension.config.js return. With a
+// reason the parser stopped in that text, without one the export is gone.
+export function defaultExportLostToLoaders(
+  file: string,
+  loaders: string[],
+  reason?: string
+) {
+  return (
+    `${prefix('error')} Extension.js could not find the default export of ${file} in what a loader returned.\n` +
+    `${colors.gray('PATH')} ${colors.underline(file)}\n` +
+    `${colors.gray('LOADERS')} ${loaders.join(', ')}\n` +
+    (reason
+      ? `${colors.gray('REASON')} ${reason}\n` +
+        `The build parses a content script to find the function it mounts. It read this one after the loaders named above, and the parser stopped in the text they returned before it reached the export, so the script would never run.\n`
+      : `The file has a default export as written, which is the function the build mounts. The build read the file after the loaders named above, and the text they returned has no default export, so the script would never run.\n`) +
+    `Keep the default export in what the loaders return, as plain JavaScript, TypeScript or JSX, or narrow their rule so it skips this file.`
+  )
+}
+
+// Thrown, so the bundler's parse error of the wrapped text never shows.
+export function contentScriptTopLevelAwait(
+  file: string,
+  line: number,
+  column: number,
+  declared: boolean
+) {
+  const runsAs = declared
+    ? 'A content script declared in the manifest runs as a classic script'
+    : 'A file a scripting call injects runs as a classic script'
+
+  return (
+    `${prefix('error')} ${file} uses await at the top level, outside any function.\n` +
+    `${colors.gray('PATH')} ${colors.underline(`${file}:${line}:${column}`)}\n` +
+    `${runsAs}, and a classic script only allows await inside an async function. This file has no import or export, so the build compiles it as that classic script too.\n` +
+    `Wrap the code in an async function that runs right away:\n` +
+    `  ${colors.blue('(async () => {')}\n` +
+    `    // the code that uses await\n` +
+    `  ${colors.blue('})()')}`
   )
 }
 

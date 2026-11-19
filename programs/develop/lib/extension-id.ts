@@ -118,17 +118,37 @@ const GECKO_ID_SHAPES = [
   /^[a-z0-9-._]*@[a-z0-9-._]+$/i
 ]
 
-export function geckoExtensionId(extensionDir: string): string | undefined {
-  const manifest = readManifest(extensionDir)
-  const settings = (manifest?.browser_specific_settings ??
-    manifest?.applications) as {gecko?: {id?: unknown}} | undefined
-  const id = settings?.gecko?.id
+export interface GeckoManifestId {
+  // The authored value, whatever its type, or undefined when no key holds one.
+  declared: unknown
+  // The trimmed ID when Firefox accepts its shape.
+  valid?: string
+}
+
+// Manifest V2 add-ons may still carry the ID under the older applications key.
+export function readGeckoManifestId(
+  manifest: Record<string, unknown> | null | undefined
+): GeckoManifestId {
+  let declared: unknown
+
+  for (const key of ['browser_specific_settings', 'applications']) {
+    const settings = manifest?.[key] as {gecko?: {id?: unknown}} | undefined
+    declared = settings?.gecko?.id
+    if (declared != null) break
+  }
 
   // Firefox refuses a gecko.id in any other shape, so it names no add-on.
-  return typeof id === 'string' &&
-    GECKO_ID_SHAPES.some((shape) => shape.test(id.trim()))
-    ? id.trim()
-    : undefined
+  const valid =
+    typeof declared === 'string' &&
+    GECKO_ID_SHAPES.some((shape) => shape.test(declared.trim()))
+      ? declared.trim()
+      : undefined
+
+  return valid ? {declared, valid} : {declared}
+}
+
+export function geckoExtensionId(extensionDir: string): string | undefined {
+  return readGeckoManifestId(readManifest(extensionDir)).valid
 }
 
 export function managedExtensionRecords(

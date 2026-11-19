@@ -5,6 +5,15 @@ vi.mock('fs', () => ({
   readFileSync: vi.fn()
 }))
 
+// The paths here are imaginary, so a file may ship when the fake disk has
+// it. Whole builds in json-private-sources.spec.ts run the real answer.
+vi.mock('../../../plugin-special-folders/public-private-files', async () => ({
+  ...(await vi.importActual<object>(
+    '../../../plugin-special-folders/public-private-files'
+  )),
+  sourceFileMayShip: (file: string) => fs.existsSync(file)
+}))
+
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {JsonPlugin} from '../index'
@@ -105,25 +114,41 @@ describe('JsonPlugin', () => {
     expect(assets['declarative_net_request.ruleset.json']).toBe('[]')
   })
 
-  it('updates asset when multiple resources map to the same feature (array)', () => {
+  it('refuses a key whose value is a list of files, naming the key', () => {
     const p1 = '/abs/path/schema-1.json'
     const p2 = '/abs/path/schema-2.json'
-    const mockedFs = fs as any
-    mockedFs.existsSync.mockImplementation((p: any) => p === p1 || p === p2)
-    mockedFs.readFileSync.mockImplementation((p: any) =>
-      p === p1 ? Buffer.from('{"v":1}') : Buffer.from('{"v":2}')
-    )
 
+    expect(
+      () =>
+        new JsonPlugin({
+          manifestPath: 'manifest.json',
+          includeList: {'storage/managed_schema': [p1, p2]}
+        } as any)
+    ).toThrow(
+      'JsonPlugin takes one file path per key, and the key storage/managed_schema has a list.'
+    )
+  })
+
+  it('refuses a key whose value is not a string', () => {
+    expect(
+      () =>
+        new JsonPlugin({
+          manifestPath: 'manifest.json',
+          includeList: {'storage/managed_schema': {path: '/abs/schema.json'}}
+        } as any)
+    ).toThrow(TypeError)
+  })
+
+  it('takes a key with no value and writes nothing for it', () => {
     const plugin = new JsonPlugin({
       manifestPath: 'manifest.json',
-      includeList: {'storage/managed_schema': [p1, p2]}
-    } as any)
-    const harness = createCompilerHarness()
-    const {assets, calls} = harness.applyAndRun(plugin)
+      includeList: {'storage/managed_schema': undefined}
+    })
+    const {assets, compilation} = createCompilerHarness().applyAndRun(plugin)
 
-    expect(calls.emit).toBe(1)
-    expect(calls.update).toBe(1)
-    expect(assets['storage/managed_schema.json']).toBe('{"v":2}')
+    expect(assets).toEqual({})
+    expect(compilation.errors).toEqual([])
+    expect(compilation.warnings).toEqual([])
   })
 
   it('errors when a leading-slash critical JSON ref is missing from public/', () => {

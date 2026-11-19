@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. A W_ code is a warning: the run carried on past it. An E_ code is a failure. A class that can do both has one row under each prefix with the same stem. Twenty warnings shipped under an E_ name before the W_ prefix existed. Each of those E_ names that never marked a failure has a 'folded' row pointing at its W_ name. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it; its 'reason' says what keeps it reserved.",
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed, with one exception: the release that introduced the W_ prefix moved twenty-four warnings from an E_ name to the W_ name with the same stem. Five of them are CDP faults a session carries on past, so the exception also covers the cdpFaultCode value in ready.json, a contract field whose values were renamed with them. A code retired after it shipped keeps a 'folded' row naming the code the same path reports now. A folded row is a record for a reader of this table: nothing at run time reads it, no envelope carries a folded name and no alias exists, so a consumer that matches a folded name has to switch to the code the row names. A W_ code is a warning: the run carried on past it. An E_ code is a failure. A class that can do both has one row under each prefix with the same stem. Twelve of the twenty-four E_ names that moved never marked a failure. Eleven have a 'folded' row naming their W_ name. The twelfth, E_PERF_BUDGET, stays in the table as a reserved row, because the failure it is held for is the same overrun made strict. One code per operator-distinguishable failure family. The envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table. A ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it. Its 'reason' says what keeps it reserved.",
   "codes": {
     "E_ARGS": {
       "area": "usage",
@@ -84,7 +84,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing or uncompiled."
+      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
@@ -112,11 +112,11 @@
     },
     "E_ENTRY_NOT_FOUND": {
       "area": "compile",
-      "summary": "A manifest, HTML, or JSON entry points at a missing file."
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled."
     },
     "E_ASSET_MISSING": {
       "area": "compile",
-      "summary": "An icon, static asset, or JSON dependency is missing."
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled."
     },
     "E_SCRIPT_DEP_MISSING": {
       "area": "compile",
@@ -136,7 +136,7 @@
     },
     "E_CSS_DEAD_REF": {
       "area": "compile",
-      "summary": "A CSS url() points at nothing."
+      "summary": "A CSS url() or @import names a file that is missing or not bundled."
     },
     "E_LOCALES_LAYOUT": {
       "area": "compile",
@@ -145,6 +145,10 @@
     "E_WAR_INVALID": {
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected."
+    },
+    "E_THEME_INVALID": {
+      "area": "compile",
+      "summary": "A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly."
     },
     "E_DEV_SESSION_DIST_SHARED": {
       "area": "compile",
@@ -158,9 +162,13 @@
       "area": "compile",
       "summary": "A content script failed to parse."
     },
+    "E_PERF_BUDGET": {
+      "area": "compile",
+      "summary": "An asset exceeds its size budget, and the project asked for that to fail the build. It is the same overrun W_PERF_BUDGET warns of, made strict."
+    },
     "E_ZIP_SKIPPED": {
       "area": "compile",
-      "summary": "Packaging was skipped for a stated reason."
+      "summary": "A requested archive was not created."
     },
     "E_REMOTE_FETCH_TIMEOUT": {
       "area": "remote",
@@ -463,12 +471,12 @@
     },
     "W_ENTRY_NOT_FOUND": {
       "area": "compile",
-      "summary": "A manifest, HTML, or JSON entry points at a missing file.",
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled.",
       "warn": true
     },
     "W_ASSET_MISSING": {
       "area": "compile",
-      "summary": "An icon, static asset, or JSON dependency is missing.",
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled.",
       "warn": true
     },
     "W_SCRIPT_DEP_MISSING": {
@@ -488,7 +496,7 @@
     },
     "W_CSS_DEAD_REF": {
       "area": "compile",
-      "summary": "A CSS url() points at nothing.",
+      "summary": "A CSS url() or @import names a file that is missing or not bundled.",
       "warn": true
     },
     "W_POLYFILL_NOT_FOUND": {
@@ -625,6 +633,41 @@
       "area": "compile",
       "summary": "A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script.",
       "warn": true
+    },
+    "W_ENV_NAME_RESERVED": {
+      "area": "project",
+      "summary": "A .env file sets a name the build reserves for the browser or mode it compiles for, so the file value is ignored.",
+      "warn": true
+    },
+    "W_COMPANION_EXTENSION_PATH": {
+      "area": "project",
+      "summary": "A companion extension entry leads outside the project, is not an unpacked extension folder, or names a folder that does not exist, so the browser opens without it.",
+      "warn": true
+    },
+    "W_CDP_NOT_CONNECTED": {
+      "area": "debug-protocol",
+      "summary": "A dev, start or preview session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_CDP_TIMEOUT": {
+      "area": "debug-protocol",
+      "summary": "A CDP command or load timed out after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_CDP_OP_FAILED": {
+      "area": "debug-protocol",
+      "summary": "An extension operation over CDP failed after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach. A fault of any class other than the four with a warning name of their own is reported under this code too.",
+      "warn": true
+    },
+    "W_BROWSER_CONNECTION_CLOSED": {
+      "area": "debug-protocol",
+      "summary": "The debug socket closed after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_EXTENSION_ID_UNKNOWN": {
+      "area": "debug-protocol",
+      "summary": "The extension id could not be determined over CDP after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
     }
   },
   "legacy": {
@@ -742,7 +785,6 @@
     "E_PROD_LOOPBACK_ORIGIN": "W_PROD_LOOPBACK_ORIGIN",
     "E_NO_ENTRYPOINTS": "W_NO_ENTRYPOINTS",
     "E_REMOTE_RESOURCE_BLOCKED": "W_REMOTE_RESOURCE_BLOCKED",
-    "E_PERF_BUDGET": "W_PERF_BUDGET",
     "E_ENV_NO_MATCH": "W_ENV_NO_MATCH",
     "E_LAUNCH_SKIPPED_COMPILE_ERRORS": "W_LAUNCH_SKIPPED_COMPILE_ERRORS",
     "E_UNINSTALL_NOOP": "W_UNINSTALL_NOOP",

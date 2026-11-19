@@ -214,3 +214,10 @@ export function jsonIncludeSummary(
     `critical=${String(criticalCount)}`
   )
 }
+
+// A key names one output file, so it takes one source file.
+export function jsonIncludeValueNotOneString(key: string, value: unknown) {
+  const got = Array.isArray(value) ? 'a list' : `a ${typeof value}`
+
+  return `JsonPlugin takes one file path per key, and the key ${key} has ${got}. Pass one path, or give each file its own key.`
+}

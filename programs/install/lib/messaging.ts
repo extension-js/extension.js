@@ -427,9 +427,11 @@ export const CODES = {
   E_CSS_DEAD_REF: 'E_CSS_DEAD_REF',
   E_LOCALES_LAYOUT: 'E_LOCALES_LAYOUT',
   E_WAR_INVALID: 'E_WAR_INVALID',
+  E_THEME_INVALID: 'E_THEME_INVALID',
   E_DEV_SESSION_DIST_SHARED: 'E_DEV_SESSION_DIST_SHARED',
   E_BACKGROUND_REQUIRED: 'E_BACKGROUND_REQUIRED',
   E_CONTENT_SCRIPT_SYNTAX: 'E_CONTENT_SCRIPT_SYNTAX',
+  E_PERF_BUDGET: 'E_PERF_BUDGET',
   E_ZIP_SKIPPED: 'E_ZIP_SKIPPED',
   E_REMOTE_FETCH_TIMEOUT: 'E_REMOTE_FETCH_TIMEOUT',
   E_REMOTE_DOWNLOAD: 'E_REMOTE_DOWNLOAD',
@@ -463,8 +465,8 @@ export const CODES = {
   E_JSON_INVALID: 'E_JSON_INVALID',
   E_PROJECT_LAYOUT: 'E_PROJECT_LAYOUT',
   E_ASSET_IMPORT_SHAPE: 'E_ASSET_IMPORT_SHAPE',
-  // A W_ code is a warning: the run carried on past it. These twenty
-  // shipped under an E_ name before warnings had a prefix of their own.
+  // A W_ code is a warning: the run carried on past it. These shipped under
+  // an E_ name before the prefix existed, all but W_MODULE_NOT_FOUND.
   W_MANAGED_DEP_CONFLICT: 'W_MANAGED_DEP_CONFLICT',
   W_TYPES_EMIT: 'W_TYPES_EMIT',
   W_MODULE_NOT_FOUND: 'W_MODULE_NOT_FOUND',
@@ -485,7 +487,13 @@ export const CODES = {
   W_UNINSTALL_NOOP: 'W_UNINSTALL_NOOP',
   W_PORT_IN_USE: 'W_PORT_IN_USE',
   W_LOGS_STREAM_GAP: 'W_LOGS_STREAM_GAP',
-  // Born as warnings, so no E_ name ever shipped for them.
+  W_CDP_NOT_CONNECTED: 'W_CDP_NOT_CONNECTED',
+  W_CDP_TIMEOUT: 'W_CDP_TIMEOUT',
+  W_CDP_OP_FAILED: 'W_CDP_OP_FAILED',
+  W_BROWSER_CONNECTION_CLOSED: 'W_BROWSER_CONNECTION_CLOSED',
+  W_EXTENSION_ID_UNKNOWN: 'W_EXTENSION_ID_UNKNOWN',
+  // No warning shipped under an E_ name for these. Where the E_ name of the
+  // same stem exists, it has only ever been an error.
   W_MANIFEST_INVALID: 'W_MANIFEST_INVALID',
   W_WAR_INVALID: 'W_WAR_INVALID',
   W_RESERVED_FOLDER: 'W_RESERVED_FOLDER',
@@ -501,10 +509,30 @@ export const CODES = {
   W_CSS_NOT_APPLIED: 'W_CSS_NOT_APPLIED',
   W_ENV_SECRET_PUBLIC: 'W_ENV_SECRET_PUBLIC',
   W_BUILD_CONSTANT_UNDEFINED: 'W_BUILD_CONSTANT_UNDEFINED',
-  W_SCRIPT_WORLD_UNKNOWN: 'W_SCRIPT_WORLD_UNKNOWN'
+  W_SCRIPT_WORLD_UNKNOWN: 'W_SCRIPT_WORLD_UNKNOWN',
+  W_ENV_NAME_RESERVED: 'W_ENV_NAME_RESERVED',
+  W_COMPANION_EXTENSION_PATH: 'W_COMPANION_EXTENSION_PATH'
 } as const
 
 export type ErrorCode = (typeof CODES)[keyof typeof CODES]
+
+// The classes a CDP fault can warn under when the session carried on.
+export const CDP_FAULT_STEMS = [
+  'CDP_NOT_CONNECTED',
+  'CDP_TIMEOUT',
+  'CDP_OP_FAILED',
+  'BROWSER_CONNECTION_CLOSED',
+  'EXTENSION_ID_UNKNOWN'
+] as const
+
+// A fault of any other class is still a CDP operation that failed, so the
+// contract and the ready frame only ever name one of those five.
+export function cdpFaultWarningCode(code: string): ErrorCode {
+  const stem = /^[EW]_/.test(code) ? code.slice(2) : ''
+  const known = CDP_FAULT_STEMS.find((name) => name === stem)
+
+  return known ? CODES[`W_${known}`] : CODES.W_CDP_OP_FAILED
+}
 
 // The actionable parts a message or hint names, carried beside the sentence so
 // a consumer can render its own copy instead of rewriting the engine's.

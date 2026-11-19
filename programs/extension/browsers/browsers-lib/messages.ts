@@ -361,10 +361,14 @@ export function geckoForkNotInstalled(browser: Browser, guidance: string) {
     .filter((line) => line && !/^We couldn't find/i.test(line))
     .filter((line) => !/^Re-run your command/i.test(line))
     .join('\n')
+  // A locator with nothing to say still leaves the first remedy in place.
+  const install =
+    steps ||
+    `Install ${capitalizedBrowserName(browser)}, then run the command again.`
 
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} isn't installed.\n` +
-    `${steps}\n` +
+    `${install}\n` +
     `Or point at a binary with ${colors.blue('--gecko-binary')} ${colors.gray('<path>')}, ` +
     `or choose another browser with ${colors.blue('--browser')} ${colors.gray('<firefox|waterfox|librewolf|zen|floorp>')}.`
   )
@@ -380,10 +384,14 @@ export function chromiumForkNotInstalled(browser: Browser, guidance: string) {
     .filter((line) => line && !/^We couldn't find/i.test(line))
     .filter((line) => !/^Re-run your command/i.test(line))
     .join('\n')
+  // A locator with nothing to say still leaves the first remedy in place.
+  const install =
+    steps ||
+    `Install ${capitalizedBrowserName(browser)}, then run the command again.`
 
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} isn't installed.\n` +
-    `${steps}\n` +
+    `${install}\n` +
     `Or point at a binary with ${colors.blue('--chromium-binary')} ${colors.gray('<path>')}, ` +
     `or choose another browser with ${colors.blue('--browser')} ${colors.gray('<chrome|chromium|edge|brave|opera|vivaldi|yandex>')}.`
   )

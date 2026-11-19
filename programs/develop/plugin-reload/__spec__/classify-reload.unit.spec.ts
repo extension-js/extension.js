@@ -53,6 +53,71 @@ describe('classifyReloadFromSources', () => {
     expect(result?.changedAssets).toEqual(['src/content/scripts.js'])
   })
 
+  it('classifies a content-script source change as "content-scripts"', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/content/ContentApp.tsx'],
+      getContentScriptCount: count(1)
+    })
+
+    expect(result?.type).toBe('content-scripts')
+    expect(result?.changedContentScriptEntries).toEqual([
+      'content_scripts/content-0'
+    ])
+  })
+
+  it('emits ALL canonical content-script entries when the manifest declares multiple', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/content/ContentApp.tsx'],
+      getContentScriptCount: count(3)
+    })
+
+    expect(result?.type).toBe('content-scripts')
+    expect(result?.changedContentScriptEntries).toEqual([
+      'content_scripts/content-0',
+      'content_scripts/content-1',
+      'content_scripts/content-2'
+    ])
+  })
+
+  it('classifies a service-worker.ts source change as "service-worker"', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/worker/service-worker.ts'],
+        getContentScriptCount: count(1)
+      })?.type
+    ).toBe('service-worker')
+  })
+
+  it('background + content change prefers "service-worker" (widest blast radius wins)', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['src/background.ts', 'src/content/ContentApp.tsx'],
+        getContentScriptCount: count(1)
+      })?.type
+    ).toBe('service-worker')
+  })
+
+  it('forwards changedAssets on a "full" reload', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/manifest.json'],
+      forcedFull: true,
+      getContentScriptCount: count(1)
+    })
+
+    expect(result?.type).toBe('full')
+    expect(result?.changedAssets).toEqual(['src/manifest.json'])
+  })
+
+  it('emits a notify-only "page" instruction when a non-content-script project edits a page asset', () => {
+    const result = classifyReloadFromSources({
+      changedSources: ['src/action/scripts.js'],
+      getContentScriptCount: count(0)
+    })
+
+    expect(result?.type).toBe('page')
+    expect(result?.label).toBe('popup page (src/action/scripts.js)')
+  })
+
   it('an html-only edit with declared content scripts is a page reload, never a content reinject (reload-oracle R4-page)', () => {
     const result = classifyReloadFromSources({
       changedSources: ['popup.html'],
@@ -711,7 +776,7 @@ describe('classifyReloadFromSources with a source index that throws', () => {
     throw new Error('chunk graph unreadable')
   }
 
-  // Pins today's behavior. Ledger 1385 D9.
+  // Pins current behavior: a throwing source index leaves no debug line.
   it('falls back to the name heuristics and prints nothing, debug on', () => {
     vi.stubEnv('EXTENSION_DEBUG', '1')
     const printed = [

@@ -72,7 +72,7 @@ describe('messages helpers', () => {
     )
 
     // The browser name is optional and defaults to chromium.
-    expect(block).toContain('- extension install [browser-name]')
+    expect(block).toContain('- extension install [browser-name...]')
     expect(block).toContain('Defaults to chromium when no browser is named.')
 
     // One name for one argument across dev, start, preview and build.

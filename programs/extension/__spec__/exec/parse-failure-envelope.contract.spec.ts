@@ -123,7 +123,7 @@ describe('pre-command failures under --output json', () => {
     )
   })
 
-  // Pins today's behavior. Ledger 1375 N4.
+  // Pins current behavior: the frame and stderr word the error differently.
   // The frame carries the parser's raw text while stderr prints the house copy.
   it.each([
     [
@@ -142,7 +142,7 @@ describe('pre-command failures under --output json', () => {
     expect(frame.error.name).toBe('CliError')
   })
 
-  // Pins today's behavior. Ledger 1375 N3.
+  // Pins current behavior: the remedy names the wrong command.
   // A root option's value is read as the command, so both name a command json.
   it('-o json build names extension json --help', async () => {
     const plain = await runCli(['-o', 'json', 'build'])
@@ -161,7 +161,7 @@ describe('pre-command failures under --output json', () => {
     expect(frame.error.refs).toEqual({flag: '-o'})
   })
 
-  // Pins today's behavior. Ledger 1375 N6.
+  // Pins current behavior: no envelope, unlike the other flag order.
   it('build --browser --output json takes --output as the browser', async () => {
     const run = await runCli(['build', '--browser', '--output', 'json'])
 
@@ -178,7 +178,7 @@ describe('pre-command failures under --output json', () => {
     )
   })
 
-  // Pins today's behavior. Ledger 1375 N7.
+  // Pins current behavior: unknown option although dev takes --browser.
   it('--browser chrome before dev sends the reader to dev --help', async () => {
     const remedy =
       '⏵⏵⏵ Error: Unknown option --browser.\n' +
@@ -213,7 +213,7 @@ describe('pre-command failures under --output json', () => {
     })
   })
 
-  // Pins today's behavior. Ledger 1375 N8.
+  // Pins current behavior: two error codes for one kind of mistake.
   it.each([
     [
       ['--since', 'nope'],

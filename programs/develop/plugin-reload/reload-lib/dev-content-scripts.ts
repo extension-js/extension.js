@@ -7,6 +7,9 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
+  devContentScriptCssMarkerAssetName,
+  devContentScriptSheetProbeAssetName,
+  devContentScriptStubAssetName,
   getCanonicalContentScriptEntryName,
   parseCanonicalContentScriptAsset
 } from '../../plugin-web-extension/feature-scripts/contracts'
@@ -60,33 +63,8 @@ export interface DevContentScriptPlan {
 
 type ContentScriptEntry = Record<string, unknown>
 
-export function devContentScriptStubAssetName(index: number): string {
-  return `content_scripts/dev-stub-${index}.js`
-}
-
-// A CSS-only entry has no bundle to mark its world, so this script stands in
-// for one: Chromium injects it beside the stylesheet and stamps the frame.
-export function devContentScriptCssMarkerAssetName(index: number): string {
-  return `content_scripts/dev-css-${index}.js`
-}
-
-// Chromium adds a registered sheet at document start and offers no way to ask
-// whether it did. A one-rule sheet registered with the entry's own answers.
-export function devContentScriptSheetProbeAssetName(index: number): string {
-  return `content_scripts/dev-sheet-${index}.css`
-}
-
 export function devContentScriptSheetProbeProperty(index: number): string {
   return `--extjs-dev-sheet-${index}`
-}
-
-const DEV_CONTENT_SCRIPT_STAND_IN_ASSET =
-  /^content_scripts\/(?:dev-(?:stub|css)-\d+\.js|dev-sheet-\d+\.css)$/
-
-// True for the per-entry files this plan emits: a stub, a CSS marker or a
-// sheet probe.
-export function isDevContentScriptStandInAsset(assetName: string): boolean {
-  return DEV_CONTENT_SCRIPT_STAND_IN_ASSET.test(assetName)
 }
 
 const HASHED_CONTENT_SCRIPT_ASSET =

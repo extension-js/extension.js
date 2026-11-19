@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
@@ -82,10 +83,16 @@ function restoreHtmlPreservingStat(
 }
 
 describe('ThrowIfRecompileIsNeeded', () => {
-  const tmp = path.join(__dirname, '.tmp-recompile')
+  let created = ''
+  let tmp = ''
+
+  beforeEach(() => {
+    created = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-recompile-'))
+    tmp = fs.realpathSync(created)
+  })
 
   afterEach(() => {
-    fs.rmSync(tmp, {recursive: true, force: true})
+    fs.rmSync(created, {recursive: true, force: true})
     unbindDevSessionRestart()
   })
 
@@ -262,5 +269,108 @@ describe('ThrowIfRecompileIsNeeded', () => {
     expect(handler).toHaveBeenCalledWith(
       expect.objectContaining({reason: 'html', pathAfter: html})
     )
+  })
+
+  const pageNaming = (...scripts: string[]) =>
+    `<html><body>${scripts
+      .map((script) => `<script src="${script}"></script>`)
+      .join('')}</body></html>`
+
+  it('asks a live session to restart once when a missing page script is created', async () => {
+    const html = path.join(tmp, 'index.html')
+    const late = path.join(tmp, 'late.js')
+    fs.writeFileSync(path.join(tmp, 'a.js'), '')
+    fs.writeFileSync(html, pageNaming('a.js', 'late.js'))
+    const compiler = makeCompiler()
+    const handler = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+    scheduler.setHandler(handler)
+    bindDevSessionRestart(scheduler)
+
+    new ThrowIfRecompileIsNeeded({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      includeList: {page: html}
+    } as any).apply(compiler as any)
+
+    compiler.runMake()
+    await new Promise((r) => setTimeout(r, 0))
+    expect(handler).not.toHaveBeenCalled()
+
+    fs.writeFileSync(late, '')
+    compiler.runMake()
+    compiler.runMake()
+    await new Promise((r) => setTimeout(r, 0))
+
+    expect(compiler._errors).toHaveLength(0)
+    expect(handler).toHaveBeenCalledTimes(1)
+    expect(handler).toHaveBeenCalledWith(
+      expect.objectContaining({reason: 'html', pathAfter: late})
+    )
+  })
+
+  it('says nothing when the page stopped naming the file before it appeared', () => {
+    const html = path.join(tmp, 'index.html')
+    fs.writeFileSync(path.join(tmp, 'a.js'), '')
+    fs.writeFileSync(html, pageNaming('a.js', 'late.js'))
+    const compiler = makeCompiler([html])
+
+    new ThrowIfRecompileIsNeeded({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      includeList: {page: html}
+    } as any).apply(compiler as any)
+
+    fs.writeFileSync(html, pageNaming('a.js'))
+    compiler.runMake()
+    fs.writeFileSync(path.join(tmp, 'late.js'), '')
+    compiler.runMake()
+
+    expect(compiler._errors).toHaveLength(0)
+  })
+
+  it('waits for a file the page started naming after the session began', () => {
+    const html = path.join(tmp, 'index.html')
+    fs.writeFileSync(path.join(tmp, 'a.js'), '')
+    fs.writeFileSync(html, pageNaming('a.js'))
+    const compiler = makeCompiler([html])
+
+    new ThrowIfRecompileIsNeeded({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      includeList: {page: html}
+    } as any).apply(compiler as any)
+
+    fs.writeFileSync(html, pageNaming('a.js', 'later.js'))
+    compiler.runMake()
+    expect(compiler._errors).toHaveLength(0)
+
+    // The page itself is not saved again, only the file it waits for.
+    compiler.modifiedFiles.clear()
+    fs.writeFileSync(path.join(tmp, 'later.js'), '')
+    compiler.runMake()
+    compiler.runMake()
+
+    expect(compiler._errors).toHaveLength(1)
+    expect(compiler._errors[0].name).toBe('HtmlEntrypointChanged')
+    expect(compiler._errors[0].file).toBe('index.html')
+    expect(String(compiler._errors[0].message)).toContain(
+      `FILE ${path.join(tmp, 'later.js')}`
+    )
+  })
+
+  it('asks once when the page and the file it waited for are saved together', () => {
+    const html = path.join(tmp, 'index.html')
+    fs.writeFileSync(path.join(tmp, 'a.js'), '')
+    fs.writeFileSync(html, pageNaming('a.js', 'late.js'))
+    const compiler = makeCompiler([html])
+
+    new ThrowIfRecompileIsNeeded({
+      manifestPath: path.join(tmp, 'manifest.json'),
+      includeList: {page: html}
+    } as any).apply(compiler as any)
+
+    fs.writeFileSync(path.join(tmp, 'late.js'), '')
+    fs.writeFileSync(html, `${pageNaming('a.js', 'late.js')}\n`)
+    compiler.runMake()
+
+    expect(compiler._errors).toHaveLength(1)
   })
 })

@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
@@ -14,12 +15,12 @@ afterAll(() => {
 })
 
 function makeTmp(name: string) {
-  const tmp = path.join(__dirname, `.tmp-split-${name}`)
-  fs.rmSync(tmp, {recursive: true, force: true})
-  fs.mkdirSync(tmp, {recursive: true})
-  tmpRoots.push(tmp)
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-split-chunks-${name}-`)
+  )
+  tmpRoots.push(created)
 
-  return tmp
+  return fs.realpathSync(created)
 }
 
 function makeCompilation(mode: 'development' | 'production'): Compilation {

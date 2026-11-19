@@ -9,12 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {CONTROL_PORT_ASSET_NAME} from '../dev-server/control-bridge/producer-runtime'
-import {
-  DEV_CONTENT_SCRIPT_REGISTRY_ASSET,
-  isDevContentScriptStandInAsset
-} from '../plugin-reload/reload-lib/dev-content-scripts'
+import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from '../plugin-reload/reload-lib/dev-content-scripts'
+import {isDevContentScriptStandInAsset} from '../plugin-web-extension/feature-scripts/contracts'
 
-export const DEV_HOT_UPDATES_DIR = 'hot'
+const DEV_HOT_UPDATES_DIR = 'hot'
 
 const CONTENT_SCRIPTS_DIR = 'content_scripts'
 

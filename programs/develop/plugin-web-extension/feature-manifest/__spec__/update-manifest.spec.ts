@@ -4,14 +4,6 @@ import {UpdateManifest} from '../steps/update-manifest'
 
 const overridesSpy = vi.hoisted(() => vi.fn(() => JSON.stringify({icons: {}})))
 
-vi.mock('../../lib/utils', () => ({
-  getManifestContent: (_c: any, _p: string) => ({
-    name: 'x',
-    content_scripts: [{js: [], css: ['a.css']}]
-  }),
-  getFilename: (n: string) => `${n}`
-}))
-
 vi.mock('../manifest-overrides', () => ({
   getManifestOverrides: overridesSpy
 }))

@@ -1,11 +1,16 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
-import {evictAssetsFromHtmlCache, getAssetsFromHtml} from '../../html-lib/utils'
+import {afterAll, describe, expect, it} from 'vitest'
+import {getAssetsFromHtml} from '../../html-lib/utils'
 
 describe('getAssetsFromHtml', () => {
-  const tmp = path.join(__dirname, '.tmp-utils')
-  fs.mkdirSync(tmp, {recursive: true})
+  const created = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-html-utils-'))
+  const tmp = fs.realpathSync(created)
+
+  afterAll(() => {
+    fs.rmSync(created, {recursive: true, force: true})
+  })
 
   it('throws when the HTML file is missing instead of reporting an empty page', () => {
     expect(() => getAssetsFromHtml(path.join(tmp, 'missing.html'))).toThrow()
@@ -19,8 +24,8 @@ describe('getAssetsFromHtml', () => {
     expect(res.js).toEqual([path.join(tmp, 'a.js')])
   })
 
-  it('serves the cached parse for an unchanged mtime and size, and eviction drops it', () => {
-    const dir = path.join(tmp, 'cache-evict')
+  it('serves the cached parse for an unchanged mtime and size, and reads again once either moves', () => {
+    const dir = path.join(tmp, 'cache-key')
     fs.mkdirSync(dir, {recursive: true})
     const htmlPath = path.join(dir, 'index.html')
 
@@ -39,26 +44,8 @@ describe('getAssetsFromHtml', () => {
     const cached = getAssetsFromHtml(htmlPath)
     expect(cached.js).toEqual([path.join(dir, 'a.js')])
 
-    evictAssetsFromHtmlCache(htmlPath)
-
-    const fresh = getAssetsFromHtml(htmlPath)
-    expect(fresh.js).toEqual([path.join(dir, 'b.js')])
-  })
-
-  it('evicts every entry when called without a path', () => {
-    const dir = path.join(tmp, 'cache-clear')
-    fs.mkdirSync(dir, {recursive: true})
-    const htmlPath = path.join(dir, 'index.html')
-
-    const pinned = new Date(Math.floor(Date.now() / 1000) * 1000 - 5000)
-    fs.writeFileSync(htmlPath, '<script src="a.js"></script>', 'utf8')
-    fs.utimesSync(htmlPath, pinned, pinned)
-    getAssetsFromHtml(htmlPath)
-
-    fs.writeFileSync(htmlPath, '<script src="b.js"></script>', 'utf8')
-    fs.utimesSync(htmlPath, pinned, pinned)
-
-    evictAssetsFromHtmlCache()
+    const later = new Date(pinned.getTime() + 2000)
+    fs.utimesSync(htmlPath, later, later)
 
     const fresh = getAssetsFromHtml(htmlPath)
     expect(fresh.js).toEqual([path.join(dir, 'b.js')])

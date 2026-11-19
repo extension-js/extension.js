@@ -13,7 +13,7 @@ import {parseJsonSafe} from './parse-json-safe'
 
 // chrome: and edge: name one vendor. Up to 4.1.18 they reached every
 // Chromium-family target, which is why a drop elsewhere gets a warning.
-export const CHROMIUM_VENDOR_PREFIXES = ['chrome', 'edge'] as const
+const CHROMIUM_VENDOR_PREFIXES = ['chrome', 'edge'] as const
 
 export interface FilterKeysOptions {
   // Extra prefixes this build also accepts, like ['firefox'] for a Safari
@@ -121,6 +121,31 @@ export function filterKeysForThisBrowser(
   }
 
   return resolve(manifest) as Manifest
+}
+
+// The key as written that supplies plainKey to this browser at the top
+// level, or undefined when the plain key is the one the build reads.
+export function winningPrefixedKey(
+  manifest: Manifest,
+  plainKey: string,
+  browser: DevOptions['browser']
+): string | undefined {
+  const {isFamilyPrefix, isSpecificPrefix} = classifyPrefixes(browser)
+  let family: string | undefined
+  let specific: string | undefined
+
+  for (const key of Object.keys(manifest || {})) {
+    const indexOfColon = key.indexOf(':')
+    if (indexOfColon === -1) continue
+    if (key.substring(indexOfColon + 1) !== plainKey) continue
+
+    const prefix = key.substring(0, indexOfColon)
+
+    if (isSpecificPrefix(prefix)) specific = key
+    else if (isFamilyPrefix(prefix)) family = key
+  }
+
+  return specific ?? family
 }
 
 export interface DroppedVendorKey {

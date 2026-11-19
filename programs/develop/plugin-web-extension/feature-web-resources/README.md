@@ -93,8 +93,24 @@ This feature performs path validation at compile time and surfaces clear message
 
 - Relative files are validated and emitted as assets (development: `assets/[name][ext]`, production: `assets/[name].[contenthash:8][ext]`). When a relative path refers to a file that already exists under the project `public/` folder or in the emitted output root, it is treated as valid and normalized, without a “file not found” warning.
 - Public-root-like paths (`/foo.png`, `public/foo.png`, `./public/foo.png`) are preserved as `foo.png`. If the referenced file is missing under the extension `public/` folder and has not been emitted to the output root, a warning is emitted with guidance that paths starting with `/` resolve from the extension output root (served from `public/`).
-- Glob patterns (e.g., `assets/*.svg`, `/*.json`) are preserved as-is.
+- Glob patterns (e.g., `assets/*.svg`, `/*.json`) are preserved as-is. A pattern with a parent segment (`../assets/*`) is reported and left out of the output manifest, since no browser exposes a file for it.
 - When a resource is both user-declared and auto-discovered from a content script, it is de-duplicated.
+
+## Files a declared resource never ships
+
+Every file in the build output is readable by anyone who installs the extension, so a declared resource is copied only when it is project content. The rule is `sourceFileMayShip` in `plugin-special-folders/public-private-files.ts`, the same one the root-absolute fallback of pages and stylesheets applies. Nothing is copied for:
+
+- a private name anywhere along the path, in any letter case (`.env`, `.env.local`, `.envrc`, `.npmrc`, `.git/config`, the full table is in the `plugin-special-folders` README),
+- a folder entry or a pattern under `node_modules` (a file of an installed package named by its path ships),
+- a path that climbs out of the project to a file its workspace does not share (`../outside.txt`, `sub/../../outside.txt`),
+- a root path that climbs out of the extension root (`/../outside.txt`, `/%2e%2e/outside.txt`), which a page refuses too,
+- a link that resolves outside the project root, into `node_modules` or onto a private name, a workspace folder a package links included.
+
+Each of those gets the warning a missing file gets (`Can't find the file <entry> listed in web_accessible_resources.`), which names the path and never what the file holds. The output manifest does not list the entry, the same as a missing file, and a group or a list left with no resource is left out with it. The warning names the path from the project root.
+
+A folder entry (`icons/`) and a pattern under a folder (`images/*`) apply the same rule to every file they reach. An env file inside one is reported by its own path. OS metadata and repository files (`.DS_Store`, `.gitkeep`) are left out without a word, the way the `public/` copy leaves them out. A pattern with no folder before its first `*` (`*.json`, `/*`, `**/*`) names the built output and copies no source file.
+
+Template env files (`.env.example`), `.well-known/` and every other dot-file ship as authored, and a link that stays inside the project is followed.
 
 ## License
 

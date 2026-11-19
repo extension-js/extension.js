@@ -1,15 +1,23 @@
+import {type ChildProcess, spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
-const {chromiumOptions, chromiumRunOnce, firefoxRunOnce, printProdBannerOnce} =
-  vi.hoisted(() => ({
-    chromiumOptions: vi.fn((_options: Record<string, unknown>) => {}),
-    chromiumRunOnce: vi.fn(async () => {}),
-    firefoxRunOnce: vi.fn(async () => {}),
-    printProdBannerOnce: vi.fn(async () => true)
-  }))
+const {
+  chromiumOptions,
+  chromiumRunOnce,
+  firefoxRunOnce,
+  printProdBannerOnce,
+  launched
+} = vi.hoisted(() => ({
+  chromiumOptions: vi.fn((_options: Record<string, unknown>) => {}),
+  chromiumRunOnce: vi.fn(async () => {}),
+  firefoxRunOnce: vi.fn(async () => {}),
+  printProdBannerOnce: vi.fn(async () => true),
+  // What the stand-in launchers say about the browser they started.
+  launched: {spawned: false, closed: false}
+}))
 
 vi.mock('../../run-chromium/chromium-context', () => ({
   createChromiumContext: vi.fn(() => ({}))
@@ -25,6 +33,14 @@ vi.mock('../../run-chromium/chromium-launch', () => ({
   ChromiumLaunchPlugin: class {
     runOnce = chromiumRunOnce
 
+    get spawnedBrowser() {
+      return launched.spawned
+    }
+
+    get browserClosed() {
+      return launched.closed
+    }
+
     constructor(options: Record<string, unknown>) {
       chromiumOptions(options)
     }
@@ -34,6 +50,14 @@ vi.mock('../../run-chromium/chromium-launch', () => ({
 vi.mock('../../run-firefox/firefox-launch', () => ({
   FirefoxLaunchPlugin: class {
     runOnce = firefoxRunOnce
+
+    get spawnedBrowser() {
+      return launched.spawned
+    }
+
+    get browserClosed() {
+      return launched.closed
+    }
   }
 }))
 
@@ -41,6 +65,7 @@ vi.mock('../../browsers-lib/banner', () => ({
   printProdBannerOnce
 }))
 
+import {createPlaywrightMetadataWriter} from '../../../../develop/plugin-playwright'
 import {
   runOnlyPreviewBrowser,
   warnIgnoredHostPermissionPatterns
@@ -156,6 +181,53 @@ describe('runOnlyPreviewBrowser', () => {
       expect(launch[1].debugPortClaim.port).toBe(portAtCard)
 
       launch[1].debugPortClaim.release()
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('leaves the port of a run that replaced this one when the launch fails', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-next-'))
+    const outPath = path.join(dir, 'dist', 'chrome')
+    const readyPath = path.join(
+      dir,
+      'dist',
+      'extension-js',
+      'chrome',
+      'ready.json'
+    )
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({runId: 'run-1', command: 'preview', status: 'starting'})
+    )
+
+    const next = {
+      runId: 'run-2',
+      command: 'preview',
+      status: 'starting',
+      cdpPort: 9333
+    }
+    const refused = new Error('spawn EACCES')
+    chromiumRunOnce.mockImplementationOnce(async () => {
+      fs.writeFileSync(readyPath, JSON.stringify(next))
+
+      throw refused
+    })
+
+    try {
+      await expect(
+        runOnlyPreviewBrowser({
+          browser: 'chrome',
+          outPath,
+          readyPath,
+          contextDir: dir,
+          extensionsToLoad: [outPath]
+        })
+      ).rejects.toMatchObject({code: 'E_BROWSER_LAUNCH', cause: refused})
+
+      expect(JSON.parse(fs.readFileSync(readyPath, 'utf8'))).toEqual(next)
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }
@@ -399,6 +471,109 @@ describe('runOnlyPreviewBrowser', () => {
   }
 })
 
+// A preview started while a dev session owns the same record writes nothing to
+// it, so the preview's launcher has no run of its own on that record.
+describe('a preview launched over a live dev session', () => {
+  let dir: string
+  let devSession: ChildProcess
+  let readyPath: string
+  let outPath: string
+  let devRecord: string
+
+  beforeEach(async () => {
+    chromiumRunOnce.mockReset()
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-two-'))
+    outPath = path.join(dir, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    fs.writeFileSync(path.join(dir, 'package.json'), '{"name":"two"}')
+    fs.writeFileSync(
+      path.join(outPath, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'two', version: '1.0.0'})
+    )
+
+    // The first session: a stand-in process this spec spawned and ends.
+    devSession = spawn(
+      process.execPath,
+      ['-e', 'setInterval(() => {}, 1000)'],
+      {
+        stdio: 'ignore'
+      }
+    )
+
+    readyPath = path.join(dir, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    devRecord = JSON.stringify({
+      schemaVersion: 2,
+      command: 'dev',
+      browser: 'chrome',
+      status: 'ready',
+      runId: 'dev-run',
+      pid: devSession.pid,
+      distPath: outPath,
+      cdpPort: 9222,
+      ts: '2026-01-01T00:00:00.000Z'
+    })
+
+    fs.writeFileSync(readyPath, devRecord)
+
+    // The engine's half: the preview writer leaves the dev record alone.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const writer = createPlaywrightMetadataWriter({
+      packageJsonDir: dir,
+      browser: 'chrome',
+      command: 'preview',
+      distPath: outPath,
+      manifestPath: path.join(outPath, 'manifest.json'),
+      port: null
+    })
+    expect(writer.readyPath).toBe(readyPath)
+    writer.writeStarting()
+    warn.mockRestore()
+    expect(fs.readFileSync(readyPath, 'utf8')).toBe(devRecord)
+  })
+
+  afterEach(() => {
+    devSession.kill()
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('leaves the dev record as it was when the preview browser comes up', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'chrome',
+      outPath,
+      readyPath,
+      contextDir: dir,
+      extensionsToLoad: [outPath]
+    })
+
+    const launch = chromiumRunOnce.mock.calls[0] as unknown as [
+      unknown,
+      {debugPortClaim?: {release(): void}}
+    ]
+    launch[1].debugPortClaim?.release()
+
+    expect(fs.readFileSync(readyPath, 'utf8')).toBe(devRecord)
+  })
+
+  it('leaves the dev record as it was when the preview launch fails', async () => {
+    chromiumRunOnce.mockImplementationOnce(async () => {
+      throw new Error('spawn EACCES')
+    })
+
+    await expect(
+      runOnlyPreviewBrowser({
+        browser: 'chrome',
+        outPath,
+        readyPath,
+        contextDir: dir,
+        extensionsToLoad: [outPath]
+      })
+    ).rejects.toMatchObject({code: 'E_BROWSER_LAUNCH'})
+
+    expect(fs.readFileSync(readyPath, 'utf8')).toBe(devRecord)
+  })
+})
+
 describe('the signal listeners of a run-only session', () => {
   const SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
   let listenersBefore: Map<string, unknown[]>
@@ -457,6 +632,96 @@ describe('the signal listeners of a run-only session', () => {
 
     expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
     expect(counts()).toEqual(before.map((count) => count + 1))
+  })
+
+  describe('on a signal', () => {
+    let exit: ReturnType<typeof vi.spyOn>
+
+    // The listener this session added, called alone: emitting the signal
+    // would also run every other handler in the test process.
+    const signal = (name: (typeof SIGNALS)[number]) => {
+      const added = process
+        .listeners(name)
+        .filter((listener) => !listenersBefore.get(name)?.includes(listener))
+
+      expect(added).toHaveLength(1)
+      ;(added[0] as () => void)()
+    }
+
+    const session = (browser: 'chromium' | 'firefox') => {
+      const outPath = browser === 'chromium' ? EXT : EXT_FIREFOX
+
+      return runOnlyPreviewBrowser({
+        browser,
+        outPath,
+        contextDir: scratch,
+        extensionsToLoad: [outPath]
+      })
+    }
+
+    beforeEach(() => {
+      launched.spawned = true
+      launched.closed = false
+      exit = vi
+        .spyOn(process, 'exit')
+        .mockImplementation((() => undefined) as never)
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+      launched.spawned = false
+      launched.closed = false
+    })
+
+    it.each([
+      'chromium',
+      'firefox'
+    ] as const)('exits once the %s browser has closed, not before', async (browser) => {
+      await session(browser)
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGINT')
+      vi.advanceTimersByTime(2000)
+      expect(exit).not.toHaveBeenCalled()
+
+      launched.closed = true
+      vi.advanceTimersByTime(100)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
+
+    it('exits after the stop grace period when the browser never closes', async () => {
+      await session('chromium')
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGTERM')
+      vi.advanceTimersByTime(5000)
+      expect(exit).not.toHaveBeenCalled()
+
+      vi.advanceTimersByTime(1000)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
+
+    it('exits at once on a second signal', async () => {
+      await session('chromium')
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGINT')
+      vi.advanceTimersByTime(100)
+      expect(exit).not.toHaveBeenCalled()
+
+      signal('SIGINT')
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
+
+    it('exits at once when no browser was started', async () => {
+      launched.spawned = false
+      await session('chromium')
+      vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'Date']})
+
+      signal('SIGHUP')
+      vi.advanceTimersByTime(50)
+      expect(exit).toHaveBeenCalledExactlyOnceWith(0)
+    })
   })
 })
 

@@ -9,8 +9,10 @@
 import * as fs from 'node:fs'
 import {takeCodedWarnings} from '../lib/coded-warnings'
 import {compilationDiagnostics} from '../lib/compilation-diagnostics'
+import {isUsageLaunchCode} from '../lib/launch-codes'
 import {
   CODES,
+  cdpFaultWarningCode,
   type Diagnostic,
   ENVELOPE,
   type Envelope,
@@ -18,6 +20,7 @@ import {
   isMachineOutput
 } from '../lib/messaging'
 import {shouldWarnPortConflict} from './messages'
+import {readyContractErrorCode} from './ready-contract-codes'
 
 // A terminating envelope cannot describe a session, so dev/start/preview emit
 // one schema-1 frame per lifecycle transition, one JSON document per line.
@@ -31,11 +34,21 @@ export type LifecycleStatus =
   | 'compiled'
   | 'recompiled'
   | 'compile-failed'
+  | 'restart-failed'
   | 'ready'
+  | 'ready-failed'
   | 'browser-exited'
   | 'load-refused'
   | 'failed'
   | 'stopped'
+
+// A frame with one of these says the process is ending: a reader stops at
+// it. Every other failure leaves the session running and the stream open.
+const TERMINAL_STATUSES: ReadonlySet<string> = new Set([
+  'failed',
+  'usage',
+  'stopped'
+])
 
 const MAX_OUTPUT_CHARS = 2000
 
@@ -86,14 +99,6 @@ function isProfileLocked(ready: Record<string, unknown> | null): boolean {
   return /profile\s+is\s+locked|singletonlock/i.test(message)
 }
 
-// A launch refused over a value the user set, which every other command
-// reports as usage rather than as a run that failed.
-const USAGE_LAUNCH_CODES: ReadonlySet<string> = new Set([
-  CODES.E_BROWSER_BINARY_INVALID,
-  CODES.E_BROWSER_BINARY_REQUIRED,
-  CODES.E_FLAG_NOT_SUPPORTED_HERE
-])
-
 // The launcher stamps the code it refused with beside the generic id, and a
 // code the table declares outranks the contract's own status code.
 function stampedLaunchFailureCode(
@@ -112,14 +117,11 @@ function stampedLaunchFailureCode(
 // The launcher keeps a session whose CDP wire failed alive and ready and names
 // the fault on the contract, so the ready frame carries it as a coded warning.
 function cdpFaultWarnings(ready: Record<string, unknown> | null): string[] {
-  const code = ready?.cdpFaultCode
+  const stamped = ready?.cdpFaultCode
+  if (typeof stamped !== 'string' || !stamped.trim()) return []
 
-  if (
-    typeof code !== 'string' ||
-    !Object.prototype.hasOwnProperty.call(CODES, code)
-  ) {
-    return []
-  }
+  // An older launcher stamped the E_ name, and a warning never carries one.
+  const code = cdpFaultWarningCode(stamped.trim())
 
   const message =
     typeof ready?.cdpFaultMessage === 'string' && ready.cdpFaultMessage.trim()
@@ -148,6 +150,15 @@ export interface LifecycleStreamOptions {
   readyPath?: string
   eventsPath?: string
   noBrowser?: boolean
+  // The host's hint for a code, for a terminal failure that carries none.
+  hintFor?: (code: ErrorCode) => string | undefined
+  // Ends the session once a launch refused over a value the user set is
+  // framed as usage. Without it the refusal reads as a survivable one.
+  onUsageRefusal?: (
+    code: ErrorCode,
+    message: string,
+    ready: Record<string, unknown>
+  ) => void
   // Spec seam: every frame goes through one writer.
   write?: (line: string) => void
 }
@@ -158,10 +169,12 @@ export class LifecycleStream {
   private successfulCompiles = 0
   private compileAttempts = 0
   private readyEmitted = false
-  private readyErrorEmitted = false
+  // The contract error the ready report last wrote a frame for.
+  private reportedReadyError: string | null = null
   private browserExitEmitted = false
   private interruptEmitted = false
   private terminalEmitted = false
+  private terminalWritten = false
   private startingEmitted = false
   private boundPort: number | null = null
   private exitWatcher: NodeJS.Timeout | undefined
@@ -177,15 +190,62 @@ export class LifecycleStream {
     return isLifecycleStreamEnabled()
   }
 
-  private emit(frame: Envelope<unknown>): Envelope<unknown> | null {
-    if (!this.enabled) return null
+  // True once the terminal frame is on the stream, so a host adds no other.
+  public get ended(): boolean {
+    return this.terminalWritten
+  }
 
-    this.writeLine(`${JSON.stringify(frame)}\n`)
+  // One terminal frame per stream and nothing after it, whichever of a
+  // signal, an exit or a late compile comes second.
+  private emit(frame: Envelope<unknown>): Envelope<unknown> | null {
+    if (this.terminalEmitted) return null
+
+    const terminal = TERMINAL_STATUSES.has(frame.status)
+
+    if (!this.enabled) {
+      if (terminal) this.terminalEmitted = true
+
+      return null
+    }
+
+    if (frame.status === 'failed' || frame.status === 'usage') {
+      this.addHostHint(frame)
+    }
+
+    // A closed pipe must not replace the failure this frame reports, and a
+    // write that threw leaves the terminal frame to the next one that tries.
+    try {
+      this.writeLine(`${JSON.stringify(frame)}\n`)
+    } catch {
+      return null
+    }
+
+    if (terminal) {
+      this.terminalEmitted = true
+      this.terminalWritten = true
+    }
 
     return frame
   }
 
-  private sessionValue(extra: Record<string, unknown> = {}) {
+  // A resolver that throws costs the frame its hint and nothing else.
+  private addHostHint(frame: Envelope<unknown>): void {
+    const code = frame.error?.code
+
+    if (frame.hint || !code || !this.options.hintFor) return
+
+    try {
+      const hint = this.options.hintFor(code as ErrorCode)
+
+      if (typeof hint === 'string' && hint) frame.hint = hint
+    } catch {
+      // Ignore
+    }
+  }
+
+  public sessionValue(
+    extra: Record<string, unknown> = {}
+  ): Record<string, unknown> {
     const ready = readReadyContract(this.options.readyPath)
     const port = toFiniteNumber(ready?.port) ?? this.boundPort
 
@@ -317,24 +377,49 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
-  // Emitted once, when the ready contract is on disk for this session.
-  // The contract is the source of truth: a compile can succeed while the
-  // browser refuses the guest, and ready.json says so by staying in error.
+  // Written once the contract is on disk, and again after an error survived.
+  // The contract decides, since a compile can pass while the browser refuses.
   public ready(args: {port?: number | null} = {}): Envelope<unknown> | null {
-    if (this.readyEmitted) return null
     if (args.port != null) this.boundPort = toFiniteNumber(args.port)
 
     const ready = readReadyContract(this.options.readyPath)
 
     if (ready && ready.status === 'error') {
-      if (this.readyErrorEmitted) return null
+      // A browser that exited reads the same here as from the exit watcher.
+      if (ready.code === 'browser_exited') return this.browserExited()
 
-      this.readyErrorEmitted = true
+      // One frame per verdict, however many compiles find it still there, and
+      // one per launch the next compiles try and fail again.
+      const verdict = `${String(ready.code ?? '')} ${String(ready.browserLaunchFailedAt ?? '')}`
+      if (this.reportedReadyError === verdict) return null
 
-      return this.contractError(ready, CODES.E_READY_ERROR_STATUS)
+      this.reportedReadyError = verdict
+      this.readyEmitted = false
+
+      // No compile changes a bad pin or a refused profile mode, so the
+      // session ends on the usage frame instead of serving with no browser.
+      const launchCode = stampedLaunchFailureCode(ready)
+      const onUsageRefusal = this.options.onUsageRefusal
+
+      if (launchCode && isUsageLaunchCode(launchCode) && onUsageRefusal) {
+        const frame = this.contractError(ready, false)
+
+        try {
+          onUsageRefusal(launchCode, String(ready.message || launchCode), ready)
+        } catch {
+          // The usage frame is out, and the exit hook still ends the run.
+        }
+
+        return frame
+      }
+
+      return this.contractError(ready, true)
     }
 
+    if (this.readyEmitted) return null
+
     this.readyEmitted = true
+    this.reportedReadyError = null
 
     return this.emit(
       ENVELOPE.ok(this.options.command, 'ready', this.sessionValue(), {
@@ -347,35 +432,51 @@ export class LifecycleStream {
   // set, the status every other command gives it.
   private contractError(
     ready: Record<string, unknown>,
-    fallback: ErrorCode
+    sessionGoesOn: boolean,
+    exitCode?: ErrorCode
   ): Envelope<unknown> | null {
     const launchCode = stampedLaunchFailureCode(ready)
-    // A refused load reads the same here as on start, preview and the verbs.
     const loadRefused = ready.code === 'extension_load_refused'
+    const launchFailed = ready.code === 'browser_launch_failed'
+    // Read while the session runs, every error is retried by the next compile:
+    // the launch, the load, or the build. Only the exit makes one terminal.
+    const survivable = sessionGoesOn
+    const status = survivable
+      ? loadRefused
+        ? 'load-refused'
+        : 'ready-failed'
+      : isUsageLaunchCode(launchCode)
+        ? 'usage'
+        : 'failed'
+    const hint = survivable
+      ? loadRefused
+        ? 'The session keeps running. Fix what the browser names and save: the next compile offers the extension again.'
+        : launchFailed
+          ? 'The session keeps running with no browser. Fix what the launch names and save: the next compile tries the launch again.'
+          : 'The session keeps running. A later compile that clears the error writes the ready frame.'
+      : loadRefused
+        ? 'Fix what the browser names, then run the command again.'
+        : undefined
     const frame = ENVELOPE.fail(
       this.options.command,
-      loadRefused
-        ? 'load-refused'
-        : launchCode && USAGE_LAUNCH_CODES.has(launchCode)
-          ? 'usage'
-          : 'failed',
+      status,
       {
+        // The id resolves through the table --wait reads, one code per state.
         code: loadRefused
           ? CODES.E_EXTENSION_LOAD_REFUSED
-          : (launchCode ?? fallback),
+          : (launchCode ??
+            exitCode ??
+            readyContractErrorCode(ready.code) ??
+            CODES.E_READY_ERROR_STATUS),
         message:
           String(ready.message || '') ||
           'The ready contract reports an error for this session.'
       },
-      loadRefused
-        ? {hint: 'Fix what the browser names, then run the command again.'}
-        : {}
+      hint ? {hint} : {}
     ) as Envelope<unknown>
     frame.value = this.sessionValue({
       ...(typeof ready.code === 'string' ? {readyCode: ready.code} : {})
     })
-
-    this.terminalEmitted = true
 
     return this.emit(frame)
   }
@@ -385,18 +486,30 @@ export class LifecycleStream {
   // name the failure the contract already carries. Before the starting frame
   // the command layer still owns the failure and prints its own.
   public exited(exitCode: number): Envelope<unknown> | null {
-    if (!this.startingEmitted || this.terminalEmitted || exitCode === 0) {
-      return null
+    if (!this.startingEmitted || this.terminalEmitted) return null
+
+    // A session that ended on its own with nothing wrong still says it ended.
+    if (exitCode === 0) {
+      return this.emit(
+        ENVELOPE.ok(
+          this.options.command,
+          'stopped',
+          this.sessionValue({exitCode})
+        )
+      )
     }
 
     const ready = readReadyContract(this.options.readyPath)
 
+    // The process is ending, so whatever the contract carries is the one
+    // terminal frame, a browser exit or a refused load included.
     if (ready && ready.status === 'error') {
       return this.contractError(
         ready,
-        ready.code === 'browser_launch_failed'
-          ? CODES.E_BROWSER_LAUNCH
-          : CODES.E_READY_ERROR_STATUS
+        false,
+        ready.code === 'browser_exited'
+          ? this.browserExitCode(ready)
+          : undefined
       )
     }
 
@@ -405,7 +518,6 @@ export class LifecycleStream {
       message: `The dev session ended with exit code ${exitCode}.`
     }) as Envelope<unknown>
     frame.value = this.sessionValue({exitCode})
-    this.terminalEmitted = true
 
     return this.emit(frame)
   }
@@ -426,6 +538,14 @@ export class LifecycleStream {
     }
   }
 
+  // This frame shipped coded E_BROWSER_LAUNCH and consumers key on it, so
+  // it stays, though --wait names the same contract state E_BROWSER_EXITED.
+  private browserExitCode(ready: Record<string, unknown> | null): ErrorCode {
+    return isProfileLocked(ready)
+      ? CODES.E_PROFILE_LOCKED
+      : CODES.E_BROWSER_LAUNCH
+  }
+
   public browserExited(
     args: {exitCode?: number | null; message?: string} = {}
   ): Envelope<unknown> | null {
@@ -434,19 +554,22 @@ export class LifecycleStream {
     this.browserExitEmitted = true
     const ready = readReadyContract(this.options.readyPath)
     const locked = isProfileLocked(ready)
-    // This frame shipped coded E_BROWSER_LAUNCH and consumers key on it, so
-    // it stays, though --wait names the same contract state E_BROWSER_EXITED.
-    const code = locked ? CODES.E_PROFILE_LOCKED : CODES.E_BROWSER_LAUNCH
+    const code = this.browserExitCode(ready)
     const message =
       args.message ||
       String(ready?.message || '') ||
       (locked
         ? 'The browser profile is locked by another session.'
         : 'The browser exited before the session ended.')
-    const frame = ENVELOPE.fail(this.options.command, 'browser-exited', {
-      code,
-      message
-    }) as Envelope<unknown>
+    // The dev server outlives its browser, so this frame ends nothing.
+    const frame = ENVELOPE.fail(
+      this.options.command,
+      'browser-exited',
+      {code, message},
+      {
+        hint: 'The dev server keeps running with no browser. Stop it, then run the command again to launch one.'
+      }
+    ) as Envelope<unknown>
     frame.value = this.sessionValue({
       exitCode:
         toFiniteNumber(args.exitCode) ?? toFiniteNumber(ready?.browserExitCode),
@@ -455,10 +578,9 @@ export class LifecycleStream {
         : {}),
       ...(typeof ready?.browserExitedAt === 'string'
         ? {browserExitedAt: ready.browserExitedAt}
-        : {})
+        : {}),
+      ...(typeof ready?.code === 'string' ? {readyCode: ready.code} : {})
     })
-
-    this.terminalEmitted = true
 
     return this.emit(frame)
   }
@@ -469,7 +591,6 @@ export class LifecycleStream {
     if (this.interruptEmitted) return null
 
     this.interruptEmitted = true
-    this.terminalEmitted = true
     const frame = ENVELOPE.fail(this.options.command, 'stopped', {
       code: CODES.E_INTERRUPTED,
       message: `The ${this.options.command} session was interrupted by ${signal}.`
@@ -479,14 +600,36 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
-  // The dev server never bound: a session-level failure, not a compile one.
-  public failed(message: string): Envelope<unknown> | null {
+  // The session cannot go on: the dev server never bound, unless the caller
+  // names another reason. A session-level failure, not a compile one.
+  public failed(
+    message: string,
+    code: ErrorCode = CODES.E_DEV_SERVER_START
+  ): Envelope<unknown> | null {
     const frame = ENVELOPE.fail(this.options.command, 'failed', {
-      code: CODES.E_DEV_SERVER_START,
+      code,
       message: stripAnsi(message)
     }) as Envelope<unknown>
     frame.value = this.sessionValue()
-    this.terminalEmitted = true
+
+    return this.emit(frame)
+  }
+
+  // The next compiler could not be built and the session goes on with the
+  // build it had, so this frame ends nothing.
+  public restartFailed(args: {
+    code: ErrorCode
+    message: string
+  }): Envelope<unknown> | null {
+    const frame = ENVELOPE.fail(
+      this.options.command,
+      'restart-failed',
+      {code: args.code, message: stripAnsi(args.message)},
+      {
+        hint: 'The previous build keeps serving. Fix the error, then save the changed file again to retry.'
+      }
+    ) as Envelope<unknown>
+    frame.value = this.sessionValue({serving: true})
 
     return this.emit(frame)
   }
@@ -523,9 +666,8 @@ export class LifecycleStream {
     return stop
   }
 
-  // Poll the ready contract for the launcher's launch-failure stamp. There is
-  // no frame of its own to emit: ready() already reports the contract's error
-  // status. The caller lands the stamp on the events timeline.
+  // Hands each new launch-failure stamp to the caller, for the events file.
+  // ready() writes the frame, and a later compile may fail its launch again.
   public watchBrowserLaunchFailure(
     intervalMs = 1000,
     onFailure: (ready: Record<string, unknown>) => void
@@ -539,12 +681,15 @@ export class LifecycleStream {
     if (!this.options.readyPath) return stop
     if (this.launchFailureWatcher) return stop
 
+    let lastStamp: string | null = null
+
     this.launchFailureWatcher = setInterval(() => {
       const ready = readReadyContract(this.options.readyPath)
-      if (typeof ready?.browserLaunchFailedAt !== 'string') return
+      const stamp = ready?.browserLaunchFailedAt
+      if (!ready || typeof stamp !== 'string' || stamp === lastStamp) return
 
+      lastStamp = stamp
       onFailure(ready)
-      stop()
     }, intervalMs)
 
     this.launchFailureWatcher.unref?.()

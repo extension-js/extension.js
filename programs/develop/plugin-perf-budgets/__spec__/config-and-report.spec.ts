@@ -225,7 +225,86 @@ describe('a perfBudgets value of the wrong type is refused', () => {
     expect(resolved.budgets.wasm).toBe(48 * MiB)
     expect(resolved.budgets.page).toBe(MiB)
     expect(resolved.ignore).toEqual(['assets/*.wasm'])
+    expect(resolved.onExceed).toBe('warn')
     expect(resolved.unknownKeys).toEqual([])
+  })
+})
+
+describe('perfBudgets.onExceed', () => {
+  const CONFIG = '/project/extension.config.js'
+
+  it('is warn when left out, and reads warn and error as written', () => {
+    expect(resolvePerfBudgets(undefined).onExceed).toBe('warn')
+    expect(resolvePerfBudgets({page: 5}).onExceed).toBe('warn')
+    expect(resolvePerfBudgets({onExceed: 'warn'}).onExceed).toBe('warn')
+
+    const resolved = resolvePerfBudgets({onExceed: 'error'})
+
+    expect(resolved.onExceed).toBe('error')
+    expect(resolved.unknownKeys).toEqual([])
+  })
+
+  it.each([
+    ['fail', 'the string "fail"'],
+    ['Error', 'the string "Error"'],
+    [true, 'a boolean'],
+    [1, 'the number 1'],
+    [null, 'null'],
+    [['error'], 'an array']
+  ])('refuses the value %j', (value, found) => {
+    expect(
+      thrownBy(() => resolvePerfBudgets({onExceed: value}, CONFIG))
+    ).toEqual({
+      code: 'E_CONFIG_LOAD',
+      message:
+        `⏵⏵⏵ perfBudgets.onExceed in extension.config.js must be 'warn' or 'error', found ${found}.\n` +
+        'PATH /project/extension.config.js\n' +
+        "Write onExceed: 'error' to fail the build when a file is over its budget, or leave it out to keep the warning."
+    })
+  })
+
+  it('reports an overrun as one error and no warning under error', () => {
+    const {compilation} = run(
+      new PerfBudgetsPlugin({budgets: {onExceed: 'error'}}),
+      {'sidebar/index.js': 2 * MiB, 'sidebar/index.html': 9 * MiB}
+    )
+    const errors = compilation.errors as Error[]
+
+    expect(compilation.warnings).toEqual([])
+    expect(errors).toHaveLength(1)
+    expect(errors[0].name).toBe('PerfBudgetError')
+    expect(errors[0].message).toBe(
+      `${perfBudgetWarning([
+        {
+          name: 'sidebar/index.js',
+          size: 2 * MiB,
+          budget: MiB,
+          category: 'page'
+        }
+      ])}\n\n` +
+        "The build failed because perfBudgets.onExceed is 'error' in extension.config.js. Remove it or set it to 'warn' to report an overrun without failing."
+    )
+  })
+
+  it('reports nothing under error when every file is within its budget', () => {
+    const {compilation} = run(
+      new PerfBudgetsPlugin({budgets: {onExceed: 'error'}}),
+      {'sidebar/index.js': 100, 'sidebar/index.html': 9 * MiB}
+    )
+
+    expect(compilation.errors).toEqual([])
+    expect(compilation.warnings).toEqual([])
+  })
+
+  it('keeps the warning under warn', () => {
+    const {compilation} = run(
+      new PerfBudgetsPlugin({budgets: {onExceed: 'warn'}}),
+      {'sidebar/index.js': 2 * MiB}
+    )
+
+    expect(compilation.errors).toEqual([])
+    expect(compilation.warnings).toHaveLength(1)
+    expect(compilation.warnings[0].name).toBe('PerfBudgetWarning')
   })
 })
 
@@ -250,7 +329,7 @@ describe('a perfBudgets key nothing reads', () => {
     expect(compilation.warnings).toEqual([])
     expect(printed.mock.calls.map(lineOf)).toEqual([
       '⏵⏵⏵ Warning: perfBudgets in extension.config.js declares a key nothing reads: publc.\n' +
-        'Accepted keys are content-script, service-worker, page, shared, public, runtime, wasm, ignore.'
+        'Accepted keys are content-script, service-worker, page, shared, public, runtime, wasm, ignore, onExceed.'
     ])
   })
 

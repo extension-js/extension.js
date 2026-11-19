@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {readGeckoManifestId} from '../../../lib/extension-id'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {
   getCanonicalContentScriptJsAssetName,
@@ -17,8 +18,7 @@ import {
 import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
 import {
   buildCanonicalManifestWithOverrides,
-  getManifestContent,
-  setCurrentManifestContent
+  getManifestContent
 } from '../manifest-lib/manifest'
 import {
   findMistypedManifestFields,
@@ -53,11 +53,15 @@ import {
   hasUnsupportedMv3BackgroundPage,
   patchChromiumBackground
 } from './patch-chromium-background'
-import {patchChromiumThemeColors} from './patch-chromium-theme-colors'
+import {
+  patchChromiumThemeColors,
+  translatedThemeColors
+} from './patch-chromium-theme-colors'
 import {patchDevContentScriptManifestPaths} from './patch-dev-content-script-manifest-paths'
 import {
   hasEmptyGeckoBackgroundScripts,
-  patchGeckoBackground
+  patchGeckoBackground,
+  translatesGeckoServiceWorker
 } from './patch-gecko-background'
 import {patchWebkitBackground} from './patch-webkit-background'
 import {reportGeckoUnsupportedApis} from './warn-gecko-unsupported-apis'
@@ -73,11 +77,17 @@ export class UpdateManifest {
   // A sidebar key folded for the target is said once per session, as a note:
   // the build fixed it, so a warning would claim a panel that does open.
   private reportedSidebarFolds = new Set<string>()
+  // The service worker moved into background.scripts is a note on the same terms.
+  private reportedWorkerMoves = new Set<string>()
+  // So are the theme colors written as arrays for a Chromium build.
+  private reportedThemeColors = new Set<string>()
   // Same contract for the Safari unsupported-API warning, which fires in
   // development too: one line per distinct call, not one on every save.
   private reportedUnsupportedApis = new Set<string>()
   // A page kept at its authored path is said once per session too.
   private reportedKeptPages = new Set<string>()
+  // The missing add-on ID warning is said once per build and once per session.
+  private reportedGeckoAddonId = false
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -92,8 +102,8 @@ export class UpdateManifest {
       const js = contentObj.js ?? []
 
       if (css.length && !js.length) {
-        // The group's entry always emits a JS chunk named after the canonical group
-        // index, which can differ from array position; read it back from the css path.
+        // In development the group's entry holds a script named after the canonical
+        // group index, which can differ from array position: read it from the css path.
         const canonicalIndex =
           parseCanonicalContentScriptAsset(css[0])?.index ?? index
         contentObj.js = [getCanonicalContentScriptJsAssetName(canonicalIndex)]
@@ -217,6 +227,35 @@ export class UpdateManifest {
                   )
                 )
               }
+            }
+
+            if (
+              translatesGeckoServiceWorker(forBrowser, this.browser) &&
+              !this.reportedWorkerMoves.has(String(this.browser))
+            ) {
+              this.reportedWorkerMoves.add(String(this.browser))
+              humanLine(
+                messages.geckoServiceWorkerTranslated(String(this.browser))
+              )
+            }
+
+            const themeColors = translatedThemeColors(forBrowser, this.browser)
+            const themeSignature = [
+              String(this.browser),
+              ...themeColors.map(({key}) => key)
+            ].join('\0')
+
+            if (
+              themeColors.length > 0 &&
+              !this.reportedThemeColors.has(themeSignature)
+            ) {
+              this.reportedThemeColors.add(themeSignature)
+              humanLine(
+                messages.themeColorsTranslated(
+                  String(this.browser),
+                  themeColors
+                )
+              )
             }
 
             if (hasUnsupportedMv3BackgroundPage(forBrowser, this.browser)) {
@@ -346,8 +385,8 @@ export class UpdateManifest {
               this.browser
             )
 
-            // Firefox reads theme.colors as CSS strings, Chrome as integer
-            // arrays. Convert hex for chromium so one manifest serves both.
+            // Firefox reads theme.colors as CSS strings, Chromium as number
+            // arrays. Port the exact ones so one manifest serves both.
             patchedManifest = patchChromiumThemeColors(
               patchedManifest,
               this.browser
@@ -482,6 +521,27 @@ export class UpdateManifest {
               compilation.warnings.push(warn)
             }
 
+            // Without an add-on ID Firefox mints a new one per temporary
+            // install, so storage is lost on relaunch. Dev says it too.
+            if (
+              !this.reportedGeckoAddonId &&
+              isGeckoBasedBrowser(String(this.browser))
+            ) {
+              const geckoId = readGeckoManifestId(
+                patchedManifest as Record<string, unknown>
+              )
+
+              if (!geckoId.valid) {
+                this.reportedGeckoAddonId = true
+                const warn = new WebpackError(
+                  messages.missingGeckoAddonId(geckoId.declared)
+                ) as Error & {file?: string; name?: string}
+                warn.name = 'GeckoAddonIdWarning'
+                warn.file = 'manifest.json'
+                compilation.warnings.push(warn)
+              }
+            }
+
             // Two warnings share one scan. On Gecko it is a store-readiness
             // hint: a Chromium-only API that survived into the build is what
             // addons-linter reports as UNSUPPORTED_API. On Safari it is a
@@ -498,7 +558,6 @@ export class UpdateManifest {
 
             const source = JSON.stringify(patchedManifest, null, 2)
             const rawSource = new sources.RawSource(source)
-            setCurrentManifestContent(compilation, source)
 
             if (compilation.getAsset('manifest.json')) {
               compilation.updateAsset('manifest.json', rawSource)

@@ -99,6 +99,26 @@ describe('UpdateManifest AMO data-collection warning', () => {
     )
   })
 
+  it('leaves the declaration to the owner and proposes no value', () => {
+    const warnings = run('production', 'firefox', bare)
+    const warning = warnings.find((w) => w.name === 'AmoDataCollectionWarning')
+    // eslint-disable-next-line no-control-regex
+    const text = String(warning?.message).replace(/\u001b\[[0-9;]*m/g, '')
+
+    expect(text).toContain(
+      'browser_specific_settings.gecko.data_collection_permissions'
+    )
+
+    expect(text).toContain("extension's owner")
+    expect(text).toContain(
+      'https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/'
+    )
+
+    expect(text).not.toMatch(/none/i)
+    expect(text).not.toContain('required"')
+    expect(text).not.toContain('{')
+  })
+
   it('stays quiet in development so watch recompiles do not repeat it', () => {
     const warnings = run('development', 'firefox', bare)
     expect(warnings.some((w) => w.name === 'AmoDataCollectionWarning')).toBe(

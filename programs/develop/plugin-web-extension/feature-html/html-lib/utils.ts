@@ -9,6 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as parse5utilities from 'parse5-utilities'
+import {isOsPathUnder} from '../../../lib/real-path'
+import {hasPrivateFileName} from '../../../plugin-special-folders/public-private-files'
 import {
   type AssetHashOptions,
   bundledAssetOutputName
@@ -16,7 +18,6 @@ import {
 import type {FilepathList} from '../../../types'
 import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'
-import {isOsPathUnder} from '../../../lib/real-path'
 
 export interface ParsedHtmlAsset {
   css?: string[]
@@ -25,7 +26,7 @@ export interface ParsedHtmlAsset {
   // scripts the browser parses as ES modules
   moduleJs?: string[]
   static?: string[]
-  // Resolved static path to the reference as the author typed it
+  // Resolved path to the reference as the author typed it
   authored?: Record<string, string>
 }
 
@@ -41,18 +42,6 @@ const assetsFromHtmlCache = new Map<
   string,
   {key: string; assets: ParsedHtmlAsset}
 >()
-
-// Watch integrations drop entries here when an HTML file is removed or
-// renamed; without a hook the stale parse survives for the process lifetime.
-export function evictAssetsFromHtmlCache(htmlFilePath?: string): void {
-  if (htmlFilePath === undefined) {
-    assetsFromHtmlCache.clear()
-
-    return
-  }
-
-  assetsFromHtmlCache.delete(htmlFilePath)
-}
 
 export function getAssetsFromHtml(
   htmlFilePath: string | undefined,
@@ -113,9 +102,16 @@ export function getAssetsFromHtml(
       ({filePath, childNode, assetType}) => {
         const fileAbsolutePath = getAbsolutePath(htmlFilePath, filePath)
 
+        const keepAuthored = () => {
+          if (assets.authored && !(fileAbsolutePath in assets.authored)) {
+            assets.authored[fileAbsolutePath] = filePath
+          }
+        }
+
         switch (assetType) {
           case 'script': {
             assets.js?.push(fileAbsolutePath)
+            keepAuthored()
             // The HTML spec matches the module type ASCII case-insensitively
             const scriptType = childNode?.attrs?.find(
               (attr) => attr.name === 'type'
@@ -130,6 +126,7 @@ export function getAssetsFromHtml(
 
           case 'css':
             assets.css?.push(fileAbsolutePath)
+            keepAuthored()
             break
           case 'staticSrc':
           case 'staticHref':
@@ -139,11 +136,7 @@ export function getAssetsFromHtml(
             }
 
             assets.static?.push(fileAbsolutePath)
-
-            if (assets.authored && !(fileAbsolutePath in assets.authored)) {
-              assets.authored[fileAbsolutePath] = filePath
-            }
-
+            keepAuthored()
             break
           default:
             break
@@ -172,6 +165,27 @@ export function getAssetsFromHtml(
   }
 
   return assets
+}
+
+// The local scripts and stylesheets a page names that have no file. The
+// entry step leaves exactly these out, by the same test: a remote URL and
+// a root URL are not files the bundler would have compiled.
+export function missingPageEntryFiles(
+  htmlFilePath: string,
+  projectRoot: string,
+  htmlContent?: string
+): string[] {
+  const assets = getAssetsFromHtml(htmlFilePath, htmlContent)
+  const refs = [...(assets?.js || []), ...(assets?.css || [])]
+
+  return [...new Set(refs)].filter(
+    (ref) =>
+      path.isAbsolute(ref) &&
+      !/^(https?:)?\/\//i.test(ref) &&
+      !ref.startsWith('/public/') &&
+      !(ref.startsWith('/') && !ref.startsWith(projectRoot)) &&
+      !fs.existsSync(ref)
+  )
 }
 
 export function getHtmlPageDeclaredAssetPath(
@@ -224,7 +238,14 @@ export function isFromIncludeList(
   })
 }
 
+// A drive letter parses as a one-letter URL scheme, yet `C:\x` is a path.
+export function isDrivePath(src: string): boolean {
+  return /^[a-z]:[\\/]/i.test(src)
+}
+
 export function isUrl(src: string) {
+  if (isDrivePath(src)) return false
+
   try {
     // eslint-disable-next-line no-new
     new URL(src)
@@ -325,8 +346,32 @@ export function isSpecialScheme(u: string): boolean {
   return /^(data:|blob:|chrome-extension:|javascript:|about:)/i.test(u)
 }
 
+// Whether a script or stylesheet path is a root URL. A relative reference
+// that climbs out of the project resolves to a path that also starts with
+// a slash, so the reference as written decides when it is known.
+export function isWrittenAsRootUrl(
+  resolved: string,
+  projectRoot: string,
+  authored?: Record<string, string>
+): boolean {
+  if (!resolved.startsWith('/') || resolved.startsWith(projectRoot)) {
+    return false
+  }
+
+  const written = authored?.[resolved]
+
+  return written === undefined || written.startsWith('/')
+}
+
+// A leading dot belongs to the name: `/.well-known/x` is not `well-known/x`.
 export function cleanLeading(s: string): string {
-  return s.replace(/^\/+/, '').replace(/^\.\//, '').replace(/^\./, '')
+  return s.replace(/^\/+/, '').replace(/^(?:\.\/)+/, '')
+}
+
+// A root URL as a path inside the extension root. The browser resolves `..`
+// before it asks, and never above the root.
+export function rootUrlPath(rootUrl: string): string {
+  return path.posix.normalize(`/${cleanLeading(rootUrl)}`).slice(1)
 }
 
 // Clamp the joined asset name the way Chrome resolves URLs: `..` cannot climb
@@ -339,6 +384,32 @@ export function joinEmittedAssetName(prefix: string, rel: string): string {
   return parts.slice(i).join('/') || path.posix.basename(rel)
 }
 
+const pageFileBytes = new WeakMap<object, Map<string, Buffer>>()
+
+// One read of a file per compilation. The emit step and the page rewrite
+// both name the copy from its bytes, and the bytes they name are the copy.
+export function readPageFile(
+  compilation: object | undefined,
+  absolutePath: string
+): Buffer {
+  if (!compilation) return fs.readFileSync(absolutePath)
+
+  let byPath = pageFileBytes.get(compilation)
+
+  if (!byPath) {
+    byPath = new Map<string, Buffer>()
+    pageFileBytes.set(compilation, byPath)
+  }
+
+  const known = byPath.get(absolutePath)
+  if (known) return known
+
+  const bytes = fs.readFileSync(absolutePath)
+  byPath.set(absolutePath, bytes)
+
+  return bytes
+}
+
 // Output name of a static asset an html page references: the name the
 // bundler gives the same file from a stylesheet or an import, so one build
 // ships one copy however many places name it. A nested page keeps its
@@ -348,13 +419,14 @@ export function htmlStaticAssetOutputName(
   manifestDir: string | undefined,
   htmlEntry: string,
   absolutePath: string,
-  output?: AssetHashOptions
+  output?: AssetHashOptions,
+  compilation?: object
 ): string {
   if (!/\.html?$/i.test(absolutePath)) {
     try {
       return bundledAssetOutputName(
         absolutePath,
-        fs.readFileSync(absolutePath),
+        readPageFile(compilation, absolutePath),
         output
       )
     } catch {
@@ -418,16 +490,19 @@ export function resolveAbsoluteFsPath(params: {
       isOsPathUnder(outputRoot, asset)
     )
 
+  // The copier leaves a private name out, so public/ does not answer for it.
+  const publicHolds = (relative: string) =>
+    !hasPrivateFileName(relative) &&
+    fs.existsSync(path.join(publicRootForResource, relative))
+
   // A page ref that climbs out of the project root arrives as an absolute
   // path that also starts with '/'. It is a root URL only when the
   // extension root claims it or no such file exists on disk.
   const rootUrlIsClaimed = (value: string) => {
-    const normalized = cleanLeading(value.slice(1))
+    const normalized = rootUrlPath(value)
     const withoutPublicPrefix = normalized.replace(/^public\//, '')
 
-    if (fs.existsSync(path.join(publicRootForResource, withoutPublicPrefix))) {
-      return true
-    }
+    if (publicHolds(withoutPublicPrefix)) return true
 
     return Boolean(
       manifestRoot && fs.existsSync(path.join(manifestRoot, normalized))
@@ -441,11 +516,10 @@ export function resolveAbsoluteFsPath(params: {
 
   const absoluteFsPath = isRootUrl
     ? (() => {
-        const rootRelative = asset.slice(1)
-        const normalized = cleanLeading(rootRelative)
+        const normalized = rootUrlPath(asset)
         const withoutPublicPrefix = normalized.replace(/^public\//, '')
         const candidate = path.join(publicRootForResource, withoutPublicPrefix)
-        if (fs.existsSync(candidate)) return candidate
+        if (publicHolds(withoutPublicPrefix)) return candidate
 
         // Chrome serves /pages/x.html manifest-relative; resolve the SOURCE file
         // there. Never fall back into outputRoot: re-reading emitted output loops.
@@ -497,7 +571,7 @@ export function resolveHtmlRefPath(
   cleanPath: string
 ): string {
   if (isUrl(cleanPath)) return cleanPath
-  if (cleanPath.startsWith('/')) return cleanPath
+  if (cleanPath.startsWith('/') || isDrivePath(cleanPath)) return cleanPath
 
   const htmlDir = path.dirname(htmlFilePath)
   const pageRelative = path.join(htmlDir, cleanPath)

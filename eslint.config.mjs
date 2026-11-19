@@ -44,7 +44,8 @@ export default [
   {
     ignores: [
       '_FUTURE/',
-      'extensions/',
+      'extensions/browser-extension/',
+      '**/extension-env.d.ts',
       'templates/',
       'templates-artifacts/',
       '.prod-dist/',
@@ -65,8 +66,7 @@ export default [
       '**/postcss.config.js',
       '**/tailwind.config.js',
       '**/*.generated.*',
-      'programs/create/templates/',
-      'programs/develop/plugin-reload/steps/setup-reload-strategy/webpack-target-webextension-fork/'
+      'programs/create/templates/'
     ]
   },
   {

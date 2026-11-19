@@ -25,7 +25,6 @@ function minify(css: string, manifest: Record<string, unknown>) {
       context: dir,
       entry: {page: './page.css'},
       output: {path: path.join(dir, 'out')},
-      experiments: {css: true},
       module: {rules: [{test: /\.css$/, type: 'css'}]},
       optimization: {
         minimize: true,

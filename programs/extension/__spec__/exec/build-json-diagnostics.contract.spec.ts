@@ -179,6 +179,7 @@ interface DiagnosticRow {
   label: string
   files: Record<string, string | object | null>
   args: string[]
+  env?: Record<string, string>
   expected: {status: number; frames: unknown[]; stderr: string}
 }
 
@@ -211,7 +212,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
               {
                 code: 'E_ENTRY_NOT_FOUND',
                 message:
-                  'Check the background.service_worker field in your manifest.json file.\nThe script path must point to an existing file that will be bundled.\nNOT FOUND missing.js',
+                  'missing.js does not exist. Check the background.service_worker field in your manifest.json file.\nThe path must point to an existing file that will be bundled.\nNOT FOUND missing.js',
                 file: 'manifest.json',
                 severity: 'error',
                 name: 'ScriptsMissingFile'
@@ -223,7 +224,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -231,8 +232,8 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    Output         <project>/dist/chromium',
         ' ',
         '⏵⏵⏵ Build error in manifest.json.',
-        '    × Check the background.service_worker field in your manifest.json file.',
-        '    │ The script path must point to an existing file that will be bundled.',
+        '    × missing.js does not exist. Check the background.service_worker field in your manifest.json file.',
+        '    │ The path must point to an existing file that will be bundled.',
         '    │ NOT FOUND <project>/missing.js',
         '',
         '⏵⏵⏵ Error: Build failed with 1 error.',
@@ -273,7 +274,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -288,6 +289,65 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ Wrap it like {"resources": ["a.js"], "matches": ["<all_urls>"]} with the matches your pages need.',
         '',
         '⏵⏵⏵ Error: Build failed with 1 error.',
+        ''
+      ].join('\n')
+    }
+  },
+  {
+    code: 'E_THEME_INVALID',
+    label: 'a theme color with an alpha and a tint written as hex',
+    files: {
+      'manifest.json': mv3({
+        theme: {
+          colors: {frame: '#1b263bcc', toolbar: '#000'},
+          tints: {buttons: '#fff'}
+        }
+      })
+    },
+    args: [],
+    expected: {
+      status: 1,
+      frames: [
+        {
+          schema: 1,
+          ok: false,
+          command: 'build',
+          status: 'build-failed',
+          value: null,
+          error: {
+            code: 'E_COMPILE',
+            message: 'Build failed with errors',
+            details: [
+              {
+                code: 'E_THEME_INVALID',
+                message:
+                  'Chromium loads theme.colors and theme.tints only as number arrays, and the build cannot translate these values from your manifest.json exactly:\n  theme.colors.frame "#1b263bcc", write [27, 38, 59, 0.8]\n  theme.tints.buttons "#fff", write [H, S, L]\nA color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].\nThe browser refuses the whole extension over one such value, so the build stops here.',
+                file: 'manifest.json',
+                severity: 'error',
+                name: 'ThemeArrayInvalid'
+              }
+            ]
+          },
+          warnings: [],
+          hint: 'Fix the error above and run build again.'
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '⏵⏵⏵ Build error in manifest.json.',
+        '    × Chromium loads theme.colors and theme.tints only as number arrays, and the build cannot translate these values from your manifest.json exactly:',
+        '    │   theme.colors.frame "#1b263bcc", write [27, 38, 59, 0.8]',
+        '    │   theme.tints.buttons "#fff", write [H, S, L]',
+        '    │ A color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].',
+        '    │ The browser refuses the whole extension over one such value, so the build stops here.',
+        '',
+        '⏵⏵⏵ Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -319,7 +379,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 browser: 'chromium',
                 buildType: 'production',
                 output_path: '<project>/dist/chromium',
-                total_assets: 3,
+                total_assets: 2,
                 total_bytes: 0,
                 largest_asset_bytes: 0,
                 warnings_count: 1,
@@ -345,7 +405,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -355,7 +415,6 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '├─ manifest.json (N KB)',
         '└─ content_scripts',
-        '   ├─ content-0.js (N KB)',
         '   └─ content-0.css (N KB)',
         '',
         "⏵⏵⏵ Warning: The CSS in this file doesn't parse, so it was copied as-is.",
@@ -397,7 +456,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 browser: 'chromium',
                 buildType: 'production',
                 output_path: '<project>/dist/chromium',
-                total_assets: 3,
+                total_assets: 2,
                 total_bytes: 0,
                 largest_asset_bytes: 0,
                 warnings_count: 1,
@@ -423,7 +482,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -433,7 +492,6 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '├─ manifest.json (N KB)',
         '└─ content_scripts',
-        '   ├─ content-0.js (N KB)',
         '   └─ content-0.css (N KB)',
         '',
         '⏵⏵⏵ Warning: A url(./nope.png) reference points to a file that exists nowhere in the project. (a.css)',
@@ -568,7 +626,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -643,7 +701,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -695,7 +753,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  'W_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
+                  'W_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production.local, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
                 ],
                 toolchain: {
                   node: '<node>',
@@ -710,12 +768,12 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            'W_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
+            'W_ENV_NO_MATCH: Found .env.staging, but none match browser chromium in mode production.\nEXTENSION_PUBLIC_* variables read from code are undefined in this build.\nRename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production.local, .env.production, .env.local, .env.\nFamily names apply to every family member, so .env.chrome also matches chromium and edge targets.'
           ]
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -727,7 +785,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '',
         '⏵⏵⏵ Warning: Compatibility: Found .env.staging, but none match browser chromium in mode production.',
         'EXTENSION_PUBLIC_* variables read from code are undefined in this build.',
-        'Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production, .env.local, .env.',
+        'Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production.local, .env.production, .env.local, .env.',
         'Family names apply to every family member, so .env.chrome also matches chromium and edge targets.',
         '│  Source: bundler',
         '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
@@ -788,7 +846,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -809,7 +867,194 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
       ].join('\n')
     }
   },
-  // Pins today's behavior. Ledger 1375 N15.
+  {
+    code: 'E_CSS_DEAD_REF',
+    label:
+      'a dead url() in a sheet a content script imports, with strict references',
+    files: {
+      'manifest.json': mv3({
+        content_scripts: [{matches: ['<all_urls>'], js: ['c.js']}]
+      }),
+      'c.js': "import './b.css'\n",
+      'b.css': 'a { background: url(./nope.png) }'
+    },
+    args: [],
+    env: {EXTENSION_STRICT_REFS: 'true'},
+    expected: {
+      status: 1,
+      frames: [
+        {
+          schema: 1,
+          ok: false,
+          command: 'build',
+          status: 'build-failed',
+          value: null,
+          error: {
+            code: 'E_COMPILE',
+            message: 'Build failed with errors',
+            details: [
+              {
+                code: 'E_CSS_DEAD_REF',
+                message:
+                  "A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH b.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
+                file: 'b.css',
+                severity: 'error',
+                name: 'CssDeadRef'
+              },
+              {
+                code: 'W_CSS_NOT_APPLIED',
+                message:
+                  "A stylesheet imported only for its side effect styles nothing in a content script.\nPATH c.js:1\nIMPORT import './b.css'\nThere the import evaluates to the sheet as a data: URL, and no code reads it.\nRead the value and place it: import href from './b.css', then set it on a <link rel=\"stylesheet\">.\nOr list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).\nExtension.js places it for you only in the shadow root of a host marked data-extension-root.",
+                file: 'c.js',
+                severity: 'warning',
+                name: 'CssUnplacedImport'
+              }
+            ]
+          },
+          warnings: [],
+          hint: 'Fix the error above and run build again.'
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error and 1 warning in N ms.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '⏵⏵⏵ Build error in b.css.',
+        '    × A url(./nope.png) reference points to a file that exists nowhere in the project.',
+        '    │ PATH b.css',
+        '    │ NOT FOUND ./nope.png',
+        "    │ Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
+        '',
+        '⏵⏵⏵ Build failed with 1 error.',
+        ''
+      ].join('\n')
+    }
+  },
+  {
+    code: 'E_LOCALES_LAYOUT',
+    label: 'a default_locale with no _locales folder',
+    files: {'manifest.json': mv3({default_locale: 'en'})},
+    args: [],
+    expected: {
+      status: 1,
+      frames: [
+        {
+          schema: 1,
+          ok: false,
+          command: 'build',
+          status: 'build-failed',
+          value: null,
+          error: {
+            code: 'E_COMPILE',
+            message: 'Build failed with errors',
+            details: [
+              {
+                code: 'E_LOCALES_LAYOUT',
+                message:
+                  'default_locale is set, but the _locales folder is missing.\nAdd _locales/<default>/messages.json.',
+                file: 'manifest.json',
+                severity: 'error',
+                name: 'LocalesValidationError'
+              }
+            ]
+          },
+          warnings: [],
+          hint: 'Fix the error above and run build again.'
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '⏵⏵⏵ Build error in manifest.json.',
+        '    × default_locale is set, but the _locales folder is missing.',
+        '    │ Add _locales/<default>/messages.json.',
+        '',
+        '⏵⏵⏵ Build failed with 1 error.',
+        ''
+      ].join('\n')
+    }
+  },
+  {
+    code: 'W_MODULE_NOT_FOUND',
+    label: 'a guarded require of a file that is not there',
+    files: {
+      'manifest.json': mv3({background: {service_worker: 'bg.js'}}),
+      'bg.js': "try {\n  require('./nope')\n} catch {}\n"
+    },
+    args: [],
+    expected: {
+      status: 0,
+      frames: [
+        {
+          schema: 1,
+          ok: true,
+          command: 'build',
+          status: 'built',
+          value: {
+            projectPath: '.',
+            browsers: ['chromium'],
+            mode: 'production',
+            summaries: [
+              {
+                browser: 'chromium',
+                buildType: 'production',
+                output_path: '<project>/dist/chromium',
+                total_assets: 2,
+                total_bytes: 0,
+                largest_asset_bytes: 0,
+                warnings_count: 1,
+                errors_count: 0,
+                warnings: [
+                  "W_MODULE_NOT_FOUND: Module not found: Can't resolve './nope' in '<project>'\n   ╭─[2:4]\n 1 │ try {\n 2 │     require('./nope');\n   ·     ─────────────────\n 3 │ } catch  {}\n   ╰────"
+                ],
+                toolchain: {node: '<node>', extension_js: '<version>'},
+                addon_lint: {status: 'skipped', reason: 'browser'}
+              }
+            ]
+          },
+          error: null,
+          warnings: [
+            "W_MODULE_NOT_FOUND: Module not found: Can't resolve './nope' in '<project>'\n   ╭─[2:4]\n 1 │ try {\n 2 │     require('./nope');\n   ·     ─────────────────\n 3 │ } catch  {}\n   ╰────"
+          ]
+        }
+      ],
+      stderr: [
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
+        ' ',
+        ' 🧩 Extension.js <version>',
+        '    Browser        Chromium',
+        '    Extension      Diagnostic 1.0.0',
+        '    Output         <project>/dist/chromium',
+        ' ',
+        '.',
+        '├─ background',
+        '│  └─ service_worker.js (N KB)',
+        '└─ manifest.json (N KB)',
+        '',
+        "⏵⏵⏵ Warning: Module not found: Can't resolve './nope' in '<project>' (./bg.js)",
+        '╭─[2:4]',
+        '1 │ try {',
+        "2 │ require('./nope');",
+        '· ─────────────────',
+        '3 │ } catch {}',
+        '╰────',
+        '│  Source: ./bg.js',
+        '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
+        "⏵⏵⏵ Built with Node <node> and Extension.js <version>. Name these versions in the store's reviewer note so a reviewer can rebuild it and match these bytes.",
+        ''
+      ].join('\n')
+    }
+  },
+  // A requested archive that is not written fails the build, said once.
   {
     code: 'E_ZIP_SKIPPED',
     label: 'a folder where the requested zip has to go',
@@ -829,7 +1074,8 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           value: null,
           error: {
             code: 'E_ZIP_SKIPPED',
-            message: '1 requested archive was not created'
+            message:
+              "The distribution zip was requested and not created.\nPATH dist/zipped-1.0.0-chromium.zip\nEISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'"
           },
           warnings: [],
           hint: 'Fix the error above and run build again.'
@@ -846,12 +1092,9 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '└─ manifest.json (N KB)',
         '',
-        '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
-        "⏵⏵⏵ Built with Node <node> and Extension.js <version>. Name these versions in the store's reviewer note so a reviewer can rebuild it and match these bytes.",
         '⏵⏵⏵ Error: The distribution zip was requested and not created.',
         'PATH dist/zipped-1.0.0-chromium.zip',
         "EISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'",
-        '⏵⏵⏵ Error: 1 requested archive was not created',
         '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
@@ -868,6 +1111,7 @@ describe.skipIf(process.platform === 'win32')(
     it.each(DIAGNOSTIC_ROWS)('$code: $label', async ({
       files,
       args,
+      env: rowEnv,
       expected
     }) => {
       const projectDir = realpathSync(makeTempFolder('extjs-diagnostic-'))
@@ -888,7 +1132,7 @@ describe.skipIf(process.platform === 'win32')(
 
       const run = await runCli(['build', '.', ...args, '--output', 'json'], {
         cwd: projectDir,
-        env
+        env: {...env, ...rowEnv}
       })
       const placeholders: Array<[string, string]> = [[projectDir, '<project>']]
       const actual = {
