@@ -19,13 +19,24 @@ import {
 import {FileEventAssistPlugin} from './dev-server/file-event-assist'
 import {makeSanitizedConsole} from './lib/branding'
 import {codedError} from './lib/coded-error'
+import {recordCodedWarning} from './lib/coded-warnings'
 import {isChromiumBasedBrowser} from './lib/constants'
 import {cssMinimizerOptions} from './lib/css-minimizer-options'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
-import {computeExtensionsToLoad} from './lib/extensions-to-load'
+import {
+  computeExtensionsToLoad,
+  isFirstCompanionWarning,
+  unresolvedNamedCompanions
+} from './lib/extensions-to-load'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
-import {CODES, debugLine, isDebug} from './lib/messaging'
+import {
+  CODES,
+  debugLine,
+  humanWarn,
+  isDebug,
+  stripChannelPrefix
+} from './lib/messaging'
 import {
   installedPackageDir,
   MissingReferenceWatch
@@ -125,6 +136,22 @@ export default function webpackConfig(
           : path.resolve(packageJsonDir, devOptions.output.finalPath)
       )
     : primaryExtensionOutputDir
+
+  // Every session that loads companions compiles through here, so a named
+  // one that is left out is said once, however often the session restarts.
+  for (const companion of unresolvedNamedCompanions({
+    projectRoot: packageJsonDir,
+    resolved: devOptions.extensions
+  })) {
+    if (!isFirstCompanionWarning(companion.manifestPath)) continue
+
+    recordCodedWarning(
+      CODES.E_COMPANION_EXTENSION_PATH,
+      stripChannelPrefix(companion.frame)
+    )
+
+    humanWarn(companion.frame)
+  }
 
   const companionUnpackedExtensionDirs = resolveCompanionExtensionDirs({
     projectRoot: packageJsonDir,
@@ -246,12 +273,12 @@ export default function webpackConfig(
       browser: devOptions.browser,
       devSession
     }),
-    // The web-extension chunk-loading target, which dev gets via ReloadPlugin.
-    // Production needs it too: rspack's web-target loader appends a <script> to
-    // the host page, which never reaches a content script's isolated world.
+    // rspack's own loader appends a <script> to the host page, which never
+    // reaches an isolated world. A reload session installs this target itself.
     new SetupChunkLoadingTarget({
       manifestPath,
-      browser: devOptions.browser
+      browser: devOptions.browser,
+      devSession
     }),
     new SpecialFoldersPlugin({
       manifestPath,

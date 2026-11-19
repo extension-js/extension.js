@@ -21,6 +21,7 @@ export type KnownCommand =
   | 'preview'
   | 'publish'
   | 'reload'
+  | 'safari'
   | 'start'
   | 'storage'
   | 'telemetry'
@@ -29,8 +30,8 @@ export type KnownCommand =
 
 // Every command the CLI registers. An unlisted verb reports as 'unknown', which
 // is what keeps a project path or a typo out of the payload, so the list has to
-// stay complete or half the failures land under 'unknown'. A spec pins it to the
-// registered commands.
+// stay complete or half the failures land under 'unknown'. A spec registers every
+// command and compares the names Commander holds.
 export const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
   'build',
   'capabilities',
@@ -46,6 +47,7 @@ export const KNOWN_COMMANDS: ReadonlySet<KnownCommand> = new Set([
   'preview',
   'publish',
   'reload',
+  'safari',
   'start',
   'storage',
   'telemetry',

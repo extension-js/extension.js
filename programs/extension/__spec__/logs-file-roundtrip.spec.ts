@@ -15,18 +15,20 @@ import {LogsFileWriter} from '../../develop/dev-server/control-bridge/logs-file'
 
 import {registerLogsCommand} from '../commands/logs'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
 // The one-shot reader against the file the producer actually writes, kind by
 // kind: the header line, every event shape, and the gap sentinel. Hand-built
 // fixtures cannot catch a writer that changes what it puts on disk.
-const loadBridge = async () => ({
-  ...(await import('../../develop/dev-server/control-bridge/logs-query')),
-  readReadyContract: () => null,
-  BridgeConsumer: class {
-    start() {}
-    close() {}
-  }
-})
+const loadBridge = async () =>
+  bridgeStandIn({
+    ...(await import('../../develop/dev-server/control-bridge/logs-query')),
+    readReadyContract: () => null,
+    BridgeConsumer: class {
+      start() {}
+      close() {}
+    }
+  })
 
 const RUN_ID = 'run-roundtrip'
 

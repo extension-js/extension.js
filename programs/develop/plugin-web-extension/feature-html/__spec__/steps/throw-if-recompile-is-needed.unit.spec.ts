@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
@@ -82,10 +83,16 @@ function restoreHtmlPreservingStat(
 }
 
 describe('ThrowIfRecompileIsNeeded', () => {
-  const tmp = path.join(__dirname, '.tmp-recompile')
+  let created = ''
+  let tmp = ''
+
+  beforeEach(() => {
+    created = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-recompile-'))
+    tmp = fs.realpathSync(created)
+  })
 
   afterEach(() => {
-    fs.rmSync(tmp, {recursive: true, force: true})
+    fs.rmSync(created, {recursive: true, force: true})
     unbindDevSessionRestart()
   })
 

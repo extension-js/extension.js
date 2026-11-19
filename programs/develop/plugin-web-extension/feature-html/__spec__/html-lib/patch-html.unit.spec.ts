@@ -1,15 +1,23 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
-import {describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it} from 'vitest'
 import {patchHtml, patchHtmlNested} from '../../html-lib/patch-html'
 
-function makeTmp(name: string) {
-  const tmp = path.join(__dirname, `.tmp-${name}`)
-  fs.rmSync(tmp, {recursive: true, force: true})
-  fs.mkdirSync(tmp, {recursive: true})
+const tmpRoots: string[] = []
 
-  return tmp
+afterAll(() => {
+  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
+})
+
+function makeTmp(name: string) {
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-patch-html-${name}-`)
+  )
+  tmpRoots.push(created)
+
+  return fs.realpathSync(created)
 }
 
 function makeCompilation(mode: 'development' | 'production'): Compilation {

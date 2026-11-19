@@ -1093,7 +1093,14 @@ export class TraceRuntimeLoadedFiles {
               sourceRel
             )
 
-            run.warn(
+            // A surface is a reference like a page's own, so strict
+            // references fail the build over it the same way.
+            const fails =
+              !isStaticImport &&
+              Boolean(isRuntimeSurface) &&
+              process.env.EXTENSION_STRICT_REFS === 'true'
+
+            run[fails ? 'fail' : 'warn'](
               isStaticImport
                 ? 'RuntimeStaticImportFileMissing'
                 : isRuntimeSurface
@@ -1929,14 +1936,24 @@ class TraceRun {
   }
 
   warn(name: string, file: string, message: string) {
-    const warning = new WebpackError(message) as Error & {
+    this.compilation.warnings ||= []
+    this.compilation.warnings.push(this.report(name, file, message))
+  }
+
+  fail(name: string, file: string, message: string) {
+    this.compilation.errors ||= []
+    this.compilation.errors.push(this.report(name, file, message))
+  }
+
+  private report(name: string, file: string, message: string) {
+    const report = new WebpackError(message) as Error & {
       file?: string
       name?: string
     }
-    warning.name = name
-    warning.file = file
-    this.compilation.warnings ||= []
-    this.compilation.warnings.push(warning)
+    report.name = name
+    report.file = file
+
+    return report
   }
 
   watch(abs: string) {

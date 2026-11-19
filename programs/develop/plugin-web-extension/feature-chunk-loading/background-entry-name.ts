@@ -11,8 +11,8 @@ import type {DevOptions, Manifest} from '../../types'
 import {getBackgroundWorkerEntryName} from '../feature-scripts/scripts-lib/utils'
 
 // The background entry name the chunk-loading target keys its runtime off.
-// It resolves against the entries AddScripts will actually create, so both
-// the dev reload strategy and the production chunk-loading target can share it.
+// It names only an entry AddScripts creates from the authored manifest, and
+// names none where the author declared no background that becomes one.
 export function getBackgroundEntryName(
   manifest: Manifest,
   browser: DevOptions['browser'],
@@ -26,10 +26,14 @@ export function getBackgroundEntryName(
     // the runtime belongs in that entry and not in a script entry nothing loads.
     const backgroundPage = manifest.background.page
     const backgroundScripts = manifest.background.scripts
+    const hasScripts =
+      Array.isArray(backgroundScripts) && backgroundScripts.length > 0
     const hasScriptEntry = Boolean(
-      manifest.background.service_worker ||
-        (Array.isArray(backgroundScripts) && backgroundScripts.length > 0)
+      manifest.background.service_worker || hasScripts
     )
+    // Every background.scripts file is bundled into the one
+    // background/scripts entry, which Gecko and MV2 run as a page.
+    const scriptsPageEntry = hasScripts ? {pageEntry: 'background/scripts'} : {}
 
     if (
       typeof backgroundPage === 'string' &&
@@ -42,9 +46,7 @@ export function getBackgroundEntryName(
     }
 
     if (isGeckoBasedBrowser(String(browser))) {
-      return {
-        pageEntry: 'background/script'
-      }
+      return scriptsPageEntry
     }
 
     if (manifest.manifest_version === 3) {
@@ -67,13 +69,9 @@ export function getBackgroundEntryName(
     }
 
     if (manifest.manifest_version === 2) {
-      return {
-        pageEntry: 'background/script'
-      }
+      return scriptsPageEntry
     }
   }
 
-  return {
-    pageEntry: 'background'
-  }
+  return {}
 }

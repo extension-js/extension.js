@@ -138,11 +138,11 @@ async function rowFor(layout: Layout): Promise<Row> {
 
 const PICTURE = 'assets/outside-picture.<hash>.png'
 
-// The file is refused and the raw entry stays listed, alone or with a
-// content script sheet that names it through url(), which copies nothing.
+// The file is refused and the manifest lists nothing for it, alone or with
+// a content script sheet that names it through url(), which copies nothing.
 const refused = (ref: string): Row => ({
   marked: [],
-  listed: [ref],
+  listed: [],
   reported: [ref]
 })
 

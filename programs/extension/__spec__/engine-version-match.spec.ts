@@ -58,6 +58,12 @@ function installTheCli(engineVersion: string, entrySource: string) {
 
   fs.mkdirSync(path.join(cliRoot, 'dist'), {recursive: true})
   fs.mkdirSync(project)
+  // A project install, so the refusal names the project's own command.
+  fs.writeFileSync(
+    path.join(consumer, 'package.json'),
+    JSON.stringify({name: 'consumer'})
+  )
+
   fs.copyFileSync(
     path.join(CLI_ROOT, 'package.json'),
     path.join(cliRoot, 'package.json')

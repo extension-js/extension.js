@@ -106,9 +106,11 @@ describe('CLI help parity contract', () => {
       // Commander 15 exposes the parsed positionals, so the table can be
       // compared against the registration instead of against another copy.
       const actual = (command.registeredArguments as Argument[])
-        .map((argument) =>
-          argument.required ? `<${argument.name()}>` : `[${argument.name()}]`
-        )
+        .map((argument) => {
+          const token = `${argument.name()}${argument.variadic ? '...' : ''}`
+
+          return argument.required ? `<${token}>` : `[${token}]`
+        })
         .join(' ')
 
       expect(`${command.name()} ${actual}`.trim()).toBe(

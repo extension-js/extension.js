@@ -46,6 +46,7 @@ const NAMED_CODES: Record<string, ErrorCode> = {
   WARRelativeAssetMissing: CODES.E_ASSET_MISSING,
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeSetSurfaceFileMissing: CODES.E_ASSET_MISSING,
   CodeNamedFileNotShipped: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeFetchedFileMissing: CODES.E_SCRIPT_DEP_MISSING,
   ImportScriptsDependencyMissing: CODES.E_SCRIPT_DEP_MISSING,
@@ -78,6 +79,10 @@ const STYLESHEET = /\.(?:css|scss|sass|less|styl|pcss)(?:\?.*)?$/i
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+export function isKnownDiagnosticName(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(NAMED_CODES, name)
 }
 
 export function diagnosticName(issue: unknown): string | undefined {

@@ -15,8 +15,10 @@ type ResolveIconMessage = {
 
 function isAllowedIconUrl(rawUrl: string) {
   if (rawUrl.startsWith('data:')) return true
+
   try {
     const parsed = new URL(rawUrl)
+
     return (
       parsed.protocol === 'moz-extension:' ||
       parsed.protocol === 'chrome-extension:'
@@ -30,11 +32,13 @@ async function fetchIconAsDataUrl(rawUrl: string) {
   if (rawUrl.startsWith('data:')) return rawUrl
 
   const response = await fetch(rawUrl)
+
   if (!response.ok) {
     throw new Error(`Failed to fetch icon: ${response.status}`)
   }
 
   const blob = await response.blob()
+
   return await new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => resolve(String(reader.result || ''))
@@ -52,6 +56,7 @@ chrome.runtime.onMessage.addListener(
 
     if (!message.url || !isAllowedIconUrl(message.url)) {
       sendResponse({ok: false, error: 'Unsupported icon URL'})
+
       return
     }
 
