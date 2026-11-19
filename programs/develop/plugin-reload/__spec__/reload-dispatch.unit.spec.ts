@@ -12,6 +12,7 @@ import {
   dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo,
+  noteManifestPath,
   type ReloadBroker
 } from '../reload-dispatch'
 
@@ -708,30 +709,58 @@ describe('createChangedSourcesTracker', () => {
     expect(instruction?.changedAssets).toEqual(['_locales/en/messages.json'])
   })
 
-  // Pins current behavior: the forced full reload matches on a substring.
-  it('forces a full reload for a file whose name only ends in manifest.json', () => {
+  it('reloads only the page for a file whose name only ends in manifest.json', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
     compiler.modifiedFiles = new Set(['/proj/src/pwa/site-manifest.json'])
     fireWatchRun()
 
     expect(tracker.snapshot()).toEqual({
-      forcedFull: true,
+      forcedFull: false,
       changedSources: ['src/pwa/site-manifest.json']
     })
   })
 
-  // Pins current behavior: the forced full reload matches on a substring.
-  it('forces a full reload for a source file under any _locales folder', () => {
+  it('forces no full reload for a source file under a nested _locales folder', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
     compiler.modifiedFiles = new Set(['/proj/src/i18n/_locales/strings.ts'])
     fireWatchRun()
 
     expect(tracker.snapshot()).toEqual({
-      forcedFull: true,
+      forcedFull: false,
       changedSources: ['src/i18n/_locales/strings.ts']
     })
+  })
+
+  it('forces no full reload for a manifest.json copied from public/', () => {
+    const {compiler, fireWatchRun} = fakeCompiler()
+    const tracker = createChangedSourcesTracker(compiler)
+    compiler.modifiedFiles = new Set(['/proj/public/app/manifest.json'])
+    fireWatchRun()
+
+    expect(tracker.snapshot().forcedFull).toBe(false)
+  })
+
+  it('forces a full reload for the manifest the plugin was given and its _locales', () => {
+    const {compiler, fireWatchRun} = fakeCompiler()
+    noteManifestPath(compiler, '/proj/extension/manifest.json')
+    const tracker = createChangedSourcesTracker(compiler)
+
+    compiler.modifiedFiles = new Set(['/proj/extension/manifest.json'])
+    fireWatchRun()
+    expect(tracker.snapshot().forcedFull).toBe(true)
+
+    compiler.modifiedFiles = new Set([
+      '/proj/extension/_locales/en/messages.json'
+    ])
+
+    fireWatchRun()
+    expect(tracker.snapshot().forcedFull).toBe(true)
+
+    compiler.modifiedFiles = new Set(['/proj/src/manifest.json'])
+    fireWatchRun()
+    expect(tracker.snapshot().forcedFull).toBe(false)
   })
 
   it('resets on each watchRun (no stale carryover)', () => {
