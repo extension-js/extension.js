@@ -439,7 +439,7 @@ function firstSentence(message: string) {
 describe('emitRootAbsoluteRefs for a path that is not project content', () => {
   const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
 
-  it('emits nothing and says the missing-file finding of each surface once', async () => {
+  it('emits nothing and says each surface once that its file is not bundled', async () => {
     const {root, publicDir} = createProject({
       '.env': MARKER,
       '.env.js': MARKER,
@@ -469,27 +469,16 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
         firstSentence(warning.message)
       ])
     ).toEqual([
-      // Under the name the page step gives a missing file of the same tag.
+      // Under the name the page step gives a missing file of the same tag,
+      // in the words of a file that is there and stays out.
+      ['HtmlAssetMissing', 'page.html', '/.env is not bundled.'],
       [
         'HtmlAssetMissing',
         'page.html',
-        "The page references an asset that doesn't exist."
+        '/node_modules/pkg/.env is not bundled.'
       ],
-      [
-        'HtmlAssetMissing',
-        'page.html',
-        "The page references an asset that doesn't exist."
-      ],
-      [
-        'HtmlEntrypointMissing',
-        'page.html',
-        "The page references a script file that doesn't exist."
-      ],
-      [
-        'HtmlEntrypointMissing',
-        'page.html',
-        "The page references a stylesheet that doesn't exist."
-      ],
+      ['HtmlEntrypointMissing', 'page.html', '/.env.js is not bundled.'],
+      ['HtmlEntrypointMissing', 'page.html', '/.env.css is not bundled.'],
       // The file is there, so the sheet's ref is told it is not bundled.
       ['CssWithheldRef', 'style.css', '/.npmrc is not bundled.']
     ])
@@ -499,7 +488,7 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
     )
 
     expect(compilation.warnings[0].message).toContain(
-      'Update the /.env reference to point to a file that exists.'
+      'Check the tag that names it in this page.'
     )
 
     expect(compilation.errors).toEqual([])

@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
 import type {DevOptions, PluginInterface} from '../../types'
 import * as messages from './messages'
@@ -36,7 +37,11 @@ export class LocalesPlugin {
           if (!fs.existsSync(this.manifestPath)) {
             const ErrorConstructor = compiler?.rspack?.WebpackError || Error
             const error = new ErrorConstructor(
-              messages.manifestNotFoundMessageOnly(this.manifestPath)
+              messages.manifestNotFoundMessageOnly(
+                this.manifestPath,
+                (compiler.options.context as string) ||
+                  path.dirname(this.manifestPath)
+              )
             )
 
             error.name = 'ManifestNotFoundError'
