@@ -7,16 +7,15 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import {CODES} from '../lib/messaging'
 import {
-  buildSourceFeatureIndex,
-  classifyReloadFromSources,
   createChangedSourcesTracker,
   dispatchReload,
   mergeReloadInstructions,
   type ReloadBroker,
   type ReloadInstruction,
-  readContentScriptCount,
+  reloadForBuild,
   reloadSurvivingPackage
 } from '../plugin-reload'
 import {waitAtMost} from './bounded-wait'
@@ -96,27 +95,29 @@ export class SafariDevPlugin implements RunnerPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
+      // The package is itself a reload, so a build the MAIN world restart
+      // replaces is not packaged. The restart's own build is.
+      if (!this.firstRun && isAwaitingMainWorldRestart(compiler, compilation)) {
+        this.emitter.emit('compiled', {
+          outputPath,
+          contextDir,
+          isFirstCompile: false
+        })
+
+        return
+      }
+
       // Classify from changed sources, like the launched-browser path. The
       // first package has nothing to reload, it is the state the browser loads.
       let instruction: ReloadInstruction | undefined
 
       if (!this.firstRun) {
-        const {forcedFull, changedSources: sources} = changedSources.snapshot()
         // Safari takes the same granularity as Chromium. A content-script
         // reinjection was measured working there, same tab, through the
         // producer's executeScript path. The package then restarts the
         // extension, so only the part a restart cannot deliver is kept.
         instruction = reloadSurvivingPackage(
-          classifyReloadFromSources({
-            changedSources: sources,
-            forcedFull,
-            getContentScriptCount: () =>
-              readContentScriptCount(compilation, outputPath),
-            getSourceFeatureIndex: () =>
-              buildSourceFeatureIndex(compilation, contextDir),
-            outputPath,
-            contextDir
-          })
+          reloadForBuild(compilation, {changedSources})
         )
       }
 
