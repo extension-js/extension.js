@@ -328,7 +328,7 @@ describe('logs on a target with nothing to attach to', () => {
       ])
     ).toBe(1)
 
-    expect(stderrText()).toBe(EMULATOR_LOGS_REFUSAL)
+    expect(stderrText()).toBe(`⏵⏵⏵ Error: ${EMULATOR_LOGS_REFUSAL}`)
     expect(written.map((line) => JSON.parse(line))).toEqual([
       {
         schema: 1,
