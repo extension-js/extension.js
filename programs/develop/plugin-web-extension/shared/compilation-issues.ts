@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compilation, Compiler} from '@rspack/core'
+import {toMachineText} from '../../lib/machine-text'
 
 export type IssueType = 'error' | 'warning'
 
@@ -20,6 +21,12 @@ export function createIssue(
   issue.name = type === 'warning' ? 'ExtensionWarning' : 'ExtensionError'
 
   return issue
+}
+
+// The bundler hands back each pushed issue framed (glyph, indent, newline),
+// so two issues match by the file and text the printed block shows.
+function printedIdentity(issue: {file?: unknown; message?: unknown}): string {
+  return `${String(issue?.file || '')}\n${toMachineText(issue?.message)}`
 }
 
 export function reportToCompilation(
@@ -38,14 +45,11 @@ export function reportToCompilation(
 
   const bucket = type === 'warning' ? 'warnings' : 'errors'
   compilation[bucket] ||= []
-  const existing = compilation[bucket] as Array<Error & {file?: string}>
-  const already = existing.some((e) => {
-    return (
-      (e?.file || '') === (issue.file || '') &&
-      String(e?.message) === String(issue.message)
-    )
-  })
-  if (already) return
+  // The bundler's list proxies only some array methods, and `some` reads an
+  // empty backing array, so the check walks a copy taken by iteration.
+  const existing = Array.from(compilation[bucket] as Array<Error>)
+  const key = printedIdentity(issue)
+  if (existing.some((e) => printedIdentity(e) === key)) return
 
   compilation[bucket].push(issue)
 }
