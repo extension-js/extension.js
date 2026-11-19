@@ -21,7 +21,8 @@ import type {
 import {
   EXTENSIONJS_CONTENT_SCRIPT_LAYER,
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
-  getCanonicalContentScriptEntryName
+  getCanonicalContentScriptEntryName,
+  markMainWorldCompiler
 } from '../contracts'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {isRemoteUrl} from '../scripts-lib/utils'
@@ -316,6 +317,7 @@ async function compileGroup(
   )
 
   child.options.entry = {}
+  markMainWorldCompiler(child)
 
   // A child writes its own files as it compiles, ahead of the steps that
   // drop some of them. The parent writes every file that is left.

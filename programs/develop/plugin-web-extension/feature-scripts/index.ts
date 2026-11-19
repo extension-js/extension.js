@@ -9,14 +9,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {isReloadSession} from '../../lib/reload-session'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {rememberBuildResolve} from '../shared/script-graph'
 import {withMainWorldCopyEntries} from './scripts-lib/runtime-main-world-scripts'
 import {splitWithheldEntries} from './scripts-lib/utils'
 import {AddBaseUriRuntimeModule} from './steps/add-base-uri-runtime-module'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
-import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 import {AddScripts} from './steps/add-scripts'
 import {CompileMainWorldScripts} from './steps/compile-main-world-scripts'
 import {KeepCompletionValue} from './steps/keep-completion-value'
@@ -173,15 +171,6 @@ export class ScriptsPlugin {
     new KeepGetURLImportsNative({
       manifestPath: this.manifestPath
     }).apply(compiler)
-
-    // A reload session takes its public path from the chunk loading target
-    // it installs, so this one answers in every build that has no session.
-    if (!isReloadSession(compiler.options.mode, this.devSession)) {
-      new AddPublicPathRuntimeModule({
-        browser: this.browser,
-        manifestPath: this.manifestPath
-      }).apply(compiler)
-    }
 
     // Every mode: a worker entry that builds a URL from the base must not
     // read document, and a page keeps the same extension-root base.

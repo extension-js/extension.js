@@ -13,10 +13,11 @@ The dev reload and HMR strategy lives in `programs/develop/plugin-reload`, which
 registers after this plugin and decorates the entries created here. The reinject
 runtime a dev session adds to each content script lives there too, and reaches the
 wrapper through its extension points (see below). When a MAIN world registration
-changes, `warn-main-world-registration-changed` asks the dev server for a restart
-and marks the builds it replaces. Which builds those are lives in
-`dev-server/session-restart-holds.ts`, where `plugin-browsers` and the dev server
-read it through `isAwaitingMainWorldRestart`.
+changes, `warn-main-world-registration-changed` hands each build's set to
+`trackMainWorldRestart` in `dev-server/main-world-restart.ts`, and warns only when
+no session can restart. The dev server settles, asks for the restart and marks the
+builds it replaces in `dev-server/session-restart-holds.ts`, where `plugin-browsers`
+and the dev server read it through `isAwaitingMainWorldRestart`.
 
 ## Entry point
 
@@ -43,11 +44,10 @@ real compiler takes per mode and browser.
 9. `TraceRuntimeLoadedFiles`
 10. `KeepGetURLImportsNative`
 11. `AddContentScriptWrapper`
-12. `AddPublicPathRuntimeModule` (every build outside a reload session)
-13. `AddBaseUriRuntimeModule`
-14. `PruneMainWorldBridges` (production only)
-15. `ValidateEmittedScriptSyntax`
-16. `StampWebkitUtf8Bom` (WebKit only)
+12. `AddBaseUriRuntimeModule`
+13. `PruneMainWorldBridges` (production only)
+14. `ValidateEmittedScriptSyntax`
+15. `StampWebkitUtf8Bom` (WebKit only)
 17. `WarnSplitInitialChunks`
 18. `WarnPageContextWorker`
 19. `WarnPageRelativeScriptPath` (Gecko only)
@@ -80,9 +80,6 @@ real compiler takes per mode and browser.
 
 - `steps/keep-geturl-imports-native.ts`
   Keeps `import(chrome.runtime.getURL(...))` a native `import()` in the emitted bundle.
-
-- `steps/add-public-path-runtime-module.ts`
-  Injects the public-path runtime module for content bundles in a production build, a development build with no session and a dev session with reload turned off. In a reload session the public path comes from `feature-chunk-loading` instead, and `isReloadSession` in `lib/reload-session.ts` is the answer both read.
 
 - `steps/validate-emitted-script-syntax.ts`
   Fails loudly on syntax errors swc tolerates but browsers silently refuse to inject.

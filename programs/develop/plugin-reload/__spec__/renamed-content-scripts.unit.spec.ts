@@ -1,7 +1,10 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import type {ReloadInstruction} from '../../plugin-reload'
-import {BrowsersPlugin} from '../index'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../plugin-browsers/__spec__/fake-compiler'
+import {BrowsersPlugin} from '../../plugin-browsers/index'
+import type {ReloadInstruction} from '../index'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
@@ -49,7 +52,7 @@ function createHarness(browser = 'firefox') {
   }
 }
 
-describe('BrowsersPlugin after a compile renames a content script bundle', () => {
+describe('the reload after a compile renames a content script bundle', () => {
   // The launch installs the add-on from the first compile. A second compile
   // right after (a file touched in the project root while the first ran)
   // renames the bundle and deletes the file the add-on's manifest names.

@@ -149,8 +149,8 @@ const DEV_SESSION = [
   'watchClose:scripts:warn-main-world-registration-changed'
 ]
 
+// The public path step belongs to the chunk loading target, not to ScriptsPlugin.
 const PRODUCTION = [
-  'compilation:PublicPathRuntimeModule',
   'thisCompilation:PruneMainWorldBridges',
   'thisCompilation:scripts:warn-missing-build-constants'
 ]

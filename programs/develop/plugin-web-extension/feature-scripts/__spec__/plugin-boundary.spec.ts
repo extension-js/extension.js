@@ -57,8 +57,7 @@ describe('what the scripts feature knows about reloading', () => {
   // Which builds a dev session restart replaces is the dev server's to keep.
   // This folder asks for the restart and reports the builds through its API.
   it('keeps no restart state of its own', () => {
-    const restartState =
-      /isAwaitingMainWorldRestart|awaitingRestart|heldBuilds|new\s+WeakSet/
+    const restartState = /isAwaitingMainWorldRestart|awaitingRestart|heldBuilds/
 
     expect(
       files.filter(({text}) => restartState.test(text)).map(({file}) => file)
@@ -75,10 +74,32 @@ describe('what the scripts feature knows about reloading', () => {
       )
     )
 
-    expect([...reached].sort()).toEqual([
-      'session-restart',
-      'session-restart-holds'
-    ])
+    expect([...reached].sort()).toEqual(['main-world-restart'])
+  })
+})
+
+// No part of plugin-web-extension asks whether a build is a reload session:
+// the chunk loading target installs in every build, and a session asks for
+// what it needs through the target's extension point.
+describe('what plugin-web-extension knows about reload sessions', () => {
+  const pluginFolder = path.resolve(FOLDER, '..')
+  const files = sourceFiles(pluginFolder).map((file) => ({
+    file: path.relative(pluginFolder, file).split(path.sep).join('/'),
+    text: fs.readFileSync(file, 'utf8')
+  }))
+
+  it('reads the whole plugin folder', () => {
+    expect(files.map(({file}) => file)).toContain(
+      'feature-chunk-loading/index.ts'
+    )
+  })
+
+  it('never reads whether a build is a reload session', () => {
+    const sessionRead = /isReloadSession|reload-session|EXTENSION_NO_RELOAD/
+
+    expect(
+      files.filter(({text}) => sessionRead.test(text)).map(({file}) => file)
+    ).toEqual([])
   })
 })
 

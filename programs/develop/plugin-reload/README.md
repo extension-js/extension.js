@@ -11,9 +11,9 @@ It is responsible for:
 - injecting the dev reload runtime into the built extension:
   background entry setup, the SW scripts-replay shim, and the control-bridge
   producer/relay (console forwarding for unified logging)
-- applying the chunk loading target of `plugin-web-extension` in a dev
-  session, with the message fallback a content script uses when it cannot
-  import a chunk, and naming hot update files `hot/[id].[fullhash].js`
+- asking the chunk loading target of `plugin-web-extension` for the
+  message fallback a content script uses when it cannot import a chunk,
+  and naming hot update files `hot/[id].[fullhash].js`
 - on Chromium, turning the manifest's `content_scripts` entries into
   signalling stubs and registering the real bundles from the worker, so an
   edit reaches new and open pages without a second copy running
@@ -38,8 +38,8 @@ It is responsible for:
   The whole pipeline no-ops in production, for a build whose `devSession`
   is `false`, under `EXTENSION_NO_RELOAD=true` (`--no-reload`), and when
   the manifest path is not a file. The first three are `isReloadSession`
-  in `lib/reload-session.ts`, which `plugin-web-extension` reads too, so a
-  build this plugin skips still gets the chunk loading target, once.
+  in `lib/reload-session.ts`. Chunk loading is not part of this plugin:
+  `plugin-web-extension` installs its chunk loading target in every build.
 - the classifier/dispatch API (`reloadForBuild`, `loadedContentScriptsFor`,
   `classifyReloadFromSources`, `buildSourceFeatureIndex`,
   `createLoadedContentScripts`, `dispatchReload`,
@@ -62,8 +62,8 @@ names one, otherwise any mode but production), so it also runs under
 1. `AddContentScriptReinject`
 2. `StripContentScriptDevServerRuntime`
 3. `StableContentScriptNames`
-4. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the chunk loading
-   target, then the hot update file names)
+4. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the message
+   fallback request, then the hot update file names)
 5. `InjectScriptsReplayShim`
 6. `SetupDevContentScripts` (Chromium only, not the emulator)
 7. `InjectBridgeProducer` (not the emulator)
@@ -143,13 +143,14 @@ names one, otherwise any mode but production), so it also runs under
   Dev-only background entry setup. `SetupBackgroundEntry` generates
   `background/service_worker` (Chromium MV3) or `background/script` (Gecko
   and MV2) for a manifest that declares no background the browser can run,
-  and records it as `generated`. The message fallback is answered from the
-  authored background when `getBackgroundEntryName` names one, and from the
-  generated one otherwise. It then applies `ChunkLoadingTarget` from
-  `plugin-web-extension/feature-chunk-loading`, which owns chunk loading in
-  every mode, and renames hot update files. Every build that is not a
-  reload session gets the same target from that feature's
-  `SetupChunkLoadingTarget`, not from here.
+  and records it as `generated`. A live session needs the message fallback,
+  which injects a chunk a content script could not import, so the step
+  asks for it through `extendChunkLoadingTarget` in
+  `plugin-web-extension/shared/chunk-loading-target-extensions.ts`. The
+  fallback is answered from the authored background when the manifest names
+  one, and from the generated one otherwise. The target itself, its loaders
+  and its public path module stay in `plugin-web-extension`. The step also
+  renames hot update files.
 
 - `reload-lib/dev-content-scripts.ts` / `steps/setup-dev-content-scripts.ts`
   Chromium loads a static content script's bytes once, at extension load,
@@ -238,12 +239,19 @@ consumes that contract. It does not define it, and nothing in
   browser last read
 - `reload-after-package.unit.spec.ts`, the trim and the burst merge for a
   packaged browser
+- `renamed-content-scripts.unit.spec.ts`,
+  `rewritten-content-script-styles.unit.spec.ts`,
+  `classifier-inputs.unit.spec.ts`, the reload a launched session gets for a
+  renamed bundle, a rewritten stylesheet or a copied page, driven through
+  `BrowsersPlugin`
+- `restart-reload-once.unit.spec.ts`, the one reload a restarted session owes
+- `reload-frame-build.unit.spec.ts`, the build name a reload frame carries
 - `setup-reload-strategy.spec.ts`, `setup-background-entry.spec.ts`,
-  background entries and the chunk loading target in a dev session. The
-  target's own specs live in `plugin-web-extension/feature-chunk-loading`.
-- `chunk-loading-runtime.spec.ts`, which code sets the public path, the base
-  URI and the chunk loader in each world, read off builds made with the whole
-  plugin list. It reads loaders from `programs/develop/dist` too.
+  background entries, the fallback background a session asks for and the
+  hot update names. The chunk loading specs live in
+  `plugin-web-extension/feature-chunk-loading`.
+- `plugin-boundary.spec.ts`, that this folder installs no chunk loading code
+  and reaches the target only through its extension point
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
 - `content-script-reinject.spec.ts`, `reinject-during-pending-await.spec.ts`,
   the reinject runtime in the wrapper output, its generations across

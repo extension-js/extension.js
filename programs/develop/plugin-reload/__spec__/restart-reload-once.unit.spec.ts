@@ -1,11 +1,14 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../plugin-browsers/__spec__/fake-compiler'
+import {BrowsersPlugin} from '../../plugin-browsers/index'
+import {
   dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo
-} from '../../plugin-reload'
-import {BrowsersPlugin} from '../index'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
+} from '../index'
 
 const CONTEXT = '/project'
 const OUTPUT = '/project/dist'

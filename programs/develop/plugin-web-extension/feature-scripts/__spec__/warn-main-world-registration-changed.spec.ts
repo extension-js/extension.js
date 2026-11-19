@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {MAIN_WORLD_SETTLE_MS} from '../../../dev-server/main-world-restart'
 import {devServerRestarting} from '../../../dev-server/messages'
 import {
   bindDevSessionRestart,
@@ -10,10 +11,7 @@ import {
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
 import {isAwaitingMainWorldRestart} from '../../../dev-server/session-restart-holds'
-import {
-  MAIN_WORLD_SETTLE_MS,
-  WarnMainWorldRegistrationChanged
-} from '../steps/warn-main-world-registration-changed'
+import {WarnMainWorldRegistrationChanged} from '../steps/warn-main-world-registration-changed'
 
 const roots: string[] = []
 
