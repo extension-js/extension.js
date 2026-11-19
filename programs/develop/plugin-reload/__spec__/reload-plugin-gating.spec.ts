@@ -7,6 +7,7 @@ import {
   writeProject
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {chunkLoadingTargetExtensionsFor} from '../../plugin-web-extension/shared/chunk-loading-target-extensions'
 import {ReloadPlugin} from '../index'
 
 const makeTempFolder = trackTempFolders()
@@ -43,7 +44,11 @@ function applied(
     } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
   )
 
-  return {taps, entry: compiler.options.entry}
+  return {
+    taps,
+    entry: compiler.options.entry,
+    fallbacks: chunkLoadingTargetExtensionsFor(compiler).length
+  }
 }
 
 // The producer and the relay inject nothing without a control port, so a
@@ -68,14 +73,12 @@ describe('ReloadPlugin on a real development compiler', () => {
       thisCompilation: [
         'StripContentScriptDevServerRuntime',
         'StableContentScriptNames',
-        'NoDangerNamePlugin',
         'InjectScriptsReplayShim',
         'SetupDevContentScripts',
         'InjectBridgeProducer',
         'InjectBridgeRelay'
       ],
-      compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
-      environment: ['ChunkLoadingTarget', 'plugin-reload:hot-update-names']
+      environment: ['plugin-reload:hot-update-names']
     })
   })
 
@@ -88,13 +91,11 @@ describe('ReloadPlugin on a real development compiler', () => {
       thisCompilation: [
         'StripContentScriptDevServerRuntime',
         'StableContentScriptNames',
-        'NoDangerNamePlugin',
         'InjectScriptsReplayShim',
         'InjectBridgeProducer',
         'InjectBridgeRelay'
       ],
-      compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
-      environment: ['ChunkLoadingTarget', 'plugin-reload:hot-update-names']
+      environment: ['plugin-reload:hot-update-names']
     })
   })
 
@@ -103,25 +104,52 @@ describe('ReloadPlugin on a real development compiler', () => {
 
     expect(Object.keys(entry as object)).toEqual(['background/service_worker'])
   })
+
+  // The chunk loading target is plugin-web-extension's. A session only asks
+  // it, once, for the message fallback a live reload needs.
+  it('asks the chunk loading target for the message fallback once', () => {
+    expect(applied('development').fallbacks).toBe(1)
+  })
 })
 
 describe('ReloadPlugin applies nothing', () => {
   it('on a production compiler', () => {
-    expect(applied('production')).toEqual({taps: {}, entry: {}})
+    expect(applied('production')).toEqual({taps: {}, entry: {}, fallbacks: 0})
   })
 
   // A shippable development build carries no reload client.
   it('on a development compiler outside a dev session', () => {
     expect(applied('development', {devSession: false})).toEqual({
       taps: {},
-      entry: {}
+      entry: {},
+      fallbacks: 0
     })
+  })
+
+  // A build with no session keeps the hot update names the config gives.
+  it('to the hot update names outside a dev session', () => {
+    const {root, manifestPath} = project()
+    const compiler = idleCompiler(root, 'development')
+    compiler.options.output.hotUpdateChunkFilename =
+      'hot/[id].[fullhash].hot-update.js'
+
+    new ReloadPlugin({
+      manifestPath,
+      browser: 'chrome',
+      devSession: false
+    } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
+
+    compiler.hooks.environment.call()
+
+    expect(compiler.options.output.hotUpdateChunkFilename).toBe(
+      'hot/[id].[fullhash].hot-update.js'
+    )
   })
 
   it('when EXTENSION_NO_RELOAD=true (--no-reload)', () => {
     vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
 
-    expect(applied('development')).toEqual({taps: {}, entry: {}})
+    expect(applied('development')).toEqual({taps: {}, entry: {}, fallbacks: 0})
   })
 
   it('when the manifest path names no file', () => {
@@ -129,7 +157,7 @@ describe('ReloadPlugin applies nothing', () => {
 
     expect(
       applied('development', {manifestPath: path.join(root, 'missing.json')})
-    ).toEqual({taps: {}, entry: {}})
+    ).toEqual({taps: {}, entry: {}, fallbacks: 0})
   })
 
   it('when the manifest path names a folder', () => {
@@ -138,7 +166,7 @@ describe('ReloadPlugin applies nothing', () => {
 
     expect(
       applied('development', {manifestPath: path.join(root, 'folder.json')})
-    ).toEqual({taps: {}, entry: {}})
+    ).toEqual({taps: {}, entry: {}, fallbacks: 0})
   })
 })
 

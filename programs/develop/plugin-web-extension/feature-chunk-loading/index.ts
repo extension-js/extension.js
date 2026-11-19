@@ -12,7 +12,6 @@ import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../lib/constants'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
 import {parseAuthoredJson} from '../../lib/parse-json-safe'
-import {isReloadSession} from '../../lib/reload-session'
 import type {
   DevOptions,
   FilepathList,
@@ -22,11 +21,13 @@ import type {
 import {filterKeysForThisBrowser} from '../feature-manifest/manifest-lib/manifest'
 import {findRuntimeMainWorldEntries} from '../feature-scripts/scripts-lib/runtime-main-world-scripts'
 import {extensionBaseAttributeFor} from '../feature-scripts/scripts-lib/taken-extension-base'
+import {chunkLoadingTargetExtensionsFor} from '../shared/chunk-loading-target-extensions'
 import {classicConcatFiles} from '../shared/classic-concat'
 import {getBackgroundEntryName} from './background-entry-name'
 import {ChunkLoadingTarget} from './chunk-loading-target'
 import {buildContentScriptsMeta} from './content-scripts-meta'
 import type {ContentScriptsMeta} from './options'
+import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
 
 // A file the background or a page registers into the MAIN world is in no
 // manifest group, so its world is read off the entries already created.
@@ -83,19 +84,13 @@ function buildRuntimeMainWorldMeta(
 export class SetupChunkLoadingTarget {
   private readonly manifestPath: string
   private readonly browser: DevOptions['browser']
-  private readonly devSession?: boolean
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-    this.devSession = options.devSession
   }
 
   public apply(compiler: Compiler): void {
-    // A reload session installs the same target beside its reload-only
-    // steps, and applying both would install it twice.
-    if (isReloadSession(compiler.options.mode, this.devSession)) return
-
     const hasValidManifest =
       !!this.manifestPath &&
       fs.existsSync(this.manifestPath) &&
@@ -116,23 +111,37 @@ export class SetupChunkLoadingTarget {
       return
     }
 
+    const authored = getBackgroundEntryName(patchedManifest, this.browser, {
+      manifestDir: path.dirname(this.manifestPath),
+      projectPath: compiler.options.context as string | undefined
+    })
+    const [extension] = chunkLoadingTargetExtensionsFor(compiler)
+
+    // A target with the message fallback answers the public path with its
+    // own module. Registered first, this one answers in every other build.
+    if (!extension) {
+      new AddPublicPathRuntimeModule({
+        browser: this.browser,
+        manifestPath: this.manifestPath
+      }).apply(compiler)
+    }
+
     new ChunkLoadingTarget({
-      background: {
-        ...getBackgroundEntryName(patchedManifest, this.browser, {
-          manifestDir: path.dirname(this.manifestPath),
-          projectPath: compiler.options.context as string | undefined
-        }),
-        // The classic loader adds a background runtime module that asks the
-        // service worker to inject chunks for a content script. A production
-        // background usually optimizes down to a bundle with no webpack
-        // runtime at all, and the module then lands bare at the top of the
-        // file, where __webpack_require__ does not exist and the worker dies
-        // on load. The isolated world reaches its chunks through the native
-        // dynamic import loader, so a build with no session does not need
-        // this fallback, in either mode.
-        // The reader is `background.classicLoader`, not the top-level key.
-        classicLoader: false
-      },
+      background: extension
+        ? extension.fallbackBackground(authored)
+        : {
+            ...authored,
+            // The classic loader adds a background runtime module that asks
+            // the service worker to inject chunks for a content script. A
+            // production background usually optimizes down to a bundle with
+            // no webpack runtime at all, and the module then lands bare at
+            // the top of the file, where __webpack_require__ does not exist
+            // and the worker dies on load. The isolated world reaches its
+            // chunks through the native dynamic import loader, so a build
+            // that asks for no fallback does not need it, in either mode.
+            // The reader is `background.classicLoader`, not the top-level key.
+            classicLoader: false
+          },
       weakRuntimeCheck: true,
       contentScriptsMeta: {
         ...buildContentScriptsMeta(patchedManifest),

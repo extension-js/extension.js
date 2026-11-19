@@ -58,8 +58,8 @@ export {readBootRegistrations, readDevBuild}
  * ReloadPlugin owns the dev-only reload/HMR strategy end to end:
  *
  * - build-time injection of the reload runtime (SetupReloadStrategy, which
- *   also applies plugin-web-extension's chunk loading target for a dev
- *   session), the SW scripts-replay shim, and the control-bridge
+ *   asks plugin-web-extension's chunk loading target for the message
+ *   fallback), the SW scripts-replay shim, and the control-bridge
  *   producer/relay instrumentation
  * - the reload classifier, what the browser last read, the trim and merge
  *   a packaged browser needs, and the dispatch seam. plugin-browsers and the
@@ -100,8 +100,6 @@ export class ReloadPlugin {
     // every dev session build, with or without the rest of the pipeline.
     new AddContentScriptReinject(this.devSession).apply(compiler)
 
-    // The web extension plugin reads the same answer, so the chunk loading
-    // target this pipeline installs is installed by exactly one of the two.
     if (!isReloadSession(compiler.options.mode, this.devSession)) {
       return
     }

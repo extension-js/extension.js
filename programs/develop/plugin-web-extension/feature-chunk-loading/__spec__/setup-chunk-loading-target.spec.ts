@@ -1,4 +1,5 @@
 import * as path from 'node:path'
+import type {Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   compileFiles,
@@ -7,11 +8,12 @@ import {
   writeProject
 } from '../../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {extendChunkLoadingTarget} from '../../shared/chunk-loading-target-extensions'
 import {SetupChunkLoadingTarget} from '../index'
 
 const makeTempFolder = trackTempFolders()
 
-// The gate reads the variable, so no value from the shell reaches a test.
+// The target reads no session, so a value from the shell must change nothing.
 beforeEach(() => {
   vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
 })
@@ -43,14 +45,21 @@ function target(manifestPath: string, devSession?: boolean) {
 }
 
 // What the target installs, read off an idle compiler: the taps it adds
-// and the entries it leaves alone.
+// and the entries it leaves alone. A fallback is asked for the way a dev
+// session asks, before the target applies.
 function installed(
   manifestPath: string,
   mode: 'development' | 'production',
   entry: Record<string, {import: string[]}> = {},
-  devSession?: boolean
+  devSession?: boolean,
+  fallback?: {serviceWorkerEntry?: string; pageEntry?: string}
 ) {
   const compiler = idleCompiler(path.dirname(manifestPath), mode, entry)
+
+  if (fallback) {
+    extendChunkLoadingTarget(compiler, {fallbackBackground: () => fallback})
+  }
+
   const taps = tapsAddedBy(compiler, () =>
     target(manifestPath, devSession).apply(compiler)
   )
@@ -74,6 +83,18 @@ const CLASSIC_FALLBACK = 'WTW_INJECT'
 // which runs in the MAIN world while the content script lives in the isolated
 // world, so the chunk never reaches the requester.
 describe('SetupChunkLoadingTarget', () => {
+  // The public path module of the scripts build answers first in every
+  // build that asks for no fallback.
+  const INSTALLED = {
+    compilation: [
+      'PublicPathRuntimeModule',
+      'ChunkLoaderRuntime',
+      'ChunkLoadingTarget'
+    ],
+    thisCompilation: ['NoDangerNamePlugin'],
+    environment: ['ChunkLoadingTarget']
+  }
+
   it('installs the web-extension target for a production build', () => {
     const {manifestPath} = project({
       'manifest.json': manifest,
@@ -81,41 +102,26 @@ describe('SetupChunkLoadingTarget', () => {
     })
 
     expect(installed(manifestPath, 'production')).toEqual({
-      taps: {
-        compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
-        thisCompilation: ['NoDangerNamePlugin'],
-        environment: ['ChunkLoadingTarget']
-      },
+      taps: INSTALLED,
       entry: {}
     })
   })
 
-  // A reload session registers the same target through SetupReloadStrategy.
-  // Applying both would install it twice.
-  it('stays out of the way in a reload session, where the reload strategy owns it', () => {
+  // It is the one owner of the target, so what a session is never decides
+  // whether it installs.
+  it('installs the target once for every mode and session', () => {
     const {manifestPath} = project({'manifest.json': manifest})
 
-    expect(installed(manifestPath, 'development').taps).toEqual({})
-    expect(installed(manifestPath, 'development', {}, true).taps).toEqual({})
+    for (const mode of ['development', 'production'] as const) {
+      for (const devSession of [undefined, true, false]) {
+        expect(installed(manifestPath, mode, {}, devSession).taps).toEqual(
+          INSTALLED
+        )
+      }
+    }
   })
 
-  const INSTALLED = {
-    compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
-    thisCompilation: ['NoDangerNamePlugin'],
-    environment: ['ChunkLoadingTarget']
-  }
-
-  // No reload plugin runs for these builds, so nothing else would replace
-  // the loader that cannot reach an isolated world.
-  it('installs the target for a development build with no session', () => {
-    const {manifestPath} = project({'manifest.json': manifest})
-
-    expect(installed(manifestPath, 'development', {}, false).taps).toEqual(
-      INSTALLED
-    )
-  })
-
-  it('installs the target for a dev session with reload turned off', () => {
+  it('installs the target the same way with EXTENSION_NO_RELOAD set', () => {
     const {manifestPath} = project({'manifest.json': manifest})
     vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
 
@@ -124,12 +130,20 @@ describe('SetupChunkLoadingTarget', () => {
     )
   })
 
-  it('installs the target in production whatever the session says', () => {
+  // With a fallback asked for, the target answers the public path with its
+  // own module, so the scripts one is never registered.
+  it('answers the public path itself when a fallback is asked for', () => {
     const {manifestPath} = project({'manifest.json': manifest})
 
-    expect(installed(manifestPath, 'production', {}, true).taps).toEqual(
-      INSTALLED
-    )
+    expect(
+      installed(manifestPath, 'development', {}, true, {
+        serviceWorkerEntry: 'background/service_worker'
+      }).taps
+    ).toEqual({
+      compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
+      thisCompilation: ['NoDangerNamePlugin'],
+      environment: ['ChunkLoadingTarget']
+    })
   })
 
   it('never runs without a readable manifest', () => {
@@ -293,5 +307,89 @@ describe('SetupChunkLoadingTarget in a production compile', () => {
 
     expect(errors).toEqual([])
     expect(files['scripts/hook.js']).toContain(MAIN_WORLD_LOADER)
+  })
+})
+
+describe('SetupChunkLoadingTarget with a message fallback', () => {
+  function withFallback(
+    manifestPath: string,
+    background: {serviceWorkerEntry?: string; pageEntry?: string}
+  ) {
+    return {
+      apply(compiler: Compiler) {
+        extendChunkLoadingTarget(compiler, {
+          fallbackBackground: () => background
+        })
+
+        target(manifestPath).apply(compiler)
+      }
+    }
+  }
+
+  // The loader a lazy chunk gets depends on the world the target reads off
+  // the manifest, so a MAIN world script must come out with the bridge loader.
+  it('hands the content script worlds to the chunk loader', async () => {
+    const {root, manifestPath} = project({
+      'manifest.json': {
+        manifest_version: 3,
+        name: 'worlds',
+        version: '1.0.0',
+        background: {service_worker: 'background.js'},
+        content_scripts: [
+          {matches: ['<all_urls>'], js: ['content/isolated.js']},
+          {matches: ['<all_urls>'], js: ['content/main.js'], world: 'MAIN'}
+        ]
+      },
+      'background.js': '',
+      'content/isolated.js': lazyImport,
+      'content/main.js': lazyImport,
+      'content/lazy.js': 'export const a = 1\n'
+    })
+    const {errors, files} = await compileFiles(
+      root,
+      {
+        'content_scripts/content-0': 'content/isolated.js',
+        'content_scripts/content-1': 'content/main.js'
+      },
+      withFallback(manifestPath, {
+        serviceWorkerEntry: 'background/service_worker'
+      }),
+      'development'
+    )
+
+    expect(errors).toEqual([])
+    expect(files['content_scripts/content-0.js']).not.toContain(
+      MAIN_WORLD_LOADER
+    )
+
+    expect(files['content_scripts/content-1.js']).toContain(MAIN_WORLD_LOADER)
+  })
+
+  // The fallback is answered from the background the extension returns,
+  // even where the manifest names another one.
+  it('answers the fallback from the background it is handed', async () => {
+    const {root, manifestPath} = project({
+      'manifest.json': manifest,
+      'background/index.js': '',
+      'generated.js': '',
+      'content/scripts.js': lazyImport,
+      'content/lazy.js': 'export const a = 1\n'
+    })
+    const {errors, files} = await compileFiles(
+      root,
+      {
+        'background/service_worker': 'background/index.js',
+        'background/generated': 'generated.js',
+        'content_scripts/content-0': 'content/scripts.js'
+      },
+      withFallback(manifestPath, {serviceWorkerEntry: 'background/generated'}),
+      'development'
+    )
+
+    expect(errors).toEqual([])
+    expect(files['background/generated.js']).toContain(CLASSIC_FALLBACK)
+    expect(files['background/service_worker.js']).not.toContain(
+      CLASSIC_FALLBACK
+    )
   })
 })

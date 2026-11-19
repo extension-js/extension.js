@@ -7,6 +7,11 @@ import {
   writeProject
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {SetupChunkLoadingTarget} from '../../plugin-web-extension/feature-chunk-loading'
+import {
+  type ChunkLoadingBackgroundEntries,
+  chunkLoadingTargetExtensionsFor
+} from '../../plugin-web-extension/shared/chunk-loading-target-extensions'
 import {SetupReloadStrategy} from '../steps/setup-reload-strategy/index'
 
 const makeTempFolder = trackTempFolders()
@@ -31,10 +36,15 @@ function run(
     } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(compiler)
   )
   const entry = compiler.options.entry as Record<string, {import: string[]}>
+  const [extension] = chunkLoadingTargetExtensionsFor(compiler)
 
   return {
     root,
     taps,
+    // The background the session asks the chunk loading target to answer
+    // the message fallback from, given the one the manifest names.
+    fallback: (authored: ChunkLoadingBackgroundEntries) =>
+      extension?.fallbackBackground(authored),
     entries: Object.fromEntries(
       Object.entries(entry).map(([name, value]) => [
         name,
@@ -45,7 +55,8 @@ function run(
 }
 
 // The background bundles that answer a content script asking for a chunk,
-// read off a real dev compile of the entries the scripts feature creates.
+// read off a real dev compile of the entries the scripts feature creates,
+// with the chunk loading target applied after the strategy.
 async function fallbackListeners(
   manifest: object,
   entry: Record<string, string>,
@@ -55,13 +66,28 @@ async function fallbackListeners(
     'manifest.json': manifest,
     'b.js': ''
   })
+  const manifestPath = path.join(root, 'manifest.json')
+  // The same order the build config applies the two plugins in.
   const {errors, files} = await compileFiles(
     root,
     entry,
-    new SetupReloadStrategy({
-      manifestPath: path.join(root, 'manifest.json'),
-      browser
-    } as ConstructorParameters<typeof SetupReloadStrategy>[0]),
+    {
+      apply(compiler) {
+        new SetupReloadStrategy({
+          manifestPath,
+          browser
+        } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(
+          compiler
+        )
+
+        new SetupChunkLoadingTarget({
+          manifestPath,
+          browser
+        } as ConstructorParameters<typeof SetupChunkLoadingTarget>[0]).apply(
+          compiler
+        )
+      }
+    },
     'development'
   )
 
@@ -167,16 +193,21 @@ describe('SetupReloadStrategy background entry', () => {
       {files: ['b.js']}
     )
 
-    expect(result.taps.compilation).toContain('ChunkLoaderRuntime')
+    expect(result.entries).toEqual({})
+    expect(result.fallback({pageEntry: 'background/scripts'})).toEqual({
+      pageEntry: 'background/scripts'
+    })
   })
 
+  // Gecko runs no service worker, so the target names none, and the session
+  // answers from the background page it generated.
   it('uses a page entry on gecko even when the manifest is MV3', () => {
     const result = run(
       {manifest_version: 3, background: {service_worker: 'b.js'}},
       {browser: 'firefox', files: ['b.js']}
     )
 
-    expect(result.taps.compilation).toContain('ChunkLoaderRuntime')
+    expect(result.fallback({})).toEqual({pageEntry: 'background/script'})
   })
 
   it('adds the minimum worker as an entry when the manifest declares none', () => {
@@ -202,45 +233,35 @@ describe('SetupReloadStrategy wiring', () => {
   })
 })
 
-describe('SetupReloadStrategy in a development compile', () => {
-  // The loader a lazy chunk gets depends on the world the strategy hands the
-  // chunk loader, so a MAIN world script must come out with the bridge loader.
-  it('hands the content script worlds to the chunk loader', async () => {
-    const lazyImport = "import('./lazy.js').then((m) => console.log(m))\n"
+describe('SetupReloadStrategy hot update names', () => {
+  // The names the build config gives hot update files before a session.
+  function namedAfterStrategy() {
     const root = writeProject(makeTempFolder('extjs-reload-strategy-'), {
-      'manifest.json': {
-        manifest_version: 3,
-        name: 'worlds',
-        version: '1.0.0',
-        background: {service_worker: 'background.js'},
-        content_scripts: [
-          {matches: ['<all_urls>'], js: ['content/isolated.js']},
-          {matches: ['<all_urls>'], js: ['content/main.js'], world: 'MAIN'}
-        ]
-      },
-      'background.js': '',
-      'content/isolated.js': lazyImport,
-      'content/main.js': lazyImport,
-      'content/lazy.js': 'export const a = 1\n'
+      'manifest.json': {manifest_version: 3}
     })
-    const {errors, files} = await compileFiles(
-      root,
-      {
-        'content_scripts/content-0': 'content/isolated.js',
-        'content_scripts/content-1': 'content/main.js'
-      },
-      new SetupReloadStrategy({
-        manifestPath: path.join(root, 'manifest.json'),
-        browser: 'chrome'
-      } as ConstructorParameters<typeof SetupReloadStrategy>[0]),
-      'development'
-    )
+    const compiler = idleCompiler(root, 'development')
+    compiler.options.output.hotUpdateChunkFilename =
+      'hot/[id].[fullhash].hot-update.js'
 
-    expect(errors).toEqual([])
-    expect(files['content_scripts/content-0.js']).not.toContain(
-      'EXTJS_WTW_LOAD'
-    )
+    compiler.options.output.hotUpdateMainFilename =
+      'hot/[runtime].[fullhash].hot-update.json'
 
-    expect(files['content_scripts/content-1.js']).toContain('EXTJS_WTW_LOAD')
+    new SetupReloadStrategy({
+      manifestPath: path.join(root, 'manifest.json')
+    } as ConstructorParameters<typeof SetupReloadStrategy>[0]).apply(compiler)
+
+    compiler.hooks.environment.call()
+
+    return {
+      chunk: compiler.options.output.hotUpdateChunkFilename,
+      main: compiler.options.output.hotUpdateMainFilename
+    }
+  }
+
+  it('writes hot update files under hot with no update suffix', () => {
+    expect(namedAfterStrategy()).toEqual({
+      chunk: 'hot/[id].[fullhash].js',
+      main: 'hot/[runtime].[fullhash].json'
+    })
   })
 })
