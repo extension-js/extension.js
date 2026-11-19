@@ -1,10 +1,12 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {getProjectStructure} from '../../lib/project'
 import contentScriptWrapper from '../../plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/content-script-wrapper'
 import {contentScriptWrapperExtensionsFor} from '../../plugin-web-extension/shared/content-script-wrapper-extensions'
+import webpackConfig from '../../rspack-config'
 import {ReloadPlugin} from '..'
 import {contentScriptReinject} from '../reload-lib/content-script-reinject'
 import {
@@ -425,4 +427,81 @@ describe('the dev session hint for a default export the script also calls', () =
       )
     ).toEqual([])
   })
+})
+
+// The production half lives beside the wrapper: the same fixture there
+// ships none of this, which makes that a mode gate and not a deletion.
+describe('a dev session build of a content script', () => {
+  it('carries the reinject runtime in the emitted bundle', async () => {
+    const root = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-reinject-build-'))
+    )
+    tempDirs.push(root)
+
+    const files: Record<string, string> = {
+      'package.json': JSON.stringify({
+        private: true,
+        name: 'extjs-reinject-build',
+        version: '0.0.0'
+      }),
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'payload',
+        version: '1.0.0',
+        content_scripts: [
+          {matches: ['https://example.com/*'], js: ['content/index.ts']}
+        ]
+      }),
+      'content/index.ts': 'console.log("CS_ONLY")\nexport {}\n'
+    }
+
+    for (const [relative, contents] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(root, relative)), {recursive: true})
+      fs.writeFileSync(path.join(root, relative), contents)
+    }
+
+    const distPath = path.join(root, 'dist', 'chrome')
+    const config = webpackConfig(await getProjectStructure(root), {
+      browser: 'chrome',
+      mode: 'development',
+      metadataCommand: 'dev',
+      silent: true,
+      output: {clean: true, path: distPath}
+    } as any)
+    config.plugins = (config.plugins || []).filter(
+      (plugin) =>
+        plugin?.constructor.name !== 'plugin-browsers' &&
+        plugin?.constructor.name !== 'plugin-playwright'
+    )
+
+    config.stats = false
+
+    const errors = await new Promise<string[]>((resolve, reject) => {
+      const compiler = rspack(config)
+
+      compiler.run((error, stats) => {
+        compiler.close(() => {
+          if (error) reject(error)
+          else resolve((stats?.compilation.errors || []).map((e) => e.message))
+        })
+      })
+    })
+
+    expect(errors).toEqual([])
+
+    // Development names the bundle by its hash, so find it by its entry.
+    const emitted = fs.readdirSync(path.join(distPath, 'content_scripts'))
+    const bundleName = emitted.find((entry) => /^content-0.*\.js$/.test(entry))
+
+    expect(bundleName, emitted.join(', ')).toBeTruthy()
+
+    const bundle = fs.readFileSync(
+      path.join(distPath, 'content_scripts', String(bundleName)),
+      'utf-8'
+    )
+
+    expect(bundle).toContain('__EXTENSIONJS_DEV_REINJECT__')
+    expect(bundle).toContain('data-extjs-reinject-owner')
+    expect(bundle).toContain('data-extjs-reinject-build')
+  }, 180_000)
 })

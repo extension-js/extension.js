@@ -248,7 +248,8 @@ consumes that contract. It does not define it, and nothing in
 - `content-script-reinject.spec.ts`, `reinject-during-pending-await.spec.ts`,
   the reinject runtime in the wrapper output, its generations across
   injections, a copy injected while an earlier one awaits, when the
-  plugin adds it, and the two default export hints
+  plugin adds it, the two default export hints, and the runtime in a real
+  dev session build. That build reads loaders from `programs/develop/dist`.
 - `inject-bridge-steps.spec.ts`, `inject-bridge-boot-registrations.spec.ts`,
   the control-bridge producer and relay
 - `inject-scripts-replay-shim.spec.ts`, `scripts-replay-shim.runtime.spec.ts`,
