@@ -600,11 +600,9 @@ export default function contentScriptWrapper(
     '        }\n' +
     '      } catch (error) {}\n' +
     '      if (tries++ < 20) {\n' +
-    // A page with no shadow root of ours has nothing to style, so a shipped
-    // bundle asks for its sheet only once such a root is there to receive it.
-    (isShippedBundle
-      ? '        if (wanted && !cssPromise) readCss();\n'
-      : '        if (!cssPromise) readCss();\n') +
+    // A page with no shadow root of ours has nothing to style, so a bundle
+    // asks for its sheet only once such a root is there to receive it.
+    '        if (wanted && !cssPromise) readCss();\n' +
     '        setTimeout(tick, 250);\n' +
     '      }\n' +
     '    };\n' +
