@@ -44,12 +44,25 @@ function resolveExtends(specifier: string, fromDir: string): string | null {
   return null
 }
 
-// The two compilerOptions that choose decorator semantics, the nearest
-// config winning over what it extends. An unreadable file adds nothing.
-function readDecoratorFlags(
+// The compilerOptions SWC can follow. Everything else in a tsconfig is
+// type checking or module resolution, which the bundler owns.
+const TRANSFORM_FLAGS = [
+  'experimentalDecorators',
+  'emitDecoratorMetadata',
+  'jsxImportSource',
+  'useDefineForClassFields'
+] as const
+
+export type TransformFlags = Partial<
+  Record<(typeof TRANSFORM_FLAGS)[number], unknown>
+>
+
+// The nearest config wins over what it extends, and a later entry of an
+// extends array over an earlier one. An unreadable file adds nothing.
+export function readTransformFlags(
   configPath: string,
   seen: Set<string> = new Set()
-): {experimentalDecorators?: unknown; emitDecoratorMetadata?: unknown} {
+): TransformFlags {
   if (seen.has(configPath)) return {}
 
   seen.add(configPath)
@@ -67,16 +80,16 @@ function readDecoratorFlags(
   const bases = [config?.extends]
     .flat()
     .filter((value) => typeof value === 'string')
-  let flags = {}
+  let flags: TransformFlags = {}
 
   for (const base of bases) {
     const basePath = resolveExtends(base as string, path.dirname(configPath))
-    if (basePath) flags = {...flags, ...readDecoratorFlags(basePath, seen)}
+    if (basePath) flags = {...flags, ...readTransformFlags(basePath, seen)}
   }
 
   const own = config?.compilerOptions || {}
 
-  for (const key of ['experimentalDecorators', 'emitDecoratorMetadata']) {
+  for (const key of TRANSFORM_FLAGS) {
     if (key in own) flags = {...flags, [key]: own[key]}
   }
 
@@ -88,7 +101,7 @@ function readDecoratorFlags(
 export function swcDecoratorTransform(
   configPath: string | undefined
 ): SwcDecoratorTransform {
-  const flags = configPath ? readDecoratorFlags(configPath) : {}
+  const flags = configPath ? readTransformFlags(configPath) : {}
 
   if (flags.experimentalDecorators !== true) {
     return {decoratorVersion: '2022-03'}

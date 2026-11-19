@@ -127,6 +127,24 @@ describe('a project with its own Babel config', () => {
     expect(read('view')).not.toContain('<div')
   }, 60_000)
 
+  it('parses standard decorators for Babel when the tsconfig asks for none', async () => {
+    const root = makeProject({
+      'package.json': {name: 'fixture'},
+      'manifest.json': MANIFEST,
+      'marker-plugin.cjs': MARKER_PLUGIN,
+      'babel.config.json': {plugins: ['./marker-plugin.cjs']},
+      'main.ts':
+        'const log = (value: unknown, _context: unknown) => value as any\n' +
+        "@log class A { name = 'MARK' }\n" +
+        'console.log(new A().name)\n'
+    })
+
+    const {errors, read} = await compileProject(root, {main: './main.ts'})
+
+    expect(errors).toEqual([])
+    expect(read('main')).toContain('BABEL_RAN')
+  }, 60_000)
+
   it('adds no Babel step to a project without a Babel config', async () => {
     const root = makeProject({
       'package.json': {name: 'fixture'},
