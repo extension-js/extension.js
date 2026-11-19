@@ -9,12 +9,28 @@ import {
 import {tmpdir} from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import buildExtensions from '../build-extensions.cjs'
 import {
+  assertCompanionsPacked,
   describeReusedDist,
+  missingCompanionManifests,
   newestMtime,
   parseSmokeOptions,
   workspacePackages
 } from '../smoke-npx.mjs'
+
+// What tar -tzf prints for a pnpm pack tarball that holds every companion.
+function fullListing() {
+  const lines = ['package/package.json', 'package/dist/module.cjs']
+
+  for (const name of ['extension-js-devtools', 'extension-js-theme']) {
+    for (const engine of ['chromium', 'chrome', 'edge', 'firefox']) {
+      lines.push(`package/dist/${name}/${engine}/manifest.json`)
+    }
+  }
+
+  return lines
+}
 
 test('the default run compiles every package it packs', () => {
   assert.deepEqual(parseSmokeOptions([]), {fast: false})
@@ -79,4 +95,63 @@ test('a reused dist is named with the package, its path and when it was built', 
     describeReusedDist('extension-create', '/repo/programs/create/dist', null),
     /built an empty dist/
   )
+})
+
+test('the companion check expects every engine the build script produces', () => {
+  assert.deepEqual(buildExtensions.ENGINES, [
+    'chromium',
+    'chrome',
+    'edge',
+    'firefox'
+  ])
+
+  assert.deepEqual(buildExtensions.BUNDLED_PACKAGES, [
+    'extension-js-devtools',
+    'extension-js-theme'
+  ])
+
+  assert.deepEqual(missingCompanionManifests(fullListing()), [])
+  assert.doesNotThrow(() =>
+    assertCompanionsPacked('extension-develop-1.0.0.tgz', fullListing())
+  )
+})
+
+test('a tarball without a companion manifest fails and names each missing file', () => {
+  const listing = fullListing().filter(
+    (line) =>
+      line !== 'package/dist/extension-js-theme/firefox/manifest.json' &&
+      !line.startsWith('package/dist/extension-js-devtools/')
+  )
+
+  assert.deepEqual(missingCompanionManifests(listing), [
+    'dist/extension-js-devtools/chromium/manifest.json',
+    'dist/extension-js-devtools/chrome/manifest.json',
+    'dist/extension-js-devtools/edge/manifest.json',
+    'dist/extension-js-devtools/firefox/manifest.json',
+    'dist/extension-js-theme/firefox/manifest.json'
+  ])
+
+  assert.throws(
+    () => assertCompanionsPacked('extension-develop-1.0.0.tgz', listing),
+    (error) => {
+      assert.match(
+        error.message,
+        /^extension-develop-1\.0\.0\.tgz is missing the bundled companion manifests:/
+      )
+
+      assert.match(
+        error.message,
+        /dist\/extension-js-theme\/firefox\/manifest\.json/
+      )
+
+      assert.match(error.message, /Run node scripts\/build-extensions\.cjs/)
+
+      return true
+    }
+  )
+})
+
+test('an empty listing is a failure, not a pass', () => {
+  assert.equal(missingCompanionManifests([]).length, 8)
+  assert.equal(missingCompanionManifests(['']).length, 8)
 })
