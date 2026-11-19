@@ -235,19 +235,22 @@ describe.skipIf(process.platform === 'win32')(
         }
       )
 
-      // With telemetry off no listener is added, so there is nothing to wait for.
-      if (telemetry) {
-        // Both listeners are in place only once both names are written.
-        await session.waitFor(
-          () =>
-            existsSync(marker) &&
-            ['SIGINT', 'SIGTERM'].every((name) =>
-              readFileSync(marker, 'utf8').includes(name)
-            ),
-          30_000,
-          'the signal listener'
-        )
-      }
+      // Telemetry adds its pair first, then the wait adds its own, so the
+      // wait is listening once each name is written that many times.
+      const pairs = telemetry ? 2 : 1
+
+      await session.waitFor(
+        () =>
+          existsSync(marker) &&
+          ['SIGINT', 'SIGTERM'].every(
+            (name) =>
+              readFileSync(marker, 'utf8')
+                .split('\n')
+                .filter((line) => line === name).length >= pairs
+          ),
+        30_000,
+        'the signal listener'
+      )
 
       const exit = await session.stop(signal, 15_000)
       const audit = join(
@@ -278,21 +281,30 @@ describe.skipIf(process.platform === 'win32')(
       return {exit, rows, ...session.read()}
     }
 
+    const stoppedFrame = (signal: string) => ({
+      schema: 1,
+      ok: false,
+      command: 'dev',
+      status: 'stopped',
+      value: {signal},
+      error: {
+        code: 'E_INTERRUPTED',
+        message: `The dev --wait run was interrupted by ${signal} before every session reported ready.`
+      },
+      warnings: []
+    })
+
     it.each([
       ['SIGINT', 130],
       ['SIGTERM', 143]
     ] as const)(
-      'exits %s as %i with telemetry on, and prints no frame',
+      'exits %s as %i with telemetry on, with one stopped frame',
       async (signal, status) => {
         const run = await interruptWait(signal, true)
 
         expect(run.exit).toEqual({status, signal: null})
-        // Pins today's behavior: under --output json nothing says it ended.
-        expect({stdout: run.stdout, stderr: run.stderr}).toEqual({
-          stdout: '',
-          stderr: ''
-        })
-
+        expect(everyLineAsFrame(run.stdout)).toEqual([stoppedFrame(signal)])
+        expect(run.stderr).toBe('')
         expect(run.rows).toEqual([
           {
             event: 'command_failed',
@@ -305,14 +317,13 @@ describe.skipIf(process.platform === 'win32')(
       60_000
     )
 
-    // Pins today's behavior: with telemetry off no handler is installed, so
-    // the run dies of the signal and a parent sees no exit code at all.
-    it('dies of SIGTERM with telemetry off', async () => {
+    // The answer does not depend on consent: no telemetry, the same frame.
+    it('exits 143 with the same frame with telemetry off', async () => {
       const run = await interruptWait('SIGTERM', false)
 
-      expect(run.exit).toEqual({status: null, signal: 'SIGTERM'})
-      expect({stdout: run.stdout, stderr: run.stderr, rows: run.rows}).toEqual({
-        stdout: '',
+      expect(run.exit).toEqual({status: 143, signal: null})
+      expect(everyLineAsFrame(run.stdout)).toEqual([stoppedFrame('SIGTERM')])
+      expect({stderr: run.stderr, rows: run.rows}).toEqual({
         stderr: '',
         rows: []
       })
