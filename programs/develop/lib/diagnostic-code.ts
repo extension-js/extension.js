@@ -71,6 +71,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   ScriptsFolderEntryOnlyImported: CODES.E_RESERVED_FOLDER,
   CssPreprocessorMissing: CODES.E_CSS_PREPROCESSOR_MISSING,
   CssDeadRef: CODES.E_CSS_DEAD_REF,
+  CssWithheldRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
   BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
   ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
