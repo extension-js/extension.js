@@ -16,6 +16,8 @@
     "verbatimModuleSyntax": true,
     "useDefineForClassFields": true,
     "skipLibCheck": true,
+    // TypeScript 6 and later load no @types package unless it is named here.
+    "types": ["chrome"],
     "paths": {
       "@/*": ["./src/*"]
     }

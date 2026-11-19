@@ -8,6 +8,7 @@
 
 import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {unwrapNamedCauses} from './named-cause'
 import {canonicalizeDir, toProjectRelativePath} from './resource-path'
 
 // eslint-disable-next-line no-control-regex
@@ -140,5 +141,8 @@ export function toMachineText(raw: unknown, projectPath?: string): string {
     .replace(ANSI_PATTERN, '')
     .replace(/\bfile:\/\/\/\S+/g, fromFileUrl)
 
-  return plainPaths(stripLayout(stripLoaderHeader(plain)), projectPath)
+  return plainPaths(
+    stripLayout(stripLoaderHeader(unwrapNamedCauses(plain, {machine: true}))),
+    projectPath
+  )
 }

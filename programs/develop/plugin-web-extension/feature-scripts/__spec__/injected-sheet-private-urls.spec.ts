@@ -279,7 +279,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -307,7 +307,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -335,7 +335,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -363,7 +363,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       'injected.css | url "chrome-extension://__MSG_@@extension_id__/node_modules/pkg/.env" | said withheld ./node_modules/pkg/.env',
     '/.env':
-      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said not found /.env in injected.css, withheld /.env',
+      'injected.css | url "chrome-extension://__MSG_@@extension_id__/.env" | said withheld /.env',
     '@import ./.env':
       'injected.css | url ./.env | said import left out, withheld ./.env',
     '@font-face ./.git/font.woff2':
@@ -418,9 +418,8 @@ const EXPECTED: Record<string, Table> = {
       'content_scripts/content-0.css + content_scripts/content-0.js | url ./linked.png | said not bundled ./linked.png in injected.css',
     './node_modules/pkg/.env':
       'content_scripts/content-0.css + content_scripts/content-0.js | url ./node_modules/pkg/.env | said not bundled ./node_modules/pkg/.env in injected.css',
-    // The special folders step reads the emitted sheet and says it again.
     '/.env':
-      'content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/.env" | said not bundled /.env in injected.css, not found /.env in content_scripts/content-0.css',
+      'content_scripts/content-0.css + content_scripts/content-0.js | url "chrome-extension://__MSG_@@extension_id__/.env" | said not bundled /.env in injected.css',
     // The bundler drops an @import it does not follow, so the sheet is empty.
     '@import ./.env':
       'content_scripts/content-0.css + content_scripts/content-0.js | said not bundled ./.env in injected.css',

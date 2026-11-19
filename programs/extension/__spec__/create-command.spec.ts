@@ -12,6 +12,12 @@ vi.mock('../helpers/cli-package-json', () => ({
   getCliPackageJson: vi.fn(() => ({version: '9.9.9'}))
 }))
 
+// Recorded rather than sent: a spec reads what a failure row would say.
+vi.mock('../helpers/telemetry-cli', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../helpers/telemetry-cli')>()),
+  markCommandFailure: vi.fn()
+}))
+
 import {extensionCreate} from 'extension-create'
 // The real scaffold copy, imported from source on purpose: createErrorCode
 // substring-matches it, so a copy edit must fail here rather than silently
@@ -19,6 +25,7 @@ import {extensionCreate} from 'extension-create'
 import * as createMessages from '../../create/lib/messages'
 import {CREATE_ERROR_NEEDLES, registerCreateCommand} from '../commands/create'
 import {resolveExtensionDevelopRoot} from '../helpers/extension-develop-runtime'
+import {markCommandFailure} from '../helpers/telemetry-cli'
 import {
   keepTheScaffolderMocked,
   makeProgram,
@@ -286,6 +293,20 @@ describe('extension create', () => {
     expect(JSON.parse(String(logSpy.mock.calls[0][0])).error.code).toBe(
       'E_INTERNAL'
     )
+  })
+
+  it('tells telemetry an unrecognized failure came from the scaffolder', async () => {
+    const thrown = new TypeError('something else broke')
+    vi.mocked(extensionCreate).mockRejectedValueOnce(thrown)
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    expect(await run(['create', 'my-extension', '--output', 'json'])).toBe(1)
+    expect(markCommandFailure).toHaveBeenCalledWith(undefined, {
+      code: 'E_INTERNAL',
+      exitCode: 1,
+      error: thrown,
+      step: 'scaffold'
+    })
   })
 
   it('maps a TemplateNotFoundError by name', async () => {

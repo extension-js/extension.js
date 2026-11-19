@@ -16,6 +16,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn} from './helpers/engine-stand-ins'
 
 const extensionDev = vi.fn(async () => {})
 // The one call that sends a failure row, so a spec can read what would travel.
@@ -47,7 +48,7 @@ function run(argv: string[]) {
   return runCli(
     makeProgram((program) =>
       registerDevCommand(program, {
-        loadDevelop: async () => ({extensionDev}),
+        loadDevelop: async () => developStandIn({extensionDev}),
         launcher: vi.fn(async () => {}) as never,
         safariPreflight: () => null,
         waitForReady: (input) => runWaitMode(input) as never,
@@ -358,9 +359,30 @@ describe('extension dev --output json', () => {
     hookOf().onExitError(new Error('boom'))
 
     expect(reportFailure.mock.calls).toEqual([
-      [{code: CODES.E_CONFIG_LOAD, exitCode: 1}],
-      [{code: CODES.E_DEV_SERVER_START, exitCode: 1}],
-      [{code: CODES.E_INTERNAL, exitCode: 1}]
+      [
+        {
+          code: CODES.E_CONFIG_LOAD,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ],
+      [
+        {
+          code: CODES.E_DEV_SERVER_START,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ],
+      [
+        {
+          code: CODES.E_INTERNAL,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ]
     ])
 
     // Reporting prints nothing: develop already said what failed.
@@ -376,7 +398,14 @@ describe('extension dev --output json', () => {
     expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
     expect(frames().map((frame) => frame.status)).toEqual(['failed'])
     expect(reportFailure.mock.calls).toEqual([
-      [{code: CODES.E_CONFIG_LOAD, exitCode: 1}]
+      [
+        {
+          code: CODES.E_CONFIG_LOAD,
+          exitCode: 1,
+          error: expect.any(Error),
+          step: 'engine'
+        }
+      ]
     ])
   })
 

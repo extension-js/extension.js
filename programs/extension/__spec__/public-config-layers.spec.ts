@@ -1,40 +1,88 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import type {FileConfig as InternalFileConfig} from '../../develop/types'
+import type {PerfBudgetsConfig as InternalPerfBudgetsConfig} from '../../develop/plugin-perf-budgets'
+import type {CompanionExtensionsConfig as InternalCompanionExtensionsConfig} from '../../develop/plugin-special-folders/folder-extensions/types'
+import type {
+  BrowserOptionsBase,
+  BrowserType as InternalBrowserType,
+  ConfigHookContext as InternalConfigHookContext,
+  ExcludeFilesConfig as InternalExcludeFilesConfig,
+  FileConfig as InternalFileConfig,
+  IncludeFileEntry as InternalIncludeFileEntry,
+  IncludeFilesConfig as InternalIncludeFilesConfig,
+  SpecialFoldersConfig as InternalSpecialFoldersConfig,
+  SafariOptions
+} from '../../develop/types'
 import type {
   BrowserConfig,
+  BrowserType,
   BuildCommandConfig,
+  CompanionExtensionsConfig,
+  ConfigHookContext,
   DevCommandConfig,
+  ExcludeFilesConfig,
   FileConfig,
+  IncludeFileEntry,
+  IncludeFilesConfig,
+  PerfBudgetsConfig,
   PreviewCommandConfig,
+  SafariConfig,
+  SpecialFoldersConfig,
   StartCommandConfig
 } from '../config-types'
+import type {Agrees, Same} from './helpers/type-agreement'
 
 // The published config type is hand-kept beside the one the loader reads, so
-// a key the loader honors but the type omits fails a type-checked config that
-// works. Each layer below must name every key its internal twin does; a gap
-// makes `pnpm typecheck` fail on the assignment, naming the missing keys.
+// the two are compared here key by key, in both directions. A difference
+// makes `pnpm typecheck` fail on the assignment below and names the keys.
 // The assignments are the whole check: nothing here can fail at run time.
 type Commands = NonNullable<InternalFileConfig['commands']>
 type InternalBrowser = NonNullable<
   NonNullable<InternalFileConfig['browser']>['chrome']
 >
-type Gaps<Internal, Public> = Exclude<keyof Internal, keyof Public>
-type NoGaps<Internal, Public> = [Gaps<Internal, Public>] extends [never]
-  ? true
-  : Gaps<Internal, Public>
+type InternalSafari = Omit<SafariOptions, keyof BrowserOptionsBase>
 
-const everyLayerNamesWhatTheLoaderReads: [
-  NoGaps<InternalBrowser, BrowserConfig>,
-  NoGaps<NonNullable<Commands['dev']>, DevCommandConfig>,
-  NoGaps<NonNullable<Commands['start']>, StartCommandConfig>,
+const everyLayerAgreesWithTheLoader: [
+  Agrees<BrowserConfig, InternalBrowser>,
+  Agrees<DevCommandConfig, NonNullable<Commands['dev']>>,
+  Agrees<StartCommandConfig, NonNullable<Commands['start']>>,
   // Preview builds nothing. The CLI keeps these keys, marked deprecated.
-  NoGaps<NonNullable<Commands['preview']>, PreviewCommandConfig>,
-  NoGaps<NonNullable<Commands['build']>, BuildCommandConfig>
-] = [true, true, true, true, true]
+  Agrees<
+    PreviewCommandConfig,
+    NonNullable<Commands['preview']>,
+    'polyfill' | 'include' | 'exclude'
+  >,
+  Agrees<BuildCommandConfig, NonNullable<Commands['build']>>,
+  Agrees<FileConfig, InternalFileConfig>,
+  Agrees<SafariConfig, InternalSafari>,
+  Agrees<SpecialFoldersConfig, InternalSpecialFoldersConfig>,
+  Agrees<IncludeFileEntry, InternalIncludeFileEntry>,
+  Agrees<PerfBudgetsConfig, InternalPerfBudgetsConfig>,
+  Agrees<ConfigHookContext, InternalConfigHookContext>,
+  Same<BrowserType, InternalBrowserType>,
+  Same<CompanionExtensionsConfig, InternalCompanionExtensionsConfig>,
+  Same<IncludeFilesConfig, InternalIncludeFilesConfig>,
+  Same<ExcludeFilesConfig, InternalExcludeFilesConfig>
+] = [
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true,
+  true
+]
 
-void everyLayerNamesWhatTheLoaderReads
+void everyLayerAgreesWithTheLoader
 
 // Budgets belong to the start layer, and preview builds nothing, so it takes
 // none. The compiler is what checks both values.

@@ -49,6 +49,19 @@ export function parseLogLevel(raw: string | undefined): LogLevel | undefined {
   return LOG_LEVELS.find((level) => level === text)
 }
 
+export const LOG_FORMATS = ['pretty', 'json', 'ndjson'] as const
+
+export type LogFormat = (typeof LOG_FORMATS)[number]
+
+// --log-format is read the same way, since the engine compares it exactly too.
+export function parseLogFormat(raw: string | undefined): LogFormat | undefined {
+  const text = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+
+  return LOG_FORMATS.find((format) => format === text)
+}
+
 export type PositiveIntParse =
   | {ok: true; value: number | undefined}
   | {ok: false; message: string}

@@ -43,6 +43,7 @@ export async function getDevExtensions() {
 
 export async function getDevExtension() {
   const devExtensions = await getDevExtensions()
+
   // Prefer the last registered dev extension (user extension appended last)
   return devExtensions[devExtensions.length - 1]
 }
@@ -67,11 +68,13 @@ export function createExtensionsPageTab(initialTab: chrome.tabs.Tab) {
     chrome.tabs.create(
       {url: extensionsPage, active: false},
       function setBackgroundTab(extensionsTab) {
+        if (typeof extensionsTab?.id !== 'number') return
+
         // Get current url tab and move it left.
         // This action auto-activates the tab
-        chrome.tabs.move(extensionsTab.id!, {index: 0}, () => {
+        chrome.tabs.move(extensionsTab.id, {index: 0}, () => {
           setTimeout(() => {
-            chrome.tabs.update(initialTab.id!, {active: true})
+            chrome.tabs.update(initialTab.id, {active: true})
           }, 500)
         })
       }
@@ -81,6 +84,7 @@ export function createExtensionsPageTab(initialTab: chrome.tabs.Tab) {
 
 function repointTab(tabId: number, url: string, browser?: string) {
   let attempts = 0
+
   const onUpdated = (
     id: number,
     change: chrome.tabs.OnUpdatedInfo,
@@ -97,8 +101,10 @@ function repointTab(tabId: number, url: string, browser?: string) {
     })
 
     if (decision === 'wait') return
+
     if (decision === 'stop') {
       chrome.tabs.onUpdated.removeListener(onUpdated)
+
       return
     }
 
@@ -131,14 +137,14 @@ export async function handleFirstRun(
   // the active tab can land on a page another tool opened in the meantime.
   const startTabId = typeof startTab?.id === 'number' ? startTab.id : undefined
 
-  let devExtension: chrome.management.ExtensionInfo | undefined
-  devExtension = await getDevExtension()
+  const devExtension = await getDevExtension()
 
   const browserStr = String(browser || 'chromium').toLowerCase()
   const storageKey = devExtension?.id || `__first_run__:${browserStr}`
 
   chrome.storage.local.get(storageKey, async (result) => {
     const stored = result?.[storageKey] as {didRun?: boolean} | undefined
+
     if (stored?.didRun) {
       return
     }
@@ -155,11 +161,15 @@ export async function handleFirstRun(
                 'Error creating tab:',
                 chrome.runtime.lastError.message
               )
+
               resolve(undefined)
+
               return
             }
+
             resolve(tab)
           }) as unknown as Promise<chrome.tabs.Tab> | undefined
+
           if (ret && typeof ret.then === 'function') {
             ret.then(resolve, () => resolve(undefined))
           }
@@ -170,6 +180,7 @@ export async function handleFirstRun(
       })
 
     let opened: chrome.tabs.Tab | undefined
+
     try {
       const welcomeUrl = chrome.runtime.getURL('pages/welcome.html')
 

@@ -612,7 +612,7 @@ describe('a user loader that returns no default export', () => {
         expect(error.diagnostics).toHaveLength(1)
         expect(error.diagnostics?.[0].code).toBe('E_CONTENT_SCRIPT_SYNTAX')
         expect(said(error)).toEqual([
-          '\u23f5\u23f5\u23f5 Extension.js could not find the default export of content/main.ts in what a loader returned.',
+          'Extension.js could not find the default export of content/main.ts in what a loader returned.',
           'PATH content/main.ts',
           'LOADERS return-loader.cjs',
           'The file has a default export as written, which is the function the build mounts. The build read the file after the loaders named above, and the text they returned has no default export, so the script would never run.',

@@ -9,6 +9,7 @@ import {
   linkPackages,
   MARKER,
   manifest,
+  notBundledRefs,
   PAGE,
   project
 } from './helpers/private-files-project'
@@ -184,15 +185,30 @@ describe('a root-absolute path that names a file outside public/', () => {
 
       expect(result.marked).toEqual(marked)
 
-      // A file it withholds is told the way a missing one is.
-      expect(result.missing).toEqual(
-        [
-          ...PRIVATE_TARGETS,
-          ...CLIMBING_TARGETS,
-          ...LINKED_TARGETS,
-          '/nothing.txt'
-        ].sort()
-      )
+      // A file it withholds is said to be there and not bundled, once: on
+      // its line and in the summary that repeats it.
+      const withheld = [
+        ...PRIVATE_TARGETS,
+        ...CLIMBING_TARGETS,
+        ...LINKED_TARGETS
+      ].filter((ref) => ref !== '/%2e%2e/outside.txt')
+
+      expect(notBundledRefs(result.printed)).toEqual([...withheld].sort())
+
+      // A longer path can end in a shorter ref, so each line is read whole.
+      const told = [
+        ...result.printed.matchAll(/(\/[^\s"]*) is not bundled\./g)
+      ].map((match) => match[1])
+
+      for (const ref of withheld) {
+        expect(
+          told.filter((said) => said === ref),
+          ref
+        ).toHaveLength(2)
+      }
+
+      // An encoded climb names no file, so it reads as a missing one.
+      expect(result.missing).toEqual(['/%2e%2e/outside.txt', '/nothing.txt'])
 
       expect(result.errors).toBe(0)
       expectNothingPrivate(result, 'printed')
@@ -533,18 +549,35 @@ describe('a withheld root-absolute reference and a missing one', () => {
         )
       ]
       const withheld = (page: string, dir: string) => [
-        said('', 'a script file', page, `${dir}.env.js`, script),
-        said('', 'a stylesheet', page, `${dir}.env.css`, sheet),
-        said('', 'an asset', page, `${dir}.npmrc`, asset(`/${dir}.npmrc`))
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a script file',
+          page,
+          `${dir}.env.js`,
+          script
+        ),
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a stylesheet',
+          page,
+          `${dir}.env.css`,
+          sheet
+        ),
+        said(
+          'E_ASSET_MISSING: ',
+          'an asset',
+          page,
+          `${dir}.npmrc`,
+          asset(`/${dir}.npmrc`)
+        )
       ]
 
       const warnings = warningsOf(result, root)
-      // The noun and the PATH a warning opens on, without its code.
+      // The code, the noun and the PATH a warning opens on.
       const opening = (notFound: string) =>
         warnings
           .find((warning) => warning.includes(`NOT FOUND ${notFound}\n`))
-          ?.replace(/^E_\w+: /, '')
-          .split('\n')
+          ?.split('\n')
           .slice(0, 2)
 
       expect(warnings).toEqual(

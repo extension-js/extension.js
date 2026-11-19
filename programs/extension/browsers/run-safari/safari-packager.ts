@@ -18,6 +18,7 @@ import type {SafariUiTools} from './safari-ui/tools'
 export interface SafariPackagerOverrides {
   appName?: string
   bundleId?: string
+  developmentTeam?: string
   macOsOnly?: boolean
   appIcon?: string
   forceRegenerate?: boolean

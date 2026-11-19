@@ -77,8 +77,8 @@ export function freshCliHome(): CliHome {
   return makeHome()
 }
 
-// A temp folder inside the home, removed with it. The update check caches
-// its answer here for an hour, so a shared one replays it to a later child.
+// A temp folder inside the home, removed with it. A child that shares one
+// with another sees every file the other left there.
 export function cliTempFolder(home: CliHome = cliHome()): string {
   return fs.mkdtempSync(path.join(home.home, 'tmp-'))
 }

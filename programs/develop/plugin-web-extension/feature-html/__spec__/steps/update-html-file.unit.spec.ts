@@ -1,8 +1,24 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {patchHtml} from '../../html-lib/patch-html'
 import {UpdateHtmlFile} from '../../steps/update-html-file'
+
+const tmpRoots: string[] = []
+
+afterAll(() => {
+  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
+})
+
+function makeTmp(name: string) {
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-update-html-${name}-`)
+  )
+  tmpRoots.push(created)
+
+  return fs.realpathSync(created)
+}
 
 vi.mock('../../html-lib/patch-html', async () => {
   return {
@@ -20,9 +36,7 @@ describe('UpdateHtmlFile', () => {
   })
 
   it('updates html asset using patchHtml', async () => {
-    const tmp = path.join(__dirname, '.tmp-update')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('update')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}', 'utf8')
     const html = path.join(tmp, 'index.html')
@@ -66,9 +80,7 @@ describe('UpdateHtmlFile', () => {
   })
 
   it('passes the asset record content when the compilation exposes getAsset', async () => {
-    const tmp = path.join(__dirname, '.tmp-update-get-asset')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('update-get-asset')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}', 'utf8')
     const html = path.join(tmp, 'index.html')
@@ -100,9 +112,7 @@ describe('UpdateHtmlFile', () => {
   })
 
   it('asks patchHtml for the options dialog floor only on the Chromium options_ui page', () => {
-    const tmp = path.join(__dirname, '.tmp-update-options-floor')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('update-options-floor')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(
       manifestPath,

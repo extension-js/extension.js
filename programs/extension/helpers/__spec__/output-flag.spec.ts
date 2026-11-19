@@ -123,6 +123,20 @@ describe('invalidOutputFlagMessage', () => {
 
     expect(invalidOutputFlagMessage(opts)).toBe(message)
   })
+
+  it('names --format when the entry rewrote it to --output', async () => {
+    const {invalidOutputFlagMessage, outputFlagTypedAs} = await freshModule()
+
+    outputFlagTypedAs('--format')
+    expect(invalidOutputFlagMessage({output: 'bad'})).toBe(
+      '--format got "bad". Use pretty or json.'
+    )
+
+    outputFlagTypedAs('--output')
+    expect(invalidOutputFlagMessage({output: 'bad'})).toBe(
+      '--output got "bad". Use pretty or json.'
+    )
+  })
 })
 
 describe('normalizeOutputFormat', () => {
