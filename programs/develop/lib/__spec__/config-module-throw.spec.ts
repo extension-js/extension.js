@@ -177,6 +177,119 @@ process.stdout.write('RESULT:' + JSON.stringify(outcome))
     expect(run.stderr).not.toContain('dep boom')
   })
 
+  // The config appends one character each time its body runs, so the file
+  // length afterwards is how many times one load evaluated it.
+  function countedProject(
+    name: string,
+    body: (tick: string) => string,
+    type?: 'module'
+  ) {
+    const counter = path.join(
+      fs.realpathSync(makeTempFolder('tmp-extjs-config-count-')),
+      'count.txt'
+    )
+    const tick = `process.getBuiltinModule('node:fs').appendFileSync(${JSON.stringify(counter)}, 'x')\n`
+    const dir = makeProject({[name]: body(tick)}, type)
+
+    return {
+      dir,
+      evaluations: () =>
+        fs.existsSync(counter) ? fs.readFileSync(counter, 'utf-8').length : 0
+    }
+  }
+
+  const THROW = "throw new Error('author boom')\n"
+  const REQUIRE = "const path = require('node:path')\n"
+
+  it.each([
+    [
+      'a CommonJS config in a package with no type',
+      'extension.config.js',
+      undefined,
+      (tick: string) => `${tick}${THROW}module.exports = {}\n`,
+      'author boom'
+    ],
+    [
+      'a CommonJS config that calls require in a module package',
+      'extension.config.js',
+      'module',
+      (tick: string) => `${REQUIRE}${tick}${THROW}module.exports = {}\n`,
+      'author boom'
+    ],
+    [
+      'the same config behind a hashbang line',
+      'extension.config.js',
+      'module',
+      (tick: string) => `#!/usr/bin/env node\n${REQUIRE}${tick}${THROW}`,
+      'author boom'
+    ],
+    [
+      'a config with no module syntax in a module package',
+      'extension.config.js',
+      'module',
+      (tick: string) => `${tick}${THROW}`,
+      'author boom'
+    ],
+    [
+      'an extension.config.cjs',
+      'extension.config.cjs',
+      undefined,
+      (tick: string) => `${tick}${THROW}`,
+      'author boom'
+    ],
+    [
+      'a config whose own code throws a SyntaxError',
+      'extension.config.js',
+      undefined,
+      (tick: string) => `${tick}JSON.parse('{nope')\nmodule.exports = {}\n`,
+      'Expected property name'
+    ]
+  ] as const)('runs %s once and reports what its author threw', (_label, name, type, body, cause) => {
+    const project = countedProject(name, body, type)
+    const run = loadDevCommandConfig(project.dir)
+
+    expect(run).toMatchObject({status: 0, result: {code: 'E_CONFIG_LOAD'}})
+    expect(run.result?.cause).toContain(cause)
+    expect(project.evaluations()).toBe(1)
+  })
+
+  it('keeps the ES module reason when the file has no CommonJS reading', () => {
+    const project = countedProject(
+      'extension.config.js',
+      (tick) => `${tick}${REQUIRE}export default {}\n`,
+      'module'
+    )
+    const run = loadDevCommandConfig(project.dir)
+
+    expect(run.result?.cause).toContain(
+      'require is not defined in ES module scope'
+    )
+
+    expect(project.evaluations()).toBe(1)
+  })
+
+  it.each([
+    [
+      'calls require behind a hashbang line',
+      (tick: string) =>
+        `#!/usr/bin/env node\n${REQUIRE}${tick}module.exports = {commands: {dev: {port: path.sep.length + 4320}}}\n`
+    ],
+    [
+      'only parses as a script',
+      (tick: string) =>
+        `${REQUIRE}${tick}with (path) { module.exports = {commands: {dev: {port: sep.length + 4320}}} }\n`
+    ]
+  ])('still loads a CommonJS config that %s, once', (_label, body) => {
+    const project = countedProject('extension.config.js', body, 'module')
+
+    expect(loadDevCommandConfig(project.dir)).toMatchObject({
+      status: 0,
+      result: {config: {port: 4321}}
+    })
+
+    expect(project.evaluations()).toBe(1)
+  })
+
   it.each([
     [
       'assigns module.exports',

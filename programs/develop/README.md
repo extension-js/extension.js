@@ -256,12 +256,14 @@ export default {
 - `extension.config.*` runs in a Node context during command startup.
   - Use `process.env.*` to read environment variables inside the config file.
   - `import.meta.env.*` is available in your extension code at bundle time (via the Env plugin), not in the Node config.
-- During config loading, develop preloads environment files from the project directory into `process.env` using the following order (first match wins):
-  1. `.env.defaults` (always merged first when present)
-  2. `.env.development`
-  3. `.env.local`
-  4. `.env`
-- In monorepos, if none of the files above exist in the project directory, develop falls back to the nearest workspace root (directory containing `pnpm-workspace.yaml`) and applies the same loading order there.
+- Before the config runs, develop loads the env files that match the running mode and browser into `process.env`. Values layer key by key: every matching file is read, and for each key the strongest file that sets it wins. A value already set in the shell or CI wins over every file. Strongest first:
+  1. `.env.<browser>.<mode>`, then `.env.<browser>`, for the browser and then for each name of its family (for example `.env.chrome.production`, `.env.chrome`, `.env.chromium`). These apply once the browser is known.
+  2. `.env.<mode>.local`
+  3. `.env.<mode>` (`development` for `dev`, `production` otherwise)
+  4. `.env.local`
+  5. `.env`
+  6. `.env.defaults` (weakest, it only fills keys no other file sets)
+- In a monorepo, a package with none of the files 1 to 5 reads them from the nearest workspace root instead (the directory containing `pnpm-workspace.yaml`), even when the package has its own `.env.defaults`. The root's `.env.defaults` is then the weakest layer, the package's `.env.defaults` comes above it, and the root's other env files come above both. A package with any of the files 1 to 5 reads only its own folder.
 - Only variables you read explicitly in the config are used there; client-side injection still requires the `EXTENSION_PUBLIC_*` prefix.
 - Example:
 
