@@ -61,6 +61,7 @@ describe('diagnosticCode', () => {
     ['CssDeadRef', 'E_CSS_DEAD_REF'],
     ['CssWithheldRef', 'E_CSS_DEAD_REF'],
     ['CssParseWarning', 'E_CSS_PARSE'],
+    ['CssMinifierDroppedRules', 'E_CSS_PARSE'],
     ['BackgroundRequired', 'E_BACKGROUND_REQUIRED'],
     ['ContentScriptSyntax', 'E_CONTENT_SCRIPT_SYNTAX'],
     ['ManifestNotFoundError', 'E_MANIFEST_NOT_FOUND'],
