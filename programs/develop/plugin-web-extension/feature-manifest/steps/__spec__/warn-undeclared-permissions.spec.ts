@@ -11,6 +11,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import * as messages from '../../messages'
 import {WarnUndeclaredPermissions} from '../warn-undeclared-permissions'
 
 // The production build scan, which runs without the dev session's injected
@@ -116,5 +117,79 @@ describe('WarnUndeclaredPermissions', () => {
         permissions: ['activeTab']
       })
     ).toHaveLength(1)
+  })
+
+  it('says what activeTab already grants and when "tabs" is still needed', () => {
+    const [warning] = buildWarnings({
+      manifest_version: 3,
+      name: 'x',
+      permissions: ['activeTab']
+    })
+
+    expect(warning.message).toBe(
+      messages.undeclaredPermissionInBuild({
+        api: 'tabs',
+        location: 'background.js:1',
+        tabField: 'url',
+        activeTabDeclared: true,
+        outcome: 'unused in this shape'
+      })
+    )
+
+    expect(warning.message).toContain(
+      'background.js:1 reads the url of a tab, which "tabs" gates'
+    )
+
+    expect(warning.message).toContain('"activeTab" is declared')
+  })
+})
+
+describe('undeclaredPermissionInBuild', () => {
+  const base = {
+    location: 'src/background.ts:4',
+    activeTabDeclared: false,
+    outcome: 'in the packaged build that call fails.'
+  }
+
+  it('names the file, the API and the line to add for any permission', () => {
+    expect(
+      messages.undeclaredPermissionInBuild({...base, api: 'scripting'})
+    ).toBe(
+      'manifest.json does not declare the "scripting" permission, but ' +
+        'src/background.ts:4 uses chrome.scripting. Nothing grants it here, so ' +
+        'in the packaged build that call fails. ' +
+        'Add "scripting" to permissions in manifest.json.'
+    )
+  })
+
+  it('tells a tab field read from a call on the namespace', () => {
+    const call = messages.undeclaredPermissionInBuild({...base, api: 'tabs'})
+    const read = messages.undeclaredPermissionInBuild({
+      ...base,
+      api: 'tabs',
+      tabField: 'title'
+    })
+
+    expect(call).toContain('src/background.ts:4 uses chrome.tabs.')
+    expect(read).toContain(
+      'src/background.ts:4 reads the title of a tab, which "tabs" gates.'
+    )
+
+    for (const text of [call, read]) {
+      expect(text).toContain('Add "tabs" to permissions in manifest.json')
+      expect(text).toContain('or drop the read')
+    }
+  })
+
+  it('writes sentences, with no semicolon joining two of them', () => {
+    for (const activeTabDeclared of [true, false]) {
+      expect(
+        messages.undeclaredPermissionInBuild({
+          ...base,
+          api: 'tabs',
+          activeTabDeclared
+        })
+      ).not.toContain(';')
+    }
   })
 })

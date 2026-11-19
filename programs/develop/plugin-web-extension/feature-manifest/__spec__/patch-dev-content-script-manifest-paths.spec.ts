@@ -25,18 +25,87 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     }
   })
 
-  function makeCompilation(emittedNames: string[]) {
+  // A compilation whose compiler keeps its done taps, so a spec can end
+  // the build by hand the way the bundler does once the files are written.
+  function makeCompilation(emittedNames: string[], errors: unknown[] = []) {
     const sources = Object.fromEntries(
       emittedNames.map((name) => [name, {source: () => `/* ${name} */`} as any])
     )
-
-    return {
+    const doneTaps: Array<(stats: {compilation: unknown}) => void> = []
+    const compilation = {
       getAssets: () =>
         emittedNames.map((name) => ({name, source: sources[name]})),
       assets: sources,
-      options: {mode: 'development', output: {path: outputPath}}
-    } as unknown as Compilation
+      errors,
+      options: {mode: 'development', output: {path: outputPath}},
+      compiler: {
+        hooks: {
+          done: {
+            tap: (_name: string, fn: (typeof doneTaps)[number]) =>
+              doneTaps.push(fn)
+          }
+        }
+      }
+    }
+
+    return {
+      compilation: compilation as unknown as Compilation,
+      finish: () => {
+        for (const tap of doneTaps) tap({compilation})
+      }
+    }
   }
+
+  function patchAndFinish(
+    emittedNames: string[],
+    manifest: any,
+    errors: unknown[] = []
+  ) {
+    const {compilation, finish} = makeCompilation(emittedNames, errors)
+    const result = patchDevContentScriptManifestPaths(compilation, manifest)
+    finish()
+
+    return result
+  }
+
+  it('leaves every file in place while the build is still being put together', () => {
+    const stale = 'content-0.aaaaaaaa.js'
+    fs.writeFileSync(path.join(csDir, stale), '/* stale */')
+
+    const {compilation, finish} = makeCompilation([
+      'content_scripts/content-0.bbbbbbbb.js'
+    ])
+    patchDevContentScriptManifestPaths(compilation, {
+      manifest_version: 3,
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']}
+      ]
+    } as any)
+
+    expect(fs.existsSync(path.join(csDir, stale))).toBe(true)
+
+    finish()
+
+    expect(fs.existsSync(path.join(csDir, stale))).toBe(false)
+  })
+
+  it('keeps the last build when this one ends with an error', () => {
+    const stale = 'content-0.aaaaaaaa.js'
+    fs.writeFileSync(path.join(csDir, stale), '/* stale */')
+
+    patchAndFinish(
+      ['content_scripts/content-0.bbbbbbbb.js'],
+      {
+        manifest_version: 3,
+        content_scripts: [
+          {matches: ['<all_urls>'], js: ['content_scripts/content-0.js']}
+        ]
+      },
+      [new Error('the build failed')]
+    )
+
+    expect(fs.existsSync(path.join(csDir, stale))).toBe(true)
+  })
 
   it('deletes leftover content-index.<hash>.css not emitted by the current compilation', () => {
     const stale = 'content-index.aaaaaaaa.css'
@@ -51,11 +120,8 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
       ]
     }
 
-    patchDevContentScriptManifestPaths(
-      makeCompilation([
-        'content_scripts/content-0.cccccccc.js',
-        `content_scripts/${fresh}`
-      ]),
+    patchAndFinish(
+      ['content_scripts/content-0.cccccccc.js', `content_scripts/${fresh}`],
       manifest
     )
 
@@ -76,10 +142,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
       ]
     }
 
-    patchDevContentScriptManifestPaths(
-      makeCompilation(['content_scripts/content-0.cccccccc.js']),
-      manifest
-    )
+    patchAndFinish(['content_scripts/content-0.cccccccc.js'], manifest)
 
     expect(fs.existsSync(path.join(csDir, userFile))).toBe(true)
     expect(fs.existsSync(path.join(csDir, plainCss))).toBe(true)
@@ -104,11 +167,8 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
       ]
     }
 
-    const result = patchDevContentScriptManifestPaths(
-      makeCompilation([
-        `content_scripts/${fresh0}`,
-        `content_scripts/${fresh1}`
-      ]),
+    const result = patchAndFinish(
+      [`content_scripts/${fresh0}`, `content_scripts/${fresh1}`],
       manifest
     )
 
@@ -140,10 +200,7 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
     }
 
     const manifest: any = {manifest_version: 3, name: 'no-entry-left'}
-    const result = patchDevContentScriptManifestPaths(
-      makeCompilation(['background/service_worker.js']),
-      manifest
-    )
+    const result = patchAndFinish(['background/service_worker.js'], manifest)
 
     expect(result).toBe(manifest)
     expect(fs.readdirSync(csDir)).toEqual([])
@@ -166,10 +223,10 @@ describe('patchDevContentScriptManifestPaths: stale CSS chunk purge', () => {
 
     fs.writeFileSync(path.join(csDir, 'content-0.eeeeeeee.js'), '/* stale */')
 
-    patchDevContentScriptManifestPaths(
-      makeCompilation([`content_scripts/${emitted}`]),
-      {manifest_version: 3, name: 'no-entry-left'} as any
-    )
+    patchAndFinish([`content_scripts/${emitted}`], {
+      manifest_version: 3,
+      name: 'no-entry-left'
+    } as any)
 
     expect(fs.readdirSync(csDir).sort()).toEqual([...kept].sort())
   })

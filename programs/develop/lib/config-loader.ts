@@ -31,6 +31,7 @@ import * as messages from './messages'
 import {CODES, debugLine, isDebug} from './messaging'
 import type {ParsedJson} from './parse-json-safe'
 import {resolveProjectStructureSync} from './project'
+import {thrownFrom} from './thrown-location'
 
 // Keys this module introduced into process.env by loading a dotenv file, as
 // opposed to keys the shell or CI really set. dotenv.config mutates
@@ -81,6 +82,13 @@ function envModeFor(command?: string, target?: ConfigEnvTarget): string {
 // A key the shell already owns is never touched by any of them.
 function envPreloadOrder(mode: string, browser?: string): string[] {
   return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
+}
+
+// A target that names nothing leaves the order to the run's last read.
+function namedEnvOrder(target?: ConfigEnvTarget): string[] | undefined {
+  return target?.mode || target?.browser
+    ? envPreloadOrder(envModeFor(undefined, target), target.browser)
+    : undefined
 }
 
 // The file order each config was last read with. A loader that is told no
@@ -467,8 +475,13 @@ function prepareImportMetaEnv(absolutePath: string): void {
     // The previous shim serialized every variable into a file under os.tmpdir().
   }
 
+  // Copying lists every name, which is not a read by the config itself.
+  const reads = [...activeEnvReads]
+  activeEnvReads.clear()
+  const snapshot = Object.freeze({...process.env})
+  for (const entry of reads) activeEnvReads.add(entry)
   ;(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
-    Object.freeze({...process.env})
+    recordingEnv(snapshot)
 
   if (importMetaEnvHookRegistered) return
 
@@ -488,15 +501,40 @@ class ConfigShapeError extends Error {
   public readonly code = CODES.E_CONFIG_LOAD
 }
 
+// The hook is synchronous, so a promise is as much a missing config as
+// undefined, and the bundler would read keys off either.
+function isBundlerConfig(value: unknown): value is Configuration {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as {then?: unknown}).then !== 'function'
+  )
+}
+
 // A config that throws is the author's to fix: one finished block naming the
 // file and the reason, coded so a JSON reader gets the documented class.
 function configLoadError(configPath: string, cause: unknown): CodedError {
   return Object.assign(
     codedError(
       CODES.E_CONFIG_LOAD,
-      messages.configLoadingError(configPath, cause)
+      messages.configLoadingError(configPath, reasonOf(configPath, cause))
     ),
     {cause}
+  )
+}
+
+// An error with an empty message reads as the bare word Error, so the place
+// it was thrown from is the reason given.
+function reasonOf(configPath: string, cause: unknown): unknown {
+  try {
+    if (!(cause instanceof Error) || String(cause.message).trim()) return cause
+  } catch {
+    return cause
+  }
+
+  return messages.errorWithoutMessageText(
+    thrownFrom(cause, path.dirname(configPath))
   )
 }
 
@@ -504,18 +542,115 @@ function isConfigLoadError(error: unknown): boolean {
   return (error as {code?: unknown} | null)?.code === CODES.E_CONFIG_LOAD
 }
 
-// Keyed by the file and the env file values it is read under. The mode and
-// the browser reach a config only through those files, so they are the key.
-const loadedConfigCache = new Map<string, Promise<FileConfig>>()
+// The env names one evaluation read and the value each had. `all` means it
+// listed process.env, so any changed value could have changed its answer.
+type EnvReads = {all: boolean; values: Map<string, string | undefined>}
+
+type ConfigEvaluation = {
+  reads: EnvReads
+  envAtStart: string
+  loading: Promise<FileConfig>
+}
+
+// Each file's evaluations, newest first. A run reuses one whose read names
+// still hold the same values, so side effects run again only when they must.
+const configEvaluationsByPath = new Map<string, ConfigEvaluation[]>()
 
 // How many times each config file ran to the end, so a later run under other
 // env values is a fresh evaluation and not Node's cached module.
 const configEvaluations = new Map<string, number>()
 
-function preloadedEnvFingerprint(): string {
-  return JSON.stringify(
-    [...preloadedEnvValues].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  )
+// Every evaluation in flight. Two at once cannot tell whose read is whose, so
+// both then count as reading every name, which only costs a rerun.
+const activeEnvReads = new Set<EnvReads>()
+let realProcessEnv: NodeJS.ProcessEnv | undefined
+let recordingProcessEnv: NodeJS.ProcessEnv | undefined
+
+function recordEnvRead(key: string | symbol, value: unknown): void {
+  if (typeof key !== 'string') return
+
+  for (const reads of activeEnvReads) {
+    if (reads.values.has(key)) continue
+
+    reads.values.set(key, value === undefined ? undefined : String(value))
+  }
+}
+
+// Reads go through to the object below and are written down on the way.
+function recordingEnv<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(env, key) {
+      const value = Reflect.get(env, key)
+      recordEnvRead(key, value)
+
+      return value
+    },
+    has(env, key) {
+      recordEnvRead(key, Reflect.get(env, key))
+
+      return Reflect.has(env, key)
+    },
+    getOwnPropertyDescriptor(env, key) {
+      recordEnvRead(key, Reflect.get(env, key))
+
+      return Reflect.getOwnPropertyDescriptor(env, key)
+    },
+    ownKeys(env) {
+      for (const reads of activeEnvReads) reads.all = true
+
+      return Reflect.ownKeys(env)
+    },
+    set(env, key, value) {
+      ;(env as Record<string | symbol, unknown>)[key] = value
+
+      return true
+    }
+  })
+}
+
+function envFingerprint(): string {
+  return JSON.stringify(Object.entries(process.env).sort())
+}
+
+function stillHolds(evaluation: ConfigEvaluation): boolean {
+  if (evaluation.reads.all) return envFingerprint() === evaluation.envAtStart
+
+  for (const [key, value] of evaluation.reads.values) {
+    if (process.env[key] !== value) return false
+  }
+
+  return true
+}
+
+// process.env is swapped only while the file evaluates, then put back.
+async function evaluateRecordingEnvReads(
+  run: () => Promise<FileConfig>
+): Promise<{value: FileConfig; reads: EnvReads}> {
+  const reads: EnvReads = {all: false, values: new Map()}
+
+  if (activeEnvReads.size === 0) {
+    realProcessEnv = process.env
+    recordingProcessEnv = recordingEnv(realProcessEnv)
+    process.env = recordingProcessEnv
+  } else {
+    reads.all = true
+    for (const other of activeEnvReads) other.all = true
+  }
+
+  activeEnvReads.add(reads)
+
+  try {
+    return {value: await run(), reads}
+  } finally {
+    activeEnvReads.delete(reads)
+
+    if (activeEnvReads.size === 0 && realProcessEnv) {
+      if (process.env === recordingProcessEnv) process.env = realProcessEnv
+
+      realProcessEnv = undefined
+      recordingProcessEnv = undefined
+    }
+  }
 }
 
 // Four loaders each report before rethrowing, so one bad config printed the
@@ -595,11 +730,20 @@ async function loadConfigFile(
     preloadEnvFiles(path.dirname(absolutePath), order)
     envOrderByConfigPath.set(absolutePath, order)
 
-    const cacheKey = `${absolutePath}\0${preloadedEnvFingerprint()}`
-    const cached = loadedConfigCache.get(cacheKey)
-    if (cached) return cached
+    const earlier = configEvaluationsByPath.get(absolutePath) || []
+    const reusable = earlier.find(stillHolds)
+    if (reusable) return reusable.loading
 
-    const loading = loadConfigFileUncached(absolutePath).then((value) => {
+    const evaluation: ConfigEvaluation = {
+      reads: {all: true, values: new Map()},
+      envAtStart: envFingerprint(),
+      loading: Promise.resolve(undefined as unknown as FileConfig)
+    }
+
+    evaluation.loading = evaluateRecordingEnvReads(() =>
+      loadConfigFileUncached(absolutePath)
+    ).then(({value, reads}) => {
+      evaluation.reads = reads
       assertConfigShape(absolutePath, value)
       configEvaluations.set(
         absolutePath,
@@ -608,11 +752,17 @@ async function loadConfigFile(
 
       return value
     })
-    loadedConfigCache.set(cacheKey, loading)
 
-    return loading.catch((error: unknown) => {
+    configEvaluationsByPath.set(absolutePath, [evaluation, ...earlier])
+
+    return evaluation.loading.catch((error: unknown) => {
       // Don't poison the cache with a transient failure.
-      loadedConfigCache.delete(cacheKey)
+      configEvaluationsByPath.set(
+        absolutePath,
+        (configEvaluationsByPath.get(absolutePath) || []).filter(
+          (entry) => entry !== evaluation
+        )
+      )
 
       throw error
     })
@@ -716,11 +866,21 @@ export async function loadCustomConfig(
           // A hook that throws is the author's to fix, like a config that
           // does not load, and reports under the same code.
           return (config: Configuration) => {
+            let changed: unknown
+
             try {
-              return hook(config, context)
+              changed = hook(config, context)
             } catch (cause) {
               throw configLoadError(configPath, cause)
             }
+
+            if (!isBundlerConfig(changed)) {
+              throw new ConfigShapeError(
+                messages.configHookReturnedNoConfig(configPath, changed)
+              )
+            }
+
+            return changed
           }
         }
 
@@ -754,13 +914,14 @@ export async function loadCustomConfig(
 // The late hook: the bundler config with every loader rule attached, right
 // before the first build. Absent when the config file has none.
 export async function loadConfigResolvedHook(
-  projectPath: string
+  projectPath: string,
+  envTarget?: ConfigEnvTarget
 ): Promise<FileConfig['configResolved'] | undefined> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return undefined
   if (!(await isUsingExperimentalConfig(projectPath))) return undefined
 
-  const userConfig = await loadConfigFile(configPath)
+  const userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
 
   return typeof userConfig?.configResolved === 'function'
     ? userConfig.configResolved
@@ -806,7 +967,8 @@ function collectDefineTypes(
 // Every `define` key the config file declares, at the top level and under
 // each browser and command, with the type its values resolve to.
 export async function loadDefineTypes(
-  projectPath: string
+  projectPath: string,
+  envTarget?: ConfigEnvTarget
 ): Promise<Record<string, string>> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return {}
@@ -815,7 +977,7 @@ export async function loadDefineTypes(
   let userConfig: FileConfig | undefined
 
   try {
-    userConfig = await loadConfigFile(configPath)
+    userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
   } catch {
     return {}
   }
@@ -871,12 +1033,7 @@ export async function loadProjectConfigDefaults(
         // did, and never as a production build in the middle of a dev session.
         const userConfig = (await loadConfigFile(
           configPath,
-          envTarget?.mode || envTarget?.browser
-            ? envPreloadOrder(
-                envModeFor(undefined, envTarget),
-                envTarget?.browser
-              )
-            : undefined
+          namedEnvOrder(envTarget)
         )) as ProjectConfigDefaults | undefined
 
         return {
@@ -957,14 +1114,18 @@ export async function loadCommandConfig(
 
 export async function loadBrowserConfig(
   projectPath: string,
-  browser: DevOptions['browser'] = 'chrome'
+  browser: DevOptions['browser'] = 'chrome',
+  envTarget?: ConfigEnvTarget
 ): Promise<BrowserConfig> {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
     if (await isUsingExperimentalConfig(projectPath)) {
       try {
-        const userConfig = await loadConfigFile(configPath)
+        const userConfig = await loadConfigFile(
+          configPath,
+          namedEnvOrder(envTarget)
+        )
 
         if (userConfig?.browser) {
           const browsers = userConfig.browser as Record<string, BrowserConfig>

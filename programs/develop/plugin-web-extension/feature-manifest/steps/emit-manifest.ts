@@ -11,10 +11,7 @@ import rspack, {Compilation, type Compiler, sources} from '@rspack/core'
 import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
 import {hasJsonComments, parseAuthoredJson} from '../../../lib/parse-json-safe'
 import type {PluginInterface} from '../../../types'
-import {
-  setCurrentManifestContent,
-  setOriginalManifestContent
-} from '../manifest-lib/manifest'
+import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 
 export class EmitManifest {
@@ -62,7 +59,6 @@ export class EmitManifest {
             // UpdateManifest is the single canonical writer of browser-specific fields.
             const jsonString = JSON.stringify(jsonContent, null, 2)
             setOriginalManifestContent(compilation, jsonString)
-            setCurrentManifestContent(compilation, jsonString)
 
             compilation.emitAsset(
               'manifest.json',

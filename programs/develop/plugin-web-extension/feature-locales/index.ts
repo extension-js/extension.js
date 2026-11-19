@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import {Compilation, type Compiler} from '@rspack/core'
-import type {DevOptions, FilepathList, PluginInterface} from '../../types'
+import type {DevOptions, PluginInterface} from '../../types'
 import * as messages from './messages'
 import {processLocaleAssets} from './process-assets'
 import {trackLocaleDependencies} from './track-dependencies'
@@ -17,12 +17,10 @@ import {validateDefaultLocaleEmitted, validateLocales} from './validation'
 export class LocalesPlugin {
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']
-  public readonly includeList?: FilepathList
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
-    this.includeList = options.includeList
   }
 
   public apply(compiler: Compiler): void {
@@ -82,6 +80,10 @@ export class LocalesPlugin {
     })
 
     compiler.hooks.afterCompile.tap('locales:module', (compilation) => {
+      // rspack copies this tap into every child compiler. A child compiles
+      // no locales, so only the compilation this compiler owns is tracked.
+      if (compilation.compiler !== compiler) return
+
       const projectRoot =
         (compiler.options.context as string | undefined) || undefined
       trackLocaleDependencies(compilation, this.manifestPath, projectRoot)

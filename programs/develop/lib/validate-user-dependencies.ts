@@ -74,7 +74,7 @@ export function assertNoManagedDependencyConflicts(
   if (duplicates.length === 0) return
 
   recordCodedWarning(
-    CODES.E_MANAGED_DEP_CONFLICT,
+    CODES.W_MANAGED_DEP_CONFLICT,
     `${path.basename(configPath)} loads its own copy of ${duplicates
       .map((name) => `${name} (Extension.js ships ${shipped[name]})`)
       .join(', ')}.`

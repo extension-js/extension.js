@@ -9,9 +9,8 @@
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {debugLine, isDebug} from '../../../lib/messaging'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import {findLegacyManifestPathHits} from '../manifest-lib/legacy-paths'
-import {getOriginalManifestContent} from '../manifest-lib/manifest'
+import {getOriginalManifest} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 
 export class ManifestLegacyWarnings {
@@ -34,10 +33,9 @@ export class ManifestLegacyWarnings {
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
           },
           () => {
-            const original = getOriginalManifestContent(compilation)
-            if (!original) return
+            const manifest = getOriginalManifest(compilation)
+            if (!manifest) return
 
-            const manifest = parseJsonSafe(original)
             const hits = findLegacyManifestPathHits(manifest)
             if (hits.length === 0) return
 

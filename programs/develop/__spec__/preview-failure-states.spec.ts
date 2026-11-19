@@ -185,7 +185,7 @@ describe('a preview that fails after it wrote starting', () => {
     const gone = path.join(root, 'extensions', 'gone')
 
     expect(result?.warnings).toHaveLength(1)
-    expect(result?.warnings[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+    expect(result?.warnings[0]).toMatch(/^W_COMPANION_EXTENSION_PATH: /)
     expect(result?.warnings[0]).toContain('ENTRY ./extensions/gone')
     expect(result?.warnings[0]).toContain('DECLARED IN the --extensions flag')
     expect(result?.warnings[0]).toContain(

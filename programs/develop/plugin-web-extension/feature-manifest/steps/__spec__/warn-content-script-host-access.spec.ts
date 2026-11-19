@@ -190,6 +190,27 @@ describe('WarnContentScriptHostAccess', () => {
     ).toHaveLength(1)
   })
 
+  it('names the empty prefixed list that replaced the hosts', () => {
+    const [warning, ...rest] = makeCompiler('chrome').runCompilation({
+      ...base,
+      host_permissions: ['https://example.com/*'],
+      'chromium:host_permissions': []
+    })
+
+    expect(rest).toEqual([])
+    expect(warning.message).toContain('lists hosts under host_permissions')
+    expect(warning.message).toContain(
+      'chromium:host_permissions replaces that key in the chrome build and names none. ' +
+        'A prefixed key replaces the unprefixed one for that browser and does not merge with it'
+    )
+
+    expect(warning.message).toContain(
+      'Add the hosts to chromium:host_permissions, or remove that key so the build reads host_permissions.'
+    )
+
+    expect(warning.message).not.toContain('and no host permission')
+  })
+
   it('names only the outcomes of the permissions the manifest declares', () => {
     const [warning] = makeCompiler('chrome').runCompilation({
       ...base,

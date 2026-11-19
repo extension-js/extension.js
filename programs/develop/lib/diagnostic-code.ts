@@ -6,7 +6,9 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {CODES, type ErrorCode} from './messaging'
+import {CODES, prefix as channelPrefix, type ErrorCode} from './messaging'
+
+export type WarningCode = Extract<ErrorCode, `W_${string}`>
 
 export interface DiagnosticContext {
   contentScripts?: ReadonlySet<string>
@@ -23,28 +25,32 @@ interface IssueLike {
 
 // Every plugin diagnostic names itself, and this table is the one place that
 // name meets the code a consumer reads.
-const NAMED_CODES: Record<string, ErrorCode> = {
+export const NAMED_CODES: Record<string, ErrorCode> = {
   WARInvalidMatchPattern: CODES.E_WAR_INVALID,
   WARStringEntryInMv3: CODES.E_WAR_INVALID,
+  WARPatternLeavesRoot: CODES.W_WAR_INVALID,
   ThemeArrayInvalid: CODES.E_THEME_INVALID,
   LocalesLayoutWarning: CODES.E_LOCALES_LAYOUT,
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,
-  PerfBudgetWarning: CODES.E_PERF_BUDGET,
+  PerfBudgetWarning: CODES.W_PERF_BUDGET,
   PerfBudgetError: CODES.E_PERF_BUDGET,
-  EnvNoMatchingFile: CODES.E_ENV_NO_MATCH,
+  EnvNoMatchingFile: CODES.W_ENV_NO_MATCH,
   JSONMissingFile: CODES.E_ENTRY_NOT_FOUND,
   LocalesPluginMissingFile: CODES.E_ENTRY_NOT_FOUND,
   HtmlEntrypointMissing: CODES.E_ENTRY_NOT_FOUND,
   ScriptsMissingFile: CODES.E_ENTRY_NOT_FOUND,
   ManifestPageMissing: CODES.E_ENTRY_NOT_FOUND,
   ManifestFilesNotEmitted: CODES.E_ENTRY_NOT_FOUND,
+  JSONPathIsFolder: CODES.E_ENTRY_NOT_FOUND,
   ManifestNamedFileNotShipped: CODES.E_ENTRY_NOT_FOUND,
   IconsMissingFile: CODES.E_ASSET_MISSING,
   HtmlAssetMissing: CODES.E_ASSET_MISSING,
   HtmlPublicAssetMissing: CODES.E_ASSET_MISSING,
   WARRelativeAssetMissing: CODES.E_ASSET_MISSING,
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
+  PublicFolderOffRef: CODES.E_ASSET_MISSING,
+  RootAbsoluteRefCompiledSource: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeSetSurfaceFileMissing: CODES.E_ASSET_MISSING,
   CodeNamedFileNotShipped: CODES.E_SCRIPT_DEP_MISSING,
@@ -52,15 +58,86 @@ const NAMED_CODES: Record<string, ErrorCode> = {
   ImportScriptsDependencyMissing: CODES.E_SCRIPT_DEP_MISSING,
   InjectedScriptFilesMissing: CODES.E_SCRIPT_DEP_MISSING,
   UnresolvedBareRequireWarning: CODES.E_SCRIPT_DEP_MISSING,
+  ImportScriptsCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
+  InjectedScriptCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeStaticImportFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeGetURLFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeGetURLCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
+  RuntimeAssetFolderNotShipped: CODES.E_SCRIPT_DEP_MISSING,
+  MovedPageRelativeUrl: CODES.E_SCRIPT_DEP_MISSING,
+  WebkitDroppedPageOpened: CODES.E_SCRIPT_DEP_MISSING,
   NodeBuiltinNotAvailable: CODES.E_MODULE_NOT_FOUND,
-  RemoteResourceBlocked: CODES.E_REMOTE_RESOURCE_BLOCKED,
+  RemoteResourceBlocked: CODES.W_REMOTE_RESOURCE_BLOCKED,
   ReservedScriptsFolder: CODES.E_RESERVED_FOLDER,
+  ScriptsFolderEntryOnlyImported: CODES.W_RESERVED_FOLDER,
   CssPreprocessorMissing: CODES.E_CSS_PREPROCESSOR_MISSING,
   CssDeadRef: CODES.E_CSS_DEAD_REF,
   CssWithheldRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
   BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
-  ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX
+  ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
+  ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
+  ManifestFatalShapeWarning: CODES.W_MANIFEST_INVALID,
+  MainWorldScriptCompileFailed: CODES.E_COMPILE,
+  ContentScriptDevServerRuntimeWarning: CODES.W_INTERNAL,
+  ScriptsPathCheckFailed: CODES.E_INTERNAL,
+  CssUrlRewriteWarning: CODES.W_INTERNAL,
+  SpecialFoldersRemoval: CODES.E_RESTART_REQUIRED,
+  HtmlEntrypointChanged: CODES.E_RESTART_REQUIRED,
+  EnvFileChange: CODES.W_RESTART_REQUIRED,
+  ProjectConfigChange: CODES.W_RESTART_REQUIRED,
+  SpecialFoldersChange: CODES.W_RESTART_REQUIRED,
+  MainWorldRegistrationChange: CODES.W_RESTART_REQUIRED,
+  PublicFolderAppearedWarning: CODES.W_RESTART_REQUIRED,
+  CssSetupWarning: CODES.W_RESTART_REQUIRED,
+  JSONInvalidSyntax: CODES.E_JSON_INVALID,
+  DNRInvalidRuleset: CODES.E_JSON_INVALID,
+  DNRInvalidRule: CODES.E_JSON_INVALID,
+  ManagedSchemaInvalid: CODES.E_JSON_INVALID,
+  EnvValueBreaksJsonAsset: CODES.E_JSON_INVALID,
+  DNRRuleShapeIssue: CODES.W_JSON_INVALID,
+  DNRDuplicateRuleId: CODES.W_JSON_INVALID,
+  DNRRegexChromeCannotCompile: CODES.W_JSON_INVALID,
+  PublicOutputCollision: CODES.E_PROJECT_LAYOUT,
+  IncludeFilesError: CODES.E_PROJECT_LAYOUT,
+  ManifestPersistFailed: CODES.E_OUTPUT_NOT_WRITABLE,
+  PublicFolderShadowedWarning: CODES.W_PROJECT_LAYOUT,
+  PublicLayoutWarning: CODES.W_PROJECT_LAYOUT,
+  ExcludeFilesWarning: CODES.W_PROJECT_LAYOUT,
+  ScriptsFolderFilesLeftOutWarning: CODES.W_PROJECT_LAYOUT,
+  PublicEnvFilesWarning: CODES.W_PROJECT_LAYOUT,
+  PublicLinkedFilesWarning: CODES.W_PROJECT_LAYOUT,
+  NamespaceImportReadAsValue: CODES.E_ASSET_IMPORT_SHAPE,
+  ManifestV2OnChromiumWarning: CODES.W_MANIFEST_COMPAT,
+  ManifestLegacyWarning: CODES.W_MANIFEST_COMPAT,
+  ManifestHostPermissionWarning: CODES.W_MANIFEST_COMPAT,
+  GeckoAddonIdWarning: CODES.W_MANIFEST_COMPAT,
+  WebAssemblyPolicyWarning: CODES.W_MANIFEST_COMPAT,
+  ManifestDescriptionWarning: CODES.W_STORE_READINESS,
+  AmoDataCollectionWarning: CODES.W_STORE_READINESS,
+  RemoteWebAssemblyWarning: CODES.W_STORE_READINESS,
+  UndeclaredPermissionWarning: CODES.W_PERMISSION_MISMATCH,
+  ContentScriptHostAccessWarning: CODES.W_PERMISSION_MISMATCH,
+  DevInjectedPermissionWarning: CODES.W_PERMISSION_MISMATCH,
+  DevInjectedHostWarning: CODES.W_PERMISSION_MISMATCH,
+  DevPromotedOptionalPermissionWarning: CODES.W_PERMISSION_MISMATCH,
+  DevPromotedOptionalHostWarning: CODES.W_PERMISSION_MISMATCH,
+  GeckoUnsupportedApiWarning: CODES.W_API_UNSUPPORTED,
+  GeckoCallbackFormWarning: CODES.W_API_UNSUPPORTED,
+  SafariUnsupportedApiWarning: CODES.W_API_UNSUPPORTED,
+  BrowserGlobalWithoutPolyfillWarning: CODES.W_API_UNSUPPORTED,
+  UnreachableWebAccessibleResourceWarning: CODES.W_WAR_EXPOSURE,
+  PageNamedNotExposedWarning: CODES.W_WAR_EXPOSURE,
+  InjectedScriptResourceExposedWarning: CODES.W_WAR_EXPOSURE,
+  CssUnplacedImport: CODES.W_CSS_NOT_APPLIED,
+  InjectedSheetImportKept: CODES.W_CSS_NOT_APPLIED,
+  PublicInjectedSheetImportIgnored: CODES.W_CSS_NOT_APPLIED,
+  PublicInjectedSheetPageRelativeTarget: CODES.W_CSS_NOT_APPLIED,
+  EnvPublicSecretName: CODES.W_ENV_SECRET_PUBLIC,
+  MissingBuildConstantWarning: CODES.W_BUILD_CONSTANT_UNDEFINED,
+  EnvPrivatePlaceholder: CODES.W_BUILD_CONSTANT_UNDEFINED,
+  EnvReservedName: CODES.W_ENV_NAME_RESERVED,
+  UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
 }
 
 // The bundler wraps what a loader threw or emitted under one of these names
@@ -102,7 +179,7 @@ export function diagnosticName(issue: unknown): string | undefined {
 function isModuleNotFound(err: IssueLike): boolean {
   return (
     err.name === 'ModuleNotFoundError' ||
-    /^\s*[×]?\s*Module not found:/.test(text(err.message))
+    /^\s*[×⚠]?\s*Module not found:/.test(text(err.message))
   )
 }
 
@@ -154,6 +231,50 @@ export function diagnosticCode(
   // The bundler's own parser fails the module on this rule, which is the
   // same finding the loader reports once it has blanked the rule out.
   if (isLateCssImport(err)) return CODES.E_CSS_PARSE
+
+  return undefined
+}
+
+function hasCode(name: string): name is ErrorCode {
+  return Object.prototype.hasOwnProperty.call(CODES, name)
+}
+
+// A class with errors and warnings spells both the same after the prefix.
+function twin(code: ErrorCode, prefix: 'E_' | 'W_'): ErrorCode | undefined {
+  const name = prefix + code.slice(2)
+
+  return hasCode(name) ? name : undefined
+}
+
+export function warningCodeOf(code: ErrorCode): WarningCode | undefined {
+  const name = code.startsWith('W_') ? code : twin(code, 'W_')
+
+  return name as WarningCode | undefined
+}
+
+// A watch session meets the same gap on every rebuild, and says it once.
+const toldGaps = new Set<string>()
+
+// The one place a class meets its severity: a warning reads W_ and an
+// error reads E_, and no other pairing leaves this function.
+export function codeForSeverity(
+  code: ErrorCode,
+  severity: 'error' | 'warning'
+): ErrorCode | undefined {
+  const prefix = severity === 'warning' ? 'W_' : 'E_'
+  const name = code.startsWith(prefix) ? code : twin(code, prefix)
+  if (name) return name
+
+  const gap = `${code} has no ${prefix} name in CODES, so it cannot be reported as ${severity === 'warning' ? 'a warning' : 'an error'}`
+
+  // A spec fails on the gap. A real run drops the code and carries on, and
+  // tells its authors, since one stray child warning must not end a session.
+  if (process.env.VITEST) throw new Error(gap)
+
+  if (process.env.EXTENSION_AUTHOR_MODE === 'true' && !toldGaps.has(gap)) {
+    toldGaps.add(gap)
+    console.error(`${channelPrefix('warn')} ${gap}.`)
+  }
 
   return undefined
 }

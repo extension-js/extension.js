@@ -126,7 +126,7 @@ describe('perfBudgets.onExceed on a real production build', () => {
 
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings_count).toBe(1)
-    expect(String(summary.warnings?.[0])).toContain('E_PERF_BUDGET')
+    expect(String(summary.warnings?.[0])).toContain('W_PERF_BUDGET')
     expect(emitted(root)).toBe(true)
   }, 180_000)
 
@@ -136,7 +136,7 @@ describe('perfBudgets.onExceed on a real production build', () => {
 
     expect(summary.errors_count).toBe(0)
     expect(summary.warnings_count).toBe(1)
-    expect(String(summary.warnings?.[0])).toContain('E_PERF_BUDGET')
+    expect(String(summary.warnings?.[0])).toContain('W_PERF_BUDGET')
     expect(printedErrors()).not.toContain('nothing reads')
     expect(emitted(root)).toBe(true)
   }, 180_000)
