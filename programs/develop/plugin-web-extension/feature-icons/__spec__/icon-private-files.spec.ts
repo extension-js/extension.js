@@ -6,7 +6,7 @@ import {
   expectNothingPrivate,
   makeProject,
   manifest,
-  notFoundPaths,
+  notFoundCopies,
   PUBLIC_OUTPUT
 } from '../../feature-html/__spec__/helpers/private-files-project'
 
@@ -93,13 +93,16 @@ describe('a manifest icon that names a file the build never copies', () => {
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual([])
-      expect(notFoundPaths(result.printed)).toEqual(
-        [
+      // The terminal names a file in full, and the JSON copy names it from
+      // the project root.
+      expect(notFoundCopies(result.printed)).toEqual({
+        terminal: [
           path.join(root, '.env'),
           path.join(root, '.npmrc'),
           path.join(root, 'node_modules/pkg/.env')
-        ].sort()
-      )
+        ].sort(),
+        summary: ['.env', '.npmrc', 'node_modules/pkg/.env']
+      })
 
       expectNothingPrivate(result)
     },

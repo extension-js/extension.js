@@ -1,3 +1,4 @@
+import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {getBuildSummary, stripLoaderWrapper} from '../build-summary'
 import {toDiagnostic} from '../compilation-diagnostics'
@@ -44,11 +45,35 @@ describe('a loader warning on the machine channel', () => {
     const plain = getBuildSummary('chrome', {warnings: [{message: REPORTED}]})
 
     expect(coded.warnings).toEqual([
-      "E_CSS_PARSE: The CSS in this file doesn't parse.\n  │ PATH content/styles.css"
+      "E_CSS_PARSE: The CSS in this file doesn't parse.\nPATH content/styles.css"
     ])
 
     expect(plain.warnings).toEqual([
-      "⚠ The CSS in this file doesn't parse.\n  │ PATH content/styles.css"
+      "The CSS in this file doesn't parse.\nPATH content/styles.css"
+    ])
+  })
+
+  it('names a file inside the project from the project root', () => {
+    const project = path.resolve(path.sep, 'work', 'ext')
+    const summary = getBuildSummary(
+      'chrome',
+      {
+        warnings: [
+          {
+            message:
+              "  ⚠ Can't find the page listed in sandbox.pages.\n" +
+              `  │ NOT FOUND ${path.join(project, 'sandbox', 'missing.html')}\n`
+          }
+        ]
+      },
+      undefined,
+      undefined,
+      undefined,
+      project
+    )
+
+    expect(summary.warnings).toEqual([
+      "Can't find the page listed in sandbox.pages.\nNOT FOUND sandbox/missing.html"
     ])
   })
 
