@@ -32,9 +32,6 @@ const schema: Schema = {
     },
     includeList: {
       type: 'object'
-    },
-    frameworkOwnsRefresh: {
-      type: 'boolean'
     }
   },
   additionalProperties: false
@@ -73,14 +70,10 @@ export default function ensureHMRForScripts(
     (this as unknown as {_module?: {layer?: unknown}})?._module?.layer || ''
   )
 
-  try {
-    validate(schema, options, {
-      name: 'html:ensure-hmr-for-scripts',
-      baseDataPath: 'options'
-    })
-  } catch (error) {
-    throw error
-  }
+  validate(schema, options, {
+    name: 'html:ensure-hmr-for-scripts',
+    baseDataPath: 'options'
+  })
 
   if (moduleLayer === EXTENSIONJS_CONTENT_SCRIPT_LAYER) {
     if (debugHtmlHmr) {
@@ -92,23 +85,9 @@ export default function ensureHMRForScripts(
     return source
   }
 
-  // A framework with its own refresh runtime (React Refresh, the Vue and
-  // Svelte loaders) owns the page's updates and its mount point; a page
-  // accept here would empty the container underneath it.
-  if (
-    (options as {frameworkOwnsRefresh?: unknown})?.frameworkOwnsRefresh === true
-  ) {
-    if (debugHtmlHmr) {
-      debugLine(
-        `[extjs:html-hmr] skip framework-refresh resource=${resourcePath}`
-      )
-    }
-
-    return source
-  }
-
-  // Only page entries reach this point: the rule's issuer condition in
-  // feature-html/index.ts keeps imported modules out (rspack has no issuer here).
+  // Only the scripts a page names reach this point: the rule in
+  // feature-html/index.ts lists them, keeps imported modules out (rspack has
+  // no issuer here) and is not registered when a framework owns refresh.
 
   // Declared content scripts never reach this loader: the rule in
   // feature-html/index.ts excludes them from the browser-resolved manifest.

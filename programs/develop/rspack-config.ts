@@ -146,7 +146,7 @@ export default function webpackConfig(
     if (!isFirstCompanionWarning(companion.manifestPath)) continue
 
     recordCodedWarning(
-      CODES.E_COMPANION_EXTENSION_PATH,
+      CODES.W_COMPANION_EXTENSION_PATH,
       stripChannelPrefix(companion.frame)
     )
 
@@ -826,7 +826,7 @@ export default function webpackConfig(
     },
     optimization: {
       // A failed compile must not overwrite the last-good build on disk: rspack
-      // defaults to true, which shipped error-stub modules into dist/.
+      // defaults to true outside production, which shipped error stubs to dist/.
       emitOnErrors: false,
       minimize: devOptions.mode === 'production' && devOptions.minify !== false,
       // The stock CSS minimizer also deletes CSS module classes no script

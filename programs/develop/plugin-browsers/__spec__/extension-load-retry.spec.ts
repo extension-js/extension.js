@@ -296,7 +296,7 @@ describe('the retry of a refused extension on the next compile', () => {
     expect(dev.events).toEqual(['compiled', 'compiled'])
   })
 
-  // Pins today's behavior. Ledger 1382 D8.
+  // Pins current behavior: a throwing retry fails with no line at all.
   it('prints nothing at all when the retry throws', async () => {
     const browser = refusingBrowser(async () => {
       throw new Error('CDP socket closed')

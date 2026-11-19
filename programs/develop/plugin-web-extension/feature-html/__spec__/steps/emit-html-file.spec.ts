@@ -21,7 +21,7 @@ describe('EmitHtmlFile', () => {
     plugin = new EmitHtmlFile({
       manifestPath: '/test/project/manifest.json',
       includeList: {
-        'action/default_popup': '/test/project/popup.html',
+        'action/index': '/test/project/popup.html',
         'pages/main': '/test/project/pages/main.html'
       } as any
     })
@@ -60,6 +60,16 @@ describe('EmitHtmlFile', () => {
     vi.mocked(fs.existsSync).mockImplementation((_p: any) => false)
     plugin.apply(mockCompiler)
 
-    expect((mockCompilation as any).warnings.length).toBe(1)
+    const names = (list: Array<{message: string}>) =>
+      list.map((finding) => String(finding.message).split('\n')[0])
+
+    expect(names((mockCompilation as any).warnings)).toEqual([
+      expect.stringContaining('pages/main')
+    ])
+
+    // The popup is a page the manifest names, so its missing file fails.
+    expect(names((mockCompilation as any).errors)).toEqual([
+      expect.stringContaining('default_popup')
+    ])
   })
 })

@@ -9,6 +9,7 @@
 import colors from 'pintor'
 import {isGeckoBasedBrowser} from '../../lib/constants'
 import {browserDisplayName, prefix} from '../../lib/messaging'
+import type {ShadowedDeclaration} from './manifest-lib/shadowed-declaration'
 import {formatThemeArray} from './manifest-lib/theme-values'
 
 export function serverRestartRequiredFromManifestError(
@@ -42,6 +43,113 @@ export function manifestFilesInTurnedOffPublic(files: string[]) {
     `The public folder is turned off, ${colors.blue('folders.public')} is ${colors.blue('false')} in extension.config.js, so nothing inside public/ ships.`,
     'Turn the folder back on, or move these files out of public/ and name them by their path in the project.'
   ].join('\n')
+}
+
+// The manifest names a file that is not in the output folder, so the
+// browser would refuse the extension. Names each file and the usual cause.
+export function manifestFilesNotEmitted(files: string[]) {
+  const shown = files.slice(0, 5)
+
+  return [
+    'manifest.json names files that this build did not write to the output folder:',
+    ...shown.map((file) => `  - ${file}`),
+    ...(files.length > shown.length
+      ? [`  and ${files.length - shown.length} more`]
+      : []),
+    '',
+    'A dev session keeps the manifest.json of the last good build, so the browser never loads one that names a missing file.',
+    'Most often a plugin or a config hook of the project edits manifest.json and names a file that no entry produces. Name a file the build writes, or emit that file from the same plugin.',
+    'When nothing in the project edits manifest.json, the manifest and the files the build wrote disagree. Save a source file to build again, and report it with the list above if the same files come back.'
+  ].join('\n')
+}
+
+export function manifestPersistFailed(reason: string) {
+  return [
+    'The build could not write manifest.json to the output folder.',
+    `${colors.gray('REASON')} ${reason}`,
+    'Check that the output folder is writable and that no other program holds manifest.json open, then save a file to build again.'
+  ].join('\n')
+}
+
+// How a missing permission warning opens and which key its fix names. A
+// prefixed key that took the plain list's place is named, not "undeclared".
+export function undeclaredPermissionWording(
+  api: string,
+  shadow?: ShadowedDeclaration
+): {lead: string; fixKey: string} {
+  if (shadow?.kind === 'replaced') {
+    return {
+      lead:
+        `manifest.json lists the "${api}" permission under ` +
+        `${shadow.listedUnder}, and ${shadow.readKey} replaces that key in ` +
+        `the ${shadow.browser} build. A prefixed key replaces the ` +
+        `unprefixed one for that browser and does not merge with it, so ` +
+        `this build has no "${api}", but `,
+      fixKey: shadow.readKey
+    }
+  }
+
+  if (shadow?.kind === 'elsewhere') {
+    return {
+      lead:
+        `manifest.json lists the "${api}" permission under ` +
+        `${shadow.listedUnder}, a key the ${shadow.browser} build does not ` +
+        `read, but `,
+      fixKey: shadow.readKey
+    }
+  }
+
+  return {
+    lead: `manifest.json does not declare the "${api}" permission, but `,
+    fixKey: 'permissions'
+  }
+}
+
+// A shippable build grants nothing on its own, so a call that leans on a
+// permission the manifest never declared fails there. Names the file.
+export function undeclaredPermissionInBuild(use: {
+  api: string
+  location: string
+  tabField?: string
+  activeTabDeclared: boolean
+  outcome: string
+  shadow?: ShadowedDeclaration
+}) {
+  const {api, location, tabField, activeTabDeclared, outcome} = use
+  const {lead, fixKey} = undeclaredPermissionWording(api, use.shadow)
+
+  if (api !== 'tabs') {
+    return (
+      `${lead}${location} uses chrome.${api}. Nothing grants it here, so ` +
+      `${outcome} Add "${api}" to ${fixKey} in manifest.json.`
+    )
+  }
+
+  const reads = tabField
+    ? `reads the ${tabField} of a tab, which "tabs" gates`
+    : 'uses chrome.tabs'
+
+  // The plain advice names no key, and a replaced list needs the one to edit.
+  const toShadowKey = use.shadow ? ` to ${fixKey}` : ''
+
+  if (activeTabDeclared) {
+    return (
+      `${lead}${location} ${reads}. "activeTab" is declared, and it ` +
+      `grants url, title and favIconUrl for the tab the person invoked ` +
+      `the extension on (toolbar click, shortcut, context menu) and ` +
+      `captureVisibleTab of that tab. A read of any other tab comes ` +
+      `back without those fields. Add "tabs"${toShadowKey} only if the code reads ` +
+      `tabs the person did not invoke it on.`
+    )
+  }
+
+  return (
+    `${lead}${location} ${reads}. Nothing grants it here, so ` +
+    `${outcome} Add "tabs" to ${fixKey} in manifest.json ` +
+    `(Chrome then shows "Read your browsing history" at install), ` +
+    `or drop the read. tabs.create, update, remove and sendMessage ` +
+    `need no permission.`
+  )
 }
 
 export function legacyManifestPathWarning(
@@ -156,11 +264,11 @@ export function missingGeckoDataCollectionPermissions() {
   )
 
   lines.push(
-    `Declare ${colors.blue('{"required": ["none"]}')} if this extension transmits no data.`
+    `The extension's owner declares what the extension collects. The build proposes no value.`
   )
 
   lines.push(
-    `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for details.`
+    `See ${colors.underline('https://extensionworkshop.com/documentation/develop/firefox-builtin-data-consent/')} for the accepted values.`
   )
 
   return lines.join('\n')
@@ -840,7 +948,8 @@ const hostGatedOutcomeOnChromium: Record<string, string> = {
 // that works on Firefox finds no host for these permissions on Chrome.
 export function contentScriptMatchesGrantNoHostOnChromium(
   permissions: readonly string[],
-  matches: readonly string[]
+  matches: readonly string[],
+  replacedHosts?: ShadowedDeclaration
 ) {
   const names = permissions
     .map((permission) => colors.yellow(`"${permission}"`))
@@ -850,11 +959,19 @@ export function contentScriptMatchesGrantNoHostOnChromium(
     .filter(Boolean)
     .join(', ')
 
+  // An empty prefixed list took the place of the hosts the plain key names.
+  const head = replacedHosts
+    ? `manifest.json declares ${names} and lists hosts under ${colors.blue(replacedHosts.listedUnder)}, but ${colors.yellow(replacedHosts.readKey)} replaces that key in the ${replacedHosts.browser} build and names none. A prefixed key replaces the unprefixed one for that browser and does not merge with it, and Chromium takes no host from ${colors.blue('content_scripts')} matches.`
+    : `manifest.json declares ${names} and no host permission, and Chromium takes none from ${colors.blue('content_scripts')} matches.`
+  const fix = replacedHosts
+    ? `Add the hosts to ${colors.yellow(replacedHosts.readKey)}, or remove that key so the build reads ${colors.blue(replacedHosts.listedUnder)}.`
+    : `Add the hosts to ${colors.blue('host_permissions')}, or to ${colors.yellow('chromium:host_permissions')} to keep them out of the other builds.`
+
   return [
-    `${prefix('warn')} manifest.json declares ${names} and no host permission, and Chromium takes none from ${colors.blue('content_scripts')} matches.`,
+    `${prefix('warn')} ${head}`,
     `${colors.gray('MATCHES')} ${matches.join(', ')}`,
     `The content script still runs on those pages, but on Chrome the permission reaches none of them: ${outcomes}. Firefox reads the same matches as host access, so this works on Firefox and not on Chrome.`,
-    `Add the hosts to ${colors.blue('host_permissions')}, or to ${colors.yellow('chromium:host_permissions')} to keep them out of the other builds.`
+    fix
   ].join('\n')
 }
 

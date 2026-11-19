@@ -264,7 +264,7 @@ describe('webpack-config transpile packages watch behavior', () => {
       const coded = takeCodedWarnings()
 
       expect(coded).toHaveLength(1)
-      expect(coded[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+      expect(coded[0]).toMatch(/^W_COMPANION_EXTENSION_PATH: /)
       expect(coded[0]).toContain(path.join(missing, 'manifest.json'))
       expect(warn).toHaveBeenCalledTimes(1)
 

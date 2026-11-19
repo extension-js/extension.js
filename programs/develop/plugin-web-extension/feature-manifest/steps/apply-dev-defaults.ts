@@ -14,8 +14,11 @@ import type {DevOptions, PluginInterface} from '../../../types'
 import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
 import {
   getManifestContent,
+  getOriginalManifest,
   setCurrentManifestContent
 } from '../manifest-lib/manifest'
+import {findShadowedPermission} from '../manifest-lib/shadowed-declaration'
+import {undeclaredPermissionWording} from '../messages'
 import {listDevManifestAdditions} from './apply-dev-defaults-lib/dev-additions'
 import {
   declaredHostPatterns,
@@ -109,7 +112,7 @@ export function findInjectedOnlyPermissionUses(
       const resource = scannableSourcePath(module.resource)
       if (!resource) continue
 
-      const source = readProjectSource(resource)
+      const source = readProjectSource(resource, compilation)
       if (source === undefined) continue
 
       for (const api of candidates) {
@@ -362,17 +365,24 @@ export class ApplyDevDefaults {
 
               for (const [api, use] of uses) {
                 const relative = useLocation(this.manifestPath, use)
+                const wording = undeclaredPermissionWording(
+                  api,
+                  findShadowedPermission(
+                    getOriginalManifest(compilation),
+                    this.browser,
+                    api
+                  )
+                )
                 const text = optionalPermissions.has(api)
                   ? `manifest.json only lists the "${api}" permission under optional_permissions, but ` +
                     `${relative} uses chrome.${api}. It works in development only because the dev ` +
                     `instrumentation injects "${api}" as required: the production build has it only ` +
                     `after a runtime chrome.permissions.request, so guard the use or move "${api}" to permissions.`
-                  : partiallyGatedWarning(api, relative, declared) ||
-                    `manifest.json does not declare the "${api}" permission, but ` +
-                      `${relative} uses chrome.${api}. ` +
+                  : partiallyGatedWarning(api, relative, declared, wording) ||
+                    `${wording.lead}${relative} uses chrome.${api}. ` +
                       `It works in development only because the dev instrumentation ` +
                       `injects "${api}": the production build will fail at runtime. ` +
-                      `Add "${api}" to permissions in manifest.json.`
+                      `Add "${api}" to ${wording.fixKey} in manifest.json.`
                 pushDevWarning(
                   'DevInjectedPermissionWarning',
                   optionalPermissions.has(api)
@@ -395,7 +405,8 @@ export class ApplyDevDefaults {
                 }>,
                 contentScriptMatches,
                 declaredHostPatterns(canonicalManifest),
-                optionalHostPatterns(canonicalManifest)
+                optionalHostPatterns(canonicalManifest),
+                compilation
               )
               const hostKey =
                 canonicalManifest.manifest_version === 3

@@ -113,6 +113,8 @@ describe('LocalesPlugin (unit)', () => {
       }
     } as any
 
+    ;(compilation as any).compiler = compiler
+
     if (overrides?.mockGetLocales) {
       vi.spyOn(getLocalesModule, 'getLocales').mockReturnValue(
         overrides.mockGetLocales
@@ -212,6 +214,53 @@ describe('LocalesPlugin (unit)', () => {
     new LocalesPlugin({manifestPath}).apply(compiler)
 
     expect(tappedHooks).toContain('afterCompile')
+  })
+
+  it('tracks nothing for the compilation of a child compiler', () => {
+    fs.writeFileSync(
+      manifestPath,
+      '{"name":"x","manifest_version":3,"default_locale":"en"}'
+    )
+
+    let afterCompile: (compilation: any) => void = () => {}
+
+    const compiler: any = {
+      options: {context: tmpRoot},
+      hooks: {
+        thisCompilation: {tap: () => {}},
+        afterCompile: {
+          tap: (_n: string, cb: (c: any) => void) => {
+            afterCompile = cb
+          }
+        }
+      }
+    }
+
+    const track = (owner: unknown) => {
+      const compilation = {
+        compiler: owner,
+        fileDependencies: new Set<string>(),
+        contextDependencies: new Set<string>(),
+        missingDependencies: new Set<string>()
+      }
+      afterCompile(compilation)
+
+      return compilation
+    }
+
+    new LocalesPlugin({manifestPath}).apply(compiler)
+
+    // rspack hands a child compiler a copy of this tap, and the child's
+    // compilation names the child as its compiler.
+    const child = track({name: 'child'})
+
+    expect(child.fileDependencies.size).toBe(0)
+    expect(child.contextDependencies.size).toBe(0)
+
+    const own = track(compiler)
+
+    expect(own.fileDependencies.size).toBeGreaterThan(0)
+    expect([...own.contextDependencies]).toEqual([localesRoot])
   })
 
   it('warns when a referenced file is missing (with metadata, no path in message)', () => {

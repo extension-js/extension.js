@@ -162,6 +162,38 @@ describe('patchHtmlNested root-absolute refs', () => {
     )
   })
 
+  it('names the missing file and where a root path resolves from', () => {
+    const {tmp, htmlPath} = makeNestedFixture('nested-named', SCRIPT)
+    const compilation = makeCompilation('production')
+    patchHtmlNested(compilation, htmlPath, tmp)
+    const [warning] = compilation.warnings as Array<{
+      message: string
+      file?: string
+    }>
+
+    expect(warning.message).toContain(
+      `NOT FOUND ${path.join(tmp, 'lib', 'widget.js')}`
+    )
+
+    expect(warning.message).toContain(
+      "A path starting with '/' resolves from the extension root"
+    )
+
+    expect(warning.file).toBe(path.join('pages', 'nested.html'))
+  })
+
+  it('warns once when the page repeats the reference or is patched again', () => {
+    const {tmp, htmlPath} = makeNestedFixture(
+      'nested-repeat',
+      `<html><body><script src="/lib/widget.js"></script><script src="/lib/widget.js"></script></body></html>`
+    )
+    const compilation = makeCompilation('production')
+    patchHtmlNested(compilation, htmlPath, tmp)
+    patchHtmlNested(compilation, htmlPath, tmp)
+
+    expect(missingWarnings(compilation)).toHaveLength(1)
+  })
+
   it('does not warn when a source sibling will be compiled to the .js path', () => {
     const {tmp, htmlPath} = makeNestedFixture('nested-sibling', SCRIPT)
     write(tmp, 'lib/widget.ts', 'export {}')

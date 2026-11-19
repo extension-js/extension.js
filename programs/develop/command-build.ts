@@ -34,6 +34,7 @@ import {getBuildToolchain} from './lib/build-toolchain'
 import {collectChunkDependencyProvenance} from './lib/chunk-dependency-provenance'
 import {codedError} from './lib/coded-error'
 import {
+  keepCodedWarningsOf,
   outsideCodedWarnings,
   recordCodedWarning,
   takeCodedWarnings,
@@ -109,6 +110,7 @@ import {
   ensureSessionStateInProjectGitignore,
   readyContractPath
 } from './lib/session-paths'
+import {thrownFrom} from './lib/thrown-location'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   getZipArtifacts,
@@ -139,6 +141,9 @@ import type {
 } from './types'
 
 const reportedBuildFailures = new WeakSet<object>()
+
+// Failures whose own lines are on stderr already, the closing count aside.
+const printedBuildFailures = new WeakSet<object>()
 
 // Projects whose toolchain sentence this process already printed.
 const toolchainLinePrinted = new Set<string>()
@@ -321,7 +326,7 @@ function warnProductionLoopbackOrigins(distPath: string, quiet: boolean): void {
   if (origins.length === 0) return
 
   recordCodedWarning(
-    CODES.E_PROD_LOOPBACK_ORIGIN,
+    CODES.W_PROD_LOOPBACK_ORIGIN,
     messages.productionLoopbackOriginsText(origins)
   )
 
@@ -375,22 +380,26 @@ async function runBuild(
   // Finding the project and its browser comes before any build work, and a
   // refusal there is the whole answer: under machine output the frame has it.
   let findingProject = true
+  let projectRoot = ''
+  // What a green build would list, kept for the failure that carries it.
+  let failureWarnings: string[] = []
+  const resolvedMode: 'development' | 'production' | 'none' =
+    buildOptions?.mode === 'development' ||
+    buildOptions?.mode === 'none' ||
+    buildOptions?.mode === 'production'
+      ? buildOptions.mode
+      : 'production'
 
   try {
     const projectStructure = await getProjectStructure(pathOrRemoteUrl)
     const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
+    projectRoot = packageJsonDir
     announceLeftoverOutputFolder(projectStructure)
 
     // A browser passed in wins; with none, commands.<cmd>.browser from the
     // project config decides the target before the stock default does.
     const askedBrowser = browserOptionOrThrow(buildOptions?.browser)
-    const configBrowser = askedBrowser
-      ? undefined
-      : configBrowserOrThrow(
-          (await loadCommandConfig(packageJsonDir, commandKey)).browser,
-          commandKey
-        )
     const namesBinary = Boolean(
       buildOptions?.chromiumBinary ||
         buildOptions?.geckoBinary ||
@@ -399,12 +408,28 @@ async function runBuild(
     )
     // A binary with no name picks its own family, so the stock default only
     // applies when neither was given.
-    const browser = normalizeBrowser(
-      askedBrowser || configBrowser || (namesBinary ? undefined : 'chromium'),
-      buildOptions?.chromiumBinary,
-      buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
-      buildOptions?.safariBinary
-    )
+    const browserFor = (named: typeof askedBrowser) =>
+      normalizeBrowser(
+        named || (namesBinary ? undefined : 'chromium'),
+        buildOptions?.chromiumBinary,
+        buildOptions?.geckoBinary || buildOptions?.firefoxBinary,
+        buildOptions?.safariBinary
+      )
+    // The config reads the env files the bundle will, so its first load is
+    // told the mode, and the browser whenever the config does not name it.
+    const browser = askedBrowser
+      ? browserFor(askedBrowser)
+      : browserFor(
+          configBrowserOrThrow(
+            (
+              await loadCommandConfig(packageJsonDir, commandKey, {
+                mode: resolvedMode
+              })
+            ).browser,
+            commandKey
+          )
+        )
+    const envTarget = {mode: resolvedMode, browser: String(browser)}
 
     findingProject = false
 
@@ -433,8 +458,15 @@ async function runBuild(
       assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
     }
 
-    const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
-    const commandConfig = await loadCommandConfig(packageJsonDir, commandKey)
+    const projectConfig = await loadProjectConfigDefaults(
+      packageJsonDir,
+      envTarget
+    )
+    const commandConfig = await loadCommandConfig(
+      packageJsonDir,
+      commandKey,
+      envTarget
+    )
     const outDir = resolveOutDir(
       buildOptions?.outDir ?? commandConfig.outDir,
       packageJsonDir,
@@ -479,7 +511,11 @@ async function runBuild(
       )
     }
 
-    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
+    const browserConfig = await loadBrowserConfig(
+      packageJsonDir,
+      browser,
+      envTarget
+    )
     const foldersConfig =
       commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
     rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
@@ -515,7 +551,7 @@ async function runBuild(
     })
 
     if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir, packageJsonDir)
+      await generateExtensionTypes(manifestDir, packageJsonDir, envTarget)
     }
 
     const silent = Boolean(mergedBuildOptions.silent)
@@ -585,19 +621,12 @@ async function runBuild(
     })) {
       isFirstCompanionWarning(companion.manifestPath)
       recordCodedWarning(
-        CODES.E_COMPANION_EXTENSION_PATH,
+        CODES.W_COMPANION_EXTENSION_PATH,
         stripChannelPrefix(companion.frame)
       )
 
       if (!quiet) console.warn(companion.frame)
     }
-
-    const resolvedMode: 'development' | 'production' | 'none' =
-      buildOptions?.mode === 'development' ||
-      buildOptions?.mode === 'none' ||
-      buildOptions?.mode === 'production'
-        ? buildOptions.mode
-        : 'production'
 
     // `none` leaves NODE_ENV as the caller set it.
     if (resolvedMode === 'development' || resolvedMode === 'production') {
@@ -662,7 +691,10 @@ async function runBuild(
     const compilerConfig = applySplitChunksGuard(userConfig)
     compilerConfig.stats = false
 
-    const configResolved = await loadConfigResolvedHook(packageJsonDir)
+    const configResolved = await loadConfigResolvedHook(
+      packageJsonDir,
+      envTarget
+    )
 
     if (configResolved) {
       compilerConfig.plugins = [
@@ -704,8 +736,17 @@ async function runBuild(
       compilerConfig.output = {...compilerConfig.output, clean: true}
     }
 
-    const compiler = rspack(compilerConfig)
+    // The bundler applies every plugin as it is made, before any compile, so
+    // a throw here is a plugin's or the bundler's own and never the project's.
+    const compiler = (() => {
+      try {
+        return rspack(compilerConfig)
+      } catch (thrown) {
+        throw fatalFailure(thrown, packageJsonDir)
+      }
+    })()
     compilerToClose = compiler
+    keepCodedWarningsOf(compiler)
 
     // Opened after the plugin's own writer, with the options the plugin got,
     // so the document keeps every field the compile wrote.
@@ -775,16 +816,7 @@ async function runBuild(
         err: Error | null,
         stats: Parameters<Parameters<typeof compiler.run>[0]>[1]
       ) => {
-        if (err) {
-          return reject(
-            hasDeclaredCode(err)
-              ? err
-              : Object.assign(
-                  codedError(CODES.E_COMPILE_FATAL, err.message || String(err)),
-                  {cause: err}
-                )
-          )
-        }
+        if (err) return reject(fatalFailure(err, packageJsonDir))
 
         // Guard against silent-success scenarios where the bundler callback
         // does not provide stats, which means we cannot trust emission output.
@@ -1091,6 +1123,7 @@ async function runBuild(
 
           if (zipFailures.length > 0) {
             failureCount = zipFailures.length
+            failureWarnings = summary.warnings || []
 
             return reject(
               codedError(
@@ -1183,6 +1216,20 @@ async function runBuild(
             stats.compilation,
             packageJsonDir
           )
+
+          try {
+            failureWarnings =
+              getBuildSummary(
+                browser,
+                stats.toJson({all: false, warnings: true}),
+                undefined,
+                undefined,
+                warningCodes(stats.compilation)
+              ).warnings || []
+          } catch {
+            // Ignore
+          }
+
           const failure = Object.assign(new Error('Build failed with errors'), {
             code: CODES.E_COMPILE,
             diagnostics: details,
@@ -1215,11 +1262,21 @@ async function runBuild(
         )
       }
 
-      const safari = await safariPackager(
-        displayDistPath,
-        'full',
-        safariIdentity
-      )
+      let safari: Awaited<ReturnType<typeof safariPackager>>
+
+      try {
+        safari = await safariPackager(displayDistPath, 'full', safariIdentity)
+      } catch (packagerError) {
+        // The packager marks a failed tool it printed, with that tool's output.
+        if (
+          packagerError instanceof Error &&
+          (packagerError as {printed?: unknown}).printed === true
+        ) {
+          printedBuildFailures.add(packagerError)
+        }
+
+        throw packagerError
+      }
 
       // The app identity (and whether the bundle id was generated rather than
       // user-owned) was a human log line only. Fold it into the summary so a
@@ -1254,7 +1311,7 @@ async function runBuild(
 
     // The line below and every caller read the message of the failure, so a
     // thrown value with none is wrapped before it is printed and passed on.
-    const error = readableFailure(thrown)
+    const error = readableFailure(thrown, projectRoot)
 
     // A compile that passed and a build that then failed must not be left
     // reading as still starting, or as ready, for whoever waits on it.
@@ -1267,13 +1324,23 @@ async function runBuild(
     const frameCarriesIt = findingProject && isMachineOutput()
 
     if (!frameCarriesIt && !reportedBuildFailures.has(error)) {
-      if (isDebug()) {
-        console.error(error)
-      } else {
-        console.error(messages.buildCommandFailed(error))
+      if (!printedBuildFailures.has(error)) {
+        console.error(isDebug() ? error : messages.buildCommandFailed(error))
       }
 
       console.error(messages.buildFailed(failureCount))
+    }
+
+    // A failed build carried on past the same warnings a green one lists,
+    // and the caller reads them off the rejection as it does off a summary.
+    const warnings = [...new Set([...failureWarnings, ...takeCodedWarnings()])]
+
+    if (warnings.length > 0) {
+      try {
+        Object.assign(error, {warnings})
+      } catch {
+        // Ignore
+      }
     }
 
     // The caller owns the exit: a CLI maps this to its code, a host keeps
@@ -1289,16 +1356,38 @@ async function runBuild(
   }
 }
 
-function readableFailure(thrown: unknown): Error {
+function readableFailure(thrown: unknown, projectRoot: string): Error {
   try {
     if (thrown instanceof Error && typeof thrown.message === 'string') {
-      return thrown
+      if (thrown.message.trim()) return thrown
+
+      // An empty message prints as the bare word Error, so the place it was
+      // thrown from stands in for it and the declared code is kept.
+      return Object.assign(
+        new Error(
+          messages.errorWithoutMessageText(thrownFrom(thrown, projectRoot))
+        ),
+        {cause: thrown},
+        hasDeclaredCode(thrown) ? {code: (thrown as {code?: unknown}).code} : {}
+      )
     }
   } catch {
     // Ignore
   }
 
   return Object.assign(new Error(messages.thrownValueText(thrown)), {
+    cause: thrown
+  })
+}
+
+// A throw from a plugin or from the bundler itself, with no compile error
+// behind it. A code the thrower declared is the answer it meant.
+function fatalFailure(thrown: unknown, projectRoot: string): Error {
+  const failure = readableFailure(thrown, projectRoot)
+
+  if (hasDeclaredCode(failure)) return failure
+
+  return Object.assign(codedError(CODES.E_COMPILE_FATAL, failure.message), {
     cause: thrown
   })
 }

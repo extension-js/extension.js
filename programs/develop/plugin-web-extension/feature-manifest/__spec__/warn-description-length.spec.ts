@@ -30,11 +30,18 @@ function makeCompiler(
 
   new WarnDescriptionLength({browser: browser as never}).apply(compiler)
 
-  const runCompilation = (manifest: Record<string, unknown>) => {
+  const runCompilation = (
+    manifest: Record<string, unknown> | string,
+    authored?: Record<string, unknown>
+  ) => {
     const warnings: any[] = []
     let processAssetsFn: (() => void) | undefined
+    const text =
+      typeof manifest === 'string' ? manifest : JSON.stringify(manifest)
     const compilation: any = {
       warnings,
+      getAsset: (name: string) =>
+        name === 'manifest.json' ? {source: {source: () => text}} : undefined,
       hooks: {
         processAssets: {
           tap: (opts: any, cb: any) => {
@@ -44,7 +51,11 @@ function makeCompiler(
         }
       }
     }
-    setOriginalManifestContent(compilation, JSON.stringify(manifest))
+
+    if (authored) {
+      setOriginalManifestContent(compilation, JSON.stringify(authored))
+    }
+
     thisCompilationFn?.(compilation)
     processAssetsFn?.()
 
@@ -231,5 +242,31 @@ describe('WarnDescriptionLength', () => {
     ).toHaveLength(0)
 
     expect(logSpy).not.toHaveBeenCalled()
+  })
+
+  // The asset at the report stage is the text that ships. The authored
+  // field can still hold a placeholder or a key for another browser.
+  it('measures the manifest asset, not the field as it was authored', () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    const filledIn = makeCompiler('chrome').runCompilation(
+      {name: 'x', description: over(132)},
+      {name: 'x', description: '$EXTENSION_PUBLIC_TAGLINE'}
+    )
+    expect(filledIn).toHaveLength(1)
+    expect(filledIn[0].message).toContain('133')
+
+    const shortened = makeCompiler('chrome').runCompilation(
+      {name: 'x', description: 'Short and fine'},
+      {name: 'x', description: `$EXTENSION_PUBLIC_${'X'.repeat(140)}`}
+    )
+    expect(shortened).toEqual([])
+  })
+
+  it('records nothing when the asset is empty or does not parse', () => {
+    const {runCompilation} = makeCompiler('safari')
+
+    expect(runCompilation('{')).toEqual([])
+    expect(runCompilation('')).toEqual([])
   })
 })

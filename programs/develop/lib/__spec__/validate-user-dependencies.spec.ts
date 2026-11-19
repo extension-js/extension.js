@@ -245,7 +245,7 @@ describe('assertNoManagedDependencyConflicts', () => {
 
     expect(first).toHaveLength(1)
     expect(first[0]).toMatch(
-      /^E_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core \(Extension\.js ships \S+\)\.$/
+      /^W_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core \(Extension\.js ships \S+\)\.$/
     )
 
     assertNoManagedDependencyConflicts(packageJsonPath, root)

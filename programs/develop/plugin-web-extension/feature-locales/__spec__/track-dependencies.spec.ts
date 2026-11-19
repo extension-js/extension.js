@@ -60,4 +60,41 @@ describe('trackLocaleDependencies', () => {
     expect(compilation.fileDependencies.has(notes)).toBe(true)
     expect(compilation.fileDependencies.has(icon)).toBe(true)
   })
+
+  it('watches the folder itself, so a new locale or a new file rebuilds', () => {
+    const root = project()
+    const compilation: any = {
+      errors: [],
+      fileDependencies: new Set<string>(),
+      contextDependencies: new Set<string>(),
+      missingDependencies: new Set<string>()
+    }
+    trackLocaleDependencies(compilation, path.join(root, 'manifest.json'), root)
+
+    expect([...compilation.contextDependencies]).toEqual([
+      path.join(root, '_locales')
+    ])
+  })
+
+  it('watches for the folder when the project has none yet', () => {
+    const root = project()
+    fs.rmSync(path.join(root, '_locales'), {recursive: true, force: true})
+    const compilation: any = {
+      errors: [],
+      fileDependencies: new Set<string>(),
+      contextDependencies: new Set<string>(),
+      missingDependencies: new Set<string>()
+    }
+    trackLocaleDependencies(
+      compilation,
+      path.join(root, 'src', 'manifest.json'),
+      root
+    )
+
+    expect(compilation.contextDependencies.size).toBe(0)
+    expect([...compilation.missingDependencies].sort()).toEqual([
+      path.join(root, '_locales'),
+      path.join(root, 'src', '_locales')
+    ])
+  })
 })

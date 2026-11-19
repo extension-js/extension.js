@@ -253,7 +253,7 @@ describe('extension logs --follow over the live control channel', () => {
       status: 'closed',
       // 1006: the server went away without a closing handshake.
       value: {follow: true, closeCode: 1006, reason: ''},
-      warnings: ['E_LOGS_STREAM_GAP: 1 event(s) are missing from this follow']
+      warnings: ['W_LOGS_STREAM_GAP: 1 event(s) are missing from this follow']
     })
 
     expect(

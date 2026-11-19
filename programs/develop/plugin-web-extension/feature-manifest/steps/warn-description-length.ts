@@ -15,7 +15,7 @@ import {
 } from '../../../lib/constants'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions} from '../../../types'
-import {getOriginalManifestContent} from '../manifest-lib/manifest'
+import {readManifestAssetText} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 
 // App Store Connect refuses an upload whose manifest description runs past
@@ -112,13 +112,20 @@ export class WarnDescriptionLength {
             stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
           },
           () => {
-            const original = getOriginalManifestContent(compilation)
-            if (!original) return
+            // The asset at this stage has its $EXTENSION_* values filled in
+            // and its browser prefixes resolved, so this is the shipped text.
+            const shipped = readManifestAssetText(compilation)
+            if (!shipped) return
 
-            const hit = findDescriptionLimitHit(
-              parseJsonSafe(original),
-              this.browser
-            )
+            let manifest: unknown
+
+            try {
+              manifest = parseJsonSafe(shipped)
+            } catch {
+              return
+            }
+
+            const hit = findDescriptionLimitHit(manifest, this.browser)
             if (!hit) return
 
             const signature = `${hit.kind}\0${hit.length}`

@@ -258,7 +258,8 @@ describe('what a dev session adds to the manifest', () => {
       'permission tabs',
       'host_permission <all_urls>',
       'web_accessible_resource hot/*',
-      'web_accessible_resource extension-js-control.json'
+      'web_accessible_resource extension-js-control.json',
+      "manifest_change content_security_policy 'unsafe-eval'"
     ])
   })
 })

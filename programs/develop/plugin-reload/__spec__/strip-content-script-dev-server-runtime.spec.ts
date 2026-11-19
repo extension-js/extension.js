@@ -171,7 +171,6 @@ describe('content script dev-server runtime stripping', () => {
 })
 
 describe('the dev-server runtime warning', () => {
-  // Pins today's behavior. Ledger 1385 D10.
   it('names the content script that still carries the client text', async () => {
     const root = writeProject(makeTempFolder('extjs-strip-warning-'), {
       'content.js': "console.log('@rspack/dev-server/client/index.js?x')\n",
