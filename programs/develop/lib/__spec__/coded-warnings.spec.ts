@@ -25,7 +25,7 @@ describe('coded warnings', () => {
   })
 
   it('keeps two builds running at once from clearing each other', async () => {
-    recordCodedWarning(CODES.E_TYPES_EMIT, 'left by an earlier run')
+    recordCodedWarning(CODES.W_TYPES_EMIT, 'left by an earlier run')
 
     let releaseFirst = () => {}
 
@@ -34,14 +34,14 @@ describe('coded warnings', () => {
     })
 
     const first = withCodedWarnings(async () => {
-      recordCodedWarning(CODES.E_TYPES_EMIT, 'from the first build')
+      recordCodedWarning(CODES.W_TYPES_EMIT, 'from the first build')
       await firstMayFinish
 
       return takeCodedWarnings()
     })
 
     // What a plugin hook of the first build records, outside its scope.
-    recordCodedWarning(CODES.E_POLYFILL_NOT_FOUND, 'from a hook of the first')
+    recordCodedWarning(CODES.W_POLYFILL_NOT_FOUND, 'from a hook of the first')
 
     let releaseSecond = () => {}
 
@@ -51,7 +51,7 @@ describe('coded warnings', () => {
 
     // The second build starts while the first still runs.
     const second = withCodedWarnings(async () => {
-      recordCodedWarning(CODES.E_PERF_BUDGET, 'from the second build')
+      recordCodedWarning(CODES.W_PERF_BUDGET, 'from the second build')
       await secondMayFinish
 
       return takeCodedWarnings()
@@ -60,13 +60,13 @@ describe('coded warnings', () => {
     releaseFirst()
 
     expect(await first).toEqual([
-      'E_TYPES_EMIT: from the first build',
-      'E_POLYFILL_NOT_FOUND: from a hook of the first'
+      'W_TYPES_EMIT: from the first build',
+      'W_POLYFILL_NOT_FOUND: from a hook of the first'
     ])
 
     releaseSecond()
 
-    expect(await second).toEqual(['E_PERF_BUDGET: from the second build'])
+    expect(await second).toEqual(['W_PERF_BUDGET: from the second build'])
     expect(takeCodedWarnings()).toEqual([])
   })
 
@@ -91,17 +91,17 @@ describe('coded warnings', () => {
     takeCodedWarnings()
 
     const taken = await withCodedWarnings(async () => {
-      recordCodedWarning(CODES.E_TYPES_EMIT, 'from the build')
+      recordCodedWarning(CODES.W_TYPES_EMIT, 'from the build')
       outsideCodedWarnings(() =>
-        recordCodedWarning(CODES.E_POLYFILL_NOT_FOUND, 'from the bundler')
+        recordCodedWarning(CODES.W_POLYFILL_NOT_FOUND, 'from the bundler')
       )
 
       return takeCodedWarnings()
     })
 
     expect(taken).toEqual([
-      'E_TYPES_EMIT: from the build',
-      'E_POLYFILL_NOT_FOUND: from the bundler'
+      'W_TYPES_EMIT: from the build',
+      'W_POLYFILL_NOT_FOUND: from the bundler'
     ])
   })
 })

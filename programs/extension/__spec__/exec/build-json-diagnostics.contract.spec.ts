@@ -896,7 +896,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
               {
                 code: 'E_CSS_DEAD_REF',
                 message:
-                  "A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH b.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.\nSet EXTENSION_STRICT_REFS=true to make this a build error.",
+                  "A url(./nope.png) reference points to a file that exists nowhere in the project.\nPATH b.css\nNOT FOUND ./nope.png\nChrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
                 file: 'b.css',
                 severity: 'error',
                 name: 'CssDeadRef'
@@ -916,7 +916,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error and 1 warning in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -928,7 +928,6 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ PATH b.css',
         '    │ NOT FOUND ./nope.png',
         "    │ Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
-        '    │ Set EXTENSION_STRICT_REFS=true to make this a build error.',
         '',
         '⏵⏵⏵ Build failed with 1 error.',
         ''
@@ -968,7 +967,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with errors in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic failed to compile with 1 error in N ms.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',
@@ -1029,7 +1028,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with warnings in N ms.',
+        '⏵⏵⏵ [hh:mm:ss] Diagnostic compiled with 1 warning in N ms, listed below.',
         ' ',
         ' 🧩 Extension.js <version>',
         '    Browser        Chromium',

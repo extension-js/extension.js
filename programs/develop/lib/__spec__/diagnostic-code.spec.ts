@@ -254,7 +254,8 @@ const ERRORS_ONLY = new Set<ErrorCode>([
   CODES.E_MANIFEST_NOT_FOUND,
   CODES.E_COMPILE,
   CODES.E_ASSET_IMPORT_SHAPE,
-  CODES.E_OUTPUT_NOT_WRITABLE
+  CODES.E_OUTPUT_NOT_WRITABLE,
+  CODES.E_THEME_INVALID
 ])
 
 const WARNING_NAMES = Object.values(CODES).filter((code) =>
@@ -437,7 +438,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(41)
+    expect(WARNING_NAMES.length).toBe(43)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

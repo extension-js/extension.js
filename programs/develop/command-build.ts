@@ -585,7 +585,7 @@ async function runBuild(
     })) {
       isFirstCompanionWarning(companion.manifestPath)
       recordCodedWarning(
-        CODES.E_COMPANION_EXTENSION_PATH,
+        CODES.W_COMPANION_EXTENSION_PATH,
         stripChannelPrefix(companion.frame)
       )
 

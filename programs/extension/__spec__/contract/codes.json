@@ -634,6 +634,16 @@
       "summary": "A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script.",
       "warn": true
     },
+    "W_ENV_NAME_RESERVED": {
+      "area": "project",
+      "summary": "A .env file sets a name the build reserves for the browser or mode it compiles for, so the file value is ignored.",
+      "warn": true
+    },
+    "W_COMPANION_EXTENSION_PATH": {
+      "area": "project",
+      "summary": "A companion extension entry leads outside the project, is not an unpacked extension folder, or names a folder that does not exist, so the browser opens without it.",
+      "warn": true
+    },
     "W_CDP_NOT_CONNECTED": {
       "area": "debug-protocol",
       "summary": "A dev, start or preview session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",
