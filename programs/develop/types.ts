@@ -86,6 +86,8 @@ export type PluginInterface = {
   /** The host this dev session's browser dials, given by the session that
    * builds the config, so another session's environment does not name it. */
   connectableHost?: string
+  /** The port this dev session's server listens on, for its page HMR client. */
+  port?: string | number
 }
 
 export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {

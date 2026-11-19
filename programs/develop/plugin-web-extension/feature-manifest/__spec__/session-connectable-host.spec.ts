@@ -10,14 +10,15 @@ const makeTempFolder = trackTempFolders()
 
 const HOST_ENV = 'EXTENSION_DEV_SERVER_CONNECTABLE_HOST'
 
-// Two sessions of one host process: the second wrote its host last.
+// Two sessions of one host process: the second wrote its host and port last.
 const SECOND_SESSION_HOST = 'session-b.example'
+const SECOND_SESSION_PORT = 50222
 
 beforeEach(() => {
   vi.stubEnv(HOST_ENV, SECOND_SESSION_HOST)
   // A dev session exports its port, which turns the page HMR client on.
   vi.stubEnv('EXTENSION_DEV_SERVER_HOST', '127.0.0.1')
-  vi.stubEnv('EXTENSION_DEV_SERVER_PORT', '8131')
+  vi.stubEnv('EXTENSION_DEV_SERVER_PORT', String(SECOND_SESSION_PORT))
 })
 
 afterEach(() => {
@@ -61,10 +62,11 @@ interface SessionOutput {
 }
 
 // One real development compile of a dev session config, as the dev server
-// builds it for a session given this host.
-async function compileSession(
-  connectableHost: string | undefined
-): Promise<SessionOutput> {
+// builds it for a session given this host and port.
+async function compileSession(session: {
+  connectableHost?: string
+  port?: number
+}): Promise<SessionOutput> {
   const root = project()
   const distPath = path.join(root, 'dist', 'chrome')
   const config = webpackConfig(await getProjectStructure(root), {
@@ -72,7 +74,7 @@ async function compileSession(
     mode: 'development',
     metadataCommand: 'dev',
     silent: true,
-    connectableHost,
+    ...session,
     output: {clean: false, path: distPath}
   } as never)
   config.plugins = (config.plugins || []).filter(
@@ -115,10 +117,15 @@ function hmrHost(source: string) {
   return /hostname=([^&"'\\]+)/.exec(source)?.[1] ?? null
 }
 
+// The port the page HMR client dials, read from its baked query.
+function hmrPort(source: string) {
+  return /[?&]port=(\d+)/.exec(source)?.[1] ?? null
+}
+
 describe('the connectable host a dev session compiles into its pages', () => {
   it('is the one each of two sessions was given, not the environment', async () => {
-    const first = await compileSession('session-a.example')
-    const second = await compileSession(SECOND_SESSION_HOST)
+    const first = await compileSession({connectableHost: 'session-a.example'})
+    const second = await compileSession({connectableHost: SECOND_SESSION_HOST})
 
     expect(first.connectSrc).toContain('ws://session-a.example:*')
     expect(first.connectSrc).toContain('http://session-a.example:*')
@@ -130,9 +137,26 @@ describe('the connectable host a dev session compiles into its pages', () => {
   }, 60_000)
 
   it('is the environment when no session names one', async () => {
-    const output = await compileSession(undefined)
+    const output = await compileSession({})
 
     expect(output.connectSrc).toContain(`ws://${SECOND_SESSION_HOST}:*`)
     expect(hmrHost(output.popup)).toBe(SECOND_SESSION_HOST)
+  }, 60_000)
+})
+
+describe('the port a dev session compiles into its page HMR client', () => {
+  it('is the one each of two sessions was given, not the environment', async () => {
+    // The older session builds a compiler after the newer one started.
+    const older = await compileSession({port: 50111})
+    const newer = await compileSession({port: SECOND_SESSION_PORT})
+
+    expect(hmrPort(older.popup)).toBe('50111')
+    expect(hmrPort(newer.popup)).toBe(String(SECOND_SESSION_PORT))
+  }, 60_000)
+
+  it('is the environment when no session names one', async () => {
+    const output = await compileSession({})
+
+    expect(hmrPort(output.popup)).toBe(String(SECOND_SESSION_PORT))
   }, 60_000)
 })

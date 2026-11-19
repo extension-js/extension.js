@@ -35,6 +35,7 @@ export class HtmlPlugin {
   private readonly browser: DevOptions['browser']
   private readonly devSession?: boolean
   private readonly connectableHost?: string
+  private readonly port?: string | number
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -42,6 +43,7 @@ export class HtmlPlugin {
     this.devSession = options.devSession
     this.browser = options.browser || 'chrome'
     this.connectableHost = options.connectableHost
+    this.port = options.port
   }
 
   public apply(compiler: Compiler): void {
@@ -65,7 +67,8 @@ export class HtmlPlugin {
       manifestPath: this.manifestPath,
       includeList,
       browser: this.browser,
-      connectableHost: this.connectableHost
+      connectableHost: this.connectableHost,
+      port: this.port
     }).apply(compiler)
 
     new UpdateHtmlFile({
