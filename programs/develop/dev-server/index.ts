@@ -952,7 +952,7 @@ async function startDevSession(
     if (!isFirstCompanionWarning(companion.manifestPath)) continue
 
     recordCodedWarning(
-      CODES.E_COMPANION_EXTENSION_PATH,
+      CODES.W_COMPANION_EXTENSION_PATH,
       stripChannelPrefix(companion.frame)
     )
 
@@ -977,6 +977,7 @@ async function startDevSession(
     controlPortUnavailableReason,
     controlPath: CONTROL_WS_PATH,
     logsPath: bridgeLogsRelPath,
+    connectableHost,
     readyAwaitsExecutor,
     port: portAllocation.port,
     output: {

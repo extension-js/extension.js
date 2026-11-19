@@ -170,10 +170,11 @@ const SIGNAL_LISTENER_PRELOAD = `const fs = require('node:fs')
 for (const method of ['on', 'once']) {
   const original = process[method]
   process[method] = function (event, ...rest) {
+    const added = original.call(this, event, ...rest)
     if (event === 'SIGINT' || event === 'SIGTERM') {
-      try { fs.writeFileSync(process.env.EXTJS_SPEC_SIGNAL_MARKER, String(event)) } catch {}
+      try { fs.appendFileSync(process.env.EXTJS_SPEC_SIGNAL_MARKER, event + '\\n') } catch {}
     }
-    return original.call(this, event, ...rest)
+    return added
   }
 }
 `
@@ -236,8 +237,13 @@ describe.skipIf(process.platform === 'win32')(
 
       // With telemetry off no listener is added, so there is nothing to wait for.
       if (telemetry) {
+        // Both listeners are in place only once both names are written.
         await session.waitFor(
-          () => existsSync(marker),
+          () =>
+            existsSync(marker) &&
+            ['SIGINT', 'SIGTERM'].every((name) =>
+              readFileSync(marker, 'utf8').includes(name)
+            ),
           30_000,
           'the signal listener'
         )

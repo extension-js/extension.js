@@ -551,7 +551,7 @@ describe('a companion that does not resolve', () => {
     expect(rest).toEqual([])
     expect(unresolved.manifestPath).toBe(manifestPath)
     expect(unresolved.coded).toBe(
-      'E_COMPANION_EXTENSION_PATH: A companion extension entry is not an unpacked extension folder, so it is not loaded.\n' +
+      'W_COMPANION_EXTENSION_PATH: A companion extension entry is not an unpacked extension folder, so it is not loaded.\n' +
         'ENTRY ./extensions/typo\n' +
         'DECLARED IN the --extensions flag\n' +
         `NOT FOUND ${manifestPath}\n` +
@@ -613,7 +613,7 @@ describe('a companion that does not resolve', () => {
     expect(unresolved).toHaveLength(1)
     expect(unresolved[0].manifestPath).toBe(folder)
     expect(unresolved[0].coded).toBe(
-      'E_COMPANION_EXTENSION_PATH: The companion extensions folder does not exist, so no extension is loaded from it.\n' +
+      'W_COMPANION_EXTENSION_PATH: The companion extensions folder does not exist, so no extension is loaded from it.\n' +
         'DIR ./extensions/none\n' +
         'DECLARED IN extensions in extension.config.js\n' +
         `NOT FOUND ${folder}\n` +

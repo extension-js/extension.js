@@ -528,7 +528,7 @@ function followGapWarnings(missingEvents: number): string[] {
   if (missingEvents < 1) return []
 
   return [
-    `${CODES.E_LOGS_STREAM_GAP}: ${missingEvents} event(s) are missing from this follow`
+    `${CODES.W_LOGS_STREAM_GAP}: ${missingEvents} event(s) are missing from this follow`
   ]
 }
 

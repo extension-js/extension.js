@@ -146,7 +146,7 @@ export default function webpackConfig(
     if (!isFirstCompanionWarning(companion.manifestPath)) continue
 
     recordCodedWarning(
-      CODES.E_COMPANION_EXTENSION_PATH,
+      CODES.W_COMPANION_EXTENSION_PATH,
       stripChannelPrefix(companion.frame)
     )
 
@@ -261,7 +261,9 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
-      devSession
+      devSession,
+      connectableHost: devOptions.connectableHost,
+      port: devOptions.port
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.

@@ -96,13 +96,16 @@
   reloads nothing leaves the stamp as it was. A compile's reload is live once
   `reloadedAt` is later than that compile's `compiledAt`. Preserved across
   recompiles
-- optional `cdpFaultCode` and `cdpFaultMessage`: under a Chromium `dev` the
-  launcher stamps them when the CDP wire failed after the browser came up (a
-  connect that found no endpoint, a command or load that timed out, an id it
-  could not resolve). The session stays `ready` because the browser is up, but
-  reload and HMR cannot attach until the fault is fixed. The `ready` frame under
-  `--output json` carries the same fault on `warnings` as `E_CDP_...: message`.
-  Both are preserved across recompiles of the same run
+- optional `cdpFaultCode` and `cdpFaultMessage`: under a Chromium `dev`,
+  `start` or `preview` the launcher stamps them when the CDP wire failed after
+  the browser came up (a connect that found no endpoint, a command or load
+  that timed out, an id it could not resolve). The session stays `ready`
+  because the browser is up, but reload and HMR cannot attach until the fault
+  is fixed. The `ready` frame under `--output json` carries the same fault on
+  `warnings` as `code: message`. The code is a warning name:
+  `W_CDP_NOT_CONNECTED`, `W_CDP_TIMEOUT`, `W_CDP_OP_FAILED`,
+  `W_BROWSER_CONNECTION_CLOSED` or `W_EXTENSION_ID_UNKNOWN`. Both are
+  preserved across recompiles of the same run
 - `pidStartedAt`, and optional `browserStartedAt` and `launcherStartedAt`: when
   the process behind `pid`, `browserPid` and `launcherPid` started (ISO 8601
   UTC). A pid is reused once its owner exits, so a reader that finds a pid

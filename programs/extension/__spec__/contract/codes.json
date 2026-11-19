@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed. A code retired after it shipped keeps a 'folded' row pointing at the code the same path reports now, so a consumer that still lists the name resolves it. One code per operator-distinguishable failure family; the envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table; a ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it; its 'reason' says what keeps it reserved.",
+  "note": "The durable error-code table for the schema-1 envelope. Codes may be added, never renamed, with one exception: the release that introduced the W_ prefix moved thirty warnings from an E_ name to the W_ name with the same stem. Five of them are CDP faults a session carries on past, so the exception also covers the cdpFaultCode value in ready.json, a contract field whose values were renamed with them. A code retired after it shipped keeps a 'folded' row naming the code the same path reports now. A folded row is a record for a reader of this table: nothing at run time reads it, no envelope carries a folded name and no alias exists, so a consumer that matches a folded name has to switch to the code the row names. A W_ code is a warning: the run carried on past it. An E_ code is a failure. A class that can do both has one row under each prefix with the same stem. Eleven of the thirty E_ names that moved never marked a failure, and each has a 'folded' row naming its W_ name. One code per operator-distinguishable failure family. The envelope's command field carries the which-command context. 'folded' records finer inventory names that map onto a shipped family code. 'legacy' maps the three pre-envelope conventions (snake_case ready.json codes, PascalCase error names, kebab-case doctor check ids) onto the table. A ready.json id that lists several codes resolves to the first unless the contract's browserLaunchFailedCode names another from the list. A row marked 'reserved' names a failure the CLI does not report under that code today, so no envelope carries it yet and a consumer need not handle it. Its 'reason' says what keeps it reserved.",
   "codes": {
     "E_ARGS": {
       "area": "usage",
@@ -58,19 +58,9 @@
       "area": "project",
       "summary": "extension.config.js threw while loading or did not export an object."
     },
-    "E_MANAGED_DEP_CONFLICT": {
-      "area": "project",
-      "summary": "The project declares a package the toolchain manages.",
-      "warn": true
-    },
     "E_DEPENDENCY_INSTALL": {
       "area": "project",
       "summary": "Installing project dependencies failed."
-    },
-    "E_TYPES_EMIT": {
-      "area": "project",
-      "summary": "Writing extension-env.d.ts failed.",
-      "warn": true
     },
     "E_OPTIONAL_DEP_UNRESOLVED": {
       "area": "project",
@@ -122,18 +112,15 @@
     },
     "E_ENTRY_NOT_FOUND": {
       "area": "compile",
-      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled.",
-      "warn": true
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled."
     },
     "E_ASSET_MISSING": {
       "area": "compile",
-      "summary": "An icon, static asset, or JSON dependency is missing or not bundled.",
-      "warn": true
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled."
     },
     "E_SCRIPT_DEP_MISSING": {
       "area": "compile",
-      "summary": "A runtime script dependency could not be traced.",
-      "warn": true
+      "summary": "A file a script loads at runtime is missing from the build, is named by its source spelling, or could not be compiled."
     },
     "E_RESERVED_FOLDER": {
       "area": "compile",
@@ -141,28 +128,19 @@
     },
     "E_CSS_PARSE": {
       "area": "compile",
-      "summary": "A stylesheet failed to parse.",
-      "warn": true
+      "summary": "A stylesheet failed to parse."
     },
     "E_CSS_PREPROCESSOR_MISSING": {
       "area": "compile",
-      "summary": "A CSS preprocessor is requested but not resolvable.",
-      "warn": true
+      "summary": "A CSS preprocessor is requested but not resolvable."
     },
     "E_CSS_DEAD_REF": {
       "area": "compile",
-      "summary": "A CSS url() or @import names a file that is missing or not bundled.",
-      "warn": true
-    },
-    "E_POLYFILL_NOT_FOUND": {
-      "area": "compile",
-      "summary": "webextension-polyfill requested but absent.",
-      "warn": true
+      "summary": "A CSS url() or @import names a file that is missing or not bundled."
     },
     "E_LOCALES_LAYOUT": {
       "area": "compile",
-      "summary": "_locales layout or messages.json is invalid.",
-      "warn": true
+      "summary": "_locales layout or messages.json is invalid."
     },
     "E_WAR_INVALID": {
       "area": "compile",
@@ -171,11 +149,6 @@
     "E_THEME_INVALID": {
       "area": "compile",
       "summary": "A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly."
-    },
-    "E_PROD_LOOPBACK_ORIGIN": {
-      "area": "compile",
-      "summary": "A production manifest names a loopback origin (localhost, 127.0.0.0/8, [::1] or 0.0.0.0), which store reviewers read as unexplained host access.",
-      "warn": true
     },
     "E_DEV_SESSION_DIST_SHARED": {
       "area": "compile",
@@ -189,29 +162,13 @@
       "area": "compile",
       "summary": "A content script failed to parse."
     },
-    "E_NO_ENTRYPOINTS": {
-      "area": "compile",
-      "summary": "The compilation produced zero entrypoints.",
-      "warn": true
-    },
-    "E_REMOTE_RESOURCE_BLOCKED": {
-      "area": "compile",
-      "summary": "A remote script or stylesheet is blocked by extension CSP.",
-      "warn": true
-    },
     "E_PERF_BUDGET": {
       "area": "compile",
-      "summary": "An asset exceeds its size budget.",
-      "warn": true
+      "summary": "An asset exceeds its size budget, and the project asked for that to fail the build. It is the same overrun W_PERF_BUDGET warns of, made strict."
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
       "summary": "A requested archive was not created."
-    },
-    "E_ENV_NO_MATCH": {
-      "area": "compile",
-      "summary": "No .env file matched the mode.",
-      "warn": true
     },
     "E_REMOTE_FETCH_TIMEOUT": {
       "area": "remote",
@@ -269,11 +226,6 @@
       "area": "browser-binary",
       "summary": "The profile directory is held by another browser process."
     },
-    "E_LAUNCH_SKIPPED_COMPILE_ERRORS": {
-      "area": "browser-binary",
-      "summary": "Launch was withheld because the compile failed.",
-      "warn": true
-    },
     "E_INSTANCE_AMBIGUOUS": {
       "area": "browser-binary",
       "summary": "More than one live instance matches the requested id."
@@ -289,11 +241,6 @@
     "E_BROWSER_UNINSTALL": {
       "area": "browser-binary",
       "summary": "Removing an installed browser failed."
-    },
-    "E_UNINSTALL_NOOP": {
-      "area": "browser-binary",
-      "summary": "Nothing to remove.",
-      "warn": true
     },
     "E_BROWSER_INSTALL_TIMEOUT": {
       "area": "browser-binary",
@@ -354,11 +301,6 @@
     "E_DEV_SERVER_START": {
       "area": "dev-server",
       "summary": "The dev server failed to start."
-    },
-    "E_PORT_IN_USE": {
-      "area": "dev-server",
-      "summary": "The requested port was taken and auto-reassigned.",
-      "warn": true
     },
     "E_PORT_UNAVAILABLE": {
       "area": "dev-server",
@@ -440,11 +382,6 @@
       "area": "logs",
       "summary": "No logs stream for this project and browser."
     },
-    "E_LOGS_STREAM_GAP": {
-      "area": "logs",
-      "summary": "The follow stream dropped events.",
-      "warn": true
-    },
     "E_TEMPLATE_NOT_FOUND": {
       "area": "create",
       "summary": "The template is not in the catalog or has no manifest."
@@ -456,6 +393,10 @@
     "E_DESTINATION_NOT_WRITABLE": {
       "area": "create",
       "summary": "The destination directory, or a file the scaffold writes in it, is not writable."
+    },
+    "E_OUTPUT_NOT_WRITABLE": {
+      "area": "compile",
+      "summary": "The build could not write manifest.json into the output folder."
     },
     "E_PREVIEW_NO_DIST": {
       "area": "preview",
@@ -496,6 +437,237 @@
     "E_INTERNAL": {
       "area": "internal",
       "summary": "An unexpected fault reached the top-level sink."
+    },
+    "E_RESTART_REQUIRED": {
+      "area": "dev-server",
+      "summary": "A file the running dev session depends on was removed or changed in a way it cannot apply, so the session must be restarted."
+    },
+    "E_JSON_INVALID": {
+      "area": "compile",
+      "summary": "A JSON file the manifest names does not parse, or its declarativeNetRequest ruleset or managed storage schema has a shape the browser rejects."
+    },
+    "E_PROJECT_LAYOUT": {
+      "area": "project",
+      "summary": "A file in public/ would overwrite a file the build emits, or an include entry in extension.config.js names a missing file or an output path outside the extension."
+    },
+    "E_ASSET_IMPORT_SHAPE": {
+      "area": "compile",
+      "summary": "An asset imported with import * as is read as the file's value, which is the default export."
+    },
+    "W_MANAGED_DEP_CONFLICT": {
+      "area": "project",
+      "summary": "The project declares a package the toolchain manages.",
+      "warn": true
+    },
+    "W_TYPES_EMIT": {
+      "area": "project",
+      "summary": "Writing extension-env.d.ts failed.",
+      "warn": true
+    },
+    "W_MODULE_NOT_FOUND": {
+      "area": "compile",
+      "summary": "A module specifier could not be resolved, and the build carried on without it.",
+      "warn": true
+    },
+    "W_ENTRY_NOT_FOUND": {
+      "area": "compile",
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled.",
+      "warn": true
+    },
+    "W_ASSET_MISSING": {
+      "area": "compile",
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled.",
+      "warn": true
+    },
+    "W_SCRIPT_DEP_MISSING": {
+      "area": "compile",
+      "summary": "A file a script loads at runtime is missing from the build, is named by its source spelling, or could not be compiled.",
+      "warn": true
+    },
+    "W_CSS_PARSE": {
+      "area": "compile",
+      "summary": "A stylesheet failed to parse.",
+      "warn": true
+    },
+    "W_CSS_PREPROCESSOR_MISSING": {
+      "area": "compile",
+      "summary": "A CSS preprocessor is requested but not resolvable.",
+      "warn": true
+    },
+    "W_CSS_DEAD_REF": {
+      "area": "compile",
+      "summary": "A CSS url() or @import names a file that is missing or not bundled.",
+      "warn": true
+    },
+    "W_POLYFILL_NOT_FOUND": {
+      "area": "compile",
+      "summary": "webextension-polyfill requested but absent.",
+      "warn": true
+    },
+    "W_LOCALES_LAYOUT": {
+      "area": "compile",
+      "summary": "_locales layout or messages.json is invalid.",
+      "warn": true
+    },
+    "W_PROD_LOOPBACK_ORIGIN": {
+      "area": "compile",
+      "summary": "A production manifest names a loopback origin (localhost, 127.0.0.0/8, [::1] or 0.0.0.0), which store reviewers read as unexplained host access.",
+      "warn": true
+    },
+    "W_NO_ENTRYPOINTS": {
+      "area": "compile",
+      "summary": "The compilation produced zero entrypoints.",
+      "warn": true
+    },
+    "W_REMOTE_RESOURCE_BLOCKED": {
+      "area": "compile",
+      "summary": "A remote script or stylesheet is blocked by extension CSP.",
+      "warn": true
+    },
+    "W_PERF_BUDGET": {
+      "area": "compile",
+      "summary": "An asset exceeds its size budget.",
+      "warn": true
+    },
+    "W_ENV_NO_MATCH": {
+      "area": "compile",
+      "summary": "No .env file matched the mode.",
+      "warn": true
+    },
+    "W_LAUNCH_SKIPPED_COMPILE_ERRORS": {
+      "area": "browser-binary",
+      "summary": "Launch was withheld because the compile failed.",
+      "warn": true
+    },
+    "W_UNINSTALL_NOOP": {
+      "area": "browser-binary",
+      "summary": "Nothing to remove.",
+      "warn": true
+    },
+    "W_PORT_IN_USE": {
+      "area": "dev-server",
+      "summary": "The requested port was taken and auto-reassigned.",
+      "warn": true
+    },
+    "W_LOGS_STREAM_GAP": {
+      "area": "logs",
+      "summary": "The follow stream dropped events.",
+      "warn": true
+    },
+    "W_MANIFEST_INVALID": {
+      "area": "manifest",
+      "summary": "A manifest field had a shape the browser refuses to load, and the build repaired or dropped it.",
+      "warn": true
+    },
+    "W_WAR_INVALID": {
+      "area": "compile",
+      "summary": "A web_accessible_resources pattern leaves the extension root, so it exposes no file.",
+      "warn": true
+    },
+    "W_RESERVED_FOLDER": {
+      "area": "compile",
+      "summary": "A file in scripts/ is only imported by another file, and every file in that folder is built as an entry of its own.",
+      "warn": true
+    },
+    "W_INTERNAL": {
+      "area": "internal",
+      "summary": "A build step met output it did not expect and carried on. The toolchain needs an update.",
+      "warn": true
+    },
+    "W_RESTART_REQUIRED": {
+      "area": "dev-server",
+      "summary": "A file the running dev session reads only at startup changed, so the change applies after a restart.",
+      "warn": true
+    },
+    "W_JSON_INVALID": {
+      "area": "compile",
+      "summary": "A declarativeNetRequest ruleset parses but has a rule that may not behave as written, or one that Chrome refuses and Firefox loads.",
+      "warn": true
+    },
+    "W_PROJECT_LAYOUT": {
+      "area": "project",
+      "summary": "A public/ folder is misplaced or shadowed by another one, or an exclude entry in extension.config.js names a file that is not there.",
+      "warn": true
+    },
+    "W_MANIFEST_COMPAT": {
+      "area": "manifest",
+      "summary": "The manifest uses a version, key or host permission pattern that the target browser ignores or is phasing out.",
+      "warn": true
+    },
+    "W_STORE_READINESS": {
+      "area": "manifest",
+      "summary": "The manifest builds and loads, but a store would reject or flag it as written.",
+      "warn": true
+    },
+    "W_PERMISSION_MISMATCH": {
+      "area": "manifest",
+      "summary": "The code uses an API or reaches a host that the manifest permissions do not cover the way the code needs.",
+      "warn": true
+    },
+    "W_API_UNSUPPORTED": {
+      "area": "compile",
+      "summary": "The code calls an extension API, or a form of one, that the target browser does not have.",
+      "warn": true
+    },
+    "W_WAR_EXPOSURE": {
+      "area": "compile",
+      "summary": "A file a script names is not reachable through web_accessible_resources, or the build exposed it more widely than the manifest lists.",
+      "warn": true
+    },
+    "W_CSS_NOT_APPLIED": {
+      "area": "compile",
+      "summary": "A stylesheet import or url() is kept in the output but the browser will not apply it where it sits.",
+      "warn": true
+    },
+    "W_ENV_SECRET_PUBLIC": {
+      "area": "project",
+      "summary": "An EXTENSION_PUBLIC_ variable has a name that looks like a secret, and its value is written into the built code.",
+      "warn": true
+    },
+    "W_BUILD_CONSTANT_UNDEFINED": {
+      "area": "compile",
+      "summary": "A script reads a build constant that nothing defines, so it throws when it loads.",
+      "warn": true
+    },
+    "W_SCRIPT_WORLD_UNKNOWN": {
+      "area": "compile",
+      "summary": "A script is registered at runtime with a world the build cannot read, so it is treated as an isolated world script.",
+      "warn": true
+    },
+    "W_ENV_NAME_RESERVED": {
+      "area": "project",
+      "summary": "A .env file sets a name the build reserves for the browser or mode it compiles for, so the file value is ignored.",
+      "warn": true
+    },
+    "W_COMPANION_EXTENSION_PATH": {
+      "area": "project",
+      "summary": "A companion extension entry leads outside the project, is not an unpacked extension folder, or names a folder that does not exist, so the browser opens without it.",
+      "warn": true
+    },
+    "W_CDP_NOT_CONNECTED": {
+      "area": "debug-protocol",
+      "summary": "A dev, start or preview session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_CDP_TIMEOUT": {
+      "area": "debug-protocol",
+      "summary": "A CDP command or load timed out after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_CDP_OP_FAILED": {
+      "area": "debug-protocol",
+      "summary": "An extension operation over CDP failed after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach. A fault of any class other than the four with a warning name of their own is reported under this code too.",
+      "warn": true
+    },
+    "W_BROWSER_CONNECTION_CLOSED": {
+      "area": "debug-protocol",
+      "summary": "The debug socket closed after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
+    },
+    "W_EXTENSION_ID_UNKNOWN": {
+      "area": "debug-protocol",
+      "summary": "The extension id could not be determined over CDP after launch, and the dev, start or preview session stayed ready. Reload and HMR cannot attach.",
+      "warn": true
     }
   },
   "legacy": {
@@ -606,6 +778,17 @@
     "E_TSCONFIG_MISSING": "E_COMPILE",
     "E_INTEGRATION_INSTALL": "E_DEPENDENCY_INSTALL",
     "E_WSL_INTEROP": "E_BROWSER_NOT_FOUND",
-    "E_MATCH_PATTERN_INVALID": "E_EXTENSION_LOAD_REFUSED"
+    "E_MATCH_PATTERN_INVALID": "E_EXTENSION_LOAD_REFUSED",
+    "E_MANAGED_DEP_CONFLICT": "W_MANAGED_DEP_CONFLICT",
+    "E_TYPES_EMIT": "W_TYPES_EMIT",
+    "E_POLYFILL_NOT_FOUND": "W_POLYFILL_NOT_FOUND",
+    "E_PROD_LOOPBACK_ORIGIN": "W_PROD_LOOPBACK_ORIGIN",
+    "E_NO_ENTRYPOINTS": "W_NO_ENTRYPOINTS",
+    "E_REMOTE_RESOURCE_BLOCKED": "W_REMOTE_RESOURCE_BLOCKED",
+    "E_ENV_NO_MATCH": "W_ENV_NO_MATCH",
+    "E_LAUNCH_SKIPPED_COMPILE_ERRORS": "W_LAUNCH_SKIPPED_COMPILE_ERRORS",
+    "E_UNINSTALL_NOOP": "W_UNINSTALL_NOOP",
+    "E_PORT_IN_USE": "W_PORT_IN_USE",
+    "E_LOGS_STREAM_GAP": "W_LOGS_STREAM_GAP"
   }
 }
