@@ -1,3 +1,4 @@
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {getProjectStructure} from '../../lib/project'
@@ -11,6 +12,8 @@ import {
 import webpackConfig from '../../rspack-config'
 import {devWatchOptions} from './dev-watch-options'
 
+const SETTLE_QUIET_MS = 300
+
 export interface DevWatchSession {
   compiler: Compiler
   tracker: ChangedSourcesTracker
@@ -21,6 +24,22 @@ export interface DevWatchSession {
   close: () => Promise<void>
 }
 
+// The watcher counts a file written within its accuracy margin (up to 2s) of
+// the first compile as changed and compiles again, so fixtures start older.
+export function ageProjectFiles(dir: string) {
+  const past = new Date(Date.now() - 60000)
+
+  for (const entry of fs.readdirSync(dir, {withFileTypes: true})) {
+    const full = path.join(dir, entry.name)
+
+    if (entry.isDirectory()) {
+      if (entry.name !== 'node_modules') ageProjectFiles(full)
+    } else if (entry.isFile()) {
+      fs.utimesSync(full, past, past)
+    }
+  }
+}
+
 // A real rspack watch over a project, minus the browser plugins, so a spec
 // can write files and observe which of them the dev session rebuilds for.
 export async function openDevWatchSession(
@@ -29,6 +48,8 @@ export async function openDevWatchSession(
   onCompiler?: (compiler: Compiler) => void,
   devOptions: Record<string, unknown> = {}
 ): Promise<DevWatchSession> {
+  ageProjectFiles(root)
+
   const projectStructure = await getProjectStructure(root)
   const distPath = path.join(root, 'dist', browser)
   const config = webpackConfig(projectStructure, {
@@ -76,11 +97,12 @@ export async function openDevWatchSession(
 
       poll()
     })
-  // Quiet for a full second: the watcher has finished any startup churn.
+  // Aged fixtures leave no startup churn, so a short quiet after the first
+  // compile is enough to know the watcher is idle.
   const settle = () =>
     new Promise<number>((resolve) => {
       const poll = () => {
-        if (dones.length > 0 && Date.now() - lastDoneAt > 1000) {
+        if (dones.length > 0 && Date.now() - lastDoneAt > SETTLE_QUIET_MS) {
           return resolve(dones.length)
         }
 
@@ -108,11 +130,32 @@ export async function openDevWatchSession(
     doneAfter,
     settle,
     quietFor,
-    close: () =>
-      new Promise<void>((resolve) => {
-        watching.close(() => resolve())
-      })
+    close: () => closeWatching(watching)
   }
+}
+
+const CLOSE_BOUND_MS = 10000
+
+// A close waits for a compile in flight, which on a loaded machine running
+// several watch sessions can outlast the hook. The spec has asserted by then.
+export function closeWatching(watching: {
+  close: (callback: () => void) => void
+  running?: boolean
+}): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const bound = setTimeout(() => {
+      console.warn(
+        `watch session still closing after ${CLOSE_BOUND_MS / 1000}s (running: ${String(watching.running)})`
+      )
+
+      resolve()
+    }, CLOSE_BOUND_MS)
+
+    watching.close(() => {
+      clearTimeout(bound)
+      resolve()
+    })
+  })
 }
 
 // One edit can reach the watcher as several rebuilds, so a spec reads the

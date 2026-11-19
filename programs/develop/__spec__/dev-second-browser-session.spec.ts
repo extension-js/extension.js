@@ -9,6 +9,7 @@ import {getProjectStructure} from '../lib/project'
 import {controlPortFilePath} from '../lib/session-paths'
 import webpackConfig from '../rspack-config'
 import {devWatchOptions} from './helpers/dev-watch-options'
+import {closeWatching} from './helpers/dev-watch-session'
 
 const roots: string[] = []
 const sessions: Array<{close: () => Promise<void>}> = []
@@ -79,7 +80,13 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
   config.stats = false
   const compiler: Compiler = rspack(config)
   const dones: Stats[] = []
+  // The files that started each compile, so a stray recompile shows by name.
+  const changed: string[][] = []
   let lastDoneAt = 0
+  compiler.hooks.watchRun.tap('spec-second-session', (watched) => {
+    changed.push([...(watched.modifiedFiles ?? [])].map(real))
+  })
+
   compiler.hooks.done.tap('spec-second-session', (stats) => {
     dones.push(stats)
     lastDoneAt = Date.now()
@@ -104,15 +111,22 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
   )
   const session = {
     dones,
+    changed,
     settle,
-    close: () =>
-      new Promise<void>((resolve) => {
-        watching.close(() => resolve())
-      })
+    close: () => closeWatching(watching)
   }
   sessions.push(session)
 
   return session
+}
+
+// The temp folder can sit behind a symlink the bundler resolves.
+function real(file: string) {
+  try {
+    return fs.realpathSync(file)
+  } catch {
+    return file
+  }
 }
 
 const sleep = (ms: number) =>
@@ -123,15 +137,31 @@ async function waitUntil(check: () => boolean, deadlineMs: number) {
   while (!check() && Date.now() < giveUpAt) await sleep(50)
 }
 
+// A source edit after the writes under test is the end marker: a recompile
+// those writes caused lands before its compile or inside it, by name.
+async function editAndWait(
+  root: string,
+  session: Awaited<ReturnType<typeof watchSession>>,
+  seen: number,
+  text: string
+) {
+  fs.writeFileSync(path.join(root, 'background.js'), `console.log("${text}")\n`)
+  // Edit-to-done latency grows on a loaded machine, so poll up to 30s.
+  await waitUntil(() => session.dones.length > seen, 30_000)
+
+  return session.changed.slice(seen)
+}
+
 describe('a first dev session', () => {
   it('compiles once at startup although it creates dist under the watched root', async () => {
     const root = project()
     const chromium = await watchSession(root, 'chromium')
     const seen = await chromium.settle()
-    await sleep(2000)
 
     expect(seen).toBe(1)
-    expect(chromium.dones).toHaveLength(1)
+    expect(await editAndWait(root, chromium, seen, 'v2')).toEqual([
+      [real(path.join(root, 'background.js'))]
+    ])
   }, 30000)
 })
 
@@ -147,19 +177,9 @@ describe('a second dev session for another browser', () => {
     await firefox.settle()
     writePersistedControlPort(controlPortFilePath(root, 'firefox'), 18999)
     writeControlToken(root, 'firefox')
-    // A negative check needs a fixed window: any stray recompile from the
-    // second session's writes lands well inside three seconds.
-    await sleep(3000)
 
-    expect(chromium.dones).toHaveLength(seen)
-
-    fs.writeFileSync(
-      path.join(root, 'background.js'),
-      'console.log("second-session-bg-v2")\n'
-    )
-
-    // Edit-to-done latency grows on a loaded machine, so poll up to 30s.
-    await waitUntil(() => chromium.dones.length > seen, 30_000)
-    expect(chromium.dones.length).toBeGreaterThan(seen)
+    expect(await editAndWait(root, chromium, seen, 'v2')).toEqual([
+      [real(path.join(root, 'background.js'))]
+    ])
   }, 90000)
 })
