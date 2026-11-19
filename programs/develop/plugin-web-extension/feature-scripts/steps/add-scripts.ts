@@ -212,12 +212,10 @@ export class AddScripts {
 
               if (!isWithheld) missing.push(resolved)
 
-              const isPublicRoot =
-                !isWithheld && entry.startsWith('/') && !path.isAbsolute(entry)
-
-              const file = isPublicRoot
-                ? entry
-                : path.relative(manifestDir, resolved).split(path.sep).join('/')
+              const file = path
+                .relative(manifestDir, resolved)
+                .split(path.sep)
+                .join('/')
               const field = manifestFieldOf(feature, resolved, sheets)
               const err = new ErrorCtor(
                 isWithheld
@@ -227,12 +225,7 @@ export class AddScripts {
                       withheldEntryKind(resolved, [projectPath, manifestDir]),
                       resolved
                     )
-                  : messages.scriptsMissingFile(
-                      file,
-                      field,
-                      resolved,
-                      isPublicRoot
-                    )
+                  : messages.scriptsMissingFile(file, field, resolved)
               ) as Error & {file?: string; name?: string}
               err.file = 'manifest.json'
               err.name = 'ScriptsMissingFile'
