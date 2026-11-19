@@ -1,3 +1,4 @@
+import {EventEmitter} from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
 import {endSessionAsFailed, extensionDev} from '../../../dist/module.mjs'
@@ -23,7 +24,54 @@ const listening = () =>
     .filter((handle) => handle?.listening === true)
     .map((handle) => handle.address()?.port)
 
-const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+// What the scenarios wait for is announced here: a host listener added or
+// removed, a session ready, a server closed. Each wait checks again on
+// those events, so none races a short fixed budget.
+const changed = new EventEmitter()
+const announce = () => setImmediate(() => changed.emit('change'))
+
+process.on('newListener', announce)
+process.on('removeListener', announce)
+
+// Every server listening now says when it closes.
+function watchServers() {
+  for (const handle of process._getActiveHandles()) {
+    if (handle?.listening === true) handle.once?.('close', announce)
+  }
+}
+
+// The cap sits below the spec's own process timeout, so a wait that never
+// ends still reports false instead of leaving no result. The beat covers
+// what no event announces, such as an output file the session wrote.
+const WAIT_CAP_MS = 120_000
+const RECHECK_MS = 250
+
+function until(read) {
+  return new Promise((resolve) => {
+    const finish = (value) => {
+      clearTimeout(cap)
+      clearInterval(beat)
+      changed.off('change', check)
+      resolve(value)
+    }
+
+    const check = () => {
+      if (read()) finish(true)
+    }
+
+    const cap = setTimeout(() => finish(false), WAIT_CAP_MS)
+    const beat = setInterval(check, RECHECK_MS)
+
+    changed.on('change', check)
+    check()
+  })
+}
+
+// Kept alive until the process ends, the exit the scenario is about.
+const untilThisProcessEnds = () =>
+  new Promise(() => {
+    setInterval(() => {}, 60_000)
+  })
 
 // The names of the variables that differ from a copy of the environment.
 const envCopy = () => ({...process.env})
@@ -33,17 +81,17 @@ const envChangedSince = (before) =>
     .filter((name) => before[name] !== process.env[name])
     .sort()
 
-async function until(read, timeoutMs = 30000) {
-  const deadline = Date.now() + timeoutMs
-
-  while (Date.now() < deadline) {
-    if (read()) return true
-
-    await wait(50)
-  }
-
-  return false
-}
+// A content script emitted by the compiler a restart built for it.
+const untilContentScript = (dir) =>
+  until(() => {
+    try {
+      return fs
+        .readdirSync(path.join(dir, 'dist', 'chromium', 'content_scripts'))
+        .some((name) => /^content-0\..*\.js$/.test(name))
+    } catch {
+      return false
+    }
+  })
 
 // What each failure needs from the config a project ships.
 const CONFIGS = {
@@ -123,6 +171,7 @@ function start(dir, options = {}) {
     hintFor: (code) => `host hint for ${code}`,
     onReady: () => {
       ready = true
+      announce()
     }
   }).then(
     () => ({started: true}),
@@ -182,7 +231,8 @@ async function failingStarts() {
   }
 
   // A closing socket leaves the handle list a moment after its close.
-  const socketsClosed = await until(() => listening().length === 0, 5000)
+  watchServers()
+  const socketsClosed = await until(() => listening().length === 0)
 
   return {
     before,
@@ -223,6 +273,7 @@ async function restartWhileAnotherSessionLives() {
   })
 
   fs.writeFileSync(path.join(newer, 'break-next-start'), 'x')
+  watchServers()
   fs.writeFileSync(path.join(newer, 'manifest.json'), withContentScript)
 
   const newerReleased = await until(
@@ -239,15 +290,7 @@ async function restartWhileAnotherSessionLives() {
   fs.writeFileSync(path.join(older, 'manifest.json'), withContentScript)
 
   // Only a compiler built for the new entry list emits the content script.
-  const olderRestarted = await until(() => {
-    try {
-      return fs
-        .readdirSync(path.join(older, 'dist', 'chromium', 'content_scripts'))
-        .some((name) => /^content-0\..*\.js$/.test(name))
-    } catch {
-      return false
-    }
-  })
+  const olderRestarted = await untilContentScript(older)
 
   return {
     before,
@@ -284,7 +327,7 @@ async function endedAsFailedByTheCli() {
 
   if (process.platform !== 'win32') process.kill(process.pid, 'SIGTERM')
 
-  await wait(30000)
+  await untilThisProcessEnds()
 
   return {before, ended, exitCode: null}
 }
@@ -319,15 +362,7 @@ async function endedAsFailedByALibraryHost() {
     })
   )
 
-  const olderRestarted = await until(() => {
-    try {
-      return fs
-        .readdirSync(path.join(older, 'dist', 'chromium', 'content_scripts'))
-        .some((name) => /^content-0\..*\.js$/.test(name))
-    } catch {
-      return false
-    }
-  })
+  const olderRestarted = await untilContentScript(older)
 
   return {
     bothReady,
@@ -475,7 +510,7 @@ async function endedBeforeAnySession() {
   if (process.platform === 'win32') process.exit(1)
 
   process.kill(process.pid, 'SIGTERM')
-  await wait(30000)
+  await untilThisProcessEnds()
   process.exit(1)
 }
 

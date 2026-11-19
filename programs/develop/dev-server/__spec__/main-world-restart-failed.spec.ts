@@ -221,9 +221,7 @@ describe('a MAIN world restart that could not build its next bundle', () => {
   it('asks for the restart again on the next save, as its hint says', async () => {
     const {files, compiler, session} = await afterFailedRestart()
 
-    expect(session.lines.join('\n')).toContain(
-      'save the changed file again to retry'
-    )
+    expect(session.lines.join('\n')).toContain('save a project file to retry')
 
     const saved = await save(compiler)
 

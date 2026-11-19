@@ -671,7 +671,7 @@ export class LifecycleStream {
       'restart-failed',
       {code: args.code, message: stripAnsi(args.message)},
       {
-        hint: 'The previous build keeps serving. Fix the error, then save the changed file again to retry.'
+        hint: 'The previous build keeps serving. Fix the error, then save a project file to retry.'
       }
     ) as Envelope<unknown>
     frame.value = this.sessionValue({serving: true})
