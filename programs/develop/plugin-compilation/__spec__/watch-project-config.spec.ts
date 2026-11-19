@@ -40,7 +40,7 @@ function createFakeCompiler(projectRoot: string, watch = true) {
   return {
     options: {
       mode: 'development',
-      watchOptions: watch ? {} : undefined,
+      watchOptions: {},
       context: projectRoot
     },
     hooks: {
@@ -54,6 +54,7 @@ function createFakeCompiler(projectRoot: string, watch = true) {
       invalid: noop,
       failed: noop
     },
+    watchMode: watch,
     modifiedFiles: new Set<string>(),
     removedFiles: new Set<string>(),
     __cycle(compilation: Compilation) {

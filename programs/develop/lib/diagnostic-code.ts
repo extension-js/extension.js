@@ -137,6 +137,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   MissingBuildConstantWarning: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvPrivatePlaceholder: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvReservedName: CODES.W_ENV_NAME_RESERVED,
+  EnvDefinedNameWritten: CODES.W_ENV_DEFINE_WRITTEN,
   UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
 }
 

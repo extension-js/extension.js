@@ -42,7 +42,7 @@ const NOT_DIAGNOSTICS = new Set([
 ])
 
 const SYNTAX_NODE =
-  /(?:Expression|Statement|Declaration|Declarator|Specifier|Definition|Clause|Literal|Element|Property|StaticBlock)$|^(?:Array|Object|Assignment)Pattern$/
+  /(?:Expression|Statement|Declaration|Declarator|Specifier|Definition|Clause|Literal|Element|Property|StaticBlock)$|^(?:Array|Object|Assignment)Pattern$|^SwitchCase$/
 
 // The control bridge names protocol errors, which the CLI maps on its own
 // table, so none of them is a compilation diagnostic.
