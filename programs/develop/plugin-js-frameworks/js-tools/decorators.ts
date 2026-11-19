@@ -7,42 +7,13 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {parseJsoncSafe} from '../../lib/project-manifest'
+import {resolveExtends} from '../../lib/tsconfig-includes-file'
 
 export type SwcDecoratorTransform =
   | {legacyDecorator: true; decoratorMetadata?: true}
   | {decoratorVersion: '2022-03'}
-
-// A config can extend a relative file or a package, like TypeScript reads it.
-function resolveExtends(specifier: string, fromDir: string): string | null {
-  if (specifier.startsWith('.') || path.isAbsolute(specifier)) {
-    const target = path.resolve(fromDir, specifier)
-
-    return (
-      [target, `${target}.json`].find((file) =>
-        fs.statSync(file, {throwIfNoEntry: false})?.isFile()
-      ) || null
-    )
-  }
-
-  const requireFrom = createRequire(path.join(fromDir, 'tsconfig.json'))
-
-  for (const request of [
-    specifier,
-    `${specifier}.json`,
-    `${specifier}/tsconfig.json`
-  ]) {
-    try {
-      return requireFrom.resolve(request)
-    } catch {
-      // Try the next spelling
-    }
-  }
-
-  return null
-}
 
 // The compilerOptions SWC can follow. Everything else in a tsconfig is
 // type checking or module resolution, which the bundler owns.
