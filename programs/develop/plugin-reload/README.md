@@ -27,6 +27,9 @@ It is responsible for:
   (`full` / `service-worker` / `content-scripts` / notify-only `page`)
 - dispatching that instruction over the control-bridge broker, the same
   executor for launched browsers and `--no-browser`
+- the reload executor the background runs when a reload frame arrives
+  (`reload-lib/producer-reload.ts`), which the control-bridge producer only
+  carries
 
 ## Entry point
 
@@ -40,17 +43,14 @@ It is responsible for:
   the manifest path is not a file. The first three are `isReloadSession`
   in `lib/reload-session.ts`. Chunk loading is not part of this plugin:
   `plugin-web-extension` installs its chunk loading target in every build.
-- the classifier/dispatch API (`reloadForBuild`, `loadedContentScriptsFor`,
-  `classifyReloadFromSources`, `buildSourceFeatureIndex`,
-  `createLoadedContentScripts`, `dispatchReload`,
-  `createChangedSourcesTracker`, `readDevBuild`, …) consumed by
-  `plugin-browsers`' `BrowsersPlugin` (launched-browser path) and
-  `SafariDevPlugin` (which adds `reloadSurvivingPackage` and
-  `mergeReloadInstructions`), and by `dev-server/index.ts` (`--no-browser`
-  broadcast path). Centralizing the decision keeps the paths converged: the
-  same change always resolves to the same reload type. The callers say when
-  a build was loaded and when a reload may be sent. What must reload is
-  answered here.
+- the reload session (`reload-session.ts`). `createReloadSession` is what
+  `plugin-browsers`' `BrowsersPlugin` and `SafariDevPlugin` (with
+  `packaged: true`) keep, and `reloadEachBuild` is the one call the dev
+  server's `--no-browser` path makes. The dev server hands the session its
+  broker and the hold of a pending restart. Callers say when a build was
+  loaded and when a reload may be sent. What must reload, the trim and merge
+  a packaged browser needs, and the dispatch are answered here, so the same
+  change always resolves to the same reload on every path.
 
 ## Development pipeline
 
@@ -73,8 +73,16 @@ names one, otherwise any mode but production), so it also runs under
 
 ## Important files
 
+- `reload-session.ts`
+  One session per caller. `watch(compiler)` taps the changed sources of a
+  compiler and `plan` answers what its build reloads, or that a pending
+  restart holds it. `loaded` records a build the browser read, `deliver`
+  sends a plan and records what the browser took. With `packaged` it trims
+  each plan to what a restart cannot deliver and stamps every package as
+  the applied reload. What the browser read outlives a compiler restart.
+
 - `build-reload.ts`
-  The one call each reload path makes after a build. `reloadForBuild` reads
+  The classification a session runs after a build. `reloadForBuild` reads
   the tracker's snapshot, classifies it and, when given what the browser last
   read, resolves against it. `loadedContentScriptsFor` maps a browser name to
   that record: none for the emulator, an in-place sheet swap for Gecko.
@@ -194,6 +202,14 @@ names one, otherwise any mode but production), so it also runs under
   a declared entry with no default export and a default export the script
   also calls, from what the wrapper read of each module.
 
+- `reload-lib/producer-reload.ts`
+  The reload executor of the background: re-inject, script addresses, sheet
+  swaps, page and override tabs, the restart and the boot heal. It is text
+  the control-bridge producer composes between its own parts, so the bridge
+  in `dev-server/control-bridge/producer-runtime.ts` keeps the connection,
+  the control verbs and the logs only. `buildDevProducerSource` is the
+  producer a dev background runs.
+
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
   console output to the dev-server control WS. Not reload in the strict
@@ -230,6 +246,8 @@ consumes that contract. It does not define it, and nothing in
 - `reload-plugin-gating.spec.ts`, `reload-plugin-emulator.spec.ts`, which
   steps a real compiler gets per mode, session, opt-out and engine
 - `classify-reload.unit.spec.ts`, classifier decisions
+- `reload-session.unit.spec.ts`, the session every caller keeps and the
+  one call of the `--no-browser` path
 - `build-reload.unit.spec.ts`, the per-build call and the browser mapping
 - `reload-dispatch.unit.spec.ts`, dispatch seam and the changed-sources
   tracker
@@ -251,7 +269,8 @@ consumes that contract. It does not define it, and nothing in
   hot update names. The chunk loading specs live in
   `plugin-web-extension/feature-chunk-loading`.
 - `plugin-boundary.spec.ts`, that this folder installs no chunk loading code
-  and reaches the target only through its extension point
+  and reaches the target only through its extension point, and what it may
+  import from the dev server and the browser plugins
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
 - `content-script-reinject.spec.ts`, `reinject-during-pending-await.spec.ts`,
   the reinject runtime in the wrapper output, its generations across
@@ -260,6 +279,9 @@ consumes that contract. It does not define it, and nothing in
   dev session build. That build reads loaders from `programs/develop/dist`.
 - `inject-bridge-steps.spec.ts`, `inject-bridge-boot-registrations.spec.ts`,
   the control-bridge producer and relay
+- `producer-reload-*.spec.ts`, the reload executor in a background with a
+  fake socket and extension API: boot registrations, declared sheets, page
+  tabs, registered scripts and script addresses
 - `inject-scripts-replay-shim.spec.ts`, `scripts-replay-shim.runtime.spec.ts`,
   `scripts-replay-shim-namespaces.spec.ts`, the worker replay shim
 - `strip-content-script-dev-server-runtime.spec.ts`,
