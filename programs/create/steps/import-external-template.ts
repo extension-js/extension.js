@@ -14,7 +14,7 @@ import axios, {type AxiosRequestConfig, type AxiosResponse} from 'axios'
 import {unzipSync} from 'fflate'
 import {cloneInChild} from '../lib/clone-in-child'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {formatDuration, isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 // In-process unzip with a zip-slip guard: entries naming absolute paths or
@@ -360,7 +360,7 @@ function startFetchBudget(ms: number): FetchBudget {
 
 function fetchBudgetSpent(budget: FetchBudget): Error {
   return new Error(
-    `No answer within ${Math.round(budget.ms / 1000)} seconds (EXTENSION_CREATE_TIMEOUT_MS)`
+    `No answer within ${formatDuration(budget.ms)} (EXTENSION_CREATE_TIMEOUT_MS)`
   )
 }
 

@@ -11,6 +11,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {spawn} from 'cross-spawn'
 import {corepackRegistryEnv} from './corepack-registry'
+import {formatDuration} from './messaging'
 
 // A package manager exports every npm config it read as an npm_config_* variable,
 // so the invoking checkout's release-age rule would govern the new project's
@@ -135,7 +136,7 @@ export function installTimeoutMs(
 }
 
 export function installTimedOutReason(ms: number): string {
-  return `The install did not finish within ${Math.round(ms / 1000)} seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
+  return `The install did not finish within ${formatDuration(ms)} (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
 }
 
 export type SpawnProcess = (
