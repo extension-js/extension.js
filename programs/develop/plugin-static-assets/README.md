@@ -49,4 +49,4 @@ export class StaticAssetsPlugin {
 }
 ```
 
-`static-assets-lib/asset-output-name.ts` exports `bundledAssetOutputName`, which computes the name these rules give a file, so the HTML and web-accessible-resources steps can point at the same copy.
+`static-assets-lib/asset-output-name.ts` exports `bundledAssetOutputName`, which computes the name these rules give a file, so the HTML and web-accessible-resources steps can point at the same copy. Pass it the compilation's `outputOptions`: a file no default rule claims follows a user `output.assetModuleFilename` built from `[name]`, `[ext]`, `[base]`, `[contenthash]` and `[hash]` (with or without a length). Any other token keeps the default pattern.

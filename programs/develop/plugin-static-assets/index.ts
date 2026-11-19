@@ -11,7 +11,12 @@ import type {Compiler, RuleSetRule} from '@rspack/core'
 import {debugLine, isDebug} from '../lib/messaging'
 import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {CheckNamespaceImports} from './check-namespace-imports'
-import {ASSET_FILENAME_PATTERN} from './static-assets-lib/asset-output-name'
+import {
+  ASSET_FILENAME_PATTERN,
+  FILE_EXTENSIONS,
+  FONT_EXTENSIONS,
+  IMAGE_EXTENSIONS
+} from './static-assets-lib/asset-output-name'
 import * as messages from './static-assets-lib/messages'
 
 export class StaticAssetsPlugin {
@@ -264,36 +269,6 @@ export class StaticAssetsPlugin {
           )
         )
         .map((rule) => rule?.resourceQuery as RegExp)
-
-    const IMAGE_EXTENSIONS = [
-      'png',
-      'jpg',
-      'jpeg',
-      'gif',
-      'webp',
-      'avif',
-      'ico',
-      'bmp'
-    ]
-    const FONT_EXTENSIONS = ['woff', 'woff2', 'eot', 'ttf', 'otf']
-    const FILE_EXTENSIONS = [
-      'txt',
-      'md',
-      'csv',
-      'tsv',
-      'xml',
-      'pdf',
-      'docx',
-      'doc',
-      'xls',
-      'xlsx',
-      'ppt',
-      'pptx',
-      'zip',
-      'gz',
-      'gzip',
-      'tgz'
-    ]
 
     // A user rule for one extension must win for that extension only: the
     // default rule keeps claiming the siblings (a .png rule leaves .jpg to us)
