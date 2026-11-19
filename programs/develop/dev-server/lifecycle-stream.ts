@@ -229,18 +229,31 @@ export class LifecycleStream {
   }
 
   // A resolver that throws costs the frame its hint and nothing else.
-  private addHostHint(frame: Envelope<unknown>): void {
-    const code = frame.error?.code
-
-    if (frame.hint || !code || !this.options.hintFor) return
+  private hostHint(code: string | undefined): string | undefined {
+    if (!code || !this.options.hintFor) return undefined
 
     try {
       const hint = this.options.hintFor(code as ErrorCode)
 
-      if (typeof hint === 'string' && hint) frame.hint = hint
+      return typeof hint === 'string' && hint ? hint : undefined
     } catch {
-      // Ignore
+      return undefined
     }
+  }
+
+  private addHostHint(frame: Envelope<unknown>): void {
+    if (frame.hint) return
+
+    const hint = this.hostHint(frame.error?.code)
+    if (hint) frame.hint = hint
+  }
+
+  // A frame that ends nothing says the session goes on, and the host's
+  // remedy for its code, when there is one, comes first.
+  private withHostRemedy(code: string, sessionLine: string): string {
+    const remedy = this.hostHint(code)
+
+    return remedy ? `${remedy} ${sessionLine}` : sessionLine
   }
 
   public sessionValue(
@@ -377,10 +390,14 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
-  // Written once the contract is on disk, and again after an error survived.
-  // The contract decides, since a compile can pass while the browser refuses.
-  public ready(args: {port?: number | null} = {}): Envelope<unknown> | null {
+  // Written once the contract is on disk, again after an error survived, and
+  // again for the server a restart built. The contract decides, since a
+  // compile can pass while the browser refuses.
+  public ready(
+    args: {port?: number | null; restarted?: boolean} = {}
+  ): Envelope<unknown> | null {
     if (args.port != null) this.boundPort = toFiniteNumber(args.port)
+    if (args.restarted) this.readyEmitted = false
 
     const ready = readReadyContract(this.options.readyPath)
 
@@ -422,9 +439,12 @@ export class LifecycleStream {
     this.reportedReadyError = null
 
     return this.emit(
-      ENVELOPE.ok(this.options.command, 'ready', this.sessionValue(), {
-        warnings: cdpFaultWarnings(ready)
-      })
+      ENVELOPE.ok(
+        this.options.command,
+        'ready',
+        this.sessionValue(args.restarted ? {restarted: true} : {}),
+        {warnings: cdpFaultWarnings(ready)}
+      )
     )
   }
 
@@ -448,7 +468,13 @@ export class LifecycleStream {
       : isUsageLaunchCode(launchCode)
         ? 'usage'
         : 'failed'
-    const hint = survivable
+    const code = loadRefused
+      ? CODES.E_EXTENSION_LOAD_REFUSED
+      : (launchCode ??
+        exitCode ??
+        readyContractErrorCode(ready.code) ??
+        CODES.E_READY_ERROR_STATUS)
+    const sessionLine = survivable
       ? loadRefused
         ? 'The session keeps running. Fix what the browser names and save: the next compile offers the extension again.'
         : launchFailed
@@ -457,17 +483,16 @@ export class LifecycleStream {
       : loadRefused
         ? 'Fix what the browser names, then run the command again.'
         : undefined
+    const hint =
+      survivable && sessionLine
+        ? this.withHostRemedy(code, sessionLine)
+        : sessionLine
     const frame = ENVELOPE.fail(
       this.options.command,
       status,
       {
         // The id resolves through the table --wait reads, one code per state.
-        code: loadRefused
-          ? CODES.E_EXTENSION_LOAD_REFUSED
-          : (launchCode ??
-            exitCode ??
-            readyContractErrorCode(ready.code) ??
-            CODES.E_READY_ERROR_STATUS),
+        code,
         message:
           String(ready.message || '') ||
           'The ready contract reports an error for this session.'
@@ -567,7 +592,10 @@ export class LifecycleStream {
       'browser-exited',
       {code, message},
       {
-        hint: 'The dev server keeps running with no browser. Stop it, then run the command again to launch one.'
+        hint: this.withHostRemedy(
+          code,
+          'The dev server keeps running with no browser. Stop it, then run the command again to launch one.'
+        )
       }
     ) as Envelope<unknown>
     frame.value = this.sessionValue({
@@ -777,9 +805,13 @@ function errorText(stats: StatsLike): string {
 // what a frame needs, and a fake compiler must stay usable in specs.
 export function attachLifecycleStream(
   compiler: unknown,
-  stream: LifecycleStream
+  stream: LifecycleStream,
+  options: {restart?: boolean} = {}
 ): void {
   const hooks = (compiler as CompilerLike | undefined)?.hooks
+  // A restart serves from a new server, which ready.json reports as starting
+  // until this compiler's first green build, so the stream says ready again.
+  let restartReadyOwed = options.restart === true
 
   hooks?.done?.tap('extension.js:lifecycle-stream', (stats) => {
     try {
@@ -803,7 +835,8 @@ export function attachLifecycleStream(
 
       // The ready contract is written by the playwright plugin's done hook,
       // which is tapped first, so it is on disk by the time this runs.
-      stream.ready()
+      stream.ready({restarted: restartReadyOwed})
+      restartReadyOwed = false
     } catch {
       // Best-effort: a frame must never break the compile loop.
     }
