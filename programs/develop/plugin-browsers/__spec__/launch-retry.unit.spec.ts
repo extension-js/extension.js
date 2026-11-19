@@ -481,6 +481,27 @@ describe('a launch that never comes back', () => {
     ])
   })
 
+  it('stops waiting on a log capture that never answers, warns and says ready', async () => {
+    vi.useFakeTimers()
+    const contract = sessionContract()
+    const dev = session(
+      async () =>
+        controller({enableUnifiedLogging: () => new Promise<void>(() => {})}),
+      {browser: 'chrome', logLevel: 'info'},
+      contract.output
+    )
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+
+    expect(dev.events).toEqual(['settled', 'ready', 'compiled'])
+    expect(printed.warn).toHaveLength(1)
+    expect(contract.read()).toMatchObject({
+      status: 'ready',
+      cdpFaultCode: 'W_CDP_TIMEOUT'
+    })
+  })
+
   it('launches again on the next compile after a late launch failed', async () => {
     vi.useFakeTimers()
     const hung = hungLauncher()

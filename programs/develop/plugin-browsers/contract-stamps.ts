@@ -85,6 +85,29 @@ export function stampLaunchFailed(outputPath: string, error: unknown) {
   })
 }
 
+// A launch the plugin stopped waiting for came up after all, so the failure
+// it stamped comes off. A verdict the launcher wrote stays.
+export function clearLaunchFailed(outputPath: string, code: string) {
+  updateContract(outputPath, (ready) => {
+    if (
+      ready.code !== 'browser_launch_failed' ||
+      ready.browserLaunchFailedCode !== code
+    ) {
+      return false
+    }
+
+    ready.status = 'ready'
+    ready.ts = new Date().toISOString()
+    delete ready.code
+    delete ready.message
+    delete ready.browserLaunchFailedAt
+    delete ready.browserLaunchFailedReason
+    delete ready.browserLaunchFailedCode
+
+    return true
+  })
+}
+
 // The browser runs and the session stays ready, so the fault reads under a
 // warning name beside the status, the same field a CDP fault after launch uses.
 export function stampLogCaptureFault(outputPath: string, error: unknown) {
