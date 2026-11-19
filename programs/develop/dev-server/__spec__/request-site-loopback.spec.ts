@@ -327,12 +327,28 @@ describe('requests to the dev server on loopback', () => {
   it.each([
     ['the path with no session', '/ws'],
     ['the path of another session', '/ws/another-session']
-  ])('refuses the reload socket at %s', async (_name, socketPath) => {
+  ])('refuses the reload socket at %s at once', async (_name, socketPath) => {
     for (const origin of [own(), EXTENSION]) {
+      const started = Date.now()
+
       expect(await socketFrames(session.port, origin, socketPath)).toEqual([
-        'refused: Opening handshake has timed out'
+        'refused: Unexpected server response: 404'
       ])
+
+      // A stale build learns now, not at its handshake timeout.
+      expect(Date.now() - started).toBeLessThan(1000)
     }
+
+    const answer = await request(session.port, socketPath, {
+      connection: 'Upgrade',
+      upgrade: 'websocket',
+      'sec-websocket-version': '13',
+      'sec-websocket-key': 'dGhlIHNhbXBsZSBub25jZQ=='
+    })
+
+    expect(answer.status).toBe(404)
+    expect(answer.body.trim().split('\n')).toHaveLength(1)
+    expect(answer.body).toMatch(/another dev session/)
   })
 
   it('leaves a socket with no Origin to the stock server, which closes it', async () => {

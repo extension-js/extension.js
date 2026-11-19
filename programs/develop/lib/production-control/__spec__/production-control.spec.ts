@@ -226,6 +226,27 @@ describe('startProductionControl', () => {
       perProducer
     )
   })
+
+  // The reload verb restarts the extension through the dev reload executor,
+  // so the controlled copy must carry it, not the bare bridge.
+  it('ships the restart its reload verb calls', async () => {
+    const {projectDir, distPath} = makeProject()
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      distPath,
+      allowControl: true
+    })
+
+    const controlled = fs.readFileSync(
+      path.join(session.controlledPath, 'background', 'service_worker.js'),
+      'utf-8'
+    )
+
+    expect(controlled).toMatch(/\brestartExtension\(/)
+    expect(controlled).toMatch(/function restartExtension\(/)
+  })
 })
 
 // What an act verb is told when it reaches the session's broker.

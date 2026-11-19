@@ -273,6 +273,55 @@ describe('the origins a session calls its own', () => {
     ).toBe(false)
   })
 
+  // Codespaces, a tunnel or a TLS proxy serve the page on 443 while the
+  // session listens on its own port, and name the page's host to it.
+  it('admits a named host a proxy hands on as the page address', () => {
+    const named = {allowedHosts: 'dev.example.test'}
+    const page = {
+      'sec-fetch-site': 'cross-site',
+      origin: 'https://dev.example.test'
+    }
+
+    expect(verdict({...page, host: 'dev.example.test'}, named)).toBe(true)
+    expect(
+      verdict({...page, 'x-forwarded-host': 'dev.example.test'}, named)
+    ).toBe(true)
+
+    expect(
+      isSocketFromSession(
+        {
+          host: HOST,
+          origin: 'https://dev.example.test',
+          'x-forwarded-host': 'dev.example.test'
+        },
+        session(named)
+      )
+    ).toBe(true)
+  })
+
+  it('refuses a named host on any other port than the one handed on', () => {
+    const named = {allowedHosts: 'dev.example.test'}
+    const other = {
+      'sec-fetch-site': 'cross-site',
+      origin: 'http://dev.example.test:9999'
+    }
+
+    expect(verdict(other, named)).toBe(false)
+    expect(verdict({...other, host: 'dev.example.test'}, named)).toBe(false)
+    expect(
+      verdict({...other, 'x-forwarded-host': 'dev.example.test'}, named)
+    ).toBe(false)
+
+    // A forwarded name counts only for a host the session was given.
+    expect(
+      verdict({
+        'sec-fetch-site': 'cross-site',
+        origin: 'https://other.test',
+        'x-forwarded-host': 'other.test'
+      })
+    ).toBe(false)
+  })
+
   it('admits the --public-host address on the session port alone', () => {
     const publicHost = {host: '0.0.0.0', connectableHost: 'devbox.local'}
 

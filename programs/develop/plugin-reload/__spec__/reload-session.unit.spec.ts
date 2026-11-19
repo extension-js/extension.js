@@ -109,6 +109,20 @@ describe('reloadEachBuild', () => {
   })
 })
 
+describe('reloadEachBuild on a one-shot build', () => {
+  it('taps nothing on a compiler that never watches', () => {
+    const done = vi.fn()
+    const compiler = {hooks: {done: {tap: done, tapPromise: done}}}
+
+    reloadEachBuild(compiler as never, {
+      browser: 'chrome',
+      broker: recordingBroker()
+    })
+
+    expect(done).not.toHaveBeenCalled()
+  })
+})
+
 describe('createReloadSession', () => {
   it('reports a held build without classifying it', async () => {
     const session = createReloadSession({browser: 'chrome'})
