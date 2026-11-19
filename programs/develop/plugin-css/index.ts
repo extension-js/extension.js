@@ -54,6 +54,7 @@ import {
   beginStyleDiagnostics,
   reportStyleDiagnostic
 } from './css-lib/style-diagnostics'
+import {replacedStylesheetRuleTypes} from './css-lib/user-css-rules'
 import {
   forgetVerbatimCss,
   minifierDroppedTokens,
@@ -279,6 +280,9 @@ export class CssPlugin {
           stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE - 1
         },
         () => {
+          // Development runs no minimizer, so there is nothing to compare.
+          if (!c.options.optimization?.minimize) return
+
           for (const asset of c.getAssets()) {
             if (!asset.name.endsWith('.css')) continue
 
@@ -570,6 +574,15 @@ export class CssPlugin {
   }
 
   public async apply(compiler: Compiler) {
+    // Read before this plugin adds its own rules, which come last and win.
+    for (const {type, extensions} of replacedStylesheetRuleTypes(
+      compiler.options.module?.rules
+    )) {
+      this.setupWarnings.push(
+        messages.stylesheetRuleTypeReplaced(type, extensions)
+      )
+    }
+
     this.reportSetupWarnings(compiler)
     this.keepCssParityInProduction(compiler)
     this.restorePublicRootRefs(compiler)

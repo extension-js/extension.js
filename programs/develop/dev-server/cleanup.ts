@@ -50,6 +50,8 @@ export interface CleanupDependencies {
   now?: () => number
   // Called once, before anything is stopped.
   onShutdownStart?: () => void
+  // Called when a stop passes its bound, right before the forced exit.
+  onShutdownTimedOut?: (timeoutMs: number, exitCode: number) => void
 }
 
 function resolveDevServer(
@@ -115,6 +117,8 @@ export function setupCleanupHandlers(
   let shutdownStartedAt = 0
   let shutdownTimer: NodeJS.Timeout | undefined
   let endingAsFailed = false
+  // A crash keeps its own verdict even when the stop after it hangs.
+  let crashed = false
 
   const exit: ExitFn = (code) => {
     if (shutdownTimer) clearTimeout(shutdownTimer)
@@ -141,6 +145,17 @@ export function setupCleanupHandlers(
 
     // A stop that never settles would hold the terminal for good.
     shutdownTimer = setTimeout(() => {
+      if (!crashed) {
+        try {
+          dependencies.onShutdownTimedOut?.(
+            shutdownTimeoutMs,
+            FORCED_SHUTDOWN_EXIT_CODE
+          )
+        } catch {
+          // The exit code is the verdict that must survive.
+        }
+      }
+
       print(messages.shutdownTimedOut(shutdownTimeoutMs))
       exit(FORCED_SHUTDOWN_EXIT_CODE)
     }, shutdownTimeoutMs)
@@ -164,6 +179,7 @@ export function setupCleanupHandlers(
   const onUncaughtException = async (error: unknown) => {
     console.error(messages.runnerUncaughtException(error))
     process.exitCode = 1
+    crashed = true
     await cleanup()
   }
 

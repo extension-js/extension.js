@@ -250,6 +250,22 @@ export function cssUrlRewriteSkipped(resourcePath: string, error: unknown) {
   ].join('\n')
 }
 
+export function cssUrlSheetRefsNotFollowed(sheetPath: string, refs: string[]) {
+  return [
+    `${prefix('warn')} This stylesheet is imported with ${colors.blue('?url')}, so it ships as a file of its own and these addresses in it will not load.`,
+    `${colors.gray('PATH')} ${colors.underline(sheetPath)}`,
+    `${colors.gray('REFS')} ${refs.join(', ')}`,
+    `Move those files into ${colors.blue('public/')} and name them from the root, or import the stylesheet without ${colors.blue('?url')}.`
+  ].join('\n')
+}
+
+export function stylesheetRuleTypeReplaced(type: string, extensions: string[]) {
+  return [
+    `${prefix('warn')} A rule in your config sets ${colors.yellow(`type: '${type}'`)} for ${extensions.join(', ')} files, and Extension.js compiles every stylesheet itself, so that type is not applied.`,
+    `Remove ${colors.blue('type')} from the rule. Import a stylesheet with ${colors.blue('?url')} for its file URL or with ${colors.blue('?raw')} for its text.`
+  ].join('\n')
+}
+
 // Under strict refs the reader already set the variable the hint names.
 export function deadCssUrlRef(
   issuerPath: string,

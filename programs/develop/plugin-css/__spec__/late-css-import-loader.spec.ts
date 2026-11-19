@@ -1,4 +1,5 @@
-import {describe, expect, it} from 'vitest'
+import postcss from 'postcss'
+import {describe, expect, it, vi} from 'vitest'
 import lateCssImportLoader, {
   blankLateImports,
   findLateImports
@@ -86,5 +87,22 @@ describe('late-css-import-loader: browsers skip the rule, rspack fails the modul
     const {warnings, result} = runLoader(css)
     expect(warnings).toHaveLength(0)
     expect(result.content).toBe(css)
+  })
+
+  // Most sheets hold no @import at all, and every one passes here once per
+  // build: such a sheet must not cost a second full parse.
+  it.each([
+    ['no @import', 'body { margin: 0 }\n.a::after { content: "x" }', 0],
+    ['an @import', "@import 'a.css';\nbody { margin: 0 }", 1],
+    ['an uppercase @IMPORT', "body { margin: 0 }\n@IMPORT 'a.css';", 1]
+  ])('counts the parses of a sheet with %s', (_label, css, parses) => {
+    const parse = vi.spyOn(postcss, 'parse')
+
+    try {
+      runLoader(css)
+      expect(parse).toHaveBeenCalledTimes(parses)
+    } finally {
+      parse.mockRestore()
+    }
   })
 })

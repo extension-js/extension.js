@@ -183,3 +183,69 @@ describe('the verbatim registry through a dev session', () => {
     expect(sizes).toEqual([1, 1, 1, 1, 1, 1])
   })
 })
+
+// The parity check guards against the minimizer. A build that runs none has
+// nothing to guard, so a sheet another step trims ships as that step left it.
+describe('minifier parity only where a minimizer runs', () => {
+  const makeProject = cssProjects()
+
+  it.each([
+    ['development', undefined, '.kept{color:red}', 0],
+    ['production', false, '.kept{color:red}', 0],
+    ['production', true, '.kept{color:red}\n.gone{color:blue}', 1]
+  ] as const)('%s build, minimize %s', async (mode, minimize, shipped, warned) => {
+    const root = makeProject({'entry.js': ''})
+    const compiler = rspack({
+      context: root,
+      mode,
+      devtool: false,
+      entry: {main: './entry.js'},
+      output: {path: path.join(root, 'out')},
+      ...(minimize === undefined ? {} : {optimization: {minimize}})
+    })
+    await new CssPlugin({manifestPath: path.join(root, 'manifest.json')}).apply(
+      compiler
+    )
+
+    compiler.hooks.thisCompilation.tap('spec', (compilation) => {
+      compilation.hooks.processAssets.tap(
+        {name: 'spec', stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONAL},
+        () => {
+          compilation.emitAsset(
+            'page.css',
+            new sources.RawSource('.kept{color:red}\n.gone{color:blue}')
+          )
+        }
+      )
+
+      // Stands in for any step that trims a sheet where a minimizer would.
+      compilation.hooks.processAssets.tap(
+        {name: 'spec', stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE},
+        () => {
+          compilation.updateAsset(
+            'page.css',
+            new sources.RawSource('.kept{color:red}')
+          )
+        }
+      )
+    })
+
+    try {
+      const compilation = await new Promise<Compilation>((resolve, reject) =>
+        compiler.compile((error, result) =>
+          error || !result ? reject(error) : resolve(result)
+        )
+      )
+
+      expect(String(compilation.getAsset('page.css')?.source.source())).toBe(
+        shipped
+      )
+
+      expect(
+        compilation.warnings.filter((w) => /minimizer dropped/.test(w.message))
+      ).toHaveLength(warned)
+    } finally {
+      await new Promise<void>((resolve) => compiler.close(() => resolve()))
+    }
+  })
+})

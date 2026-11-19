@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {toProjectRelativePath} from '../lib/resource-path'
 import {
   publicContainmentRoot,
   resolvePublicFolder
@@ -22,6 +23,8 @@ export const PUBLIC_ROOT_SCHEME = 'https://extensionjs-public.invalid'
 export interface PublicCssUrlLoaderOptions {
   manifestPath?: string
   projectPath?: string
+  // The sheet ships as a file of its own (?url), away from its folder.
+  standalone?: boolean
 }
 
 interface PublicCssUrlLoaderContext {
@@ -106,12 +109,26 @@ export function keepPublicRootRefs(
   )
 }
 
+// The addresses a sheet shipped away from its folder cannot load: any that
+// is not a full URL, a root path or a fragment.
+export function refsAStandaloneSheetLoses(css: string): string[] {
+  const lost = new Set<string>()
+
+  rewriteCssUrls(css, (request) => {
+    if (!/^([a-z][a-z0-9+.-]*:|\/|#)/i.test(request)) lost.add(request)
+
+    return undefined
+  })
+
+  return [...lost]
+}
+
 export default function publicCssUrlLoader(
   this: PublicCssUrlLoaderContext,
   source: string,
   map?: unknown
 ): void {
-  const {manifestPath, projectPath} = this.getOptions() || {}
+  const {manifestPath, projectPath, standalone} = this.getOptions() || {}
   let rewritten = source
 
   if (manifestPath && projectPath) {
@@ -139,6 +156,22 @@ export default function publicCssUrlLoader(
         )
       )
     }
+  }
+
+  const lost = standalone ? refsAStandaloneSheetLoses(rewritten) : []
+
+  if (lost.length > 0) {
+    this.emitWarning?.(
+      Object.assign(
+        new Error(
+          messages.cssUrlSheetRefsNotFollowed(
+            toProjectRelativePath(projectPath, this.resourcePath || ''),
+            lost
+          )
+        ),
+        {name: 'CssUrlRewriteWarning'}
+      )
+    )
   }
 
   // The map a devtools panel reads must show the author's url(), not the

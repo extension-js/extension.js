@@ -107,4 +107,47 @@ describe('project-first postcss plugin resolution', () => {
     expect(opts?.plugins[0].postcssPlugin).toBe('fake-postcss-plugin')
     expect(errorSpy).not.toHaveBeenCalled()
   })
+
+  // A config that lists plugins keeps the rest of what it says too, and a
+  // module it names resolves from the project, the way its plugins do.
+  it('keeps parser, syntax, stringifier and map beside the plugins', async () => {
+    fs.writeFileSync(path.join(tmp, 'package.json'), JSON.stringify({}))
+    fs.writeFileSync(
+      path.join(tmp, '.postcssrc'),
+      JSON.stringify({
+        plugins: {'fake-postcss-plugin': {}},
+        parser: 'fake-parser',
+        syntax: 'fake-syntax',
+        stringifier: 'missing-stringifier',
+        map: {inline: false}
+      })
+    )
+
+    writeFakePlugin(tmp, 'fake-postcss-plugin')
+
+    for (const name of ['fake-parser', 'fake-syntax']) {
+      const dir = path.join(tmp, 'node_modules', name)
+      fs.mkdirSync(dir, {recursive: true})
+      fs.writeFileSync(
+        path.join(dir, 'package.json'),
+        JSON.stringify({name, version: '1.0.0', main: 'index.js'})
+      )
+
+      fs.writeFileSync(
+        path.join(dir, 'index.js'),
+        `module.exports = {from: '${name}'}`
+      )
+    }
+
+    const {maybeUsePostCss} = await import('../../css-tools/postcss')
+    const rule = await maybeUsePostCss(tmp, {mode: 'production'} as any)
+    const opts = rule.options?.postcssOptions
+
+    expect(opts?.plugins).toHaveLength(1)
+    expect(opts?.parser).toEqual({from: 'fake-parser'})
+    expect(opts?.syntax).toEqual({from: 'fake-syntax'})
+    // Left as written, so postcss-loader names the module it could not load.
+    expect(opts?.stringifier).toBe('missing-stringifier')
+    expect(opts?.map).toEqual({inline: false})
+  })
 })

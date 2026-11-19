@@ -12,7 +12,12 @@ import {
   ensureOptionalContractPackageResolved,
   formatInstallHint
 } from '../../lib/optional-deps-resolver'
-import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
+import {
+  NOT_RAW_RESOURCE_QUERY,
+  RAW_RESOURCE_QUERY,
+  URL_RESOURCE_QUERY
+} from '../../lib/resource-query'
+import {ASSET_FILENAME_PATTERN} from '../../plugin-static-assets/static-assets-lib/asset-output-name'
 import type {DevOptions} from '../../types'
 import {commonStyleLoaders} from '../common-style-loaders'
 import type {PostCssRuleReader} from '../css-tools/postcss'
@@ -171,7 +176,7 @@ export async function buildCssRules(
     return hint
   }
 
-  return Promise.all(
+  const rules = await Promise.all(
     fileTypes.map(async ({test, exclude, type, loader, missingTool}) => {
       // An inlined sheet has no base for a relative @import, so the rules it
       // imports come in before PostCSS reads the sheet.
@@ -254,18 +259,64 @@ export async function buildCssRules(
       // A sheet is imported for its effect alone, and a package.json that
       // says sideEffects: false would otherwise drop it from the build.
       const emitsSheet = ruleType === 'css' || ruleType === 'css/module'
-
-      return {
+      const scope = {
         test,
         exclude,
-        type: ruleType,
-        ...(emitsSheet ? {sideEffects: true} : {}),
         ...(issuer ? {issuer} : {}),
         ...(issuerLayer ? {issuerLayer} : {}),
-        ...(dependency ? {dependency} : {}),
-        resourceQuery: NOT_RAW_RESOURCE_QUERY,
-        use
-      } as RuleSetRule
+        ...(dependency ? {dependency} : {})
+      }
+
+      // A sheet imported with ?url ships compiled as its own file and the
+      // import is its URL, as ?url is for every other file type.
+      if (ruleType === 'css' && !dependency) {
+        return [
+          {
+            ...scope,
+            type: ruleType,
+            sideEffects: true,
+            resourceQuery: {not: [RAW_RESOURCE_QUERY, URL_RESOURCE_QUERY]},
+            use
+          },
+          {
+            ...scope,
+            type: 'asset/resource',
+            generator: {filename: ASSET_FILENAME_PATTERN},
+            resourceQuery: URL_RESOURCE_QUERY,
+            use: standaloneSheetLoaders(use)
+          }
+        ] as RuleSetRule[]
+      }
+
+      return [
+        {
+          ...scope,
+          type: ruleType,
+          ...(emitsSheet ? {sideEffects: true} : {}),
+          resourceQuery: NOT_RAW_RESOURCE_QUERY,
+          use
+        }
+      ] as RuleSetRule[]
     })
   )
+
+  return rules.flat()
+}
+
+// The same chain, with the public url() loader told that the sheet leaves
+// the bundle, so it names each relative url() the file cannot follow.
+function standaloneSheetLoaders(use: RuleSetRule['use']): RuleSetRule['use'] {
+  const publicLoader = resolveDevelopDistFile('public-css-url-loader')
+
+  return (use as Array<Record<string, unknown>>).map((entry) =>
+    entry?.loader === publicLoader
+      ? {
+          ...entry,
+          options: {
+            ...(entry.options as Record<string, unknown>),
+            standalone: true
+          }
+        }
+      : entry
+  ) as RuleSetRule['use']
 }
