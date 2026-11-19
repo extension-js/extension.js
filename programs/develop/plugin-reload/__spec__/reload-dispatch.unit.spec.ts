@@ -156,13 +156,29 @@ describe('dispatchReload', () => {
       )
     })
 
-    it('keeps the reloading line when the file ran again in no tab', async () => {
+    it('says the page was updated when the file ran again in no tab', async () => {
       for (const tabs of [0, undefined]) {
         const lines = await printed(INJECTED, tabs)
 
         expect(lines).toHaveLength(1)
-        expect(lines[0]).toContain('Reloading page (scripts/widget.ts)…')
+        expect(lines[0]).toContain('Updated page (scripts/widget.ts).')
       }
+    })
+
+    // The dev client swaps the module, so no page reloads for a script edit.
+    it('says a page script edit updated the page, with no reload', async () => {
+      const lines = await printed(
+        {
+          type: 'page',
+          changedAssets: ['src/popup/index.js'],
+          label: 'popup page (src/popup/index.js)'
+        },
+        0
+      )
+
+      expect(lines).toHaveLength(1)
+      expect(lines[0]).toContain('Updated popup page (src/popup/index.js).')
+      expect(lines[0]).not.toContain('Reloading')
     })
 
     it('keeps the reloading line for a page edit that names no injected file', async () => {
