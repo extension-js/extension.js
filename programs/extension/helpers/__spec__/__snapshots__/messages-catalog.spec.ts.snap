@@ -202,6 +202,7 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "createNeedsProjectName: function(1)",
     "createProjectNameQuestion: function(1)",
     "deprecatedOutputAlias: function(1)",
+    "developRootIgnored: function(1)",
     "developVersionMismatch: function(3)",
     "doctorHeader: function(3)",
     "doctorRemedy: function(2)",

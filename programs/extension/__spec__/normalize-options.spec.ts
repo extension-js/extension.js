@@ -6,9 +6,11 @@ import {LOG_CONTEXTS} from '../helpers/log-contexts'
 import {
   firstInvalidWholeNumberFlag,
   isValidWholeNumberFlag,
+  LOG_FORMATS,
   LOG_LEVELS,
   parseExtensionsList,
   parseLogContexts,
+  parseLogFormat,
   parseLogLevel,
   parsePositiveInt,
   parseWholeNumber
@@ -51,6 +53,33 @@ describe('parseLogLevel', () => {
     )
 
     expect(source).toContain(`'--logs <${LOG_LEVELS.join('|')}>'`)
+  })
+})
+
+describe('parseLogFormat', () => {
+  it.each(LOG_FORMATS)('hands %s to the engine as it is listed', (format) => {
+    expect(parseLogFormat(format)).toBe(format)
+    expect(parseLogFormat(` ${format.toUpperCase()} `)).toBe(format)
+  })
+
+  it('reads a blank or unlisted value as no format', () => {
+    expect(parseLogFormat(undefined)).toBeUndefined()
+    expect(parseLogFormat('')).toBeUndefined()
+    expect(parseLogFormat('yaml')).toBeUndefined()
+  })
+
+  it.each([
+    'dev',
+    'start',
+    'preview'
+  ])('lists the formats the --log-format flag of %s declares', (command) => {
+    const source = fs.readFileSync(
+      path.resolve(__dirname, '..', 'commands', `${command}.ts`),
+      'utf8'
+    )
+
+    expect(source).toContain(`'--log-format <${LOG_FORMATS.join('|')}>'`)
+    expect(source).toMatch(/logFormat: parseLogFormat\(/)
   })
 })
 

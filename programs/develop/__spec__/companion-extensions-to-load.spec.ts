@@ -2,7 +2,13 @@ import * as fs from 'node:fs'
 import os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {computeExtensionsToLoad} from '../lib/extensions-to-load'
+import {
+  companionsDeclaredIn,
+  computeExtensionsToLoad,
+  isFirstCompanionWarning,
+  namedCompanionFoldersInsideProject,
+  unresolvedNamedCompanions
+} from '../lib/extensions-to-load'
 import {resolveCompanionExtensionDirs} from '../plugin-special-folders/folder-extensions/resolve-dirs'
 
 const created: string[] = []
@@ -152,7 +158,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
 
     const list = computeExtensionsToLoad(
       root,
-      'production',
+      'development',
       'chrome',
       userOut,
       []
@@ -212,7 +218,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
 
     const list = computeExtensionsToLoad(
       path.join(root, 'programs', 'develop'),
-      'production',
+      'development',
       'chrome',
       userOut,
       []
@@ -225,7 +231,7 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     ])
   })
 
-  it('always includes built-in devtools + theme before user extension when available', () => {
+  it('loads devtools and the theme before the user extension in development, and the theme alone in production', () => {
     const root = tmpDir('extjs-builtins-always-')
     const userOut = path.join(root, 'dist', 'chrome')
     fs.mkdirSync(userOut, {recursive: true})
@@ -273,10 +279,14 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
       'utf-8'
     )
 
-    for (const mode of ['development', 'production'] as const) {
-      const list = computeExtensionsToLoad(root, mode, 'chrome', userOut, [])
-      expect(list).toEqual([devtoolsForBrowser, themeForBrowser, userOut])
-    }
+    expect(
+      computeExtensionsToLoad(root, 'development', 'chrome', userOut, [])
+    ).toEqual([devtoolsForBrowser, themeForBrowser, userOut])
+
+    // A production build is loaded as it ships: no dev-only companion.
+    expect(
+      computeExtensionsToLoad(root, 'production', 'chrome', userOut, [])
+    ).toEqual([themeForBrowser, userOut])
   })
 
   it('leaves the built-in theme out for Opera and Yandex and keeps it for the other Chromium targets', () => {
@@ -524,5 +534,181 @@ describe('companion extensions (load-only) are wired into BrowsersPlugin', () =>
     expect(
       list.filter((p) => path.resolve(p) === path.resolve(userOut))
     ).toHaveLength(1)
+  })
+})
+
+describe('a companion that does not resolve', () => {
+  it('is named as it was typed, with where it was declared', () => {
+    const root = tmpDir('extjs-companion-named-')
+    const manifestPath = path.join(root, 'extensions', 'typo', 'manifest.json')
+    const [unresolved, ...rest] = unresolvedNamedCompanions({
+      projectRoot: root,
+      resolved: {paths: [path.join(root, 'extensions', 'typo')]},
+      declared: ['./extensions/typo'],
+      declaredIn: 'the --extensions flag'
+    })
+
+    expect(rest).toEqual([])
+    expect(unresolved.manifestPath).toBe(manifestPath)
+    expect(unresolved.coded).toBe(
+      'E_COMPANION_EXTENSION_PATH: A companion extension entry is not an unpacked extension folder, so it is not loaded.\n' +
+        'ENTRY ./extensions/typo\n' +
+        'DECLARED IN the --extensions flag\n' +
+        `NOT FOUND ${manifestPath}\n` +
+        'Point the entry at a folder that holds a manifest.json, or remove it.'
+    )
+
+    expect(unresolved.frame).toContain('ENTRY')
+  })
+
+  it('names the resolved path when only that is known, and each entry once', () => {
+    const root = tmpDir('extjs-companion-named-')
+    const folder = path.join(root, 'extensions', 'no-manifest')
+
+    fs.mkdirSync(folder, {recursive: true})
+
+    const unresolved = unresolvedNamedCompanions({
+      projectRoot: root,
+      resolved: [folder, folder]
+    })
+
+    expect(unresolved).toHaveLength(1)
+    expect(unresolved[0].coded).toContain(`ENTRY ${folder}`)
+    expect(unresolved[0].coded).toContain('DECLARED IN the extensions option')
+  })
+
+  it('passes a named companion that is an extension, and a folder scan', () => {
+    const root = tmpDir('extjs-companion-named-')
+    const folder = path.join(root, 'extensions', 'other')
+
+    fs.mkdirSync(folder, {recursive: true})
+    fs.writeFileSync(path.join(folder, 'manifest.json'), '{}')
+
+    expect(
+      unresolvedNamedCompanions({projectRoot: root, resolved: [folder]})
+    ).toEqual([])
+
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions'},
+        declaredIn: 'extensions in extension.config.js'
+      })
+    ).toEqual([])
+
+    expect(
+      unresolvedNamedCompanions({projectRoot: root, resolved: undefined})
+    ).toEqual([])
+  })
+
+  it('names a declared extensions.dir that is not on disk, once', () => {
+    const root = tmpDir('extjs-companion-dir-')
+    const folder = path.join(root, 'extensions', 'none')
+    const unresolved = unresolvedNamedCompanions({
+      projectRoot: root,
+      resolved: {dir: './extensions/none'},
+      declaredIn: 'extensions in extension.config.js'
+    })
+
+    expect(unresolved).toHaveLength(1)
+    expect(unresolved[0].manifestPath).toBe(folder)
+    expect(unresolved[0].coded).toBe(
+      'E_COMPANION_EXTENSION_PATH: The companion extensions folder does not exist, so no extension is loaded from it.\n' +
+        'DIR ./extensions/none\n' +
+        'DECLARED IN extensions in extension.config.js\n' +
+        `NOT FOUND ${folder}\n` +
+        'Create the folder, or remove extensions.dir.'
+    )
+
+    // The compiler config meets the same folder with no layer to name.
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions/none'}
+      }).map((companion) => companion.manifestPath)
+    ).toEqual([folder])
+
+    expect(isFirstCompanionWarning(folder)).toBe(true)
+    expect(isFirstCompanionWarning(folder)).toBe(false)
+  })
+
+  it('stays quiet about the stock ./extensions scan when no layer declared it', () => {
+    const root = tmpDir('extjs-companion-dir-')
+
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions'}
+      })
+    ).toEqual([])
+
+    // The same spelling, declared by a layer, is the user's and is named.
+    expect(
+      unresolvedNamedCompanions({
+        projectRoot: root,
+        resolved: {dir: './extensions'},
+        declaredIn: 'the --extensions flag'
+      })
+    ).toHaveLength(1)
+  })
+
+  it('reads an entry that names a folder on disk as a folder, whatever it looks like', () => {
+    const root = tmpDir('extjs-companion-folder-')
+    const storeId = 'abcdefghijklmnopabcdefghijklmnop'
+    const links = [
+      'chromewebstore.google.com/detail/some-name/abcdefghijklmnopabcdefghijklmnop',
+      'https://example.com/not-a-store'
+    ]
+
+    // A link is never a folder, and a path with a slash always is.
+    expect(
+      namedCompanionFoldersInsideProject([...links, 'my.ext/foo'], root)
+    ).toEqual(['my.ext/foo'])
+
+    for (const entry of ['my.ext/foo', storeId, 'plain']) {
+      fs.mkdirSync(path.join(root, entry), {recursive: true})
+    }
+
+    expect(
+      namedCompanionFoldersInsideProject(
+        [...links, 'my.ext/foo', storeId, 'plain'],
+        root
+      )
+    ).toEqual(['my.ext/foo', storeId, 'plain'])
+  })
+
+  it('counts a companion as new once in a process', () => {
+    const manifestPath = path.join(tmpDir('extjs-companion-once-'), 'm.json')
+
+    expect(isFirstCompanionWarning(manifestPath)).toBe(true)
+    expect(isFirstCompanionWarning(manifestPath)).toBe(false)
+  })
+
+  it('says which layer declared the companions, first one wins', () => {
+    const all = {flag: [], command: [], browser: [], project: []}
+
+    expect(companionsDeclaredIn('preview', all)).toBe('the --extensions flag')
+    expect(companionsDeclaredIn('start', {...all, flag: undefined})).toBe(
+      'commands.start.extensions in extension.config.js'
+    )
+
+    expect(companionsDeclaredIn('dev', {browser: [], project: []})).toBe(
+      'the browser section of extension.config.js'
+    )
+
+    expect(companionsDeclaredIn('dev', {project: []})).toBe(
+      'extensions in extension.config.js'
+    )
+
+    expect(companionsDeclaredIn('dev', {})).toBeUndefined()
+  })
+
+  it('stays quiet when a built-in companion is absent', () => {
+    const root = tmpDir('extjs-companion-builtin-absent-')
+    const userOut = path.join(root, 'dist', 'chrome')
+
+    expect(
+      computeExtensionsToLoad(root, 'development', 'chrome', userOut, [])
+    ).toEqual([userOut])
   })
 })

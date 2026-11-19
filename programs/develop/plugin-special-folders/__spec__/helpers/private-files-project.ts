@@ -302,6 +302,22 @@ export function missingRefs(printed: string): string[] {
   return [...missing].sort()
 }
 
+// The refs a stylesheet warning names as there and not bundled, in the
+// order of the alphabet.
+export function notBundledRefs(printed: string): string[] {
+  const kept = new Set<string>()
+
+  for (const text of printedTexts(printed)) {
+    for (const match of text.matchAll(
+      /(\S+) is not bundled\. Check the url\(\) or @import/g
+    )) {
+      kept.add(match[1])
+    }
+  }
+
+  return [...kept].sort()
+}
+
 export interface Built {
   // Every file in the output folder but the page and the manifest.
   shipped: string[]

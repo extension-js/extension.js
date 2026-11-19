@@ -3,6 +3,7 @@ import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const session = {
@@ -29,24 +30,25 @@ const OPEN_TABS = [
   {id: 8, url: 'moz-extension://uuid/pages/welcome.html', active: true}
 ]
 
-const loadBridge = async () => ({
-  readReadyContract: () => session.readyDocument,
-  readReadyContractDocument: () => session.readyDocument,
-  readControlToken: () => 'tok-1',
-  BridgeController: class {
-    async connect() {}
-    async command(command: {op?: string}) {
-      bridgeCommands.push(command)
+const loadBridge = async () =>
+  bridgeStandIn({
+    readReadyContract: () => session.readyDocument,
+    readReadyContractDocument: () => session.readyDocument,
+    readControlToken: () => 'tok-1',
+    BridgeController: class {
+      async connect() {}
+      async command(command: {op?: string}) {
+        bridgeCommands.push(command)
 
-      return command.op === 'tabs.query'
-        ? {ok: true, value: OPEN_TABS}
-        : session.result
+        return command.op === 'tabs.query'
+          ? {ok: true, value: OPEN_TABS}
+          : session.result
+      }
+      close() {
+        controllerCloses++
+      }
     }
-    close() {
-      controllerCloses++
-    }
-  }
-})
+  })
 
 // Stand-ins for the debugger-protocol reads, which need a live Firefox.
 const evaluateGecko = (async (options: Record<string, unknown>) => {

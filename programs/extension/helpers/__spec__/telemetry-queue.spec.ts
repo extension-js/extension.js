@@ -71,17 +71,19 @@ describe('sampling', () => {
     expect(await sentCommands(box, telemetry)).toEqual(kept ? ['build'] : [])
   })
 
-  it('drops every success row when the rate is not a number', async () => {
+  it.each([
+    ['0.2', ['build']],
+    ['0.21', []]
+  ])('keeps the default rate when the rate is not a number, rolling %s', async (roll, sent) => {
     const box = sandbox({
       env: {EXTENSION_TELEMETRY_SAMPLE_RATE: '20%'},
-      deps: {random: () => 0.0001}
+      deps: {random: () => Number(roll)}
     })
     const telemetry = box.telemetry({})
 
     track(telemetry)
 
-    // Pins today's behavior. Ledger 1372 D33.
-    expect(await sentCommands(box, telemetry)).toEqual([])
+    expect(await sentCommands(box, telemetry)).toEqual(sent)
   })
 
   it.each<
@@ -131,15 +133,15 @@ describe('repeats inside the debounce window', () => {
     expect(audited(box)).toHaveLength(rows)
   })
 
-  it('keeps every repeat when the window is not a number', () => {
+  it('keeps the default window when the window is not a number', () => {
     const box = sandbox({env: {EXTENSION_TELEMETRY_DEBOUNCE_MS: '1m'}})
     const telemetry = box.telemetry({})
 
     track(telemetry)
+    box.clock.now += 59_999
     track(telemetry)
 
-    // Pins today's behavior. Ledger 1372 D33.
-    expect(audited(box)).toHaveLength(2)
+    expect(audited(box)).toHaveLength(1)
   })
 
   it('counts the command, outcome and session state as what repeats', () => {
@@ -192,14 +194,13 @@ describe('a full queue', () => {
     expect(await sentCommands(box, telemetry)).toEqual(['create'])
   })
 
-  it('holds no limit when the cap is not a number', () => {
+  it('keeps the default cap when the cap is not a number', () => {
     const box = sandbox({env: {EXTENSION_TELEMETRY_MAX_EVENTS: 'three'}})
     const telemetry = box.telemetry({debounceMs: 0, sampleRate: 1})
 
     for (let i = 0; i < 10; i++) track(telemetry, {command: `c${i}`})
 
-    // Pins today's behavior. Ledger 1372 D33.
-    expect(audited(box)).toHaveLength(10)
+    expect(audited(box)).toHaveLength(3)
   })
 })
 

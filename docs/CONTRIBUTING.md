@@ -156,6 +156,7 @@ Run `pnpm test` locally on Windows (or rely on the two **Run test suite (Windows
 ## Debugging & troubleshooting
 
 - Extra logs: pass `--debug`, or set `EXTENSION_DEBUG=1` in `.env`.
+- Run another engine: outside this repo, set `EXTENSION_DEVELOP_ROOT` to a built `extension-develop` folder and the CLI loads it in place of the installed one. A folder that holds no `extension-develop` package is ignored with a warning, and inside this repo `programs/develop` always wins.
 - Force-clean the repo:
 
 ```sh

@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
@@ -8,13 +9,15 @@ import {patchHtml} from '../../html-lib/patch-html'
 const roots: string[] = []
 
 function makeProject(name: string) {
-  const root = path.join(__dirname, `.tmp-public-${name}`)
-  fs.rmSync(root, {recursive: true, force: true})
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-public-refs-${name}-`)
+  )
+  roots.push(created)
+  const root = fs.realpathSync(created)
   fs.mkdirSync(path.join(root, 'public', 'sub'), {recursive: true})
   fs.writeFileSync(path.join(root, 'public', 'p.png'), 'png')
   fs.writeFileSync(path.join(root, 'public', 'sub', 'q.png'), 'png')
   fs.writeFileSync(path.join(root, 'logo.png'), 'png')
-  roots.push(root)
 
   return root
 }

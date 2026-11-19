@@ -31,7 +31,6 @@ import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
   type DevelopBrowser,
   type DevelopFor,
   type DevelopLauncher,
@@ -52,6 +51,7 @@ import {
   isReverseDnsBundleId,
   parseExtensionsList,
   parseLogContexts,
+  parseLogFormat,
   parseLogLevel
 } from '../helpers/normalize-options'
 import {
@@ -160,7 +160,7 @@ function resolveRequestedPort(value: unknown): number {
 
 // What the action reaches outside this file. Production takes every default.
 interface DevCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
   launcher?: typeof launchBrowser
   safariPreflight?: typeof safariPreflightError
   armParentWatchdog?: typeof setupParentWatchdog
@@ -654,7 +654,9 @@ export function registerDevCommand(
             reportFailure({
               code:
                 declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
-              exitCode: 1
+              exitCode: 1,
+              error,
+              step: 'engine'
             })
           } catch {
             // Best-effort: a report that throws must not keep the process up.
@@ -665,7 +667,24 @@ export function registerDevCommand(
           if (asJson) void exitDrained(1)
         }
 
-        const {extensionDev}: DevelopFor<'extensionDev'> = await loadDevelop()
+        let develop: DevelopFor<'extensionDev'>
+
+        try {
+          develop = await loadDevelop()
+        } catch (error) {
+          // Counted here, so the row says the engine never loaded. The entry
+          // point still prints the error and exits.
+          reportFailure({
+            code: declaredErrorCode(error) ?? CODES.E_INTERNAL,
+            exitCode: 1,
+            error,
+            step: 'engine_load'
+          })
+
+          throw error
+        }
+
+        const {extensionDev} = develop
 
         for (const vendor of list) {
           const logsOption = devOptions.logs
@@ -711,7 +730,7 @@ export function registerDevCommand(
             extensions: parseExtensionsList(devOptions.extensions),
             logLevel,
             logContexts,
-            logFormat: devOptions.logFormat,
+            logFormat: parseLogFormat(devOptions.logFormat),
             logTimestamps: explicitCliValue(
               command,
               'logTimestamps',
@@ -796,7 +815,7 @@ export function registerDevCommand(
               )
             }
 
-            exitWithFailure(code, 1, reportFailure)
+            exitWithFailure(code, 1, reportFailure, {error, step: 'engine'})
           }
         }
       }

@@ -134,7 +134,9 @@ function announceDeclinedProjectRoot(
   projectManifestPath: string,
   manifestPath: string,
   log: (line: string) => void,
-  quiet: boolean
+  quiet: boolean,
+  previewing: boolean,
+  rootDir: string
 ): void {
   // A quiet resolution prints nothing, so it must not use up the one line.
   if (quiet) return
@@ -143,7 +145,14 @@ function announceDeclinedProjectRoot(
   if (announcedDeclinedRoots.has(key)) return
 
   announcedDeclinedRoots.add(key)
-  log(messages.declinedProjectRoot(projectManifestPath, manifestPath))
+  log(
+    messages.declinedProjectRoot(
+      projectManifestPath,
+      manifestPath,
+      previewing,
+      rootDir
+    )
+  )
 }
 
 export interface ProjectStructure {
@@ -153,6 +162,9 @@ export interface ProjectStructure {
   // deno.json(c) when the project is (also) a Deno project: still a full
   // project, with npm: imports installed via deno install.
   denoJsonPath?: string
+  // The folder the command was pointed at, set when no project manifest
+  // names a root and the extension manifest was found below that folder.
+  projectRoot?: string
 }
 
 const isUrl = (url: string) => {
@@ -438,6 +450,8 @@ export type RemoteArchiveTarget = {cacheRoot: string} | {destination: string}
 
 export interface ProjectPathOptions {
   remoteArchive?: RemoteArchiveTarget
+  // The command loads a folder and compiles nothing, which its notices say.
+  previewing?: boolean
 }
 
 async function importUrlSourceFromZip(
@@ -649,14 +663,16 @@ export async function getProjectStructure(
 
   rememberAskedPath(asked, projectPath)
 
-  return resolveProjectStructureSync(projectPath)
+  return resolveProjectStructureSync(projectPath, {
+    previewing: options.previewing
+  })
 }
 
 // The same walk `dev` anchors its session on, usable by the read-only
 // session tools: local path in, manifest and project root out, no network.
 export function resolveProjectStructureSync(
   projectPath: string,
-  options: {quiet?: boolean} = {}
+  options: {quiet?: boolean; previewing?: boolean} = {}
 ): ProjectStructure {
   const log = (line: string) => {
     if (!options.quiet) humanLine(line)
@@ -904,23 +920,31 @@ export function resolveProjectStructureSync(
   const ownedDenoJsonPath =
     denoJsonPath && owns(denoJsonPath) ? denoJsonPath : undefined
   const declined = packageJsonPath || denoJsonPath
+  // With no project manifest the named folder is the root, with or without
+  // a package.json, so a build never lands beside a manifest found below it.
+  const manifestDir = path.dirname(manifestPath)
+  const foundBelow =
+    path.resolve(manifestDir) !== path.resolve(projectPath) &&
+    isAtOrBelow(projectPath, manifestDir)
 
   if (declined && !ownedPackageJsonPath && !ownedDenoJsonPath) {
     announceDeclinedProjectRoot(
       declined,
       manifestPath,
       log,
-      Boolean(options.quiet)
+      Boolean(options.quiet),
+      Boolean(options.previewing),
+      foundBelow ? projectPath : manifestDir
     )
   }
 
   if (!ownedPackageJsonPath || !validatePackageJson(ownedPackageJsonPath)) {
-    // No (valid) package.json: a Deno-manifest project is still a full project;
-    // only with no manifest at all do we fall back to web-only mode.
-    return {
-      manifestPath,
-      ...(ownedDenoJsonPath ? {denoJsonPath: ownedDenoJsonPath} : {})
+    if (ownedDenoJsonPath) {
+      return {manifestPath, denoJsonPath: ownedDenoJsonPath}
     }
+
+    // Web-only mode: no project manifest names a root.
+    return {manifestPath, ...(foundBelow ? {projectRoot: projectPath} : {})}
   }
 
   return {

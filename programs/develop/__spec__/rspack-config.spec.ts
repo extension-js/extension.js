@@ -235,6 +235,49 @@ describe('webpack-config transpile packages watch behavior', () => {
     }
   })
 
+  it('warns once about a named companion that is not an extension', async () => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+
+    const {takeCodedWarnings} = await import('../lib/coded-warnings')
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const missing = path.join(root, 'extensions', 'gone')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const session = () =>
+      webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode: 'development',
+          metadataCommand: 'dev',
+          extensions: {paths: [missing]},
+          output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+          noBrowser: true
+        } as any
+      )
+
+    takeCodedWarnings()
+
+    try {
+      session()
+
+      const coded = takeCodedWarnings()
+
+      expect(coded).toHaveLength(1)
+      expect(coded[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+      expect(coded[0]).toContain(path.join(missing, 'manifest.json'))
+      expect(warn).toHaveBeenCalledTimes(1)
+
+      // A restart builds the config again and has nothing new to say.
+      session()
+
+      expect(takeCodedWarnings()).toEqual([])
+      expect(warn).toHaveBeenCalledTimes(1)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     computeExtensionsToLoadMock.mockReturnValue([

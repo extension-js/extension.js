@@ -8,6 +8,7 @@ import {
   loadExtensionDevelopBridgeModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule,
+  reinstallCommandFor,
   resolveExtensionDevelopRoot,
   resolveExtensionDevelopVersion
 } from '../extension-develop-runtime'
@@ -57,6 +58,8 @@ function installBesideTheCli(manifest: string, entrySource: string = LOADS) {
   const engineRoot = path.join(modules, 'extension-develop')
 
   fs.mkdirSync(startDir, {recursive: true})
+  // A project install, so the refusal names the project's own command.
+  writeJson(path.join(consumer, 'package.json'), {name: 'consumer'})
   writeEngine(engineRoot, manifest, entrySource)
 
   return {startDir, engineRoot}
@@ -429,5 +432,103 @@ describe('extension-develop runtime resolution', () => {
       code: 'E_RUNTIME_NOT_FOUND',
       message: 'Unable to locate the extension-develop runtime.'
     })
+  })
+})
+
+describe('the command that puts a matching engine back', () => {
+  const VERSION = '4.1.42'
+  const engineIn = (...parts: string[]) =>
+    path.join(...parts, 'node_modules', 'extension-develop')
+
+  it.each([
+    ['pnpm-lock.yaml', `pnpm add extension@${VERSION}`],
+    ['yarn.lock', `yarn add extension@${VERSION}`],
+    ['bun.lock', `bun add extension@${VERSION}`],
+    ['bun.lockb', `bun add extension@${VERSION}`],
+    ['deno.lock', `deno add npm:extension@${VERSION}`],
+    ['package-lock.json', `npm install extension@${VERSION}`]
+  ])('names the manager of a project with %s', (lockfile, command) => {
+    const project = makeTempFolder('extjs-reinstall-')
+
+    writeJson(path.join(project, 'package.json'), {name: 'probe'})
+    fs.writeFileSync(path.join(project, lockfile), '')
+
+    expect(reinstallCommandFor(engineIn(project), VERSION)).toBe(command)
+  })
+
+  it('reads the project above a pnpm store path', () => {
+    const project = makeTempFolder('extjs-reinstall-')
+
+    writeJson(path.join(project, 'package.json'), {name: 'probe'})
+    fs.writeFileSync(path.join(project, 'pnpm-lock.yaml'), '')
+
+    const engineRoot = path.join(
+      project,
+      'node_modules',
+      '.pnpm',
+      `extension-develop@${VERSION}`,
+      'node_modules',
+      'extension-develop'
+    )
+
+    expect(reinstallCommandFor(engineRoot, VERSION)).toBe(
+      `pnpm add extension@${VERSION}`
+    )
+  })
+
+  it('falls back to npm for a project with no lockfile', () => {
+    const project = makeTempFolder('extjs-reinstall-')
+
+    writeJson(path.join(project, 'package.json'), {name: 'probe'})
+
+    expect(reinstallCommandFor(engineIn(project), VERSION)).toBe(
+      `npm install extension@${VERSION}`
+    )
+  })
+
+  it.each([
+    [['home', '.npm', '_npx', 'a1b2'], `npx extension@${VERSION}`],
+    [['cache', 'pnpm', 'dlx', 'a1b2', 'pkg'], `pnpm dlx extension@${VERSION}`],
+    [['tmp', 'bunx-501-extension@latest'], `bunx extension@${VERSION}`],
+    [['home', '.bun', 'install', 'global'], `bun add -g extension@${VERSION}`],
+    [['data', 'pnpm', 'global', '5'], `pnpm add -g extension@${VERSION}`],
+    [['config', 'yarn', 'global'], `yarn global add extension@${VERSION}`]
+  ])('names the runner or global install under %j', (parts, command) => {
+    const root = makeTempFolder('extjs-reinstall-')
+
+    expect(reinstallCommandFor(engineIn(root, ...parts), VERSION)).toBe(command)
+  })
+
+  it('reads a folder with no package.json above node_modules as a global npm install', () => {
+    const prefix = makeTempFolder('extjs-reinstall-')
+
+    expect(
+      reinstallCommandFor(
+        path.join(
+          prefix,
+          'lib',
+          'node_modules',
+          'extension',
+          'node_modules',
+          'extension-develop'
+        ),
+        VERSION
+      )
+    ).toBe(`npm install -g extension@${VERSION}`)
+  })
+
+  it('puts the command in the refusal', () => {
+    expect(
+      stripChannelPrefix(
+        developVersionMismatch(
+          VERSION,
+          '4.1.41',
+          '/app/engine',
+          `pnpm add extension@${VERSION}`
+        )
+      )
+    ).toContain(
+      `Reinstall so both are ${VERSION}: pnpm add extension@${VERSION}\n`
+    )
   })
 })

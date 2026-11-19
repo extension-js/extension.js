@@ -18,8 +18,8 @@ process.env.EXTENSION_TELEMETRY = '0'
 // child that copies this process's variables takes the same answer.
 process.env.EXTENSION_NO_INSTALL_PROMPT = '1'
 
-// The guard below covers this process only, and every CLI child asks a
-// registry for updates. update-check reads this name, npm does not.
+// The guard below covers this process only, and a CLI child may ask a
+// registry for updates. Its check reads this name first, npm does not.
 process.env.npm_registry = 'http://127.0.0.1:9/'
 
 // This suite is a required gate too, so it takes create's loopback-only rule.

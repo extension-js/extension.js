@@ -6,17 +6,10 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-export type Browser =
-  | 'chrome'
-  | 'edge'
-  | 'firefox'
-  | 'chromium'
-  | 'chromium-based'
-  | 'gecko-based'
-  | 'firefox-based'
-  | 'safari'
-  | 'webkit-based'
-  | 'chromium-emulator'
+import type {BrowserType} from '../config-types'
+
+// One list of targets, so a value the parser takes is never a type error.
+export type Browser = BrowserType
 
 export const EMULATOR_BROWSER_TARGET = 'chromium-emulator'
 
@@ -80,16 +73,14 @@ export function parseOptionalBoolean(value?: string): boolean {
   return !['false', '0', 'no', 'off'].includes(normalized)
 }
 
-// An empty item stays in the list, so validateVendors refuses it. Dropped, an
-// empty --browser selected no browser and the run did nothing and exited 0.
+// An empty item stays for validateVendors to refuse (dropped, the run did
+// nothing and exited 0). Case folds and repeats go, as install reads names.
 export const vendors = (browser?: Browser | 'all') => {
-  const value = (browser ?? 'chromium') as string
+  const value = String(browser ?? 'chromium').toLowerCase()
 
-  return value === 'all'
-    ? ['chrome', 'edge', 'firefox']
-    : String(value)
-        .split(',')
-        .map((part) => part.trim())
+  if (value.trim() === 'all') return ['chrome', 'edge', 'firefox']
+
+  return [...new Set(value.split(',').map((part) => part.trim()))]
 }
 
 // The plain refusal for an empty --browser value, for envelopes and throws.

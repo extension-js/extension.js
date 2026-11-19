@@ -44,7 +44,8 @@ export default [
   {
     ignores: [
       '_FUTURE/',
-      'extensions/',
+      'extensions/browser-extension/',
+      '**/extension-env.d.ts',
       'templates/',
       'templates-artifacts/',
       '.prod-dist/',

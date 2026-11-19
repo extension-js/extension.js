@@ -110,7 +110,9 @@ describe('the verb the guard reads', () => {
     [['node', 'extension', 'build'], 'build'],
     [['node', 'extension', '--output', 'json', 'dev'], 'dev'],
     [['node', 'extension', '--output=json', 'dev'], 'dev'],
-    [['node', 'extension', '--browser', 'firefox', 'build'], 'firefox'],
+    [['node', 'extension', '--browser', 'firefox', 'build'], 'build'],
+    [['node', 'extension', '--browser=firefox', 'safari', 'enable'], 'safari'],
+    [['node', 'extension', './my-project'], 'extension'],
     [['node', 'extension'], 'extension'],
     [['node', 'extension', '--help'], 'extension']
   ])('reads %j as %s', (argv, verb) => {

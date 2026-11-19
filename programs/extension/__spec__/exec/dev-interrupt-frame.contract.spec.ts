@@ -164,6 +164,20 @@ function listen(handler: http.RequestListener): Promise<{
   })
 }
 
+// Loaded ahead of the CLI: writes the marker once a signal listener is added,
+// the first sign the CLI can answer a signal its own way.
+const SIGNAL_LISTENER_PRELOAD = `const fs = require('node:fs')
+for (const method of ['on', 'once']) {
+  const original = process[method]
+  process[method] = function (event, ...rest) {
+    if (event === 'SIGINT' || event === 'SIGTERM') {
+      try { fs.writeFileSync(process.env.EXTJS_SPEC_SIGNAL_MARKER, String(event)) } catch {}
+    }
+    return original.call(this, event, ...rest)
+  }
+}
+`
+
 // A --wait run that never saw a session exits 130 or 143.
 // Posix only: on Windows a kill ends the child before any handler runs.
 describe.skipIf(process.platform === 'win32')(
@@ -184,23 +198,18 @@ describe.skipIf(process.platform === 'win32')(
       signal: 'SIGINT' | 'SIGTERM',
       telemetry: boolean
     ) {
-      let asked = 0
-      // The update check runs after the signal handlers are installed, so its
-      // request is the first sign the CLI can answer a signal its own way.
-      const registry = await listen((_request, response) => {
-        asked++
-        response.writeHead(200, {'content-type': 'application/json'})
-        response.end(JSON.stringify({'dist-tags': {latest: '0.0.1'}}))
-      })
       const collector = await listen((request, response) => {
         request.resume()
         request.on('end', () => response.end('{"status":1}'))
       })
 
-      closers.push(registry.close, collector.close)
+      closers.push(collector.close)
 
-      // A home and temp folder of its own: a cached update answer asks nothing.
       const home = freshCliHome()
+      const preload = join(home.home, 'signal-listener-preload.cjs')
+      const marker = join(home.home, 'signal-listener-added')
+
+      writeFileSync(preload, SIGNAL_LISTENER_PRELOAD)
 
       const session = startCli(
         [
@@ -216,7 +225,8 @@ describe.skipIf(process.platform === 'win32')(
           telemetry,
           home,
           env: {
-            npm_registry: registry.url,
+            NODE_OPTIONS: `--require "${preload}"`,
+            EXTJS_SPEC_SIGNAL_MARKER: marker,
             POSTHOG_HOST: collector.url.slice(0, -1),
             EXTENSION_TELEMETRY: telemetry ? '1' : '0',
             EXTENSION_TELEMETRY_TIMEOUT_MS: '5000'
@@ -224,7 +234,14 @@ describe.skipIf(process.platform === 'win32')(
         }
       )
 
-      await session.waitFor(() => asked > 0, 30_000, 'the update check')
+      // With telemetry off no listener is added, so there is nothing to wait for.
+      if (telemetry) {
+        await session.waitFor(
+          () => existsSync(marker),
+          30_000,
+          'the signal listener'
+        )
+      }
 
       const exit = await session.stop(signal, 15_000)
       const audit = join(

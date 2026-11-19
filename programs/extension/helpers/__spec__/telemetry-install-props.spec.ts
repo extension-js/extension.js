@@ -59,6 +59,8 @@ describe('install outcomes reach the wire', () => {
     ['browser_install_seconds', 1.5],
     ['browser_install_seconds', 86_401],
     ['deps_install', 'npm ERR! code ENOENT'],
+    ['install_target', 'chromium-based'],
+    ['install_target', 'C:\\Users\\someone\\chrome.exe'],
     ['deps_install_seconds', -4],
     ['deps_install_seconds', '31'],
     ['code', 'ENOENT'],
@@ -79,7 +81,9 @@ describe('install outcomes reach the wire', () => {
     ['exit_code', 0],
     ['exit_code', 255],
     ['browser_install_seconds', 0],
-    ['browser_install_seconds', 86_400]
+    ['browser_install_seconds', 86_400],
+    ['install_target', 'all'],
+    ['install_target', 'chromium']
   ])('keeps %s=%j', async (key, value) => {
     expect(await sentProperties({[key]: value})).toHaveProperty(key, value)
   })

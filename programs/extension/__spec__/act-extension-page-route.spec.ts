@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {ownExtensionPageBase, registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
 const CHROME_ID = 'fddgkoildhakngagamnhmeehkmadmpaj'
 const CHROME_DEMO = `chrome-extension://${CHROME_ID}/pages/demo.html`
@@ -20,24 +21,25 @@ let cdpOutcome: unknown
 let rdpOutcome: unknown
 let controllerCloses = 0
 
-const loadBridge = async () => ({
-  readReadyContract: () => session.readyDocument,
-  readReadyContractDocument: () => session.readyDocument,
-  readControlToken: () => 'tok-1',
-  BridgeController: class {
-    async connect() {}
-    async command(command: {op?: string}) {
-      bridgeCommands.push(command)
+const loadBridge = async () =>
+  bridgeStandIn({
+    readReadyContract: () => session.readyDocument,
+    readReadyContractDocument: () => session.readyDocument,
+    readControlToken: () => 'tok-1',
+    BridgeController: class {
+      async connect() {}
+      async command(command: {op?: string}) {
+        bridgeCommands.push(command)
 
-      return command.op === 'tabs.query'
-        ? {ok: true, value: session.tabs}
-        : session.result
+        return command.op === 'tabs.query'
+          ? {ok: true, value: session.tabs}
+          : session.result
+      }
+      close() {
+        controllerCloses++
+      }
     }
-    close() {
-      controllerCloses++
-    }
-  }
-})
+  })
 
 // Stand-ins for the two debugger reads of a tab, which need a live browser.
 const evaluateChromiumTab = (async (options: Record<string, unknown>) => {
