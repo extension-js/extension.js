@@ -8,11 +8,9 @@
 
 import {Compilation, type Compiler} from '@rspack/core'
 import type {LogContext} from '../../dev-server/control-bridge/contracts'
-import {
-  buildBridgeRelaySource,
-  buildDeclaredSheetSignalSource
-} from '../../dev-server/control-bridge/producer-runtime'
+import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
+import {buildDeclaredSheetSignalSource} from '../reload-lib/producer-reload'
 
 // Map an output asset to its bridge context. The background SW and hot/* are
 // DELIBERATELY excluded: the SW runs the producer, relay-injecting would loop.
