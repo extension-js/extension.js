@@ -67,6 +67,7 @@ function createCompilation(errors: Error[]): Compilation {
     contextDependencies: new Set<string>(),
     missingDependencies: new Set<string>(),
     fileDependencies: new Set<string>(),
+    getAssets: () => [],
     hooks: {
       processAssets: {
         tap: (_options: unknown, fn: () => void) => fn(),

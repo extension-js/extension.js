@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {stripVTControlCharacters as stripAnsi} from 'node:util'
 import {afterEach, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 import {scanEntryFolder} from '../entry-folders'
@@ -8,7 +9,6 @@ import {rememberSpecialFoldersConfig} from '../folders-config'
 import {
   getSpecialFoldersDataForCompiler,
   getSpecialFoldersDataForProjectRoot,
-  type ScanSpecialFolders,
   walkedEntriesLeftOut
 } from '../get-data'
 import {inspectPublicFolders} from '../resolve-public-folder'
@@ -23,8 +23,8 @@ import {
   writeFixtureFiles
 } from './helpers/compile-harness'
 
-// Each case pins a defect as the code behaves today. The fix flips the
-// assertion under the marker comment.
+// Each case pinned a defect of this folder. The assertion under each
+// "Fixed" marker is the behavior that replaced it.
 
 afterEach(() => {
   for (const root of fixtureRoots.splice(0)) {
@@ -115,49 +115,69 @@ describe('D1: the scan reads pages/ and scripts/, never public/', () => {
 })
 
 describe('D3: an unreadable folder under the scan', () => {
-  it('lets the raw EACCES through, unframed', () => {
-    const root = project()
-    const denied = Object.assign(
-      new Error(
-        `EACCES: permission denied, scandir '${path.join(root, 'public', 'locked')}'`
-      ),
-      {code: 'EACCES', syscall: 'scandir'}
-    )
+  const canLock = process.platform !== 'win32' && process.getuid?.() !== 0
 
-    const scan: ScanSpecialFolders = () => {
-      throw denied
-    }
+  it.skipIf(!canLock)('stops the scan with a named, coded error', () => {
+    const root = project({
+      'scripts/content.js': 'document.title = "c"',
+      'scripts/locked/inner.js': 'document.title = "i"'
+    })
+    const locked = path.join(root, 'scripts', 'locked')
+    let thrown: (Error & {code?: string}) | undefined
 
-    let thrown: unknown
+    fs.chmodSync(locked, 0o000)
 
     try {
-      getSpecialFoldersDataForProjectRoot(root, {}, undefined, {scan})
+      getSpecialFoldersDataForProjectRoot(root, {})
     } catch (error) {
-      thrown = error
+      thrown = error as Error & {code?: string}
+    } finally {
+      fs.chmodSync(locked, 0o755)
     }
 
-    // Pins today's behavior.
-    expect(thrown).toBe(denied)
+    // Fixed: no raw EACCES, and the path is named from the project.
+    expect(thrown?.name).toBe('SpecialFolderUnreadable')
+    expect(thrown?.code).toBe('E_FOLDER_UNREADABLE')
+    expect(stripAnsi(String(thrown?.message))).toBe(
+      'scripts/locked cannot be read (EACCES), so the build cannot list the entries in scripts/.\n' +
+        'Give your user read access to it, or move it out of scripts/.'
+    )
+
+    expect(String(thrown?.message)).not.toContain(root)
   })
 })
 
 describe('D4: a public/ file whose output name an entry already emits', () => {
-  it('is skipped with no diagnostic in a real compile', async () => {
+  it('is named in one warning in a real compile', async () => {
     const result = await compileFixture({
       files: {
         'index.js': 'self.fromEntry = "entry-marker"\n',
         'manifest.json': '{"manifest_version": 3}',
-        'public/main.js': 'self.fromPublic = "public-marker"\n'
+        'public/main.js': 'self.fromPublic = "public-marker"\n',
+        'public/kept.txt': 'copied'
       },
       plugins: [plugin()]
     })
 
     expect(result.outputPath).toBe(path.join(result.root, 'dist'))
     expect(result.emitted['main.js']).toContain('entry-marker')
-    // Pins today's behavior.
     expect(result.emitted['main.js']).not.toContain('public-marker')
+    expect(result.emitted['kept.txt']).toBe('copied')
     expect(result.errors).toEqual([])
-    expect(result.warnings).toEqual([])
+    // Fixed: the file the copier skipped is said, once.
+    expect(
+      result.warnings.map((warning) => ({
+        name: warning.name,
+        message: stripAnsi(warning.message)
+      }))
+    ).toEqual([
+      {
+        name: 'PublicFileShadowedWarning',
+        message: expect.stringContaining(
+          'public/main.js is not copied into the chrome build, the build already writes that output path from an entry, and the entry wins.'
+        )
+      }
+    ])
   })
 })
 
@@ -298,24 +318,52 @@ describe('D7: a public folder spelled Public/', () => {
   const root = path.join(os.tmpdir(), 'extjs-case-probe')
   const manifest = path.join(root, 'manifest.json')
   const onDisk = path.join(root, 'Public')
+  const readNames = (dir: string) =>
+    dir === root ? ['Public', 'manifest.json'] : []
 
-  it('ships on a case-insensitive disk and silently does not on a case-sensitive one', () => {
+  it('ships on no disk, whatever its case rule, and is named', () => {
     const insensitive = inspectPublicFolders(manifest, root, {
-      isDir: (candidate) => candidate.toLowerCase() === onDisk.toLowerCase()
+      isDir: (candidate) => candidate.toLowerCase() === onDisk.toLowerCase(),
+      readNames
     })
     const sensitive = inspectPublicFolders(manifest, root, {
-      isDir: (candidate) => candidate === onDisk
+      isDir: (candidate) => candidate === onDisk,
+      readNames
     })
 
-    // Pins today's behavior.
-    expect(insensitive.publicDir).toBe(path.join(root, 'public'))
-    expect(sensitive).toEqual({
+    // Fixed: one answer on both disks, and the folder is named for renaming.
+    const expected = {
       publicDir: undefined,
       fromRoot: path.join(root, 'public'),
       fromManifest: path.join(root, 'public'),
       usedFallback: false,
-      bothExist: false
+      bothExist: false,
+      miscased: onDisk
+    }
+
+    expect(insensitive).toEqual(expected)
+    expect(sensitive).toEqual(expected)
+  })
+
+  it('warns in a real compile and copies nothing from it', async () => {
+    const result = await compileFixture({
+      files: {
+        'index.js': 'self.out = 1\n',
+        'manifest.json': '{"manifest_version": 3}',
+        'Public/logo.txt': 'logo'
+      },
+      plugins: [plugin()]
     })
+
+    expect(result.emitted['logo.txt']).toBeUndefined()
+    expect(result.warnings.map((warning) => warning.name)).toEqual([
+      'PublicFolderCaseWarning'
+    ])
+
+    expect(stripAnsi(result.warnings[0].message)).toBe(
+      'Public is not the public folder, which is spelled public/ in lowercase on every system, so nothing in it ships.\n' +
+        'Rename the folder to public/.'
+    )
   })
 })
 

@@ -21,6 +21,23 @@ function isUsableDir(candidate: string): boolean {
   }
 }
 
+function namesIn(dir: string): string[] {
+  try {
+    return fs.readdirSync(dir)
+  } catch {
+    return []
+  }
+}
+
+// The folder exists under the name as written, letter case included, on a
+// disk that ignores case as on one that does not.
+export function publicFolderExists(
+  dir: string,
+  {isDir = isUsableDir, readNames = namesIn}: PublicFolderProbe = {}
+): boolean {
+  return readNames(path.dirname(dir)).includes(path.basename(dir)) && isDir(dir)
+}
+
 export interface PublicFolderInspection {
   // The folder the build copies from; undefined when neither location exists.
   publicDir?: string
@@ -30,6 +47,14 @@ export interface PublicFolderInspection {
   usedFallback: boolean
   // Both folders exist and differ; the project-root one wins.
   bothExist: boolean
+  // A folder spelled in another letter case (`Public/`), which never ships.
+  miscased?: string
+}
+
+export interface PublicFolderProbe {
+  isDir?: (candidate: string) => boolean
+  // The names a folder holds, as written on disk.
+  readNames?: (dir: string) => string[]
 }
 
 // The one answer to "where is public/": the project root, as for _locales,
@@ -38,7 +63,7 @@ export interface PublicFolderInspection {
 export function inspectPublicFolders(
   manifestPath: string,
   projectRoot?: string,
-  {isDir = isUsableDir}: {isDir?: (candidate: string) => boolean} = {}
+  {isDir = isUsableDir, readNames = namesIn}: PublicFolderProbe = {}
 ): PublicFolderInspection {
   const setting = publicFolderSetting(projectRoot)
   const fromManifest = path.join(path.dirname(manifestPath), 'public')
@@ -49,17 +74,37 @@ export function inspectPublicFolders(
         ? path.join(projectRoot, 'public')
         : fromManifest
   const sameLocation = path.resolve(fromRoot) === path.resolve(fromManifest)
+  // The default name is matched as written on disk, so a disk that ignores
+  // letter case does not ship a folder another disk leaves out.
+  const isExactDir = (candidate: string) =>
+    publicFolderExists(candidate, {isDir, readNames})
   // A configured folder is the only one read, and `false` reads none.
-  const rootOk = setting.kind !== 'off' && isDir(fromRoot)
+  const rootOk =
+    setting.kind === 'path'
+      ? isDir(fromRoot)
+      : setting.kind === 'default' && isExactDir(fromRoot)
   const manifestOk =
-    setting.kind === 'default' && !sameLocation && isDir(fromManifest)
+    setting.kind === 'default' && !sameLocation && isExactDir(fromManifest)
+  const miscased =
+    setting.kind === 'default'
+      ? [...new Set([path.dirname(fromRoot), path.dirname(fromManifest)])]
+          .flatMap((dir) =>
+            readNames(dir)
+              .filter(
+                (name) => name !== 'public' && name.toLowerCase() === 'public'
+              )
+              .map((name) => path.join(dir, name))
+          )
+          .find((candidate) => isDir(candidate))
+      : undefined
 
   return {
     publicDir: rootOk ? fromRoot : manifestOk ? fromManifest : undefined,
     fromRoot,
     fromManifest,
     usedFallback: !rootOk && manifestOk,
-    bothExist: rootOk && manifestOk
+    bothExist: rootOk && manifestOk,
+    ...(miscased ? {miscased} : {})
   }
 }
 

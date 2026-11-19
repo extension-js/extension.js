@@ -295,3 +295,54 @@ export function scriptsEntriesOnlyImported(
     `extension injects, keep it.`
   )
 }
+
+export function entryFolderUnreadable(
+  relativePath: string,
+  folder: string,
+  code: string
+) {
+  return (
+    `${colors.yellow(relativePath)} cannot be read (${code}), so the build ` +
+    `cannot list the entries in ${colors.yellow(folder)}.\n` +
+    `Give your user read access to it, or move it out of ${folder}.`
+  )
+}
+
+// One warning per build for every file, and a watch session says it again
+// only when the list changes.
+export function publicFilesShadowedByEntries(
+  relativePaths: string[],
+  browser: string
+) {
+  const one = relativePaths.length === 1
+  const shown = relativePaths.slice(0, 10)
+  const more = relativePaths.length - shown.length
+  const list =
+    shown.map((entry) => colors.yellow(entry)).join(', ') +
+    (more > 0 ? ` and ${more} more` : '')
+
+  return (
+    `${list} ${one ? 'is' : 'are'} not copied into the ${colors.blue(browser)} build, ` +
+    `the build already writes ${one ? 'that output path' : 'those output paths'} from an entry, and the entry wins.\n` +
+    `Rename ${one ? 'the file' : 'the files'} under public/, or move ${one ? 'it' : 'them'} to a subfolder no entry writes to.`
+  )
+}
+
+// The name is matched exactly on every system, so a project builds the same
+// on a disk that ignores letter case and on one that does not.
+export function publicFolderMiscased(found: string, projectRoot: string) {
+  return (
+    `${displayPath(found, projectRoot)} is not the public folder, which is ` +
+    `spelled ${colors.yellow('public/')} in lowercase on every system, so nothing in it ships.\n` +
+    `Rename the folder to ${colors.yellow('public/')}.`
+  )
+}
+
+export function manifestInPublicFolder(relativePath: string) {
+  return (
+    `${colors.yellow(relativePath)} is left out of the build: the manifest ` +
+    'the build writes comes from the manifest.json the project names, and ' +
+    'only one file can claim that output path.\n' +
+    'Move it out of the public folder, or delete it.'
+  )
+}

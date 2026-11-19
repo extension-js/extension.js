@@ -22,7 +22,10 @@ import type {
   SpecialFoldersConfig
 } from '../types'
 import {checkManifestInPublic} from './check-manifest-in-public'
-import {explainPublicOutputCollision} from './check-public-output-collision'
+import {
+  explainPublicOutputCollision,
+  publicFilesShadowedByEntries
+} from './check-public-output-collision'
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {
   excludedFiles,
@@ -46,6 +49,7 @@ import {
 } from './public-private-files'
 import {
   inspectPublicFolders,
+  publicFolderExists,
   rememberPublicRoots
 } from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
@@ -56,6 +60,9 @@ const saidEnvFiles = new Map<string, string>()
 
 // The same for the links under public/ a session named as left out.
 const saidPublicLinks = new Map<string, string>()
+
+// The same for the public/ files an entry's output kept from the copy.
+const saidShadowedPublic = new Map<string, string>()
 
 // The same for the pages/ and scripts/ files a session named as left out.
 const saidLeftOutScripts = new Map<string, string>()
@@ -204,6 +211,15 @@ export class SpecialFoldersPlugin {
       (compilation: Compilation) => {
         // Say which folder ships, the way _locales does: a next-to-manifest
         // folder gets the placement note, two folders name the winner.
+        if (inspection.miscased && readsPublicFolder) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'PublicFolderCaseWarning',
+            messages.publicFolderMiscased(inspection.miscased, context)
+          )
+        }
+
         if (inspection.bothExist) {
           pushLayoutWarning(
             compiler,
@@ -257,7 +273,7 @@ export class SpecialFoldersPlugin {
       // The copier only takes a folder that exists: pointed at one that does
       // not, it watches the whole project root instead, and a screenshot or
       // a demo page written anywhere in the project rebuilt and reloaded.
-      const copierWired = fs.existsSync(publicDir)
+      const copierWired = publicFolderExists(publicDir)
       let pickupRequested = false
 
       // Guard against dangerous files in public/ that would overwrite generated assets
@@ -266,7 +282,7 @@ export class SpecialFoldersPlugin {
         (compilation: Compilation) => {
           // The copier watches the folder it reads. One that is not there yet
           // is watched by its own path, so creating it triggers a compile.
-          if (!fs.existsSync(publicDir)) {
+          if (!publicFolderExists(publicDir)) {
             compilation.missingDependencies?.add(publicDir)
           } else if (!copierWired) {
             compilation.contextDependencies?.add(publicDir)
@@ -275,7 +291,11 @@ export class SpecialFoldersPlugin {
           // A folder that appeared mid-session needs the copier the session
           // started without, so the session restarts the way it does for a new
           // page or script entry.
-          if (!copierWired && !pickupRequested && fs.existsSync(publicDir)) {
+          if (
+            !copierWired &&
+            !pickupRequested &&
+            publicFolderExists(publicDir)
+          ) {
             pickupRequested = true
 
             if (
@@ -358,6 +378,39 @@ export class SpecialFoldersPlugin {
             },
             () => {
               explainPublicOutputCollision(compilation, publicDir)
+            }
+          )
+
+          // The copier skips a file whose output path an entry already
+          // wrote, so the file the author put there is named, not dropped.
+          compilation.hooks.processAssets.tap(
+            {
+              name: `${SpecialFoldersPlugin.name}:shadowed-public-files`,
+              stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
+            },
+            () => {
+              const shadowed = publicFilesShadowedByEntries(
+                compilation,
+                publicDir,
+                excluded
+              ).map((file) => path.posix.join(path.basename(publicDir), file))
+              const key = shadowed.join('\n')
+              const said =
+                compiler.watchMode && saidShadowedPublic.get(publicDir) === key
+
+              if (compiler.watchMode) saidShadowedPublic.set(publicDir, key)
+
+              if (shadowed.length > 0 && !said) {
+                pushLayoutWarning(
+                  compiler,
+                  compilation,
+                  'PublicFileShadowedWarning',
+                  messages.publicFilesShadowedByEntries(
+                    shadowed,
+                    String(browser || 'chrome')
+                  )
+                )
+              }
             }
           )
         }

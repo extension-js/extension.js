@@ -8,7 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {
+  type Compilation,
+  type Compiler,
+  rspack,
+  WebpackError
+} from '@rspack/core'
 import type {IncludeFilesConfig} from '../types'
 import * as messages from './messages'
 
@@ -218,8 +223,6 @@ export class IncludeFiles {
     compiler.hooks.thisCompilation.tap(
       IncludeFiles.name,
       (compilation: Compilation) => {
-        const ErrorCtor = compiler.rspack?.WebpackError || Error
-
         // Re-judge per compile: a file that appeared or vanished since the
         // session started changes the verdict, and the copier is silent on it.
         for (const verdict of judgeIncludeFiles(include, projectRoot)) {
@@ -233,7 +236,7 @@ export class IncludeFiles {
             compilation.missingDependencies?.add(verdict.source)
           }
 
-          const error = new ErrorCtor(
+          const error = new WebpackError(
             verdict.kind === 'missing'
               ? messages.includeSourceMissing(
                   verdict.output,

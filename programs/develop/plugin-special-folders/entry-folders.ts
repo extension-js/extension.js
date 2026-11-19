@@ -8,7 +8,10 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {codedError} from '../lib/coded-error'
+import {CODES} from '../lib/messaging'
 import {isScriptsFolderEntry, type SpecialFolderName} from './folders-config'
+import * as messages from './messages'
 
 // Installed packages are never entries, in any spelling of the folder name.
 // The scan and the watcher both ask here, so they agree on what a folder holds.
@@ -26,7 +29,7 @@ export function isEntryFolderFile(
 }
 
 export interface EntryFolderWalk {
-  // An unreadable folder is thrown, or passed over.
+  // An unreadable folder is thrown as a coded error, or passed over.
   onUnreadable?: 'throw' | 'skip'
 }
 
@@ -50,7 +53,7 @@ export function walkEntryFolder(
       const code = (error as NodeJS.ErrnoException)?.code
 
       if (onUnreadable === 'throw' && code && DENIED.has(code)) {
-        throw error
+        throw unreadableFolderError(dir, current, code)
       }
 
       return
@@ -69,6 +72,31 @@ export function walkEntryFolder(
   walk(dir)
 
   return found.sort()
+}
+
+// Named from the folder's parent, so `scripts/locked` reads the same in a
+// moved folder, and never by an absolute path.
+export function unreadableFolderError(
+  folderRoot: string,
+  unreadable: string,
+  code: string
+) {
+  const relative = path
+    .relative(path.dirname(folderRoot), unreadable)
+    .split(path.sep)
+    .join('/')
+  const error = codedError(
+    CODES.E_FOLDER_UNREADABLE,
+    messages.entryFolderUnreadable(
+      relative,
+      `${path.basename(folderRoot)}/`,
+      code
+    )
+  )
+
+  error.name = 'SpecialFolderUnreadable'
+
+  return error
 }
 
 // The entry name a folder file builds under: its path inside the folder
