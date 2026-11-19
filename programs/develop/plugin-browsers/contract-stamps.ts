@@ -51,6 +51,40 @@ export function contractReason(error: unknown): string {
   return stripChannelPrefix(message).replace(/\s+/g, ' ').trim()
 }
 
+// Nothing runs the extension, so the contract flips to the error a launcher
+// writes for a browser that never started. A more specific verdict stands.
+export function stampLaunchFailed(outputPath: string, error: unknown) {
+  const code = (error as {code?: unknown} | null)?.code
+
+  updateContract(outputPath, (ready) => {
+    if (
+      ready.status === 'error' &&
+      ready.code &&
+      ready.code !== 'browser_launch_failed'
+    ) {
+      return false
+    }
+
+    const detail =
+      contractReason(error) || 'the browser process could not be started'
+
+    ready.status = 'error'
+    ready.code = 'browser_launch_failed'
+    ready.ts = new Date().toISOString()
+    ready.message = `the ${ready.browser || 'browser'} process could not start (${detail}), nothing is running`
+    ready.browserLaunchFailedAt = ready.ts
+    ready.browserLaunchFailedReason = detail
+
+    if (typeof code === 'string' && code.startsWith('E_')) {
+      ready.browserLaunchFailedCode = code
+    } else {
+      delete ready.browserLaunchFailedCode
+    }
+
+    return true
+  })
+}
+
 // The browser runs and the session stays ready, so the fault reads under a
 // warning name beside the status, the same field a CDP fault after launch uses.
 export function stampLogCaptureFault(outputPath: string, error: unknown) {

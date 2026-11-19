@@ -25,7 +25,7 @@ import {
 } from '../plugin-reload'
 import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
-import {stampLogCaptureFault} from './contract-stamps'
+import {stampLaunchFailed, stampLogCaptureFault} from './contract-stamps'
 import * as browserMessages from './messages'
 
 export interface CompiledEvent {
@@ -53,6 +53,34 @@ export class BuildEmitter extends EventEmitter<BuildEventMap> {
     // a default listener keeps compile-failure emits from killing dev.
     this.on('error', () => {})
   }
+}
+
+// The one failure path for every engine: the line unless the launcher printed
+// it, the contract stamp when no launcher wrote one, then the public event.
+export function reportLaunchFailure(
+  emitter: BuildEmitter,
+  failure: {browser: string; error: unknown; stampOutputPath?: string}
+): void {
+  const {error} = failure
+  const reason = error instanceof Error ? error.message : String(error)
+  const fault = error as {code?: unknown; printed?: unknown} | null
+
+  if (failure.stampOutputPath) {
+    stampLaunchFailed(failure.stampOutputPath, error)
+  }
+
+  // Print before emitting: the emitter's default 'error' listener swallows.
+  if (fault?.printed !== true) {
+    console.error(
+      messages.browserLaunchFailed(
+        failure.browser as DevOptions['browser'],
+        reason,
+        fault?.code
+      )
+    )
+  }
+
+  emitter.emit('error', {errors: [reason]})
 }
 
 export interface BrowserLaunchOptions {
@@ -434,22 +462,11 @@ export class BrowsersPlugin implements RunnerPlugin {
           // No browser came up, so the next compile must try the launch again.
           if (!this.controller) this.isFirstCompile = true
 
-          const reason = error instanceof Error ? error.message : String(error)
-          const failure = error as {code?: unknown; printed?: unknown} | null
-
-          // Print before emitting: the emitter's default 'error' listener
-          // swallows. A launcher that printed the failure says so on the error.
-          if (failure?.printed !== true) {
-            console.error(
-              messages.browserLaunchFailed(
-                this.options.browserOptions.browser as DevOptions['browser'],
-                reason,
-                failure?.code
-              )
-            )
-          }
-
-          this.emitter.emit('error', {errors: [reason]})
+          // The launcher stamped the contract itself before it threw.
+          reportLaunchFailure(this.emitter, {
+            browser: this.options.browserOptions.browser,
+            error
+          })
         }
 
         if (this.controller) {

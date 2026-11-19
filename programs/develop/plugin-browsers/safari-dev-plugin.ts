@@ -18,7 +18,8 @@ import {
   readContentScriptCount,
   reloadSurvivingPackage
 } from '../plugin-reload'
-import {BuildEmitter, type RunnerPlugin} from './index'
+import {BuildEmitter, type RunnerPlugin, reportLaunchFailure} from './index'
+import * as browserMessages from './messages'
 
 // The dev plugin ignores whatever the packager reports back (only `build`
 // folds it into a summary), so the return is deliberately unconstrained.
@@ -172,11 +173,9 @@ export class SafariDevPlugin implements RunnerPlugin {
     try {
       await this.packager(target.outputPath, mode)
     } catch (error) {
-      // Never swallow. On a failed first package keep firstRun true so the next
-      // compile retries the full flow; a failed resync still drains pending.
-      this.emitter.emit('error', {
-        errors: [error instanceof Error ? error.message : String(error)]
-      })
+      // On a failed first package keep firstRun true so the next compile
+      // retries the full flow; a failed resync still drains pending.
+      this.reportFailure(target, mode, error)
 
       return
     }
@@ -217,6 +216,33 @@ export class SafariDevPlugin implements RunnerPlugin {
       contextDir: target.contextDir,
       isFirstCompile: wasFirstRun
     })
+  }
+
+  // The packager is Safari's launcher but stamps no failure, so a first
+  // package that failed takes the launch failure path with the stamp added.
+  // A resync leaves Safari on the previous build, which the line says.
+  private reportFailure(
+    target: SafariPackageTarget,
+    mode: 'full' | 'resync',
+    error: unknown
+  ) {
+    if (mode === 'full') {
+      reportLaunchFailure(this.emitter, {
+        browser: 'safari',
+        error,
+        stampOutputPath: target.outputPath
+      })
+
+      return
+    }
+
+    const reason = error instanceof Error ? error.message : String(error)
+
+    if ((error as {printed?: unknown} | null)?.printed !== true) {
+      console.error(browserMessages.safariResyncFailed(reason))
+    }
+
+    this.emitter.emit('error', {errors: [reason]})
   }
 
   private settleIdle() {
