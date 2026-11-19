@@ -4,7 +4,9 @@ vi.mock('fs', () => ({
   existsSync: vi.fn((p: string) =>
     ['/proj/page.html', '/proj/local.js', '/proj/local.css'].includes(p)
   ),
-  readFileSync: vi.fn()
+  readFileSync: vi.fn(),
+  // No link in this stand-in tree: a path is its own real path.
+  realpathSync: vi.fn((p: string) => p)
 }))
 
 vi.mock('../../html-lib/utils', async (orig) => {

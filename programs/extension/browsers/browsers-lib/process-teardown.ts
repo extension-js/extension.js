@@ -156,17 +156,20 @@ export function gracefulTerminatePid(
   killTimer.unref?.()
 }
 
-// The pid counterpart of forceKillChildOnExit.
+// The pid counterpart of forceKillChildOnExit. An adopted pid has no child
+// handle, so it is killed only while the table dates it before its adoption.
 export function forceKillPidOnExit(
   pid: number | null | undefined,
-  browser: BrowserType
+  browser: BrowserType,
+  adoptedAt: number,
+  deps: TeardownDependencies = teardownDefaults
 ): void {
-  if (!pid) return
+  if (!pid || !startedBy(pid, adoptedAt, deps)) return
 
   terminatedPids.add(pid)
   killWindowsTree(pid, true)
   authorLog(messages.enhancedProcessManagementForceKill(browser))
-  signalPid(pid, 'SIGKILL')
+  deps.kill(pid, 'SIGKILL')
 }
 
 // Signal-path teardown: SIGTERM, then a forced kill after a grace window. The

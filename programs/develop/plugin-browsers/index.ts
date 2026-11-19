@@ -8,25 +8,20 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
-import {humanLine} from '../dev-server/lifecycle-stream'
 import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
+import {humanLine} from '../lib/messaging'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   createChangedSourcesTracker,
+  createLoadedContentScripts,
   dispatchReload,
   type ReloadBroker,
   type ReloadInstruction,
   readBootRegistrations,
   readContentScriptCount,
-  readContentScriptDigests,
-  readContentScriptFiles,
-  readDevBuild,
-  readWebAccessibleResources,
-  reloadForNewWebResources,
-  reloadForRenamedContentScripts,
-  reloadForRewrittenContentScripts
+  readDevBuild
 } from '../plugin-reload'
 import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
@@ -161,12 +156,11 @@ export interface BrowsersPluginOptions {
  *
  * An rspack plugin that manages the browser lifecycle for extension development.
  * On first successful compilation it launches a browser via the injected launcher
- * function; on subsequent compilations it classifies changed files and triggers
- * the appropriate reload strategy (full / service-worker / content-scripts).
+ * function. On later ones it asks plugin-reload what the edit must reload and,
+ * once the browser is up with the extension loaded, has it sent.
  *
- * A `BuildEmitter` is exposed as `plugin.emitter` so that external consumers
- * (CLI telemetry, wait-mode, etc.) can subscribe to build events without
- * coupling to rspack.
+ * A `BuildEmitter` is exposed as `plugin.emitter`, which extensionDev returns,
+ * so a programmatic caller can subscribe to build events without rspack.
  */
 export class BrowsersPlugin implements RunnerPlugin {
   static readonly name = 'plugin-browsers'
@@ -175,9 +169,8 @@ export class BrowsersPlugin implements RunnerPlugin {
   readonly emitter = new BuildEmitter()
 
   /**
-   * Extension directories to load alongside the user extension.
-   * Set externally by webpack-config after computing companion extensions,
-   * before the first compilation.
+   * Every unpacked folder the browser loads, the user's dist and companions.
+   * rspack-config.ts sets it before the first compile.
    */
   extensionsToLoad: string[] = []
 
@@ -191,15 +184,23 @@ export class BrowsersPlugin implements RunnerPlugin {
   private launchSettledListener: (() => void) | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
-  // The content script files the manifest named when the browser last read
-  // it: at launch, or at the last reload of the whole extension.
-  private loadedContentScriptFiles: string[] = []
-  // The bytes of those files as the browser last read them, by digest.
-  private loadedContentScriptDigests: Record<string, string> = {}
-  // The files that manifest let a web page load, hashed asset names included.
-  private loadedWebResources: string[] = []
+  // What the browser last read through the manifest, kept by plugin-reload.
+  // It outlives a dev server restart, which applies this plugin again.
+  private readonly loadedContentScripts:
+    | ReturnType<typeof createLoadedContentScripts>
+    | undefined
 
-  constructor(private readonly options: BrowsersPluginOptions) {}
+  constructor(private readonly options: BrowsersPluginOptions) {
+    const browser = options.browserOptions.browser
+
+    // Emulated Chromium reads the new file index on every reload and swaps a
+    // renamed static content script itself, so nothing is compared for it.
+    this.loadedContentScripts = isEmulatorBrowser(browser)
+      ? undefined
+      : createLoadedContentScripts({
+          refreshInPlace: isGeckoBasedBrowser(browser)
+        })
+  }
 
   /**
    * The dev server injects the control-bridge broker so a launched
@@ -352,15 +353,9 @@ export class BrowsersPlugin implements RunnerPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
-      // Classify reload from changed sources, not asset names (every compile
-      // emits all assets). Page-only edits stay undefined: livereload covers them.
+      // What must reload is plugin-reload's answer, from the sources that
+      // changed. The first compile is the build the browser loads.
       let reloadInstruction: ReloadInstruction | undefined
-      const contentScriptFiles = readContentScriptFiles(compilation)
-      const contentScriptDigests = readContentScriptDigests(
-        compilation,
-        contentScriptFiles
-      )
-      const webResources = readWebAccessibleResources(compilation)
 
       if (!this.isFirstCompile) {
         const {forcedFull, changedSources: sources} = changedSources.snapshot()
@@ -374,47 +369,19 @@ export class BrowsersPlugin implements RunnerPlugin {
           outputPath,
           contextDir
         })
-        // Emulated Chromium reads the new file index on every reload and
-        // swaps a renamed static content script itself, so only a browser
-        // that keeps the manifest it loaded needs the whole extension again.
-        reloadInstruction = isEmulatorBrowser(
-          this.options.browserOptions.browser
-        )
-          ? classified
-          : reloadForRewrittenContentScripts(
-              reloadForNewWebResources(
-                reloadForRenamedContentScripts(
-                  classified,
-                  this.loadedContentScriptFiles,
-                  contentScriptFiles
-                ),
-                this.loadedWebResources,
-                webResources
-              ),
-              this.loadedContentScriptDigests,
-              contentScriptDigests,
-              {
-                refreshInPlace: isGeckoBasedBrowser(
-                  this.options.browserOptions.browser
-                )
-              }
-            )
-      }
-
-      if (
-        this.isFirstCompile ||
-        reloadInstruction?.type === 'full' ||
-        reloadInstruction?.type === 'service-worker'
-      ) {
-        this.loadedContentScriptFiles = contentScriptFiles
-        this.loadedContentScriptDigests = contentScriptDigests
-        this.loadedWebResources = webResources
+        reloadInstruction = this.loadedContentScripts
+          ? this.loadedContentScripts.resolve(compilation, classified)
+          : classified
       }
 
       const wasFirstCompile = this.isFirstCompile
       this.isFirstCompile = false
 
       if (wasFirstCompile) {
+        // The launch loads this build. A launch that fails runs again on the
+        // next compile, which is then the build the browser reads.
+        this.loadedContentScripts?.noteLoaded(compilation)
+
         try {
           this.controller = await this.options.launcher({
             ...this.options.browserOptions,
@@ -459,7 +426,8 @@ export class BrowsersPlugin implements RunnerPlugin {
           console.error(
             messages.browserLaunchFailed(
               this.options.browserOptions.browser as DevOptions['browser'],
-              reason
+              reason,
+              (error as {code?: unknown} | null)?.code
             )
           )
 
@@ -468,9 +436,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       } else if (await this.retryRefusedExtensionLoad()) {
         // The guest was absent until this compile, so there is nothing to
         // reload: it just started from the dist that was written.
-        this.loadedContentScriptFiles = contentScriptFiles
-        this.loadedContentScriptDigests = contentScriptDigests
-        this.loadedWebResources = webResources
+        this.loadedContentScripts?.noteLoaded(compilation)
         this.announceReady()
       } else if (isAwaitingMainWorldRestart(compiler, compilation)) {
         // The restart this build asked for reloads the extension once with
@@ -484,11 +450,7 @@ export class BrowsersPlugin implements RunnerPlugin {
           build: readDevBuild(compilation)
         })
 
-        // The open tabs hold these bytes only once a producer took the swap.
-        // An edit nobody received is compared, and named, again next compile.
-        if (delivered && reloadInstruction?.refreshedStylesheets?.length) {
-          this.loadedContentScriptDigests = contentScriptDigests
-        }
+        this.loadedContentScripts?.settle(delivered)
       }
 
       this.emitter.emit('compiled', {

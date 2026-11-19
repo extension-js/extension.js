@@ -42,6 +42,9 @@ export interface CreateResult {
   // The package manager the scaffold was created with; programmatic hosts read
   // this to render correct next steps instead of re-deriving from a lockfile.
   packageManager: ScaffoldPackageManager
+  // The packageManager field written to package.json, as `name@version`.
+  // Absent when the project declares none, so a host can say so or pin it.
+  packageManagerSpec?: string
   // Which template corpus the scaffold was cut from (ref/source), also stamped
   // into the project as `.extension-create.json` for reproducibility.
   templateProvenance: TemplateProvenance

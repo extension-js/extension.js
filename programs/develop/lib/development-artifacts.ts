@@ -14,7 +14,7 @@ import {
   isDevContentScriptStandInAsset
 } from '../plugin-reload/reload-lib/dev-content-scripts'
 
-export const DEV_HOT_UPDATES_DIR = 'hot'
+const DEV_HOT_UPDATES_DIR = 'hot'
 
 const CONTENT_SCRIPTS_DIR = 'content_scripts'
 

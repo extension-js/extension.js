@@ -5,8 +5,8 @@ import {afterAll, describe, expect, it} from 'vitest'
 
 // Two pages in different folders that each reference their own ./logo.png
 // are two files. Each built page must point at a file in dist that carries
-// its own bytes, and a reference that leaves the extension root must still
-// land inside dist.
+// its own bytes, and a reference that leaves the extension root for another
+// folder of the project must still land inside dist.
 const roots: string[] = []
 
 afterAll(() => {
@@ -18,12 +18,15 @@ function project() {
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-html-assets-'))
   )
   roots.push(outer)
-  const root = path.join(outer, 'app')
+  // The manifest sits in src/, so design/ is project content outside the
+  // extension root.
+  const projectRoot = path.join(outer, 'app')
+  const root = path.join(projectRoot, 'src')
   fs.mkdirSync(path.join(root, 'pages', 'a'), {recursive: true})
   fs.mkdirSync(path.join(root, 'pages', 'b'), {recursive: true})
-  fs.mkdirSync(path.join(outer, 'design'), {recursive: true})
+  fs.mkdirSync(path.join(projectRoot, 'design'), {recursive: true})
   fs.writeFileSync(
-    path.join(root, 'package.json'),
+    path.join(projectRoot, 'package.json'),
     JSON.stringify({private: true, name: 'assets', version: '0.0.0'})
   )
 
@@ -40,7 +43,7 @@ function project() {
 
   fs.writeFileSync(path.join(root, 'pages', 'a', 'logo.png'), 'LOGO-A')
   fs.writeFileSync(path.join(root, 'pages', 'b', 'logo.png'), 'LOGO-B')
-  fs.writeFileSync(path.join(outer, 'design', 'logo.png'), 'LOGO-OUTSIDE')
+  fs.writeFileSync(path.join(projectRoot, 'design', 'logo.png'), 'LOGO-OUTSIDE')
   fs.writeFileSync(
     path.join(root, 'pages', 'a', 'index.html'),
     '<!doctype html><title>A</title><img id="own" src="./logo.png"><img id="outside" src="../../../design/logo.png">'
@@ -51,7 +54,7 @@ function project() {
     '<!doctype html><title>B</title><img id="own" src="./logo.png">'
   )
 
-  return root
+  return projectRoot
 }
 
 async function build(root: string) {

@@ -28,6 +28,21 @@ export function hasEmptyGeckoBackgroundScripts(
   return Array.isArray(background?.scripts) && background.scripts.length === 0
 }
 
+// A service worker with no scripts list is the one case the patch below
+// rewrites in place. An empty list has its own warning.
+export function translatesGeckoServiceWorker(
+  manifest: Manifest,
+  browser: DevOptions['browser']
+): boolean {
+  if (!isGeckoBrowser(browser)) return false
+
+  const background = manifest.background as
+    | {service_worker?: unknown; scripts?: unknown}
+    | undefined
+
+  return Boolean(background?.service_worker) && !background?.scripts
+}
+
 // Firefox does not run MV3 background.service_worker: repoint background at the
 // emitted bundle via scripts and drop the keys Firefox rejects. No-op otherwise.
 export function patchGeckoBackground(

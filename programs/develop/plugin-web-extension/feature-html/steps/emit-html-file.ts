@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
+import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
 import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, Manifest, PluginInterface} from '../../../types'
 import {reportToCompilation} from '../../shared/compilation-issues'
@@ -51,12 +52,22 @@ export class EmitHtmlFile {
                 ? path.join(projectDir, resource.slice(1))
                 : path.join(projectDir, resource)
 
-            if (!fs.existsSync(resolved)) {
+            // A file the build never copies is no page. It is reported the
+            // way a missing page is, and its contents are not read.
+            const withheld =
+              fs.existsSync(resolved) &&
+              !sourceFileMayShip(
+                resolved,
+                [compiler.options.context as string, projectDir].filter(Boolean)
+              )
+
+            if (withheld || !fs.existsSync(resolved)) {
               // A ref that public/ owns is served verbatim at the output root;
               // nothing to compile and nothing missing.
               const relToProject = path.relative(projectDir, resolved)
 
               if (
+                !withheld &&
                 relToProject &&
                 !relToProject.startsWith('..') &&
                 !path.isAbsolute(relToProject) &&

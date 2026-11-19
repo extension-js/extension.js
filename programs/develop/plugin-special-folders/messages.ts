@@ -116,6 +116,71 @@ export function packageScriptLeftOut(relativePaths: string[]) {
   )
 }
 
+// Names only: what an env file holds never reaches a message.
+export function publicEnvFilesLeftOut(
+  relativePaths: string[],
+  browser: string
+) {
+  const one = relativePaths.length === 1
+  const shown = relativePaths.slice(0, 10)
+  const more = relativePaths.length - shown.length
+  const list =
+    shown.map((entry) => colors.yellow(entry)).join(', ') +
+    (more > 0 ? ` and ${more} more` : '')
+
+  return (
+    `${list} ${one ? 'is an env file' : 'are env files'}, and ` +
+    `${one ? 'it is' : 'they are'} left out of the ${colors.blue(browser)} build.\n` +
+    'Every file in the public folder ships inside the extension, where ' +
+    'anyone who installs it can read it. Env files are read from the ' +
+    `project root, so move ${one ? 'it' : 'them'} there, or delete ${one ? 'it' : 'them'}.`
+  )
+}
+
+// Names only, like the env files above: no linked file is opened to say this.
+export function publicLinkedFilesLeftOut(
+  relativePaths: string[],
+  browser: string
+) {
+  const one = relativePaths.length === 1
+  const shown = relativePaths.slice(0, 10)
+  const more = relativePaths.length - shown.length
+  const list =
+    shown.map((entry) => colors.yellow(entry)).join(', ') +
+    (more > 0 ? ` and ${more} more` : '')
+
+  return (
+    `${list} ${one ? 'is a link' : 'are links'}, and ` +
+    `${one ? 'it is' : 'they are'} left out of the ${colors.blue(browser)} build.\n` +
+    'Every file in the public folder ships inside the extension, where ' +
+    'anyone who installs it can read it, so the build never copies what a ' +
+    'link brings from outside the project or from node_modules. To ship ' +
+    `${one ? 'it' : 'them'}, copy the ${one ? 'file' : 'files'} into the public folder.`
+  )
+}
+
+// Names only, like the public one above: no file is opened to say this.
+export function scriptsFolderFilesLeftOut(
+  relativePaths: string[],
+  browser: string
+) {
+  const one = relativePaths.length === 1
+  const shown = relativePaths.slice(0, 10)
+  const more = relativePaths.length - shown.length
+  const list =
+    shown.map((entry) => colors.yellow(entry)).join(', ') +
+    (more > 0 ? ` and ${more} more` : '')
+
+  return (
+    `${list} ${one ? 'is' : 'are'} left out of the ${colors.blue(browser)} build.\n` +
+    'The build never bundles env files, tooling files or repository files, ' +
+    'or a file a link brings from outside the project or from ' +
+    'node_modules. To build ' +
+    `${one ? 'it as a script' : 'them as scripts'}, give ${one ? 'it' : 'them'} another name or ` +
+    `copy ${one ? 'it' : 'them'} into the project.`
+  )
+}
+
 export function publicFileCollidesWithEntry(
   publicPath: string,
   emittedPath: string
@@ -198,6 +263,16 @@ export function includeOutputPathInvalid(outputPath: string, reason: string) {
     'Each key is an output path relative to the extension root, ' +
     `such as ${colors.blue('models/x.onnx')}.`
   )
+}
+
+// Plain on purpose: the same four lines are printed where no browser runs.
+export function scannedCompanionOutsideProject(entry: string, target: string) {
+  return [
+    'A companion extension entry leads outside the project, so it is not loaded.',
+    `ENTRY ${entry}`,
+    `LEADS TO ${target}`,
+    'Companion extensions must be inside the project. Copy the folder into the project, or remove the link.'
+  ].join('\n')
 }
 
 // One line on purpose: a build has a single place to say it, and the fix is
