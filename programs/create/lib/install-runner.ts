@@ -166,7 +166,7 @@ export interface RunInstallOptions {
 // Sends a signal to every process in the group the install leads.
 export type SignalGroup = (pid: number, signal: NodeJS.Signals) => void
 
-const signalProcessGroup: SignalGroup = (pid, signal) => {
+export const signalProcessGroup: SignalGroup = (pid, signal) => {
   process.kill(-pid, signal)
 }
 
@@ -227,7 +227,7 @@ export function endProcessTree(
 
 // A child in its own group no longer hears the terminal's Ctrl+C, so the
 // signals that end this process end the install too.
-function forwardEndingSignals(pid: number, signalGroup: SignalGroup) {
+export function forwardEndingSignals(pid: number, signalGroup: SignalGroup) {
   const forwarded: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
   const handlers = new Map<NodeJS.Signals, () => void>()
 

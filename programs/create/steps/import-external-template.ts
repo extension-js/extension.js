@@ -12,7 +12,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import axios, {type AxiosRequestConfig, type AxiosResponse} from 'axios'
 import {unzipSync} from 'fflate'
-import goGitIt from 'go-git-it'
+import {cloneInChild} from '../lib/clone-in-child'
 import * as messages from '../lib/messages'
 import {isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
@@ -335,11 +335,20 @@ export type TemplateFetch = (
 const fetchWithAxios: TemplateFetch = (url, config) => axios.get(url, config)
 
 // How a GitHub URL is cloned into a folder, go-git-it unless a caller says.
+// The signal aborts when the fetch budget runs out.
 export type TemplateClone = (
   url: string,
   destination: string,
-  message: string
+  message: string,
+  signal?: AbortSignal
 ) => Promise<unknown>
+
+const cloneWithGoGitIt: TemplateClone = (url, destination, message, signal) =>
+  cloneInChild(url, destination, message, {
+    signal,
+    // Development keeps the tool's output, the diagnostics wanted there.
+    show: isAuthorOrDevMode()
+  })
 
 // One budget for the whole fetch, retries included, like the remote source
 // fetch in develop. A per-attempt timeout let a silent server double it.
@@ -552,25 +561,6 @@ async function withTimeout<T>(
     return await Promise.race([task, timeout])
   } finally {
     if (timer) clearTimeout(timer)
-  }
-}
-
-async function withSuppressedOutput<T>(task: () => Promise<T>): Promise<T> {
-  // Keep the underlying tool's output in dev/author mode, silencing it there
-  // hides the very diagnostics we want while working on the CLI.
-  if (isAuthorOrDevMode()) return task()
-
-  const originalStdoutWrite = process.stdout.write.bind(process.stdout)
-  const originalStderrWrite = process.stderr.write.bind(process.stderr)
-
-  process.stdout.write = (() => true) as typeof process.stdout.write
-  process.stderr.write = (() => true) as typeof process.stderr.write
-
-  try {
-    return await task()
-  } finally {
-    process.stdout.write = originalStdoutWrite
-    process.stderr.write = originalStderrWrite
   }
 }
 
@@ -1063,11 +1053,11 @@ export async function importExternalTemplate(
     await fs.mkdir(tempPath, {recursive: true})
     const timeoutMs = networkTimeoutMs()
     const fetchTemplate = options?.fetch ?? fetchWithAxios
-    const cloneTemplate = options?.clone ?? goGitIt
+    const cloneTemplate = options?.clone ?? cloneWithGoGitIt
 
     const runGoGitIt = async (templatePath: string, destination: string) => {
       // Harden the spawned git so a credential-helper prompt can't hang it
-      // (#56, `GIT_TERMINAL_PROMPT=0`). go-git-it's execFile inherits process.env.
+      // (#56, `GIT_TERMINAL_PROMPT=0`). The clone's child inherits process.env.
       const gitEnvKeys = {
         GIT_TERMINAL_PROMPT: '0',
         GIT_ASKPASS: '',
@@ -1080,18 +1070,25 @@ export async function importExternalTemplate(
         process.env[k] = v
       }
 
+      const abort = new AbortController()
+
       try {
         await withTimeout(
-          withSuppressedOutput(async () =>
-            cloneTemplate(
-              templatePath,
-              destination,
-              messages.installingFromTemplate(templateName)
-            )
+          cloneTemplate(
+            templatePath,
+            destination,
+            messages.installingFromTemplate(templateName),
+            abort.signal
           ),
           timeoutMs,
-          () =>
-            new Error(messages.templateFetchTimedOut(templateName, timeoutMs))
+          () => {
+            const timedOut = new Error(
+              messages.templateFetchTimedOut(templateName, timeoutMs)
+            )
+            abort.abort(timedOut)
+
+            return timedOut
+          }
         )
       } finally {
         for (const [k, v] of Object.entries(savedEnv)) {

@@ -17,16 +17,16 @@ function isRunning(pid: number): boolean {
 }
 
 // The real clone runs against a git stand-in that answers every setup step at
-// once and hangs on the pull, the way a stalled network looks.
+// once and does on the pull what the row asks: fill the folder, fail or hang.
 describe.skipIf(process.platform === 'win32')(
-  'a GitHub clone that times out',
+  'a GitHub clone through git',
   () => {
     let workDir: string
     let pidFile: string
     const started: number[] = []
 
     beforeEach(() => {
-      workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-clone-timeout-'))
+      workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-clone-'))
       const binDir = path.join(workDir, 'bin')
       fs.mkdirSync(binDir)
       pidFile = path.join(workDir, 'git-pull.pid')
@@ -38,7 +38,12 @@ describe.skipIf(process.platform === 'win32')(
           '#!/bin/sh',
           'case "$1" in',
           '  --version) echo "git version 2.99.0" ;;',
-          `  pull) echo $$ > "${pidFile}"; exec sleep 30 ;;`,
+          '  pull)',
+          '    case "$EXTJS_STAND_IN_PULL" in',
+          `      hang) echo $$ > "${pidFile}"; exec sleep 30 ;;`,
+          `      fill) echo '{"name":"cloned"}' > manifest.json ;;`,
+          '      *) echo "fatal: couldn\'t find remote ref" >&2; exit 1 ;;',
+          '    esac ;;',
           'esac',
           'exit 0',
           ''
@@ -48,7 +53,7 @@ describe.skipIf(process.platform === 'win32')(
       fs.chmodSync(git, 0o755)
 
       vi.stubEnv('PATH', `${binDir}${path.delimiter}${process.env.PATH ?? ''}`)
-      vi.stubEnv('EXTENSION_CREATE_TIMEOUT_MS', '500')
+      vi.stubEnv('EXTENSION_CREATE_TIMEOUT_MS', '10000')
       vi.stubEnv('EXTENSION_ENV', 'test')
       vi.stubEnv('EXTENSION_DEBUG', '')
       vi.stubEnv('EXTENSION_AUTHOR_MODE', '')
@@ -71,17 +76,51 @@ describe.skipIf(process.platform === 'win32')(
       fs.rmSync(workDir, {recursive: true, force: true})
     })
 
-    it('gives the output back and ends the git it started', async () => {
-      const stdoutWrite = process.stdout.write
-      const stderrWrite = process.stderr.write
-
-      const error = await importExternalTemplate(
+    function importing() {
+      return importExternalTemplate(
         path.join(workDir, 'my-ext'),
         'my-ext',
         'https://github.com/acme/starter',
         noopLogger,
         {ownsProjectDir: true}
-      ).then(
+      )
+    }
+
+    it('scaffolds what the clone fetched', async () => {
+      vi.stubEnv('EXTJS_STAND_IN_PULL', 'fill')
+
+      await expect(importing()).resolves.toEqual({
+        template: 'starter',
+        source: 'https://github.com/acme/starter'
+      })
+
+      expect(
+        fs.readFileSync(path.join(workDir, 'my-ext', 'manifest.json'), 'utf8')
+      ).toBe('{"name":"cloned"}\n')
+    }, 20_000)
+
+    it('carries what git said when the clone fails', async () => {
+      vi.stubEnv('EXTJS_STAND_IN_PULL', 'fail')
+
+      const error = await importing().then(
+        () => {
+          throw new Error('the clone should have failed')
+        },
+        (reason: Error & {cause?: Error}) => reason
+      )
+
+      expect(error.name).toBe('TemplateDownloadError')
+      expect(error.cause?.message).toContain("couldn't find remote ref")
+      expect(fs.existsSync(path.join(workDir, 'my-ext'))).toBe(false)
+    }, 20_000)
+
+    it('gives the output back and ends the git it started on a timeout', async () => {
+      vi.stubEnv('EXTJS_STAND_IN_PULL', 'hang')
+      vi.stubEnv('EXTENSION_CREATE_TIMEOUT_MS', '500')
+      const stdoutWrite = process.stdout.write
+      const stderrWrite = process.stderr.write
+
+      const error = await importing().then(
         () => {
           throw new Error('the clone should have timed out')
         },
