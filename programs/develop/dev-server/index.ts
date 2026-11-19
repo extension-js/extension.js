@@ -65,15 +65,13 @@ import {
   getSessionRunId
 } from '../plugin-playwright'
 import {
-  buildSourceFeatureIndex,
-  classifyReloadFromSources,
   createChangedSourcesTracker,
-  createLoadedContentScripts,
   dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo,
-  readContentScriptCount,
-  readDevBuild
+  loadedContentScriptsFor,
+  readDevBuild,
+  reloadForBuild
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
@@ -1159,11 +1157,7 @@ async function startDevSession(
       let isFirstBridgeCompile = true
       // The browser the user runs keeps the manifest it loaded as much as a
       // launched one does, so a renamed bundle or rewritten sheet counts here.
-      const loadedContentScripts = isEmulatorBrowser(browserName)
-        ? undefined
-        : createLoadedContentScripts({
-            refreshInPlace: isGeckoBasedBrowser(browserName)
-          })
+      const loadedContentScripts = loadedContentScriptsFor(browserName)
 
       compiler.hooks.done.tapPromise(
         'extjs-no-browser-reload',
@@ -1184,23 +1178,10 @@ async function startDevSession(
           // the build that replaces it. Reloading here too starts it twice.
           if (isAwaitingMainWorldRestart(compiler, compilation)) return
 
-          const outputPath = String(compilation.options?.output?.path || '')
-          const contextDir = String(compilation.options?.context || '')
-          const {forcedFull, changedSources: sources} =
-            changedSources.snapshot()
-          const classified = classifyReloadFromSources({
-            changedSources: sources,
-            forcedFull,
-            getContentScriptCount: () =>
-              readContentScriptCount(compilation, outputPath),
-            getSourceFeatureIndex: () =>
-              buildSourceFeatureIndex(compilation, contextDir),
-            outputPath,
-            contextDir
+          const instruction = reloadForBuild(compilation, {
+            changedSources,
+            loaded: loadedContentScripts
           })
-          const instruction = loadedContentScripts
-            ? loadedContentScripts.resolve(compilation, classified)
-            : classified
 
           // Same shared dispatch seam as the launched path, here with the broker
           // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
