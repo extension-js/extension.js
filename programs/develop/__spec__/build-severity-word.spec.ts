@@ -112,6 +112,8 @@ function build(root: string, color: 'off' | 'on', flags: string[] = []) {
         ...env,
         EXTENSION_TELEMETRY_DISABLED: '1',
         DO_NOT_TRACK: '1',
+        // Node's own warnings would sit above the lines this spec reads.
+        NODE_NO_WARNINGS: '1',
         ...(color === 'off' ? {NO_COLOR: '1'} : {FORCE_COLOR: '1'})
       }
     }
