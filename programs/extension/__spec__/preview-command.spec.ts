@@ -122,7 +122,6 @@ function flagsIn(argv: string[]): string[] {
 // What extensionPreview receives when no flag is typed. A row states only the
 // keys its flags change, and the whole object is compared.
 const UNTYPED = {
-  mode: 'production',
   profile: undefined,
   browser: 'chromium',
   chromiumBinary: undefined,
@@ -130,6 +129,7 @@ const UNTYPED = {
   noOpen: undefined,
   startingUrl: undefined,
   port: undefined,
+  host: undefined,
   noBrowser: false,
   extensions: undefined,
   outputPath: undefined,
@@ -191,6 +191,7 @@ const FORWARDING: ForwardingRow[] = [
   },
   {argv: ['--port', '9000'], options: {port: '9000'}},
   {argv: ['--port', '0'], options: {port: '0'}},
+  {argv: ['--host', '0.0.0.0'], options: {host: '0.0.0.0'}},
   {
     argv: ['--log-context', 'background, CONTENT '],
     options: {logContexts: ['background', 'content']}
@@ -253,6 +254,25 @@ describe('extension preview flag forwarding', () => {
   it('reads the project config for the preview command before it picks a browser', async () => {
     expect(await run(['preview', PROJECT])).toBe(0)
     expect(configReads[0]).toEqual([PROJECT, 'preview'])
+  })
+
+  // preview serves nothing: --port seeds the browser's debugging port, and
+  // --host binds only the control channel --allow-control opens.
+  it('says what --port and --host bind in preview --help', () => {
+    const help = makeProgram(registerPreviewCommand)
+      .commands.find((cmd) => cmd.name() === 'preview')
+      ?.helpInformation()
+      .replace(/\s+/g, ' ')
+
+    expect(help).toContain(
+      "--port <port> seed the browser's debugging port, which listens on this value plus 100. Without it the browser listens on 9222"
+    )
+
+    expect(help).toContain(
+      '--host <host> host the control channel binds to under --allow-control or --allow-eval. Nothing else listens. Defaults to `127.0.0.1`'
+    )
+
+    expect(help).not.toContain('development server')
   })
 
   // preview never starts the dev server, so nothing reads a connectable host.
