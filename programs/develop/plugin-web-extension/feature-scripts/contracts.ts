@@ -14,6 +14,26 @@ export const EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER = `${EXTENSIONJS_CONTENT_SCRIPT
 // API, and its own name keeps every rule written for pages applying to it.
 export const EXTENSIONJS_SANDBOX_LAYER = 'extensionjs-sandbox'
 
+// The scripts/ entries the extension registers into the MAIN world at runtime,
+// by entry name, which the manifest never names. Kept per compiler.
+const runtimeMainWorldEntries = new WeakMap<
+  object,
+  ReadonlyMap<string, readonly string[]>
+>()
+
+export function setRuntimeMainWorldEntries(
+  compiler: object,
+  entries: ReadonlyMap<string, readonly string[]>
+): void {
+  runtimeMainWorldEntries.set(compiler, entries)
+}
+
+export function getRuntimeMainWorldEntries(
+  compiler: object
+): ReadonlyMap<string, readonly string[]> {
+  return runtimeMainWorldEntries.get(compiler) || new Map()
+}
+
 // A browser runs one file once in a frame whatever worlds name it, and each
 // world needs its own build, so the MAIN world copy ships beside the file.
 export const MAIN_WORLD_COPY_SUFFIX = '.extjs-main-world'
