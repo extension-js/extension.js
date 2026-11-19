@@ -6,14 +6,16 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {existsSync, readFileSync} from 'node:fs'
+import {readFileSync} from 'node:fs'
 import * as path from 'node:path'
 
 export const EXTENSION_ENV_TYPES_PACKAGE = 'extension'
 
 const OWN_CHROME_TYPES = '@types/chrome'
 
-function listsOwnChromeTypes(projectDir) {
+// @types/chrome and chrome-types both declare the chrome global, so only one
+// may load. A copy hoisted from a workspace root is not the project's choice.
+export function projectBringsOwnChromeTypes(projectDir) {
   try {
     const pkg = JSON.parse(
       readFileSync(path.join(projectDir, 'package.json'), 'utf8')
@@ -25,25 +27,6 @@ function listsOwnChromeTypes(projectDir) {
     )
   } catch {
     return false
-  }
-}
-
-// @types/chrome and chrome-types both declare the chrome global, so only one
-// may load. A project that lists or can resolve its own copy keeps it.
-export function projectBringsOwnChromeTypes(projectDir) {
-  if (listsOwnChromeTypes(projectDir)) return true
-
-  let dir = path.resolve(projectDir)
-
-  while (true) {
-    if (existsSync(path.join(dir, 'node_modules', OWN_CHROME_TYPES))) {
-      return true
-    }
-
-    const parent = path.dirname(dir)
-    if (parent === dir) return false
-
-    dir = parent
   }
 }
 

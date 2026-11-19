@@ -142,6 +142,11 @@ function writeTypescriptProject(
   }
 
   if (ownChromeTypes) {
+    fs.writeFileSync(
+      path.join(root, 'package.json'),
+      JSON.stringify({devDependencies: {'@types/chrome': '^0.0.287'}})
+    )
+
     linkDir(
       packageDir('@types/chrome'),
       path.join(root, 'node_modules', '@types', 'chrome')
@@ -509,7 +514,7 @@ describe('generate-extension-types', () => {
     )
   })
 
-  it('reads a listed or a hoisted @types/chrome as the project bringing its own', () => {
+  it('reads @types/chrome as the project bringing its own only when its package.json lists it', () => {
     const root = makeTempDir('extjs-gen-own-chrome-')
     const nested = path.join(root, 'packages', 'my-extension')
     fs.mkdirSync(nested, {recursive: true})
@@ -523,15 +528,61 @@ describe('generate-extension-types', () => {
 
     expect(projectBringsOwnChromeTypes(nested)).toBe(true)
 
+    fs.writeFileSync(
+      path.join(nested, 'package.json'),
+      JSON.stringify({dependencies: {'@types/chrome': '^0.0.287'}})
+    )
+
+    expect(projectBringsOwnChromeTypes(nested)).toBe(true)
+
     fs.writeFileSync(path.join(nested, 'package.json'), '{}')
     expect(projectBringsOwnChromeTypes(nested)).toBe(false)
 
-    // Installed above the project, where TypeScript finds it on its own.
+    // Hoisted to a workspace root by another package: not the project's own.
     fs.mkdirSync(path.join(root, 'node_modules', '@types', 'chrome'), {
       recursive: true
     })
 
-    expect(projectBringsOwnChromeTypes(nested)).toBe(true)
+    expect(projectBringsOwnChromeTypes(nested)).toBe(false)
+
+    fs.mkdirSync(path.join(nested, 'node_modules', '@types', 'chrome'), {
+      recursive: true
+    })
+
+    expect(projectBringsOwnChromeTypes(nested)).toBe(false)
+  })
+
+  // A workspace with node-linker=hoisted puts another package's @types/chrome
+  // above the project, and the project's own sources typecheck against it.
+  it('keeps chrome-types for a workspace package that does not list a hoisted @types/chrome', async () => {
+    const root = makeTempDir('extjs-gen-tsc-hoisted-chrome-')
+    const nested = path.join(root, 'packages', 'my-extension')
+    fs.mkdirSync(nested, {recursive: true})
+    fs.writeFileSync(
+      path.join(nested, 'manifest.json'),
+      JSON.stringify({name: 'x'})
+    )
+
+    fs.writeFileSync(path.join(nested, 'package.json'), '{}')
+    writeTypescriptProject(nested)
+    linkDir(
+      packageDir('@types/chrome'),
+      path.join(root, 'node_modules', '@types', 'chrome')
+    )
+
+    await generateExtensionTypes(nested, nested)
+    const content = fs.readFileSync(
+      path.join(nested, 'extension-env.d.ts'),
+      'utf8'
+    )
+
+    expect(content).toBe(renderExtensionEnvTypes(undefined, {}))
+    expect(content).not.toContain('<reference types="chrome" />')
+
+    const result = runTsc(nested)
+
+    expect(result.stdout + result.stderr).toBe('')
+    expect(result.status).toBe(0)
   })
 
   it('types every bundler import shape with no extension installed', async () => {
