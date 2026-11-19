@@ -291,8 +291,7 @@ jobs:
 
       - name: Build packages
         run: |
-          # Build the develop/runtime layer and mirror built-in @extensions
-          # into programs/develop/dist via the root postcompile hook.
+          # Compile the four packages, then build the bundled @extensions into programs/develop/dist.
           pnpm --filter extension-develop compile
           pnpm --filter extension-create compile
           pnpm --filter extension-install compile
