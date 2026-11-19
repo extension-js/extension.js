@@ -99,8 +99,8 @@ async function built(root: string): Promise<Diagnostic[]> {
   }
 }
 
-// `extension dev`: the session bundle, whose wrapper carries the reinject
-// scaffolding, compiled once with no browser.
+// `extension dev`: the session bundle, which carries the reinject runtime
+// plugin-reload adds, compiled once with no browser.
 async function devSession(root: string): Promise<Diagnostic[]> {
   const config = webpackConfig(await getProjectStructure(root), {
     browser: 'chrome',
