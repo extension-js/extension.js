@@ -12,6 +12,7 @@ import * as messages from './messages'
 import {CODES, ENVELOPE} from './messaging'
 import {normalizeOutputFormat} from './output-flag'
 import type {reportCommandFailureNow} from './telemetry-cli'
+import {SUPPORTED_BROWSER_TARGETS, unsupportedBrowserMessage} from './vendors'
 
 // Not choice lists, or checked by a refusal of their own: --output and its
 // alias have refuseUnreadableOutput, --browser names its targets per command,
@@ -81,5 +82,46 @@ export function refuseUnlistedChoices({
 
       exitWithFailure(CODES.E_INVALID_OPTION, 1, reportFailure)
     }
+  }
+}
+
+// The preAction hook of the commands that attach to a session. A session is
+// named by the --browser dev was given, so the same names are taken here, read
+// in any case, and anything else is refused before a session is looked for.
+export function refuseUnknownSessionBrowser({
+  framed = (opts) => normalizeOutputFormat(opts.output) === 'json'
+}: {
+  framed?: (opts: Record<string, unknown>) => boolean
+} = {}): (command: Command, actionCommand: Command) => void {
+  return (_command, actionCommand) => {
+    const opts = actionCommand.opts()
+    if (opts.browser === undefined) return
+
+    const name = String(opts.browser).trim().toLowerCase()
+
+    if (SUPPORTED_BROWSER_TARGETS.includes(name)) {
+      actionCommand.setOptionValue('browser', name)
+
+      return
+    }
+
+    const supported = [...SUPPORTED_BROWSER_TARGETS]
+
+    if (framed(opts)) {
+      // eslint-disable-next-line no-console
+      console.log(
+        JSON.stringify(
+          ENVELOPE.fail(actionCommand.name(), 'usage', {
+            code: CODES.E_UNSUPPORTED_BROWSER,
+            message: unsupportedBrowserMessage(name, supported)
+          })
+        )
+      )
+    } else {
+      // eslint-disable-next-line no-console
+      console.error(messages.unsupportedBrowserFlag(name, supported))
+    }
+
+    exitWithFailure(CODES.E_UNSUPPORTED_BROWSER, 1)
   }
 }

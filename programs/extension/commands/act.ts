@@ -25,7 +25,10 @@ import {
   surfaceNotDeclaredHint,
   surfaceNotDeclaredOutcome
 } from '../browsers/run-firefox/rdp/evaluate-extension-document'
-import {refuseUnlistedChoices} from '../helpers/choice-flags'
+import {
+  refuseUnknownSessionBrowser,
+  refuseUnlistedChoices
+} from '../helpers/choice-flags'
 import {LOAD_REFUSED_STATUS} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
@@ -80,7 +83,7 @@ import {
   sessionReadyPath
 } from '../helpers/session-project-path'
 import {markCommandFailure} from '../helpers/telemetry-cli'
-import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
+import {BROWSER_TARGETS_HELP} from '../helpers/vendors'
 import {formatPrettyLogLine, type LogEventLike} from './logs'
 
 export function readRecentConsole(
@@ -1519,13 +1522,14 @@ const commonOptions = (
 ): Command =>
   cmd
     .option(
-      `--browser <${SESSION_BROWSER_TARGETS_HELP}>`,
+      `--browser <${BROWSER_TARGETS_HELP}>`,
       'which session to target (default chromium)'
     )
     .option('--timeout <ms>', 'command timeout in milliseconds (default 5000)')
     .option('--output <pretty|json>', 'output format (default pretty)')
     .hook('preAction', refuseUnreadableOutput())
     .hook('preAction', refuseUnlistedChoices(choiceCheck))
+    .hook('preAction', refuseUnknownSessionBrowser())
 
 export function registerActCommands(
   program: Command,

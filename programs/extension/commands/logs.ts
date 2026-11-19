@@ -9,7 +9,10 @@
 import fs from 'node:fs'
 import type {Command} from 'commander'
 import colors from 'pintor'
-import {refuseUnlistedChoices} from '../helpers/choice-flags'
+import {
+  refuseUnknownSessionBrowser,
+  refuseUnlistedChoices
+} from '../helpers/choice-flags'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
@@ -34,7 +37,7 @@ import {
   sessionLogsPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
-import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
+import {BROWSER_TARGETS_HELP} from '../helpers/vendors'
 
 // How `--since` is read, resolved by the develop bridge's query helpers so
 // the command and the published query agree: a sequence number, or a point
@@ -328,7 +331,7 @@ export function registerLogsCommand(
     .usage('[project-path] [options]')
     .description(commandDescriptions.logs)
     .option(
-      `--browser <${SESSION_BROWSER_TARGETS_HELP}>`,
+      `--browser <${BROWSER_TARGETS_HELP}>`,
       'which dist/extension-js/<browser> to read. Defaults to `chromium`'
     )
     .option(
@@ -367,6 +370,17 @@ export function registerLogsCommand(
     // --level is read by the bridge's published rule, which also takes log
     // and any case, so the action checks it and this hook does not.
     .hook('preAction', refuseUnlistedChoices({skip: ['--level']}))
+    .hook(
+      'preAction',
+      refuseUnknownSessionBrowser({
+        framed: (opts) =>
+          ['json', 'ndjson'].includes(
+            String(opts.output ?? '')
+              .trim()
+              .toLowerCase()
+          )
+      })
+    )
     .action(async (projectPathArg: string, options: LogsOptions) => {
       const bridge = await loadBridge()
       const projectPath = resolveSessionProjectPath(bridge, projectPathArg)
