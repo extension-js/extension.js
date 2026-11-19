@@ -271,8 +271,22 @@ describe('the template catalog download', () => {
       expect(catalog.hits()).toBe(1)
       expect(waits).toEqual([])
       expect(error.name).toBe('TemplateDownloadError')
-      expect(error.cause?.message).toMatch(
-        /^No answer within \d+ seconds \(EXTENSION_CREATE_TIMEOUT_MS\)$/
+      // A budget under a second reads in milliseconds, never "0 seconds".
+      expect(error.cause?.message).toBe(
+        'No answer within 80 ms (EXTENSION_CREATE_TIMEOUT_MS)'
+      )
+    })
+
+    it('reads a one second budget in the singular', async () => {
+      process.env.EXTENSION_CREATE_TIMEOUT_MS = '1000'
+      await catalogAnswering([503, 'archive'])
+
+      const error = await failing('content', {
+        downloadRetry: sleepPastTheBudget()
+      })
+
+      expect(error.cause?.message).toBe(
+        'No answer within 1 second (EXTENSION_CREATE_TIMEOUT_MS)'
       )
     })
 
@@ -290,8 +304,8 @@ describe('the template catalog download', () => {
       expect(error.name).toBe('TemplateDownloadError')
       expect(frame).toContain("Couldn't fetch the template from that URL.")
       expect(frame).toContain(`URL ${catalog.url}`)
-      expect(frame).toMatch(
-        /REASON No answer within \d+ seconds \(EXTENSION_CREATE_TIMEOUT_MS\)/
+      expect(frame).toContain(
+        'REASON No answer within 80 ms (EXTENSION_CREATE_TIMEOUT_MS)'
       )
     })
 

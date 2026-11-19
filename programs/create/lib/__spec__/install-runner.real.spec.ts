@@ -90,7 +90,7 @@ describe('install-runner runInstall (real spawn)', () => {
 
     expect(result.code).toBeNull()
     expect(result.reason).toBe(
-      'The install did not finish within 1 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)'
+      'The install did not finish within 1 second (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)'
     )
 
     // The pid the child printed before it hung is the one that must be gone.

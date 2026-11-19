@@ -11,6 +11,7 @@ import {
 } from '../../__spec__/offline-registry-fixture'
 import {
   buildExecEnv,
+  installTimedOutReason,
   installTimeoutMs,
   invokingNpmrcReleaseAge,
   KILL_GRACE_MS,
@@ -175,6 +176,22 @@ describe('install-runner runInstall', () => {
   })
 
   describe('the install timeout', () => {
+    it.each([
+      [1, '1 ms'],
+      [400, '400 ms'],
+      [999, '999 ms'],
+      [1000, '1 second'],
+      [1500, '1.5 seconds'],
+      [1999, '2 seconds'],
+      [5000, '5 seconds'],
+      [90_000, '90 seconds'],
+      [1_800_000, '30 minutes']
+    ])('reads a %i ms budget as "%s"', (ms, words) => {
+      expect(installTimedOutReason(ms)).toBe(
+        `The install did not finish within ${words} (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)`
+      )
+    })
+
     it('kills a child that outlives the timeout and names the variable', async () => {
       vi.useFakeTimers()
       const {spawn, calls} = fakeSpawn(() => ({
