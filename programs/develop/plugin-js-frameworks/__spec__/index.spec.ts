@@ -264,7 +264,8 @@ describe('JsFrameworksPlugin SWC rules', () => {
       ['source-map', true]
     ] as const) {
       const {pages} = swcRules(await configure(root, {devtool}))
-      expect(swcOptionsFor(pages, '/x/a.js').sourceMap).toBe(expected)
+      // SWC's own name for the option, the one its types declare.
+      expect(swcOptionsFor(pages, '/x/a.js').sourceMaps).toBe(expected)
     }
   })
 
@@ -277,7 +278,7 @@ describe('JsFrameworksPlugin SWC rules', () => {
     ] as const) {
       const options = {mode: 'production', devtool} as const
       const {pages} = swcRules(await configure(root, options))
-      expect(swcOptionsFor(pages, '/x/a.js').sourceMap).toBe(expected)
+      expect(swcOptionsFor(pages, '/x/a.js').sourceMaps).toBe(expected)
     }
   })
 
