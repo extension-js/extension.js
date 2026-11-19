@@ -45,10 +45,11 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 
 // Under --host <lan-ip> / --public-host, clients dial the resolved CONNECTABLE
 // host, so the loosened connect-src must whitelist it too (verified live).
-function devConnectSources(): string[] {
+// The session's own host wins over the environment another session wrote.
+function devConnectSources(connectableHost?: string): string[] {
   const sources = [...DEV_CONNECT_SOURCES]
   const raw = String(
-    process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || ''
+    connectableHost ?? (process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || '')
   ).trim()
   if (!raw || LOOPBACK_HOSTS.has(raw)) return sources
 
@@ -87,12 +88,16 @@ function addDevSources(
 
 // Firefox upgrades the loopback ws:// dial to TLS under this directive and
 // the dev server never answers it, so reload and control stay dark.
-function loosenConnectSrcForDev(csp: Map<string, string[]>, browser?: string) {
+function loosenConnectSrcForDev(
+  csp: Map<string, string[]>,
+  browser?: string,
+  connectableHost?: string
+) {
   if (browser && isGeckoBasedBrowser(browser)) {
     csp.delete('upgrade-insecure-requests')
   }
 
-  addDevSources(csp, 'connect-src', devConnectSources())
+  addDevSources(csp, 'connect-src', devConnectSources(connectableHost))
 }
 
 type V3Policy = Record<string, unknown> & {extension_pages: string}
@@ -116,11 +121,19 @@ function keepSiblingSlots(
 
 // MV2 reads one string, so the dev policy is the loosened pages policy on
 // its own. The canonical manifest already folded an object to that string.
-export function patchV2CSP(manifest: Manifest, browser?: string): string {
-  return patchV2PagesPolicy(manifest, browser)
+export function patchV2CSP(
+  manifest: Manifest,
+  browser?: string,
+  connectableHost?: string
+): string {
+  return patchV2PagesPolicy(manifest, browser, connectableHost)
 }
 
-function patchV2PagesPolicy(manifest: Manifest, browser?: string): string {
+function patchV2PagesPolicy(
+  manifest: Manifest,
+  browser?: string,
+  connectableHost?: string
+): string {
   const policy: string | undefined = resolveV2Policy(
     manifest.content_security_policy
   )
@@ -143,14 +156,18 @@ function patchV2PagesPolicy(manifest: Manifest, browser?: string): string {
 
   addDevSources(csp, 'object-src', ['blob:', 'filesystem:'], ["'self'"])
 
-  loosenConnectSrcForDev(csp, browser)
+  loosenConnectSrcForDev(csp, browser, connectableHost)
 
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
 
   return buildCSP(cspObject)
 }
 
-export function patchV3CSP(manifest: Manifest, browser?: string): V3Policy {
+export function patchV3CSP(
+  manifest: Manifest,
+  browser?: string,
+  connectableHost?: string
+): V3Policy {
   const policy = manifest.content_security_policy
 
   if (!policy) {
@@ -176,7 +193,7 @@ export function patchV3CSP(manifest: Manifest, browser?: string): V3Policy {
     }
   }
 
-  loosenConnectSrcForDev(csp, browser)
+  loosenConnectSrcForDev(csp, browser, connectableHost)
 
   const cspObject: Record<string, string[]> = Object.fromEntries(csp.entries())
   const extensionPagesPolicy = buildCSP(cspObject)
