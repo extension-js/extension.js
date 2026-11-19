@@ -104,7 +104,10 @@ describe('pre-command failures under --output json', () => {
       '--tab expects a positive integer, got: abc'
     )
 
-    expect(result.stderr).toBe('--tab expects a positive integer, got: abc\n')
+    expect(frame.error.refs).toEqual({flag: '--tab'})
+    expect(result.stderr).toBe(
+      '⏵⏵⏵ Error: --tab expects a positive integer, got: abc\n'
+    )
   })
 
   it('frames a pre-parse removed-flag refusal', async () => {
@@ -214,17 +217,20 @@ describe('pre-command failures under --output json', () => {
     })
   })
 
-  // Pins current behavior: two error codes for one kind of mistake.
+  // A malformed value is E_FLAG_VALUE_INVALID, one outside a listed set is
+  // E_INVALID_OPTION, as the code table words them.
   it.each([
     [
       ['--since', 'nope'],
+      'E_FLAG_VALUE_INVALID',
       'extension logs --since expects a sequence number or an ISO timestamp, got: nope'
     ],
     [
       ['--level', 'loud'],
+      'E_INVALID_OPTION',
       'extension logs --level expects one of off, error, warn, info, debug, trace, all, got: loud'
     ]
-  ])('logs %j answers E_INVALID_OPTION where --tab answers E_FLAG_VALUE_INVALID', async (flag, message) => {
+  ])('logs %j answers %s with the flag as a ref', async (flag, code, message) => {
     const {result, frame} = await failed([
       'logs',
       '.',
@@ -234,14 +240,14 @@ describe('pre-command failures under --output json', () => {
     ])
 
     expect(result.status).toBe(1)
-    expect(result.stderr).toBe(`${message}\n`)
+    expect(result.stderr).toBe(`⏵⏵⏵ Error: ${message}\n`)
     expect(frame).toEqual({
       schema: 1,
       ok: false,
       command: 'logs',
       status: 'usage',
       value: null,
-      error: {code: 'E_INVALID_OPTION', message, name: 'CliError'},
+      error: {code, message, name: 'CliError', refs: {flag: flag[0]}},
       warnings: []
     })
   })
