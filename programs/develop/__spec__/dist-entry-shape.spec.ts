@@ -5,6 +5,8 @@ import * as path from 'node:path'
 import * as acorn from 'acorn'
 import {init, parse} from 'es-module-lexer'
 import {beforeAll, describe, expect, it} from 'vitest'
+// @ts-expect-error plain ESM script without types, shared with the script specs
+import {workspaceSourceEntries} from '../../../scripts/lib/workspace-source-entries.mjs'
 import buildConfig, {
   browserEntries,
   contractsEntries,
@@ -24,6 +26,7 @@ const WEB_ENTRIES: Record<string, string> = {
 const ALL_ENTRIES: Record<string, string> = {...nodeEntries, ...WEB_ENTRIES}
 
 type PackageJson = {
+  name: string
   main: string
   types: string
   exports: Record<string, string | Record<string, string>>
@@ -281,11 +284,19 @@ describe('the develop build entries and their consumers', () => {
           .join('/')}`
         const types = `./dist/${source.slice(2).replace(/\.ts$/, '.d.ts')}`
         const problems: string[] = []
+        // The published manifest names built files only, so the workspace
+        // reads the source of each entry from the shared map instead.
+        const specifier = path.posix.join(packageJson.name, subpath)
+        const mapped = (workspaceSourceEntries as Record<string, string>)[
+          specifier
+        ]
 
-        if (value.development !== source) {
-          problems.push(
-            `${subpath} development ${value.development} != ${source}`
-          )
+        if (mapped !== `programs/develop/${source.slice(2)}`) {
+          problems.push(`${specifier} source ${mapped} != ${source}`)
+        }
+
+        if ('development' in value) {
+          problems.push(`${subpath} names a source file the tarball lacks`)
         }
 
         if (value.types !== types) {

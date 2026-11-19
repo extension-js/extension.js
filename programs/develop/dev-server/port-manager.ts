@@ -10,6 +10,7 @@ import * as crypto from 'node:crypto'
 import * as net from 'node:net'
 import {codedError} from '../lib/coded-error'
 import {CODES} from '../lib/messaging'
+import {exportSessionEnv} from './session-env'
 
 export interface PortReservation {
   port: number
@@ -116,9 +117,21 @@ interface LocalInstanceInfo {
   instanceExplicit: boolean
 }
 
+// Ids a session of this host drew and exported for its own compilers. One
+// still in the environment is not a pin, so the next session draws its own.
+const exportedInstanceIds = new Set<string>()
+
+// Returns what puts the environment back when the session ends.
+export function exportInstanceId(instanceId: string): () => void {
+  exportedInstanceIds.add(instanceId)
+
+  return exportSessionEnv('EXTENSION_INSTANCE_ID', instanceId)
+}
+
 function resolveInstanceIdOverride(): string | undefined {
+  const exported = process.env.EXTENSION_INSTANCE_ID
   const raw =
-    process.env.EXTENSION_INSTANCE_ID ||
+    (exported && !exportedInstanceIds.has(exported) ? exported : '') ||
     process.env.EXTENSION_DEV_INSTANCE_ID ||
     process.env.EXTJS_INSTANCE_ID ||
     ''

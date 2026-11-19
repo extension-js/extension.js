@@ -64,3 +64,17 @@ export function sourceMayShip(
 
   return sourceFileMayShip(sourcePath, roots)
 }
+
+// Whether a file that is not there yet would ship once it is created. Only
+// its name can answer, since nothing on disk does.
+export function missingSourceWouldShip(
+  sourcePath: string,
+  projectRoot: string,
+  extensionRoot: string
+): boolean {
+  return [projectRoot, extensionRoot].filter(Boolean).some((root) => {
+    const relative = insideOf(root, path.resolve(sourcePath))
+
+    return relative !== undefined && !hasPrivateFileName(relative)
+  })
+}

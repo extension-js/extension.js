@@ -31,7 +31,7 @@ import {
 } from '../lib/constants'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {anotherDevSessionRefused} from '../lib/messages'
-import {CODES, debugLine, isDebug} from '../lib/messaging'
+import {CODES, debugLine, type ErrorCode, isDebug} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import {asAbsolute, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
@@ -47,6 +47,7 @@ import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {
   createPlaywrightMetadataWriter,
   detectLiveDevSessionOwner,
+  forgetSessionRun,
   getSessionRunId
 } from '../plugin-playwright'
 import {
@@ -102,27 +103,42 @@ import {attachHtmlRefresh} from './html-refresh'
 import {
   attachLifecycleStream,
   createLifecycleStream,
-  humanLine
+  humanLine,
+  isLifecycleStreamEnabled,
+  type LifecycleStream
 } from './lifecycle-stream'
 import * as messages from './messages'
-import {PortManager} from './port-manager'
+import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
 import {buildServerConfig} from './server-config'
+import {claimDevSession} from './session-claim'
+import {endAfterFrame, registerLiveSession} from './session-end'
+import {exportSessionEnv} from './session-env'
 import {withGoneEntryOutputsPruned} from './session-gone-outputs'
+import {createSessionHoldings} from './session-holdings'
 import {
+  assignCompilerToDevSession,
   bindDevSessionRestart,
   DevSessionRestartScheduler,
+  endCompilerRestart,
+  releaseCompilerFromDevSession,
   unbindDevSessionRestart
 } from './session-restart'
-import {createSessionRestartHandler} from './session-restart-handler'
+import {
+  buildRestartBundle,
+  createSessionRestartHandler
+} from './session-restart-handler'
 import {withSessionStartPrune} from './session-start-prune'
 import {
   announceReadyOnCleanCompile,
   createBindFailureRelay,
   createReadyAnnouncer,
+  createRestartFailure,
   createStartFailure,
+  declaredErrorCode,
   readStartTimeoutMs,
-  releaseFailedStart,
+  releaseEndedSession,
+  rethrowStartFailure,
   startBundler
 } from './start-bundler'
 
@@ -408,9 +424,94 @@ export function devConfigHookContext(
   return {browser, mode: 'development', command: 'dev', rspack}
 }
 
+// What a session holds before its first start, for a start that fails.
+interface SessionStartup {
+  started: boolean
+  // False for this host's own second start: the stdout is the live session's.
+  framesFailure: boolean
+  release: (() => Promise<void>) | null
+  lifecycle: LifecycleStream | null
+}
+
+// Once the stream is on, a start that failed ends it with the one failed
+// frame, however early it failed. One already written is left alone.
+function frameFailedStart(
+  error: unknown,
+  lifecycle: LifecycleStream | null,
+  projectStructure: ProjectStructure,
+  devOptions: DevOptions
+): void {
+  const failure = error as {
+    framed?: boolean
+    session?: Record<string, unknown>
+  } | null
+
+  if (!isLifecycleStreamEnabled() || failure?.framed === true) return
+
+  try {
+    const browser = String(devOptions.browser || 'chromium')
+    const stream =
+      lifecycle ??
+      createLifecycleStream({
+        command: 'dev',
+        browser,
+        distPath: getDistPath(
+          asAbsolute(resolveDevProjectRoot(projectStructure)),
+          browser
+        ),
+        hintFor: devOptions.hintFor
+      })
+
+    stream.failed(
+      error instanceof Error ? error.message : String(error),
+      declaredErrorCode(error) ?? CODES.E_INTERNAL
+    )
+
+    if (failure && typeof failure === 'object') {
+      failure.framed = stream.ended
+      failure.session ??= stream.sessionValue()
+    }
+  } catch {
+    // Best-effort: the caller is owed the failure itself.
+  }
+}
+
 export async function devServer(
   projectStructure: ProjectStructure,
   devOptions: DevOptions
+) {
+  const startup: SessionStartup = {
+    started: false,
+    framesFailure: true,
+    release: null,
+    lifecycle: null
+  }
+
+  try {
+    await startDevSession(projectStructure, devOptions, startup)
+  } catch (error) {
+    if (!startup.started) {
+      if (startup.framesFailure) {
+        frameFailedStart(error, startup.lifecycle, projectStructure, devOptions)
+      }
+
+      // A session that never started leaves nothing in a host that goes on:
+      // no listener, no port, no open file, no guard on the manifest.
+      try {
+        await startup.release?.()
+      } catch {
+        // The failure that ended the start is the one the caller is owed.
+      }
+    }
+
+    throw error
+  }
+}
+
+async function startDevSession(
+  projectStructure: ProjectStructure,
+  devOptions: DevOptions,
+  startup: SessionStartup
 ) {
   // CLI-only extras that ride along on DevOptions without being part of the
   // public options contract. allowControl/allowEval used to live here too;
@@ -432,12 +533,73 @@ export async function devServer(
       wakeBackground?: () => Promise<boolean>
     }
   }
-  process.env.EXTENSION_BROWSER_LAUNCH_ENABLED = devOptions.noBrowser
-    ? '0'
-    : '1'
+  // Probe on the same host the server binds, so a port free on localhost but
+  // taken on the configured host isn't picked (and vice versa).
+  const portManager = new PortManager(8080)
+
+  // The middleware reads the live compiler's output, which a restart swaps.
+  let activeCompiler: Compiler | null = null
+  // The compiler behind each server, to retire it when a restart replaces it.
+  const compilerByServer = new WeakMap<object, Compiler>()
+  // Set while a bundle is being built, for a build that throws partway.
+  let releaseUnfinishedBundle: (() => void) | null = null
+
+  let closeControlBridge: () => Promise<void> = async () => {}
+
+  let firstServer: {stop?: () => Promise<void>} = {}
+  const holdings = createSessionHoldings()
+
+  startup.release = async () => {
+    // A bundle that threw partway has no server to stop it.
+    const releaseBundle = releaseUnfinishedBundle
+    releaseUnfinishedBundle = null
+
+    try {
+      releaseBundle?.()
+      if (!firstServer.stop) activeCompiler?.close(() => {})
+    } catch {
+      // Ignore
+    }
+
+    await releaseEndedSession({
+      server: firstServer,
+      releasePort: () => portManager.terminateCurrentInstance(),
+      closeControlBridge: () => closeControlBridge(),
+      holdings
+    })
+  }
+
+  // What the session writes for its compilers leaves the host with it.
+  const exportEnv = (name: string, value: string) =>
+    holdings.add(exportSessionEnv(name, value))
+
+  exportEnv(
+    'EXTENSION_BROWSER_LAUNCH_ENABLED',
+    devOptions.noBrowser ? '0' : '1'
+  )
 
   const {manifestPath} = projectStructure
   const packageJsonDir = resolveDevProjectRoot(projectStructure)
+  const sessionBrowser = String(devOptions.browser || 'chromium')
+
+  // Taken before the first await, so a second start of this host in the same
+  // tick is refused here, where the contract check below cannot see it.
+  const releaseClaim = claimDevSession(packageJsonDir, sessionBrowser)
+
+  if (!releaseClaim) {
+    // A frame here would read as the end of the session that holds the claim.
+    startup.framesFailure = false
+
+    throw Object.assign(
+      codedError(
+        CODES.E_SESSION_EXISTS,
+        anotherDevSessionRefused(sessionBrowser, process.pid, null)
+      ),
+      {framed: false}
+    )
+  }
+
+  holdings.add(releaseClaim)
 
   const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
   const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
@@ -446,9 +608,6 @@ export async function devServer(
     devOptions.browser
   )
 
-  // Probe on the same host the server binds, so a port free on localhost but
-  // taken on the configured host isn't picked (and vice versa).
-  const portManager = new PortManager(8080)
   const desiredPort =
     typeof devOptions.port === 'string'
       ? parseInt(devOptions.port, 10)
@@ -498,11 +657,11 @@ export async function devServer(
     hostname: connectableHost,
     port
   }
-  process.env.EXTENSION_DEV_SERVER_PROTOCOL = devServerWebSocketURL.protocol
-  process.env.EXTENSION_DEV_SERVER_HOST = devServerHost
-  process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = connectableHost
-  process.env.EXTENSION_DEV_SERVER_PORT = String(port)
-  process.env.EXTENSION_DEV_SERVER_PATH = '/ws'
+  exportEnv('EXTENSION_DEV_SERVER_PROTOCOL', devServerWebSocketURL.protocol)
+  exportEnv('EXTENSION_DEV_SERVER_HOST', devServerHost)
+  exportEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', connectableHost)
+  exportEnv('EXTENSION_DEV_SERVER_PORT', String(port))
+  exportEnv('EXTENSION_DEV_SERVER_PATH', '/ws')
 
   const browserName = String(devOptions.browser || 'chromium')
   const emulatorLane = isEmulatorBrowser(browserName)
@@ -522,6 +681,11 @@ export async function devServer(
   // logs.ndjson/events.ndjson rows must stamp the SAME runId ready.json
   // publishes, or consumers joining on it read every live row as foreign.
   const sessionRunId = getSessionRunId(packageJsonDir, browserName)
+
+  // After the final contract write and everything else the release does.
+  // The next session in this host is a new run and draws its own id.
+  holdings.addLast(() => forgetSessionRun(packageJsonDir, browserName))
+
   const bridgeLogFile = new LogsFileWriter({
     filePath: bridgeLogsAbsPath,
     runId: sessionRunId
@@ -545,6 +709,28 @@ export async function devServer(
     (allowControl && allowEval) || !isLoopbackAddress(devServerHost)
       ? writeControlToken(packageJsonDir, browserName)
       : undefined
+
+  // Flush buffered logs on process exit (interval flush handles the steady
+  // state), or when the session ends and its host keeps running.
+  holdings.add(() => {
+    try {
+      bridgeLogFile.close()
+    } catch {
+      // Ignore
+    }
+
+    try {
+      bridgeActionsFile?.close()
+    } catch {
+      // Ignore
+    }
+
+    // Never leave a usable eval token behind after the session ends.
+    if (bridgeControlToken) {
+      clearControlToken(packageJsonDir, browserName, bridgeControlToken)
+    }
+  })
+
   // The metadata writer is created later (it needs the resolved control port);
   // the SW connects after that, so a mutable holder bridges the ordering.
   let stampExecutorAttached:
@@ -646,6 +832,7 @@ export async function devServer(
     logFile: bridgeLogFile,
     actionsFile: bridgeActionsFile
   })
+  closeControlBridge = controlBridge.close
   const bridgeControlPort = controlBridge.controlPort
   const controlPortUnavailableReason = controlBridge.unavailableReason
 
@@ -654,9 +841,18 @@ export async function devServer(
 
   // Expose control-channel coordinates to the compiler (same process) so the
   // bridge-producer injector can bake them into the background SW
-  process.env.EXTENSION_INSTANCE_ID = currentInstance.instanceId
-  process.env.EXTENSION_CONTROL_PORT =
+  // An id the session drew leaves the environment with it, so the next
+  // session of this host does not read it as a pin.
+  if (currentInstance.instanceExplicit) {
+    exportEnv('EXTENSION_INSTANCE_ID', currentInstance.instanceId)
+  } else {
+    holdings.add(exportInstanceId(currentInstance.instanceId))
+  }
+
+  exportEnv(
+    'EXTENSION_CONTROL_PORT',
     bridgeControlPort != null ? String(bridgeControlPort) : ''
+  )
 
   const emulatorFiles = emulatorLane
     ? createEmulatorFileIndexHolder(currentInstance.instanceId)
@@ -680,28 +876,6 @@ export async function devServer(
   ) {
     launchedPlugin.setEmulatorViewerUrl(emulatorViewer)
   }
-
-  // Flush buffered logs on process exit (interval flush handles the steady state).
-  process.once('exit', () => {
-    try {
-      bridgeLogFile.close()
-    } catch {
-      // Ignore
-    }
-
-    try {
-      bridgeActionsFile?.close()
-    } catch {
-      // Ignore
-    }
-
-    // Never leave a usable eval token behind after the session ends.
-    if (bridgeControlToken) {
-      clearControlToken(packageJsonDir, browserName, bridgeControlToken)
-    }
-
-    unbindDevSessionRestart()
-  })
 
   // stock defaults, then top-level config, then browser.*, then commands.dev,
   // then CLI/caller. Undefined values are stripped per layer so unset CLI
@@ -803,6 +977,19 @@ export async function devServer(
   stampExecutorDetached = () => metadata.stampExecutorDetached()
   stampReload = (kind, label) => metadata.stampReload(kind, label)
 
+  // Bound once the session can end itself. A usage refusal the first compile
+  // reports before then waits here for it.
+  let endOnUsageRefusal:
+    | ((
+        code: ErrorCode,
+        message: string,
+        ready: Record<string, unknown>
+      ) => void)
+    | null = null
+  const pendingUsageRefusal: Array<
+    [ErrorCode, string, Record<string, unknown>]
+  > = []
+
   // One schema-1 frame per lifecycle transition, on stdout, only when the
   // command layer asked for machine output (EXTENSION_OUTPUT=ndjson).
   const lifecycle = createLifecycleStream({
@@ -811,9 +998,15 @@ export async function devServer(
     distPath: primaryDistPath,
     readyPath: metadata.readyPath,
     eventsPath: metadata.eventsPath,
-    noBrowser: Boolean(devOptions.noBrowser)
+    noBrowser: Boolean(devOptions.noBrowser),
+    hintFor: devOptions.hintFor,
+    onUsageRefusal: (code, message, ready) => {
+      if (endOnUsageRefusal) endOnUsageRefusal(code, message, ready)
+      else pendingUsageRefusal.push([code, message, ready])
+    }
   })
-  lifecycle.emitOnExit()
+  startup.lifecycle = lifecycle
+  holdings.addForRelease(lifecycle.emitOnExit())
 
   // Say so when the requested port was taken. Compare numerically: a CLI
   // --port arrives as a string, and '55835' !== 55835 misreported every run.
@@ -821,8 +1014,6 @@ export async function devServer(
     humanLine(messages.portInUse(Number(devOptions.port), port))
   }
 
-  // The middleware reads the live compiler's output; a restart swaps it.
-  let activeCompiler: Compiler | null = null
   const bindFailure = createBindFailureRelay()
   // Same rule as the dev command: only a caller that asked for it is exited.
   const exitOnStartFailure =
@@ -861,6 +1052,10 @@ export async function devServer(
   // What the compilers of this session wrote, so a restart can tell the
   // outputs of an entry that is gone from a file it never wrote.
   const sessionOutputs = new Set<string>()
+
+  // Plugins that find an entrypoint change ask for a restart. The request
+  // outlives the compiler that noticed it because this belongs to the session.
+  const sessionRestart = new DevSessionRestartScheduler()
 
   // One compiler and server per include list. A restart builds the next pair
   // from the same session (ports, instance, broker, launched browser) and only
@@ -901,6 +1096,7 @@ export async function devServer(
       )
     )
     activeCompiler = compiler
+    assignCompilerToDevSession(compiler, sessionRestart)
 
     // The broker tells a background this session built from one a kept
     // profile still runs from an earlier session, before any hello arrives.
@@ -915,6 +1111,7 @@ export async function devServer(
 
     const uninstallManifestGuard =
       installManifestDiskWriteGuard(manifestOutputPath)
+    releaseUnfinishedBundle = uninstallManifestGuard
 
     // Under --no-browser no CDP controller owns reload, so broadcast the same
     // classified reload decision over the control bridge; gated to avoid double-reload.
@@ -1055,8 +1252,26 @@ export async function devServer(
       }
     }
 
+    releaseUnfinishedBundle = null
+    compilerByServer.set(server, compiler)
+
     return {compiler, server, firstCompile}
   }
+
+  const createRestartBundle = () =>
+    buildRestartBundle({
+      build: () => createCompilerAndServer({isRestart: true}),
+      activeCompiler: () => activeCompiler,
+      setActiveCompiler: (compiler) => {
+        activeCompiler = compiler
+      },
+      takeUnfinishedRelease: () => {
+        const release = releaseUnfinishedBundle
+        releaseUnfinishedBundle = null
+
+        return release
+      }
+    })
 
   const failStart = createStartFailure({
     metadata,
@@ -1065,19 +1280,23 @@ export async function devServer(
     exitOnError: exitOnStartFailure
   })
 
-  const startSessionBundler = (server: RspackDevServer) =>
+  const startSessionBundler = (
+    server: RspackDevServer,
+    onFailure: (error: unknown) => void = failStart
+  ) =>
     startBundler(
       {start: () => bindFailure.during(() => server.start())},
       {
         timeoutMs: START_TIMEOUT_MS,
         onSlowStart: () =>
           console.error(messages.devServerStartTimeout(START_TIMEOUT_MS)),
-        onFailure: failStart
+        onFailure
       }
     )
 
   const firstBundle = await createCompilerAndServer({isRestart: false})
   let currentServer: RspackDevServer | null = firstBundle.server
+  firstServer = firstBundle.server
 
   // The session is announced once the config and compiler exist. Said before
   // them, an ok frame went out ahead of a manifest the config then refused.
@@ -1089,33 +1308,47 @@ export async function devServer(
 
   lifecycle.starting({requestedPort: Number(devOptions.port), port})
 
-  try {
-    await startSessionBundler(firstBundle.server)
-  } catch (error) {
-    // Reached only by a caller that keeps running, so nothing stays open.
-    await releaseFailedStart({
-      server: firstBundle.server,
-      releasePort: () => portManager.terminateCurrentInstance(),
-      closeControlBridge: controlBridge.close
-    })
+  // A start that fails rejects to a caller that keeps running, and the
+  // release of everything opened so far is the one devServer runs.
+  await startSessionBundler(firstBundle.server)
 
-    throw error
-  }
-
-  // Plugins that find an entrypoint change ask for this; the request outlives
-  // the compiler that noticed it because the scheduler belongs to the session.
-  const sessionRestart = new DevSessionRestartScheduler()
+  let isShuttingDown = false
+  const restartFailure = createRestartFailure({
+    metadata,
+    lifecycle,
+    keepServing: () => endCompilerRestart(activeCompiler ?? undefined),
+    hasQueuedRestart: () => sessionRestart.hasQueuedRequest(),
+    release: (server) =>
+      releaseEndedSession({
+        server,
+        releasePort: () => portManager.terminateCurrentInstance(),
+        closeControlBridge: controlBridge.close,
+        holdings
+      }),
+    onExitError: extendedOptions.onExitError,
+    exitOnError: exitOnStartFailure
+  })
+  sessionRestart.setFailureHandler((error) => restartFailure.unexpected(error))
   sessionRestart.setHandler(
     createSessionRestartHandler<RspackDevServer>({
       announce: (request) => humanLine(messages.devServerRestarting(request)),
-      createBundle: () => createCompilerAndServer({isRestart: true}),
+      createBundle: createRestartBundle,
       currentServer: () => currentServer,
       setCurrentServer: (server) => {
         currentServer = server
       },
+      retireServer: (server) =>
+        releaseCompilerFromDevSession(compilerByServer.get(server)),
       holdPort: () => portManager.holdPortAcrossRestart(),
       endPortHold: () => portManager.endRestartHold(),
-      startBundler: startSessionBundler,
+      // A restart reports its own failure, so the start only rejects here.
+      startBundler: (server) =>
+        startSessionBundler(server, rethrowStartFailure),
+      isShuttingDown: () => isShuttingDown,
+      onBundleFailure: restartFailure.bundle,
+      onStopFailure: restartFailure.stop,
+      onStartFailure: restartFailure.start,
+      onUnexpectedFailure: restartFailure.unexpected,
       fullReloadsDelivered: () => fullReloadsDeliveredTo(bridgeBroker),
       reloadAfterRestart: (fullReloadsBefore) =>
         dispatchRestartReload({broker: bridgeBroker}, fullReloadsBefore)
@@ -1123,15 +1356,16 @@ export async function devServer(
   )
 
   bindDevSessionRestart(sessionRestart)
-  process.once('exit', () => {
+  holdings.addEarly(() => {
     sessionRestart.dispose()
+    unbindDevSessionRestart(sessionRestart)
   })
 
   // The launcher stamps browserExitedAt on the ready contract; poll for it so
   // a machine consumer learns the browser died without scraping prose. The
   // same read tells the broker, so act verbs name the exit instead of an
   // idle worker, and lands on the events timeline beside the compiles.
-  lifecycle.watchBrowserExit(1000, (ready) => {
+  const stopBrowserExitWatch = lifecycle.watchBrowserExit(1000, (ready) => {
     const exitCode =
       typeof ready.browserExitCode === 'number' ? ready.browserExitCode : null
     const exitSignal =
@@ -1158,25 +1392,115 @@ export async function devServer(
 
   // Same mirror for a browser that never came up: the launcher stamps why on
   // the contract, and the timeline says so beside the compile that tried.
-  lifecycle.watchBrowserLaunchFailure(1000, (ready) => {
+  // A usage refusal ends the session before the next poll, so it writes the
+  // event itself. The stamp keeps the two writers to one line per launch.
+  let recordedLaunchFailure: string | null = null
+
+  const recordLaunchFailure = (ready: Record<string, unknown>) => {
+    const stamp = String(ready.browserLaunchFailedAt)
+    if (stamp === recordedLaunchFailure) return
+
+    recordedLaunchFailure = stamp
     metadata.appendEvent({
       type: 'browser_launch_failed',
       ts: new Date().toISOString(),
       command: 'dev',
       browser: browserName,
-      browserLaunchFailedAt: String(ready.browserLaunchFailedAt),
+      browserLaunchFailedAt: stamp,
       reason:
         typeof ready.browserLaunchFailedReason === 'string'
           ? ready.browserLaunchFailedReason
           : undefined
     })
-  })
+  }
 
-  setupCleanupHandlers(
+  const stopLaunchFailureWatch = lifecycle.watchBrowserLaunchFailure(
+    1000,
+    recordLaunchFailure
+  )
+
+  holdings.addEarly(stopBrowserExitWatch)
+  holdings.addEarly(stopLaunchFailureWatch)
+
+  const disposeCleanupHandlers = setupCleanupHandlers(
     () => currentServer,
     portManager,
     (signal) => {
       lifecycle.interrupted(signal)
+    },
+    {
+      closeControlBridge: controlBridge.close,
+      // No restart may begin, and one already running stops at its next step.
+      onShutdownStart: () => {
+        isShuttingDown = true
+        sessionRestart.dispose()
+        unbindDevSessionRestart(sessionRestart)
+      }
     }
   )
+  holdings.addForRelease(disposeCleanupHandlers)
+
+  // Writes the frame, then exits the CLI or releases a library host's session.
+  const endSession = (
+    writeFrame: () => void,
+    first: Array<() => unknown> = []
+  ) => {
+    if (exitOnStartFailure) {
+      return endAfterFrame(writeFrame, [
+        ...first,
+        () => disposeCleanupHandlers.endAsFailed()
+      ])
+    }
+
+    return endAfterFrame(writeFrame, [
+      ...first,
+      () => {
+        isShuttingDown = true
+      },
+      () => sessionRestart.dispose(),
+      () => unbindDevSessionRestart(sessionRestart),
+      () =>
+        releaseEndedSession({
+          server: currentServer ?? {},
+          releasePort: () => portManager.terminateCurrentInstance(),
+          closeControlBridge: controlBridge.close,
+          holdings
+        })
+    ])
+  }
+
+  // A host that knows the session cannot go on ends it through here. The CLI
+  // shuts down and exits 1, a library host keeps running with one session less.
+  holdings.addEarly(
+    registerLiveSession(currentInstance.instanceId, (code, message) => {
+      // A session already stopping keeps the frame and exit code it has.
+      if (isShuttingDown) return false
+
+      return endSession(() => {
+        metadata.writeEndedAsFailed(code, message)
+        lifecycle.failed(message, code)
+      })
+    })
+  )
+
+  // The usage frame is already out. The CLI host exits through onExitError
+  // under --output json, where nothing here exits the process.
+  endOnUsageRefusal = (code, message, ready) => {
+    if (isShuttingDown) return
+
+    const refusal = Object.assign(new Error(message), {code})
+
+    endSession(() => {
+      recordLaunchFailure(ready)
+      metadata.writeEndedAsFailed(code, message)
+    }, [() => extendedOptions.onExitError?.(refusal, code)])
+  }
+
+  for (const [code, message, ready] of pendingUsageRefusal.splice(0)) {
+    endOnUsageRefusal(code, message, ready)
+  }
+
+  // Only now is the session live: a throw in the wiring above still releases
+  // the claim, the port and the server through the failed start.
+  startup.started = true
 }

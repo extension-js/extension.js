@@ -195,6 +195,32 @@ describe('toProjectRelativePath', () => {
     )
   })
 
+  it('names a file behind a linked folder by the path as given', () => {
+    const {root, linkedResource} = makeProjectWithSymlinkedView()
+    const project = path.join(root, 'linked-src')
+    const elsewhere = path.join(root, 'elsewhere')
+
+    fs.mkdirSync(elsewhere)
+    fs.symlinkSync(elsewhere, path.join(root, 'real-src', 'far'), 'junction')
+
+    expect(toProjectRelativePath(root, linkedResource)).toBe(
+      'linked-src/content/scripts.ts'
+    )
+
+    expect(
+      toProjectRelativePath(project, path.join(project, 'far', 'a.png'))
+    ).toBe('far/a.png')
+  })
+
+  it('names a file whose name opens with two dots', () => {
+    const {root} = makeProjectWithSymlinkedView()
+
+    expect(toProjectRelativePath(root, path.join(root, '..env'))).toBe('..env')
+    expect(toProjectRelativePath(root, path.join(root, '..'))).toBe(
+      path.join(root, '..')
+    )
+  })
+
   it('leaves a file outside the project as given', () => {
     const {contentDir, realResource} = makeProjectWithSymlinkedView()
     const outside = path.join(path.dirname(contentDir), 'other.css')

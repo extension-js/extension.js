@@ -14,6 +14,7 @@ import {injectCssLink} from '../../../plugin-css/css-lib/inject-css-link'
 import {resolveCssAsset} from '../../../plugin-css/css-lib/resolve-css-asset'
 import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList} from '../../../types'
+import {isFolder} from '../../shared/paths'
 import {handleStaticAsset, isWithheldPageAsset} from './assets'
 import {bakeBaseHref} from './base-href'
 import {findCompiledRootRefSource} from './compiled-root-ref'
@@ -287,8 +288,8 @@ export function patchHtml(
   return ''
 }
 
-// Patches a nested HTML: preserve original script/link tags, rewrite only
-// static assets, and warn about missing public-root assets.
+// Patches a nested HTML: its tags stay, each file it names is rewritten to
+// the name its copy ships under, and a missing public-root file warns.
 export function patchHtmlNested(
   compilation: Compilation,
   htmlEntry: string,
@@ -322,6 +323,29 @@ export function patchHtmlNested(
 
             let thisChildNode: parse5utilities.ParsedNode = childNode
 
+            // A nested page's files are copied as they are, under the name
+            // this returns. A file the build leaves out keeps its reference.
+            const copiedName = (): string | undefined => {
+              if (
+                !fs.existsSync(absolutePath) ||
+                isFolder(absolutePath) ||
+                isWithheldPageAsset(compilation, absolutePath, manifestDir)
+              ) {
+                return undefined
+              }
+
+              return getFilePath(
+                htmlStaticAssetOutputName(
+                  manifestDir,
+                  htmlEntry,
+                  absolutePath,
+                  compilation.outputOptions
+                ),
+                '',
+                true
+              )
+            }
+
             switch (assetType) {
               case 'script': {
                 if (cleanPath.startsWith('/')) {
@@ -336,6 +360,12 @@ export function patchHtmlNested(
                     thisChildNode,
                     'src',
                     cleanPath + (search || '') + (hash || '')
+                  )
+                } else if (copiedName()) {
+                  thisChildNode = parse5utilities.setAttribute(
+                    thisChildNode,
+                    'src',
+                    copiedName() + (search || '') + (hash || '')
                   )
                 }
 
@@ -355,6 +385,12 @@ export function patchHtmlNested(
                     thisChildNode,
                     'href',
                     cleanPath + (search || '') + (hash || '')
+                  )
+                } else if (copiedName()) {
+                  thisChildNode = parse5utilities.setAttribute(
+                    thisChildNode,
+                    'href',
+                    copiedName() + (search || '') + (hash || '')
                   )
                 }
 
@@ -379,23 +415,12 @@ export function patchHtmlNested(
                     cleanPath + (search || '') + (hash || '')
                   )
                 } else {
-                  if (
-                    fs.existsSync(absolutePath) &&
-                    !isWithheldPageAsset(compilation, absolutePath, manifestDir)
-                  ) {
-                    const filepath = htmlStaticAssetOutputName(
-                      manifestDir,
-                      htmlEntry,
-                      absolutePath,
-                      compilation.outputOptions
-                    )
+                  if (copiedName()) {
                     thisChildNode = applyRewrittenStaticUrl(
                       thisChildNode,
                       attrName || resolveStaticAttributeName(assetType),
                       cleanPath,
-                      getFilePath(filepath, '', true) +
-                        (search || '') +
-                        (hash || '')
+                      copiedName() + (search || '') + (hash || '')
                     )
                   }
                 }

@@ -11,7 +11,10 @@ import type {
   RspackPluginInstance
 } from '@rspack/core'
 import type {LogContext} from './dev-server/control-bridge/contracts'
+import type {DevAddition} from './lib/dev-additions'
+import type {ManagedExtensionRecord} from './lib/extension-id'
 import type {ManifestV2, ManifestV3} from './lib/manifest-types'
+import type {ErrorCode} from './lib/messaging'
 
 /**
  * Firefox-only `theme_experiment` manifest key.
@@ -216,7 +219,23 @@ export type SafariPackagerFn = (
   overrides?: SafariPackagerOverrides
 ) => Promise<SafariPackageSummary | void>
 
-export interface DevOptions extends BrowserOptionsBase {
+/** The command a run is recorded under in `ready.json` and `events.ndjson`. */
+export type SessionCommand = 'dev' | 'start' | 'preview' | 'build'
+
+/** Which browser logs a session prints and how, for dev, start and preview. */
+export interface LogOptions {
+  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
+  logContexts?: LogContext[]
+  logFormat?: 'pretty' | 'json' | 'ndjson'
+  logTimestamps?: boolean
+  logColor?: boolean
+  logUrl?: string
+  logTab?: number | string
+}
+
+// Each Public*Options type is what the package entry exports under the plain
+// name. The plain name here adds the fields only the CLI and the engine set.
+export interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
   mode: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
@@ -238,7 +257,6 @@ export interface DevOptions extends BrowserOptionsBase {
    * list or an array. A leading dot allows every subdomain.
    */
   allowedHosts?: string | string[]
-  install?: boolean
   /**
    * Companion extensions (load-only) for this command.
    */
@@ -259,13 +277,6 @@ export interface DevOptions extends BrowserOptionsBase {
   zipFilename?: string
   zipDir?: string
   sourceMaps?: boolean
-  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: LogContext[]
-  logFormat?: 'pretty' | 'json' | 'ndjson'
-  logTimestamps?: boolean
-  logColor?: boolean
-  logUrl?: string
-  logTab?: number | string
   hashContentScripts?: boolean
   /**
    * Open the agent-bridge control channel for the bounded act verbs
@@ -281,6 +292,8 @@ export interface DevOptions extends BrowserOptionsBase {
   // When true, a failed dev session calls process.exit(1) (CLI wrapper passes
   // this); defaults to false: as a library, a failure is a rejected promise.
   exitOnError?: boolean
+  /** The hint a host wants on the terminal `failed` or `usage` frame of a code. */
+  hintFor?: (code: ErrorCode) => string | undefined
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
@@ -290,7 +303,12 @@ export interface DevOptions extends BrowserOptionsBase {
   safariPackager?: SafariPackagerFn
 }
 
-export interface BuildOptions {
+export interface DevOptions extends PublicDevOptions {
+  /** Auto-install project dependencies when missing. */
+  install?: boolean
+}
+
+export interface PublicBuildOptions {
   browser: BrowserOptionsBase['browser']
   /**
    * Base folder for the build output, relative to the project root. The
@@ -350,10 +368,6 @@ export interface BuildOptions {
    */
   mode?: 'development' | 'production' | 'none'
   /**
-   * [internal] Auto-install project dependencies when missing.
-   */
-  install?: boolean
-  /**
    * @deprecated Nothing reads it. A build never fails on a warning.
    */
   failOnWarning?: boolean
@@ -361,18 +375,6 @@ export interface BuildOptions {
    * @deprecated A build ignores it. A failed build rejects and the caller owns the exit.
    */
   exitOnError?: boolean
-  /**
-   * Internal: the command stamped into ready.json/events.ndjson. Defaults to
-   * 'build'; `extension start` passes 'start' for its build phase so the
-   * receipt names the command the user actually ran.
-   */
-  metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
-  /**
-   * Internal: `extension start` sets it when a browser launch follows the
-   * build, so the receipt stays `starting` with `compiledAt` set and only
-   * the launch phase stamps `ready`.
-   */
-  launchFollows?: boolean
   appName?: SafariOptions['appName']
   bundleId?: SafariOptions['bundleId']
   developmentTeam?: SafariOptions['developmentTeam']
@@ -382,15 +384,26 @@ export interface BuildOptions {
   safariPackager?: SafariPackagerFn
 }
 
-export interface PreviewOptions extends BrowserOptionsBase {
+export interface BuildOptions extends PublicBuildOptions {
+  /** Auto-install project dependencies when missing. */
+  install?: boolean
+  /**
+   * The command stamped into ready.json/events.ndjson. Defaults to
+   * 'build'; `extension start` passes 'start' for its build phase so the
+   * receipt names the command the user actually ran.
+   */
+  metadataCommand?: SessionCommand
+  /**
+   * `extension start` sets it when a browser launch follows the build, so
+   * the receipt stays `starting` with `compiledAt` set and only the launch
+   * phase stamps `ready`.
+   */
+  launchFollows?: boolean
+}
+
+export interface PublicPreviewOptions extends BrowserOptionsBase, LogOptions {
   mode: 'production'
   outputPath?: string
-  /**
-   * Internal metadata command override used by start->preview delegation.
-   * (Full command union so the WebpackConfigOptions intersection with
-   * BuildOptions.metadataCommand doesn't narrow the field.)
-   */
-  metadataCommand?: 'dev' | 'start' | 'preview' | 'build'
   chromiumBinary?: ChromiumOptions['chromiumBinary']
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
@@ -415,14 +428,6 @@ export interface PreviewOptions extends BrowserOptionsBase {
    */
   allowEval?: boolean
   /**
-   * Internal auto-generated instance ID, not user-configurable.
-   */
-  instanceId?: string
-  /**
-   * Internal: true when the instance ID came from the user, not autogenerated.
-   */
-  instanceExplicit?: boolean
-  /**
    * Dry run mode (no browser launch) for diagnostics.
    */
   dryRun?: boolean
@@ -439,16 +444,21 @@ export interface PreviewOptions extends BrowserOptionsBase {
    * served by this command, so there is no connectable host to override.
    */
   publicHost?: string
-  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: LogContext[]
-  logFormat?: 'pretty' | 'json' | 'ndjson'
-  logTimestamps?: boolean
-  logColor?: boolean
-  logUrl?: string
-  logTab?: number | string
 }
 
-export interface StartOptions extends BrowserOptionsBase {
+export interface PreviewOptions extends PublicPreviewOptions {
+  /**
+   * The command stamped into ready.json, set by start when it hands over to
+   * preview. The full union, so the bundler options type does not narrow it.
+   */
+  metadataCommand?: SessionCommand
+  /** Auto-generated instance ID, not user-configurable. */
+  instanceId?: string
+  /** True when the instance ID came from the user, not autogenerated. */
+  instanceExplicit?: boolean
+}
+
+export interface PublicStartOptions extends BrowserOptionsBase, LogOptions {
   mode: 'production'
   polyfill?: boolean
   chromiumBinary?: ChromiumOptions['chromiumBinary']
@@ -458,10 +468,6 @@ export interface StartOptions extends BrowserOptionsBase {
    * Companion extensions (load-only) for this command.
    */
   extensions?: CompanionExtensionsConfig
-  /**
-   * [internal] Auto-install project dependencies when missing.
-   */
-  install?: boolean
   /**
    * Skip launching the browser (build still runs).
    */
@@ -479,17 +485,18 @@ export interface StartOptions extends BrowserOptionsBase {
    * served by this command, so there is no connectable host to override.
    */
   publicHost?: string
-  logLevel?: 'off' | 'error' | 'warn' | 'info' | 'debug' | 'trace' | 'all'
-  logContexts?: LogContext[]
-  logFormat?: 'pretty' | 'json' | 'ndjson'
-  logTimestamps?: boolean
-  logColor?: boolean
-  logUrl?: string
-  logTab?: number | string
+}
+
+export interface StartOptions extends PublicStartOptions {
+  /** Auto-install project dependencies when missing. */
+  install?: boolean
 }
 
 export interface BrowserConfig extends Omit<BrowserOptionsBase, 'browser'> {
-  /** Optional: the key of the `browser` map already names the target. */
+  /**
+   * Optional: the key of the `browser` map already names the target. The map
+   * key wins, a different value here changes nothing.
+   */
   browser?: BrowserType
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
@@ -541,9 +548,10 @@ export type OutputConfig = {
  * (32 MiB); one a content script or the service worker reaches stays
  * `runtime` (1 MiB). Set at the top level of extension.config.js (weakest),
  * under `browser.<vendor>.perfBudgets`, or under
- * `commands.build.perfBudgets` (strongest below a CLI flag). Budgets are
- * checked on a production build only. `onExceed: 'error'` makes an overrun
- * fail the build instead of warning.
+ * `commands.build.perfBudgets` or `commands.start.perfBudgets` (strongest
+ * below a CLI flag). Budgets are checked on a production build only, the
+ * one `build` and `start` run. Preview builds nothing, so it takes none.
+ * `onExceed: 'error'` makes an overrun fail the build instead of warning.
  */
 export type PerfBudgetsConfig =
   import('./plugin-perf-budgets').PerfBudgetsConfig
@@ -667,6 +675,8 @@ export interface FileConfig {
       | 'chromiumBinary'
       | 'geckoBinary'
       | 'polyfill'
+      | 'noOpen'
+      | 'startingUrl'
       | 'noBrowser'
       | 'port'
       | 'host'
@@ -690,6 +700,7 @@ export interface FileConfig {
       folders?: SpecialFoldersConfig
       include?: IncludeFilesConfig
       exclude?: ExcludeFilesConfig
+      perfBudgets?: PerfBudgetsConfig
     }
 
     preview?: Pick<
@@ -697,6 +708,8 @@ export interface FileConfig {
       | 'profile'
       | 'chromiumBinary'
       | 'geckoBinary'
+      | 'noOpen'
+      | 'startingUrl'
       | 'noBrowser'
       | 'port'
       | 'host'
@@ -715,7 +728,9 @@ export interface FileConfig {
       preferences?: Record<string, unknown>
       persistProfile?: boolean
       extensions?: CompanionExtensionsConfig
+      /** @deprecated Preview serves an existing build and ignores it. */
       transpilePackages?: string[]
+      /** @deprecated Preview serves an existing build and ignores it. */
       define?: Record<string, unknown>
       folders?: SpecialFoldersConfig
     }
@@ -770,7 +785,7 @@ export interface FileConfig {
   /**
    * Default per-category asset budgets for all commands, the weakest layer.
    * `browser.<vendor>.perfBudgets` overrides it, and
-   * `commands.build.perfBudgets` overrides both.
+   * `commands.build|start.perfBudgets` overrides both.
    */
   perfBudgets?: PerfBudgetsConfig
   /**
@@ -818,7 +833,7 @@ export interface FileConfig {
 export interface ConfigHookContext {
   browser: BrowserType
   mode: 'development' | 'production' | 'none'
-  command: 'dev' | 'build' | 'start' | 'preview'
+  command: SessionCommand
   /**
    * The bundler this run compiles with, so a hook reaches `ProvidePlugin`
    * or `NormalModuleReplacementPlugin` with no bundler of the project's own.
@@ -861,3 +876,120 @@ export type IncludeFilesConfig = Record<string, string | IncludeFileEntry>
  * here is not copied. The lists of every config layer add up.
  */
 export type ExcludeFilesConfig = string[]
+
+/**
+ * `ready.json` as the build engine writes it, every field included. A field
+ * the browser launcher stamps is listed when the engine carries it across a
+ * recompile. Read it with `readReadyContractDocument` from the bridge entry.
+ */
+export interface ReadyContract {
+  /** The contract's own version. */
+  schemaVersion: 2
+  /** The result envelope version this engine speaks. */
+  schema: 1
+  /**
+   * `starting` until the session is usable, `stopped` once it ended. A held
+   * `starting` with `compiledAt` set waits for the browser or its background.
+   */
+  status: 'starting' | 'ready' | 'error' | 'stopped'
+  command: SessionCommand
+  browser: string
+  runId: string
+  /** When the run began (ISO 8601 UTC), kept across recompiles. */
+  startedAt: string
+  distPath: string
+  manifestPath: string
+  /** The dev server port, null when the command serves nothing. */
+  port: number | null
+  host?: string
+  pid: number
+  /** When the process behind `pid` started, to tell a reused pid apart. */
+  pidStartedAt: string
+  /** When this document was last written. */
+  ts: string
+  compiledAt: string | null
+  errors: string[]
+  /** Set with `status: 'error'` or `'stopped'`, and its sentence. */
+  code?: string
+  message?: string
+  /** Set once the session ended as a failure, with the code that ended it. */
+  endedAsFailedAt?: string
+  endedAsFailedCode?: string
+  instanceId?: string
+  instanceExplicit?: boolean
+  controlPort: number | null
+  /** Why `controlPort` is null when a control channel was asked for. */
+  controlPortUnavailableReason?: string
+  controlPath?: string
+  logsPath?: string
+  toolchainVersion: string
+  extensionName?: string
+  extensionVersion?: string
+  /** The id the browser serves the build under, and who said so. */
+  extensionId?: string
+  extensionIdSource?: 'browser' | 'derived' | 'packager'
+  /** Set on the emulator target, which has no browser process. */
+  engine?: 'emulator'
+  /** Every extension loaded besides the project's own. */
+  managedExtensions?: ManagedExtensionRecord[]
+  /** Dev only: what the session has that a production build does not. */
+  devAdditions?: DevAddition[]
+  /** Set while a compiled dev session waits for its background to connect. */
+  awaitingExecutorSince?: string
+  /** `attached` once the background connected, `detached` after it left. */
+  runtime?: 'attached' | 'detached'
+  executorAttachedAt?: string
+  executorDetachedAt?: string
+  extensionBaseUrl?: string
+  /** Dev only: the last reload applied after a compile. */
+  reloadedAt?: string
+  reloadKind?: string
+  reloadLabel?: string
+  // From here on the browser launcher stamps the field after the launch and
+  // the engine carries it across every recompile of the same run.
+  cdpPort?: number
+  cdpFaultCode?: string
+  cdpFaultMessage?: string
+  rdpPort?: number
+  rdpPortError?: string
+  webdriverPort?: number
+  webdriverSessionId?: string
+  webdriverUnavailableReason?: string
+  webdriverRequestPath?: string
+  /** Safari dev sessions: how far the enable step got and why it stopped. */
+  safari?: {
+    bundleId: string
+    extensionId: string
+    team: string
+    switchId: string
+    enableAttempted: boolean
+    step: string
+    enabled: boolean | null
+    listed: boolean | null
+    otherWebsites: string | null
+    reason?: string
+    earlierExtensionIds?: string[]
+  }
+  profilePath?: string
+  browserPid?: number | null
+  browserStartedAt?: string
+  launcherPid?: number
+  launcherStartedAt?: string
+  /** The browser binary that ran, and how it was chosen. */
+  binary?: string
+  binaryProvenance?: string
+  browserExitedAt?: string
+  browserExitCode?: number | null
+  browserExitSignal?: string | null
+  browserLaunchFailedAt?: string
+  browserLaunchFailedReason?: string
+  browserLaunchFailedCode?: string
+  /** The browser is up and no background has connected yet. */
+  browserUpNotAttachedAt?: string
+  browserUpNotAttachedWaitMs?: number
+  browserUpNotAttachedHint?: string
+  /** The browser refused to load the extension. */
+  extensionLoadRefusedAt?: string
+  extensionLoadRefusedReason?: string
+  extensionLoadRefusedCause?: string
+}

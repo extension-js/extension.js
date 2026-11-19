@@ -35,6 +35,12 @@ const isScriptsFolderFeature = (feature: string) =>
 const isBackgroundScriptsFeature = (feature: string) =>
   feature === 'background/scripts'
 
+// The development manifest names a script for a group that lists only
+// stylesheets, and the bundler emits none for an entry made of sheets alone.
+const SHEET_ONLY_GROUP_SCRIPT = `data:text/javascript;charset=utf-8,${encodeURIComponent(
+  '/* Extension.js stylesheet group */'
+)}`
+
 // The field as the manifest writes it: a content script group lists its
 // scripts and its stylesheets apart, under the index of the group.
 function manifestFieldOf(
@@ -307,9 +313,16 @@ export class AddScripts {
         (isContentScriptFeature(feature) ||
           isBackgroundScriptsFeature(feature)) &&
         scriptImports.length > 1
+      const needsDevelopmentScript =
+        compiler.options.mode === 'development' &&
+        isContentScriptFeature(feature) &&
+        scriptImports.length === 0 &&
+        cssImports.length > 0
       const finalEntryImports = shouldUseSequentialEntryModule
         ? [createSequentialEntryModule(feature, scriptImports), ...cssImports]
-        : entryImports
+        : needsDevelopmentScript
+          ? [SHEET_ONLY_GROUP_SCRIPT, ...cssImports]
+          : entryImports
 
       if (!finalEntryImports.length) continue
 

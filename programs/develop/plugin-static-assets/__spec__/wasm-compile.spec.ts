@@ -45,7 +45,7 @@ describe('a .wasm import through a real compile', () => {
     expect(build.errors).toHaveLength(1)
     // With the experiment off rspack has no wasm rule and parses the bytes as JS.
     expect(build.errors[0]).toContain(
-      "JavaScript parse error: Unexpected character '\\0'"
+      'JavaScript parse error: Invalid character at start of identifier'
     )
 
     expect(build.errors[0]).toContain(

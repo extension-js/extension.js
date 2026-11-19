@@ -502,6 +502,12 @@ export class JsFrameworksPlugin {
         ...swcRuleBase,
         issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
         layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        // The rule above already compiles these: matching both ran the
+        // transpiler a second time on its own output.
+        exclude: [
+          ...swcRuleBase.exclude,
+          (resourcePath: string) => isfeatureScriptsContentLike(resourcePath)
+        ],
         oneOf: parserVariants({refresh: false, module: false})
       },
       {

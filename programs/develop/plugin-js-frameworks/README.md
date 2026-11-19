@@ -13,7 +13,7 @@ Wires JavaScript frameworks and TypeScript into the Rspack build Extension.js ru
 - Compiles scripts with SWC. The file extension picks the parser (`.ts`, `.tsx`, `.jsx`, `.js` and their `m`/`c` forms), the installed framework picks the automatic JSX runtime (`solid-js`, then `preact` when React is absent, then `vue` when React and Preact are absent, else `react`)
 - Parses decorators in every script. `experimentalDecorators` in the `tsconfig.json` or `jsconfig.json` (read through `extends`) compiles them as TypeScript's legacy decorators, with `emitDecoratorMetadata` honored, otherwise they compile as standard decorators (the 2022-03 proposal)
 - Takes the SWC targets from the manifest: `minimum_chrome_version` for a Chromium build, the Gecko `strict_min_version` for a Firefox build, `chrome >= 100` otherwise
-- Compiles content scripts in their own layer as classic scripts, and compiles a `"type": "module"` service worker or a `<script type="module">` page script as an ES module
+- Compiles content scripts in their own layer as classic scripts, each file once, and compiles a `"type": "module"` service worker or a `<script type="module">` page script as an ES module
 - Points `resolve.tsConfig` at the project's `tsconfig.json`, or its `jsconfig.json` in a JavaScript project, so path aliases resolve
 - Writes a default `tsconfig.json` when the build reaches TypeScript sources and the project has none
 - Configures everything before the first compilation: on `beforeRun` in production, eagerly in development
@@ -27,7 +27,7 @@ Optional tooling (the React refresh plugin, `vue-loader`, `svelte-loader`, Solid
 | **React** | Aliases `react`, `react-dom`, `react-dom/client` and both JSX runtimes to one copy. In development it adds `@rspack/plugin-react-refresh` and puts the refresh runtime in front of page entries only, never content scripts or the background. |
 | **Preact** | Aliases `preact` and its JSX runtimes, and aliases `react` and `react-dom` to `preact/compat` when React is not a dependency. Fast refresh is off: Preact pages reload. |
 | **Vue** | Vue 3: `vue-loader` with `VueLoaderPlugin`, the Vue feature flags, and the runtime-only ES module build. Options from `vue.loader.(ts\|mts\|js\|mjs)` merge over the defaults. Vue 2: plain scripts build, and a `.vue` file fails the build with one error naming it. |
-| **Svelte** | `svelte-loader` for `.svelte`, `.svelte.js` and `.svelte.ts` (SWC strips the types first), with `dev` and `hotReload` on in development. Options from `svelte.loader.(ts\|mts\|js\|mjs)` merge over the defaults. When the compiler is newer than the project's `svelte`, the runtime follows the compiler and a warning says so. |
+| **Svelte** | `svelte-loader` for `.svelte`, `.svelte.js` and `.svelte.ts` (SWC strips the types first), with `dev` and `hotReload` on in development. The `svelte` export condition comes first in script resolution, so a component library that publishes only under it resolves. Options from `svelte.loader.(ts\|mts\|js\|mjs)` merge over the defaults. When the compiler is newer than the project's `svelte`, the runtime follows the compiler and a warning says so. |
 | **Solid** | Solid's own compiler through Babel (`babel-preset-solid`, plus `@babel/preset-typescript` for `.tsx`), the way `vite-plugin-solid` runs it. A plain `.js` file goes to Babel only when it holds JSX. `.ts` files stay on SWC. |
 | **TypeScript** | The SWC TypeScript parser by extension, the scaffolded `tsconfig.json`, and `resolve.tsConfig`. No `typescript` package is needed to build. |
 

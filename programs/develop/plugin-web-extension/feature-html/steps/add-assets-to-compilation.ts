@@ -246,6 +246,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
   manifestDir: string
   projectRoot: string
   publicDir: string
+  copied: Set<string>
 }) {
   const {
     compilation,
@@ -254,7 +255,8 @@ function emitNestedHtmlAndReferencedAssets(params: {
     absoluteFsPath,
     manifestDir,
     projectRoot,
-    publicDir
+    publicDir,
+    copied
   } = params
   const source = fs.readFileSync(absoluteFsPath)
   const updatedHtml = patchHtmlNested(compilation, absoluteFsPath, manifestDir)
@@ -270,10 +272,16 @@ function emitNestedHtmlAndReferencedAssets(params: {
     new sources.RawSource((updatedHtml || source).toString())
   )
 
+  copied.add(filepath)
+
   assetsFromHtml.forEach((assetFromHtml) => {
     // A ref that doesn't resolve to a real source file must not throw here: an
     // uncaught ENOENT inside processAssets wedges the watch loop.
-    if (!path.isAbsolute(assetFromHtml) || !fs.existsSync(assetFromHtml)) {
+    if (
+      !path.isAbsolute(assetFromHtml) ||
+      !fs.existsSync(assetFromHtml) ||
+      isFolder(assetFromHtml)
+    ) {
       return
     }
 
@@ -320,8 +328,25 @@ function emitNestedHtmlAndReferencedAssets(params: {
 
     if (!compilation.getAsset(assetFilepath)) {
       compilation.emitAsset(assetFilepath, r)
+      copied.add(assetFilepath)
     }
   })
+}
+
+// What this step copied into each output folder on its last good compile.
+// It outlives a compiler, so a session restart still knows what to remove.
+const copiedByOutputPath = new Map<string, Set<string>>()
+
+function removeCopiedFile(outputPath: string, name: string): void {
+  const root = path.resolve(outputPath)
+  const target = path.resolve(root, name)
+  if (!target.startsWith(root + path.sep)) return
+
+  try {
+    fs.rmSync(target, {force: true})
+  } catch {
+    // A file in use stays: pruning must never fail a compile.
+  }
 }
 
 export class AddAssetsToCompilation {
@@ -336,14 +361,22 @@ export class AddAssetsToCompilation {
   }
 
   public apply(compiler: Compiler): void {
+    // The names this compile copied for the pages, unset until it has run.
+    let copiedNow: Set<string> | undefined
+
     compiler.hooks.thisCompilation.tap(
       'html:add-assets-to-compilation',
       (compilation) => {
         const processAssetsHook = compilation.hooks?.processAssets
 
+        copiedNow = undefined
+
         const runner = () => {
           const errs = compilation.errors || []
           if (Array.isArray(errs) && errs.length > 0) return
+
+          const copied = new Set<string>()
+          copiedNow = copied
 
           const allEntries = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
@@ -583,11 +616,13 @@ export class AddAssetsToCompilation {
                     absoluteFsPath,
                     manifestDir,
                     projectRoot,
-                    publicDir: publicRootForResource
+                    publicDir: publicRootForResource,
+                    copied
                   })
                 } else {
                   const source = fs.readFileSync(absoluteFsPath)
                   compilation.emitAsset(filepath, new sources.RawSource(source))
+                  copied.add(filepath)
                 }
               }
 
@@ -620,6 +655,8 @@ export class AddAssetsToCompilation {
                       sourcePathAsset,
                       new sources.RawSource(source)
                     )
+
+                    copied.add(sourcePathAsset)
                   }
                 }
               }
@@ -641,5 +678,30 @@ export class AddAssetsToCompilation {
         }
       }
     )
+
+    if (!compiler.hooks.done?.tap) return
+
+    // A watch session never cleans its output, so a copy whose source was
+    // edited, deleted or dropped from the page is removed here, nothing else.
+    compiler.hooks.done.tap('html:add-assets-to-compilation', (stats) => {
+      const outputPath = compiler.options.output?.path
+      const copied = copiedNow
+
+      if (!outputPath || !copied || stats.compilation.errors.length > 0) {
+        return
+      }
+
+      const emitted = new Set(
+        stats.compilation
+          .getAssets()
+          .map((asset) => String(asset.name || '').replace(/\\/g, '/'))
+      )
+
+      for (const name of copiedByOutputPath.get(outputPath) || []) {
+        if (!emitted.has(name)) removeCopiedFile(outputPath, name)
+      }
+
+      copiedByOutputPath.set(outputPath, copied)
+    })
   }
 }
