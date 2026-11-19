@@ -9,6 +9,7 @@
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import type {Configuration} from '@rspack/dev-server'
+import {rootAbsolutePathIsWithheld} from '../plugin-special-folders/public-private-files'
 import {
   createSocketVerifier,
   devServerAccessConfig,
@@ -59,6 +60,41 @@ export function shouldWriteAssetToDisk(
   if (/(?:^|[/\\])\.\.(?:[/\\]|$)/.test(filePath)) return false
 
   return !isRootManifestPath(filePath, outputPath)
+}
+
+type MiddlewareList = Parameters<
+  NonNullable<Configuration['setupMiddlewares']>
+>[0]
+
+type NextFn = (error?: unknown) => void
+
+// The stock server reads public/ by URL. A name the build leaves out of the
+// output answers as a missing file, so a URL reaches no more than the build.
+export function withPrivatePublicFilesWithheld(
+  middlewares: MiddlewareList
+): MiddlewareList {
+  return middlewares.map((entry) => {
+    if (typeof entry !== 'object' || entry.name !== 'serve-static') {
+      return entry
+    }
+
+    const serve = entry.middleware as (
+      req: {url?: string},
+      res: unknown,
+      next: NextFn
+    ) => void
+
+    return {
+      ...entry,
+      middleware: ((req: {url?: string}, res: unknown, next: NextFn) => {
+        const urlPath = String(req.url || '').split(/[?#]/)[0]
+
+        if (rootAbsolutePathIsWithheld(urlPath)) return next()
+
+        return serve(req, res, next)
+      }) as typeof entry.middleware
+    }
+  })
 }
 
 export interface ServerConfigInput {
@@ -166,23 +202,25 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
         announceSiteRefusal
       )
 
-      if (!emulatorFiles) return checked
+      const served = withPrivatePublicFilesWithheld(checked)
+
+      if (!emulatorFiles) return served
 
       // Both checks run before the viewer's file index, as before any file.
       const after =
-        checked.findIndex(
+        served.findIndex(
           (item) =>
             (item as {name?: string}).name === REQUEST_SITE_MIDDLEWARE_NAME
         ) + 1
 
       return [
-        ...checked.slice(0, after),
+        ...served.slice(0, after),
         createEmulatorFilesMiddlewareEntry(
           emulatorFiles,
           args[1],
           emulatorOrigin
         ) as unknown as (typeof args)[0][number],
-        ...checked.slice(after)
+        ...served.slice(after)
       ]
     },
     port: input.port,

@@ -37,8 +37,13 @@ const FILES: Record<string, string> = {
   'background.js':
     'browser.runtime.onInstalled.addListener(() => {})\n' +
     'chrome.scripting.registerContentScripts([{id: "registered", ' +
-    'matches: ["<all_urls>"], js: ["scripts/registered.js"], world: "MAIN"}])\n',
+    'matches: ["<all_urls>"], js: ["scripts/registered.js"], world: "MAIN"}])\n' +
+    'chrome.scripting.registerContentScripts([' +
+    '{id: "both-isolated", matches: ["<all_urls>"], js: ["scripts/both.js"]}, ' +
+    '{id: "both-main", matches: ["<all_urls>"], js: ["scripts/both.js"], world: "MAIN"}])\n',
   'scripts/registered.js': 'window.__REGISTERED__ = typeof browser\n',
+  // Both worlds run this file, so each gets its own build of it.
+  'scripts/both.js': 'window.__BOTH__ = typeof browser\n',
   'isolated.js': "browser.runtime.sendMessage('from the isolated world')\n",
   'main.js':
     "import {pageHasBrowser} from './main-helper.js'\n" +
@@ -66,6 +71,8 @@ type Built = {
   isolated: string
   main: string
   registered: string
+  bothIsolated: string
+  bothMain: string
   sandbox: string
   popup: string
 }
@@ -134,6 +141,8 @@ async function build(mode: 'development' | 'production'): Promise<Built> {
     isolated: scriptsOf(undefined),
     main: scriptsOf('MAIN'),
     registered: read('scripts/registered.js'),
+    bothIsolated: read('scripts/both.js'),
+    bothMain: read('scripts/both.extjs-main-world.js'),
     sandbox: pageScripts(manifest.sandbox.pages[0] as string),
     popup: pageScripts(manifest.action.default_popup as string)
   }
@@ -212,6 +221,12 @@ describe.each([
   it('stays out of a scripts/ file registered into the MAIN world', () => {
     expect(built.registered.includes(POLYFILL_MARK)).toBe(false)
     expect(runOnPage(built.registered).__REGISTERED__).toBe('undefined')
+  })
+
+  it('stays out of the MAIN copy of a scripts/ file both worlds run', () => {
+    expect(built.bothIsolated.includes(POLYFILL_MARK)).toBe(true)
+    expect(built.bothMain.includes(POLYFILL_MARK)).toBe(false)
+    expect(runOnPage(built.bothMain).__BOTH__).toBe('undefined')
   })
 
   it('leaves browser undefined on the page, as without the option', () => {

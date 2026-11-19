@@ -674,6 +674,37 @@ describe('classifyReloadFromSources: public/ roots', () => {
     fs.rmSync(outputPath, {recursive: true, force: true})
   })
 
+  it('a name the build leaves out of public/ asks for no reload', () => {
+    for (const rel of [
+      'public/.env',
+      'public/cfg/.env.local',
+      'public/.git/config',
+      'public/Thumbs.db'
+    ]) {
+      expect(
+        classifyReloadFromSources({
+          changedSources: [rel],
+          getContentScriptCount: count(1),
+          getSourceFeatureIndex: () => emptyIndex(['public'])
+        })
+      ).toBeUndefined()
+    }
+  })
+
+  it('a left-out name beside a shipped public/ file reloads for the shipped one', () => {
+    expect(
+      classifyReloadFromSources({
+        changedSources: ['public/.env', 'public/rules.json'],
+        getContentScriptCount: count(0),
+        getSourceFeatureIndex: () => emptyIndex(['public'])
+      })
+    ).toMatchObject({
+      type: 'full',
+      changedAssets: ['public/rules.json'],
+      label: 'extension (public/rules.json)'
+    })
+  })
+
   it('a public/ root beside the manifest maps the same way', () => {
     expect(
       classifyReloadFromSources({

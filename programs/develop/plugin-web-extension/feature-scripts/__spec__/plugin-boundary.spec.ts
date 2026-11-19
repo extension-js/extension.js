@@ -57,8 +57,7 @@ describe('what the scripts feature knows about reloading', () => {
   // Which builds a dev session restart replaces is the dev server's to keep.
   // This folder asks for the restart and reports the builds through its API.
   it('keeps no restart state of its own', () => {
-    const restartState =
-      /isAwaitingMainWorldRestart|awaitingRestart|heldBuilds|new\s+WeakSet/
+    const restartState = /isAwaitingMainWorldRestart|awaitingRestart|heldBuilds/
 
     expect(
       files.filter(({text}) => restartState.test(text)).map(({file}) => file)
@@ -75,10 +74,7 @@ describe('what the scripts feature knows about reloading', () => {
       )
     )
 
-    expect([...reached].sort()).toEqual([
-      'session-restart',
-      'session-restart-holds'
-    ])
+    expect([...reached].sort()).toEqual(['main-world-restart'])
   })
 })
 

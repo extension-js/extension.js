@@ -235,6 +235,13 @@ consumes that contract. It does not define it, and nothing in
   browser last read
 - `reload-after-package.unit.spec.ts`, the trim and the burst merge for a
   packaged browser
+- `renamed-content-scripts.unit.spec.ts`,
+  `rewritten-content-script-styles.unit.spec.ts`,
+  `classifier-inputs.unit.spec.ts`, the reload a launched session gets for a
+  renamed bundle, a rewritten stylesheet or a copied page, driven through
+  `BrowsersPlugin`
+- `restart-reload-once.unit.spec.ts`, the one reload a restarted session owes
+- `reload-frame-build.unit.spec.ts`, the build name a reload frame carries
 - `setup-reload-strategy.spec.ts`, `setup-background-entry.spec.ts`,
   background entries, the fallback background a session asks for and the
   hot update names. The chunk loading specs live in

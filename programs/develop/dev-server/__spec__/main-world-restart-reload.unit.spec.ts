@@ -2,19 +2,20 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {BrowsersPlugin} from '../../plugin-browsers'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../plugin-browsers/__spec__/fake-compiler'
+import {SafariDevPlugin} from '../../plugin-browsers/safari-dev-plugin'
+import {WarnMainWorldRegistrationChanged} from '../../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
+import {MAIN_WORLD_SETTLE_MS} from '../main-world-restart'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
   unbindDevSessionRestart
-} from '../../dev-server/session-restart'
-import {isAwaitingMainWorldRestart} from '../../dev-server/session-restart-holds'
-import {
-  MAIN_WORLD_SETTLE_MS,
-  WarnMainWorldRegistrationChanged
-} from '../../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
-import {BrowsersPlugin} from '../index'
-import {SafariDevPlugin} from '../safari-dev-plugin'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
+} from '../session-restart'
+import {isAwaitingMainWorldRestart} from '../session-restart-holds'
 
 const roots: string[] = []
 
