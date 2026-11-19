@@ -17,6 +17,7 @@ import {
   readProjectSource
 } from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
 import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
+import {isHotUpdateFile} from '../../plugin-web-extension/shared/initial-files'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
 import {
   buildDevProducerSource,
@@ -84,8 +85,7 @@ function digestBuild(compilation: Compilation): string {
     if (
       asset.name === CONTROL_PORT_ASSET_NAME ||
       asset.name.endsWith('.map') ||
-      asset.name.startsWith('hot/') ||
-      asset.name.includes('.hot-update.')
+      isHotUpdateFile(asset.name)
     ) {
       continue
     }

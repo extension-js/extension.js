@@ -17,6 +17,7 @@ import type {
 } from '../dev-server/control-bridge/contracts'
 import {humanLine} from '../dev-server/lifecycle-stream'
 import {prefix} from '../lib/messaging'
+import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import {
   filesBehindFolders,
   readsOfCompilation,
@@ -413,10 +414,6 @@ function isForcedFullPath(normalized: string, manifests: string[]): boolean {
   })
 }
 
-function isHotAsset(normalized: string): boolean {
-  return normalized.startsWith('hot/') || normalized.includes('.hot-update.')
-}
-
 function isDirectory(absolute: string): boolean {
   try {
     return fs.statSync(absolute).isDirectory()
@@ -614,7 +611,7 @@ export function createChangedSourcesTracker(
     'extjs-reload-changed-sources-emitted',
     (file: string) => {
       const normalized = normalizeChangedPath(file, contextDir())
-      if (!normalized || isHotAsset(normalized)) return
+      if (!normalized || isHotUpdateFile(normalized)) return
       if (!writtenAssets.includes(normalized)) writtenAssets.push(normalized)
     }
   )
