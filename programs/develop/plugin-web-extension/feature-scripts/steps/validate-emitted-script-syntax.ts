@@ -24,7 +24,9 @@ export class ValidateEmittedScriptSyntax {
         compilation.hooks.processAssets.tap(
           {
             name: 'scripts:validate-emitted-script-syntax',
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT
+            // After every step that rewrites a script, the dev reload runtime
+            // and the sheet urls included, and before the parse-neutral BOM.
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 800
           },
           () => {
             const assets =
