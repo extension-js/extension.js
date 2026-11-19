@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 import {SpecialFoldersPlugin} from '..'
 import {
+  buildWith,
   fixtureCompiler,
   makeFixtureRoot,
   removeFixtureRoots,
@@ -38,6 +39,7 @@ function session(files: Record<string, string>) {
 describe('a watch session over public/', () => {
   it('recompiles and ships an edit, an addition and a deletion', async () => {
     const {root, watch} = session({'public/rules.json': '{"v": 1}'})
+    const next = () => watch.builds.length + 1
 
     try {
       const first = await watch.waitForBuild(1, NEXT_BUILD_MS)
@@ -46,17 +48,56 @@ describe('a watch session over public/', () => {
       expect(first?.emitted['rules.json']).toBe('{"v": 1}')
 
       fs.writeFileSync(path.join(root, 'public', 'rules.json'), '{"v": 2}')
-      const edited = await watch.waitForBuild(2, NEXT_BUILD_MS)
-      expect(edited?.emitted['rules.json']).toBe('{"v": 2}')
+      await buildWith(
+        watch,
+        next(),
+        (result) => result.emitted['rules.json'] === '{"v": 2}'
+      )
 
       fs.writeFileSync(path.join(root, 'public', 'added.txt'), 'added')
-      const added = await watch.waitForBuild(3, NEXT_BUILD_MS)
-      expect(added?.emitted['added.txt']).toBe('added')
+      await buildWith(
+        watch,
+        next(),
+        (result) => result.emitted['added.txt'] === 'added'
+      )
 
       fs.rmSync(path.join(root, 'public', 'added.txt'))
-      const deleted = await watch.waitForBuild(4, NEXT_BUILD_MS)
-      expect(deleted?.emitted['added.txt']).toBeUndefined()
-      expect(deleted?.emitted['rules.json']).toBe('{"v": 2}')
+      const deleted = await buildWith(
+        watch,
+        next(),
+        (result) => !('added.txt' in result.emitted)
+      )
+      expect(deleted.emitted['rules.json']).toBe('{"v": 2}')
+    } finally {
+      await watch.close()
+    }
+  })
+
+  it('drops each file deleted right after the build that added it', async () => {
+    const {root, watch} = session({'public/rules.json': '{"v": 1}'})
+
+    try {
+      expect(await watch.waitForBuild(1, NEXT_BUILD_MS)).toBeDefined()
+
+      for (const round of [1, 2, 3, 4, 5]) {
+        const name = `added-${round}.txt`
+        const file = path.join(root, 'public', name)
+
+        fs.writeFileSync(file, name)
+        await buildWith(
+          watch,
+          watch.builds.length + 1,
+          (result) => result.emitted[name] === name
+        )
+
+        fs.rmSync(file)
+        const deleted = await buildWith(
+          watch,
+          watch.builds.length + 1,
+          (result) => !(name in result.emitted)
+        )
+        expect(deleted.emitted['rules.json']).toBe('{"v": 1}')
+      }
     } finally {
       await watch.close()
     }
