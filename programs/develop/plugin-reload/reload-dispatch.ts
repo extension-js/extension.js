@@ -179,6 +179,16 @@ export function appliedReloadLine(
     return reloadMessages.ranInjectedFilesAgain(files, tabs)
   }
 
+  // Only a changed page markup or a page shipped as written reloads its tab.
+  // The dev client applies any other page edit where the page is open.
+  if (
+    instruction.type === 'page' &&
+    !instruction.standalonePages?.length &&
+    !instruction.changedAssets?.some((file) => /\.html?$/i.test(file))
+  ) {
+    return reloadMessages.updatedPage(label)
+  }
+
   return formatReloadingLine(label)
 }
 

@@ -73,3 +73,8 @@ export function debugSourceIndexUnreadable(error: unknown) {
 
   return `${prefix('debug')} reload  could not read which bundle holds each file (${reason}), so the reload kind comes from file names`
 }
+
+// A page edit the dev client applies in the open page, so nothing reloads.
+export function updatedPage(label: string) {
+  return `${prefix('info')} Updated ${label}.`
+}
