@@ -299,19 +299,14 @@ export interface StartCommandConfig extends ServeCommandConfig {
 
 /**
  * `commands.preview` overrides. Preview serves a build that already exists,
- * so the keys that shape a build do nothing here.
+ * so it takes no `polyfill`, `include` or `exclude`.
  */
-export interface PreviewCommandConfig extends ServeCommandConfig {
-  /** @deprecated Preview serves an existing build and ignores it. */
-  polyfill?: boolean
+export interface PreviewCommandConfig
+  extends Omit<ServeCommandConfig, 'polyfill' | 'include' | 'exclude'> {
   /** @deprecated Preview serves an existing build and ignores it. */
   transpilePackages?: string[]
   /** @deprecated Preview serves an existing build and ignores it. */
   define?: Record<string, unknown>
-  /** @deprecated Preview serves an existing build and ignores it. */
-  include?: IncludeFilesConfig
-  /** @deprecated Preview serves an existing build and ignores it. */
-  exclude?: ExcludeFilesConfig
 }
 
 /** `commands.build` overrides. */
