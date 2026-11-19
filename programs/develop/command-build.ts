@@ -326,7 +326,7 @@ function warnProductionLoopbackOrigins(distPath: string, quiet: boolean): void {
   if (origins.length === 0) return
 
   recordCodedWarning(
-    CODES.E_PROD_LOOPBACK_ORIGIN,
+    CODES.W_PROD_LOOPBACK_ORIGIN,
     messages.productionLoopbackOriginsText(origins)
   )
 
@@ -621,7 +621,7 @@ async function runBuild(
     })) {
       isFirstCompanionWarning(companion.manifestPath)
       recordCodedWarning(
-        CODES.E_COMPANION_EXTENSION_PATH,
+        CODES.W_COMPANION_EXTENSION_PATH,
         stripChannelPrefix(companion.frame)
       )
 

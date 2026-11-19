@@ -65,7 +65,7 @@ async function build(root: string) {
 }
 
 function coded(summary: {warnings?: string[]}) {
-  return (summary.warnings || []).filter((line) => /^E_[A-Z0-9_]+: /.test(line))
+  return (summary.warnings || []).filter((line) => /^W_[A-Z0-9_]+: /.test(line))
 }
 
 describe('a build summary names the warnings the run carried on past', () => {
@@ -85,7 +85,7 @@ describe('a build summary names the warnings the run carried on past', () => {
     const lines = coded(summary)
     expect(lines).toHaveLength(1)
     expect(lines[0]).toMatch(
-      /^E_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core \(Extension\.js ships \S+\)\.$/
+      /^W_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core \(Extension\.js ships \S+\)\.$/
     )
 
     expect(summary.warnings_count).toBe(summary.warnings?.length)
@@ -108,7 +108,7 @@ describe('a build summary names the warnings the run carried on past', () => {
 
     const lines = coded(summary)
     expect(lines).toHaveLength(1)
-    expect(lines[0]).toContain('E_TYPES_EMIT: Writing ')
+    expect(lines[0]).toContain('W_TYPES_EMIT: Writing ')
     expect(lines[0]).toContain(path.join(root, 'extension-env.d.ts'))
     expect(lines[0]).toContain('EISDIR')
   }, 120_000)
@@ -161,7 +161,7 @@ describe('two builds running at once keep their recorded warnings apart', () => 
 
     bridge.__extjsCodedWarningsSpec = {
       record: (compiler, text) =>
-        recordCodedWarning(CODES.E_PERF_BUDGET, text, compiler),
+        recordCodedWarning(CODES.W_PERF_BUDGET, text, compiler),
       arrived: () => {
         waiting += 1
         if (waiting === 2) release()
@@ -186,11 +186,11 @@ describe('two builds running at once keep their recorded warnings apart', () => 
 
     expect(waiting).toBe(2)
     expect(coded(firstSummary)).toEqual([
-      'E_PERF_BUDGET: recorded by the first build'
+      'W_PERF_BUDGET: recorded by the first build'
     ])
 
     expect(coded(secondSummary)).toEqual([
-      'E_PERF_BUDGET: recorded by the second build'
+      'W_PERF_BUDGET: recorded by the second build'
     ])
   }, 120_000)
 })

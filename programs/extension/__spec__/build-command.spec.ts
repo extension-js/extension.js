@@ -595,9 +595,13 @@ describe('extension build', () => {
       total_assets: 3,
       total_bytes: 2048,
       largest_asset_bytes: 1024,
-      warnings_count: 2,
+      warnings_count: 3,
       errors_count: 0,
-      warnings: ['a warning', 'E_CONFIG_LOAD: a coded warning']
+      warnings: [
+        'a warning',
+        'W_PERF_BUDGET: a coded warning',
+        'E_CONFIG_LOAD: not a warning'
+      ]
     }
 
     build = async () => summary
@@ -618,7 +622,7 @@ describe('extension build', () => {
           summaries: [summary]
         },
         error: null,
-        warnings: ['E_CONFIG_LOAD: a coded warning']
+        warnings: ['W_PERF_BUDGET: a coded warning']
       }
     ])
   })

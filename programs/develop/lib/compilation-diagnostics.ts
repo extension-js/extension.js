@@ -9,7 +9,11 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {MAX_SUMMARY_WARNINGS} from './build-summary'
-import {type DiagnosticContext, diagnosticCode} from './diagnostic-code'
+import {
+  codeForSeverity,
+  type DiagnosticContext,
+  diagnosticCode
+} from './diagnostic-code'
 import {toMachineText} from './machine-text'
 import type {Diagnostic, ErrorCode} from './messaging'
 
@@ -82,7 +86,8 @@ export function toDiagnostic(
     typeof issue === 'string'
       ? toMachineText(issue, root)
       : toMachineText(error.message, root)
-  const code = diagnosticCode(issue, context)
+  const found = diagnosticCode(issue, context)
+  const code = found ? codeForSeverity(found, severity) : undefined
   const file = fileOf(error, root)
   const line = finite(error.loc?.start?.line)
   const column = finite(error.loc?.start?.column)
@@ -161,7 +166,10 @@ export function warningCodes(input: unknown): Map<string, ErrorCode> {
   const codes = new Map<string, ErrorCode>()
 
   for (const issue of compilation?.warnings ?? []) {
-    const code = diagnosticCode(issue)
+    const found = diagnosticCode(issue)
+    if (!found) continue
+
+    const code = codeForSeverity(found, 'warning')
     if (!code) continue
 
     const message =

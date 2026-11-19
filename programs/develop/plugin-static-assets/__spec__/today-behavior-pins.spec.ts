@@ -101,7 +101,7 @@ describe('a namespace import of an asset', () => {
     'index.js': `import * as t from './notes.txt'\nself.out = {value: ${use}}\n`
   })
 
-  it('read as a value is exactly one build error, which carries no code', async () => {
+  it('read as a value is exactly one build error, coded E_ASSET_IMPORT_SHAPE', async () => {
     const build = await compileFixture({
       plugins: [new StaticAssetsPlugin()],
       files: files('String(t)')
@@ -118,8 +118,7 @@ describe('a namespace import of an asset', () => {
       'NamespaceImportReadAsValue'
     )
 
-    // Pins current behavior: this diagnostic has no code yet.
-    expect(diagnosticCode(build.rawErrors[0])).toBeUndefined()
+    expect(diagnosticCode(build.rawErrors[0])).toBe('E_ASSET_IMPORT_SHAPE')
   })
 
   it('read through .default builds with no error', async () => {

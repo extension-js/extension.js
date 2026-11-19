@@ -242,7 +242,7 @@ describe('preview --no-browser and an entry that is neither link nor folder', ()
 describe('preview --no-browser and a link the scan meets', () => {
   function scannedOut(entry: string, leadsTo: string) {
     return (
-      'E_COMPANION_EXTENSION_PATH: A companion extension entry leads outside the project, so it is not loaded.\n' +
+      'W_COMPANION_EXTENSION_PATH: A companion extension entry leads outside the project, so it is not loaded.\n' +
       `ENTRY ${entry}\n` +
       `LEADS TO ${leadsTo}\n` +
       'Companion extensions must be inside the project. Copy the folder into the project, or remove the link.'

@@ -503,28 +503,28 @@ describe('a withheld root-absolute reference and a missing one', () => {
         `Update the ${ref} reference to point to a file that exists.`
       const missing = (page: string, dir: string) => [
         said(
-          'E_ENTRY_NOT_FOUND: ',
+          'W_ENTRY_NOT_FOUND: ',
           'a script file',
           page,
           `${dir}missing.js`,
           script
         ),
         said(
-          'E_ENTRY_NOT_FOUND: ',
+          'W_ENTRY_NOT_FOUND: ',
           'a stylesheet',
           page,
           `${dir}missing.css`,
           sheet
         ),
         said(
-          'E_ASSET_MISSING: ',
+          'W_ASSET_MISSING: ',
           'an asset',
           page,
           `${dir}missing`,
           asset(`/${dir}missing`)
         ),
         said(
-          'E_ASSET_MISSING: ',
+          'W_ASSET_MISSING: ',
           'an asset',
           page,
           `${dir}missing.png`,
@@ -532,21 +532,21 @@ describe('a withheld root-absolute reference and a missing one', () => {
         ),
         // The page step says a climbing ref itself, once, with its code.
         said(
-          'E_ASSET_MISSING: ',
+          'W_ASSET_MISSING: ',
           'an asset',
           page,
           'outside.txt',
           asset(climbing(dir))
         ),
         said(
-          'E_ENTRY_NOT_FOUND: ',
+          'W_ENTRY_NOT_FOUND: ',
           'a script file',
           page,
           '<holder>/outside.js',
           script
         ),
         said(
-          'E_ENTRY_NOT_FOUND: ',
+          'W_ENTRY_NOT_FOUND: ',
           'a stylesheet',
           page,
           '<holder>/outside.css',
@@ -555,21 +555,21 @@ describe('a withheld root-absolute reference and a missing one', () => {
       ]
       const withheld = (page: string, dir: string) => [
         said(
-          'E_ENTRY_NOT_FOUND: ',
+          'W_ENTRY_NOT_FOUND: ',
           'a script file',
           page,
           `${dir}.env.js`,
           script
         ),
         said(
-          'E_ENTRY_NOT_FOUND: ',
+          'W_ENTRY_NOT_FOUND: ',
           'a stylesheet',
           page,
           `${dir}.env.css`,
           sheet
         ),
         said(
-          'E_ASSET_MISSING: ',
+          'W_ASSET_MISSING: ',
           'an asset',
           page,
           `${dir}.npmrc`,
