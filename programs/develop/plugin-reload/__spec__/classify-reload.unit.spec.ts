@@ -776,7 +776,7 @@ describe('classifyReloadFromSources with a source index that throws', () => {
     throw new Error('chunk graph unreadable')
   }
 
-  // Pins today's behavior. Ledger 1385 D9.
+  // Pins current behavior: a throwing source index leaves no debug line.
   it('falls back to the name heuristics and prints nothing, debug on', () => {
     vi.stubEnv('EXTENSION_DEBUG', '1')
     const printed = [

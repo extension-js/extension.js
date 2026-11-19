@@ -340,7 +340,6 @@ const makeTempFolder = trackTempFolders()
 
 // A static theme has no background, and the step leaves its dist a theme.
 describe('SetupBackgroundEntry on a static theme', () => {
-  // Pins today's behavior. Ledger 1385 D10.
   it('adds no entry and no error tap', () => {
     const root = writeProject(makeTempFolder('extjs-bg-theme-'), {
       'manifest.json': {
@@ -404,7 +403,7 @@ describe('the background required error', () => {
     background: {service_worker: 'missing.js'}
   }
 
-  // Pins today's behavior. Ledger 1385 D5.
+  // Pins current behavior: the check runs in dev sessions only.
   it('is raised by a dev session for a missing service worker', async () => {
     expect(
       await errorsOf('development', 'chrome', project(missingWorker, []))
@@ -418,14 +417,14 @@ describe('the background required error', () => {
     ])
   })
 
-  // Pins today's behavior. Ledger 1385 D5.
+  // Pins current behavior: production builds skip the check.
   it('is not raised by a production build of the same manifest', async () => {
     expect(
       await errorsOf('production', 'chrome', project(missingWorker, []))
     ).toEqual([])
   })
 
-  // Pins today's behavior. Ledger 1385 D5.
+  // Pins current behavior: a missing second script goes unreported.
   it('checks only the first background script', async () => {
     const manifest = (scripts: string[]) => ({
       manifest_version: 2,
