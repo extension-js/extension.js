@@ -613,7 +613,8 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     }
   })
 
-  // Pins today's behavior. Ledger 1382 D3.
+  // Pins current behavior: a first-package failure is silent and ready never
+  // fires, since nothing in the CLI listens for the emitted error.
   it('prints nothing and never says ready when the first package throws an error of its own', async () => {
     const quiet = vi.fn()
     vi.spyOn(console, 'log').mockImplementation(quiet)

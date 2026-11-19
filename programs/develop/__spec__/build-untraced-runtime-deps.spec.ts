@@ -494,9 +494,8 @@ async function buildFixture(root: string) {
   }
 }
 
-// A getURL-opened page that <script src>s the same classic libs the
-// content_scripts declare (BUGS_TO_FIX 205 shape): the libs bundle into the
-// content-script entry, so they still have to copy through raw for the page.
+// A getURL-opened page loads the classic libs its content_scripts bundle, so
+// those libs still have to copy through raw for the page.
 function writeSharedLibPageFixture() {
   writePackageJson(SHARED_LIB_PAGE_ROOT, 'extjs-build-shared-lib-page-spec')
   fs.mkdirSync(path.join(SHARED_LIB_PAGE_ROOT, 'src', 'ui', 'welcome'), {

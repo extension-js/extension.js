@@ -47,7 +47,7 @@ describe('patchWebkitBackground', () => {
   })
 
   // Safari 27's converter rejects `persistent` whatever its value, and a
-  // manifest already in scripts form used to keep it (ledger 1042).
+  // manifest already in scripts form used to keep it.
   it('drops persistent from a background already in scripts form', () => {
     for (const value of [true, false]) {
       const scripts = withBackground({
