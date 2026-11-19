@@ -3,6 +3,8 @@ import os from 'node:os'
 import path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {WarnMainWorldRegistrationChanged} from '../../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
+import {MAIN_WORLD_SETTLE_MS} from '../main-world-restart'
 import {
   assignCompilerToDevSession,
   bindDevSessionRestart,
@@ -13,17 +15,13 @@ import {
   isCompilerRestarting,
   requestDevSessionRestart,
   unbindDevSessionRestart
-} from '../../../dev-server/session-restart'
+} from '../session-restart'
 import {
   buildRestartBundle,
   createSessionRestartHandler
-} from '../../../dev-server/session-restart-handler'
-import {isAwaitingMainWorldRestart} from '../../../dev-server/session-restart-holds'
-import {createRestartFailure} from '../../../dev-server/start-bundler'
-import {
-  MAIN_WORLD_SETTLE_MS,
-  WarnMainWorldRegistrationChanged
-} from '../steps/warn-main-world-registration-changed'
+} from '../session-restart-handler'
+import {isAwaitingMainWorldRestart} from '../session-restart-holds'
+import {createRestartFailure} from '../start-bundler'
 
 const roots: string[] = []
 const compilers: Compiler[] = []
