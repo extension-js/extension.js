@@ -39,11 +39,26 @@ export interface ContentScriptWrapperModule {
   isMainWorld: boolean
 }
 
+// What the wrapper knows once it has read the module's default export.
+export interface ContentScriptWrapperReadModule
+  extends ContentScriptWrapperModule {
+  // The file as the project names it, for a message to the author.
+  file: string
+  resourcePath: string
+  browser: string
+  isDeclaredEntry: boolean
+  defaultExport:
+    | {kind: 'none' | 'broken'}
+    | {kind: 'found'; name: string; callsElsewhere: number}
+}
+
 export interface ContentScriptWrapperExtension {
   textAt(
     point: ContentScriptWrapperPoint,
     module: ContentScriptWrapperModule
   ): string
+  // Called once per wrapped module, after its default export is read.
+  readModule?(module: ContentScriptWrapperReadModule): void
 }
 
 const extensionsByCompiler = new WeakMap<

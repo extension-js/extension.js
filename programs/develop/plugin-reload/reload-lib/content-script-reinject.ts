@@ -6,11 +6,15 @@
 // ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {isChromiumBasedBrowser} from '../../lib/constants'
+import {humanLine} from '../../lib/messaging'
 import type {
   ContentScriptWrapperExtension,
   ContentScriptWrapperModule,
-  ContentScriptWrapperPoint
+  ContentScriptWrapperPoint,
+  ContentScriptWrapperReadModule
 } from '../../plugin-web-extension/shared/content-script-wrapper-extensions'
+import * as messages from '../messages'
 
 // Tells a root mounted by this build from one an earlier build left behind.
 export function createBuildToken(source: string): string {
@@ -454,4 +458,39 @@ function textAt(
   }
 }
 
-export const contentScriptReinject: ContentScriptWrapperExtension = {textAt}
+// One hint per entry per process: a dev session recompiles the entry on every
+// save, and the advice does not change between them.
+const hintedEntriesWithoutDefaultExport = new Set<string>()
+const hintedEntriesCallingTheirDefault = new Set<string>()
+
+function readModule(module: ContentScriptWrapperReadModule): void {
+  const {defaultExport, file, resourcePath} = module
+
+  if (
+    defaultExport.kind === 'none' &&
+    module.isDeclaredEntry &&
+    !hintedEntriesWithoutDefaultExport.has(resourcePath)
+  ) {
+    hintedEntriesWithoutDefaultExport.add(resourcePath)
+    humanLine(
+      messages.contentScriptWithoutDefaultExport(
+        file,
+        isChromiumBasedBrowser(module.browser)
+      )
+    )
+  }
+
+  if (
+    defaultExport.kind === 'found' &&
+    defaultExport.callsElsewhere > 0 &&
+    !hintedEntriesCallingTheirDefault.has(resourcePath)
+  ) {
+    hintedEntriesCallingTheirDefault.add(resourcePath)
+    humanLine(messages.defaultExportCalledAgain(file, defaultExport.name))
+  }
+}
+
+export const contentScriptReinject: ContentScriptWrapperExtension = {
+  textAt,
+  readModule
+}

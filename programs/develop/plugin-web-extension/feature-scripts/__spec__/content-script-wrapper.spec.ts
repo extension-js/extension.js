@@ -622,117 +622,78 @@ describe('content-script-wrapper loader', () => {
   })
 })
 
-// A declared entry that starts itself at import is cloned by every dev
-// re-inject, so the session says why once and names the file.
-describe('a declared content script with no default export', () => {
-  const selfStarting =
-    'const node = document.createElement("div")\ndocument.body.appendChild(node)\n'
-  const strip = (value: string) =>
-    // eslint-disable-next-line no-control-regex
-    value.replace(/\u001b\[[0-9;]*m/g, '')
-
-  function hintsFor(run: () => void): string[] {
+// What a content script's default export means for a later copy is the
+// business of the plugin that makes copies, so the wrapper only reports it.
+describe('what the wrapper hands an extension about each module', () => {
+  function readsOf(
+    entry: {manifestPath: string; resourcePath: string},
+    source: string,
+    browser?: string
+  ) {
+    const reads: unknown[] = []
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     try {
-      run()
+      const context = createLoaderContext(
+        entry.resourcePath,
+        entry.manifestPath,
+        browser
+      )
+      const options = context.getOptions()
 
-      return log.mock.calls
-        .map((call) => strip(call.map(String).join(' ')))
-        .filter((line) => line.includes('has no default export'))
+      contentScriptWrapper.call(
+        {
+          ...context,
+          getOptions: () => ({
+            ...options,
+            extensions: [
+              {
+                textAt: () => '',
+                readModule: (read: unknown) => reads.push(read)
+              }
+            ]
+          })
+        } as any,
+        source
+      )
+
+      expect(log).not.toHaveBeenCalled()
     } finally {
       log.mockRestore()
     }
+
+    return reads
   }
 
-  it('prints the cleanup hint once in a dev session and names the file', () => {
+  it('reports a file with no default export, its world and its target', () => {
     const entry = writeDeclaredEntry()
-    const hints = hintsFor(() => {
-      for (let save = 0; save < 3; save++) {
-        contentScriptWrapper.call(
-          createLoaderContext(entry.resourcePath, entry.manifestPath) as any,
-          selfStarting
-        )
+
+    expect(readsOf(entry, 'document.title = "started"\n', 'firefox')).toEqual([
+      {
+        source: 'document.title = "started"\n',
+        isMainWorld: false,
+        file: 'src/content/scripts.ts',
+        resourcePath: entry.resourcePath,
+        browser: 'firefox',
+        isDeclaredEntry: true,
+        defaultExport: {kind: 'none'}
       }
-    })
-
-    expect(hints).toHaveLength(1)
-    expect(hints[0]).toContain('src/content/scripts.ts has no default export')
-    expect(hints[0]).toContain('Export a default function')
-    expect(hints[0]).toContain('returns a cleanup')
-    expect(hints[0]).toContain('whole-extension reload')
-    expect(hints[0]).toContain('data-extension-root')
-    expect(hints[0]).not.toContain('DOM event')
+    ])
   })
 
-  // Chromium keeps the old copy alive in the tab after a whole-extension
-  // reload, and Firefox drops its world, so each engine gets its own line.
-  it('says what a whole-extension reload does to the old copy per engine', () => {
-    const hintOn = (browser: string) => {
-      const entry = writeDeclaredEntry()
-      const hints = hintsFor(() => {
-        contentScriptWrapper.call(
-          createLoaderContext(
-            entry.resourcePath,
-            entry.manifestPath,
-            browser
-          ) as any,
-          selfStarting
-        )
+  it('reports the default export and the calls the script makes to it', () => {
+    const entry = writeDeclaredEntry('MAIN')
+    const source =
+      'export default function main() {}\n' +
+      'document.addEventListener("click", () => main())\n'
+
+    expect(readsOf(entry, source)).toEqual([
+      expect.objectContaining({
+        isMainWorld: true,
+        browser: 'chrome',
+        isDeclaredEntry: true,
+        defaultExport: {kind: 'found', name: 'main', callsElsewhere: 1}
       })
-
-      expect(hints).toHaveLength(1)
-
-      return hints[0]
-    }
-
-    for (const browser of ['chrome', 'edge', 'chromium']) {
-      const hint = hintOn(browser)
-
-      expect(hint).not.toContain("discards the old copy's code")
-      expect(hint).toContain(
-        'a whole-extension reload leaves the old copy running in the open tab beside the new one'
-      )
-
-      expect(hint).toContain('Reload the tab to end it')
-      expect(hint).toContain('chrome.runtime.id')
-      expect(hint).toContain('data-extension-root')
-    }
-
-    const firefox = hintOn('firefox')
-
-    expect(firefox).toContain(
-      "A whole-extension reload discards the old copy's code"
-    )
-
-    expect(firefox).not.toContain('beside the new one')
-    expect(firefox).toContain('data-extension-root')
-  })
-
-  it('says nothing for a script with a default export, or in a production build', () => {
-    const withDefault = writeDeclaredEntry()
-    const shipped = writeDeclaredEntry()
-
-    expect(
-      hintsFor(() => {
-        contentScriptWrapper.call(
-          createLoaderContext(
-            withDefault.resourcePath,
-            withDefault.manifestPath
-          ) as any,
-          'export default function mount(){ return () => {} }'
-        )
-
-        contentScriptWrapper.call(
-          createLoaderContext(
-            shipped.resourcePath,
-            shipped.manifestPath,
-            undefined,
-            'production'
-          ) as any,
-          selfStarting
-        )
-      })
-    ).toEqual([])
+    ])
   })
 })

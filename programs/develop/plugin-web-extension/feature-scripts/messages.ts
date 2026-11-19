@@ -554,23 +554,6 @@ export function unknownRegistrationWorld(
   return lines.join('\n')
 }
 
-export function contentScriptWithoutDefaultExport(
-  file: string,
-  oldCopyOutlivesReload: boolean
-) {
-  // Chromium leaves the copy from before a whole-extension reload alive in
-  // the tab with a dead runtime. Firefox drops that copy's world.
-  const afterWholeReload = oldCopyOutlivesReload
-    ? 'On Chromium a whole-extension reload leaves the old copy running in the open tab beside the new one, timers and listeners included, and no cleanup runs for it. Reload the tab to end it, or have long-lived work stop once chrome.runtime.id is gone. What it added to the page stays too, so mount that under an element with data-extension-root and the next copy removes it.'
-    : "A whole-extension reload discards the old copy's code, so no cleanup runs for it and what it added to the page stays. Mount that under an element with data-extension-root and the next copy removes it."
-
-  return (
-    `${prefix('warn')} ${colors.yellow(file)} has no default export, so each re-inject in this dev session runs it again and the copy before it keeps running.\n` +
-    `Export a default function that mounts the script and returns a cleanup, and Extension.js calls that cleanup before the next copy starts.\n` +
-    afterWholeReload
-  )
-}
-
 // One detail per file, opening with the file: two missing files of one
 // field would otherwise read as the same error twice.
 export function scriptsMissingFile(
@@ -648,14 +631,6 @@ export function topLevelMountCallRemoved(file: string, name: string) {
   )
 
   return lines.join('\n')
-}
-
-export function defaultExportCalledAgain(file: string, name: string) {
-  return (
-    `${prefix('warn')} ${colors.yellow(file)} calls ${name}() itself, and Extension.js also runs the default export once the page is ready, so ${name} runs more than once.\n` +
-    `Only the run Extension.js starts has its cleanup called before the next copy in this dev session, so what the other run adds stays on the page.\n` +
-    `Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.`
-  )
 }
 
 // Thrown, so the build stops where the script would otherwise ship unmounted.

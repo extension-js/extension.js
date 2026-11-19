@@ -26,7 +26,6 @@ import {
   returnWithMap
 } from '../../../../lib/loader-source-maps'
 import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
-import {humanLine} from '../../../../lib/messaging'
 import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
@@ -38,7 +37,8 @@ import {
   CONTENT_SCRIPT_OWNER_KEY_ATTRIBUTE,
   CONTENT_SCRIPT_OWNER_KEY_GLOBAL,
   type ContentScriptWrapperExtension,
-  type ContentScriptWrapperPoint
+  type ContentScriptWrapperPoint,
+  type ContentScriptWrapperReadModule
 } from '../../../shared/content-script-wrapper-extensions'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
@@ -225,11 +225,6 @@ function loadersOfTheProject(
       return (inside ? relative : file).split(path.sep).join('/')
     })
 }
-
-// One hint per entry per process: a dev session recompiles the entry on every
-// save, and the advice does not change between them.
-const hintedEntriesWithoutDefaultExport = new Set<string>()
-const hintedEntriesCallingTheirDefault = new Set<string>()
 
 const __EXTENSIONJS_manifestParseCache = new Map<
   string,
@@ -826,6 +821,22 @@ export default function contentScriptWrapper(
     projectLoaders
   )
 
+  const readModule = (
+    read: ContentScriptWrapperReadModule['defaultExport']
+  ) => {
+    for (const extension of extensions) {
+      extension.readModule?.({
+        source: rewrittenSource,
+        isMainWorld,
+        file: projectRelativePath,
+        resourcePath: resourceAbsPath,
+        browser: String(browser),
+        isDeclaredEntry: Boolean(declaredEntry),
+        defaultExport: read
+      })
+    }
+  }
+
   if (defaultExport.kind === 'none' && projectLoaders.length > 0) {
     let authored = rewrittenSource
 
@@ -860,22 +871,7 @@ export default function contentScriptWrapper(
       }
     )
 
-    // A declared entry that starts itself at import cannot be cleaned up, so
-    // each dev re-inject adds a copy. Said in the session, where it bites.
-    if (
-      !isShippedBundle &&
-      declaredEntry &&
-      defaultExport.kind === 'none' &&
-      !hintedEntriesWithoutDefaultExport.has(resourceAbsPath)
-    ) {
-      hintedEntriesWithoutDefaultExport.add(resourceAbsPath)
-      humanLine(
-        messages.contentScriptWithoutDefaultExport(
-          projectRelativePath,
-          isChromiumBasedBrowser(browser)
-        )
-      )
-    }
+    readModule({kind: defaultExport.kind})
 
     const prefix =
       `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
@@ -925,18 +921,11 @@ export default function contentScriptWrapper(
     )
   }
 
-  // The runtime cannot see a call the script makes to its own function, so
-  // the extra run is said here, in the session where its leftovers show.
-  if (
-    !isShippedBundle &&
-    defaultExport.keptCalls > 0 &&
-    !hintedEntriesCallingTheirDefault.has(resourceAbsPath)
-  ) {
-    hintedEntriesCallingTheirDefault.add(resourceAbsPath)
-    humanLine(
-      messages.defaultExportCalledAgain(projectRelativePath, defaultName)
-    )
-  }
+  readModule({
+    kind: 'found',
+    name: defaultName,
+    callsElsewhere: defaultExport.keptCalls
+  })
 
   const wrapPrefix =
     `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
