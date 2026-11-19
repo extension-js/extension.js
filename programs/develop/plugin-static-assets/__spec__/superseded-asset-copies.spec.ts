@@ -39,10 +39,13 @@ async function watchFixture(
 
   await new Promise<void>((resolve, reject) => {
     let step = 0
+    let pending = false
     const watching = compiler.watch(
       {aggregateTimeout: 50, poll: 100},
       (error, stats) => {
         if (error) return reject(error)
+        // A rebuild the watcher starts on its own before the edit is not one.
+        if (pending) return
 
         const json = (stats as Stats).toJson({errors: true})
         errors.push(...(json.errors || []).map((e) => e.message))
@@ -50,8 +53,12 @@ async function watchFixture(
 
         if (step < steps.length) {
           const next = steps[step++]
+          pending = true
           // Polled and past the watcher's start time, so the edit is seen.
-          setTimeout(() => next(root), 500)
+          setTimeout(() => {
+            next(root)
+            pending = false
+          }, 500)
 
           return
         }

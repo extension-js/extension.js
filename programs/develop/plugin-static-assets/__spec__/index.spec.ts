@@ -7,7 +7,11 @@ function createCompiler() {
       module: {rules: [] as any[]},
       resolve: {alias: {} as Record<string, string>}
     },
-    hooks: {afterEmit: {tap() {}}, compilation: {tap() {}}}
+    hooks: {
+      afterEmit: {tap() {}},
+      compilation: {tap() {}},
+      done: {tap() {}}
+    }
   } as any
 }
 
