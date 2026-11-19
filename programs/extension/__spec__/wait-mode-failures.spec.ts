@@ -704,31 +704,36 @@ describe('wait mode failures', () => {
     expect(clock.sleeps).toEqual([])
   })
 
-  it('reads the plain dist path when the bridge fails to load uncoded', async () => {
+  // The session it waits for loads the same engine, so a broken one is the
+  // answer at once, not a timeout after the whole wait.
+  it('answers a bridge that failed to load uncoded as E_RUNTIME_NOT_FOUND at once', async () => {
     const project = makeTempFolder('extjs-wait-')
     const clock = fakeClock()
 
     writeContract(project, {status: 'ready', command: 'dev', pid: process.pid})
 
-    const result = await runWaitMode(
-      {
-        command: 'dev',
-        pathOrRemoteUrl: project,
-        browsers: ['chromium'],
-        waitTimeout: 1000
-      },
-      {
-        now: clock.now,
-        sleep: clock.sleep,
-        loadBridge: async () => {
-          throw new SyntaxError('Unexpected token')
+    await expect(
+      runWaitMode(
+        {
+          command: 'dev',
+          pathOrRemoteUrl: project,
+          browsers: ['chromium'],
+          waitTimeout: 1000
+        },
+        {
+          now: clock.now,
+          sleep: clock.sleep,
+          loadBridge: async () => {
+            throw new SyntaxError('Unexpected token')
+          }
         }
-      }
-    )
-
-    expect(result.results).toMatchObject([
-      {browser: 'chromium', status: 'ready'}
-    ])
+      )
+    ).rejects.toMatchObject({
+      name: 'WaitModeError',
+      code: CODES.E_RUNTIME_NOT_FOUND,
+      message:
+        'The extension-develop bridge could not be loaded: Unexpected token'
+    })
 
     expect(clock.sleeps).toEqual([])
   })
