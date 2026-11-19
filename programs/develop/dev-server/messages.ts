@@ -196,11 +196,25 @@ export function devServerHostRefused(host: string) {
   )
 }
 
+// Printed once per session: the first page refused stands for the rest.
+export function devServerOutsideRequestRefused(origin: string) {
+  const from = origin ? ` (${colors.yellow(origin)})` : ''
+
+  return (
+    `${getLoggingPrefix('warn')} A page outside this session${from} made a request to the dev server and was refused.\n` +
+    "Your extension's own pages still load. This line prints once per session."
+  )
+}
+
 // Reload has no other transport, so a session that comes up without the
 // control bridge must say so instead of looking healthy until the first save.
 // The keys are the ready.json field names, so the line pairs with the contract.
 export function debugSessionPorts(port: number, controlPort: number | null) {
   return `${getLoggingPrefix('debug')} ports    port=${port} controlPort=${controlPort ?? 'none'}`
+}
+
+export function debugControlFrameTooLarge(maxBytes: number) {
+  return `${getLoggingPrefix('debug')} control  closed a socket that sent a frame above ${maxBytes} bytes`
 }
 
 // The first page was let go because the background had gone quiet, and a
@@ -317,7 +331,9 @@ export function devServerRestarting(request: {
             ? 'an environment file'
             : request.reason === 'public'
               ? 'a public folder'
-              : 'a manifest script entry'
+              : request.reason === 'styles'
+                ? 'a PostCSS setup'
+                : 'a manifest script entry'
   const lines = [
     `${getLoggingPrefix('info')} Restarting the dev server to pick up ${what} change…`
   ]
@@ -351,6 +367,47 @@ export function devServerRestarting(request: {
   return lines.join('\n')
 }
 
+function errorText(error: unknown) {
+  return String((error as Error)?.message || error)
+}
+
+export type RestartFailureOutcome = 'previous-build' | 'no-server' | 'unknown'
+
+// Says what the session is left with: the build it had, nothing at all, or
+// no claim when the failure came from a step that reports neither.
+export function devServerRestartFailed(
+  error: unknown,
+  outcome: RestartFailureOutcome
+) {
+  const lines = [
+    outcome === 'unknown'
+      ? `${getLoggingPrefix('error')} The dev server restart did not finish.`
+      : `${getLoggingPrefix('error')} The dev server could not restart.`,
+    colors.red(errorText(error))
+  ]
+
+  if (outcome === 'previous-build') {
+    lines.push(
+      'The previous build keeps serving. Fix the error, then save the changed file again to retry.'
+    )
+  }
+
+  if (outcome === 'no-server') {
+    lines.push(
+      'The session has no server left. Fix the error, then run the command again.'
+    )
+  }
+
+  return lines.join('\n')
+}
+
+export function devServerStopFailedOnRestart(error: unknown) {
+  return (
+    `${getLoggingPrefix('warn')} The previous dev server did not stop cleanly, ` +
+    `so the restart goes on without it: ${errorText(error)}`
+  )
+}
+
 export function bundlerRecompiling() {
   return `${getLoggingPrefix('info')} Recompiling due to file changes…`
 }
@@ -378,6 +435,20 @@ export function runnerCleanupError(error: unknown) {
   return `${prefix('error')} The dev server could not shut down cleanly: ${String(
     (error as Error)?.message || error
   )}`
+}
+
+export function shutdownTimedOut(ms: number) {
+  return (
+    `${prefix('warn')} The dev server didn't shut down within ${ms} ms, ` +
+    `so the process exits now.`
+  )
+}
+
+export function shutdownForcedBySignal(signal: string) {
+  return (
+    `${prefix('warn')} Received ${signal} again during shutdown, ` +
+    `so the process exits now.`
+  )
 }
 
 export function runnerUncaughtException(error: unknown) {

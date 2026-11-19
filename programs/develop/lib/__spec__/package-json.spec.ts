@@ -1,11 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {
-  findNearestPackageJson,
-  findNearestPackageJsonSync
-} from '../package-json'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {findNearestPackageJsonSync} from '../package-json'
 
 const makeTempFolder = trackTempFolders()
 
@@ -16,13 +13,9 @@ const remoteManifest = path.join(
   'manifest.json'
 )
 
-describe('findNearestPackageJson', () => {
+describe('findNearestPackageJsonSync', () => {
   it('returns null for a URL-shaped path instead of walking forever', () => {
     expect(findNearestPackageJsonSync(remoteManifest)).toBeNull()
-  })
-
-  it('async variant returns null for a URL-shaped path as well', async () => {
-    await expect(findNearestPackageJson(remoteManifest)).resolves.toBeNull()
   })
 
   it('still finds the package.json above a nested manifest', () => {

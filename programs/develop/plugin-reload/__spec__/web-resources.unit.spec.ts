@@ -3,7 +3,7 @@ import {
   type ReloadInstruction,
   readWebAccessibleResources,
   reloadForNewWebResources
-} from '../index'
+} from '../classify-reload'
 
 const compilation = (manifest: unknown) =>
   ({

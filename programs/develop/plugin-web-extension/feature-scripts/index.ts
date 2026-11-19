@@ -12,6 +12,7 @@ import type {Compiler} from '@rspack/core'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {rememberBuildResolve} from '../shared/script-graph'
 import {withMainWorldCopyEntries} from './scripts-lib/runtime-main-world-scripts'
+import {splitWithheldEntries} from './scripts-lib/utils'
 import {AddBaseUriRuntimeModule} from './steps/add-base-uri-runtime-module'
 import {AddContentScriptWrapper} from './steps/add-content-script-wrapper'
 import {AddPublicPathRuntimeModule} from './steps/add-public-path-runtime-module'
@@ -73,17 +74,25 @@ export class ScriptsPlugin {
 
     // A file both worlds run gets an entry of its own for the MAIN world
     // copy, so every step below builds and names it like any scripts/ file.
+    const manifestDir = path.dirname(this.manifestPath)
+    const projectPath = (compiler.options.context as string) || manifestDir
+    // A file the build withholds leaves the list here, ahead of every step.
+    const {kept, withheld} = splitWithheldEntries(
+      this.includeList || {},
+      manifestDir,
+      projectPath
+    )
     const includeList = withMainWorldCopyEntries({
-      includeList: this.includeList || {},
+      includeList: kept,
       pageList: this.pageList,
-      manifestDir: path.dirname(this.manifestPath),
-      projectPath:
-        (compiler.options.context as string) || path.dirname(this.manifestPath)
+      manifestDir,
+      projectPath
     })
 
     new AddScripts({
       manifestPath: this.manifestPath,
       includeList,
+      withheldList: withheld,
       browser: this.browser
     }).apply(compiler)
 
@@ -148,12 +157,6 @@ export class ScriptsPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    // import(chrome.runtime.getURL(...)) resolves at runtime; no module map can
-    // satisfy it, so the call must stay a NATIVE import() in the emitted bundle.
-    new KeepGetURLImportsNative({
-      manifestPath: this.manifestPath
-    }).apply(compiler)
-
     // The wrapper is load-bearing in every mode: it emits the __EXTENSIONJS_mount
     // call; without it rspack tree-shakes the entire entry body in production.
     new AddContentScriptWrapper({
@@ -162,6 +165,12 @@ export class ScriptsPlugin {
       pageList: this.pageList,
       browser: this.browser,
       devSession: this.devSession
+    }).apply(compiler)
+
+    // import(chrome.runtime.getURL(...)) resolves at runtime, so the call stays
+    // a native import(). Applied after the wrapper, whose output it reads.
+    new KeepGetURLImportsNative({
+      manifestPath: this.manifestPath
     }).apply(compiler)
 
     if (compiler.options.mode === 'production') {

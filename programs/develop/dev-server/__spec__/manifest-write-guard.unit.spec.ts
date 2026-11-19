@@ -3,10 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
 
-import {
-  installManifestDiskWriteGuard,
-  suppressManifestOutputWrites
-} from '../index'
+import {installManifestDiskWriteGuard} from '../index'
 
 function makeTmpDir(): string {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'manifest-guard-'))
@@ -79,48 +76,5 @@ describe('installManifestDiskWriteGuard', () => {
     second()
     fs.writeFileSync(manifestPath, 'released')
     expect(fs.readFileSync(manifestPath, 'utf8')).toBe('released')
-  })
-})
-
-describe('suppressManifestOutputWrites', () => {
-  it('adds a second server path to the shared output fs instead of no-opping', () => {
-    const written: string[] = []
-    // rspack hands every compiler the same node_fs singleton, so both
-    // servers patch one object; the second must not inherit only the first
-    // server's suppression.
-    const sharedOutputFs = {
-      writeFile: (filePath: string, ...args: unknown[]) => {
-        written.push(filePath)
-        const callback = args[args.length - 1]
-        if (typeof callback === 'function') callback(null)
-      }
-    }
-    const serverOnePath = '/proj-one/dist/chrome/manifest.json'
-    const serverTwoPath = '/proj-two/dist/chrome/manifest.json'
-
-    const releaseOne = suppressManifestOutputWrites(
-      {outputFileSystem: sharedOutputFs},
-      serverOnePath
-    )
-    const releaseTwo = suppressManifestOutputWrites(
-      {outputFileSystem: sharedOutputFs},
-      serverTwoPath
-    )
-
-    sharedOutputFs.writeFile(serverOnePath, 'data', () => {})
-    sharedOutputFs.writeFile(serverTwoPath, 'data', () => {})
-    sharedOutputFs.writeFile(
-      '/proj-two/dist/chrome/popup.html',
-      'data',
-      () => {}
-    )
-
-    expect(written).toEqual(['/proj-two/dist/chrome/popup.html'])
-
-    releaseTwo()
-    sharedOutputFs.writeFile(serverTwoPath, 'data', () => {})
-    expect(written).toContain(serverTwoPath)
-
-    releaseOne()
   })
 })

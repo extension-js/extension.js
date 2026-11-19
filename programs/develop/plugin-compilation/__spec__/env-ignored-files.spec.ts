@@ -111,11 +111,23 @@ describe('env files named for another target', () => {
     expect(isEnvFileForAnotherTarget('.env.staging')).toBe(false)
     expect(isEnvFileForAnotherTarget('.env.chrome.staging')).toBe(false)
     expect(isEnvFileForAnotherTarget('.env.local')).toBe(false)
+    expect(isEnvFileForAnotherTarget('.env.development.local')).toBe(true)
+    expect(isEnvFileForAnotherTarget('.env.staging.local')).toBe(false)
+    expect(isEnvFileForAnotherTarget('.env.chrome.local')).toBe(false)
   })
 
   it('leaves a lone .env.development alone in a production build', () => {
     fs.writeFileSync(
       path.join(projectPath, '.env.development'),
+      'EXTENSION_PUBLIC_X=1\n'
+    )
+
+    expect(compileWarnings(projectPath, 'production')).toEqual([])
+  })
+
+  it('leaves the private twin of another mode alone too', () => {
+    fs.writeFileSync(
+      path.join(projectPath, '.env.development.local'),
       'EXTENSION_PUBLIC_X=1\n'
     )
 

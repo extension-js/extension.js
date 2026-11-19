@@ -6,11 +6,13 @@
 // ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import {CODES} from '../helpers/messaging'
 import {
   isChromiumBrowser,
   isEmulatorBrowser,
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
+import {runOnlyUnsupportedBrowser} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
 import type {
@@ -129,7 +131,10 @@ export async function launchBrowser(
     return launchFirefox(opts, compilationLike, mode)
   }
 
-  throw new Error(`Unsupported browser: ${String(opts.browser)}`)
+  throw Object.assign(
+    new Error(runOnlyUnsupportedBrowser(String(opts.browser))),
+    {code: CODES.E_UNSUPPORTED_BROWSER}
+  )
 }
 
 async function launchChromium(

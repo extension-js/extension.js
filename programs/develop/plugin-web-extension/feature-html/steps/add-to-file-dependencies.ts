@@ -10,9 +10,14 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {Compilation} from '@rspack/core'
+import {isOsPathUnder} from '../../../lib/real-path'
 import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {isFolder} from '../../shared/paths'
+import {
+  missingSourceWouldShip,
+  sourceMayShip
+} from '../html-lib/source-may-ship'
 import {
   getAssetsFromHtml,
   isHttpLike,
@@ -41,58 +46,51 @@ export class AddToFileDependencies {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            // Tracked even when this build errored: the page and the files it
-            // names are exactly what a fix edits, and that save must rebuild.
+            if (compilation.errors?.length) return
+
             const manifestDir = path.dirname(this.manifestPath)
             const projectRoot =
               (compiler.options.context as string) || path.dirname(manifestDir)
-            const publicRootForResource = publicContainmentRoot(
+            const publicDir = publicContainmentRoot(
               this.manifestPath,
               projectRoot
             )
             const outputRoot = compilation.options?.output?.path || ''
 
-            // A file that is not there yet is watched as missing, so creating
-            // it rebuilds. A folder is never a file dependency.
-            const track = (file: string) => {
-              if (!file || !path.isAbsolute(file)) return
+            // A file the build never copies is not read, so it is not
+            // watched either. The emit step asks the same question.
+            const track = (file: string, rootRef?: string): boolean => {
+              if (!file || !path.isAbsolute(file)) return false
 
+              // Not there yet: watched as missing, so creating it rebuilds.
               if (!fs.existsSync(file)) {
-                compilation.missingDependencies?.add(file)
+                if (missingSourceWouldShip(file, projectRoot, manifestDir)) {
+                  compilation.missingDependencies?.add(file)
+                }
 
-                return
+                return false
               }
 
-              if (isFolder(file)) return
-
-              if (!compilation.fileDependencies.has(file)) {
-                compilation.fileDependencies.add(file)
+              if (
+                isFolder(file) ||
+                !sourceMayShip(file, projectRoot, manifestDir, {
+                  rootRef,
+                  publicDir
+                })
+              ) {
+                return false
               }
+
+              compilation.fileDependencies.add(file)
+
+              return true
             }
 
-            // The files a page names, resolved the way the emit step resolves
-            // them, so a root URL watches the public or manifest-relative file.
-            const staticFilesOf = (htmlFile: string): string[] => {
-              const refs = getAssetsFromHtml(htmlFile)?.static || []
-
-              return [...new Set(refs)]
-                .filter(
-                  (ref) =>
-                    !isHttpLike(ref) &&
-                    !isSpecialScheme(ref) &&
-                    !path.basename(ref).startsWith('#')
-                )
-                .map(
-                  (ref) =>
-                    resolveAbsoluteFsPath({
-                      asset: ref,
-                      projectRoot,
-                      publicRootForResource,
-                      outputRoot,
-                      manifestRoot: manifestDir
-                    }).absoluteFsPath
-                )
-            }
+            const isLocal = (ref: string) =>
+              Boolean(ref) &&
+              !isHttpLike(ref) &&
+              !isSpecialScheme(ref) &&
+              !path.basename(ref).startsWith('#')
 
             const pages = new Set(
               Object.values(this.includeList || {}).filter(
@@ -101,31 +99,62 @@ export class AddToFileDependencies {
             )
 
             for (const page of pages) {
-              track(page)
-
               // Parse only files that exist: getAssetsFromHtml throws on a
               // deleted HTML entry instead of reporting an empty page.
               if (!fs.existsSync(page)) continue
 
-              for (const file of staticFilesOf(page)) {
-                track(file)
+              compilation.fileDependencies.add(page)
+
+              const parsed = getAssetsFromHtml(page)
+
+              for (const ref of new Set(parsed?.static || [])) {
+                if (!isLocal(ref)) continue
+
+                // Resolved the way the emit step resolves it, so a root URL
+                // watches the public or the manifest-relative file.
+                const {absoluteFsPath, isRootUrl} = resolveAbsoluteFsPath({
+                  asset: ref,
+                  projectRoot,
+                  publicRootForResource: publicDir,
+                  outputRoot,
+                  manifestRoot: manifestDir
+                })
+                const authored = parsed?.authored?.[ref] || ref
+                const asRootUrl =
+                  isRootUrl ||
+                  (authored.startsWith('/') && !isOsPathUnder(projectRoot, ref))
+
+                const tracked = track(
+                  absoluteFsPath,
+                  asRootUrl ? ref : undefined
+                )
 
                 // A nested page is copied with the files it names, so those
                 // are watched too. A page of the include list has its own turn.
                 if (
-                  /\.html?$/i.test(file) &&
-                  !pages.has(file) &&
-                  fs.existsSync(file) &&
-                  !isFolder(file)
+                  !tracked ||
+                  !/\.html?$/i.test(absoluteFsPath) ||
+                  pages.has(absoluteFsPath)
                 ) {
-                  const nested = getAssetsFromHtml(file)
+                  continue
+                }
 
-                  for (const nestedFile of [
-                    ...(nested?.js || []),
-                    ...(nested?.css || []),
-                    ...(nested?.static || [])
-                  ]) {
-                    if (fs.existsSync(nestedFile)) track(nestedFile)
+                const nested = getAssetsFromHtml(absoluteFsPath)
+
+                for (const nestedRef of new Set([
+                  ...(nested?.js || []),
+                  ...(nested?.css || []),
+                  ...(nested?.static || [])
+                ])) {
+                  // A leading slash names a path inside the extension,
+                  // which the public folder's own watcher answers for.
+                  if (
+                    isLocal(nestedRef) &&
+                    !(nested?.authored?.[nestedRef] || nestedRef).startsWith(
+                      '/'
+                    )
+                  ) {
+                    track(nestedRef)
                   }
                 }
               }
