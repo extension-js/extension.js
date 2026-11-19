@@ -441,6 +441,14 @@ export function firefoxProfilePreferencesNotWritable(
   )
 }
 
+// Plain text: it is the message of a coded refusal, read on a JSON frame too.
+export function debugPortsUnavailable(firstPort: number, lastPort: number) {
+  return (
+    `No free browser debugging port from ${firstPort} to ${lastPort}. ` +
+    'Close the browsers or sessions holding them, or pass --port <port> to move the range.'
+  )
+}
+
 export function chromiumProfileInUse(
   profilePath: string,
   owner: {host: string; pid: number}

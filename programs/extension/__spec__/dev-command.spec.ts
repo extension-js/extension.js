@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {registerDevCommand} from '../commands/dev'
+import {setupParentWatchdog} from '../helpers/parent-watchdog'
 import {SUPPORTED_BROWSER_TARGETS} from '../helpers/vendors'
 import {
   makeProgram,
@@ -183,6 +184,7 @@ const UNTYPED = {
   onReady: expect.any(Function),
   onSessionStart: expect.any(Function),
   onExitError: expect.any(Function),
+  hintFor: expect.any(Function),
   safariPackager: expect.any(Function)
 }
 
@@ -622,7 +624,12 @@ describe('extension dev', () => {
 
   it('arms the parent watchdog with a valid --parent-pid', async () => {
     expect(await run(['dev', '.', '--parent-pid', '4242'])).toBe(0)
-    expect(watchdogs).toEqual([[4242, {emitFrame: expect.any(Function)}]])
+    expect(watchdogs).toEqual([
+      [
+        4242,
+        {endSession: expect.any(Function), emitFrame: expect.any(Function)}
+      ]
+    ])
   })
 
   it('frames a parent-gone shutdown under --output json', async () => {
@@ -754,6 +761,83 @@ describe('extension dev when the engine fails to start under --output json', () 
   })
 })
 
+// The remedy for a known failure, which the CLI's own frame carries.
+describe('extension dev and the hint of a failed start', () => {
+  const PROFILE_LOCKED_HINT =
+    'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+  const locked = (extra: Record<string, unknown> = {}) =>
+    Object.assign(
+      new Error(
+        'A running browser already uses this profile.\nClose that browser, or pass --profile a different directory.'
+      ),
+      {code: 'E_PROFILE_LOCKED', ...extra}
+    )
+
+  it('puts the hint on the frame it prints itself', async () => {
+    engine = async () => {
+      throw locked()
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([
+      {status: 'failed', hint: PROFILE_LOCKED_HINT}
+    ])
+  })
+
+  it.each([
+    ['E_PROFILE_LOCKED', PROFILE_LOCKED_HINT],
+    ['E_DEV_SERVER_START', undefined],
+    ['E_NOT_A_CODE', undefined]
+  ])('hands the engine the hint for %s', async (code, hint) => {
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+
+    const hintFor = engineCalls[0][1].hintFor as (code: string) => unknown
+
+    expect(hintFor(code)).toBe(hint)
+  })
+
+  it('reaches stdout once, on the frame the engine wrote', async () => {
+    // The engine's stream adds the hint to a failed frame that has none.
+    engine = async (_path, options) => {
+      const hintFor = options.hintFor as (code: string) => string | undefined
+      const hint = hintFor('E_PROFILE_LOCKED')
+
+      // eslint-disable-next-line no-console
+      console.log(
+        JSON.stringify({
+          status: 'failed',
+          error: {code: 'E_PROFILE_LOCKED'},
+          ...(hint ? {hint} : {})
+        })
+      )
+
+      throw locked({framed: true})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        status: 'failed',
+        error: {code: 'E_PROFILE_LOCKED'},
+        hint: PROFILE_LOCKED_HINT
+      }
+    ])
+  })
+
+  it('adds no line of its own in pretty mode, the error names the remedy once', async () => {
+    const failure = locked()
+
+    engine = async () => {
+      throw failure
+    }
+
+    await expect(run(['dev', '.'])).rejects.toBe(failure)
+    expect(stdout).toEqual([])
+    expect(stderr).toEqual([])
+    expect(failure.message.match(/--profile/g)).toHaveLength(1)
+  })
+})
+
 // The engine ends a session whose restart left no server by writing its own
 // terminal frame and calling onExitError. Under --output json it never exits.
 describe('extension dev after the engine ends a running session', () => {
@@ -869,6 +953,161 @@ describe('extension dev after the engine ends a running session', () => {
 
     expect(drainedExits).toEqual([])
     expect(process.exit).not.toHaveBeenCalled()
+  })
+})
+
+// The real watchdog over an engine that writes one terminal frame per session,
+// as the lifecycle stream does. No signal leaves the test process.
+describe('extension dev when the --parent-pid owner goes away', () => {
+  const PARENT_GONE =
+    'the --parent-pid owner (process 4242) is gone, so this dev session is shutting down'
+  const TERMINAL = new Set(['failed', 'usage', 'stopped'])
+  const POLL_MS = 1000
+
+  let parentAlive = true
+  let sessionLive = false
+  let ended = false
+  let kill: ReturnType<typeof vi.spyOn>
+  let endSessionAsFailed: ReturnType<typeof vi.fn>
+  let drainedExits: number[] = []
+
+  const engineFrame = (status: string, error: unknown) => {
+    if (ended) return
+
+    ended = true
+    // eslint-disable-next-line no-console
+    console.log(
+      JSON.stringify({schema: 1, ok: false, command: 'dev', status, error})
+    )
+  }
+
+  beforeEach(() => {
+    parentAlive = true
+    sessionLive = false
+    ended = false
+    drainedExits = []
+    vi.useFakeTimers({
+      toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval']
+    })
+
+    kill = vi.spyOn(process, 'kill').mockImplementation(((
+      pid: number,
+      signal?: string
+    ) => {
+      // The engine's signal handler ends a live session with its stop frame.
+      if (pid === process.pid && signal === 'SIGTERM' && sessionLive) {
+        engineFrame('stopped', null)
+      }
+
+      return true
+    }) as never)
+
+    endSessionAsFailed = vi.fn((code: string, message: string) => {
+      if (!sessionLive) return false
+
+      engineFrame('failed', {code, message})
+      // An ended session is no longer live, as in the engine.
+      sessionLive = false
+
+      return true
+    })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function runWithRealWatchdog(argv: string[]) {
+    const realDeps: DevDeps = {
+      ...deps,
+      exitDrained: async (code) => {
+        drainedExits.push(code)
+      },
+      armParentWatchdog: (pid, options) =>
+        setupParentWatchdog(pid, {
+          ...options,
+          isAlive: () => parentAlive,
+          pollIntervalMs: POLL_MS
+        }),
+      loadDevelop: async () =>
+        developStandIn({
+          extensionDev: async () => {
+            sessionLive = true
+          },
+          endSessionAsFailed,
+          loadCommandConfig: async () => ({})
+        })
+    }
+
+    return runCli(
+      makeProgram((program) => registerDevCommand(program, realDeps)),
+      argv
+    )
+  }
+
+  const terminalFrames = () =>
+    frames().filter((frame) =>
+      TERMINAL.has(String((frame as {status?: unknown}).status))
+    )
+
+  // The engine exits a CLI session itself only outside --output json.
+  it.each([
+    ['under --output json', ['--output', 'json'], [1]],
+    ['in pretty mode', [], []]
+  ])('ends a live session through the engine %s, with one terminal frame', async (_name, flags, exits) => {
+    expect(
+      await runWithRealWatchdog(['dev', '.', '--parent-pid', '4242', ...flags])
+    ).toBe(0)
+
+    stdout.length = 0
+    parentAlive = false
+    vi.advanceTimersByTime(POLL_MS)
+
+    // Asked again until no session is left, and the second ask finds none.
+    expect(endSessionAsFailed.mock.calls).toEqual([
+      ['E_PARENT_GONE', PARENT_GONE],
+      ['E_PARENT_GONE', PARENT_GONE]
+    ])
+
+    expect(terminalFrames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        error: {code: 'E_PARENT_GONE', message: PARENT_GONE}
+      }
+    ])
+
+    // The engine runs the shutdown, so nothing is signaled.
+    expect(kill).not.toHaveBeenCalled()
+    expect(drainedExits).toEqual(exits)
+
+    // No backstop exit is left behind either.
+    vi.advanceTimersByTime(60_000)
+    expect(process.exit).not.toHaveBeenCalled()
+  })
+
+  it('frames the failure itself and signals itself before any session is live', async () => {
+    parentAlive = false
+
+    expect(
+      await runWithRealWatchdog([
+        'dev',
+        '.',
+        '--parent-pid',
+        '4242',
+        '--output',
+        'json'
+      ])
+    ).toBe(0)
+
+    expect(terminalFrames()).toMatchObject([
+      {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}}
+    ])
+
+    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
+    expect(drainedExits).toEqual([])
   })
 })
 

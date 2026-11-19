@@ -13,10 +13,10 @@ import {
   sourceFileMayShip
 } from '../public-private-files'
 import {
+  buildWith,
   compileFixture,
   type FixtureBuild,
   type FixtureFiles,
-  type FixtureWatch,
   fixtureCompiler,
   makeFixtureRoot,
   removeFixtureRoots,
@@ -412,20 +412,6 @@ describe('the private name rules', () => {
 })
 
 const NEXT_BUILD_MS = 10_000
-
-// Two writes can land in one build or in two, so wait for the build that
-// shows the last of them.
-async function buildWith(
-  watch: FixtureWatch,
-  from: number,
-  shows: (result: FixtureBuild) => boolean
-): Promise<FixtureBuild> {
-  for (let count = from; ; count += 1) {
-    const result = await watch.waitForBuild(count, NEXT_BUILD_MS)
-    if (!result) throw new Error(`no build number ${count} arrived`)
-    if (shows(result)) return result
-  }
-}
 
 describe('whether a source file may ship', () => {
   // The project sits one folder down, so there is an outside to reach.

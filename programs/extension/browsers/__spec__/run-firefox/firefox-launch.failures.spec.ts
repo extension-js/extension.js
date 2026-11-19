@@ -1,4 +1,6 @@
+import * as net from 'node:net'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {claimDebugPortNear} from '../../browsers-lib/debug-port-claim'
 import {buildBrowserLaunchRequest} from '../../browsers-lib/runtime-options'
 import {createFirefoxContext} from '../../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
@@ -46,6 +48,8 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       pinned?: boolean
       mode?: 'development' | 'production'
       librewolfRemoteDebugging?: boolean
+      port?: number
+      realClaim?: {maxAttempts: number}
     } = {}
   ) => {
     const mode = input.mode ?? 'production'
@@ -54,6 +58,13 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       browser: input.browser,
       librewolfRemoteDebugging: input.librewolfRemoteDebugging
     })
+
+    if (input.realClaim) {
+      const {claimDir} = fake
+      const {maxAttempts} = input.realClaim
+      fake.deps.claimPort = (startPort) =>
+        claimDebugPortNear(startPort, {dir: claimDir, maxAttempts})
+    }
 
     fake.project.writeReady({
       command: mode === 'development' ? 'dev' : 'preview',
@@ -65,7 +76,8 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       browser: input.browser ?? 'firefox',
       extension: [fake.project.out],
       geckoBinary:
-        input.pinned === false ? undefined : fake.project.plantBinary()
+        input.pinned === false ? undefined : fake.project.plantBinary(),
+      ...(input.port === undefined ? {} : {port: input.port})
     }
     const context = createFirefoxContext()
     context.logger = {
@@ -235,6 +247,46 @@ describe('a Firefox launch that does not reach a running add-on', () => {
       expect(fake.claims).toEqual([
         {requested: 9222, port: fake.port, released: 1}
       ])
+    })
+  })
+
+  describe('every debugger port taken', () => {
+    let holder: net.Server
+
+    beforeEach(async () => {
+      holder = net.createServer()
+      await new Promise<void>((resolve) =>
+        holder.listen(0, '127.0.0.1', resolve)
+      )
+    })
+
+    afterEach(async () => {
+      await new Promise((resolve) => holder.close(resolve))
+    })
+
+    // The debugger port is --port plus 100, so this run starts its search on
+    // the port the holder listens on, with room for one attempt.
+    it.each([
+      'production',
+      'development'
+    ] as const)('refuses a %s launch with E_PORT_UNAVAILABLE and records the code', async (mode) => {
+      const held = (holder.address() as net.AddressInfo).port
+      const {plugin, launch} = await start({
+        mode,
+        port: held - 100,
+        realClaim: {maxAttempts: 1}
+      })
+      const error = await failure(launch())
+
+      expect(error.code).toBe('E_PORT_UNAVAILABLE')
+      expect(error.message).toContain(`from ${held} to ${held}`)
+      expect(plugin.spawnedBrowser).toBe(false)
+      expect(fake.spawns).toEqual([])
+      expect(fake.project.readReady()).toMatchObject({
+        status: 'error',
+        code: 'browser_launch_failed',
+        browserLaunchFailedCode: 'E_PORT_UNAVAILABLE'
+      })
     })
   })
 
