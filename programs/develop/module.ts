@@ -19,17 +19,19 @@ import type {
 } from './plugin-browsers'
 import type {ReloadInstruction, ReloadType} from './plugin-reload'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
+// The option types a caller names are the public ones. The fields only the
+// CLI and the engine set stay on the types the command files read.
 import type {
   BrowserConfig,
   BrowserType,
-  BuildOptions,
-  DevOptions,
+  PublicBuildOptions as BuildOptions,
+  PublicDevOptions as DevOptions,
   FileConfig,
   Manifest,
-  PreviewOptions,
+  PublicPreviewOptions as PreviewOptions,
   SafariPackagerFn,
   SafariPackagerOverrides,
-  StartOptions
+  PublicStartOptions as StartOptions
 } from './types'
 
 // The rspack binding sizes its threads when it loads and never reads the

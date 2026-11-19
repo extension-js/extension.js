@@ -37,10 +37,26 @@ export function canonicalizeDir(dir: string): string {
     try {
       return fs.realpathSync(dir)
     } catch {
-      // A dir that does not exist yet still needs one spelling, or a trailing
-      // separator or a dot segment keeps it from ever matching a resource key.
-      return path.resolve(dir)
+      return canonicalizeMissingDir(path.resolve(dir))
     }
+  }
+}
+
+// A dir that does not exist yet takes the real spelling of its nearest
+// existing parent, or a symlinked or short-named root never matches it.
+function canonicalizeMissingDir(resolved: string): string {
+  const missing: string[] = []
+
+  for (let dir = resolved; ; dir = path.dirname(dir)) {
+    const parent = path.dirname(dir)
+
+    if (parent === dir) return resolved
+
+    missing.unshift(path.basename(dir))
+
+    try {
+      return path.join(fs.realpathSync.native(parent), ...missing)
+    } catch {}
   }
 }
 
@@ -106,6 +122,17 @@ export function toResourceKey(resourcePath: string): string {
   return key
 }
 
+// A path from one folder down to another, with forward slashes. A name that
+// only opens with two dots, such as `..env`, climbs nowhere.
+function pathInside(folder: string, resourcePath: string): string | undefined {
+  const relative = path.relative(folder, resourcePath)
+  const climbs = relative === '..' || relative.startsWith(`..${path.sep}`)
+
+  if (!relative || climbs || path.isAbsolute(relative)) return undefined
+
+  return relative.split(path.sep).join('/')
+}
+
 // The spelling a message prints: relative to the project with forward
 // slashes, and the path as given when it sits outside the project.
 export function toProjectRelativePath(
@@ -114,16 +141,16 @@ export function toProjectRelativePath(
 ): string {
   if (!projectPath || !resourcePath) return resourcePath
 
-  const relative = path.relative(
-    canonicalizeDir(projectPath),
-    canonicalizeResourcePath(resourcePath)
+  const root = canonicalizeDir(projectPath)
+
+  // The spelling as given comes first, so a file behind a linked folder of
+  // the project keeps the path the reader can open from the project root.
+  return (
+    pathInside(projectPath, resourcePath) ??
+    pathInside(root, resourcePath) ??
+    pathInside(root, canonicalizeResourcePath(resourcePath)) ??
+    resourcePath
   )
-
-  if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
-    return resourcePath
-  }
-
-  return relative.split(path.sep).join('/')
 }
 
 // True when resource resolves inside any of dirs (already canonicalized);

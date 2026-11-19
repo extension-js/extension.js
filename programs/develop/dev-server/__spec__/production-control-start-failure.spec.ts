@@ -138,11 +138,9 @@ describe('startProductionControl when the build step throws', () => {
     expect(opened[0].port).toBeGreaterThan(0)
   })
 
-  // Fails today: the server keeps listening and no writer is closed. Drop
-  // `.fails` with the fix, the assertions below are the behavior to reach.
-  it.fails.each(
-    BROKEN_BUILDS
-  )('closes its server and writers when $reason', async ({make}) => {
+  it.each(BROKEN_BUILDS)('closes its server and writers when $reason', async ({
+    make
+  }) => {
     const {root, distPath} = project(make)
     const exitListeners = process.listenerCount('exit')
 

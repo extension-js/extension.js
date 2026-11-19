@@ -13,6 +13,7 @@ import {isCompilerRestarting} from '../../../dev-server/session-restart'
 import {renameSyncWithRetry} from '../../../lib/rename-with-retry'
 import {turnedOffPublicFolders} from '../../../plugin-special-folders/resolve-public-folder'
 import {isManifestAddress} from '../../shared/paths'
+import {pagesReportedMissing} from '../../shared/reported-missing-pages'
 import {getCurrentManifestContent} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 
@@ -299,7 +300,13 @@ export class PersistManifestToDisk {
         }
 
         const requiredFiles = collectRequiredManifestFiles(manifest)
-        const missingFiles = findMissingFilesOnDisk(outputPath, requiredFiles)
+        // A warn-only page the project lacks was reported by the step that
+        // looked for it, and one finding per missing file is enough.
+        const reported = pagesReportedMissing(compilation)
+        const missingFiles = findMissingFilesOnDisk(
+          outputPath,
+          requiredFiles
+        ).filter((file) => !reported.has(file))
 
         if (missingFiles.length > 0) {
           // The entries are missing because this compiler never included

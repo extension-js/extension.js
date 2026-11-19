@@ -10,6 +10,7 @@ import {
   MARKER,
   makeProject,
   missingRefs,
+  notFoundCopies,
   notFoundPaths,
   PAGE,
   PUBLIC_OUTPUT
@@ -133,14 +134,22 @@ describe('a page that names a file the build never copies', () => {
         ].sort()
       )
 
-      expect(notFoundPaths(result.printed)).toEqual(
-        [
+      // The terminal names a file in full, and the JSON summary names it
+      // from the project root.
+      expect(notFoundCopies(result.printed)).toEqual({
+        terminal: [
           path.join(root, '.envrc'),
           path.join(root, '.npmrc'),
           path.join(root, 'node_modules/pkg/.env'),
           ...(canLink ? [path.join(root, 'linked.txt')] : [])
-        ].sort()
-      )
+        ].sort(),
+        summary: [
+          '.envrc',
+          '.npmrc',
+          ...(canLink ? ['linked.txt'] : []),
+          'node_modules/pkg/.env'
+        ]
+      })
 
       expect(result.errors).toBe(0)
       expectNothingPrivate(result)
@@ -181,10 +190,10 @@ describe('a page that names a file the build never copies', () => {
       })
       const result = await build(root)
 
-      expect(notFoundPaths(result.printed)).toEqual([
-        path.join(root, '.env'),
-        path.join(root, '.missing')
-      ])
+      expect(notFoundCopies(result.printed)).toEqual({
+        terminal: [path.join(root, '.env'), path.join(root, '.missing')],
+        summary: ['.env', '.missing']
+      })
 
       expect(result.marked).toEqual([])
     },
@@ -207,10 +216,13 @@ describe('a page that names a file the build never copies', () => {
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual(PUBLIC_OUTPUT)
       expect(result.missing).toEqual(['/.env.png', '/sub/.env.png'])
-      expect(notFoundPaths(result.printed)).toEqual([
-        path.join(root, '.env.png'),
-        path.join(root, 'sub/.env.png')
-      ])
+      expect(notFoundCopies(result.printed)).toEqual({
+        terminal: [
+          path.join(root, '.env.png'),
+          path.join(root, 'sub/.env.png')
+        ],
+        summary: ['.env.png', 'sub/.env.png']
+      })
 
       expect(result.errors).toBe(0)
       expectNothingPrivate(result)
@@ -227,9 +239,10 @@ describe('a page that names a file the build never copies', () => {
       const result = await build(root)
 
       expect(result.missing).toEqual(['/.env.png'])
-      expect(notFoundPaths(result.printed)).toEqual([
-        path.join(root, '.env.png')
-      ])
+      expect(notFoundCopies(result.printed)).toEqual({
+        terminal: [path.join(root, '.env.png')],
+        summary: ['.env.png']
+      })
 
       expect(result.marked).toEqual([])
     },
