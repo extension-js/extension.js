@@ -49,6 +49,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
   PublicFolderOffRef: CODES.E_ASSET_MISSING,
   RootAbsoluteRefCompiledSource: CODES.E_ASSET_MISSING,
+  RootAbsoluteRefMissing: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
   CodeNamedFileNotShipped: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeFetchedFileMissing: CODES.E_SCRIPT_DEP_MISSING,
@@ -76,7 +77,9 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
   ManifestFatalShapeWarning: CODES.E_MANIFEST_INVALID,
   MainWorldScriptCompileFailed: CODES.E_COMPILE,
-  ContentScriptDevServerRuntimeWarning: CODES.E_INTERNAL
+  ContentScriptDevServerRuntimeWarning: CODES.E_INTERNAL,
+  ScriptsPathCheckFailed: CODES.E_INTERNAL,
+  CssUrlRewriteWarning: CODES.E_INTERNAL
 }
 
 // The bundler wraps what a loader threw or emitted under one of these names

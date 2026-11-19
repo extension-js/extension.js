@@ -31,6 +31,7 @@ describe('diagnosticCode', () => {
     ['MissingCssAssetWarning', 'E_ASSET_MISSING'],
     ['PublicFolderOffRef', 'E_ASSET_MISSING'],
     ['RootAbsoluteRefCompiledSource', 'E_ASSET_MISSING'],
+    ['RootAbsoluteRefMissing', 'E_ASSET_MISSING'],
     ['RuntimeLoadedFileCompileFailed', 'E_SCRIPT_DEP_MISSING'],
     ['CodeNamedFileNotShipped', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeFetchedFileMissing', 'E_SCRIPT_DEP_MISSING'],
@@ -58,7 +59,9 @@ describe('diagnosticCode', () => {
     ['ManifestNotFoundError', 'E_MANIFEST_NOT_FOUND'],
     ['ManifestFatalShapeWarning', 'E_MANIFEST_INVALID'],
     ['MainWorldScriptCompileFailed', 'E_COMPILE'],
-    ['ContentScriptDevServerRuntimeWarning', 'E_INTERNAL']
+    ['ContentScriptDevServerRuntimeWarning', 'E_INTERNAL'],
+    ['ScriptsPathCheckFailed', 'E_INTERNAL'],
+    ['CssUrlRewriteWarning', 'E_INTERNAL']
   ])('maps a diagnostic named %s to %s', (name, code) => {
     expect(diagnosticCode(named(name))).toBe(code)
   })
