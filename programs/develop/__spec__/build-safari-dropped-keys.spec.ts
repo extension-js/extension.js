@@ -69,8 +69,6 @@ function listFiles(dir: string, base = dir): string[] {
 
 async function build(root: string, browser: 'chrome' | 'safari') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -82,16 +80,13 @@ async function build(root: string, browser: 'chrome' | 'safari') {
       browser,
       silent: false,
       install: false,
-      mode: 'production',
-      exitOnError: false
+      mode: 'production'
     } as never)
 
     expect(summary.errors_count).toBe(0)
   } finally {
     console.log = originalLog
     console.warn = originalWarn
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   const distDir = path.join(root, 'dist', browser)

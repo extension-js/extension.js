@@ -49,22 +49,14 @@ async function build(
   metadataCommand?: 'dev'
 ) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode,
-      ...(metadataCommand ? {metadataCommand} : {}),
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return await extensionBuild(root, {
+    browser: 'chrome',
+    silent: true,
+    install: false,
+    mode,
+    ...(metadataCommand ? {metadataCommand} : {})
+  } as any)
 }
 
 const TYPED = [

@@ -48,8 +48,6 @@ function project(css: string, importKind: 'named' | 'sideEffect') {
 
 async function build(root: string, mode: 'development' | 'production') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
   let error: unknown
 
@@ -58,14 +56,11 @@ async function build(root: string, mode: 'development' | 'production') {
       browser: 'chrome',
       silent: true,
       install: false,
-      mode,
-      exitOnError: false
+      mode
     } as any)
   } catch (caught) {
     error = caught
   } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   const dist = path.join(root, 'dist', 'chrome')

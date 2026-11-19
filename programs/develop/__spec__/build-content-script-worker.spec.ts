@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // The worker file ships from every surface, but the browser only starts it
 // where the document is the extension. A content script has to hear that.
@@ -99,22 +100,10 @@ function project() {
 }
 
 async function build(root: string, browser = 'chrome') {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    browser,
+    mode: 'production'
+  })
 }
 
 function workerWarnings(summary: {warnings?: string[]}) {

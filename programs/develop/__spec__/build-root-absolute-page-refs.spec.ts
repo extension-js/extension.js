@@ -52,24 +52,16 @@ function project() {
 
 async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      exitOnError: false
-    } as any)
+  const summary = await extensionBuild(root, {
+    browser: 'chrome',
+    silent: true,
+    install: false
+  } as any)
 
-    expect(summary.errors_count).toBe(0)
+  expect(summary.errors_count).toBe(0)
 
-    return summary
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return summary
 }
 
 describe('a page that references files by root-absolute path', () => {

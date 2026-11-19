@@ -54,8 +54,6 @@ function project(theme: Record<string, unknown>) {
 
 async function build(root: string, browser: 'chrome' | 'edge' | 'firefox') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
 
   const record = (...args: unknown[]) => {
@@ -78,15 +76,12 @@ async function build(root: string, browser: 'chrome' | 'edge' | 'firefox') {
       browser,
       silent: false,
       install: false,
-      mode: 'production',
-      exitOnError: false
+      mode: 'production'
     } as never)
   } catch (error) {
     failure = error as typeof failure
   } finally {
     Object.assign(console, original)
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   const manifestFile = path.join(root, 'dist', browser, 'manifest.json')

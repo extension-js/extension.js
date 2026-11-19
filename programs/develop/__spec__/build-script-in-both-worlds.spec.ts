@@ -98,24 +98,16 @@ function project(background: string) {
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   let warnings: string[] = []
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-    expect(summary.errors_count).toBe(0)
-    warnings = summary.warnings || []
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  const summary = await extensionBuild(root, {
+    browser,
+    silent: true,
+    install: false,
+    mode: 'production'
+  } as any)
+  expect(summary.errors_count).toBe(0)
+  warnings = summary.warnings || []
 
   const distDir = path.join(root, 'dist', browser)
   const at = (file: string) => path.join(distDir, ...file.split('/'))

@@ -65,22 +65,14 @@ function project(world: 'MAIN' | 'ISOLATED', readsBase = true) {
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  const summary = await extensionBuild(root, {
+    browser,
+    silent: true,
+    install: false,
+    mode: 'production'
+  } as any)
+  expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)
   const backgroundDir = path.join(distDir, 'background')
