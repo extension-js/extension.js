@@ -38,7 +38,7 @@ const FIELDS: Array<[string, boolean, Field, ('chrome' | 'firefox')?]> = [
   ],
   [
     'side_panel.default_path',
-    true,
+    false,
     (page) => ({side_panel: {default_path: page}})
   ],
   ['sandbox.pages', false, (page) => ({sandbox: {pages: [page]}})],

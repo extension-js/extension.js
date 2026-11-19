@@ -17,7 +17,6 @@ import {
   managedProfileBaseDir
 } from '../../browsers-lib/ready-stamp'
 import {resolveProfileConfig} from '../../browsers-lib/resolve-profile'
-import {defaultChromiumOutputPath} from './extension-output-path'
 import {
   LAUNCH_TAB_URL,
   resolveStartingUrl,
@@ -38,6 +37,7 @@ import type {
   DefaultBrowserFlags,
   PluginInterface
 } from '../../browsers-types'
+import {defaultChromiumOutputPath} from './extension-output-path'
 import {
   chromeMasterPreferences,
   edgeMasterPreferences,

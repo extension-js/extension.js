@@ -25,7 +25,10 @@ import {
   clearControlToken,
   writeControlToken
 } from '../../dev-server/control-bridge/session-token'
-import {startControlServer} from '../../dev-server/control-bridge/ws-control-server'
+import {
+  type ControlServer,
+  startControlServer
+} from '../../dev-server/control-bridge/ws-control-server'
 import {RELAY_TARGETS} from '../../plugin-reload/steps/inject-bridge-relay'
 import {withAddedSources} from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../constants'
@@ -36,8 +39,7 @@ import {actionsPath, browserArtifactsDir, logsPath} from '../session-paths'
 // Same background entries the dev-build injector prepends to: Chromium emits
 // background/service_worker.js, Firefox background/scripts.js, and a declared
 // background page compiles to background/index.js.
-const BACKGROUND_ASSET =
-  /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
+const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 export interface ProductionControlOptions {
   packageJsonDir: string
@@ -325,55 +327,7 @@ export async function startProductionControl(
   const controlToken = allowEval
     ? writeControlToken(packageJsonDir, browser)
     : undefined
-  const broker = new BridgeBroker({
-    instanceId,
-    runId,
-    engine: isGeckoBasedBrowser(browser)
-      ? 'firefox'
-      : isWebkitBasedBrowser(browser)
-        ? 'webkit'
-        : 'chromium',
-    viewerOrigin: null,
-    ring: new LogRingBuffer(),
-    file: logFile,
-    allowControl,
-    allowEval,
-    controlToken,
-    actions,
-    sessionCommand: options.command ?? 'preview',
-    onExecutorAttached: options.onExecutorAttached,
-    onExecutorDetached: options.onExecutorDetached,
-    readLoadRefusal: () =>
-      readExtensionLoadRefusal(packageJsonDir, browser, options.runId),
-    // Only Gecko suspends the background with no way back short of an event.
-    ...(isGeckoBasedBrowser(browser) && options.wakeExecutor
-      ? {wakeExecutor: options.wakeExecutor}
-      : {})
-  })
-
-  logFile.start()
-  actions?.start()
-
-  const server = await startControlServer({
-    broker,
-    host: options.host || '127.0.0.1'
-  })
-  const controlledPath = controlledBuildDir(
-    packageJsonDir,
-    browser,
-    options.distPath
-  )
-  const backgroundAssets = prepareControlledBuild({
-    distPath: options.distPath,
-    controlledPath,
-    controlPort: server.port,
-    instanceId,
-    host: options.host,
-    browser
-  })
-
-  if (backgroundAssets.length === 0) broker.noteNoBackground()
-
+  let server: ControlServer | undefined
   let closed = false
 
   const release = () => {
@@ -394,20 +348,85 @@ export async function startProductionControl(
 
   process.once('exit', release)
 
-  return {
-    controlPort: server.port,
-    instanceId,
-    controlledPath,
-    logsPath: path.relative(packageJsonDir, logsPath(packageJsonDir, browser)),
-    backgroundAssets,
-    broker,
-    async close() {
-      if (closed) return
+  try {
+    const broker = new BridgeBroker({
+      instanceId,
+      runId,
+      engine: isGeckoBasedBrowser(browser)
+        ? 'firefox'
+        : isWebkitBasedBrowser(browser)
+          ? 'webkit'
+          : 'chromium',
+      viewerOrigin: null,
+      ring: new LogRingBuffer(),
+      file: logFile,
+      allowControl,
+      allowEval,
+      controlToken,
+      actions,
+      sessionCommand: options.command ?? 'preview',
+      onExecutorAttached: options.onExecutorAttached,
+      onExecutorDetached: options.onExecutorDetached,
+      readLoadRefusal: () =>
+        readExtensionLoadRefusal(packageJsonDir, browser, options.runId),
+      // Only Gecko suspends the background with no way back short of an event.
+      ...(isGeckoBasedBrowser(browser) && options.wakeExecutor
+        ? {wakeExecutor: options.wakeExecutor}
+        : {})
+    })
 
-      closed = true
-      process.removeListener('exit', release)
-      release()
-      await server.close()
+    logFile.start()
+    actions?.start()
+
+    const opened = await startControlServer({
+      broker,
+      host: options.host || '127.0.0.1'
+    })
+
+    server = opened
+
+    const controlledPath = controlledBuildDir(
+      packageJsonDir,
+      browser,
+      options.distPath
+    )
+    const backgroundAssets = prepareControlledBuild({
+      distPath: options.distPath,
+      controlledPath,
+      controlPort: opened.port,
+      instanceId,
+      host: options.host,
+      browser
+    })
+
+    if (backgroundAssets.length === 0) broker.noteNoBackground()
+
+    return {
+      controlPort: opened.port,
+      instanceId,
+      controlledPath,
+      logsPath: path.relative(
+        packageJsonDir,
+        logsPath(packageJsonDir, browser)
+      ),
+      backgroundAssets,
+      broker,
+      async close() {
+        if (closed) return
+
+        closed = true
+        process.removeListener('exit', release)
+        release()
+        await opened.close()
+      }
     }
+  } catch (error) {
+    // The caller never gets a session to close, so a failed start gives back
+    // the token, the writers and the port itself, then fails as it would have.
+    process.removeListener('exit', release)
+    release()
+    await server?.close().catch(() => {})
+
+    throw error
   }
 }
