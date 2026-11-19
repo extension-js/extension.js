@@ -10,7 +10,7 @@ import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
-import type {DevOptions, PluginInterface} from '../types'
+import type {DevOptions} from '../types'
 import * as messages from './compatibility-lib/messages'
 
 const cjsRequire = createRequire(import.meta.url)
@@ -18,49 +18,59 @@ const cjsRequire = createRequire(import.meta.url)
 export class PolyfillPlugin {
   public readonly browser: DevOptions['browser']
 
-  constructor(options: PluginInterface) {
+  constructor(options: {browser?: DevOptions['browser']} = {}) {
     this.browser = options.browser || 'chrome'
   }
 
   apply(compiler: Compiler) {
+    let polyfillPath: string
+
     try {
       // Resolve the polyfill preferring the consumer project first: package
       // managers may hoist it to the project root, not under extension-develop.
-      const polyfillPath = cjsRequire.resolve(
+      polyfillPath = cjsRequire.resolve(
         'webextension-polyfill/dist/browser-polyfill.js',
         {
           paths: [compiler.options.context as string, __dirname].filter(Boolean)
         }
       )
-
-      const currentResolve = compiler.options.resolve || {}
-      const existingAlias = currentResolve.alias || {}
-
-      compiler.options.resolve = {
-        ...currentResolve,
-        alias: {
-          ...existingAlias,
-          // Use `$` to exactly match the package name
-          'webextension-polyfill$': polyfillPath
-        }
-      }
-
-      new rspack.ProvidePlugin({
-        browser: 'webextension-polyfill'
-      }).apply(compiler)
-
-      if (isDebug()) {
-        debugLine(
-          messages.compatibilityPolyfillEnabled(this.browser, polyfillPath)
-        )
-      }
     } catch (error) {
+      // Only a missing package turns the polyfill off. Any other failure is
+      // not "not installed", so it surfaces as the error it is.
+      if ((error as NodeJS.ErrnoException)?.code !== 'MODULE_NOT_FOUND') {
+        throw error
+      }
+
       recordCodedWarning(
         CODES.W_POLYFILL_NOT_FOUND,
         'webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
       )
 
       console.warn(messages.webextensionPolyfillNotFound())
+
+      return
+    }
+
+    const currentResolve = compiler.options.resolve || {}
+    const existingAlias = currentResolve.alias || {}
+
+    compiler.options.resolve = {
+      ...currentResolve,
+      alias: {
+        ...existingAlias,
+        // Use `$` to exactly match the package name
+        'webextension-polyfill$': polyfillPath
+      }
+    }
+
+    new rspack.ProvidePlugin({
+      browser: 'webextension-polyfill'
+    }).apply(compiler)
+
+    if (isDebug()) {
+      debugLine(
+        messages.compatibilityPolyfillEnabled(this.browser, polyfillPath)
+      )
     }
   }
 }

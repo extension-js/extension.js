@@ -331,7 +331,7 @@ describe('a green build prefixes a coded warning with its code', () => {
         "W_ASSET_MISSING: The page references an asset that doesn't exist.",
         'PATH popup/index.html',
         'NOT FOUND popup/gone-token.png',
-        'Update the popup/gone-token.png reference to point to a file that exists.'
+        'Update the ./gone-token.png reference to point to a file that exists.'
       ].join('\n')
     ])
   }, 120_000)

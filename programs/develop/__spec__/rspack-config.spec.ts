@@ -235,6 +235,49 @@ describe('webpack-config transpile packages watch behavior', () => {
     }
   })
 
+  it('warns once about a named companion that is not an extension', async () => {
+    resolveTranspilePackageDirsMock.mockReturnValue([])
+
+    const {takeCodedWarnings} = await import('../lib/coded-warnings')
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const missing = path.join(root, 'extensions', 'gone')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const session = () =>
+      webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode: 'development',
+          metadataCommand: 'dev',
+          extensions: {paths: [missing]},
+          output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+          noBrowser: true
+        } as any
+      )
+
+    takeCodedWarnings()
+
+    try {
+      session()
+
+      const coded = takeCodedWarnings()
+
+      expect(coded).toHaveLength(1)
+      expect(coded[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+      expect(coded[0]).toContain(path.join(missing, 'manifest.json'))
+      expect(warn).toHaveBeenCalledTimes(1)
+
+      // A restart builds the config again and has nothing new to say.
+      session()
+
+      expect(takeCodedWarnings()).toEqual([])
+      expect(warn).toHaveBeenCalledTimes(1)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
   it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {
     resolveTranspilePackageDirsMock.mockReturnValue([])
     computeExtensionsToLoadMock.mockReturnValue([
@@ -587,6 +630,62 @@ describe('webpack-config transpile packages watch behavior', () => {
       delete process.env.EXTENSION_STRICT_REFS
     }
   })
+})
+
+describe('a scanned companion entry that leads outside the project', () => {
+  function configFor(options: Record<string, unknown>) {
+    const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const outside = makeTempFolder('extjs-webpack-config-outside-')
+    const said: string[] = []
+
+    fs.writeFileSync(
+      path.join(outside, 'manifest.json'),
+      JSON.stringify({manifest_version: 3, name: 'out', version: '1.0.0'})
+    )
+
+    fs.mkdirSync(path.join(root, 'extensions'))
+    fs.symlinkSync(outside, path.join(root, 'extensions', 'linked-out'))
+
+    const spy = vi
+      .spyOn(console, 'warn')
+      .mockImplementation((...parts: unknown[]) => {
+        said.push(parts.map(String).join(' '))
+      })
+
+    try {
+      webpackConfig(
+        projectStructure as any,
+        {
+          browser: 'chrome',
+          mode: 'development',
+          extensions: {dir: './extensions'},
+          output: {clean: false, path: path.join(root, 'dist', 'chrome')},
+          ...options
+        } as any
+      )
+    } finally {
+      spy.mockRestore()
+    }
+
+    return said.filter((text) => text.includes('leads outside the project'))
+  }
+
+  it.skipIf(process.platform === 'win32')(
+    'is said by a session that opens a browser',
+    () => {
+      const browsersPlugin = {apply() {}, extensionsToLoad: []}
+
+      expect(configFor({browsersPlugin})).toHaveLength(1)
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'is not said by a session that opens none',
+    () => {
+      expect(configFor({noBrowser: true})).toEqual([])
+    }
+  )
 })
 
 describe('webpack-config MV2 on chromium warning', () => {

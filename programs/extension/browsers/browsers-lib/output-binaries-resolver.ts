@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {CompilationLike} from '../browsers-types'
 import {locatorEnv} from './locator-env'
+import {sessionRootFor} from './ready-stamp'
 
 export function computeSharedCacheRoot(): string {
   const explicit = String(process.env.EXT_BROWSERS_CACHE_DIR || '').trim()
@@ -88,13 +89,9 @@ export function computeBinariesBaseDir(compilation: CompilationLike) {
 
   const outputDir = getCompilationOutputPath(compilation)
 
-  if (outputDir) {
-    const last = path.basename(outputDir)
-    const browserDirs = new Set(['chrome', 'chromium', 'firefox', 'edge'])
-    const distRoot = browserDirs.has(last) ? path.dirname(outputDir) : outputDir
-
-    return path.resolve(distRoot, 'extension-js', 'binaries')
-  }
+  // Beside the record and the profiles: a folder named for a browser this
+  // list missed put the binaries inside the extension the browser loads.
+  if (outputDir) return path.resolve(sessionRootFor(outputDir), 'binaries')
 
   return path.resolve(process.cwd(), 'dist', 'extension-js', 'binaries')
 }

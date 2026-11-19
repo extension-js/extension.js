@@ -1,6 +1,18 @@
-import * as fs from 'node:fs'
-import * as path from 'node:path'
+import {Command} from 'commander'
 import {describe, expect, it} from 'vitest'
+import {registerActCommands} from '../../commands/act'
+import {registerBuildCommand} from '../../commands/build'
+import {registerCapabilitiesCommand} from '../../commands/capabilities'
+import {registerCreateCommand} from '../../commands/create'
+import {registerDevCommand} from '../../commands/dev'
+import {registerDoctorCommand} from '../../commands/doctor'
+import {registerInstallCommand} from '../../commands/install'
+import {registerLogsCommand} from '../../commands/logs'
+import {registerPreviewCommand} from '../../commands/preview'
+import {registerPublishCommand} from '../../commands/publish'
+import {registerSafariCommand} from '../../commands/safari'
+import {registerStartCommand} from '../../commands/start'
+import {registerTelemetryCommand} from '../../commands/telemetry'
 import {CODES} from '../messaging'
 import {
   detectInvokedCommand,
@@ -10,23 +22,30 @@ import {
 } from '../telemetry-cli'
 
 // The allowlist is what keeps a project path out of the payload, so it cannot
-// be derived at runtime. This reads the registrations instead and fails when a
-// new command lands without one, which is what left half of the failures under
-// 'unknown'.
+// be derived at runtime. This registers every command the entry registers and
+// reads the names Commander holds, so a name kept in a constant counts too.
 function registeredCommands(): string[] {
-  const dir = path.join(__dirname, '..', '..', 'commands')
-  const found = new Set<string>()
+  const program = new Command()
 
-  for (const entry of fs.readdirSync(dir)) {
-    if (!entry.endsWith('.ts') || entry.endsWith('.spec.ts')) continue
-
-    const source = fs.readFileSync(path.join(dir, entry), 'utf-8')
-    const pattern = /\.command\(\s*'([a-z][a-z-]*)'/g
-    let match: RegExpExecArray | null
-    while ((match = pattern.exec(source))) found.add(match[1])
+  for (const register of [
+    registerCreateCommand,
+    registerDevCommand,
+    registerStartCommand,
+    registerPreviewCommand,
+    registerBuildCommand,
+    registerLogsCommand,
+    registerActCommands,
+    registerPublishCommand,
+    registerSafariCommand,
+    registerInstallCommand,
+    registerTelemetryCommand,
+    registerDoctorCommand,
+    registerCapabilitiesCommand
+  ]) {
+    register(program)
   }
 
-  return [...found].sort()
+  return program.commands.map((command) => command.name()).sort()
 }
 
 describe('telemetry command coverage', () => {
@@ -35,6 +54,7 @@ describe('telemetry command coverage', () => {
     expect(registered.length).toBeGreaterThan(10)
     expect(registered).toContain('dev')
     expect(registered).toContain('build')
+    expect(registered).toContain('safari')
   })
 
   it('carries every registered command, so none reports as unknown', () => {

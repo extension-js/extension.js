@@ -1,8 +1,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {takeVerbatimCss} from '../css-lib/verbatim-css'
+import {restoreVerbatimCssAssets} from '../css-lib/verbatim-css'
 import {pitch} from '../css-parse-guard-loader'
 
 const makeTempFolder = trackTempFolders()
@@ -92,9 +93,19 @@ describe('css-parse-guard-loader', () => {
       /^\.__extjs_verbatim_[a-z0-9]+__\{--extjs-verbatim:1\}/
     )
 
-    const id = /__extjs_verbatim_([a-z0-9]+)__/.exec(
-      String(result)
-    )?.[1] as string
-    expect(takeVerbatimCss(id)).toBe(BROKEN_CSS)
+    // The restore step is the registry's one reader.
+    const emitted = new Map([['native.css', String(result)]])
+    const restored = restoreVerbatimCssAssets({
+      getAssets: () =>
+        [...emitted].map(([name, text]) => ({
+          name,
+          source: new sources.RawSource(text)
+        })) as never,
+      updateAsset: ((name: string, source: {source(): unknown}) =>
+        emitted.set(name, String(source.source()))) as never
+    })
+
+    expect(restored).toEqual(['native.css'])
+    expect(emitted.get('native.css')).toBe(BROKEN_CSS)
   })
 })

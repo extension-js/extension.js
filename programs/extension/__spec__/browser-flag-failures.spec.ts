@@ -28,6 +28,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn, previewStandIn} from './helpers/engine-stand-ins'
 
 const extensionBuild = vi.fn(async (_path: string, _options: unknown) => {})
 const extensionDev = vi.fn(async (_path: string, _options: unknown) => {})
@@ -40,12 +41,13 @@ const waitForReady = vi.fn(async () => {
   throw new Error('this spec never waits')
 })
 
-const loadDevelop = async () => ({
-  extensionBuild,
-  extensionDev,
-  loadCommandConfig
-})
-const loadPreview = async () => ({extensionPreview})
+const loadDevelop = async () =>
+  developStandIn({
+    extensionBuild,
+    extensionDev,
+    loadCommandConfig
+  })
+const loadPreview = async () => previewStandIn({extensionPreview})
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>
@@ -118,10 +120,10 @@ describe('an empty --browser', () => {
 
   it.each([
     ['', ['']],
-    [',', ['', '']],
-    [' , ', ['', '']],
+    [',', ['']],
+    [' , ', ['']],
     ['chrome,,firefox', ['chrome', '', 'firefox']]
-  ])('keeps the empty items of %j for the validator to refuse', (value, list) => {
+  ])('keeps an empty item of %j for the validator to refuse', (value, list) => {
     let refused: string | undefined
 
     expect(vendors(value as never)).toEqual(list)
@@ -189,33 +191,31 @@ describe('an empty --browser', () => {
 })
 
 describe('a repeated or capitalized --browser', () => {
-  it('builds the same browser twice for chrome,chrome', async () => {
-    // Pins today's behavior. Ledger 1372 D5.
+  it('builds chrome once for chrome,chrome', async () => {
     expect(await run(['build', '.', '--browser', 'chrome,chrome'])).toBe(0)
     expect(
       extensionBuild.mock.calls.map(
         ([, options]) => (options as {browser: string}).browser
       )
-    ).toEqual(['chrome', 'chrome'])
+    ).toEqual(['chrome'])
   })
 
-  it('refuses Chrome on build while install classification accepts it', async () => {
-    // Pins today's behavior. Ledger 1372 D6.
+  it('reads Chrome on build as chrome, as install does', async () => {
     expect(classifyManagedInstallTarget('Chrome')).toBe('managed')
+    expect(await run(['build', '.', '--browser', ' Chrome,FIREFOX'])).toBe(0)
     expect(
-      await run(['build', '.', '--browser', 'Chrome', '--output', 'json'])
-    ).toBe(1)
-
-    expect(extensionBuild).not.toHaveBeenCalled()
-    expect(frames()).toMatchObject([
-      {ok: false, status: 'usage', error: {code: 'E_UNSUPPORTED_BROWSER'}}
-    ])
-
-    expect(
-      String((frames()[0].error as {message: string}).message).startsWith(
-        'Unsupported browser: Chrome. Choose one of: chrome, chromium, '
+      extensionBuild.mock.calls.map(
+        ([, options]) => (options as {browser: string}).browser
       )
-    ).toBe(true)
+    ).toEqual(['chrome', 'firefox'])
+  })
+
+  it.each([
+    ['ALL', ['chrome', 'edge', 'firefox']],
+    ['Chrome,chrome , CHROME', ['chrome']],
+    ['firefox,,', ['firefox', '']]
+  ])('lists %j as %j', (value, list) => {
+    expect(vendors(value as never)).toEqual(list)
   })
 })
 

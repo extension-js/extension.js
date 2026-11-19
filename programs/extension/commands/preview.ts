@@ -23,9 +23,12 @@ import {
   geckoBinaryOption
 } from '../helpers/cli-options'
 import {resolveConfigBrowser} from '../helpers/config-browser'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopModule,
+  type DevelopPreviewLauncher,
+  type DevelopPreviewModule,
   loadExtensionDevelopModule,
   loadExtensionDevelopPreviewModule
 } from '../helpers/extension-develop-runtime'
@@ -46,7 +49,9 @@ import {
 import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogFormat,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
@@ -119,8 +124,8 @@ export const PREVIEW_NOT_FOUND_NEEDLES = [
 
 // What the action reaches outside this file. Production takes every default.
 interface PreviewCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
-  loadPreview?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
+  loadPreview?: () => Promise<DevelopPreviewModule>
   runBrowser?: typeof runOnlyPreviewBrowser
   noteBrowsers?: typeof noteRunBrowsers
 }
@@ -373,7 +378,7 @@ export function registerPreviewCommand(
         // a signal, ten milliseconds after which its own handler kills it.
         markCommandSessionStart('preview')
 
-        const {extensionPreview} = await loadPreview()
+        const {extensionPreview}: DevelopPreviewModule = await loadPreview()
         const previewed: string[] = []
         const previewWarnings: string[] = []
 
@@ -389,7 +394,7 @@ export function registerPreviewCommand(
               {
                 mode: 'production',
                 profile: normalizeProfileOption(previewOptions.profile),
-                browser: vendor as PreviewOptions['browser'],
+                browser: vendor as DevelopBrowser,
                 chromiumBinary: previewOptions.chromiumBinary,
                 geckoBinary: cliGeckoBinary(previewOptions),
                 // Only forward a typed --no-open, so commands.preview.noOpen
@@ -414,9 +419,9 @@ export function registerPreviewCommand(
                 allowEval: Boolean(previewOptions.allowEval),
                 // Only pass logger values the user typed. Stock defaults and
                 // commands.preview.* are applied inside extensionPreview.
-                logLevel: logsOption || undefined,
+                logLevel: parseLogLevel(logsOption),
                 logContexts,
-                logFormat: previewOptions.logFormat,
+                logFormat: parseLogFormat(previewOptions.logFormat),
                 logTimestamps: explicitCliValue(
                   command,
                   'logTimestamps',
@@ -432,8 +437,10 @@ export function registerPreviewCommand(
               },
               // Browser launcher callback, runs browser code from extension/browser/
               // without pulling rspack into the preview path
-              (opts: Parameters<typeof runOnlyPreviewBrowser>[0]) =>
-                runBrowser(opts)
+              (opts) =>
+                runBrowser(
+                  opts as Parameters<typeof runOnlyPreviewBrowser>[0]
+                ) as ReturnType<DevelopPreviewLauncher>
             )
 
             previewed.push(vendor)
@@ -480,7 +487,7 @@ export function registerPreviewCommand(
                 )
               )
 
-              await exitAfterDrain(1)
+              await exitFailedAfterDrain({code: declared, exitCode: 1})
 
               return
             }
@@ -508,7 +515,14 @@ export function registerPreviewCommand(
               )
             )
 
-            await exitAfterDrain(1)
+            await exitFailedAfterDrain({
+              code: nothingToPreview
+                ? CODES.E_PREVIEW_NO_DIST
+                : CODES.E_INTERNAL,
+              exitCode: 1,
+              error,
+              step: 'engine'
+            })
 
             return
           }

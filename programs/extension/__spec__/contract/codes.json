@@ -84,7 +84,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing or uncompiled."
+      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
@@ -112,11 +112,11 @@
     },
     "E_ENTRY_NOT_FOUND": {
       "area": "compile",
-      "summary": "A manifest, HTML, or JSON entry points at a missing file."
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled."
     },
     "E_ASSET_MISSING": {
       "area": "compile",
-      "summary": "An icon, static asset, or JSON dependency is missing."
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled."
     },
     "E_SCRIPT_DEP_MISSING": {
       "area": "compile",
@@ -136,7 +136,7 @@
     },
     "E_CSS_DEAD_REF": {
       "area": "compile",
-      "summary": "A CSS url() points at nothing."
+      "summary": "A CSS url() or @import names a file that is missing or not bundled."
     },
     "E_LOCALES_LAYOUT": {
       "area": "compile",
@@ -145,6 +145,10 @@
     "E_WAR_INVALID": {
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected."
+    },
+    "E_THEME_INVALID": {
+      "area": "compile",
+      "summary": "A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly."
     },
     "E_DEV_SESSION_DIST_SHARED": {
       "area": "compile",
@@ -160,13 +164,11 @@
     },
     "E_PERF_BUDGET": {
       "area": "compile",
-      "summary": "An asset exceeds its size budget, and the project asked for that to fail the build. It is the same overrun W_PERF_BUDGET warns of, made strict.",
-      "reserved": true,
-      "reason": "This name shipped only on warnings, which W_PERF_BUDGET carries now. Nothing fails a build on a budget overrun yet, and the name is held for the setting that will."
+      "summary": "An asset exceeds its size budget, and the project asked for that to fail the build. It is the same overrun W_PERF_BUDGET warns of, made strict."
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
-      "summary": "Packaging was skipped for a stated reason."
+      "summary": "A requested archive was not created."
     },
     "E_REMOTE_FETCH_TIMEOUT": {
       "area": "remote",
@@ -469,12 +471,12 @@
     },
     "W_ENTRY_NOT_FOUND": {
       "area": "compile",
-      "summary": "A manifest, HTML, or JSON entry points at a missing file.",
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled.",
       "warn": true
     },
     "W_ASSET_MISSING": {
       "area": "compile",
-      "summary": "An icon, static asset, or JSON dependency is missing.",
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled.",
       "warn": true
     },
     "W_SCRIPT_DEP_MISSING": {
@@ -494,7 +496,7 @@
     },
     "W_CSS_DEAD_REF": {
       "area": "compile",
-      "summary": "A CSS url() points at nothing.",
+      "summary": "A CSS url() or @import names a file that is missing or not bundled.",
       "warn": true
     },
     "W_POLYFILL_NOT_FOUND": {

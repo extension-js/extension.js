@@ -943,7 +943,7 @@ describe('generateManifestPatches', () => {
       expect((compilation.warnings[0] as any).file).toBe('manifest.json')
     })
 
-    it('emits a warning for missing relative file (mv3) and preserves string', () => {
+    it('emits a warning for missing relative file (mv3) and drops the entry', () => {
       const rel = 'images/missing.png'
       const manifest = {
         manifest_version: 3,
@@ -974,11 +974,8 @@ describe('generateManifestPatches', () => {
       const updated = JSON.parse(
         (compilation.updateAsset as any).mock.calls[0][1].source().toString()
       )
-      const war = (updated as any).web_accessible_resources as {
-        matches: string[]
-        resources: string[]
-      }[]
-      expect(war[0].resources).toEqual([rel])
+
+      expect(updated).not.toHaveProperty('web_accessible_resources')
     })
 
     it('adds emitted relative files to fileDependencies', () => {

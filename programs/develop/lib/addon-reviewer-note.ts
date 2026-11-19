@@ -31,7 +31,7 @@ export interface ReviewerNoteBuild {
 
 // Best effort: a project outside git, or one with no git on the PATH, gets a
 // note without the commit and nothing else changes.
-export function readProjectCommit(projectPath: string): string | null {
+function readProjectCommit(projectPath: string): string | null {
   try {
     const result = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
       cwd: projectPath,

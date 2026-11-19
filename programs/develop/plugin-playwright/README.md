@@ -7,14 +7,14 @@
 
 # plugin-playwright
 
-> Machine-readable automation metadata for Playwright/AI workflows, especially when running with `--no-browser`.
+> The session contract: `ready.json` and `events.ndjson`, the machine-readable state of a `dev`, `start`, `preview` or `build` run. Despite the folder name, nothing here runs Playwright.
 
 ### What it does
 
 - **PlaywrightPlugin**: Hooks compiler lifecycle and writes deterministic metadata to:
   - `dist/extension-js/<browser>/ready.json`
   - `dist/extension-js/<browser>/events.ndjson`
-- **createPlaywrightMetadataWriter**: Reusable writer for run-only flows (`preview`/`start`) that do not rely on full compiler watch semantics.
+- **createPlaywrightMetadataWriter**: The writer behind the plugin. The dev server and `preview` also open one directly, for the stamps no compile makes (the runtime attach and detach, a reload, the end of the launch, the shutdown).
 
 ### Contract
 
@@ -33,7 +33,9 @@
   launched no browser (`--no-browser`, a dry run). `executorAttachedAt` can follow
   `ready`, unless the session takes act verbs, where `ready` waits for it up to
   10 seconds
-- `command`: `dev` | `start` | `preview`
+- `command`: `dev` | `start` | `preview` | `build`
+- `schemaVersion`: `2`, the version of this contract, and `schema`: `1`, the
+  result envelope the engine speaks
 - `browser`
 - `runId`
 - `startedAt`
@@ -44,10 +46,36 @@
 - `ts`
 - `compiledAt`
 - `errors`: the last failed compile's messages as plain text (no color),
-  whether the compile reported errors or the compiler itself failed; empty
+  whether the compile reported errors or the compiler itself failed, empty
   otherwise
 - `controlPort`: the agent-bridge control port, or `null` when there is none
 - optional `code` and `message` on failures
+- `toolchainVersion`, and optional `extensionName` and `extensionVersion`: the
+  manifest a `dev` or `preview` run loads from the dist, or the one a `build` or
+  `start` compiles from the source
+- optional `extensionId` and `extensionIdSource`: `browser` when the browser
+  confirmed it, `packager` for the Safari bundle id, `derived` when read off the
+  dist. Only a derived id is ever recomputed
+- optional `host`, `instanceId`, `instanceExplicit`, `controlPath` and `logsPath`
+- optional `managedExtensions`: every extension the engine loads besides the
+  user's, each with its `path` and `id`
+- optional `devAdditions`: under `dev`, every grant, browser flag and browser
+  preference the session has that the production build does not, with its reason
+- optional `runtime` (`attached` | `detached`), `executorAttachedAt`,
+  `executorDetachedAt` and `extensionBaseUrl`: stamped when the extension's
+  background connects and leaves. `awaitingExecutorSince` is present while
+  `ready` waits for the first connection
+- optional fields the browser launcher stamps after launch: `cdpPort`,
+  `rdpPort` and `rdpPortError`, `profilePath`, `profileReused`, `browserPid`, `launcherPid`,
+  `binary`, `binaryProvenance`, `binaryPinnedBy`, `safari`,
+  `webdriverRequestPath`, `startingUrl`, `startingUrlOpened` and
+  `startingUrlUnopenedReason`, `browserExitedAt`, `browserExitCode` and
+  `browserExitSignal`, `browserLaunchFailedAt`, `browserLaunchFailedReason` and
+  `browserLaunchFailedCode`, `browserUpNotAttachedAt`,
+  `browserUpNotAttachedWaitMs` and `browserUpNotAttachedHint`, and
+  `extensionLoadRefusedAt`, `extensionLoadRefusedReason` and
+  `extensionLoadRefusedCause`, and `profileLockedAt` and `profileLockOwner`
+- optional `engine: emulator` with `browserPid: null` for an emulator run
 - optional `controlPortUnavailableReason`: the bind error, present whenever
   `controlPort` is `null` because the control bridge could not start. It is part
   of every write for the session, so a recompile never drops it
@@ -62,11 +90,11 @@
   instead of the two fields above and preserved across recompiles
 - optional `reloadedAt`, `reloadKind` and `reloadLabel`: under `dev`, stamped
   each time dev applies a reload after a compile. `reloadKind` is `full`,
-  `background`, `content`, `page` or `safari-resync` (the rebuilt Safari appex);
-  `reloadLabel` is the label the reload line prints. A reload the extension
+  `background`, `content`, `page` or `safari-resync` (the rebuilt Safari appex),
+  and `reloadLabel` is the label the reload line prints. A reload the extension
   never confirmed or never received is not stamped, and a compile that
   reloads nothing leaves the stamp as it was. A compile's reload is live once
-  `reloadedAt` is later than that compile's `compiledAt`; preserved across
+  `reloadedAt` is later than that compile's `compiledAt`. Preserved across
   recompiles
 - optional `cdpFaultCode` and `cdpFaultMessage`: under a Chromium `dev`,
   `start` or `preview` the launcher stamps them when the CDP wire failed after
@@ -101,7 +129,7 @@ current run only, join on `runId` to correlate across runs):
 - `shutdown`
 
 Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
-`compile_error` row adds `errorCount` and up to ten `errors`; a `browser_exited`
+`compile_error` row adds `errorCount` and up to ten `errors`, and a `browser_exited`
 row adds `exitCode`, `exitSignal` and `browserExitedAt`. A
 `browser_launch_failed` row adds `browserLaunchFailedAt` and `reason`, and the
 contract it mirrors reads `status: error` with `code: browser_launch_failed`.

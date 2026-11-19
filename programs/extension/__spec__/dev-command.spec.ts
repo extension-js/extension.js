@@ -7,6 +7,7 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
+import {developStandIn} from './helpers/engine-stand-ins'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // A real folder: a typed path that is not there is refused before the engine.
@@ -38,17 +39,18 @@ const deps: DevDeps = {
   },
   // The real one sends a failure row through the CLI's own telemetry.
   reportFailure: () => {},
-  loadDevelop: async () => ({
-    extensionDev: async (...call: EngineCall) => {
-      engineCalls.push(call)
-      await engine(...call)
-    },
-    loadCommandConfig: async (...args: unknown[]) => {
-      configReads.push(args)
+  loadDevelop: async () =>
+    developStandIn({
+      extensionDev: async (...call: EngineCall) => {
+        engineCalls.push(call)
+        await engine(...call)
+      },
+      loadCommandConfig: async (...args: unknown[]) => {
+        configReads.push(args)
 
-      return commandConfig
-    }
-  }),
+        return commandConfig
+      }
+    }),
   launcher,
   safariPreflight: () => preflightIssue,
   armParentWatchdog: ((pid: number, options: {emitFrame: () => void}) => {
@@ -293,6 +295,8 @@ const FORWARDING: ForwardingRow[] = [
   },
   {argv: ['--log-context', 'all'], options: {}},
   {argv: ['--logs', 'debug'], options: {logLevel: 'debug'}},
+  // The flag is read in any case, and the engine compares the level exactly.
+  {argv: ['--logs', ' OFF '], options: {logLevel: 'off'}},
   {argv: ['--log-format', 'json'], options: {logFormat: 'json'}},
   {argv: ['--no-log-timestamps'], options: {logTimestamps: false}},
   {argv: ['--no-log-color'], options: {logColor: false}},
@@ -682,6 +686,192 @@ describe('extension dev', () => {
   })
 })
 
+// A start failure reaches the command as a rejection. The engine may have
+// written the terminal frame already, and it says so on the error.
+describe('extension dev when the engine fails to start under --output json', () => {
+  const startFailure = (extra: Record<string, unknown> = {}) =>
+    Object.assign(new Error('listen EADDRINUSE'), {
+      code: 'E_DEV_SERVER_START',
+      ...extra
+    })
+
+  it('prints the one failed frame when the engine wrote none', async () => {
+    engine = async () => {
+      throw startFailure()
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+
+    expect(frames()).toMatchObject([
+      {
+        ok: false,
+        command: 'dev',
+        status: 'failed',
+        error: {code: 'E_DEV_SERVER_START', message: 'listen EADDRINUSE'}
+      }
+    ])
+  })
+
+  it('carries the session the engine put on the error as the frame value', async () => {
+    const session = {pid: 4242, port: 8080, readyPath: '/tmp/ready.json'}
+
+    engine = async () => {
+      throw startFailure({session})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'failed', value: session}])
+  })
+
+  it('leaves the frame value null when the error names no session', async () => {
+    engine = async () => {
+      throw startFailure()
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'failed', value: null}])
+  })
+
+  it.each([
+    ['false', false],
+    ['a truthy value that is not true', 'yes']
+  ])('still prints its frame when framed is %s', async (_name, framed) => {
+    engine = async () => {
+      throw startFailure({framed})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toHaveLength(1)
+  })
+
+  it('prints no second frame when the engine already wrote it, and still exits 1', async () => {
+    engine = async () => {
+      throw startFailure({framed: true})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(stdout).toEqual([])
+  })
+})
+
+// The engine ends a session whose restart left no server by writing its own
+// terminal frame and calling onExitError. Under --output json it never exits.
+describe('extension dev after the engine ends a running session', () => {
+  const lostServer = Object.assign(new Error('listen EADDRINUSE'), {
+    code: 'E_DEV_SERVER_START'
+  })
+
+  const drainedExits: Array<{code: number; reportedFirst: boolean}> = []
+
+  async function endSession(argv: string[]) {
+    const reported: unknown[] = []
+
+    deps.reportFailure = (details) => {
+      reported.push(details)
+    }
+
+    deps.exitDrained = async (code) => {
+      drainedExits.push({code, reportedFirst: reported.length === 1})
+    }
+
+    expect(await run(argv)).toBe(0)
+    stdout.length = 0
+
+    const onExitError = engineCalls[0][1].onExitError as (
+      error: unknown,
+      code?: string
+    ) => void
+
+    onExitError(lostServer, 'E_DEV_SERVER_START')
+
+    return reported
+  }
+
+  beforeEach(() => {
+    deps.exitDrained = async (code) => {
+      drainedExits.push({code, reportedFirst: false})
+    }
+  })
+
+  afterEach(() => {
+    drainedExits.length = 0
+
+    deps.reportFailure = () => {}
+
+    delete deps.exitDrained
+  })
+
+  it('exits 1 after the report under --output json, with no frame of its own', async () => {
+    const reported = await endSession(['dev', '.', '--output', 'json'])
+
+    expect(reported).toEqual([
+      {
+        code: 'E_DEV_SERVER_START',
+        exitCode: 1,
+        error: lostServer,
+        step: 'engine'
+      }
+    ])
+
+    expect(drainedExits).toEqual([{code: 1, reportedFirst: true}])
+    expect(stdout).toEqual([])
+  })
+
+  it('ends the real process with code 1 when no exit is injected', async () => {
+    delete deps.exitDrained
+
+    const exit = vi
+      .spyOn(process, 'exit')
+      .mockImplementation((() => undefined) as never)
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+    stdout.length = 0
+
+    const onExitError = engineCalls[0][1].onExitError as (
+      error: unknown
+    ) => void
+
+    onExitError(lostServer)
+
+    // The exit waits for stdout to be written out, so it lands a turn later.
+    expect(exit).not.toHaveBeenCalled()
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1))
+    expect(exit).toHaveBeenCalledTimes(1)
+    expect(stdout).toEqual([])
+  })
+
+  it('still exits when the report throws', async () => {
+    deps.reportFailure = () => {
+      throw new Error('telemetry is down')
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(0)
+
+    const onExitError = engineCalls[0][1].onExitError as (
+      error: unknown
+    ) => void
+
+    expect(() => onExitError(lostServer)).not.toThrow()
+    expect(drainedExits.map(({code}) => code)).toEqual([1])
+  })
+
+  it('leaves the exit to the engine in pretty mode, which ends the process itself', async () => {
+    const reported = await endSession(['dev', '.'])
+
+    expect(reported).toEqual([
+      {
+        code: 'E_DEV_SERVER_START',
+        exitCode: 1,
+        error: lostServer,
+        step: 'engine'
+      }
+    ])
+
+    expect(drainedExits).toEqual([])
+    expect(process.exit).not.toHaveBeenCalled()
+  })
+})
+
 describe('extension dev --wait', () => {
   it.each([
     [['--wait'], {waitTimeout: undefined, waitFormat: 'pretty'}],
@@ -785,5 +975,90 @@ describe('extension dev tells telemetry which browsers it resolved', () => {
     expect(await run(['dev', PROJECT, '--output', 'xml'])).toBe(1)
     expect(notedBrowsers).toEqual([])
     expect(configReads).toEqual([])
+  })
+})
+
+// An unclassified failure says what kind of error it was and where it was
+// thrown, so the row tells a missing engine from an engine that threw.
+describe('extension dev tells telemetry where an unclassified failure came from', () => {
+  const reported: unknown[] = []
+
+  function runWith(overrides: Partial<DevDeps>, argv: string[]) {
+    return runCli(
+      makeProgram((program) =>
+        registerDevCommand(program, {
+          ...deps,
+          reportFailure: (details) => {
+            reported.push(details)
+          },
+          ...overrides
+        })
+      ),
+      argv
+    )
+  }
+
+  afterEach(() => {
+    reported.length = 0
+  })
+
+  it('names the engine when the engine rejects under --output json', async () => {
+    const thrown = new TypeError('engine broke')
+
+    engine = async () => {
+      throw thrown
+    }
+
+    expect(await runWith({}, ['dev', PROJECT, '--output', 'json'])).toBe(1)
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine'}
+    ])
+  })
+
+  it('names the engine for a failure the engine reports itself', async () => {
+    const thrown = new RangeError('engine broke')
+
+    engine = async (_path, options) => {
+      ;(options.onExitError as (error: unknown) => void)(thrown)
+    }
+
+    expect(await runWith({}, ['dev', PROJECT])).toBe(0)
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine'}
+    ])
+  })
+
+  it('names the engine load when the engine module cannot be loaded', async () => {
+    let loads = 0
+
+    const counting = async () => {
+      loads += 1
+
+      return deps.loadDevelop!()
+    }
+
+    expect(await runWith({loadDevelop: counting}, ['dev', PROJECT])).toBe(0)
+    const loadsBeforeTheEngine = loads
+    const thrown = Object.assign(new Error('Cannot find module'), {
+      code: 'MODULE_NOT_FOUND'
+    })
+
+    loads = 0
+    reported.length = 0
+
+    const failing = async () => {
+      loads += 1
+      if (loads === loadsBeforeTheEngine) throw thrown
+
+      return deps.loadDevelop!()
+    }
+
+    await expect(
+      runWith({loadDevelop: failing}, ['dev', PROJECT])
+    ).rejects.toBe(thrown)
+
+    expect(reported).toEqual([
+      {code: 'E_INTERNAL', exitCode: 1, error: thrown, step: 'engine_load'}
+    ])
   })
 })

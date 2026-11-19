@@ -2,11 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {
-  findNearestPackageJson,
-  findNearestPackageJsonSync,
-  validatePackageJson
-} from '../package-json'
+import {findNearestPackageJsonSync, validatePackageJson} from '../package-json'
 
 const makeTempFolder = trackTempFolders()
 
@@ -17,7 +13,7 @@ function makeTempDir(prefix: string) {
 afterEach(() => {})
 
 describe('find-nearest-package', () => {
-  it('findNearestPackageJson finds nearest package.json upward', async () => {
+  it('findNearestPackageJsonSync finds nearest package.json upward', () => {
     const root = makeTempDir('extjs-nearest-')
     const parent = path.join(root, 'a')
     const child = path.join(parent, 'b', 'c')
@@ -27,18 +23,17 @@ describe('find-nearest-package', () => {
     const manifestDir = path.join(child)
     fs.writeFileSync(path.join(manifestDir, 'manifest.json'), '{}')
 
-    const found = await findNearestPackageJson(
+    const found = findNearestPackageJsonSync(
       path.join(manifestDir, 'manifest.json')
     )
     expect(found).toBe(pkgPath)
   })
 
-  it('answers null for a path it cannot walk and prints no raw error', async () => {
+  it('answers null for a path it cannot walk and prints no raw error', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     try {
       expect(findNearestPackageJsonSync(undefined as never)).toBeNull()
-      expect(await findNearestPackageJson(undefined as never)).toBeNull()
       expect(warn).not.toHaveBeenCalled()
     } finally {
       warn.mockRestore()

@@ -33,7 +33,7 @@ export function rememberedFolders(
 
 // The file kinds the scan enrolls from scripts/; the watcher asks the same
 // question, so a data file dropped there never restarts a session.
-export const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
+const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
   '.js',
   '.mjs',
   '.jsx',
@@ -156,8 +156,10 @@ export type SpecialFoldersRoots = Partial<Record<SpecialFolderName, string>>
 // The absolute folder each entry kind is read from: the configured one, the
 // root default otherwise, and none for `false` or a folder spelled another
 // name (the scan reads a relocated folder under its own name only).
-export function foldersRoots(projectRoot: string): SpecialFoldersRoots {
-  const folders = rememberedFolders(projectRoot)
+export function foldersRoots(
+  projectRoot: string,
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot)
+): SpecialFoldersRoots {
   const roots: SpecialFoldersRoots = {}
 
   for (const name of ['pages', 'scripts'] as const) {

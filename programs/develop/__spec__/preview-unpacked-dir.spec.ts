@@ -1,8 +1,12 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, describe, expect, it} from 'vitest'
-import {explicitUnpackedDir, previewArchiveTarget} from '../command-preview'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import {
+  explicitUnpackedDir,
+  extensionPreview,
+  previewArchiveTarget
+} from '../command-preview'
 import {remoteArchiveCacheRoot} from '../lib/remote-archive'
 
 const created: string[] = []
@@ -23,10 +27,35 @@ function tree(layout: Record<string, string>) {
 }
 
 afterEach(() => {
+  vi.restoreAllMocks()
+
   for (const dir of created.splice(0)) {
     fs.rmSync(dir, {recursive: true, force: true})
   }
 })
+
+const MANIFEST = JSON.stringify({
+  manifest_version: 3,
+  name: 'named-folder',
+  version: '1.0.0'
+})
+
+// What a preview with no browser says about the folder it was pointed at.
+async function previewWarnings(target: string | undefined) {
+  vi.spyOn(console, 'log').mockImplementation(() => {})
+  vi.spyOn(process.stderr, 'write').mockImplementation(() => true)
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+  const result = await extensionPreview(target, {
+    browser: 'chrome',
+    noBrowser: true
+  } as never)
+
+  return {
+    returned: result?.warnings ?? [],
+    printed: warn.mock.calls.map((call) => String(call[0])).join('\n')
+  }
+}
 
 describe('explicitUnpackedDir', () => {
   it('treats a manifest folder under an ancestor project as the extension', () => {
@@ -78,5 +107,77 @@ describe('previewArchiveTarget', () => {
   it('leaves start on the current directory', () => {
     expect(previewArchiveTarget('start')).toBeUndefined()
     expect(previewArchiveTarget('start', 'unpacked/here')).toBeUndefined()
+  })
+})
+
+describe('a folder named on the command line that holds the manifest', () => {
+  it('is the build when the project above it does not depend on Extension.js', async () => {
+    const root = tree({
+      'package.json': '{"name":"repo","private":true}',
+      'dist/chrome/manifest.json': MANIFEST
+    })
+    const {returned, printed} = await previewWarnings(
+      path.join(root, 'dist', 'chrome')
+    )
+
+    expect(returned).toEqual([])
+    expect(printed).not.toContain('No production build found')
+  })
+
+  it('is the build when nothing above it is a project at all', async () => {
+    const root = tree({'unpacked/manifest.json': MANIFEST})
+    const {returned, printed} = await previewWarnings(
+      path.join(root, 'unpacked')
+    )
+
+    expect(returned).toEqual([])
+    expect(printed).not.toContain('No production build found')
+  })
+
+  it('still previews the build under it when there is one', async () => {
+    const root = tree({
+      'plain/manifest.json': MANIFEST,
+      'plain/dist/chrome/manifest.json': MANIFEST
+    })
+    const {returned} = await previewWarnings(path.join(root, 'plain'))
+    const ready = JSON.parse(
+      fs.readFileSync(
+        path.join(
+          root,
+          'plain',
+          'dist',
+          'extension-js',
+          'chrome',
+          'ready.json'
+        ),
+        'utf-8'
+      )
+    )
+
+    expect(returned).toEqual([])
+    expect(ready.distPath).toBe(path.join(root, 'plain', 'dist', 'chrome'))
+  })
+
+  it('keeps the warning for a project that has no build yet', async () => {
+    const root = tree({
+      'package.json': '{"name":"app","private":true}',
+      'manifest.json': MANIFEST
+    })
+    const {returned, printed} = await previewWarnings(root)
+
+    expect(returned).toHaveLength(1)
+    expect(printed).toContain(
+      `No production build found at ${path.join(root, 'dist', 'chrome')}`
+    )
+  })
+
+  it('keeps the warning for a src folder, which is source', async () => {
+    const root = tree({
+      'package.json': '{"name":"repo","private":true}',
+      'app/src/manifest.json': MANIFEST
+    })
+    const {returned} = await previewWarnings(path.join(root, 'app', 'src'))
+
+    expect(returned).toHaveLength(1)
   })
 })

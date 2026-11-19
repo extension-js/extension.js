@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
 import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
+import {isReloadSession} from '../lib/reload-session'
 import type {DevOptions, PluginInterface} from '../types'
 import {
   InjectBridgeProducer,
@@ -28,17 +29,14 @@ export {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
   createLoadedContentScripts,
-  formatReloadContextLabel,
   type ReloadInstruction,
   type ReloadType,
-  readContentScriptCount,
-  readContentScriptDigests,
-  readContentScriptFiles,
-  readWebAccessibleResources,
-  reloadForNewWebResources,
-  reloadForRenamedContentScripts,
-  reloadForRewrittenContentScripts
+  readContentScriptCount
 } from './classify-reload'
+export {
+  mergeReloadInstructions,
+  reloadSurvivingPackage
+} from './reload-after-package'
 export {
   type ChangedSourcesTracker,
   createChangedSourcesTracker,
@@ -48,17 +46,17 @@ export {
   type ReloadBroker
 } from './reload-dispatch'
 export {readBootRegistrations, readDevBuild}
-export {SetupChunkLoadingTarget} from './steps/setup-chunk-loading-target'
 
 /**
  * ReloadPlugin owns the dev-only reload/HMR strategy end to end:
  *
- * - build-time injection of the reload runtime (SetupReloadStrategy and the
- *   vendored webpack-target-webextension fork), the SW scripts-replay shim,
- *   and the control-bridge producer/relay instrumentation
- * - the reload classifier and dispatch seam consumed by plugin-browsers'
- *   BrowsersPlugin and the dev server's `--no-browser` broadcast path
- *   (re-exported above from classify-reload.ts / reload-dispatch.ts)
+ * - build-time injection of the reload runtime (SetupReloadStrategy, which
+ *   also applies plugin-web-extension's chunk loading target for a dev
+ *   session), the SW scripts-replay shim, and the control-bridge
+ *   producer/relay instrumentation
+ * - the reload classifier, what the browser last read, the trim and merge
+ *   a packaged browser needs, and the dispatch seam. plugin-browsers and the
+ *   dev server's `--no-browser` path call them (re-exported above)
  *
  * Registration order matters: this plugin must be applied AFTER
  * plugin-web-extension, SetupReloadStrategy decorates the background and
@@ -82,12 +80,9 @@ export class ReloadPlugin {
   }
 
   public apply(compiler: Compiler): void {
-    if (
-      compiler.options.mode === 'production' ||
-      // A shippable development build carries no reload client.
-      this.devSession === false ||
-      process.env.EXTENSION_NO_RELOAD === 'true'
-    ) {
+    // The web extension plugin reads the same answer, so the chunk loading
+    // target this pipeline installs is installed by exactly one of the two.
+    if (!isReloadSession(compiler.options.mode, this.devSession)) {
       return
     }
 

@@ -6,13 +6,6 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import * as path from 'node:path'
-
-export const CERTIFICATE_DESTINATION_PATH = path.join(
-  process.cwd(),
-  'node_modules/extension-develop/dist/certs'
-)
-
 export const CHROMIUM_BASED_BROWSERS = [
   'chrome',
   'edge',
@@ -40,7 +33,7 @@ export const CHROMIUM_FAMILY_ALIASES = [
 ]
 export const GECKO_FAMILY_ALIASES = ['firefox', 'gecko-based']
 
-export const EMULATOR_BROWSER = 'chromium-emulator'
+const EMULATOR_BROWSER = 'chromium-emulator'
 
 export function isEmulatorBrowser(browser: unknown): boolean {
   return browser === EMULATOR_BROWSER
@@ -59,27 +52,6 @@ export const SUPPORTED_PACKAGE_MANAGERS = [
   'yarn',
   'bun',
   'deno'
-] as const
-
-// The runtimes the CLI itself executes on, which is a different question from
-// the package manager that installs it. Each one is judged on its own version,
-// because the Node version Bun and Deno report is emulated and tracks nothing.
-export const SUPPORTED_RUNTIMES = ['node', 'deno', 'bun'] as const
-
-export const SUPPORTED_UI_FRAMEWORKS = [
-  'react',
-  'preact',
-  'vue',
-  'svelte'
-] as const
-
-export const SUPPORTED_CSS_TECH = [
-  'css',
-  'css-modules',
-  'sass',
-  'less',
-  'postcss',
-  'tailwind'
 ] as const
 
 // Single source of truth for engine-family classification; forks inherit their

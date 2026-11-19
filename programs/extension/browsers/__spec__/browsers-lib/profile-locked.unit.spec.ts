@@ -1,4 +1,5 @@
 import {type ChildProcess, spawn} from 'node:child_process'
+import {once} from 'node:events'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
@@ -175,17 +176,21 @@ describe('profile lock detection', () => {
 
     it.skipIf(process.platform === 'win32')(
       'refuses when the live process is a browser running on the profile',
-      () => {
+      async () => {
+        // A stand-in the process table names as a Chromium binary. `--` keeps
+        // the flag an argument of the script, or node refuses it and exits.
         bystander = spawn(
           process.execPath,
           [
             '-e',
             'setTimeout(() => {}, 30000)',
-            'chromium',
+            '--',
             `--user-data-dir=${profile}`
           ],
-          {stdio: 'ignore'}
+          {stdio: 'ignore', argv0: 'chromium'}
         )
+
+        await once(bystander, 'spawn')
 
         lockTo(bystander.pid as number)
 
@@ -236,41 +241,50 @@ describe('profile lock detection', () => {
         'utf8'
       )
 
-    // Pins today's behavior. Ledger 1374 D4.
-    it('refuses when the browser runs on a sibling folder whose name starts with the profile', () => {
+    it('clears the lock when the browser runs on a sibling folder whose name starts with the profile', () => {
       lockToThisProcess()
 
-      let caught: unknown
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: browserOn(`${profile}-copy`)
+      })
 
-      try {
-        prepareChromiumProfileForLaunch(profile, {
-          readCommand: browserOn(`${profile}-copy`)
-        })
-      } catch (error) {
-        caught = error
-      }
-
-      expect(isProfileLockedError(caught)).toBe(true)
-      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(true)
+      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(false)
     })
 
-    // Pins today's behavior. Ledger 1374 D4.
-    it('refuses for any program whose command line carries a browser family word', () => {
+    it('still refuses for a browser on the profile written with a trailing separator', () => {
       lockToThisProcess()
 
-      let caught: unknown
-
-      try {
+      expect(() =>
         prepareChromiumProfileForLaunch(profile, {
-          readCommand: () => '/usr/local/bin/node /srv/opera-tickets/server.js'
+          readCommand: browserOn(`${profile}${path.sep}`)
         })
-      } catch (error) {
-        caught = error
-      }
-
-      expect(isProfileLockedError(caught)).toBe(true)
-      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(true)
+      ).toThrow(/already in use by process/)
     })
+
+    it('clears the lock for a program that only carries a browser family word in its arguments', () => {
+      lockToThisProcess()
+
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: () => '/usr/local/bin/node /srv/opera-tickets/server.js'
+      })
+
+      expect(fs.existsSync(path.join(profile, 'SingletonLock'))).toBe(false)
+    })
+  })
+
+  it('still refuses for a program of any name that was started on this data dir', () => {
+    fs.writeFileSync(
+      path.join(profile, 'SingletonLock'),
+      `${os.hostname()}-${process.pid}`,
+      'utf8'
+    )
+
+    expect(() =>
+      prepareChromiumProfileForLaunch(profile, {
+        readCommand: () =>
+          `/opt/builds/1234/headless_shell --user-data-dir=${profile} --no-sandbox`
+      })
+    ).toThrow(/already in use by process/)
   })
 
   describe('an owner the system will not let this user signal', () => {

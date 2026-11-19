@@ -13,6 +13,7 @@ import {findNearestProjectManifestSync} from '../../../lib/project-manifest'
 import {canonicalizeDir, isResourceUnderDirs} from '../../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../../lib/resource-query'
 import type {PluginInterface} from '../../../types'
+import {addRulesInFront} from '../scripts-lib/front-rules'
 
 // Keep `import(chrome.runtime.getURL(...))` native: the argument is a runtime
 // chrome-extension:// URL the bundler's module map can never satisfy.
@@ -34,20 +35,24 @@ export class KeepGetURLImportsNative {
         ? [manifestDir]
         : [manifestDir, packageJsonDir]
 
-    compiler.options.module.rules.push({
-      test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-      include: [
-        (resource: string) => isResourceUnderDirs(resource, includeDirs)
-      ],
-      exclude: [/([\\/])node_modules\1/],
-      resourceQuery: NOT_RAW_RESOURCE_QUERY,
-      use: [
-        {
-          loader: resolveDevelopDistFile(
-            'feature-scripts-native-geturl-import-loader'
-          )
-        }
-      ]
-    })
+    // In front of the rules extension.config.js added, whose loaders run
+    // first and so read the file as it is written.
+    addRulesInFront(compiler, 'scripts:keep-geturl-imports-native', [
+      {
+        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+        include: [
+          (resource: string) => isResourceUnderDirs(resource, includeDirs)
+        ],
+        exclude: [/([\\/])node_modules\1/],
+        resourceQuery: NOT_RAW_RESOURCE_QUERY,
+        use: [
+          {
+            loader: resolveDevelopDistFile(
+              'feature-scripts-native-geturl-import-loader'
+            )
+          }
+        ]
+      }
+    ])
   }
 }

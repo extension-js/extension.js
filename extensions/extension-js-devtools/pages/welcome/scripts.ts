@@ -6,11 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-// Plain DOM on purpose: the page is one small screen, and a UI framework
-// would ship innerHTML code that the AMO store check flags in Firefox builds.
+import {getDevExtension} from '@/background/define-initial-tab'
+import {sessionBrowser} from '@/background/session-flags'
 import logo from '@/images/logo.png'
 import {applyTheme} from '@/lib/utils'
-import {getDevExtension} from '@/background/define-initial-tab'
 
 import '@/styles.css'
 
@@ -21,16 +20,15 @@ applyTheme('dark')
 type ExtensionInfo = chrome.management.ExtensionInfo
 
 const isFirefox =
-  String(
-    // @ts-ignore
-    import.meta.env.EXTENSION_BROWSER || 'chromium'
-  ).toLowerCase() === 'firefox'
+  String(sessionBrowser() || 'chromium').toLowerCase() === 'firefox'
 
 const DEFAULT_NAME = 'My Extension'
 const DEFAULT_DESCRIPTION =
   'Extension.js makes cross‑browser extension development simple.'
 const SITE_URL = 'https://extension.js.org/'
 
+// Plain DOM on purpose: the page is one small screen, and a UI framework
+// would ship innerHTML code that the AMO store check flags in Firefox builds.
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   className?: string,
@@ -39,6 +37,7 @@ function el<K extends keyof HTMLElementTagNameMap>(
   const node = document.createElement(tag)
   if (className) node.className = className
   if (text !== undefined) node.textContent = text
+
   return node
 }
 
@@ -47,6 +46,7 @@ function externalLink(className: string): HTMLAnchorElement {
   link.href = SITE_URL
   link.target = '_blank'
   link.rel = 'noopener noreferrer'
+
   return link
 }
 
@@ -69,6 +69,7 @@ async function findExtension(): Promise<ExtensionInfo> {
 
 function largestIconUrl(extension: ExtensionInfo): string | undefined {
   if (!extension.icons || !extension.icons.length) return undefined
+
   return [...extension.icons].sort((a, b) => (b.size || 0) - (a.size || 0))[0]
     ?.url
 }
@@ -112,11 +113,13 @@ function renderFooter(): HTMLElement {
   const learnMore = externalLink(
     'text-muted-foreground text-sm underline underline-offset-4 hover:opacity-90'
   )
-  learnMore.textContent = 'Learn more about developing cross-browser extensions.'
+  learnMore.textContent =
+    'Learn more about developing cross-browser extensions.'
 
   row.append(logoLink, learnMore)
   pill.append(row)
   footer.append(pill)
+
   return footer
 }
 
@@ -133,9 +136,11 @@ function renderWelcome(root: HTMLElement) {
   let iconFailed = false
   icon.addEventListener('error', () => {
     if (iconFailed) return
+
     iconFailed = true
     icon.src = logo
   })
+
   header.append(icon)
 
   const title = el(
@@ -165,6 +170,7 @@ function renderWelcome(root: HTMLElement) {
         `• ID: ${extension.id}`,
         `• Version: ${extension.version}`
       ].join('\n')
+
       description.textContent = extension.description || DEFAULT_DESCRIPTION
       icon.alt = `${extension.name || 'User extension'} icon`
 
@@ -174,6 +180,7 @@ function renderWelcome(root: HTMLElement) {
       if (isFirefox && !userIconUrl.startsWith('data:')) {
         const dataUrl = await resolveIconInBackground(userIconUrl)
         if (dataUrl && !iconFailed) icon.src = dataUrl
+
         return
       }
 

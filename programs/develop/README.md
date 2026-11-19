@@ -25,41 +25,39 @@ pnpm add extension-develop
 
 ```ts
 import {
-  extensionDev,
   extensionBuild,
-  extensionStart,
-  extensionPreview,
-  type DevOptions,
   type BuildOptions,
-  type StartOptions,
-  type PreviewOptions
+  type BuildSummary
 } from 'extension-develop'
+import {
+  extensionPreview,
+  type PreviewLauncherFn,
+  type PreviewOptions
+} from 'extension-develop/preview'
 
-async function run() {
-  // Development server
-  await extensionDev(undefined, {
-    browser: 'chrome',
-    open: true
-  } satisfies DevOptions)
+// Production build of the project in the current folder, with a zip
+const summary: BuildSummary = await extensionBuild(undefined, {
+  browser: 'chrome',
+  zip: true
+} satisfies BuildOptions)
 
-  // Production build + zip
-  await extensionBuild(undefined, {
-    browser: 'firefox',
-    zip: true
-  } satisfies BuildOptions)
+console.log(summary.errors_count)
 
-  // Build then preview from dist/<browser>
-  await extensionStart(undefined, {browser: 'edge'} satisfies StartOptions)
-
-  // Preview using an existing output folder or project path
-  await extensionPreview(undefined, {
-    browser: 'chrome',
-    mode: 'production'
-  } satisfies PreviewOptions)
+// This package starts no browser. The caller passes the launcher, which
+// receives the built folder and every unpacked extension to load.
+const launcher: PreviewLauncherFn = async ({browser, extensionsToLoad}) => {
+  console.log(`Start ${browser} with`, extensionsToLoad)
 }
 
-run()
+// Runs the build in dist/chrome with no dev server
+await extensionPreview(
+  undefined,
+  {browser: 'chrome', mode: 'production'} satisfies PreviewOptions,
+  launcher
+)
 ```
+
+The `extension-develop/manifest` entry is deprecated and is removed in the next minor.
 
 ## Features
 
@@ -70,7 +68,7 @@ run()
 - Zipping: distribution and/or source packages (respects `.gitignore`)
 - Auto-install of missing build + optional dependencies on first run
 - Type generation for TS projects via `extension-env.d.ts`
-- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and webpack config hooks
+- User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and the bundler config hooks (`config`, `configResolved`)
 - Managed dependency guard to avoid conflicts
 
 ## Commands
@@ -85,73 +83,102 @@ run()
 
 ## Command options
 
-Options accepted by each command. Values shown are typical types or enumerations; see the tables for specifics.
+Each table lists fields of the exported option types `DevOptions`, `BuildOptions`, `StartOptions` and `PreviewOptions`, under the commands whose type has them. Every field is optional except `browser` and, for `start`, `mode`.
 
-### Common (browser/runtime)
+`extensionDev` and `extensionPreview` start a browser only through a launcher the caller passes. This package exports no `extensionStart`. `StartOptions` types the `start` command the CLI runs as `extensionBuild` followed by `extensionPreview`.
 
-| Option         | Type / Values                                      | Description                                                     |
-| -------------- | -------------------------------------------------- | --------------------------------------------------------------- |
-| browser        | chrome, edge, firefox, safari, chromium-based, gecko-based | Target browser/runtime                                  |
-| profile        | string or false                                    | Profile path or disable profile persistence                     |
-| startingUrl    | string                                             | Initial URL to open                                             |
-| open           | boolean                                            | Focus/open the browser window (CLI: use `--no-open` to disable) |
-| --no-browser   | boolean                                            | Skip launching the browser                                      |
-| chromiumBinary | string                                             | Custom Chromium-based executable path                           |
-| geckoBinary    | string                                             | Custom Gecko-based executable path                              |
+### dev, build, start and preview
+
+| Option           | Type / Values                                                                                                                                                                         | Description                                                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `browser`        | chrome, edge, firefox, safari, chromium, brave, opera, vivaldi, yandex, waterfox, librewolf, zen, floorp, chromium-based, gecko-based, firefox-based, webkit-based, chromium-emulator | Target browser                                                                                                                |
+| `mode`           | development, production, none                                                                                                                                                         | Bundler mode. `dev` always runs `development`, `start` and `preview` take `production` only, `build` defaults to `production` |
+| `chromiumBinary` | string                                                                                                                                                                                | Path of a Chromium-based executable to run                                                                                    |
+| `geckoBinary`    | string                                                                                                                                                                                | Path of a Gecko-based executable to run                                                                                       |
+| `firefoxBinary`  | string                                                                                                                                                                                | Same as `geckoBinary`, which wins when both are set                                                                           |
+| `extensions`     | string[] or `{dir, paths}`                                                                                                                                                            | Companion extensions for this command, see "Companion extensions" below                                                       |
+
+### dev, start and preview
+
+| Option               | Type / Values                                                                                      | Description                                                                                                                            |
+| -------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `noOpen`             | boolean                                                                                            | Start the browser without opening a tab for the extension                                                                              |
+| `noBrowser`          | boolean                                                                                            | Start no browser at all                                                                                                                |
+| `profile`            | string or false                                                                                    | Profile folder to use. `false` asks for the browser's own default profile. Defaults to a fresh managed profile                         |
+| `persistProfile`     | boolean                                                                                            | Reuse one managed profile across runs, off by default                                                                                  |
+| `keepProfileChanges` | boolean                                                                                            | Keep the managed profile and what the run changed in it                                                                                |
+| `copyFromProfile`    | string                                                                                             | Seed the managed profile from a copy of this profile folder, on first creation                                                         |
+| `startingUrl`        | string                                                                                             | Page to open when the browser starts                                                                                                   |
+| `port`               | number or string                                                                                   | `dev`: the dev server port, 8080 by default. `start` and `preview`: handed to the launcher, which seeds the browser debug port from it |
+| `host`               | string                                                                                             | Address to bind, 127.0.0.1 by default. `dev` binds the dev server, `start` and `preview` bind the control channel                      |
+| `publicHost`         | string                                                                                             | `dev`: the address the browser dials when it differs from `host`. Accepted and unused by `start` and `preview`                         |
+| `logLevel`           | off, error, warn, info, debug, trace, all                                                          | Lowest level of browser log printed in the terminal, `off` by default                                                                  |
+| `logContexts`        | array of: background, content, page, popup, options, sidebar, devtools, newtab, history, bookmarks | Contexts whose logs print. Leave unset for all of them                                                                                 |
+| `logFormat`          | pretty, json, ndjson                                                                               | Output format of the printed logs, `pretty` by default                                                                                 |
+| `logTimestamps`      | boolean                                                                                            | Timestamps in `pretty` output, on by default                                                                                           |
+| `logColor`           | boolean                                                                                            | Colors in `pretty` output, on by default                                                                                               |
+| `logUrl`             | string                                                                                             | Print only logs whose URL holds this text or matches this `/regex/flags` literal                                                       |
+| `logTab`             | number or string                                                                                   | Print only logs from this tab id                                                                                                       |
+| `preferences`        | object                                                                                             | Browser preferences to set in the profile                                                                                              |
+| `browserFlags`       | string[]                                                                                           | Extra flags for the browser command line                                                                                               |
+| `excludeBrowserFlags` | string[]                                                                                           | Default flags to leave off the browser command line                                                                                    |
+
+### dev and build
+
+| Option            | Type / Values | Description                                                                                                                                                                   |
+| ----------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `polyfill`        | boolean       | Bundle `webextension-polyfill` on a Chromium target, off by default                                                                                                           |
+| `safariBinary`    | string        | Path of a Safari or WebKit-based app to run                                                                                                                                   |
+| `appName`         | string        | Safari app name, the manifest name by default                                                                                                                                 |
+| `bundleId`        | string        | Safari bundle identifier                                                                                                                                                      |
+| `developmentTeam` | string        | Apple development team that signs the Safari app                                                                                                                              |
+| `macOsOnly`       | boolean       | Generate the macOS-only Xcode project, on by default                                                                                                                          |
+| `appIcon`         | string        | Square 1024 px PNG the Safari app icon set is made from, relative to the project                                                                                              |
+| `forceRegenerate` | boolean       | Regenerate the Xcode project even when it is current                                                                                                                          |
+| `safariPackager`  | function      | The callback that packages the Safari app. Without it no Safari app is produced                                                                                               |
+| `zip`             | boolean       | `build`: package `dist/<browser>` as an archive. Accepted and unused by `dev`, which writes no archive                                                                        |
+| `zipSource`       | boolean       | `build`: package the source files, respecting `.gitignore`. Unused by `dev`                                                                                                   |
+| `zipFilename`     | string        | `build`: base name of the archives. Unused by `dev`                                                                                                                           |
+| `zipDir`          | string        | `build`: folder for the archives, relative to the project or absolute. Unused by `dev`                                                                                        |
+| `sourceMaps`      | boolean       | `build`: write a `.map` file beside each script and stylesheet of a production build, never zipped. Unused by `dev`, which always writes maps                                 |
+| `exitOnError`     | boolean       | `dev`: exit the process with code 1 on a failed session, off by default for a library. Deprecated and ignored by `build`: a failed build rejects and the caller owns the exit |
 
 ### dev
 
-| Option              | Type / Values                       | Description                                                                       |
-| ------------------- | ----------------------------------- | --------------------------------------------------------------------------------- |
-| mode                | development, production, none       | Build mode                                                                        |
-| polyfill            | boolean                             | Bundle `webextension-polyfill` on a Chromium target, off by default               |
-| port                | number or string                    | Dev server port                                                                   |
-| source              | string                              | Inspect a source directory                                                        |
-| watchSource         | boolean                             | Watch the source directory                                                        |
-| sourceFormat        | pretty,json,ndjson                  | Output format for source HTML                                                     |
-| sourceSummary       | boolean                             | Output a compact summary instead of full HTML                                     |
-| sourceMeta          | boolean                             | Output page metadata (readyState, viewport, frames)                               |
-| sourceProbe         | string[]                            | CSS selectors to probe for quick validation                                       |
-| sourceTree          | off,root-only                       | Output a compact extension root tree                                              |
-| sourceConsole       | boolean                             | Output console summary (best-effort)                                              |
-| sourceDom           | boolean                             | Output DOM snapshots and diffs                                                    |
-| sourceMaxBytes      | number                              | Limit HTML output size in bytes (0 disables truncation)                           |
-| sourceRedact        | off,safe,strict                     | Redact sensitive content in HTML output                                           |
-| sourceIncludeShadow | off,open-only,all                   | Control Shadow DOM inclusion                                                      |
-| sourceDiff          | boolean                             | Include diff metadata on watch updates                                            |
-| logs                | off,error,warn,info,debug,trace,all | Unified logger verbosity (all shows everything)                                   |
-| logContext          | list or `all`                       | Comma-separated contexts (background,content,page,sidebar,popup,options,devtools) |
-| logFormat           | pretty,json,ndjson                  | Pretty text or JSON/NDJSON output                                                 |
-| logTimestamps       | boolean                             | Include timestamps in pretty output                                               |
-| logColor            | boolean                             | Colorize pretty output                                                            |
-| logUrl              | string or /regex/flags              | Filter by URL substring or JS-style regex literal                                 |
-| logTab              | number                              | Filter by tabId                                                                   |
+| Option                | Type / Values      | Description                                                                                                              |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `allowedHosts`        | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain                                            |
+| `hashContentScripts`  | boolean            | Put a content hash in each content script file name, on by default                                                       |
+| `allowControl`        | boolean            | Open the control channel for the act verbs                                                                               |
+| `allowEval`           | boolean            | Also allow the `eval` verb. Implies `allowControl`                                                                       |
+| `hintFor`             | function           | The hint for a terminal `failed` or `usage` frame that carries none. Called with the code, returns a string or undefined |
+
+A host that learns a session cannot go on calls `endSessionAsFailed(code, message, instanceId?)`, exported beside `extensionDev`. It ends the named session, or the newest one, with one `failed` frame and answers `false` when that session is not live or is already stopping. A host that did not pass `exitOnError` keeps running.
 
 ### build
 
-| Option      | Type / Values | Description                                                    |
-| ----------- | ------------- | -------------------------------------------------------------- |
-| zip         | boolean       | Package `dist/<browser>` as an artifact (e.g., `.zip`, `.xpi`) |
-| zipSource   | boolean       | Package source files (respects `.gitignore`)                   |
-| zipFilename | string        | Custom base name for artifacts                                 |
-| zipDir      | string        | Folder for the artifacts, relative to the project or absolute  |
-| sourceMaps  | boolean       | Write source maps beside a production build, never zipped      |
-| polyfill    | boolean       | Bundle `webextension-polyfill` on Chromium, off by default     |
-| silent      | boolean       | Suppress non-error logs                                        |
+| Option          | Type / Values | Description                                                                                                            |
+| --------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `outDir`        | string        | Base folder of the output, relative to the project. The build writes `<outDir>/<browser>`, `dist/<browser>` by default |
+| `silent`        | boolean       | Print nothing on stdout. A failure still prints                                                                        |
+| `addonLint`     | boolean       | Run `addons-linter` over a production build for a Gecko target, on by default when it is installed                     |
+| `minify`        | boolean       | Minify first-party code in a production build. On by default, off for `opera`                                          |
+| `failOnWarning` | boolean       | Deprecated. Nothing reads it, a build never fails on a warning                                                         |
 
 ### start
 
-| Option   | Type / Values | Description                                   |
-| -------- | ------------- | --------------------------------------------- |
-| mode     | `production`  | Build mode                                    |
-| polyfill | boolean       | Bundle `webextension-polyfill`, default off   |
+| Option     | Type / Values | Description                                                         |
+| ---------- | ------------- | ------------------------------------------------------------------- |
+| `polyfill` | boolean       | Bundle `webextension-polyfill` on a Chromium target, off by default |
 
 ### preview
 
-| Option     | Type / Values | Description                                                         |
-| ---------- | ------------- | ------------------------------------------------------------------- |
-| mode       | `production`  | Build mode                                                          |
-| outputPath | string        | Directory to run from (defaults to `dist/<browser>` when available) |
+| Option         | Type / Values | Description                                                      |
+| -------------- | ------------- | ---------------------------------------------------------------- |
+| `outputPath`   | string        | Folder to run from, `dist/<browser>` by default                  |
+| `allowControl` | boolean       | Open the control channel for the act verbs on the production run |
+| `allowEval`    | boolean       | Also allow the `eval` verb. Implies `allowControl`               |
+| `dryRun`       | boolean       | Handed to the launcher, which then starts no browser             |
 
 ## Project detection and inputs
 
@@ -229,12 +256,14 @@ export default {
 - `extension.config.*` runs in a Node context during command startup.
   - Use `process.env.*` to read environment variables inside the config file.
   - `import.meta.env.*` is available in your extension code at bundle time (via the Env plugin), not in the Node config.
-- During config loading, develop preloads environment files from the project directory into `process.env` using the following order (first match wins):
-  1. `.env.defaults` (always merged first when present)
-  2. `.env.development`
-  3. `.env.local`
-  4. `.env`
-- In monorepos, if none of the files above exist in the project directory, develop falls back to the nearest workspace root (directory containing `pnpm-workspace.yaml`) and applies the same loading order there.
+- Before the config runs, develop loads the env files that match the running mode and browser into `process.env`. Values layer key by key: every matching file is read, and for each key the strongest file that sets it wins. A value already set in the shell or CI wins over every file. Strongest first:
+  1. `.env.<browser>.<mode>`, then `.env.<browser>`, for the browser and then for each name of its family (for example `.env.chrome.production`, `.env.chrome`, `.env.chromium`). These apply once the browser is known.
+  2. `.env.<mode>.local`
+  3. `.env.<mode>` (`development` for `dev`, `production` otherwise)
+  4. `.env.local`
+  5. `.env`
+  6. `.env.defaults` (weakest, it only fills keys no other file sets)
+- In a monorepo, a package with none of the files 1 to 5 reads them from the nearest workspace root instead (the directory containing `pnpm-workspace.yaml`), even when the package has its own `.env.defaults`. The root's `.env.defaults` is then the weakest layer, the package's `.env.defaults` comes above it, and the root's other env files come above both. A package with any of the files 1 to 5 reads only its own folder.
 - Only variables you read explicitly in the config are used there; client-side injection still requires the `EXTENSION_PUBLIC_*` prefix.
 - Example:
 
@@ -302,11 +331,17 @@ dist/
 | Name                 | Group | Summary                                                                                                                                                                                                         |
 | -------------------- | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | plugin-web-extension | core  | - Core builder: emits pages and scripts<br/>- Validates and rewrites `manifest.json`<br/>- Ships icons, JSON, locales, and web resources<br/>- Ensures dev parity between local and shipped output              |
-| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist<br/>- Integrates Stylelint when configured                                                                    |
+| plugin-css           | core  | - Auto‑wires CSS for HTML and content scripts<br/>- Optional SASS/LESS/PostCSS when configs exist                                                                    |
 | plugin-js-frameworks | core  | - Detects React/Preact/Vue/Svelte and TypeScript<br/>- Configures SWC parsing, loaders/plugins, and safe aliases<br/>- Sets `tsconfig` resolution<br/>- Defers heavy work to `beforeRun` in production          |
-| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines small SVGs (≤2KB), emits larger ones<br/>- Content hashing in production; stable names in development<br/>- Respects existing custom SVG rules |
+| plugin-static-assets | core  | - Emits images, fonts, and misc files to `assets/`<br/>- Inlines files up to 2 KB, emits larger ones<br/>- Content-hashed names in development and production<br/>- Steps aside for user asset rules<br/>- Appends `.wasm` to the resolve extensions |
 | plugin-compatibility | core  | - Cross‑browser helpers<br/>- Normalizes browser‑specific manifest fields<br/>- Optional `webextension-polyfill` for Chromium (skipped for Firefox/Safari)                                                      |
 | plugin-compilation   | core  | - Loads env and templating (`EXTENSION_PUBLIC_*`)<br/>- Optional `dist/<browser>` cleaning<br/>- Compact, de‑duplicated compilation summary                                                                     |
+| plugin-special-folders | core | - Copies `public/` to the output root<br/>- Builds the pages in `pages/` and the scripts in `scripts/`<br/>- Resolves companion extensions from `extensions/`<br/>- Applies the `include` and `exclude` lists |
+| plugin-wasm          | core  | - Enables async WebAssembly<br/>- Resolves `.wasm` imports<br/>- Aliases runtime wasm assets |
+| plugin-perf-budgets  | core  | - Size budgets per extension surface<br/>- Replaces the bundler's single size threshold |
+| plugin-reload        | dev   | - Reload and HMR strategy of `extension dev`<br/>- Injects the dev reload runtime<br/>- Classifies each change and dispatches the reload<br/>- Does nothing outside a dev session |
+| plugin-playwright    | dev   | - Writes the session contract (`ready.json`, `events.ndjson`) under `dist/extension-js/<browser>`<br/>- Read by `--wait`, `logs` and automation |
+| plugin-browsers      | dev   | - Launches the target browser with the built extension loaded<br/>- Passed in by the CLI, absent under `--no-browser` |
 
 ## Notes and compatibility
 

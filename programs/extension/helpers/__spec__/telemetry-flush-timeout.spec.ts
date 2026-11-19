@@ -106,7 +106,7 @@ describe('the flush outlives a cold round trip', () => {
     expect(attempt).toEqual({aborted: true, settled: 'aborted'})
   })
 
-  it('aborts every send at once when the timeout knob is not a number', async () => {
+  it('keeps the default bound when the timeout knob is not a number', async () => {
     vi.useFakeTimers()
     const attempt: Attempt = {aborted: false, settled: null}
     const box = sandbox({
@@ -115,11 +115,10 @@ describe('the flush outlives a cold round trip', () => {
     })
     const flushed = trackCreate(box).flush()
 
-    await vi.advanceTimersByTimeAsync(1)
+    await vi.advanceTimersByTimeAsync(COLD_ROUND_TRIP_MS)
     await flushed
 
-    // Pins today's behavior. Ledger 1372 D32.
-    expect(attempt).toEqual({aborted: true, settled: 'aborted'})
+    expect(attempt).toEqual({aborted: false, settled: 'ok'})
   })
 })
 

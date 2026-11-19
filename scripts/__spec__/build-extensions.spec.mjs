@@ -12,8 +12,8 @@ import {
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import path from 'node:path'
-import {fileURLToPath} from 'node:url'
 import test from 'node:test'
+import {fileURLToPath} from 'node:url'
 
 const realScript = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -29,14 +29,44 @@ const TARGETS = [
   'build:edge'
 ]
 
+// The devtools companion pins its permissions and IDs in src/manifest.json,
+// and the fake build copies the fields each engine resolves from it.
+const PINNED_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtest'
+const PINNED_SOURCE = {
+  name: 'Extension.js',
+  'chromium:key': PINNED_KEY,
+  'chromium:permissions': ['management', 'tabs', 'storage'],
+  'firefox:permissions': ['management', 'tabs', 'storage'],
+  'firefox:browser_specific_settings': {gecko: {id: 'devtools@extension.js'}}
+}
+const PINNED_BUILT = {
+  chromium: {permissions: ['management', 'tabs', 'storage'], key: PINNED_KEY},
+  firefox: {
+    permissions: ['management', 'tabs', 'storage'],
+    browser_specific_settings: {gecko: {id: 'devtools@extension.js'}}
+  }
+}
+
 const fakeBuilder = [
   "const fs = require('node:fs')",
   "const path = require('node:path')",
-  "const dir = path.join(__dirname, 'dist', process.argv[2])",
+  'const engine = process.argv[2]',
+  "const family = engine === 'firefox' ? 'firefox' : 'chromium'",
+  "const fieldsPath = path.join(__dirname, 'built-fields.json')",
+  'const fields = fs.existsSync(fieldsPath) ? JSON.parse(fs.readFileSync(fieldsPath, "utf8"))[family] : {}',
+  "const dir = path.join(__dirname, 'dist', engine)",
   'fs.mkdirSync(dir, {recursive: true})',
-  "fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({name: 'fresh-' + process.argv[2], version: '1.0.0'}))",
+  "fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({name: 'fresh-' + engine, version: '1.0.0', ...fields}))",
   ''
 ].join('\n')
+
+function freshManifest(name, engine) {
+  const family = engine === 'firefox' ? 'firefox' : 'chromium'
+  const fields =
+    name === 'extension-js-devtools' ? PINNED_BUILT[family] : undefined
+
+  return {name: `fresh-${engine}`, version: '1.0.0', ...fields}
+}
 
 function scaffold() {
   const root = mkdtempSync(path.join(tmpdir(), 'extjs-build-extensions-'))
@@ -55,6 +85,19 @@ function scaffold() {
     const pkgRoot = path.join(root, 'extensions', name)
     mkdirSync(pkgRoot, {recursive: true})
     writeFileSync(path.join(pkgRoot, 'build.cjs'), fakeBuilder)
+
+    if (name === 'extension-js-devtools') {
+      mkdirSync(path.join(pkgRoot, 'src'), {recursive: true})
+      writeFileSync(
+        path.join(pkgRoot, 'src', 'manifest.json'),
+        JSON.stringify(PINNED_SOURCE)
+      )
+
+      writeFileSync(
+        path.join(pkgRoot, 'built-fields.json'),
+        JSON.stringify(PINNED_BUILT)
+      )
+    }
 
     for (const engine of ENGINES) {
       mkdirSync(path.join(pkgRoot, 'dist', engine), {recursive: true})
@@ -164,7 +207,7 @@ test('a successful rebuild mirrors the fresh bytes with a stamp for the current 
           JSON.parse(
             readFileSync(mirroredManifest(root, name, engine), 'utf8')
           ),
-          {name: `fresh-${engine}`, version: '1.0.0'}
+          freshManifest(name, engine)
         )
       }
 
@@ -219,7 +262,64 @@ test('a mirrored copy built against another pipeline fails verification instead 
           'utf8'
         )
       ),
-      {name: 'fresh-firefox', version: '1.0.0'}
+      freshManifest('extension-js-devtools', 'firefox')
+    )
+  } finally {
+    rmSync(root, {recursive: true, force: true})
+  }
+})
+
+test('a devtools build that widens its permissions or drops its key is refused and not mirrored', () => {
+  const root = scaffold()
+
+  try {
+    setBuildScripts(root, 'pass')
+    writeFileSync(
+      path.join(
+        root,
+        'extensions',
+        'extension-js-devtools',
+        'built-fields.json'
+      ),
+      JSON.stringify({
+        chromium: {permissions: ['management', 'tabs', 'storage', 'scripting']},
+        firefox: {permissions: ['management', 'tabs', 'storage']}
+      })
+    )
+
+    const result = runScript(root)
+
+    assert.notEqual(result.status, 0)
+    assert.match(
+      result.stderr,
+      /extension-js-devtools build changed its pinned manifest: chromium permissions are \[management, scripting, storage, tabs\], the source manifest has \[management, storage, tabs\]\./
+    )
+
+    assert.match(
+      result.stderr,
+      /edge lost the key that pins its extension ID\./
+    )
+
+    assert.match(
+      result.stderr,
+      /firefox lost the add-on ID devtools@extension\.js\./
+    )
+
+    assert.equal(
+      existsSync(
+        path.join(root, 'programs', 'develop', 'dist', 'extension-js-devtools')
+      ),
+      false
+    )
+
+    assert.deepEqual(
+      JSON.parse(
+        readFileSync(
+          mirroredManifest(root, 'extension-js-theme', 'chrome'),
+          'utf8'
+        )
+      ),
+      freshManifest('extension-js-theme', 'chrome')
     )
   } finally {
     rmSync(root, {recursive: true, force: true})
