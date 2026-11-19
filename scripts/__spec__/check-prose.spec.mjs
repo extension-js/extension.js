@@ -12,7 +12,7 @@ const script = path.resolve(
   'check-prose.mjs'
 )
 
-const DASH = '—'
+const DASH = String.fromCharCode(0x2014)
 // Built from parts so this spec does not match the pattern it tests.
 const TRACKER = ['BUGS', 'TO', 'FIX'].join('_')
 
