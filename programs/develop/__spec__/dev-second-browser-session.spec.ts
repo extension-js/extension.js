@@ -9,7 +9,6 @@ import {getProjectStructure} from '../lib/project'
 import {controlPortFilePath} from '../lib/session-paths'
 import webpackConfig from '../rspack-config'
 import {devWatchOptions} from './helpers/dev-watch-options'
-import {closeWatching} from './helpers/dev-watch-session'
 
 const roots: string[] = []
 const sessions: Array<{close: () => Promise<void>}> = []
@@ -113,7 +112,10 @@ async function watchSession(root: string, browser: 'chromium' | 'firefox') {
     dones,
     changed,
     settle,
-    close: () => closeWatching(watching)
+    close: () =>
+      new Promise<void>((resolve) => {
+        watching.close(() => resolve())
+      })
   }
   sessions.push(session)
 

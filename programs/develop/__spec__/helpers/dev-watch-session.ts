@@ -130,32 +130,11 @@ export async function openDevWatchSession(
     doneAfter,
     settle,
     quietFor,
-    close: () => closeWatching(watching)
+    close: () =>
+      new Promise<void>((resolve) => {
+        watching.close(() => resolve())
+      })
   }
-}
-
-const CLOSE_BOUND_MS = 10000
-
-// A close waits for a compile in flight, which on a loaded machine running
-// several watch sessions can outlast the hook. The spec has asserted by then.
-export function closeWatching(watching: {
-  close: (callback: () => void) => void
-  running?: boolean
-}): Promise<void> {
-  return new Promise<void>((resolve) => {
-    const bound = setTimeout(() => {
-      console.warn(
-        `watch session still closing after ${CLOSE_BOUND_MS / 1000}s (running: ${String(watching.running)})`
-      )
-
-      resolve()
-    }, CLOSE_BOUND_MS)
-
-    watching.close(() => {
-      clearTimeout(bound)
-      resolve()
-    })
-  })
 }
 
 // One edit can reach the watcher as several rebuilds, so a spec reads the
