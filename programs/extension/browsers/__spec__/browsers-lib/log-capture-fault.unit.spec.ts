@@ -27,15 +27,18 @@ afterEach(() => {
 
 const readContract = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
 
+type LogCapture = {
+  enableUnifiedLogging(opts: Record<string, unknown>): Promise<void>
+}
+
 function controllerFailingWith(error: unknown) {
-  return stampLogCaptureFaults(
-    {
-      enableUnifiedLogging: async () => {
-        throw error
-      }
-    },
-    output
-  )
+  const controller: LogCapture = {
+    enableUnifiedLogging: async () => {
+      throw error
+    }
+  }
+
+  return stampLogCaptureFaults(controller, output)
 }
 
 describe('a browser log capture that fails after launch', () => {
@@ -66,10 +69,8 @@ describe('a browser log capture that fails after launch', () => {
   })
 
   it('leaves the contract alone when the capture starts', async () => {
-    const controller = stampLogCaptureFaults(
-      {enableUnifiedLogging: async () => {}},
-      output
-    )
+    const started: LogCapture = {enableUnifiedLogging: async () => {}}
+    const controller = stampLogCaptureFaults(started, output)
 
     await controller.enableUnifiedLogging({level: 'info'})
 
