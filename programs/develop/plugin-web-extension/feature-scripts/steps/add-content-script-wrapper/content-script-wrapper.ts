@@ -873,10 +873,7 @@ export default function contentScriptWrapper(
 
     readModule({kind: defaultExport.kind})
 
-    const prefix =
-      `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
-      `${bootstrap}` +
-      `${runtimeInline}`
+    const prefix = `${bootstrap}${runtimeInline}`
     const suffix =
       at('end-before-styles') +
       `try { __EXTENSIONJS_scheduleBundleCssHydration() } catch (error) {
@@ -927,12 +924,9 @@ export default function contentScriptWrapper(
     callsElsewhere: defaultExport.keptCalls
   })
 
-  const wrapPrefix =
-    `var __EXTJS_WRAPPER_KIND="FS3_INLINE";\n` +
-    `${bootstrap}` +
-    `${runtimeInline}`
+  const wrapPrefix = `${bootstrap}${runtimeInline}`
   const wrapSuffix =
-    `;/* __EXTENSIONJS_MOUNT_WRAPPED__ */\n` +
+    `;\n` +
     defaultExport.binding +
     `var __EXTENSIONJS_cleanup = function(){};\n` +
     // A copy the next injection retired while it waited mounts nothing.
