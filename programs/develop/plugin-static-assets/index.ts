@@ -11,6 +11,7 @@ import type {Compiler, RuleSetRule} from '@rspack/core'
 import {debugLine, isDebug} from '../lib/messaging'
 import {RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {CheckNamespaceImports} from './check-namespace-imports'
+import {PruneSupersededAssets} from './prune-superseded-assets'
 import {
   ASSET_FILENAME_PATTERN,
   FILE_EXTENSIONS,
@@ -24,6 +25,7 @@ export class StaticAssetsPlugin {
 
   public apply(compiler: Compiler) {
     new CheckNamespaceImports().apply(compiler)
+    new PruneSupersededAssets().apply(compiler)
 
     compiler.options.module = compiler.options.module || {rules: []}
     compiler.options.module.rules = compiler.options.module.rules || []
