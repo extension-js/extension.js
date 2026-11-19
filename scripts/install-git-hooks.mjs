@@ -44,6 +44,17 @@ function toGitPath(file) {
   return file.split(path.sep).join('/')
 }
 
+function isCurrentStub(file) {
+  try {
+    const executable =
+      process.platform === 'win32' || (fs.statSync(file).mode & 0o111) !== 0
+
+    return executable && fs.readFileSync(file, 'utf8') === DISPATCH_STUB
+  } catch {
+    return false
+  }
+}
+
 export function installGitHooks({env = process.env, cwd = process.cwd()} = {}) {
   if (env.HUSKY === '0') {
     return {installed: false, reason: 'disabled'}
@@ -76,23 +87,29 @@ export function installGitHooks({env = process.env, cwd = process.cwd()} = {}) {
 
   fs.mkdirSync(dispatchDir, {recursive: true})
 
+  // The folder and config are shared by every worktree, so an install that
+  // finds them current writes nothing there.
   for (const name of names) {
     const stub = path.join(dispatchDir, name)
-    fs.writeFileSync(stub, DISPATCH_STUB)
-    fs.chmodSync(stub, 0o755)
+
+    if (!isCurrentStub(stub)) {
+      fs.writeFileSync(stub, DISPATCH_STUB)
+      fs.chmodSync(stub, 0o755)
+    }
   }
 
-  const result = git(
-    ['config', 'core.hooksPath', toGitPath(dispatchDir)],
-    top,
-    env
-  )
+  const hooksPath = toGitPath(dispatchDir)
+  const current = git(['config', 'core.hooksPath'], top, env).stdout.trim()
+
+  if (current === hooksPath) return {installed: true, hooksPath}
+
+  const result = git(['config', 'core.hooksPath', hooksPath], top, env)
 
   if (result.status !== 0) {
     return {installed: false, reason: 'config-failed'}
   }
 
-  return {installed: true, hooksPath: toGitPath(dispatchDir)}
+  return {installed: true, hooksPath}
 }
 
 const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : ''
