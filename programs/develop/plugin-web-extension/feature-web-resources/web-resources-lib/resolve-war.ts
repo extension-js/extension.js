@@ -10,7 +10,8 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
-import {debugLine} from '../../../lib/messaging'
+import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
+import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {
   hasPrivateFileName,
   privateFileKind,
@@ -21,6 +22,8 @@ import {
   type AssetHashOptions,
   bundledAssetOutputName
 } from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
+import type {DevOptions, Manifest} from '../../../types'
+import {webAccessibleResources} from '../../feature-manifest/manifest-overrides/common/web_accessible_resources'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {
   extractGetURLLiterals,
@@ -301,6 +304,49 @@ function declaredWAR(manifest: unknown): DeclaredWAR | undefined {
   return Array.isArray(war) ? (war as DeclaredWAR) : undefined
 }
 
+// Each resource of the source manifest, keyed by the path the manifest
+// override turns it into, so a warning can quote what the author wrote.
+function authoredSpellings(
+  manifestPath: string,
+  browser?: string
+): Map<string, string[]> {
+  const spellings = new Map<string, string[]>()
+  let war: DeclaredWAR | undefined
+
+  try {
+    war = declaredWAR(
+      filterKeysForThisBrowser(
+        parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8')) as Manifest,
+        (browser || 'chrome') as DevOptions['browser']
+      )
+    )
+  } catch {
+    return spellings
+  }
+
+  for (const entry of war || []) {
+    const resources =
+      typeof entry === 'string'
+        ? [entry]
+        : Array.isArray(entry?.resources)
+          ? entry.resources
+          : []
+
+    for (const written of resources) {
+      if (typeof written !== 'string') continue
+
+      const output = webAccessibleResources({
+        web_accessible_resources: [written]
+      } as Manifest)?.web_accessible_resources?.[0]
+      if (typeof output !== 'string') continue
+
+      spellings.set(output, [...(spellings.get(output) || []), written])
+    }
+  }
+
+  return spellings
+}
+
 // The author's own mistakes in the key, reported before any resolution so a
 // compile that already failed elsewhere still names them.
 export function validateUserDeclaredWAR(
@@ -461,6 +507,11 @@ export function resolveUserDeclaredWAR(
   const isMv2 = manifestObj.manifest_version !== 3
   const manifestDir = path.dirname(manifestPath)
   const projectPath = (compilation.options?.context as string) || manifestDir
+  // The emitted manifest names a public/ or root entry by its output path,
+  // so the author's spelling comes from the source, in the order written.
+  const spellings = authoredSpellings(manifestPath, browser)
+  const isDevMode =
+    (compilation.options?.mode || 'development') !== 'production'
 
   let runtimeNamedPaths: Set<string> | undefined
 
@@ -540,11 +591,20 @@ export function resolveUserDeclaredWAR(
 
   const handleOne = (
     matches: string[] | undefined,
-    res: string,
+    declared: string,
     extra?: Record<string, unknown>
   ) => {
     compilation.errors = compilation.errors || []
     compilation.warnings = compilation.warnings || []
+
+    const written = spellings.get(declared)?.shift() ?? declared
+    // A manifest read before the override is brought to the form it gives.
+    const res =
+      !/[*?[\]{}]/.test(declared) &&
+      !rootAbsoluteClimbsOut(declared) &&
+      isPublicRootLike(declared)
+        ? normalizeManifestOutputPath(declared)
+        : declared
 
     // Fast-path: a resource resolving to a real file under public/ is accepted
     // without warning, aligned with icons and manifest validation.
@@ -611,69 +671,6 @@ export function resolveUserDeclaredWAR(
       )
 
       if (!folderWithheld) pushResource(matches, res, extra)
-
-      return
-    }
-
-    if (isPublicRootLike(res)) {
-      const output = normalizeManifestOutputPath(res)
-      const publicAbs = path.join(projectPath, 'public', output)
-
-      // Compute output root and see if the asset is already present in the build,
-      // since leading '/' refers to the extension output root after build.
-      const outputRoot =
-        compilation.options?.output?.path ||
-        compilation.outputOptions?.path ||
-        path.join(path.dirname(manifestPath), 'dist')
-      const builtAbs = path.join(outputRoot || '', output)
-
-      const asset =
-        typeof compilation.getAsset === 'function'
-          ? compilation.getAsset(output)
-          : undefined
-      const assetEmitted =
-        Boolean(asset && asset.name === output) || fs.existsSync(builtAbs)
-
-      // In development, skip noisy warnings for public-root WAR entries; the dev
-      // server watches public/ and surfaces 404s at runtime. Strict in production.
-      const isDevMode =
-        (compilation.options?.mode || 'development') !== 'production'
-
-      if (process.env.EXTENSION_DEV_DEBUG_WAR === '1') {
-        debugLine(
-          '[web-resources:resolve-war] public-like resource',
-          JSON.stringify({
-            res,
-            output,
-            projectPath,
-            publicAbs,
-            outputRoot,
-            builtAbs,
-            publicExists: fs.existsSync(publicAbs),
-            builtExists: fs.existsSync(builtAbs),
-            assetEmitted
-          })
-        )
-      }
-
-      if (!isDevMode && !fs.existsSync(publicAbs) && !assetEmitted) {
-        const overrideNotFoundPath = builtAbs
-        const msg = warMessages.warFieldError(publicAbs, {
-          overrideNotFoundPath,
-          publicRootHint: true,
-          relativeRef: res
-        })
-        const err = new (
-          WebpackError as unknown as {
-            new (message: string): Error & {file?: string}
-          }
-        )(msg)
-        err.file = 'manifest.json'
-
-        compilation.warnings!.push(err)
-      }
-
-      pushResource(matches, output, extra)
 
       return
     }
@@ -759,6 +756,27 @@ export function resolveUserDeclaredWAR(
         // it as valid and normalize to the public-root style in the manifest.
         const output = toPublicOutput(`/${res}`)
         pushResource(matches, output, extra)
+
+        return
+      }
+
+      // Written as a public/ or root path, the file belongs in public/. The
+      // dev server watches that folder and answers a miss at runtime.
+      if (
+        isPublicRootLike(written) &&
+        !unixify(res).split('/').includes('..')
+      ) {
+        if (isDevMode) return
+
+        const warn = new WebpackError(
+          warMessages.warFieldError(
+            unixify(path.relative(projectPath, publicAbsMaybe)),
+            {publicRootHint: true, relativeRef: written}
+          )
+        ) as Error & {file?: string; name?: string}
+        warn.file = 'manifest.json'
+        warn.name = 'WARRelativeAssetMissing'
+        compilation.warnings!.push(warn)
 
         return
       }

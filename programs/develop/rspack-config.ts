@@ -261,7 +261,9 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
-      devSession
+      devSession,
+      connectableHost: devOptions.connectableHost,
+      port: devOptions.port
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.
@@ -271,7 +273,9 @@ export default function webpackConfig(
     new ReloadPlugin({
       manifestPath,
       browser: devOptions.browser,
-      devSession
+      devSession,
+      instanceId: devOptions.instanceId,
+      controlPort: devOptions.controlPort
     }),
     // rspack's own loader appends a <script> to the host page, which never
     // reaches an isolated world. A reload session installs this target itself.
