@@ -577,18 +577,10 @@ describe('a content script a user loader changed', () => {
   }
 })
 
-// The bundler puts the failed loader chain above the message and a stack
-// below it, so the lines the build wrote are the ones in between.
+// A named refusal prints only its own message, so every line is compared,
+// and a loader chain head or a stack coming back fails the rows.
 function said(error: BuildFailure) {
-  const lines = String(error.diagnostics?.[0].message).split('\n')
-  const from = lines.findIndex((line) => line.includes('Extension.js could'))
-  const to = lines.findIndex((line) => /^\s+at /.test(line))
-
-  return lines
-    .slice(from, to === -1 ? undefined : to)
-    .map((line, index) =>
-      index === 0 ? line.replace(/^.*?(?=\u23f5)/, '') : line
-    )
+  return String(error.diagnostics?.[0].message).split('\n')
 }
 
 describe('a user loader that returns no default export', () => {

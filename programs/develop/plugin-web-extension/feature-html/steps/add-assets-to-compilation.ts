@@ -26,6 +26,7 @@ import {
   isHttpLike,
   isSpecialScheme,
   isWrittenAsRootUrl,
+  readPageFile,
   resolveAbsoluteFsPath,
   rootUrlPath
 } from '../html-lib/utils'
@@ -317,13 +318,13 @@ function emitNestedHtmlAndReferencedAssets(params: {
       return
     }
 
-    const s = fs.readFileSync(assetFromHtml)
-    const r = new sources.RawSource(s)
+    const r = new sources.RawSource(readPageFile(compilation, assetFromHtml))
     const assetFilepath = htmlStaticAssetOutputName(
       manifestDir,
       absoluteFsPath,
       assetFromHtml,
-      compilation.outputOptions
+      compilation.outputOptions,
+      compilation
     )
 
     if (!compilation.getAsset(assetFilepath)) {
@@ -367,8 +368,6 @@ export class AddAssetsToCompilation {
     compiler.hooks.thisCompilation.tap(
       'html:add-assets-to-compilation',
       (compilation) => {
-        const processAssetsHook = compilation.hooks?.processAssets
-
         copiedNow = undefined
 
         const runner = () => {
@@ -389,19 +388,10 @@ export class AddAssetsToCompilation {
             const htmlAssetName = getFilePath(featureName, '.html', false)
             const getAssetFn = compilation.getAsset
 
-            let compilationAsset =
+            const compilationAsset =
               typeof getAssetFn === 'function'
                 ? getAssetFn.call(compilation, htmlAssetName)
                 : null
-
-            // Fallback: some test harnesses store by basename(resource)
-            if (!compilationAsset) {
-              const altName = path.basename(resource as string)
-              compilationAsset =
-                typeof getAssetFn === 'function'
-                  ? getAssetFn.call(compilation, altName)
-                  : null
-            }
 
             if (!compilationAsset && !fs.existsSync(resource as string)) {
               continue
@@ -579,7 +569,8 @@ export class AddAssetsToCompilation {
                 manifestDir,
                 resource as string,
                 absoluteFsPath,
-                compilation.outputOptions
+                compilation.outputOptions,
+                compilation
               )
 
               const isNestedHtml = asset.endsWith('.html')
@@ -620,8 +611,13 @@ export class AddAssetsToCompilation {
                     copied
                   })
                 } else {
-                  const source = fs.readFileSync(absoluteFsPath)
-                  compilation.emitAsset(filepath, new sources.RawSource(source))
+                  compilation.emitAsset(
+                    filepath,
+                    new sources.RawSource(
+                      readPageFile(compilation, absoluteFsPath)
+                    )
+                  )
+
                   copied.add(filepath)
                 }
               }
@@ -650,10 +646,11 @@ export class AddAssetsToCompilation {
                       getAssetFn.call(compilation, sourcePathAsset)
                     )
                   ) {
-                    const source = fs.readFileSync(absoluteFsPath)
                     compilation.emitAsset(
                       sourcePathAsset,
-                      new sources.RawSource(source)
+                      new sources.RawSource(
+                        readPageFile(compilation, absoluteFsPath)
+                      )
                     )
 
                     copied.add(sourcePathAsset)
@@ -664,18 +661,13 @@ export class AddAssetsToCompilation {
           }
         }
 
-        // Fallback for test environments where processAssets hook isn't mocked
-        if (processAssetsHook && typeof processAssetsHook.tap === 'function') {
-          processAssetsHook.tap(
-            {
-              name: 'html:add-assets-to-compilation',
-              stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
-            },
-            () => runner()
-          )
-        } else {
-          runner()
-        }
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:add-assets-to-compilation',
+            stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+          },
+          () => runner()
+        )
       }
     )
 

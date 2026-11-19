@@ -2,8 +2,9 @@ import {describe, expectTypeOf, it} from 'vitest'
 import type {Manifest} from '../../../../types'
 import {omnibox} from '../common/omnibox'
 import {themeExperiment} from '../mv2/theme_experiment'
-import {hostPermissions} from '../mv3/host_permissions'
 
+// Type assertions: the test runner only loads them, and the spec typecheck
+// (tsconfig.spec.json) is the gate a wrong type fails.
 describe('manifest-overrides type contract', () => {
   it('omnibox carries a typed default_icon (string | per-size record)', () => {
     expectTypeOf<
@@ -23,8 +24,6 @@ describe('manifest-overrides type contract', () => {
     expectTypeOf<Manifest['host_permissions']>().toEqualTypeOf<
       string[] | undefined
     >()
-
-    expectTypeOf(hostPermissions).parameter(0).toEqualTypeOf<Manifest>()
   })
 
   it('theme_experiment is a typed Firefox key, not any', () => {

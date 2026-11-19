@@ -11,7 +11,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {getUserTypeScriptConfigFile} from '../plugin-js-frameworks/js-tools/typescript'
 import {recordCodedWarning} from './coded-warnings'
-import {loadDefineTypes} from './config-loader'
+import {type ConfigEnvTarget, loadDefineTypes} from './config-loader'
 import {
   EXTENSION_ENV_TYPES_PACKAGE,
   projectBringsOwnChromeTypes,
@@ -63,12 +63,13 @@ function projectReadsTypesFile(manifestDir: string, file: string): boolean {
 
 export async function generateExtensionTypes(
   manifestDir: string,
-  packageJsonDir: string
+  packageJsonDir: string,
+  envTarget?: ConfigEnvTarget
 ) {
   const extensionEnvFile = path.join(packageJsonDir, 'extension-env.d.ts')
   const fileContent = renderExtensionEnvTypes(
     undefined,
-    await loadDefineTypes(packageJsonDir),
+    await loadDefineTypes(packageJsonDir, envTarget),
     {
       inlineAssetTypes: !resolvesExtensionPackage(packageJsonDir),
       ownChromeTypes: projectBringsOwnChromeTypes(packageJsonDir)
