@@ -10,6 +10,9 @@ export const EXTENSIONJS_CONTENT_SCRIPT_LAYER = 'extensionjs-content-script'
 // What a MAIN world entry imports, at any depth. The name extends the layer
 // above because a rule matches a layer by prefix, so every rule still applies.
 export const EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER = `${EXTENSIONJS_CONTENT_SCRIPT_LAYER}-main-world-import`
+// What a sandboxed page runs, at any depth. A sandboxed page has no extension
+// API, and its own name keeps every rule written for pages applying to it.
+export const EXTENSIONJS_SANDBOX_LAYER = 'extensionjs-sandbox'
 
 // A browser runs one file once in a frame whatever worlds name it, and each
 // world needs its own build, so the MAIN world copy ships beside the file.

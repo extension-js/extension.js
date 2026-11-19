@@ -12,6 +12,7 @@ import type {Compiler} from '@rspack/core'
 import {getDevServerHmrImports} from '../../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {EXTENSIONJS_SANDBOX_LAYER} from '../../feature-scripts/contracts'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
 import {sourceMayShip} from '../html-lib/source-may-ship'
 import * as htmlUtils from '../html-lib/utils'
@@ -125,7 +126,10 @@ export class AddScriptsAndStylesToCompilation {
           compiler.options.entry = {
             ...compiler.options.entry,
             [feature]: {
-              import: fileAssets
+              import: fileAssets,
+              ...(feature.startsWith('sandbox/')
+                ? {layer: EXTENSIONJS_SANDBOX_LAYER}
+                : {})
             }
           }
         }
