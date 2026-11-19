@@ -267,7 +267,9 @@ export function isUsageCode(code: ErrorCode): boolean {
   return (
     code === CODES.E_BROWSER_BINARY_INVALID ||
     code === CODES.E_BROWSER_BINARY_REQUIRED ||
-    code === CODES.E_FLAG_NOT_SUPPORTED_HERE
+    code === CODES.E_FLAG_NOT_SUPPORTED_HERE ||
+    code === CODES.E_MANIFEST_NOT_FOUND ||
+    code === CODES.E_MANIFEST_IN_PUBLIC
   )
 }
 
@@ -315,6 +317,15 @@ export function loadRefusedEnvelope(
 export function failureHint(code: ErrorCode | undefined): string | undefined {
   if (code === CODES.E_PROFILE_LOCKED) return profileLockedHint()
   if (code === CODES.E_PORT_UNAVAILABLE) return portUnavailableHint()
+
+  // Under --output json nothing else is printed, so the frame names the fix.
+  if (code === CODES.E_MANIFEST_NOT_FOUND) {
+    return 'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+  }
+
+  if (code === CODES.E_MANIFEST_IN_PUBLIC) {
+    return 'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+  }
 
   return undefined
 }

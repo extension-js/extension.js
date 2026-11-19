@@ -78,8 +78,8 @@ function put(file: string, body: unknown): void {
 }
 
 const REFUSALS: RefusalRow[] = [
-  // Pins current behavior: a not-found message, a generic hint and an empty
-  // stderr for a manifest that sits in public.
+  // A manifest that sits in public is a usage mistake whose frame names the
+  // fix. The engine still words the message as a missing manifest.
   {
     code: 'E_MANIFEST_IN_PUBLIC',
     label: 'build pointed at the public folder that holds the manifest',
@@ -97,7 +97,7 @@ const REFUSALS: RefusalRow[] = [
           schema: 1,
           ok: false,
           command: 'build',
-          status: 'build-failed',
+          status: 'usage',
           value: null,
           error: {
             code: 'E_MANIFEST_IN_PUBLIC',
@@ -105,7 +105,7 @@ const REFUSALS: RefusalRow[] = [
               'Manifest file not found.\nNOT FOUND <dir>/manifest.json\nEnsure the path to your extension exists, then try again.'
           },
           warnings: [],
-          hint: 'Fix the error above and run build again.'
+          hint: 'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
         }
       ],
       stderr: [''].join('\n')

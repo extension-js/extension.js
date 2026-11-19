@@ -21,7 +21,11 @@ import {
   explicitCliValue,
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
-import {declaredErrorCode, failureHint} from '../helpers/cli-failure'
+import {
+  declaredErrorCode,
+  failureHint,
+  isUsageCode
+} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -856,7 +860,7 @@ export function registerDevCommand(
               printFrame(
                 ENVELOPE.fail(
                   'dev',
-                  'failed',
+                  isUsageCode(code) ? 'usage' : 'failed',
                   {
                     code,
                     message:
