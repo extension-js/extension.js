@@ -247,7 +247,7 @@ describe('start run receipt (real build + preview)', () => {
 
       expect(started.errors_count).toBe(0)
       expect(coded).toHaveLength(1)
-      expect(coded[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+      expect(coded[0]).toMatch(/^W_COMPANION_EXTENSION_PATH: /)
       expect(coded[0]).toContain('DECLARED IN the --extensions flag')
       expect(
         aboutCompanion(warn.mock.calls.map((call) => String(call[0])))

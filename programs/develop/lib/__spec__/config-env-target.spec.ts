@@ -191,6 +191,103 @@ describe('a config is read for the mode and browser that asked', () => {
   })
 })
 
+// The browser's file decides a second run only through the names the config
+// read while it ran. Listing process.env counts as reading every name.
+const OTHER = 'EXTENSION_PUBLIC_OTHER_STAGE'
+const READS_OTHER = CJS_BODY.replace(
+  `process.env.${KEY}`,
+  `process.env.${OTHER}`
+)
+const READS_OTHER_ESM = ESM_BODY.replace(
+  `String(process.env.${KEY})`,
+  `String(import.meta.env.${OTHER})`
+)
+const READS_KEY_ESM = ESM_BODY.replace(
+  `String(process.env.${KEY})`,
+  `String(import.meta.env.${KEY})`
+)
+const LISTS_ENV = CJS_BODY.replace(
+  `String(process.env.${KEY})`,
+  `String(Object.keys(process.env).length > 0)`
+)
+
+describe('a config runs again for the browser only when it read a changed name', () => {
+  afterEach(() => {
+    delete process.env[OTHER]
+  })
+
+  const browserFiles = {
+    '.env.production': `${KEY}=from-production\n${OTHER}=same\n`,
+    '.env.firefox': `${KEY}=from-firefox\n`
+  }
+
+  async function loadForBuildThenFirefox(root: string) {
+    await loadCommandConfig(root, 'build')
+
+    return (await loadProjectConfigDefaults(root, {
+      mode: 'production',
+      browser: 'firefox'
+    })) as {perfBudgets?: {seen?: string}}
+  }
+
+  it('runs a config that reads no changed name once', async () => {
+    const root = project({
+      ...browserFiles,
+      'extension.config.js': READS_OTHER
+    })
+
+    const firefox = await loadForBuildThenFirefox(root)
+
+    expect(firefox.perfBudgets?.seen).toBe('same')
+    expect(runsOf(root)).toEqual(['same'])
+    expect(process.env[KEY]).toBe('from-firefox')
+  })
+
+  it('runs a config that reads the changed name twice, the second with its value', async () => {
+    const root = project({...browserFiles, 'extension.config.js': CJS_BODY})
+
+    const firefox = await loadForBuildThenFirefox(root)
+
+    expect(firefox.perfBudgets?.seen).toBe('from-firefox')
+    expect(runsOf(root)).toEqual(['from-production', 'from-firefox'])
+  })
+
+  it('tells the names apart through import.meta.env too', async () => {
+    const quiet = project({
+      ...browserFiles,
+      'extension.config.mjs': READS_OTHER_ESM
+    })
+    const reading = project({
+      ...browserFiles,
+      'extension.config.mjs': READS_KEY_ESM
+    })
+
+    await loadForBuildThenFirefox(quiet)
+    const firefox = await loadForBuildThenFirefox(reading)
+
+    expect(runsOf(quiet)).toEqual(['same'])
+    expect(firefox.perfBudgets?.seen).toBe('from-firefox')
+    expect(runsOf(reading)).toEqual(['from-production', 'from-firefox'])
+  })
+
+  it('runs a config that lists process.env again when any value changed', async () => {
+    const root = project({...browserFiles, 'extension.config.js': LISTS_ENV})
+
+    await loadForBuildThenFirefox(root)
+
+    expect(runsOf(root)).toEqual(['true', 'true'])
+  })
+
+  it('puts the real process.env back once the config ran', async () => {
+    const realEnv = process.env
+    const root = project({...browserFiles, 'extension.config.js': CJS_BODY})
+
+    await loadForBuildThenFirefox(root)
+
+    expect(process.env).toBe(realEnv)
+  })
+})
+
 // Vitest loads a config through its own module runner. Plain Node keeps a
 // module it already ran, so the built package in a child is the real test.
 describe('a config read for two modes, under plain Node', () => {

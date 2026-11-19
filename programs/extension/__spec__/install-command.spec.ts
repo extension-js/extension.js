@@ -864,7 +864,7 @@ describe('extension uninstall', () => {
     })
   })
 
-  it('warns E_UNINSTALL_NOOP with status noop when nothing matched', async () => {
+  it('warns W_UNINSTALL_NOOP with status noop when nothing matched', async () => {
     vi.mocked(extensionUninstall).mockResolvedValueOnce([
       {
         browser: 'firefox',
@@ -879,7 +879,7 @@ describe('extension uninstall', () => {
     expect(frame.ok).toBe(true)
     expect(frame.status).toBe('noop')
     expect(frame.warnings).toEqual([
-      'E_UNINSTALL_NOOP: Nothing to remove for firefox.'
+      'W_UNINSTALL_NOOP: Nothing to remove for firefox.'
     ])
 
     expect((frame.value as {results: unknown[]}).results).toEqual([

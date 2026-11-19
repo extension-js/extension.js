@@ -114,7 +114,7 @@ describe('toDiagnostic', () => {
     expect(
       toDiagnostic(named('PerfBudgetWarning', 'too big'), 'warning')
     ).toEqual({
-      code: 'E_PERF_BUDGET',
+      code: 'W_PERF_BUDGET',
       message: 'too big',
       severity: 'warning',
       name: 'PerfBudgetWarning'
@@ -160,7 +160,7 @@ describe('compilationDiagnostics', () => {
       details: [
         {message: 'broke', file: 'a.js', severity: 'error'},
         {
-          code: 'E_PERF_BUDGET',
+          code: 'W_PERF_BUDGET',
           message: 'too big',
           severity: 'warning',
           name: 'PerfBudgetWarning'
@@ -287,8 +287,8 @@ describe('warningCodes', () => {
     })
 
     expect([...codes]).toEqual([
-      ['too big', 'E_PERF_BUDGET'],
-      ['CSS asset "a.png" was not found', 'E_ASSET_MISSING']
+      ['too big', 'W_PERF_BUDGET'],
+      ['CSS asset "a.png" was not found', 'W_ASSET_MISSING']
     ])
   })
 
