@@ -22,8 +22,8 @@ import {
   TEMPLATE_CORPUS_REPO
 } from './template-corpus.generated'
 
-function getLoggingPrefix(type: Channel): string {
-  return prefix(type)
+function getLoggingPrefix(type: Channel, text?: string): string {
+  return prefix(type, text)
 }
 
 const code = (text: string) => colors.blue(text)
@@ -429,7 +429,7 @@ export function unhandledError(err: unknown) {
           ? ''
           : fmt.truncate(err)
 
-  return `${getLoggingPrefix('error')} ${colors.red(String(message || 'Unknown error'))}`
+  return `${getLoggingPrefix('error', String(message || 'Unknown error'))} ${colors.red(String(message || 'Unknown error'))}`
 }
 
 export function updateFailed(err: unknown) {
@@ -663,7 +663,7 @@ export function safariOnlyOption(flags: string[]) {
 
 // Plain text, so the envelope and the terminal carry the same sentence.
 export function usageRefusal(message: string): string {
-  return `${getLoggingPrefix('error')} ${message}`
+  return `${getLoggingPrefix('error', message)} ${message}`
 }
 
 const WHOLE_NUMBER_USE: Record<string, string> = {
@@ -1259,7 +1259,7 @@ export function replayedCommand(listeners: number, command?: string) {
 }
 
 export function openSurfaceWarning(warning: string) {
-  return `${getLoggingPrefix('warn')} ${asSentence(warning)}`
+  return `${getLoggingPrefix('warn', warning)} ${asSentence(warning)}`
 }
 
 // Some refusals already name the engine, as their subject or as a closing
@@ -1435,5 +1435,5 @@ export function waitModeFailed(failure: {message: string; hint: string}) {
   const label = failure.message.trim()
   const sentence = /[.!?]$/.test(label) ? label : `${label}.`
 
-  return `${getLoggingPrefix('error')} ${sentence}\n${colors.yellow(failure.hint)}`
+  return `${getLoggingPrefix('error', sentence)} ${sentence}\n${colors.yellow(failure.hint)}`
 }

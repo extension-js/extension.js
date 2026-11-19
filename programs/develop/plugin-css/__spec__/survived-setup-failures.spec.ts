@@ -7,7 +7,7 @@ import publicCssUrlLoader from '../public-css-url-loader'
 import {closeCompiler, cssProjects} from './helpers/css-project'
 
 const makeProject = cssProjects()
-const WARN = '⏵⏵⏵'
+const WARN = '⏵⏵⏵ Warning:'
 
 // A Tailwind v4 project whose @tailwindcss/postcss refuses to start, the way
 // a missing native binding makes it throw.

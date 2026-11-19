@@ -236,7 +236,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ The path must point to an existing file that will be bundled.',
         '    │ NOT FOUND <project>/missing.js',
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -288,7 +288,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ Manifest V3 requires object entries with resources and matches (or extension_ids).',
         '    │ Wrap it like {"resources": ["a.js"], "matches": ["<all_urls>"]} with the matches your pages need.',
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -347,7 +347,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ A color is [R, G, B] with whole numbers from 0 to 255, plus an optional alpha from 0 to 1 as a fourth member. A tint is three numbers, [H, S, L].',
         '    │ The browser refuses the whole extension over one such value, so the build stops here.',
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -417,7 +417,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '└─ content_scripts',
         '   └─ content-0.css (N KB)',
         '',
-        "⏵⏵⏵ The CSS in this file doesn't parse, so it was copied as-is.",
+        "⏵⏵⏵ Warning: The CSS in this file doesn't parse, so it was copied as-is.",
         'PATH a.css',
         'REASON Unclosed block',
         "Browsers skip rules they can't parse, so the build kept going.",
@@ -564,7 +564,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '└─ manifest.json (N KB)',
         '',
-        '⏵⏵⏵ The production manifest reaches the local machine:',
+        '⏵⏵⏵ Warning: The production manifest reaches the local machine:',
         '  http://localhost/* in host_permissions',
         'Store reviewers read a loopback origin as host access with no purpose in a published extension. Keep it to development with an $EXTENSION_PUBLIC_* placeholder in the manifest and its value in .env.development.',
         '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
@@ -783,7 +783,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '└─ manifest.json (N KB)',
         '',
-        '⏵⏵⏵ Compatibility: Found .env.staging, but none match browser chromium in mode production.',
+        '⏵⏵⏵ Warning: Compatibility: Found .env.staging, but none match browser chromium in mode production.',
         'EXTENSION_PUBLIC_* variables read from code are undefined in this build.',
         'Rename the file to one of these, in priority order: .env.chromium.production, .env.chromium, .env.chrome.production, .env.chrome, .env.edge.production, .env.edge, .env.chromium-based.production, .env.chromium-based, .env.production.local, .env.production, .env.local, .env.',
         'Family names apply to every family member, so .env.chrome also matches chromium and edge targets.',
@@ -931,7 +931,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    │ NOT FOUND ./nope.png',
         "    │ Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.",
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -980,7 +980,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    × default_locale is set, but the _locales folder is missing.',
         '    │ Add _locales/<default>/messages.json.',
         '',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }
@@ -1094,10 +1094,10 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '.',
         '└─ manifest.json (N KB)',
         '',
-        '⏵⏵⏵ The distribution zip was requested and not created.',
+        '⏵⏵⏵ Error: The distribution zip was requested and not created.',
         'PATH dist/zipped-1.0.0-chromium.zip',
         "EISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'",
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }

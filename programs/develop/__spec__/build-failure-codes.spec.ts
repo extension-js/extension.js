@@ -11,12 +11,13 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-// The text without its colors and without the channel glyph at its head.
+// The text without its colors and without the channel glyph, and the
+// severity word a plain stream gets after it, at its head.
 const plain = (text: unknown) =>
   String(text)
     // eslint-disable-next-line no-control-regex
     .replace(/\u001b\[[0-9;]*m/g, '')
-    .replace(/^\S+ /, '')
+    .replace(/^\S+ (?:(?:Warning|Error): )?/, '')
 
 function project(matches: string[], config?: string) {
   const root = fs.realpathSync(tempFolder('extjs-failure-codes-'))
@@ -144,7 +145,7 @@ describe('build: a config hook that returns no config (real rspack)', () => {
       expect(plain(built.failure?.message)).toBe(said)
       // The block is printed once, whole, and the count closes the run.
       const [block, closing, ...rest] = built.stderr.split(
-        /\n(?=\S+ Build failed)/
+        /\n(?=\S+ (?:Error: )?Build failed)/
       )
 
       expect(plain(block)).toBe(said)

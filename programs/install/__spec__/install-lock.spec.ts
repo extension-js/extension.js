@@ -4,8 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {PUPPETEER_BROWSERS_VERSION} from '../lib/installer-versions'
 import type {LockSeams} from '../lib/install-lock'
+import {PUPPETEER_BROWSERS_VERSION} from '../lib/installer-versions'
 import {type CommandResult, runCommand} from '../lib/runner'
 import {
   BrowserInstallBusyError,
@@ -1197,10 +1197,10 @@ describe('one install per browser folder, and no delete of a folder that is not 
       ).toBe('installed')
 
       expect(warned).toEqual([
-        '⏵⏵⏵ Skipping the Edge channel install, it needs elevated privileges.\n' +
+        '⏵⏵⏵ Warning: Skipping the Edge channel install, it needs elevated privileges.\n' +
           'Using the Edge binary already on this system instead.\n' +
           'PATH /usr/bin/microsoft-edge',
-        "⏵⏵⏵ The broken Edge files couldn't be removed.\n" +
+        "⏵⏵⏵ Warning: The broken Edge files couldn't be removed.\n" +
           `PATH ${at('edge')}\n` +
           'Delete that folder before the next install.'
       ])

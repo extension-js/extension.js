@@ -1019,6 +1019,60 @@ describe('lifecycle stream transitions', () => {
     fs.rmSync(dir, {recursive: true, force: true})
   })
 
+  it('puts the remedy for a locked profile ahead of the session line on the frames that end nothing', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    const remedy =
+      'Close the browser that has this profile open, or pass --profile <path> to use another one.'
+    const hintFor = (code: string) =>
+      code === 'E_PROFILE_LOCKED' ? remedy : undefined
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'error',
+        code: 'profile_locked',
+        message: 'the browser profile is in use',
+        browserExitedAt: '2026-07-27T00:00:00.000Z'
+      })
+    )
+
+    try {
+      const exited = makeStream({readyPath, hintFor})
+      exited.stream.browserExited()
+      expect((parseFrames(exited.lines)[0] as {hint?: string}).hint).toBe(
+        `${remedy} The dev server keeps running with no browser. Stop it, then run the command again to launch one.`
+      )
+
+      fs.writeFileSync(
+        readyPath,
+        JSON.stringify({
+          status: 'error',
+          code: 'profile_locked',
+          message: 'the browser profile is in use'
+        })
+      )
+
+      const running = makeStream({readyPath, hintFor})
+      running.stream.ready()
+      const [frame] = parseFrames(running.lines) as Array<
+        Frame & {hint?: string}
+      >
+      expect(frame.status).toBe('ready-failed')
+      expect(frame.hint).toBe(
+        `${remedy} The session keeps running. A later compile that clears the error writes the ready frame.`
+      )
+
+      // A code the host has no remedy for keeps the session line alone.
+      const plain = makeStream({hintFor})
+      plain.stream.browserExited({exitCode: 9})
+      expect((parseFrames(plain.lines)[0] as {hint?: string}).hint).toBe(
+        'The dev server keeps running with no browser. Stop it, then run the command again to launch one.'
+      )
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
   it('falls back to E_BROWSER_LAUNCH when the contract is missing or corrupt', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
     const readyPath = path.join(dir, 'ready.json')
@@ -1053,7 +1107,7 @@ describe('lifecycle stream transitions', () => {
     expect(frames[0].hint).toContain('The previous build keeps serving')
     expect(frames[1].hint).toContain('The dev server keeps running')
     expect(frames[2].hint).toBe('host hint for E_DEV_SERVER_START')
-    expect(asked).toEqual(['E_DEV_SERVER_START'])
+    expect(asked).toEqual(['E_BROWSER_LAUNCH', 'E_DEV_SERVER_START'])
 
     // A code the host has nothing for leaves the frame as it was.
     const bare = makeStream({hintFor})
@@ -1225,6 +1279,37 @@ describe('lifecycle stream transitions', () => {
 
     expect(frames.every((frame) => frame.ok)).toBe(true)
     expect(frames[1].value?.assets).toBe(12)
+  })
+
+  it('writes ready again once the compiler a restart built first compiles green', () => {
+    const {stream, lines} = makeStream()
+    const before = fakeCompiler()
+    attachLifecycleStream(before as never, stream)
+    stream.starting({requestedPort: 8080, port: 8080})
+    before.taps.done(fakeStats({assets: 3}))
+
+    const after = fakeCompiler()
+    attachLifecycleStream(after as never, stream, {restart: true})
+    after.taps.done(fakeStats({errors: true, text: 'ERROR in ./a.js'}))
+    after.taps.done(fakeStats({assets: 3}))
+    after.taps.done(fakeStats({assets: 3}))
+    // The retired compiler's last build says nothing about the new server.
+    before.taps.done(fakeStats({assets: 3}))
+
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual([
+      'starting',
+      'compiled',
+      'ready',
+      'compile-failed',
+      'recompiled',
+      'ready',
+      'recompiled',
+      'recompiled'
+    ])
+
+    expect(frames[2].value).not.toHaveProperty('restarted')
+    expect(frames[5].value?.restarted).toBe(true)
   })
 
   it('drives the failed-first-compile sequence from compiler hooks', () => {

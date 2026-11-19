@@ -19,7 +19,8 @@ const NESTED_HEAD =
   /^\s*(?:│\s*)*╰─▶\s*(?:[×]\s*)?Module build failed \(from [^\n]*\):\s*$/
 const NAMED_CAUSE = /^(\s*(?:│\s*)*╰─▶\s*(?:[×]\s*)?)([A-Za-z]\w*): /
 const GUTTER = /^\s*(?:│\s*)*│ ?/
-const CHANNEL_GLYPH = /^⏵⏵⏵\s*/
+// The glyph, with the severity word a plain stream gets right after it.
+const CHANNEL_GLYPH = /^⏵⏵⏵\s*(?:(?:Warning|Error):(?:\s+|$))?/
 const STACK_FRAME = /^\s+at (?:.*\(.*\)|\S+:\d+:\d+)\s*$/
 
 export interface NamedCauseOptions {

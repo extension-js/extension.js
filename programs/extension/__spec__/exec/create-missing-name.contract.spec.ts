@@ -18,7 +18,7 @@ describe('create with no project name outside a terminal', () => {
     expect(result.status).toBe(1)
     expect(result.stdout).toBe('')
     expect(result.stderr).toBe(
-      '⏵⏵⏵ A project name is required.\n' +
+      '⏵⏵⏵ Error: A project name is required.\n' +
         'Run npx extension@latest create my-extension --template=react to start one.\n'
     )
 

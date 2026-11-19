@@ -128,7 +128,7 @@ describe.each(COMMANDS)('an output flag %s cannot read', (command) => {
     [['--output', 'ndjson'], '--output got "ndjson". Use pretty or json.']
   ])('refuses %j on stderr with nothing on stdout', async (flags, message) => {
     expect(await run([command, '.', ...flags])).toBe(1)
-    expect(stderrLines()).toEqual([`⏵⏵⏵ ${message}`])
+    expect(stderrLines()).toEqual([`⏵⏵⏵ Error: ${message}`])
     expect(logSpy).not.toHaveBeenCalled()
     expect(engineCalls()).toBe(0)
   })
@@ -152,7 +152,7 @@ describe.each([
     ).toBe(1)
 
     expect(stderrLines()).toEqual([
-      '⏵⏵⏵ --wait-format got "nope". Use pretty or json.'
+      '⏵⏵⏵ Error: --wait-format got "nope". Use pretty or json.'
     ])
 
     expect(logSpy).not.toHaveBeenCalled()
@@ -170,7 +170,7 @@ describe.each(
 
   it('is refused on stderr with the folder and the fix', async () => {
     expect(await run([command, missing])).toBe(1)
-    expect(stderrLines()).toEqual([`⏵⏵⏵ ${message}\n${hint}`])
+    expect(stderrLines()).toEqual([`⏵⏵⏵ Error: ${message}\n${hint}`])
     expect(logSpy).not.toHaveBeenCalled()
     expect(extensionBuild).not.toHaveBeenCalled()
     expect(extensionDev).not.toHaveBeenCalled()
@@ -198,7 +198,7 @@ describe.each(
   it('resolves a relative path against the working directory', async () => {
     expect(await run([command, path.relative(process.cwd(), missing)])).toBe(1)
 
-    expect(stderrLines()).toEqual([`⏵⏵⏵ ${message}\n${hint}`])
+    expect(stderrLines()).toEqual([`⏵⏵⏵ Error: ${message}\n${hint}`])
   })
 })
 
@@ -321,7 +321,10 @@ describe('every command that registers --output', async () => {
       await runCli(program, [name, ...positionals, '--output', 'jsno'])
     ).toBe(1)
 
-    expect(stderrLines()).toEqual([`⏵⏵⏵ --output got "jsno". Use ${listed}.`])
+    expect(stderrLines()).toEqual([
+      `⏵⏵⏵ Error: --output got "jsno". Use ${listed}.`
+    ])
+
     expect(logSpy).not.toHaveBeenCalled()
     expect(action).not.toHaveBeenCalled()
   })
@@ -525,7 +528,7 @@ describe.each([
 ] as const)('%s %j', (command, flags, message) => {
   it('is refused on stderr with nothing on stdout', async () => {
     expect(await run([command, '.', ...flags])).toBe(1)
-    expect(stderrLines()).toEqual([`⏵⏵⏵ ${message}`])
+    expect(stderrLines()).toEqual([`⏵⏵⏵ Error: ${message}`])
     expect(logSpy).not.toHaveBeenCalled()
     expect(engineCalls()).toBe(0)
   })
@@ -609,7 +612,7 @@ describe('every flag that declares a closed list of choices', async () => {
     ).toBe(1)
 
     expect(stderrLines()[0]?.split('\n')[0]).toBe(
-      `⏵⏵⏵ ${flag} got "nope". Use ${listed}.`
+      `⏵⏵⏵ Error: ${flag} got "nope". Use ${listed}.`
     )
 
     expect(logSpy).not.toHaveBeenCalled()

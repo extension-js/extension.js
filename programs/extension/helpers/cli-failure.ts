@@ -240,7 +240,7 @@ export function commanderHumanError(
         ? `Did you mean ${suggestion[1] || ''}${colors.blue(suggestion[2])}?`
         : `Run ${colors.blue(`${helpTarget} --help`)} to see the ${noun}.`
 
-  return `${prefix('error')} ${label}\n${remedy}`
+  return `${prefix('error', label)} ${label}\n${remedy}`
 }
 
 // A refusal raised deeper in the engine names its own failure class, so the

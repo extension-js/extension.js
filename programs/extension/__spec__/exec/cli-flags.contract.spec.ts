@@ -7,7 +7,7 @@ import {trackTempFolders} from '../helpers/temp-folders'
 const makeTempFolder = trackTempFolders()
 
 const FORMAT_NOTICE =
-  '⏵⏵⏵ --format is deprecated and maps to --output.\n' +
+  '⏵⏵⏵ Warning: --format is deprecated and maps to --output.\n' +
   'Pass --output <pretty|json> instead.\n'
 
 let root: string
@@ -91,7 +91,7 @@ describe('cli flags the help promises (built entry)', () => {
     expect(run.status, run.output).toBe(1)
     expect(run.stdout).toContain('Add-on built for production')
     expect(run.stderr).toBe(
-      "⏵⏵⏵ Can't find a Firefox or Gecko binary at the given path.\n" +
+      "⏵⏵⏵ Error: Can't find a Firefox or Gecko binary at the given path.\n" +
         `NOT FOUND ${missing}\n` +
         'Pass --gecko-binary <abs-path> with a working path.\n'
     )
@@ -123,7 +123,9 @@ describe('cli flags the help promises (built entry)', () => {
 
     expect(run.status, run.output).toBe(1)
     expect(run.stdout).toBe('')
-    expect(run.stderr).toBe('⏵⏵⏵ --output got "jsno". Use pretty or json.\n')
+    expect(run.stderr).toBe(
+      '⏵⏵⏵ Error: --output got "jsno". Use pretty or json.\n'
+    )
   })
 
   it('refuses dev --port abc with one usage frame and starts nothing', async () => {

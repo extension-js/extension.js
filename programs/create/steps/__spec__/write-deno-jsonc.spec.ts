@@ -392,7 +392,7 @@ describe('writeDenoJsonc', () => {
       .split('\n')
 
     expect(frame.slice(0, 2)).toEqual([
-      "⏵⏵⏵ Couldn't read the template's package.json.",
+      "⏵⏵⏵ Error: Couldn't read the template's package.json.",
       `PATH ${packageJsonPath}`
     ])
 
