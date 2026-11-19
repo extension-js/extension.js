@@ -31,7 +31,8 @@ describe('a session contract write that fails', () => {
     browser: 'chromium'
   }
 
-  // Pins today's behavior. Ledger 1383 D5.
+  // Pins current behavior: write failures are silent, so --wait runs to its
+  // timeout.
   it('leaves no ready.json and prints nothing when the dist is a file', () => {
     fs.writeFileSync(path.join(tmp, 'dist'), 'a file where the folder goes')
     const printed = captureOutput()
@@ -55,7 +56,7 @@ describe('a session contract write that fails', () => {
     expect(printed()).toEqual([])
   })
 
-  // Pins today's behavior. Ledger 1383 D5.
+  // Pins current behavior: a failed event write is silent.
   it('loses an event and prints nothing when events.ndjson cannot take it', () => {
     const writer = makeWriter(tmp)
     writer.writeStarting()
@@ -75,7 +76,7 @@ describe('a session contract write that fails', () => {
     ])
   })
 
-  // Pins today's behavior. Ledger 1383 D5.
+  // Pins current behavior: a failed timeline reset is silent.
   it('opens the run and prints nothing when the old timeline cannot be reset', () => {
     const writer = makeWriter(tmp)
     fs.mkdirSync(writer.eventsPath, {recursive: true})
