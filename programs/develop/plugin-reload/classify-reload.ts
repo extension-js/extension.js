@@ -10,6 +10,7 @@ import {createHash} from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {parseAuthoredJson} from '../lib/parse-json-safe'
+import {hasPrivateFileName} from '../plugin-special-folders/public-private-files'
 import {publicRootsFor} from '../plugin-special-folders/resolve-public-folder'
 import {getCanonicalContentScriptEntryName} from '../plugin-web-extension/feature-scripts/contracts'
 import {projectRelative} from './project-relative'
@@ -128,6 +129,14 @@ export function publicOutputPath(
   }
 
   return undefined
+}
+
+// A public/ file the copier leaves out is never in the output, so its edit
+// changes nothing the browser runs.
+function isLeftOutPublicSource(rel: string, publicRoots?: string[]) {
+  const output = publicOutputPath(rel, publicRoots)
+
+  return output !== undefined && hasPrivateFileName(output)
 }
 
 // The public/ roots as project-relative, forward-slashed prefixes so they
@@ -484,20 +493,20 @@ export function classifyReloadFromSources(opts: {
   contextDir?: string
 }): ReloadInstruction | undefined {
   const {
-    changedSources,
+    changedSources: allChangedSources,
     forcedFull,
     getContentScriptCount,
     getSourceFeatureIndex,
     outputPath,
     contextDir
   } = opts
-  if (changedSources.length === 0) return undefined
+  if (allChangedSources.length === 0) return undefined
 
   if (forcedFull) {
     return {
       type: 'full',
-      changedAssets: changedSources,
-      label: formatReloadContextLabel('extension', changedSources)
+      changedAssets: allChangedSources,
+      label: formatReloadContextLabel('extension', allChangedSources)
     }
   }
 
@@ -508,6 +517,11 @@ export function classifyReloadFromSources(opts: {
   } catch {
     index = null
   }
+
+  const changedSources = allChangedSources.filter(
+    (rel) => !isLeftOutPublicSource(rel, index?.publicRoots)
+  )
+  if (changedSources.length === 0) return undefined
 
   // A scripts/ bundle edit rides along whichever reload wins, so the SW can
   // replay the injections that named it.
