@@ -11,3 +11,6 @@ export const RAW_RESOURCE_QUERY = /(?:^\?|&)raw(?:&|=|$)/
 // Vite's ?raw as a standalone key (an unanchored /raw/ also hits classic-concat
 // payloads). Every compiling rule steps aside so the file text arrives untouched.
 export const NOT_RAW_RESOURCE_QUERY = {not: [RAW_RESOURCE_QUERY]}
+
+// The standalone ?url key, read the same way: the file's URL, whatever its type.
+export const URL_RESOURCE_QUERY = /(?:^\?|&)url(?:&|=|$)/

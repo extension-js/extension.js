@@ -3,7 +3,12 @@ import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
 import {extensionSchemeFor} from '../../lib/extension-base-from-stack'
-import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
+import {
+  NOT_RAW_RESOURCE_QUERY,
+  RAW_RESOURCE_QUERY,
+  URL_RESOURCE_QUERY
+} from '../../lib/resource-query'
+import {ASSET_FILENAME_PATTERN} from '../../plugin-static-assets/static-assets-lib/asset-output-name'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER as LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import {extensionBaseAttributeFor} from '../../plugin-web-extension/feature-scripts/scripts-lib/taken-extension-base'
 import {commonStyleLoaders} from '../common-style-loaders'
@@ -113,38 +118,70 @@ function expectedRules(
     where: Record<string, unknown>,
     inlined: boolean
   ): Array<Record<string, unknown>> =>
-    languages.map(({test, exclude, module, first}) => {
-      const emitsSheet = module || !inlined
+    languages.flatMap(
+      ({test, exclude, module, first}): Array<Record<string, unknown>> => {
+        const emitsSheet = module || !inlined
+        const scope = {test, ...(exclude ? {exclude} : {}), ...where}
 
-      return {
-        test,
-        ...(exclude ? {exclude} : {}),
-        type: module ? 'css/module' : inlined ? 'javascript/auto' : 'css',
-        ...(emitsSheet ? {sideEffects: true} : {}),
-        ...where,
-        resourceQuery: NOT_RAW_RESOURCE_QUERY,
-        use: emitsSheet
-          ? sheet([...post, ...first])
-          : [
-              // A sheet no tool compiled says so to the run that reads it last.
-              first.includes(passthrough)
-                ? {
-                    ...inlineUrls,
-                    options: {
-                      manifestPath,
-                      projectPath: root,
-                      ...(gecko ? {gecko} : {}),
-                      uncompiled: true,
-                      ...base
+        // A plain sheet imported with ?url ships as a file of its own.
+        if (!module && !inlined && !('dependency' in where)) {
+          const chain = sheet([...post, ...first])
+
+          return [
+            {
+              ...scope,
+              type: 'css',
+              sideEffects: true,
+              resourceQuery: {not: [RAW_RESOURCE_QUERY, URL_RESOURCE_QUERY]},
+              use: chain
+            },
+            {
+              ...scope,
+              type: 'asset/resource',
+              generator: {filename: ASSET_FILENAME_PATTERN},
+              resourceQuery: URL_RESOURCE_QUERY,
+              use: chain.map((item) =>
+                item === publicUrls
+                  ? {
+                      ...publicUrls,
+                      options: {...publicUrls.options, standalone: true}
                     }
-                  }
-                : inlineUrls,
-              ...post,
-              inlineImports,
-              ...first
-            ]
+                  : item
+              )
+            }
+          ]
+        }
+
+        return [
+          {
+            ...scope,
+            type: module ? 'css/module' : inlined ? 'javascript/auto' : 'css',
+            ...(emitsSheet ? {sideEffects: true} : {}),
+            resourceQuery: NOT_RAW_RESOURCE_QUERY,
+            use: emitsSheet
+              ? sheet([...post, ...first])
+              : [
+                  // A sheet no tool compiled says so to the run that reads it last.
+                  first.includes(passthrough)
+                    ? {
+                        ...inlineUrls,
+                        options: {
+                          manifestPath,
+                          projectPath: root,
+                          ...(gecko ? {gecko} : {}),
+                          uncompiled: true,
+                          ...base
+                        }
+                      }
+                    : inlineUrls,
+                  ...post,
+                  inlineImports,
+                  ...first
+                ]
+          }
+        ]
       }
-    })
+    )
 
   const sfcOptions = {
     manifestPath,

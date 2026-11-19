@@ -522,6 +522,28 @@ function resolveConfigPluginModule(
   }
 }
 
+// What a config says besides its plugins. A module named by a string resolves
+// from the project, and one found nowhere stays a string for postcss-loader.
+function configProcessOptions(
+  config: AnyModule,
+  projectPath: string,
+  configDir: string | undefined
+): Record<string, AnyModule> {
+  const options: Record<string, AnyModule> = {}
+
+  for (const key of ['parser', 'syntax', 'stringifier', 'map']) {
+    const value = config?.[key]
+    if (value === undefined) continue
+
+    options[key] =
+      key !== 'map' && typeof value === 'string'
+        ? (resolveConfigPluginModule(value, projectPath, configDir) ?? value)
+        : value
+  }
+
+  return options
+}
+
 // Normalize a config plugins value (map or array) into instantiated plugins;
 // undefined when the shape is not understood so callers can fall back.
 function resolveConfigPluginList(
@@ -1171,6 +1193,7 @@ export async function maybeUsePostCss(
   // Project-first plugin resolution: when the user's config is parseable, load
   // it here and resolve string plugins against the project, bypassing postcss-loader.
   let selfResolved: {plugins: AnyModule[]; unresolved: string[]} | undefined
+  let processOptions: Record<string, AnyModule> = {}
 
   try {
     let configObject: AnyModule
@@ -1190,6 +1213,12 @@ export async function maybeUsePostCss(
         tailwindInstance: tailwindResolvedInstance,
         bailOnFunctionEntries: userConfigUsesDirectTailwindReference
       })
+
+      processOptions = configProcessOptions(
+        configObject,
+        projectPath,
+        userPostCssConfig ? path.dirname(userPostCssConfig) : undefined
+      )
     }
   } catch {
     selfResolved = undefined
@@ -1211,6 +1240,7 @@ export async function maybeUsePostCss(
     }
 
     const postcssOptions = {
+      ...processOptions,
       cwd: projectPath,
       config: false,
       plugins: selfResolved.plugins

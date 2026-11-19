@@ -26,6 +26,9 @@ export interface LateImport {
 // Mirrors rspack's css-module-lexer: an @import stays valid until the first
 // top-level block. Anything after it, or nested inside a block, is late.
 export function findLateImports(css: string): LateImport[] {
+  // Most sheets have no @import, and a parse costs as much as the build's own.
+  if (!/@import/i.test(css)) return []
+
   let root: Root
 
   try {
