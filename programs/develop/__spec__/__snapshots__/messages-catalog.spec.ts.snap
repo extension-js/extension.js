@@ -176,6 +176,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-compilation/compilation-lib/messages.ts": [
     "boring: function(3)",
     "envChangedRestartRequired: function(1)",
+    "envDefinedNameWritten: function(1)",
+    "envFileUnreadable: function(2)",
     "envIgnoredFiles: function(2)",
     "envInjectedPublicVars: function(1)",
     "envNoMatchingFile: function(4)",
@@ -424,7 +426,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "runtimeAssetFolderNotShipped: function(4)",
     "runtimeSetSurfaceDependencyMissing: function(4)",
     "scriptPathsCheckFailed: function(1)",
-    "scriptsMissingFile: function(4)",
+    "scriptsMissingFile: function(3)",
     "scriptsWithheldFile: function(4)",
     "staticImportDependencyMissing: function(4)",
     "topLevelMountCallRemoved: function(2)",

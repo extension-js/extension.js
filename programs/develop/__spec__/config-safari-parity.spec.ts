@@ -27,6 +27,7 @@ vi.mock('../lib/config-loader', () => {
   const userConfigSpy = vi.fn((cfg: any) => cfg)
 
   return {
+    findConfigFile: vi.fn(() => undefined),
     loadCustomConfig: vi.fn(async () => userConfigSpy),
     loadConfigResolvedHook: vi.fn(async () => undefined),
     loadBrowserConfig: vi.fn(async () => ({})),

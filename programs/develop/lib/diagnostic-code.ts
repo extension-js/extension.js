@@ -74,6 +74,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   CssDeadRef: CODES.E_CSS_DEAD_REF,
   CssWithheldRef: CODES.E_CSS_DEAD_REF,
   CssParseWarning: CODES.E_CSS_PARSE,
+  CssMinifierDroppedRules: CODES.E_CSS_PARSE,
   BackgroundRequired: CODES.E_BACKGROUND_REQUIRED,
   ContentScriptSyntax: CODES.E_CONTENT_SCRIPT_SYNTAX,
   ManifestNotFoundError: CODES.E_MANIFEST_NOT_FOUND,
@@ -137,6 +138,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   MissingBuildConstantWarning: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvPrivatePlaceholder: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvReservedName: CODES.W_ENV_NAME_RESERVED,
+  EnvDefinedNameWritten: CODES.W_ENV_DEFINE_WRITTEN,
   UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
 }
 

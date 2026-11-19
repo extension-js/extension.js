@@ -8,6 +8,7 @@
 
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {
+  findConfigFile,
   loadBrowserConfig,
   loadCommandConfig,
   loadProjectConfigDefaults
@@ -45,6 +46,7 @@ import {
   ensureTypeScriptConfig,
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
+import {resolvePerfBudgets} from './plugin-perf-budgets'
 import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
@@ -168,6 +170,10 @@ export async function extensionDev(
       ),
       browser
     })
+
+    // Budgets run on a production build only, but a value build would refuse
+    // is refused here too, with its code and words, before a server starts.
+    resolvePerfBudgets(merged.perfBudgets, findConfigFile(packageJsonDir))
 
     // With the browser, folders and exclude config resolved, so this check
     // reads the entries the compiler will and writes both files or neither.
