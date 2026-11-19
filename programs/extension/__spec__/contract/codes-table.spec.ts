@@ -415,7 +415,7 @@ const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
     "'warning',"
   ],
   W_SCRIPT_DEP_MISSING: [
-    'develop/rspack-config.ts',
+    'develop/plugin-compilation/unresolved-bare-requires.ts',
     "'UnresolvedBareRequireWarning'",
     'compilation.warnings.push('
   ],
