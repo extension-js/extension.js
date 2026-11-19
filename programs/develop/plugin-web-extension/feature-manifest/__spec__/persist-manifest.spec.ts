@@ -1,15 +1,15 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
   requestDevSessionRestart,
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
+import {markPageReportedMissing} from '../../shared/reported-missing-pages'
 import {PersistManifestToDisk} from '../steps/persist-manifest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
@@ -184,6 +184,70 @@ describe('PersistManifestToDisk', () => {
     expect(String(compilationErrors[0]?.message || '')).toContain(
       'content_scripts/content-1.aaaaaaaa.js'
     )
+  })
+
+  it('writes the manifest when the one missing page was already reported', () => {
+    const outputDir = makeTempFolder('persist-manifest-reported-')
+    const manifestSource = JSON.stringify({
+      manifest_version: 3,
+      side_panel: {default_path: 'sidebar/index.html'}
+    })
+    const compilationErrors: any[] = []
+    const {compiler, compilation, runProcessAssets, runAfterEmit} =
+      makeCompiler(outputDir, () => ({
+        errors: compilationErrors,
+        outputOptions: {path: outputDir},
+        hooks: {processAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => manifestSource}}
+            : undefined
+      }))
+
+    markPageReportedMissing(compilation, 'sidebar/index.html')
+    new PersistManifestToDisk().apply(compiler)
+    runProcessAssets()
+    runAfterEmit()
+
+    expect(compilationErrors).toEqual([])
+    expect(
+      fs.readFileSync(path.join(outputDir, 'manifest.json'), 'utf-8')
+    ).toBe(manifestSource)
+  })
+
+  it('still refuses a side panel page that nothing reported and nothing emitted', () => {
+    const outputDir = makeTempFolder('persist-manifest-unreported-')
+    const manifestSource = JSON.stringify({
+      manifest_version: 3,
+      side_panel: {default_path: 'sidebar/index.html'}
+    })
+    const compilationErrors: any[] = []
+    const {compiler, runProcessAssets, runAfterEmit} = makeCompiler(
+      outputDir,
+      () => ({
+        errors: compilationErrors,
+        outputOptions: {path: outputDir},
+        hooks: {processAssets: {tap: () => undefined}},
+        getAsset: (name: string) =>
+          name === 'manifest.json'
+            ? {source: {source: () => manifestSource}}
+            : undefined
+      })
+    )
+
+    new PersistManifestToDisk().apply(compiler)
+    runProcessAssets()
+    runAfterEmit()
+
+    expect(fs.existsSync(path.join(outputDir, 'manifest.json'))).toBe(false)
+    expect(compilationErrors).toHaveLength(1)
+    expect(compilationErrors[0].name).toBe('ManifestFilesNotEmitted')
+    expect(
+      String(compilationErrors[0].message).split('\n').slice(0, 2)
+    ).toEqual([
+      'manifest.json references files that were not emitted to disk for this build:',
+      '  - sidebar/index.html'
+    ])
   })
 
   it('writes the manifest when every referenced chunk is on disk', () => {
