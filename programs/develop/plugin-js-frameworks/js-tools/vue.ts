@@ -20,7 +20,6 @@ import {
   ensureOptionalContractModuleLoaded,
   ensureOptionalContractPackageResolved
 } from '../../lib/optional-deps-resolver'
-import {createNodeModulesExclude} from '../../lib/transpile-packages'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import {
@@ -152,10 +151,55 @@ function vueTwoWithoutLoader(
   }
 }
 
+type RegisteredPlugin = {name?: unknown; options?: unknown}
+type DefinePluginLike = {name?: unknown; _args?: unknown[]}
+
+// Every key a DefinePlugin already holds: the run's own (the `define` key of
+// extension.config.js among them) and any a `config` hook added.
+function definedKeys(compiler: Compiler): Set<string> {
+  const keys = new Set<string>()
+
+  const addKeys = (definitions: unknown) => {
+    if (!definitions || typeof definitions !== 'object') return
+
+    for (const key of Object.keys(definitions)) keys.add(key)
+  }
+
+  const registered = (
+    compiler as unknown as {__internal__builtinPlugins?: RegisteredPlugin[]}
+  ).__internal__builtinPlugins
+
+  for (const plugin of Array.isArray(registered) ? registered : []) {
+    if (plugin?.name === 'DefinePlugin') addKeys(plugin.options)
+  }
+
+  for (const plugin of (compiler.options.plugins || []) as DefinePluginLike[]) {
+    if (plugin?.name === 'DefinePlugin') addKeys(plugin._args?.[0])
+  }
+
+  return keys
+}
+
+// Vue's compile-time flags, as defaults. A flag the project defines itself
+// keeps the project's value, with no conflict warning from the bundler.
+export class VueFeatureFlagsPlugin {
+  constructor(readonly flags: Record<string, string>) {}
+
+  apply(compiler: Compiler) {
+    const taken = definedKeys(compiler)
+    const free = Object.fromEntries(
+      Object.entries(this.flags).filter(([key]) => !taken.has(key))
+    )
+
+    if (Object.keys(free).length > 0) {
+      new DefinePlugin(free).apply(compiler)
+    }
+  }
+}
+
 export async function maybeUseVue(
   projectPath: string,
-  mode: 'development' | 'production' | string = 'development',
-  transpilePackageDirs: string[] = []
+  mode: 'development' | 'production' | string = 'development'
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
@@ -194,23 +238,22 @@ export async function maybeUseVue(
       options: mergeLoaderOptions(
         {experimentalInlineMatchResource: true},
         customOptions
-      ),
-      // No include: a workspace sibling imported by path compiles like any
-      // project file; a published one arrives through transpilePackages.
-      exclude: createNodeModulesExclude(transpilePackageDirs)
+      )
+      // No include or exclude: a .vue file is always source, so one from a
+      // dependency compiles like a project file, the way .svelte does.
     }
   ]
 
   const isProd = mode === 'production'
   const defaultPlugins: JsFramework['plugins'] = [
     new VueLoaderPlugin() as unknown as RspackPluginInstance,
-    new DefinePlugin({
+    new VueFeatureFlagsPlugin({
       // The Options API stays on in every mode: turning it off breaks each
       // component written with data(), methods or computed options.
       __VUE_OPTIONS_API__: JSON.stringify(true),
       __VUE_PROD_DEVTOOLS__: JSON.stringify(!isProd),
       __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(!isProd)
-    })
+    }) as unknown as RspackPluginInstance
   ]
 
   // Force a single Vue runtime instance across app and transpiled workspace deps.

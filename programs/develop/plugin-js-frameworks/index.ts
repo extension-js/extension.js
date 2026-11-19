@@ -48,6 +48,9 @@ import {
 import {maybeUseVue} from './js-tools/vue'
 import {resolveSwcTargets} from './swc-targets'
 
+// A .vue file, or a block vue-loader names after it (`Button.vue.ts`).
+const VUE_BLOCK = /\.vue(\.[cm]?[jt]sx?)?$/
+
 // User-authored and default webpack rules arrive in many shapes; this loose
 // view names only the fields the merge/patch helpers probe.
 interface LooseRuleUse {
@@ -215,6 +218,10 @@ export class JsFrameworksPlugin {
       this.transpilePackages
     ).filter((dir) => dir !== projectPath && dir !== manifestDir)
     const excludeNodeModules = createNodeModulesExclude(transpilePackageDirs)
+    // A .vue file is source wherever it lives, so the script and template
+    // blocks vue-loader splits out of one in a dependency compile too.
+    const excludeScriptsInNodeModules = (resourcePath: string) =>
+      !VUE_BLOCK.test(resourcePath) && excludeNodeModules(resourcePath)
 
     // The bundler resolves symlinks, so loader resource paths arrive as
     // realpaths while these dirs are the logical spellings (/tmp, /var,
@@ -369,11 +376,7 @@ export class JsFrameworksPlugin {
         isfeatureScriptsContentLike(resourcePath)
     })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
-    const maybeInstallVue = await maybeUseVue(
-      projectPath,
-      mode,
-      transpilePackageDirs
-    )
+    const maybeInstallVue = await maybeUseVue(projectPath, mode)
     const maybeInstallSolid = await maybeUseSolid(
       projectPath,
       mode,
@@ -437,7 +440,7 @@ export class JsFrameworksPlugin {
       type: 'javascript/auto',
       // No include: a source outside the project root, such as a workspace
       // sibling imported by path, compiles like any project file.
-      exclude: [excludeNodeModules],
+      exclude: [excludeScriptsInNodeModules],
       resourceQuery: NOT_RAW_RESOURCE_QUERY
     }
 
