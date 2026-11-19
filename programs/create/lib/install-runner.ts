@@ -159,7 +159,19 @@ export interface RunInstallOptions {
   timeoutMs?: number
   spawn?: SpawnProcess
   platform?: NodeJS.Platform
+  // How the install's process group is signaled, process.kill unless given.
+  signalGroup?: SignalGroup
 }
+
+// Sends a signal to every process in the group the install leads.
+export type SignalGroup = (pid: number, signal: NodeJS.Signals) => void
+
+export const signalProcessGroup: SignalGroup = (pid, signal) => {
+  process.kill(-pid, signal)
+}
+
+// How long a manager gets to end its own children before SIGKILL.
+export const KILL_GRACE_MS = 2000
 
 export type InstallRunner = (
   command: string,
@@ -167,26 +179,93 @@ export type InstallRunner = (
   opts: RunInstallOptions
 ) => Promise<InstallResult>
 
+function stillRunning(child: ChildProcess): boolean {
+  return child.exitCode === null && child.signalCode === null
+}
+
 // A .cmd shim runs the manager as a grandchild of cmd.exe, which a plain kill
-// would orphan, so Windows ends the whole tree.
+// would orphan, so Windows ends the whole tree. On POSIX a child that leads
+// its own group is ended with everything it started, a postinstall included.
 export function endProcessTree(
   child: ChildProcess,
   spawnProcess: SpawnProcess,
-  platform: NodeJS.Platform
+  platform: NodeJS.Platform,
+  signalGroup?: SignalGroup
 ) {
-  try {
-    if (platform === 'win32' && child.pid !== undefined) {
+  if (platform === 'win32' && child.pid !== undefined) {
+    try {
       spawnProcess('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
         stdio: 'ignore'
       }).on('error', () => {})
-
-      return
+    } catch {
+      // The child is already gone, and the timeout is still what gets reported.
     }
 
-    child.kill('SIGTERM')
-  } catch {
-    // The child is already gone, and the timeout is still what gets reported.
+    return
   }
+
+  const send = (signal: NodeJS.Signals) => {
+    try {
+      if (signalGroup && child.pid !== undefined) {
+        signalGroup(child.pid, signal)
+      } else {
+        child.kill(signal)
+      }
+    } catch {
+      // Already gone, and the timeout is still what gets reported.
+    }
+  }
+
+  send('SIGTERM')
+
+  // A group can outlive its leader, so it gets SIGKILL whatever the leader did.
+  const escalate = setTimeout(() => {
+    if (signalGroup || stillRunning(child)) send('SIGKILL')
+  }, KILL_GRACE_MS)
+  escalate.unref?.()
+}
+
+// A child in its own group no longer hears the terminal's Ctrl+C, so the
+// signals that end this process end the install too.
+export function forwardEndingSignals(pid: number, signalGroup: SignalGroup) {
+  const forwarded: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
+  const handlers = new Map<NodeJS.Signals, () => void>()
+
+  const onExit = () => {
+    try {
+      signalGroup(pid, 'SIGKILL')
+    } catch {
+      // Already gone.
+    }
+  }
+
+  const release = () => {
+    for (const [signal, handler] of handlers) process.off(signal, handler)
+    handlers.clear()
+    process.off('exit', onExit)
+  }
+
+  for (const signal of forwarded) {
+    const handler = () => {
+      try {
+        signalGroup(pid, signal)
+      } catch {
+        // Already gone.
+      }
+
+      release()
+
+      // Listening took the default exit away, so it is given back.
+      if (process.listenerCount(signal) === 0) process.kill(process.pid, signal)
+    }
+
+    handlers.set(signal, handler)
+    process.on(signal, handler)
+  }
+
+  process.on('exit', onExit)
+
+  return release
 }
 
 export async function runInstall(
@@ -198,13 +277,28 @@ export async function runInstall(
   const platform = opts.platform ?? process.platform
   const timeoutMs = opts.timeoutMs ?? installTimeoutMs()
   const tee = opts.stdio === 'tee'
+  // Its own group, so a timeout reaches what the manager started. Not when
+  // stdin is the terminal's: a background group that reads it is stopped.
+  const ownGroup =
+    platform !== 'win32' && opts.stdio !== 'inherit' && opts.stdio !== 'tee'
   const child = spawnProcess(command, args, {
     stdio: opts.stdio === 'tee' ? ['inherit', 'pipe', 'pipe'] : opts.stdio,
     cwd: opts.cwd,
     // cross-spawn runs the .cmd shims on Windows and escapes each argument,
     // so the project path never becomes part of a shell string.
-    env: buildExecEnv(process.env, opts.cwd, platform) as NodeJS.ProcessEnv
+    env: buildExecEnv(process.env, opts.cwd, platform) as NodeJS.ProcessEnv,
+    ...(ownGroup ? {detached: true} : {})
   })
+  // A stand-in spawn has no real group, so only a given signaler reaches one.
+  const signalGroup = ownGroup
+    ? (opts.signalGroup ?? (opts.spawn ? undefined : signalProcessGroup))
+    : undefined
+
+  const release =
+    signalGroup && child.pid !== undefined
+      ? forwardEndingSignals(child.pid, signalGroup)
+      : () => {}
+
   let stdout = ''
   let stderr = ''
 
@@ -226,7 +320,8 @@ export async function runInstall(
     // Resolved here and not on close: a surviving grandchild can hold the
     // pipes open, and close would then never arrive.
     const timer = setTimeout(() => {
-      endProcessTree(child, spawnProcess, platform)
+      release()
+      endProcessTree(child, spawnProcess, platform, signalGroup)
       resolve({
         code: null,
         stderr,
@@ -237,11 +332,13 @@ export async function runInstall(
 
     child.on('close', (code) => {
       clearTimeout(timer)
+      release()
       resolve({code, stderr, stdout})
     })
 
     child.on('error', (error) => {
       clearTimeout(timer)
+      release()
       reject(error)
     })
   })

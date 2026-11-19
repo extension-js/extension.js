@@ -13,8 +13,8 @@ import {
 } from '../../__spec__/examples-catalog-fixture'
 import {
   type DownloadRetryOptions,
-  importExternalTemplate,
   type ImportExternalTemplateOptions,
+  importExternalTemplate,
   type TemplateClone
 } from '../import-external-template'
 
@@ -314,25 +314,24 @@ describe('the template catalog download', () => {
       const url =
         'https://github.com/extension-js/templates/tree/main/examples/content'
 
-      let finishClone = () => {}
+      let cloneSignal: AbortSignal | undefined
 
-      const clone = vi.fn<TemplateClone>(
-        () =>
-          new Promise<void>((resolve) => {
-            finishClone = resolve
-          })
-      )
+      const clone = vi.fn<TemplateClone>((_url, _dest, _message, signal) => {
+        cloneSignal = signal
+
+        return new Promise<void>(() => {})
+      })
 
       vi.useFakeTimers()
 
       const outcome = failing(url, {clone})
       await vi.waitFor(() => expect(clone).toHaveBeenCalledTimes(1))
+      expect(cloneSignal?.aborted).toBe(false)
       await vi.advanceTimersByTimeAsync(60_000)
       const error = await outcome
 
-      // The clone is still pending, and settling it hands the output back.
-      finishClone()
-      await vi.advanceTimersByTimeAsync(0)
+      // The clone is told to stop, so whatever it started can be ended.
+      expect(cloneSignal?.aborted).toBe(true)
 
       const frame = stripVTControlCharacters(error.message)
 
