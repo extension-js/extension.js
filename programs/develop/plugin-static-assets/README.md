@@ -27,7 +27,7 @@
 - **Resolution**: When the config lists `resolve.extensions`, `.wasm` is appended once and the entries already there are kept. A config with no list is left alone.
 - **Bytes on request**: `import url from './codec.wasm?url'` emits the binary under `assets/` and returns its URL, for Emscripten-style loaders that fetch their own bytes.
 - **No package aliases**: A runtime file of `@ffmpeg/core`, `@imagemagick/magick-wasm`, `tesseract-wasm` or any other package resolves like every package file. When the package's `exports` hides the file, the build fails with `Package subpath './dist/esm/ffmpeg-core.js' is not defined by "exports"`, and an alias from the `config` function reaches it: `config.resolve.alias['@ffmpeg/core/dist/esm/ffmpeg-core.js'] = path.resolve(__dirname, 'node_modules/@ffmpeg/core/dist/esm/ffmpeg-core.js')`.
-- **Budget**: The perf-budgets plugin budgets a `.wasm` binary only extension pages and workers reach as `wasm` (32 MiB), and one a content script or the service worker reaches as `runtime` (1 MiB). Raise `perfBudgets.wasm` or `perfBudgets.runtime`, or list the file under `perfBudgets.ignore` in `extension.config.js`.
+- **Budget**: The perf-budgets plugin budgets a `.wasm` binary only extension pages and workers reach as `wasm` (32 MiB), and one a content script or the service worker reaches as `runtime` (1 MiB). Raise `perfBudgets.wasm` or `perfBudgets.runtime`, or list the file under `perfBudgets.ignore` in `extension.config.js`. The categories are in `plugin-perf-budgets/README.md`.
 
 ### Usage
 
