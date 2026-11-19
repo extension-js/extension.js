@@ -1,4 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import type {BrowserType} from '../../types'
 import {type BrowserLaunchOptions, BrowsersPlugin} from '../index'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
@@ -10,7 +11,7 @@ beforeEach(() => {
 })
 
 async function launchOnce(
-  browserOptions: {browser: string; instanceId?: string},
+  browserOptions: {browser: BrowserType; instanceId?: string},
   instanceId?: string
 ) {
   const launcher = vi.fn(async (_options: BrowserLaunchOptions) => ({

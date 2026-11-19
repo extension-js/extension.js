@@ -4,6 +4,7 @@ import {
   fakeCompiler
 } from '../../plugin-browsers/__spec__/fake-compiler'
 import {BrowsersPlugin} from '../../plugin-browsers/index'
+import type {BrowserType} from '../../types'
 import type {ReloadInstruction} from '../index'
 
 const CONTEXT = '/tmp/ext'
@@ -15,7 +16,7 @@ beforeEach(() => {
 
 // Gecko keeps the hashed bundle names in the manifest it registers, so each
 // compile hands the done hook the manifest with this compile's names.
-function createHarness(browser = 'firefox') {
+function createHarness(browser: BrowserType = 'firefox') {
   const reload = vi.fn<(instruction: ReloadInstruction) => void>()
   const launcher = vi.fn().mockResolvedValue({
     enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)

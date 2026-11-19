@@ -8,7 +8,6 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
-import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import * as messages from '../lib/messages'
 import {CODES, humanLine, humanWarn} from '../lib/messaging'
 import {
@@ -22,7 +21,7 @@ import {
   readDevBuild,
   reloadForBuild
 } from '../plugin-reload'
-import type {DevOptions} from '../types'
+import type {BrowserType} from '../types'
 import {waitAtMost} from './bounded-wait'
 import {
   clearLaunchTimedOut,
@@ -67,7 +66,7 @@ export class BuildEmitter extends EventEmitter<BuildEventMap> {
 // it, then the public event. The launcher stamps the contract before it throws.
 export function reportLaunchFailure(
   emitter: BuildEmitter,
-  failure: {browser: string; error: unknown}
+  failure: {browser: BrowserType; error: unknown}
 ): void {
   const {error} = failure
   const reason = error instanceof Error ? error.message : String(error)
@@ -76,11 +75,7 @@ export function reportLaunchFailure(
   // Print before emitting: the emitter's default 'error' listener swallows.
   if (fault?.printed !== true) {
     console.error(
-      messages.browserLaunchFailed(
-        failure.browser as DevOptions['browser'],
-        reason,
-        fault?.code
-      )
+      messages.browserLaunchFailed(failure.browser, reason, fault?.code)
     )
   }
 
@@ -93,7 +88,7 @@ export function reportLaunchFailure(
 }
 
 export interface BrowserLaunchOptions {
-  browser: string
+  browser: BrowserType
   outputPath: string
   contextDir: string
   extensionsToLoad: string[]
@@ -142,6 +137,10 @@ export interface BrowserLogSinkEvent {
 }
 
 export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
+
+// The dev server's answer to whether a MAIN world restart replaces this build,
+// handed in so the browser plugins never read session restart state.
+export type RestartHold = (compiler: object, compilation?: object) => boolean
 
 export interface ExtensionLoadRetryResult {
   status: 'loaded' | 'refused' | 'unknown'
@@ -219,6 +218,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   private launchStillRunning = false
   private controller: BrowserController | undefined
   private reloadBroker: ReloadBroker | undefined
+  private restartHold: RestartHold | undefined
   private logSink: BrowserLogSink | undefined
   private emulatorViewerUrl: string | undefined
   private instanceId: string | undefined
@@ -245,6 +245,12 @@ export class BrowsersPlugin implements RunnerPlugin {
    */
   setReloadBroker(broker: ReloadBroker): void {
     this.reloadBroker = broker
+  }
+
+  // The dev server says which builds a MAIN world restart replaces. Called
+  // once, before the first compile.
+  setRestartHold(isHeld: RestartHold): void {
+    this.restartHold = isHeld
   }
 
   // The dev server injects a sink that routes browser-generated Log.entryAdded
@@ -543,7 +549,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       // replaces it. Reloading for this one too starts the background twice.
       const heldForRestart =
         !this.isFirstCompile &&
-        isAwaitingMainWorldRestart(compiler, compilation)
+        this.restartHold?.(compiler, compilation) === true
 
       // What must reload is plugin-reload's answer, from the sources that
       // changed. The first compile is the build the browser loads.

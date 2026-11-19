@@ -1,6 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../lib/messages'
 import type {ReloadBroker} from '../../plugin-reload'
+import type {BrowserType} from '../../types'
 import {
   type BrowserController,
   BrowsersPlugin,
@@ -64,7 +65,7 @@ function refusingBrowser(
 function session(
   controller: BrowserController,
   broker?: ReloadBroker,
-  browser = 'chrome'
+  browser: BrowserType = 'chrome'
 ) {
   const plugin = new BrowsersPlugin({
     launcher: vi.fn().mockResolvedValue(controller),

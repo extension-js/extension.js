@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../lib/messages'
+import type {BrowserType} from '../../types'
 import {
   BROWSER_LAUNCH_TIMEOUT_MS,
   type BrowserController,
@@ -17,6 +18,10 @@ import {fakeCompilation, fakeCompiler} from './fake-compiler'
 // The public event map offers no 'close': nothing ever emitted one.
 // @ts-expect-error 'close' is not a public build event
 type _NoCloseEvent = BuildEventMap['close']
+
+// The launcher is handed a browser the engine knows, never any string.
+// @ts-expect-error 'netscape' is not a browser the engine runs
+const _unknownBrowser: BrowserLaunchOptions['browser'] = 'netscape'
 
 const CONTEXT = '/tmp/project'
 const OUTPUT = '/tmp/project/dist/chrome'
@@ -86,7 +91,9 @@ type Launcher = (options: BrowserLaunchOptions) => Promise<BrowserController>
 // listener call it makes is recorded, in order.
 function session(
   launcher: Launcher,
-  browserOptions: {browser: string; logLevel?: string} = {browser: 'chrome'},
+  browserOptions: {browser: BrowserType; logLevel?: string} = {
+    browser: 'chrome'
+  },
   output = OUTPUT
 ) {
   const launch = vi.fn(launcher)

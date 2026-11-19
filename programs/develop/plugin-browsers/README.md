@@ -39,15 +39,16 @@ for library callers:
   Past a bound the hook returns, the plugin stamps what nothing else could
   (`launch-timeout-stamp.ts`), and a late finish is still picked up.
 - The dev server hands each plugin what it owns through setters before the
-  first compile: the reload broker, the log sink, the instance id, the
-  emulator viewer URL and the ready and launch settled listeners.
+  first compile: the reload broker, the restart hold, the log sink, the
+  instance id, the emulator viewer URL and the ready and launch settled
+  listeners.
 
 ## Boundary
 
 Allowed imports: `plugin-reload` (its public `index.ts`), `lib/` and
-`types.ts`. One import of `dev-server/session-restart-holds.ts` remains, to
-skip the reload of a build a MAIN world restart replaces, until the dev
-server hands that check in as a setter.
+`types.ts`. Whether a MAIN world restart replaces a build is the dev
+server's answer, handed in through `setRestartHold`, so nothing here reads
+session restart state.
 
 ## Tests
 

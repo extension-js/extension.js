@@ -7,7 +7,6 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import {CODES} from '../lib/messaging'
 import {
   createChangedSourcesTracker,
@@ -20,7 +19,12 @@ import {
 } from '../plugin-reload'
 import type {SafariPackagerFn} from '../types'
 import {waitAtMost} from './bounded-wait'
-import {BuildEmitter, type RunnerPlugin, reportLaunchFailure} from './index'
+import {
+  BuildEmitter,
+  type RestartHold,
+  type RunnerPlugin,
+  reportLaunchFailure
+} from './index'
 import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
 import * as browserMessages from './messages'
 
@@ -56,8 +60,8 @@ export class SafariDevPlugin implements RunnerPlugin {
   private firstPackageStillRunning = false
   private active = false
   private pending: SafariPackageTarget | null = null
-  private idleWaiters: Array<() => void> = []
   private reloadBroker: ReloadBroker | undefined
+  private restartHold: RestartHold | undefined
   private readyListener: (() => void) | undefined
 
   constructor(private readonly packager: SafariPackagerFn) {}
@@ -65,6 +69,11 @@ export class SafariDevPlugin implements RunnerPlugin {
   // Duck-typed by the dev server, the same seam the launched-browser plugin has.
   setReloadBroker(broker: ReloadBroker): void {
     this.reloadBroker = broker
+  }
+
+  // The same restart check the launched-browser plugin is handed.
+  setRestartHold(isHeld: RestartHold): void {
+    this.restartHold = isHeld
   }
 
   // Safari is ready when its first full package pass finished.
@@ -94,7 +103,10 @@ export class SafariDevPlugin implements RunnerPlugin {
 
       // The package is itself a reload, so a build the MAIN world restart
       // replaces is not packaged. The restart's own build is.
-      if (!this.firstRun && isAwaitingMainWorldRestart(compiler, compilation)) {
+      if (
+        !this.firstRun &&
+        this.restartHold?.(compiler, compilation) === true
+      ) {
         this.emitter.emit('compiled', {
           outputPath,
           contextDir,
@@ -156,14 +168,6 @@ export class SafariDevPlugin implements RunnerPlugin {
     })
   }
 
-  // Resolves once nothing is packaging or queued. Test hook + a handle for
-  // callers that need to wait for the watch loop to settle.
-  idle(): Promise<void> {
-    if (!this.active && !this.pending) return Promise.resolve()
-
-    return new Promise<void>((resolve) => this.idleWaiters.push(resolve))
-  }
-
   // Waits on its own package only. A follow-up queued behind it runs on,
   // and a run past the bound keeps going while the hook returns.
   private async resync(target: SafariPackageTarget) {
@@ -197,7 +201,6 @@ export class SafariDevPlugin implements RunnerPlugin {
     }
 
     this.active = false
-    this.settleIdle()
   }
 
   private async runFirst(target: SafariPackageTarget) {
@@ -328,13 +331,5 @@ export class SafariDevPlugin implements RunnerPlugin {
     }
 
     this.emitter.emit('error', {errors: [reason]})
-  }
-
-  private settleIdle() {
-    if (this.active || this.pending) return
-
-    const waiters = this.idleWaiters
-    this.idleWaiters = []
-    for (const resolve of waiters) resolve()
   }
 }
