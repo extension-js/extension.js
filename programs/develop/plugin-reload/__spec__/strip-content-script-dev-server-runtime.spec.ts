@@ -163,6 +163,7 @@ describe('content script dev-server runtime stripping', () => {
           }
         ]
       },
+      getAsset: () => undefined,
       updateAsset
     })
 
