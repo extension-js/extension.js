@@ -278,6 +278,8 @@ What is stable and what is not:
   `ok`, `status`, or `error.code`, open an issue and it will be added to the envelope.
 - `value` carries the payload on success. On a failure it is `null`, except on a session frame
   of `dev`, where it still describes the session.
+- `warnings` lists each coded warning the run carried on past, as `CODE: text`, once each. A
+  `build` frame carries it on success and on failure alike, and it is `[]` when there is none.
 - `error.details` is present when a compile failed and lists each diagnostic behind it, errors
   first, as `{code?, message, file?, line?, column?, severity, name?}`. `code` is the table
   code the diagnostic resolves to and is absent when none does, `severity` is `error` or
