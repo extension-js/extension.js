@@ -19,14 +19,17 @@ if (afterDashes.length > 0) {
   )
 }
 
+// Every fixture lives in its own temp folder, so files run side by side. On
+// macOS two watch sessions closing at once block their processes for minutes.
+const SPEC_WORKERS =
+  process.platform === 'darwin' ? 1 : process.platform === 'win32' ? 2 : 3
+
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    // Every fixture lives in its own temp folder, so files run side by side.
-    // Windows runners have less memory per build, so they get one worker less.
     pool: 'forks',
-    maxWorkers: process.platform === 'win32' ? 2 : 3,
+    maxWorkers: SPEC_WORKERS,
     testTimeout: 30000,
     hookTimeout: 45000,
     include: [
