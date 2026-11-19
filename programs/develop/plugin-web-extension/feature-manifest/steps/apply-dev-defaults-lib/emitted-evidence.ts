@@ -93,7 +93,31 @@ export function readEmittedScripts(
   return scripts
 }
 
-export function readProjectSource(resource: string): string | undefined {
+const sourcesByCompile = new WeakMap<object, Map<string, string | undefined>>()
+
+// Several scans walk the same modules in one compile. Given the compile, a
+// file is read from disk for the first scan and handed to the rest.
+export function readProjectSource(
+  resource: string,
+  compile?: object
+): string | undefined {
+  if (!compile) return readSourceFromDisk(resource)
+
+  let sources = sourcesByCompile.get(compile)
+
+  if (!sources) {
+    sources = new Map()
+    sourcesByCompile.set(compile, sources)
+  }
+
+  if (!sources.has(resource)) {
+    sources.set(resource, readSourceFromDisk(resource))
+  }
+
+  return sources.get(resource)
+}
+
+function readSourceFromDisk(resource: string): string | undefined {
   try {
     if (fs.statSync(resource).size > MAX_SOURCE_BYTES) return undefined
 

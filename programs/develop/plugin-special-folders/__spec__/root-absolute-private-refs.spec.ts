@@ -243,14 +243,22 @@ describe('a root-absolute path that names a file outside public/', () => {
       )
 
       expect(result.marked).toEqual(['package.json'])
-      expect(result.missing).toEqual(
-        [...PRIVATE_TARGETS, ...CLIMBING_TARGETS, ...LINKED_TARGETS].sort()
+
+      // A file that is there and withheld reads as it does in a stylesheet
+      // the build bundles: there and not bundled.
+      const withheld = [
+        ...PRIVATE_TARGETS,
+        ...CLIMBING_TARGETS,
+        ...LINKED_TARGETS
+      ].filter((ref) => ref !== '/%2e%2e/outside.txt')
+
+      expect(notBundledRefs(result.printed)).toEqual([...withheld].sort())
+      expect(result.printed).not.toContain(
+        'A url(/.env) reference points to a file that exists nowhere'
       )
 
-      // In the words a dead stylesheet reference gets.
-      expect(result.printed).toContain(
-        'A url(/.env) reference points to a file that exists nowhere in the project.'
-      )
+      // An encoded climb names no file, so it reads as a missing one.
+      expect(result.missing).toEqual(['/%2e%2e/outside.txt'])
 
       expect(result.errors).toBe(0)
       expectOnlyProjectManifestMarked(result)
@@ -349,11 +357,8 @@ describe('a root-absolute path that names a file outside public/', () => {
         'public/.env is an env file, and it is left out of the chrome build.'
       )
 
-      for (const ref of ['/.env', '/.npmrc']) {
-        expect(result.printed).toContain(
-          `A url(${ref}) reference points to a file that exists nowhere in the project.`
-        )
-      }
+      // The sheet names files that are there, so it says they are not bundled.
+      expect(notBundledRefs(result.printed)).toEqual(['/.env', '/.npmrc'])
 
       expect(result.errors).toBe(0)
       expectNothingPrivate(result)

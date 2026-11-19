@@ -702,7 +702,7 @@ describe('createChangedSourcesTracker', () => {
     expect(instruction?.changedAssets).toEqual(['_locales/en/messages.json'])
   })
 
-  // Pins today's behavior. Ledger 1385 D7.
+  // Pins current behavior: the forced full reload matches on a substring.
   it('forces a full reload for a file whose name only ends in manifest.json', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
@@ -715,7 +715,7 @@ describe('createChangedSourcesTracker', () => {
     })
   })
 
-  // Pins today's behavior. Ledger 1385 D7.
+  // Pins current behavior: the forced full reload matches on a substring.
   it('forces a full reload for a source file under any _locales folder', () => {
     const {compiler, fireWatchRun} = fakeCompiler()
     const tracker = createChangedSourcesTracker(compiler)
@@ -1076,7 +1076,7 @@ function recordingBroker(answers: {
 }
 
 describe('dispatchReload when the broker fails', () => {
-  // Pins today's behavior. Ledger 1385 D9.
+  // Pins current behavior: a broker failure is not caught here.
   it('rejects with the error a throwing broadcast raised', async () => {
     const gone = new Error('socket gone')
     const {broker, sent} = recordingBroker({
@@ -1090,7 +1090,6 @@ describe('dispatchReload when the broker fails', () => {
     expect(fullReloadsDeliveredTo(broker)).toBe(0)
   })
 
-  // Pins today's behavior. Ledger 1385 D9.
   it('rejects with the error a rejected ack wait raised', async () => {
     const lost = new Error('ack channel closed')
     const {broker, sent} = recordingBroker({ack: () => Promise.reject(lost)})
@@ -1105,7 +1104,6 @@ describe('dispatchReload when the broker fails', () => {
 })
 
 describe('dispatchRestartReload', () => {
-  // Pins today's behavior. Ledger 1385 D10.
   it('sends one full reload for the extension when no build reloaded it since', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const {broker, sent} = recordingBroker({})
@@ -1126,7 +1124,6 @@ describe('dispatchRestartReload', () => {
     ])
   })
 
-  // Pins today's behavior. Ledger 1385 D10.
   it('sends nothing when a build of the new compiler already reloaded it', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const {broker, sent} = recordingBroker({})
@@ -1138,7 +1135,6 @@ describe('dispatchRestartReload', () => {
     expect(fullReloadsDeliveredTo(broker)).toBe(1)
   })
 
-  // Pins today's behavior. Ledger 1385 D10.
   it('sends nothing and reports false with no broker', async () => {
     await expect(dispatchRestartReload({}, 0)).resolves.toBe(false)
   })
