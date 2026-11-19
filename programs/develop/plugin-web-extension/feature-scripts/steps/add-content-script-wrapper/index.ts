@@ -15,8 +15,7 @@ import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
 import {
   canonicalizeDir,
-  canonicalizeResourcePath,
-  isResourceUnderDirs
+  canonicalizeResourcePath
 } from '../../../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../../../lib/resource-query'
 import {scriptsFolderRoot} from '../../../../plugin-special-folders/folders-config'
@@ -36,6 +35,11 @@ import {
   setRuntimeMainWorldEntries
 } from '../../contracts'
 import {addRulesInFront} from '../../scripts-lib/front-rules'
+import {
+  exactly,
+  oneOfFiles,
+  underFolders
+} from '../../scripts-lib/path-conditions'
 import {findRuntimeMainWorldEntries} from '../../scripts-lib/runtime-main-world-scripts'
 import {getMainWorldBridgeScripts} from './get-bridge-scripts'
 
@@ -131,8 +135,7 @@ export class AddContentScriptWrapper {
       packageJsonDir === manifestDir
         ? [manifestDir]
         : [manifestDir, packageJsonDir]
-    const includeMatcher = (resource: string): boolean =>
-      isResourceUnderDirs(resource, includeDirs)
+    const includeMatcher = underFolders(includeDirs)
 
     // A file the extension registers into the MAIN world at runtime shares the
     // page's globals and DOM prototypes exactly like a declared MAIN world
@@ -181,16 +184,12 @@ export class AddContentScriptWrapper {
       ...findDeclaredMainWorldFiles(this.manifestPath, this.browser),
       ...mainWorldScripts
     ])
-    const importedByMainWorldEntry = (issuer: string): boolean =>
-      typeof issuer === 'string' &&
-      issuer.length > 0 &&
-      mainWorldEntryFiles.has(canonicalizeResourcePath(issuer))
+    const importedByMainWorldEntry = oneOfFiles([...mainWorldEntryFiles])
     const hasMainWorldEntries =
       mainWorldEntryFiles.size > 0 || mainWorldCopies.length > 0
     // A path cannot tell the copy in that bundle from the standalone one, so
     // deeper imports are told apart by the layer the first import is given.
-    const inMainWorldImportLayer = (layer: string): boolean =>
-      layer === EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER
+    const inMainWorldImportLayer = exactly(EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER)
 
     // The concatenated text is the source of its module, so this rule stays
     // last and runs first. The rule below wraps it, once, like any other.
