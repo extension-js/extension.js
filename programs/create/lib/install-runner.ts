@@ -156,8 +156,19 @@ export type InstallResult = {
   code: number | null
   stderr: string
   stdout: string
+  // The signal that ended a child with no exit code.
+  signal?: NodeJS.Signals
   // Why the runner ended the child itself, set only when it did.
   reason?: string
+}
+
+// What the EXIT row says. A null code is the runner's timeout or a signal,
+// and printing "null" told the user neither.
+export function installExit(run: InstallResult): number | string {
+  if (run.code !== null) return run.code
+  if (run.reason !== undefined) return 'timed out'
+
+  return run.signal ? `ended by ${run.signal}` : 'no exit code'
 }
 
 export interface RunInstallOptions {
@@ -338,10 +349,15 @@ export async function runInstall(
       })
     }, timeoutMs)
 
-    child.on('close', (code) => {
+    child.on('close', (code, signal) => {
       clearTimeout(timer)
       release()
-      resolve({code, stderr, stdout})
+      resolve({
+        code,
+        stderr,
+        stdout,
+        ...(code === null && signal ? {signal} : {})
+      })
     })
 
     child.on('error', (error) => {

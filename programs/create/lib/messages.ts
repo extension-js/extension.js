@@ -527,7 +527,7 @@ export function withIncompleteCleanup(
 export function installingDependenciesFailed(
   pmCommand: string,
   pmArgs: string[],
-  code: number | null,
+  exit: number | string,
   output?: string,
   retry?: ScaffoldRetry
 ) {
@@ -541,7 +541,7 @@ export function installingDependenciesFailed(
   return (
     `${prefix('error')} Couldn't install the dependencies.\n` +
     `${fmt.label('COMMAND')} ${fmt.val(`${pmCommand} ${pmArgs.join(' ')}`)}\n` +
-    `${fmt.label('EXIT')} ${fmt.val(String(code))}\n` +
+    `${fmt.label('EXIT')} ${fmt.val(String(exit))}\n` +
     (reason ? `${fmt.label('REASON')} ${reason}\n` : '') +
     rule +
     nextStep

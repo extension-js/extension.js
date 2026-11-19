@@ -17,6 +17,7 @@ import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import {
   type InstallResult,
   type InstallRunner,
+  installExit,
   isMissingCommand,
   runInstall as runInstallCommand
 } from '../lib/install-runner'
@@ -292,7 +293,7 @@ export async function installDependencies(
           messages.installingDependenciesFailed(
             command,
             dependenciesArgs,
-            retryRun.code,
+            installExit(retryRun),
             failureOutput(retryRun),
             retry
           )
@@ -303,7 +304,7 @@ export async function installDependencies(
         messages.installingDependenciesFailed(
           command,
           dependenciesArgs,
-          firstRun.code,
+          installExit(firstRun),
           output,
           retry
         )

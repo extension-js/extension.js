@@ -13,6 +13,7 @@ import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import {
   type InstallRunner,
+  installExit,
   isMissingCommand,
   runInstall as runInstallCommand
 } from '../lib/install-runner'
@@ -360,7 +361,7 @@ async function installOptionalDependencies(
       messages.installingDependenciesFailed(
         pm,
         args,
-        result.code,
+        installExit(result),
         [result.reason, result.stdout, result.stderr]
           .filter((part) => part !== undefined)
           .join('\n'),
