@@ -14,10 +14,12 @@ import {debugLine, isDebug} from '../lib/messaging'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
+import {resolveSwcTargets} from '../lib/swc-targets'
 import {
   createNodeModulesExclude,
   resolveTranspilePackageDirs
 } from '../lib/transpile-packages'
+import {getUserTypeScriptConfigFile} from '../lib/user-tsconfig'
 import {scriptsFolderRoot} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
@@ -42,11 +44,9 @@ import {maybeUseSolid} from './js-tools/solid'
 import {maybeUseSvelte} from './js-tools/svelte'
 import {
   ensureTypeScriptConfig,
-  getUserJsConfigFile,
-  getUserTypeScriptConfigFile
+  getUserJsConfigFile
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
-import {resolveSwcTargets} from './swc-targets'
 
 // User-authored and default webpack rules arrive in many shapes; this loose
 // view names only the fields the merge/patch helpers probe.

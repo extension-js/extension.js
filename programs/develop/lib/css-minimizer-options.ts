@@ -6,8 +6,8 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {resolveSwcTargets} from '../plugin-js-frameworks/swc-targets'
 import type {DevOptions, Manifest} from '../types'
+import {resolveSwcTargets} from './swc-targets'
 
 // Minifying must not rewrite selectors the author wrote: lowering :dir() and
 // :lang() lists expands one rule into dozens and grew real sheets twelvefold.

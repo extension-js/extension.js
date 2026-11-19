@@ -255,7 +255,7 @@ export default {
 
 - `extension.config.*` runs in a Node context during command startup.
   - Use `process.env.*` to read environment variables inside the config file.
-  - `import.meta.env.*` is available in your extension code at bundle time (via the Env plugin), not in the Node config.
+  - `import.meta.env.*` reads the same values in an ES module config (`extension.config.mjs`, or an `extension.config.js` written as an ES module), and in your extension code at bundle time (via the Env plugin).
 - Before the config runs, develop loads the env files that match the running mode and browser into `process.env`. Values layer key by key: every matching file is read, and for each key the strongest file that sets it wins. A value already set in the shell or CI wins over every file. Strongest first:
   1. `.env.<browser>.<mode>`, then `.env.<browser>`, for the browser and then for each name of its family (for example `.env.chrome.production`, `.env.chrome`, `.env.chromium`). These apply once the browser is known.
   2. `.env.<mode>.local`

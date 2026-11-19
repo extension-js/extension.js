@@ -319,6 +319,23 @@ export function claimCardKey(key: string): boolean {
   return true
 }
 
+// A session that ends gives back the cards of its output folder, so a
+// library host keeps no registry of a session that is gone.
+export function releaseCardKeysOf(outputPath: string): void {
+  const claimed = String(process.env[CARD_KEYS_ENV] || '')
+  if (!claimed) return
+
+  const kept = claimed
+    .split(CARD_KEYS_SEPARATOR)
+    .filter((key) => !key.endsWith(`::${outputPath}`))
+
+  if (kept.length > 0) {
+    process.env[CARD_KEYS_ENV] = kept.join(CARD_KEYS_SEPARATOR)
+  } else {
+    delete process.env[CARD_KEYS_ENV]
+  }
+}
+
 const GECKO_BROWSERS = new Set([
   'firefox',
   'firefox-based',

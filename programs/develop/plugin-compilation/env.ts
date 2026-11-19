@@ -17,7 +17,11 @@ import {
   WebpackError
 } from '@rspack/core'
 import * as dotenv from 'dotenv'
-import {envFileCandidates, getPreloadedEnvKeys} from '../lib/config-loader'
+import {
+  envFileCandidates,
+  findNearestWorkspaceRoot,
+  getPreloadedEnvKeys
+} from '../lib/config-loader'
 import {
   CHROMIUM_FAMILY_ALIASES,
   GECKO_FAMILY_ALIASES,
@@ -182,26 +186,6 @@ function parsesAsJson(text: string): boolean {
     return true
   } catch {
     return false
-  }
-}
-
-function findNearestWorkspaceRoot(startDir: string): string | undefined {
-  let current = path.isAbsolute(startDir)
-    ? path.normalize(startDir)
-    : path.resolve(startDir)
-
-  while (true) {
-    if (fs.existsSync(path.join(current, 'pnpm-workspace.yaml'))) {
-      return current
-    }
-
-    const parent = path.dirname(current)
-
-    if (parent === current) {
-      return undefined
-    }
-
-    current = parent
   }
 }
 

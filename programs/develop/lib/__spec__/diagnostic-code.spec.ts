@@ -36,7 +36,6 @@ describe('diagnosticCode', () => {
     ['HtmlAssetMissing', 'E_ASSET_MISSING'],
     ['HtmlPublicAssetMissing', 'E_ASSET_MISSING'],
     ['WARRelativeAssetMissing', 'E_ASSET_MISSING'],
-    ['MissingCssAssetWarning', 'E_ASSET_MISSING'],
     ['PublicFolderOffRef', 'E_ASSET_MISSING'],
     ['RootAbsoluteRefCompiledSource', 'E_ASSET_MISSING'],
     ['RuntimeSetSurfaceFileMissing', 'E_ASSET_MISSING'],

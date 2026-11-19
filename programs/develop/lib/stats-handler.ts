@@ -239,19 +239,14 @@ export function renderStatsBlocks(
   return colored ? blocks : blocks.replace(ANSI_PATTERN, '')
 }
 
+// A failed build lists its warnings as a green one does: the summary line
+// counts them, so the reader must find each one below it.
 export function handleStatsErrors(stats: import('@rspack/core').Stats): void {
   try {
-    const verbose = String(process.env.EXTENSION_VERBOSE || '').trim() === '1'
-
-    const str = renderStatsBlocks(stats, {errors: true, warnings: !!verbose})
+    const str = renderStatsBlocks(stats, {errors: true, warnings: true})
 
     if (str) console.error(str)
   } catch {
-    try {
-      const str = renderStatsBlocks(stats, {errors: true, warnings: true})
-      if (str) console.error(str)
-    } catch {
-      // Ignore if stats.toString fails
-    }
+    // Ignore if stats.toString fails
   }
 }

@@ -272,6 +272,22 @@ export function developArtifactsMissing(
   return lines.join('\n')
 }
 
+// The tail of a failed compile of Extension.js itself, as the compiler
+// printed it, so the reason sits right above the refusal.
+const DEVELOP_COMPILE_OUTPUT_LINES = 40
+
+export function developCompileOutput(output: string) {
+  const lines = output.replace(/\s+$/, '').split('\n')
+  const shown = lines.slice(-DEVELOP_COMPILE_OUTPUT_LINES)
+  const cut = lines.length - shown.length
+
+  return [
+    `${getLoggingPrefix('error')} The rebuild of Extension.js printed:`,
+    ...(cut > 0 ? [colors.gray(`  (${cut} earlier lines not shown)`)] : []),
+    ...shown.map((line) => `  ${line}`)
+  ].join('\n')
+}
+
 export function projectInstallInWorkspaceRoot(
   workspaceRoot: string,
   managerName = 'pnpm'
@@ -1992,6 +2008,28 @@ function manifestV2OnChromiumVerdict(target: string): string[] {
     `Chromium ${removed} removed the last flag that loaded a Manifest V2 extension, and Chrome ${last} was the last Chrome version to support it.`,
     `The ${target} build installs only where the browser keeps its own Manifest V2 support. Options:`
   ]
+}
+
+// A url() the bundler resolved to nothing, read the way the stylesheet check
+// reads a dead one. Under strict refs the reader already set the variable.
+export function unresolvedCssUrlRef(
+  issuerPath: string,
+  request: string,
+  strict = false
+) {
+  return [
+    `A ${colors.blue(`url(${request})`)} reference names no file beside the stylesheet and no installed package.`,
+    ...(issuerPath
+      ? [`${colors.gray('PATH')} ${colors.underline(issuerPath)}`]
+      : []),
+    `${colors.gray('NOT FOUND')} ${colors.underline(request)}`,
+    `Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.`,
+    ...(strict
+      ? []
+      : [
+          `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+        ])
+  ].join('\n')
 }
 
 export function manifestV2OnChromium(

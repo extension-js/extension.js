@@ -108,7 +108,7 @@ describe('the names diagnostics report under', () => {
 
   it('finds the names the plugins set', () => {
     expect(names.get('ManifestV2OnChromiumWarning')).toMatch(
-      /^rspack-config\.ts:\d+$/
+      /^plugin-web-extension\/feature-manifest\/steps\/warn-mv2-on-chromium\.ts:\d+$/
     )
 
     expect(names.has('DNRDuplicateRuleId')).toBe(true)

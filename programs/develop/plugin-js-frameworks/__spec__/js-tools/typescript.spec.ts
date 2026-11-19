@@ -1,10 +1,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {getUserTypeScriptConfigFile} from '../../../lib/user-tsconfig'
 import {
   defaultTypeScriptConfig,
   ensureTypeScriptConfig,
-  getUserTypeScriptConfigFile,
   isUsingTypeScript
 } from '../../js-tools/typescript'
 import {makeProject} from '../project-fixture'
