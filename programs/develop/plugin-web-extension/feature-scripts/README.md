@@ -44,11 +44,10 @@ real compiler takes per mode and browser.
 9. `TraceRuntimeLoadedFiles`
 10. `KeepGetURLImportsNative`
 11. `AddContentScriptWrapper`
-12. `AddPublicPathRuntimeModule` (every build outside a reload session)
-13. `AddBaseUriRuntimeModule`
-14. `PruneMainWorldBridges` (production only)
-15. `ValidateEmittedScriptSyntax`
-16. `StampWebkitUtf8Bom` (WebKit only)
+12. `AddBaseUriRuntimeModule`
+13. `PruneMainWorldBridges` (production only)
+14. `ValidateEmittedScriptSyntax`
+15. `StampWebkitUtf8Bom` (WebKit only)
 17. `WarnSplitInitialChunks`
 18. `WarnPageContextWorker`
 19. `WarnPageRelativeScriptPath` (Gecko only)
@@ -81,9 +80,6 @@ real compiler takes per mode and browser.
 
 - `steps/keep-geturl-imports-native.ts`
   Keeps `import(chrome.runtime.getURL(...))` a native `import()` in the emitted bundle.
-
-- `steps/add-public-path-runtime-module.ts`
-  Injects the public-path runtime module for content bundles in a production build, a development build with no session and a dev session with reload turned off. In a reload session the public path comes from `feature-chunk-loading` instead, and `isReloadSession` in `lib/reload-session.ts` is the answer both read.
 
 - `steps/validate-emitted-script-syntax.ts`
   Fails loudly on syntax errors swc tolerates but browsers silently refuse to inject.

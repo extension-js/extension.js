@@ -47,7 +47,6 @@ describe('ReloadPlugin producer injection per engine', () => {
     expect(thisCompilationTaps('chromium')).toEqual([
       'StripContentScriptDevServerRuntime',
       'StableContentScriptNames',
-      'NoDangerNamePlugin',
       'InjectScriptsReplayShim',
       'SetupDevContentScripts',
       'InjectBridgeProducer',
@@ -59,7 +58,6 @@ describe('ReloadPlugin producer injection per engine', () => {
     expect(thisCompilationTaps('chromium-emulator')).toEqual([
       'StripContentScriptDevServerRuntime',
       'StableContentScriptNames',
-      'NoDangerNamePlugin',
       'InjectScriptsReplayShim'
     ])
   })

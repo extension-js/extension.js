@@ -11,22 +11,20 @@ It is responsible for:
 - exposing the extension API of the current world to the runtime under one name, with a stand-in where no API exists
 - rejecting an output file whose name starts with `_`, which a browser refuses to load (`_locales/` and `_metadata/` pass)
 
-Reload and HMR are NOT part of this feature. They live in `programs/develop/plugin-reload`, which may import from here. Nothing in this folder imports from `plugin-reload`.
+Reload and HMR are NOT part of this feature. They live in `programs/develop/plugin-reload`, which reaches this feature only through `shared/chunk-loading-target-extensions.ts`. Nothing in this folder imports from `plugin-reload` or asks whether a build is a reload session.
 
 ## Entry point
 
 `index.ts` exports `SetupChunkLoadingTarget`. `rspack-config.ts` applies it after `WebExtensionPlugin`, because the output name check must tap `processAssets` after the steps that emit locales, JSON and icons.
 
-Who applies the target depends on the build:
+`SetupChunkLoadingTarget` is the one owner of the target and installs it once in every build. A plugin applied before it may ask for the message fallback through `extendChunkLoadingTarget` in `shared/chunk-loading-target-extensions.ts`, and names the background that answers it. `plugin-reload` asks in a live dev session, with the background it generated when the manifest names none:
 
-| Build | Applied by | Message fallback |
+| Build | Message fallback | Public path module |
 | --- | --- | --- |
-| Production | `SetupChunkLoadingTarget` | off |
-| Development build with no session (`extension build --mode development`) | `SetupChunkLoadingTarget` | off |
-| Dev session with reload turned off (`EXTENSION_NO_RELOAD=true`) | `SetupChunkLoadingTarget` | off |
-| Dev session | `SetupReloadStrategy` in `plugin-reload` | on |
-
-Every build gets the target once. `isReloadSession` in `lib/reload-session.ts` is the one answer both sides read: `ReloadPlugin` returns when it is false and `SetupChunkLoadingTarget` returns when it is true. `rspack-config.ts` hands both the same `devSession`.
+| Production | off | `steps/add-public-path-runtime-module.ts` |
+| Development build with no session (`extension build --mode development`) | off | `steps/add-public-path-runtime-module.ts` |
+| Dev session with reload turned off (`EXTENSION_NO_RELOAD=true`) | off | `steps/add-public-path-runtime-module.ts` |
+| Dev session | on, asked for by `plugin-reload` | `runtime-modules/public-path.ts` |
 
 A development build compiles a MAIN world content script apart with its imports inlined, so that file has no chunk to load and carries no loader in either kind of development build.
 
@@ -39,7 +37,7 @@ A development build compiles a MAIN world content script apart with its imports 
   The options of the target and the shape of the content script metadata.
 
 - `background-entry-name.ts`
-  `getBackgroundEntryName` names the entry the authored background runs from, matched against the entries `feature-scripts` creates: `background/service_worker`, `background/scripts` (a page on Gecko and MV2, a worker for MV3 on Chromium) or `background/index` for a background page. It names none when the manifest declares no background that becomes one of those. The message fallback is added to the named entry, and a reload session names the background it generates itself.
+  `getBackgroundEntryName` names the entry the authored background runs from, matched against the entries `feature-scripts` creates: `background/service_worker`, `background/scripts` (a page on Gecko and MV2, a worker for MV3 on Chromium) or `background/index` for a background page. It names none when the manifest declares no background that becomes one of those. The message fallback is added to the background the extension point returns, which gets this name first.
 
 - `content-scripts-meta.ts`
   `buildContentScriptsMeta` maps each content script bundle to its world, and pairs a MAIN world bundle with its bridge.
@@ -54,7 +52,10 @@ A development build compiles a MAIN world content script apart with its imports 
   The loader itself, written per world from the content script metadata.
 
 - `runtime-modules/public-path.ts`
-  Sets the public path from `runtime.getURL()`, or from the base the bridge wrote where no runtime exists.
+  Sets the public path from `runtime.getURL()`, or from the base the bridge wrote where no runtime exists, and polls for a base the bridge writes later.
+
+- `steps/add-public-path-runtime-module.ts`
+  `AddPublicPathRuntimeModule`, the public path module of every build that asks for no message fallback. A worker keeps the configured path.
 
 - `runtime-modules/browser-runtime.ts`
   Finds `browser` or `chrome` and stores it for the other runtime modules.
@@ -71,7 +72,7 @@ A development build compiles a MAIN world content script apart with its imports 
 | --- | --- |
 | `background.pageEntry` | The entry of the background page. |
 | `background.serviceWorkerEntry` | The entry of the service worker. It must differ from `pageEntry`. |
-| `background.classicLoader` | Adds the message fallback. On unless set to `false`. Only a reload session leaves it on, because a production background can have no bundler runtime to hold the listener. |
+| `background.classicLoader` | Adds the message fallback. On unless set to `false`. `SetupChunkLoadingTarget` turns it off unless the fallback was asked for, because a production background can have no bundler runtime to hold the listener. |
 | `weakRuntimeCheck` | Accepts a runtime with no extension API, for code a build step evaluates outside a browser. |
 | `contentScriptsMeta` | The world of each content script bundle, by output file name. |
 | `gecko` | The build targets a Gecko browser. |
@@ -80,22 +81,20 @@ A development build compiles a MAIN world content script apart with its imports 
 
 ## Public path
 
-Two modules can set the public path, and the mode decides which one answers:
+Two modules can answer the bundler's request for the public path, and both are applied by `SetupChunkLoadingTarget`. The request is answered by the first module that takes it, and no bundle carries both:
 
-- In every build `SetupChunkLoadingTarget` applies the target to, `feature-scripts/steps/add-public-path-runtime-module.ts` is registered first and answers the request.
-- In a reload session that step is not applied, so `runtime-modules/public-path.ts` answers.
+- With no message fallback asked for, `steps/add-public-path-runtime-module.ts` is registered ahead of the target and answers. The target's own module never runs.
+- With the fallback asked for, that step is not registered, so `runtime-modules/public-path.ts` answers.
 
-`feature-scripts` reads the same `isReloadSession`, so the module that sets the public path always matches who applied the target.
-
-Both are kept as they are. The test below pins which one writes the value in each world.
+The base URI has one writer, `feature-scripts/steps/add-base-uri-runtime-module.ts`, in every build. Both are kept as they are. `chunk-loading-runtime.spec.ts` pins which one writes each value in each world.
 
 ## Tests
 
-- `__spec__/setup-chunk-loading-target.spec.ts`, which builds the target is installed for and what a production compile emits per world
+- `__spec__/setup-chunk-loading-target.spec.ts`, that the target installs once in every build, what asking for the fallback changes, and what a compile emits per world
 - `__spec__/get-background-entry-name.spec.ts`, the entry name per manifest shape
 - `__spec__/content-scripts-meta.spec.ts`, the world and bridge of each content script
 - `__spec__/no-danger-name.spec.ts`, the output name check in a real compile
-- `plugin-reload/__spec__/chunk-loading-runtime.spec.ts`, which code sets the public path, the base URI and the chunk loader in each world, and that each kind of build installs the target once, read off builds made with the whole plugin list
+- `__spec__/chunk-loading-runtime.spec.ts`, which code sets the public path, the base URI and the chunk loader in each world, and that each kind of build installs the target once, read off builds made with the whole plugin list
 
 ## Attribution
 

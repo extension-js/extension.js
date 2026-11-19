@@ -3,8 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack, type Stats} from '@rspack/core'
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
-import {getProjectStructure} from '../../lib/project'
-import webpackConfig from '../../rspack-config'
+import {getProjectStructure} from '../../../lib/project'
+import webpackConfig from '../../../rspack-config'
 
 const roots: string[] = []
 
@@ -125,7 +125,6 @@ interface Built {
   file: (name: RegExp) => string
   names: string[]
   entry: Record<string, {chunkLoading?: unknown}>
-  hotUpdateChunkFilename: unknown
   targetInstalls: number
 }
 
@@ -199,7 +198,6 @@ async function build(options: {
   return {
     names,
     entry: compiler.options.entry as Built['entry'],
-    hotUpdateChunkFilename: compiler.options.output.hotUpdateChunkFilename,
     targetInstalls: compiler.hooks.compilation.taps.filter(
       (tap) => tap.name === 'ChunkLoadingTarget'
     ).length,
@@ -412,10 +410,6 @@ describe('chunk loading runtime of a dev session for Chromium', () => {
     expect(writers(text, PUBLIC_PATH)).toEqual([])
     expect(text).toContain('const a = "main"')
   })
-
-  it('writes hot update chunks under hot with no update suffix', () => {
-    expect(built.hotUpdateChunkFilename).toBe('hot/[id].[fullhash].js')
-  })
 })
 
 describe('chunk loading runtime of a dev session for Firefox', () => {
@@ -505,12 +499,6 @@ describe.each([
 
     expect(text).not.toContain(CLASSIC_LISTENER)
     expect(text).not.toContain(CLASSIC_REQUEST)
-  })
-
-  it('keeps the hot update names of the bundler', () => {
-    expect(built.hotUpdateChunkFilename).toBe(
-      'hot/[id].[fullhash].hot-update.js'
-    )
   })
 })
 
