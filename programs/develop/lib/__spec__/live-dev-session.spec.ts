@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {findLiveDevSession} from '../live-dev-session'
+import {findLiveDevSession, isSessionPidLive} from '../live-dev-session'
 import {readyContractPath} from '../session-paths'
 
 const makeTempFolder = trackTempFolders()
@@ -55,15 +55,40 @@ describe('findLiveDevSession', () => {
     })
   })
 
-  it('finds nobody behind a live pid that started after its contract said', () => {
-    const project = projectWith({
-      command: 'dev',
-      status: 'ready',
-      pid: live.pid,
-      pidStartedAt: '2000-01-01T00:00:00.000Z'
-    })
+  // Windows does not date pids (processStartedAtMs answers null there), so
+  // liveness alone decides and this row cannot hold on win32.
+  it.skipIf(process.platform === 'win32')(
+    'finds nobody behind a live pid that started after its contract said',
+    () => {
+      const project = projectWith({
+        command: 'dev',
+        status: 'ready',
+        pid: live.pid,
+        pidStartedAt: '2000-01-01T00:00:00.000Z'
+      })
 
-    expect(findLiveDevSession(project, 'chrome')).toBeNull()
+      expect(findLiveDevSession(project, 'chrome')).toBeNull()
+    }
+  )
+
+  // What every reader on Windows sees: a pid that cannot be dated counts as
+  // the writer while it lives, whatever start the contract stamped.
+  it('trusts a live pid whose start cannot be dated, as on Windows', () => {
+    const contract = {pid: 4242, pidStartedAt: '2000-01-01T00:00:00.000Z'}
+
+    expect(
+      isSessionPidLive(contract, {
+        isAlive: () => true,
+        startedAtOf: () => null
+      })
+    ).toBe(true)
+
+    expect(
+      isSessionPidLive(contract, {
+        isAlive: () => false,
+        startedAtOf: () => null
+      })
+    ).toBe(false)
   })
 
   it('counts a session that is still starting', () => {

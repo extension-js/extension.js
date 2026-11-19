@@ -997,6 +997,11 @@ export interface ReadyContract {
     earlierExtensionIds?: string[]
   }
   profilePath?: string
+  /** True when the launch reused a profile an earlier run left behind. */
+  profileReused?: boolean
+  /** The profile was locked by another session, and which one holds it. */
+  profileLockedAt?: string
+  profileLockOwner?: {host: string; pid: number}
   browserPid?: number | null
   browserStartedAt?: string
   launcherPid?: number
@@ -1004,6 +1009,12 @@ export interface ReadyContract {
   /** The browser binary that ran, and how it was chosen. */
   binary?: string
   binaryProvenance?: string
+  /** What pinned the binary, set only when the provenance is a pin. */
+  binaryPinnedBy?: string
+  /** The page the browser was asked to open first, and whether it did. */
+  startingUrl?: string
+  startingUrlOpened?: boolean
+  startingUrlUnopenedReason?: string
   browserExitedAt?: string
   browserExitCode?: number | null
   browserExitSignal?: string | null

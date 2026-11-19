@@ -264,22 +264,27 @@ describe('the live-session check dates the pid it finds alive', () => {
     expect(probed).toEqual([])
   })
 
-  it('a build writes its receipt beside a reused pid', () => {
-    const projectDir = makeTempFolder('extjs-owner-')
-    const readyPath = writeLiveSession(projectDir, 'chromium', {
-      runId: 'a-run-whose-pid-was-reused',
-      pidStartedAt: '2000-01-01T00:00:00.000Z'
-    })
-    vi.spyOn(console, 'warn').mockImplementation(() => {})
+  // Windows does not date pids (processStartedAtMs answers null there), so a
+  // live pid owns the contract whatever start it stamped. Skipped on win32.
+  it.skipIf(process.platform === 'win32')(
+    'a build writes its receipt beside a reused pid',
+    () => {
+      const projectDir = makeTempFolder('extjs-owner-')
+      const readyPath = writeLiveSession(projectDir, 'chromium', {
+        runId: 'a-run-whose-pid-was-reused',
+        pidStartedAt: '2000-01-01T00:00:00.000Z'
+      })
+      vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    const build = makeWriter(projectDir, {command: 'build'})
-    build.writeStarting()
-    build.writeReady()
+      const build = makeWriter(projectDir, {command: 'build'})
+      build.writeStarting()
+      build.writeReady()
 
-    const after = readContract(readyPath)
-    expect(after.command).toBe('build')
-    expect(after.runId).not.toBe('a-run-whose-pid-was-reused')
-  })
+      const after = readContract(readyPath)
+      expect(after.command).toBe('build')
+      expect(after.runId).not.toBe('a-run-whose-pid-was-reused')
+    }
+  )
 
   // Pins current behavior: a half-written contract is replaced, not kept.
   it('reads a malformed contract as no owner, so a build replaces it', () => {
@@ -308,7 +313,10 @@ describe('the attach stamp beside another live dev session', () => {
     })
     vi.spyOn(console, 'warn').mockImplementation(() => {})
 
-    return {readyPath, preview: makeWriter(projectDir, {command: 'preview'})}
+    return {
+      readyPath,
+      preview: makeWriter(projectDir, {command: 'preview'})
+    }
   }
 
   // The attach stamp checks ownership like the detach and reload stamps.
