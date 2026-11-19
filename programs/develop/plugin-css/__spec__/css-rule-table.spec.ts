@@ -118,66 +118,70 @@ function expectedRules(
     where: Record<string, unknown>,
     inlined: boolean
   ): Array<Record<string, unknown>> =>
-    languages.flatMap(({test, exclude, module, first}) => {
-      const emitsSheet = module || !inlined
-      const scope = {test, ...(exclude ? {exclude} : {}), ...where}
+    languages.flatMap(
+      ({test, exclude, module, first}): Array<Record<string, unknown>> => {
+        const emitsSheet = module || !inlined
+        const scope = {test, ...(exclude ? {exclude} : {}), ...where}
 
-      // A plain sheet imported with ?url ships as a file of its own.
-      if (!module && !inlined && !('dependency' in where)) {
-        const chain = sheet([...post, ...first])
+        // A plain sheet imported with ?url ships as a file of its own.
+        if (!module && !inlined && !('dependency' in where)) {
+          const chain = sheet([...post, ...first])
+
+          return [
+            {
+              ...scope,
+              type: 'css',
+              sideEffects: true,
+              resourceQuery: {not: [RAW_RESOURCE_QUERY, URL_RESOURCE_QUERY]},
+              use: chain
+            },
+            {
+              ...scope,
+              type: 'asset/resource',
+              generator: {filename: ASSET_FILENAME_PATTERN},
+              resourceQuery: URL_RESOURCE_QUERY,
+              use: chain.map((item) =>
+                item === publicUrls
+                  ? {
+                      ...publicUrls,
+                      options: {...publicUrls.options, standalone: true}
+                    }
+                  : item
+              )
+            }
+          ]
+        }
 
         return [
           {
             ...scope,
-            type: 'css',
-            sideEffects: true,
-            resourceQuery: {not: [RAW_RESOURCE_QUERY, URL_RESOURCE_QUERY]},
-            use: chain
-          },
-          {
-            ...scope,
-            type: 'asset/resource',
-            generator: {filename: ASSET_FILENAME_PATTERN},
-            resourceQuery: URL_RESOURCE_QUERY,
-            use: chain.map((item) =>
-              item === publicUrls
-                ? {
-                    ...publicUrls,
-                    options: {...publicUrls.options, standalone: true}
-                  }
-                : item
-            )
+            type: module ? 'css/module' : inlined ? 'javascript/auto' : 'css',
+            ...(emitsSheet ? {sideEffects: true} : {}),
+            resourceQuery: NOT_RAW_RESOURCE_QUERY,
+            use: emitsSheet
+              ? sheet([...post, ...first])
+              : [
+                  // A sheet no tool compiled says so to the run that reads it last.
+                  first.includes(passthrough)
+                    ? {
+                        ...inlineUrls,
+                        options: {
+                          manifestPath,
+                          projectPath: root,
+                          ...(gecko ? {gecko} : {}),
+                          uncompiled: true,
+                          ...base
+                        }
+                      }
+                    : inlineUrls,
+                  ...post,
+                  inlineImports,
+                  ...first
+                ]
           }
         ]
       }
-
-      return {
-        ...scope,
-        type: module ? 'css/module' : inlined ? 'javascript/auto' : 'css',
-        ...(emitsSheet ? {sideEffects: true} : {}),
-        resourceQuery: NOT_RAW_RESOURCE_QUERY,
-        use: emitsSheet
-          ? sheet([...post, ...first])
-          : [
-              // A sheet no tool compiled says so to the run that reads it last.
-              first.includes(passthrough)
-                ? {
-                    ...inlineUrls,
-                    options: {
-                      manifestPath,
-                      projectPath: root,
-                      ...(gecko ? {gecko} : {}),
-                      uncompiled: true,
-                      ...base
-                    }
-                  }
-                : inlineUrls,
-              ...post,
-              inlineImports,
-              ...first
-            ]
-      }
-    })
+    )
 
   const sfcOptions = {
     manifestPath,
