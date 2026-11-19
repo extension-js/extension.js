@@ -835,6 +835,42 @@ describe('lifecycle stream transitions', () => {
     }
   })
 
+  it('names a stop that passed its bound, and the exit adds nothing', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.shutdownTimedOut(10000, 1)
+    stream.exited(1)
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual(['starting', 'failed'])
+    expect(frames[1].error).toEqual({
+      code: 'E_SHUTDOWN_TIMEOUT',
+      message:
+        'The dev session did not stop within 10000 ms, so the process exits with code 1.'
+    })
+
+    expect(frames[1].value).toMatchObject({
+      exitCode: 1,
+      shutdownTimeoutMs: 10000
+    })
+  })
+
+  it('keeps the stopped frame of a signal when its stop then passes the bound', () => {
+    const {stream, lines} = makeStream()
+    stream.starting({requestedPort: 8080, port: 8080})
+    stream.interrupted('SIGINT')
+    stream.shutdownTimedOut(10000, 1)
+    stream.exited(1)
+    const frames = parseFrames(lines)
+    expect(frames.map((frame) => frame.status)).toEqual(['starting', 'stopped'])
+    expect(frames[1].error?.code).toBe('E_INTERRUPTED')
+  })
+
+  it('leaves a stop that passed its bound before the starting frame to the command', () => {
+    const {stream, lines} = makeStream()
+    expect(stream.shutdownTimedOut(10000, 1)).toBeNull()
+    expect(lines).toEqual([])
+  })
+
   it('adds no failed frame at exit after an interrupt', () => {
     const {stream, lines} = makeStream()
     stream.starting({requestedPort: 8080, port: 8080})
