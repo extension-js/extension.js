@@ -718,10 +718,13 @@ describe('a manifest kept in src/', () => {
       })
 
       expect(held).toEqual([])
+      // The terminal line names a file by its full path, and the JSON copy
+      // names a project file from the project root.
       expect(notFoundPaths(result.printed)).toEqual(
         [
           path.join(path.dirname(root), 'outside.js'),
-          path.join(root, '.env.js')
+          path.join(root, '.env.js'),
+          '.env.js'
         ].sort()
       )
 
@@ -767,7 +770,7 @@ describe('a file a compiled field names and the build withholds', () => {
           `${file} is not bundled. Check the ${field} field in your manifest.json file.`,
           'The build never bundles env files, tooling files or repository files. Move the code into a file with another name.',
           '',
-          `NOT FOUND ${path.join(root, file)}`
+          `NOT FOUND ${file}`
         ].join('\n')
       const diagnostics = JSON.parse(
         result.printed.slice(result.printed.lastIndexOf('\n{"code"'))
@@ -787,6 +790,8 @@ describe('a file a compiled field names and the build withholds', () => {
         expect(diagnostic.name).toBe('ScriptsMissingFile')
       }
 
+      // Once by its full path on the terminal, once from the project root
+      // in the JSON copy.
       for (const file of ['.env.js', '.env.css', '.envrc']) {
         expect(
           asWrittenAndAsJson(
@@ -794,7 +799,9 @@ describe('a file a compiled field names and the build withholds', () => {
             `NOT FOUND ${path.join(root, file)}`
           ),
           file
-        ).toBe(2)
+        ).toBe(1)
+
+        expect(times(result.printed, `NOT FOUND ${file}`), file).toBe(1)
       }
 
       expect(result.errors).toBe(3)

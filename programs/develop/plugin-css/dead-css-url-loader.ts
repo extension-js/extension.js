@@ -11,6 +11,11 @@ import * as path from 'node:path'
 import {WebpackError} from '@rspack/core'
 import {canonicalizeDir, canonicalizeResourcePath} from '../lib/resource-path'
 import {
+  noteWithheldCssRef,
+  WITHHELD_CSS_REF,
+  type WithheldKind
+} from '../lib/withheld-file'
+import {
   publicContainmentRoot,
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
@@ -61,20 +66,31 @@ export interface DeadCssUrlLoaderContext {
   _compilation?: CompilationLike
 }
 
-// The warning a reference to a file that is not there gets, which a file the
-// build withholds gets too, so it never says that such a file exists.
+// The warning a reference to a file that is not there gets. A file that is
+// there and withheld is told so, under a name and a wording of its own.
 function pushDeadRef(
   loader: DeadCssUrlLoaderContext,
   issuerPath: string,
-  request: string
+  request: string,
+  withheld?: {kind: WithheldKind; writtenIn?: string}
 ) {
   const strict = process.env.EXTENSION_STRICT_REFS === 'true'
   const compilation = loader._compilation
   const report = new WebpackError(
-    messages.deadCssUrlRef(issuerPath, request, strict)
+    withheld
+      ? messages.withheldCssRef(
+          issuerPath,
+          request,
+          withheld.kind,
+          strict,
+          withheld.writtenIn
+        )
+      : messages.deadCssUrlRef(issuerPath, request, strict)
   )
   ;(report as Error & {file?: string}).file = issuerPath
-  report.name = 'CssDeadRef'
+  report.name = withheld ? WITHHELD_CSS_REF : 'CssDeadRef'
+
+  if (withheld) noteWithheldCssRef(compilation, request, issuerPath)
 
   // Straight onto the compilation, the way the module-graph check reports
   // it. emitWarning would stamp a "Module Warning (from <loader>)" prefix
@@ -116,16 +132,15 @@ function reportDeadRefs(
   const projectPath = loader.getOptions()?.projectPath
 
   for (const request of extractCssUrlRefs(source)) {
-    // A file the build withholds is told the way one that is not there is,
-    // unless the run ahead of PostCSS already gave its own reason.
+    // A file the build withholds is told so, unless the run ahead of
+    // PostCSS already did.
     const found = cssUrlRefFiles(request, {issuerDir, roots}).find((file) =>
       fs.existsSync(file)
     )
     const withheld =
-      found !== undefined &&
-      projectPath !== undefined &&
-      !answered?.has(found) &&
-      whyNotRead(found, projectPath) !== undefined
+      found !== undefined && projectPath !== undefined && !answered?.has(found)
+        ? whyNotRead(found, projectPath)
+        : undefined
 
     if (!withheld && !isDeadCssUrlRef(request, {issuerDir, roots})) continue
 
@@ -135,7 +150,7 @@ function reportDeadRefs(
     }
 
     reported.add(request)
-    pushDeadRef(loader, issuerPath, request)
+    pushDeadRef(loader, issuerPath, request, withheld)
   }
 
   return reported
@@ -213,7 +228,11 @@ function resolveTargets(
   manifestDir: string,
   publicRoot: string,
   publicDir: string | undefined
-): {css: string; bundledRequests: string[]; withheld: string[]} {
+): {
+  css: string
+  bundledRequests: string[]
+  withheld: Array<{request: string; kind: WithheldKind}>
+} {
   const resourcePath = canonicalizeResourcePath(loader.resourcePath)
   const {css, targets, withheld} = rewriteInlinedCssUrls(source, {
     resourcePath,
@@ -277,7 +296,7 @@ export function inlineStylesheetUrls(
 
       // Read once: the next build of this sheet answers for itself.
       answeredImports(loader).delete(importsKey(loader))
-      let withheld: string[]
+      let withheld: Array<{request: string; kind: WithheldKind}>
       ;({css, bundledRequests, withheld} = resolveTargets(
         loader,
         source,
@@ -288,9 +307,9 @@ export function inlineStylesheetUrls(
 
       // A bare name, src() and image-set() strings, which the scan above
       // reads no file for, are kept back here and told the same way.
-      for (const request of withheld) {
+      for (const {request, kind} of withheld) {
         if (!reported.has(request)) {
-          pushDeadRef(loader, sheetPath(loader, manifestDir), request)
+          pushDeadRef(loader, sheetPath(loader, manifestDir), request, {kind})
         }
       }
     }
@@ -334,8 +353,19 @@ export function inlineStylesheetImports(
     for (const file of inlined.files) loader.addDependency?.(file)
     for (const file of inlined.missing) loader.addMissingDependency?.(file)
 
-    for (const {request, file, from, reason, fix} of inlined.unreadable) {
+    for (const {request, file, from, reason, fix, kind} of inlined.unreadable) {
       loader.addDependency?.(file)
+
+      // A withheld sheet reads the same here as on every other route.
+      if (kind) {
+        pushDeadRef(loader, sheetPath(loader, manifestDir), request, {
+          kind,
+          writtenIn: toPosixPath(path.relative(manifestDir, from))
+        })
+
+        continue
+      }
+
       loader.emitWarning(
         Object.assign(
           new Error(
