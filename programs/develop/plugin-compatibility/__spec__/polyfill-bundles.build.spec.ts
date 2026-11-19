@@ -209,6 +209,11 @@ describe.each([
     expect(built.popup.includes(POLYFILL_MARK)).toBe(true)
   })
 
+  it('stays out of a scripts/ file registered into the MAIN world', () => {
+    expect(built.registered.includes(POLYFILL_MARK)).toBe(false)
+    expect(runOnPage(built.registered).__REGISTERED__).toBe('undefined')
+  })
+
   it('leaves browser undefined on the page, as without the option', () => {
     const page = runOnPage(built.main)
 
