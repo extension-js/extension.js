@@ -6,6 +6,7 @@ import {afterAll, afterEach, describe, expect, it} from 'vitest'
 import type {DevOptions, FilepathList} from '../../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../contracts'
 import {AddScripts} from '../steps/add-scripts'
+import {CompileMainWorldScripts} from '../steps/compile-main-world-scripts'
 
 // One file per manifest field in a real watch session: the file is deleted
 // after the first build, then written back with new text.
@@ -32,6 +33,10 @@ interface Report {
 interface Built {
   errors: Report[]
   warnings: Report[]
+  // The layer of each module built from the file, in the isolated graph
+  // and in the graph a MAIN world group compiles apart.
+  isolated: Array<string | null>
+  main: Array<string | null>
 }
 
 interface Row {
@@ -45,6 +50,9 @@ interface Row {
   output: string
   // The layer the entry puts the file in, which a rule may match on.
   layer?: string
+  world?: 'MAIN'
+  // A bundle the isolated graph builds beside a MAIN world one.
+  beside?: string
   text: (marker: string) => string
 }
 
@@ -116,22 +124,66 @@ const ROWS: Row[] = [
     output: 'content_scripts/content-0.css',
     layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
     text: sheet
-  }
+  },
+  // Chrome 111 and Firefox 128 both run a MAIN world group.
+  ...(['chrome', 'firefox'] as const).map((browser) => ({
+    title: `a MAIN world content script on ${browser}`,
+    manifest: {
+      manifest_version: 3,
+      background: {service_worker: 'src/kept.js', scripts: ['src/kept.js']},
+      content_scripts: [
+        {matches: ['<all_urls>'], js: ['src/named.js'], world: 'MAIN'}
+      ]
+    },
+    includeList: (at: (...parts: string[]) => string) => ({
+      [browser === 'chrome'
+        ? 'background/service_worker'
+        : 'background/scripts']:
+        browser === 'chrome' ? at('src', 'kept.js') : [at('src', 'kept.js')],
+      'content_scripts/content-0': [at('src', 'named.js')]
+    }),
+    browser,
+    named: 'src/named.js',
+    field: 'content_scripts[0].js',
+    output: 'content_scripts/content-0.js',
+    layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+    world: 'MAIN' as const,
+    beside:
+      browser === 'chrome'
+        ? 'background/service_worker.js'
+        : 'background/scripts.js',
+    text: script
+  }))
 ]
 
-function session(row: Row) {
+// The dev server adds the hot runtime, which a MAIN world bundle is kept
+// clear of, since it would run on the page itself.
+const HOT_RUNTIME = '__webpack_require__.hmrC'
+
+// With `imported`, the named file imports that one, which is the file
+// deleted and written back.
+function session(row: Row, imported?: string) {
   const root = fs.realpathSync(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-entry-written-back-'))
   )
   roots.push(root)
 
   const at = (...parts: string[]) => path.join(root, ...parts)
-  const file = at(...row.named.split('/'))
+  const named = at(...row.named.split('/'))
+  const file = imported ? at(...imported.split('/')) : named
 
   fs.mkdirSync(at('src'))
   fs.writeFileSync(at('package.json'), '{"name":"fixture"}\n')
   fs.writeFileSync(at('src', 'kept.js'), script('kept'))
   fs.writeFileSync(file, row.text('written first'))
+
+  // Both sit in one folder.
+  if (imported) {
+    const request = `./${path.basename(file)}`
+
+    fs.writeFileSync(named, `import ${JSON.stringify(request)}\n`)
+  }
+
   fs.writeFileSync(
     at('manifest.json'),
     JSON.stringify({name: 'written-back', version: '1.0.0', ...row.manifest})
@@ -149,29 +201,42 @@ function session(row: Row) {
         manifestPath: at('manifest.json'),
         includeList: row.includeList(at),
         browser: row.browser
-      })
+      }),
+      ...(row.world === 'MAIN'
+        ? [
+            new CompileMainWorldScripts({
+              manifestPath: at('manifest.json'),
+              includeList: row.includeList(at),
+              browser: row.browser
+            }),
+            new rspack.HotModuleReplacementPlugin()
+          ]
+        : [])
     ]
   })
   watching.push(compiler)
 
   const builds: Built[] = []
-  const layers: Array<string | undefined> = []
   const waiting: Array<() => void> = []
 
   compiler.hooks.done.tap('spec', (stats) => {
     const pick = (list: Report[] = []) =>
       list.map(({name, message, file}) => ({name, message, file}))
 
+    const layersOf = (modules: Iterable<unknown>) =>
+      Array.from(modules)
+        .map((module) => module as {resource?: string; layer?: string | null})
+        .filter(({resource}) => resource === file)
+        .map(({layer}) => layer ?? null)
+
     builds.push({
       errors: pick(stats.compilation.errors as Report[]),
-      warnings: pick(stats.compilation.warnings as Report[])
+      warnings: pick(stats.compilation.warnings as Report[]),
+      isolated: layersOf(stats.compilation.modules),
+      main: stats.compilation.children
+        .filter(({name}) => name?.startsWith(CompileMainWorldScripts.name))
+        .flatMap((child) => layersOf(child.modules))
     })
-
-    for (const module of stats.compilation.modules) {
-      const {resource, layer} = module as {resource?: string; layer?: string}
-
-      if (resource === file) layers.push(layer ?? undefined)
-    }
 
     for (const resolve of waiting.splice(0)) resolve()
   })
@@ -202,22 +267,37 @@ function session(row: Row) {
     return builds[builds.length - 1]
   }
 
-  const emitted = () =>
-    fs.readFileSync(at('dist', ...row.output.split('/')), 'utf8')
+  const emitted = (output = row.output) =>
+    fs.readFileSync(at('dist', ...output.split('/')), 'utf8')
 
-  return {file, builds, layers, next, emitted}
+  return {file, builds, next, emitted}
 }
+
+// Exactly one module of the file, in the graph its world builds it in.
+const builtIn = (row: Row) =>
+  row.world === 'MAIN'
+    ? {isolated: [], main: [row.layer ?? null]}
+    : {isolated: [row.layer ?? null], main: []}
+const clean = {errors: [], warnings: []}
 
 describe.each(ROWS)('$title, deleted in a watch session', (row) => {
   it('fails once with the file and the manifest field', async () => {
     const {file, builds, next, emitted} = session(row)
 
-    expect(await next(0)).toEqual({errors: [], warnings: []})
+    expect(await next(0)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('written first')
+
+    if (row.beside) {
+      expect(emitted(row.beside)).toContain(HOT_RUNTIME)
+      expect(emitted()).not.toContain(HOT_RUNTIME)
+    }
 
     fs.rmSync(file)
 
     const rebuilt = await next(builds.length)
+
+    expect(rebuilt).toMatchObject({isolated: [], main: []})
+
     const reports = rebuilt.errors.filter(
       ({name}) => name === 'ScriptsMissingFile'
     )
@@ -231,22 +311,22 @@ describe.each(ROWS)('$title, deleted in a watch session', (row) => {
   }, 120000)
 
   it('builds the new text once the file is written back', async () => {
-    const {file, builds, layers, next, emitted} = session(row)
+    const {file, builds, next, emitted} = session(row)
 
     await next(0)
     fs.rmSync(file)
     await next(builds.length)
     fs.writeFileSync(file, row.text('written back'))
 
-    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(await next(builds.length)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('written back')
     expect(emitted()).not.toContain('written first')
-    expect(layers.length).toBeGreaterThan(1)
-    expect([...new Set(layers)]).toEqual([row.layer])
+
+    if (row.world === 'MAIN') expect(emitted()).not.toContain(HOT_RUNTIME)
 
     fs.writeFileSync(file, row.text('edited after'))
 
-    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(await next(builds.length)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('edited after')
   }, 120000)
 
@@ -268,7 +348,33 @@ describe.each(ROWS)('$title, deleted in a watch session', (row) => {
 
     fs.writeFileSync(file, row.text('written a third time'))
 
-    expect(await next(builds.length)).toEqual({errors: [], warnings: []})
+    expect(await next(builds.length)).toMatchObject({...clean, ...builtIn(row)})
     expect(emitted()).toContain('written a third time')
+
+    if (row.world === 'MAIN') expect(emitted()).not.toContain(HOT_RUNTIME)
+  }, 120000)
+})
+
+describe.each(
+  ROWS.filter(({world}) => world === 'MAIN')
+)('a file $title imports, deleted in a watch session', (row) => {
+  it('builds the new text once the file is written back', async () => {
+    const {file, builds, next, emitted} = session(row, 'src/imported.js')
+
+    expect(await next(0)).toMatchObject({...clean, ...builtIn(row)})
+    fs.rmSync(file)
+
+    const rebuilt = await next(builds.length)
+
+    expect(rebuilt.warnings).toEqual([])
+    expect(rebuilt.errors).toHaveLength(1)
+    expect(rebuilt.errors[0].message).toContain("Can't resolve './imported.js'")
+    expect(rebuilt.errors[0].file).toBe('./src/named.js')
+
+    fs.writeFileSync(file, row.text('written back'))
+
+    expect(await next(builds.length)).toMatchObject({...clean, ...builtIn(row)})
+    expect(emitted()).toContain('written back')
+    expect(emitted()).not.toContain(HOT_RUNTIME)
   }, 120000)
 })
