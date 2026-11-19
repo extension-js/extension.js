@@ -143,7 +143,7 @@ describe('browser launch slot', () => {
 
     await dev.compile()
 
-    expect(dev.events).toEqual(['settled', 'error', 'compiled'])
+    expect(dev.events).toEqual(['settled', 'error'])
     expect(printed.error).toEqual([
       messages.browserLaunchFailed('chrome', 'Chrome binary not found')
     ])
@@ -154,7 +154,6 @@ describe('browser launch slot', () => {
     expect(dev.events).toEqual([
       'settled',
       'error',
-      'compiled',
       'settled',
       'ready',
       'compiled'
@@ -183,12 +182,12 @@ describe('browser launch slot', () => {
       {errors: ['xcodebuild failed (exit 65)'], code: 'E_SAFARI_TOOLCHAIN'}
     ])
 
-    expect(dev.events).toEqual(['settled', 'error', 'compiled'])
+    expect(dev.events).toEqual(['settled', 'error'])
 
     await dev.compile()
 
     expect(dev.launch).toHaveBeenCalledTimes(2)
-    expect(dev.events.slice(3)).toEqual(['settled', 'ready', 'compiled'])
+    expect(dev.events.slice(2)).toEqual(['settled', 'ready', 'compiled'])
   })
 
   it.each([
@@ -207,7 +206,9 @@ describe('browser launch slot', () => {
     ])
   })
 
-  it('reports the retried compile as the first one', async () => {
+  // A failed launch says so on 'error' alone, so the one first compile is
+  // the build a browser came up with, as on Safari.
+  it('reports only the retried compile as the first one', async () => {
     const dev = session(
       vi
         .fn<Launcher>()
@@ -217,10 +218,11 @@ describe('browser launch slot', () => {
 
     await dev.compile()
     await dev.compile()
+    await dev.compile()
 
     expect(dev.compiled.map((event) => event.isFirstCompile)).toEqual([
       true,
-      true
+      false
     ])
   })
 
@@ -347,7 +349,7 @@ describe('the launch settled listener', () => {
 
     await dev.compile()
 
-    expect(dev.events).toEqual(['settled', 'error', 'compiled'])
+    expect(dev.events).toEqual(['settled', 'error'])
   })
 
   it('never lets a throwing listener break the compile loop', async () => {
@@ -401,7 +403,7 @@ describe('a launch that never comes back', () => {
     await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
 
     expect(hookReturned).toBe(true)
-    expect(dev.events).toEqual(['settled', 'error', 'compiled'])
+    expect(dev.events).toEqual(['settled', 'error'])
     expect(printed.error).toHaveLength(1)
     expect(printed.error[0]).toContain("Chrome couldn't start")
     expect(contract.read()).toMatchObject({
@@ -420,8 +422,9 @@ describe('a launch that never comes back', () => {
     await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
     await dev.compile()
 
+    // No browser holds either build yet, so neither is reported compiled.
     expect(dev.launch).toHaveBeenCalledTimes(1)
-    expect(dev.compiled).toHaveLength(2)
+    expect(dev.compiled).toHaveLength(0)
   })
 
   it('keeps a browser that comes up after the wait ran out, and says ready', async () => {
@@ -435,7 +438,7 @@ describe('a launch that never comes back', () => {
     hung.resolve(controller())
     await vi.advanceTimersByTimeAsync(0)
 
-    expect(dev.events).toEqual(['settled', 'error', 'compiled', 'ready'])
+    expect(dev.events).toEqual(['settled', 'error', 'ready', 'compiled'])
     expect(contract.read().status).toBe('ready')
     expect(contract.read().code).toBeUndefined()
 
