@@ -8,7 +8,7 @@
 
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
-import {recordDevAdditions} from '../../../lib/dev-additions'
+import {appendDevAdditions} from '../../../lib/dev-additions'
 import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
@@ -351,7 +351,7 @@ export class ApplyDevDefaults {
 
             // The session reports every grant the production build lacks, so
             // the list is taken from the patched manifest and not restated.
-            recordDevAdditions(
+            appendDevAdditions(
               compilation,
               listDevManifestAdditions(canonicalManifest, patchedManifest)
             )

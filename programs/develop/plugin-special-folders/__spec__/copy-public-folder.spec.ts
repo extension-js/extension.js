@@ -130,12 +130,12 @@ describe('SpecialFoldersPlugin copies public/ in a real compile', () => {
     expect(result.emitted).toEqual({})
   })
 
-  it('watches pages/ and scripts/ in development only', async () => {
+  it('leaves pages/ and scripts/ unwatched in a one-shot build of either mode', async () => {
     const development = await build({}, {mode: 'development'})
     const production = await build({}, {mode: 'production'})
 
     for (const folder of ['pages', 'scripts']) {
-      expect(development.missingDependencies).toContain(
+      expect(development.missingDependencies).not.toContain(
         path.join(development.root, folder)
       )
 

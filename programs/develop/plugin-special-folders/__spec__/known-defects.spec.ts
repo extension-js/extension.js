@@ -219,6 +219,7 @@ function watcherSession(root: string) {
   const thisCompilation: Array<(compilation: unknown) => void> = []
   const compiler = {
     options: {mode: 'development', watchOptions: {}, context: root},
+    watchMode: true,
     hooks: {
       watchRun: {tap: (_name: string, fn: () => void) => watchRun.push(fn)},
       thisCompilation: {

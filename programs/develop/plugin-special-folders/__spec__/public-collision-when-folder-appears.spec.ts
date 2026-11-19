@@ -70,6 +70,7 @@ function createCompilation(errors: Error[]): Compilation {
     fileDependencies: new Set<string>(),
     getAssets: () => [],
     hooks: {
+      finishModules: {tap: () => {}},
       processAssets: {
         tap: (_options: unknown, fn: () => void) => fn(),
         tapPromise: () => {}
@@ -84,6 +85,7 @@ function createFakeCompiler(projectRoot: string) {
 
   return {
     options: {mode: 'development', watchOptions: {}, context: projectRoot},
+    watchMode: true,
     rspack,
     __internal__registerBuiltinPlugin: () => {},
     hooks: {

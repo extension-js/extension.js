@@ -7,7 +7,7 @@ import {
   type MockInstance,
   vi
 } from 'vitest'
-import {recordDevAdditions} from '../../lib/dev-additions'
+import {appendDevAdditions} from '../../lib/dev-additions'
 import {setupNoBrowserBannerOnFirstDone} from '../compiler-hooks'
 import {devAdditionsNote} from '../messages'
 
@@ -84,7 +84,7 @@ describe('the no-browser card', () => {
 
   it('says once, under the card, what dev added', () => {
     const compilation = {}
-    recordDevAdditions(compilation, additions)
+    appendDevAdditions(compilation, additions)
 
     const output = firstDone(compilation)
 
