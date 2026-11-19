@@ -42,10 +42,9 @@ const cases: Array<{
       (await import('../js-tools/solid')).isUsingSolid(root, notice)
   },
   {
-    // Today's line carries no debug glyph, unlike its four siblings.
     name: 'Svelte',
     files: {'package.json': {dependencies: {svelte: '5'}}},
-    line: messages.isUsingIntegration('Svelte'),
+    line: `${prefix('debug')} ${messages.isUsingIntegration('Svelte')}`,
     run: async (root, notice) =>
       (await import('../js-tools/svelte')).isUsingSvelte(root, notice)
   },
