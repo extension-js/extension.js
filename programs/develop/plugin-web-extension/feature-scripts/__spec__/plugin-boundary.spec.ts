@@ -3,7 +3,8 @@ import path from 'node:path'
 import {describe, expect, it} from 'vitest'
 
 // The scripts feature compiles content scripts in every mode. What a dev
-// session adds to replace a copy in a live page belongs to plugin-reload.
+// session adds to replace a copy in a live page belongs to plugin-reload,
+// and the builds a session restart replaces belong to the dev server.
 const FOLDER = path.resolve(__dirname, '..')
 
 function sourceFiles(dir: string): string[] {
@@ -42,5 +43,41 @@ describe('what the scripts feature knows about reloading', () => {
     expect(
       files.filter(({text}) => fromReload.test(text)).map(({file}) => file)
     ).toEqual([])
+  })
+
+  it('imports nothing from plugin-browsers', () => {
+    const fromBrowsers =
+      /(?:from|import|require\()\s*\(?["'][^"']*plugin-browsers/
+
+    expect(
+      files.filter(({text}) => fromBrowsers.test(text)).map(({file}) => file)
+    ).toEqual([])
+  })
+
+  // Which builds a dev session restart replaces is the dev server's to keep.
+  // This folder asks for the restart and reports the builds through its API.
+  it('keeps no restart state of its own', () => {
+    const restartState =
+      /isAwaitingMainWorldRestart|awaitingRestart|heldBuilds|new\s+WeakSet/
+
+    expect(
+      files.filter(({text}) => restartState.test(text)).map(({file}) => file)
+    ).toEqual([])
+  })
+
+  it('reaches the dev server only through its restart API', () => {
+    const fromDevServer = /["']([^"']*dev-server\/[^"']*)["']/g
+    const reached = new Set(
+      files.flatMap(({text}) =>
+        [...text.matchAll(fromDevServer)].map(
+          ([, specifier]) => specifier.split('/').pop() as string
+        )
+      )
+    )
+
+    expect([...reached].sort()).toEqual([
+      'session-restart',
+      'session-restart-holds'
+    ])
   })
 })

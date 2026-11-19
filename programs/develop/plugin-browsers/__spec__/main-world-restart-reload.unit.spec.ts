@@ -7,12 +7,13 @@ import {
   DevSessionRestartScheduler,
   unbindDevSessionRestart
 } from '../../dev-server/session-restart'
+import {isAwaitingMainWorldRestart} from '../../dev-server/session-restart-holds'
 import {
-  isAwaitingMainWorldRestart,
   MAIN_WORLD_SETTLE_MS,
   WarnMainWorldRegistrationChanged
 } from '../../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import {BrowsersPlugin} from '../index'
+import {SafariDevPlugin} from '../safari-dev-plugin'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const roots: string[] = []
@@ -233,9 +234,9 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
     expect(isAwaitingMainWorldRestart(undefined, plain.compilation)).toBe(false)
   })
 
-  // Pins today's behavior, reported with the move of this state to the
-  // reload plugin: the held build never reached the browser.
-  it('compares the next build with a held build the browser never loaded', async () => {
+  // The held build never reached the browser, so the next build is compared
+  // with the one it did load, which named other web resources.
+  it('compares the next build with the build the browser loaded', async () => {
     const scheduler = new DevSessionRestartScheduler(0)
 
     scheduler.setHandler(vi.fn())
@@ -256,7 +257,7 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
 
     expect(dev.broadcastReload.mock.calls.map((call) => call[0].type)).toEqual([
       'full',
-      'page'
+      'full'
     ])
   })
 
@@ -267,5 +268,95 @@ describe('the reload after a build that asked for a MAIN world restart', () => {
     await dev.rebuild()
 
     expect(dev.broadcastReload).toHaveBeenCalledTimes(1)
+  })
+})
+
+// Safari past its first package: the resync is itself the reload, so a
+// held build that packaged would restart the extension before the restart.
+async function packagedSafariSession() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-safari-'))
+  roots.push(root)
+
+  const at = (name: string) => path.join(root, name)
+
+  fs.mkdirSync(at('scripts'), {recursive: true})
+  fs.writeFileSync(at('manifest.json'), '{}')
+  fs.writeFileSync(at('scripts/hook.js'), 'window.__PAGE_HOOK__ = 1\n')
+  fs.writeFileSync(at('background.js'), IDLE)
+
+  const fake = fakeCompiler({owner: SafariDevPlugin.name, context: root})
+
+  new WarnMainWorldRegistrationChanged({
+    manifestPath: at('manifest.json'),
+    includeList: {
+      'background/service_worker': at('background.js'),
+      'scripts/hook': at('scripts/hook.js')
+    }
+  }).apply(fake.compiler)
+
+  const packager = vi.fn(async (_dist: string, _mode: 'full' | 'resync') => {})
+  const plugin = new SafariDevPlugin(packager)
+  const broadcastReload = vi.fn((_instruction: {type: string}) => 0)
+  const compiled = vi.fn()
+
+  plugin.setReloadBroker({broadcastReload})
+  plugin.emitter.on('compiled', compiled)
+  plugin.apply(fake.compiler)
+
+  const rebuild = async (files: string[] = ['manifest.json']) => {
+    const compilation = fakeCompilation({context: root, output: at('dist')})
+
+    fake.watchRun(files)
+    fake.thisCompilation(compilation)
+    await fake.done(compilation)
+    await plugin.idle()
+  }
+
+  await rebuild([])
+  expect(packager.mock.calls.map((call) => call[1])).toEqual(['full'])
+
+  return {
+    packager,
+    broadcastReload,
+    compiled,
+    rebuild,
+    write: (contents: string) => fs.writeFileSync(at('background.js'), contents)
+  }
+}
+
+describe('the Safari package after a build that asked for a MAIN world restart', () => {
+  it('packages an edit that leaves the registrations alone', async () => {
+    bindDevSessionRestart(new DevSessionRestartScheduler(0))
+    const safari = await packagedSafariSession()
+
+    await safari.rebuild()
+
+    expect(safari.packager.mock.calls.map((call) => call[1])).toEqual([
+      'full',
+      'resync'
+    ])
+  })
+
+  it('leaves the package and the reload to the restart', async () => {
+    const restarts = vi.fn()
+    const scheduler = new DevSessionRestartScheduler(0)
+
+    scheduler.setHandler(restarts)
+    bindDevSessionRestart(scheduler)
+
+    const safari = await packagedSafariSession()
+
+    safari.write(`${IDLE}${REGISTRATION}`)
+    await safari.rebuild()
+
+    expect(safari.packager.mock.calls.map((call) => call[1])).toEqual(['full'])
+    expect(safari.broadcastReload).not.toHaveBeenCalled()
+    expect(safari.compiled).toHaveBeenLastCalledWith(
+      expect.objectContaining({isFirstCompile: false})
+    )
+
+    await vi.advanceTimersByTimeAsync(MAIN_WORLD_SETTLE_MS + 1)
+
+    expect(restarts).toHaveBeenCalledTimes(1)
   })
 })

@@ -8,22 +8,20 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
-import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
+import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import * as messages from '../lib/messages'
 import {CODES, humanLine, humanWarn} from '../lib/messaging'
 import {
-  buildSourceFeatureIndex,
-  classifyReloadFromSources,
   createChangedSourcesTracker,
-  createLoadedContentScripts,
   dispatchReload,
+  type LoadedContentScripts,
+  loadedContentScriptsFor,
   type ReloadBroker,
   type ReloadInstruction,
   readBootRegistrations,
-  readContentScriptCount,
-  readDevBuild
+  readDevBuild,
+  reloadForBuild
 } from '../plugin-reload'
-import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
 import {waitAtMost} from './bounded-wait'
 import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
@@ -220,20 +218,12 @@ export class BrowsersPlugin implements RunnerPlugin {
   private lastReportedRefusal: string | null | undefined
   // What the browser last read through the manifest, kept by plugin-reload.
   // It outlives a dev server restart, which applies this plugin again.
-  private readonly loadedContentScripts:
-    | ReturnType<typeof createLoadedContentScripts>
-    | undefined
+  private readonly loadedContentScripts: LoadedContentScripts | undefined
 
   constructor(private readonly options: BrowsersPluginOptions) {
-    const browser = options.browserOptions.browser
-
-    // Emulated Chromium reads the new file index on every reload and swaps a
-    // renamed static content script itself, so nothing is compared for it.
-    this.loadedContentScripts = isEmulatorBrowser(browser)
-      ? undefined
-      : createLoadedContentScripts({
-          refreshInPlace: isGeckoBasedBrowser(browser)
-        })
+    this.loadedContentScripts = loadedContentScriptsFor(
+      options.browserOptions.browser
+    )
   }
 
   /**
@@ -507,25 +497,21 @@ export class BrowsersPlugin implements RunnerPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
+      // The restart this build asked for reloads once with the build that
+      // replaces it. Reloading for this one too starts the background twice.
+      const heldForRestart =
+        !this.isFirstCompile &&
+        isAwaitingMainWorldRestart(compiler, compilation)
+
       // What must reload is plugin-reload's answer, from the sources that
       // changed. The first compile is the build the browser loads.
       let reloadInstruction: ReloadInstruction | undefined
 
-      if (!this.isFirstCompile) {
-        const {forcedFull, changedSources: sources} = changedSources.snapshot()
-        const classified = classifyReloadFromSources({
-          changedSources: sources,
-          forcedFull,
-          getContentScriptCount: () =>
-            readContentScriptCount(compilation, outputPath),
-          getSourceFeatureIndex: () =>
-            buildSourceFeatureIndex(compilation, contextDir),
-          outputPath,
-          contextDir
+      if (!this.isFirstCompile && !heldForRestart) {
+        reloadInstruction = reloadForBuild(compilation, {
+          changedSources,
+          loaded: this.loadedContentScripts
         })
-        reloadInstruction = this.loadedContentScripts
-          ? this.loadedContentScripts.resolve(compilation, classified)
-          : classified
       }
 
       const wasFirstCompile = this.isFirstCompile
@@ -546,11 +532,7 @@ export class BrowsersPlugin implements RunnerPlugin {
         // reload: it just started from the dist that was written.
         this.loadedContentScripts?.noteLoaded(compilation)
         this.announceReady()
-      } else if (isAwaitingMainWorldRestart(compiler, compilation)) {
-        // The restart this build asked for reloads the extension once with
-        // the build that replaces it. Reloading here too starts it twice.
-        reloadInstruction = undefined
-      } else if (this.reloadBroker) {
+      } else if (!heldForRestart && this.reloadBroker) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.
         const delivered = await dispatchReload(reloadInstruction, {
