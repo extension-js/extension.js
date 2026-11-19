@@ -47,12 +47,7 @@ const everyLayerAgreesWithTheLoader: [
   Agrees<BrowserConfig, InternalBrowser>,
   Agrees<DevCommandConfig, NonNullable<Commands['dev']>>,
   Agrees<StartCommandConfig, NonNullable<Commands['start']>>,
-  // Preview builds nothing. The CLI keeps these keys, marked deprecated.
-  Agrees<
-    PreviewCommandConfig,
-    NonNullable<Commands['preview']>,
-    'polyfill' | 'include' | 'exclude'
-  >,
+  Agrees<PreviewCommandConfig, NonNullable<Commands['preview']>>,
   Agrees<BuildCommandConfig, NonNullable<Commands['build']>>,
   Agrees<FileConfig, InternalFileConfig>,
   Agrees<SafariConfig, InternalSafari>,
@@ -101,8 +96,25 @@ const previewRefusesBudgets: FileConfig = {
   commands: {preview: {perfBudgets: {'service-worker': 10}}}
 }
 
+// Preview serves an existing build, so the keys that shape one are refused.
+const previewRefusesPolyfill: FileConfig = {
+  // @ts-expect-error preview builds nothing, so no polyfill applies
+  commands: {preview: {polyfill: true}}
+}
+const previewRefusesInclude: FileConfig = {
+  // @ts-expect-error preview builds nothing, so no file is added
+  commands: {preview: {include: {'notes.txt': 'notes.txt'}}}
+}
+const previewRefusesExclude: FileConfig = {
+  // @ts-expect-error preview builds nothing, so no file is left out
+  commands: {preview: {exclude: ['notes.txt']}}
+}
+
 void startTakesBudgets
 void previewRefusesBudgets
+void previewRefusesPolyfill
+void previewRefusesInclude
+void previewRefusesExclude
 
 const pkgRoot = path.resolve(__dirname, '..')
 const pkg = JSON.parse(
