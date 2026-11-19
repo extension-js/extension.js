@@ -3,7 +3,11 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadBroker} from '../../plugin-reload'
-import {SafariDevPlugin, type SafariPackagerFn} from '../safari-dev-plugin'
+import {
+  SAFARI_FIRST_PACKAGE_TIMEOUT_MS,
+  SafariDevPlugin,
+  type SafariPackagerFn
+} from '../safari-dev-plugin'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 beforeEach(() => {
@@ -606,6 +610,7 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
   const roots: string[] = []
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
 
     for (const root of roots.splice(0)) {
@@ -747,6 +752,70 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     await plugin.idle()
 
     expect(errors).toEqual([])
+  })
+
+  // The first package is awaited inside the compiler's done hook, so the
+  // wait for it is bounded and a package that finishes late still counts.
+  it('reports a first package that never comes back as failed and returns the hook', async () => {
+    vi.useFakeTimers()
+    const errors = printedErrors()
+    const contract = safariContract()
+    const pkg = makeDeferredPackager()
+    const plugin = new SafariDevPlugin(pkg.fn)
+    const {compiler, trigger} = makeCompiler()
+    plugin.apply(compiler)
+
+    let hookReturned = false
+    void trigger(contract.output).then(() => {
+      hookReturned = true
+    })
+
+    await vi.advanceTimersByTimeAsync(SAFARI_FIRST_PACKAGE_TIMEOUT_MS)
+    vi.useRealTimers()
+
+    expect(hookReturned).toBe(true)
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain("Safari couldn't start")
+    expect(contract.read()).toMatchObject({
+      status: 'error',
+      code: 'browser_launch_failed',
+      browserLaunchFailedCode: 'E_BROWSER_START_TIMEOUT'
+    })
+
+    await trigger(contract.output)
+
+    expect(pkg.modes()).toEqual([`full:${contract.output}`])
+  })
+
+  it('says ready when the first package finishes late, then packages the save that waited', async () => {
+    vi.useFakeTimers()
+    printedErrors()
+    const contract = safariContract()
+    const ready = vi.fn()
+    const pkg = makeDeferredPackager()
+    const plugin = new SafariDevPlugin(pkg.fn)
+    plugin.setReadyListener(ready)
+    const {compiler, trigger} = makeCompiler()
+    plugin.apply(compiler)
+
+    void trigger(contract.output)
+    await vi.advanceTimersByTimeAsync(SAFARI_FIRST_PACKAGE_TIMEOUT_MS)
+    vi.useRealTimers()
+    await trigger('/saved-meanwhile')
+
+    pkg.calls[0].resolve()
+    await flush()
+
+    expect(ready).toHaveBeenCalledTimes(1)
+    expect(contract.read().status).toBe('ready')
+    expect(contract.read().code).toBeUndefined()
+    expect(pkg.modes()).toEqual([
+      `full:${contract.output}`,
+      'resync:/saved-meanwhile'
+    ])
+
+    pkg.calls[1].resolve()
+    await plugin.idle()
   })
 
   // Only a classifier told both folders can see that the build copied the

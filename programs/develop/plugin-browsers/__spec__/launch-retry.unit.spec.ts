@@ -4,6 +4,7 @@ import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../lib/messages'
 import {
+  BROWSER_LAUNCH_TIMEOUT_MS,
   type BrowserController,
   type BrowserLaunchOptions,
   BrowsersPlugin,
@@ -391,5 +392,111 @@ describe('the launch settled listener', () => {
     await dev.compile()
 
     expect(dev.events).toEqual(['ready', 'compiled'])
+  })
+})
+
+// A launch awaited inside the compiler's done hook holds every later rebuild,
+// so the wait for it is bounded and a browser that comes up late is kept.
+describe('a launch that never comes back', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function hungLauncher() {
+    let resolve: (controller: BrowserController) => void = () => {}
+
+    let reject: (error: unknown) => void = () => {}
+
+    const launcher: Launcher = () =>
+      new Promise<BrowserController>((done, fail) => {
+        resolve = done
+        reject = fail
+      })
+
+    return {
+      launcher,
+      resolve: (controller: BrowserController) => resolve(controller),
+      reject: (error: unknown) => reject(error)
+    }
+  }
+
+  it('reports the launch as failed once the wait runs out, and returns the hook', async () => {
+    vi.useFakeTimers()
+    const contract = sessionContract()
+    const hung = hungLauncher()
+    const dev = session(hung.launcher, {browser: 'chrome'}, contract.output)
+
+    let hookReturned = false
+    void dev.compile().then(() => {
+      hookReturned = true
+    })
+
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+
+    expect(hookReturned).toBe(true)
+    expect(dev.events).toEqual(['settled', 'error', 'compiled'])
+    expect(printed.error).toHaveLength(1)
+    expect(printed.error[0]).toContain("Chrome couldn't start")
+    expect(contract.read()).toMatchObject({
+      status: 'error',
+      code: 'browser_launch_failed',
+      browserLaunchFailedCode: 'E_BROWSER_START_TIMEOUT'
+    })
+  })
+
+  it('keeps rebuilding without a second launch while the first is still out', async () => {
+    vi.useFakeTimers()
+    const hung = hungLauncher()
+    const dev = session(hung.launcher)
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+    await dev.compile()
+
+    expect(dev.launch).toHaveBeenCalledTimes(1)
+    expect(dev.compiled).toHaveLength(2)
+  })
+
+  it('keeps a browser that comes up after the wait ran out, and says ready', async () => {
+    vi.useFakeTimers()
+    const contract = sessionContract()
+    const hung = hungLauncher()
+    const dev = session(hung.launcher, {browser: 'chrome'}, contract.output)
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+    hung.resolve(controller())
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(dev.events).toEqual(['settled', 'error', 'compiled', 'ready'])
+    expect(contract.read().status).toBe('ready')
+    expect(contract.read().code).toBeUndefined()
+
+    await dev.compile()
+
+    expect(dev.launch).toHaveBeenCalledTimes(1)
+    expect(dev.compiled.map((event) => event.isFirstCompile)).toEqual([
+      true,
+      false
+    ])
+  })
+
+  it('launches again on the next compile after a late launch failed', async () => {
+    vi.useFakeTimers()
+    const hung = hungLauncher()
+    const launcher = vi
+      .fn<Launcher>()
+      .mockImplementationOnce(hung.launcher)
+      .mockResolvedValueOnce(controller())
+    const dev = session(launcher)
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+    hung.reject(new Error('Chrome binary not found'))
+    await vi.advanceTimersByTimeAsync(0)
+    await dev.compile()
+
+    expect(dev.launch).toHaveBeenCalledTimes(2)
+    expect(dev.events.slice(-2)).toEqual(['ready', 'compiled'])
   })
 })
