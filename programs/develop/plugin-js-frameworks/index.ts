@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import type {Compiler, SwcLoaderOptions} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
 import {ensureOptionalPackageResolved} from '../lib/optional-deps-resolver'
@@ -474,7 +474,7 @@ export class JsFrameworksPlugin {
     const swcLoaderFor = (
       resourcePath: string,
       options: {refresh: boolean; module: boolean}
-    ) => ({
+    ): {loader: string; options: SwcLoaderOptions} => ({
       loader: 'builtin:swc-loader',
       options: {
         module: {
@@ -485,7 +485,7 @@ export class JsFrameworksPlugin {
         // the browser loads as modules compile as modules: in script form the
         // automatic JSX runtime becomes a require() no page can run.
         isModule: options.module ? true : 'unknown',
-        sourceMap: wantsSourceMaps,
+        sourceMaps: wantsSourceMaps,
         env: {targets},
         jsc: {
           parser: {
