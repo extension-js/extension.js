@@ -503,6 +503,30 @@ describe('extension preview --output json', () => {
     ])
   })
 
+  // The engine stamps nothing to preview with its code, so the frame reads
+  // the code and not the copy, and keeps the status and hint it always had.
+  it('frames a coded E_PREVIEW_NO_DIST as not-found with the build hint', async () => {
+    preview = async () => {
+      throw Object.assign(new Error('No build to run here'), {
+        code: 'E_PREVIEW_NO_DIST'
+      })
+    }
+
+    expect(await run(['preview', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toEqual([
+      {
+        schema: 1,
+        ok: false,
+        command: 'preview',
+        status: 'not-found',
+        value: null,
+        error: {code: 'E_PREVIEW_NO_DIST', message: 'No build to run here'},
+        warnings: [],
+        hint: 'Run `extension build` before previewing.'
+      }
+    ])
+  })
+
   // The launcher codes the refusal it throws, so no message text is matched.
   it('emits load-refused and its code for a load the browser refused', async () => {
     preview = async () => {
