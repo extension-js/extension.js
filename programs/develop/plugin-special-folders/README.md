@@ -97,7 +97,7 @@ A file the author names may also come from the workspace the project belongs to,
 
 The decision is one function, `sourceFileMayShip(sourcePath, projectRoots, ask)` in `public-private-files.ts`, and `workspaceRootOf(projectRoot)` beside it answers the workspace root. `ask` is `'named'` when the author wrote the path of that one file, which is the default, and `'walked'` when a folder entry or a pattern reached it. A walk never enters `node_modules` and never leaves the project. The `web_accessible_resources` step, the JSON fields of the manifest, custom manifest keys and the file names found in code all ask it. A custom key and a file name found in code are read the way a URL is, so they never climb above the extension root and reach the workspace only through a link. A `web_accessible_resources` entry or a JSON field spelled from the root that climbs out of it (`/../x`, `/%2e%2e/x`) is refused as a page refuses it, while the same path without the leading slash reaches the workspace.
 
-## Path resolution convention (consistent across @plugin-extension)
+## Path resolution convention (consistent across plugin-web-extension)
 
 - Leading `/` means extension root (public root) relative to the directory containing `manifest.json`.
 - Relative paths are resolved from the manifest directory.

@@ -186,7 +186,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "nodeBuiltinHasNoStandIn: function(4)",
     "nodeBuiltinStandInHint: function(1)",
     "projectConfigChangedRestartRequired: function(1)",
-    "zipCreationFailed: function(1)",
     "zipLeftOut: function(2)",
     "zipLeftOutSessionFolders: function(2)",
     "zipMissingDefaultLocale: function(2)",

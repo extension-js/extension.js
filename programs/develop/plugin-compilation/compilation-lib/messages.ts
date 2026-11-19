@@ -151,10 +151,6 @@ export function zipSourceEmpty() {
   return `${prefix('warn')} The source zip holds no files. Every file in the project is ignored or left out.`
 }
 
-export function zipCreationFailed(error: unknown) {
-  return `ZipPlugin: Failed to create zip(s): ${String(error)}`
-}
-
 export function zipPackagingSkipped(reason: string) {
   return `${prefix('debug')} zip      skipped=true reason="${reason}"`
 }

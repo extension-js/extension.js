@@ -30,7 +30,9 @@ vi.mock('../steps/update-manifest', () => ({
   UpdateManifest: recorder('UpdateManifest')
 }))
 
-vi.mock('../steps/patch-war', () => ({PatchWAR: recorder('PatchWAR')}))
+vi.mock('../../feature-web-resources/steps/patch-war', () => ({
+  PatchWAR: recorder('PatchWAR')
+}))
 
 vi.mock('../steps/apply-dev-defaults', () => ({
   ApplyDevDefaults: recorder('ApplyDevDefaults')
