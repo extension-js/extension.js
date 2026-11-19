@@ -11,7 +11,6 @@ import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import {debugLine} from '../../../lib/messaging'
-import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import {
   hasPrivateFileName,
   privateFileKind,
@@ -22,13 +21,12 @@ import {
   type AssetHashOptions,
   bundledAssetOutputName
 } from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
-import {getOriginalManifestContent} from '../../feature-manifest/manifest-lib/manifest'
 import {normalizeManifestOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {
   extractGetURLLiterals,
   resolveExtensionPath
 } from '../../feature-scripts/steps/trace-runtime-loaded-files'
-import {getFilename, unixify} from '../../shared/paths'
+import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
 
 function isPublicRootLike(possiblePath: string) {
@@ -339,53 +337,6 @@ export function validateUserDeclaredWAR(
   }
 }
 
-function authoredManifest(
-  compilation: Compilation,
-  manifestPath: string
-): unknown {
-  const original = getOriginalManifestContent(compilation)
-
-  if (original) return parseJsonSafe(original)
-
-  try {
-    return parseJsonSafe(fs.readFileSync(manifestPath, 'utf8'))
-  } catch {
-    return undefined
-  }
-}
-
-// The manifest step drops the leading slash, so `/../x` arrives as `../x`.
-// The authored entries tell the two apart, and only the climbing one is refused.
-function climbingRootEntries(authored: unknown): Set<string> {
-  const climbing = new Set<string>()
-  const relative = new Set<string>()
-
-  for (const entry of declaredWAR(authored ?? {}) || []) {
-    const resources =
-      typeof entry === 'string'
-        ? [entry]
-        : Array.isArray(entry?.resources)
-          ? entry.resources
-          : []
-
-    for (const resource of resources) {
-      if (typeof resource !== 'string' || /[*?[\]{}]/.test(resource)) continue
-
-      const output = getFilename(
-        normalizeManifestOutputPath(resource),
-        resource
-      )
-
-      if (rootAbsoluteClimbsOut(resource)) climbing.add(output)
-      else relative.add(output)
-    }
-  }
-
-  for (const output of relative) climbing.delete(output)
-
-  return climbing
-}
-
 // The project-root-relative path of a ref that resolves outside the
 // manifest folder but inside the project, or of a plain ref that is missing
 // beside the manifest; undefined when the manifest folder is the root.
@@ -526,9 +477,6 @@ export function resolveUserDeclaredWAR(
   const mayShipWalked = (abs: string) =>
     sourceFileMayShip(abs, [projectPath, manifestDir], 'walked')
   const saidWithheld = new Set<string>()
-  const climbingRoot = climbingRootEntries(
-    authoredManifest(compilation, manifestPath)
-  )
 
   // A source the build will not copy gets the finding a missing file gets.
   const reportWithheld = (abs: string, ref: string) => {
@@ -537,8 +485,11 @@ export function resolveUserDeclaredWAR(
 
     saidWithheld.add(said)
 
+    // Named from the project, so no line carries a path of the machine.
     const warn = new WebpackError(
-      warMessages.warFieldError(abs, {relativeRef: ref})
+      warMessages.warFieldError(unixify(path.relative(projectPath, abs)), {
+        relativeRef: ref
+      })
     ) as Error & {file?: string; name?: string}
     warn.file = 'manifest.json'
     warn.name = 'WARRelativeAssetMissing'
@@ -604,14 +555,20 @@ export function resolveUserDeclaredWAR(
     const escapesPublic = normalizedOutput.split('/').includes('..')
     const isPattern = /[*?[\]{}]/.test(res)
 
+    // The manifest step keeps a climbing root path as written, slash first.
+    const climbsOut = rootAbsoluteClimbsOut(res)
+
     // Asked before public/: the copier leaves these names out as well, so
     // the folder cannot answer for one. A page refuses `/../x` the same way.
     if (
       !isPattern &&
-      (climbingRoot.has(res) ||
+      (climbsOut ||
         hasPrivateFileName(path.posix.normalize(unixify(normalizedOutput))))
     ) {
-      reportWithheld(path.join(manifestDir, normalizedOutput), res)
+      reportWithheld(
+        path.join(manifestDir, normalizedOutput),
+        climbsOut ? normalizedOutput : res
+      )
 
       return
     }
@@ -632,19 +589,28 @@ export function resolveUserDeclaredWAR(
         warn.file = 'manifest.json'
         warn.name = 'WARPatternLeavesRoot'
         compilation.warnings!.push(warn)
-      } else {
-        emitGlobMatches(
-          compilation,
-          manifestDir,
-          projectPath,
-          res,
-          mayShipWalked,
-          (abs, named) =>
-            named ? reportWithheld(abs, res) : reportWithheldInside(abs)
-        )
+
+        return
       }
 
-      pushResource(matches, res, extra)
+      // A pattern whose own folder is withheld matches nothing that ships.
+      let folderWithheld = false
+
+      emitGlobMatches(
+        compilation,
+        manifestDir,
+        projectPath,
+        res,
+        mayShipWalked,
+        (abs, named) => {
+          if (!named) return reportWithheldInside(abs)
+
+          folderWithheld = true
+          reportWithheld(abs, res)
+        }
+      )
+
+      if (!folderWithheld) pushResource(matches, res, extra)
 
       return
     }
@@ -801,14 +767,17 @@ export function resolveUserDeclaredWAR(
       // original source exists, say so: WAR entries are copied, not compiled.
       const sourceSibling = findSourceSibling(abs)
 
-      // Warn only when the path is neither in public/ nor emitted; the entry is
-      // dropped from the manifest, keeping it just moves the failure to runtime.
-      const msg = warMessages.warFieldError(abs, {
-        relativeRef: res,
-        sourceSibling: sourceSibling
-          ? path.relative(manifestDir, sourceSibling)
-          : undefined
-      })
+      // Warn only when the path is neither in public/ nor emitted. The entry is
+      // left out of the manifest: keeping it moves the failure to runtime.
+      const msg = warMessages.warFieldError(
+        unixify(path.relative(projectPath, abs)),
+        {
+          relativeRef: res,
+          sourceSibling: sourceSibling
+            ? path.relative(manifestDir, sourceSibling)
+            : undefined
+        }
+      )
       const warn = new WebpackError(msg) as Error & {
         file?: string
         name?: string

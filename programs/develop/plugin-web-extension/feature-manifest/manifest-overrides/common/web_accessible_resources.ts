@@ -6,6 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {rootAbsoluteClimbsOut} from '../../../../plugin-special-folders/public-private-files'
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 
@@ -17,6 +18,12 @@ function normalizeOutputPath(originalPath: string) {
   // Preserve WAR glob patterns verbatim. Normalizing away a leading slash would
   // change the user's intended match from `/*.ext` to `*.ext`.
   if (/[*?[\]{}]/.test(unix)) {
+    return unix
+  }
+
+  // A root path that climbs out of the extension root stays as written, so
+  // the step that resolves the entry can tell it from `../x` and refuse it.
+  if (rootAbsoluteClimbsOut(unix)) {
     return unix
   }
 
