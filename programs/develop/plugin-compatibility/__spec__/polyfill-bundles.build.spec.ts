@@ -26,13 +26,19 @@ const FILES: Record<string, string> = {
     name: 'polyfill-bundles',
     version: '1.0.0',
     background: {service_worker: 'background.js'},
+    action: {default_popup: 'popup.html'},
+    permissions: ['scripting'],
     content_scripts: [
       {matches: ['<all_urls>'], js: ['isolated.js']},
       {matches: ['<all_urls>'], js: ['main.js'], world: 'MAIN'}
     ],
     sandbox: {pages: ['sandbox.html']}
   }),
-  'background.js': 'browser.runtime.onInstalled.addListener(() => {})\n',
+  'background.js':
+    'browser.runtime.onInstalled.addListener(() => {})\n' +
+    'chrome.scripting.registerContentScripts([{id: "registered", ' +
+    'matches: ["<all_urls>"], js: ["scripts/registered.js"], world: "MAIN"}])\n',
+  'scripts/registered.js': 'window.__REGISTERED__ = typeof browser\n',
   'isolated.js': "browser.runtime.sendMessage('from the isolated world')\n",
   'main.js':
     "import {pageHasBrowser} from './main-helper.js'\n" +
@@ -42,14 +48,26 @@ const FILES: Record<string, string> = {
   'sandbox.html':
     '<!doctype html><html><head><title>sandbox</title></head>' +
     '<body><script src="./sandbox.js"></script></body></html>',
-  'sandbox.js': 'window.__SANDBOX__ = typeof browser\n'
+  'sandbox.js':
+    "import {sandboxHelper} from './sandbox-helper.js'\n" +
+    "window.__SANDBOX__ = typeof browser + ' ' + sandboxHelper()\n",
+  'sandbox-helper.js': 'export const sandboxHelper = () => typeof browser\n',
+  // A page with the extension API that shares the sandbox page's import.
+  'popup.html':
+    '<!doctype html><html><head><title>popup</title></head>' +
+    '<body><script src="./popup.js"></script></body></html>',
+  'popup.js':
+    "import {sandboxHelper} from './sandbox-helper.js'\n" +
+    'window.__POPUP__ = sandboxHelper()\n'
 }
 
 type Built = {
   background: string
   isolated: string
   main: string
+  registered: string
   sandbox: string
+  popup: string
 }
 
 async function build(mode: 'development' | 'production'): Promise<Built> {
@@ -57,7 +75,10 @@ async function build(mode: 'development' | 'production'): Promise<Built> {
   roots.push(root)
 
   for (const [name, source] of Object.entries(FILES)) {
-    fs.writeFileSync(path.join(root, name), source)
+    const file = path.join(root, ...name.split('/'))
+
+    fs.mkdirSync(path.dirname(file), {recursive: true})
+    fs.writeFileSync(file, source)
   }
 
   const {extensionBuild} = await import('../../command-build')
@@ -92,25 +113,29 @@ async function build(mode: 'development' | 'production'): Promise<Built> {
       .flatMap((script: {js: string[]}) => script.js)
       .map(read)
       .join('\n')
-  const sandboxPage = manifest.sandbox.pages[0] as string
-  const sandboxScripts = [
-    ...read(sandboxPage).matchAll(/<script[^>]*\ssrc="([^"]+)"/g)
-  ]
-    .map((match) => match[1].replace(/^\//, ''))
-    .map((src) => path.posix.join(path.posix.dirname(sandboxPage), src))
-    .map((file) =>
-      fs.existsSync(path.join(dist, ...file.split('/')))
-        ? read(file)
-        : read(file.replace(/^.*?\//, ''))
-    )
 
-  expect(sandboxScripts.length).toBeGreaterThan(0)
+  const pageScripts = (page: string) => {
+    const scripts = [...read(page).matchAll(/<script[^>]*\ssrc="([^"]+)"/g)]
+      .map((match) => match[1].replace(/^\//, ''))
+      .map((src) => path.posix.join(path.posix.dirname(page), src))
+      .map((file) =>
+        fs.existsSync(path.join(dist, ...file.split('/')))
+          ? read(file)
+          : read(file.replace(/^.*?\//, ''))
+      )
+
+    expect(scripts.length).toBeGreaterThan(0)
+
+    return scripts.join('\n')
+  }
 
   return {
     background: read(manifest.background.service_worker),
     isolated: scriptsOf(undefined),
     main: scriptsOf('MAIN'),
-    sandbox: sandboxScripts.join('\n')
+    registered: read('scripts/registered.js'),
+    sandbox: pageScripts(manifest.sandbox.pages[0] as string),
+    popup: pageScripts(manifest.action.default_popup as string)
   }
 }
 
@@ -176,8 +201,12 @@ describe.each([
     expect(built.main.includes(POLYFILL_MARK)).toBe(false)
   })
 
-  it('stays out of the sandbox page script', () => {
+  it('stays out of the sandbox page script and its imports', () => {
     expect(built.sandbox.includes(POLYFILL_MARK)).toBe(false)
+  })
+
+  it('stays in a page that shares an import with the sandbox page', () => {
+    expect(built.popup.includes(POLYFILL_MARK)).toBe(true)
   })
 
   it('leaves browser undefined on the page, as without the option', () => {
