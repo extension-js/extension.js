@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {readyContractErrorCode} from '../dev-server/ready-contract-codes'
 import {resetPerfBudgetNotices} from '../plugin-perf-budgets'
 import {trackTempFolders} from './helpers/temp-folders'
 
@@ -237,6 +238,34 @@ describe('perfBudgets.onExceed on a real production build', () => {
     expect(ready().message).toContain(
       "perfBudgets.onExceed in extension.config.js must be 'warn' or 'error'"
     )
+  }, 180_000)
+
+  it('stamps the refusal code in ready.json, the one the CLI envelope carries', async () => {
+    const root = project(
+      config(`{${TIGHT}, onExceed: process.env.BUDGET_ON_EXCEED || 'warn'}`)
+    )
+    const readyPath = path.join(
+      root,
+      'dist',
+      'extension-js',
+      'chrome',
+      'ready.json'
+    )
+
+    await build(root)
+    vi.stubEnv('BUDGET_ON_EXCEED', 'fail')
+    const failure = await failureOf(root).finally(() => vi.unstubAllEnvs())
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+    // A reader takes the stamped code before the id's own fallback.
+    expect(readyContractErrorCode(ready.code)).toBe('E_COMPILE')
+    expect(ready).toMatchObject({
+      status: 'error',
+      code: 'build_failed',
+      endedAsFailedCode: 'E_CONFIG_LOAD'
+    })
+
+    expect(ready.endedAsFailedCode).toBe(failure.code)
   }, 180_000)
 
   it('creates no ready.json for a refusal in a project that never built', async () => {
