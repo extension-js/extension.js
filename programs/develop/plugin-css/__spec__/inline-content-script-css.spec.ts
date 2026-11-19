@@ -117,6 +117,31 @@ describe('rewriteInlinedCssUrls names a public-owned file by its copied path', (
     })
   }
 
+  // The copier leaves these names out of public/, so they read as missing.
+  it.each([
+    'Thumbs.db',
+    'desktop.ini',
+    'notes.txt~',
+    '.env',
+    '.git/logo.png'
+  ])('leaves a reference to %s in public/ as authored', (name) => {
+    const dir = createProject()
+    const file = path.join(dir, 'public', name)
+    fs.mkdirSync(path.dirname(file), {recursive: true})
+    fs.writeFileSync(file, 'kept out')
+
+    for (const spelling of [`/${name}`, `../public/${name}`]) {
+      const source = `.a { background: url("${spelling}"); }`
+      const {css, targets} = rewriteInlinedCssUrls(source, {
+        ...contextFor(dir),
+        publicDir: path.join(dir, 'public')
+      })
+
+      expect(css).toBe(source)
+      expect(targets).toEqual([])
+    }
+  })
+
   it('leaves a relative reference to a file outside the public folder to the bundler', () => {
     const dir = createProject()
     const {css, targets} = rewriteInlinedCssUrls(

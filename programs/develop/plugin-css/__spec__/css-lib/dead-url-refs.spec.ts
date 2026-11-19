@@ -317,6 +317,26 @@ describe('a stylesheet one folder deep names a public-owned file by its root pat
     expect(keepPublicRootRefs(source, publicRoot, relative)).toBe(source)
   })
 
+  // The copier leaves these names out of public/, so they read as missing.
+  it.each([
+    'Thumbs.db',
+    'desktop.ini',
+    'notes.txt~',
+    '.env',
+    '.git/logo.png'
+  ])('leaves a reference to %s in public/ as authored', (name) => {
+    const {publicRoot, relative} = createProject()
+    const file = path.join(publicRoot, name)
+    fs.mkdirSync(path.dirname(file), {recursive: true})
+    fs.writeFileSync(file, 'kept out')
+
+    for (const spelling of [`/${name}`, `../public/${name}`]) {
+      const source = `.a { background: url("${spelling}"); }`
+
+      expect(keepPublicRootRefs(source, publicRoot, relative)).toBe(source)
+    }
+  })
+
   it('leaves a relative @import to be bundled into the sheet', () => {
     const {publicRoot, relative} = createProject()
     const source = '@import url("../public/theme.css");'
