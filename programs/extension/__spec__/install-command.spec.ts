@@ -42,6 +42,7 @@ vi.mock('extension-install', async (importOriginal) => {
   }
 })
 
+import * as installPackage from 'extension-install'
 import {
   BrowserCacheRootError,
   BrowserInstallBusyError,
@@ -60,7 +61,6 @@ import {
   isBrowserNotInstallableError,
   type UninstallResult
 } from 'extension-install'
-import * as installPackage from 'extension-install'
 import {registerInstallCommand} from '../commands/install'
 import {
   cliRun,

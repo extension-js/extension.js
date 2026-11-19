@@ -18,11 +18,6 @@ import {readDependencyInstall} from './dependency-install-outcome'
 import {KNOWN_COMMANDS, type KnownCommand} from './known-commands'
 import {CODES} from './messaging'
 import {
-  type FailureStep,
-  isFailureStep,
-  telemetryErrorClass
-} from './telemetry-error-class'
-import {
   createTelemetryKit,
   TELEMETRY_DOCS_URL,
   Telemetry,
@@ -31,6 +26,11 @@ import {
   type TelemetryDeps,
   type TelemetryReset
 } from './telemetry'
+import {
+  type FailureStep,
+  isFailureStep,
+  telemetryErrorClass
+} from './telemetry-error-class'
 import {
   DEFAULT_TEMPLATE,
   listTemplates,

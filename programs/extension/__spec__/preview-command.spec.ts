@@ -14,8 +14,8 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
-import {trackTempFolders} from './helpers/temp-folders'
 import {developStandIn, previewStandIn} from './helpers/engine-stand-ins'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A real folder: a typed path that is not there is refused before the engine.
 const PROJECT = trackTempFolders()('extjs-preview-spec-')

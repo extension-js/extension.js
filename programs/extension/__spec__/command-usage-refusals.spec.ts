@@ -28,8 +28,8 @@ import {
   stubCommandEnv,
   stubProcessExit
 } from './command-harness'
-import {trackTempFolders} from './helpers/temp-folders'
 import {developStandIn, previewStandIn} from './helpers/engine-stand-ins'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 

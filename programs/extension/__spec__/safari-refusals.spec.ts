@@ -17,8 +17,8 @@ import type {SafariUiTools} from '../browsers/run-safari/safari-ui'
 import {readScriptHeader} from '../browsers/run-safari/safari-ui/scripts'
 import {registerSafariCommand} from '../commands/safari'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
-import {trackTempFolders} from './helpers/temp-folders'
 import {bridgeStandIn} from './helpers/engine-stand-ins'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 const BUTTON_ID = 'WebExtension-dev.extensionjs.My-Ext.Extension (UNSIGNED)'
