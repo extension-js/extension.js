@@ -476,10 +476,10 @@ function prepareImportMetaEnv(absolutePath: string): void {
   }
 
   // Copying lists every name, which is not a read by the config itself.
-  const reads = activeEnvReads
-  activeEnvReads = undefined
+  const reads = [...activeEnvReads]
+  activeEnvReads.clear()
   const snapshot = Object.freeze({...process.env})
-  activeEnvReads = reads
+  for (const entry of reads) activeEnvReads.add(entry)
   ;(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
     recordingEnv(snapshot)
 
@@ -560,16 +560,20 @@ const configEvaluationsByPath = new Map<string, ConfigEvaluation[]>()
 // env values is a fresh evaluation and not Node's cached module.
 const configEvaluations = new Map<string, number>()
 
-let activeEnvReads: EnvReads | undefined
+// Every evaluation in flight. Two at once cannot tell whose read is whose, so
+// both then count as reading every name, which only costs a rerun.
+const activeEnvReads = new Set<EnvReads>()
+let realProcessEnv: NodeJS.ProcessEnv | undefined
+let recordingProcessEnv: NodeJS.ProcessEnv | undefined
 
 function recordEnvRead(key: string | symbol, value: unknown): void {
-  if (!activeEnvReads || typeof key !== 'string') return
-  if (activeEnvReads.values.has(key)) return
+  if (typeof key !== 'string') return
 
-  activeEnvReads.values.set(
-    key,
-    value === undefined ? undefined : String(value)
-  )
+  for (const reads of activeEnvReads) {
+    if (reads.values.has(key)) continue
+
+    reads.values.set(key, value === undefined ? undefined : String(value))
+  }
 }
 
 // Reads go through to the object below and are written down on the way.
@@ -592,7 +596,7 @@ function recordingEnv<T extends object>(target: T): T {
       return Reflect.getOwnPropertyDescriptor(env, key)
     },
     ownKeys(env) {
-      if (activeEnvReads) activeEnvReads.all = true
+      for (const reads of activeEnvReads) reads.all = true
 
       return Reflect.ownKeys(env)
     },
@@ -623,17 +627,29 @@ async function evaluateRecordingEnvReads(
   run: () => Promise<FileConfig>
 ): Promise<{value: FileConfig; reads: EnvReads}> {
   const reads: EnvReads = {all: false, values: new Map()}
-  const realEnv = process.env
-  const recorded = recordingEnv(realEnv)
 
-  activeEnvReads = reads
-  process.env = recorded
+  if (activeEnvReads.size === 0) {
+    realProcessEnv = process.env
+    recordingProcessEnv = recordingEnv(realProcessEnv)
+    process.env = recordingProcessEnv
+  } else {
+    reads.all = true
+    for (const other of activeEnvReads) other.all = true
+  }
+
+  activeEnvReads.add(reads)
 
   try {
     return {value: await run(), reads}
   } finally {
-    activeEnvReads = undefined
-    if (process.env === recorded) process.env = realEnv
+    activeEnvReads.delete(reads)
+
+    if (activeEnvReads.size === 0 && realProcessEnv) {
+      if (process.env === recordingProcessEnv) process.env = realProcessEnv
+
+      realProcessEnv = undefined
+      recordingProcessEnv = undefined
+    }
   }
 }
 
