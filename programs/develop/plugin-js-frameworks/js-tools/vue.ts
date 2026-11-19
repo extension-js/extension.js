@@ -151,30 +151,21 @@ function vueTwoWithoutLoader(
   }
 }
 
-type RegisteredPlugin = {name?: unknown; options?: unknown}
 type DefinePluginLike = {name?: unknown; _args?: unknown[]}
 
-// Every key a DefinePlugin already holds: the run's own (the `define` key of
-// extension.config.js among them) and any a `config` hook added.
-function definedKeys(compiler: Compiler): Set<string> {
-  const keys = new Set<string>()
-
-  const addKeys = (definitions: unknown) => {
-    if (!definitions || typeof definitions !== 'object') return
-
-    for (const key of Object.keys(definitions)) keys.add(key)
-  }
-
-  const registered = (
-    compiler as unknown as {__internal__builtinPlugins?: RegisteredPlugin[]}
-  ).__internal__builtinPlugins
-
-  for (const plugin of Array.isArray(registered) ? registered : []) {
-    if (plugin?.name === 'DefinePlugin') addKeys(plugin.options)
-  }
+// Every key the project defines: the `define` key of extension.config.js,
+// and any DefinePlugin a `config` hook added to the plugin list.
+function definedKeys(
+  compiler: Compiler,
+  projectDefine: Record<string, unknown>
+): Set<string> {
+  const keys = new Set(Object.keys(projectDefine))
 
   for (const plugin of (compiler.options.plugins || []) as DefinePluginLike[]) {
-    if (plugin?.name === 'DefinePlugin') addKeys(plugin._args?.[0])
+    const definitions = plugin?.name === 'DefinePlugin' && plugin._args?.[0]
+    if (!definitions || typeof definitions !== 'object') continue
+
+    for (const key of Object.keys(definitions)) keys.add(key)
   }
 
   return keys
@@ -183,10 +174,13 @@ function definedKeys(compiler: Compiler): Set<string> {
 // Vue's compile-time flags, as defaults. A flag the project defines itself
 // keeps the project's value, with no conflict warning from the bundler.
 export class VueFeatureFlagsPlugin {
-  constructor(readonly flags: Record<string, string>) {}
+  constructor(
+    readonly flags: Record<string, string>,
+    readonly projectDefine: Record<string, unknown> = {}
+  ) {}
 
   apply(compiler: Compiler) {
-    const taken = definedKeys(compiler)
+    const taken = definedKeys(compiler, this.projectDefine)
     const free = Object.fromEntries(
       Object.entries(this.flags).filter(([key]) => !taken.has(key))
     )
@@ -199,7 +193,8 @@ export class VueFeatureFlagsPlugin {
 
 export async function maybeUseVue(
   projectPath: string,
-  mode: 'development' | 'production' | string = 'development'
+  mode: 'development' | 'production' | string = 'development',
+  projectDefine: Record<string, unknown> = {}
 ): Promise<JsFramework | undefined> {
   if (!isUsingVue(projectPath)) return undefined
 
@@ -247,13 +242,16 @@ export async function maybeUseVue(
   const isProd = mode === 'production'
   const defaultPlugins: JsFramework['plugins'] = [
     new VueLoaderPlugin() as unknown as RspackPluginInstance,
-    new VueFeatureFlagsPlugin({
-      // The Options API stays on in every mode: turning it off breaks each
-      // component written with data(), methods or computed options.
-      __VUE_OPTIONS_API__: JSON.stringify(true),
-      __VUE_PROD_DEVTOOLS__: JSON.stringify(!isProd),
-      __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(!isProd)
-    }) as unknown as RspackPluginInstance
+    new VueFeatureFlagsPlugin(
+      {
+        // The Options API stays on in every mode: turning it off breaks each
+        // component written with data(), methods or computed options.
+        __VUE_OPTIONS_API__: JSON.stringify(true),
+        __VUE_PROD_DEVTOOLS__: JSON.stringify(!isProd),
+        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: JSON.stringify(!isProd)
+      },
+      projectDefine
+    ) as unknown as RspackPluginInstance
   ]
 
   // Force a single Vue runtime instance across app and transpiled workspace deps.

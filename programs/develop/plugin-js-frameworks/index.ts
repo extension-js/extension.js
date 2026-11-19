@@ -81,17 +81,21 @@ export class JsFrameworksPlugin {
   public readonly browser: DevOptions['browser']
   public readonly mode: DevOptions['mode']
   public readonly transpilePackages: string[]
+  public readonly define: Record<string, unknown>
 
   constructor(
     options: PluginInterface & {
       mode: DevOptions['mode']
       transpilePackages?: string[]
+      // The project's `define` constants, so framework defaults step aside.
+      define?: Record<string, unknown>
     }
   ) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.mode = options.mode
     this.transpilePackages = options.transpilePackages || []
+    this.define = options.define || {}
   }
 
   private findVueLoaderRuleIndices(rules: LooseRuleSetRule[]): number[] {
@@ -383,7 +387,7 @@ export class JsFrameworksPlugin {
     })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
     const babelConfigPath = findProjectBabelConfig(projectPath)
-    const maybeInstallVue = await maybeUseVue(projectPath, mode)
+    const maybeInstallVue = await maybeUseVue(projectPath, mode, this.define)
     const maybeInstallSolid = await maybeUseSolid(
       projectPath,
       mode,

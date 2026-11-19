@@ -44,7 +44,8 @@ export default {
       manifestPath: '/abs/path/to/manifest.json',
       browser: 'chrome',
       mode: 'development',
-      transpilePackages: ['@acme/ui']
+      transpilePackages: ['@acme/ui'],
+      define: {__VUE_OPTIONS_API__: false}
     })
   ]
 }
@@ -62,6 +63,8 @@ export class JsFrameworksPlugin {
     mode: 'development' | 'production'
     // Packages under node_modules that compile like project sources.
     transpilePackages?: string[]
+    // The project's `define` constants. A framework default they name steps aside.
+    define?: Record<string, unknown>
   })
   apply(compiler: import('@rspack/core').Compiler): Promise<void>
 }
