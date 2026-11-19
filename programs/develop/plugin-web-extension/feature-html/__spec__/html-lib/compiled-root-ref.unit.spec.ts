@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {
@@ -6,8 +7,9 @@ import {
   findCompiledRootRefSource
 } from '../../html-lib/compiled-root-ref'
 
-const tmp = path.join(__dirname, '.tmp-compiled-root-ref')
-const publicDir = path.join(tmp, 'public')
+const tmpRoots: string[] = []
+let tmp = ''
+let publicDir = ''
 
 function write(rel: string, content = '') {
   const abs = path.join(tmp, rel)
@@ -18,12 +20,16 @@ function write(rel: string, content = '') {
 }
 
 function reset() {
-  fs.rmSync(tmp, {recursive: true, force: true})
-  fs.mkdirSync(tmp, {recursive: true})
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'extjs-compiled-root-ref-')
+  )
+  tmpRoots.push(created)
+  tmp = fs.realpathSync(created)
+  publicDir = path.join(tmp, 'public')
 }
 
 afterAll(() => {
-  fs.rmSync(tmp, {recursive: true, force: true})
+  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
 })
 
 describe('findCompiledRootRefSource', () => {
