@@ -581,6 +581,85 @@ describe('findMistypedManifestFields', () => {
     ).toEqual(['browser_action', 'page_action'])
   })
 
+  it('names every path slot that holds something other than a string', () => {
+    const mistyped = findMistypedManifestFields({
+      manifest_version: 3,
+      name: 'x',
+      version: '1.0.0',
+      options_page: 1,
+      devtools_page: ['devtools.html'],
+      icons: {'16': 1},
+      action: {default_popup: 1, default_icon: 2},
+      options_ui: {page: {}},
+      side_panel: {default_path: 1},
+      storage: {managed_schema: 1},
+      user_scripts: {api_script: 1},
+      chrome_url_overrides: {newtab: 1},
+      sandbox: {pages: [1]},
+      background: {service_worker: {x: 1}, page: 1, scripts: [1]},
+      content_scripts: [
+        {matches: ['<all_urls>'], js: [42, ['a.js']], css: [1]}
+      ],
+      declarative_net_request: {
+        rule_resources: [{id: 'r', enabled: true, path: 1}, null]
+      },
+      web_accessible_resources: [
+        {resources: ['ok.png', 1], matches: ['<all_urls>']},
+        2
+      ]
+    } as unknown as Manifest)
+
+    expect(mistyped.map((entry) => entry.field)).toEqual([
+      'content_scripts[0].js[0]',
+      'content_scripts[0].js[1]',
+      'content_scripts[0].css[0]',
+      'sandbox.pages[0]',
+      'background.scripts[0]',
+      'background.service_worker',
+      'background.page',
+      'options_page',
+      'devtools_page',
+      'icons.16',
+      'action.default_popup',
+      'options_ui.page',
+      'side_panel.default_path',
+      'storage.managed_schema',
+      'user_scripts.api_script',
+      'action.default_icon',
+      'chrome_url_overrides.newtab',
+      'declarative_net_request.rule_resources[0].path',
+      'declarative_net_request.rule_resources[1]',
+      'web_accessible_resources[0].resources[1]',
+      'web_accessible_resources[1]'
+    ])
+
+    expect(mistyped[0]).toEqual({
+      field: 'content_scripts[0].js[0]',
+      expected: 'a file path string',
+      received: 'the number 42'
+    })
+  })
+
+  it('names theme icons and an icons value that is not an object', () => {
+    expect(
+      findMistypedManifestFields({
+        manifest_version: 2,
+        name: 'x',
+        version: '1.0.0',
+        icons: 'icon.png',
+        browser_action: {
+          default_icon: {'16': ['a.png']},
+          theme_icons: [{light: 1, dark: 'd.png', size: 16}, 'x']
+        }
+      } as unknown as Manifest).map((entry) => entry.field)
+    ).toEqual([
+      'icons',
+      'browser_action.default_icon.16',
+      'browser_action.theme_icons[0].light',
+      'browser_action.theme_icons[1]'
+    ])
+  })
+
   it('reports nothing for a well-typed manifest', () => {
     expect(
       findMistypedManifestFields({
@@ -590,7 +669,14 @@ describe('findMistypedManifestFields', () => {
         permissions: ['storage'],
         content_scripts: [{matches: ['<all_urls>'], js: ['content.js']}],
         sandbox: {pages: ['sandbox.html']},
-        background: {service_worker: 'sw.js'}
+        background: {service_worker: 'sw.js'},
+        icons: {'16': 'icon.png'},
+        action: {default_popup: 'popup.html', default_icon: 'icon.png'},
+        options_page: 'options.html',
+        chrome_url_overrides: {newtab: 'newtab.html'},
+        web_accessible_resources: [
+          {resources: ['a.png'], matches: ['<all_urls>']}
+        ]
       } as unknown as Manifest)
     ).toEqual([])
   })
