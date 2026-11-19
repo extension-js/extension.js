@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {createHash} from 'node:crypto'
-import {Compilation, type Compiler, sources} from '@rspack/core'
+import {type Compilation, type Compiler, sources} from '@rspack/core'
 import {CONTROL_PORT_ASSET_NAME} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {
@@ -22,6 +22,7 @@ import {
   buildDevProducerSource,
   DEV_BOOT_REGISTERS_GLOBAL
 } from '../reload-lib/producer-reload'
+import {BRIDGE_STAGE} from './stages'
 
 const builds = new WeakMap<object, string>()
 const bootRegistrations = new WeakMap<object, boolean>()
@@ -157,7 +158,7 @@ export class InjectBridgeProducer {
         compilation.hooks.processAssets.tap(
           {
             name: InjectBridgeProducer.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 101
+            stage: BRIDGE_STAGE
           },
           () => {
             // A profile-cached SW keeps running the OLD bundle after a server

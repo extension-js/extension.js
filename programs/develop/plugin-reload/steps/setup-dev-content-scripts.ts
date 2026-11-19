@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {Compilation, type Compiler, sources} from '@rspack/core'
+import {type Compilation, type Compiler, sources} from '@rspack/core'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {
   getCurrentManifestContent,
@@ -24,6 +24,7 @@ import {
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
+import {RELOAD_STAGE} from './stages'
 
 function putAsset(compilation: Compilation, name: string, text: string) {
   const source = new sources.RawSource(text)
@@ -109,7 +110,7 @@ export class SetupDevContentScripts {
         compilation.hooks.processAssets.tap(
           {
             name: SetupDevContentScripts.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
+            stage: RELOAD_STAGE
           },
           () => {
             if (compilation.errors.length > 0) return
