@@ -14,13 +14,17 @@ const OUTPUT = '/tmp/project/dist/chrome'
 const LAUNCH_REASON = 'Variable $2$ used but not defined.'
 const SHEET = 'content_scripts/content-0.css'
 
-let printed: {log: string[]; error: string[]; stderr: string[]}
+let printed: {log: string[]; warn: string[]; error: string[]; stderr: string[]}
 
 beforeEach(() => {
   expect.hasAssertions()
-  printed = {log: [], error: [], stderr: []}
+  printed = {log: [], warn: [], error: [], stderr: []}
   vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
     printed.log.push(parts.join(' '))
+  })
+
+  vi.spyOn(console, 'warn').mockImplementation((...parts: unknown[]) => {
+    printed.warn.push(parts.join(' '))
   })
 
   vi.spyOn(console, 'error').mockImplementation((...parts: unknown[]) => {
@@ -296,8 +300,9 @@ describe('the retry of a refused extension on the next compile', () => {
     expect(dev.events).toEqual(['compiled', 'compiled'])
   })
 
-  // Pins current behavior: a throwing retry fails with no line at all.
-  it('prints nothing at all when the retry throws', async () => {
+  // The session still runs the refused build, so the failed ask is a warning,
+  // said once per reason so a save loop does not repeat it.
+  it('warns once when the retry throws, naming why', async () => {
     const browser = refusingBrowser(async () => {
       throw new Error('CDP socket closed')
     })
@@ -305,9 +310,16 @@ describe('the retry of a refused extension on the next compile', () => {
 
     await dev.compile()
     await dev.compile()
+    await dev.compile()
 
     expect(printed.log).toEqual([])
     expect(printed.error).toEqual([])
+    expect(printed.warn).toHaveLength(1)
+    expect(printed.warn[0]).toContain(
+      'could not be asked to load the extension again'
+    )
+
+    expect(printed.warn[0]).toContain('CDP socket closed')
     expect(dev.events).not.toContain('error')
   })
 })
