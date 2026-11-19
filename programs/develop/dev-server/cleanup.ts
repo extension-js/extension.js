@@ -25,12 +25,19 @@ type ProcessEventsLike = Pick<NodeJS.EventEmitter, 'on' | 'removeListener'>
 // A stop waits for a compile in flight, so the bound leaves room for one.
 export const SHUTDOWN_TIMEOUT_MS = 10000
 
+// How far past the shutdown bound the auto-exit backstop fires, so the
+// bound's own line and exit code are what a stuck stop reports.
+const AUTO_EXIT_BACKSTOP_MARGIN_MS = 500
+
 // One Ctrl+C can reach the process twice, from the terminal and from the
 // package manager above it, so a repeat this soon is the same request.
 export const REPEATED_SIGNAL_GRACE_MS = 1000
 
 // A shutdown cut short is a truncated session, never a completed one.
 export const FORCED_SHUTDOWN_EXIT_CODE = 1
+
+// The wait after the last stop step, so browser plugins finish their cleanup.
+export const EXIT_DELAY_MS = 500
 
 export interface CleanupDependencies {
   events?: ProcessEventsLike
@@ -77,7 +84,7 @@ async function closeAll(
   }
 
   // Allow browser plugin signal handlers to complete cleanup
-  setTimeout(() => (failed ? exit(1) : exit()), 500)
+  setTimeout(() => (failed ? exit(1) : exit()), EXIT_DELAY_MS)
 }
 
 export interface CleanupHandlers {
@@ -169,11 +176,13 @@ export function setupCleanupHandlers(
   events.on('uncaughtException', onUncaughtException)
   events.on('unhandledRejection', onUnhandledRejection)
 
-  // Optional auto-exit support for non-interactive (AI/CI) runs
+  // Optional auto-exit support for non-interactive (AI/CI) runs. The default
+  // backstop outlasts the shutdown bound, which already ends a stuck stop.
   const cancelAutoExit = setupAutoExit(
     env.EXTENSION_AUTO_EXIT_MS,
     env.EXTENSION_FORCE_KILL_MS,
-    cleanup
+    cleanup,
+    shutdownTimeoutMs + EXIT_DELAY_MS + AUTO_EXIT_BACKSTOP_MARGIN_MS
   )
 
   const cancelAndCleanup = async (signal: NodeJS.Signals) => {
