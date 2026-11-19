@@ -433,13 +433,15 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
   it('emits nothing and says the missing-file finding of each surface once', async () => {
     const {root, publicDir} = createProject({
       '.env': MARKER,
+      '.env.js': MARKER,
+      '.env.css': MARKER,
       '.npmrc': MARKER,
       'node_modules/pkg/.env': MARKER,
       'data/ok.json': '{}'
     })
     const {compilation, emitted} = makeCompilation({
       'page.html':
-        '<link href="/.env"><img src="/.env"><img src="/node_modules/pkg/.env"><img src="/data/ok.json">',
+        '<link href="/.env"><img src="/.env"><img src="/node_modules/pkg/.env"><img src="/data/ok.json"><script src="/.env.js"></script><link href="/.env.css">',
       'style.css': '.a{background:url(/.npmrc)}.b{background:url(/.npmrc)}'
     })
 
@@ -458,15 +460,26 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
         warning.message.split('\n')[0]
       ])
     ).toEqual([
+      // Under the name the page step gives a missing file of the same tag.
       [
-        'RootAbsoluteRefMissing',
+        'HtmlAssetMissing',
         'page.html',
         "The page references an asset that doesn't exist."
       ],
       [
-        'RootAbsoluteRefMissing',
+        'HtmlAssetMissing',
         'page.html',
         "The page references an asset that doesn't exist."
+      ],
+      [
+        'HtmlEntrypointMissing',
+        'page.html',
+        "The page references a script file that doesn't exist."
+      ],
+      [
+        'HtmlEntrypointMissing',
+        'page.html',
+        "The page references a stylesheet that doesn't exist."
       ],
       [
         'CssDeadRef',

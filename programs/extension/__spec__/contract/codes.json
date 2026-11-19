@@ -122,12 +122,12 @@
     },
     "E_ENTRY_NOT_FOUND": {
       "area": "compile",
-      "summary": "A manifest, HTML, or JSON entry points at a missing file.",
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled.",
       "warn": true
     },
     "E_ASSET_MISSING": {
       "area": "compile",
-      "summary": "An icon, static asset, or JSON dependency is missing.",
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled.",
       "warn": true
     },
     "E_SCRIPT_DEP_MISSING": {

@@ -549,18 +549,35 @@ describe('a withheld root-absolute reference and a missing one', () => {
         )
       ]
       const withheld = (page: string, dir: string) => [
-        said('', 'a script file', page, `${dir}.env.js`, script),
-        said('', 'a stylesheet', page, `${dir}.env.css`, sheet),
-        said('', 'an asset', page, `${dir}.npmrc`, asset(`/${dir}.npmrc`))
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a script file',
+          page,
+          `${dir}.env.js`,
+          script
+        ),
+        said(
+          'E_ENTRY_NOT_FOUND: ',
+          'a stylesheet',
+          page,
+          `${dir}.env.css`,
+          sheet
+        ),
+        said(
+          'E_ASSET_MISSING: ',
+          'an asset',
+          page,
+          `${dir}.npmrc`,
+          asset(`/${dir}.npmrc`)
+        )
       ]
 
       const warnings = warningsOf(result, root)
-      // The noun and the PATH a warning opens on, without its code.
+      // The code, the noun and the PATH a warning opens on.
       const opening = (notFound: string) =>
         warnings
           .find((warning) => warning.includes(`NOT FOUND ${notFound}\n`))
-          ?.replace(/^E_\w+: /, '')
-          .split('\n')
+          ?.split('\n')
           .slice(0, 2)
 
       expect(warnings).toEqual(
