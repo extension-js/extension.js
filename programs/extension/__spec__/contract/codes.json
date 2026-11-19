@@ -696,7 +696,9 @@
         "E_PORT_UNAVAILABLE"
       ],
       "extension_load_refused": "E_EXTENSION_LOAD_REFUSED",
-      "profile_locked": "E_PROFILE_LOCKED"
+      "profile_locked": "E_PROFILE_LOCKED",
+      "build_failed": ["E_COMPILE", "E_ZIP_SKIPPED"],
+      "preview_failed": "E_INTERNAL"
     },
     "names": {
       "Timeout": "E_TIMEOUT",

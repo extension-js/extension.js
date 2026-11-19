@@ -41,12 +41,13 @@ export interface CompiledEvent {
 
 export interface BuildErrorEvent {
   errors: string[]
+  /** The launcher's error code on a launch failure, such as `E_BROWSER_START_TIMEOUT`. */
+  code?: string
 }
 
 export interface BuildEventMap {
   compiled: [CompiledEvent]
   error: [BuildErrorEvent]
-  close: []
 }
 
 export class BuildEmitter extends EventEmitter<BuildEventMap> {
@@ -79,7 +80,12 @@ export function reportLaunchFailure(
     )
   }
 
-  emitter.emit('error', {errors: [reason]})
+  emitter.emit(
+    'error',
+    typeof fault?.code === 'string'
+      ? {errors: [reason], code: fault.code}
+      : {errors: [reason]}
+  )
 }
 
 export interface BrowserLaunchOptions {

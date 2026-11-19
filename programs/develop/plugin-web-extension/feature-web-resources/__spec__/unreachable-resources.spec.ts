@@ -27,6 +27,14 @@ describe('unreachable web accessible resources', () => {
     expect(normalizeResourcePath('./a\\b.json')).toBe('a/b.json')
   })
 
+  it('reads ? and brackets in a glob as part of the name', () => {
+    expect(isResourceCovered(['icons/a?*.png'], 'icons/a?b.png')).toBe(true)
+    expect(isResourceCovered(['icons/a?*.png'], 'icons/b.png')).toBe(false)
+    expect(isResourceCovered(['assets/[x]*.png'], 'assets/xlogo.png')).toBe(
+      false
+    )
+  })
+
   it('names an emitted file the manifest never makes page-reachable', () => {
     expect(
       findUnreachableRuntimeResources({

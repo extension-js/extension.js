@@ -50,6 +50,34 @@ describe('mergeIntoV3Group', () => {
     expect(groups[0].resources).toEqual(['assets/*', 'other.png'])
   })
 
+  // The manifest's only wildcard is *, so brackets and ? are part of the name.
+  it('reads brackets and ? in a declared pattern as literal characters', () => {
+    const groups: Group[] = [
+      {
+        resources: ['assets/[x]*.png', 'assets/[z-a]*.svg', 'icons/a?.png'],
+        matches: ['<all_urls>']
+      }
+    ]
+    mergeIntoV3Group(
+      groups,
+      ['<all_urls>'],
+      [
+        'assets/[x]logo.png',
+        'assets/xlogo.png',
+        'assets/[z-a]logo.svg',
+        'icons/a.png'
+      ]
+    )
+
+    expect(groups[0].resources).toEqual([
+      'assets/[x]*.png',
+      'assets/[z-a]*.svg',
+      'assets/xlogo.png',
+      'icons/a.png',
+      'icons/a?.png'
+    ])
+  })
+
   it('is a no-op for an empty resource list', () => {
     const groups: Group[] = []
     mergeIntoV3Group(groups, ['<all_urls>'], [])
