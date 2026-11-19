@@ -78,8 +78,8 @@ afterAll(() => {
 })
 
 describe('CompilationPlugin on a real compiler', () => {
-  // rspack defaults watchOptions to {}, so the watch-only plugins register on
-  // every command and stay idle without a watch run.
+  // The watch-only plugins register on every command and act only once
+  // compiler.watch() sets watchMode, so a build or start passes them by.
   const taps: Record<Command, string[]> = {
     dev: [
       'plugin-compilation:warm-ancestor-watchers',
