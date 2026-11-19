@@ -45,6 +45,7 @@ import {
   warningCodes
 } from './lib/compilation-diagnostics'
 import {
+  forgetPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
@@ -84,6 +85,7 @@ import {
   holdHumanLines,
   isDebug,
   isMachineOutput,
+  releaseCardKeysOf,
   stripChannelPrefix
 } from './lib/messaging'
 import {applySplitChunksGuard} from './lib/normalize-split-chunks'
@@ -160,8 +162,8 @@ function printBuildCard(
   browser: string,
   distPath: string,
   projectRoot: string
-) {
-  if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return
+): boolean {
+  if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return false
 
   let extensionLabel = ''
 
@@ -198,6 +200,8 @@ function printBuildCard(
 
   humanLine(' ')
   process.env.EXTENSION_CLI_BANNER_PRINTED = 'true'
+
+  return true
 }
 
 // The build retires and deletes whatever sits at <outDir>/<browser>, so the
@@ -383,6 +387,9 @@ async function runBuild(
   let projectRoot = ''
   // What a green build would list, kept for the failure that carries it.
   let failureWarnings: string[] = []
+  // The card this build claimed, given back with the env files when it ends.
+  let claimedCardPath = ''
+  let succeeded = false
   const resolvedMode: 'development' | 'production' | 'none' =
     buildOptions?.mode === 'development' ||
     buildOptions?.mode === 'none' ||
@@ -858,12 +865,16 @@ async function runBuild(
         // The identity card and asset tree are informational; a throw here
         // would leave this promise pending and the process would exit 0.
         try {
-          printBuildCard(
-            projectStructure.manifestPath,
-            browser,
-            displayDistPath,
-            packageJsonDir
-          )
+          if (
+            printBuildCard(
+              projectStructure.manifestPath,
+              browser,
+              displayDistPath,
+              packageJsonDir
+            )
+          ) {
+            claimedCardPath = nodePath.resolve(displayDistPath)
+          }
 
           if (!silent) {
             const assetsTree = messages.buildAssetsTree(stats, outputFiles)
@@ -1323,6 +1334,8 @@ async function runBuild(
       }
     }
 
+    succeeded = true
+
     return summary
   } catch (thrown) {
     if (stagingDistPath) removeStagingDir(stagingDistPath)
@@ -1368,6 +1381,18 @@ async function runBuild(
     if (nodeEnvChanged) {
       if (nodeEnvBefore === undefined) delete process.env.NODE_ENV
       else process.env.NODE_ENV = nodeEnvBefore
+    }
+
+    // A host keeps neither once the build is over. A green `start` build
+    // with a launch ahead hands both to its preview leg, which releases them.
+    const previewFollows =
+      succeeded &&
+      buildOptions?.metadataCommand === 'start' &&
+      buildOptions?.launchFollows === true
+
+    if (!previewFollows) {
+      if (claimedCardPath) releaseCardKeysOf(claimedCardPath)
+      if (projectRoot) forgetPreloadedEnvOf(projectRoot)
     }
 
     await closeCompiler(compilerToClose)
