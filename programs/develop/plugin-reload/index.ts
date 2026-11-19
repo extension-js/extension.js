@@ -11,6 +11,7 @@ import type {Compiler} from '@rspack/core'
 import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
 import {isReloadSession} from '../lib/reload-session'
 import type {DevOptions, PluginInterface} from '../types'
+import {AddContentScriptReinject} from './steps/add-content-script-reinject'
 import {
   type BridgeCoordinates,
   InjectBridgeProducer,
@@ -65,7 +66,8 @@ export {readBootRegistrations, readDevBuild}
  *
  * The whole pipeline is dev-only; `EXTENSION_NO_RELOAD=true` opts out. The
  * every-mode content-script wrapper (mount lifecycle) is NOT part of this
- * plugin. It lives in feature-scripts/steps/add-content-script-wrapper.
+ * plugin. It lives in feature-scripts/steps/add-content-script-wrapper, and
+ * this plugin adds the reinject runtime to it through its extension points.
  */
 export class ReloadPlugin {
   public static readonly name = 'plugin-reload'
@@ -89,6 +91,10 @@ export class ReloadPlugin {
   }
 
   public apply(compiler: Compiler): void {
+    // Ahead of the gate below: the wrapper has always carried this runtime in
+    // every dev session build, with or without the rest of the pipeline.
+    new AddContentScriptReinject(this.devSession).apply(compiler)
+
     // The web extension plugin reads the same answer, so the chunk loading
     // target this pipeline installs is installed by exactly one of the two.
     if (!isReloadSession(compiler.options.mode, this.devSession)) {
