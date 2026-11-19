@@ -42,3 +42,12 @@ export function safariResyncFailed(reason: string) {
     `The dev server keeps watching, and the next save packages it again.`
   )
 }
+
+// The browser still runs the build it refused, so this is only a warning.
+export function extensionLoadRetryFailed(browser: string, reason: string) {
+  return (
+    `${prefix('warn')} ${browserDisplayName(browser)} could not be asked to load the extension again.\n` +
+    `${stripChannelPrefix(reason)}\n` +
+    `The next save asks again.`
+  )
+}

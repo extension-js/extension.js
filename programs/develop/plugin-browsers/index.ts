@@ -222,6 +222,8 @@ export class BrowsersPlugin implements RunnerPlugin {
   private launchSettledListener: (() => void) | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
+  // The last reason a retry could not be asked, so a save loop says it once.
+  private lastRetryFailure: string | undefined
   // What the browser last read through the manifest, kept by plugin-reload.
   // It outlives a dev server restart, which applies this plugin again.
   private readonly loadedContentScripts: LoadedContentScripts | undefined
@@ -458,7 +460,19 @@ export class BrowsersPlugin implements RunnerPlugin {
 
     try {
       outcome = await controller.retryExtensionLoad()
-    } catch {
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+
+      if (reason !== this.lastRetryFailure) {
+        this.lastRetryFailure = reason
+        humanWarn(
+          browserMessages.extensionLoadRetryFailed(
+            this.options.browserOptions.browser,
+            reason
+          )
+        )
+      }
+
       return false
     }
 
