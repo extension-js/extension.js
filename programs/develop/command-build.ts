@@ -131,10 +131,6 @@ const reportedBuildFailures = new WeakSet<object>()
 // Failures whose own lines are on stderr already, the closing count aside.
 const printedBuildFailures = new WeakSet<object>()
 
-// The tap that prints the compile line, named by the compilation plugin.
-const COMPILE_LINE_TAP = 'develop:brand'
-const LAST_TAP_STAGE = 2147483647
-
 // Projects whose toolchain sentence this process already printed.
 const toolchainLinePrinted = new Set<string>()
 
@@ -705,7 +701,6 @@ async function runBuild(
     })()
     compilerToClose = compiler
     keepCodedWarningsOf(compiler)
-    printCompileLineLast(compiler.hooks?.done)
 
     let summary: BuildSummary = {
       browser,
@@ -1148,10 +1143,10 @@ async function runBuild(
       try {
         safari = await safariPackager(displayDistPath, 'full', safariIdentity)
       } catch (packagerError) {
-        // The packager prints a failed tool itself, with that tool's output.
+        // The packager marks a failed tool it printed, with that tool's output.
         if (
           packagerError instanceof Error &&
-          (packagerError as {code?: unknown}).code === CODES.E_SAFARI_TOOLCHAIN
+          (packagerError as {printed?: unknown}).printed === true
         ) {
           printedBuildFailures.add(packagerError)
         }
@@ -1263,23 +1258,6 @@ function fatalFailure(thrown: unknown, projectRoot: string): Error {
   return Object.assign(codedError(CODES.E_COMPILE_FATAL, failure.message), {
     cause: thrown
   })
-}
-
-// The compile line is the receipt of a compile that went through, so it runs
-// after every other tap that can still fail the build.
-function printCompileLineLast(
-  done: {taps?: Array<{name?: string; stage?: number}>} | undefined
-): void {
-  const taps = done?.taps
-  if (!Array.isArray(taps)) return
-
-  const at = taps.findIndex((tap) => tap?.name === COMPILE_LINE_TAP)
-  if (at === -1) return
-
-  const [tap] = taps.splice(at, 1)
-
-  tap.stage = LAST_TAP_STAGE
-  taps.push(tap)
 }
 
 function hasDeclaredCode(error: unknown): boolean {
