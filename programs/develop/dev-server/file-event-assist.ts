@@ -19,6 +19,7 @@ const FOLDER_POLL_MS = 300
 interface DirectoryWatcherLike {
   onWatchEvent?: (eventType: string, filename: string) => void
   doScan?: (initial: boolean) => void
+  scanning?: boolean
   files?: Map<string, unknown>
 }
 
@@ -204,14 +205,26 @@ export class FileEventAssistPlugin {
         continue
       }
 
-      const stop = this.pollFolder(folder, () => {
+      const rescan = () => {
+        if (!this.polls.has(folder)) return
+
         const owner =
           watchFileSystem.watcher?.watcherManager?.directoryWatchers?.get(
             folder
           ) as DirectoryWatcherLike | undefined
 
+        // A rescan asked for during a scan leaves watchpack scanning for good,
+        // so wait for the scan in flight to end.
+        if (owner?.scanning) {
+          setTimeout(rescan, FOLDER_POLL_MS).unref()
+
+          return
+        }
+
         owner?.doScan?.(false)
-      })
+      }
+
+      const stop = this.pollFolder(folder, rescan)
 
       this.polls.set(folder, stop)
     }

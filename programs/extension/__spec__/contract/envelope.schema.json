@@ -44,8 +44,11 @@
               "items": {
                 "type": "object",
                 "required": ["message", "severity"],
+                "if": { "properties": { "severity": { "const": "error" } } },
+                "then": { "properties": { "code": { "pattern": "^E_" } } },
+                "else": { "properties": { "code": { "pattern": "^W_" } } },
                 "properties": {
-                  "code": { "type": "string", "pattern": "^E_[A-Z0-9_]+$" },
+                  "code": { "type": "string", "pattern": "^[EW]_[A-Z0-9_]+$" },
                   "message": { "type": "string" },
                   "file": { "type": "string" },
                   "line": { "type": "integer" },

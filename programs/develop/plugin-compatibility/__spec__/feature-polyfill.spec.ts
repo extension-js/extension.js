@@ -101,7 +101,7 @@ describe('PolyfillPlugin', () => {
     expect(aliasOf(compiler)).toEqual({})
     expect(warn.mock.calls).toEqual([[messages.webextensionPolyfillNotFound()]])
     expect(takeCodedWarnings()).toEqual([
-      'E_POLYFILL_NOT_FOUND: webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
+      'W_POLYFILL_NOT_FOUND: webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
     ])
   })
 

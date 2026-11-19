@@ -137,6 +137,16 @@ describe('failure payload scrubbing', () => {
     expect(telemetryFailureCode('toString')).toBeUndefined()
   })
 
+  it('drops a warning code, which no failure carries', () => {
+    expect(telemetryFailureCode(CODES.W_PERF_BUDGET)).toBeUndefined()
+
+    for (const code of Object.values(CODES)) {
+      expect(telemetryFailureCode(code)).toBe(
+        code.startsWith('E_') ? code : undefined
+      )
+    }
+  })
+
   it('keeps a real exit code and drops anything that is not one', () => {
     expect(telemetryExitCode(0)).toBe(0)
     expect(telemetryExitCode(1)).toBe(1)
