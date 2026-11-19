@@ -221,29 +221,49 @@ describe('the origins a session calls its own', () => {
     ).toBe(true)
   })
 
-  it('admits a host named with --allowed-hosts on any port', () => {
+  it('admits a host named with --allowed-hosts on the dev server port alone', () => {
     const named = {allowedHosts: 'dev.example.test, .tunnel.test'}
+
+    expect(
+      verdict(
+        {
+          'sec-fetch-site': 'cross-site',
+          origin: `https://dev.example.test:${PORT}`
+        },
+        named
+      )
+    ).toBe(true)
+
+    expect(
+      verdict(
+        {
+          'sec-fetch-site': 'cross-site',
+          origin: `http://a.tunnel.test:${PORT}`
+        },
+        named
+      )
+    ).toBe(true)
+
+    expect(
+      verdict(
+        {'sec-fetch-site': 'cross-site', origin: `https://tunnel.test:${PORT}`},
+        named
+      )
+    ).toBe(true)
 
     expect(
       verdict(
         {'sec-fetch-site': 'cross-site', origin: 'https://dev.example.test'},
         named
       )
-    ).toBe(true)
+    ).toBe(false)
 
     expect(
       verdict(
         {'sec-fetch-site': 'cross-site', origin: 'https://a.tunnel.test:8443'},
         named
       )
-    ).toBe(true)
-
-    expect(
-      verdict(
-        {'sec-fetch-site': 'cross-site', origin: 'https://tunnel.test'},
-        named
-      )
-    ).toBe(true)
+    ).toBe(false)
 
     expect(
       verdict(
@@ -372,8 +392,16 @@ describe('whether the reload socket opens', () => {
   it('opens for the viewer and for a named host', () => {
     expect(socket(VIEWER, {emulatorOrigin: VIEWER})).toBe(true)
     expect(
-      socket('https://dev.example.test', {allowedHosts: 'dev.example.test'})
+      socket(`https://dev.example.test:${PORT}`, {
+        allowedHosts: 'dev.example.test'
+      })
     ).toBe(true)
+
+    expect(
+      socket('https://dev.example.test:3000', {
+        allowedHosts: 'dev.example.test'
+      })
+    ).toBe(false)
   })
 
   it('leaves a client with no Origin to the stock check', () => {

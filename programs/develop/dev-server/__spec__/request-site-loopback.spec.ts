@@ -87,11 +87,15 @@ async function boot(
 
 // The first frames the stock server sends an admitted or a refused socket,
 // or the answer to an upgrade that never completed.
-async function socketFrames(port: number, origin: string | null) {
+async function socketFrames(
+  port: number,
+  origin: string | null,
+  socketPath?: string
+) {
   let client: Awaited<ReturnType<typeof connectClient>>
 
   try {
-    client = await connectClient(port, origin)
+    client = await connectClient(port, origin, socketPath)
   } catch (error) {
     return [`refused: ${(error as Error).message}`]
   }
@@ -319,6 +323,18 @@ describe('requests to the dev server on loopback', () => {
     ])
   })
 
+  // Only the session's own extension is built with the path that names it.
+  it.each([
+    ['the path with no session', '/ws'],
+    ['the path of another session', '/ws/another-session']
+  ])('refuses the reload socket at %s', async (_name, socketPath) => {
+    for (const origin of [own(), EXTENSION]) {
+      expect(await socketFrames(session.port, origin, socketPath)).toEqual([
+        'refused: Opening handshake has timed out'
+      ])
+    }
+  })
+
   it('leaves a socket with no Origin to the stock server, which closes it', async () => {
     expect(await socketFrames(session.port, null)).toEqual([
       'error: Invalid Host/Origin header'
@@ -351,18 +367,19 @@ describe('the stock dev server with its default host list', () => {
 
     expect(await statuses(stock.port)).toEqual([200, 403, 200])
     expect(await statuses(ours.port)).toEqual([200, 403, 200])
-    expect(await socketFrames(stock.port, 'https://other.test')).toEqual([
-      'error: Invalid Host/Origin header'
-    ])
+    // The stock server listens at the bare path.
+    expect(await socketFrames(stock.port, 'https://other.test', '/ws')).toEqual(
+      ['error: Invalid Host/Origin header']
+    )
 
-    expect(await socketFrames(stock.port, null)).toEqual([
+    expect(await socketFrames(stock.port, null, '/ws')).toEqual([
       'error: Invalid Host/Origin header'
     ])
   })
 })
 
 describe('a session reached through a named host', () => {
-  it('serves a page on the --allowed-hosts name and names no refusal', async () => {
+  it('serves a page on the --allowed-hosts name on the session port', async () => {
     const hostRefused: string[] = []
     const siteRefused: string[] = []
     const session = await boot({
@@ -383,23 +400,35 @@ describe('a session reached through a named host', () => {
       'sec-fetch-mode': 'cors',
       origin: 'https://dev.example.test'
     })
-    // A proxy that rewrites Host leaves only the Origin to name the page.
+    // A proxy that rewrites Host leaves only the Origin to name the page,
+    // and a named host counts on the dev server's own port alone.
     const rewritten = await request(session.port, BUNDLE, {
+      'sec-fetch-site': 'cross-site',
+      'sec-fetch-mode': 'cors',
+      origin: `https://dev.example.test:${session.port}`
+    })
+    const otherPort = await request(session.port, BUNDLE, {
       'sec-fetch-site': 'cross-site',
       'sec-fetch-mode': 'cors',
       origin: 'https://dev.example.test'
     })
 
-    expect([page.status, withOrigin.status, rewritten.status]).toEqual([
-      200, 200, 200
-    ])
+    expect([
+      page.status,
+      withOrigin.status,
+      rewritten.status,
+      otherPort.status
+    ]).toEqual([200, 200, 200, 403])
 
     expect(
-      await socketFrames(session.port, 'https://dev.example.test')
+      await socketFrames(
+        session.port,
+        `https://dev.example.test:${session.port}`
+      )
     ).toEqual(expect.arrayContaining(['hot', 'liveReload']))
 
     expect(hostRefused).toEqual([])
-    expect(siteRefused).toEqual([])
+    expect(siteRefused).toEqual(['https://dev.example.test'])
   })
 
   it('serves a page on the --public-host address', async () => {
