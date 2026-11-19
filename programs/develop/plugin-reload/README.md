@@ -41,7 +41,7 @@ It is responsible for:
   The whole pipeline no-ops in production, for a build whose `devSession`
   is `false`, under `EXTENSION_NO_RELOAD=true` (`--no-reload`), and when
   the manifest path is not a file. The first three are `isReloadSession`
-  in `lib/reload-session.ts`. Chunk loading is not part of this plugin:
+  in `reload-session.ts`. Chunk loading is not part of this plugin:
   `plugin-web-extension` installs its chunk loading target in every build.
 - the reload session (`reload-session.ts`). `createReloadSession` is what
   `plugin-browsers`' `BrowsersPlugin` and `SafariDevPlugin` (with
@@ -266,6 +266,7 @@ consumes that contract. It does not define it, and nothing in
 - `classify-reload.unit.spec.ts`, classifier decisions
 - `reload-session.unit.spec.ts`, the session every caller keeps and the
   one call of the `--no-browser` path
+- `reload-session-gate.unit.spec.ts`, which builds carry the pipeline
 - `build-reload.unit.spec.ts`, the per-build call and the browser mapping
 - `reload-dispatch.unit.spec.ts`, dispatch seam and the changed-sources
   tracker
