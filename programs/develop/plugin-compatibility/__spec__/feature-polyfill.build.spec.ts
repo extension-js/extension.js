@@ -113,11 +113,11 @@ describe('the polyfill in a real build', () => {
     expect(withPolyfill['guarded.js']).toMatch(PROVIDED)
   })
 
-  // Pins today's behavior.
-  it('bundles the polyfill into an entry on the MAIN world import layer', () => {
-    expect(withPolyfill['main-world.js']).toContain(POLYFILL_MARK)
-    expect(withPolyfill['main-world.js']).toMatch(PROVIDED)
-    expect(polyfillLayers).toEqual(['', EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER])
+  // That code runs on the page, where the polyfill throws on load.
+  it('leaves the polyfill out of an entry on the MAIN world import layer', () => {
+    expect(withPolyfill['main-world.js']).toContain('from the page')
+    expect(withPolyfill['main-world.js']).not.toContain(POLYFILL_MARK)
+    expect(polyfillLayers).toEqual([''])
   })
 
   it('bundles it through CompatibilityPlugin only when polyfill is on', async () => {

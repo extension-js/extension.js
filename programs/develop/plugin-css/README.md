@@ -13,6 +13,9 @@
 - Compiles Sass and Less when the project depends on `sass` or `less`, and runs PostCSS when the project has a PostCSS config (a file or the `postcss` key in `package.json`) or depends on Tailwind
 - Ships a sheet the CSS parser rejects as authored, with one warning, the way a browser error-recovers it
 - Warns about a `url()` that points to no file instead of failing the build (`EXTENSION_STRICT_REFS=true` makes it an error)
+- Outside a content script, `import href from './panel.css?url'` ships the compiled sheet as a file of its own under `assets/` and answers its URL. A relative `url()` or `@import` in that sheet cannot follow it, and a warning names each one
+- Its rules come after the project's own, so a `type` a project rule sets for `.css`, `.scss`, `.sass` or `.less` files is not applied, and a warning says so
+- A PostCSS config keeps its `parser`, `syntax`, `stringifier` and `map` beside its plugins, a named module resolved from the project
 
 |                                                                            | Feature                                                                                                                                                                       |
 | -------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

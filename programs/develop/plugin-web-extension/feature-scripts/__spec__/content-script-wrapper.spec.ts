@@ -90,13 +90,7 @@ function createDocumentStub() {
     documentElement: new StubElement('html', nodes),
     body: new StubElement('body', nodes),
     createElement: (tagName: string) => new StubElement(tagName, nodes),
-    querySelectorAll(selector: string) {
-      if (!selector.includes('data-extjs-reinject-marker')) return []
-
-      return nodes.filter(
-        (node) => node.getAttribute('data-extjs-reinject-marker') === 'true'
-      )
-    }
+    querySelectorAll: () => []
   }
 }
 
@@ -121,15 +115,6 @@ function runWrapped(output: unknown, realm: ReturnType<typeof createRealm>) {
     '\n'
   )
   new Function('globalThis', 'document', script)(realm.sandbox, realm.document)
-}
-
-function readMarkerGeneration(realm: ReturnType<typeof createRealm>) {
-  const markers = realm.document.querySelectorAll(
-    '[data-extjs-reinject-marker="true"]'
-  )
-  expect(markers).toHaveLength(1)
-
-  return markers[0].getAttribute('data-extjs-reinject-generation')
 }
 
 function writeDeclaredEntry(world?: 'MAIN') {
@@ -201,7 +186,6 @@ describe('content-script-wrapper loader', () => {
     )
 
     expect(wrapped).toContain('new URL("./styles.css", import.meta.url)')
-    expect(wrapped).toContain('data-extjs-reinject-owner')
     expect(wrapped).toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
     expect(wrapped).not.toContain('typeof browser === "object"')
     expect(wrapped).not.toContain('typeof chrome === "object"')
@@ -416,12 +400,10 @@ describe('content-script-wrapper loader', () => {
     )
   })
 
-  it('gives each script of a multi-script entry its own reinject identity', () => {
-    // Regression guard for the content-multi templates: several js files in
-    // ONE content_scripts block share a bundle key but must carry DISTINCT
-    // reinject keys. The reinject ownership token derives from the reinject
-    // key, so a shared key would make one script's reinject cleanup dispose
-    // its siblings' shadow hosts instead of only its own.
+  it('gives each script of a multi-script entry its own owner key', () => {
+    // Several js files in one content_scripts block share a bundle key but
+    // carry distinct owner keys, or one script's cleanup would dispose its
+    // siblings' shadow hosts instead of only its own.
     const projectDir = createTempProject()
     const manifestDir = path.join(projectDir, 'src')
     const contentDir = path.join(manifestDir, 'content')
@@ -462,7 +444,7 @@ describe('content-script-wrapper loader', () => {
     const topRight = wrapAt('content/top-right.ts')
     const bottomLeft = wrapAt('content/bottom-left.ts')
 
-    // Same entry: shared bundle key, per-script reinject keys.
+    // Same entry: shared bundle key, per-script owner keys.
     expect(topLeft).toContain(
       'var __EXTENSIONJS_BUNDLE_KEY="content_scripts/content-0";'
     )
@@ -517,7 +499,10 @@ describe('content-script-wrapper loader', () => {
     )
 
     expect(wrapped).toContain('var __EXTJS_WRAPPER_KIND="FS3_INLINE";')
-    expect(wrapped).toContain('"executed"')
+    expect(wrapped).toContain(
+      'try { __EXTENSIONJS_scheduleBundleCssHydration() }'
+    )
+
     expect(wrapped).not.toContain('__EXTENSIONJS_mount(__EXTENSIONJS_default__')
   })
 
@@ -634,56 +619,6 @@ describe('content-script-wrapper loader', () => {
     const shipped = createRealm()
     runWrapped(outputs.mainWorld, shipped)
     expect('__EXTENSIONJS_registerCleanup' in shipped.sandbox).toBe(false)
-  })
-
-  it('counts reinject generations across injections for both script shapes', () => {
-    const entry = writeDeclaredEntry()
-    const shapes = {
-      defaultExport: 'export default function mount(){ return () => {} }',
-      executed: 'var executed = true'
-    }
-
-    for (const source of Object.values(shapes)) {
-      const realm = createRealm()
-
-      for (let injection = 0; injection < 3; injection++) {
-        runWrapped(
-          contentScriptWrapper.call(
-            createLoaderContext(entry.resourcePath, entry.manifestPath) as any,
-            source
-          ),
-          realm
-        )
-      }
-
-      expect(readMarkerGeneration(realm)).toBe('3')
-    }
-  })
-
-  it('ships no host-page instrumentation from a development build outside a dev session', () => {
-    const entry = writeDeclaredEntry()
-    const source = 'export default function mount(){ return () => {} }'
-    const wrap = (mode: string, devSession?: boolean) =>
-      contentScriptWrapper.call(
-        createLoaderContext(
-          entry.resourcePath,
-          entry.manifestPath,
-          undefined,
-          mode,
-          devSession
-        ) as any,
-        source
-      )
-
-    const developmentBuild = wrap('development', false)
-    expect(developmentBuild).not.toContain('MutationObserver')
-    expect(developmentBuild).not.toContain('data-extjs-debug-')
-    expect(developmentBuild).not.toContain('__EXTENSIONJS_DEV_MARKERS_ENABLED')
-    expect(developmentBuild).toBe(wrap('production'))
-
-    const devSessionBundle = wrap('development', true)
-    expect(devSessionBundle).toContain('MutationObserver')
-    expect(devSessionBundle).toBe(wrap('development'))
   })
 })
 

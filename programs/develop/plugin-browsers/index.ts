@@ -10,7 +10,7 @@ import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
 import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
-import {humanLine} from '../lib/messaging'
+import {CODES, humanLine, humanWarn} from '../lib/messaging'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
@@ -25,6 +25,13 @@ import {
 } from '../plugin-reload'
 import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
+import {waitAtMost} from './bounded-wait'
+import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
+import * as browserMessages from './messages'
+
+// The launcher bounds each step it waits on, the longest at 45 seconds, so a
+// launch still out after this is not coming back on its own.
+export const BROWSER_LAUNCH_TIMEOUT_MS = 3 * 60_000
 
 export interface CompiledEvent {
   outputPath: string
@@ -51,6 +58,30 @@ export class BuildEmitter extends EventEmitter<BuildEventMap> {
     // a default listener keeps compile-failure emits from killing dev.
     this.on('error', () => {})
   }
+}
+
+// The one failure path for every engine: the line unless the launcher printed
+// it, then the public event. The launcher stamps the contract before it throws.
+export function reportLaunchFailure(
+  emitter: BuildEmitter,
+  failure: {browser: string; error: unknown}
+): void {
+  const {error} = failure
+  const reason = error instanceof Error ? error.message : String(error)
+  const fault = error as {code?: unknown; printed?: unknown} | null
+
+  // Print before emitting: the emitter's default 'error' listener swallows.
+  if (fault?.printed !== true) {
+    console.error(
+      messages.browserLaunchFailed(
+        failure.browser as DevOptions['browser'],
+        reason,
+        fault?.code
+      )
+    )
+  }
+
+  emitter.emit('error', {errors: [reason]})
 }
 
 export interface BrowserLaunchOptions {
@@ -175,6 +206,9 @@ export class BrowsersPlugin implements RunnerPlugin {
   extensionsToLoad: string[] = []
 
   private isFirstCompile = true
+  // Set while a launch the hook stopped waiting for still runs, so a rebuild
+  // never opens a second browser beside it.
+  private launchStillRunning = false
   private controller: BrowserController | undefined
   private reloadBroker: ReloadBroker | undefined
   private logSink: BrowserLogSink | undefined
@@ -275,6 +309,126 @@ export class BrowsersPlugin implements RunnerPlugin {
     } catch {
       // Best-effort: a listener must never break the compile loop.
     }
+  }
+
+  private async launchBrowser(
+    compilation: object,
+    outputPath: string,
+    contextDir: string
+  ): Promise<void> {
+    const browser = this.options.browserOptions.browser
+    const launch = Promise.resolve().then(() =>
+      this.options.launcher({
+        ...this.options.browserOptions,
+        outputPath,
+        contextDir,
+        extensionsToLoad: this.extensionsToLoad,
+        logSink: this.logSink,
+        ...this.bootRegistrationsHold(compilation),
+        ...(this.options.browserOptions.instanceId || !this.instanceId
+          ? {}
+          : {instanceId: this.instanceId}),
+        ...(this.emulatorViewerUrl
+          ? {emulatorViewerUrl: this.emulatorViewerUrl}
+          : {})
+      })
+    )
+    const outcome = await waitAtMost(launch, BROWSER_LAUNCH_TIMEOUT_MS)
+
+    if (outcome.state === 'resolved') {
+      this.controller = outcome.value
+      await this.enableBrowserLogs()
+      this.announceLaunchSettled()
+      this.announceReady()
+
+      return
+    }
+
+    this.announceLaunchSettled()
+    // No browser came up, so the next compile must try the launch again.
+    this.isFirstCompile = true
+
+    if (outcome.state === 'rejected') {
+      // The launcher stamped the contract itself before it threw.
+      reportLaunchFailure(this.emitter, {browser, error: outcome.error})
+
+      return
+    }
+
+    // The launcher never came back to stamp anything, so the stamp is ours.
+    const reason = browserMessages.browserLaunchTimedOut(
+      BROWSER_LAUNCH_TIMEOUT_MS
+    )
+    stampLaunchTimedOut(outputPath, reason)
+    reportLaunchFailure(this.emitter, {
+      browser,
+      error: Object.assign(new Error(reason), {
+        code: CODES.E_BROWSER_START_TIMEOUT
+      })
+    })
+
+    this.launchStillRunning = true
+    launch.then(
+      async (controller) => {
+        this.launchStillRunning = false
+        this.controller = controller
+        this.isFirstCompile = false
+        clearLaunchTimedOut(outputPath)
+        await this.enableBrowserLogs()
+        this.announceReady()
+      },
+      (error: unknown) => {
+        this.launchStillRunning = false
+        reportLaunchFailure(this.emitter, {browser, error})
+      }
+    )
+  }
+
+  // The browser is already up with the extension, so a capture that fails is
+  // a warning on a session that still goes ready, never a failed launch.
+  private async enableBrowserLogs(): Promise<void> {
+    const browserOptions = this.options.browserOptions
+    const logLevel = browserOptions.logLevel || 'off'
+
+    if (logLevel === 'off' || !this.controller) return
+
+    const outcome = await waitAtMost(
+      Promise.resolve().then(() =>
+        this.controller?.enableUnifiedLogging({
+          level: logLevel,
+          contexts: browserOptions.logContexts,
+          format: browserOptions.logFormat,
+          timestamps: browserOptions.logTimestamps,
+          color: browserOptions.logColor,
+          urlFilter: browserOptions.logUrl,
+          tabFilter: browserOptions.logTab
+        })
+      ),
+      BROWSER_LAUNCH_TIMEOUT_MS
+    )
+
+    if (outcome.state === 'resolved') return
+
+    const error =
+      outcome.state === 'rejected'
+        ? outcome.error
+        : Object.assign(
+            new Error(
+              browserMessages.browserLogCaptureTimedOut(
+                BROWSER_LAUNCH_TIMEOUT_MS
+              )
+            ),
+            {code: CODES.E_CDP_TIMEOUT}
+          )
+
+    // A rejection was stamped by the launcher. A capture that never answered
+    // is only warned about, as nothing came back to stamp it.
+    humanWarn(
+      browserMessages.browserLogCaptureFailed(
+        browserOptions.browser,
+        error instanceof Error ? error.message : String(error)
+      )
+    )
   }
 
   // The broker calls this for a verb that finds no executor. False until the
@@ -382,60 +536,10 @@ export class BrowsersPlugin implements RunnerPlugin {
         // next compile, which is then the build the browser reads.
         this.loadedContentScripts?.noteLoaded(compilation)
 
-        try {
-          this.controller = await this.options.launcher({
-            ...this.options.browserOptions,
-            outputPath,
-            contextDir,
-            extensionsToLoad: this.extensionsToLoad,
-            logSink: this.logSink,
-            ...this.bootRegistrationsHold(compilation),
-            ...(this.options.browserOptions.instanceId || !this.instanceId
-              ? {}
-              : {instanceId: this.instanceId}),
-            ...(this.emulatorViewerUrl
-              ? {emulatorViewerUrl: this.emulatorViewerUrl}
-              : {})
-          })
-
-          const logLevel = this.options.browserOptions.logLevel || 'off'
-
-          if (logLevel !== 'off' && this.controller) {
-            await this.controller.enableUnifiedLogging({
-              level: logLevel,
-              contexts: this.options.browserOptions.logContexts,
-              format: this.options.browserOptions.logFormat,
-              timestamps: this.options.browserOptions.logTimestamps,
-              color: this.options.browserOptions.logColor,
-              urlFilter: this.options.browserOptions.logUrl,
-              tabFilter: this.options.browserOptions.logTab
-            })
-          }
-
-          this.announceLaunchSettled()
-          this.announceReady()
-        } catch (error) {
-          this.announceLaunchSettled()
-
-          // No browser came up, so the next compile must try the launch again.
-          if (!this.controller) this.isFirstCompile = true
-
-          const reason = error instanceof Error ? error.message : String(error)
-          const failure = error as {code?: unknown; printed?: unknown} | null
-
-          // Print before emitting: the emitter's default 'error' listener
-          // swallows. A launcher that printed the failure says so on the error.
-          if (failure?.printed !== true) {
-            console.error(
-              messages.browserLaunchFailed(
-                this.options.browserOptions.browser as DevOptions['browser'],
-                reason,
-                failure?.code
-              )
-            )
-          }
-
-          this.emitter.emit('error', {errors: [reason]})
+        if (this.launchStillRunning) {
+          this.isFirstCompile = true
+        } else {
+          await this.launchBrowser(compilation, outputPath, contextDir)
         }
       } else if (await this.retryRefusedExtensionLoad()) {
         // The guest was absent until this compile, so there is nothing to

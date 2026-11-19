@@ -6,6 +6,12 @@
 // ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {
+  describeLaunchFailure,
+  launchFailureCode,
+  readReadyRunId,
+  stampReadyBrowserLaunchFailed
+} from '../browsers-lib/ready-stamp'
 import type {BrowserLogger} from '../browsers-types'
 import {
   packageSafariExtension,
@@ -69,21 +75,42 @@ export function createSafariPackager(
     ...identity
   } = options
 
-  return async (distPath, mode = 'full', overrides) =>
-    await packageSafariExtension(
-      {
-        extension: [distPath],
-        browser,
-        noOpen,
-        dryRun,
-        tools,
-        enableExtension,
-        uiTools,
-        ...withoutUndefined(identity),
-        ...withoutUndefined(overrides)
-      },
-      distPath,
-      logger,
-      mode
-    )
+  return async (distPath, mode = 'full', overrides) => {
+    // Only a dev session's first package is a launch. A build reports its own
+    // failure, and a resync keeps the earlier build running.
+    const isLaunch = mode === 'full' && options.announceDevReady === true
+    const runId = isLaunch ? readReadyRunId(distPath) : undefined
+
+    try {
+      return await packageSafariExtension(
+        {
+          extension: [distPath],
+          browser,
+          noOpen,
+          dryRun,
+          tools,
+          enableExtension,
+          uiTools,
+          ...withoutUndefined(identity),
+          ...withoutUndefined(overrides)
+        },
+        distPath,
+        logger,
+        mode
+      )
+    } catch (error) {
+      // Nothing runs the extension now, which the contract says the way
+      // every launcher does.
+      if (isLaunch) {
+        stampReadyBrowserLaunchFailed(
+          distPath,
+          describeLaunchFailure(error),
+          runId,
+          launchFailureCode(error)
+        )
+      }
+
+      throw error
+    }
+  }
 }

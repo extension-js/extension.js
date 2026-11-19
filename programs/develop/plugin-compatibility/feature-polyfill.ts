@@ -10,16 +10,32 @@ import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {CODES, debugLine, isDebug} from '../lib/messaging'
+import {EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER} from '../plugin-web-extension/feature-scripts/contracts'
 import type {DevOptions} from '../types'
 import * as messages from './compatibility-lib/messages'
+import {
+  filesWithNoExtensionApi,
+  resourceKey
+} from './compatibility-lib/no-extension-api-files'
 
 const cjsRequire = createRequire(import.meta.url)
 
-export class PolyfillPlugin {
-  public readonly browser: DevOptions['browser']
+// A MAIN world script runs on the page and a sandboxed page has no extension
+// API, so the polyfill throws there. Such code reads the page's own global.
+const PAGE_BROWSER_GLOBAL =
+  'data:application/node,module.exports%20%3D%20globalThis.browser'
 
-  constructor(options: {browser?: DevOptions['browser']} = {}) {
+export class PolyfillPlugin {
+  public static readonly name: string = 'compatibility:polyfill'
+
+  public readonly browser: DevOptions['browser']
+  public readonly manifestPath?: string
+
+  constructor(
+    options: {browser?: DevOptions['browser']; manifestPath?: string} = {}
+  ) {
     this.browser = options.browser || 'chrome'
+    this.manifestPath = options.manifestPath
   }
 
   apply(compiler: Compiler) {
@@ -63,9 +79,40 @@ export class PolyfillPlugin {
       }
     }
 
-    new rspack.ProvidePlugin({
-      browser: 'webextension-polyfill'
-    }).apply(compiler)
+    // The path, not the package name, so an import the author wrote stays as
+    // written and only the provided global is redirected below.
+    new rspack.ProvidePlugin({browser: polyfillPath}).apply(compiler)
+
+    let noExtensionApi = new Set<string>()
+
+    compiler.hooks.thisCompilation.tap(PolyfillPlugin.name, () => {
+      noExtensionApi = this.manifestPath
+        ? filesWithNoExtensionApi(compiler, this.manifestPath, this.browser)
+        : new Set()
+    })
+
+    // Tapped on every compilation, so the dev build of MAIN world groups,
+    // which compiles apart, is covered too.
+    compiler.hooks.compilation.tap(
+      PolyfillPlugin.name,
+      (_compilation, {normalModuleFactory}) => {
+        normalModuleFactory.hooks.beforeResolve.tap(
+          PolyfillPlugin.name,
+          (data) => {
+            if (data?.request !== polyfillPath) return
+
+            const {issuer, issuerLayer} = data.contextInfo || {}
+
+            if (
+              issuerLayer === EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER ||
+              noExtensionApi.has(resourceKey(issuer))
+            ) {
+              data.request = PAGE_BROWSER_GLOBAL
+            }
+          }
+        )
+      }
+    )
 
     if (isDebug()) {
       debugLine(

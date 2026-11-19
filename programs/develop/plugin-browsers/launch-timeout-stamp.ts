@@ -1,0 +1,96 @@
+// ██████╗ ██████╗  ██████╗ ██╗    ██╗███████╗███████╗██████╗ ███████╗
+// ██╔══██╗██╔══██╗██╔═══██╗██║    ██║██╔════╝██╔════╝██╔══██╗██╔════╝
+// ██████╔╝██████╔╝██║   ██║██║ █╗ ██║███████╗█████╗  ██████╔╝███████╗
+// ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
+// ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
+// ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
+
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {CODES, stripChannelPrefix} from '../lib/messaging'
+import {renameSyncWithRetry} from '../lib/rename-with-retry'
+import {readyContractPathBesideBuild} from '../lib/session-contract'
+
+type ReadyRecord = Record<string, unknown>
+
+const TIMEOUT_CODE = CODES.E_BROWSER_START_TIMEOUT
+
+// Launchers stamp their own failures. A launch the done hook stopped waiting
+// for never came back to stamp one, so that verdict alone is written here.
+function updateContract(
+  outputPath: string,
+  update: (ready: ReadyRecord) => boolean
+): void {
+  try {
+    if (!outputPath) return
+
+    const readyPath = readyContractPathBesideBuild(path.resolve(outputPath))
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as ReadyRecord
+    if (typeof ready.pid === 'number' && ready.pid !== process.pid) return
+
+    if (!update(ready)) return
+
+    const tmpPath = `${readyPath}.tmp-${process.pid}`
+
+    try {
+      fs.writeFileSync(tmpPath, `${JSON.stringify(ready, null, 2)}\n`, 'utf-8')
+      renameSyncWithRetry(tmpPath, readyPath)
+    } catch {
+      fs.rmSync(tmpPath, {force: true})
+    }
+  } catch {
+    // Best-effort: a contract write never breaks the compile loop.
+  }
+}
+
+// The same fields a launcher writes for a browser that never started, so a
+// reader cannot tell the two writers apart. A more specific verdict stands.
+export function stampLaunchTimedOut(outputPath: string, reason: string) {
+  updateContract(outputPath, (ready) => {
+    if (
+      ready.status === 'error' &&
+      ready.code &&
+      ready.code !== 'browser_launch_failed'
+    ) {
+      return false
+    }
+
+    const detail = stripChannelPrefix(reason).replace(/\s+/g, ' ').trim()
+
+    ready.status = 'error'
+    ready.code = 'browser_launch_failed'
+    ready.ts = new Date().toISOString()
+    ready.message = `the ${ready.browser || 'browser'} process could not start (${detail}), nothing is running`
+    ready.browserLaunchFailedAt = ready.ts
+    ready.browserLaunchFailedReason = detail
+    ready.browserLaunchFailedCode = TIMEOUT_CODE
+
+    return true
+  })
+}
+
+// The launch came up after all, so the timeout verdict comes off. A verdict a
+// launcher wrote in the meantime stays.
+export function clearLaunchTimedOut(outputPath: string) {
+  updateContract(outputPath, (ready) => {
+    if (
+      ready.code !== 'browser_launch_failed' ||
+      ready.browserLaunchFailedCode !== TIMEOUT_CODE
+    ) {
+      return false
+    }
+
+    ready.status = 'ready'
+    ready.ts = new Date().toISOString()
+    delete ready.code
+    delete ready.message
+    delete ready.browserLaunchFailedAt
+    delete ready.browserLaunchFailedReason
+    delete ready.browserLaunchFailedCode
+
+    return true
+  })
+}
