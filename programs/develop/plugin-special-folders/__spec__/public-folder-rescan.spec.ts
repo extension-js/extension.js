@@ -17,69 +17,78 @@ afterEach(() => {
 })
 
 const NEXT_BUILD_MS = 10_000
+// A stuck watcher never goes idle, so a slow scan on a busy machine gets
+// a long window without letting a stuck one pass.
+const SETTLE_MS = 10_000
+const ROW_MS = NEXT_BUILD_MS + SETTLE_MS * 2 + 5_000
 
 interface ScanState {
   scanning?: boolean
 }
 
 describe('a watch session over public/ with the folder poll', () => {
-  it('rescans public/ again after a poll that landed mid-scan', async () => {
-    const root = makeFixtureRoot({
-      'index.js': 'self.out = 1\n',
-      'manifest.json': '{"manifest_version": 3}',
-      'public/rules.json': '{"v": 1}'
-    })
-    const publicDir = path.join(root, 'public')
-    const polls = new Map<string, () => void>()
-    const compiler = fixtureCompiler({
-      root,
-      mode: 'development',
-      plugins: [
-        new SpecialFoldersPlugin({
-          manifestPath: path.join(root, 'manifest.json')
-        }),
-        new FileEventAssistPlugin({
-          platform: 'darwin',
-          pollFolder: (folder, onChange) => {
-            polls.set(folder, onChange)
+  it(
+    'rescans public/ again after a poll that landed mid-scan',
+    async () => {
+      const root = makeFixtureRoot({
+        'index.js': 'self.out = 1\n',
+        'manifest.json': '{"manifest_version": 3}',
+        'public/rules.json': '{"v": 1}'
+      })
+      const publicDir = path.join(root, 'public')
+      const polls = new Map<string, () => void>()
+      const compiler = fixtureCompiler({
+        root,
+        mode: 'development',
+        plugins: [
+          new SpecialFoldersPlugin({
+            manifestPath: path.join(root, 'manifest.json')
+          }),
+          new FileEventAssistPlugin({
+            platform: 'darwin',
+            pollFolder: (folder, onChange) => {
+              polls.set(folder, onChange)
 
-            return () => polls.delete(folder)
+              return () => polls.delete(folder)
+            }
+          })
+        ]
+      })
+      // Only the assist above, so the injected poll is the only one running.
+      const watch = watchFixture(root, compiler, {assist: false})
+      const folderWatcher = () =>
+        (
+          compiler.watchFileSystem as unknown as {
+            watcher?: {
+              watcherManager?: {directoryWatchers?: Map<string, ScanState>}
+            }
           }
-        })
-      ]
-    })
-    const watch = watchFixture(root, compiler)
-    const folderWatcher = () =>
-      (
-        compiler.watchFileSystem as unknown as {
-          watcher?: {
-            watcherManager?: {directoryWatchers?: Map<string, ScanState>}
-          }
+        ).watcher?.watcherManager?.directoryWatchers?.get(publicDir)
+
+      const settled = async () => {
+        for (let tries = 0; tries < SETTLE_MS / 20; tries += 1) {
+          if (folderWatcher()?.scanning === false) return true
+
+          await new Promise((resolve) => setTimeout(resolve, 20))
         }
-      ).watcher?.watcherManager?.directoryWatchers?.get(publicDir)
 
-    const settled = async () => {
-      for (let tries = 0; tries < 100; tries += 1) {
-        if (folderWatcher()?.scanning === false) return true
-
-        await new Promise((resolve) => setTimeout(resolve, 20))
+        return false
       }
 
-      return false
-    }
+      try {
+        expect(await watch.waitForBuild(1, NEXT_BUILD_MS)).toBeDefined()
+        const poll = polls.get(publicDir)
+        expect(poll).toBeTypeOf('function')
+        expect(await settled()).toBe(true)
 
-    try {
-      expect(await watch.waitForBuild(1, NEXT_BUILD_MS)).toBeDefined()
-      const poll = polls.get(publicDir)
-      expect(poll).toBeTypeOf('function')
-      expect(await settled()).toBe(true)
+        poll?.()
+        poll?.()
 
-      poll?.()
-      poll?.()
-
-      expect(await settled()).toBe(true)
-    } finally {
-      await watch.close()
-    }
-  })
+        expect(await settled()).toBe(true)
+      } finally {
+        await watch.close()
+      }
+    },
+    ROW_MS
+  )
 })

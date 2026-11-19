@@ -221,13 +221,17 @@ export interface FixtureWatch {
   close: () => Promise<void>
 }
 
-export function watchFixture(root: string, compiler: Compiler): FixtureWatch {
+export function watchFixture(
+  root: string,
+  compiler: Compiler,
+  options: {assist?: boolean} = {}
+): FixtureWatch {
   const builds: FixtureBuild[] = []
   const waiters = new Set<() => void>()
 
   // The dev config watches with this beside it. Without it a macOS folder
   // event can be lost for good, and the session never rebuilds.
-  new FileEventAssistPlugin().apply(compiler)
+  if (options.assist !== false) new FileEventAssistPlugin().apply(compiler)
 
   const watching = compiler.watch({aggregateTimeout: 50}, (error, stats) => {
     if (!error && stats) builds.push(readBuild(root, stats.compilation))
