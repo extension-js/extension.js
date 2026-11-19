@@ -3,11 +3,11 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadBroker} from '../../plugin-reload'
+import type {SafariPackagerFn} from '../../types'
 import {
   SAFARI_FIRST_PACKAGE_TIMEOUT_MS,
   SAFARI_RESYNC_TIMEOUT_MS,
-  SafariDevPlugin,
-  type SafariPackagerFn
+  SafariDevPlugin
 } from '../safari-dev-plugin'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
@@ -256,6 +256,10 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     await p
   })
 })
+
+// The plugin takes the one packager type the engine exports, not its own.
+const _samePackager: SafariPackagerFn =
+  null as unknown as ConstructorParameters<typeof SafariDevPlugin>[0]
 
 // A manifest edit is the one change that always classifies as a full reload,
 // so these cover the seam itself rather than the classifier.
