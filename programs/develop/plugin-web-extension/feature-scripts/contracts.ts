@@ -86,8 +86,8 @@ export function isCanonicalContentScriptEntryName(entryName: string): boolean {
 export function parseCanonicalContentScriptAsset(
   assetName: string
 ): {index: number; extension: 'js' | 'css'} | undefined {
-  // Stable: content_scripts/content-0.js; dev adds a hash segment so Chrome
-  // does not serve a URL-cached copy after live reinject updated the file.
+  // Stable: content_scripts/content-0.js. Dev names each content bundle by
+  // its hash, so a second read of the file gets the new bytes.
   const match =
     /^content_scripts\/content-(\d+)(?:\.[a-f0-9]+)?\.(js|css)$/i.exec(
       String(assetName || '')
@@ -107,28 +107,12 @@ export function isCanonicalContentScriptAsset(assetName: string): boolean {
   return parseCanonicalContentScriptAsset(assetName) !== undefined
 }
 
-// A dev session ships these beside the content script bundles, one set per
-// manifest group, and no feature may treat them as a file the author wrote.
-export function devContentScriptStubAssetName(index: number): string {
-  return `content_scripts/dev-stub-${index}.js`
-}
-
-// A CSS-only entry has no bundle to mark its world, so this script stands in
-// for one: Chromium injects it beside the stylesheet and stamps the frame.
-export function devContentScriptCssMarkerAssetName(index: number): string {
-  return `content_scripts/dev-css-${index}.js`
-}
-
-// Chromium adds a registered sheet at document start and offers no way to ask
-// whether it did. A one-rule sheet registered with the entry's own answers.
-export function devContentScriptSheetProbeAssetName(index: number): string {
-  return `content_scripts/dev-sheet-${index}.css`
-}
-
+// A dev session ships these beside the content script bundles, and no
+// feature may treat them as a file the author wrote.
 const DEV_CONTENT_SCRIPT_STAND_IN_ASSET =
   /^content_scripts\/(?:dev-(?:stub|css)-\d+\.js|dev-sheet-\d+\.css)$/
 
-// True for the three names above: a stub, a CSS marker or a sheet probe.
+// True for a dev-stub-N.js, dev-css-N.js or dev-sheet-N.css file.
 export function isDevContentScriptStandInAsset(assetName: string): boolean {
   return DEV_CONTENT_SCRIPT_STAND_IN_ASSET.test(assetName)
 }

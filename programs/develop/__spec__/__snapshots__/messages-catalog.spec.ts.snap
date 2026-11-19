@@ -246,6 +246,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   ],
   "plugin-reload/messages.ts": [
     "backgroundIsRequiredMessageOnly: function(1)",
+    "contentScriptWithoutDefaultExport: function(2)",
+    "defaultExportCalledAgain: function(2)",
     "ranInjectedFilesAgain: function(2)",
     "reloadingExtensionForStaticContentScript: function(1)",
   ],
@@ -403,8 +405,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "codeNamedFileNotShipped: function(3)",
     "compiledSourceSpelling: function(4)",
     "contentScriptTopLevelAwait: function(4)",
-    "contentScriptWithoutDefaultExport: function(2)",
-    "defaultExportCalledAgain: function(2)",
     "defaultExportLostToLoaders: function(3)",
     "defaultExportUnreadable: function(2)",
     "entrySplitAcrossInitialFiles: function(4)",

@@ -14,7 +14,8 @@ export const CONTENT_SCRIPT_OWNER_KEY_GLOBAL = '__EXTENSIONJS_REINJECT_KEY'
 export const CONTENT_SCRIPT_OWNER_KEY_ATTRIBUTE = 'data-extjs-reinject-key'
 
 // The places in the content script wrapper where another plugin may add
-// text, named for where they sit in the emitted script.
+// text, named for where they sit in the emitted script. Text at
+// 'style-host-filter' takes the place of the wrapper's own host checks.
 export type ContentScriptWrapperPoint =
   | 'style-host-filter'
   | 'after-bridge-base'
@@ -39,11 +40,32 @@ export interface ContentScriptWrapperModule {
   isMainWorld: boolean
 }
 
+// What the wrapper knows once it has read the module's default export.
+export interface ContentScriptWrapperReadModule
+  extends ContentScriptWrapperModule {
+  // The file as the project names it, for a message to the author.
+  file: string
+  resourcePath: string
+  browser: string
+  isDeclaredEntry: boolean
+  defaultExport:
+    | {kind: 'none' | 'broken'}
+    | {kind: 'found'; name: string; callsElsewhere: number}
+}
+
 export interface ContentScriptWrapperExtension {
   textAt(
     point: ContentScriptWrapperPoint,
     module: ContentScriptWrapperModule
   ): string
+  // Text that adopts roots reads the list of roots older than the mount,
+  // so the wrapper fills that list in every bundle.
+  adoptsRoots?: boolean
+  // A runtime that loads files of the extension needs the public path,
+  // so the wrapper sets it in every bundle.
+  loadsFiles?: boolean
+  // Called once per wrapped module, after its default export is read.
+  readModule?(module: ContentScriptWrapperReadModule): void
 }
 
 const extensionsByCompiler = new WeakMap<

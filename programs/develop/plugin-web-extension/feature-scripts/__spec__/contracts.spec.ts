@@ -1,9 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
-  devContentScriptCssMarkerAssetName,
-  devContentScriptSheetProbeAssetName,
-  devContentScriptStubAssetName,
   EXTENSIONJS_CONTENT_SCRIPT_LAYER,
   getCanonicalContentScriptCssAssetName,
   getCanonicalContentScriptEntryName,
@@ -105,25 +102,11 @@ describe('feature-scripts contract helpers', () => {
     ).toBe(true)
   })
 
-  it('names the files a dev session ships beside a content script', () => {
-    expect(devContentScriptStubAssetName(2)).toBe(
-      'content_scripts/dev-stub-2.js'
-    )
-
-    expect(devContentScriptCssMarkerAssetName(2)).toBe(
-      'content_scripts/dev-css-2.js'
-    )
-
-    expect(devContentScriptSheetProbeAssetName(2)).toBe(
-      'content_scripts/dev-sheet-2.css'
-    )
-  })
-
   it('tells a dev session file from a content script bundle', () => {
     for (const name of [
-      devContentScriptStubAssetName(0),
-      devContentScriptCssMarkerAssetName(12),
-      devContentScriptSheetProbeAssetName(2)
+      'content_scripts/dev-stub-0.js',
+      'content_scripts/dev-css-12.js',
+      'content_scripts/dev-sheet-2.css'
     ]) {
       expect(isDevContentScriptStandInAsset(name)).toBe(true)
     }

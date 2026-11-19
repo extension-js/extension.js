@@ -280,11 +280,11 @@ export default function webpackConfig(
       connectableHost: devOptions.connectableHost
     }),
     // rspack's own loader appends a <script> to the host page, which never
-    // reaches an isolated world. A reload session installs this target itself.
+    // reaches an isolated world. Every build installs this target, and a dev
+    // session asks it for the message fallback.
     new SetupChunkLoadingTarget({
       manifestPath,
-      browser: devOptions.browser,
-      devSession
+      browser: devOptions.browser
     }),
     new SpecialFoldersPlugin({
       manifestPath,
