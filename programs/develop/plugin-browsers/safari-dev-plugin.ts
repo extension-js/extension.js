@@ -7,16 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
-import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import {CODES} from '../lib/messaging'
 import {
-  createChangedSourcesTracker,
-  dispatchReload,
-  mergeReloadInstructions,
+  type BuildHold,
+  createReloadSession,
   type ReloadBroker,
-  type ReloadInstruction,
-  reloadForBuild,
-  reloadSurvivingPackage
+  type ReloadInstruction
 } from '../plugin-reload'
 import {waitAtMost} from './bounded-wait'
 import {BuildEmitter, type RunnerPlugin, reportLaunchFailure} from './index'
@@ -60,14 +56,21 @@ export class SafariDevPlugin implements RunnerPlugin {
   private active = false
   private pending: SafariPackageTarget | null = null
   private idleWaiters: Array<() => void> = []
-  private reloadBroker: ReloadBroker | undefined
   private readyListener: (() => void) | undefined
+  // Safari takes the same granularity as Chromium. A content-script
+  // reinjection was measured working there, same tab, through the producer's
+  // executeScript path. The package restarts the extension, so the session
+  // keeps only the part a restart cannot deliver.
+  private readonly reloads = createReloadSession({
+    browser: 'safari',
+    packaged: true
+  })
 
   constructor(private readonly packager: SafariPackagerFn) {}
 
   // Duck-typed by the dev server, the same seam the launched-browser plugin has.
-  setReloadBroker(broker: ReloadBroker): void {
-    this.reloadBroker = broker
+  setReloadBroker(broker: ReloadBroker, isHeld?: BuildHold): void {
+    this.reloads.connect(broker, isHeld)
   }
 
   // Safari is ready when its first full package pass finished.
@@ -76,7 +79,7 @@ export class SafariDevPlugin implements RunnerPlugin {
   }
 
   apply(compiler: Compiler) {
-    const changedSources = createChangedSourcesTracker(compiler)
+    const builds = this.reloads.watch(compiler)
 
     compiler.hooks.done.tapPromise(SafariDevPlugin.name, async (stats) => {
       const compilation = stats.compilation
@@ -95,9 +98,13 @@ export class SafariDevPlugin implements RunnerPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
-      // The package is itself a reload, so a build the MAIN world restart
-      // replaces is not packaged. The restart's own build is.
-      if (!this.firstRun && isAwaitingMainWorldRestart(compiler, compilation)) {
+      // Classify from changed sources, like the launched-browser path. The
+      // first package has nothing to reload, it is the state the browser loads.
+      const plan = this.firstRun ? undefined : builds.plan(compilation)
+
+      // The package is itself a reload, so a build a restart replaces is not
+      // packaged. The restart's own build is.
+      if (plan?.held) {
         this.emitter.emit('compiled', {
           outputPath,
           contextDir,
@@ -107,19 +114,7 @@ export class SafariDevPlugin implements RunnerPlugin {
         return
       }
 
-      // Classify from changed sources, like the launched-browser path. The
-      // first package has nothing to reload, it is the state the browser loads.
-      let instruction: ReloadInstruction | undefined
-
-      if (!this.firstRun) {
-        // Safari takes the same granularity as Chromium. A content-script
-        // reinjection was measured working there, same tab, through the
-        // producer's executeScript path. The package then restarts the
-        // extension, so only the part a restart cannot deliver is kept.
-        instruction = reloadSurvivingPackage(
-          reloadForBuild(compilation, {changedSources})
-        )
-      }
+      const instruction = plan?.instruction
 
       const target: SafariPackageTarget = {
         outputPath,
@@ -146,7 +141,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       if (this.active) {
         this.pending = {
           ...target,
-          instruction: mergeReloadInstructions(
+          instruction: this.reloads.combine(
             this.pending?.instruction,
             target.instruction
           )
@@ -270,24 +265,8 @@ export class SafariDevPlugin implements RunnerPlugin {
 
     // Only after the package succeeded: the appex Safari reads is replaced by
     // xcodebuild, so a signal sent earlier would reload the previous bytes.
-    // The instruction is already trimmed to what the restart cannot deliver.
-    if (!wasFirstRun && target.instruction && this.reloadBroker) {
-      await dispatchReload(target.instruction, {
-        broker: this.reloadBroker,
-        // xcodebuild replaced the appex under a running Safari, so the extension
-        // is restarting and a zero-producer dispatch here is the expected cost.
-        producerRestartExpected: true
-      })
-    }
-
-    // The rebuilt appex is itself the reload: Safari restarts the extension
-    // from it whether or not an instruction rode along.
-    if (!wasFirstRun) {
-      this.reloadBroker?.noteReloadApplied?.(
-        'safari-resync',
-        target.instruction?.label
-      )
-    }
+    // The rebuilt appex is itself the reload, with or without an instruction.
+    if (!wasFirstRun) await this.reloads.deliver(target.instruction)
 
     this.emitter.emit('compiled', {
       outputPath: target.outputPath,

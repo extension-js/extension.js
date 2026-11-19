@@ -61,13 +61,10 @@ import {
   getSessionRunId
 } from '../plugin-playwright'
 import {
-  createChangedSourcesTracker,
-  dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo,
-  loadedContentScriptsFor,
   readDevBuild,
-  reloadForBuild
+  reloadEachBuild
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
@@ -265,7 +262,10 @@ async function startDevSession(
     onSessionStart?: () => void
     onExitError?: (error: unknown, code?: string) => void
     browsersPlugin?: {
-      setReloadBroker?: (broker: unknown) => void
+      setReloadBroker?: (
+        broker: unknown,
+        isHeld: (compiler: object, compilation: object) => boolean
+      ) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
       setInstanceId?: (instanceId: string) => void
@@ -515,7 +515,7 @@ async function startDevSession(
   const launchedPlugin = extendedOptions.browsersPlugin
 
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
-    launchedPlugin.setReloadBroker(bridgeBroker)
+    launchedPlugin.setReloadBroker(bridgeBroker, isAwaitingMainWorldRestart)
   }
 
   if (launchedPlugin && typeof launchedPlugin.setInstanceId === 'function') {
@@ -875,49 +875,14 @@ async function startDevSession(
       )
     }
 
-    // Under --no-browser no CDP controller owns reload, so broadcast the same
-    // classified reload decision over the control bridge; gated to avoid double-reload.
-    if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
-      const changedSources = createChangedSourcesTracker(compiler)
-      let isFirstBridgeCompile = true
-      // The browser the user runs keeps the manifest it loaded as much as a
-      // launched one does, so a renamed bundle or rewritten sheet counts here.
-      const loadedContentScripts = loadedContentScriptsFor(browserName)
-
-      compiler.hooks.done.tapPromise(
-        'extjs-no-browser-reload',
-        async (stats: Stats) => {
-          const compilation = stats.compilation
-          if (compilation.errors && compilation.errors.length > 0) return
-
-          // Skip the first compile: it's the initial build, not a change, and the
-          // SW producer hasn't connected yet anyway.
-          if (isFirstBridgeCompile) {
-            isFirstBridgeCompile = false
-            loadedContentScripts?.noteLoaded(compilation)
-
-            return
-          }
-
-          // The restart this build asked for reloads the extension once with
-          // the build that replaces it. Reloading here too starts it twice.
-          if (isAwaitingMainWorldRestart(compiler, compilation)) return
-
-          const instruction = reloadForBuild(compilation, {
-            changedSources,
-            loaded: loadedContentScripts
-          })
-
-          // Same shared dispatch seam as the launched path, here with the broker
-          // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
-          const delivered = await dispatchReload(instruction, {
-            broker: bridgeBroker,
-            build: readDevBuild(compilation)
-          })
-
-          loadedContentScripts?.settle(delivered)
-        }
-      )
+    // With no browser plugin the session reloads the browser the user runs,
+    // through the same reload session a launched browser uses.
+    if (!extendedOptions.browsersPlugin) {
+      reloadEachBuild(compiler, {
+        browser: browserName,
+        broker: bridgeBroker,
+        isHeld: isAwaitingMainWorldRestart
+      })
     }
 
     if (!extendedOptions.browsersPlugin) {

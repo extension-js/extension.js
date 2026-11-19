@@ -52,6 +52,14 @@ export {
   fullReloadsDeliveredTo,
   type ReloadBroker
 } from './reload-dispatch'
+export {
+  type BuildHold,
+  type CompilerReloads,
+  createReloadSession,
+  type ReloadPlan,
+  type ReloadSession,
+  reloadEachBuild
+} from './reload-session'
 export {readBootRegistrations, readDevBuild}
 
 /**
@@ -61,9 +69,10 @@ export {readBootRegistrations, readDevBuild}
  *   asks plugin-web-extension's chunk loading target for the message
  *   fallback), the SW scripts-replay shim, and the control-bridge
  *   producer/relay instrumentation
- * - the reload classifier, what the browser last read, the trim and merge
- *   a packaged browser needs, and the dispatch seam. plugin-browsers and the
- *   dev server's `--no-browser` path call them (re-exported above)
+ * - the reload session (reload-session.ts): what the browser last read,
+ *   the classifier, the trim and merge a packaged browser needs, and the
+ *   dispatch. plugin-browsers and the dev server's `--no-browser` path only
+ *   say when a build was loaded and when it should reload
  *
  * Registration order matters: this plugin must be applied AFTER
  * plugin-web-extension, SetupReloadStrategy decorates the background and

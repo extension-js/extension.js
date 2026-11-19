@@ -8,19 +8,15 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
-import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import * as messages from '../lib/messages'
 import {CODES, humanLine, humanWarn} from '../lib/messaging'
 import {
-  createChangedSourcesTracker,
-  dispatchReload,
-  type LoadedContentScripts,
-  loadedContentScriptsFor,
+  type BuildHold,
+  createReloadSession,
   type ReloadBroker,
   type ReloadInstruction,
-  readBootRegistrations,
-  readDevBuild,
-  reloadForBuild
+  type ReloadPlan,
+  type ReloadSession
 } from '../plugin-reload'
 import type {DevOptions} from '../types'
 import {waitAtMost} from './bounded-wait'
@@ -208,7 +204,6 @@ export class BrowsersPlugin implements RunnerPlugin {
   // never opens a second browser beside it.
   private launchStillRunning = false
   private controller: BrowserController | undefined
-  private reloadBroker: ReloadBroker | undefined
   private logSink: BrowserLogSink | undefined
   private emulatorViewerUrl: string | undefined
   private instanceId: string | undefined
@@ -216,23 +211,24 @@ export class BrowsersPlugin implements RunnerPlugin {
   private launchSettledListener: (() => void) | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
-  // What the browser last read through the manifest, kept by plugin-reload.
-  // It outlives a dev server restart, which applies this plugin again.
-  private readonly loadedContentScripts: LoadedContentScripts | undefined
+  // What reloads and when, kept by plugin-reload. It outlives a dev server
+  // restart, which applies this plugin again.
+  private readonly reloads: ReloadSession
 
   constructor(private readonly options: BrowsersPluginOptions) {
-    this.loadedContentScripts = loadedContentScriptsFor(
-      options.browserOptions.browser
-    )
+    this.reloads = createReloadSession({
+      browser: options.browserOptions.browser
+    })
   }
 
   /**
    * The dev server injects the control-bridge broker so a launched
    * Chromium reloads through the SW producer (the same path as `--no-browser`),
-   * not the CDP controller. Called once, before the first compile.
+   * not the CDP controller, and the hold of a pending restart. Called once,
+   * before the first compile.
    */
-  setReloadBroker(broker: ReloadBroker): void {
-    this.reloadBroker = broker
+  setReloadBroker(broker: ReloadBroker, isHeld?: BuildHold): void {
+    this.reloads.connect(broker, isHeld)
   }
 
   // The dev server injects a sink that routes browser-generated Log.entryAdded
@@ -246,19 +242,10 @@ export class BrowsersPlugin implements RunnerPlugin {
   private bootRegistrationsHold(
     compilation: object
   ): Pick<BrowserLaunchOptions, 'awaitBootRegistrations'> {
-    const broker = this.reloadBroker
+    const awaitBootRegistrations =
+      this.reloads.bootRegistrationsWait(compilation)
 
-    if (
-      !broker?.awaitBootRegistrations ||
-      !readBootRegistrations(compilation)
-    ) {
-      return {}
-    }
-
-    return {
-      awaitBootRegistrations: (timeoutMs) =>
-        broker.awaitBootRegistrations?.(timeoutMs) ?? Promise.resolve('settled')
-    }
+    return awaitBootRegistrations ? {awaitBootRegistrations} : {}
   }
 
   setEmulatorViewerUrl(url: string): void {
@@ -478,7 +465,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   }
 
   apply(compiler: Compiler) {
-    const changedSources = createChangedSourcesTracker(compiler)
+    const builds = this.reloads.watch(compiler)
 
     compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats) => {
       const compilation = stats.compilation
@@ -497,22 +484,12 @@ export class BrowsersPlugin implements RunnerPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
-      // The restart this build asked for reloads once with the build that
-      // replaces it. Reloading for this one too starts the background twice.
-      const heldForRestart =
-        !this.isFirstCompile &&
-        isAwaitingMainWorldRestart(compiler, compilation)
-
-      // What must reload is plugin-reload's answer, from the sources that
-      // changed. The first compile is the build the browser loads.
-      let reloadInstruction: ReloadInstruction | undefined
-
-      if (!this.isFirstCompile && !heldForRestart) {
-        reloadInstruction = reloadForBuild(compilation, {
-          changedSources,
-          loaded: this.loadedContentScripts
-        })
-      }
+      // What must reload is plugin-reload's answer, held while a restart
+      // replaces this build. The first compile is the build the browser loads.
+      const plan: ReloadPlan = this.isFirstCompile
+        ? {held: false}
+        : builds.plan(compilation)
+      const reloadInstruction = plan.instruction
 
       const wasFirstCompile = this.isFirstCompile
       this.isFirstCompile = false
@@ -520,7 +497,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       if (wasFirstCompile) {
         // The launch loads this build. A launch that fails runs again on the
         // next compile, which is then the build the browser reads.
-        this.loadedContentScripts?.noteLoaded(compilation)
+        this.reloads.loaded(compilation)
 
         if (this.launchStillRunning) {
           this.isFirstCompile = true
@@ -530,17 +507,12 @@ export class BrowsersPlugin implements RunnerPlugin {
       } else if (await this.retryRefusedExtensionLoad()) {
         // The guest was absent until this compile, so there is nothing to
         // reload: it just started from the dist that was written.
-        this.loadedContentScripts?.noteLoaded(compilation)
+        this.reloads.loaded(compilation)
         this.announceReady()
-      } else if (!heldForRestart && this.reloadBroker) {
+      } else if (!plan.held) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.
-        const delivered = await dispatchReload(reloadInstruction, {
-          broker: this.reloadBroker,
-          build: readDevBuild(compilation)
-        })
-
-        this.loadedContentScripts?.settle(delivered)
+        await this.reloads.deliver(reloadInstruction, compilation)
       }
 
       this.emitter.emit('compiled', {
