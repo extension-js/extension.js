@@ -15,8 +15,8 @@ import {
   setCurrentManifestContent
 } from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
+import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import type {Manifest} from '../../types'
-import {BACKGROUND_ASSET} from '../background-asset'
 import {
   buildDevContentScriptMarkerPrelude,
   contentScriptEntryForAsset,

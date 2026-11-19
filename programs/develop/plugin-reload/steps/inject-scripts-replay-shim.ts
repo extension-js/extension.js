@@ -8,7 +8,7 @@
 
 import {Compilation, type Compiler} from '@rspack/core'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
-import {BACKGROUND_ASSET} from '../background-asset'
+import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 import {RELOAD_STAGE_AFTER_REPORT} from './stages'
 

@@ -16,7 +16,7 @@ import {
   emittedFilesOf,
   readProjectSource
 } from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
-import {BACKGROUND_ASSET} from '../background-asset'
+import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
 import {
   buildDevProducerSource,
