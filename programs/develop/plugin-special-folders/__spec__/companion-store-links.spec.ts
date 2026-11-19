@@ -1,6 +1,6 @@
 import {describe, expect, it} from 'vitest'
+import {companionLinkNotAStoreLink} from '../../lib/messages'
 import {
-  companionLinkNotAStoreLink,
   isCompanionStoreLink,
   isCompanionWebLink
 } from '../folder-extensions/resolve-config'

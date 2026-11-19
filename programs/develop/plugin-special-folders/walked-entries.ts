@@ -14,7 +14,11 @@ import {
   isEntryFolderFile,
   isSkippedEntryName
 } from './entry-folders'
-import {foldersRoots, type SpecialFolderName} from './folders-config'
+import {
+  foldersRoots,
+  rememberedFolders,
+  type SpecialFolderName
+} from './folders-config'
 import {sourceFileMayShip} from './public-private-files'
 
 export interface WalkedEntries {
@@ -159,4 +163,25 @@ export function guardWalkedEntries(
   walkLinkedEntries(folder, kept, leftOut)
 
   return {kept, leftOut}
+}
+
+// The linked files the walk takes as entries, so the watcher lists them
+// beside the plain files and a link added mid-session asks for a restart.
+export function linkedEntryFiles(
+  projectRoot: string,
+  folders: SpecialFoldersConfig = rememberedFolders(projectRoot)
+): string[] {
+  const files: string[] = []
+
+  for (const name of ['pages', 'scripts'] as const) {
+    const folder = walkedFolderRoots(name, projectRoot, folders)
+
+    if (!folder) continue
+
+    const kept: Record<string, string> = {}
+    walkLinkedEntries(folder, kept, [])
+    files.push(...Object.values(kept))
+  }
+
+  return files
 }
