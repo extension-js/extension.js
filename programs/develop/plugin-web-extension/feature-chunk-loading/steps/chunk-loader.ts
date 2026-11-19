@@ -6,7 +6,7 @@
 // ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import type {Compilation, Compiler} from '@rspack/core'
+import type {Chunk, Compilation, Compiler} from '@rspack/core'
 import type {
   ChunkLoadingBackgroundOptions,
   ChunkLoadingTargetOptions,
@@ -97,6 +97,31 @@ export class ChunkLoaderRuntime {
       })
 
     if (background.classicLoader !== false) {
+      const fallbackEntries = [
+        background.pageEntry,
+        background.serviceWorkerEntry
+      ].filter((name): name is string => Boolean(name))
+
+      const inFallback = (chunk: Chunk) =>
+        fallbackEntries.some((name) =>
+          compilation.entrypoints.get(name)?.chunks.includes(chunk)
+        )
+
+      // The listener reads the API off our runtime global. rspack keeps a
+      // global of ours only when the tree hook adds it, so it rides require.
+      compilation.hooks.additionalTreeRuntimeRequirements.tap(
+        ChunkLoaderRuntime.name,
+        (chunk, set) => {
+          if (inFallback(chunk)) set.add(RuntimeGlobals.require)
+        }
+      )
+
+      compilation.hooks.runtimeRequirementInTree
+        .for(RuntimeGlobals.require)
+        .tap(ChunkLoaderRuntime.name, (chunk, set) => {
+          if (inFallback(chunk)) set.add(RuntimeGlobal)
+        })
+
       // rspack has no afterChunks hook, and the entry chunks exist by this one.
       compilation.hooks.afterOptimizeModules.tap(
         ChunkLoaderRuntime.name,
