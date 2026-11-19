@@ -118,7 +118,7 @@ describe('a namespace import of an asset', () => {
       'NamespaceImportReadAsValue'
     )
 
-    // Pins today's behavior. Ledger 1386 D5.
+    // Pins current behavior: this diagnostic has no code yet.
     expect(diagnosticCode(build.rawErrors[0])).toBeUndefined()
   })
 
@@ -137,7 +137,8 @@ describe('a namespace import of an asset', () => {
 
 describe('bundledAssetOutputName against a user assetModuleFilename', () => {
   it('matches a file the default rules claim and misses one they do not', async () => {
-    // Pins today's behavior. Ledger 1386 D6.
+    // Pins current behavior: the computed name ignores a user
+    // assetModuleFilename.
     const large = pngOfSize(5000)
     const clip = Buffer.alloc(5000, 0x43)
     const build = await compileFixture({

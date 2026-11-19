@@ -25,7 +25,7 @@ describe('a loader options file that throws', () => {
     ['vue', '3.5.0'],
     ['svelte', '99.0.0']
   ])('is printed once and rethrown uncoded for %s', async (framework, version) => {
-    // Pins today's behavior. Ledger 1389 D4.
+    // Pins current behavior: one failure prints, then rethrows with no code.
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -58,7 +58,7 @@ describe('SWC targets outside the chromium family', () => {
     ['firefox', {}],
     ['firefox', {browser_specific_settings: {gecko: {id: 'a@b'}}}]
   ])('compiles a %s build with no engine floor for chrome >= 100', async (browser, extra) => {
-    // Pins today's behavior. Ledger 1389 D10.
+    // Pins current behavior: Safari and Firefox get Chrome SWC targets.
     const root = makeProject({
       'package.json': {},
       'manifest.json': {...MANIFEST, ...extra}
@@ -75,7 +75,7 @@ describe('SWC targets outside the chromium family', () => {
 
 describe('React refresh and the background script in development', () => {
   it('sets refresh on the rule a background script compiles through', async () => {
-    // Pins today's behavior. Ledger 1389 D12.
+    // Pins current behavior: a background script gets the refresh transform.
     const root = makeProject({
       'package.json': {dependencies: {react: '19.0.0'}},
       'manifest.json': {...MANIFEST, background: {service_worker: 'sw.ts'}}
@@ -101,7 +101,7 @@ describe('React refresh and the background script in development', () => {
   })
 
   it('ships the refresh transform and runtime in the background bundle, without the entry', async () => {
-    // Pins today's behavior. Ledger 1389 D12.
+    // Pins current behavior: refresh code ships in the background bundle.
     const root = makeProject({
       'package.json': {dependencies: {react: '19', 'react-dom': '19'}},
       'manifest.json': {...MANIFEST, background: {service_worker: 'sw.ts'}},
@@ -123,7 +123,7 @@ describe('React refresh and the background script in development', () => {
 
 describe('TypeScript decorators', () => {
   it('parse in a .ts file', async () => {
-    // Ledger 1389 D1, fixed: this pinned the syntax error until then.
+    // Decorators in a .ts file once failed with a syntax error.
     const root = makeProject({
       'package.json': {},
       'manifest.json': MANIFEST,
@@ -140,7 +140,8 @@ describe('TypeScript decorators', () => {
 
 describe('where the React refresh entry is read from', () => {
   it('finds by path string the same file the package exports as ./react-refresh-entry', () => {
-    // Pins today's behavior. Ledger 1389 D9.
+    // The entry is found by a path string, so this fails if that path ever
+    // stops matching the file the package exports.
     const root = makeProject({'package.json': {dependencies: {react: '19'}}})
     const found = resolveReactRefreshEntry(root)
     const exported = fromDevelop.resolve(
