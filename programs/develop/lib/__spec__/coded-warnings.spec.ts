@@ -92,12 +92,12 @@ describe('coded warnings', () => {
     const second = run(compilers.second)
 
     // Both builds are running, and each hook records outside any scope.
-    recordCodedWarning(CODES.E_PERF_BUDGET, 'second hook', compilers.second)
-    recordCodedWarning(CODES.E_PERF_BUDGET, 'first hook', compilers.first)
+    recordCodedWarning(CODES.W_PERF_BUDGET, 'second hook', compilers.second)
+    recordCodedWarning(CODES.W_PERF_BUDGET, 'first hook', compilers.first)
     release()
 
-    expect(await first).toEqual(['E_PERF_BUDGET: first hook'])
-    expect(await second).toEqual(['E_PERF_BUDGET: second hook'])
+    expect(await first).toEqual(['W_PERF_BUDGET: first hook'])
+    expect(await second).toEqual(['W_PERF_BUDGET: second hook'])
     expect(takeCodedWarnings()).toEqual([])
   })
 
@@ -114,10 +114,10 @@ describe('coded warnings', () => {
       return takeCodedWarnings()
     })
 
-    recordCodedWarning(CODES.E_TYPES_EMIT, 'from a hook of the only build')
+    recordCodedWarning(CODES.W_TYPES_EMIT, 'from a hook of the only build')
     release()
 
-    expect(await only).toEqual(['E_TYPES_EMIT: from a hook of the only build'])
+    expect(await only).toEqual(['W_TYPES_EMIT: from a hook of the only build'])
 
     // Nothing is left for a build that starts later to pick up.
     expect(await withCodedWarnings(async () => takeCodedWarnings())).toEqual([])

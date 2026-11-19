@@ -54,7 +54,7 @@ function said(result: Built, entry: string) {
 
   return {
     printed: result.printed.split(sentence).length - 1,
-    coded: result.printed.split(`E_ASSET_MISSING: ${sentence}`).length - 1
+    coded: result.printed.split(`W_ASSET_MISSING: ${sentence}`).length - 1
   }
 }
 
