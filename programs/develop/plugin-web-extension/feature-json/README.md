@@ -40,15 +40,16 @@ Most users will not need to add this plugin directly when using an orchestrated 
 ## API
 
 ```ts
-export type FilepathList = Record<string, string | string[] | undefined>
+export type JsonIncludeList = Record<string, string | undefined>
 
-export interface PluginInterface {
+export interface JsonPluginOptions {
   manifestPath: string
-  includeList?: FilepathList
+  includeList?: JsonIncludeList
+  browser?: string
 }
 
 export class JsonPlugin {
-  constructor(options: PluginInterface)
+  constructor(options: JsonPluginOptions)
   apply(compiler: import('@rspack/core').Compiler): void
 }
 ```
@@ -98,14 +99,14 @@ new JsonPlugin({
   manifestPath: '/abs/manifest.json',
   includeList: {
     'features/ruleset': '/abs/path/ruleset.json',
-    'features/multiple': ['/abs/a.json', '/abs/b.json']
+    'features/schema': '/abs/path/schema.json'
   }
 })
 ```
 
-- `includeList` accepts a string or an array of strings as values. The key becomes the output path (plugin appends `.json`).
-- When `includeList` value is an array, the plugin emits a single output named after the key and the content from the last file in the array wins (subsequent entries overwrite previous ones for the same output).
-- Missing files referenced in `includeList` are skipped and reported as warnings; the build continues without emitting that asset.
+- Each `includeList` value is one file path. The key becomes the output path (plugin appends `.json`).
+- A value that is not one string, a list included, is refused when the plugin is constructed, with a `TypeError` that names the key. Give each file its own key.
+- A missing file referenced in `includeList` is skipped and reported: an error for the critical features above, a warning for any other key.
 - JSON files under `public/` are not emitted by this plugin; they are watched and validated if critical.
 
 ### Supported fields (context)

@@ -20,6 +20,7 @@ import {isUsingSvelte} from '../../plugin-js-frameworks/js-tools/svelte'
 import {isUsingVue} from '../../plugin-js-frameworks/js-tools/vue'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../feature-scripts/contracts'
+import {getAssetsFromHtml} from './html-lib/utils'
 import {AddAssetsToCompilation} from './steps/add-assets-to-compilation'
 import {AddScriptsAndStylesToCompilation} from './steps/add-scripts-and-styles-to-compilation'
 import {AddToFileDependencies} from './steps/add-to-file-dependencies'
@@ -104,19 +105,23 @@ export class HtmlPlugin {
         // Keep the HTML HMR rule active if manifest parsing fails.
       }
 
-      // Every page surface answers a save the same way: the manifest folder,
-      // the project root (a top-level pages/ folder lives there) and the
-      // folder of every extra page. node_modules and content scripts stay out.
       const projectRoot = String(compiler.options.context || '')
-      const pageDirs = new Set<string>([path.dirname(this.manifestPath)])
-      if (projectRoot) pageDirs.add(projectRoot)
+
+      // The scripts a page names are the only modules that accept their own
+      // update. A background script or any other entry has no page to redraw.
+      const pageScripts = new Set<string>()
 
       for (const pagePath of Object.values(includeList)) {
-        if (typeof pagePath === 'string' && pagePath) {
-          pageDirs.add(path.dirname(pagePath))
+        if (typeof pagePath !== 'string' || !fs.existsSync(pagePath)) continue
+
+        for (const script of getAssetsFromHtml(pagePath)?.js || []) {
+          if (path.isAbsolute(script)) pageScripts.add(toResourceKey(script))
         }
       }
 
+      // A framework with its own refresh runtime (React Refresh, the Vue and
+      // Svelte loaders) owns the page's updates and its mount point, so a
+      // page accept here would empty the container underneath it.
       const frameworkOwnsRefresh = Boolean(
         projectRoot &&
           (isUsingReact(projectRoot) ||
@@ -126,38 +131,44 @@ export class HtmlPlugin {
 
       const debugHtmlHmr = process.env.EXTENSION_DEBUG_HTML_HMR_SKIP === '1'
 
-      compiler.options.module.rules.push({
-        test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
-        include: Array.from(pageDirs),
-        issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
-        // Only an entry (no issuer) accepts its own update. A child that
-        // self-accepts re-runs alone and the entry never renders it again.
-        issuer: (issuer: string) => {
-          if (!issuer) return true
+      if (frameworkOwnsRefresh && debugHtmlHmr) {
+        debugLine('[extjs:html-hmr] skip rule, a framework owns refresh')
+      }
 
-          if (debugHtmlHmr) {
-            debugLine(`[extjs:html-hmr] skip child issuer=${issuer}`)
-          }
+      if (!frameworkOwnsRefresh && pageScripts.size > 0) {
+        compiler.options.module.rules.push({
+          test: /\.(js|cjs|mjs|jsx|mjsx|ts|mts|tsx|mtsx)$/,
+          include: (resourcePath: string) =>
+            pageScripts.has(toResourceKey(resourcePath)),
+          issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+          // Only an entry (no issuer) accepts its own update. A child that
+          // self-accepts re-runs alone and the entry never renders it again.
+          issuer: (issuer: string) => {
+            if (!issuer) return true
 
-          return false
-        },
-        exclude: [
-          /([\\/])node_modules\1/,
-          (resourcePath: string) =>
-            contentScriptEntryPaths.has(toResourceKey(resourcePath))
-        ],
-        resourceQuery: NOT_RAW_RESOURCE_QUERY,
-        use: [
-          {
-            loader: resolveDevelopDistFile('ensure-hmr-for-scripts'),
-            options: {
-              manifestPath: this.manifestPath,
-              includeList,
-              frameworkOwnsRefresh
+            if (debugHtmlHmr) {
+              debugLine(`[extjs:html-hmr] skip child issuer=${issuer}`)
             }
-          }
-        ]
-      })
+
+            return false
+          },
+          exclude: [
+            /([\\/])node_modules\1/,
+            (resourcePath: string) =>
+              contentScriptEntryPaths.has(toResourceKey(resourcePath))
+          ],
+          resourceQuery: NOT_RAW_RESOURCE_QUERY,
+          use: [
+            {
+              loader: resolveDevelopDistFile('ensure-hmr-for-scripts'),
+              options: {
+                manifestPath: this.manifestPath,
+                includeList
+              }
+            }
+          ]
+        })
+      }
     }
 
     new AddToFileDependencies({
