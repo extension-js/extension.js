@@ -31,13 +31,6 @@ export function ranInjectedFilesAgain(files: string[], tabs: number) {
   )
 }
 
-export function backgroundIsRequiredMessageOnly(backgroundChunkName: string) {
-  return (
-    `Check the ${colors.blue(backgroundChunkName.replace('/', '.'))} ` +
-    `field in your ${colors.blue('manifest.json')} file.`
-  )
-}
-
 // A declared entry that starts itself at import cannot be cleaned up, so
 // each re-inject adds a copy. Said in the session, where it bites.
 export function contentScriptWithoutDefaultExport(

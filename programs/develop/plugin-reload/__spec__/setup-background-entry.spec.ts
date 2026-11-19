@@ -184,7 +184,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
-  it('reports an error for Firefox when the declared script is missing', () => {
+  it('leaves a missing Firefox script to the scripts feature', () => {
     const manifestPath = writeManifest({
       manifest_version: 2,
       name: 'Declared',
@@ -195,9 +195,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
 
     new SetupBackgroundEntry({manifestPath, browser: 'firefox'}).apply(compiler)
 
-    const errors = compiler.__collectErrors()
-    expect(errors).toHaveLength(1)
-    expect(String(errors[0].message)).toContain('background.scripts')
+    expect(compiler.__collectErrors()).toHaveLength(0)
     expect(compiler.options.entry).toEqual({})
   })
 
@@ -230,7 +228,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
-  it('reports an error for Chrome MV2 when the declared script is missing', () => {
+  it('leaves a missing Chrome MV2 script to the scripts feature', () => {
     const manifestPath = writeManifest({
       manifest_version: 2,
       name: 'Declared',
@@ -241,9 +239,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
 
     new SetupBackgroundEntry({manifestPath, browser: 'chrome'}).apply(compiler)
 
-    const errors = compiler.__collectErrors()
-    expect(errors).toHaveLength(1)
-    expect(String(errors[0].message)).toContain('background.scripts')
+    expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
   it('registers the declared MV3 service_worker as the entry when it exists', () => {
@@ -265,7 +261,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
     expect(compiler.__collectErrors()).toHaveLength(0)
   })
 
-  it('reports an error and adds no entry when the MV3 service_worker is missing', () => {
+  it('adds no entry and no report when the MV3 service_worker is missing', () => {
     const manifestPath = writeManifest({
       manifest_version: 3,
       name: 'Declared',
@@ -276,9 +272,7 @@ describe('SetupBackgroundEntry with a declared background', () => {
 
     new SetupBackgroundEntry({manifestPath, browser: 'chrome'}).apply(compiler)
 
-    const errors = compiler.__collectErrors()
-    expect(errors).toHaveLength(1)
-    expect(String(errors[0].message)).toContain('background.service_worker')
+    expect(compiler.__collectErrors()).toHaveLength(0)
     expect(compiler.options.entry).not.toHaveProperty(
       'background/service_worker'
     )
@@ -333,7 +327,7 @@ describe('SetupBackgroundEntry with a declared MV2 background page', () => {
     new SetupBackgroundEntry({manifestPath, browser: 'chrome'}).apply(compiler)
 
     expect(compiler.options.entry).toEqual({})
-    expect(compiler.__collectErrors()).toHaveLength(1)
+    expect(compiler.__collectErrors()).toHaveLength(0)
   })
 })
 
