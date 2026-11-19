@@ -1,10 +1,12 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {getProjectStructure} from '../../lib/project'
 import contentScriptWrapper from '../../plugin-web-extension/feature-scripts/steps/add-content-script-wrapper/content-script-wrapper'
 import {contentScriptWrapperExtensionsFor} from '../../plugin-web-extension/shared/content-script-wrapper-extensions'
+import webpackConfig from '../../rspack-config'
 import {ReloadPlugin} from '..'
 import {contentScriptReinject} from '../reload-lib/content-script-reinject'
 import {
@@ -58,7 +60,8 @@ function wrap(
   entry: {manifestPath: string; resourcePath: string},
   source: string,
   mode = 'development',
-  devSession?: boolean
+  devSession?: boolean,
+  browser?: string
 ) {
   const context = {
     resourcePath: entry.resourcePath,
@@ -67,6 +70,7 @@ function wrap(
       manifestPath: entry.manifestPath,
       mode,
       ...(typeof devSession === 'boolean' ? {devSession} : {}),
+      ...(browser ? {browser} : {}),
       extensions: wrapsForDevSession(mode, devSession)
         ? [contentScriptReinject]
         : []
@@ -206,6 +210,26 @@ describe('the reinject runtime in a content script', () => {
     expect(devSessionBundle).toBe(wrap(entry, MOUNTS))
   })
 
+  // A copy adopts the roots its own mount made, and the hot update runtime
+  // fetches update chunks, so even a bundle with no imports gets both.
+  it('has the wrapper keep older roots and the public path in a dev session', () => {
+    const entry = writeDeclaredEntry()
+    const plain = 'var started = true\n'
+
+    for (const [wrapped, inSession] of [
+      [wrap(entry, plain), true],
+      [wrap(entry, plain, 'production'), false]
+    ] as const) {
+      expect(wrapped.includes('var __EXTENSIONJS_PRE_MOUNT_ROOTS = [];')).toBe(
+        inSession
+      )
+
+      expect(wrapped.includes('function __EXTENSIONJS_syncAssetBase(){')).toBe(
+        inSession
+      )
+    }
+  })
+
   it('keeps the host page instrumentation out of a MAIN world bundle', () => {
     const mainWorld = wrap(writeDeclaredEntry('MAIN'), MOUNTS)
 
@@ -265,4 +289,219 @@ describe('when the reload plugin adds the reinject runtime', () => {
       contentScriptReinject
     ])
   })
+})
+
+const strip = (value: string) =>
+  // eslint-disable-next-line no-control-regex
+  value.replace(/\u001b\[[0-9;]*m/g, '')
+
+function hintsFor(run: () => void, says: string): string[] {
+  const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+  try {
+    run()
+
+    return log.mock.calls
+      .map((call) => strip(call.map(String).join(' ')))
+      .filter((line) => line.includes(says))
+  } finally {
+    log.mockRestore()
+  }
+}
+
+// A declared entry that starts itself at import is cloned by every dev
+// re-inject, so the session says why once and names the file.
+describe('a declared content script with no default export', () => {
+  const selfStarting =
+    'const node = document.createElement("div")\ndocument.body.appendChild(node)\n'
+  const NO_DEFAULT = 'has no default export'
+
+  it('prints the cleanup hint once in a dev session and names the file', () => {
+    const entry = writeDeclaredEntry()
+    const hints = hintsFor(() => {
+      for (let save = 0; save < 3; save++) wrap(entry, selfStarting)
+    }, NO_DEFAULT)
+
+    expect(hints).toHaveLength(1)
+    expect(hints[0]).toContain('src/content/scripts.ts has no default export')
+    expect(hints[0]).toContain('Export a default function')
+    expect(hints[0]).toContain('returns a cleanup')
+    expect(hints[0]).toContain('whole-extension reload')
+    expect(hints[0]).toContain('data-extension-root')
+    expect(hints[0]).not.toContain('DOM event')
+  })
+
+  // Chromium keeps the old copy alive in the tab after a whole-extension
+  // reload, and Firefox drops its world, so each engine gets its own line.
+  it('says what a whole-extension reload does to the old copy per engine', () => {
+    const hintOn = (browser: string) => {
+      const entry = writeDeclaredEntry()
+      const hints = hintsFor(
+        () => wrap(entry, selfStarting, 'development', undefined, browser),
+        NO_DEFAULT
+      )
+
+      expect(hints).toHaveLength(1)
+
+      return hints[0]
+    }
+
+    for (const browser of ['chrome', 'edge', 'chromium']) {
+      const hint = hintOn(browser)
+
+      expect(hint).not.toContain("discards the old copy's code")
+      expect(hint).toContain(
+        'a whole-extension reload leaves the old copy running in the open tab beside the new one'
+      )
+
+      expect(hint).toContain('Reload the tab to end it')
+      expect(hint).toContain('chrome.runtime.id')
+      expect(hint).toContain('data-extension-root')
+    }
+
+    const firefox = hintOn('firefox')
+
+    expect(firefox).toContain(
+      "A whole-extension reload discards the old copy's code"
+    )
+
+    expect(firefox).not.toContain('beside the new one')
+    expect(firefox).toContain('data-extension-root')
+  })
+
+  it('says nothing for a script with a default export, or in a production build', () => {
+    const withDefault = writeDeclaredEntry()
+    const shipped = writeDeclaredEntry()
+
+    expect(
+      hintsFor(() => {
+        wrap(withDefault, MOUNTS)
+        wrap(shipped, selfStarting, 'production')
+      }, NO_DEFAULT)
+    ).toEqual([])
+  })
+})
+
+describe('the dev session hint for a default export the script also calls', () => {
+  const RUNS_TWICE = 'runs more than once'
+
+  function hintsOf(source: string, mode: string, saves = 1) {
+    const entry = writeDeclaredEntry()
+
+    fs.writeFileSync(entry.resourcePath, source)
+
+    return hintsFor(() => {
+      for (let save = 0; save < saves; save++) wrap(entry, source, mode)
+    }, RUNS_TWICE)
+  }
+
+  const CALLED_LATER =
+    'export default function main() {}\n' +
+    "document.addEventListener('DOMContentLoaded', () => {\n  main()\n})\n"
+
+  it('says once per file that the function runs more than once, and why it matters', () => {
+    expect(hintsOf(CALLED_LATER, 'development', 3)).toEqual([
+      '\u23f5\u23f5\u23f5 Warning: src/content/scripts.ts calls main() itself, and Extension.js also runs the default export once the page is ready, so main runs more than once.\n' +
+        'Only the run Extension.js starts has its cleanup called before the next copy in this dev session, so what the other run adds stays on the page.\n' +
+        'Remove the call if one run is what you want. Keep it if another run is intended, for example on a navigation event.'
+    ])
+  })
+
+  it('says nothing in a production build', () => {
+    expect(hintsOf(CALLED_LATER, 'production')).toEqual([])
+  })
+
+  it('says nothing when the only call is the top-level one it leaves out', () => {
+    expect(
+      hintsOf('export default function main() {}\nmain()\n', 'development')
+    ).toEqual([])
+  })
+
+  it('says nothing for a function that calls itself again, as a retry does', () => {
+    expect(
+      hintsOf(
+        'export default function main() {\n' +
+          '  if (!document.body) setTimeout(() => main(), 50)\n' +
+          '}\n',
+        'development'
+      )
+    ).toEqual([])
+  })
+})
+
+// The production half lives beside the wrapper: the same fixture there
+// ships none of this, which makes that a mode gate and not a deletion.
+describe('a dev session build of a content script', () => {
+  it('carries the reinject runtime in the emitted bundle', async () => {
+    const root = fs.realpathSync(
+      fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-reinject-build-'))
+    )
+    tempDirs.push(root)
+
+    const files: Record<string, string> = {
+      'package.json': JSON.stringify({
+        private: true,
+        name: 'extjs-reinject-build',
+        version: '0.0.0'
+      }),
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'payload',
+        version: '1.0.0',
+        content_scripts: [
+          {matches: ['https://example.com/*'], js: ['content/index.ts']}
+        ]
+      }),
+      'content/index.ts': 'console.log("CS_ONLY")\nexport {}\n'
+    }
+
+    for (const [relative, contents] of Object.entries(files)) {
+      fs.mkdirSync(path.dirname(path.join(root, relative)), {recursive: true})
+      fs.writeFileSync(path.join(root, relative), contents)
+    }
+
+    const distPath = path.join(root, 'dist', 'chrome')
+    const config = webpackConfig(await getProjectStructure(root), {
+      browser: 'chrome',
+      mode: 'development',
+      metadataCommand: 'dev',
+      silent: true,
+      output: {clean: true, path: distPath}
+    } as any)
+    config.plugins = (config.plugins || []).filter(
+      (plugin) =>
+        plugin?.constructor.name !== 'plugin-browsers' &&
+        plugin?.constructor.name !== 'plugin-playwright'
+    )
+
+    config.stats = false
+
+    const errors = await new Promise<string[]>((resolve, reject) => {
+      const compiler = rspack(config)
+
+      compiler.run((error, stats) => {
+        compiler.close(() => {
+          if (error) reject(error)
+          else resolve((stats?.compilation.errors || []).map((e) => e.message))
+        })
+      })
+    })
+
+    expect(errors).toEqual([])
+
+    // Development names the bundle by its hash, so find it by its entry.
+    const emitted = fs.readdirSync(path.join(distPath, 'content_scripts'))
+    const bundleName = emitted.find((entry) => /^content-0.*\.js$/.test(entry))
+
+    expect(bundleName, emitted.join(', ')).toBeTruthy()
+
+    const bundle = fs.readFileSync(
+      path.join(distPath, 'content_scripts', String(bundleName)),
+      'utf-8'
+    )
+
+    expect(bundle).toContain('__EXTENSIONJS_DEV_REINJECT__')
+    expect(bundle).toContain('data-extjs-reinject-owner')
+    expect(bundle).toContain('data-extjs-reinject-build')
+  }, 180_000)
 })

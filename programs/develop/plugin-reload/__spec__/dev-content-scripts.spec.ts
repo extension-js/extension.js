@@ -13,9 +13,36 @@ import {
   DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY,
   DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY,
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
+  devContentScriptCssMarkerAssetName,
+  devContentScriptSheetProbeAssetName,
+  devContentScriptStubAssetName,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
 import {SetupDevContentScripts} from '../steps/setup-dev-content-scripts'
+
+// The scripts contracts skip these by pattern, so a name this plugin builds
+// must keep matching it.
+describe('the files a dev session ships beside a content script', () => {
+  it('names one set per manifest group that the scripts contracts skip', () => {
+    expect([
+      devContentScriptStubAssetName(2),
+      devContentScriptCssMarkerAssetName(2),
+      devContentScriptSheetProbeAssetName(2)
+    ]).toEqual([
+      'content_scripts/dev-stub-2.js',
+      'content_scripts/dev-css-2.js',
+      'content_scripts/dev-sheet-2.css'
+    ])
+
+    for (const name of [
+      devContentScriptStubAssetName(0),
+      devContentScriptCssMarkerAssetName(12),
+      devContentScriptSheetProbeAssetName(2)
+    ]) {
+      expect(isDevContentScriptStandInAsset(name)).toBe(true)
+    }
+  })
+})
 
 describe('planDevContentScripts', () => {
   const manifest = (content_scripts: unknown, manifest_version = 3) =>
