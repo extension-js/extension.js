@@ -33,20 +33,24 @@ export function edgeEmbedsOptionsPage(
   return typeof page === 'string' && page.length > 0 && openInTab !== true
 }
 
-// Dev rebuilds the manifest on every save, so the line prints once a process.
-let reported = false
+// Dev rebuilds the manifest on every save, so each browser target gets
+// the line once a process and a second target is not silenced by the first.
+const reportedBrowsers = new Set<string>()
 
 export function reportEdgeEmbeddedOptions(
   manifest: Manifest,
   browser: DevOptions['browser']
 ): void {
-  if (reported || !edgeEmbedsOptionsPage(manifest, browser)) return
+  const target = String(browser)
 
-  reported = true
+  if (reportedBrowsers.has(target)) return
+  if (!edgeEmbedsOptionsPage(manifest, browser)) return
+
+  reportedBrowsers.add(target)
   humanLine(messages.edgeEmbeddedOptionsDialog())
 }
 
 // Tests drive the reporter repeatedly, so they need the latch cleared.
 export function resetEdgeOptionsNotice(): void {
-  reported = false
+  reportedBrowsers.clear()
 }

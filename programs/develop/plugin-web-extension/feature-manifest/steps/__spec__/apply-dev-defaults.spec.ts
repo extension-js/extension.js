@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {Compilation} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {UNSUPPORTED_PERMISSIONS as SAFARI_REJECTED_PERMISSIONS} from '../../manifest-lib/filter-keys-safari'
+import {setOriginalManifestContent} from '../../manifest-lib/manifest'
 import {
   ApplyDevDefaults,
   findInjectedOnlyPermissionUses
@@ -137,7 +138,8 @@ describe('ApplyDevDefaults', () => {
   function runDevDefaultsWithWarnings(
     manifest: Record<string, unknown>,
     browser: 'chrome' | 'firefox' | 'safari' = 'chrome',
-    modules: SpecModule[] = []
+    modules: SpecModule[] = [],
+    authored?: Record<string, unknown>
   ) {
     let updated: string | undefined
     const warnings: Array<{name: string; message: string}> = []
@@ -188,6 +190,11 @@ describe('ApplyDevDefaults', () => {
       },
       hooks: {processAssets: {tap: (_o: unknown, fn: () => void) => fn()}}
     } as unknown as Compilation
+
+    if (authored) {
+      setOriginalManifestContent(compilation, JSON.stringify(authored))
+    }
+
     const compiler = {
       options: {mode: 'development'},
       hooks: {
@@ -335,6 +342,75 @@ describe('ApplyDevDefaults', () => {
       expect(drift).toHaveLength(1)
       expect(drift[0].message).toContain('optional_permissions')
       expect(drift[0].message).toContain('"storage"')
+    } finally {
+      fs.rmSync(dir, {recursive: true, force: true})
+    }
+  })
+
+  it('names the prefixed key that replaced the list the permission is in', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-shadow-'))
+    const storage = path.join(dir, 'background.js')
+    const tabs = path.join(dir, 'tabs.js')
+    fs.writeFileSync(storage, 'chrome.storage.local.get("k")\n')
+    fs.writeFileSync(
+      tabs,
+      'chrome.tabs.query({}, (t) => console.log(t[0].url))\n'
+    )
+
+    try {
+      const run = (authored?: Record<string, unknown>) =>
+        runDevDefaultsWithWarnings(
+          {manifest_version: 3, name: 'x', permissions: ['sidePanel']},
+          'chrome',
+          [{resource: storage}, {resource: tabs}],
+          authored
+        )
+          .warnings.filter((w) => w.name === 'DevInjectedPermissionWarning')
+          .map((w) => w.message)
+
+      const replaced = run({
+        manifest_version: 3,
+        name: 'x',
+        permissions: ['storage', 'tabs'],
+        'chromium:permissions': ['sidePanel']
+      })
+
+      expect(replaced).toHaveLength(2)
+
+      for (const [index, api] of ['storage', 'tabs'].entries()) {
+        expect(replaced[index]).toContain(
+          `manifest.json lists the "${api}" permission under permissions, ` +
+            'and chromium:permissions replaces that key in the chrome build. ' +
+            'A prefixed key replaces the unprefixed one for that browser and ' +
+            'does not merge with it'
+        )
+
+        expect(replaced[index]).toContain(
+          `Add "${api}" to chromium:permissions in manifest.json.`
+        )
+
+        expect(replaced[index]).not.toContain('does not declare')
+      }
+
+      const plain = run({
+        manifest_version: 3,
+        name: 'x',
+        permissions: ['sidePanel']
+      })
+
+      expect(plain).toHaveLength(2)
+
+      for (const [index, api] of ['storage', 'tabs'].entries()) {
+        expect(plain[index]).toContain(
+          `manifest.json does not declare the "${api}" permission, but `
+        )
+
+        expect(plain[index]).toContain(
+          `Add "${api}" to permissions in manifest.json.`
+        )
+      }
+
+      expect(run()).toEqual(plain)
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }

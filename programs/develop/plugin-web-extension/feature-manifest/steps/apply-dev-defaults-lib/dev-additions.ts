@@ -23,6 +23,8 @@ const RESOURCE_REASONS: Record<string, string> = {
     'a content script reads the control port again after the dev server restarts'
 }
 
+const UNSAFE_EVAL = "'unsafe-eval'"
+
 const HOST_REASON =
   'a content script matches it, and the dev reload injects the rebuilt script into open tabs on save'
 
@@ -38,6 +40,9 @@ interface ManifestGrants {
   permissions?: unknown
   host_permissions?: unknown
   web_accessible_resources?: unknown
+  content_security_policy?: unknown
+  externally_connectable?: unknown
+  background?: unknown
 }
 
 interface ResourceGrant {
@@ -61,6 +66,89 @@ function resourceGrants(manifest: ManifestGrants): ResourceGrant[] {
 
 function grantKey(grant: ResourceGrant): string {
   return JSON.stringify([grant.resource, grant.matches ?? null])
+}
+
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+// The policy extension pages run under: the whole string on Manifest V2,
+// the extension_pages slot on Manifest V3.
+function pagesPolicy(manifest: ManifestGrants): string {
+  const policy = manifest.content_security_policy
+  if (typeof policy === 'string') return policy
+
+  const pages = record(policy).extension_pages
+
+  return typeof pages === 'string' ? pages : ''
+}
+
+function backgroundEntry(manifest: ManifestGrants): string | undefined {
+  const background = record(manifest.background)
+  const scripts = strings(background.scripts)
+
+  if (typeof background.service_worker === 'string') {
+    return `background.service_worker ${background.service_worker}`
+  }
+
+  if (scripts.length) return `background.scripts ${scripts.join(' ')}`
+
+  return typeof background.page === 'string'
+    ? `background.page ${background.page}`
+    : undefined
+}
+
+// The dev-only changes that are no grant list: a looser pages policy, an
+// opened connect list, a background kept alive, a background added.
+function listManifestChanges(
+  source: ManifestGrants,
+  dev: ManifestGrants
+): DevAddition[] {
+  const changes: DevAddition[] = []
+  const change = (value: string, reason: string) =>
+    changes.push({kind: 'manifest_change', value, reason})
+
+  if (
+    pagesPolicy(dev).includes(UNSAFE_EVAL) &&
+    !pagesPolicy(source).includes(UNSAFE_EVAL)
+  ) {
+    change(
+      `content_security_policy ${UNSAFE_EVAL}`,
+      'the dev build of a Manifest V2 extension opens script-src to eval, blob and filesystem sources for the dev runtime'
+    )
+  }
+
+  const sourceConnectable = record(source.externally_connectable)
+  const devIds = strings(record(dev.externally_connectable).ids)
+
+  if (devIds.includes('*') && !strings(sourceConnectable.ids).includes('*')) {
+    change(
+      'externally_connectable.ids *',
+      'externally_connectable without ids closes the extension to every other extension, so the dev build reopens it'
+    )
+  }
+
+  const sourceEntry = backgroundEntry(source)
+  const devEntry = backgroundEntry(dev)
+
+  if (!sourceEntry && devEntry) {
+    change(
+      devEntry,
+      'the manifest declares no background, and the dev reload and the control bridge run in one'
+    )
+  } else if (
+    record(dev.background).persistent === true &&
+    record(source.background).persistent === false
+  ) {
+    change(
+      'background.persistent true',
+      'an event page idles out and takes the dev control channel with it'
+    )
+  }
+
+  return changes
 }
 
 // What the dev manifest holds that the manifest it was patched from does not.
@@ -111,5 +199,5 @@ export function listDevManifestAdditions(
     })
   }
 
-  return additions
+  return [...additions, ...listManifestChanges(source, dev)]
 }

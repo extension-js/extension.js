@@ -51,4 +51,24 @@ describe('Edge embedded options notice', () => {
     expect(text).toContain('edge:options_ui')
     expect(text).toContain('"open_in_tab": true')
   })
+
+  it('keeps one latch per browser target, so another target never spends it', () => {
+    const lines: string[] = []
+    vi.spyOn(console, 'log').mockImplementation((line) => {
+      lines.push(String(line))
+    })
+
+    reportEdgeEmbeddedOptions(embedded as any, 'chrome')
+    reportEdgeEmbeddedOptions(embedded as any, 'firefox')
+    expect(lines).toEqual([])
+
+    reportEdgeEmbeddedOptions(embedded as any, 'edge')
+    reportEdgeEmbeddedOptions(embedded as any, 'chrome')
+    reportEdgeEmbeddedOptions(embedded as any, 'edge')
+    expect(lines).toHaveLength(1)
+
+    resetEdgeOptionsNotice()
+    reportEdgeEmbeddedOptions(embedded as any, 'edge')
+    expect(lines).toHaveLength(2)
+  })
 })
