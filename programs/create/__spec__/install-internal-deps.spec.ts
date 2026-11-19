@@ -910,7 +910,7 @@ describe('installInternalDependencies', () => {
     expect(plain(error.message)).toContain(
       "Couldn't install the dependencies.\n" +
         'COMMAND npm install react-refresh @rspack/plugin-react-refresh --save-optional --legacy-peer-deps\n' +
-        'EXIT null\n' +
+        'EXIT timed out\n' +
         'REASON The install did not finish within 1800 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)\n' +
         'still resolving\n' +
         'The new project files were removed.'

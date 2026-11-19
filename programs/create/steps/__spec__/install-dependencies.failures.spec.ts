@@ -168,7 +168,7 @@ describe('installDependencies failure paths', () => {
     expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies.\n" +
         'COMMAND pnpm install\n' +
-        'EXIT null\n' +
+        'EXIT timed out\n' +
         'REASON The install did not finish within 5 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)\n' +
         'Corepack is about to download pnpm. Continue? [Y/n]\n' +
         'The new project files were removed. Fix the error above, then run ' +
@@ -179,6 +179,23 @@ describe('installDependencies failure paths', () => {
     expect(install.errors).toEqual([])
     // A timeout is not a missing version, so nothing runs a second time.
     expect(install.calls).toHaveLength(1)
+  })
+
+  it('names the signal that ended the install on the EXIT row', async () => {
+    await writePackageJson({extension: '4.1.30'})
+    const install = installWith(() => ({
+      exit: null,
+      signal: 'SIGKILL',
+      stderr: 'Killed\n'
+    }))
+
+    const failure = await installFailure(install.run('npm'))
+
+    expect(failure.frame.split('\n').slice(1, 4)).toEqual([
+      'COMMAND npm install',
+      'EXIT ended by SIGKILL',
+      'REASON Killed'
+    ])
   })
 
   it('keeps the timeout in the frame when the hung install wrote more than the frame holds', async () => {

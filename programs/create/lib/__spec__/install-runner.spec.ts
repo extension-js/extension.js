@@ -103,6 +103,14 @@ describe('install-runner runInstall', () => {
     })
   })
 
+  it('answers the signal that ended a child that has no exit code', async () => {
+    const {spawn} = fakeSpawn(() => ({exit: null, signal: 'SIGKILL'}))
+
+    await expect(
+      runInstall('npm', ['install'], {cwd: os.tmpdir(), stdio: 'pipe', spawn})
+    ).resolves.toEqual({code: null, signal: 'SIGKILL', stdout: '', stderr: ''})
+  })
+
   it('tee writes each stream through as it arrives and still captures it', async () => {
     const {spawn, calls} = fakeSpawn(() => ({
       exit: 1,
