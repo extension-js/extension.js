@@ -9,6 +9,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Command} from 'commander'
+import {browserArtifactsDir} from '../../develop/lib/session-contract'
 import {
   isChromiumBrowser,
   isFirefoxBrowser
@@ -88,11 +89,8 @@ export function readRecentConsole(
   target: {context?: string; tabId?: number},
   limit: number
 ): unknown[] {
-  const file = path.resolve(
-    projectPath,
-    'dist',
-    'extension-js',
-    browser,
+  const file = path.join(
+    browserArtifactsDir(projectPath, browser),
     'logs.ndjson'
   )
   let lines: string[]

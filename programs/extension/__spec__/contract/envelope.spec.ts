@@ -148,10 +148,10 @@ describe('the schema-1 result envelope', () => {
     expect(frame.hint).toBe('session hint')
   })
 
-  it('keeps every declared code a distinct E_ identifier', () => {
+  it('keeps every declared code a distinct E_ or W_ identifier', () => {
     const values = Object.values(CODES)
     expect(new Set(values).size).toBe(values.length)
-    for (const code of values) expect(code).toMatch(/^E_[A-Z0-9_]+$/)
+    for (const code of values) expect(code).toMatch(/^[EW]_[A-Z0-9_]+$/)
   })
 
   it('pins the schema version so a bump is a deliberate edit', () => {

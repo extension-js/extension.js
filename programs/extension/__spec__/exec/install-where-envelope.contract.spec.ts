@@ -172,7 +172,7 @@ describe('uninstall under --output json against a temp cache root', () => {
     expect(fs.existsSync(path.join(cacheRoot, 'chrome'))).toBe(false)
   })
 
-  it('warns E_UNINSTALL_NOOP when the browser was never there', async () => {
+  it('warns W_UNINSTALL_NOOP when the browser was never there', async () => {
     const result = await run(['uninstall', 'edge', '--output', 'json'], {
       EXT_BROWSERS_CACHE_DIR: cacheRoot
     })
@@ -182,7 +182,7 @@ describe('uninstall under --output json against a temp cache root', () => {
     expect(frame.ok).toBe(true)
     expect(frame.status).toBe('noop')
     expect(frame.warnings).toEqual([
-      'E_UNINSTALL_NOOP: Nothing to remove for edge.'
+      'W_UNINSTALL_NOOP: Nothing to remove for edge.'
     ])
 
     const value = frame.value as {

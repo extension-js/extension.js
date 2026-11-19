@@ -182,7 +182,7 @@ describe('setupCdpAfterLaunch', () => {
     expect(getInfoBestEffortSpy).toHaveBeenCalled()
   })
 
-  it('stamps a load that timed out as E_CDP_TIMEOUT on a contract that stays ready', async () => {
+  it('stamps a load that timed out as W_CDP_TIMEOUT on a contract that stays ready', async () => {
     vi.useFakeTimers()
 
     try {
@@ -224,7 +224,7 @@ describe('setupCdpAfterLaunch', () => {
 
       const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
       expect(ready.status).toBe('ready')
-      expect(ready.cdpFaultCode).toBe('E_CDP_TIMEOUT')
+      expect(ready.cdpFaultCode).toBe('W_CDP_TIMEOUT')
       expect(ready.cdpFaultMessage).toBe('ensureLoaded timeout (10000ms)')
     } finally {
       vi.useRealTimers()

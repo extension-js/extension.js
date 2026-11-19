@@ -320,7 +320,7 @@ describe('build: a silent build keeps its warnings off stderr (real rspack)', ()
     expect(built.stderr).toBe('')
     expect(
       (built.summary?.warnings || []).filter((text) =>
-        text.startsWith('E_PROD_LOOPBACK_ORIGIN:')
+        text.startsWith('W_PROD_LOOPBACK_ORIGIN:')
       )
     ).toHaveLength(1)
   }, 120_000)
@@ -369,7 +369,7 @@ describe('build: a failed build keeps its coded warnings (real rspack)', () => {
     expect(built.failure?.code).toBe('E_COMPILE')
     expect(warned(built.failure)).toHaveLength(1)
     expect(warned(built.failure)[0]).toMatch(
-      /^E_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core /
+      /^W_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core /
     )
   }, 120_000)
 
@@ -387,7 +387,7 @@ describe('build: a failed build keeps its coded warnings (real rspack)', () => {
 
     expect(built.failure?.code).toBe('E_COMPILE_FATAL')
     expect(warned(built.failure)).toHaveLength(1)
-    expect(warned(built.failure)[0]).toMatch(/^E_MANAGED_DEP_CONFLICT: /)
+    expect(warned(built.failure)[0]).toMatch(/^W_MANAGED_DEP_CONFLICT: /)
   }, 120_000)
 
   it('adds no list to a failure that carried on past nothing', async () => {

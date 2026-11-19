@@ -164,7 +164,7 @@ describe('dev --no-browser with a named companion that is not there', () => {
 
       const coded = framesIn<{warnings?: string[]}>(session.read().stdout)
         .flatMap((frame) => frame.warnings ?? [])
-        .filter((warning) => warning.startsWith('E_COMPANION_EXTENSION_PATH'))
+        .filter((warning) => warning.startsWith('W_COMPANION_EXTENSION_PATH'))
 
       expect(coded).toHaveLength(1)
       expect(coded[0]).toContain('ENTRY ./extensions/not-there')

@@ -12,6 +12,7 @@ import {compilationDiagnostics} from '../lib/compilation-diagnostics'
 import {isUsageLaunchCode} from '../lib/launch-codes'
 import {
   CODES,
+  cdpFaultWarningCode,
   type Diagnostic,
   ENVELOPE,
   type Envelope,
@@ -116,14 +117,11 @@ function stampedLaunchFailureCode(
 // The launcher keeps a session whose CDP wire failed alive and ready and names
 // the fault on the contract, so the ready frame carries it as a coded warning.
 function cdpFaultWarnings(ready: Record<string, unknown> | null): string[] {
-  const code = ready?.cdpFaultCode
+  const stamped = ready?.cdpFaultCode
+  if (typeof stamped !== 'string' || !stamped.trim()) return []
 
-  if (
-    typeof code !== 'string' ||
-    !Object.prototype.hasOwnProperty.call(CODES, code)
-  ) {
-    return []
-  }
+  // An older launcher stamped the E_ name, and a warning never carries one.
+  const code = cdpFaultWarningCode(stamped.trim())
 
   const message =
     typeof ready?.cdpFaultMessage === 'string' && ready.cdpFaultMessage.trim()
@@ -282,7 +280,7 @@ export class LifecycleStream {
     this.startingEmitted = true
     const warnings = reassigned
       ? [
-          `${CODES.E_PORT_IN_USE}: port ${requestedPort} was taken, ` +
+          `${CODES.W_PORT_IN_USE}: port ${requestedPort} was taken, ` +
             `so the dev server listens on port ${port}`
         ]
       : []
@@ -314,7 +312,7 @@ export class LifecycleStream {
     const warnings =
       assets === 0 && toFiniteNumber(args.entrypoints) === 0
         ? [
-            `${CODES.E_NO_ENTRYPOINTS}: the compilation produced no entrypoints or assets`
+            `${CODES.W_NO_ENTRYPOINTS}: the compilation produced no entrypoints or assets`
           ]
         : []
 
@@ -365,7 +363,7 @@ export class LifecycleStream {
         truncated: outputTruncated || args.diagnosticsTruncated === true,
         warnings: launchWithheld
           ? [
-              `${CODES.E_LAUNCH_SKIPPED_COMPILE_ERRORS}: the browser launch is withheld until the compile succeeds`
+              `${CODES.W_LAUNCH_SKIPPED_COMPILE_ERRORS}: the browser launch is withheld until the compile succeeds`
             ]
           : []
       }

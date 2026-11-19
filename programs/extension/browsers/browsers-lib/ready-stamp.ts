@@ -14,7 +14,7 @@ import {
   releaseHeldReady,
   sessionArtifactsRootDirBesideBuild
 } from '../../../develop/lib/session-contract'
-import {stripChannelPrefix} from '../../helpers/messaging'
+import {cdpFaultWarningCode, stripChannelPrefix} from '../../helpers/messaging'
 import {pidStartedAtIso} from './resolve-live-pid'
 import {writeJsonAtomic} from './write-json-atomic'
 
@@ -754,7 +754,8 @@ export function stampReadyCdpFault(
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     if (isForeignRun(ready, runId)) return
 
-    ready.cdpFaultCode = code
+    // The session carried on, so the fault reads under a warning name.
+    ready.cdpFaultCode = cdpFaultWarningCode(code)
     ready.cdpFaultMessage =
       String(detail || '').trim() || 'the CDP wire failed after launch'
 

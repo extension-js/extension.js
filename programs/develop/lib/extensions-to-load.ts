@@ -301,7 +301,7 @@ export function scannedCompanionsOutsideProject(input: {
       outside.push({
         manifestPath: link,
         frame,
-        coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+        coded: `${CODES.W_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
       })
     }
   }
@@ -393,7 +393,7 @@ export function unresolvedNamedCompanions(input: {
       unresolved.push({
         manifestPath: folder,
         frame,
-        coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+        coded: `${CODES.W_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
       })
     }
   }
@@ -421,7 +421,7 @@ export function unresolvedNamedCompanions(input: {
     unresolved.push({
       manifestPath,
       frame,
-      coded: `${CODES.E_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
+      coded: `${CODES.W_COMPANION_EXTENSION_PATH}: ${stripChannelPrefix(frame)}`
     })
   }
 

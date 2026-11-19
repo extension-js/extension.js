@@ -303,7 +303,7 @@ describe('build --output json on a project whose config loads a managed package'
     expect(frame.status).toBe('built')
     expect(frame.warnings).toHaveLength(1)
     expect(frame.warnings[0]).toMatch(
-      /^E_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core \(Extension\.js ships \S+\)\.$/
+      /^W_MANAGED_DEP_CONFLICT: extension\.config\.js loads its own copy of @rspack\/core \(Extension\.js ships \S+\)\.$/
     )
 
     const [summary] = frame.value.summaries

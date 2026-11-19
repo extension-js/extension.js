@@ -475,8 +475,13 @@ function prepareImportMetaEnv(absolutePath: string): void {
     // The previous shim serialized every variable into a file under os.tmpdir().
   }
 
+  // Copying lists every name, which is not a read by the config itself.
+  const reads = [...activeEnvReads]
+  activeEnvReads.clear()
+  const snapshot = Object.freeze({...process.env})
+  for (const entry of reads) activeEnvReads.add(entry)
   ;(globalThis as Record<string, unknown>)[IMPORT_META_ENV_GLOBAL] =
-    Object.freeze({...process.env})
+    recordingEnv(snapshot)
 
   if (importMetaEnvHookRegistered) return
 
@@ -537,18 +542,115 @@ function isConfigLoadError(error: unknown): boolean {
   return (error as {code?: unknown} | null)?.code === CODES.E_CONFIG_LOAD
 }
 
-// Keyed by the file and the env file values it is read under. The mode and
-// the browser reach a config only through those files, so they are the key.
-const loadedConfigCache = new Map<string, Promise<FileConfig>>()
+// The env names one evaluation read and the value each had. `all` means it
+// listed process.env, so any changed value could have changed its answer.
+type EnvReads = {all: boolean; values: Map<string, string | undefined>}
+
+type ConfigEvaluation = {
+  reads: EnvReads
+  envAtStart: string
+  loading: Promise<FileConfig>
+}
+
+// Each file's evaluations, newest first. A run reuses one whose read names
+// still hold the same values, so side effects run again only when they must.
+const configEvaluationsByPath = new Map<string, ConfigEvaluation[]>()
 
 // How many times each config file ran to the end, so a later run under other
 // env values is a fresh evaluation and not Node's cached module.
 const configEvaluations = new Map<string, number>()
 
-function preloadedEnvFingerprint(): string {
-  return JSON.stringify(
-    [...preloadedEnvValues].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  )
+// Every evaluation in flight. Two at once cannot tell whose read is whose, so
+// both then count as reading every name, which only costs a rerun.
+const activeEnvReads = new Set<EnvReads>()
+let realProcessEnv: NodeJS.ProcessEnv | undefined
+let recordingProcessEnv: NodeJS.ProcessEnv | undefined
+
+function recordEnvRead(key: string | symbol, value: unknown): void {
+  if (typeof key !== 'string') return
+
+  for (const reads of activeEnvReads) {
+    if (reads.values.has(key)) continue
+
+    reads.values.set(key, value === undefined ? undefined : String(value))
+  }
+}
+
+// Reads go through to the object below and are written down on the way.
+function recordingEnv<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(env, key) {
+      const value = Reflect.get(env, key)
+      recordEnvRead(key, value)
+
+      return value
+    },
+    has(env, key) {
+      recordEnvRead(key, Reflect.get(env, key))
+
+      return Reflect.has(env, key)
+    },
+    getOwnPropertyDescriptor(env, key) {
+      recordEnvRead(key, Reflect.get(env, key))
+
+      return Reflect.getOwnPropertyDescriptor(env, key)
+    },
+    ownKeys(env) {
+      for (const reads of activeEnvReads) reads.all = true
+
+      return Reflect.ownKeys(env)
+    },
+    set(env, key, value) {
+      ;(env as Record<string | symbol, unknown>)[key] = value
+
+      return true
+    }
+  })
+}
+
+function envFingerprint(): string {
+  return JSON.stringify(Object.entries(process.env).sort())
+}
+
+function stillHolds(evaluation: ConfigEvaluation): boolean {
+  if (evaluation.reads.all) return envFingerprint() === evaluation.envAtStart
+
+  for (const [key, value] of evaluation.reads.values) {
+    if (process.env[key] !== value) return false
+  }
+
+  return true
+}
+
+// process.env is swapped only while the file evaluates, then put back.
+async function evaluateRecordingEnvReads(
+  run: () => Promise<FileConfig>
+): Promise<{value: FileConfig; reads: EnvReads}> {
+  const reads: EnvReads = {all: false, values: new Map()}
+
+  if (activeEnvReads.size === 0) {
+    realProcessEnv = process.env
+    recordingProcessEnv = recordingEnv(realProcessEnv)
+    process.env = recordingProcessEnv
+  } else {
+    reads.all = true
+    for (const other of activeEnvReads) other.all = true
+  }
+
+  activeEnvReads.add(reads)
+
+  try {
+    return {value: await run(), reads}
+  } finally {
+    activeEnvReads.delete(reads)
+
+    if (activeEnvReads.size === 0 && realProcessEnv) {
+      if (process.env === recordingProcessEnv) process.env = realProcessEnv
+
+      realProcessEnv = undefined
+      recordingProcessEnv = undefined
+    }
+  }
 }
 
 // Four loaders each report before rethrowing, so one bad config printed the
@@ -628,11 +730,20 @@ async function loadConfigFile(
     preloadEnvFiles(path.dirname(absolutePath), order)
     envOrderByConfigPath.set(absolutePath, order)
 
-    const cacheKey = `${absolutePath}\0${preloadedEnvFingerprint()}`
-    const cached = loadedConfigCache.get(cacheKey)
-    if (cached) return cached
+    const earlier = configEvaluationsByPath.get(absolutePath) || []
+    const reusable = earlier.find(stillHolds)
+    if (reusable) return reusable.loading
 
-    const loading = loadConfigFileUncached(absolutePath).then((value) => {
+    const evaluation: ConfigEvaluation = {
+      reads: {all: true, values: new Map()},
+      envAtStart: envFingerprint(),
+      loading: Promise.resolve(undefined as unknown as FileConfig)
+    }
+
+    evaluation.loading = evaluateRecordingEnvReads(() =>
+      loadConfigFileUncached(absolutePath)
+    ).then(({value, reads}) => {
+      evaluation.reads = reads
       assertConfigShape(absolutePath, value)
       configEvaluations.set(
         absolutePath,
@@ -641,11 +752,17 @@ async function loadConfigFile(
 
       return value
     })
-    loadedConfigCache.set(cacheKey, loading)
 
-    return loading.catch((error: unknown) => {
+    configEvaluationsByPath.set(absolutePath, [evaluation, ...earlier])
+
+    return evaluation.loading.catch((error: unknown) => {
       // Don't poison the cache with a transient failure.
-      loadedConfigCache.delete(cacheKey)
+      configEvaluationsByPath.set(
+        absolutePath,
+        (configEvaluationsByPath.get(absolutePath) || []).filter(
+          (entry) => entry !== evaluation
+        )
+      )
 
       throw error
     })
