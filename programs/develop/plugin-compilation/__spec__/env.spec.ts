@@ -12,6 +12,7 @@ import {
   toJsStringLiteral
 } from '../env'
 import {
+  type CompileOptions,
   compile,
   createCompiler,
   makeTempRoot,
@@ -61,7 +62,7 @@ async function firstWatchBuild(compiler: Compiler): Promise<Stats> {
 async function build(root: string, options: BuildOptions = {}) {
   const context = options.context || root
   const outputPath = path.join(root, 'out')
-  const compileOptions = {
+  const compileOptions: CompileOptions = {
     context,
     outputPath,
     mode: options.mode || 'development',
@@ -74,7 +75,7 @@ async function build(root: string, options: BuildOptions = {}) {
       }),
       ...(options.extraPlugins || [])
     ]
-  } as const
+  }
   const stats: Stats = options.watch
     ? await firstWatchBuild(createCompiler(compileOptions))
     : await compile(compileOptions)
