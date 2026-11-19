@@ -1,5 +1,5 @@
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   compileFiles,
   idleCompiler,
@@ -10,6 +10,15 @@ import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {SetupChunkLoadingTarget} from '../index'
 
 const makeTempFolder = trackTempFolders()
+
+// The gate reads the variable, so no value from the shell reaches a test.
+beforeEach(() => {
+  vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
+})
+
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
 
 const manifest = {
   manifest_version: 3,
@@ -25,8 +34,12 @@ function project(files: Record<string, string | object>) {
   return {root, manifestPath: path.join(root, 'manifest.json')}
 }
 
-function target(manifestPath: string) {
-  return new SetupChunkLoadingTarget({manifestPath, browser: 'chrome'})
+function target(manifestPath: string, devSession?: boolean) {
+  return new SetupChunkLoadingTarget({
+    manifestPath,
+    browser: 'chrome',
+    devSession
+  })
 }
 
 // What the target installs, read off an idle compiler: the taps it adds
@@ -34,10 +47,13 @@ function target(manifestPath: string) {
 function installed(
   manifestPath: string,
   mode: 'development' | 'production',
-  entry: Record<string, {import: string[]}> = {}
+  entry: Record<string, {import: string[]}> = {},
+  devSession?: boolean
 ) {
   const compiler = idleCompiler(path.dirname(manifestPath), mode, entry)
-  const taps = tapsAddedBy(compiler, () => target(manifestPath).apply(compiler))
+  const taps = tapsAddedBy(compiler, () =>
+    target(manifestPath, devSession).apply(compiler)
+  )
 
   return {
     taps,
@@ -74,12 +90,46 @@ describe('SetupChunkLoadingTarget', () => {
     })
   })
 
-  // Dev registers the same target through SetupReloadStrategy. Applying both
-  // would install the runtime module twice.
-  it('stays out of the way in development, where the reload strategy owns it', () => {
+  // A reload session registers the same target through SetupReloadStrategy.
+  // Applying both would install it twice.
+  it('stays out of the way in a reload session, where the reload strategy owns it', () => {
     const {manifestPath} = project({'manifest.json': manifest})
 
     expect(installed(manifestPath, 'development').taps).toEqual({})
+    expect(installed(manifestPath, 'development', {}, true).taps).toEqual({})
+  })
+
+  const INSTALLED = {
+    compilation: ['ChunkLoaderRuntime', 'ChunkLoadingTarget'],
+    thisCompilation: ['NoDangerNamePlugin'],
+    environment: ['ChunkLoadingTarget']
+  }
+
+  // No reload plugin runs for these builds, so nothing else would replace
+  // the loader that cannot reach an isolated world.
+  it('installs the target for a development build with no session', () => {
+    const {manifestPath} = project({'manifest.json': manifest})
+
+    expect(installed(manifestPath, 'development', {}, false).taps).toEqual(
+      INSTALLED
+    )
+  })
+
+  it('installs the target for a dev session with reload turned off', () => {
+    const {manifestPath} = project({'manifest.json': manifest})
+    vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
+
+    expect(installed(manifestPath, 'development', {}, true).taps).toEqual(
+      INSTALLED
+    )
+  })
+
+  it('installs the target in production whatever the session says', () => {
+    const {manifestPath} = project({'manifest.json': manifest})
+
+    expect(installed(manifestPath, 'production', {}, true).taps).toEqual(
+      INSTALLED
+    )
   })
 
   it('never runs without a readable manifest', () => {

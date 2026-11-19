@@ -1,12 +1,16 @@
 import {describe, expect, it} from 'vitest'
 import {
   CANONICAL_CONTENT_SCRIPT_ENTRY_PREFIX,
+  devContentScriptCssMarkerAssetName,
+  devContentScriptSheetProbeAssetName,
+  devContentScriptStubAssetName,
   EXTENSIONJS_CONTENT_SCRIPT_LAYER,
   getCanonicalContentScriptCssAssetName,
   getCanonicalContentScriptEntryName,
   getCanonicalContentScriptJsAssetName,
   isCanonicalContentScriptAsset,
   isCanonicalContentScriptEntryName,
+  isDevContentScriptStandInAsset,
   parseCanonicalContentScriptAsset,
   parseCanonicalContentScriptEntryIndex
 } from '../contracts'
@@ -99,5 +103,42 @@ describe('feature-scripts contract helpers', () => {
     expect(
       isCanonicalContentScriptAsset('content_scripts/content-0.abcdef12.js')
     ).toBe(true)
+  })
+
+  it('names the files a dev session ships beside a content script', () => {
+    expect(devContentScriptStubAssetName(2)).toBe(
+      'content_scripts/dev-stub-2.js'
+    )
+
+    expect(devContentScriptCssMarkerAssetName(2)).toBe(
+      'content_scripts/dev-css-2.js'
+    )
+
+    expect(devContentScriptSheetProbeAssetName(2)).toBe(
+      'content_scripts/dev-sheet-2.css'
+    )
+  })
+
+  it('tells a dev session file from a content script bundle', () => {
+    for (const name of [
+      devContentScriptStubAssetName(0),
+      devContentScriptCssMarkerAssetName(12),
+      devContentScriptSheetProbeAssetName(2)
+    ]) {
+      expect(isDevContentScriptStandInAsset(name)).toBe(true)
+    }
+
+    for (const name of [
+      'content_scripts/content-2.css',
+      'content_scripts/content-2.js',
+      'content_scripts/dev-registry.json',
+      'content_scripts/dev-sheet-2.js',
+      'content_scripts/dev-stub-2.css',
+      'content_scripts/dev-stub-.js',
+      'nested/content_scripts/dev-stub-2.js',
+      'content_scripts/dev-stub-2.js.map'
+    ]) {
+      expect(isDevContentScriptStandInAsset(name)).toBe(false)
+    }
   })
 })

@@ -41,7 +41,7 @@ real compiler takes per mode and browser.
 9. `TraceRuntimeLoadedFiles`
 10. `KeepGetURLImportsNative`
 11. `AddContentScriptWrapper`
-12. `AddPublicPathRuntimeModule` (production only)
+12. `AddPublicPathRuntimeModule` (every build outside a reload session)
 13. `AddBaseUriRuntimeModule`
 14. `PruneMainWorldBridges` (production only)
 15. `ValidateEmittedScriptSyntax`
@@ -59,7 +59,7 @@ real compiler takes per mode and browser.
 ## Important files
 
 - `contracts.ts`
-  Defines the canonical content-script entry and asset names like `content_scripts/content-0.js`.
+  Defines the canonical content-script entry and asset names like `content_scripts/content-0.js`, and the names of the files a dev session ships beside them (`dev-stub-N.js`, `dev-css-N.js`, `dev-sheet-N.css`) with `isDevContentScriptStandInAsset`, so a feature here can skip them without importing `plugin-reload`.
 
 - `steps/add-scripts.ts`
   Reads manifest script fields, validates paths, creates Rspack entries, and synthesizes a sequential data-url entry when a single content-script group declares multiple files.
@@ -78,7 +78,7 @@ real compiler takes per mode and browser.
   Keeps `import(chrome.runtime.getURL(...))` a native `import()` in the emitted bundle.
 
 - `steps/add-public-path-runtime-module.ts`
-  Injects the production public-path runtime module for content bundles. In a dev session the public path comes from `feature-chunk-loading` instead.
+  Injects the public-path runtime module for content bundles in a production build, a development build with no session and a dev session with reload turned off. In a reload session the public path comes from `feature-chunk-loading` instead, and `isReloadSession` in `lib/reload-session.ts` is the answer both read.
 
 - `steps/validate-emitted-script-syntax.ts`
   Fails loudly on syntax errors swc tolerates but browsers silently refuse to inject.
