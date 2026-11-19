@@ -23,10 +23,10 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    // Integration specs build real example projects under examples/.../dist.
-    // Run in a single worker to avoid cross-spec interference on those folders.
+    // Every fixture lives in its own temp folder, so files run side by side.
+    // Windows runners have less memory per build, so they get one worker less.
     pool: 'forks',
-    maxWorkers: 1,
+    maxWorkers: process.platform === 'win32' ? 2 : 3,
     testTimeout: 30000,
     hookTimeout: 45000,
     include: [
@@ -42,8 +42,11 @@ export default defineConfig({
       'plugin-*/**/__spec__/**/*.spec.jsx'
     ],
     // One temp folder for the whole run, removed when the run ends.
-    globalSetup: ['../../scripts/lib/spec-temp-folder.mjs'],
-    setupFiles: ['__spec__/setup/cleanup.ts'],
+    globalSetup: [
+      '../../scripts/lib/spec-temp-folder.mjs',
+      '__spec__/setup/leftover-folders.ts'
+    ],
+    setupFiles: ['__spec__/setup/quiet-output.ts'],
     // coverage disabled
     exclude: [
       '**/node_modules/**',
