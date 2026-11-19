@@ -1,5 +1,6 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {
   maybeUseVue,
@@ -112,6 +113,33 @@ describe('maybeUseVue', () => {
       '@vue/runtime-core': esm('@vue/runtime-core'),
       '@vue/shared': esm('@vue/shared')
     })
+  })
+
+  it('leaves a flag the project defines to the project, through the define option', async () => {
+    const root = vueThreeProject()
+    const result = await maybeUseVue(root, 'production', {
+      __VUE_OPTIONS_API__: false
+    })
+    const flagsPlugin = result?.plugins?.[1] as unknown as VueFeatureFlagsPlugin
+    const compiler = rspack({mode: 'production', context: root, entry: {}})
+
+    flagsPlugin.apply(compiler)
+
+    const ours = (
+      compiler as unknown as {
+        __internal__builtinPlugins: Array<{name: string; options: object}>
+      }
+    ).__internal__builtinPlugins.filter(
+      (plugin) =>
+        plugin.name === 'DefinePlugin' &&
+        '__VUE_PROD_DEVTOOLS__' in plugin.options
+    )
+
+    expect(ours).toHaveLength(1)
+    expect(Object.keys(ours[0].options).sort()).toEqual([
+      '__VUE_PROD_DEVTOOLS__',
+      '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__'
+    ])
   })
 
   it('turns the production devtools flags off in a production build', async () => {
