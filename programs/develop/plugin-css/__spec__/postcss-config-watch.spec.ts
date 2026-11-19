@@ -8,7 +8,7 @@ import {CssPlugin} from '../index'
 import {cssProjects} from './helpers/css-project'
 
 const makeProject = cssProjects()
-const WARN = '⏵⏵⏵'
+const WARN = '⏵⏵⏵ Warning:'
 
 interface Build {
   css: string

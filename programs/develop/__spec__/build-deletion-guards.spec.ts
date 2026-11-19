@@ -15,12 +15,13 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-// The message without its colors and without the channel glyph at its head.
+// The message without its colors and without the channel glyph, and the
+// severity word a plain stream gets after it, at its head.
 const plain = (text: unknown) =>
   String(text)
     // eslint-disable-next-line no-control-regex
     .replace(/\u001b\[[0-9;]*m/g, '')
-    .replace(/^\S+ /, '')
+    .replace(/^\S+ (?:(?:Warning|Error): )?/, '')
 
 // The project sits one level down, so the folder above it is ours to fill.
 function project(config?: string) {
