@@ -141,7 +141,7 @@ describe('create scaffolds from a ZIP template URL', {timeout: 30_000}, () => {
       '/starter.zip': {
         body: zipOf({
           'starter/manifest.json': manifest,
-          'README.md': '# starter\n',
+          'NOTES.md': '# starter notes\n',
           LICENSE: 'MIT\n'
         })
       }
@@ -158,7 +158,7 @@ describe('create scaffolds from a ZIP template URL', {timeout: 30_000}, () => {
       true
     )
 
-    expect(await fsp.readFile(path.join(dest, 'README.md'), 'utf8')).toContain(
+    expect(await fsp.readFile(path.join(dest, 'NOTES.md'), 'utf8')).toContain(
       'starter'
     )
 

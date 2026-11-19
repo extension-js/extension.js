@@ -722,6 +722,8 @@ function getArchiveBaseName(url: string): string {
   return fileName.slice(0, -4)
 }
 
+const ARCHIVER_METADATA = new Set(['__MACOSX', '.DS_Store'])
+
 async function getZipSourcePath(
   tempPath: string,
   templateUrl: string
@@ -735,12 +737,27 @@ async function getZipSourcePath(
     return tempPath
   }
 
-  const dirs = entries.filter((entry) => entry.isDirectory())
-  if (dirs.length !== 1) return tempPath
+  // What macOS adds when it packs a folder is no part of the template.
+  const packed: typeof entries = []
 
-  const onlyDir = dirs[0]
-  // Common release archives wrap files in <name>.<browser>/.
-  if (onlyDir.name === archiveBase) return path.join(tempPath, onlyDir.name)
+  for (const entry of entries) {
+    if (ARCHIVER_METADATA.has(entry.name)) {
+      await fs.rm(path.join(tempPath, entry.name), {
+        recursive: true,
+        force: true
+      })
+    } else {
+      packed.push(entry)
+    }
+  }
+
+  // Common release archives wrap files in <name>.<browser>/. A folder with
+  // files beside it is part of the template, so the root is kept whole.
+  const [only] = packed
+
+  if (packed.length === 1 && only.isDirectory() && only.name === archiveBase) {
+    return path.join(tempPath, only.name)
+  }
 
   return tempPath
 }
