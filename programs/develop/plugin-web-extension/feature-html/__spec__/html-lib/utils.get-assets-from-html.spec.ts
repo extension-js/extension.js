@@ -1,11 +1,16 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it} from 'vitest'
 import {evictAssetsFromHtmlCache, getAssetsFromHtml} from '../../html-lib/utils'
 
 describe('getAssetsFromHtml', () => {
-  const tmp = path.join(__dirname, '.tmp-utils')
-  fs.mkdirSync(tmp, {recursive: true})
+  const created = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-html-utils-'))
+  const tmp = fs.realpathSync(created)
+
+  afterAll(() => {
+    fs.rmSync(created, {recursive: true, force: true})
+  })
 
   it('throws when the HTML file is missing instead of reporting an empty page', () => {
     expect(() => getAssetsFromHtml(path.join(tmp, 'missing.html'))).toThrow()

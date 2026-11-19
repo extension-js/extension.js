@@ -81,6 +81,10 @@ function text(value: unknown): string {
   return typeof value === 'string' ? value : ''
 }
 
+export function isKnownDiagnosticName(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(NAMED_CODES, name)
+}
+
 export function diagnosticName(issue: unknown): string | undefined {
   const err = (issue ?? {}) as IssueLike
   const own = text(err.name)

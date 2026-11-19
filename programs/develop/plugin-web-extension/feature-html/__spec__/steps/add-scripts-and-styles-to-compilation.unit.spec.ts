@@ -1,14 +1,22 @@
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {AddScriptsAndStylesToCompilation} from '../../steps/add-scripts-and-styles-to-compilation'
 
-function makeTmp(name: string) {
-  const tmp = path.join(__dirname, `.tmp-${name}`)
-  fs.rmSync(tmp, {recursive: true, force: true})
-  fs.mkdirSync(tmp, {recursive: true})
+const tmpRoots: string[] = []
 
-  return tmp
+afterAll(() => {
+  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
+})
+
+function makeTmp(name: string) {
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-scripts-styles-${name}-`)
+  )
+  tmpRoots.push(created)
+
+  return fs.realpathSync(created)
 }
 
 describe('AddScriptsAndStylesToCompilation', () => {

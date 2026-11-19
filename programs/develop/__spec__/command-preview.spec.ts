@@ -48,6 +48,11 @@ vi.mock('../plugin-special-folders/get-data', () => ({
 }))
 
 vi.mock('../lib/extensions-to-load', () => ({
+  companionsDeclaredIn: vi.fn(),
+  namedCompanionFoldersInsideProject: vi.fn(() => []),
+  companionScanDirInsideProject: vi.fn(),
+  scannedCompanionsOutsideProject: vi.fn(() => []),
+  unresolvedNamedCompanions: vi.fn(() => []),
   computeExtensionsToLoad: vi.fn(() => ['/theme', '/comp/a', '/out'])
 }))
 
@@ -753,6 +758,8 @@ describe('webpack/command-preview (run-only)', () => {
       'preview_manifest_missing',
       expect.stringContaining('Expected manifest at')
     )
+
+    expect(metadataWriter.writeError).toHaveBeenCalledTimes(1)
   })
 
   it.each([
@@ -770,18 +777,28 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview(
+    // The listener is added once per process, so this reads a fresh module.
+    const fresh = await import('../command-preview')
+
+    await fresh.extensionPreview(
       '/proj',
       {browser: 'chrome', metadataCommand} as any,
       runOnlyPreviewBrowser
     )
 
-    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(1)
+    await fresh.extensionPreview(
+      '/proj',
+      {browser: 'chrome', metadataCommand} as any,
+      runOnlyPreviewBrowser
+    )
+
+    expect(metadataWriter.writeReady).toHaveBeenCalledTimes(2)
     expect(metadataWriter.writeShutdown).not.toHaveBeenCalled()
     expect(exitHandlers).toHaveLength(1)
 
     exitHandlers[0]()
 
+    expect(metadataWriter.writeShutdown).toHaveBeenCalledTimes(1)
     expect(metadataWriter.writeShutdown).toHaveBeenCalledWith(
       `the ${label} session ended`
     )
@@ -800,7 +817,9 @@ describe('webpack/command-preview (run-only)', () => {
       return false
     })
 
-    await extensionPreview(
+    const fresh = await import('../command-preview')
+
+    await fresh.extensionPreview(
       '/proj',
       {browser: 'chrome', noBrowser: true} as any,
       runOnlyPreviewBrowser
@@ -1020,7 +1039,8 @@ describe('webpack/command-preview (run-only)', () => {
 
     expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
       '/proj',
-      'preview'
+      'preview',
+      {mode: 'production', browser: 'chrome'}
     )
   })
 
@@ -1045,7 +1065,8 @@ describe('webpack/command-preview (run-only)', () => {
 
     expect(configLoaderMod.loadCommandConfig).toHaveBeenCalledWith(
       '/proj',
-      'start'
+      'start',
+      {mode: 'production', browser: 'chrome'}
     )
 
     const call = runOnlyPreviewBrowser.mock.calls[0]?.[0] as any
