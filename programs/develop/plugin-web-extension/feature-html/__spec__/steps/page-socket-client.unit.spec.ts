@@ -47,6 +47,12 @@ describe('pageSocketUrl', () => {
     )
   })
 
+  it('keeps the session socket path the dev client dials', () => {
+    expect(
+      pageSocketUrl('ws://127.0.0.1:8080/ws/session-1', '/options/index.html')
+    ).toBe('ws://127.0.0.1:8080/ws/session-1?page=%2Foptions%2Findex.html')
+  })
+
   it('keeps the URL as given when there is no page path', () => {
     expect(pageSocketUrl('ws://h:1/ws', undefined)).toBe('ws://h:1/ws')
   })
