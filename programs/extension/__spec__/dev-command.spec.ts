@@ -1088,26 +1088,27 @@ describe('extension dev when the --parent-pid owner goes away', () => {
     expect(process.exit).not.toHaveBeenCalled()
   })
 
-  it('frames the failure itself and signals itself before any session is live', async () => {
+  // Before the engine loads nothing is there to tear down, so the run ends
+  // with its own exit code and never reaches the engine.
+  it.each([
+    ['under --output json', ['--output', 'json'], 1],
+    ['in pretty mode', [], 0]
+  ])('exits 1 with no signal when the owner is gone before any session %s', async (_name, flags, frameCount) => {
     parentAlive = false
 
-    expect(
-      await runWithRealWatchdog([
-        'dev',
-        '.',
-        '--parent-pid',
-        '4242',
-        '--output',
-        'json'
+    await runWithRealWatchdog(['dev', '.', '--parent-pid', '4242', ...flags])
+
+    expect(terminalFrames()).toHaveLength(frameCount)
+
+    if (frameCount > 0) {
+      expect(terminalFrames()).toMatchObject([
+        {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}}
       ])
-    ).toBe(0)
+    }
 
-    expect(terminalFrames()).toMatchObject([
-      {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}}
-    ])
-
-    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
-    expect(drainedExits).toEqual([])
+    expect(kill).not.toHaveBeenCalled()
+    expect(drainedExits).toEqual([1])
+    expect(sessionLive).toBe(false)
   })
 })
 

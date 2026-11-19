@@ -70,7 +70,7 @@ describe('setupParentWatchdog', () => {
     )
 
     expect(order).toEqual([
-      `log: [Extension.js] Parent process ${DEAD_PID} is gone (--parent-pid). Shutting down.`,
+      `log: ⏵⏵⏵ Error: Parent process ${DEAD_PID} is gone (--parent-pid). Shutting down.`,
       'frame',
       'shutdown'
     ])
