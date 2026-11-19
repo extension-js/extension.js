@@ -318,6 +318,10 @@
       "area": "dev-server",
       "summary": "A live dev session already owns this project and browser, so the new session was refused."
     },
+    "E_SHUTDOWN_TIMEOUT": {
+      "area": "dev-server",
+      "summary": "The dev session did not stop within its shutdown bound, so the process ended anyway with exit code 1."
+    },
     "E_READY_TIMEOUT": {
       "area": "ready",
       "summary": "--wait expired before the session became ready."

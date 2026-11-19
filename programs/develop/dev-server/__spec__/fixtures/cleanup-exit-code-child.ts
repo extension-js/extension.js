@@ -1,4 +1,5 @@
 import {setupCleanupHandlers} from '../../cleanup'
+import {createLifecycleStream} from '../../lifecycle-stream'
 import type {PortManager} from '../../port-manager'
 
 const portManager = {
@@ -10,17 +11,37 @@ const mode = process.argv[2]
 // A server whose stop never settles, as a hung watcher or socket leaves it.
 const hungServer = {stop: () => new Promise<void>(() => {})}
 
+const hangs = mode === 'hang' || mode === 'hang-auto-exit'
+
+// The stream writes only under EXTENSION_OUTPUT=json, as the CLI sets it.
+const lifecycle = createLifecycleStream({
+  command: 'dev',
+  browser: 'chromium',
+  distPath: 'dist/chromium'
+})
+lifecycle.starting({requestedPort: 0, port: 0})
+lifecycle.emitOnExit()
+
 setupCleanupHandlers(
-  () => (mode === 'hang' ? (hungServer as never) : null),
+  () => (hangs ? (hungServer as never) : null),
   portManager,
   undefined,
-  mode === 'hang' ? {shutdownTimeoutMs: 300} : {}
+  hangs
+    ? {
+        shutdownTimeoutMs: 300,
+        onShutdownTimedOut: (timeoutMs, exitCode) => {
+          lifecycle.shutdownTimedOut(timeoutMs, exitCode)
+        }
+      }
+    : {}
 )
 
 // Nothing else keeps this process alive, and closeAll's own timer ends it.
 const keepAlive = setInterval(() => {}, 1000)
 
-if (mode === 'throw') {
+if (mode === 'hang-auto-exit') {
+  // EXTENSION_AUTO_EXIT_MS starts the stop, no signal and no frame before it.
+} else if (mode === 'throw') {
   setTimeout(() => {
     throw new Error('dev session blew up')
   }, 10)
