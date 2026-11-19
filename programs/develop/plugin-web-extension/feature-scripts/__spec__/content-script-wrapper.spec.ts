@@ -13,7 +13,8 @@ afterEach(() => {
 })
 
 function createTempProject() {
-  const dir = fs.realpathSync(
+  // The native form also expands short Windows names such as RUNNER~1.
+  const dir = fs.realpathSync.native(
     fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wrapper-'))
   )
   tempDirs.push(dir)
