@@ -223,9 +223,8 @@ export class CompileMainWorldScripts {
   }
 }
 
-// The parent hashes content bundles in dev so a reinject never serves a
-// URL-cached copy, and leaves every other entry name alone; asking the
-// parent's own resolver keeps a child bundle on that contract.
+// In dev the parent names content bundles by their hash and leaves other
+// entry names alone, so a child bundle asks the parent's own resolver.
 function outputFilenameFor(compiler: Compiler, entryName: string): string {
   const filename = compiler.options.output?.filename
 
