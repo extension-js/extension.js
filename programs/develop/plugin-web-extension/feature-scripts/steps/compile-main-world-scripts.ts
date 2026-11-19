@@ -283,6 +283,16 @@ async function compileGroup(
   compilation: Compilation,
   group: MainWorldEntry
 ): Promise<void> {
+  // AddScripts already names a deleted file and its field. Watched here, so
+  // the group builds again once the file is written back.
+  const gone = group.files.filter((file) => !fs.existsSync(file))
+
+  if (gone.length > 0) {
+    for (const file of gone) compilation.missingDependencies.add(file)
+
+    return
+  }
+
   const request =
     group.files.length > 1
       ? createSequentialEntryModule(group.entryName, group.files)
@@ -361,6 +371,11 @@ async function compileGroup(
 
           for (const dep of childCompilation.contextDependencies) {
             compilation.contextDependencies.add(dep)
+          }
+
+          // An import that failed to resolve builds again when it returns.
+          for (const dep of childCompilation.missingDependencies) {
+            compilation.missingDependencies.add(dep)
           }
         } catch {
           // Ignore, watch registration is best-effort
