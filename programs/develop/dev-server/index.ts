@@ -1178,6 +1178,9 @@ async function startDevSession(
         isShuttingDown = true
         sessionRestart.dispose()
         unbindDevSessionRestart(sessionRestart)
+      },
+      onShutdownTimedOut: (timeoutMs, exitCode) => {
+        lifecycle.shutdownTimedOut(timeoutMs, exitCode)
       }
     }
   )

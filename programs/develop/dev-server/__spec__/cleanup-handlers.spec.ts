@@ -162,6 +162,66 @@ describe('setupCleanupHandlers', () => {
     }
   })
 
+  it('hands the bound to the timed-out hook before the forced exit', async () => {
+    vi.useFakeTimers()
+    const order: string[] = []
+    const onShutdownTimedOut = vi.fn(() => {
+      order.push('hook')
+    })
+    const s = hangingSession({
+      env: {EXTENSION_AUTO_EXIT_MS: '1000'},
+      onShutdownTimedOut,
+      exit: () => {
+        order.push('exit')
+      }
+    })
+
+    await vi.advanceTimersByTimeAsync(1000 + SHUTDOWN_TIMEOUT_MS - 1)
+    expect(onShutdownTimedOut).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onShutdownTimedOut.mock.calls).toEqual([
+      [SHUTDOWN_TIMEOUT_MS, FORCED_SHUTDOWN_EXIT_CODE]
+    ])
+
+    expect(order).toEqual(['hook', 'exit'])
+    expect(s.stop).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps exit code 1 when the timed-out hook throws', async () => {
+    vi.useFakeTimers()
+    const s = hangingSession({
+      onShutdownTimedOut: () => {
+        throw new Error('closed pipe')
+      }
+    })
+
+    s.events.emit('SIGTERM', 'SIGTERM')
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS)
+
+    expect(s.exit.mock.calls).toEqual([[FORCED_SHUTDOWN_EXIT_CODE]])
+  })
+
+  it('leaves a crash its own verdict when the stop after it hangs', async () => {
+    vi.useFakeTimers()
+    const onShutdownTimedOut = vi.fn()
+    const errors = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const exitCode = process.exitCode
+
+    try {
+      const s = hangingSession({onShutdownTimedOut})
+
+      s.events.emit('uncaughtException', new Error('dev session blew up'))
+      await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS)
+
+      expect(s.exit.mock.calls).toEqual([[FORCED_SHUTDOWN_EXIT_CODE]])
+      expect(onShutdownTimedOut).not.toHaveBeenCalled()
+    } finally {
+      errors.mockRestore()
+      process.exitCode = exitCode
+    }
+  })
+
   it('ends the process at once on a second signal while stop is pending', async () => {
     vi.useFakeTimers()
     const s = hangingSession()

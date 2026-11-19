@@ -547,6 +547,23 @@ export class LifecycleStream {
     return this.emit(frame)
   }
 
+  // A stop that passed its bound ends the process from a timer, and the exit
+  // alone could not tell that from a crash.
+  public shutdownTimedOut(
+    timeoutMs: number,
+    exitCode: number
+  ): Envelope<unknown> | null {
+    if (!this.startingEmitted) return null
+
+    const frame = ENVELOPE.fail(this.options.command, 'failed', {
+      code: CODES.E_SHUTDOWN_TIMEOUT,
+      message: `The ${this.options.command} session did not stop within ${timeoutMs} ms, so the process exits with code ${exitCode}.`
+    }) as Envelope<unknown>
+    frame.value = this.sessionValue({exitCode, shutdownTimeoutMs: timeoutMs})
+
+    return this.emit(frame)
+  }
+
   public emitOnExit(): () => void {
     const onExit = (code: number) => {
       try {
