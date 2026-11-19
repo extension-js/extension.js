@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
-import {workspaceRootOf} from '../plugin-css/css-lib/inline-css-imports'
+import {workspaceRootOf} from '../plugin-special-folders/public-private-files'
 import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const SUITE_ROOT = fs.mkdtempSync(
@@ -128,7 +128,7 @@ async function buildFixture(root: string) {
 // The rows with no marker need none above the temp folder either, or the
 // walk would find that one and read the shared folder as a sibling.
 function expectNoWorkspaceAbove(root: string) {
-  expect(workspaceRootOf(root)).toBe(fs.realpathSync.native(root))
+  expect(workspaceRootOf(root)).toBe(fs.realpathSync(root))
 }
 
 afterAll(() => {
@@ -196,7 +196,9 @@ describe('build: a web_accessible_resources file outside the project root shares
       expect(sheet).not.toContain(CHROMIUM_EXTENSION_ROOT)
       expect(
         (summary.warnings ?? []).filter((warning) =>
-          warning.includes('url(../../../shared/outside-picture.png)')
+          warning.includes(
+            '../../../shared/outside-picture.png is not bundled.'
+          )
         )
       ).toHaveLength(1)
 
