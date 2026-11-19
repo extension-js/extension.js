@@ -544,7 +544,7 @@ describe('installInternalDependencies', () => {
     const frame = plain(String(error.message))
 
     expect(frame.split('\n').slice(0, 2)).toEqual([
-      "⏵⏵⏵ Couldn't read the template's package.json.",
+      "⏵⏵⏵ Error: Couldn't read the template's package.json.",
       `PATH ${manifestPath}`
     ])
 
@@ -584,7 +584,7 @@ describe('installInternalDependencies', () => {
 
     expect(asked).toEqual(['npm'])
     expect(frame.split('\n').slice(0, 3)).toEqual([
-      `⏵⏵⏵ Couldn't install the dependencies for ${path.basename(projectRoot)}.`,
+      `⏵⏵⏵ Error: Couldn't install the dependencies for ${path.basename(projectRoot)}.`,
       'REASON Error: spawn npm ENOENT',
       'The install process exited unexpectedly.'
     ])

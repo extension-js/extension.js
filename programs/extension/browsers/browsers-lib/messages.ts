@@ -43,8 +43,8 @@ type PackageJson = {
 // Keep CJS `require` for JSON / dynamic loads (avoid import-assertions in toolchains)
 const require = createRequire(import.meta.url)
 
-function getLoggingPrefix(type: Channel): string {
-  return prefix(type)
+function getLoggingPrefix(type: Channel, text?: string): string {
+  return prefix(type, text)
 }
 
 function errorDetail(error: unknown) {
@@ -2257,7 +2257,7 @@ export function firefoxInspectSourceNonFatal(message: string) {
 }
 
 export function browserRunnerError(body: string) {
-  return `${getLoggingPrefix('error')} ${body}`
+  return `${getLoggingPrefix('error', body)} ${body}`
 }
 
 export function requireChromiumBinaryForChromiumBased() {

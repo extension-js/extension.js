@@ -154,7 +154,7 @@ describe('a perfBudgets value of the wrong type is refused', () => {
     ).toEqual({
       code: 'E_CONFIG_LOAD',
       message:
-        '⏵⏵⏵ perfBudgets.ignore in extension.config.js must be an array of strings, found the string "assets/*.wasm".\n' +
+        '⏵⏵⏵ Error: perfBudgets.ignore in extension.config.js must be an array of strings, found the string "assets/*.wasm".\n' +
         'PATH /project/extension.config.js\n' +
         "List each output path or glob as its own entry, for example ignore: ['assets/*.wasm']."
     })
@@ -162,7 +162,7 @@ describe('a perfBudgets value of the wrong type is refused', () => {
 
   it('refuses ignore as a number or as an array holding a non-string', () => {
     expect(thrownBy(() => resolvePerfBudgets({ignore: 5})).message).toBe(
-      '⏵⏵⏵ perfBudgets.ignore in extension.config.js must be an array of strings, found the number 5.\n' +
+      '⏵⏵⏵ Error: perfBudgets.ignore in extension.config.js must be an array of strings, found the number 5.\n' +
         "List each output path or glob as its own entry, for example ignore: ['assets/*.wasm']."
     )
 
@@ -184,7 +184,7 @@ describe('a perfBudgets value of the wrong type is refused', () => {
       {
         code: 'E_CONFIG_LOAD',
         message:
-          `⏵⏵⏵ perfBudgets.public in extension.config.js must be a finite number of bytes above 0, found ${found}.\n` +
+          `⏵⏵⏵ Error: perfBudgets.public in extension.config.js must be a finite number of bytes above 0, found ${found}.\n` +
           'PATH /project/extension.config.js\n' +
           "Write the budget in bytes, for example 'public': 2 * 1024 * 1024. To stop budgeting a file, list it under perfBudgets.ignore."
       }
@@ -193,7 +193,7 @@ describe('a perfBudgets value of the wrong type is refused', () => {
 
   it('refuses a perfBudgets that is not an object', () => {
     expect(thrownBy(() => resolvePerfBudgets(5)).message).toBe(
-      '⏵⏵⏵ perfBudgets in extension.config.js must be an object, found the number 5.\n' +
+      '⏵⏵⏵ Error: perfBudgets in extension.config.js must be an object, found the number 5.\n' +
         'Write one budget in bytes per category, for example perfBudgets: {wasm: 48 * 1024 * 1024}.'
     )
   })
@@ -257,7 +257,7 @@ describe('perfBudgets.onExceed', () => {
     ).toEqual({
       code: 'E_CONFIG_LOAD',
       message:
-        `⏵⏵⏵ perfBudgets.onExceed in extension.config.js must be 'warn' or 'error', found ${found}.\n` +
+        `⏵⏵⏵ Error: perfBudgets.onExceed in extension.config.js must be 'warn' or 'error', found ${found}.\n` +
         'PATH /project/extension.config.js\n' +
         "Write onExceed: 'error' to fail the build when a file is over its budget, or leave it out to keep the warning."
     })
@@ -328,7 +328,7 @@ describe('a perfBudgets key nothing reads', () => {
 
     expect(compilation.warnings).toEqual([])
     expect(printed.mock.calls.map(lineOf)).toEqual([
-      '⏵⏵⏵ perfBudgets in extension.config.js declares a key nothing reads: publc.\n' +
+      '⏵⏵⏵ Warning: perfBudgets in extension.config.js declares a key nothing reads: publc.\n' +
         'Accepted keys are content-script, service-worker, page, shared, public, runtime, wasm, ignore, onExceed.'
     ])
   })
@@ -392,7 +392,7 @@ describe('commands.dev.perfBudgets', () => {
 
     expect(compilationTaps).toEqual([])
     expect(printed.mock.calls.map(lineOf)).toEqual([
-      '⏵⏵⏵ commands.dev.perfBudgets in extension.config.js has no effect: size budgets are checked on a production build only.\n' +
+      '⏵⏵⏵ Warning: commands.dev.perfBudgets in extension.config.js has no effect: size budgets are checked on a production build only.\n' +
         `PATH ${configPath}\n` +
         'Move it to commands.build.perfBudgets or to the top-level perfBudgets.'
     ])

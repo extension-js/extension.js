@@ -63,7 +63,7 @@ describe('ensureUserProjectDependencies', () => {
     expect(error.code).toBe('E_DEPENDENCY_INSTALL')
     expect(stripVTControlCharacters(error.message)).toBe(
       [
-        `⏵⏵⏵ Couldn't install the project dependencies with ${manager}.`,
+        `⏵⏵⏵ Error: Couldn't install the project dependencies with ${manager}.`,
         `${manager} exited with code 1. The ${manager} error is printed above.`,
         `Fix it, or run ${manager} install yourself, then run the command again.`
       ].join('\n')
@@ -99,7 +99,7 @@ describe('ensureUserProjectDependencies', () => {
     expect(error.code).toBe('E_DEPENDENCY_INSTALL')
     expect(stripVTControlCharacters(error.message)).toBe(
       [
-        `⏵⏵⏵ Couldn't install the project dependencies with ${manager}.`,
+        `⏵⏵⏵ Error: Couldn't install the project dependencies with ${manager}.`,
         `This project installs with ${manager}, but ${manager} is not on PATH.`,
         step
       ].join('\n')
@@ -118,7 +118,7 @@ describe('ensureUserProjectDependencies', () => {
 
     expect(stripVTControlCharacters(error.message)).toBe(
       [
-        "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+        "⏵⏵⏵ Error: Couldn't install the project dependencies with pnpm.",
         'pnpm could not start (spawn pnpm EACCES).',
         'Fix it, or run pnpm install yourself, then run the command again.'
       ].join('\n')
@@ -162,7 +162,7 @@ describe('ensureUserProjectDependencies', () => {
     expect(error.code).toBe('E_DEPENDENCY_INSTALL')
     expect(stripVTControlCharacters(error.message)).toBe(
       [
-        `⏵⏵⏵ Couldn't install the project dependencies with ${manager}.`,
+        `⏵⏵⏵ Error: Couldn't install the project dependencies with ${manager}.`,
         cause,
         `Check that the registry serves ${manager} and can be reached, or set COREPACK_NPM_REGISTRY to one that does.`,
         'The Corepack error is printed above.'
@@ -199,7 +199,7 @@ describe('ensureUserProjectDependencies', () => {
     }
 
     const head = [
-      "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+      "⏵⏵⏵ Error: Couldn't install the project dependencies with pnpm.",
       'Corepack could not download pnpm from http://registry.test (HTTP 404), so pnpm never started.'
     ]
     const tail = [
@@ -475,8 +475,8 @@ describe('ensureUserProjectDependencies', () => {
       expect(
         warnings().filter((line) => line.includes('Retrying the install'))
       ).toEqual([
-        '⏵⏵⏵ The registry lists stubx-dep@1.0.1 but is not serving its tarball yet. Retrying the install in 5 seconds (attempt 2 of 4).',
-        '⏵⏵⏵ The registry lists stubx-dep@1.0.1 but is not serving its tarball yet. Retrying the install in 10 seconds (attempt 3 of 4).'
+        '⏵⏵⏵ Warning: The registry lists stubx-dep@1.0.1 but is not serving its tarball yet. Retrying the install in 5 seconds (attempt 2 of 4).',
+        '⏵⏵⏵ Warning: The registry lists stubx-dep@1.0.1 but is not serving its tarball yet. Retrying the install in 10 seconds (attempt 3 of 4).'
       ])
     })
 
@@ -496,7 +496,7 @@ describe('ensureUserProjectDependencies', () => {
       expect(error.code).toBe('E_DEPENDENCY_INSTALL')
       expect(stripVTControlCharacters(error.message)).toBe(
         [
-          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          "⏵⏵⏵ Error: Couldn't install the project dependencies with pnpm.",
           'The registry lists stubx-dep@1.0.1 but is not serving its tarball yet.',
           'A new release takes a minute or two to reach the whole registry. Extension.js tried 4 times over 35 seconds.',
           'Run the command again in a minute. The pnpm error is printed above.'
@@ -518,7 +518,7 @@ describe('ensureUserProjectDependencies', () => {
       expect(execInstallCommand).toHaveBeenCalledTimes(2)
       expect(stripVTControlCharacters(error.message)).toBe(
         [
-          "⏵⏵⏵ Couldn't install the project dependencies with npm.",
+          "⏵⏵⏵ Error: Couldn't install the project dependencies with npm.",
           'A dependency asks for stubx-late@^4.0.3, which the registry does not list yet.',
           'A new release takes a minute or two to reach the whole registry. Extension.js tried 2 times over 1 second.',
           'Run the command again in a minute. The npm error is printed above.'
@@ -594,7 +594,7 @@ describe('ensureUserProjectDependencies', () => {
         'deno',
         'deno-age-direct',
         [
-          "⏵⏵⏵ Couldn't install the project dependencies with deno.",
+          "⏵⏵⏵ Error: Couldn't install the project dependencies with deno.",
           'Deno refuses releases younger than its minimum dependency age, and the newest release matching stubx-late@^4.0.3 is too young.',
           'Wait until the release is old enough, pin the previous version, or set minimumDependencyAge in deno.json.',
           'The deno error is printed above.'
@@ -604,7 +604,7 @@ describe('ensureUserProjectDependencies', () => {
         'deno',
         'deno-age-transitive',
         [
-          "⏵⏵⏵ Couldn't install the project dependencies with deno.",
+          "⏵⏵⏵ Error: Couldn't install the project dependencies with deno.",
           'Deno refuses releases younger than its minimum dependency age, and the newest release matching stubx-late@^4.0.3 is too young.',
           'Wait until the release is old enough, pin the previous version, or set minimumDependencyAge in deno.json.',
           'The deno error is printed above.'
@@ -614,7 +614,7 @@ describe('ensureUserProjectDependencies', () => {
         'pnpm',
         'pnpm-age-direct',
         [
-          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          "⏵⏵⏵ Error: Couldn't install the project dependencies with pnpm.",
           'pnpm refuses releases younger than minimumReleaseAge allows, and stubx-late@4.0.3 is too young.',
           'Wait until the release is old enough, pin the previous version, or add the package to the minimumReleaseAgeExclude setting.',
           'The pnpm error is printed above.'
@@ -624,7 +624,7 @@ describe('ensureUserProjectDependencies', () => {
         'pnpm',
         'pnpm10-age-transitive',
         [
-          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          "⏵⏵⏵ Error: Couldn't install the project dependencies with pnpm.",
           'pnpm refuses releases younger than minimumReleaseAge allows, and stubx-late@4.0.3 is too young.',
           'Wait until the release is old enough, pin the previous version, or add the package to the minimumReleaseAgeExclude setting.',
           'The pnpm error is printed above.'
@@ -663,7 +663,7 @@ describe('ensureUserProjectDependencies', () => {
       expect(error.code).toBe('E_DEPENDENCY_INSTALL')
       expect(stripVTControlCharacters(error.message)).toBe(
         [
-          "⏵⏵⏵ Couldn't install the project dependencies with pnpm.",
+          "⏵⏵⏵ Error: Couldn't install the project dependencies with pnpm.",
           'pnpm exited with code 1. The pnpm error is printed above.',
           'Fix it, or run pnpm install yourself, then run the command again.'
         ].join('\n')

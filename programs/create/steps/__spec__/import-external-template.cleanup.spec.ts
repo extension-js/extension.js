@@ -193,7 +193,7 @@ describe('a create that fails partway in an existing folder', () => {
 
       // One frame on the error, nothing logged, the copy failure as its cause.
       expect(frame.split('\n')[0]).toBe(
-        "⏵⏵⏵ Couldn't find the template template."
+        "⏵⏵⏵ Error: Couldn't find the template template."
       )
 
       expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)

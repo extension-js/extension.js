@@ -209,7 +209,7 @@ describe('a failed create leaves nothing half-personalized on disk', {
       )
 
       expect(lines.slice(0, 2)).toEqual([
-        `${GLYPH} Couldn't read the template's package.json.`,
+        `${GLYPH} Error: Couldn't read the template's package.json.`,
         `PATH ${path.join(projectPath, 'package.json')}`
       ])
 
@@ -247,7 +247,10 @@ describe('a failed create leaves nothing half-personalized on disk', {
         )
       )
 
-      expect(lines[0]).toBe(`${GLYPH} Couldn't install the dependencies.`)
+      expect(lines[0]).toBe(
+        `${GLYPH} Error: Couldn't install the dependencies.`
+      )
+
       expect(frame).toContain('REASON npm error code ECONNREFUSED')
       // The claim the install frame makes is no longer true, so it is gone.
       expect(frame).not.toContain('The new project files were removed')
@@ -286,7 +289,7 @@ describe('a failed create leaves nothing half-personalized on disk', {
 
       expect(error.name).toBe('TemplateNotFoundError')
       expect(lines[0]).toBe(
-        `${GLYPH} The template not-in-the-catalog is not in the extension-js/templates catalog.`
+        `${GLYPH} Error: The template not-in-the-catalog is not in the extension-js/templates catalog.`
       )
 
       expect(lines.slice(-2)).toEqual([
@@ -331,7 +334,10 @@ describe('a failed create leaves nothing half-personalized on disk', {
         )
       )
 
-      expect(lines[0]).toBe(`${GLYPH} Couldn't install the dependencies.`)
+      expect(lines[0]).toBe(
+        `${GLYPH} Error: Couldn't install the dependencies.`
+      )
+
       expect(frame).not.toContain('The new project files were removed')
       expect(lines.slice(-4)).toEqual([
         "Couldn't remove the new project files. Delete what is left before you create again.",
