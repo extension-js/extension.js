@@ -235,7 +235,7 @@ describe('a dev session reports itself while it is still running', () => {
     // What develop prints for this failure, pinned so reporting it can never
     // add a line, repeat one or print a stack.
     const printed =
-      '⏵⏵⏵ Dev mode failed.\n' +
+      '⏵⏵⏵ Error: Dev mode failed.\n' +
       "Couldn't load extension.config.js.\n" +
       `PATH ${join(projectDir, 'extension.config.js')}\n` +
       'config exploded on purpose\n' +

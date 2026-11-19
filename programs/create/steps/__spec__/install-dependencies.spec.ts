@@ -153,7 +153,7 @@ describe('installDependencies', () => {
     // The file is named and the parse error is the cause, not the thing thrown.
     expect(error.name).toBe('Error')
     expect(frame.slice(0, 2)).toEqual([
-      "⏵⏵⏵ Couldn't read the template's package.json.",
+      "⏵⏵⏵ Error: Couldn't read the template's package.json.",
       `PATH ${packageJsonPath}`
     ])
 

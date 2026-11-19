@@ -494,7 +494,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     )) as Error & {cause?: NodeJS.ErrnoException}
 
     expect(plainLines(error)[0]).toBe(
-      `${GLYPH} Couldn't write to the destination directory.`
+      `${GLYPH} Error: Couldn't write to the destination directory.`
     )
 
     expect(plainLines(error)[1]).toBe(`PATH ${projectPath}`)
@@ -669,7 +669,7 @@ describe('a step whose write fails throws one frame and keeps the cause', () => 
       })) as Error & {cause?: NodeJS.ErrnoException}
     const lines = plainLines(error)
 
-    expect(lines[0]).toBe(`${GLYPH} ${headline}`)
+    expect(lines[0]).toBe(`${GLYPH} Error: ${headline}`)
     expect(
       lines.filter((line) => /^REASON Error: E[A-Z]+: /.test(line))
     ).toEqual([expect.stringContaining(`, ${syscall}`)])

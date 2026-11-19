@@ -172,7 +172,9 @@ describe('an installed CLI beside a build engine of another version', () => {
       }
     ])
 
-    expect(result.stderr).toBe(`⏵⏵⏵ ${refusalText(install.engineRoot)}\n`)
+    expect(result.stderr).toBe(
+      `⏵⏵⏵ Error: ${refusalText(install.engineRoot)}\n`
+    )
   })
 
   it('refuses doctor with the same code', async () => {
@@ -197,7 +199,9 @@ describe('an installed CLI beside a build engine of another version', () => {
 
     expect(result.status).toBe(1)
     expect(result.stdout).toBe('')
-    expect(result.stderr).toBe(`⏵⏵⏵ ${refusalText(install.engineRoot)}\n`)
+    expect(result.stderr).toBe(
+      `⏵⏵⏵ Error: ${refusalText(install.engineRoot)}\n`
+    )
   })
 
   it.each([
@@ -280,7 +284,7 @@ describe('an installed CLI told to run a local engine of another version', () =>
       env: {EXTENSION_DEVELOP_ROOT: localRoot}
     })
     const warning =
-      `⏵⏵⏵ EXTENSION_DEVELOP_ROOT runs extension-develop@${OTHER_VERSION} from ${localRoot} ` +
+      `⏵⏵⏵ Warning: EXTENSION_DEVELOP_ROOT runs extension-develop@${OTHER_VERSION} from ${localRoot} ` +
       `with extension@${CLI_VERSION}. The versions differ, so a failure here may come from the pair.`
 
     expect(result.stderr.split(warning)).toHaveLength(2)

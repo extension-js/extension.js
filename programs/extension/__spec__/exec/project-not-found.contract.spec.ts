@@ -47,7 +47,9 @@ describe('a project folder that does not exist', () => {
 
     expect(run.status).toBe(1)
     expect(run.stdout).toBe('')
-    expect(run.stderr.slice(0, message.length + 4)).toBe(`⏵⏵⏵ ${message}`)
+    expect(run.stderr.slice(0, message.length + 11)).toBe(
+      `⏵⏵⏵ Error: ${message}`
+    )
   })
 })
 
@@ -209,9 +211,9 @@ const REFUSALS: RefusalRow[] = [
         }
       ],
       stderr: [
-        '⏵⏵⏵ A dev session (PID <runner>) owns <dir>/dist/chromium, so this build was not written.',
+        '⏵⏵⏵ Error: A dev session (PID <runner>) owns <dir>/dist/chromium, so this build was not written.',
         'Stop that session, or pass --out-dir <path> to write the chromium build next to it and keep the dev session as it is.',
-        '⏵⏵⏵ Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error.',
         ''
       ].join('\n')
     }

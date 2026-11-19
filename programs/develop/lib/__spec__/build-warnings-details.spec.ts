@@ -62,7 +62,10 @@ describe('buildWarningsDetails', () => {
     )
     const lines = out.split('\n')
 
-    expect(lines[0]).toBe(`${GLYPH} Deprecation: The legacy option is set.`)
+    expect(lines[0]).toBe(
+      `${GLYPH} Warning: Deprecation: The legacy option is set.`
+    )
+
     expect(lines[1]).toBe('│  Source: bundler')
     expect(lines[2]).toMatch(/^│ {2}Hint: /)
     expect(out).not.toContain('⚠')
@@ -105,7 +108,7 @@ describe('buildWarningsDetails', () => {
     )
 
     expect(out.split('\n')).toEqual([
-      `${GLYPH} Deprecation: The _locales folder sits in the legacy next-to-manifest location. (manifest.json)`,
+      `${GLYPH} Warning: Deprecation: The _locales folder sits in the legacy next-to-manifest location. (manifest.json)`,
       'GOT src/_locales',
       'EXPECTED _locales',
       'Move the folder to the project root to silence this warning.',
