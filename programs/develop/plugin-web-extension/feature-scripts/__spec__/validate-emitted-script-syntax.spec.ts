@@ -1,5 +1,13 @@
+import {Compilation, type Compiler, sources} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {
+  compileIssues,
+  writeProject
+} from '../../../__spec__/helpers/real-compiler'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {ValidateEmittedScriptSyntax} from '../steps/validate-emitted-script-syntax'
+
+const makeTempFolder = trackTempFolders()
 
 function makeCompilation(assets: Record<string, string>) {
   const compilation: any = {
@@ -80,5 +88,49 @@ describe('ValidateEmittedScriptSyntax', () => {
     })
     new ValidateEmittedScriptSyntax().apply(compiler)
     expect(compilation.errors).toHaveLength(0)
+  })
+})
+
+// The dev reload runtime and the sheet-url step rewrite scripts after REPORT,
+// so the check has to read the bytes they leave, not the ones before them.
+describe('the syntax check reads the final script', () => {
+  function breakScriptAt(offset: number) {
+    return {
+      apply(compiler: Compiler) {
+        compiler.hooks.thisCompilation.tap('break-script', (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'break-script',
+              stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + offset
+            },
+            () => {
+              compilation.updateAsset(
+                'content.js',
+                (source) =>
+                  new sources.RawSource(
+                    `${source.source()}\nlet a = 1; let a = 2;`
+                  )
+              )
+            }
+          )
+        })
+      }
+    }
+  }
+
+  it.each([
+    151, 500
+  ])('fails a script made unparsable at REPORT + %i', async (offset) => {
+    const root = writeProject(makeTempFolder('extjs-syntax-late-'), {
+      'content.js': 'console.log(1)'
+    })
+    const {errors} = await compileIssues(
+      root,
+      'development',
+      {content: './content.js'},
+      [breakScriptAt(offset), new ValidateEmittedScriptSyntax()]
+    )
+
+    expect(errors.map((error) => error.name)).toEqual(['ContentScriptSyntax'])
   })
 })
