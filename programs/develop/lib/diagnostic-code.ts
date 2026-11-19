@@ -44,7 +44,6 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   ManifestFilesNotEmitted: CODES.E_ENTRY_NOT_FOUND,
   JSONPathIsFolder: CODES.E_ENTRY_NOT_FOUND,
   ManifestNamedFileNotShipped: CODES.E_ENTRY_NOT_FOUND,
-  ManifestPersistFailed: CODES.E_DESTINATION_NOT_WRITABLE,
   IconsMissingFile: CODES.E_ASSET_MISSING,
   HtmlAssetMissing: CODES.E_ASSET_MISSING,
   HtmlPublicAssetMissing: CODES.E_ASSET_MISSING,

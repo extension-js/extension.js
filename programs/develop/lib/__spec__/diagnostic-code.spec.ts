@@ -40,7 +40,6 @@ describe('diagnosticCode', () => {
     ['PublicFolderOffRef', 'E_ASSET_MISSING'],
     ['RootAbsoluteRefCompiledSource', 'E_ASSET_MISSING'],
     ['RuntimeSetSurfaceFileMissing', 'E_ASSET_MISSING'],
-    ['ManifestPersistFailed', 'E_DESTINATION_NOT_WRITABLE'],
     ['RuntimeLoadedFileCompileFailed', 'E_SCRIPT_DEP_MISSING'],
     ['CodeNamedFileNotShipped', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeFetchedFileMissing', 'E_SCRIPT_DEP_MISSING'],

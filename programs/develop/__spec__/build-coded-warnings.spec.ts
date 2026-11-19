@@ -161,7 +161,7 @@ describe('two builds running at once keep their recorded warnings apart', () => 
 
     bridge.__extjsCodedWarningsSpec = {
       record: (compiler, text) =>
-        recordCodedWarning(CODES.E_PERF_BUDGET, text, compiler),
+        recordCodedWarning(CODES.W_PERF_BUDGET, text, compiler),
       arrived: () => {
         waiting += 1
         if (waiting === 2) release()
@@ -186,11 +186,11 @@ describe('two builds running at once keep their recorded warnings apart', () => 
 
     expect(waiting).toBe(2)
     expect(coded(firstSummary)).toEqual([
-      'E_PERF_BUDGET: recorded by the first build'
+      'W_PERF_BUDGET: recorded by the first build'
     ])
 
     expect(coded(secondSummary)).toEqual([
-      'E_PERF_BUDGET: recorded by the second build'
+      'W_PERF_BUDGET: recorded by the second build'
     ])
   }, 120_000)
 })
