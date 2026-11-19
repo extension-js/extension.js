@@ -223,7 +223,7 @@ describe('lifecycle stream transitions', () => {
     stream.starting({requestedPort: 8080, port: 8081})
     const [frame] = parseFrames(lines)
     expect(frame.warnings).toEqual([
-      'E_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081'
+      'W_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081'
     ])
   })
 
@@ -304,6 +304,34 @@ describe('lifecycle stream transitions', () => {
         runId: 'run-abc',
         port: 8081,
         pid: 4242,
+        cdpFaultCode: 'W_CDP_TIMEOUT',
+        cdpFaultMessage: 'ensureLoaded timeout (10000ms)'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.ready()
+    const [frame] = parseFrames(lines)
+    expect(frame.status).toBe('ready')
+    expect(frame.ok).toBe(true)
+    expect(frame.warnings).toEqual([
+      'W_CDP_TIMEOUT: ensureLoaded timeout (10000ms)'
+    ])
+
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  it('reads a fault an older launcher stamped under its E_ name as the warning', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        schemaVersion: 2,
+        status: 'ready',
+        runId: 'run-abc',
+        port: 8081,
+        pid: 4242,
         cdpFaultCode: 'E_CDP_TIMEOUT',
         cdpFaultMessage: 'ensureLoaded timeout (10000ms)'
       })
@@ -315,8 +343,45 @@ describe('lifecycle stream transitions', () => {
     expect(frame.status).toBe('ready')
     expect(frame.ok).toBe(true)
     expect(frame.warnings).toEqual([
-      'E_CDP_TIMEOUT: ensureLoaded timeout (10000ms)'
+      'W_CDP_TIMEOUT: ensureLoaded timeout (10000ms)'
     ])
+
+    fs.rmSync(dir, {recursive: true, force: true})
+  })
+
+  // The frame names one of the five CDP fault warnings and no other code,
+  // whatever an older launcher or a hand-edited contract stamped.
+  it.each([
+    ['E_COMPILE', ['W_CDP_OP_FAILED: detail']],
+    ['E_INTERNAL', ['W_CDP_OP_FAILED: detail']],
+    ['E_ASSET_MISSING', ['W_CDP_OP_FAILED: detail']],
+    ['W_INTERNAL', ['W_CDP_OP_FAILED: detail']],
+    ['W_EXTENSION_ID_UNKNOWN', ['W_EXTENSION_ID_UNKNOWN: detail']],
+    ['E_BROWSER_CONNECTION_CLOSED', ['W_BROWSER_CONNECTION_CLOSED: detail']],
+    ['ENOENT', ['W_CDP_OP_FAILED: detail']],
+    ['', []],
+    ['   ', []]
+  ])('reads a stamped cdpFaultCode of "%s" as %j', (cdpFaultCode, warnings) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-ndjson-'))
+    const readyPath = path.join(dir, 'ready.json')
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        schemaVersion: 2,
+        status: 'ready',
+        runId: 'run-abc',
+        port: 8081,
+        pid: 4242,
+        cdpFaultCode,
+        cdpFaultMessage: 'detail'
+      })
+    )
+
+    const {stream, lines} = makeStream({readyPath})
+    stream.ready()
+    const [frame] = parseFrames(lines)
+    expect(frame.ok).toBe(true)
+    expect(frame.warnings).toEqual(warnings)
 
     fs.rmSync(dir, {recursive: true, force: true})
   })
@@ -1385,12 +1450,12 @@ describe('lifecycle stream warnings the run carries on past', () => {
   })
 
   it('carries what the setup steps recorded on the starting frame, once', () => {
-    recordCodedWarning(CODES.E_POLYFILL_NOT_FOUND, 'the polyfill is missing')
+    recordCodedWarning(CODES.W_POLYFILL_NOT_FOUND, 'the polyfill is missing')
     const first = makeStream()
     first.stream.starting({requestedPort: 8080, port: 8081})
     expect(parseFrames(first.lines)[0].warnings).toEqual([
-      'E_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081',
-      'E_POLYFILL_NOT_FOUND: the polyfill is missing'
+      'W_PORT_IN_USE: port 8080 was taken, so the dev server listens on port 8081',
+      'W_POLYFILL_NOT_FOUND: the polyfill is missing'
     ])
 
     const second = makeStream()
@@ -1405,7 +1470,7 @@ describe('lifecycle stream warnings the run carries on past', () => {
     stream.compiled({assets: 2, durationMs: 3, entrypoints: 0})
     const frames = parseFrames(lines)
     expect(frames[0].warnings).toEqual([
-      'E_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
+      'W_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
     ])
 
     expect(frames[1].warnings).toEqual([])
@@ -1420,7 +1485,7 @@ describe('lifecycle stream warnings the run carries on past', () => {
     compiler.taps.done(fakeStats({assets: 0}))
     const frames = parseFrames(lines)
     expect(frames[0].warnings).toEqual([
-      'E_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
+      'W_NO_ENTRYPOINTS: the compilation produced no entrypoints or assets'
     ])
 
     expect(frames[1].warnings).toEqual([])
@@ -1434,7 +1499,7 @@ describe('lifecycle stream warnings the run carries on past', () => {
     stream.compileFailed({output: 'boom later'})
     const frames = parseFrames(lines)
     expect(frames[0].warnings).toEqual([
-      'E_LAUNCH_SKIPPED_COMPILE_ERRORS: the browser launch is withheld until the compile succeeds'
+      'W_LAUNCH_SKIPPED_COMPILE_ERRORS: the browser launch is withheld until the compile succeeds'
     ])
 
     expect(frames[1].warnings).toEqual(frames[0].warnings)

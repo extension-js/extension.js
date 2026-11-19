@@ -42,7 +42,7 @@ export class PolyfillPlugin {
       }
 
       recordCodedWarning(
-        CODES.E_POLYFILL_NOT_FOUND,
+        CODES.W_POLYFILL_NOT_FOUND,
         'webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
       )
 

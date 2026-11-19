@@ -53,7 +53,7 @@ async function build(root: string, mode: 'production' | 'development') {
 
 const loopbackWarnings = (summary: {warnings?: string[]}) =>
   (summary.warnings || []).filter((text) =>
-    text.startsWith('E_PROD_LOOPBACK_ORIGIN:')
+    text.startsWith('W_PROD_LOOPBACK_ORIGIN:')
   )
 
 describe('a production build that reaches the local machine', () => {
