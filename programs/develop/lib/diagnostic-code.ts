@@ -49,7 +49,6 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   MissingCssAssetWarning: CODES.E_ASSET_MISSING,
   PublicFolderOffRef: CODES.E_ASSET_MISSING,
   RootAbsoluteRefCompiledSource: CODES.E_ASSET_MISSING,
-  RootAbsoluteRefMissing: CODES.E_ASSET_MISSING,
   RuntimeLoadedFileCompileFailed: CODES.E_SCRIPT_DEP_MISSING,
   CodeNamedFileNotShipped: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeFetchedFileMissing: CODES.E_SCRIPT_DEP_MISSING,

@@ -74,6 +74,10 @@ const AWAITING_CODE: Record<string, string> = {
 // failure class, so it stays uncoded until each caller names its own.
 const UNNAMED_DEFAULTS = new Set(['ExtensionError', 'ExtensionWarning'])
 
+// One name for a script, a stylesheet and a plain file the page names. The
+// missing twin of each carries its own code, so one code here would differ.
+const CODED_BY_TAG = new Set(['RootAbsoluteRefMissing'])
+
 // PascalCase literals that are not the name of a diagnostic this build
 // reports: bundler wrappers, runtime error names, products, tap names.
 const NOT_DIAGNOSTICS = new Set([
@@ -179,6 +183,7 @@ describe('the names diagnostics report under', () => {
           !Object.hasOwn(NAMED_CODES, name) &&
           !Object.hasOwn(AWAITING_CODE, name) &&
           !UNNAMED_DEFAULTS.has(name) &&
+          !CODED_BY_TAG.has(name) &&
           !NOT_DIAGNOSTICS.has(name)
       )
       .map(([name, where]) => `${name} (${where})`)
@@ -215,7 +220,10 @@ describe('the names diagnostics report under', () => {
     ).toBeUndefined()
   })
 
-  it.each([...UNNAMED_DEFAULTS])('reports %s without a code', (name) => {
+  it.each([
+    ...UNNAMED_DEFAULTS,
+    ...CODED_BY_TAG
+  ])('reports %s without a code', (name) => {
     expect(
       diagnosticCode(Object.assign(new Error('text'), {name}))
     ).toBeUndefined()
