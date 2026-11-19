@@ -911,7 +911,9 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
               }
             ]
           },
-          warnings: [],
+          warnings: [
+            "W_CSS_NOT_APPLIED: A stylesheet imported only for its side effect styles nothing in a content script.\nPATH c.js:1\nIMPORT import './b.css'\nThere the import evaluates to the sheet as a data: URL, and no code reads it.\nRead the value and place it: import href from './b.css', then set it on a <link rel=\"stylesheet\">.\nOr list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).\nExtension.js places it for you only in the shadow root of a host marked data-extension-root."
+          ],
           hint: 'Fix the error above and run build again.'
         }
       ],

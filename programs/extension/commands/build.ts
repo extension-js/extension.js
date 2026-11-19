@@ -490,7 +490,10 @@ export function registerBuildCommand(
                     },
                     {
                       hint: `Fix the error above and run build again.`,
-                      truncated: truncated === true
+                      truncated: truncated === true,
+                      // A failed build lists the warnings it got past as a green
+                      // one does, the earlier browsers' and its own, once each.
+                      warnings: codedWarningsOf([...summaries, error])
                     }
                   )
                 )

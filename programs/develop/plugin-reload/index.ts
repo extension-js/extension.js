@@ -83,7 +83,8 @@ export class ReloadPlugin {
     this.devSession = options.devSession
     this.bridge = {
       instanceId: options.instanceId,
-      controlPort: options.controlPort
+      controlPort: options.controlPort,
+      connectableHost: options.connectableHost
     }
   }
 
