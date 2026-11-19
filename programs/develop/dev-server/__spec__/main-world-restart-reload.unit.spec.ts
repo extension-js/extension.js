@@ -74,7 +74,8 @@ async function launchedSession() {
   })
   const broadcastReload = vi.fn((_instruction: {type: string}) => 0)
 
-  plugin.setReloadBroker({broadcastReload}, isAwaitingMainWorldRestart)
+  plugin.setReloadBroker({broadcastReload})
+  plugin.setRestartHold(isAwaitingMainWorldRestart)
   plugin.apply(fake.compiler)
 
   // The same rebuild in its two halves, for a build that is slow to end.
@@ -300,7 +301,8 @@ async function packagedSafariSession() {
   const broadcastReload = vi.fn((_instruction: {type: string}) => 0)
   const compiled = vi.fn()
 
-  plugin.setReloadBroker({broadcastReload}, isAwaitingMainWorldRestart)
+  plugin.setReloadBroker({broadcastReload})
+  plugin.setRestartHold(isAwaitingMainWorldRestart)
   plugin.emitter.on('compiled', compiled)
   plugin.apply(fake.compiler)
 
@@ -310,7 +312,6 @@ async function packagedSafariSession() {
     fake.watchRun(files)
     fake.thisCompilation(compilation)
     await fake.done(compilation)
-    await plugin.idle()
   }
 
   await rebuild([])

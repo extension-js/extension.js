@@ -262,9 +262,9 @@ async function startDevSession(
     onSessionStart?: () => void
     onExitError?: (error: unknown, code?: string) => void
     browsersPlugin?: {
-      setReloadBroker?: (
-        broker: unknown,
-        isHeld: (compiler: object, compilation: object) => boolean
+      setReloadBroker?: (broker: unknown) => void
+      setRestartHold?: (
+        isHeld: (compiler: object, compilation?: object) => boolean
       ) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
@@ -517,7 +517,12 @@ async function startDevSession(
   const launchedPlugin = extendedOptions.browsersPlugin
 
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
-    launchedPlugin.setReloadBroker(bridgeBroker, isAwaitingMainWorldRestart)
+    launchedPlugin.setReloadBroker(bridgeBroker)
+  }
+
+  // A build a MAIN world restart replaces reloads once, with the restart.
+  if (launchedPlugin && typeof launchedPlugin.setRestartHold === 'function') {
+    launchedPlugin.setRestartHold(isAwaitingMainWorldRestart)
   }
 
   if (launchedPlugin && typeof launchedPlugin.setInstanceId === 'function') {

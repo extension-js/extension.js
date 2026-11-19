@@ -115,7 +115,8 @@ describe('createReloadSession', () => {
     const watching = watchingCompiler(ROOT)
     const builds = session.watch(watching.compiler)
 
-    session.connect(recordingBroker(), () => true)
+    session.connect(recordingBroker())
+    session.hold(() => true)
 
     const compilation = await watching.build(['manifest.json'])
 

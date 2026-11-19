@@ -24,8 +24,8 @@ import {
 } from './steps/inject-bridge-producer'
 
 // True for a build a pending restart replaces. The dev server owns restarts
-// and hands this in with the broker, so the session never asks it directly.
-export type BuildHold = (compiler: object, compilation: object) => boolean
+// and hands this in, so the session never asks it directly.
+export type BuildHold = (compiler: object, compilation?: object) => boolean
 
 export interface ReloadSessionOptions {
   browser: string
@@ -45,7 +45,9 @@ export interface CompilerReloads {
 }
 
 export interface ReloadSession {
-  connect(broker: ReloadBroker, isHeld?: BuildHold): void
+  connect(broker: ReloadBroker): void
+  // Builds a pending restart replaces send nothing. The restart reloads once.
+  hold(isHeld: BuildHold): void
   watch(compiler: Compiler): CompilerReloads
   // This build is what the browser reads now: a launch, a retry, a first build.
   loaded(compilation: Compilation): void
@@ -77,9 +79,12 @@ export function createReloadSession(
   let isHeld: BuildHold | undefined
 
   return {
-    connect(next, hold) {
+    connect(next) {
       broker = next
-      isHeld = hold
+    },
+
+    hold(next) {
+      isHeld = next
     },
 
     watch(compiler) {
@@ -163,7 +168,8 @@ export function reloadEachBuild(
   const builds = session.watch(compiler)
   let first = true
 
-  session.connect(options.broker, options.isHeld)
+  session.connect(options.broker)
+  if (options.isHeld) session.hold(options.isHeld)
 
   compiler.hooks.done.tapPromise('extjs-no-browser-reload', async (stats) => {
     const compilation = stats.compilation

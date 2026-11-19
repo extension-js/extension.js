@@ -420,22 +420,26 @@ describe('safari dev session and its safaridriver', () => {
     expect(await waitForExit(pid)).toBe(true)
   })
 
-  it('stop: quits the automation Safari the session raised and spares the rest', async () => {
-    const openBefore = await openSibling('--automation')
-    const userSafari = await openSibling(null)
-    const tools = standInTools('ok', fakeSafari)
-    await runDevPackage(tools)
-    const raised = raisedPid()
+  // The quit finds and dates the raised Safari through ps, as its siblings do.
+  it.skipIf(process.platform === 'win32')(
+    'stop: quits the automation Safari the session raised and spares the rest',
+    async () => {
+      const openBefore = await openSibling('--automation')
+      const userSafari = await openSibling(null)
+      const tools = standInTools('ok', fakeSafari)
+      await runDevPackage(tools)
+      const raised = raisedPid()
 
-    expect(raised).toBeGreaterThan(0)
-    expect(processAlive(raised)).toBe(true)
+      expect(raised).toBeGreaterThan(0)
+      expect(processAlive(raised)).toBe(true)
 
-    await closeSafariWebDriverSessions()
+      await closeSafariWebDriverSessions()
 
-    expect(await waitForExit(raised)).toBe(true)
-    expect(processAlive(openBefore)).toBe(true)
-    expect(processAlive(userSafari)).toBe(true)
-  })
+      expect(await waitForExit(raised)).toBe(true)
+      expect(processAlive(openBefore)).toBe(true)
+      expect(processAlive(userSafari)).toBe(true)
+    }
+  )
 
   it.skipIf(process.platform === 'win32')(
     'stop: quits the container app this run raised and spares one already open',

@@ -60,6 +60,7 @@ function scriptedTeardown(over: Partial<TeardownDependencies> = {}) {
     sweep: vi.fn(() => []),
     kill: vi.fn(() => true),
     killTree: vi.fn(),
+    askTree: vi.fn(),
     print: (line) => printed.push(line),
     ...over
   }
@@ -226,22 +227,34 @@ describe.skipIf(process.platform === 'win32')(
       expect(await exited).toEqual([null, 'SIGKILL'])
     })
 
-    it('hands the pid to the tree kill on Windows and sends no SIGKILL', async () => {
+    // On Windows a signal ends the browser at once and orphans its helpers,
+    // so the tree is asked to close and only forced once the grace ends.
+    it('asks the tree to close on Windows, then forces it after the grace', async () => {
       const child = await startChild(STUBBORN)
-      const tookTerm = lineFrom(child, 'term')
       const kill = vi.spyOn(child, 'kill')
-      const {deps, printed} = scriptedTeardown({platform: 'win32'})
+      const order: string[] = []
+      const {deps, printed} = scriptedTeardown({
+        platform: 'win32',
+        askTree: vi.fn(() => order.push('ask')),
+        killTree: vi.fn(() => order.push('force'))
+      })
       vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
 
       gracefulTerminateChild(child, 'chrome', undefined, deps)
-      await tookTerm
+      expect(deps.askTree).toHaveBeenCalledExactlyOnceWith(child.pid)
+      expect(deps.killTree).not.toHaveBeenCalled()
       endGracePeriod()
 
+      expect(order).toEqual(['ask', 'force'])
       expect(deps.killTree).toHaveBeenCalledExactlyOnceWith(child.pid)
-      expect(kill.mock.calls).toEqual([['SIGTERM']])
+      expect(kill).not.toHaveBeenCalled()
       expect(deps.kill).not.toHaveBeenCalled()
       expect(deps.sweep).not.toHaveBeenCalled()
       expect(printed).toEqual([])
+
+      // A second stop of the same child asks nothing more.
+      gracefulTerminateChild(child, 'chrome', undefined, deps)
+      expect(deps.askTree).toHaveBeenCalledTimes(1)
     })
   }
 )
@@ -368,7 +381,10 @@ describe('gracefulTerminatePid', () => {
     endGracePeriod()
 
     expect(deps.startedAt).toHaveBeenCalledExactlyOnceWith(pid)
-    expect(vi.mocked(deps.kill).mock.calls).toEqual([[pid, 'SIGTERM']])
+    expect(vi.mocked(deps.kill).mock.calls).toEqual(
+      platform === 'win32' ? [] : [[pid, 'SIGTERM']]
+    )
+
     expect(deps.killTree).not.toHaveBeenCalled()
     expect(deps.sweep).not.toHaveBeenCalled()
     expect(printed).toEqual([
@@ -377,16 +393,23 @@ describe('gracefulTerminatePid', () => {
     ])
   })
 
-  it('hands a proven pid to the tree kill on Windows', async () => {
+  it('asks a proven pid to close on Windows, then forces its tree', async () => {
     const pid = await adoptedPid()
-    const {deps} = scriptedTeardown({platform: 'win32'})
+    const order: string[] = []
+    const {deps} = scriptedTeardown({
+      platform: 'win32',
+      askTree: vi.fn(() => order.push('ask')),
+      killTree: vi.fn(() => order.push('force'))
+    })
     vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
 
     gracefulTerminatePid(pid, 'firefox', deps)
+    expect(deps.askTree).toHaveBeenCalledExactlyOnceWith(pid)
     endGracePeriod()
 
+    expect(order).toEqual(['ask', 'force'])
     expect(deps.killTree).toHaveBeenCalledExactlyOnceWith(pid)
-    expect(vi.mocked(deps.kill).mock.calls).toEqual([[pid, 'SIGTERM']])
+    expect(deps.kill).not.toHaveBeenCalled()
   })
 })
 

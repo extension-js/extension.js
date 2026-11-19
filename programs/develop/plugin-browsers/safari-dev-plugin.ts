@@ -9,13 +9,18 @@
 import type {Compiler} from '@rspack/core'
 import {CODES} from '../lib/messaging'
 import {
-  type BuildHold,
   createReloadSession,
   type ReloadBroker,
   type ReloadInstruction
 } from '../plugin-reload'
+import type {SafariPackagerFn} from '../types'
 import {waitAtMost} from './bounded-wait'
-import {BuildEmitter, type RunnerPlugin, reportLaunchFailure} from './index'
+import {
+  BuildEmitter,
+  type RestartHold,
+  type RunnerPlugin,
+  reportLaunchFailure
+} from './index'
 import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
 import * as browserMessages from './messages'
 
@@ -23,20 +28,16 @@ import * as browserMessages from './messages'
 // the first package gets a long bound. Only a hung tool reaches it.
 export const SAFARI_FIRST_PACKAGE_TIMEOUT_MS = 10 * 60_000
 
-// The dev plugin ignores whatever the packager reports back (only `build`
-// folds it into a summary), so the return is deliberately unconstrained.
-export type SafariPackagerFn = (
-  distPath: string,
-  mode: 'full' | 'resync'
-) => Promise<unknown>
+// A resync is xcodebuild alone, with no step that waits on the user.
+export const SAFARI_RESYNC_TIMEOUT_MS = 5 * 60_000
 
 // Safari reloads through the same control bridge every other engine uses, and
 // the dev server runs the bundler in watch mode. This plugin rides that watch
-// loop: the first
-// successful compile blocks for the full package
-// (convert > xcodebuild > open > guided enable); every later compile resyncs
-// xcodebuild in the background so the bundler loop is never blocked, and a
-// burst of saves collapses to a single follow-up against the newest output.
+// loop: the first successful compile blocks for the full package (convert >
+// xcodebuild > open > guided enable), and every later compile blocks for its
+// resync, so no build writes into the dist xcodebuild is reading. Each wait is
+// bounded, and builds that end while a package still runs collapse into one
+// follow-up against the newest output.
 type SafariPackageTarget = {
   outputPath: string
   contextDir: string
@@ -55,7 +56,6 @@ export class SafariDevPlugin implements RunnerPlugin {
   private firstPackageStillRunning = false
   private active = false
   private pending: SafariPackageTarget | null = null
-  private idleWaiters: Array<() => void> = []
   private readyListener: (() => void) | undefined
   // Safari takes the same granularity as Chromium. A content-script
   // reinjection was measured working there, same tab, through the producer's
@@ -69,8 +69,13 @@ export class SafariDevPlugin implements RunnerPlugin {
   constructor(private readonly packager: SafariPackagerFn) {}
 
   // Duck-typed by the dev server, the same seam the launched-browser plugin has.
-  setReloadBroker(broker: ReloadBroker, isHeld?: BuildHold): void {
-    this.reloads.connect(broker, isHeld)
+  setReloadBroker(broker: ReloadBroker): void {
+    this.reloads.connect(broker)
+  }
+
+  // The same restart check the launched-browser plugin is handed.
+  setRestartHold(isHeld: RestartHold): void {
+    this.reloads.hold(isHeld)
   }
 
   // Safari is ready when its first full package pass finished.
@@ -150,33 +155,43 @@ export class SafariDevPlugin implements RunnerPlugin {
         return
       }
 
-      this.active = true
-      void this.drain(target)
+      await this.resync(target)
     })
   }
 
-  // Resolves once nothing is packaging or queued. Test hook + a handle for
-  // callers that need to wait for the watch loop to settle.
-  idle(): Promise<void> {
-    if (!this.active && !this.pending) return Promise.resolve()
+  // Waits on its own package only. A follow-up queued behind it runs on,
+  // and a run past the bound keeps going while the hook returns.
+  private async resync(target: SafariPackageTarget) {
+    this.active = true
+    const run = this.runResync(target)
+    const outcome = await waitAtMost(run, SAFARI_RESYNC_TIMEOUT_MS)
 
-    return new Promise<void>((resolve) => this.idleWaiters.push(resolve))
+    if (outcome.state !== 'timeout') {
+      this.resyncFinished()
+
+      return
+    }
+
+    this.reportFailure(
+      'resync',
+      new Error(browserMessages.safariPackageTimedOut(SAFARI_RESYNC_TIMEOUT_MS))
+    )
+
+    void run.then(() => this.resyncFinished())
   }
 
-  private async drain(target: SafariPackageTarget) {
-    try {
-      let next: SafariPackageTarget | null = target
+  // Collapse everything queued during the run into one follow-up.
+  private resyncFinished() {
+    const next = this.pending
+    this.pending = null
 
-      while (next) {
-        await this.runResync(next)
-        // Collapse everything queued during the run into one follow-up.
-        next = this.pending
-        this.pending = null
-      }
-    } finally {
-      this.active = false
-      this.settleIdle()
+    if (next) {
+      void this.resync(next)
+
+      return
     }
+
+    this.active = false
   }
 
   private async runFirst(target: SafariPackageTarget) {
@@ -199,7 +214,7 @@ export class SafariDevPlugin implements RunnerPlugin {
     }
 
     // The packager never came back to stamp anything, so the stamp is ours.
-    const reason = browserMessages.safariFirstPackageTimedOut(
+    const reason = browserMessages.safariPackageTimedOut(
       SAFARI_FIRST_PACKAGE_TIMEOUT_MS
     )
     stampLaunchTimedOut(target.outputPath, reason)
@@ -230,8 +245,7 @@ export class SafariDevPlugin implements RunnerPlugin {
     if (!next || this.active) return
 
     this.pending = null
-    this.active = true
-    void this.drain(next)
+    void this.resync(next)
   }
 
   private async runResync(target: SafariPackageTarget) {
@@ -271,7 +285,8 @@ export class SafariDevPlugin implements RunnerPlugin {
     this.emitter.emit('compiled', {
       outputPath: target.outputPath,
       contextDir: target.contextDir,
-      isFirstCompile: wasFirstRun
+      isFirstCompile: wasFirstRun,
+      ...(target.instruction ? {reloadInstruction: target.instruction} : {})
     })
   }
 
@@ -291,13 +306,5 @@ export class SafariDevPlugin implements RunnerPlugin {
     }
 
     this.emitter.emit('error', {errors: [reason]})
-  }
-
-  private settleIdle() {
-    if (this.active || this.pending) return
-
-    const waiters = this.idleWaiters
-    this.idleWaiters = []
-    for (const resolve of waiters) resolve()
   }
 }
