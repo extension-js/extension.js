@@ -1,7 +1,7 @@
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {getBuildSummary, stripLoaderWrapper} from '../build-summary'
-import {toDiagnostic} from '../compilation-diagnostics'
+import {toDiagnostic, warningCodes} from '../compilation-diagnostics'
 
 const LOADER = '/abs/node_modules (copy)/extension-develop/dist/guard.mjs'
 const REPORTED =
@@ -81,10 +81,46 @@ describe('a loader warning on the machine channel', () => {
     const issue = Object.assign(new Error(REPORTED), {name: 'CssParseWarning'})
 
     expect(toDiagnostic(issue, 'warning')).toEqual({
-      code: 'E_CSS_PARSE',
+      code: 'W_CSS_PARSE',
       message: "The CSS in this file doesn't parse.\nPATH content/styles.css",
       severity: 'warning',
       name: 'CssParseWarning'
     })
+  })
+})
+
+describe('the code a summary warning line opens with', () => {
+  function summaryOf(warnings: Error[]) {
+    return getBuildSummary(
+      'chrome',
+      {warnings: warnings.map(({message}) => ({message}))},
+      undefined,
+      undefined,
+      warningCodes({warnings})
+    ).warnings
+  }
+
+  it('opens with the W_ name of a class that also fails builds', () => {
+    const issue = Object.assign(new Error('The page names a missing file.'), {
+      name: 'HtmlAssetMissing'
+    })
+
+    expect(summaryOf([issue])).toEqual([
+      'W_ASSET_MISSING: The page names a missing file.'
+    ])
+  })
+
+  it('opens with the W_ name of a class that only warns', () => {
+    const born = Object.assign(new Error('The description is too long.'), {
+      name: 'ManifestDescriptionWarning'
+    })
+    const mixed = Object.assign(new Error('Two rules share id 4.'), {
+      name: 'DNRDuplicateRuleId'
+    })
+
+    expect(summaryOf([born, mixed])).toEqual([
+      'W_STORE_READINESS: The description is too long.',
+      'W_JSON_INVALID: Two rules share id 4.'
+    ])
   })
 })

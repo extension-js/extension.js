@@ -120,7 +120,7 @@ describe('an entry of the scanned companion folder', () => {
     expect(scan(root)).toEqual({
       loaded: ['extensions/real'],
       said,
-      coded: said.map((text) => `E_COMPANION_EXTENSION_PATH: ${text}`)
+      coded: said.map((text) => `W_COMPANION_EXTENSION_PATH: ${text}`)
     })
 
     // A caller that launches no browser leaves the words to the path that
@@ -163,7 +163,7 @@ describe('an entry of the scanned companion folder', () => {
       expect(scan(root)).toEqual({
         loaded: ['extensions/real'],
         said,
-        coded: said.map((text) => `E_COMPANION_EXTENSION_PATH: ${text}`)
+        coded: said.map((text) => `W_COMPANION_EXTENSION_PATH: ${text}`)
       })
     }
   )

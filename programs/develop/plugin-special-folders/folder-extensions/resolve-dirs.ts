@@ -93,7 +93,7 @@ export function resolveCompanionExtensionDirs(opts: {
             target
           )
 
-          recordCodedWarning(CODES.E_COMPANION_EXTENSION_PATH, text)
+          recordCodedWarning(CODES.W_COMPANION_EXTENSION_PATH, text)
           console.warn(text)
         }
 
