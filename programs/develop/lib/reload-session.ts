@@ -10,8 +10,7 @@ export function isReloadSession(
   mode: string | undefined,
   devSession: boolean | undefined
 ): boolean {
-  // A reload session installs the chunk loading target with its own steps,
-  // and every other build gets it from the web extension plugin instead.
+  // The gate for the reload pipeline. Only plugin-reload reads it.
   return (
     mode !== 'production' &&
     // A shippable development build carries no reload client.
