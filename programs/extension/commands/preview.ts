@@ -83,6 +83,7 @@ export type PreviewOptions = {
   open?: boolean
   startingUrl?: string
   port?: string | number
+  host?: string
   logs?: string
   logContext?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
@@ -175,7 +176,11 @@ export function registerPreviewCommand(
     )
     .option(
       '--port <port>',
-      'specify the port to use for the development server. Defaults to `8080`'
+      "seed the browser's debugging port, which listens on this value plus 100. Without it the browser listens on 9222"
+    )
+    .option(
+      '--host <host>',
+      'host the control channel binds to under --allow-control or --allow-eval. Nothing else listens. Defaults to `127.0.0.1`'
     )
     .option(
       '--log-context <list>',
@@ -400,7 +405,6 @@ export function registerPreviewCommand(
             const previewResult = await extensionPreview(
               pathOrRemoteUrl,
               {
-                mode: 'production',
                 profile: normalizeProfileOption(previewOptions.profile),
                 browser: vendor as DevelopBrowser,
                 chromiumBinary: previewOptions.chromiumBinary,
@@ -414,6 +418,7 @@ export function registerPreviewCommand(
                 ),
                 startingUrl: previewOptions.startingUrl,
                 port: previewOptions.port,
+                host: previewOptions.host,
                 noBrowser: await resolveNoBrowser(
                   pathOrRemoteUrl || process.cwd(),
                   'preview',

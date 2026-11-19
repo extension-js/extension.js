@@ -1418,6 +1418,15 @@ export function noBrowserNotSupportedForCommand(command?: string) {
   )
 }
 
+// The control channel rides on the browser the command opens, so a run that
+// opens none cannot carry it. Plain text: the frame and stderr share it.
+export function controlNeedsBrowser(command: string) {
+  return (
+    `--no-browser cannot be combined with --allow-control or --allow-eval on ${command}.\n` +
+    'The control channel is carried by the browser this command opens, and --no-browser opens none. Drop --no-browser, or drop --allow-control and --allow-eval.'
+  )
+}
+
 // --wait only reads the ready contract, it never starts a server, so pairing
 // it with --no-browser waits on a file nothing in that run writes.
 export function noBrowserWithWait(command: string) {
