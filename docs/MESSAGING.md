@@ -291,6 +291,9 @@ What is stable and what is not:
   itself after a change that needs a new compiler (a manifest entry, an env file, a public
   folder) and could not. `ok` is `false`, `value.serving` is `true`, and
   the previous build keeps serving.
+- A `dev` restart that succeeds writes `ready` again once the new server's first compile is
+  green, the moment `ready.json` goes from `starting` back to `ready`. That frame's `value`
+  carries `restarted: true`. Until then the stream writes the compile frames as usual.
 - A `dev` stream ends with exactly one terminal frame, and nothing is written after it. A
   terminal frame means the process is ending. The terminal statuses are `failed`, `usage` and
   `stopped`. Stop reading at the first one. Every other `ok: false` frame leaves the session
@@ -304,6 +307,9 @@ What is stable and what is not:
   compiling. It is written once per exit, by whichever of the ready report and the exit watcher
   reads the exit first, with `error.code` `E_BROWSER_LAUNCH` (or `E_PROFILE_LOCKED`) and
   `value.readyCode`. Stop the session before running `dev` again.
+- On `browser-exited` and `ready-failed`, when the CLI knows the way out of the code (for
+  `E_PROFILE_LOCKED`: close the browser that holds the profile, or pass `--profile`), the hint
+  starts with that remedy and then says the session keeps running.
 - `load-refused` does not end a `dev` stream: the session keeps running and offers the
   extension again on the next compile. `error.code` is `E_EXTENSION_LOAD_REFUSED` and
   `value.readyCode` is `extension_load_refused`. A compile the browser takes writes `ready`,

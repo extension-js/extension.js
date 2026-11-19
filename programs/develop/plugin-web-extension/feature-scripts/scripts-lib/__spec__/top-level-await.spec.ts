@@ -117,7 +117,7 @@ describe('refuseTopLevelAwait', () => {
     expect(error?.name).toBe('ContentScriptSyntax')
     expect(error?.stack).toBe(`ContentScriptSyntax: ${error?.message}`)
     expect(error?.message.split('\n')).toEqual([
-      '⏵⏵⏵ src/content/main.js uses await at the top level, outside any function.',
+      '⏵⏵⏵ Error: src/content/main.js uses await at the top level, outside any function.',
       'PATH src/content/main.js:1:22',
       'A content script declared in the manifest runs as a classic script, and a classic script only allows await inside an async function. This file has no import or export, so the build compiles it as that classic script too.',
       'Wrap the code in an async function that runs right away:',

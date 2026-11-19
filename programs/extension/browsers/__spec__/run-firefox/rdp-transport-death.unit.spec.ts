@@ -264,7 +264,7 @@ describe('MessagingClient reconnect', () => {
 
       expect(accepted).toHaveLength(6)
       const line =
-        `⏵⏵⏵ Lost the debugging connection to Firefox on port ${port} and 5 reconnects failed, so reload and HMR have stopped. ` +
+        `⏵⏵⏵ Error: Lost the debugging connection to Firefox on port ${port} and 5 reconnects failed, so reload and HMR have stopped. ` +
         `Restart the session.`
 
       expect(events).toEqual(['end', 'reconnectFailed'])

@@ -529,7 +529,7 @@ describe('overridePackageJson with a template package.json it cannot use', () =>
       const frame = String(error.message).replace(ANSI, '').split('\n')
 
       expect(frame.slice(0, 2)).toEqual([
-        "⏵⏵⏵ Couldn't read the template's package.json.",
+        "⏵⏵⏵ Error: Couldn't read the template's package.json.",
         `PATH ${packageJsonPath}`
       ])
 
@@ -656,7 +656,7 @@ describe('overridePackageJson when the manager version cannot be learned', () =>
       expect(pkg).not.toHaveProperty('packageManager')
       expect(pkg.devDependencies).toEqual({extension: '^4.0.1'})
       expect(lines).toEqual([
-        '⏵⏵⏵ Left package.json without a packageManager field.\n' +
+        '⏵⏵⏵ Warning: Left package.json without a packageManager field.\n' +
           `REASON ${reason}\n` +
           `The project is fine. Add "packageManager": "${manager}@<version>" to pin the manager.`
       ])
@@ -677,7 +677,7 @@ describe('overridePackageJson when the manager version cannot be learned', () =>
       expect(pkg).not.toHaveProperty('packageManager')
       expect(lines).toEqual([
         askedAgain,
-        '⏵⏵⏵ Left package.json without a packageManager field.\n' +
+        '⏵⏵⏵ Warning: Left package.json without a packageManager field.\n' +
           'REASON npm --version did not answer within 15s\n' +
           'The project is fine. Add "packageManager": "npm@<version>" to pin the manager.'
       ])

@@ -140,7 +140,7 @@ describe.each(['dev', 'start'] as const)('%s --wait contract', (verb) => {
       await run,
       verb,
       ready,
-      '⏵⏵⏵ --wait-format is deprecated and maps to --output.\n' +
+      '⏵⏵⏵ Warning: --wait-format is deprecated and maps to --output.\n' +
         'Pass --output <pretty|json> instead.\n'
     )
   })
@@ -204,7 +204,7 @@ describe.each(['dev', 'start'] as const)('%s --wait contract', (verb) => {
     ])
 
     // One error line and its remedy, whole: a stack would be a third line.
-    expect(result.stderr).toBe(`⏵⏵⏵ ${message}.\n${ERROR_STATUS_HINT}\n`)
+    expect(result.stderr).toBe(`⏵⏵⏵ Error: ${message}.\n${ERROR_STATUS_HINT}\n`)
   })
 
   it('renders a timeout as one error line and a remedy, never a stack', async () => {
@@ -214,7 +214,7 @@ describe.each(['dev', 'start'] as const)('%s --wait contract', (verb) => {
     expect(run.status).toBe(1)
     expect(run.stdout).toBe('')
     expect(run.stderr).toBe(
-      `⏵⏵⏵ Timed out waiting for ready contract at ${readyPath} ` +
+      `⏵⏵⏵ Error: Timed out waiting for ready contract at ${readyPath} ` +
         `(${TIMEOUT_BUDGET_MS} ms).\n${TIMEOUT_HINT}\n`
     )
   })
@@ -240,7 +240,7 @@ describe.each(['dev', 'start'] as const)('%s --wait contract', (verb) => {
       }
     ])
 
-    expect(run.stderr).toBe(`⏵⏵⏵ ${message}.\n${TIMEOUT_HINT}\n`)
+    expect(run.stderr).toBe(`⏵⏵⏵ Error: ${message}.\n${TIMEOUT_HINT}\n`)
   })
 
   it('renders a remote url refusal as one error line, never a stack', async () => {
@@ -248,7 +248,7 @@ describe.each(['dev', 'start'] as const)('%s --wait contract', (verb) => {
 
     expect(run.status).toBe(1)
     expect(run.stdout).toBe('')
-    expect(run.stderr).toBe(`⏵⏵⏵ ${REMOTE_MESSAGE}.\n${REMOTE_HINT}\n`)
+    expect(run.stderr).toBe(`⏵⏵⏵ Error: ${REMOTE_MESSAGE}.\n${REMOTE_HINT}\n`)
   })
 
   it('frames a remote url refusal as E_REMOTE_URL_UNSUPPORTED', async () => {
@@ -273,7 +273,7 @@ describe.each(['dev', 'start'] as const)('%s --wait contract', (verb) => {
       }
     ])
 
-    expect(run.stderr).toBe(`⏵⏵⏵ ${REMOTE_MESSAGE}.\n${REMOTE_HINT}\n`)
+    expect(run.stderr).toBe(`⏵⏵⏵ Error: ${REMOTE_MESSAGE}.\n${REMOTE_HINT}\n`)
   })
 })
 
@@ -390,6 +390,6 @@ describe('dev --wait on a ready.json that names a failure', () => {
       }
     ])
 
-    expect(run.stderr).toBe(`⏵⏵⏵ ${message}.\n${hint}\n`)
+    expect(run.stderr).toBe(`⏵⏵⏵ Error: ${message}.\n${hint}\n`)
   })
 })
