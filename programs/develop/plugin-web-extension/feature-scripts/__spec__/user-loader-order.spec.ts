@@ -23,7 +23,7 @@ function write(root: string, rel: string, content: string) {
 
 type Language = 'js' | 'ts' | 'jsx' | 'tsx'
 type Mode = 'production' | 'development'
-type Placement = 'push' | 'unshift' | 'replace'
+type Placement = 'push' | 'unshift' | 'replace' | 'plugin'
 
 const LANGUAGES: Language[] = ['js', 'ts', 'jsx', 'tsx']
 const MODES: Mode[] = ['production', 'development']
@@ -78,7 +78,10 @@ const RECORDING_RULES = [
 const PLACEMENTS: Record<Placement, string> = {
   push: `config.module.rules.push(${RECORDING_RULES})`,
   unshift: `config.module.rules.unshift(${RECORDING_RULES})`,
-  replace: `config = {...config, module: {...config.module, rules: [${RECORDING_RULES}]}}`
+  replace: `config = {...config, module: {...config.module, rules: [${RECORDING_RULES}]}}`,
+  // A plugin of the project applies after the build's own, and adds its
+  // rules in front of the list then.
+  plugin: `config.plugins.push({apply(compiler) { compiler.options.module.rules.unshift(${RECORDING_RULES}) }})`
 }
 
 // The hook body is the part a test writes: where its rules go and what they use.
@@ -435,6 +438,12 @@ describe('what a user loader is handed for a content script', () => {
         expect(await recorded('ts', mode, placement)).toEqual(HANDED)
       }, 120000)
     }
+  }
+
+  for (const mode of MODES) {
+    it(`reads the same in ${mode} for rules a plugin of the project puts in front`, async () => {
+      expect(await recorded('ts', mode, 'plugin')).toEqual(HANDED)
+    }, 120000)
   }
 
   it('hands over a getURL import as written, and still keeps it native', async () => {

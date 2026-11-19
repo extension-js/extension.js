@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
 import {getCurrentManifestContent} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
 import {
   buildDevContentScriptMarkerPrelude,
   buildDevContentScriptStubSource,
@@ -12,7 +13,6 @@ import {
   DEV_CONTENT_SCRIPT_STATIC_BUNDLES_KEY,
   DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY,
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
-  isDevContentScriptStandInAsset,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
 import {SetupDevContentScripts} from '../steps/setup-dev-content-scripts'
@@ -186,13 +186,12 @@ describe('planDevContentScripts', () => {
       Object.keys(plan.stubs).filter((name) => name.endsWith('.css'))
     ).toEqual(['content_scripts/dev-sheet-2.css'])
 
+    // Every file the plan adds is one the other features know to skip.
     expect(
-      isDevContentScriptStandInAsset('content_scripts/dev-sheet-2.css')
-    ).toBe(true)
-
-    expect(
-      isDevContentScriptStandInAsset('content_scripts/content-2.css')
-    ).toBe(false)
+      Object.keys(plan.stubs).filter(
+        (name) => !isDevContentScriptStandInAsset(name)
+      )
+    ).toEqual([])
   })
 
   it('keeps a document_start isolated group as emitted and marks it static in the registry', () => {

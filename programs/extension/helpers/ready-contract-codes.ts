@@ -44,6 +44,19 @@ export function stampedLaunchFailureCode(ready: {
     : undefined
 }
 
+// A session that ended as failed names the code that ended it beside the
+// contract's own id. That code is the answer, whatever the id says.
+export function stampedEndCode(ready: {
+  endedAsFailedCode?: unknown
+}): ErrorCode | undefined {
+  const code = ready.endedAsFailedCode
+
+  return typeof code === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, code)
+    ? (code as ErrorCode)
+    : undefined
+}
+
 // What a refused load recorded, as one clause: the browser's own reason and,
 // where the launcher knew it, the cause the manifest shows.
 export function recordedLoadRefusal(

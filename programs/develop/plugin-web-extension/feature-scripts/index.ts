@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
+import {isReloadSession} from '../../lib/reload-session'
 import type {DevOptions, FilepathList, PluginInterface} from '../../types'
 import {rememberBuildResolve} from '../shared/script-graph'
 import {withMainWorldCopyEntries} from './scripts-lib/runtime-main-world-scripts'
@@ -173,7 +174,9 @@ export class ScriptsPlugin {
       manifestPath: this.manifestPath
     }).apply(compiler)
 
-    if (compiler.options.mode === 'production') {
+    // A reload session takes its public path from the chunk loading target
+    // it installs, so this one answers in every build that has no session.
+    if (!isReloadSession(compiler.options.mode, this.devSession)) {
       new AddPublicPathRuntimeModule({
         browser: this.browser,
         manifestPath: this.manifestPath
