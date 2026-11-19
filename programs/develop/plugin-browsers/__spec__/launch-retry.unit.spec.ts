@@ -451,12 +451,16 @@ describe('a launch that never comes back', () => {
     ])
   })
 
-  it('stops waiting on a log capture that never answers, warns and says ready', async () => {
+  // Nothing came back for the launcher to stamp, so the plugin names the
+  // fault the way the launcher does for a capture that threw.
+  it('stops waiting on a log capture that never answers, warns, stamps and says ready', async () => {
     vi.useFakeTimers()
+    const contract = sessionContract()
     const dev = session(
       async () =>
         controller({enableUnifiedLogging: () => new Promise<void>(() => {})}),
-      {browser: 'chrome', logLevel: 'info'}
+      {browser: 'chrome', logLevel: 'info'},
+      contract.output
     )
 
     void dev.compile()
@@ -465,6 +469,12 @@ describe('a launch that never comes back', () => {
     expect(dev.events).toEqual(['settled', 'ready', 'compiled'])
     expect(printed.warn).toHaveLength(1)
     expect(printed.warn[0]).toContain('did not answer')
+    expect(contract.read()).toMatchObject({
+      status: 'ready',
+      cdpFaultCode: 'W_CDP_TIMEOUT',
+      cdpFaultMessage:
+        'browser log capture failed: The browser did not answer the request to capture logs within 3 minutes.'
+    })
   })
 
   it('launches again on the next compile after a late launch failed', async () => {
