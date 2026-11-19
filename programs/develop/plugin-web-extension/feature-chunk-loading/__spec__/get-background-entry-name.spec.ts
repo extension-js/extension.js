@@ -88,6 +88,20 @@ describe('getBackgroundEntryName', () => {
     expect(result.pageEntry).toBeUndefined()
   })
 
+  // Every background.scripts file is bundled into background/scripts, and
+  // Gecko runs that bundle as a page whatever the manifest version.
+  it('names background/scripts as a page entry on gecko', () => {
+    const manifestDir = makeProject(['background.js'])
+    const manifest = {
+      manifest_version: 3,
+      background: {scripts: ['background.js']}
+    } as Manifest
+
+    expect(getBackgroundEntryName(manifest, 'firefox', {manifestDir})).toEqual({
+      pageEntry: 'background/scripts'
+    })
+  })
+
   it('keeps the gecko page entry regardless of files on disk', () => {
     const manifestDir = makeProject()
     const manifest = {
@@ -95,30 +109,53 @@ describe('getBackgroundEntryName', () => {
       background: {scripts: ['background/missing.js']}
     } as Manifest
 
-    const result = getBackgroundEntryName(manifest, 'firefox', {manifestDir})
-    expect(result.pageEntry).toBe('background/script')
-    expect(result.serviceWorkerEntry).toBeUndefined()
+    expect(getBackgroundEntryName(manifest, 'firefox', {manifestDir})).toEqual({
+      pageEntry: 'background/scripts'
+    })
   })
 
-  it('keeps the MV2 page entry untouched', () => {
+  it('names background/scripts as a page entry for MV2', () => {
     const manifestDir = makeProject(['background.js'])
     const manifest = {
       manifest_version: 2,
       background: {scripts: ['background.js']}
     } as Manifest
 
-    const result = getBackgroundEntryName(manifest, 'chrome', {manifestDir})
-    expect(result.pageEntry).toBe('background/script')
-    expect(result.serviceWorkerEntry).toBeUndefined()
+    expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual({
+      pageEntry: 'background/scripts'
+    })
   })
 
-  it('falls back to the plain background page entry with no background key', () => {
+  // No background.scripts means no background/scripts entry, so nothing is
+  // named and a dev session answers from the entry it generates.
+  it('names no entry on gecko for a background with no scripts', () => {
+    const manifestDir = makeProject(['background.js'])
+    const manifest = {
+      manifest_version: 3,
+      background: {service_worker: 'background.js'}
+    } as Manifest
+
+    expect(getBackgroundEntryName(manifest, 'firefox', {manifestDir})).toEqual(
+      {}
+    )
+  })
+
+  it('names no entry for MV2 with an empty background', () => {
+    const manifestDir = makeProject()
+    const manifest = {manifest_version: 2, background: {}} as Manifest
+
+    expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual(
+      {}
+    )
+  })
+
+  it('names no entry with no background key', () => {
     const manifestDir = makeProject()
     const manifest = {manifest_version: 3} as Manifest
 
-    const result = getBackgroundEntryName(manifest, 'chrome', {manifestDir})
-    expect(result.pageEntry).toBe('background')
-    expect(result.serviceWorkerEntry).toBeUndefined()
+    expect(getBackgroundEntryName(manifest, 'chrome', {manifestDir})).toEqual(
+      {}
+    )
   })
 
   it('names the compiled background page entry for an MV2 background.page', () => {
@@ -152,6 +189,6 @@ describe('getBackgroundEntryName', () => {
     } as Manifest
 
     const result = getBackgroundEntryName(manifest, 'chrome', {manifestDir})
-    expect(result.pageEntry).toBe('background/script')
+    expect(result.pageEntry).toBe('background/scripts')
   })
 })

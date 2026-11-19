@@ -150,7 +150,7 @@ const PRIVATE_FILES: Table = {
   '/../outside.txt': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['../outside.txt'],
+    listed: [],
     reported: ['../outside.txt']
   },
   '../outside.txt': IN_WORKSPACE,
@@ -158,91 +158,91 @@ const PRIVATE_FILES: Table = {
   '/%2e%2e/outside.txt': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['%2e%2e/outside.txt'],
+    listed: [],
     reported: ['%2e%2e/outside.txt']
   },
   '%2e%2e/outside.txt': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['%2e%2e/outside.txt'],
+    listed: [],
     reported: ['%2e%2e/outside.txt']
   },
   '/.env': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.env'],
+    listed: [],
     reported: ['.env']
   },
   '.env': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.env'],
+    listed: [],
     reported: ['.env']
   },
   './.env': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['./.env'],
+    listed: [],
     reported: ['./.env']
   },
   '/.env.local': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.env.local'],
+    listed: [],
     reported: ['.env.local']
   },
   '/.npmrc': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.npmrc'],
+    listed: [],
     reported: ['.npmrc']
   },
   '/.git/config': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.git/config'],
+    listed: [],
     reported: ['.git/config']
   },
   '.git/config': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.git/config'],
+    listed: [],
     reported: ['.git/config']
   },
   '/a/../.envrc': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['a/../.envrc'],
+    listed: [],
     reported: ['a/../.envrc']
   },
   'sub/../.env': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['sub/../.env'],
+    listed: [],
     reported: ['sub/../.env']
   },
   'sub/.env': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['sub/.env'],
+    listed: [],
     reported: ['sub/.env']
   },
   '.ENV': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.ENV'],
+    listed: [],
     reported: ['.ENV']
   },
   '/nothing.txt': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['nothing.txt'],
+    listed: [],
     reported: ['nothing.txt']
   },
   'nothing.txt': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['nothing.txt'],
+    listed: [],
     reported: ['nothing.txt']
   }
 }
@@ -251,7 +251,7 @@ const PRIVATE_FILES: Table = {
 const refused = (entry: string): Row => ({
   shipped: ['hosted.txt'],
   marked: [],
-  listed: [entry],
+  listed: [],
   reported: [entry]
 })
 
@@ -298,25 +298,25 @@ const PRIVATE_FOLDERS: Table = {
   '.git': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.git'],
+    listed: [],
     reported: ['.git']
   },
   '.git/': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.git/'],
+    listed: [],
     reported: ['.git/']
   },
   node_modules: {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['node_modules'],
+    listed: [],
     reported: ['node_modules']
   },
   'node_modules/pkg/': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['node_modules/pkg/'],
+    listed: [],
     reported: ['node_modules/pkg/']
   },
   sub: {
@@ -384,19 +384,19 @@ const PATTERNS: Table = {
   '.git/*': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['.git/*'],
+    listed: [],
     reported: ['.git/*']
   },
   'node_modules/pkg/*': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['node_modules/pkg/*'],
+    listed: [],
     reported: ['node_modules/pkg/*']
   },
   '../*.txt': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['../*.txt'],
+    listed: [],
     reported: []
   },
   'images/*': {
@@ -415,26 +415,26 @@ const LINKS: Table = {
   'linked-folder': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['linked-folder'],
+    listed: [],
     reported: ['linked-folder']
   },
   'linked-folder/*': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['linked-folder/*'],
+    listed: [],
     reported: ['linked-folder/*']
   },
   'shared/logo.txt': vendored('shared/logo.txt'),
   shared: {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['shared'],
+    listed: [],
     reported: ['shared']
   },
   'shared/*': {
     shipped: ['hosted.txt'],
     marked: [],
-    listed: ['shared/*'],
+    listed: [],
     reported: ['shared/*']
   },
   'alias.json': {

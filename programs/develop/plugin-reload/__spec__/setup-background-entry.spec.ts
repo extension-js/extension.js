@@ -61,6 +61,56 @@ const NO_BACKGROUND = {
   name: 'Init Example'
 }
 
+// The chunk loading target answers the message fallback from the generated
+// entry, which only this step can name.
+describe('SetupBackgroundEntry generated entry', () => {
+  function generated(manifest: Record<string, unknown>, browser: string) {
+    const step = new SetupBackgroundEntry({
+      manifestPath: writeManifest(manifest),
+      browser: browser as any
+    })
+    step.apply(fakeCompiler())
+
+    return step.generated
+  }
+
+  it('names the worker it generates for Chromium', () => {
+    expect(generated(NO_BACKGROUND, 'chrome')).toEqual({
+      serviceWorkerEntry: 'background/service_worker'
+    })
+  })
+
+  it('names the page script it generates for Firefox and for MV2', () => {
+    expect(generated(NO_BACKGROUND, 'firefox')).toEqual({
+      pageEntry: 'background/script'
+    })
+
+    expect(generated({manifest_version: 2}, 'chrome')).toEqual({
+      pageEntry: 'background/script'
+    })
+  })
+
+  it('names nothing when the author declared the background', () => {
+    expect(
+      generated(
+        {manifest_version: 3, background: {service_worker: 'sw.js'}},
+        'chrome'
+      )
+    ).toBeUndefined()
+
+    expect(
+      generated(
+        {manifest_version: 2, background: {scripts: ['bg.js']}},
+        'firefox'
+      )
+    ).toBeUndefined()
+
+    expect(
+      generated({manifest_version: 2, background: {page: 'bg.html'}}, 'firefox')
+    ).toBeUndefined()
+  })
+})
+
 describe('SetupBackgroundEntry default entry registration', () => {
   it('registers background/service_worker for Safari when no background is declared', () => {
     const manifestPath = writeManifest(NO_BACKGROUND)
