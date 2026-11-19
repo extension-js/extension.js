@@ -1,0 +1,70 @@
+// ██████╗ ██████╗  ██████╗ ██╗    ██╗███████╗███████╗██████╗ ███████╗
+// ██╔══██╗██╔══██╗██╔═══██╗██║    ██║██╔════╝██╔════╝██╔══██╗██╔════╝
+// ██████╔╝██████╔╝██║   ██║██║ █╗ ██║███████╗█████╗  ██████╔╝███████╗
+// ██╔══██╗██╔══██╗██║   ██║██║███╗██║╚════██║██╔══╝  ██╔══██╗╚════██║
+// ██████╔╝██║  ██║╚██████╔╝╚███╔███╔╝███████║███████╗██║  ██║███████║
+// ╚═════╝ ╚═╝  ╚═╝ ╚═════╝  ╚══╝╚══╝ ╚══════╝╚══════╝╚═╝  ╚═╝╚══════╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
+
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {cdpFaultWarningCode, stripChannelPrefix} from '../lib/messaging'
+import {renameSyncWithRetry} from '../lib/rename-with-retry'
+import {readyContractPathBesideBuild} from '../lib/session-contract'
+
+type ReadyRecord = Record<string, unknown>
+
+// The plugin stamps only what its launcher cannot: a fault it saw after the
+// launcher came back. Every stamp leaves a contract another process owns.
+function updateContract(
+  outputPath: string,
+  update: (ready: ReadyRecord) => boolean
+): void {
+  try {
+    if (!outputPath) return
+
+    const readyPath = readyContractPathBesideBuild(path.resolve(outputPath))
+    if (!fs.existsSync(readyPath)) return
+
+    const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as ReadyRecord
+    if (typeof ready.pid === 'number' && ready.pid !== process.pid) return
+
+    if (!update(ready)) return
+
+    const tmpPath = `${readyPath}.tmp-${process.pid}`
+
+    try {
+      fs.writeFileSync(tmpPath, `${JSON.stringify(ready, null, 2)}\n`, 'utf-8')
+      renameSyncWithRetry(tmpPath, readyPath)
+    } catch {
+      fs.rmSync(tmpPath, {force: true})
+    }
+  } catch {
+    // Best-effort: a contract write never breaks the compile loop.
+  }
+}
+
+// One plain line, the way the contract carries every reason.
+export function contractReason(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+
+  return stripChannelPrefix(message).replace(/\s+/g, ' ').trim()
+}
+
+// The browser runs and the session stays ready, so the fault reads under a
+// warning name beside the status, the same field a CDP fault after launch uses.
+export function stampLogCaptureFault(outputPath: string, error: unknown) {
+  const code = (error as {code?: unknown} | null)?.code
+
+  updateContract(outputPath, (ready) => {
+    ready.cdpFaultCode = cdpFaultWarningCode(
+      typeof code === 'string' ? code : ''
+    )
+
+    ready.cdpFaultMessage = `browser log capture failed: ${
+      contractReason(error) || 'no reason given'
+    }`
+
+    return true
+  })
+}

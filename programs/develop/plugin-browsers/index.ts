@@ -10,7 +10,7 @@ import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
 import {isEmulatorBrowser, isGeckoBasedBrowser} from '../lib/constants'
 import * as messages from '../lib/messages'
-import {humanLine} from '../lib/messaging'
+import {humanLine, humanWarn} from '../lib/messaging'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
@@ -25,6 +25,8 @@ import {
 } from '../plugin-reload'
 import {isAwaitingMainWorldRestart} from '../plugin-web-extension/feature-scripts/steps/warn-main-world-registration-changed'
 import type {DevOptions} from '../types'
+import {stampLogCaptureFault} from './contract-stamps'
+import * as browserMessages from './messages'
 
 export interface CompiledEvent {
   outputPath: string
@@ -277,6 +279,35 @@ export class BrowsersPlugin implements RunnerPlugin {
     }
   }
 
+  // The browser is already up with the extension, so a capture that fails is
+  // a warning on a session that still goes ready, never a failed launch.
+  private async enableBrowserLogs(outputPath: string): Promise<void> {
+    const browserOptions = this.options.browserOptions
+    const logLevel = browserOptions.logLevel || 'off'
+
+    if (logLevel === 'off' || !this.controller) return
+
+    try {
+      await this.controller.enableUnifiedLogging({
+        level: logLevel,
+        contexts: browserOptions.logContexts,
+        format: browserOptions.logFormat,
+        timestamps: browserOptions.logTimestamps,
+        color: browserOptions.logColor,
+        urlFilter: browserOptions.logUrl,
+        tabFilter: browserOptions.logTab
+      })
+    } catch (error) {
+      stampLogCaptureFault(outputPath, error)
+      humanWarn(
+        browserMessages.browserLogCaptureFailed(
+          browserOptions.browser,
+          error instanceof Error ? error.message : String(error)
+        )
+      )
+    }
+  }
+
   // The broker calls this for a verb that finds no executor. False until the
   // browser is up, and for any browser that cannot be asked.
   async wakeBackground(): Promise<boolean> {
@@ -397,23 +428,6 @@ export class BrowsersPlugin implements RunnerPlugin {
               ? {emulatorViewerUrl: this.emulatorViewerUrl}
               : {})
           })
-
-          const logLevel = this.options.browserOptions.logLevel || 'off'
-
-          if (logLevel !== 'off' && this.controller) {
-            await this.controller.enableUnifiedLogging({
-              level: logLevel,
-              contexts: this.options.browserOptions.logContexts,
-              format: this.options.browserOptions.logFormat,
-              timestamps: this.options.browserOptions.logTimestamps,
-              color: this.options.browserOptions.logColor,
-              urlFilter: this.options.browserOptions.logUrl,
-              tabFilter: this.options.browserOptions.logTab
-            })
-          }
-
-          this.announceLaunchSettled()
-          this.announceReady()
         } catch (error) {
           this.announceLaunchSettled()
 
@@ -436,6 +450,12 @@ export class BrowsersPlugin implements RunnerPlugin {
           }
 
           this.emitter.emit('error', {errors: [reason]})
+        }
+
+        if (this.controller) {
+          await this.enableBrowserLogs(outputPath)
+          this.announceLaunchSettled()
+          this.announceReady()
         }
       } else if (await this.retryRefusedExtensionLoad()) {
         // The guest was absent until this compile, so there is nothing to
