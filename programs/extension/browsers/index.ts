@@ -12,6 +12,7 @@ import {
   isEmulatorBrowser,
   isFirefoxBrowser
 } from './browsers-lib/browser-family'
+import {stampLogCaptureFaults} from './browsers-lib/log-capture-fault'
 import {runOnlyUnsupportedBrowser} from './browsers-lib/messages'
 import {computeBinariesBaseDir} from './browsers-lib/output-binaries-resolver'
 import {buildBrowserLaunchRequest} from './browsers-lib/runtime-options'
@@ -112,6 +113,12 @@ function createCompilationLike(opts: BrowserLaunchOptions): CompilationLike {
 }
 
 export async function launchBrowser(
+  opts: BrowserLaunchOptions
+): Promise<BrowserController> {
+  return stampLogCaptureFaults(await launchEngine(opts), opts.outputPath)
+}
+
+async function launchEngine(
   opts: BrowserLaunchOptions
 ): Promise<BrowserController> {
   if (isEmulatorBrowser(opts.browser)) {

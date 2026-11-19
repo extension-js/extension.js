@@ -158,6 +158,13 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "zipEntryOutsideFolder: function(2)",
     "zipSkippedSymlinks: function(1)",
   ],
+  "plugin-browsers/messages.ts": [
+    "browserLaunchTimedOut: function(1)",
+    "browserLogCaptureFailed: function(2)",
+    "browserLogCaptureTimedOut: function(1)",
+    "safariFirstPackageTimedOut: function(1)",
+    "safariResyncFailed: function(1)",
+  ],
   "plugin-compatibility/compatibility-lib/messages.ts": [
     "browserGlobalWithoutPolyfill: function(2)",
     "compatibilityPolyfillDisabled: function(1)",

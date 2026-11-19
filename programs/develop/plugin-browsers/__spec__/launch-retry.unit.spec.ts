@@ -1,6 +1,10 @@
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../lib/messages'
 import {
+  BROWSER_LAUNCH_TIMEOUT_MS,
   type BrowserController,
   type BrowserLaunchOptions,
   BrowsersPlugin,
@@ -12,13 +16,18 @@ import {fakeCompilation, fakeCompiler} from './fake-compiler'
 const CONTEXT = '/tmp/project'
 const OUTPUT = '/tmp/project/dist/chrome'
 
-let printed: {log: string[]; error: string[]}
+let printed: {log: string[]; warn: string[]; error: string[]}
+const roots: string[] = []
 
 beforeEach(() => {
   expect.hasAssertions()
-  printed = {log: [], error: []}
+  printed = {log: [], warn: [], error: []}
   vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
     printed.log.push(parts.join(' '))
+  })
+
+  vi.spyOn(console, 'warn').mockImplementation((...parts: unknown[]) => {
+    printed.warn.push(parts.join(' '))
   })
 
   vi.spyOn(console, 'error').mockImplementation((...parts: unknown[]) => {
@@ -28,7 +37,36 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks()
+
+  for (const root of roots.splice(0)) {
+    fs.rmSync(root, {recursive: true, force: true})
+  }
 })
+
+// A dev session's contract on disk, beside the build folder the launcher is
+// handed, the way the engine writes it before the first compile ends.
+function sessionContract(browser = 'chrome') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-browsers-'))
+  roots.push(root)
+  const output = path.join(root, 'dist', browser)
+  const readyPath = path.join(
+    root,
+    'dist',
+    'extension-js',
+    browser,
+    'ready.json'
+  )
+  fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+  fs.writeFileSync(
+    readyPath,
+    JSON.stringify({status: 'ready', browser, pid: process.pid})
+  )
+
+  return {
+    output,
+    read: () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+  }
+}
 
 const controller = (
   overrides: Partial<BrowserController> = {}
@@ -43,7 +81,8 @@ type Launcher = (options: BrowserLaunchOptions) => Promise<BrowserController>
 // listener call it makes is recorded, in order.
 function session(
   launcher: Launcher,
-  browserOptions: {browser: string; logLevel?: string} = {browser: 'chrome'}
+  browserOptions: {browser: string; logLevel?: string} = {browser: 'chrome'},
+  output = OUTPUT
 ) {
   const launch = vi.fn(launcher)
   const plugin = new BrowsersPlugin({launcher: launch, browserOptions})
@@ -80,7 +119,7 @@ function session(
       await fake.done(
         fakeCompilation({
           context: CONTEXT,
-          output: OUTPUT,
+          output,
           manifest: {manifest_version: 3, name: 'fake', version: '0'}
         })
       )
@@ -210,9 +249,9 @@ describe('browser launch slot', () => {
     expect(dev.launch).toHaveBeenCalledTimes(1)
   })
 
-  // Pins current behavior: the browser runs with the extension, yet the
-  // logging failure reads as a failed launch and ready never fires.
-  it('reports a logging setup failure as a browser that could not start, and never says ready', async () => {
+  // The browser runs with the extension, so a logging failure is a warning
+  // beside a session that still says ready, never a failed launch.
+  it('reports a logging setup failure as a warning and still says ready', async () => {
     const dev = session(
       async () =>
         controller({
@@ -226,13 +265,12 @@ describe('browser launch slot', () => {
     await dev.compile()
     await dev.compile()
 
-    expect(printed.error).toEqual([
-      messages.browserLaunchFailed('chrome', 'logging refused')
-    ])
-
-    expect(printed.error[0]).toContain("Chrome couldn't start")
-    expect(dev.errors).toEqual([{errors: ['logging refused']}])
-    expect(dev.events).toEqual(['settled', 'error', 'compiled', 'compiled'])
+    expect(printed.error).toEqual([])
+    expect(printed.warn).toHaveLength(1)
+    expect(printed.warn[0]).toContain('Chrome is running with the extension')
+    expect(printed.warn[0]).toContain('logging refused')
+    expect(dev.errors).toEqual([])
+    expect(dev.events).toEqual(['settled', 'ready', 'compiled', 'compiled'])
   })
 
   // Pins current behavior: only the message reaches the public error event.
@@ -312,5 +350,127 @@ describe('the launch settled listener', () => {
     await dev.compile()
 
     expect(dev.events).toEqual(['ready', 'compiled'])
+  })
+})
+
+// A launch awaited inside the compiler's done hook holds every later rebuild,
+// so the wait for it is bounded and a browser that comes up late is kept.
+describe('a launch that never comes back', () => {
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function hungLauncher() {
+    let resolve: (controller: BrowserController) => void = () => {}
+
+    let reject: (error: unknown) => void = () => {}
+
+    const launcher: Launcher = () =>
+      new Promise<BrowserController>((done, fail) => {
+        resolve = done
+        reject = fail
+      })
+
+    return {
+      launcher,
+      resolve: (controller: BrowserController) => resolve(controller),
+      reject: (error: unknown) => reject(error)
+    }
+  }
+
+  it('reports the launch as failed once the wait runs out, and returns the hook', async () => {
+    vi.useFakeTimers()
+    const contract = sessionContract()
+    const hung = hungLauncher()
+    const dev = session(hung.launcher, {browser: 'chrome'}, contract.output)
+
+    let hookReturned = false
+    void dev.compile().then(() => {
+      hookReturned = true
+    })
+
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+
+    expect(hookReturned).toBe(true)
+    expect(dev.events).toEqual(['settled', 'error', 'compiled'])
+    expect(printed.error).toHaveLength(1)
+    expect(printed.error[0]).toContain("Chrome couldn't start")
+    expect(contract.read()).toMatchObject({
+      status: 'error',
+      code: 'browser_launch_failed',
+      browserLaunchFailedCode: 'E_BROWSER_START_TIMEOUT'
+    })
+  })
+
+  it('keeps rebuilding without a second launch while the first is still out', async () => {
+    vi.useFakeTimers()
+    const hung = hungLauncher()
+    const dev = session(hung.launcher)
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+    await dev.compile()
+
+    expect(dev.launch).toHaveBeenCalledTimes(1)
+    expect(dev.compiled).toHaveLength(2)
+  })
+
+  it('keeps a browser that comes up after the wait ran out, and says ready', async () => {
+    vi.useFakeTimers()
+    const contract = sessionContract()
+    const hung = hungLauncher()
+    const dev = session(hung.launcher, {browser: 'chrome'}, contract.output)
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+    hung.resolve(controller())
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(dev.events).toEqual(['settled', 'error', 'compiled', 'ready'])
+    expect(contract.read().status).toBe('ready')
+    expect(contract.read().code).toBeUndefined()
+
+    await dev.compile()
+
+    expect(dev.launch).toHaveBeenCalledTimes(1)
+    expect(dev.compiled.map((event) => event.isFirstCompile)).toEqual([
+      true,
+      false
+    ])
+  })
+
+  it('stops waiting on a log capture that never answers, warns and says ready', async () => {
+    vi.useFakeTimers()
+    const dev = session(
+      async () =>
+        controller({enableUnifiedLogging: () => new Promise<void>(() => {})}),
+      {browser: 'chrome', logLevel: 'info'}
+    )
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+
+    expect(dev.events).toEqual(['settled', 'ready', 'compiled'])
+    expect(printed.warn).toHaveLength(1)
+    expect(printed.warn[0]).toContain('did not answer')
+  })
+
+  it('launches again on the next compile after a late launch failed', async () => {
+    vi.useFakeTimers()
+    const hung = hungLauncher()
+    const launcher = vi
+      .fn<Launcher>()
+      .mockImplementationOnce(hung.launcher)
+      .mockResolvedValueOnce(controller())
+    const dev = session(launcher)
+
+    void dev.compile()
+    await vi.advanceTimersByTimeAsync(BROWSER_LAUNCH_TIMEOUT_MS)
+    hung.reject(new Error('Chrome binary not found'))
+    await vi.advanceTimersByTimeAsync(0)
+    await dev.compile()
+
+    expect(dev.launch).toHaveBeenCalledTimes(2)
+    expect(dev.events.slice(-2)).toEqual(['ready', 'compiled'])
   })
 })

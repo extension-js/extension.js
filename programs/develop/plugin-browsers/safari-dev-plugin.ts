@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {Compiler} from '@rspack/core'
+import {CODES} from '../lib/messaging'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources,
@@ -18,7 +19,14 @@ import {
   readContentScriptCount,
   reloadSurvivingPackage
 } from '../plugin-reload'
-import {BuildEmitter, type RunnerPlugin} from './index'
+import {waitAtMost} from './bounded-wait'
+import {BuildEmitter, type RunnerPlugin, reportLaunchFailure} from './index'
+import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
+import * as browserMessages from './messages'
+
+// A cold xcodebuild takes minutes and the guided enable waits on the user, so
+// the first package gets a long bound. Only a hung tool reaches it.
+export const SAFARI_FIRST_PACKAGE_TIMEOUT_MS = 10 * 60_000
 
 // The dev plugin ignores whatever the packager reports back (only `build`
 // folds it into a summary), so the return is deliberately unconstrained.
@@ -47,6 +55,9 @@ export class SafariDevPlugin implements RunnerPlugin {
   extensionsToLoad: string[] = []
 
   private firstRun = true
+  // Set while a first package the hook stopped waiting for still runs, so a
+  // rebuild queues behind it instead of starting a second one.
+  private firstPackageStillRunning = false
   private active = false
   private pending: SafariPackageTarget | null = null
   private idleWaiters: Array<() => void> = []
@@ -115,10 +126,16 @@ export class SafariDevPlugin implements RunnerPlugin {
         instruction
       }
 
+      if (this.firstRun && this.firstPackageStillRunning) {
+        this.pending = target
+
+        return
+      }
+
       // First compile blocks the hook so the app opens and the guided-enable
       // step finishes before the dev server reports ready, unchanged UX.
       if (this.firstRun) {
-        await this.runOne(target, 'full')
+        await this.runFirst(target)
 
         return
       }
@@ -155,7 +172,7 @@ export class SafariDevPlugin implements RunnerPlugin {
       let next: SafariPackageTarget | null = target
 
       while (next) {
-        await this.runOne(next, 'resync')
+        await this.runResync(next)
         // Collapse everything queued during the run into one follow-up.
         next = this.pending
         this.pending = null
@@ -166,20 +183,79 @@ export class SafariDevPlugin implements RunnerPlugin {
     }
   }
 
-  private async runOne(target: SafariPackageTarget, mode: 'full' | 'resync') {
-    const wasFirstRun = mode === 'full'
+  private async runFirst(target: SafariPackageTarget) {
+    const run = Promise.resolve().then(() =>
+      this.packager(target.outputPath, 'full')
+    )
+    const outcome = await waitAtMost(run, SAFARI_FIRST_PACKAGE_TIMEOUT_MS)
 
-    try {
-      await this.packager(target.outputPath, mode)
-    } catch (error) {
-      // Never swallow. On a failed first package keep firstRun true so the next
-      // compile retries the full flow; a failed resync still drains pending.
-      this.emitter.emit('error', {
-        errors: [error instanceof Error ? error.message : String(error)]
-      })
+    if (outcome.state === 'resolved') {
+      await this.afterPackage(target, 'full')
 
       return
     }
+
+    // A failed first package keeps firstRun true, so the next compile retries.
+    if (outcome.state === 'rejected') {
+      this.reportFailure('full', outcome.error)
+
+      return
+    }
+
+    // The packager never came back to stamp anything, so the stamp is ours.
+    const reason = browserMessages.safariFirstPackageTimedOut(
+      SAFARI_FIRST_PACKAGE_TIMEOUT_MS
+    )
+    stampLaunchTimedOut(target.outputPath, reason)
+    this.reportFailure(
+      'full',
+      Object.assign(new Error(reason), {code: CODES.E_BROWSER_START_TIMEOUT})
+    )
+
+    this.firstPackageStillRunning = true
+    run.then(
+      async () => {
+        this.firstPackageStillRunning = false
+        clearLaunchTimedOut(target.outputPath)
+        await this.afterPackage(target, 'full')
+        this.drainQueuedSave()
+      },
+      (error: unknown) => {
+        this.firstPackageStillRunning = false
+        this.pending = null
+        this.reportFailure('full', error)
+      }
+    )
+  }
+
+  // A save that waited on a late first package is packaged now, as a resync.
+  private drainQueuedSave() {
+    const next = this.pending
+    if (!next || this.active) return
+
+    this.pending = null
+    this.active = true
+    void this.drain(next)
+  }
+
+  private async runResync(target: SafariPackageTarget) {
+    try {
+      await this.packager(target.outputPath, 'resync')
+    } catch (error) {
+      // A failed resync still drains pending.
+      this.reportFailure('resync', error)
+
+      return
+    }
+
+    await this.afterPackage(target, 'resync')
+  }
+
+  private async afterPackage(
+    target: SafariPackageTarget,
+    mode: 'full' | 'resync'
+  ) {
+    const wasFirstRun = mode === 'full'
 
     if (wasFirstRun) {
       this.firstRun = false
@@ -217,6 +293,24 @@ export class SafariDevPlugin implements RunnerPlugin {
       contextDir: target.contextDir,
       isFirstCompile: wasFirstRun
     })
+  }
+
+  // A first package that failed takes the launch failure path, and the
+  // packager has stamped the contract. A resync leaves the previous build up.
+  private reportFailure(mode: 'full' | 'resync', error: unknown) {
+    if (mode === 'full') {
+      reportLaunchFailure(this.emitter, {browser: 'safari', error})
+
+      return
+    }
+
+    const reason = error instanceof Error ? error.message : String(error)
+
+    if ((error as {printed?: unknown} | null)?.printed !== true) {
+      console.error(browserMessages.safariResyncFailed(reason))
+    }
+
+    this.emitter.emit('error', {errors: [reason]})
   }
 
   private settleIdle() {

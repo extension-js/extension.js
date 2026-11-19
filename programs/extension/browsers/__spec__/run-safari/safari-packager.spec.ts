@@ -115,6 +115,75 @@ describe('createSafariPackager', () => {
   })
 })
 
+// A dev session's first package is Safari's launch, so a failed one stamps
+// the session contract the way every other launcher does.
+describe('a Safari package that fails', () => {
+  let root: string
+  let distDir: string
+  let readyPath: string
+  const silent = {info() {}, warn() {}, error() {}, debug() {}}
+
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-safari-stamp-'))
+    distDir = path.join(root, 'dist', 'safari')
+    fs.mkdirSync(distDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(distDir, 'manifest.json'),
+      JSON.stringify({name: 'Stamp Demo', version: '1.0.0'})
+    )
+
+    readyPath = path.join(root, 'dist', 'extension-js', 'safari', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({status: 'ready', browser: 'safari', pid: process.pid})
+    )
+  })
+
+  afterEach(() => {
+    fs.rmSync(root, {recursive: true, force: true})
+  })
+
+  const readContract = () => JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+
+  const failingPackager = (announceDevReady?: boolean) =>
+    createSafariPackager({
+      tools: fakeSafariTools({xcodebuild: {code: 65, output: 'BUILD FAILED'}}),
+      logger: silent,
+      announceDevReady
+    })
+
+  it('stamps a failed first package in a dev session and rethrows it', async () => {
+    await expect(failingPackager(true)(distDir, 'full')).rejects.toMatchObject({
+      code: 'E_SAFARI_TOOLCHAIN',
+      printed: true
+    })
+
+    expect(readContract()).toMatchObject({
+      status: 'error',
+      code: 'browser_launch_failed',
+      browserLaunchFailedCode: 'E_SAFARI_TOOLCHAIN',
+      browserLaunchFailedReason: expect.stringContaining('xcodebuild failed')
+    })
+  })
+
+  it('leaves the contract ready when a resync fails, since the earlier build still runs', async () => {
+    await expect(failingPackager(true)(distDir, 'resync')).rejects.toThrow(
+      'xcodebuild failed'
+    )
+
+    expect(readContract().status).toBe('ready')
+  })
+
+  it('leaves the contract to the build command when a build package fails', async () => {
+    await expect(failingPackager()(distDir, 'full')).rejects.toThrow(
+      'xcodebuild failed'
+    )
+
+    expect(readContract().status).toBe('ready')
+  })
+})
+
 describe('the browsers entry publishes the Safari packaging surface', () => {
   it('exports what a library caller needs to drive a Safari package', () => {
     for (const name of [
