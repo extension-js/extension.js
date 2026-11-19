@@ -82,6 +82,8 @@ import {
 import {describeWaitError, framedWaitFailure, runWaitMode} from './dev-wait'
 
 type EngineDevOptions = Parameters<DevelopModule['extensionDev']>[1]
+type EndEngineSession = DevelopModule['endSessionAsFailed']
+type EngineErrorCode = Parameters<EndEngineSession>[0]
 
 // The engine sets the mode of a dev session itself and reads authorMode off
 // the options without declaring it, so both are stated here.
@@ -147,6 +149,12 @@ function failAndExit(
   }
 
   exitWithFailure(error.code, 1, reportFailure)
+}
+
+// The remedy a failed dev frame names, whichever side writes the frame. Only
+// a code the CLI declares has one.
+function devFailureHint(code: EngineErrorCode): string | undefined {
+  return failureHint(declaredErrorCode({code}))
 }
 
 // The dev server can move off a busy port after this frame is emitted, so this
@@ -420,16 +428,40 @@ export function registerDevCommand(
         }
 
         const parentPid = parseParentPid(devOptions.parentPid)
+        // Set once the engine is loaded. Before that no session can be live.
+        let endEngineSession: EndEngineSession | undefined
 
         if (parentPid !== undefined) {
+          const parentGone = `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
+
           armParentWatchdog(parentPid, {
+            // Each live session writes its own terminal frame, newest first.
+            // Under --output json the engine exits nothing, so this does.
+            endSession: () => {
+              let ended = false
+
+              // One call ends one session, and a run holds one per browser.
+              for (let turn = 0; turn < 16; turn++) {
+                if (
+                  endEngineSession?.(CODES.E_PARENT_GONE, parentGone) !== true
+                ) {
+                  break
+                }
+
+                ended = true
+              }
+
+              if (ended && asJson) void exitDrained(1)
+
+              return ended
+            },
             emitFrame: () => {
               if (!asJson) return
 
               printFrame(
                 ENVELOPE.fail('dev', 'failed', {
                   code: CODES.E_PARENT_GONE,
-                  message: `the --parent-pid owner (process ${parentPid}) is gone, so this dev session is shutting down`
+                  message: parentGone
                 })
               )
             }
@@ -667,7 +699,7 @@ export function registerDevCommand(
           if (asJson) void exitDrained(1)
         }
 
-        let develop: DevelopFor<'extensionDev'>
+        let develop: DevelopFor<'extensionDev' | 'endSessionAsFailed'>
 
         try {
           develop = await loadDevelop()
@@ -684,7 +716,11 @@ export function registerDevCommand(
           throw error
         }
 
-        const {extensionDev} = develop
+        const {extensionDev, endSessionAsFailed} = develop
+
+        if (typeof endSessionAsFailed === 'function') {
+          endEngineSession = endSessionAsFailed
+        }
 
         for (const vendor of list) {
           const logsOption = devOptions.logs
@@ -764,6 +800,9 @@ export function registerDevCommand(
             // front, it announced a run that a missing manifest then refused.
             onSessionStart: printStartedFrame,
             onExitError: reportExitError,
+            // The hint of a terminal failed or usage frame the engine writes
+            // with none of its own.
+            hintFor: devFailureHint,
             // Inject the Safari packager. SafariDevPlugin calls it on each
             // rebuild (full first, then incremental resync). The merged noOpen
             // from develop arrives via packager overrides per call.
@@ -808,7 +847,7 @@ export function registerDevCommand(
                     // still finds the port and the ready file on this frame.
                     value: (error as {session?: unknown} | null)?.session,
                     hint:
-                      failureHint(code) ??
+                      devFailureHint(code) ??
                       'Fix the error above and run dev again.'
                   }
                 )
