@@ -15,6 +15,21 @@
     "useDefineForClassFields": true,
     "allowImportingTsExtensions": true,
     "rootDir": "..",
+    "paths": {
+      "extension-develop": ["./node_modules/extension-develop/module.ts"],
+      "extension-develop/bridge": [
+        "./node_modules/extension-develop/bridge-entry.ts"
+      ],
+      "extension-develop/contracts": [
+        "./node_modules/extension-develop/contracts-entry.ts"
+      ],
+      "extension-develop/manifest": [
+        "./node_modules/extension-develop/manifest-entry.ts"
+      ],
+      "extension-develop/preview": [
+        "./node_modules/extension-develop/preview-entry.ts"
+      ]
+    },
     "types": ["node", "webextension-polyfill", "chrome"]
   },
   "include": ["**/*.ts", "internal-types/**/*.d.ts", "browsers/**/*.ts"],

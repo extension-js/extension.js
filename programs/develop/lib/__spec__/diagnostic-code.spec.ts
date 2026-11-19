@@ -13,6 +13,7 @@ describe('diagnosticCode', () => {
     ['LocalesFolderWithoutMessages', 'E_LOCALES_LAYOUT'],
     ['LocalesValidationError', 'E_LOCALES_LAYOUT'],
     ['PerfBudgetWarning', 'E_PERF_BUDGET'],
+    ['PerfBudgetError', 'E_PERF_BUDGET'],
     ['EnvNoMatchingFile', 'E_ENV_NO_MATCH'],
     ['JSONMissingFile', 'E_ENTRY_NOT_FOUND'],
     ['LocalesPluginMissingFile', 'E_ENTRY_NOT_FOUND'],
@@ -20,12 +21,17 @@ describe('diagnosticCode', () => {
     ['ScriptsMissingFile', 'E_ENTRY_NOT_FOUND'],
     ['ManifestPageMissing', 'E_ENTRY_NOT_FOUND'],
     ['ManifestFilesNotEmitted', 'E_ENTRY_NOT_FOUND'],
+    ['ManifestNamedFileNotShipped', 'E_ENTRY_NOT_FOUND'],
     ['IconsMissingFile', 'E_ASSET_MISSING'],
     ['HtmlAssetMissing', 'E_ASSET_MISSING'],
     ['HtmlPublicAssetMissing', 'E_ASSET_MISSING'],
     ['WARRelativeAssetMissing', 'E_ASSET_MISSING'],
     ['MissingCssAssetWarning', 'E_ASSET_MISSING'],
     ['RuntimeLoadedFileCompileFailed', 'E_SCRIPT_DEP_MISSING'],
+    ['CodeNamedFileNotShipped', 'E_SCRIPT_DEP_MISSING'],
+    ['RuntimeFetchedFileMissing', 'E_SCRIPT_DEP_MISSING'],
+    ['ImportScriptsDependencyMissing', 'E_SCRIPT_DEP_MISSING'],
+    ['InjectedScriptFilesMissing', 'E_SCRIPT_DEP_MISSING'],
     ['UnresolvedBareRequireWarning', 'E_SCRIPT_DEP_MISSING'],
     ['RemoteResourceBlocked', 'E_REMOTE_RESOURCE_BLOCKED'],
     ['ReservedScriptsFolder', 'E_RESERVED_FOLDER'],
@@ -70,6 +76,30 @@ describe('diagnosticCode', () => {
 
     expect(diagnosticName(issue)).toBe('CssParseWarning')
     expect(diagnosticCode(issue)).toBe('E_CSS_PARSE')
+  })
+
+  it('codes the late @import warning by the loader that reports it', () => {
+    const late = Object.assign(
+      new Error(
+        '  ⚠ Module Warning (from /abs/extension-develop/dist/late-css-import-loader.mjs):\n' +
+          '  │ An @import rule comes after other rules, so browsers skip it.\n'
+      ),
+      {
+        name: 'ModuleWarning',
+        module: {resource: '/proj/popup/late.css'},
+        details: 'Error: An @import rule comes after other rules\n    at run'
+      }
+    )
+    const other = Object.assign(
+      new Error(
+        '  ⚠ Module Warning (from /abs/some-loader/index.js):\n' +
+          '  │ An @import rule comes after other rules, so browsers skip it.\n'
+      ),
+      {name: 'ModuleWarning', module: {resource: '/proj/popup/late.css'}}
+    )
+
+    expect(diagnosticCode(late)).toBe('E_CSS_PARSE')
+    expect(diagnosticCode(other)).toBeUndefined()
   })
 
   it('maps the native module not found error by its message', () => {

@@ -268,6 +268,8 @@ const FORWARDING: ForwardingRow[] = [
   },
   {argv: ['--log-context', 'all']},
   {argv: ['--logs', 'debug'], launch: {logLevel: 'debug'}},
+  // The flag is read in any case, and the engine compares the level exactly.
+  {argv: ['--logs', ' OFF '], launch: {logLevel: 'off'}},
   {argv: ['--log-format', 'ndjson'], launch: {logFormat: 'ndjson'}},
   {argv: ['--no-log-timestamps'], launch: {logTimestamps: false}},
   {argv: ['--no-log-color'], launch: {logColor: false}},

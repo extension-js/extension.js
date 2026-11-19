@@ -94,7 +94,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing or uncompiled."
+      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
@@ -167,6 +167,10 @@
     "E_WAR_INVALID": {
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected."
+    },
+    "E_THEME_INVALID": {
+      "area": "compile",
+      "summary": "A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly."
     },
     "E_PROD_LOOPBACK_ORIGIN": {
       "area": "compile",

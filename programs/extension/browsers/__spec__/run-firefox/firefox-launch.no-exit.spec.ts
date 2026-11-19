@@ -10,7 +10,6 @@ import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import * as messages from '../../browsers-lib/messages'
-import {ready as devServerReady} from '../../browsers-lib/ready-message'
 import {createFirefoxContext} from '../../run-firefox/firefox-context'
 import {FirefoxLaunchPlugin} from '../../run-firefox/firefox-launch'
 
@@ -156,8 +155,7 @@ describe('a failing recompile once Firefox is up', () => {
 })
 
 describe('a run-only Firefox launch handed a compile that failed', () => {
-  // Pins today's behavior. Ledger 1374 D2.
-  it('starts no browser and still prints the ready line and marks the session launched', async () => {
+  it('starts no browser, prints no ready line and leaves the session unlaunched', async () => {
     const ctx = createFirefoxContext()
     const log = logger()
     ctx.logger = log as any
@@ -179,11 +177,8 @@ describe('a run-only Firefox launch handed a compile that failed', () => {
     ])
 
     expect(plugin.spawnedBrowser).toBe(false)
-    expect(vi.mocked(console.log).mock.calls).toEqual([
-      [devServerReady('development', 'firefox')]
-    ])
-
-    expect(ctx.didLaunch).toBe(true)
+    expect(vi.mocked(console.log).mock.calls).toEqual([])
+    expect(ctx.didLaunch).toBe(false)
   })
 })
 

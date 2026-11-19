@@ -13,6 +13,7 @@ import type {DevOptions, Manifest} from '../types'
 import {stripLoaderWrapper} from './build-summary'
 import type {BuildToolchain} from './build-toolchain'
 import type {InstallFailure} from './install-registry-failure'
+import {isUsageLaunchCode} from './launch-codes'
 import {
   artifactNoun,
   type Channel,
@@ -214,14 +215,18 @@ export function extensionLoadStillRefused(reason: string) {
 // emitter alone cannot report it: its default 'error' listener discards.
 export function browserLaunchFailed(
   browser: DevOptions['browser'],
-  reason: string
+  reason: string,
+  code?: unknown
 ) {
   return (
     `${getLoggingPrefix('error')} ${capitalizedBrowserName(browser)} couldn't start, so the extension isn't running.\n` +
     // The reason is often a block of its own. Inside this one it is a detail,
     // so it loses its glyph and the frame stays one frame.
     `${hasChannelPrefix(reason) ? stripChannelPrefix(reason) : reason}\n` +
-    `The dev server keeps watching, but nothing will load until this is fixed.`
+    // A value the user set ends the session, since no compile can change it.
+    (isUsageLaunchCode(code)
+      ? `The dev session ends here. Fix the value, then run the command again.`
+      : `The dev server keeps watching, but nothing will load until this is fixed.`)
   )
 }
 
@@ -750,13 +755,18 @@ export function addonLintMore(hiddenCount: number, distDisplay: string) {
   )
 }
 
+// A build that ran no lint to the end says where the last lint's note went.
+function retiredReviewerNote(staleNote: string | null) {
+  return staleNote
+    ? ` The reviewer note of the last lint moved to ${colors.underline(staleNote)}, since it does not describe this build.`
+    : ''
+}
+
 export function addonLintNotInstalled(
   installHint: string,
   staleNote: string | null = null
 ) {
-  const retired = staleNote
-    ? ` The reviewer note of the last lint moved to ${colors.underline(staleNote)}, since it does not describe this build.`
-    : ''
+  const retired = retiredReviewerNote(staleNote)
 
   return (
     `${getLoggingPrefix('info')} Skipped the addons.mozilla.org lint: addons-linter is not installed. ` +
@@ -765,10 +775,45 @@ export function addonLintNotInstalled(
   )
 }
 
-export function addonLintFailed(reason: string, distDisplay: string) {
+export function addonLintFailed(
+  reason: string,
+  distDisplay: string,
+  staleNote: string | null = null
+) {
   return (
     `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
-    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.`
+    `The build is complete, run ${colors.blue(`npx addons-linter ${distDisplay}`)} to see what AMO would flag.` +
+    retiredReviewerNote(staleNote)
+  )
+}
+
+// npx would run the same install that just failed to load, so the advice is
+// the one step that replaces it.
+export function addonLintUnusable(
+  reason: string,
+  installHint: string,
+  staleNote: string | null = null
+) {
+  return (
+    `${getLoggingPrefix('warn')} Store check for addons.mozilla.org did not finish: ${reason}. ` +
+    `The build is complete. Reinstall the linter with ${colors.blue(installHint)} and build again to see what AMO would flag, ` +
+    `or turn the lint off with ${colors.blue('--no-addon-lint')}.` +
+    retiredReviewerNote(staleNote)
+  )
+}
+
+// Another install stood in for a copy that threw, which changes the version
+// in use, so the copy that failed and the one that loaded are both named.
+export function optionalCopyFellBack(
+  dependencyId: string,
+  failed: {copy: string; why: string}[],
+  usedCopy: string
+) {
+  const broken = failed.map(({copy, why}) => `${copy} (${why})`).join(', ')
+
+  return (
+    `${getLoggingPrefix('warn')} ${dependencyId} could not be loaded from ${broken}. ` +
+    `The copy at ${usedCopy} is used instead. Install ${dependencyId} in the project to choose the copy yourself.`
   )
 }
 

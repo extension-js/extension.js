@@ -47,8 +47,6 @@ export class KeepCompletionValue {
   public static readonly name: string = 'scripts:keep-completion-value'
 
   public apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.thisCompilation?.tap) return
-
     compiler.hooks.thisCompilation.tap(
       KeepCompletionValue.name,
       (compilation) => {

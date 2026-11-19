@@ -11,6 +11,7 @@ import {
   attributionFor,
   buildNamesOversizeFiles,
   collectAddonLintLines,
+  failedAddonLint,
   formatAddonLintFindings,
   type LoadAddonLinter,
   oversizeSingleFileLines,
@@ -619,6 +620,175 @@ describe('addon lint failure paths', () => {
     )
 
     expect(stripAnsi(failed.debugLine)).not.toContain('skipped')
+  })
+
+  async function expectUnusable(
+    root: string,
+    why: string,
+    where: string,
+    loadLinter?: LoadAddonLinter
+  ) {
+    const dist = path.join(root, 'dist')
+    fs.mkdirSync(dist, {recursive: true})
+    fs.writeFileSync(path.join(dist, 'amo-reviewer-note.md'), 'old note\n')
+
+    const result = await runAddonLint({
+      ...baseInput(root),
+      ...(loadLinter ? {loadLinter} : {})
+    })
+
+    expect(result.status).toBe('failed')
+    const failed = result as {reason: string; line: string; debugLine: string}
+    expect(failed.reason).toBe(
+      `addons-linter at ${where} is installed but cannot be used: ${why}`
+    )
+
+    expect(stripAnsi(failed.line)).toContain(
+      `Store check for addons.mozilla.org did not finish: ${failed.reason}.`
+    )
+
+    expect(stripAnsi(failed.line)).not.toContain('not installed')
+    expect(stripAnsi(failed.line)).not.toContain('Install it with')
+
+    // npx would run the install that just failed, so it is never the advice.
+    expect(stripAnsi(failed.line)).not.toContain('npx')
+    expect(stripAnsi(failed.line)).toContain(
+      'The build is complete. Reinstall the linter with pnpm add -D addons-linter and build again'
+    )
+
+    expect(stripAnsi(failed.line)).toContain(
+      `The reviewer note of the last lint moved to ${path.join('dist', 'amo-reviewer-note.stale.md')}`
+    )
+
+    expect(summarizeAddonLint(result)).toEqual({
+      status: 'failed',
+      reason: failed.reason
+    })
+
+    // No lint ran, so the note of an earlier one does not describe this dist.
+    expect(fs.existsSync(path.join(dist, 'amo-reviewer-note.md'))).toBe(false)
+  }
+
+  // A lint that started and did not end wrote no note, so the one on disk
+  // belongs to an earlier build and is moved aside the same way.
+  async function expectRetiredNote(root: string, loadLinter: LoadAddonLinter) {
+    const dist = path.join(root, 'dist')
+    fs.mkdirSync(dist, {recursive: true})
+    fs.writeFileSync(path.join(dist, 'amo-reviewer-note.md'), 'old note\n')
+
+    const result = await runAddonLint({
+      ...baseInput(root),
+      loadLinter,
+      timeoutMs: 20
+    })
+
+    expect(result.status).toBe('failed')
+    expect(fs.existsSync(path.join(dist, 'amo-reviewer-note.md'))).toBe(false)
+    expect(
+      fs.readFileSync(path.join(dist, 'amo-reviewer-note.stale.md'), 'utf8')
+    ).toBe('old note\n')
+
+    const line = stripAnsi((result as {line: string}).line)
+    expect(line).toContain('npx addons-linter dist/firefox')
+    expect(line).toContain(
+      `The reviewer note of the last lint moved to ${path.join('dist', 'amo-reviewer-note.stale.md')}, since it does not describe this build.`
+    )
+
+    // With no note left, the next failure says nothing about one.
+    const again = await runAddonLint({
+      ...baseInput(root),
+      loadLinter,
+      timeoutMs: 20
+    })
+    expect(stripAnsi((again as {line: string}).line)).not.toContain('moved to')
+    expect(
+      fs.readFileSync(path.join(dist, 'amo-reviewer-note.stale.md'), 'utf8')
+    ).toBe('old note\n')
+  }
+
+  it('retires the reviewer note of an earlier lint when the linter crashes', async () => {
+    await expectRetiredNote(project(), async () => ({
+      createInstance: () => ({
+        run: async () => {
+          throw new Error('boom')
+        }
+      })
+    }))
+  })
+
+  it('retires the reviewer note of an earlier lint when the linter times out', async () => {
+    await expectRetiredNote(project(), async () => ({
+      createInstance: () => ({run: () => new Promise(() => {})})
+    }))
+  })
+
+  it('leaves the note alone when the caller names no dist folder', () => {
+    const root = project()
+    const dist = path.join(root, 'dist')
+    fs.mkdirSync(dist, {recursive: true})
+    fs.writeFileSync(path.join(dist, 'amo-reviewer-note.md'), 'old note\n')
+
+    const failed = failedAddonLint(new Error('boom'), 'dist/firefox')
+
+    expect(stripAnsi(failed.line)).not.toContain('moved to')
+    expect(fs.existsSync(path.join(dist, 'amo-reviewer-note.md'))).toBe(true)
+  })
+
+  // The real loader against a package that resolves from the project, since
+  // what it throws is what tells a broken install from an absent one.
+  it('reports an installed linter with no createInstance as unusable, with no install hint', async () => {
+    const root = project()
+    const packageDir = path.join(root, 'node_modules', 'addons-linter')
+
+    fs.mkdirSync(packageDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(packageDir, 'package.json'),
+      JSON.stringify({
+        name: 'addons-linter',
+        version: '0.0.0',
+        main: 'index.js'
+      })
+    )
+
+    fs.writeFileSync(path.join(packageDir, 'index.js'), 'module.exports = {}\n')
+
+    // Inside the project the copy is named the way the project names files.
+    await expectUnusable(
+      root,
+      'addons-linter exports no createInstance',
+      path.join('node_modules', 'addons-linter', 'index.js')
+    )
+  })
+
+  it('names the load error of a linter that resolved and would not load', async () => {
+    const outsideCopy = path.join(
+      os.tmpdir(),
+      'another-install',
+      'node_modules',
+      'addons-linter',
+      'index.js'
+    )
+
+    const unloadable: LoadAddonLinter = async () => {
+      throw Object.assign(
+        new Error(
+          '[AMO] addons-linter could not be loaded after it resolved. Install it with: pnpm add -D addons-linter'
+        ),
+        {
+          code: 'E_OPTIONAL_DEP_LOAD',
+          resolvedPath: outsideCopy,
+          cause: new Error('linter entry boom\nRequire stack:\n- index.js')
+        }
+      )
+    }
+
+    // A copy outside the project keeps its full path.
+    await expectUnusable(
+      project(),
+      'linter entry boom',
+      outsideCopy,
+      unloadable
+    )
   })
 
   it('gives up after the time box instead of hanging the build', async () => {

@@ -829,7 +829,8 @@ async function runBuild(
               info,
               asAskedPath(displayDistPath),
               outputFiles,
-              warningCodes(stats.compilation)
+              warningCodes(stats.compilation),
+              packageJsonDir
             ),
             toolchain: getBuildToolchain()
           }

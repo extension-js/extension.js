@@ -12,8 +12,10 @@ import {
   publicContainmentRoot,
   resolvePublicFolder
 } from '../plugin-special-folders/resolve-public-folder'
-import {publicOwnedOutputName, replaceCssUrlRefs} from './css-lib/dead-url-refs'
+import {checkedCssSheets, publicOwnedOutputName} from './css-lib/dead-url-refs'
+import {rewriteCssUrls} from './css-lib/inline-css-imports'
 import {lineRewriteSourceMap} from './css-lib/line-rewrite-source-map'
+import * as messages from './css-lib/messages'
 
 export const PUBLIC_ROOT_SCHEME = 'https://extensionjs-public.invalid'
 
@@ -25,8 +27,20 @@ export interface PublicCssUrlLoaderOptions {
 interface PublicCssUrlLoaderContext {
   resourcePath?: string
   getOptions(): PublicCssUrlLoaderOptions
+  emitWarning?(warning: Error): void
   addDependency?(file: string): void
   callback(error: null, content: string, map?: unknown): void
+  _compiler?: object
+  _module?: {nameForCondition?(): string | null | undefined}
+}
+
+// Notes that this sheet ran here, so the resolve hook checks every file
+// it leads to. The two live in two bundles and share the compiler.
+function noteCheckedSheet(loader: PublicCssUrlLoaderContext) {
+  const name = loader._module?.nameForCondition?.() || loader.resourcePath
+  if (!loader._compiler || !name) return
+
+  checkedCssSheets(loader._compiler).add(name)
 }
 
 function isFile(candidate: string): boolean {
@@ -61,27 +75,35 @@ export function keepPublicRootRefs(
   publicRoot: string,
   relative?: PublicRelativeRefs
 ): string {
-  return replaceCssUrlRefs(source, (request, {isImport}) => {
-    if (request.startsWith('//')) return undefined
+  // Read the way CSS reads it, so a url( inside a string is left alone.
+  return rewriteCssUrls(
+    source,
+    (request, where) => {
+      if (where !== 'url' && where !== 'import-url') return undefined
+      if (request.startsWith('//')) return undefined
 
-    const suffixAt = request.search(/[?#]/)
-    const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
+      const isImport = where === 'import-url'
 
-    if (req.startsWith('/')) {
-      const rel = req.slice(1)
-      if (!rel || !isFile(path.join(publicRoot, rel))) return undefined
+      const suffixAt = request.search(/[?#]/)
+      const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
 
-      return `${PUBLIC_ROOT_SCHEME}${request}`
-    }
+      if (req.startsWith('/')) {
+        const rel = req.slice(1)
+        if (!rel || !isFile(path.join(publicRoot, rel))) return undefined
 
-    // A relative @import is bundled into the sheet, so it stays a request.
-    if (!relative || isImport) return undefined
+        return `${PUBLIC_ROOT_SCHEME}${request}`
+      }
 
-    const publicPath = publicPathOfRelativeRef(req, relative)
-    if (!publicPath) return undefined
+      // A relative @import is bundled into the sheet, so it stays a request.
+      if (!relative || isImport) return undefined
 
-    return `${PUBLIC_ROOT_SCHEME}/${publicPath}${request.slice(req.length)}`
-  })
+      const publicPath = publicPathOfRelativeRef(req, relative)
+      if (!publicPath) return undefined
+
+      return `${PUBLIC_ROOT_SCHEME}/${publicPath}${request.slice(req.length)}`
+    },
+    true
+  )
 }
 
 export default function publicCssUrlLoader(
@@ -93,6 +115,8 @@ export default function publicCssUrlLoader(
   let rewritten = source
 
   if (manifestPath && projectPath) {
+    noteCheckedSheet(this)
+
     try {
       const publicRoot = publicContainmentRoot(manifestPath, projectPath)
       const publicDir = resolvePublicFolder(manifestPath, projectPath)
@@ -104,8 +128,16 @@ export default function publicCssUrlLoader(
           ? {issuerDir: path.dirname(this.resourcePath), publicDir}
           : undefined
       )
-    } catch {
+    } catch (error) {
       // A reference rewrite must never break a build the browser would accept.
+      this.emitWarning?.(
+        Object.assign(
+          new Error(
+            messages.cssUrlRewriteSkipped(this.resourcePath || '', error)
+          ),
+          {name: 'CssUrlRewriteWarning'}
+        )
+      )
     }
   }
 

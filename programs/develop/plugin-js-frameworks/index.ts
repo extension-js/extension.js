@@ -31,6 +31,7 @@ import {
   swcParserForFile
 } from './js-frameworks-lib/jsx-transform'
 import * as messages from './js-frameworks-lib/messages'
+import {swcDecoratorTransform} from './js-tools/decorators'
 import {maybeUsePreact} from './js-tools/preact'
 import {
   isUsingReact,
@@ -42,8 +43,7 @@ import {maybeUseSvelte} from './js-tools/svelte'
 import {
   ensureTypeScriptConfig,
   getUserJsConfigFile,
-  getUserTypeScriptConfigFile,
-  isUsingTypeScript
+  getUserTypeScriptConfigFile
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
 import {resolveSwcTargets} from './swc-targets'
@@ -386,6 +386,9 @@ export class JsFrameworksPlugin {
     // reading it here could never add anything: the config IS the signal
     // (ensureTypeScriptConfig above scaffolds it for TS projects).
     const preferTypeScript = !!tsConfigPath
+    const resolveConfigPath = tsConfigPath ?? getUserJsConfigFile(projectPath)
+    // The same config chooses decorator semantics, the way tsc reads them.
+    const decorators = swcDecoratorTransform(resolveConfigPath)
 
     const targets = resolveSwcTargets(manifest as Manifest, this.browser)
 
@@ -451,13 +454,9 @@ export class JsFrameworksPlugin {
     ) => ({
       loader: 'builtin:swc-loader',
       options: {
-        sync: true,
         module: {
           type: 'es6'
         },
-        // Keep SWC transform-only: Rspack owns production minification, and disabling
-        // SWC minify preserves magic comments like /* webpackIgnore: true */.
-        minify: false,
         // Content scripts and background.scripts load as classic sloppy scripts
         // where octal escapes are legal, so they keep per-file detection. Files
         // the browser loads as modules compile as modules: in script form the
@@ -466,10 +465,13 @@ export class JsFrameworksPlugin {
         sourceMap: wantsSourceMaps,
         env: {targets},
         jsc: {
-          parser: swcParserForFile(resourcePath, jsxInPlainJs),
+          parser: {
+            ...swcParserForFile(resourcePath, jsxInPlainJs),
+            decorators: true
+          },
           transform: {
+            ...decorators,
             react: {
-              development: mode === 'development',
               runtime: 'automatic',
               importSource: jsxImportSource,
               refresh: options.refresh
@@ -500,6 +502,12 @@ export class JsFrameworksPlugin {
         ...swcRuleBase,
         issuerLayer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
         layer: EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+        // The rule above already compiles these: matching both ran the
+        // transpiler a second time on its own output.
+        exclude: [
+          ...swcRuleBase.exclude,
+          (resourcePath: string) => isfeatureScriptsContentLike(resourcePath)
+        ],
         oneOf: parserVariants({refresh: false, module: false})
       },
       {
@@ -576,11 +584,9 @@ export class JsFrameworksPlugin {
       compiler.options.module.rules as LooseRuleSetRule[]
     )
 
-    const resolveConfigPath = tsConfigPath ?? getUserJsConfigFile(projectPath)
-
-    if (isUsingTypeScript(projectPath) || !!resolveConfigPath) {
+    if (resolveConfigPath) {
       compiler.options.resolve.tsConfig = {
-        configFile: resolveConfigPath as string
+        configFile: resolveConfigPath
       }
     }
 
@@ -624,8 +630,6 @@ export class JsFrameworksPlugin {
       : []
 
     if (refreshEntries.length === 0) return
-    // Unit specs hand in a compiler stub without this hook.
-    if (typeof compiler.hooks?.entryOption?.tap !== 'function') return
 
     compiler.hooks.entryOption.tap(
       JsFrameworksPlugin.name,

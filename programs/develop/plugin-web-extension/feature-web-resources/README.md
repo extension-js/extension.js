@@ -96,6 +96,22 @@ This feature performs path validation at compile time and surfaces clear message
 - Glob patterns (e.g., `assets/*.svg`, `/*.json`) are preserved as-is.
 - When a resource is both user-declared and auto-discovered from a content script, it is de-duplicated.
 
+## Files a declared resource never ships
+
+Every file in the build output is readable by anyone who installs the extension, so a declared resource is copied only when it is project content. The rule is `sourceFileMayShip` in `plugin-special-folders/public-private-files.ts`, the same one the root-absolute fallback of pages and stylesheets applies. Nothing is copied for:
+
+- a private name anywhere along the path, in any letter case (`.env`, `.env.local`, `.envrc`, `.npmrc`, `.git/config`, the full table is in the `plugin-special-folders` README),
+- a folder entry or a pattern under `node_modules` (a file of an installed package named by its path ships),
+- a path that climbs out of the project to a file its workspace does not share (`../outside.txt`, `sub/../../outside.txt`),
+- a root path that climbs out of the extension root (`/../outside.txt`, `/%2e%2e/outside.txt`), which a page refuses too,
+- a link that resolves outside the project root, into `node_modules` or onto a private name, a workspace folder a package links included.
+
+Each of those gets the warning a missing file gets (`Can't find the file <entry> listed in web_accessible_resources.`), which names the path and never what the file holds. The entry stays in the output manifest as written, the way a missing file does.
+
+A folder entry (`icons/`) and a pattern under a folder (`images/*`) apply the same rule to every file they reach. An env file inside one is reported by its own path. OS metadata and repository files (`.DS_Store`, `.gitkeep`) are left out without a word, the way the `public/` copy leaves them out. A pattern with no folder before its first `*` (`*.json`, `/*`, `**/*`) names the built output and copies no source file.
+
+Template env files (`.env.example`), `.well-known/` and every other dot-file ship as authored, and a link that stays inside the project is followed.
+
 ## License
 
 MIT (c) Cezar Augusto
