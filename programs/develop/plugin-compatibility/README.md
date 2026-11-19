@@ -12,6 +12,7 @@
 This plugin does one of two things for a Chromium-based target, and nothing for Firefox or Safari:
 
 - With `polyfill: true`, it provides the `browser` global using `webextension-polyfill`. It is off by default in `dev`, `start` and `build`. Firefox and Safari already ship a native promise-based `browser` namespace, so the polyfill is never injected for those families.
+- The polyfill goes only to code that runs inside the extension: the background, extension pages and isolated world content scripts. A MAIN world content script (with the modules it imports) and a sandboxed page's own scripts have no extension API, where the polyfill throws on load, so their `browser` stays the page's own global.
 - With the polyfill off, it warns when the extension's own code reads `browser.*` and the manifest does not declare a Chromium version that has the namespace natively.
 
 ### Feature overview
