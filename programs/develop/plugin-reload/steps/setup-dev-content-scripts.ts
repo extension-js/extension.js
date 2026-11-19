@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, type Compiler, sources} from '@rspack/core'
+import {Compilation, type Compiler, sources} from '@rspack/core'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {
   getCurrentManifestContent,
@@ -24,7 +24,7 @@ import {
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
-import {RELOAD_STAGE} from './stages'
+import {RELOAD_STAGE_AFTER_REPORT} from './stages'
 
 function putAsset(compilation: Compilation, name: string, text: string) {
   const source = new sources.RawSource(text)
@@ -90,7 +90,7 @@ function pruneOrphanDevContentScriptFiles(
 // still guards the stubs.
 export class SetupDevContentScripts {
   apply(compiler: Compiler) {
-    compiler.hooks.done?.tap(SetupDevContentScripts.name, (stats) => {
+    compiler.hooks.done.tap(SetupDevContentScripts.name, (stats) => {
       const outputPath = compiler.options.output?.path
       if (!outputPath || stats.compilation.errors.length > 0) return
 
@@ -110,7 +110,9 @@ export class SetupDevContentScripts {
         compilation.hooks.processAssets.tap(
           {
             name: SetupDevContentScripts.name,
-            stage: RELOAD_STAGE
+            stage:
+              Compilation.PROCESS_ASSETS_STAGE_REPORT +
+              RELOAD_STAGE_AFTER_REPORT
           },
           () => {
             if (compilation.errors.length > 0) return

@@ -1068,7 +1068,9 @@ describe('createChangedSourcesTracker on a symlinked project dir', () => {
           tap: (_name: string, fn: () => void) => {
             runner = fn
           }
-        }
+        },
+        done: {tap: () => undefined},
+        assetEmitted: {tap: () => undefined}
       }
     }
     const tracker = createChangedSourcesTracker(compiler)

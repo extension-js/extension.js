@@ -582,7 +582,7 @@ export function createChangedSourcesTracker(
     ingest(changesOf(compiler), changedSources, markForced)
   })
 
-  compiler.hooks.done?.tap?.(
+  compiler.hooks.done.tap(
     'extjs-reload-changed-sources-done',
     (stats: {
       compilation?: {errors?: unknown[]; modifiedFiles?: Iterable<string>}
@@ -610,7 +610,7 @@ export function createChangedSourcesTracker(
     }
   )
 
-  compiler.hooks.assetEmitted?.tap?.(
+  compiler.hooks.assetEmitted.tap(
     'extjs-reload-changed-sources-emitted',
     (file: string) => {
       const normalized = normalizeChangedPath(file, contextDir())
