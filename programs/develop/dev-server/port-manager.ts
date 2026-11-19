@@ -110,7 +110,8 @@ export interface PortAllocation {
 }
 
 // Minimal local representation; no global registry. The dev server multiplexes
-// the HMR websocket onto the HTTP port (path `/ws`), so a single port suffices.
+// the HMR websocket onto the HTTP port (path `/ws/<instance id>`), so a single
+// port suffices.
 interface LocalInstanceInfo {
   instanceId: string
   port: number
