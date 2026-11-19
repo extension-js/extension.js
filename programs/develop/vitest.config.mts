@@ -8,6 +8,17 @@
 
 import {defineConfig} from 'vitest/config'
 
+// Vitest drops every filter after `--`, which `pnpm test -- <path>` forwards,
+// so one spec path would start the whole suite. Refuse it and name the fix.
+const dashes = process.argv.indexOf('--')
+const afterDashes = dashes === -1 ? [] : process.argv.slice(dashes + 1)
+
+if (afterDashes.length > 0) {
+  throw new Error(
+    `vitest ignores what follows --, so the whole suite would run. Pass it without the --: vitest run ${afterDashes.join(' ')}`
+  )
+}
+
 export default defineConfig({
   test: {
     globals: true,
