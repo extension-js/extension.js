@@ -17,12 +17,10 @@ import {
   GECKO_EXTENSION_SCHEME,
   unlessExtensionAddress
 } from '../../lib/extension-base-from-stack'
+import type {WithheldKind} from '../../lib/withheld-file'
 import {toJsStringLiteral} from '../../plugin-compilation/env'
-import {
-  publicOwnedOutputName,
-  replaceCssUrlRefs,
-  toPosixPath
-} from './dead-url-refs'
+import {publicOwnedOutputName, toPosixPath} from './dead-url-refs'
+import {rewriteCssUrls, whyNotRead} from './inline-css-imports'
 
 export const EXTENSION_ROOT_PLACEHOLDER = '__EXTENSIONJS_EXTENSION_ROOT__/'
 
@@ -49,6 +47,8 @@ export interface RewriteInlinedCssUrlsContext {
   publicRoot: string
   // The same folder when the copier does ship one, for a relative ref into it.
   publicDir?: string
+  // A file the build withholds keeps its address and is never bundled.
+  projectPath?: string
 }
 
 function isFile(candidate: string): boolean {
@@ -105,40 +105,71 @@ function resolveTarget(
 export function rewriteInlinedCssUrls(
   source: string,
   context: RewriteInlinedCssUrlsContext
-): {css: string; targets: InlinedCssUrlTarget[]} {
+): {
+  css: string
+  targets: InlinedCssUrlTarget[]
+  withheld: Array<{request: string; kind: WithheldKind}>
+} {
   const targets: InlinedCssUrlTarget[] = []
+  // The addresses of files the build keeps back, each once, as written.
+  const withheld = new Map<string, WithheldKind>()
   const seen = new Map<string, string>()
 
-  const css = replaceCssUrlRefs(source, (request) => {
-    const suffixAt = request.search(/[?#]/)
-    const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
-    const suffix = suffixAt === -1 ? '' : request.slice(suffixAt)
+  // Read the way CSS reads it, so a url( inside a string is left alone. The
+  // url() of an @import names a sheet, which is never a file to bundle.
+  const css = rewriteCssUrls(
+    source,
+    (request, where) => {
+      if (where !== 'url' && where !== 'set') return undefined
 
-    if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
-      return undefined
-    }
+      const suffixAt = request.search(/[?#]/)
+      const req = suffixAt === -1 ? request : request.slice(0, suffixAt)
+      const suffix = suffixAt === -1 ? '' : request.slice(suffixAt)
 
-    if (req.startsWith('~') || req.startsWith('@')) return undefined
-    if (req.startsWith(EXTENSION_ROOT_PLACEHOLDER)) return undefined
+      if (!req || req.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(req)) {
+        return undefined
+      }
 
-    let named = seen.get(req)
+      if (req.startsWith('~') || req.startsWith('@')) return undefined
+      if (req.startsWith(EXTENSION_ROOT_PLACEHOLDER)) return undefined
 
-    if (!named) {
-      const target = resolveTarget(req, context)
-      if (!target) return undefined
+      let named = seen.get(req)
 
-      named = target.publicOwned
-        ? `${EXTENSION_ROOT_PLACEHOLDER}${target.outputName}`
-        : bundledFileToken(targets.filter((other) => !other.publicOwned).length)
+      if (!named) {
+        const target = resolveTarget(req, context)
+        if (!target) return undefined
 
-      seen.set(req, named)
-      targets.push({request: req, ...target})
-    }
+        const refused =
+          !target.publicOwned && context.projectPath
+            ? whyNotRead(target.absolutePath, context.projectPath)
+            : undefined
 
-    return `${named}${suffix}`
-  })
+        if (refused) {
+          withheld.set(request, refused.kind)
 
-  return {css, targets}
+          return undefined
+        }
+
+        named = target.publicOwned
+          ? `${EXTENSION_ROOT_PLACEHOLDER}${target.outputName}`
+          : bundledFileToken(
+              targets.filter((other) => !other.publicOwned).length
+            )
+
+        seen.set(req, named)
+        targets.push({request: req, ...target})
+      }
+
+      return `${named}${suffix}`
+    },
+    true
+  )
+
+  return {
+    css,
+    targets,
+    withheld: [...withheld].map(([request, kind]) => ({request, kind}))
+  }
 }
 
 export const SFC_STYLE_ATTRIBUTE = 'data-extjs-sfc-style'

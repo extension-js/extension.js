@@ -3,7 +3,14 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import developPackageJson from '../../package.json'
-import {createPlaywrightMetadataWriter} from '../index'
+import type {PlaywrightAutomationCommand} from '../index'
+import {
+  makeWriter as makeProjectWriter,
+  patchContract,
+  readContract,
+  readEvents,
+  writeManifest as writeManifestIn
+} from './helpers/contract'
 
 describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', () => {
   let tmp: string
@@ -16,42 +23,26 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     fs.rmSync(tmp, {recursive: true, force: true})
   })
 
-  const makeWriter = (command: 'dev' | 'start' | 'preview' | 'build' = 'dev') =>
-    createPlaywrightMetadataWriter({
-      packageJsonDir: tmp,
-      browser: 'chromium',
-      command,
-      distPath: path.join(tmp, 'dist', 'chromium'),
-      manifestPath: path.join(tmp, 'src', 'manifest.json')
-    })
+  const makeWriter = (command: PlaywrightAutomationCommand = 'dev') =>
+    makeProjectWriter(tmp, {command})
 
-  const writeManifest = (manifest: Record<string, unknown>) => {
-    fs.mkdirSync(path.join(tmp, 'src'), {recursive: true})
-    fs.writeFileSync(
-      path.join(tmp, 'src', 'manifest.json'),
-      JSON.stringify(manifest)
-    )
-  }
+  const writeManifest = (manifest: Record<string, unknown>) =>
+    writeManifestIn(path.join(tmp, 'src'), manifest)
+
+  const writeDistManifest = (manifest: Record<string, unknown>) =>
+    writeManifestIn(path.join(tmp, 'dist', 'chromium'), manifest)
 
   it('stamps the real command, toolchain version and extension name/version', () => {
     writeManifest({name: 'Fixture Extension', version: '1.2.3'})
     const writer = makeWriter('build')
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.command).toBe('build')
     expect(ready.toolchainVersion).toBe(developPackageJson.version)
     expect(ready.extensionName).toBe('Fixture Extension')
     expect(ready.extensionVersion).toBe('1.2.3')
   })
-
-  const writeDistManifest = (manifest: Record<string, unknown>) => {
-    fs.mkdirSync(path.join(tmp, 'dist', 'chromium'), {recursive: true})
-    fs.writeFileSync(
-      path.join(tmp, 'dist', 'chromium', 'manifest.json'),
-      JSON.stringify(manifest)
-    )
-  }
 
   it('a build names the manifest it compiles, not the dist of the previous build', () => {
     writeDistManifest({name: 'Old Name', version: '0.1.0'})
@@ -59,7 +50,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     const writer = makeWriter('build')
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.extensionName).toBe('New Name')
     expect(ready.extensionVersion).toBe('0.2.0')
   })
@@ -70,7 +61,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     const writer = makeWriter('dev')
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.extensionName).toBe('Old Name')
     expect(ready.extensionVersion).toBe('0.1.0')
   })
@@ -80,7 +71,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     const writer = makeWriter('build')
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.extensionName).toBe('Dist Only')
     expect(ready.extensionVersion).toBe('0.1.0')
   })
@@ -89,7 +80,7 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     const writer = makeWriter()
     writer.writeReady()
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
+    const ready = readContract(writer.readyPath)
     expect(ready.toolchainVersion).toBe(developPackageJson.version)
     expect('extensionName' in ready).toBe(false)
     expect('extensionVersion' in ready).toBe(false)
@@ -112,12 +103,8 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
       browser: 'chromium'
     })
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    const lines = fs
-      .readFileSync(writer.eventsPath, 'utf-8')
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line))
+    const ready = readContract(writer.readyPath)
+    const lines = readEvents(writer.eventsPath)
     expect(lines).toHaveLength(2)
 
     for (const entry of lines) {
@@ -135,18 +122,12 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
       browser: 'chromium'
     })
 
-    expect(
-      fs.readFileSync(writer.eventsPath, 'utf-8').trim().split('\n')
-    ).toHaveLength(1)
+    expect(readEvents(writer.eventsPath)).toHaveLength(1)
 
     makeWriter().writeStarting()
-    expect(
-      fs.readFileSync(writer.eventsPath, 'utf-8').trim().split('\n')
-    ).toHaveLength(1)
+    expect(readEvents(writer.eventsPath)).toHaveLength(1)
 
-    const ready = JSON.parse(fs.readFileSync(writer.readyPath, 'utf-8'))
-    ready.runId = 'an-earlier-run'
-    fs.writeFileSync(writer.readyPath, JSON.stringify(ready))
+    patchContract(writer.readyPath, {runId: 'an-earlier-run'})
 
     makeWriter().writeStarting()
     expect(fs.readFileSync(writer.eventsPath, 'utf-8')).toBe('')
@@ -156,9 +137,9 @@ describe('ready.json provenance + events.ndjson run attribution (bugs 32/33)', (
     const a = makeWriter('dev')
     const b = makeWriter('dev')
     a.writeReady()
-    const readyA = JSON.parse(fs.readFileSync(a.readyPath, 'utf-8'))
+    const readyA = readContract(a.readyPath)
     b.writeError('compile_error', 'boom')
-    const readyB = JSON.parse(fs.readFileSync(b.readyPath, 'utf-8'))
+    const readyB = readContract(b.readyPath)
     expect(readyA.runId).toBe(readyB.runId)
   })
 })

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
 import {eventsPath, readyContractPath} from '../lib/session-paths'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-start-receipt-'))
@@ -222,6 +222,44 @@ describe('start run receipt (real build + preview)', () => {
     expect(ready.code).toBeUndefined()
     const types = readEvents().map((event) => event.type)
     expect(types).not.toContain('compile_success')
+  }, 120_000)
+
+  it('warns about a named companion that is not an extension and builds on', async () => {
+    const {extensionBuild} = await import('../command-build')
+    const options = {
+      browser: BROWSER,
+      silent: true,
+      install: false,
+      mode: 'production',
+      exitOnError: false,
+      extensions: ['./extensions/gone']
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const aboutCompanion = (lines: string[] = []) =>
+      lines.filter((line) => line.includes('./extensions/gone'))
+
+    try {
+      const started = await extensionBuild(ROOT, {
+        ...options,
+        metadataCommand: 'start'
+      } as never)
+      const coded = aboutCompanion(started.warnings)
+
+      expect(started.errors_count).toBe(0)
+      expect(coded).toHaveLength(1)
+      expect(coded[0]).toMatch(/^E_COMPANION_EXTENSION_PATH: /)
+      expect(coded[0]).toContain('DECLARED IN the --extensions flag')
+      expect(
+        aboutCompanion(warn.mock.calls.map((call) => String(call[0])))
+      ).toHaveLength(1)
+
+      // A plain build loads no companion, so the same entry is not its concern.
+      const built = await extensionBuild(ROOT, options as never)
+
+      expect(aboutCompanion(built.warnings)).toEqual([])
+    } finally {
+      warn.mockRestore()
+    }
   }, 120_000)
 
   it('lists companions when loaded and forgets them when the next run passes none', async () => {

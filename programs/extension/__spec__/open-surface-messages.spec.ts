@@ -32,31 +32,33 @@ const bridge = {
 import {BridgeController} from '../../develop/dev-server/control-bridge/controller-client'
 import {registerActCommands} from '../commands/act'
 import {makeProgram, runCli, stubProcessExit} from './command-harness'
+import {bridgeStandIn} from './helpers/engine-stand-ins'
 
-const loadBridge = async () => ({
-  readReadyContract: () => bridge.ready,
-  readReadyContractDocument: () => bridge.document,
-  readControlToken: () => 'tok-1',
-  BridgeController: class {
-    opts: unknown
-    closed = false
-    constructor(opts: unknown) {
-      this.opts = opts
-      bridge.controllers.push(this)
-    }
-    async connect() {
-      if (bridge.connectError) throw bridge.connectError
-    }
-    async command(payload: Record<string, unknown>) {
-      bridge.commands.push(payload)
+const loadBridge = async () =>
+  bridgeStandIn({
+    readReadyContract: () => bridge.ready,
+    readReadyContractDocument: () => bridge.document,
+    readControlToken: () => 'tok-1',
+    BridgeController: class {
+      opts: unknown
+      closed = false
+      constructor(opts: unknown) {
+        this.opts = opts
+        bridge.controllers.push(this)
+      }
+      async connect() {
+        if (bridge.connectError) throw bridge.connectError
+      }
+      async command(payload: Record<string, unknown>) {
+        bridge.commands.push(payload)
 
-      return bridge.result
+        return bridge.result
+      }
+      close() {
+        this.closed = true
+      }
     }
-    close() {
-      this.closed = true
-    }
-  }
-})
+  })
 
 let logSpy: MockInstance<typeof console.log>
 let errorSpy: MockInstance<typeof console.error>

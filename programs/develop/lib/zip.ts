@@ -212,7 +212,7 @@ export function writeRemoteSource(directory: string, source: string): void {
 
 // Where a remote archive url lands under targetPath. Exported so a caller can
 // vet the destination before anything is downloaded into it.
-export function remoteZipDestination(url: string, targetPath: string): string {
+function remoteZipDestination(url: string, targetPath: string): string {
   const urlNoSearchParams = url.split('?')[0]
   const extname = path.extname(urlNoSearchParams)
 

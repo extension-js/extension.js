@@ -29,9 +29,12 @@ import {
 } from '../helpers/cli-options'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
-import {exitWithFailure} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
+  type DevelopBrowser,
+  type DevelopFor,
+  type DevelopLauncher,
+  type DevelopModule,
   loadExtensionDevelopModule
 } from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
@@ -47,7 +50,9 @@ import {
   firstInvalidWholeNumberFlag,
   isReverseDnsBundleId,
   parseExtensionsList,
-  parseLogContexts
+  parseLogContexts,
+  parseLogFormat,
+  parseLogLevel
 } from '../helpers/normalize-options'
 import {
   refuseUnreadableOutput,
@@ -75,6 +80,12 @@ import {
   vendors
 } from '../helpers/vendors'
 import {describeWaitError, framedWaitFailure, runWaitMode} from './dev-wait'
+
+type EngineDevOptions = Parameters<DevelopModule['extensionDev']>[1]
+
+// The engine sets the mode of a dev session itself and reads authorMode off
+// the options without declaring it, so both are stated here.
+type DevArgs = Omit<EngineDevOptions, 'mode'> & {authorMode?: boolean}
 
 export type DevOptions = {
   browser?: Browser | 'all'
@@ -149,7 +160,7 @@ function resolveRequestedPort(value: unknown): number {
 
 // What the action reaches outside this file. Production takes every default.
 interface DevCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
   launcher?: typeof launchBrowser
   safariPreflight?: typeof safariPreflightError
   armParentWatchdog?: typeof setupParentWatchdog
@@ -157,6 +168,8 @@ interface DevCommandDeps {
   createPackager?: typeof createSafariPackager
   reportFailure?: typeof reportCommandFailureNow
   noteBrowsers?: typeof noteRunBrowsers
+  // Ends the process once stdout is written out, which a bare exit cuts.
+  exitDrained?: (code: number) => Promise<void>
 }
 
 export function registerDevCommand(
@@ -169,7 +182,8 @@ export function registerDevCommand(
     waitForReady = runWaitMode,
     createPackager = createSafariPackager,
     reportFailure = reportCommandFailureNow,
-    noteBrowsers = noteRunBrowsers
+    noteBrowsers = noteRunBrowsers,
+    exitDrained = exitAfterDrain
   }: DevCommandDeps = {}
 ) {
   program
@@ -636,13 +650,41 @@ export function registerDevCommand(
         // develop exits the process itself on a failure it already printed,
         // which skips every reporting path, so the failure row is sent here.
         const reportExitError = (error: unknown, fallbackCode?: string) => {
-          reportFailure({
-            code: declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
-            exitCode: 1
-          })
+          try {
+            reportFailure({
+              code:
+                declaredErrorCode(error) ?? fallbackCode ?? CODES.E_INTERNAL,
+              exitCode: 1,
+              error,
+              step: 'engine'
+            })
+          } catch {
+            // Best-effort: a report that throws must not keep the process up.
+          }
+
+          // Under --output json develop ends the session and exits nothing.
+          // Its failed frame is out, so the exit here prints no second one.
+          if (asJson) void exitDrained(1)
         }
 
-        const {extensionDev} = await loadDevelop()
+        let develop: DevelopFor<'extensionDev'>
+
+        try {
+          develop = await loadDevelop()
+        } catch (error) {
+          // Counted here, so the row says the engine never loaded. The entry
+          // point still prints the error and exits.
+          reportFailure({
+            code: declaredErrorCode(error) ?? CODES.E_INTERNAL,
+            exitCode: 1,
+            error,
+            step: 'engine_load'
+          })
+
+          throw error
+        }
+
+        const {extensionDev} = develop
 
         for (const vendor of list) {
           const logsOption = devOptions.logs
@@ -651,7 +693,7 @@ export function registerDevCommand(
           const logContexts = parseLogContexts(logContextOption)
           // Only forward logLevel when the user typed --logs. The stock `off`
           // and commands.dev.logLevel live in develop's merge layers.
-          const logLevel = logsOption || undefined
+          const logLevel = parseLogLevel(logsOption)
 
           // Pass only values the user typed. Stock defaults and
           // extension.config.js are applied inside extensionDev (defaults,
@@ -665,12 +707,12 @@ export function registerDevCommand(
 
           // Named key by key: a spread handed develop the CLI-only flags too
           // (--output json, --wait), which it then merged over config values.
-          const devArgs: Record<string, unknown> = {
+          const devArgs: DevArgs = {
             // Under --output json the wrapper catches and frames the failure;
             // extensionDev must reject instead of exiting for that to happen.
             exitOnError: !asJson,
             profile: normalizeProfileOption(devOptions.profile),
-            browser: vendor as DevOptions['browser'],
+            browser: vendor as DevelopBrowser,
             chromiumBinary: devOptions.chromiumBinary,
             geckoBinary: cliGeckoBinary(devOptions),
             polyfill: explicitCliValue(
@@ -688,7 +730,7 @@ export function registerDevCommand(
             extensions: parseExtensionsList(devOptions.extensions),
             logLevel,
             logContexts,
-            logFormat: devOptions.logFormat,
+            logFormat: parseLogFormat(devOptions.logFormat),
             logTimestamps: explicitCliValue(
               command,
               'logTimestamps',
@@ -717,7 +759,7 @@ export function registerDevCommand(
             allowEval: devOptions.allowEval,
             // Inject the browser launcher, develop's BrowsersPlugin calls it
             // on first compile; browser lifecycle is managed by the plugin.
-            launcher: noBrowser ? undefined : launcher,
+            launcher: noBrowser ? undefined : (launcher as DevelopLauncher),
             // The startup frame waits for the session to exist. Printed up
             // front, it announced a run that a missing manifest then refused.
             onSessionStart: printStartedFrame,
@@ -739,7 +781,7 @@ export function registerDevCommand(
           // extensionDev returns a BuildEmitter from the BrowsersPlugin.
           // Browser launch/reload is handled internally by the plugin.
           try {
-            await extensionDev(pathOrRemoteUrl, devArgs)
+            await extensionDev(pathOrRemoteUrl, devArgs as EngineDevOptions)
             // A develop that never called back still gets its frame.
             printStartedFrame()
           } catch (error) {
@@ -749,24 +791,31 @@ export function registerDevCommand(
             // untagged is an internal fault rather than a known class.
             const code = declaredErrorCode(error) ?? CODES.E_INTERNAL
 
-            printFrame(
-              ENVELOPE.fail(
-                'dev',
-                'failed',
-                {
-                  code,
-                  message:
-                    error instanceof Error ? error.message : String(error)
-                },
-                {
-                  hint:
-                    failureHint(code) ??
-                    'Fix the error above and run dev again.'
-                }
+            // A session has one terminal frame. An engine that already wrote
+            // it says so on the error, and a second one would break readers.
+            if ((error as {framed?: unknown} | null)?.framed !== true) {
+              printFrame(
+                ENVELOPE.fail(
+                  'dev',
+                  'failed',
+                  {
+                    code,
+                    message:
+                      error instanceof Error ? error.message : String(error)
+                  },
+                  {
+                    // The engine knows the session that failed, so a reader
+                    // still finds the port and the ready file on this frame.
+                    value: (error as {session?: unknown} | null)?.session,
+                    hint:
+                      failureHint(code) ??
+                      'Fix the error above and run dev again.'
+                  }
+                )
               )
-            )
+            }
 
-            exitWithFailure(code, 1, reportFailure)
+            exitWithFailure(code, 1, reportFailure, {error, step: 'engine'})
           }
         }
       }

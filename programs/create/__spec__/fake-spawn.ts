@@ -50,10 +50,12 @@ export function fakeSpawn(
     const piped = (index: number) =>
       options.stdio === 'pipe' ||
       (Array.isArray(options.stdio) && options.stdio[index] === 'pipe')
+    const pipe = () => Object.assign(new EventEmitter(), {destroy() {}})
     const child = Object.assign(new EventEmitter(), {
       pid: call.pid,
-      stdout: piped(1) ? new EventEmitter() : null,
-      stderr: piped(2) ? new EventEmitter() : null,
+      stdout: piped(1) ? pipe() : null,
+      stderr: piped(2) ? pipe() : null,
+      unref() {},
       kill(signal?: string) {
         call.signals.push(String(signal))
 

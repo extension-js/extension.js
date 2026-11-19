@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import {type Channel, fmt, hasChannelPrefix, prefix} from './messaging'
+import {type Channel, CODES, fmt, hasChannelPrefix, prefix} from './messaging'
 import {TELEMETRY_DOCS_URL} from './telemetry'
 import {
   BUNDLED_TEMPLATES,
@@ -42,6 +42,8 @@ export interface CommandArgSpec {
   readonly values?: readonly string[]
   // Help label used when the registered name misnames what the argument takes.
   readonly label?: string
+  // Takes any number of values, registered and printed with a trailing `...`.
+  readonly variadic?: boolean
 }
 
 export interface CommandNoteSpec {
@@ -59,8 +61,13 @@ interface CommandTableEntry {
   readonly notes?: readonly CommandNoteSpec[]
 }
 
+// Commander's marker for an argument that takes several values. It is syntax
+// a shell user types, so it stays three ASCII dots, never an ellipsis.
+const VARIADIC_MARK = '.'.repeat(3)
+
 function renderArgToken(spec: CommandArgSpec): string {
-  const token = spec.values ? spec.values.join('|') : (spec.label ?? spec.name)
+  const name = spec.values ? spec.values.join('|') : (spec.label ?? spec.name)
+  const token = spec.variadic ? `${name}${VARIADIC_MARK}` : name
 
   return spec.required ? `<${token}>` : `[${token}]`
 }
@@ -77,7 +84,11 @@ export function registeredArgSignature(
   positionals: readonly CommandArgSpec[]
 ): string {
   return positionals
-    .map((spec) => (spec.required ? `<${spec.name}>` : `[${spec.name}]`))
+    .map((spec) => {
+      const token = spec.variadic ? `${spec.name}${VARIADIC_MARK}` : spec.name
+
+      return spec.required ? `<${token}>` : `[${token}]`
+    })
     .join(' ')
 }
 
@@ -215,7 +226,7 @@ const COMMAND_TABLE = [
   },
   {
     name: 'install',
-    positionals: [{name: 'browser-name', required: false}],
+    positionals: [{name: 'browser-name', required: false, variadic: true}],
     description: 'Install a managed browser binary into the Extension.js cache',
     detail: 'Defaults to chromium when no browser is named.',
     supportsSourceInspection: false,
@@ -235,7 +246,7 @@ const COMMAND_TABLE = [
   },
   {
     name: 'uninstall',
-    positionals: [{name: 'browser-name', required: false}],
+    positionals: [{name: 'browser-name', required: false, variadic: true}],
     description: 'Remove managed browser binaries from the Extension.js cache',
     supportsSourceInspection: false,
     notes: [
@@ -348,6 +359,60 @@ export function projectCliVersionMismatch(
   )
 }
 
+// The CLI and the engine are published as one version. A pair at two versions
+// fails far from its cause, so the run stops before the engine is imported.
+export function developVersionMismatch(
+  cliVersion: string,
+  engineVersion: string,
+  engineRoot: string,
+  reinstall = `npm install extension@${cliVersion}`
+) {
+  return (
+    `${getLoggingPrefix('error')} ${code(`extension@${cliVersion}`)} found ` +
+    `${code(`extension-develop@${engineVersion}`)} at ${engineRoot}. ` +
+    `The two run together only at the same version.\n` +
+    `Reinstall so both are ${cliVersion}: ${code(reinstall)}\n` +
+    `To run a local engine on purpose, set ${code('EXTENSION_DEVELOP_ROOT')} to its folder.`
+  )
+}
+
+// The variable is how a local engine is run on purpose, so a wrong one is said
+// once rather than passed over for the installed engine in silence.
+export function developRootIgnored(envRoot: string) {
+  return (
+    `${getLoggingPrefix('warn')} ${code('EXTENSION_DEVELOP_ROOT')} points at ` +
+    `${envRoot}, which holds no extension-develop package, so it is ignored.`
+  )
+}
+
+// A local engine is the user's own choice, so the run goes on and says once
+// which pair is running.
+export function localDevelopVersionDiffers(
+  cliVersion: string,
+  engineVersion: string,
+  engineRoot: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${code('EXTENSION_DEVELOP_ROOT')} runs ` +
+    `${code(`extension-develop@${engineVersion}`)} from ${engineRoot} with ` +
+    `${code(`extension@${cliVersion}`)}. ` +
+    `The versions differ, so a failure here may come from the pair.`
+  )
+}
+
+// A catalog code other than E_INTERNAL names a refusal the user can act on,
+// so its stack only helps a maintainer, who asks for it with EXTENSION_DEBUG.
+function isKnownRefusal(err: Error): boolean {
+  const code = (err as {code?: unknown}).code
+
+  return (
+    typeof code === 'string' &&
+    code !== CODES.E_INTERNAL &&
+    Object.prototype.hasOwnProperty.call(CODES, code) &&
+    process.env.EXTENSION_DEBUG !== '1'
+  )
+}
+
 export function unhandledError(err: unknown) {
   const rendered = err instanceof Error ? err.message : ''
 
@@ -357,7 +422,7 @@ export function unhandledError(err: unknown) {
 
   const message =
     err instanceof Error
-      ? err.stack || err.message
+      ? (isKnownRefusal(err) ? '' : err.stack) || err.message
       : typeof err === 'string'
         ? err
         : err === undefined || err === null

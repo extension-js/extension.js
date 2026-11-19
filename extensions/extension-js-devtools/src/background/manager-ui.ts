@@ -71,6 +71,7 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
             // Ignore
           }
         }
+
         return
       }
 
@@ -82,14 +83,17 @@ MIT (c) ${new Date().getFullYear()} - Cezar Augusto and the Extension.js authors
       // handling always runs there to keep the welcome page reachable.
       if (isFirefox) {
         await handleFirstRun(undefined, {welcomeBehind: session.startingUrl})
+
         if (!isInitialPage) {
           createExtensionsPageTab(initialTab)
         }
+
         return
       }
 
       if (isInitialPage) {
         await handleFirstRun(initialTab)
+
         return
       }
 

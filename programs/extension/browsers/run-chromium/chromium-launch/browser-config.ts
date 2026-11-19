@@ -37,6 +37,7 @@ import type {
   DefaultBrowserFlags,
   PluginInterface
 } from '../../browsers-types'
+import {defaultChromiumOutputPath} from './extension-output-path'
 import {
   chromeMasterPreferences,
   edgeMasterPreferences,
@@ -436,8 +437,7 @@ export function browserConfig(
   }
 
   const outPath =
-    compilation?.options?.output?.path ||
-    path.resolve(process.cwd(), 'dist/chrome')
+    compilation?.options?.output?.path || defaultChromiumOutputPath()
   const managedBaseDir = managedProfileBaseDir(
     outPath,
     String(configOptions.browser)

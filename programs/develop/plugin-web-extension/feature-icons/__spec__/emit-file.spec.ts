@@ -25,7 +25,9 @@ vi.mock('@rspack/core', () => {
 const FS = {
   existsSync: vi.fn(),
   readFileSync: vi.fn(() => Buffer.from('file-bytes')),
-  statSync: vi.fn((_p: string) => ({size: 10}))
+  statSync: vi.fn((_p: string) => ({size: 10})),
+  // No link in these stand-in trees: a path is its own real path.
+  realpathSync: vi.fn((p: string) => p)
 }
 vi.mock('fs', () => ({
   ...FS
@@ -59,7 +61,7 @@ describe('EmitFile step', () => {
     expect(e).toMatch(/The build stops here/)
   })
 
-  const makeCompiler = () => {
+  const makeCompiler = (context = '/abs') => {
     const compilation: any = {
       hooks: {processAssets: {tap: (_: any, cb: Function) => cb()}},
       errors: [],
@@ -71,7 +73,9 @@ describe('EmitFile step', () => {
       hooks: {
         thisCompilation: {tap: (_: string, cb: Function) => cb(compilation)}
       },
-      options: {context: '/abs/project'}
+      // The manifest sits one folder below the project root, so a source
+      // beside that folder is project content outside the extension root.
+      options: {context}
     }
 
     return {compiler, compilation}
@@ -325,9 +329,31 @@ describe('EmitFile step', () => {
     expect(calls).toEqual(['icons/rel.png'])
   })
 
+  it('stops the build over an icon outside the project', async () => {
+    const {EmitFile} = await import('../steps/emit-file')
+    const {compiler, compilation} = makeCompiler('/abs/project')
+
+    FS.existsSync.mockImplementation(
+      (p: string) => toPosix(p) === '/abs/design/logo.png'
+    )
+
+    new EmitFile({
+      manifestPath: '/abs/project/manifest.json',
+      includeList: {icons: ['/abs/design/logo.png']}
+    } as any).apply(compiler as any)
+
+    // The workspace check reads package.json files above, never the icon.
+    const read = FS.readFileSync.mock.calls.map((c: any[]) => toPosix(c[0]))
+
+    expect(compilation.emitAsset).not.toHaveBeenCalled()
+    expect(read).not.toContain('/abs/design/logo.png')
+    expect(compilation.errors.length).toBe(1)
+    expect(String(compilation.errors[0])).toMatch(/NOT FOUND.*logo\.png/)
+  })
+
   it('skips assets under public/', async () => {
     const {EmitFile} = await import('../steps/emit-file')
-    const {compiler, compilation} = makeCompiler()
+    const {compiler, compilation} = makeCompiler('/abs/project')
 
     FS.existsSync.mockImplementation((p: string) =>
       toPosix(p).includes('/public/')

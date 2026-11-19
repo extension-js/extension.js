@@ -1,0 +1,152 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {type Compiler, type RspackOptions, rspack} from '@rspack/core'
+
+// Writes each file under the project root, a manifest object as JSON.
+export function writeProject(
+  root: string,
+  files: Record<string, string | object>
+): string {
+  for (const [relative, contents] of Object.entries(files)) {
+    const file = path.join(root, relative)
+    fs.mkdirSync(path.dirname(file), {recursive: true})
+    fs.writeFileSync(
+      file,
+      typeof contents === 'string' ? contents : JSON.stringify(contents)
+    )
+  }
+
+  return root
+}
+
+// A real compiler that is created and never run, so a spec reads what a
+// plugin registered on it rather than what a stand-in recorded.
+export function idleCompiler(
+  root: string,
+  mode: 'development' | 'production',
+  entry: RspackOptions['entry'] = {}
+): Compiler {
+  return rspack({
+    mode,
+    context: root,
+    entry,
+    output: {path: path.join(root, 'dist'), publicPath: '/'}
+  })
+}
+
+// Runs a compile with readable output and returns every emitted JavaScript
+// file by name, or none when the compile reported an error.
+export async function compileFiles(
+  root: string,
+  entry: Record<string, string>,
+  plugin: {apply(compiler: Compiler): void},
+  mode: 'development' | 'production' = 'production'
+): Promise<{errors: string[]; files: Record<string, string>}> {
+  const compiler = rspack({
+    mode,
+    context: root,
+    devtool: false,
+    optimization: {minimize: false},
+    entry: Object.fromEntries(
+      Object.entries(entry).map(([name, file]) => [
+        name,
+        {import: [file.startsWith('data:') ? file : path.join(root, file)]}
+      ])
+    ),
+    output: {path: path.join(root, 'dist'), publicPath: '/'},
+    plugins: [plugin]
+  })
+  const stats = await new Promise<import('@rspack/core').Stats>(
+    (resolve, reject) =>
+      compiler.run((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+  )
+  await new Promise((resolve) => compiler.close(resolve))
+  const errors = stats.compilation.errors.map((error) => error.message)
+  const files: Record<string, string> = {}
+
+  if (!stats.hasErrors()) {
+    for (const asset of stats.compilation.getAssets()) {
+      if (asset.name.endsWith('.js')) {
+        files[asset.name] = String(asset.source.source())
+      }
+    }
+  }
+
+  return {errors, files}
+}
+
+export interface CompileIssue {
+  name: string
+  file?: string
+  message: string
+}
+
+// Runs a compile and returns what it reported, with the bundler's own
+// severity mark and padding taken off each message.
+export async function compileIssues(
+  root: string,
+  mode: 'development' | 'production',
+  entry: Record<string, string>,
+  plugins: Array<{apply(compiler: Compiler): void}>
+): Promise<{errors: CompileIssue[]; warnings: CompileIssue[]}> {
+  const compiler = rspack({
+    mode,
+    context: root,
+    devtool: false,
+    entry: Object.fromEntries(
+      Object.entries(entry).map(([name, file]) => [
+        name,
+        {import: [path.join(root, file)]}
+      ])
+    ),
+    output: {path: path.join(root, 'dist'), publicPath: '/'},
+    plugins
+  })
+  const stats = await new Promise<import('@rspack/core').Stats>(
+    (resolve, reject) =>
+      compiler.run((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+  )
+  await new Promise((resolve) => compiler.close(resolve))
+  const plain = (issue: Error & {file?: string}): CompileIssue => ({
+    name: issue.name,
+    ...(issue.file ? {file: issue.file} : {}),
+    message: issue.message.replace(/^\s*[×⚠]\s*/, '').trimEnd()
+  })
+
+  return {
+    errors: stats.compilation.errors.map(plain),
+    warnings: stats.compilation.warnings.map(plain)
+  }
+}
+
+function tapNames(compiler: Compiler): Map<string, string[]> {
+  return new Map(
+    Object.entries(compiler.hooks).map(([hook, value]) => [
+      hook,
+      ((value as {taps?: Array<{name: string}>}).taps ?? []).map(
+        (tap) => tap.name
+      )
+    ])
+  )
+}
+
+// Every tap a call added, by compiler hook, in the order they were added.
+export function tapsAddedBy(
+  compiler: Compiler,
+  act: () => void
+): Record<string, string[]> {
+  const before = tapNames(compiler)
+  act()
+  const added: Record<string, string[]> = {}
+
+  for (const [hook, names] of tapNames(compiler)) {
+    const extra = names.slice(before.get(hook)?.length ?? 0)
+    if (extra.length > 0) added[hook] = extra
+  }
+
+  return added
+}

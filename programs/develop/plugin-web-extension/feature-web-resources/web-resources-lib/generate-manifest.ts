@@ -11,7 +11,6 @@ import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {debugLine, isDebug} from '../../../lib/messaging'
-import {isDevContentScriptStandInAsset} from '../../../plugin-reload/reload-lib/dev-content-scripts'
 import type {Manifest} from '../../../types'
 import {
   getManifestContent,
@@ -19,6 +18,7 @@ import {
 } from '../../feature-manifest/manifest-lib/manifest'
 import {
   getCanonicalContentScriptCssAssetName,
+  isDevContentScriptStandInAsset,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
 import {injectedSheetTargets} from '../../feature-scripts/scripts-lib/injected-sheet-urls'
@@ -803,6 +803,12 @@ export function generateManifestPatches(
     }
   }
 
+  // Every entry the author wrote was resolved above, so a list none of them
+  // survived is left out: the manifest names only what the build can serve.
+  const authorListsResources = Array.isArray(
+    canonicalManifest.web_accessible_resources
+  )
+
   if (canonicalManifest.manifest_version === 3) {
     if (webAccessibleResourcesV3.length > 0) {
       canonicalManifest.web_accessible_resources = webAccessibleResourcesV3
@@ -830,12 +836,19 @@ export function generateManifestPatches(
               ((b as {matches?: string[]}).matches ?? []).join(',')
             )
         ) as Manifest['web_accessible_resources']
+    } else if (authorListsResources) {
+      delete canonicalManifest.web_accessible_resources
     }
   } else {
     if (webAccessibleResourcesV2.length > 0) {
       canonicalManifest.web_accessible_resources = Array.from(
         new Set(webAccessibleResourcesV2)
       ).sort() as Manifest['web_accessible_resources']
+    } else if (
+      authorListsResources &&
+      canonicalManifest.manifest_version === 2
+    ) {
+      delete canonicalManifest.web_accessible_resources
     }
   }
 

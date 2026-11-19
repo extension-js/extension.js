@@ -9,6 +9,8 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {findNearestProjectManifestSync} from '../../../../lib/project-manifest'
+import {refuseTopLevelAwait} from '../../scripts-lib/top-level-await'
 
 const requireModule = createRequire(import.meta.url)
 
@@ -339,6 +341,7 @@ interface ClassicConcatLoaderContext {
   resourcePath: string
   resourceQuery: string
   addDependency(dep: string): void
+  addMissingDependency?(dep: string): void
   callback(err: Error | null, content?: string, sourceMap?: unknown): void
   emitError?(error: Error): void
   _compilation?: {errors?: Error[]}
@@ -401,6 +404,18 @@ function displayPath(file: string): string {
   const shown = relative && !relative.startsWith('..') ? relative : file
 
   return shown.split(path.sep).join('/')
+}
+
+// Named from the project, the way the wrapper names a content script.
+function projectPath(file: string): string {
+  const packageJson = findNearestProjectManifestSync(file)
+
+  if (!packageJson) return displayPath(file)
+
+  return path
+    .relative(path.dirname(packageJson), file)
+    .split(path.sep)
+    .join('/')
 }
 
 function redeclarationMessage(
@@ -503,7 +518,23 @@ export default function classicConcatLoader(
 
   for (let fileIdx = 0; fileIdx < jsFiles.length; fileIdx++) {
     const file = jsFiles[fileIdx]
-    const raw = fs.readFileSync(file, 'utf8')
+    let raw: string
+
+    try {
+      raw = fs.readFileSync(file, 'utf8')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') throw error
+
+      // Deleted since the entry was made. The page or the manifest that
+      // names the file reports it, and the browser runs the other files.
+      this.addMissingDependency?.(file)
+
+      continue
+    }
+
+    const sourceIndex = sources.length
+    // Inside the shared function below an await would read as a stray word.
+    refuseTopLevelAwait(raw, file, projectPath(file), true)
     // Line mappings for transpiled TS are approximate (tsc's emitter mostly
     // preserves line positions, but removed type-only blocks shift them).
     const transpiled = /\.ts$/i.test(file)
@@ -539,7 +570,7 @@ export default function classicConcatLoader(
       if (typeof mapped === 'number' && mapped >= 0) lastKnown = mapped
 
       lineMappings.push({
-        sourceIndex: fileIdx,
+        sourceIndex,
         sourceLine: transpiled.lineTable ? lastKnown : lineNo
       })
     }

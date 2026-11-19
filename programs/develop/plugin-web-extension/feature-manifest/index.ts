@@ -17,11 +17,12 @@ import {ManifestLegacyWarnings} from './steps/legacy-warnings'
 import {PatchWAR} from './steps/patch-war'
 import {PersistManifestToDisk} from './steps/persist-manifest'
 import {UpdateManifest} from './steps/update-manifest'
-import {ValidateThemeValues} from './steps/validate-theme-values'
+import {ValidateThemeArrays} from './steps/validate-theme-values'
 import {WarnContentScriptHostAccess} from './steps/warn-content-script-host-access'
 import {WarnDescriptionLength} from './steps/warn-description-length'
 import {WarnIgnoredHostPermissions} from './steps/warn-ignored-host-permissions'
 import {WarnUndeclaredPermissions} from './steps/warn-undeclared-permissions'
+import {WarnWebAssembly} from './steps/warn-webassembly'
 
 export class ManifestPlugin {
   public readonly manifestPath: string
@@ -51,7 +52,7 @@ export class ManifestPlugin {
       browser: this.browser
     }).apply(compiler)
 
-    new ValidateThemeValues({
+    new ValidateThemeArrays({
       manifestPath: this.manifestPath,
       browser: this.browser
     }).apply(compiler)
@@ -89,6 +90,8 @@ export class ManifestPlugin {
     new WarnIgnoredHostPermissions().apply(compiler)
 
     new WarnContentScriptHostAccess({browser: this.browser}).apply(compiler)
+
+    new WarnWebAssembly({browser: this.browser}).apply(compiler)
 
     new AddDependencies([this.manifestPath]).apply(compiler)
 

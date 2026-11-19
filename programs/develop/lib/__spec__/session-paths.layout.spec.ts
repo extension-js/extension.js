@@ -4,8 +4,18 @@ import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
+  actionsPath,
+  browserDistDir,
+  browserProfileRootDir,
+  buildSummaryPath,
+  controlPortFilePath,
+  controlTokenPath,
   ensureSessionArtifactsIgnoreFile,
-  SESSION_ARTIFACTS,
+  eventsPath,
+  legacyControlPortFilePath,
+  legacyControlTokenPath,
+  logsPath,
+  readyContractPath,
   SESSION_ARTIFACTS_IGNORE_CONTENT,
   sessionArtifactsIgnoreFilePath
 } from '../session-paths'
@@ -15,6 +25,40 @@ const developRoot = path.resolve(
   '..',
   '..'
 )
+
+interface SessionArtifact {
+  name: string
+  keying: 'per-browser' | 'legacy-shared' | 'legacy-per-browser-in-dist'
+  build: (projectPath: string, browser: string) => string
+}
+
+// Every path a session writes for one browser. A new one is added here, so
+// the checks below hold it to the per-browser layout.
+const SESSION_ARTIFACTS: ReadonlyArray<SessionArtifact> = [
+  {name: 'control-port', keying: 'per-browser', build: controlPortFilePath},
+  {
+    name: 'legacy-control-port',
+    keying: 'legacy-per-browser-in-dist',
+    build: legacyControlPortFilePath
+  },
+  {name: 'control-token', keying: 'per-browser', build: controlTokenPath},
+  {
+    name: 'legacy-control-token',
+    keying: 'legacy-shared',
+    build: (projectPath) => legacyControlTokenPath(projectPath)
+  },
+  {
+    name: 'browser-profile-root',
+    keying: 'per-browser',
+    build: browserProfileRootDir
+  },
+  {name: 'browser-dist', keying: 'per-browser', build: browserDistDir},
+  {name: 'ready-contract', keying: 'per-browser', build: readyContractPath},
+  {name: 'events-log', keying: 'per-browser', build: eventsPath},
+  {name: 'bridge-logs', keying: 'per-browser', build: logsPath},
+  {name: 'actions-audit', keying: 'per-browser', build: actionsPath},
+  {name: 'build-summary', keying: 'per-browser', build: buildSummaryPath}
+]
 
 describe('session-state layout', () => {
   it('keys every non-legacy artifact per project+browser', () => {
@@ -47,7 +91,10 @@ describe('session-state layout', () => {
   })
 
   it('has no session path joins outside session-paths', () => {
-    const allowed = new Set([path.join('lib', 'session-paths.ts')])
+    const allowed = new Set([
+      path.join('lib', 'session-paths.ts'),
+      path.join('lib', 'session-contract.ts')
+    ])
     const offenders: string[] = []
 
     const walk = (dir: string) => {

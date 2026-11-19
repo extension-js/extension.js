@@ -8,15 +8,19 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {pidStartedAtMs} from '../browsers/browsers-lib/resolve-live-pid'
 import {
+  isPidAlive,
+  pidStartedAtMs
+} from '../browsers/browsers-lib/resolve-live-pid'
+import {
+  declaredErrorCode,
   failureHint,
   LOAD_REFUSED_HINT,
   LOAD_REFUSED_STATUS,
   markErrorFramed
 } from '../helpers/cli-failure'
 import {
-  type AnyDevelopModule,
+  type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import * as messages from '../helpers/messages'
@@ -26,6 +30,7 @@ import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   readyContractErrorCode,
   recordedLoadRefusal,
+  stampedEndCode,
   stampedLaunchFailureCode
 } from '../helpers/ready-contract-codes'
 import {reusedPidEvidence} from '../helpers/session-liveness'
@@ -44,6 +49,8 @@ export type ReadyContractPayload = {
   errors?: string[]
   code?: string
   browserLaunchFailedCode?: string
+  endedAsFailedAt?: string
+  endedAsFailedCode?: string
   command?: string
   browser?: string
   runId?: string
@@ -73,7 +80,7 @@ export type RunWaitModeOptions = {
 export type WaitModeDeps = {
   now?: () => number
   sleep?: (ms: number) => Promise<void>
-  loadBridge?: () => Promise<AnyDevelopModule>
+  loadBridge?: () => Promise<DevelopBridge>
   pidStartedAt?: (pid: number | null | undefined) => number | null
 }
 
@@ -101,16 +108,27 @@ function isHttpUrl(value?: string): boolean {
 // argument has to resolve the way dev resolves it, not as given.
 async function resolveProjectPath(
   pathOrRemoteUrl: string | undefined,
-  loadBridge: () => Promise<AnyDevelopModule>
+  loadBridge: () => Promise<DevelopBridge>
 ): Promise<{
   projectPath: string
-  bridge: unknown
+  bridge: DevelopBridge | undefined
 }> {
-  let bridge: unknown
+  let bridge: DevelopBridge | undefined
 
+  // A coded refusal means no session of this install can come up, so it is the
+  // answer. An uncoded failure falls back to the plain dist/extension-js path.
   try {
     bridge = await loadBridge()
-  } catch {
+  } catch (error) {
+    const code = declaredErrorCode(error)
+
+    if (code) {
+      throw new WaitModeError(
+        error instanceof Error ? error.message : String(error),
+        code
+      )
+    }
+
     bridge = undefined
   }
 
@@ -162,11 +180,7 @@ export interface WaitFailure {
 // E_INTERNAL: a throw nobody classified is a fault, not a known refusal.
 export function describeWaitError(error: unknown): WaitFailure {
   const message = error instanceof Error ? error.message : String(error)
-  const tagged = (error as {code?: unknown} | null)?.code
-  const code =
-    typeof tagged === 'string' && tagged in CODES
-      ? (tagged as ErrorCode)
-      : CODES.E_INTERNAL
+  const code = declaredErrorCode(error) ?? CODES.E_INTERNAL
 
   if (code === CODES.E_ARGS || code === CODES.E_REMOTE_URL_UNSUPPORTED) {
     return {
@@ -268,16 +282,12 @@ export function framedWaitFailure(
   return framed
 }
 
+// A contract with no usable pid cannot be judged dead. EPERM is a live process
+// of another user, which isPidAlive reads as alive.
 function isProcessLikelyAlive(pid: unknown): boolean {
   if (typeof pid !== 'number' || !Number.isInteger(pid) || pid <= 0) return true
 
-  try {
-    process.kill(pid, 0)
-
-    return true
-  } catch {
-    return false
-  }
+  return isPidAlive(pid)
 }
 
 export function isFreshContractPayload(
@@ -392,10 +402,12 @@ function readReadyContract(
   if (payload.status === 'error' && (live || isFresh)) {
     const detail = payload.message || payload.errors?.[0] || 'unknown error'
 
-    // A launch the launcher coded keeps the code it was refused with.
+    // The code that ended the session comes first, then the one the launcher
+    // refused with. The contract's own id is the last resort.
     throw new WaitModeError(
       withRefusalCause(String(detail), payload),
-      stampedLaunchFailureCode(payload) ??
+      stampedEndCode(payload) ??
+        stampedLaunchFailureCode(payload) ??
         readyContractErrorCode(payload.code) ??
         CODES.E_READY_ERROR_STATUS
     )

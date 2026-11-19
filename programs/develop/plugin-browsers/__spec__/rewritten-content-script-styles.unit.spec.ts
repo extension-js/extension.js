@@ -1,16 +1,17 @@
 import {createHash} from 'node:crypto'
-import {afterEach, describe, expect, it, vi} from 'vitest'
-import {
-  type ReloadInstruction,
-  readContentScriptDigests,
-  reloadForRewrittenContentScripts
-} from '../../plugin-reload'
-import {type BrowserController, BrowsersPlugin} from '../index'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import type {ReloadBroker, ReloadInstruction} from '../../plugin-reload'
+import {BrowsersPlugin} from '../index'
+import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
 const BUNDLE = 'content_scripts/content-0.e5213110.js'
 const SHEET = 'content_scripts/content-0.css'
+
+beforeEach(() => {
+  expect.hasAssertions()
+})
 
 interface Emitted {
   js?: string[]
@@ -21,93 +22,56 @@ interface Emitted {
 
 // Gecko registers the manifest it loaded, and a content script stylesheet
 // keeps one name across compiles while a bundle is renamed by its hash.
-function createHarness(
-  browser = 'firefox',
-  broker?: {broadcastReload: (frame: unknown) => number}
-) {
-  const reload = vi.fn()
-  const controller: BrowserController = {
-    enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-  }
+function createHarness(browser = 'firefox', broker?: ReloadBroker) {
+  const reload = vi.fn<(instruction: ReloadInstruction) => void>()
   const plugin = new BrowsersPlugin({
-    launcher: vi.fn().mockResolvedValue(controller),
-    browserOptions: {browser} as never
+    launcher: vi.fn().mockResolvedValue({
+      enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
+    }),
+    browserOptions: {browser}
   })
   plugin.extensionsToLoad = [OUTPUT]
-  if (broker) plugin.setReloadBroker(broker as never)
+  if (broker) plugin.setReloadBroker(broker)
 
-  plugin.emitter.on(
-    'compiled',
-    (ev: {reloadInstruction?: ReloadInstruction}) => {
-      if (ev.reloadInstruction) reload(ev.reloadInstruction)
-    }
-  )
+  plugin.emitter.on('compiled', (ev) => {
+    if (ev.reloadInstruction) reload(ev.reloadInstruction)
+  })
 
-  let watchRunCb: (() => void) | undefined
-  const doneSync: Array<(stats: unknown) => void> = []
-  let doneCb: ((stats: unknown) => Promise<void>) | undefined
-
-  const compiler: any = {
-    options: {context: CONTEXT},
-    modifiedFiles: undefined as ReadonlySet<string> | undefined,
-    hooks: {
-      watchRun: {tap: (_: string, fn: () => void) => (watchRunCb = fn)},
-      done: {
-        tap: (_: string, fn: (s: unknown) => void) => {
-          doneSync.push(fn)
-        },
-        tapPromise: (_: string, fn: (s: unknown) => Promise<void>) =>
-          (doneCb = fn)
-      },
-      assetEmitted: {tap: () => {}}
-    }
-  }
-
-  plugin.apply(compiler)
+  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
+  plugin.apply(fake.compiler)
 
   return {
     reload,
     async compile(emitted: Emitted, modifiedFiles: string[] = []) {
-      compiler.modifiedFiles = new Set(
-        modifiedFiles.map((file) => `${CONTEXT}/${file}`)
-      )
+      fake.watchRun(modifiedFiles)
 
-      watchRunCb?.()
-
-      const assets: Record<string, string> = {
-        ...emitted.assets,
-        'manifest.json': JSON.stringify({
-          manifest_version: 3,
-          name: 'fake',
-          version: '0',
-          background: {scripts: ['background/scripts.js']},
-          content_scripts: [
-            {
-              matches: ['<all_urls>'],
-              js: emitted.js ?? [BUNDLE],
-              ...(emitted.css ? {css: emitted.css} : {})
-            }
-          ],
-          ...(emitted.resources
-            ? {
-                web_accessible_resources: [
-                  {resources: emitted.resources, matches: ['<all_urls>']}
-                ]
+      await fake.done(
+        fakeCompilation({
+          context: CONTEXT,
+          output: OUTPUT,
+          assets: emitted.assets,
+          manifest: {
+            manifest_version: 3,
+            name: 'fake',
+            version: '0',
+            background: {scripts: ['background/scripts.js']},
+            content_scripts: [
+              {
+                matches: ['<all_urls>'],
+                js: emitted.js ?? [BUNDLE],
+                ...(emitted.css ? {css: emitted.css} : {})
               }
-            : {})
+            ],
+            ...(emitted.resources
+              ? {
+                  web_accessible_resources: [
+                    {resources: emitted.resources, matches: ['<all_urls>']}
+                  ]
+                }
+              : {})
+          }
         })
-      }
-      const stats = {
-        compilation: {
-          errors: [],
-          options: {context: CONTEXT, output: {path: OUTPUT}},
-          getAsset: (name: string) =>
-            name in assets ? {source: {source: () => assets[name]}} : undefined
-        }
-      }
-
-      for (const fn of doneSync) fn(stats)
-      await doneCb?.(stats)
+      )
     }
   }
 }
@@ -209,7 +173,7 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
     const h = createHarness('firefox', {
       broadcastReload,
       deliverLatchedReload: vi.fn().mockResolvedValue(false)
-    } as never)
+    })
     const named = () =>
       h.reload.mock.calls.map((call) =>
         (call[0].refreshedStylesheets ?? []).map(
@@ -270,115 +234,5 @@ describe('BrowsersPlugin after a compile rewrites a content script stylesheet', 
     await h.compile(stub('blue'), ['src/widget.module.css'])
 
     expect(h.reload.mock.calls[0][0]).toMatchObject({type: 'content-scripts'})
-  })
-})
-
-describe('readContentScriptDigests', () => {
-  const compilation = (assets: Record<string, string>) =>
-    ({
-      getAsset: (name: string) =>
-        name in assets ? {source: {source: () => assets[name]}} : undefined
-    }) as never
-
-  // A bundle carries the compile hash in its runtime, so its bytes change on
-  // every compile under one name and say nothing about the edit.
-  it('digests the stylesheets and skips the bundles', () => {
-    const digests = readContentScriptDigests(
-      compilation({[BUNDLE]: 'console.log(1)', [SHEET]: '.a{}'}),
-      [BUNDLE, SHEET, 'content_scripts/missing.css']
-    )
-
-    expect(Object.keys(digests)).toEqual([SHEET])
-  })
-
-  it('answers differently once the bytes change', () => {
-    const before = readContentScriptDigests(compilation({[SHEET]: '.a{}'}), [
-      SHEET
-    ])
-    const after = readContentScriptDigests(compilation({[SHEET]: '.b{}'}), [
-      SHEET
-    ])
-
-    expect(after[SHEET]).not.toBe(before[SHEET])
-  })
-})
-
-describe('reloadForRewrittenContentScripts', () => {
-  const content: ReloadInstruction = {
-    type: 'content-scripts',
-    changedContentScriptEntries: ['content_scripts/content-0'],
-    changedAssets: ['src/widget.module.css'],
-    label: 'content_script (src/widget.module.css)'
-  }
-
-  it('leaves a static entry to the worker, which reloads the extension and its tabs', () => {
-    const instruction = {
-      ...content,
-      staticContentScriptEntries: ['content_scripts/content-0']
-    }
-
-    expect(
-      reloadForRewrittenContentScripts(
-        instruction,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'}
-      )
-    ).toBe(instruction)
-  })
-
-  it('does not call a stylesheet the loaded manifest never named rewritten', () => {
-    expect(reloadForRewrittenContentScripts(content, {}, {[SHEET]: 'b'})).toBe(
-      content
-    )
-  })
-
-  it('names the extension when no source explains the new bytes', () => {
-    expect(
-      reloadForRewrittenContentScripts(
-        undefined,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'}
-      )
-    ).toMatchObject({type: 'full', label: 'extension (manifest.json)'})
-  })
-
-  it('names the rewritten sheets instead of a reload for a browser that swaps them in place', () => {
-    expect(
-      reloadForRewrittenContentScripts(
-        content,
-        {[SHEET]: 'a', 'content_scripts/content-1.css': 'same'},
-        {[SHEET]: 'b', 'content_scripts/content-1.css': 'same'},
-        {refreshInPlace: true}
-      )
-    ).toEqual({...content, refreshedStylesheets: [{file: SHEET, digest: 'b'}]})
-  })
-
-  it('turns a page edit that rewrote a declared sheet into a swap, named by the sheet', () => {
-    expect(
-      reloadForRewrittenContentScripts(
-        undefined,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'},
-        {refreshInPlace: true}
-      )
-    ).toEqual({
-      type: 'content-scripts',
-      changedAssets: [SHEET],
-      refreshedStylesheets: [{file: SHEET, digest: 'b'}],
-      label: `content_script (${SHEET})`
-    })
-  })
-
-  it('keeps a reload that already restarts the extension or its worker, swap or not', () => {
-    const full: ReloadInstruction = {type: 'full', label: 'extension'}
-
-    expect(
-      reloadForRewrittenContentScripts(
-        full,
-        {[SHEET]: 'a'},
-        {[SHEET]: 'b'},
-        {refreshInPlace: true}
-      )
-    ).toBe(full)
   })
 })

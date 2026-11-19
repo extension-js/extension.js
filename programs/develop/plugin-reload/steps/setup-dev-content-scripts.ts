@@ -14,20 +14,19 @@ import {
   getCurrentManifestContent,
   setCurrentManifestContent
 } from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
 import type {Manifest} from '../../types'
 import {
   buildDevContentScriptMarkerPrelude,
   contentScriptEntryForAsset,
   DEV_CONTENT_SCRIPT_REGISTRY_ASSET,
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
-  isDevContentScriptStandInAsset,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
 
 // The compiled background entry the runtime is prepended to; the same shapes
 // the bridge producer targets, since both must ride the one worker bundle.
-const BACKGROUND_ASSET =
-  /(^|\/)background\/(?:service_worker|scripts?|index)\.js$/i
+const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 function putAsset(compilation: Compilation, name: string, text: string) {
   const source = new sources.RawSource(text)

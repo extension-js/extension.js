@@ -27,6 +27,41 @@ export function parseLogContexts(
   return values.length > 0 ? values : undefined
 }
 
+export const LOG_LEVELS = [
+  'off',
+  'error',
+  'warn',
+  'info',
+  'debug',
+  'trace',
+  'all'
+] as const
+
+export type LogLevel = (typeof LOG_LEVELS)[number]
+
+// --logs is read in any case and with stray spaces, and the engine compares
+// the level exactly, so it is handed the listed name or nothing.
+export function parseLogLevel(raw: string | undefined): LogLevel | undefined {
+  const text = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+
+  return LOG_LEVELS.find((level) => level === text)
+}
+
+export const LOG_FORMATS = ['pretty', 'json', 'ndjson'] as const
+
+export type LogFormat = (typeof LOG_FORMATS)[number]
+
+// --log-format is read the same way, since the engine compares it exactly too.
+export function parseLogFormat(raw: string | undefined): LogFormat | undefined {
+  const text = String(raw ?? '')
+    .trim()
+    .toLowerCase()
+
+  return LOG_FORMATS.find((format) => format === text)
+}
+
 export type PositiveIntParse =
   | {ok: true; value: number | undefined}
   | {ok: false; message: string}

@@ -94,7 +94,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing or uncompiled."
+      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
@@ -122,12 +122,12 @@
     },
     "E_ENTRY_NOT_FOUND": {
       "area": "compile",
-      "summary": "A manifest, HTML, or JSON entry points at a missing file.",
+      "summary": "A manifest, HTML, or JSON entry points at a file that is missing or not bundled.",
       "warn": true
     },
     "E_ASSET_MISSING": {
       "area": "compile",
-      "summary": "An icon, static asset, or JSON dependency is missing.",
+      "summary": "An icon, static asset, or JSON dependency is missing or not bundled.",
       "warn": true
     },
     "E_SCRIPT_DEP_MISSING": {
@@ -151,7 +151,7 @@
     },
     "E_CSS_DEAD_REF": {
       "area": "compile",
-      "summary": "A CSS url() points at nothing.",
+      "summary": "A CSS url() or @import names a file that is missing or not bundled.",
       "warn": true
     },
     "E_POLYFILL_NOT_FOUND": {
@@ -167,6 +167,10 @@
     "E_WAR_INVALID": {
       "area": "compile",
       "summary": "web_accessible_resources shape or match pattern rejected."
+    },
+    "E_THEME_INVALID": {
+      "area": "compile",
+      "summary": "A theme color or tint is not a number array a Chromium browser loads, and the build cannot translate it exactly."
     },
     "E_PROD_LOOPBACK_ORIGIN": {
       "area": "compile",
@@ -202,8 +206,7 @@
     },
     "E_ZIP_SKIPPED": {
       "area": "compile",
-      "summary": "Packaging was skipped for a stated reason.",
-      "warn": true
+      "summary": "A requested archive was not created."
     },
     "E_ENV_NO_MATCH": {
       "area": "compile",
