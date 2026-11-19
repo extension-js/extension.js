@@ -427,6 +427,15 @@ describe('planRootAbsoluteRef for a path that is not project content', () => {
   })
 })
 
+// The first sentence of a finding, without color.
+function firstSentence(message: string) {
+  const line = message
+    .split('\n')[0]
+    .replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g'), '')
+
+  return line.slice(0, line.indexOf('.', line.indexOf(' ')) + 1)
+}
+
 describe('emitRootAbsoluteRefs for a path that is not project content', () => {
   const MARKER = 'FAKE-MARKER-NOT-A-REAL-VALUE'
 
@@ -457,7 +466,7 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
       compilation.warnings.map((warning: Error & {file?: string}) => [
         warning.name,
         warning.file,
-        warning.message.split('\n')[0]
+        firstSentence(warning.message)
       ])
     ).toEqual([
       // Under the name the page step gives a missing file of the same tag.
@@ -481,11 +490,8 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
         'page.html',
         "The page references a stylesheet that doesn't exist."
       ],
-      [
-        'CssDeadRef',
-        'style.css',
-        'A url(/.npmrc) reference points to a file that exists nowhere in the project.'
-      ]
+      // The file is there, so the sheet's ref is told it is not bundled.
+      ['CssWithheldRef', 'style.css', '/.npmrc is not bundled.']
     ])
 
     expect(compilation.warnings[0].message).toContain(
@@ -531,14 +537,9 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
     expect(
       compilation.warnings.map((warning: Error) => [
         warning.name,
-        warning.message.split('\n')[0]
+        firstSentence(warning.message)
       ])
-    ).toEqual([
-      [
-        'CssDeadRef',
-        'A url(/.npmrc) reference points to a file that exists nowhere in the project.'
-      ]
-    ])
+    ).toEqual([['CssWithheldRef', '/.npmrc is not bundled.']])
   })
 
   it('fails the build for a stylesheet ref when dead references are strict', async () => {
@@ -557,7 +558,7 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
     expect([...emitted.keys()]).toEqual(['style.css'])
     expect(compilation.warnings).toEqual([])
     expect(compilation.errors.map((error: Error) => error.name)).toEqual([
-      'CssDeadRef'
+      'CssWithheldRef'
     ])
   })
 })

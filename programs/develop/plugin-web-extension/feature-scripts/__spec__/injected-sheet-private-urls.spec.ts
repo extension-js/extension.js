@@ -391,7 +391,7 @@ const EXPECTED: Record<string, Table> = {
     './node_modules/pkg/.env':
       '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./node_modules/pkg/.env',
     '/.env':
-      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url /.env | said not found /.env in injected.css',
+      '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url /.env | said not bundled /.env in injected.css',
     '@import ./.env':
       '.env.example + injected.css + inside.png + linked-in.png + logo.png + node_modules/pkg/icon.png | url ./.env',
     '@font-face ./.git/font.woff2':
