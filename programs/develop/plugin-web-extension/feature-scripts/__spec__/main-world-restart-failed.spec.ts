@@ -162,8 +162,7 @@ function devSession(serving: Compiler) {
           activeCompiler: () => active,
           setActiveCompiler: (compiler) => {
             active = compiler
-          },
-          takeUnfinishedRelease: () => null
+          }
         }),
       currentServer: () => null,
       setCurrentServer: () => {},

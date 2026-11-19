@@ -7,11 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {randomUUID} from 'node:crypto'
-import type * as FsTypes from 'node:fs'
-import fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {Writable} from 'node:stream'
 import {isDeepStrictEqual} from 'node:util'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {RspackDevServer} from '@rspack/dev-server'
@@ -156,265 +152,6 @@ import {
   startBundler
 } from './start-bundler'
 
-function isSamePath(left: string, right: string) {
-  return path.resolve(left) === path.resolve(right)
-}
-
-function isManifestTempPath(filePath: string) {
-  const base = path.basename(filePath)
-
-  return base.startsWith('.manifest.') && base.endsWith('.tmp')
-}
-
-function createDiscardWriteStream() {
-  const stream = new Writable({
-    write(_chunk, _encoding, callback) {
-      callback()
-    }
-  })
-
-  stream.on('finish', () => {
-    stream.emit('close')
-  })
-
-  process.nextTick(() => {
-    stream.emit('open', 0)
-  })
-
-  return stream as Writable & {path?: string}
-}
-
-// Ref-counted per path: two servers can guard the same dist and the guard
-// only forgets a path when its last owner uninstalls.
-const guardedManifestDiskWritePaths = new Map<string, number>()
-let isManifestDiskWriteGuardInstalled = false
-let restoreManifestDiskWriteGuardPatches: (() => void) | null = null
-
-function hasGuardedManifestDiskPath(filePath: unknown) {
-  if (typeof filePath !== 'string') return false
-
-  const resolvedPath = path.resolve(filePath)
-
-  for (const guardedPath of guardedManifestDiskWritePaths.keys()) {
-    if (isSamePath(guardedPath, resolvedPath)) return true
-  }
-
-  return false
-}
-
-export function installManifestDiskWriteGuard(
-  manifestOutputPath: string
-): () => void {
-  const guardKey = path.resolve(manifestOutputPath)
-  guardedManifestDiskWritePaths.set(
-    guardKey,
-    (guardedManifestDiskWritePaths.get(guardKey) || 0) + 1
-  )
-
-  let uninstalled = false
-
-  const uninstall = () => {
-    if (uninstalled) return
-
-    uninstalled = true
-    const count = guardedManifestDiskWritePaths.get(guardKey) || 0
-    if (count <= 1) guardedManifestDiskWritePaths.delete(guardKey)
-    else guardedManifestDiskWritePaths.set(guardKey, count - 1)
-
-    if (
-      guardedManifestDiskWritePaths.size === 0 &&
-      restoreManifestDiskWriteGuardPatches
-    ) {
-      restoreManifestDiskWriteGuardPatches()
-      restoreManifestDiskWriteGuardPatches = null
-      isManifestDiskWriteGuardInstalled = false
-    }
-  }
-
-  if (isManifestDiskWriteGuardInstalled) return uninstall
-
-  const guardedFs = fs
-
-  const isManifestPath = (filePath: unknown) =>
-    hasGuardedManifestDiskPath(filePath)
-
-  const allowManifestRename = (fromPath: unknown, toPath: unknown) =>
-    typeof fromPath === 'string' &&
-    typeof toPath === 'string' &&
-    isManifestPath(toPath) &&
-    isManifestTempPath(fromPath)
-
-  const originalWriteFile = guardedFs.writeFile.bind(guardedFs)
-  guardedFs.writeFile = ((
-    filePath: FsTypes.PathOrFileDescriptor,
-    ...args: unknown[]
-  ) => {
-    if (isManifestPath(filePath)) {
-      const callback = args[args.length - 1]
-      if (typeof callback === 'function') callback(null)
-
-      return
-    }
-
-    return (originalWriteFile as (...a: unknown[]) => unknown)(
-      filePath,
-      ...args
-    )
-  }) as typeof fs.writeFile
-
-  const originalWriteFileSync = guardedFs.writeFileSync.bind(guardedFs)
-  guardedFs.writeFileSync = ((
-    filePath: FsTypes.PathOrFileDescriptor,
-    ...args: unknown[]
-  ) => {
-    if (isManifestPath(filePath)) return
-
-    return (originalWriteFileSync as (...a: unknown[]) => unknown)(
-      filePath,
-      ...args
-    )
-  }) as typeof fs.writeFileSync
-
-  const originalCreateWriteStream = guardedFs.createWriteStream.bind(guardedFs)
-  guardedFs.createWriteStream = ((
-    filePath: FsTypes.PathLike,
-    ...args: unknown[]
-  ) => {
-    if (isManifestPath(filePath)) {
-      const stream = createDiscardWriteStream()
-      stream.path = String(filePath)
-
-      return stream as unknown as ReturnType<typeof fs.createWriteStream>
-    }
-
-    return (originalCreateWriteStream as (...a: unknown[]) => unknown)(
-      filePath,
-      ...args
-    )
-  }) as typeof fs.createWriteStream
-
-  // Read opens must pass through: redirecting them hands empty /dev/null
-  // content to any in-process reader of the guarded manifest.
-  const writeIntentFlagMask =
-    fs.constants.O_WRONLY |
-    fs.constants.O_RDWR |
-    fs.constants.O_APPEND |
-    fs.constants.O_CREAT |
-    fs.constants.O_TRUNC
-
-  const isWriteIntentOpen = (flags: unknown): boolean => {
-    if (typeof flags === 'string') return /[wa+]/.test(flags)
-    if (typeof flags === 'number') return (flags & writeIntentFlagMask) !== 0
-
-    return false
-  }
-
-  const originalOpen = guardedFs.open.bind(guardedFs)
-  guardedFs.open = ((
-    pathLike: FsTypes.PathLike,
-    flags: unknown,
-    ...args: unknown[]
-  ) => {
-    const nextPath =
-      isManifestPath(pathLike) && isWriteIntentOpen(flags)
-        ? os.devNull
-        : pathLike
-
-    return (originalOpen as (...a: unknown[]) => unknown)(
-      nextPath,
-      flags,
-      ...args
-    )
-  }) as typeof fs.open
-
-  const originalOpenSync = guardedFs.openSync.bind(guardedFs)
-  guardedFs.openSync = ((
-    pathLike: FsTypes.PathLike,
-    flags: unknown,
-    ...args: unknown[]
-  ) => {
-    const nextPath =
-      isManifestPath(pathLike) && isWriteIntentOpen(flags)
-        ? os.devNull
-        : pathLike
-
-    return (originalOpenSync as (...a: unknown[]) => unknown)(
-      nextPath,
-      flags,
-      ...args
-    )
-  }) as typeof fs.openSync
-
-  const originalRename = guardedFs.rename.bind(guardedFs)
-  guardedFs.rename = ((
-    oldPath: FsTypes.PathLike,
-    newPath: FsTypes.PathLike,
-    callback: unknown
-  ) => {
-    if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath)) {
-      if (typeof callback === 'function') callback(null)
-
-      return
-    }
-
-    return originalRename(oldPath, newPath, callback as FsTypes.NoParamCallback)
-  }) as typeof fs.rename
-
-  const originalRenameSync = guardedFs.renameSync.bind(guardedFs)
-  guardedFs.renameSync = ((
-    oldPath: FsTypes.PathLike,
-    newPath: FsTypes.PathLike
-  ) => {
-    if (isManifestPath(newPath) && !allowManifestRename(oldPath, newPath)) {
-      return
-    }
-
-    return originalRenameSync(oldPath, newPath)
-  }) as typeof fs.renameSync
-
-  let originalPromiseWriteFile: typeof fs.promises.writeFile | undefined
-
-  if (guardedFs.promises?.writeFile) {
-    originalPromiseWriteFile = guardedFs.promises.writeFile.bind(
-      guardedFs.promises
-    ) as typeof fs.promises.writeFile
-
-    guardedFs.promises.writeFile = (async (
-      filePath: unknown,
-      ...args: unknown[]
-    ) => {
-      if (isManifestPath(filePath)) return
-
-      return (originalPromiseWriteFile as (...a: unknown[]) => unknown)(
-        filePath,
-        ...args
-      )
-    }) as typeof fs.promises.writeFile
-  }
-
-  // The last uninstall restores the pristine fs surface so a long-lived
-  // host process is not left with patched globals after every server stops.
-  restoreManifestDiskWriteGuardPatches = () => {
-    guardedFs.writeFile = originalWriteFile as typeof fs.writeFile
-    guardedFs.writeFileSync = originalWriteFileSync as typeof fs.writeFileSync
-    guardedFs.createWriteStream =
-      originalCreateWriteStream as typeof fs.createWriteStream
-
-    guardedFs.open = originalOpen as typeof fs.open
-    guardedFs.openSync = originalOpenSync as typeof fs.openSync
-    guardedFs.rename = originalRename as typeof fs.rename
-    guardedFs.renameSync = originalRenameSync as typeof fs.renameSync
-
-    if (originalPromiseWriteFile) {
-      guardedFs.promises.writeFile = originalPromiseWriteFile
-    }
-  }
-
-  isManifestDiskWriteGuardInstalled = true
-
-  return uninstall
-}
-
 // The root every command shares: the project manifest's folder, else the
 // folder the command named, else the extension manifest's own folder.
 export function resolveDevProjectRoot(
@@ -502,7 +239,7 @@ export async function devServer(
       }
 
       // A session that never started leaves nothing in a host that goes on:
-      // no listener, no port, no open file, no guard on the manifest.
+      // no listener, no port, no open file.
       try {
         await startup.release?.()
       } catch {
@@ -547,8 +284,6 @@ async function startDevSession(
   let activeCompiler: Compiler | null = null
   // The compiler behind each server, to retire it when a restart replaces it.
   const compilerByServer = new WeakMap<object, Compiler>()
-  // Set while a bundle is being built, for a build that throws partway.
-  let releaseUnfinishedBundle: (() => void) | null = null
 
   let closeControlBridge: () => Promise<void> = async () => {}
 
@@ -557,11 +292,7 @@ async function startDevSession(
 
   startup.release = async () => {
     // A bundle that threw partway has no server to stop it.
-    const releaseBundle = releaseUnfinishedBundle
-    releaseUnfinishedBundle = null
-
     try {
-      releaseBundle?.()
       if (!firstServer.stop) activeCompiler?.close(() => {})
     } catch {
       // Ignore
@@ -986,8 +717,6 @@ async function startDevSession(
     }
   }
 
-  const manifestOutputPath = path.join(primaryDistPath, 'manifest.json')
-
   const metadata = createPlaywrightMetadataWriter({
     packageJsonDir,
     browser: String(devOptions.browser || 'chromium'),
@@ -1148,10 +877,6 @@ async function startDevSession(
       )
     }
 
-    const uninstallManifestGuard =
-      installManifestDiskWriteGuard(manifestOutputPath)
-    releaseUnfinishedBundle = uninstallManifestGuard
-
     // Under --no-browser no CDP controller owns reload, so broadcast the same
     // classified reload decision over the control bridge; gated to avoid double-reload.
     if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
@@ -1277,21 +1002,6 @@ async function startDevSession(
     const server = new RspackDevServer(serverConfig, compiler)
     attachHtmlRefresh(compiler, server)
 
-    // The fs guard is process-global; a stopped server must release its path
-    // or later in-process writers to this dist are silently swallowed.
-    if (typeof server.stop === 'function') {
-      const originalDevServerStop = server.stop.bind(server)
-
-      server.stop = async () => {
-        try {
-          await originalDevServerStop()
-        } finally {
-          uninstallManifestGuard()
-        }
-      }
-    }
-
-    releaseUnfinishedBundle = null
     compilerByServer.set(server, compiler)
 
     return {compiler, server, firstCompile}
@@ -1303,12 +1013,6 @@ async function startDevSession(
       activeCompiler: () => activeCompiler,
       setActiveCompiler: (compiler) => {
         activeCompiler = compiler
-      },
-      takeUnfinishedRelease: () => {
-        const release = releaseUnfinishedBundle
-        releaseUnfinishedBundle = null
-
-        return release
       }
     })
 
