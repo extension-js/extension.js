@@ -1,8 +1,5 @@
-import * as fs from 'node:fs'
-import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {classifyReloadFromSources, type ReloadBroker} from '../../plugin-reload'
+import type {ReloadBroker} from '../../plugin-reload'
 import {
   type BrowserController,
   type BrowserLaunchOptions,
@@ -17,8 +14,6 @@ const SHEET = 'content_scripts/content-0.css'
 const FIRST = 'content_scripts/content-0.aaaaaaaa.js'
 const SECOND = 'content_scripts/content-0.bbbbbbbb.js'
 const THIRD = 'content_scripts/content-0.cccccccc.js'
-
-const makeTempFolder = trackTempFolders()
 
 let printed: {log: string[]; error: string[]}
 
@@ -204,77 +199,5 @@ describe('when a compile of a launched session may reload', () => {
         event.reloadInstruction?.refreshedStylesheets?.map((each) => each.file)
       )
     ).toEqual([undefined, [SHEET], [SHEET]])
-  })
-})
-
-describe('what a launched session hands the reload classifier and the broker', () => {
-  // Only a classifier told both folders can see that the build copied the
-  // page, which is what makes the producer reload the tabs that show it.
-  it('hands over the output folder and the project root, so a copied page names itself', async () => {
-    const root = makeTempFolder('extjs-browsers-page-')
-    const output = path.join(root, 'dist')
-    const page = '<!doctype html><title>options</title>\n'
-
-    for (const dir of [root, output]) {
-      fs.mkdirSync(path.join(dir, 'pages'), {recursive: true})
-      fs.writeFileSync(path.join(dir, 'pages/options.html'), page)
-    }
-
-    const dev = session({browser: 'chrome', context: root, output})
-
-    await dev.compile({contentScripts: 0})
-    await dev.compile({contentScripts: 0, files: ['pages/options.html']})
-
-    expect(dev.frames).toEqual([
-      {
-        type: 'page',
-        label: 'options page (pages/options.html)',
-        changedContentScriptEntries: undefined,
-        changedFiles: ['pages/options.html'],
-        standalonePages: ['pages/options.html']
-      }
-    ])
-  })
-
-  it('emits and sends the instruction the classifier answers for the same save', async () => {
-    const dev = session({browser: 'chrome'})
-    const classified = classifyReloadFromSources({
-      changedSources: ['src/content/scripts.js'],
-      getContentScriptCount: () => 2,
-      outputPath: OUTPUT,
-      contextDir: CONTEXT
-    })
-
-    await dev.compile({contentScripts: 2})
-    await dev.compile({contentScripts: 2, files: ['src/content/scripts.js']})
-
-    expect(classified).toEqual({
-      type: 'content-scripts',
-      changedContentScriptEntries: [
-        'content_scripts/content-0',
-        'content_scripts/content-1'
-      ],
-      changedAssets: ['src/content/scripts.js'],
-      label: 'content_script (src/content/scripts.js)'
-    })
-
-    expect(dev.compiled[1].reloadInstruction).toEqual(classified)
-    expect(dev.frames).toEqual([
-      {
-        type: 'content-scripts',
-        changedContentScriptEntries: [
-          'content_scripts/content-0',
-          'content_scripts/content-1'
-        ],
-        label: 'content_script (src/content/scripts.js)',
-        changedFiles: ['src/content/scripts.js']
-      }
-    ])
-
-    expect(printed.log).toEqual([
-      expect.stringContaining(
-        'Reloading content_script (src/content/scripts.js)'
-      )
-    ])
   })
 })

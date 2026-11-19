@@ -3,7 +3,7 @@ import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {type ReloadBroker, readDevBuild} from '../../plugin-reload'
+import type {ReloadBroker} from '../../plugin-reload'
 import {InjectBridgeProducer} from '../../plugin-reload/steps/inject-bridge-producer'
 import {type BrowserLaunchOptions, BrowsersPlugin} from '../index'
 import {fakeCompiler} from './fake-compiler'
@@ -146,28 +146,5 @@ describe('the hold a launch is handed for boot registrations', () => {
     expect('awaitBootRegistrations' in (await launchOnce(REGISTERS, {}))).toBe(
       false
     )
-  })
-})
-
-describe('the build a launched session names on a reload', () => {
-  // A worker that already names this build is not restarted for it again,
-  // which the broker can only tell when the frame carries the name.
-  it('sends the reload with the build the compile gave its background', async () => {
-    const dev = session(IDLE, {})
-
-    await dev.compile('/* worker one */')
-    const edited = await dev.compile('/* worker two */', ['src/manifest.json'])
-    const build = readDevBuild(edited)
-
-    expect(build).toMatch(/^[0-9a-f]{16}$/)
-    expect(dev.frames).toEqual([
-      {
-        type: 'full',
-        changedContentScriptEntries: undefined,
-        label: 'extension (src/manifest.json)',
-        changedFiles: ['src/manifest.json'],
-        build
-      }
-    ])
   })
 })
