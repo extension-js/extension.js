@@ -170,11 +170,13 @@ export class ApplyDevDefaults {
   private readonly browser: DevOptions['browser']
 
   private readonly devSession?: boolean
+  private readonly connectableHost?: string
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.devSession = options.devSession
+    this.connectableHost = options.connectableHost
   }
 
   apply(compiler: Compiler) {
@@ -312,8 +314,16 @@ export class ApplyDevDefaults {
               ...canonicalManifest,
               content_security_policy:
                 canonicalManifest.manifest_version === 3
-                  ? patchV3CSP(canonicalManifest, this.browser)
-                  : patchV2CSP(canonicalManifest, this.browser),
+                  ? patchV3CSP(
+                      canonicalManifest,
+                      this.browser,
+                      this.connectableHost
+                    )
+                  : patchV2CSP(
+                      canonicalManifest,
+                      this.browser,
+                      this.connectableHost
+                    ),
 
               // Dev-only permissions for the control bridge + reload loop. MV2 also
               // needs content-script host patterns in `permissions` (no host_permissions).

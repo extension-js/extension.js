@@ -12,13 +12,11 @@ import {prefix} from '../../../lib/messaging'
 export function warFieldError(
   filePath: string,
   opts?: {
-    overrideNotFoundPath?: string
     publicRootHint?: boolean
     relativeRef?: string
     sourceSibling?: string
   }
 ) {
-  const displayPath = opts?.overrideNotFoundPath || filePath
   const lines: string[] = []
 
   if (opts?.relativeRef) {
@@ -33,7 +31,7 @@ export function warFieldError(
     )
   }
 
-  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(displayPath)}`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(filePath)}`)
 
   lines.push(
     `Only list assets your pages fetch with ${colors.blue('chrome.runtime.getURL()')}.`

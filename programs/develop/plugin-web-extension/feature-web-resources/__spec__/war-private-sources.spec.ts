@@ -237,7 +237,7 @@ const PRIVATE_FILES: Table = {
     shipped: ['hosted.txt'],
     marked: [],
     listed: [],
-    reported: ['nothing.txt']
+    reported: ['/nothing.txt']
   },
   'nothing.txt': {
     shipped: ['hosted.txt'],

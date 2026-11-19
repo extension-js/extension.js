@@ -172,6 +172,39 @@ describe('a web_accessible_resources entry that names no file', () => {
   )
 })
 
+describe.each([
+  'public/nothing.txt',
+  '/nothing.txt'
+])('a web_accessible_resources entry %s that public/ does not hold', (entry) => {
+  it(
+    'is named in public/ as written, from the project, with the public hint',
+    async () => {
+      const root = project({
+        'manifest.json': declare(3, [entry, 'data/ok.json'])
+      })
+      const result = await build(root)
+
+      expect(said(result, entry)).toEqual({printed: 2, coded: 1})
+      expect(said(result, 'nothing.txt').printed).toBe(0)
+      expect(notFoundPaths(result.printed)).toEqual(['public/nothing.txt'])
+      expect(result.printed).toContain('To reference files in public/')
+      expect(result.printed).toContain('Add the file to public/')
+      expect(result.printed).not.toContain(
+        'Relative paths must point to a real source file'
+      )
+
+      // The summary holds the one warning, with no path of the machine.
+      const {warnings} = JSON.parse(result.printed.split('\n').at(-1) || '{}')
+
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).not.toContain(root)
+      expect(result.errors).toBe(0)
+      expectNothingPrivate(result)
+    },
+    TIMEOUT
+  )
+})
+
 // A development build with no session: the manifest it writes, and whether
 // the build said the entry.
 async function developmentBuild(root: string) {
@@ -260,6 +293,23 @@ describe.each([
         "Can't find the file .env listed in web_accessible_resources."
       )
 
+      expect(result.errors).toBe(0)
+    },
+    TIMEOUT
+  )
+})
+
+describe('a development build with a public/ entry that public/ does not hold', () => {
+  it(
+    'says nothing, since the dev server answers a missing public file',
+    async () => {
+      const root = project({
+        'manifest.json': declare(3, ['/nothing.txt', 'data/ok.json'])
+      })
+      const result = await developmentBuild(root)
+
+      expect(listed(root)).toContain('data/ok.json')
+      expect(result.printed).not.toContain('nothing.txt')
       expect(result.errors).toBe(0)
     },
     TIMEOUT

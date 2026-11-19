@@ -99,6 +99,23 @@ const scratch = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-run-only-'))
 const EXT = path.join(scratch, 'ext')
 const EXT_FIREFOX = path.join(scratch, 'ext-firefox')
 
+// A session that launched keeps its signal listeners for the life of the
+// process, so each row takes back what the rows before it left.
+const SESSION_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
+const listenersAtLoad = new Map(
+  SESSION_SIGNALS.map((name) => [name, process.listeners(name)])
+)
+
+afterEach(() => {
+  for (const name of SESSION_SIGNALS) {
+    for (const listener of process.listeners(name)) {
+      if (!listenersAtLoad.get(name)?.includes(listener)) {
+        process.removeListener(name, listener)
+      }
+    }
+  }
+})
+
 afterAll(() => {
   fs.rmSync(scratch, {recursive: true, force: true})
 })
@@ -704,6 +721,21 @@ describe('the signal listeners of a run-only session', () => {
     })
 
     expect(chromiumRunOnce).toHaveBeenCalledTimes(1)
+    expect(counts()).toEqual(before.map((count) => count + 1))
+  })
+
+  it('stay one of each when the process runs a second session', async () => {
+    const before = counts()
+
+    for (const browser of ['chromium', 'firefox'] as const) {
+      await runOnlyPreviewBrowser({
+        browser,
+        outPath: browser === 'chromium' ? EXT : EXT_FIREFOX,
+        contextDir: scratch,
+        extensionsToLoad: [browser === 'chromium' ? EXT : EXT_FIREFOX]
+      })
+    }
+
     expect(counts()).toEqual(before.map((count) => count + 1))
   })
 

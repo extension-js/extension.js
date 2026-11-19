@@ -347,12 +347,50 @@ export async function runOnlyPreviewBrowser(
     )
   }
 
-  let exitScheduled = false
-  let launcher: LaunchedBrowser | undefined
+  const session: SessionOnSignal = {}
 
-  // The launchers ask the browser to stop on the same signal. Exiting before
-  // it closes would SIGKILL it at once, so the exit waits for the close.
-  const scheduleExitOnSignal = () => {
+  holdSessionSignals(session)
+
+  try {
+    const started = await launchPreviewSession(opts, (launched) => {
+      session.launcher = launched
+    })
+
+    session.settled = true
+
+    return started
+  } catch (error) {
+    // No session came of this call, so it no longer holds the listeners.
+    // After a launch it does: they are what ends the session on Ctrl+C.
+    releaseSessionSignals(session)
+
+    throw error
+  }
+}
+
+interface SessionOnSignal {
+  launcher?: LaunchedBrowser
+  // The launch returned, so a browser that is not running will not start.
+  settled?: boolean
+}
+
+// One listener per signal serves every session of the process, so a caller
+// that runs preview again in the same process adds none.
+const sessionsOnSignal = new Set<SessionOnSignal>()
+let signalHandler: (() => void) | undefined
+
+function isRunning(session: SessionOnSignal) {
+  return Boolean(
+    session.launcher?.spawnedBrowser && !session.launcher.browserClosed
+  )
+}
+
+// The launchers ask the browser to stop on the same signal. Exiting before
+// it closes would SIGKILL it at once, so the exit waits for the close.
+function createSignalHandler() {
+  let exitScheduled = false
+
+  return () => {
     if (exitScheduled) {
       process.exit(0)
 
@@ -363,9 +401,7 @@ export async function runOnlyPreviewBrowser(
     const deadline = Date.now() + EXIT_DEADLINE_MS
 
     const exitOnceClosed = () => {
-      const running = launcher?.spawnedBrowser && !launcher.browserClosed
-
-      if (!running || Date.now() >= deadline) {
+      if (![...sessionsOnSignal].some(isRunning) || Date.now() >= deadline) {
         process.exit(0)
 
         return
@@ -376,24 +412,37 @@ export async function runOnlyPreviewBrowser(
 
     setTimeout(exitOnceClosed, 10)
   }
+}
+
+function holdSessionSignals(session: SessionOnSignal) {
+  // A session with no browser running has nothing left to wait for.
+  for (const other of sessionsOnSignal) {
+    if (other.settled && !isRunning(other)) sessionsOnSignal.delete(other)
+  }
+
+  sessionsOnSignal.add(session)
+
+  if (signalHandler && process.listeners('SIGINT').includes(signalHandler)) {
+    return
+  }
+
+  signalHandler = createSignalHandler()
 
   for (const signal of SESSION_SIGNALS) {
-    process.on(signal, scheduleExitOnSignal)
+    process.on(signal, signalHandler)
+  }
+}
+
+function releaseSessionSignals(session: SessionOnSignal) {
+  sessionsOnSignal.delete(session)
+
+  if (sessionsOnSignal.size > 0 || !signalHandler) return
+
+  for (const signal of SESSION_SIGNALS) {
+    process.removeListener(signal, signalHandler)
   }
 
-  try {
-    return await launchPreviewSession(opts, (launched) => {
-      launcher = launched
-    })
-  } catch (error) {
-    // No session came of this call, so its listeners have nothing to end.
-    // After a launch they stay: they are what ends the session on Ctrl+C.
-    for (const signal of SESSION_SIGNALS) {
-      process.removeListener(signal, scheduleExitOnSignal)
-    }
-
-    throw error
-  }
+  signalHandler = undefined
 }
 
 async function launchPreviewSession(
