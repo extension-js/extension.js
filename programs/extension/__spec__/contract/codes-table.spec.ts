@@ -410,7 +410,7 @@ const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
   W_ASSET_MISSING: [
     'develop/plugin-web-extension/feature-html/html-lib/patch-html.ts',
     "'HtmlPublicAssetMissing'",
-    'compilation.warnings.push('
+    "'warning',"
   ],
   W_SCRIPT_DEP_MISSING: [
     'develop/rspack-config.ts',
