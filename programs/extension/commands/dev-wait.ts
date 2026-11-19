@@ -30,6 +30,7 @@ import {normalizeOutputFormat} from '../helpers/output-flag'
 import {
   readyContractErrorCode,
   recordedLoadRefusal,
+  stampedEndCode,
   stampedLaunchFailureCode
 } from '../helpers/ready-contract-codes'
 import {reusedPidEvidence} from '../helpers/session-liveness'
@@ -48,6 +49,8 @@ export type ReadyContractPayload = {
   errors?: string[]
   code?: string
   browserLaunchFailedCode?: string
+  endedAsFailedAt?: string
+  endedAsFailedCode?: string
   command?: string
   browser?: string
   runId?: string
@@ -399,10 +402,12 @@ function readReadyContract(
   if (payload.status === 'error' && (live || isFresh)) {
     const detail = payload.message || payload.errors?.[0] || 'unknown error'
 
-    // A launch the launcher coded keeps the code it was refused with.
+    // The code that ended the session comes first, then the one the launcher
+    // refused with. The contract's own id is the last resort.
     throw new WaitModeError(
       withRefusalCause(String(detail), payload),
-      stampedLaunchFailureCode(payload) ??
+      stampedEndCode(payload) ??
+        stampedLaunchFailureCode(payload) ??
         readyContractErrorCode(payload.code) ??
         CODES.E_READY_ERROR_STATUS
     )

@@ -493,6 +493,69 @@ describe('wait mode failures', () => {
   })
 
   it.each([
+    [
+      'a host that ended a ready session',
+      {
+        code: 'shutdown',
+        message: 'the host ended the session',
+        endedAsFailedCode: 'E_PARENT_GONE'
+      },
+      CODES.E_PARENT_GONE,
+      'failed'
+    ],
+    [
+      'a refused value over the launch failure it followed',
+      {
+        code: 'browser_launch_failed',
+        browserLaunchFailedCode: 'E_BROWSER_NOT_FOUND',
+        message: 'profile mode is not supported here',
+        endedAsFailedCode: 'E_FLAG_NOT_SUPPORTED_HERE'
+      },
+      CODES.E_FLAG_NOT_SUPPORTED_HERE,
+      'usage'
+    ],
+    [
+      'no code at the end',
+      {code: 'shutdown', message: 'the dev session ended'},
+      CODES.E_SESSION_STOPPED,
+      'failed'
+    ],
+    [
+      'a code the catalog does not list',
+      {
+        code: 'shutdown',
+        message: 'the dev session ended',
+        endedAsFailedCode: 'E_NOT_IN_THE_CATALOG'
+      },
+      CODES.E_SESSION_STOPPED,
+      'failed'
+    ]
+  ])('reads a dev session that ended as failed, named by %s, as its code', async (_label, contract, code, status) => {
+    const project = makeTempFolder('extjs-wait-')
+    const clock = fakeClock()
+
+    writeContract(project, {
+      ...contract,
+      status: 'error',
+      command: 'dev',
+      pid: await reapedPid(),
+      endedAsFailedAt: new Date(START - 5000).toISOString(),
+      ts: new Date(START - 5000).toISOString()
+    })
+
+    const failure = await wait(project, clock).catch((error) => error)
+
+    expect(failure).toMatchObject({
+      name: 'WaitModeError',
+      code,
+      message: contract.message
+    })
+
+    expect(describeWaitError(failure).status).toBe(status)
+    expect(clock.sleeps).toEqual([])
+  })
+
+  it.each([
     ['an old', new Date(START - 61_000).toISOString()],
     ['an undated', undefined]
   ])('waits past %s error of an earlier dev run for the producer to replace it', async (_label, ts) => {

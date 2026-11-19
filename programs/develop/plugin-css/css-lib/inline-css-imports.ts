@@ -7,9 +7,10 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import postcss, {type AtRule, type ChildNode, type Root} from 'postcss'
+import type {WithheldKind} from '../../lib/withheld-file'
+import {workspaceRootOf} from '../../plugin-special-folders/public-private-files'
 import {cssUrlRefFiles, toPosixPath} from './dead-url-refs'
 
 export interface InlineCssImportsContext {
@@ -55,6 +56,8 @@ export interface InlinedCssImports {
     from: string
     reason: string
     fix?: string
+    // Set for a file the build withholds, which has a message of its own.
+    kind?: WithheldKind
   }>
   // An import that now leads rules it used to follow.
   moved: PlacedCssImport[]
@@ -343,11 +346,6 @@ function isPrivateName(name: string): boolean {
   return PRIVATE_NAMES.some((matcher) => matcher.test(name))
 }
 
-const KEEP_IN_PROJECT =
-  'Keep the sheets a content script stylesheet imports inside the project or its workspace, or in a package it installs.'
-const NO_PRIVATE_NAME =
-  'Give the sheet a path with no private file or folder name along it.'
-
 // Whether a path is inside the node_modules of one of these folders or of a
 // folder above one, where a package manager keeps what a project installed.
 function inInstalledModules(file: string, folders: string[]): boolean {
@@ -368,58 +366,6 @@ function inInstalledModules(file: string, folders: string[]): boolean {
     .some(
       (folder) => folder === owner || folder.startsWith(`${owner}${path.sep}`)
     )
-}
-
-// Whether a folder declares a workspace the way pnpm, npm, Yarn and Bun read one.
-function declaresWorkspace(dir: string): boolean {
-  if (fs.existsSync(path.join(dir, 'pnpm-workspace.yaml'))) return true
-
-  try {
-    const {workspaces} = JSON.parse(
-      fs.readFileSync(path.join(dir, 'package.json'), 'utf8')
-    )
-
-    return Array.isArray(workspaces) || Array.isArray(workspaces?.packages)
-  } catch {
-    return false
-  }
-}
-
-const workspaceRoots = new Map<string, string>()
-
-// Whether a folder is the home folder or one that holds it.
-function isHomeOrAbove(dir: string, home: string): boolean {
-  const down = path.relative(dir, home)
-
-  return !down.startsWith('..') && !path.isAbsolute(down)
-}
-
-// The nearest folder at or above the project that declares a workspace, or
-// the project itself. A marker in the home folder or above it is not read.
-export function workspaceRootOf(
-  projectRoot: string,
-  homeDir: string = os.homedir()
-): string {
-  const root = realPath(projectRoot)
-  const home = realPath(homeDir)
-  const key = `${root}\0${home}`
-  const cached = workspaceRoots.get(key)
-  if (cached !== undefined) return cached
-
-  let found = root
-
-  for (let dir = root; !isHomeOrAbove(dir, home); dir = path.dirname(dir)) {
-    if (declaresWorkspace(dir)) {
-      found = dir
-      break
-    }
-
-    if (path.dirname(dir) === dir) break
-  }
-
-  workspaceRoots.set(key, found)
-
-  return found
 }
 
 // Whether a path inside the workspace stays clear of what a package manager
@@ -452,11 +398,11 @@ function nearestSpelling(file: string, spellings: string[]): string {
 }
 
 // Whether the rules of a sheet may be read into another one: undefined when
-// they may, or the reason they may not with the fix. Links are followed.
+// they may, or the kind of file it is and the reason. Links are followed.
 export function whyNotRead(
   file: string,
   projectRoot: string
-): {reason: string; fix: string} | undefined {
+): {kind: WithheldKind; reason: string} | undefined {
   const root = realPath(projectRoot)
   const asked = path.resolve(file)
   const real = realPath(file)
@@ -472,8 +418,8 @@ export function whyNotRead(
 
   if (privateName) {
     return {
-      reason: `The path holds ${privateName}, a name the build keeps private.`,
-      fix: NO_PRIVATE_NAME
+      kind: 'private',
+      reason: `The path holds ${privateName}, a name the build keeps private.`
     }
   }
 
@@ -505,8 +451,8 @@ export function whyNotRead(
   }
 
   return {
-    reason: `The file sits outside the project, at ${toPosixPath(real)}.`,
-    fix: KEEP_IN_PROJECT
+    kind: 'outside',
+    reason: `The file sits outside the project, at ${toPosixPath(real)}.`
   }
 }
 
