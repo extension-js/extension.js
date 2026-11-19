@@ -74,8 +74,8 @@ export function isCanonicalContentScriptEntryName(entryName: string): boolean {
 export function parseCanonicalContentScriptAsset(
   assetName: string
 ): {index: number; extension: 'js' | 'css'} | undefined {
-  // Stable: content_scripts/content-0.js; dev adds a hash segment so Chrome
-  // does not serve a URL-cached copy after live reinject updated the file.
+  // Stable: content_scripts/content-0.js. Dev names each content bundle by
+  // its hash, so a second read of the file gets the new bytes.
   const match =
     /^content_scripts\/content-(\d+)(?:\.[a-f0-9]+)?\.(js|css)$/i.exec(
       String(assetName || '')

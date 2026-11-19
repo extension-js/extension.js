@@ -507,11 +507,11 @@ export function mainWorldRegistrationChanged(
     )
 
     lines.push(
-      `The session keeps building the file as a content script, so the page it runs on receives the dev reload runtime and the content script wrapper.`
+      `The session keeps building the file as a content script, so the page it runs on receives the dev session runtime and the content script wrapper.`
     )
   } else {
     lines.push(
-      `The session keeps building the file for the page, without the content script wrapper and its reload on change.`
+      `The session keeps building the file for the page, without the content script wrapper and the dev session runtime.`
     )
   }
 

@@ -271,7 +271,7 @@ function collectUnfetchedEntrySheets(
 ): Set<string> {
   const unfetched = new Set<string>()
 
-  // A dev session reinjects sheets through its own runtime, by other names.
+  // A development build names its sheets by hash, not by these names.
   if ((compilation.options?.mode || 'development') !== 'production') {
     return unfetched
   }
