@@ -437,6 +437,30 @@ describe('a Chromium launch that does not reach a running extension', () => {
     })
   })
 
+  describe('a browser that never answers', () => {
+    // Each command has its own 12 s bound, so a silent browser is given up
+    // on well before the 45 s launch watchdog, with the same hint.
+    it('ends the load check of a run-only launch on the command bound', async () => {
+      const {plugin, runOnly} = await start({script: {handshake: 'silent'}})
+      const {waitedMs} = await onFakeClock(runOnly)
+
+      expect(waitedMs).toBeLessThan(45_000)
+      expect(said('error')).toEqual([
+        expect.stringMatching(
+          /^\[browser\] CDP command timed out \(12000ms\): \S+ Chrome likely rejected the extension at launch/
+        )
+      ])
+
+      expect(fake.project.readReady()).toMatchObject({
+        status: 'starting',
+        cdpFaultCode: 'W_CDP_TIMEOUT'
+      })
+
+      expect(plugin.spawnedBrowser).toBe(true)
+      expect(fake.claims[0].released).toBe(1)
+    })
+  })
+
   describe('a handshake that dies', () => {
     it('keeps a run-only session going with the fault on record', async () => {
       const {runOnly} = await start({script: {handshake: 'dies'}})

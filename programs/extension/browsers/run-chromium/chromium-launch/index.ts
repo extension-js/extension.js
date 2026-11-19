@@ -1498,8 +1498,8 @@ export class ChromiumLaunchPlugin {
       // below, it has no reload to deliver.
       if (enableCdp) {
         const mod = await this.deps.loadCdpSetup()
-        // Watchdog: a rejected extension at launch stalls startup behind a macOS modal
-        // and the pipe handshake hangs forever; convert that silent wedge into a loud failure.
+        // Bounds the whole setup for a browser that answers each command just
+        // inside its own 12 s limit. A silent browser hits that limit first.
         const CDP_SETUP_TIMEOUT_MS = 45_000
         await Promise.race([
           mod.setupCdpAfterLaunch(
@@ -1536,7 +1536,7 @@ export class ChromiumLaunchPlugin {
         }
       } else if (verifyLoadOnly) {
         const mod = await this.deps.loadCdpSetup()
-        // Same watchdog as above: a refusal modal can stall the handshake.
+        // Same total bound as above, for the load check alone.
         const LOAD_CHECK_TIMEOUT_MS = 45_000
         guestLoadStatus = await Promise.race([
           mod.verifyGuestLoadAfterLaunch(
