@@ -552,6 +552,45 @@ describe('generate-extension-types', () => {
     expect(projectBringsOwnChromeTypes(nested)).toBe(false)
   })
 
+  // TypeScript 5 loads every @types package above the project on its own, so
+  // chrome-types beside a hoisted @types/chrome would declare chrome twice.
+  it('keeps a hoisted @types/chrome only for a project on TypeScript 5 or older', () => {
+    const root = makeTempDir('extjs-gen-own-chrome-ts-')
+    const nested = path.join(root, 'packages', 'my-extension')
+    fs.mkdirSync(nested, {recursive: true})
+    fs.writeFileSync(path.join(nested, 'package.json'), '{}')
+    fs.mkdirSync(path.join(root, 'node_modules', '@types', 'chrome'), {
+      recursive: true
+    })
+
+    const typescriptDir = path.join(root, 'node_modules', 'typescript')
+    fs.mkdirSync(typescriptDir, {recursive: true})
+    const typescriptAt = (version: string) =>
+      fs.writeFileSync(
+        path.join(typescriptDir, 'package.json'),
+        JSON.stringify({name: 'typescript', version})
+      )
+
+    typescriptAt('5.9.3')
+    expect(projectBringsOwnChromeTypes(nested)).toBe(true)
+
+    typescriptAt('6.0.2')
+    expect(projectBringsOwnChromeTypes(nested)).toBe(false)
+
+    typescriptAt('7.0.2')
+    expect(projectBringsOwnChromeTypes(nested)).toBe(false)
+
+    // A project-local TypeScript wins over the hoisted one, as it does in tsc.
+    const ownTypescriptDir = path.join(nested, 'node_modules', 'typescript')
+    fs.mkdirSync(ownTypescriptDir, {recursive: true})
+    fs.writeFileSync(
+      path.join(ownTypescriptDir, 'package.json'),
+      JSON.stringify({name: 'typescript', version: '5.4.5'})
+    )
+
+    expect(projectBringsOwnChromeTypes(nested)).toBe(true)
+  })
+
   // A workspace with node-linker=hoisted puts another package's @types/chrome
   // above the project, and the project's own sources typecheck against it.
   it('keeps chrome-types for a workspace package that does not list a hoisted @types/chrome', async () => {
