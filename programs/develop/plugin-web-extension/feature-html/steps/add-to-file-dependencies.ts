@@ -46,8 +46,8 @@ export class AddToFileDependencies {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => {
-            if (compilation.errors?.length) return
-
+            // Tracked even when this build errored: the page and the files it
+            // names are what a fix edits, and that save must rebuild.
             const manifestDir = path.dirname(this.manifestPath)
             const projectRoot =
               (compiler.options.context as string) || path.dirname(manifestDir)
