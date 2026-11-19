@@ -92,12 +92,12 @@ describe('the package ships its build output and nothing beside it', () => {
         )
       )
 
-    // A bare package name or a generated request: neither can go missing
-    // from an install the way a file beside the build output can.
+    // A path resolved from the installed package or a generated request:
+    // neither can go missing the way a file beside the build output can.
     expect(provided).toEqual([
       {
         file: 'plugin-compatibility/feature-polyfill.ts',
-        value: "browser: 'webextension-polyfill'"
+        value: 'browser: polyfillPath'
       },
       {
         file: 'plugin-compilation/env.ts',
