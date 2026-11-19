@@ -8,13 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import rspack, {Compilation, type Compiler} from '@rspack/core'
+import rspack, {type Compilation, type Compiler} from '@rspack/core'
 import {isCompilerRestarting} from '../../../dev-server/session-restart'
 import {renameSyncWithRetry} from '../../../lib/rename-with-retry'
 import {turnedOffPublicFolders} from '../../../plugin-special-folders/resolve-public-folder'
 import {isManifestAddress} from '../../shared/paths'
 import {pagesReportedMissing} from '../../shared/reported-missing-pages'
-import {getCurrentManifestContent} from '../manifest-lib/manifest'
+import {readManifestAssetText} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 
 function readJsonSafe(source: string) {
@@ -236,23 +236,16 @@ export class PersistManifestToDisk {
     compiler.hooks.thisCompilation.tap(
       'manifest:persist-manifest:capture',
       (compilation: Compilation) => {
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'manifest:persist-manifest:capture',
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1000
-          },
+        // Read once every processAssets stage is over, so an edit a project
+        // plugin makes at any stage is in the text that reaches the disk.
+        compilation.hooks.afterProcessAssets.tap(
+          'manifest:persist-manifest:capture',
           () => {
             pendingHadErrors = compilation.errors.length > 0
             pendingOutputPath =
               compilation.outputOptions.path || compiler.options.output?.path
 
-            const manifestAsset = compilation.getAsset('manifest.json')
-            const manifestSource =
-              getCurrentManifestContent(compilation) ||
-              manifestAsset?.source?.source?.().toString()
-
-            pendingManifestSource =
-              typeof manifestSource === 'string' ? manifestSource : undefined
+            pendingManifestSource = readManifestAssetText(compilation)
           }
         )
       }
@@ -313,24 +306,8 @@ export class PersistManifestToDisk {
           // them; the restart already scheduled emits them, so stay quiet.
           if (isCompilerRestarting(compiler)) return
 
-          const sample = missingFiles.slice(0, 5).join('\n  - ')
-          const more =
-            missingFiles.length > 5
-              ? `\n  ... and ${missingFiles.length - 5} more`
-              : ''
           const err = new rspack.WebpackError(
-            [
-              'manifest.json references files that were not emitted to disk for this build:',
-              `  - ${sample}${more}`,
-              '',
-              'The previous manifest.json was kept to avoid loading a broken extension.',
-              'Most often this is one of:',
-              '  • An outdated Extension.js. Run `npm ls extension` and update to the',
-              '    latest, this missing-entry class (e.g. engine-family targets like',
-              '    `chromium-based`) was fixed in 4.0.0.',
-              '  • A skipped chunk on an incremental rebuild. Save a source file again,',
-              '    or restart after removing the `dist/` folder for a clean build.'
-            ].join('\n')
+            messages.manifestFilesNotEmitted(missingFiles)
           ) as Error & {file?: string}
           err.name = 'ManifestFilesNotEmitted'
           err.file = 'manifest.json'
@@ -352,8 +329,9 @@ export class PersistManifestToDisk {
           writeFileAtomically(manifestOutputPath, manifestSource)
         } catch (error) {
           const err = new rspack.WebpackError(
-            `Failed to persist manifest.json to disk: ${(error as Error).message}`
+            messages.manifestPersistFailed((error as Error).message)
           ) as Error & {file?: string}
+          err.name = 'ManifestPersistFailed'
           err.file = 'manifest.json'
           compilation.errors.push(err)
         }
