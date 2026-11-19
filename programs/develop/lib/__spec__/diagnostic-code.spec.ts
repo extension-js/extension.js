@@ -37,6 +37,7 @@ describe('diagnosticCode', () => {
     ['ReservedScriptsFolder', 'E_RESERVED_FOLDER'],
     ['CssPreprocessorMissing', 'E_CSS_PREPROCESSOR_MISSING'],
     ['CssDeadRef', 'E_CSS_DEAD_REF'],
+    ['CssWithheldRef', 'E_CSS_DEAD_REF'],
     ['CssParseWarning', 'E_CSS_PARSE'],
     ['BackgroundRequired', 'E_BACKGROUND_REQUIRED'],
     ['ContentScriptSyntax', 'E_CONTENT_SCRIPT_SYNTAX']

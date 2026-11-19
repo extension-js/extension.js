@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
+import {withheldFileLines} from '../../lib/withheld-file'
 
 export function importScriptsDependencyMissing(
   workerPath: string,
@@ -604,16 +605,9 @@ export function scriptsWithheldFile(
   kind: 'private' | 'outside',
   notFound: string
 ) {
-  const lines: string[] = []
-  lines.push(
-    `${file} is not bundled. Check the ${field} field in your manifest.json file.`
-  )
-
-  lines.push(
-    kind === 'private'
-      ? `The build never bundles env files, tooling files or repository files. Move the code into a file with another name.`
-      : `The file is not one the project or its workspace shares. Move it into the project.`
-  )
+  const lines: string[] = withheldFileLines(file, kind, {
+    check: `Check the ${field} field in your manifest.json file.`
+  })
 
   lines.push('')
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(notFound)}`)
