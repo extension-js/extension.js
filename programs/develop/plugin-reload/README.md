@@ -17,6 +17,10 @@ It is responsible for:
 - on Chromium, turning the manifest's `content_scripts` entries into
   signalling stubs and registering the real bundles from the worker, so an
   edit reaches new and open pages without a second copy running
+- adding the reinject runtime to every content script of a dev session
+  build: a registry of generations, owner markers, root sweeps and the
+  isolated world DOM instrumentation, so a new copy retires the one an
+  earlier injection left in the page
 - stripping the rspack-dev-server startup runtime from emitted content
   scripts so reinjection stays browser-owned
 - classifying a watch-mode change into a reload instruction
@@ -49,18 +53,22 @@ It is responsible for:
 
 ## Development pipeline
 
-Applied by `ReloadPlugin` in order:
+Applied by `ReloadPlugin` in order. The first runs ahead of the gate, under
+the wrapper's own reading of a dev session (`devSession` when the config
+names one, otherwise any mode but production), so it also runs under
+`EXTENSION_NO_RELOAD=true`, as the wrapper did before the runtime moved here:
 
-1. `StripContentScriptDevServerRuntime`
-2. `StableContentScriptNames`
-3. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the chunk loading
+1. `AddContentScriptReinject`
+2. `StripContentScriptDevServerRuntime`
+3. `StableContentScriptNames`
+4. `SetupReloadStrategy` (`SetupBackgroundEntry`, then the chunk loading
    target, then the hot update file names)
-4. `InjectScriptsReplayShim`
-5. `SetupDevContentScripts` (Chromium only, not the emulator)
-6. `InjectBridgeProducer` (not the emulator)
-7. `InjectBridgeRelay` (not the emulator)
-8. `PruneStaleHotUpdates`
-9. `PruneUnreachableChunks`
+5. `InjectScriptsReplayShim`
+6. `SetupDevContentScripts` (Chromium only, not the emulator)
+7. `InjectBridgeProducer` (not the emulator)
+8. `InjectBridgeRelay` (not the emulator)
+9. `PruneStaleHotUpdates`
+10. `PruneUnreachableChunks`
 
 ## Important files
 
@@ -165,6 +173,15 @@ Applied by `ReloadPlugin` in order:
   build without a worker keep static entries and the producer's
   manifest-based re-inject.
 
+- `reload-lib/content-script-reinject.ts` / `steps/add-content-script-reinject.ts`
+  The reinject runtime, as text for the named points of the content script
+  wrapper in `plugin-web-extension/feature-scripts`. The step adds it to the
+  wrapper through `extendContentScriptWrapper` from
+  `plugin-web-extension/shared/content-script-wrapper-extensions.ts`. The
+  runtime reads the owner key the wrapper writes for every bundle, and in a
+  MAIN world bundle it leaves out the DOM instrumentation, which would land
+  on the page itself.
+
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
   console output to the dev-server control WS. Not reload in the strict
@@ -216,6 +233,10 @@ consumes that contract. It does not define it, and nothing in
   URI and the chunk loader in each world, read off builds made with the whole
   plugin list. It reads loaders from `programs/develop/dist` too.
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
+- `content-script-reinject.spec.ts`, `reinject-during-pending-await.spec.ts`,
+  the reinject runtime in the wrapper output, its generations across
+  injections, a copy injected while an earlier one awaits, and when the
+  plugin adds it
 - `inject-bridge-steps.spec.ts`, `inject-bridge-boot-registrations.spec.ts`,
   the control-bridge producer and relay
 - `inject-scripts-replay-shim.spec.ts`, `scripts-replay-shim.runtime.spec.ts`,

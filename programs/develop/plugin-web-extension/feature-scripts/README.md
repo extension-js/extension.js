@@ -10,11 +10,12 @@ It is responsible for:
 - enforcing the canonical content-script contract the rest of the pipeline reads (see below)
 
 The dev reload and HMR strategy lives in `programs/develop/plugin-reload`, which
-registers after this plugin and decorates the entries created here. Two pieces
-of dev reload logic still sit in this folder until the maintainer rules on their
-home: the reinject runtime the wrapper loader writes into each content script in
-a dev session, and the restart state of `warn-main-world-registration-changed`,
-which `plugin-browsers` and `dev-server` read through `isAwaitingMainWorldRestart`.
+registers after this plugin and decorates the entries created here. The reinject
+runtime a dev session adds to each content script lives there too, and reaches the
+wrapper through its extension points (see below). One piece of dev reload logic
+still sits in this folder until the maintainer rules on its home: the restart
+state of `warn-main-world-registration-changed`, which `plugin-browsers` and
+`dev-server` read through `isAwaitingMainWorldRestart`.
 
 ## Entry point
 
@@ -68,6 +69,8 @@ real compiler takes per mode and browser.
   Adds the loader/wrapper layer for content scripts and emits MAIN-world bridge scripts when needed. The wrapper is load-bearing in every mode: it converts `export default fn` into the `__EXTENSIONJS_mount(...)` call that invokes the user's default export, without it, production tree-shakes the entire content-script body.
 
   The wrapper rules sit at the front of `module.rules`, ahead of every rule `extension.config.js` added, and loaders run from the last rule to the first. A loader of the project with no `enforce`, or with `enforce: 'pre'`, is handed the file as written, and the wrapper reads what it returns before the transpiler does. A loader with `enforce: 'post'` is handed the wrapped and transpiled text. A plugin of the project applies after this one, so a rule it puts in front of the list as it applies would run after the wrapper: `scripts-lib/front-rules.ts` takes the front again once every plugin has applied, and that rule is handed the file as written too. When a loader returns text with no default export for a file that has one as written, the build stops and names the file and the loader. The wrapper applies in production too, with no option to turn it off.
+
+  The wrapper writes the same text in every mode and knows nothing of reloading. Another plugin adds its own text at named points of the emitted script through `plugin-web-extension/shared/content-script-wrapper-extensions.ts`: `extendContentScriptWrapper(compiler, extension)` adds to a list the loader options carry by reference, and the loader asks each extension for its text at every point. `plugin-reload` adds the reinject runtime this way in a dev session. A build with no extension emits the wrapper alone. The owner key the wrapper writes (`__EXTENSIONJS_REINJECT_KEY` and `data-extjs-reinject-key`) keeps its spelling, so shipped bundles stay byte for byte what they were.
 
   A content script with an `import` or an `export` may await at the top level, and its default export mounts only once that `await` ends, so a `run_at: document_start` script that awaits mounts later than `document_start`. In a dev session a copy that is still waiting when the next one is injected is cleaned up and never mounts.
 
@@ -158,6 +161,7 @@ High-signal specs include:
 - `scripts-plugin-steps.spec.ts` (which steps a real compiler takes per mode and browser)
 - `add-scripts.spec.ts`
 - `content-script-wrapper.spec.ts`
+- `plugin-boundary.spec.ts` (no reinject runtime and no import from `plugin-reload` in this folder)
 - `contracts.spec.ts`
 - `get-bridge-scripts.spec.ts`
 
