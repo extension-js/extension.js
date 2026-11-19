@@ -67,8 +67,8 @@ describe('DevOptions declares the control-channel switches', () => {
     // local widening cast, so a typed caller could not pass them at all and the
     // whole agent bridge was reachable only through `--allow-control`.
     const devOptions = typesSource.slice(
-      typesSource.indexOf('export interface DevOptions'),
-      typesSource.indexOf('export interface BuildOptions')
+      typesSource.indexOf('export interface PublicDevOptions'),
+      typesSource.indexOf('export interface DevOptions')
     )
     expect(devOptions).toMatch(/\ballowControl\?: boolean/)
     expect(devOptions).toMatch(/\ballowEval\?: boolean/)
