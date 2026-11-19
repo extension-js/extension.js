@@ -33,6 +33,9 @@ export type DevelopFor<K extends keyof DevelopModule = never> = Pick<
 > &
   Partial<Pick<DevelopModule, 'loadCommandConfig'>>
 
+// The engine is refused at any other version, so its bridge has every export.
+export type DevelopBridge = typeof import('extension-develop/bridge')
+
 export type DevelopBrowser = import('extension-develop').BrowserType
 export type DevelopLauncher = import('extension-develop').BrowserLauncherFn
 export type DevelopPreviewLauncher =
@@ -127,6 +130,16 @@ function resolveInstalledDevelopRoot(startDir: string): string | undefined {
 
 type DevelopRootSource = 'workspace' | 'env' | 'installed' | 'missing'
 
+const ignoredDevelopRoots = new Set<string>()
+
+function warnDevelopRootIgnored(envRoot: string): void {
+  if (ignoredDevelopRoots.has(envRoot)) return
+
+  ignoredDevelopRoots.add(envRoot)
+  // eslint-disable-next-line no-console
+  console.warn(messages.developRootIgnored(envRoot))
+}
+
 function resolvePreferredDevelopRoot(startDir: string): {
   root: string | undefined
   source: DevelopRootSource
@@ -134,12 +147,12 @@ function resolvePreferredDevelopRoot(startDir: string): {
   const workspaceRoot = resolveWorkspaceDevelopRoot(startDir)
   if (workspaceRoot) return {root: workspaceRoot, source: 'workspace'}
 
-  const envRoot = process.env.EXTENSION_DEVELOP_ROOT
-    ? resolveDevelopRootFromDir(
-        path.resolve(process.env.EXTENSION_DEVELOP_ROOT)
-      )
+  const envValue = process.env.EXTENSION_DEVELOP_ROOT
+  const envRoot = envValue
+    ? resolveDevelopRootFromDir(path.resolve(envValue))
     : undefined
   if (envRoot) return {root: envRoot, source: 'env'}
+  if (envValue) warnDevelopRootIgnored(path.resolve(envValue))
 
   const installedRoot = resolveInstalledDevelopRoot(startDir)
   if (installedRoot) return {root: installedRoot, source: 'installed'}
@@ -210,6 +223,47 @@ function isLocalDevelopRoot(root: string, startDir: string): boolean {
   return !installedRoot || realPathOf(installedRoot) !== realPathOf(root)
 }
 
+const PROJECT_ADD_COMMANDS: Array<[string, string]> = [
+  ['pnpm-lock.yaml', 'pnpm add extension@'],
+  ['yarn.lock', 'yarn add extension@'],
+  ['bun.lock', 'bun add extension@'],
+  ['bun.lockb', 'bun add extension@'],
+  ['deno.lock', 'deno add npm:extension@'],
+  ['package-lock.json', 'npm install extension@']
+]
+
+// The one command that puts both packages back at the CLI's version, read off
+// where the engine was installed: a runner cache, a global folder or a project.
+export function reinstallCommandFor(engineRoot: string, version: string) {
+  const parts = path.resolve(engineRoot).split(path.sep)
+  const nodeModules = parts.indexOf('node_modules')
+  const above = nodeModules >= 0 ? parts.slice(0, nodeModules) : parts
+  const has = (...names: string[]) => names.every((n) => above.includes(n))
+
+  if (above.includes('_npx')) return `npx extension@${version}`
+  if (has('pnpm', 'dlx')) return `pnpm dlx extension@${version}`
+
+  if (above.some((part) => part.startsWith('bunx-'))) {
+    return `bunx extension@${version}`
+  }
+
+  if (has('.bun', 'global')) return `bun add -g extension@${version}`
+  if (has('pnpm', 'global')) return `pnpm add -g extension@${version}`
+  if (has('yarn', 'global')) return `yarn global add extension@${version}`
+
+  const project = above.join(path.sep) || path.sep
+
+  if (!fs.existsSync(path.join(project, 'package.json'))) {
+    return `npm install -g extension@${version}`
+  }
+
+  for (const [lockfile, command] of PROJECT_ADD_COMMANDS) {
+    if (fs.existsSync(path.join(project, lockfile))) return command + version
+  }
+
+  return `npm install extension@${version}`
+}
+
 function judgeDevelopVersion(root: string, startDir: string): Error | null {
   let cliVersion: unknown
 
@@ -244,7 +298,12 @@ function judgeDevelopVersion(root: string, startDir: string): Error | null {
   }
 
   return runtimeNotFound(
-    messages.developVersionMismatch(cliVersion, found, root)
+    messages.developVersionMismatch(
+      cliVersion,
+      found,
+      root,
+      reinstallCommandFor(root, cliVersion)
+    )
   )
 }
 
@@ -341,7 +400,7 @@ export async function loadExtensionDevelopPreviewModule<
 
 // Load only the lightweight agent-bridge entry for extension logs;
 // avoids pulling in rspack like preview does.
-export async function loadExtensionDevelopBridgeModule<T = AnyDevelopModule>(
+export async function loadExtensionDevelopBridgeModule<T = DevelopBridge>(
   startDir: string = __dirname
 ): Promise<T> {
   const root = resolveExtensionDevelopRoot(startDir)

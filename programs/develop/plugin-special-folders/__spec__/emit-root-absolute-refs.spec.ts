@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {noteWithheldCssRef} from '../../lib/withheld-file'
 import {
   emitRootAbsoluteRefs,
   planRootAbsoluteRef
@@ -432,13 +433,15 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
   it('emits nothing and says the missing-file finding of each surface once', async () => {
     const {root, publicDir} = createProject({
       '.env': MARKER,
+      '.env.js': MARKER,
+      '.env.css': MARKER,
       '.npmrc': MARKER,
       'node_modules/pkg/.env': MARKER,
       'data/ok.json': '{}'
     })
     const {compilation, emitted} = makeCompilation({
       'page.html':
-        '<link href="/.env"><img src="/.env"><img src="/node_modules/pkg/.env"><img src="/data/ok.json">',
+        '<link href="/.env"><img src="/.env"><img src="/node_modules/pkg/.env"><img src="/data/ok.json"><script src="/.env.js"></script><link href="/.env.css">',
       'style.css': '.a{background:url(/.npmrc)}.b{background:url(/.npmrc)}'
     })
 
@@ -457,15 +460,26 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
         warning.message.split('\n')[0]
       ])
     ).toEqual([
+      // Under the name the page step gives a missing file of the same tag.
       [
-        'RootAbsoluteRefMissing',
+        'HtmlAssetMissing',
         'page.html',
         "The page references an asset that doesn't exist."
       ],
       [
-        'RootAbsoluteRefMissing',
+        'HtmlAssetMissing',
         'page.html',
         "The page references an asset that doesn't exist."
+      ],
+      [
+        'HtmlEntrypointMissing',
+        'page.html',
+        "The page references a script file that doesn't exist."
+      ],
+      [
+        'HtmlEntrypointMissing',
+        'page.html',
+        "The page references a stylesheet that doesn't exist."
       ],
       [
         'CssDeadRef',
@@ -501,6 +515,30 @@ describe('emitRootAbsoluteRefs for a path that is not project content', () => {
 
     expect([...emitted.keys()]).toEqual(['page.html'])
     expect(compilation.warnings).toHaveLength(1)
+  })
+
+  it('stays quiet for a stylesheet ref the stylesheet step already said is not bundled', async () => {
+    const {root, publicDir} = createProject({'.env': MARKER, '.npmrc': MARKER})
+    const {compilation} = makeCompilation({
+      'content_scripts/content-0.css':
+        '.a{background:url(/.env?v=1)}.b{background:url(/.npmrc)}'
+    })
+    // The step names the sheet by its source and the ref as written.
+    noteWithheldCssRef(compilation, '/.env?v=1', 'injected.css')
+
+    await emitRootAbsoluteRefs(compilation, root, publicDir)
+
+    expect(
+      compilation.warnings.map((warning: Error) => [
+        warning.name,
+        warning.message.split('\n')[0]
+      ])
+    ).toEqual([
+      [
+        'CssDeadRef',
+        'A url(/.npmrc) reference points to a file that exists nowhere in the project.'
+      ]
+    ])
   })
 
   it('fails the build for a stylesheet ref when dead references are strict', async () => {

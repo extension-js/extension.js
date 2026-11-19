@@ -25,9 +25,9 @@ import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
   type DevelopBrowser,
   type DevelopFor,
+  type DevelopModule,
   type DevelopPreviewLauncher,
   type DevelopPreviewModule,
   loadExtensionDevelopModule,
@@ -46,6 +46,7 @@ import {
   firstInvalidWholeNumberFlag,
   parseExtensionsList,
   parseLogContexts,
+  parseLogFormat,
   parseLogLevel
 } from '../helpers/normalize-options'
 import {
@@ -127,8 +128,8 @@ function failAndExitWith(
 
 // What the action reaches outside this file. Production takes every default.
 interface StartCommandDeps {
-  loadDevelop?: () => Promise<AnyDevelopModule>
-  loadPreview?: () => Promise<AnyDevelopModule>
+  loadDevelop?: () => Promise<DevelopModule>
+  loadPreview?: () => Promise<DevelopPreviewModule>
   runBrowser?: typeof runOnlyPreviewBrowser
   waitForReady?: typeof runWaitMode
   noteBrowsers?: typeof noteRunBrowsers
@@ -575,7 +576,7 @@ export function registerStartCommand(
               logContexts,
               // Only pass logger values the user typed. Stock defaults and
               // commands.start.* are applied inside extensionPreview.
-              logFormat: startOptions.logFormat,
+              logFormat: parseLogFormat(startOptions.logFormat),
               logTimestamps: explicitCliValue(
                 command,
                 'logTimestamps',

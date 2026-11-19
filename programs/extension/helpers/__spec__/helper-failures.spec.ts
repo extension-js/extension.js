@@ -27,12 +27,11 @@ afterEach(() => {
 })
 
 describe('the safari command and the known command list', () => {
-  it('leaves safari out, so its runs report as unknown', () => {
-    // Pins today's behavior. Ledger 1372 D8.
-    expect(KNOWN_COMMANDS.has('safari' as never)).toBe(false)
+  it('counts safari runs under their own name', () => {
+    expect(KNOWN_COMMANDS.has('safari')).toBe(true)
     expect(
       detectInvokedCommand(['node', 'extension', 'safari', 'button'])
-    ).toBe('unknown')
+    ).toBe('safari')
   })
 })
 
@@ -54,20 +53,31 @@ describe('the runtime guard under --output json', () => {
 
   it.each([
     ['Bun', '1.1.38', undefined, 'Requires Bun >= 1.2'],
-    ['Deno', undefined, '2.4.0', 'Requires Deno >= 2.5']
-  ])('refuses an old %s on stderr with no envelope on stdout', (_runtime, bun, deno, needle) => {
+    ['Deno', undefined, '2.4.0', 'Requires Deno >= 2.5'],
+    ['Deno', undefined, '2.8.0', 'Deno 2.8.0 cannot load node:querystring']
+  ])('refuses an old %s with one envelope on stdout', (_runtime, bun, deno, needle) => {
     const seen = refuse(() =>
       enforceSupportedNodeVersion('22.12.0', bun, deno, jsonBuild)
     )
 
-    // Pins today's behavior. Ledger 1372 D14.
-    expect(seen.write).not.toHaveBeenCalled()
-    expect(seen.log).not.toHaveBeenCalled()
     expect(String(seen.error.mock.calls[0][0])).toContain(needle)
+    expect(seen.write).toHaveBeenCalledTimes(1)
+
+    const frame = JSON.parse(String(seen.write.mock.calls[0][1]))
+
+    expect(frame).toMatchObject({
+      ok: false,
+      command: 'build',
+      status: 'usage',
+      error: {code: 'E_NODE_VERSION'}
+    })
+
+    expect(frame.error.message).toContain(needle)
+    expect(frame.error.message).not.toContain('[Extension.js]')
     expect(seen.exit).toHaveBeenCalledWith(1)
   })
 
-  it('writes the envelope for an old Node, which the other runtimes skip', () => {
+  it('writes the envelope for an old Node', () => {
     const seen = refuse(() =>
       enforceSupportedNodeVersion('20.19.4', undefined, undefined, jsonBuild)
     )
@@ -105,7 +115,7 @@ describe('the runtime guard under --output json', () => {
     expect(exit).toHaveBeenCalledWith(1)
   })
 
-  it('names the value of a flag typed before the command as the command', () => {
+  it('names the command after a flag typed before it', () => {
     const frame = unsupportedNodeVersionFrame('20.19.4', [
       'node',
       'extension',
@@ -116,8 +126,7 @@ describe('the runtime guard under --output json', () => {
       'json'
     ])
 
-    // Pins today's behavior. Ledger 1372 D14.
-    expect(frame?.command).toBe('firefox')
+    expect(frame?.command).toBe('build')
   })
 })
 
@@ -138,51 +147,56 @@ describe('a config file that throws', () => {
     return dir
   }
 
-  it('reads noBrowser as false, so the browser would launch', async () => {
+  // The engine reads the same file before it builds or launches anything and
+  // fails the run with E_CONFIG_LOAD, so these answers never reach a launch.
+  it('leaves the answer to the engine, which refuses the same config', async () => {
     vi.stubEnv('EXTENSION_CLI_NO_BROWSER', undefined)
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const project = projectWithThrowingConfig()
 
-    // Pins today's behavior. Ledger 1372 D17.
-    await expect(
-      resolveNoBrowser(projectWithThrowingConfig(), 'dev')
-    ).resolves.toBe(false)
-  })
+    await expect(resolveNoBrowser(project, 'dev')).resolves.toBe(false)
+    await expect(resolveConfigBrowser(project, 'dev')).resolves.toBeUndefined()
 
-  it('reads the config browser as unset', async () => {
-    // Pins today's behavior. Ledger 1372 D17.
-    await expect(
-      resolveConfigBrowser(projectWithThrowingConfig(), 'dev')
-    ).resolves.toBeUndefined()
+    const develop = await loadExtensionDevelopModule()
+
+    for (const command of ['dev', 'build', 'start', 'preview'] as const) {
+      await expect(
+        develop.loadCommandConfig(project, command)
+      ).rejects.toMatchObject({code: CODES.E_CONFIG_LOAD})
+    }
   })
 
   it.each([
     'dev',
     'start',
     'preview'
-  ] as const)('reads noBrowser as false for %s when the config loader rejects', async (command) => {
-    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', undefined)
+  ] as const)('keeps a typed --no-browser for %s whatever the config does', async (command) => {
+    vi.stubEnv('EXTENSION_CLI_NO_BROWSER', '1')
+    const loadDevelop = vi.fn(async () => ({
+      loadCommandConfig: async () => {
+        throw new Error('config boom')
+      }
+    }))
 
-    // Pins today's behavior. Ledger 1372 D17.
     await expect(
-      resolveNoBrowser('/nowhere', command, async () => ({
-        loadCommandConfig: async () => {
-          throw new Error('config boom')
-        }
-      }))
-    ).resolves.toBe(false)
+      resolveNoBrowser('/nowhere', command, loadDevelop)
+    ).resolves.toBe(true)
+
+    expect(loadDevelop).not.toHaveBeenCalled()
   })
 })
 
 describe('locating the extension-develop runtime', () => {
-  it('ignores an EXTENSION_DEVELOP_ROOT that holds no runtime, in silence', () => {
+  it('warns once that an EXTENSION_DEVELOP_ROOT with no runtime is ignored', () => {
     const wrong = makeTempFolder('extjs-wrong-root-')
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const start = makeTempFolder('extjs-start-')
 
     vi.stubEnv('EXTENSION_DEVELOP_ROOT', wrong)
     vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', undefined)
 
-    // Pins today's behavior. Ledger 1372 D17.
-    const root = resolveExtensionDevelopRoot(makeTempFolder('extjs-start-'))
+    const root = resolveExtensionDevelopRoot(start)
 
     expect(root).not.toBe(wrong)
     expect(
@@ -191,7 +205,18 @@ describe('locating the extension-develop runtime', () => {
 
     expect(process.env.EXTENSION_DEVELOP_ROOT).toBe(root)
     expect(error).not.toHaveBeenCalled()
-    expect(warn).not.toHaveBeenCalled()
+    expect(warn).toHaveBeenCalledTimes(1)
+
+    const line = String(warn.mock.calls[0][0])
+
+    expect(line).toContain('EXTENSION_DEVELOP_ROOT')
+    expect(line).toContain(wrong)
+    expect(line).toContain('no extension-develop package')
+
+    // A second ask in the same run, with the variable back on the wrong path.
+    vi.stubEnv('EXTENSION_DEVELOP_ROOT', wrong)
+    resolveExtensionDevelopRoot(start)
+    expect(warn).toHaveBeenCalledTimes(1)
   })
 
   it('throws E_RUNTIME_NOT_FOUND when no candidate holds a package manifest', async () => {

@@ -123,10 +123,10 @@ function wantsJsonOutput(argv: string[]): boolean {
   )
 }
 
-// Built by hand because nothing may be imported before this check runs. The
-// shape is the schema-1 failure envelope every other early refusal writes.
-export function unsupportedNodeVersionFrame(
-  version: string,
+// Built by hand, as nothing may be imported before this check runs. Node, Bun
+// and Deno share E_NODE_VERSION: the runtime is too old, the text names it.
+function unsupportedRuntimeFrame(
+  message: string,
   argv: string[]
 ): Record<string, unknown> | undefined {
   if (!wantsJsonOutput(argv)) return undefined
@@ -139,21 +139,27 @@ export function unsupportedNodeVersionFrame(
     value: null,
     error: {
       code: 'E_NODE_VERSION',
-      message: unsupportedNodeVersionMessage(version).replace(
-        '[Extension.js] ',
-        ''
-      ),
+      message: message.replace('[Extension.js] ', ''),
       name: 'CliError'
     },
     warnings: []
   }
 }
 
+export function unsupportedNodeVersionFrame(
+  version: string,
+  argv: string[]
+): Record<string, unknown> | undefined {
+  return unsupportedRuntimeFrame(unsupportedNodeVersionMessage(version), argv)
+}
+
 export function reportUnsupportedRuntime(argv: string[] = process.argv): void {
   reportUnsupportedRuntimeWith(argv)
 }
 
-function writeFrame(frame: Record<string, unknown>): void {
+function writeFrame(frame: Record<string, unknown> | undefined): void {
+  if (!frame) return
+
   try {
     fs.writeSync(1, `${JSON.stringify(frame)}\n`)
   } catch {
@@ -171,36 +177,25 @@ export function enforceSupportedNodeVersion(
   denoVersion: string | undefined = detectDenoVersion(),
   argv: string[] = process.argv
 ): void {
+  let message: string
+
   if (denoVersion) {
     if (isSupportedDenoVersion(denoVersion)) return
 
-    // eslint-disable-next-line no-console
-    console.error(unsupportedDenoVersionMessage(denoVersion))
-    reportUnsupportedRuntime(argv)
-    process.exit(1)
-
-    return
-  }
-
-  if (bunVersion) {
+    message = unsupportedDenoVersionMessage(denoVersion)
+  } else if (bunVersion) {
     if (isSupportedBunVersion(bunVersion)) return
 
-    // eslint-disable-next-line no-console
-    console.error(unsupportedBunVersionMessage(bunVersion))
-    reportUnsupportedRuntime(argv)
-    process.exit(1)
+    message = unsupportedBunVersionMessage(bunVersion)
+  } else {
+    if (isSupportedNodeVersion(version)) return
 
-    return
+    message = unsupportedNodeVersionMessage(version)
   }
 
-  if (isSupportedNodeVersion(version)) return
-
   // eslint-disable-next-line no-console
-  console.error(unsupportedNodeVersionMessage(version))
-
-  const frame = unsupportedNodeVersionFrame(version, argv)
-  if (frame) writeFrame(frame)
-
+  console.error(message)
+  writeFrame(unsupportedRuntimeFrame(message, argv))
   reportUnsupportedRuntime(argv)
   process.exit(1)
 }

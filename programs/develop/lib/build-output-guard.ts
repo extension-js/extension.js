@@ -9,6 +9,10 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import * as messages from './messages'
+import {humanLine} from './messaging'
+import {getDirs} from './paths'
+import type {ProjectStructure} from './project'
 import {isSameOrInsidePath} from './real-path'
 import {sessionArtifactsRootDir} from './session-paths'
 
@@ -54,4 +58,56 @@ export function holdsForeignFiles(target: string): boolean {
   } catch {
     return true
   }
+}
+
+function isBuildFolder(target: string): boolean {
+  return fs.existsSync(path.join(target, 'manifest.json'))
+}
+
+// Output once landed beside a manifest found below the named folder. Only a
+// folder holding what a build writes counts, so a source `dist` is not named.
+export function leftoverOutputFolder(
+  struct: ProjectStructure
+): string | undefined {
+  if (!struct.projectRoot) return undefined
+
+  const {manifestDir, packageJsonDir} = getDirs(struct)
+  const leftover = path.join(manifestDir, 'dist')
+
+  if (path.resolve(leftover) === path.resolve(packageJsonDir, 'dist')) {
+    return undefined
+  }
+
+  try {
+    const wroteHere = fs
+      .readdirSync(leftover, {withFileTypes: true})
+      .some(
+        (entry) =>
+          entry.isDirectory() &&
+          (entry.name === 'extension-js' ||
+            isBuildFolder(path.join(leftover, entry.name)))
+      )
+
+    return wroteHere ? leftover : undefined
+  } catch {
+    return undefined
+  }
+}
+
+const announcedLeftovers = new Set<string>()
+
+// The old folder is never deleted here: it can hold a zip someone kept. One
+// line per run says it is stale, since build and preview both pass this way.
+export function announceLeftoverOutputFolder(struct: ProjectStructure): void {
+  const leftover = leftoverOutputFolder(struct)
+
+  if (!leftover || announcedLeftovers.has(leftover)) return
+
+  announcedLeftovers.add(leftover)
+  humanLine(
+    messages.leftoverOutputFolder(
+      leftover,
+      path.join(getDirs(struct).packageJsonDir, 'dist')
+    )
+  )
 }

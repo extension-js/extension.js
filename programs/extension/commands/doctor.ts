@@ -22,9 +22,9 @@ import {
 } from '../browsers/browsers-lib/resolve-live-pid'
 import {declaredErrorCode} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {
-  type AnyDevelopModule,
+  type DevelopBridge,
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import {
@@ -42,7 +42,11 @@ import {
   remedyRspackPeerConflicts,
   scanRspackPeers
 } from '../helpers/rspack-peer-check'
-import {portAnswers, reusedPidEvidence} from '../helpers/session-liveness'
+import {
+  type BrowserSessionCommand,
+  portAnswers,
+  reusedPidEvidence
+} from '../helpers/session-liveness'
 import {
   resolveSessionProjectPath,
   sessionReadyPath
@@ -231,8 +235,6 @@ function readReadyDocument(readyPath: string): Record<string, unknown> | null {
     return null
   }
 }
-
-type SessionCommand = 'dev' | 'start' | 'preview'
 
 function productionCommand(
   document: Record<string, unknown> | null
@@ -495,7 +497,7 @@ async function browserCheck(
 
 // What a diagnosis reaches outside this file. Production takes every default.
 export interface DoctorDeps {
-  loadBridge?: () => Promise<AnyDevelopModule>
+  loadBridge?: () => Promise<DevelopBridge>
   engineVersion?: typeof engineRspackVersion
   scanPeers?: typeof scanRspackPeers
   pidStartedAt?: typeof pidStartedAtMs
@@ -632,7 +634,8 @@ export async function runDoctor(
 
   // A start or preview session serves a built folder: no dev server and no
   // compile, so the rows name the command that owns the process.
-  const sessionCommand: SessionCommand = productionCommand(document) ?? 'dev'
+  const sessionCommand: BrowserSessionCommand =
+    productionCommand(document) ?? 'dev'
   const production = sessionCommand !== 'dev'
   const sessionNoun = production
     ? `extension ${sessionCommand} session`
@@ -646,7 +649,7 @@ export async function runDoctor(
 
   // The reader keeps only the fields it types; why a session failed (`code`,
   // `message`, `errors`) is on the document itself.
-  const failure = {...ready, ...(document ?? {})}
+  const failure: Record<string, unknown> = {...ready, ...(document ?? {})}
 
   if (ready.status === 'ready') {
     results.push({
@@ -1110,7 +1113,12 @@ export function registerDoctorCommand(
           console.error(message)
         }
 
-        await exitAfterDrain(1)
+        await exitFailedAfterDrain({
+          code: declaredErrorCode(err) ?? CODES.E_INTERNAL,
+          exitCode: 1,
+          error: err,
+          step: 'action'
+        })
 
         return
       }

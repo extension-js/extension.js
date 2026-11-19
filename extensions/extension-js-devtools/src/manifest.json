@@ -11,9 +11,7 @@
     "gecko": {
       "id": "devtools@extension.js",
       "data_collection_permissions": {
-        "required": [
-          "none"
-        ]
+        "required": ["none"]
       }
     }
   },
@@ -24,21 +22,11 @@
     "48": "images/icon-48.png",
     "128": "images/icon-128.png"
   },
-  "chromium:permissions": [
-    "management",
-    "tabs",
-    "storage"
-  ],
-  "firefox:permissions": [
-    "management",
-    "tabs",
-    "storage"
-  ],
+  "chromium:permissions": ["management", "tabs", "storage"],
+  "firefox:permissions": ["management", "tabs", "storage"],
   "background": {
     "chromium:service_worker": "background/index.ts",
-    "firefox:scripts": [
-      "background/index.ts"
-    ]
+    "firefox:scripts": ["background/index.ts"]
   },
   "chromium:chrome_url_overrides": {
     "newtab": "pages/newtab.html"

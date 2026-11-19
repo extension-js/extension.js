@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {
+  type CommandFailureDetails,
   reportCommandFailureNow,
   type TelemetryCli,
   telemetryCli
@@ -85,15 +86,36 @@ function markOutcomeForExit(cli: ExitTelemetry, code: number): void {
 export function exitWithFailure(
   code?: unknown,
   exitCode = 1,
-  reportFailure = reportCommandFailureNow
+  reportFailure = reportCommandFailureNow,
+  where: Pick<CommandFailureDetails, 'error' | 'step'> = {}
 ): never {
   try {
-    reportFailure({code, exitCode})
+    reportFailure({code, exitCode, ...where})
   } catch {
     // Ignore
   }
 
   process.exit(exitCode)
+}
+
+// For a failure that printed its own answer: counted under its code first,
+// since the drain alone would file it with an exit code and nothing else.
+export async function exitFailedAfterDrain(
+  details: CommandFailureDetails,
+  deps: Partial<ExitAfterDrainDeps> = {}
+): Promise<void> {
+  const cli = deps.cli ?? telemetryCli
+
+  try {
+    cli.markCommandFailure(undefined, details)
+  } catch {
+    // An exit code is a promise to the caller, a measurement never breaks it.
+  }
+
+  await exitAfterDrain(
+    typeof details.exitCode === 'number' ? details.exitCode : 1,
+    deps
+  )
 }
 
 // Node writes to a piped stdout/stderr asynchronously, so process.exit right

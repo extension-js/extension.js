@@ -1,11 +1,26 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {afterAll, describe, expect, it} from 'vitest'
 import {
   EmitHtmlFile,
   manifestFieldForHtmlFeature
 } from '../../steps/emit-html-file'
+
+const tmpRoots: string[] = []
+
+afterAll(() => {
+  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
+})
+
+function makeTmp(name: string) {
+  const created = fs.mkdtempSync(
+    path.join(os.tmpdir(), `extjs-emit-html-${name}-`)
+  )
+  tmpRoots.push(created)
+
+  return fs.realpathSync(created)
+}
 
 function makeCompilation() {
   const state: any = {warnings: []}
@@ -30,9 +45,7 @@ function makeCompilation() {
 
 describe('EmitHtmlFile', () => {
   it('emits html source for include entries with both absolute-root and relative paths', () => {
-    const tmp = path.join(__dirname, '.tmp-emit')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('emit')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{"name":"X"}', 'utf8')
     const page = path.join(tmp, 'index.html')
@@ -52,9 +65,7 @@ describe('EmitHtmlFile', () => {
   })
 
   it('warns for missing pages/* include entries', () => {
-    const tmp = path.join(__dirname, '.tmp-emit2')
-    fs.rmSync(tmp, {recursive: true, force: true})
-    fs.mkdirSync(tmp, {recursive: true})
+    const tmp = makeTmp('emit2')
     const manifestPath = path.join(tmp, 'manifest.json')
     fs.writeFileSync(manifestPath, '{"name":"X"}', 'utf8')
     const c = makeCompilation()

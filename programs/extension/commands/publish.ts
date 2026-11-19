@@ -10,7 +10,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type {Command} from 'commander'
-import {exitAfterDrain} from '../helpers/exit-after-drain'
+import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
 import {commandDescriptions} from '../helpers/messages'
 import {
   CODES,
@@ -324,6 +324,8 @@ export function buildPublishPlan(opts: PublishInput): {
 
 type PublishOptions = PublishInput & {output?: 'pretty' | 'json'}
 
+const PUBLISH_TIMEOUT_MS = 30_000
+
 export function registerPublishCommand(program: Command) {
   program
     .command('publish')
@@ -355,7 +357,8 @@ export function registerPublishCommand(program: Command) {
         status: string,
         error: EnvelopeError,
         prose: string,
-        hint?: string
+        hint?: string,
+        thrown?: unknown
       ) => {
         if (asJson) {
           // eslint-disable-next-line no-console
@@ -369,7 +372,11 @@ export function registerPublishCommand(program: Command) {
           console.error(prose)
         }
 
-        await exitAfterDrain(1)
+        await exitFailedAfterDrain({
+          code: error.code,
+          exitCode: 1,
+          ...(thrown === undefined ? {} : {error: thrown, step: 'action'})
+        })
       }
 
       let req: PublishRequest
@@ -397,22 +404,38 @@ export function registerPublishCommand(program: Command) {
         }
 
         const message = (err as Error | undefined)?.message || String(err)
-        await failWith('failed', {code: CODES.E_INTERNAL, message}, message)
+        await failWith(
+          'failed',
+          {code: CODES.E_INTERNAL, message},
+          message,
+          undefined,
+          err
+        )
 
         return
       }
 
       let res: Response
+      let text: string
+      // One bound for the answer and its body, so a host that accepts the
+      // connection and never answers cannot hold the command open.
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), PUBLISH_TIMEOUT_MS)
 
       try {
         res = await fetch(req.url, {
           method: 'POST',
           headers: req.headers,
-          body: req.body
+          body: req.body,
+          signal: controller.signal
         })
+
+        text = await res.text()
       } catch (err) {
         const detail = (err as Error | undefined)?.message || String(err)
-        const message = `Could not reach ${req.url}: ${detail}`
+        const message = controller.signal.aborted
+          ? `${req.url} did not answer within ${PUBLISH_TIMEOUT_MS / 1000} s.`
+          : `Could not reach ${req.url}: ${detail}`
         await failWith(
           'failed',
           {code: CODES.E_NETWORK, message},
@@ -421,9 +444,10 @@ export function registerPublishCommand(program: Command) {
         )
 
         return
+      } finally {
+        clearTimeout(timer)
       }
 
-      const text = await res.text()
       let data: {
         message?: unknown
         shareUrl?: unknown

@@ -6,6 +6,10 @@
 // ╚═════╝ ╚══════╝  ╚═══╝     ╚═╝    ╚═════╝  ╚═════╝ ╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+export const MAX_REPOINT_ATTEMPTS = 3
+
+export type RepointDecision = 'wait' | 'repoint' | 'stop'
+
 // Browsers whose startup tab is not a plain new tab page, by the url the
 // tabs API reports for it. Opera starts on Speed Dial, Edge on an MSN page
 // its newtab redirects to before this runs, and Yandex on its own search
@@ -39,10 +43,6 @@ export function isStartPage(url: string, browser: string | undefined): boolean {
     START_PAGES_WITHOUT_NEW_TAB.some((pattern) => pattern.test(url))
   )
 }
-
-export const MAX_REPOINT_ATTEMPTS = 3
-
-export type RepointDecision = 'wait' | 'repoint' | 'stop'
 
 // A start tab can still be mid-redirect when it is repointed (Yandex hops
 // through its own sign-in ping, Edge to MSN), and the later hop wins.

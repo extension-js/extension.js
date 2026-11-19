@@ -59,7 +59,6 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   ImportScriptsCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
   InjectedScriptCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeStaticImportFileMissing: CODES.E_SCRIPT_DEP_MISSING,
-  RuntimeSetSurfaceFileMissing: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeGetURLFileMissing: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeGetURLCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeAssetFolderNotShipped: CODES.E_SCRIPT_DEP_MISSING,
@@ -99,6 +98,10 @@ const STYLESHEET = /\.(?:css|scss|sass|less|styl|pcss)(?:\?.*)?$/i
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value : ''
+}
+
+export function isKnownDiagnosticName(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(NAMED_CODES, name)
 }
 
 export function diagnosticName(issue: unknown): string | undefined {

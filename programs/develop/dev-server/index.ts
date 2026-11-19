@@ -12,10 +12,12 @@ import fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {Writable} from 'node:stream'
+import {isDeepStrictEqual} from 'node:util'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {RspackDevServer} from '@rspack/dev-server'
 import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
+import {recordCodedWarning} from '../lib/coded-warnings'
 import {
   loadBrowserConfig,
   loadCommandConfig,
@@ -29,11 +31,23 @@ import {
   isGeckoBasedBrowser,
   isWebkitBasedBrowser
 } from '../lib/constants'
+import {
+  companionsDeclaredIn,
+  isFirstCompanionWarning,
+  unresolvedNamedCompanions
+} from '../lib/extensions-to-load'
 import {DEV_COMMAND_DEFAULTS, mergeOptionLayers} from '../lib/merge-options'
 import {anotherDevSessionRefused} from '../lib/messages'
-import {CODES, debugLine, type ErrorCode, isDebug} from '../lib/messaging'
+import {
+  CODES,
+  debugLine,
+  type ErrorCode,
+  humanWarn,
+  isDebug,
+  stripChannelPrefix
+} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
-import {asAbsolute, getDistPath} from '../lib/paths'
+import {asAbsolute, getDirs, getDistPath} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
 import {sanitize} from '../lib/sanitize'
 import {
@@ -401,20 +415,12 @@ export function installManifestDiskWriteGuard(
   return uninstall
 }
 
-// Plain manifest+scripts extensions ship no project manifest; the project root
-// is then the manifest's directory. Deno projects anchor on deno.json(c).
+// The root every command shares: the project manifest's folder, else the
+// folder the command named, else the extension manifest's own folder.
 export function resolveDevProjectRoot(
-  projectStructure: Pick<
-    ProjectStructure,
-    'manifestPath' | 'packageJsonPath' | 'denoJsonPath'
-  >
+  projectStructure: ProjectStructure
 ): string {
-  const {manifestPath, packageJsonPath, denoJsonPath} = projectStructure
-  const projectManifestPath = packageJsonPath || denoJsonPath
-
-  return projectManifestPath
-    ? path.dirname(projectManifestPath)
-    : path.dirname(manifestPath)
+  return getDirs(projectStructure).packageJsonDir
 }
 
 // What the config hooks of a dev session are told.
@@ -920,6 +926,38 @@ async function startDevSession(
     browser: devOptions.browser,
     config: mergedExtensionsConfig
   })
+
+  // The caller hands over options it already merged with the config, so a
+  // list equal to what the config layers give was not typed as a flag.
+  const configuredExtensions =
+    safeCommandConfig.extensions ??
+    safeBrowserConfig.extensions ??
+    safeProjectConfig.extensions
+
+  // Said here, where the layer that named the companion is known. The
+  // compiler config finds the same entry and leaves it to this line.
+  for (const companion of unresolvedNamedCompanions({
+    projectRoot: packageJsonDir,
+    resolved: resolvedExtensionsConfig,
+    declared: mergedExtensionsConfig,
+    declaredIn: companionsDeclaredIn('dev', {
+      flag: isDeepStrictEqual(safeDevOptions.extensions, configuredExtensions)
+        ? undefined
+        : safeDevOptions.extensions,
+      command: safeCommandConfig.extensions,
+      browser: safeBrowserConfig.extensions,
+      project: safeProjectConfig.extensions
+    })
+  })) {
+    if (!isFirstCompanionWarning(companion.manifestPath)) continue
+
+    recordCodedWarning(
+      CODES.E_COMPANION_EXTENSION_PATH,
+      stripChannelPrefix(companion.frame)
+    )
+
+    humanWarn(companion.frame)
+  }
 
   // An act verb reaches the browser through the extension's background, so a
   // session that takes them and opens a browser holds ready for its hello.
