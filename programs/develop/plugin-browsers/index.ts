@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {EventEmitter} from 'node:events'
-import type {Compiler} from '@rspack/core'
+import type {Compilation, Compiler} from '@rspack/core'
 import * as messages from '../lib/messages'
 import {CODES, humanLine, humanWarn} from '../lib/messaging'
 import {
@@ -29,6 +29,10 @@ import * as browserMessages from './messages'
 // The launcher bounds each step it waits on, the longest at 45 seconds, so a
 // launch still out after this is not coming back on its own.
 export const BROWSER_LAUNCH_TIMEOUT_MS = 3 * 60_000
+
+// A retry or a wake is one request to a browser that is already up, so one
+// still out after a minute is not coming back on its own.
+export const BROWSER_REQUEST_TIMEOUT_MS = 60_000
 
 export interface CompiledEvent {
   outputPath: string
@@ -52,8 +56,8 @@ export interface BuildEventMap {
 export class BuildEmitter extends EventEmitter<BuildEventMap> {
   constructor() {
     super()
-    // EventEmitter throws ERR_UNHANDLED_ERROR when 'error' has no listener;
-    // a default listener keeps compile-failure emits from killing dev.
+    // EventEmitter throws ERR_UNHANDLED_ERROR when 'error' has no listener,
+    // so a default listener keeps compile-failure emits from killing dev.
     this.on('error', () => {})
   }
 }
@@ -115,7 +119,7 @@ export interface BrowserLaunchOptions {
   logTab?: number | string
   emulatorViewerUrl?: string
   // Browser-generated CDP Log.entryAdded entries never pass through the
-  // extension's console hook; the launcher forwards them here. Chromium-only.
+  // extension's console hook, so the launcher forwards them here. Chromium-only.
   logSink?: BrowserLogSink
   // Present only when the background names a content script registration:
   // the launcher holds the starting URL on it, bounded by the wait it passes.
@@ -212,6 +216,8 @@ export class BrowsersPlugin implements RunnerPlugin {
   // Set while a launch the hook stopped waiting for still runs, so a rebuild
   // never opens a second browser beside it.
   private launchStillRunning = false
+  // The bounded wait on the launch that is running, held by the next build.
+  private launchHeld: Promise<void> | null = null
   private controller: BrowserController | undefined
   private logSink: BrowserLogSink | undefined
   private emulatorViewerUrl: string | undefined
@@ -222,6 +228,11 @@ export class BrowsersPlugin implements RunnerPlugin {
   private lastReportedRefusal: string | null | undefined
   // The last reason a retry could not be asked, so a save loop says it once.
   private lastRetryFailure: string | undefined
+  // Set while a retry the hook stopped waiting for still runs, so a rebuild
+  // never asks a second time beside it.
+  private retryStillRunning = false
+  // The newest build that compiled, which a retry answered late loads.
+  private lastBuild: Compilation | undefined
   // What reloads and when, kept by plugin-reload. It outlives a dev server
   // restart, which applies this plugin again.
   private readonly reloads: ReloadSession
@@ -254,7 +265,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   }
 
   // A project that registers nothing gets no hold, so its first page opens
-  // exactly when it did before.
+  // without waiting.
   private bootRegistrationsHold(
     compilation: object
   ): Pick<BrowserLaunchOptions, 'awaitBootRegistrations'> {
@@ -387,6 +398,10 @@ export class BrowsersPlugin implements RunnerPlugin {
     return false
   }
 
+  private launchNoLongerHeld(held: Promise<void>): void {
+    if (this.launchHeld === held) this.launchHeld = null
+  }
+
   private emitCompiled(event: CompiledEvent): void {
     this.emitter.emit('compiled', event)
   }
@@ -443,52 +458,31 @@ export class BrowsersPlugin implements RunnerPlugin {
   }
 
   // The broker calls this for a verb that finds no executor. False until the
-  // browser is up, and for any browser that cannot be asked.
+  // browser is up, for any browser that cannot be asked, and past the bound.
   async wakeBackground(): Promise<boolean> {
-    try {
-      return (await this.controller?.wakeBackground?.()) === true
-    } catch {
-      return false
-    }
+    const outcome = await waitAtMost(
+      Promise.resolve().then(() => this.controller?.wakeBackground?.()),
+      BROWSER_REQUEST_TIMEOUT_MS
+    )
+
+    return outcome.state === 'resolved' && outcome.value === true
   }
 
-  private async retryRefusedExtensionLoad(): Promise<boolean> {
-    const controller = this.controller
+  // Said once per reason, so a save loop does not repeat it.
+  private warnRetryFailed(reason: string): void {
+    if (reason === this.lastRetryFailure) return
 
-    if (
-      !controller?.retryExtensionLoad ||
-      !controller.getExtensionLoadRefusal
-    ) {
-      return false
-    }
+    this.lastRetryFailure = reason
+    humanWarn(
+      browserMessages.extensionLoadRetryFailed(
+        this.options.browserOptions.browser,
+        reason
+      )
+    )
+  }
 
-    if (!controller.getExtensionLoadRefusal()) return false
-
-    if (this.lastReportedRefusal === undefined) {
-      // Seed with the launch-time reason: the operator has already read it.
-      this.lastReportedRefusal = controller.getExtensionLoadRefusal()
-    }
-
-    let outcome: ExtensionLoadRetryResult
-
-    try {
-      outcome = await controller.retryExtensionLoad()
-    } catch (error) {
-      const reason = error instanceof Error ? error.message : String(error)
-
-      if (reason !== this.lastRetryFailure) {
-        this.lastRetryFailure = reason
-        humanWarn(
-          browserMessages.extensionLoadRetryFailed(
-            this.options.browserOptions.browser,
-            reason
-          )
-        )
-      }
-
-      return false
-    }
-
+  // True when the browser took the extension on this ask.
+  private retryAnswered(outcome: ExtensionLoadRetryResult): boolean {
     if (outcome.status === 'loaded') {
       humanLine(messages.extensionLoadRecovered())
 
@@ -510,8 +504,80 @@ export class BrowsersPlugin implements RunnerPlugin {
     return false
   }
 
+  // The guest was absent until this ask, so there is nothing to reload: it
+  // just started from the dist that was written.
+  private extensionLoadedOnRetry(compilation: Compilation): void {
+    this.reloads.loaded(compilation)
+    this.announceReady()
+  }
+
+  private async retryRefusedExtensionLoad(
+    compilation: Compilation
+  ): Promise<boolean> {
+    const controller = this.controller
+
+    if (
+      !controller?.retryExtensionLoad ||
+      !controller.getExtensionLoadRefusal
+    ) {
+      return false
+    }
+
+    if (!controller.getExtensionLoadRefusal()) return false
+    if (this.retryStillRunning) return false
+
+    if (this.lastReportedRefusal === undefined) {
+      // Seed with the launch-time reason: the operator has already read it.
+      this.lastReportedRefusal = controller.getExtensionLoadRefusal()
+    }
+
+    const retry = Promise.resolve().then(() =>
+      controller.retryExtensionLoad?.()
+    )
+    const outcome = await waitAtMost(retry, BROWSER_REQUEST_TIMEOUT_MS)
+
+    if (outcome.state === 'rejected') {
+      const {error} = outcome
+      this.warnRetryFailed(
+        error instanceof Error ? error.message : String(error)
+      )
+
+      return false
+    }
+
+    if (outcome.state === 'resolved') {
+      return outcome.value ? this.retryAnswered(outcome.value) : false
+    }
+
+    this.warnRetryFailed(
+      browserMessages.extensionLoadRetryTimedOut(BROWSER_REQUEST_TIMEOUT_MS)
+    )
+
+    this.retryStillRunning = true
+    retry.then(
+      (late) => {
+        this.retryStillRunning = false
+
+        if (late && this.retryAnswered(late)) {
+          this.extensionLoadedOnRetry(this.lastBuild || compilation)
+        }
+      },
+      () => {
+        this.retryStillRunning = false
+      }
+    )
+
+    return false
+  }
+
   apply(compiler: Compiler) {
     const builds = this.reloads.watch(compiler)
+
+    // The browser reads the dist as it starts, and a done hook that is still
+    // out does not keep the bundler from starting a build, so it waits here.
+    compiler.hooks.watchRun.tapPromise(BrowsersPlugin.name, async () => {
+      if (this.launchHeld) await this.launchHeld
+    })
 
     compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats) => {
       const compilation = stats.compilation
@@ -529,6 +595,8 @@ export class BrowsersPlugin implements RunnerPlugin {
 
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
+
+      this.lastBuild = compilation
 
       // What must reload is plugin-reload's answer, held while a restart
       // replaces this build. The first compile is the build the browser loads.
@@ -551,14 +619,17 @@ export class BrowsersPlugin implements RunnerPlugin {
           return
         }
 
-        if (!(await this.launchBrowser(compilation, outputPath, contextDir))) {
-          return
-        }
-      } else if (await this.retryRefusedExtensionLoad()) {
-        // The guest was absent until this compile, so there is nothing to
-        // reload: it just started from the dist that was written.
-        this.reloads.loaded(compilation)
-        this.announceReady()
+        const launch = this.launchBrowser(compilation, outputPath, contextDir)
+        const held: Promise<void> = launch.then(
+          () => this.launchNoLongerHeld(held),
+          () => this.launchNoLongerHeld(held)
+        )
+
+        this.launchHeld = held
+
+        if (!(await launch)) return
+      } else if (await this.retryRefusedExtensionLoad(compilation)) {
+        this.extensionLoadedOnRetry(compilation)
       } else if (!plan.held) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.
