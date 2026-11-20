@@ -350,3 +350,50 @@ export function pageFileMissing(pageName: string, missingFilePath: string) {
 
   return lines.join('\n')
 }
+
+// A copied page's script ships as written, so an import it cannot follow
+// breaks it at runtime. The paths are relative to the project. No word here
+// may read as a browser or manifest issue to the warning categories.
+export function unbundledScriptImport(
+  pageFile: string,
+  scriptFile: string,
+  specifier: string,
+  // The extension path the page asks for, unset for a package name.
+  requestedPath: string | undefined,
+  opts?: {deadRefHint?: boolean}
+) {
+  const lines: string[] = []
+  lines.push(
+    requestedPath === undefined
+      ? `A script of this page imports a package by name, which the page cannot resolve at runtime.`
+      : `A script of this page imports a file that does not ship.`
+  )
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(pageFile)}`)
+  lines.push(`${colors.gray('SCRIPT')} ${colors.underline(scriptFile)}`)
+  lines.push(`${colors.gray('IMPORT')} ${colors.yellow(specifier)}`)
+
+  if (requestedPath !== undefined) {
+    lines.push(
+      `At runtime the page asks for ${colors.underline(`/${requestedPath}`)} and gets a 404.`
+    )
+  }
+
+  lines.push(
+    `Only another page reaches this page, so its scripts are copied as written and not bundled.`
+  )
+
+  lines.push(
+    requestedPath === undefined
+      ? `Put the page under ${colors.blue('pages/')} so it is bundled, or ship the package's file too and import it by its path.`
+      : `Put the page under ${colors.blue('pages/')} so it is bundled, or ship the imported file too at that path, for example from ${colors.blue('public/')}.`
+  )
+
+  if (opts?.deadRefHint) {
+    lines.push(
+      `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+    )
+  }
+
+  return lines.join('\n')
+}
