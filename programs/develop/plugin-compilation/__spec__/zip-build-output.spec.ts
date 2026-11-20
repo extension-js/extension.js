@@ -235,6 +235,41 @@ describe('the source zip and a folder that ignores itself', () => {
       'src/out/kept.js'
     ])
   })
+
+  it('lets a deeper .gitignore take back a file a shallower one ignores', async () => {
+    const outPath = path.join(root, 'dist', 'chrome')
+    fs.mkdirSync(outPath, {recursive: true})
+    write(path.join(root, '.gitignore'), '*.log\nvendor/\n')
+    write(path.join(root, 'src', '.gitignore'), '!keep.log\n')
+    write(path.join(root, 'src', 'keep.log'), 'KEEP')
+    write(path.join(root, 'src', 'other.log'), 'OTHER')
+    write(path.join(root, 'src', 'deep', 'keep.log'), 'KEEP')
+    write(path.join(root, 'root.log'), 'ROOT')
+    // A file inside a folder a shallower rule ignores stays out, as in git.
+    write(path.join(root, 'vendor', '.gitignore'), '!lib.js\n')
+    write(path.join(root, 'vendor', 'lib.js'), 'LIB')
+    // And a deeper rule ignores what a shallower one takes back.
+    write(path.join(root, 'docs', '.gitignore'), '*.md\n!notes/readme.md\n')
+    write(path.join(root, 'docs', 'notes', '.gitignore'), 'readme.md\n')
+    write(path.join(root, 'docs', 'notes', 'readme.md'), 'README')
+    write(path.join(root, 'docs', 'notes', 'kept.txt'), 'KEPT')
+
+    await zipProject(root, outPath, {zipSource: true})
+
+    const packed = readZip(path.join(root, 'dist', 'packed-1.0.0-source.zip'))
+
+    expect(Object.keys(packed).sort()).toEqual([
+      '.gitignore',
+      'docs/.gitignore',
+      'docs/notes/.gitignore',
+      'docs/notes/kept.txt',
+      'manifest.json',
+      'src/.gitignore',
+      'src/background.ts',
+      'src/deep/keep.log',
+      'src/keep.log'
+    ])
+  })
 })
 
 describe('findSessionFolders', () => {

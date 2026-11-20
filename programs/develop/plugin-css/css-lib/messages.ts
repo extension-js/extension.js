@@ -285,6 +285,37 @@ export function deadCssUrlRef(
   ].join('\n')
 }
 
+// The same finding for a sheet an @import names, in the words of that rule.
+export function deadCssImportRef(
+  issuerPath: string,
+  request: string,
+  strict = false
+) {
+  return [
+    `An ${colors.blue(`@import "${request}"`)} names a stylesheet that exists nowhere in the project.`,
+    `${colors.gray('PATH')} ${colors.underline(issuerPath)}`,
+    `${colors.gray('NOT FOUND')} ${colors.underline(request)}`,
+    'Chrome applies the rest of the stylesheet and skips this import silently, so the rules it names never load.',
+    ...(strict
+      ? []
+      : [
+          `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+        ])
+  ].join('\n')
+}
+
+// One finding in the words of the rule that names the file.
+export function deadCssRef(
+  issuerPath: string,
+  request: string,
+  strict: boolean,
+  viaImport: boolean
+) {
+  return viaImport
+    ? deadCssImportRef(issuerPath, request, strict)
+    : deadCssUrlRef(issuerPath, request, strict)
+}
+
 // A file that is there and stays out, by a url() or an @import alike. Under
 // strict refs the reader already set the variable the hint names.
 export function withheldCssRef(
