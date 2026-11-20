@@ -135,7 +135,6 @@ async function devFilesOnDisk(root: string) {
       onHostRefused: () => {},
       onSiteRefused: () => {},
       server: undefined,
-      env: {},
       socketPath: '/ws/nested-manifest'
     }),
     compiler
