@@ -37,6 +37,7 @@ vi.mock('../lib/config-loader', () => {
   const userConfigSpy = vi.fn((cfg: any) => cfg)
 
   return {
+    forgetPreloadedEnvOf: vi.fn(),
     loadCustomConfig: vi.fn(async () => userConfigSpy),
     loadConfigResolvedHook: vi.fn(async () => undefined),
     loadBrowserConfig: vi.fn(async () => ({})),
