@@ -7,11 +7,9 @@
 
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-.test-output
 *.d.ts.map
 programs/**/*.d.ts
 !programs/extension/types/*.d.ts
-!programs/extension/internal-types/*.d.ts
 !programs/develop/lib/extension-env-template.d.ts
 
 # dependencies
@@ -66,18 +64,11 @@ yarn-error.log*
 # pnpm-lock.yaml is force-tracked so this only hides stray nested ones.
 pnpm-lock.yaml
 
-# examples
-/examples/**/pnpm-lock.yaml
-/examples/**/extension-env.d.ts
-
 # tests
 /test-results/
 test-results.json
 /playwright-report/
-/blob-report/
-/playwright/.cache/
 /e2e-report/
-specs/
 
 # test temp folders (generated during specs)
 # ensure nested .tmp-* directories are ignored anywhere in the tree
@@ -98,9 +89,6 @@ tmp-extjs-*
 # Logs
 logs
 *.log
-dev-debug.log
-# Dependency directories
-node_modules/
 # Environment variables
 # Local npm auth for extension-create (tokens must never be committed)
 programs/create/.npmrc
@@ -125,6 +113,7 @@ programs/create/.npmrc
 
 # Future stuff
 _FUTURE/
+# A local consumer fixture the optional-deps smoke reads when it exists
 extensions/browser-extension/
 
 # Hydrated from extension-js/templates by scripts/hydrate-templates-from-examples.sh

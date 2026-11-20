@@ -84,6 +84,7 @@ async function githubJson(url) {
   }
 
   const response = await fetch(url, {headers})
+  /** @type {any} */
   const body = await response.json()
 
   if (!response.ok) {
@@ -119,6 +120,7 @@ async function assertRefIsReachable(ref) {
     )
   }
 
+  /** @type {any} */
   const body = await response.json()
 
   if (!response.ok) {
@@ -157,6 +159,7 @@ async function fetchCorpusSlugs(ref) {
 // accepted, a tag or a short sha would pin something this script cannot
 // prove reachable the same way.
 async function resolveBranchHead(branch) {
+  /** @type {any} */
   const body = await githubJson(
     `https://api.github.com/repos/${CORPUS_REPO}/commits/${branch}`
   )

@@ -264,10 +264,12 @@ test('the scanner reads a gate from a spec file, so an empty scan cannot pass', 
 
 test('a gate on a path nothing produces is named, a compiled one is not', () => {
   assert.match(
-    judgeGate({
-      spec: 'programs/x/__spec__/dead.spec.ts',
-      target: path.join('programs', 'cli', 'dist', 'cli.js')
-    }),
+    /** @type {string} */ (
+      judgeGate({
+        spec: 'programs/x/__spec__/dead.spec.ts',
+        target: path.join('programs', 'cli', 'dist', 'cli.js')
+      })
+    ),
     /never run/
   )
 

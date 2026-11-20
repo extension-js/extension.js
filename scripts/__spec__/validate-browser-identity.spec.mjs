@@ -229,38 +229,46 @@ test('the native dialog check says why it cannot run instead of passing', () => 
   const listing = {screenAccess: true, windows: []}
 
   assert.match(
-    nativeWindowSkipReason({
-      platform: 'linux',
-      argvText: '/bin/opera',
-      listing
-    }),
+    /** @type {string} */ (
+      nativeWindowSkipReason({
+        platform: 'linux',
+        argvText: '/bin/opera',
+        listing
+      })
+    ),
     /only read on macOS, this is linux/
   )
 
   assert.match(
-    nativeWindowSkipReason({
-      platform: 'darwin',
-      argvText: '/Applications/Opera.app/Contents/MacOS/Opera --headless=new',
-      listing
-    }),
+    /** @type {string} */ (
+      nativeWindowSkipReason({
+        platform: 'darwin',
+        argvText: '/Applications/Opera.app/Contents/MacOS/Opera --headless=new',
+        listing
+      })
+    ),
     /headless/
   )
 
   assert.match(
-    nativeWindowSkipReason({
-      platform: 'darwin',
-      argvText: '/x/Opera',
-      listing: null
-    }),
+    /** @type {string} */ (
+      nativeWindowSkipReason({
+        platform: 'darwin',
+        argvText: '/x/Opera',
+        listing: null
+      })
+    ),
     /did not answer/
   )
 
   assert.match(
-    nativeWindowSkipReason({
-      platform: 'darwin',
-      argvText: '/x/Opera',
-      listing: {screenAccess: false, windows: []}
-    }),
+    /** @type {string} */ (
+      nativeWindowSkipReason({
+        platform: 'darwin',
+        argvText: '/x/Opera',
+        listing: {screenAccess: false, windows: []}
+      })
+    ),
     /Screen Recording/
   )
 

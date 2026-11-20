@@ -27,7 +27,8 @@ export const workspaceSourceEntries = {
   'extension-install': 'programs/install/module.ts'
 }
 
-const escapePattern = (value) => value.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+const escapePattern = (/** @type {string} */ value) =>
+  value.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
 
 // Exact matches only, so a deeper import of the same package is left alone.
 export function workspaceSourceAliases(root = repoRoot) {

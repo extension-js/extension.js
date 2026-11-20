@@ -33,6 +33,7 @@ export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
           world: entry && entry.world ? String(entry.world) : ""
         });
       } catch (error) {
+        // Arguments that cannot be serialized are not kept for a replay
         return "";
       }
     };
@@ -43,6 +44,7 @@ export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
         var parsed = new URL(url);
         return parsed.origin + parsed.pathname;
       } catch (error) {
+        // A URL that does not parse is compared as written
         return url;
       }
     };
@@ -87,7 +89,7 @@ export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
           entry.page = page || "";
         }, function () {});
       } catch (error) {
-        // Ignore
+        // An injection the tracker cannot read is sent and not replayed
       }
     };
 
@@ -112,7 +114,7 @@ export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
         });
       }
     } catch (error) {
-      // Ignore
+      // With no tabs.onRemoved a closed tab is pruned on its next read
     }
 
     var normalizeFile = function (value) {
@@ -204,7 +206,7 @@ export const SCRIPTS_REPLAY_SHIM_SOURCE = `;(function () {
       });
     };
   } catch (error) {
-    // Best-effort shim; do not break the SW bootstrap on any failure.
+    // A shim that fails to install leaves chrome.scripting as it was
   }
 })();
 `

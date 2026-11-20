@@ -67,6 +67,10 @@ function assert(cond, message) {
   if (!cond) throw new Error(message)
 }
 
+/**
+ * @param {string[]} cliArgs
+ * @param {{cwd?: string, timeout?: number}} [options]
+ */
 function runCli(cliArgs, {cwd, timeout = 30000} = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(process.execPath, [cliBin, ...cliArgs], {
@@ -153,6 +157,10 @@ function writeFixture(dir) {
   )
 }
 
+/**
+ * @param {string} cwd
+ * @param {{browserName?: string, profile?: string}} [options]
+ */
 function startDev(cwd, {browserName = browser, profile} = {}) {
   const devArgs = [
     cliBin,
@@ -225,6 +233,11 @@ function readyPath(projectDir, browserName) {
 // After an UNCLEAN kill the previous session's ready.json survives, still
 // saying "ready", polling would happily return the corpse. Callers that
 // restart pass the dead session's instanceId so only the NEW contract counts.
+/**
+ * @param {string} projectDir
+ * @param {string} [browserName]
+ * @param {{rejectInstanceId?: string}} [options]
+ */
 async function waitForReady(
   projectDir,
   browserName = browser,
@@ -250,7 +263,7 @@ async function waitForReady(
             `dev reported error: ${payload.message || payload.errors?.[0] || 'unknown'}`
           )
         }
-      } catch (err) {
+      } catch (/** @type {any} */ err) {
         if (String(err.message || '').startsWith('dev reported error')) {
           throw err
         }
@@ -440,6 +453,7 @@ async function scenarioRestartKeptProfile({root}) {
   const profileDir = join(root, 'kept-profile')
   mkdirSync(profileDir, {recursive: true})
   const first = startDev(projectDir, {profile: profileDir})
+  /** @type {ReturnType<typeof startDev> | null} */
   let second = null
 
   try {
@@ -547,6 +561,7 @@ async function scenarioTwoBrowser({root}) {
 
   const projectDir = makeProject(root, 'two-browser')
   const a = startDev(projectDir, {browserName: browser})
+  /** @type {ReturnType<typeof startDev> | null} */
   let b = null
 
   try {
@@ -634,6 +649,7 @@ async function scenarioIdleWindow({root}) {
 async function scenarioRestartPortLost({root}) {
   const projectDir = makeProject(root, 'port-lost')
   const first = startDev(projectDir)
+  /** @type {ReturnType<typeof startDev> | null} */
   let second = null
 
   try {
@@ -725,7 +741,7 @@ async function main() {
       } else {
         console.log(`PASS: ${name}`)
       }
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       console.error(`FAIL: ${name}`)
       console.error(String(error?.stack || error))
       failures.push(name)

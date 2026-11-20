@@ -15,7 +15,7 @@ import {
   type EmittedModule,
   emittedFilesOf,
   readProjectSource
-} from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
+} from '../../lib/emitted-evidence'
 import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import {isHotUpdateFile} from '../../plugin-web-extension/shared/initial-files'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'

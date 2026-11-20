@@ -8,15 +8,15 @@
 
 import * as path from 'node:path'
 import {Compilation, type Compiler} from '@rspack/core'
-import {getManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
-import {scannableSourcePath} from '../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts'
 import {
   type EmittedCompilation,
   type EmittedModule,
   emittedFilesOf,
   readEmittedScripts,
   readProjectSource
-} from '../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
+} from '../lib/emitted-evidence'
+import {getManifestContent} from '../plugin-web-extension/feature-manifest/manifest-lib/manifest'
+import {scannableSourcePath} from '../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts'
 import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import type {DevOptions, PluginInterface} from '../types'
 import {

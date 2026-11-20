@@ -53,6 +53,10 @@ const childEnv = {
   EXTENSION_AUTHOR_MODE: 'true'
 }
 
+/**
+ * @param {string[]} cliArgs
+ * @param {{cwd?: string, timeout?: number}} [options]
+ */
 function runCli(cliArgs, {cwd, timeout = 30000} = {}) {
   return new Promise((resolvePromise, rejectPromise) => {
     const child = spawn(process.execPath, [cliBin, ...cliArgs], {
@@ -167,7 +171,7 @@ async function waitForReady(projectDir) {
             `dev reported error: ${payload.message || payload.errors?.[0] || 'unknown'}`
           )
         }
-      } catch (err) {
+      } catch (/** @type {any} */ err) {
         if (String(err.message || '').startsWith('dev reported error')) {
           throw err
         }

@@ -30,7 +30,7 @@ export function isProcessAlive(pid) {
     process.kill(pid, 0)
 
     return true
-  } catch (error) {
+  } catch (/** @type {any} */ error) {
     // EPERM means the process exists and belongs to someone else.
     return error?.code === 'EPERM'
   }
@@ -108,7 +108,7 @@ export async function acquireLock(lockDir, options = {}) {
       )
 
       return
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       // Windows answers EPERM for a directory that is mid-removal.
       const held =
         error?.code === 'EEXIST' ||

@@ -129,7 +129,7 @@ async function removeDirectoryWithRetries(targetDir, maxAttempts = 20) {
       await fs.rm(targetDir, {recursive: true, force: true})
 
       return true
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       const code = error && typeof error === 'object' ? error.code : undefined
       const retryable =
         code === 'EPERM' || code === 'EBUSY' || code === 'ENOTEMPTY'
@@ -188,7 +188,7 @@ async function terminateChild(child) {
   if (!child || child.exitCode !== null || child.signalCode !== null) return
 
   if (process.platform === 'win32' && child.pid) {
-    await new Promise((resolve) => {
+    await new Promise((/** @type {(value?: unknown) => void} */ resolve) => {
       const killer = spawn(
         'taskkill',
         ['/PID', String(child.pid), '/T', '/F'],
@@ -246,6 +246,7 @@ function runDevOnce(projectDir, env, timeout) {
     let settled = false
     let sawCompileSuccess = false
     let sawReadyBanner = false
+    /** @type {NodeJS.Timeout | null} */
     let contractPoll = null
     const harnessStartMs = Date.now()
 
@@ -500,7 +501,9 @@ async function verifyTemplate(template) {
     delete env.EXTENSION_JS_CACHE_DIR
   }
 
+  /** @type {any} */
   let firstRun = null
+  /** @type {any} */
   let secondRun = null
 
   try {
@@ -516,11 +519,11 @@ async function verifyTemplate(template) {
 
     try {
       firstRun = await runDevOnce(projectDir, env, timeoutMs)
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       // Capture second run behavior to enforce "first run only" contract.
       try {
         secondRun = await runDevOnce(projectDir, env, timeoutMs)
-      } catch (secondError) {
+      } catch (/** @type {any} */ secondError) {
         const extensionVersion = await readExtensionVersion(projectDir)
         const cacheBaseDir = useIsolatedCache
           ? isolatedCacheRoot

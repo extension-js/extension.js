@@ -359,6 +359,43 @@ describe('the hot update client of a page entry', () => {
     expect(compiler.options.resolve.alias ?? {}).toEqual({})
   })
 
+  // A development build that ships is not a session: its pages carry what
+  // the author wrote, as a production build's do.
+  it('leaves the entries, the socket and the rules alone in a development build that ships', () => {
+    withoutSessionEnv()
+    const {tmp, manifestPath, page} = writePageProject('extjs-page-ships', {
+      name: 'x'
+    })
+    const compiler = makeCompiler('development', tmp, {devServer})
+
+    declarePages(compiler, {manifestPath, devSession: false}, [page])
+
+    expect(importsOf(compiler, 'action/index')).toEqual([
+      page.scripts[0].replace(/\\/g, '/')
+    ])
+
+    expect(compiler.options.resolve.alias ?? {}).toEqual({})
+    expect(pageHmrRuleOf(compiler)).toBeUndefined()
+  })
+
+  it('does the same in a session started with EXTENSION_NO_RELOAD', () => {
+    withoutSessionEnv()
+    vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
+    const {tmp, manifestPath, page} = writePageProject('extjs-page-off', {
+      name: 'x'
+    })
+    const compiler = makeCompiler('development', tmp, {devServer})
+
+    declarePages(compiler, {manifestPath, devSession: true}, [page])
+
+    expect(importsOf(compiler, 'action/index')).toEqual([
+      page.scripts[0].replace(/\\/g, '/')
+    ])
+
+    expect(compiler.options.resolve.alias ?? {}).toEqual({})
+    expect(pageHmrRuleOf(compiler)).toBeUndefined()
+  })
+
   it('adds no client when no session is named anywhere', () => {
     withoutSessionEnv()
     const {tmp, manifestPath, page} = writePageProject('extjs-page-none', {

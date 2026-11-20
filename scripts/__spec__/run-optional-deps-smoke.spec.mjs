@@ -49,7 +49,7 @@ test('removeDirectoryWithRetries retries transient cleanup failures', async () =
       attempts += 1
 
       if (attempts < 3) {
-        const error = new Error('busy')
+        const error = /** @type {NodeJS.ErrnoException} */ (new Error('busy'))
         error.code = 'EBUSY'
 
         throw error
@@ -69,7 +69,9 @@ test('removeDirectoryWithRetries surfaces non-retriable cleanup failures', async
       baseDelayMs: 1,
       rm: async () => {
         attempts += 1
-        const error = new Error('missing')
+        const error = /** @type {NodeJS.ErrnoException} */ (
+          new Error('missing')
+        )
         error.code = 'ENOENT'
 
         throw error
@@ -178,13 +180,16 @@ test('assertLocalWorkspacePackagesExist fails loudly when a path is missing', as
     extension: path.join(paths.extension, '__does-not-exist__')
   }
 
-  await assert.rejects(assertLocalWorkspacePackagesExist(broken), (error) => {
-    assert.match(error.message, /extension/)
-    assert.match(error.message, /not found/)
-    assert.match(error.message, /getLocalWorkspacePackagePaths/)
+  await assert.rejects(
+    assertLocalWorkspacePackagesExist(broken),
+    (/** @type {any} */ error) => {
+      assert.match(error.message, /extension/)
+      assert.match(error.message, /not found/)
+      assert.match(error.message, /getLocalWorkspacePackagePaths/)
 
-    return true
-  })
+      return true
+    }
+  )
 })
 
 test('shouldPinPackedResolutions covers the registry-resolving lanes', () => {

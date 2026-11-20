@@ -35,6 +35,7 @@ export function resolveRepoCli(root = repoRoot) {
 
 // Read the bin the installed package itself declares, so this runs the same
 // entry point the `node_modules/.bin` shim would, without the Windows .cmd shim.
+/** @param {string} projectDir */
 export function resolveInstalledCli(projectDir) {
   const packageDir = join(projectDir, 'node_modules', 'extension')
   const packageJsonPath = join(packageDir, 'package.json')
@@ -71,6 +72,7 @@ export function resolveInstalledCli(projectDir) {
   }
 }
 
+/** @param {{projectDir: string, useRepoBuild?: boolean, root?: string}} options */
 export function resolveDevCli({projectDir, useRepoBuild = false, root}) {
   if (useRepoBuild) return resolveRepoCli(root)
 
@@ -79,10 +81,16 @@ export function resolveDevCli({projectDir, useRepoBuild = false, root}) {
 
 // Every smoke spawns the CLI the same way: the current node binary, the
 // resolved cli.cjs, no shell, so PATH and .cmd shims never get a say.
+/**
+ * @param {{cliPath: string, source?: string}} cli
+ * @param {string[]} args
+ * @returns {[string, string[]]}
+ */
 export function cliSpawnArgs(cli, args) {
   return [process.execPath, [cli.cliPath, ...args]]
 }
 
+/** @param {{cliPath: string, source: string}} cli */
 export function describeDevCli(cli) {
   return `${cli.source} (${cli.cliPath})`
 }

@@ -45,7 +45,7 @@ function run({
   output = '',
   status = 0,
   makesVisible = false,
-  visibleAfterViews = '',
+  visibleAfterViews = /** @type {string | number} */ (''),
   stageJson = '[]',
   stageStatus = 0
 }) {

@@ -10,16 +10,16 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
-import type {DevOptions, Manifest} from '../../../types'
-import * as messages from '../messages'
-import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
 import {
   type EmittedCompilation,
   emittedFilesOf,
   readEmittedScripts,
   readProjectSource,
   shippableText
-} from './apply-dev-defaults-lib/emitted-evidence'
+} from '../../../lib/emitted-evidence'
+import type {DevOptions, Manifest} from '../../../types'
+import * as messages from '../messages'
+import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
 import {
   matchesOutside,
   type Range,

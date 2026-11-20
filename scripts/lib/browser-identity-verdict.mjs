@@ -6,6 +6,11 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+/**
+ * @typedef {{target: string, status: string, detail?: string}} IdentityRow
+ * @param {IdentityRow[]} rows
+ * @param {{allowSkips?: boolean}} [options]
+ */
 export function judgeIdentityRun(rows, {allowSkips = false} = {}) {
   const failed = rows.filter((row) => row.status === 'FAIL')
   const passed = rows.filter((row) => row.status === 'PASS')

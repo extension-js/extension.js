@@ -148,7 +148,7 @@ function runBuild(projectDir) {
 function terminateChild(child) {
   if (child.exitCode !== null || child.signalCode !== null) return
 
-  return new Promise((resolve) => {
+  return new Promise((/** @type {(value?: unknown) => void} */ resolve) => {
     const done = setTimeout(resolve, 8000)
     child.on('exit', () => {
       clearTimeout(done)
@@ -170,56 +170,58 @@ function terminateChild(child) {
 }
 
 function waitForReady(child, projectDir, startedAtMs, output) {
-  return new Promise((resolve, reject) => {
-    let settled = false
+  return new Promise(
+    (/** @type {(value?: unknown) => void} */ resolve, reject) => {
+      let settled = false
 
-    const finish = (error) => {
-      if (settled) return
+      const finish = (error) => {
+        if (settled) return
 
-      settled = true
-      clearInterval(poll)
-      clearTimeout(timer)
-      if (error) reject(error)
-      else resolve()
+        settled = true
+        clearInterval(poll)
+        clearTimeout(timer)
+        if (error) reject(error)
+        else resolve()
+      }
+
+      const timer = setTimeout(() => {
+        finish(
+          new Error(
+            `ready.json never reached "ready" within ${READY_TIMEOUT_MS}ms.\n` +
+              output.value.slice(-4000)
+          )
+        )
+      }, READY_TIMEOUT_MS)
+
+      const poll = setInterval(() => {
+        const ready = readReadyContract(projectDir, BROWSER)
+        if (!ready || !isFreshContract(ready, startedAtMs)) return
+
+        if (ready.status === 'error') {
+          finish(new Error(describeReadyFailure(ready)))
+
+          return
+        }
+
+        if (ready.status === 'ready') {
+          console.log(
+            `[bun-runtime] dev reported ready on port ${ready.port} ` +
+              `(toolchain ${ready.toolchainVersion})`
+          )
+
+          finish()
+        }
+      }, 500)
+
+      child.on('exit', (code) => {
+        finish(
+          new Error(
+            `dev exited early with code ${code}.\n${output.value.slice(-4000)}`
+          )
+        )
+      })
     }
-
-    const timer = setTimeout(() => {
-      finish(
-        new Error(
-          `ready.json never reached "ready" within ${READY_TIMEOUT_MS}ms.\n` +
-            output.value.slice(-4000)
-        )
-      )
-    }, READY_TIMEOUT_MS)
-
-    const poll = setInterval(() => {
-      const ready = readReadyContract(projectDir, BROWSER)
-      if (!ready || !isFreshContract(ready, startedAtMs)) return
-
-      if (ready.status === 'error') {
-        finish(new Error(describeReadyFailure(ready)))
-
-        return
-      }
-
-      if (ready.status === 'ready') {
-        console.log(
-          `[bun-runtime] dev reported ready on port ${ready.port} ` +
-            `(toolchain ${ready.toolchainVersion})`
-        )
-
-        finish()
-      }
-    }, 500)
-
-    child.on('exit', (code) => {
-      finish(
-        new Error(
-          `dev exited early with code ${code}.\n${output.value.slice(-4000)}`
-        )
-      )
-    })
-  })
+  )
 }
 
 async function runDev(projectDir) {
