@@ -98,8 +98,8 @@ export class ReloadPlugin {
   private readonly devSession?: boolean
   private readonly bridge: BridgeCoordinates
 
-  // Each dev session names its own bridge, and the environment is the
-  // fallback for a config built without one.
+  // Each dev session names its own bridge. A config built without one has
+  // none, whatever another session left in the environment.
   constructor(options: PluginInterface & BridgeCoordinates) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
