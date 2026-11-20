@@ -10,7 +10,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {readManifestJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
@@ -111,6 +111,10 @@ export async function writeReadmeFile(
     await fs.mkdir(projectPath, {recursive: true})
     await fs.writeFile(path.join(projectPath, 'README.md'), readme)
   } catch (error) {
-    throw failStep(messages.writingReadmeMetaDataError(error), error)
+    throw failStep(
+      messages.writingReadmeMetaDataError(error),
+      error,
+      CODES.E_DESTINATION_NOT_WRITABLE
+    )
   }
 }
