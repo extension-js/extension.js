@@ -3,14 +3,20 @@ import type {Compilation, Compiler} from '@rspack/core'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {EmitHtmlFile} from '../../steps/emit-html-file'
 
-vi.mock('fs', () => ({
-  default: {
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      existsSync: vi.fn(),
+      readFileSync: vi.fn()
+    },
     existsSync: vi.fn(),
     readFileSync: vi.fn()
-  },
-  existsSync: vi.fn(),
-  readFileSync: vi.fn()
-}))
+  }
+})
 
 describe('EmitHtmlFile', () => {
   let plugin: EmitHtmlFile

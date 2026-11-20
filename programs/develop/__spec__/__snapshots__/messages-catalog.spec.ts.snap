@@ -219,6 +219,8 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "cssParseErrorShippedVerbatim: function(2)",
     "cssUrlRewriteSkipped: function(2)",
     "cssUrlSheetRefsNotFollowed: function(2)",
+    "deadCssImportRef: function(2)",
+    "deadCssRef: function(4)",
     "deadCssUrlRef: function(2)",
     "isUsingIntegration: function(1)",
     "lateCssImportIgnored: function(2)",
@@ -269,7 +271,9 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
   "plugin-special-folders/messages.ts": [
     "devOnlyEntriesLeftOut: function(1)",
     "entryFolderFilesLeftOut: function(2)",
+    "entryFolderMiscased: function(3)",
     "entryFolderUnreadable: function(3)",
+    "entryNameCollision: function(2)",
     "excludeEntryMissing: function(2)",
     "excludedEntriesLeftOut: function(1)",
     "includeOutputPathInvalid: function(2)",

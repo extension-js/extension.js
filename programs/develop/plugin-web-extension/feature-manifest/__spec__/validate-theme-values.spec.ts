@@ -72,6 +72,18 @@ describe('collectThemeArrayIssues', () => {
     }
   })
 
+  it('refuses a name every object carries instead of reading it as a color', () => {
+    for (const value of ['constructor', '__proto__', 'toString', 'valueOf']) {
+      expect(themed({colors: {frame: value}})).toEqual([
+        {
+          field: 'theme.colors.frame',
+          value: JSON.stringify(value),
+          write: '[R, G, B]'
+        }
+      ])
+    }
+  })
+
   it('reports every refused key in manifest order', () => {
     const issues = themed({
       colors: {frame: [40.5, 48, 72], ok: '#fff', toolbar: 'notacolor'},

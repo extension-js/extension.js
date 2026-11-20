@@ -1756,7 +1756,7 @@ describe('the loader run that brings imports into a content-script sheet', () =>
       ])
     ).toEqual([
       ['CssParseWarning', "Couldn't bring an @import in"],
-      ['CssDeadRef', 'A url(./gone.css) reference '.slice(0, 28)]
+      ['CssDeadRef', 'An @import "./gone.css" names'.slice(0, 28)]
     ])
   })
 
