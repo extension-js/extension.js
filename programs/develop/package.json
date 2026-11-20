@@ -63,7 +63,7 @@
     "compile": "node ../../scripts/run-locked.mjs compile \"rslib build\"",
     "watch": "node ../../scripts/run-locked.mjs watch \"rslib build --watch\"",
     "pretest": "pnpm run compile",
-    "test": "vitest run"
+    "test": "node ../../scripts/run-vitest.mjs"
   },
   "keywords": [
     "webextension",

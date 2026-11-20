@@ -20,8 +20,8 @@ function list(args: string[]) {
 }
 
 describe('spec paths given to vitest', () => {
-  // `pnpm test -- <path>` forwards the dashes, and vitest drops every filter
-  // after them, so one spec path used to start the whole suite.
+  // Vitest drops every filter after the dashes, so one spec path given that
+  // way used to start the whole suite.
   it('never turns a path after -- into the whole suite', () => {
     const result = list(['--', one])
     const listed = result.stdout

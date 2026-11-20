@@ -68,8 +68,8 @@ test('runs the package vitest with the filter and passes its exit code', () => {
   }
 })
 
-test('the create, extension and install test scripts go through it', () => {
-  for (const name of ['create', 'extension', 'install']) {
+test('the create, develop, extension and install test scripts go through it', () => {
+  for (const name of ['create', 'develop', 'extension', 'install']) {
     const pkg = JSON.parse(
       fs.readFileSync(path.join(root, 'programs', name, 'package.json'), 'utf8')
     )
