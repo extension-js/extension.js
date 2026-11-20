@@ -308,6 +308,50 @@ describe('stampReadyBrowserLaunch', () => {
     expect('browserStartedAt' in next).toBe(false)
   })
 
+  it('stamps the start id of each pid where the machine reads one', () => {
+    fs.writeFileSync(readyPath, JSON.stringify({status: 'ready'}))
+
+    stampReadyBrowserLaunch(
+      outputPath,
+      {browserPid: 4242, launcherPid: 4100},
+      undefined,
+      {
+        startedAt: () => '2026-01-01T00:00:00.000Z',
+        startId: (pid) => `boot-a:${pid}`
+      }
+    )
+
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8'))).toMatchObject({
+      browserPid: 4242,
+      browserStartId: 'boot-a:4242',
+      launcherPid: 4100,
+      launcherStartId: 'boot-a:4100'
+    })
+  })
+
+  it('drops a start id with the pid it named and adds none it cannot read', () => {
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        browserPid: 4242,
+        browserStartId: 'boot-a:4242'
+      })
+    )
+
+    const unread = {startedAt: () => undefined, startId: () => undefined}
+
+    stampReadyBrowserLaunch(outputPath, {browserPid: 4242}, undefined, unread)
+    expect(JSON.parse(fs.readFileSync(readyPath, 'utf-8')).browserStartId).toBe(
+      'boot-a:4242'
+    )
+
+    stampReadyBrowserLaunch(outputPath, {browserPid: 4300}, undefined, unread)
+    const next = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
+    expect(next.browserPid).toBe(4300)
+    expect('browserStartId' in next).toBe(false)
+  })
+
   it('is a no-op when the contract file does not exist yet', () => {
     expect(() =>
       stampReadyBrowserLaunch(outputPath, {profilePath: '/x', browserPid: 1})
@@ -1432,5 +1476,81 @@ describe('clearReadyCdpPort', () => {
     clearReadyCdpPort(outputPath, 'run-1')
 
     expect(JSON.parse(fs.readFileSync(readyPath, 'utf8')).cdpPort).toBe(9223)
+  })
+})
+
+// The engine names its own process in the contract. A launcher stamp rewrites
+// the whole file, so each one has to hand that name back untouched.
+describe('every stamp keeps the writer process identity', () => {
+  let tmp: string
+  let outputPath: string
+  let readyPath: string
+
+  const IDENTITY = {
+    pid: 4242,
+    pidStartedAt: '2026-11-20T10:00:00.000Z',
+    pidStartId: '5b0c2f0e-1d2a-4c3b-9e8f-0a1b2c3d4e5f:8812345'
+  }
+
+  beforeEach(() => {
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ready-stamp-identity-'))
+    outputPath = path.join(tmp, 'dist', 'chrome')
+    readyPath = path.join(tmp, 'dist', 'extension-js', 'chrome', 'ready.json')
+    fs.mkdirSync(path.dirname(readyPath), {recursive: true})
+    fs.writeFileSync(
+      readyPath,
+      JSON.stringify({
+        status: 'ready',
+        command: 'dev',
+        browser: 'chrome',
+        runId: 'run-A',
+        ...IDENTITY
+      })
+    )
+  })
+
+  afterEach(() => {
+    fs.rmSync(tmp, {recursive: true, force: true})
+  })
+
+  const STAMPS: Array<[string, (out: string) => void]> = [
+    ['the RDP port', (out) => stampReadyRdpPort(out, 6006)],
+    ['an RDP port error', (out) => stampReadyRdpPortError(out, 'refused')],
+    ['the CDP port', (out) => stampReadyCdpPort(out, 9222)],
+    [
+      'a cleared CDP port',
+      (out) => {
+        stampReadyCdpPort(out, 9222)
+        clearReadyCdpPort(out)
+      }
+    ],
+    [
+      'the browser launch',
+      (out) => stampReadyBrowserLaunch(out, {browserPid: 77})
+    ],
+    ['the extension id', (out) => stampReadyExtensionId(out, 'a'.repeat(32))],
+    ['a CDP fault', (out) => stampReadyCdpFault(out, 'E_CDP_FAULT', 'gone')],
+    [
+      'a launch failure',
+      (out) => stampReadyBrowserLaunchFailed(out, 'no binary')
+    ],
+    ['a refused load', (out) => stampReadyExtensionLoadRefused(out, 'refused')],
+    [
+      'the extension base URL',
+      (out) => stampReadyExtensionBaseUrl(out, 'moz-extension://abc/')
+    ],
+    ['a browser exit', (out) => stampReadyBrowserExited(out, 0)]
+  ]
+
+  it.each(STAMPS)('after %s', (_title, stamp) => {
+    const writes = fs.statSync(readyPath).ino
+
+    stamp(outputPath)
+
+    const after = fs.readFileSync(readyPath, 'utf-8')
+
+    // An atomic write replaces the file, so a new inode is a real rewrite.
+    expect(fs.statSync(readyPath).ino).not.toBe(writes)
+    expect(JSON.parse(after)).toMatchObject(IDENTITY)
   })
 })

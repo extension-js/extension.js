@@ -752,6 +752,7 @@ export async function fakeFirefox(
     pidTerminatedByUs: (pid) =>
       typeof pid === 'number' && terminatedPids.includes(pid),
     isPidAlive: (pid) => typeof pid === 'number' && alivePids.has(pid),
+    pidStartId: () => undefined,
     listProcesses: () => processes,
     resolveLivePid: async (input) =>
       firefoxLaunchDefaults.resolveLivePid({

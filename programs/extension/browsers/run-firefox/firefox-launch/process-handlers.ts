@@ -38,6 +38,8 @@ interface FirefoxInstanceHandlers {
 export interface AdoptedPid {
   pid: number
   adoptedAt: number
+  // Linux only: the run of the pid that was adopted.
+  startId?: string
 }
 
 const activeInstances = new Set<FirefoxInstanceHandlers>()
@@ -86,7 +88,13 @@ function forceKillAllOnExit(): void {
     forceKillChildOnExit(child, instance.browser)
 
     if (live && live.pid !== child?.pid) {
-      forceKillPidOnExit(live.pid, instance.browser, live.adoptedAt)
+      forceKillPidOnExit(
+        live.pid,
+        instance.browser,
+        live.adoptedAt,
+        undefined,
+        live.startId
+      )
     }
 
     try {

@@ -271,6 +271,55 @@ export function pidStartedAtMs(
   return Number.isNaN(started) ? null : started
 }
 
+// What reading a start id asks of the machine, so any host can stand in
+// for Linux.
+export interface StartIdReader {
+  platform?: NodeJS.Platform
+  readFile?: (file: string) => string
+}
+
+// The kernel's own name for one run of a pid on Linux: the boot id and the
+// tick the process started on. A clock step moves every date and never this.
+export function pidStartId(
+  pid: number | null | undefined,
+  reader: StartIdReader = {}
+): string | undefined {
+  if ((reader.platform ?? process.platform) !== 'linux') return undefined
+  if (!pid || !Number.isInteger(pid) || pid <= 0) return undefined
+
+  const readFile =
+    reader.readFile ?? ((file: string) => fs.readFileSync(file, 'utf-8'))
+
+  try {
+    const stat = readFile(`/proc/${pid}/stat`)
+    // The command name sits in parentheses and may hold any of them, so the
+    // fields are counted from the last one. Start time is the 22nd.
+    const afterName = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+    const startTicks = afterName[19]
+    const bootId = readFile('/proc/sys/kernel/random/boot_id').trim()
+
+    if (!/^\d+$/.test(String(startTicks)) || !bootId) return undefined
+
+    return `${bootId}:${startTicks}`
+  } catch {
+    return undefined
+  }
+}
+
+// Whether a pid is still the run a start id named, or undefined when either
+// side has no id and the caller has to fall back on dates.
+export function sameStartId(
+  stamped: unknown,
+  pid: number | null | undefined,
+  startIdOf: (pid: number) => string | undefined = pidStartId
+): boolean | undefined {
+  if (typeof stamped !== 'string' || !stamped || !pid) return undefined
+
+  const current = startIdOf(pid)
+
+  return current ? current === stamped : undefined
+}
+
 // The same answer as the ISO 8601 UTC string the ready contract carries, or
 // undefined when the table could not date the pid.
 export function pidStartedAtIso(
