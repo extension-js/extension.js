@@ -476,6 +476,78 @@ async function downloadArchive(
   throw lastError
 }
 
+// The folder a pinned catalog archive is kept in, per user, beside the
+// managed browsers. EXTENSION_CREATE_CACHE_DIR moves it.
+export function templateArchiveCacheDir(
+  env: NodeJS.ProcessEnv = process.env,
+  platform: NodeJS.Platform = process.platform,
+  home: string = os.homedir()
+): string {
+  const explicit = String(env.EXTENSION_CREATE_CACHE_DIR || '').trim()
+  if (explicit) return path.resolve(explicit)
+
+  const p = platform === 'win32' ? path.win32 : path.posix
+  const userHome = env.HOME || home
+
+  if (platform === 'win32') {
+    const local =
+      env.LOCALAPPDATA || p.join(env.USERPROFILE || home, 'AppData', 'Local')
+
+    return p.join(local, 'extension.js', 'templates')
+  }
+
+  if (platform === 'darwin') {
+    return p.join(userHome, 'Library', 'Caches', 'extension.js', 'templates')
+  }
+
+  return p.join(
+    env.XDG_CACHE_HOME || p.join(userHome, '.cache'),
+    'extension.js',
+    'templates'
+  )
+}
+
+// A few pins at most: two CLI versions on one machine each keep theirs.
+const KEPT_ARCHIVES = 3
+
+async function readCachedArchive(file: string): Promise<Buffer | undefined> {
+  try {
+    const body = await fs.readFile(file)
+
+    return isZipBuffer(body) ? body : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// Best effort: a cache that cannot be written only costs the next download.
+async function keepArchive(dir: string, file: string, body: Buffer) {
+  try {
+    await fs.mkdir(dir, {recursive: true})
+    const partial = `${file}.${process.pid}.partial`
+    await fs.writeFile(partial, body)
+    await fs.rename(partial, file)
+
+    const kept = await Promise.all(
+      (await fs.readdir(dir))
+        .filter((name) => name.endsWith('.zip'))
+        .map(async (name) => {
+          const full = path.join(dir, name)
+
+          return {full, mtime: (await fs.stat(full)).mtimeMs}
+        })
+    )
+
+    kept.sort((a, b) => b.mtime - a.mtime)
+
+    for (const old of kept.slice(KEPT_ARCHIVES)) {
+      await fs.rm(old.full, {force: true})
+    }
+  } catch {
+    // Ignore
+  }
+}
+
 // Extract ONLY `<archive-root>/examples/<templateName>/**` from a GitHub zip
 // into projectPath. Throws TemplateNotFoundError when the slug is absent.
 export async function extractExamplesTemplateFromZip(
@@ -531,7 +603,8 @@ async function importFromExamplesCatalog(
   templateName: string,
   projectPath: string,
   downloadRetry?: DownloadRetryOptions,
-  fetchTemplate?: TemplateFetch
+  fetchTemplate?: TemplateFetch,
+  cacheDir?: string
 ): Promise<{source: string; ref?: string}> {
   const ref = process.env.EXTENSION_CREATE_TEMPLATE_REF || DEFAULT_TEMPLATES_REF
   const overrideUrl = process.env.EXTENSION_CREATE_TEMPLATE_URL || undefined
@@ -543,6 +616,34 @@ async function importFromExamplesCatalog(
   }
 
   const urls = resolveCatalogUrls(ref, overrideUrl)
+
+  // A commit's archive never changes, so a second create from the same pin
+  // reads it from disk. A branch, a tag or an override URL can move.
+  const cachedFile =
+    cacheDir && !overrideUrl && /^[0-9a-f]{40}$/i.test(ref)
+      ? path.join(cacheDir, `${ref.toLowerCase()}.zip`)
+      : undefined
+  const cached = cachedFile ? await readCachedArchive(cachedFile) : undefined
+
+  if (cachedFile && cached) {
+    try {
+      await extractExamplesTemplateFromZip(
+        cached,
+        templateName,
+        projectPath,
+        urls[0]
+      )
+
+      return {source: urls[0], ref}
+    } catch (error) {
+      if (!(error instanceof TemplateArchiveDamagedError)) throw error
+
+      // The archive is unzipped before any write, so a damaged copy left
+      // nothing behind. It is dropped and the archive downloaded again.
+      await fs.rm(cachedFile, {force: true})
+    }
+  }
+
   const budget = startFetchBudget(networkTimeoutMs())
 
   let buffer: Buffer | undefined
@@ -595,6 +696,8 @@ async function importFromExamplesCatalog(
     projectPath,
     source
   )
+
+  if (cacheDir && cachedFile) await keepArchive(cacheDir, cachedFile, buffer)
 
   // An explicit URL override is its own provenance; otherwise record the ref.
   return {source, ref: overrideUrl ? undefined : ref}
@@ -836,6 +939,9 @@ export interface ImportExternalTemplateOptions {
   // Omitted in production, where axios and go-git-it do the work.
   fetch?: TemplateFetch
   clone?: TemplateClone
+  // Where a pinned catalog archive is kept. Left out, the per-user cache is
+  // used with the real transport and none with an injected one.
+  archiveCacheDir?: string
   // How failure cleanup removes a path, fs.rm unless given.
   remove?: RemovePath
 }
@@ -1241,7 +1347,9 @@ export async function importExternalTemplate(
         resolvedTemplateName,
         projectPath,
         options?.downloadRetry,
-        fetchTemplate
+        fetchTemplate,
+        options?.archiveCacheDir ??
+          (options?.fetch ? undefined : templateArchiveCacheDir())
       )
       provenance = {
         template: resolvedTemplateName,
