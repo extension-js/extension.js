@@ -1,7 +1,15 @@
 import * as fs from 'node:fs'
-import type {Compilation, Compiler} from '@rspack/core'
+import type {Asset, Compilation, Compiler} from '@rspack/core'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../../__spec__/helpers/rspack-fakes'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
+
+// The page asset only carries the source the step reads.
+const asAsset = (fake: unknown) => fake as Readonly<Asset>
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -32,7 +40,7 @@ describe('AddAssetsToCompilation', () => {
       manifestPath: '/test/project/manifest.json'
     })
 
-    mockCompilation = {
+    mockCompilation = asCompilation({
       errors: [],
       getAsset: vi.fn(),
       emitAsset: vi.fn(),
@@ -40,21 +48,21 @@ describe('AddAssetsToCompilation', () => {
       options: {output: {path: '/test/out/chrome'}},
       hooks: {
         processAssets: {
-          tap: (_opts: any, fn: any) => fn()
+          tap: (_opts: unknown, fn: TapCallback) => fn()
         }
       }
-    } as any
+    })
 
-    mockCompiler = {
+    mockCompiler = asCompiler({
       hooks: {
         thisCompilation: {
-          tap: vi.fn((name, callback) => {
+          tap: vi.fn((_name, callback) => {
             callback(mockCompilation)
           })
         }
       },
       options: {context: '/test/project'}
-    } as any
+    })
   })
 
   describe('apply', () => {
@@ -67,11 +75,11 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation = new AddAssetsToCompilation({
         manifestPath: '/test/project/manifest.json',
-        includeList: {feature: '/test/project/resource.html'} as any
+        includeList: {feature: '/test/project/resource.html'}
       })
 
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-        return name === 'feature.html' ? (mockAsset as any) : undefined
+        return name === 'feature.html' ? asAsset(mockAsset) : undefined
       })
 
       vi.mocked(fs.existsSync).mockImplementation((p) => {
@@ -87,9 +95,10 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation.apply(mockCompiler)
 
-      const calls = (fs.existsSync as any).mock.calls
-        .flat()
-        .map((value: any) => toPosix(String(value))) as string[]
+      const calls = vi
+        .mocked(fs.existsSync)
+        .mock.calls.flat()
+        .map((value) => toPosix(String(value)))
       expect(calls.includes('/test/project/public/image.png')).toBe(true)
     })
 
@@ -103,14 +112,14 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation = new AddAssetsToCompilation({
         manifestPath: '/test/project/manifest.json',
-        includeList: {feature: '/test/project/resource.html'} as any
+        includeList: {feature: '/test/project/resource.html'}
       })
 
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-        return name === 'feature.html' ? (mockAsset as any) : undefined
+        return name === 'feature.html' ? asAsset(mockAsset) : undefined
       })
 
-      vi.mocked(fs.existsSync).mockImplementation((p: any) => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
         const normalized = toPosix(String(p))
 
         return (
@@ -124,9 +133,10 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation.apply(mockCompiler)
 
-      const calls = ((fs.existsSync as any).mock.calls.flat() as any[]).map(
-        (value: any) => toPosix(String(value))
-      )
+      const calls = vi
+        .mocked(fs.existsSync)
+        .mock.calls.flat()
+        .map((value) => toPosix(String(value)))
       expect(calls.some((c) => c.endsWith('/public/logo.png'))).toBe(true)
       expect(calls.some((c) => c.endsWith('/public/ico.png'))).toBe(true)
       expect(calls.some((c) => c.endsWith('/public/banner.png'))).toBe(true)
@@ -143,14 +153,14 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation = new AddAssetsToCompilation({
         manifestPath: '/test/project/manifest.json',
-        includeList: {feature: '/test/project/resource.html'} as any
+        includeList: {feature: '/test/project/resource.html'}
       })
 
       vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-        return name === 'feature.html' ? (mockAsset as any) : undefined
+        return name === 'feature.html' ? asAsset(mockAsset) : undefined
       })
 
-      vi.mocked(fs.existsSync).mockImplementation((p: any) => {
+      vi.mocked(fs.existsSync).mockImplementation((p) => {
         return (
           toPosix(String(p)) === '/test/project/public/absolute/path/image.png'
         )
@@ -160,7 +170,7 @@ describe('AddAssetsToCompilation', () => {
 
       addAssetsToCompilation.apply(mockCompiler)
 
-      expect((mockCompilation as any).emitAsset.mock.calls.length).toBe(0)
+      expect(vi.mocked(mockCompilation.emitAsset).mock.calls.length).toBe(0)
     })
   })
 
@@ -174,14 +184,14 @@ describe('AddAssetsToCompilation', () => {
 
     addAssetsToCompilation = new AddAssetsToCompilation({
       manifestPath: '/test/project/manifest.json',
-      includeList: {feature: '/test/project/resource.html'} as any
+      includeList: {feature: '/test/project/resource.html'}
     })
 
     vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-      return name === 'feature.html' ? (mockAsset as any) : undefined
+      return name === 'feature.html' ? asAsset(mockAsset) : undefined
     })
 
-    vi.mocked(fs.existsSync).mockImplementation((p: any) => false)
+    vi.mocked(fs.existsSync).mockImplementation((_p) => false)
     vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from(''))
 
     addAssetsToCompilation.apply(mockCompiler)
@@ -206,14 +216,15 @@ describe('AddAssetsToCompilation', () => {
 
     addAssetsToCompilation = new AddAssetsToCompilation({
       manifestPath: '/test/project/manifest.json',
-      includeList: {feature: '/test/project/resource.html'} as any
+      includeList: {feature: '/test/project/resource.html'}
     })
 
     vi.mocked(mockCompilation.getAsset).mockImplementation((name: string) => {
-      return name === 'feature.html' ? (mockAsset as any) : undefined
+      return name === 'feature.html' ? asAsset(mockAsset) : undefined
     })
-    ;(fs.existsSync as any).mockReturnValue(false)
-    ;(fs.readFileSync as any).mockReturnValue(Buffer.from(''))
+
+    vi.mocked(fs.existsSync).mockReturnValue(false)
+    vi.mocked(fs.readFileSync).mockReturnValue(Buffer.from(''))
 
     addAssetsToCompilation.apply(mockCompiler)
 
