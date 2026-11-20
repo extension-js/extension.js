@@ -6,7 +6,7 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {rootAbsoluteClimbsOut} from '../../../../plugin-special-folders/public-private-files'
+import {rootAbsoluteClimbsOut} from '../../../../lib/public-private-files'
 import type {Manifest} from '../../../../types'
 import {getFilename} from '../../../shared/paths'
 

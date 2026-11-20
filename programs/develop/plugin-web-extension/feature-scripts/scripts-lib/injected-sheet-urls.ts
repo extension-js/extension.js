@@ -11,11 +11,8 @@ import {
   isChromiumBasedBrowser,
   isGeckoBasedBrowser
 } from '../../../lib/constants'
+import {browserSpellings, climbsOut} from '../../../lib/public-private-files'
 import {replaceCssUrlRefs} from '../../../plugin-css/css-lib/dead-url-refs'
-import {
-  browserSpellings,
-  climbsOut
-} from '../../../plugin-special-folders/public-private-files'
 import {parseCanonicalContentScriptAsset} from '../contracts'
 import {runtimeScriptSheetName} from './runtime-script-sheet'
 

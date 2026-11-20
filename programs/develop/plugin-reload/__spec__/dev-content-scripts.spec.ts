@@ -376,7 +376,9 @@ function worker(opts: {
   worlds?: Record<string, any>
   assets?: Record<string, string>
   storage?: Record<string, unknown>
+  listenerFails?: boolean
 }) {
+  const warned: string[] = []
   const calls: Record<string, unknown[]> = {
     register: [],
     update: [],
@@ -415,6 +417,8 @@ function worker(opts: {
       },
       onMessage: {
         addListener: (fn: typeof listener) => {
+          if (opts.listenerFails) throw new Error('onMessage is not available')
+
           listener = fn
         }
       }
@@ -530,6 +534,9 @@ function worker(opts: {
 
   const g: any = {
     chrome,
+    console: {
+      warn: (...args: unknown[]) => warned.push(args.map(String).join(' '))
+    },
     fetch: (url: string) =>
       Promise.resolve({
         ok:
@@ -543,6 +550,7 @@ function worker(opts: {
   return {
     g,
     calls,
+    warned,
     registrations,
     worlds,
     storage,
@@ -1226,6 +1234,54 @@ describe('dev content scripts runtime', () => {
     expect(next.calls.reload).toEqual([1])
     expect(next.calls.runtimeReload).toEqual([])
     expect(next.storage[DEV_CONTENT_SCRIPT_STATIC_RELOAD_KEY]).toBeUndefined()
+  })
+
+  it('says so in the background console when the last reload fallback throws', async () => {
+    const w = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}]
+    })
+    await w.settle()
+
+    w.g.chrome.runtime.reload = () => {
+      throw new Error('Extension context invalidated.')
+    }
+
+    vi.useFakeTimers()
+    w.hooks().reload(['content_scripts/content-1'], () => {})
+    await vi.advanceTimersByTimeAsync(250)
+    vi.useRealTimers()
+
+    expect(w.warned).toEqual([
+      'Extension.js: the extension could not be reloaded for content_scripts/content-1, so open tabs keep the build they have. Reload it from the extensions page. Error: Extension context invalidated.'
+    ])
+  })
+
+  it('says so in the background console when the stand-in listener cannot be added', async () => {
+    const w = worker({registry, listenerFails: true})
+    await w.settle()
+
+    expect(w.warned).toEqual([
+      'Extension.js: the background could not listen for content script stand-ins, so a page that asks for its content script gets no answer. Error: onMessage is not available'
+    ])
+
+    expect(w.hooks()).toBeDefined()
+  })
+
+  it('stays quiet when the reload and the listener both work', async () => {
+    const w = worker({
+      registry: withStatic,
+      tabs: [{id: 1, url: 'https://a.test/one'}]
+    })
+    await w.settle()
+
+    vi.useFakeTimers()
+    w.hooks().reload(['content_scripts/content-1'], () => {})
+    await vi.advanceTimersByTimeAsync(250)
+    vi.useRealTimers()
+
+    expect(w.calls.runtimeReload).toHaveLength(1)
+    expect(w.warned).toEqual([])
   })
 
   it("reload of a static entry restarts through the producer's restart when it is installed", async () => {

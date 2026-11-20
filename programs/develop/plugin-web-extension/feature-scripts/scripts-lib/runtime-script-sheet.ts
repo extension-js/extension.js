@@ -6,11 +6,11 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
+import {replaceCssUrlRefs} from '../../../plugin-css/css-lib/dead-url-refs'
 import {
   EXTENSION_ROOT_PLACEHOLDER,
   toRuntimeStylesheetModule
 } from '../../../plugin-css/css-lib/inline-content-script-css'
-import {replaceCssUrlRefs} from '../../../plugin-css/css-lib/dead-url-refs'
 import {
   dropSourceMapComment,
   sfcStyleBlockId

@@ -6,7 +6,6 @@
 //  ╚══╝╚══╝ ╚══════╝╚═════╝       ╚═╝  ╚═╝╚══════╝╚══════╝ ╚═════╝ ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
@@ -22,6 +21,7 @@ import {
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
 import {injectedSheetTargets} from '../../feature-scripts/scripts-lib/injected-sheet-urls'
+import {resourcesKeptReachable} from '../../shared/kept-resource-extensions'
 import {
   collectContentScriptAsyncChunkFiles,
   collectNamedUnrequestedPages,
@@ -677,35 +677,19 @@ export function generateManifestPatches(
     .filter((k) => k.startsWith('content_scripts/'))
     .filter((k) => k.endsWith('.css'))
 
-  // Dev keeps output.clean: false, so leftover hashed CSS chunks from prior
-  // compiles must stay WAR-reachable or pre-rebuild tabs render unstyled.
-  const onDiskCssUnderContentScripts: string[] = []
-  const outputPath = compilation.options.output?.path
-  // The leftover-chunk problem only exists in dev (output.clean false);
-  // production cleans dist first, so the directory read is skipped.
   const isDevModeBuild =
     (compilation.options?.mode || 'development') !== 'production'
-
-  if (outputPath && isDevModeBuild) {
-    try {
-      const csDir = path.join(outputPath, 'content_scripts')
-
-      if (fs.existsSync(csDir)) {
-        for (const name of fs.readdirSync(csDir)) {
-          if (name.endsWith('.css')) {
-            onDiskCssUnderContentScripts.push(`content_scripts/${name}`)
-          }
-        }
-      }
-    } catch {
-      // Ignore
-    }
-  }
+  // Sheets another plugin says a page may still ask for, though this
+  // compile did not emit them.
+  const keptCssUnderContentScripts = resourcesKeptReachable(compilation).filter(
+    (resource) =>
+      resource.startsWith('content_scripts/') && resource.endsWith('.css')
+  )
 
   // The browser applies a dev probe sheet from its registration and no page
   // ever fetches one, so it stays out of what a page can reach.
   const cssUnderContentScripts = Array.from(
-    new Set([...emittedCssUnderContentScripts, ...onDiskCssUnderContentScripts])
+    new Set([...emittedCssUnderContentScripts, ...keptCssUnderContentScripts])
   )
     .filter((resource) => !isDevContentScriptStandInAsset(resource))
     .sort()

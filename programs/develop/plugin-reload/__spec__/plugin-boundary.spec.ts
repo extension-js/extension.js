@@ -138,17 +138,13 @@ describe('what plugin-reload reaches in the other plugins', () => {
     expect(reached).toEqual([
       'dev-server/control-bridge/contracts',
       'dev-server/control-bridge/producer-runtime',
-      'plugin-js-frameworks/js-tools/react',
-      'plugin-js-frameworks/js-tools/svelte',
-      'plugin-js-frameworks/js-tools/vue',
-      'plugin-special-folders/public-private-files',
-      'plugin-special-folders/resolve-public-folder',
       'plugin-web-extension/feature-scripts/contracts',
       'plugin-web-extension/shared/background-asset',
       'plugin-web-extension/shared/chunk-loading-target-extensions',
       'plugin-web-extension/shared/content-script-wrapper-extensions',
       'plugin-web-extension/shared/html-page-extensions',
-      'plugin-web-extension/shared/initial-files'
+      'plugin-web-extension/shared/initial-files',
+      'plugin-web-extension/shared/kept-resource-extensions'
     ])
   })
 })

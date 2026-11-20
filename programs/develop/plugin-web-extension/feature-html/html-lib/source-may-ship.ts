@@ -11,7 +11,7 @@ import {
   hasPrivateFileName,
   rootAbsolutePathIsWithheld,
   sourceFileMayShip
-} from '../../../plugin-special-folders/public-private-files'
+} from '../../../lib/public-private-files'
 
 export interface ShipQuestion {
   // The reference as written, when it starts with `/`: a path from the

@@ -1,9 +1,19 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import type {Compilation} from '@rspack/core'
+import type {Compilation, Compiler} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {keepResourcesReachable} from '../../shared/kept-resource-extensions'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
+
+// What the reload plugin registers: the sheets an earlier compile left.
+function keepSheetsLeftOnDisk(compiler: object, outputPath: string) {
+  keepResourcesReachable(compiler as Compiler, () =>
+    fs
+      .readdirSync(path.join(outputPath, 'content_scripts'))
+      .map((name) => `content_scripts/${name}`)
+  )
+}
 
 describe('web_accessible_resources: stale on-disk content-script CSS', () => {
   let tmpRoot: string
@@ -28,7 +38,7 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
     }
   })
 
-  it('WAR-lists leftover content_scripts/*.css that exists on disk but not in compilation.assets', () => {
+  it('WAR-lists a leftover content_scripts/*.css only when a plugin keeps it reachable', () => {
     const stale = 'content_scripts/content-index.aaaaaaaa.css'
     const fresh = 'content_scripts/content-index.bbbbbbbb.css'
     fs.writeFileSync(path.join(outputPath, stale), '/* stale */')
@@ -45,7 +55,9 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const updateAsset = vi.fn()
+    const compiler = {}
     const compilation: any = {
+      compiler,
       getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
       assets: {
         'manifest.json': manifestSource,
@@ -57,6 +69,19 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
       options: {mode: 'development', output: {path: outputPath}}
     }
 
+    generateManifestPatches(compilation as Compilation, manifestPath, {})
+
+    const unasked = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
+
+    // The feature reads no folder by itself: nobody asked, nothing is kept.
+    expect(
+      (unasked.web_accessible_resources || []).flatMap(
+        (group: {resources: string[]}) => group.resources
+      )
+    ).not.toContain(stale)
+
+    updateAsset.mockClear()
+    keepSheetsLeftOnDisk(compiler, outputPath)
     generateManifestPatches(compilation as Compilation, manifestPath, {})
 
     const patched = JSON.parse(updateAsset.mock.calls[0][1].source().toString())
@@ -86,7 +111,9 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
     }
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const updateAsset = vi.fn()
+    const compiler = {}
     const compilation: any = {
+      compiler,
       getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
       assets: {
         'manifest.json': manifestSource,
@@ -99,6 +126,7 @@ describe('web_accessible_resources: stale on-disk content-script CSS', () => {
       options: {mode: 'development', output: {path: outputPath}}
     }
 
+    keepSheetsLeftOnDisk(compiler, outputPath)
     generateManifestPatches(compilation as Compilation, manifestPath, {})
 
     const patched = JSON.parse(updateAsset.mock.calls[0][1].source().toString())

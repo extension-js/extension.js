@@ -6,7 +6,7 @@
 // ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {type ErrorCode} from './messaging'
+import type {ErrorCode} from './messaging'
 
 export interface CodedError extends Error {
   code: ErrorCode

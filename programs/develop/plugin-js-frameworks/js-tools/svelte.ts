@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {recordCodedWarning} from '../../lib/coded-warnings'
+import {usesSvelte} from '../../lib/framework-detect'
 import {
   CODES,
   debugLine,
@@ -165,7 +166,7 @@ export function withSvelteConditionByDependency(
 }
 
 export function isUsingSvelte(projectPath: string, notice?: Notice) {
-  const using = hasDependency(projectPath, 'svelte')
+  const using = usesSvelte(projectPath)
 
   if (using && notice && !notice.delivered) {
     if (isDebug()) {

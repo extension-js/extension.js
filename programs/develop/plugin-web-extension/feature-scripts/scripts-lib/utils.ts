@@ -12,7 +12,7 @@ import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {
   hasPrivateFileName,
   sourceFileMayShip
-} from '../../../plugin-special-folders/public-private-files'
+} from '../../../lib/public-private-files'
 import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {DevOptions, FilepathList, Manifest} from '../../../types'
 

@@ -1,7 +1,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {SpecialFoldersPlugin} from '..'
 import {
   browserSpellings,
   climbsOut,
@@ -11,7 +10,8 @@ import {
   privateFileKind,
   rootAbsolutePathIsWithheld,
   sourceFileMayShip
-} from '../public-private-files'
+} from '../../lib/public-private-files'
+import {SpecialFoldersPlugin} from '..'
 import {
   buildWith,
   compileFixture,

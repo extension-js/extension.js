@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import type {RspackPluginInstance} from '@rspack/core'
+import {usesReact} from '../../lib/framework-detect'
 import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import {
   loadOptionalContractModuleWithoutInstall,
@@ -31,7 +32,7 @@ type MaybeUseReactOptions = {
 }
 
 export function isUsingReact(projectPath: string, notice?: Notice) {
-  if (hasDependency(projectPath, 'react')) {
+  if (usesReact(projectPath)) {
     if (notice && !notice.delivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('React')}`)

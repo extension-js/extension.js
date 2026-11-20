@@ -629,6 +629,9 @@ export default function contentScriptWrapper(
     String(packageJsonDir || '')
   )
 
+  const projectRelativePath =
+    path.relative(packageJsonDir, resourceAbsPath).split(path.sep).join('/') ||
+    resourceAbsPath
   const bootstrap =
     `var __EXTENSIONJS_BUNDLE_KEY=${JSON.stringify(bundleKey)};\n` +
     `var ${CONTENT_SCRIPT_OWNER_KEY_GLOBAL}=${JSON.stringify(ownerKey)};\n` +
@@ -680,11 +683,21 @@ export default function contentScriptWrapper(
     at('after-style-urls') +
     'var __EXTENSIONJS_REGISTERED_CLEANUPS=[];\n' +
     at('after-cleanup-list') +
+    // A teardown that throws is the author's to fix, so the page console
+    // names the script once and the rest of the cleanup still runs.
+    'var __EXTENSIONJS_CLEANUP_FAILED = false;\n' +
+    'function __EXTENSIONJS_cleanupFailed(error){\n' +
+    '  if (__EXTENSIONJS_CLEANUP_FAILED) return;\n' +
+    '  __EXTENSIONJS_CLEANUP_FAILED = true;\n' +
+    `  try { console.warn(${JSON.stringify(
+      `Extension.js: the cleanup of ${projectRelativePath} failed, so what it left on the page may stay.`
+    )}, error); } catch (ignored) {}\n` +
+    '}\n' +
     'function __EXTENSIONJS_runCleanups(list){\n' +
     '  try {\n' +
     '    if (!Array.isArray(list)) return;\n' +
     '    for (var i = list.length - 1; i >= 0; i--) {\n' +
-    '      try { if (typeof list[i] === "function") list[i](); } catch (error) {}\n' +
+    '      try { if (typeof list[i] === "function") list[i](); } catch (error) { __EXTENSIONJS_cleanupFailed(error); }\n' +
     '    }\n' +
     '  } catch (error) {}\n' +
     '}\n' +
@@ -695,7 +708,7 @@ export default function contentScriptWrapper(
     at('after-register-cleanup') +
     'function __EXTENSIONJS_composeCleanup(primaryCleanup){\n' +
     '  return function(){\n' +
-    '    try { if (typeof primaryCleanup === "function") primaryCleanup(); } catch (error) {}\n' +
+    '    try { if (typeof primaryCleanup === "function") primaryCleanup(); } catch (error) { __EXTENSIONJS_cleanupFailed(error); }\n' +
     '    try { __EXTENSIONJS_runCleanups(__EXTENSIONJS_REGISTERED_CLEANUPS); } catch (error) {}\n' +
     at('in-composed-cleanup') +
     '  };\n' +
@@ -807,9 +820,6 @@ export default function contentScriptWrapper(
     '  return unmount;\n' +
     '}\n'
 
-  const projectRelativePath =
-    path.relative(packageJsonDir, resourceAbsPath).split(path.sep).join('/') ||
-    resourceAbsPath
   const projectLoaders = loadersOfTheProject(this, packageJsonDir)
   const defaultExport = readDefaultExport(
     rewrittenSource,

@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, type RuleSetRule, rspack} from '@rspack/core'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
-import {workspaceRootOf} from '../../../plugin-special-folders/public-private-files'
+import {workspaceRootOf} from '../../../lib/public-private-files'
 import {realPath} from '../../css-lib/inline-css-imports'
 import {CssPlugin} from '../../index'
 
