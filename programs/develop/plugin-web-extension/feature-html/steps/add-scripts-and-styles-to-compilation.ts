@@ -9,14 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {
-  getDevServerHmrImports,
-  resolveStockSocketClientPath
-} from '../../../lib/dev-server-client-import'
-import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {EXTENSIONJS_SANDBOX_LAYER} from '../../feature-scripts/contracts'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
+import type {HtmlPage} from '../../shared/html-page-extensions'
 import {sourceMayShip} from '../html-lib/source-may-ship'
 import * as htmlUtils from '../html-lib/utils'
 
@@ -24,43 +20,19 @@ export class AddScriptsAndStylesToCompilation {
   public readonly manifestPath: string
   public readonly includeList?: FilepathList
   public readonly browser?: string
-  public readonly connectableHost?: string
-  public readonly port?: string | number
+  // Every page that got an entry, filled when the step applies.
+  public readonly pages: HtmlPage[] = []
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
     this.includeList = options.includeList
     this.browser = options.browser
-    this.connectableHost = options.connectableHost
-    this.port = options.port
   }
 
   public apply(compiler: Compiler) {
     const htmlEntries = this.includeList || {}
     const manifestDir = path.dirname(this.manifestPath)
     const projectRoot = (compiler.options.context as string) || manifestDir
-    const devServerHmrImports =
-      compiler.options.mode === 'development'
-        ? getDevServerHmrImports(compiler, {
-            connectableHost: this.connectableHost,
-            port: this.port
-          })
-        : []
-
-    // The dev server provides its stock socket class to the client. Pointing
-    // that file at ours names the page, so a saved page reloads only its tabs.
-    const stockSocketClient =
-      devServerHmrImports.length > 0
-        ? resolveStockSocketClientPath()
-        : undefined
-
-    if (stockSocketClient) {
-      const resolve = (compiler.options.resolve ||= {})
-      resolve.alias = {
-        ...(resolve.alias as Record<string, string | false | string[]>),
-        [`${stockSocketClient}$`]: resolveDevelopDistFile('page-socket-client')
-      }
-    }
 
     for (const field of Object.entries(htmlEntries)) {
       const [feature, resource] = field
@@ -126,20 +98,6 @@ export class AddScriptsAndStylesToCompilation {
 
         const fileAssets = [...jsImports, ...cssAssets]
 
-        if (compiler.options.mode === 'development') {
-          if (devServerHmrImports.length > 0) {
-            fileAssets.unshift(...devServerHmrImports)
-          }
-
-          // The refresh shim must run before any refresh-transformed user module; it's a
-          // no-op fallback that keeps the bundle from crashing when the plugin is broken.
-          fileAssets.unshift(resolveDevelopDistFile('preact-refresh-shim'))
-
-          // you can't HMR without a .js file, so we add a minimum script file
-          const hmrScript = resolveDevelopDistFile('minimum-script-file')
-          fileAssets.push(hmrScript)
-        }
-
         if (fs.existsSync(resource as string)) {
           compiler.options.entry = {
             ...compiler.options.entry,
@@ -150,6 +108,14 @@ export class AddScriptsAndStylesToCompilation {
                 : {})
             }
           }
+
+          this.pages.push({
+            entry: feature,
+            file: resource as string,
+            scripts: (htmlAssets?.js || []).filter((script) =>
+              path.isAbsolute(script)
+            )
+          })
         }
       }
     }

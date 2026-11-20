@@ -59,7 +59,7 @@ import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
 import {PlaywrightPlugin} from './plugin-playwright'
-import {ReloadPlugin} from './plugin-reload'
+import {PageReloadPlugin, ReloadPlugin} from './plugin-reload'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder'
@@ -257,13 +257,21 @@ export default function webpackConfig(
           ? devOptions.metadataCommand
           : undefined
     }),
+    // The page side of reload registers first: it adds to the pages as
+    // WebExtensionPlugin declares them.
+    new PageReloadPlugin({
+      manifestPath,
+      browser: devOptions.browser,
+      devSession,
+      connectableHost: devOptions.connectableHost,
+      port: devOptions.port
+    }),
     new WebExtensionPlugin({
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
       devSession,
-      connectableHost: devOptions.connectableHost,
-      port: devOptions.port
+      connectableHost: devOptions.connectableHost
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.

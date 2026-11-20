@@ -2,9 +2,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../../../plugin-web-extension/feature-scripts/contracts'
-import type {LoaderInterface} from '../../../../types'
-import ensureHMRForScripts from '../../steps/ensure-hmr-for-scripts'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
+import type {LoaderInterface} from '../../types'
+import ensureHMRForScripts from '../steps/ensure-hmr-for-scripts'
 
 // The real loader context is rspack's. These specs hand the loader only the
 // fields it reads, so the partial fake is widened in one place.
