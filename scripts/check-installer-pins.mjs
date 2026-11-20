@@ -48,7 +48,7 @@ export function readInstallerPins(source) {
 export function versionUrl(registry, name, version) {
   const base = String(registry).replace(/\/+$/, '')
 
-  return `${base}/${name.replace('/', '%2f')}/${encodeURIComponent(version)}`
+  return `${base}/${name.replaceAll('/', '%2f')}/${encodeURIComponent(version)}`
 }
 
 export async function checkPin(pin, options = {}) {

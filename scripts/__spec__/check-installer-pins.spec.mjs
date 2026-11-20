@@ -29,7 +29,7 @@ let server
 let registry = ''
 
 function plant(name, version, answer) {
-  planted.set(`/${name.replace('/', '%2f')}/${version}`, answer)
+  planted.set(`/${name.replaceAll('/', '%2f')}/${version}`, answer)
 }
 
 function published(name, version, extra = {}) {
