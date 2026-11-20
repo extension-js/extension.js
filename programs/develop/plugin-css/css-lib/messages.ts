@@ -304,6 +304,18 @@ export function deadCssImportRef(
   ].join('\n')
 }
 
+// One finding in the words of the rule that names the file.
+export function deadCssRef(
+  issuerPath: string,
+  request: string,
+  strict: boolean,
+  viaImport: boolean
+) {
+  return viaImport
+    ? deadCssImportRef(issuerPath, request, strict)
+    : deadCssUrlRef(issuerPath, request, strict)
+}
+
 // A file that is there and stays out, by a url() or an @import alike. Under
 // strict refs the reader already set the variable the hint names.
 export function withheldCssRef(

@@ -87,9 +87,7 @@ function pushDeadRef(
           strict,
           withheld.writtenIn
         )
-      : viaImport
-        ? messages.deadCssImportRef(issuerPath, request, strict)
-        : messages.deadCssUrlRef(issuerPath, request, strict)
+      : messages.deadCssRef(issuerPath, request, strict, viaImport)
   )
   ;(report as Error & {file?: string}).file = issuerPath
   report.name = withheld ? WITHHELD_CSS_REF : 'CssDeadRef'

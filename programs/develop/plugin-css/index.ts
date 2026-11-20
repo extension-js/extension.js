@@ -383,7 +383,7 @@ export class CssPlugin {
 
     // The resolver hands over a request with no word on the rule that made
     // it, so the sheet itself is asked whether an @import names it.
-    const importedBy = (issuer: string, raw: string) => {
+    const imports = (issuer: string, raw: string) => {
       try {
         return isNamedByCssImport(fs.readFileSync(issuer, 'utf8'), raw)
       } catch {
@@ -408,9 +408,7 @@ export class CssPlugin {
       const error = new WebpackError(
         withheld
           ? messages.withheldCssRef(issuerPath, raw, withheld, strict)
-          : importedBy(issuer, raw)
-            ? messages.deadCssImportRef(issuerPath, raw, strict)
-            : messages.deadCssUrlRef(issuerPath, raw, strict)
+          : messages.deadCssRef(issuerPath, raw, strict, imports(issuer, raw))
       )
       ;(error as Error & {file?: string}).file = issuerPath
       error.name = withheld ? WITHHELD_CSS_REF : 'CssDeadRef'
