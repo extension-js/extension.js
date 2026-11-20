@@ -62,6 +62,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   RuntimeStaticImportFileMissing: CODES.E_SCRIPT_DEP_MISSING,
   UnbundledScriptImport: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeGetURLFileMissing: CODES.E_SCRIPT_DEP_MISSING,
+  ScriptUrlFileMissing: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeGetURLCompiledSource: CODES.E_SCRIPT_DEP_MISSING,
   RuntimeAssetFolderNotShipped: CODES.E_SCRIPT_DEP_MISSING,
   MovedPageRelativeUrl: CODES.E_SCRIPT_DEP_MISSING,

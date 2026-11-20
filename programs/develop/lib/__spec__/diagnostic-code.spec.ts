@@ -49,6 +49,7 @@ describe('diagnosticCode', () => {
     ['InjectedScriptCompiledSource', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeStaticImportFileMissing', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeGetURLFileMissing', 'E_SCRIPT_DEP_MISSING'],
+    ['ScriptUrlFileMissing', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeGetURLCompiledSource', 'E_SCRIPT_DEP_MISSING'],
     ['RuntimeAssetFolderNotShipped', 'E_SCRIPT_DEP_MISSING'],
     ['MovedPageRelativeUrl', 'E_SCRIPT_DEP_MISSING'],
