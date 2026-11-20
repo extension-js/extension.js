@@ -13,11 +13,14 @@
 
 export const TEMPLATE_CORPUS_REPO = 'extension-js/templates'
 
-export const TEMPLATE_CORPUS_REF = '1d2aaabd113e6aa8ef6af135ed8a3b74d7e2b8ca'
+export const TEMPLATE_CORPUS_REF = '983dd0447d344bc8e03f5e4b65d92267e3d6cff2'
 
 export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'action',
   'action-locales',
+  'action-preact',
+  'action-svelte',
+  'action-vue',
   'ai-chatgpt',
   'ai-claude',
   'ai-gemini',
@@ -56,12 +59,15 @@ export const TEMPLATE_CORPUS_SLUGS: readonly string[] = [
   'newtab-env',
   'newtab-less',
   'newtab-preact',
+  'newtab-preact-router',
   'newtab-react',
   'newtab-react-router',
   'newtab-sass',
   'newtab-svelte',
+  'newtab-svelte-router',
   'newtab-typescript',
   'newtab-vue',
+  'newtab-vue-router',
   'playwright',
   'preact',
   'react',
