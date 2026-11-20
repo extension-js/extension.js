@@ -5,16 +5,22 @@ import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
-vi.mock('fs', () => ({
-  default: {
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      existsSync: vi.fn(),
+      readFileSync: vi.fn(),
+      statSync: vi.fn()
+    },
     existsSync: vi.fn(),
     readFileSync: vi.fn(),
     statSync: vi.fn()
-  },
-  existsSync: vi.fn(),
-  readFileSync: vi.fn(),
-  statSync: vi.fn()
-}))
+  }
+})
 
 describe('AddAssetsToCompilation', () => {
   let addAssetsToCompilation: AddAssetsToCompilation

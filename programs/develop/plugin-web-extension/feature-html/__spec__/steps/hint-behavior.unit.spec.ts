@@ -2,14 +2,20 @@ import * as fs from 'node:fs'
 import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {AddAssetsToCompilation} from '../../steps/add-assets-to-compilation'
 
-vi.mock('fs', () => ({
-  default: {
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>()
+
+  return {
+    ...actual,
+    default: {
+      ...actual,
+      existsSync: vi.fn(),
+      readFileSync: vi.fn()
+    },
     existsSync: vi.fn(),
     readFileSync: vi.fn()
-  },
-  existsSync: vi.fn(),
-  readFileSync: vi.fn()
-}))
+  }
+})
 
 describe('HTML hint behavior', () => {
   let plugin: AddAssetsToCompilation
