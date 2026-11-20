@@ -281,6 +281,22 @@ export function developArtifactsMissing(
   return lines.join('\n')
 }
 
+// The tail of a failed compile of Extension.js itself, as the compiler
+// printed it, so the reason sits right above the refusal.
+const DEVELOP_COMPILE_OUTPUT_LINES = 40
+
+export function developCompileOutput(output: string) {
+  const lines = output.replace(/\s+$/, '').split('\n')
+  const shown = lines.slice(-DEVELOP_COMPILE_OUTPUT_LINES)
+  const cut = lines.length - shown.length
+
+  return [
+    `${getLoggingPrefix('error')} The rebuild of Extension.js printed:`,
+    ...(cut > 0 ? [colors.gray(`  (${cut} earlier lines not shown)`)] : []),
+    ...shown.map((line) => `  ${line}`)
+  ].join('\n')
+}
+
 export function projectInstallInWorkspaceRoot(
   workspaceRoot: string,
   managerName = 'pnpm'
@@ -1806,6 +1822,40 @@ export function scannedCompanionOutsideProject(entry: string, leadsTo: string) {
   )
 }
 
+// The launch path and preview refuse a companion entry in the same words,
+// so the same entry reads the same with or without a browser.
+export function companionLinkNotAStoreLink(entry: string) {
+  return (
+    `Companion extension link is not a store link this resolver recognizes: ${entry}\n` +
+    'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
+    'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
+    'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
+  )
+}
+
+export function companionEntryLooksLikeStoreId(entry: string) {
+  return (
+    `Companion extension entry looks like a store id, not a store link: ${entry}\n` +
+    'Use the full store link so the browser it belongs to is known, ' +
+    `for example https://chromewebstore.google.com/detail/<name>/${entry}`
+  )
+}
+
+export function companionEntryNotLinkOrFolder(entry: string) {
+  return (
+    `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
+    'Give a store link or the path of a folder inside the project'
+  )
+}
+
+// The folder is named from the project root, never by an absolute path.
+export function companionStoreDownloadEmpty(storeUrl: string, folder: string) {
+  return (
+    `The store download of ${storeUrl} left no unpacked extension in ${colors.yellow(folder)} to load.\n` +
+    'Run the command again. If it fails the same way, unpack the extension into a folder inside the project and name that folder instead of the link.'
+  )
+}
+
 export function companionExtensionsFolderNotFound(
   dir: string,
   folderPath: string,
@@ -2037,6 +2087,28 @@ function manifestV2OnChromiumVerdict(target: string): string[] {
     `Chromium ${removed} removed the last flag that loaded a Manifest V2 extension, and Chrome ${last} was the last Chrome version to support it.`,
     `The ${target} build installs only where the browser keeps its own Manifest V2 support. Options:`
   ]
+}
+
+// A url() the bundler resolved to nothing, read the way the stylesheet check
+// reads a dead one. Under strict refs the reader already set the variable.
+export function unresolvedCssUrlRef(
+  issuerPath: string,
+  request: string,
+  strict = false
+) {
+  return [
+    `A ${colors.blue(`url(${request})`)} reference names no file beside the stylesheet and no installed package.`,
+    ...(issuerPath
+      ? [`${colors.gray('PATH')} ${colors.underline(issuerPath)}`]
+      : []),
+    `${colors.gray('NOT FOUND')} ${colors.underline(request)}`,
+    `Chrome applies the rest of the stylesheet and 404s this reference silently, so it's likely dead code.`,
+    ...(strict
+      ? []
+      : [
+          `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+        ])
+  ].join('\n')
 }
 
 export function manifestV2OnChromium(

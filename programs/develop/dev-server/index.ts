@@ -15,6 +15,7 @@ import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {
+  forgetPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
@@ -22,6 +23,7 @@ import {
   loadProjectConfigDefaults
 } from '../lib/config-loader'
 import {ConfigResolvedPlugin} from '../lib/config-resolved-plugin'
+import {resolveConnectableHost} from '../lib/connectable-host'
 import {
   isEmulatorBrowser,
   isGeckoBasedBrowser,
@@ -40,6 +42,7 @@ import {
   type ErrorCode,
   humanWarn,
   isDebug,
+  releaseCardKeysOf,
   stripChannelPrefix
 } from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
@@ -87,7 +90,6 @@ import {
   setupCompilerLifecycleHooks,
   setupNoBrowserBannerOnFirstDone
 } from './compiler-hooks'
-import {resolveConnectableHost} from './connectable-host'
 import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
 import {readExtensionLoadRefusal} from './control-bridge/consumer-client'
@@ -338,6 +340,8 @@ async function startDevSession(
   }
 
   holdings.add(releaseClaim)
+  // The env file values the config loads below leave the host with it too.
+  holdings.addLast(() => forgetPreloadedEnvOf(packageJsonDir))
 
   // The same env files as the command's own loads, so no layer differs.
   const envTarget = {mode: 'development', browser: String(devOptions.browser)}
@@ -433,6 +437,8 @@ async function startDevSession(
   // After the final contract write and everything else the release does.
   // The next session in this host is a new run and draws its own id.
   holdings.addLast(() => forgetSessionRun(packageJsonDir, browserName))
+  // The identity card of this output leaves the host with the session.
+  holdings.addLast(() => releaseCardKeysOf(path.resolve(primaryDistPath)))
 
   const bridgeLogFile = new LogsFileWriter({
     filePath: bridgeLogsAbsPath,

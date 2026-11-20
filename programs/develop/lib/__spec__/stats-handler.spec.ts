@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
+  handleStatsErrors,
   humanizeCaseMismatchBlocks,
   isEmitTimeWarning,
   renderStatsBlocks,
@@ -363,6 +364,42 @@ describe('renderStatsBlocks with emit-time warnings', () => {
     )
 
     expect(rendered).toContain('⏵⏵⏵ Build warning in manifest.json.')
+  })
+})
+
+describe('handleStatsErrors', () => {
+  const saved = process.env.EXTENSION_VERBOSE
+
+  afterEach(() => {
+    if (saved === undefined) delete process.env.EXTENSION_VERBOSE
+    else process.env.EXTENSION_VERBOSE = saved
+
+    vi.restoreAllMocks()
+  })
+
+  it("lists a failed build's warnings without EXTENSION_VERBOSE", () => {
+    delete process.env.EXTENSION_VERBOSE
+    const printed: string[] = []
+    vi.spyOn(console, 'error').mockImplementation((line: unknown) => {
+      printed.push(String(line))
+    })
+
+    const stats = {
+      toString: (options: {errors?: boolean; warnings?: boolean}) =>
+        [
+          options.errors ? 'ERROR in ./src/x.ts\n  × broken' : '',
+          options.warnings ? 'WARNING in ./src/y.ts\n  ⚠ unused' : ''
+        ]
+          .filter(Boolean)
+          .join('\n\n'),
+      toJson: () => ({warnings: [{message: '  ⚠ unused'}]})
+    }
+
+    handleStatsErrors(stats as unknown as Stats)
+
+    const text = plain(printed.join('\n'))
+    expect(text).toContain('broken')
+    expect(text).toContain('unused')
   })
 })
 

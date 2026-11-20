@@ -182,13 +182,44 @@ describe('ensureDevelopArtifacts', () => {
     await ensureDevelopArtifacts()
 
     expect(execInstallCommand).toHaveBeenCalledTimes(1)
-    expect(execInstallCommand).toHaveBeenCalledWith(
+    const [command, args, options] = execInstallCommand.mock.calls[0]
+    expect([command, args, options.cwd]).toEqual([
       'pnpm',
       ['run', 'compile'],
-      {cwd: root, stdio: 'ignore'}
-    )
+      root
+    ])
+
+    // Kept for a failure, never printed on success.
+    expect(options.stdio).toBeUndefined()
+    expect(Object.keys(options.tee).sort()).toEqual(['stderr', 'stdout'])
+    expect(options.tee.stdout).not.toBe(process.stdout)
+    expect(options.tee.stderr).not.toBe(process.stderr)
 
     expect(console.warn).not.toHaveBeenCalled()
+  })
+
+  it('shows what a failed rebuild printed above the refusal', async () => {
+    const printed: string[] = []
+    vi.spyOn(console, 'error').mockImplementation((line: unknown) => {
+      printed.push(String(line))
+    })
+
+    makeDevelopRoot({source: true, without: [LOADER]})
+    execInstallCommand.mockRejectedValue(
+      Object.assign(new Error('Install failed with exit code 1'), {
+        exitCode: 1,
+        output: 'rslib build\nsrc/x.ts(3,1): error TS1005: expected\n'
+      })
+    )
+
+    const {code} = await refusal()
+
+    expect(code).toBe('E_INTERNAL')
+    expect(stripVTControlCharacters(printed.join('\n')).split('\n')).toEqual([
+      '⏵⏵⏵ Error: The rebuild of Extension.js printed:',
+      '  rslib build',
+      '  src/x.ts(3,1): error TS1005: expected'
+    ])
   })
 
   it('shows the rebuild to an author', async () => {

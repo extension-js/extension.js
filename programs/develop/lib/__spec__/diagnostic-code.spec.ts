@@ -36,7 +36,6 @@ describe('diagnosticCode', () => {
     ['HtmlAssetMissing', 'E_ASSET_MISSING'],
     ['HtmlPublicAssetMissing', 'E_ASSET_MISSING'],
     ['WARRelativeAssetMissing', 'E_ASSET_MISSING'],
-    ['MissingCssAssetWarning', 'E_ASSET_MISSING'],
     ['PublicFolderOffRef', 'E_ASSET_MISSING'],
     ['RootAbsoluteRefCompiledSource', 'E_ASSET_MISSING'],
     ['RuntimeSetSurfaceFileMissing', 'E_ASSET_MISSING'],
@@ -259,7 +258,8 @@ const ERRORS_ONLY = new Set<ErrorCode>([
   CODES.E_OUTPUT_NOT_WRITABLE,
   CODES.E_THEME_INVALID,
   CODES.E_FOLDER_UNREADABLE,
-  CODES.E_MANIFEST_IN_PUBLIC
+  CODES.E_MANIFEST_IN_PUBLIC,
+  CODES.E_PROJECT_DOWNLOAD_EMPTY
 ])
 
 const WARNING_NAMES = Object.values(CODES).filter((code) =>

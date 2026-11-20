@@ -26,6 +26,7 @@ import {
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
+import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
 import {importMetaUrlForEmitPath} from '../../../plugin-compilation/env'
 import {
   excludedFiles,
@@ -1543,7 +1544,9 @@ class TraceRun {
 
     this.compilation.emitAsset(
       distRel,
-      new sources.RawSource(fs.readFileSync(abs))
+      new sources.RawSource(
+        templateCopiedAsset(this.compilation, distRel, fs.readFileSync(abs))
+      )
     )
 
     this.watch(abs)
@@ -1880,7 +1883,13 @@ class TraceRun {
     }
 
     const buffer = fs.readFileSync(abs)
-    this.compilation.emitAsset(distRel, new sources.RawSource(buffer))
+    this.compilation.emitAsset(
+      distRel,
+      new sources.RawSource(
+        templateCopiedAsset(this.compilation, distRel, buffer)
+      )
+    )
+
     this.watch(abs)
 
     if (FONT_FILE.test(distRel)) this.emitLicensesBeside(abs, distRel)
@@ -1928,7 +1937,9 @@ class TraceRun {
 
       this.compilation.emitAsset(
         distRel,
-        new sources.RawSource(fs.readFileSync(abs))
+        new sources.RawSource(
+          templateCopiedAsset(this.compilation, distRel, fs.readFileSync(abs))
+        )
       )
 
       this.watch(abs)

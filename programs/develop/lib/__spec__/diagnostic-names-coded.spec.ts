@@ -95,7 +95,10 @@ function namesInSource(): Map<string, string> {
       for (const [, , literal] of text.matchAll(NAME_LITERAL)) {
         if (!looksLikeName(literal) || found.has(literal)) continue
 
-        found.set(literal, `${path.relative(developDir, file)}:${index + 1}`)
+        found.set(
+          literal,
+          `${path.relative(developDir, file).split(path.sep).join('/')}:${index + 1}`
+        )
       }
     })
   }
@@ -108,7 +111,7 @@ describe('the names diagnostics report under', () => {
 
   it('finds the names the plugins set', () => {
     expect(names.get('ManifestV2OnChromiumWarning')).toMatch(
-      /^rspack-config\.ts:\d+$/
+      /^plugin-web-extension\/feature-manifest\/steps\/warn-mv2-on-chromium\.ts:\d+$/
     )
 
     expect(names.has('DNRDuplicateRuleId')).toBe(true)

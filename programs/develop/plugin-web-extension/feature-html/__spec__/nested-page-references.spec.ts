@@ -11,6 +11,7 @@ import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   build,
   makeProject,
+  manifest,
   notFoundPaths,
   outputHolding
 } from './helpers/private-files-project'
@@ -375,5 +376,122 @@ describe('a file a page inside a page names, in a production build', () => {
     )
 
     expect(result.printed).not.toContain('asset that doesn')
+  }, 90000)
+})
+
+describe('an import in a script of a page inside a page, in a production build', () => {
+  const MODULE_PAGE = {
+    'popup.html':
+      '<!doctype html><html><head></head><body><iframe src="./inner.html"></iframe></body></html>',
+    'inner.html':
+      '<!doctype html><html><head></head><body><script type="module" src="./inner.js"></script></body></html>'
+  }
+
+  const importWarnings = (printed: string) =>
+    printed
+      .split('\n')
+      .filter((line) => line.includes('A script of this page imports'))
+      .map((line) => line.replace(/^\S+\s+/, ''))
+
+  // The terminal lines, then the JSON summary that closes the output.
+  const terminalOf = (printed: string) =>
+    printed.slice(0, printed.lastIndexOf('\n{"'))
+  const summaryWarnings = (printed: string): string[] =>
+    JSON.parse(printed.slice(printed.lastIndexOf('\n{"') + 1)).warnings
+
+  const withStrictRefs = async <T>(run: () => Promise<T>) => {
+    const previous = process.env.EXTENSION_STRICT_REFS
+    process.env.EXTENSION_STRICT_REFS = 'true'
+
+    try {
+      return await run()
+    } finally {
+      if (previous === undefined) delete process.env.EXTENSION_STRICT_REFS
+      else process.env.EXTENSION_STRICT_REFS = previous
+    }
+  }
+
+  it('warns once, naming the script and its first import that does not ship', async () => {
+    const {root: project} = makeProject({
+      ...MODULE_PAGE,
+      'inner.js':
+        "import {a} from './helper.js'\nimport './second.js'\nconsole.log(a)\n",
+      'helper.js': 'export const a = 1\n'
+    })
+    const result = await build(project)
+
+    expect(result.errors).toBe(0)
+    expect(importWarnings(terminalOf(result.printed))).toEqual([
+      'Warning: Runtime-risk: A script of this page imports a file that does not ship. (inner.html)'
+    ])
+
+    expect(summaryWarnings(result.printed)).toEqual([
+      [
+        'W_SCRIPT_DEP_MISSING: A script of this page imports a file that does not ship.',
+        'PATH inner.html',
+        'SCRIPT inner.js',
+        'IMPORT ./helper.js',
+        'At runtime the page asks for /assets/helper.js and gets a 404.',
+        'Only another page reaches this page, so its scripts are copied as written and not bundled.',
+        'Put the page under pages/ so it is bundled, or ship the imported file too at that path, for example from public/.',
+        'Set EXTENSION_STRICT_REFS=true to make this a build error.'
+      ].join('\n')
+    ])
+  }, 90000)
+
+  it('says the browser cannot resolve a package name', async () => {
+    const {root: project} = makeProject({
+      ...MODULE_PAGE,
+      'inner.js': "import React from 'react'\nconsole.log(React)\n"
+    })
+    const result = await build(project)
+
+    expect(result.errors).toBe(0)
+    expect(importWarnings(terminalOf(result.printed))).toEqual([
+      'Warning: Runtime-risk: A script of this page imports a package by name, which the page cannot resolve at runtime. (inner.html)'
+    ])
+
+    expect(summaryWarnings(result.printed)).toEqual([
+      expect.stringContaining('\nIMPORT react\n')
+    ])
+
+    expect(summaryWarnings(result.printed)[0]).toContain(
+      "or ship the package's file too and import it by its path."
+    )
+  }, 90000)
+
+  it('fails the build under strict refs', async () => {
+    const {root: project} = makeProject({
+      ...MODULE_PAGE,
+      'inner.js': "export * from '../lib/gone.js'\n"
+    })
+    const result = await withStrictRefs(() => build(project))
+
+    expect(result.errors).toBe(1)
+    expect(result.printed).toContain('IMPORT ../lib/gone.js')
+    expect(result.printed).toContain('the page asks for /lib/gone.js')
+    expect(result.printed).not.toContain('EXTENSION_STRICT_REFS=true to make')
+  }, 90000)
+
+  it('says nothing when the imported file ships anyway or the page maps names', async () => {
+    const {root: project} = makeProject({
+      ...MODULE_PAGE,
+      'inner.html':
+        '<!doctype html><html><head><script type="importmap">{"imports":{"lib":"/war.js"}}</script></head><body><script type="module" src="./inner.js"></script></body></html>',
+      'inner.js':
+        "// import './commented-out.js'\nimport {a} from './helper.js'\nimport {b} from '../war.js'\nimport {c} from 'https://example.com/c.js'\nimport {d} from 'lib'\nconsole.log(a, b, c, d, import.meta.url)\n",
+      'public/assets/helper.js': 'export const a = 1\n',
+      'war.js': 'export const b = 2\n',
+      'manifest.json': manifest({
+        web_accessible_resources: [
+          {resources: ['war.js'], matches: ['<all_urls>']}
+        ]
+      })
+    })
+    const result = await withStrictRefs(() => build(project))
+
+    expect(importWarnings(result.printed)).toEqual([])
+    expect(result.printed).not.toContain('IMPORT ')
+    expect(outputHolding(project, 'export const b = 2')).toEqual(['war.js'])
   }, 90000)
 })

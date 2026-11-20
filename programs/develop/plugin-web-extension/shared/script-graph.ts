@@ -13,12 +13,10 @@ import {
   findPackageJsonWorkspaceRoot,
   findPnpmWorkspaceRoot
 } from '../../lib/package-manager'
-import {canonicalizeDir} from '../../lib/resource-path'
-import {
-  getUserJsConfigFile,
-  getUserTypeScriptConfigFile
-} from '../../plugin-js-frameworks/js-tools/typescript'
 import {isInsidePath} from '../../lib/real-path'
+import {canonicalizeDir} from '../../lib/resource-path'
+import {getUserTypeScriptConfigFile} from '../../lib/user-tsconfig'
+import {getUserJsConfigFile} from '../../plugin-js-frameworks/js-tools/typescript'
 
 const SCRIPT_SRC_PATTERN = /<script[^>]*\ssrc\s*=\s*["']([^"']+)["']/gi
 

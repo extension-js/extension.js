@@ -136,3 +136,68 @@ describe('build: env templating survives the html update step', () => {
     expect(html, html).toMatch(/<script[^>]*src="\/action\/index\.js"/)
   }, 120_000)
 })
+
+// Files copied from disk after the env stage: a resource named in
+// web_accessible_resources, files the background names by runtime URL and a
+// page reached by a root-absolute link. Each must be filled like its siblings.
+describe('build: env templating reaches every copied .json and .html', () => {
+  function copiedProject() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-copied-env-'))
+    roots.push(root)
+
+    const files: Record<string, string> = {
+      'package.json': JSON.stringify({private: true, name: 'copied-env'}),
+      '.env': 'EXTENSION_PUBLIC_FOO=a "q" <b>\n',
+      'manifest.json': JSON.stringify({
+        manifest_version: 3,
+        name: 'copied',
+        version: '1.0.0',
+        action: {default_popup: 'popup.html'},
+        background: {service_worker: 'background.js'},
+        web_accessible_resources: [
+          {resources: ['war.json'], matches: ['<all_urls>']}
+        ]
+      }),
+      'popup.html':
+        '<html><body><a href="/rootref.html">r</a><script src="./popup.js"></script></body></html>\n',
+      'popup.js': 'console.log("popup")\n',
+      'background.js':
+        "fetch(chrome.runtime.getURL('runtime.json'))\nchrome.tabs.create({url: chrome.runtime.getURL('runtime.html')})\n",
+      'war.json': '{"war": "$EXTENSION_PUBLIC_FOO"}\n',
+      'runtime.json': '{"runtime": "$EXTENSION_PUBLIC_FOO"}\n',
+      'runtime.html':
+        '<html><body>runtime $EXTENSION_PUBLIC_FOO</body></html>\n',
+      'rootref.html':
+        '<html><body>rootref $EXTENSION_PUBLIC_FOO</body></html>\n'
+    }
+
+    for (const [name, content] of Object.entries(files)) {
+      fs.writeFileSync(path.join(root, name), content)
+    }
+
+    return root
+  }
+
+  for (const mode of ['production', 'development'] as const) {
+    it(`fills the late copies the way it fills a page (${mode})`, async () => {
+      const root = copiedProject()
+      const summary: any = await build(root, mode)
+      expect(summary.errors_count).toBe(0)
+
+      for (const file of ['war.json', 'runtime.json']) {
+        const text = read(root, file)
+        expect(text, file).not.toContain('$EXTENSION_PUBLIC_')
+        expect(Object.values(JSON.parse(text)), file).toEqual(['a "q" <b>'])
+      }
+
+      for (const [file, word] of [
+        ['runtime.html', 'runtime'],
+        ['rootref.html', 'rootref']
+      ]) {
+        expect(read(root, file), file).toContain(
+          `${word} a &quot;q&quot; &lt;b&gt;</body>`
+        )
+      }
+    }, 120_000)
+  }
+})

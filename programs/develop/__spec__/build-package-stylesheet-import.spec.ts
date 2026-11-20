@@ -118,7 +118,10 @@ describe('build: a content script imports a stylesheet from a package', () => {
 
       expect(summary.errors_count).toBe(0)
       expect(naming('packaged-sheet')).toEqual([])
-      expect(naming('"hosted-only.png" was not found on disk')).toHaveLength(1)
+      expect(
+        naming('url(hosted-only.png) reference names no file beside')
+      ).toHaveLength(1)
+
       expect(naming('./gone-beside-own.png')).toHaveLength(1)
       // Both sheets are imported for their effect alone, which the build says.
       expect(

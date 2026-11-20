@@ -80,3 +80,7 @@ export function isWebkitBasedBrowser(browser: string): boolean {
     String(browser).includes('webkit')
   )
 }
+
+// The folder the commands scan for companion extensions when no layer says
+// which one. Its absence is the usual state of a project.
+export const STOCK_COMPANION_DIR = './extensions'

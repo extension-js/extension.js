@@ -20,6 +20,10 @@ import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
 import {sourceMayShip} from '../html-lib/source-may-ship'
 import {
+  importTarget,
+  staticImportSpecifiers
+} from '../html-lib/unbundled-imports'
+import {
   getAssetsFromHtml,
   getFilePath,
   htmlStaticAssetOutputName,
@@ -251,6 +255,15 @@ function checkMissingLocalEntries(params: {
   for (const url of css || []) check(url, 'style')
 }
 
+// A script a copied page names, shipped as written under `output`.
+interface CopiedPageScript {
+  page: string
+  script: string
+  output: string
+  // The page maps package names itself, so a bare import may resolve.
+  pageMapsImports: boolean
+}
+
 function emitNestedHtmlAndReferencedAssets(params: {
   compilation: Compilation
   compiler: Compiler
@@ -260,6 +273,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
   projectRoot: string
   publicDir: string
   copied: Set<string>
+  copiedScripts: Map<string, CopiedPageScript>
 }) {
   const {
     compilation,
@@ -269,7 +283,8 @@ function emitNestedHtmlAndReferencedAssets(params: {
     manifestDir,
     projectRoot,
     publicDir,
-    copied
+    copied,
+    copiedScripts
   } = params
   const source = fs.readFileSync(absoluteFsPath)
   const updatedHtml = patchHtmlNested(compilation, absoluteFsPath, manifestDir)
@@ -365,7 +380,73 @@ function emitNestedHtmlAndReferencedAssets(params: {
       compilation.emitAsset(assetFilepath, r)
       copied.add(assetFilepath)
     }
+
+    if (kind === 'script' && !copiedScripts.has(assetFromHtml)) {
+      copiedScripts.set(assetFromHtml, {
+        page: absoluteFsPath,
+        script: assetFromHtml,
+        output: assetFilepath,
+        pageMapsImports: /\btype\s*=\s*["']?importmap\b/i.test(
+          source.toString()
+        )
+      })
+    }
   })
+}
+
+// Says the first import of each copied script that the browser cannot load:
+// a file nothing ships at the path it asks for, or a package name.
+function warnUnbundledImports(params: {
+  compilation: Compilation
+  compiler: Compiler
+  manifestDir: string
+  projectRoot: string
+  copiedScripts: Map<string, CopiedPageScript>
+}) {
+  const {compilation, compiler, manifestDir, projectRoot} = params
+  const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
+
+  for (const entry of params.copiedScripts.values()) {
+    let text: string
+
+    try {
+      text = readPageFile(compilation, entry.script).toString('utf8')
+    } catch {
+      continue
+    }
+
+    for (const specifier of staticImportSpecifiers(text)) {
+      const target = importTarget(specifier, entry.output)
+
+      if (target.kind === 'remote') continue
+      if (target.kind === 'package' && entry.pageMapsImports) continue
+
+      // public/ files and every other copy are assets by this stage.
+      if (
+        target.kind === 'file' &&
+        compilation.getAsset(target.requestedPath)
+      ) {
+        continue
+      }
+
+      reportToCompilation(
+        compilation,
+        compiler,
+        messages.unbundledScriptImport(
+          path.relative(projectRoot, entry.page),
+          path.relative(projectRoot, entry.script),
+          specifier,
+          target.kind === 'file' ? target.requestedPath : undefined,
+          {deadRefHint: !strictRefs}
+        ),
+        strictRefs ? 'error' : 'warning',
+        path.relative(manifestDir, entry.page),
+        'UnbundledScriptImport'
+      )
+
+      break
+    }
+  }
 }
 
 // What this step copied into each output folder on its last good compile.
@@ -403,6 +484,7 @@ export class AddAssetsToCompilation {
       'html:add-assets-to-compilation',
       (compilation) => {
         copiedNow = undefined
+        const copiedScripts = new Map<string, CopiedPageScript>()
 
         const runner = () => {
           const errs = compilation.errors || []
@@ -410,6 +492,7 @@ export class AddAssetsToCompilation {
 
           const copied = new Set<string>()
           copiedNow = copied
+          copiedScripts.clear()
 
           const allEntries = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
@@ -652,7 +735,8 @@ export class AddAssetsToCompilation {
                     manifestDir,
                     projectRoot,
                     publicDir: publicRootForResource,
-                    copied
+                    copied,
+                    copiedScripts
                   })
                 } else {
                   compilation.emitAsset(
@@ -711,6 +795,30 @@ export class AddAssetsToCompilation {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => runner()
+        )
+
+        // After every step that copies files, so an import another route
+        // ships, the WAR copies included, is not reported.
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:add-assets-to-compilation',
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1
+          },
+          () => {
+            if (copiedScripts.size === 0) return
+
+            const manifestDir = path.dirname(this.manifestPath)
+            const projectRoot =
+              (compiler.options.context as string) || path.dirname(manifestDir)
+
+            warnUnbundledImports({
+              compilation,
+              compiler,
+              manifestDir,
+              projectRoot,
+              copiedScripts
+            })
+          }
         )
       }
     )
