@@ -11,7 +11,12 @@ import * as path from 'node:path'
 import {humanLine, isDebug} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import * as messages from './messages'
-import {isPidAlive, pidStartedAtMs} from './resolve-live-pid'
+import {
+  isPidAlive,
+  pidStartedAtMs,
+  pidStartId,
+  sameStartId
+} from './resolve-live-pid'
 
 export const FORCE_KILL_GRACE_MS = 5000
 
@@ -31,6 +36,8 @@ export interface TeardownDependencies {
   isAlive: (pid: number) => boolean
   startedAt: (pid: number) => number | null
   startedAtOnExit: (pid: number) => number | null
+  // Linux only. Reads a file, so it costs no process start, even on exit.
+  startId: (pid: number) => string | undefined
   mark: (pid: number | undefined) => ProcessMark[]
   sweep: (marks: ProcessMark[]) => number[]
   kill: (pid: number, signal: NodeJS.Signals) => boolean
@@ -136,6 +143,7 @@ export const teardownDefaults: TeardownDependencies = {
   startedAt: (pid) => pidStartedAtMs(pid),
   startedAtOnExit: (pid) =>
     pidStartedAtMs(pid, process.platform, EXIT_PROBE_TIMEOUT_MS),
+  startId: (pid) => pidStartId(pid),
   mark: (pid) => markDescendants(pid),
   sweep: (marks) => forceKillMarkedOnExit(marks),
   kill: signalPid,
@@ -191,12 +199,19 @@ export function gracefulTerminatePid(
   // ps dates a process to the second, so only a start in an earlier second
   // counts: a pid reused in the second of the ask never passes for the browser.
   const askedAt = Math.floor(deps.now() / 1000) * 1000 - 1
+  // Read before the ask, while the pid is surely the browser's.
+  const idAtAsk = deps.startId(pid)
 
   askToStop(pid, deps, () => deps.kill(pid, 'SIGTERM'))
   const killTimer = setTimeout(() => {
     if (!deps.isAlive(pid)) return
 
-    if (!startedBy(pid, askedAt, deps)) {
+    const same = sameStartId(idAtAsk, pid, deps.startId)
+
+    if (
+      same === false ||
+      (same === undefined && !startedBy(pid, askedAt, deps))
+    ) {
       deps.print(messages.browserLeftRunning(browser, pid, deps.platform))
 
       return
@@ -213,14 +228,19 @@ export function forceKillPidOnExit(
   pid: number | null | undefined,
   browser: BrowserType,
   adoptedAt: number,
-  deps: TeardownDependencies = teardownDefaults
+  deps: TeardownDependencies = teardownDefaults,
+  adoptedStartId?: string
 ): void {
   if (!pid) return
 
-  const started = deps.startedAtOnExit(pid)
+  // The id it was adopted under decides where both can be read. Else the
+  // dates do, and a pid that could not be dated is never signaled on a guess.
+  const same = sameStartId(adoptedStartId, pid, deps.startId)
+  const started = same === undefined ? deps.startedAtOnExit(pid) : null
+  const reused =
+    same === undefined ? started === null || started > adoptedAt : !same
 
-  // A pid that could not be dated in time is never signaled on a guess.
-  if (started === null || started > adoptedAt) {
+  if (reused) {
     if (deps.isAlive(pid)) {
       deps.print(messages.browserLeftRunning(browser, pid, deps.platform))
     }

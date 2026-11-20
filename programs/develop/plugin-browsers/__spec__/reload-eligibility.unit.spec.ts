@@ -3,6 +3,7 @@ import {
   fakeCompilation,
   fakeCompiler
 } from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import type {ReloadBroker} from '../../plugin-reload'
 import type {BrowserType} from '../../types'
 import {
@@ -68,13 +69,13 @@ function session(
   const context = options.context ?? CONTEXT
   const output = options.output ?? OUTPUT
   const frames: Array<Record<string, unknown>> = []
-  const broker: ReloadBroker = {
+  const broker: ReloadBroker = quietBroker({
     broadcastReload: (frame) => {
       frames.push({...frame})
 
       return 1
     }
-  }
+  })
   const launch = vi.fn(options.launcher ?? browserUp)
   const plugin = new BrowsersPlugin({
     launcher: launch,

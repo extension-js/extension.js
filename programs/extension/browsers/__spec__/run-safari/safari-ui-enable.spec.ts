@@ -758,6 +758,23 @@ describe('dev --enable-extension through the pipeline', () => {
     expect(reads[0]).toMatch(/MyExt\.app$/)
   })
 
+  it('reads once for the app and moves on when the host waits no time', async () => {
+    const pipeline = fakeSafariTools()
+    const reads: string[] = []
+
+    pipeline.listAppPids = async (app) => {
+      reads.push(app)
+
+      return []
+    }
+
+    const {waitedMs} = await run({raiseWaitMs: 0}, pipeline)
+
+    // One read before the app opens and one after, with no wait between.
+    expect(waitedMs).toBeLessThan(300)
+    expect(reads).toHaveLength(2)
+  })
+
   it('logs the step that failed, closes Settings and names what it could not close', async () => {
     const blocker = 'a sheet is open on Safari Settings and waits for an answer'
     const ui = fakeSafariUiTools({unsignedSticks: true, blocker})

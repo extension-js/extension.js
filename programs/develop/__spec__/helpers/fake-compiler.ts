@@ -7,6 +7,7 @@ const HOOKS = [
   'watchRun',
   'assetEmitted',
   'done',
+  'failed',
   'watchClose',
   'shutdown'
 ] as const
@@ -87,6 +88,10 @@ export function fakeCompiler(options: {owner: string; context: string}) {
     },
     emitAsset(file: string) {
       for (const {run} of fire('assetEmitted')) run(file)
+    },
+    // A build the bundler gave up on: no done hook follows this one.
+    failed(error: Error) {
+      for (const {run} of fire('failed')) run(error)
     },
     thisCompilation(compilation: object) {
       for (const {run} of fire('thisCompilation')) run(compilation)

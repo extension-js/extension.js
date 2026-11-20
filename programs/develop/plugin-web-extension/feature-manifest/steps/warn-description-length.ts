@@ -7,12 +7,12 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {
   isChromiumBasedBrowser,
   isGeckoBasedBrowser,
   isWebkitBasedBrowser
 } from '../../../lib/constants'
+import {humanLine} from '../../../lib/messaging'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions} from '../../../types'
 import {readManifestAssetText} from '../manifest-lib/manifest'

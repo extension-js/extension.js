@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {
   buildSourceFeatureIndex,
   classifyReloadFromSources
@@ -42,7 +43,7 @@ describe('dispatchReload', () => {
       .mockImplementation(() => true)
 
     await dispatchReload(CS, {
-      broker: {broadcastReload: vi.fn().mockReturnValue(1)}
+      broker: quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
     })
 
     expect(log).not.toHaveBeenCalled()
@@ -52,7 +53,7 @@ describe('dispatchReload', () => {
   })
 
   it('broadcasts over the broker with the shared label + changed files', async () => {
-    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const broker = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
     await dispatchReload(CS, {broker})
     expect(broker.broadcastReload).toHaveBeenCalledWith({
       type: 'content-scripts',
@@ -63,7 +64,7 @@ describe('dispatchReload', () => {
   })
 
   it('forwards changedScriptFiles so the SW can replay its executeScript calls', async () => {
-    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const broker = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
     await dispatchReload(
       {
         type: 'page',
@@ -87,13 +88,13 @@ describe('dispatchReload', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     await dispatchReload(CS, {
-      broker: {broadcastReload: vi.fn().mockReturnValue(0)}
+      broker: quietBroker({broadcastReload: vi.fn().mockReturnValue(0)})
     })
 
     expect(log).not.toHaveBeenCalled()
 
     await dispatchReload(CS, {
-      broker: {broadcastReload: vi.fn().mockReturnValue(1)}
+      broker: quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
     })
 
     expect(log).toHaveBeenCalledTimes(1)
@@ -119,13 +120,13 @@ describe('dispatchReload', () => {
       const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
       await dispatchReload(instruction, {
-        broker: {
+        broker: quietBroker({
           broadcastReload: vi.fn().mockReturnValue(1),
           awaitReloadAck: vi.fn().mockResolvedValue('acked'),
           ...(replayedTabs === undefined
             ? {}
             : {reloadReplayedTabs: () => replayedTabs})
-        }
+        })
       })
 
       const lines = log.mock.calls.map((call) => String(call[0]))
@@ -230,7 +231,7 @@ describe('dispatchReload', () => {
 
     await dispatchReload(
       {...CS, staticContentScriptEntries: ['content_scripts/content-0']},
-      {broker: {broadcastReload: vi.fn().mockReturnValue(1)}}
+      {broker: quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})}
     )
 
     expect(log).toHaveBeenCalledTimes(1)
@@ -244,10 +245,10 @@ describe('dispatchReload', () => {
   it('warns with the broker hint when a reload reaches zero producers', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const broker = {
+    const broker = quietBroker({
       broadcastReload: vi.fn().mockReturnValue(0),
       undeliveredReloadWarning: vi.fn().mockReturnValue('SW not attached, …')
-    }
+    })
     await dispatchReload(CS, {broker})
     expect(warn).toHaveBeenCalledTimes(1)
     expect(String(warn.mock.calls[0][0])).toContain('SW not attached')
@@ -256,10 +257,10 @@ describe('dispatchReload', () => {
 
   it('stays silent when zero producers but the broker returns no hint (grace/dedup)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const broker = {
+    const broker = quietBroker({
       broadcastReload: vi.fn().mockReturnValue(0),
       undeliveredReloadWarning: vi.fn().mockReturnValue(null)
-    }
+    })
     await dispatchReload(CS, {broker})
     expect(warn).not.toHaveBeenCalled()
   })
@@ -269,10 +270,10 @@ describe('dispatchReload', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const undeliveredReloadWarning = vi.fn().mockReturnValue('should not show')
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(1),
         undeliveredReloadWarning
-      }
+      })
     })
 
     expect(undeliveredReloadWarning).not.toHaveBeenCalled()
@@ -285,7 +286,10 @@ describe('dispatchReload', () => {
     const awaitReloadAck = vi.fn().mockResolvedValue('acked')
 
     await dispatchReload(CS, {
-      broker: {broadcastReload: vi.fn().mockReturnValue(1), awaitReloadAck}
+      broker: quietBroker({
+        broadcastReload: vi.fn().mockReturnValue(1),
+        awaitReloadAck
+      })
     })
 
     expect(awaitReloadAck).toHaveBeenCalledTimes(1)
@@ -302,11 +306,11 @@ describe('dispatchReload', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(1),
         awaitReloadAck: vi.fn().mockResolvedValue('acked'),
         awaitReloadRestart: vi.fn().mockResolvedValue('not-restarted')
-      }
+      })
     })
 
     await Promise.resolve()
@@ -322,7 +326,7 @@ describe('dispatchReload', () => {
     let hello: (late: {afterMs: number; runsBuild: boolean}) => void = () => {}
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(1),
         awaitReloadAck: vi.fn().mockResolvedValue('acked'),
         awaitReloadRestart: vi.fn().mockResolvedValue('not-restarted'),
@@ -330,7 +334,7 @@ describe('dispatchReload', () => {
           new Promise((resolve) => {
             hello = resolve
           })
-      }
+      })
     })
 
     await Promise.resolve()
@@ -359,14 +363,14 @@ describe('dispatchReload', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(1),
         awaitReloadAck: vi.fn().mockResolvedValue('acked'),
         awaitReloadRestart: vi.fn().mockResolvedValue('not-restarted'),
         awaitLateReloadRestart: vi
           .fn()
           .mockResolvedValue({afterMs: 20000, runsBuild: false})
-      }
+      })
     })
 
     await Promise.resolve()
@@ -385,11 +389,11 @@ describe('dispatchReload', () => {
 
     for (const outcome of ['restarted', 'not-expected']) {
       await dispatchReload(CS, {
-        broker: {
+        broker: quietBroker({
           broadcastReload: vi.fn().mockReturnValue(1),
           awaitReloadAck: vi.fn().mockResolvedValue('acked'),
           awaitReloadRestart: vi.fn().mockResolvedValue(outcome)
-        }
+        })
       })
     }
 
@@ -403,10 +407,10 @@ describe('dispatchReload', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(1),
         awaitReloadAck: vi.fn().mockResolvedValue('unacked')
-      }
+      })
     })
 
     expect(log).not.toHaveBeenCalled()
@@ -422,10 +426,10 @@ describe('dispatchReload', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(1),
         awaitReloadAck: vi.fn().mockResolvedValue('not-expected')
-      }
+      })
     })
 
     expect(warn).not.toHaveBeenCalled()
@@ -433,7 +437,7 @@ describe('dispatchReload', () => {
   })
 
   it('is a no-op for an undefined instruction (no changed sources)', async () => {
-    const broker = {broadcastReload: vi.fn()}
+    const broker = quietBroker({broadcastReload: vi.fn()})
     await dispatchReload(undefined, {broker})
     expect(broker.broadcastReload).not.toHaveBeenCalled()
   })
@@ -447,23 +451,23 @@ describe('dispatchReload', () => {
   it('answers whether a producer took the edit', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const taken = {broadcastReload: vi.fn().mockReturnValue(1)}
-    const woken = {
+    const taken = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
+    const woken = quietBroker({
       broadcastReload: vi.fn().mockReturnValue(0),
       deliverLatchedReload: vi.fn().mockResolvedValue(true)
-    }
-    const asleep = {
+    })
+    const asleep = quietBroker({
       broadcastReload: vi.fn().mockReturnValue(0),
       deliverLatchedReload: vi.fn().mockResolvedValue(false)
-    }
-    const failing = {
+    })
+    const failing = quietBroker({
       broadcastReload: vi.fn().mockReturnValue(0),
       deliverLatchedReload: vi.fn().mockRejectedValue(new Error('no browser'))
-    }
-    const unacked = {
+    })
+    const unacked = quietBroker({
       broadcastReload: vi.fn().mockReturnValue(1),
       awaitReloadAck: vi.fn().mockResolvedValue('unacked')
-    }
+    })
 
     await expect(dispatchReload(CS, {broker: taken})).resolves.toBe(true)
     await expect(dispatchReload(CS, {broker: woken})).resolves.toBe(true)
@@ -482,7 +486,7 @@ describe('dispatchReload', () => {
   // a producer that already runs it can tell a held reload is behind it.
   it('names the build on the frame when the caller knows it, and leaves it out otherwise', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const broker = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
 
     await dispatchReload(CS, {broker, build: 'abc123'})
     await dispatchReload(CS, {broker, build: ''})
@@ -499,10 +503,10 @@ describe('dispatchReload', () => {
   // restarted for the first compile already runs them, so nothing is sent.
   it('sends no worker reload for a build every connected background already runs', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const broker = {
+    const broker = quietBroker({
       broadcastReload: vi.fn().mockReturnValue(1),
       runsBuild: vi.fn((build: string) => build === 'same')
-    }
+    })
     const worker: ReloadInstruction = {
       type: 'service-worker',
       changedAssets: ['background.js'],
@@ -538,9 +542,9 @@ describe('dispatchReload', () => {
     expect(broker.broadcastReload).toHaveBeenCalledTimes(7)
   })
 
-  it('sends the worker reload to a broker that cannot tell which build runs', async () => {
+  it('sends the worker reload to a broker that says no worker runs the build', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const broker = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
 
     await dispatchReload(
       {type: 'service-worker', label: 'service_worker (background.js)'},
@@ -552,7 +556,7 @@ describe('dispatchReload', () => {
 
   it('forwards the pages the build ships as written', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const broker = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
 
     await dispatchReload(
       {
@@ -574,7 +578,7 @@ describe('dispatchReload', () => {
   // so the shared seam must keep broadcasting every kind for the others.
   it('broadcasts a full reload unchanged, the Safari trim runs before it', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
-    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const broker = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
     await dispatchReload(
       {
         type: 'full',
@@ -596,7 +600,7 @@ describe('dispatchReload', () => {
 
   it('broadcasts a service-worker reload unchanged', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const broker = {broadcastReload: vi.fn().mockReturnValue(1)}
+    const broker = quietBroker({broadcastReload: vi.fn().mockReturnValue(1)})
     await dispatchReload(
       {
         type: 'service-worker',
@@ -616,7 +620,7 @@ describe('dispatchReload', () => {
 
   it('honors EXTENSION_NO_RELOAD', async () => {
     vi.stubEnv('EXTENSION_NO_RELOAD', 'true')
-    const broker = {broadcastReload: vi.fn()}
+    const broker = quietBroker({broadcastReload: vi.fn()})
     await dispatchReload(CS, {broker})
     expect(broker.broadcastReload).not.toHaveBeenCalled()
   })
@@ -940,10 +944,10 @@ describe('dispatchReload with an expected producer restart', () => {
     const undeliveredReloadWarning = vi.fn().mockReturnValue(null)
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(0),
         undeliveredReloadWarning
-      },
+      }),
       producerRestartExpected: true
     })
 
@@ -965,10 +969,10 @@ describe('dispatchReload with an expected producer restart', () => {
       .mockReturnValue('SW not attached, your edit compiled')
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(0),
         undeliveredReloadWarning
-      }
+      })
     })
 
     expect(undeliveredReloadWarning).toHaveBeenCalledWith(undefined)
@@ -980,12 +984,12 @@ describe('dispatchReload with an expected producer restart', () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(0),
         undeliveredReloadWarning: vi
           .fn()
           .mockReturnValue('SW not attached, your edit compiled')
-      },
+      }),
       producerRestartExpected: true
     })
 
@@ -999,7 +1003,7 @@ describe('dispatchReload with an expected producer restart', () => {
     await dispatchReload(
       {type: 'full', changedAssets: ['src/manifest.json']},
       {
-        broker: {broadcastReload: vi.fn().mockReturnValue(0)},
+        broker: quietBroker({broadcastReload: vi.fn().mockReturnValue(0)}),
         producerRestartExpected: true
       }
     )
@@ -1012,10 +1016,10 @@ describe('dispatchReload with an expected producer restart', () => {
     const undeliveredReloadWarning = vi.fn().mockReturnValue('should not show')
 
     await dispatchReload(CS, {
-      broker: {
+      broker: quietBroker({
         broadcastReload: vi.fn().mockReturnValue(1),
         undeliveredReloadWarning
-      },
+      }),
       producerRestartExpected: true
     })
 
@@ -1162,14 +1166,14 @@ function recordingBroker(answers: {
   ack?: () => ReturnType<NonNullable<ReloadBroker['awaitReloadAck']>>
 }) {
   const sent: unknown[] = []
-  const broker: ReloadBroker = {
+  const broker: ReloadBroker = quietBroker({
     broadcastReload: (instruction) => {
       sent.push(instruction)
 
       return answers.broadcast ? answers.broadcast() : (answers.delivered ?? 1)
     },
     ...(answers.ack ? {awaitReloadAck: answers.ack} : {})
-  }
+  })
 
   return {broker, sent}
 }
@@ -1255,8 +1259,8 @@ describe('fullReloadsDeliveredTo', () => {
   it('counts only a full reload a producer took', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
-    const taken = {broadcastReload: vi.fn(() => 1)}
-    const missed = {broadcastReload: vi.fn(() => 0)}
+    const taken = quietBroker({broadcastReload: vi.fn(() => 1)})
+    const missed = quietBroker({broadcastReload: vi.fn(() => 0)})
 
     await dispatchReload(
       {type: 'service-worker', label: 'service_worker (background.js)'},
