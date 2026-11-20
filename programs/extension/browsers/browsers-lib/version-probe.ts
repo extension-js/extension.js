@@ -13,7 +13,7 @@ import {getEdgeVersion} from 'edge-location'
 import {getFirefoxVersion} from 'firefox-location2'
 import {CODES} from '../../helpers/messaging'
 import * as messages from './messages'
-import {windowsTaskkillPath} from './process-teardown'
+import {killProcessTree} from './process-teardown'
 
 export const VERSION_PROBE_TIMEOUT_MS = 10_000
 
@@ -21,25 +21,6 @@ type BinaryFlag = '--chromium-binary' | '--gecko-binary'
 
 function normalizeVersion(text: string): string {
   return /(\d+(?:\.\d+){1,3})/.exec(text)?.[1] ?? ''
-}
-
-function killProbeTree(pid: number | undefined): void {
-  if (!pid) return
-
-  try {
-    if (process.platform === 'win32') {
-      spawn(windowsTaskkillPath(), ['/PID', String(pid), '/T', '/F'], {
-        stdio: 'ignore',
-        windowsHide: true
-      }).on('error', () => {})
-    } else {
-      // The probe leads its own group, so a wrapper script takes the
-      // process it started down with it.
-      process.kill(-pid, 'SIGKILL')
-    }
-  } catch {
-    // Already gone
-  }
 }
 
 // null means the binary never answered. A binary that exits, fails to spawn
@@ -77,7 +58,7 @@ function readVersionOutput(
     }
 
     timer = setTimeout(() => {
-      killProbeTree(child.pid)
+      killProcessTree(child.pid)
       child.stdout?.destroy()
       settle(null)
     }, timeoutMs)

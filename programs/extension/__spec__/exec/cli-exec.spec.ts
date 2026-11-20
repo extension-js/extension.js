@@ -1,4 +1,4 @@
-import {execFileSync, spawn, spawnSync} from 'node:child_process'
+import {spawn, spawnSync} from 'node:child_process'
 import {
   existsSync,
   mkdirSync,
@@ -19,6 +19,7 @@ import {
   serveExamplesCatalog
 } from '../../../create/__spec__/examples-catalog-fixture'
 import {DEFAULT_TEMPLATE} from '../../helpers/template-catalog'
+import {killCliTree} from '../helpers/run-cli'
 
 type Runner = {
   name: string
@@ -205,25 +206,6 @@ async function runUntilTimeout(
     let timedOut = false
     let resolved = false
 
-    const killWindowsProcessTree = (force: boolean) => {
-      if (process.platform !== 'win32' || !child.pid) return false
-
-      try {
-        execFileSync(
-          'taskkill',
-          ['/pid', String(child.pid), '/t', ...(force ? ['/f'] : [])],
-          {
-            stdio: ['ignore', 'ignore', 'ignore'],
-            windowsHide: true
-          }
-        )
-
-        return true
-      } catch {
-        return false
-      }
-    }
-
     child.stdout?.on('data', (chunk) => {
       stdout += chunk.toString()
     })
@@ -242,45 +224,26 @@ async function runUntilTimeout(
       resolvePromise({status, signal, stdout, stderr, timedOut})
     }
 
-    const useProcessGroupKill = process.platform !== 'win32'
+    // Windows has no polite signal for a console tree, so the first ask
+    // there is already the tree kill.
     const timer = setTimeout(() => {
       timedOut = true
 
+      if (process.platform === 'win32' || !child.pid) {
+        killCliTree(child)
+
+        return
+      }
+
       try {
-        if (useProcessGroupKill && child.pid) {
-          process.kill(-child.pid, 'SIGTERM')
-        } else if (killWindowsProcessTree(false)) {
-          return
-        } else {
-          throw new Error('skip')
-        }
+        process.kill(-child.pid, 'SIGTERM')
       } catch {
-        try {
-          child.kill('SIGTERM')
-        } catch {
-          // Ignore
-        }
+        // Already gone
       }
     }, timeoutMs)
 
     const killTimer = setTimeout(() => {
-      if (resolved) return
-
-      try {
-        if (useProcessGroupKill && child.pid) {
-          process.kill(-child.pid, 'SIGKILL')
-        } else if (killWindowsProcessTree(true)) {
-          return
-        } else {
-          throw new Error('skip')
-        }
-      } catch {
-        try {
-          child.kill('SIGKILL')
-        } catch {
-          // Ignore
-        }
-      }
+      if (!resolved) killCliTree(child)
     }, timeoutMs + 3000)
 
     const forceFinalizeTimer = setTimeout(() => {

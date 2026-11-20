@@ -65,9 +65,9 @@ export function windowsTaskkillPath(
 
 function runTaskkill(
   pid: number | undefined,
-  options: {sync: boolean; force: boolean}
+  options: {sync: boolean; force: boolean; platform?: NodeJS.Platform}
 ): void {
-  if (process.platform !== 'win32' || !pid) return
+  if ((options.platform ?? process.platform) !== 'win32' || !pid) return
 
   const args = ['/PID', String(pid), '/T', ...(options.force ? ['/F'] : [])]
   const bin = windowsTaskkillPath()
@@ -88,6 +88,29 @@ function runTaskkill(
 
 function killWindowsTree(pid: number | undefined, sync: boolean): void {
   runTaskkill(pid, {sync, force: true})
+}
+
+// Ends a process and what it started: the system taskkill on Windows, the
+// process group elsewhere, so there the pid must lead a group of its own.
+export function killProcessTree(
+  pid: number | undefined,
+  options: {sync?: boolean; platform?: NodeJS.Platform} = {}
+): void {
+  const platform = options.platform ?? process.platform
+
+  if (!pid) return
+
+  if (platform === 'win32') {
+    runTaskkill(pid, {sync: options.sync === true, force: true, platform})
+
+    return
+  }
+
+  try {
+    process.kill(-pid, 'SIGKILL')
+  } catch {
+    // Already gone
+  }
 }
 
 function signalPid(pid: number, signal: NodeJS.Signals): boolean {
