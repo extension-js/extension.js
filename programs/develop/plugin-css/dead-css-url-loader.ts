@@ -31,6 +31,7 @@ import {
 } from './css-lib/inline-content-script-css'
 import {
   inlineCssImports,
+  isNamedByCssImport,
   readCssImports,
   whyNotRead
 } from './css-lib/inline-css-imports'
@@ -72,7 +73,8 @@ function pushDeadRef(
   loader: DeadCssUrlLoaderContext,
   issuerPath: string,
   request: string,
-  withheld?: {kind: WithheldKind; writtenIn?: string}
+  withheld?: {kind: WithheldKind; writtenIn?: string},
+  viaImport = false
 ) {
   const strict = process.env.EXTENSION_STRICT_REFS === 'true'
   const compilation = loader._compilation
@@ -85,7 +87,9 @@ function pushDeadRef(
           strict,
           withheld.writtenIn
         )
-      : messages.deadCssUrlRef(issuerPath, request, strict)
+      : viaImport
+        ? messages.deadCssImportRef(issuerPath, request, strict)
+        : messages.deadCssUrlRef(issuerPath, request, strict)
   )
   ;(report as Error & {file?: string}).file = issuerPath
   report.name = withheld ? WITHHELD_CSS_REF : 'CssDeadRef'
@@ -150,7 +154,13 @@ function reportDeadRefs(
     }
 
     reported.add(request)
-    pushDeadRef(loader, issuerPath, request, withheld)
+    pushDeadRef(
+      loader,
+      issuerPath,
+      request,
+      withheld,
+      isNamedByCssImport(source, request)
+    )
   }
 
   return reported
