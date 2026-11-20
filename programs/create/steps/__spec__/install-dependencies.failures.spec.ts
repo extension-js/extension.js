@@ -3,7 +3,11 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {type FakeRun, fakeSpawn, missingBinary} from '../../__spec__/fake-spawn'
-import {type InstallRunner, runInstall} from '../../lib/install-runner'
+import {
+  InstallExitError,
+  type InstallRunner,
+  runInstall
+} from '../../lib/install-runner'
 import {shellQuote} from '../../lib/utils'
 import {installDependencies} from '../install-dependencies'
 
@@ -69,6 +73,7 @@ async function installFailure(run: Promise<unknown>) {
 
   return {
     name: error.name,
+    code: (error as {code?: unknown}).code,
     frame: String(error.message).replace(ANSI, ''),
     cause: (error as {cause?: unknown}).cause
   }
@@ -85,6 +90,7 @@ describe('installDependencies failure paths', () => {
     const failure = await installFailure(install.run('pnpm', 'react'))
 
     expect(failure.name).toBe('Error')
+    expect(failure.code).toBe('E_DEPENDENCY_INSTALL')
     expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies for ghost.\n" +
         'COMMAND pnpm install\n' +
@@ -143,6 +149,7 @@ describe('installDependencies failure paths', () => {
     ])
 
     expect(framesIn(failure.frame)).toHaveLength(1)
+    expect(failure.code).toBe('E_DEPENDENCY_INSTALL')
     expect(failure.cause).toBe(fault)
     expect(errors).toEqual([])
   })
@@ -165,6 +172,17 @@ describe('installDependencies failure paths', () => {
 
     expect(install.calls[0].signals).toEqual(['SIGTERM'])
     expect(failure.name).toBe('Error')
+    expect(failure.code).toBe('E_DEPENDENCY_INSTALL')
+    // How the run ended rides on the cause, read without the copy.
+    expect(failure.cause).toBeInstanceOf(InstallExitError)
+    expect(failure.cause).toMatchObject({
+      command: 'pnpm',
+      args: ['install'],
+      exitCode: null,
+      message:
+        'pnpm install ended with timed out: The install did not finish within 5 seconds (EXTENSION_CREATE_INSTALL_TIMEOUT_MS)'
+    })
+
     expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies.\n" +
         'COMMAND pnpm install\n' +
@@ -196,6 +214,14 @@ describe('installDependencies failure paths', () => {
       'EXIT ended by SIGKILL',
       'REASON Killed'
     ])
+
+    expect(failure.code).toBe('E_DEPENDENCY_INSTALL')
+    expect(failure.cause).toMatchObject({
+      name: 'InstallExitError',
+      exitCode: null,
+      signal: 'SIGKILL',
+      stderr: 'Killed\n'
+    })
   })
 
   it('keeps the timeout in the frame when the hung install wrote more than the frame holds', async () => {
@@ -292,6 +318,14 @@ describe('installDependencies failure paths', () => {
     const failure = await installFailure(install.run('npm', 'react'))
 
     expect(failure.name).toBe('Error')
+    expect(failure.code).toBe('E_DEPENDENCY_INSTALL')
+    // The run that is reported is the one on the cause.
+    expect(failure.cause).toMatchObject({
+      name: 'InstallExitError',
+      exitCode: 7,
+      stdout: 'resolving extension@latest\n'
+    })
+
     expect(failure.frame.replace(/^\S+ Error: /, '')).toBe(
       "Couldn't install the dependencies.\n" +
         'COMMAND npm install\n' +

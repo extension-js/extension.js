@@ -439,7 +439,10 @@ describe('extensionInstall on a temp cache root', () => {
         thrown: Object.assign(new Error('spawn pnpm ENOENT'), {code: 'ENOENT'}),
         cwd: path.join(scratch, 'no-such-project')
       }
-    ])('lets $name through as it was thrown', async ({thrown, cwd}) => {
+    ])('types $name as a failed install with the spawn error as cause', async ({
+      thrown,
+      cwd
+    }) => {
       const error = await install({
         cwd,
         runInstaller: vi.fn(async () => {
@@ -447,7 +450,13 @@ describe('extensionInstall on a temp cache root', () => {
         })
       })
 
-      expect(error).toBe(thrown)
+      expect(error).toBeInstanceOf(BrowserInstallFailedError)
+      expect((error as Error).message).toBe(
+        `Couldn't install Chrome. The package runner pnpm didn't start ` +
+          `(${thrown.code}), so nothing was downloaded.`
+      )
+
+      expect((error as {cause?: unknown}).cause).toBe(thrown)
     })
   })
 

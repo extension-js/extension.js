@@ -15,6 +15,10 @@ import {isPidAlive, pidStartedAtMs} from './resolve-live-pid'
 
 export const FORCE_KILL_GRACE_MS = 5000
 
+// An exit handler runs to the end before the process leaves, so the one
+// probe it makes gets a short bound and a slow answer reads as no answer.
+export const EXIT_PROBE_TIMEOUT_MS = 1500
+
 export interface ProcessMark {
   pid: number
   started: string
@@ -26,10 +30,12 @@ export interface TeardownDependencies {
   now: () => number
   isAlive: (pid: number) => boolean
   startedAt: (pid: number) => number | null
+  startedAtOnExit: (pid: number) => number | null
   mark: (pid: number | undefined) => ProcessMark[]
   sweep: (marks: ProcessMark[]) => number[]
   kill: (pid: number, signal: NodeJS.Signals) => boolean
   killTree: (pid: number) => void
+  killTreeOnExit: (pid: number) => void
   askTree: (pid: number) => void
   print: (line: string) => void
 }
@@ -128,10 +134,13 @@ export const teardownDefaults: TeardownDependencies = {
   now: () => Date.now(),
   isAlive: (pid) => isPidAlive(pid),
   startedAt: (pid) => pidStartedAtMs(pid),
+  startedAtOnExit: (pid) =>
+    pidStartedAtMs(pid, process.platform, EXIT_PROBE_TIMEOUT_MS),
   mark: (pid) => markDescendants(pid),
   sweep: (marks) => forceKillMarkedOnExit(marks),
   kill: signalPid,
   killTree: (pid) => killWindowsTree(pid, false),
+  killTreeOnExit: (pid) => killWindowsTree(pid, true),
   askTree: (pid) => runTaskkill(pid, {sync: false, force: false}),
   print: (line) => humanLine(line)
 }
@@ -206,10 +215,22 @@ export function forceKillPidOnExit(
   adoptedAt: number,
   deps: TeardownDependencies = teardownDefaults
 ): void {
-  if (!pid || !startedBy(pid, adoptedAt, deps)) return
+  if (!pid) return
+
+  const started = deps.startedAtOnExit(pid)
+
+  // A pid that could not be dated in time is never signaled on a guess.
+  if (started === null || started > adoptedAt) {
+    if (deps.isAlive(pid)) {
+      deps.print(messages.browserLeftRunning(browser, pid, deps.platform))
+    }
+
+    return
+  }
 
   terminatedPids.add(pid)
-  killWindowsTree(pid, true)
+  if (deps.platform === 'win32') deps.killTreeOnExit(pid)
+
   authorLog(messages.enhancedProcessManagementForceKill(browser))
   deps.kill(pid, 'SIGKILL')
 }
@@ -270,12 +291,13 @@ export function gracefulTerminateChild(
 // timers), so force-kill synchronously; child.killed only means a signal was sent.
 export function forceKillChildOnExit(
   child: ChildProcess | null,
-  browser: BrowserType
+  browser: BrowserType,
+  deps: TeardownDependencies = teardownDefaults
 ): void {
   if (!child) return
 
   terminatedByUs.add(child)
-  killWindowsTree(child.pid, true)
+  if (deps.platform === 'win32' && child.pid) deps.killTreeOnExit(child.pid)
 
   try {
     authorLog(messages.enhancedProcessManagementForceKill(browser))

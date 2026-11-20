@@ -307,12 +307,15 @@ async function refuseDownloadFailed(
   await exitRefused(reply, CODES.E_BROWSER_DOWNLOAD)
 }
 
+const UNKNOWN_INSTALL_HINT =
+  'Run the install again. If it fails the same way, report it with this message at https://github.com/extension-js/extension.js/issues.'
+
 // The package words each of these with its own remedy, so the message is
 // printed as it is and never framed as a download to retry.
 async function refuseInstall(
   error: unknown,
   reply: Reply,
-  code: ErrorCode = CODES.E_BROWSER_DOWNLOAD,
+  code: ErrorCode,
   hint?: string
 ): Promise<void> {
   const detail = errorText(error)
@@ -473,8 +476,14 @@ export function registerInstallCommand(
             return
           }
 
-          // Anything else is no download that failed, so it keeps its own words.
-          await refuseInstall(error, reply)
+          // Anything else is a fault nobody classified, not a download that
+          // failed, so it keeps its own words and says how to report it.
+          await refuseInstall(
+            error,
+            reply,
+            CODES.E_INTERNAL,
+            UNKNOWN_INSTALL_HINT
+          )
 
           return
         }
@@ -539,6 +548,29 @@ export function registerInstallCommand(
               console.log(location)
             }
           }
+
+          return
+        }
+
+        // One browser or every browser: a guess between the two could remove
+        // the ones the person meant to keep, so neither runs.
+        if (all && named && requested !== 'all') {
+          const message =
+            'Pass browser names to remove those browsers, or --all to remove every browser, not both.'
+
+          if (asJson) {
+            emit(
+              ENVELOPE.fail('uninstall', 'usage', {
+                code: CODES.E_ARGS,
+                message
+              })
+            )
+          } else {
+            // eslint-disable-next-line no-console
+            console.error(message)
+          }
+
+          await exitRefused(reply, CODES.E_ARGS)
 
           return
         }

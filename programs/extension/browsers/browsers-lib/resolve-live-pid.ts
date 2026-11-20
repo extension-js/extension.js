@@ -70,12 +70,27 @@ export function parseProcessRows(output: string): ProcessRow[] {
   return rows
 }
 
+// What reading the process table asks of the machine, so a caller can stand
+// in for a platform it does not run on.
+export interface ProcessTableIo {
+  run: (bin: string, args: string[]) => string | null
+  readFile: (file: string) => string
+}
+
+const processTableIo: ProcessTableIo = {
+  run: (bin, args) => runQuiet(bin, args),
+  readFile: (file) => fs.readFileSync(file, 'utf-8')
+}
+
 // Linux ps prints no environment, but /proc does. Only the handoff variable
 // matters, so only that one is appended.
-function appendLinuxProfileEnv(rows: ProcessRow[]): ProcessRow[] {
+function appendLinuxProfileEnv(
+  rows: ProcessRow[],
+  readFile: ProcessTableIo['readFile']
+): ProcessRow[] {
   return rows.map((row) => {
     try {
-      const environ = fs.readFileSync(`/proc/${row.pid}/environ`, 'utf-8')
+      const environ = readFile(`/proc/${row.pid}/environ`)
       const entry = environ
         .split('\0')
         .find((pair) => pair.startsWith('XRE_PROFILE_PATH='))
@@ -89,12 +104,15 @@ function appendLinuxProfileEnv(rows: ProcessRow[]): ProcessRow[] {
 
 // The ps and PowerShell calls run without a shell, so no argument is ever
 // interpreted. PowerShell prints the same three-column shape ps does.
-export function listProcesses(platform = process.platform): ProcessRow[] {
+export function listProcesses(
+  platform = process.platform,
+  io: ProcessTableIo = processTableIo
+): ProcessRow[] {
   if (platform === 'win32') {
     const script =
       'Get-CimInstance Win32_Process | ForEach-Object { ' +
       '"$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'
-    const output = runQuiet('powershell.exe', [
+    const output = io.run('powershell.exe', [
       '-NoProfile',
       '-NonInteractive',
       '-Command',
@@ -105,15 +123,15 @@ export function listProcesses(platform = process.platform): ProcessRow[] {
   }
 
   if (platform === 'darwin') {
-    const output = runQuiet('ps', ['-axEo', 'pid=,ppid=,command='])
+    const output = io.run('ps', ['-axEo', 'pid=,ppid=,command='])
 
     return output ? parseProcessRows(output) : []
   }
 
-  const output = runQuiet('ps', ['-axo', 'pid=,ppid=,command='])
+  const output = io.run('ps', ['-axo', 'pid=,ppid=,command='])
   const rows = output ? parseProcessRows(output) : []
 
-  return platform === 'linux' ? appendLinuxProfileEnv(rows) : rows
+  return platform === 'linux' ? appendLinuxProfileEnv(rows, io.readFile) : rows
 }
 
 function normalizePath(value: string): string {
@@ -225,7 +243,8 @@ export const PID_START_PROBE_TIMEOUT_MS = 5000
 
 export function pidStartedAtMs(
   pid: number | null | undefined,
-  platform = process.platform
+  platform = process.platform,
+  timeoutMs = PID_START_PROBE_TIMEOUT_MS
 ): number | null {
   if (!pid || !Number.isInteger(pid) || pid <= 0) return null
 
@@ -240,14 +259,12 @@ export function pidStartedAtMs(
             `[System.Diagnostics.Process]::GetProcessById(${pid})` +
               ".StartTime.ToUniversalTime().ToString('o')"
           ],
-          PID_START_PROBE_TIMEOUT_MS
+          timeoutMs
         )
-      : runQuiet(
-          'ps',
-          ['-o', 'lstart=', '-p', String(pid)],
-          PID_START_PROBE_TIMEOUT_MS,
-          {...process.env, LC_ALL: 'C'}
-        )
+      : runQuiet('ps', ['-o', 'lstart=', '-p', String(pid)], timeoutMs, {
+          ...process.env,
+          LC_ALL: 'C'
+        })
 
   const started = Date.parse(String(output || '').trim())
 

@@ -12,18 +12,19 @@ import * as path from 'node:path'
 import {readDenoConfigDependencies} from '../lib/deno-manifest'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import {
+  InstallExitError,
   type InstallRunner,
   installExit,
   isMissingCommand,
   runInstall as runInstallCommand
 } from '../lib/install-runner'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import {
   resolveProjectPackageManager,
   type ScaffoldPackageManager
 } from '../lib/package-manager'
-import {failStep, isEnvFlagOn} from '../lib/utils'
+import {CreateError, failStep, isEnvFlagOn} from '../lib/utils'
 
 const requireFromCreate = createRequire(import.meta.url)
 
@@ -352,12 +353,13 @@ async function installOptionalDependencies(
             error,
             retry
           ),
-      error
+      error,
+      CODES.E_DEPENDENCY_INSTALL
     )
   })
 
   if (result.code !== 0) {
-    throw new Error(
+    throw new CreateError(
       messages.installingDependenciesFailed(
         pm,
         args,
@@ -366,7 +368,9 @@ async function installOptionalDependencies(
           .filter((part) => part !== undefined)
           .join('\n'),
         {projectPath, template}
-      )
+      ),
+      CODES.E_DEPENDENCY_INSTALL,
+      new InstallExitError(pm, args, result)
     )
   }
 }
