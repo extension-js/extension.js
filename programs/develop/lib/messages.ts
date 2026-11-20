@@ -93,6 +93,23 @@ export function manifestInvalidJson(manifestPath: string, error: unknown) {
   )
 }
 
+export function packageJsonInvalid(packageJsonPath: string, reason: string) {
+  return (
+    `${getLoggingPrefix('error')} Couldn't read package.json as JSON.\n` +
+    `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
+    `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+    `Fix the file, then run the command again.`
+  )
+}
+
+export function packageJsonNotUtf8(packageJsonPath: string, encoding: string) {
+  return (
+    `${getLoggingPrefix('error')} package.json is saved as ${encoding}, which the build cannot resolve modules through.\n` +
+    `${colors.gray('PATH')} ${colors.underline(packageJsonPath)}\n` +
+    `Save the file as UTF-8 without a byte order mark, then run the command again.`
+  )
+}
+
 export function notAnExtensionManifestError(manifestPath: string) {
   return (
     `${getLoggingPrefix('error')} manifest.json isn't a browser extension manifest.\n` +
@@ -254,7 +271,9 @@ const LISTED_MISSING_ARTIFACTS = 5
 
 export function developArtifactsMissing(
   missing: string[],
-  rebuild?: {command: string; developRoot: string} | {watching: true}
+  rebuild?:
+    | {command: string; developRoot: string; testRunOptIn?: string}
+    | {watching: true}
 ) {
   const count = missing.length
   const listed = missing.slice(0, LISTED_MISSING_ARTIFACTS)
@@ -264,7 +283,9 @@ export function developArtifactsMissing(
       ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files.`
       : 'watching' in rebuild
         ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and the running watch build did not write them.`
-        : `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and could not rebuild.`,
+        : rebuild.testRunOptIn
+          ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files.`
+          : `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and could not rebuild.`,
     ...listed.map((file) => `  ${colors.underline(file)}`)
   ]
 
@@ -275,7 +296,9 @@ export function developArtifactsMissing(
       ? `Reinstall ${fmt.code('extension')}, then run the command again.`
       : 'watching' in rebuild
         ? 'Fix the build error the watch prints, then run the command again.'
-        : `Run ${fmt.code(rebuild.command)} in ${colors.underline(rebuild.developRoot)} to see the build error.`
+        : rebuild.testRunOptIn
+          ? `A test run does not compile Extension.js into the checkout. Run ${rebuild.command} in ${rebuild.developRoot} first, or set ${rebuild.testRunOptIn}=1 to let the run compile.`
+          : `Run ${fmt.code(rebuild.command)} in ${colors.underline(rebuild.developRoot)} to see the build error.`
   )
 
   return lines.join('\n')
@@ -550,6 +573,15 @@ export function buildOutputPathRefused(
 }
 
 // The compile is done and the finished folder could not take its place.
+export function buildOutputFolderNotWritable(folder: string, reason: string) {
+  return (
+    `${getLoggingPrefix('error')} Couldn't write the build into its output folder.\n` +
+    `${colors.gray('PATH')} ${colors.underline(folder)}\n` +
+    `${colors.gray('REASON')} ${colors.red(reason)}\n` +
+    `Make that folder writable, or pick another with ${colors.blue('--out-dir')}, then run the build again.`
+  )
+}
+
 export function buildOutputNotPublished(distPath: string, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Couldn't move the finished build into place.\n` +
@@ -1609,7 +1641,7 @@ function parsePerformanceWarning(
   const normalized = getWarningBody(warning).replace(/\r/g, '')
   const lower = normalized.toLowerCase()
   const threshold =
-    normalized.match(/\(([\d.]+\s(?:KiB|MiB|GiB|KB|MB|GB))\)/)?.[1] || ''
+    normalized.match(/\(([\d.]+\s(?:bytes?|KiB|MiB|GiB|KB|MB|GB))\)/)?.[1] || ''
 
   if (lower.includes('asset size limit')) {
     return formatPerformanceWarningBlock({
@@ -1651,7 +1683,12 @@ function formatPerformanceWarningBlock(options: {
   lines.push(formatWarningLabelLine('Impact', options.impact))
 
   lines.push(colors.gray('│'))
-  lines.push(formatWarningLabelLine('Source', colors.gray(options.source)))
+  // The limit is the build's own setting, whichever bundler plugin checks it.
+  const source = /rspack|webpack/i.test(options.source)
+    ? 'build size limits'
+    : options.source
+
+  lines.push(formatWarningLabelLine('Source', colors.gray(source)))
   lines.push(formatWarningLabelLine('Hint', options.hint))
 
   return lines.join('\n')
@@ -1669,8 +1706,8 @@ function getWarningBody(warning: LooseBuildWarning): string {
     .join('\n')
 }
 
-export function isUsingExperimentalConfig(integration: unknown) {
-  return `${prefix('debug')} config   using=${String(integration)}`
+export function debugConfigFileInUse(fileName: string) {
+  return `${prefix('debug')} config   using=${fileName}`
 }
 
 export function debugDirs(manifestDir: string, packageJsonDir: string) {

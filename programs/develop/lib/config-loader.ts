@@ -922,7 +922,7 @@ export async function loadCustomConfig(
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
-    if (await isUsingExperimentalConfig(projectPath)) {
+    if (await hasConfigFile(projectPath)) {
       try {
         const userConfig = await loadConfigFile(
           configPath,
@@ -988,7 +988,7 @@ export async function loadConfigResolvedHook(
 ): Promise<FileConfig['configResolved'] | undefined> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return undefined
-  if (!(await isUsingExperimentalConfig(projectPath))) return undefined
+  if (!(await hasConfigFile(projectPath))) return undefined
 
   const userConfig = await loadConfigFile(configPath, namedEnvOrder(envTarget))
 
@@ -1041,7 +1041,7 @@ export async function loadDefineTypes(
 ): Promise<Record<string, string>> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return {}
-  if (!(await isUsingExperimentalConfig(projectPath))) return {}
+  if (!(await hasConfigFile(projectPath))) return {}
 
   let userConfig: FileConfig | undefined
 
@@ -1096,7 +1096,7 @@ export async function loadProjectConfigDefaults(
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
-    if (await isUsingExperimentalConfig(projectPath)) {
+    if (await hasConfigFile(projectPath)) {
       try {
         // Told nothing about the run, this reads the config as the run last
         // did, and never as a production build in the middle of a dev session.
@@ -1161,7 +1161,7 @@ export async function loadCommandConfig(
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
-    if (await isUsingExperimentalConfig(projectPath)) {
+    if (await hasConfigFile(projectPath)) {
       try {
         const userConfig = await loadConfigFile(
           configPath,
@@ -1189,7 +1189,7 @@ export async function loadBrowserConfig(
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
-    if (await isUsingExperimentalConfig(projectPath)) {
+    if (await hasConfigFile(projectPath)) {
       try {
         const userConfig = await loadConfigFile(
           configPath,
@@ -1242,20 +1242,19 @@ export async function loadBrowserConfig(
 
 let userMessageDelivered = false
 
-export async function isUsingExperimentalConfig(projectPath: string) {
+// True when the project has a config file, which a debug run names once.
+export async function hasConfigFile(projectPath: string) {
   const configPath = findConfigFile(projectPath)
 
-  if (configPath) {
-    if (!userMessageDelivered) {
-      if (isDebug()) {
-        debugLine(messages.isUsingExperimentalConfig('extension.config.js'))
-      }
+  if (!configPath) return false
 
-      userMessageDelivered = true
+  if (!userMessageDelivered) {
+    if (isDebug()) {
+      debugLine(messages.debugConfigFileInUse(path.basename(configPath)))
     }
 
-    return true
+    userMessageDelivered = true
   }
 
-  return false
+  return true
 }

@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
 import {
-  isUsingExperimentalConfig,
+  hasConfigFile,
   loadBrowserConfig,
   loadCommandConfig,
   loadCustomConfig
@@ -45,6 +45,6 @@ describe('get-extension-config defaults', () => {
     expect(await loadCommandConfig(tmp, 'dev')).toEqual({})
     const browser = await loadBrowserConfig(tmp, 'chrome')
     expect(browser.browser).toBe('chrome')
-    expect(await isUsingExperimentalConfig(tmp)).toBe(false)
+    expect(await hasConfigFile(tmp)).toBe(false)
   })
 })
