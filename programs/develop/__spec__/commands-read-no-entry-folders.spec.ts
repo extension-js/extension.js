@@ -13,7 +13,7 @@ describe('the folder a project keeps its companion extensions in', () => {
   })
 
   it.each([
-    'command-build.ts',
+    'command-steps/build-companions.ts',
     'command-preview.ts',
     'dev-server/index.ts'
   ])('is read by %s with no walk of the entry folders', (file) => {
