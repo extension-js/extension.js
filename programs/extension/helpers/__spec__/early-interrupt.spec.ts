@@ -83,11 +83,15 @@ describe('the interrupt frame the entry arms', () => {
     expect(commandNamedIn(['node', 'extension', ...argv])).toBe(expected)
   })
 
-  it('arms nothing for a run that prints for a person', () => {
-    const {target} = arm(['build'])
+  it('writes no frame for a run that prints for a person, and still ends it through an exit', () => {
+    const run = arm(['build'])
 
-    expect(target.listenerCount('SIGINT')).toBe(0)
-    expect(target.listenerCount('SIGTERM')).toBe(0)
+    run.target.emit('SIGINT')
+
+    expect(run.frames).toEqual([])
+    expect(run.closed()).toBe(0)
+    // An exit runs the exit hooks, which the signal's own ending skips.
+    expect(run.exits).toEqual([130])
   })
 
   it.each([

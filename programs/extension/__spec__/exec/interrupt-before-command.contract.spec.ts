@@ -284,5 +284,30 @@ describe.skipIf(process.platform === 'win32')(
       expect(readFileSync(built, 'utf8')).toBe(before)
       expect(staged()).toEqual([])
     }, 120_000)
+
+    it('a build stopped in text mode exits as the signal and drops its staging folder too', async () => {
+      const {work, projectDir} = createProject()
+      writeFileSync(join(projectDir, 'extension.config.js'), HELD_BUILD_CONFIG)
+
+      const held = join(work, 'held')
+      const session = startCli(['build', projectDir, '--browser', 'chromium'], {
+        env: {
+          EXTJS_SPEC_HELD: held,
+          EXTJS_SPEC_RELEASE: join(work, 'never-released')
+        }
+      })
+
+      await session.waitFor(() => existsSync(held), 60_000, 'the held build')
+
+      const exit = await session.stop('SIGINT', 20_000)
+
+      expect(exit).toEqual({status: 130, signal: null})
+      expect(session.read().stdout).toBe('')
+      expect(
+        readdirSync(join(projectDir, 'dist')).filter((name) =>
+          name.startsWith('.extension-build-')
+        )
+      ).toEqual([])
+    }, 120_000)
   }
 )

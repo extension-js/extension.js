@@ -101,11 +101,13 @@ const processDeps: EarlyInterruptDeps = {
 
 // A json run told to stop before its command owns the signal still ends with
 // one stopped frame. A command that frames its own ending claims it first.
+// Every run gets the exit: one that ends through it runs its exit hooks, and
+// one killed by the signal's own action runs none.
 export function armEarlyInterrupt(
   argv: string[],
   deps: EarlyInterruptDeps = processDeps
 ): void {
-  if (!wantsJsonFrames(argv)) return
+  const json = wantsJsonFrames(argv)
 
   const listeners = new Map<TerminationSignal, () => void>()
 
@@ -120,7 +122,7 @@ export function armEarlyInterrupt(
       // Both go, so the listener of the other signal never reads as an owner.
       disarm()
 
-      if (!interruptFrameClaimed()) {
+      if (json && !interruptFrameClaimed()) {
         flags[ENDED] = true
 
         try {
