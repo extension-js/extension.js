@@ -1635,7 +1635,7 @@ function parsePerformanceWarning(
   const normalized = getWarningBody(warning).replace(/\r/g, '')
   const lower = normalized.toLowerCase()
   const threshold =
-    normalized.match(/\(([\d.]+\s(?:KiB|MiB|GiB|KB|MB|GB))\)/)?.[1] || ''
+    normalized.match(/\(([\d.]+\s(?:bytes?|KiB|MiB|GiB|KB|MB|GB))\)/)?.[1] || ''
 
   if (lower.includes('asset size limit')) {
     return formatPerformanceWarningBlock({
@@ -1677,7 +1677,12 @@ function formatPerformanceWarningBlock(options: {
   lines.push(formatWarningLabelLine('Impact', options.impact))
 
   lines.push(colors.gray('│'))
-  lines.push(formatWarningLabelLine('Source', colors.gray(options.source)))
+  // The limit is the build's own setting, whichever bundler plugin checks it.
+  const source = /rspack|webpack/i.test(options.source)
+    ? 'build size limits'
+    : options.source
+
+  lines.push(formatWarningLabelLine('Source', colors.gray(source)))
   lines.push(formatWarningLabelLine('Hint', options.hint))
 
   return lines.join('\n')
