@@ -69,7 +69,7 @@ describe('manifest under public/ (real build)', () => {
     expect(failure).toBeTruthy()
     // Color codes can split words mid-phrase; strip them before matching.
     const rendered = printed.join('\n').replace(/\[[0-9;]*m/g, '')
-    expect(rendered).toMatch(/must not be placed under public\//)
+    expect(rendered).toMatch(/public\/manifest.json is left out of the build/)
     expect(rendered).not.toMatch(/Conflict: Multiple assets/)
   }, 120_000)
 

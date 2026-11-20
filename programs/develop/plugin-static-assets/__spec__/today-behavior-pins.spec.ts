@@ -135,11 +135,10 @@ describe('a namespace import of an asset', () => {
 })
 
 describe('bundledAssetOutputName against a user assetModuleFilename', () => {
-  it('matches a file the default rules claim and misses one they do not', async () => {
-    // Pins current behavior: the computed name ignores a user
-    // assetModuleFilename.
-    const large = pngOfSize(5000)
-    const clip = Buffer.alloc(5000, 0x43)
+  const large = pngOfSize(5000)
+  const clip = Buffer.alloc(5000, 0x43)
+
+  async function buildWith(assetModuleFilename: string) {
     const build = await compileFixture({
       plugins: [new StaticAssetsPlugin()],
       files: {
@@ -148,21 +147,40 @@ describe('bundledAssetOutputName against a user assetModuleFilename', () => {
         'index.js':
           "import large from './large.png'\nconst clip = new URL('./clip.mp4', import.meta.url).href\nself.out = {large, clip}\n"
       },
-      config: () => ({output: {assetModuleFilename: 'media/[name][ext]'}})
+      config: () => ({output: {assetModuleFilename}})
     })
     expect(build.errors).toEqual([])
 
-    const pngName = bundledAssetOutputName('/p/large.png', large)
-    const clipName = bundledAssetOutputName('/p/clip.mp4', clip)
+    return build
+  }
+
+  it.each([
+    'media/[name][ext]',
+    'media/[name].[contenthash:6][ext]',
+    'media/[contenthash][ext]',
+    '[name]-[hash:4][ext]'
+  ])('names both copies the way the build does under %s', async (pattern) => {
+    const build = await buildWith(pattern)
+    const output = build.stats.compilation.outputOptions
+    const pngName = bundledAssetOutputName('/p/large.png', large, output)
+    const clipName = bundledAssetOutputName('/p/clip.mp4', clip, output)
 
     expect(Object.keys(build.emitted).sort()).toEqual(
-      [pngName, 'main.js', 'media/clip.mp4'].sort()
+      [pngName, clipName, 'main.js'].sort()
     )
 
-    expect(clipName).toMatch(/^assets\/clip\.[0-9a-f]{8}\.mp4$/)
+    expect(pngName).toMatch(/^assets\/large\.[0-9a-f]{8}\.png$/)
     expect(await build.evaluate()).toEqual({
       large: `/${pngName}`,
-      clip: `${ORIGIN}media/clip.mp4`
+      clip: `${ORIGIN}${clipName}`
     })
+  })
+
+  it('keeps the default name for a pattern it cannot render', async () => {
+    const output = {assetModuleFilename: 'media/[path][name][ext]'}
+
+    expect(bundledAssetOutputName('/p/clip.mp4', clip, output)).toMatch(
+      /^assets\/clip\.[0-9a-f]{8}\.mp4$/
+    )
   })
 })
