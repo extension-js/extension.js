@@ -44,6 +44,11 @@ export function safariResyncFailed(reason: string) {
   )
 }
 
+// A reason inside the retry warning, so it carries no glyph of its own.
+export function extensionLoadRetryTimedOut(ms: number) {
+  return `The browser did not answer within ${minutes(ms)}, so the dev server stopped waiting for it. An answer that comes later is still picked up.`
+}
+
 // The browser still runs the build it refused, so this is only a warning.
 export function extensionLoadRetryFailed(browser: string, reason: string) {
   return (
