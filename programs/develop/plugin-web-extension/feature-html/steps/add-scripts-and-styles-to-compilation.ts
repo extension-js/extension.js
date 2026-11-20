@@ -13,6 +13,7 @@ import type {FilepathList, PluginInterface} from '../../../types'
 import {EXTENSIONJS_SANDBOX_LAYER} from '../../feature-scripts/contracts'
 import {classicConcatEntry, isClassicScript} from '../../shared/classic-concat'
 import type {HtmlPage} from '../../shared/html-page-extensions'
+import {readHtmlText} from '../html-lib/read-html'
 import {sourceMayShip} from '../html-lib/source-may-ship'
 import * as htmlUtils from '../html-lib/utils'
 
@@ -70,7 +71,7 @@ export class AddScriptsAndStylesToCompilation {
         const moduleJsAssets = new Set(htmlAssets?.moduleJs || [])
         const hasInlineScript = (() => {
           try {
-            const html = fs.readFileSync(resource as string, 'utf8')
+            const html = readHtmlText(resource as string)
             const inlineRe =
               /<script\b(?![^>]*\bsrc\s*=)[^>]*>([\s\S]*?)<\/script>/gi
             let match: RegExpExecArray | null

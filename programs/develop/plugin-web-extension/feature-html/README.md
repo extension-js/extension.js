@@ -52,6 +52,10 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 | Relative static assets referenced by HTML   | `assets/<name>.<contenthash>.<ext>` | One copy, shared with stylesheets and imports          |
 | Extension-root assets in HTML (leading `/`) | the same path, URL kept as written  | E.g., `<img src="/img/logo.png">` ships `img/logo.png` |
 
+### Page encoding
+
+Every page is written as UTF-8. A page saved in another encoding is decoded from the charset it declares, by a byte order mark or a `<meta charset>` in its first 1024 bytes, and the built page declares `utf-8`. The build warns with `W_HTML_NOT_UTF8` and names the file. A page that is not UTF-8 and declares no charset the runtime can decode ships with a replacement character for each byte that is not UTF-8, under the same warning. Saving the file as UTF-8 ends the warning.
+
 ## Supported pages/fields
 
 | Feature                            | Output folder/page            | Description                                 |

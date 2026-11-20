@@ -318,6 +318,44 @@ export function manifestPageMissing(
   return lines.join('\n')
 }
 
+// A page decoded from the charset it declares. The build goes on, and the
+// warning stops once the file itself is UTF-8.
+export function pageConvertedToUtf8(file: string, charset: string) {
+  const lines: string[] = []
+  lines.push(
+    `${colors.underline(file)} is encoded as ${colors.blue(charset)}, so the build converted it to UTF-8.`
+  )
+
+  lines.push(
+    `The built page declares ${colors.blue('utf-8')} and shows the same text.`
+  )
+
+  lines.push(`Save the file as UTF-8 to build it as written.`)
+
+  return lines.join('\n')
+}
+
+// A page no charset could decode, which a browser shows with a
+// replacement character in place of each byte that is not UTF-8.
+export function pageNotUtf8(file: string, charset: string | undefined) {
+  const lines: string[] = []
+  lines.push(
+    charset
+      ? `${colors.underline(file)} is not UTF-8, and its declared charset ${colors.blue(charset)} cannot decode it.`
+      : `${colors.underline(file)} is not UTF-8 and declares no charset.`
+  )
+
+  lines.push(
+    `The built page shows a replacement character for each byte that is not UTF-8.`
+  )
+
+  lines.push(
+    `Save the file as UTF-8 and declare ${colors.blue('<meta charset="utf-8">')}.`
+  )
+
+  return lines.join('\n')
+}
+
 // A page file that is there and stays out of the build. The field names
 // the manifest key, or the page when no key names it.
 export function pageFileWithheld(

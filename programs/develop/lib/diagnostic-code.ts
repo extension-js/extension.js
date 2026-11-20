@@ -146,6 +146,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   EnvPrivatePlaceholder: CODES.W_BUILD_CONSTANT_UNDEFINED,
   EnvReservedName: CODES.W_ENV_NAME_RESERVED,
   EnvDefinedNameWritten: CODES.W_ENV_DEFINE_WRITTEN,
+  HtmlPageNotUtf8: CODES.W_HTML_NOT_UTF8,
   UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
 }
 

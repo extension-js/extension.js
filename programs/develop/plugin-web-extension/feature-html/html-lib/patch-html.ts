@@ -23,6 +23,7 @@ import {createScriptTag, injectJsScript, scriptTagAttrs} from './inject'
 import * as messages from './messages'
 import {injectOptionsDialogFloor} from './options-dialog-floor'
 import {parseHtml} from './parse-html'
+import {readHtmlText} from './read-html'
 import {
   applyRewrittenStaticUrl,
   cleanAssetUrl,
@@ -119,10 +120,7 @@ export function patchHtml(
   html?: string,
   options: {optionsDialogFloor?: boolean; entryScript?: string} = {}
 ): string {
-  const htmlFile =
-    typeof html === 'string'
-      ? html
-      : fs.readFileSync(htmlEntry, {encoding: 'utf8'})
+  const htmlFile = typeof html === 'string' ? html : readHtmlText(htmlEntry)
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
 
@@ -313,7 +311,7 @@ export function patchHtmlNested(
   htmlEntry: string,
   manifestDir?: string
 ): string {
-  const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
+  const htmlFile = readHtmlText(htmlEntry)
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
 

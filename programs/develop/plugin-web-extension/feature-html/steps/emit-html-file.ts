@@ -18,6 +18,7 @@ import {withheldEntryKind} from '../../feature-scripts/scripts-lib/utils'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {markPageReportedMissing} from '../../shared/reported-missing-pages'
 import * as messages from '../html-lib/messages'
+import {readHtml} from '../html-lib/read-html'
 import {getFilePath} from '../html-lib/utils'
 
 export class EmitHtmlFile {
@@ -142,8 +143,8 @@ export class EmitHtmlFile {
               continue
             }
 
-            const rawHtml = fs.readFileSync(resolved, 'utf8')
-            const rawSource = new sources.RawSource(rawHtml)
+            const read = readHtml(resolved)
+            const rawSource = new sources.RawSource(read.text)
             const filepath = getFilePath(featureName, '.html', false)
             // The asset names the file it was read from, for whoever maps an
             // emitted page back to its source.
@@ -154,6 +155,22 @@ export class EmitHtmlFile {
               )
               .replace(/\\/g, '/')
             compilation.emitAsset(filepath, rawSource, {sourceFilename})
+
+            if (read.outcome !== 'utf-8') {
+              reportToCompilation(
+                compilation,
+                compiler,
+                read.outcome === 'converted'
+                  ? messages.pageConvertedToUtf8(
+                      sourceFilename,
+                      String(read.declared)
+                    )
+                  : messages.pageNotUtf8(sourceFilename, read.declared),
+                'warning',
+                sourceFilename,
+                'HtmlPageNotUtf8'
+              )
+            }
           }
         }
       }

@@ -663,6 +663,11 @@
       "summary": "Project code writes to a process.env or import.meta.env name the build replaces with its value. The write runs, and reads of that name keep the build value.",
       "warn": true
     },
+    "W_HTML_NOT_UTF8": {
+      "area": "compile",
+      "summary": "An HTML page of the extension is not UTF-8 text. A page that declares its charset is converted to UTF-8, and one that does not ships with a replacement character for each byte that is not UTF-8.",
+      "warn": true
+    },
     "W_CDP_NOT_CONNECTED": {
       "area": "debug-protocol",
       "summary": "A dev, start or preview session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",

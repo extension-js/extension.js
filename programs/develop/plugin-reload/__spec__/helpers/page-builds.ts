@@ -2,6 +2,7 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
+import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 
@@ -29,6 +30,8 @@ export interface PageBuild {
   // A hash of every emitted file with this machine's folders written out.
   hashes: Record<string, string>
   errors: string[]
+  // Each warning, with the code its name maps to.
+  warnings: Array<{name: string; code?: string; file?: string; message: string}>
 }
 
 export const PAGE_FILES: Record<string, string> = {
@@ -281,6 +284,14 @@ export async function buildPages(
     pageLoaders: pageLoadersOf(compiler, root),
     ownAliases,
     hashes,
-    errors: stats.compilation.errors.map((error) => String(error.message))
+    errors: stats.compilation.errors.map((error) => String(error.message)),
+    warnings: stats.compilation.warnings.map(
+      (warning: Error & {file?: string}) => ({
+        name: warning.name,
+        code: diagnosticCode(warning),
+        ...(warning.file ? {file: warning.file} : {}),
+        message: String(warning.message)
+      })
+    )
   }
 }
