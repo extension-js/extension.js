@@ -9,7 +9,7 @@
 import type {Command} from 'commander'
 import colors from 'pintor'
 import {exitAfterDrain} from '../helpers/exit-after-drain'
-import {commandDescriptions} from '../helpers/messages'
+import {commandDescriptions, usageRefusal} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {isJsonOutput, refuseUnreadableOutput} from '../helpers/output-flag'
 import {
@@ -99,7 +99,11 @@ export function registerTelemetryCommand(
         } else {
           // eslint-disable-next-line no-console
           console.error(
-            `${colors.red('✗')} Could not write telemetry consent file.`
+            usageRefusal(
+              'Could not write telemetry consent file.\n' +
+                (path ? `PATH ${path}\n` : '') +
+                'Check write permissions on the consent file path.'
+            )
           )
         }
 
@@ -182,7 +186,10 @@ export function registerTelemetryCommand(
         } else {
           // eslint-disable-next-line no-console
           console.error(
-            `${colors.red('✗')} Could not remove every telemetry file.`
+            usageRefusal(
+              'Could not remove every telemetry file.\n' +
+                'Check write permissions on the telemetry folder.'
+            )
           )
         }
 
@@ -206,7 +213,10 @@ export function registerTelemetryCommand(
       } else {
         // eslint-disable-next-line no-console
         console.error(
-          `Unknown telemetry action: ${action}. Expected: enable | disable | status | reset.`
+          usageRefusal(
+            `Unknown telemetry action: ${action}.\n` +
+              'Expected: enable | disable | status | reset.'
+          )
         )
       }
 

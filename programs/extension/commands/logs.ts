@@ -20,7 +20,7 @@ import {
   loadExtensionDevelopBridgeModule
 } from '../helpers/extension-develop-runtime'
 import {LOG_CONTEXTS} from '../helpers/log-contexts'
-import {commandDescriptions} from '../helpers/messages'
+import {commandDescriptions, usageRefusal} from '../helpers/messages'
 import {CODES, ENVELOPE} from '../helpers/messaging'
 import {parsePositiveInt} from '../helpers/normalize-options'
 import {refuseUnreadableOutput} from '../helpers/output-flag'
@@ -392,20 +392,7 @@ export function registerLogsCommand(
       const tab = parsePositiveInt('--tab', options.tab)
 
       if (!tab.ok) {
-        // eslint-disable-next-line no-console
-        console.error(tab.message)
-
-        if (format !== 'pretty') {
-          writeFrame(
-            ENVELOPE.fail('logs', 'usage', {
-              code: CODES.E_FLAG_VALUE_INVALID,
-              message: tab.message,
-              name: 'CliError'
-            })
-          )
-        }
-
-        exitWithFailure(CODES.E_FLAG_VALUE_INVALID)
+        refuseUsage(format, tab.message, '--tab', CODES.E_FLAG_VALUE_INVALID)
       }
 
       if (
@@ -415,7 +402,9 @@ export function registerLogsCommand(
       ) {
         refuseUsage(
           format,
-          `extension logs --since expects a sequence number or an ISO timestamp, got: ${options.since}`
+          `extension logs --since expects a sequence number or an ISO timestamp, got: ${options.since}`,
+          '--since',
+          CODES.E_FLAG_VALUE_INVALID
         )
       }
 
@@ -428,14 +417,16 @@ export function registerLogsCommand(
         refuseUsage(
           format,
           `extension logs --context expects a comma-separated list of ` +
-            `${knownContexts.join(', ')} or all, got: ${unknownContexts.join(', ')}`
+            `${knownContexts.join(', ')} or all, got: ${unknownContexts.join(', ')}`,
+          '--context'
         )
       }
 
       if (rule.parseLogLevelFilter(options.level) === undefined) {
         refuseUsage(
           format,
-          `extension logs --level expects one of ${rule.LOG_LEVEL_FILTERS.join(', ')}, got: ${options.level}`
+          `extension logs --level expects one of ${rule.LOG_LEVEL_FILTERS.join(', ')}, got: ${options.level}`,
+          '--level'
         )
       }
 
@@ -448,7 +439,7 @@ export function registerLogsCommand(
 
       if (emulatorRefusal) {
         // eslint-disable-next-line no-console
-        console.error(emulatorRefusal)
+        console.error(usageRefusal(emulatorRefusal))
 
         if (format !== 'pretty') {
           writeFrame(
@@ -504,7 +495,7 @@ export function registerLogsCommand(
           `or pass --browser to match it.` +
           otherLogsNote(others)
         // eslint-disable-next-line no-console
-        console.error(message)
+        console.error(usageRefusal(message))
 
         if (format !== 'pretty') {
           writeFrame(
@@ -546,24 +537,31 @@ function followGapWarnings(missingEvents: number): string[] {
   ]
 }
 
+// A value outside a listed set is E_INVALID_OPTION, a value of the wrong
+// shape E_FLAG_VALUE_INVALID, as the code table words them.
 function refuseUsage(
   format: 'pretty' | 'json' | 'ndjson',
-  message: string
+  message: string,
+  flag: string,
+  code:
+    | typeof CODES.E_INVALID_OPTION
+    | typeof CODES.E_FLAG_VALUE_INVALID = CODES.E_INVALID_OPTION
 ): never {
   // eslint-disable-next-line no-console
-  console.error(message)
+  console.error(usageRefusal(message))
 
   if (format !== 'pretty') {
     writeFrame(
       ENVELOPE.fail('logs', 'usage', {
-        code: CODES.E_INVALID_OPTION,
+        code,
         message,
-        name: 'CliError'
+        name: 'CliError',
+        refs: {flag}
       })
     )
   }
 
-  exitWithFailure(CODES.E_INVALID_OPTION)
+  exitWithFailure(code)
 }
 
 async function followLogs(
@@ -597,7 +595,7 @@ async function followLogs(
           `Run \`extension dev --browser=${browser}\` first.`) +
       otherSessionsNote(others)
     // eslint-disable-next-line no-console
-    console.error(message)
+    console.error(usageRefusal(message))
 
     if (format !== 'pretty') {
       writeFrame(

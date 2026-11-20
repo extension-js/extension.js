@@ -269,7 +269,7 @@ describe('the parent watchdog shutdown', () => {
 
     expect(log.mock.calls).toEqual([
       [
-        `[Extension.js] Parent process ${PARENT} is gone (--parent-pid). Shutting down.`
+        `⏵⏵⏵ Error: Parent process ${PARENT} is gone (--parent-pid). Shutting down.`
       ]
     ])
 

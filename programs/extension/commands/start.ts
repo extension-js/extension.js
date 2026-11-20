@@ -18,7 +18,11 @@ import {
   explicitCliValue,
   explicitOptionalBoolean
 } from '../helpers/cli-explicit'
-import {declaredErrorCode} from '../helpers/cli-failure'
+import {
+  declaredErrorCode,
+  failureHint,
+  isUsageCode
+} from '../helpers/cli-failure'
 import {
   cliGeckoBinary,
   firefoxBinaryAliasOption,
@@ -548,13 +552,17 @@ export function registerStartCommand(
               printFrame(
                 ENVELOPE.fail(
                   'start',
-                  'build-failed',
+                  isUsageCode(code) ? 'usage' : 'build-failed',
                   {
                     code,
                     message:
                       error instanceof Error ? error.message : String(error)
                   },
-                  {hint: 'Fix the error above and run start again.'}
+                  {
+                    hint:
+                      failureHint(code) ??
+                      'Fix the error above and run start again.'
+                  }
                 )
               )
             }

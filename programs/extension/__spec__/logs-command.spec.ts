@@ -451,6 +451,34 @@ describe('extension logs (one-shot)', () => {
     )
   })
 
+  // A value outside a listed set is E_INVALID_OPTION, a value of the wrong
+  // shape is E_FLAG_VALUE_INVALID, as the code table words them.
+  it.each([
+    [
+      ['--since', 'nope'],
+      'E_FLAG_VALUE_INVALID',
+      'extension logs --since expects a sequence number or an ISO timestamp, got: nope'
+    ],
+    [
+      ['--tab', 'abc'],
+      'E_FLAG_VALUE_INVALID',
+      '--tab expects a positive integer, got: abc'
+    ],
+    [
+      ['--level', 'loud'],
+      'E_INVALID_OPTION',
+      'extension logs --level expects one of off, error, warn, info, debug, trace, all, got: loud'
+    ]
+  ])('refuses %j with its code, the flag as a ref and the error prefix', async (flag, code, message) => {
+    expect(await run(['logs', dir, '--output', 'ndjson', ...flag])).toBe(1)
+
+    expect(errorLines()).toEqual([`⏵⏵⏵ Error: ${message}`])
+    expect(JSON.parse(String(writeSyncSpy.mock.calls[0][1]))).toMatchObject({
+      status: 'usage',
+      error: {code, message, refs: {flag: flag[0]}}
+    })
+  })
+
   it('refuses a non-numeric --tab instead of printing every event', async () => {
     const stdout: string[] = []
     vi.spyOn(fs, 'writeSync').mockImplementation(((
@@ -562,7 +590,10 @@ describe('extension logs (one-shot)', () => {
       await run(['logs', dir, '--output', 'ndjson', '--browser', 'firefox'])
     ).toBe(1)
 
-    expect(String(errorSpy.mock.calls[0][0])).toContain('No logs found')
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(
+      /^⏵⏵⏵ Error: No logs found/
+    )
+
     // The fixture's chromium folder has logs, so the refusal points there. A
     // log file outlives its session, so it is never called a running one.
     expect(String(errorSpy.mock.calls[0][0])).toContain(
@@ -576,8 +607,8 @@ describe('extension logs (one-shot)', () => {
 describe('extension logs --follow', () => {
   it('exits 1 when no dev session control channel is active', async () => {
     expect(await run(['logs', dir, '--follow', '--output', 'ndjson'])).toBe(1)
-    expect(String(errorSpy.mock.calls[0][0])).toContain(
-      'No active dev session control channel'
+    expect(String(errorSpy.mock.calls[0][0])).toMatch(
+      /^⏵⏵⏵ Error: No active dev session control channel/
     )
   })
 

@@ -178,65 +178,62 @@ function emittedCarries(distDir: string, file: CopiedFile): boolean {
   }
 }
 
-describe.skipIf(process.platform === 'win32')(
-  'a dev session with every special folder present',
-  () => {
-    const leftovers: string[] = []
+describe('a dev session with every special folder present', () => {
+  const leftovers: string[] = []
 
-    afterEach(() => {
-      for (const dir of leftovers.splice(0)) {
-        rmSync(dir, {recursive: true, force: true})
-      }
-    })
+  afterEach(() => {
+    for (const dir of leftovers.splice(0)) {
+      rmSync(dir, {recursive: true, force: true, maxRetries: 5})
+    }
+  })
 
-    it('recompiles and recopies each file the build copies without a module reference', async () => {
-      const work = mkdtempSync(join(tmpdir(), 'extjs-copied-watch-'))
-      leftovers.push(work)
-      const projectDir = join(work, 'project')
-      writeProject(projectDir)
-      const distDir = join(projectDir, 'dist', 'chrome')
+  it('recompiles and recopies each file the build copies without a module reference', async () => {
+    const work = mkdtempSync(join(tmpdir(), 'extjs-copied-watch-'))
+    leftovers.push(work)
+    const projectDir = join(work, 'project')
+    writeProject(projectDir)
+    const distDir = join(projectDir, 'dist', 'chrome')
 
-      const session = startCli([
-        'dev',
-        projectDir,
-        '--browser',
-        'chrome',
-        '--no-browser',
-        '--output',
-        'json'
-      ])
-      const frames = () => parseFrames(session.read().stdout)
-      const recompiles = () =>
-        frames().filter((frame) => frame.status === 'recompiled').length
+    const session = startCli([
+      'dev',
+      projectDir,
+      '--browser',
+      'chrome',
+      '--no-browser',
+      '--output',
+      'json'
+    ])
+    const frames = () => parseFrames(session.read().stdout)
+    const recompiles = () =>
+      frames().filter((frame) => frame.status === 'recompiled').length
 
-      await session.waitFor(
-        () => frames().some((frame) => frame.status === 'ready'),
-        READY_DEADLINE_MS,
-        'the ready frame'
+    await session.waitFor(
+      () => frames().some((frame) => frame.status === 'ready'),
+      READY_DEADLINE_MS,
+      'the ready frame'
+    )
+
+    const recopied: string[] = []
+
+    for (const file of COPIED) {
+      const seen = recompiles()
+      writeFileSync(join(projectDir, file.source), file.next)
+
+      const recopiedInTime = await waitUntil(
+        () => recompiles() > seen && emittedCarries(distDir, file),
+        RECOPY_DEADLINE_MS
       )
 
-      const recopied: string[] = []
+      // One file past the deadline is the failure, so the rest are not tried.
+      if (!recopiedInTime) break
 
-      for (const file of COPIED) {
-        const seen = recompiles()
-        writeFileSync(join(projectDir, file.source), file.next)
+      recopied.push(file.source)
+    }
 
-        const recopiedInTime = await waitUntil(
-          () => recompiles() > seen && emittedCarries(distDir, file),
-          RECOPY_DEADLINE_MS
-        )
+    await session.stop('SIGINT', EXIT_DEADLINE_MS)
 
-        // One file past the deadline is the failure, so the rest are not tried.
-        if (!recopiedInTime) break
-
-        recopied.push(file.source)
-      }
-
-      await session.stop('SIGINT', EXIT_DEADLINE_MS)
-
-      expect(recopied, session.read().stderr).toEqual(
-        COPIED.map((file) => file.source)
-      )
-    }, 480_000)
-  }
-)
+    expect(recopied, session.read().stderr).toEqual(
+      COPIED.map((file) => file.source)
+    )
+  }, 480_000)
+})
