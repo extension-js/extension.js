@@ -83,17 +83,17 @@ describe('a PostCSS config read twice in one process', () => {
   })
 })
 
-// Two builds in one process, with the file the config requires edited in
+// Two builds in one process, with the file the config loads edited in
 // between. Each prints the word its build stamped on the sheet.
 const TWO_BUILDS = [
   "import fs from 'node:fs'",
   "import path from 'node:path'",
   "import {pathToFileURL} from 'node:url'",
-  'const [engine, root] = process.argv.slice(2)',
+  'const [engine, root, helper, source] = process.argv.slice(2)',
   'const {extensionBuild} = await import(pathToFileURL(engine).href)',
   'const words = []',
   "for (const word of ['first', 'second']) {",
-  "  fs.writeFileSync(path.join(root, 'tokens', 'deep.cjs'), `module.exports = '${word}'\\n`)",
+  "  fs.writeFileSync(path.join(root, helper), source.replace('WORD', word))",
   "  await extensionBuild(root, {browser: 'chrome', silent: true, install: false, mode: 'production', exitOnError: false})",
   "  const dist = path.join(root, 'dist', 'chrome')",
   "  const sheet = fs.readdirSync(dist, {recursive: true}).find((file) => String(file).endsWith('.css'))",
@@ -105,12 +105,12 @@ const TWO_BUILDS = [
 ].join('\n')
 
 // A dev session with no browser: once it says it is ready, edits the file
-// two requires down from the config and waits for the stamp to follow.
+// two files down from the config and waits for the stamp to follow.
 const WATCH = [
   "import fs from 'node:fs'",
   "import path from 'node:path'",
   "import {pathToFileURL} from 'node:url'",
-  'const [engine, root] = process.argv.slice(2)',
+  'const [engine, root, helper, source] = process.argv.slice(2)',
   'const {extensionDev} = await import(pathToFileURL(engine).href)',
   'const stamp = () => {',
   "  const dist = path.join(root, 'dist', 'chrome')",
@@ -133,20 +133,67 @@ const WATCH = [
   'for (let turn = 0; turn < 400 && !fs.existsSync(ready); turn++) {',
   '  await new Promise((resolve) => setTimeout(resolve, 100))',
   '}',
-  "fs.writeFileSync(path.join(root, 'tokens', 'deep.cjs'), \"module.exports = 'second'\\n\")",
+  "fs.writeFileSync(path.join(root, helper), source.replace('WORD', 'second'))",
   "console.log('STAMPS ' + [first, await until('second')].join(','))",
   'process.exit(0)',
   ''
 ].join('\n')
 
-// The test runner loads a CommonJS postcss.config.js its own way, so these
-// run the built engine in a plain Node process.
-describe('a CommonJS postcss.config.js that requires a helper, in plain Node', () => {
+const STAMP_PLUGIN =
+  "{plugins: [{postcssPlugin: 'stamp', Rule(rule) { rule.append({prop: '--stamp', value: word}) }}]}"
+
+// The helper two files down from each kind of config, and what an edit
+// writes into it. WORD is the value the build stamps on the sheet.
+const CONFIGS: Array<{
+  name: string
+  helper: string
+  source: string
+  files: Record<string, string>
+}> = [
+  {
+    name: 'a CommonJS postcss.config.js that requires a helper',
+    helper: 'tokens/deep.cjs',
+    source: "module.exports = 'WORD'\n",
+    files: {
+      'app/package.json': JSON.stringify({private: true, name: 'reread'}),
+      'app/tokens/index.cjs': "module.exports = require('./deep.cjs')\n",
+      'app/postcss.config.js': `const word = require('./tokens/index.cjs')\nmodule.exports = ${STAMP_PLUGIN}\n`
+    }
+  },
+  {
+    name: 'an ES module postcss.config.mjs that imports a helper',
+    helper: 'tokens/deep.mjs',
+    source: "export const word = 'WORD'\n",
+    files: {
+      'app/package.json': JSON.stringify({private: true, name: 'reread'}),
+      'app/tokens/index.mjs': "export {word} from './deep.mjs'\n",
+      'app/postcss.config.mjs': `import {word} from './tokens/index.mjs'\nexport default ${STAMP_PLUGIN}\n`
+    }
+  },
+  {
+    name: 'a postcss.config.js that imports a helper in a "type": "module" project',
+    helper: 'tokens/deep.js',
+    source: "export const word = 'WORD'\n",
+    files: {
+      'app/package.json': JSON.stringify({
+        private: true,
+        name: 'reread',
+        type: 'module'
+      }),
+      'app/tokens/index.js': "export {word} from './deep.js'\n",
+      'app/postcss.config.js': `import {word} from './tokens/index.js'\nexport default ${STAMP_PLUGIN}\n`
+    }
+  }
+]
+
+// The test runner loads a project's modules its own way, CommonJS and ES
+// alike, so these run the built engine in a plain Node process.
+describe.each(CONFIGS)('$name, in plain Node', ({helper, source, files}) => {
   it.each([
     ['two builds in one process read', TWO_BUILDS],
     ['a dev session rebuilds on', WATCH]
   ])(
-    '%s an edit to a file the helper requires',
+    '%s an edit to a file the helper loads',
     (_label, script) => {
       const engine = path.join(
         path.dirname(resolveDevelopDistFile('dead-css-url-loader')),
@@ -162,7 +209,6 @@ describe('a CommonJS postcss.config.js that requires a helper, in plain Node', (
 
       const root = makeProject({
         'run.mjs': script,
-        'app/package.json': JSON.stringify({private: true, name: 'reread'}),
         'app/manifest.json': JSON.stringify({
           manifest_version: 3,
           name: 'reread',
@@ -172,18 +218,19 @@ describe('a CommonJS postcss.config.js that requires a helper, in plain Node', (
         'app/popup.html':
           '<!doctype html><link rel="stylesheet" href="./styles.css"><p>x</p>\n',
         'app/styles.css': '.a{color:red}\n',
-        'app/tokens/index.cjs': "module.exports = require('./deep.cjs')\n",
-        'app/tokens/deep.cjs': "module.exports = 'first'\n",
-        'app/postcss.config.js': [
-          "const word = require('./tokens/index.cjs')",
-          "module.exports = {plugins: [{postcssPlugin: 'stamp', Rule(rule) { rule.append({prop: '--stamp', value: word}) }}]}",
-          ''
-        ].join('\n')
+        [`app/${helper}`]: source.replace('WORD', 'first'),
+        ...files
       })
 
       const output = execFileSync(
         process.execPath,
-        [path.join(root, 'run.mjs'), engine, path.join(root, 'app')],
+        [
+          path.join(root, 'run.mjs'),
+          engine,
+          path.join(root, 'app'),
+          helper,
+          source
+        ],
         {
           encoding: 'utf8',
           env: {
