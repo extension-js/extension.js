@@ -20,6 +20,10 @@ vi.mock('node:child_process', async () => {
 })
 
 import {
+  EXIT_PROBE_TIMEOUT_MS,
+  teardownDefaults
+} from '../../browsers-lib/process-teardown'
+import {
   PID_START_PROBE_TIMEOUT_MS,
   pidStartedAtIso,
   pidStartedAtMs
@@ -40,6 +44,30 @@ describe('pidStartedAtMs', () => {
     for (const call of calls) {
       expect(call.opts.timeout).toBe(PID_START_PROBE_TIMEOUT_MS)
     }
+  })
+
+  it.each([
+    'win32',
+    'darwin',
+    'linux'
+  ] as const)('gives the %s query the bound its caller names', (platform) => {
+    pidStartedAtMs(1234, platform, 750)
+
+    expect(calls).toHaveLength(1)
+    expect(calls[0].opts.timeout).toBe(750)
+  })
+
+  // An exit handler holds the process until it returns.
+  it('gives the query of an exiting process the short bound, the other the long one', () => {
+    teardownDefaults.startedAtOnExit(1234)
+    teardownDefaults.startedAt(1234)
+
+    expect(calls.map((call) => call.opts.timeout)).toEqual([
+      EXIT_PROBE_TIMEOUT_MS,
+      PID_START_PROBE_TIMEOUT_MS
+    ])
+
+    expect(EXIT_PROBE_TIMEOUT_MS).toBeLessThan(PID_START_PROBE_TIMEOUT_MS)
   })
 
   it('reads a probe that timed out as unknown', () => {

@@ -164,14 +164,14 @@ describe('offerManagedInstall', () => {
     const {ask, install} = seams(true)
 
     await expect(
-      offerManagedInstall('edge', {canPrompt: () => true, ask, install})
+      offerManagedInstall('chrome', {canPrompt: () => true, ask, install})
     ).resolves.toBe(true)
 
     expect(ask).toHaveBeenCalledTimes(1)
-    expect(install.mock.calls).toEqual([['edge']])
+    expect(install.mock.calls).toEqual([['chrome']])
     expect(readBrowserInstall()).toMatchObject({
       outcome: 'accepted',
-      browser: 'edge'
+      browser: 'chrome'
     })
   })
 

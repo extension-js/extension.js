@@ -1,5 +1,14 @@
+import fs from 'node:fs'
 import net from 'node:net'
+import os from 'node:os'
+import path from 'node:path'
 import {afterEach} from 'vitest'
+
+// A create with the real transport keeps the pinned catalog archive, so each
+// spec file gets its own empty cache and never reads this machine's.
+process.env.EXTENSION_CREATE_CACHE_DIR = fs.mkdtempSync(
+  path.join(os.tmpdir(), 'extjs-create-cache-')
+)
 
 // This package's suite is a required gate, so a spec that reaches a CDN turns a
 // slow link into a red gate on a correct change. Only loopback is allowed, and

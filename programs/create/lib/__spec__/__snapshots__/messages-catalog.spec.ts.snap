@@ -35,6 +35,7 @@ exports[`create message catalogs > matches the exported message surface 1`] = `
     "templateArchiveEntryOutside: function(3)",
     "templateDirectoryIsDestination: function(2)",
     "templateDownloadFailed: function(2)",
+    "templateFileNotReadable: function(2)",
     "templateNotFoundInCatalog: function(2)",
     "templateOfflineFallback: function(3)",
     "templateOverrideFetchFailed: function(2)",

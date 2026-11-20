@@ -850,6 +850,7 @@ describe('one install per browser folder, and no delete of a folder that is not 
           removed: false,
           path: at('chrome'),
           outcome: 'failed',
+          kind: 'foreign',
           reason: NOT_OURS
         }
       ])
@@ -964,6 +965,7 @@ describe('one install per browser folder, and no delete of a folder that is not 
           removed: false,
           path: at('chrome'),
           outcome: 'failed',
+          kind: 'installing',
           reason: `an install of it is running, PID ${process.pid}`
         },
         {
@@ -1005,6 +1007,7 @@ describe('one install per browser folder, and no delete of a folder that is not 
 
       expect((error as BrowserUninstallError).results[0]).toMatchObject({
         outcome: 'failed',
+        kind: 'installing',
         reason: 'an install of it is running, PID 4000000'
       })
 

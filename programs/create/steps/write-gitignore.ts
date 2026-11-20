@@ -9,7 +9,7 @@
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import {failStep} from '../lib/utils'
 
 const intro =
@@ -80,7 +80,11 @@ export async function writeGitignore(
         return ''
       }
 
-      throw failStep(messages.writingGitIgnoreError(gitIgnorePath, err), err)
+      throw failStep(
+        messages.writingGitIgnoreError(gitIgnorePath, err),
+        err,
+        CODES.E_DESTINATION_NOT_WRITABLE
+      )
     })
 
   const present = new Set(
@@ -109,6 +113,10 @@ export async function writeGitignore(
   const contents = `${existing ? `${existing}\n\n` : ''}${blocks.join('\n\n')}\n`
 
   await fs.writeFile(gitIgnorePath, contents).catch((err) => {
-    throw failStep(messages.writingGitIgnoreError(gitIgnorePath, err), err)
+    throw failStep(
+      messages.writingGitIgnoreError(gitIgnorePath, err),
+      err,
+      CODES.E_DESTINATION_NOT_WRITABLE
+    )
   })
 }

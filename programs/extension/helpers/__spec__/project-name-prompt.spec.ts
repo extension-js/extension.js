@@ -1,3 +1,4 @@
+import {PassThrough} from 'node:stream'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   askProjectName,
@@ -41,9 +42,47 @@ describe('askProjectName', () => {
   })
 })
 
+function stream(isTTY: boolean) {
+  return Object.assign(new PassThrough(), {isTTY})
+}
+
 describe('canPromptForProjectName', () => {
-  it('never prompts inside a test run', () => {
-    expect(canPromptForProjectName()).toBe(false)
+  it('prompts a person at a terminal, whatever runs the process', () => {
+    for (const env of [{}, {VITEST: 'true', VITEST_WORKER_ID: '1'}]) {
+      expect(
+        canPromptForProjectName({
+          input: stream(true),
+          output: stream(true),
+          env
+        })
+      ).toBe(true)
+    }
+  })
+
+  it('never prompts in CI or when either end is not a terminal', () => {
+    expect(
+      canPromptForProjectName({
+        input: stream(true),
+        output: stream(true),
+        env: {CI: 'true'}
+      })
+    ).toBe(false)
+
+    expect(
+      canPromptForProjectName({
+        input: stream(false),
+        output: stream(true),
+        env: {}
+      })
+    ).toBe(false)
+
+    expect(
+      canPromptForProjectName({
+        input: stream(true),
+        output: stream(false),
+        env: {}
+      })
+    ).toBe(false)
   })
 })
 

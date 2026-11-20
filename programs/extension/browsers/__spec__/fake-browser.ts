@@ -504,7 +504,6 @@ export async function fakeChromium(
       }
     },
     // Loopback and timers only, so the production values are the fake's too.
-    portIsOpen: chromiumLaunchDefaults.portIsOpen,
     loadCdpSetup: chromiumLaunchDefaults.loadCdpSetup,
     sleep: chromiumLaunchDefaults.sleep,
     now: chromiumLaunchDefaults.now,

@@ -3,7 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {resolveBrowsersCacheRoot} from '../lib/cache-root'
+import {removeTree, resolveBrowsersCacheRoot} from '../lib/cache-root'
 import {
   BrowserNotInstallableError,
   BrowserUninstallError,
@@ -259,20 +259,27 @@ describe('extensionUninstall on a temp cache root', () => {
       expect(fs.readdirSync(cacheRoot).sort()).toEqual(['brave', 'notes.txt'])
     })
 
-    it('outranks a name passed beside it', async () => {
+    // One browser or every browser: a guess between the two could remove
+    // the ones the caller meant to keep, so nothing is removed.
+    it('refuses a name passed beside it and removes nothing', async () => {
       plantTree(cacheRoot, 'firefox')
 
-      const results = (await uninstall({
-        all: true,
-        browser: 'chrome'
-      })) as Array<{browser: string}>
+      const error = await uninstall({all: true, browser: 'chrome'})
 
-      expect(results.map((result) => result.browser)).toEqual([
-        'chrome',
-        'chromium',
-        'edge',
-        'firefox'
-      ])
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toBe(
+        'Pass --browser <name> to remove one browser, or --all to remove ' +
+          'every browser, not both.'
+      )
+
+      expect(fs.readdirSync(cacheRoot)).toEqual(['firefox'])
+      expect(logged).toEqual([])
+    })
+
+    it('still takes all beside a blank name', async () => {
+      plantTree(cacheRoot, 'firefox')
+
+      await uninstall({all: true, browser: '  '})
 
       expect(fs.readdirSync(cacheRoot)).toEqual([])
     })
@@ -311,6 +318,7 @@ describe('extensionUninstall on a temp cache root', () => {
           removed: false,
           path: at('chromium'),
           outcome: 'failed',
+          kind: 'removal',
           reason
         },
         row('edge', 'absent'),
@@ -354,9 +362,59 @@ describe('extensionUninstall on a temp cache root', () => {
       expect(cause).toBeInstanceOf(AggregateError)
       expect((cause as AggregateError).errors).toHaveLength(2)
       expect(
-        (error as BrowserUninstallError).results.map((result) => result.outcome)
-      ).toEqual(['failed', 'failed'])
+        (error as BrowserUninstallError).results.map((result) => [
+          result.outcome,
+          result.kind
+        ])
+      ).toEqual([
+        ['failed', 'removal'],
+        ['failed', 'removal']
+      ])
     })
+
+    // The real removal, on a real folder this user may not empty. Windows
+    // ignores the write bit on folders and root ignores it everywhere.
+    it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+      'names the folder that refused for permissions, not a folder that is not empty',
+      async () => {
+        plantTree(cacheRoot, 'chrome')
+        const locked = path.join(at('chrome'), 'linux-152.0.9999.1')
+        fs.chmodSync(locked, 0o555)
+
+        try {
+          const error = await uninstall({browser: 'chrome'})
+          const reason = `EACCES: permission denied, no write access to '${locked}'`
+
+          expect(error).toBeInstanceOf(BrowserUninstallError)
+          expect((error as BrowserUninstallError).results).toEqual([
+            {
+              browser: 'chrome',
+              removed: false,
+              path: at('chrome'),
+              outcome: 'failed',
+              kind: 'permission',
+              reason
+            }
+          ])
+
+          expect((error as Error).message).toBe(
+            `Couldn't remove Chrome. ${at('chrome')} is still there (${reason}). ` +
+              'Give your user write access to that folder, or remove it ' +
+              'yourself, then run the uninstall again.'
+          )
+
+          // The error the removal raised stays as the cause: macOS reports
+          // ENOTEMPTY on the folder above, Linux EACCES on the file inside.
+          const raised = (error as {cause?: {cause?: {code?: string}}}).cause
+            ?.cause
+          expect(raised?.code).toBe(
+            process.platform === 'darwin' ? 'ENOTEMPTY' : 'EACCES'
+          )
+        } finally {
+          fs.chmodSync(locked, 0o755)
+        }
+      }
+    )
   })
 
   describe('Edge, which its installer places system-wide', () => {
@@ -428,5 +486,60 @@ describe('extensionUninstall on a temp cache root', () => {
       expect(results[2].systemPath).toBe('/usr/bin/microsoft-edge')
       expect(lookup.mock.calls).toEqual([['which', 'microsoft-edge']])
     })
+  })
+})
+
+// Each OS raises its own code for the same refusal, so the one each raises is
+// fed to the removal here and every host checks all three.
+describe('removeTree names the folder that refused, whatever code the OS raised', () => {
+  let tree: string
+
+  beforeEach(() => {
+    tree = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-remove-tree-'))
+    fs.mkdirSync(path.join(tree, 'build'))
+    fs.writeFileSync(path.join(tree, 'build', 'browser-stub'), 'stub')
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    fs.rmSync(tree, {recursive: true, force: true})
+  })
+
+  it.each([
+    ['macOS', 'ENOTEMPTY', 'rmdir'],
+    ['Linux', 'EACCES', 'unlink'],
+    ['Windows', 'EPERM', 'unlink']
+  ])('as %s raises it (%s)', (_os, code, syscall) => {
+    const blocked = path.join(tree, 'build')
+    const raised = Object.assign(new Error(`${code}: ${syscall}`), {code})
+
+    vi.spyOn(fs, 'rmSync').mockImplementation(() => {
+      throw raised
+    })
+
+    vi.spyOn(fs, 'accessSync').mockImplementation((file) => {
+      if (file === blocked) throw raised
+    })
+
+    expect(() => removeTree(tree)).toThrow(
+      expect.objectContaining({
+        code: 'EACCES',
+        path: blocked,
+        message: `EACCES: permission denied, no write access to '${blocked}'`,
+        cause: raised
+      })
+    )
+  })
+
+  it('keeps any other failure as it was raised', () => {
+    const busy = Object.assign(new Error('EBUSY: resource busy'), {
+      code: 'EBUSY'
+    })
+
+    vi.spyOn(fs, 'rmSync').mockImplementation(() => {
+      throw busy
+    })
+
+    expect(() => removeTree(tree)).toThrow(busy)
   })
 })
