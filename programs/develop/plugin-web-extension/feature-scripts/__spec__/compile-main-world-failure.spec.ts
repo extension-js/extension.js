@@ -128,11 +128,8 @@ describe('a MAIN world group whose child compilation fails', () => {
 
     expect(child.errors[0].message).not.toContain('MAIN world')
     expect(child.warnings).toBe(0)
-    // The parent still writes the bundle the child produced.
-    expect(child.emitted).toEqual([
-      'background/service_worker.js',
-      'content_scripts/content-0.js'
-    ])
+    // The bundle of a failed child is not written.
+    expect(child.emitted).toEqual(['background/service_worker.js'])
   })
 
   it('forwards an unresolved import of the child once, under the importing file', async () => {
@@ -144,5 +141,17 @@ describe('a MAIN world group whose child compilation fails', () => {
     expect(child.errors[0].message).toMatch(
       /^ {2}\u00d7 Module not found: Can't resolve '\.\/missing\.js' in '/
     )
+
+    expect(child.emitted).toEqual(['background/service_worker.js'])
+  })
+
+  it('writes the bundle of a child that compiles', async () => {
+    const child = await build('console.log("main")\n', true)
+
+    expect(child.errors).toEqual([])
+    expect(child.emitted).toEqual([
+      'background/service_worker.js',
+      'content_scripts/content-0.js'
+    ])
   })
 })

@@ -29,6 +29,7 @@ export const DEVELOP_BUILD_ENTRIES: readonly string[] = [
   'public-css-url-loader',
   'preprocessor-passthrough-loader',
   'solid-jsx-gate-loader',
+  'env-write-loader',
   'minimum-script-file',
   'preact-refresh-shim',
   'solid-jsx-runtime',

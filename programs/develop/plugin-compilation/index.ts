@@ -112,15 +112,14 @@ export class CompilationPlugin {
     new FileRequestsPlugin().apply(compiler)
 
     // The config file is read before the compiler exists and its values are a
-    // session-scoped snapshot, so a watch run can only report the edit.
-    if (compiler.options.watchOptions) {
-      new WatchProjectConfigPlugin(
-        (compiler.options.context as string) || path.dirname(this.manifestPath)
-      ).apply(compiler)
+    // session-scoped snapshot, so a watch run can only report the edit. Each
+    // of these acts only once compiler.watch() runs, so a build passes them by.
+    new WatchProjectConfigPlugin(
+      (compiler.options.context as string) || path.dirname(this.manifestPath)
+    ).apply(compiler)
 
-      new WatchRealProjectPathPlugin().apply(compiler)
-      new WarmAncestorWatchersPlugin().apply(compiler)
-    }
+    new WatchRealProjectPathPlugin().apply(compiler)
+    new WarmAncestorWatchersPlugin().apply(compiler)
 
     // A zip is a shippable artifact: any build command may produce one,
     // production or a development-mode staging build alike. Only the dev
