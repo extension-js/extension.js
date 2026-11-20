@@ -31,30 +31,25 @@ const control = vi.hoisted(() => ({
 
 // Opens a loopback control server. It runs for real unless a test arms a
 // session whose extension dials in on the test's own clock.
-vi.mock(
-  '../dev-server/control-bridge/production-control',
-  async (importOriginal) => {
-    const actual =
-      await importOriginal<
-        typeof import('../dev-server/control-bridge/production-control')
-      >()
+vi.mock('../lib/production-control', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../lib/production-control')>()
 
-    return {
-      ...actual,
-      startProductionControl: async (options: ProductionControlOptions) => {
-        control.calls.push(options)
+  return {
+    ...actual,
+    startProductionControl: async (options: ProductionControlOptions) => {
+      control.calls.push(options)
 
-        const session = await (control.fake ?? actual.startProductionControl)(
-          options
-        )
+      const session = await (control.fake ?? actual.startProductionControl)(
+        options
+      )
 
-        control.sessions.push(session)
+      control.sessions.push(session)
 
-        return session
-      }
+      return session
     }
   }
-)
+})
 
 import {EXECUTOR_ATTACH_WAIT_MS, extensionPreview} from '../command-preview'
 import {remoteArchiveCacheKey} from '../lib/remote-archive'
