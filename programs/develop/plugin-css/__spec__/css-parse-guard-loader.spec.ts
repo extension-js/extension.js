@@ -37,7 +37,7 @@ function runPitch(
       async: () => (err: Error | null, content?: string) =>
         err ? reject(err) : resolve({result: content, warnings})
     }
-    pitch.call(ctx as any)
+    pitch.call(ctx as unknown as ThisParameterType<typeof pitch>)
   })
 }
 
