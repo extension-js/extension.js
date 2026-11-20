@@ -90,8 +90,6 @@ function project(manifest: Record<string, unknown> = {}) {
 
 async function build(root: string, browser: 'chrome' | 'firefox' | 'safari') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const original = {
     log: console.log,
@@ -109,13 +107,10 @@ async function build(root: string, browser: 'chrome' | 'firefox' | 'safari') {
       silent: false,
       install: false,
       mode: 'production',
-      addonLint: false,
-      exitOnError: false
+      addonLint: false
     } as never)
   } finally {
     Object.assign(console, original)
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   expect(summary.errors_count).toBe(0)

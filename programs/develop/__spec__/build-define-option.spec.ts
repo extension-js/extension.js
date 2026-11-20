@@ -51,22 +51,14 @@ function project() {
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  const summary = await extensionBuild(root, {
+    browser,
+    silent: true,
+    install: false,
+    mode: 'production'
+  } as any)
+  expect(summary.errors_count).toBe(0)
 
   return fs.readFileSync(
     path.join(root, 'dist', browser, 'background', 'service_worker.js'),

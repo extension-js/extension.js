@@ -130,8 +130,6 @@ async function buildFixture(
   const {extensionBuild} = await import('../command-build')
 
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
-  const previousVitest = process.env.VITEST
-  process.env.VITEST = 'true'
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
@@ -139,20 +137,13 @@ async function buildFixture(
       browser,
       silent: true,
       install: false,
-      mode,
-      exitOnError: false
+      mode
     } as any)
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthorMode
-    }
-
-    if (previousVitest === undefined) {
-      delete process.env.VITEST
-    } else {
-      process.env.VITEST = previousVitest
     }
   }
 }

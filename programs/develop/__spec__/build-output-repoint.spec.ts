@@ -65,8 +65,6 @@ function writePage(root: string, name: string) {
 
 async function build(root: string, cwd: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   process.chdir(cwd)
   const lines: string[] = []
   const originalLog = console.log
@@ -77,8 +75,7 @@ async function build(root: string, cwd: string) {
       browser: 'chrome',
       silent: false,
       install: false,
-      mode: 'production',
-      exitOnError: false
+      mode: 'production'
     } as any)
     expect(summary.errors_count).toBe(0)
 
@@ -86,8 +83,6 @@ async function build(root: string, cwd: string) {
   } finally {
     console.log = originalLog
     process.chdir(originalCwd)
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

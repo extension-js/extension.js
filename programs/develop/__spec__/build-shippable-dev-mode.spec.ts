@@ -61,24 +61,16 @@ async function build(
   metadataCommand?: 'dev' | 'build'
 ) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode,
-      zip: true,
-      exitOnError: false,
-      ...(metadataCommand ? {metadataCommand} : {})
-    } as any)
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  const summary = await extensionBuild(root, {
+    browser,
+    silent: true,
+    install: false,
+    mode,
+    zip: true,
+    ...(metadataCommand ? {metadataCommand} : {})
+  } as any)
+  expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)
   const files = fs.readdirSync(distDir, {recursive: true}).map(String)

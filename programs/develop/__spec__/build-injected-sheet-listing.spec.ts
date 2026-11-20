@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 import {workspacePackage} from './helpers/workspace-package'
 
 type Browser = 'chrome' | 'firefox' | 'safari'
@@ -68,22 +69,10 @@ function project(files: Record<string, string>, sass = false) {
 }
 
 async function build(root: string, browser: Browser) {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    browser,
+    mode: 'production'
+  })
 }
 
 // Every path the built manifest lets a page fetch, whichever shape it has.

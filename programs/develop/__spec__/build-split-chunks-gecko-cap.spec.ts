@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // The Firefox store check stops parsing a script past 5 MB. A page can load
 // any number of sibling files, so the Firefox build splits the shared chunk
@@ -78,22 +79,10 @@ function project(
 }
 
 async function build(root: string, browser: string) {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    browser,
+    mode: 'production'
+  })
 }
 
 function scriptFiles(dir: string, base = dir): string[] {

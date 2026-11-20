@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const HTML_SRC_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-root-abs-html-')
@@ -107,26 +108,9 @@ function writePublicOptionsFixture() {
 }
 
 async function buildFixture(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
-  const previousVitest = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previousVitest === undefined) {
-      delete process.env.VITEST
-    } else {
-      process.env.VITEST = previousVitest
-    }
-  }
+  return buildProject(root, {
+    mode: 'production'
+  })
 }
 
 beforeAll(() => {

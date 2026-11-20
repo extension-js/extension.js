@@ -17,20 +17,44 @@ export function vitestArgs(argv) {
   return ['run', ...argv.filter((arg) => arg !== '--')]
 }
 
+function resolveVitestPackage(cwd) {
+  return createRequire(path.join(cwd, 'package.json')).resolve(
+    'vitest/package.json'
+  )
+}
+
 export function resolveVitestBin(cwd = process.cwd()) {
-  const require = createRequire(path.join(cwd, 'package.json'))
-  const pkgPath = require.resolve('vitest/package.json')
-  const bin = require(pkgPath).bin
+  const pkgPath = resolveVitestPackage(cwd)
+  const bin = createRequire(pkgPath)(pkgPath).bin
   const rel = typeof bin === 'string' ? bin : bin.vitest
 
   return path.resolve(path.dirname(pkgPath), rel)
+}
+
+// The pnpm shim puts the store's hoisted folder on NODE_PATH, and specs that
+// resolve undeclared packages such as sass rely on it under the isolated linker.
+export function vitestEnv(vitestPkgPath, env = process.env) {
+  const marker = `${path.sep}node_modules${path.sep}.pnpm${path.sep}`
+  const at = vitestPkgPath.lastIndexOf(marker)
+
+  if (at === -1) return env
+
+  const hoisted = path.join(
+    vitestPkgPath.slice(0, at + marker.length),
+    'node_modules'
+  )
+  const nodePath = env.NODE_PATH
+    ? `${hoisted}${path.delimiter}${env.NODE_PATH}`
+    : hoisted
+
+  return {...env, NODE_PATH: nodePath}
 }
 
 export function runVitest(argv = process.argv.slice(2)) {
   const result = spawnSync(
     process.execPath,
     [resolveVitestBin(), ...vitestArgs(argv)],
-    {stdio: 'inherit', env: process.env}
+    {stdio: 'inherit', env: vitestEnv(resolveVitestPackage(process.cwd()))}
   )
 
   if (result.error) throw result.error

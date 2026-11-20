@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {categorizeAsset} from '../plugin-perf-budgets/categorize'
+import {buildProject} from './helpers/build-project'
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQAB' +
@@ -83,22 +84,9 @@ function project() {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    mode: 'production'
+  })
 }
 
 function listCodeAssets(dir: string, base = dir): string[] {

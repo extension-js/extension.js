@@ -58,22 +58,14 @@ describe('chrome_settings_overrides', () => {
   it('keeps addresses verbatim and ships every packaged file it names', async () => {
     const root = project()
     const {extensionBuild} = await import('../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
 
-    try {
-      const summary = await extensionBuild(root, {
-        browser: 'firefox',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as any)
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    const summary = await extensionBuild(root, {
+      browser: 'firefox',
+      silent: true,
+      install: false,
+      mode: 'production'
+    } as any)
+    expect(summary.errors_count).toBe(0)
 
     const distDir = path.join(root, 'dist', 'firefox')
     const built = JSON.parse(

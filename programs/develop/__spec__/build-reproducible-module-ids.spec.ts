@@ -120,8 +120,6 @@ function project(...nested: string[]) {
 
 async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const originalLog = console.log
   console.log = (...args: unknown[]) => lines.push(args.join(' '))
@@ -139,8 +137,6 @@ async function build(root: string) {
     return {summary, output: stripAnsi(lines.join('\n'))}
   } finally {
     console.log = originalLog
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

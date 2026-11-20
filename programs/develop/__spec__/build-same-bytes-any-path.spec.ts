@@ -152,29 +152,21 @@ function canLink(): boolean {
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
   const rulesOut = path.join(tempFolder('extjs-same-bytes-rules-'), 'rules')
-  process.env.VITEST = 'true'
   process.env[RULES_OUT] = rulesOut
 
   let outputPath = ''
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      zip: true,
-      sourceMaps: true,
-      exitOnError: false
-    } as any)
-    expect(summary.errors_count).toBe(0)
-    outputPath = String(summary.output_path)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  const summary = await extensionBuild(root, {
+    browser,
+    silent: true,
+    install: false,
+    mode: 'production',
+    zip: true,
+    sourceMaps: true
+  } as any)
+  expect(summary.errors_count).toBe(0)
+  outputPath = String(summary.output_path)
 
   const dist = path.join(root, 'dist')
   const files: Record<string, string> = {}

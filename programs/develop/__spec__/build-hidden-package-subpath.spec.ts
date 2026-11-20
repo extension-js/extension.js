@@ -76,15 +76,12 @@ async function build(root: string) {
       printed.push(args.join(' '))
     })
   )
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
   try {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
       install: false,
-      mode: 'production',
-      exitOnError: false
+      mode: 'production'
     } as any)
 
     return {printed, errors: summary.errors_count, thrown: undefined}
@@ -92,9 +89,6 @@ async function build(root: string) {
     return {printed, errors: undefined, thrown: String(error)}
   } finally {
     for (const spy of spies) spy.mockRestore()
-
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 
