@@ -8,8 +8,15 @@
 
 import {readFileSync} from 'node:fs'
 import {defineConfig, type Plugin} from 'vitest/config'
+import {droppedVitestFiltersMessage} from '../../scripts/lib/vitest-filter-args.mjs'
 // @ts-expect-error plain ESM script without types, shared with the script specs
 import {workspaceSourceAliases} from '../../scripts/lib/workspace-source-entries.mjs'
+
+// Vitest drops a filter written after `--` or right after `-u`, and a
+// direct call would then start the whole suite. pnpm test rewrites both.
+const dropped = droppedVitestFiltersMessage(process.argv.slice(2))
+
+if (dropped) throw new Error(dropped)
 
 // Vitest caches each transform with its imports already resolved, keyed on the
 // importer alone. A linked package's manifest picks those paths, so key on it.

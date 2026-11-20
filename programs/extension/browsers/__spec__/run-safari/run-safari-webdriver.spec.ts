@@ -202,10 +202,14 @@ describe('safari dev session and its safaridriver', () => {
     return line ? Number(line.slice('raised '.length)) : undefined
   }
 
+  // No row here raises a container app after the open call returns, and the
+  // five second wait for one is held on a fake clock in the pipeline spec.
   async function runDevPackage(
     tools: FakeSafariTools,
-    host: Record<string, unknown> = {announceDevReady: true}
+    given: Record<string, unknown> = {announceDevReady: true}
   ) {
+    const host = {raiseWaitMs: 0, ...given}
+
     fs.mkdirSync(distDir, {recursive: true})
     fs.writeFileSync(
       path.join(distDir, 'manifest.json'),

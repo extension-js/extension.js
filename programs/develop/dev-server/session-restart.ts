@@ -6,30 +6,15 @@
 // ╚═════╝ ╚══════╝  ╚═══╝        ╚══════╝╚══════╝╚═╝  ╚═╝  ╚═══╝  ╚══════╝╚═╝  ╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-export type DevSessionRestartReason =
-  | 'scripts'
-  | 'html'
-  | 'icons'
-  | 'json'
-  | 'env'
-  | 'public'
-  | 'main-world'
-  | 'styles'
+import {
+  answerSessionRestarts,
+  type DevSessionRestartRequest
+} from '../lib/session-restart-signal'
 
-export interface DevSessionRestartRequest {
-  reason: DevSessionRestartReason
-  pathAfter?: string
-  pathBefore?: string
-  // A file whose contents changed, as opposed to an entry that moved.
-  pathChanged?: string
-  manifestField?: string
-  // The field pathChanged sat under, when only its manifest key changed.
-  manifestFieldBefore?: string
-  // The source that now registers pathChanged into the MAIN world.
-  registeredBy?: string
-  // How many more files changed for the same reason.
-  alsoChanged?: number
-}
+export type {
+  DevSessionRestartReason,
+  DevSessionRestartRequest
+} from '../lib/session-restart-signal'
 
 export const DEV_SESSION_RESTART_DEBOUNCE_MS = 300
 
@@ -287,3 +272,10 @@ export function isCompilerRestarting(compiler: object | undefined): boolean {
 export function isDevSessionRestartPending(compiler?: object): boolean {
   return liveSessionOf(compiler)?.isPending() ?? false
 }
+
+// Every plugin asks through the signal in lib, and this module answers it
+// for the sessions it holds.
+answerSessionRestarts({
+  request: requestDevSessionRestart,
+  isRestarting: isCompilerRestarting
+})

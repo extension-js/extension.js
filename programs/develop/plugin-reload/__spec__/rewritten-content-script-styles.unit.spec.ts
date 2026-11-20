@@ -4,6 +4,7 @@ import {
   fakeCompilation,
   fakeCompiler
 } from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import type {BrowserType} from '../../types'
 import type {ReloadBroker, ReloadInstruction} from '../index'
 import {LAUNCHED_SESSION, launchedSession} from './helpers/launched-session'
@@ -150,9 +151,12 @@ describe('the reload after a compile rewrites a content script stylesheet', () =
   // against those and an unrelated edit swaps nothing again.
   it('compares the next compile with the stylesheet the swap delivered', async () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
-    const h = createHarness('firefox', {
-      broadcastReload: vi.fn().mockReturnValue(1)
-    })
+    const h = createHarness(
+      'firefox',
+      quietBroker({
+        broadcastReload: vi.fn().mockReturnValue(1)
+      })
+    )
 
     await h.compile(sheet('red'))
     await h.compile(sheet('blue'), ['src/widget.module.css'])
@@ -172,10 +176,13 @@ describe('the reload after a compile rewrites a content script stylesheet', () =
     vi.spyOn(console, 'log').mockImplementation(() => {})
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     const broadcastReload = vi.fn().mockReturnValue(0)
-    const h = createHarness('firefox', {
-      broadcastReload,
-      deliverLatchedReload: vi.fn().mockResolvedValue(false)
-    })
+    const h = createHarness(
+      'firefox',
+      quietBroker({
+        broadcastReload,
+        deliverLatchedReload: vi.fn().mockResolvedValue(false)
+      })
+    )
     const named = () =>
       h.reload.mock.calls.map((call) =>
         (call[0].refreshedStylesheets ?? []).map(

@@ -188,6 +188,7 @@ export class FirefoxLaunchPlugin {
   // spawned child exit. Null while the child itself is the browser.
   private livePid: number | null = null
   private livePidAdoptedAt = 0
+  private livePidStartId: string | undefined
   private liveExitWatcher?: NodeJS.Timeout
   private browserGone = false
   private didReportReady = false
@@ -957,7 +958,11 @@ export class FirefoxLaunchPlugin {
       () => this.cleanupInstance(),
       () =>
         this.livePid
-          ? {pid: this.livePid, adoptedAt: this.livePidAdoptedAt}
+          ? {
+              pid: this.livePid,
+              adoptedAt: this.livePidAdoptedAt,
+              startId: this.livePidStartId
+            }
           : null,
       // A session that exits on a signal is gone before the browser's close
       // event runs, so the fresh profile is reclaimed as the process ends.
@@ -1094,6 +1099,7 @@ export class FirefoxLaunchPlugin {
 
     this.livePid = pid
     this.livePidAdoptedAt = Date.now()
+    this.livePidStartId = this.deps.pidStartId(pid)
     stampReadyBrowserLaunch(
       this.extensionOutputPath,
       {

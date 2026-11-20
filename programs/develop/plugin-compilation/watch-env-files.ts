@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {requestDevSessionRestart} from '../dev-server/session-restart'
+import {requestSessionRestart} from '../lib/session-restart-signal'
 import * as messages from './compilation-lib/messages'
 
 // The env files are read once, when the plugin is applied, and their values go
@@ -84,7 +84,7 @@ export class WatchEnvFilesPlugin {
         // A live session rebuilds itself from the new values. Without one the
         // caller owns the restart, so the build has to say what went stale.
         if (
-          requestDevSessionRestart(compiler, {
+          requestSessionRestart(compiler, {
             reason: 'env',
             pathChanged: changedPath
           })

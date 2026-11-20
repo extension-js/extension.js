@@ -80,6 +80,10 @@ export interface ReloadSession {
   ): ((timeoutMs: number) => Promise<'settled' | 'timeout'>) | undefined
 }
 
+// The longest a delivery holds the next build. The broker bounds its own
+// waits below this: five seconds to wake a worker and three for the receipt.
+export const RELOAD_DELIVERY_HOLD_MS = 10_000
+
 // One owner for the reload of a dev session. What the browser read outlives
 // a restart of the compiler, so a caller keeps one session for its lifetime.
 export function createReloadSession(
@@ -90,6 +94,40 @@ export function createReloadSession(
     : loadedContentScriptsFor(options.browser)
   let broker: ReloadBroker | undefined
   let isHeld: BuildHold | undefined
+  // The delivery that is out, which the next build of a watched compiler
+  // waits for.
+  let delivering: Promise<void> | null = null
+
+  const send = async (
+    instruction: ReloadInstruction | undefined,
+    compilation?: Compilation
+  ): Promise<boolean> => {
+    if (!broker) return false
+
+    if (options.packaged) {
+      // The new package restarts the extension, so a dispatch that finds no
+      // worker is expected, and the package itself is the applied reload.
+      const delivered = instruction
+        ? await dispatchReload(instruction, {
+            broker,
+            producerRestartExpected: true
+          })
+        : false
+
+      broker.noteReloadApplied('safari-resync', instruction?.label)
+
+      return delivered
+    }
+
+    const delivered = await dispatchReload(instruction, {
+      broker,
+      build: readDevBuild(compilation)
+    })
+
+    loadedScripts?.settle(delivered)
+
+    return delivered
+  }
 
   return {
     connect(next) {
@@ -102,6 +140,12 @@ export function createReloadSession(
 
     watch(compiler) {
       const changedSources = createChangedSourcesTracker(compiler)
+
+      // The browser reads the dist for the reload it was sent, and a done
+      // hook that is still out does not keep the bundler from starting a build.
+      compiler.hooks.watchRun.tapPromise('extjs-reload-delivery', async () => {
+        if (delivering) await delivering
+      })
 
       return {
         plan(compilation) {
@@ -126,32 +170,28 @@ export function createReloadSession(
       loadedScripts?.noteLoaded(compilation)
     },
 
-    async deliver(instruction, compilation) {
-      if (!broker) return false
+    deliver(instruction, compilation) {
+      const delivery = send(instruction, compilation)
+      const settled: Promise<void> = new Promise((resolve) => {
+        // The hold ends with the delivery or at its bound, whichever is
+        // first, so a broker that never answers cannot stop the builds.
+        const bound = setTimeout(resolve, RELOAD_DELIVERY_HOLD_MS)
 
-      if (options.packaged) {
-        // The new package restarts the extension, so a dispatch that finds no
-        // worker is expected, and the package itself is the applied reload.
-        const delivered = instruction
-          ? await dispatchReload(instruction, {
-              broker,
-              producerRestartExpected: true
-            })
-          : false
+        bound.unref?.()
+        void delivery.then(
+          () => resolve(),
+          () => resolve()
+        )
 
-        broker.noteReloadApplied?.('safari-resync', instruction?.label)
-
-        return delivered
-      }
-
-      const delivered = await dispatchReload(instruction, {
-        broker,
-        build: readDevBuild(compilation)
+        void delivery.finally(() => clearTimeout(bound)).catch(() => undefined)
       })
 
-      loadedScripts?.settle(delivered)
+      delivering = settled
+      void settled.then(() => {
+        if (delivering === settled) delivering = null
+      })
 
-      return delivered
+      return delivery
     },
 
     combine: mergeReloadInstructions,
@@ -159,12 +199,10 @@ export function createReloadSession(
     bootRegistrationsWait(compilation) {
       const current = broker
 
-      if (!current?.awaitBootRegistrations) return undefined
+      if (!current) return undefined
       if (!readBootRegistrations(compilation)) return undefined
 
-      return (timeoutMs) =>
-        current.awaitBootRegistrations?.(timeoutMs) ??
-        Promise.resolve('settled')
+      return (timeoutMs) => current.awaitBootRegistrations(timeoutMs)
     }
   }
 }

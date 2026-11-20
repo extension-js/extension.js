@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {fakeCompiler} from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {type ReloadBroker, readDevBuild} from '../index'
 import {InjectBridgeProducer} from '../steps/inject-bridge-producer'
@@ -33,14 +34,16 @@ function session(background: string, broker?: Partial<ReloadBroker>) {
   const frames: Array<Record<string, unknown>> = []
   const launched = launchedSession({
     browser: 'chrome',
-    broker: broker && {
-      broadcastReload: (frame) => {
-        frames.push({...frame})
+    broker:
+      broker &&
+      quietBroker({
+        broadcastReload: (frame) => {
+          frames.push({...frame})
 
-        return 1
-      },
-      ...broker
-    }
+          return 1
+        },
+        ...broker
+      })
   })
 
   fs.writeFileSync(authored, background)

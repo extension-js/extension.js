@@ -175,6 +175,107 @@ describe('reusedPidEvidence', () => {
   })
 })
 
+describe('reusedPidEvidence with a process start id', () => {
+  const STAMPED = '2026-11-15T01:00:00.000Z'
+
+  const never = () => {
+    throw new Error('the dates were asked while the ids could decide')
+  }
+
+  it('trusts an equal id over a clock that stepped an hour', () => {
+    expect(
+      reusedPidEvidence(
+        {pid: 7, pidStartedAt: STAMPED, pidStartId: 'boot-a:5000'},
+        never,
+        () => 'boot-a:5000'
+      )
+    ).toBeNull()
+
+    // What the date rule alone says of the same stepped clock.
+    expect(
+      reusedPidEvidence(
+        {pid: 7, pidStartedAt: STAMPED},
+        startedAt('2026-11-15T02:00:00.000Z'),
+        () => 'boot-a:5000'
+      )
+    ).toContain("not at the contract's")
+  })
+
+  it.each([
+    ['another tick', 'boot-a:9000'],
+    ['another boot', 'boot-b:5000']
+  ])('names a reused pid by %s although the dates agree', (_title, current) => {
+    expect(
+      reusedPidEvidence(
+        {pid: 7, pidStartedAt: STAMPED, pidStartId: 'boot-a:5000'},
+        never,
+        () => current
+      )
+    ).toBe(`its start id is ${current}, not the contract's boot-a:5000`)
+  })
+
+  it('falls back on the dates when this machine reads no id', () => {
+    expect(
+      reusedPidEvidence(
+        {pid: 7, pidStartedAt: STAMPED, pidStartId: 'boot-a:5000'},
+        startedAt('2026-11-15T01:00:30.000Z'),
+        () => undefined
+      )
+    ).toContain("not at the contract's")
+
+    expect(
+      reusedPidEvidence(
+        {pid: 7, pidStartedAt: STAMPED, pidStartId: 'boot-a:5000'},
+        startedAt(STAMPED),
+        () => undefined
+      )
+    ).toBeNull()
+  })
+
+  it('reads no id for a contract that carries none', () => {
+    const neverId = () => {
+      throw new Error('an id was read for a contract without one')
+    }
+
+    expect(
+      reusedPidEvidence(
+        {pid: 7, pidStartedAt: STAMPED},
+        startedAt(STAMPED),
+        neverId
+      )
+    ).toBeNull()
+
+    expect(
+      reusedPidEvidence(
+        {pid: 7, pidStartedAt: STAMPED, pidStartId: ''},
+        startedAt(STAMPED),
+        neverId
+      )
+    ).toBeNull()
+  })
+
+  it('ends a session whose pid now runs under another id and whose port is silent', async () => {
+    const reason = await endedSessionReason(
+      {
+        status: 'ready',
+        pid: process.pid,
+        pidStartedAt: STAMPED,
+        pidStartId: 'boot-a:5000',
+        controlPort: silentPort
+      },
+      READY_PATH,
+      {dialFailed: true},
+      never,
+      () => 'boot-a:9000'
+    )
+
+    expect(reason).toContain('now belongs to another process')
+    expect(reason).toContain(
+      "its start id is boot-a:9000, not the contract's boot-a:5000"
+    )
+  })
+})
+
 describe('isSessionRunning and runningSessionBrowsers', () => {
   it('calls a session running only when it was not stopped and its port answers', async () => {
     expect(await isSessionRunning(null)).toBe(false)

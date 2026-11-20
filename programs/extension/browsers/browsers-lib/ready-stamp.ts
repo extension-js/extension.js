@@ -15,7 +15,7 @@ import {
   sessionArtifactsRootDirBesideBuild
 } from '../../../develop/lib/session-contract'
 import {cdpFaultWarningCode, stripChannelPrefix} from '../../helpers/messaging'
-import {pidStartedAtIso} from './resolve-live-pid'
+import {pidStartedAtIso, pidStartId} from './resolve-live-pid'
 import {writeJsonAtomic} from './write-json-atomic'
 
 // A run-only session loading a source folder keeps its contract under the
@@ -386,15 +386,33 @@ function stampPidWithStart(
   ready: Record<string, unknown>,
   pidKey: 'browserPid' | 'launcherPid',
   startKey: 'browserStartedAt' | 'launcherStartedAt',
-  pid: number
+  idKey: 'browserStartId' | 'launcherStartId',
+  pid: number,
+  probes: PidStartProbes
 ) {
   if (ready[pidKey] === pid) return
 
   ready[pidKey] = pid
 
-  const startedAt = pidStartedAtIso(pid)
+  const startedAt = probes.startedAt(pid)
   if (startedAt) ready[startKey] = startedAt
   else delete ready[startKey]
+
+  // Linux alone names a run of a pid, so the id is absent everywhere else.
+  const startId = probes.startId(pid)
+  if (startId) ready[idKey] = startId
+  else delete ready[idKey]
+}
+
+// How a stamp dates and names a pid, so any host can stand in for Linux.
+export interface PidStartProbes {
+  startedAt: (pid: number) => string | undefined
+  startId: (pid: number) => string | undefined
+}
+
+const pidStartProbes: PidStartProbes = {
+  startedAt: (pid) => pidStartedAtIso(pid),
+  startId: (pid) => pidStartId(pid)
 }
 
 // Publish which profile directory and browser process this session launched.
@@ -421,7 +439,8 @@ export function stampReadyBrowserLaunch(
     // know when the browser is up and nothing inside it ever connects.
     profileReused?: boolean
   },
-  runId?: string
+  runId?: string,
+  probes: PidStartProbes = pidStartProbes
 ) {
   try {
     if (!extensionOutputPath) return
@@ -447,7 +466,9 @@ export function stampReadyBrowserLaunch(
         ready,
         'browserPid',
         'browserStartedAt',
-        details.browserPid
+        'browserStartId',
+        details.browserPid,
+        probes
       )
     }
 
@@ -459,7 +480,9 @@ export function stampReadyBrowserLaunch(
         ready,
         'launcherPid',
         'launcherStartedAt',
-        details.launcherPid
+        'launcherStartId',
+        details.launcherPid,
+        probes
       )
     }
 

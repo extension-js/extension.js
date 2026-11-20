@@ -92,7 +92,7 @@ names one, otherwise any mode but production), so it also runs under
   runtime (when a session names a host and port), the page's own files and
   `reload-lib/minimum-files/minimum-script-file.ts`, which also reloads an
   open page whose served markup changed. With a client it points the dev
-  server's stock socket file at `page-socket-client`, which names the page
+  server's stock socket file at `reload-lib/page-socket-client.ts`, which names the page
   to the server. It also adds one rule, the
   `steps/ensure-hmr-for-scripts.ts` loader, for the script files the pages
   name: not a module they import, not a content script, and not at all
@@ -105,12 +105,19 @@ names one, otherwise any mode but production), so it also runs under
   sends a plan and records what the browser took. With `packaged` it trims
   each plan to what a restart cannot deliver and stamps every package as
   the applied reload. What the browser read outlives a compiler restart.
+  A delivery that is still out holds the next build of every watched
+  compiler, so the browser never reads a dist that is being written.
 
 - `build-reload.ts`
   The classification a session runs after a build. `reloadForBuild` reads
   the tracker's snapshot, classifies it and, when given what the browser last
   read, resolves against it. `loadedContentScriptsFor` maps a browser name to
   that record: none for the emulator, an in-place sheet swap for Gecko.
+
+- `html-refresh.ts`
+  Which open pages load again after a markup save. The dev server attaches
+  it to its socket server through `attachHtmlRefresh`, and the page names
+  itself with the socket client in `reload-lib/page-socket-client.ts`.
 
 - `classify-reload.ts`
   The pure reload classifier. Decision order per changed file: forced-full

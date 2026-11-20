@@ -3,6 +3,9 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
+// A dev session has the dev server loaded, which answers the MAIN world
+// step with a tracker that taps the compiler closing.
+import '../../../dev-server/main-world-restart'
 import {ScriptsPlugin} from '../index'
 
 const roots: string[] = []

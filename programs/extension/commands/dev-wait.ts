@@ -67,6 +67,7 @@ export type ReadyContractPayload = {
   port?: number | null
   pid?: number
   pidStartedAt?: string
+  pidStartId?: string
   ts?: string
   compiledAt?: string | null
   extensionLoadRefusedAt?: string
@@ -453,7 +454,12 @@ function sessionLiveness(
     if (!isProcessLikelyAlive(payload.pid)) return false
     if (typeof payload.pid !== 'number') return true
 
-    const key = `${payload.pid}|${payload.pidStartedAt}|${payload.startedAt}`
+    const key = [
+      payload.pid,
+      payload.pidStartedAt,
+      payload.pidStartId,
+      payload.startedAt
+    ].join('|')
 
     if (!reused.has(key)) {
       reused.set(key, reusedPidEvidence(payload, pidStartedAt) !== null)

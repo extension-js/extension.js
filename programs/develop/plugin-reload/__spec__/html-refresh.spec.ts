@@ -1,6 +1,5 @@
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
-import {pageSocketUrl} from '../../plugin-web-extension/feature-html/steps/page-socket-client'
 import {
   attachHtmlRefresh,
   clientsShowing,
@@ -9,6 +8,7 @@ import {
   pageOfSocketRequest,
   pagesBuiltFrom
 } from '../html-refresh'
+import {pageSocketUrl} from '../reload-lib/page-socket-client'
 
 const root = path.resolve('/proj')
 const at = (...segments: string[]) => path.join(root, ...segments)

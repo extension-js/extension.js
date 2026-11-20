@@ -59,6 +59,7 @@ function scriptedTeardown(over: Partial<TeardownDependencies> = {}) {
     isAlive: vi.fn(() => true),
     startedAt: vi.fn(() => ASKED_AT - 60_000),
     startedAtOnExit: vi.fn(() => ASKED_AT - 60_000),
+    startId: vi.fn(() => undefined),
     mark: vi.fn(() => []),
     sweep: vi.fn(() => []),
     kill: vi.fn(() => true),
@@ -397,6 +398,48 @@ describe('gracefulTerminatePid', () => {
     ])
   })
 
+  it('kills a pid whose start id held through the grace period, whatever the clock says', async () => {
+    const pid = await adoptedPid()
+    const {deps, printed} = scriptedTeardown({
+      platform: 'linux',
+      startId: vi.fn(() => 'boot-a:5000'),
+      // A clock stepped forward dates the same process after the ask.
+      startedAt: vi.fn(() => Date.parse('2026-11-17T11:00:00.000Z'))
+    })
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
+
+    gracefulTerminatePid(pid, 'firefox', deps)
+    endGracePeriod()
+
+    expect(deps.startedAt).not.toHaveBeenCalled()
+    expect(vi.mocked(deps.kill).mock.calls).toEqual([
+      [pid, 'SIGTERM'],
+      [pid, 'SIGKILL']
+    ])
+
+    expect(printed).toEqual([])
+  })
+
+  it('leaves a pid whose start id changed during the grace period, whatever the clock says', async () => {
+    const pid = await adoptedPid()
+    const ids = ['boot-a:5000', 'boot-a:9000']
+    const {deps, printed} = scriptedTeardown({
+      platform: 'linux',
+      startId: vi.fn(() => ids.shift()),
+      // A clock stepped back dates the new process before the ask.
+      startedAt: vi.fn(() => Date.parse('2026-11-17T09:00:00.000Z'))
+    })
+    vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout']})
+
+    gracefulTerminatePid(pid, 'firefox', deps)
+    endGracePeriod()
+
+    expect(deps.startedAt).not.toHaveBeenCalled()
+    expect(vi.mocked(deps.kill).mock.calls).toEqual([[pid, 'SIGTERM']])
+    expect(printed).toHaveLength(1)
+    expect(printed[0]).toContain('was left running')
+  })
+
   it('asks a proven pid to close on Windows, then forces its tree', async () => {
     const pid = await adoptedPid()
     const order: string[] = []
@@ -423,6 +466,48 @@ describe('forceKillPidOnExit', () => {
   const AFTER = Date.parse('2026-11-17T10:00:07.000Z')
   // No process is signaled in the scripted rows, so any number will do.
   const ADOPTED_PID = 2 ** 30
+
+  it('kills on exit by the start id it was adopted under and dates nothing', () => {
+    const {deps, printed} = scriptedTeardown({
+      platform: 'linux',
+      startId: vi.fn(() => 'boot-a:5000'),
+      startedAtOnExit: vi.fn(() => AFTER)
+    })
+
+    forceKillPidOnExit(ADOPTED_PID, 'firefox', ADOPTED_AT, deps, 'boot-a:5000')
+
+    expect(deps.startedAtOnExit).not.toHaveBeenCalled()
+    expect(vi.mocked(deps.kill).mock.calls).toEqual([[ADOPTED_PID, 'SIGKILL']])
+    expect(printed).toEqual([])
+  })
+
+  it('leaves a pid on exit that now runs under another start id', () => {
+    const {deps, printed} = scriptedTeardown({
+      platform: 'linux',
+      startId: vi.fn(() => 'boot-a:9000'),
+      startedAtOnExit: vi.fn(() => BEFORE)
+    })
+
+    forceKillPidOnExit(ADOPTED_PID, 'firefox', ADOPTED_AT, deps, 'boot-a:5000')
+
+    expect(deps.startedAtOnExit).not.toHaveBeenCalled()
+    expect(deps.kill).not.toHaveBeenCalled()
+    expect(printed).toHaveLength(1)
+    expect(printed[0]).toContain('was left running')
+  })
+
+  it('dates the pid on exit when it was adopted with no start id', () => {
+    const {deps} = scriptedTeardown({
+      startId: vi.fn(() => 'boot-a:5000'),
+      startedAtOnExit: vi.fn(() => BEFORE)
+    })
+
+    forceKillPidOnExit(ADOPTED_PID, 'firefox', ADOPTED_AT, deps)
+
+    expect(deps.startId).not.toHaveBeenCalled()
+    expect(deps.startedAtOnExit).toHaveBeenCalledExactlyOnceWith(ADOPTED_PID)
+    expect(vi.mocked(deps.kill).mock.calls).toEqual([[ADOPTED_PID, 'SIGKILL']])
+  })
 
   it('SIGKILLs an adopted pid that started before it was adopted', async () => {
     const pid = (await startChild(POLITE)).pid as number

@@ -100,6 +100,13 @@ export class SafariDevPlugin implements RunnerPlugin {
       if (this.held) await this.held
     })
 
+    // A build the bundler gives up on ends here with no done hook, so the
+    // save that waited behind it is packaged from this one.
+    compiler.hooks.failed.tap(SafariDevPlugin.name, () => {
+      this.compiling = false
+      this.startCatchUp()
+    })
+
     compiler.hooks.done.tapPromise(SafariDevPlugin.name, async (stats) => {
       const compilation = stats.compilation
       const hasErrors = compilation.errors && compilation.errors.length > 0

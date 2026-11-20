@@ -134,6 +134,9 @@
   live session would read as a reused pid. This value does not move, so a
   reader that can read it for the live pid compares it for equality and skips
   the dates
+- `browserStartId` and `launcherStartId`, on Linux only: the same value for
+  `browserPid` and `launcherPid`, stamped by the launcher beside each start
+  time and absent when the process table could not be read
 
 `events.ndjson` events (the file is reset at every run start and holds the
 current run only, join on `runId` to correlate across runs):

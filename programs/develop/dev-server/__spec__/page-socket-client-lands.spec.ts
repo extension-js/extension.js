@@ -5,9 +5,9 @@ import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {resolveStockSocketClientPath} from '../../lib/dev-server-client-import'
+import {pageOfSocketRequest} from '../../plugin-reload/html-refresh'
 import {SetupPageReload} from '../../plugin-reload/steps/setup-page-reload'
 import {htmlPagesExtensionsFor} from '../../plugin-web-extension/shared/html-page-extensions'
-import {pageOfSocketRequest} from '../html-refresh'
 
 // The dev server hands its client a socket class through ProvidePlugin, and
 // the build swaps that file for the one that names the page. This compiles
@@ -15,7 +15,7 @@ import {pageOfSocketRequest} from '../html-refresh'
 const tempFolder = trackTempFolders()
 const pageSocketSource = path.resolve(
   __dirname,
-  '../../plugin-web-extension/feature-html/steps/page-socket-client.ts'
+  '../../plugin-reload/reload-lib/page-socket-client.ts'
 )
 
 // The alias the build really sets, pointed at the source of the same file.

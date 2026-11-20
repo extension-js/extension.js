@@ -42,8 +42,10 @@ describe('launch facts are scoped to the run that produced them', () => {
     stampReadyBrowserLaunch(writer.readyPath, {
       browserPid: 999_999,
       browserStartedAt: '2020-01-01T00:00:00.000Z',
+      browserStartId: 'boot-a:1',
       launcherPid: 999_998,
       launcherStartedAt: '2020-01-01T00:00:00.000Z',
+      launcherStartId: 'boot-a:2',
       binary: '/Applications/Gone.app',
       binaryProvenance: 'pinned'
     })
@@ -63,8 +65,10 @@ describe('launch facts are scoped to the run that produced them', () => {
     for (const field of [
       'browserPid',
       'browserStartedAt',
+      'browserStartId',
       'launcherPid',
       'launcherStartedAt',
+      'launcherStartId',
       'cdpPort',
       'binary',
       'binaryProvenance',
