@@ -44,10 +44,11 @@ describe('askProjectName', () => {
 describe('canPromptForProjectName', () => {
   const terminal = {isTTY: true} as NodeJS.ReadStream & NodeJS.WriteStream
   const pipe = {isTTY: false} as NodeJS.ReadStream & NodeJS.WriteStream
+  const vars = (set: Record<string, string> = {}) => set as NodeJS.ProcessEnv
 
   it('asks a person whose input and output are both a terminal', () => {
     expect(
-      canPromptForProjectName({input: terminal, output: terminal, env: {}})
+      canPromptForProjectName({input: terminal, output: terminal, env: vars()})
     ).toBe(true)
   })
 
@@ -56,18 +57,18 @@ describe('canPromptForProjectName', () => {
       canPromptForProjectName({
         input: terminal,
         output: terminal,
-        env: {VITEST: 'true', VITEST_WORKER_ID: '1'}
+        env: vars({VITEST: 'true', VITEST_WORKER_ID: '1'})
       })
     ).toBe(true)
   })
 
   it('does not ask when either stream is a pipe', () => {
     expect(
-      canPromptForProjectName({input: pipe, output: terminal, env: {}})
+      canPromptForProjectName({input: pipe, output: terminal, env: vars()})
     ).toBe(false)
 
     expect(
-      canPromptForProjectName({input: terminal, output: pipe, env: {}})
+      canPromptForProjectName({input: terminal, output: pipe, env: vars()})
     ).toBe(false)
   })
 
@@ -76,7 +77,7 @@ describe('canPromptForProjectName', () => {
       canPromptForProjectName({
         input: terminal,
         output: terminal,
-        env: {GITHUB_ACTIONS: 'true'}
+        env: vars({GITHUB_ACTIONS: 'true'})
       })
     ).toBe(false)
   })
