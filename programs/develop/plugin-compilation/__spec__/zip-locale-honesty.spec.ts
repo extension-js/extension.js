@@ -4,29 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 
 import {ZipPlugin} from '../zip'
-
-function makeCompiler(ctx: string, outPath: string) {
-  let doneCb: any
-  const compiler: any = {
-    options: {context: ctx, output: {path: outPath}},
-    hooks: {
-      done: {
-        tapPromise: (_name: string, cb: any) => {
-          doneCb = cb
-        }
-      }
-    }
-  }
-
-  return {
-    compiler,
-    emitDone: async (stats: any = {compilation: {warnings: []}}) => {
-      await doneCb(stats)
-
-      return stats
-    }
-  }
-}
+import {makeCompiler} from './helpers/zip-archive'
 
 describe('ZipPlugin locale honesty', () => {
   let tmp: string
