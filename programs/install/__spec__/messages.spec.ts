@@ -246,6 +246,25 @@ const cases: Record<keyof typeof messages, MessageCase> = {
       '/usr/bin/microsoft-edge'
     ]
   },
+  installerDidNotStart: {
+    thrown: true,
+    build: () =>
+      messages.installerDidNotStart(
+        'chrome',
+        'npx.cmd',
+        Object.assign(new Error('spawn npx.cmd EACCES'), {code: 'EACCES'})
+      ),
+    carries: [
+      "Couldn't install Chrome",
+      "package runner npx didn't start (EACCES)",
+      'nothing was downloaded'
+    ]
+  },
+  uninstallAllWithBrowser: {
+    thrown: true,
+    build: () => messages.uninstallAllWithBrowser(),
+    carries: ['--browser <name>', '--all', 'not both']
+  },
   uninstallRequiresTarget: {
     thrown: true,
     build: () => messages.uninstallRequiresTarget(),
@@ -428,31 +447,37 @@ describe('install messages', () => {
 
   it('remedies each kind of uninstall failure once, and says still there only for a removal', () => {
     const failed = (
-      browser: 'chrome' | 'edge' | 'firefox',
+      browser: 'chrome' | 'chromium' | 'edge' | 'firefox',
+      kind: 'removal' | 'permission' | 'foreign' | 'installing',
       reason: string
     ) => ({
       browser,
       removed: false,
       path: `/c/${browser}`,
       outcome: 'failed' as const,
+      kind,
       reason
     })
 
     expect(
-      messages.uninstallFailed(
-        [
-          failed('chrome', "it holds files Extension.js didn't put there"),
-          failed('edge', 'EPERM'),
-          failed('firefox', 'an install of it is running, PID 7')
-        ],
-        ['foreign', 'removal', 'installing']
-      )
+      messages.uninstallFailed([
+        failed(
+          'chrome',
+          'foreign',
+          "it holds files Extension.js didn't put there"
+        ),
+        failed('edge', 'removal', 'EPERM'),
+        failed('chromium', 'permission', 'EACCES'),
+        failed('firefox', 'installing', 'an install of it is running, PID 7')
+      ])
     ).toBe(
-      "Couldn't remove Chrome, Edge, Firefox. " +
+      "Couldn't remove Chrome, Edge, Chromium, Firefox. " +
         "/c/chrome was left untouched (it holds files Extension.js didn't put there). " +
         '/c/edge is still there (EPERM). ' +
+        '/c/chromium is still there (EACCES). ' +
         '/c/firefox was left untouched (an install of it is running, PID 7). ' +
         'Close any browser running from that folder, then run the uninstall again. ' +
+        'Give your user write access to that folder, or remove it yourself, then run the uninstall again. ' +
         'Extension.js removes only the folders it installed, so delete that one yourself if you mean to. ' +
         'Wait for the install to finish, then run the uninstall again.'
     )

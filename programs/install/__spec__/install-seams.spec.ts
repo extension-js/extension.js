@@ -22,9 +22,9 @@ import {
   type CommandResult,
   detectSystemEdgeBinary,
   edgeInstallNeedsInteractivePrivilegedSession,
-  locateSystemEdge,
   installPlan,
   isEdgePrivilegeEscalationFailure,
+  locateSystemEdge,
   lookupOnPath,
   packageManagerFromExecPath,
   prepareInstall,
@@ -52,62 +52,79 @@ const LOCALAPPDATA = path.join(scratch, 'LocalAppData')
 const USERPROFILE = path.join(scratch, 'UserProfile')
 
 describe('resolveBrowsersCacheRoot from an explicit env, platform and cwd', () => {
-  const everything = {HOME, XDG_CACHE_HOME: XDG, LOCALAPPDATA, USERPROFILE}
-  const cwdFallback = path.join(project, '.cache', 'extension.js', 'browsers')
+  // Each row names paths shaped for the platform it injects, so a Windows
+  // host and a POSIX host compute the same literal answer. Nothing is written.
+  const POSIX_PROJECT = '/dev/project'
+  const POSIX_HOME = '/home/dev'
+  const POSIX_XDG = '/xdg'
+  const everything = {
+    HOME: POSIX_HOME,
+    XDG_CACHE_HOME: POSIX_XDG,
+    LOCALAPPDATA: 'C:\\Users\\dev\\AppData\\Local',
+    USERPROFILE: 'C:\\Users\\dev'
+  }
+  const cwdFallback = `${POSIX_PROJECT}/.cache/extension.js/browsers`
+  const WIN_PROJECT = 'C:\\dev\\project'
+  const WIN_LOCALAPPDATA = 'C:\\Users\\dev\\AppData\\Local'
+  const WIN_USERPROFILE = 'C:\\Users\\dev'
+  const winEverything = {
+    HOME,
+    XDG_CACHE_HOME: XDG,
+    LOCALAPPDATA: WIN_LOCALAPPDATA,
+    USERPROFILE: WIN_USERPROFILE
+  }
 
   const cases: Array<{
     name: string
     platform: NodeJS.Platform
     env: Record<string, string | undefined>
     expected: string
+    cwd?: string
   }> = [
     {
       name: 'win32 uses LOCALAPPDATA first',
       platform: 'win32',
-      env: everything,
-      expected: path.join(LOCALAPPDATA, 'extension.js', 'browsers')
+      env: winEverything,
+      cwd: WIN_PROJECT,
+      expected: `${WIN_LOCALAPPDATA}\\extension.js\\browsers`
     },
     {
       name: 'win32 falls back to USERPROFILE',
       platform: 'win32',
-      env: {HOME, XDG_CACHE_HOME: XDG, USERPROFILE},
-      expected: path.join(
-        USERPROFILE,
-        'AppData',
-        'Local',
-        'extension.js',
-        'browsers'
-      )
+      env: {HOME, XDG_CACHE_HOME: XDG, USERPROFILE: WIN_USERPROFILE},
+      cwd: WIN_PROJECT,
+      expected: `${WIN_USERPROFILE}\\AppData\\Local\\extension.js\\browsers`
     },
     {
       name: 'win32 with neither falls back to the working directory',
       platform: 'win32',
       env: {HOME, XDG_CACHE_HOME: XDG},
-      expected: cwdFallback
+      cwd: WIN_PROJECT,
+      expected: `${WIN_PROJECT}\\.cache\\extension.js\\browsers`
     },
     {
       name: 'darwin uses HOME and ignores the XDG and Windows variables',
       platform: 'darwin',
       env: everything,
-      expected: path.join(HOME, 'Library', 'Caches', 'extension.js', 'browsers')
+      expected: `${POSIX_HOME}/Library/Caches/extension.js/browsers`
     },
     {
       name: 'darwin without HOME falls back to the working directory',
       platform: 'darwin',
-      env: {XDG_CACHE_HOME: XDG, LOCALAPPDATA, USERPROFILE},
+      env: {XDG_CACHE_HOME: POSIX_XDG, LOCALAPPDATA, USERPROFILE},
       expected: cwdFallback
     },
     {
       name: 'linux uses XDG_CACHE_HOME first',
       platform: 'linux',
       env: everything,
-      expected: path.join(XDG, 'extension.js', 'browsers')
+      expected: `${POSIX_XDG}/extension.js/browsers`
     },
     {
       name: 'linux falls back to HOME',
       platform: 'linux',
-      env: {HOME, LOCALAPPDATA, USERPROFILE},
-      expected: path.join(HOME, '.cache', 'extension.js', 'browsers')
+      env: {HOME: POSIX_HOME, LOCALAPPDATA, USERPROFILE},
+      expected: `${POSIX_HOME}/.cache/extension.js/browsers`
     },
     {
       name: 'linux with neither falls back to the working directory',
@@ -119,7 +136,7 @@ describe('resolveBrowsersCacheRoot from an explicit env, platform and cwd', () =
       name: 'a platform with no branch of its own resolves like linux',
       platform: 'freebsd',
       env: everything,
-      expected: path.join(XDG, 'extension.js', 'browsers')
+      expected: `${POSIX_XDG}/extension.js/browsers`
     },
     {
       name: 'a blank variable counts as unset',
@@ -130,27 +147,25 @@ describe('resolveBrowsersCacheRoot from an explicit env, platform and cwd', () =
     {
       name: 'a variable is trimmed before it is used',
       platform: 'linux',
-      env: {XDG_CACHE_HOME: `  ${XDG}  `},
-      expected: path.join(XDG, 'extension.js', 'browsers')
+      env: {XDG_CACHE_HOME: `  ${POSIX_XDG}  `},
+      expected: `${POSIX_XDG}/extension.js/browsers`
     }
   ]
 
-  it.each(cases)('$name', ({platform, env, expected}) => {
-    expect(resolveBrowsersCacheRoot(env, platform, project)).toBe(expected)
+  it.each(cases)('$name', ({platform, env, expected, cwd = POSIX_PROJECT}) => {
+    expect(resolveBrowsersCacheRoot(env, platform, cwd)).toBe(expected)
   })
 
   it.each([
-    'win32',
-    'darwin',
-    'linux'
-  ] as const)('EXT_BROWSERS_CACHE_DIR outranks every default on %s', (platform) => {
-    const override = path.join(scratch, 'override')
-
+    ['win32', 'D:\\override', WIN_PROJECT, winEverything],
+    ['darwin', '/override', POSIX_PROJECT, everything],
+    ['linux', '/override', POSIX_PROJECT, everything]
+  ] as const)('EXT_BROWSERS_CACHE_DIR outranks every default on %s', (platform, override, cwd, env) => {
     expect(
       resolveBrowsersCacheRoot(
-        {...everything, EXT_BROWSERS_CACHE_DIR: override},
+        {...env, EXT_BROWSERS_CACHE_DIR: override},
         platform,
-        project
+        cwd
       )
     ).toBe(override)
   })
@@ -158,11 +173,11 @@ describe('resolveBrowsersCacheRoot from an explicit env, platform and cwd', () =
   it('resolves a relative EXT_BROWSERS_CACHE_DIR against the given cwd', () => {
     expect(
       resolveBrowsersCacheRoot(
-        {EXT_BROWSERS_CACHE_DIR: path.join('rel', 'cache')},
+        {EXT_BROWSERS_CACHE_DIR: 'rel/cache'},
         'linux',
-        project
+        POSIX_PROJECT
       )
-    ).toBe(path.join(project, 'rel', 'cache'))
+    ).toBe(`${POSIX_PROJECT}/rel/cache`)
   })
 
   it('reads the process for whatever the caller leaves out', () => {
@@ -242,21 +257,26 @@ const MANAGERS = [
   }
 ] as const
 
+// The cache variables are shaped for the platform each row injects, so every
+// host computes the same literal folder. The plan only names it.
 const PLATFORMS = [
   {
     platform: 'linux',
     suffix: '',
-    cacheRoot: path.join(HOME, '.cache', 'extension.js', 'browsers')
+    cacheEnv: {HOME: '/home/dev'},
+    cacheRoot: '/home/dev/.cache/extension.js/browsers'
   },
   {
     platform: 'darwin',
     suffix: '',
-    cacheRoot: path.join(HOME, 'Library', 'Caches', 'extension.js', 'browsers')
+    cacheEnv: {HOME: '/Users/dev'},
+    cacheRoot: '/Users/dev/Library/Caches/extension.js/browsers'
   },
   {
     platform: 'win32',
     suffix: '.cmd',
-    cacheRoot: path.join(LOCALAPPDATA, 'extension.js', 'browsers')
+    cacheEnv: {LOCALAPPDATA: 'C:\\Users\\dev\\AppData\\Local'},
+    cacheRoot: 'C:\\Users\\dev\\AppData\\Local\\extension.js\\browsers'
   }
 ] as const
 
@@ -323,8 +343,7 @@ describe('installPlan from an explicit env, platform and cwd', () => {
     const destination = path.join(scratch, 'browsers', row.target)
     const env: Record<string, string | undefined> = {
       ...row.env,
-      HOME,
-      LOCALAPPDATA,
+      ...row.cacheEnv,
       PATH: path.join(scratch, 'bin')
     }
     const given = {...env}
@@ -1080,17 +1099,35 @@ describe('buildExecEnv, the PATH a Windows child finds node on', () => {
     })
   })
 
-  it('leaves a trailing separator when neither is set', () => {
-    expect(execEnv({}, 'win32', NODE)).toEqual({
-      PATH: `${NODE_DIR};`,
-      Path: `${NODE_DIR};`
+  // An empty entry on a Windows PATH is the current folder, so none is added.
+  it.each([
+    ['neither is set', {}],
+    ['PATH is blank', {PATH: '  '}]
+  ])('names the node folder alone when %s', (_name, base) => {
+    expect(execEnv(base, 'win32', NODE)).toEqual({
+      ...base,
+      PATH: NODE_DIR,
+      Path: NODE_DIR
     })
   })
 
-  it('hands the environment back untouched when the folder is already named', () => {
-    const base = {PATH: `C:\\Windows;${NODE_DIR};C:\\tools`}
+  it.each([
+    ['as written', `C:\\Windows;${NODE_DIR};C:\\tools`],
+    ['in another case', 'C:\\Windows;c:\\program files\\NODEJS'],
+    ['with a last backslash', `${NODE_DIR}\\;C:\\Windows`]
+  ])('hands the environment back untouched when the folder is named %s', (_name, PATH) => {
+    const base = {PATH}
 
     expect(execEnv(base, 'win32', NODE)).toBe(base)
+  })
+
+  it('adds the node folder when only a longer folder starts with its name', () => {
+    expect(
+      execEnv({PATH: `${NODE_DIR}-old;C:\\Windows`}, 'win32', NODE)
+    ).toEqual({
+      PATH: `${NODE_DIR};${NODE_DIR}-old;C:\\Windows`,
+      Path: `${NODE_DIR};${NODE_DIR}-old;C:\\Windows`
+    })
   })
 
   it('reads the process for the platform and the node binary left out', () => {

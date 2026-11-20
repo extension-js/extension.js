@@ -41,9 +41,121 @@ describe('install vendor taxonomy contract', () => {
   })
 })
 
+// One table for both copies of the rule, on each platform's own path shapes,
+// so a host never decides which platforms the parity is proven on.
+describe('install cache root table on every platform', () => {
+  const POSIX_CWD = '/work/project'
+  const WIN_CWD = 'C:\\work\\project'
+  const rows: Array<{
+    platform: NodeJS.Platform
+    name: string
+    env: Record<string, string | undefined>
+    expected: string
+  }> = [
+    {
+      platform: 'linux',
+      name: 'an absolute EXT_BROWSERS_CACHE_DIR',
+      env: {EXT_BROWSERS_CACHE_DIR: '/abs/cache', HOME: '/home/me'},
+      expected: '/abs/cache'
+    },
+    {
+      platform: 'linux',
+      name: 'a relative EXT_BROWSERS_CACHE_DIR',
+      env: {EXT_BROWSERS_CACHE_DIR: ' rel/cache '},
+      expected: '/work/project/rel/cache'
+    },
+    {
+      platform: 'linux',
+      name: 'XDG_CACHE_HOME beside HOME',
+      env: {XDG_CACHE_HOME: '/xdg', HOME: '/home/me', LOCALAPPDATA: '/l'},
+      expected: '/xdg/extension.js/browsers'
+    },
+    {
+      platform: 'linux',
+      name: 'HOME padded with spaces',
+      env: {HOME: ' /home/me ', USERPROFILE: '/u'},
+      expected: '/home/me/.cache/extension.js/browsers'
+    },
+    {
+      platform: 'linux',
+      name: 'nothing set',
+      env: {EXT_BROWSERS_CACHE_DIR: '  ', XDG_CACHE_HOME: ''},
+      expected: '/work/project/.cache/extension.js/browsers'
+    },
+    {
+      platform: 'darwin',
+      name: 'HOME, with XDG_CACHE_HOME ignored',
+      env: {HOME: '/Users/me', XDG_CACHE_HOME: '/xdg'},
+      expected: '/Users/me/Library/Caches/extension.js/browsers'
+    },
+    {
+      platform: 'darwin',
+      name: 'an absolute EXT_BROWSERS_CACHE_DIR',
+      env: {
+        EXT_BROWSERS_CACHE_DIR: '/Volumes/fast/browsers',
+        HOME: '/Users/me'
+      },
+      expected: '/Volumes/fast/browsers'
+    },
+    {
+      platform: 'darwin',
+      name: 'nothing set',
+      env: {},
+      expected: '/work/project/.cache/extension.js/browsers'
+    },
+    {
+      platform: 'win32',
+      name: 'LOCALAPPDATA beside USERPROFILE and HOME',
+      env: {
+        LOCALAPPDATA: 'C:\\Users\\me\\AppData\\Local',
+        USERPROFILE: 'C:\\Users\\me',
+        HOME: 'C:\\home'
+      },
+      expected: 'C:\\Users\\me\\AppData\\Local\\extension.js\\browsers'
+    },
+    {
+      platform: 'win32',
+      name: 'USERPROFILE alone',
+      env: {USERPROFILE: 'C:\\Users\\me', HOME: 'C:\\home'},
+      expected: 'C:\\Users\\me\\AppData\\Local\\extension.js\\browsers'
+    },
+    {
+      platform: 'win32',
+      name: 'an absolute EXT_BROWSERS_CACHE_DIR on another drive',
+      env: {EXT_BROWSERS_CACHE_DIR: 'D:\\cache', LOCALAPPDATA: 'C:\\L'},
+      expected: 'D:\\cache'
+    },
+    {
+      platform: 'win32',
+      name: 'a relative EXT_BROWSERS_CACHE_DIR with forward slashes',
+      env: {EXT_BROWSERS_CACHE_DIR: 'rel/cache'},
+      expected: 'C:\\work\\project\\rel\\cache'
+    },
+    {
+      platform: 'win32',
+      name: 'HOME alone, which Windows does not read',
+      env: {HOME: 'C:\\home', XDG_CACHE_HOME: 'C:\\xdg'},
+      expected: 'C:\\work\\project\\.cache\\extension.js\\browsers'
+    }
+  ]
+
+  it.each(rows)('$platform: $name', ({platform, env, expected}) => {
+    const cwd = platform === 'win32' ? WIN_CWD : POSIX_CWD
+
+    expect(resolveBrowsersCacheRoot(env, platform, cwd)).toBe(expected)
+    expect(computeSharedCacheRoot(env, platform, cwd)).toBe(expected)
+  })
+
+  it('covers all three platforms', () => {
+    expect(new Set(rows.map((row) => row.platform))).toEqual(
+      new Set(['linux', 'darwin', 'win32'])
+    )
+  })
+})
+
 // The installer picks the folder it downloads into and the launcher picks the
 // folder it reads from, each with its own copy of the rules. The launcher's
-// copy reads the process, so only this platform's rules are compared here.
+// copy reads the process when called bare, the way the launcher calls it.
 describe('install cache root contract', () => {
   const KEYS = [
     'EXT_BROWSERS_CACHE_DIR',
