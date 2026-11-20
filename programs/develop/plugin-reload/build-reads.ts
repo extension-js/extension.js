@@ -33,9 +33,13 @@ export function readsOfCompilation(
     return undefined
   }
 
+  // Resolved so each entry compares with path.resolve(root, rel) whatever
+  // slashes the bundler or a loader reported it with.
   return {
-    files: new Set(fileDependencies),
-    missing: new Set(missingDependencies || [])
+    files: new Set(Array.from(fileDependencies, (f) => path.resolve(f))),
+    missing: new Set(
+      Array.from(missingDependencies || [], (f) => path.resolve(f))
+    )
   }
 }
 
