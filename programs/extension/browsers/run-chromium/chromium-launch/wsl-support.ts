@@ -133,8 +133,7 @@ export async function spawnChromiumProcess(opts: {
     const child = spawn(bin, launchArgs, {
       stdio,
       detached: false,
-      ...(isWin ? {windowsHide: true} : {}),
-      ...(process.platform !== 'win32' && {group: process.getgid?.()})
+      ...(isWin ? {windowsHide: true} : {})
     })
     await new Promise<void>((resolve, reject) => {
       const handleError = (error: unknown) => {

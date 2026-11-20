@@ -88,8 +88,7 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
     expect(ensureLoaded).toHaveBeenCalledTimes(5)
   })
 
-  // The pause after the fifth failure is how it behaves today: the error
-  // only surfaces once that last pause has run out.
+  // No attempt follows the fifth failure, so its error surfaces at once.
   it('doubles a 150 ms pause after each failure when the caller names none', async () => {
     vi.useFakeTimers()
 
@@ -115,10 +114,7 @@ describe('setupRdpAfterLaunch refusal reporting', () => {
         expect(ensureLoaded).toHaveBeenCalledTimes(index + 2)
       }
 
-      await vi.advanceTimersByTimeAsync(2399)
-      expect(outcome).toBeUndefined()
-
-      await vi.advanceTimersByTimeAsync(1)
+      await vi.advanceTimersByTimeAsync(0)
       expect((outcome as Error).message).toBe('socket closed')
       expect(ensureLoaded).toHaveBeenCalledTimes(5)
     } finally {

@@ -150,36 +150,45 @@ test('windows runs the suites as parallel jobs, the develop one in two shards', 
 })
 
 test('the browser install run is weekly, never on pull requests, and gates nothing', () => {
-  const lane = workflow('browser-install.yml')
-  const install = jobSection(lane, 'install')
+  const lane = readWorkflow('browser-install.yml')
+  const install = job(lane, 'install')
 
-  assert.match(lane, /^ {2}schedule:\n {4}- cron: '[^']+'$/m)
-  assert.match(lane, /^ {2}workflow_dispatch:$/m)
-  assert.doesNotMatch(lane, /pull_request|^ {2}push:/m)
+  assert.ok(lane.on.schedule.every((entry) => typeof entry.cron === 'string'))
+  assert.ok('workflow_dispatch' in lane.on)
+  assert.ok(!('pull_request' in lane.on) && !('push' in lane.on))
+  assert.deepEqual(install.strategy.matrix.os, [
+    'ubuntu-latest',
+    'macos-latest',
+    'windows-latest'
+  ])
+
+  assert.deepEqual(install.strategy.matrix.browser, [
+    'chrome',
+    'firefox',
+    'edge'
+  ])
+
+  assert.equal(install.strategy['fail-fast'], false)
   assert.match(
-    install,
-    /^ {8}os: \[ubuntu-latest, macos-latest, windows-latest\]$/m
+    runText(install),
+    /extension\.cjs install "\$BROWSER" --output json/
   )
 
-  assert.match(install, /^ {8}browser: \[chrome, firefox, edge\]$/m)
-  assert.match(install, /^ {6}fail-fast: false$/m)
-  assert.match(install, /extension\.cjs install "\$BROWSER" --output json/)
-  assert.match(install, /nightly-dev-smoke\.mjs "\$FIXTURE"/)
+  assert.match(runText(install), /nightly-dev-smoke\.mjs "\$FIXTURE"/)
   assert.match(
-    jobSection(lane, 'pins'),
+    runText(job(lane, 'pins')),
     /node scripts\/check-installer-pins\.mjs/
   )
 
   // Nothing in the required run waits on it.
-  assert.ok(!workflow('ci.yml').includes('browser-install'))
+  assert.ok(!workflowText('ci.yml').includes('browser-install'))
 
-  const pins = workflow('installer-pins.yml')
+  const pins = readWorkflow('installer-pins.yml')
+  assert.ok(pins.on.pull_request.paths.includes('programs/install/**'))
   assert.match(
-    pins,
-    /^ {2}pull_request:\n {4}paths:\n {6}- 'programs\/install\/\*\*'$/m
+    Object.values(pins.jobs).map(runText).join('\n'),
+    /node scripts\/check-installer-pins\.mjs/
   )
-
-  assert.match(pins, /node scripts\/check-installer-pins\.mjs/)
 })
 
 test('the optional deps smoke keeps macOS off pull requests and names every leg apart', () => {
