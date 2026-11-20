@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
@@ -65,7 +65,7 @@ describe('EmitFile step', () => {
 
   const makeCompiler = (context = '/abs') => {
     const compilation = {
-      hooks: {processAssets: {tap: (_: unknown, cb: Function) => cb()}},
+      hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
       errors: [],
       warnings: [],
       emitAsset: vi.fn(),
@@ -73,7 +73,7 @@ describe('EmitFile step', () => {
     }
     const compiler = asCompiler({
       hooks: {
-        thisCompilation: {tap: (_: string, cb: Function) => cb(compilation)}
+        thisCompilation: {tap: (_: string, cb: TapCallback) => cb(compilation)}
       },
       // The manifest sits one folder below the project root, so a source
       // beside that folder is project content outside the extension root.

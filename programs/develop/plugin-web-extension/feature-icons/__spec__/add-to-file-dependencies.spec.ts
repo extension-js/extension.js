@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
-import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
+import {asCompiler, type TapCallback} from '../../__spec__/helpers/rspack-fakes'
 
 vi.mock('@rspack/core', () => ({
   Compilation: {PROCESS_ASSETS_STAGE_ADDITIONS: 0}
@@ -25,13 +25,13 @@ describe('AddToFileDependencies step', () => {
       fileDependencies: Set<string>
       missingDependencies?: Set<string>
     } = {
-      hooks: {processAssets: {tap: (_: unknown, cb: Function) => cb()}},
+      hooks: {processAssets: {tap: (_: unknown, cb: TapCallback) => cb()}},
       errors: [],
       fileDependencies
     }
     const compiler = asCompiler({
       hooks: {
-        thisCompilation: {tap: (_: string, cb: Function) => cb(compilation)}
+        thisCompilation: {tap: (_: string, cb: TapCallback) => cb(compilation)}
       }
     })
 
