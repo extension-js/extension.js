@@ -180,20 +180,6 @@ export function getManifestContent(
 // feature-html share one implementation, incl. Safari/webkit resolution.
 export {filterKeysForThisBrowser}
 
-export function buildCanonicalManifest(
-  manifestPath: string,
-  manifest: Manifest,
-  browser: DevOptions['browser'],
-  projectPath?: string
-): Manifest {
-  return buildCanonicalManifestWithOverrides(
-    manifestPath,
-    manifest,
-    browser,
-    projectPath
-  ).manifest
-}
-
 // The applied override tree rides out with the manifest so a caller that
 // wants to report on it never computes a second one from another input.
 export function buildCanonicalManifestWithOverrides(

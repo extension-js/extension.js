@@ -4,7 +4,7 @@ import {
   dropGeckoUnsupportedKeys,
   GECKO_UNSUPPORTED_PERMISSIONS
 } from '../filter-keys-gecko'
-import {buildCanonicalManifest} from '../manifest'
+import {buildCanonicalManifestWithOverrides} from '../manifest'
 
 const strip = (value: string) =>
   // eslint-disable-next-line no-control-regex
@@ -132,13 +132,13 @@ describe('dropGeckoUnsupportedKeys', () => {
   })
 })
 
-describe('buildCanonicalManifest on a firefox build', () => {
+describe('buildCanonicalManifestWithOverrides on a firefox build', () => {
   it('ships without the rejected permissions and with incognito as declared', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source,
       'firefox'
-    ) as any
+    ).manifest as any
 
     expect(result.permissions).toEqual(['storage', 'scripting'])
     expect(result.optional_permissions).toEqual(['userScripts'])
@@ -146,11 +146,11 @@ describe('buildCanonicalManifest on a firefox build', () => {
   })
 
   it('keeps every permission on a chrome build', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source,
       'chrome'
-    ) as any
+    ).manifest as any
 
     expect(result.permissions).toEqual(source.permissions)
     expect(result.optional_permissions).toEqual(source.optional_permissions)

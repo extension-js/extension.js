@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {buildCanonicalManifest} from '../../manifest-lib/manifest'
+import {buildCanonicalManifestWithOverrides} from '../../manifest-lib/manifest'
 import {sanitizeFatalManifestShapes} from '../../manifest-lib/sanitize-fatal-shapes'
 import {getManifestOverrides} from '../../manifest-overrides'
 import {patchV3CSP} from '../../steps/apply-dev-defaults-lib/patch-csp'
@@ -74,9 +74,9 @@ describe('MV3 content_security_policy through getManifestOverrides', () => {
   })
 })
 
-describe('MV3 content_security_policy through buildCanonicalManifest', () => {
+describe('MV3 content_security_policy through buildCanonicalManifestWithOverrides', () => {
   it('writes the object form for chrome', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       {
         name: 'csp',
@@ -85,12 +85,12 @@ describe('MV3 content_security_policy through buildCanonicalManifest', () => {
         content_security_policy: PAGES
       } as any,
       'chrome'
-    ) as any
+    ).manifest as any
     expect(result.content_security_policy).toEqual({extension_pages: PAGES})
   })
 
   it('lets the unsafe-inline repair reach a string policy', () => {
-    const canonical = buildCanonicalManifest(
+    const canonical = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       {
         name: 'csp',
@@ -99,7 +99,7 @@ describe('MV3 content_security_policy through buildCanonicalManifest', () => {
         content_security_policy: "script-src 'self' 'unsafe-inline'"
       } as any,
       'chrome'
-    )
+    ).manifest
     const sanitized = sanitizeFatalManifestShapes(canonical, '/p')
     expect(
       (sanitized.manifest as any).content_security_policy.extension_pages

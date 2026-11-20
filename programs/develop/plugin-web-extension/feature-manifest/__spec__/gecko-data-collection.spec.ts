@@ -43,13 +43,14 @@ describe('UpdateManifest AMO data-collection warning', () => {
   const make = (
     mode: 'development' | 'production',
     browser: string,
-    manifestSource: string
+    manifestSource: string,
+    errors: Error[] = []
   ) => {
     const assets: Record<string, any> = {
       'manifest.json': {source: () => manifestSource}
     }
     const compilation: any = {
-      errors: [],
+      errors,
       warnings: [],
       options: {mode},
       assets,
@@ -76,12 +77,14 @@ describe('UpdateManifest AMO data-collection warning', () => {
   const run = (
     mode: 'development' | 'production',
     browser: string,
-    manifest: object
+    manifest: object | string,
+    errors: Error[] = []
   ) => {
     const {compiler, compilation} = make(
       mode,
       browser,
-      JSON.stringify(manifest)
+      typeof manifest === 'string' ? manifest : JSON.stringify(manifest),
+      errors
     )
     new UpdateManifest({manifestPath: '/m', browser: browser as any}).apply(
       compiler
@@ -146,5 +149,41 @@ describe('UpdateManifest AMO data-collection warning', () => {
     expect(warnings.some((w) => w.name === 'AmoDataCollectionWarning')).toBe(
       false
     )
+  })
+
+  describe('on a build that already failed', () => {
+    const failed = () => [new Error("Can't resolve './missing-file.js'")]
+    const amo = (warnings: Array<Error & {name?: string}>) =>
+      warnings.filter((w) => w.name === 'AmoDataCollectionWarning')
+
+    it('still warns a production firefox build once', () => {
+      expect(amo(run('production', 'firefox', bare, failed()))).toHaveLength(1)
+    })
+
+    it('reads the vendor prefixed key of the target', () => {
+      const declared = {
+        ...bare,
+        'firefox:browser_specific_settings': {
+          gecko: {data_collection_permissions: {required: ['none']}}
+        }
+      }
+
+      expect(amo(run('production', 'firefox', declared, failed()))).toEqual([])
+    })
+
+    it('stays quiet in development and for a chromium target', () => {
+      expect(amo(run('development', 'firefox', bare, failed()))).toEqual([])
+      expect(amo(run('production', 'chrome', bare, failed()))).toEqual([])
+    })
+
+    it('leaves a manifest that cannot be read to its own error', () => {
+      expect(run('production', 'firefox', '{"name": ', failed())).toEqual([])
+    })
+
+    it('warns when the failure is a mistyped manifest field', () => {
+      const mistyped = {...bare, content_scripts: 'everywhere'}
+
+      expect(amo(run('production', 'firefox', mistyped))).toHaveLength(1)
+    })
   })
 })

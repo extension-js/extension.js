@@ -7,23 +7,18 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import {type Channel, prefix} from '../../lib/messaging'
+import {prefix} from '../../lib/messaging'
 import type {DevOptions} from '../../types'
 import {
   NATIVE_BROWSER_NAMESPACE_CHROMIUM,
   NATIVE_BROWSER_NAMESPACE_CHROMIUM_DEVTOOLS
 } from './native-browser-namespace'
 
-function getLoggingPrefix(type: Channel): string {
-  return prefix(type)
-}
-
 const code = (text: string) => colors.blue(text)
 
 export function webextensionPolyfillNotFound() {
   return (
-    `${getLoggingPrefix('warn')} webextension-polyfill isn't installed.\n` +
-    `The browser API polyfill is disabled for this build.\n` +
+    `webextension-polyfill is not installed, so the browser API polyfill is off for this build.\n` +
     `Install it with ${code('npm install webextension-polyfill')}.`
   )
 }

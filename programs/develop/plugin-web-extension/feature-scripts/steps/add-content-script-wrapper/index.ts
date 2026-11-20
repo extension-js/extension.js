@@ -277,9 +277,9 @@ export class AddContentScriptWrapper {
         compilation.hooks.processAssets.tap(
           {
             name: 'scripts:resolve-bundle-css-probe',
-            // SUMMARIZE runs after minification, so the marker literal the
-            // minifier preserved is rewritten in the final user bundle.
-            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+            // After minification, which keeps the marker literal, and one
+            // stage ahead of the steps that scan the final user bundle.
+            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE - 1
           },
           () => {
             const assetNames = () =>

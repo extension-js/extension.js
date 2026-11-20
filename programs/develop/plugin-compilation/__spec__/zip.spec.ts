@@ -501,6 +501,47 @@ describe('ZipPlugin', () => {
     expect(Array.from(stats.compilation.warnings)).toEqual([])
   })
 
+  // A failed compile emits nothing, so the output folder still holds the
+  // build before it. Packaging that would hand over the wrong extension.
+  it('packages nothing after a failed compile, with a clean setting too', async () => {
+    for (const outputClean of [false, true]) {
+      const root = fs.realpathSync(makeTempDir('zip-spec-'))
+      const outPath = path.join(root, 'dist', 'chrome')
+      write(path.join(root, 'background.js'), 'const broken = (\n')
+      write(
+        path.join(root, 'manifest.json'),
+        JSON.stringify({name: 'My App', version: '1.0.0', manifest_version: 3})
+      )
+
+      write(
+        path.join(outPath, 'manifest.json'),
+        JSON.stringify({name: 'My App', version: '0.9.0'})
+      )
+
+      write(path.join(outPath, 'background.js'), 'PREVIOUS BUILD\n')
+
+      const stats = await compile({
+        context: root,
+        outputPath: outPath,
+        outputClean,
+        mode: 'production',
+        entry: {background: './background.js'},
+        plugins: [
+          new ZipPlugin({
+            browser: 'chrome',
+            zipData: {zip: true, zipSource: true},
+            manifestPath: path.join(root, 'manifest.json')
+          })
+        ]
+      })
+
+      expect(stats.hasErrors()).toBe(true)
+      expect(getZipArtifacts(stats.compilation)).toEqual([])
+      expect(getZipFailures(stats.compilation)).toEqual([])
+      expect(fs.readdirSync(path.dirname(outPath))).toEqual(['chrome'])
+    }
+  })
+
   // One symlink used to take both archives down: it is listed as a file,
   // reading it throws, and the single catch downgraded that to a warning.
   it('skips a symlink and still writes both archives', async () => {

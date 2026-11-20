@@ -2111,6 +2111,27 @@ export function unresolvedCssUrlRef(
   ].join('\n')
 }
 
+// The same request written in a script, where no stylesheet is involved.
+export function unresolvedScriptUrlRef(
+  issuerPath: string,
+  request: string,
+  strict = false
+) {
+  return [
+    `A ${colors.blue(`new URL(${JSON.stringify(request)}, import.meta.url)`)} reference names no file beside the script and no installed package.`,
+    ...(issuerPath
+      ? [`${colors.gray('PATH')} ${colors.underline(issuerPath)}`]
+      : []),
+    `${colors.gray('NOT FOUND')} ${colors.underline(request)}`,
+    'The build keeps the address as written, so the browser answers it with a 404 when the script runs.',
+    ...(strict
+      ? []
+      : [
+          `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+        ])
+  ].join('\n')
+}
+
 export function manifestV2OnChromium(
   target: string,
   usesBlockingWebRequest: boolean

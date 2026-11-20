@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import type {Manifest} from '../../../types'
-import {buildCanonicalManifest} from '../manifest-lib/manifest'
+import {buildCanonicalManifestWithOverrides} from '../manifest-lib/manifest'
 
 // MDN browser-compat-data gives content_scripts[].world version_added 18 for
 // safari and 128 for firefox, so every family keeps the key and the bridge
@@ -30,11 +30,11 @@ describe('MAIN world survives every family', () => {
     'firefox',
     'safari'
   ])('keeps the world key and its bridge entry for %s', (browser) => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source,
       browser as never
-    ) as Manifest
+    ).manifest as Manifest
 
     const entries = result.content_scripts || []
     expect(entries).toHaveLength(3)

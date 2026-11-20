@@ -234,7 +234,8 @@ export default function webpackConfig(
         typeof devOptions.port === 'string'
           ? parseInt(devOptions.port, 10)
           : devOptions.port,
-      command: devOptions.metadataCommand
+      command: devOptions.metadataCommand,
+      browserLaunchEnabled: !devOptions.noBrowser
     }),
     new StaticAssetsPlugin(),
     new CssPlugin({

@@ -158,6 +158,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "unpackagedSuccessfully: function(0)",
     "unpackagingExtension: function(1)",
     "unresolvedCssUrlRef: function(2)",
+    "unresolvedScriptUrlRef: function(2)",
     "updatingTypeDefinitions: function(1)",
     "writingTypeDefinitions: function(1)",
     "writingTypeDefinitionsError: function(1)",
