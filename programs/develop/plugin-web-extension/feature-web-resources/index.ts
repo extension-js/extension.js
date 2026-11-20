@@ -9,6 +9,7 @@
 import type {Compiler} from '@rspack/core'
 import type {FilepathList, PluginInterface} from '../../types'
 import {CollectContentEntryImports} from './steps/collect-content-entry-imports'
+import {PruneRemovedWarCopies} from './steps/prune-removed-war-copies'
 
 export class WebResourcesPlugin {
   public readonly manifestPath: string
@@ -24,5 +25,7 @@ export class WebResourcesPlugin {
       manifestPath: this.manifestPath,
       includeList: this.includeList
     }).apply(compiler)
+
+    new PruneRemovedWarCopies().apply(compiler)
   }
 }

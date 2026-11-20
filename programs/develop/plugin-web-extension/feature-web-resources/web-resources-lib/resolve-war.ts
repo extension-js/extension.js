@@ -49,6 +49,11 @@ function emitCopy(
   copiedAsWritten.set(compilation, copied)
 }
 
+// The listed files this step copied into a compile, by output name.
+export function listedCopiesOf(compilation: Compilation): Set<string> {
+  return new Set(copiedAsWritten.get(compilation) || [])
+}
+
 const CSS_COMMENT = /\/\*[\s\S]*?\*\//g
 const CSS_URL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^"')\s]*))\s*\)/gi
 // A scheme, a protocol-relative address or a fragment is not a packaged file.
@@ -820,22 +825,18 @@ export function resolveUserDeclaredWAR(
     }
 
     if (!fs.existsSync(abs)) {
-      const outputRoot =
-        compilation.options?.output?.path ||
-        compilation.outputOptions?.path ||
-        path.join(path.dirname(manifestPath), 'dist')
-      const builtAbs = path.join(outputRoot || '', res)
       const publicAbsMaybe = path.join(projectPath, 'public', res)
       const asset2 =
         typeof compilation.getAsset === 'function'
           ? compilation.getAsset(res)
           : undefined
-      const assetEmitted =
-        Boolean(asset2 && asset2.name === res) || fs.existsSync(builtAbs)
+      // A copy an earlier build left in the output folder is not the file:
+      // only what this build emits counts, as in a build into an empty one.
+      const assetEmitted = Boolean(asset2 && asset2.name === res)
 
       if (fs.existsSync(publicAbsMaybe) || assetEmitted) {
-        // Resource exists either under public/ or in the emitted output; treat
-        // it as valid and normalize to the public-root style in the manifest.
+        // In public/ or emitted by this build: valid, and written in the
+        // public-root style in the manifest.
         const output = toPublicOutput(`/${res}`)
         pushResource(matches, output, extra)
 

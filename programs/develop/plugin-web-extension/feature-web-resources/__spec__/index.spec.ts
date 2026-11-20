@@ -63,7 +63,10 @@ describe('generateManifestPatches', () => {
         getAsset: (name?: string) => {
           if (!name || name === 'manifest.json') return manifestAsset
 
+          // The shape the bundler hands back: a name and its source.
           return extraAssetSources[name]
+            ? {name, source: extraAssetSources[name]}
+            : undefined
         },
         assets: {
           'manifest.json': manifestSource,
@@ -440,9 +443,6 @@ describe('generateManifestPatches', () => {
   })
 
   it('should correctly merge existing web_accessible_resources', () => {
-    fs.mkdirSync(path.join(tmpRoot, 'dist'), {recursive: true})
-    fs.writeFileSync(path.join(tmpRoot, 'dist', 'existing_resource.svg'), 'x')
-
     expect(
       runWith(
         {
@@ -462,7 +462,8 @@ describe('generateManifestPatches', () => {
               resources: ['existing_resource.svg']
             }
           ]
-        }
+        },
+        {extraAssets: {'existing_resource.svg': 'x'}}
       )
     ).toMatchObject({
       web_accessible_resources: [
@@ -1050,10 +1051,6 @@ describe('generateManifestPatches', () => {
   })
 
   it('should merge only when matches sets are equal (mv3) and sort deterministically', () => {
-    fs.mkdirSync(path.join(tmpRoot, 'dist'), {recursive: true})
-    fs.writeFileSync(path.join(tmpRoot, 'dist', 'existing.svg'), 'x')
-    fs.writeFileSync(path.join(tmpRoot, 'dist', 'x.svg'), 'x')
-
     const result = runWith(
       {
         'content_scripts/content-0': [
@@ -1084,7 +1081,8 @@ describe('generateManifestPatches', () => {
             resources: ['x.svg']
           }
         ]
-      }
+      },
+      {extraAssets: {'existing.svg': 'x', 'x.svg': 'x'}}
     )
 
     const groups = (result as any).web_accessible_resources as {

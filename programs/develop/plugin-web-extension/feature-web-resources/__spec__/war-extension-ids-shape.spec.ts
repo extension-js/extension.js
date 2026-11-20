@@ -13,8 +13,8 @@ describe('web_accessible_resources: a group with no matches key', () => {
     tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'war-ids-'))
     manifestPath = path.join(tmpRoot, 'manifest.json')
     fs.writeFileSync(manifestPath, '{}')
-    fs.mkdirSync(path.join(tmpRoot, 'dist', 'img'), {recursive: true})
-    fs.writeFileSync(path.join(tmpRoot, 'dist', 'img', 'a.png'), 'x')
+    fs.mkdirSync(path.join(tmpRoot, 'public', 'img'), {recursive: true})
+    fs.writeFileSync(path.join(tmpRoot, 'public', 'img', 'a.png'), 'x')
   })
 
   afterEach(() => {
