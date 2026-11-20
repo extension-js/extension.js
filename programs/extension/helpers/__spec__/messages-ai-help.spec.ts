@@ -4,6 +4,7 @@ import {
   programAIHelp,
   programAIHelpJSON
 } from '../messages'
+import {UNCURATED_GROUP_TITLE} from '../template-catalog'
 import {
   TEMPLATE_CORPUS_REF,
   TEMPLATE_CORPUS_REPO
@@ -128,12 +129,30 @@ describe('programAIHelp', () => {
       `https://github.com/${TEMPLATE_CORPUS_REPO}/tree/${TEMPLATE_CORPUS_REF}/examples`
     )
 
+    // The release moves the corpus pin to its head, so the published names
+    // change with it: check how names and groups relate, not the list itself.
+    const {names, groups} = help.templates
+    const grouped = groups.flatMap((group) => group.templates)
+
+    expect(names.length).toBeGreaterThan(0)
+    expect(new Set(grouped).size).toBe(grouped.length)
+    expect(names).toEqual(expect.arrayContaining(grouped))
+
+    for (const group of groups) {
+      expect(group.templates.length).toBeGreaterThan(0)
+    }
+
     expect({
       ...help,
       templates: {
         ...help.templates,
         catalogUrl: '<catalogUrl>',
-        corpus: {repo: TEMPLATE_CORPUS_REPO, ref: '<ref>'}
+        corpus: {repo: TEMPLATE_CORPUS_REPO, ref: '<ref>'},
+        names: '<names>',
+        // The catch-all group comes and goes with the pin, the curated ones stay.
+        groups: groups
+          .filter((group) => group.title !== UNCURATED_GROUP_TITLE)
+          .map((group) => ({...group, templates: '<templates>'}))
       }
     }).toMatchSnapshot()
   })
