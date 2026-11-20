@@ -103,7 +103,8 @@ describe('stampReadyBrowserExited', () => {
     const ready = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
     expect(typeof ready.browserExitedAt).toBe('string')
     expect(ready.browserExitCode).toBe(21)
-    expect(ready.cdpPort).toBe(9223)
+    // The port closed with the browser.
+    expect(ready.cdpPort).toBeUndefined()
   })
 
   it('stamps the signal when the browser died of one, since a crash has no code', () => {

@@ -9,18 +9,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
-  type Compilation,
-  type Compiler,
   type Configuration,
   LightningCssMinimizerRspackPlugin,
-  type RspackPluginInstance,
   SwcJsMinimizerRspackPlugin
 } from '@rspack/core'
 import {FileEventAssistPlugin} from './dev-server/file-event-assist'
 import {makeSanitizedConsole} from './lib/branding'
 import {codedError} from './lib/coded-error'
 import {recordCodedWarning} from './lib/coded-warnings'
-import {isChromiumBasedBrowser} from './lib/constants'
 import {cssMinimizerOptions} from './lib/css-minimizer-options'
 import {resolveDevelopInstallRoot} from './lib/develop-context'
 import {
@@ -28,6 +24,7 @@ import {
   isFirstCompanionWarning,
   unresolvedNamedCompanions
 } from './lib/extensions-to-load'
+import {ForgetResolvedModuleFolders} from './lib/forget-resolved-module-folders'
 import {filterKeysForThisBrowser} from './lib/manifest-utils'
 import * as messages from './lib/messages'
 import {
@@ -44,19 +41,20 @@ import {
 import {parseAuthoredJson} from './lib/parse-json-safe'
 import {asAbsolute, getDirs, toPosixPath} from './lib/paths'
 import type {ProjectStructure} from './lib/project'
-import {forgetResolvedModuleFolders} from './lib/resource-path'
 import {sessionStateDir} from './lib/session-paths'
+import {sourceMapModuleName} from './lib/source-map-module-names'
 import {defaultSplitChunks} from './lib/split-chunks'
 import {diagnosticsHaveColor} from './lib/stats-handler'
 import {resolveTranspilePackageDirs} from './lib/transpile-packages'
+import {UnresolvedCssUrlRefs} from './lib/unresolved-css-url-refs'
 import {CompatibilityPlugin} from './plugin-compatibility'
 import {CompilationPlugin} from './plugin-compilation'
-import * as compilationMessages from './plugin-compilation/compilation-lib/messages'
 import {
   NodeBuiltinsPlugin,
   nodeBuiltinName
 } from './plugin-compilation/node-builtins'
 import {OneDiagnosticPerLocationPlugin} from './plugin-compilation/one-diagnostic-per-location'
+import {UnresolvedBareRequires} from './plugin-compilation/unresolved-bare-requires'
 import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
@@ -70,6 +68,7 @@ import {WebExtensionPlugin} from './plugin-web-extension'
 import {SetupChunkLoadingTarget} from './plugin-web-extension/feature-chunk-loading'
 import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
 import {manifestFieldMistyped} from './plugin-web-extension/feature-manifest/messages'
+import {WarnManifestV2OnChromium} from './plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
 import type {WebpackConfigOptions} from './types'
 
 export default function webpackConfig(
@@ -199,13 +198,13 @@ export default function webpackConfig(
     }
   }
 
-  // CSS url() refs to missing relative assets, collected by the `externals`
-  // resolver below and warned instead of failing (the browser tolerates them).
-  const missingCssAssets = new Set<string>()
+  // CSS url() refs that resolve to nothing, collected by the `externals`
+  // resolver below and reported as dead references, left verbatim.
+  const unresolvedCssUrlRefs = new UnresolvedCssUrlRefs()
 
   // Bare require() calls that resolve to no module (dead server-runtime paths
   // in vendored scripts): collected below and warned, left verbatim in output.
-  const unresolvedBareRequires = new Map<string, string>()
+  const unresolvedBareRequires = new UnresolvedBareRequires()
 
   // Both kinds of reference above name a target that may be written later,
   // which a dev session has to notice: see MissingReferenceWatch.
@@ -243,7 +242,8 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       mode: devOptions.mode,
-      transpilePackages: devOptions.transpilePackages
+      transpilePackages: devOptions.transpilePackages,
+      define: devOptions.define
     }),
     new CompatibilityPlugin({
       manifestPath,
@@ -295,130 +295,20 @@ export default function webpackConfig(
     // Extension-aware per-category performance budgets. Replaces rspack's
     // stock single-threshold `performance.hints`, disabled below.
     new PerfBudgetsPlugin({budgets: devOptions.perfBudgets}),
-    // Warn (don't fail) for CSS url() assets missing on disk. The url() is
-    // preserved verbatim in the emitted CSS via the `externals` resolver below.
-    {
-      apply(compiler: Compiler) {
-        compiler.hooks.afterCompile.tap(
-          'warn-missing-css-assets',
-          (compilation: Compilation) => {
-            if (missingCssAssets.size === 0) return
-
-            const ErrorCtor = compiler.rspack?.WebpackError || Error
-
-            for (const request of missingCssAssets) {
-              const warning = new ErrorCtor(
-                `CSS asset "${request}" was not found on disk; the url() is left ` +
-                  `unresolved. The browser requests it at runtime and loads the ` +
-                  `extension regardless. Fix the path if it's a typo, or add the ` +
-                  `asset if it should ship.`
-              )
-              warning.name = 'MissingCssAssetWarning'
-              compilation.warnings.push(warning)
-            }
-
-            missingCssAssets.clear()
-          }
-        )
-      }
-    } satisfies RspackPluginInstance,
+    unresolvedCssUrlRefs,
     missingReferences,
     new NodeBuiltinsPlugin(),
     new OneDiagnosticPerLocationPlugin(),
     // A watch session sees an edit when the file reports it, not when a busy
     // macOS gets to the folder event. Inert outside a watch.
     new FileEventAssistPlugin(),
-    // Warn (don't fail) for bare require() calls that resolve nowhere. The
-    // require stays verbatim in the bundle, matching how Chrome loads the script.
-    {
-      apply(compiler: Compiler) {
-        compiler.hooks.afterCompile.tap(
-          'warn-unresolved-bare-requires',
-          (compilation: Compilation) => {
-            if (unresolvedBareRequires.size === 0) return
-
-            const ErrorCtor = compiler.rspack?.WebpackError || Error
-
-            for (const [request, issuer] of unresolvedBareRequires) {
-              const builtin = nodeBuiltinName(request)
-              const warning = new ErrorCtor(
-                `require('${request}')${issuer ? ` in ${issuer}` : ''} does not ` +
-                  `resolve to any module; the call is left verbatim in the output. ` +
-                  `Chrome loads the script anyway. It only throws if that code path ` +
-                  `runs (vendored pre-bundled libraries often carry dead require() ` +
-                  `branches). ` +
-                  (builtin
-                    ? `It names a Node.js built-in. ` +
-                      `${compilationMessages.nodeBuiltinStandInHint(builtin)} Or set `
-                    : `Install the package if it's a real dependency, or set `) +
-                  `EXTENSION_STRICT_REFS=true to make this fail the build.`
-              )
-              warning.name = 'UnresolvedBareRequireWarning'
-              compilation.warnings.push(warning)
-            }
-
-            unresolvedBareRequires.clear()
-          }
-        )
-      }
-    } satisfies RspackPluginInstance,
-    // A module folder's real path is kept for one build, so a link that moved
-    // between two rebuilds of a dev session is read again.
-    {
-      apply(compiler: Compiler) {
-        compiler.hooks.compile.tap(
-          'forget-resolved-module-folders',
-          forgetResolvedModuleFolders
-        )
-      }
-    } satisfies RspackPluginInstance,
-    // Warn (don't fail) when an MV2 source is built for a Chromium target:
-    // Chrome no longer loads MV2 and Edge has deprecated it.
-    {
-      apply(compiler: Compiler) {
-        const target = String(devOptions.browser)
-        // Family classification: brave/opera/vivaldi/yandex inherit Chromium's removal.
-        const isChromiumTarget = isChromiumBasedBrowser(target)
-        // Chrome classifies any manifest carrying a theme key as a theme and
-        // still installs MV2 themes, so only extension manifests get the warning.
-        const isThemeManifest = Boolean(
-          manifest?.theme && typeof manifest.theme === 'object'
-        )
-
-        if (
-          manifest?.manifest_version !== 2 ||
-          !isChromiumTarget ||
-          isThemeManifest
-        ) {
-          return
-        }
-
-        // A dev session recompiles on every save, and the verdict does not
-        // change between saves, so it is said once per session.
-        let reported = false
-
-        compiler.hooks.thisCompilation.tap(
-          'warn-mv2-on-chromium',
-          (compilation: Compilation) => {
-            if (compiler.options.mode === 'development') {
-              if (reported) return
-
-              reported = true
-            }
-
-            const ErrorCtor = compiler.rspack?.WebpackError || Error
-            const usesBlockingWebRequest =
-              Array.isArray(manifest.permissions) &&
-              (manifest.permissions as unknown[]).includes('webRequestBlocking')
-            const warning = new ErrorCtor(
-              messages.manifestV2OnChromium(target, usesBlockingWebRequest)
-            )
-            warning.name = 'ManifestV2OnChromiumWarning'
-            compilation.warnings.push(warning)
-          }
-        )
-      }
-    } satisfies RspackPluginInstance
+    // The require stays verbatim in the bundle, matching how Chrome loads it.
+    unresolvedBareRequires,
+    new ForgetResolvedModuleFolders(),
+    new WarnManifestV2OnChromium({
+      manifest: manifest as Record<string, unknown> | undefined,
+      browser: String(devOptions.browser)
+    })
   ]
 
   // The readiness contract (ready.json + events.ndjson) is written in ALL dev
@@ -523,8 +413,8 @@ export default function webpackConfig(
           return callback(null, request, 'asset')
         }
 
-        // A CSS url()/new URL() to a relative asset missing on disk: leave it
-        // verbatim instead of failing; recorded so it surfaces as a warning.
+        // A CSS url()/new URL() to an asset missing on disk: leave it verbatim
+        // instead of failing, recorded so it is reported as a dead reference.
         if (
           dependencyType === 'url' &&
           context &&
@@ -537,7 +427,7 @@ export default function webpackConfig(
           try {
             if (assetPath && !fs.existsSync(path.resolve(context, assetPath))) {
               const leaveUnresolved = () => {
-                missingCssAssets.add(request)
+                unresolvedCssUrlRefs.record(request, contextInfo?.issuer || '')
                 missingReferences.record(
                   path.resolve(context, assetPath),
                   contextInfo?.issuer
@@ -590,9 +480,7 @@ export default function webpackConfig(
             // An alias to `false` resolves to rspack's empty module: leaving
             // it to the bundler is what keeps the require() out of the output.
             if (err || (!result && result !== false)) {
-              if (!unresolvedBareRequires.has(request)) {
-                unresolvedBareRequires.set(request, contextInfo?.issuer || '')
-              }
+              unresolvedBareRequires.record(request, contextInfo?.issuer || '')
 
               missingReferences.record(
                 installedPackageDir(packageJsonDir, bareRequest),
@@ -627,6 +515,10 @@ export default function webpackConfig(
       clean: devOptions.output.clean,
       path: primaryExtensionOutputDir,
       publicPath: '/',
+      devtoolModuleFilenameTemplate: sourceMapModuleName(
+        resolveDevelopInstallRoot(),
+        packageJsonDir
+      ),
       filename:
         (devOptions.mode || 'development') === 'development' &&
         devOptions.hashContentScripts !== false

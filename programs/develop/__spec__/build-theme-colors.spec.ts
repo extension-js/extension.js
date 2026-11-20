@@ -139,6 +139,32 @@ describe('theme colors on a Chromium build', () => {
     expect(source.theme).toEqual(theme)
   }, 180_000)
 
+  // A theme written for Firefox with CSS color names built for Chromium in
+  // 4.1.41, so a name ports to its one [R, G, B] reading like a hex does.
+  it('writes CSS color names as arrays, as a Firefox theme writes them', async () => {
+    const theme = {
+      colors: {
+        frame: 'blue',
+        frame_inactive: '#c6c6c6',
+        toolbar_text: 'black',
+        tab_background_separator: 'Black'
+      }
+    }
+    const root = project(theme)
+    const {failure, output, manifest, source} = await build(root, 'chrome')
+
+    expect(failure, output).toBeUndefined()
+    expect(manifest.theme.colors).toEqual({
+      frame: [0, 0, 255],
+      frame_inactive: [198, 198, 198],
+      toolbar_text: [0, 0, 0],
+      tab_background_separator: [0, 0, 0]
+    })
+
+    expect(output.split(NOTE)).toHaveLength(2)
+    expect(source.theme).toEqual(theme)
+  }, 180_000)
+
   it('ports the same strings for another Chromium browser', async () => {
     const root = project({colors: {frame: '#000'}})
     const {failure, output, manifest} = await build(root, 'edge')
@@ -168,7 +194,6 @@ describe('theme colors on a Chromium build', () => {
     ['rgba()', 'rgba(1, 2, 3, 0.5)', '[1, 2, 3, 0.5]'],
     ['a percentage rgb()', 'rgb(100%, 0%, 0%)', '[R, G, B]'],
     ['hsl()', 'hsl(0, 100%, 50%)', '[R, G, B]'],
-    ['a named color', 'white', '[255, 255, 255]'],
     ['a two member array', [1, 2], '[R, G, B]'],
     ['a channel out of range', [1, 2, 300], '[R, G, B]'],
     ['a fractional channel', [1.5, 2, 3], '[R, G, B]'],
@@ -200,7 +225,7 @@ describe('theme colors on a Chromium build', () => {
 
   it('fails on tints that are not three numbers, all in one error', async () => {
     const root = project({
-      colors: {frame: 'red'},
+      colors: {frame: 'hsl(0, 100%, 50%)'},
       tints: {buttons: '#fff', frame: [0.1, 0.2], ok: [0, 0, 0]}
     })
     const {failure} = await build(root, 'chrome')
@@ -209,7 +234,7 @@ describe('theme colors on a Chromium build', () => {
     const [diagnostic] = failure?.diagnostics ?? []
     expect(diagnostic.code).toBe('E_THEME_INVALID')
     expect(diagnostic.message).toContain(
-      'theme.colors.frame "red", write [255, 0, 0]'
+      'theme.colors.frame "hsl(0, 100%, 50%)", write [R, G, B]'
     )
 
     expect(diagnostic.message).toContain(

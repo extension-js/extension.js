@@ -74,6 +74,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {claimCardKey} from '../../../helpers/messaging'
 import * as banner from '../../browsers-lib/banner'
+import {setInstancePorts} from '../../browsers-lib/instance-registry'
 import {readyPathFor} from '../../browsers-lib/ready-stamp'
 import * as controllerModule from '../../run-chromium/cdp/cdp-extension-controller'
 import {setupCdpAfterLaunch} from '../../run-chromium/chromium-launch/setup-cdp-after-launch'
@@ -510,6 +511,28 @@ describe('setupCdpAfterLaunch', () => {
     )
 
     expect(plugin.cdpController).toBeDefined()
+  })
+
+  // The launch claimed a port near the derived one and recorded it for this
+  // session, so a flag the caller stripped must not send the client elsewhere.
+  it('dials the port recorded for its own instance when no flag names one', async () => {
+    setInstancePorts('port-moved-instance', {cdpPort: 9555})
+    setInstancePorts('another-instance', {cdpPort: 9666})
+    const plugin: any = {
+      browser: 'chromium',
+      port: 9333,
+      instanceId: 'port-moved-instance'
+    }
+
+    await setupCdpAfterLaunch(
+      {options: {mode: 'development', output: {path: WORKSPACE}}} as any,
+      plugin,
+      [`--user-data-dir=${PROFILE}`]
+    )
+
+    expect(ctorSpy).toHaveBeenCalledWith(
+      expect.objectContaining({cdpPort: 9555})
+    )
   })
 
   it('hands the companions over CDP on a browser that ignores --load-extension', async () => {

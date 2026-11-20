@@ -11,6 +11,7 @@ import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
 import {isOsPathUnder} from '../lib/real-path'
 import {WITHHELD_CSS_REF, withheldCssRefs} from '../lib/withheld-file'
+import {templateCopiedAsset} from '../plugin-compilation/copied-asset-env'
 import {whyNotRead} from '../plugin-css/css-lib/inline-css-imports'
 import * as cssMessages from '../plugin-css/css-lib/messages'
 import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
@@ -227,7 +228,9 @@ export async function emitRootAbsoluteRefs(
             const buffer = fs.readFileSync(plan.sourcePath)
             compilation.emitAsset(
               plan.emitPath,
-              new rspack.sources.RawSource(buffer)
+              new rspack.sources.RawSource(
+                templateCopiedAsset(compilation, plan.emitPath, buffer)
+              )
             )
 
             // Keep watch mode honest: editing the file should rebuild.
@@ -351,14 +354,26 @@ function reportWithheld(
 
   // A climbing path is shown where the browser would look, at the root.
   const shownAt = path.join(context, path.posix.normalize(`/${emitPath}`))
+  // A file that is there gets the words the page step gives it.
+  const onDisk = path.join(context, ref)
+  const why = fs.existsSync(onDisk)
+    ? whyNotRead(onDisk, projectRoot)
+    : undefined
 
   warn(
     compilation,
     file,
-    htmlMessages.fileNotFound(page || origin.asset, shownAt, {
-      publicRootHint: true,
-      refLabel: ref
-    }),
+    why
+      ? htmlMessages.pageRefWithheld(
+          page || origin.asset,
+          shownAt,
+          ref,
+          why.kind
+        )
+      : htmlMessages.fileNotFound(page || origin.asset, shownAt, {
+          publicRootHint: true,
+          refLabel: ref
+        }),
     // The page step's name for a missing file of the same tag, so both
     // carry one code. The bundler drops a code set on the warning itself.
     missingRefName(shownAt)

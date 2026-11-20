@@ -8,23 +8,22 @@
 
 import {EventEmitter} from 'node:events'
 import type {Compiler} from '@rspack/core'
-import {isAwaitingMainWorldRestart} from '../dev-server/session-restart-holds'
 import * as messages from '../lib/messages'
 import {CODES, humanLine, humanWarn} from '../lib/messaging'
 import {
-  createChangedSourcesTracker,
-  dispatchReload,
-  type LoadedContentScripts,
-  loadedContentScriptsFor,
+  createReloadSession,
   type ReloadBroker,
   type ReloadInstruction,
-  readBootRegistrations,
-  readDevBuild,
-  reloadForBuild
+  type ReloadPlan,
+  type ReloadSession
 } from '../plugin-reload'
-import type {DevOptions} from '../types'
+import type {BrowserType} from '../types'
 import {waitAtMost} from './bounded-wait'
-import {clearLaunchTimedOut, stampLaunchTimedOut} from './launch-timeout-stamp'
+import {
+  clearLaunchTimedOut,
+  stampLaunchTimedOut,
+  stampLogCaptureTimedOut
+} from './launch-timeout-stamp'
 import * as browserMessages from './messages'
 
 // The launcher bounds each step it waits on, the longest at 45 seconds, so a
@@ -63,7 +62,7 @@ export class BuildEmitter extends EventEmitter<BuildEventMap> {
 // it, then the public event. The launcher stamps the contract before it throws.
 export function reportLaunchFailure(
   emitter: BuildEmitter,
-  failure: {browser: string; error: unknown}
+  failure: {browser: BrowserType; error: unknown}
 ): void {
   const {error} = failure
   const reason = error instanceof Error ? error.message : String(error)
@@ -72,11 +71,7 @@ export function reportLaunchFailure(
   // Print before emitting: the emitter's default 'error' listener swallows.
   if (fault?.printed !== true) {
     console.error(
-      messages.browserLaunchFailed(
-        failure.browser as DevOptions['browser'],
-        reason,
-        fault?.code
-      )
+      messages.browserLaunchFailed(failure.browser, reason, fault?.code)
     )
   }
 
@@ -89,7 +84,7 @@ export function reportLaunchFailure(
 }
 
 export interface BrowserLaunchOptions {
-  browser: string
+  browser: BrowserType
   outputPath: string
   contextDir: string
   extensionsToLoad: string[]
@@ -138,6 +133,10 @@ export interface BrowserLogSinkEvent {
 }
 
 export type BrowserLogSink = (event: BrowserLogSinkEvent) => void
+
+// The dev server's answer to whether a MAIN world restart replaces this build,
+// handed in so the browser plugins never read session restart state.
+export type RestartHold = (compiler: object, compilation?: object) => boolean
 
 export interface ExtensionLoadRetryResult {
   status: 'loaded' | 'refused' | 'unknown'
@@ -200,7 +199,7 @@ export interface BrowsersPluginOptions {
 export class BrowsersPlugin implements RunnerPlugin {
   static readonly name = 'plugin-browsers'
 
-  /** EventEmitter for build lifecycle events (compiled, error, close). */
+  /** EventEmitter for build lifecycle events (compiled, error). */
   readonly emitter = new BuildEmitter()
 
   /**
@@ -214,7 +213,6 @@ export class BrowsersPlugin implements RunnerPlugin {
   // never opens a second browser beside it.
   private launchStillRunning = false
   private controller: BrowserController | undefined
-  private reloadBroker: ReloadBroker | undefined
   private logSink: BrowserLogSink | undefined
   private emulatorViewerUrl: string | undefined
   private instanceId: string | undefined
@@ -222,14 +220,16 @@ export class BrowsersPlugin implements RunnerPlugin {
   private launchSettledListener: (() => void) | undefined
   // The refusal text last shown to the operator, so repeats stay quiet.
   private lastReportedRefusal: string | null | undefined
-  // What the browser last read through the manifest, kept by plugin-reload.
-  // It outlives a dev server restart, which applies this plugin again.
-  private readonly loadedContentScripts: LoadedContentScripts | undefined
+  // The last reason a retry could not be asked, so a save loop says it once.
+  private lastRetryFailure: string | undefined
+  // What reloads and when, kept by plugin-reload. It outlives a dev server
+  // restart, which applies this plugin again.
+  private readonly reloads: ReloadSession
 
   constructor(private readonly options: BrowsersPluginOptions) {
-    this.loadedContentScripts = loadedContentScriptsFor(
-      options.browserOptions.browser
-    )
+    this.reloads = createReloadSession({
+      browser: options.browserOptions.browser
+    })
   }
 
   /**
@@ -238,7 +238,13 @@ export class BrowsersPlugin implements RunnerPlugin {
    * not the CDP controller. Called once, before the first compile.
    */
   setReloadBroker(broker: ReloadBroker): void {
-    this.reloadBroker = broker
+    this.reloads.connect(broker)
+  }
+
+  // The dev server says which builds a MAIN world restart replaces. Called
+  // once, before the first compile.
+  setRestartHold(isHeld: RestartHold): void {
+    this.reloads.hold(isHeld)
   }
 
   // The dev server injects a sink that routes browser-generated Log.entryAdded
@@ -252,19 +258,10 @@ export class BrowsersPlugin implements RunnerPlugin {
   private bootRegistrationsHold(
     compilation: object
   ): Pick<BrowserLaunchOptions, 'awaitBootRegistrations'> {
-    const broker = this.reloadBroker
+    const awaitBootRegistrations =
+      this.reloads.bootRegistrationsWait(compilation)
 
-    if (
-      !broker?.awaitBootRegistrations ||
-      !readBootRegistrations(compilation)
-    ) {
-      return {}
-    }
-
-    return {
-      awaitBootRegistrations: (timeoutMs) =>
-        broker.awaitBootRegistrations?.(timeoutMs) ?? Promise.resolve('settled')
-    }
+    return awaitBootRegistrations ? {awaitBootRegistrations} : {}
   }
 
   setEmulatorViewerUrl(url: string): void {
@@ -307,11 +304,13 @@ export class BrowsersPlugin implements RunnerPlugin {
     }
   }
 
+  // True when a browser came up with this build. A launch that failed or is
+  // still out reports on 'error', and the build is not reported compiled.
   private async launchBrowser(
     compilation: object,
     outputPath: string,
     contextDir: string
-  ): Promise<void> {
+  ): Promise<boolean> {
     const browser = this.options.browserOptions.browser
     const launch = Promise.resolve().then(() =>
       this.options.launcher({
@@ -333,11 +332,11 @@ export class BrowsersPlugin implements RunnerPlugin {
 
     if (outcome.state === 'resolved') {
       this.controller = outcome.value
-      await this.enableBrowserLogs()
+      await this.enableBrowserLogs(outputPath)
       this.announceLaunchSettled()
       this.announceReady()
 
-      return
+      return true
     }
 
     this.announceLaunchSettled()
@@ -348,7 +347,7 @@ export class BrowsersPlugin implements RunnerPlugin {
       // The launcher stamped the contract itself before it threw.
       reportLaunchFailure(this.emitter, {browser, error: outcome.error})
 
-      return
+      return false
     }
 
     // The launcher never came back to stamp anything, so the stamp is ours.
@@ -370,19 +369,31 @@ export class BrowsersPlugin implements RunnerPlugin {
         this.controller = controller
         this.isFirstCompile = false
         clearLaunchTimedOut(outputPath)
-        await this.enableBrowserLogs()
+        await this.enableBrowserLogs(outputPath)
         this.announceReady()
+        this.emitCompiled({
+          outputPath,
+          contextDir,
+          isFirstCompile: true,
+          extensionsToLoad: this.extensionsToLoad
+        })
       },
       (error: unknown) => {
         this.launchStillRunning = false
         reportLaunchFailure(this.emitter, {browser, error})
       }
     )
+
+    return false
+  }
+
+  private emitCompiled(event: CompiledEvent): void {
+    this.emitter.emit('compiled', event)
   }
 
   // The browser is already up with the extension, so a capture that fails is
   // a warning on a session that still goes ready, never a failed launch.
-  private async enableBrowserLogs(): Promise<void> {
+  private async enableBrowserLogs(outputPath: string): Promise<void> {
     const browserOptions = this.options.browserOptions
     const logLevel = browserOptions.logLevel || 'off'
 
@@ -418,7 +429,11 @@ export class BrowsersPlugin implements RunnerPlugin {
           )
 
     // A rejection was stamped by the launcher. A capture that never answered
-    // is only warned about, as nothing came back to stamp it.
+    // left nothing to stamp it, so the stamp is ours.
+    if (outcome.state === 'timeout') {
+      stampLogCaptureTimedOut(outputPath, (error as Error).message)
+    }
+
     humanWarn(
       browserMessages.browserLogCaptureFailed(
         browserOptions.browser,
@@ -458,7 +473,19 @@ export class BrowsersPlugin implements RunnerPlugin {
 
     try {
       outcome = await controller.retryExtensionLoad()
-    } catch {
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+
+      if (reason !== this.lastRetryFailure) {
+        this.lastRetryFailure = reason
+        humanWarn(
+          browserMessages.extensionLoadRetryFailed(
+            this.options.browserOptions.browser,
+            reason
+          )
+        )
+      }
+
       return false
     }
 
@@ -484,7 +511,7 @@ export class BrowsersPlugin implements RunnerPlugin {
   }
 
   apply(compiler: Compiler) {
-    const changedSources = createChangedSourcesTracker(compiler)
+    const builds = this.reloads.watch(compiler)
 
     compiler.hooks.done.tapPromise(BrowsersPlugin.name, async (stats) => {
       const compilation = stats.compilation
@@ -503,22 +530,12 @@ export class BrowsersPlugin implements RunnerPlugin {
       const outputPath = String(compilation.options?.output?.path || '')
       const contextDir = String(compilation.options?.context || '')
 
-      // The restart this build asked for reloads once with the build that
-      // replaces it. Reloading for this one too starts the background twice.
-      const heldForRestart =
-        !this.isFirstCompile &&
-        isAwaitingMainWorldRestart(compiler, compilation)
-
-      // What must reload is plugin-reload's answer, from the sources that
-      // changed. The first compile is the build the browser loads.
-      let reloadInstruction: ReloadInstruction | undefined
-
-      if (!this.isFirstCompile && !heldForRestart) {
-        reloadInstruction = reloadForBuild(compilation, {
-          changedSources,
-          loaded: this.loadedContentScripts
-        })
-      }
+      // What must reload is plugin-reload's answer, held while a restart
+      // replaces this build. The first compile is the build the browser loads.
+      const plan: ReloadPlan = this.isFirstCompile
+        ? {held: false}
+        : builds.plan(compilation)
+      const reloadInstruction = plan.instruction
 
       const wasFirstCompile = this.isFirstCompile
       this.isFirstCompile = false
@@ -526,30 +543,29 @@ export class BrowsersPlugin implements RunnerPlugin {
       if (wasFirstCompile) {
         // The launch loads this build. A launch that fails runs again on the
         // next compile, which is then the build the browser reads.
-        this.loadedContentScripts?.noteLoaded(compilation)
+        this.reloads.loaded(compilation)
 
         if (this.launchStillRunning) {
           this.isFirstCompile = true
-        } else {
-          await this.launchBrowser(compilation, outputPath, contextDir)
+
+          return
+        }
+
+        if (!(await this.launchBrowser(compilation, outputPath, contextDir))) {
+          return
         }
       } else if (await this.retryRefusedExtensionLoad()) {
         // The guest was absent until this compile, so there is nothing to
         // reload: it just started from the dist that was written.
-        this.loadedContentScripts?.noteLoaded(compilation)
+        this.reloads.loaded(compilation)
         this.announceReady()
-      } else if (!heldForRestart && this.reloadBroker) {
+      } else if (!plan.held) {
         // Launched-browser reload routes to the SW producer over the control
         // bridge, the same executor as `--no-browser`. Honors EXTENSION_NO_RELOAD.
-        const delivered = await dispatchReload(reloadInstruction, {
-          broker: this.reloadBroker,
-          build: readDevBuild(compilation)
-        })
-
-        this.loadedContentScripts?.settle(delivered)
+        await this.reloads.deliver(reloadInstruction, compilation)
       }
 
-      this.emitter.emit('compiled', {
+      this.emitCompiled({
         outputPath,
         contextDir,
         isFirstCompile: wasFirstCompile,

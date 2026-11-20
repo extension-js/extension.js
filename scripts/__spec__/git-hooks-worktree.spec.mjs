@@ -61,7 +61,11 @@ function makeRepoWithHooks() {
     fs.chmodSync(path.join(main, HOOKS_PATH, file), 0o755)
   }
 
-  writeExecutable(path.join(main, '.husky/pre-commit'), 'fake-lint\n')
+  writeExecutable(
+    path.join(main, HOOKS_PATH, 'pre-commit'),
+    '#!/usr/bin/env sh\n. "$(dirname "$0")/h"\nrun_hook fake-lint\n'
+  )
+
   fs.writeFileSync(path.join(main, '.gitignore'), 'node_modules\n')
   fs.writeFileSync(path.join(main, 'README.md'), 'start\n')
 
@@ -102,6 +106,20 @@ test('the installer points core.hooksPath at a dispatcher in the common git dir'
   assert.ok(path.isAbsolute(hooksPath), hooksPath)
   assert.equal(path.basename(hooksPath), DISPATCH_DIR)
   assert.ok(fs.existsSync(path.join(hooksPath, 'pre-commit')))
+})
+
+test('installing again leaves the shared dispatcher untouched', () => {
+  const {main} = makeRepoWithHooks()
+  const hooksPath = git(['config', 'core.hooksPath'], main).stdout.trim()
+  const stub = path.join(hooksPath, 'pre-commit')
+  const past = new Date('2000-01-01T00:00:00Z')
+
+  fs.utimesSync(stub, past, past)
+  fs.utimesSync(hooksPath, past, past)
+
+  assert.equal(installGitHooks({env: isolatedEnv, cwd: main}).installed, true)
+  assert.equal(fs.statSync(stub).mtimeMs, past.getTime())
+  assert.equal(fs.statSync(hooksPath).mtimeMs, past.getTime())
 })
 
 test('installing in a tree with no tracked hooks folder writes nothing', () => {
@@ -225,15 +243,13 @@ test('HUSKY=0 skips the hook in a worktree', {skip: !runsShellHooks}, () => {
   assert.equal(accepted.status, 0, accepted.stderr)
 })
 
-test('every hook body has an executable tracked stub', () => {
-  const hooks = fs
-    .readdirSync(path.join(repoRoot, '.husky'), {withFileTypes: true})
-    .filter((entry) => entry.isFile())
-    .map((entry) => entry.name)
-
+test('every tracked hook is executable and there is no second hooks folder', () => {
+  const hooks = fs.readdirSync(path.join(repoRoot, HOOKS_PATH))
   const staged = git(['ls-files', '-s', '--', HOOKS_PATH], repoRoot).stdout
 
-  for (const name of ['h', ...hooks]) {
+  assert.equal(fs.existsSync(path.join(repoRoot, '.husky')), false)
+
+  for (const name of hooks) {
     assert.match(
       staged,
       new RegExp(`^100755 \\S+ \\d\\t${HOOKS_PATH}/${name}$`, 'm'),

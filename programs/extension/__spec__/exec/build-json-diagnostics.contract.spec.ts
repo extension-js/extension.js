@@ -126,48 +126,44 @@ describe('a failed compile under --output json lists each diagnostic with its co
     expectCodedDetails(frame.error?.details)
   }, 180_000)
 
-  it.skipIf(process.platform === 'win32')(
-    'dev --no-browser emits a compile-failed frame whose error carries details',
-    async () => {
-      const session = startCli(
-        [
-          'dev',
-          projectDir,
-          '--browser',
-          'chrome',
-          '--no-browser',
-          '--output',
-          'json'
-        ],
-        {env}
-      )
-      const failed = () =>
-        session
-          .frames<Frame>()
-          .find((candidate) => candidate.status === 'compile-failed')
+  it('dev --no-browser emits a compile-failed frame whose error carries details', async () => {
+    const session = startCli(
+      [
+        'dev',
+        projectDir,
+        '--browser',
+        'chrome',
+        '--no-browser',
+        '--output',
+        'json'
+      ],
+      {env}
+    )
+    const failed = () =>
+      session
+        .frames<Frame>()
+        .find((candidate) => candidate.status === 'compile-failed')
 
-      try {
-        await session.waitFor(
-          () => failed() !== undefined,
-          90_000,
-          'the compile-failed frame'
-        )
-      } finally {
-        await session.stop('SIGTERM', 15_000)
-      }
-
-      const {stdout, stderr} = session.read()
-      const frame = parseFrames(stdout).find(
-        (candidate) => candidate.status === 'compile-failed'
+    try {
+      await session.waitFor(
+        () => failed() !== undefined,
+        90_000,
+        'the compile-failed frame'
       )
-      expect(frame, stderr).toBeDefined()
-      expect(frame?.ok).toBe(false)
-      expect(frame?.error?.code).toBe('E_FIRST_COMPILE')
-      expect(frame?.value?.output).toContain('missing-dep-token')
-      expectCodedDetails(frame?.error?.details, expect.any(Number))
-    },
-    180_000
-  )
+    } finally {
+      await session.stop('SIGTERM', 15_000)
+    }
+
+    const {stdout, stderr} = session.read()
+    const frame = parseFrames(stdout).find(
+      (candidate) => candidate.status === 'compile-failed'
+    )
+    expect(frame, stderr).toBeDefined()
+    expect(frame?.ok).toBe(false)
+    expect(frame?.error?.code).toBe('E_FIRST_COMPILE')
+    expect(frame?.value?.output).toContain('missing-dep-token')
+    expectCodedDetails(frame?.error?.details, expect.any(Number))
+  }, 180_000)
 })
 
 const makeTempFolder = trackTempFolders()
@@ -826,7 +822,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
                 warnings_count: 1,
                 errors_count: 0,
                 warnings: [
-                  "W_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module; the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
+                  "W_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module, so the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
                 ],
                 toolchain: {
                   node: '<node>',
@@ -841,7 +837,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
           },
           error: null,
           warnings: [
-            "W_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module; the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
+            "W_SCRIPT_DEP_MISSING: require('not-a-real-pkg-xyz') in bg.js does not resolve to any module, so the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build."
           ]
         }
       ],
@@ -858,7 +854,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '│  └─ service_worker.js (N KB)',
         '└─ manifest.json (N KB)',
         '',
-        "⏵⏵⏵ Warning: require('not-a-real-pkg-xyz') in <project>/bg.js does not resolve to any module; the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build.",
+        "⏵⏵⏵ Warning: require('not-a-real-pkg-xyz') in <project>/bg.js does not resolve to any module, so the call is left verbatim in the output. Chrome loads the script anyway. It only throws if that code path runs (vendored pre-bundled libraries often carry dead require() branches). Install the package if it's a real dependency, or set EXTENSION_STRICT_REFS=true to make this fail the build.",
         '│  Source: bundler',
         '│  Hint: Re-run with EXTENSION_VERBOSE=1 to inspect full warning details.',
         '⏵⏵⏵ Extension built for production in dist/chromium (N B).',
@@ -925,6 +921,15 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '    Extension      Diagnostic 1.0.0',
         '    Output         <project>/dist/chromium',
         ' ',
+        '⏵⏵⏵ Build warning in c.js.',
+        '    ⚠ ⏵⏵⏵ Warning: A stylesheet imported only for its side effect styles nothing in a content script.',
+        '    │ PATH c.js:1',
+        "    │ IMPORT import './b.css'",
+        '    │ There the import evaluates to the sheet as a data: URL, and no code reads it.',
+        '    │ Read the value and place it: import href from \'./b.css\', then set it on a <link rel="stylesheet">.',
+        '    │ Or list the sheet under content_scripts[].css in manifest.json, or use a CSS module (.module.css).',
+        '    │ Extension.js places it for you only in the shadow root of a host marked data-extension-root.',
+        '',
         '⏵⏵⏵ Build error in b.css.',
         '    × A url(./nope.png) reference points to a file that exists nowhere in the project.',
         '    │ PATH b.css',

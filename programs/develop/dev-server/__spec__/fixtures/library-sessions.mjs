@@ -169,6 +169,8 @@ async function failingStarts() {
   if (scenario === 'start') process.env.FAIL_FIRST_START = '1'
 
   const dir = project('failing', CONFIGS[scenario])
+  // The config reads it, so it is on process.env until the session ends.
+  fs.writeFileSync(path.join(dir, '.env'), 'EXTENSION_PUBLIC_HOST_PROBE=1\n')
   const before = listeners()
   const sessions = []
 

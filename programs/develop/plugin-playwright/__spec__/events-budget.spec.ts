@@ -93,8 +93,9 @@ describe('events.ndjson budget and rotation', () => {
     expect(row.truncated).toBe(true)
   })
 
-  // Pins current behavior: only the errors are trimmed, so the row stays large.
-  it('writes a row over the cap when the oversize is not in the errors', () => {
+  // Any long text is trimmed, not only the errors, and a row that never had
+  // errors does not gain an empty list.
+  it('trims a long reason so the row fits the cap', () => {
     const writer = makeWriter()
 
     writer.appendEvent({
@@ -107,10 +108,27 @@ describe('events.ndjson budget and rotation', () => {
 
     const written = lines(writer.eventsPath)
     const row = JSON.parse(written[0])
-    expect(Buffer.byteLength(written[0])).toBeGreaterThan(MAX_EVENT_BYTES)
-    expect(row.reason).toHaveLength(2 * MAX_EVENT_BYTES)
-    expect(row.errors).toEqual([])
+    expect(Buffer.byteLength(written[0])).toBeLessThanOrEqual(MAX_EVENT_BYTES)
+    expect(row.reason.length).toBeGreaterThan(1024)
+    expect(row.reason.startsWith('RRRR')).toBe(true)
+    expect('errors' in row).toBe(false)
     expect(row.truncated).toBe(true)
+    expect(row.type).toBe('browser_launch_failed')
+  })
+
+  it('trims a long reason and long errors together', () => {
+    const writer = makeWriter()
+
+    writer.appendEvent({
+      ...failingCompile(2 * MAX_EVENT_BYTES),
+      reason: 'R'.repeat(2 * MAX_EVENT_BYTES)
+    })
+
+    const written = lines(writer.eventsPath)
+    const row = JSON.parse(written[0])
+    expect(Buffer.byteLength(written[0])).toBeLessThanOrEqual(MAX_EVENT_BYTES)
+    expect(row.errors).toHaveLength(1)
+    expect(row.reason.length).toBeGreaterThan(1024)
   })
 
   // Pins current behavior: a failed rotation goes unnoticed and the file

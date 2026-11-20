@@ -89,38 +89,43 @@ Each table lists fields of the exported option types `DevOptions`, `BuildOptions
 
 ### dev, build, start and preview
 
-| Option           | Type / Values                                                                                                                                                                         | Description                                                                                                                   |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `browser`        | chrome, edge, firefox, safari, chromium, brave, opera, vivaldi, yandex, waterfox, librewolf, zen, floorp, chromium-based, gecko-based, firefox-based, webkit-based, chromium-emulator | Target browser                                                                                                                |
-| `mode`           | development, production, none                                                                                                                                                         | Bundler mode. `dev` always runs `development`, `start` and `preview` take `production` only, `build` defaults to `production` |
-| `chromiumBinary` | string                                                                                                                                                                                | Path of a Chromium-based executable to run                                                                                    |
-| `geckoBinary`    | string                                                                                                                                                                                | Path of a Gecko-based executable to run                                                                                       |
-| `firefoxBinary`  | string                                                                                                                                                                                | Same as `geckoBinary`, which wins when both are set                                                                           |
-| `extensions`     | string[] or `{dir, paths}`                                                                                                                                                            | Companion extensions for this command, see "Companion extensions" below                                                       |
+| Option           | Type / Values                                                                                                                                                                         | Description                                                             |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `browser`        | chrome, edge, firefox, safari, chromium, brave, opera, vivaldi, yandex, waterfox, librewolf, zen, floorp, chromium-based, gecko-based, firefox-based, webkit-based, chromium-emulator | Target browser                                                          |
+| `chromiumBinary` | string                                                                                                                                                                                | Path of a Chromium-based executable to run                              |
+| `geckoBinary`    | string                                                                                                                                                                                | Path of a Gecko-based executable to run                                 |
+| `firefoxBinary`  | string                                                                                                                                                                                | Same as `geckoBinary`, which wins when both are set                     |
+| `extensions`     | string[] or `{dir, paths}`                                                                                                                                                            | Companion extensions for this command, see "Companion extensions" below |
+
+### build, start and preview
+
+| Option | Type / Values                 | Description                                                                                                                                            |
+| ------ | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `mode` | development, production, none | Bundler mode. `start` and `preview` take `production` only, `build` defaults to `production`. `dev` always runs `development` and has no `mode` option |
 
 ### dev, start and preview
 
-| Option               | Type / Values                                                                                      | Description                                                                                                                            |
-| -------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `noOpen`             | boolean                                                                                            | Start the browser without opening a tab for the extension                                                                              |
-| `noBrowser`          | boolean                                                                                            | Start no browser at all                                                                                                                |
-| `profile`            | string or false                                                                                    | Profile folder to use. `false` asks for the browser's own default profile. Defaults to a fresh managed profile                         |
-| `persistProfile`     | boolean                                                                                            | Reuse one managed profile across runs, off by default                                                                                  |
-| `keepProfileChanges` | boolean                                                                                            | Keep the managed profile and what the run changed in it                                                                                |
-| `copyFromProfile`    | string                                                                                             | Seed the managed profile from a copy of this profile folder, on first creation                                                         |
-| `startingUrl`        | string                                                                                             | Page to open when the browser starts                                                                                                   |
-| `port`               | number or string                                                                                   | `dev`: the dev server port, 8080 by default. `start` and `preview`: handed to the launcher, which seeds the browser debug port from it |
-| `host`               | string                                                                                             | Address to bind, 127.0.0.1 by default. `dev` binds the dev server, `start` and `preview` bind the control channel                      |
-| `publicHost`         | string                                                                                             | `dev`: the address the browser dials when it differs from `host`. Accepted and unused by `start` and `preview`                         |
-| `logLevel`           | off, error, warn, info, debug, trace, all                                                          | Lowest level of browser log printed in the terminal, `off` by default                                                                  |
-| `logContexts`        | array of: background, content, page, popup, options, sidebar, devtools, newtab, history, bookmarks | Contexts whose logs print. Leave unset for all of them                                                                                 |
-| `logFormat`          | pretty, json, ndjson                                                                               | Output format of the printed logs, `pretty` by default                                                                                 |
-| `logTimestamps`      | boolean                                                                                            | Timestamps in `pretty` output, on by default                                                                                           |
-| `logColor`           | boolean                                                                                            | Colors in `pretty` output, on by default                                                                                               |
-| `logUrl`             | string                                                                                             | Print only logs whose URL holds this text or matches this `/regex/flags` literal                                                       |
-| `logTab`             | number or string                                                                                   | Print only logs from this tab id                                                                                                       |
-| `preferences`        | object                                                                                             | Browser preferences to set in the profile                                                                                              |
-| `browserFlags`       | string[]                                                                                           | Extra flags for the browser command line                                                                                               |
+| Option                | Type / Values                                                                                      | Description                                                                                                                            |
+| --------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `noOpen`              | boolean                                                                                            | Start the browser without opening a tab for the extension                                                                              |
+| `noBrowser`           | boolean                                                                                            | Start no browser at all                                                                                                                |
+| `profile`             | string or false                                                                                    | Profile folder to use. `false` asks for the browser's own default profile. Defaults to a fresh managed profile                         |
+| `persistProfile`      | boolean                                                                                            | Reuse one managed profile across runs, off by default                                                                                  |
+| `keepProfileChanges`  | boolean                                                                                            | Keep the managed profile and what the run changed in it                                                                                |
+| `copyFromProfile`     | string                                                                                             | Seed the managed profile from a copy of this profile folder, on first creation                                                         |
+| `startingUrl`         | string                                                                                             | Page to open when the browser starts                                                                                                   |
+| `port`                | number or string                                                                                   | `dev`: the dev server port, 8080 by default. `start` and `preview`: handed to the launcher, which seeds the browser debug port from it |
+| `host`                | string                                                                                             | Address to bind, 127.0.0.1 by default. `dev` binds the dev server, `start` and `preview` bind the control channel                      |
+| `publicHost`          | string                                                                                             | `dev`: the address the browser dials when it differs from `host`. Accepted and unused by `start` and `preview`                         |
+| `logLevel`            | off, error, warn, info, debug, trace, all                                                          | Lowest level of browser log printed in the terminal, `off` by default                                                                  |
+| `logContexts`         | array of: background, content, page, popup, options, sidebar, devtools, newtab, history, bookmarks | Contexts whose logs print. Leave unset for all of them                                                                                 |
+| `logFormat`           | pretty, json, ndjson                                                                               | Output format of the printed logs, `pretty` by default                                                                                 |
+| `logTimestamps`       | boolean                                                                                            | Timestamps in `pretty` output, on by default                                                                                           |
+| `logColor`            | boolean                                                                                            | Colors in `pretty` output, on by default                                                                                               |
+| `logUrl`              | string                                                                                             | Print only logs whose URL holds this text or matches this `/regex/flags` literal                                                       |
+| `logTab`              | number or string                                                                                   | Print only logs from this tab id                                                                                                       |
+| `preferences`         | object                                                                                             | Browser preferences to set in the profile                                                                                              |
+| `browserFlags`        | string[]                                                                                           | Extra flags for the browser command line                                                                                               |
 | `excludeBrowserFlags` | string[]                                                                                           | Default flags to leave off the browser command line                                                                                    |
 
 ### dev and build
@@ -136,22 +141,17 @@ Each table lists fields of the exported option types `DevOptions`, `BuildOptions
 | `appIcon`         | string        | Square 1024 px PNG the Safari app icon set is made from, relative to the project                                                                                              |
 | `forceRegenerate` | boolean       | Regenerate the Xcode project even when it is current                                                                                                                          |
 | `safariPackager`  | function      | The callback that packages the Safari app. Without it no Safari app is produced                                                                                               |
-| `zip`             | boolean       | `build`: package `dist/<browser>` as an archive. Accepted and unused by `dev`, which writes no archive                                                                        |
-| `zipSource`       | boolean       | `build`: package the source files, respecting `.gitignore`. Unused by `dev`                                                                                                   |
-| `zipFilename`     | string        | `build`: base name of the archives. Unused by `dev`                                                                                                                           |
-| `zipDir`          | string        | `build`: folder for the archives, relative to the project or absolute. Unused by `dev`                                                                                        |
-| `sourceMaps`      | boolean       | `build`: write a `.map` file beside each script and stylesheet of a production build, never zipped. Unused by `dev`, which always writes maps                                 |
 | `exitOnError`     | boolean       | `dev`: exit the process with code 1 on a failed session, off by default for a library. Deprecated and ignored by `build`: a failed build rejects and the caller owns the exit |
 
 ### dev
 
-| Option                | Type / Values      | Description                                                                                                              |
-| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `allowedHosts`        | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain                                            |
-| `hashContentScripts`  | boolean            | Put a content hash in each content script file name, on by default                                                       |
-| `allowControl`        | boolean            | Open the control channel for the act verbs                                                                               |
-| `allowEval`           | boolean            | Also allow the `eval` verb. Implies `allowControl`                                                                       |
-| `hintFor`             | function           | The hint for a terminal `failed` or `usage` frame that carries none. Called with the code, returns a string or undefined |
+| Option               | Type / Values      | Description                                                                                                              |
+| -------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `allowedHosts`       | string or string[] | Extra host names the dev server answers. A leading dot allows every subdomain                                            |
+| `hashContentScripts` | boolean            | Put a content hash in each content script file name, on by default                                                       |
+| `allowControl`       | boolean            | Open the control channel for the act verbs                                                                               |
+| `allowEval`          | boolean            | Also allow the `eval` verb. Implies `allowControl`                                                                       |
+| `hintFor`            | function           | The hint for a terminal `failed` or `usage` frame that carries none. Called with the code, returns a string or undefined |
 
 A host that learns a session cannot go on calls `endSessionAsFailed(code, message, instanceId?)`, exported beside `extensionDev`. It ends the named session, or the newest one, with one `failed` frame and answers `false` when that session is not live or is already stopping. A host that did not pass `exitOnError` keeps running.
 
@@ -163,6 +163,11 @@ A host that learns a session cannot go on calls `endSessionAsFailed(code, messag
 | `silent`        | boolean       | Print nothing on stdout. A failure still prints                                                                        |
 | `addonLint`     | boolean       | Run `addons-linter` over a production build for a Gecko target, on by default when it is installed                     |
 | `minify`        | boolean       | Minify first-party code in a production build. On by default, off for `opera`                                          |
+| `zip`           | boolean       | Package `dist/<browser>` as an archive                                                                                 |
+| `zipSource`     | boolean       | Package the source files, respecting `.gitignore`                                                                      |
+| `zipFilename`   | string        | Base name of the archives                                                                                              |
+| `zipDir`        | string        | Folder for the archives, relative to the project or absolute                                                           |
+| `sourceMaps`    | boolean       | Write a `.map` file beside each script and stylesheet of a production build, never zipped. `dev` always writes maps    |
 | `failOnWarning` | boolean       | Deprecated. Nothing reads it, a build never fails on a warning                                                         |
 
 ### start
@@ -255,7 +260,7 @@ export default {
 
 - `extension.config.*` runs in a Node context during command startup.
   - Use `process.env.*` to read environment variables inside the config file.
-  - `import.meta.env.*` is available in your extension code at bundle time (via the Env plugin), not in the Node config.
+  - `import.meta.env.*` reads the same values in an ES module config (`extension.config.mjs`, or an `extension.config.js` written as an ES module), and in your extension code at bundle time (via the Env plugin).
 - Before the config runs, develop loads the env files that match the running mode and browser into `process.env`. Values layer key by key: every matching file is read, and for each key the strongest file that sets it wins. A value already set in the shell or CI wins over every file. Strongest first:
   1. `.env.<browser>.<mode>`, then `.env.<browser>`, for the browser and then for each name of its family (for example `.env.chrome.production`, `.env.chrome`, `.env.chromium`). These apply once the browser is known.
   2. `.env.<mode>.local`

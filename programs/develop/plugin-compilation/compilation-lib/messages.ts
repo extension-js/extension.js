@@ -151,10 +151,6 @@ export function zipSourceEmpty() {
   return `${prefix('warn')} The source zip holds no files. Every file in the project is ignored or left out.`
 }
 
-export function zipCreationFailed(error: unknown) {
-  return `ZipPlugin: Failed to create zip(s): ${String(error)}`
-}
-
 export function zipPackagingSkipped(reason: string) {
   return `${prefix('debug')} zip      skipped=true reason="${reason}"`
 }
@@ -373,4 +369,24 @@ export function nodeBuiltinHasNoStandIn(
       : ''
 
   return `${head}\n${stubs}${nodeBuiltinStandInHint(builtin)}\n${upstream}`
+}
+
+// A require() the bundler could not resolve, left verbatim in the output.
+export function unresolvedBareRequire(
+  request: string,
+  issuer: string,
+  builtin: string | undefined
+) {
+  return (
+    `require('${request}')${issuer ? ` in ${issuer}` : ''} does not ` +
+    `resolve to any module, so the call is left verbatim in the output. ` +
+    `Chrome loads the script anyway. It only throws if that code path ` +
+    `runs (vendored pre-bundled libraries often carry dead require() ` +
+    `branches). ` +
+    (builtin
+      ? `It names a Node.js built-in. ` +
+        `${nodeBuiltinStandInHint(builtin)} Or set `
+      : `Install the package if it's a real dependency, or set `) +
+    `EXTENSION_STRICT_REFS=true to make this fail the build.`
+  )
 }

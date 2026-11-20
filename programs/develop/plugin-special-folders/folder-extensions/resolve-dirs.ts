@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {recordCodedWarning} from '../../lib/coded-warnings'
-import {CODES} from '../../lib/messaging'
+import {CODES, humanWarn} from '../../lib/messaging'
 import {isInsidePath, isSamePath} from '../../lib/real-path'
 import {scannedCompanionOutsideProject} from '../messages'
 import type {CompanionExtensionsConfig} from './types'
@@ -94,7 +94,7 @@ export function resolveCompanionExtensionDirs(opts: {
           )
 
           recordCodedWarning(CODES.W_COMPANION_EXTENSION_PATH, text)
-          console.warn(text)
+          humanWarn(text)
         }
 
         return false

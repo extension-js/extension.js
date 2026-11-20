@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {type ChildProcess, spawn, spawnSync} from 'node:child_process'
+import * as path from 'node:path'
 import {humanLine, isDebug} from '../../helpers/messaging'
 import type {BrowserType} from '../browsers-types'
 import * as messages from './messages'
@@ -29,6 +30,7 @@ export interface TeardownDependencies {
   sweep: (marks: ProcessMark[]) => number[]
   kill: (pid: number, signal: NodeJS.Signals) => boolean
   killTree: (pid: number) => void
+  askTree: (pid: number) => void
   print: (line: string) => void
 }
 
@@ -52,16 +54,29 @@ function authorLog(line: string | null): void {
   if (line && isDebug()) humanLine(line)
 }
 
-function killWindowsTree(pid: number | undefined, sync: boolean): void {
+// The system copy by absolute path, so a taskkill earlier on PATH never runs.
+export function windowsTaskkillPath(
+  env: NodeJS.ProcessEnv = process.env
+): string {
+  const root = env.SystemRoot || env.windir || 'C:\\Windows'
+
+  return path.win32.join(root, 'System32', 'taskkill.exe')
+}
+
+function runTaskkill(
+  pid: number | undefined,
+  options: {sync: boolean; force: boolean}
+): void {
   if (process.platform !== 'win32' || !pid) return
 
-  const args = ['/PID', String(pid), '/T', '/F']
+  const args = ['/PID', String(pid), '/T', ...(options.force ? ['/F'] : [])]
+  const bin = windowsTaskkillPath()
 
   try {
-    if (sync) {
-      spawnSync('taskkill', args, {stdio: 'ignore', windowsHide: true})
+    if (options.sync) {
+      spawnSync(bin, args, {stdio: 'ignore', windowsHide: true})
     } else {
-      spawn('taskkill', args, {stdio: 'ignore', windowsHide: true}).on(
+      spawn(bin, args, {stdio: 'ignore', windowsHide: true}).on(
         'error',
         () => {}
       )
@@ -69,6 +84,10 @@ function killWindowsTree(pid: number | undefined, sync: boolean): void {
   } catch {
     // Ignore
   }
+}
+
+function killWindowsTree(pid: number | undefined, sync: boolean): void {
+  runTaskkill(pid, {sync, force: true})
 }
 
 function signalPid(pid: number, signal: NodeJS.Signals): boolean {
@@ -90,6 +109,7 @@ export const teardownDefaults: TeardownDependencies = {
   sweep: (marks) => forceKillMarkedOnExit(marks),
   kill: signalPid,
   killTree: (pid) => killWindowsTree(pid, false),
+  askTree: (pid) => runTaskkill(pid, {sync: false, force: false}),
   print: (line) => humanLine(line)
 }
 
@@ -134,14 +154,13 @@ export function gracefulTerminatePid(
   if (!pid || terminatedPids.has(pid)) return
 
   terminatedPids.add(pid)
-  killWindowsTree(pid, false)
   authorLog(messages.enhancedProcessManagementTerminating(browser))
 
   // ps dates a process to the second, so only a start in an earlier second
   // counts: a pid reused in the second of the ask never passes for the browser.
   const askedAt = Math.floor(deps.now() / 1000) * 1000 - 1
 
-  deps.kill(pid, 'SIGTERM')
+  askToStop(pid, deps, () => deps.kill(pid, 'SIGTERM'))
   const killTimer = setTimeout(() => {
     if (!deps.isAlive(pid)) return
 
@@ -172,6 +191,22 @@ export function forceKillPidOnExit(
   deps.kill(pid, 'SIGKILL')
 }
 
+// A signal on Windows ends the process at once and orphans its helpers, so
+// there the tree is asked to close and the grace timer forces it.
+function askToStop(
+  pid: number | undefined,
+  deps: TeardownDependencies,
+  sigterm: () => void
+): void {
+  if (deps.platform !== 'win32') {
+    sigterm()
+
+    return
+  }
+
+  if (pid) deps.askTree(pid)
+}
+
 // Signal-path teardown: SIGTERM, then a forced kill after a grace window. The
 // timer is unref'd; if the loop drains first, forceKillChildOnExit is the backstop.
 export function gracefulTerminateChild(
@@ -180,17 +215,16 @@ export function gracefulTerminateChild(
   helpers?: ProcessMark[],
   deps: TeardownDependencies = teardownDefaults
 ): void {
-  if (!child || child.killed) return
+  if (!child || child.killed || terminatedByUs.has(child)) return
 
   terminatedByUs.add(child)
-  killWindowsTree(child.pid, false)
   authorLog(messages.enhancedProcessManagementTerminating(browser))
 
   // Noted while the browser is still the parent, as markDescendants needs.
   const marks = helpers ?? deps.mark(child.pid)
   const askedAt = deps.now()
 
-  child.kill('SIGTERM')
+  askToStop(child.pid, deps, () => child.kill('SIGTERM'))
   const killTimer = setTimeout(() => {
     const pid = child.pid
 

@@ -10,7 +10,8 @@ import {
   makeProject,
   manifest,
   outputHolding,
-  PAGE
+  PAGE,
+  pageNotBundledRefs
 } from './helpers/private-files-project'
 
 // Whole builds of a fixture project that names a file of a package its
@@ -50,7 +51,7 @@ function write(root: string, name: string, contents: string) {
 describe.runIf(canLink).each(LINKS)(
   'a file of a package linked to %s (%s)',
   (pkg, _where, ships) => {
-    const verdict = ships ? 'ships' : 'is left out and called missing'
+    const verdict = ships ? 'ships' : 'is left out and called not bundled'
 
     it(
       `${verdict} as an icon`,
@@ -69,7 +70,9 @@ describe.runIf(canLink).each(LINKS)(
         expect(result.errors).toBe(ships ? 0 : 1)
         expect(outputHolding(root, mark)).toHaveLength(ships ? 1 : 0)
         expect(
-          result.printed.includes("Can't find an icon file listed in icons.")
+          result.printed.includes(
+            'is not bundled. Check the icons field in your manifest.json file.'
+          )
         ).toBe(!ships)
       },
       TIMEOUT
@@ -95,7 +98,7 @@ describe.runIf(canLink).each(LINKS)(
         expect(outputHolding(root, mark)).toHaveLength(ships ? 1 : 0)
         expect(
           result.printed.includes(
-            "Can't find the page listed in action.default_popup."
+            'is not bundled. Check the action.default_popup field in your manifest.json file.'
           )
         ).toBe(!ships)
       },
@@ -115,7 +118,8 @@ describe.runIf(canLink).each(LINKS)(
         expectNothingPrivate(result)
         expect(result.errors).toBe(0)
         expect(outputHolding(root, mark)).toHaveLength(ships ? 1 : 0)
-        expect(result.missing).toEqual(ships ? [] : [ref])
+        expect(result.missing).toEqual([])
+        expect(pageNotBundledRefs(result.printed)).toEqual(ships ? [] : [ref])
       },
       TIMEOUT
     )
@@ -138,7 +142,7 @@ describe.runIf(canLink).each(LINKS)(
         expect(outputHolding(root, mark)).toHaveLength(ships ? 1 : 0)
         expect(
           result.printed.includes(
-            "The page references a script file that doesn't exist."
+            'is not bundled. Check the <script> that names it in this page.'
           )
         ).toBe(!ships)
       },

@@ -52,7 +52,6 @@ import {
   loadProjectConfigDefaults
 } from './lib/config-loader'
 import {ConfigResolvedPlugin} from './lib/config-resolved-plugin'
-import {removeDevelopmentArtifacts} from './lib/development-artifacts'
 import {
   findDuplicateOutputFiles,
   importedAssetSources
@@ -126,6 +125,7 @@ import {
   stampReadyDistExtensionId,
   stampReadyKnownExtensionId
 } from './plugin-playwright'
+import {removeDevelopmentArtifacts} from './plugin-reload/reload-lib/development-artifacts'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
@@ -159,15 +159,22 @@ function printBuildCard(
   manifestPath: string,
   browser: string,
   distPath: string,
-  projectRoot: string
+  projectRoot: string,
+  writtenDir: string
 ) {
   if (!claimCardKey(`${browser}::${nodePath.resolve(distPath)}`)) return
 
   let extensionLabel = ''
 
   try {
-    const manifest = parseJsonSafe(fs.readFileSync(manifestPath, 'utf-8'))
+    // The written manifest has its $EXTENSION_PUBLIC_* values filled, so the
+    // card names what ships. The source stands in when none was written.
+    const written = nodePath.join(writtenDir, 'manifest.json')
+    const manifest = parseJsonSafe(
+      fs.readFileSync(fs.existsSync(written) ? written : manifestPath, 'utf-8')
+    )
     const name = resolveLocalizedManifestName(manifest, [
+      writtenDir,
       nodePath.dirname(manifestPath),
       projectRoot
     ])
@@ -862,7 +869,8 @@ async function runBuild(
             projectStructure.manifestPath,
             browser,
             displayDistPath,
-            packageJsonDir
+            packageJsonDir,
+            useStagingSwap ? stagingDistPath : displayDistPath
           )
 
           if (!silent) {
@@ -1030,8 +1038,13 @@ async function runBuild(
               }
             }
           } catch (lintError) {
-            // A store check can never fail a green build.
-            const lint = failedAddonLint(lintError, distDisplay)
+            // A store check can never fail a green build, and the note of
+            // an earlier lint is retired here as on every other failed path.
+            const lint = failedAddonLint(
+              lintError,
+              distDisplay,
+              displayDistPath
+            )
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
             lintLines.push(lint.line)
             namesOversizeFiles = true

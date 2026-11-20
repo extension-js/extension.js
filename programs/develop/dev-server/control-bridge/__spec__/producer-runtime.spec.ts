@@ -1,7 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+// The producer a dev background runs: this bridge with the reload executor.
+import {buildDevProducerSource as buildBridgeProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
 import {
   BRIDGE_PRODUCER_SOURCE,
-  buildBridgeProducerSource,
   buildBridgeRelaySource
 } from '../producer-runtime'
 

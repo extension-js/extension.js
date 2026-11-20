@@ -225,6 +225,21 @@ describe('preview --no-browser and an entry that is neither link nor folder', ()
     })
   })
 
+  it('refuses a web link that is no store link, as dev does', async () => {
+    const {root} = builtProject()
+    const link = 'https://example.com/my-ext.zip'
+
+    await expect(preview(root, link)).rejects.toMatchObject({
+      name: 'CompanionLinkNotAStoreLink',
+      code: 'E_COMPANION_EXTENSION_PATH',
+      message:
+        `Companion extension link is not a store link this resolver recognizes: ${link}\n` +
+        'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
+        'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
+        'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
+    })
+  })
+
   it('passes a store link without fetching it', async () => {
     const {root} = builtProject()
 

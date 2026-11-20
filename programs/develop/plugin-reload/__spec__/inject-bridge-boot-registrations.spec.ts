@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {DEV_BOOT_REGISTERS_GLOBAL} from '../../dev-server/control-bridge/producer-runtime'
+import {DEV_BOOT_REGISTERS_GLOBAL} from '../reload-lib/producer-reload'
 import {
   backgroundNamesRegistration,
   InjectBridgeProducer,

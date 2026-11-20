@@ -861,6 +861,18 @@ describe('stampReadyBrowserExited on a dev session', () => {
     expect(ready.browserExitCode).toBe(0)
   })
 
+  // Nothing listens on a debugging port once its browser is gone.
+  it('takes the debugging ports off the record when the browser leaves', () => {
+    stampReadyCdpPort(outputPath, 9222, 'run-A')
+    stampReadyRdpPort(outputPath, 9333, 'run-A')
+    stampReadyBrowserExited(outputPath, 0, null, 'run-A')
+
+    const ready = readReady()
+    expect(ready.cdpPort).toBeUndefined()
+    expect(ready.rdpPort).toBeUndefined()
+    expect(ready.browserExitCode).toBe(0)
+  })
+
   it('names the signal when a browser that never loaded was killed', () => {
     stampReadyBrowserExited(outputPath, null, 'SIGKILL', 'run-A', {
       beforeReady: true

@@ -1,7 +1,12 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
+import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
-import {maybeUseVue, resolveVueBundlerEntry} from '../../js-tools/vue'
+import {
+  maybeUseVue,
+  resolveVueBundlerEntry,
+  VueFeatureFlagsPlugin
+} from '../../js-tools/vue'
 import {fakePackage, makeProject} from '../project-fixture'
 
 // vue-loader is not in the fixture, so it resolves from Extension.js.
@@ -84,26 +89,21 @@ describe('maybeUseVue', () => {
       options: {experimentalInlineMatchResource: true, foo: 1}
     })
 
+    // A .vue file in a dependency is source too, the way .svelte is.
     expect(rule.include).toBeUndefined()
+    expect(rule.exclude).toBeUndefined()
 
-    const exclude = rule.exclude as (p: string) => boolean
-    expect(exclude(path.join(root, 'src', 'App.vue'))).toBe(false)
-    expect(exclude(path.join(root, 'node_modules', 'lib', 'Button.vue'))).toBe(
-      true
-    )
-
-    const [loaderPlugin, definePlugin] = result?.plugins || []
+    const [loaderPlugin, flagsPlugin] = result?.plugins || []
     expect(loaderPlugin).toBeInstanceOf(
       fromDevelop('vue-loader').VueLoaderPlugin
     )
 
-    expect((definePlugin as unknown as {_args: unknown[]})._args).toEqual([
-      {
-        __VUE_OPTIONS_API__: 'true',
-        __VUE_PROD_DEVTOOLS__: 'true',
-        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'true'
-      }
-    ])
+    expect(flagsPlugin).toBeInstanceOf(VueFeatureFlagsPlugin)
+    expect((flagsPlugin as unknown as VueFeatureFlagsPlugin).flags).toEqual({
+      __VUE_OPTIONS_API__: 'true',
+      __VUE_PROD_DEVTOOLS__: 'true',
+      __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'true'
+    })
 
     const esm = (name: string) =>
       path.join(root, 'node_modules', name, 'dist', 'esm-bundler.js')
@@ -115,40 +115,56 @@ describe('maybeUseVue', () => {
     })
   })
 
-  it('turns the production devtools flags off in a production build', async () => {
-    const result = await maybeUseVue(vueThreeProject(), 'production')
-    const definePlugin = result?.plugins?.[1] as unknown as {_args: unknown[]}
+  it('leaves a flag the project defines to the project, through the define option', async () => {
+    const root = vueThreeProject()
+    const result = await maybeUseVue(root, 'production', {
+      __VUE_OPTIONS_API__: false
+    })
+    const flagsPlugin = result?.plugins?.[1] as unknown as VueFeatureFlagsPlugin
+    const compiler = rspack({mode: 'production', context: root, entry: {}})
 
-    expect(definePlugin._args).toEqual([
-      {
-        __VUE_OPTIONS_API__: 'true',
-        __VUE_PROD_DEVTOOLS__: 'false',
-        __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false'
+    flagsPlugin.apply(compiler)
+
+    const ours = (
+      compiler as unknown as {
+        __internal__builtinPlugins: Array<{name: string; options: object}>
       }
+    ).__internal__builtinPlugins.filter(
+      (plugin) =>
+        plugin.name === 'DefinePlugin' &&
+        '__VUE_PROD_DEVTOOLS__' in plugin.options
+    )
+
+    expect(ours).toHaveLength(1)
+    expect(Object.keys(ours[0].options).sort()).toEqual([
+      '__VUE_PROD_DEVTOOLS__',
+      '__VUE_PROD_HYDRATION_MISMATCH_DETAILS__'
     ])
   })
 
-  it('compiles an SFC from a transpiled package and keeps the nested defaults', async () => {
+  it('turns the production devtools flags off in a production build', async () => {
+    const result = await maybeUseVue(vueThreeProject(), 'production')
+    const flagsPlugin = result?.plugins?.[1] as unknown as VueFeatureFlagsPlugin
+
+    expect(flagsPlugin.flags).toEqual({
+      __VUE_OPTIONS_API__: 'true',
+      __VUE_PROD_DEVTOOLS__: 'false',
+      __VUE_PROD_HYDRATION_MISMATCH_DETAILS__: 'false'
+    })
+  })
+
+  it('keeps the nested loader option defaults', async () => {
     const root = vueThreeProject({
       'vue.loader.mjs':
         "export default {compilerOptions: {whitespace: 'preserve'}}\n"
     })
-    const acme = path.join(root, 'node_modules', 'acme-ui')
-    const result = await maybeUseVue(root, 'development', [acme])
-    const rule = result?.loaders?.[0] as {
-      options: Record<string, unknown>
-      exclude: (p: string) => boolean
-    }
+    const result = await maybeUseVue(root, 'development')
+    const rule = result?.loaders?.[0] as {options: Record<string, unknown>}
 
     expect(rule.options).toEqual({
       experimentalInlineMatchResource: true,
       compilerOptions: {whitespace: 'preserve'}
     })
-
-    expect(rule.exclude(path.join(acme, 'Button.vue'))).toBe(false)
-    expect(
-      rule.exclude(path.join(root, 'node_modules', 'other-lib', 'Button.vue'))
-    ).toBe(true)
   })
 
   it('returns undefined when vue is not a dependency', async () => {

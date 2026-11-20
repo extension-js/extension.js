@@ -415,7 +415,7 @@ const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
     "'warning',"
   ],
   W_SCRIPT_DEP_MISSING: [
-    'develop/rspack-config.ts',
+    'develop/plugin-compilation/unresolved-bare-requires.ts',
     "'UnresolvedBareRequireWarning'",
     'compilation.warnings.push('
   ],
@@ -440,7 +440,6 @@ const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
     'compilation.warnings.push('
   ],
   W_CDP_NOT_CONNECTED: CDP_FAULT_STAMP,
-  W_CDP_TIMEOUT: CDP_FAULT_STAMP,
   W_BROWSER_CONNECTION_CLOSED: CDP_FAULT_STAMP,
   W_EXTENSION_ID_UNKNOWN: CDP_FAULT_STAMP
 }

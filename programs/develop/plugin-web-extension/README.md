@@ -16,7 +16,7 @@ Builds your extension into a shippable bundle. Pages get one script and optional
 |                                                                            | Feature                                                                                                                                                             |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **HTML pages**<br/>Emits HTML pages, injects one JS and optional CSS per page, preserves public root URLs, and rewrites relative assets to stable public paths.     |
-| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Scripts**<br/>Creates entries for background/service worker/content/user scripts, wraps content scripts for isolation and HMR, and ensures reliable public paths. |
+| <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Scripts**<br/>Creates entries for background/service worker/content/user scripts, wraps content scripts for isolation and a mount lifecycle, and ensures reliable public paths. |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Chunk loading**<br/>Loads lazy chunks the way each world of an extension allows: a native import in the isolated world, a bridge in the MAIN world.                    |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Manifest**<br/>Emits a normalized manifest, validates references, and rewrites paths so shipped files match what the store and runtime expect.                    |
 | <img src="https://media.extension.land/track/extension-js.png" width="56" /> | **Icons**<br/>Emits all icon sizes and variants into the correct folders and watches for changes during development.                                                |
@@ -47,7 +47,7 @@ export default {
 
 ```ts
 export class WebExtensionPlugin {
-  static readonly name: 'plugin-extension'
+  static readonly name: 'plugin-web-extension'
   constructor(options: {
     manifestPath: string
     browser?:

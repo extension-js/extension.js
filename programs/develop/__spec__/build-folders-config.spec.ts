@@ -289,7 +289,10 @@ describe('the folders config in a build', () => {
       expect(fromRoot.errors_count).toBe(0)
       expect(fromMoved.errors_count).toBe(0)
       expect(warnings(fromRoot)).toHaveLength(1)
-      expect(warnings(fromRoot)[0]).toContain('"in.png" was not found on disk')
+      expect(warnings(fromRoot)[0]).toContain(
+        'url(in.png) reference names no file beside'
+      )
+
       expect(warnings(fromMoved)).toEqual(warnings(fromRoot))
 
       expect(emittedFiles(atRoot)).toContain('pages/extra.html')

@@ -15,6 +15,7 @@ import {merge} from 'webpack-merge'
 import {codedError} from '../lib/coded-error'
 import {recordCodedWarning} from '../lib/coded-warnings'
 import {
+  forgetPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
@@ -22,6 +23,7 @@ import {
   loadProjectConfigDefaults
 } from '../lib/config-loader'
 import {ConfigResolvedPlugin} from '../lib/config-resolved-plugin'
+import {resolveConnectableHost} from '../lib/connectable-host'
 import {
   isEmulatorBrowser,
   isGeckoBasedBrowser,
@@ -40,6 +42,7 @@ import {
   type ErrorCode,
   humanWarn,
   isDebug,
+  releaseCardKeysOf,
   stripChannelPrefix
 } from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
@@ -61,13 +64,10 @@ import {
   getSessionRunId
 } from '../plugin-playwright'
 import {
-  createChangedSourcesTracker,
-  dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo,
-  loadedContentScriptsFor,
   readDevBuild,
-  reloadForBuild
+  reloadEachBuild
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
@@ -87,7 +87,6 @@ import {
   setupCompilerLifecycleHooks,
   setupNoBrowserBannerOnFirstDone
 } from './compiler-hooks'
-import {resolveConnectableHost} from './connectable-host'
 import {ActionsFileWriter} from './control-bridge/actions-file'
 import {BridgeBroker} from './control-bridge/broker'
 import {readExtensionLoadRefusal} from './control-bridge/consumer-client'
@@ -117,7 +116,7 @@ import {
 import * as messages from './messages'
 import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
-import {buildServerConfig} from './server-config'
+import {buildServerConfig, sessionSocketPath} from './server-config'
 import {claimDevSession} from './session-claim'
 import {endAfterFrame, registerLiveSession} from './session-end'
 import {exportSessionEnv} from './session-env'
@@ -266,6 +265,9 @@ async function startDevSession(
     onExitError?: (error: unknown, code?: string) => void
     browsersPlugin?: {
       setReloadBroker?: (broker: unknown) => void
+      setRestartHold?: (
+        isHeld: (compiler: object, compilation?: object) => boolean
+      ) => void
       setLogSink?: (sink: (event: BrowserLogSinkEvent) => void) => void
       setEmulatorViewerUrl?: (url: string) => void
       setInstanceId?: (instanceId: string) => void
@@ -335,12 +337,24 @@ async function startDevSession(
   }
 
   holdings.add(releaseClaim)
+  // The env file values the config loads below leave the host with it too.
+  holdings.addLast(() => forgetPreloadedEnvOf(packageJsonDir))
 
-  const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
-  const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
+  // The same env files as the command's own loads, so no layer differs.
+  const envTarget = {mode: 'development', browser: String(devOptions.browser)}
+  const projectConfig = await loadProjectConfigDefaults(
+    packageJsonDir,
+    envTarget
+  )
+  const commandConfig = await loadCommandConfig(
+    packageJsonDir,
+    'dev',
+    envTarget
+  )
   const browserConfig = await loadBrowserConfig(
     packageJsonDir,
-    devOptions.browser
+    devOptions.browser,
+    envTarget
   )
 
   const desiredPort =
@@ -396,7 +410,9 @@ async function startDevSession(
   exportEnv('EXTENSION_DEV_SERVER_HOST', devServerHost)
   exportEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', connectableHost)
   exportEnv('EXTENSION_DEV_SERVER_PORT', String(port))
-  exportEnv('EXTENSION_DEV_SERVER_PATH', '/ws')
+  // Each session's extension dials a socket path that names the session.
+  const socketPath = sessionSocketPath(currentInstance.instanceId)
+  exportEnv('EXTENSION_DEV_SERVER_PATH', socketPath)
 
   const browserName = String(devOptions.browser || 'chromium')
   const emulatorLane = isEmulatorBrowser(browserName)
@@ -420,6 +436,8 @@ async function startDevSession(
   // After the final contract write and everything else the release does.
   // The next session in this host is a new run and draws its own id.
   holdings.addLast(() => forgetSessionRun(packageJsonDir, browserName))
+  // The identity card of this output leaves the host with the session.
+  holdings.addLast(() => releaseCardKeysOf(path.resolve(primaryDistPath)))
 
   const bridgeLogFile = new LogsFileWriter({
     filePath: bridgeLogsAbsPath,
@@ -516,6 +534,11 @@ async function startDevSession(
 
   if (launchedPlugin && typeof launchedPlugin.setReloadBroker === 'function') {
     launchedPlugin.setReloadBroker(bridgeBroker)
+  }
+
+  // A build a MAIN world restart replaces reloads once, with the restart.
+  if (launchedPlugin && typeof launchedPlugin.setRestartHold === 'function') {
+    launchedPlugin.setRestartHold(isAwaitingMainWorldRestart)
   }
 
   if (launchedPlugin && typeof launchedPlugin.setInstanceId === 'function') {
@@ -799,6 +822,7 @@ async function startDevSession(
     publicFolder,
     packageJsonDir,
     emulatorFiles,
+    socketPath,
     activeCompiler: () => activeCompiler,
     onHostRefused: (host) => humanLine(messages.devServerHostRefused(host)),
     onSiteRefused: (origin) =>
@@ -836,7 +860,22 @@ async function startDevSession(
     const compilerConfig = applySplitChunksGuard(
       merge(customWebpackConfig(baseConfig), {})
     )
-    const configResolved = await loadConfigResolvedHook(packageJsonDir)
+    // The page HMR client of this compiler dials this session's socket, even
+    // when a later session in the same process rewrote the environment.
+    const devServerOptions = compilerConfig.devServer || {}
+    const client = Object(devServerOptions.client)
+    compilerConfig.devServer = {
+      ...devServerOptions,
+      client: {
+        ...client,
+        webSocketURL: {...Object(client.webSocketURL), pathname: socketPath}
+      }
+    }
+
+    const configResolved = await loadConfigResolvedHook(
+      packageJsonDir,
+      envTarget
+    )
 
     if (configResolved) {
       compilerConfig.plugins = [
@@ -875,49 +914,14 @@ async function startDevSession(
       )
     }
 
-    // Under --no-browser no CDP controller owns reload, so broadcast the same
-    // classified reload decision over the control bridge; gated to avoid double-reload.
-    if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
-      const changedSources = createChangedSourcesTracker(compiler)
-      let isFirstBridgeCompile = true
-      // The browser the user runs keeps the manifest it loaded as much as a
-      // launched one does, so a renamed bundle or rewritten sheet counts here.
-      const loadedContentScripts = loadedContentScriptsFor(browserName)
-
-      compiler.hooks.done.tapPromise(
-        'extjs-no-browser-reload',
-        async (stats: Stats) => {
-          const compilation = stats.compilation
-          if (compilation.errors && compilation.errors.length > 0) return
-
-          // Skip the first compile: it's the initial build, not a change, and the
-          // SW producer hasn't connected yet anyway.
-          if (isFirstBridgeCompile) {
-            isFirstBridgeCompile = false
-            loadedContentScripts?.noteLoaded(compilation)
-
-            return
-          }
-
-          // The restart this build asked for reloads the extension once with
-          // the build that replaces it. Reloading here too starts it twice.
-          if (isAwaitingMainWorldRestart(compiler, compilation)) return
-
-          const instruction = reloadForBuild(compilation, {
-            changedSources,
-            loaded: loadedContentScripts
-          })
-
-          // Same shared dispatch seam as the launched path, here with the broker
-          // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
-          const delivered = await dispatchReload(instruction, {
-            broker: bridgeBroker,
-            build: readDevBuild(compilation)
-          })
-
-          loadedContentScripts?.settle(delivered)
-        }
-      )
+    // With no browser plugin the session reloads the browser the user runs,
+    // through the same reload session a launched browser uses.
+    if (!extendedOptions.browsersPlugin) {
+      reloadEachBuild(compiler, {
+        browser: browserName,
+        broker: bridgeBroker,
+        isHeld: isAwaitingMainWorldRestart
+      })
     }
 
     if (!extendedOptions.browsersPlugin) {

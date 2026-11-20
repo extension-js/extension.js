@@ -12,13 +12,14 @@ import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
+import {isEntryFolderFile, walkEntryFolder} from './entry-folders'
 import {
   foldersRoots,
-  isScriptsFolderEntry,
   type SpecialFolderName,
   type SpecialFoldersRoots
 } from './folders-config'
 import * as messages from './messages'
+import {linkedEntryFiles} from './walked-entries'
 
 type SpecialFolder = SpecialFolderName
 type ChangeType = 'add' | 'remove'
@@ -28,53 +29,38 @@ type PendingChange = {
   filePath: string
 }
 
-function readSpecialFolderFiles(roots: SpecialFoldersRoots): Set<string> {
+// The same walk the scan makes, so a file the watcher calls new is one the
+// scan would enroll, and the other way around. Links inside the project too.
+function readSpecialFolderFiles(
+  roots: SpecialFoldersRoots,
+  projectPath: string
+): Set<string> {
   const found = new Set<string>()
-  const SKIP_DIRS = new Set([
-    'node_modules',
-    'dist',
-    'build',
-    '.git',
-    '.turbo',
-    '.next',
-    'coverage'
-  ])
-
-  const walk = (dir: string) => {
-    let entries: fs.Dirent[]
-
-    try {
-      entries = fs.readdirSync(dir, {withFileTypes: true})
-    } catch {
-      return
-    }
-
-    for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue
-      if (SKIP_DIRS.has(entry.name)) continue
-
-      const full = path.join(dir, entry.name)
-      if (entry.isFile()) found.add(full)
-      else if (entry.isDirectory()) walk(full)
-    }
-  }
 
   for (const folderPath of Object.values(roots)) {
-    if (fs.existsSync(folderPath)) walk(folderPath)
+    for (const file of walkEntryFolder(folderPath, () => true)) found.add(file)
   }
+
+  for (const file of linkedEntryFiles(projectPath)) found.add(file)
 
   return found
 }
 
 export interface WarnUponFolderChangesOptions {
   // The files under the folders right now. The disk walk by default.
-  readFolderFiles?: (roots: SpecialFoldersRoots) => Set<string>
+  readFolderFiles?: (
+    roots: SpecialFoldersRoots,
+    projectPath: string
+  ) => Set<string>
   // Asks the live session to restart. False means no session can.
   requestRestart?: typeof requestDevSessionRestart
 }
 
 export class WarnUponFolderChanges {
-  private readonly readFolderFiles: (roots: SpecialFoldersRoots) => Set<string>
+  private readonly readFolderFiles: (
+    roots: SpecialFoldersRoots,
+    projectPath: string
+  ) => Set<string>
   private readonly requestRestart: typeof requestDevSessionRestart
 
   constructor({
@@ -99,11 +85,11 @@ export class WarnUponFolderChanges {
   // The files the folders held the last time they were read from disk.
   private filesOnDisk = new Set<string>()
 
-  private snapshotFolderFiles(roots: SpecialFoldersRoots) {
+  private snapshotFolderFiles(roots: SpecialFoldersRoots, projectPath: string) {
     if (this.hasSnapshot) return
 
     this.hasSnapshot = true
-    this.filesOnDisk = this.readFolderFiles(roots)
+    this.filesOnDisk = this.readFolderFiles(roots, projectPath)
 
     for (const file of this.filesOnDisk) this.knownFolderFiles.add(file)
   }
@@ -216,13 +202,13 @@ export class WarnUponFolderChanges {
       (compiler.options.context as string) || process.cwd()
     const roots = foldersRoots(projectPath)
     const firstRead = !this.hasSnapshot
-    this.snapshotFolderFiles(roots)
+    this.snapshotFolderFiles(roots, projectPath)
     const isUnder = (root: string | undefined, filePath: string) =>
       Boolean(root) && isInsidePath(root as string, filePath)
     const isPage = (filePath: string) =>
-      isUnder(roots.pages, filePath) && filePath.endsWith('.html')
+      isUnder(roots.pages, filePath) && isEntryFolderFile('pages', filePath)
     const isScript = (filePath: string) =>
-      isUnder(roots.scripts, filePath) && isScriptsFolderEntry(filePath)
+      isUnder(roots.scripts, filePath) && isEntryFolderFile('scripts', filePath)
 
     const modifiedFiles = compiler.modifiedFiles || new Set<string>()
     const removedFiles = compiler.removedFiles || new Set<string>()
@@ -274,15 +260,15 @@ export class WarnUponFolderChanges {
     roots: SpecialFoldersRoots
   ) {
     const before = this.filesOnDisk
-    const now = this.readFolderFiles(roots)
+    const now = this.readFolderFiles(roots, projectPath)
 
     const folderOf = (filePath: string): SpecialFolder | undefined => {
       if (roots.pages && isInsidePath(roots.pages, filePath)) {
-        return filePath.endsWith('.html') ? 'pages' : undefined
+        return isEntryFolderFile('pages', filePath) ? 'pages' : undefined
       }
 
       if (roots.scripts && isInsidePath(roots.scripts, filePath)) {
-        return isScriptsFolderEntry(filePath) ? 'scripts' : undefined
+        return isEntryFolderFile('scripts', filePath) ? 'scripts' : undefined
       }
 
       return undefined

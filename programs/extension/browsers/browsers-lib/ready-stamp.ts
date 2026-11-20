@@ -924,6 +924,10 @@ export function stampReadyBrowserExited(
 
     ready.browserExitedAt = new Date().toISOString()
     ready.browserExitCode = code
+    // The ports closed with the browser, and a client that dialed one would
+    // reach nothing or a later browser.
+    delete ready.cdpPort
+    delete ready.rdpPort
     // A crash exits with no code and only a signal, so the signal is the one
     // clue the contract can carry about why the browser went.
     ready.browserExitSignal = signal

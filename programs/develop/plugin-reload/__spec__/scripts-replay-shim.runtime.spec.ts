@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {buildBridgeProducerSource} from '../../dev-server/control-bridge/producer-runtime'
+import {buildDevProducerSource} from '../reload-lib/producer-reload'
 import {SCRIPTS_REPLAY_SHIM_SOURCE} from '../reload-lib/scripts-replay-shim'
 
 type Injection = {target: {tabId: number}; files: string[]; world?: string}
@@ -224,7 +224,7 @@ describe('scripts-replay shim runtime', () => {
     // eslint-disable-next-line no-new-func
     new Function(
       'globalThis',
-      buildBridgeProducerSource({
+      buildDevProducerSource({
         controlPort: 9999,
         instanceId: 'inst-replay',
         context: 'background'

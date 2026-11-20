@@ -151,10 +151,9 @@ export class UpdateHtmlFile {
             if (!existing) continue
 
             // EmitHtmlFile copied the source file into this asset and the env
-            // step templates $EXTENSION_* in it at this same stage. Building
-            // on the asset instead of the file keeps that work, so the env
-            // step stays the one owner of templating and this step the one
-            // owner of script and asset rewriting, in either tap order.
+            // step, one stage earlier, already templated $EXTENSION_* in it.
+            // Building on the asset keeps that work: the env step owns
+            // templating and this step owns script and asset rewriting.
             const currentHtml = readAssetSource(existing)
 
             const optionsDialogFloor = needsOptionsDialogFloor(
@@ -202,7 +201,9 @@ export class UpdateHtmlFile {
         compilation.hooks.processAssets.tap(
           {
             name: 'html:update-html-file',
-            stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
+            // Before the size optimizers, so a minifier gets the shipped
+            // markup. The env step templates the page one stage earlier.
+            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE - 1
           },
           () => run()
         )

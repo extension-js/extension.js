@@ -21,6 +21,7 @@ export const CLIENT_HOOKS = [
   'prepare-commit-msg'
 ]
 
+// The .husky/_ branch serves checkouts older than the tracked hooks folder.
 const DISPATCH_STUB = `#!/usr/bin/env sh
 top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 name=$(basename "$0")
@@ -40,19 +41,19 @@ function git(args, cwd, env) {
   return spawnSync('git', args, {cwd, env, encoding: 'utf8'})
 }
 
-function toGitPath(file) {
-  return file.split(path.sep).join('/')
-}
-
-function isCurrentStub(file) {
+function isCurrentStub(stub) {
   try {
     const executable =
-      process.platform === 'win32' || (fs.statSync(file).mode & 0o111) !== 0
+      process.platform === 'win32' || (fs.statSync(stub).mode & 0o111) !== 0
 
-    return executable && fs.readFileSync(file, 'utf8') === DISPATCH_STUB
+    return executable && fs.readFileSync(stub, 'utf8') === DISPATCH_STUB
   } catch {
     return false
   }
+}
+
+function toGitPath(file) {
+  return file.split(path.sep).join('/')
 }
 
 export function installGitHooks({env = process.env, cwd = process.cwd()} = {}) {
@@ -85,10 +86,10 @@ export function installGitHooks({env = process.env, cwd = process.cwd()} = {}) {
     if (entry !== 'h') names.add(entry)
   }
 
+  // Every worktree shares the dispatcher, so an install that finds it current
+  // writes nothing there.
   fs.mkdirSync(dispatchDir, {recursive: true})
 
-  // The folder and config are shared by every worktree, so an install that
-  // finds them current writes nothing there.
   for (const name of names) {
     const stub = path.join(dispatchDir, name)
 
@@ -101,12 +102,12 @@ export function installGitHooks({env = process.env, cwd = process.cwd()} = {}) {
   const hooksPath = toGitPath(dispatchDir)
   const current = git(['config', 'core.hooksPath'], top, env).stdout.trim()
 
-  if (current === hooksPath) return {installed: true, hooksPath}
+  if (current !== hooksPath) {
+    const result = git(['config', 'core.hooksPath', hooksPath], top, env)
 
-  const result = git(['config', 'core.hooksPath', hooksPath], top, env)
-
-  if (result.status !== 0) {
-    return {installed: false, reason: 'config-failed'}
+    if (result.status !== 0) {
+      return {installed: false, reason: 'config-failed'}
+    }
   }
 
   return {installed: true, hooksPath}

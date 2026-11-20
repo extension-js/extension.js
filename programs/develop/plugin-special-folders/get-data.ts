@@ -9,14 +9,15 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import {getSpecialFoldersData} from 'browser-extension-manifest-fields'
+import {STOCK_COMPANION_DIR} from '../lib/constants'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
+import {type ScanEntryFolder, scanEntryFolder} from './entry-folders'
 import type {CompanionExtensionsConfig} from './folder-extensions/types'
 import {
   excludedFiles,
-  isScriptsFolderEntry,
+  foldersRoots,
   omitDevOnlyEntries,
   omitExcludedEntries,
   publicFolderSetting,
@@ -24,7 +25,7 @@ import {
   rememberSpecialFoldersConfig
 } from './folders-config'
 import * as messages from './messages'
-import {guardWalkedScripts, type WalkedScripts} from './walked-scripts'
+import {guardWalkedEntries, type WalkedEntries} from './walked-entries'
 
 export {rememberSpecialFoldersConfig}
 
@@ -447,86 +448,56 @@ function filterPublicEntrypoints(
   return next
 }
 
-// The fields package scans `<dir>/pages`, `<dir>/scripts` and `<dir>/public`
-// for one dir. A folder moved elsewhere (`src/scripts`) is read from its own
-// parent and only that folder is taken from the scan; `false` turns it off.
-export type ScanSpecialFolders = typeof getSpecialFoldersData
+// pages/ and scripts/ are read, each from its configured place or the root
+// default, and `false` reads none. public/ is the copier's alone to walk.
+export type ScanSpecialFolders = ScanEntryFolder
+
+interface ScannedFolders {
+  pages: Record<string, string>
+  scripts: Record<string, string>
+}
 
 function scanSpecialFolders(
   projectRoot: string,
   folders: SpecialFoldersConfig,
   scan: ScanSpecialFolders
-): ReturnType<typeof getSpecialFoldersData> {
-  const {data, walked} = scanWithWalkedScripts(projectRoot, folders, scan)
-
-  return {...data, scripts: walked.kept}
-}
-
-function scanWithWalkedScripts(
-  projectRoot: string,
-  folders: SpecialFoldersConfig,
-  scan: ScanSpecialFolders
-): {data: ReturnType<typeof getSpecialFoldersData>; walked: WalkedScripts} {
-  const base = scan({
-    manifestPath: path.join(projectRoot, 'package.json')
-  })
-  const next = {...base}
+): {data: ScannedFolders; leftOut: string[]} {
+  const roots = foldersRoots(projectRoot, folders)
+  const data: ScannedFolders = {pages: {}, scripts: {}}
+  const leftOut: string[] = []
 
   for (const name of ['pages', 'scripts'] as const) {
-    const setting = folders[name]
+    const dir = roots[name]
 
-    if (setting === false) {
-      next[name] = {}
-      continue
-    }
+    if (!dir) continue
 
-    if (typeof setting !== 'string' || !setting.trim()) continue
+    // Asked ahead of every step below, some of which read the file.
+    const walked: WalkedEntries = guardWalkedEntries(
+      name,
+      scan(name, dir),
+      projectRoot,
+      folders
+    )
 
-    const abs = path.resolve(projectRoot, setting)
-
-    if (path.resolve(projectRoot, name) === abs) continue
-
-    const scanned = scan({
-      manifestPath: path.join(path.dirname(abs), 'package.json')
-    })
-
-    next[name] = path.basename(abs) === name ? scanned[name] : {}
+    data[name] = walked.kept
+    leftOut.push(...walked.leftOut)
   }
 
-  // Asked ahead of every step below, some of which read the file.
-  const walked = guardWalkedScripts(
-    onlyScriptEntries(next.scripts),
-    projectRoot,
-    folders
-  )
-
-  return {data: next, walked}
+  return {data, leftOut}
 }
 
-// The scripts/ files the build leaves out for a private name or for a place
-// outside the project, by their path from the project root.
-export function walkedScriptsLeftOut(
+// The pages/ and scripts/ files the build leaves out for a private name or
+// for a place outside the project, by their path from the project root.
+export function walkedEntriesLeftOut(
   projectRoot: string,
   folders: SpecialFoldersConfig = rememberedFolders(projectRoot),
-  {scan = getSpecialFoldersData}: {scan?: ScanSpecialFolders} = {}
+  {scan = scanEntryFolder}: {scan?: ScanSpecialFolders} = {}
 ): string[] {
-  return scanWithWalkedScripts(projectRoot, folders, scan)
-    .walked.leftOut.map((file) =>
+  return scanSpecialFolders(projectRoot, folders, scan)
+    .leftOut.map((file) =>
       path.relative(projectRoot, file).split(path.sep).join('/')
     )
     .sort()
-}
-
-function onlyScriptEntries(
-  list: Record<string, string> | undefined
-): Record<string, string> {
-  const next: Record<string, string> = {}
-
-  for (const [key, value] of Object.entries(list || {})) {
-    if (isScriptsFolderEntry(String(value))) next[key] = value
-  }
-
-  return next
 }
 
 export type CompileMode = 'development' | 'production' | 'none'
@@ -547,20 +518,17 @@ export function getSpecialFoldersDataForProjectRoot(
   projectRoot: string,
   folders: SpecialFoldersConfig = rememberedFolders(projectRoot),
   mode?: CompileMode,
-  {scan = getSpecialFoldersData}: {scan?: ScanSpecialFolders} = {}
+  {scan = scanEntryFolder}: {scan?: ScanSpecialFolders} = {}
 ): SpecialFoldersData {
   const setting = publicFolderSetting(projectRoot)
   const publicDir =
     setting.kind === 'path' ? setting.dir : path.join(projectRoot, 'public')
-  const data = scanSpecialFolders(projectRoot, folders, scan)
+  const {data} = scanSpecialFolders(projectRoot, folders, scan)
 
   return finalizeSpecialFoldersData(data, projectRoot, publicDir, mode)
 }
 
-type SpecialFoldersData = Omit<
-  ReturnType<typeof getSpecialFoldersData>,
-  'pages' | 'scripts'
-> & {
+type SpecialFoldersData = {
   pages?: FilepathList
   scripts?: FilepathList
   extensions?: CompanionExtensionsConfig
@@ -570,7 +538,7 @@ const reportedDevOnlyEntries = new Set<string>()
 const reportedExcludedEntries = new Set<string>()
 
 function finalizeSpecialFoldersData(
-  data: ReturnType<typeof getSpecialFoldersData>,
+  data: ScannedFolders,
   projectRoot: string,
   publicDir: string,
   mode?: CompileMode
@@ -588,7 +556,6 @@ function finalizeSpecialFoldersData(
     omitExcludedEntries(forThisMode(list), excluded, excludedDropped)
 
   const next: SpecialFoldersData = {
-    ...data,
     // public/ is copy-only; exclude nested public entries from compilation entrypoints.
     pages: forThisBuild(
       filterPublicEntrypoints(data.pages, projectRoot, publicDir)
@@ -607,7 +574,7 @@ function finalizeSpecialFoldersData(
     ),
     // Default behavior: auto-scan top-level ./extensions for companion unpacked
     // extensions (one level deep), optional browser subfolders via the resolver.
-    extensions: {dir: './extensions'}
+    extensions: {dir: STOCK_COMPANION_DIR}
   }
 
   if (dropped.length > 0 && isDebug()) {

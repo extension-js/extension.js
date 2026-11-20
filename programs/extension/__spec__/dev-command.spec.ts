@@ -292,7 +292,7 @@ const FORWARDING: ForwardingRow[] = [
     options: {allowedHosts: 'web,.example.test'}
   },
   {
-    argv: ['--log-context', 'background, nope ,content'],
+    argv: ['--log-context', 'background, CONTENT '],
     options: {logContexts: ['background', 'content']}
   },
   {argv: ['--log-context', 'all'], options: {}},
@@ -627,7 +627,11 @@ describe('extension dev', () => {
     expect(watchdogs).toEqual([
       [
         4242,
-        {endSession: expect.any(Function), emitFrame: expect.any(Function)}
+        {
+          endSession: expect.any(Function),
+          emitFrame: expect.any(Function),
+          onDeath: expect.any(Function)
+        }
       ]
     ])
   })
@@ -772,6 +776,24 @@ describe('extension dev and the hint of a failed start', () => {
       ),
       {code: 'E_PROFILE_LOCKED', ...extra}
     )
+
+  it.each([
+    [
+      'E_MANIFEST_NOT_FOUND',
+      'Add a manifest.json at the project root or in src/, or pass the folder that holds it.'
+    ],
+    [
+      'E_MANIFEST_IN_PUBLIC',
+      'Move manifest.json out of public/ to the project root or src/. Files in public/ are copied to the output as they are.'
+    ]
+  ])('frames %s as usage with the way out', async (code, hint) => {
+    engine = async () => {
+      throw Object.assign(new Error('Manifest file not found.'), {code})
+    }
+
+    expect(await run(['dev', '.', '--output', 'json'])).toBe(1)
+    expect(frames()).toMatchObject([{status: 'usage', error: {code}, hint}])
+  })
 
   it('puts the hint on the frame it prints itself', async () => {
     engine = async () => {
@@ -1088,26 +1110,27 @@ describe('extension dev when the --parent-pid owner goes away', () => {
     expect(process.exit).not.toHaveBeenCalled()
   })
 
-  it('frames the failure itself and signals itself before any session is live', async () => {
+  // Before the engine loads nothing is there to tear down, so the run ends
+  // with its own exit code and never reaches the engine.
+  it.each([
+    ['under --output json', ['--output', 'json'], 1],
+    ['in pretty mode', [], 0]
+  ])('exits 1 with no signal when the owner is gone before any session %s', async (_name, flags, frameCount) => {
     parentAlive = false
 
-    expect(
-      await runWithRealWatchdog([
-        'dev',
-        '.',
-        '--parent-pid',
-        '4242',
-        '--output',
-        'json'
+    await runWithRealWatchdog(['dev', '.', '--parent-pid', '4242', ...flags])
+
+    expect(terminalFrames()).toHaveLength(frameCount)
+
+    if (frameCount > 0) {
+      expect(terminalFrames()).toMatchObject([
+        {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}}
       ])
-    ).toBe(0)
+    }
 
-    expect(terminalFrames()).toMatchObject([
-      {status: 'failed', error: {code: 'E_PARENT_GONE', message: PARENT_GONE}}
-    ])
-
-    expect(kill.mock.calls).toEqual([[process.pid, 'SIGTERM']])
-    expect(drainedExits).toEqual([])
+    expect(kill).not.toHaveBeenCalled()
+    expect(drainedExits).toEqual([1])
+    expect(sessionLive).toBe(false)
   })
 })
 

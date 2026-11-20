@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {IncomingMessage, ServerResponse} from 'node:http'
-import {isWildcardHost} from './connectable-host'
+import {isWildcardHost} from '../lib/connectable-host'
 import {isSameWebOrigin, normalizeWebOrigin} from './emulator-lane'
 
 // chrome-extension://, moz-extension://, safari-web-extension://: the scheme
@@ -223,7 +223,8 @@ function isNamedHost(name: string, namedHosts: readonly string[]): boolean {
 export function isSessionWebOrigin(
   value: unknown,
   hostHeader: unknown,
-  session: RequestSiteSession
+  session: RequestSiteSession,
+  forwardedHost?: unknown
 ): boolean {
   const origin = normalizeWebOrigin(value)
   if (!origin) return false
@@ -242,22 +243,59 @@ export function isSessionWebOrigin(
   const name = bareHostName(url.hostname)
   const port = Number(url.port || (url.protocol === 'https:' ? 443 : 80))
 
-  if (port === session.port && session.sessionHosts.includes(name)) return true
-  if (isNamedHost(name, session.namedHosts)) return true
+  // A name the session answers on, or one it was given, counts on its own port.
+  if (port === session.port) {
+    if (session.sessionHosts.includes(name)) return true
+    if (isNamedHost(name, session.namedHosts)) return true
+  }
+
+  // A proxy that rewrites Host names the page's address in X-Forwarded-Host.
+  // Only a host the session was given counts, on the port the proxy named.
+  if (
+    isNamedHost(name, session.namedHosts) &&
+    isSameAuthority(url, firstForwarded(forwardedHost))
+  ) {
+    return true
+  }
 
   return session.allowedWebOrigins.some((allowed) =>
     isSameWebOrigin(origin, allowed)
   )
 }
 
+function firstForwarded(value: unknown): string {
+  return String(value ?? '')
+    .split(',')[0]
+    .trim()
+}
+
+function isSameAuthority(url: URL, authority: string): boolean {
+  if (!authority) return false
+
+  try {
+    return new URL(`${url.protocol}//${authority}`).host === url.host
+  } catch {
+    return false
+  }
+}
+
 function isSessionOrigin(
   origin: string,
-  hostHeader: unknown,
+  headers: RequestHeaders,
   session: RequestSiteSession
 ): boolean {
   return isExtensionOrigin(origin)
     ? session.isSessionExtensionOrigin(origin)
-    : isSessionWebOrigin(origin, hostHeader, session)
+    : isSessionWebOrigin(
+        origin,
+        authorityOf(headers),
+        session,
+        headerText(headers['x-forwarded-host'])
+      )
+}
+
+function authorityOf(headers: RequestHeaders): string {
+  return headerText(headers[':authority'] ?? headers.host)
 }
 
 // Whether the browser says this request belongs to the session. A request
@@ -269,15 +307,19 @@ export function isRequestFromSession(
   const site = headerText(headers['sec-fetch-site']).toLowerCase()
   if (!FETCH_SITES.has(site)) return true
 
-  const hostHeader = headerText(headers[':authority'] ?? headers.host)
   const origin = headerText(headers.origin)
 
-  if (origin) return isSessionOrigin(origin, hostHeader, session)
+  if (origin) return isSessionOrigin(origin, headers, session)
   if (site === 'same-origin' || site === 'none') return true
 
   // A same-site request can come from another port, so only a referrer that
   // is the session's own settles a request that carries no Origin.
-  return isSessionWebOrigin(headerText(headers.referer), hostHeader, session)
+  return isSessionWebOrigin(
+    headerText(headers.referer),
+    authorityOf(headers),
+    session,
+    headerText(headers['x-forwarded-host'])
+  )
 }
 
 // Whether the reload socket may open for this upgrade. An extension dials
@@ -292,8 +334,9 @@ export function isSocketFromSession(
 
   return isSessionWebOrigin(
     origin,
-    headerText(headers[':authority'] ?? headers.host),
-    session
+    authorityOf(headers),
+    session,
+    headerText(headers['x-forwarded-host'])
   )
 }
 

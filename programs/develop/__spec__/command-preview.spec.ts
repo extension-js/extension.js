@@ -40,6 +40,7 @@ vi.mock('../plugin-special-folders/folder-extensions/resolve-dirs', () => ({
 }))
 
 vi.mock('../plugin-special-folders/folder-extensions/resolve-config', () => ({
+  refuseCompanionLinksNoStoreReads: vi.fn(),
   resolveCompanionExtensionsConfig: vi.fn(async () => ({paths: ['/comp/a']}))
 }))
 
@@ -496,6 +497,7 @@ describe('webpack/command-preview (run-only)', () => {
       .catch((err: Error) => err)
 
     expect(thrown).toBeInstanceOf(Error)
+    expect(thrown).toMatchObject({code: 'E_PREVIEW_NO_DIST'})
     expect(thrown?.message).toContain('⏵⏵⏵')
     expect(thrown?.message).toContain('Preview is run-only')
     expect(thrown?.message).toContain('NOT FOUND')

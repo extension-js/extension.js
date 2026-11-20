@@ -1,0 +1,73 @@
+// ██████╗ ███████╗██╗   ██╗███████╗██╗      ██████╗ ██████╗
+// ██╔══██╗██╔════╝██║   ██║██╔════╝██║     ██╔═══██╗██╔══██╗
+// ██║  ██║█████╗  ██║   ██║█████╗  ██║     ██║   ██║██████╔╝
+// ██║  ██║██╔══╝  ╚██╗ ██╔╝██╔══╝  ██║     ██║   ██║██╔═══╝
+// ██████╔╝███████╗ ╚████╔╝ ███████╗███████╗╚██████╔╝██║
+// ╚═════╝ ╚══════╝  ╚═══╝  ╚══════╝╚══════╝ ╚═════╝ ╚═╝
+// MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
+
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {CONTROL_PORT_ASSET_NAME} from '../../dev-server/control-bridge/producer-runtime'
+import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
+import {DEV_CONTENT_SCRIPT_REGISTRY_ASSET} from './dev-content-scripts'
+
+const DEV_HOT_UPDATES_DIR = 'hot'
+
+const CONTENT_SCRIPTS_DIR = 'content_scripts'
+
+function exists(target: string): boolean {
+  try {
+    fs.lstatSync(target)
+
+    return true
+  } catch {
+    return false
+  }
+}
+
+function devContentScriptStandIns(distPath: string): string[] {
+  let names: string[] = []
+
+  try {
+    names = fs
+      .readdirSync(path.join(distPath, CONTENT_SCRIPTS_DIR))
+      .map((name) => String(name))
+  } catch {
+    return []
+  }
+
+  return names
+    .map((name) => `${CONTENT_SCRIPTS_DIR}/${name}`)
+    .filter((name) => isDevContentScriptStandInAsset(name))
+    .sort()
+}
+
+export function removeDevelopmentArtifacts(distPath: string): {
+  removed: string[]
+  kept: string[]
+} {
+  const candidates = [
+    CONTROL_PORT_ASSET_NAME,
+    DEV_HOT_UPDATES_DIR,
+    DEV_CONTENT_SCRIPT_REGISTRY_ASSET,
+    ...devContentScriptStandIns(distPath)
+  ]
+  const removed: string[] = []
+  const kept: string[] = []
+
+  for (const relative of candidates) {
+    const target = path.join(distPath, relative)
+
+    if (!exists(target)) continue
+
+    try {
+      fs.rmSync(target, {recursive: true, force: true})
+      removed.push(relative)
+    } catch {
+      kept.push(relative)
+    }
+  }
+
+  return {removed, kept}
+}

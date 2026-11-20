@@ -80,7 +80,10 @@ function runHook(dir) {
 }
 
 test('the pre-commit hook runs lint-staged through the wrapper', () => {
-  const hook = readFileSync(path.join(repoRoot, '.husky', 'pre-commit'), 'utf8')
+  const hook = readFileSync(
+    path.join(repoRoot, '.githooks', 'pre-commit'),
+    'utf8'
+  )
 
   assert.match(hook, /node scripts\/pre-commit-lint-staged\.mjs/)
 })

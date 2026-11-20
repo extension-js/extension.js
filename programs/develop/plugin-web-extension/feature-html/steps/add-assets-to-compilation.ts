@@ -12,12 +12,17 @@ import {Compilation, type Compiler, sources} from '@rspack/core'
 import {isOsPathUnder} from '../../../lib/real-path'
 import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {withheldEntryKind} from '../../feature-scripts/scripts-lib/utils'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder, resolveRootAbsoluteRef} from '../../shared/paths'
 import {findCompiledRootRefSource} from '../html-lib/compiled-root-ref'
 import * as messages from '../html-lib/messages'
 import {patchHtmlNested} from '../html-lib/patch-html'
 import {sourceMayShip} from '../html-lib/source-may-ship'
+import {
+  importTarget,
+  staticImportSpecifiers
+} from '../html-lib/unbundled-imports'
 import {
   getAssetsFromHtml,
   getFilePath,
@@ -218,16 +223,27 @@ function checkMissingLocalEntries(params: {
     // a '/'-path that does NOT live inside the project.
     if (isWrittenAsRootUrl(url, projectRoot, authored)) return
 
-    // A file the entry step dropped is reported the way a missing one is.
-    if (!fs.existsSync(url) || !sourceMayShip(url, projectRoot, manifestDir)) {
+    // A file the entry step dropped gets the severity of a missing one.
+    const withheld =
+      fs.existsSync(url) && !sourceMayShip(url, projectRoot, manifestDir)
+
+    if (withheld || !fs.existsSync(url)) {
       const displayFile = path.relative(manifestDir, resource)
       reportToCompilation(
         compilation,
         compiler,
-        messages.fileNotFound(displayFile, url, {
-          deadRefHint: !strictRefs,
-          kind
-        }),
+        withheld
+          ? messages.pageRefWithheld(
+              displayFile,
+              url,
+              authored?.[url] || url,
+              withheldEntryKind(url, [projectRoot, manifestDir]),
+              {deadRefHint: !strictRefs, kind}
+            )
+          : messages.fileNotFound(displayFile, url, {
+              deadRefHint: !strictRefs,
+              kind
+            }),
         strictRefs ? 'error' : 'warning',
         displayFile,
         missingRefName(url)
@@ -239,6 +255,15 @@ function checkMissingLocalEntries(params: {
   for (const url of css || []) check(url, 'style')
 }
 
+// A script a copied page names, shipped as written under `output`.
+interface CopiedPageScript {
+  page: string
+  script: string
+  output: string
+  // The page maps package names itself, so a bare import may resolve.
+  pageMapsImports: boolean
+}
+
 function emitNestedHtmlAndReferencedAssets(params: {
   compilation: Compilation
   compiler: Compiler
@@ -248,6 +273,7 @@ function emitNestedHtmlAndReferencedAssets(params: {
   projectRoot: string
   publicDir: string
   copied: Set<string>
+  copiedScripts: Map<string, CopiedPageScript>
 }) {
   const {
     compilation,
@@ -257,7 +283,8 @@ function emitNestedHtmlAndReferencedAssets(params: {
     manifestDir,
     projectRoot,
     publicDir,
-    copied
+    copied,
+    copiedScripts
   } = params
   const source = fs.readFileSync(absoluteFsPath)
   const updatedHtml = patchHtmlNested(compilation, absoluteFsPath, manifestDir)
@@ -275,44 +302,66 @@ function emitNestedHtmlAndReferencedAssets(params: {
 
   copied.add(filepath)
 
+  const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
+  const pageFile = path.relative(manifestDir, absoluteFsPath)
+
   assetsFromHtml.forEach((assetFromHtml) => {
+    const authored = htmlAssets?.authored?.[assetFromHtml] || assetFromHtml
+    const kind = htmlAssets?.js?.includes(assetFromHtml)
+      ? 'script'
+      : htmlAssets?.css?.includes(assetFromHtml)
+        ? 'style'
+        : undefined
+
     // A ref that doesn't resolve to a real source file must not throw here: an
     // uncaught ENOENT inside processAssets wedges the watch loop.
-    if (
-      !path.isAbsolute(assetFromHtml) ||
-      !fs.existsSync(assetFromHtml) ||
-      isFolder(assetFromHtml)
-    ) {
+    if (!path.isAbsolute(assetFromHtml) || isFolder(assetFromHtml)) return
+
+    if (!fs.existsSync(assetFromHtml)) {
+      // A root URL may be served from public/, which another step checks.
+      if (authored.startsWith('/')) return
+
+      // The frame loads without the file, as its parent page would.
+      reportToCompilation(
+        compilation,
+        compiler,
+        messages.fileNotFound(absoluteFsPath, assetFromHtml, {
+          refLabel: authored,
+          deadRefHint: !strictRefs,
+          copiedPage: true,
+          kind
+        }),
+        strictRefs ? 'error' : 'warning',
+        pageFile,
+        missingRefName(assetFromHtml)
+      )
+
       return
     }
 
-    const authored = htmlAssets?.authored?.[assetFromHtml] || assetFromHtml
     const mayShip = sourceMayShip(assetFromHtml, projectRoot, manifestDir, {
       rootRef: authored.startsWith('/') ? assetFromHtml : undefined,
       publicDir
     })
 
     if (!mayShip) {
+      const shownAt = authored.startsWith('/')
+        ? path.join(manifestDir, rootUrlPath(assetFromHtml))
+        : assetFromHtml
+
       reportToCompilation(
         compilation,
         compiler,
-        messages.fileNotFound(
+        messages.pageRefWithheld(
           absoluteFsPath,
-          authored.startsWith('/')
-            ? path.join(manifestDir, rootUrlPath(assetFromHtml))
-            : assetFromHtml,
-          {
-            publicRootHint: authored.startsWith('/'),
-            refLabel: authored,
-            kind: htmlAssets?.js?.includes(assetFromHtml)
-              ? 'script'
-              : htmlAssets?.css?.includes(assetFromHtml)
-                ? 'style'
-                : undefined
-          }
+          shownAt,
+          authored,
+          withheldEntryKind(assetFromHtml, [projectRoot, manifestDir]),
+          {kind}
         ),
         'warning',
-        path.relative(manifestDir, absoluteFsPath)
+        pageFile,
+        missingRefName(shownAt)
       )
 
       return
@@ -331,7 +380,73 @@ function emitNestedHtmlAndReferencedAssets(params: {
       compilation.emitAsset(assetFilepath, r)
       copied.add(assetFilepath)
     }
+
+    if (kind === 'script' && !copiedScripts.has(assetFromHtml)) {
+      copiedScripts.set(assetFromHtml, {
+        page: absoluteFsPath,
+        script: assetFromHtml,
+        output: assetFilepath,
+        pageMapsImports: /\btype\s*=\s*["']?importmap\b/i.test(
+          source.toString()
+        )
+      })
+    }
   })
+}
+
+// Says the first import of each copied script that the browser cannot load:
+// a file nothing ships at the path it asks for, or a package name.
+function warnUnbundledImports(params: {
+  compilation: Compilation
+  compiler: Compiler
+  manifestDir: string
+  projectRoot: string
+  copiedScripts: Map<string, CopiedPageScript>
+}) {
+  const {compilation, compiler, manifestDir, projectRoot} = params
+  const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
+
+  for (const entry of params.copiedScripts.values()) {
+    let text: string
+
+    try {
+      text = readPageFile(compilation, entry.script).toString('utf8')
+    } catch {
+      continue
+    }
+
+    for (const specifier of staticImportSpecifiers(text)) {
+      const target = importTarget(specifier, entry.output)
+
+      if (target.kind === 'remote') continue
+      if (target.kind === 'package' && entry.pageMapsImports) continue
+
+      // public/ files and every other copy are assets by this stage.
+      if (
+        target.kind === 'file' &&
+        compilation.getAsset(target.requestedPath)
+      ) {
+        continue
+      }
+
+      reportToCompilation(
+        compilation,
+        compiler,
+        messages.unbundledScriptImport(
+          path.relative(projectRoot, entry.page),
+          path.relative(projectRoot, entry.script),
+          specifier,
+          target.kind === 'file' ? target.requestedPath : undefined,
+          {deadRefHint: !strictRefs}
+        ),
+        strictRefs ? 'error' : 'warning',
+        path.relative(manifestDir, entry.page),
+        'UnbundledScriptImport'
+      )
+
+      break
+    }
+  }
 }
 
 // What this step copied into each output folder on its last good compile.
@@ -369,6 +484,7 @@ export class AddAssetsToCompilation {
       'html:add-assets-to-compilation',
       (compilation) => {
         copiedNow = undefined
+        const copiedScripts = new Map<string, CopiedPageScript>()
 
         const runner = () => {
           const errs = compilation.errors || []
@@ -376,6 +492,7 @@ export class AddAssetsToCompilation {
 
           const copied = new Set<string>()
           copiedNow = copied
+          copiedScripts.clear()
 
           const allEntries = this.includeList || {}
           const manifestDir = path.dirname(this.manifestPath)
@@ -514,7 +631,7 @@ export class AddAssetsToCompilation {
               if (withheld || !fs.existsSync(absoluteFsPath)) {
                 const inIncludeList = isFromIncludeList(asset, this.includeList)
 
-                // A withheld file is reported the way a missing one is.
+                // A withheld file gets the severity of a missing one.
                 if (
                   withheld ||
                   (!inIncludeList && !path.basename(asset).startsWith('#'))
@@ -526,10 +643,20 @@ export class AddAssetsToCompilation {
                   reportToCompilation(
                     compilation,
                     compiler,
-                    messages.fileNotFound(resource as string, displayPath, {
-                      publicRootHint: asRootUrl,
-                      refLabel: asRootUrl ? asset : authored
-                    }),
+                    withheld
+                      ? messages.pageRefWithheld(
+                          resource as string,
+                          displayPath,
+                          asRootUrl ? asset : authored,
+                          withheldEntryKind(absoluteFsPath, [
+                            projectRoot,
+                            manifestDir
+                          ])
+                        )
+                      : messages.fileNotFound(resource as string, displayPath, {
+                          publicRootHint: asRootUrl,
+                          refLabel: asRootUrl ? asset : authored
+                        }),
                     'warning',
                     path.relative(manifestDir, resource as string),
                     missingRefName(displayPath)
@@ -608,7 +735,8 @@ export class AddAssetsToCompilation {
                     manifestDir,
                     projectRoot,
                     publicDir: publicRootForResource,
-                    copied
+                    copied,
+                    copiedScripts
                   })
                 } else {
                   compilation.emitAsset(
@@ -667,6 +795,30 @@ export class AddAssetsToCompilation {
             stage: Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
           },
           () => runner()
+        )
+
+        // After every step that copies files, so an import another route
+        // ships, the WAR copies included, is not reported.
+        compilation.hooks.processAssets.tap(
+          {
+            name: 'html:add-assets-to-compilation',
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1
+          },
+          () => {
+            if (copiedScripts.size === 0) return
+
+            const manifestDir = path.dirname(this.manifestPath)
+            const projectRoot =
+              (compiler.options.context as string) || path.dirname(manifestDir)
+
+            warnUnbundledImports({
+              compilation,
+              compiler,
+              manifestDir,
+              projectRoot,
+              copiedScripts
+            })
+          }
         )
       }
     )
