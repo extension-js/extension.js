@@ -24,6 +24,7 @@ after(() => {
   fs.rmSync(work, {recursive: true, force: true})
 })
 
+/** @returns {NodeJS.ProcessEnv} */
 function fakeEnv(extra = {}) {
   return {
     [REAL_TEMP_ENV]: work,
@@ -122,6 +123,7 @@ for (const outcome of ['passes', 'fails']) {
       ].join('\n')
     )
 
+    /** @type {NodeJS.ProcessEnv} */
     const env = {...process.env, [REAL_TEMP_ENV]: work}
 
     // With this set the inner run would report to this one and run nothing.

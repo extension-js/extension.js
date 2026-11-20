@@ -4,8 +4,6 @@ on:
   pull_request:
     paths:
       - 'programs/**'
-      - 'extensions/browser-extension/**'
-      - 'extensions/monorepo/**'
       - 'scripts/**'
       - '.github/workflows/optional-deps-matrix.yml'
       - 'package.json'
@@ -15,8 +13,6 @@ on:
       - main
     paths:
       - 'programs/**'
-      - 'extensions/browser-extension/**'
-      - 'extensions/monorepo/**'
       - 'scripts/**'
       - '.github/workflows/optional-deps-matrix.yml'
       - 'package.json'

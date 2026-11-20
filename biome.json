@@ -6,13 +6,12 @@
     "includes": [
       "**",
       "!_FUTURE",
+      "!extensions/browser-extension",
       "!.claude",
       "!test-results",
       "!test-results.json",
-      "!extensions/browser-extension",
       "!**/extension-env.d.ts",
       "!templates",
-      "!templates-artifacts",
       "!.prod-dist",
       "!programs/create/templates",
       "!**/dist",
@@ -63,11 +62,19 @@
       }
     },
     {
-      "includes": ["programs/**", "!**/__spec__/**", "!**/*.spec.ts"],
+      "includes": [
+        "programs/develop/**/__spec__/**",
+        "programs/develop/**/*.spec.ts",
+        "programs/extension/**/__spec__/**",
+        "programs/extension/**/*.spec.ts",
+        "programs/create/__spec__/create-install-order.spec.ts",
+        "programs/create/__spec__/create-into-existing-repo.spec.ts",
+        "programs/create/steps/__spec__/write-deno-jsonc.spec.ts"
+      ],
       "linter": {
         "rules": {
           "suspicious": {
-            "noExplicitAny": "error"
+            "noExplicitAny": "off"
           }
         }
       }
@@ -78,7 +85,7 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "off",
+        "noExplicitAny": "error",
         "noPrototypeBuiltins": "off",
         "noControlCharactersInRegex": "off",
         "useIterableCallbackReturn": "error",

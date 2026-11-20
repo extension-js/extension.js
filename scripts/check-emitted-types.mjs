@@ -79,6 +79,7 @@ export function consumerPrograms(specifiers, exclusive = exclusiveEntries) {
     .map((group) => group.filter((member) => specifiers.includes(member)))
     .filter((group) => group.length > 1)
 
+  /** @type {string[][]} */
   let choices = [[]]
 
   for (const group of groups) {

@@ -1,0 +1,16 @@
+{
+  // The repo scripts are plain JavaScript, checked strict except implicit any.
+  // scripts/__spec__/tsconfig-scripts-ratchet.spec.mjs keeps every script included.
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Scripts",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noImplicitAny": false,
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["./scripts/**/*.mjs", "./scripts/**/*.cjs", "./scripts/**/*.js"],
+  "exclude": ["node_modules"]
+}

@@ -1,0 +1,17 @@
+{
+  // The shared script helpers also refuse implicit any. The ESLint rules file
+  // is left out: its comment nodes need null guards, not only annotations.
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "display": "Script helpers",
+  "extends": "./tsconfig.scripts.json",
+  "compilerOptions": {
+    "noImplicitAny": true
+  },
+  "include": [
+    "./scripts/lib/**/*.mjs",
+    "./scripts/lib/**/*.cjs",
+    "./scripts/lib/**/*.js",
+    "./scripts/lib/**/*.d.ts"
+  ],
+  "exclude": ["node_modules", "./scripts/lib/eslint-style-rules.mjs"]
+}

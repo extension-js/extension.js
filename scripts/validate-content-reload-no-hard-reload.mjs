@@ -451,8 +451,11 @@ function runDevAndValidateContentReload(cwd, deepChain) {
     let output = ''
     let settled = false
     let editApplied = false
+    /** @type {NodeJS.Timeout | null} */
     let successGuardTimer = null
+    /** @type {NodeJS.Timeout | null} */
     let markerPollInterval = null
+    /** @type {NodeJS.Timeout | null} */
     let contractPollInterval = null
     let markerObserved = false
     let sawCdpBootstrapIssue = false
@@ -631,6 +634,7 @@ async function main() {
     console.log(`Using existing project: ${projectDir}`)
   }
 
+  /** @type {ReturnType<typeof prepareDeepImportChain> | null} */
   let deepChain = null
 
   try {

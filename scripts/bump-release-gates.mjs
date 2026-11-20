@@ -91,6 +91,7 @@ async function commitsBetween(repo, from, to) {
 
   if (!response.ok) return []
 
+  /** @type {any} */
   const body = await response.json()
 
   return (body.commits || []).map((entry) => entry.commit.message)

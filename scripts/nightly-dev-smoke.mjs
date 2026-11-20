@@ -56,7 +56,7 @@ function stopChild(child) {
     return Promise.resolve()
   }
 
-  return new Promise((done) => {
+  return new Promise((/** @type {(value?: unknown) => void} */ done) => {
     const force = setTimeout(() => child.kill('SIGKILL'), 15000)
     child.once('exit', () => {
       clearTimeout(force)

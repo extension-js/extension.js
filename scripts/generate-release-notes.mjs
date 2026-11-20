@@ -79,6 +79,7 @@ function resolveRange(currentVersion, fromRef, toRef) {
 
 // Commit collection
 
+/** @returns {{full: string, short: string, subject: string}[]} */
 function getCommits(range) {
   const output = gitOrEmpty([
     'log',
@@ -166,7 +167,9 @@ const CATEGORIES = [
 
 const OTHER_TITLE = 'Other changes'
 
+/** @param {{full: string, short: string, subject: string}[]} commits */
 function categorize(commits) {
+  /** @type {Record<string, {full: string, short: string, subject: string}[]>} */
   const buckets = {features: [], fixes: [], other: []}
 
   for (const commit of commits) {
@@ -211,6 +214,7 @@ function bullet(commit, repoUrl) {
   return `- ${commit.subject} ${link}`
 }
 
+/** @param {{highlights: any[], buckets: any, repoUrl?: string}} options */
 function formatMarkdown({highlights, buckets, repoUrl}) {
   const sections = []
 
@@ -287,6 +291,9 @@ function buildTweet({version, highlights, buckets, notesUrl}) {
   return `${lead}\n\n${body}${url}`
 }
 
+/**
+ * @param {{currentVersion?: string, fromRef?: string, toRef?: string, format?: string, repoUrl?: string, notesUrl?: string, highlightsFile?: string}} [options]
+ */
 export function generate({
   currentVersion = '',
   fromRef,
