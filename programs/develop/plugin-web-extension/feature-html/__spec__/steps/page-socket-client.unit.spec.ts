@@ -1,4 +1,5 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {pageOfSocketRequest} from '../../../../dev-server/html-refresh'
 import PageSocketClient, {pageSocketUrl} from '../../steps/page-socket-client'
 
 class FakeSocket {
@@ -23,6 +24,32 @@ describe('PageSocketClient', () => {
 
     expect(FakeSocket.opened).toEqual([
       'ws://127.0.0.1:8080/ws?page=%2Foptions%2Findex.html'
+    ])
+  })
+
+  it('names a page with a space or accent as the build emitted it', () => {
+    vi.stubGlobal('WebSocket', FakeSocket)
+
+    for (const [pathname, page] of [
+      ['/pages/my%20page.html', 'pages/my page.html'],
+      ['/pages/caf%C3%A9.html', 'pages/café.html'],
+      ['/my%20options/index.html', 'my options/index.html']
+    ]) {
+      FakeSocket.opened = []
+      vi.stubGlobal('location', {pathname})
+      new PageSocketClient('ws://127.0.0.1:8080/ws')
+
+      expect(pageOfSocketRequest(FakeSocket.opened[0])).toBe(page)
+    }
+  })
+
+  it('keeps a path it cannot decode as the browser gave it', () => {
+    vi.stubGlobal('WebSocket', FakeSocket)
+    vi.stubGlobal('location', {pathname: '/pages/100%.html'})
+    new PageSocketClient('ws://127.0.0.1:8080/ws')
+
+    expect(FakeSocket.opened).toEqual([
+      'ws://127.0.0.1:8080/ws?page=%2Fpages%2F100%25.html'
     ])
   })
 

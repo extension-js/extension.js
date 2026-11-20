@@ -18,7 +18,14 @@ function currentPathname(): string | undefined {
   const location = (globalThis as {location?: {pathname?: unknown}}).location
   const pathname = location?.pathname
 
-  return typeof pathname === 'string' ? pathname : undefined
+  if (typeof pathname !== 'string') return undefined
+
+  // The browser percent-encodes the path, the build names pages as written.
+  try {
+    return decodeURIComponent(pathname)
+  } catch {
+    return pathname
+  }
 }
 
 // The same surface as the stock dev client socket, which this one replaces.
