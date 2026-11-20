@@ -43,7 +43,7 @@ const SHEET_ONLY_GROUP_SCRIPT = `data:text/javascript;charset=utf-8,${encodeURIC
 
 // The field as the manifest writes it: a content script group lists its
 // scripts and its stylesheets apart, under the index of the group.
-function manifestFieldOf(
+export function manifestFieldOf(
   feature: string,
   entry: string,
   sheets: ReadonlyMap<number, ReadonlySet<string>>
