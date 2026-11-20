@@ -61,6 +61,12 @@ describe.skipIf(!HAS_DIST)('the published extension package', () => {
     expect(leaks).toEqual([])
   }, 60000)
 
+  it('packs no copy of the engine, which ships as its own package', () => {
+    expect(
+      packedFiles().filter((file) => file.startsWith('dist/develop/'))
+    ).toEqual([])
+  }, 60000)
+
   it('ships every file its exports, main, types and bin name', () => {
     const manifest = JSON.parse(
       fs.readFileSync(path.join(PACKAGE_ROOT, 'package.json'), 'utf8')

@@ -78,7 +78,7 @@ export async function checkPin(pin, options = {}) {
         headers: {accept: 'application/json'},
         signal: AbortSignal.timeout(timeoutMs)
       })
-    } catch (error) {
+    } catch (/** @type {any} */ error) {
       lastProblem = error?.message || String(error)
 
       continue

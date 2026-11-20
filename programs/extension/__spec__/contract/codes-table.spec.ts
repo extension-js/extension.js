@@ -368,6 +368,7 @@ describe('a summary names the causes its code covers', () => {
     ['E_REMOTE_DOWNLOAD', /downloaded/, /written/],
     ['E_CONFIG_LOAD', /threw/, /not export an object/],
     ['E_RUNTIME_NOT_FOUND', /uncompiled/, /another version than the CLI/],
+    ['E_RUNTIME_NOT_FOUND', /throws while it loads/, /native binding/],
     ['E_CSP_BLOCKS_EVAL', /extension's own/, /page's own/],
     // A file that is there and kept out of the build reports under these too.
     ['E_ENTRY_NOT_FOUND', /missing/, /not bundled/],

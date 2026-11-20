@@ -23,19 +23,26 @@ describe('supported surface', () => {
   })
 
   it('backs every supported framework and preprocessor with an optional-deps contract', () => {
-    const frameworkContracts: Record<string, string> = {
+    // Preact compiles with the project's own preact and no tooling package,
+    // so it has nothing for a contract to verify.
+    const frameworkContracts: Record<string, string | undefined> = {
       react: 'react-refresh',
-      preact: 'preact-refresh',
+      preact: undefined,
       vue: 'vue',
       svelte: 'svelte'
     }
 
     for (const framework of SUPPORTED_UI_FRAMEWORKS) {
+      const contract = frameworkContracts[framework]
+      if (!contract) continue
+
       expect(
         OPTIONAL_DEPENDENCY_CONTRACTS,
         `framework '${framework}' has no optional-deps contract`
-      ).toHaveProperty(frameworkContracts[framework])
+      ).toHaveProperty(contract)
     }
+
+    expect(OPTIONAL_DEPENDENCY_CONTRACTS).not.toHaveProperty('preact-refresh')
 
     for (const contractId of ['sass', 'less', 'postcss']) {
       expect(OPTIONAL_DEPENDENCY_CONTRACTS).toHaveProperty(contractId)

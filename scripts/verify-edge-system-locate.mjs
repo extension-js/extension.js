@@ -20,6 +20,7 @@ const requireFromExtension = createRequire(
   path.join(EXTENSION_DIR, 'package.json')
 )
 
+/** @returns {never} */
 function fail(message) {
   console.error(`\n[edge-system-locate] FAILED: ${message}`)
   process.exit(1)

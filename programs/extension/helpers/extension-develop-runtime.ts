@@ -336,10 +336,73 @@ function assertLoadableDevelopRoot(
   if (source !== 'workspace') assertDevelopVersionMatches(root, startDir)
 }
 
+// The folder a package runner keeps a one-off install in, which it reuses
+// as it is on the next run, or undefined for a project or global install.
+export function runnerCacheFolderOf(engineRoot: string): string | undefined {
+  const parts = path.resolve(engineRoot).split(path.sep)
+  const nodeModules = parts.indexOf('node_modules')
+  if (nodeModules < 0) return undefined
+
+  const above = parts.slice(0, nodeModules)
+  const kept =
+    above.includes('_npx') ||
+    (above.includes('pnpm') && above.includes('dlx')) ||
+    above.some((part) => part.startsWith('bunx-'))
+
+  return kept ? above.join(path.sep) : undefined
+}
+
+// An installed engine that throws while it loads is a broken install, such
+// as a native binding the package manager left out, so the refusal is coded.
+export function developLoadFailure(error: unknown, root: string): Error {
+  const declared = (error as {code?: unknown} | null)?.code
+
+  if (
+    error instanceof Error &&
+    typeof declared === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, declared)
+  ) {
+    return error
+  }
+
+  const said = error instanceof Error ? error.message : String(error)
+  const reason = said.split(/\r?\n/)[0].trim() || 'the engine threw no message'
+  let version = ''
+
+  try {
+    version = String(getCliPackageJson().version || '')
+  } catch {
+    // The command still names the package, with no version to pin.
+  }
+
+  // The package's library target predates the cause option of Error.
+  return Object.assign(
+    new Error(
+      messages.developLoadFailed(
+        root,
+        reason,
+        reinstallCommandFor(root, version || 'latest'),
+        runnerCacheFolderOf(root)
+      )
+    ),
+    {code: CODES.E_RUNTIME_NOT_FOUND, cause: error}
+  )
+}
+
+// The engine of a checkout is its maintainer's own, so its load failure
+// keeps its stack. Any other engine that fails to load is a broken install.
 async function importModule<T = AnyDevelopModule>(
-  filePath: string
+  filePath: string,
+  root: string,
+  source: DevelopRootSource
 ): Promise<T> {
-  const mod: AnyDevelopModule = await import(pathToFileURL(filePath).href)
+  let mod: AnyDevelopModule
+
+  try {
+    mod = await import(pathToFileURL(filePath).href)
+  } catch (error) {
+    throw source === 'workspace' ? error : developLoadFailure(error, root)
+  }
 
   return (
     mod?.default && typeof mod.default === 'object'
@@ -358,14 +421,18 @@ export async function loadExtensionDevelopModule<T = DevelopModule>(
   const distEntry = resolveDevelopDistEntry(root)
 
   if (distEntry) {
-    return importModule<T>(distEntry)
+    return importModule<T>(distEntry, root, source)
   }
 
   if (source === 'workspace') {
     throw runtimeNotBuilt(root)
   }
 
-  return (await import('extension-develop')) as T
+  try {
+    return (await import('extension-develop')) as T
+  } catch (error) {
+    throw developLoadFailure(error, root)
+  }
 }
 
 // Load only the lightweight preview entry, avoiding rspack and the full build
@@ -380,7 +447,7 @@ export async function loadExtensionDevelopPreviewModule<
   const previewEntry = resolveDevelopDistEntry(root, 'preview')
 
   if (previewEntry) {
-    return importModule<T>(previewEntry)
+    return importModule<T>(previewEntry, root, source)
   }
 
   // Fall back to the full module if the preview entry doesn't exist
@@ -388,14 +455,18 @@ export async function loadExtensionDevelopPreviewModule<
   const fullEntry = resolveDevelopDistEntry(root)
 
   if (fullEntry) {
-    return importModule<T>(fullEntry)
+    return importModule<T>(fullEntry, root, source)
   }
 
   if (source === 'workspace') {
     throw runtimeNotBuilt(root)
   }
 
-  return (await import('extension-develop/preview')) as T
+  try {
+    return (await import('extension-develop/preview')) as T
+  } catch (error) {
+    throw developLoadFailure(error, root)
+  }
 }
 
 // Load only the lightweight agent-bridge entry for extension logs;
@@ -410,7 +481,7 @@ export async function loadExtensionDevelopBridgeModule<T = DevelopBridge>(
   const bridgeEntry = resolveDevelopDistEntry(root, 'bridge')
 
   if (bridgeEntry) {
-    return importModule<T>(bridgeEntry)
+    return importModule<T>(bridgeEntry, root, source)
   }
 
   if (source === 'workspace') {
@@ -421,5 +492,9 @@ export async function loadExtensionDevelopBridgeModule<T = DevelopBridge>(
   // installed package. Published type defs may predate this subpath.
   const bridgeSpecifier: string = 'extension-develop/bridge'
 
-  return (await import(bridgeSpecifier)) as T
+  try {
+    return (await import(bridgeSpecifier)) as T
+  } catch (error) {
+    throw developLoadFailure(error, root)
+  }
 }

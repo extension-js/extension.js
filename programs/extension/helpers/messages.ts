@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {type Channel, CODES, fmt, hasChannelPrefix, prefix} from './messaging'
+import {READY_EVENT_TYPES} from './ready-contract-codes'
 import {TELEMETRY_DOCS_URL} from './telemetry'
 import {
   BUNDLED_TEMPLATES,
@@ -373,6 +374,26 @@ export function developVersionMismatch(
     `The two run together only at the same version.\n` +
     `Reinstall so both are ${cliVersion}: ${code(reinstall)}\n` +
     `To run a local engine on purpose, set ${code('EXTENSION_DEVELOP_ROOT')} to its folder.`
+  )
+}
+
+// An engine that cannot be imported fails every command the same way, so the
+// refusal names its folder, the engine's own reason and the way back.
+export function developLoadFailed(
+  engineRoot: string,
+  reason: string,
+  reinstall: string,
+  runnerCache?: string
+) {
+  const fix = runnerCache
+    ? `The runner keeps this copy, so delete ${runnerCache} and run ${code(reinstall)} again.`
+    : `Install it again: ${code(reinstall)}`
+
+  return (
+    `${getLoggingPrefix('error')} The build engine at ${engineRoot} could ` +
+    `not be loaded, so no command of this install can run.\n` +
+    `${fmt.label('REASON')} ${fmt.val(reason)}\n` +
+    fix
   )
 }
 
@@ -1127,12 +1148,7 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
           'compiledAt',
           'errors'
         ],
-        eventTypes: [
-          'compile_start',
-          'compile_success',
-          'compile_error',
-          'shutdown'
-        ],
+        eventTypes: [...READY_EVENT_TYPES],
         notes: [
           'ready.json is written atomically by the build (dev/start) on each compile',
           'start with a browser to launch stays on starting, with compiledAt set, until the launch passed its binary checks, so --wait keeps waiting and reports a refused pin as that refusal',

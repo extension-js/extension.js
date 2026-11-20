@@ -46,6 +46,7 @@ function main() {
   // No manifest rewriting.
   // Extension.js resolves manifest.json recursively (e.g. src/manifest.json),
   // so this script must never create a temporary root manifest.json.
+  /** @type {NodeJS.ProcessEnv} */
   const env = {...process.env, XDG_CONFIG_HOME}
 
   // Ensure the root workspace binary is available from any example dir.

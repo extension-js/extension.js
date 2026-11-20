@@ -127,7 +127,7 @@ function childHasExited(child) {
 function waitForChildExit(child, timeoutMs = 10000) {
   if (childHasExited(child)) return Promise.resolve()
 
-  return new Promise((resolve) => {
+  return new Promise((/** @type {(value?: unknown) => void} */ resolve) => {
     let settled = false
 
     const finalize = () => {
@@ -150,7 +150,7 @@ async function terminateChildProcess(child) {
   if (childHasExited(child)) return
 
   if (process.platform === 'win32' && child.pid) {
-    await new Promise((resolve) => {
+    await new Promise((/** @type {(value?: unknown) => void} */ resolve) => {
       try {
         const killer = spawn(
           'taskkill',
@@ -295,6 +295,12 @@ function runWithRegistryRetries(
 }
 
 // Install output is captured so a retry can read it, then echoed in full.
+/**
+ * @param {string} command
+ * @param {string[]} args
+ * @param {string} cwd
+ * @param {NodeJS.ProcessEnv} [env]
+ */
 function runInstall(command, args, cwd, env = baseEnv) {
   const resolvedCommand = commandFor(command)
   const rendered = [resolvedCommand, ...args].join(' ')
@@ -852,6 +858,11 @@ const SMOKE_PACKAGE_MANAGER_PINS = {
   yarn: 'yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e'
 }
 
+/**
+ * @param {string} workdir
+ * @param {string} pm
+ * @param {Record<string, string> | null} [packedTarballs]
+ */
 async function rewriteConsumerPackageJson(workdir, pm, packedTarballs = null) {
   const packageJsonPath = path.join(workdir, 'package.json')
   const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf8'))
@@ -1112,6 +1123,7 @@ function runReactContentDevSmoke(workdir) {
 
     let output = ''
     let settled = false
+    /** @type {NodeJS.Timeout | null} */
     let contractPoll = null
     const harnessStartMs = Date.now()
 
