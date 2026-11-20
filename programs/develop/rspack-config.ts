@@ -9,11 +9,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
+  type Compiler,
   type Configuration,
   LightningCssMinimizerRspackPlugin,
   SwcJsMinimizerRspackPlugin
 } from '@rspack/core'
 import {FileEventAssistPlugin} from './dev-server/file-event-assist'
+import {requestDevSessionRestart} from './dev-server/session-restart'
 import {makeSanitizedConsole} from './lib/branding'
 import {codedError} from './lib/coded-error'
 import {recordCodedWarning} from './lib/coded-warnings'
@@ -69,6 +71,7 @@ import {SetupChunkLoadingTarget} from './plugin-web-extension/feature-chunk-load
 import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
 import {manifestFieldMistyped} from './plugin-web-extension/feature-manifest/messages'
 import {WarnManifestV2OnChromium} from './plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
+import {listenForManifestChange} from './plugin-web-extension/shared/manifest-change-signal'
 import type {WebpackConfigOptions} from './types'
 
 export default function webpackConfig(
@@ -259,6 +262,15 @@ export default function webpackConfig(
     }),
     // The page side of reload registers first: it adds to the pages as
     // WebExtensionPlugin declares them.
+    // The session restarts for a manifest change the plugin signals. With
+    // no live session the request answers false and the plugin reports.
+    {
+      apply(compiler: Compiler) {
+        listenForManifestChange(compiler, (change) =>
+          requestDevSessionRestart(compiler, change)
+        )
+      }
+    },
     new PageReloadPlugin({
       manifestPath,
       browser: devOptions.browser,
