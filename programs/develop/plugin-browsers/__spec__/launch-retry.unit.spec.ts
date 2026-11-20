@@ -9,9 +9,14 @@ import {
   type BrowserLaunchOptions,
   BrowsersPlugin,
   type BuildErrorEvent,
+  type BuildEventMap,
   type CompiledEvent
 } from '../index'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
+
+// The public event map offers no 'close': nothing ever emitted one.
+// @ts-expect-error 'close' is not a public build event
+type _NoCloseEvent = BuildEventMap['close']
 
 const CONTEXT = '/tmp/project'
 const OUTPUT = '/tmp/project/dist/chrome'
@@ -174,7 +179,10 @@ describe('browser launch slot', () => {
     await dev.compile()
 
     expect(printed.error).toEqual([])
-    expect(dev.errors).toEqual([{errors: ['xcodebuild failed (exit 65)']}])
+    expect(dev.errors).toEqual([
+      {errors: ['xcodebuild failed (exit 65)'], code: 'E_SAFARI_TOOLCHAIN'}
+    ])
+
     expect(dev.events).toEqual(['settled', 'error', 'compiled'])
 
     await dev.compile()
@@ -273,8 +281,8 @@ describe('browser launch slot', () => {
     expect(dev.events).toEqual(['settled', 'ready', 'compiled', 'compiled'])
   })
 
-  // Pins current behavior: only the message reaches the public error event.
-  it("drops the launcher's error code from the emitted error", async () => {
+  // A consumer branches on the code, not on the wording of the message.
+  it("carries the launcher's error code on the emitted error", async () => {
     const dev = session(async () => {
       throw Object.assign(new Error('Chrome binary not found'), {
         code: 'E_BROWSER_NOT_FOUND'
@@ -283,12 +291,13 @@ describe('browser launch slot', () => {
 
     await dev.compile()
 
-    expect(dev.errors).toEqual([{errors: ['Chrome binary not found']}])
-    expect(JSON.stringify(dev.errors)).not.toContain('E_BROWSER_NOT_FOUND')
+    expect(dev.errors).toEqual([
+      {errors: ['Chrome binary not found'], code: 'E_BROWSER_NOT_FOUND'}
+    ])
   })
 
-  // Pins current behavior: 'close' is declared on the plugin and never fires.
-  it("never emits the declared 'close' event, and taps no hook that could", async () => {
+  // The emitter has no 'close' event to offer, and no hook could fire one.
+  it("emits no 'close' event and taps no hook that could", async () => {
     const dev = session(async () => controller())
 
     await dev.compile()

@@ -152,6 +152,40 @@ describe('mistyped manifest values (real build)', () => {
     expect(refusalMessage).not.toMatch(/no entry called/)
   }, 120_000)
 
+  it.each([
+    [
+      'content_scripts[0].js[0]',
+      {content_scripts: [{matches: ['<all_urls>'], js: [42]}]}
+    ],
+    [
+      'content_scripts[0].js[0]',
+      {content_scripts: [{matches: ['<all_urls>'], js: [['content.js']]}]}
+    ],
+    ['background.service_worker', {background: {service_worker: {x: 1}}}],
+    ['options_page', {options_page: 1}],
+    ['icons.16', {icons: {'16': 1}}],
+    [
+      'web_accessible_resources[0].resources[0]',
+      {
+        web_accessible_resources: [{resources: [1], matches: ['<all_urls>']}]
+      }
+    ]
+  ])(
+    'refuses a non-string path at %s with the mistyped-field message',
+    async (field, manifest) => {
+      const root = project({manifest_version: 3, ...manifest})
+      const {code, rendered, refusalMessage} = await build(root)
+
+      expect(code).toBe('E_MANIFEST_INVALID')
+      expect(refusalMessage).not.toMatch(/TypeError|is not a function/)
+      expect(rendered).not.toMatch(/TypeError|is not a function/)
+      expect(refusalMessage).toContain(`The ${field} field`)
+      expect(refusalMessage).toMatch(/must be a file path string/)
+      expect(fs.existsSync(path.join(root, 'dist', 'chrome'))).toBe(false)
+    },
+    120_000
+  )
+
   it('repairs a string permissions into an array and says so', async () => {
     const root = project({
       manifest_version: 3,
