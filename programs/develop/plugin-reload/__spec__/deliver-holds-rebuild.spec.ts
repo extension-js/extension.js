@@ -36,10 +36,14 @@ describe('a save made while a reload is being delivered', () => {
 
         return 1
       },
+      // Only the first reload waits on the test. A later build that sees
+      // the same save again is answered at once.
       awaitReloadAck: () =>
-        new Promise<ReloadAckOutcome>((resolve) => {
-          answer = resolve
-        })
+        answer
+          ? Promise.resolve<ReloadAckOutcome>('acked')
+          : new Promise<ReloadAckOutcome>((resolve) => {
+              answer = resolve
+            })
     })
     const probe = {
       apply(compiler: Compiler) {
