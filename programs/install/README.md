@@ -17,7 +17,7 @@ When `--where` is used together with a browser name, `--browser`, or `--all` on 
 
 Uninstall scope is limited to the Extension.js managed cache root (or `EXT_BROWSERS_CACHE_DIR` when set). It does not remove browser installations outside that managed location.
 
-Linux note for `edge`: Playwright channel installs may require a privileged interactive session (`sudo` prompt). If channel install cannot proceed but a system Edge binary is already present, Extension.js will use that existing binary. Otherwise, install Edge system-wide first and then run `extension install edge` (or use `chromium`).
+Linux note for `edge`: Playwright channel installs may require a privileged interactive session (`sudo` prompt). If channel install cannot proceed but a system Edge binary is already present, Extension.js will use that existing binary. Otherwise, install Edge system-wide first and then run `extension install edge` (or use `chromium`). The `sudo` password prompt waits 5 minutes (or `EXTENSION_INSTALL_TIMEOUT_MS`, when that is shorter). With no answer by then, the install is stopped with the same privilege error.
 
 Default managed cache locations are stable and human-readable:
 - macOS: `~/Library/Caches/extension.js/browsers`

@@ -149,6 +149,39 @@ test('windows runs the suites as parallel jobs, the develop one in two shards', 
   )
 })
 
+test('the browser install run is weekly, never on pull requests, and gates nothing', () => {
+  const lane = workflow('browser-install.yml')
+  const install = jobSection(lane, 'install')
+
+  assert.match(lane, /^ {2}schedule:\n {4}- cron: '[^']+'$/m)
+  assert.match(lane, /^ {2}workflow_dispatch:$/m)
+  assert.doesNotMatch(lane, /pull_request|^ {2}push:/m)
+  assert.match(
+    install,
+    /^ {8}os: \[ubuntu-latest, macos-latest, windows-latest\]$/m
+  )
+
+  assert.match(install, /^ {8}browser: \[chrome, firefox, edge\]$/m)
+  assert.match(install, /^ {6}fail-fast: false$/m)
+  assert.match(install, /extension\.cjs install "\$BROWSER" --output json/)
+  assert.match(install, /nightly-dev-smoke\.mjs "\$FIXTURE"/)
+  assert.match(
+    jobSection(lane, 'pins'),
+    /node scripts\/check-installer-pins\.mjs/
+  )
+
+  // Nothing in the required run waits on it.
+  assert.ok(!workflow('ci.yml').includes('browser-install'))
+
+  const pins = workflow('installer-pins.yml')
+  assert.match(
+    pins,
+    /^ {2}pull_request:\n {4}paths:\n {6}- 'programs\/install\/\*\*'$/m
+  )
+
+  assert.match(pins, /node scripts\/check-installer-pins\.mjs/)
+})
+
 test('the optional deps smoke keeps macOS off pull requests and names every leg apart', () => {
   const lane = readWorkflow('optional-deps-matrix.yml')
   const main = job(lane, 'optional-deps-smoke')

@@ -1266,6 +1266,36 @@ describe('one install per browser folder, and no delete of a folder that is not 
       expect((options as {ownGroup?: boolean}).ownGroup).toBe(
         attached ? false : undefined
       )
+
+      // Only an installer sudo can prompt for gets a limit on that prompt.
+      expect((options as {promptWaitMs?: number}).promptWaitMs).toBe(
+        attached ? 5 * 60_000 : undefined
+      )
+    })
+
+    it('never gives the password prompt longer than the whole install', async () => {
+      const runInstaller = vi.fn(async () => ending())
+
+      await install({
+        browser: 'edge',
+        env: env({EXTENSION_INSTALL_TIMEOUT_MS: '90000'}),
+        runInstaller,
+        systemEdge: {
+          exists: () => false,
+          lookup: () => null,
+          registry: () => null
+        }
+      })
+
+      const options = (
+        runInstaller.mock.calls[0] as unknown as [string, string[], object]
+      )[2]
+
+      expect(options).toMatchObject({
+        ownGroup: false,
+        timeoutMs: 90_000,
+        promptWaitMs: 90_000
+      })
     })
 
     it('takes the Edge the first install placed, after waiting for it', async () => {
