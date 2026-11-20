@@ -58,6 +58,16 @@ function packageName(projectPath: string) {
   ).name
 }
 
+// The manifest keeps the folder name, at the root or under src.
+function manifestName(projectPath: string) {
+  const root = path.join(projectPath, 'manifest.json')
+  const file = existsSync(root)
+    ? root
+    : path.join(projectPath, 'src', 'manifest.json')
+
+  return JSON.parse(readFileSync(file, 'utf8')).name
+}
+
 describe('create names the package npm takes and keeps the folder', () => {
   it('derives one from the bundled template and says so', async () => {
     const {lines, logger} = recorder()
@@ -76,7 +86,7 @@ describe('create names the package npm takes and keeps the folder', () => {
     })
 
     expect(lines.join('\n')).toContain(
-      'package.json names it bad-name, because npm refuses "bad name!" as a package name.'
+      'package.json names it bad-name, because npm refuses "bad name!" as a package name. Change it in package.json if you like.'
     )
   })
 
@@ -117,10 +127,36 @@ describe('create names the package npm takes and keeps the folder', () => {
     }
   })
 
+  // The folder is theirs in any language. Nothing typed is lost, so the
+  // package gets the plain fallback rather than a remainder.
   it.each([
-    ['café', 'it has characters npm does not allow'],
-    ['node_modules', 'npm reserves that name']
-  ])('refuses %j before it writes anything', async (folder, problem) => {
+    'café',
+    '日本'
+  ])('creates %j with the fallback package name and says so', async (folder) => {
+    const {lines, logger} = recorder()
+    const projectPath = path.join(root, folder)
+
+    const result = await runCreate(projectPath, {
+      template: 'javascript',
+      logger
+    })
+
+    expect(packageName(projectPath)).toBe('my-extension')
+    expect(result).toMatchObject({
+      projectName: folder,
+      packageName: 'my-extension'
+    })
+
+    expect(manifestName(projectPath)).toBe(folder)
+    expect(lines.join('\n')).toContain(
+      `package.json names it my-extension, because npm refuses "${folder}" as a package name. Change it in package.json if you like.`
+    )
+  })
+
+  it.each([
+    'node_modules',
+    'favicon.ico'
+  ])('refuses the folder %j before it writes anything', async (folder) => {
     const {lines, logger} = recorder()
     const projectPath = path.join(root, folder)
 
@@ -132,7 +168,7 @@ describe('create names the package npm takes and keeps the folder', () => {
     expect(error).toBeInstanceOf(Error)
     expect(error.code).toBe('E_ARGS')
     expect(stripVTControlCharacters(error.message)).toContain(
-      `"${folder}" can't be a package name: ${problem}.`
+      `"${folder}" can't be the project folder name: npm and the tools around it treat a folder of that name as their own.`
     )
 
     expect(lines).toEqual([])

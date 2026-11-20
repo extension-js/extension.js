@@ -50,7 +50,10 @@ export function npmNameProblem(name: string): string | null {
 
 export type PackageNameAnswer =
   | {name: string; derived: boolean}
-  | {problem: string}
+  | {reserved: true}
+
+// The name written when nothing the user typed can stand as one by itself.
+export const FALLBACK_PACKAGE_NAME = 'my-extension'
 
 function trimDashes(value: string) {
   let start = 0
@@ -62,14 +65,9 @@ function trimDashes(value: string) {
   return value.slice(start, end)
 }
 
-// The folder keeps what the user typed. Its package name only changes case,
-// turns spaces into dashes and drops punctuation; a letter or digit npm
-// cannot take, or a name cut short, would be a guess, so none is derived.
-export function packageNameFor(folderName: string): PackageNameAnswer {
-  if (npmNameProblem(folderName) === null) {
-    return {name: folderName, derived: false}
-  }
-
+// Changes case, turns spaces into dashes and drops punctuation, or answers
+// null when a letter or digit npm cannot take would have to go.
+function convert(folderName: string): string | null {
   let converted = ''
 
   for (const char of folderName) {
@@ -80,15 +78,29 @@ export function packageNameFor(folderName: string): PackageNameAnswer {
     } else if (isAllowedChar(lower)) {
       if (!(lower === '-' && converted.endsWith('-'))) converted += lower
     } else if (/[\p{L}\p{N}]/u.test(char)) {
-      return {problem: NOT_ALLOWED}
+      return null
     }
   }
 
   let start = 0
   while (start < converted.length && '._-'.includes(converted[start])) start++
 
-  const name = trimDashes(converted.slice(start))
-  const problem = name === '' ? NOT_ALLOWED : npmNameProblem(name)
+  return trimDashes(converted.slice(start))
+}
 
-  return problem === null ? {name, derived: true} : {problem}
+// The folder keeps what the user typed, in any language. package.json gets
+// that name when npm takes it, a cleaned copy when nothing is lost, or the
+// fallback. Only a folder name tools claim for themselves is refused.
+export function packageNameFor(folderName: string): PackageNameAnswer {
+  if (RESERVED.has(folderName.toLowerCase())) return {reserved: true}
+
+  if (npmNameProblem(folderName) === null) {
+    return {name: folderName, derived: false}
+  }
+
+  const converted = convert(folderName)
+  const usable =
+    converted !== null && converted !== '' && npmNameProblem(converted) === null
+
+  return {name: usable ? converted : FALLBACK_PACKAGE_NAME, derived: true}
 }

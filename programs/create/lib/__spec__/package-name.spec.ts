@@ -53,16 +53,29 @@ describe('the package name create writes for a folder name', () => {
     })
   })
 
-  // Dropping a letter or a digit, or cutting the name short, would pick a
-  // name the user did not type, so nothing is derived.
+  // A remainder with a letter or digit dropped, or cut short, would read as
+  // the user's own choice, so the plain fallback is written instead.
   it.each([
-    ['café', 'it has characters npm does not allow'],
-    ['日本', 'it has characters npm does not allow'],
-    ['!!!', 'it has characters npm does not allow'],
-    ['node_modules', 'npm reserves that name'],
-    ['favicon.ico', 'npm reserves that name'],
-    ['a'.repeat(215), 'it is longer than 214 characters']
-  ])('derives nothing from %j', (folder, problem) => {
-    expect(packageNameFor(folder)).toEqual({problem})
+    'café',
+    '日本',
+    'Ünïcode project',
+    '!!!',
+    'a'.repeat(215)
+  ])('falls back to my-extension for %j', (folder) => {
+    expect(packageNameFor(folder)).toEqual({
+      name: 'my-extension',
+      derived: true
+    })
+  })
+
+  // A folder of these names is what npm and the tools around it treat as
+  // their own, so the folder itself cannot be the project.
+  it.each([
+    'node_modules',
+    'favicon.ico',
+    'Node_Modules',
+    'FAVICON.ICO'
+  ])('refuses the folder %j', (folder) => {
+    expect(packageNameFor(folder)).toEqual({reserved: true})
   })
 })

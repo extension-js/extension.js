@@ -56,15 +56,15 @@ export function noProjectName() {
   )
 }
 
-export function projectNameUnusable(projectName: string, problem: string) {
+export function projectFolderReserved(projectName: string) {
   return (
-    `${prefix('error')} ${colors.blue(JSON.stringify(projectName))} can't be a package name: ${problem}.\n` +
-    `${colors.red('Use letters, digits and dashes, for example')} ${colors.blue('extension create my-extension')}.`
+    `${prefix('error')} ${colors.blue(JSON.stringify(projectName))} can't be the project folder name: npm and the tools around it treat a folder of that name as their own.\n` +
+    `${colors.red('Choose another folder name, for example')} ${colors.blue('extension create my-extension')}.`
   )
 }
 
 export function packageNameDerived(projectName: string, packageName: string) {
-  return `${prefix('info')} package.json names it ${colors.blue(packageName)}, because npm refuses ${colors.blue(JSON.stringify(projectName))} as a package name.`
+  return `${prefix('info')} package.json names it ${colors.blue(packageName)}, because npm refuses ${colors.blue(JSON.stringify(projectName))} as a package name. Change it in package.json if you like.`
 }
 
 export function noUrlAllowed() {

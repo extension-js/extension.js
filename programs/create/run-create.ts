@@ -88,13 +88,13 @@ export async function runCreate(
     : path.join(process.cwd(), projectNameInput)
 
   const projectName = path.basename(projectPath)
-  // Refused here, before the directory exists, when no name npm takes can
-  // be read off the folder name without guessing.
+  // Refused here, before the directory exists, only for a folder name tools
+  // claim for themselves. Any other name gets a package name npm takes.
   const packageName = packageNameFor(projectName)
 
-  if ('problem' in packageName) {
+  if ('reserved' in packageName) {
     throw new utils.CreateError(
-      messages.projectNameUnusable(projectName, packageName.problem),
+      messages.projectFolderReserved(projectName),
       CODES.E_ARGS
     )
   }

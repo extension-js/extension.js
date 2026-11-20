@@ -39,11 +39,39 @@ describe('create with a folder name npm refuses as a package name', () => {
     )
     expect(packageJson.name).toBe('bad-name')
     expect(stderr).toContain(
-      'package.json names it bad-name, because npm refuses "bad name!" as a package name.'
+      'package.json names it bad-name, because npm refuses "bad name!" as a package name. Change it in package.json if you like.'
     )
   }, 120000)
 
-  it('refuses one it cannot derive with E_ARGS and creates nothing', async () => {
+  // The manifest keeps the folder name in any language, and it still builds.
+  it('creates and builds a project in a folder named in Japanese', async () => {
+    const {work, result} = create('日本')
+    const created = await result
+
+    expect(created.status, created.stderr).toBe(0)
+    expect(everyLineAsFrame(created.stdout)[0]).toMatchObject({
+      ok: true,
+      value: {projectName: '日本', packageName: 'my-extension'}
+    })
+
+    const projectPath = path.join(work, '日本')
+    const built = await runCli(
+      ['build', projectPath, '--silent', 'true', '--install', 'false'],
+      {cwd: projectPath, home: freshCliHome()}
+    )
+
+    expect(built.status, built.stderr).toBe(0)
+    expect(
+      JSON.parse(
+        fs.readFileSync(
+          path.join(projectPath, 'dist', 'chromium', 'manifest.json'),
+          'utf8'
+        )
+      ).name
+    ).toBe('日本')
+  }, 240000)
+
+  it('refuses a folder name tools claim with E_ARGS and creates nothing', async () => {
     const {work, result} = create('node_modules')
     const {status, stdout} = await result
 
@@ -56,7 +84,7 @@ describe('create with a folder name npm refuses as a package name', () => {
     expect(
       String((frames[0].error as Record<string, unknown>).message)
     ).toContain(
-      '"node_modules" can\'t be a package name: npm reserves that name.'
+      '"node_modules" can\'t be the project folder name: npm and the tools around it treat a folder of that name as their own.'
     )
 
     expect(fs.readdirSync(work)).toEqual([])
