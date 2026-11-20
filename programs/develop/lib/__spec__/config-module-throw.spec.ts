@@ -58,8 +58,8 @@ describe('an ES module config that throws', () => {
     )
 
     for (const load of [
-      () => loadCommandConfig(dir, 'dev'),
-      () => loadProjectConfigDefaults(dir)
+      () => loadCommandConfig(dir, 'dev', {mode: 'development'}),
+      () => loadProjectConfigDefaults(dir, {mode: 'production'})
     ]) {
       await expect(load()).rejects.toMatchObject({
         code: 'E_CONFIG_LOAD',
@@ -79,7 +79,9 @@ describe('an ES module config that throws', () => {
       'module'
     )
 
-    await expect(loadCommandConfig(dir, 'build')).rejects.toMatchObject({
+    await expect(
+      loadCommandConfig(dir, 'build', {mode: 'production'})
+    ).rejects.toMatchObject({
       code: 'E_CONFIG_LOAD',
       cause: {message: 'dep boom'}
     })

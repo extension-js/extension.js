@@ -400,7 +400,8 @@ export function registerPreviewCommand(
         const noBrowser = await resolveNoBrowser(
           pathOrRemoteUrl || process.cwd(),
           'preview',
-          loadDevelop
+          loadDevelop,
+          list[0]
         )
 
         // Armed before the first launch: a signal can arrive while the
