@@ -39,6 +39,7 @@ import {
   swcParserForFile
 } from './js-frameworks-lib/jsx-transform'
 import * as messages from './js-frameworks-lib/messages'
+import {createSessionNotices} from './js-frameworks-lib/session-notices'
 import {readTransformFlags, swcDecoratorTransform} from './js-tools/decorators'
 import {maybeUsePreact} from './js-tools/preact'
 import {
@@ -82,6 +83,8 @@ export class JsFrameworksPlugin {
   public readonly mode: DevOptions['mode']
   public readonly transpilePackages: string[]
   public readonly define: Record<string, unknown>
+  // One plugin serves one compiler, so its once-only lines are that build's.
+  private readonly notices = createSessionNotices()
 
   constructor(
     options: PluginInterface & {
@@ -176,36 +179,20 @@ export class JsFrameworksPlugin {
     return merged
   }
 
-  private patchReactRefreshRules(rules: LooseRuleSetRule[]) {
-    for (const rule of rules) {
-      if (!rule || typeof rule !== 'object') continue
+  // The rules the refresh plugin adds while it is applied are the refresh
+  // rules, whatever loader they name, and none may reach a content script.
+  private applyReactPlugins(
+    compiler: Compiler,
+    plugins: Array<{apply(compiler: Compiler): void}>
+  ) {
+    const before = new Set<unknown>(compiler.options.module.rules)
 
-      const uses = Array.isArray(rule.use)
-        ? rule.use
-        : rule.use
-          ? [rule.use]
-          : rule.loader
-            ? [{loader: rule.loader}]
-            : []
-      // The plugin registers its loader as a bare string
-      // ('builtin:react-refresh-loader'), older versions as {loader}.
-      const hasReactRefreshLoader = uses.some((useEntry) =>
-        String(
-          typeof useEntry === 'string' ? useEntry : useEntry?.loader || ''
-        ).includes('react-refresh-loader')
-      )
+    for (const plugin of plugins) plugin.apply(compiler)
 
-      if (hasReactRefreshLoader) {
-        rule.issuerLayer = {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER}
-      }
+    for (const rule of compiler.options.module.rules) {
+      if (!rule || typeof rule !== 'object' || before.has(rule)) continue
 
-      if (Array.isArray(rule.oneOf)) {
-        this.patchReactRefreshRules(rule.oneOf)
-      }
-
-      if (Array.isArray(rule.rules)) {
-        this.patchReactRefreshRules(rule.rules)
-      }
+      rule.issuerLayer = {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER}
     }
   }
 
@@ -216,10 +203,11 @@ export class JsFrameworksPlugin {
 
     // Detection (isUsingTypeScript) is now pure, so the one-time tsconfig
     // setup/throw must be triggered explicitly at this build chokepoint
-    ensureTypeScriptConfig(projectPath, {
-      manifestPath: this.manifestPath,
-      browser: this.browser
-    })
+    ensureTypeScriptConfig(
+      projectPath,
+      {manifestPath: this.manifestPath, browser: this.browser},
+      this.notices.typescript
+    )
 
     // Computed before the framework integrations run: every compiling rule they
     // return needs the same carve-out, not just the swc rule below.
@@ -378,6 +366,7 @@ export class JsFrameworksPlugin {
 
     const maybeInstallReact = await maybeUseReact(projectPath, {
       disableRefresh: mode !== 'development',
+      notices: this.notices,
       // A custom exclude replaces the plugin's own node_modules rule, so it
       // has to carry it: without it React itself was wrapped in refresh
       // signatures and pulled the refresh runtime into every bundle.
@@ -385,16 +374,25 @@ export class JsFrameworksPlugin {
         /[\\/]node_modules[\\/]/.test(resourcePath) ||
         isfeatureScriptsContentLike(resourcePath)
     })
-    const maybeInstallPreact = await maybeUsePreact(projectPath)
+    const maybeInstallPreact = await maybeUsePreact(projectPath, this.notices)
     const babelConfigPath = findProjectBabelConfig(projectPath)
-    const maybeInstallVue = await maybeUseVue(projectPath, mode, this.define)
+    const maybeInstallVue = await maybeUseVue(
+      projectPath,
+      mode,
+      this.define,
+      this.notices
+    )
     const maybeInstallSolid = await maybeUseSolid(
       projectPath,
       mode,
       transpilePackageDirs,
-      !!babelConfigPath
+      !!babelConfigPath,
+      this.notices
     )
-    const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
+    const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode, {
+      notices: this.notices,
+      compiler
+    })
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
     // isUsingTypeScript is gated on the config existing, so a second operand
@@ -629,9 +627,7 @@ export class JsFrameworksPlugin {
       ...existingRules
     ].filter(Boolean)
 
-    maybeInstallReact?.plugins?.forEach((plugin) => {
-      plugin.apply(compiler)
-    })
+    this.applyReactPlugins(compiler, maybeInstallReact?.plugins || [])
 
     maybeInstallPreact?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
@@ -644,10 +640,6 @@ export class JsFrameworksPlugin {
     maybeInstallSvelte?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
     })
-
-    this.patchReactRefreshRules(
-      compiler.options.module.rules as LooseRuleSetRule[]
-    )
 
     if (resolveConfigPath) {
       compiler.options.resolve.tsConfig = {

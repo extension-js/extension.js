@@ -2,6 +2,8 @@ import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {stripChannelPrefix} from '../../lib/messaging'
+import * as messages from '../js-frameworks-lib/messages'
 import {resolveReactRefreshEntry} from '../js-tools/react'
 import {
   compileProject,
@@ -24,8 +26,7 @@ describe('a loader options file that throws', () => {
   it.each([
     ['vue', '3.5.0'],
     ['svelte', '99.0.0']
-  ])('is printed once and rethrown uncoded for %s', async (framework, version) => {
-    // Pins current behavior: one failure prints, then rethrows with no code.
+  ])('stops the build with one coded error and prints nothing for %s', async (framework, version) => {
     const error = vi.spyOn(console, 'error').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
@@ -41,12 +42,22 @@ describe('a loader options file that throws', () => {
       (reason: Error & {code?: string}) => reason
     )
 
-    expect(rejection?.message).toBe('boom in loader file')
-    expect(rejection?.code).toBeUndefined()
-    expect(error.mock.calls).toEqual([
-      [`Error loading ${framework} loader options: boom in loader file`]
-    ])
+    const file = path.join(root, `${framework}.loader.mjs`)
 
+    expect(rejection?.code).toBe('E_CONFIG_LOAD')
+    expect(rejection?.message).toBe(
+      messages.loaderOptionsLoadFailed(file, new Error('boom in loader file'))
+    )
+
+    expect(stripChannelPrefix(String(rejection?.message))).toBe(
+      `Couldn't load ${framework}.loader.mjs.\n` +
+        `PATH ${file}\n` +
+        'boom in loader file\n' +
+        'Fix the loader options file, then run the command again.'
+    )
+
+    expect((rejection?.cause as Error).message).toBe('boom in loader file')
+    expect(error).not.toHaveBeenCalled()
     expect(log).not.toHaveBeenCalled()
     expect(warn).not.toHaveBeenCalled()
   })
@@ -139,9 +150,7 @@ describe('TypeScript decorators', () => {
 })
 
 describe('where the React refresh entry is read from', () => {
-  it('finds by path string the same file the package exports as ./react-refresh-entry', () => {
-    // The entry is found by a path string, so this fails if that path ever
-    // stops matching the file the package exports.
+  it('finds the file the installed package exports as ./react-refresh-entry', () => {
     const root = makeProject({'package.json': {dependencies: {react: '19'}}})
     const found = resolveReactRefreshEntry(root)
     const exported = fromDevelop.resolve(

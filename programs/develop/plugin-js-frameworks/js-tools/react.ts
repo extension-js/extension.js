@@ -18,23 +18,21 @@ import {
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
+import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
+
+const REACT_REFRESH_PLUGIN = '@rspack/plugin-react-refresh'
 
 type ReactRefreshPluginCtor = new (...args: unknown[]) => RspackPluginInstance
-
-// Printed once per process. A caller that needs its own record passes one.
-const reactNotice = {delivered: false}
 
 type MaybeUseReactOptions = {
   refreshExclude?: unknown
   disableRefresh?: boolean
+  notices?: SessionNotices
 }
 
-export function isUsingReact(
-  projectPath: string,
-  notice: {delivered: boolean} = reactNotice
-) {
+export function isUsingReact(projectPath: string, notice?: Notice) {
   if (hasDependency(projectPath, 'react')) {
-    if (!notice.delivered) {
+    if (notice && !notice.delivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('React')}`)
       }
@@ -52,7 +50,7 @@ export async function maybeUseReact(
   projectPath: string,
   options: MaybeUseReactOptions = {}
 ): Promise<JsFramework | undefined> {
-  if (!isUsingReact(projectPath)) return undefined
+  if (!isUsingReact(projectPath, options.notices?.react)) return undefined
 
   // Ensure a single React/renderer instance is bundled to avoid invalid hook calls
   const requireFromProject = createRequire(
@@ -148,6 +146,8 @@ export async function maybeUseReact(
   }
 }
 
+// Asked of the plugin package itself, through the export it declares for the
+// entry, so the file is found wherever the package keeps it.
 export function resolveReactRefreshEntry(
   projectPath: string
 ): string | undefined {
@@ -157,12 +157,9 @@ export function resolveReactRefreshEntry(
       projectPath,
       dependencyId: '@rspack/plugin-react-refresh'
     })
-    const marker = `${path.sep}@rspack${path.sep}plugin-react-refresh${path.sep}`
-    const at = String(pluginMain || '').lastIndexOf(marker)
-    if (at === -1) return undefined
-
-    const root = String(pluginMain).slice(0, at + marker.length)
-    const entry = path.join(root, 'client', 'reactRefreshEntry.js')
+    const entry = createRequire(String(pluginMain)).resolve(
+      `${REACT_REFRESH_PLUGIN}/react-refresh-entry`
+    )
 
     return fs.existsSync(entry) ? entry : undefined
   } catch {

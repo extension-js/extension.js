@@ -2,15 +2,11 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {resolveLoaderConfigPath} from '../load-loader-options'
+import {
+  loadLoaderOptions,
+  resolveLoaderConfigPath
+} from '../load-loader-options'
 import * as messages from '../messages'
-
-// A fresh module per case: the printed-once record lives at module level.
-async function freshLoadLoaderOptions() {
-  vi.resetModules()
-
-  return (await import('../load-loader-options')).loadLoaderOptions
-}
 
 describe('load-loader-options', () => {
   let tmpDir: string
@@ -52,16 +48,16 @@ describe('load-loader-options', () => {
     expect(path.basename(resolved || '')).toBe('svelte.loader.mts')
   })
 
-  it('logs dev-only message once and loads module when config exists', async () => {
+  it('logs the debug line once per record and loads the module', async () => {
     vi.stubEnv('EXTENSION_AUTHOR_MODE', 'development')
-    const loadLoaderOptions = await freshLoadLoaderOptions()
+    const record = {delivered: false}
 
     const mjsPath = path.join(tmpDir, 'svelte.loader.mjs')
     fs.writeFileSync(mjsPath, 'export default { custom: true }\n')
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
 
-    const first = await loadLoaderOptions(tmpDir, 'svelte')
+    const first = await loadLoaderOptions(tmpDir, 'svelte', record)
     expect(first).toEqual({custom: true})
 
     expect(logSpy).toHaveBeenCalledTimes(1)
@@ -69,7 +65,7 @@ describe('load-loader-options', () => {
       messages.isUsingCustomLoader('svelte.loader.mjs')
     )
 
-    const second = await loadLoaderOptions(tmpDir, 'svelte')
+    const second = await loadLoaderOptions(tmpDir, 'svelte', record)
     expect(second).toEqual({custom: true})
     expect(logSpy).toHaveBeenCalledTimes(1)
     logSpy.mockRestore()
@@ -77,14 +73,13 @@ describe('load-loader-options', () => {
 
   it("doesn't log outside development", async () => {
     vi.stubEnv('EXTENSION_AUTHOR_MODE', 'test')
-    const loadLoaderOptions = await freshLoadLoaderOptions()
 
     const mjsPath = path.join(tmpDir, 'vue.loader.mjs')
     fs.writeFileSync(mjsPath, 'export default { ok: true }\n')
 
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const loaded = await loadLoaderOptions(tmpDir, 'vue')
+    const loaded = await loadLoaderOptions(tmpDir, 'vue', {delivered: false})
     expect(loaded).toEqual({ok: true})
     expect(logSpy).not.toHaveBeenCalled()
     expect(errorSpy).not.toHaveBeenCalled()
