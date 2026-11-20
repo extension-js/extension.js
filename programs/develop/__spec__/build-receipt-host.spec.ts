@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {extensionBuild} from '../command-build'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // A build is no dev session, so its receipt names no dev server host, and
 // least of all the one a session in the same host process is listening on.
@@ -43,12 +43,7 @@ describe('the receipt of a build beside a dev session', () => {
 
     const root = project()
 
-    await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as never)
+    await buildProject(root, {mode: 'production'})
 
     const receipt = fs.readFileSync(
       path.join(root, 'dist', 'extension-js', 'chrome', 'ready.json'),

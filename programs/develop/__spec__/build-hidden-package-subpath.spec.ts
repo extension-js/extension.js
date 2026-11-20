@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A wasm runtime such as @ffmpeg/core ships files its `exports` field does
 // not list. The build resolves them like any package file, with no alias.
@@ -69,7 +70,6 @@ function project(config?: string) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
   const spies = (['log', 'error', 'warn', 'info'] as const).map((method) =>
     vi.spyOn(console, method).mockImplementation((...args: unknown[]) => {
@@ -78,11 +78,10 @@ async function build(root: string) {
   )
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    const summary = await buildProject(root, {
+      silent: undefined,
       mode: 'production'
-    } as any)
+    })
 
     return {printed, errors: summary.errors_count, thrown: undefined}
   } catch (error) {

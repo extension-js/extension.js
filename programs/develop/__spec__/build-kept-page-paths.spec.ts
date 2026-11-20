@@ -273,13 +273,7 @@ describe('a page whose authored path a script holds as a string', () => {
     }
 
     try {
-      const {extensionBuild} = await import('../command-build')
-
-      await extensionBuild(root, {
-        browser: 'chrome',
-        install: false,
-        mode: 'production'
-      } as never)
+      await buildProject(root, {silent: undefined, mode: 'production'})
     } finally {
       console.log = log
     }

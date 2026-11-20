@@ -66,15 +66,7 @@ function project() {
 }
 
 async function build(root: string) {
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await buildProject(root, {mode: 'production', exitOnError: false})
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return await buildProject(root, {mode: 'production', exitOnError: false})
 }
 
 describe('a url() the bundler resolves to nothing', () => {

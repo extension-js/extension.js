@@ -118,7 +118,6 @@ async function build(root: string, options: Record<string, unknown> = {}) {
 beforeEach(() => {
   promote.fails = false
   zip.fails = false
-  vi.stubEnv('VITEST', 'true')
   vi.stubEnv('EXTENSION_AUTHOR_MODE', '')
   vi.spyOn(console, 'error').mockImplementation(() => {})
 })

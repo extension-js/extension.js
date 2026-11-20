@@ -72,15 +72,7 @@ function mapSources(distDir: string): string[] {
 describe('dev source maps', () => {
   it('name the files of Extension.js under extension.js/, never by a path to the install', async () => {
     const root = project()
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      await buildProject(root, {mode: 'development', exitOnError: false})
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    await buildProject(root, {mode: 'development', exitOnError: false})
 
     const sources = mapSources(path.join(root, 'dist', 'chrome'))
 

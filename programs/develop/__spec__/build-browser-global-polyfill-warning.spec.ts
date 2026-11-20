@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -45,14 +46,7 @@ async function build(
     metadataCommand?: 'start'
   }
 ) {
-  const {extensionBuild} = await import('../command-build')
-
-  return await extensionBuild(root, {
-    ...options,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  return await buildProject(root, {...options, mode: 'production'})
 }
 
 function polyfillWarnings(summary: {warnings?: string[]}) {

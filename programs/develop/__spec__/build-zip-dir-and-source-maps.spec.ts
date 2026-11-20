@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {afterAll, describe, expect, it, vi} from 'vitest'
 import {listOutputFiles} from '../lib/output-files'
+import {buildProject} from './helpers/build-project'
 
 // The archive can be placed as well as named, and a production build can
 // write source maps that the totals count apart and no zip carries.
@@ -42,15 +43,7 @@ function project(config?: string) {
 }
 
 async function build(root: string, options: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
-
-  return await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode: 'production',
-    ...options
-  } as any)
+  return await buildProject(root, {mode: 'production', ...options})
 }
 
 const zipsIn = (dir: string) =>

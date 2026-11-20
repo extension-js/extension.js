@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // What a build says when it fails or warns, read the way a caller reads it:
 // the code on the rejection, the lines on stderr, the summary it returns.
@@ -47,7 +48,6 @@ function project(matches: string[], config?: string) {
 }
 
 async function build(root: string, options: Record<string, unknown>) {
-  const {extensionBuild} = await import('../command-build')
   const stderr: string[] = []
   const stdout: string[] = []
 
@@ -61,16 +61,15 @@ async function build(root: string, options: Record<string, unknown>) {
     })
   }
 
-  let summary: Awaited<ReturnType<typeof extensionBuild>> | undefined
+  let summary: Awaited<ReturnType<typeof buildProject>> | undefined
   let failure: (Error & {code?: string; cause?: unknown}) | undefined
 
   try {
-    summary = await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    summary = await buildProject(root, {
+      silent: undefined,
       mode: 'production',
       ...options
-    } as never)
+    })
   } catch (error) {
     failure = error as Error & {code?: string}
   } finally {

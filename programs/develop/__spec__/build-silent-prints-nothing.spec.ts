@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // A caller that asks for a silent build reads the summary it gets back, so
 // nothing belongs on stdout. A failure still reaches stderr.
@@ -38,9 +39,7 @@ function project(permissions: unknown) {
 }
 
 async function build(root: string, options: Record<string, unknown>) {
-  const {extensionBuild, resetBuildToolchainLine} = await import(
-    '../command-build'
-  )
+  const {resetBuildToolchainLine} = await import('../command-build')
   const stdout: string[] = []
   const stderr: string[] = []
 
@@ -61,18 +60,17 @@ async function build(root: string, options: Record<string, unknown>) {
     })
   }
 
-  let summary: Awaited<ReturnType<typeof extensionBuild>> | undefined
+  let summary: Awaited<ReturnType<typeof buildProject>> | undefined
   let failure: unknown
 
   try {
-    summary = await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    summary = await buildProject(root, {
+      silent: undefined,
       mode: 'production',
       zip: true,
       exitOnError: false,
       ...options
-    } as never)
+    })
   } catch (error) {
     failure = error
   } finally {

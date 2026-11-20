@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // The build card names the extension the folder ships, so a name filled from
 // .env reads as its value and never as the placeholder the source holds.
@@ -55,13 +56,11 @@ describe('the build card and a name set through .env', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
-    const {extensionBuild} = await import('../command-build')
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      install: false,
+    const summary = await buildProject(root, {
+      silent: undefined,
       mode: 'production',
       exitOnError: false
-    } as never)
+    })
 
     expect(summary.errors_count).toBe(0)
 

@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from './helpers/temp-folders'
+import {buildProject} from './helpers/build-project'
 
 // A build replaces its output folder whole, so the folder is checked before
 // anything is deleted. Every case here keeps a file the old build removed.
@@ -59,21 +60,16 @@ function project(outputPath?: string) {
 }
 
 async function build(root: string, options: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
-
   vi.spyOn(console, 'error').mockImplementation(() => {})
 
-  let summary: Awaited<ReturnType<typeof extensionBuild>> | undefined
+  let summary: Awaited<ReturnType<typeof buildProject>> | undefined
   let failure: (Error & {code?: string}) | undefined
 
   try {
-    summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
+    summary = await buildProject(root, {
       mode: 'production',
       ...options
-    } as never)
+    })
   } catch (error) {
     failure = error as Error & {code?: string}
   }
