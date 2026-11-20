@@ -34,15 +34,15 @@ export function creatingTSConfig() {
 }
 
 // svelte-loader compiles with the svelte that sits beside it, so a project
-// whose lockfile pins an older one gets output its runtime cannot link.
+// that installs another release gets output its own runtime cannot run.
 export function svelteCompilerRuntimeMismatch(
   compilerVersion: string,
   projectVersion: string
 ) {
   return (
     `${prefix('warn')} Svelte ${colors.blue(compilerVersion)} compiles this project, ` +
-    `which pins svelte ${colors.blue(projectVersion)}.\n` +
-    `The build uses ${colors.blue(compilerVersion)} for both, so the output links. ` +
+    `which installs svelte ${colors.blue(projectVersion)}.\n` +
+    `The build uses ${colors.blue(compilerVersion)} for both, so the page mounts. ` +
     `Add ${colors.blue('svelte-loader')} to the project to compile with ${colors.blue(projectVersion)} instead.`
   )
 }

@@ -71,34 +71,11 @@ export function resolveCompilerSvelte(loaderPath: string): {
 
 export interface SvelteRootChoice {
   root?: string
-  // True when the compiler and the project pin different svelte versions, so
-  // the runtime has to follow the compiler for the bundle to link at all.
+  // True when the compiler and the project hold different svelte versions, so
+  // the runtime has to follow the compiler for the bundle to link and run.
   mismatch: boolean
   compilerVersion?: string
   projectVersion?: string
-}
-
-// Numeric compare of the release part only. A prerelease compares as its
-// release, which is close enough: the question here is whether the compiler
-// can emit an export the runtime predates.
-export function isOlderThan(left: string, right: string): boolean {
-  const parts = (value: string) =>
-    value
-      .split('-')[0]
-      .split('.')
-      .map((piece) => Number.parseInt(piece, 10))
-
-  const a = parts(left)
-  const b = parts(right)
-
-  for (let i = 0; i < Math.max(a.length, b.length); i++) {
-    const x = Number.isFinite(a[i]) ? a[i] : 0
-    const y = Number.isFinite(b[i]) ? b[i] : 0
-
-    if (x !== y) return x < y
-  }
-
-  return false
 }
 
 export function chooseSvelteRoot(input: {
@@ -108,15 +85,14 @@ export function chooseSvelteRoot(input: {
   compilerVersion?: string
 }): SvelteRootChoice {
   const {projectRoot, projectVersion, compilerRoot, compilerVersion} = input
-  // Only one direction breaks. A newer runtime links code an older compiler
-  // emitted, because svelte adds internals rather than removing them, so that
-  // project keeps the version it pinned and hears nothing.
+  // Either direction breaks. Compiled output and runtime are one release: the
+  // 5.59 compiler emits the DOM setup import its runtime stopped running.
   const mismatch = Boolean(
     projectRoot &&
       compilerRoot &&
       projectVersion &&
       compilerVersion &&
-      isOlderThan(projectVersion, compilerVersion)
+      projectVersion !== compilerVersion
   )
 
   return {
