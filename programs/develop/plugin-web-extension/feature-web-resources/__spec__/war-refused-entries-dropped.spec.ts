@@ -301,7 +301,7 @@ describe.each([
 
 describe('a development build with a public/ entry that public/ does not hold', () => {
   it(
-    'says nothing, since the dev server answers a missing public file',
+    'names the missing file, as a production build does',
     async () => {
       const root = project({
         'manifest.json': declare(3, ['/nothing.txt', 'data/ok.json'])
@@ -309,7 +309,8 @@ describe('a development build with a public/ entry that public/ does not hold', 
       const result = await developmentBuild(root)
 
       expect(listed(root)).toContain('data/ok.json')
-      expect(result.printed).not.toContain('nothing.txt')
+      expect(listed(root)).not.toContain('nothing.txt')
+      expect(result.printed).toContain('nothing.txt')
       expect(result.errors).toBe(0)
     },
     TIMEOUT

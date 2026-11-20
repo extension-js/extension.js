@@ -8,6 +8,9 @@ import {FileEventAssistPlugin} from '../file-event-assist'
 const roots: string[] = []
 
 afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllEnvs()
+
   for (const root of roots.splice(0)) {
     fs.rmSync(root, {recursive: true, force: true})
   }
@@ -207,6 +210,39 @@ describe('FileEventAssistPlugin', () => {
 
     run.close()
     expect(run.stopped).toEqual([root, pages])
+  })
+
+  // The harness watcher has no scanning field, as a renamed one would not.
+  it('says once under the debug flag that a watcher lacks the fields the scan guard reads', () => {
+    const root = project(['pages/a.html'])
+    const pages = path.join(root, 'pages')
+    const printed: string[] = []
+
+    vi.spyOn(console, 'log').mockImplementation((...parts) => {
+      printed.push(parts.join(' '))
+    })
+
+    const quiet = harness(root, {folders: [root, pages]})
+    quiet.compiler.watchFileSystem.watch([path.join(pages, 'a.html')])
+    quiet.close()
+
+    expect(printed).toEqual([])
+
+    vi.stubEnv('EXTENSION_DEBUG', '1')
+
+    const run = harness(root, {folders: [root, pages]})
+    run.compiler.watchFileSystem.watch([path.join(pages, 'a.html')])
+    run.compiler.watchFileSystem.watch([path.join(pages, 'a.html')])
+    run.polled.get(pages)?.()
+    run.close()
+
+    expect(printed).toHaveLength(1)
+    expect(printed[0]).toContain(
+      'the folder watcher has no scanning, so scans asked for mid-scan are not held'
+    )
+
+    // A poll still scans a watcher the guard could not wrap.
+    expect(run.doScan).toHaveBeenCalledWith(false)
   })
 
   it('reports a deletion the folder watcher never recorded, not a replaced file', () => {
