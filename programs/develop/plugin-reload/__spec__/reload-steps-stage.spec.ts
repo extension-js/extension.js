@@ -106,7 +106,7 @@ describe('the order the reload steps write the background in', () => {
       REPLAY_SHIM_STAGE_AFTER_REPORT,
       DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT,
       BRIDGE_STAGE_AFTER_REPORT
-    ]).toEqual([150, 151, 152])
+    ]).toEqual([149, 150, 151])
   })
 
   it('names each stage in the step that owns it and nowhere else', () => {
