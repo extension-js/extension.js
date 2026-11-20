@@ -122,7 +122,6 @@ export function detectOptionalDependencies(
 
   const usesReact =
     hasDependency(pkg, 'react') || hasDependency(pkg, 'react-dom')
-  const usesPreact = hasDependency(pkg, 'preact')
   const usesVue = hasDependency(pkg, 'vue')
   const usesSvelte = hasDependency(pkg, 'svelte')
 
@@ -186,15 +185,6 @@ export function detectOptionalDependencies(
 
   if (usesReact) {
     addIntegration('React', ['react-refresh', '@rspack/plugin-react-refresh'])
-  }
-
-  if (usesPreact) {
-    addIntegration('Preact', [
-      '@prefresh/core',
-      '@prefresh/utils',
-      '@rspack/plugin-preact-refresh',
-      'preact'
-    ])
   }
 
   if (usesVue) {
