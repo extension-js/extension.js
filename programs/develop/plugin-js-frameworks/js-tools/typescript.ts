@@ -8,8 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {humanLine} from '../../dev-server/lifecycle-stream'
-import {debugLine, isDebug, prefix} from '../../lib/messaging'
+import {debugLine, humanLine, isDebug, prefix} from '../../lib/messaging'
 import {
   findNearestProjectManifestDirSync,
   hasProjectDependency

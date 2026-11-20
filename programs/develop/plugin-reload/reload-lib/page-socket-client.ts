@@ -6,7 +6,7 @@
 // ╚═╝  ╚═╝   ╚═╝   ╚═╝     ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {log} from '../../../lib/dev-server-client-log'
+import {log} from '../../lib/dev-server-client-log'
 
 export function pageSocketUrl(url: string, pathname: string | undefined) {
   if (!pathname) return url
@@ -26,6 +26,7 @@ function currentPathname(): string | undefined {
   try {
     return decodeURIComponent(pathname)
   } catch {
+    // A path the browser could not have encoded is sent as it stands
     return pathname
   }
 }

@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {fakeCompiler} from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {ReloadBroker} from '../../plugin-reload'
 import {InjectBridgeProducer} from '../../plugin-reload/steps/inject-bridge-producer'
@@ -46,14 +47,16 @@ function session(background: string, broker?: Partial<ReloadBroker>) {
   fs.writeFileSync(authored, background)
 
   if (broker) {
-    plugin.setReloadBroker({
-      broadcastReload: (frame) => {
-        frames.push({...frame})
+    plugin.setReloadBroker(
+      quietBroker({
+        broadcastReload: (frame) => {
+          frames.push({...frame})
 
-        return 1
-      },
-      ...broker
-    })
+          return 1
+        },
+        ...broker
+      })
+    )
   }
 
   const fake = fakeCompiler({owner: BrowsersPlugin.name, context: root})
@@ -140,10 +143,6 @@ describe('the hold a launch is handed for boot registrations', () => {
 
   it('hands no wait when no dev server can answer it', async () => {
     expect('awaitBootRegistrations' in (await launchOnce(REGISTERS))).toBe(
-      false
-    )
-
-    expect('awaitBootRegistrations' in (await launchOnce(REGISTERS, {}))).toBe(
       false
     )
   })

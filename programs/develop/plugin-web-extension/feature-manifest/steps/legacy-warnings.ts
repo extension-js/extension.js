@@ -7,8 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {humanLine} from '../../../dev-server/lifecycle-stream'
-import {debugLine, isDebug} from '../../../lib/messaging'
+import {debugLine, humanLine, isDebug} from '../../../lib/messaging'
 import {findLegacyManifestPathHits} from '../manifest-lib/legacy-paths'
 import {getOriginalManifest} from '../manifest-lib/manifest'
 import * as messages from '../messages'

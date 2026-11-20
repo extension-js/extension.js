@@ -2,6 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {fakeCompilation} from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {idleCompiler} from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {ReloadBroker} from '../../plugin-reload'
@@ -11,7 +13,6 @@ import {
   SAFARI_RESYNC_TIMEOUT_MS,
   SafariDevPlugin
 } from '../safari-dev-plugin'
-import {fakeCompilation} from './fake-compiler'
 
 const tempFolder = trackTempFolders()
 
@@ -85,12 +86,53 @@ function session(broker?: ReloadBroker) {
     await vi.advanceTimersByTimeAsync(SAFARI_RESYNC_TIMEOUT_MS)
   }
 
+  // The bundler gave up on the build that is running: no done hook follows.
+  const fails = () => compiler.hooks.failed.call(new Error('build failed'))
+
   const onCompiled = (listener: () => void) => {
     plugin.emitter.on('compiled', listener)
   }
 
-  return {...pkg, starts, ends, hangResync, failures, onCompiled}
+  return {...pkg, starts, ends, fails, hangResync, failures, onCompiled}
 }
+
+describe('a build the bundler gives up on', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  it('packages a waiting save once the failed build is over', async () => {
+    const dev = session()
+
+    void dev.ends('/init')
+    await vi.advanceTimersByTimeAsync(0)
+    dev.calls[0].finish()
+    await vi.advanceTimersByTimeAsync(0)
+
+    // A package is running when the next build ends, so that save waits.
+    await dev.starts()
+    void dev.ends('/out2')
+    await vi.advanceTimersByTimeAsync(0)
+    void dev.starts()
+    await vi.advanceTimersByTimeAsync(SAFARI_RESYNC_TIMEOUT_MS)
+    void dev.ends('/out3')
+    await vi.advanceTimersByTimeAsync(0)
+
+    // One more build starts and the bundler gives up on it.
+    void dev.starts()
+    await vi.advanceTimersByTimeAsync(SAFARI_RESYNC_TIMEOUT_MS)
+    dev.fails()
+
+    dev.calls[1].finish()
+    await vi.advanceTimersByTimeAsync(0)
+
+    expect(dev.targets()).toEqual([
+      'full:/init',
+      'resync:/out2',
+      'resync:/out3'
+    ])
+  })
+})
 
 describe('a Safari package no done hook waits on', () => {
   beforeEach(() => {
@@ -196,13 +238,15 @@ describe('a Safari package no done hook waits on', () => {
 
   it('keeps the reload of the save that waited in that one package', async () => {
     const sent: string[] = []
-    const dev = session({
-      broadcastReload: (instruction) => {
-        sent.push(instruction.type)
+    const dev = session(
+      quietBroker({
+        broadcastReload: (instruction) => {
+          sent.push(instruction.type)
 
-        return 1
-      }
-    })
+          return 1
+        }
+      })
+    )
     await dev.hangResync('/out2')
 
     await dev.starts(['content.js'])

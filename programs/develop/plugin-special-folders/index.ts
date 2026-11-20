@@ -9,7 +9,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, rspack} from '@rspack/core'
-import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {
   findPublicEnvFiles,
@@ -19,6 +18,7 @@ import {
 } from '../lib/public-private-files'
 import {rememberPublicRoots} from '../lib/public-roots'
 import {isInsidePath} from '../lib/real-path'
+import {requestSessionRestart} from '../lib/session-restart-signal'
 import {emitRootAbsoluteRefs} from '../plugin-web-extension/feature-html/steps/emit-root-absolute-refs'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
@@ -333,7 +333,7 @@ export class SpecialFoldersPlugin {
             pickupRequested = true
 
             if (
-              !requestDevSessionRestart(compiler, {
+              !requestSessionRestart(compiler, {
                 reason: 'public',
                 pathAfter: publicDir
               })

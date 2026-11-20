@@ -3,6 +3,7 @@ import {
   fakeCompilation,
   fakeCompiler
 } from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {
   dispatchReload,
   dispatchRestartReload,
@@ -47,7 +48,9 @@ const build = (webResources: string[]) =>
 // A session after a dev server restart: the one that loaded the first
 // compiler's build is the same one, applied to its successor.
 async function restartedSession(loadedWebResources: string[]) {
-  const broker = {broadcastReload: vi.fn((_instruction: object) => 1)}
+  const broker = quietBroker({
+    broadcastReload: vi.fn((_instruction: object) => 1)
+  })
   const launched = launchedSession({browser: 'chrome', broker})
 
   const first = fakeCompiler({owner: LAUNCHED_SESSION, context: CONTEXT})

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {holdTimeouts, settleOnceReady} from '../../__spec__/clock-after-ready'
 import {
   declarePackageManager,
   type VersionProbe,
@@ -21,6 +22,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllEnvs()
 
   for (const dir of dirs.splice(0)) {
@@ -175,24 +177,35 @@ describe('the version probe against a real child', {timeout: 60_000}, () => {
   })
 
   it('ends the manager that ran out of time, not only its launcher', async () => {
-    // The stand-in names itself in a file of its own folder, then hangs.
+    // The stand-in names itself and its attempt in a file of its own
+    // folder, then hangs.
     const pidFile = path.join(tempDir('pid'), 'manager.pid')
-    const {probe} = probeOn(
+    const {probe, asked} = probeOn(
       standInManager(
         'npm',
         "import {writeFileSync} from 'node:fs'\n" +
-          `writeFileSync(${JSON.stringify(pidFile)}, String(process.pid))\n` +
+          `writeFileSync(${JSON.stringify(pidFile)}, \`\${process.env.${ATTEMPT_ENV}}:\${process.pid}\`)\n` +
           HANG
       ),
-      // The second attempt has time to start and write the file.
       [300, 4000]
     )
+    const secondRuns = () =>
+      fs.existsSync(pidFile) &&
+      fs.readFileSync(pidFile, 'utf8').startsWith('2:')
 
+    // The first attempt may run out at once. The second runs out only once
+    // its manager runs, so the timeout always meets a child it started.
+    holdTimeouts()
     expect(
-      await declarePackageManager(unpinnedProject(), 'npm', probe)
+      await settleOnceReady(
+        declarePackageManager(unpinnedProject(), 'npm', probe),
+        () => asked.length < 2 || secondRuns()
+      )
     ).toEqual({undeclared: {kind: 'timeout', seconds: 15}})
 
-    const pid = Number(fs.readFileSync(pidFile, 'utf8'))
+    vi.useRealTimers()
+
+    const pid = Number(fs.readFileSync(pidFile, 'utf8').split(':')[1])
     expect(pid).toBeGreaterThan(0)
 
     // Signal 0 only asks whether the stand-in this test started still runs,

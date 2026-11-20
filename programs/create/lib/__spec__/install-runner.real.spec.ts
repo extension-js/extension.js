@@ -2,11 +2,35 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {runInstall} from '../install-runner'
+import {holdTimeouts, settleOnceReady} from '../../__spec__/clock-after-ready'
+import {KILL_GRACE_MS, runInstall} from '../install-runner'
 
-// Nothing is faked here on purpose: the sibling spec drives the runner
-// through its spawn seam, so only this file proves what a real child does.
+// No child is faked here: the sibling spec drives the runner through its
+// spawn seam, so only this file proves what a real child does. Only the
+// clock of a timeout row is held until its child runs.
 const VERSION = /^\d+\.\d+\.\d+/
+
+// The child names itself in this file once it runs, and the timeout waits.
+const readyDirs: string[] = []
+
+function readyFile() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-install-ready-'))
+  readyDirs.push(dir)
+
+  return path.join(dir, 'ready')
+}
+
+// The pid goes out with a blocking write first, so it is in the pipe before
+// the file says the child is ready. console.log to a pipe is asynchronous.
+const markReady = "require('node:fs').writeFileSync(process.argv[1], '1');"
+
+afterEach(() => {
+  vi.useRealTimers()
+
+  for (const dir of readyDirs.splice(0)) {
+    fs.rmSync(dir, {recursive: true, force: true})
+  }
+})
 
 function isRunning(pid: number): boolean {
   try {
@@ -98,11 +122,21 @@ describe('install-runner runInstall (real spawn)', () => {
   }, 20_000)
 
   it('kills a child that outlives the timeout', async () => {
-    const result = await runInstall(
-      process.execPath,
-      ['-e', 'console.log(process.pid); setInterval(() => {}, 1000)'],
-      {cwd: process.cwd(), stdio: 'pipe', timeoutMs: 1000}
+    const ready = readyFile()
+    holdTimeouts()
+    const result = await settleOnceReady(
+      runInstall(
+        process.execPath,
+        [
+          '-e',
+          `require('node:fs').writeSync(1, process.pid + '\\n'); ${markReady} setInterval(() => {}, 1000)`,
+          ready
+        ],
+        {cwd: process.cwd(), stdio: 'pipe', timeoutMs: 1000}
+      ),
+      () => fs.existsSync(ready)
     )
+    vi.useRealTimers()
 
     expect(result.code).toBeNull()
     expect(result.reason).toBe(
@@ -151,18 +185,24 @@ describe('install-runner runInstall (real spawn)', () => {
       const {dir, script} = standIn(`
         const {spawn} = require('node:child_process')
         const late = spawn(process.execPath, ['-e', ${JSON.stringify(
-          "setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), 1500)"
-        )}, process.argv[2]], {stdio: 'ignore'})
-        console.log(late.pid)
+          "require('node:fs').writeFileSync(process.argv[2], '1'); setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'late'), 1500)"
+        )}, process.argv[2], process.argv[3]], {stdio: 'ignore'})
+        require('node:fs').writeSync(1, late.pid + '\\n')
         setInterval(() => {}, 1000)
       `)
       const marker = path.join(dir, 'postinstall-ran')
+      const ready = path.join(dir, 'postinstall-started')
 
-      const result = await runInstall(process.execPath, [script, marker], {
-        cwd: dir,
-        stdio: 'pipe',
-        timeoutMs: 500
-      })
+      holdTimeouts()
+      const result = await settleOnceReady(
+        runInstall(process.execPath, [script, marker, ready], {
+          cwd: dir,
+          stdio: 'pipe',
+          timeoutMs: 500
+        }),
+        () => fs.existsSync(ready)
+      )
+      vi.useRealTimers()
 
       const grandchild = Number(result.stdout.trim())
       expect(grandchild).toBeGreaterThan(0)
@@ -174,23 +214,31 @@ describe('install-runner runInstall (real spawn)', () => {
       })
 
       started.splice(started.indexOf(grandchild), 1)
-      // Past the moment the grandchild would have written.
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      // Ended before its own timer ran out, so it can never write now.
       expect(fs.existsSync(marker)).toBe(false)
     }, 20_000)
 
     it('kills a manager that ignores SIGTERM once the grace runs out', async () => {
       const {dir, script} = standIn(`
         process.on('SIGTERM', () => {})
-        console.log(process.pid)
+        require('node:fs').writeSync(1, process.pid + '\\n')
+        require('node:fs').writeFileSync(process.argv[2], '1')
         setInterval(() => {}, 1000)
       `)
+      const ready = path.join(dir, 'manager-started')
 
-      const result = await runInstall(process.execPath, [script], {
-        cwd: dir,
-        stdio: 'pipe',
-        timeoutMs: 500
-      })
+      holdTimeouts()
+      const result = await settleOnceReady(
+        runInstall(process.execPath, [script, ready], {
+          cwd: dir,
+          stdio: 'pipe',
+          timeoutMs: 500
+        }),
+        () => fs.existsSync(ready)
+      )
+      // The grace before SIGKILL is held too, and runs out here.
+      vi.advanceTimersByTime(KILL_GRACE_MS)
+      vi.useRealTimers()
 
       const pid = Number(result.stdout.trim())
       expect(pid).toBeGreaterThan(0)

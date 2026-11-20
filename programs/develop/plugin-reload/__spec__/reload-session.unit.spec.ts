@@ -1,5 +1,6 @@
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {createReloadSession, reloadEachBuild} from '../reload-session'
 
 type Tap = (...args: any[]) => unknown
@@ -55,7 +56,7 @@ function recordingBroker() {
   const applied: Array<[string, string | undefined]> = []
   const warned: unknown[] = []
 
-  return {
+  return quietBroker({
     sent,
     applied,
     warned,
@@ -72,7 +73,7 @@ function recordingBroker() {
     noteReloadApplied: (kind: string, label?: string) => {
       applied.push([kind, label])
     }
-  }
+  })
 }
 
 const ROOT = path.join(path.sep, 'project')

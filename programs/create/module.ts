@@ -35,6 +35,8 @@ export interface CreateOptions {
 export interface CreateResult {
   projectPath: string
   projectName: string
+  // The package.json name: the folder name, or one npm takes derived from it.
+  packageName: string
   template: string
   depsInstalled: boolean
   // Whole seconds the dependency install took, absent when none ran.

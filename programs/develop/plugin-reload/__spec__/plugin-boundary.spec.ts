@@ -229,7 +229,7 @@ describe('what the dev server reaches in plugin-reload', () => {
     ])
   })
 
-  it('takes the session call, the restart reload and the build name', () => {
+  it('takes the session call, the restart reload, the build name and the page refresh', () => {
     const names = reached
       .flatMap(({names}) => names.split(','))
       .map((name) => name.trim())
@@ -237,6 +237,7 @@ describe('what the dev server reaches in plugin-reload', () => {
       .sort()
 
     expect(names).toEqual([
+      'attachHtmlRefresh',
       'dispatchRestartReload',
       'fullReloadsDeliveredTo',
       'readDevBuild',

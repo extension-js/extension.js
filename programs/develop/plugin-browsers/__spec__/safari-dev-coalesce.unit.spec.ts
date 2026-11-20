@@ -6,6 +6,7 @@ import {
   fakeCompilation,
   fakeCompiler
 } from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import type {ReloadBroker} from '../../plugin-reload'
 import type {SafariPackagerFn} from '../../types'
 import {
@@ -85,7 +86,7 @@ function makeBroker() {
     label?: string
     entries?: string[]
   }> = []
-  const broker: ReloadBroker = {
+  const broker: ReloadBroker = quietBroker({
     broadcastReload: (instruction) => {
       sent.push({
         type: instruction.type,
@@ -95,7 +96,7 @@ function makeBroker() {
 
       return 1
     }
-  }
+  })
 
   return {broker, sent}
 }
@@ -352,12 +353,12 @@ describe('SafariDevPlugin reload seam', () => {
     vi.spyOn(console, 'log').mockImplementation(() => {})
     const noted: Array<[string, string | undefined]> = []
     const h = harness(
-      {
+      quietBroker({
         broadcastReload: () => 0,
         noteReloadApplied: (kind, label) => {
           noted.push([kind, label])
         }
-      },
+      }),
       '/project'
     )
 
@@ -420,14 +421,14 @@ describe('SafariDevPlugin undelivered reload after a package', () => {
 
   function makeDetachedBroker(warning: string | null = null) {
     const asked: Array<{producerRestartExpected?: boolean} | undefined> = []
-    const broker: ReloadBroker = {
+    const broker: ReloadBroker = quietBroker({
       broadcastReload: () => 0,
       undeliveredReloadWarning: (context) => {
         asked.push(context)
 
         return warning
       }
-    }
+    })
 
     return {broker, asked}
   }
@@ -612,14 +613,14 @@ describe('SafariDevPlugin reload trimming after a package', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const log = vi.spyOn(console, 'log').mockImplementation(() => {})
     const asked: unknown[] = []
-    const broker: ReloadBroker = {
+    const broker: ReloadBroker = quietBroker({
       broadcastReload: () => 0,
       undeliveredReloadWarning: (context) => {
         asked.push(context)
 
         return null
       }
-    }
+    })
     const h = harness(broker)
     await settleFirst(h)
 
@@ -900,13 +901,15 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     const frames: Array<Record<string, unknown>> = []
     const pkg = makeDeferredPackager()
     const plugin = new SafariDevPlugin(pkg.fn)
-    plugin.setReloadBroker({
-      broadcastReload: (frame) => {
-        frames.push({...frame})
+    plugin.setReloadBroker(
+      quietBroker({
+        broadcastReload: (frame) => {
+          frames.push({...frame})
 
-        return 1
-      }
-    })
+          return 1
+        }
+      })
+    )
 
     const {compiler, trigger} = makeCompiler(root)
     plugin.apply(compiler)

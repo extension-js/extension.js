@@ -47,28 +47,28 @@ export interface ReloadBroker {
     build?: string
   }): number
   // True when every connected background already runs this build.
-  runsBuild?(build: string): boolean
+  runsBuild(build: string): boolean
   // When a broadcast reached zero producers, an optional operator warning
-  // (grace-gated + deduped by the broker), or null; optional for test doubles.
-  undeliveredReloadWarning?(context?: UndeliveredReloadContext): string | null
+  // (grace-gated + deduped by the broker), or null.
+  undeliveredReloadWarning(context?: UndeliveredReloadContext): string | null
   // Starts a background the browser suspended so its hello takes the latched
   // broadcast, and resolves true once a producer received it.
-  deliverLatchedReload?(): Promise<boolean>
+  deliverLatchedReload(): Promise<boolean>
   // The receipt for the newest broadcast. 'not-expected' covers a producer
   // that cannot ack, so an old cached worker is never called unapplied.
-  awaitReloadAck?(): Promise<ReloadAckOutcome>
+  awaitReloadAck(): Promise<ReloadAckOutcome>
   // The open tabs the acked reload ran its edited files in again.
-  reloadReplayedTabs?(): number
+  reloadReplayedTabs(): number
   // Whether the extension came back after an acked reload that restarts it.
-  awaitReloadRestart?(): Promise<ReloadRestartOutcome>
+  awaitReloadRestart(): Promise<ReloadRestartOutcome>
   // The hello that arrived after that restart was already called missing.
-  awaitLateReloadRestart?(): Promise<LateReloadRestart | null>
+  awaitLateReloadRestart(): Promise<LateReloadRestart | null>
   // Resolves once a background says its boot registry calls answered, or
   // with 'timeout' when none says so inside the window.
-  awaitBootRegistrations?(timeoutMs: number): Promise<BootRegistrationsOutcome>
+  awaitBootRegistrations(timeoutMs: number): Promise<BootRegistrationsOutcome>
   // Stamps the applied reload into ready.json, so a tool waiting for the
   // rebuild to be live reads it instead of guessing from a reconnect.
-  noteReloadApplied?(kind: ReloadKind, label?: string): void
+  noteReloadApplied(kind: ReloadKind, label?: string): void
 }
 
 // The public names ready.json publishes in reloadKind. safari-resync is the
@@ -114,7 +114,7 @@ function workerAlreadyRuns(
     !instruction.refreshedStylesheets?.length &&
     !instruction.standalonePages?.length &&
     !!executor.build &&
-    executor.broker?.runsBuild?.(executor.build) === true
+    executor.broker?.runsBuild(executor.build) === true
   )
 }
 
@@ -143,7 +143,7 @@ function viaBroker(
 
 async function wakeDelivered(broker: ReloadBroker): Promise<boolean> {
   try {
-    return (await broker.deliverLatchedReload?.()) === true
+    return (await broker.deliverLatchedReload()) === true
   } catch {
     // A wake that fails delivered nothing, and the caller warns for that
     return false
@@ -170,7 +170,7 @@ export function appliedReloadLine(
 
   const tabs =
     instruction.type === 'page' && instruction.changedScriptFiles?.length
-      ? (broker.reloadReplayedTabs?.() ?? 0)
+      ? broker.reloadReplayedTabs()
       : 0
   const files = instruction.changedAssets?.length
     ? instruction.changedAssets
@@ -298,7 +298,7 @@ async function dispatchViaBroker(
   // producer that cannot ack resolves 'not-expected', so those sessions keep
   // announcing on a confirmed send rather than warning on every save.
   if (notified > 0) {
-    const ack = (await broker.awaitReloadAck?.()) ?? 'not-expected'
+    const ack = await broker.awaitReloadAck()
 
     if (ack === 'unacked') {
       if (instruction.label) {
@@ -308,10 +308,7 @@ async function dispatchViaBroker(
       return false
     }
 
-    broker.noteReloadApplied?.(
-      reloadKindFor(instruction.type),
-      instruction.label
-    )
+    broker.noteReloadApplied(reloadKindFor(instruction.type), instruction.label)
 
     if (instruction.type === 'full') {
       fullReloadsDelivered.set(broker, fullReloadsDeliveredTo(broker) + 1)
@@ -324,17 +321,17 @@ async function dispatchViaBroker(
     // The restart outlives this dispatch, so its verdict is reported when it
     // arrives and never holds the next compile.
     const label = instruction.label
-    const restart = broker.awaitReloadRestart?.()
-    const lateRestart = broker.awaitLateReloadRestart?.()
+    const restart = broker.awaitReloadRestart()
+    const lateRestart = broker.awaitLateReloadRestart()
 
-    if (restart && label) {
+    if (label) {
       void restart.then(
         (outcome) => {
           if (outcome !== 'not-restarted') return
 
           console.warn(formatNotRestartedLine(label))
 
-          void lateRestart?.then(
+          void lateRestart.then(
             (late) => {
               if (!late) return
 
@@ -356,7 +353,7 @@ async function dispatchViaBroker(
 
   // Zero producers: the edit compiled but reached no page. Surface the broker's
   // deduped hint past the grace window so the no-op is diagnosable.
-  const warning = broker.undeliveredReloadWarning?.(
+  const warning = broker.undeliveredReloadWarning(
     executor.producerRestartExpected
       ? {producerRestartExpected: true}
       : undefined

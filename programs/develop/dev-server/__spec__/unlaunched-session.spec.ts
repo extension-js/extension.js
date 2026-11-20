@@ -1,5 +1,6 @@
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {reloadEachBuild} from '../../plugin-reload'
 import {attachUnlaunchedSession, createReadyAnnouncer} from '../start-bundler'
 
@@ -56,7 +57,7 @@ function watchingCompiler() {
 
 function session(launches: boolean) {
   const sent: string[] = []
-  const broker = {
+  const broker = quietBroker({
     broadcastReload: vi.fn((frame: {type: string}) => {
       sent.push(frame.type)
 
@@ -64,7 +65,7 @@ function session(launches: boolean) {
     }),
     undeliveredReloadWarning: () => null,
     noteReloadApplied: () => {}
-  }
+  })
   const onReady = vi.fn()
   const watching = watchingCompiler()
 

@@ -225,6 +225,7 @@ export function registerCreateCommand(
               ENVELOPE.ok('create', 'created', {
                 projectPath: result?.projectPath ?? pathOrRemoteUrl,
                 projectName: result?.projectName,
+                packageName: result?.packageName,
                 template: result?.template ?? template ?? null,
                 depsInstalled: result?.depsInstalled ?? Boolean(install)
               })

@@ -53,7 +53,7 @@ export const browserEntries = {
   ),
   'page-socket-client': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-html/steps/page-socket-client.ts'
+    './plugin-reload/reload-lib/page-socket-client.ts'
   ),
   'solid-jsx-runtime': path.resolve(
     __dirname,

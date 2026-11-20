@@ -6,8 +6,8 @@
 // ╚═╝     ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝╚═╝     ╚══════╝╚══════╝   ╚═╝
 // MIT License (c) 2020–present Cezar Augusto, presence implies inheritance
 
-import {humanLine} from '../../../dev-server/lifecycle-stream'
 import {isWebkitBasedBrowser} from '../../../lib/constants'
+import {humanLine} from '../../../lib/messaging'
 import type {DevOptions, Manifest} from '../../../types'
 import * as messages from '../messages'
 import {

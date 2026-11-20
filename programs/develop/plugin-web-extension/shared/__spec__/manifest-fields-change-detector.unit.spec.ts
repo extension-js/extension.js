@@ -17,10 +17,9 @@ import * as path from 'node:path'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
-  requestDevSessionRestart,
   unbindDevSessionRestart
 } from '../../../dev-server/session-restart'
-import {listenForManifestChange} from '../manifest-change-signal'
+import {answerSessionRestarts} from '../../../lib/session-restart-signal'
 import {ManifestFieldsChangeDetector} from '../manifest-fields-change-detector'
 
 afterEach(() => {
@@ -62,15 +61,10 @@ function makeCompiler(modified: string[], errorsArr: any[]) {
     }
   }
 
-  // The config wires the session to the signal the same way.
-  listenForManifestChange(compiler, (change) =>
-    requestDevSessionRestart(compiler, change)
-  )
-
   return compiler
 }
 
-describe('the manifest change signal', () => {
+describe('the session restart signal', () => {
   it('is the only way the detector reaches a session', () => {
     const source = fs.readFileSync(
       path.resolve(__dirname, '..', 'manifest-fields-change-detector.ts'),
@@ -78,19 +72,22 @@ describe('the manifest change signal', () => {
     )
 
     expect(source).not.toMatch(/dev-server|plugin-reload|plugin-browsers/)
-    expect(source).toContain("from './manifest-change-signal'")
+    expect(source).toContain("from '../../lib/session-restart-signal'")
   })
 
-  it('hands the listener the change and takes its answer', async () => {
+  it('hands whoever answers the change and takes its answer', async () => {
     for (const carried of [true, false]) {
       const errors: any[] = []
       const compiler = makeCompiler(['/root/manifest.json'], errors)
       const heard: unknown[] = []
 
-      listenForManifestChange(compiler, (change) => {
-        heard.push(change)
+      const before = answerSessionRestarts({
+        request: (_compiler, change) => {
+          heard.push(change)
 
-        return carried
+          return carried
+        },
+        isRestarting: () => false
       })
 
       mockFields = {scripts: {bg: '/a.js'}, html: {}, icons: {}, json: {}}
@@ -115,6 +112,7 @@ describe('the manifest change signal', () => {
       ])
 
       expect(errors).toHaveLength(carried ? 0 : 1)
+      answerSessionRestarts(before)
     }
   })
 })
