@@ -53,6 +53,35 @@ describe('devAdditionsNote', () => {
   })
 })
 
+describe('a dev manifest changed outside its grant lists', () => {
+  it('names each change on the line a grant gets', () => {
+    const changes = [
+      {
+        kind: 'manifest_change' as const,
+        value: "content_security_policy 'unsafe-eval'",
+        reason: 'r'
+      },
+      {
+        kind: 'manifest_change' as const,
+        value: 'externally_connectable.ids *',
+        reason: 'r'
+      },
+      {
+        kind: 'manifest_change' as const,
+        value: 'background.persistent true',
+        reason: 'r'
+      }
+    ]
+
+    expect(plain(devAdditionsNote([additions[0], ...changes]))).toBe(
+      [
+        '    Dev only       permissions scripting',
+        "    Dev only       manifest content_security_policy 'unsafe-eval', externally_connectable.ids *, background.persistent true"
+      ].join('\n')
+    )
+  })
+})
+
 describe('the no-browser card', () => {
   let consoleSpy: MockInstance<typeof console.log>
 
