@@ -8,6 +8,7 @@
 
 import {ensureSessionStateIgnoreFile} from '../lib/session-paths'
 import type {BridgeBroker} from './control-bridge/broker'
+import {CONTROL_WS_PATH} from './control-bridge/contracts'
 import {
   controlPortFilePath,
   legacyControlPortFilePath,
@@ -35,6 +36,18 @@ export interface ControlBridgeOpening {
   unavailableReason: string | null
   // Closes the control server, for a session that ends without a process exit.
   close: () => Promise<void>
+}
+
+// Where the control channel listens, or why it does not. One object feeds
+// the compiler's contract writer and the session's, so they cannot differ.
+export function controlCoordinatesOf(
+  opening: Pick<ControlBridgeOpening, 'controlPort' | 'unavailableReason'>
+) {
+  return {
+    controlPort: opening.controlPort,
+    controlPortUnavailableReason: opening.unavailableReason,
+    controlPath: CONTROL_WS_PATH
+  }
 }
 
 export async function openControlBridge(

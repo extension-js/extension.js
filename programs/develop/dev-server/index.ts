@@ -98,7 +98,7 @@ import {
   clearControlToken,
   writeControlToken
 } from './control-bridge/session-token'
-import {openControlBridge} from './control-bridge-start'
+import {controlCoordinatesOf, openControlBridge} from './control-bridge-start'
 import {
   attachEmulatorFileIndex,
   buildEmulatorViewerUrl,
@@ -137,7 +137,7 @@ import {
 import {isAwaitingMainWorldRestart} from './session-restart-holds'
 import {withSessionStartPrune} from './session-start-prune'
 import {
-  announceReadyOnCleanCompile,
+  attachUnlaunchedSession,
   createBindFailureRelay,
   createReadyAnnouncer,
   createRestartFailure,
@@ -592,7 +592,7 @@ async function startDevSession(
   })
   closeControlBridge = controlBridge.close
   const bridgeControlPort = controlBridge.controlPort
-  const controlPortUnavailableReason = controlBridge.unavailableReason
+  const controlCoordinates = controlCoordinatesOf(controlBridge)
 
   // Only --port bounds a port, so a debug run names the others it listens on.
   if (isDebug()) debugLine(messages.debugSessionPorts(port, bridgeControlPort))
@@ -725,9 +725,7 @@ async function startDevSession(
     mode: 'development' as const,
     instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
-    controlPort: bridgeControlPort,
-    controlPortUnavailableReason,
-    controlPath: CONTROL_WS_PATH,
+    ...controlCoordinates,
     logsPath: bridgeLogsRelPath,
     connectableHost,
     readyAwaitsExecutor,
@@ -748,9 +746,7 @@ async function startDevSession(
     host: connectableHost,
     instanceId: currentInstance.instanceId,
     instanceExplicit: currentInstance.instanceExplicit,
-    controlPort: bridgeControlPort,
-    controlPortUnavailableReason,
-    controlPath: CONTROL_WS_PATH,
+    ...controlCoordinates,
     logsPath: bridgeLogsRelPath,
     readyAwaitsRdpPort: Boolean(extendedOptions.browsersPlugin),
     readyAwaitsCdpPort:
@@ -915,17 +911,16 @@ async function startDevSession(
 
     // With no browser plugin the session reloads the browser the user runs,
     // through the same reload session a launched browser uses.
-    if (!extendedOptions.browsersPlugin) {
-      reloadEachBuild(compiler, {
-        browser: browserName,
-        broker: bridgeBroker,
-        isHeld: isAwaitingMainWorldRestart
-      })
-    }
-
-    if (!extendedOptions.browsersPlugin) {
-      announceReadyOnCleanCompile(compiler, announceReady)
-    }
+    attachUnlaunchedSession(compiler, {
+      launches: Boolean(extendedOptions.browsersPlugin),
+      reloadEachBuild: () =>
+        reloadEachBuild(compiler, {
+          browser: browserName,
+          broker: bridgeBroker,
+          isHeld: isAwaitingMainWorldRestart
+        }),
+      announceReady
+    })
 
     if (emulatorFiles) attachEmulatorFileIndex(compiler, emulatorFiles)
 

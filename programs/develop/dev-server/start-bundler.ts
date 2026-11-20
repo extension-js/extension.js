@@ -415,6 +415,22 @@ export function createReadyAnnouncer(onReady: (() => void) | undefined) {
   }
 }
 
+// A session that launches no browser has no plugin to reload it or to say
+// it is ready, so the compiler does both: the reload hook, then ready.
+export function attachUnlaunchedSession(
+  compiler: Pick<Compiler, 'hooks'>,
+  session: {
+    launches: boolean
+    reloadEachBuild: () => void
+    announceReady: () => void
+  }
+): void {
+  if (session.launches) return
+
+  session.reloadEachBuild()
+  announceReadyOnCleanCompile(compiler, session.announceReady)
+}
+
 export function announceReadyOnCleanCompile(
   compiler: Pick<Compiler, 'hooks'>,
   announce: () => void
