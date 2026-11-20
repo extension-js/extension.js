@@ -246,4 +246,31 @@ describe('the compilation plugin wiring', () => {
 
     expect([...compilation.fileDependencies]).toEqual([])
   })
+
+  // The process keeps the config a build evaluated, so a session started in
+  // it after an edit runs on the old values and has to say so.
+  it('tells a session that an earlier build of the same process read another config', () => {
+    const projectRoot = createProject()
+    const configPath = path.join(projectRoot, 'extension.config.js')
+
+    new WatchProjectConfigPlugin(projectRoot).apply(
+      createFakeCompiler(projectRoot, false) as never
+    )
+
+    fs.writeFileSync(configPath, 'export default {browser: {}}\n')
+
+    const session = createFakeCompiler(projectRoot)
+    new WatchProjectConfigPlugin(projectRoot).apply(session as never)
+
+    const first = createCompilation()
+    session.__cycle(first)
+    const second = createCompilation()
+    session.__cycle(second)
+
+    expect(first.warnings.map((warning) => warning.name)).toEqual([
+      'ProjectConfigChange'
+    ])
+
+    expect(second.warnings).toEqual([])
+  })
 })

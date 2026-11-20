@@ -8,8 +8,7 @@
 
 import {createRequire} from 'node:module'
 import rspack, {type Compiler} from '@rspack/core'
-import {recordCodedWarning} from '../lib/coded-warnings'
-import {CODES, debugLine, isDebug} from '../lib/messaging'
+import {debugLine, isDebug} from '../lib/messaging'
 import {
   EXTENSIONJS_MAIN_WORLD_IMPORT_LAYER,
   EXTENSIONJS_SANDBOX_LAYER,
@@ -42,6 +41,24 @@ export class PolyfillPlugin {
     this.manifestPath = options.manifestPath
   }
 
+  // The build goes on without the polyfill, so the first compile says so
+  // among its own warnings, where every output format already looks.
+  private warnNotInstalled(compiler: Compiler) {
+    let said = false
+
+    compiler.hooks.thisCompilation.tap(PolyfillPlugin.name, (compilation) => {
+      if (said) return
+
+      said = true
+
+      const warning = new rspack.WebpackError(
+        messages.webextensionPolyfillNotFound()
+      )
+      warning.name = 'PolyfillNotFoundWarning'
+      compilation.warnings.push(warning)
+    })
+  }
+
   apply(compiler: Compiler) {
     let polyfillPath: string
 
@@ -61,12 +78,7 @@ export class PolyfillPlugin {
         throw error
       }
 
-      recordCodedWarning(
-        CODES.W_POLYFILL_NOT_FOUND,
-        'webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
-      )
-
-      console.warn(messages.webextensionPolyfillNotFound())
+      this.warnNotInstalled(compiler)
 
       return
     }

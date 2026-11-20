@@ -22,6 +22,7 @@ describe('diagnosticCode', () => {
     ['LocalesFolderWithoutMessages', 'E_LOCALES_LAYOUT'],
     ['LocalesValidationError', 'E_LOCALES_LAYOUT'],
     ['PerfBudgetWarning', 'W_PERF_BUDGET'],
+    ['PolyfillNotFoundWarning', 'W_POLYFILL_NOT_FOUND'],
     ['PerfBudgetError', 'E_PERF_BUDGET'],
     ['EnvNoMatchingFile', 'W_ENV_NO_MATCH'],
     ['JSONMissingFile', 'E_ENTRY_NOT_FOUND'],

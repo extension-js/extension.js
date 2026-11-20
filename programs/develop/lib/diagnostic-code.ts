@@ -34,6 +34,7 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   LocalesFolderWithoutMessages: CODES.E_LOCALES_LAYOUT,
   LocalesValidationError: CODES.E_LOCALES_LAYOUT,
   PerfBudgetWarning: CODES.W_PERF_BUDGET,
+  PolyfillNotFoundWarning: CODES.W_POLYFILL_NOT_FOUND,
   PerfBudgetError: CODES.E_PERF_BUDGET,
   EnvNoMatchingFile: CODES.W_ENV_NO_MATCH,
   JSONMissingFile: CODES.E_ENTRY_NOT_FOUND,
