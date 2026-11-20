@@ -13,6 +13,8 @@ interface Frame {
 
 // One failure reads the same whichever command meets it: a reader written
 // against the error object of one command works on the next.
+// The rule: a usage refusal a command raises carries no name, a thrown
+// failure names its error, and a parser refusal names CliError.
 describe('the error object of one failure across the commands that can raise it', () => {
   let work: string
   let projectDir: string
@@ -42,7 +44,12 @@ describe('the error object of one failure across the commands that can raise it'
     const frames = everyLineAsFrame<Frame>(run.stdout)
     const frame = frames.at(-1)
 
-    expect(frames, run.stderr).toHaveLength(1)
+    // dev frames its startup first and ends on the refusal.
+    expect(
+      frames.filter((each) => !each.ok),
+      run.stderr
+    ).toHaveLength(1)
+
     expect(frame?.ok).toBe(false)
     expect(run.status).toBe(1)
 
@@ -72,6 +79,20 @@ describe('the error object of one failure across the commands that can raise it'
         ['dev', 'build', 'start', 'preview', 'doctor'].map((command) => [
           command,
           join(work, 'no-such-project')
+        ])
+    },
+    {
+      kind: 'a pinned browser binary that does not exist',
+      code: 'E_BROWSER_BINARY_INVALID',
+      keys: ['code', 'message'],
+      runs: () =>
+        ['dev', 'start', 'preview'].map((command) => [
+          command,
+          projectDir,
+          '--browser',
+          'chromium',
+          '--chromium-binary',
+          join(work, 'no-such-browser')
         ])
     },
     {

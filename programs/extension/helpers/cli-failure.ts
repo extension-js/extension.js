@@ -340,14 +340,17 @@ export function internalErrorEnvelope(
   const code = declaredErrorCode(err) ?? CODES.E_INTERNAL
   const hint = failureHint(code)
 
-  // A bad pinned binary is a value the user typed, on every command.
+  const usage = isUsageCode(code)
+
+  // A bad pinned binary is a value the user typed, on every command. A usage
+  // refusal carries no name, and a thrown failure names its error.
   return ENVELOPE.fail(
     command,
-    isUsageCode(code) ? 'usage' : 'failed',
+    usage ? 'usage' : 'failed',
     {
       code,
       message: err instanceof Error ? err.message : String(err),
-      name: err instanceof Error ? err.name : 'Error'
+      ...(usage ? {} : {name: err instanceof Error ? err.name : 'Error'})
     },
     hint ? {hint} : {}
   )
