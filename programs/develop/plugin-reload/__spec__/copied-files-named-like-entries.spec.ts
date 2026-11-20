@@ -63,6 +63,9 @@ async function devCompile(root: string) {
     browser: 'chrome',
     mode: 'development',
     metadataCommand: 'dev',
+    // The bridge steps only run for a session that has a control port.
+    instanceId: 'copied-like-entries',
+    controlPort: 45123,
     silent: true,
     output: {clean: false, path: distPath}
   } as any)
@@ -94,9 +97,6 @@ const read = (distPath: string, file: string) =>
 
 beforeEach((context) => {
   skipWithoutDevelopDist(context)
-  // The bridge steps only run for a session that has a control port.
-  vi.stubEnv('EXTENSION_CONTROL_PORT', '45123')
-  vi.stubEnv('EXTENSION_INSTANCE_ID', 'copied-like-entries')
 })
 
 afterEach(() => {

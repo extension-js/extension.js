@@ -128,20 +128,12 @@ export class InjectBridgeProducer {
   }
 
   apply(compiler: Compiler) {
-    const controlPort =
-      this.coordinates.controlPort !== undefined
-        ? Number(this.coordinates.controlPort ?? Number.NaN)
-        : parseInt(String(process.env.EXTENSION_CONTROL_PORT || ''), 10)
-    const instanceId = String(
-      this.coordinates.instanceId ?? (process.env.EXTENSION_INSTANCE_ID || '')
-    )
+    const controlPort = Number(this.coordinates.controlPort ?? Number.NaN)
+    const instanceId = String(this.coordinates.instanceId ?? '')
     // Connectable host of the control WS (loopback locally; the public host for
     // remote/devcontainer). Resolved once per session by dev-server/index.ts.
     const host =
-      String(
-        this.coordinates.connectableHost ??
-          (process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || '')
-      ).trim() || '127.0.0.1'
+      String(this.coordinates.connectableHost ?? '').trim() || '127.0.0.1'
     const source = buildDevProducerSource({
       controlPort: Number.isFinite(controlPort) ? controlPort : null,
       instanceId,

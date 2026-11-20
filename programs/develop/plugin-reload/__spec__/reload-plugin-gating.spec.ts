@@ -9,6 +9,7 @@ import {
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {chunkLoadingTargetExtensionsFor} from '../../plugin-web-extension/shared/chunk-loading-target-extensions'
 import {ReloadPlugin} from '../index'
+import {sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
 const makeTempFolder = trackTempFolders()
 
@@ -38,6 +39,7 @@ function applied(
   const compiler = idleCompiler(root, mode)
   const taps = tapsAddedBy(compiler, () =>
     new ReloadPlugin({
+      ...sessionBridge(),
       manifestPath,
       browser: 'chrome',
       ...options
@@ -54,7 +56,7 @@ function applied(
 // The producer and the relay inject nothing without a control port, so a
 // port is set for every test and the whole pipeline is visible.
 beforeEach(() => {
-  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+  setSessionBridge({controlPort: 8123})
   vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
 })
 
@@ -134,6 +136,7 @@ describe('ReloadPlugin applies nothing', () => {
       'hot/[id].[fullhash].hot-update.js'
 
     new ReloadPlugin({
+      ...sessionBridge(),
       manifestPath,
       browser: 'chrome',
       devSession: false

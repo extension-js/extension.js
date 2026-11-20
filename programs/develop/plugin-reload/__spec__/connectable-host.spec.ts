@@ -120,8 +120,8 @@ describe('the connectable host a bridge producer compiles in', () => {
     )
   })
 
-  it('is the environment when no option names one', async () => {
-    expect(await compiledHost({controlPort: 9001})).toBe(SECOND_SESSION_ENV)
+  it('is loopback when no option names one, whatever the environment says', async () => {
+    expect(await compiledHost({controlPort: 9001})).toBe('127.0.0.1')
   })
 })
 

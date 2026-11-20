@@ -11,11 +11,12 @@ import {
   DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT,
   REPLAY_SHIM_STAGE_AFTER_REPORT
 } from '../steps/stages'
+import {sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
 const makeTempFolder = trackTempFolders()
 
 beforeEach(() => {
-  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+  setSessionBridge({controlPort: 8123})
   vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
 })
 
@@ -61,6 +62,7 @@ async function compileWith(plugins: Array<{apply(c: Compiler): void}>) {
     output: {path: path.join(root, 'dist'), publicPath: '/'},
     plugins: [
       new ReloadPlugin({
+        ...sessionBridge(),
         manifestPath: path.join(root, 'manifest.json'),
         browser: 'chrome',
         devSession: true
