@@ -240,8 +240,9 @@ export interface LogOptions {
 
 // Each Public*Options type is what the package entry exports under the plain
 // name. The plain name here adds the fields only the CLI and the engine set.
+// Dev always compiles in development and writes no archive, so the build's
+// mode, zip and source map fields are not on this type.
 export interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
-  mode?: 'development' | 'production' | 'none'
   polyfill?: boolean
   port?: string | number | undefined
   /**
@@ -277,11 +278,6 @@ export interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
   geckoBinary?: GeckoOptions['geckoBinary']
   firefoxBinary?: GeckoOptions['geckoBinary']
   safariBinary?: SafariOptions['safariBinary']
-  zip?: boolean
-  zipSource?: boolean
-  zipFilename?: string
-  zipDir?: string
-  sourceMaps?: boolean
   hashContentScripts?: boolean
   /**
    * Open the agent-bridge control channel for the bounded act verbs
@@ -311,6 +307,9 @@ export interface PublicDevOptions extends BrowserOptionsBase, LogOptions {
 export interface DevOptions extends PublicDevOptions {
   /** Auto-install project dependencies when missing. */
   install?: boolean
+  // The engine's own: the plugins share this shape and read the mode the
+  // command compiles in, which for dev is always development.
+  mode?: 'development' | 'production' | 'none'
 }
 
 export interface PublicBuildOptions {

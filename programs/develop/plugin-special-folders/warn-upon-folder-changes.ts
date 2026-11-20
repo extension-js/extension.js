@@ -12,9 +12,9 @@ import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
+import {isEntryFolderFile, walkEntryFolder} from './entry-folders'
 import {
   foldersRoots,
-  isScriptsFolderEntry,
   type SpecialFolderName,
   type SpecialFoldersRoots
 } from './folders-config'
@@ -28,39 +28,13 @@ type PendingChange = {
   filePath: string
 }
 
+// The same walk the scan makes, so a file the watcher calls new is one the
+// scan would enroll, and the other way around.
 function readSpecialFolderFiles(roots: SpecialFoldersRoots): Set<string> {
   const found = new Set<string>()
-  const SKIP_DIRS = new Set([
-    'node_modules',
-    'dist',
-    'build',
-    '.git',
-    '.turbo',
-    '.next',
-    'coverage'
-  ])
-
-  const walk = (dir: string) => {
-    let entries: fs.Dirent[]
-
-    try {
-      entries = fs.readdirSync(dir, {withFileTypes: true})
-    } catch {
-      return
-    }
-
-    for (const entry of entries) {
-      if (entry.name.startsWith('.')) continue
-      if (SKIP_DIRS.has(entry.name)) continue
-
-      const full = path.join(dir, entry.name)
-      if (entry.isFile()) found.add(full)
-      else if (entry.isDirectory()) walk(full)
-    }
-  }
 
   for (const folderPath of Object.values(roots)) {
-    if (fs.existsSync(folderPath)) walk(folderPath)
+    for (const file of walkEntryFolder(folderPath, () => true)) found.add(file)
   }
 
   return found
@@ -220,9 +194,9 @@ export class WarnUponFolderChanges {
     const isUnder = (root: string | undefined, filePath: string) =>
       Boolean(root) && isInsidePath(root as string, filePath)
     const isPage = (filePath: string) =>
-      isUnder(roots.pages, filePath) && filePath.endsWith('.html')
+      isUnder(roots.pages, filePath) && isEntryFolderFile('pages', filePath)
     const isScript = (filePath: string) =>
-      isUnder(roots.scripts, filePath) && isScriptsFolderEntry(filePath)
+      isUnder(roots.scripts, filePath) && isEntryFolderFile('scripts', filePath)
 
     const modifiedFiles = compiler.modifiedFiles || new Set<string>()
     const removedFiles = compiler.removedFiles || new Set<string>()
@@ -278,11 +252,11 @@ export class WarnUponFolderChanges {
 
     const folderOf = (filePath: string): SpecialFolder | undefined => {
       if (roots.pages && isInsidePath(roots.pages, filePath)) {
-        return filePath.endsWith('.html') ? 'pages' : undefined
+        return isEntryFolderFile('pages', filePath) ? 'pages' : undefined
       }
 
       if (roots.scripts && isInsidePath(roots.scripts, filePath)) {
-        return isScriptsFolderEntry(filePath) ? 'scripts' : undefined
+        return isEntryFolderFile('scripts', filePath) ? 'scripts' : undefined
       }
 
       return undefined

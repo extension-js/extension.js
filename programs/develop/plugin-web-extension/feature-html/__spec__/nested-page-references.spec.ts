@@ -11,6 +11,7 @@ import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   build,
   makeProject,
+  notFoundPaths,
   outputHolding
 } from './helpers/private-files-project'
 
@@ -308,4 +309,71 @@ describe('the files a page inside a page references, in a production build', () 
     },
     90000
   )
+})
+
+describe('a file a page inside a page names, in a production build', () => {
+  const page = (body: string) => ({
+    'popup.html':
+      '<!doctype html><html><head></head><body><iframe src="./inner.html"></iframe></body></html>',
+    'inner.html': `<!doctype html><html><head></head><body>${body}</body></html>`
+  })
+
+  const MISSING = [
+    [
+      'script',
+      'gone.js',
+      '<script src="./gone.js"></script>',
+      'W_ENTRY_NOT_FOUND'
+    ],
+    [
+      'stylesheet',
+      'gone.css',
+      '<link rel="stylesheet" href="./gone.css">',
+      'W_ENTRY_NOT_FOUND'
+    ],
+    ['image', 'gone.png', '<img src="./gone.png">', 'W_ASSET_MISSING']
+  ] as const
+
+  it.each(MISSING)(
+    'warns about a missing %s under its code',
+    async (_kind, name, tag, code) => {
+      const {root: project} = makeProject(page(tag))
+      const result = await build(project)
+
+      expect(result.errors).toBe(0)
+      expect(notFoundPaths(result.printed)).toContain(path.join(project, name))
+      expect(result.printed).toContain(`${code}: The page references`)
+    },
+    90000
+  )
+
+  it('fails on a missing file under strict refs', async () => {
+    const {root: project} = makeProject(page('<img src="./gone.png">'))
+    const previous = process.env.EXTENSION_STRICT_REFS
+    process.env.EXTENSION_STRICT_REFS = 'true'
+
+    try {
+      const result = await build(project)
+
+      expect(result.errors).toBe(1)
+      expect(notFoundPaths(result.printed)).toContain(
+        path.join(project, 'gone.png')
+      )
+    } finally {
+      if (previous === undefined) delete process.env.EXTENSION_STRICT_REFS
+      else process.env.EXTENSION_STRICT_REFS = previous
+    }
+  }, 90000)
+
+  it('says a private file it names is not bundled, under the code of a missing one', async () => {
+    const {root: project} = makeProject(page('<img src="./.env">'))
+    const result = await build(project)
+
+    expect(result.errors).toBe(0)
+    expect(result.printed).toContain(
+      'W_ASSET_MISSING: ./.env is not bundled. Check the tag that names it in this page.'
+    )
+
+    expect(result.printed).not.toContain('asset that doesn')
+  }, 90000)
 })

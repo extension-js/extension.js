@@ -11,6 +11,8 @@
 
 Emits and registers assets imported by `content_scripts` so pages can access them at runtime. During the build, it scans content script entries and collects auxiliary assets they import (for example images and styles). It then patches `manifest.json` to include those assets under `web_accessible_resources`, grouped by each content script’s `matches`. This module is part of the [Extension.js](https://extension.js.org) project.
 
+`WebResourcesPlugin` collects the imports. The patch itself is `steps/patch-war.ts`, which the manifest plugin places in its own pipeline, after its update and before its warnings, so every later manifest step reads the patched key.
+
 ### Output mapping
 
 | Input (source)                                   | Output (dist)           | Notes                                                                                                          |

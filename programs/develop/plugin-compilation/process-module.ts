@@ -17,6 +17,11 @@ export function processModuleSource(env: Record<string, string>): string {
 
   return [
     'const noop=()=>{};',
+    // typeof process is "object" here, so a library may take its Node branch
+    // and time itself or warn: those calls answer instead of throwing.
+    'const now=()=>(globalThis.performance||Date).now();',
+    'const hrtime=(p)=>{const d=now()*1e6-(p?p[0]*1e9+p[1]:0);return[Math.floor(d/1e9),Math.floor(d%1e9)]};',
+    'hrtime.bigint=()=>BigInt(Math.floor(now()*1e6));',
     'module.exports={',
     `env:{${entries.join(',')}},`,
     'argv:[],',
@@ -33,6 +38,8 @@ export function processModuleSource(env: Record<string, string>): string {
     'else{Promise.resolve().then(run)}',
     '},',
     'cwd:()=>"/",',
+    'hrtime,',
+    'emitWarning:(w)=>{typeof console=="object"&&console.warn&&console.warn(String(w))},',
     'chdir:noop,',
     'umask:()=>0,',
     'on:noop,',
