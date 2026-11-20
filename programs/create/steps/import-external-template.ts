@@ -13,8 +13,9 @@ import * as path from 'node:path'
 import axios, {type AxiosRequestConfig, type AxiosResponse} from 'axios'
 import {unzipSync} from 'fflate'
 import {cloneInChild} from '../lib/clone-in-child'
+import {formatDuration} from '../lib/format-duration'
 import * as messages from '../lib/messages'
-import {formatDuration, isDebug} from '../lib/messaging'
+import {isDebug} from '../lib/messaging'
 import * as utils from '../lib/utils'
 
 // In-process unzip with a zip-slip guard: entries naming absolute paths or

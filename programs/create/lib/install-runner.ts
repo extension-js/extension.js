@@ -11,7 +11,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {spawn} from 'cross-spawn'
 import {corepackRegistryEnv} from './corepack-registry'
-import {formatDuration} from './messaging'
+import {formatDuration} from './format-duration'
 
 // A package manager exports every npm config it read as an npm_config_* variable,
 // so the invoking checkout's release-age rule would govern the new project's
