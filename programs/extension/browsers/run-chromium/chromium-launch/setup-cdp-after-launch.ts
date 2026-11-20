@@ -26,6 +26,7 @@ import {
   companionPathsForCdpLoad,
   isDevtoolsCompanionPath
 } from '../../browsers-lib/companion-session'
+import {resolvePortForInstance} from '../../browsers-lib/instance-registry'
 import {repeatsManifestV2Refusal} from '../../browsers-lib/manifest-refusal'
 import * as messages from '../../browsers-lib/messages'
 import {manifestDeclaresNewtabOverride} from '../../browsers-lib/newtab-override'
@@ -91,12 +92,16 @@ function readLaunchTargets(
     flag.startsWith('--remote-debugging-port=')
   )
 
+  // The launch may have claimed a port beside the derived one, and recorded
+  // it for this instance, so that record wins over the derivation.
+  const derivedPort = deriveDebugPortWithInstance(
+    plugin.port as number | string,
+    plugin.instanceId
+  )
   const chromeRemoteDebugPort = remoteDebugPortFlag
     ? parseInt(remoteDebugPortFlag.split('=')[1], 10)
-    : deriveDebugPortWithInstance(
-        plugin.port as number | string,
-        plugin.instanceId
-      )
+    : (resolvePortForInstance(plugin.instanceId, 'cdp', derivedPort) ??
+      derivedPort)
 
   const userDataDirFlag = chromiumArgs.find((flag: string) =>
     flag.startsWith('--user-data-dir=')

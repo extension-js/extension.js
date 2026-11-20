@@ -1,11 +1,13 @@
 import {execFileSync, spawn, spawnSync} from 'node:child_process'
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
-  statSync
+  statSync,
+  writeFileSync
 } from 'node:fs'
 import {tmpdir} from 'node:os'
 import {dirname, join, resolve} from 'node:path'
@@ -31,10 +33,6 @@ const repoRoot = resolve(__dirname, '../../../..')
 const cliDir = resolve(repoRoot, 'programs/extension')
 const createDir = resolve(repoRoot, 'programs/create')
 const developDir = resolve(repoRoot, 'programs/develop')
-const previewFixture = resolve(
-  repoRoot,
-  '_FUTURE/extension-develop-dist/extension-js-devtools/chrome'
-)
 
 const nodeDir = dirname(process.execPath)
 const pathDelim = process.platform === 'win32' ? ';' : ':'
@@ -518,8 +516,15 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   const isNpmFamilyExec = runner.name === 'npx' || runner.name === 'npmExec'
   const shouldAssertNoNodeModules = !isNpmFamilyExec
 
-  it('creates default template without install', () => {
-    if (!runnerReady.get(runner.name)) return
+  // A runner whose probe failed reports its cases as skipped, never as passed.
+  const skipUnlessReady = (skip: (note?: string) => void) => {
+    if (!runnerReady.get(runner.name)) {
+      skip(`${runner.name} could not run the packed CLI`)
+    }
+  }
+
+  it('creates default template without install', ({skip}) => {
+    skipUnlessReady(skip)
 
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
     const projectPath = join(workspace, 'app-default')
@@ -556,100 +561,112 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
     }
   })
 
-  it('creates explicit template without install', () => {
-    if (!runnerReady.get(runner.name)) return
-    if (isNpmFamilyExec) return
+  it.skipIf(isNpmFamilyExec)(
+    'creates explicit template without install',
+    ({skip}) => {
+      skipUnlessReady(skip)
 
-    const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
-    const projectPath = join(workspace, 'app-template')
+      const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-create-'))
+      const projectPath = join(workspace, 'app-template')
 
-    try {
-      const result = runCommand(
-        runner.command,
-        runner.buildArgs(packages, [
-          'create',
-          projectPath,
-          '--template',
-          'javascript',
-          '--install',
-          'false'
-        ]),
-        {cwd: workspace, env: defaultEnv}
-      )
-      expect(result.status).toBe(0)
-      expect(existsSync(join(projectPath, 'package.json'))).toBe(true)
-    } finally {
-      removeWorkspaceWithRetry(workspace)
+      try {
+        const result = runCommand(
+          runner.command,
+          runner.buildArgs(packages, [
+            'create',
+            projectPath,
+            '--template',
+            'javascript',
+            '--install',
+            'false'
+          ]),
+          {cwd: workspace, env: defaultEnv}
+        )
+        expect(result.status).toBe(0)
+        expect(existsSync(join(projectPath, 'package.json'))).toBe(true)
+      } finally {
+        removeWorkspaceWithRetry(workspace)
+      }
     }
-  })
+  )
 
-  it('previews a prebuilt extension without install', () => {
-    if (!runnerReady.get(runner.name)) return
-
-    if (!existsSync(join(previewFixture, 'manifest.json'))) {
-      return
-    }
+  // The unpacked extension is written here, so the case runs on every machine.
+  it('previews a prebuilt extension without install', ({skip}) => {
+    skipUnlessReady(skip)
 
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-preview-'))
+    const extensionPath = join(workspace, 'prebuilt')
+    mkdirSync(extensionPath, {recursive: true})
+    writeFileSync(
+      join(extensionPath, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 3,
+        name: 'Prebuilt Preview',
+        version: '1.0.0'
+      })
+    )
 
     try {
       const result = runCommand(
         runner.command,
-        runner.buildArgs(packages, ['preview', previewFixture, '--no-browser']),
+        runner.buildArgs(packages, ['preview', extensionPath, '--no-browser']),
         {cwd: workspace, env: defaultEnv}
       )
-      expect(result.status).toBe(0)
+      expect(result.status, result.stderr).toBe(0)
+      expect(result.stdout).toContain('Prebuilt Preview')
     } finally {
       removeWorkspaceWithRetry(workspace)
     }
   })
 
-  it('builds without install when project has no deps', () => {
-    if (!runnerReady.get(runner.name)) return
-    if (isNpmFamilyExec) return
+  it.skipIf(isNpmFamilyExec)(
+    'builds without install when project has no deps',
+    ({skip}) => {
+      skipUnlessReady(skip)
 
-    const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
-    const projectPath = join(workspace, 'app-build')
+      const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
+      const projectPath = join(workspace, 'app-build')
 
-    try {
-      const createResult = runCommand(
-        runner.command,
-        runner.buildArgs(packages, [
-          'create',
-          projectPath,
-          '--template',
-          'javascript',
-          '--install',
-          'false'
-        ]),
-        {cwd: workspace, env: defaultEnv}
-      )
-      expect(createResult.status).toBe(0)
+      try {
+        const createResult = runCommand(
+          runner.command,
+          runner.buildArgs(packages, [
+            'create',
+            projectPath,
+            '--template',
+            'javascript',
+            '--install',
+            'false'
+          ]),
+          {cwd: workspace, env: defaultEnv}
+        )
+        expect(createResult.status).toBe(0)
 
-      const buildResult = runCommand(
-        runner.command,
-        runner.buildArgs(packages, [
-          'build',
-          projectPath,
-          '--silent',
-          'true',
-          '--install',
-          'false'
-        ]),
-        {cwd: projectPath, env: defaultEnv}
-      )
-      expect(buildResult.status).toBe(0)
+        const buildResult = runCommand(
+          runner.command,
+          runner.buildArgs(packages, [
+            'build',
+            projectPath,
+            '--silent',
+            'true',
+            '--install',
+            'false'
+          ]),
+          {cwd: projectPath, env: defaultEnv}
+        )
+        expect(buildResult.status).toBe(0)
 
-      if (shouldAssertNoNodeModules) {
-        expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
+        if (shouldAssertNoNodeModules) {
+          expect(existsSync(join(projectPath, 'node_modules'))).toBe(false)
+        }
+      } finally {
+        removeWorkspaceWithRetry(workspace)
       }
-    } finally {
-      removeWorkspaceWithRetry(workspace)
     }
-  })
+  )
 
-  it('runs dev without install when project has no deps', async () => {
-    if (!runnerReady.get(runner.name)) return
+  it('runs dev without install when project has no deps', async ({skip}) => {
+    skipUnlessReady(skip)
 
     const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-noinstall-'))
     const projectPath = join(workspace, 'app-dev')
@@ -672,17 +689,22 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
       const devResult = await runUntilTimeout(
         runner.command,
-        runner.buildArgs(packages, ['dev', projectPath, '--no-browser']),
+        runner.buildArgs(packages, [
+          'dev',
+          projectPath,
+          '--no-browser',
+          '--install',
+          'false'
+        ]),
         {cwd: projectPath, env: defaultEnv},
         6000
       )
       devTimedOut = devResult.timedOut
 
-      if (devResult.timedOut) {
-        expect(devResult.timedOut).toBe(true)
-      } else {
-        expect([0, 1]).toContain(devResult.status)
-      }
+      // Still serving at the deadline is the pass. Either way it printed no error.
+      if (!devResult.timedOut) expect([0, 1]).toContain(devResult.status)
+
+      expect(devResult.stderr).not.toContain('Error:')
     } finally {
       cleanupWorkspaceAfterTimedDev(workspace, devTimedOut)
     }
@@ -695,8 +717,8 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
 
   it(
     'installs local tarballs and can build',
-    () => {
-      if (!runnerReady.get(runner.name)) return
+    ({skip}) => {
+      skipUnlessReady(skip)
 
       const workspace = mkdtempSync(join(tmpdir(), 'extjs-cli-install-'))
       const projectPath = join(workspace, 'app-build')
@@ -794,17 +816,16 @@ describe('cli direct flow (no npx)', () => {
 
       const devResult = await runUntilTimeout(
         process.execPath,
-        [cliBin, 'dev', projectPath, '--no-browser'],
+        [cliBin, 'dev', projectPath, '--no-browser', '--install', 'false'],
         {cwd: projectPath, env: defaultEnv},
         6000
       )
       devTimedOut = devResult.timedOut
 
-      if (devResult.timedOut) {
-        expect(devResult.timedOut).toBe(true)
-      } else {
-        expect([0, 1]).toContain(devResult.status)
-      }
+      // Still serving at the deadline is the pass. Either way it printed no error.
+      if (!devResult.timedOut) expect([0, 1]).toContain(devResult.status)
+
+      expect(devResult.stderr).not.toContain('Error:')
     } finally {
       cleanupWorkspaceAfterTimedDev(workspace, devTimedOut)
     }

@@ -721,46 +721,33 @@ export class ChromiumLaunchPlugin {
 
     const isAuthorMode = isDebug()
 
+    // One look through the locator: a second call with the same env cannot
+    // find what the first did not.
     const resolveChromeLikeBinary = (): string | null => {
       try {
-        try {
-          const env = managedEnvFor('chrome')
-          const located = scanSystem(() => this.deps.locate.chrome(env))
-          if (!located) throw new Error(getInstallGuidanceText('chrome'))
+        const env = managedEnvFor('chrome')
+        const located = normalizePath(
+          scanSystem(() => this.deps.locate.chrome(env)) || null
+        )
 
-          const normalized = normalizePath(located || null)
+        if (located) {
+          if (!isUsableBinary(located)) return null
 
-          if (isUsableBinary(normalized)) {
-            if (isRefusedOfficialChrome(normalized)) {
-              printInstallGuidance(getInstallGuidanceText('chrome'), browser)
+          if (isRefusedOfficialChrome(located)) {
+            printInstallGuidance(getInstallGuidanceText('chrome'), browser)
 
-              return null
-            }
-
-            return normalized
+            return null
           }
 
-          return null
-        } catch (err) {
-          const env = managedEnvFor('chrome')
-          let candidate: string | null = scanSystem(() =>
-            this.deps.locate.chrome(env)
-          )
-          const normalized = normalizePath(candidate || null)
-
-          if (normalized) {
-            if (isRefusedOfficialChrome(normalized)) {
-              printInstallGuidance(getInstallGuidanceText('chrome'), browser)
-              candidate = null
-            }
-          }
-
-          const resolved = normalizePath(candidate || null)
-          const fallback = resolved || resolveWslFallback()
-          if (!fallback) throw err
-
-          return fallback
+          return located
         }
+
+        const fallback = resolveWslFallback()
+        if (fallback) return fallback
+
+        printInstallGuidance(getInstallGuidanceText('chrome'), browser)
+
+        return null
       } catch (error) {
         printInstallGuidance(String(error), browser)
 
@@ -1498,8 +1485,8 @@ export class ChromiumLaunchPlugin {
       // below, it has no reload to deliver.
       if (enableCdp) {
         const mod = await this.deps.loadCdpSetup()
-        // Watchdog: a rejected extension at launch stalls startup behind a macOS modal
-        // and the pipe handshake hangs forever; convert that silent wedge into a loud failure.
+        // Bounds the whole setup for a browser that answers each command just
+        // inside its own 12 s limit. A silent browser hits that limit first.
         const CDP_SETUP_TIMEOUT_MS = 45_000
         await Promise.race([
           mod.setupCdpAfterLaunch(
@@ -1536,7 +1523,7 @@ export class ChromiumLaunchPlugin {
         }
       } else if (verifyLoadOnly) {
         const mod = await this.deps.loadCdpSetup()
-        // Same watchdog as above: a refusal modal can stall the handshake.
+        // Same total bound as above, for the load check alone.
         const LOAD_CHECK_TIMEOUT_MS = 45_000
         guestLoadStatus = await Promise.race([
           mod.verifyGuestLoadAfterLaunch(
@@ -1599,12 +1586,13 @@ export class ChromiumLaunchPlugin {
       const hint = /timed out|did not complete/i.test(message)
         ? " Chrome likely rejected the extension at launch, open chrome://extensions in the dev browser window for the exact error. Common causes: MV3 content_security_policy with 'unsafe-inline', manifest keys Chrome does not support, or manifest references to missing files. Reload/HMR cannot attach until this is fixed."
         : ''
-      humanError(`[browser] ${message}${hint}`)
 
       // A wire that died during the handshake is usually a browser on its way
       // out. Let that exit land first, so the session reports the browser gone
-      // rather than ready and then gone.
+      // rather than ready and then gone, and the dead wire is not news.
       await this.waitForBrowserGone(child, 1500)
+
+      if (!this.browserGone) humanError(`[browser] ${message}${hint}`)
 
       if (this.browserGone) {
         if (compilation.options.mode === 'development') {

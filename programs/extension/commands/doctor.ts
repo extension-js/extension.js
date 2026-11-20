@@ -20,6 +20,7 @@ import {
   isPidAlive,
   pidStartedAtMs
 } from '../browsers/browsers-lib/resolve-live-pid'
+import {refuseUnknownSessionBrowser} from '../helpers/choice-flags'
 import {declaredErrorCode} from '../helpers/cli-failure'
 import {emulatorSessionRefusal} from '../helpers/emulator-session'
 import {exitAfterDrain, exitFailedAfterDrain} from '../helpers/exit-after-drain'
@@ -51,7 +52,7 @@ import {
   resolveSessionProjectPath,
   sessionReadyPath
 } from '../helpers/session-project-path'
-import {SESSION_BROWSER_TARGETS_HELP} from '../helpers/vendors'
+import {BROWSER_TARGETS_HELP} from '../helpers/vendors'
 
 type CheckStatus = 'pass' | 'fail' | 'warn' | 'skip'
 
@@ -1080,7 +1081,7 @@ export function registerDoctorCommand(
       'path to the extension project root or the folder holding its manifest'
     )
     .option(
-      `--browser <${SESSION_BROWSER_TARGETS_HELP}>`,
+      `--browser <${BROWSER_TARGETS_HELP}>`,
       'which session to diagnose (defaults to the single live session, else chromium)'
     )
     .option(
@@ -1088,6 +1089,7 @@ export function registerDoctorCommand(
       'result format. Use json for a schema-1 envelope on stdout'
     )
     .hook('preAction', refuseUnreadableOutput())
+    .hook('preAction', refuseUnknownSessionBrowser())
     .description(commandDescriptions.doctor)
     .action(async (projectPathArg: string | undefined, opts: DoctorOptions) => {
       const asJson = isJsonOutput(opts)

@@ -3,10 +3,11 @@ import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadBroker} from '../../plugin-reload'
+import type {SafariPackagerFn} from '../../types'
 import {
   SAFARI_FIRST_PACKAGE_TIMEOUT_MS,
-  SafariDevPlugin,
-  type SafariPackagerFn
+  SAFARI_RESYNC_TIMEOUT_MS,
+  SafariDevPlugin
 } from '../safari-dev-plugin'
 import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
@@ -134,37 +135,49 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     ])
   })
 
-  it('a quiet second save resyncs in the background', async () => {
+  // xcodebuild reads the dist while it packages, so the next build waits
+  // for it instead of writing into the folder under it.
+  it('holds the hook of a second save until its resync finished', async () => {
     const h = harness()
     await settleFirst(h)
+
+    let hookSettled = false
     const p = h.trigger('/out2')
-    await p
+    void p.then(() => (hookSettled = true))
+    await flush()
+
     expect(h.modes()).toEqual(['full:/init', 'resync:/out2'])
+    expect(hookSettled).toBe(false)
+
     h.callFor('/out2').resolve()
-    await h.plugin.idle()
+    await p
     expect(h.compiled[1].isFirstCompile).toBe(false)
   })
 
+  // Only builds that end while a resync runs queue, and they run as one.
   it('a burst v2,v3,v4 collapses to a single v4 follow-up', async () => {
     const h = harness()
     await settleFirst(h)
-    await h.trigger('/v2')
-    const idle = h.plugin.idle()
-    await h.trigger('/v3')
-    await h.trigger('/v4')
+    const p2 = h.trigger('/v2')
+    await flush()
+    void h.trigger('/v3')
+    void h.trigger('/v4')
     h.callFor('/v2').resolve()
+    await p2
     await flush()
     h.callFor('/v4').resolve()
-    await idle
+    await flush()
     expect(h.modes()).toEqual(['full:/init', 'resync:/v2', 'resync:/v4'])
   })
 
   it('does not run a follow-up without a new compile', async () => {
     const h = harness()
     await settleFirst(h)
-    await h.trigger('/v2')
+    const p = h.trigger('/v2')
+    await flush()
     h.callFor('/v2').resolve()
-    await h.plugin.idle()
+    await p
+    await flush()
     expect(h.modes()).toEqual(['full:/init', 'resync:/v2'])
   })
 
@@ -209,25 +222,26 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     await p2
     expect(listener).toHaveBeenCalledTimes(1)
 
-    void h.trigger('/v2')
+    const p3 = h.trigger('/v2')
     await flush()
     h.callFor('/v2').resolve()
-    await h.plugin.idle()
+    await p3
     expect(listener).toHaveBeenCalledTimes(1)
   })
 
   it('a mid-burst failure emits an error AND still runs the pending follow-up', async () => {
     const h = harness()
     await settleFirst(h)
-    await h.trigger('/v2')
-    const idle = h.plugin.idle()
-    await h.trigger('/v3')
+    const p2 = h.trigger('/v2')
+    await flush()
+    void h.trigger('/v3')
     h.callFor('/v2').reject(new Error('midfail'))
+    await p2
     await flush()
     expect(h.errors).toContainEqual({errors: ['midfail']})
     expect(h.modes()).toEqual(['full:/init', 'resync:/v2', 'resync:/v3'])
     h.callFor('/v3').resolve()
-    await idle
+    await flush()
   })
 
   it('does not enter packaging state on bundler compile errors', async () => {
@@ -241,28 +255,11 @@ describe('SafariDevPlugin watch-loop coalescing', () => {
     h.callFor('/y').resolve()
     await p
   })
-
-  it('idle() resolves immediately when nothing is in flight', async () => {
-    const h = harness()
-    let resolved = false
-    void h.plugin.idle().then(() => (resolved = true))
-    await flush()
-    expect(resolved).toBe(true)
-  })
-
-  it('idle() waits for the burst lifecycle to finish', async () => {
-    const h = harness()
-    await settleFirst(h)
-    await h.trigger('/v2')
-    let resolved = false
-    void h.plugin.idle().then(() => (resolved = true))
-    await flush()
-    expect(resolved).toBe(false)
-    h.callFor('/v2').resolve()
-    await flush()
-    expect(resolved).toBe(true)
-  })
 })
+
+// The plugin takes the one packager type the engine exports, not its own.
+const _samePackager: SafariPackagerFn =
+  null as unknown as ConstructorParameters<typeof SafariDevPlugin>[0]
 
 // A manifest edit is the one change that always classifies as a full reload,
 // so these cover the seam itself rather than the classifier.
@@ -361,18 +358,40 @@ describe('SafariDevPlugin reload seam', () => {
     await settleFirst(h)
     expect(noted).toEqual([])
 
-    await h.trigger('/second')
+    const second = h.trigger('/second')
+    await flush()
     h.callFor('/second').resolve()
-    await h.plugin.idle()
+    await second
 
-    await h.trigger('/third', CONTENT_EDIT)
+    const third = h.trigger('/third', CONTENT_EDIT)
+    await flush()
     h.callFor('/third').resolve()
-    await h.plugin.idle()
+    await third
 
     expect(noted).toEqual([
       ['safari-resync', undefined],
       ['safari-resync', 'content_script (src/content/scripts.js)']
     ])
+  })
+
+  // The same event the launched browsers emit, so a consumer reads what the
+  // save reloaded whatever the browser.
+  it('carries what it reloaded on the compiled event', async () => {
+    vi.spyOn(console, 'log').mockImplementation(() => {})
+    const {broker} = makeBroker()
+    const h = harness(broker)
+    await settleFirst(h)
+
+    const p = h.trigger('/out2', CONTENT_EDIT)
+    await flush()
+    h.callFor('/out2').resolve()
+    await p
+
+    expect(h.compiled[0]).not.toHaveProperty('reloadInstruction')
+    expect(h.compiled[1]).toMatchObject({
+      isFirstCompile: false,
+      reloadInstruction: {type: 'content-scripts'}
+    })
   })
 
   it('packages normally with no broker attached', async () => {
@@ -545,7 +564,7 @@ describe('SafariDevPlugin reload trimming after a package', () => {
     await p2
     await flush()
     h.callFor('/v4').resolve()
-    await h.plugin.idle()
+    await flush()
 
     expect(sent).toEqual([
       {
@@ -572,7 +591,7 @@ describe('SafariDevPlugin reload trimming after a package', () => {
     await p2
     await flush()
     h.callFor('/v4').resolve()
-    await h.plugin.idle()
+    await flush()
 
     expect(sent).toEqual([
       {
@@ -710,13 +729,13 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     pkg.calls[0].resolve()
     await first
 
-    await trigger(contract.output)
+    const second = trigger(contract.output)
     await flush()
     pkg.calls[1].reject(
       new Error("EACCES: permission denied, open 'Info.plist'")
     )
 
-    await plugin.idle()
+    await second
 
     expect(errors).toHaveLength(1)
     expect(errors[0]).toContain('still runs the previous build')
@@ -735,13 +754,13 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     pkg.calls[0].resolve()
     await first
 
-    await trigger('/out2')
+    const second = trigger('/out2')
     await flush()
     pkg.calls[1].reject(
       Object.assign(new Error('xcodebuild failed (exit 65)'), {printed: true})
     )
 
-    await plugin.idle()
+    await second
 
     expect(errors).toEqual([])
   })
@@ -779,6 +798,54 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     expect(pkg.modes()).toEqual([`full:${contract.output}`])
   })
 
+  // A resync is awaited inside the done hook too, so its wait is bounded, and
+  // a save that ends meanwhile is packaged once the stale run is over.
+  it('reports a resync that never comes back and returns the hook', async () => {
+    vi.useFakeTimers()
+    const errors = printedErrors()
+    const contract = safariContract()
+    const failed: unknown[] = []
+    const pkg = makeDeferredPackager()
+    const plugin = new SafariDevPlugin(pkg.fn)
+    plugin.emitter.on('error', (event) => failed.push(event))
+    const {compiler, trigger} = makeCompiler()
+    plugin.apply(compiler)
+
+    const first = trigger(contract.output)
+    await vi.advanceTimersByTimeAsync(0)
+    pkg.calls[0].resolve()
+    await first
+
+    let hookReturned = false
+    void trigger('/out2').then(() => {
+      hookReturned = true
+    })
+
+    await vi.advanceTimersByTimeAsync(SAFARI_RESYNC_TIMEOUT_MS)
+    vi.useRealTimers()
+
+    expect(hookReturned).toBe(true)
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toContain('still runs the previous build')
+    expect(errors[0]).toContain('did not finish within 5 minutes')
+    expect(failed).toHaveLength(1)
+    expect(contract.read().status).toBe('ready')
+
+    await trigger('/saved-meanwhile')
+    expect(pkg.modes()).toEqual([`full:${contract.output}`, 'resync:/out2'])
+
+    pkg.calls[1].resolve()
+    await flush()
+    expect(pkg.modes()).toEqual([
+      `full:${contract.output}`,
+      'resync:/out2',
+      'resync:/saved-meanwhile'
+    ])
+
+    pkg.calls[2].resolve()
+    await flush()
+  })
+
   it('says ready when the first package finishes late, then packages the save that waited', async () => {
     vi.useFakeTimers()
     printedErrors()
@@ -807,7 +874,7 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     ])
 
     pkg.calls[1].resolve()
-    await plugin.idle()
+    await flush()
   })
 
   // Only a classifier told both folders can see that the build copied the
@@ -844,10 +911,10 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     await first
 
     pkg.calls.length = 0
-    await trigger(output, {changedFiles: ['pages/options.html']})
+    const second = trigger(output, {changedFiles: ['pages/options.html']})
     await flush()
     pkg.callFor(output).resolve()
-    await plugin.idle()
+    await second
 
     expect(frames).toEqual([
       {

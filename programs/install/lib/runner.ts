@@ -277,6 +277,9 @@ export interface CommandResult {
   stderr: string
   // Set when the runner ended the child itself, at the timeout.
   timedOut?: boolean
+  // Set when the runner ended the child because sudo's password prompt
+  // went unanswered for the whole of promptWaitMs.
+  promptTimedOut?: boolean
   // The signal this process received and passed on to the child.
   interrupted?: NodeJS.Signals
 }
@@ -291,6 +294,64 @@ const LONGEST_TIMER_MS = 2_147_483_647
 const KILL_GRACE_MS = 2_000
 // How long the runner waits for the pipes to close after the kill.
 const KILL_SETTLE_MS = 1_000
+
+// sudo's own default for how long it waits for a password.
+export const PRIVILEGE_PROMPT_WAIT_MS = 5 * 60_000
+// Playwright prints this line just before it runs sudo or su, which then ask
+// on the terminal, where no pipe of ours sees the prompt.
+const ROOT_SWITCH_LINE = /^Switching to root user\b.*\r?\n/m
+// Enough of what came before a chunk to find the line split across two.
+const ROOT_SWITCH_OVERLAP = 64
+
+// Every process as ps lists it, a pid beside its parent's pid.
+export function parseProcessTable(text: string): Array<[number, number]> {
+  const rows: Array<[number, number]> = []
+
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const match = /^\s*(\d+)\s+(\d+)\s*$/.exec(line)
+    if (match) rows.push([Number(match[1]), Number(match[2])])
+  }
+
+  return rows
+}
+
+// Every process under root, nearest first. A pid seen twice is skipped, so a
+// table read while processes come and go can never loop.
+export function descendantsOf(
+  root: number,
+  table: Array<[number, number]>
+): number[] {
+  const seen = new Set([root])
+  const found: number[] = []
+  const queue = [root]
+
+  while (queue.length > 0) {
+    const parent = queue.shift() as number
+
+    for (const [pid, ppid] of table) {
+      if (ppid !== parent || seen.has(pid)) continue
+
+      seen.add(pid)
+      found.push(pid)
+      queue.push(pid)
+    }
+  }
+
+  return found
+}
+
+function readProcessTable(): string {
+  try {
+    const result = spawnSync('ps', ['-A', '-o', 'pid=', '-o', 'ppid='], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf8'
+    })
+
+    return result.status === 0 ? String(result.stdout || '') : ''
+  } catch {
+    return ''
+  }
+}
 
 // A whole number of milliseconds only: "30s" or "-1" means the default, never
 // a timeout thirty times shorter than the one that was meant.
@@ -322,6 +383,9 @@ export interface RunCommandOptions {
   // False keeps the child on this terminal, for an installer that has sudo
   // ask for a password there. It is then signaled alone, without a group.
   ownGroup?: boolean
+  // How long the installer may stay silent after it announces the switch to
+  // root, while sudo waits for a password. Left out, there is no such limit.
+  promptWaitMs?: number
   graceMs?: number
   platform?: NodeJS.Platform
   signals?: SignalSource
@@ -362,31 +426,46 @@ export async function runCommand(
   let stdout = ''
   let stderr = ''
 
-  if (child.stdout) {
-    child.stdout.on('data', (chunk: Buffer) => {
-      stdout += stdoutDecoder.write(chunk)
-      progress.write(chunk)
-    })
-  }
-
-  if (child.stderr) {
-    child.stderr.on('data', (chunk: Buffer) => {
-      stderr += stderrDecoder.write(chunk)
-      process.stderr.write(chunk)
-    })
-  }
-
   return new Promise((resolve, reject) => {
     let timedOut = false
+    let promptTimedOut = false
     let interrupted: ForwardedSignal | undefined
     let killTimer: NodeJS.Timeout | undefined
     let settleTimer: NodeJS.Timeout | undefined
+    let promptTimer: NodeJS.Timeout | undefined
+    let promptState: 'unannounced' | 'waiting' | 'answered' = opts.promptWaitMs
+      ? 'unannounced'
+      : 'answered'
     let settled = false
+    // Everything found under a child kept on the terminal, kept so the
+    // SIGKILL still reaches what the first signal orphaned.
+    const below = new Set<number>()
+
+    // A child kept on the terminal leads no group, so what it started, sudo
+    // waiting on a password among it, is found through ps one by one.
+    const signalTree = (pid: number, signal: NodeJS.Signals) => {
+      const table = parseProcessTable(readProcessTable())
+      const listed = new Set(table.map(([listedPid]) => listedPid))
+
+      for (const found of descendantsOf(pid, table)) below.add(found)
+
+      for (const found of below) {
+        if (!listed.has(found)) continue
+
+        try {
+          process.kill(found, signal)
+        } catch {
+          // Gone already, or run as root and out of reach.
+        }
+      }
+    }
 
     // The group is signaled by its negative id, so the children a package
     // runner starts for lifecycle scripts end with it.
     const signalChild = (signal: NodeJS.Signals) => {
       if (child.pid === undefined) return
+
+      if (!ownGroup && platform !== 'win32') signalTree(child.pid, signal)
 
       try {
         if (ownGroup) process.kill(-child.pid, signal)
@@ -425,6 +504,59 @@ export async function runCommand(
       }, graceMs)
     }
 
+    // The wait starts at the root-switch line and ends at the next output,
+    // which only comes once sudo has its password and the script runs.
+    const watchPrompt = (from: 'stdout' | 'stderr', before: number) => {
+      if (promptState === 'waiting') {
+        promptState = 'answered'
+        clearTimeout(promptTimer)
+
+        return
+      }
+
+      if (promptState !== 'unannounced' || from !== 'stdout') return
+
+      const recent = stdout.slice(Math.max(0, before - ROOT_SWITCH_OVERLAP))
+      const line = ROOT_SWITCH_LINE.exec(recent)
+
+      if (!line) return
+
+      if (recent.slice(line.index + line[0].length).trim()) {
+        promptState = 'answered'
+
+        return
+      }
+
+      promptState = 'waiting'
+      promptTimer = setTimeout(
+        () => {
+          promptTimedOut = true
+          endChild('SIGTERM')
+        },
+        Math.min(opts.promptWaitMs as number, LONGEST_TIMER_MS)
+      )
+    }
+
+    if (child.stdout) {
+      child.stdout.on('data', (chunk: Buffer) => {
+        const before = stdout.length
+
+        stdout += stdoutDecoder.write(chunk)
+        progress.write(chunk)
+        watchPrompt('stdout', before)
+      })
+    }
+
+    if (child.stderr) {
+      child.stderr.on('data', (chunk: Buffer) => {
+        const before = stderr.length
+
+        stderr += stderrDecoder.write(chunk)
+        process.stderr.write(chunk)
+        watchPrompt('stderr', before)
+      })
+    }
+
     const onInterrupt = () => forward('SIGINT')
     const onTerminate = () => forward('SIGTERM')
 
@@ -443,6 +575,7 @@ export async function runCommand(
       clearTimeout(timer)
       clearTimeout(killTimer)
       clearTimeout(settleTimer)
+      clearTimeout(promptTimer)
       signals.off('SIGINT', onInterrupt)
       signals.off('SIGTERM', onTerminate)
     }
@@ -460,6 +593,7 @@ export async function runCommand(
         stdout: stdout + stdoutDecoder.end(),
         stderr: stderr + stderrDecoder.end(),
         ...(timedOut ? {timedOut} : {}),
+        ...(promptTimedOut ? {promptTimedOut} : {}),
         ...(interrupted ? {interrupted} : {})
       })
     }

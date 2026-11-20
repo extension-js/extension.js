@@ -318,6 +318,22 @@ export function notBundledRefs(printed: string): string[] {
   return [...kept].sort()
 }
 
+// The refs a page warning names as there and not bundled, in the order of
+// the alphabet.
+export function pageNotBundledRefs(printed: string): string[] {
+  const kept = new Set<string>()
+
+  for (const text of printedTexts(printed)) {
+    for (const match of text.matchAll(
+      /(\S+) is not bundled\. Check the \S+ that names it in this page\./g
+    )) {
+      kept.add(match[1])
+    }
+  }
+
+  return [...kept].sort()
+}
+
 export interface Built {
   // Every file in the output folder but the page and the manifest.
   shipped: string[]

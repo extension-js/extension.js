@@ -14,6 +14,7 @@ import {parseAuthoredJson} from '../../../lib/parse-json-safe'
 import {sourceFileMayShip} from '../../../plugin-special-folders/public-private-files'
 import {findPublicFile} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, Manifest, PluginInterface} from '../../../types'
+import {withheldEntryKind} from '../../feature-scripts/scripts-lib/utils'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {markPageReportedMissing} from '../../shared/reported-missing-pages'
 import * as messages from '../html-lib/messages'
@@ -50,14 +51,14 @@ export class EmitHtmlFile {
                 ? path.join(projectDir, resource.slice(1))
                 : path.join(projectDir, resource)
 
-            // A file the build never copies is no page. It is reported the
-            // way a missing page is, and its contents are not read.
+            // A file the build never copies is no page. It gets the severity
+            // of a missing page in words of its own, and is never read.
+            const roots = [
+              compiler.options.context as string,
+              projectDir
+            ].filter(Boolean)
             const withheld =
-              fs.existsSync(resolved) &&
-              !sourceFileMayShip(
-                resolved,
-                [compiler.options.context as string, projectDir].filter(Boolean)
-              )
+              fs.existsSync(resolved) && !sourceFileMayShip(resolved, roots)
 
             if (withheld || !fs.existsSync(resolved)) {
               // A ref that public/ owns is served verbatim at the output root;
@@ -86,13 +87,26 @@ export class EmitHtmlFile {
                     this.browser
                   )
 
+              const withheldMessage = withheld
+                ? messages.pageFileWithheld(
+                    {manifestField, pageName: featureName},
+                    path
+                      .relative(projectDir, resolved)
+                      .split(path.sep)
+                      .join('/'),
+                    withheldEntryKind(resolved, roots),
+                    resolved
+                  )
+                : undefined
+
               if (!manifestField) {
                 // A page of the pages folder or one only a script opens: the
                 // browser loads the extension without it, so a dead one warns.
                 reportToCompilation(
                   compilation,
                   compiler,
-                  messages.pageFileMissing(featureName, resolved),
+                  withheldMessage ||
+                    messages.pageFileMissing(featureName, resolved),
                   process.env.EXTENSION_STRICT_REFS === 'true'
                     ? 'error'
                     : 'warning',
@@ -110,7 +124,8 @@ export class EmitHtmlFile {
                 reportToCompilation(
                   compilation,
                   compiler,
-                  messages.manifestPageMissing(manifestField, resolved),
+                  withheldMessage ||
+                    messages.manifestPageMissing(manifestField, resolved),
                   isLoadChecked ? 'error' : 'warning',
                   'manifest.json',
                   'ManifestPageMissing'

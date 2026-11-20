@@ -94,3 +94,16 @@ export function clearLaunchTimedOut(outputPath: string) {
     return true
   })
 }
+
+// The same fields the launcher writes for a capture that threw. The browser
+// runs with the extension, so the status stays as it is.
+export function stampLogCaptureTimedOut(outputPath: string, reason: string) {
+  updateContract(outputPath, (ready) => {
+    const detail = stripChannelPrefix(reason).replace(/\s+/g, ' ').trim()
+
+    ready.cdpFaultCode = CODES.W_CDP_TIMEOUT
+    ready.cdpFaultMessage = `browser log capture failed: ${detail}`
+
+    return true
+  })
+}

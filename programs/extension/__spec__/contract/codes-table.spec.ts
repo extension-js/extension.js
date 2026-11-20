@@ -440,7 +440,6 @@ const WARNS_UNDER_THE_E_NAME: Record<string, [string, string, string]> = {
     'compilation.warnings.push('
   ],
   W_CDP_NOT_CONNECTED: CDP_FAULT_STAMP,
-  W_CDP_TIMEOUT: CDP_FAULT_STAMP,
   W_BROWSER_CONNECTION_CLOSED: CDP_FAULT_STAMP,
   W_EXTENSION_ID_UNKNOWN: CDP_FAULT_STAMP
 }

@@ -26,6 +26,7 @@ import {
   type ManagedExtensionRecord,
   managedExtensionRecords
 } from '../lib/extension-id'
+import {isSessionPidLive, type SessionPidProbes} from '../lib/live-dev-session'
 import * as messages from '../lib/messages'
 import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
@@ -304,27 +305,100 @@ function rotateEventsFile(eventsPath: string) {
   }
 }
 
-// A diagnostic-heavy failure writes one enormous line, so the error TEXT is
-// trimmed rather than the JSON, which every consumer still has to parse.
+// What names the row. Never trimmed, and short by construction.
+const EVENT_IDENTITY_FIELDS = new Set([
+  'type',
+  'ts',
+  'command',
+  'browser',
+  'runId'
+])
+
+function fitsEventCap(event: unknown): boolean {
+  return Buffer.byteLength(JSON.stringify(event)) <= MAX_EVENT_BYTES
+}
+
+// A diagnostic-heavy failure writes one enormous line, so the TEXT is trimmed
+// (every error and every other string field) rather than the JSON, which
+// every consumer still has to parse.
 function capEventSize(
   event: PlaywrightAutomationEvent
 ): PlaywrightAutomationEvent {
-  if (Buffer.byteLength(JSON.stringify(event)) <= MAX_EVENT_BYTES) return event
+  if (fitsEventCap(event)) return event
 
-  const errors = Array.isArray(event.errors) ? event.errors : []
-  const perError = Math.floor(MAX_EVENT_BYTES / 2 / Math.max(1, errors.length))
-  const trimmed: PlaywrightAutomationEvent = {
-    ...event,
-    errors: errors.map((message) => String(message).slice(0, perError)),
-    truncated: true
+  const source = event as Record<string, unknown>
+  const textFields = Object.keys(source).filter(
+    (key) => !EVENT_IDENTITY_FIELDS.has(key) && typeof source[key] === 'string'
+  )
+  const errors = Array.isArray(event.errors) ? event.errors : undefined
+  const perText = Math.floor(
+    MAX_EVENT_BYTES / 2 / Math.max(1, textFields.length + (errors?.length ?? 0))
+  )
+  const trimmed: Record<string, unknown> = {...source, truncated: true}
+
+  for (const key of textFields) {
+    trimmed[key] = String(source[key]).slice(0, perText)
   }
 
-  if (Buffer.byteLength(JSON.stringify(trimmed)) <= MAX_EVENT_BYTES) {
-    return trimmed
+  if (errors) {
+    trimmed.errors = errors.map((message) => String(message).slice(0, perText))
   }
 
-  return {...event, errors: [], truncated: true}
+  if (fitsEventCap(trimmed)) return trimmed as PlaywrightAutomationEvent
+
+  // Too many errors, or text that grows when escaped: the counts survive.
+  for (const key of textFields) trimmed[key] = ''
+  if (errors) trimmed.errors = []
+
+  return trimmed as PlaywrightAutomationEvent
 }
+
+// The verdicts a compile writes. A later compile that succeeds clears these
+// and no other error: the rest describe a browser a rebuild does not bring back.
+export const COMPILE_VERDICTS: ReadonlySet<string> = new Set([
+  'compile_error',
+  'compile_failed'
+])
+
+// What the engine writer computes on every write. Any other field on a
+// same-run record was stamped beside it and carries across a recompile.
+const WRITER_FIELDS: ReadonlySet<string> = new Set<
+  keyof ReadyMetadata | 'awaitingExecutorSince'
+>([
+  'schemaVersion',
+  'schema',
+  'status',
+  'command',
+  'browser',
+  'runId',
+  'startedAt',
+  'distPath',
+  'manifestPath',
+  'port',
+  'host',
+  'pid',
+  'pidStartedAt',
+  'ts',
+  'compiledAt',
+  'errors',
+  'code',
+  'message',
+  'instanceId',
+  'instanceExplicit',
+  'controlPort',
+  'controlPortUnavailableReason',
+  'controlPath',
+  'logsPath',
+  'toolchainVersion',
+  'extensionName',
+  'extensionVersion',
+  'engine',
+  'managedExtensions',
+  'devAdditions',
+  'extensionId',
+  'extensionIdSource',
+  'awaitingExecutorSince'
+])
 
 function createRunId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
@@ -416,28 +490,23 @@ function stampReadyExtensionIdFrom(
   extensionId: string,
   source: Exclude<ExtensionIdSource, 'browser'>
 ): void {
-  try {
-    const readyPath = readyContractPath(packageJsonDir, browser)
-    if (!fs.existsSync(readyPath)) return
+  const readyPath = readyContractPath(packageJsonDir, browser)
+  const prev = readJsonRecord(readyPath)
+  if (!prev) return
 
-    const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    const prevIsAnswer =
-      prev.extensionIdSource === 'browser' ||
-      prev.extensionIdSource === 'packager'
+  const prevIsAnswer =
+    prev.extensionIdSource === 'browser' ||
+    prev.extensionIdSource === 'packager'
 
-    if (prev.extensionId && prevIsAnswer) return
+  if (prev.extensionId && prevIsAnswer) return
 
-    if (prev.extensionId === extensionId && prev.extensionIdSource === source) {
-      return
-    }
-
-    prev.extensionId = extensionId
-    prev.extensionIdSource = source
-    prev.ts = nowISO()
-    writeJsonAtomic(readyPath, prev)
-  } catch {
-    // Ignore
+  if (prev.extensionId === extensionId && prev.extensionIdSource === source) {
+    return
   }
+
+  prev.extensionId = extensionId
+  prev.extensionIdSource = source
+  writeContractFile(readyPath, prev)
 }
 
 // One-shot builds stamp ready.json at compile done, before the staging dist
@@ -520,23 +589,63 @@ function ensureDirSync(dirPath: string) {
   }
 }
 
-function writeJsonAtomic(filePath: string, value: unknown): boolean {
+// The object a contract file holds, or undefined when it is missing or is
+// not one: a half-written file is read as no record.
+function readJsonRecord(filePath: string): Record<string, unknown> | undefined {
+  try {
+    if (!fs.existsSync(filePath)) return undefined
+
+    const value = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+
+    return value && typeof value === 'object'
+      ? (value as Record<string, unknown>)
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+// Answers the error a failed write threw, or undefined once it is in place.
+function writeJsonAtomic(filePath: string, value: unknown): Error | undefined {
   const tmpPath = `${filePath}.tmp-${process.pid}`
 
   try {
     fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf-8')
     renameSyncWithRetry(tmpPath, filePath)
 
-    return true
-  } catch {
+    return undefined
+  } catch (error) {
     try {
       fs.rmSync(tmpPath, {force: true})
     } catch {
-      // Ignore
+      // The write failed already, and that is the error worth reporting.
     }
 
-    return false
+    return error instanceof Error ? error : new Error(String(error))
   }
+}
+
+// Contract files whose last write failed and was reported. A file is named
+// once per failure streak, so a broken dist does not warn on every compile.
+const unwritableContractFiles = new Set<string>()
+
+function noteContractWrite(filePath: string, error: Error | undefined) {
+  if (!error) {
+    unwritableContractFiles.delete(filePath)
+
+    return
+  }
+
+  if (unwritableContractFiles.has(filePath)) return
+
+  unwritableContractFiles.add(filePath)
+
+  const reason = (error as NodeJS.ErrnoException).code || error.message
+  humanWarn(messages.sessionContractUnwritable(filePath, String(reason)))
+}
+
+function writeContractFile(filePath: string, value: unknown) {
+  noteContractWrite(filePath, writeJsonAtomic(filePath, value))
 }
 
 export function safariExtensionBase(origin: unknown): string | null {
@@ -556,40 +665,30 @@ export interface LiveDevSessionOwner {
   distPath?: string
 }
 
+// The live dev session a contract names. A reused pid is no owner: the pid
+// must be alive and have started when the contract says its writer did.
 export function detectLiveDevSessionOwner(
   readyPath: string,
-  isAlive: (pid: number) => boolean = (pid) => {
-    try {
-      process.kill(pid, 0)
-
-      return true
-    } catch {
-      return false
-    }
-  }
+  isAlive?: SessionPidProbes['isAlive'],
+  startedAtOf?: SessionPidProbes['startedAtOf']
 ): LiveDevSessionOwner | null {
-  try {
-    if (!fs.existsSync(readyPath)) return null
+  const prev = readJsonRecord(readyPath)
 
-    const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-    if (prev?.command !== 'dev') return null
-    if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
-    if (prev.status !== 'ready' && prev.status !== 'starting') return null
-    if (!isAlive(prev.pid)) return null
+  if (prev?.command !== 'dev') return null
+  if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
+  if (prev.status !== 'ready' && prev.status !== 'starting') return null
+  if (!isSessionPidLive(prev, {isAlive, startedAtOf})) return null
 
-    return {
-      pid: prev.pid as number,
-      port: typeof prev.port === 'number' ? prev.port : null,
-      runId: typeof prev.runId === 'string' ? prev.runId : '',
-      instanceId:
-        typeof prev.instanceId === 'string' ? prev.instanceId : undefined,
-      instanceExplicit: prev.instanceExplicit === true,
-      ...(typeof prev.distPath === 'string' && prev.distPath
-        ? {distPath: prev.distPath}
-        : {})
-    }
-  } catch {
-    return null
+  return {
+    pid: prev.pid,
+    port: typeof prev.port === 'number' ? prev.port : null,
+    runId: typeof prev.runId === 'string' ? prev.runId : '',
+    instanceId:
+      typeof prev.instanceId === 'string' ? prev.instanceId : undefined,
+    instanceExplicit: prev.instanceExplicit === true,
+    ...(typeof prev.distPath === 'string' && prev.distPath
+      ? {distPath: prev.distPath}
+      : {})
   }
 }
 
@@ -639,12 +738,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       path.resolve(options.distPath)
 
   if (foreignLiveDevSession && sharesSessionOutput) {
-    console.warn(
-      `[extension] a live dev session (pid ${foreignLiveDevSession.pid}) owns ` +
-        `${readyPath}; this ${options.command} run will not rewrite the ` +
-        `session's ready.json/events.ndjson. The output dir is shared, so ` +
-        `the dev browser may pick up freshly ${options.command}-built files. ` +
-        `Stop the dev session first for a clean ${options.command} receipt.`
+    humanWarn(
+      messages.liveDevSessionOwnsContract(
+        options.command,
+        foreignLiveDevSession.pid,
+        readyPath
+      )
     )
   }
 
@@ -693,18 +792,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     openedEpoch !== null &&
     writerEpochByMetadataDir.get(metadataDir) !== openedEpoch
 
-  function readContract(): Record<string, unknown> | undefined {
-    try {
-      if (!fs.existsSync(readyPath)) return undefined
-
-      return JSON.parse(fs.readFileSync(readyPath, 'utf-8')) as Record<
-        string,
-        unknown
-      >
-    } catch {
-      return undefined
-    }
-  }
+  const readContract = () => readJsonRecord(readyPath)
+  const writeContract = (value: unknown) => writeContractFile(readyPath, value)
 
   const base = {
     schemaVersion: 2 as const,
@@ -789,11 +878,20 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (typeof prev.awaitingExecutorSince !== 'string') return
 
     delete prev.awaitingExecutorSince
-    releaseHeld(prev, owedPorts())
+    if (releaseHeld(prev, owedPorts())) prev.ts = nowISO()
 
-    prev.ts = nowISO()
+    writeContract(prev)
+  }
 
-    writeJsonAtomic(readyPath, prev)
+  // A session that ended waits for no hello, and its timer must not rewrite
+  // the record the end just stamped.
+  function stopExecutorWait() {
+    executorWaitOver = true
+
+    if (executorWaitTimer) {
+      clearTimeout(executorWaitTimer)
+      executorWaitTimer = undefined
+    }
   }
 
   function writeReady(
@@ -863,10 +961,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       payload.extensionIdSource = 'derived'
     }
 
-    // Preserve fields the launcher wrote post-launch (cdpPort, browser exit
-    // evidence): a recompile must not clobber them.
+    // Facts stamped beside the status (the launcher's browser, ports, exit
+    // evidence, the runtime attach) outlive a recompile, every one of them,
+    // so a fact the launcher learns to stamp later needs no change here.
     //
-    // Only within the SAME run. Every field below describes the browser this
+    // Only within the SAME run. Every such fact describes the browser this
     // run launched, and carrying them into the next run publishes a contract
     // that names a browser which no longer exists: a fresh runId with the
     // previous run's `browserPid`, its port, and its exit evidence. A consumer
@@ -882,84 +981,12 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (devAdditions) payload.devAdditions = devAdditions
 
     if (prev && sameRun) {
-      if (typeof prev.cdpPort === 'number') payload.cdpPort = prev.cdpPort
-      if (typeof prev.rdpPort === 'number') payload.rdpPort = prev.rdpPort
+      const target = payload as Record<string, unknown>
 
-      if (typeof prev.rdpPortError === 'string') {
-        payload.rdpPortError = prev.rdpPortError
-      }
+      for (const [field, value] of Object.entries(prev)) {
+        if (WRITER_FIELDS.has(field) || field in target) continue
 
-      if (typeof prev.cdpFaultCode === 'string') {
-        payload.cdpFaultCode = prev.cdpFaultCode
-
-        if (typeof prev.cdpFaultMessage === 'string') {
-          payload.cdpFaultMessage = prev.cdpFaultMessage
-        }
-      }
-
-      if (typeof prev.webdriverPort === 'number') {
-        payload.webdriverPort = prev.webdriverPort
-      }
-
-      if (typeof prev.reloadedAt === 'string') {
-        payload.reloadedAt = prev.reloadedAt
-
-        if (typeof prev.reloadKind === 'string') {
-          payload.reloadKind = prev.reloadKind
-        }
-
-        if (typeof prev.reloadLabel === 'string') {
-          payload.reloadLabel = prev.reloadLabel
-        }
-      }
-
-      if (typeof prev.webdriverSessionId === 'string') {
-        payload.webdriverSessionId = prev.webdriverSessionId
-      }
-
-      if (typeof prev.webdriverUnavailableReason === 'string') {
-        payload.webdriverUnavailableReason = prev.webdriverUnavailableReason
-      }
-
-      if (typeof prev.webdriverRequestPath === 'string') {
-        payload.webdriverRequestPath = prev.webdriverRequestPath
-      }
-
-      if (prev.safari && typeof prev.safari === 'object') {
-        payload.safari = prev.safari as ReadyMetadata['safari']
-      }
-
-      if (typeof prev.profilePath === 'string') {
-        payload.profilePath = prev.profilePath
-      }
-
-      if (typeof prev.browserPid === 'number') {
-        payload.browserPid = prev.browserPid
-
-        if (typeof prev.browserStartedAt === 'string') {
-          payload.browserStartedAt = prev.browserStartedAt
-        }
-      }
-
-      if (typeof prev.launcherPid === 'number') {
-        payload.launcherPid = prev.launcherPid
-
-        if (typeof prev.launcherStartedAt === 'string') {
-          payload.launcherStartedAt = prev.launcherStartedAt
-        }
-      }
-
-      // Which binary actually launched, and how it was chosen. Stamped once at
-      // launch and never recomputed, so without this a single recompile erased
-      // it and `doctor` went back to being unable to say which browser is
-      // running, the exact question it exists to answer.
-      if (typeof prev.binary === 'string' && prev.binary) {
-        ;(payload as Record<string, unknown>).binary = prev.binary
-      }
-
-      if (typeof prev.binaryProvenance === 'string' && prev.binaryProvenance) {
-        ;(payload as Record<string, unknown>).binaryProvenance =
-          prev.binaryProvenance
+        target[field] = value
       }
 
       // A browser-confirmed id outranks the derivation, so it survives a
@@ -974,125 +1001,56 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
         payload.extensionIdSource = prev.extensionIdSource
       }
 
-      if (typeof prev.browserExitedAt === 'string') {
-        ;(payload as Record<string, unknown>).browserExitedAt =
-          prev.browserExitedAt
-        ;(payload as Record<string, unknown>).browserExitCode =
-          prev.browserExitCode ?? null
-        ;(payload as Record<string, unknown>).browserExitSignal =
-          prev.browserExitSignal ?? null
-
-        // A browser that left before anything loaded is not brought back by a
-        // recompile, so the error it was stamped with outlives the compile.
-        if (
-          status === 'ready' &&
-          prev.status === 'error' &&
-          prev.code === 'browser_exited'
-        ) {
-          payload.status = 'error' as ReadyStatus
-          payload.code = 'browser_exited'
-          payload.message = String(prev.message || 'the browser exited')
-        }
-      }
-
-      // A launch that never produced a browser is not retried by a recompile
-      // either, so the failure it was stamped with outlives the compile too.
-      if (typeof prev.browserLaunchFailedAt === 'string') {
-        const target = payload as Record<string, unknown>
-        target.browserLaunchFailedAt = prev.browserLaunchFailedAt
-
-        if (typeof prev.browserLaunchFailedReason === 'string') {
-          target.browserLaunchFailedReason = prev.browserLaunchFailedReason
-        }
-
-        if (typeof prev.browserLaunchFailedCode === 'string') {
-          target.browserLaunchFailedCode = prev.browserLaunchFailedCode
-        }
-
-        if (
-          status === 'ready' &&
-          prev.status === 'error' &&
-          prev.code === 'browser_launch_failed'
-        ) {
-          payload.status = 'error' as ReadyStatus
-          payload.code = 'browser_launch_failed'
-          payload.message = String(
-            prev.message || 'the browser process could not start'
-          )
-        }
-      }
-
-      // The SW attaches once per session but the compile can re-run many
-      // times; a recompile must not erase the runtime-attached signal.
-      if (typeof prev.extensionBaseUrl === 'string') {
-        ;(payload as Record<string, unknown>).extensionBaseUrl =
-          prev.extensionBaseUrl
-      }
-
-      if (typeof prev.executorAttachedAt === 'string') {
-        ;(payload as Record<string, unknown>).executorAttachedAt =
-          prev.executorAttachedAt
-        // A recompile must not resurrect a producer that has since gone away,
-        // so the last known runtime state carries over rather than 'attached'.
-        ;(payload as Record<string, unknown>).runtime =
-          prev.runtime === 'detached' ? 'detached' : 'attached'
-
-        if (typeof prev.executorDetachedAt === 'string') {
-          ;(payload as Record<string, unknown>).executorDetachedAt =
-            prev.executorDetachedAt
-        }
-      }
-
-      // The wait for the runtime outlives a recompile the same way: the browser
-      // is still up and still has nothing connected until the attach says so.
+      // The launcher's "browser is up, nothing attached" note describes one
+      // wait: a new start re-asks, and an attach has already answered it.
       if (
-        status !== 'starting' &&
-        typeof prev.executorAttachedAt !== 'string' &&
-        typeof prev.browserUpNotAttachedAt === 'string'
+        status === 'starting' ||
+        typeof prev.executorAttachedAt === 'string'
       ) {
-        const target = payload as Record<string, unknown>
-        target.browserUpNotAttachedAt = prev.browserUpNotAttachedAt
-
-        if (typeof prev.browserUpNotAttachedWaitMs === 'number') {
-          target.browserUpNotAttachedWaitMs = prev.browserUpNotAttachedWaitMs
-        }
-
-        if (typeof prev.browserUpNotAttachedHint === 'string') {
-          target.browserUpNotAttachedHint = prev.browserUpNotAttachedHint
-        }
+        delete target.browserUpNotAttachedAt
+        delete target.browserUpNotAttachedWaitMs
+        delete target.browserUpNotAttachedHint
       }
 
       // A browser-side load refusal outlives the compile that follows it: the
       // rebuild succeeding says nothing about the guest the browser threw out.
       // 'starting' is a new run, which re-asks the browser, so it resets.
+      if (status === 'starting') {
+        delete target.extensionLoadRefusedAt
+        delete target.extensionLoadRefusedReason
+        delete target.extensionLoadRefusedCause
+      } else if (
+        typeof prev.extensionLoadRefusedAt === 'string' &&
+        payload.extensionIdSource === 'derived'
+      ) {
+        // The refused extension holds no id, so the forecast stays out.
+        delete payload.extensionId
+        delete payload.extensionIdSource
+      }
+
+      // A compile clears only a compile's verdict. Any other error on this
+      // run (the browser exited, never launched, found its profile locked,
+      // refused the extension) is not undone by a rebuild, so it stands.
       if (
-        status !== 'starting' &&
+        status === 'ready' &&
+        prev.status === 'error' &&
+        typeof prev.code === 'string' &&
+        prev.code &&
+        !COMPILE_VERDICTS.has(prev.code)
+      ) {
+        payload.status = 'error'
+        payload.code = prev.code
+
+        if (typeof prev.message === 'string') payload.message = prev.message
+      } else if (
+        status === 'ready' &&
         typeof prev.extensionLoadRefusedAt === 'string'
       ) {
-        const target = payload as Record<string, unknown>
-        target.extensionLoadRefusedAt = prev.extensionLoadRefusedAt
-
-        if (typeof prev.extensionLoadRefusedReason === 'string') {
-          target.extensionLoadRefusedReason = prev.extensionLoadRefusedReason
-        }
-
-        if (typeof prev.extensionLoadRefusedCause === 'string') {
-          target.extensionLoadRefusedCause = prev.extensionLoadRefusedCause
-        }
-
-        // The refused extension holds no id, so the forecast stays out.
-        if (payload.extensionIdSource === 'derived') {
-          delete payload.extensionId
-          delete payload.extensionIdSource
-        }
-
-        if (status === 'ready') {
-          payload.status = 'error' as ReadyStatus
-          payload.code = 'extension_load_refused'
-          payload.message = String(
-            prev.message || 'the browser refused to load the extension'
-          )
-        }
+        payload.status = 'error'
+        payload.code = 'extension_load_refused'
+        payload.message = String(
+          prev.message || 'the browser refused to load the extension'
+        )
       }
     }
 
@@ -1128,7 +1086,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       payload.status = 'starting'
     }
 
-    writeJsonAtomic(readyPath, payload)
+    writeContract(payload)
   }
 
   function appendEvent(event: PlaywrightAutomationEvent) {
@@ -1151,7 +1109,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       fs.appendFileSync(eventsPath, line, 'utf-8')
       eventsBytes += Buffer.byteLength(line)
       eventsLines += 1
-    } catch {
+      noteContractWrite(eventsPath, undefined)
+    } catch (error) {
+      noteContractWrite(eventsPath, error as Error)
+
       return
     }
 
@@ -1188,8 +1149,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           fs.writeFileSync(eventsPath, '', 'utf-8')
           eventsBytes = 0
           eventsLines = 0
-        } catch {
-          // Ignore
+          noteContractWrite(eventsPath, undefined)
+        } catch (error) {
+          noteContractWrite(eventsPath, error as Error)
         }
       }
 
@@ -1223,6 +1185,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       const prev = readContract()
       if (!prev || !ownsDocument(prev)) return
 
+      stopExecutorWait()
+
       if (prev.status !== 'error') {
         prev.status = 'error'
         prev.code = 'shutdown'
@@ -1233,7 +1197,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       prev.endedAsFailedCode = errorCode
       prev.ts = nowISO()
 
-      writeJsonAtomic(readyPath, prev)
+      writeContract(prev)
     },
     // Stamp a terminal status at watch close so a controller can never read green
     // over a dead pid; read-modify-write keeps the session's provenance intact.
@@ -1244,12 +1208,14 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (!prev || !ownsDocument(prev)) return
       if (typeof prev.endedAsFailedAt === 'string') return
 
+      stopExecutorWait()
+
       prev.status = 'stopped'
       prev.code = 'shutdown'
       prev.message = message
       prev.ts = nowISO()
 
-      writeJsonAtomic(readyPath, prev)
+      writeContract(prev)
     },
     // A reload dev applied after a compile. A tool waiting for the rebuild to
     // be live compares reloadedAt with compiledAt instead of guessing from a
@@ -1264,9 +1230,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       if (label) prev.reloadLabel = label
       else delete prev.reloadLabel
 
-      prev.ts = nowISO()
-
-      writeJsonAtomic(readyPath, prev)
+      writeContract(prev)
     },
     // The mirror of stampExecutorAttached: without it `runtime` was a latch that
     // said "attached" long after the last producer went away, so a reader could
@@ -1278,9 +1242,8 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       prev.runtime = 'detached'
       prev.executorDetachedAt = nowISO()
-      prev.ts = nowISO()
 
-      writeJsonAtomic(readyPath, prev)
+      writeContract(prev)
     },
     // The launcher came back, with a browser or without one, so a compile
     // held for what it stamps goes ready with whatever the launch left.
@@ -1294,62 +1257,61 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       prev.ts = nowISO()
 
-      writeJsonAtomic(readyPath, prev)
+      writeContract(prev)
     },
     // Stamp the runtime-attached signal on every connect. The first one also
     // releases a held ready and clears a load refusal the attach disproves.
     stampExecutorAttached(attached?: {origin?: string}) {
-      try {
-        if (!fs.existsSync(readyPath)) return
+      const prev = readContract()
+      if (!prev || !ownsDocument(prev)) return
 
-        const prev = JSON.parse(fs.readFileSync(readyPath, 'utf-8'))
-        prev.runtime = 'attached'
-        delete prev.executorDetachedAt
+      prev.runtime = 'attached'
+      delete prev.executorDetachedAt
 
-        const base = safariExtensionBase(attached?.origin)
-        if (base) prev.extensionBaseUrl = base
+      const extensionBase = safariExtensionBase(attached?.origin)
+      if (extensionBase) prev.extensionBaseUrl = extensionBase
 
-        if (typeof prev.executorAttachedAt === 'string') {
-          prev.ts = nowISO()
-          writeJsonAtomic(readyPath, prev)
+      if (typeof prev.executorAttachedAt === 'string') {
+        writeContract(prev)
 
-          return
-        }
-
-        prev.executorAttachedAt = nowISO()
-
-        // The hello is what a held compile was waiting for.
-        if (typeof prev.awaitingExecutorSince === 'string') {
-          delete prev.awaitingExecutorSince
-          releaseHeld(prev, owedPorts())
-        }
-
-        // The launcher's "browser is up, nothing attached" note describes the
-        // wait that just ended, so the attach takes it off the contract.
-        delete prev.browserUpNotAttachedAt
-        delete prev.browserUpNotAttachedWaitMs
-        delete prev.browserUpNotAttachedHint
-
-        // The executor runs INSIDE the guest, so an attach is proof the browser
-        // is running it. Any earlier refusal is stale however it got fixed -
-        // a retry, or a human pressing Reload on the extensions page.
-        if (typeof prev.extensionLoadRefusedAt === 'string') {
-          delete prev.extensionLoadRefusedAt
-          delete prev.extensionLoadRefusedReason
-          delete prev.extensionLoadRefusedCause
-
-          if (prev.code === 'extension_load_refused') {
-            prev.status = 'ready'
-            delete prev.code
-            delete prev.message
-          }
-        }
-
-        prev.ts = nowISO()
-        writeJsonAtomic(readyPath, prev)
-      } catch {
-        // Ignore
+        return
       }
+
+      prev.executorAttachedAt = nowISO()
+
+      // The hello is what a held compile was waiting for.
+      let statusChanged = false
+
+      if (typeof prev.awaitingExecutorSince === 'string') {
+        delete prev.awaitingExecutorSince
+        statusChanged = releaseHeld(prev, owedPorts())
+      }
+
+      // The launcher's "browser is up, nothing attached" note describes the
+      // wait that just ended, so the attach takes it off the contract.
+      delete prev.browserUpNotAttachedAt
+      delete prev.browserUpNotAttachedWaitMs
+      delete prev.browserUpNotAttachedHint
+
+      // The executor runs INSIDE the guest, so an attach is proof the browser
+      // is running it. Any earlier refusal is stale however it got fixed:
+      // a retry, or a human pressing Reload on the extensions page.
+      if (typeof prev.extensionLoadRefusedAt === 'string') {
+        delete prev.extensionLoadRefusedAt
+        delete prev.extensionLoadRefusedReason
+        delete prev.extensionLoadRefusedCause
+
+        if (prev.code === 'extension_load_refused') {
+          prev.status = 'ready'
+          delete prev.code
+          delete prev.message
+          statusChanged = true
+        }
+      }
+
+      if (statusChanged) prev.ts = nowISO()
+
+      writeContract(prev)
     },
     appendEvent
   }

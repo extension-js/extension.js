@@ -92,6 +92,7 @@ import {
   installTimeoutMs,
   isEdgePrivilegeEscalationFailure,
   locateSystemEdge,
+  PRIVILEGE_PROMPT_WAIT_MS,
   prepareInstall,
   runCommand,
   type SystemEdgeLookup
@@ -363,7 +364,12 @@ async function installUnderLock(
       cwd: plan.cwd,
       env: plan.env,
       timeoutMs,
-      ...(needsTerminal ? {ownGroup: false} : {})
+      ...(needsTerminal
+        ? {
+            ownGroup: false,
+            promptWaitMs: Math.min(PRIVILEGE_PROMPT_WAIT_MS, timeoutMs)
+          }
+        : {})
     })
   } catch (error) {
     dropMarkerOnlyFolder(destination)
@@ -409,7 +415,8 @@ async function installUnderLock(
 
     if (
       target === 'edge' &&
-      isEdgePrivilegeEscalationFailure(`${result.stdout}\n${result.stderr}`)
+      (result.promptTimedOut ||
+        isEdgePrivilegeEscalationFailure(`${result.stdout}\n${result.stderr}`))
     ) {
       const installedEdge = locateSystemEdge(edgeLookup)
 
@@ -430,9 +437,14 @@ async function installUnderLock(
 
       throw withRemovalFailure(
         (message) => new BrowserInstallPrivilegeError(message),
-        platform === 'darwin'
-          ? messages.edgeInstallNeedsAdministratorPassword()
-          : messages.edgeInstallNeedsInteractivePrivilegedSession(),
+        result.promptTimedOut
+          ? messages.edgePasswordPromptTimedOut(
+              platform,
+              Math.min(PRIVILEGE_PROMPT_WAIT_MS, timeoutMs)
+            )
+          : platform === 'darwin'
+            ? messages.edgeInstallNeedsAdministratorPassword()
+            : messages.edgeInstallNeedsInteractivePrivilegedSession(),
         destination,
         discard
       )

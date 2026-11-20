@@ -202,7 +202,7 @@ export function swcRules(compiler: Compiler) {
 
 export interface SwcLoaderOptions {
   isModule: boolean | 'unknown'
-  sourceMap: boolean
+  sourceMaps: boolean
   minify?: boolean
   env: {targets: string[]}
   module: {type: string}

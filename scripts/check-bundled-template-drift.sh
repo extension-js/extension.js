@@ -10,7 +10,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 BUNDLED_DIR="$ROOT_DIR/programs/create/templates/javascript"
-REPO_URL="https://github.com/extension-js/templates"
+REPO_URL="${TEMPLATES_REPO_URL:-https://github.com/extension-js/templates}"
 PIN_FILE="$ROOT_DIR/programs/create/steps/import-external-template.ts"
 
 # Compare against the commit the scaffolder downloads, not the branch tip. The

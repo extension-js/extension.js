@@ -1,5 +1,6 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import type {ReloadBroker} from '../../plugin-reload'
+import type {BrowserType} from '../../types'
 import {
   type BrowserController,
   type BrowserLaunchOptions,
@@ -54,7 +55,7 @@ interface Build {
 // frame it is asked to send and says one producer took it.
 function session(
   options: {
-    browser?: string
+    browser?: BrowserType
     launcher?: Launcher
     broker?: boolean
     context?: string
@@ -138,10 +139,10 @@ describe('when a compile of a launched session may reload', () => {
     await dev.compile({bundle: FIRST})
     await dev.compile({bundle: SECOND, files: ['src/manifest.json']})
 
+    // The failed launch reports on 'error', so only the relaunch is compiled.
     expect(dev.launch).toHaveBeenCalledTimes(2)
     expect(dev.frames).toEqual([])
     expect(dev.compiled.map((event) => event.reloadInstruction)).toEqual([
-      undefined,
       undefined
     ])
 

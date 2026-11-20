@@ -6,7 +6,7 @@
 //  ╚═════╝╚══════╝╚═╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import type {Command} from 'commander'
+import type {Command, Option} from 'commander'
 
 export function scanArgvValue(
   argv: string[],
@@ -69,6 +69,95 @@ export function resolveCommandFromArgv(
   const index = resolveCommandIndex(argv, valuedFlags)
 
   return index < 0 ? undefined : argv[index]
+}
+
+export function findSubcommand(
+  program: Command,
+  name: string | undefined
+): Command | undefined {
+  if (!name) return undefined
+
+  return program.commands.find(
+    (command) => command.name() === name || command.aliases().includes(name)
+  )
+}
+
+function findLongOption(command: Command, arg: string): Option | undefined {
+  const name = arg.split('=')[0]
+
+  return command.options.find((option) => option.long === name)
+}
+
+// A flag the command declares, typed in front of it, is read as that command's
+// flag. Commander would refuse it at the root and send the reader to help.
+export function moveCommandFlagsBehindCommand(
+  argv: string[],
+  program: Command,
+  valuedFlags: ReadonlySet<string> = new Set()
+): string[] {
+  const commandIndex = resolveCommandIndex(argv, valuedFlags)
+  const command = findSubcommand(program, argv[commandIndex])
+  if (commandIndex < 0 || !command) return argv
+
+  const moved: string[] = []
+  const kept: string[] = argv.slice(0, 2)
+
+  for (let i = 2; i < commandIndex; i += 1) {
+    const arg = argv[i]
+    const option = arg.startsWith('--')
+      ? findLongOption(command, arg)
+      : undefined
+
+    if (!option || findLongOption(program, arg)) {
+      kept.push(arg)
+
+      continue
+    }
+
+    moved.push(arg)
+
+    if (option.required && !arg.includes('=') && i + 1 < commandIndex) {
+      moved.push(argv[i + 1])
+      i += 1
+    }
+  }
+
+  if (moved.length === 0) return argv
+
+  return [
+    ...kept,
+    argv[commandIndex],
+    ...moved,
+    ...argv.slice(commandIndex + 1)
+  ]
+}
+
+// A flag that needs a value, followed by another flag of the same command, has
+// no value: commander would take the next flag as it and the run would go wrong.
+export function findFlagMissingItsValue(
+  argv: string[],
+  program: Command,
+  valuedFlags: ReadonlySet<string> = new Set()
+): Option | undefined {
+  const commandIndex = resolveCommandIndex(argv, valuedFlags)
+  const command = findSubcommand(program, argv[commandIndex])
+  if (commandIndex < 0 || !command) return undefined
+
+  for (let i = commandIndex + 1; i < argv.length - 1; i += 1) {
+    const arg = argv[i]
+    if (arg === '--') return undefined
+    if (!arg.startsWith('--') || arg.includes('=')) continue
+
+    const option = findLongOption(command, arg)
+    if (!option?.required) continue
+
+    const next = argv[i + 1]
+    if (next === '--help' || findLongOption(command, next)) return option
+
+    i += 1
+  }
+
+  return undefined
 }
 
 // Only subcommands declare --output, so in front of the command commander

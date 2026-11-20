@@ -15,7 +15,11 @@ import {
 import {safariBuildPreflight} from '../browsers/run-safari/safari-launch'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
 import {refuseUnlistedChoices} from '../helpers/choice-flags'
-import {declaredErrorCode} from '../helpers/cli-failure'
+import {
+  declaredErrorCode,
+  failureHint,
+  isUsageCode
+} from '../helpers/cli-failure'
 import {getCliPackageJson} from '../helpers/cli-package-json'
 import {resolveConfigBrowser} from '../helpers/config-browser'
 import {exitWithFailure} from '../helpers/exit-after-drain'
@@ -479,7 +483,7 @@ export function registerBuildCommand(
                 JSON.stringify(
                   ENVELOPE.fail(
                     'build',
-                    'build-failed',
+                    isUsageCode(code) ? 'usage' : 'build-failed',
                     {
                       code,
                       message:
@@ -489,11 +493,26 @@ export function registerBuildCommand(
                         : {})
                     },
                     {
-                      hint: `Fix the error above and run build again.`,
+                      hint:
+                        failureHint(code) ??
+                        'Fix the error above and run build again.',
                       truncated: truncated === true,
                       // A failed build lists the warnings it got past as a green
                       // one does, the earlier browsers' and its own, once each.
-                      warnings: codedWarningsOf([...summaries, error])
+                      warnings: codedWarningsOf([...summaries, error]),
+                      // A list that stops partway says what dist already holds
+                      // and which browser stopped it. One browser needs neither.
+                      ...(list.length > 1
+                        ? {
+                            browser: vendor,
+                            value: {
+                              projectPath: pathOrRemoteUrl,
+                              browsers: built,
+                              mode: mode ?? 'production',
+                              summaries
+                            }
+                          }
+                        : {})
                     }
                   )
                 )

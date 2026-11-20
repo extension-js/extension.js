@@ -8,11 +8,12 @@
 
 import * as path from 'node:path'
 import colors from 'pintor'
+import {type WithheldKind, withheldFileLines} from '../../../lib/withheld-file'
 
 export function javaScriptError(
   errorSourcePath: string,
   missingFilePath: string,
-  opts?: {publicRootHint?: boolean; deadRefHint?: boolean}
+  opts?: {publicRootHint?: boolean; deadRefHint?: boolean; copiedPage?: boolean}
 ) {
   const lines: string[] = []
   lines.push(`The page references a script file that doesn't exist.`)
@@ -27,9 +28,12 @@ export function javaScriptError(
 
   if (opts?.deadRefHint) {
     // Honest consequence: scripts are bundler entries, so the build emits an EMPTY
-    // placeholder - the page loads and DevTools shows no 404.
+    // placeholder - the page loads and DevTools shows no 404. A copied page
+    // has no entry, so its browser asks for the file and gets a 404.
     lines.push(
-      `The build ships an empty placeholder for this script, so the page loads and no 404 appears in DevTools (likely dead code).`
+      opts.copiedPage
+        ? `Chrome loads the page anyway and 404s this reference silently, so it is likely dead code.`
+        : `The build ships an empty placeholder for this script, so the page loads and no 404 appears in DevTools (likely dead code).`
     )
   }
 
@@ -145,6 +149,8 @@ export function fileNotFound(
     publicRootHint?: boolean
     refLabel?: string
     deadRefHint?: boolean
+    // A page shipped as a copy, whose scripts are no bundler entries.
+    copiedPage?: boolean
     // The tag that named the file, which says more than an ending does.
     kind?: 'script' | 'style'
   }
@@ -175,6 +181,47 @@ export function fileNotFound(
     default:
       return staticAssetError(errorSourcePath, missingFilePath, opts)
   }
+}
+
+// A file the page names that is there and stays out of the build, worded
+// so the author does not go looking for a file that is right there.
+export function pageRefWithheld(
+  errorSourcePath: string,
+  withheldPath: string,
+  ref: string,
+  why: WithheldKind,
+  opts?: {kind?: 'script' | 'style'; deadRefHint?: boolean}
+) {
+  // Without the tag at hand, the ending says which tag named it.
+  const kind =
+    opts?.kind ||
+    (/\.(?:[jt]sx?)$/.test(withheldPath)
+      ? 'script'
+      : /\.(?:css|scss|sass|less)$/.test(withheldPath)
+        ? 'style'
+        : undefined)
+  const tag =
+    kind === 'script'
+      ? colors.blue('<script>')
+      : kind === 'style'
+        ? colors.blue('<link>')
+        : `tag`
+  const lines: string[] = withheldFileLines(ref, why, {
+    check: `Check the ${tag} that names it in this page.`,
+    holds: kind === 'script' ? 'code' : 'contents'
+  })
+
+  lines.push(`${colors.gray('PATH')} ${colors.underline(errorSourcePath)}`)
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(withheldPath)}`)
+  lines.push(`The page loads without it.`)
+
+  if (opts?.deadRefHint) {
+    lines.push(
+      `Set ${colors.blue('EXTENSION_STRICT_REFS=true')} to make this a build error.`
+    )
+  }
+
+  return lines.join('\n')
 }
 
 export function remoteResourceWarning(
@@ -267,6 +314,26 @@ export function manifestPageMissing(
   lines.push(
     `Update the path in your ${colors.blue('manifest.json')} to an HTML file that exists.`
   )
+
+  return lines.join('\n')
+}
+
+// A page file that is there and stays out of the build. The field names
+// the manifest key, or the page when no key names it.
+export function pageFileWithheld(
+  where: {manifestField?: string; pageName: string},
+  file: string,
+  why: WithheldKind,
+  withheldPath: string
+) {
+  const lines: string[] = withheldFileLines(file, why, {
+    check: where.manifestField
+      ? `Check the ${colors.blue(where.manifestField)} field in your ${colors.blue('manifest.json')} file.`
+      : `It is the file of the page ${colors.blue(where.pageName)}.`,
+    holds: 'page'
+  })
+
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(withheldPath)}`)
 
   return lines.join('\n')
 }

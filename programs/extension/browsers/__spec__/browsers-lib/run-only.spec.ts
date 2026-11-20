@@ -176,6 +176,46 @@ describe('runOnlyPreviewBrowser', () => {
     )
   })
 
+  // preview and start honor the kept profile and its seed as dev does.
+  it('hands the kept-profile changes and the seed profile to the chromium launcher', async () => {
+    chromiumOptions.mockClear()
+
+    await runOnlyPreviewBrowser({
+      browser: 'chrome',
+      outPath: EXT,
+      contextDir: scratch,
+      extensionsToLoad: [EXT],
+      keepProfileChanges: true,
+      copyFromProfile: '/seed/profile'
+    })
+
+    expect(chromiumOptions).toHaveBeenCalledWith(
+      expect.objectContaining({
+        keepProfileChanges: true,
+        copyFromProfile: '/seed/profile'
+      })
+    )
+  })
+
+  it('hands the kept-profile changes and the seed profile to the firefox launch', async () => {
+    await runOnlyPreviewBrowser({
+      browser: 'firefox',
+      outPath: EXT_FIREFOX,
+      contextDir: scratch,
+      extensionsToLoad: [EXT_FIREFOX],
+      keepProfileChanges: true,
+      copyFromProfile: '/seed/profile'
+    })
+
+    expect(firefoxRunOnce).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        keepProfileChanges: true,
+        copyFromProfile: '/seed/profile'
+      })
+    )
+  })
+
   it('names the debugging port on the run record before the card prints, and hands the same port to the launch', async () => {
     const fs = await import('node:fs')
     const os = await import('node:os')

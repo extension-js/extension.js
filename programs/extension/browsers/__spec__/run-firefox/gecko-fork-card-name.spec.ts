@@ -1,4 +1,4 @@
-import {mkdtempSync, rmSync, writeFileSync} from 'node:fs'
+import {mkdirSync, mkdtempSync, rmSync, writeFileSync} from 'node:fs'
 import {tmpdir} from 'node:os'
 import {join} from 'node:path'
 import {
@@ -126,5 +126,73 @@ describe('the dev card for a gecko fork', () => {
       .map((call) => String(call[0] || ''))
       .join('\n')
     expect(output).toContain('Firefox 145.0')
+  })
+})
+
+// The card names the user's add-on, never a companion loaded next to it.
+describe('the dev card beside the theme companion', () => {
+  function folder(prefix: string, manifest: Record<string, unknown>) {
+    const root = mkdtempSync(join(tmpdir(), prefix))
+    dirs.push(root)
+    const dir = join(root, 'firefox')
+    mkdirSync(dir, {recursive: true})
+    writeFileSync(
+      join(dir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 2,
+        version: '1.0.0',
+        browser_specific_settings: {gecko: {id: 'user@example.com'}},
+        ...manifest
+      })
+    )
+
+    return dir
+  }
+
+  function themeCompanion() {
+    const root = mkdtempSync(join(tmpdir(), 'extjs-card-companions-'))
+    dirs.push(root)
+    const dir = join(root, 'extension-js-theme', 'firefox')
+    mkdirSync(dir, {recursive: true})
+    writeFileSync(
+      join(dir, 'manifest.json'),
+      JSON.stringify({
+        manifest_version: 2,
+        name: 'Extension.js Theme',
+        version: '1.0.0',
+        theme: {colors: {}},
+        browser_specific_settings: {gecko: {id: 'theme@extension.js'}}
+      })
+    )
+
+    return dir
+  }
+
+  it.each([
+    [
+      'a folder whose name starts like the companion',
+      'extension-js-theme-lab-',
+      'Lab Sample'
+    ],
+    [
+      'a name with the word theme in it',
+      'extjs-card-user-',
+      'Dark Theme Toggle'
+    ]
+  ])('names the add-on in %s', async (_label, prefix, name) => {
+    const user = folder(prefix, {name})
+
+    await printRunningInDevelopmentSummary(
+      [user, themeCompanion()],
+      'firefox',
+      undefined,
+      '145.0'
+    )
+
+    const output = log.mock.calls
+      .map((call) => String(call[0] || ''))
+      .join('\n')
+    expect(output).toContain(name)
+    expect(output).not.toContain('Extension.js Theme')
   })
 })

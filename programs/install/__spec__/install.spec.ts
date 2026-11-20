@@ -911,6 +911,82 @@ describe('extensionInstall on a temp cache root', () => {
       ])
     })
 
+    // The runner stopped an installer whose sudo prompt went unanswered. That
+    // is a privilege refusal with its own words, not a slow download.
+    it.each([
+      {
+        platform: 'linux',
+        message:
+          'Edge needs your password for sudo on Linux, and none was entered ' +
+          'within 5 minutes, so the install was stopped. ' +
+          'Run the install again and enter the password, ' +
+          'or install Edge system-wide with your package manager ' +
+          '(sudo apt install microsoft-edge-stable on Ubuntu and Debian, ' +
+          'sudo dnf install microsoft-edge-stable on Fedora) ' +
+          'and run Extension.js with --browser=edge. ' +
+          'Use --browser=chromium when a privileged install is unavailable.'
+      },
+      {
+        platform: 'darwin',
+        message:
+          'Edge needs an administrator password on macOS, and none was ' +
+          'entered within 5 minutes, so the install was stopped. ' +
+          'Run the install again and enter the password, ' +
+          'then run Extension.js with --browser=edge. ' +
+          'Use --browser=chromium when an administrator password is unavailable.'
+      }
+    ] as const)('refuses with the privilege code when the password prompt on $platform went unanswered', async ({
+      platform,
+      message
+    }) => {
+      plantTree(cacheRoot, 'edge')
+
+      const error = await install({
+        browser: 'edge',
+        platform,
+        runInstaller: installerEnding({
+          code: null,
+          signal: 'SIGTERM',
+          stdout: 'Switching to root user to install dependencies...\n',
+          promptTimedOut: true
+        }),
+        systemEdge: noSystemEdge
+      })
+
+      expect(error).toBeInstanceOf(BrowserInstallPrivilegeError)
+      expect((error as BrowserInstallPrivilegeError).code).toBe(
+        'BROWSER_INSTALL_PRIVILEGE'
+      )
+
+      expect((error as Error).message).toBe(message)
+      expect(warned).toEqual([])
+      expect(tree(cacheRoot)).toEqual([])
+    })
+
+    it('goes on with a system Edge when the password prompt went unanswered', async () => {
+      expect(
+        await install({
+          browser: 'edge',
+          runInstaller: installerEnding({
+            code: null,
+            signal: 'SIGTERM',
+            promptTimedOut: true
+          }),
+          systemEdge: {
+            exists: never,
+            lookup: () => LINUX_EDGE,
+            registry: never
+          }
+        })
+      ).toBe('installed')
+
+      expect(warned).toEqual([
+        '⏵⏵⏵ Warning: Skipping the Edge channel install, it needs elevated privileges.\n' +
+          'Using the Edge binary already on this system instead.\n' +
+          `PATH ${LINUX_EDGE}`
+      ])
+    })
+
     it('removes the broken tree on a plain failure without asking for a system Edge', async () => {
       plantTree(cacheRoot, 'edge')
 
