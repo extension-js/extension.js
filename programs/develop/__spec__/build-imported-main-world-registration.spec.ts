@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A registration is read where it is written: in a module the entry
 // imports, or through a constant of the same file.
@@ -61,15 +62,9 @@ function project(files: Record<string, string>) {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   let warnings: string[] = []
 
-  const summary = await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {browser, mode: 'production'})
   expect(summary.errors_count).toBe(0)
   warnings = (summary as {warnings?: string[]}).warnings || []
 

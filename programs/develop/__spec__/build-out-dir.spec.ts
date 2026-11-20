@@ -4,6 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {readyContractPath} from '../lib/session-paths'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 const children: ChildProcess[] = []
@@ -42,15 +43,7 @@ function project(config?: string) {
 }
 
 async function build(root: string, options: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
-
-  return await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode: 'production',
-    ...options
-  } as any)
+  return await buildProject(root, {mode: 'production', ...options})
 }
 
 function liveProcess(): number {

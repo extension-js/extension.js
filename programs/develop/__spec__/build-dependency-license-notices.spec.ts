@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -67,15 +68,7 @@ function project() {
 }
 
 async function build(root: string, minify: boolean) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode: 'production',
-    minify
-  } as any)
+  const summary = await buildProject(root, {mode: 'production', minify})
 
   expect(summary.errors_count).toBe(0)
 

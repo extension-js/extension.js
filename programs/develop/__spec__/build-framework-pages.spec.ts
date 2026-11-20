@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Every framework's pages must parse, ship a bundle the page can run no
 // matter how the entry is written, and pull the JSX runtime of the framework
@@ -206,7 +207,6 @@ async function build(
   root: string,
   mode: 'production' | 'development' = 'production'
 ) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalError = console.error
   const originalLog = console.log
@@ -222,12 +222,7 @@ async function build(
   let summary: {errors_count: number}
 
   try {
-    summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: false,
-      install: false,
-      mode
-    } as any)
+    summary = await buildProject(root, {silent: false, mode})
   } catch (error) {
     throw new Error(`build failed: ${String(error)}\n${lines.join('\n')}`)
   } finally {

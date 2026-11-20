@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A vendor wasm runtime (onnxruntime-web, ffmpeg) is fetched when a page or
 // a worker runs the model and cannot be split, so its 26 MB must not turn
@@ -107,14 +108,7 @@ function summaryLine(): string {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: false,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {silent: false, mode: 'production'})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', 'chrome')

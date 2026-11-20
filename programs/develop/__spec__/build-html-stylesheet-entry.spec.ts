@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A page entry is its scripts plus its linked stylesheets in one import list.
 // rspack 2.2.4 to 2.2.6 drop the stylesheet's module factory from the page
@@ -58,18 +59,11 @@ function writeFixture() {
 }
 
 async function buildFixture() {
-  const {extensionBuild} = await import('../command-build')
-
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as any)
+    return await buildProject(ROOT, {mode: 'production'})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

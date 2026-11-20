@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-devtools-panel-'))
 
@@ -42,14 +43,7 @@ afterAll(() => {
 
 describe('devtools panels.create page (real build)', () => {
   it('ships the panel page and its script in dist', async () => {
-    const {extensionBuild} = await import('../command-build')
-    await extensionBuild(ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)
+    await buildProject(ROOT, {mode: 'production', exitOnError: false})
 
     const dist = path.join(ROOT, 'dist', 'chrome')
     expect(fs.existsSync(path.join(dist, 'panel.html'))).toBe(true)

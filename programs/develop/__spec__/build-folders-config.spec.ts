@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
 import type {FileConfig} from '../types'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -48,15 +49,10 @@ async function build(
   mode: 'production' | 'development' = 'production',
   metadataCommand?: 'dev'
 ) {
-  const {extensionBuild} = await import('../command-build')
-
-  return await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
+  return await buildProject(root, {
     mode,
     ...(metadataCommand ? {metadataCommand} : {})
-  } as any)
+  })
 }
 
 const TYPED = [

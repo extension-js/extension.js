@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Firefox chrome_settings_overrides: addresses stay addresses, packaged
 // files ship where the built manifest names them.
@@ -57,14 +58,10 @@ function project() {
 describe('chrome_settings_overrides', () => {
   it('keeps addresses verbatim and ships every packaged file it names', async () => {
     const root = project()
-    const {extensionBuild} = await import('../command-build')
-
-    const summary = await extensionBuild(root, {
+    const summary = await buildProject(root, {
       browser: 'firefox',
-      silent: true,
-      install: false,
       mode: 'production'
-    } as any)
+    })
     expect(summary.errors_count).toBe(0)
 
     const distDir = path.join(root, 'dist', 'firefox')

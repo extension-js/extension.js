@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Every file in the scripts folder is an entry. A helper kept there for the
 // scripts that import it ships as a file nothing loads, and the build says so.
@@ -40,7 +41,6 @@ function project(files: Record<string, string>) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
 
   const capture = (...args: unknown[]) => {
@@ -52,12 +52,10 @@ async function build(root: string) {
   )
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'production'
-    } as any)
+    })
 
     return {
       errors: summary.errors_count,

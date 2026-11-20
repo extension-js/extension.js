@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-html-ts-'))
 
@@ -43,14 +44,7 @@ afterAll(() => {
 
 describe('html-declared TypeScript entries (real build)', () => {
   it('compiles .ts scripts referenced only from page html, no tsconfig upfront', async () => {
-    const {extensionBuild} = await import('../command-build')
-    await extensionBuild(ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)
+    await buildProject(ROOT, {mode: 'production', exitOnError: false})
 
     const dist = path.join(ROOT, 'dist', 'chrome')
     const popupJs = fs.readFileSync(

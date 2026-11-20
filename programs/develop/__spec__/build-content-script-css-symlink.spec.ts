@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // rspack hands rules the symlink-resolved path of every module. The project
 // here is reached through a symlink on purpose (macOS adds one more, its
@@ -75,18 +76,11 @@ function writeFixture(root: string) {
 }
 
 async function buildThrough(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as any)
+    return await buildProject(root, {mode: 'production'})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

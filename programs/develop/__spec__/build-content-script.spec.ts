@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const FIXTURE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-content-script-')
@@ -68,18 +69,11 @@ afterAll(() => {
 
 describe('build: content script (real rspack)', () => {
   it('compiles the user extension without the node:module / web-target leak', async () => {
-    const {extensionBuild} = await import('../command-build')
-
     const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
     Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
     try {
-      const summary = await extensionBuild(FIXTURE_ROOT, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'development'
-      } as any)
+      const summary = await buildProject(FIXTURE_ROOT, {mode: 'development'})
 
       expect(summary.errors_count).toBe(0)
       expect(summary.total_assets).toBeGreaterThan(0)

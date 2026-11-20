@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {DIST_STAGING_PREFIX} from '../lib/atomic-dist'
+import {buildProject} from './helpers/build-project'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-atomic-'))
 const DIST_PARENT = path.join(ROOT, 'dist')
@@ -39,18 +40,11 @@ function writeFixture() {
 }
 
 async function buildFixture() {
-  const {extensionBuild} = await import('../command-build')
-
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as never)
+    return await buildProject(ROOT, {mode: 'production'})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

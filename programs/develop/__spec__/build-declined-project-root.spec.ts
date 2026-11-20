@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A bare manifest one directory under an unrelated package.json sits exactly
 // where src/manifest.json sits in the documented layout. Adopting the stranger
@@ -73,18 +74,11 @@ function writeDeclaredFixture() {
 }
 
 async function buildFixture(projectPath: string) {
-  const {extensionBuild} = await import('../command-build')
-
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(projectPath, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as never)
+    return await buildProject(projectPath, {mode: 'production'})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

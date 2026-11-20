@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A warning the manifest step writes opens with the channel glyph and names
 // its own fix, so the build report must print it once, as written. A plain
@@ -17,7 +18,6 @@ function write(relPath: string, contents: string) {
 }
 
 async function build() {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
 
   const record = (...args: unknown[]) => {
@@ -30,13 +30,11 @@ async function build() {
   let failure: unknown
 
   try {
-    await extensionBuild(ROOT, {
-      browser: 'chrome',
+    await buildProject(ROOT, {
       silent: false,
-      install: false,
       mode: 'production',
       exitOnError: false
-    } as never)
+    })
   } catch (error) {
     failure = error
   } finally {

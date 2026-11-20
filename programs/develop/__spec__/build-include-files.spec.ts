@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const tempDirs: string[] = []
 
@@ -50,14 +51,7 @@ function workspace(
 }
 
 async function build(root: string, options: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
-
-  return await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    ...options
-  } as any)
+  return await buildProject(root, {...options})
 }
 
 function emittedFiles(root: string, browser = 'chrome') {
