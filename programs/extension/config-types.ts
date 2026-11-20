@@ -175,7 +175,7 @@ export interface BrowserConfig extends BrowserLaunchConfig, SafariConfig {
 }
 
 /**
- * Asset categories the perf-budgets plugin recognizes. `shared` is the chunk
+ * Asset categories that take a size budget. `shared` is the chunk
  * every page that imports a framework or a common module loads. `public` is
  * a file copied from the public folder as authored. `wasm` is a WebAssembly
  * file only extension pages and workers fetch when they run it, such as an
@@ -192,7 +192,6 @@ export type PerfBudgetCategory =
   | 'public'
   | 'runtime'
   | 'wasm'
-  | 'ignored'
 
 /**
  * Per-category asset size budgets (bytes) for compiling commands, plus
@@ -209,9 +208,7 @@ export type PerfBudgetCategory =
  *   }
  * }
  */
-export type PerfBudgetsConfig = Partial<
-  Record<Exclude<PerfBudgetCategory, 'ignored'>, number>
-> & {
+export type PerfBudgetsConfig = Partial<Record<PerfBudgetCategory, number>> & {
   ignore?: string[]
   /** `'warn'` (default) reports an overrun, `'error'` fails the build. */
   onExceed?: 'warn' | 'error'

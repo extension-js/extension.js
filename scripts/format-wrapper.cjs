@@ -49,7 +49,7 @@ function runEslintFix() {
       path.dirname(manifestPath),
       typeof declaredBin === 'string' ? declaredBin : declaredBin.eslint
     )
-  } catch (error) {
+  } catch (/** @type {any} */ error) {
     console.error(
       `[Extension.js] Format: could not locate eslint (${error.message}). ` +
         'The tree may be formatted but not lint-clean.'

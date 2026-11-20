@@ -28,6 +28,7 @@ export function findMissingMarkers(readArtifactFile, markers) {
   const missing = []
 
   for (const marker of required) {
+    /** @type {unknown} */
     let contents = null
 
     try {

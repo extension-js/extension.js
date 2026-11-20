@@ -627,6 +627,7 @@ describe('createChangedSourcesTracker', () => {
     let runner: (() => void) | undefined
     let doneRunner: ((stats: any) => void) | undefined
     let emittedRunner: ((file: string) => void) | undefined
+    const saved = new Set<string>()
     const compiler: any = {
       modifiedFiles: undefined as Set<string> | undefined,
       options: {context: '/proj'},
@@ -651,22 +652,22 @@ describe('createChangedSourcesTracker', () => {
 
     return {
       compiler,
-      fireWatchRun: () => runner?.(),
-      fireDone: (
-        errors: any[] = [],
-        extra?: {modifiedFiles?: string[]; fileDependencies?: string[]}
-      ) =>
+      fireWatchRun: () => {
+        for (const file of compiler.modifiedFiles || []) saved.add(file)
+
+        runner?.()
+      },
+      // A compile names what it read. One given no list read every file
+      // saved so far, as a build whose modules are all reachable does.
+      fireDone: (errors: any[] = [], extra?: {fileDependencies?: string[]}) => {
         doneRunner?.({
           compilation: {
             errors,
-            modifiedFiles: extra?.modifiedFiles
-              ? new Set(extra.modifiedFiles)
-              : undefined,
-            fileDependencies: extra?.fileDependencies
-              ? new Set(extra.fileDependencies)
-              : undefined
+            fileDependencies: new Set(extra?.fileDependencies ?? saved),
+            missingDependencies: new Set<string>()
           }
-        }),
+        })
+      },
       fireAssetEmitted: (file: string) => emittedRunner?.(file)
     }
   }
@@ -926,18 +927,6 @@ describe('createChangedSourcesTracker', () => {
     expect(tracker.snapshot()).toEqual({
       forcedFull: false,
       changedSources: ['src/popup/index.js']
-    })
-  })
-
-  it('merges compilation.modifiedFiles when the watch set was empty', () => {
-    const {compiler, fireWatchRun, fireDone} = fakeCompiler()
-    const tracker = createChangedSourcesTracker(compiler)
-    compiler.modifiedFiles = new Set()
-    fireWatchRun()
-    fireDone([], {modifiedFiles: ['/proj/src/background.ts']})
-    expect(tracker.snapshot()).toEqual({
-      forcedFull: false,
-      changedSources: ['src/background.ts']
     })
   })
 })

@@ -182,21 +182,12 @@ importers:
       '@babel/preset-typescript':
         specifier: 7.29.7
         version: 7.29.7(@babel/core@7.29.7)
-      '@prefresh/core':
-        specifier: 1.5.9
-        version: 1.5.9(preact@11.0.0)
-      '@prefresh/utils':
-        specifier: 1.2.1
-        version: 1.2.1
       '@rspack/core':
         specifier: 2.3.3
         version: 2.3.3(@swc/helpers@0.5.23)
       '@rspack/dev-server':
         specifier: 2.1.0
         version: 2.1.0(@rspack/core@2.3.3(@swc/helpers@0.5.23))
-      '@rspack/plugin-preact-refresh':
-        specifier: 2.0.1
-        version: 2.0.1(@prefresh/core@1.5.9(preact@11.0.0))(@prefresh/utils@1.2.1)(@rspack/core@2.3.3(@swc/helpers@0.5.23))
       '@rspack/plugin-react-refresh':
         specifier: 2.0.2
         version: 2.0.2(@rspack/core@2.3.3(@swc/helpers@0.5.23))(react-refresh@0.18.0)
@@ -263,9 +254,6 @@ importers:
       postcss-scss:
         specifier: 4.0.9
         version: 4.0.9(postcss@8.5.25)
-      preact:
-        specifier: 11.0.0
-        version: 11.0.0
       prefers-yarn:
         specifier: 2.0.1
         version: 2.0.1
@@ -330,6 +318,9 @@ importers:
       fast-check:
         specifier: ^4.10.0
         version: 4.10.0
+      preact:
+        specifier: 11.0.0
+        version: 11.0.0
       svelte:
         specifier: 5.55.9
         version: 5.55.9(@typescript-eslint/types@8.72.2)
@@ -1419,14 +1410,6 @@ packages:
     engines: {node: '>=18'}
     hasBin: true
 
-  '@prefresh/core@1.5.9':
-    resolution: {integrity: sha512-IKBKCPaz34OFVC+adiQ2qaTF5qdztO2/4ZPf4KsRTgjKosWqxVXmEbxCiUydYZRY8GVie+DQlKzQr9gt6HQ+EQ==}
-    peerDependencies:
-      preact: ^10.0.0 || ^11.0.0-0
-
-  '@prefresh/utils@1.2.1':
-    resolution: {integrity: sha512-vq/sIuN5nYfYzvyayXI4C2QkprfNaHUQ9ZX+3xLD8nL3rWyzpxOm1+K7RtMbhd+66QcaISViK7amjnheQ/4WZw==}
-
   '@rolldown/binding-android-arm-eabi@1.2.14':
     resolution: {integrity: sha512-aWR+XKH9+rW7m5fWq/5360J3mHycrx/o6xZM2DQFdJnTMdyP7/WzxPjhtLbVWdKo2y612/4U1bWqb3HQhiF7vg==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -1658,16 +1641,6 @@ packages:
       selfsigned: ^5.0.0
     peerDependenciesMeta:
       selfsigned:
-        optional: true
-
-  '@rspack/plugin-preact-refresh@2.0.1':
-    resolution: {integrity: sha512-tQ3WRBVaJ5JVy4jQHaYpYqeQrPStc7WrIJlVMrY/2mJMe5D1Ma4EO6K7J0v4Zx3HZMoJ1xeaqfCI9E8UHFE9yQ==}
-    peerDependencies:
-      '@prefresh/core': ^1.5.0
-      '@prefresh/utils': ^1.2.0
-      '@rspack/core': ^2.0.0
-    peerDependenciesMeta:
-      '@rspack/core':
         optional: true
 
   '@rspack/plugin-react-refresh@2.0.2':
@@ -5018,12 +4991,6 @@ snapshots:
     dependencies:
       playwright: 1.58.2
 
-  '@prefresh/core@1.5.9(preact@11.0.0)':
-    dependencies:
-      preact: 11.0.0
-
-  '@prefresh/utils@1.2.1': {}
-
   '@rolldown/binding-android-arm-eabi@1.2.14':
     optional: true
 
@@ -5167,13 +5134,6 @@ snapshots:
     dependencies:
       '@rspack/core': 2.3.3(@swc/helpers@0.5.23)
       '@rspack/dev-middleware': 2.0.3(@rspack/core@2.3.3(@swc/helpers@0.5.23))
-
-  '@rspack/plugin-preact-refresh@2.0.1(@prefresh/core@1.5.9(preact@11.0.0))(@prefresh/utils@1.2.1)(@rspack/core@2.3.3(@swc/helpers@0.5.23))':
-    dependencies:
-      '@prefresh/core': 1.5.9(preact@11.0.0)
-      '@prefresh/utils': 1.2.1
-    optionalDependencies:
-      '@rspack/core': 2.3.3(@swc/helpers@0.5.23)
 
   '@rspack/plugin-react-refresh@2.0.2(@rspack/core@2.3.3(@swc/helpers@0.5.23))(react-refresh@0.18.0)':
     dependencies:

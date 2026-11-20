@@ -119,6 +119,7 @@ function squash(text) {
     .trim()
 }
 
+/** @returns {{name: string, optional: boolean, type: string} | null} */
 function parseParameter(text) {
   const match = text.match(/^([A-Za-z_$][\w$]*)(\?)?\s*:\s*([\s\S]+)$/)
 
@@ -249,7 +250,10 @@ function spreadCallback(type, rule) {
 
   if (fields.includes(null)) return null
 
-  fields[0] = {...fields[0], type: rule.first}
+  fields[0] = {
+    .../** @type {{name: string, optional: boolean}} */ (fields[0]),
+    type: rule.first
+  }
 
   return `(${renderParameters(fields)}) => void`
 }

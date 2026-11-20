@@ -1,4 +1,8 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../__spec__/helpers/fake-compiler'
 import * as messages from '../../lib/messages'
 import type {ReloadBroker} from '../../plugin-reload'
 import type {BrowserType} from '../../types'
@@ -8,7 +12,6 @@ import {
   type CompiledEvent,
   type ExtensionLoadRetryResult
 } from '../index'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const CONTEXT = '/tmp/project'
 const OUTPUT = '/tmp/project/dist/chrome'

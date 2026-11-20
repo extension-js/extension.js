@@ -88,7 +88,7 @@
     },
     "E_RUNTIME_NOT_FOUND": {
       "area": "project",
-      "summary": "The extension-develop runtime is missing, uncompiled or at another version than the CLI."
+      "summary": "The extension-develop runtime is missing, uncompiled, at another version than the CLI, or throws while it loads, as when its native binding was left out of the install."
     },
     "E_MANIFEST_NOT_FOUND": {
       "area": "manifest",
@@ -666,6 +666,11 @@
     "W_ENV_ASSET_NOT_UTF8": {
       "area": "compile",
       "summary": "An emitted .json or .html file holds a $EXTENSION_ placeholder but is not UTF-8 text, so it ships byte for byte and the placeholder is left as written.",
+      "warn": true
+    },
+    "W_HTML_NOT_UTF8": {
+      "area": "compile",
+      "summary": "An HTML page of the extension is not UTF-8 text. A page that declares its charset is converted to UTF-8, and one that does not ships with a replacement character for each byte that is not UTF-8.",
       "warn": true
     },
     "W_CDP_NOT_CONNECTED": {

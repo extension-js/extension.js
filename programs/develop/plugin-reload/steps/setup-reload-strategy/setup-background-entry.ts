@@ -11,9 +11,11 @@ import * as path from 'node:path'
 import type {Compiler} from '@rspack/core'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {resolveDevelopDistFile} from '../../../lib/develop-context'
-import {isStaticTheme} from '../../../lib/manifest-utils'
+import {
+  filterKeysForThisBrowser,
+  isStaticTheme
+} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
-import {filterKeysForThisBrowser} from '../../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import type {DevOptions, Manifest} from '../../../types'
 
 export class SetupBackgroundEntry {

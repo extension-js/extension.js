@@ -23,6 +23,10 @@ It is responsible for:
   earlier injection left in the page
 - stripping the rspack-dev-server startup runtime from emitted content
   scripts so reinjection stays browser-owned
+- giving every page of a dev session its hot update client (the
+  refresh shim, the dev server client and a minimum script, so a page with
+  no script still updates), and letting the scripts a page names accept
+  their own update in a dev session
 - classifying a watch-mode change into a reload instruction
   (`full` / `service-worker` / `content-scripts` / notify-only `page`)
 - dispatching that instruction over the control-bridge broker, the same
@@ -33,7 +37,16 @@ It is responsible for:
 
 ## Entry point
 
-`index.ts` exposes two seams:
+`index.ts` exposes three seams:
+
+- `PageReloadPlugin` (`steps/setup-page-reload.ts`), applied by
+  `rspack-config.ts` BEFORE `plugin-web-extension`. It registers with
+  `plugin-web-extension/shared/html-page-extensions.ts` and is told the
+  pages as `feature-html` declares them, so what it adds sits where the
+  pages plugin sits in the plugin order. It wraps each page entry for any
+  build in `development` mode, and adds the page HMR rule when the config
+  names a dev session (otherwise for any mode but production). It reads
+  neither `EXTENSION_NO_RELOAD` nor the manifest file check below.
 
 - `ReloadPlugin`, the rspack plugin applied by `rspack-config.ts`. It must
   register AFTER `plugin-web-extension`: `SetupReloadStrategy` decorates the
@@ -72,6 +85,18 @@ names one, otherwise any mode but production), so it also runs under
 10. `PruneUnreachableChunks`
 
 ## Important files
+
+- `steps/setup-page-reload.ts`
+  The page side. In a dev session a page entry imports, in order,
+  `reload-lib/preact-refresh-shim.ts`, the dev server client and hot
+  runtime (when a session names a host and port), the page's own files and
+  `reload-lib/minimum-files/minimum-script-file.ts`, which also reloads an
+  open page whose served markup changed. With a client it points the dev
+  server's stock socket file at `page-socket-client`, which names the page
+  to the server. It also adds one rule, the
+  `steps/ensure-hmr-for-scripts.ts` loader, for the script files the pages
+  name: not a module they import, not a content script, and not at all
+  when React, Vue or Svelte owns refresh.
 
 - `reload-session.ts`
   One session per caller. `watch(compiler)` taps the changed sources of a
@@ -264,6 +289,13 @@ consumes that contract. It does not define it, and nothing in
 
 - `reload-plugin-gating.spec.ts`, `reload-plugin-emulator.spec.ts`, which
   steps a real compiler gets per mode, session, opt-out and engine
+- `page-reload-entries.spec.ts`, whole builds of one project in production,
+  in a development build and in a dev session: the emitted files, each
+  page's markup, what each page entry imports, the page loader and the
+  socket alias. It reads loaders from `programs/develop/dist`.
+- `setup-page-reload.unit.spec.ts`, `page-hmr-entry-only.spec.ts`,
+  `ensure-hmr-for-scripts.unit.spec.ts`, `minimum-script-file.unit.spec.ts`,
+  `preact-refresh-shim.unit.spec.ts`, the page side piece by piece
 - `classify-reload.unit.spec.ts`, classifier decisions
 - `reload-session.unit.spec.ts`, the session every caller keeps and the
   one call of the `--no-browser` path
@@ -282,9 +314,10 @@ consumes that contract. It does not define it, and nothing in
   packaged browser
 - `renamed-content-scripts.unit.spec.ts`,
   `rewritten-content-script-styles.unit.spec.ts`,
-  `classifier-inputs.unit.spec.ts`, the reload a launched session gets for a
+  `classifier-inputs.unit.spec.ts`, the reload a session plans for a
   renamed bundle, a rewritten stylesheet or a copied page, driven through
-  `BrowsersPlugin`
+  `helpers/launched-session.ts`, which makes the calls a browser plugin
+  makes on a session with no browser under it
 - `restart-reload-once.unit.spec.ts`, the one reload a restarted session owes
 - `reload-frame-build.unit.spec.ts`, the build name a reload frame carries
 - `setup-reload-strategy.spec.ts`, `setup-background-entry.spec.ts`,
@@ -292,8 +325,10 @@ consumes that contract. It does not define it, and nothing in
   hot update names. The chunk loading specs live in
   `plugin-web-extension/feature-chunk-loading`.
 - `plugin-boundary.spec.ts`, that this folder installs no chunk loading code
-  and reaches the target only through its extension point, and what it may
-  import from the dev server and the browser plugins
+  and reaches the target only through its extension point, what it may
+  import from the dev server and the browser plugins, that it reaches the
+  pages only through their extension point, and that no spec here imports
+  a browser plugin
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
 - `content-script-reinject.spec.ts`, `reinject-during-pending-await.spec.ts`,
   the reinject runtime in the wrapper output, its generations across

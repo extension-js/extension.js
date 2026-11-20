@@ -201,7 +201,7 @@ test('reads a table of entry objects and skips nested option copy', () => {
     '  }',
     '] as const'
   ].join('\n')
-  const table = readCommandTable(source)
+  const table = /** @type {any[]} */ (readCommandTable(source))
   assert.deepEqual(
     table.map((entry) => entry.name),
     ['install', 'doctor']
@@ -220,7 +220,7 @@ test('reads the flat record shape too', () => {
     "    'Build the extension for distribution'",
     '} as const'
   ].join('\n')
-  const table = readCommandTable(source)
+  const table = /** @type {any[]} */ (readCommandTable(source))
   assert.deepEqual(
     table.map((entry) => entry.description),
     ['Start the development server', 'Build the extension for distribution']

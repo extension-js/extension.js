@@ -13,7 +13,7 @@ describe('preact-refresh-shim (dev page)', () => {
   })
 
   async function loadFreshShim() {
-    return import('../../steps/preact-refresh-shim.ts')
+    return import('../reload-lib/preact-refresh-shim.ts')
   }
 
   it('installs no-op $RefreshReg$ and $RefreshSig$ when undefined', async () => {

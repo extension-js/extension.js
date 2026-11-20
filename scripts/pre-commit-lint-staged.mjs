@@ -77,7 +77,11 @@ async function main() {
   const before = new Set(listBackups().map((backup) => backup.hash))
   const child = spawn(process.execPath, [lintStagedBin], {stdio: 'inherit'})
 
-  for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+  for (const signal of /** @type {NodeJS.Signals[]} */ ([
+    'SIGINT',
+    'SIGTERM',
+    'SIGHUP'
+  ])) {
     process.on(signal, () => child.kill(signal))
   }
 

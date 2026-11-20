@@ -2,6 +2,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../__spec__/helpers/fake-compiler'
 import * as messages from '../../lib/messages'
 import type {BrowserType} from '../../types'
 import {
@@ -13,7 +17,6 @@ import {
   type BuildEventMap,
   type CompiledEvent
 } from '../index'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 // The public event map offers no 'close': nothing ever emitted one.
 // @ts-expect-error 'close' is not a public build event

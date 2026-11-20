@@ -9,6 +9,14 @@
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {appendDevAdditions} from '../../../lib/dev-additions'
+import {
+  type EmittedCompilation,
+  type EmittedModule,
+  emittedFilesOf,
+  readEmittedScripts,
+  readProjectSource,
+  shippableText
+} from '../../../lib/emitted-evidence'
 import {isStaticThemeSource} from '../../../lib/manifest-utils'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {isWebkitUnsupportedPermission} from '../manifest-lib/filter-keys-safari'
@@ -34,14 +42,6 @@ import {
   permissionsGrantedByHosts,
   usesGatedPart
 } from './apply-dev-defaults-lib/dev-injected-permissions'
-import {
-  type EmittedCompilation,
-  type EmittedModule,
-  emittedFilesOf,
-  readEmittedScripts,
-  readProjectSource,
-  shippableText
-} from './apply-dev-defaults-lib/emitted-evidence'
 import patchBackground from './apply-dev-defaults-lib/patch-background'
 import {patchV2CSP, patchV3CSP} from './apply-dev-defaults-lib/patch-csp'
 import patchExternallyConnectable from './apply-dev-defaults-lib/patch-externally-connectable'
@@ -325,8 +325,8 @@ export class ApplyDevDefaults {
                       this.connectableHost
                     ),
 
-              // Dev-only permissions for the control bridge + reload loop. MV2 also
-              // needs content-script host patterns in `permissions` (no host_permissions).
+              // What the dev session calls. MV2 has no host_permissions, so its
+              // content script host patterns go in `permissions` too.
               permissions: [
                 ...new Set([
                   ...injectedPermissions,

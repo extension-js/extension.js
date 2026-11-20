@@ -133,7 +133,7 @@ test('a tarball without a companion manifest fails and names each missing file',
 
   assert.throws(
     () => assertCompanionsPacked('extension-develop-1.0.0.tgz', listing),
-    (error) => {
+    (/** @type {any} */ error) => {
       assert.match(
         error.message,
         /^extension-develop-1\.0\.0\.tgz is missing the bundled companion manifests:/

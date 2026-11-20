@@ -68,7 +68,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           chrome.tabs.query({url: matches}, function (tabs) {
             var err = null;
             try { err = chrome.runtime.lastError; } catch (e) {
-              // Ignore
+              // A throwing lastError read leaves err null so the tabs still get used
             }
             if (err || !tabs) return;
             for (var i = 0; i < tabs.length; i++) {
@@ -80,7 +80,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
                 var target = {tabId: tab.id, allFrames: allFrames};
                 if (cssFiles.length && chrome.scripting.insertCSS) {
                   try { chrome.scripting.insertCSS({target: target, files: cssFiles}, noopLastError); } catch (e) {
-                    // Ignore
+                    // A tab that closed or forbids CSS since the query has nothing to swap
                   }
                 }
                 if (jsFiles.length && chrome.scripting.executeScript) {
@@ -90,21 +90,21 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
                       noopLastError
                     );
                   } catch (e) {
-                    // Ignore
+                    // A tab that closed or forbids scripts since the query is skipped
                   }
                 }
               })(tabs[i]);
             }
           });
         } catch (e) {
-          // Ignore
+          // No tabs API in this background means no open tab to re-inject into
         }
       }
       if (Array.isArray(excludeMatches) && excludeMatches.length) {
         try {
           chrome.tabs.query({url: excludeMatches}, function (excludedTabs) {
             try { void chrome.runtime.lastError; } catch (e) {
-              // Ignore
+              // Reading lastError only marks it seen so the browser logs nothing
             }
             var excluded = {};
             if (excludedTabs) {
@@ -116,7 +116,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           });
           return;
         } catch (e) {
-          // Ignore
+          // A refused exclude query falls through to injecting with no excludes
         }
       }
       injectInto({});
@@ -138,13 +138,14 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
             for (var i = 0; i < entries.length; i++) reinjectContentScriptEntry(entries[i], opts);
             if (register) reregisterForFutureNavigations(entries);
             if (onDone) { try { onDone(); } catch (e) {
-              // Ignore
+              // A throw in the caller's callback must not undo the finished reinject
             } }
           })
           .catch(function () {
-            // Ignore
+            // A manifest that fails to load or parse leaves the tabs as they are
           });
         return true;
+      // False sends the caller to a full restart instead of a reinject
       } catch (e) { return false; }
     }
 
@@ -196,7 +197,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       try {
         chrome.scripting.getRegisteredContentScripts(function (existing) {
           try { void chrome.runtime.lastError; } catch (e) {
-            // Ignore
+            // Reading lastError only marks it seen so the browser logs nothing
           }
           var have = {};
           if (existing) for (var k = 0; k < existing.length; k++) have[existing[k].id] = true;
@@ -206,17 +207,17 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           }
           if (toRegister.length) {
             try { chrome.scripting.registerContentScripts(toRegister, noopLastError); } catch (e) {
-              // Ignore
+              // A refused registration only costs later tabs the fresh files
             }
           }
           if (toUpdate.length) {
             try { chrome.scripting.updateContentScripts(toUpdate, noopLastError); } catch (e) {
-              // Ignore
+              // A refused update keeps the old registration until the next restart
             }
           }
         });
       } catch (e) {
-        // Ignore
+        // No registry read means no dynamic copies, the static manifest stays
       }
     }
 
@@ -224,6 +225,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
     // boot heal and the tab reloads when its registry exists; absent, the
     // manifest-based paths below stay in charge.
     function devContentScripts() {
+      // A background with no readable global has no dev registry to use
       try { return g.__extjsDevContentScripts || null; } catch (e) { return null; }
     }
 
@@ -235,6 +237,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
 
     function overriddenKinds() {
       var m = null;
+      // No manifest to read means no override pages to bring back
       try { m = g.chrome.runtime.getManifest(); } catch (e) { return []; }
       var o = m && m.chrome_url_overrides;
       var out = [];
@@ -259,7 +262,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
     function ownPageUrl(url) {
       var base = "";
       try { base = String(g.chrome.runtime.getURL("")); } catch (e) {
-        // Ignore
+        // An unreadable base URL matches no tab as the extension's own page
       }
       return !!base && typeof url === "string" && url.indexOf(base) === 0;
     }
@@ -274,16 +277,16 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         if (answered) return;
         answered = true;
         if (guard) { try { clearTimeout(guard); } catch (e) {
-          // Ignore
+          // A guard timer that cannot be cleared only finds the answer given
         } }
         try { cb(list); } catch (e) {
-          // Ignore
+          // A throw in the caller's callback must not stop the restart
         }
       };
       var kinds = overriddenKinds();
       if (!chrome.tabs || !chrome.tabs.query || !chrome.storage || !chrome.storage.local) return answer([]);
       try { guard = setTimeout(function () { answer([]); }, 1000); } catch (e) {
-        // Ignore
+        // Without a guard timer the tabs query answer still settles the call
       }
       try {
         chrome.tabs.query({}, function (tabs) {
@@ -305,8 +308,10 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
             if (list.length) rec[OVERRIDE_TABS_KEY] = {at: Date.now(), tabs: list};
             if (pages.length) rec[PAGE_TABS_KEY] = {at: Date.now(), tabs: pages};
             chrome.storage.local.set(rec, function () { noopLastError(); answer(list); });
+          // Unrecorded tabs only stay on the stock page, the restart goes on
           } catch (e) { answer([]); }
         });
+      // A refused tabs query records nothing and the restart goes on
       } catch (e) { answer([]); }
     }
 
@@ -320,16 +325,16 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           g.chrome.storage.local.set({__extjsDevPendingReinject: Date.now()}, noopLastError);
         }
       } catch (e) {
-        // Ignore
+        // An unwritten heal flag only skips the next generation's tab heal
       }
       rememberOverrideTabs(function (list) {
         if (onRecorded) { try { onRecorded(list); } catch (e) {
-          // Ignore
+          // A throw in the caller's callback must not stop the restart
         } }
         try { setTimeout(function () { try { g.chrome.runtime.reload(); } catch (e) {
-          // Ignore
+          // A context already torn down is reloading or gone, nothing to do
         } }, delayMs); } catch (e) {
-          // Ignore
+          // A live background always has setTimeout, this only shields the call
         }
       });
     }
@@ -345,7 +350,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         var rec = res && res[OVERRIDE_TABS_KEY];
         if (!rec || typeof rec !== "object" || !Array.isArray(rec.tabs)) return;
         try { chrome.storage.local.remove(OVERRIDE_TABS_KEY, noopLastError); } catch (e) {
-          // Ignore
+          // A record left behind expires after 30 seconds and is ignored then
         }
         if (typeof rec.at !== "number" || Date.now() - rec.at > 30000) return;
         var kinds = overriddenKinds();
@@ -355,7 +360,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
               if (!t || t.tabId == null || kinds.indexOf(t.surface) === -1) return;
               var go = function () {
                 try { chrome.tabs.update(t.tabId, {url: t.url}, noopLastError); } catch (e) {
-                  // Ignore
+                  // A tab closed since the restart has no override page to bring back
                 }
               };
               if (!chrome.tabs.get) return go();
@@ -365,7 +370,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
                   if (tab && overrideKindOf(tab.url, kinds) === t.surface) go();
                 });
               } catch (e) {
-                // Ignore
+                // A refused tab lookup leaves that tab on the stock page it shows
               }
             })(rec.tabs[i]);
           }
@@ -377,7 +382,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var chrome = g.chrome;
       var plain = function () {
         try { chrome.tabs.create({url: page.url, active: page.active === true}, noopLastError); } catch (e) {
-          // Ignore
+          // A tab the browser refuses to open stays closed, the boot goes on
         }
       };
       try {
@@ -386,12 +391,13 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           function () {
             var failed = false;
             try { failed = !!chrome.runtime.lastError; } catch (e) {
-              // Ignore
+              // A throwing lastError read counts as success, the tab was created
             }
             // The window went with its last tab, so any window will do.
             if (failed) plain();
           }
         );
+      // A refused placement opens the page in any window instead
       } catch (e) { plain(); }
     }
 
@@ -405,7 +411,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         var rec = res && res[PAGE_TABS_KEY];
         if (!rec || typeof rec !== "object" || !Array.isArray(rec.tabs)) return;
         try { chrome.storage.local.remove(PAGE_TABS_KEY, noopLastError); } catch (e) {
-          // Ignore
+          // A record left behind expires after 30 seconds and is ignored then
         }
         if (typeof rec.at !== "number" || Date.now() - rec.at > 30000) return;
         setTimeout(function () {
@@ -428,7 +434,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
                 if (kept) {
                   if (kept.url === page.url) {
                     try { chrome.tabs.reload(page.tabId, {bypassCache: true}, noopLastError); } catch (e) {
-                      // Ignore
+                      // A tab closed since the query has nothing to reload
                     }
                   }
                   continue;
@@ -439,7 +445,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
               }
             });
           } catch (e) {
-            // Ignore
+            // A refused tabs query leaves the own pages closed after the restart
           }
         }, 500);
       });
@@ -454,7 +460,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       for (var i = 0; i < files.length; i++) {
         if (typeof files[i] !== "string") continue;
         try { wanted[String(chrome.runtime.getURL(scriptFileName(files[i])))] = true; } catch (e) {
-          // Ignore
+          // An unreadable URL for this file matches no open tab to reload
         }
       }
       try {
@@ -465,12 +471,12 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
             if (!tab || tab.id == null || typeof tab.url !== "string") continue;
             if (!wanted[tab.url.replace(/[?#].*$/, "")]) continue;
             try { chrome.tabs.reload(tab.id, {bypassCache: true}, noopLastError); } catch (e) {
-              // Ignore
+              // A tab closed since the query has nothing to reload
             }
           }
         });
       } catch (e) {
-        // Ignore
+        // No tabs API in this background means no standalone tab to reload
       }
     }
 
@@ -494,14 +500,14 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           try {
             dev.reload(frame && frame.changedContentScriptEntries, function (handled) {
               if (handled) { if (onDone) { try { onDone(); } catch (e) {
-                // Ignore
+                // A throw in the caller's callback must not undo the finished reload
               } } return; }
               if (reinjectContentScripts(onDone)) return;
               fullReload();
             });
             return;
           } catch (e) {
-            // Ignore
+            // A throwing dev runtime falls back to the manifest-based reinject
           }
         }
         if (reinjectContentScripts(onDone)) return;
@@ -533,7 +539,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
                   );
                   return;
                 } catch (e) {
-                  // Ignore
+                  // A tab that refuses scripting falls back to the MV2 executeScript
                 }
               }
               // MV2 fallback (Firefox without the scripting API).
@@ -541,14 +547,14 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
                 try {
                   chrome.tabs.executeScript(tab.id, {code: "console.log(" + JSON.stringify(text) + ");"}, noopLastError);
                 } catch (e) {
-                  // Ignore
+                  // A tab that refuses scripts only misses the reload console line
                 }
               }
             })(tabs[i]);
           }
         });
       } catch (e) {
-        // Ignore
+        // No tabs API means no tab console to announce the reload in
       }
     }
 
@@ -575,6 +581,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         if (outcome && typeof outcome.then === "function") {
           outcome.then(answer, function () { answer(); });
         } else answer();
+      // A throwing replay shim counts as zero tabs replayed for the receipt
       } catch (e) { answer(); }
     }
 
@@ -653,17 +660,18 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         var fns = scriptVersionWaiters;
         scriptVersionWaiters = [];
         for (var i = 0; i < fns.length; i++) { try { fns[i](); } catch (e) {
-          // Ignore
+          // One waiter that throws must not keep the others from running
         } }
       };
       try { setTimeout(function () { done(null); }, 1000); } catch (e) {
-        // Ignore
+        // Without a guard timer the session read still answers the waiters
       }
       try {
         g.chrome.storage.session.get(SCRIPT_VERSIONS_KEY, function (res) {
           noopLastError();
           done(res && res[SCRIPT_VERSIONS_KEY]);
         });
+      // No session storage starts with no versions, every address plain
       } catch (e) { done(null); }
     }
 
@@ -680,6 +688,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var answersCallback = function () {
         if (style === null) {
           var read;
+          // A read that throws is treated as the promise form of the API
           try { read = natives.getRegisteredContentScripts(); } catch (e) { style = false; return style; }
           style = !(read && typeof read.then === "function");
           if (!style) read.then(function () {}, function () {});
@@ -733,10 +742,12 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           } catch (e) { settle(); throw e; }
           // A call that hands nothing back is answered the same way here.
           if (done || answersCallback()) {
+            // The shape probe already threw any refusal, settle frees the count
             withScriptVersions(function () { try { call(); } catch (e) { settle(); } });
             return undefined;
           }
           return new Promise(function (resolve, reject) {
+            // The caller's promise rejects with the same error the call threw
             withScriptVersions(function () { try { resolve(call()); } catch (e) { settle(); reject(e); } });
           });
         };
@@ -810,11 +821,12 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         if (refused && typeof refused.then === "function") refused.then(function () {}, function () {});
         if (done || unanswered) {
           withScriptVersions(function () { try { call(); } catch (e) {
-            // Ignore
+            // The shape probe already threw any refusal the caller would see
           } });
           return undefined;
         }
         return new Promise(function (resolve, reject) {
+          // The caller's promise rejects with the same error the call threw
           withScriptVersions(function () { try { resolve(call()); } catch (e) { reject(e); } });
         });
       };
@@ -836,7 +848,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var roots = [g.chrome, g.browser];
       for (var i = 0; i < roots.length; i++) {
         try { wrapScriptRegistry(roots[i] && roots[i].scripting); } catch (e) {
-          // Ignore
+          // A namespace that refuses wrapping keeps the browser's own calls
         }
       }
       if (nativeRegistry) withScriptVersions(function () {});
@@ -859,6 +871,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var lateSaid = false;
       var counted = [];
       var failed = function () {
+        // A throwing lastError read counts as a call that answered fine
         try { return !!(g.chrome && g.chrome.runtime && g.chrome.runtime.lastError); } catch (e) { return false; }
       };
       var devId = function (entry) {
@@ -915,16 +928,17 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           owner[key] = wrapper;
           if (owner[key] === wrapper) counted.push({owner: owner, key: key, inner: inner, wrapper: wrapper, kept: !!registry});
         } catch (e) {
-          // Ignore
+          // A frozen method stays unwrapped and is simply not waited on
         }
       };
       var walk = function (owner, depth, seen) {
         var keys = [];
         try { keys = Object.keys(owner); } catch (e) {
-          // Ignore
+          // An object whose keys cannot be read has nothing to walk into
         }
         for (var i = 0; i < keys.length; i++) {
           var value;
+          // A getter that throws is skipped, it holds nothing to count
           try { value = owner[keys[i]]; } catch (e) { continue; }
           if (typeof value === "function") { count(owner, keys[i], null); continue; }
           if (!value || typeof value !== "object" || depth >= 3 || seen.indexOf(value) !== -1) continue;
@@ -951,6 +965,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         try {
           var ret = scripting.getRegisteredContentScripts(function (list) { noopLastError(); answer(list); });
           if (ret && typeof ret.then === "function") ret.then(answer, function () { answer(null); });
+        // A refused read counts as no kept registration from the profile
         } catch (e) { answer(null); }
       };
       var roots = [g.chrome, g.browser];
@@ -962,7 +977,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         seen.push(root);
         var scripting = null;
         try { scripting = root.scripting; } catch (e) {
-          // Ignore
+          // A namespace that throws on access has no registry to count
         }
         if (scripting && seen.indexOf(scripting) === -1) {
           if (!read) { read = true; readKept(scripting); }
@@ -986,7 +1001,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           var c = counted[i];
           if (c.kept) continue;
           try { if (c.owner[c.key] === c.wrapper) c.owner[c.key] = c.inner; } catch (e) {
-            // Ignore
+            // A frozen method keeps the wrapper, which only passes calls through
           }
         }
       };
@@ -997,11 +1012,11 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var eventsDue = function () { eventsDone = true; };
       var worker = null;
       try { worker = g.serviceWorker && typeof g.serviceWorker.state === "string" ? g.serviceWorker : null; } catch (e) {
-        // Ignore
+        // An unreadable worker global is treated as a page background
       }
       var doc = null;
       try { doc = g.document && typeof g.document.readyState === "string" ? g.document : null; } catch (e) {
-        // Ignore
+        // An unreadable document is treated as a worker background
       }
       if (worker && worker.state !== "activated" && typeof g.addEventListener === "function") {
         // An installing worker gets onInstalled before it activates.
@@ -1033,7 +1048,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         }
         idleOnce = idle;
         try { setTimeout(check, BOOT_IDLE_CHECK_MS); } catch (e) {
-          // Ignore
+          // A live background always has setTimeout, this only shields the poll
         }
       };
       setTimeout(check, 0);
@@ -1051,7 +1066,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         var rec = {};
         rec[SCRIPT_VERSIONS_KEY] = scriptVersions;
         try { g.chrome.storage.session.set(rec, noopLastError); } catch (e) {
-          // Ignore
+          // An unsaved version map only lasts until this background suspends
         }
         cb();
       });
@@ -1066,6 +1081,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var check = function () {
         if (waited >= 15000 || (registryCalls <= 0 && Date.now() - registryCalledAt >= 300)) return cb();
         waited += 100;
+        // Without a timer the refresh goes ahead without waiting for quiet
         try { setTimeout(check, 100); } catch (e) { cb(); }
       };
       check();
@@ -1102,6 +1118,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         if (!patterns.length || !chrome.tabs || !chrome.tabs.query) return each([]);
         try {
           chrome.tabs.query({url: patterns}, function (tabs) { noopLastError(); each(tabs || []); });
+        // A refused tabs query matches no tab for these patterns
         } catch (e) { each([]); }
       };
       for (var i = 0; i < scripts.length; i++) {
@@ -1131,7 +1148,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       if (!chrome.tabs || !chrome.tabs.reload) return;
       for (var i = 0; i < tabIds.length; i++) {
         try { chrome.tabs.reload(tabIds[i], {}, noopLastError); } catch (e) {
-          // Ignore
+          // A tab closed since the query has nothing to reload
         }
       }
     }
@@ -1150,10 +1167,11 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         nativeRegistry.updateContentScripts(withFileNames(updates, scriptAddress), function () {
           var failed = false;
           try { failed = !!g.chrome.runtime.lastError; } catch (e) {
-            // Ignore
+            // A throwing lastError read counts as an update that landed
           }
           cb(!failed);
         });
+      // A refused update falls back to restarting the extension
       } catch (e) { cb(false); }
     }
 
@@ -1165,7 +1183,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         rec[REGISTERED_RELOAD_KEY] = {at: Date.now(), tabs: tabIds, scripts: scriptIds};
         g.chrome.storage.local.set(rec, noopLastError);
       } catch (e) {
-        // Ignore
+        // An unsaved record only skips the tab reload after the restart
       }
       if (sendHeldReloadAck) sendHeldReloadAck();
       restartExtension(150);
@@ -1181,10 +1199,10 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         if (answered) return;
         answered = true;
         if (guard) { try { clearTimeout(guard); } catch (e) {
-          // Ignore
+          // A guard timer that cannot be cleared only finds the answer given
         } }
         try { cb(restarting); } catch (e) {
-          // Ignore
+          // A throw in the caller's callback must not stop the reload
         }
       };
       if (
@@ -1194,7 +1212,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var addressed = canAddressRegisteredScripts();
       var refresh = function () {
         try { guard = setTimeout(function () { answer(false); }, 1000); } catch (e) {
-          // Ignore
+          // Without a guard timer the registry read still answers the call
         }
         // The update below is the browser's own call, so the read is too: a
         // wrapped read answers the names the author wrote, not the files run.
@@ -1232,9 +1250,11 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
               }
               var finish = function () { noopLastError(); reloadTabIds(tabIds); answer(false); };
               if (!chrome.scripting.updateContentScripts) return finish();
+              // A refused update still reloads the tabs at the files they hold
               try { chrome.scripting.updateContentScripts(updates, finish); } catch (e) { finish(); }
             });
           });
+        // A refused registry read leaves the reload to the frame's own kind
         } catch (e) { answer(false); }
       };
       if (!addressed) return refresh();
@@ -1252,7 +1272,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         var rec = res && res[REGISTERED_RELOAD_KEY];
         if (!rec || typeof rec !== "object") return;
         try { chrome.storage.local.remove(REGISTERED_RELOAD_KEY, noopLastError); } catch (e) {
-          // Ignore
+          // A record left behind expires after 30 seconds and is ignored then
         }
         if (typeof rec.at !== "number" || Date.now() - rec.at > 30000 || !Array.isArray(rec.tabs)) return;
         var wanted = stringList(rec.scripts);
@@ -1272,6 +1292,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           };
           try {
             chrome.scripting.getRegisteredContentScripts(function (existing) { noopLastError(); proceed(existing); });
+          // A refused registry read reloads the recorded tabs without waiting
           } catch (e) { reloadTabIds(rec.tabs); }
         };
         setTimeout(check, 250);
@@ -1298,13 +1319,14 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var name = String(value || "");
       var base = "";
       try { base = String(g.chrome.runtime.getURL("")); } catch (e) {
-        // Ignore
+        // An unreadable base URL leaves the name as the manifest gave it
       }
       if (base && name.indexOf(base) === 0) name = name.slice(base.length);
       return scriptFileName(name);
     }
 
     function declaredEntries() {
+      // No manifest to read means no declared entry to match a sheet to
       try { return g.chrome.runtime.getManifest().content_scripts || []; } catch (e) { return []; }
     }
 
@@ -1338,11 +1360,11 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       var stale = [file];
       if (previousDigest && previousDigest !== digest) stale.push(sheetAddress(file, previousDigest));
       try { chrome.scripting.insertCSS({target: target, files: [sheetAddress(file, digest)]}, noopLastError); } catch (e) {
-        // Ignore
+        // A frame gone since the query has no sheet to swap in
       }
       for (var i = 0; i < stale.length; i++) {
         try { chrome.scripting.removeCSS({target: target, files: [stale[i]]}, noopLastError); } catch (e) {
-          // Ignore
+          // A frame gone since the query has no stale sheet left to remove
         }
       }
     }
@@ -1408,11 +1430,11 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
             if (toUpdate.length) chrome.scripting.updateContentScripts(toUpdate, noopLastError);
             if (toRegister.length) chrome.scripting.registerContentScripts(toRegister, noopLastError);
           } catch (e) {
-            // Ignore
+            // A refused call keeps the old sheet registrations until a reload
           }
         });
       } catch (e) {
-        // Ignore
+        // A refused registry read leaves later documents on the declared copy
       }
     }
 
@@ -1425,7 +1447,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         var fns = sheetSessionWaiters;
         sheetSessionWaiters = [];
         for (var i = 0; i < fns.length; i++) { try { fns[i](); } catch (e) {
-          // Ignore
+          // One waiter that throws must not keep the others from running
         } }
       };
       if (!canSwapDeclaredSheets()) return done();
@@ -1436,14 +1458,16 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           var mark = {};
           mark[SHEET_SESSION_KEY] = Date.now();
           try { chrome.storage.session.set(mark, noopLastError); } catch (e) {
-            // Ignore
+            // An unsaved mark only repeats this reset on the next background start
           }
           sheetOverrides = {};
           try { registerSheetOverrides({}); } catch (e) {
-            // Ignore
+            // Stale sheet registrations stay until the extension reloads again
           }
+          // A record that cannot be removed is still reset in memory above
           try { chrome.storage.local.remove(SHEET_OVERRIDES_KEY, function () { noopLastError(); done(); }); } catch (e) { done(); }
         });
+      // No session storage leaves the overrides unread, waiters still run
       } catch (e) { done(); }
     }
 
@@ -1457,6 +1481,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
             sheetOverrides = map && typeof map === "object" ? map : {};
             cb(sheetOverrides);
           });
+        // No local storage means no earlier swap to build on
         } catch (e) { cb({}); }
       };
       if (sheetSessionChecked) read(); else sheetSessionWaiters.push(read);
@@ -1469,9 +1494,11 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           target: {tabId: tabId, allFrames: true},
           args: [SHEET_ENTRIES_KEY],
           func: function (key) {
+            // A frame whose global cannot be read runs no declared bundle
             try { return Object.keys(globalThis[key] || {}); } catch (e) { return []; }
           }
         }, function (results) { noopLastError(); cb(Array.isArray(results) ? results : []); });
+      // A tab that refuses scripts has no frame to swap a sheet in
       } catch (e) { cb([]); }
     }
 
@@ -1498,7 +1525,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
           }
         });
       } catch (e) {
-        // Ignore
+        // No tabs API leaves open frames on the old sheet until they reload
       }
     }
 
@@ -1530,10 +1557,11 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         var apply = function () {
           noopLastError();
           try { registerSheetOverrides(next); } catch (e) {
-            // Ignore
+            // A refused registration leaves later documents to ask for the sheet
           }
           swapInOpenFrames(jobs, previous);
         };
+        // An unsaved record still swaps the open frames from memory
         try { chrome.storage.local.set(rec, apply); } catch (e) { apply(); }
         cb(true);
       });
@@ -1589,6 +1617,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
       if (replays) {
         if (sendHeldReloadAck) sendHeldReloadAck();
         sendHeldReloadAck = sendAck;
+        // Without a timer the receipt goes out at once with no replay count
         try { setTimeout(function () { sendAck(); }, REPLAY_RECEIPT_WAIT_MS); } catch (e) { sendAck(); }
       } else sendAck();
 
@@ -1634,7 +1663,7 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
     function unregisterDevContentScripts(onDone) {
       var chrome = g.chrome;
       var done = function () { if (onDone) { try { onDone(); } catch (e) {
-        // Ignore
+        // A throw in the caller's callback must not stop the boot heal
       } } };
       try {
         if (
@@ -1644,7 +1673,7 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
         ) return done();
         chrome.scripting.getRegisteredContentScripts(function (existing) {
           try { void chrome.runtime.lastError; } catch (e) {
-            // Ignore
+            // Reading lastError only marks it seen so the browser logs nothing
           }
           var ids = [];
           if (existing) {
@@ -1656,8 +1685,10 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
           if (!ids.length) return done();
           try {
             chrome.scripting.unregisterContentScripts({ids: ids}, function () { noopLastError(); done(); });
+          // A refused unregister still lets the heal run, worst case twice
           } catch (e) { done(); }
         });
+      // No registry API means no dev copies to drop before the heal
       } catch (e) { done(); }
     }
 
@@ -1670,18 +1701,18 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
       // Firefox injects declared content scripts into open tabs on a reload
       // itself, so a heal there runs every script a second time.
       try { if (engineName() === "firefox") return; } catch (e) {
-        // Ignore
+        // An unknown engine is healed as Chromium, which needs the heal
       }
       setTimeout(function () {
         var dev = devContentScripts();
         if (dev && typeof dev.heal === "function") {
           try { dev.heal(); return; } catch (e) {
-            // Ignore
+            // A throwing dev runtime falls back to the manifest-based heal
           }
         }
         unregisterDevContentScripts(function () {
           try { reinjectContentScripts(undefined, {register: false, completeOnly: true}); } catch (e) {
-            // Ignore
+            // A failed heal leaves open tabs stale until a reload or navigation
           }
         });
       }, 250);
@@ -1697,34 +1728,35 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
         rtBoot.runtime.onInstalled.addListener(function (details) {
           if (details && details.reason === "install") return;
           try { healOpenTabsAtBoot(); } catch (e) {
-            // Ignore
+            // A failed heal leaves open tabs stale until a reload or navigation
           }
         });
       }
     } catch (e) {
-      // Ignore
+      // No onInstalled event leaves the storage flag to trigger the heal
     }
 
     try { installScriptAddresses(); } catch (e) {
-      // Ignore
+      // Unwrapped registries only mean Gecko reads an edited file late
     }
 
     try { watchBootRegistrations(); } catch (e) {
-      // Ignore
+      // A failed boot watch must not stop the rest of the background boot
     }
 
     try { restoreOverrideTabsAtBoot(); } catch (e) {
-      // Ignore
+      // A failed restore leaves override tabs on the browser's stock page
     }
 
     try { restorePageTabsAtBoot(); } catch (e) {
-      // Ignore
+      // A failed restore leaves the extension's own tabs closed or stale
     }
 
     try { reloadRegisteredScriptTabsAtBoot(); } catch (e) {
-      // Ignore
+      // A failed boot reload leaves those tabs on the old registered files
     }
 
+    // A failed session check still releases the waiting sheet readers
     try { checkSheetSession(); } catch (e) {
       sheetSessionChecked = true;
     }
@@ -1736,7 +1768,7 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
         });
       }
     } catch (e) {
-      // Ignore
+      // No message listener leaves new Gecko frames on the declared sheet
     }
 
     // Chromium 146 fires no onInstalled on runtime.reload() while 151 reports
@@ -1749,14 +1781,14 @@ const RELOAD_BOOT = `    // Dev registrations outlive runtime.reload(), while th
           var ts = res && res.__extjsDevPendingReinject;
           if (ts == null) return;
           try { stBoot.storage.local.remove("__extjsDevPendingReinject", noopLastError); } catch (e) {
-            // Ignore
+            // A flag left behind expires after 30 seconds and is ignored then
           }
           if (typeof ts !== "number" || Date.now() - ts > 30000) return;
           healOpenTabsAtBoot();
         });
       }
     } catch (e) {
-      // Ignore
+      // No storage read leaves onInstalled as the only heal trigger
     }
 
 `
@@ -1798,16 +1830,16 @@ export function buildDeclaredSheetSignalSource(assetName: string): string {
         if (!overrides || typeof overrides !== "object") return;
         for (var file in overrides) {
           chrome.runtime.sendMessage({__extjsDevSheets: {file: FILE}}, function () { try { void chrome.runtime.lastError; } catch (e) {
-            // Ignore
+            // Reading lastError marks it seen when no background listens
           } });
           return;
         }
       } catch (e) {
-        // Ignore
+        // A context invalidated by a reload has no background to ask
       }
     });
   } catch (e) {
-    // Ignore
+    // A bundle that fails to signal still runs, only its sheet stays old
   }
 })();
 `

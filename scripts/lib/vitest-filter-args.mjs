@@ -11,6 +11,11 @@ const UPDATE_TYPES = new Set(['all', 'new', 'none', 'true', 'false'])
 
 // The update flag takes an optional type, so vitest reads the word after it
 // as that type. A file filter written there is gone and the suite runs.
+/**
+ * @param {string[]} argv
+ * @param {number} index
+ * @returns {boolean}
+ */
 function swallowsNext(argv, index) {
   const next = argv[index + 1]
 
@@ -23,6 +28,10 @@ function swallowsNext(argv, index) {
 }
 
 // What vitest would drop from these arguments, in the order it was written.
+/**
+ * @param {string[]} argv
+ * @returns {string[]}
+ */
 export function droppedVitestFilters(argv) {
   const dashes = argv.indexOf('--')
   const before = dashes === -1 ? argv : argv.slice(0, dashes)
@@ -35,8 +44,14 @@ export function droppedVitestFilters(argv) {
 
 // The same arguments with every filter where vitest reads it as a filter:
 // no separator, and the update flag last, where nothing follows it.
+/**
+ * @param {string[]} argv
+ * @returns {string[]}
+ */
 export function keepVitestFilters(argv) {
+  /** @type {string[]} */
   const kept = []
+  /** @type {string[]} */
   const moved = []
 
   argv.forEach((arg, index) => {
@@ -50,6 +65,10 @@ export function keepVitestFilters(argv) {
 }
 
 // The message a config throws so a direct vitest call stops before it runs.
+/**
+ * @param {string[]} argv
+ * @returns {string | undefined}
+ */
 export function droppedVitestFiltersMessage(argv) {
   const dropped = droppedVitestFilters(argv)
 

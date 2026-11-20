@@ -8,8 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {FilepathList} from '../../types'
 import {isOsPathUnder} from '../../lib/real-path'
+import type {FilepathList} from '../../types'
 
 export function isFromFilepathList(
   filePath: string,

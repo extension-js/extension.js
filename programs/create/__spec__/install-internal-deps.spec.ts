@@ -188,26 +188,12 @@ describe('detectOptionalDependencies', () => {
       }
     },
     {
-      name: 'Preact asks for prefresh and preact itself',
+      // The build compiles Preact with no refresh transform, and preact is
+      // the project's own dependency, so the toolchain needs nothing added.
+      name: 'Preact asks for nothing',
       dependencies: {preact: '^10.0.0'},
       files: [],
-      plan: {
-        integrations: ['Preact'],
-        dependencies: [
-          '@prefresh/core',
-          '@prefresh/utils',
-          '@rspack/plugin-preact-refresh',
-          'preact'
-        ],
-        dependenciesByIntegration: {
-          Preact: [
-            '@prefresh/core',
-            '@prefresh/utils',
-            '@rspack/plugin-preact-refresh',
-            'preact'
-          ]
-        }
-      }
+      plan: {integrations: [], dependencies: [], dependenciesByIntegration: {}}
     },
     {
       name: 'Vue asks for its loader and the SFC compiler',
@@ -619,6 +605,25 @@ describe('installInternalDependencies', () => {
 
     expect(logs).toEqual([])
     expect(installCalls).toEqual([])
+  })
+
+  it('starts no install for a Preact project, even with nothing resolvable', async () => {
+    const projectRoot = makeProject({preact: '^10.0.0'}, [])
+    vi.stubEnv('EXTENSION_CREATE_DEVELOP_ROOT', makeDevelopRoot())
+
+    const {logger, logs} = recordingLogger()
+    await installInternalDependencies(
+      projectRoot,
+      logger,
+      'pnpm',
+      undefined,
+      nothingResolves,
+      undefined,
+      runInstall
+    )
+
+    expect(installCalls).toEqual([])
+    expect(logs).toEqual([])
   })
 
   it('installs every missing integration into the develop root in one run', async () => {

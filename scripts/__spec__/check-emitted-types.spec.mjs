@@ -272,8 +272,10 @@ test('each entry is checked alone, then together with one member of an exclusive
 })
 
 test('the exclusive entries are typed entries the extension package exports', () => {
-  const extension = listPublishedPackages(root).find(
-    ({manifest}) => manifest.name === 'extension'
+  const extension = /** @type {any} */ (
+    listPublishedPackages(root).find(
+      ({manifest}) => manifest.name === 'extension'
+    )
   )
   const specifiers = typedEntries(extension.manifest).map(
     (entry) => entry.specifier

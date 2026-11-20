@@ -72,7 +72,7 @@ function updateReleaseNotes(tag, notes) {
     execSync(`gh release edit ${tag} --notes-file ${tmp}`, {stdio: 'inherit'})
 
     return true
-  } catch (err) {
+  } catch (/** @type {any} */ err) {
     console.error(`  → failed: ${err.message || err}`)
 
     return false

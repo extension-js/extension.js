@@ -80,9 +80,7 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
   it('reads the control bridge and nothing else of the dev server', () => {
     const allowed = new Set([
       'control-bridge/contracts',
-      'control-bridge/producer-runtime',
-      // humanLine, re-exported there. Its home is lib/messaging.
-      'lifecycle-stream'
+      'control-bridge/producer-runtime'
     ])
     const reached = files.flatMap(({text}) =>
       specifiers(text)
@@ -114,6 +112,101 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
           /session-restart|main-world-restart|isAwaitingMainWorldRestart/.test(
             text
           )
+        )
+        .map(({file}) => file)
+    ).toEqual([])
+  })
+})
+
+// The pages belong to the HTML feature. Reload is told about them through
+// one extension point and reads no file of that feature.
+// Every file of another plugin this folder reads. A new row is a decision,
+// since each one is something reload knows about a neighbor.
+describe('what plugin-reload reaches in the other plugins', () => {
+  const reached = [
+    ...new Set(
+      sourceFiles(FOLDER).flatMap((file) =>
+        [...fs.readFileSync(file, 'utf8').matchAll(/from\s+'([^']+)'/g)]
+          .map((match) => match[1])
+          .filter((from) => /\/(?:plugin-[a-z-]+|dev-server)\//.test(from))
+          .map((from) => from.replace(/^(?:\.\.\/)+/, ''))
+      )
+    )
+  ].sort()
+
+  it('reads these files and no other', () => {
+    expect(reached).toEqual([
+      'dev-server/control-bridge/contracts',
+      'dev-server/control-bridge/producer-runtime',
+      'plugin-js-frameworks/js-tools/react',
+      'plugin-js-frameworks/js-tools/svelte',
+      'plugin-js-frameworks/js-tools/vue',
+      'plugin-special-folders/public-private-files',
+      'plugin-special-folders/resolve-public-folder',
+      'plugin-web-extension/feature-scripts/contracts',
+      'plugin-web-extension/shared/background-asset',
+      'plugin-web-extension/shared/chunk-loading-target-extensions',
+      'plugin-web-extension/shared/content-script-wrapper-extensions',
+      'plugin-web-extension/shared/html-page-extensions',
+      'plugin-web-extension/shared/initial-files'
+    ])
+  })
+})
+
+describe('what plugin-reload reaches in the HTML feature', () => {
+  const files = sourceFiles(FOLDER).map((file) => ({
+    file: path.relative(FOLDER, file).split(path.sep).join('/'),
+    text: fs.readFileSync(file, 'utf8')
+  }))
+
+  it('imports nothing from the HTML feature', () => {
+    expect(
+      files
+        .filter(({text}) => /["'][^"']*feature-html[^"']*["']/.test(text))
+        .map(({file}) => file)
+    ).toEqual([])
+  })
+
+  it('is told the pages through their extension point, in one step', () => {
+    expect(
+      files
+        .filter(({text}) =>
+          /["'][^"']*shared\/html-page-extensions["']/.test(text)
+        )
+        .map(({file}) => file)
+    ).toEqual(['steps/setup-page-reload.ts'])
+  })
+})
+
+// A reload spec drives the session itself. One that needs a browser plugin
+// to reach reload code is a spec of that plugin.
+describe('what the specs of plugin-reload reach', () => {
+  const specFolder = path.join(FOLDER, '__spec__')
+  const specs = fs
+    .readdirSync(specFolder, {recursive: true, encoding: 'utf8'})
+    .filter((file) => /\.ts$/.test(file))
+    .map((file) => ({
+      file: file.split(path.sep).join('/'),
+      text: fs.readFileSync(path.join(specFolder, file), 'utf8')
+    }))
+
+  it('reads its own spec files', () => {
+    expect(specs.map(({file}) => file)).toContain('helpers/launched-session.ts')
+  })
+
+  it('imports nothing from plugin-browsers, its specs included', () => {
+    expect(
+      specs
+        .filter(({text}) => /from\s+'[^']*plugin-browsers[^']*'/.test(text))
+        .map(({file}) => file)
+    ).toEqual([])
+  })
+
+  it('never builds a BrowsersPlugin or a SafariDevPlugin', () => {
+    expect(
+      specs
+        .filter(({text}) =>
+          /new (?:BrowsersPlugin|SafariDevPlugin)\(/.test(text)
         )
         .map(({file}) => file)
     ).toEqual([])

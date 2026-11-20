@@ -1,0 +1,193 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the pages of a build and the entries behind them > emits the same files, pages and page entries in a development build 1`] = `
+{
+  "entries": {
+    "action/index": {
+      "imports": [
+        "<project>/popup.js",
+        "<project>/popup.css",
+      ],
+    },
+    "options/index": {
+      "imports": [],
+    },
+    "pages/deep/nested": {
+      "imports": [
+        "<project>/pages/deep/nested.js",
+        "<project>/pages/deep/nested.css",
+      ],
+    },
+    "sandbox/page-0": {
+      "imports": [
+        "<project>/sandbox.js",
+      ],
+      "layer": "extensionjs-sandbox",
+    },
+  },
+  "files": [
+    "action/index.css",
+    "action/index.css.map",
+    "action/index.html",
+    "action/index.js",
+    "action/index.js.map",
+    "background/service_worker.js",
+    "background/service_worker.js.map",
+    "content_scripts/content-0.HASH.js",
+    "content_scripts/content-0.HASH.js.map",
+    "manifest.json",
+    "options/index.html",
+    "pages/deep/nested.css",
+    "pages/deep/nested.css.map",
+    "pages/deep/nested.html",
+    "pages/deep/nested.js",
+    "pages/deep/nested.js.map",
+    "sandbox/page-0.html",
+    "sandbox/page-0.js",
+    "sandbox/page-0.js.map",
+  ],
+  "html": {
+    "action/index.html": "<!DOCTYPE html><html><head><link rel="stylesheet" href="/action/index.css"></head><body><div id="root"></div><script src="/action/index.js"></script></body></html>",
+    "options/index.html": "<!DOCTYPE html><html><head><title>options</title></head><body>PAGE_WITH_NO_SCRIPT</body></html>",
+    "pages/deep/nested.html": "<!DOCTYPE html><html><head><link rel="stylesheet" href="/pages/deep/nested.css"></head><body><script src="/pages/deep/nested.js" type="module"></script></body></html>",
+    "sandbox/page-0.html": "<!DOCTYPE html><html><head></head><body><script src="/sandbox/page-0.js"></script></body></html>",
+  },
+  "ownAliases": {},
+  "pageLoaders": [],
+}
+`;
+
+exports[`the pages of a build and the entries behind them > emits the same files, pages and page entries in a development session 1`] = `
+{
+  "entries": {
+    "action/index": {
+      "imports": [
+        "<develop>/preact-refresh-shim",
+        "<dependency>/@rspack/dev-server/client/index.js?<query>",
+        "<dependency>/@rspack/core/hot/dev-server.js",
+        "<project>/popup.js",
+        "<project>/popup.css",
+        "<develop>/minimum-script-file",
+      ],
+    },
+    "options/index": {
+      "imports": [
+        "<develop>/preact-refresh-shim",
+        "<dependency>/@rspack/dev-server/client/index.js?<query>",
+        "<dependency>/@rspack/core/hot/dev-server.js",
+        "<develop>/minimum-script-file",
+      ],
+    },
+    "pages/deep/nested": {
+      "imports": [
+        "<develop>/preact-refresh-shim",
+        "<dependency>/@rspack/dev-server/client/index.js?<query>",
+        "<dependency>/@rspack/core/hot/dev-server.js",
+        "<project>/pages/deep/nested.js",
+        "<project>/pages/deep/nested.css",
+        "<develop>/minimum-script-file",
+      ],
+    },
+    "sandbox/page-0": {
+      "imports": [
+        "<develop>/preact-refresh-shim",
+        "<dependency>/@rspack/dev-server/client/index.js?<query>",
+        "<dependency>/@rspack/core/hot/dev-server.js",
+        "<project>/sandbox.js",
+        "<develop>/minimum-script-file",
+      ],
+      "layer": "extensionjs-sandbox",
+    },
+  },
+  "files": [
+    "action/index.css",
+    "action/index.css.map",
+    "action/index.html",
+    "action/index.js",
+    "action/index.js.map",
+    "background/service_worker.js",
+    "background/service_worker.js.map",
+    "content_scripts/content-0.HASH.js",
+    "content_scripts/content-0.HASH.js.map",
+    "content_scripts/dev-registry.json",
+    "content_scripts/dev-stub-0.js",
+    "extension-js-control.json",
+    "manifest.json",
+    "options/index.html",
+    "options/index.js",
+    "options/index.js.map",
+    "pages/deep/nested.css",
+    "pages/deep/nested.css.map",
+    "pages/deep/nested.html",
+    "pages/deep/nested.js",
+    "pages/deep/nested.js.map",
+    "sandbox/page-0.html",
+    "sandbox/page-0.js",
+    "sandbox/page-0.js.map",
+    "shared/commons.js",
+    "shared/commons.js.map",
+  ],
+  "html": {
+    "action/index.html": "<!DOCTYPE html><html><head><link rel="stylesheet" href="/action/index.css"></head><body><div id="root"></div><script src="/shared/commons.js"></script><script src="/action/index.js"></script></body></html>",
+    "options/index.html": "<!DOCTYPE html><html><head><title>options</title></head><body>PAGE_WITH_NO_SCRIPT<script src="/shared/commons.js"></script><script src="/options/index.js"></script></body></html>",
+    "pages/deep/nested.html": "<!DOCTYPE html><html><head><link rel="stylesheet" href="/pages/deep/nested.css"></head><body><script src="/shared/commons.js" type="module"></script><script src="/pages/deep/nested.js" type="module"></script></body></html>",
+    "sandbox/page-0.html": "<!DOCTYPE html><html><head></head><body><script src="/sandbox/page-0.js"></script></body></html>",
+  },
+  "ownAliases": {
+    "<dependency>/@rspack/dev-server/client/clients/WebSocketClient.js$": "<develop>/page-socket-client",
+  },
+  "pageLoaders": [
+    "<develop>/ensure-hmr-for-scripts",
+  ],
+}
+`;
+
+exports[`the pages of a build and the entries behind them > emits the same files, pages and page entries in a production build 1`] = `
+{
+  "entries": {
+    "action/index": {
+      "imports": [
+        "<project>/popup.js",
+        "<project>/popup.css",
+      ],
+    },
+    "options/index": {
+      "imports": [],
+    },
+    "pages/deep/nested": {
+      "imports": [
+        "<project>/pages/deep/nested.js",
+        "<project>/pages/deep/nested.css",
+      ],
+    },
+    "sandbox/page-0": {
+      "imports": [
+        "<project>/sandbox.js",
+      ],
+      "layer": "extensionjs-sandbox",
+    },
+  },
+  "files": [
+    "action/index.css",
+    "action/index.html",
+    "action/index.js",
+    "background/service_worker.js",
+    "content_scripts/content-0.js",
+    "manifest.json",
+    "options/index.html",
+    "pages/deep/nested.css",
+    "pages/deep/nested.html",
+    "pages/deep/nested.js",
+    "sandbox/page-0.html",
+    "sandbox/page-0.js",
+  ],
+  "html": {
+    "action/index.html": "<!DOCTYPE html><html><head><link rel="stylesheet" href="/action/index.css"></head><body><div id="root"></div><script src="/action/index.js"></script></body></html>",
+    "options/index.html": "<!DOCTYPE html><html><head><title>options</title></head><body>PAGE_WITH_NO_SCRIPT</body></html>",
+    "pages/deep/nested.html": "<!DOCTYPE html><html><head><link rel="stylesheet" href="/pages/deep/nested.css"></head><body><script src="/pages/deep/nested.js" type="module"></script></body></html>",
+    "sandbox/page-0.html": "<!DOCTYPE html><html><head></head><body><script src="/sandbox/page-0.js"></script></body></html>",
+  },
+  "ownAliases": {},
+  "pageLoaders": [],
+}
+`;

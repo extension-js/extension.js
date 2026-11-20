@@ -24,6 +24,17 @@ export const READY_CONTRACT_CODES: Record<string, ErrorCode> = {
   shutdown: CODES.E_SESSION_STOPPED
 }
 
+// Every event name events.ndjson can carry. The engine owns the list as a
+// type, and a contract spec holds this copy to it.
+export const READY_EVENT_TYPES = [
+  'compile_start',
+  'compile_success',
+  'compile_error',
+  'browser_exited',
+  'browser_launch_failed',
+  'shutdown'
+] as const
+
 export function readyContractErrorCode(code: unknown): ErrorCode | undefined {
   if (typeof code !== 'string') return undefined
 

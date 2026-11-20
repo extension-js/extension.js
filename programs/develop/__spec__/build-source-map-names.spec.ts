@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {buildPages} from './helpers/page-builds'
 
 const roots: string[] = []
 
@@ -85,6 +86,32 @@ describe('dev source maps', () => {
 
     expect(sources).toContain('webpack://map-names/./popup.js')
     expect(sources.filter((source) => source.includes('/../'))).toEqual([])
+    // A development build that ships holds the author's files alone.
+    expect(
+      sources.filter((source) =>
+        source.startsWith('webpack://map-names/extension.js/')
+      )
+    ).toEqual([])
+  }, 120_000)
+
+  it('name the reload client of a dev session under extension.js/ too', async () => {
+    const root = project()
+
+    await buildPages(root, 'development session')
+
+    const sources = mapSources(
+      path.join(root, 'dist', 'chrome-development-session')
+    )
+
+    expect(sources).toContain('webpack://map-names/./popup.js')
+    // The dev server's own client is a dependency and is named as one.
+    expect(
+      sources.filter(
+        (source) =>
+          source.includes('/../') && !/[\\/]node_modules[\\/]/.test(source)
+      )
+    ).toEqual([])
+
     expect(
       sources.some((source) =>
         source.startsWith('webpack://map-names/extension.js/')

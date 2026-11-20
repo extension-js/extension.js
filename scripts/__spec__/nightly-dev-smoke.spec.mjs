@@ -53,7 +53,7 @@ test('a browser that exited fails the verdict, before or after the load', () => 
     message: 'the edge process exited (code 1) before the extension loaded'
   })
   assert.equal(before.state, 'failed')
-  assert.match(before.reason, /browser_exited/)
+  assert.match(/** @type {string} */ (before.reason), /browser_exited/)
 
   const after = devLaunchVerdict({
     ...attached,
@@ -61,7 +61,7 @@ test('a browser that exited fails the verdict, before or after the load', () => 
     browserExitCode: 1
   })
   assert.equal(after.state, 'failed')
-  assert.match(after.reason, /code 1/)
+  assert.match(/** @type {string} */ (after.reason), /code 1/)
 })
 
 // A stand-in for the CLI: writes the contract the way dev would for one
