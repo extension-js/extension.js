@@ -4,7 +4,7 @@ import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {BridgeBroker} from '../../dev-server/control-bridge/broker'
-import {createPlaywrightMetadataWriter} from '../../plugin-playwright'
+import {createReadyContractWriter} from '../../plugin-ready-contract'
 import type {ReloadBroker, ReloadInstruction} from '../index'
 import {dispatchReload, reloadKindFor} from '../reload-dispatch'
 
@@ -115,7 +115,7 @@ describe('ready.json carries the reload stamp', () => {
     )
 
   it('stamps reloadedAt and reloadKind, and a later compile keeps them', () => {
-    const writer = createPlaywrightMetadataWriter({
+    const writer = createReadyContractWriter({
       packageJsonDir: tmp,
       browser: 'chromium',
       command: 'dev',

@@ -10,9 +10,9 @@ import * as fs from 'node:fs'
 import type {NormalizedBrowser} from '../lib/paths'
 import {readyContractPath} from '../lib/session-paths'
 import {
-  createPlaywrightMetadataWriter,
+  createReadyContractWriter,
   getSessionRunId
-} from '../plugin-playwright'
+} from '../plugin-ready-contract'
 import type {WebpackConfigOptions} from '../types'
 
 // The receipt of a build is the ready contract its compile opened. These read
@@ -41,7 +41,7 @@ export function createBuildReceipt(input: {
   // Opened after the plugin's own writer, with the options the plugin got,
   // so the document keeps every field the compile wrote.
   const openReceipt = () =>
-    createPlaywrightMetadataWriter({
+    createReadyContractWriter({
       packageJsonDir,
       browser: String(browser),
       command: metadataCommand,

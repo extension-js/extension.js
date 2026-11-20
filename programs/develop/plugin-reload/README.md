@@ -320,7 +320,7 @@ consumes that contract. It does not define it, and nothing in
   nothing reads reloads nothing, and a glob add or delete, a loader input,
   an icon, a web resource, `public/` and the manifest still reload
 - `reload-stamp.unit.spec.ts`, the reload kind a dispatch stamps into
-  `ready.json`, through the broker and the Playwright metadata writer
+  `ready.json`, through the broker and the ready contract writer
 - `loaded-content-scripts.spec.ts`, `web-resources.unit.spec.ts`, what the
   browser last read
 - `reload-after-package.unit.spec.ts`, the trim and the burst merge for a

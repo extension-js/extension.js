@@ -6,9 +6,9 @@ import {afterEach, describe, expect, it, vi} from 'vitest'
 import {controlPortFilePath} from '../../lib/session-paths'
 import {stripAnsi} from '../../lib/strip-ansi'
 import {
-  createPlaywrightMetadataWriter,
-  PlaywrightPlugin
-} from '../../plugin-playwright'
+  createReadyContractWriter,
+  ReadyContractPlugin
+} from '../../plugin-ready-contract'
 import type {BridgeBroker} from '../control-bridge/broker'
 import {CONTROL_WS_PATH} from '../control-bridge/contracts'
 import type {ControlServer} from '../control-bridge/ws-control-server'
@@ -161,7 +161,7 @@ describe('opening the control bridge', () => {
     expect(coordinates).toEqual({...refused, controlPath: CONTROL_WS_PATH})
 
     // The session's own writer, which stamps what no compile does.
-    createPlaywrightMetadataWriter({
+    createReadyContractWriter({
       ...session,
       ...coordinates,
       command: 'dev',
@@ -178,7 +178,7 @@ describe('opening the control bridge', () => {
       {get: () => ({tap: () => {}, tapPromise: () => {}, tapAsync: () => {}})}
     )
 
-    new PlaywrightPlugin({
+    new ReadyContractPlugin({
       ...session,
       ...coordinates,
       mode: 'development',

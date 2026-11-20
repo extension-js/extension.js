@@ -89,7 +89,7 @@ import {getProjectStructure} from './lib/project'
 import {resolveSafariIdentity} from './lib/safari-identity'
 import {readyContractPath} from './lib/session-paths'
 import {parkForStartLaunch} from './lib/start-launch-handoff'
-import {createPlaywrightMetadataWriter} from './plugin-playwright'
+import {createReadyContractWriter} from './plugin-ready-contract'
 import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
 import {rememberSpecialFoldersConfig} from './plugin-special-folders/get-data'
 import type {BuildOptions, CommonWebpackOptions} from './types'
@@ -202,7 +202,7 @@ async function runBuild(
       if (findLiveDevSession(packageJsonDir, browser)) return
 
       writeFailedReceipt(
-        createPlaywrightMetadataWriter({
+        createReadyContractWriter({
           packageJsonDir,
           browser: String(browser),
           command: buildOptions?.metadataCommand || 'build',

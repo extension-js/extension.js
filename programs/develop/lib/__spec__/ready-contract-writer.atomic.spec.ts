@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
+import {writeReadyRecord} from '../ready-contract-writer'
 
 // A second process reads the file as fast as it can while this one rewrites
 // it, and reports every read that was not whole JSON. A missing or locked
@@ -54,7 +54,7 @@ function runReader(file: string, untilMs: number) {
   )
 }
 
-describe('writeJsonAtomic', () => {
+describe('writeReadyRecord', () => {
   let tmp: string
   let file: string
 
@@ -68,10 +68,12 @@ describe('writeJsonAtomic', () => {
   })
 
   it('writes the pretty JSON and leaves no temp file behind', () => {
-    expect(writeJsonAtomic(file, {status: 'ready', cdpPort: 9222})).toBe(true)
+    expect(
+      writeReadyRecord(file, {status: 'ready', cdpPort: 9222})
+    ).toBeUndefined()
 
     expect(fs.readFileSync(file, 'utf-8')).toBe(
-      JSON.stringify({status: 'ready', cdpPort: 9222}, null, 2)
+      `${JSON.stringify({status: 'ready', cdpPort: 9222}, null, 2)}\n`
     )
 
     expect(fs.readdirSync(tmp)).toEqual(['ready.json'])
@@ -85,7 +87,7 @@ describe('writeJsonAtomic', () => {
       fs.writeFileSync(file, JSON.stringify({status: 'starting'}))
       const before = fs.statSync(file).ino
 
-      expect(writeJsonAtomic(file, {status: 'ready'})).toBe(true)
+      expect(writeReadyRecord(file, {status: 'ready'})).toBeUndefined()
 
       expect(fs.statSync(file).ino).not.toBe(before)
       expect(JSON.parse(fs.readFileSync(file, 'utf-8'))).toEqual({
@@ -101,7 +103,7 @@ describe('writeJsonAtomic', () => {
     // platform, after the temp file was already written next to it.
     fs.mkdirSync(file)
 
-    expect(writeJsonAtomic(file, {status: 'ready'})).toBe(false)
+    expect(writeReadyRecord(file, {status: 'ready'})).toBeInstanceOf(Error)
 
     expect(fs.readdirSync(tmp)).toEqual(['ready.json'])
     expect(fs.statSync(file).isDirectory()).toBe(true)
@@ -109,7 +111,7 @@ describe('writeJsonAtomic', () => {
 
   it('never lets a concurrent reader see a partial document', async () => {
     const big = 'x'.repeat(1024 * 1024)
-    writeJsonAtomic(file, {done: false, seq: 0, big})
+    writeReadyRecord(file, {done: false, seq: 0, big})
 
     const reader = runReader(file, 15_000)
     // Give the reader time to start polling before the rewrites begin, so
@@ -121,13 +123,13 @@ describe('writeJsonAtomic', () => {
     let landed = 0
 
     for (let seq = 1; seq <= 60; seq++) {
-      if (writeJsonAtomic(file, {done: false, seq, big})) landed += 1
+      if (!writeReadyRecord(file, {done: false, seq, big})) landed += 1
     }
 
     if (process.platform !== 'win32') expect(landed).toBe(60)
 
     for (let attempt = 0; attempt < 20; attempt++) {
-      if (writeJsonAtomic(file, {done: true, seq: 61, big})) break
+      if (!writeReadyRecord(file, {done: true, seq: 61, big})) break
 
       await new Promise((resolvePromise) => setTimeout(resolvePromise, 50))
     }

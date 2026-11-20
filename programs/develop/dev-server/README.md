@@ -38,7 +38,7 @@ The dev server sets no environment variable. Each session writes one `DevSession
 | Field | Read by |
 | --- | --- |
 | `protocol`, `host`, `port`, `path` | `lib/dev-server-client-import.ts`, through the page reload plugin |
-| `connectableHost` | `rspack-config.ts` (the Playwright metadata host), `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |
+| `connectableHost` | `rspack-config.ts` (the host `ready.json` names), `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |
 | `instanceId` | `plugin-reload/steps/inject-bridge-producer.ts` |
 | `controlPort` | `plugin-reload/steps/inject-bridge-producer.ts`, `plugin-reload/steps/inject-bridge-relay.ts` |
 | `launchEnabled` | `rspack-config.ts`, for the compilation plugin |
@@ -61,7 +61,7 @@ The compiler's file watch is set in `rspack-config.ts`, not here: `EXTENSION_WAT
 | `.extension-js/control-token-<browser>` (mode 0600) | With `--allow-eval`, or on a bind host beyond loopback. Removed on exit. |
 | `.gitignore` | Gets `.extension-js` appended when the file exists and does not ignore it yet. |
 
-`ready.json` and `events.ndjson` under `dist/extension-js/<browser>/` are written by the `plugin-playwright` metadata writer that this folder drives.
+`ready.json` and `events.ndjson` under `dist/extension-js/<browser>/` are written by the `plugin-ready-contract` writer that this folder drives.
 
 ### Specs
 

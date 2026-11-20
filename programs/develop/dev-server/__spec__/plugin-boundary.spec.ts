@@ -69,9 +69,8 @@ describe('what the dev server reaches in the other plugins', () => {
     expect(reaching('plugin-browsers')).toEqual(['index.ts'])
   })
 
-  it('reaches plugin-playwright from the three files that read its metadata', () => {
-    expect(reaching('plugin-playwright')).toEqual([
-      'control-bridge/consumer-client.ts',
+  it('reaches plugin-ready-contract from the two files that drive its writer', () => {
+    expect(reaching('plugin-ready-contract')).toEqual([
       'index.ts',
       'session-start-prune.ts'
     ])

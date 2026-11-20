@@ -11,7 +11,7 @@ import * as messages from '../lib/messages'
 import {CODES, stripChannelPrefix} from '../lib/messaging'
 import {displayPath} from '../lib/paths'
 import {thrownFrom} from '../lib/thrown-location'
-import type {createPlaywrightMetadataWriter} from '../plugin-playwright'
+import type {createReadyContractWriter} from '../plugin-ready-contract'
 
 // Failures the compile already reported, line by line and with their count.
 export const reportedBuildFailures = new WeakSet<object>()
@@ -84,7 +84,7 @@ export function fatalFailure(thrown: unknown, projectRoot: string): Error {
 // The id stays build_failed. A code the failure declared is stamped beside
 // it, which a reader takes before the id's E_COMPILE fallback.
 export function writeFailedReceipt(
-  writer: ReturnType<typeof createPlaywrightMetadataWriter>,
+  writer: ReturnType<typeof createReadyContractWriter>,
   error: unknown
 ): void {
   const message = stripChannelPrefix(

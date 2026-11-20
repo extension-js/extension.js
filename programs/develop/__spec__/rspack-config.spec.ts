@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
 import {CompilationPlugin} from '../plugin-compilation'
-import {PlaywrightPlugin} from '../plugin-playwright'
+import {ReadyContractPlugin} from '../plugin-ready-contract'
 import {WarnManifestV2OnChromium} from '../plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
 import webpackConfig from '../rspack-config'
 import {writeProjectFiles} from './helpers/extension-project'
@@ -752,9 +752,9 @@ describe('webpack-config MV2 on chromium warning', () => {
 describe('ready contract carries the control-bridge bind reason', () => {
   const bindReason = 'listen EADDRNOTAVAIL 10.0.0.9:0'
 
-  function findPlaywrightPlugin(config: any) {
+  function findReadyContractPlugin(config: any) {
     const plugin = (config.plugins ?? []).find(
-      (candidate: any) => candidate instanceof PlaywrightPlugin
+      (candidate: any) => candidate instanceof ReadyContractPlugin
     ) as any
 
     expect(plugin).toBeDefined()
@@ -762,7 +762,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
     return plugin
   }
 
-  function buildPlaywrightPlugin() {
+  function buildReadyContractPlugin() {
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const config = webpackConfig(
@@ -779,7 +779,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
       } as any
     )
 
-    const plugin = findPlaywrightPlugin(config)
+    const plugin = findReadyContractPlugin(config)
 
     return {plugin, root}
   }
@@ -814,7 +814,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
   }
 
   it('keeps the reason through writeStarting and the first compile', () => {
-    const {plugin, root} = buildPlaywrightPlugin()
+    const {plugin, root} = buildReadyContractPlugin()
     const taps = applyWithFakeCompiler(plugin)
 
     const starting = readReady(root)
@@ -847,7 +847,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
         noBrowser: true
       } as any
     )
-    applyWithFakeCompiler(findPlaywrightPlugin(config))
+    applyWithFakeCompiler(findReadyContractPlugin(config))
 
     const ready = readReady(root)
     expect(ready.controlPort).toBe(50111)
@@ -855,7 +855,7 @@ describe('ready contract carries the control-bridge bind reason', () => {
   })
 
   it('taps only hooks the fake compiler provides', () => {
-    const {plugin} = buildPlaywrightPlugin()
+    const {plugin} = buildReadyContractPlugin()
     const taps = applyWithFakeCompiler(plugin)
 
     expect(Object.keys(taps).sort()).toEqual([

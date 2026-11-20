@@ -61,12 +61,12 @@ import {
 } from '../lib/session-paths'
 import type {BrowserLogSinkEvent} from '../plugin-browsers'
 import {
-  createPlaywrightMetadataWriter,
+  createReadyContractWriter,
   detectLiveDevSessionOwner,
   forgetSessionRun,
   getSessionRunId,
   holdServingContract
-} from '../plugin-playwright'
+} from '../plugin-ready-contract'
 import {
   attachHtmlRefresh,
   dispatchRestartReload,
@@ -715,7 +715,7 @@ async function startDevSession(
     }
   }
 
-  const metadata = createPlaywrightMetadataWriter({
+  const metadata = createReadyContractWriter({
     packageJsonDir,
     browser: String(devOptions.browser || 'chromium'),
     command: 'dev',

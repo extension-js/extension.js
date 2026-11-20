@@ -31,7 +31,14 @@ import * as messages from '../lib/messages'
 import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
-import {ownProcessStartedAt, ownProcessStartId} from '../lib/process-started-at'
+import {
+  carryStampedFields,
+  patchReadyRecord,
+  type ReadyRecord,
+  readReadyRecord,
+  writeReadyRecord,
+  writerIdentity
+} from '../lib/ready-contract-writer'
 import {
   type RenameRetryOptions,
   renameSyncWithRetry
@@ -45,137 +52,13 @@ import {
 } from '../lib/session-contract'
 import {eventsPath as sessionEventsPath} from '../lib/session-paths'
 import packageJson from '../package.json'
+import type {ReadyContract, SessionCommand} from '../types'
 
-export type PlaywrightAutomationCommand = 'dev' | 'start' | 'preview' | 'build'
 // 'stopped' is stamped at watch close so a dead session can never keep
 // advertising status:"ready" to controllers.
-export type ReadyStatus = 'starting' | 'ready' | 'error' | 'stopped'
+export type ReadyStatus = ReadyContract['status']
 
-export type ReadyMetadata = {
-  // The ready contract's own version. Independent of `schema` below, which
-  // advertises that this engine speaks the schema-1 result envelope.
-  schemaVersion: 2
-  schema: 1
-  status: ReadyStatus
-  command: PlaywrightAutomationCommand
-  browser: string
-  runId: string
-  startedAt: string
-  distPath: string
-  manifestPath: string
-  port: number | null
-  host?: string
-  pid: number
-  // When the process behind `pid` started (ISO 8601 UTC). A pid is reused
-  // once its owner exits, so a reader that finds `pid` alive checks this
-  // against the process table before trusting it.
-  pidStartedAt: string
-  // Linux only: the boot id and the kernel's start tick of `pid`, which name
-  // one process exactly and do not move when the wall clock is stepped.
-  pidStartId?: string
-  ts: string
-  compiledAt: string | null
-  errors: string[]
-  code?: string
-  message?: string
-  instanceId?: string
-  instanceExplicit?: boolean
-  controlPort?: number | null
-  // Why `controlPort` is null: without it a reader cannot tell a session that
-  // never asked for a control bridge from one whose bridge could not bind.
-  controlPortUnavailableReason?: string
-  controlPath?: string
-  logsPath?: string
-  cdpPort?: number
-  // Gecko launches only: the RDP debugger-server port, stamped by the Firefox
-  // launcher post-launch (the CDP-extras pairing seam for downstream tooling).
-  rdpPort?: number
-  // Why rdpPort is absent: Firefox never opened the port, left first, or a dry
-  // run launched nothing. A ready Gecko dev contract carries one of the two.
-  rdpPortError?: string
-  // Safari dev sessions only: the safaridriver session the launcher holds
-  // beside the app, or why it holds none. Stamped post-launch.
-  webdriverPort?: number
-  webdriverSessionId?: string
-  webdriverUnavailableReason?: string
-  webdriverRequestPath?: string
-  // Safari dev sessions only: how far the enable step got (the switch in
-  // Safari Settings) and why it stopped, stamped by the launcher post-launch.
-  safari?: {
-    bundleId: string
-    extensionId: string
-    team: string
-    switchId: string
-    enableAttempted: boolean
-    step: string
-    enabled: boolean | null
-    listed: boolean | null
-    otherWebsites: string | null
-    reason?: string
-    earlierExtensionIds?: string[]
-  }
-  // Dev only: the last reload dev applied after a compile, its kind (full,
-  // background, content, page, safari-resync) and the shared reload label.
-  reloadedAt?: string
-  reloadKind?: string
-  reloadLabel?: string
-  // Stamped by the browser launcher post-launch: the resolved profile dir (an
-  // ephemeral profile's leaf name is generated) and the browser process pid.
-  profilePath?: string
-  browserPid?: number | null
-  // When the browser process started, read off the process table beside its
-  // pid the way `pidStartedAt` is; the launcher pid below gets the same.
-  browserStartedAt?: string
-  // Linux only: the boot id and start tick of the browser pid, the value
-  // `pidStartId` holds for `pid`; the launcher pid below gets the same.
-  browserStartId?: string
-  engine?: 'emulator'
-  // The pid the launcher spawned, kept once the browser handed the session to
-  // another process; browserPid then names that live process.
-  launcherPid?: number
-  launcherStartedAt?: string
-  launcherStartId?: string
-  // Provenance: which toolchain produced this tree, for which extension;
-  // ready.json doubles as a build receipt for one-shot builds.
-  toolchainVersion: string
-  extensionName?: string
-  extensionVersion?: string
-  // The id the browser serves the dist under: browser-confirmed when the
-  // launcher stamped it, otherwise derived the way the browser derives it.
-  extensionId?: string
-  extensionIdSource?: ExtensionIdSource
-  // Stamped by the browser launcher when the browser exits mid-session
-  // without the dev server asking it to; preserved across recompiles.
-  browserExitedAt?: string
-  browserExitCode?: number | null
-  browserExitSignal?: string | null
-  // Stamped by the launcher when no browser process came up at all (a spawn
-  // refusal, a missing binary, a bad pin), preserved across recompiles.
-  browserLaunchFailedAt?: string
-  browserLaunchFailedReason?: string
-  browserLaunchFailedCode?: string
-  // Stamped when the session ended as failed or usage, so the watch close
-  // keeps the error that ended it instead of a clean stop.
-  endedAsFailedAt?: string
-  endedAsFailedCode?: string
-  // Stamped by the Chromium launcher when the CDP wire failed after launch:
-  // the session stays ready and names the fault. Preserved across recompiles.
-  cdpFaultCode?: string
-  cdpFaultMessage?: string
-  // Runtime attachment signal: 'ready' means compiled; these mean the SW has
-  // connected and can be driven. Act-tooling should wait for runtime:'attached'.
-  runtime?: 'attached' | 'detached'
-  executorAttachedAt?: string
-  extensionBaseUrl?: string
-  // Every extension the engine loads besides the user's (built-in companions
-  // plus --extensions dirs), so a target census can subtract them by id.
-  managedExtensions?: ManagedExtensionRecord[]
-  // Dev sessions only: every grant and browser flag the session has that the
-  // production build of the same source does not, each with its reason.
-  devAdditions?: DevAddition[]
-}
-
-export type PlaywrightAutomationEvent = {
+export type ReadyContractEvent = {
   type:
     | 'compile_start'
     | 'compile_success'
@@ -185,7 +68,7 @@ export type PlaywrightAutomationEvent = {
     | 'browser_launch_failed'
     | 'restart_failed'
   ts: string
-  command: PlaywrightAutomationCommand
+  command: SessionCommand
   browser: string
   runId?: string
   durationMs?: number
@@ -211,7 +94,7 @@ export type PlaywrightAutomationEvent = {
 type WriterOptions = {
   packageJsonDir: string
   browser: string
-  command: PlaywrightAutomationCommand
+  command: SessionCommand
   distPath: string
   manifestPath: string
   port?: number | string | null
@@ -244,7 +127,7 @@ type PluginOptions = {
   manifestPath: string
   port?: number | string | null
   host?: string
-  command?: PlaywrightAutomationCommand
+  command?: SessionCommand
   instanceId?: string
   instanceExplicit?: boolean
   controlPort?: number | string | null
@@ -350,9 +233,7 @@ function fitsEventCap(event: unknown): boolean {
 // A diagnostic-heavy failure writes one enormous line, so the TEXT is trimmed
 // (every error and every other string field) rather than the JSON, which
 // every consumer still has to parse.
-function capEventSize(
-  event: PlaywrightAutomationEvent
-): PlaywrightAutomationEvent {
+function capEventSize(event: ReadyContractEvent): ReadyContractEvent {
   if (fitsEventCap(event)) return event
 
   const source = event as Record<string, unknown>
@@ -373,13 +254,13 @@ function capEventSize(
     trimmed.errors = errors.map((message) => String(message).slice(0, perText))
   }
 
-  if (fitsEventCap(trimmed)) return trimmed as PlaywrightAutomationEvent
+  if (fitsEventCap(trimmed)) return trimmed as ReadyContractEvent
 
   // Too many errors, or text that grows when escaped: the counts survive.
   for (const key of textFields) trimmed[key] = ''
   if (errors) trimmed.errors = []
 
-  return trimmed as PlaywrightAutomationEvent
+  return trimmed as ReadyContractEvent
 }
 
 // The verdicts a compile writes. A later compile that succeeds clears these
@@ -391,9 +272,7 @@ export const COMPILE_VERDICTS: ReadonlySet<string> = new Set([
 
 // What the engine writer computes on every write. Any other field on a
 // same-run record was stamped beside it and carries across a recompile.
-const WRITER_FIELDS: ReadonlySet<string> = new Set<
-  keyof ReadyMetadata | 'awaitingExecutorSince'
->([
+const WRITER_FIELDS: ReadonlySet<string> = new Set<keyof ReadyContract>([
   'schemaVersion',
   'schema',
   'status',
@@ -454,7 +333,7 @@ export function getSessionRunId(
   packageJsonDir: string,
   browser: string
 ): string {
-  return getRunIdForSession(getPlaywrightMetadataDir(packageJsonDir, browser))
+  return getRunIdForSession(getReadyContractDir(packageJsonDir, browser))
 }
 
 // Writers of one run are told apart by the epoch their writeStarting opened:
@@ -465,7 +344,7 @@ const writerEpochByMetadataDir = new Map<string, number>()
 // serving writer's epoch and the document as that writer left it.
 const takeoverByMetadataDir = new Map<
   string,
-  {epoch: number | undefined; document: Record<string, unknown>}
+  {epoch: number | undefined; document: ReadyRecord}
 >()
 
 // A restart's next compiler takes the contract as it is built. When the rest
@@ -502,7 +381,7 @@ const devOverDevWarnedByMetadataDir = new Set<string>()
 // A host that outlives a session starts the next one in the same process,
 // and that one is a new run: its own id, its own launch, its own notices.
 export function forgetSessionRun(packageJsonDir: string, browser: string) {
-  const metadataDir = getPlaywrightMetadataDir(packageJsonDir, browser)
+  const metadataDir = getReadyContractDir(packageJsonDir, browser)
   const readyPath = asAbsolute(readyContractPath(packageJsonDir, browser))
 
   runIdByMetadataDir.delete(metadataDir)
@@ -551,22 +430,21 @@ function stampReadyExtensionIdFrom(
   source: Exclude<ExtensionIdSource, 'browser'>
 ): void {
   const readyPath = readyContractPath(packageJsonDir, browser)
-  const prev = readJsonRecord(readyPath)
-  if (!prev) return
 
-  const prevIsAnswer =
-    prev.extensionIdSource === 'browser' ||
-    prev.extensionIdSource === 'packager'
+  patchContractFile(readyPath, (prev) => {
+    const prevIsAnswer =
+      prev.extensionIdSource === 'browser' ||
+      prev.extensionIdSource === 'packager'
 
-  if (prev.extensionId && prevIsAnswer) return
+    if (prev.extensionId && prevIsAnswer) return false
 
-  if (prev.extensionId === extensionId && prev.extensionIdSource === source) {
-    return
-  }
+    if (prev.extensionId === extensionId && prev.extensionIdSource === source) {
+      return false
+    }
 
-  prev.extensionId = extensionId
-  prev.extensionIdSource = source
-  writeContractFile(readyPath, prev)
+    prev.extensionId = extensionId
+    prev.extensionIdSource = source
+  })
 }
 
 // One-shot builds stamp ready.json at compile done, before the staging dist
@@ -602,7 +480,7 @@ export function stampReadyKnownExtensionId(
 // the previous build's; the source manifest is what the compile is turning
 // into the product, and its name and version are the ones the receipt owes.
 function manifestProvenanceCandidates(
-  command: PlaywrightAutomationCommand,
+  command: SessionCommand,
   distPath: string | undefined,
   manifestPath: string | undefined
 ): Array<string | undefined> {
@@ -649,46 +527,6 @@ function ensureDirSync(dirPath: string) {
   }
 }
 
-// The object a contract file holds, or undefined when it is missing or is
-// not one: a half-written file is read as no record.
-function readJsonRecord(filePath: string): Record<string, unknown> | undefined {
-  try {
-    if (!fs.existsSync(filePath)) return undefined
-
-    const value = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
-
-    return value && typeof value === 'object'
-      ? (value as Record<string, unknown>)
-      : undefined
-  } catch {
-    return undefined
-  }
-}
-
-// Answers the error a failed write threw, or undefined once it is in place.
-function writeJsonAtomic(
-  filePath: string,
-  value: unknown,
-  renameRetry?: RenameRetryOptions
-): Error | undefined {
-  const tmpPath = `${filePath}.tmp-${process.pid}`
-
-  try {
-    fs.writeFileSync(tmpPath, `${JSON.stringify(value, null, 2)}\n`, 'utf-8')
-    renameSyncWithRetry(tmpPath, filePath, renameRetry)
-
-    return undefined
-  } catch (error) {
-    try {
-      fs.rmSync(tmpPath, {force: true})
-    } catch {
-      // The write failed already, and that is the error worth reporting.
-    }
-
-    return error instanceof Error ? error : new Error(String(error))
-  }
-}
-
 // Contract files whose last write failed and was reported. A file is named
 // once per failure streak, so a broken dist does not warn on every compile.
 const unwritableContractFiles = new Set<string>()
@@ -713,7 +551,20 @@ function writeContractFile(
   value: unknown,
   renameRetry?: RenameRetryOptions
 ) {
-  noteContractWrite(filePath, writeJsonAtomic(filePath, value, renameRetry))
+  noteContractWrite(filePath, writeReadyRecord(filePath, value, renameRetry))
+}
+
+// A stamp beside the status. The patch answers false to leave the file alone.
+function patchContractFile(
+  filePath: string,
+  patch: (prev: ReadyRecord) => boolean | undefined,
+  renameRetry?: RenameRetryOptions
+) {
+  const result = patchReadyRecord(filePath, patch, renameRetry)
+
+  if (result.written || result.error) {
+    noteContractWrite(filePath, result.error)
+  }
 }
 
 export function safariExtensionBase(origin: unknown): string | null {
@@ -740,7 +591,7 @@ export function detectLiveDevSessionOwner(
   isAlive?: SessionPidProbes['isAlive'],
   startedAtOf?: SessionPidProbes['startedAtOf']
 ): LiveDevSessionOwner | null {
-  const prev = readJsonRecord(readyPath)
+  const prev = readReadyRecord(readyPath)
 
   if (prev?.command !== 'dev') return null
   if (typeof prev.pid !== 'number' || prev.pid === process.pid) return null
@@ -760,15 +611,15 @@ export function detectLiveDevSessionOwner(
   }
 }
 
-export function getPlaywrightMetadataDir(
+export function getReadyContractDir(
   packageJsonDir: string,
   browser: string
 ): AbsolutePath {
   return asAbsolute(browserArtifactsDir(packageJsonDir, browser))
 }
 
-export function createPlaywrightMetadataWriter(options: WriterOptions) {
-  const metadataDir = getPlaywrightMetadataDir(
+export function createReadyContractWriter(options: WriterOptions) {
+  const metadataDir = getReadyContractDir(
     options.packageJsonDir,
     options.browser
   )
@@ -860,9 +711,11 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     openedEpoch !== null &&
     writerEpochByMetadataDir.get(metadataDir) !== openedEpoch
 
-  const readContract = () => readJsonRecord(readyPath)
+  const readContract = () => readReadyRecord(readyPath)
   const writeContract = (value: unknown) =>
     writeContractFile(readyPath, value, options.renameRetry)
+  const patchContract = (patch: (prev: ReadyRecord) => boolean | undefined) =>
+    patchContractFile(readyPath, patch, options.renameRetry)
 
   const base = {
     schemaVersion: 2 as const,
@@ -904,7 +757,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       : {})
   }
 
-  const ownsDocument = (prev: Record<string, unknown>) =>
+  const ownsDocument = (prev: ReadyRecord) =>
     !isSuperseded() && prev.runId === base.runId
 
   const awaitsExecutor =
@@ -942,14 +795,13 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   function releaseHeldReady() {
     executorWaitOver = true
 
-    const prev = readContract()
-    if (!prev || !ownsDocument(prev)) return
-    if (typeof prev.awaitingExecutorSince !== 'string') return
+    patchContract((prev) => {
+      if (!ownsDocument(prev)) return false
+      if (typeof prev.awaitingExecutorSince !== 'string') return false
 
-    delete prev.awaitingExecutorSince
-    if (releaseHeld(prev, owedPorts())) prev.ts = nowISO()
-
-    writeContract(prev)
+      delete prev.awaitingExecutorSince
+      if (releaseHeld(prev, owedPorts())) prev.ts = nowISO()
+    })
   }
 
   // A session that ended waits for no hello, and its timer must not rewrite
@@ -987,12 +839,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
           ? nowISO()
           : null
 
-    const payload: ReadyMetadata = {
+    const payload: ReadyContract = {
       ...base,
       status,
-      pid: process.pid,
-      pidStartedAt: ownProcessStartedAt(),
-      ...(ownProcessStartId() ? {pidStartId: ownProcessStartId()} : {}),
+      ...writerIdentity(),
       ts: nowISO(),
       compiledAt,
       errors: Array.isArray(extra?.errors) ? extra.errors : []
@@ -1051,13 +901,9 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     if (devAdditions) payload.devAdditions = devAdditions
 
     if (prev && sameRun) {
-      const target = payload as Record<string, unknown>
+      const target = payload as unknown as ReadyRecord
 
-      for (const [field, value] of Object.entries(prev)) {
-        if (WRITER_FIELDS.has(field) || field in target) continue
-
-        target[field] = value
-      }
+      carryStampedFields(target, prev, WRITER_FIELDS)
 
       // A browser-confirmed id outranks the derivation, so it survives a
       // recompile. A derived one is recomputed, since the key may have moved.
@@ -1136,7 +982,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       !executorSettled
     ) {
       payload.status = 'starting'
-      ;(payload as Record<string, unknown>).awaitingExecutorSince =
+      payload.awaitingExecutorSince =
         typeof prev?.awaitingExecutorSince === 'string' && sameRun
           ? prev.awaitingExecutorSince
           : nowISO()
@@ -1159,7 +1005,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     writeContract(payload)
   }
 
-  function appendEvent(event: PlaywrightAutomationEvent) {
+  function appendEvent(event: ReadyContractEvent) {
     if (foreignLiveDevSession) return
 
     ensureDirSync(metadataDir)
@@ -1262,136 +1108,126 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     writeEndedAsFailed(errorCode: string, message: string) {
       if (foreignLiveDevSession) return
 
-      const prev = readContract()
-      if (!prev || !ownsDocument(prev)) return
+      patchContract((prev) => {
+        if (!ownsDocument(prev)) return false
 
-      stopExecutorWait()
+        stopExecutorWait()
 
-      if (prev.status !== 'error') {
-        prev.status = 'error'
-        prev.code = 'shutdown'
-        prev.message = message
-      }
+        if (prev.status !== 'error') {
+          prev.status = 'error'
+          prev.code = 'shutdown'
+          prev.message = message
+        }
 
-      prev.endedAsFailedAt = nowISO()
-      prev.endedAsFailedCode = errorCode
-      prev.ts = nowISO()
-
-      writeContract(prev)
+        prev.endedAsFailedAt = nowISO()
+        prev.endedAsFailedCode = errorCode
+        prev.ts = nowISO()
+      })
     },
     // Stamp a terminal status at watch close so a controller can never read green
     // over a dead pid; read-modify-write keeps the session's provenance intact.
     writeShutdown(message = 'the dev session ended (watch closed)') {
       if (foreignLiveDevSession) return
 
-      const prev = readContract()
-      if (!prev || !ownsDocument(prev)) return
-      if (typeof prev.endedAsFailedAt === 'string') return
+      patchContract((prev) => {
+        if (!ownsDocument(prev)) return false
+        if (typeof prev.endedAsFailedAt === 'string') return false
 
-      stopExecutorWait()
+        stopExecutorWait()
 
-      prev.status = 'stopped'
-      prev.code = 'shutdown'
-      prev.message = message
-      prev.ts = nowISO()
-
-      writeContract(prev)
+        prev.status = 'stopped'
+        prev.code = 'shutdown'
+        prev.message = message
+        prev.ts = nowISO()
+      })
     },
     // A reload dev applied after a compile. A tool waiting for the rebuild to
     // be live compares reloadedAt with compiledAt instead of guessing from a
     // background reconnect, which a content, page or Safari reload never does.
     stampReload(kind: string, label?: string) {
-      const prev = readContract()
-      if (!prev || !ownsDocument(prev)) return
+      patchContract((prev) => {
+        if (!ownsDocument(prev)) return false
 
-      prev.reloadedAt = nowISO()
-      prev.reloadKind = kind
+        prev.reloadedAt = nowISO()
+        prev.reloadKind = kind
 
-      if (label) prev.reloadLabel = label
-      else delete prev.reloadLabel
-
-      writeContract(prev)
+        if (label) prev.reloadLabel = label
+        else delete prev.reloadLabel
+      })
     },
     // The mirror of stampExecutorAttached: without it `runtime` was a latch that
     // said "attached" long after the last producer went away, so a reader could
     // not tell a live extension from a dead one.
     stampExecutorDetached() {
-      const prev = readContract()
-      if (!prev || !ownsDocument(prev)) return
-      if (typeof prev.executorAttachedAt !== 'string') return
+      patchContract((prev) => {
+        if (!ownsDocument(prev)) return false
+        if (typeof prev.executorAttachedAt !== 'string') return false
 
-      prev.runtime = 'detached'
-      prev.executorDetachedAt = nowISO()
-
-      writeContract(prev)
+        prev.runtime = 'detached'
+        prev.executorDetachedAt = nowISO()
+      })
     },
     // The launcher came back, with a browser or without one, so a compile
     // held for what it stamps goes ready with whatever the launch left.
     settleBrowserLaunch() {
       settledLaunches.add(launchKey)
 
-      const prev = readContract()
-      if (!prev || prev.runId !== base.runId) return
-      if (typeof prev.awaitingExecutorSince === 'string') return
-      if (!releaseHeld(prev, owedPorts())) return
+      patchContract((prev) => {
+        if (prev.runId !== base.runId) return false
+        if (typeof prev.awaitingExecutorSince === 'string') return false
+        if (!releaseHeld(prev, owedPorts())) return false
 
-      prev.ts = nowISO()
-
-      writeContract(prev)
+        prev.ts = nowISO()
+      })
     },
     // Stamp the runtime-attached signal on every connect. The first one also
     // releases a held ready and clears a load refusal the attach disproves.
     stampExecutorAttached(attached?: {origin?: string}) {
-      const prev = readContract()
-      if (!prev || !ownsDocument(prev)) return
+      patchContract((prev) => {
+        if (!ownsDocument(prev)) return false
 
-      prev.runtime = 'attached'
-      delete prev.executorDetachedAt
+        prev.runtime = 'attached'
+        delete prev.executorDetachedAt
 
-      const extensionBase = safariExtensionBase(attached?.origin)
-      if (extensionBase) prev.extensionBaseUrl = extensionBase
+        const extensionBase = safariExtensionBase(attached?.origin)
+        if (extensionBase) prev.extensionBaseUrl = extensionBase
 
-      if (typeof prev.executorAttachedAt === 'string') {
-        writeContract(prev)
+        if (typeof prev.executorAttachedAt === 'string') return true
 
-        return
-      }
+        prev.executorAttachedAt = nowISO()
 
-      prev.executorAttachedAt = nowISO()
+        // The hello is what a held compile was waiting for.
+        let statusChanged = false
 
-      // The hello is what a held compile was waiting for.
-      let statusChanged = false
-
-      if (typeof prev.awaitingExecutorSince === 'string') {
-        delete prev.awaitingExecutorSince
-        statusChanged = releaseHeld(prev, owedPorts())
-      }
-
-      // The launcher's "browser is up, nothing attached" note describes the
-      // wait that just ended, so the attach takes it off the contract.
-      delete prev.browserUpNotAttachedAt
-      delete prev.browserUpNotAttachedWaitMs
-      delete prev.browserUpNotAttachedHint
-
-      // The executor runs INSIDE the guest, so an attach is proof the browser
-      // is running it. Any earlier refusal is stale however it got fixed:
-      // a retry, or a human pressing Reload on the extensions page.
-      if (typeof prev.extensionLoadRefusedAt === 'string') {
-        delete prev.extensionLoadRefusedAt
-        delete prev.extensionLoadRefusedReason
-        delete prev.extensionLoadRefusedCause
-
-        if (prev.code === 'extension_load_refused') {
-          prev.status = 'ready'
-          delete prev.code
-          delete prev.message
-          statusChanged = true
+        if (typeof prev.awaitingExecutorSince === 'string') {
+          delete prev.awaitingExecutorSince
+          statusChanged = releaseHeld(prev, owedPorts())
         }
-      }
 
-      if (statusChanged) prev.ts = nowISO()
+        // The launcher's "browser is up, nothing attached" note describes the
+        // wait that just ended, so the attach takes it off the contract.
+        delete prev.browserUpNotAttachedAt
+        delete prev.browserUpNotAttachedWaitMs
+        delete prev.browserUpNotAttachedHint
 
-      writeContract(prev)
+        // The executor runs INSIDE the guest, so an attach is proof the browser
+        // is running it. Any earlier refusal is stale however it got fixed:
+        // a retry, or a human pressing Reload on the extensions page.
+        if (typeof prev.extensionLoadRefusedAt === 'string') {
+          delete prev.extensionLoadRefusedAt
+          delete prev.extensionLoadRefusedReason
+          delete prev.extensionLoadRefusedCause
+
+          if (prev.code === 'extension_load_refused') {
+            prev.status = 'ready'
+            delete prev.code
+            delete prev.message
+            statusChanged = true
+          }
+        }
+
+        if (statusChanged) prev.ts = nowISO()
+      })
     },
     appendEvent,
     // A dev restart that could not be made, beside the compiles around it.
@@ -1413,10 +1249,10 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
   }
 }
 
-export class PlaywrightPlugin {
-  public static readonly name = 'plugin-playwright'
-  private readonly writer: ReturnType<typeof createPlaywrightMetadataWriter>
-  private readonly command: PlaywrightAutomationCommand
+export class ReadyContractPlugin {
+  public static readonly name = 'plugin-ready-contract'
+  private readonly writer: ReturnType<typeof createReadyContractWriter>
+  private readonly command: SessionCommand
   private readonly browser: string
   private readonly launchFollows: boolean
 
@@ -1427,7 +1263,7 @@ export class PlaywrightPlugin {
 
     this.launchFollows = options.launchFollows === true
 
-    this.writer = createPlaywrightMetadataWriter({
+    this.writer = createReadyContractWriter({
       packageJsonDir: options.packageJsonDir,
       browser: this.browser,
       command: this.command,
@@ -1451,7 +1287,7 @@ export class PlaywrightPlugin {
   apply(compiler: Compiler) {
     this.writer.writeStarting()
 
-    compiler.hooks.compile.tap(PlaywrightPlugin.name, () => {
+    compiler.hooks.compile.tap(ReadyContractPlugin.name, () => {
       this.writer.appendEvent({
         type: 'compile_start',
         ts: nowISO(),
@@ -1460,7 +1296,7 @@ export class PlaywrightPlugin {
       })
     })
 
-    compiler.hooks.done.tap(PlaywrightPlugin.name, (stats) => {
+    compiler.hooks.done.tap(ReadyContractPlugin.name, (stats) => {
       const durationMs = Number(
         (stats?.compilation?.endTime || 0) -
           (stats?.compilation?.startTime || 0)
@@ -1516,7 +1352,7 @@ export class PlaywrightPlugin {
 
     // The same plain text the done path writes, so a contract reader finds
     // the failure in `errors` and never has to strip color from `message`.
-    compiler.hooks.failed.tap(PlaywrightPlugin.name, (error: unknown) => {
+    compiler.hooks.failed.tap(ReadyContractPlugin.name, (error: unknown) => {
       const errors = formatStatsErrors([error])
       const contractErrors = errors.length ? errors : ['Compilation failed']
 
@@ -1536,7 +1372,7 @@ export class PlaywrightPlugin {
       )
     })
 
-    compiler.hooks.watchClose.tap(PlaywrightPlugin.name, () => {
+    compiler.hooks.watchClose.tap(ReadyContractPlugin.name, () => {
       // A restart closes this watch after the next compiler opened the run;
       // the session is alive, so neither the event nor the stamp is its end.
       if (this.writer.isSuperseded()) return

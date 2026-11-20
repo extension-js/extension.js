@@ -57,7 +57,7 @@ describe('the process start id the CLI compares', () => {
   })
 
   it('is the field the engine writes and carries across a rewrite', () => {
-    const writer = sourceOf('../../../develop/plugin-playwright/index.ts')
+    const writer = sourceOf('../../../develop/plugin-ready-contract/index.ts')
 
     expect(writer).toContain('pidStartId: ownProcessStartId()')
     expect(writer).toContain("  'pidStartId',\n")

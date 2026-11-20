@@ -609,7 +609,7 @@ export interface CommonWebpackOptions {
   instanceId?: string
   /**
    * Agent-bridge control channel. Injected by dev-server so the
-   * PlaywrightPlugin can advertise them in ready.json. Not user-configurable.
+   * ReadyContractPlugin can advertise them in ready.json. Not user-configurable.
    */
   controlPort?: number | null
   /**

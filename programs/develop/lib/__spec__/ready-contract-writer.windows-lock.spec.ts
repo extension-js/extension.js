@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
-import {writeJsonAtomic} from '../../browsers-lib/write-json-atomic'
+import {writeReadyRecord} from '../ready-contract-writer'
 
 // A reader that holds the file for a number of renames, then lets go.
 function lockedFor(renames: number) {
@@ -32,7 +32,7 @@ function lockedFor(renames: number) {
   }
 }
 
-describe('writeJsonAtomic while a Windows reader holds ready.json', () => {
+describe('writeReadyRecord while a Windows reader holds ready.json', () => {
   let tmp: string
   let file: string
 
@@ -48,7 +48,7 @@ describe('writeJsonAtomic while a Windows reader holds ready.json', () => {
   it('lands the stamp once the reader releases the file', () => {
     const {lock, retry} = lockedFor(2)
 
-    expect(writeJsonAtomic(file, {status: 'ready'}, retry)).toBe(true)
+    expect(writeReadyRecord(file, {status: 'ready'}, retry)).toBeUndefined()
 
     expect(lock.calls).toBe(3)
     expect(lock.pauses).toEqual([10, 20])
@@ -62,7 +62,9 @@ describe('writeJsonAtomic while a Windows reader holds ready.json', () => {
   it('reports a handled failure and cleans up when the lock never clears', () => {
     const {lock, retry} = lockedFor(100)
 
-    expect(writeJsonAtomic(file, {status: 'ready'}, retry)).toBe(false)
+    expect(writeReadyRecord(file, {status: 'ready'}, retry)).toBeInstanceOf(
+      Error
+    )
 
     expect(lock.calls).toBe(7)
     expect(lock.pauses).toEqual([10, 20, 40, 80, 160, 320])
@@ -73,8 +75,8 @@ describe('writeJsonAtomic while a Windows reader holds ready.json', () => {
     const {lock, retry} = lockedFor(1)
 
     expect(
-      writeJsonAtomic(file, {status: 'ready'}, {...retry, platform: 'linux'})
-    ).toBe(false)
+      writeReadyRecord(file, {status: 'ready'}, {...retry, platform: 'linux'})
+    ).toBeInstanceOf(Error)
 
     expect(lock.calls).toBe(1)
     expect(lock.pauses).toEqual([])
