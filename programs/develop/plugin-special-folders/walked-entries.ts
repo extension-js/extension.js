@@ -9,36 +9,46 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {SpecialFoldersConfig} from '../types'
-import {foldersRoots, isScriptsFolderEntry} from './folders-config'
+import {
+  entryNameOf,
+  isEntryFolderFile,
+  isSkippedEntryName
+} from './entry-folders'
+import {foldersRoots, type SpecialFolderName} from './folders-config'
 import {sourceFileMayShip} from './public-private-files'
 
-const isPackageFolder = (name: string) => name.toLowerCase() === 'node_modules'
-
-export interface WalkedScripts {
+export interface WalkedEntries {
   kept: Record<string, string>
   // Left out for a private name or for a place outside the project.
   leftOut: string[]
 }
 
+interface WalkedFolder {
+  name: SpecialFolderName
+  dir: string
+  roots: string[]
+}
+
 // The folder the walk reads, and the roots a walked file must stay inside.
 // A folder the config names is the author's own word for where to walk.
-function walkedScriptsRoots(
+function walkedFolderRoots(
+  name: SpecialFolderName,
   projectRoot: string,
   folders: SpecialFoldersConfig
-): {dir: string; roots: string[]} | undefined {
-  const dir = foldersRoots(projectRoot, folders).scripts
+): WalkedFolder | undefined {
+  const dir = foldersRoots(projectRoot, folders)[name]
 
   if (!dir) return undefined
 
-  const named = typeof folders.scripts === 'string'
+  const named = typeof folders[name] === 'string'
 
-  return {dir, roots: named ? [projectRoot, dir] : [projectRoot]}
+  return {name, dir, roots: named ? [projectRoot, dir] : [projectRoot]}
 }
 
 // The scan passes over a link, so a linked file or folder is walked here
 // and asked the same way. A folder reached twice is walked once.
-function walkLinkedScripts(
-  folder: {dir: string; roots: string[]},
+function walkLinkedEntries(
+  folder: WalkedFolder,
   kept: Record<string, string>,
   leftOut: string[]
 ) {
@@ -64,7 +74,7 @@ function walkLinkedScripts(
     )
 
     for (const entry of ordered) {
-      if (isPackageFolder(entry.name)) continue
+      if (isSkippedEntryName(entry.name)) continue
 
       const full = path.join(dir, entry.name)
       const isLink = entry.isSymbolicLink()
@@ -83,12 +93,12 @@ function walkLinkedScripts(
         continue
       }
 
-      const isScript = stat.isFile() && isScriptsFolderEntry(full)
+      const isEntry = stat.isFile() && isEntryFolderFile(folder.name, full)
 
-      if (!isScript && !stat.isDirectory()) continue
+      if (!isEntry && !stat.isDirectory()) continue
 
       if (!sourceFileMayShip(full, folder.roots, 'walked')) {
-        if (isScript || isLink) leftOut.push(full)
+        if (isEntry || isLink) leftOut.push(full)
 
         continue
       }
@@ -98,9 +108,7 @@ function walkLinkedScripts(
         continue
       }
 
-      const name = path.relative(folder.dir, full).split(path.sep).join('/')
-
-      kept[`scripts/${name.slice(0, -path.extname(name).length)}`] = full
+      kept[entryNameOf(folder.name, folder.dir, full)] = full
     }
   }
 
@@ -109,16 +117,17 @@ function walkLinkedScripts(
 
 // No field names a walked file, so one the build withholds is no entry and
 // no error. A folder of installed packages is passed over without a word.
-export function guardWalkedScripts(
-  scripts: Record<string, string> | undefined,
+export function guardWalkedEntries(
+  name: SpecialFolderName,
+  scanned: Record<string, string> | undefined,
   projectRoot: string,
   folders: SpecialFoldersConfig
-): WalkedScripts {
-  const folder = walkedScriptsRoots(projectRoot, folders)
+): WalkedEntries {
+  const folder = walkedFolderRoots(name, projectRoot, folders)
   const kept: Record<string, string> = {}
   const leftOut: string[] = []
 
-  if (!folder) return {kept: {...scripts}, leftOut}
+  if (!folder) return {kept: {...scanned}, leftOut}
 
   const mayBeEntry = (entry: unknown) => {
     const file = String(entry)
@@ -128,7 +137,7 @@ export function guardWalkedScripts(
 
     const names = path.relative(folder.dir, file).split(path.sep)
 
-    if (names.some(isPackageFolder)) return false
+    if (names.some(isSkippedEntryName)) return false
     if (sourceFileMayShip(file, folder.roots, 'walked')) return true
 
     leftOut.push(file)
@@ -136,7 +145,7 @@ export function guardWalkedScripts(
     return false
   }
 
-  for (const [key, value] of Object.entries(scripts || {})) {
+  for (const [key, value] of Object.entries(scanned || {})) {
     const files: unknown[] = Array.isArray(value) ? value : [value]
     const entries = files.filter(mayBeEntry)
 
@@ -147,7 +156,7 @@ export function guardWalkedScripts(
       : String(entries[0])
   }
 
-  walkLinkedScripts(folder, kept, leftOut)
+  walkLinkedEntries(folder, kept, leftOut)
 
   return {kept, leftOut}
 }

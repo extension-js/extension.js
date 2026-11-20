@@ -46,8 +46,12 @@ export default {
 ## Include semantics
 
 - This plugin takes no glob lists. It always emits from `public/` and watches `pages/` and `scripts` (dev-only) based on the `manifestPath` project root. It also exposes a default `extensions/` scan when no CLI/config `extensions` are provided.
-- `include` (from `extension.config.js`, layered top-level, per browser and per command) names extra files by output path. A missing source or an output path outside the extension root fails the compilation with a message naming the key.
+- The scan reads `pages/` and `scripts/` only, never `public/`, which is the copier's to walk. One walk in `entry-folders.ts` answers both the scan and the dev watcher: every file at any depth but a `node_modules` folder, a page ending in `.html` and a script ending in exactly `.js`, `.mjs`, `.jsx`, `.mjsx`, `.ts`, `.mts`, `.tsx` or `.mtsx`. An upper-case extension is no entry. A link inside either folder is followed while it stays inside the project, as `walked-entries.ts` asks.
+- `include` (from `extension.config.js`, layered top-level, per browser and per command) names extra files by output path. A missing source or an output path outside the extension root fails the compilation with a message naming the key. A source missing at start is still watched, and it ships on the compile after it appears.
 - A `.js`, `.mjs` or `.cjs` file `include` copies is minified in a production build (a `.min.js` is left alone): names are shortened and comments dropped, no statement is rewritten, so the value `executeScript` reads off the file stays and a `/*!` banner stays in the file. `{from: 'vendor/lib.js', minify: false}` in place of the path ships that file as authored, and so does `--no-minify` for every file. Files under `public/` always ship as authored.
+- The public folder is named `public/` in lowercase. A `Public/` or `PUBLIC/` folder is named in one warning (`PublicFolderCaseWarning`, `W_PROJECT_LAYOUT`) asking for the rename. On a disk that ignores letter case (the macOS default) it still ships, and the warning says another spelling stops working in the next major version. On a disk that keeps letter case nothing in it ships, and the warning says the folder is not read. The disk is asked once per folder by reading the found folder through its case-flipped name.
+- A `public/` file whose output path an entry already writes is not copied, the entry's file wins, and the build names the file in one warning (`PublicFileShadowedWarning`, `W_PROJECT_LAYOUT`), again in a watch session only when the list changes.
+- A folder inside `pages/` or `scripts/` the build cannot read stops the scan with `E_FOLDER_UNREADABLE` (`SpecialFolderUnreadable`), naming the folder from the project root.
 - `exclude` names files relative to the project root that a build leaves out: a page or script there gets no entry, and a file under `public/` is not copied. An entry with no file behind it is a warning that names the browser.
 - For handling specific assets referenced in `manifest.json`, use the respective plugins (HTML, Icons, Scripts) with their `includeList` options.
 
@@ -97,7 +101,7 @@ A file the author names may also come from the workspace the project belongs to,
 
 The decision is one function, `sourceFileMayShip(sourcePath, projectRoots, ask)` in `public-private-files.ts`, and `workspaceRootOf(projectRoot)` beside it answers the workspace root. `ask` is `'named'` when the author wrote the path of that one file, which is the default, and `'walked'` when a folder entry or a pattern reached it. A walk never enters `node_modules` and never leaves the project. The `web_accessible_resources` step, the JSON fields of the manifest, custom manifest keys and the file names found in code all ask it. A custom key and a file name found in code are read the way a URL is, so they never climb above the extension root and reach the workspace only through a link. A `web_accessible_resources` entry or a JSON field spelled from the root that climbs out of it (`/../x`, `/%2e%2e/x`) is refused as a page refuses it, while the same path without the leading slash reaches the workspace.
 
-## Path resolution convention (consistent across @plugin-extension)
+## Path resolution convention (consistent across plugin-web-extension)
 
 - Leading `/` means extension root (public root) relative to the directory containing `manifest.json`.
 - Relative paths are resolved from the manifest directory.

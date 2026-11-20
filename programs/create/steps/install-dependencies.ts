@@ -17,6 +17,8 @@ import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import {
   type InstallResult,
   type InstallRunner,
+  installExit,
+  isMissingCommand,
   runInstall as runInstallCommand
 } from '../lib/install-runner'
 import * as messages from '../lib/messages'
@@ -291,7 +293,7 @@ export async function installDependencies(
           messages.installingDependenciesFailed(
             command,
             dependenciesArgs,
-            retryRun.code,
+            installExit(retryRun),
             failureOutput(retryRun),
             retry
           )
@@ -302,7 +304,7 @@ export async function installDependencies(
         messages.installingDependenciesFailed(
           command,
           dependenciesArgs,
-          firstRun.code,
+          installExit(firstRun),
           output,
           retry
         )
@@ -312,7 +314,18 @@ export async function installDependencies(
     // One frame per failure: the frame travels on the error for the CLI to
     // print, and a refusal framed above passes through as it is.
     throw failStep(
-      messages.installingDependenciesProcessError(projectName, error, retry),
+      isMissingCommand(error, command)
+        ? messages.packageManagerNotInstalled(
+            projectName,
+            command,
+            dependenciesArgs,
+            retry
+          )
+        : messages.installingDependenciesProcessError(
+            projectName,
+            error,
+            retry
+          ),
       error
     )
   }

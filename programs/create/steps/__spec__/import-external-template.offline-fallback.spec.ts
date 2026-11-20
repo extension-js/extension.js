@@ -144,3 +144,92 @@ describe('the default template falls back to the bundled template when offline',
     expect(fs.existsSync(path.join(projectPath, 'package.json'))).toBe(false)
   })
 })
+
+describe('an offline machine falls back at once', () => {
+  const prevEnv = {
+    EXTENSION_ENV: process.env.EXTENSION_ENV,
+    EXTENSION_CREATE_TEMPLATE_REF: process.env.EXTENSION_CREATE_TEMPLATE_REF
+  }
+  let workDir: string
+
+  beforeEach(async () => {
+    process.env.EXTENSION_ENV = 'test'
+    // A branch name resolves to two archive URLs, the branch then the tag.
+    process.env.EXTENSION_CREATE_TEMPLATE_REF = 'main'
+    workDir = await fsp.mkdtemp(path.join(os.tmpdir(), 'offline-at-once-'))
+  })
+
+  afterEach(async () => {
+    for (const [name, value] of Object.entries(prevEnv)) {
+      if (value === undefined) delete process.env[name]
+      else process.env[name] = value
+    }
+
+    await fsp.rm(workDir, {recursive: true, force: true})
+  })
+
+  // What axios rejects with when the request never left this machine: a
+  // system error code and no response.
+  function failingWith(code: string) {
+    return vi.fn(async () => {
+      throw Object.assign(
+        new Error(`getaddrinfo ${code} codeload.github.com`),
+        {
+          code
+        }
+      )
+    })
+  }
+
+  function scaffold(fetch: ReturnType<typeof failingWith>, waits: number[]) {
+    return importExternalTemplate(
+      path.join(workDir, 'my-extension'),
+      'my-extension',
+      'typescript',
+      makeLogger(),
+      {
+        ownsProjectDir: true,
+        allowOfflineFallback: true,
+        downloadRetry: {
+          sleep: async (ms) => {
+            waits.push(ms)
+          }
+        },
+        fetch
+      }
+    )
+  }
+
+  it.each([
+    'ENOTFOUND',
+    'EAI_AGAIN',
+    'ENETUNREACH',
+    'ENETDOWN',
+    'EHOSTUNREACH'
+  ])('asks once and never waits when the request fails with %s', async (code) => {
+    const fetch = failingWith(code)
+    const waits: number[] = []
+
+    const provenance = await scaffold(fetch, waits)
+
+    expect(fetch).toHaveBeenCalledTimes(1)
+    expect(waits).toEqual([])
+    expect(provenance).toEqual({
+      template: OFFLINE_FALLBACK_TEMPLATE,
+      source: 'bundled'
+    })
+  })
+
+  // A dropped connection reached the server, so the network is up and one
+  // more attempt is worth its wait.
+  it('still retries a connection that was reset', async () => {
+    const fetch = failingWith('ECONNRESET')
+    const waits: number[] = []
+
+    const provenance = await scaffold(fetch, waits)
+
+    expect(waits).toEqual([400, 400])
+    expect(fetch).toHaveBeenCalledTimes(4)
+    expect(provenance.source).toBe('bundled')
+  })
+})

@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, WebpackError} from '@rspack/core'
+import * as messages from './messages'
 
 export function checkManifestInPublic(
   compilation: Compilation,
@@ -18,10 +19,15 @@ export function checkManifestInPublic(
     const manifestInPublic = path.join(publicDir, 'manifest.json')
 
     if (fs.existsSync(manifestInPublic)) {
+      const relative = path.posix.join(
+        path.basename(publicDir),
+        'manifest.json'
+      )
       const err = new WebpackError(
-        `manifest.json must not be placed under public/: ${manifestInPublic}`
+        messages.manifestInPublicFolder(relative)
       ) as Error & {file?: string}
-      err.file = 'manifest.json'
+      err.name = 'ManifestInPublicFolder'
+      err.file = relative
       compilation.errors.push(err)
     }
   } catch {
