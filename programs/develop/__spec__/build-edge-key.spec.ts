@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Edge Add-ons refuses a package whose manifest carries `key`, so the store
 // zip leaves it out and says so once. dist/edge keeps it: an unpacked install
@@ -46,7 +47,6 @@ async function build(
   mode: 'production' | 'development',
   zip = false
 ) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -57,13 +57,7 @@ async function build(
   let summary: {errors_count: number; warnings?: string[]}
 
   try {
-    summary = await extensionBuild(root, {
-      browser,
-      silent: false,
-      install: false,
-      mode,
-      zip
-    } as any)
+    summary = await buildProject(root, {browser, silent: false, mode, zip})
 
     expect(summary.errors_count).toBe(0)
   } finally {

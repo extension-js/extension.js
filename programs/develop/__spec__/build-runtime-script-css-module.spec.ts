@@ -5,6 +5,7 @@ import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
 import {SFC_STYLE_ATTRIBUTE} from '../plugin-css/css-lib/inline-content-script-css'
 import {SHEET_BLOCK_OPEN} from '../plugin-web-extension/feature-scripts/scripts-lib/runtime-script-sheet'
+import {buildProject} from './helpers/build-project'
 
 // The author's own call injects a scripts/ file and names only that file,
 // so the sheet of the CSS modules it imports has to arrive with it.
@@ -69,14 +70,7 @@ function project() {
 
 async function build(browser: 'chrome' | 'firefox') {
   const root = project()
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {browser, mode: 'production'})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)

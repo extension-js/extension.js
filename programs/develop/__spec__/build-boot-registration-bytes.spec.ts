@@ -3,6 +3,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // The hold a production run puts on its first page lives in the launcher,
 // so the build stays the author's code with no dev runtime reporting for it.
@@ -65,14 +66,7 @@ function project(browser: Browser): string {
 }
 
 async function build(root: string, browser: Browser) {
-  const {extensionBuild} = await import('../command-build')
-
-  await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  await buildProject(root, {browser, mode: 'production'})
 
   return path.join(root, 'dist', browser)
 }

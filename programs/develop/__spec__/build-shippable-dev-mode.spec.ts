@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // One axis decides dev instrumentation: the command. `extension build` in
 // development mode is a shippable artifact whose manifest is the author's
@@ -60,16 +61,12 @@ async function build(
   mode: 'development' | 'production',
   metadataCommand?: 'dev' | 'build'
 ) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
+  const summary = await buildProject(root, {
     browser,
-    silent: true,
-    install: false,
     mode,
     zip: true,
     ...(metadataCommand ? {metadataCommand} : {})
-  } as any)
+  })
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)

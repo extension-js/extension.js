@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-manifest-'))
 
@@ -38,8 +39,6 @@ afterAll(() => {
 
 describe('manifest under public/ (real build)', () => {
   it('refuses with the contract error alone, no asset-conflict noise', async () => {
-    const {extensionBuild} = await import('../command-build')
-
     const printed: string[] = []
 
     const record = (...args: unknown[]) => {
@@ -52,13 +51,7 @@ describe('manifest under public/ (real build)', () => {
     let failure: unknown
 
     try {
-      await extensionBuild(ROOT, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as never)
+      await buildProject(ROOT, {mode: 'production', exitOnError: false})
     } catch (error) {
       failure = error
     } finally {
@@ -76,14 +69,7 @@ describe('manifest under public/ (real build)', () => {
   it('still copies nested public manifests once the root one is removed', async () => {
     fs.rmSync(path.join(ROOT, 'public', 'manifest.json'))
 
-    const {extensionBuild} = await import('../command-build')
-    await extensionBuild(ROOT, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)
+    await buildProject(ROOT, {mode: 'production', exitOnError: false})
 
     const dist = path.join(ROOT, 'dist', 'chrome')
     expect(fs.existsSync(path.join(dist, 'vendor', 'manifest.json'))).toBe(true)

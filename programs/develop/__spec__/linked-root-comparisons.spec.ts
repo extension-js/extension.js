@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
 import {readyContractPath} from '../lib/session-paths'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
+import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
@@ -140,18 +141,13 @@ describe.skipIf(!canLink)(
         fs.mkdirSync(distDir, {recursive: true})
         fs.writeFileSync(path.join(distDir, 'manifest.json'), '{"dev":true}')
 
-        const {extensionBuild} = await import('../command-build')
-
         let error: (Error & {code?: string}) | undefined
 
         try {
-          await extensionBuild(buildRoot, {
-            browser: 'chrome',
-            silent: true,
-            install: false,
+          await buildProject(buildRoot, {
             mode: 'production',
             exitOnError: false
-          } as never)
+          })
         } catch (caught) {
           error = caught as Error & {code?: string}
         } finally {

@@ -2,6 +2,7 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterAll, afterEach, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // A production build tells its author that a reviewer can rebuild the source
@@ -151,20 +152,17 @@ function canLink(): boolean {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   const rulesOut = path.join(tempFolder('extjs-same-bytes-rules-'), 'rules')
   process.env[RULES_OUT] = rulesOut
 
   let outputPath = ''
 
-  const summary = await extensionBuild(root, {
+  const summary = await buildProject(root, {
     browser,
-    silent: true,
-    install: false,
     mode: 'production',
     zip: true,
     sourceMaps: true
-  } as any)
+  })
   expect(summary.errors_count).toBe(0)
   outputPath = String(summary.output_path)
 

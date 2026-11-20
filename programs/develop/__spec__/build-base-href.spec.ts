@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A <base href> plays two roles: it locates the page's files at build time
 // and it moves the document base for links at runtime. The build keeps the
@@ -60,14 +61,9 @@ function fixture(options: {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(path.join(root, 'src'), {
-    browser: 'chrome',
-    silent: true,
-    install: false,
+  const summary = await buildProject(path.join(root, 'src'), {
     mode: 'production'
-  } as any)
+  })
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', 'chrome')
