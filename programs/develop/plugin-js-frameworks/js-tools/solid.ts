@@ -90,15 +90,18 @@ export function resolveSolidHyperscript(
 
 // The preset list vite-plugin-solid uses: Babel runs presets last first, so
 // TypeScript syntax is gone by the time Solid's compiler reads the JSX.
+// With a project Babel config, Babel loads it from the project and adds it.
 export function solidBabelOptions(input: {
   solidPreset: string
   typescriptPreset: string
   typescript: boolean
   development: boolean
+  projectConfigRoot?: string
 }) {
   return {
-    babelrc: false,
-    configFile: false,
+    ...(input.projectConfigRoot
+      ? {cwd: input.projectConfigRoot}
+      : {babelrc: false, configFile: false}),
     sourceMaps: true,
     // Babel's automatic compaction of a file over 500KB prints a note on
     // every build. The bundler minifies, so the output keeps its layout.
@@ -129,7 +132,8 @@ export function solidBabelOptions(input: {
 export async function maybeUseSolid(
   projectPath: string,
   mode: 'development' | 'production' | string = 'development',
-  transpilePackageDirs: string[] = []
+  transpilePackageDirs: string[] = [],
+  hasProjectBabelConfig = false
 ): Promise<JsFramework | undefined> {
   if (!isUsingSolid(projectPath)) return undefined
 
@@ -172,11 +176,13 @@ export async function maybeUseSolid(
   // runtime builds it against a second reactive graph that updates nothing.
   const excludeNodeModules = createNodeModulesExclude(transpilePackageDirs)
 
+  const projectConfigRoot = hasProjectBabelConfig ? projectPath : undefined
   const javascriptOptions = solidBabelOptions({
     solidPreset,
     typescriptPreset,
     typescript: false,
-    development
+    development,
+    projectConfigRoot
   })
 
   const loaders: JsFramework['loaders'] = [
@@ -196,18 +202,28 @@ export async function maybeUseSolid(
         solidPreset,
         typescriptPreset,
         typescript: true,
-        development
+        development,
+        projectConfigRoot
       })
     },
     // A plain script reaches Babel through the gate, which lets a file with
-    // no JSX pass untouched.
-    {
-      test: /\.(js|mjs|cjs)$/,
-      exclude: excludeNodeModules,
-      resourceQuery: NOT_RAW_RESOURCE_QUERY,
-      loader: resolveDevelopDistFile('solid-jsx-gate-loader'),
-      options: {...javascriptOptions, babelLoader}
-    }
+    // no JSX pass untouched, unless the project's own Babel config asks for
+    // every file.
+    hasProjectBabelConfig
+      ? {
+          test: /\.(js|mjs|cjs)$/,
+          exclude: excludeNodeModules,
+          resourceQuery: NOT_RAW_RESOURCE_QUERY,
+          loader: babelLoader,
+          options: javascriptOptions
+        }
+      : {
+          test: /\.(js|mjs|cjs)$/,
+          exclude: excludeNodeModules,
+          resourceQuery: NOT_RAW_RESOURCE_QUERY,
+          loader: resolveDevelopDistFile('solid-jsx-gate-loader'),
+          options: {...javascriptOptions, babelLoader}
+        }
   ]
 
   return {

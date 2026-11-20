@@ -16,7 +16,10 @@ import {
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {safariPreflightError} from '../browsers/run-safari/safari-launch'
 import {createSafariPackager} from '../browsers/run-safari/safari-packager'
-import {refuseUnlistedChoices} from '../helpers/choice-flags'
+import {
+  refuseUnknownListItems,
+  refuseUnlistedChoices
+} from '../helpers/choice-flags'
 import {
   explicitCliValue,
   explicitOptionalBoolean
@@ -347,6 +350,12 @@ export function registerDevCommand(
     )
     .hook('preAction', refuseUnreadableOutput({reportFailure}))
     .hook('preAction', refuseUnlistedChoices({reportFailure}))
+    .hook(
+      'preAction',
+      refuseUnknownListItems('--log-context', [...LOG_CONTEXTS, 'all'], {
+        reportFailure
+      })
+    )
     .action(
       async (
         pathOrRemoteUrl: string,

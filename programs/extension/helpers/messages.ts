@@ -1181,8 +1181,14 @@ export function programAIHelpJSON(version: string): ProgramAIHelpJSON {
 }
 
 export function invalidAIHelpFormat(value: string) {
+  // A flag right after --output is the next option, not a value it was given.
+  const missing = value === '' || value.startsWith('-')
+  const label = missing
+    ? `Missing value for ${code('--output')}.`
+    : `Can't use ${colors.red(String(value))} as a value for ${code('--output')}.`
+
   return (
-    `${getLoggingPrefix('error')} Can't use ${colors.red(String(value))} as a value for ${code('--output')}.\n` +
+    `${getLoggingPrefix('error')} ${label}\n` +
     `${colors.red('Pass')} ${arg('pretty')} ${colors.red('or')} ${arg('json')}${colors.red(', for example')} ${code('extension --ai-help --output json')}${colors.red('.')}`
   )
 }
@@ -1409,6 +1415,15 @@ export function noBrowserNotSupportedForCommand(command?: string) {
     )} is only supported for ${code('dev')}, ${code('start')}, and ${code(
       'preview'
     )}.\n` + `${fmt.label('GOT')} ${code(command || '(none)')}`
+  )
+}
+
+// The control channel rides on the browser the command opens, so a run that
+// opens none cannot carry it. Plain text: the frame and stderr share it.
+export function controlNeedsBrowser(command: string) {
+  return (
+    `--no-browser cannot be combined with --allow-control or --allow-eval on ${command}.\n` +
+    'The control channel is carried by the browser this command opens, and --no-browser opens none. Drop --no-browser, or drop --allow-control and --allow-eval.'
   )
 }
 

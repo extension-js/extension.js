@@ -1,11 +1,9 @@
 #!/usr/bin/env sh
+# Sourced by each hook in this folder, which then calls run_hook with its command.
 [ "${HUSKY-}" = "0" ] && exit 0
 
 name=$(basename "$0")
 top=$(git rev-parse --show-toplevel) || exit 1
-hook="$top/.husky/$name"
-
-[ -f "$hook" ] || exit 0
 
 if [ ! -d "$top/node_modules" ]; then
   echo "git hook $name: run pnpm install in $top first, or set HUSKY=0 to skip it" >&2
@@ -14,8 +12,10 @@ fi
 
 export PATH="$top/node_modules/.bin:$PATH"
 cd "$top" || exit 1
-sh -e "$hook" "$@"
-code=$?
 
-[ $code != 0 ] && echo "git hook $name failed (code $code)" >&2
-exit $code
+run_hook() {
+  "$@"
+  code=$?
+  [ $code != 0 ] && echo "git hook $name failed (code $code)" >&2
+  exit $code
+}
