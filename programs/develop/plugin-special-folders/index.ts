@@ -29,13 +29,15 @@ import {
 import {emitRootAbsoluteRefs} from './emit-root-absolute-refs'
 import {
   excludedFiles,
+  miscasedEntryFolders,
   publicFolderSetting,
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
 } from './folders-config'
 import {
   getSpecialFoldersDataForCompiler,
-  walkedEntriesLeftOut
+  walkedEntriesLeftOut,
+  walkedEntryCollisions
 } from './get-data'
 import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
@@ -66,6 +68,10 @@ const saidShadowedPublic = new Map<string, string>()
 
 // The same for the pages/ and scripts/ files a session named as left out.
 const saidLeftOutScripts = new Map<string, string>()
+
+// The same for the entry folders in another letter case and the entry names
+// two files claim.
+const saidEntryLayout = new Map<string, string>()
 
 interface SpecialFoldersPluginOptions {
   manifestPath: string
@@ -160,6 +166,33 @@ export class SpecialFoldersPlugin {
               leftOut,
               String(browser || 'chrome')
             )
+          )
+        }
+
+        const miscased = miscasedEntryFolders(context)
+        const collisions = walkedEntryCollisions(context)
+        const layoutKey = JSON.stringify([miscased, collisions])
+        const layoutSaid =
+          compiler.watchMode && saidEntryLayout.get(context) === layoutKey
+
+        if (compiler.watchMode) saidEntryLayout.set(context, layoutKey)
+        if (layoutSaid) return
+
+        for (const folder of miscased) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'EntryFolderCaseWarning',
+            messages.entryFolderMiscased(folder.dir, context, folder.name)
+          )
+        }
+
+        if (collisions.length > 0) {
+          pushLayoutWarning(
+            compiler,
+            compilation,
+            'EntryNameCollisionWarning',
+            messages.entryNameCollision(collisions, String(browser || 'chrome'))
           )
         }
       }

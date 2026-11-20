@@ -603,13 +603,16 @@ export function isBuildOutput(
   )
 }
 
+interface IgnoreLevel {
+  // The folder the file sits in, from the project, and '' for the root one.
+  dir: string
+  rules: ReturnType<typeof ignore>
+}
+
 // A folder the tooling fills with a browser profile ignores itself with a
 // file of its own, which a reading of the root file alone never sees.
-function nestedIgnoreRules(
-  projectDir: string,
-  files: string[]
-): Array<{dir: string; rules: ReturnType<typeof ignore>}> {
-  const nested: Array<{dir: string; rules: ReturnType<typeof ignore>}> = []
+function nestedIgnoreRules(projectDir: string, files: string[]): IgnoreLevel[] {
+  const nested: IgnoreLevel[] = []
 
   for (const file of files) {
     if (!file.endsWith('/.gitignore') || isDeniedFromSourceZip(file)) continue
@@ -627,14 +630,53 @@ function nestedIgnoreRules(
   return nested
 }
 
-function isIgnoredByNestedRules(
-  file: string,
-  nested: Array<{dir: string; rules: ReturnType<typeof ignore>}>
-): boolean {
-  return nested.some(
-    ({dir, rules}) =>
-      file.startsWith(`${dir}/`) && rules.ignores(file.slice(dir.length + 1))
+// Reads the files the way git does: the deepest file with a rule for a path
+// decides, and nothing inside an ignored folder is taken back.
+function gitIgnoreReader(levels: IgnoreLevel[]): (file: string) => boolean {
+  const shallowFirst = [...levels].sort(
+    (a, b) => a.dir.split('/').length - b.dir.split('/').length
   )
+  const folders = new Map<string, boolean>()
+
+  const decide = (target: string): boolean => {
+    let ignored = false
+
+    for (const {dir, rules} of shallowFirst) {
+      if (dir && !target.startsWith(`${dir}/`)) continue
+
+      const local = dir ? target.slice(dir.length + 1) : target
+
+      if (!local) continue
+
+      const verdict = rules.test(local)
+
+      if (verdict.ignored) ignored = true
+      else if (verdict.unignored) ignored = false
+    }
+
+    return ignored
+  }
+
+  const folderIgnored = (folder: string): boolean => {
+    const known = folders.get(folder)
+
+    if (known !== undefined) return known
+
+    const slash = folder.lastIndexOf('/')
+    const answer =
+      (slash > 0 && folderIgnored(folder.slice(0, slash))) ||
+      decide(`${folder}/`)
+
+    folders.set(folder, answer)
+
+    return answer
+  }
+
+  return (file) => {
+    const slash = file.lastIndexOf('/')
+
+    return (slash > 0 && folderIgnored(file.slice(0, slash))) || decide(file)
+  }
 }
 
 export async function getFilesToZip(
@@ -672,7 +714,10 @@ export async function getFilesToZip(
     })
   ).map(toPosix)
 
-  const nested = nestedIgnoreRules(projectDir, files)
+  const isGitIgnored = gitIgnoreReader([
+    {dir: '', rules: ig},
+    ...nestedIgnoreRules(projectDir, files)
+  ])
   const ownFolder = manifestPath
     ? relativeWithin(projectDir, path.dirname(manifestPath))
     : undefined
@@ -680,8 +725,7 @@ export async function getFilesToZip(
     (file) =>
       !isDeniedFromSourceZip(file) &&
       !(output && isBuildOutput(file, projectDir, output)) &&
-      !ig.ignores(file) &&
-      !isIgnoredByNestedRules(file, nested) &&
+      !isGitIgnored(file) &&
       !isCompanionExtension(file, ownFolder)
   )
   // Read from the whole listing, so an ignore rule cannot hide the files
