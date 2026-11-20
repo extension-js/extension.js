@@ -19,15 +19,15 @@ export function resolveBrowsersCacheRoot(
   platform: NodeJS.Platform = process.platform,
   cwd?: string
 ): string {
-  // Joined by the rules of the platform asked about. A path that is already
-  // absolute here, or the folder this process runs in, keeps this host's rules.
+  // Joined by the rules of the platform asked about. An absolute path the
+  // person set is theirs as written, and no cwd means this process's own.
   const p = platform === 'win32' ? path.win32 : path.posix
   const explicit = String(env.EXT_BROWSERS_CACHE_DIR || '').trim()
 
   if (explicit) {
-    return path.isAbsolute(explicit) || cwd === undefined
-      ? path.resolve(explicit)
-      : p.resolve(cwd, explicit)
+    if (path.isAbsolute(explicit) || p.isAbsolute(explicit)) return explicit
+
+    return cwd === undefined ? path.resolve(explicit) : p.resolve(cwd, explicit)
   }
 
   const inWorkingDir = () =>
@@ -89,12 +89,14 @@ export function removeTree(dir: string): void {
   }
 }
 
-// A file this user may not delete surfaces as ENOTEMPTY on the folder above
-// it, which names the wrong cause. The folder that refused is the real one.
+// macOS reports a file this user may not delete as ENOTEMPTY on a folder above
+// it, Linux as EACCES on the file. Both name the folder that refused instead.
+const REFUSED_REMOVAL = new Set(['ENOTEMPTY', 'EACCES', 'EPERM'])
+
 function explainRemovalFailure(dir: string, error: unknown): unknown {
-  if ((error as NodeJS.ErrnoException | null)?.code !== 'ENOTEMPTY') {
-    return error
-  }
+  const code = (error as NodeJS.ErrnoException | null)?.code
+
+  if (!code || !REFUSED_REMOVAL.has(code)) return error
 
   const blocked = firstUnwritableFolder(dir)
   if (!blocked) return error

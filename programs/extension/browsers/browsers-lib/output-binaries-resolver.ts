@@ -20,15 +20,15 @@ export function computeSharedCacheRoot(
   platform: NodeJS.Platform = process.platform,
   cwd?: string
 ): string {
-  // Joined by the rules of the platform asked about. A path that is already
-  // absolute here, or the folder this process runs in, keeps this host's rules.
+  // Joined by the rules of the platform asked about. An absolute path the
+  // person set is theirs as written, and no cwd means this process's own.
   const p = platform === 'win32' ? path.win32 : path.posix
   const explicit = String(env.EXT_BROWSERS_CACHE_DIR || '').trim()
 
   if (explicit) {
-    return path.isAbsolute(explicit) || cwd === undefined
-      ? path.resolve(explicit)
-      : p.resolve(cwd, explicit)
+    if (path.isAbsolute(explicit) || p.isAbsolute(explicit)) return explicit
+
+    return cwd === undefined ? path.resolve(explicit) : p.resolve(cwd, explicit)
   }
 
   const inWorkingDir = () =>
