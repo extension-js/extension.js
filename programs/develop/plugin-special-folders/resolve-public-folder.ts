@@ -21,6 +21,52 @@ function isUsableDir(candidate: string): boolean {
   }
 }
 
+function namesIn(dir: string): string[] {
+  try {
+    return fs.readdirSync(dir)
+  } catch {
+    return []
+  }
+}
+
+// The folder the copier would read. A disk that ignores letter case answers
+// for `Public/` too, which ships as before and is warned about.
+export function publicFolderExists(
+  dir: string,
+  {isDir = isUsableDir}: PublicFolderProbe = {}
+): boolean {
+  return isDir(dir)
+}
+
+function swapCase(name: string): string {
+  return [...name]
+    .map((char) =>
+      char === char.toLowerCase() ? char.toUpperCase() : char.toLowerCase()
+    )
+    .join('')
+}
+
+// Whether a disk ignores letter case, asked once per folder by reading the
+// found folder through its case-flipped name.
+const ignoresCaseByDir = new Map<string, boolean>()
+
+function readsThroughOtherCase(
+  found: string,
+  isDir: (candidate: string) => boolean,
+  cache: boolean
+): boolean {
+  const parent = path.dirname(found)
+  const known = cache ? ignoresCaseByDir.get(parent) : undefined
+
+  if (known !== undefined) return known
+
+  const answer = isDir(path.join(parent, swapCase(path.basename(found))))
+
+  if (cache) ignoresCaseByDir.set(parent, answer)
+
+  return answer
+}
+
 export interface PublicFolderInspection {
   // The folder the build copies from; undefined when neither location exists.
   publicDir?: string
@@ -30,6 +76,15 @@ export interface PublicFolderInspection {
   usedFallback: boolean
   // Both folders exist and differ; the project-root one wins.
   bothExist: boolean
+  // A folder spelled in another letter case (`Public/`), and whether this
+  // disk still ships it because it ignores letter case.
+  miscased?: {dir: string; ships: boolean}
+}
+
+export interface PublicFolderProbe {
+  isDir?: (candidate: string) => boolean
+  // The names a folder holds, as written on disk.
+  readNames?: (dir: string) => string[]
 }
 
 // The one answer to "where is public/": the project root, as for _locales,
@@ -38,7 +93,7 @@ export interface PublicFolderInspection {
 export function inspectPublicFolders(
   manifestPath: string,
   projectRoot?: string,
-  {isDir = isUsableDir}: {isDir?: (candidate: string) => boolean} = {}
+  {isDir = isUsableDir, readNames = namesIn}: PublicFolderProbe = {}
 ): PublicFolderInspection {
   const setting = publicFolderSetting(projectRoot)
   const fromManifest = path.join(path.dirname(manifestPath), 'public')
@@ -53,13 +108,32 @@ export function inspectPublicFolders(
   const rootOk = setting.kind !== 'off' && isDir(fromRoot)
   const manifestOk =
     setting.kind === 'default' && !sameLocation && isDir(fromManifest)
+  const found =
+    setting.kind === 'default'
+      ? [...new Set([path.dirname(fromRoot), path.dirname(fromManifest)])]
+          .flatMap((dir) =>
+            readNames(dir)
+              .filter(
+                (name) => name !== 'public' && name.toLowerCase() === 'public'
+              )
+              .map((name) => path.join(dir, name))
+          )
+          .find((candidate) => isDir(candidate))
+      : undefined
+  const miscased = found
+    ? {
+        dir: found,
+        ships: readsThroughOtherCase(found, isDir, isDir === isUsableDir)
+      }
+    : undefined
 
   return {
     publicDir: rootOk ? fromRoot : manifestOk ? fromManifest : undefined,
     fromRoot,
     fromManifest,
     usedFallback: !rootOk && manifestOk,
-    bothExist: rootOk && manifestOk
+    bothExist: rootOk && manifestOk,
+    ...(miscased ? {miscased} : {})
   }
 }
 
