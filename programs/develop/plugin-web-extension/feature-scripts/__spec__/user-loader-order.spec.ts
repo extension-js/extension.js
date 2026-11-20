@@ -1,20 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 import {buildProject} from '../../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // What a loader added through the config hook of extension.config.js is
 // handed for a content script, read from whole builds with a recording loader.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, rel: string, content: string) {
   const file = path.join(root, rel)
@@ -169,10 +165,7 @@ interface Fixture {
 }
 
 function project({scripts, files = {}, config}: Fixture) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-user-loader-order-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-user-loader-order-'))
 
   const names = Object.keys(scripts)
   const usesJsx = names.some((name) => name.endsWith('x'))

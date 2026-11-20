@@ -1,21 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {patchHtml} from '../../html-lib/patch-html'
 import {UpdateHtmlFile} from '../../steps/update-html-file'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
-const tmpRoots: string[] = []
-
-afterAll(() => {
-  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function makeTmp(name: string) {
-  const created = fs.mkdtempSync(
-    path.join(os.tmpdir(), `extjs-update-html-${name}-`)
-  )
-  tmpRoots.push(created)
+  const created = tempFolder(`extjs-update-html-${name}-`)
 
   return fs.realpathSync(created)
 }

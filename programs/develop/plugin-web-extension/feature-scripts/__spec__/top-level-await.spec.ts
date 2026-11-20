@@ -1,20 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 import {buildProject} from '../../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
 // A content script that awaits at the top level, built whole the way
 // `extension build` and `extension dev` compile it.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, rel: string, content: string) {
   const file = path.join(root, rel)
@@ -23,10 +19,7 @@ function write(root: string, rel: string, content: string) {
 }
 
 function project(files: Record<string, string>, js: string[]) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-top-level-await-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-top-level-await-'))
 
   const typed = js.some((file) => /\.ts$/.test(file))
 

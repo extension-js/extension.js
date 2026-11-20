@@ -1,21 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {EXTENSIONJS_SANDBOX_LAYER} from '../../../feature-scripts/contracts'
 import {AddScriptsAndStylesToCompilation} from '../../steps/add-scripts-and-styles-to-compilation'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
-const tmpRoots: string[] = []
-
-afterAll(() => {
-  for (const root of tmpRoots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function makeTmp(name: string) {
-  const created = fs.mkdtempSync(
-    path.join(os.tmpdir(), `extjs-scripts-styles-${name}-`)
-  )
-  tmpRoots.push(created)
+  const created = tempFolder(`extjs-scripts-styles-${name}-`)
 
   return fs.realpathSync(created)
 }

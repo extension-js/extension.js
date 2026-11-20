@@ -1,9 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import vm from 'node:vm'
 import {rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {
   EXTENSION_BASE_GLOBAL,
   readTakeBlock
@@ -13,8 +12,9 @@ import webpackConfig from '../../../rspack-config'
 import {MAIN_WORLD_COPY_SUFFIX} from '../contracts'
 import {CHROMIUM_EXTENSION_ROOT} from '../scripts-lib/injected-sheet-urls'
 import {extensionBaseAttributeFor} from '../scripts-lib/taken-extension-base'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const EXTENSION_BASE = 'chrome-extension://abcdefghijklmnop/'
 
 // Chromium fills the extension id in as it hands a sheet over, a fetch too.
@@ -48,10 +48,7 @@ function takenAttribute(bundle: string): string {
 }
 
 function scaffold(name: string, files: Record<string, string | Buffer>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), `extjs-exposure-${name}-`))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder(`extjs-exposure-${name}-`))
 
   fs.writeFileSync(
     path.join(root, 'package.json'),
@@ -369,12 +366,6 @@ function firefoxPage(answer: () => string) {
       )
   }
 }
-
-afterAll(() => {
-  for (const root of roots) {
-    fs.rmSync(root, {recursive: true, force: true})
-  }
-})
 
 describe('a stylesheet a production content script declares', () => {
   const manifest = JSON.stringify({

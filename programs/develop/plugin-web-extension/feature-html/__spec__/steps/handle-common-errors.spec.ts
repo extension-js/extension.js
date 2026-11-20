@@ -1,23 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {HtmlPlugin} from '../../index'
+import {trackTempFolders} from '../../../../__spec__/helpers/temp-folders'
 
-const tmpRoots: string[] = []
-
-afterAll(() => {
-  for (const dir of tmpRoots) fs.rmSync(dir, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A project whose popup names one script. The script is deleted after the
 // plugin read the page, which is how a page entry goes missing mid-session.
 function writeProject() {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-html-errors-'))
-  )
-  tmpRoots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-html-errors-'))
   fs.mkdirSync(path.join(root, 'popup'))
   fs.writeFileSync(
     path.join(root, 'package.json'),

@@ -4,22 +4,16 @@ import path from 'node:path'
 import vm from 'node:vm'
 import {rspack} from '@rspack/core'
 import {Parser} from 'acorn'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {diagnosticCode} from '../../../lib/diagnostic-code'
 import {readDefaultExport} from '../scripts-lib/default-export'
 import contentScriptWrapper from '../steps/add-content-script-wrapper/content-script-wrapper'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(file: string, siblings: Record<string, string>) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-default-shapes-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-default-shapes-'))
 
   fs.writeFileSync(path.join(root, 'package.json'), '{"name":"fixture"}\n')
   fs.mkdirSync(path.join(root, 'content'))

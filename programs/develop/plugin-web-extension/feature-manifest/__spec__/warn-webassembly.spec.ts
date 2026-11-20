@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {
   findRemoteWebAssemblyAddresses,
@@ -10,12 +10,9 @@ import {
   WarnWebAssembly
 } from '../steps/warn-webassembly'
 import {buildProject} from '../../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // Larger than the asset inline threshold, so the file cannot become a data URI.
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])
@@ -48,8 +45,7 @@ function project(options: {
   page?: string
   worker?: string
 }) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wasm-warn-'))
-  roots.push(root)
+  const root = tempFolder('extjs-wasm-warn-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'wasm-warn', version: '0.0.0'})
