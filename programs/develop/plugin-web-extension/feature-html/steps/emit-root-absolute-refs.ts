@@ -12,24 +12,24 @@ import {type Compilation, rspack, WebpackError} from '@rspack/core'
 import {
   rootAbsolutePathIsWithheld,
   sourceFileMayShip
-} from '../lib/public-private-files'
-import {isOsPathUnder} from '../lib/real-path'
-import {WITHHELD_CSS_REF, withheldCssRefs} from '../lib/withheld-file'
-import {templateCopiedAsset} from '../plugin-compilation/copied-asset-env'
-import {whyNotRead} from '../plugin-css/css-lib/inline-css-imports'
-import * as cssMessages from '../plugin-css/css-lib/messages'
-import * as htmlMessages from '../plugin-web-extension/feature-html/html-lib/messages'
-import {missingRefName} from '../plugin-web-extension/feature-html/steps/add-assets-to-compilation'
-import * as messages from '../plugin-web-extension/feature-scripts/messages'
+} from '../../../lib/public-private-files'
+import {isOsPathUnder} from '../../../lib/real-path'
+import {WITHHELD_CSS_REF, withheldCssRefs} from '../../../lib/withheld-file'
+import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
+import {whyNotRead} from '../../../plugin-css/css-lib/inline-css-imports'
+import * as cssMessages from '../../../plugin-css/css-lib/messages'
+import * as folderMessages from '../../../plugin-special-folders/messages'
+import * as messages from '../../feature-scripts/messages'
 import {
   type CompileRequest,
   compileRuntimeLoadedFiles,
   planTracedFile,
   saidNotShipped,
   type TracedFilePlan
-} from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
-import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
-import * as folderMessages from './messages'
+} from '../../feature-scripts/steps/trace-runtime-loaded-files'
+import {collectRootAbsoluteRefs} from '../../shared/paths'
+import * as htmlMessages from '../html-lib/messages'
+import {missingRefName} from './add-assets-to-compilation'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {
