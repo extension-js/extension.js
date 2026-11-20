@@ -128,6 +128,7 @@ function runDevAndValidate(cwd) {
     let output = ''
     let firstCompileSeen = false
     let settled = false
+    /** @type {NodeJS.Timeout | null} */
     let readyPoll = null
 
     const finish = (err) => {

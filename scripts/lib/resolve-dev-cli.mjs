@@ -71,6 +71,7 @@ export function resolveInstalledCli(projectDir) {
   }
 }
 
+/** @param {{projectDir: string, useRepoBuild?: boolean, root?: string}} options */
 export function resolveDevCli({projectDir, useRepoBuild = false, root}) {
   if (useRepoBuild) return resolveRepoCli(root)
 
@@ -79,6 +80,7 @@ export function resolveDevCli({projectDir, useRepoBuild = false, root}) {
 
 // Every smoke spawns the CLI the same way: the current node binary, the
 // resolved cli.cjs, no shell, so PATH and .cmd shims never get a say.
+/** @returns {[string, string[]]} */
 export function cliSpawnArgs(cli, args) {
   return [process.execPath, [cli.cliPath, ...args]]
 }

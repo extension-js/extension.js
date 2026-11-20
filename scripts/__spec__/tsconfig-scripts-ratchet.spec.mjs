@@ -24,7 +24,6 @@ const EXCLUDED_SCRIPTS = [
   './scripts/__spec__/smoke-npx.spec.mjs',
   './scripts/__spec__/spec-path-gates.spec.mjs',
   './scripts/__spec__/spec-temp-folder.spec.mjs',
-  './scripts/__spec__/validate-browser-identity.spec.mjs',
   './scripts/__spec__/verify-npm-publish.spec.mjs',
   './scripts/build-extensions.cjs',
   './scripts/build-with-manifest.mjs',
@@ -38,14 +37,8 @@ const EXCLUDED_SCRIPTS = [
   './scripts/run-locked.mjs',
   './scripts/run-optional-deps-smoke.mjs',
   './scripts/smoke-npx.mjs',
-  './scripts/validate-browser-identity.mjs',
   './scripts/validate-bun-runtime.mjs',
-  './scripts/validate-content-reload-no-hard-reload.mjs',
   './scripts/validate-deno-runtime.mjs',
-  './scripts/validate-first-dev-run.mjs',
-  './scripts/validate-open-action-trigger.mjs',
-  './scripts/validate-session-lifecycle.mjs',
-  './scripts/verify-content-template-first-dev.mjs',
   './scripts/verify-edge-system-locate.mjs'
 ]
 
