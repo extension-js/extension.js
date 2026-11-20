@@ -39,10 +39,6 @@ export const browserEntries = {
     __dirname,
     './plugin-reload/reload-lib/minimum-files/minimum-script-file.ts'
   ),
-  'preact-refresh-shim': path.resolve(
-    __dirname,
-    './plugin-reload/reload-lib/preact-refresh-shim.ts'
-  ),
   'page-socket-client': path.resolve(
     __dirname,
     './plugin-web-extension/feature-html/steps/page-socket-client.ts'

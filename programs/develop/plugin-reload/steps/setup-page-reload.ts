@@ -91,9 +91,6 @@ export class SetupPageReload {
       if (!entry) continue
 
       entry.import = [
-        // The refresh shim runs before any refresh-transformed module, so a
-        // bundle whose refresh plugin is broken still loads.
-        resolveDevelopDistFile('preact-refresh-shim'),
         ...devServerHmrImports,
         ...(entry.import || []),
         // A page with no script of its own still needs one to hot update.
