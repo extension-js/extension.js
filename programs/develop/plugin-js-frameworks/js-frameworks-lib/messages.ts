@@ -6,8 +6,9 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
+import * as path from 'node:path'
 import colors from 'pintor'
-import {prefix} from '../../lib/messaging'
+import {fmt, prefix} from '../../lib/messaging'
 
 // The caller owns the prefix here: every call site already wraps this in a
 // debug line, so a glyph inside the string would print twice.
@@ -43,6 +44,20 @@ export function svelteCompilerRuntimeMismatch(
     `which pins svelte ${colors.blue(projectVersion)}.\n` +
     `The build uses ${colors.blue(compilerVersion)} for both, so the output links. ` +
     `Add ${colors.blue('svelte-loader')} to the project to compile with ${colors.blue(projectVersion)} instead.`
+  )
+}
+
+// What a vue.loader or svelte.loader file threw while it was imported.
+export function loaderOptionsLoadFailed(configPath: string, cause: unknown) {
+  const thrown =
+    cause instanceof Error ? cause.message.trim() : String(cause ?? '').trim()
+  const reason = thrown || 'The file threw an error with no message.'
+
+  return (
+    `${prefix('error')} Couldn't load ${colors.blue(path.basename(configPath))}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    `${colors.red(reason)}\n` +
+    `Fix the loader options file, then run the command again.`
   )
 }
 

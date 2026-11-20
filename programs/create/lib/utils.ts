@@ -8,17 +8,48 @@
 
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {hasChannelPrefix} from './messaging'
+import {CODES, type ErrorCode, hasChannelPrefix} from './messaging'
+
+// A create failure as the CLI reads it: the frame it prints as is, the code a
+// script branches on, and the original on cause. The name stays Error.
+export class CreateError extends Error {
+  readonly code: ErrorCode
+
+  constructor(frame: string, code: ErrorCode, cause?: unknown) {
+    super(frame)
+    this.code = code
+    if (cause !== undefined) (this as {cause?: unknown}).cause = cause
+  }
+}
+
+function isErrorCode(value: unknown): value is ErrorCode {
+  return (
+    typeof value === 'string' &&
+    Object.prototype.hasOwnProperty.call(CODES, value)
+  )
+}
+
+// A code set closer to the fault wins, so a wrapping step never relabels it.
+export function withCode<T extends Error>(error: T, code: ErrorCode): T {
+  if (!isErrorCode((error as {code?: unknown}).code)) {
+    ;(error as {code?: unknown}).code = code
+  }
+
+  return error
+}
 
 // One failure, one frame: the frame is the message the CLI prints as is, and
 // the original rides on cause. A failure that is already framed keeps its own.
-export function failStep(frame: string, cause: unknown): Error {
-  if (cause instanceof Error && hasChannelPrefix(cause.message)) return cause
+export function failStep(
+  frame: string,
+  cause: unknown,
+  code: ErrorCode
+): Error {
+  if (cause instanceof Error && hasChannelPrefix(cause.message)) {
+    return withCode(cause, code)
+  }
 
-  const error = new Error(frame)
-  ;(error as {cause?: unknown}).cause = cause
-
-  return error
+  return new CreateError(frame, code, cause)
 }
 
 // One reading for every on/off variable: 1 or true, any case, spaces ignored.

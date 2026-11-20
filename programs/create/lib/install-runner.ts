@@ -171,6 +171,33 @@ export function installExit(run: InstallResult): number | string {
   return run.signal ? `ended by ${run.signal}` : 'no exit code'
 }
 
+// The cause a failed install frame carries when the manager ran and ended
+// badly: how it ended and what it said, read by a caller and not off the copy.
+export class InstallExitError extends Error {
+  readonly command: string
+  readonly args: string[]
+  readonly exitCode: number | null
+  readonly signal?: NodeJS.Signals
+  readonly stdout: string
+  readonly stderr: string
+
+  constructor(command: string, args: string[], run: InstallResult) {
+    super(
+      `${[command, ...args].join(' ')} ended with ${installExit(run)}` +
+        (run.reason ? `: ${run.reason}` : '')
+    )
+
+    this.name = 'InstallExitError'
+    this.command = command
+    this.args = args
+    this.exitCode = run.code
+    if (run.signal) this.signal = run.signal
+
+    this.stdout = run.stdout
+    this.stderr = run.stderr
+  }
+}
+
 export interface RunInstallOptions {
   cwd: string
   // 'tee' shows the child's output as it arrives and still captures it.

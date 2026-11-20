@@ -215,13 +215,23 @@ export function isBrowserInstallForeignFolderError(
 
 export type UninstallOutcome = 'removed' | 'absent' | 'system' | 'failed'
 
+// Why a failed folder is still there, for a script to branch on: a removal
+// that failed, one this user may not make, a folder that is not ours, or one
+// an install is writing to.
+export type UninstallFailureKind =
+  | 'removal'
+  | 'permission'
+  | 'foreign'
+  | 'installing'
+
 export interface UninstallResult {
   browser: InstallBrowserTarget
   removed: boolean
   // The managed folder that was checked, whatever the outcome.
   path: string
   outcome: UninstallOutcome
-  // Why the folder is still there, when the outcome is failed.
+  // Set when the outcome is failed: the kind, and the reason in words.
+  kind?: UninstallFailureKind
   reason?: string
   // The binary Extension.js leaves alone, when the outcome is system.
   systemPath?: string

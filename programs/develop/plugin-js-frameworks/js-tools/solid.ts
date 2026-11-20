@@ -17,17 +17,12 @@ import {createNodeModulesExclude} from '../../lib/transpile-packages'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
+import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
 
-// Printed once per process. A caller that needs its own record passes one.
-const solidNotice = {delivered: false}
-
-export function isUsingSolid(
-  projectPath: string,
-  notice: {delivered: boolean} = solidNotice
-) {
+export function isUsingSolid(projectPath: string, notice?: Notice) {
   const using = hasDependency(projectPath, 'solid-js')
 
-  if (using && !notice.delivered) {
+  if (using && notice && !notice.delivered) {
     if (isDebug()) {
       debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Solid')}`)
     }
@@ -133,9 +128,10 @@ export async function maybeUseSolid(
   projectPath: string,
   mode: 'development' | 'production' | string = 'development',
   transpilePackageDirs: string[] = [],
-  hasProjectBabelConfig = false
+  hasProjectBabelConfig = false,
+  notices?: SessionNotices
 ): Promise<JsFramework | undefined> {
-  if (!isUsingSolid(projectPath)) return undefined
+  if (!isUsingSolid(projectPath, notices?.solid)) return undefined
 
   const requireFromProject = createRequire(
     path.join(projectPath, 'package.json')
