@@ -4,38 +4,25 @@ import {describe, expect, it, vi} from 'vitest'
 import {PlaywrightPlugin} from '../plugin-playwright'
 import {WarnManifestV2OnChromium} from '../plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
 import webpackConfig from '../rspack-config'
+import {writeProjectFiles} from './helpers/extension-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const makeTempFolder = trackTempFolders()
 
-const resolveTranspilePackageDirsMock = vi.hoisted(() =>
-  vi.fn<(..._args: any[]) => string[]>(() => [])
-)
-const computeExtensionsToLoadMock = vi.hoisted(() =>
-  vi.fn<(..._args: any[]) => string[]>(() => [])
-)
+// A dependency the project names with the workspace protocol and that sits
+// in its node_modules, which is what makes the build transpile and watch it.
+function linkWorkspacePackage(
+  projectStructure: {packageJsonPath: string},
+  name: string
+) {
+  const root = path.dirname(projectStructure.packageJsonPath)
 
-vi.mock('../lib/transpile-packages', async () => {
-  const actual = await vi.importActual<
-    typeof import('../lib/transpile-packages')
-  >('../lib/transpile-packages')
-
-  return {
-    ...actual,
-    resolveTranspilePackageDirs: resolveTranspilePackageDirsMock
-  }
-})
-
-vi.mock('../lib/extensions-to-load', async () => {
-  const actual = await vi.importActual<
-    typeof import('../lib/extensions-to-load')
-  >('../lib/extensions-to-load')
-
-  return {
-    ...actual,
-    computeExtensionsToLoad: computeExtensionsToLoadMock
-  }
-})
+  writeProjectFiles(root, {
+    'package.json': {name: 'demo', dependencies: {[name]: 'workspace:*'}},
+    [`node_modules/${name}/package.json`]: {name, version: '0.0.0'},
+    [`node_modules/${name}/index.js`]: 'export const ui = true\n'
+  })
+}
 
 function createProjectStructure() {
   const root = makeTempFolder('extjs-webpack-config-')
@@ -54,7 +41,6 @@ function createProjectStructure() {
 
 describe('webpack-config transpile packages watch behavior', () => {
   it('keeps node_modules ignored when no transpiled package is detected', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
       projectStructure as any,
@@ -78,9 +64,11 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('keeps .git ignored, with and without transpiled packages', () => {
-    for (const dirs of [[], ['/tmp/workspace/packages/ui']]) {
-      resolveTranspilePackageDirsMock.mockReturnValue(dirs)
+    for (const linked of [false, true]) {
       const projectStructure = createProjectStructure()
+
+      if (linked) linkWorkspacePackage(projectStructure, '@workspace/ui')
+
       const config = webpackConfig(
         projectStructure as any,
         {
@@ -99,11 +87,15 @@ describe('webpack-config transpile packages watch behavior', () => {
       )
 
       expect(config.watchOptions?.ignored).toContain('**/.git/**')
+      expect(
+        (config.watchOptions?.ignored as string[]).includes(
+          '**/node_modules/**'
+        )
+      ).toBe(!linked)
     }
   })
 
   it('ignores by path segment, not substring, a project path containing "dist" stays watched', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
     const config = webpackConfig(
@@ -140,11 +132,10 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('does not blanket-ignore node_modules when transpiled packages are auto-detected', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([
-      '/repo/node_modules/@workspace/ui'
-    ])
-
     const projectStructure = createProjectStructure()
+
+    linkWorkspacePackage(projectStructure, '@workspace/ui')
+
     const config = webpackConfig(
       projectStructure as any,
       {
@@ -172,7 +163,6 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('disables module concatenation in development to avoid react-refresh __webpack_module__ clash', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
     const devConfig = webpackConfig(
       projectStructure as any,
@@ -212,7 +202,6 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('never emits assets for errored compiles, in dev and prod', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
 
     for (const mode of ['development', 'production'] as const) {
@@ -237,8 +226,6 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('warns once about a named companion that is not an extension', async () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
-
     const {takeCodedWarnings} = await import('../lib/coded-warnings')
     const projectStructure = createProjectStructure()
     const root = path.dirname(projectStructure.manifestPath)
@@ -279,40 +266,34 @@ describe('webpack-config transpile packages watch behavior', () => {
     }
   })
 
-  it('passes built-in devtools + theme + user output extensions to computeExtensionsToLoad', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
-    computeExtensionsToLoadMock.mockReturnValue([
-      '/builtins/devtools',
-      '/builtins/theme',
-      '/project/dist/chrome'
-    ])
-
+  // The built-in companions resolve from the compiled package only, and
+  // companion-extensions-to-load.spec.ts covers them there.
+  it('hands the browser a companion the project names, then the user output', () => {
     const projectStructure = createProjectStructure()
+    const root = path.dirname(projectStructure.manifestPath)
+    const output = path.join(root, 'dist', 'chrome')
+    const companion = path.join(root, 'extensions', 'helper')
+    const browsersPlugin = {apply() {}, extensionsToLoad: [] as string[]}
+
+    writeProjectFiles(companion, {
+      'manifest.json': {manifest_version: 3, name: 'helper', version: '1.0.0'}
+    })
+
     webpackConfig(
       projectStructure as any,
       {
         browser: 'chrome',
         mode: 'development',
-        output: {
-          clean: false,
-          path: '/project/dist/chrome'
-        },
-        noBrowser: false
+        extensions: {paths: [companion]},
+        output: {clean: false, path: output},
+        browsersPlugin
       } as any
     )
 
-    expect(computeExtensionsToLoadMock).toHaveBeenCalledWith(
-      expect.any(String),
-      'development',
-      'chrome',
-      '/project/dist/chrome',
-      expect.any(Array),
-      projectStructure.manifestPath
-    )
+    expect(browsersPlugin.extensionsToLoad).toEqual([companion, output])
   })
 
   it('hashes content-script bundles per-entry by default in development', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
       projectStructure as any,
@@ -347,7 +328,6 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('emits unhashed content-script filenames when hashContentScripts is false', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
       projectStructure as any,
@@ -371,7 +351,6 @@ describe('webpack-config transpile packages watch behavior', () => {
   })
 
   it('routes CJS requires through the `require` exports condition', () => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const projectStructure = createProjectStructure()
     const config = webpackConfig(
       projectStructure as any,
@@ -691,7 +670,6 @@ describe('a scanned companion entry that leads outside the project', () => {
 
 describe('webpack-config MV2 on chromium warning', () => {
   const buildConfig = (manifest: Record<string, unknown>) => {
-    resolveTranspilePackageDirsMock.mockReturnValue([])
     const root = makeTempFolder('extjs-webpack-config-')
     const packageJsonPath = path.join(root, 'package.json')
     const manifestPath = path.join(root, 'manifest.json')
