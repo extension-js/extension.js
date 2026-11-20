@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // The command decides whether a project is TypeScript before the compiler
 // does. Both must read the same folders config, or the first build writes
@@ -44,7 +45,6 @@ function project(files: Record<string, string>) {
 }
 
 async function buildOnce(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalStderr = process.stderr.write.bind(process.stderr)
   const originalError = console.error
@@ -59,11 +59,7 @@ async function buildOnce(root: string) {
   console.log = (...args: unknown[]) => lines.push(args.join(' '))
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: false,
-      install: false
-    } as any)
+    const summary = await buildProject(root, {silent: false})
     expect(summary.errors_count, lines.join('\n')).toBe(0)
   } catch (error) {
     throw new Error(`build failed: ${String(error)}\n${lines.join('\n')}`)

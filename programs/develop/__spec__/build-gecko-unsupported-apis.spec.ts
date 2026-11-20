@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // One source manifest serves MV3 on Chromium and MV2 on Firefox. A background
 // that reads chrome.sidePanel and chrome.action ships fine on Chromium, and
@@ -69,7 +70,6 @@ function project(background: string) {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -82,13 +82,12 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   try {
     // The linter would repeat the same two findings, this spec is about
     // the build naming them on its own.
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode: 'production',
       addonLint: false
-    } as any)
+    })
   } finally {
     console.log = originalLog
     console.warn = originalWarn

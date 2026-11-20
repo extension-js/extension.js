@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Development content-script bundles carry a per-entry content hash, so a
 // save must rename only the script it touched, the manifest on disk must
@@ -42,17 +43,12 @@ function project() {
 }
 
 async function build(root: string, extra: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
+  const summary = await buildProject(root, {
     mode: 'development',
     zip: false,
     exitOnError: false,
     ...extra
-  } as any)
+  })
 
   return summary
 }

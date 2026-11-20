@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildSummaryPath, readyContractPath} from '../lib/session-paths'
+import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 const promote = vi.hoisted(() => ({fails: false}))
@@ -106,16 +107,12 @@ function readJson(file: string) {
 }
 
 async function build(root: string, options: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
-
-  return extensionBuild(root, {
+  return buildProject(root, {
     browser: BROWSER,
-    silent: true,
-    install: false,
     mode: 'production',
     exitOnError: false,
     ...options
-  } as never)
+  })
 }
 
 beforeEach(() => {

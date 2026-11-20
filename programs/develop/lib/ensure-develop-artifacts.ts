@@ -225,6 +225,41 @@ export type DevelopArtifactsOptions = {
   watchPollMs?: number
 }
 
+// A spec run that compiled would write a dist into the checkout unasked,
+// so under a test runner the compile needs this to be set to 1 or true.
+export const COMPILE_IN_TESTS_ENV = 'EXTENSION_COMPILE_IN_TESTS'
+
+function isTestRun(): boolean {
+  return Boolean(
+    process.env.VITEST ||
+      process.env.VITEST_WORKER_ID ||
+      process.env.NODE_TEST_CONTEXT ||
+      process.env.JEST_WORKER_ID
+  )
+}
+
+function isCompileInTestsAllowed(): boolean {
+  const raw = String(process.env[COMPILE_IN_TESTS_ENV] ?? '')
+    .trim()
+    .toLowerCase()
+
+  return raw === '1' || raw === 'true'
+}
+
+// Only a contributor running specs in a source checkout reads this.
+function developArtifactsMissingInTestRun(
+  missing: string[],
+  rebuild: string,
+  developRoot: string
+): string {
+  return [
+    messages.developArtifactsMissing(missing).split('\n').slice(0, -1),
+    `A test run does not compile Extension.js into the checkout. Run ${rebuild} in ${developRoot} first, or set ${COMPILE_IN_TESTS_ENV}=1 to let the run compile.`
+  ]
+    .flat()
+    .join('\n')
+}
+
 function discard(): Writable {
   return new Writable({
     write(_chunk, _encoding, done) {
@@ -270,6 +305,13 @@ export async function ensureDevelopArtifacts(
   const command = buildInstallCommand(pm, ['run', 'compile'])
   const rebuild = [command.command, ...command.args].join(' ')
   const isAuthor = isDebug()
+
+  if (isTestRun() && !isCompileInTestsAllowed()) {
+    throw codedError(
+      CODES.E_INTERNAL,
+      developArtifactsMissingInTestRun(missing, rebuild, developRoot)
+    )
+  }
 
   if (isAuthor) {
     console.warn(

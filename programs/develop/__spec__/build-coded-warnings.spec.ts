@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -42,17 +43,11 @@ function project(
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
 
   try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production'
-    } as never)
+    return await buildProject(root, {mode: 'production'})
   } finally {
     logSpy.mockRestore()
     warnSpy.mockRestore()

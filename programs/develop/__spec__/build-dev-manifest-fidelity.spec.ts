@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // The dev build keeps the author's security contract apart from what the
 // dev server needs: the sandbox policy survives, optional lists stay as
@@ -42,7 +43,6 @@ async function build(
   browser: 'chrome' | 'firefox',
   mode: 'development' | 'production'
 ) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -55,13 +55,12 @@ async function build(
   try {
     // A development-mode build is shippable; only the dev session (named by
     // its command) takes the dev manifest, so the dev leg names it.
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode,
       ...(mode === 'development' ? {metadataCommand: 'dev'} : {})
-    } as any)
+    })
 
     expect(summary.errors_count).toBe(0)
   } finally {

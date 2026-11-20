@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 import {decodeSourceMap, originalFor} from './helpers/sourcemap-decode'
 
 // A dev build's emitted maps describe the source the author wrote: the
@@ -90,14 +91,7 @@ function project(manifestVersion: 2 | 3) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode: 'development'
-  } as any)
+  const summary = await buildProject(root, {mode: 'development'})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', 'chrome')

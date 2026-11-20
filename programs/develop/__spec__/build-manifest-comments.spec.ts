@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -29,7 +30,6 @@ function project(manifestText: string, files: Record<string, string> = {}) {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
 
   const record = (...args: unknown[]) => {
@@ -41,13 +41,12 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   let failure: unknown
 
   try {
-    await extensionBuild(root, {
+    await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode: 'production',
       exitOnError: false
-    } as never)
+    })
   } catch (error) {
     failure = error
   } finally {

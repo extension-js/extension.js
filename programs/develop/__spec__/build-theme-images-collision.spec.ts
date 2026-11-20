@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Two theme images that share a basename in different folders are two
 // files. The built manifest must name two output paths and dist must hold
@@ -48,14 +49,7 @@ function project(files: Record<string, string>, images: unknown) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {mode: 'production'})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', 'chrome')

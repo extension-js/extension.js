@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-manifest-version-'))
 
@@ -12,7 +13,6 @@ function write(relPath: string, contents: string) {
 }
 
 async function build(browser: 'edge' | 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
 
   const record = (...args: unknown[]) => {
@@ -25,13 +25,7 @@ async function build(browser: 'edge' | 'chrome' | 'firefox') {
   let failure: unknown
 
   try {
-    await extensionBuild(ROOT, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)
+    await buildProject(ROOT, {browser, mode: 'production', exitOnError: false})
   } catch (error) {
     failure = error
   } finally {

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A build compiles for one engine, so only that engine's declared floor may
 // downlevel it. The worker below uses syntax a Firefox 42 or Chrome 30
@@ -52,14 +53,7 @@ function project(extra: Record<string, unknown>) {
 }
 
 async function build(root: string, browser: 'firefox' | 'chrome') {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {browser, mode: 'production'})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)

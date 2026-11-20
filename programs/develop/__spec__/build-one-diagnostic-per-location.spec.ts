@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A scripts/ folder entry is compiled in a layer of its own, so a module it
 // shares with the background is built twice and reports twice.
@@ -57,7 +58,6 @@ function project(files: Record<string, string>) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const printed: string[] = []
 
   const capture = (...args: unknown[]) => {
@@ -71,12 +71,10 @@ async function build(root: string) {
   let diagnostics: unknown[] = []
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'production'
-    } as any)
+    })
     warnings = summary.warnings_count
   } catch (error) {
     diagnostics = (error as {diagnostics?: unknown[]}).diagnostics || []
