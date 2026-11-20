@@ -12,6 +12,7 @@ import {Compilation, type Compiler, sources} from '@rspack/core'
 import {isOsPathUnder} from '../../../lib/real-path'
 import {publicContainmentRoot} from '../../../plugin-special-folders/resolve-public-folder'
 import type {FilepathList, PluginInterface} from '../../../types'
+import {withheldEntryKind} from '../../feature-scripts/scripts-lib/utils'
 import {reportToCompilation} from '../../shared/compilation-issues'
 import {isFolder, resolveRootAbsoluteRef} from '../../shared/paths'
 import {findCompiledRootRefSource} from '../html-lib/compiled-root-ref'
@@ -218,16 +219,27 @@ function checkMissingLocalEntries(params: {
     // a '/'-path that does NOT live inside the project.
     if (isWrittenAsRootUrl(url, projectRoot, authored)) return
 
-    // A file the entry step dropped is reported the way a missing one is.
-    if (!fs.existsSync(url) || !sourceMayShip(url, projectRoot, manifestDir)) {
+    // A file the entry step dropped gets the severity of a missing one.
+    const withheld =
+      fs.existsSync(url) && !sourceMayShip(url, projectRoot, manifestDir)
+
+    if (withheld || !fs.existsSync(url)) {
       const displayFile = path.relative(manifestDir, resource)
       reportToCompilation(
         compilation,
         compiler,
-        messages.fileNotFound(displayFile, url, {
-          deadRefHint: !strictRefs,
-          kind
-        }),
+        withheld
+          ? messages.pageRefWithheld(
+              displayFile,
+              url,
+              authored?.[url] || url,
+              withheldEntryKind(url, [projectRoot, manifestDir]),
+              {deadRefHint: !strictRefs, kind}
+            )
+          : messages.fileNotFound(displayFile, url, {
+              deadRefHint: !strictRefs,
+              kind
+            }),
         strictRefs ? 'error' : 'warning',
         displayFile,
         missingRefName(url)
@@ -275,44 +287,66 @@ function emitNestedHtmlAndReferencedAssets(params: {
 
   copied.add(filepath)
 
+  const strictRefs = process.env.EXTENSION_STRICT_REFS === 'true'
+  const pageFile = path.relative(manifestDir, absoluteFsPath)
+
   assetsFromHtml.forEach((assetFromHtml) => {
+    const authored = htmlAssets?.authored?.[assetFromHtml] || assetFromHtml
+    const kind = htmlAssets?.js?.includes(assetFromHtml)
+      ? 'script'
+      : htmlAssets?.css?.includes(assetFromHtml)
+        ? 'style'
+        : undefined
+
     // A ref that doesn't resolve to a real source file must not throw here: an
     // uncaught ENOENT inside processAssets wedges the watch loop.
-    if (
-      !path.isAbsolute(assetFromHtml) ||
-      !fs.existsSync(assetFromHtml) ||
-      isFolder(assetFromHtml)
-    ) {
+    if (!path.isAbsolute(assetFromHtml) || isFolder(assetFromHtml)) return
+
+    if (!fs.existsSync(assetFromHtml)) {
+      // A root URL may be served from public/, which another step checks.
+      if (authored.startsWith('/')) return
+
+      // The frame loads without the file, as its parent page would.
+      reportToCompilation(
+        compilation,
+        compiler,
+        messages.fileNotFound(absoluteFsPath, assetFromHtml, {
+          refLabel: authored,
+          deadRefHint: !strictRefs,
+          copiedPage: true,
+          kind
+        }),
+        strictRefs ? 'error' : 'warning',
+        pageFile,
+        missingRefName(assetFromHtml)
+      )
+
       return
     }
 
-    const authored = htmlAssets?.authored?.[assetFromHtml] || assetFromHtml
     const mayShip = sourceMayShip(assetFromHtml, projectRoot, manifestDir, {
       rootRef: authored.startsWith('/') ? assetFromHtml : undefined,
       publicDir
     })
 
     if (!mayShip) {
+      const shownAt = authored.startsWith('/')
+        ? path.join(manifestDir, rootUrlPath(assetFromHtml))
+        : assetFromHtml
+
       reportToCompilation(
         compilation,
         compiler,
-        messages.fileNotFound(
+        messages.pageRefWithheld(
           absoluteFsPath,
-          authored.startsWith('/')
-            ? path.join(manifestDir, rootUrlPath(assetFromHtml))
-            : assetFromHtml,
-          {
-            publicRootHint: authored.startsWith('/'),
-            refLabel: authored,
-            kind: htmlAssets?.js?.includes(assetFromHtml)
-              ? 'script'
-              : htmlAssets?.css?.includes(assetFromHtml)
-                ? 'style'
-                : undefined
-          }
+          shownAt,
+          authored,
+          withheldEntryKind(assetFromHtml, [projectRoot, manifestDir]),
+          {kind}
         ),
         'warning',
-        path.relative(manifestDir, absoluteFsPath)
+        pageFile,
+        missingRefName(shownAt)
       )
 
       return
@@ -514,7 +548,7 @@ export class AddAssetsToCompilation {
               if (withheld || !fs.existsSync(absoluteFsPath)) {
                 const inIncludeList = isFromIncludeList(asset, this.includeList)
 
-                // A withheld file is reported the way a missing one is.
+                // A withheld file gets the severity of a missing one.
                 if (
                   withheld ||
                   (!inIncludeList && !path.basename(asset).startsWith('#'))
@@ -526,10 +560,20 @@ export class AddAssetsToCompilation {
                   reportToCompilation(
                     compilation,
                     compiler,
-                    messages.fileNotFound(resource as string, displayPath, {
-                      publicRootHint: asRootUrl,
-                      refLabel: asRootUrl ? asset : authored
-                    }),
+                    withheld
+                      ? messages.pageRefWithheld(
+                          resource as string,
+                          displayPath,
+                          asRootUrl ? asset : authored,
+                          withheldEntryKind(absoluteFsPath, [
+                            projectRoot,
+                            manifestDir
+                          ])
+                        )
+                      : messages.fileNotFound(resource as string, displayPath, {
+                          publicRootHint: asRootUrl,
+                          refLabel: asRootUrl ? asset : authored
+                        }),
                     'warning',
                     path.relative(manifestDir, resource as string),
                     missingRefName(displayPath)

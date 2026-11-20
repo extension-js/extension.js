@@ -351,14 +351,26 @@ function reportWithheld(
 
   // A climbing path is shown where the browser would look, at the root.
   const shownAt = path.join(context, path.posix.normalize(`/${emitPath}`))
+  // A file that is there gets the words the page step gives it.
+  const onDisk = path.join(context, ref)
+  const why = fs.existsSync(onDisk)
+    ? whyNotRead(onDisk, projectRoot)
+    : undefined
 
   warn(
     compilation,
     file,
-    htmlMessages.fileNotFound(page || origin.asset, shownAt, {
-      publicRootHint: true,
-      refLabel: ref
-    }),
+    why
+      ? htmlMessages.pageRefWithheld(
+          page || origin.asset,
+          shownAt,
+          ref,
+          why.kind
+        )
+      : htmlMessages.fileNotFound(page || origin.asset, shownAt, {
+          publicRootHint: true,
+          refLabel: ref
+        }),
     // The page step's name for a missing file of the same tag, so both
     // carry one code. The bundler drops a code set on the warning itself.
     missingRefName(shownAt)

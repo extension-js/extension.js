@@ -8,9 +8,10 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import type {Compiler, SwcLoaderOptions} from '@rspack/core'
 import {filterKeysForThisBrowser} from '../lib/manifest-utils'
 import {debugLine, isDebug} from '../lib/messaging'
+import {ensureOptionalPackageResolved} from '../lib/optional-deps-resolver'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
@@ -26,12 +27,17 @@ import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
 import {getResolvedManifestFieldsData} from '../plugin-web-extension/shared/manifest-fields'
 import type {DevOptions, Manifest, PluginInterface} from '../types'
 import {
+  type BabelFileKind,
+  findProjectBabelConfig,
+  projectBabelOptions
+} from './js-frameworks-lib/babel-config'
+import {
   getJsxImportSource,
   isUsingJsxFramework,
   swcParserForFile
 } from './js-frameworks-lib/jsx-transform'
 import * as messages from './js-frameworks-lib/messages'
-import {swcDecoratorTransform} from './js-tools/decorators'
+import {readTransformFlags, swcDecoratorTransform} from './js-tools/decorators'
 import {maybeUsePreact} from './js-tools/preact'
 import {
   isUsingReact,
@@ -47,6 +53,9 @@ import {
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
 import {resolveSwcTargets} from './swc-targets'
+
+// A .vue file, or a block vue-loader names after it (`Button.vue.ts`).
+const VUE_BLOCK = /\.vue(\.[cm]?[jt]sx?)?$/
 
 // User-authored and default webpack rules arrive in many shapes; this loose
 // view names only the fields the merge/patch helpers probe.
@@ -72,17 +81,21 @@ export class JsFrameworksPlugin {
   public readonly browser: DevOptions['browser']
   public readonly mode: DevOptions['mode']
   public readonly transpilePackages: string[]
+  public readonly define: Record<string, unknown>
 
   constructor(
     options: PluginInterface & {
       mode: DevOptions['mode']
       transpilePackages?: string[]
+      // The project's `define` constants, so framework defaults step aside.
+      define?: Record<string, unknown>
     }
   ) {
     this.manifestPath = options.manifestPath
     this.browser = options.browser || 'chrome'
     this.mode = options.mode
     this.transpilePackages = options.transpilePackages || []
+    this.define = options.define || {}
   }
 
   private findVueLoaderRuleIndices(rules: LooseRuleSetRule[]): number[] {
@@ -215,6 +228,10 @@ export class JsFrameworksPlugin {
       this.transpilePackages
     ).filter((dir) => dir !== projectPath && dir !== manifestDir)
     const excludeNodeModules = createNodeModulesExclude(transpilePackageDirs)
+    // A .vue file is source wherever it lives, so the script and template
+    // blocks vue-loader splits out of one in a dependency compile too.
+    const excludeScriptsInNodeModules = (resourcePath: string) =>
+      !VUE_BLOCK.test(resourcePath) && excludeNodeModules(resourcePath)
 
     // The bundler resolves symlinks, so loader resource paths arrive as
     // realpaths while these dirs are the logical spellings (/tmp, /var,
@@ -369,15 +386,13 @@ export class JsFrameworksPlugin {
         isfeatureScriptsContentLike(resourcePath)
     })
     const maybeInstallPreact = await maybeUsePreact(projectPath)
-    const maybeInstallVue = await maybeUseVue(
-      projectPath,
-      mode,
-      transpilePackageDirs
-    )
+    const babelConfigPath = findProjectBabelConfig(projectPath)
+    const maybeInstallVue = await maybeUseVue(projectPath, mode, this.define)
     const maybeInstallSolid = await maybeUseSolid(
       projectPath,
       mode,
-      transpilePackageDirs
+      transpilePackageDirs,
+      !!babelConfigPath
     )
     const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
@@ -387,8 +402,16 @@ export class JsFrameworksPlugin {
     // (ensureTypeScriptConfig above scaffolds it for TS projects).
     const preferTypeScript = !!tsConfigPath
     const resolveConfigPath = tsConfigPath ?? getUserJsConfigFile(projectPath)
-    // The same config chooses decorator semantics, the way tsc reads them.
+    // The same config chooses decorator semantics, the way tsc reads them,
+    // and the other transform flags SWC follows.
     const decorators = swcDecoratorTransform(resolveConfigPath)
+    const transformFlags = resolveConfigPath
+      ? readTransformFlags(resolveConfigPath)
+      : {}
+    const useDefineForClassFields =
+      typeof transformFlags.useDefineForClassFields === 'boolean'
+        ? {useDefineForClassFields: transformFlags.useDefineForClassFields}
+        : {}
 
     const targets = resolveSwcTargets(manifest as Manifest, this.browser)
 
@@ -437,12 +460,16 @@ export class JsFrameworksPlugin {
       type: 'javascript/auto',
       // No include: a source outside the project root, such as a workspace
       // sibling imported by path, compiles like any project file.
-      exclude: [excludeNodeModules],
+      exclude: [excludeScriptsInNodeModules],
       resourceQuery: NOT_RAW_RESOURCE_QUERY
     }
 
     const jsxInPlainJs = isUsingJsxFramework(projectPath)
-    const jsxImportSource = getJsxImportSource(projectPath)
+    const jsxImportSource =
+      typeof transformFlags.jsxImportSource === 'string' &&
+      transformFlags.jsxImportSource
+        ? transformFlags.jsxImportSource
+        : getJsxImportSource(projectPath)
     const isPlatformModule = (resourcePath: string) =>
       platformModulePaths.has(toResourceKey(resourcePath))
 
@@ -451,7 +478,7 @@ export class JsFrameworksPlugin {
     const swcLoaderFor = (
       resourcePath: string,
       options: {refresh: boolean; module: boolean}
-    ) => ({
+    ): {loader: string; options: SwcLoaderOptions} => ({
       loader: 'builtin:swc-loader',
       options: {
         module: {
@@ -462,7 +489,7 @@ export class JsFrameworksPlugin {
         // the browser loads as modules compile as modules: in script form the
         // automatic JSX runtime becomes a require() no page can run.
         isModule: options.module ? true : 'unknown',
-        sourceMap: wantsSourceMaps,
+        sourceMaps: wantsSourceMaps,
         env: {targets},
         jsc: {
           parser: {
@@ -471,6 +498,7 @@ export class JsFrameworksPlugin {
           },
           transform: {
             ...decorators,
+            ...useDefineForClassFields,
             react: {
               runtime: 'automatic',
               importSource: jsxImportSource,
@@ -552,6 +580,42 @@ export class JsFrameworksPlugin {
         : [])
     ]
 
+    // The project's Babel config runs first on the source and SWC compiles
+    // what it returns, so TypeScript, JSX, targets and refresh stay SWC's.
+    const babelRules: LooseRuleSetRule[] = []
+
+    if (babelConfigPath) {
+      const babelLoader = await ensureOptionalPackageResolved({
+        integration: 'Babel',
+        projectPath,
+        dependencyId: 'babel-loader',
+        installDependencies: ['babel-loader', '@babel/core']
+      })
+      const babelFor = (kind: BabelFileKind) => ({
+        loader: babelLoader,
+        options: projectBabelOptions({
+          projectPath,
+          kind,
+          jsxInPlainJs,
+          legacyDecorators: 'legacyDecorator' in decorators
+        })
+      })
+
+      babelRules.push({
+        // Solid's own Babel pass already loads the project config for the
+        // files it compiles, so only .ts files are left to this one.
+        test: maybeInstallSolid ? /\.(ts|mts|cts)$/ : swcRuleBase.test,
+        exclude: [excludeNodeModules],
+        resourceQuery: NOT_RAW_RESOURCE_QUERY,
+        oneOf: [
+          {test: /\.(tsx|mtsx)$/, use: babelFor('tsx')},
+          {test: /\.(ts|mts|cts)$/, use: babelFor('ts')},
+          {test: /\.(jsx|mjsx)$/, use: babelFor('jsx')},
+          {use: babelFor('js')}
+        ]
+      })
+    }
+
     compiler.options.module.rules = [
       ...swcRules,
       ...(maybeInstallReact?.loaders || []),
@@ -561,6 +625,7 @@ export class JsFrameworksPlugin {
       // Solid's compiler sees the JSX before swc gets the plain output.
       ...(maybeInstallSolid?.loaders || []),
       ...(maybeInstallSvelte?.loaders || []),
+      ...babelRules,
       ...existingRules
     ].filter(Boolean)
 
@@ -605,6 +670,10 @@ export class JsFrameworksPlugin {
       debugLine(
         messages.jsFrameworksConfigsDetected(tsConfigPath, tsRoot, targets)
       )
+
+      if (babelConfigPath) {
+        debugLine(messages.jsFrameworksBabelConfig(babelConfigPath))
+      }
 
       // Preact is deliberately absent: its fast-refresh is disabled (broken
       // upstream plugin) so it runs on live reload, like Vue's remount.

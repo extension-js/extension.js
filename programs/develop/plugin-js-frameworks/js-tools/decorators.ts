@@ -7,49 +7,33 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as fs from 'node:fs'
-import {createRequire} from 'node:module'
 import * as path from 'node:path'
 import {parseJsoncSafe} from '../../lib/project-manifest'
+import {resolveExtends} from '../../lib/tsconfig-includes-file'
 
 export type SwcDecoratorTransform =
   | {legacyDecorator: true; decoratorMetadata?: true}
   | {decoratorVersion: '2022-03'}
 
-// A config can extend a relative file or a package, like TypeScript reads it.
-function resolveExtends(specifier: string, fromDir: string): string | null {
-  if (specifier.startsWith('.') || path.isAbsolute(specifier)) {
-    const target = path.resolve(fromDir, specifier)
+// The compilerOptions SWC can follow. Everything else in a tsconfig is
+// type checking or module resolution, which the bundler owns.
+const TRANSFORM_FLAGS = [
+  'experimentalDecorators',
+  'emitDecoratorMetadata',
+  'jsxImportSource',
+  'useDefineForClassFields'
+] as const
 
-    return (
-      [target, `${target}.json`].find((file) =>
-        fs.statSync(file, {throwIfNoEntry: false})?.isFile()
-      ) || null
-    )
-  }
+export type TransformFlags = Partial<
+  Record<(typeof TRANSFORM_FLAGS)[number], unknown>
+>
 
-  const requireFrom = createRequire(path.join(fromDir, 'tsconfig.json'))
-
-  for (const request of [
-    specifier,
-    `${specifier}.json`,
-    `${specifier}/tsconfig.json`
-  ]) {
-    try {
-      return requireFrom.resolve(request)
-    } catch {
-      // Try the next spelling
-    }
-  }
-
-  return null
-}
-
-// The two compilerOptions that choose decorator semantics, the nearest
-// config winning over what it extends. An unreadable file adds nothing.
-function readDecoratorFlags(
+// The nearest config wins over what it extends, and a later entry of an
+// extends array over an earlier one. An unreadable file adds nothing.
+export function readTransformFlags(
   configPath: string,
   seen: Set<string> = new Set()
-): {experimentalDecorators?: unknown; emitDecoratorMetadata?: unknown} {
+): TransformFlags {
   if (seen.has(configPath)) return {}
 
   seen.add(configPath)
@@ -67,16 +51,16 @@ function readDecoratorFlags(
   const bases = [config?.extends]
     .flat()
     .filter((value) => typeof value === 'string')
-  let flags = {}
+  let flags: TransformFlags = {}
 
   for (const base of bases) {
     const basePath = resolveExtends(base as string, path.dirname(configPath))
-    if (basePath) flags = {...flags, ...readDecoratorFlags(basePath, seen)}
+    if (basePath) flags = {...flags, ...readTransformFlags(basePath, seen)}
   }
 
   const own = config?.compilerOptions || {}
 
-  for (const key of ['experimentalDecorators', 'emitDecoratorMetadata']) {
+  for (const key of TRANSFORM_FLAGS) {
     if (key in own) flags = {...flags, [key]: own[key]}
   }
 
@@ -88,7 +72,7 @@ function readDecoratorFlags(
 export function swcDecoratorTransform(
   configPath: string | undefined
 ): SwcDecoratorTransform {
-  const flags = configPath ? readDecoratorFlags(configPath) : {}
+  const flags = configPath ? readTransformFlags(configPath) : {}
 
   if (flags.experimentalDecorators !== true) {
     return {decoratorVersion: '2022-03'}

@@ -9,7 +9,10 @@
 import {type Command, Option} from 'commander'
 import {normalizeProfileOption} from '../browsers/browsers-lib/resolve-profile'
 import {runOnlyPreviewBrowser} from '../browsers/run-only'
-import {refuseUnlistedChoices} from '../helpers/choice-flags'
+import {
+  refuseUnknownListItems,
+  refuseUnlistedChoices
+} from '../helpers/choice-flags'
 import {explicitCliValue} from '../helpers/cli-explicit'
 import {
   declaredErrorCode,
@@ -80,6 +83,7 @@ export type PreviewOptions = {
   open?: boolean
   startingUrl?: string
   port?: string | number
+  host?: string
   logs?: string
   logContext?: string
   logFormat?: 'pretty' | 'json' | 'ndjson'
@@ -116,8 +120,10 @@ export const PREVIEW_FAILED_CODES: ReadonlySet<ErrorCode> = new Set([
   CODES.E_REMOTE_FETCH_TIMEOUT
 ])
 
-// Copy the preview failure path is matched on, pinned by a spec against the
-// real producers so a rewrite fails loudly instead of downgrading to E_INTERNAL.
+const PREVIEW_NO_DIST_HINT = 'Run `extension build` before previewing.'
+
+// Copy matched only when the engine throws uncoded, pinned against the real
+// producers so a rewrite fails loudly instead of downgrading to E_INTERNAL.
 export const PREVIEW_NOT_FOUND_NEEDLES = [
   'Preview is run-only',
   'Manifest file not found'
@@ -172,7 +178,11 @@ export function registerPreviewCommand(
     )
     .option(
       '--port <port>',
-      'specify the port to use for the development server. Defaults to `8080`'
+      "seed the browser's debugging port, which listens on this value plus 100. Without it the browser listens on 9222"
+    )
+    .option(
+      '--host <host>',
+      'host the control channel binds to under --allow-control or --allow-eval. Nothing else listens. Defaults to `127.0.0.1`'
     )
     .option(
       '--log-context <list>',
@@ -227,6 +237,10 @@ export function registerPreviewCommand(
     )
     .hook('preAction', refuseUnreadableOutput())
     .hook('preAction', refuseUnlistedChoices())
+    .hook(
+      'preAction',
+      refuseUnknownListItems('--log-context', [...LOG_CONTEXTS, 'all'])
+    )
     .action(
       async (
         pathOrRemoteUrl: string,
@@ -393,7 +407,6 @@ export function registerPreviewCommand(
             const previewResult = await extensionPreview(
               pathOrRemoteUrl,
               {
-                mode: 'production',
                 profile: normalizeProfileOption(previewOptions.profile),
                 browser: vendor as DevelopBrowser,
                 chromiumBinary: previewOptions.chromiumBinary,
@@ -407,6 +420,7 @@ export function registerPreviewCommand(
                 ),
                 startingUrl: previewOptions.startingUrl,
                 port: previewOptions.port,
+                host: previewOptions.host,
                 noBrowser: await resolveNoBrowser(
                   pathOrRemoteUrl || process.cwd(),
                   'preview',
@@ -473,11 +487,16 @@ export function registerPreviewCommand(
 
             if (declared) {
               // A browser, config or remote archive that failed is a failed
-              // run and not a mistyped command.
-              const status = PREVIEW_FAILED_CODES.has(declared)
-                ? 'failed'
-                : 'usage'
-              const hint = failureHint(declared)
+              // run and not a mistyped command. Nothing built yet is its own.
+              const nothingBuilt = declared === CODES.E_PREVIEW_NO_DIST
+              const status = nothingBuilt
+                ? 'not-found'
+                : PREVIEW_FAILED_CODES.has(declared)
+                  ? 'failed'
+                  : 'usage'
+              const hint = nothingBuilt
+                ? PREVIEW_NO_DIST_HINT
+                : failureHint(declared)
 
               emit(
                 ENVELOPE.fail(
@@ -510,9 +529,7 @@ export function registerPreviewCommand(
                     : CODES.E_INTERNAL,
                   message
                 },
-                nothingToPreview
-                  ? {hint: 'Run `extension build` before previewing.'}
-                  : {}
+                nothingToPreview ? {hint: PREVIEW_NO_DIST_HINT} : {}
               )
             )
 

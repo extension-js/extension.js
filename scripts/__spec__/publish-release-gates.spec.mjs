@@ -12,6 +12,7 @@ import {
   onlyBotCommits,
   pinnedSha
 } from '../bump-release-gates.mjs'
+import {anyStep, expr, job, readWorkflow} from '../lib/workflow-yaml.mjs'
 
 const root = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -22,29 +23,13 @@ const workflow = fs.readFileSync(
   path.join(root, '.github', 'workflows', 'publish-release.yml'),
   'utf8'
 )
+const release = readWorkflow('publish-release.yml')
 const SHA = 'abc1234def5678900000000000000000000000ff'
 const CANARY = '4.1.40-canary.9.abc1234'
 
-// The step's `run: |` block, dedented, so the spec runs the exact shell the
-// job runs.
+// The step's run block as Actions hands it to the shell.
 function runBlock(name) {
-  const start = workflow.indexOf(`- name: ${name}`)
-
-  assert.notEqual(start, -1, name)
-
-  const lines = workflow.slice(start).split('\n')
-  const at = lines.findIndex((line) => /^\s+run: \|$/.test(line))
-  const indent = lines[at + 1].match(/^\s*/)[0].length
-  const body = []
-
-  for (const line of lines.slice(at + 1)) {
-    if (line.trim() === '') continue
-    if (line.match(/^\s*/)[0].length < indent) break
-
-    body.push(line.slice(indent))
-  }
-
-  return body.join('\n') + '\n'
+  return anyStep(release, name).run
 }
 
 function stub(bin, name, body) {
@@ -178,38 +163,45 @@ test('a skipped gate neither reads npm nor dispatches', () => {
 })
 
 test('a stable publishes only after both gates, and both read the same canary', () => {
-  const publish = workflow.slice(workflow.indexOf('\n  publish:'))
+  const publish = job(release, 'publish')
 
-  assert.match(publish, /needs: \[corpus-target, corpus-gate, templates-gate\]/)
+  assert.deepEqual(publish.needs, [
+    'corpus-target',
+    'corpus-gate',
+    'templates-gate'
+  ])
 
   assert.match(
-    publish,
+    publish.if,
     /needs\.corpus-gate\.result == 'success' && needs\.templates-gate\.result == 'success'/
   )
 
-  for (const job of ['corpus-gate', 'templates-gate']) {
-    const text = workflow.slice(workflow.indexOf(`\n  ${job}:`))
-
-    assert.match(
-      text.slice(0, text.indexOf('\n\n')),
-      /cli-version: \$\{\{ needs\.corpus-target\.outputs\.canary \}\}/
+  for (const id of ['corpus-gate', 'templates-gate']) {
+    assert.equal(
+      job(release, id).with['cli-version'],
+      expr('needs.corpus-target.outputs.canary'),
+      id
     )
   }
 })
 
 test('every channel reads the corpus and the templates with the published version, unless a stable cut the canary', () => {
-  for (const job of ['corpus-published', 'templates-published']) {
-    const text = workflow.slice(workflow.indexOf(`\n  ${job}:`))
+  for (const id of ['corpus-published', 'templates-published']) {
+    const entry = job(release, id)
 
-    assert.match(text, /needs: publish\n/)
-    assert.match(
-      text,
-      /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' && \(inputs\.channel != 'canary' \|\| inputs\.readings\) \}\}/
+    assert.equal(entry.needs, 'publish', id)
+    assert.equal(
+      entry.if,
+      expr(
+        "!cancelled() && needs.publish.result == 'success' && (inputs.channel != 'canary' || inputs.readings)"
+      ),
+      id
     )
 
-    assert.match(
-      text,
-      /cli-version: \$\{\{ needs\.publish\.outputs\.version \}\}/
+    assert.equal(
+      entry.with['cli-version'],
+      expr('needs.publish.outputs.version'),
+      id
     )
   }
 })
@@ -278,16 +270,9 @@ test('a pin behind by artifact commits alone is not behind', () => {
 })
 
 test('the gate reads Safari, the published reading only on a canary', () => {
-  const withOf = (job) => {
-    const text = workflow.slice(workflow.indexOf(`\n  ${job}:`))
-    const end = text.indexOf('\n\n', 1)
-
-    return end === -1 ? text : text.slice(0, end)
-  }
-
-  assert.match(withOf('corpus-gate'), /\n {6}safari: true$/)
-  assert.match(
-    withOf('corpus-published'),
-    /\n {6}safari: \$\{\{ inputs\.channel == 'canary' \}\}$/
+  assert.equal(job(release, 'corpus-gate').with.safari, true)
+  assert.equal(
+    job(release, 'corpus-published').with.safari,
+    expr("inputs.channel == 'canary'")
   )
 })

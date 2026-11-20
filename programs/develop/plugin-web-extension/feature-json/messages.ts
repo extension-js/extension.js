@@ -9,24 +9,6 @@
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
 
-export function entryNotFoundMessageOnly(
-  manifestField: string,
-  absPath?: string
-) {
-  const lines: string[] = []
-  lines.push(`Can't find the file listed in ${colors.blue(manifestField)}.`)
-
-  if (absPath) {
-    lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(absPath)}`)
-  }
-
-  lines.push(
-    `Update the ${colors.blue(manifestField)} field in your ${colors.blue('manifest.json')} file.`
-  )
-
-  return lines.join('\n')
-}
-
 export function jsonMissingFile(
   manifestField: string,
   filePath: string,

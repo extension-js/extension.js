@@ -21,6 +21,7 @@ export const CLIENT_HOOKS = [
   'prepare-commit-msg'
 ]
 
+// The .husky/_ branch serves checkouts older than the tracked hooks folder.
 const DISPATCH_STUB = `#!/usr/bin/env sh
 top=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 name=$(basename "$0")
@@ -38,6 +39,17 @@ exit 0
 
 function git(args, cwd, env) {
   return spawnSync('git', args, {cwd, env, encoding: 'utf8'})
+}
+
+function isCurrentStub(stub) {
+  try {
+    const executable =
+      process.platform === 'win32' || (fs.statSync(stub).mode & 0o111) !== 0
+
+    return executable && fs.readFileSync(stub, 'utf8') === DISPATCH_STUB
+  } catch {
+    return false
+  }
 }
 
 function toGitPath(file) {
@@ -74,25 +86,31 @@ export function installGitHooks({env = process.env, cwd = process.cwd()} = {}) {
     if (entry !== 'h') names.add(entry)
   }
 
+  // Every worktree shares the dispatcher, so an install that finds it current
+  // writes nothing there.
   fs.mkdirSync(dispatchDir, {recursive: true})
 
   for (const name of names) {
     const stub = path.join(dispatchDir, name)
-    fs.writeFileSync(stub, DISPATCH_STUB)
-    fs.chmodSync(stub, 0o755)
+
+    if (!isCurrentStub(stub)) {
+      fs.writeFileSync(stub, DISPATCH_STUB)
+      fs.chmodSync(stub, 0o755)
+    }
   }
 
-  const result = git(
-    ['config', 'core.hooksPath', toGitPath(dispatchDir)],
-    top,
-    env
-  )
+  const hooksPath = toGitPath(dispatchDir)
+  const current = git(['config', 'core.hooksPath'], top, env).stdout.trim()
 
-  if (result.status !== 0) {
-    return {installed: false, reason: 'config-failed'}
+  if (current !== hooksPath) {
+    const result = git(['config', 'core.hooksPath', hooksPath], top, env)
+
+    if (result.status !== 0) {
+      return {installed: false, reason: 'config-failed'}
+    }
   }
 
-  return {installed: true, hooksPath: toGitPath(dispatchDir)}
+  return {installed: true, hooksPath}
 }
 
 const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : ''

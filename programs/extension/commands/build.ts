@@ -493,7 +493,20 @@ export function registerBuildCommand(
                       truncated: truncated === true,
                       // A failed build lists the warnings it got past as a green
                       // one does, the earlier browsers' and its own, once each.
-                      warnings: codedWarningsOf([...summaries, error])
+                      warnings: codedWarningsOf([...summaries, error]),
+                      // A list that stops partway says what dist already holds
+                      // and which browser stopped it. One browser needs neither.
+                      ...(list.length > 1
+                        ? {
+                            browser: vendor,
+                            value: {
+                              projectPath: pathOrRemoteUrl,
+                              browsers: built,
+                              mode: mode ?? 'production',
+                              summaries
+                            }
+                          }
+                        : {})
                     }
                   )
                 )

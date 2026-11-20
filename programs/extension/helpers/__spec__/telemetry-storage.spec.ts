@@ -198,7 +198,7 @@ describe('an unwritable folder hands over to the next, in turn', () => {
 })
 
 describe('resolving consent on a pipeline', () => {
-  it('creates the telemetry folder in the config home before the CI gate answers', () => {
+  it('creates no telemetry folder when the CI gate answers', () => {
     const box = sandbox({env: {CI: '1'}})
 
     expect(box.kit().resolveConsent(['node', 'extension', 'build'])).toEqual({
@@ -206,7 +206,22 @@ describe('resolving consent on a pipeline', () => {
       source: 'ci'
     })
 
-    expect(fs.statSync(box.configDir).isDirectory()).toBe(true)
+    expect(fs.existsSync(box.places.config)).toBe(false)
+    expect(fs.existsSync(box.places.cache)).toBe(false)
+    expect(fs.existsSync(path.join(box.places.tmp, 'extensionjs'))).toBe(false)
+  })
+
+  it('still honors a stored refusal on a pipeline, and reports it as config', () => {
+    const box = sandbox({env: {CI: '1'}})
+    fs.mkdirSync(box.configDir, {recursive: true})
+    fs.writeFileSync(path.join(box.configDir, 'consent'), 'disabled')
+
+    expect(box.kit().resolveConsent(['node', 'extension', 'build'])).toEqual({
+      enabled: false,
+      source: 'config'
+    })
+
+    expect(fs.readdirSync(box.configDir)).toEqual(['consent'])
   })
 
   it.each([

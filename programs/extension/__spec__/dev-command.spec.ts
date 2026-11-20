@@ -292,7 +292,7 @@ const FORWARDING: ForwardingRow[] = [
     options: {allowedHosts: 'web,.example.test'}
   },
   {
-    argv: ['--log-context', 'background, nope ,content'],
+    argv: ['--log-context', 'background, CONTENT '],
     options: {logContexts: ['background', 'content']}
   },
   {argv: ['--log-context', 'all'], options: {}},

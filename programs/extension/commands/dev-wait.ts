@@ -111,25 +111,24 @@ async function resolveProjectPath(
   loadBridge: () => Promise<DevelopBridge>
 ): Promise<{
   projectPath: string
-  bridge: DevelopBridge | undefined
+  bridge: DevelopBridge
 }> {
-  let bridge: DevelopBridge | undefined
+  let bridge: DevelopBridge
 
-  // A coded refusal means no session of this install can come up, so it is the
-  // answer. An uncoded failure falls back to the plain dist/extension-js path.
+  // Either way no session of this install can come up, so the failure is the
+  // answer. Waiting would only end in a timeout that hides the cause.
   try {
     bridge = await loadBridge()
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error)
     const code = declaredErrorCode(error)
 
-    if (code) {
-      throw new WaitModeError(
-        error instanceof Error ? error.message : String(error),
-        code
-      )
-    }
+    if (code) throw new WaitModeError(message, code)
 
-    bridge = undefined
+    throw new WaitModeError(
+      `The extension-develop bridge could not be loaded: ${message}`,
+      CODES.E_RUNTIME_NOT_FOUND
+    )
   }
 
   return {
