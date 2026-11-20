@@ -380,6 +380,56 @@ describe('a Chromium launch that does not reach a running extension', () => {
     })
   })
 
+  // The load check and the reload wiring both talk over the pipe, so no
+  // launch is left to find the browser by its port alone.
+  describe('a launch whose exclusion list names the debugging flags', () => {
+    const excluded = {
+      excludeBrowserFlags: [
+        '--remote-debugging-pipe',
+        '--remote-debugging-port',
+        '--remote-debugging-address'
+      ]
+    }
+
+    it.each([
+      'runOnly',
+      'dev'
+    ] as const)('still opens the pipe for a %s launch and loads the guest over it', async (kind) => {
+      const launch = await start({
+        host: excluded,
+        command: kind === 'dev' ? 'dev' : 'preview'
+      })
+      fake.project.writeReady({
+        command: kind === 'dev' ? 'dev' : 'preview',
+        status: 'starting',
+        runId: 'run-1',
+        executorAttachedAt: new Date().toISOString()
+      })
+
+      await launch[kind]()
+
+      expect(fake.spawns).toHaveLength(1)
+      expect(fake.spawns[0].stdio).toEqual([
+        'ignore',
+        'ignore',
+        'pipe',
+        'pipe',
+        'pipe'
+      ])
+
+      expect(fake.spawns[0].args).toContain('--remote-debugging-pipe')
+      expect(fake.spawns[0].args).toContain(
+        `--remote-debugging-port=${fake.port}`
+      )
+
+      expect(fake.commands.map((command) => command.method)).toContain(
+        'Extensions.loadUnpacked'
+      )
+
+      expect(fake.project.readReady()).toMatchObject({cdpPort: fake.port})
+    })
+  })
+
   describe('a browser that answers too slowly', () => {
     // Each answer lands inside the 12 s command limit, so only the launch
     // watchdog can end the wait.
