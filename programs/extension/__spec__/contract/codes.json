@@ -458,6 +458,10 @@
       "area": "compile",
       "summary": "An asset imported with import * as is read as the file's value, which is the default export."
     },
+    "E_ENV_FILE_UNREADABLE": {
+      "area": "project",
+      "summary": "A .env file the build has to read for its browser and mode is a folder or cannot be read."
+    },
     "W_MANAGED_DEP_CONFLICT": {
       "area": "project",
       "summary": "The project declares a package the toolchain manages.",
@@ -648,6 +652,11 @@
       "summary": "A companion extension entry leads outside the project, is not an unpacked extension folder, or names a folder that does not exist, so the browser opens without it.",
       "warn": true
     },
+    "W_ENV_DEFINE_WRITTEN": {
+      "area": "compile",
+      "summary": "Project code writes to a process.env or import.meta.env name the build replaces with its value. The write runs, and reads of that name keep the build value.",
+      "warn": true
+    },
     "W_CDP_NOT_CONNECTED": {
       "area": "debug-protocol",
       "summary": "A dev, start or preview session came up with no live CDP transport and stayed ready. Reload and HMR cannot attach.",
@@ -696,7 +705,9 @@
         "E_PORT_UNAVAILABLE"
       ],
       "extension_load_refused": "E_EXTENSION_LOAD_REFUSED",
-      "profile_locked": "E_PROFILE_LOCKED"
+      "profile_locked": "E_PROFILE_LOCKED",
+      "build_failed": ["E_COMPILE", "E_ZIP_SKIPPED"],
+      "preview_failed": "E_INTERNAL"
     },
     "names": {
       "Timeout": "E_TIMEOUT",

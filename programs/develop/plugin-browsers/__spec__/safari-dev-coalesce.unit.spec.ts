@@ -690,7 +690,9 @@ describe('SafariDevPlugin failures it does not report and the page it does', () 
     await trigger('/out1')
 
     expect(errors).toEqual([])
-    expect(failed).toEqual([{errors: ['xcodebuild failed (exit 65)']}])
+    expect(failed).toEqual([
+      {errors: ['xcodebuild failed (exit 65)'], code: 'E_SAFARI_TOOLCHAIN'}
+    ])
   })
 
   // Safari still runs the build it took before, so a resync that failed is
