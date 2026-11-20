@@ -8,12 +8,39 @@
 
 import {Compilation, type Compiler, sources, WebpackError} from '@rspack/core'
 import {
-  contentScriptRetainsDevServerRuntime,
+  isDevServerClientFile,
+  type ModuleId,
   stripDevServerStartup
 } from './remove-content-script-dev-server-runtime'
 
 const CONTENT_SCRIPT_ASSET =
   /(^|\/)content_scripts\/content-\d+(?:\.[a-f0-9]+)?\.js$/i
+
+// The ids of the client modules this file starts: the entry modules of the
+// chunk that wrote it whose file is the dev client. Read from the chunk
+// graph, so a module is named by its file and not by its text.
+function devClientEntryIds(compilation: Compilation, file: string): ModuleId[] {
+  const ids: ModuleId[] = []
+
+  for (const chunk of compilation.chunks) {
+    if (!chunk.files.has(file)) continue
+
+    for (const module of compilation.chunkGraph.getChunkEntryModulesIterable(
+      chunk
+    )) {
+      const from =
+        (module as {resource?: string}).resource ?? module.nameForCondition()
+
+      if (!isDevServerClientFile(from ?? undefined)) continue
+
+      const moduleId = compilation.chunkGraph.getModuleId(module)
+
+      if (moduleId !== null) ids.push(moduleId)
+    }
+  }
+
+  return ids
+}
 
 // The devtool wrote the map before this stage, so the map is cut with the
 // bundle, or every line below a removed one maps one line off.
@@ -70,8 +97,11 @@ export class StripContentScriptDevServerRuntime {
             for (const asset of compilation.getAssets()) {
               if (!CONTENT_SCRIPT_ASSET.test(asset.name)) continue
 
+              const clientIds = devClientEntryIds(compilation, asset.name)
+              if (clientIds.length === 0) continue
+
               const originalSource = asset.source.source().toString()
-              const stripped = stripDevServerStartup(originalSource)
+              const stripped = stripDevServerStartup(originalSource, clientIds)
 
               if (stripped.removed.length > 0) {
                 withoutRemoved(
@@ -82,7 +112,7 @@ export class StripContentScriptDevServerRuntime {
                 )
               }
 
-              if (contentScriptRetainsDevServerRuntime(stripped.source)) {
+              if (stripped.kept.length > 0) {
                 const warning = new WebpackError(
                   `Could not strip the dev-server runtime from ${asset.name}. ` +
                     `This usually means the bundler's output format changed and ` +
