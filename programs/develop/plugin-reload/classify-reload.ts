@@ -78,7 +78,7 @@ export function backgroundContextFromOutput(outputPath?: string): string {
     if (Array.isArray(background?.scripts)) return 'background_script'
     if (background?.page) return 'background_page'
   } catch {
-    // Ignore
+    // A manifest that does not parse names no background kind
   }
 
   return 'service_worker'
@@ -249,6 +249,7 @@ function ownersOfNamelessChunk(
       try {
         identifier = origin.module ? String(origin.module.identifier()) : ''
       } catch {
+        // A module without an identifier names no origin
         identifier = ''
       }
 
@@ -310,7 +311,7 @@ export function buildSourceFeatureIndex(
     contentEntriesBySource: new Map(),
     pageSources: new Set(),
     scriptFilesBySource,
-    publicRoots: relativePublicRootsOf(compilation?.compiler, contextDir)
+    publicRoots: relativePublicRootsOf(compilation.compiler, contextDir)
   }
   const compilationOf = chunksByCompilation(compilation)
   const chunks = [...compilationOf.keys()]
@@ -447,6 +448,7 @@ function isShippedAsWritten(
       .readFileSync(path.join(outputPath, rel))
       .equals(fs.readFileSync(path.join(contextDir, rel)))
   } catch {
+    // A file missing on either side is not a byte copy
     return false
   }
 }
@@ -583,6 +585,7 @@ export function classifyReloadFromSources(opts: {
         try {
           return fs.existsSync(path.join(outputPath, rel))
         } catch {
+          // A path the disk refuses is not a static asset
           return false
         }
       }))
@@ -705,6 +708,7 @@ export function readStaticContentScriptEntries(outputPath?: string): string[] {
       )
       .map((entry) => entry.entry as string)
   } catch {
+    // An unreadable registry names no static entry
     return []
   }
 }
@@ -730,7 +734,7 @@ export function readContentScriptFiles(
   compilation: import('@rspack/core').Compilation
 ): string[] {
   try {
-    const asset = compilation.getAsset?.('manifest.json')
+    const asset = compilation.getAsset('manifest.json')
     if (!asset?.source) return []
 
     const manifest = JSON.parse(String(asset.source.source()))
@@ -744,6 +748,7 @@ export function readContentScriptFiles(
       ])
       .filter((file: unknown): file is string => typeof file === 'string')
   } catch {
+    // A manifest that does not parse declares no content script files
     return []
   }
 }
@@ -760,7 +765,7 @@ export function readContentScriptDigests(
     if (!/\.css$/i.test(file)) continue
 
     try {
-      const source = compilation.getAsset?.(file)?.source?.source()
+      const source = compilation.getAsset(file)?.source.source()
       if (source === undefined || source === null) continue
 
       digests[file] = createHash('sha256').update(source).digest('hex')
@@ -870,7 +875,7 @@ export function readWebAccessibleResources(
   compilation: import('@rspack/core').Compilation
 ): string[] {
   try {
-    const asset = compilation.getAsset?.('manifest.json')
+    const asset = compilation.getAsset('manifest.json')
     if (!asset?.source) return []
 
     const manifest = JSON.parse(String(asset.source.source()))
@@ -894,6 +899,7 @@ export function readWebAccessibleResources(
 
     return [...out].sort()
   } catch {
+    // A manifest that does not parse declares no accessible resources
     return []
   }
 }
@@ -993,7 +999,7 @@ export function readContentScriptCount(
   outputPath: string
 ): number {
   try {
-    const asset = compilation.getAsset?.('manifest.json')
+    const asset = compilation.getAsset('manifest.json')
 
     if (asset?.source) {
       const manifest = JSON.parse(String(asset.source.source()))
@@ -1001,7 +1007,7 @@ export function readContentScriptCount(
       if (Array.isArray(list)) return list.length
     }
   } catch {
-    // Ignore
+    // An unparsed manifest asset leaves the count to the file on disk
   }
 
   try {
@@ -1013,7 +1019,7 @@ export function readContentScriptCount(
       if (Array.isArray(list)) return list.length
     }
   } catch {
-    // Ignore
+    // An unparsed manifest on disk leaves the count unknown
   }
 
   return 0

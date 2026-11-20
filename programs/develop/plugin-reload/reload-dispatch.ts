@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compiler} from '@rspack/core'
+import type {Compilation, Compiler} from '@rspack/core'
 import type {
   BootRegistrationsOutcome,
   LateReloadRestart,
@@ -146,6 +146,7 @@ async function wakeDelivered(broker: ReloadBroker): Promise<boolean> {
   try {
     return (await broker.deliverLatchedReload?.()) === true
   } catch {
+    // A wake that fails delivered nothing, and the caller warns for that
     return false
   }
 }
@@ -418,6 +419,7 @@ function isDirectory(absolute: string): boolean {
   try {
     return fs.statSync(absolute).isDirectory()
   } catch {
+    // A path that is gone is not a folder
     return false
   }
 }
@@ -503,10 +505,9 @@ export function createChangedSourcesTracker(
   }) => [...(source.modifiedFiles || []), ...(source.removedFiles || [])]
 
   // Names the files behind a reported folder, then keeps the files this
-  // compile or the one before it read. A compile that cannot say keeps all.
-  const keepFilesTheBuildRead = (compilation: unknown, failed: boolean) => {
+  // compile or the one before it read.
+  const keepFilesTheBuildRead = (compilation: Compilation, failed: boolean) => {
     const reads = readsOfCompilation(compilation)
-    if (!reads) return
 
     const ctx = contextDir()
     const manifests = manifestSources(compiler, ctx)
@@ -579,33 +580,27 @@ export function createChangedSourcesTracker(
     ingest(changesOf(compiler), changedSources, markForced)
   })
 
-  compiler.hooks.done.tap(
-    'extjs-reload-changed-sources-done',
-    (stats: {
-      compilation?: {errors?: unknown[]; modifiedFiles?: Iterable<string>}
-    }) => {
-      const compilation = stats?.compilation
-      const failed = Boolean(compilation?.errors?.length)
-      compileEnded = true
-      ingest(compilation?.modifiedFiles, changedSources, markForced)
-      ingest(changesOf(compiler), changedSources, markForced)
-      keepFilesTheBuildRead(compilation, failed)
+  compiler.hooks.done.tap('extjs-reload-changed-sources-done', (stats) => {
+    const compilation = stats.compilation
+    const failed = compilation.errors.length > 0
+    compileEnded = true
+    ingest(changesOf(compiler), changedSources, markForced)
+    keepFilesTheBuildRead(compilation, failed)
 
-      if (failed) {
-        heldForcedFull = heldForcedFull || forcedFull
+    if (failed) {
+      heldForcedFull = heldForcedFull || forcedFull
 
-        for (const file of changedSources) {
-          if (!heldSources.includes(file)) heldSources.push(file)
-        }
-
-        return
+      for (const file of changedSources) {
+        if (!heldSources.includes(file)) heldSources.push(file)
       }
 
-      // Success with no consumer snapshot (first compile) must not leak held
-      // files into the next unrelated edit.
-      foldRecoveryIntoCurrent()
+      return
     }
-  )
+
+    // Success with no consumer snapshot (first compile) must not leak held
+    // files into the next unrelated edit.
+    foldRecoveryIntoCurrent()
+  })
 
   compiler.hooks.assetEmitted.tap(
     'extjs-reload-changed-sources-emitted',

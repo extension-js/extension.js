@@ -95,6 +95,15 @@ export function fakeCompiler(options: {owner: string; context: string}) {
     // so a save fired right after it cannot slip in ahead of the snapshot.
     done(compilation: object): Promise<void> {
       const runs = fire('done')
+      const built = compilation as {
+        fileDependencies?: Iterable<string>
+        missingDependencies?: Iterable<string>
+      }
+
+      // A real compilation names what it read. One that does not say read
+      // the files this rebuild started for.
+      built.fileDependencies ??= new Set(compiler.modifiedFiles)
+      built.missingDependencies ??= new Set<string>()
 
       if (!runs.some(({name}) => name === options.owner)) {
         throw new Error(`${options.owner} never tapped done`)
