@@ -522,62 +522,59 @@ export class EnvPlugin {
     const templateVars = buildTemplateVars(combinedVars, this.browser, mode)
     const privateNames = findPrivateTemplateNames(combinedVars, templateVars)
 
-    compiler.hooks.thisCompilation.tap(
-      'manifest:update-manifest',
-      (compilation) => {
-        const templater = createEnvAssetTemplater(
-          compilation,
-          templateVars,
-          privateNames
-        )
+    compiler.hooks.thisCompilation.tap('env:module', (compilation) => {
+      const templater = createEnvAssetTemplater(
+        compilation,
+        templateVars,
+        privateNames
+      )
 
-        // Steps that copy a .json or .html from disk after this stage run it
-        // through the same templater, so every shipped copy is filled alike.
-        setEnvAssetTemplater(compilation, templater)
+      // Steps that copy a .json or .html from disk after this stage run it
+      // through the same templater, so every shipped copy is filled alike.
+      setEnvAssetTemplater(compilation, templater)
 
-        // After the last late copy, so one warning names every file that
-        // kept a placeholder, wherever it came from.
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'env:private-placeholders',
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1000
-          },
-          () => templater.report()
-        )
+      // After the last late copy, so one warning names every file that
+      // kept a placeholder, wherever it came from.
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'env:private-placeholders',
+          stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 1000
+        },
+        () => templater.report()
+      )
 
-        compilation.hooks.processAssets.tap(
-          {
-            name: 'env:module',
-            // Ahead of the page rewrite at OPTIMIZE_SIZE - 1, which builds on
-            // the templated markup and must not escape a value a second time.
-            stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE - 2
-          },
-          (assets) => {
-            // Prefer compilation assets to be robust against different bundler versions
-            const files = Object.keys(compilation.assets || assets)
+      compilation.hooks.processAssets.tap(
+        {
+          name: 'env:module',
+          // Ahead of the page rewrite at OPTIMIZE_SIZE - 1, which builds on
+          // the templated markup and must not escape a value a second time.
+          stage: Compilation.PROCESS_ASSETS_STAGE_OPTIMIZE_SIZE - 2
+        },
+        (assets) => {
+          // Prefer compilation assets to be robust against different bundler versions
+          const files = Object.keys(compilation.assets || assets)
 
-            files.forEach((filename) => {
-              if (!isEnvTemplatedAsset(filename)) return
+          files.forEach((filename) => {
+            if (!isEnvTemplatedAsset(filename)) return
 
-              const authored = compilation.assets[filename]?.buffer()
-              if (!authored) return
+            const authored = compilation.assets[filename]?.buffer()
+            if (!authored) return
 
-              const filled = templateAssetBytes(templater, filename, authored)
+            const filled = templateAssetBytes(templater, filename, authored)
 
-              // The same buffer back means nothing was filled, so the asset
-              // is left as it is and ships the bytes it was authored with.
-              if (filled !== authored) {
-                compilation.updateAsset(filename, new sources.RawSource(filled))
-              }
+            // The same buffer back means nothing was filled, so the asset
+            // is left as it is and ships the bytes it was authored with.
+            if (filled !== authored) {
+              compilation.updateAsset(filename, new sources.RawSource(filled))
+            }
 
-              if (filename === 'manifest.json') {
-                setCurrentManifestContent(compilation, filled.toString('utf8'))
-              }
-            })
-          }
-        )
-      }
-    )
+            if (filename === 'manifest.json') {
+              setCurrentManifestContent(compilation, filled.toString('utf8'))
+            }
+          })
+        }
+      )
+    })
   }
 }
 

@@ -4,6 +4,7 @@ import {type Compiler, rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {takeCodedWarnings} from '../../lib/coded-warnings'
+import {diagnosticCode} from '../../lib/diagnostic-code'
 import * as messages from '../compatibility-lib/messages'
 
 // The plugin resolves through its own createRequire instance, so the only
@@ -90,19 +91,47 @@ describe('PolyfillPlugin', () => {
     expect(fs.existsSync(aliased)).toBe(true)
   })
 
-  it('warns and leaves the compiler alone when the package is not installed', () => {
+  it('warns among the build warnings, once, when the package is not installed', async () => {
     resolution.failWith = notFound()
 
     const project = makeTempFolder('extjs-polyfill-missing-')
-    const compiler = compilerAt(project)
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    fs.writeFileSync(path.join(project, 'entry.js'), 'export default 1\n')
+
+    const compiler = rspack({
+      context: project,
+      mode: 'production',
+      entry: {entry: './entry.js'},
+      output: {path: path.join(project, 'dist')}
+    })
+    const printed = vi.spyOn(console, 'warn').mockImplementation(() => {})
     new PolyfillPlugin().apply(compiler)
 
+    const compile = () =>
+      new Promise<Array<Error & {name: string}>>((resolve, reject) => {
+        compiler.run((error, stats) => {
+          if (error || !stats) return reject(error)
+
+          resolve([...stats.compilation.warnings] as never)
+        })
+      })
+
+    const first = await compile()
+    const second = await compile()
+    await new Promise((resolve) => compiler.close(resolve))
+
     expect(aliasOf(compiler)).toEqual({})
-    expect(warn.mock.calls).toEqual([[messages.webextensionPolyfillNotFound()]])
-    expect(takeCodedWarnings()).toEqual([
-      'W_POLYFILL_NOT_FOUND: webextension-polyfill is not installed, so the browser API polyfill is off for this build.'
+    expect(printed).not.toHaveBeenCalled()
+    expect(first.map((warning) => warning.name)).toEqual([
+      'PolyfillNotFoundWarning'
     ])
+
+    expect(first[0].message).toContain(
+      messages.webextensionPolyfillNotFound().split('\n')[0]
+    )
+
+    expect(diagnosticCode(first[0])).toBe('W_POLYFILL_NOT_FOUND')
+    expect(second).toEqual([])
+    expect(takeCodedWarnings()).toEqual([])
   })
 
   it('throws any other resolution failure instead of calling it not installed', () => {

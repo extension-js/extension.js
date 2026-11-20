@@ -126,7 +126,9 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
     // FROM DISK: getManifest() is frozen and dev filenames are content-hashed.
     // opts.register false skips the dynamic registration: at boot the static
     // manifest already names the current files, and a copy injects twice.
-    function reinjectContentScripts(onDone, opts) {
+    // onFailed runs when the manifest cannot be read after true was returned,
+    // so the caller that was told to wait still gets its fallback.
+    function reinjectContentScripts(onDone, opts, onFailed) {
       var chrome = g.chrome;
       var register = !opts || opts.register !== false;
       try {
@@ -141,8 +143,19 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
               // A throw in the caller's callback must not undo the finished reinject
             } }
           })
-          .catch(function () {
-            // A manifest that fails to load or parse leaves the tabs as they are
+          .catch(function (error) {
+            try {
+              g.console.warn(
+                "Extension.js: manifest.json could not be read to reinject the content scripts, so " +
+                  (onFailed ? "the extension reloads instead." : "open tabs keep the scripts they have."),
+                String(error)
+              );
+            } catch (e) {
+              // A background without a console still gets the fallback below
+            }
+            if (onFailed) { try { onFailed(); } catch (e) {
+              // A throwing fallback has nothing behind it to fall back to
+            } }
           });
         return true;
       // False sends the caller to a full restart instead of a reinject
@@ -494,6 +507,13 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
         restartExtension(150);
       };
 
+      var reloadInstead = function () {
+        fullReload();
+        if (onDone) { try { onDone(); } catch (e) {
+          // A throw in the caller's callback must not undo the started restart
+        } }
+      };
+
       if (type === "content-scripts" && chrome.scripting && chrome.tabs && chrome.tabs.query) {
         var dev = devContentScripts();
         if (dev && typeof dev.reload === "function") {
@@ -502,7 +522,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
               if (handled) { if (onDone) { try { onDone(); } catch (e) {
                 // A throw in the caller's callback must not undo the finished reload
               } } return; }
-              if (reinjectContentScripts(onDone)) return;
+              if (reinjectContentScripts(onDone, undefined, reloadInstead)) return;
               fullReload();
             });
             return;
@@ -510,7 +530,7 @@ const RELOAD_HANDLERS = `    // The manifest glob dialect: * is any run of chara
             // A throwing dev runtime falls back to the manifest-based reinject
           }
         }
-        if (reinjectContentScripts(onDone)) return;
+        if (reinjectContentScripts(onDone, undefined, reloadInstead)) return;
       }
 
       fullReload();

@@ -239,7 +239,7 @@ describe('the hot update client of a page entry', () => {
 
   const devServer = {host: '127.0.0.1', port: 8080, hot: 'only'}
 
-  it('wraps the page files of a development build, shim first and the minimum script last', () => {
+  it('wraps the page files of a development build, the client first and the minimum script last', () => {
     withoutSessionEnv()
     const {tmp, manifestPath, page} = writePageProject('extjs-page-client', {
       name: 'x'
@@ -250,15 +250,14 @@ describe('the hot update client of a page entry', () => {
 
     const imports = importsOf(compiler, 'action/index')
 
-    expect(imports).toHaveLength(5)
-    expect(imports[0]).toMatch(/\/preact-refresh-shim(\.m?js)?$/)
-    expect(imports[1]).toContain('@rspack/dev-server/client/index.js?')
-    expect(imports[2]).toMatch(/@rspack\/core\/hot\/dev-server(\.js)?$/)
-    expect(imports[3]).toMatch(/\/popup\/main\.js$/)
-    expect(imports[4]).toMatch(/\/minimum-script-file(\.m?js)?$/)
+    expect(imports).toHaveLength(4)
+    expect(imports[0]).toContain('@rspack/dev-server/client/index.js?')
+    expect(imports[1]).toMatch(/@rspack\/core\/hot\/dev-server(\.js)?$/)
+    expect(imports[2]).toMatch(/\/popup\/main\.js$/)
+    expect(imports[3]).toMatch(/\/minimum-script-file(\.m?js)?$/)
   })
 
-  it('gives a page with no script the shim and the minimum script alone', () => {
+  it('gives a page with no script the minimum script alone', () => {
     withoutSessionEnv()
     const {tmp, manifestPath, page} = writePageProject('extjs-page-bare', {
       name: 'x'
@@ -269,9 +268,9 @@ describe('the hot update client of a page entry', () => {
 
     const imports = importsOf(compiler, 'action/index')
 
-    expect(imports).toHaveLength(2)
-    expect(imports[0]).toMatch(/\/preact-refresh-shim(\.m?js)?$/)
-    expect(imports[1]).toMatch(/\/minimum-script-file(\.m?js)?$/)
+    expect(imports).toEqual([
+      expect.stringMatching(/\/minimum-script-file(\.m?js)?$/)
+    ])
   })
 
   it('reads the session from the environment when the config names no dev server', () => {

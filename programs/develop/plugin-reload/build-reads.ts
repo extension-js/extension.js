@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import * as path from 'node:path'
-import {publicRootsFor} from '../plugin-special-folders/resolve-public-folder'
+import {publicRootsFor} from '../lib/public-roots'
 import {projectRelative, resolveReal} from './project-relative'
 
 // What one compile read: its file dependencies (modules, loader inputs,

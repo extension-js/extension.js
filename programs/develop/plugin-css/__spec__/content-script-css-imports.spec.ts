@@ -5,7 +5,7 @@ import * as path from 'node:path'
 import {rspack} from '@rspack/core'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
-import {workspaceRootOf} from '../../plugin-special-folders/public-private-files'
+import {workspaceRootOf} from '../../lib/public-private-files'
 import {cssInContentScriptLoader} from '../css-in-content-script-loader'
 import {bundledFileToken} from '../css-lib/inline-content-script-css'
 import {

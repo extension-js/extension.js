@@ -479,6 +479,30 @@ function insideJsQuote(body: string, neighbors: Neighbors): string {
 
 type Escape = (value: string, neighbors: Neighbors) => string
 
+// Outside a quote an authored backslash has to escape something. It takes
+// the code of the first character, so the value reads as it was given, and
+// with no character to take it reads as a backslash.
+function afterBackslash(
+  value: string,
+  neighbors: Neighbors,
+  escaped: (first: string) => string,
+  alone: string,
+  rest: Escape
+): string {
+  if (!followsBackslash(neighbors)) return rest(value, neighbors)
+
+  const first = Array.from(value)[0]
+  if (first === undefined) return alone
+
+  return (
+    escaped(first) + rest(value.slice(first.length), {...neighbors, left: ''})
+  )
+}
+
+// What completes an authored backslash into the escape of one character.
+const jsEscapeTail = (first: string) =>
+  first.split('').map(unicodeEscape).join('').slice(1)
+
 const JS_ESCAPES_BY_SINK: Record<JsSink, Escape> = {
   string: (value, neighbors) =>
     insideJsQuote(jsStringBody(value).replace(/'/g, unicodeEscape), neighbors),
@@ -489,12 +513,13 @@ const JS_ESCAPES_BY_SINK: Record<JsSink, Escape> = {
     ),
   // The value is matched as literal text, the reading a string value has.
   regexp: (value, neighbors) =>
-    (followsBackslash(neighbors) ? 'x5c' : '') +
-    escapeAtSeams(
-      neighbors,
-      value.replace(/[^A-Za-z0-9_ ]/g, unicodeEscape),
-      SCRIPT_ENDS,
-      unicodeEscape
+    afterBackslash(value, neighbors, jsEscapeTail, 'x5c', (rest, around) =>
+      escapeAtSeams(
+        around,
+        rest.replace(/[^A-Za-z0-9_ ]/g, unicodeEscape),
+        SCRIPT_ENDS,
+        unicodeEscape
+      )
     ),
   // The value is code, so it only loses the power to close the element.
   code: (value, neighbors) =>
@@ -510,12 +535,13 @@ const JS_ESCAPES_BY_SINK: Record<JsSink, Escape> = {
     splitAtSeams(neighbors, value, SCRIPT_OR_COMMENT_ENDS, ' '),
   // No parse, so the one body that is inert in every quote and in a comment.
   unknown: (value, neighbors) =>
-    (followsBackslash(neighbors) ? 'x5c' : '') +
-    escapeAtSeams(
-      neighbors,
-      jsStringBody(value).replace(/['`$/]/g, unicodeEscape),
-      SCRIPT_OR_COMMENT_ENDS,
-      unicodeEscape
+    afterBackslash(value, neighbors, jsEscapeTail, 'x5c', (rest, around) =>
+      escapeAtSeams(
+        around,
+        jsStringBody(rest).replace(/['`$/]/g, unicodeEscape),
+        SCRIPT_OR_COMMENT_ENDS,
+        unicodeEscape
+      )
     )
 }
 
@@ -587,12 +613,18 @@ const CSS_ESCAPES_BY_SINK: Record<CssSink, Escape> = {
     return escapeAtSeams(neighbors, body, STYLE_END, cssEscape)
   },
   url: (value, neighbors) =>
-    (followsBackslash(neighbors) ? '5c ' : '') +
-    escapeAtSeams(
+    afterBackslash(
+      value,
       neighbors,
-      value.replace(/[\\"'()<\s\u0000-\u001f\u007f]/g, cssEscape),
-      STYLE_END,
-      cssEscape
+      (first) => cssEscape(first).slice(1),
+      '5c ',
+      (rest, around) =>
+        escapeAtSeams(
+          around,
+          rest.replace(/[\\"'()<\s\u0000-\u001f\u007f]/g, cssEscape),
+          STYLE_END,
+          cssEscape
+        )
     ),
   comment: (value, neighbors) =>
     splitAtSeams(neighbors, value, STYLE_OR_COMMENT_ENDS, ' '),

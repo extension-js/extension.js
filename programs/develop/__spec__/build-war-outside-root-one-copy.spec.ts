@@ -2,7 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
-import {workspaceRootOf} from '../plugin-special-folders/public-private-files'
+import {workspaceRootOf} from '../lib/public-private-files'
 import {CHROMIUM_EXTENSION_ROOT} from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
 
 const SUITE_ROOT = fs.mkdtempSync(

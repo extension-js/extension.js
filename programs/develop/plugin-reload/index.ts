@@ -21,6 +21,7 @@ import {
 } from './steps/inject-bridge-producer'
 import {InjectBridgeRelay} from './steps/inject-bridge-relay'
 import {InjectScriptsReplayShim} from './steps/inject-scripts-replay-shim'
+import {KeepOpenTabStylesheets} from './steps/keep-open-tab-stylesheets'
 import {PruneStaleHotUpdates} from './steps/prune-stale-hot-updates'
 import {PruneUnreachableChunks} from './steps/prune-unreachable-chunks'
 import {SetupDevContentScripts} from './steps/setup-dev-content-scripts'
@@ -113,6 +114,10 @@ export class ReloadPlugin {
     // Ahead of the gate below: the wrapper has always carried this runtime in
     // every dev session build, with or without the rest of the pipeline.
     new AddContentScriptReinject(this.devSession).apply(compiler)
+
+    // Ahead of the gate too: a development output is never cleaned, session
+    // or not, so the sheets an earlier compile left stay reachable.
+    new KeepOpenTabStylesheets().apply(compiler)
 
     if (!isReloadSession(compiler.options.mode, this.devSession)) {
       return

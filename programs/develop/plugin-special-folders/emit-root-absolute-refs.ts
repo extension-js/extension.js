@@ -9,6 +9,10 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, rspack, WebpackError} from '@rspack/core'
+import {
+  rootAbsolutePathIsWithheld,
+  sourceFileMayShip
+} from '../lib/public-private-files'
 import {isOsPathUnder} from '../lib/real-path'
 import {WITHHELD_CSS_REF, withheldCssRefs} from '../lib/withheld-file'
 import {templateCopiedAsset} from '../plugin-compilation/copied-asset-env'
@@ -26,10 +30,6 @@ import {
 } from '../plugin-web-extension/feature-scripts/steps/trace-runtime-loaded-files'
 import {collectRootAbsoluteRefs} from '../plugin-web-extension/shared/paths'
 import * as folderMessages from './messages'
-import {
-  rootAbsolutePathIsWithheld,
-  sourceFileMayShip
-} from './public-private-files'
 
 // The asset a ref was read from, which names the surface in a warning.
 interface RefOrigin {

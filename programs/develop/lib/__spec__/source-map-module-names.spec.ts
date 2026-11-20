@@ -16,10 +16,10 @@ describe('source map module names', () => {
   it('names a file of Extension.js by its place in the package', () => {
     expect(
       nameOf(
-        path.join(develop, 'dist', 'preact-refresh-shim.mjs'),
-        '../../install/node_modules/extension-develop/dist/preact-refresh-shim.mjs'
+        path.join(develop, 'dist', 'minimum-script-file.mjs'),
+        '../../install/node_modules/extension-develop/dist/minimum-script-file.mjs'
       )
-    ).toBe('webpack://my-extension/extension.js/dist/preact-refresh-shim.mjs')
+    ).toBe('webpack://my-extension/extension.js/dist/minimum-script-file.mjs')
   })
 
   it('keeps the default name for a project file and a runtime module', () => {

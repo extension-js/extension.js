@@ -37,7 +37,9 @@ export const SAFARI_RESYNC_TIMEOUT_MS = 5 * 60_000
 // xcodebuild > open > guided enable), and every later compile blocks for its
 // resync, so no build writes into the dist xcodebuild is reading. Each wait is
 // bounded, and builds that end while a package still runs collapse into one
-// follow-up against the newest output.
+// follow-up against the newest output. The bundler can start a build while a
+// done hook is still out, so a build also waits in watchRun for the package
+// that is running, up to that package's own bound.
 type SafariPackageTarget = {
   outputPath: string
   contextDir: string
@@ -56,6 +58,10 @@ export class SafariDevPlugin implements RunnerPlugin {
   private firstPackageStillRunning = false
   private active = false
   private pending: SafariPackageTarget | null = null
+  // True from a build's start to its done hook, while it may write the dist.
+  private compiling = false
+  // The bounded wait on the package that is running, held by the next build.
+  private held: Promise<void> | null = null
   private readyListener: (() => void) | undefined
   // Safari takes the same granularity as Chromium. A content-script
   // reinjection was measured working there, same tab, through the producer's
@@ -86,9 +92,19 @@ export class SafariDevPlugin implements RunnerPlugin {
   apply(compiler: Compiler) {
     const builds = this.reloads.watch(compiler)
 
+    // A package reads the dist, and a done hook that is still out does not
+    // keep the bundler from starting a build, so that build waits here.
+    compiler.hooks.watchRun.tapPromise(SafariDevPlugin.name, async () => {
+      this.compiling = true
+
+      if (this.held) await this.held
+    })
+
     compiler.hooks.done.tapPromise(SafariDevPlugin.name, async (stats) => {
       const compilation = stats.compilation
       const hasErrors = compilation.errors && compilation.errors.length > 0
+
+      this.compiling = false
 
       if (hasErrors) {
         this.emitter.emit('error', {
@@ -96,6 +112,9 @@ export class SafariDevPlugin implements RunnerPlugin {
             typeof e === 'string' ? e : e.message || String(e)
           )
         })
+
+        // A save that waited on this build is packaged, nothing else will.
+        this.startCatchUp()
 
         return
       }
@@ -134,28 +153,33 @@ export class SafariDevPlugin implements RunnerPlugin {
       }
 
       // First compile blocks the hook so the app opens and the guided-enable
-      // step finishes before the dev server reports ready, unchanged UX.
+      // step finishes before the dev server reports ready.
       if (this.firstRun) {
         await this.runFirst(target)
 
         return
       }
 
-      // A resync is already running: keep only the newest output and let the
-      // active run pick it up when it finishes, so a save burst is one rebuild.
+      // A save that waited is part of this package: keep the newest output
+      // and both reloads, so a save burst is one rebuild.
+      const newest: SafariPackageTarget = {
+        ...target,
+        instruction: this.reloads.combine(
+          this.pending?.instruction,
+          target.instruction
+        )
+      }
+
+      // A resync is already running: the active run picks this one up when
+      // it finishes.
       if (this.active) {
-        this.pending = {
-          ...target,
-          instruction: this.reloads.combine(
-            this.pending?.instruction,
-            target.instruction
-          )
-        }
+        this.pending = newest
 
         return
       }
 
-      await this.resync(target)
+      this.pending = null
+      await this.resync(newest)
     })
   }
 
@@ -164,7 +188,7 @@ export class SafariDevPlugin implements RunnerPlugin {
   private async resync(target: SafariPackageTarget) {
     this.active = true
     const run = this.runResync(target)
-    const outcome = await waitAtMost(run, SAFARI_RESYNC_TIMEOUT_MS)
+    const outcome = await this.hold(waitAtMost(run, SAFARI_RESYNC_TIMEOUT_MS))
 
     if (outcome.state !== 'timeout') {
       this.resyncFinished()
@@ -177,28 +201,56 @@ export class SafariDevPlugin implements RunnerPlugin {
       new Error(browserMessages.safariPackageTimedOut(SAFARI_RESYNC_TIMEOUT_MS))
     )
 
-    void run.then(() => this.resyncFinished())
+    void run
+      .catch((error: unknown) => this.reportLateFault(error))
+      .then(() => this.resyncFinished())
+  }
+
+  // The package itself went through, so a throw after it reaches only the
+  // public event. No hook is left to carry it.
+  private reportLateFault(error: unknown) {
+    this.emitter.emit('error', {
+      errors: [error instanceof Error ? error.message : String(error)]
+    })
+  }
+
+  // The next build waits for this bounded wait, never for the run past it.
+  private hold<T>(wait: Promise<T>): Promise<T> {
+    const held = wait.then(() => {
+      if (this.held === held) this.held = null
+    })
+
+    this.held = held
+
+    return wait
   }
 
   // Collapse everything queued during the run into one follow-up.
   private resyncFinished() {
+    this.active = false
+    this.startCatchUp()
+  }
+
+  // A build that is compiling may be writing the dist, so the package waits
+  // for that build's done hook, which then runs it as its own resync.
+  private startCatchUp() {
     const next = this.pending
+    if (!next || this.firstRun || this.active || this.compiling) return
+
     this.pending = null
 
-    if (next) {
-      void this.resync(next)
-
-      return
-    }
-
-    this.active = false
+    void this.resync(next).catch((error: unknown) =>
+      this.reportLateFault(error)
+    )
   }
 
   private async runFirst(target: SafariPackageTarget) {
     const run = Promise.resolve().then(() =>
       this.packager(target.outputPath, 'full')
     )
-    const outcome = await waitAtMost(run, SAFARI_FIRST_PACKAGE_TIMEOUT_MS)
+    const outcome = await this.hold(
+      waitAtMost(run, SAFARI_FIRST_PACKAGE_TIMEOUT_MS)
+    )
 
     if (outcome.state === 'resolved') {
       await this.afterPackage(target, 'full')
@@ -229,7 +281,8 @@ export class SafariDevPlugin implements RunnerPlugin {
         this.firstPackageStillRunning = false
         clearLaunchTimedOut(target.outputPath)
         await this.afterPackage(target, 'full')
-        this.drainQueuedSave()
+        // A save that waited on the late first package is a resync.
+        this.startCatchUp()
       },
       (error: unknown) => {
         this.firstPackageStillRunning = false
@@ -237,15 +290,6 @@ export class SafariDevPlugin implements RunnerPlugin {
         this.reportFailure('full', error)
       }
     )
-  }
-
-  // A save that waited on a late first package is packaged now, as a resync.
-  private drainQueuedSave() {
-    const next = this.pending
-    if (!next || this.active) return
-
-    this.pending = null
-    void this.resync(next)
   }
 
   private async runResync(target: SafariPackageTarget) {

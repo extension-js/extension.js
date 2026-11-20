@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {buildCanonicalManifest} from '../../manifest-lib/manifest'
+import {buildCanonicalManifestWithOverrides} from '../../manifest-lib/manifest'
 import {getManifestOverrides} from '../../manifest-overrides'
 
 // Firefox MV2 rejects host_permissions. The override folds the patterns into
@@ -71,13 +71,13 @@ describe('MV2 host_permissions through getManifestOverrides', () => {
   })
 })
 
-describe('MV2 host_permissions through buildCanonicalManifest', () => {
+describe('MV2 host_permissions through buildCanonicalManifestWithOverrides', () => {
   it('drops the keys for firefox once the prefixed manifest_version resolves to 2', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source as any,
       'firefox'
-    ) as any
+    ).manifest as any
 
     expect(result.manifest_version).toBe(2)
     expect(result).not.toHaveProperty('host_permissions')
@@ -95,11 +95,11 @@ describe('MV2 host_permissions through buildCanonicalManifest', () => {
   })
 
   it('keeps the keys for chrome where manifest_version resolves to 3', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source as any,
       'chrome'
-    ) as any
+    ).manifest as any
 
     expect(result.manifest_version).toBe(3)
     expect(result.host_permissions).toEqual([

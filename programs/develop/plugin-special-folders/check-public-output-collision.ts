@@ -9,8 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, WebpackError} from '@rspack/core'
+import {hasPrivateFileName} from '../lib/public-private-files'
 import * as messages from './messages'
-import {hasPrivateFileName} from './public-private-files'
 
 // The bundler names the output path it could not write twice, never the input
 // that collided with a generated entry. The guard reads the raised error

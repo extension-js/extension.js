@@ -43,11 +43,11 @@ function moduleText(module: SourceModule): string | undefined {
 
 // A concatenated classic group is one module built from several files, so
 // the file named is the first one in the group that spells the constant.
-function fileSpelling(files: string[], name: string): string {
+function fileSpelling(files: string[], name: string, compile?: object): string {
   const spelled = new RegExp(`(?<![\\w$.])${name}(?![\\w$])`)
 
   for (const file of files) {
-    const text = readProjectSource(file)
+    const text = readProjectSource(file, compile)
     if (text !== undefined && spelled.test(text)) return file
   }
 
@@ -58,7 +58,9 @@ function fileSpelling(files: string[], name: string): string {
 // its own modules provide, each with the file that reads it.
 export function missingConstantsOf(
   modules: Iterable<SourceModule>,
-  isProvided: (name: string) => boolean
+  isProvided: (name: string) => boolean,
+  // The compile whose other scans already read these files from disk.
+  compile?: object
 ): Read[] {
   const reads: Read[] = []
   const provided = new Set<string>()
@@ -80,7 +82,7 @@ export function missingConstantsOf(
       const concat = classicConcatFiles(module.resource)
 
       for (const file of concat) {
-        const raw = readProjectSource(file)
+        const raw = readProjectSource(file, compile)
         if (raw === undefined) continue
 
         const own = constantFacts(raw)
@@ -92,7 +94,7 @@ export function missingConstantsOf(
       for (const name of facts.reads) {
         reads.push({
           name,
-          file: concat.length ? fileSpelling(concat, name) : resource
+          file: concat.length ? fileSpelling(concat, name, compile) : resource
         })
       }
     }
@@ -183,7 +185,7 @@ export class WarnMissingBuildConstants {
 
       const reported = new Set<string>()
 
-      for (const read of missingConstantsOf(modules, isProvided)) {
+      for (const read of missingConstantsOf(modules, isProvided, compilation)) {
         const key = `${read.file}\0${read.name}`
         if (reported.has(key)) continue
 

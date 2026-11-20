@@ -70,6 +70,25 @@ describe('BoringPlugin startup line', () => {
     fs.rmSync(tmpDir, {recursive: true, force: true})
   })
 
+  it('prints the line of a compile whose changed files cannot be read', () => {
+    const {compiler, done} = makeCompiler(tmpDir)
+    new BoringPlugin({
+      manifestPath: path.join(tmpDir, 'manifest.json')
+    } as never).apply(compiler as never)
+
+    const stats = successStats()
+    Object.defineProperty(stats.compilation, 'modifiedFiles', {
+      get() {
+        throw new Error('the watcher is gone')
+      }
+    })
+
+    done(stats)
+
+    expect(logSpy).toHaveBeenCalledTimes(1)
+    expect(String(logSpy.mock.calls[0][0])).toContain('Boring App')
+  })
+
   it('prints the first success immediately, before any card is printed', () => {
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
@@ -181,22 +200,18 @@ describe('BoringPlugin startup line', () => {
     expect(logSpy).toHaveBeenCalledTimes(3)
   })
 
-  // The default is the flag the dev server writes, read at each compile.
-  it('reads EXTENSION_BROWSER_LAUNCH_ENABLED when the option is unset', () => {
+  // A flag another session left in the process is not this compile's setting.
+  it('prints one startup line with the option unset, whatever the environment says', () => {
+    vi.stubEnv('EXTENSION_BROWSER_LAUNCH_ENABLED', '0')
+
     const {compiler, done} = makeCompiler(tmpDir)
     new BoringPlugin({
       manifestPath: path.join(tmpDir, 'manifest.json'),
       browser: 'chromium'
     }).apply(compiler as never)
 
-    vi.stubEnv('EXTENSION_BROWSER_LAUNCH_ENABLED', '0')
     done(successStats())
     done(successStats())
-    expect(logSpy).toHaveBeenCalledTimes(2)
-
-    vi.stubEnv('EXTENSION_BROWSER_LAUNCH_ENABLED', undefined)
-    done(successStats())
-    done(successStats())
-    expect(logSpy).toHaveBeenCalledTimes(3)
+    expect(logSpy).toHaveBeenCalledTimes(1)
   })
 })

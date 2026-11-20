@@ -1,9 +1,16 @@
+import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {buildPages, writePageProject} from '../../__spec__/helpers/page-builds'
 import {writeProject} from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {ReloadPlugin} from '../index'
+import {
+  BRIDGE_STAGE_AFTER_REPORT,
+  DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT,
+  REPLAY_SHIM_STAGE_AFTER_REPORT
+} from '../steps/stages'
 
 const makeTempFolder = trackTempFolders()
 
@@ -88,4 +95,71 @@ describe('the stage the reload steps write the background at', () => {
       seen.map((text) => text.includes('__extjsScriptsReplayInstalled'))
     ).toEqual([false, false])
   })
+})
+
+// Three steps prepend to the background, so the last to run sits on top.
+// Each has a stage of its own: the order never rests on which was applied
+// first.
+describe('the order the reload steps write the background in', () => {
+  it('gives the replay shim, the stand-ins and the bridge one stage each', () => {
+    expect([
+      REPLAY_SHIM_STAGE_AFTER_REPORT,
+      DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT,
+      BRIDGE_STAGE_AFTER_REPORT
+    ]).toEqual([149, 150, 151])
+  })
+
+  it('names each stage in the step that owns it and nowhere else', () => {
+    const steps = path.resolve(__dirname, '..', 'steps')
+    const users = (name: string) =>
+      fs
+        .readdirSync(steps)
+        .filter(
+          (file) =>
+            file !== 'stages.ts' &&
+            file.endsWith('.ts') &&
+            fs.readFileSync(path.join(steps, file), 'utf8').includes(name)
+        )
+        .sort()
+
+    expect(users('REPLAY_SHIM_STAGE_AFTER_REPORT')).toEqual([
+      'inject-scripts-replay-shim.ts'
+    ])
+
+    expect(users('DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT')).toEqual([
+      'setup-dev-content-scripts.ts'
+    ])
+
+    expect(users('BRIDGE_STAGE_AFTER_REPORT')).toEqual([
+      'inject-bridge-producer.ts',
+      'inject-bridge-relay.ts'
+    ])
+  })
+
+  it('leaves the bridge above the stand-ins above the replay shim in a dev session', async () => {
+    const root = fs.realpathSync(makeTempFolder('extjs-reload-order-'))
+
+    writePageProject(root)
+
+    const built = await buildPages(root, 'development session')
+    const background = fs.readFileSync(
+      path.join(
+        root,
+        'dist',
+        'chrome-development-session',
+        'background',
+        'service_worker.js'
+      ),
+      'utf8'
+    )
+    const at = [
+      '__extjsBridgeProducerInstalled',
+      '__extjsDevContentScriptsInstalled',
+      '__extjsScriptsReplayInstalled'
+    ].map((marker) => background.indexOf(marker))
+
+    expect(built.errors).toEqual([])
+    expect(at.every((index) => index !== -1)).toBe(true)
+    expect(at).toEqual([...at].sort((a, b) => a - b))
+  }, 180_000)
 })

@@ -23,9 +23,9 @@ It is responsible for:
   earlier injection left in the page
 - stripping the rspack-dev-server startup runtime from emitted content
   scripts so reinjection stays browser-owned
-- giving every page of a dev session its hot update client (the
-  refresh shim, the dev server client and a minimum script, so a page with
-  no script still updates), and letting the scripts a page names accept
+- giving every page of a dev session its hot update client (the dev
+  server client and a minimum script, so a page with no script still
+  updates), and letting the scripts a page names accept
   their own update in a dev session
 - classifying a watch-mode change into a reload instruction
   (`full` / `service-worker` / `content-scripts` / notify-only `page`)
@@ -87,8 +87,8 @@ names one, otherwise any mode but production), so it also runs under
 ## Important files
 
 - `steps/setup-page-reload.ts`
-  The page side. In a dev session a page entry imports, in order,
-  `reload-lib/preact-refresh-shim.ts`, the dev server client and hot
+  The page side. In a dev session a page entry imports, in order, the
+  dev server client and hot
   runtime (when a session names a host and port), the page's own files and
   `reload-lib/minimum-files/minimum-script-file.ts`, which also reloads an
   open page whose served markup changed. With a client it points the dev
@@ -254,6 +254,12 @@ names one, otherwise any mode but production), so it also runs under
   the control verbs and the logs only. `buildDevProducerSource` is the
   producer a dev background runs.
 
+- `steps/keep-open-tab-stylesheets.ts`
+  A tab opened before a rebuild still names the stylesheet of the build it
+  loaded, and a development output is never cleaned. This step reads the
+  sheets left under `content_scripts/` and hands them to
+  plugin-web-extension through `shared/kept-resource-extensions`, which
+  keeps them web accessible. Applied in every development build.
 - `steps/inject-bridge-producer.ts` / `steps/inject-bridge-relay.ts`
   Control-bridge instrumentation: forward background-SW and content-script
   console output to the dev-server control WS. Not reload in the strict
@@ -295,7 +301,7 @@ consumes that contract. It does not define it, and nothing in
   socket alias. It reads loaders from `programs/develop/dist`.
 - `setup-page-reload.unit.spec.ts`, `page-hmr-entry-only.spec.ts`,
   `ensure-hmr-for-scripts.unit.spec.ts`, `minimum-script-file.unit.spec.ts`,
-  `preact-refresh-shim.unit.spec.ts`, the page side piece by piece
+  the page side piece by piece
 - `classify-reload.unit.spec.ts`, classifier decisions
 - `reload-session.unit.spec.ts`, the session every caller keeps and the
   one call of the `--no-browser` path
@@ -342,11 +348,17 @@ consumes that contract. It does not define it, and nothing in
   tabs, registered scripts and script addresses
 - `inject-scripts-replay-shim.spec.ts`, `scripts-replay-shim.runtime.spec.ts`,
   `scripts-replay-shim-namespaces.spec.ts`, the worker replay shim
+- `keep-open-tab-stylesheets.spec.ts`, the leftover sheets read from real
+  folders and what the manifest step is handed
+- `producer-reload-reinject-failure.spec.ts`, the full reload a reinject
+  falls back to when the manifest cannot be read
 - `strip-content-script-dev-server-runtime.spec.ts`,
   `prune-stale-hot-updates.spec.ts`, `prune-unreachable-chunks.spec.ts`,
   emitted-asset steps
 - `reload-steps-stage.spec.ts`, that the reload runtime and the bridge are
-  written to the background after every step at the shared report stage
+  written to the background after every step at the shared report stage,
+  and that the replay shim, the stand-ins and the bridge each have a stage
+  of their own, in the order they sit in the file
 - `stable-content-script-names.spec.ts`,
   `source-index-nameless-chunks.spec.ts`, real rspack compiles. They read
   loaders from `programs/develop/dist`, so run the package `compile` first.

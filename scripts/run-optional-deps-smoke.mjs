@@ -1338,7 +1338,7 @@ async function main() {
 
     // The React content-script dev smoke is the part of the build graph that
     // pulls in `feature-scripts-content-script-wrapper` + browser-runtime
-    // shims (preact-refresh-shim, main-world-bridge, minimum-script-file).
+    // shims (main-world-bridge, minimum-script-file).
     // It is also the ONLY smoke that compiled the user fixture far enough to
     // catch the ESM-banner-leaking-into-browser regression captured in
     // a9153af9. Run it on every matrix cell, not just windows/npm, the

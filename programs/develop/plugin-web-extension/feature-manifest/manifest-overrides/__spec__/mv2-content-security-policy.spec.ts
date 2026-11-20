@@ -1,5 +1,5 @@
 import {describe, expect, it} from 'vitest'
-import {buildCanonicalManifest} from '../../manifest-lib/manifest'
+import {buildCanonicalManifestWithOverrides} from '../../manifest-lib/manifest'
 import {getManifestOverrides} from '../../manifest-overrides'
 
 // Firefox MV2 reads content_security_policy as one string. The override
@@ -66,33 +66,33 @@ describe('MV2 content_security_policy through getManifestOverrides', () => {
   })
 })
 
-describe('MV2 content_security_policy through buildCanonicalManifest', () => {
+describe('MV2 content_security_policy through buildCanonicalManifestWithOverrides', () => {
   it('writes the string for firefox once the prefixed manifest_version resolves to 2', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source as any,
       'firefox'
-    ) as any
+    ).manifest as any
     expect(result.manifest_version).toBe(2)
     expect(result.content_security_policy).toBe(PAGES)
   })
 
   it('drops a sandbox-only object for firefox', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       {...source, content_security_policy: {sandbox: SANDBOX}} as any,
       'firefox'
-    ) as any
+    ).manifest as any
     expect(result.manifest_version).toBe(2)
     expect(result).not.toHaveProperty('content_security_policy')
   })
 
   it('keeps the object for chrome where manifest_version resolves to 3', () => {
-    const result = buildCanonicalManifest(
+    const result = buildCanonicalManifestWithOverrides(
       '/p/manifest.json',
       source as any,
       'chrome'
-    ) as any
+    ).manifest as any
     expect(result.manifest_version).toBe(3)
     expect(result.content_security_policy).toEqual({
       extension_pages: PAGES,

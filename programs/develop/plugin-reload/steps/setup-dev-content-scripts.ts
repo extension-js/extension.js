@@ -20,7 +20,7 @@ import {
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
-import {RELOAD_STAGE_AFTER_REPORT} from './stages'
+import {DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT} from './stages'
 
 function putAsset(compilation: Compilation, name: string, text: string) {
   const source = new sources.RawSource(text)
@@ -109,7 +109,7 @@ export class SetupDevContentScripts {
             name: SetupDevContentScripts.name,
             stage:
               Compilation.PROCESS_ASSETS_STAGE_REPORT +
-              RELOAD_STAGE_AFTER_REPORT
+              DEV_CONTENT_SCRIPTS_STAGE_AFTER_REPORT
           },
           () => {
             if (compilation.errors.length > 0) return
