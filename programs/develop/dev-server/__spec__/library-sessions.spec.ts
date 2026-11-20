@@ -45,6 +45,7 @@ interface TwoSessionsResult {
   afterNewerEnded: number[]
   newerSettled: boolean
   envChangedByNewer: string[]
+  coordinatesInEnvWhileLive: string[]
   started: Array<{started: boolean}>
   bothReady: boolean
   fsAsFoundWhileLive: boolean
@@ -485,6 +486,9 @@ describe('a host that starts dev sessions from the library', () => {
     expect(result.afterNewerEnded).toEqual(result.olderAlone)
     expect(result.live).toEqual(result.olderAlone.map((count) => count * 2))
     expect(result.envChangedByNewer).toEqual([])
+    // Each compiler has its session's record, so the host's environment
+    // carries no port, path or id for a second session to overwrite.
+    expect(result.coordinatesInEnvWhileLive).toEqual([])
 
     expect(result.olderRestarted).toBe(true)
   }, 180_000)
