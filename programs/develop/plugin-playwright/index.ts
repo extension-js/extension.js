@@ -123,11 +123,15 @@ export type ReadyMetadata = {
   // When the browser process started, read off the process table beside its
   // pid the way `pidStartedAt` is; the launcher pid below gets the same.
   browserStartedAt?: string
+  // Linux only: the boot id and start tick of the browser pid, the value
+  // `pidStartId` holds for `pid`; the launcher pid below gets the same.
+  browserStartId?: string
   engine?: 'emulator'
   // The pid the launcher spawned, kept once the browser handed the session to
   // another process; browserPid then names that live process.
   launcherPid?: number
   launcherStartedAt?: string
+  launcherStartId?: string
   // Provenance: which toolchain produced this tree, for which extension;
   // ready.json doubles as a build receipt for one-shot builds.
   toolchainVersion: string

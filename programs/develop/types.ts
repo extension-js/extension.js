@@ -1005,8 +1005,12 @@ export interface ReadyContract {
   profileLockOwner?: {host: string; pid: number}
   browserPid?: number | null
   browserStartedAt?: string
+  /** Linux only: boot id and start tick of `browserPid`, as `pidStartId`. */
+  browserStartId?: string
   launcherPid?: number
   launcherStartedAt?: string
+  /** Linux only: boot id and start tick of `launcherPid`, as `pidStartId`. */
+  launcherStartId?: string
   /** The browser binary that ran, and how it was chosen. */
   binary?: string
   binaryProvenance?: string
