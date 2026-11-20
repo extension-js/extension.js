@@ -1,5 +1,14 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
+// Windows asks taskkill to close the tree instead of signaling the child.
+function expectAskedToStop(child: {kill: unknown}) {
+  if (process.platform === 'win32') {
+    expect(child.kill).not.toHaveBeenCalledWith('SIGTERM')
+  } else {
+    expect(child.kill).toHaveBeenCalledWith('SIGTERM')
+  }
+}
+
 // The fakes carry no pid: on Windows the teardown hands it to taskkill,
 // and a made-up number can name a real process.
 describe('Chromium setupProcessSignalHandlers', () => {
@@ -60,7 +69,7 @@ describe('Chromium setupProcessSignalHandlers', () => {
     const sigintHandlers = registeredHandlers.get('SIGINT') || []
     for (const h of sigintHandlers) h()
 
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM')
+    expectAskedToStop(child)
     expect(cleanupInstance).toHaveBeenCalledTimes(1)
   })
 
@@ -272,7 +281,7 @@ describe('Firefox setupFirefoxProcessHandlers', () => {
     await new Promise((r) => setTimeout(r, 50))
 
     expect(childRef).toHaveBeenCalled()
-    expect(child.kill).toHaveBeenCalledWith('SIGTERM')
+    expectAskedToStop(child)
   })
 
   it('ignores ECONNRESET / EPIPE thrown during Firefox teardown', async () => {

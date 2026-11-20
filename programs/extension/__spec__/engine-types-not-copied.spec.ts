@@ -64,8 +64,7 @@ type LogKeys =
   | 'logTab'
 
 const everyKeptCopyAgreesWithTheEngine: [
-  // The engine types the target as any string, the launchers name the list.
-  Agrees<BrowserLaunchOptions, EngineBrowserLaunchOptions, never, 'browser'>,
+  Agrees<BrowserLaunchOptions, EngineBrowserLaunchOptions>,
   Agrees<BrowserController, EngineBrowserController>,
   Fits<BrowserController, EngineLaunched>,
   Agrees<BrowserLogSinkEvent, EngineLogSinkEvent>,
