@@ -21,6 +21,7 @@ vi.mock('../helpers/telemetry-cli', async (importOriginal) => ({
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {PassThrough} from 'node:stream'
 import {extensionCreate} from 'extension-create'
 // The real scaffold steps, imported from source on purpose: the code a
 // failure answers is the one the step puts on the error it throws.
@@ -71,6 +72,27 @@ describe('extension create', () => {
     )
 
     expect(extensionCreate).toHaveBeenCalledWith('my-extension', {
+      template: undefined,
+      install: false,
+      cliVersion: '9.9.9'
+    })
+  })
+
+  // The run happens inside vitest, with VITEST set, so this also proves the
+  // prompt is decided by the terminal it is handed and by nothing else.
+  it('asks a person at a terminal for the name and creates what they typed', async () => {
+    const input = Object.assign(new PassThrough(), {isTTY: true})
+    const output = Object.assign(new PassThrough(), {isTTY: true})
+    const program = makeProgram((cli) =>
+      registerCreateCommand(cli, {
+        promptIo: {input, output, env: {VITEST: 'true'}}
+      })
+    )
+
+    output.once('data', () => input.write('tab-notes\n'))
+
+    expect(await runCli(program, ['create'])).toBe(0)
+    expect(extensionCreate).toHaveBeenCalledWith('tab-notes', {
       template: undefined,
       install: false,
       cliVersion: '9.9.9'

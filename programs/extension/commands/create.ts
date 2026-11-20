@@ -26,7 +26,8 @@ import {
   askProjectName,
   canPromptForProjectName,
   createCommandFor,
-  DEFAULT_PROJECT_NAME
+  DEFAULT_PROJECT_NAME,
+  type PromptIo
 } from '../helpers/project-name-prompt'
 import {markCommandFailure} from '../helpers/telemetry-cli'
 import {
@@ -48,11 +49,13 @@ function createErrorCode(error: unknown): ErrorCode {
 // terminal is asked for one, anything else gets the exact command to copy.
 async function resolveProjectName(
   template: string | undefined,
-  asJson: boolean
+  asJson: boolean,
+  promptIo: PromptIo
 ): Promise<string | undefined> {
-  if (!asJson && canPromptForProjectName()) {
+  if (!asJson && canPromptForProjectName(promptIo)) {
     const answer = await askProjectName(
-      createProjectNameQuestion(DEFAULT_PROJECT_NAME)
+      createProjectNameQuestion(DEFAULT_PROJECT_NAME),
+      promptIo
     )
 
     if (answer) return answer
@@ -87,7 +90,11 @@ async function resolveProjectName(
   return undefined
 }
 
-export function registerCreateCommand(program: Command) {
+// Where the name prompt reads and writes, the process streams when left out.
+export function registerCreateCommand(
+  program: Command,
+  {promptIo = {}}: {promptIo?: PromptIo} = {}
+) {
   program
     .command('create')
     .arguments('[project-name|project-path]')
@@ -124,7 +131,7 @@ export function registerCreateCommand(program: Command) {
       ) => {
         const asJson = isJsonOutput({output})
         const pathOrRemoteUrl =
-          projectInput || (await resolveProjectName(template, asJson))
+          projectInput || (await resolveProjectName(template, asJson, promptIo))
 
         if (!pathOrRemoteUrl) return
 

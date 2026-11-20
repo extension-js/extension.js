@@ -11,7 +11,7 @@ import readline from 'node:readline'
 export const DEFAULT_PROJECT_NAME = 'my-extension'
 
 // Where the prompt reads and writes, the process streams when left out.
-interface PromptIo {
+export interface PromptIo {
   input?: NodeJS.ReadableStream & {isTTY?: boolean}
   output?: NodeJS.WritableStream & {isTTY?: boolean}
   env?: NodeJS.ProcessEnv
@@ -33,7 +33,6 @@ export function canPromptForProjectName({
   output = process.stdout,
   env = process.env
 }: PromptIo = {}): boolean {
-  if (env.VITEST || env.VITEST_WORKER_ID) return false
   if (isCI(env)) return false
 
   return Boolean(input.isTTY && output.isTTY)
