@@ -172,7 +172,7 @@ test('a live holder keeps the lock until the deadline, and the error names the p
     await acquireLock(lockDir)
     await assert.rejects(
       acquireLock(lockDir, {timeoutMs: 200, pollMs: 20}),
-      (error) =>
+      (/** @type {any} */ error) =>
         error.message.includes(lockDir) &&
         error.message.includes(String(process.pid))
     )

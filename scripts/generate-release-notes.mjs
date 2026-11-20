@@ -214,6 +214,7 @@ function bullet(commit, repoUrl) {
   return `- ${commit.subject} ${link}`
 }
 
+/** @param {{highlights: any[], buckets: any, repoUrl?: string}} options */
 function formatMarkdown({highlights, buckets, repoUrl}) {
   const sections = []
 

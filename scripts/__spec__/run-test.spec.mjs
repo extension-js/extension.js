@@ -19,6 +19,7 @@ function writeExecutable(file, text) {
 
 // A copy of the runner in a tree whose bin folder holds only stand-ins, so
 // no real turbo or package manager runs.
+/** @param {{dotenvExit?: number}} options */
 function makeTree({dotenvExit}) {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), 'run-test-'))
   const calls = path.join(base, 'calls.log')

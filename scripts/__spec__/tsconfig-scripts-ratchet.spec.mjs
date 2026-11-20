@@ -10,23 +10,6 @@ const root = path.resolve(
   '..'
 )
 
-// These scripts failed the JavaScript typecheck when it was turned on. The
-// list only shrinks: a script whose types are fixed leaves it, none joins it.
-const EXCLUDED_SCRIPTS = [
-  './scripts/__spec__/check-emitted-types.spec.mjs',
-  './scripts/__spec__/check-messaging.spec.mjs',
-  './scripts/__spec__/generate-release-notes.spec.mjs',
-  './scripts/__spec__/nightly-dev-smoke.spec.mjs',
-  './scripts/__spec__/publish-release-gates.spec.mjs',
-  './scripts/__spec__/run-locked.spec.mjs',
-  './scripts/__spec__/run-optional-deps-smoke.spec.mjs',
-  './scripts/__spec__/run-test.spec.mjs',
-  './scripts/__spec__/smoke-npx.spec.mjs',
-  './scripts/__spec__/spec-path-gates.spec.mjs',
-  './scripts/__spec__/spec-temp-folder.spec.mjs',
-  './scripts/__spec__/verify-npm-publish.spec.mjs'
-]
-
 function readTsconfig(file) {
   const text = fs
     .readFileSync(path.join(root, file), 'utf8')
@@ -48,19 +31,12 @@ test('tsconfig.scripts.json checks every script as JavaScript', () => {
   ])
 })
 
-test('tsconfig.scripts.json excludes exactly the pinned scripts', () => {
+// Every script passed when the last exclusion was cleared, so a new one that
+// fails gets its types fixed, not a line in the exclude list.
+test('tsconfig.scripts.json excludes no script', () => {
   const config = readTsconfig('tsconfig.scripts.json')
-  const excluded = config.exclude.filter((entry) => entry !== 'node_modules')
 
-  assert.deepEqual(
-    [...excluded].sort(),
-    [...EXCLUDED_SCRIPTS].sort(),
-    'fix the script types instead of excluding it, and drop a fixed script from both lists'
-  )
-
-  for (const entry of excluded) {
-    assert.ok(fs.existsSync(path.join(root, entry)), `${entry} does not exist`)
-  }
+  assert.deepEqual(config.exclude, ['node_modules'])
 })
 
 test('the typecheck script runs the scripts project', () => {

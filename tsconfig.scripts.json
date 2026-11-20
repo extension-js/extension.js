@@ -1,6 +1,6 @@
 {
   // The repo scripts are plain JavaScript, checked strict except implicit any.
-  // The exclude list only shrinks: scripts/__spec__/tsconfig-scripts-ratchet.spec.mjs.
+  // scripts/__spec__/tsconfig-scripts-ratchet.spec.mjs keeps every script included.
   "$schema": "https://json.schemastore.org/tsconfig",
   "display": "Scripts",
   "extends": "./tsconfig.json",
@@ -12,19 +12,5 @@
     "types": ["node"]
   },
   "include": ["./scripts/**/*.mjs", "./scripts/**/*.cjs", "./scripts/**/*.js"],
-  "exclude": [
-    "node_modules",
-    "./scripts/__spec__/check-emitted-types.spec.mjs",
-    "./scripts/__spec__/check-messaging.spec.mjs",
-    "./scripts/__spec__/generate-release-notes.spec.mjs",
-    "./scripts/__spec__/nightly-dev-smoke.spec.mjs",
-    "./scripts/__spec__/publish-release-gates.spec.mjs",
-    "./scripts/__spec__/run-locked.spec.mjs",
-    "./scripts/__spec__/run-optional-deps-smoke.spec.mjs",
-    "./scripts/__spec__/run-test.spec.mjs",
-    "./scripts/__spec__/smoke-npx.spec.mjs",
-    "./scripts/__spec__/spec-path-gates.spec.mjs",
-    "./scripts/__spec__/spec-temp-folder.spec.mjs",
-    "./scripts/__spec__/verify-npm-publish.spec.mjs"
-  ]
+  "exclude": ["node_modules"]
 }
