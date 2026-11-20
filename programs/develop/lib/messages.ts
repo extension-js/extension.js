@@ -271,7 +271,9 @@ const LISTED_MISSING_ARTIFACTS = 5
 
 export function developArtifactsMissing(
   missing: string[],
-  rebuild?: {command: string; developRoot: string} | {watching: true}
+  rebuild?:
+    | {command: string; developRoot: string; testRunOptIn?: string}
+    | {watching: true}
 ) {
   const count = missing.length
   const listed = missing.slice(0, LISTED_MISSING_ARTIFACTS)
@@ -281,7 +283,9 @@ export function developArtifactsMissing(
       ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files.`
       : 'watching' in rebuild
         ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and the running watch build did not write them.`
-        : `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and could not rebuild.`,
+        : rebuild.testRunOptIn
+          ? `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files.`
+          : `${getLoggingPrefix('error')} Extension.js is missing ${count} of its own build files and could not rebuild.`,
     ...listed.map((file) => `  ${colors.underline(file)}`)
   ]
 
@@ -292,7 +296,9 @@ export function developArtifactsMissing(
       ? `Reinstall ${fmt.code('extension')}, then run the command again.`
       : 'watching' in rebuild
         ? 'Fix the build error the watch prints, then run the command again.'
-        : `Run ${fmt.code(rebuild.command)} in ${colors.underline(rebuild.developRoot)} to see the build error.`
+        : rebuild.testRunOptIn
+          ? `A test run does not compile Extension.js into the checkout. Run ${rebuild.command} in ${rebuild.developRoot} first, or set ${rebuild.testRunOptIn}=1 to let the run compile.`
+          : `Run ${fmt.code(rebuild.command)} in ${colors.underline(rebuild.developRoot)} to see the build error.`
   )
 
   return lines.join('\n')
