@@ -177,8 +177,33 @@ function placeInProject(projectRoot: string, target: string): PlaceInProject {
 
 // Every refusal below reads word for word as the launch path throws it, so
 // the same entry gets the same answer with or without a browser.
-function companionRefusal(text: string): Error {
-  return codedError(CODES.E_COMPANION_EXTENSION_PATH, text)
+function companionRefusal(text: string, name?: string): Error {
+  const error = codedError(CODES.E_COMPANION_EXTENSION_PATH, text)
+
+  if (name) error.name = name
+
+  return error
+}
+
+// An entry that is no web link and no folder path: a bare store id gets the
+// link it needs, anything else is named as unknown.
+export function unknownCompanionEntryError(entry: string): Error {
+  return /^[a-p]{32}$/i.test(entry)
+    ? companionRefusal(
+        messages.companionEntryLooksLikeStoreId(entry),
+        'CompanionEntryLooksLikeStoreId'
+      )
+    : companionRefusal(
+        messages.companionEntryNotLinkOrFolder(entry),
+        'CompanionEntryNotLinkOrFolder'
+      )
+}
+
+export function companionLinkNotAStoreLinkError(entry: string): Error {
+  return companionRefusal(
+    messages.companionLinkNotAStoreLink(entry),
+    'CompanionLinkNotAStoreLink'
+  )
 }
 
 // The folders a config names, once every entry passed the rules the launch
@@ -192,20 +217,7 @@ export function namedCompanionFoldersInsideProject(
   for (const entry of explicitCompanionEntries(config)) {
     if (isWebLink(entry)) continue
 
-    if (!isPathLike(entry, projectRoot)) {
-      if (/^[a-p]{32}$/i.test(entry)) {
-        throw companionRefusal(
-          `Companion extension entry looks like a store id, not a store link: ${entry}\n` +
-            'Use the full store link so the browser it belongs to is known, ' +
-            `for example https://chromewebstore.google.com/detail/<name>/${entry}`
-        )
-      }
-
-      throw companionRefusal(
-        `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
-          'Give a store link or the path of a folder inside the project'
-      )
-    }
+    if (!isPathLike(entry, projectRoot)) throw unknownCompanionEntryError(entry)
 
     const folder = path.resolve(projectRoot, entry)
 

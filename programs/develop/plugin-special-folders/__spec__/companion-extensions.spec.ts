@@ -733,3 +733,63 @@ describe('the folder scanned for companion extensions, by where it sits', () => 
     }
   )
 })
+
+describe('a companion entry the resolver refuses', () => {
+  beforeEach(() => {
+    vi.mocked(fetchExtensionFromStore).mockReset()
+  })
+
+  const id = 'fmkadmapgofadopljbjfkapdkoienihi'
+
+  const refusal = async (root: string, entry: string) => {
+    try {
+      await resolveCompanionExtensionsConfig({
+        projectRoot: root,
+        browser: 'chrome',
+        config: [entry]
+      })
+    } catch (error) {
+      const {name, code, message} = error as Error & {code?: string}
+
+      return {name, code, message}
+    }
+
+    return 'accepted'
+  }
+
+  it.each([
+    [
+      'a web link that is no store link',
+      'https://example.com/some/extension',
+      'CompanionLinkNotAStoreLink'
+    ],
+    ['a bare store id', id, 'CompanionEntryLooksLikeStoreId'],
+    ['a name that is no folder', 'my-ext', 'CompanionEntryNotLinkOrFolder']
+  ])('names %s and codes it like a path refusal', async (_, entry, name) => {
+    const root = tmpDir('extjs-companion-refused-')
+
+    expect(await refusal(root, entry)).toMatchObject({
+      name,
+      code: 'E_COMPANION_EXTENSION_PATH'
+    })
+  })
+
+  it('names a store download that left no extension, by its folder in the project', async () => {
+    const root = tmpDir('extjs-companion-empty-download-')
+    mockFetchSuccess(() => {})
+
+    const refused = await refusal(
+      root,
+      `https://chromewebstore.google.com/detail/tool/${id}`
+    )
+
+    expect(refused).toMatchObject({
+      name: 'CompanionStoreDownloadEmpty',
+      code: 'E_PROJECT_DOWNLOAD_EMPTY'
+    })
+
+    const message = String((refused as {message: string}).message)
+    expect(message).toContain('extensions/chrome/')
+    expect(message).not.toContain(root)
+  })
+})

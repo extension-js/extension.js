@@ -1806,6 +1806,40 @@ export function scannedCompanionOutsideProject(entry: string, leadsTo: string) {
   )
 }
 
+// The launch path and preview refuse a companion entry in the same words,
+// so the same entry reads the same with or without a browser.
+export function companionLinkNotAStoreLink(entry: string) {
+  return (
+    `Companion extension link is not a store link this resolver recognizes: ${entry}\n` +
+    'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
+    'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
+    'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
+  )
+}
+
+export function companionEntryLooksLikeStoreId(entry: string) {
+  return (
+    `Companion extension entry looks like a store id, not a store link: ${entry}\n` +
+    'Use the full store link so the browser it belongs to is known, ' +
+    `for example https://chromewebstore.google.com/detail/<name>/${entry}`
+  )
+}
+
+export function companionEntryNotLinkOrFolder(entry: string) {
+  return (
+    `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
+    'Give a store link or the path of a folder inside the project'
+  )
+}
+
+// The folder is named from the project root, never by an absolute path.
+export function companionStoreDownloadEmpty(storeUrl: string, folder: string) {
+  return (
+    `The store download of ${storeUrl} left no unpacked extension in ${colors.yellow(folder)} to load.\n` +
+    'Run the command again. If it fails the same way, unpack the extension into a folder inside the project and name that folder instead of the link.'
+  )
+}
+
 export function companionExtensionsFolderNotFound(
   dir: string,
   folderPath: string,
