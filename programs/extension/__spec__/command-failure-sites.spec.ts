@@ -233,7 +233,12 @@ describe('preview when the launch rejects with a declared code', () => {
         command: 'preview',
         status,
         value: null,
-        error: {code, message: `it broke with ${code}`},
+        // A failed run names the thrown error. A usage refusal does not.
+        error: {
+          code,
+          message: `it broke with ${code}`,
+          ...(status === 'failed' ? {name: 'Error'} : {})
+        },
         warnings: []
       }
     ])
@@ -254,7 +259,11 @@ describe('preview when the launch rejects with a declared code', () => {
         command: 'preview',
         status: 'failed',
         value: null,
-        error: {code: 'E_PROFILE_LOCKED', message: 'The profile is in use.'},
+        error: {
+          code: 'E_PROFILE_LOCKED',
+          message: 'The profile is in use.',
+          name: 'Error'
+        },
         warnings: [],
         hint: 'Close the browser that has this profile open, or pass --profile <path> to use another one.'
       }
@@ -278,7 +287,8 @@ describe('preview when the launch rejects with a declared code', () => {
         value: null,
         error: {
           code: 'E_PORT_UNAVAILABLE',
-          message: 'No free browser debugging port.'
+          message: 'No free browser debugging port.',
+          name: 'Error'
         },
         warnings: [],
         hint: 'Close the browsers or sessions holding those ports, or pass --port <port> to search from another one.'

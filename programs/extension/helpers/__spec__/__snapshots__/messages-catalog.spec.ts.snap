@@ -220,6 +220,8 @@ exports[`extension message catalogs > matches the exported message surface 1`] =
     "navigatedTab: function(3)",
     "noBrowserNotSupportedForCommand: function(1)",
     "noBrowserWithWait: function(1)",
+    "noCommandGiven: function(0)",
+    "noCommandGivenText: function(0)",
     "noURLWithoutStart: function(1)",
     "notImplemented: function(1)",
     "openSurfaceFailed: function(4)",

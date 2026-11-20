@@ -47,6 +47,7 @@ import {
   writeStdoutFrame
 } from './helpers/cli-failure'
 import {getCliPackageJson} from './helpers/cli-package-json'
+import {claimInterruptFrame} from './helpers/early-interrupt'
 import {exitAfterDrain} from './helpers/exit-after-drain'
 import {resolveExtensionDevelopVersion} from './helpers/extension-develop-runtime'
 import * as messages from './helpers/messages'
@@ -125,6 +126,7 @@ export async function run(argv: string[], deps: RunDeps): Promise<number> {
 }
 
 function endRun(deps: RunDeps, code: number): never {
+  claimInterruptFrame()
   deps.exit(code)
 
   throw new RunEnded(code)
@@ -385,6 +387,27 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
   const typedCommand = resolveCommandFromArgv(parsedArgv)
   const commandName = typedCommand || 'extension'
 
+  // A bare run prints the help for a person. A caller that asked for json and
+  // named no command gets that answer as a frame, not a refusal of the flag.
+  const asksForHelpOrVersion = parsedArgv.some((arg) =>
+    ['--help', '-h', '--version', '-V'].includes(arg)
+  )
+
+  if (asJson && !typedCommand && !asksForHelpOrVersion) {
+    const message = messages.noCommandGivenText()
+
+    deps.stderr(`${messages.noCommandGiven()}\n`)
+    deps.writeFrame(earlyExitEnvelope('extension', CODES.E_ARGS, message))
+
+    try {
+      reportCommandFailureNow({code: CODES.E_ARGS, exitCode: 1})
+    } catch {
+      // Ignore
+    }
+
+    return endRun(deps, 1)
+  }
+
   // An unknown flag's value can read as the command, and its help would then
   // name a command that does not exist.
   function commandNameFor(err: {code?: unknown}): string {
@@ -411,6 +434,8 @@ async function runUntilEnd(argv: string[], deps: RunDeps): Promise<number> {
     }
 
     await extensionJs.parseAsync(parsedArgv)
+    // The command wrote its own ending, so a late signal adds no frame.
+    claimInterruptFrame()
     markCommandSuccess()
 
     return 0

@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import colors from 'pintor'
 import {scanArgvValue} from './cli-argv'
+import {streamEndedByInterrupt} from './early-interrupt'
 import {portUnavailableHint, profileLockedHint} from './messages'
 import {
   CODES,
@@ -339,14 +340,17 @@ export function internalErrorEnvelope(
   const code = declaredErrorCode(err) ?? CODES.E_INTERNAL
   const hint = failureHint(code)
 
-  // A bad pinned binary is a value the user typed, on every command.
+  const usage = isUsageCode(code)
+
+  // A bad pinned binary is a value the user typed, on every command. A usage
+  // refusal carries no name, and a thrown failure names its error.
   return ENVELOPE.fail(
     command,
-    isUsageCode(code) ? 'usage' : 'failed',
+    usage ? 'usage' : 'failed',
     {
       code,
       message: err instanceof Error ? err.message : String(err),
-      name: err instanceof Error ? err.name : 'Error'
+      ...(usage ? {} : {name: err instanceof Error ? err.name : 'Error'})
     },
     hint ? {hint} : {}
   )
@@ -367,6 +371,8 @@ export function earlyExitEnvelope(
 // process.exit can cut a queued console.log on a pipe, and this frame is the
 // last thing a machine consumer sees, so write it synchronously.
 export function writeStdoutFrame(frame: unknown): void {
+  if (streamEndedByInterrupt()) return
+
   try {
     fs.writeSync(1, `${JSON.stringify(frame)}\n`)
   } catch {

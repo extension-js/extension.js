@@ -514,7 +514,15 @@ export function registerPreviewCommand(
                 ENVELOPE.fail(
                   'preview',
                   status,
-                  {code: declared, message},
+                  {
+                    code: declared,
+                    message,
+                    // A failed run names the thrown error as the top-level
+                    // sink does, so start and preview read the same.
+                    ...(status === 'failed'
+                      ? {name: error instanceof Error ? error.name : 'Error'}
+                      : {})
+                  },
                   hint ? {hint} : {}
                 )
               )
