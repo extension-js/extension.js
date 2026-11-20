@@ -204,41 +204,8 @@ describe('AddScriptsAndStylesToCompilation', () => {
     ).toBe(true)
   })
 
-  it('opens the page dev socket through the class that names the page', () => {
+  it('points the stock dev socket file at the class that names the page', () => {
     const tmp = makeTmp('steps-socket')
-    const htmlPath = path.join(tmp, 'index.html')
-    fs.writeFileSync(htmlPath, `<html><head></head><body></body></html>`)
-    const manifestPath = path.join(tmp, 'manifest.json')
-    fs.writeFileSync(manifestPath, '{}')
-    const provided: Array<Record<string, string>> = []
-    class ProvidePlugin {
-      constructor(definitions: Record<string, string>) {
-        provided.push(definitions)
-      }
-
-      apply() {}
-    }
-    const compiler: any = {
-      rspack: {ProvidePlugin},
-      options: {
-        mode: 'development',
-        entry: {},
-        devServer: {host: '127.0.0.1', port: 8080, hot: 'only'}
-      }
-    }
-    new AddScriptsAndStylesToCompilation({
-      manifestPath,
-      includeList: {'feature/index': htmlPath}
-    }).apply(compiler as any)
-
-    expect(provided).toHaveLength(1)
-    expect(
-      provided[0].__rspack_dev_server_client__.replace(/\\/g, '/')
-    ).toMatch(/page-socket-client(\.m?js)?$/)
-  })
-
-  it('leaves the dev socket alone in a build with no dev client', () => {
-    const tmp = makeTmp('steps-socket-prod')
     const htmlPath = path.join(tmp, 'index.html')
     fs.writeFileSync(htmlPath, `<html><head></head><body></body></html>`)
     const manifestPath = path.join(tmp, 'manifest.json')
@@ -253,6 +220,41 @@ describe('AddScriptsAndStylesToCompilation', () => {
     }
     const compiler: any = {
       rspack: {ProvidePlugin},
+      options: {
+        mode: 'development',
+        entry: {},
+        resolve: {alias: {kept: '/kept'}},
+        devServer: {host: '127.0.0.1', port: 8080, hot: 'only'}
+      }
+    }
+    new AddScriptsAndStylesToCompilation({
+      manifestPath,
+      includeList: {'feature/index': htmlPath}
+    }).apply(compiler as any)
+
+    // The dev server provides the socket class itself, a second provider
+    // conflicts with it on every compile.
+    expect(provided).toBe(0)
+    const alias = compiler.options.resolve.alias as Record<string, string>
+    expect(alias.kept).toBe('/kept')
+    const keys = Object.keys(alias).filter((key) => key !== 'kept')
+    expect(keys).toHaveLength(1)
+    expect(keys[0].replace(/\\/g, '/')).toMatch(
+      /@rspack\/dev-server\/client\/clients\/WebSocketClient\.js\$$/
+    )
+
+    expect(alias[keys[0]].replace(/\\/g, '/')).toMatch(
+      /page-socket-client(\.m?js)?$/
+    )
+  })
+
+  it('leaves the dev socket alone in a build with no dev client', () => {
+    const tmp = makeTmp('steps-socket-prod')
+    const htmlPath = path.join(tmp, 'index.html')
+    fs.writeFileSync(htmlPath, `<html><head></head><body></body></html>`)
+    const manifestPath = path.join(tmp, 'manifest.json')
+    fs.writeFileSync(manifestPath, '{}')
+    const compiler: any = {
       options: {mode: 'production', entry: {}}
     }
     new AddScriptsAndStylesToCompilation({
@@ -260,6 +262,6 @@ describe('AddScriptsAndStylesToCompilation', () => {
       includeList: {'feature/index': htmlPath}
     }).apply(compiler as any)
 
-    expect(provided).toBe(0)
+    expect(compiler.options.resolve?.alias).toBeUndefined()
   })
 })
