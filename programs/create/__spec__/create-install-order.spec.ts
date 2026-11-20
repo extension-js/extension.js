@@ -37,7 +37,13 @@ interface InstallCall {
   cwd: string
   // What the project held at the moment the package manager was started.
   entries: string[]
-  packageJson: Record<string, any>
+  packageJson: {
+    name?: string
+    private?: boolean
+    packageManager?: string
+    devDependencies: Record<string, string>
+    scripts: Record<string, string>
+  }
   manifestName: string
   readme: string
 }

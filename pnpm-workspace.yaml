@@ -25,4 +25,19 @@ onlyBuiltDependencies:
   - "core-js"
   - "esbuild"
   - "less"
-  
+  # Dependabot re-resolves the lockfile under pnpm's three-day release-age gate
+# (4320 minutes), and resolving locally under the same rule keeps every entry
+# it writes acceptable to that job. Deliberate for this repo's installs only:
+# programs/create reads it here and keeps it out of a scaffolded project.
+minimumReleaseAge: 4320
+minimumReleaseAgeExclude:
+  # image-size 2.0.3 fixed CVE-2025-71329 and CVE-2025-71330 the day it
+  # shipped, the wait would keep the vulnerable 2.0.2 addons-linter pulls in.
+  - image-size
+  - browser-extension-manifest-fields
+  # First-party, published from this project's own npm account: zen-location
+  # and floorp-location locate those binaries, firefox-location2 answers the
+  # version on every gecko card, and a pin bump lands the day it is published.
+  - zen-location
+  - floorp-location
+  - firefox-location2

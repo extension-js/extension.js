@@ -999,14 +999,27 @@ export interface CleanupLeftovers {
 
 const cleanupNoted = new WeakSet<Error>()
 
-// The failure stays the one thrown. A cleanup that fell short is told once on
-// its frame, however many cleanup passes meet the same leftovers.
+// Answers what to throw: the failure itself, its frame now telling a cleanup
+// that fell short once, or an Error that carries a thrown non-Error as cause.
 export function noteIncompleteCleanup(
   error: unknown,
   {leftBehind, notRestored}: CleanupLeftovers
-): void {
-  if (!(error instanceof Error) || cleanupNoted.has(error)) return
-  if (leftBehind.length === 0 && notRestored.length === 0) return
+): unknown {
+  if (leftBehind.length === 0 && notRestored.length === 0) return error
+
+  if (!(error instanceof Error)) {
+    const wrapped = Object.assign(
+      new Error(
+        messages.withIncompleteCleanup(String(error), leftBehind, notRestored)
+      ),
+      {cause: error}
+    )
+    cleanupNoted.add(wrapped)
+
+    return wrapped
+  }
+
+  if (cleanupNoted.has(error)) return error
 
   cleanupNoted.add(error)
   error.message = messages.withIncompleteCleanup(
@@ -1014,6 +1027,8 @@ export function noteIncompleteCleanup(
     leftBehind,
     notRestored
   )
+
+  return error
 }
 
 // A template copy replaces files by name. An owner's .gitignore keeps its
@@ -1494,9 +1509,7 @@ export async function importExternalTemplate(
       ? []
       : await putBackOwnerHiddenFiles(projectPath, ownerFiles)
 
-    noteIncompleteCleanup(failure, {leftBehind, notRestored})
-
-    throw failure
+    throw noteIncompleteCleanup(failure, {leftBehind, notRestored})
   } finally {
     if (tempRoot) {
       // Staging under the system temp folder: a failed removal is not the
