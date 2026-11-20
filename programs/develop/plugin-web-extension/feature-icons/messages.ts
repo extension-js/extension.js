@@ -8,6 +8,7 @@
 
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
+import {type WithheldKind, withheldFileLines} from '../../lib/withheld-file'
 
 export function iconsMissingFile(
   manifestField: string,
@@ -29,6 +30,27 @@ export function iconsMissingFile(
 
   lines.push(
     `Update the icon path in your ${colors.blue('manifest.json')} to a file that ships with the extension.`
+  )
+
+  return lines.join('\n')
+}
+
+// An icon or theme image that is there and stays out of the build, so the
+// built manifest names a file the output does not hold.
+export function iconFileWithheld(
+  manifestField: string,
+  file: string,
+  why: WithheldKind,
+  withheldPath: string
+) {
+  const lines: string[] = withheldFileLines(file, why, {
+    check: `Check the ${colors.blue(manifestField)} field in your ${colors.blue('manifest.json')} file.`,
+    holds: 'image'
+  })
+
+  lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(withheldPath)}`)
+  lines.push(
+    `Browsers or stores reject the extension when a listed image is not in it.\nThe build stops here.`
   )
 
   return lines.join('\n')

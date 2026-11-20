@@ -293,12 +293,15 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "manifestHtmlEntrypointChange: function(3)",
     "manifestPageMissing: function(2)",
     "pageFileMissing: function(2)",
+    "pageFileWithheld: function(4)",
+    "pageRefWithheld: function(5)",
     "remoteResourceWarning: function(3)",
     "serverRestartRequiredFromCreatedFile: function(2)",
     "serverRestartRequiredFromHtml: function(1)",
     "staticAssetError: function(3)",
   ],
   "plugin-web-extension/feature-icons/messages.ts": [
+    "iconFileWithheld: function(4)",
     "iconsDepsTracked: function(1)",
     "iconsEmitSummary: function(2)",
     "iconsMissingFile: function(3)",
@@ -309,7 +312,6 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "themeImageMissingFile: function(3)",
   ],
   "plugin-web-extension/feature-json/messages.ts": [
-    "entryNotFoundMessageOnly: function(2)",
     "invalidJsonSyntax: function(3)",
     "invalidManagedSchemaStructure: function(2)",
     "invalidRulesetRule: function(4)",
@@ -338,7 +340,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "localesMustBeAtProjectRoot: function(3)",
     "localesPresentButNoDefaultLocale: function(0)",
     "localesValidationDetected: function(1)",
-    "manifestNotFoundMessageOnly: function(1)",
+    "manifestNotFoundMessageOnly: function(2)",
     "missingManifestMessageKey: function(2)",
   ],
   "plugin-web-extension/feature-manifest/messages.ts": [
