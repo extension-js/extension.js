@@ -144,6 +144,8 @@ export class BoringPlugin {
         warningsListed
       })
 
+      let repeatsStartupLine = false
+
       try {
         // Rspack does not always populate modifiedFiles for asset-only rebuilds; merge
         // with the compiler watch set so suppression clears on HTML changes.
@@ -188,22 +190,23 @@ export class BoringPlugin {
         // A warning-bearing first pass must not swallow the later success line.
         if (browserLaunchEnabled && !hasErrors && !this.sawUserInvalidation) {
           if (hasWarnings) {
-            if (this.printedStartupWarning) return
-
+            repeatsStartupLine = this.printedStartupWarning
             this.printedStartupWarning = true
           } else {
-            if (this.printedStartupSuccess) return
-
+            repeatsStartupLine = this.printedStartupSuccess
             this.printedStartupSuccess = true
           }
         }
-
-        // Always print the boring line so users can see rebuilds and timing,
-        // even on success. Machine output moves it off stdout, not away.
-        humanLine(line)
       } catch {
-        // best-effort: never throw from logging
+        // A compile whose changed files cannot be read still gets its line.
+        repeatsStartupLine = false
       }
+
+      if (repeatsStartupLine) return
+
+      // Always print the boring line so users can see rebuilds and timing,
+      // even on success. Machine output moves it off stdout, not away.
+      humanLine(line)
     })
   }
 }
