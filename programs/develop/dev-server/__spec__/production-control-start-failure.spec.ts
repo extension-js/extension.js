@@ -3,9 +3,10 @@ import * as net from 'node:net'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
+import {controlledBuildParts} from '../../controlled-build-parts'
+import {startProductionControl} from '../../lib/production-control'
 import {ActionsFileWriter} from '../control-bridge/actions-file'
 import {LogsFileWriter} from '../control-bridge/logs-file'
-import {startProductionControl} from '../control-bridge/production-control'
 import {readControlToken} from '../control-bridge/session-token'
 
 const tempFolder = trackTempFolders()
@@ -71,6 +72,7 @@ function project(make: (root: string) => string) {
 async function startAndCatch(root: string, distPath: string) {
   try {
     const session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: root,
       browser: 'chrome',
       distPath,

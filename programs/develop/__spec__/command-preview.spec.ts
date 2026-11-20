@@ -106,7 +106,7 @@ const startProductionControl = vi.hoisted(() =>
     }
   })
 )
-vi.mock('../dev-server/control-bridge/production-control', () => ({
+vi.mock('../lib/production-control', () => ({
   startProductionControl
 }))
 

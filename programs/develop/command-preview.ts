@@ -8,8 +8,8 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {controlledBuildParts} from './controlled-build-parts'
 import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
-import {startProductionControl} from './dev-server/control-bridge/production-control'
 import * as devServerMessages from './dev-server/messages'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
@@ -49,6 +49,7 @@ import {
   getDistPath,
   normalizeBrowser
 } from './lib/paths'
+import {startProductionControl} from './lib/production-control'
 import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
 import {linkFreePath} from './lib/real-path'
 import {
@@ -679,6 +680,7 @@ async function runPreview(
       let stampAttached: (() => void) | undefined
       let stampDetached: (() => void) | undefined
       control = await startProductionControl({
+        parts: controlledBuildParts,
         packageJsonDir,
         browser: String(browser),
         command: metadataCommand,
