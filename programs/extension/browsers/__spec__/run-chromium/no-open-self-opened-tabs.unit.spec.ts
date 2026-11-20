@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {afterAll, beforeAll, describe, expect, it} from 'vitest'
 import {expectedChromiumExtensionId} from '../../browsers-lib/banner'
 import {CDPExtensionController} from '../../run-chromium/cdp/cdp-extension-controller'
+import {controllerInternals} from '../cdp-controller-fakes'
 
 const COMPANION_KEY =
   'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAllbZJQG6Sfby1qyGr2pyR5JktAOh44tJMD1fm4Svk0JF/8TYwTTugJaFTPZoCepdgNU8gwc+jixaleQHOKNxmm2g1aV0eW8XSv4Mk+QM3//l9ftwvyoE/Z7vcwI1KT+OxUAoq6RUuQVjm007c4/mE3TiH83Atubrhp6eFVX7BfLAD49SNlpSvaK+Y8QgsJcmjQmLiUpkd4w9kWT3pk0Gn2Ytjz9spPurhdnFatwMuATQggazmS+lq0chGLzlznWN64lZER3iQ/gv30Z1DHGAPyOlf1w4YgVortWnbqrkIKzpCnymW2z8sj1BQMknaBW3katl20gg2DnpX4acsCzwYQIDAQAB'
@@ -44,7 +45,7 @@ function controllerWithTargets(targets: unknown[], companionPath?: string) {
     companionPath
   })
 
-  ;(controller as any).cdp = {
+  controllerInternals(controller).cdp = {
     getTargets: async () => targets,
     sendCommand: async (method: string, params: {targetId: string}) => {
       if (method === 'Target.closeTarget') closed.push(params.targetId)
