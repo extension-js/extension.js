@@ -210,8 +210,9 @@ describe('what the HTML feature tells a plugin about its pages', () => {
 
     expect(development).toEqual(relative(declare('production', false)))
     expect(development.rulesAdded).toBe(0)
+    // The entry holds the path as the platform writes it.
     expect(development.entry['action/index'].import).toEqual([
-      '<root>/popup.js'
+      `<root>${path.sep}popup.js`
     ])
 
     expect(development.entry['pages/bare'].import).toEqual([])
