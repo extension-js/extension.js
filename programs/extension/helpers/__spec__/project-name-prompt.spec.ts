@@ -1,3 +1,4 @@
+import {PassThrough} from 'node:stream'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {
   askProjectName,
@@ -41,48 +42,66 @@ describe('askProjectName', () => {
   })
 })
 
+function stream(isTTY: boolean) {
+  return Object.assign(new PassThrough(), {isTTY})
+}
+
 describe('canPromptForProjectName', () => {
-  const terminal = {isTTY: true} as NodeJS.ReadStream & NodeJS.WriteStream
-  const pipe = {isTTY: false} as NodeJS.ReadStream & NodeJS.WriteStream
-  const vars = (set: Record<string, string> = {}) => set as NodeJS.ProcessEnv
-
-  it('asks a person whose input and output are both a terminal', () => {
-    expect(
-      canPromptForProjectName({input: terminal, output: terminal, env: vars()})
-    ).toBe(true)
+  it('prompts a person at a terminal, whatever runs the process', () => {
+    for (const env of [{}, {VITEST: 'true', VITEST_WORKER_ID: '1'}]) {
+      expect(
+        canPromptForProjectName({
+          input: stream(true),
+          output: stream(true),
+          env
+        })
+      ).toBe(true)
+    }
   })
 
-  it('decides by the streams, not by a variable a test runner sets', () => {
+  it('never prompts in CI or when either end is not a terminal', () => {
     expect(
       canPromptForProjectName({
-        input: terminal,
-        output: terminal,
-        env: vars({VITEST: 'true', VITEST_WORKER_ID: '1'})
+        input: stream(true),
+        output: stream(true),
+        env: {CI: 'true'}
       })
-    ).toBe(true)
-  })
-
-  it('does not ask when either stream is a pipe', () => {
-    expect(
-      canPromptForProjectName({input: pipe, output: terminal, env: vars()})
     ).toBe(false)
 
-    expect(
-      canPromptForProjectName({input: terminal, output: pipe, env: vars()})
-    ).toBe(false)
-  })
-
-  it('does not ask on CI, terminal or not', () => {
     expect(
       canPromptForProjectName({
-        input: terminal,
-        output: terminal,
-        env: vars({GITHUB_ACTIONS: 'true'})
+        input: stream(false),
+        output: stream(true),
+        env: {}
+      })
+    ).toBe(false)
+
+    expect(
+      canPromptForProjectName({
+        input: stream(true),
+        output: stream(false),
+        env: {}
       })
     ).toBe(false)
   })
 
-  it('does not ask from a spec worker, whose input is never a terminal', () => {
+  it.each([
+    'GITHUB_ACTIONS',
+    'GITLAB_CI',
+    'BUILDKITE',
+    'CIRCLECI',
+    'TRAVIS'
+  ])('reads %s as CI at a terminal', (name) => {
+    expect(
+      canPromptForProjectName({
+        input: stream(true),
+        output: stream(true),
+        env: {[name]: 'true'}
+      })
+    ).toBe(false)
+  })
+
+  it('does not prompt on the process streams of a spec worker', () => {
     expect(process.stdin.isTTY).toBeFalsy()
     expect(canPromptForProjectName()).toBe(false)
   })

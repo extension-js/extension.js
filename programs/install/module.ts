@@ -30,6 +30,7 @@ import {
   isBrowserNotInstallableError,
   isBrowserUninstallError,
   normalizeBrowserName,
+  type UninstallFailureKind,
   type UninstallOutcome,
   type UninstallResult,
   withCause
@@ -56,7 +57,12 @@ export {
   isBrowserUninstallError,
   normalizeBrowserName
 }
-export type {InstallBrowserTarget, UninstallOutcome, UninstallResult}
+export type {
+  InstallBrowserTarget,
+  UninstallFailureKind,
+  UninstallOutcome,
+  UninstallResult
+}
 export type {LockSeams} from './lib/install-lock'
 
 import {
@@ -293,6 +299,12 @@ function isMissingRunner(error: unknown, cwd: string): boolean {
   )
 }
 
+function isSystemError(error: unknown): boolean {
+  return /^E[A-Z0-9]+$/.test(
+    String((error as NodeJS.ErrnoException | null)?.code ?? '')
+  )
+}
+
 function dropMarkerOnlyFolder(destination: string): void {
   try {
     if (holdsOnlyMarker(destination)) removeMarkerOnlyFolder(destination)
@@ -374,12 +386,18 @@ async function installUnderLock(
   } catch (error) {
     dropMarkerOnlyFolder(destination)
 
-    if (!isMissingRunner(error, plan.cwd)) throw error
+    // A fault with no system code is ours, not the spawn's, and keeps its
+    // own error. A system refusal is typed, so no caller guesses at it.
+    if (!isSystemError(error)) throw error
 
     throw withCause(
-      new BrowserInstallerNotFoundError(
-        messages.installerNotFound(target, cmd)
-      ),
+      isMissingRunner(error, plan.cwd)
+        ? new BrowserInstallerNotFoundError(
+            messages.installerNotFound(target, cmd)
+          )
+        : new BrowserInstallFailedError(
+            messages.installerDidNotStart(target, cmd, error)
+          ),
       error
     )
   }
@@ -586,7 +604,7 @@ type Removal =
   | {state: 'removed' | 'none'}
   | {
       state: 'failed'
-      kind: messages.UninstallFailureKind
+      kind: UninstallFailureKind
       reason: string
       failure?: unknown
     }
@@ -644,7 +662,12 @@ function removeManagedFolder(
   } catch (failure) {
     return {
       state: 'failed',
-      kind: 'removal',
+      // A permission the user can grant is its own remedy, where a busy or
+      // locked folder only needs the browser in it closed.
+      kind:
+        (failure as NodeJS.ErrnoException | null)?.code === 'EACCES'
+          ? 'permission'
+          : 'removal',
       reason: firstLine(failure),
       failure
     }
@@ -668,6 +691,12 @@ export async function extensionUninstall({
     throw new Error(messages.uninstallRequiresTarget())
   }
 
+  // Removing every browser or one of them are two requests, and a guess
+  // between them could remove browsers the caller meant to keep.
+  if (all && String(browser || '').trim()) {
+    throw new Error(messages.uninstallAllWithBrowser())
+  }
+
   // Same comma-list rules as install: "chrome,edge" and "all" expand here so
   // the CLI and direct callers share one acceptance surface.
   const named: InstallBrowserTarget[] = all
@@ -687,7 +716,6 @@ export async function extensionUninstall({
 
   const timeoutMs = installTimeoutMs(env ?? process.env)
   const results: UninstallResult[] = []
-  const kinds: messages.UninstallFailureKind[] = []
   const failures: unknown[] = []
 
   // One folder that will not go must not keep the others, so each target is
@@ -703,7 +731,6 @@ export async function extensionUninstall({
     )
 
     if (removal.state === 'failed') {
-      kinds.push(removal.kind)
       if ('failure' in removal) failures.push(removal.failure)
 
       results.push({
@@ -711,6 +738,7 @@ export async function extensionUninstall({
         removed: false,
         path: installDir,
         outcome: 'failed',
+        kind: removal.kind,
         reason: removal.reason
       })
 
@@ -758,10 +786,7 @@ export async function extensionUninstall({
 
   if (results.some((result) => result.outcome === 'failed')) {
     throw withCause(
-      new BrowserUninstallError(
-        messages.uninstallFailed(results, kinds),
-        results
-      ),
+      new BrowserUninstallError(messages.uninstallFailed(results), results),
       failures.length > 1 ? new AggregateError(failures) : failures[0]
     )
   }

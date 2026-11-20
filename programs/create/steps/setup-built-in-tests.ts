@@ -9,6 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as messages from '../lib/messages'
+import {CODES} from '../lib/messaging'
 import {failStep} from '../lib/utils'
 
 export async function setupBuiltInTests(projectPath: string) {
@@ -19,6 +20,10 @@ export async function setupBuiltInTests(projectPath: string) {
       fs.unlinkSync(testSpecPath)
     }
   } catch (error) {
-    throw failStep(messages.cantSetupBuiltInTests(error), error)
+    throw failStep(
+      messages.cantSetupBuiltInTests(error),
+      error,
+      CODES.E_DESTINATION_NOT_WRITABLE
+    )
   }
 }

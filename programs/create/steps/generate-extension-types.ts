@@ -13,7 +13,7 @@ import {
   renderExtensionEnvTypes
 } from '../../develop/lib/extension-env-template'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import {failStep} from '../lib/utils'
 
 export async function generateExtensionTypes(
@@ -35,6 +35,10 @@ export async function generateExtensionTypes(
 
     await fs.writeFile(extensionEnvFile, fileContent)
   } catch (error) {
-    throw failStep(messages.writingTypeDefinitionsError(error), error)
+    throw failStep(
+      messages.writingTypeDefinitionsError(error),
+      error,
+      CODES.E_DESTINATION_NOT_WRITABLE
+    )
   }
 }

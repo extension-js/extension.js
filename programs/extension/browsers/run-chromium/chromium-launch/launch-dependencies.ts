@@ -28,7 +28,6 @@ import {
 } from '../../browsers-lib/process-teardown'
 import {probeChromiumBinaryVersion} from '../../browsers-lib/version-probe'
 import type {BrowserType} from '../../browsers-types'
-import {checkChromeRemoteDebugging} from '../cdp/discovery'
 import {setupProcessSignalHandlers} from './process-handlers'
 import {spawnChromiumProcess} from './wsl-support'
 
@@ -52,7 +51,6 @@ export interface ChromiumLaunchDependencies {
   claimPort: (startPort: number) => Promise<DebugPortClaim>
   spawn: typeof spawnChromiumProcess
   watchSignals: typeof setupProcessSignalHandlers
-  portIsOpen: (port: number) => Promise<boolean>
   loadCdpSetup: () => Promise<typeof import('./setup-cdp-after-launch')>
   terminate: (child: ChildProcess | null, browser: BrowserType) => void
   terminatedByUs: (child: ChildProcess | null) => boolean
@@ -76,7 +74,6 @@ export const chromiumLaunchDefaults: ChromiumLaunchDependencies = {
   claimPort: (startPort) => claimDebugPortNear(startPort),
   spawn: spawnChromiumProcess,
   watchSignals: setupProcessSignalHandlers,
-  portIsOpen: (port) => checkChromeRemoteDebugging(port),
   // Loaded on demand, as before: a dry run and a refusal never need it.
   loadCdpSetup: () => import('./setup-cdp-after-launch'),
   terminate: gracefulTerminateChild,

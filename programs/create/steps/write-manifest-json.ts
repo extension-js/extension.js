@@ -11,7 +11,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {readManifestJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import {failStep} from '../lib/utils'
 
 // Every key that can hold a Firefox add-on id, plain or browser-prefixed.
@@ -113,7 +113,11 @@ export async function writeManifestJson(
       JSON.stringify(manifestMetadata, null, 2)
     )
   } catch (error) {
-    throw failStep(messages.writingManifestJsonMetadataError(error), error)
+    throw failStep(
+      messages.writingManifestJsonMetadataError(error),
+      error,
+      CODES.E_DESTINATION_NOT_WRITABLE
+    )
   }
 
   return templateName

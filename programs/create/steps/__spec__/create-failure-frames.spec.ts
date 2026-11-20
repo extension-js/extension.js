@@ -11,7 +11,8 @@ import {
   refusedLoopbackUrl,
   serveLoopback
 } from '../../__spec__/loopback-template-server'
-import {hasChannelPrefix} from '../../lib/messaging'
+import {type ErrorCode, hasChannelPrefix} from '../../lib/messaging'
+import {runCreate} from '../../run-create'
 import {createDirectory} from '../create-directory'
 import {generateExtensionTypes} from '../generate-extension-types'
 import {
@@ -98,7 +99,13 @@ async function serving(routes: Record<string, LoopbackReply>) {
   return server
 }
 
-function expectOneFrameAndNoStack(error: Error, logger: {errors: string[]}) {
+// The code travels on the error, so a reader never matches on the wording.
+function expectOneFrameAndNoStack(
+  error: Error,
+  logger: {errors: string[]},
+  code: ErrorCode
+) {
+  expect((error as {code?: unknown}).code).toBe(code)
   expect(hasChannelPrefix(error.message)).toBe(true)
   expect(error.message.match(new RegExp(GLYPH, 'g'))).toHaveLength(1)
   expect(error.message).not.toMatch(STACK_FRAME)
@@ -142,7 +149,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
       'is not in the extension-js/templates catalog'
     )
 
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_TEMPLATE_NOT_FOUND')
   })
 
   it('for a catalog download that fails', async () => {
@@ -156,7 +163,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(server.hits('/catalog.zip')).toBe(1)
     expect(error.message).toContain("Couldn't download the template")
     expect(error.message).toContain('status code 404')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_NETWORK')
   })
 
   // The fourth path: a URL is neither a catalog slug nor a catalog download,
@@ -192,7 +199,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
     expect(error.message).toContain('Repository not found')
     expect(error.message).not.toContain('node_modules')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_NETWORK')
   })
 
   it('for a ZIP template URL that answers with something else', async () => {
@@ -207,7 +214,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain("doesn't point to a ZIP archive")
     expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain('GOT text/html')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_REMOTE_ZIP_INVALID')
   })
 
   // The name and the header both said ZIP, so the unzip was the first thing
@@ -246,7 +253,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain(got)
     expect(error.message).not.toContain('invalid zip data')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_REMOTE_ZIP_INVALID')
   })
 
   // The catalog override is a URL someone typed as well, and its reply went
@@ -268,7 +275,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain(`URL ${override}`)
     expect(error.message).toContain('GOT text/html; charset=utf-8')
     expect(error.message).not.toContain('invalid zip data')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_REMOTE_ZIP_INVALID')
   })
 
   it.each([
@@ -289,7 +296,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
     expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain('REASON invalid zip data')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_REMOTE_ZIP_INVALID')
   })
 
   // The path is in the archive itself, so a retry gets the same refusal and
@@ -350,7 +357,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain(`ENTRY ${entry}`)
     expect(error.message).not.toMatch(/damaged|try again/i)
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_REMOTE_ZIP_INVALID')
 
     // Nothing of the archive is left, in the project or where it was staged.
     expect(await fsp.readdir(path.dirname(projectPath))).toEqual(['staging'])
@@ -367,7 +374,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain("Couldn't fetch the template from that URL")
     expect(error.message).toContain(`URL ${url}`)
     expect(error.message).toContain('ECONNREFUSED')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_NETWORK')
   })
 
   it('for a plain http template URL', async () => {
@@ -381,7 +388,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
     expect(error).toBeInstanceOf(InsecureTemplateUrlError)
     expect(error.message).toContain('plain HTTP')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_INVALID_OPTION')
     expect(fetch).not.toHaveBeenCalled()
   })
 
@@ -411,7 +418,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
       expect(error.message).toContain(projectPath)
       expect(error.message).toContain('EACCES')
-      expectOneFrameAndNoStack(error, logger)
+      expectOneFrameAndNoStack(error, logger, 'E_DESTINATION_NOT_WRITABLE')
     } finally {
       await fsp.chmod(parent, 0o755)
     }
@@ -446,7 +453,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     // The package manager's own cause, without the stack it re-throws.
     expect(error.message).toContain('ECONNREFUSED')
     expect(error.message).not.toContain('minipass-fetch')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_DEPENDENCY_INSTALL')
   })
 
   it('for a template that ships no manifest.json', async () => {
@@ -462,7 +469,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain("Couldn't read a manifest.json")
     expect(error.message).toContain(projectPath)
     expect(error.message).toContain('depth 3')
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_TEMPLATE_NOT_FOUND')
   })
 
   it('for a manifest.json that cannot be parsed', async () => {
@@ -479,7 +486,109 @@ describe('a create refusal travels as one framed message on the thrown error', (
     expect(error.message).toContain("Couldn't read a manifest.json")
     expect(error.message).toContain(manifestPath)
     expect((error as {cause?: unknown}).cause).toBeInstanceOf(SyntaxError)
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_TEMPLATE_NOT_FOUND')
+  })
+
+  // A folder this user can write to and not list passes the write probe and
+  // fails the listing after it, the one fault the generic frame is for.
+  itWritable('for a destination that cannot be listed', async () => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.mkdir(projectPath, {recursive: true})
+    await fsp.chmod(projectPath, 0o333)
+
+    try {
+      const error = (await createDirectory(projectPath, 'my-ext', logger).catch(
+        (thrown: Error) => thrown
+      )) as Error & {cause?: NodeJS.ErrnoException}
+
+      expect(plainLines(error)[0]).toBe(
+        `${GLYPH} Error: Couldn't create the directory my-ext.`
+      )
+
+      expect(error.cause).toMatchObject({code: 'EACCES', syscall: 'scandir'})
+      expectOneFrameAndNoStack(error, logger, 'E_DESTINATION_NOT_WRITABLE')
+    } finally {
+      await fsp.chmod(projectPath, 0o755)
+    }
+  })
+
+  it('for a destination that already holds files', async () => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.mkdir(projectPath, {recursive: true})
+    await fsp.writeFile(path.join(projectPath, 'a.js'), '')
+
+    const error = (await createDirectory(projectPath, 'my-ext', logger).catch(
+      (thrown: Error) => thrown
+    )) as Error
+
+    expect(error.message).toContain('a.js')
+    expectOneFrameAndNoStack(error, logger, 'E_DESTINATION_NOT_EMPTY')
+  })
+
+  it('for a destination inside the local template it copies', async () => {
+    const logger = makeLogger()
+    const templateDir = path.dirname(await makeProjectPath())
+    await fsp.mkdir(templateDir, {recursive: true})
+    await fsp.writeFile(path.join(templateDir, 'manifest.json'), '{}')
+
+    const error = (await importExternalTemplate(
+      path.join(templateDir, 'my-ext'),
+      'my-ext',
+      templateDir,
+      logger,
+      {ownsProjectDir: true, allowOfflineFallback: false}
+    ).catch((thrown: Error) => thrown)) as Error
+
+    expect(error.message).toContain(
+      "Can't scaffold a project inside the template it copies"
+    )
+
+    expectOneFrameAndNoStack(error, logger, 'E_INVALID_OPTION')
+  })
+
+  it.each([
+    ['no project name', undefined, 'E_ARGS'],
+    [
+      'a URL as the project name',
+      'https://example.com/my-ext',
+      'E_INVALID_OPTION'
+    ]
+  ] as const)('for %s', async (_name, input, code) => {
+    const logger = makeLogger()
+
+    const error = (await runCreate(input, {logger}).catch(
+      (thrown: Error) => thrown
+    )) as Error
+
+    expectOneFrameAndNoStack(error, logger, code)
+  })
+
+  // A template's own Deno config that does not parse is the template's file
+  // to fix. Framing it as a failed write sent the user to their permissions.
+  it("for a template's deno.json that cannot be parsed", async () => {
+    const logger = makeLogger()
+    const projectPath = await makeProjectPath()
+    await fsp.mkdir(projectPath, {recursive: true})
+    const configPath = path.join(projectPath, 'deno.json')
+    await fsp.writeFile(configPath, '{"imports": ')
+    const hadDeno = 'Deno' in globalThis
+    ;(globalThis as {Deno?: unknown}).Deno = {version: {deno: 'test'}}
+
+    const error = (await writeDenoJsonc(projectPath, {primary: true}, logger)
+      .catch((thrown: Error) => thrown)
+      .finally(() => {
+        if (!hadDeno) delete (globalThis as {Deno?: unknown}).Deno
+      })) as Error & {cause?: unknown}
+
+    expect(plainLines(error).slice(0, 2)).toEqual([
+      `${GLYPH} Error: Couldn't read the template's deno.json.`,
+      `PATH ${configPath}`
+    ])
+
+    expect(error.cause).toBeInstanceOf(SyntaxError)
+    expectOneFrameAndNoStack(error, logger, 'E_TEMPLATE_NOT_FOUND')
   })
 
   // A file where the folder must go fails the same on every platform, with no
@@ -499,7 +608,7 @@ describe('a create refusal travels as one framed message on the thrown error', (
 
     expect(plainLines(error)[1]).toBe(`PATH ${projectPath}`)
     expect(error.cause).toMatchObject({code: 'EEXIST', syscall: 'mkdir'})
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_DESTINATION_NOT_WRITABLE')
   })
 })
 
@@ -685,6 +794,6 @@ describe('a step whose write fails throws one frame and keeps the cause', () => 
       causeNamesPath === false ? undefined : failedPath
     )
 
-    expectOneFrameAndNoStack(error, logger)
+    expectOneFrameAndNoStack(error, logger, 'E_DESTINATION_NOT_WRITABLE')
   })
 })

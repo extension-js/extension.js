@@ -11,13 +11,13 @@ import readline from 'node:readline'
 export const DEFAULT_PROJECT_NAME = 'my-extension'
 
 // Where the prompt reads and writes, the process streams when left out.
-interface PromptIo {
+export interface PromptIo {
   input?: NodeJS.ReadableStream & {isTTY?: boolean}
   output?: NodeJS.WritableStream & {isTTY?: boolean}
-  env?: NodeJS.ProcessEnv
+  env?: Record<string, string | undefined>
 }
 
-function isCI(v: NodeJS.ProcessEnv): boolean {
+function isCI(v: Record<string, string | undefined>): boolean {
   return Boolean(
     v.CI ||
       v.GITHUB_ACTIONS ||
