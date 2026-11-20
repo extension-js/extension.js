@@ -7,6 +7,8 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {recordCodedWarning} from '../lib/coded-warnings'
+import {resolveCompanionExtensionsConfig} from '../lib/companion-extensions/resolve-config'
+import type {CompanionExtensionsConfig} from '../lib/companion-extensions/types'
 import {STOCK_COMPANION_EXTENSIONS} from '../lib/constants'
 import {
   companionsDeclaredIn,
@@ -15,8 +17,6 @@ import {
 } from '../lib/extensions-to-load'
 import {CODES, stripChannelPrefix} from '../lib/messaging'
 import type {NormalizedBrowser} from '../lib/paths'
-import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
-import type {CompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/types'
 import type {BuildOptions} from '../types'
 
 type Layer = {extensions?: CompanionExtensionsConfig}
