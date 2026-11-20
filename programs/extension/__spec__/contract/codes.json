@@ -663,6 +663,11 @@
       "summary": "Project code writes to a process.env or import.meta.env name the build replaces with its value. The write runs, and reads of that name keep the build value.",
       "warn": true
     },
+    "W_ENV_ASSET_NOT_UTF8": {
+      "area": "compile",
+      "summary": "An emitted .json or .html file holds a $EXTENSION_ placeholder but is not UTF-8 text, so it ships byte for byte and the placeholder is left as written.",
+      "warn": true
+    },
     "W_HTML_NOT_UTF8": {
       "area": "compile",
       "summary": "An HTML page of the extension is not UTF-8 text. A page that declares its charset is converted to UTF-8, and one that does not ships with a replacement character for each byte that is not UTF-8.",
