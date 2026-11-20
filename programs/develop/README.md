@@ -65,7 +65,7 @@ The `extension-develop/manifest` entry is deprecated and is removed in the next 
 - Cross-browser support: Chrome, Edge, Firefox, Safari, Chromium-based, Gecko-based
 - Rspack-based build with opinionated plugin stack
 - Clean production output in `dist/<browser>`
-- Zipping: distribution and/or source packages (respects `.gitignore`)
+- Zipping: a distribution archive and, on request, a source archive that leaves out what `.gitignore` ignores plus secrets and build output by rules of its own
 - Auto-install of missing build + optional dependencies on first run
 - Type generation for TS projects via `extension-env.d.ts`
 - User config via `extension.config.(js|mjs)` for commands, browser start, unified logger defaults, and the bundler config hooks (`config`, `configResolved`)
@@ -164,7 +164,7 @@ A host that learns a session cannot go on calls `endSessionAsFailed(code, messag
 | `addonLint`     | boolean       | Run `addons-linter` over a production build for a Gecko target, on by default when it is installed                     |
 | `minify`        | boolean       | Minify first-party code in a production build. On by default, off for `opera`                                          |
 | `zip`           | boolean       | Package `dist/<browser>` as an archive                                                                                 |
-| `zipSource`     | boolean       | Package the source files, respecting `.gitignore`                                                                      |
+| `zipSource`     | boolean       | Package the source files. Leaves out what `.gitignore` ignores, plus env files, keys and build output (see below)      |
 | `zipFilename`   | string        | Base name of the archives                                                                                              |
 | `zipDir`        | string        | Folder for the archives, relative to the project or absolute                                                           |
 | `sourceMaps`    | boolean       | Write a `.map` file beside each script and stylesheet of a production build, never zipped. `dev` always writes maps    |
@@ -310,17 +310,21 @@ export default {
 
 ## Packaging outputs
 
-- Distribution artifacts live under `dist/<browser>/` and source artifacts under `dist/`.
+- Both archives are written beside the browser folder, never inside it: `dist/<name>-<version>-<browser>.zip` and `dist/<name>-<version>-source.zip`.
 - File names default to a sanitized form of `manifest.name` plus `manifest.version` (override with `zipFilename`).
 - `zipDir` moves both archives to another folder. A relative path has to stay inside the project, an absolute path is taken as written, and a folder inside `dist/<browser>` is refused.
-- Source packaging respects `.gitignore`.
+- The source archive leaves out what the root `.gitignore` and every nested one ignore, read the way git reads them: the deepest file with a rule for a path decides, so a nested `!file` takes a file back, and nothing inside an ignored folder comes back.
+- `.gitignore` is not the boundary. Whatever it says, the source archive never holds `.git`, `node_modules`, `.extension-js`, env files other than `*.example`, the top-level `dist`, the output and session folders, companion extensions under `./extensions`, operating system files, or the `.claude` and `.vercel` folders.
+- It also leaves out, and lists in one warning, symlinks, private keys and packed extensions (`*.pem`, `*.crx` and the like), a `.npmrc` or `.yarnrc.yml` that holds an auth value, archives of earlier runs and nested build output. A file an ignore rule already covers is not listed.
+- The extension archive holds the output folder without source maps, operating system files, env files and earlier archives.
+- The full rules are in [`plugin-compilation/README.md`](./plugin-compilation/README.md).
 
 Example layout when both `zip` and `zipSource` are enabled:
 
 ```
 dist/
   chrome/
-    <name>-<version>.zip
+  <name>-<version>-chrome.zip
   <name>-<version>-source.zip
 ```
 
