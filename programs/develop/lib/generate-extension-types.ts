@@ -9,7 +9,6 @@
 import {existsSync} from 'node:fs'
 import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
-import {getUserTypeScriptConfigFile} from '../plugin-js-frameworks/js-tools/typescript'
 import {recordCodedWarning} from './coded-warnings'
 import {type ConfigEnvTarget, loadDefineTypes} from './config-loader'
 import {
@@ -21,6 +20,7 @@ import * as messages from './messages'
 import {CODES, humanLine} from './messaging'
 import {parseJsonSafe} from './parse-json-safe'
 import {tsconfigCanIncludeFile} from './tsconfig-includes-file'
+import {getUserTypeScriptConfigFile} from './user-tsconfig'
 
 // The same node_modules walk TypeScript takes for the reference the file
 // emits: a project run through npx has no extension of its own to find.

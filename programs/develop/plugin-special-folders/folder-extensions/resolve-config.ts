@@ -10,6 +10,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
 import {codedError} from '../../lib/coded-error'
+import {
+  companionLinkNotAStoreLinkError,
+  unknownCompanionEntryError
+} from '../../lib/extensions-to-load'
+import * as messages from '../../lib/messages'
 import {CODES, debugLine, isDebug, prefix} from '../../lib/messaging'
 import {realPath} from '../../lib/real-path'
 import type {CompanionExtensionsConfig} from './types'
@@ -121,16 +126,6 @@ export function isCompanionStoreLink(entry: string): boolean {
   const url = toWebUrl(entry)
 
   return url !== null && parseStoreUrl(url) !== null
-}
-
-// The refusal a web link gets when it is no store link.
-export function companionLinkNotAStoreLink(entry: string): string {
-  return (
-    `Companion extension link is not a store link this resolver recognizes: ${entry}\n` +
-    'Supported links: https://chromewebstore.google.com/detail/<name>/<id>, ' +
-    'https://microsoftedge.microsoft.com/addons/detail/<name>/<id>, ' +
-    'https://addons.mozilla.org/<locale>/firefox/addon/<slug>'
-  )
 }
 
 // A folder of the project, the project itself left out. Real paths are
@@ -251,7 +246,17 @@ async function resolveStoreExtensionToPath(opts: {
   }
 
   if (!selected) {
-    throw new Error(`Could not locate an unpacked extension from ${storeUrl}.`)
+    const folder = path
+      .relative(projectRoot, path.join(extensionsRoot, browser))
+      .split(path.sep)
+      .join('/')
+    const error = codedError(
+      CODES.E_PROJECT_DOWNLOAD_EMPTY,
+      messages.companionStoreDownloadEmpty(storeUrl, `${folder}/`)
+    )
+    error.name = 'CompanionStoreDownloadEmpty'
+
+    throw error
   }
 
   fs.mkdirSync(path.dirname(targetRoot), {recursive: true})
@@ -285,9 +290,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
     if (url) {
       const parsedStore = parseStoreUrl(url)
 
-      if (!parsedStore) {
-        throw new Error(companionLinkNotAStoreLink(entry))
-      }
+      if (!parsedStore) throw companionLinkNotAStoreLinkError(entry)
 
       if (parsedStore.browser !== runtimeBrowser) {
         continue
@@ -309,18 +312,7 @@ export async function resolveCompanionExtensionsConfig(opts: {
       continue
     }
 
-    if (/^[a-p]{32}$/i.test(entry)) {
-      throw new Error(
-        `Companion extension entry looks like a store id, not a store link: ${entry}\n` +
-          'Use the full store link so the browser it belongs to is known, ' +
-          `for example https://chromewebstore.google.com/detail/<name>/${entry}`
-      )
-    }
-
-    throw new Error(
-      `Companion extension entry is neither a store link nor a folder path: ${entry}\n` +
-        'Give a store link or the path of a folder inside the project'
-    )
+    throw unknownCompanionEntryError(entry)
   }
 
   if (localPaths.length > 0) {

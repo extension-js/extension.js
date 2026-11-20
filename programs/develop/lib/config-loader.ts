@@ -111,6 +111,21 @@ function forgetPreloadedEnv(): void {
 
   preloadedEnvKeys.clear()
   preloadedEnvValues.clear()
+  preloadedFrom = undefined
+}
+
+// The folder whose files are on process.env now. A session that ends takes
+// them out of its host only when they are its own project's.
+let preloadedFrom: string | undefined
+
+export function forgetPreloadedEnvOf(projectPath: string): void {
+  if (!preloadedFrom) return
+
+  const relative = path.relative(path.resolve(projectPath), preloadedFrom)
+
+  if (relative.startsWith('..') || path.isAbsolute(relative)) return
+
+  forgetPreloadedEnv()
 }
 
 function applyEnvFile(filePath: string, shellOwned: ReadonlySet<string>) {
@@ -281,7 +296,7 @@ function loadCommonJsConfigAfterFailedImport(
   }
 }
 
-function findNearestWorkspaceRoot(startDir: string): string | undefined {
+export function findNearestWorkspaceRoot(startDir: string): string | undefined {
   let current = path.resolve(startDir)
 
   while (true) {
@@ -384,6 +399,7 @@ const ENV_DEFAULTS_FILE = '.env.defaults'
 // always merges and never a file a folder is picked for, so it ends no search.
 function preloadEnvFiles(projectDir: string, order: string[]) {
   forgetPreloadedEnv()
+  preloadedFrom = path.resolve(projectDir)
 
   const selectable = order.filter((name) => name !== ENV_DEFAULTS_FILE)
   const inDir = (dir: string, names: string[]) =>

@@ -460,4 +460,58 @@ describe('D9: a symlinked file inside scripts/ or pages/', () => {
       }
     }
   )
+
+  // The watcher names the folder, not the new file, so the folders are read
+  // again and a link must show up in that read like a plain file does.
+  it.skipIf(process.platform === 'win32')(
+    'asks for a restart when it is added mid-session',
+    () => {
+      const root = project({
+        'scripts/content.js': 'document.title = "c"',
+        'pages/own.html': '<html></html>',
+        'shared/linked.js': 'document.title = "linked"',
+        'shared/linked.html': '<html></html>'
+      })
+      const session = watcherSession(root)
+      session.cycle()
+
+      const script = path.join(root, 'scripts', 'linked.js')
+      const page = path.join(root, 'pages', 'linked.html')
+      fs.symlinkSync(path.join(root, 'shared', 'linked.js'), script)
+      fs.symlinkSync(path.join(root, 'shared', 'linked.html'), page)
+      session.cycle()
+
+      // Fixed: the watcher lists what the scan takes, links inside included.
+      expect(session.requests).toEqual([
+        {reason: 'html', pathAfter: page},
+        {reason: 'scripts', pathAfter: script}
+      ])
+    }
+  )
+
+  it.skipIf(process.platform === 'win32')(
+    'asks for no restart when the added link leads out, and is named',
+    () => {
+      const root = project({'scripts/content.js': 'document.title = "c"'})
+      const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-link-out-'))
+
+      try {
+        const session = watcherSession(root)
+        session.cycle()
+
+        fs.writeFileSync(path.join(outside, 'away.js'), 'void 0')
+        fs.symlinkSync(
+          path.join(outside, 'away.js'),
+          path.join(root, 'scripts', 'away.js')
+        )
+
+        session.cycle()
+
+        expect(session.requests).toEqual([])
+        expect(walkedEntriesLeftOut(root, {})).toEqual(['scripts/away.js'])
+      } finally {
+        fs.rmSync(outside, {recursive: true, force: true})
+      }
+    }
+  )
 })

@@ -52,7 +52,6 @@ import {
   loadProjectConfigDefaults
 } from './lib/config-loader'
 import {ConfigResolvedPlugin} from './lib/config-resolved-plugin'
-import {removeDevelopmentArtifacts} from './lib/development-artifacts'
 import {
   findDuplicateOutputFiles,
   importedAssetSources
@@ -126,6 +125,7 @@ import {
   stampReadyDistExtensionId,
   stampReadyKnownExtensionId
 } from './plugin-playwright'
+import {removeDevelopmentArtifacts} from './plugin-reload/reload-lib/development-artifacts'
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {rememberExcludedFiles} from './plugin-special-folders/folders-config'

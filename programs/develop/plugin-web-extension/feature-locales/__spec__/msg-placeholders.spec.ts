@@ -16,6 +16,7 @@ const COPY = path.resolve(
   '..',
   '..',
   '..',
+  '..',
   'extension',
   'helpers',
   'msg-placeholders.ts'

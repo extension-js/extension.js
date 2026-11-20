@@ -76,7 +76,7 @@
     },
     "E_COMPANION_EXTENSION_PATH": {
       "area": "project",
-      "summary": "The only manifest at the resolved root belongs to a companion under extensions/."
+      "summary": "A companion extension entry is refused: it leads outside the project, it is neither a store link nor a folder path, or the only manifest at the resolved root belongs to a companion under extensions/."
     },
     "E_MANIFEST_IN_PUBLIC": {
       "area": "project",

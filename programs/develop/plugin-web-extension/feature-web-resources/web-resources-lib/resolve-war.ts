@@ -12,6 +12,7 @@ import {type Compilation, sources, WebpackError} from '@rspack/core'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../../../lib/constants'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../lib/parse-json-safe'
+import {templateCopiedAsset} from '../../../plugin-compilation/copied-asset-env'
 import {
   hasPrivateFileName,
   privateFileKind,
@@ -94,7 +95,9 @@ function emitDirectoryAsAssets(
       if (!compilation.getAsset(outName)) {
         compilation.emitAsset(
           outName,
-          new sources.RawSource(fs.readFileSync(full))
+          new sources.RawSource(
+            templateCopiedAsset(compilation, outName, fs.readFileSync(full))
+          )
         )
       }
 
@@ -178,7 +181,9 @@ function emitGlobMatches(
       if (!compilation.getAsset(outName)) {
         compilation.emitAsset(
           outName,
-          new sources.RawSource(fs.readFileSync(full))
+          new sources.RawSource(
+            templateCopiedAsset(compilation, outName, fs.readFileSync(full))
+          )
         )
       }
 
@@ -209,7 +214,10 @@ function emitFileAsAsset(compilation: Compilation, absPath: string): string {
   )
 
   if (!compilation.getAsset(outName)) {
-    compilation.emitAsset(outName, new sources.RawSource(content))
+    compilation.emitAsset(
+      outName,
+      new sources.RawSource(templateCopiedAsset(compilation, outName, content))
+    )
   }
 
   compilation.fileDependencies.add(absPath)
@@ -721,7 +729,13 @@ export function resolveUserDeclaredWAR(
           if (!compilation.getAsset(rootRel)) {
             compilation.emitAsset(
               rootRel,
-              new sources.RawSource(fs.readFileSync(rootAbs))
+              new sources.RawSource(
+                templateCopiedAsset(
+                  compilation,
+                  rootRel,
+                  fs.readFileSync(rootAbs)
+                )
+              )
             )
           }
 
@@ -832,7 +846,9 @@ export function resolveUserDeclaredWAR(
       if (!compilation.getAsset(relOut)) {
         compilation.emitAsset(
           relOut,
-          new sources.RawSource(fs.readFileSync(abs))
+          new sources.RawSource(
+            templateCopiedAsset(compilation, relOut, fs.readFileSync(abs))
+          )
         )
       }
 

@@ -1,0 +1,100 @@
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import {afterAll, describe, expect, it} from 'vitest'
+
+const roots: string[] = []
+
+afterAll(() => {
+  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
+})
+
+function write(root: string, relPath: string, contents: string) {
+  const abs = path.join(root, relPath)
+  fs.mkdirSync(path.dirname(abs), {recursive: true})
+  fs.writeFileSync(abs, contents)
+}
+
+function project() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-map-names-'))
+  roots.push(root)
+
+  write(
+    root,
+    'package.json',
+    JSON.stringify({private: true, name: 'map-names', version: '0.0.0'})
+  )
+
+  write(
+    root,
+    'manifest.json',
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'map-names',
+      version: '1.0.0',
+      background: {service_worker: 'bg.js'},
+      action: {default_popup: 'popup.html'},
+      content_scripts: [
+        {matches: ['https://map.example/*'], js: ['content/index.js']}
+      ]
+    })
+  )
+
+  write(root, 'bg.js', 'console.log("bg")\n')
+  write(
+    root,
+    'popup.html',
+    '<!doctype html><html><body><script src="./popup.js"></script></body></html>\n'
+  )
+
+  write(root, 'popup.js', 'console.log("popup")\n')
+  write(root, 'content/index.js', 'console.log("content")\n')
+
+  return root
+}
+
+function mapSources(distDir: string): string[] {
+  const sources: string[] = []
+
+  for (const entry of fs.readdirSync(distDir, {recursive: true})) {
+    const file = path.join(distDir, String(entry))
+
+    if (file.endsWith('.map')) {
+      sources.push(...JSON.parse(fs.readFileSync(file, 'utf8')).sources)
+    }
+  }
+
+  return sources
+}
+
+describe('dev source maps', () => {
+  it('name the files of Extension.js under extension.js/, never by a path to the install', async () => {
+    const root = project()
+    const {extensionBuild} = await import('../command-build')
+    const previous = process.env.VITEST
+    process.env.VITEST = 'true'
+
+    try {
+      await extensionBuild(root, {
+        browser: 'chrome',
+        silent: true,
+        install: false,
+        mode: 'development',
+        exitOnError: false
+      } as any)
+    } finally {
+      if (previous === undefined) delete process.env.VITEST
+      else process.env.VITEST = previous
+    }
+
+    const sources = mapSources(path.join(root, 'dist', 'chrome'))
+
+    expect(sources).toContain('webpack://map-names/./popup.js')
+    expect(sources.filter((source) => source.includes('/../'))).toEqual([])
+    expect(
+      sources.some((source) =>
+        source.startsWith('webpack://map-names/extension.js/')
+      )
+    ).toBe(true)
+  }, 120_000)
+})

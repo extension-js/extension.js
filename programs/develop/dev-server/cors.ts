@@ -7,7 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {IncomingMessage, ServerResponse} from 'node:http'
-import {isWildcardHost} from './connectable-host'
+import {isWildcardHost} from '../lib/connectable-host'
 import {isSameWebOrigin, normalizeWebOrigin} from './emulator-lane'
 
 // chrome-extension://, moz-extension://, safari-web-extension://: the scheme

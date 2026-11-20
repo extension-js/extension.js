@@ -35,7 +35,13 @@ vi.mock('@rspack/core', () => {
   }
 })
 
-import {EnvPlugin, isEnvFileForAnotherTarget} from '../env'
+import {
+  CHROMIUM_FAMILY_ALIASES,
+  GECKO_FAMILY_ALIASES,
+  SUPPORTED_BROWSERS,
+  WEBKIT_BASED_BROWSERS
+} from '../../lib/constants'
+import {EnvPlugin, isEnvFileForAnotherTarget, isEnvFileName} from '../env'
 
 const stripAnsi = (value: string) => value.replace(/\x1b\[[0-9;]*m/g, '')
 
@@ -192,5 +198,58 @@ describe('env files named for another target', () => {
     expect(warnings).toHaveLength(1)
     expect(warnings[0]).not.toContain('undefined in this build')
     expect(warnings[0]).toContain('Rename the file to one of these')
+  })
+
+  it('reads a page, sheet or image named like .env.css as no env file', () => {
+    for (const name of [
+      '.env.css',
+      '.env.html',
+      '.env.js',
+      '.env.png',
+      '.env.side.html',
+      '.envrc'
+    ]) {
+      fs.writeFileSync(path.join(projectPath, name), 'x\n')
+    }
+
+    expect(compileWarnings(projectPath, 'production')).toEqual([])
+  })
+
+  it('names only the env file when an asset named like one sits beside it', () => {
+    fs.writeFileSync(path.join(projectPath, '.env.css'), 'x\n')
+    fs.writeFileSync(
+      path.join(projectPath, '.env.staging'),
+      'EXTENSION_PUBLIC_X=1\n'
+    )
+
+    const warnings = compileWarnings(projectPath, 'production')
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain('Found .env.staging,')
+    expect(warnings[0]).not.toContain('.env.css')
+  })
+
+  it('never reads a browser or mode name as an asset ending', () => {
+    const names = [
+      ...SUPPORTED_BROWSERS,
+      ...CHROMIUM_FAMILY_ALIASES,
+      ...GECKO_FAMILY_ALIASES,
+      ...WEBKIT_BASED_BROWSERS,
+      'development',
+      'production',
+      'test',
+      'none',
+      'local'
+    ]
+
+    for (const name of names) {
+      expect(isEnvFileName(`.env.${name}`), name).toBe(true)
+      expect(isEnvFileName(`.env.chrome.${name}`), name).toBe(true)
+    }
+
+    expect(isEnvFileName('.env')).toBe(true)
+    expect(isEnvFileName('.env.staging')).toBe(true)
+    expect(isEnvFileName('.env.side.html')).toBe(false)
+    expect(isEnvFileName('.env.PNG')).toBe(false)
+    expect(isEnvFileName('.envrc')).toBe(false)
   })
 })

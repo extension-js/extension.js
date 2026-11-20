@@ -15,10 +15,12 @@ import {ensureOptionalPackageResolved} from '../lib/optional-deps-resolver'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
+import {resolveSwcTargets} from '../lib/swc-targets'
 import {
   createNodeModulesExclude,
   resolveTranspilePackageDirs
 } from '../lib/transpile-packages'
+import {getUserTypeScriptConfigFile} from '../lib/user-tsconfig'
 import {scriptsFolderRoot} from '../plugin-special-folders/folders-config'
 import {getSpecialFoldersDataForCompiler} from '../plugin-special-folders/get-data'
 import {getAssetsFromHtml} from '../plugin-web-extension/feature-html/html-lib/utils'
@@ -48,11 +50,9 @@ import {maybeUseSolid} from './js-tools/solid'
 import {maybeUseSvelte} from './js-tools/svelte'
 import {
   ensureTypeScriptConfig,
-  getUserJsConfigFile,
-  getUserTypeScriptConfigFile
+  getUserJsConfigFile
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
-import {resolveSwcTargets} from './swc-targets'
 
 // A .vue file, or a block vue-loader names after it (`Button.vue.ts`).
 const VUE_BLOCK = /\.vue(\.[cm]?[jt]sx?)?$/

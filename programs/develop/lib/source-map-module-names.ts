@@ -6,48 +6,39 @@
 //  ╚════╝ ╚══════╝      ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝ ╚══╝╚══╝  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-import {isChromiumBasedBrowser, isGeckoBasedBrowser} from '../lib/constants'
-import {filterKeysForThisBrowser} from '../lib/manifest-utils'
-import type {DevOptions, Manifest} from '../types'
+import * as path from 'node:path'
 
-export const DEFAULT_SWC_TARGETS = ['chrome >= 100']
+export interface SourceMapModuleInfo {
+  absoluteResourcePath: string
+  resourcePath: string
+  namespace: string
+}
 
-// A build compiles for one engine, so only that engine's declared floor may
-// downlevel it: minimum_chrome_version for the chromium family, the gecko
-// strict_min_version (either spelling, prefixed or not) for the gecko family.
-// A foreign floor stays in the shipped manifest and out of the compiler.
-export function resolveSwcTargets(
-  rawManifest: Manifest | undefined,
-  browser: DevOptions['browser'] | string | undefined
-): string[] {
-  if (!rawManifest || typeof rawManifest !== 'object') {
-    return [...DEFAULT_SWC_TARGETS]
+// The author's files keep the bundler's default name. Extension.js's own
+// files sit outside the project, where that name climbs to the install, so
+// they read as extension.js/ in the browser's source tree instead.
+function inside(root: string, file: string): string | undefined {
+  const relative = path.relative(root, file)
+
+  return relative && !relative.startsWith('..') && !path.isAbsolute(relative)
+    ? relative
+    : undefined
+}
+
+export function sourceMapModuleName(
+  developRoot: string | undefined,
+  projectRoot: string
+) {
+  return (info: SourceMapModuleInfo): string => {
+    const resource = String(info.absoluteResourcePath || '')
+    const base = `webpack://${info.namespace}/`
+    const own =
+      developRoot && path.isAbsolute(resource) && !inside(projectRoot, resource)
+        ? inside(developRoot, resource)
+        : undefined
+
+    return own
+      ? `${base}extension.js/${own.split(path.sep).join('/')}`
+      : `${base}${info.resourcePath}`
   }
-
-  const name = String(browser || 'chrome')
-  const manifest = filterKeysForThisBrowser(
-    rawManifest,
-    name as DevOptions['browser']
-  ) as Manifest & {
-    minimum_chrome_version?: unknown
-    browser_specific_settings?: {gecko?: {strict_min_version?: unknown}}
-    applications?: {gecko?: {strict_min_version?: unknown}}
-  }
-
-  if (isGeckoBasedBrowser(name)) {
-    const geckoMin =
-      manifest.browser_specific_settings?.gecko?.strict_min_version ||
-      manifest.applications?.gecko?.strict_min_version
-    const major = parseInt(String(geckoMin ?? '').split('.')[0], 10)
-
-    return Number.isNaN(major)
-      ? [...DEFAULT_SWC_TARGETS]
-      : [`firefox >= ${major}`]
-  }
-
-  if (isChromiumBasedBrowser(name) && manifest.minimum_chrome_version) {
-    return [`chrome >= ${manifest.minimum_chrome_version}`]
-  }
-
-  return [...DEFAULT_SWC_TARGETS]
 }
