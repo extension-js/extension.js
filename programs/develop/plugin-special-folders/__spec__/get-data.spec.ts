@@ -63,8 +63,6 @@ describe('getSpecialFoldersDataForCompiler on a real project', () => {
     expect(data.scripts).toEqual({
       'scripts/content': at(root, 'scripts/content.ts')
     })
-
-    expect(data.extensions).toEqual({dir: './extensions'})
   })
 
   it('keeps a configured public folder inside pages/ and scripts/ out of the entries', () => {

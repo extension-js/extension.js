@@ -181,7 +181,7 @@ describe('JsFrameworksPlugin aliases and framework rules', () => {
     )
 
     expect((svelteRule?.use as {loader: string}).loader).toBe(svelteLoader)
-    expect(compiler.options.resolve.extensions?.[0]).toBe('.svelte')
+    expect(compiler.options.resolve.extensions).toEqual(['...', '.svelte'])
   })
 })
 

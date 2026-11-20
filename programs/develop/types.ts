@@ -121,7 +121,7 @@ export interface JsFramework {
 
 import type {Configuration} from '@rspack/core'
 import type {SafariPackageSummary} from './lib/build-summary'
-import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
+import type {CompanionExtensionsConfig} from './lib/companion-extensions/types'
 
 export type BrowserType =
   | 'chrome'
