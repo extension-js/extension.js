@@ -342,10 +342,7 @@ export default function webpackConfig(
       port: devOptions.port,
       // Connectable host clients dial (HMR + control bridge), resolved by
       // dev-server/index.ts for each session. The bind host is the fallback.
-      host:
-        connectableHost ||
-        process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
-        (devOptions as {host?: string}).host,
+      host: connectableHost || (devOptions as {host?: string}).host,
       instanceId: devOptions.instanceId,
       instanceExplicit: devOptions.instanceExplicit,
       controlPort: devOptions.controlPort,

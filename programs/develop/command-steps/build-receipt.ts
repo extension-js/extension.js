@@ -48,9 +48,7 @@ export function createBuildReceipt(input: {
       distPath,
       manifestPath,
       port: configOptions.port,
-      host:
-        process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST ||
-        (configOptions as {host?: string}).host,
+      host: (configOptions as {host?: string}).host,
       instanceId: configOptions.instanceId,
       instanceExplicit: configOptions.instanceExplicit,
       controlPort: configOptions.controlPort,
