@@ -336,11 +336,21 @@ async function startDevSession(
 
   holdings.add(releaseClaim)
 
-  const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
-  const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
+  // The same env files as the command's own loads, so no layer differs.
+  const envTarget = {mode: 'development', browser: String(devOptions.browser)}
+  const projectConfig = await loadProjectConfigDefaults(
+    packageJsonDir,
+    envTarget
+  )
+  const commandConfig = await loadCommandConfig(
+    packageJsonDir,
+    'dev',
+    envTarget
+  )
   const browserConfig = await loadBrowserConfig(
     packageJsonDir,
-    devOptions.browser
+    devOptions.browser,
+    envTarget
   )
 
   const desiredPort =
@@ -836,7 +846,10 @@ async function startDevSession(
     const compilerConfig = applySplitChunksGuard(
       merge(customWebpackConfig(baseConfig), {})
     )
-    const configResolved = await loadConfigResolvedHook(packageJsonDir)
+    const configResolved = await loadConfigResolvedHook(
+      packageJsonDir,
+      envTarget
+    )
 
     if (configResolved) {
       compilerConfig.plugins = [

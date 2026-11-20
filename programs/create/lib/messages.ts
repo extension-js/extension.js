@@ -202,16 +202,6 @@ export function templateUrlNotHttps(url: string) {
   )
 }
 
-export function templateFetchTimedOut(templateName: string, ms: number) {
-  return (
-    `${prefix('error')} Couldn't fetch the template ` +
-    `${colors.blue(templateName)} within ` +
-    `${Math.round(ms / 1000)}s.\n` +
-    `${colors.red('- Check your network connection.')}\n` +
-    `${colors.red('- Set')} ${colors.blue('EXTENSION_CREATE_TIMEOUT_MS')} ${colors.red('to allow more time.')}`
-  )
-}
-
 // A genuine "this slug is not in the catalog", distinct from a download/timeout
 // failure, which the old code mislabelled as "template not found" (#56).
 export function templateNotFoundInCatalog(
@@ -537,7 +527,7 @@ export function withIncompleteCleanup(
 export function installingDependenciesFailed(
   pmCommand: string,
   pmArgs: string[],
-  code: number | null,
+  exit: number | string,
   output?: string,
   retry?: ScaffoldRetry
 ) {
@@ -551,7 +541,7 @@ export function installingDependenciesFailed(
   return (
     `${prefix('error')} Couldn't install the dependencies.\n` +
     `${fmt.label('COMMAND')} ${fmt.val(`${pmCommand} ${pmArgs.join(' ')}`)}\n` +
-    `${fmt.label('EXIT')} ${fmt.val(String(code))}\n` +
+    `${fmt.label('EXIT')} ${fmt.val(String(exit))}\n` +
     (reason ? `${fmt.label('REASON')} ${reason}\n` : '') +
     rule +
     nextStep
@@ -567,6 +557,23 @@ export function installingDependenciesProcessError(
     `${prefix('error')} Couldn't install the dependencies for ${colors.blue(projectName)}.\n` +
     `${fmt.label('REASON')} ${fmt.val(fmt.truncate(String(error)))}\n` +
     `${colors.red('The install process exited unexpectedly.')}\n` +
+    createAgainStep(retry)
+  )
+}
+
+// The manager never started, so there is no exit and no output to quote.
+// What is missing is the manager itself, and that is what the frame says.
+export function packageManagerNotInstalled(
+  projectName: string,
+  pmCommand: string,
+  pmArgs: string[],
+  retry?: ScaffoldRetry
+) {
+  return (
+    `${prefix('error')} Couldn't install the dependencies for ${colors.blue(projectName)}.\n` +
+    `${fmt.label('COMMAND')} ${fmt.val(`${pmCommand} ${pmArgs.join(' ')}`)}\n` +
+    `${fmt.label('REASON')} ${fmt.val(`${pmCommand} is not installed, or not on PATH`)}\n` +
+    `${colors.red(`Install ${pmCommand} or add it to PATH.`)}\n` +
     createAgainStep(retry)
   )
 }
