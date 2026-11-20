@@ -20,13 +20,11 @@ function input(overrides: Partial<ServerConfigInput> = {}): ServerConfigInput {
     emulatorOrigin: null,
     isSessionExtensionOrigin: () => false,
     publicFolder: PUBLIC,
-    packageJsonDir: ROOT,
     emulatorFiles: null,
     activeCompiler: () => null,
     onHostRefused: () => {},
     onSiteRefused: () => {},
     server: undefined,
-    env: {},
     socketPath: '/ws/0123456789abcdef',
     ...overrides
   }
@@ -168,42 +166,20 @@ describe('buildServerConfig', () => {
     expect(writeToDisk('/proj/dist/chrome/app/manifest.json')).toBe(true)
   })
 
-  it('serves public/ without the stock watcher and watches it through watchFiles', () => {
+  // The bundled chokidar reads a glob as a literal path, so a watch of
+  // public/**/* never fired. The compiler's copy of the folder reloads.
+  it('serves public/ and hands the server no folder to watch', () => {
     const config = buildServerConfig(input())
 
     expect(config.static).toEqual({directory: PUBLIC, watch: false})
-    expect(config.watchFiles).toEqual({
-      paths: [path.join(PUBLIC, '**/*')],
-      options: {
-        ignored: [path.join(ROOT, 'dist', '**/*')]
-      }
-    })
+    expect(config).not.toHaveProperty('watchFiles')
   })
 
-  it('serves and watches nothing when the public folder is off', () => {
+  it('serves nothing when the public folder is off', () => {
     const config = buildServerConfig(input({publicFolder: undefined}))
 
     expect(config.static).toBe(false)
-    expect((config.watchFiles as {paths: string[]}).paths).toEqual([])
-  })
-
-  it.each([
-    [{EXTENSION_WATCH_POLL: 'true'}, {usePolling: true, interval: 1000}],
-    [
-      {EXTENSION_WATCH_POLL: 'true', EXTENSION_WATCH_POLL_INTERVAL: '250'},
-      {usePolling: true, interval: 250}
-    ],
-    [{EXTENSION_WATCH_POLL: '1'}, {}],
-    [{}, {}]
-  ])('reads the polling switch from %j', (env, expected) => {
-    const config = buildServerConfig(input({env}))
-    const options = (config.watchFiles as {options: Record<string, unknown>})
-      .options
-
-    expect(options).toEqual({
-      ignored: [path.join(ROOT, 'dist', '**/*')],
-      ...expected
-    })
+    expect(config).not.toHaveProperty('watchFiles')
   })
 
   it('names the connectable host instead of admitting every Host header', () => {

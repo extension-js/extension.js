@@ -820,7 +820,6 @@ async function startDevSession(
     isSessionExtensionOrigin: (origin) =>
       bridgeBroker.isSessionExtensionOrigin(origin),
     publicFolder,
-    packageJsonDir,
     emulatorFiles,
     socketPath,
     activeCompiler: () => activeCompiler,

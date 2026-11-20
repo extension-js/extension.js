@@ -27,7 +27,6 @@ interface CompileTrack {
 }
 
 async function withSession(
-  env: Record<string, string>,
   run: (session: LoopbackSession, track: CompileTrack) => Promise<void>
 ) {
   const root = createFixture('extjs-loopback-')
@@ -41,7 +40,6 @@ async function withSession(
   try {
     session = await bootLoopback({
       root,
-      env,
       beforeServer: (compiler) => {
         compiler.hooks.watchRun.tap('loopback-track', () => {
           started++
@@ -61,48 +59,24 @@ async function withSession(
 }
 
 describe('the dev server on loopback', () => {
-  it('normalizes the public/ watch to the stock options', async () => {
-    await withSession({}, async (session) => {
-      const options = (
-        session.server as unknown as {
-          options: {
-            watchFiles: Array<{paths: unknown; options: unknown}>
-            hot: unknown
-            liveReload: unknown
-          }
-        }
-      ).options
+  it('opens no watcher of its own beside the compiler', async () => {
+    await withSession(async (session) => {
+      const server = session.server as unknown as {
+        options: {watchFiles: unknown[]; hot: unknown; liveReload: unknown}
+        staticWatchers: unknown[]
+      }
 
-      expect(options.hot).toBe(true)
-      expect(options.liveReload).toBe(true)
-      expect(options.watchFiles).toEqual([
-        {
-          paths: [path.join(session.publicFolder, '**/*')],
-          options: {
-            ignoreInitial: true,
-            persistent: true,
-            followSymlinks: false,
-            atomic: false,
-            alwaysStat: true,
-            ignorePermissionErrors: true,
-            usePolling: false,
-            ignored: [path.join(session.root, 'dist', '**/*')]
-          }
-        }
-      ])
+      expect(server.options.hot).toBe(true)
+      expect(server.options.liveReload).toBe(true)
+      expect(server.options.watchFiles).toEqual([])
+      expect(server.staticWatchers).toEqual([])
     })
   })
 
-  // Pins today's behavior: chokidar 5 reads `public/**/*` as a literal path,
-  // so this watch sees no edit. The compiler's own reload is untouched.
-  it.each([
-    ['native events', {}],
-    [
-      'polling',
-      {EXTENSION_WATCH_POLL: 'true', EXTENSION_WATCH_POLL_INTERVAL: '100'}
-    ]
-  ])('sends nothing for a public/ edit with %s', async (_name, env) => {
-    await withSession(env, async (session, track) => {
+  // The server watches nothing under public/, so an edit there sends no
+  // frame from it. The compiler's own copy and reload are untouched.
+  it('sends nothing for a public/ edit', async () => {
+    await withSession(async (session, track) => {
       let socket:
         | Awaited<ReturnType<typeof connectClient>>['socket']
         | undefined
