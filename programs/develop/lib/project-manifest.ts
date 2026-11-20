@@ -8,6 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {readPackageJson} from './package-json'
 import {type ParsedJson, stripBom} from './parse-json-safe'
 
 // Files that mark a directory as a project root and declare its dependencies:
@@ -203,9 +204,7 @@ function readPackageJsonDependencies(
   packageJsonPath: string
 ): Record<string, string> {
   try {
-    const pkg = JSON.parse(
-      stripBom(fs.readFileSync(packageJsonPath, 'utf8')) || '{}'
-    ) as Record<string, ParsedJson>
+    const pkg = readPackageJson(packageJsonPath) as Record<string, ParsedJson>
     const sections = [
       pkg.dependencies,
       pkg.devDependencies,

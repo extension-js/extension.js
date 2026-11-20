@@ -177,15 +177,54 @@ export function executableOf(command: string): string {
   return cut > 0 ? trimmed.slice(0, cut) : trimmed
 }
 
+// How many parents up a row the ancestor sits: 1 for its child, 0 when the
+// row does not descend from it. The walk is bounded, so a looped table ends.
+function generationsBelow(
+  row: ProcessRow,
+  ancestorPid: number,
+  byPid: Map<number, ProcessRow>
+): number {
+  let at: ProcessRow | undefined = row
+
+  for (let depth = 1; at && depth <= byPid.size + 1; depth += 1) {
+    if (at.ppid === ancestorPid) return depth
+
+    at = byPid.get(at.ppid)
+  }
+
+  return 0
+}
+
+// Whether a candidate is the process a living launcher handed the session
+// to. A browser relaunches itself as its own child, under a new command line.
+// A copy of the launcher's command line is a fork of it that has not exec'd
+// yet, and a process below one of its helpers is a fork of that helper. Both
+// live for a moment. Windows has no fork, and its launcher stub starts the
+// browser with the command line it was given.
+function isHandoffOf(
+  launcher: ProcessRow,
+  row: ProcessRow,
+  byPid: Map<number, ProcessRow>,
+  platform: NodeJS.Platform
+): boolean {
+  const depth = generationsBelow(row, launcher.pid, byPid)
+
+  if (depth > 1) return false
+
+  return platform === 'win32' || row.command !== launcher.command
+}
+
 // Pick the browser process for a profile out of a process table: the same
 // binary we launched, running on the same profile, and not a helper. While
-// the spawned launcher lives, another such process is the one it handed the
-// session to. Once the launcher is gone, the root of what is left is it.
+// the spawned launcher lives, the session is its own unless it handed it to
+// another such process. Once the launcher is gone, the root of what is left
+// is it.
 export function findLiveBrowserPid(input: {
   profilePath: string
   binary: string
   launcherPid?: number
   rows: ProcessRow[]
+  platform?: NodeJS.Platform
 }): number | null {
   const profilePath = String(input.profilePath || '').trim()
   const binary = normalizePath(input.binary).trim()
@@ -199,18 +238,29 @@ export function findLiveBrowserPid(input: {
   )
   if (candidates.length === 0) return null
 
+  const byPid = new Map(input.rows.map((row) => [row.pid, row]))
   const launcher = input.launcherPid
     ? candidates.find((row) => row.pid === input.launcherPid)
     : undefined
 
   if (launcher) {
-    const twin = candidates.find((row) => row.pid !== launcher.pid)
+    const platform = input.platform ?? process.platform
+    const twin = candidates.find(
+      (row) =>
+        row.pid !== launcher.pid && isHandoffOf(launcher, row, byPid, platform)
+    )
 
     return twin ? twin.pid : launcher.pid
   }
 
-  const pids = new Set(candidates.map((row) => row.pid))
-  const roots = candidates.filter((row) => !pids.has(row.ppid))
+  // A candidate under another one, at any depth, is that one's fork.
+  const roots = candidates.filter(
+    (row) =>
+      !candidates.some(
+        (other) =>
+          other.pid !== row.pid && generationsBelow(row, other.pid, byPid) > 0
+      )
+  )
 
   return (roots[0] || candidates[0]).pid
 }
@@ -290,6 +340,7 @@ export async function resolveLiveBrowserPid(input: {
   binary: string
   launcherPid?: number
   list?: ProcessLister
+  platform?: NodeJS.Platform
   attempts?: number
   intervalMs?: number
   sleep?: (ms: number) => Promise<void>
@@ -311,7 +362,8 @@ export async function resolveLiveBrowserPid(input: {
       profilePath: input.profilePath,
       binary: input.binary,
       launcherPid: input.launcherPid,
-      rows: list()
+      rows: list(),
+      platform: input.platform
     })
 
     if (last && last !== input.launcherPid) return last

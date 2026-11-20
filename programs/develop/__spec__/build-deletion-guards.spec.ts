@@ -24,7 +24,7 @@ const plain = (text: unknown) =>
     .replace(/^\S+ (?:(?:Warning|Error): )?/, '')
 
 // The project sits one level down, so the folder above it is ours to fill.
-function project(config?: string) {
+function project(outputPath?: string) {
   const parent = fs.realpathSync(tempFolder('extjs-guard-'))
   const root = path.join(parent, 'project')
   fs.mkdirSync(root)
@@ -46,7 +46,14 @@ function project(config?: string) {
 
   fs.writeFileSync(path.join(root, 'background.js'), 'console.log(1)\n')
 
-  if (config) fs.writeFileSync(path.join(root, 'extension.config.js'), config)
+  if (outputPath !== undefined) {
+    fs.writeFileSync(
+      path.join(root, 'output-path.json'),
+      JSON.stringify({path: outputPath})
+    )
+
+    fs.writeFileSync(path.join(root, 'extension.config.js'), REPOINTED_CONFIG)
+  }
 
   return {parent, root}
 }
@@ -74,8 +81,10 @@ async function build(root: string, options: Record<string, unknown> = {}) {
   return {summary, failure}
 }
 
-const repoint = (target: string) =>
-  `module.exports = {config: (c) => ({...c, output: {...c.output, path: ${JSON.stringify(target)}}})}\n`
+// The folder is data the config reads, never text written into its code.
+const REPOINTED_CONFIG =
+  "const {path} = require('./output-path.json')\n" +
+  'module.exports = {config: (c) => ({...c, output: {...c.output, path}})}\n'
 
 const OUTPUT_PATH_FIX =
   'The build empties its output folder before it writes, so nothing was built and nothing was deleted. Point output.path at a folder of its own such as build.'
@@ -85,7 +94,7 @@ const OUT_DIR_FIX =
 
 describe('a re-pointed output.path the build must not empty', () => {
   it('refuses the project root and keeps every project file', async () => {
-    const {root} = project(repoint('.'))
+    const {root} = project('.')
     const {failure} = await build(root)
 
     expect(failure?.code).toBe('E_INVALID_OPTION')
@@ -98,7 +107,7 @@ describe('a re-pointed output.path the build must not empty', () => {
   }, 120_000)
 
   it('refuses a folder above the project and keeps what sits beside it', async () => {
-    const {parent, root} = project(repoint('..'))
+    const {parent, root} = project('..')
     fs.writeFileSync(path.join(parent, 'SENTINEL.txt'), 'PRECIOUS')
 
     const {failure} = await build(root)
@@ -119,7 +128,7 @@ describe('a re-pointed output.path the build must not empty', () => {
     const elsewhere = fs.realpathSync(tempFolder('extjs-guard-cwd-'))
     fs.writeFileSync(path.join(elsewhere, 'SENTINEL.txt'), 'PRECIOUS')
 
-    const {root} = project(repoint(elsewhere))
+    const {root} = project(elsewhere)
     process.chdir(elsewhere)
 
     const {failure} = await build(root)
@@ -135,7 +144,7 @@ describe('a re-pointed output.path the build must not empty', () => {
   }, 120_000)
 
   it('refuses the session state folder and keeps a managed profile', async () => {
-    const {root} = project(repoint('dist/extension-js'))
+    const {root} = project('dist/extension-js')
     const profile = path.join(
       root,
       'dist',
@@ -157,7 +166,7 @@ describe('a re-pointed output.path the build must not empty', () => {
   }, 120_000)
 
   it('still empties a folder of its own before it writes', async () => {
-    const {root} = project(repoint('build'))
+    const {root} = project('build')
     fs.mkdirSync(path.join(root, 'build'))
     fs.writeFileSync(path.join(root, 'build', 'stale.js'), 'old')
 
@@ -372,7 +381,7 @@ describe('a folder that holds the session state', () => {
     fs.readdirSync(dir, {recursive: true}).map(String).sort()
 
   it('is refused as a re-pointed output.path, with nothing under it touched', async () => {
-    const {root} = project(repoint('dist'))
+    const {root} = project('dist')
     const profile = withProfile(root)
     const before = listed(path.join(root, 'dist'))
 

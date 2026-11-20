@@ -16,6 +16,7 @@ import {
   invokingNpmrcReleaseAge,
   KILL_GRACE_MS,
   runInstall,
+  windowsTaskkillPath,
   withoutInheritedReleaseAge
 } from '../install-runner'
 
@@ -255,12 +256,23 @@ describe('install-runner runInstall', () => {
 
       expect(calls.map((call) => [call.command, ...call.args])).toEqual([
         ['pnpm', 'install'],
-        ['taskkill', '/pid', String(calls[0].pid), '/T', '/F']
+        [windowsTaskkillPath(), '/pid', String(calls[0].pid), '/T', '/F']
       ])
 
       expect(calls[1].options).toEqual({stdio: 'ignore'})
+      // A grandchild that outlives the tree kill cannot keep this process up.
+      expect(calls[0].destroyed).toEqual(['stdout', 'stderr'])
       expect(calls[0].options).not.toHaveProperty('detached')
       expect(calls[0].signals).toEqual([])
+    })
+
+    // A taskkill earlier on PATH, such as one a project folder ships, never runs.
+    it.each([
+      [{SystemRoot: 'D:\\Windows'}, 'D:\\Windows\\System32\\taskkill.exe'],
+      [{windir: 'E:\\WINNT'}, 'E:\\WINNT\\System32\\taskkill.exe'],
+      [{}, 'C:\\Windows\\System32\\taskkill.exe']
+    ])('starts taskkill from the system folder for %o', (env, expected) => {
+      expect(windowsTaskkillPath(env)).toBe(expected)
     })
 
     it('ends the whole group on POSIX, then kills what is left after the grace', async () => {
@@ -432,6 +444,49 @@ describe('install-runner runInstall', () => {
 
       expect(invokingNpmrcReleaseAge({}, nested)).toBe('4320')
       expect(invokingNpmrcReleaseAge({}, checkoutWithNpmrc(null))).toBeNull()
+    })
+
+    // pnpm 10 reads its settings from pnpm-workspace.yaml as well, and a value
+    // there wins over .npmrc in the same folder, as pnpm config get answers.
+    it.each([
+      ['a bare number', 'minimumReleaseAge: 4320\n', '4320'],
+      ['a quoted number', "minimumReleaseAge: '4320'\n", '4320'],
+      ['a comment after it', 'minimumReleaseAge: 4320 # three days\n', '4320'],
+      [
+        'its exclusions beside it',
+        'minimumReleaseAge: 60\nminimumReleaseAgeExclude:\n  - image-size\n',
+        '60'
+      ]
+    ])('reads the rule from the pnpm-workspace.yaml above, with %s', (_label, yaml, expected) => {
+      const nested = checkoutWithNpmrc(null)
+      fs.writeFileSync(
+        path.join(nested, '..', '..', 'pnpm-workspace.yaml'),
+        `packages:\n  - './programs/*'\n${yaml}`
+      )
+
+      expect(invokingNpmrcReleaseAge({INIT_CWD: nested}, os.tmpdir())).toBe(
+        expected
+      )
+    })
+
+    it('takes the pnpm-workspace.yaml value over .npmrc in the same folder', () => {
+      const nested = checkoutWithNpmrc('10')
+      fs.writeFileSync(
+        path.join(nested, '..', '..', 'pnpm-workspace.yaml'),
+        'minimumReleaseAge: 4320\n'
+      )
+
+      expect(invokingNpmrcReleaseAge({}, nested)).toBe('4320')
+    })
+
+    it('reads no rule from a key nested under another setting', () => {
+      const nested = checkoutWithNpmrc(null)
+      fs.writeFileSync(
+        path.join(nested, '..', '..', 'pnpm-workspace.yaml'),
+        'catalog:\n  minimumReleaseAge: 4320\n'
+      )
+
+      expect(invokingNpmrcReleaseAge({}, nested)).toBeNull()
     })
 
     it('drops the value the checkout .npmrc exported and its exclusions', () => {

@@ -53,6 +53,7 @@ import {
   loadProjectConfigDefaults
 } from './lib/config-loader'
 import {ConfigResolvedPlugin} from './lib/config-resolved-plugin'
+import {STOCK_COMPANION_EXTENSIONS} from './lib/constants'
 import {
   findDuplicateOutputFiles,
   importedAssetSources
@@ -131,10 +132,7 @@ import {removeDevelopmentArtifacts} from './plugin-reload/reload-lib/development
 import {resolveCompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/resolve-config'
 import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 import {rememberExcludedFiles} from './plugin-special-folders/folders-config'
-import {
-  getSpecialFoldersDataForProjectRoot,
-  rememberSpecialFoldersConfig
-} from './plugin-special-folders/get-data'
+import {rememberSpecialFoldersConfig} from './plugin-special-folders/get-data'
 import type {
   BuildOptions,
   CommonWebpackOptions,
@@ -552,11 +550,6 @@ async function runBuild(
       commandConfig.folders ?? browserConfig.folders ?? projectConfig.folders
     rememberSpecialFoldersConfig(packageJsonDir, foldersConfig)
 
-    const specialFoldersData = getSpecialFoldersDataForProjectRoot(
-      packageJsonDir,
-      foldersConfig
-    )
-
     // stock defaults, then top-level config, then browser.*, then command
     // config, then CLI. Unset CLI keys are stripped so config wins. An
     // explicit flag beats it. The browser layer matches dev:
@@ -626,7 +619,7 @@ async function runBuild(
       commandConfig.extensions ??
       browserConfig.extensions ??
       projectConfig.extensions ??
-      specialFoldersData.extensions
+      STOCK_COMPANION_EXTENSIONS
     // Nothing a build writes loads a companion. Only the start leg, whose
     // launch follows, resolves them, which is where a store download happens.
     const resolvedExtensionsConfig: CompanionExtensionsConfig | undefined =
@@ -825,6 +818,19 @@ async function runBuild(
       writeFailedReceipt(openReceipt(), error)
     }
 
+    // The Safari app is part of what a Safari build answers for, so ready
+    // waits for the packager and a failure there is the receipt's too.
+    const packagingFollows = Boolean(safariPackager && safariIdentity)
+
+    const writeReadyWhenHeld = () => {
+      if (
+        mergedBuildOptions.launchFollows !== true &&
+        typeof heldReceipt()?.compiledAt === 'string'
+      ) {
+        openReceipt().writeReady()
+      }
+    }
+
     let summary: BuildSummary = {
       browser,
       buildType,
@@ -843,7 +849,12 @@ async function runBuild(
         err: Error | null,
         stats: Parameters<Parameters<typeof compiler.run>[0]>[1]
       ) => {
-        if (err) return reject(fatalFailure(err, packageJsonDir))
+        if (err) {
+          return reject(
+            outputNotWritable(err, nodePath.dirname(distPath)) ??
+              fatalFailure(err, packageJsonDir)
+          )
+        }
 
         // Guard against silent-success scenarios where the bundler callback
         // does not provide stats, which means we cannot trust emission output.
@@ -895,6 +906,16 @@ async function runBuild(
         }
 
         if (!stats.hasErrors()) {
+          // Read before the output is published: a throw here fails the
+          // build, and a failed build leaves the folder as it found it.
+          // Anonymized aggregates (no filenames or paths)
+          const info = stats?.toJson({
+            all: false,
+            assets: true,
+            warnings: true,
+            errors: true
+          })
+
           // Publish the finished staging dir before any success receipt so a
           // green line is never printed over a half-populated dist.
           if (useStagingSwap && fs.existsSync(stagingDistPath)) {
@@ -936,14 +957,6 @@ async function runBuild(
 
             warnProductionLoopbackOrigins(displayDistPath, quiet)
           }
-
-          // Anonymized aggregates (no filenames or paths)
-          const info = stats?.toJson({
-            all: false,
-            assets: true,
-            warnings: true,
-            errors: true
-          })
 
           // The summary names the folder the artifacts landed in, which under
           // a re-pointed output.path is not dist/<browser>.
@@ -1153,11 +1166,8 @@ async function runBuild(
                 summary.errors
               )
             }
-          } else if (
-            mergedBuildOptions.launchFollows !== true &&
-            typeof heldReceipt()?.compiledAt === 'string'
-          ) {
-            openReceipt().writeReady()
+          } else if (!packagingFollows) {
+            writeReadyWhenHeld()
           }
 
           if (zipFailures.length > 0) {
@@ -1344,6 +1354,8 @@ async function runBuild(
       }
     }
 
+    if (packagingFollows) writeReadyWhenHeld()
+
     succeeded = true
 
     return summary
@@ -1444,6 +1456,32 @@ function readableFailure(thrown: unknown, projectRoot: string): Error {
   return Object.assign(new Error(messages.thrownValueText(thrown)), {
     cause: thrown
   })
+}
+
+const WRITE_REFUSALS: Record<string, string> = {
+  EACCES: 'permission denied',
+  EPERM: 'operation not permitted',
+  EROFS: 'read-only file system'
+}
+
+// The bundler reports a folder it may not write to as its own fatal error.
+// It is the output folder's state, so it is named as that, with the folder.
+function outputNotWritable(thrown: unknown, outputRoot: string) {
+  const text = thrown instanceof Error ? thrown.message : String(thrown)
+  const code = Object.keys(WRITE_REFUSALS).find((name) => text.includes(name))
+
+  if (!code || !text.includes(outputRoot)) return undefined
+
+  return Object.assign(
+    codedError(
+      CODES.E_OUTPUT_NOT_WRITABLE,
+      messages.buildOutputFolderNotWritable(
+        displayPath(outputRoot),
+        `${code}: ${WRITE_REFUSALS[code]}`
+      )
+    ),
+    {cause: thrown}
+  )
 }
 
 // A throw from a plugin or from the bundler itself, with no compile error

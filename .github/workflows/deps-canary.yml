@@ -63,8 +63,8 @@ jobs:
         run: echo "::notice title=${{ matrix.leg }}::no prerelease is ahead of the lockfile this week, nothing to test"
 
       # --no-frozen-lockfile because the overrides change the resolution.
-      # minimum-release-age is lifted because .npmrc holds it at three days
-      # and a canary published this morning is exactly what this lane wants.
+      # minimum-release-age is lifted because pnpm-workspace.yaml holds it at
+      # three days and a canary published this morning is what this lane wants.
       - name: Install with the overrides
         if: steps.overrides.outputs.count != '0'
         run: pnpm install --no-frozen-lockfile --config.minimum-release-age=0

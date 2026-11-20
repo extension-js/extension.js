@@ -11,7 +11,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import {test} from 'node:test'
 import {fileURLToPath} from 'node:url'
-import {job, readWorkflow} from '../lib/workflow-yaml.mjs'
+import {job, readWorkflow, runText} from '../lib/workflow-yaml.mjs'
 import {workspaceSourceEntries} from '../lib/workspace-source-entries.mjs'
 
 const root = path.resolve(
@@ -143,11 +143,15 @@ test('no workflow and no root script builds a package around its compile script'
   }
 })
 
+// Every run line of every job, so a comment that names a command counts for
+// nothing.
+/** @param {string} file */
+function workflowRuns(file) {
+  return Object.values(readWorkflow(file).jobs).map(runText).join('\n')
+}
+
 test('the release workflow compiles each published package by its compile script', () => {
-  const release = fs.readFileSync(
-    path.join(root, '.github', 'workflows', 'publish-release.yml'),
-    'utf8'
-  )
+  const release = workflowRuns('publish-release.yml')
 
   for (const name of declarationPackages()) {
     const packageName = readJson('programs', name, 'package.json').name
@@ -195,11 +199,10 @@ test('ci checks the emitted declarations in the job that compiles all four packa
 
   assert.ok(smoke !== -1 && check > smoke, runs.join(', '))
 
-  const ci = fs.readFileSync(
-    path.join(root, '.github', 'workflows', 'ci.yml'),
-    'utf8'
+  assert.equal(
+    workflowRuns('ci.yml').split('check-emitted-types.mjs').length - 1,
+    1
   )
-  assert.equal(ci.split('check-emitted-types.mjs').length - 1, 1)
 
   const smokeScript = fs.readFileSync(
     path.join(root, 'scripts', 'smoke-npx.mjs'),
