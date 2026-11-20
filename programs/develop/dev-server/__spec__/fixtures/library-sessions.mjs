@@ -1,7 +1,11 @@
 import {EventEmitter} from 'node:events'
 import fs from 'node:fs'
 import path from 'node:path'
-import {endSessionAsFailed, extensionDev} from '../../../dist/module.mjs'
+import {
+  endSessionAsFailed,
+  extensionBuild,
+  extensionDev
+} from '../../../dist/module.mjs'
 
 // A host that goes on running: dev sessions started from the built library,
 // each ended by a failure, and what the process still holds after them.
@@ -40,13 +44,30 @@ function watchServers() {
   }
 }
 
-// The cap sits below the spec's own process timeout, so a wait that never
-// ends still reports false instead of leaving no result. The beat covers
-// what no event announces, such as an output file the session wrote.
-const WAIT_CAP_MS = 120_000
+// One deadline for the whole scenario, below the spec's own process timeout.
+// A wait still open then answers false and is named in the STUCK line, so a
+// scenario that chains several never ends as a kill with no result.
+const SCENARIO_DEADLINE_MS =
+  Number(process.env.LIBRARY_HOST_DEADLINE_MS) || 120_000
+const STEP_GRACE_MS = 15_000
 const RECHECK_MS = 250
+const deadline = Date.now() + SCENARIO_DEADLINE_MS
+const stuckWaits = []
 
-function until(read) {
+const stuckLine = () =>
+  stuckWaits.length > 0 ? `\nSTUCK ${JSON.stringify(stuckWaits)}` : ''
+
+// A step that is no wait (a start that never settles) has no false to give,
+// so the host says where it stood and exits before the spec would kill it.
+setTimeout(() => {
+  stuckWaits.push('a step that is not a wait')
+  fs.writeSync(1, `${stuckLine()}\n`)
+  process.exit(1)
+}, SCENARIO_DEADLINE_MS + STEP_GRACE_MS).unref()
+
+// The beat covers what no event announces, such as an output file the
+// session wrote.
+function until(name, read) {
   return new Promise((resolve) => {
     const finish = (value) => {
       clearTimeout(cap)
@@ -59,7 +80,13 @@ function until(read) {
       if (read()) finish(true)
     }
 
-    const cap = setTimeout(() => finish(false), WAIT_CAP_MS)
+    const cap = setTimeout(
+      () => {
+        stuckWaits.push(name)
+        finish(false)
+      },
+      Math.max(0, deadline - Date.now())
+    )
     const beat = setInterval(check, RECHECK_MS)
 
     changed.on('change', check)
@@ -83,7 +110,7 @@ const envChangedSince = (before) =>
 
 // A content script emitted by the compiler a restart built for it.
 const untilContentScript = (dir) =>
-  until(() => {
+  until('the content script of a restart', () => {
     try {
       return fs
         .readdirSync(path.join(dir, 'dist', 'chromium', 'content_scripts'))
@@ -232,7 +259,10 @@ async function failingStarts() {
 
   // A closing socket leaves the handle list a moment after its close.
   watchServers()
-  const socketsClosed = await until(() => listening().length === 0)
+  const socketsClosed = await until(
+    'every socket closed',
+    () => listening().length === 0
+  )
 
   return {
     before,
@@ -254,14 +284,17 @@ async function restartWhileAnotherSessionLives() {
   const newer = project('newer', CONFIGS.start)
   const a = start(older)
   const olderStarted = await a.session
-  await until(() => a.isReady())
+  await until('the older session ready', () => a.isReady())
 
   // What the older session alone holds, which the newer one must give back.
   const olderAlone = listeners()
   const envWithOlderAlone = envCopy()
   const b = start(newer)
   const started = [olderStarted, await b.session]
-  const bothReady = await until(() => a.isReady() && b.isReady())
+  const bothReady = await until(
+    'both sessions ready',
+    () => a.isReady() && b.isReady()
+  )
   const live = listeners()
   const listeningLive = listening().length
   const fsAsFoundWhileLive = fsSurface().every(
@@ -277,11 +310,13 @@ async function restartWhileAnotherSessionLives() {
   fs.writeFileSync(path.join(newer, 'manifest.json'), withContentScript)
 
   const newerReleased = await until(
+    'the newer session released',
     () =>
       listeners().join() !== live.join() && listening().length < listeningLive
   )
   // The exit listener comes off last, after the server, bridge and port.
   const newerSettled = await until(
+    'the newer session settled',
     () => listeners().join() === olderAlone.join()
   )
   const afterNewerEnded = listeners()
@@ -314,14 +349,14 @@ async function endedAsFailedByTheCli() {
   const before = endSessionAsFailed('E_PARENT_GONE', 'too early')
   const session = start(project('ended', CONFIGS.start), {exitOnError: true})
   await session.session
-  await until(() => session.isReady())
+  await until('the session ready', () => session.isReady())
 
   const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
 
   process.on('exit', (code) => {
     fs.writeSync(
       1,
-      `\nRESULT ${JSON.stringify({before, ended, exitCode: code})}\n`
+      `${stuckLine()}\nRESULT ${JSON.stringify({before, ended, exitCode: code})}\n`
     )
   })
 
@@ -339,11 +374,14 @@ async function endedAsFailedByALibraryHost() {
   const newer = project('newer', CONFIGS.start)
   const a = start(older)
   await a.session
-  await until(() => a.isReady())
+  await until('the older session ready', () => a.isReady())
   const olderAlone = listeners()
   const b = start(newer)
   await b.session
-  const bothReady = await until(() => a.isReady() && b.isReady())
+  const bothReady = await until(
+    'both sessions ready',
+    () => a.isReady() && b.isReady()
+  )
   const unknown = endSessionAsFailed('E_PARENT_GONE', 'gone', 'no-such-id')
   const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
   const again = endSessionAsFailed(
@@ -352,6 +390,7 @@ async function endedAsFailedByALibraryHost() {
     readyField(newer, 'instanceId')
   )
   const newerSettled = await until(
+    'the newer session settled',
     () => listeners().join() === olderAlone.join()
   )
 
@@ -416,7 +455,10 @@ async function usageRefusalKeepsTheContract() {
     () => false
   )
   // The watch closes during the release, and the exit listener comes off last.
-  const released = await until(() => listeners().join() === before.join())
+  const released = await until(
+    'the host listeners released',
+    () => listeners().join() === before.join()
+  )
   const ready = JSON.parse(fs.readFileSync(file, 'utf8'))
 
   return {
@@ -441,15 +483,21 @@ async function twoStartsInOneTick() {
   const second = start(dir)
   const results = [await first.session, await second.session]
   const running = [first, second][results.findIndex((r) => r.started)]
-  await until(() => running?.isReady())
+  await until('the running start ready', () => running?.isReady())
   const firstId = readyField(dir, 'instanceId')
   const ended = endSessionAsFailed('E_PARENT_GONE', 'the owner is gone')
-  const released = await until(() => listeners().join() === before.join())
+  const released = await until(
+    'the host listeners released',
+    () => listeners().join() === before.join()
+  )
   const third = start(dir)
   const thirdResult = await third.session
-  await until(() => third.isReady())
+  await until('the third start ready', () => third.isReady())
   endSessionAsFailed('E_PARENT_GONE', 'done')
-  await until(() => listeners().join() === before.join())
+  await until(
+    'the last session released',
+    () => listeners().join() === before.join()
+  )
 
   return {
     results: results.map(({started, code, framed}) => ({
@@ -484,12 +532,18 @@ async function wiringThrowsAfterTheServerStarts() {
 
   const first = await start(dir).session
   process.on = on
-  const released = await until(() => listeners().join() === before.join())
+  const released = await until(
+    'the host listeners released',
+    () => listeners().join() === before.join()
+  )
   const second = start(dir)
   const secondResult = await second.session
-  await until(() => second.isReady())
+  await until('the second start ready', () => second.isReady())
   endSessionAsFailed('E_PARENT_GONE', 'done')
-  await until(() => listeners().join() === before.join())
+  await until(
+    'the last session released',
+    () => listeners().join() === before.join()
+  )
 
   return {
     first: {started: first.started, message: first.message},
@@ -514,22 +568,69 @@ async function endedBeforeAnySession() {
   process.exit(1)
 }
 
-const result =
-  scenario === 'usage-refusal'
-    ? await usageRefusalKeepsTheContract()
-    : scenario === 'same-tick'
-      ? await twoStartsInOneTick()
-      : scenario === 'wiring'
-        ? await wiringThrowsAfterTheServerStarts()
-        : scenario === 'end-before-session'
-          ? await endedBeforeAnySession()
-          : scenario === 'restart'
-            ? await restartWhileAnotherSessionLives()
-            : scenario === 'end-as-failed'
-              ? await endedAsFailedByALibraryHost()
-              : scenario === 'end-as-failed-cli'
-                ? await endedAsFailedByTheCli()
-                : await failingStarts()
+// A dev session holds the project's env files, and a build of the same
+// project that ends beside it must leave them where the session reads them.
+async function buildBesideALiveSession() {
+  const before = listeners()
+  const dir = project('held', CONFIGS.start)
+  fs.writeFileSync(path.join(dir, '.env'), 'EXTENSION_PUBLIC_HOST_PROBE=1\n')
+  const session = start(dir)
+  await session.session
+  await until('the session ready', () => session.isReady())
 
-process.stdout.write(`\nRESULT ${JSON.stringify(result)}\n`)
+  const built = await extensionBuild(dir, {
+    browser: 'firefox',
+    install: false,
+    silent: true,
+    exitOnError: false
+  }).then(
+    () => true,
+    (error) => String(error?.message ?? error)
+  )
+  const probeAfterBuild = process.env.EXTENSION_PUBLIC_HOST_PROBE ?? null
+
+  endSessionAsFailed('E_PARENT_GONE', 'done')
+  const released = await until(
+    'the host listeners released',
+    () => listeners().join() === before.join()
+  )
+
+  return {
+    built,
+    probeAfterBuild,
+    released,
+    probeAfterSession: process.env.EXTENSION_PUBLIC_HOST_PROBE ?? null
+  }
+}
+
+// A wait that never comes true, for the deadline itself.
+async function waitsForWhatNeverComes() {
+  const first = await until('what never comes', () => false)
+  const second = await until('a wait after the deadline', () => false)
+
+  return {first, second}
+}
+
+const result =
+  scenario === 'stuck'
+    ? await waitsForWhatNeverComes()
+    : scenario === 'build-beside-dev'
+      ? await buildBesideALiveSession()
+      : scenario === 'usage-refusal'
+        ? await usageRefusalKeepsTheContract()
+        : scenario === 'same-tick'
+          ? await twoStartsInOneTick()
+          : scenario === 'wiring'
+            ? await wiringThrowsAfterTheServerStarts()
+            : scenario === 'end-before-session'
+              ? await endedBeforeAnySession()
+              : scenario === 'restart'
+                ? await restartWhileAnotherSessionLives()
+                : scenario === 'end-as-failed'
+                  ? await endedAsFailedByALibraryHost()
+                  : scenario === 'end-as-failed-cli'
+                    ? await endedAsFailedByTheCli()
+                    : await failingStarts()
+
+process.stdout.write(`${stuckLine()}\nRESULT ${JSON.stringify(result)}\n`)
 process.exit(0)

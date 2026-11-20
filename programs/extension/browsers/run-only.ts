@@ -312,6 +312,9 @@ const WAKE_BACKGROUND_TIMEOUT_MS = 3000
 
 export interface PreviewBrowserSession {
   wakeBackground?(): Promise<boolean>
+  // Settles once the browser is gone, so the caller gives back what the
+  // session held in a host that goes on running.
+  ended?: Promise<void>
 }
 
 // Preview builds nothing, so no build warned about what it loads. Firefox
@@ -345,6 +348,31 @@ const EXIT_POLL_MS = 50
 interface LaunchedBrowser {
   spawnedBrowser: boolean
   browserClosed: boolean
+}
+
+const BROWSER_GONE_POLL_MS = 250
+
+// A launch that spawned nothing has no browser to wait for. The beat never
+// keeps the process alive by itself.
+function untilBrowserGone(launcher: LaunchedBrowser): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const isGone = () => !launcher.spawnedBrowser || launcher.browserClosed
+
+    if (isGone()) {
+      resolve()
+
+      return
+    }
+
+    const beat = setInterval(() => {
+      if (!isGone()) return
+
+      clearInterval(beat)
+      resolve()
+    }, BROWSER_GONE_POLL_MS)
+
+    beat.unref?.()
+  })
 }
 
 export async function runOnlyPreviewBrowser(
@@ -546,7 +574,7 @@ async function launchPreviewSession(
       throw asLaunchFailure(error, opts.browser, launcher.spawnedBrowser)
     }
 
-    return
+    return {ended: untilBrowserGone(launcher)}
   }
 
   // Gecko forks (waterfox/librewolf) route here too.
@@ -577,6 +605,7 @@ async function launchPreviewSession(
   // Firefox suspends an idle event page and the control producer with it,
   // so a start session's bridge asks for it back the way dev's does.
   return {
+    ended: untilBrowserGone(launcher),
     async wakeBackground() {
       const controller = ctx.getController?.()
       if (!controller) return false

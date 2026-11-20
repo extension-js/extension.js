@@ -3,6 +3,7 @@ import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
+import {controlledBuildParts} from '../../../controlled-build-parts'
 import {readControlToken} from '../../../dev-server/control-bridge/session-token'
 import {buildDevProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
 import {TAKE_BLOCK_OPEN} from '../../extension-base-from-stack'
@@ -68,6 +69,7 @@ describe('startProductionControl', () => {
     const {projectDir, distPath} = makeProject()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -120,6 +122,7 @@ describe('startProductionControl', () => {
     const {projectDir, distPath} = makeProject()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -139,6 +142,7 @@ describe('startProductionControl', () => {
     const {projectDir, distPath} = makeProject()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -149,6 +153,7 @@ describe('startProductionControl', () => {
     await session.close()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -165,6 +170,7 @@ describe('startProductionControl', () => {
   it('keeps the token of a session that started before the last one closed', async () => {
     const {projectDir, distPath} = makeProject()
     const options = {
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -191,6 +197,7 @@ describe('startProductionControl', () => {
     const {projectDir, distPath} = makeProject()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -202,6 +209,7 @@ describe('startProductionControl', () => {
     await session.close()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -233,6 +241,7 @@ describe('startProductionControl', () => {
     const {projectDir, distPath} = makeProject()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -289,6 +298,7 @@ describe('the answers of a start or preview session', () => {
     const {projectDir, distPath} = makeProject()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       command,
@@ -309,6 +319,7 @@ describe('the answers of a start or preview session', () => {
     fs.rmSync(path.join(distPath, 'background'), {recursive: true})
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       command: 'start',
@@ -337,6 +348,7 @@ describe('a built file in a nested folder named background', () => {
     fs.writeFileSync(path.join(distPath, nested), vendored)
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       distPath,
@@ -390,6 +402,7 @@ describe('a build whose background sits where its manifest says', () => {
     })
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       command: 'preview',
@@ -413,6 +426,7 @@ describe('a build whose background sits where its manifest says', () => {
     })
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'chrome',
       command: 'preview',
@@ -439,6 +453,7 @@ describe('a build whose background sits where its manifest says', () => {
     fs.writeFileSync(path.join(distPath, 'second.js'), WORKER)
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       command: 'preview',
@@ -552,6 +567,7 @@ describe('a build folder that is its own project root', () => {
     const root = makeBareBuild()
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: root,
       browser: 'chrome',
       distPath: root,
@@ -616,6 +632,7 @@ describe('a build folder that is its own project root', () => {
     fs.writeFileSync(path.join(root, file), WORKER)
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: root,
       browser,
       command: 'preview',
@@ -681,6 +698,7 @@ describe("the controlled copy's content security policy", () => {
     })
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       distPath,
@@ -708,6 +726,7 @@ describe("the controlled copy's content security policy", () => {
     })
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       distPath,
@@ -739,6 +758,7 @@ describe("the controlled copy's content security policy", () => {
     })
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       distPath,
@@ -762,6 +782,7 @@ describe("the controlled copy's content security policy", () => {
     })
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       distPath,
@@ -781,6 +802,7 @@ describe("the controlled copy's content security policy", () => {
     const wakeExecutor = vi.fn(async () => true)
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       distPath,
@@ -859,6 +881,7 @@ describe("the controlled copy's page relays", () => {
     }
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       distPath,
@@ -904,6 +927,7 @@ describe("the controlled copy's page relays", () => {
     fs.writeFileSync(path.join(distPath, rel), `${TAKE_BLOCK_OPEN}${BODY}`)
 
     session = await startProductionControl({
+      parts: controlledBuildParts,
       packageJsonDir: projectDir,
       browser: 'firefox',
       distPath,

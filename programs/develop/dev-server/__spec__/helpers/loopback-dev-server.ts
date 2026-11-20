@@ -49,7 +49,6 @@ export function createFixture(prefix: string) {
 
 export async function bootLoopback(options: {
   root: string
-  env?: Readonly<Record<string, string | undefined>>
   beforeServer?: (compiler: Compiler, distPath: string) => void
   input?: (port: number) => Partial<ServerConfigInput>
   start?: (server: RspackDevServer, port: number) => Promise<void>
@@ -99,13 +98,11 @@ export async function bootLoopback(options: {
     emulatorOrigin: null,
     isSessionExtensionOrigin: () => false,
     publicFolder,
-    packageJsonDir: root,
     emulatorFiles: null,
     activeCompiler: () => compiler,
     onHostRefused: () => {},
     onSiteRefused: () => {},
     server: undefined,
-    env: options.env ?? {},
     socketPath: LOOPBACK_SOCKET_PATH,
     ...options.input?.(port)
   })

@@ -5,8 +5,8 @@ import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {getEnvFileCandidates} from '../../plugin-compilation/env'
 import {
   envFileCandidates,
-  forgetPreloadedEnvOf,
   getPreloadedEnvKeys,
+  holdPreloadedEnvOf,
   loadCommandConfig,
   loadProjectConfigDefaults
 } from '../config-loader'
@@ -373,11 +373,12 @@ describe('env preload keeps two projects apart', () => {
   it('takes a project file values out of the host when its session ends', async () => {
     process.env.EXTENSION_PUBLIC_SHELL = 'from-shell'
     const first = project(FIRST_FILES)
+    const release = holdPreloadedEnvOf(first)
 
     await seenBy(first)
     expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBe('first-only')
 
-    forgetPreloadedEnvOf(first)
+    release()
 
     expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBeUndefined()
     expect(process.env.EXTENSION_PUBLIC_BOTH).toBeUndefined()
@@ -385,13 +386,64 @@ describe('env preload keeps two projects apart', () => {
     expect([...getPreloadedEnvKeys()]).toEqual([])
   })
 
+  it('keeps the values until the last of two holders gives them back', async () => {
+    const first = project(FIRST_FILES)
+    const session = holdPreloadedEnvOf(first)
+    const build = holdPreloadedEnvOf(first)
+
+    await seenBy(first)
+    build()
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBe('first-only')
+
+    // The same holder giving back twice is not a second holder leaving.
+    build()
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBe('first-only')
+
+    session()
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBeUndefined()
+    expect([...getPreloadedEnvKeys()]).toEqual([])
+  })
+
+  it('counts a holder that names the same folder through another spelling', async () => {
+    const first = project(FIRST_FILES)
+    const session = holdPreloadedEnvOf(path.join(first, 'src', '..'))
+    const build = holdPreloadedEnvOf(first)
+
+    await seenBy(first)
+    build()
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBe('first-only')
+
+    session()
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBeUndefined()
+  })
+
+  it('takes the values out for a holder that never loaded and then failed', async () => {
+    const first = project(FIRST_FILES)
+    const failedStart = holdPreloadedEnvOf(first)
+
+    failedStart()
+
+    const next = holdPreloadedEnvOf(first)
+
+    await seenBy(first)
+    next()
+
+    expect(process.env.EXTENSION_PUBLIC_ONLY_FIRST).toBeUndefined()
+  })
+
   it('leaves the values of another project loaded since then in place', async () => {
     const first = project(FIRST_FILES)
     const second = project(SECOND_FILES)
+    const release = holdPreloadedEnvOf(first)
 
     await seenBy(first)
     await seenBy(second)
-    forgetPreloadedEnvOf(first)
+    release()
 
     expect(process.env.EXTENSION_PUBLIC_BOTH).toBe('second-both')
     expect([...getPreloadedEnvKeys()].sort()).toEqual([

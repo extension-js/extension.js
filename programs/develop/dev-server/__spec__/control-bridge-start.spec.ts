@@ -4,10 +4,14 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
 import {controlPortFilePath} from '../../lib/session-paths'
+import {
+  createPlaywrightMetadataWriter,
+  PlaywrightPlugin
+} from '../../plugin-playwright'
 import type {BridgeBroker} from '../control-bridge/broker'
 import {CONTROL_WS_PATH} from '../control-bridge/contracts'
 import type {ControlServer} from '../control-bridge/ws-control-server'
-import {openControlBridge} from '../control-bridge-start'
+import {controlCoordinatesOf, openControlBridge} from '../control-bridge-start'
 import {stripAnsi} from '../lifecycle-stream'
 
 const roots: string[] = []
@@ -117,6 +121,71 @@ describe('opening the control bridge', () => {
     expect(printed[0]).toContain("couldn't open the control port")
     expect(printed[0]).toContain('listen EADDRNOTAVAIL 10.0.0.9:0')
     expect(printed[0]).toContain('nothing reloads in the browser')
+  })
+
+  it('hands the bind failure to both writers of the session contract', async () => {
+    const root = project()
+    const {broker, logFile, actionsFile} = fakes()
+    const opening = await openControlBridge({
+      broker: broker as unknown as BridgeBroker,
+      host: '127.0.0.1',
+      viewerOrigin: null,
+      packageJsonDir: root,
+      browserName: 'chrome',
+      logFile,
+      actionsFile,
+      print: () => {},
+      startServer: (async () => {
+        throw new Error('listen EADDRNOTAVAIL 10.0.0.9:0')
+      }) as never
+    })
+    const coordinates = controlCoordinatesOf(opening)
+    const contract = () =>
+      JSON.parse(
+        fs.readFileSync(
+          path.join(root, 'dist', 'extension-js', 'chrome', 'ready.json'),
+          'utf8'
+        )
+      )
+    const refused = {
+      controlPort: null,
+      controlPortUnavailableReason: 'listen EADDRNOTAVAIL 10.0.0.9:0'
+    }
+    const session = {
+      packageJsonDir: root,
+      browser: 'chrome',
+      manifestPath: path.join(root, 'manifest.json'),
+      port: 8080
+    }
+
+    expect(coordinates).toEqual({...refused, controlPath: CONTROL_WS_PATH})
+
+    // The session's own writer, which stamps what no compile does.
+    createPlaywrightMetadataWriter({
+      ...session,
+      ...coordinates,
+      command: 'dev',
+      distPath: path.join(root, 'dist', 'chrome')
+    }).writeStarting()
+
+    expect(contract()).toMatchObject(refused)
+
+    fs.rmSync(path.join(root, 'dist'), {recursive: true, force: true})
+
+    // The compiler's writer, built from the options the bundler config reads.
+    const anyHook = new Proxy(
+      {},
+      {get: () => ({tap: () => {}, tapPromise: () => {}, tapAsync: () => {}})}
+    )
+
+    new PlaywrightPlugin({
+      ...session,
+      ...coordinates,
+      mode: 'development',
+      outputPath: path.join(root, 'dist', 'chrome')
+    } as never).apply({hooks: anyHook} as never)
+
+    expect(contract()).toMatchObject(refused)
   })
 
   it('does not retry when no port was persisted', async () => {

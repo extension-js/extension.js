@@ -127,6 +127,13 @@
   instant within milliseconds. The browser and launcher times come from the
   process table (`ps -o lstart`, or the .NET `Process.StartTime` on Windows,
   bounded at 5 seconds) and are absent when it could not date the process
+- `pidStartId`, on Linux only: the boot id and the kernel's start tick of
+  `pid` (`/proc/sys/kernel/random/boot_id` and field 22 of `/proc/<pid>/stat`),
+  joined by a colon. `ps -o lstart` on Linux is the wall clock as it reads now
+  minus the process age, so a clock step (a resumed VM, WSL2) moves it and a
+  live session would read as a reused pid. This value does not move, so a
+  reader that can read it for the live pid compares it for equality and skips
+  the dates
 
 `events.ndjson` events (the file is reset at every run start and holds the
 current run only, join on `runId` to correlate across runs):
@@ -136,6 +143,7 @@ current run only, join on `runId` to correlate across runs):
 - `compile_error`
 - `browser_exited`
 - `browser_launch_failed`
+- `restart_failed`
 - `shutdown`
 
 Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
@@ -143,6 +151,11 @@ Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
 row adds `exitCode`, `exitSignal` and `browserExitedAt`. A
 `browser_launch_failed` row adds `browserLaunchFailedAt` and `reason`, and the
 contract it mirrors reads `status: error` with `code: browser_launch_failed`.
+A `restart_failed` row is a dev restart that could not be made (a config or
+entry change whose next compiler or server failed). It adds the error `code`,
+the `reason` and `serving`: `true` when the build from before the restart
+still serves the session, which then retries on the next change, and `false`
+when no server is left and the session ends.
 
 The stream is bounded like `logs.ndjson`: it rotates at 8 MB or 50,000 lines
 into `events.1.ndjson` through `events.3.ndjson`, and a single row over 64 KB
@@ -191,8 +204,9 @@ metadata.writeError('preview_manifest_missing', 'Expected manifest at ...')
   prints one warning naming the file and the error code. It is said again only
   after a write to that file succeeded in between.
 - A live dev session owns its contract while its `pid` is alive and started
-  at `pidStartedAt` (within 2 seconds). A reused pid owns nothing, so a build
-  beside it writes its own receipt.
+  at `pidStartedAt` (within 2 seconds). Where the contract carries
+  `pidStartId`, that decides instead and the dates are not read. A reused pid
+  owns nothing, so a build beside it writes its own receipt.
 
 - Keep extension payload clean: metadata lives under `dist/extension-js/*`, not `dist/<browser>`.
 - For scripts/agents, parse these files instead of terminal output.

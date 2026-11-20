@@ -8,13 +8,13 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import {controlledBuildParts} from './controlled-build-parts'
 import {CONTROL_WS_PATH} from './dev-server/control-bridge/contracts'
-import {startProductionControl} from './dev-server/control-bridge/production-control'
 import * as devServerMessages from './dev-server/messages'
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {codedError} from './lib/coded-error'
 import {
-  forgetPreloadedEnvOf,
+  holdPreloadedEnvOf,
   loadBrowserConfig,
   loadCommandConfig,
   loadProjectConfigDefaults
@@ -49,6 +49,7 @@ import {
   getDistPath,
   normalizeBrowser
 } from './lib/paths'
+import {startProductionControl} from './lib/production-control'
 import {getProjectStructure, type RemoteArchiveTarget} from './lib/project'
 import {linkFreePath} from './lib/real-path'
 import {
@@ -61,6 +62,7 @@ import {
   ensureSessionArtifactsIgnoreFile,
   sessionArtifactsRootDir
 } from './lib/session-paths'
+import {takeStartLaunchHoldings} from './lib/start-launch-handoff'
 import {assertNoManagedDependencyConflicts} from './lib/validate-user-dependencies'
 import {
   createPlaywrightMetadataWriter,
@@ -123,6 +125,8 @@ export interface ResolvedPreviewOptions {
 export interface PreviewBrowserSession {
   /** Start a suspended background again. Firefox only. */
   wakeBackground?(): Promise<boolean>
+  /** Settles once the browser this session opened is gone. */
+  ended?: Promise<void>
 }
 
 // The browser launcher the CLI injects. extensionPreview refuses to run
@@ -252,12 +256,47 @@ function firstOf(settled: Promise<void>, ms: number): Promise<void> {
   })
 }
 
-// What the host is handed back when the preview leg ends: the env files its
+// What the leg holds in its host until it ends: the env file values its
 // config loaded and the card of the folder it ran, `start`'s build card too.
 interface PreviewLeg {
-  projectDir: string
   outputPath: string
-  browserOpen: boolean
+  // Set once a browser is up, with what the launcher says about its end.
+  openSession?: PreviewBrowserSession
+  holdProject(projectDir: string): void
+  end(): void
+}
+
+function createPreviewLeg(
+  pathOrRemoteUrl: string | undefined,
+  startLeg: boolean
+): PreviewLeg {
+  const releases: Array<() => void> = []
+  let ended = false
+
+  const leg: PreviewLeg = {
+    outputPath: '',
+    holdProject(projectDir) {
+      releases.push(holdPreloadedEnvOf(projectDir))
+
+      if (startLeg) {
+        releases.push(...takeStartLaunchHoldings(pathOrRemoteUrl, projectDir))
+      }
+    },
+    end() {
+      if (ended) return
+
+      ended = true
+
+      // A start leg that failed before it found its project still owes the
+      // host what the build parked for the path both were given.
+      if (startLeg) releases.push(...takeStartLaunchHoldings(pathOrRemoteUrl))
+      if (leg.outputPath) releaseCardKeysOf(path.resolve(leg.outputPath))
+
+      for (const release of releases.splice(0)) release()
+    }
+  }
+
+  return leg
 }
 
 export async function extensionPreview(
@@ -265,22 +304,34 @@ export async function extensionPreview(
   previewOptions: PreviewOptions,
   browserLauncher?: PreviewLauncherFn
 ) {
-  const leg: PreviewLeg = {projectDir: '', outputPath: '', browserOpen: false}
+  const leg = createPreviewLeg(
+    pathOrRemoteUrl,
+    previewOptions.metadataCommand === 'start'
+  )
+  let result: Awaited<ReturnType<typeof runPreview>>
 
   try {
-    return await runPreview(
+    result = await runPreview(
       pathOrRemoteUrl,
       previewOptions,
       leg,
       browserLauncher
     )
-  } finally {
-    // An open browser is a live session, and it keeps both until it ends.
-    if (!leg.browserOpen) {
-      if (leg.outputPath) releaseCardKeysOf(path.resolve(leg.outputPath))
-      if (leg.projectDir) forgetPreloadedEnvOf(leg.projectDir)
-    }
+  } catch (error) {
+    leg.end()
+
+    throw error
   }
+
+  // An open browser is a live session, and it keeps both until it is gone.
+  // A launcher that cannot say when leaves them to the end of the process.
+  if (leg.openSession) {
+    void leg.openSession.ended?.then(leg.end, leg.end)
+  } else {
+    leg.end()
+  }
+
+  return result
 }
 
 async function runPreview(
@@ -317,7 +368,7 @@ async function runPreview(
   const debug = isDebug()
   const {manifestDir, packageJsonDir} = getDirs(projectStructure)
 
-  leg.projectDir = packageJsonDir
+  leg.holdProject(packageJsonDir)
   announceLeftoverOutputFolder(projectStructure)
 
   const userManifestPath =
@@ -327,18 +378,6 @@ async function runPreview(
     assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
   }
 
-  // A browser passed in wins; with none, commands.<cmd>.browser from the
-  // project config decides which build is previewed.
-  const configBrowser = previewOptions.browser
-    ? undefined
-    : configBrowserOrThrow(
-        (
-          await loadCommandConfig(packageJsonDir, metadataCommand, {
-            mode: 'production'
-          })
-        ).browser,
-        metadataCommand
-      )
   const namesBinary = Boolean(
     previewOptions.chromiumBinary ||
       previewOptions.geckoBinary ||
@@ -346,13 +385,29 @@ async function runPreview(
   )
   // The same stock default as build, so a build made with no browser named
   // is the one previewed. A binary with no name picks its own family.
-  const browser = normalizeBrowser(
-    previewOptions.browser ||
-      configBrowser ||
-      (namesBinary ? undefined : 'chromium'),
-    previewOptions.chromiumBinary,
-    previewOptions.geckoBinary || previewOptions.firefoxBinary
-  )
+  const browserFor = (named: unknown) =>
+    normalizeBrowser(
+      (named as PreviewOptions['browser']) ||
+        (namesBinary ? undefined : 'chromium'),
+      previewOptions.chromiumBinary,
+      previewOptions.geckoBinary || previewOptions.firefoxBinary
+    )
+  // A browser passed in wins; with none, commands.<cmd>.browser from the
+  // project config decides which build is previewed. That read sees the env
+  // files of the browser that is previewed when the config names none.
+  const browser = previewOptions.browser
+    ? browserFor(previewOptions.browser)
+    : browserFor(
+        configBrowserOrThrow(
+          (
+            await loadCommandConfig(packageJsonDir, metadataCommand, {
+              mode: 'production',
+              browser: String(browserFor(undefined))
+            })
+          ).browser,
+          metadataCommand
+        )
+      )
   // A directory that holds a manifest but no package.json is an unpacked
   // extension (a build folder, a downloaded release): preview exactly that,
   // instead of walking up to an ancestor project and looking for its dist.
@@ -625,6 +680,7 @@ async function runPreview(
       let stampAttached: (() => void) | undefined
       let stampDetached: (() => void) | undefined
       control = await startProductionControl({
+        parts: controlledBuildParts,
         packageJsonDir,
         browser: String(browser),
         command: metadataCommand,
@@ -823,7 +879,8 @@ async function runPreview(
       openSession.writeShutdown(`the ${metadataCommand} session ended`)
     })
 
-    leg.browserOpen = true
+    // A dry run prints the launch and opens nothing, so nothing stays held.
+    if (!merged.dryRun) leg.openSession = launched || {}
 
     return {warnings}
   } catch (error) {

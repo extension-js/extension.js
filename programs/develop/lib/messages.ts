@@ -880,11 +880,16 @@ export function addonLintFailedDebug(reason: string) {
   return `${getLoggingPrefix('debug')} addon-lint failed=true reason="${reason}"`
 }
 
-export function buildFailed(errorCount: number) {
+// A step after the compile can fail with the folder already in place, and
+// the closer then says so, or it reads against the compile line above it.
+export function buildFailed(errorCount: number, outputInPlace?: string) {
   const count = Math.max(1, Math.floor(errorCount || 1))
   const noun = count === 1 ? 'error' : 'errors'
+  const output = outputInPlace
+    ? ` The output folder ${colors.underline(outputInPlace)} is in place and loads as built.`
+    : ''
 
-  return `${getLoggingPrefix('error')} Build failed with ${count} ${noun}.`
+  return `${getLoggingPrefix('error')} Build failed with ${count} ${noun}.${output}`
 }
 
 type BuildWarningCategory =

@@ -572,6 +572,51 @@ describe('runOnlyPreviewBrowser', () => {
     await expect(session?.wakeBackground?.()).resolves.toBe(false)
   })
 
+  // A host that goes on running gives back what the session held once the
+  // browser is gone, and only this promise tells it when.
+  for (const browser of ['chrome', 'firefox'] as const) {
+    it(`says when the ${browser} browser it launched is gone`, async () => {
+      launched.spawned = true
+      launched.closed = false
+
+      try {
+        const session = await runOnlyPreviewBrowser({
+          browser,
+          outPath: browser === 'firefox' ? EXT_FIREFOX : EXT,
+          contextDir: scratch,
+          extensionsToLoad: [browser === 'firefox' ? EXT_FIREFOX : EXT]
+        })
+        let gone = false
+
+        void session?.ended?.then(() => {
+          gone = true
+        })
+
+        await new Promise((resolve) => setTimeout(resolve, 400))
+        expect(gone).toBe(false)
+
+        launched.closed = true
+        await session?.ended
+        expect(gone).toBe(true)
+      } finally {
+        launched.spawned = false
+        launched.closed = false
+      }
+    })
+  }
+
+  it('reports a launch that spawned nothing as already ended', async () => {
+    const session = await runOnlyPreviewBrowser({
+      browser: 'chrome',
+      outPath: EXT,
+      contextDir: scratch,
+      extensionsToLoad: [EXT],
+      dryRun: true
+    })
+
+    await expect(session?.ended).resolves.toBeUndefined()
+  })
+
   for (const browser of ['brave', 'opera', 'vivaldi', 'yandex'] as const) {
     it(`routes the chromium fork ${browser} to the chromium launcher`, async () => {
       await runOnlyPreviewBrowser({

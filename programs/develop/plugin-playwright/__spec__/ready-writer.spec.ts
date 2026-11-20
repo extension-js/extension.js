@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {chromiumExtensionId} from '../../lib/extension-id'
-import {processStartedAtMs} from '../../lib/process-started-at'
+import {processStartedAtMs, processStartId} from '../../lib/process-started-at'
 import {
   forgetSessionRun,
   getSessionRunId,
@@ -680,13 +680,34 @@ describe('ready.json writer preservation', () => {
     expect('executorDetachedAt' in after).toBe(false)
   })
 
+  it.runIf(process.platform === 'linux')(
+    'a build writer replaces a dev contract whose pid another process holds',
+    () => {
+      const devWriter = makeWriter()
+      devWriter.writeReady()
+
+      // The pid is alive and is not the process that wrote the start name.
+      patchContract(devWriter.readyPath, {pid: process.ppid})
+      expect(readContract(devWriter.readyPath).pidStartId).toBe(
+        processStartId(process.pid)
+      )
+
+      const buildWriter = makeProjectWriter(tmp, {command: 'build'})
+      buildWriter.writeStarting()
+
+      expect(readContract(devWriter.readyPath).command).toBe('build')
+    }
+  )
+
   it('a build writer never rewrites a LIVE dev session contract', () => {
     const devWriter = makeWriter()
     devWriter.writeReady()
-    // Another live process, stamped with when it really started.
+    // Another live process, stamped with when it really started and, where
+    // the system names a start, with the name that process would have written.
     const parentStartedAt = processStartedAtMs(process.ppid)
     patchContract(devWriter.readyPath, {
       pid: process.ppid,
+      pidStartId: processStartId(process.ppid),
       pidStartedAt:
         parentStartedAt == null
           ? undefined

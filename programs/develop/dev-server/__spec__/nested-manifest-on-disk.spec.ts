@@ -130,13 +130,11 @@ async function devFilesOnDisk(root: string) {
       emulatorOrigin: null,
       isSessionExtensionOrigin: () => false,
       publicFolder: path.join(root, 'public'),
-      packageJsonDir: root,
       emulatorFiles: null,
       activeCompiler: () => compiler,
       onHostRefused: () => {},
       onSiteRefused: () => {},
       server: undefined,
-      env: {},
       socketPath: '/ws/nested-manifest'
     }),
     compiler

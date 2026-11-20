@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
+import {controlledBuildParts} from '../../../controlled-build-parts'
 import {ActionsFileWriter} from '../../../dev-server/control-bridge/actions-file'
 import {LogsFileWriter} from '../../../dev-server/control-bridge/logs-file'
 import {readControlToken} from '../../../dev-server/control-bridge/session-token'
@@ -49,6 +50,7 @@ describe('startProductionControl when the control server cannot listen', () => {
 
     try {
       const session = await startProductionControl({
+        parts: controlledBuildParts,
         packageJsonDir: root,
         browser: 'chrome',
         distPath,

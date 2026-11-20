@@ -15,8 +15,16 @@ interface NativeHandle {
 const roots: string[] = []
 const nativeHandles: NativeHandle[] = []
 
+// The class every watcher of the process shares, put back after each row.
+const probe = fs.watch(os.tmpdir(), {persistent: false})
+const watcherClass = Object.getPrototypeOf(probe) as {close: () => void}
+const nativeClassClose = watcherClass.close
+
+probe.close()
+
 afterEach(() => {
   vi.restoreAllMocks()
+  watcherClass.close = nativeClassClose
 
   // Closed for real here, so the test process keeps no watch behind.
   while (nativeHandles.length) {
@@ -92,6 +100,57 @@ describe('leaveWatchHandlesToExit', () => {
     fs.writeFileSync(path.join(root, 'late.txt'), 'late')
     await new Promise((resolve) => setTimeout(resolve, 300))
     expect(events).toEqual([])
+  })
+
+  it('leaves a watcher the active list does not name to the exit too', async () => {
+    const {root} = openWatchers()
+    const quiet = fs.watch(root, {persistent: false})
+    const handle = (quiet as unknown as {_handle: NativeHandle})._handle
+    nativeHandles.push(handle)
+    const nativeClose = vi.spyOn(handle, 'close')
+    const closed = vi.fn()
+
+    quiet.on('close', closed)
+
+    const active = (
+      process as unknown as {_getActiveHandles: () => unknown[]}
+    )._getActiveHandles()
+
+    expect(active).not.toContain(quiet)
+
+    leaveWatchHandlesToExit({platform: 'darwin', activeHandles: () => active})
+    quiet.close()
+    await new Promise((resolve) => process.nextTick(resolve))
+
+    expect(nativeClose).not.toHaveBeenCalled()
+    expect(closed).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves a watcher opened after the swap to the exit too', async () => {
+    const {root} = openWatchers()
+
+    leaveWatchHandlesToExit({platform: 'darwin', activeHandles: () => []})
+
+    const late = fs.watch(root, () => {})
+    const handle = (late as unknown as {_handle: NativeHandle})._handle
+    nativeHandles.push(handle)
+    const nativeClose = vi.spyOn(handle, 'close')
+    const closed = vi.fn()
+
+    late.on('close', closed)
+    late.close()
+    late.close()
+    await new Promise((resolve) => process.nextTick(resolve))
+
+    expect(nativeClose).not.toHaveBeenCalled()
+    expect(closed).toHaveBeenCalledTimes(1)
+    expect(handle.hasRef()).toBe(false)
+  })
+
+  it('leaves the class close alone off macOS', () => {
+    leaveWatchHandlesToExit({platform: 'linux', activeHandles: () => []})
+
+    expect(watcherClass.close).toBe(nativeClassClose)
   })
 
   it('leaves the native close alone off macOS', () => {
