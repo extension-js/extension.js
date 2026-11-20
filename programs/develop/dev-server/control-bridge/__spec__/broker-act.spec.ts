@@ -5,7 +5,12 @@ import {
   type BridgeConnection,
   CLOSE_CONTROL_UNAVAILABLE
 } from '../broker'
-import type {CommandFrame, ServerFrame} from '../contracts'
+import type {
+  CommandFrame,
+  ReadyFrame,
+  ResultFrame,
+  ServerFrame
+} from '../contracts'
 
 class FakeConn implements BridgeConnection {
   sent: (ServerFrame | CommandFrame)[] = []
@@ -26,6 +31,17 @@ class FakeActions implements ActionsSink {
   write(record: ActionRecord) {
     this.records.push(record)
   }
+}
+
+// A refused result carries its error, so a frame without one fails the row
+// the same way reading a field off a missing error did.
+function errorOf(frame: ServerFrame | CommandFrame | undefined) {
+  const error = (frame as ResultFrame | undefined)?.error
+
+  if (!error)
+    {throw new Error(`expected a refused result, got ${JSON.stringify(frame)}`)}
+
+  return error
 }
 
 function makeScheduler() {
@@ -81,7 +97,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const c = new FakeConn('ctl')
     helloController(b, c)
     expect(b.controllerCount).toBe(1)
-    const ready = c.sent[0] as any
+    const ready = c.sent[0] as ReadyFrame
     expect(ready.type).toBe('ready')
     expect(ready.capabilities).toMatchObject({
       storage: true,
@@ -89,8 +105,8 @@ describe('BridgeBroker (Slice 2: act)', () => {
       deepDom: true
     })
 
-    expect(ready.capabilities.eval).toBe(false)
-    expect(ready.capabilities.open).toEqual([
+    expect(ready.capabilities?.eval).toBe(false)
+    expect(ready.capabilities?.open).toEqual([
       'popup',
       'options',
       'sidebar',
@@ -103,15 +119,15 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const b = new BridgeBroker(base({engine: 'firefox'}))
     const c = new FakeConn('ctl')
     helloController(b, c)
-    const ready = c.sent[0] as any
-    expect(ready.capabilities.open).toEqual([
+    const ready = c.sent[0] as ReadyFrame
+    expect(ready.capabilities?.open).toEqual([
       'popup',
       'options',
       'action',
       'command'
     ])
 
-    expect(ready.capabilities.deepDom).toBe(false)
+    expect(ready.capabilities?.deepDom).toBe(false)
   })
 
   it('refuses a controller when control is disabled', () => {
@@ -131,7 +147,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     const c = new FakeConn('ctl')
     helloController(b, c)
     expect(b.controllerCount).toBe(1)
-    const ready = c.sent[0] as any
+    const ready = c.sent[0] as ReadyFrame
     expect(ready.capabilities).toMatchObject({eval: true, storage: true})
   })
 
@@ -151,7 +167,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'}
     })
 
-    const fwd = exec.sent.find((f) => f.type === 'command') as any
+    const fwd = exec.sent.find((f) => f.type === 'command') as CommandFrame
     expect(fwd).toMatchObject({type: 'command', cmdId: 'cmd-1', op: 'reload'})
     expect(b.pendingCount).toBe(1)
 
@@ -198,7 +214,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       args: {surface: 'action'}
     })
 
-    const fwd = exec.sent.find((f) => f.type === 'command') as any
+    const fwd = exec.sent.find((f) => f.type === 'command') as CommandFrame
     expect(fwd).toMatchObject({
       type: 'command',
       cmdId: 'cmd-act',
@@ -242,15 +258,15 @@ describe('BridgeBroker (Slice 2: act)', () => {
       target: {context: 'background'}
     })
 
-    const result = ctl.sent[0] as any
+    const result = ctl.sent[0] as ResultFrame
     expect(result).toMatchObject({
       type: 'result',
       ok: false,
       error: {name: 'Unavailable'}
     })
 
-    expect(result.error.message).toContain('no executor connected')
-    expect(result.error.message).toContain(
+    expect(errorOf(result).message).toContain('no executor connected')
+    expect(errorOf(result).message).toContain(
       'no extension service worker has connected'
     )
 
@@ -270,11 +286,11 @@ describe('BridgeBroker (Slice 2: act)', () => {
         target: {context: 'background'}
       })
 
-      const result = ctl.sent[0] as any
+      const result = ctl.sent[0] as ResultFrame
       expect(result).toMatchObject({ok: false, error: {name: 'Unavailable'}})
-      expect(result.error.message).toContain('no executor connected')
+      expect(errorOf(result).message).toContain('no executor connected')
 
-      return result.error.message
+      return errorOf(result).message
     }
 
     const staleProducerHello = (b: BridgeBroker, conn: FakeConn) => {
@@ -347,12 +363,12 @@ describe('BridgeBroker (Slice 2: act)', () => {
       )
 
       expect(msg).not.toMatch(/still be launching|has connected since/)
-      expect((ctl.sent[0] as any).error.code).toBe('extension_load_refused')
+      expect(errorOf(ctl.sent[0]).code).toBe('extension_load_refused')
 
       // The stamp leaves the contract once the browser accepts the extension.
       refusal = null
       expect(denyMessage(b, ctl)).toContain('may still be launching')
-      expect((ctl.sent[0] as any).error.code).toBeUndefined()
+      expect(errorOf(ctl.sent[0]).code).toBeUndefined()
     })
 
     it('keeps the wait hint while no refusal is recorded or the contract cannot be read', () => {
@@ -400,7 +416,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       helloController(b, ctl)
 
       expect(denyMessage(b, ctl)).toContain('the browser exited at')
-      expect((ctl.sent[0] as any).error.code).toBeUndefined()
+      expect(errorOf(ctl.sent[0]).code).toBeUndefined()
     })
 
     it('speaks of a background page, not a service worker, on Firefox', () => {
@@ -525,7 +541,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     })
 
     expect(
-      exec.sent.find((f: any) => f.type === 'command' && f.cmdId === 'e2')
+      exec.sent.find((f) => f.type === 'command' && f.cmdId === 'e2')
     ).toBeDefined()
   })
 
@@ -547,10 +563,10 @@ describe('BridgeBroker (Slice 2: act)', () => {
         args: {expression: '1'}
       })
 
-      const result = ctl.sent[0] as any
+      const result = ctl.sent[0] as ResultFrame
       expect(result).toMatchObject({ok: false})
 
-      return result.error
+      return errorOf(result)
     }
 
     const disabled = evalDeny({allowEval: false}, 'anything')
@@ -682,7 +698,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
     b.onClose(exec)
 
     expect(ctl.sent).toHaveLength(1)
-    const result = ctl.sent[0] as any
+    const result = ctl.sent[0] as ResultFrame
     expect(result).toMatchObject({
       type: 'result',
       cmdId: 'gone-1',
@@ -690,8 +706,8 @@ describe('BridgeBroker (Slice 2: act)', () => {
       error: {name: 'Unavailable'}
     })
 
-    expect(result.error.message).toContain('no executor connected')
-    expect(result.error.message).toContain('disconnected 0s ago')
+    expect(errorOf(result).message).toContain('no executor connected')
+    expect(errorOf(result).message).toContain('disconnected 0s ago')
     expect(b.pendingCount).toBe(0)
     expect(sched.pending()).toBe(0)
     expect(actions.records.at(-1)).toMatchObject({
@@ -725,10 +741,10 @@ describe('BridgeBroker (Slice 2: act)', () => {
 
     b.noteBrowserExited('2026-09-25T23:24:37.253Z', 'code 0')
     b.onClose(exec)
-    const result = ctl.sent[0] as any
-    expect(result.error.name).toBe('Unavailable')
-    expect(result.error.message).toContain('the browser exited at')
-    expect(result.error.message).not.toContain('idle out')
+    const result = ctl.sent[0] as ResultFrame
+    expect(errorOf(result).name).toBe('Unavailable')
+    expect(errorOf(result).message).toContain('the browser exited at')
+    expect(errorOf(result).message).not.toContain('idle out')
   })
 
   it('refuses a cmdId that is still pending without touching the first command', () => {
@@ -776,7 +792,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
       error: {name: 'BadRequest'}
     })
 
-    expect((other.sent[0] as any).error.message).toContain('cmdId')
+    expect(errorOf(other.sent[0]).message).toContain('cmdId')
     expect(a.sent).toHaveLength(0)
 
     b.onFrame(exec, {
@@ -824,7 +840,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
         ...(op === 'eval' ? {args: {expression: '1'}} : {})
       })
 
-      return String((ctl.sent[0] as any).error.message)
+      return String(errorOf(ctl.sent[0]).message)
     }
 
     it.each([
@@ -873,7 +889,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
         target: {context: 'background'}
       })
 
-      const message = String((ctl.sent[0] as any).error.message)
+      const message = String(errorOf(ctl.sent[0]).message)
 
       expect(message).toContain('restart extension preview')
       expect(message).not.toMatch(/dev session|extension dev/)
@@ -919,7 +935,7 @@ describe('BridgeBroker (Slice 2: act)', () => {
           target: {context: 'background'}
         })
 
-        return (ctl.sent[0] as any).error.code
+        return errorOf(ctl.sent[0]).code
       }
 
       expect(codeOf((b) => b.noteNoBackground())).toBe('no_background')
