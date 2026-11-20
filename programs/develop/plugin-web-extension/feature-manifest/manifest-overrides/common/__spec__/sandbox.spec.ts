@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../../types'
 import {sandbox} from '../sandbox'
 
 const dirs: string[] = []
@@ -28,7 +29,7 @@ describe('sandbox (pages override)', () => {
   it('rewrites in-project pages to the canonical sandbox names', () => {
     const manifestPath = project(['pages/sb.html'])
     const result = sandbox(
-      {sandbox: {pages: ['pages/sb.html']}} as any,
+      {sandbox: {pages: ['pages/sb.html']}} as Manifest,
       manifestPath
     )
     expect(result?.sandbox.pages).toEqual(['sandbox/page-0.html'])
@@ -37,7 +38,7 @@ describe('sandbox (pages override)', () => {
   it('keeps a public-hosted page at the path the copier ships it to', () => {
     const manifestPath = project(['public/sb.html'])
     const result = sandbox(
-      {sandbox: {pages: ['/sb.html']}} as any,
+      {sandbox: {pages: ['/sb.html']}} as Manifest,
       manifestPath
     )
     expect(result?.sandbox.pages).toEqual(['sb.html'])
