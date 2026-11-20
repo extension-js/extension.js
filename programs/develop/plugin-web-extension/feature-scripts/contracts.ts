@@ -68,6 +68,35 @@ export function getCanonicalContentScriptCssAssetName(index: number): string {
   return `${getCanonicalContentScriptEntryName(index)}.css`
 }
 
+// No browser loads a group with neither js nor css. Prefix resolution leaves
+// one behind when every script key was scoped to another browser.
+export function isHollowContentScript(entry: unknown): boolean {
+  const group = (entry || {}) as {js?: unknown; css?: unknown}
+  const js = Array.isArray(group.js) ? group.js : []
+  const css = Array.isArray(group.css) ? group.css : []
+
+  return js.length === 0 && css.length === 0
+}
+
+// The one rule for where a MAIN world group's isolated world bridge sits:
+// after every declared group, in the order of the groups the browser loads.
+export function mainWorldBridgeIndexes(
+  groups: unknown
+): Array<{mainIndex: number; bridgeIndex: number}> {
+  const list = Array.isArray(groups) ? groups : []
+  const pairs: Array<{mainIndex: number; bridgeIndex: number}> = []
+
+  for (let mainIndex = 0; mainIndex < list.length; mainIndex++) {
+    const group = list[mainIndex] as {world?: unknown} | undefined
+
+    if (group?.world !== 'MAIN' || isHollowContentScript(group)) continue
+
+    pairs.push({mainIndex, bridgeIndex: list.length + pairs.length})
+  }
+
+  return pairs
+}
+
 export function parseCanonicalContentScriptEntryIndex(
   entryName: string
 ): number | undefined {

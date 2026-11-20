@@ -3,8 +3,8 @@ import * as net from 'node:net'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {buildBridgeProducerSource} from '../../../dev-server/control-bridge/producer-runtime'
 import {readControlToken} from '../../../dev-server/control-bridge/session-token'
+import {buildDevProducerSource} from '../../../plugin-reload/reload-lib/producer-reload'
 import {TAKE_BLOCK_OPEN} from '../../extension-base-from-stack'
 import {
   controlledBuildDir,
@@ -218,13 +218,34 @@ describe('startProductionControl', () => {
       'utf-8'
     )
     expect(controlled).not.toContain(first)
-    const perProducer = buildBridgeProducerSource({
+    const perProducer = buildDevProducerSource({
       controlPort: session.controlPort,
       instanceId: session.instanceId
     }).split('__extjsBridgeProducerInstalled').length
     expect(controlled.split('__extjsBridgeProducerInstalled').length).toBe(
       perProducer
     )
+  })
+
+  // The reload verb restarts the extension through the dev reload executor,
+  // so the controlled copy must carry it, not the bare bridge.
+  it('ships the restart its reload verb calls', async () => {
+    const {projectDir, distPath} = makeProject()
+
+    session = await startProductionControl({
+      packageJsonDir: projectDir,
+      browser: 'chrome',
+      distPath,
+      allowControl: true
+    })
+
+    const controlled = fs.readFileSync(
+      path.join(session.controlledPath, 'background', 'service_worker.js'),
+      'utf-8'
+    )
+
+    expect(controlled).toMatch(/\brestartExtension\(/)
+    expect(controlled).toMatch(/function restartExtension\(/)
   })
 })
 

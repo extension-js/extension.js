@@ -1,7 +1,7 @@
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {buildDeclaredSheetSignalSource} from '../../dev-server/control-bridge/producer-runtime'
 import {DEV_BUILD_GLOBAL} from '../reload-dispatch'
+import {buildDeclaredSheetSignalSource} from '../reload-lib/producer-reload'
 import {
   InjectBridgeProducer,
   readDevBuild

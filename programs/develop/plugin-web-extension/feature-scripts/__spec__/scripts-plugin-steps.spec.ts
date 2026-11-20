@@ -108,10 +108,57 @@ async function made(
     )
   )
 
+  const conditions = (compiler.options.module.rules as any[]).flatMap((rule) =>
+    functionConditions(rule)
+  )
+
   await close(bare)
   await close(compiler)
 
-  return {root, taps, loaders}
+  return {root, taps, loaders, conditions}
+}
+
+const CONDITION_KEYS = [
+  'test',
+  'include',
+  'exclude',
+  'resource',
+  'resourceQuery',
+  'issuer',
+  'issuerLayer'
+]
+
+// The keys of every condition that calls back into JavaScript, where the
+// bundler pays a call for each module it resolves.
+function functionConditions(rule: any, at = 'rule'): string[] {
+  if (!rule || typeof rule !== 'object') return []
+
+  const found: string[] = []
+
+  const visit = (value: any, where: string) => {
+    if (typeof value === 'function') found.push(where)
+    else if (Array.isArray(value)) {
+      for (const one of value) visit(one, where)
+    } else if (
+      value &&
+      typeof value === 'object' &&
+      !(value instanceof RegExp)
+    ) {
+      for (const key of ['not', 'and', 'or']) {
+        if (key in value) visit(value[key], `${where}.${key}`)
+      }
+    }
+  }
+
+  for (const key of CONDITION_KEYS) {
+    if (key in rule) visit(rule[key], `${at}.${key}`)
+  }
+
+  for (const one of rule.oneOf || []) {
+    found.push(...functionConditions(one, `${at}.oneOf`))
+  }
+
+  return found
 }
 
 // Taps every build takes, whatever the mode or browser.
@@ -204,6 +251,16 @@ describe('ScriptsPlugin steps on a real compiler', () => {
       expect(
         loaders.filter(({options}) => options).map(({options}) => options.mode)
       ).toEqual([mode, mode, mode])
+    }
+  })
+
+  // The project here has MAIN world entries, so the issuer rules are in too.
+  it('matches every script rule with conditions the bundler reads itself', async () => {
+    for (const mode of ['development', 'production'] as const) {
+      const {loaders, conditions} = await made(mode)
+
+      expect(loaders).toHaveLength(WRAPPED.length)
+      expect(conditions).toEqual([])
     }
   })
 

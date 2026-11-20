@@ -12,7 +12,10 @@ import {filterKeysForThisBrowser} from '../../../../lib/manifest-utils'
 import {parseAuthoredJson} from '../../../../lib/parse-json-safe'
 import {PROJECT_MANIFEST_FILENAMES} from '../../../../lib/project-manifest'
 import type {DevOptions, FilepathList} from '../../../../types'
-import {getCanonicalContentScriptEntryName} from '../../contracts'
+import {
+  getCanonicalContentScriptEntryName,
+  mainWorldBridgeIndexes
+} from '../../contracts'
 
 function findPackageRoot(startDir: string): string | undefined {
   let current = startDir
@@ -84,32 +87,18 @@ export function getMainWorldBridgePairs(
   manifestPath: string,
   browser: DevOptions['browser'] = 'chrome'
 ): Array<{mainIndex: number; bridgeIndex: number}> {
-  const pairs: Array<{mainIndex: number; bridgeIndex: number}> = []
-
   try {
     const raw = parseAuthoredJson(fs.readFileSync(manifestPath, 'utf-8'))
     // Resolve browser-prefixed keys before scanning: entries compiled here
     // must key off the same FILTERED shape the emitted manifest uses.
     const resolved = filterKeysForThisBrowser(raw, browser)
-    const contentScripts: Array<{world?: unknown}> = Array.isArray(
-      resolved?.content_scripts
-    )
-      ? (resolved.content_scripts as Array<{world?: unknown}>)
-      : []
 
-    for (let i = 0; i < contentScripts.length; i++) {
-      if (contentScripts[i]?.world !== 'MAIN') continue
-
-      pairs.push({
-        mainIndex: i,
-        bridgeIndex: contentScripts.length + pairs.length
-      })
-    }
+    return mainWorldBridgeIndexes(resolved?.content_scripts)
   } catch {
-    // ignore: bridge is best-effort and only needed for MAIN world users
+    // The manifest feature reports a manifest that does not read or parse,
+    // and that build fails there, so no bridge is planned for it here.
+    return []
   }
-
-  return pairs
 }
 
 export function getMainWorldBridgeScripts(

@@ -269,9 +269,7 @@ function reading(root: string, label: string, authored: string) {
   const wrapped = text.includes('__EXTENSIONJS_mount(')
   const compiled = !text.includes('const  spaced')
   // The transpiler reprints the wrapper too, when the wrapper ran ahead of it.
-  const wrapperReprinted = !text.includes(
-    'var __EXTJS_WRAPPER_KIND="FS3_INLINE"'
-  )
+  const wrapperReprinted = !text.includes('var __EXTENSIONJS_BUNDLE_KEY="')
 
   if (text.replace(SIGNATURE, '') === authored) return 'authored'
   if (wrapped && !compiled) return 'wrapped'
@@ -671,7 +669,7 @@ describe('content scripts concatenated into one classic module', () => {
 
       expect(handed).toContain('var shared = "from a"')
       expect(handed).toContain('globalThis.said = shared')
-      expect(handed).not.toContain('__EXTJS_WRAPPER_KIND')
+      expect(handed).not.toContain('__EXTENSIONJS_BUNDLE_KEY')
       expect(wrapperRuns(root, 'content/a.js')).toEqual([1])
       expect(emitted(root)).toContain(WRAPPER_GLOBAL)
       expect(inject(root)).toMatchObject({mounts: 1, said: 'from a'})

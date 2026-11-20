@@ -2258,7 +2258,10 @@ async function compileTracedFile(
     child.runAsChild((error, _entries, childCompilation) => {
       if (error) {
         const failure = new WebpackError(
-          `Compiling runtime-loaded ${request.emitPath} failed: ${error.message}`
+          messages.runtimeLoadedFileCompileFailed(
+            request.emitPath,
+            error.message
+          )
         ) as Error & {name?: string}
         failure.name = 'RuntimeLoadedFileCompileFailed'
         compilation.errors.push(failure)

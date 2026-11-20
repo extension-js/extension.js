@@ -1,0 +1,84 @@
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+import {afterEach, describe, expect, it, vi} from 'vitest'
+import {trackTempFolders} from './helpers/temp-folders'
+
+// The build card names the extension the folder ships, so a name filled from
+// .env reads as its value and never as the placeholder the source holds.
+const tempFolder = trackTempFolders()
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
+
+function project(): string {
+  const root = fs.realpathSync.native(tempFolder('extjs-card-env-name-'))
+
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({private: true, name: 'card-probe-pkg', version: '0.0.0'})
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'manifest.json'),
+    JSON.stringify({
+      manifest_version: 3,
+      name: 'Card $EXTENSION_PUBLIC_CARD_NAME',
+      version: '1.2.3',
+      action: {default_popup: 'popup.html'}
+    })
+  )
+
+  fs.writeFileSync(
+    path.join(root, 'popup.html'),
+    '<html><body><script src="./popup.js"></script></body></html>\n'
+  )
+
+  fs.writeFileSync(path.join(root, 'popup.js'), 'console.log("popup")\n')
+  fs.writeFileSync(
+    path.join(root, '.env'),
+    'EXTENSION_PUBLIC_CARD_NAME=filled value\n'
+  )
+
+  return root
+}
+
+describe('the build card and a name set through .env', () => {
+  it('prints the name the written manifest carries', async () => {
+    const root = project()
+    const printed: string[] = []
+
+    vi.spyOn(console, 'log').mockImplementation((...parts: unknown[]) => {
+      printed.push(parts.map(String).join(' '))
+    })
+
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const {extensionBuild} = await import('../command-build')
+    const summary = await extensionBuild(root, {
+      browser: 'chrome',
+      install: false,
+      mode: 'production',
+      exitOnError: false
+    } as never)
+
+    expect(summary.errors_count).toBe(0)
+
+    const shipped = JSON.parse(
+      fs.readFileSync(
+        path.join(root, 'dist', 'chrome', 'manifest.json'),
+        'utf8'
+      )
+    )
+
+    expect(shipped.name).toBe('Card filled value')
+
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: strips terminal colors
+    const text = printed.join('\n').replace(/\u001b\[[0-9;]*m/g, '')
+    const row = text.split('\n').find((line) => /\bExtension\s{2,}/.test(line))
+
+    expect(row).toContain('Card filled value 1.2.3')
+    expect(text).not.toContain('$EXTENSION_PUBLIC_CARD_NAME')
+  }, 180_000)
+})

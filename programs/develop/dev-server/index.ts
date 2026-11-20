@@ -64,13 +64,10 @@ import {
   getSessionRunId
 } from '../plugin-playwright'
 import {
-  createChangedSourcesTracker,
-  dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo,
-  loadedContentScriptsFor,
   readDevBuild,
-  reloadForBuild
+  reloadEachBuild
 } from '../plugin-reload'
 import {resolveCompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/resolve-config'
 import {rememberExcludedFiles} from '../plugin-special-folders/folders-config'
@@ -119,7 +116,7 @@ import {
 import * as messages from './messages'
 import {exportInstanceId, PortManager} from './port-manager'
 import {reservedHttpServer} from './reserved-listen'
-import {buildServerConfig} from './server-config'
+import {buildServerConfig, sessionSocketPath} from './server-config'
 import {claimDevSession} from './session-claim'
 import {endAfterFrame, registerLiveSession} from './session-end'
 import {exportSessionEnv} from './session-env'
@@ -413,7 +410,9 @@ async function startDevSession(
   exportEnv('EXTENSION_DEV_SERVER_HOST', devServerHost)
   exportEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', connectableHost)
   exportEnv('EXTENSION_DEV_SERVER_PORT', String(port))
-  exportEnv('EXTENSION_DEV_SERVER_PATH', '/ws')
+  // Each session's extension dials a socket path that names the session.
+  const socketPath = sessionSocketPath(currentInstance.instanceId)
+  exportEnv('EXTENSION_DEV_SERVER_PATH', socketPath)
 
   const browserName = String(devOptions.browser || 'chromium')
   const emulatorLane = isEmulatorBrowser(browserName)
@@ -823,6 +822,7 @@ async function startDevSession(
     publicFolder,
     packageJsonDir,
     emulatorFiles,
+    socketPath,
     activeCompiler: () => activeCompiler,
     onHostRefused: (host) => humanLine(messages.devServerHostRefused(host)),
     onSiteRefused: (origin) =>
@@ -860,6 +860,18 @@ async function startDevSession(
     const compilerConfig = applySplitChunksGuard(
       merge(customWebpackConfig(baseConfig), {})
     )
+    // The page HMR client of this compiler dials this session's socket, even
+    // when a later session in the same process rewrote the environment.
+    const devServerOptions = compilerConfig.devServer || {}
+    const client = Object(devServerOptions.client)
+    compilerConfig.devServer = {
+      ...devServerOptions,
+      client: {
+        ...client,
+        webSocketURL: {...Object(client.webSocketURL), pathname: socketPath}
+      }
+    }
+
     const configResolved = await loadConfigResolvedHook(
       packageJsonDir,
       envTarget
@@ -902,49 +914,14 @@ async function startDevSession(
       )
     }
 
-    // Under --no-browser no CDP controller owns reload, so broadcast the same
-    // classified reload decision over the control bridge; gated to avoid double-reload.
-    if (!extendedOptions.browsersPlugin && compiler?.hooks?.watchRun) {
-      const changedSources = createChangedSourcesTracker(compiler)
-      let isFirstBridgeCompile = true
-      // The browser the user runs keeps the manifest it loaded as much as a
-      // launched one does, so a renamed bundle or rewritten sheet counts here.
-      const loadedContentScripts = loadedContentScriptsFor(browserName)
-
-      compiler.hooks.done.tapPromise(
-        'extjs-no-browser-reload',
-        async (stats: Stats) => {
-          const compilation = stats.compilation
-          if (compilation.errors && compilation.errors.length > 0) return
-
-          // Skip the first compile: it's the initial build, not a change, and the
-          // SW producer hasn't connected yet anyway.
-          if (isFirstBridgeCompile) {
-            isFirstBridgeCompile = false
-            loadedContentScripts?.noteLoaded(compilation)
-
-            return
-          }
-
-          // The restart this build asked for reloads the extension once with
-          // the build that replaces it. Reloading here too starts it twice.
-          if (isAwaitingMainWorldRestart(compiler, compilation)) return
-
-          const instruction = reloadForBuild(compilation, {
-            changedSources,
-            loaded: loadedContentScripts
-          })
-
-          // Same shared dispatch seam as the launched path, here with the broker
-          // (SW producer) as the executor. Honors EXTENSION_NO_RELOAD.
-          const delivered = await dispatchReload(instruction, {
-            broker: bridgeBroker,
-            build: readDevBuild(compilation)
-          })
-
-          loadedContentScripts?.settle(delivered)
-        }
-      )
+    // With no browser plugin the session reloads the browser the user runs,
+    // through the same reload session a launched browser uses.
+    if (!extendedOptions.browsersPlugin) {
+      reloadEachBuild(compiler, {
+        browser: browserName,
+        broker: bridgeBroker,
+        isHeld: isAwaitingMainWorldRestart
+      })
     }
 
     if (!extendedOptions.browsersPlugin) {
