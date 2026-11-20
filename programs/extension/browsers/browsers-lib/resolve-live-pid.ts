@@ -243,7 +243,8 @@ export const PID_START_PROBE_TIMEOUT_MS = 5000
 
 export function pidStartedAtMs(
   pid: number | null | undefined,
-  platform = process.platform
+  platform = process.platform,
+  timeoutMs = PID_START_PROBE_TIMEOUT_MS
 ): number | null {
   if (!pid || !Number.isInteger(pid) || pid <= 0) return null
 
@@ -258,14 +259,12 @@ export function pidStartedAtMs(
             `[System.Diagnostics.Process]::GetProcessById(${pid})` +
               ".StartTime.ToUniversalTime().ToString('o')"
           ],
-          PID_START_PROBE_TIMEOUT_MS
+          timeoutMs
         )
-      : runQuiet(
-          'ps',
-          ['-o', 'lstart=', '-p', String(pid)],
-          PID_START_PROBE_TIMEOUT_MS,
-          {...process.env, LC_ALL: 'C'}
-        )
+      : runQuiet('ps', ['-o', 'lstart=', '-p', String(pid)], timeoutMs, {
+          ...process.env,
+          LC_ALL: 'C'
+        })
 
   const started = Date.parse(String(output || '').trim())
 
