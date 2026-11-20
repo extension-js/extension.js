@@ -143,6 +143,7 @@ current run only, join on `runId` to correlate across runs):
 - `compile_error`
 - `browser_exited`
 - `browser_launch_failed`
+- `restart_failed`
 - `shutdown`
 
 Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
@@ -150,6 +151,11 @@ Every row carries `type`, `ts`, `command`, `browser` and `runId`. A
 row adds `exitCode`, `exitSignal` and `browserExitedAt`. A
 `browser_launch_failed` row adds `browserLaunchFailedAt` and `reason`, and the
 contract it mirrors reads `status: error` with `code: browser_launch_failed`.
+A `restart_failed` row is a dev restart that could not be made (a config or
+entry change whose next compiler or server failed). It adds the error `code`,
+the `reason` and `serving`: `true` when the build from before the restart
+still serves the session, which then retries on the next change, and `false`
+when no server is left and the session ends.
 
 The stream is bounded like `logs.ndjson`: it rotates at 8 MB or 50,000 lines
 into `events.1.ndjson` through `events.3.ndjson`, and a single row over 64 KB

@@ -142,6 +142,12 @@ export interface StartFailureTargets {
     writeError: (code: string, message: string) => void
     // Keeps the error on ready.json past the watch close of the ended session.
     writeEndedAsFailed?: (code: string, message: string) => void
+    // The same failure on the events timeline, beside the compiles.
+    writeRestartFailed?: (args: {
+      code: string
+      message: string
+      serving: boolean
+    }) => void
   }
   lifecycle: {
     failed: (message: string) => unknown
@@ -218,6 +224,12 @@ export interface RestartFailureTargets {
     writeError: (code: string, message: string) => void
     // Keeps the error on ready.json past the watch close of the ended session.
     writeEndedAsFailed?: (code: string, message: string) => void
+    // The same failure on the events timeline, beside the compiles.
+    writeRestartFailed?: (args: {
+      code: string
+      message: string
+      serving: boolean
+    }) => void
   }
   lifecycle: {
     failed: (message: string) => void
@@ -252,10 +264,13 @@ export function createRestartFailure(targets: RestartFailureTargets) {
 
     print(messages.devServerRestartFailed(error, 'previous-build'))
 
-    targets.lifecycle.restartFailed({
+    const failure = {
       code: declaredErrorCode(error) ?? CODES.E_DEV_SERVER_START,
       message: stripChannelPrefix(errorMessage(error))
-    })
+    }
+
+    targets.metadata.writeRestartFailed?.({...failure, serving: true})
+    targets.lifecycle.restartFailed(failure)
   }
 
   return {
@@ -278,6 +293,12 @@ export function createRestartFailure(targets: RestartFailureTargets) {
         CODES.E_DEV_SERVER_START,
         errorMessage(error)
       )
+
+      targets.metadata.writeRestartFailed?.({
+        code: CODES.E_DEV_SERVER_START,
+        message: stripChannelPrefix(errorMessage(error)),
+        serving: false
+      })
 
       targets.lifecycle.failed(errorMessage(error))
       print(messages.devServerRestartFailed(error, 'no-server'))

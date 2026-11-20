@@ -176,6 +176,7 @@ export type PlaywrightAutomationEvent = {
     | 'shutdown'
     | 'browser_exited'
     | 'browser_launch_failed'
+    | 'restart_failed'
   ts: string
   command: PlaywrightAutomationCommand
   browser: string
@@ -191,6 +192,10 @@ export type PlaywrightAutomationEvent = {
   // browser_launch_failed: when the launcher gave up and why, off ready.json.
   browserLaunchFailedAt?: string
   reason?: string
+  // restart_failed: the code of what stopped the restart, with `reason`, and
+  // whether the build from before it still serves the session.
+  code?: string
+  serving?: boolean
   // Set when the per-event byte cap trimmed this row's error text, so a reader
   // never mistakes a shortened message for the whole diagnostic.
   truncated?: boolean
@@ -314,7 +319,8 @@ const EVENT_IDENTITY_FIELDS = new Set([
   'ts',
   'command',
   'browser',
-  'runId'
+  'runId',
+  'code'
 ])
 
 function fitsEventCap(event: unknown): boolean {
@@ -1318,7 +1324,23 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
 
       writeContract(prev)
     },
-    appendEvent
+    appendEvent,
+    // A dev restart that could not be made, beside the compiles around it.
+    writeRestartFailed(args: {
+      code: string
+      message: string
+      serving: boolean
+    }) {
+      appendEvent({
+        type: 'restart_failed',
+        ts: nowISO(),
+        command: base.command,
+        browser: base.browser,
+        code: args.code,
+        reason: args.message,
+        serving: args.serving
+      })
+    }
   }
 }
 
