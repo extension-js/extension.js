@@ -42,8 +42,6 @@ function project(config: string) {
 
 async function build(root: string, extra: Record<string, unknown> = {}) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const originalWarn = console.warn
   const originalLog = console.log
@@ -59,15 +57,12 @@ async function build(root: string, extra: Record<string, unknown> = {}) {
       silent: false,
       install: false,
       mode: 'production',
-      exitOnError: false,
       ...extra
     } as any)
   } finally {
     console.warn = originalWarn
     console.log = originalLog
     console.error = originalError
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   expect(summary.errors_count).toBe(0)

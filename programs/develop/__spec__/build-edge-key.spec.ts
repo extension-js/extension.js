@@ -47,8 +47,6 @@ async function build(
   zip = false
 ) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -64,8 +62,7 @@ async function build(
       silent: false,
       install: false,
       mode,
-      zip,
-      exitOnError: false
+      zip
     } as any)
 
     expect(summary.errors_count).toBe(0)
@@ -73,8 +70,6 @@ async function build(
     console.log = originalLog
     console.warn = originalWarn
     console.error = originalError
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   const manifest = JSON.parse(

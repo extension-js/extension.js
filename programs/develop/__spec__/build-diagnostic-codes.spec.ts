@@ -58,8 +58,6 @@ function project(
 
 async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
   const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -69,15 +67,12 @@ async function build(root: string) {
       browser: 'chrome',
       silent: true,
       install: false,
-      mode: 'production',
-      exitOnError: false
+      mode: 'production'
     } as never)
   } finally {
     logSpy.mockRestore()
     warnSpy.mockRestore()
     errorSpy.mockRestore()
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

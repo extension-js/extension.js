@@ -45,8 +45,6 @@ function project(files: Record<string, string>) {
 
 async function buildOnce(root: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const originalStderr = process.stderr.write.bind(process.stderr)
   const originalError = console.error
@@ -64,8 +62,7 @@ async function buildOnce(root: string) {
     const summary = await extensionBuild(root, {
       browser: 'chrome',
       silent: false,
-      install: false,
-      exitOnError: false
+      install: false
     } as any)
     expect(summary.errors_count, lines.join('\n')).toBe(0)
   } catch (error) {
@@ -74,8 +71,6 @@ async function buildOnce(root: string) {
     process.stderr.write = originalStderr
     console.error = originalError
     console.log = originalLog
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

@@ -48,16 +48,13 @@ async function build(root: string, mode: 'production' | 'development') {
 
   const log = vi.spyOn(console, 'log').mockImplementation(capture)
   const warn = vi.spyOn(console, 'warn').mockImplementation(capture)
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
   try {
     const summary = await extensionBuild(root, {
       browser: 'chromium',
       silent: false,
       install: false,
-      mode,
-      exitOnError: false
+      mode
     } as never)
 
     return {
@@ -68,8 +65,6 @@ async function build(root: string, mode: 'production' | 'development') {
   } finally {
     log.mockRestore()
     warn.mockRestore()
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

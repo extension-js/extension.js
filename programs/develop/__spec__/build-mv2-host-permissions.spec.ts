@@ -52,25 +52,17 @@ async function build(
   mode: 'production' | 'development'
 ) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    // Only a dev session (named by its command) takes the dev host grants,
-    // a plain development-mode build stays shippable.
-    const summary = await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode,
-      ...(mode === 'development' ? {metadataCommand: 'dev'} : {}),
-      exitOnError: false
-    } as any)
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  // Only a dev session (named by its command) takes the dev host grants,
+  // a plain development-mode build stays shippable.
+  const summary = await extensionBuild(root, {
+    browser,
+    silent: true,
+    install: false,
+    mode,
+    ...(mode === 'development' ? {metadataCommand: 'dev'} : {})
+  } as any)
+  expect(summary.errors_count).toBe(0)
 
   return JSON.parse(
     fs.readFileSync(path.join(root, 'dist', browser, 'manifest.json'), 'utf8')

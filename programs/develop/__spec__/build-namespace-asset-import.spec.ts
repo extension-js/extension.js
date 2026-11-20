@@ -58,8 +58,6 @@ async function build(root: string, mode: 'production' | 'development') {
 
   const logSpy = vi.spyOn(console, 'log').mockImplementation(record)
   const errorSpy = vi.spyOn(console, 'error').mockImplementation(record)
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   let failure: unknown
 
   try {
@@ -67,17 +65,13 @@ async function build(root: string, mode: 'production' | 'development') {
       browser: 'chrome',
       silent: true,
       install: false,
-      mode,
-      exitOnError: false
+      mode
     } as never)
   } catch (error) {
     failure = error
   } finally {
     logSpy.mockRestore()
     errorSpy.mockRestore()
-
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   return {

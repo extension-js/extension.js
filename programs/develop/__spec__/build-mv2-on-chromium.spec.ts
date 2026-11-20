@@ -41,27 +41,19 @@ async function manifestV2Warnings(
   browser: 'chrome' | 'edge' | 'brave' | 'firefox'
 ) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = (await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)) as {errors_count: number; warnings?: string[]}
+  const summary = (await extensionBuild(root, {
+    browser,
+    silent: true,
+    install: false,
+    mode: 'production'
+  } as any)) as {errors_count: number; warnings?: string[]}
 
-    expect(summary.errors_count).toBe(0)
+  expect(summary.errors_count).toBe(0)
 
-    return (summary.warnings || []).filter((text) =>
-      text.includes('declares Manifest V2')
-    )
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return (summary.warnings || []).filter((text) =>
+    text.includes('declares Manifest V2')
+  )
 }
 
 describe('a Manifest V2 build for a Chromium target', () => {

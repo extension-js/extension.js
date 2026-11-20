@@ -70,8 +70,6 @@ function project(background: string) {
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -89,15 +87,12 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
       silent: false,
       install: false,
       mode: 'production',
-      addonLint: false,
-      exitOnError: false
+      addonLint: false
     } as any)
   } finally {
     console.log = originalLog
     console.warn = originalWarn
     console.error = originalError
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 
   expect(summary.errors_count).toBe(0)

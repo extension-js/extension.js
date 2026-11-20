@@ -46,31 +46,23 @@ function project(files: Record<string, string>, script: boolean) {
 
 async function build(root: string, mode: 'development' | 'production') {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode,
-      exitOnError: false
-    } as any)
-    const dir = path.join(root, 'dist', 'chrome', 'content_scripts')
-    // A development build stamps the script name, so both are read by kind.
-    const read = (extension: string) =>
-      fs
-        .readdirSync(dir)
-        .filter((file) => file.endsWith(extension))
-        .map((file) => fs.readFileSync(path.join(dir, file), 'utf8'))
-        .join('\n')
+  const summary = await extensionBuild(root, {
+    browser: 'chrome',
+    silent: true,
+    install: false,
+    mode
+  } as any)
+  const dir = path.join(root, 'dist', 'chrome', 'content_scripts')
+  // A development build stamps the script name, so both are read by kind.
+  const read = (extension: string) =>
+    fs
+      .readdirSync(dir)
+      .filter((file) => file.endsWith(extension))
+      .map((file) => fs.readFileSync(path.join(dir, file), 'utf8'))
+      .join('\n')
 
-    return {summary, sheet: read('.css'), script: read('.js')}
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return {summary, sheet: read('.css'), script: read('.js')}
 }
 
 const SHEETS = {

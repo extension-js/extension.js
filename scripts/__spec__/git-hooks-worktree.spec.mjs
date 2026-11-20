@@ -137,6 +137,33 @@ test('installing in a tree with no tracked hooks folder writes nothing', () => {
   assert.equal(git(['config', 'core.hooksPath'], main).stdout, before)
 })
 
+test('an install in a worktree leaves the shared hooks and config alone', () => {
+  const {base, main} = makeRepoWithHooks()
+  const worktree = addWorktree(main, base, 'scratch')
+  const common = path.join(main, '.git')
+  const dispatchDir = path.join(common, DISPATCH_DIR)
+  const watched = [
+    path.join(common, 'config'),
+    ...fs.readdirSync(dispatchDir).map((name) => path.join(dispatchDir, name))
+  ]
+  const old = new Date('2001-01-01T00:00:00Z')
+
+  for (const file of watched) fs.utimesSync(file, old, old)
+
+  assert.equal(
+    installGitHooks({env: isolatedEnv, cwd: worktree}).installed,
+    true
+  )
+
+  for (const file of watched) {
+    assert.equal(
+      fs.statSync(file).mtimeMs,
+      old.getTime(),
+      `${file} was rewritten`
+    )
+  }
+})
+
 test('the installer does nothing when HUSKY=0 or outside a work tree', () => {
   const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'git-hooks-none-'))
 

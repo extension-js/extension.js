@@ -466,9 +466,7 @@ export class SpecialFoldersPlugin {
         }).apply(compiler)
       }
 
-      const watching = Boolean(compiler.options.watchOptions)
-
-      if (watching && compiler.options.mode === 'development') {
+      if (compiler.options.mode === 'development') {
         new PruneRemovedPublicFiles(publicDir).apply(compiler)
       }
 
@@ -479,10 +477,10 @@ export class SpecialFoldersPlugin {
       }
     }
 
+    // rspack fills watchOptions for every compiler, so the watch-only steps
+    // read compiler.watchMode when they run, once watch() has set it.
     if (compiler.options.mode === 'development') {
-      if (compiler.options.watchOptions) {
-        new WarnUponFolderChanges().apply(compiler)
-      }
+      new WarnUponFolderChanges().apply(compiler)
     }
   }
 }

@@ -52,8 +52,6 @@ describe('one-shot development build with a TypeScript content script', () => {
   it('transpiles the content script before the parser sees it', async () => {
     const root = project()
     const {extensionBuild} = await import('../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
     const lines: string[] = []
     const originalStderr = process.stderr.write.bind(process.stderr)
     const originalError = console.error
@@ -72,8 +70,7 @@ describe('one-shot development build with a TypeScript content script', () => {
         browser: 'chrome',
         silent: false,
         install: false,
-        mode: 'development',
-        exitOnError: false
+        mode: 'development'
       } as any)
       expect(summary.errors_count, lines.join('\n')).toBe(0)
     } catch (error) {
@@ -82,8 +79,6 @@ describe('one-shot development build with a TypeScript content script', () => {
       process.stderr.write = originalStderr
       console.error = originalError
       console.log = originalLog
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
     }
 
     const distDir = path.join(root, 'dist', 'chrome')

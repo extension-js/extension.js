@@ -98,7 +98,9 @@ export class HintImportOnlyScripts {
   apply(compiler: Compiler) {
     const name = HintImportOnlyScripts.name
 
-    compiler.hooks.compilation.tap(name, (compilation) => {
+    // A child compile inherits compilation taps, and it would say the hint
+    // first and leave the extension build quiet, so only the build's own runs it.
+    compiler.hooks.thisCompilation.tap(name, (compilation) => {
       compilation.hooks.finishModules.tap(name, (modules) => {
         const projectRoot = compiler.options.context || ''
         const entries = scriptsFolderEntries(compiler)

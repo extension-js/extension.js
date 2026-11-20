@@ -43,25 +43,18 @@ function project() {
 
 async function build(root: string, extra: Record<string, unknown> = {}) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'development',
-      zip: false,
-      exitOnError: false,
-      ...extra
-    } as any)
+  const summary = await extensionBuild(root, {
+    browser: 'chrome',
+    silent: true,
+    install: false,
+    mode: 'development',
+    zip: false,
+    exitOnError: false,
+    ...extra
+  } as any)
 
-    return summary
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return summary
 }
 
 function readDist(root: string) {

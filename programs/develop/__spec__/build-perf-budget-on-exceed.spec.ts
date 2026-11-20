@@ -4,6 +4,7 @@ import {stripVTControlCharacters} from 'node:util'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {readyContractErrorCode} from '../dev-server/ready-contract-codes'
 import {resetPerfBudgetNotices} from '../plugin-perf-budgets'
+import {buildProject} from './helpers/build-project'
 import {trackTempFolders} from './helpers/temp-folders'
 
 // An overrun is a warning unless the author asks for a failed build, and a
@@ -87,22 +88,10 @@ function printedErrors(): string {
 }
 
 async function build(root: string, mode = 'production') {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode,
-      exitOnError: false
-    } as never)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    mode,
+    exitOnError: false
+  })
 }
 
 async function failureOf(root: string): Promise<BuildFailure> {

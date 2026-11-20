@@ -8,14 +8,28 @@
 
 import {defineConfig} from 'vitest/config'
 
+// Vitest drops every filter after `--`, so a direct `vitest run -- <path>`
+// would start the whole suite. pnpm test strips them and this refuses them.
+const dashes = process.argv.indexOf('--')
+const afterDashes = dashes === -1 ? [] : process.argv.slice(dashes + 1)
+
+if (afterDashes.length > 0) {
+  throw new Error(
+    `vitest ignores what follows --, so the whole suite would run. Pass it without the --: vitest run ${afterDashes.join(' ')}`
+  )
+}
+
+// Every fixture lives in its own temp folder, so files run side by side. On
+// macOS two watch sessions closing at once block their processes for minutes.
+const SPEC_WORKERS =
+  process.platform === 'darwin' ? 1 : process.platform === 'win32' ? 2 : 3
+
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    // Integration specs build real example projects under examples/.../dist.
-    // Run in a single worker to avoid cross-spec interference on those folders.
     pool: 'forks',
-    maxWorkers: 1,
+    maxWorkers: SPEC_WORKERS,
     testTimeout: 30000,
     hookTimeout: 45000,
     include: [
@@ -31,8 +45,11 @@ export default defineConfig({
       'plugin-*/**/__spec__/**/*.spec.jsx'
     ],
     // One temp folder for the whole run, removed when the run ends.
-    globalSetup: ['../../scripts/lib/spec-temp-folder.mjs'],
-    setupFiles: ['__spec__/setup/cleanup.ts'],
+    globalSetup: [
+      '../../scripts/lib/spec-temp-folder.mjs',
+      '__spec__/setup/leftover-folders.ts'
+    ],
+    setupFiles: ['__spec__/setup/quiet-output.ts'],
     // coverage disabled
     exclude: [
       '**/node_modules/**',

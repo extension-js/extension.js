@@ -63,7 +63,7 @@
     "prepublishOnly": "pnpm run compile",
     "compile": "node ../../scripts/run-locked.mjs compile \"rslib build\"",
     "watch": "node ../../scripts/run-locked.mjs watch \"rslib build --watch\"",
-    "test": "vitest run"
+    "test": "node ../../scripts/run-vitest.mjs"
   },
   "keywords": [
     "browser extension framework",

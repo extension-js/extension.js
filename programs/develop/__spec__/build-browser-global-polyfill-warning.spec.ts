@@ -46,21 +46,13 @@ async function build(
   }
 ) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    return await extensionBuild(root, {
-      ...options,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return await extensionBuild(root, {
+    ...options,
+    silent: true,
+    install: false,
+    mode: 'production'
+  } as any)
 }
 
 function polyfillWarnings(summary: {warnings?: string[]}) {
