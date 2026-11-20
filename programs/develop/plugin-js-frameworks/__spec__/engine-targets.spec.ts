@@ -1,4 +1,7 @@
+import * as path from 'node:path'
+import {rspack} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {cssMinimizerOptions} from '../../lib/css-minimizer-options'
 import type {DevOptions} from '../../types'
 import {
   compileProject,
@@ -127,4 +130,77 @@ describe.each([
     expect(registryClass(safari.main)).not.toMatch(/static\s*\{/)
     expect(registryClass(safari.main)).toMatch(/static #_ = /)
   }, 120_000)
+})
+
+// What each engine needs differs: Safari reads backdrop-filter only with its
+// prefix until 18, and Firefox never needed one for mask-image.
+const SHEET = '.a{backdrop-filter:blur(2px);mask-image:url(a.svg)}\n'
+
+function minifySheet(browser: Browser, manifest: Record<string, unknown>) {
+  const root = makeProject({
+    'page.css': SHEET,
+    'a.svg': '<svg xmlns="http://www.w3.org/2000/svg"/>\n'
+  })
+
+  return new Promise<string>((resolve, reject) => {
+    rspack({
+      mode: 'production',
+      context: root,
+      entry: {page: './page.css'},
+      output: {path: path.join(root, 'out')},
+      module: {rules: [{test: /\.css$/, type: 'css'}]},
+      optimization: {
+        minimize: true,
+        minimizer: [
+          new rspack.LightningCssMinimizerRspackPlugin({
+            minimizerOptions: cssMinimizerOptions(manifest, browser)
+          })
+        ]
+      }
+    }).run((error, stats) => {
+      if (error || !stats) return reject(error)
+
+      resolve(
+        String(stats.compilation.getAsset('page.css')?.source.source() ?? '')
+          .replace(/url\([^)]*\)/g, 'url()')
+          .trim()
+      )
+    })
+  })
+}
+
+describe('the targets a stylesheet is minified for', () => {
+  it.each([
+    ['chrome', {}],
+    ['chrome', {minimum_chrome_version: '120'}],
+    ['firefox', {}],
+    ['firefox', {minimum_chrome_version: '120'}],
+    ['firefox', GECKO_FLOOR],
+    ['safari', {}],
+    ['safari', GECKO_FLOOR]
+  ])('a %s build of manifest extras %j minifies for what its scripts compile for', async (browser, extra) => {
+    const manifest = {...MANIFEST, ...extra}
+    const root = makeProject({'package.json': {}, 'manifest.json': manifest})
+    const {pages} = swcRules(
+      await configure(root, {browser: browser as Browser})
+    )
+
+    expect(cssMinimizerOptions(manifest, browser).targets).toEqual(
+      swcOptionsFor(pages, '/x/a.js').env.targets
+    )
+  })
+
+  it.each([
+    [
+      'chrome',
+      '.a{backdrop-filter:blur(2px);-webkit-mask-image:url();mask-image:url()}'
+    ],
+    ['firefox', '.a{backdrop-filter:blur(2px);mask-image:url()}'],
+    [
+      'safari',
+      '.a{-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);mask-image:url()}'
+    ]
+  ])('a %s build prefixes what that engine needs', async (browser, sheet) => {
+    expect(await minifySheet(browser as Browser, MANIFEST)).toBe(sheet)
+  })
 })

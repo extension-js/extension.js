@@ -16,6 +16,7 @@ import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
 import {classifyEntrySurface} from '../lib/split-chunks'
+import {resolveEngineTargets} from '../lib/swc-targets'
 import {
   createNodeModulesExclude,
   resolveTranspilePackageDirs
@@ -33,7 +34,6 @@ import {
   findProjectBabelConfig,
   projectBabelOptions
 } from './js-frameworks-lib/babel-config'
-import {resolveEngineSwcTargets} from './js-frameworks-lib/engine-targets'
 import {
   getJsxImportSource,
   isUsingJsxFramework,
@@ -419,7 +419,7 @@ export class JsFrameworksPlugin {
         ? {useDefineForClassFields: transformFlags.useDefineForClassFields}
         : {}
 
-    const targets = resolveEngineSwcTargets(manifest as Manifest, this.browser)
+    const targets = resolveEngineTargets(manifest as Manifest, this.browser)
 
     compiler.options.resolve.alias = {
       ...(maybeInstallReact?.alias || {}),
@@ -775,14 +775,20 @@ function usesReactRefresh(projectPath: string, mode: string): boolean {
   return mode === 'development' && isUsingReact(projectPath)
 }
 
-// Put the service worker and the background scripts list in their own layer,
-// so the rules can tell what they import from what a page imports.
+// The service worker, the scripts list and the background page: a document
+// nobody sees runs the same sources and has nothing to refresh either.
+function isBackgroundEntry(name: string): boolean {
+  return name.startsWith('background')
+}
+
+// Put every background entry in its own layer, so the rules can tell what
+// it imports from what a page imports.
 export function withBackgroundLayer(entry: EntryMap | undefined): EntryMap {
   const next: EntryMap = {}
 
   for (const [name, description] of Object.entries(entry || {})) {
     if (
-      classifyEntrySurface(name) !== 'background' ||
+      !isBackgroundEntry(name) ||
       !description ||
       (typeof description === 'object' &&
         !Array.isArray(description) &&
@@ -821,7 +827,7 @@ export function withRefreshEntries(
       typeof description !== 'object' ||
       Array.isArray(description) ||
       description.layer === EXTENSIONJS_CONTENT_SCRIPT_LAYER ||
-      name.startsWith('background')
+      isBackgroundEntry(name)
     ) {
       next[name] = description
       continue

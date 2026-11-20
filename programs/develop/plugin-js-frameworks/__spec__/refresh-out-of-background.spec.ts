@@ -24,7 +24,7 @@ afterAll(() => {
 })
 
 describe('withBackgroundLayer', () => {
-  it('layers the service worker and the scripts list and nothing else', () => {
+  it('layers the service worker, the scripts list and the background page, and nothing else', () => {
     const entry = {
       'action/index': {import: ['/p/popup.js']},
       'background/index': {import: ['/p/background.html']},
@@ -43,6 +43,10 @@ describe('withBackgroundLayer', () => {
 
     expect(next).toEqual({
       ...entry,
+      'background/index': {
+        import: ['/p/background.html'],
+        layer: EXTENSIONJS_BACKGROUND_LAYER
+      },
       'background/service_worker': {
         import: ['/p/sw.js'],
         chunkLoading: 'import-scripts',
@@ -180,6 +184,8 @@ function scaffold(input: {
     'popup.jsx': mount,
     'Badge.jsx': BADGE.replace('FRAMEWORK', hooks),
     'sw.js': BACKGROUND,
+    'background.html':
+      '<!doctype html><html><body><script src="./sw.js"></script></body></html>',
     ...input.files
   }
 
@@ -261,6 +267,12 @@ describe('React refresh and the development background bundle (real compile)', (
       'a background scripts list',
       'firefox',
       {manifest_version: 2, background: {scripts: ['sw.js']}}
+    ],
+    // A document nobody sees: it runs the same sources with nothing to refresh.
+    [
+      'a background page',
+      'firefox',
+      {manifest_version: 2, background: {page: 'background.html'}}
     ]
   ] as const)(
     'keeps refresh out of %s and in the page that shares its source',
@@ -286,8 +298,14 @@ describe('React refresh and the development background bundle (real compile)', (
       expect(background).toContain('sw-marker')
       expect(pages).toContain('badge-marker-')
 
+      // Every document gets two empty stand-ins for a page with no runtime.
+      const compiled = background.replace(
+        /if \('function' != typeof g\.\$Refresh(Reg|Sig)\$\)[^\n]*\n/g,
+        ''
+      )
+
       for (const code of REFRESH_CODE) {
-        expect(background, `background carries ${code}`).not.toContain(code)
+        expect(compiled, `background carries ${code}`).not.toContain(code)
       }
 
       expect(pages).toContain('$RefreshReg$')
