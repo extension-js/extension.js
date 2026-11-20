@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The plain spelling of a manifest JSON resource (`rules.json`, no leading
 // slash, no public/ prefix) whose file lives only under the shipped public
@@ -10,7 +10,7 @@ import {buildProject} from './helpers/build-project'
 // name that copy instead of the compiled slot nothing emits. A file that
 // exists beside the manifest keeps its compiled slot.
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 type Layout = 'root' | 'src'
 type Browser = 'chrome' | 'firefox'
@@ -49,10 +49,7 @@ function project(options: {
   // Also write a root public/ beside the src/public/ one, to prove precedence.
   shadowingRootPublic?: boolean
 }) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'extjs-build-public-json-plain-')
-  )
-  roots.push(root)
+  const root = tempFolder('extjs-build-public-json-plain-')
   const manifestDir = options.layout === 'src' ? path.join(root, 'src') : root
   const home =
     options.home === 'public' ? path.join(manifestDir, 'public') : manifestDir
@@ -162,10 +159,6 @@ function expectShippedAtOutputRoot(root: string, browser: Browser = 'chrome') {
 
   return {distDir, manifest}
 }
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
 
 describe('build: plain-spelled manifest JSON resources that public/ owns', () => {
   it('root public/, chrome MV3: names the copied file at the output root', async () => {

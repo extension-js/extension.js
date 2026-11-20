@@ -1,23 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const PNG = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNgYGBgAAAABQAB' +
     'h6FO1AAAAABJRU5ErkJggg==',
   'base64'
 )
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(background: string, files: Record<string, Buffer | string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-code-named-'))
-  roots.push(root)
+  const root = tempFolder('extjs-code-named-')
 
   fs.writeFileSync(
     path.join(root, 'package.json'),

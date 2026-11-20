@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(
   files: Record<string, string>,
@@ -17,8 +13,7 @@ function project(
     background: {service_worker: 'background.js'}
   }
 ) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-constant-'))
-  roots.push(root)
+  const root = tempFolder('extjs-build-constant-')
 
   fs.writeFileSync(
     path.join(root, 'package.json'),

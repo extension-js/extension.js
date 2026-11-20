@@ -1,25 +1,20 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // HTML pages share code by default: the framework runtime lands in
 // shared/framework.js and a module two pages import in shared/commons.js.
 // Background, content scripts and injected scripts keep one file each.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const REACT_MARK = 'REACT_RUNTIME_MARK_7f3a'
 const SHARED_MARK = 'SHARED_MODULE_MARK_9c1d'
 const ONLY_POPUP_MARK = 'ONLY_POPUP_MARK_2b8e'
 
 function project(extensionConfig?: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-split-default-'))
-  roots.push(root)
+  const root = tempFolder('extjs-split-default-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({
@@ -214,8 +209,7 @@ describe('default page-only split chunks', () => {
 // user_scripts.api_script names exactly one file in the manifest, so it is a
 // single-file surface: whatever the default groups hoist out of it is lost.
 function userScriptProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-split-us-'))
-  roots.push(root)
+  const root = tempFolder('extjs-split-us-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({

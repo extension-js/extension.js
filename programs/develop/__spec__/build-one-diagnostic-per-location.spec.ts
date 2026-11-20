@@ -1,12 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A scripts/ folder entry is compiled in a layer of its own, so a module it
 // shares with the background is built twice and reports twice.
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const ESCAPE = String.fromCharCode(27)
 const COLOR_KEYS = ['NO_COLOR', 'FORCE_COLOR'] as const
 const savedColors: Record<string, string | undefined> = {}
@@ -25,13 +25,8 @@ afterEach(() => {
   }
 })
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-one-diagnostic-'))
-  roots.push(root)
+  const root = tempFolder('extjs-one-diagnostic-')
 
   const all: Record<string, string> = {
     'package.json': JSON.stringify({

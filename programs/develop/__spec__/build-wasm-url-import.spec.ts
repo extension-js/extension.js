@@ -1,25 +1,20 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A `.wasm?url` import ships the binary as an emitted file and hands the
 // code its URL, so a loader that fetches its own bytes (emscripten, zstd)
 // needs no module.rules surgery. The plain import stays an async wasm module.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // Larger than the asset inline threshold, so the file cannot become a data URI.
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])
 const WASM_BYTES = Buffer.concat([WASM_MAGIC, Buffer.alloc(4096, 0)])
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wasm-url-'))
-  roots.push(root)
+  const root = tempFolder('extjs-wasm-url-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'wasm-url', version: '0.0.0'})

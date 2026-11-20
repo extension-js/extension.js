@@ -1,24 +1,19 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A CSS module can declare a class no script imports yet. Production keeps
 // every rule development keeps, so the minimizer may not delete that class,
 // and the sheet must still ship minified with no fallback warning.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const MODULE_CSS =
   '.badge {\n  color: red;\n  margin: 0;\n}\n\n.spare {\n  color: blue;\n  border-radius: 6px;\n}\n'
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-css-modules-'))
-  roots.push(root)
+  const root = tempFolder('extjs-css-modules-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'modules', version: '0.0.0'})

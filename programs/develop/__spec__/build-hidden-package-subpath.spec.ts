@@ -1,16 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A wasm runtime such as @ffmpeg/core ships files its `exports` field does
 // not list. The build resolves them like any package file, with no alias.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const REQUEST = '@ffmpeg/core/dist/esm/ffmpeg-core.js'
 
@@ -32,10 +28,7 @@ const ALIAS_CONFIG = [
 
 // A fake package named like the real one, written here. Nothing is installed.
 function project(config?: string) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-hidden-subpath-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-hidden-subpath-'))
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({

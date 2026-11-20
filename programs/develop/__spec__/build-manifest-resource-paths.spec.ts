@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Every path the built manifest names must exist in dist exactly there, for
 // each resource kind, wherever the source lives and however it is spelled.
@@ -11,20 +11,13 @@ const PNG = Buffer.from(
     'h6FO1AAAAABJRU5ErkJggg==',
   'base64'
 )
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(
   manifest: Record<string, unknown>,
   files: Record<string, Buffer | string>
 ) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'extjs-manifest-resource-paths-')
-  )
-  roots.push(root)
+  const root = tempFolder('extjs-manifest-resource-paths-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'resource-paths', version: '0.0.0'})

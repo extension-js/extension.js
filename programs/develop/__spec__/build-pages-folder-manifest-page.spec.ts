@@ -1,20 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // A page under pages/ that the manifest also names. The folder scan used to
 // enter it a second time, so it shipped twice and warned twice.
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-pages-owned-'))
-  roots.push(root)
+  const root = tempFolder('extjs-pages-owned-')
   fs.mkdirSync(path.join(root, 'pages', 'about'), {recursive: true})
   fs.mkdirSync(path.join(root, 'pages', 'help'), {recursive: true})
   fs.writeFileSync(

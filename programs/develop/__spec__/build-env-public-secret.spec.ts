@@ -1,19 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {looksLikeSecretName} from '../plugin-compilation/env'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(env: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-secret-'))
-  roots.push(root)
+  const root = tempFolder('extjs-public-secret-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'public-secret', version: '0.0.0'})

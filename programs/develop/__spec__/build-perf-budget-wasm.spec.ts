@@ -1,18 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A vendor wasm runtime (onnxruntime-web, ffmpeg) is fetched when a page or
 // a worker runs the model and cannot be split, so its 26 MB must not turn
 // every build into "compiled with warnings". The same bytes reached by a
 // content script are paid for on every navigation and still warn.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const WASM_MAGIC = Buffer.from([0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00])
 const ORT_BYTES = 26 * 1000 * 1000
@@ -27,8 +23,7 @@ function page(script: string) {
 }
 
 function project(kind: 'page-and-worker' | 'content-script', config?: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-wasm-budget-'))
-  roots.push(root)
+  const root = tempFolder('extjs-wasm-budget-')
 
   const files: Record<string, Buffer | string> = {
     'package.json': JSON.stringify({

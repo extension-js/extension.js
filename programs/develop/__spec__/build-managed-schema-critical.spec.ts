@@ -1,21 +1,16 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Chrome refuses a storage.managed_schema it cannot parse or that is not an
 // object, so the build must fail the same way it does for a broken DNR
 // ruleset instead of copying the broken file into dist.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(schema: string, spelling = 'schema.json') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-managed-schema-'))
-  roots.push(root)
+  const root = tempFolder('extjs-managed-schema-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'schema', version: '0.0.0'})

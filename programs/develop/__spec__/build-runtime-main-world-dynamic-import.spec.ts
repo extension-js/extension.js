@@ -1,22 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A scripts/ file the background registers into the MAIN world runs in the
 // page with no extension runtime, often at document_start before the page
 // has a body. The generic chunk loader appends to document.body and threw
 // there, so the bundle must carry the MAIN world loader a declared group gets.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-rt-main-dyn-'))
-  roots.push(root)
+  const root = tempFolder('extjs-rt-main-dyn-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'rt-main-dyn', version: '0.0.0'})
@@ -141,8 +136,7 @@ describe('a runtime-registered MAIN world script that calls import()', () => {
 // Every scripts/ file is an entry of its own, so the wrapper once built it a
 // single time, as an isolated script, wherever it was imported from.
 function importingProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-import-'))
-  roots.push(root)
+  const root = tempFolder('extjs-main-import-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'main-import', version: '0.0.0'})
@@ -313,8 +307,7 @@ describe('a scripts/ module a MAIN world entry imports', () => {
 // A rule sees only the path of the importing module, and that path is the
 // same for the copy inside a MAIN world bundle and the standalone one.
 function chainProject() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-main-chain-'))
-  roots.push(root)
+  const root = tempFolder('extjs-main-chain-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'main-chain', version: '0.0.0'})

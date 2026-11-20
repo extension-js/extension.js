@@ -1,22 +1,17 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {unzipSync} from 'fflate'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {listOutputFiles} from '../lib/output-files'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The archive can be placed as well as named, and a production build can
 // write source maps that the totals count apart and no zip carries.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(config?: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-zip-dir-'))
-  roots.push(root)
+  const root = tempFolder('extjs-zip-dir-')
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({
@@ -109,8 +104,7 @@ describe('extension build --zip-dir', () => {
 
   it('takes an absolute folder outside the project as written', async () => {
     const root = project()
-    const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-zip-out-'))
-    roots.push(outside)
+    const outside = tempFolder('extjs-zip-out-')
 
     await build(root, {zip: true, zipDir: path.join(outside, 'drop')})
 

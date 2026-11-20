@@ -1,19 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-kept-page-'))
-  roots.push(root)
+  const root = tempFolder('extjs-kept-page-')
 
   const all: Record<string, string> = {
     'package.json': JSON.stringify({

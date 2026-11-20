@@ -1,16 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A registration is read where it is written: in a module the entry
 // imports, or through a constant of the same file.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const REGISTRATION = (file: string) =>
   `{id: "page-hook", js: ["${file}"], world: "MAIN", matches: ["<all_urls>"], runAt: "document_start"}`
@@ -18,8 +14,7 @@ const REGISTRATION = (file: string) =>
 const API = 'var api = globalThis.browser || globalThis.chrome\n'
 
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-imported-reg-'))
-  roots.push(root)
+  const root = tempFolder('extjs-imported-reg-')
 
   const all: Record<string, string | Buffer> = {
     'package.json': JSON.stringify({

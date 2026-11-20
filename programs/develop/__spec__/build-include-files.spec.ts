@@ -1,14 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const tempDirs: string[] = []
-
-afterAll(() => {
-  for (const dir of tempDirs) fs.rmSync(dir, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 // The project lives one level below the temp dir, so a source can sit
 // beside it, outside the project root, the way an exported model tree does.
@@ -16,8 +12,7 @@ function workspace(
   files: Record<string, string | Buffer>,
   config: string
 ): {root: string; outside: string} {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-include-'))
-  tempDirs.push(dir)
+  const dir = tempFolder('extjs-include-')
   const root = path.join(dir, 'project')
   const outside = path.join(dir, 'training', 'export')
   fs.mkdirSync(root, {recursive: true})

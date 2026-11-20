@@ -1,18 +1,14 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {readTakeBlock} from '../lib/extension-base-from-stack'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // An injected MAIN world file reads the extension base off the page on
 // Gecko, so the caller's bundle runs the bridge ahead of the injection.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const API = 'var api = globalThis.browser || globalThis.chrome\n'
 
@@ -22,8 +18,7 @@ const inject = (world: string) =>
   `files: ["/scripts/hook.js"], world: "${world}"})\n})\n`
 
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-injected-main-'))
-  roots.push(root)
+  const root = tempFolder('extjs-injected-main-')
 
   const all: Record<string, string | Buffer> = {
     'package.json': JSON.stringify({

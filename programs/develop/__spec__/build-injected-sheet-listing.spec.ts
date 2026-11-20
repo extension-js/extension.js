@@ -1,23 +1,18 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
 import {workspacePackage} from './helpers/workspace-package'
+import {trackTempFolders} from './helpers/temp-folders'
 
 type Browser = 'chrome' | 'firefox' | 'safari'
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 const sassDir = workspacePackage('sass')
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(files: Record<string, string>, sass = false) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-sheet-listing-'))
-  roots.push(root)
+  const root = tempFolder('extjs-sheet-listing-')
 
   fs.writeFileSync(
     path.join(root, 'package.json'),

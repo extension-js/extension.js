@@ -1,15 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // Manifest JSON resources (a DNR ruleset, a managed schema) kept under the
 // public folder the copier ships: the root public/ and the next-to-manifest
 // src/public/ layout must both build, land at the output root, and keep the
 // built manifest pointing at the copied file.
 
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 
 type Layout = 'root' | 'src'
 type Spelling = 'prefix' | 'slash'
@@ -52,10 +52,7 @@ function project(options: {
   // Also write a root public/ beside the src/public/ one, to prove precedence.
   shadowingRootPublic?: boolean
 }) {
-  const root = fs.mkdtempSync(
-    path.join(os.tmpdir(), 'extjs-build-public-json-layouts-')
-  )
-  roots.push(root)
+  const root = tempFolder('extjs-build-public-json-layouts-')
   const manifestDir = options.layout === 'src' ? path.join(root, 'src') : root
   const publicDir = path.join(manifestDir, 'public')
   fs.mkdirSync(publicDir, {recursive: true})
@@ -146,10 +143,6 @@ function expectShippedAtOutputRoot(root: string) {
 
   return {distDir, manifest}
 }
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
 
 describe('build: manifest JSON resources under the shipped public folder', () => {
   it('root public/, public/ prefix spelling: ships at the output root', async () => {

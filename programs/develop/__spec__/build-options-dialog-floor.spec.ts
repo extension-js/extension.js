@@ -1,20 +1,15 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const STRICT_POLICY = "default-src 'none'; script-src 'self'; style-src 'self'"
 
 function project(manifest: Record<string, unknown> = {}) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dialog-floor-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dialog-floor-')
 
   const files: Record<string, string> = {
     'package.json': JSON.stringify({

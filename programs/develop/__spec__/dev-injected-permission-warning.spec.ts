@@ -1,10 +1,10 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {rspack} from '@rspack/core'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {getProjectStructure} from '../lib/project'
 import webpackConfig from '../rspack-config'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // The dev build injects "tabs" so the reload loop works, and warns when the
 // author's own code leans on it. A development bundle keeps every build-time
@@ -12,11 +12,7 @@ import webpackConfig from '../rspack-config'
 // branch it decides is still there, along with the function only that branch
 // calls. This drives the real compiler to keep the scan honest about which of
 // those two shapes the packaged extension would actually carry.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const SAFARI_ONLY = [
   'const isSafariLike =',
@@ -41,8 +37,7 @@ const UNGUARDED = [
 ].join('\n')
 
 function project(background: string) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dev-permission-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dev-permission-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'sidebar', version: '0.0.0'})

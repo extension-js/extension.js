@@ -1,17 +1,13 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import {buildProject} from './helpers/build-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 // A file under public/ ships as authored. A script `include` declares is
 // minified in production, in a way that keeps the value the file ends on.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 const COPIED: Record<string, string> = {
   'raw-plain.js': 'const rawPlain = 20\nrawPlain + 22\n',
@@ -41,8 +37,7 @@ const DECLARED =
   'var declared = 40\ndeclared + 2\n'
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-public-verbatim-'))
-  roots.push(root)
+  const root = tempFolder('extjs-public-verbatim-')
 
   const all: Record<string, string> = {
     'package.json': JSON.stringify({
