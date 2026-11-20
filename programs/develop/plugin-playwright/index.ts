@@ -441,6 +441,36 @@ export function getSessionRunId(
 // a compiler torn down after its successor opened no longer owns the document.
 const writerEpochByMetadataDir = new Map<string, number>()
 
+// What a restart's next compiler replaced when it opened the same run: the
+// serving writer's epoch and the document as that writer left it.
+const takeoverByMetadataDir = new Map<
+  string,
+  {epoch: number | undefined; document: Record<string, unknown>}
+>()
+
+// A restart's next compiler takes the contract as it is built. When the rest
+// of that bundle fails, the compiler that keeps serving gets both back.
+export function holdServingContract(readyPath: string): () => void {
+  const metadataDir = path.dirname(asAbsolute(readyPath))
+
+  takeoverByMetadataDir.delete(metadataDir)
+
+  return () => {
+    const taken = takeoverByMetadataDir.get(metadataDir)
+    if (!taken) return
+
+    takeoverByMetadataDir.delete(metadataDir)
+
+    if (taken.epoch === undefined) {
+      writerEpochByMetadataDir.delete(metadataDir)
+    } else {
+      writerEpochByMetadataDir.set(metadataDir, taken.epoch)
+    }
+
+    writeContractFile(asAbsolute(readyPath), taken.document)
+  }
+}
+
 // The runs whose launcher came back, by contract path and run. A session
 // holds two writers, and the one that compiles has to hear the other.
 const settledLaunches = new Set<string>()
@@ -1149,13 +1179,23 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
     writeStarting() {
       if (foreignLiveDevSession) return
 
-      openedEpoch = (writerEpochByMetadataDir.get(metadataDir) || 0) + 1
+      const replaced = readContract()
+      const servingEpoch = writerEpochByMetadataDir.get(metadataDir)
+
+      if (replaced?.runId === base.runId) {
+        takeoverByMetadataDir.set(metadataDir, {
+          epoch: servingEpoch,
+          document: replaced
+        })
+      }
+
+      openedEpoch = (servingEpoch || 0) + 1
       writerEpochByMetadataDir.set(metadataDir, openedEpoch)
       ensureDirSync(metadataDir)
 
       // A new run resets the timeline so prior-run entries don't interleave;
       // a restart reopens the run on disk and keeps appending to it.
-      if (readContract()?.runId !== base.runId) {
+      if (replaced?.runId !== base.runId) {
         try {
           fs.writeFileSync(eventsPath, '', 'utf-8')
           eventsBytes = 0

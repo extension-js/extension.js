@@ -61,7 +61,8 @@ import {
   createPlaywrightMetadataWriter,
   detectLiveDevSessionOwner,
   forgetSessionRun,
-  getSessionRunId
+  getSessionRunId,
+  holdServingContract
 } from '../plugin-playwright'
 import {
   dispatchRestartReload,
@@ -988,6 +989,7 @@ async function startDevSession(
 
   const createRestartBundle = () =>
     buildRestartBundle({
+      holdContract: () => holdServingContract(metadata.readyPath),
       build: () => createCompilerAndServer({isRestart: true}),
       activeCompiler: () => activeCompiler,
       setActiveCompiler: (compiler) => {
