@@ -35,7 +35,7 @@ describe('buildContentScriptsMeta', () => {
   it('pairs a MAIN world script with a bridge indexed past the original count', () => {
     expect(
       meta([
-        {matches: ['<all_urls>'], world: 'MAIN'},
+        {matches: ['<all_urls>'], js: ['main.js'], world: 'MAIN'},
         {matches: ['<all_urls>']}
       ])
     ).toEqual({
@@ -62,8 +62,8 @@ describe('buildContentScriptsMeta', () => {
 
   it('gives each MAIN world script its own bridge', () => {
     const result = meta([
-      {matches: ['<all_urls>'], world: 'MAIN'},
-      {matches: ['<all_urls>'], world: 'MAIN'}
+      {matches: ['<all_urls>'], js: ['main.js'], world: 'MAIN'},
+      {matches: ['<all_urls>'], js: ['main.js'], world: 'MAIN'}
     ])
 
     expect(result['content_scripts/content-0.js']).toMatchObject({

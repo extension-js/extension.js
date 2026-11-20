@@ -42,21 +42,21 @@ real compiler takes per mode and browser.
 8. `RouteMainWorldCopies`: routes MAIN world calls to the copy build (only when
    a file runs in the MAIN world at runtime)
 9. `TraceRuntimeLoadedFiles`
-10. `KeepGetURLImportsNative`
-11. `AddContentScriptWrapper`
+10. `AddContentScriptWrapper`
+11. `KeepGetURLImportsNative`
 12. `AddBaseUriRuntimeModule`
 13. `PruneMainWorldBridges` (production only)
 14. `ValidateEmittedScriptSyntax`
 15. `StampWebkitUtf8Bom` (WebKit only)
-17. `WarnSplitInitialChunks`
-18. `WarnPageContextWorker`
-19. `WarnPageRelativeScriptPath` (Gecko only)
-20. `WarnMovedPageRelativeUrls`
-21. `WarnUnknownRegistrationWorld`
-22. `WarnMainWorldRegistrationChanged` (development only)
-23. `WarnMissingBuildConstants` (production, and a development build with no
+16. `WarnSplitInitialChunks`
+17. `WarnPageContextWorker`
+18. `WarnPageRelativeScriptPath` (Gecko only)
+19. `WarnMovedPageRelativeUrls`
+20. `WarnUnknownRegistrationWorld`
+21. `WarnMainWorldRegistrationChanged` (development only)
+22. `WarnMissingBuildConstants` (production, and a development build with no
     dev session)
-24. `WarnUnshippedRuntimeAssets`
+23. `WarnUnshippedRuntimeAssets`
 
 ## Important files
 
@@ -71,7 +71,7 @@ real compiler takes per mode and browser.
 
   The wrapper rules sit at the front of `module.rules`, ahead of every rule `extension.config.js` added, and loaders run from the last rule to the first. A loader of the project with no `enforce`, or with `enforce: 'pre'`, is handed the file as written, and the wrapper reads what it returns before the transpiler does. A loader with `enforce: 'post'` is handed the wrapped and transpiled text. A plugin of the project applies after this one, so a rule it puts in front of the list as it applies would run after the wrapper: `scripts-lib/front-rules.ts` takes the front again once every plugin has applied, and that rule is handed the file as written too. When a loader returns text with no default export for a file that has one as written, the build stops and names the file and the loader. The wrapper applies in production too, with no option to turn it off.
 
-  The wrapper writes the same text in every mode and knows nothing of reloading. Another plugin adds its own text at named points of the emitted script through `plugin-web-extension/shared/content-script-wrapper-extensions.ts`: `extendContentScriptWrapper(compiler, extension)` adds to a list the loader options carry by reference, and the loader asks each extension for its text at every point. `plugin-reload` adds the reinject runtime this way in a dev session. A build with no extension emits the wrapper alone. The owner key the wrapper writes (`__EXTENSIONJS_REINJECT_KEY` and `data-extjs-reinject-key`) keeps its spelling, so shipped bundles stay byte for byte what they were.
+  The wrapper prints nothing and has no reload branch. A dev session and a shipped bundle differ only where the shipped one shows the page less: a shipped MAIN world bundle sets no cleanup global on the page's window, and a declared MAIN world bundle clears the bridge base it takes on every engine when shipped, on Chromium alone in a dev session. Another plugin adds its own text at named points of the emitted script through `plugin-web-extension/shared/content-script-wrapper-extensions.ts`: `extendContentScriptWrapper(compiler, extension)` adds to a list the loader options carry by reference, and the loader asks each extension for its text at every point. `plugin-reload` adds the reinject runtime this way in a dev session. A build with no extension emits the wrapper alone. The owner key the wrapper writes (`__EXTENSIONJS_REINJECT_KEY` and `data-extjs-reinject-key`) keeps its spelling, so shipped bundles stay byte for byte what they were.
 
   A content script with an `import` or an `export` may await at the top level, and its default export mounts only once that `await` ends, so a `run_at: document_start` script that awaits mounts later than `document_start`. In a dev session a copy that is still waiting when the next one is injected is cleaned up and never mounts.
 
@@ -124,7 +124,7 @@ A file that is the whole of an entry (one content script, a stylesheet of a grou
 
 ## MAIN world support
 
-MAIN-world content scripts get wrapper-side bridge script generation in `add-content-script-wrapper`. Dev-mode bridge metadata for reinjection is built by `plugin-reload`'s `SetupReloadStrategy`.
+MAIN-world content scripts get wrapper-side bridge script generation in `add-content-script-wrapper`. Where each bridge sits is one rule, `mainWorldBridgeIndexes` in `contracts.ts`: after every declared group, in the order of the MAIN world groups this browser loads, so a group left with no file for the browser gets no bridge. The build here reads it, and so does `buildContentScriptsMeta` in `feature-chunk-loading`, which tells the chunk loader each bundle's world in every build. `__spec__/bridge-index-rule.spec.ts` checks that both agree with the emitted manifest.
 
 The main bundle and bridge bundle are both registered under canonical content asset names so browser-side reinjection and source tracking stay deterministic.
 
@@ -159,7 +159,7 @@ High-signal specs include:
 - `scripts-plugin-steps.spec.ts` (which steps a real compiler takes per mode and browser)
 - `add-scripts.spec.ts`
 - `content-script-wrapper.spec.ts`
-- `plugin-boundary.spec.ts` (no reinject runtime and no import from `plugin-reload` in this folder)
+- `plugin-boundary.spec.ts` (this folder imports nothing from `plugin-reload` or `plugin-browsers`, carries no reinject runtime, hint or file names of a dev session, keeps no restart state and reaches the dev server only through its restart API, and no part of `plugin-web-extension` reads whether a build is a reload session)
 - `contracts.spec.ts`
 - `get-bridge-scripts.spec.ts`
 

@@ -9,6 +9,7 @@
 import colors from 'pintor'
 import {prefix} from '../../lib/messaging'
 import {withheldFileLines} from '../../lib/withheld-file'
+import {isCanonicalContentScriptAsset} from './contracts'
 
 export function importScriptsDependencyMissing(
   workerPath: string,
@@ -756,4 +757,29 @@ export function publicInjectedSheetPageRelativeTarget(
   )
 
   return lines.join('\n')
+}
+
+// The browser refuses a file it cannot parse without a word, so the build
+// says what that costs the surface the file backs.
+export function emittedScriptUnparsable(name: string, reason: string) {
+  const slot = isCanonicalContentScriptAsset(name)
+    ? [
+        'The browser will silently skip an unparsable content script:',
+        'it never injects and reports no error anywhere. Fix the syntax',
+        'error in the source file(s) this content_scripts entry bundles.'
+      ]
+    : [
+        'The browser refuses to run a file it cannot parse, so the surface this',
+        'backs is dead on arrival. Fix the syntax error in the source file(s)',
+        'this entry bundles.'
+      ]
+
+  return [`${name} is not valid JavaScript: ${reason}.`, ...slot].join('\n')
+}
+
+export function runtimeLoadedFileCompileFailed(
+  emitPath: string,
+  reason: string
+) {
+  return `Compiling runtime-loaded ${emitPath} failed: ${reason}`
 }

@@ -1,8 +1,8 @@
 import {describe, expect, it} from 'vitest'
 import {
+  appendDevAdditions,
   devAdditionsOf,
-  mergeDevAdditions,
-  recordDevAdditions
+  mergeDevAdditions
 } from '../../../../lib/dev-additions'
 import {listDevManifestAdditions} from '../apply-dev-defaults-lib/dev-additions'
 
@@ -200,11 +200,26 @@ describe('listDevManifestAdditions', () => {
 describe('the dev additions a compilation recorded', () => {
   it('tells a compilation that patched nothing from one that added nothing', () => {
     const patched = {}
-    recordDevAdditions(patched, [])
+    appendDevAdditions(patched, [])
 
     expect(devAdditionsOf(patched)).toEqual([])
     expect(devAdditionsOf({})).toBeUndefined()
     expect(devAdditionsOf(undefined)).toBeUndefined()
+  })
+
+  it('keeps what two steps of one compile added and says a repeat once', () => {
+    const compilation = {}
+    const stubs = {
+      kind: 'manifest_change' as const,
+      value: 'content_scripts dev stubs',
+      reason: 'first step'
+    }
+    const tabs = {kind: 'permission' as const, value: 'tabs', reason: 'second'}
+
+    appendDevAdditions(compilation, [stubs])
+    appendDevAdditions(compilation, [tabs, {...stubs, reason: 'again'}])
+
+    expect(devAdditionsOf(compilation)).toEqual([stubs, tabs])
   })
 
   it('replaces the manifest entries and keeps the flag the launcher stamped', () => {

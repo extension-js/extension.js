@@ -76,7 +76,12 @@ export function browserRunnerDisabled(args: {
   readyPath: string
   distPath?: string
 }) {
-  const manifest = readJsonRecord(args.manifestPath)
+  // The written manifest has its $EXTENSION_PUBLIC_* values filled, so the
+  // card names what ships. The source stands in when none was written.
+  const manifest =
+    (args.distPath
+      ? readJsonRecord(path.join(args.distPath, 'manifest.json'))
+      : null) ?? readJsonRecord(args.manifestPath)
   const ready = readJsonRecord(args.readyPath)
   const browserLabel = capitalizeToken(String(args.browser || 'unknown'))
   const runId = String(ready?.runId || '').trim()
@@ -89,8 +94,8 @@ export function browserRunnerDisabled(args: {
       : ''
   const extensionName =
     resolveLocalizedManifestName(manifest, [
-      path.dirname(args.manifestPath),
-      String(args.distPath || '')
+      String(args.distPath || ''),
+      path.dirname(args.manifestPath)
     ]) || 'Extension'
   const extensionVersion = String(manifest?.version || '').trim()
   const extensionLabel = extensionVersion

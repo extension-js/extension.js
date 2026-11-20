@@ -48,10 +48,10 @@
     "lint": "biome lint . && eslint .",
     "pretest:create": "pnpm compile",
     "pretest": "pnpm compile",
-    "test": "vitest run",
-    "test:create": "vitest run",
+    "test": "node ../../scripts/run-vitest.mjs",
+    "test:create": "node ../../scripts/run-vitest.mjs",
     "pretest:coverage": "pnpm compile",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "node ../../scripts/run-vitest.mjs --coverage"
   },
   "keywords": [
     "webextension",
