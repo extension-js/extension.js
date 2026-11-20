@@ -342,15 +342,9 @@ let createTgz = ''
 let developTgz = ''
 const runnerReady = new Map<string, boolean>()
 
-function getPackagesForRunner(runnerName: string) {
-  if (runnerName === 'pnpmDlx') {
-    return [
-      `extension@file:${cliTgz}`,
-      `extension-create@file:${createTgz}`,
-      `extension-develop@file:${developTgz}`
-    ]
-  }
-
+// Every runner takes the tarball paths bare. pnpm 10 dlx reads a
+// `name@file:/abs` spec under its own cache folder and fails with ENOENT.
+function getPackagesForRunner() {
   return [cliTgz, createTgz, developTgz]
 }
 
@@ -437,7 +431,7 @@ beforeAll(
       try {
         const smoke = runCommand(
           runner.command,
-          runner.buildArgs(getPackagesForRunner(runner.name), ['--help']),
+          runner.buildArgs(getPackagesForRunner(), ['--help']),
           {cwd: smokeDir, env: defaultEnv, timeoutMs: PROBE_TIMEOUT_MS}
         )
         const ready = !smoke.error && (smoke.status || 0) === 0
@@ -447,8 +441,14 @@ beforeAll(
           const why = smoke.error
             ? `did not finish within ${PROBE_TIMEOUT_MS} ms`
             : `exited ${smoke.status ?? smoke.signal}`
+          // The runner's own last lines, or a skip on CI never names its cause.
+          const said = String(smoke.stderr || smoke.stdout || '')
+            .trim()
+            .split(/\r?\n/)
+            .slice(-6)
+            .join('\n')
           console.warn(
-            `[cli-exec] ${runner.name} probe ${why}; its cases are skipped`
+            `[cli-exec] ${runner.name} probe ${why}; its cases are skipped\n${said}`
           )
         }
       } finally {
@@ -473,7 +473,7 @@ describe.each(availableRunners)('cli exec flow (%s)', (runner) => {
   // resolve the --package specs here so they hold real paths, not empty strings.
   let packages: string[] = []
   beforeAll(() => {
-    packages = getPackagesForRunner(runner.name)
+    packages = getPackagesForRunner()
   })
 
   const isNpmFamilyExec = runner.name === 'npx' || runner.name === 'npmExec'
