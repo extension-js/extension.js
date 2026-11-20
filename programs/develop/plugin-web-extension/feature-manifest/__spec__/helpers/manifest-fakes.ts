@@ -11,3 +11,11 @@ export function asManifest(value: unknown): Manifest {
 export function asBrowser(name: string): DevOptions['browser'] {
   return name as DevOptions['browser']
 }
+
+// An asset as a fake compilation holds it and as a step writes it back.
+export interface FakeSource {
+  source: () => string | Buffer
+}
+
+// A warning or error a step pushes, with the fields the specs read.
+export type StepDiagnostic = Error & {file?: string; details?: string}
