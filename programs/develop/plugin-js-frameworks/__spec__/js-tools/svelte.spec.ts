@@ -20,13 +20,21 @@ const CLIENT_FILES = {
   'src/internal/client/index.js': ''
 }
 
-// A project svelte newer than any compiler, so the project copy always links.
+// The project holds the release the compiler has, so its own copy links.
+const compilerVersion = createRequire(svelteLoader)('svelte/package.json')
+  .version as string
+
 function svelteProject(files: Record<string, string> = {}) {
   const root = makeProject({
-    'package.json': {dependencies: {svelte: '99.0.0'}},
+    'package.json': {dependencies: {svelte: compilerVersion}},
     ...files
   })
-  const dir = fakePackage(root, 'svelte', {version: '99.0.0'}, CLIENT_FILES)
+  const dir = fakePackage(
+    root,
+    'svelte',
+    {version: compilerVersion},
+    CLIENT_FILES
+  )
 
   return {root, dir}
 }
@@ -230,6 +238,30 @@ describe('maybeUseSvelte', () => {
       )
     } finally {
       cwd.mockRestore()
+    }
+  })
+
+  it('runs a project that holds a newer svelte on the compiler copy', async () => {
+    const root = makeProject({
+      'package.json': {dependencies: {svelte: '99.0.0'}}
+    })
+    fakePackage(root, 'svelte', {version: '99.0.0'}, CLIENT_FILES)
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      const result = await maybeUseSvelte(root, 'development')
+      const compilerRoot = path.dirname(
+        createRequire(svelteLoader).resolve('svelte/package.json')
+      )
+
+      expect(result?.alias).toMatchObject({
+        svelte: path.join(compilerRoot, 'src', 'index-client.js'),
+        'svelte/internal': path.join(compilerRoot, 'src', 'internal')
+      })
+
+      expect(String(warn.mock.calls[0]?.[0])).toContain('99.0.0')
+    } finally {
+      warn.mockRestore()
     }
   })
 
