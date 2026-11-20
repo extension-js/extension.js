@@ -421,8 +421,8 @@ export class UpdateManifest {
               )
             }
 
-            // Dev-only: content_scripts with only CSS get a JS file so styles can be
-            // dynamically imported (HMR). Must run before patchDevContentScriptManifestPaths.
+            // Dev-only: content_scripts with only CSS get a JS file so its styles
+            // load through a script. Must run before patchDevContentScriptManifestPaths.
             if (compiler.options.mode === 'development') {
               if (patchedManifest.content_scripts) {
                 patchedManifest.content_scripts =

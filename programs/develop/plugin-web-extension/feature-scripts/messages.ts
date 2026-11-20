@@ -560,8 +560,7 @@ export function unknownRegistrationWorld(
 export function scriptsMissingFile(
   file: string,
   field: string,
-  notFound: string,
-  fromOutputRoot: boolean
+  notFound: string
 ) {
   const lines: string[] = []
   lines.push(
@@ -569,12 +568,6 @@ export function scriptsMissingFile(
   )
 
   lines.push(`The path must point to an existing file that will be bundled.`)
-
-  if (fromOutputRoot) {
-    lines.push(
-      `Paths starting with '/' are resolved from the extension output root (served from public/), not your source directory.`
-    )
-  }
 
   lines.push(`${colors.gray('NOT FOUND')} ${colors.underline(notFound)}`)
 

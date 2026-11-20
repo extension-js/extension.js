@@ -47,7 +47,7 @@ export default {
 
 ```ts
 export class WebExtensionPlugin {
-  static readonly name: 'plugin-extension'
+  static readonly name: 'plugin-web-extension'
   constructor(options: {
     manifestPath: string
     browser?:

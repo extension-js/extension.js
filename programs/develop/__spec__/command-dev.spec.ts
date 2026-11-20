@@ -46,6 +46,7 @@ vi.mock('../plugin-js-frameworks/js-tools/typescript', () => ({
 }))
 
 vi.mock('../lib/config-loader', () => ({
+  findConfigFile: vi.fn(() => undefined),
   loadBrowserConfig: vi.fn(async () => ({})),
   loadProjectConfigDefaults: vi.fn(async () => ({})),
   loadCommandConfig: vi.fn(async () => ({}))
@@ -94,7 +95,8 @@ describe('webpack/command-dev', () => {
 
     expect(genTypesMod.generateExtensionTypes).toHaveBeenCalledWith(
       '/proj',
-      '/proj'
+      '/proj',
+      {mode: 'development', browser: 'chromium'}
     )
 
     expect(ensureArtifactsMod.ensureDevelopArtifacts).toHaveBeenCalled()
@@ -107,7 +109,9 @@ describe('webpack/command-dev', () => {
   it('checks for TypeScript with the browser and folders the config file names', async () => {
     ;(fs.existsSync as any).mockReturnValue(false)
     ;(fs.readdirSync as any).mockReturnValue([])
-    ;(configLoaderMod as any).loadCommandConfig.mockResolvedValueOnce({
+    // Every load reads the same file: the one that picks the browser, and
+    // the one under that browser's env files.
+    ;(configLoaderMod as any).loadCommandConfig.mockResolvedValue({
       browser: 'firefox',
       folders: {pages: 'src/pages'}
     })
@@ -298,7 +302,8 @@ describe('webpack/command-dev', () => {
       expect(devServerOptions().browser).toBe('firefox')
       expect((configLoaderMod as any).loadBrowserConfig).toHaveBeenCalledWith(
         '/proj',
-        'firefox'
+        'firefox',
+        {mode: 'development', browser: 'firefox'}
       )
     })
 

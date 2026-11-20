@@ -52,6 +52,7 @@ function compileWarnings(
   const compiler = {
     options: {mode, context: projectPath},
     hooks: {
+      watchRun: {tap: () => undefined},
       thisCompilation: {
         tap: (_name: string, cb: CompilationCb) => {
           taps.push(cb)

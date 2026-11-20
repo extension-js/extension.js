@@ -8,6 +8,7 @@
 
 import {announceLeftoverOutputFolder} from './lib/build-output-guard'
 import {
+  findConfigFile,
   loadBrowserConfig,
   loadCommandConfig,
   loadProjectConfigDefaults
@@ -45,6 +46,7 @@ import {
   ensureTypeScriptConfig,
   isUsingTypeScript
 } from './plugin-js-frameworks/js-tools/typescript'
+import {resolvePerfBudgets} from './plugin-perf-budgets'
 import {
   rememberExcludedFiles,
   rememberSpecialFoldersConfig
@@ -53,7 +55,8 @@ import type {BrowserConfig, DevOptions} from './types'
 
 export async function extensionDev(
   pathOrRemoteUrl: string | undefined,
-  devOptions: DevOptions & {
+  // The mode is the engine's to set: a dev session always compiles in development.
+  devOptions: Omit<DevOptions, 'mode'> & {
     // Called once when the session is usable: the browser opened with the
     // extension loaded, or the first compile finished when none is launched.
     onReady?: () => void
@@ -105,13 +108,17 @@ export async function extensionDev(
       assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
     }
 
-    // commands.dev.browser must be read before the target is picked, or the
-    // config file can never choose the browser when no --browser flag arrived.
-    const commandConfig = await loadCommandConfig(packageJsonDir, 'dev')
+    // commands.dev.browser is read before the target is picked, so the config
+    // can choose the browser when no --browser flag arrived. With a flag,
+    // the first load already knows the browser and reads its env files.
     const configBrowser = askedBrowser
       ? undefined
       : configBrowserOrThrow(
-          (commandConfig as {browser?: unknown}).browser,
+          (
+            (await loadCommandConfig(packageJsonDir, 'dev')) as {
+              browser?: unknown
+            }
+          ).browser,
           'dev'
         )
     const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
@@ -136,9 +143,23 @@ export async function extensionDev(
 
     // stock defaults, then top-level config, then browser.*, then
     // commands.dev, then CLI. Unset CLI keys fall through so shared
-    // extension.config.js values apply.
-    const projectConfig = await loadProjectConfigDefaults(packageJsonDir)
-    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
+    // extension.config.js values apply. Every layer reads the env files the
+    // bundle will, the browser's included.
+    const envTarget = {mode: 'development', browser: String(browser)}
+    const projectConfig = await loadProjectConfigDefaults(
+      packageJsonDir,
+      envTarget
+    )
+    const commandConfig = await loadCommandConfig(
+      packageJsonDir,
+      'dev',
+      envTarget
+    )
+    const browserConfig = await loadBrowserConfig(
+      packageJsonDir,
+      browser,
+      envTarget
+    )
     const merged = withDarkMode({
       ...mergeOptionLayers<DevOptions & BrowserConfig>(
         DEV_COMMAND_DEFAULTS,
@@ -149,6 +170,10 @@ export async function extensionDev(
       ),
       browser
     })
+
+    // Budgets run on a production build only, but a value build would refuse
+    // is refused here too, with its code and words, before a server starts.
+    resolvePerfBudgets(merged.perfBudgets, findConfigFile(packageJsonDir))
 
     // With the browser, folders and exclude config resolved, so this check
     // reads the entries the compiler will and writes both files or neither.
@@ -164,7 +189,7 @@ export async function extensionDev(
     })
 
     if (isUsingTypeScript(manifestDir)) {
-      await generateExtensionTypes(manifestDir, packageJsonDir)
+      await generateExtensionTypes(manifestDir, packageJsonDir, envTarget)
     }
 
     if (
