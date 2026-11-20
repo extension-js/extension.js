@@ -12,6 +12,7 @@ import type {
 } from '@rspack/core'
 import type {LogContext} from './dev-server/control-bridge/contracts'
 import type {DevAddition} from './lib/dev-additions'
+import type {DevSessionCoordinates} from './lib/dev-session-coordinates'
 import type {ManagedExtensionRecord} from './lib/extension-id'
 import type {ManifestV2, ManifestV3} from './lib/manifest-types'
 import type {ErrorCode} from './lib/messaging'
@@ -88,6 +89,8 @@ export type PluginInterface = {
   connectableHost?: string
   /** The port this dev session's server listens on, for its page HMR client. */
   port?: string | number
+  /** The record of the dev session that builds the config, when one does. */
+  session?: Readonly<DevSessionCoordinates>
 }
 
 export interface LoaderInterface extends RspackLoaderContext<LoaderInterface> {
@@ -614,6 +617,12 @@ export interface CommonWebpackOptions {
    * the dev session that builds the config. Not user-configurable.
    */
   connectableHost?: string
+  /**
+   * Where the dev session that builds the config listens. One record for
+   * each compiler, so two sessions in one host never share a value.
+   * Not user-configurable.
+   */
+  session?: Readonly<DevSessionCoordinates>
   controlPortUnavailableReason?: string | null
   controlPath?: string
   logsPath?: string

@@ -30,6 +30,7 @@ import {
   isWebkitBasedBrowser,
   STOCK_COMPANION_EXTENSIONS
 } from '../lib/constants'
+import {devSessionCoordinates} from '../lib/dev-session-coordinates'
 import {
   companionsDeclaredIn,
   isFirstCompanionWarning,
@@ -589,6 +590,17 @@ async function startDevSession(
   closeControlBridge = controlBridge.close
   const bridgeControlPort = controlBridge.controlPort
   const controlCoordinates = controlCoordinatesOf(controlBridge)
+  // Everything this session's own build needs to reach it, in one record.
+  const session = devSessionCoordinates({
+    protocol: devServerWebSocketURL.protocol,
+    host: devServerHost,
+    connectableHost,
+    port,
+    path: socketPath,
+    instanceId: currentInstance.instanceId,
+    controlPort: bridgeControlPort ?? null,
+    launchEnabled: !devOptions.noBrowser
+  })
 
   // Only --port bounds a port, so a debug run names the others it listens on.
   if (isDebug()) debugLine(messages.debugSessionPorts(port, bridgeControlPort))
@@ -719,6 +731,7 @@ async function startDevSession(
     ...controlCoordinates,
     logsPath: bridgeLogsRelPath,
     connectableHost,
+    session,
     readyAwaitsExecutor,
     port: portAllocation.port,
     output: {
