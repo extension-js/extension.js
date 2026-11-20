@@ -389,3 +389,197 @@ describe('style sinks', () => {
     expect(page.byId('after')).toBeDefined()
   })
 })
+
+// A terminator the value does not hold whole, finished by the authored text
+// on one side of the placeholder.
+describe('a value that joins the authored text beside it', () => {
+  const after = '<p id="after"></p>'
+  const script = (code: string, attributes = '') =>
+    `<script id="code"${attributes}>${code}</script>${after}`
+  const sheet = (css: string) => `<style id="sheet">${css}</style>${after}`
+
+  it('cannot turn an authored < into a tag or an element end in text', () => {
+    const opened = parse(
+      fill(`<p id="t"><$EXTENSION_PUBLIC_V src=x></p>${after}`, 'script')
+    )
+
+    expect(opened.count('script')).toBe(0)
+    expect(opened.text('t')).toBe('<script src=x>')
+
+    const closed = parse(
+      fill(`<div id="t"><$EXTENSION_PUBLIC_V>x</div>${after}`, '/div')
+    )
+
+    expect(closed.text('t')).toBe('</div>x')
+  })
+
+  it('cannot finish an authored character reference', () => {
+    const named = parse(fill('<p id="t">&$EXTENSION_PUBLIC_V</p>', 'lt;b'))
+    const numbered = parse(fill('<p id="t">&#$EXTENSION_PUBLIC_V</p>', '60;'))
+
+    expect(named.text('t')).toBe('&lt;b')
+    expect(numbered.text('t')).toBe('&#60;')
+  })
+
+  it.each([
+    ['<title id="t"></tit$EXTENSION_PUBLIC_V> x</title>', 'le'],
+    ['<title id="t"><$EXTENSION_PUBLIC_V> x</title>', '/title'],
+    ['<textarea id="t"></$EXTENSION_PUBLIC_V> x</textarea>', 'textarea']
+  ])('cannot end a raw text element in %s', (html, value) => {
+    const page = parse(fill(html + after, value))
+
+    expect(page.text('t')).toMatch(/^<\/t(?:itle|extarea)> x$/)
+    expect(page.byId('after')).toBeDefined()
+  })
+
+  it.each([
+    ['<!-- a --$EXTENSION_PUBLIC_V> <p id="inside"></p> -->', '!'],
+    ['<!-- a -$EXTENSION_PUBLIC_V> <p id="inside"></p> -->', '-'],
+    ['<!-- a $EXTENSION_PUBLIC_V-> <p id="inside"></p> -->', '-'],
+    ['<!-- a $EXTENSION_PUBLIC_V> <p id="inside"></p> -->', '--!'],
+    ['<!--$EXTENSION_PUBLIC_V> <p id="inside"></p> -->', '-']
+  ])('cannot end the HTML comment in %s with %j', (html, value) => {
+    const page = parse(fill(html + after, value))
+
+    expect(page.count('#comment')).toBe(1)
+    expect(page.byId('inside')).toBeUndefined()
+    expect(page.byId('after')).toBeDefined()
+  })
+
+  it.each([
+    ['out.v = "<$EXTENSION_PUBLIC_V>";', '/script', '</script>'],
+    ["out.v = '<$EXTENSION_PUBLIC_V>';", '/script', '</script>'],
+    ['out.v = `<$EXTENSION_PUBLIC_V>`;', '/script', '</script>'],
+    ['out.v = "</scr$EXTENSION_PUBLIC_V>";', 'ipt', '</script>'],
+    ['out.v = "</scr$EXTENSION_PUBLIC_Vipt>";', '', '</script>'],
+    ['out.v = "<$EXTENSION_PUBLIC_V";', '!--', '<!--'],
+    ['out.v = "<$EXTENSION_PUBLIC_V>"; return;', '/script', '</script>'],
+    ['out.v = "</scr$EXTENSION_PUBLIC_V>"; return;', 'ipt', '</script>']
+  ])('cannot end the script from inside a quote in %s', (code, value, v) => {
+    expect(runInlineScript(fill(script(code), value))).toEqual({v})
+  })
+
+  it.each([
+    ['out.v = "a\\$EXTENSION_PUBLIC_V"; out.w = 1;'],
+    ["out.v = 'a\\$EXTENSION_PUBLIC_V'; out.w = 1;"],
+    ['out.v = `a\\$EXTENSION_PUBLIC_V`; out.w = 1;']
+  ])('is not swallowed by an authored backslash in %s', (code) => {
+    for (const value of ['', '"', "'", '`', 'n', '\\']) {
+      expect([value, runInlineScript(fill(script(code), value))]).toEqual([
+        value,
+        {v: `a${value}`, w: 1}
+      ])
+    }
+  })
+
+  it.each([
+    ['/* $EXTENSION_PUBLIC_V/ out.v = 2; /* x */ out.w = 1;', '*'],
+    ['/* *$EXTENSION_PUBLIC_V out.v = 2; /* x */ out.w = 1;', '/'],
+    ['/* $EXTENSION_PUBLIC_V out.v = 2; /* x */ out.w = 1;', '*\\/ *//'],
+    ['// <$EXTENSION_PUBLIC_V>\nout.w = 1;', '/script'],
+    ['/* <$EXTENSION_PUBLIC_V> */ out.w = 1;', '/script'],
+    ['/* $EXTENSION_PUBLIC_V/ out.v = 2; /* x */ out.w = 1; return;', '*'],
+    ['/* *$EXTENSION_PUBLIC_V out.v = 2; /* x */ out.w = 1; return;', '/']
+  ])('cannot end the script comment in %s with %j', (code, value) => {
+    expect(runInlineScript(fill(script(code), value))).toEqual({w: 1})
+  })
+
+  it('cannot end the script from a placeholder that stands as code', () => {
+    const page = parse(
+      fill(script('out.v = 1 <$EXTENSION_PUBLIC_V> 2;'), '/script')
+    )
+
+    expect(page.count('script')).toBe(1)
+    expect(page.byId('after')).toBeDefined()
+    expect(page.text('code')).toMatch(/> 2;$/)
+  })
+
+  it('cannot end the script from inside a regex class', () => {
+    const scope = runInlineScript(
+      fill(script('out.v = /[</scr$EXTENSION_PUBLIC_V>]/.test("i");'), 'ipt')
+    )
+
+    expect(scope).toEqual({v: true})
+  })
+
+  it('does not leave a regex open after an authored backslash', () => {
+    for (const value of ['', '/', 'd']) {
+      const scope = runInlineScript(
+        fill(script('var re = /a\\$EXTENSION_PUBLIC_V/; out.w = 1;'), value)
+      )
+
+      expect([value, scope]).toEqual([value, {w: 1}])
+    }
+  })
+
+  it('cannot end a JSON script or a data block', () => {
+    const json = parse(
+      fill(
+        script('{"v":"<$EXTENSION_PUBLIC_V>"}', ' type="application/json"'),
+        '/script'
+      )
+    )
+
+    expect(json.byId('after')).toBeDefined()
+    expect(JSON.parse(json.text('code'))).toEqual({v: '</script>'})
+
+    const data = parse(
+      fill(
+        script(
+          '<$EXTENSION_PUBLIC_V> <p id="inside"></p>',
+          ' type="text/x-template"'
+        ),
+        '/script'
+      )
+    )
+
+    expect(data.byId('inside')).toBeUndefined()
+    expect(data.count('script')).toBe(1)
+  })
+
+  it.each([
+    ['/* $EXTENSION_PUBLIC_V/ .x{color:blue} /* x */ .a{color:red}', '*'],
+    ['/* *$EXTENSION_PUBLIC_V .x{color:blue} /* x */ .a{color:red}', '/'],
+    ['/* $EXTENSION_PUBLIC_V .x{color:blue} /* x */ .a{color:red}', '*\\/ *//']
+  ])('cannot end the CSS comment in %s with %j', (css, value) => {
+    expect(declarations(parse(fill(sheet(css), value)).text('sheet'))).toEqual({
+      '.a color': 'red'
+    })
+  })
+
+  it('cannot end the style sheet from a string, a url or a declaration', () => {
+    const page = parse(
+      fill(
+        sheet(
+          [
+            '.s::before{content:"<$EXTENSION_PUBLIC_V>"}',
+            '.u{background:url(<$EXTENSION_PUBLIC_V)}',
+            '.c{color:<$EXTENSION_PUBLIC_V>}',
+            '/* <$EXTENSION_PUBLIC_V> */',
+            '.last{color:red}'
+          ].join('\n')
+        ),
+        '/style'
+      )
+    )
+    const css = page.text('sheet')
+
+    expect(page.byId('after')).toBeDefined()
+    expect(css).toMatch(/\.last\{color:red\}$/)
+    expect(
+      unescapeCss(declarations(css)['.s::before content'].slice(1, -1))
+    ).toBe('</style>')
+  })
+
+  it.each([
+    ['.s::before{content:"a\\$EXTENSION_PUBLIC_V"}\n.b{color:red}'],
+    [".s::before{content:'a\\$EXTENSION_PUBLIC_V'}\n.b{color:red}"],
+    ['.u{background:url(a\\$EXTENSION_PUBLIC_V)}\n.b{color:red}']
+  ])('is not swallowed by an authored backslash in %s', (css) => {
+    for (const value of ['', '"', "'", ')', 'a']) {
+      const found = declarations(parse(fill(sheet(css), value)).text('sheet'))
+
+      expect([value, found['.b color']]).toEqual([value, 'red'])
+    }
+  })
+})

@@ -68,7 +68,7 @@ const toEntities = (value: string) =>
   value.replace(/[&<>"'\r]/g, (char) => HTML_ENTITIES[char])
 
 type HtmlSink =
-  | {kind: 'text'}
+  | {kind: 'text'; rawTag?: string}
   | {kind: 'comment'}
   | {kind: 'tag'}
   | {
@@ -236,7 +236,7 @@ function htmlSinkAt(content: string, offset: number): HtmlSink {
 
         return tagName === 'style'
           ? {kind: 'style', textStart: j}
-          : {kind: 'text'}
+          : {kind: 'text', rawTag: tagName}
       }
 
       i = textEnd
@@ -358,38 +358,169 @@ const LINE_TERMINATORS = new RegExp(
   'g'
 )
 
-const keepTagOpen = (value: string, tag: string) =>
-  value
-    .replace(new RegExp(`</(${tag})`, 'gi'), '<\\/$1')
-    .replace(/<!--/g, '<\\!--')
+// The authored text on each side of a placeholder, as far as the longest
+// terminator a value could finish or start.
+interface Neighbors {
+  left: string
+  right: string
+}
+
+const NEIGHBOR_REACH = 16
+const PLACEHOLDER_AT = /\$EXTENSION_[A-Z0-9_]+/y
+
+function neighborsOf(
+  content: string,
+  offset: number,
+  from = 0,
+  to = content.length
+): Neighbors {
+  PLACEHOLDER_AT.lastIndex = offset
+  const end = offset + (PLACEHOLDER_AT.exec(content)?.[0].length ?? 0)
+
+  return {
+    left: content.slice(Math.max(from, offset - NEIGHBOR_REACH), offset),
+    right: content.slice(end, Math.min(to, end + NEIGHBOR_REACH))
+  }
+}
+
+// A terminator can be spelled by the value alone or by the value joined to
+// the authored text beside it. Each seam is a spot in the body inside one.
+function seamsOf(
+  {left, right}: Neighbors,
+  body: string,
+  terminators: RegExp
+): number[] {
+  const joined = left + body + right
+  const pattern = new RegExp(terminators.source, 'gi')
+  const seams = new Set<number>()
+
+  for (
+    let match = pattern.exec(joined);
+    match !== null;
+    match = pattern.exec(joined)
+  ) {
+    const at = Math.max(match.index + 1, left.length)
+
+    if (at < match.index + match[0].length && at <= left.length + body.length) {
+      seams.add(at - left.length)
+    }
+
+    pattern.lastIndex = match.index + 1
+  }
+
+  return [...seams].sort((a, b) => a - b)
+}
+
+// For a sink with no escape of its own, such as a comment: the terminator is
+// split by a character that means nothing there.
+function splitAtSeams(
+  neighbors: Neighbors,
+  body: string,
+  terminators: RegExp,
+  filler: string
+): string {
+  let out = ''
+  let from = 0
+
+  for (const seam of seamsOf(neighbors, body, terminators)) {
+    out += body.slice(from, seam) + filler
+    from = seam
+  }
+
+  return out + body.slice(from)
+}
+
+// For a sink with an escape: one character of the terminator is written in
+// its escaped form, which reads the same and no longer spells it.
+function escapeAtSeams(
+  neighbors: Neighbors,
+  body: string,
+  terminators: RegExp,
+  escapeChar: (char: string) => string
+): string {
+  const seams = new Set(
+    seamsOf(neighbors, body, terminators).map((seam) =>
+      Math.min(seam, body.length - 1)
+    )
+  )
+
+  return body
+    .split('')
+    .map((char, index) => (seams.has(index) ? escapeChar(char) : char))
+    .join('')
+}
+
+// An authored backslash right before the placeholder takes the first
+// character that follows for itself, the closing quote included.
+const followsBackslash = ({left}: Neighbors) =>
+  /(?:^|[^\\])(?:\\\\)*\\$/.test(left)
+
+const SCRIPT_ENDS = /<\/script|<!--/
+const SCRIPT_OR_COMMENT_ENDS = /\*\/|<\/script|<!--/
+const BACKSLASH = String.fromCharCode(0x5c)
+const LINE_FEED = String.fromCharCode(0x0a)
+
+const unicodeEscape = (char: string) =>
+  `${BACKSLASH}u${char.charCodeAt(0).toString(16).padStart(4, '0')}`
 
 const jsStringBody = (value: string) => toJsStringLiteral(value).slice(1, -1)
 
-const JS_ESCAPES_BY_SINK: Record<JsSink, (value: string) => string> = {
-  string: (value) => jsStringBody(value).replace(/'/g, '\\u0027'),
-  template: (value) =>
-    jsStringBody(value).replace(/`/g, '\\u0060').replace(/\$/g, '\\u0024'),
-  // The value is matched as literal text, the reading a string value has.
-  regexp: (value) =>
-    value.replace(
-      /[^A-Za-z0-9_ ]/g,
-      (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`
-    ),
-  code: (value) => keepTagOpen(value, 'script'),
-  'line-comment': (value) =>
-    keepTagOpen(value, 'script').replace(LINE_TERMINATORS, ' '),
-  'block-comment': (value) =>
-    keepTagOpen(value, 'script').replace(/\*\//g, '*\\/'),
-  // No parse, so the one body that is inert in every quote and in a comment.
-  unknown: (value) =>
-    jsStringBody(value)
-      .replace(/'/g, '\\u0027')
-      .replace(/`/g, '\\u0060')
-      .replace(/\$/g, '\\u0024')
-      .replace(/\//g, '\\/')
+// A backslash and a line feed inside a quote stand for nothing, so they
+// use up an authored backslash or split a terminator around an empty value.
+function insideJsQuote(body: string, neighbors: Neighbors): string {
+  if (followsBackslash(neighbors)) return LINE_FEED + body
+
+  if (body === '' && seamsOf(neighbors, body, SCRIPT_ENDS).length > 0) {
+    return BACKSLASH + LINE_FEED
+  }
+
+  return escapeAtSeams(neighbors, body, SCRIPT_ENDS, unicodeEscape)
 }
 
-const cssEscape = (char: string) => `\\${char.codePointAt(0)?.toString(16)} `
+type Escape = (value: string, neighbors: Neighbors) => string
+
+const JS_ESCAPES_BY_SINK: Record<JsSink, Escape> = {
+  string: (value, neighbors) =>
+    insideJsQuote(jsStringBody(value).replace(/'/g, unicodeEscape), neighbors),
+  template: (value, neighbors) =>
+    insideJsQuote(
+      jsStringBody(value).replace(/[`$]/g, unicodeEscape),
+      neighbors
+    ),
+  // The value is matched as literal text, the reading a string value has.
+  regexp: (value, neighbors) =>
+    (followsBackslash(neighbors) ? 'x5c' : '') +
+    escapeAtSeams(
+      neighbors,
+      value.replace(/[^A-Za-z0-9_ ]/g, unicodeEscape),
+      SCRIPT_ENDS,
+      unicodeEscape
+    ),
+  // The value is code, so it only loses the power to close the element.
+  code: (value, neighbors) =>
+    splitAtSeams(neighbors, value, SCRIPT_ENDS, BACKSLASH),
+  'line-comment': (value, neighbors) =>
+    splitAtSeams(
+      neighbors,
+      value.replace(LINE_TERMINATORS, ' '),
+      SCRIPT_ENDS,
+      ' '
+    ),
+  'block-comment': (value, neighbors) =>
+    splitAtSeams(neighbors, value, SCRIPT_OR_COMMENT_ENDS, ' '),
+  // No parse, so the one body that is inert in every quote and in a comment.
+  unknown: (value, neighbors) =>
+    (followsBackslash(neighbors) ? 'x5c' : '') +
+    escapeAtSeams(
+      neighbors,
+      jsStringBody(value).replace(/['`$/]/g, unicodeEscape),
+      SCRIPT_OR_COMMENT_ENDS,
+      unicodeEscape
+    )
+}
+
+const cssEscape = (char: string) =>
+  `${BACKSLASH}${char.codePointAt(0)?.toString(16)} `
 
 type CssSink = 'string' | 'url' | 'comment' | 'code'
 
@@ -439,16 +570,39 @@ function cssSinkAt(css: string): CssSink {
   return 'code'
 }
 
-const CSS_ESCAPES_BY_SINK: Record<CssSink, (value: string) => string> = {
-  string: (value) => value.replace(/[\\"'<\u0000-\u001f\u007f]/g, cssEscape),
-  url: (value) => value.replace(/[\\"'()<\s\u0000-\u001f\u007f]/g, cssEscape),
-  comment: (value) =>
-    value.replace(/\*\//g, '* /').replace(/<\/(style)/gi, '< /$1'),
-  code: (value) => value.replace(/<\/(style)/gi, '<\\/$1')
+const STYLE_END = /<\/style/
+const STYLE_OR_COMMENT_ENDS = /\*\/|<\/style/
+
+const CSS_ESCAPES_BY_SINK: Record<CssSink, Escape> = {
+  // A backslash and a line feed stand for nothing in a CSS string as well.
+  string: (value, neighbors) => {
+    const body = value.replace(/[\\"'<\u0000-\u001f\u007f]/g, cssEscape)
+
+    if (followsBackslash(neighbors)) return LINE_FEED + body
+
+    if (body === '' && seamsOf(neighbors, body, STYLE_END).length > 0) {
+      return BACKSLASH + LINE_FEED
+    }
+
+    return escapeAtSeams(neighbors, body, STYLE_END, cssEscape)
+  },
+  url: (value, neighbors) =>
+    (followsBackslash(neighbors) ? '5c ' : '') +
+    escapeAtSeams(
+      neighbors,
+      value.replace(/[\\"'()<\s\u0000-\u001f\u007f]/g, cssEscape),
+      STYLE_END,
+      cssEscape
+    ),
+  comment: (value, neighbors) =>
+    splitAtSeams(neighbors, value, STYLE_OR_COMMENT_ENDS, ' '),
+  // The value is CSS, so it only loses the power to close the element.
+  code: (value, neighbors) =>
+    splitAtSeams(neighbors, value, STYLE_END, BACKSLASH)
 }
 
-const escapeForCss = (cssBefore: string, value: string) =>
-  CSS_ESCAPES_BY_SINK[cssSinkAt(cssBefore)](value)
+const escapeForCss = (cssBefore: string, value: string, neighbors: Neighbors) =>
+  CSS_ESCAPES_BY_SINK[cssSinkAt(cssBefore)](value, neighbors)
 
 function escapeForScript(
   content: string,
@@ -457,26 +611,36 @@ function escapeForScript(
   value: string
 ): string {
   const language = scriptLanguage(sink.type)
+  const neighbors = neighborsOf(content, offset, sink.textStart, sink.textEnd)
 
   // A data block of an unknown language is read as markup, the usual
   // template case, and entities also keep the value from closing the tag.
-  if (language === 'data') return toEntities(value)
+  if (language === 'data') {
+    return escapeAtSeams(
+      neighbors,
+      toEntities(value),
+      SCRIPT_ENDS,
+      numericEntity
+    )
+  }
 
   if (language === 'json') {
     // Valid JSON holds a < only inside a string, so the escape is exact there.
-    return isInsideJsonString(
-      content.slice(sink.textStart),
-      offset - sink.textStart
+    return escapeAtSeams(
+      neighbors,
+      isInsideJsonString(content.slice(sink.textStart), offset - sink.textStart)
+        ? jsStringBody(value)
+        : value.replace(/</g, unicodeEscape),
+      SCRIPT_ENDS,
+      unicodeEscape
     )
-      ? jsStringBody(value)
-      : value.replace(/</g, '\\u003c')
   }
 
   const script = content.slice(sink.textStart, sink.textEnd)
 
   return JS_ESCAPES_BY_SINK[
     jsSinkAt(script, offset - sink.textStart, language === 'module')
-  ](value)
+  ](value, neighbors)
 }
 
 function escapeForAttribute(
@@ -485,13 +649,19 @@ function escapeForAttribute(
   sink: Extract<HtmlSink, {kind: 'attribute'}>,
   value: string
 ): string {
+  const neighbors = neighborsOf(content, offset, sink.valueStart, sink.valueEnd)
   let body = value
 
   // An event handler and a style attribute hold a second language, so the
   // value is made inert there before the attribute's own entities.
-  if (/^on[a-z]/.test(sink.name)) body = JS_ESCAPES_BY_SINK.unknown(value)
-  else if (sink.name === 'style') {
-    body = escapeForCss(content.slice(sink.valueStart, offset), value)
+  if (/^on[a-z]/.test(sink.name)) {
+    body = JS_ESCAPES_BY_SINK.unknown(value, neighbors)
+  } else if (sink.name === 'style') {
+    body = escapeForCss(
+      content.slice(sink.valueStart, offset),
+      value,
+      neighbors
+    )
   }
 
   if (sink.quote) return toEntities(body)
@@ -503,6 +673,29 @@ function escapeForAttribute(
 
   // Without quotes a space ends the value and = or ` is a parse error.
   return toEntities(body).replace(/[\s=`]/g, numericEntity)
+}
+
+const TAG_START = /<[a-z!?/]/
+
+function escapeForText(
+  value: string,
+  neighbors: Neighbors,
+  rawTag?: string
+): string {
+  let body = toEntities(value)
+
+  // An authored & would read the start of the value as its own reference.
+  if (/&#?[a-z0-9]*$/i.test(neighbors.left) && /^[a-z0-9#;]/i.test(body)) {
+    body = numericEntity(body[0]) + body.slice(1)
+  }
+
+  // An authored < would read it as a tag name, or as the element's end.
+  return escapeAtSeams(
+    neighbors,
+    body,
+    rawTag ? new RegExp(`</${rawTag}`) : TAG_START,
+    numericEntity
+  )
 }
 
 // Every sink gets the escape that keeps the value's authored meaning there.
@@ -518,12 +711,19 @@ export function escapeForHtmlAsset(
     case 'script':
       return escapeForScript(content, offset, sink, value)
     case 'style':
-      return escapeForCss(content.slice(sink.textStart, offset), value)
+      return escapeForCss(
+        content.slice(sink.textStart, offset),
+        value,
+        neighborsOf(content, offset, sink.textStart)
+      )
     case 'attribute':
       return escapeForAttribute(content, offset, sink, value)
     case 'comment':
-      // Entities are not decoded in a comment, they only keep it from closing.
-      return toEntities(value).replace(/-(?=-)|^-|-$/g, numericEntity)
+      // Entities are not decoded in a comment. With no raw - ! or > left,
+      // the value cannot spell its end, alone or with the text beside it.
+      return toEntities(value).replace(/[-!]/g, numericEntity)
+    case 'text':
+      return escapeForText(value, neighborsOf(content, offset), sink.rawTag)
     default:
       return toEntities(value)
   }
