@@ -162,7 +162,7 @@ function definedKeys(
   const keys = new Set(Object.keys(projectDefine))
 
   for (const plugin of (compiler.options.plugins || []) as DefinePluginLike[]) {
-    const definitions = plugin?.name === 'DefinePlugin' && plugin._args?.[0]
+    const definitions = plugin?.name === DefinePlugin.name && plugin._args?.[0]
     if (!definitions || typeof definitions !== 'object') continue
 
     for (const key of Object.keys(definitions)) keys.add(key)
