@@ -31,7 +31,7 @@ import * as messages from '../lib/messages'
 import {humanWarn} from '../lib/messaging'
 import {parseJsonSafe} from '../lib/parse-json-safe'
 import {type AbsolutePath, asAbsolute} from '../lib/paths'
-import {ownProcessStartedAt} from '../lib/process-started-at'
+import {ownProcessStartedAt, ownProcessStartId} from '../lib/process-started-at'
 import {renameSyncWithRetry} from '../lib/rename-with-retry'
 import {
   browserArtifactsDir,
@@ -67,6 +67,9 @@ export type ReadyMetadata = {
   // once its owner exits, so a reader that finds `pid` alive checks this
   // against the process table before trusting it.
   pidStartedAt: string
+  // Linux only: the boot id and the kernel's start tick of `pid`, which name
+  // one process exactly and do not move when the wall clock is stepped.
+  pidStartId?: string
   ts: string
   compiledAt: string | null
   errors: string[]
@@ -378,6 +381,7 @@ const WRITER_FIELDS: ReadonlySet<string> = new Set<
   'host',
   'pid',
   'pidStartedAt',
+  'pidStartId',
   'ts',
   'compiledAt',
   'errors',
@@ -923,6 +927,7 @@ export function createPlaywrightMetadataWriter(options: WriterOptions) {
       status,
       pid: process.pid,
       pidStartedAt: ownProcessStartedAt(),
+      ...(ownProcessStartId() ? {pidStartId: ownProcessStartId()} : {}),
       ts: nowISO(),
       compiledAt,
       errors: Array.isArray(extra?.errors) ? extra.errors : []

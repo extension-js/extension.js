@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import {spawnSync} from 'node:child_process'
+import * as fs from 'node:fs'
 
 const PROCESS_START_PROBE_TIMEOUT_MS = 5000
 
@@ -32,8 +33,8 @@ function startedAtFromProcessTable(pid = process.pid): string | undefined {
   }
 }
 
-// The same instant off this process's own clock, a few milliseconds after the
-// one the process table holds.
+// The same instant off this process's own clock, within a second of the one
+// the process table holds, which is cut to whole seconds.
 function startedAtFromOwnClock(): string {
   return new Date(Date.now() - process.uptime() * 1000).toISOString()
 }
@@ -43,7 +44,7 @@ let ownStartedAt: string | undefined
 // When the writer's own process started, ISO 8601 UTC, read once: its pid
 // never changes while it runs, and the contract is rewritten on every compile.
 // A pid is reused once its owner exits, so a contract that names one pairs it
-// with this. ps answers in milliseconds and is what a reader will ask, so it
+// with this. ps answers in whole seconds and is what a reader will ask, so it
 // goes first. Windows has no ps, and dating a pid there costs a PowerShell
 // start that runs past the bound on a loaded machine and would hold the first
 // compile meanwhile, so a process on Windows reads its own clock, as does one
@@ -69,4 +70,47 @@ export function processStartedAtMs(pid: number): number | null {
   const startedAt = startedAtFromProcessTable(pid)
 
   return startedAt ? Date.parse(startedAt) : null
+}
+
+export interface ProcReader {
+  platform?: NodeJS.Platform
+  readFile?: (file: string) => string
+}
+
+// Linux dates a start off the wall clock as it reads now, so a clock step
+// (a resumed VM, WSL2) moves every answer. The kernel's own count of ticks
+// since boot does not move, and the boot id keeps two boots apart.
+export function processStartId(
+  pid: number,
+  reader: ProcReader = {}
+): string | undefined {
+  if ((reader.platform ?? process.platform) !== 'linux') return undefined
+  if (!Number.isInteger(pid) || pid <= 0) return undefined
+
+  const readFile =
+    reader.readFile ?? ((file: string) => fs.readFileSync(file, 'utf-8'))
+
+  try {
+    const stat = readFile(`/proc/${pid}/stat`)
+    // The command name sits in parentheses and may itself hold any of them,
+    // so the fields are counted from the last one. Start time is the 22nd.
+    const afterName = stat.slice(stat.lastIndexOf(')') + 2).split(' ')
+    const startTicks = afterName[19]
+    const bootId = readFile('/proc/sys/kernel/random/boot_id').trim()
+
+    if (!/^\d+$/.test(String(startTicks)) || !bootId) return undefined
+
+    return `${bootId}:${startTicks}`
+  } catch {
+    return undefined
+  }
+}
+
+let ownStartId: string | undefined | null = null
+
+// The writer's own, read once like its start time. Absent off Linux.
+export function ownProcessStartId(): string | undefined {
+  if (ownStartId === null) ownStartId = processStartId(process.pid)
+
+  return ownStartId
 }
