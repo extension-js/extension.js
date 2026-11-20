@@ -8,10 +8,10 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {recordCodedWarning} from '../../lib/coded-warnings'
-import {CODES, humanWarn} from '../../lib/messaging'
-import {isInsidePath, isSamePath} from '../../lib/real-path'
-import {scannedCompanionOutsideProject} from '../messages'
+import {recordCodedWarning} from '../coded-warnings'
+import {scannedCompanionOutsideProjectText} from '../messages'
+import {CODES, humanWarn} from '../messaging'
+import {isInsidePath, isSamePath} from '../real-path'
 import type {CompanionExtensionsConfig} from './types'
 import {
   companionFolderMatchesBrowser,
@@ -88,7 +88,7 @@ export function resolveCompanionExtensionDirs(opts: {
         saidOutside.add(candidate)
 
         if (opts.launchesBrowser) {
-          const text = scannedCompanionOutsideProject(
+          const text = scannedCompanionOutsideProjectText(
             `./${path.relative(projectRoot, candidate).replace(/\\/g, '/')}`,
             target
           )

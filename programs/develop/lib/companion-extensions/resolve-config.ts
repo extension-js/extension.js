@@ -9,14 +9,14 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
-import {codedError} from '../../lib/coded-error'
+import {codedError} from '../coded-error'
 import {
   companionLinkNotAStoreLinkError,
   unknownCompanionEntryError
-} from '../../lib/extensions-to-load'
-import * as messages from '../../lib/messages'
-import {CODES, debugLine, isDebug, prefix} from '../../lib/messaging'
-import {realPath} from '../../lib/real-path'
+} from '../extensions-to-load'
+import * as messages from '../messages'
+import {CODES, debugLine, isDebug, prefix} from '../messaging'
+import {realPath} from '../real-path'
 import type {CompanionExtensionsConfig} from './types'
 import {
   companionFolderForBrowser,

@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {isGeckoBasedBrowser} from '../../lib/constants'
+import {isGeckoBasedBrowser} from '../constants'
 import type {CompanionExtensionsConfig} from './types'
 
 export function isDir(p: string): boolean {

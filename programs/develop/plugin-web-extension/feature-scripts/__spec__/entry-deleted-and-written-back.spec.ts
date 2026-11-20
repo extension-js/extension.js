@@ -270,7 +270,7 @@ function session(row: Row, imported?: string) {
   const emitted = (output = row.output) =>
     fs.readFileSync(at('dist', ...output.split('/')), 'utf8')
 
-  return {file, builds, next, emitted}
+  return {file, builds, next, emitted, compiler}
 }
 
 // Exactly one module of the file, in the graph its world builds it in.
@@ -308,6 +308,39 @@ describe.each(ROWS)('$title, deleted in a watch session', (row) => {
     expect(reports[0].message).toContain(`Check the ${row.field} field`)
     expect(reports[0].file).toBe('manifest.json')
     expect(rebuilt.errors).toHaveLength(1)
+  }, 120000)
+
+  // The entry check has passed by the time the modules are made, so the
+  // delete lands between it and every later look at the file.
+  it('fails once with the file and the field when deleted while a build runs', async () => {
+    const {file, builds, next, compiler} = session(row)
+
+    await next(0)
+
+    let armed = true
+
+    compiler.hooks.make.tap('spec:delete-mid-build', () => {
+      if (!armed) return
+
+      armed = false
+      fs.rmSync(file)
+    })
+
+    compiler.watching?.invalidate()
+
+    // The last quiet build: the one in flight, or the one a watcher adds.
+    const rebuilt = await next(builds.length)
+    const reports = rebuilt.errors.filter(
+      ({name}) => name === 'ScriptsMissingFile'
+    )
+
+    expect(reports).toHaveLength(1)
+    expect(reports[0].message).toContain(`${row.named} does not exist`)
+    expect(reports[0].message).toContain(`Check the ${row.field} field`)
+    expect(reports[0].file).toBe('manifest.json')
+    expect(rebuilt.errors).toHaveLength(1)
+    expect(rebuilt.warnings).toEqual([])
+    expect(rebuilt).toMatchObject({isolated: [], main: []})
   }, 120000)
 
   it('builds the new text once the file is written back', async () => {

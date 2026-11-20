@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
+import type {CompanionExtensionsConfig as InternalCompanionExtensionsConfig} from '../../develop/lib/companion-extensions/types'
 import type {PerfBudgetsConfig as InternalPerfBudgetsConfig} from '../../develop/plugin-perf-budgets'
-import type {CompanionExtensionsConfig as InternalCompanionExtensionsConfig} from '../../develop/plugin-special-folders/folder-extensions/types'
 import type {
   BrowserOptionsBase,
   BrowserType as InternalBrowserType,
