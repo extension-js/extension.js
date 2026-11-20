@@ -49,7 +49,11 @@ export default defineConfig({
       '../../scripts/lib/spec-temp-folder.mjs',
       '__spec__/setup/leftover-folders.ts'
     ],
-    setupFiles: ['__spec__/setup/quiet-output.ts'],
+    // The guard fails a spec whose mock leaves out an export the code reads.
+    setupFiles: [
+      '__spec__/setup/quiet-output.ts',
+      '__spec__/setup/mock-export-guard.ts'
+    ],
     // coverage disabled
     exclude: [
       '**/node_modules/**',

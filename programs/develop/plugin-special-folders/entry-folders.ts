@@ -115,14 +115,33 @@ export function entryNameOf(
   return `${folder}/${name}`
 }
 
+// Two files that build under one entry name: the build takes one of them.
+export interface EntryNameCollision {
+  name: string
+  used: string
+  dropped: string[]
+}
+
+// One name has one file, so the path that sorts last is the entry: the
+// TypeScript source over its compiled copy, `a/index.html` over `a.html`.
+export function pickEntryFile(files: string[]): string {
+  return [...files].sort()[files.length - 1]
+}
+
 export type ScanEntryFolder = (
   folder: SpecialFolderName,
-  folderRoot: string
+  folderRoot: string,
+  // Every file of a name more than one file claims, for the caller to settle.
+  rivals?: Record<string, string[]>
 ) => Record<string, string>
 
 // Only pages/ and scripts/ are read: public/ is the copier's to walk.
-export const scanEntryFolder: ScanEntryFolder = (folder, folderRoot) => {
-  const entries: Record<string, string> = {}
+export const scanEntryFolder: ScanEntryFolder = (
+  folder,
+  folderRoot,
+  rivals
+) => {
+  const claims = new Map<string, string[]>()
   const files = walkEntryFolder(
     folderRoot,
     (file) => isEntryFolderFile(folder, file),
@@ -130,7 +149,17 @@ export const scanEntryFolder: ScanEntryFolder = (folder, folderRoot) => {
   )
 
   for (const file of files) {
-    entries[entryNameOf(folder, folderRoot, file)] = file
+    const name = entryNameOf(folder, folderRoot, file)
+
+    claims.set(name, [...(claims.get(name) || []), file])
+  }
+
+  const entries: Record<string, string> = {}
+
+  for (const [name, claimed] of claims) {
+    entries[name] = pickEntryFile(claimed)
+
+    if (rivals && claimed.length > 1) rivals[name] = claimed
   }
 
   return entries

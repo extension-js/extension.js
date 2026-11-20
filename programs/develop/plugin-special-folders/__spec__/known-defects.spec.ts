@@ -356,6 +356,22 @@ describe('D7: a public folder spelled Public/', () => {
     })
   })
 
+  it('says a PUBLIC/ beside a real public/ is not read, on a disk that keeps letter case', () => {
+    const shouting = path.join(root, 'PUBLIC')
+    const both = inspectPublicFolders(manifest, root, {
+      isDir: (candidate) =>
+        candidate === shouting || candidate === path.join(root, 'public'),
+      readNames: (dir) =>
+        dir === root ? ['PUBLIC', 'manifest.json', 'public'] : []
+    })
+
+    expect(both).toEqual({
+      ...base,
+      publicDir: path.join(root, 'public'),
+      miscased: {dir: shouting, ships: false}
+    })
+  })
+
   it('warns in a real compile, with the words for this disk', async () => {
     const result = await compileFixture({
       files: {
