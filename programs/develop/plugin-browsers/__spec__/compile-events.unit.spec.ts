@@ -1,7 +1,10 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../__spec__/helpers/fake-compiler'
 import type {ReloadInstruction} from '../../plugin-reload'
 import {BrowsersPlugin, BuildEmitter} from '../index'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/chromium'

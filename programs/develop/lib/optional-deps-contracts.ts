@@ -64,41 +64,6 @@ const OPTIONAL_DEPENDENCY_CONTRACTS = {
       }
     ]
   }),
-  'preact-refresh': defineContract({
-    id: 'preact-refresh',
-    integration: 'Preact',
-    // @rspack/plugin-preact-refresh 2.x is the rspack-2.x-native major; 1.1.4's
-    // constructorName check is undefined on rspack 2.x so the intercept never ran.
-    installPackages: specs([
-      '@prefresh/core',
-      '@prefresh/utils',
-      '@rspack/plugin-preact-refresh',
-      'preact'
-    ]),
-    verificationRules: [
-      ...installRootRules([
-        '@prefresh/core',
-        '@prefresh/utils',
-        '@rspack/plugin-preact-refresh',
-        'preact'
-      ]),
-      {
-        type: 'module-context-resolve',
-        fromPackage: '@rspack/plugin-preact-refresh',
-        packageId: '@prefresh/core'
-      },
-      {
-        type: 'module-context-resolve',
-        fromPackage: '@rspack/plugin-preact-refresh',
-        packageId: '@prefresh/utils'
-      },
-      {
-        type: 'module-context-resolve',
-        fromPackage: '@rspack/plugin-preact-refresh',
-        packageId: 'preact'
-      }
-    ]
-  }),
   vue: defineContract({
     id: 'vue',
     integration: 'Vue',

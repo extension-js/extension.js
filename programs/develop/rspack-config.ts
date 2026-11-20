@@ -9,11 +9,13 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {
+  type Compiler,
   type Configuration,
   LightningCssMinimizerRspackPlugin,
   SwcJsMinimizerRspackPlugin
 } from '@rspack/core'
 import {FileEventAssistPlugin} from './dev-server/file-event-assist'
+import {requestDevSessionRestart} from './dev-server/session-restart'
 import {makeSanitizedConsole} from './lib/branding'
 import {codedError} from './lib/coded-error'
 import {recordCodedWarning} from './lib/coded-warnings'
@@ -59,7 +61,7 @@ import {CssPlugin} from './plugin-css'
 import {JsFrameworksPlugin} from './plugin-js-frameworks'
 import {PerfBudgetsPlugin} from './plugin-perf-budgets'
 import {PlaywrightPlugin} from './plugin-playwright'
-import {ReloadPlugin} from './plugin-reload'
+import {PageReloadPlugin, ReloadPlugin} from './plugin-reload'
 import {SpecialFoldersPlugin} from './plugin-special-folders'
 import {resolveCompanionExtensionDirs} from './plugin-special-folders/folder-extensions/resolve-dirs'
 import {publicResolveRoots} from './plugin-special-folders/resolve-public-folder'
@@ -69,6 +71,7 @@ import {SetupChunkLoadingTarget} from './plugin-web-extension/feature-chunk-load
 import {findMistypedManifestFields} from './plugin-web-extension/feature-manifest/manifest-lib/sanitize-fatal-shapes'
 import {manifestFieldMistyped} from './plugin-web-extension/feature-manifest/messages'
 import {WarnManifestV2OnChromium} from './plugin-web-extension/feature-manifest/steps/warn-mv2-on-chromium'
+import {listenForManifestChange} from './plugin-web-extension/shared/manifest-change-signal'
 import type {WebpackConfigOptions} from './types'
 
 export default function webpackConfig(
@@ -258,13 +261,30 @@ export default function webpackConfig(
           ? devOptions.metadataCommand
           : undefined
     }),
+    // The page side of reload registers first: it adds to the pages as
+    // WebExtensionPlugin declares them.
+    // The session restarts for a manifest change the plugin signals. With
+    // no live session the request answers false and the plugin reports.
+    {
+      apply(compiler: Compiler) {
+        listenForManifestChange(compiler, (change) =>
+          requestDevSessionRestart(compiler, change)
+        )
+      }
+    },
+    new PageReloadPlugin({
+      manifestPath,
+      browser: devOptions.browser,
+      devSession,
+      connectableHost: devOptions.connectableHost,
+      port: devOptions.port
+    }),
     new WebExtensionPlugin({
       manifestPath,
       browser: devOptions.browser,
       define: devOptions.define,
       devSession,
-      connectableHost: devOptions.connectableHost,
-      port: devOptions.port
+      connectableHost: devOptions.connectableHost
     }),
     // Dev-session reload/HMR strategy. Must register AFTER WebExtensionPlugin,
     // whose declared entries it decorates. No-ops outside `extension dev`.

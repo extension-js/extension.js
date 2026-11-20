@@ -18,6 +18,7 @@ import {
 import type {FilepathList} from '../../../types'
 import {externalAssetOutputPath} from '../../feature-manifest/normalize-manifest-path'
 import {type HtmlStaticAttribute, parseHtml} from './parse-html'
+import {readHtmlText} from './read-html'
 
 export interface ParsedHtmlAsset {
   css?: string[]
@@ -77,8 +78,7 @@ export function getAssetsFromHtml(
   }
 
   try {
-    const htmlString =
-      htmlContent || fs.readFileSync(htmlFilePath, {encoding: 'utf8'})
+    const htmlString = htmlContent || readHtmlText(htmlFilePath)
 
     if (!htmlString) {
       return assets

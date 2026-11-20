@@ -130,6 +130,7 @@ describe('diagnosticCode', () => {
     ['EnvReservedName', 'W_ENV_NAME_RESERVED'],
     ['EnvDefinedNameWritten', 'W_ENV_DEFINE_WRITTEN'],
     ['EnvPlaceholderNotUtf8', 'W_ENV_ASSET_NOT_UTF8'],
+    ['HtmlPageNotUtf8', 'W_HTML_NOT_UTF8'],
     ['UnknownRegistrationWorld', 'W_SCRIPT_WORLD_UNKNOWN'],
     ['CssSetupNotApplied', 'W_CSS_NOT_APPLIED']
   ])('maps a diagnostic named %s to %s', (name, code) => {
@@ -446,7 +447,7 @@ describe('the warning class', () => {
   })
 
   it('finds the W_ names in the catalog', () => {
-    expect(WARNING_NAMES.length).toBe(45)
+    expect(WARNING_NAMES.length).toBe(46)
   })
 
   it.each(WARNING_NAMES)('reports %s on a warning as it is', (code) => {

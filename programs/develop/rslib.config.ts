@@ -49,11 +49,11 @@ const externals = ['solid-js/h']
 export const browserEntries = {
   'minimum-script-file': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-html/steps/minimum-script-file.ts'
+    './plugin-reload/reload-lib/minimum-files/minimum-script-file.ts'
   ),
   'preact-refresh-shim': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-html/steps/preact-refresh-shim.ts'
+    './plugin-reload/reload-lib/preact-refresh-shim.ts'
   ),
   'page-socket-client': path.resolve(
     __dirname,
@@ -97,7 +97,7 @@ export const nodeEntries = {
   manifest: path.resolve(__dirname, './manifest-entry.ts'),
   'ensure-hmr-for-scripts': path.resolve(
     __dirname,
-    './plugin-web-extension/feature-html/steps/ensure-hmr-for-scripts.ts'
+    './plugin-reload/steps/ensure-hmr-for-scripts.ts'
   ),
   'feature-scripts-content-script-wrapper': path.resolve(
     __dirname,

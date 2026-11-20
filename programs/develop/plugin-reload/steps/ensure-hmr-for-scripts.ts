@@ -16,22 +16,16 @@ import {
   adjustLoaderSourceMap,
   inputOrIdentityMap,
   returnWithMap
-} from '../../../lib/loader-source-maps'
-import {debugLine} from '../../../lib/messaging'
-import type {LoaderInterface} from '../../../types'
-import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../feature-scripts/contracts'
+} from '../../lib/loader-source-maps'
+import {debugLine} from '../../lib/messaging'
+import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
+import type {LoaderInterface} from '../../types'
 
 const schema: Schema = {
   type: 'object',
   properties: {
-    test: {
-      type: 'string'
-    },
     manifestPath: {
       type: 'string'
-    },
-    includeList: {
-      type: 'object'
     }
   },
   additionalProperties: false
@@ -71,7 +65,7 @@ export default function ensureHMRForScripts(
   )
 
   validate(schema, options, {
-    name: 'html:ensure-hmr-for-scripts',
+    name: 'reload:ensure-hmr-for-scripts',
     baseDataPath: 'options'
   })
 
@@ -85,14 +79,8 @@ export default function ensureHMRForScripts(
     return source
   }
 
-  // Only the scripts a page names reach this point: the rule in
-  // feature-html/index.ts lists them, keeps imported modules out (rspack has
-  // no issuer here) and is not registered when a framework owns refresh.
-
-  // Declared content scripts never reach this loader: the rule in
-  // feature-html/index.ts excludes them from the browser-resolved manifest.
-  // A raw re-read here would skip a page script that only the plain key names
-  // while a prefixed key overrides it, and would parse the manifest per file.
+  // Only the scripts a page names reach this point. The rule that names this
+  // loader lists them and leaves imported modules and content scripts out.
 
   if (debugHtmlHmr) {
     debugLine(

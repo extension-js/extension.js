@@ -23,6 +23,7 @@ import {createScriptTag, injectJsScript, scriptTagAttrs} from './inject'
 import * as messages from './messages'
 import {injectOptionsDialogFloor} from './options-dialog-floor'
 import {parseHtml} from './parse-html'
+import {readHtmlText} from './read-html'
 import {
   applyRewrittenStaticUrl,
   cleanAssetUrl,
@@ -92,6 +93,21 @@ function insertBefore(
 // anchors relative refs. Without it the source file is read from disk.
 // optionsDialogFloor asks for the min-height style Chrome's embedded options
 // dialog needs, decided by the caller from the manifest and browser.
+const SCRIPT_FILE = /\.(?:c|m)?[jt]sx?$/i
+
+// Whether the config gives this page's entry a script file to bundle.
+function entryImportsScript(compilation: Compilation, feature: string) {
+  const entry = (
+    compilation.options?.entry as
+      | Record<string, {import?: string[]} | undefined>
+      | undefined
+  )?.[feature]
+
+  return (entry?.import || []).some((file) =>
+    SCRIPT_FILE.test(String(file).split('?')[0])
+  )
+}
+
 // entryScript is the emitted file of the entry chunk when the caller read it
 // from the chunk graph. Without it the file is named after the entry.
 export function patchHtml(
@@ -104,10 +120,7 @@ export function patchHtml(
   html?: string,
   options: {optionsDialogFloor?: boolean; entryScript?: string} = {}
 ): string {
-  const htmlFile =
-    typeof html === 'string'
-      ? html
-      : fs.readFileSync(htmlEntry, {encoding: 'utf8'})
+  const htmlFile = typeof html === 'string' ? html : readHtmlText(htmlEntry)
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
 
@@ -255,9 +268,9 @@ export function patchHtml(
       }
     }
 
-    // Create the script tag for the JS bundle. We want a single JS entry
-    // point for the extension even during development.
-    if (hasJsEntry || compilation.options.mode !== 'production') {
+    // One script tag for the page's bundle. An entry may import a script
+    // the page never names, and the page has to load that bundle too.
+    if (hasJsEntry || entryImportsScript(compilation, feature)) {
       if (bundledScriptNodes.length > 0) {
         // Swap the last original tag for the bundle tag in place; drop the rest.
         // Execution order relative to inline and preserved tags stays the author's.
@@ -298,7 +311,7 @@ export function patchHtmlNested(
   htmlEntry: string,
   manifestDir?: string
 ): string {
-  const htmlFile = fs.readFileSync(htmlEntry, {encoding: 'utf8'})
+  const htmlFile = readHtmlText(htmlEntry)
   const htmlDocument = parse5utilities.parse(htmlFile)
   const baseHref = getBaseHref(htmlDocument)
 

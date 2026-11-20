@@ -21,7 +21,7 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 - Extension-root URLs (leading `/`) for scripts, styles and static assets stay as written in the page. The file ships at that path from the project or from `public/`, which the special‑folders plugin copies.
 - Rewrites relative static assets (images/fonts/etc.) to `assets/<name>.<contenthash>.<ext>`, the name the bundler gives the same file from a stylesheet or an import, so one build ships one copy of it. A nested HTML page keeps `assets/<relative path>`. The script, stylesheet and static files a nested page names are copied as they are under that same hashed name, and the nested page's references point at the copies.
 - Tracks every local file a page or a nested page names as a file dependency (a missing one as a missing dependency, a file the build leaves out not at all), and keeps watching while the build has an error, so a save recompiles. In a watch session a copy whose source was edited, deleted or dropped from the page is removed from the output.
-- During `dev`, lets the scripts a page names accept their own hot update. No other entry gets that code (a background script has no page to redraw), and it is left out when React, Vue or Svelte owns refresh.
+- Tells every extension registered through `shared/html-page-extensions.ts` which pages it declared: the entry, the page file and the script files the page names. The plugin adds nothing to a page for a development build by itself. What a dev session adds comes from `plugin-reload`.
 - Asks for a dev server restart when the list of scripts or stylesheets of a page changes, and when a script or stylesheet that was missing at startup is created. A live session restarts by itself.
 - Gives a Chromium `options_ui` page that opens in the embedded dialog (`open_in_tab` not `true`) a `<link rel="stylesheet" href="/options/dialog-floor.css" data-extension-js="options-dialog-floor">` first in `<head>`, and ships `options/dialog-floor.css` holding `html{min-height:32px}`. It is a file and not a `<style>` tag because an extension policy of `style-src 'self'` blocks an inline style, and the dialog would then never open. Chrome opens that dialog on the page's first non-empty layout and stops drawing a guest shorter than 8px, so a page that paints empty until data arrives would never open it, and a 1px first paint would open it and never grow. Author styles come later and win. Pages that open in a tab, the legacy `options_page`, Gecko and Safari builds are left untouched.
 
@@ -51,6 +51,10 @@ This module is part of the [Extension.js](https://extension.js.org) project. It 
 | Consolidated CSS                            | `<feature>.css`                     | E.g., `pages/main.css`                                 |
 | Relative static assets referenced by HTML   | `assets/<name>.<contenthash>.<ext>` | One copy, shared with stylesheets and imports          |
 | Extension-root assets in HTML (leading `/`) | the same path, URL kept as written  | E.g., `<img src="/img/logo.png">` ships `img/logo.png` |
+
+### Page encoding
+
+Every page is written as UTF-8. A page saved in another encoding is decoded from the charset it declares, by a byte order mark or a `<meta charset>` in its first 1024 bytes, and the built page declares `utf-8`. The build warns with `W_HTML_NOT_UTF8` and names the file. A page that is not UTF-8 and declares no charset the runtime can decode ships with a replacement character for each byte that is not UTF-8, under the same warning. Saving the file as UTF-8 ends the warning.
 
 ## Supported pages/fields
 

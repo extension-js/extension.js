@@ -23,9 +23,14 @@ function makeTmp(name: string) {
   return fs.realpathSync(created)
 }
 
-function makeCompilation(mode: 'development' | 'production'): Compilation {
+// `added` is a script another plugin put on the entry of `feature`.
+function makeCompilation(
+  mode: 'development' | 'production',
+  feature?: string,
+  added = '/added/by-another-plugin.js'
+): Compilation {
   return {
-    options: {mode},
+    options: {mode, entry: feature ? {[feature]: {import: [added]}} : {}},
     getAsset: () => undefined,
     emitAsset() {},
     updateAsset() {},
@@ -97,7 +102,7 @@ describe('patchHtml with sibling chunks', () => {
     )
 
     const updated = patchHtml(
-      makeCompilation('development'),
+      makeCompilation('development', 'options/index'),
       'options/index',
       htmlPath,
       {'options/index': htmlPath},
@@ -110,6 +115,30 @@ describe('patchHtml with sibling chunks', () => {
       '/shared/commons.js',
       '/options/index.js'
     ])
+  })
+
+  it('adds a tag for a script on the entry and none for a mode', () => {
+    const tmp = makeTmp('by-entry')
+    const htmlPath = path.join(tmp, 'options.html')
+    fs.writeFileSync(htmlPath, '<html><body></body></html>')
+
+    const tagsFor = (compilation: Compilation) =>
+      scriptTags(
+        patchHtml(compilation, 'options/index', htmlPath, {}, tmp)
+      ).map(srcOf)
+
+    for (const mode of ['development', 'production'] as const) {
+      expect(tagsFor(makeCompilation(mode))).toEqual([])
+      expect(tagsFor(makeCompilation(mode, 'another/page'))).toEqual([])
+      expect(tagsFor(makeCompilation(mode, 'options/index'))).toEqual([
+        '/options/index.js'
+      ])
+
+      // A stylesheet on the entry is no script to load.
+      expect(
+        tagsFor(makeCompilation(mode, 'options/index', '/added/sheet.css'))
+      ).toEqual([])
+    }
   })
 
   it('emits exactly one tag when the entry is a single file', () => {
@@ -147,7 +176,7 @@ describe('patchHtml with sibling chunks', () => {
       fs.writeFileSync(htmlPath, `<html><body>${markup}</body></html>`)
 
       const updated = patchHtml(
-        makeCompilation(mode),
+        makeCompilation(mode, 'action/index'),
         'action/index',
         htmlPath,
         {'action/index': htmlPath},

@@ -55,7 +55,7 @@ export class PruneStaleHotUpdates {
                   fs.rmdirSync(absolute)
                 }
               } catch {
-                // Ignore
+                // A folder that is busy or not empty stays, and the next build retries
               }
 
               continue
@@ -66,7 +66,7 @@ export class PruneStaleHotUpdates {
             try {
               fs.rmSync(absolute, {force: true})
             } catch {
-              // Ignore
+              // A stale file that cannot be removed is retried on the next build
             }
           }
         }

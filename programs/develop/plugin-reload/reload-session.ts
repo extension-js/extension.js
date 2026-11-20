@@ -175,8 +175,6 @@ export function reloadEachBuild(
   compiler: Compiler,
   options: {browser: string; broker: ReloadBroker; isHeld?: BuildHold}
 ): void {
-  if (!compiler?.hooks?.watchRun) return
-
   const session = createReloadSession({browser: options.browser})
   const builds = session.watch(compiler)
   let first = true

@@ -16,7 +16,7 @@ try {
     loc.reload = () => {}
   }
 } catch {
-  // Ignore
+  // A frozen location keeps its own reload, which is all the stub is for
 }
 
 console.log('Minimum Chromium file loaded for reload purposes')
