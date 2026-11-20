@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {holdTimeouts, settleOnceReady} from '../../__spec__/clock-after-ready'
 import {importExternalTemplate} from '../import-external-template'
 
 const noopLogger = {log: () => {}, error: () => {}}
@@ -62,6 +63,7 @@ describe.skipIf(process.platform === 'win32')(
     })
 
     afterEach(() => {
+      vi.useRealTimers()
       vi.unstubAllEnvs()
 
       // Only a stand-in this row started and never saw end, so it is still ours.
@@ -120,12 +122,19 @@ describe.skipIf(process.platform === 'win32')(
       const stdoutWrite = process.stdout.write
       const stderrWrite = process.stderr.write
 
-      const error = await importing().then(
-        () => {
-          throw new Error('the clone should have timed out')
-        },
-        (reason: Error) => reason
+      // The budget runs out only once the stand-in git hangs on the pull, so
+      // the timeout always meets a git it started.
+      holdTimeouts()
+      const error = await settleOnceReady(
+        importing().then(
+          () => {
+            throw new Error('the clone should have timed out')
+          },
+          (reason: Error) => reason
+        ),
+        () => fs.existsSync(pidFile)
       )
+      vi.useRealTimers()
 
       const pid = Number(fs.readFileSync(pidFile, 'utf8').trim())
       expect(pid).toBeGreaterThan(0)
