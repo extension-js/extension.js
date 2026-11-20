@@ -191,6 +191,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "envIgnoredFiles: function(2)",
     "envInjectedPublicVars: function(1)",
     "envNoMatchingFile: function(4)",
+    "envPlaceholderNotUtf8: function(1)",
     "envPrivatePlaceholder: function(1)",
     "envPublicSecretName: function(1)",
     "envReservedName: function(1)",
