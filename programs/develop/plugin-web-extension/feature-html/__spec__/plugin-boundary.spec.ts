@@ -53,7 +53,7 @@ describe('what the HTML feature knows about reloading and browsers', () => {
     ).toEqual([])
   })
 
-  it('reaches the dev server only to ask for a restart', () => {
+  it('reaches the dev server nowhere, and signals a change it cannot take in', () => {
     const fromDevServer = /["']([^"']*dev-server\/[^"']*)["']/g
     const reached = new Set(
       files.flatMap(({text}) =>
@@ -63,7 +63,12 @@ describe('what the HTML feature knows about reloading and browsers', () => {
       )
     )
 
-    expect([...reached].sort()).toEqual(['session-restart'])
+    expect([...reached].sort()).toEqual([])
+    expect(
+      files
+        .filter(({text}) => text.includes('signalManifestChange('))
+        .map(({file}) => file)
+    ).toEqual(['steps/throw-if-recompile-is-needed.ts'])
   })
 
   it('names no hot update, refresh or reload, in code or comments', () => {
