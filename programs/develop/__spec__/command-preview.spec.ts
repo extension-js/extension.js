@@ -112,11 +112,16 @@ function preview(
   return extensionPreview(source, options as unknown as PreviewOptions, launch)
 }
 
-// A session whose background never answers, or answers after the given wait.
-function armControlSession(attachAfterMs?: number) {
+// A session whose background never answers, answers after the given wait,
+// or answers when the spec calls attach.
+function armControlSession(attachAfter?: number | 'held') {
+  const session = {attach: () => {}}
+
   control.fake = async (options) => {
-    if (attachAfterMs !== undefined) {
-      setTimeout(() => options.onExecutorAttached?.(), attachAfterMs)
+    session.attach = () => options.onExecutorAttached?.()
+
+    if (typeof attachAfter === 'number') {
+      setTimeout(session.attach, attachAfter)
     }
 
     const controlledPath = path.join(options.packageJsonDir, 'controlled-copy')
@@ -133,6 +138,8 @@ function armControlSession(attachAfterMs?: number) {
       close: async () => {}
     } as unknown as ProductionControlSession
   }
+
+  return session
 }
 
 // An archive case has to finish from the disk alone, so any fetch fails it.
@@ -256,24 +263,34 @@ describe('extensionPreview, which runs what a build left', () => {
     expect(logged.join('\n')).toContain('Control channel open')
   })
 
+  // Told by the order of events and not by a clock: the dial-in is fired
+  // from the launch itself, so no wait before the launch can eat into it.
   it('holds ready on a control session until the extension dials in', async () => {
     const root = project()
-    let statusAtLaunch = ''
-    let launchedAt = 0
-
-    armControlSession(150)
+    const seen: string[] = []
+    const session = armControlSession('held')
 
     await preview(root, {browser: 'chrome', allowControl: true}, async () => {
-      launchedAt = Date.now()
-      statusAtLaunch = readReady(root).status
+      seen.push(`launched while ${readReady(root).status}`)
+
+      setTimeout(() => {
+        seen.push(`dialed in while ${readReady(root).status}`)
+        session.attach()
+      }, 20)
 
       return undefined
     })
 
     const ready = readReady(root)
 
-    expect(statusAtLaunch).toBe('starting')
-    expect(Date.now() - launchedAt).toBeGreaterThanOrEqual(100)
+    seen.push(`returned while ${ready.status}`)
+
+    expect(seen).toEqual([
+      'launched while starting',
+      'dialed in while starting',
+      'returned while ready'
+    ])
+
     expect(ready).toMatchObject({status: 'ready', runtime: 'attached'})
     expect(Date.parse(ready.executorAttachedAt)).toBeLessThanOrEqual(
       Date.parse(ready.ts)
