@@ -1,11 +1,12 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 
 const toPosix = (value: string) => value.replace(/\\/g, '/')
 
 vi.mock('@rspack/core', () => {
   class RawSource {
-    private _buf: any
-    constructor(buf: any) {
+    private _buf: unknown
+    constructor(buf: unknown) {
       this._buf = buf
     }
     source() {
@@ -24,7 +25,7 @@ vi.mock('@rspack/core', () => {
 
 const FS = {
   existsSync: vi.fn(),
-  readFileSync: vi.fn(() => Buffer.from('file-bytes')),
+  readFileSync: vi.fn((_p: string) => Buffer.from('file-bytes')),
   statSync: vi.fn((_p: string) => ({size: 10})),
   // No link in these stand-in trees: a path is its own real path.
   realpathSync: vi.fn((p: string) => p)
@@ -50,9 +51,9 @@ describe('EmitFile step', () => {
       includeList: {
         'browser_action/theme_icons': ['/abs/assets/missing.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(1)
@@ -63,21 +64,21 @@ describe('EmitFile step', () => {
   })
 
   const makeCompiler = (context = '/abs') => {
-    const compilation: any = {
-      hooks: {processAssets: {tap: (_: any, cb: Function) => cb()}},
+    const compilation = {
+      hooks: {processAssets: {tap: (_: unknown, cb: Function) => cb()}},
       errors: [],
       warnings: [],
       emitAsset: vi.fn(),
       options: {output: {path: '/abs/out/chrome'}}
     }
-    const compiler: any = {
+    const compiler = asCompiler({
       hooks: {
         thisCompilation: {tap: (_: string, cb: Function) => cb(compilation)}
       },
       // The manifest sits one folder below the project root, so a source
       // beside that folder is project content outside the extension root.
       options: {context}
-    }
+    })
 
     return {compiler, compilation}
   }
@@ -105,13 +106,11 @@ describe('EmitFile step', () => {
         'page_action/default_icon': ['/abs/assets/pa16.png'],
         'sidebar_action/default_icon': ['/abs/assets/sa16.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     // Sources outside the extension root keep a unique slot under icons/
     // derived from their relative path, never a bare basename.
     expect(calls).toContain('icons/_/assets/icon16.png')
@@ -138,13 +137,11 @@ describe('EmitFile step', () => {
         icons: ['/abs/project/icons-dev/icon48.png'],
         'action/default_icon': ['/abs/project/images/logo.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toContain('icons-dev/icon48.png')
     expect(calls).toContain('images/logo.png')
     expect(calls).not.toContain('icons/icon48.png')
@@ -164,13 +161,11 @@ describe('EmitFile step', () => {
       includeList: {
         icons: ['/abs/assets/skip.png', '/abs/assets/keep.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual(['icons/_/assets/keep.png'])
   })
 
@@ -187,13 +182,11 @@ describe('EmitFile step', () => {
       includeList: {
         'browser_action/theme_icons': ['/abs/assets/a.png', '/abs/assets/b.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual([
       'browser_action/_/assets/a.png',
       'browser_action/_/assets/b.png'
@@ -220,13 +213,11 @@ describe('EmitFile step', () => {
           '/abs/project/images/dark/bg.png'
         ]
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual([
       'theme/images/images/weta.png',
       'theme/images/images/light/bg.png',
@@ -245,9 +236,9 @@ describe('EmitFile step', () => {
       includeList: {
         'theme/images/DOES_NOT_EXIST.png': '/abs/assets/DOES_NOT_EXIST.png'
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.warnings.length).toBe(0)
     expect(compilation.errors.length).toBe(1)
@@ -270,17 +261,15 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'theme/images/f.png': '/abs/assets/f.png'}
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.errors.length).toBe(0)
     expect(compilation.warnings.length).toBe(1)
     expect(String(compilation.warnings[0])).toMatch(/EMPTY FILE/i)
     // The asset still ships: the author may be mid-edit on the image.
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual(['theme/images/_/assets/f.png'])
   })
 
@@ -294,9 +283,9 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'theme/images/f.png': '/abs/assets/f.png'}
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.errors.length).toBe(0)
     expect(compilation.warnings.length).toBe(0)
@@ -320,13 +309,11 @@ describe('EmitFile step', () => {
       includeList: {
         'action/default_icon': ['/public/icon.png', 'icons/rel.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual(['icons/rel.png'])
   })
 
@@ -341,10 +328,10 @@ describe('EmitFile step', () => {
     new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/design/logo.png']}
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
 
     // The workspace check reads package.json files above, never the icon.
-    const read = FS.readFileSync.mock.calls.map((c: any[]) => toPosix(c[0]))
+    const read = FS.readFileSync.mock.calls.map((c) => toPosix(c[0]))
 
     expect(compilation.emitAsset).not.toHaveBeenCalled()
     expect(read).not.toContain('/abs/design/logo.png')
@@ -365,11 +352,11 @@ describe('EmitFile step', () => {
       includeList: {
         icons: ['/abs/project/public/sub/icon.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    expect((compilation.emitAsset as any).mock.calls.length).toBe(0)
+    expect(compilation.emitAsset.mock.calls.length).toBe(0)
   })
 
   it('errors with a pretty message when a top-level icon file is missing', async () => {
@@ -381,9 +368,9 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/missing.png']}
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.errors.length).toBe(1)
     const e = String(compilation.errors[0])
@@ -401,8 +388,8 @@ describe('EmitFile step', () => {
     let step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/missing.png']}
-    } as any)
-    step.apply(compiler as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
+    step.apply(asCompiler(compiler))
     const msg1 = String(compilation.errors[0] || compilation.warnings[0] || '')
     expect(msg1).toMatch(/resolves from the extension root/i)
 
@@ -412,9 +399,9 @@ describe('EmitFile step', () => {
     step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['icons/missing.png']}
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
     const msg2 = String(compilation.errors[0] || compilation.warnings[0] || '')
     expect(msg2).not.toMatch(/resolves from the extension root/i)
   })
@@ -428,9 +415,9 @@ describe('EmitFile step', () => {
     const step = new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'action/default_icon': ['/abs/assets/missing.png']}
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.errors.length).toBe(1)
     const e = String(compilation.errors[0])
@@ -453,16 +440,14 @@ describe('EmitFile step', () => {
         icons: {
           16: '/abs/assets/icon16.png',
           48: '/abs/assets/icon48.png'
-        } as any
+        } as unknown as string[]
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.errors.length).toBe(1)
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual(['icons/_/assets/icon48.png'])
   })
 
@@ -480,11 +465,9 @@ describe('EmitFile step', () => {
         icons: ['/abs/design/a/logo.png'],
         'action/default_icon': ['/abs/design/b/logo.png']
       }
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toHaveLength(2)
     expect(new Set(calls).size).toBe(2)
     expect(calls).toEqual([
@@ -509,11 +492,9 @@ describe('EmitFile step', () => {
           '/abs/design/dark/logo.png'
         ]
       }
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual([
       'browser_action/_/design/light/logo.png',
       'browser_action/_/design/dark/logo.png'
@@ -528,11 +509,9 @@ describe('EmitFile step', () => {
     new EmitFile({
       manifestPath: '/abs/project/manifest.json',
       includeList: {'action/theme_icons': ['/abs/project/icons/light.png']}
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof EmitFile>[0]).apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(calls).toEqual(['action/icons/light.png'])
   })
 
@@ -558,13 +537,11 @@ describe('EmitFile step', () => {
         ],
         'action/icon_variants': ['/abs/project/toolbar/light-16.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
-    const calls = (compilation.emitAsset as any).mock.calls.map(
-      (c: any[]) => c[0]
-    )
+    const calls = compilation.emitAsset.mock.calls.map((c) => c[0])
     expect(compilation.errors.length).toBe(0)
     expect(calls).toEqual([
       'icons/dark-16.png',
@@ -586,9 +563,9 @@ describe('EmitFile step', () => {
         icon_variants: ['/abs/project/icons/dark-16.png'],
         'action/icon_variants': ['/abs/project/icons/act-dark-16.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof EmitFile>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(compilation.emitAsset).not.toHaveBeenCalled()
     expect(compilation.errors.length).toBe(2)

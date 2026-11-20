@@ -1,4 +1,5 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompiler} from '../../__spec__/helpers/rspack-fakes'
 
 vi.mock('@rspack/core', () => ({
   Compilation: {PROCESS_ASSETS_STAGE_ADDITIONS: 0}
@@ -18,16 +19,21 @@ describe('AddToFileDependencies step', () => {
 
   const makeCompiler = () => {
     const fileDependencies = new Set<string>()
-    const compilation: any = {
-      hooks: {processAssets: {tap: (_: any, cb: Function) => cb()}},
+    const compilation: {
+      hooks: unknown
+      errors: Error[]
+      fileDependencies: Set<string>
+      missingDependencies?: Set<string>
+    } = {
+      hooks: {processAssets: {tap: (_: unknown, cb: Function) => cb()}},
       errors: [],
       fileDependencies
     }
-    const compiler: any = {
+    const compiler = asCompiler({
       hooks: {
         thisCompilation: {tap: (_: string, cb: Function) => cb(compilation)}
       }
-    }
+    })
 
     return {compiler, compilation}
   }
@@ -45,16 +51,16 @@ describe('AddToFileDependencies step', () => {
       includeList: {
         icons: ['/abs/assets/a.png', '/abs/assets/b.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof AddToFileDependencies>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(Array.from(compilation.fileDependencies)).toEqual([
       '/abs/assets/a.png',
       '/abs/assets/b.png'
     ])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
     expect(Array.from(compilation.fileDependencies)).toEqual([
       '/abs/assets/a.png',
       '/abs/assets/b.png'
@@ -76,9 +82,9 @@ describe('AddToFileDependencies step', () => {
       includeList: {
         icons: ['/abs/assets/skip.png', '/abs/assets/keep.png']
       }
-    } as any)
+    } as ConstructorParameters<typeof AddToFileDependencies>[0])
 
-    step.apply(compiler as any)
+    step.apply(asCompiler(compiler))
 
     expect(Array.from(compilation.fileDependencies)).toEqual([
       '/abs/assets/keep.png'
@@ -95,7 +101,9 @@ describe('AddToFileDependencies step', () => {
     new AddToFileDependencies({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/a.png']}
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddToFileDependencies>[0]).apply(
+      asCompiler(compiler)
+    )
 
     expect(Array.from(compilation.fileDependencies)).toEqual([
       '/abs/assets/a.png'
@@ -112,7 +120,9 @@ describe('AddToFileDependencies step', () => {
     new AddToFileDependencies({
       manifestPath: '/abs/project/manifest.json',
       includeList: {icons: ['/abs/assets/gone.png']}
-    } as any).apply(compiler as any)
+    } as ConstructorParameters<typeof AddToFileDependencies>[0]).apply(
+      asCompiler(compiler)
+    )
 
     expect(compilation.fileDependencies.size).toBe(0)
     expect(Array.from(compilation.missingDependencies)).toEqual([
