@@ -78,7 +78,6 @@ export class SafariDevPlugin implements RunnerPlugin {
     this.reloads.hold(isHeld)
   }
 
-
   // Safari is ready when its first full package pass finished.
   setReadyListener(listener: () => void): void {
     this.readyListener = listener
