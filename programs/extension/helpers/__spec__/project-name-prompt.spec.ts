@@ -42,7 +42,47 @@ describe('askProjectName', () => {
 })
 
 describe('canPromptForProjectName', () => {
-  it('never prompts inside a test run', () => {
+  const terminal = {isTTY: true} as NodeJS.ReadStream & NodeJS.WriteStream
+  const pipe = {isTTY: false} as NodeJS.ReadStream & NodeJS.WriteStream
+
+  it('asks a person whose input and output are both a terminal', () => {
+    expect(
+      canPromptForProjectName({input: terminal, output: terminal, env: {}})
+    ).toBe(true)
+  })
+
+  it('decides by the streams, not by a variable a test runner sets', () => {
+    expect(
+      canPromptForProjectName({
+        input: terminal,
+        output: terminal,
+        env: {VITEST: 'true', VITEST_WORKER_ID: '1'}
+      })
+    ).toBe(true)
+  })
+
+  it('does not ask when either stream is a pipe', () => {
+    expect(
+      canPromptForProjectName({input: pipe, output: terminal, env: {}})
+    ).toBe(false)
+
+    expect(
+      canPromptForProjectName({input: terminal, output: pipe, env: {}})
+    ).toBe(false)
+  })
+
+  it('does not ask on CI, terminal or not', () => {
+    expect(
+      canPromptForProjectName({
+        input: terminal,
+        output: terminal,
+        env: {GITHUB_ACTIONS: 'true'}
+      })
+    ).toBe(false)
+  })
+
+  it('does not ask from a spec worker, whose input is never a terminal', () => {
+    expect(process.stdin.isTTY).toBeFalsy()
     expect(canPromptForProjectName()).toBe(false)
   })
 })

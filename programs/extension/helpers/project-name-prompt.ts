@@ -33,7 +33,6 @@ export function canPromptForProjectName({
   output = process.stdout,
   env = process.env
 }: PromptIo = {}): boolean {
-  if (env.VITEST || env.VITEST_WORKER_ID) return false
   if (isCI(env)) return false
 
   return Boolean(input.isTTY && output.isTTY)
