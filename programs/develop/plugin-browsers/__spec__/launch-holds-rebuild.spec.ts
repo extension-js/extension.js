@@ -81,7 +81,7 @@ describe('a save made while the browser is launching', () => {
         'compile'
       ])
     } finally {
-      await new Promise((resolve) => watching.close(resolve))
+      await new Promise<void>((resolve) => watching.close(() => resolve()))
     }
   }, 60_000)
 })

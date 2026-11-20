@@ -349,7 +349,7 @@ describe('a Safari package under a real watch', () => {
       },
       async close() {
         for (const call of pkg.calls) call.finish()
-        await new Promise((resolve) => watching.close(resolve))
+        await new Promise<void>((resolve) => watching.close(() => resolve()))
       }
     }
   }
@@ -410,16 +410,15 @@ describe('a Safari package under a real watch', () => {
     let shortened = false
     vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
       run: () => void,
-      ms?: number,
-      ...rest: unknown[]
+      ms?: number
     ) => {
       if (ms !== SAFARI_RESYNC_TIMEOUT_MS || shortened) {
-        return realSetTimeout(run, ms, ...rest)
+        return realSetTimeout(run, ms)
       }
 
       shortened = true
 
-      return realSetTimeout(run, 50, ...rest)
+      return realSetTimeout(run, 50)
     }) as never)
 
     const dev = watchSession()
