@@ -345,6 +345,43 @@ export function publicFolderMiscased(
         `Rename the folder to ${colors.yellow('public/')}.`
 }
 
+// No disk reads the folder, so a project builds the same on every machine.
+export function entryFolderMiscased(
+  found: string,
+  projectRoot: string,
+  folder: 'pages' | 'scripts'
+) {
+  const name = displayPath(found, projectRoot)
+  const kind = folder === 'pages' ? 'page' : 'script'
+
+  return (
+    `${name} is not read: the ${folder} folder must be named ${colors.yellow(`${folder}/`)} in lowercase, so no ${kind} in it is built.\n` +
+    `Rename the folder to ${colors.yellow(`${folder}/`)}.`
+  )
+}
+
+// One block per name, so each file left out sits beside the one that won.
+export function entryNameCollision(
+  collisions: Array<{name: string; used: string; dropped: string[]}>,
+  browser: string
+) {
+  const one = collisions.length === 1 && collisions[0].dropped.length === 1
+  const list = collisions
+    .map(
+      ({name, used, dropped}) =>
+        `${colors.yellow(name)} USING ${colors.yellow(used)} ` +
+        `IGNORED ${dropped.map((file) => colors.yellow(file)).join(', ')}`
+    )
+    .join('\n')
+
+  return (
+    `More than one file builds under the same entry name, so only one of them is in the ${colors.blue(browser)} build.\n` +
+    `${list}\n` +
+    'An entry is named by its path without the extension, and a page named index stands for its folder. The file that sorts last wins.\n' +
+    `Rename or delete the ${one ? 'ignored file' : 'ignored files'}.`
+  )
+}
+
 export function manifestInPublicFolder(relativePath: string) {
   return (
     `${colors.yellow(relativePath)} is left out of the build: the manifest ` +
