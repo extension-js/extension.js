@@ -2,9 +2,9 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {readProjectSource} from '../../../lib/emitted-evidence'
 import {missingConstantsOf} from '../../feature-scripts/steps/warn-missing-build-constants'
 import {classicConcatEntry} from '../../shared/classic-concat'
-import {readProjectSource} from '../steps/apply-dev-defaults-lib/emitted-evidence'
 import {sourceFileOf} from '../steps/warn-webassembly'
 
 // One compile reads a project file from disk once. A scan that reads it

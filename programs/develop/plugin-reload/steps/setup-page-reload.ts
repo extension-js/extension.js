@@ -28,11 +28,12 @@ import {
   type HtmlPage
 } from '../../plugin-web-extension/shared/html-page-extensions'
 import type {DevOptions, PluginInterface} from '../../types'
+import {isReloadSession} from '../reload-session'
 
 type PageEntry = {import?: string[]}
 
-// Gives every page of a development build its hot update client, and lets
-// the scripts a page names accept their own update in a dev session.
+// Gives every page of a dev session its hot update client, and lets the
+// scripts a page names accept their own update.
 export class SetupPageReload {
   public static readonly name = 'plugin-reload-pages'
 
@@ -55,6 +56,9 @@ export class SetupPageReload {
   public apply(compiler: Compiler): void {
     extendHtmlPages(compiler, {
       pagesDeclared: (declaring, pages) => {
+        // A build that ships carries no reload client, whatever its mode.
+        if (!isReloadSession(declaring.options.mode, this.devSession)) return
+
         this.addClientToEntries(declaring, pages)
         this.acceptPageScriptUpdates(declaring, pages)
       }
@@ -62,8 +66,6 @@ export class SetupPageReload {
   }
 
   private addClientToEntries(compiler: Compiler, pages: readonly HtmlPage[]) {
-    if (compiler.options.mode !== 'development') return
-
     const devServerHmrImports = getDevServerHmrImports(compiler, {
       connectableHost: this.connectableHost,
       port: this.port
@@ -106,12 +108,6 @@ export class SetupPageReload {
     compiler: Compiler,
     pages: readonly HtmlPage[]
   ) {
-    const devSession =
-      this.devSession ??
-      (compiler.options.mode || 'development') !== 'production'
-
-    if (!devSession) return
-
     const contentScriptEntryPaths = new Set<string>()
 
     try {

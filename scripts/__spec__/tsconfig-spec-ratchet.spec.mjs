@@ -17,7 +17,6 @@ const root = path.resolve(
 // with the @types/chrome the sources and specs are written against.
 const BASE_EXCLUDES = [
   '**/dist',
-  './examples/**',
   './programs/extension/types/callbacks.d.ts',
   './programs/extension/types/chrome.d.ts',
   './programs/extension/types/enums.d.ts',

@@ -110,6 +110,8 @@ describe('programAIHelp', () => {
       'compile_start',
       'compile_success',
       'compile_error',
+      'browser_exited',
+      'browser_launch_failed',
       'shutdown'
     ])
   })

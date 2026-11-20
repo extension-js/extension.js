@@ -3,8 +3,8 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
 import {
-  ASSET_CATEGORIES,
-  type AssetCategory
+  BUDGET_CATEGORIES,
+  type BudgetCategory
 } from '../../develop/plugin-perf-budgets/categorize'
 import type {PerfBudgetCategory} from '../config-types'
 
@@ -13,9 +13,9 @@ type Equals<A, B> =
     ? true
     : false
 
-// The public type is a hand-written mirror of the plugin's list. This line is
-// the type half: the typecheck gate fails on it, and nothing runs it.
-const publicMatchesPlugin: Equals<PerfBudgetCategory, AssetCategory> = true
+// The public type is a hand-written mirror of the categories that take a
+// budget. This line is the type half: the typecheck gate fails on it.
+const publicMatchesPlugin: Equals<PerfBudgetCategory, BudgetCategory> = true
 
 void publicMatchesPlugin
 
@@ -39,12 +39,16 @@ function publicCategoriesFromFile(filePath = configTypesPath): string[] {
 }
 
 describe('perf budget categories', () => {
-  it('the public PerfBudgetCategory union lists exactly the plugin categories', () => {
-    expect(publicCategoriesFromFile()).toEqual([...ASSET_CATEGORIES])
+  it('the public PerfBudgetCategory union lists exactly the categories that take a budget', () => {
+    expect(publicCategoriesFromFile()).toEqual([...BUDGET_CATEGORIES])
+  })
+
+  it('never offers ignored, which is a label for a file and not a budget', () => {
+    expect(publicCategoriesFromFile()).not.toContain('ignored')
   })
 
   it('a typed config can budget the runtime category', () => {
-    expect(ASSET_CATEGORIES).toContain('runtime')
+    expect(BUDGET_CATEGORIES).toContain('runtime')
     expect(publicCategoriesFromFile()).toContain('runtime')
   })
 
@@ -54,7 +58,7 @@ describe('perf budget categories', () => {
 
     expect(crlf).toContain('\r\n')
     expect(categoriesFromSource(crlf)).toEqual(categoriesFromSource(lf))
-    expect(categoriesFromSource(crlf)).toEqual([...ASSET_CATEGORIES])
+    expect(categoriesFromSource(crlf)).toEqual([...BUDGET_CATEGORIES])
   })
 
   it('reads a CRLF copy of config-types.ts from disk', () => {
@@ -70,7 +74,7 @@ describe('perf budget categories', () => {
       expect(written).toContain('\r\n')
       expect(written.split(/\r?\n/).length).toBe(lf.split('\n').length)
 
-      expect(publicCategoriesFromFile(copy)).toEqual([...ASSET_CATEGORIES])
+      expect(publicCategoriesFromFile(copy)).toEqual([...BUDGET_CATEGORIES])
     } finally {
       fs.rmSync(dir, {recursive: true, force: true})
     }

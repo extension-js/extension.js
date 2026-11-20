@@ -1,12 +1,12 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {
   buildPages,
   PAGE_FILES,
   writePageProject
-} from '../../../plugin-reload/__spec__/helpers/page-builds'
+} from '../../../__spec__/helpers/page-builds'
+import {trackTempFolders} from '../../../__spec__/helpers/temp-folders'
 import {readHtml} from '../html-lib/read-html'
 
 const tempFolder = trackTempFolders()

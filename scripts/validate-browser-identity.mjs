@@ -418,7 +418,9 @@ function runDevSession({
 
     let output = ''
     let settled = false
-    let poll = null
+    /** @type {NodeJS.Timeout | undefined} */
+    let poll
+    /** @type {number | null} */
     let exitCode = null
     let stage = 'starting'
 
@@ -569,6 +571,7 @@ function nativeDialogVerdict(pid) {
 function renderedDocument(webSocketDebuggerUrl) {
   return new Promise((resolveProbe) => {
     let settled = false
+    /** @type {WebSocket | null} */
     let socket = null
 
     const finish = (value) => {
@@ -611,6 +614,7 @@ function renderedDocument(webSocketDebuggerUrl) {
     })
 
     socket.addEventListener('message', (event) => {
+      /** @type {any} */
       let message = null
 
       try {
@@ -635,6 +639,7 @@ function renderedDocument(webSocketDebuggerUrl) {
 
 async function chromiumPages(cdpPort) {
   const response = await fetch(`http://127.0.0.1:${cdpPort}/json/list`)
+  /** @type {any} */
   const list = await response.json()
   const pages = []
 
@@ -683,6 +688,7 @@ function geckoPages(cli, projectDir, browser) {
     }
   }
 
+  /** @type {any} */
   let envelope = null
 
   for (const line of text.split(/\r?\n/)) {
@@ -832,6 +838,7 @@ async function assertIdentity({
 
   // b. The pid is alive and its executable is that binary.
   const pid = ready.browserPid
+  /** @type {string | null} */
   let liveExe = null
 
   if (typeof pid !== 'number') {
@@ -900,13 +907,14 @@ async function assertIdentity({
   }
 
   // e. Nothing of the browser's own is in front of the reader.
+  /** @type {any[] | null} */
   let pages = null
 
   let listingFailed = false
 
   try {
     pages = await foregroundPages({browser, ready, cli, projectDir})
-  } catch (error) {
+  } catch (/** @type {any} */ error) {
     // A listing that cannot answer is a failure, not a skip: the check
     // passed vacuously on every gecko target while the session ran without
     // --allow-control, and nothing said so.
@@ -1265,7 +1273,9 @@ async function main() {
     const modes = cacheMode === 'both' ? ['cold', 'warm'] : [cacheMode]
 
     for (const mode of modes) {
+      /** @type {NodeJS.ProcessEnv} */
       let env = baseEnv
+
       let cacheRoot = managedCacheRoot(baseEnv)
 
       if (mode === 'cold') {

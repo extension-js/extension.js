@@ -143,8 +143,6 @@ describe('what plugin-reload reaches in the other plugins', () => {
       'plugin-js-frameworks/js-tools/vue',
       'plugin-special-folders/public-private-files',
       'plugin-special-folders/resolve-public-folder',
-      'plugin-web-extension/feature-manifest/manifest-lib/manifest',
-      'plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence',
       'plugin-web-extension/feature-scripts/contracts',
       'plugin-web-extension/shared/background-asset',
       'plugin-web-extension/shared/chunk-loading-target-extensions',

@@ -47,6 +47,7 @@ const hostInstrumentationInline =
   '            if (typeof node.querySelector === "function") {\n' +
   '              return node.querySelector("[data-extjs-reinject-owner=\\"" + ownedKey.replace(/"/g, "\\\\\\"") + "\\"]");\n' +
   '            }\n' +
+  // A node the page detached can throw on query, so it is not an owned root
   '          } catch (error) {}\n' +
   '          return null;\n' +
   '        };\n' +
@@ -74,10 +75,12 @@ const hostInstrumentationInline =
   '            return;\n' +
   '          }\n' +
   '        }\n' +
+  // Removal tracing is debug only and must not break the page observer
   '      } catch (error) {}\n' +
   '    });\n' +
   '    observer.observe(target, { childList: true, subtree: true });\n' +
   '    globalThis.__EXTJS_DEBUG_REMOVAL_OBSERVER__ = observer;\n' +
+  // Without a usable MutationObserver the removal trace stays off
   '  } catch (error) {}\n' +
   '}\n' +
   'function __EXTENSIONJS_patchDomRemovalApis(){\n' +
@@ -105,6 +108,7 @@ const hostInstrumentationInline =
   '        pageRoot.setAttribute("data-extjs-debug-last-removal-ready-state", String(document.readyState || ""));\n' +
   '        pageRoot.setAttribute("data-extjs-debug-last-removal-url", String(location.href || ""));\n' +
   '        pageRoot.setAttribute("data-extjs-debug-last-removal-parent-tag", String(parent && parent.tagName || "").toLowerCase());\n' +
+  // A failed debug write must not block the page's own node removal
   '      } catch (error) {}\n' +
   '    };\n' +
   '    try {\n' +
@@ -115,6 +119,7 @@ const hostInstrumentationInline =
   '          return originalRemoveChild.call(this, child);\n' +
   '        };\n' +
   '      }\n' +
+  // A locked Node prototype leaves removeChild untraced, nothing else
   '    } catch (error) {}\n' +
   '    try {\n' +
   '      var originalReplaceChildren = Element.prototype.replaceChildren;\n' +
@@ -123,16 +128,21 @@ const hostInstrumentationInline =
   '          try {\n' +
   '            var existing = Array.from(this.childNodes || []);\n' +
   '            for (var i = 0; i < existing.length; i++) record("Element.replaceChildren", existing[i], this);\n' +
+  // Tracing must never stop the page's own replaceChildren call
   '          } catch (error) {}\n' +
   '          return originalReplaceChildren.apply(this, arguments);\n' +
   '        };\n' +
   '      }\n' +
+  // A locked Element prototype leaves replaceChildren untraced
   '    } catch (error) {}\n' +
   '    globalThis.__EXTJS_DEBUG_DOM_APIS_PATCHED__ = true;\n' +
+  // DOM removal tracing is debug only, the reload goes on without it
   '  } catch (error) {}\n' +
   '}\n' +
   'if (__EXTENSIONJS_HOST_INSTRUMENTATION_ENABLED) {\n' +
+  // The removal observer is debug only and must not stop the bundle
   '  try { __EXTENSIONJS_debugObserveOwnedRootRemoval(); } catch (error) {}\n' +
+  // Removal API patches are debug only and must not stop the bundle
   '  try { __EXTENSIONJS_patchDomRemovalApis(); } catch (error) {}\n' +
   '}\n'
 
@@ -158,12 +168,14 @@ const reinjectMarkerInline =
   '        if (currentOwner === __extjsToken) { marker = current; break; }\n' +
   '        if (!currentOwner && current.getAttribute("data-extjs-reinject-key") === key) { marker = current; break; }\n' +
   '      }\n' +
+  // A failed marker lookup falls through to a fresh marker below
   '    } catch (error) {}\n' +
   '    if (!marker && typeof document.createElement === "function") {\n' +
   '      marker = document.createElement("div");\n' +
   '      marker.setAttribute("data-extjs-reinject-marker", "true");\n' +
   '      marker.setAttribute("hidden", "");\n' +
   '      marker.setAttribute("aria-hidden", "true");\n' +
+  // The hidden attribute still hides a marker whose style is locked
   '      try { marker.style.display = "none"; } catch (error) {}\n' +
   '      root.appendChild(marker);\n' +
   '    }\n' +
@@ -173,6 +185,7 @@ const reinjectMarkerInline =
   '    marker.setAttribute("data-extjs-reinject-generation", String(generation));\n' +
   '    marker.setAttribute("data-extjs-reinject-status", String(status || "mounted"));\n' +
   '    marker.setAttribute("data-extjs-reinject-build", String(__EXTENSIONJS_REINJECT_BUILD_TOKEN || ""));\n' +
+  // Marker text is a debug label, its attributes carry the real state
   '    try { marker.textContent = String(__EXTENSIONJS_BUNDLE_KEY || key || "") + ":" + String(generation) + ":" + String(status || "mounted"); } catch (error) {}\n' +
   '    try {\n' +
   '      var roots = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
@@ -208,11 +221,13 @@ const reinjectMarkerInline =
   '                    pageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
   '                    pageRoot.setAttribute("data-extjs-debug-last-removal-source", "patched-host-remove");\n' +
   '                  }\n' +
+  // A failed debug write must not block the root's own remove call
   '                } catch (error) {}\n' +
   '                return __extjsOriginalRemove();\n' +
   '              };\n' +
   '            }\n' +
   '          }\n' +
+  // A host that refuses the remove patch only loses removal tracing
   '        } catch (error) {}\n' +
   '      }\n' +
   '      try {\n' +
@@ -220,7 +235,9 @@ const reinjectMarkerInline =
   '        marker.setAttribute("data-extjs-debug-root-count", String(roots.length));\n' +
   '        marker.setAttribute("data-extjs-debug-owned-root-count", String(ownedRootCount));\n' +
   '        marker.setAttribute("data-extjs-debug-marker-count", String(markers.length));\n' +
+  // Root and marker counts on the marker are debug diagnostics only
   '      } catch (error) {}\n' +
+  // Roots left untagged here are swept as orphans on the next run
   '    } catch (error) {}\n' +
   '    try {\n' +
   '      var pageRoot = document.documentElement;\n' +
@@ -234,7 +251,9 @@ const reinjectMarkerInline =
   '        pageRoot.setAttribute("data-extjs-debug-owned-root-count", marker.getAttribute("data-extjs-debug-owned-root-count") || "0");\n' +
   '        pageRoot.setAttribute("data-extjs-debug-marker-count", marker.getAttribute("data-extjs-debug-marker-count") || "0");\n' +
   '      }\n' +
+  // The page root mirror of the marker state is diagnostic only
   '    } catch (error) {}\n' +
+  // A page that blocks DOM writes runs the bundle without markers
   '  } catch (error) {}\n' +
   '}\n' +
   'function __EXTENSIONJS_cleanupKnownRoots(staleEvenIfSameBuild){\n' +
@@ -271,9 +290,12 @@ const reinjectMarkerInline =
   '          pageRoot.setAttribute("data-extjs-debug-last-removal-source", "cleanup-known-roots");\n' +
   '          pageRoot.setAttribute("data-extjs-debug-last-removed-node-tag", String(host.tagName || "").toLowerCase());\n' +
   '        }\n' +
+  // A failed debug write must not stop the stale root removal below
   '      } catch (error) {}\n' +
+  // A root the page already detached has nothing left to remove
   '      try { host.remove(); } catch (error) {}\n' +
   '    }\n' +
+  // A failed stale root sweep must not stop the new mount
   '  } catch (error) {}\n' +
   '}\n' +
   'function __EXTENSIONJS_cleanupOrphanRoots(){\n' +
@@ -297,6 +319,7 @@ const reinjectMarkerInline =
   '      for (var m = 0; m < markers.length; m++) {\n' +
   '        if (markers[m] && typeof markers[m].getAttribute === "function" && String(markers[m].getAttribute("data-extjs-marker-owner") || "") === __extjsToken) { sawPriorGeneration = true; break; }\n' +
   '      }\n' +
+  // Unreadable markers prove no prior generation, so nothing is swept
   '    } catch (error) {}\n' +
   '    if (!sawPriorGeneration) return;\n' +
   '    var roots = Array.from(document.querySelectorAll("[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])"));\n' +
@@ -305,8 +328,10 @@ const reinjectMarkerInline =
   '      if (!host || typeof host.getAttribute !== "function") continue;\n' +
   '      var hostOwner = String(host.getAttribute("data-extjs-reinject-owner") || "");\n' +
   '      if (hostOwner) continue;\n' +
+  // An orphan the page already detached has nothing left to remove
   '      try { host.remove(); } catch (error) {}\n' +
   '    }\n' +
+  // A failed orphan sweep must not stop this bundle from mounting
   '  } catch (error) {}\n' +
   '}\n'
 
@@ -346,6 +371,7 @@ function textAt(
         '      if (typeof entry.generation === "number") return entry.generation;\n' +
         '      if (typeof entry.cleanup === "function" && typeof entry.cleanup.__extjsGeneration === "number") return entry.cleanup.__extjsGeneration;\n' +
         '    }\n' +
+        // An unreadable registry entry counts as generation zero below
         '  } catch (error) {}\n' +
         '  return 0;\n' +
         '}\n'
@@ -354,7 +380,9 @@ function textAt(
       return reinjectMarkerInline
     case 'in-composed-cleanup':
       return (
+        // A failed root sweep must not block the rest of the cleanup
         '    try { __EXTENSIONJS_cleanupKnownRoots(); } catch (error) {}\n' +
+        // The cleaned marker is diagnostic, a failed write keeps cleanup going
         '    try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "cleaned"); } catch (error) {}\n'
       )
     case 'after-composed-cleanup':
@@ -368,11 +396,13 @@ function textAt(
         '    var currentCount = Number(pageRoot.getAttribute("data-extjs-debug-execution-count") || "0");\n' +
         '    var nextCount = Number.isFinite(currentCount) ? currentCount + 1 : 1;\n' +
         '    var roots = [];\n' +
+        // An unreadable root list records a zero count in the snapshot
         '    try { roots = Array.from(document.querySelectorAll("#extension-root,[data-extension-root]:not([data-extension-root=\\"extension-js-devtools\\"])")); } catch (error) {}\n' +
         '    pageRoot.setAttribute("data-extjs-debug-execution-count", String(nextCount));\n' +
         '    pageRoot.setAttribute("data-extjs-debug-last-execution-stage", String(stage || ""));\n' +
         '    pageRoot.setAttribute("data-extjs-debug-last-execution-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
         '    pageRoot.setAttribute("data-extjs-debug-existing-root-count-before-cleanup", String(roots.length));\n' +
+        // The execution snapshot is diagnostic and must not stop the bundle
         '  } catch (error) {}\n' +
         '}\n'
       )
@@ -380,6 +410,7 @@ function textAt(
       return (
         (module.isMainWorld ? '' : hostInstrumentationInline) +
         'if (__EXTENSIONJS_DEV_MARKERS_ENABLED) {\n' +
+        // A failed bootstrap snapshot only loses a debug attribute
         '  try { __EXTENSIONJS_recordExecutionSnapshot("bootstrap"); } catch (error) {}\n' +
         '}\n' +
         'var __EXTENSIONJS_previousEntry=__EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY];\n' +
@@ -387,6 +418,7 @@ function textAt(
         '// Sweep untagged orphans (prior-session roots that died before tagging)\n' +
         '// before any further cleanup runs. Safe here because our mount has not\n' +
         '// produced any roots yet, any untagged host is by definition not ours.\n' +
+        // A failed orphan sweep must not stop this bundle from mounting
         'try { __EXTENSIONJS_cleanupOrphanRoots(); } catch (error) {}\n' +
         'try {\n' +
         '  var __EXTENSIONJS_previousCleanup=typeof __EXTENSIONJS_previousEntry === "function" ? __EXTENSIONJS_previousEntry : (__EXTENSIONJS_previousEntry && typeof __EXTENSIONJS_previousEntry.cleanup === "function" ? __EXTENSIONJS_previousEntry.cleanup : null);\n' +
@@ -400,58 +432,68 @@ function textAt(
         '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-key", String(__EXTENSIONJS_REINJECT_KEY || ""));\n' +
         '          __extjsPageRoot.setAttribute("data-extjs-debug-last-removal-source", "previous-cleanup");\n' +
         '        }\n' +
+        // A failed debug write must not skip the previous cleanup call
         '      } catch (error) {}\n' +
         '    }\n' +
         '    __EXTENSIONJS_previousCleanup();\n' +
         '  }\n' +
+        // A throwing previous cleanup must not block the new mount
         '} catch (error) {}\n' +
         // No registry entry = fresh isolated world: any root we own predates this
         // execution and must go, even when its build token still matches.
+        // A failed stale root sweep must not block the new mount
         'try { __EXTENSIONJS_cleanupKnownRoots(!__EXTENSIONJS_previousEntry); } catch (error) {}\n' +
         // A top-level await ends this run before the script mounts, so the
         // next injection has to find this copy and retire it while it waits.
         'var __EXTENSIONJS_retired=false;\n' +
         'function __EXTENSIONJS_retire(){\n' +
         '  __EXTENSIONJS_retired = true;\n' +
+        // A throwing cleanup must not undo the retired flag set above
         '  try { __EXTENSIONJS_composeCleanup(null)(); } catch (error) {}\n' +
         '}\n' +
         'try {\n' +
         '  __EXTENSIONJS_retire.__extjsGeneration = __EXTENSIONJS_REINJECT_GENERATION;\n' +
         '  __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_retire;\n' +
+        // A locked registry only means the next run cannot retire this copy
         '} catch (error) {}\n'
       )
     case 'mount-without-function':
       return (
+        // A failed generation bump leaves the marker on the prior count
         '    try { __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {}\n' +
+        // The executed marker is diagnostic and must not stop the bundle
         '    try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {}\n'
       )
     case 'after-mount':
       return (
         '      __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1;\n' +
         // The registry stores unmount, so the generation has to ride on it.
+        // A locked unmount function still unmounts without generation tags
         '      try { unmount.__extjsGeneration = __EXTENSIONJS_REINJECT_GENERATION; unmount.__extjsKey = __EXTENSIONJS_REINJECT_KEY; } catch (error) {}\n' +
+        // The mounted marker is diagnostic and must not stop the bundle
         '      try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, __EXTENSIONJS_REINJECT_GENERATION, "mounted"); } catch (error) {}\n'
       )
     case 'mount-failed':
+      // The mount error is already warned above, this marker is diagnostic
       return '      try { __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "mount-error"); } catch (ignored) {}\n'
     case 'end-before-styles':
       return (
         `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_GENERATION = (Number(__EXTENSIONJS_REINJECT_GENERATION) || 0) + 1; } catch (error) {
-        // Ignore
+        // A failed bump leaves the marker on the count before it
       }\n` +
         `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_setReinjectMarker(__EXTENSIONJS_REINJECT_KEY, Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, "executed"); } catch (error) {
-        // Ignore
+        // The marker is for diagnosis and never stops the bundle
       }\n`
       )
     case 'end-after-styles':
       return `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = { cleanup: __EXTENSIONJS_composeCleanup(null), generation: Number(__EXTENSIONJS_REINJECT_GENERATION) || 0, build: __EXTENSIONJS_REINJECT_BUILD_TOKEN }; } catch (error) {
-        // Ignore
+        // A locked registry leaves this copy for the next reload to skip
       }\n`
     case 'before-mount-call':
       return 'if (!__EXTENSIONJS_retired) '
     case 'after-mount-call':
       return `try { if (!__EXTENSIONJS_retired) __EXTENSIONJS_REINJECT_REGISTRY[__EXTENSIONJS_REINJECT_KEY] = __EXTENSIONJS_cleanup } catch (error) {
-      // Ignore
+      // A locked registry leaves this copy for the next reload to skip
     }\n`
     default:
       return ''

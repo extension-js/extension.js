@@ -9,18 +9,18 @@
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
 import parse from 'content-security-policy-parser'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
+import {
+  type EmittedCompilation,
+  type EmittedModule,
+  readEmittedScripts,
+  readProjectSource
+} from '../../../lib/emitted-evidence'
 import {filterKeysForThisBrowser} from '../../../lib/manifest-utils'
 import {parseJsonSafe} from '../../../lib/parse-json-safe'
 import type {DevOptions, Manifest} from '../../../types'
 import {getOriginalManifestContent} from '../manifest-lib/manifest'
 import * as messages from '../messages'
 import {scannableSourcePath} from './apply-dev-defaults-lib/dev-injected-hosts'
-import {
-  type EmittedCompilation,
-  type EmittedModule,
-  readEmittedScripts,
-  readProjectSource
-} from './apply-dev-defaults-lib/emitted-evidence'
 import {relativeToProject} from './warn-gecko-unsupported-apis'
 
 export const WASM_POLICY_SOURCE = "'wasm-unsafe-eval'"

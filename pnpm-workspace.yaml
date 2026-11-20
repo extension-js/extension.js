@@ -13,6 +13,10 @@ packages:
   # Ignore dist folders used for testing
   - "!programs/extension/dist"
   - "!programs/develop/dist"
+# pnpm settings live here, npm warns on every call when .npmrc holds them.
+autoInstallPeers: true
+strictPeerDependencies: false
+ignoreWorkspaceRootCheck: true
 onlyBuiltDependencies:
   - "@ast-grep/napi"
   - "@ast-grep/napi-win32-x64-msvc"

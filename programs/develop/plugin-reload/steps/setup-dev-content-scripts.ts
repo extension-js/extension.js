@@ -10,10 +10,6 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {Compilation, type Compiler, sources} from '@rspack/core'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
-import {
-  getCurrentManifestContent,
-  setCurrentManifestContent
-} from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
 import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import type {Manifest} from '../../types'
@@ -130,13 +126,11 @@ export class SetupDevContentScripts {
 
             let manifest: Manifest
 
-            // The manifest feature hands its latest text down a shared slot
-            // that persist-manifest reads before the asset; read and write
-            // that slot too, or the file on disk keeps the real entries.
+            // The asset is the one copy every step shares, so the stand-ins
+            // are written to it and the step that saves the file reads it.
             try {
               manifest = JSON.parse(
-                getCurrentManifestContent(compilation) ||
-                  manifestAsset.source.source().toString()
+                manifestAsset.source.source().toString()
               ) as Manifest
             } catch {
               // A manifest that does not parse is the manifest feature's error
@@ -179,7 +173,6 @@ export class SetupDevContentScripts {
 
             const manifestText = JSON.stringify(plan.manifest, null, 2)
             putAsset(compilation, 'manifest.json', manifestText)
-            setCurrentManifestContent(compilation, manifestText)
 
             const backgroundText = background.source.source().toString()
 

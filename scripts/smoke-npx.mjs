@@ -79,6 +79,7 @@ export function parseSmokeOptions(argv) {
 }
 
 export function newestMtime(dir) {
+  /** @type {Date | null} */
   let newest = null
 
   for (const entry of readdirSync(dir, {withFileTypes: true})) {

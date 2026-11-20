@@ -1,12 +1,6 @@
-import {existsSync, mkdirSync, writeFileSync} from 'node:fs'
+import {existsSync, mkdirSync, readFileSync, writeFileSync} from 'node:fs'
 import {join} from 'node:path'
-import {afterAll, beforeAll, describe, expect, it} from 'vitest'
-import {
-  type OfflineRegistryFixture,
-  offlineRegistryEnv,
-  offlineRegistryFiles,
-  serveOfflineRegistry
-} from '../../../create/__spec__/offline-registry-fixture'
+import {beforeAll, describe, expect, it} from 'vitest'
 import {type CliRun, everyLineAsFrame, runCli} from '../helpers/run-cli'
 import {trackTempFolders} from '../helpers/temp-folders'
 
@@ -314,45 +308,58 @@ describe('build --output json on a project whose config loads a managed package'
   }, 180_000)
 })
 
-// A real package manager runs here, against a loopback registry that
-// answers 404 and logs every request, so it keeps a describe of its own.
+// What the stand-in prints on stdout, the stream a real manager reports on.
+const STAND_IN_STDOUT = 'stand-in manager: added 1 package in 12ms'
+
+// A package manager of the spec's own: it prints on both streams and writes
+// only under the folder STAND_IN_INSTALL_ROOT names, so no registry decides.
+const STAND_IN_MANAGER = `
+const fs = require('node:fs')
+const path = require('node:path')
+const root = process.env.STAND_IN_INSTALL_ROOT
+const log = process.env.STAND_IN_ARGV_LOG
+
+if (!root || !path.isAbsolute(root) || !log || !path.isAbsolute(log)) {
+  process.stderr.write('stand-in manager: no folder named\\n')
+  process.exit(2)
+}
+
+fs.writeFileSync(log, JSON.stringify(process.argv.slice(2)) + '\\n')
+process.stdout.write(${JSON.stringify(STAND_IN_STDOUT)} + '\\n')
+process.stderr.write('stand-in manager: one warning on stderr\\n')
+
+const target = path.join(root, 'node_modules', 'picocolors')
+fs.mkdirSync(target, {recursive: true})
+fs.writeFileSync(
+  path.join(target, 'package.json'),
+  JSON.stringify({name: 'picocolors', version: '1.1.1', main: 'index.js'})
+)
+fs.writeFileSync(path.join(target, 'index.js'), 'module.exports = {}\\n')
+`
+
 describe('build --output json on a project whose dependencies are not installed', () => {
   let projectDir = ''
-  let registry: OfflineRegistryFixture
+  let managerPath = ''
+  let argvLog = ''
 
-  beforeAll(async () => {
-    registry = await serveOfflineRegistry()
+  beforeAll(() => {
+    const tools = makeTempFolder('extjs-json-install-manager-')
+
+    managerPath = join(tools, 'stand-in-manager.cjs')
+    argvLog = join(tools, 'argv.json')
+    writeFileSync(managerPath, STAND_IN_MANAGER)
 
     projectDir = makeTempFolder('extjs-json-install-stdout-')
     mkdirSync(join(projectDir, 'content'))
-    mkdirSync(join(projectDir, 'vendor', 'picocolors'), {recursive: true})
     writeFileSync(
       join(projectDir, 'package.json'),
       JSON.stringify({
         name: 'json-install-stdout',
         private: true,
         version: '1.0.0',
-        dependencies: {picocolors: 'file:./vendor/picocolors'}
+        dependencies: {picocolors: '1.1.1'}
       })
     )
-
-    writeFileSync(
-      join(projectDir, 'vendor', 'picocolors', 'package.json'),
-      JSON.stringify({name: 'picocolors', version: '1.1.1', main: 'index.js'})
-    )
-
-    writeFileSync(
-      join(projectDir, 'vendor', 'picocolors', 'index.js'),
-      'module.exports = {}\n'
-    )
-
-    for (const [file, content] of Object.entries(
-      offlineRegistryFiles(registry.url)
-    )) {
-      writeFileSync(join(projectDir, file), content)
-    }
-
-    writeFileSync(join(projectDir, '.npmrc'), 'offline=true\n', {flag: 'a'})
 
     writeFileSync(
       join(projectDir, 'manifest.json'),
@@ -368,45 +375,53 @@ describe('build --output json on a project whose dependencies are not installed'
       join(projectDir, 'content', 'scripts.js'),
       "console.log('json-install-stdout-fixture')\n"
     )
-  }, 60_000)
-
-  afterAll(async () => {
-    await registry?.close()
   })
 
   it('keeps the package manager output off stdout', async () => {
-    // The helper's env inherits no registry, and the package manager keeps
-    // its cache and store in the temp home.
     const run = await runCli(
       ['build', '.', '--browser=chromium', '--output', 'json'],
       {
         cwd: projectDir,
-        env: {EXTENSION_DEBUG: '0', ...offlineRegistryEnv(registry.url)}
+        env: {
+          EXTENSION_DEBUG: '0',
+          EXTENSION_JS_PACKAGE_MANAGER: 'npm',
+          EXTENSION_JS_PM_EXEC_PATH: managerPath,
+          STAND_IN_INSTALL_ROOT: projectDir,
+          STAND_IN_ARGV_LOG: argvLog
+        }
       }
     )
     const transcript = [
       `exit ${run.status}`,
-      `the loopback registry saw: ${registry.requests().join(' ') || 'nothing'}`,
       `stdout:\n${run.stdout}`,
       `stderr:\n${run.stderr}`
     ].join('\n')
 
     expect(run.status, transcript).toBe(0)
+
+    // The stand-in ran as the install, and it is the only writer of this file.
+    expect(existsSync(argvLog), transcript).toBe(true)
+    expect(
+      (JSON.parse(readFileSync(argvLog, 'utf8')) as string[])[0],
+      transcript
+    ).toBe('install')
+
     expect(
       existsSync(join(projectDir, 'node_modules', 'picocolors')),
       transcript
     ).toBe(true)
-
-    expect(
-      registry.requests().filter((url) => url.includes('picocolors')),
-      transcript
-    ).toEqual([])
 
     const emitted = frames(run.stdout)
     expect(emitted, transcript).toHaveLength(1)
     expect(emitted[0].ok).toBe(true)
     expect(emitted[0].command).toBe('build')
     expect(emitted[0].status).toBe('built')
+
+    expect(run.stdout, transcript).not.toContain('stand-in manager')
+    expect(run.stderr, transcript).toContain(STAND_IN_STDOUT)
+    expect(run.stderr, transcript).toContain(
+      'stand-in manager: one warning on stderr'
+    )
 
     expect(run.stderr, transcript).toContain(
       'Installing the project dependencies'

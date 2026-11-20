@@ -10,20 +10,36 @@ import {createHash} from 'node:crypto'
 import {existsSync, readFileSync} from 'node:fs'
 import {dirname, join, resolve} from 'node:path'
 
+/**
+ * @param {string} projectDir
+ * @param {string} browser
+ */
 export function sessionArtifactsDir(projectDir, browser) {
   return join(projectDir, 'dist', 'extension-js', browser)
 }
 
+/**
+ * @param {string} projectDir
+ * @param {string} browser
+ */
 export function readyContractPath(projectDir, browser) {
   return join(sessionArtifactsDir(projectDir, browser), 'ready.json')
 }
 
+/**
+ * @param {string} projectDir
+ * @param {string} browser
+ */
 export function eventsContractPath(projectDir, browser) {
   return join(sessionArtifactsDir(projectDir, browser), 'events.ndjson')
 }
 
 // Null means "no readable contract yet"; pollers treat that as not-ready
 // rather than as an error, because the writer creates the file mid-run.
+/**
+ * @param {string} projectDir
+ * @param {string} browser
+ */
 export function readReadyContract(projectDir, browser) {
   const contractPath = readyContractPath(projectDir, browser)
   if (!existsSync(contractPath)) return null
@@ -35,6 +51,10 @@ export function readReadyContract(projectDir, browser) {
   }
 }
 
+/**
+ * @param {string} projectDir
+ * @param {string} browser
+ */
 export function readSessionEvents(projectDir, browser) {
   const contractPath = eventsContractPath(projectDir, browser)
   if (!existsSync(contractPath)) return []
@@ -63,6 +83,10 @@ export function readSessionEvents(projectDir, browser) {
   return events
 }
 
+/**
+ * @param {any[]} events
+ * @param {string} runId
+ */
 export function countCompileSuccessEvents(events, runId) {
   return events.filter(
     (event) =>
@@ -72,6 +96,10 @@ export function countCompileSuccessEvents(events, runId) {
 
 // A contract written before this harness started belongs to an earlier
 // session and must not drive (or fail) the current run.
+/**
+ * @param {any} ready
+ * @param {number} notBeforeMs
+ */
 export function isFreshContract(ready, notBeforeMs) {
   const startedAtMs = Date.parse(String(ready?.startedAt || ''))
 
@@ -80,6 +108,7 @@ export function isFreshContract(ready, notBeforeMs) {
 
 // One line a thrown Error can carry so a contract-reported failure is as
 // loud as the stdout token match it replaces.
+/** @param {any} ready */
 export function describeReadyFailure(ready) {
   if (!ready) return 'ready.json is missing or unreadable'
 
@@ -98,6 +127,7 @@ export function describeReadyFailure(ready) {
 // A compile-ready status, or a browserPid alone, only says a process was
 // spawned. The executor attach comes from inside the extension, so it is the
 // one signal a browser that died at launch can never produce.
+/** @param {any} ready */
 export function devLaunchVerdict(ready) {
   if (!ready) return {state: 'pending'}
 
@@ -124,6 +154,7 @@ export function devLaunchVerdict(ready) {
   return {state: 'loaded'}
 }
 
+/** @param {Buffer} digest */
 function encodeChromiumExtensionIdFromDigest(digest) {
   let extensionId = ''
 
@@ -135,6 +166,7 @@ function encodeChromiumExtensionIdFromDigest(digest) {
   return extensionId
 }
 
+/** @param {string} distPath */
 function deriveChromiumExtensionIdFromKey(distPath) {
   try {
     const manifest = JSON.parse(
@@ -159,6 +191,7 @@ function deriveChromiumExtensionIdFromKey(distPath) {
 
 // Mirror Chrome's id_util::GenerateIdForPath: `key` wins when the manifest
 // pins one, otherwise the deterministic hash of the absolute dist path.
+/** @param {string} distPath */
 export function expectedChromiumExtensionId(distPath) {
   if (!distPath || typeof distPath !== 'string') return ''
 
@@ -183,6 +216,10 @@ export function expectedChromiumExtensionId(distPath) {
 }
 
 // The managed profile the launcher provisions beside the session artifacts.
+/**
+ * @param {string} distPath
+ * @param {string} browser
+ */
 export function managedProfileDir(distPath, browser) {
   return join(
     dirname(distPath),

@@ -125,7 +125,11 @@ test('cuts the canary itself when npm has none, and waits for it', () => {
     /^workflow run publish-release\.yml --repo o\/r --ref main -f channel=canary -f readings=false\n/
   )
 
-  assert.equal(result.log.match(/workflow run/g).length, 1)
+  assert.equal(
+    /** @type {RegExpMatchArray} */ (result.log.match(/workflow run/g)).length,
+    1
+  )
+
   assert.match(result.log, new RegExp(`run list .*--commit ${SHA}`))
 })
 

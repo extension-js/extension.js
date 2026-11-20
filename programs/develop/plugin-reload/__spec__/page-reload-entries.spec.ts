@@ -1,11 +1,11 @@
 import * as fs from 'node:fs'
 import {describe, expect, it} from 'vitest'
-import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {
   buildPages,
   type PageBuildShape,
   writePageProject
-} from './helpers/page-builds'
+} from '../../__spec__/helpers/page-builds'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // What a page ships and what its entry imports, in every kind of build: a
 // page with a script, a page with none, a sandbox page and a nested page.

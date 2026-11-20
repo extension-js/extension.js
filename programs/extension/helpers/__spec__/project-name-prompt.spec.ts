@@ -84,6 +84,27 @@ describe('canPromptForProjectName', () => {
       })
     ).toBe(false)
   })
+
+  it.each([
+    'GITHUB_ACTIONS',
+    'GITLAB_CI',
+    'BUILDKITE',
+    'CIRCLECI',
+    'TRAVIS'
+  ])('reads %s as CI at a terminal', (name) => {
+    expect(
+      canPromptForProjectName({
+        input: stream(true),
+        output: stream(true),
+        env: {[name]: 'true'}
+      })
+    ).toBe(false)
+  })
+
+  it('does not prompt on the process streams of a spec worker', () => {
+    expect(process.stdin.isTTY).toBeFalsy()
+    expect(canPromptForProjectName()).toBe(false)
+  })
 })
 
 describe('createCommandFor', () => {
