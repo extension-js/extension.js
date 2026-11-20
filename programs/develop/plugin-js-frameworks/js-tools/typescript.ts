@@ -19,10 +19,8 @@ import type {DevOptions} from '../../types'
 import {isUsingJSFramework} from '../frameworks-lib/integrations'
 import {getJsxImportSource} from '../js-frameworks-lib/jsx-transform'
 import * as messages from '../js-frameworks-lib/messages'
+import type {Notice} from '../js-frameworks-lib/session-notices'
 import {buildReachesTypeScript} from './typescript-reach'
-
-// Printed once per process. A caller that needs its own record passes one.
-const tsconfigNotice = {delivered: false}
 
 function findNearestPackageJsonDirectory(
   startPath: string
@@ -93,7 +91,7 @@ export function isUsingTypeScript(projectPath: string): boolean {
 export function ensureTypeScriptConfig(
   projectPath: string,
   entries?: {manifestPath?: string; browser?: DevOptions['browser']},
-  notice: {delivered: boolean} = tsconfigNotice
+  notice?: Notice
 ): void {
   const tsConfigFilePath = getUserTypeScriptConfigFile(projectPath)
   const hasDep = hasTypeScriptDependency(projectPath)
@@ -117,7 +115,7 @@ export function ensureTypeScriptConfig(
   // project) earns no scaffold: only TypeScript sources need a tsconfig.
   if (hasTsFiles || (hasDep && tsConfigFilePath)) {
     if (tsConfigFilePath) {
-      if (!notice.delivered && isDebug()) {
+      if (notice && !notice.delivered && isDebug()) {
         debugLine(
           `${prefix('debug')} ${messages.isUsingIntegration('TypeScript')}`
         )
@@ -126,14 +124,14 @@ export function ensureTypeScriptConfig(
       // TS sources without a declared typescript dep are common in the wild
       // (19 of 5,187 swept repos). Scaffold the same default tsconfig the
       // declared-dep path writes instead of refusing the build.
-      if (!notice.delivered) {
+      if (!notice?.delivered) {
         humanLine(messages.creatingTSConfig())
       }
 
       writeTsConfig(projectPath)
     }
 
-    notice.delivered = true
+    if (notice) notice.delivered = true
   }
 }
 

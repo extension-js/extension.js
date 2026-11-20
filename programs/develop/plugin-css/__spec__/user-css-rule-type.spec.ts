@@ -35,7 +35,7 @@ async function setupWarnings(rules: RuleSetRule[], mode: Mode) {
     return {
       errors: stats.compilation.errors.map((error) => error.message),
       warnings: stats.compilation.warnings
-        .filter((warning) => warning.name === 'CssSetupWarning')
+        .filter((warning) => warning.name === 'CssSetupNotApplied')
         .map((warning) => warning.message),
       sheet: String(stats.compilation.getAsset('page.css')?.source.source())
     }

@@ -15,7 +15,8 @@ import {ensureOptionalPackageResolved} from '../lib/optional-deps-resolver'
 import {type ParsedJson, parseJsonSafe} from '../lib/parse-json-safe'
 import {toResourceKey} from '../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY, RAW_RESOURCE_QUERY} from '../lib/resource-query'
-import {resolveSwcTargets} from '../lib/swc-targets'
+import {classifyEntrySurface} from '../lib/split-chunks'
+import {resolveEngineTargets} from '../lib/swc-targets'
 import {
   createNodeModulesExclude,
   resolveTranspilePackageDirs
@@ -39,6 +40,7 @@ import {
   swcParserForFile
 } from './js-frameworks-lib/jsx-transform'
 import * as messages from './js-frameworks-lib/messages'
+import {createSessionNotices} from './js-frameworks-lib/session-notices'
 import {readTransformFlags, swcDecoratorTransform} from './js-tools/decorators'
 import {maybeUsePreact} from './js-tools/preact'
 import {
@@ -53,6 +55,10 @@ import {
   getUserJsConfigFile
 } from './js-tools/typescript'
 import {maybeUseVue} from './js-tools/vue'
+
+// What a service worker or a background scripts list runs, at any depth. It
+// has no component tree to refresh, so refresh code stays out of this layer.
+export const EXTENSIONJS_BACKGROUND_LAYER = 'extensionjs-background'
 
 // A .vue file, or a block vue-loader names after it (`Button.vue.ts`).
 const VUE_BLOCK = /\.vue(\.[cm]?[jt]sx?)?$/
@@ -82,6 +88,8 @@ export class JsFrameworksPlugin {
   public readonly mode: DevOptions['mode']
   public readonly transpilePackages: string[]
   public readonly define: Record<string, unknown>
+  // One plugin serves one compiler, so its once-only lines are that build's.
+  private readonly notices = createSessionNotices()
 
   constructor(
     options: PluginInterface & {
@@ -176,35 +184,22 @@ export class JsFrameworksPlugin {
     return merged
   }
 
-  private patchReactRefreshRules(rules: LooseRuleSetRule[]) {
-    for (const rule of rules) {
-      if (!rule || typeof rule !== 'object') continue
+  // The rules the refresh plugin adds while it is applied are the refresh
+  // rules, whatever loader they name, and none may reach a content script.
+  // Nor the background, which runs the same sources with nothing to refresh.
+  private applyReactPlugins(
+    compiler: Compiler,
+    plugins: Array<{apply(compiler: Compiler): void}>
+  ) {
+    const before = new Set<unknown>(compiler.options.module.rules)
 
-      const uses = Array.isArray(rule.use)
-        ? rule.use
-        : rule.use
-          ? [rule.use]
-          : rule.loader
-            ? [{loader: rule.loader}]
-            : []
-      // The plugin registers its loader as a bare string
-      // ('builtin:react-refresh-loader'), older versions as {loader}.
-      const hasReactRefreshLoader = uses.some((useEntry) =>
-        String(
-          typeof useEntry === 'string' ? useEntry : useEntry?.loader || ''
-        ).includes('react-refresh-loader')
-      )
+    for (const plugin of plugins) plugin.apply(compiler)
 
-      if (hasReactRefreshLoader) {
-        rule.issuerLayer = {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER}
-      }
+    for (const rule of compiler.options.module.rules) {
+      if (!rule || typeof rule !== 'object' || before.has(rule)) continue
 
-      if (Array.isArray(rule.oneOf)) {
-        this.patchReactRefreshRules(rule.oneOf)
-      }
-
-      if (Array.isArray(rule.rules)) {
-        this.patchReactRefreshRules(rule.rules)
+      rule.issuerLayer = {
+        not: [EXTENSIONJS_CONTENT_SCRIPT_LAYER, EXTENSIONJS_BACKGROUND_LAYER]
       }
     }
   }
@@ -216,10 +211,11 @@ export class JsFrameworksPlugin {
 
     // Detection (isUsingTypeScript) is now pure, so the one-time tsconfig
     // setup/throw must be triggered explicitly at this build chokepoint
-    ensureTypeScriptConfig(projectPath, {
-      manifestPath: this.manifestPath,
-      browser: this.browser
-    })
+    ensureTypeScriptConfig(
+      projectPath,
+      {manifestPath: this.manifestPath, browser: this.browser},
+      this.notices.typescript
+    )
 
     // Computed before the framework integrations run: every compiling rule they
     // return needs the same carve-out, not just the swc rule below.
@@ -378,6 +374,7 @@ export class JsFrameworksPlugin {
 
     const maybeInstallReact = await maybeUseReact(projectPath, {
       disableRefresh: mode !== 'development',
+      notices: this.notices,
       // A custom exclude replaces the plugin's own node_modules rule, so it
       // has to carry it: without it React itself was wrapped in refresh
       // signatures and pulled the refresh runtime into every bundle.
@@ -385,16 +382,25 @@ export class JsFrameworksPlugin {
         /[\\/]node_modules[\\/]/.test(resourcePath) ||
         isfeatureScriptsContentLike(resourcePath)
     })
-    const maybeInstallPreact = await maybeUsePreact(projectPath)
+    const maybeInstallPreact = await maybeUsePreact(projectPath, this.notices)
     const babelConfigPath = findProjectBabelConfig(projectPath)
-    const maybeInstallVue = await maybeUseVue(projectPath, mode, this.define)
+    const maybeInstallVue = await maybeUseVue(
+      projectPath,
+      mode,
+      this.define,
+      this.notices
+    )
     const maybeInstallSolid = await maybeUseSolid(
       projectPath,
       mode,
       transpilePackageDirs,
-      !!babelConfigPath
+      !!babelConfigPath,
+      this.notices
     )
-    const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode)
+    const maybeInstallSvelte = await maybeUseSvelte(projectPath, mode, {
+      notices: this.notices,
+      compiler
+    })
     const tsConfigPath = getUserTypeScriptConfigFile(projectPath)
     const tsRoot = tsConfigPath ? path.dirname(tsConfigPath) : manifestDir
     // isUsingTypeScript is gated on the config existing, so a second operand
@@ -413,7 +419,7 @@ export class JsFrameworksPlugin {
         ? {useDefineForClassFields: transformFlags.useDefineForClassFields}
         : {}
 
-    const targets = resolveSwcTargets(manifest as Manifest, this.browser)
+    const targets = resolveEngineTargets(manifest as Manifest, this.browser)
 
     compiler.options.resolve.alias = {
       ...(maybeInstallReact?.alias || {}),
@@ -518,6 +524,29 @@ export class JsFrameworksPlugin {
       {use: swcLoaderFor('file.js', options)}
     ]
 
+    // Refresh is React's, in development. Only then does the background
+    // compile in its own layer, through the same rules with refresh left out.
+    const refresh = usesReactRefresh(projectPath, mode)
+    const surfaces: Array<{issuerLayer: unknown; refresh: boolean}> = refresh
+      ? [
+          {
+            issuerLayer: {
+              not: [
+                EXTENSIONJS_CONTENT_SCRIPT_LAYER,
+                EXTENSIONJS_BACKGROUND_LAYER
+              ]
+            },
+            refresh: true
+          },
+          {issuerLayer: EXTENSIONJS_BACKGROUND_LAYER, refresh: false}
+        ]
+      : [
+          {
+            issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+            refresh: false
+          }
+        ]
+
     const swcRules: LooseRuleSetRule[] = [
       {
         ...swcRuleBase,
@@ -538,9 +567,9 @@ export class JsFrameworksPlugin {
         ],
         oneOf: parserVariants({refresh: false, module: false})
       },
-      {
+      ...surfaces.map((surface) => ({
         ...swcRuleBase,
-        issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
+        issuerLayer: surface.issuerLayer,
         // Classic concat entries (content_scripts AND MV2 background.scripts) share one
         // scope and are never ESM; excluded here or Rspack emits hash-named assets.
         resourceQuery: {
@@ -553,30 +582,25 @@ export class JsFrameworksPlugin {
           (resourcePath: string) => isfeatureScriptsContentLike(resourcePath),
           (resourcePath: string) => isPlatformModule(resourcePath)
         ],
-        oneOf: parserVariants({refresh: mode === 'development', module: false})
-      },
+        oneOf: parserVariants({refresh: surface.refresh, module: false})
+      })),
       // Platform-declared ES modules only, compiled as modules; the
       // content-script exclusion keeps a doubly-declared file's cs instance classic.
       ...(platformModulePaths.size > 0
-        ? [
-            {
-              test: swcRuleBase.test,
-              issuerLayer: {not: EXTENSIONJS_CONTENT_SCRIPT_LAYER},
-              include: (resourcePath: string) => isPlatformModule(resourcePath),
-              exclude: [
-                (resourcePath: string) =>
-                  isfeatureScriptsContentLike(resourcePath)
-              ],
-              resourceQuery: {
-                not: [/__extensionjs_classic_concat__/, RAW_RESOURCE_QUERY]
-              },
-              type: 'javascript/esm',
-              oneOf: parserVariants({
-                refresh: mode === 'development',
-                module: true
-              })
-            }
-          ]
+        ? surfaces.map((surface) => ({
+            test: swcRuleBase.test,
+            issuerLayer: surface.issuerLayer,
+            include: (resourcePath: string) => isPlatformModule(resourcePath),
+            exclude: [
+              (resourcePath: string) =>
+                isfeatureScriptsContentLike(resourcePath)
+            ],
+            resourceQuery: {
+              not: [/__extensionjs_classic_concat__/, RAW_RESOURCE_QUERY]
+            },
+            type: 'javascript/esm',
+            oneOf: parserVariants({refresh: surface.refresh, module: true})
+          }))
         : [])
     ]
 
@@ -629,9 +653,7 @@ export class JsFrameworksPlugin {
       ...existingRules
     ].filter(Boolean)
 
-    maybeInstallReact?.plugins?.forEach((plugin) => {
-      plugin.apply(compiler)
-    })
+    this.applyReactPlugins(compiler, maybeInstallReact?.plugins || [])
 
     maybeInstallPreact?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
@@ -644,10 +666,6 @@ export class JsFrameworksPlugin {
     maybeInstallSvelte?.plugins?.forEach((plugin) => {
       plugin.apply(compiler)
     })
-
-    this.patchReactRefreshRules(
-      compiler.options.module.rules as LooseRuleSetRule[]
-    )
 
     if (resolveConfigPath) {
       compiler.options.resolve.tsConfig = {
@@ -692,19 +710,21 @@ export class JsFrameworksPlugin {
   // added its entries and before anything else runs; a later hook is too late.
   private placeRefreshEntries(compiler: Compiler) {
     const projectPath = compiler.options.context as string
-    const refreshEntries = isUsingReact(projectPath)
-      ? [resolveReactRefreshEntry(projectPath)].filter(
-          (file): file is string => typeof file === 'string'
-        )
-      : []
+    const mode = compiler.options.mode || 'development'
 
-    if (refreshEntries.length === 0) return
+    if (!usesReactRefresh(projectPath, mode)) return
+
+    const refreshEntries = [resolveReactRefreshEntry(projectPath)].filter(
+      (file): file is string => typeof file === 'string'
+    )
 
     compiler.hooks.entryOption.tap(
       JsFrameworksPlugin.name,
       (_context, entry) => {
         const target = entry as EntryMap
-        const next = withRefreshEntries(target, refreshEntries)
+        const next = withBackgroundLayer(
+          withRefreshEntries(target, refreshEntries)
+        )
 
         for (const [name, description] of Object.entries(next)) {
           target[name] = description
@@ -751,6 +771,42 @@ export class JsFrameworksPlugin {
 type EntryDescription = {import?: string | string[]; layer?: string}
 export type EntryMap = Record<string, EntryDescription | string | string[]>
 
+function usesReactRefresh(projectPath: string, mode: string): boolean {
+  return mode === 'development' && isUsingReact(projectPath)
+}
+
+// The service worker, the scripts list and the background page: a document
+// nobody sees runs the same sources and has nothing to refresh either.
+function isBackgroundEntry(name: string): boolean {
+  return name.startsWith('background')
+}
+
+// Put every background entry in its own layer, so the rules can tell what
+// it imports from what a page imports.
+export function withBackgroundLayer(entry: EntryMap | undefined): EntryMap {
+  const next: EntryMap = {}
+
+  for (const [name, description] of Object.entries(entry || {})) {
+    if (
+      !isBackgroundEntry(name) ||
+      !description ||
+      (typeof description === 'object' &&
+        !Array.isArray(description) &&
+        description.layer)
+    ) {
+      next[name] = description
+      continue
+    }
+
+    next[name] =
+      typeof description === 'string' || Array.isArray(description)
+        ? {import: [description].flat(), layer: EXTENSIONJS_BACKGROUND_LAYER}
+        : {...description, layer: EXTENSIONJS_BACKGROUND_LAYER}
+  }
+
+  return next
+}
+
 // Prepend the framework refresh runtimes to every page entry: not the
 // content-script layer, whose bundles run inside someone else's page (a MAIN
 // world one shares the page's globals), and not the background, which has no
@@ -771,7 +827,7 @@ export function withRefreshEntries(
       typeof description !== 'object' ||
       Array.isArray(description) ||
       description.layer === EXTENSIONJS_CONTENT_SCRIPT_LAYER ||
-      name.startsWith('background')
+      isBackgroundEntry(name)
     ) {
       next[name] = description
       continue

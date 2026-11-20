@@ -9,7 +9,15 @@
 import * as fs from 'node:fs'
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import {debugLine, isDebug, prefix} from '../../lib/messaging'
+import {recordCodedWarning} from '../../lib/coded-warnings'
+import {
+  CODES,
+  debugLine,
+  humanWarn,
+  isDebug,
+  prefix,
+  stripChannelPrefix
+} from '../../lib/messaging'
 import {ensureOptionalContractPackageResolved} from '../../lib/optional-deps-resolver'
 import type {DevOptions, JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
@@ -18,23 +26,16 @@ import {
   mergeLoaderOptions
 } from '../js-frameworks-lib/load-loader-options'
 import * as messages from '../js-frameworks-lib/messages'
+import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
 
-// Printed once per process. A caller that needs its own record passes one.
-const svelteNotice = {delivered: false}
-const svelteMismatchNotice = {delivered: false}
-
-function resolveFromProject(id: string, projectPath: string, cwd: string) {
-  for (const base of [projectPath, cwd]) {
-    try {
-      const req = createRequire(path.join(base, 'package.json'))
-
-      return req.resolve(id)
-    } catch {
-      // Ignore
-    }
+// Only the project the compiler was given is asked. The folder a command
+// runs from can hold another svelte, and that one is not this project's.
+function resolveFromProject(id: string, projectPath: string) {
+  try {
+    return createRequire(path.join(projectPath, 'package.json')).resolve(id)
+  } catch {
+    return undefined
   }
-
-  return undefined
 }
 
 function readPackageVersion(packageJsonPath: string): string | undefined {
@@ -163,13 +164,10 @@ export function withSvelteConditionByDependency(
   return next
 }
 
-export function isUsingSvelte(
-  projectPath: string,
-  notice: {delivered: boolean} = svelteNotice
-) {
+export function isUsingSvelte(projectPath: string, notice?: Notice) {
   const using = hasDependency(projectPath, 'svelte')
 
-  if (using && !notice.delivered) {
+  if (using && notice && !notice.delivered) {
     if (isDebug()) {
       debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Svelte')}`)
     }
@@ -184,11 +182,15 @@ export async function maybeUseSvelte(
   projectPath: string,
   mode: DevOptions['mode'],
   {
-    cwd = process.cwd(),
-    mismatchNotice = svelteMismatchNotice
-  }: {cwd?: string; mismatchNotice?: {delivered: boolean}} = {}
+    notices,
+    compiler
+  }: {
+    notices?: SessionNotices
+    // The build the mismatch warning is counted in.
+    compiler?: object
+  } = {}
 ): Promise<JsFramework | undefined> {
-  if (!isUsingSvelte(projectPath)) return undefined
+  if (!isUsingSvelte(projectPath, notices?.svelte)) return undefined
 
   const svelteLoaderPath = await ensureOptionalContractPackageResolved({
     contractId: 'svelte',
@@ -198,7 +200,11 @@ export async function maybeUseSvelte(
 
   // No `typescript` check here: svelte-loader does not depend on it, and
   // requiring it would hard-fail Svelte projects that never asked for TS.
-  const customOptions = await loadLoaderOptions(projectPath, 'svelte')
+  const customOptions = await loadLoaderOptions(
+    projectPath,
+    'svelte',
+    notices?.customLoader
+  )
 
   const svelteLoader = {
     loader: svelteLoaderPath,
@@ -250,8 +256,7 @@ export async function maybeUseSvelte(
 
   const sveltePackageJson = resolveFromProject(
     'svelte/package.json',
-    projectPath,
-    cwd
+    projectPath
   )
   const projectRoot = sveltePackageJson
     ? path.dirname(sveltePackageJson)
@@ -267,22 +272,28 @@ export async function maybeUseSvelte(
   })
   const sveltePackageRoot = chosen.root
 
-  if (chosen.mismatch && !mismatchNotice.delivered) {
-    console.warn(
-      messages.svelteCompilerRuntimeMismatch(
-        String(chosen.compilerVersion),
-        String(chosen.projectVersion)
-      )
+  if (chosen.mismatch && !notices?.svelteMismatch.delivered) {
+    const frame = messages.svelteCompilerRuntimeMismatch(
+      String(chosen.compilerVersion),
+      String(chosen.projectVersion)
     )
 
-    mismatchNotice.delivered = true
+    recordCodedWarning(
+      CODES.W_MANAGED_DEP_CONFLICT,
+      stripChannelPrefix(frame),
+      compiler
+    )
+
+    humanWarn(frame)
+
+    if (notices) notices.svelteMismatch.delivered = true
   }
 
   const resolveClientSubpath = (relative: string) => {
     // On a mismatch the project's copy is the wrong one: its runtime cannot
     // link the exports the compiler just emitted, so only the root wins here.
     if (!chosen.mismatch) {
-      const direct = resolveFromProject(`svelte/${relative}`, projectPath, cwd)
+      const direct = resolveFromProject(`svelte/${relative}`, projectPath)
       if (direct) return direct
     }
 

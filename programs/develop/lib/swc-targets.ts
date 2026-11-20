@@ -7,10 +7,19 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {DevOptions, Manifest} from '../types'
-import {isChromiumBasedBrowser, isGeckoBasedBrowser} from './constants'
+import {
+  isChromiumBasedBrowser,
+  isGeckoBasedBrowser,
+  isWebkitBasedBrowser
+} from './constants'
 import {filterKeysForThisBrowser} from './manifest-utils'
 
 export const DEFAULT_SWC_TARGETS = ['chrome >= 100']
+
+// The stable Firefox and Safari on the day Chrome 100 shipped, so a build
+// with no declared floor reaches browsers of the same age on every engine.
+export const GECKO_DEFAULT_SWC_TARGETS = ['firefox >= 98']
+export const WEBKIT_DEFAULT_SWC_TARGETS = ['safari >= 15.4']
 
 // A build compiles for one engine, so only that engine's declared floor may
 // downlevel it: minimum_chrome_version for the chromium family, the gecko
@@ -50,4 +59,27 @@ export function resolveSwcTargets(
   }
 
   return [...DEFAULT_SWC_TARGETS]
+}
+
+function isChromiumDefault(targets: string[]): boolean {
+  return targets.join('\n') === DEFAULT_SWC_TARGETS.join('\n')
+}
+
+// The one answer scripts and stylesheets both compile for. A floor the
+// manifest declares for the engine being built wins over that engine's own.
+export function resolveEngineTargets(
+  rawManifest: Manifest | undefined,
+  browser: DevOptions['browser'] | string | undefined
+): string[] {
+  const name = String(browser || 'chrome')
+  const declared = resolveSwcTargets(rawManifest, browser)
+
+  // Safari reads no floor from the manifest: the Xcode project holds it.
+  if (isWebkitBasedBrowser(name)) return [...WEBKIT_DEFAULT_SWC_TARGETS]
+
+  if (isGeckoBasedBrowser(name) && isChromiumDefault(declared)) {
+    return [...GECKO_DEFAULT_SWC_TARGETS]
+  }
+
+  return declared
 }
