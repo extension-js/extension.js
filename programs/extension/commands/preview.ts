@@ -397,13 +397,18 @@ export function registerPreviewCommand(
         const {extensionPreview}: DevelopPreviewModule = await loadPreview()
         const previewed: string[] = []
         const previewWarnings: string[] = []
+        const noBrowser = await resolveNoBrowser(
+          pathOrRemoteUrl || process.cwd(),
+          'preview',
+          loadDevelop
+        )
 
         // Armed before the first launch: a signal can arrive while the
         // browser is still coming up, before any frame was written.
         if (asJson) {
           writeFrameWhenInterrupted(
             'preview',
-            () => ({projectPath: pathOrRemoteUrl, browsers: list}),
+            () => ({projectPath: pathOrRemoteUrl, browsers: list, noBrowser}),
             emit
           )
         }
@@ -432,11 +437,7 @@ export function registerPreviewCommand(
                 startingUrl: previewOptions.startingUrl,
                 port: previewOptions.port,
                 host: previewOptions.host,
-                noBrowser: await resolveNoBrowser(
-                  pathOrRemoteUrl || process.cwd(),
-                  'preview',
-                  loadDevelop
-                ),
+                noBrowser,
                 extensions: parseExtensionsList(previewOptions.extensions),
                 outputPath: previewOptions.outputPath,
                 allowControl: Boolean(
@@ -564,7 +565,10 @@ export function registerPreviewCommand(
               'ready',
               {
                 projectPath: pathOrRemoteUrl,
-                browsers: previewed
+                // The targets the run was for. noBrowser says whether any of
+                // them was launched, as the dev and start frames do.
+                browsers: previewed,
+                noBrowser
               },
               {warnings: previewWarnings}
             )

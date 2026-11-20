@@ -434,7 +434,7 @@ describe('extension preview --output json', () => {
         ok: true,
         command: 'preview',
         status: 'ready',
-        value: {projectPath: '.', browsers: ['chromium']},
+        value: {projectPath: '.', browsers: ['chromium'], noBrowser: false},
         error: null,
         warnings: []
       }
@@ -461,7 +461,11 @@ describe('extension preview --output json', () => {
         ok: true,
         command: 'preview',
         status: 'ready',
-        value: {projectPath: '.', browsers: ['chrome', 'firefox']},
+        value: {
+          projectPath: '.',
+          browsers: ['chrome', 'firefox'],
+          noBrowser: false
+        },
         error: null,
         warnings: ['a warning']
       }
