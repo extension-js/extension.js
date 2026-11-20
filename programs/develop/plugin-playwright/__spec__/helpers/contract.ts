@@ -104,8 +104,10 @@ export function stampReadyBrowserLaunch(
     profileReused?: boolean
     browserPid?: number
     browserStartedAt?: string
+    browserStartId?: string
     launcherPid?: number
     launcherStartedAt?: string
+    launcherStartId?: string
     binary?: string
     binaryProvenance?: 'managed' | 'pinned' | 'system' | 'snapshot'
     binaryPinnedBy?: string
