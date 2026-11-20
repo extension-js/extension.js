@@ -515,7 +515,11 @@ async function runPreview(
       metadataCommand,
       envTarget
     )
-    const browserConfig = await loadBrowserConfig(packageJsonDir, browser)
+    const browserConfig = await loadBrowserConfig(
+      packageJsonDir,
+      browser,
+      envTarget
+    )
 
     // Which directory is being previewed is the one thing every path has to say,
     // so it is resolved before the no-browser branch returns and is carried to
