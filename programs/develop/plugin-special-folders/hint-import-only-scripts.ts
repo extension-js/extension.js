@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import type {Compilation, Compiler} from '@rspack/core'
+import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
 import {scriptsFolderRoot} from './folders-config'
 import {
   collectReferenceCorpus,
@@ -162,8 +162,7 @@ export class HintImportOnlyScripts {
             scriptsFolderRoot(projectRoot) || path.join(projectRoot, 'scripts')
           )
         )
-        const ErrorCtor = compiler.rspack?.WebpackError || Error
-        const warning = new ErrorCtor(
+        const warning = new WebpackError(
           messages.scriptsEntriesOnlyImported(unnamed, `${folder}/`)
         )
 

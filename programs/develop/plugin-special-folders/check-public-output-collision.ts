@@ -10,6 +10,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, WebpackError} from '@rspack/core'
 import * as messages from './messages'
+import {hasPrivateFileName} from './public-private-files'
 
 // The bundler names the output path it could not write twice, never the input
 // that collided with a generated entry. The guard reads the raised error
@@ -50,4 +51,44 @@ export function explainPublicOutputCollision(
   } catch {
     // Ignore
   }
+}
+
+// The public/ files, by their path inside the folder, whose output path an
+// entry wrote first. The copier keeps the entry's file and copies nothing.
+export function publicFilesShadowedByEntries(
+  compilation: Compilation,
+  publicDir: string,
+  excluded: ReadonlySet<string>
+): string[] {
+  const explained = new Set(
+    compilation.errors
+      .filter((error) => (error as Error)?.name === 'PublicOutputCollision')
+      .map((error) => String((error as {file?: string}).file || ''))
+  )
+  const shadowed: string[] = []
+
+  for (const asset of compilation.getAssets()) {
+    const name = asset.name.split(path.sep).join('/')
+
+    // The generated manifest has its own error, and these names never copy.
+    if (name === 'manifest.json' || hasPrivateFileName(name)) continue
+
+    const source = path.join(publicDir, ...name.split('/'))
+
+    if (excluded.has(source)) continue
+    if (explained.has(path.join(path.basename(publicDir), name))) continue
+
+    // A copier wrote it, this folder's or the include one: no entry's file.
+    if (asset.info.copied) continue
+
+    try {
+      if (!fs.statSync(source).isFile()) continue
+    } catch {
+      continue
+    }
+
+    shadowed.push(name)
+  }
+
+  return shadowed.sort()
 }

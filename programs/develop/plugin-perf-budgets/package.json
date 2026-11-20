@@ -1,9 +1,9 @@
 {
-  "name": "@extension.js/webpack-browser-extension-perf-budgets",
+  "name": "@extension.js/plugin-perf-budgets",
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "description": "Internal placeholder for future extraction from extension.js (webpack/plugin-perf-budgets).",
+  "description": "Internal placeholder for future extraction from extension.js (plugin-perf-budgets).",
   "license": "MIT",
   "repository": {
     "type": "git",

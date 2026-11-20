@@ -15,7 +15,8 @@ import {
   type DownloadRetryOptions,
   type ImportExternalTemplateOptions,
   importExternalTemplate,
-  type TemplateClone
+  type TemplateClone,
+  type TemplateFetch
 } from '../import-external-template'
 
 // One scripted reply per request, in order. `hang` accepts the request and
@@ -271,8 +272,22 @@ describe('the template catalog download', () => {
       expect(catalog.hits()).toBe(1)
       expect(waits).toEqual([])
       expect(error.name).toBe('TemplateDownloadError')
-      expect(error.cause?.message).toMatch(
-        /^No answer within \d+ seconds \(EXTENSION_CREATE_TIMEOUT_MS\)$/
+      // A budget under a second reads in milliseconds, never "0 seconds".
+      expect(error.cause?.message).toBe(
+        'No answer within 80 ms (EXTENSION_CREATE_TIMEOUT_MS)'
+      )
+    })
+
+    it('reads a one second budget in the singular', async () => {
+      process.env.EXTENSION_CREATE_TIMEOUT_MS = '1000'
+      await catalogAnswering([503, 'archive'])
+
+      const error = await failing('content', {
+        downloadRetry: sleepPastTheBudget()
+      })
+
+      expect(error.cause?.message).toBe(
+        'No answer within 1 second (EXTENSION_CREATE_TIMEOUT_MS)'
       )
     })
 
@@ -290,8 +305,8 @@ describe('the template catalog download', () => {
       expect(error.name).toBe('TemplateDownloadError')
       expect(frame).toContain("Couldn't fetch the template from that URL.")
       expect(frame).toContain(`URL ${catalog.url}`)
-      expect(frame).toMatch(
-        /REASON No answer within \d+ seconds \(EXTENSION_CREATE_TIMEOUT_MS\)/
+      expect(frame).toContain(
+        'REASON No answer within 80 ms (EXTENSION_CREATE_TIMEOUT_MS)'
       )
     })
 
@@ -306,6 +321,62 @@ describe('the template catalog download', () => {
       expect(error.cause?.message).toBe(
         'No answer within 5 seconds (EXTENSION_CREATE_TIMEOUT_MS)'
       )
+    })
+  })
+
+  describe('ZIP URL', () => {
+    async function zipUrlAnswering(replies: Reply[]) {
+      const server = await serveReplies(replies)
+      catalogs.push(server)
+
+      return server
+    }
+
+    it('retries a 503 once, the way the catalog download does', async () => {
+      const server = await zipUrlAnswering([503, 'archive'])
+      const {waits, retry} = recordingSleep()
+
+      const provenance = await importing(server.url, {downloadRetry: retry})
+
+      expect(server.hits()).toBe(2)
+      expect(waits).toEqual([400])
+      expect(provenance.source).toBe(server.url)
+    })
+
+    it('does not retry a 404', async () => {
+      const server = await zipUrlAnswering([404, 'archive'])
+      const {waits, retry} = recordingSleep()
+
+      const error = await failing(server.url, {downloadRetry: retry})
+
+      expect(server.hits()).toBe(1)
+      expect(waits).toEqual([])
+      expect(error.name).toBe('TemplateDownloadError')
+      expect(error.cause?.response?.status).toBe(404)
+    })
+
+    it('aborts the request when the budget runs out', async () => {
+      process.env.EXTENSION_CREATE_TIMEOUT_MS = '80'
+      const signals: Array<AbortSignal | undefined> = []
+
+      const fetch: TemplateFetch = (_url, config) => {
+        signals.push(config.signal as AbortSignal | undefined)
+
+        return new Promise(() => {})
+      }
+
+      const error = await failing('https://example.test/template.zip', {
+        fetch
+      })
+
+      expect(error.name).toBe('TemplateDownloadError')
+      expect(error.cause?.message).toBe(
+        'No answer within 80 ms (EXTENSION_CREATE_TIMEOUT_MS)'
+      )
+
+      // The socket goes with the budget, it does not live on behind it.
+      expect(signals).toHaveLength(1)
+      expect(signals[0]?.aborted).toBe(true)
     })
   })
 
@@ -336,13 +407,18 @@ describe('the template catalog download', () => {
       const frame = stripVTControlCharacters(error.message)
 
       expect(error.name).toBe('TemplateDownloadError')
-      expect(stripVTControlCharacters(String(error.cause?.message))).toContain(
-        "Couldn't fetch the template content within 60s."
+      expect(error.cause?.message).toBe(
+        'No answer within 60 seconds (EXTENSION_CREATE_TIMEOUT_MS)'
       )
 
+      // One frame: the REASON row is the cause, never a second frame.
+      expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
       expect(frame).toContain("Couldn't fetch the template from that URL.")
       expect(frame).toContain(`URL ${url}`)
-      expect(frame).toContain('EXTENSION_CREATE_TIMEOUT_MS')
+      expect(frame).toContain(
+        'REASON No answer within 60 seconds (EXTENSION_CREATE_TIMEOUT_MS)\n'
+      )
+
       expect(fs.existsSync(projectPath)).toBe(false)
     })
   })

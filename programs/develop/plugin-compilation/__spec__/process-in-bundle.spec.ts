@@ -36,6 +36,14 @@ const ENTRIES: Record<string, string> = {
   nextTick:
     "process.nextTick((a, b) => console.log('tick', a, b), 1, 2)\nconsole.log('sync')\n",
   platform: 'console.log(process.platform)\n',
+  // A library that takes its Node branch on typeof process alone.
+  nodeBranch:
+    "if (typeof process === 'object') {\n" +
+    '  const [s, ns] = process.hrtime()\n' +
+    '  const elapsed = process.hrtime([s, ns])\n' +
+    "  process.emitWarning('deprecated')\n" +
+    '  console.log(JSON.stringify([typeof s, typeof ns, elapsed.length, typeof process.hrtime.bigint()]))\n' +
+    '}\n',
   cwd: 'console.log(process.cwd())\n',
   members:
     'console.log(JSON.stringify([process.argv, process.version, process.versions, process.arch, process.browser, process.title, process.pid, process.umask(), process.chdir("/x"), process.listeners("exit")]))\n' +
@@ -188,6 +196,10 @@ describe.each(MODES)('process in a %s bundle', (mode) => {
     expect(logs('cwd')).toEqual(['/'])
     expect(logs('nextTick')).toEqual(['sync', 'tick 1 2'])
     expect(logs('mutate')).toEqual(['x'])
+    expect(logs('nodeBranch')).toEqual([
+      JSON.stringify(['number', 'number', 2, 'bigint'])
+    ])
+
     expect(logs('members')).toEqual([
       JSON.stringify([[], '', {}, 'browser', true, 'browser', 0, 0, null, []]),
       Array.from({length: 9}, () => 'undefined').join()

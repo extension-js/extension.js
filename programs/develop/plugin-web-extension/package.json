@@ -1,5 +1,5 @@
 {
-  "name": "@extension.js/plugin-extension",
+  "name": "@extension.js/plugin-web-extension",
   "private": true,
   "version": "0.0.0",
   "type": "module",
