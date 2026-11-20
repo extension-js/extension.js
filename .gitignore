@@ -113,6 +113,8 @@ programs/create/.npmrc
 
 # Future stuff
 _FUTURE/
+# A local consumer fixture the optional-deps smoke reads when it exists
+extensions/browser-extension/
 
 # Hydrated from extension-js/templates by scripts/hydrate-templates-from-examples.sh
 templates/

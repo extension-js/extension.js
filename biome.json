@@ -6,6 +6,7 @@
     "includes": [
       "**",
       "!_FUTURE",
+      "!extensions/browser-extension",
       "!.claude",
       "!test-results",
       "!test-results.json",

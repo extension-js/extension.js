@@ -33,3 +33,15 @@ test('every re-include rule in the root .gitignore keeps a tracked file', () => 
     assert.notEqual(tracked(rule.slice(1)), '', rule)
   }
 })
+
+// The optional-deps smoke reads a consumer fixture from this folder when one
+// exists locally, so it must never show up as a file to commit.
+test('the local optional-deps fixture folder stays ignored', () => {
+  const ignored = execFileSync(
+    'git',
+    ['check-ignore', 'extensions/browser-extension/package.json'],
+    {cwd: root, encoding: 'utf8'}
+  ).trim()
+
+  assert.equal(ignored, 'extensions/browser-extension/package.json')
+})
