@@ -21,7 +21,7 @@ function list(args: string[]) {
 
 describe('spec paths given to vitest', () => {
   // Vitest drops every filter after the dashes, so one spec path given that
-  // way used to start the whole suite.
+  // way would start the whole suite.
   it('never turns a path after -- into the whole suite', () => {
     const result = list(['--', one])
     const listed = result.stdout
@@ -32,7 +32,9 @@ describe('spec paths given to vitest', () => {
       expect(listed).toEqual([one.split(path.sep).join('/')])
     } else {
       expect(listed).toEqual([])
-      expect(result.stderr).toContain('without the --')
+      expect(result.stderr).toContain(
+        `vitest would drop ${one} as a file filter and run the whole suite`
+      )
     }
   })
 
