@@ -9,6 +9,7 @@
 import {createRequire} from 'node:module'
 import type {Compiler} from '@rspack/core'
 import {resolveConnectableHost} from './connectable-host'
+import type {DevSessionCoordinates} from './dev-session-coordinates'
 
 const cjsRequire = createRequire(import.meta.url)
 
@@ -85,12 +86,11 @@ export function resolveStockSocketClientPath(): string | undefined {
   }
 }
 
-// The host and port of the session that builds this compiler. Each one
-// wins over the environment, which the newest session in the process wrote.
-export interface DevServerSession {
-  connectableHost?: string
-  port?: string | number
-}
+// Where the session that builds this compiler listens. The environment is
+// never read: the newest session in the process would have written it.
+export type DevServerSession = Partial<
+  Pick<DevSessionCoordinates, 'protocol' | 'host' | 'connectableHost' | 'path'>
+> & {port?: string | number}
 
 export function getDevServerHmrImports(
   compiler: Compiler,
@@ -121,11 +121,8 @@ export function getDevServerHmrImports(
         }
       | undefined
   )?.devServer
-  const envHost = process.env.EXTENSION_DEV_SERVER_HOST
-  const envPort = process.env.EXTENSION_DEV_SERVER_PORT
-  const envPath = process.env.EXTENSION_DEV_SERVER_PATH
-  const envProtocol = process.env.EXTENSION_DEV_SERVER_PROTOCOL
-  if (!devServer && !envHost && !envPort) return []
+  // A compiler no session configured and no dev server serves has no client.
+  if (!devServer && session.port == null) return []
 
   const clientConfig =
     devServer?.client && typeof devServer.client === 'object'
@@ -136,24 +133,21 @@ export function getDevServerHmrImports(
       ? clientConfig.webSocketURL
       : {}
 
-  const protocol = String(webSocketURL.protocol || envProtocol || 'ws')
+  const protocol = String(webSocketURL.protocol || session.protocol || 'ws')
   // The HMR client must dial a CONNECTABLE host: the bind host can be a wildcard
   // (0.0.0.0) the browser can't connect to; rewrite wildcards to loopback.
-  const sessionHost =
-    session.connectableHost ?? process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
   const hostname = String(
     webSocketURL.hostname ||
-      sessionHost ||
-      resolveConnectableHost(devServer?.host || envHost)
+      session.connectableHost ||
+      resolveConnectableHost(devServer?.host || session.host)
   )
   const port =
     webSocketURL.port ??
     devServer?.port ??
     session.port ??
-    envPort ??
     process.env.EXTENSION_PUBLIC_PORT ??
     8080
-  const pathname = String(webSocketURL.pathname || envPath || '/ws')
+  const pathname = String(webSocketURL.pathname || session.path || '/ws')
   const logging = String(clientConfig.logging || 'none')
   const progress = normalizeBoolean(clientConfig.progress, false)
   const overlay = normalizeBoolean(clientConfig.overlay, false)

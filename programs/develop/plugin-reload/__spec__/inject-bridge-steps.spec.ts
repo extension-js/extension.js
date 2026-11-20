@@ -7,6 +7,7 @@ import {
   readDevBuild
 } from '../steps/inject-bridge-producer'
 import {InjectBridgeRelay} from '../steps/inject-bridge-relay'
+import {portOf, sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
 function makeCompiler() {
   const processAssetsTaps: Array<{cb: () => void; opts: any}> = []
@@ -61,10 +62,6 @@ function makeCompiler() {
   }
 }
 
-// The published ExtensionEnv augmentation makes the bundler-injected keys
-// required, and a unit env object carries none of them.
-const asEnv = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
-
 const ENV_KEYS = [
   'EXTENSION_CONTROL_PORT',
   'EXTENSION_INSTANCE_ID',
@@ -83,11 +80,11 @@ afterEach(() => {
 
 describe('InjectBridgeProducer', () => {
   it('prepends the producer to the background service_worker bundle', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-    vi.stubEnv('EXTENSION_INSTANCE_ID', 'abc123')
+    setSessionBridge({controlPort: 8123})
+    setSessionBridge({instanceId: 'abc123'})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('background/service_worker.js', '/* user sw */ console.log(1);')
     runProcessAssets()
     const out = getAssetSource('background/service_worker.js')
@@ -101,11 +98,11 @@ describe('InjectBridgeProducer', () => {
   // and runs that copy first when the file on disk has other bytes.
   it('writes the same background bytes in every session of unchanged code', () => {
     const built = (port: string, instance: string) => {
-      vi.stubEnv('EXTENSION_CONTROL_PORT', port)
-      vi.stubEnv('EXTENSION_INSTANCE_ID', instance)
+      setSessionBridge({controlPort: portOf(port)})
+      setSessionBridge({instanceId: instance})
       const {compiler, runProcessAssets, setAsset, getAssetSource} =
         makeCompiler()
-      new InjectBridgeProducer().apply(compiler)
+      new InjectBridgeProducer(sessionBridge()).apply(compiler)
       setAsset('background/service_worker.js', '/* user sw */ console.log(1);')
       setAsset('content_scripts/content-0.js', '/* content */')
       runProcessAssets()
@@ -132,11 +129,11 @@ describe('InjectBridgeProducer', () => {
 
   it('names another build once a file of the extension changed', () => {
     const built = (content: string) => {
-      vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-      vi.stubEnv('EXTENSION_INSTANCE_ID', 'session-one')
+      setSessionBridge({controlPort: 8123})
+      setSessionBridge({instanceId: 'session-one'})
       const {compiler, runProcessAssets, setAsset, getAssetSource} =
         makeCompiler()
-      new InjectBridgeProducer().apply(compiler)
+      new InjectBridgeProducer(sessionBridge()).apply(compiler)
       setAsset('background/service_worker.js', '/* user sw */ console.log(1);')
       setAsset('content_scripts/content-0.js', content)
       runProcessAssets()
@@ -150,11 +147,11 @@ describe('InjectBridgeProducer', () => {
   // A stale control file is fatal and silent: the producer fetches it at runtime
   // to learn the live port and instance, and the instance id gates every hello.
   it('rewrites a control file an earlier session left behind', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '9001')
-    vi.stubEnv('EXTENSION_INSTANCE_ID', 'this-session')
+    setSessionBridge({controlPort: 9001})
+    setSessionBridge({instanceId: 'this-session'})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset(
       'extension-js-control.json',
       JSON.stringify({port: 55350, instanceId: 'a-previous-session'})
@@ -172,11 +169,11 @@ describe('InjectBridgeProducer', () => {
   })
 
   it('writes the control file when the build has none yet', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '9002')
-    vi.stubEnv('EXTENSION_INSTANCE_ID', 'fresh-session')
+    setSessionBridge({controlPort: 9002})
+    setSessionBridge({instanceId: 'fresh-session'})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('background/service_worker.js', '/* sw */')
 
     runProcessAssets()
@@ -189,11 +186,11 @@ describe('InjectBridgeProducer', () => {
   })
 
   it('stamps the control file as a development build', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '9003')
-    vi.stubEnv('EXTENSION_INSTANCE_ID', 'stamped-session')
+    setSessionBridge({controlPort: 9003})
+    setSessionBridge({instanceId: 'stamped-session'})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('background/service_worker.js', '/* sw */')
 
     runProcessAssets()
@@ -203,11 +200,11 @@ describe('InjectBridgeProducer', () => {
   })
 
   it('keeps port and instanceId first and unchanged beside the stamp', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '9004')
-    vi.stubEnv('EXTENSION_INSTANCE_ID', 'kept-session')
+    setSessionBridge({controlPort: 9004})
+    setSessionBridge({instanceId: 'kept-session'})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('background/service_worker.js', '/* sw */')
 
     runProcessAssets()
@@ -226,9 +223,9 @@ describe('InjectBridgeProducer', () => {
     hash: string | undefined,
     assets: Record<string, string>
   ) => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    setSessionBridge({controlPort: 8123})
     const made = makeCompiler()
-    new InjectBridgeProducer().apply(made.compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(made.compiler)
     made.setHash(hash)
     for (const [name, body] of Object.entries(assets)) made.setAsset(name, body)
     made.runProcessAssets()
@@ -311,10 +308,10 @@ describe('InjectBridgeProducer', () => {
   })
 
   it('covers the Firefox background/scripts.js and MV2 background/script.js forms', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    setSessionBridge({controlPort: 8123})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('background/scripts.js', '/* firefox bg */')
     setAsset('background/script.js', '/* mv2 bg */')
     runProcessAssets()
@@ -330,10 +327,10 @@ describe('InjectBridgeProducer', () => {
   // An MV2 background.page compiles to background/index.js, and that bundle is
   // the only background context the built manifest actually loads.
   it('covers the compiled background page bundle', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    setSessionBridge({controlPort: 8123})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('background/index.js', '/* mv2 background page */')
     runProcessAssets()
     expect(getAssetSource('background/index.js')).toContain(
@@ -342,10 +339,10 @@ describe('InjectBridgeProducer', () => {
   })
 
   it('leaves non-background assets alone', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    setSessionBridge({controlPort: 8123})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('content_scripts/content-0.js', '/* content */')
     setAsset('action/index.js', '/* popup */')
     runProcessAssets()
@@ -354,10 +351,10 @@ describe('InjectBridgeProducer', () => {
   })
 
   it('is idempotent when the producer marker is already present', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+    setSessionBridge({controlPort: 8123})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     const body = '/* __extjsBridgeProducerInstalled marker */ /* user sw */'
     setAsset('background/service_worker.js', body)
     runProcessAssets()
@@ -366,20 +363,20 @@ describe('InjectBridgeProducer', () => {
 
   it('does nothing when the control port is unset or not a number', () => {
     for (const port of [undefined, 'not-a-number']) {
-      vi.stubEnv('EXTENSION_CONTROL_PORT', port)
+      setSessionBridge({controlPort: portOf(port)})
 
       const {compiler, taps} = makeCompiler()
-      new InjectBridgeProducer().apply(compiler)
+      new InjectBridgeProducer(sessionBridge()).apply(compiler)
       expect(taps).toHaveLength(0)
     }
   })
 
   it('emits the control-port file so a stale producer can re-resolve the live port', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-    vi.stubEnv('EXTENSION_INSTANCE_ID', 'abc123')
+    setSessionBridge({controlPort: 8123})
+    setSessionBridge({instanceId: 'abc123'})
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     setAsset('background/service_worker.js', '/* sw */')
     runProcessAssets()
     const raw = getAssetSource('extension-js-control.json')
@@ -393,24 +390,24 @@ describe('InjectBridgeProducer', () => {
 
   it('does not emit the control-port file when the bridge is off', () => {
     const {compiler, taps} = makeCompiler()
-    new InjectBridgeProducer().apply(compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(compiler)
     expect(taps).toHaveLength(0)
   })
 
   it('bakes the connectable host, falling back to loopback when blank', () => {
-    vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-    vi.stubEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', 'devbox.example')
+    setSessionBridge({controlPort: 8123})
+    setSessionBridge({connectableHost: 'devbox.example'})
     const remote = makeCompiler()
-    new InjectBridgeProducer().apply(remote.compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(remote.compiler)
     remote.setAsset('background/service_worker.js', '/* sw */')
     remote.runProcessAssets()
     expect(remote.getAssetSource('background/service_worker.js')).toContain(
       'devbox.example'
     )
 
-    vi.stubEnv('EXTENSION_DEV_SERVER_CONNECTABLE_HOST', '   ')
+    setSessionBridge({connectableHost: '   '})
     const local = makeCompiler()
-    new InjectBridgeProducer().apply(local.compiler)
+    new InjectBridgeProducer(sessionBridge()).apply(local.compiler)
     local.setAsset('background/service_worker.js', '/* sw */')
     local.runProcessAssets()
     expect(local.getAssetSource('background/service_worker.js')).toContain(
@@ -420,12 +417,12 @@ describe('InjectBridgeProducer', () => {
 })
 
 describe('InjectBridgeRelay', () => {
-  const bridgeOn = asEnv({EXTENSION_CONTROL_PORT: '8123'})
+  const bridgeOn = {controlPort: 8123}
 
   it('prepends the relay to every surface with its own context baked in', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     const surfaces: Array<[string, string]> = [
       ['content_scripts/content-0.js', 'content'],
       ['action/index.js', 'popup'],
@@ -454,7 +451,7 @@ describe('InjectBridgeRelay', () => {
   it('makes a content script bundle name itself to its frame, and no other surface', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     setAsset('content_scripts/content-0.11111111.js', '/* content */')
     setAsset('options/index.js', '/* options */')
     runProcessAssets()
@@ -476,7 +473,7 @@ describe('InjectBridgeRelay', () => {
   it('excludes the background SW and HMR chunks from relay injection', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     setAsset('background/service_worker.js', '/* sw */')
     setAsset('hot/background.abc.hot-update.js', '/* hmr */')
     runProcessAssets()
@@ -487,7 +484,7 @@ describe('InjectBridgeRelay', () => {
   it('is idempotent when the relay marker is already present', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     const body = '/* __extjsBridgeRelayInstalled marker */ /* content */'
     setAsset('content_scripts/content-0.js', body)
     runProcessAssets()
@@ -496,19 +493,16 @@ describe('InjectBridgeRelay', () => {
 
   it('does nothing when the bridge is off', () => {
     const {compiler, taps} = makeCompiler()
-    new InjectBridgeRelay({env: asEnv()}).apply(compiler)
+    new InjectBridgeRelay().apply(compiler)
     expect(taps).toHaveLength(0)
   })
 
-  it('reads the control port from the given environment, not the process', () => {
+  it('stays off for a control port another session left in the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-    const off = makeCompiler()
-    new InjectBridgeRelay({env: asEnv()}).apply(off.compiler)
-    const byDefault = makeCompiler()
-    new InjectBridgeRelay().apply(byDefault.compiler)
+    const {compiler, taps} = makeCompiler()
+    new InjectBridgeRelay().apply(compiler)
 
-    expect(off.taps).toHaveLength(0)
-    expect(byDefault.taps).toHaveLength(1)
+    expect(taps).toHaveLength(0)
   })
 
   it('takes the control port it is given over the environment', () => {
@@ -516,9 +510,7 @@ describe('InjectBridgeRelay', () => {
     const none = makeCompiler()
     new InjectBridgeRelay({controlPort: null}).apply(none.compiler)
     const given = makeCompiler()
-    new InjectBridgeRelay({env: asEnv(), controlPort: 9001}).apply(
-      given.compiler
-    )
+    new InjectBridgeRelay({controlPort: 9001}).apply(given.compiler)
 
     expect(none.taps).toHaveLength(0)
     expect(given.taps).toHaveLength(1)

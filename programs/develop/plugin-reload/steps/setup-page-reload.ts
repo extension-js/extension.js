@@ -40,6 +40,7 @@ export class SetupPageReload {
   private readonly devSession?: boolean
   private readonly connectableHost?: string
   private readonly port?: string | number
+  private readonly session?: PluginInterface['session']
 
   constructor(options: PluginInterface) {
     this.manifestPath = options.manifestPath
@@ -47,6 +48,7 @@ export class SetupPageReload {
     this.devSession = options.devSession
     this.connectableHost = options.connectableHost
     this.port = options.port
+    this.session = options.session
   }
 
   // Applied before the pages are declared, so the additions land where the
@@ -65,8 +67,9 @@ export class SetupPageReload {
 
   private addClientToEntries(compiler: Compiler, pages: readonly HtmlPage[]) {
     const devServerHmrImports = getDevServerHmrImports(compiler, {
-      connectableHost: this.connectableHost,
-      port: this.port
+      ...this.session,
+      connectableHost: this.connectableHost ?? this.session?.connectableHost,
+      port: this.port ?? this.session?.port
     })
 
     // The dev server provides its stock socket class to the client. Pointing

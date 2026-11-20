@@ -31,14 +31,17 @@
 
 `dev-middleware-body.ts` repairs one-byte assets that `@rspack/dev-middleware` 2.0.3 serves empty.
 
-### Environment variables it sets
+### Where a session listens
 
-| Variable | Read by |
+The dev server sets no environment variable. Each session writes one `DevSessionCoordinates` record (`lib/dev-session-coordinates.ts`) and hands it to the config of its own compiler as `session`, so two sessions in one host process never read each other's values.
+
+| Field | Read by |
 | --- | --- |
-| `EXTENSION_DEV_SERVER_PROTOCOL`, `EXTENSION_DEV_SERVER_HOST`, `EXTENSION_DEV_SERVER_PORT`, `EXTENSION_DEV_SERVER_PATH` | `lib/dev-server-client-import.ts` |
-| `EXTENSION_DEV_SERVER_CONNECTABLE_HOST` | `rspack-config.ts`, `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts`, `command-steps/build-receipt.ts` (the Playwright metadata host) |
-| `EXTENSION_INSTANCE_ID` | `port-manager.ts`, `lib/messages.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |
-| `EXTENSION_CONTROL_PORT` | `plugin-reload/steps/inject-bridge-producer.ts`, `plugin-reload/steps/inject-bridge-relay.ts` |
+| `protocol`, `host`, `port`, `path` | `lib/dev-server-client-import.ts`, through the page reload plugin |
+| `connectableHost` | `rspack-config.ts` (the Playwright metadata host), `lib/dev-server-client-import.ts`, `plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp.ts`, `plugin-reload/steps/inject-bridge-producer.ts` |
+| `instanceId` | `plugin-reload/steps/inject-bridge-producer.ts` |
+| `controlPort` | `plugin-reload/steps/inject-bridge-producer.ts`, `plugin-reload/steps/inject-bridge-relay.ts` |
+| `launchEnabled` | `rspack-config.ts`, for the compilation plugin |
 
 ### Environment variables it reads
 

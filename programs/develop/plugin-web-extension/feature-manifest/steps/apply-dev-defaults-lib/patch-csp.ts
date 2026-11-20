@@ -45,12 +45,10 @@ const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1'])
 
 // Under --host <lan-ip> / --public-host, clients dial the resolved CONNECTABLE
 // host, so the loosened connect-src must whitelist it too (verified live).
-// The session's own host wins over the environment another session wrote.
+// Only the session's own host is added, never one the environment names.
 function devConnectSources(connectableHost?: string): string[] {
   const sources = [...DEV_CONNECT_SOURCES]
-  const raw = String(
-    connectableHost ?? (process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST || '')
-  ).trim()
+  const raw = String(connectableHost ?? '').trim()
   if (!raw || LOOPBACK_HOSTS.has(raw)) return sources
 
   // A CSP host-source with an IPv6 literal must be bracketed.

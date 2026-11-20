@@ -7,6 +7,7 @@ import {
 } from '../../__spec__/helpers/real-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {ReloadPlugin} from '../index'
+import {sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
 const makeTempFolder = trackTempFolders()
 
@@ -25,6 +26,7 @@ function thisCompilationTaps(browser: string) {
   const compiler = idleCompiler(root, 'development')
   const taps = tapsAddedBy(compiler, () =>
     new ReloadPlugin({
+      ...sessionBridge(),
       manifestPath: path.join(root, 'manifest.json'),
       browser
     } as ConstructorParameters<typeof ReloadPlugin>[0]).apply(compiler)
@@ -34,7 +36,7 @@ function thisCompilationTaps(browser: string) {
 }
 
 beforeEach(() => {
-  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
+  setSessionBridge({controlPort: 8123})
   vi.stubEnv('EXTENSION_NO_RELOAD', undefined)
 })
 

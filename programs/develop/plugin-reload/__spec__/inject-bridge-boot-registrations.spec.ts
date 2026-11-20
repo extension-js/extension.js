@@ -9,6 +9,7 @@ import {
   InjectBridgeProducer,
   readBootRegistrations
 } from '../steps/inject-bridge-producer'
+import {sessionBridge, setSessionBridge} from './helpers/session-bridge'
 
 const REGISTERS =
   'chrome.scripting.registerContentScripts([{id: "a", js: ["a.js"], matches: ["<all_urls>"]}])'
@@ -78,7 +79,7 @@ function build(
     }
   }
 
-  new InjectBridgeProducer().apply(compiler)
+  new InjectBridgeProducer(sessionBridge()).apply(compiler)
 
   const compile = () => {
     assets['background/service_worker.js'] = {
@@ -104,8 +105,8 @@ function build(
 
 beforeEach(() => {
   dir = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-boot-registrations-'))
-  vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-  vi.stubEnv('EXTENSION_INSTANCE_ID', 'abc123')
+  setSessionBridge({controlPort: 8123})
+  setSessionBridge({instanceId: 'abc123'})
 })
 
 afterEach(() => {

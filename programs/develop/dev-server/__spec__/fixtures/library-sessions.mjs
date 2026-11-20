@@ -279,6 +279,7 @@ async function failingStarts() {
 // and is released, and the older one must go on restarting.
 async function restartWhileAnotherSessionLives() {
   const before = listeners()
+  const envBefore = envCopy()
   const fsBefore = fsSurface()
   const older = project('older', CONFIGS.start)
   const newer = project('newer', CONFIGS.start)
@@ -296,6 +297,10 @@ async function restartWhileAnotherSessionLives() {
     () => a.isReady() && b.isReady()
   )
   const live = listeners()
+  // Where a session listens is its own, so no live session writes it here.
+  const coordinatesInEnvWhileLive = envChangedSince(envBefore).filter((name) =>
+    /^EXTENSION_(DEV_SERVER_|CONTROL_PORT$|INSTANCE_ID$)/.test(name)
+  )
   const listeningLive = listening().length
   const fsAsFoundWhileLive = fsSurface().every(
     (fn, index) => fn === fsBefore[index]
@@ -334,6 +339,7 @@ async function restartWhileAnotherSessionLives() {
     afterNewerEnded,
     newerSettled,
     envChangedByNewer,
+    coordinatesInEnvWhileLive,
     started,
     bothReady,
     fsAsFoundWhileLive,

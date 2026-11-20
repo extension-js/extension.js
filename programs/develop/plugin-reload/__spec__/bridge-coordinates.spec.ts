@@ -68,11 +68,11 @@ function relayApplied(options: Record<string, unknown>) {
 }
 
 describe('the bridge coordinates a ReloadPlugin bakes', () => {
-  it('come from the environment when no option names them', () => {
+  it('are never the environment, which another session of the host wrote', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
-    expect(bakedControl()).toMatchObject({port: 8123, instanceId: 'from-env'})
+    expect(bakedControl()).toBeNull()
   })
 
   it('come from the options over the environment', () => {
@@ -95,26 +95,24 @@ describe('the bridge coordinates a ReloadPlugin bakes', () => {
     expect(second).toMatchObject({port: 9002, instanceId: 'session-b'})
   })
 
-  it('take one option and the environment for the other', () => {
+  it('fill no missing option from the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
     vi.stubEnv('EXTENSION_INSTANCE_ID', 'from-env')
 
     expect(bakedControl({controlPort: 9001})).toMatchObject({
       port: 9001,
-      instanceId: 'from-env'
+      instanceId: ''
     })
 
-    expect(bakedControl({instanceId: 'from-options'})).toMatchObject({
-      port: 8123,
-      instanceId: 'from-options'
-    })
+    expect(bakedControl({instanceId: 'from-options'})).toBeNull()
   })
 
   it('leave the relay off for a session with no bridge, whatever the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
 
     expect(relayApplied({controlPort: null})).toBe(false)
-    expect(relayApplied({})).toBe(true)
+    expect(relayApplied({})).toBe(false)
+    expect(relayApplied({controlPort: 9001})).toBe(true)
   })
 
   it('bake nothing for a session with no bridge, whatever the environment', () => {
