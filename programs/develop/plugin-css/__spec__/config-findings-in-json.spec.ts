@@ -1,5 +1,6 @@
 import {describe, expect, it} from 'vitest'
 import {cssProjects} from './helpers/css-project'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 const makeProject = cssProjects()
 
@@ -19,27 +20,14 @@ const PROJECT = {
 // The warnings a build hands a machine reader: one line each, the code first.
 async function warningsOf(files: Record<string, string>): Promise<string[]> {
   const root = makeProject({...PROJECT, ...files})
-  const {extensionBuild} = await import('../../command-build')
-  const previous = process.env.VITEST
+  const summary = (await buildProject(root, {
+    mode: 'production',
+    exitOnError: false
+  })) as {errors_count: number; warnings?: string[]}
 
-  process.env.VITEST = 'true'
+  expect(summary.errors_count).toBe(0)
 
-  try {
-    const summary = (await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as never)) as {errors_count: number; warnings?: string[]}
-
-    expect(summary.errors_count).toBe(0)
-
-    return (summary.warnings ?? []).map((warning) => warning.split('\n')[0])
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return (summary.warnings ?? []).map((warning) => warning.split('\n')[0])
 }
 
 // Each finding about the PostCSS setup belongs to the build that read it, so
