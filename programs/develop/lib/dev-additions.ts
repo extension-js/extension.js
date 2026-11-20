@@ -27,11 +27,25 @@ export interface DevAddition {
 
 const additionsByCompilation = new WeakMap<object, DevAddition[]>()
 
-export function recordDevAdditions(
+function sameAddition(a: DevAddition, b: DevAddition) {
+  return a.kind === b.kind && a.value === b.value
+}
+
+// Several steps of one compile change the dev build, so each adds to the list
+// instead of replacing what an earlier step said, and a repeated entry is said once.
+export function appendDevAdditions(
   compilation: object,
   additions: DevAddition[]
 ) {
-  additionsByCompilation.set(compilation, additions)
+  const list = additionsByCompilation.get(compilation) || []
+
+  for (const addition of additions) {
+    if (!list.some((entry) => sameAddition(entry, addition))) {
+      list.push(addition)
+    }
+  }
+
+  additionsByCompilation.set(compilation, list)
 }
 
 // undefined means this compilation never patched a dev manifest, which is a

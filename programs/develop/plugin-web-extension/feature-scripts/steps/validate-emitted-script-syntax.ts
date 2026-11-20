@@ -8,7 +8,7 @@
 
 import {createRequire} from 'node:module'
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {isCanonicalContentScriptAsset} from '../contracts'
+import * as messages from '../messages'
 
 const requireModule = createRequire(import.meta.url)
 
@@ -52,10 +52,7 @@ export class ValidateEmittedScriptSyntax {
               if (!error) continue
 
               const err = new WebpackError(
-                [
-                  `${name} is not valid JavaScript: ${error.message}.`,
-                  ...describeSlot(name)
-                ].join('\n')
+                messages.emittedScriptUnparsable(name, error.message)
               ) as Error & {file?: string}
               err.file = name
               err.name = 'ContentScriptSyntax'
@@ -66,22 +63,6 @@ export class ValidateEmittedScriptSyntax {
       }
     )
   }
-}
-
-function describeSlot(name: string): string[] {
-  if (isCanonicalContentScriptAsset(name)) {
-    return [
-      'The browser will silently skip an unparsable content script:',
-      'it never injects and reports no error anywhere. Fix the syntax',
-      'error in the source file(s) this content_scripts entry bundles.'
-    ]
-  }
-
-  return [
-    'The browser refuses to run a file it cannot parse, so the surface this',
-    'backs is dead on arrival. Fix the syntax error in the source file(s)',
-    'this entry bundles.'
-  ]
 }
 
 // Script mode first, since that is how every classic bundle is evaluated. An

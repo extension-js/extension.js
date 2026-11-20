@@ -119,8 +119,9 @@ export class PairRuntimeMainWorldBridges {
         compilation.hooks.processAssets.tap(
           {
             name: PairRuntimeMainWorldBridges.name,
-            // After minification, so the prepended text ships as written.
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
+            // After minification, so the prepended text ships as written, and
+            // ahead of other background prepends so their order needs no tie.
+            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 75
           },
           () => {
             const baseReaders = shipped

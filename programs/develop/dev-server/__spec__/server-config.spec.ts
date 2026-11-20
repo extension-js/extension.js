@@ -157,6 +157,30 @@ describe('buildServerConfig', () => {
     expect(writeToDisk('/proj/dist/chrome/app/manifest.json')).toBe(false)
   })
 
+  it('keeps the old root manifest off disk while a restart swaps compilers', () => {
+    let outputPath = '/proj/dist/chrome'
+    const config = buildServerConfig(
+      input({
+        activeCompiler: () =>
+          ({options: {output: {path: outputPath}}}) as ReturnType<
+            ServerConfigInput['activeCompiler']
+          >
+      })
+    )
+    const writeToDisk = config.devMiddleware?.writeToDisk as (
+      file: string
+    ) => boolean
+
+    expect(writeToDisk('/proj/dist/chrome/manifest.json')).toBe(false)
+
+    // The restart builds the next compiler, here from a config that moved
+    // the output, before the old one stops. The old emit is still running.
+    outputPath = '/proj/build/chrome'
+    expect(writeToDisk('/proj/dist/chrome/manifest.json')).toBe(false)
+    expect(writeToDisk('/proj/build/chrome/manifest.json')).toBe(false)
+    expect(writeToDisk('/proj/dist/chrome/app/manifest.json')).toBe(true)
+  })
+
   it('serves public/ without the stock watcher and watches it through watchFiles', () => {
     const config = buildServerConfig(input())
 

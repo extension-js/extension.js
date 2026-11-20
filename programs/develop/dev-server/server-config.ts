@@ -194,6 +194,20 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     port: input.port
   })
   let siteRefusalAnnounced = false
+  // A restart makes the next compiler live before the old one stops, so a
+  // late write from the old emit is judged against every output folder seen.
+  const outputPathsSeen = new Set<string>()
+
+  const writeToDisk = (filePath: string) => {
+    const current = input.activeCompiler()?.options?.output?.path
+    if (!current) return shouldWriteAssetToDisk(filePath, undefined)
+
+    outputPathsSeen.add(current)
+
+    return [...outputPathsSeen].every((outputPath) =>
+      shouldWriteAssetToDisk(filePath, outputPath)
+    )
+  }
 
   const announceSiteRefusal = (origin: string) => {
     if (siteRefusalAnnounced) return
@@ -210,11 +224,7 @@ export function buildServerConfig(input: ServerConfigInput): Configuration {
     devMiddleware: {
       // Manifest writes must stay atomic; let the manifest plugin own disk
       // persistence so Chromium never reads an in-place truncated file.
-      writeToDisk: (filePath: string) =>
-        shouldWriteAssetToDisk(
-          filePath,
-          input.activeCompiler()?.options?.output?.path
-        ),
+      writeToDisk,
       stats: {all: false},
       // A one-byte asset is served empty by the middleware, see the helper.
       modifyResponseData: createResponseDataRepair({
