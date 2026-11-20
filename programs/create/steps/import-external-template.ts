@@ -479,7 +479,7 @@ async function downloadArchive(
 // The folder a pinned catalog archive is kept in, per user, beside the
 // managed browsers. EXTENSION_CREATE_CACHE_DIR moves it.
 export function templateArchiveCacheDir(
-  env: NodeJS.ProcessEnv = process.env,
+  env: Record<string, string | undefined> = process.env,
   platform: NodeJS.Platform = process.platform,
   home: string = os.homedir()
 ): string {

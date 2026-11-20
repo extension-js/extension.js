@@ -148,7 +148,9 @@ describe('templateArchiveCacheDir', () => {
   it('moves to EXTENSION_CREATE_CACHE_DIR when it is set', () => {
     expect(
       templateArchiveCacheDir(
-        {EXTENSION_CREATE_CACHE_DIR: path.join(workDir, 'mine')},
+        {
+          EXTENSION_CREATE_CACHE_DIR: path.join(workDir, 'mine')
+        },
         'linux',
         '/unused'
       )
