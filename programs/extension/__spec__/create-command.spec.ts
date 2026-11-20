@@ -122,6 +122,7 @@ describe('extension create', () => {
     vi.mocked(extensionCreate).mockResolvedValueOnce({
       projectPath: '/abs/my-extension',
       projectName: 'my-extension',
+      packageName: 'my-extension',
       template: 'react',
       depsInstalled: false
     } as any)
@@ -139,6 +140,7 @@ describe('extension create', () => {
       value: {
         projectPath: '/abs/my-extension',
         projectName: 'my-extension',
+        packageName: 'my-extension',
         template: 'react',
         depsInstalled: false
       },
