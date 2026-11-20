@@ -474,6 +474,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "warPageNamedNotExposed: function(2)",
     "warPatchedSummary: function(3)",
     "warPatternLeavesRoot: function(1)",
+    "warSheetTargetsNotShipped: function(2)",
     "warStringEntryInMv3: function(1)",
     "warUnreachableResource: function(2)",
   ],

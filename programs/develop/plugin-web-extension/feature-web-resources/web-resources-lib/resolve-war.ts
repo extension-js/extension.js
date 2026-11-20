@@ -33,6 +33,70 @@ import {
 import {unixify} from '../../shared/paths'
 import * as warMessages from './messages'
 
+// The files this step copied as written, per compile. A bundled stylesheet
+// had its url() targets resolved by the bundler, a copied one did not.
+const copiedAsWritten = new WeakMap<Compilation, Set<string>>()
+
+function emitCopy(
+  compilation: Compilation,
+  name: string,
+  source: sources.Source
+) {
+  compilation.emitAsset(name, source)
+
+  const copied = copiedAsWritten.get(compilation) || new Set<string>()
+  copied.add(name)
+  copiedAsWritten.set(compilation, copied)
+}
+
+const CSS_COMMENT = /\/\*[\s\S]*?\*\//g
+const CSS_URL = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^"')\s]*))\s*\)/gi
+// A scheme, a protocol-relative address or a fragment is not a packaged file.
+const NOT_A_PACKAGED_FILE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#|$)/i
+
+// The packaged paths a copied stylesheet names with url(), as the browser
+// resolves them from where the sheet is served.
+export function urlTargetsOfCopiedSheet(name: string, css: string): string[] {
+  const targets = new Set<string>()
+
+  for (const match of css.replace(CSS_COMMENT, '').matchAll(CSS_URL)) {
+    const raw = (match[1] ?? match[2] ?? match[3] ?? '').trim()
+    if (NOT_A_PACKAGED_FILE.test(raw)) continue
+
+    const file = raw.split(/[?#]/)[0]
+    const resolved = file.startsWith('/')
+      ? path.posix.normalize(file.slice(1))
+      : path.posix.join(path.posix.dirname(name), file)
+
+    if (resolved && !resolved.startsWith('..')) targets.add(resolved)
+  }
+
+  return [...targets].sort()
+}
+
+function warnCopiedSheetsWithUnshippedTargets(compilation: Compilation) {
+  const copied = [...(copiedAsWritten.get(compilation) || [])].sort()
+
+  for (const name of copied) {
+    if (!/\.css$/i.test(name)) continue
+
+    const text = compilation.getAsset(name)?.source.source()
+    if (text === undefined) continue
+
+    const missing = urlTargetsOfCopiedSheet(name, text.toString()).filter(
+      (target) => !compilation.getAsset(target)
+    )
+    if (missing.length === 0) continue
+
+    const warn = new WebpackError(
+      warMessages.warSheetTargetsNotShipped(name, missing)
+    ) as Error & {file?: string; name?: string}
+    warn.file = name
+    warn.name = 'WARStylesheetTargetNotShipped'
+    compilation.warnings.push(warn)
+  }
+}
+
 function isPublicRootLike(possiblePath: string) {
   const normalizedPath = unixify(possiblePath || '')
 
@@ -93,7 +157,8 @@ function emitDirectoryAsAssets(
       const outName = unixify(path.relative(baseDir, full))
 
       if (!compilation.getAsset(outName)) {
-        compilation.emitAsset(
+        emitCopy(
+          compilation,
           outName,
           new sources.RawSource(
             templateCopiedAsset(compilation, outName, fs.readFileSync(full))
@@ -179,7 +244,8 @@ function emitGlobMatches(
       }
 
       if (!compilation.getAsset(outName)) {
-        compilation.emitAsset(
+        emitCopy(
+          compilation,
           outName,
           new sources.RawSource(
             templateCopiedAsset(compilation, outName, fs.readFileSync(full))
@@ -214,7 +280,8 @@ function emitFileAsAsset(compilation: Compilation, absPath: string): string {
   )
 
   if (!compilation.getAsset(outName)) {
-    compilation.emitAsset(
+    emitCopy(
+      compilation,
       outName,
       new sources.RawSource(templateCopiedAsset(compilation, outName, content))
     )
@@ -727,7 +794,8 @@ export function resolveUserDeclaredWAR(
 
         if (spelledAsRoot || namedAtRuntime(rootRel)) {
           if (!compilation.getAsset(rootRel)) {
-            compilation.emitAsset(
+            emitCopy(
+              compilation,
               rootRel,
               new sources.RawSource(
                 templateCopiedAsset(
@@ -844,7 +912,8 @@ export function resolveUserDeclaredWAR(
 
     if (!relOut.startsWith('..')) {
       if (!compilation.getAsset(relOut)) {
-        compilation.emitAsset(
+        emitCopy(
+          compilation,
           relOut,
           new sources.RawSource(
             templateCopiedAsset(compilation, relOut, fs.readFileSync(abs))
@@ -886,6 +955,8 @@ export function resolveUserDeclaredWAR(
 
     authorGroupHasNoMatches = false
   })
+
+  warnCopiedSheetsWithUnshippedTargets(compilation)
 
   return {v2, v3}
 }

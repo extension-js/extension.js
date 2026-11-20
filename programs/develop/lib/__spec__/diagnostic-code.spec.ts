@@ -18,6 +18,7 @@ describe('diagnosticCode', () => {
     ['WARInvalidMatchPattern', 'E_WAR_INVALID'],
     ['WARStringEntryInMv3', 'E_WAR_INVALID'],
     ['WARPatternLeavesRoot', 'W_WAR_INVALID'],
+    ['WARStylesheetTargetNotShipped', 'W_WAR_INVALID'],
     ['LocalesLayoutWarning', 'E_LOCALES_LAYOUT'],
     ['LocalesFolderWithoutMessages', 'E_LOCALES_LAYOUT'],
     ['LocalesValidationError', 'E_LOCALES_LAYOUT'],
