@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 // The polyfill throws on load where no extension API exists, so it is only
 // provided to bundles that run inside the extension.
@@ -88,25 +89,13 @@ async function build(mode: 'development' | 'production'): Promise<Built> {
     fs.writeFileSync(file, source)
   }
 
-  const {extensionBuild} = await import('../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
+  const summary = await buildProject(root, {
+    mode,
+    polyfill: true,
+    exitOnError: false
+  })
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode,
-      polyfill: true,
-      exitOnError: false
-    } as any)
-
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  expect(summary.errors_count).toBe(0)
 
   const dist = path.join(root, 'dist', 'chrome')
   const manifest = JSON.parse(
