@@ -463,8 +463,9 @@ describe('ZipPlugin', () => {
     expect(artifacts[0].size).toBeGreaterThan(0)
   })
 
-  // Pins current behavior: build --zip can finish with no zip and no failure.
-  it('records no zip failure when the output has no manifest.json, only a warning', async () => {
+  // A manifest read failed outside the per-archive steps and was only a
+  // warning, so build --zip finished with no zip and exit code 0.
+  it('records a zip failure when the output has no manifest.json', async () => {
     const root = fs.realpathSync(makeTempDir('zip-spec-'))
     const outPath = path.join(root, 'dist', 'chrome')
     write(path.join(root, 'background.js'), 'globalThis.ran = 1\n')
@@ -482,20 +483,22 @@ describe('ZipPlugin', () => {
       plugins: [
         new ZipPlugin({
           browser: 'chrome',
-          zipData: {zip: true},
+          zipData: {zip: true, zipSource: true},
           manifestPath: path.join(root, 'manifest.json')
         })
       ]
     })
 
-    expect(getZipFailures(stats.compilation)).toEqual([])
+    const failures = getZipFailures(stats.compilation)
+
+    expect(failures.map((failure) => failure.kind)).toEqual(['source', 'dist'])
+    expect(failures[1].reason).toBe(
+      `ENOENT: no such file or directory, open '${path.join(outPath, 'manifest.json')}'`
+    )
+
     expect(getZipArtifacts(stats.compilation)).toEqual([])
     expect(fs.readdirSync(path.dirname(outPath))).toEqual(['chrome'])
-    expect(Array.from(stats.compilation.warnings, (w) => w.message)).toEqual([
-      "  ⚠ ZipPlugin: Failed to create zip(s): Error: ENOENT: no such file or directory, open '" +
-        path.join(outPath, 'manifest.json') +
-        "'\n"
-    ])
+    expect(Array.from(stats.compilation.warnings)).toEqual([])
   })
 
   // One symlink used to take both archives down: it is listed as a file,

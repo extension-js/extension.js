@@ -8,7 +8,12 @@
 
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import {type Compilation, type Compiler, rspack} from '@rspack/core'
+import {
+  type Compilation,
+  type Compiler,
+  rspack,
+  WebpackError
+} from '@rspack/core'
 import type {IncludeFilesConfig} from '../types'
 import * as messages from './messages'
 
@@ -26,7 +31,7 @@ type Verdict =
       minify: boolean
     }
   | {kind: 'invalid'; output: string; reason: string}
-  | {kind: 'missing'; output: string; source: string}
+  | {kind: 'missing'; output: string; source: string; minify: boolean}
 
 function judgeOutputPath(output: string): string | undefined {
   const trimmed = String(output || '').trim()
@@ -134,7 +139,7 @@ export function judgeIncludeFiles(
     try {
       isDir = fs.statSync(abs).isDirectory()
     } catch {
-      verdicts.push({kind: 'missing', output, source: abs})
+      verdicts.push({kind: 'missing', output, source: abs, minify: read.minify})
       continue
     }
 
@@ -170,7 +175,25 @@ export class IncludeFiles {
     if (!include || Object.keys(include).length === 0) return
 
     const verdicts = judgeIncludeFiles(include, projectRoot)
-    const copies = verdicts.filter((v) => v.kind === 'ok')
+    // A source missing at start keeps its pattern, so the file ships on the
+    // compile after it appears. Its kind is read from the path until then.
+    const copies = verdicts.flatMap((verdict) =>
+      verdict.kind === 'ok'
+        ? [verdict]
+        : verdict.kind === 'missing'
+          ? [
+              {
+                output: verdict.output
+                  .trim()
+                  .split(/[\\/]+/)
+                  .join('/'),
+                source: verdict.source,
+                isDir: path.extname(verdict.source) === '',
+                minify: verdict.minify
+              }
+            ]
+          : []
+    )
 
     if (copies.length > 0) {
       new rspack.CopyRspackPlugin({
@@ -200,8 +223,6 @@ export class IncludeFiles {
     compiler.hooks.thisCompilation.tap(
       IncludeFiles.name,
       (compilation: Compilation) => {
-        const ErrorCtor = compiler.rspack?.WebpackError || Error
-
         // Re-judge per compile: a file that appeared or vanished since the
         // session started changes the verdict, and the copier is silent on it.
         for (const verdict of judgeIncludeFiles(include, projectRoot)) {
@@ -210,7 +231,12 @@ export class IncludeFiles {
             continue
           }
 
-          const error = new ErrorCtor(
+          // Watched by its own path, so creating it starts the next compile.
+          if (verdict.kind === 'missing') {
+            compilation.missingDependencies?.add(verdict.source)
+          }
+
+          const error = new WebpackError(
             verdict.kind === 'missing'
               ? messages.includeSourceMissing(
                   verdict.output,

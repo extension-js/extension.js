@@ -1860,6 +1860,21 @@ export function configUnknownKeys(
   )
 }
 
+// One line per key, named by its full path, with the key it likely meant.
+export function configUnknownNestedKey(
+  configPath: string,
+  keyPath: string,
+  suggestion?: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} ${colors.blue('extension.config.js')} declares a key nothing reads: ${colors.yellow(keyPath)}.\n` +
+    `${fmt.label('PATH')} ${fmt.val(configPath)}\n` +
+    (suggestion
+      ? `Did you mean ${colors.blue(suggestion)}?`
+      : 'Remove it, or check its spelling against the FileConfig type.')
+  )
+}
+
 export function configLoadingError(configPath: string, error: unknown) {
   return (
     `${getLoggingPrefix('error')} Couldn't load ${colors.blue('extension.config.js')}.\n` +

@@ -1,12 +1,13 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import {rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import type {BuildSummary} from '../../lib/build-summary'
 import {
   browserReadLine,
   declaresNativeBrowserNamespace
 } from '../feature-browser-global'
+import {CompatibilityPlugin} from '../index'
 
 const roots: string[] = []
 
@@ -48,27 +49,54 @@ function project(
   return root
 }
 
-async function buildChrome(root: string): Promise<BuildSummary> {
-  const {extensionBuild} = await import('../../command-build')
-  const env = {VITEST: process.env.VITEST}
-  process.env.VITEST = 'true'
+interface ChromeBuild {
+  errors_count: number
+  warnings: string[]
+}
 
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (env.VITEST === undefined) delete process.env.VITEST
-    else process.env.VITEST = env.VITEST
+// A production chrome compile of the background with the polyfill off, in
+// process: the bundler, the public browser define and the plugin under test.
+async function buildChrome(root: string): Promise<ChromeBuild> {
+  const browser = JSON.stringify('chrome')
+  const compiler = rspack({
+    context: root,
+    mode: 'production',
+    devtool: false,
+    target: 'webworker',
+    entry: {'background/service_worker': './background.js'},
+    output: {path: path.join(root, 'dist', 'chrome'), clean: true},
+    plugins: [
+      new rspack.DefinePlugin({
+        'import.meta.env.EXTENSION_PUBLIC_BROWSER': browser,
+        'process.env.EXTENSION_PUBLIC_BROWSER': browser
+      }),
+      new CompatibilityPlugin({
+        manifestPath: path.join(root, 'manifest.json'),
+        browser: 'chrome',
+        polyfill: false,
+        command: 'build'
+      })
+    ]
+  })
+
+  const stats = await new Promise<Stats>((resolve, reject) => {
+    compiler.run((error, result) => {
+      compiler.close(() => {
+        if (error || !result) reject(error || new Error('no stats'))
+        else resolve(result)
+      })
+    })
+  })
+  const json = stats.toJson({all: false, errors: true, warnings: true})
+
+  return {
+    errors_count: (json.errors || []).length,
+    warnings: (json.warnings || []).map((warning) => warning.message)
   }
 }
 
-function compatibilityWarning(summary: BuildSummary): string | undefined {
-  return (summary.warnings || []).find((line) => /uses browser\.\*/.test(line))
+function compatibilityWarning(summary: ChromeBuild): string | undefined {
+  return summary.warnings.find((line) => /uses browser\.\*/.test(line))
 }
 
 describe('browserReadLine', () => {
@@ -140,7 +168,7 @@ describe('the Compatibility warning on a production chrome build', () => {
 
     expect(summary.errors_count).toBe(0)
     expect(compatibilityWarning(summary)).toBeUndefined()
-  }, 180_000)
+  }, 60_000)
 
   it('stays quiet for a read behind a branch on EXTENSION_PUBLIC_BROWSER', async () => {
     const summary = await buildChrome(
@@ -159,7 +187,7 @@ describe('the Compatibility warning on a production chrome build', () => {
 
     expect(summary.errors_count).toBe(0)
     expect(compatibilityWarning(summary)).toBeUndefined()
-  }, 180_000)
+  }, 60_000)
 
   it('names the file and line of an unguarded read and says the build may throw', async () => {
     const summary = await buildChrome(
@@ -184,7 +212,7 @@ describe('the Compatibility warning on a production chrome build', () => {
     expect(warning).toContain('Set minimum_chrome_version to "148"')
     expect(warning).not.toContain('build throws')
     expect(warning).toContain('guard the read with a typeof browser check')
-  }, 180_000)
+  }, 60_000)
 
   const unguarded = 'console.log(browser.runtime.id)\n'
 
@@ -195,7 +223,7 @@ describe('the Compatibility warning on a production chrome build', () => {
 
     expect(summary.errors_count).toBe(0)
     expect(compatibilityWarning(summary)).toBeUndefined()
-  }, 180_000)
+  }, 60_000)
 
   it('still warns below the floor, and names 152 for a devtools_page', async () => {
     const below = compatibilityWarning(
@@ -225,5 +253,5 @@ describe('the Compatibility warning on a production chrome build', () => {
     )
 
     expect(devtools).toContain('Set minimum_chrome_version to "152"')
-  }, 180_000)
+  }, 60_000)
 })
