@@ -44,10 +44,8 @@ export default [
   {
     ignores: [
       '_FUTURE/',
-      'extensions/browser-extension/',
       '**/extension-env.d.ts',
       'templates/',
-      'templates-artifacts/',
       '.prod-dist/',
       '**/dist/',
       '**/.rslib/',

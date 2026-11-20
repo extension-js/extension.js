@@ -181,6 +181,7 @@ export function planOverrides(candidates, locked, distTagsFor) {
       continue
     }
 
+    /** @type {{tag: string, version: string} | null} */
     let best = null
 
     for (const tag of candidate.tags) {

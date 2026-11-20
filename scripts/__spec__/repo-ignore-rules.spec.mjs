@@ -1,0 +1,35 @@
+import assert from 'node:assert/strict'
+import {execFileSync} from 'node:child_process'
+import fs from 'node:fs'
+import path from 'node:path'
+import test from 'node:test'
+import {fileURLToPath} from 'node:url'
+
+const root = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+  '..'
+)
+
+function tracked(pattern) {
+  return execFileSync('git', ['ls-files', '--', pattern], {
+    cwd: root,
+    encoding: 'utf8'
+  }).trim()
+}
+
+// A re-include rule exists to keep tracked files out of a wider ignore, so one
+// that matches no tracked file names a path that is gone.
+test('every re-include rule in the root .gitignore keeps a tracked file', () => {
+  const rules = fs
+    .readFileSync(path.join(root, '.gitignore'), 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith('!'))
+
+  assert.ok(rules.length > 0)
+
+  for (const rule of rules) {
+    assert.notEqual(tracked(rule.slice(1)), '', rule)
+  }
+})

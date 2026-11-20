@@ -108,6 +108,34 @@ test('pull requests run each suite once on the engines floor, newer Node on main
   assert.match(step(lane, 'Close the red lane').if, /success\(\)/)
 })
 
+// A path filter on a folder the repo does not have can never match a change.
+test('every workflow path filter starts at a path the repo has', () => {
+  for (const file of fs.readdirSync(workflowsDir)) {
+    if (!file.endsWith('.yml')) continue
+
+    const workflow = readWorkflow(file)
+    const on = workflow.on ?? workflow[true]
+    if (!on || typeof on !== 'object') continue
+
+    for (const [event, config] of Object.entries(on)) {
+      for (const key of ['paths', 'paths-ignore']) {
+        for (const filter of config?.[key] || []) {
+          const prefix = filter
+            .replace(/^!/, '')
+            .split(/[*?[{]/)[0]
+            .replace(/\/$/, '')
+          if (!prefix) continue
+
+          assert.ok(
+            fs.existsSync(path.join(root, prefix)),
+            `${file} ${event} ${key}: ${filter}`
+          )
+        }
+      }
+    }
+  }
+})
+
 test('windows runs the suites as parallel jobs, the develop one in two shards', () => {
   const ci = readWorkflow('ci.yml')
 
