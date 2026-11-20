@@ -3,8 +3,8 @@ import os from 'node:os'
 import * as path from 'node:path'
 import {fetchExtensionFromStore} from 'extension-from-store'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {resolveCompanionExtensionsConfig} from '../folder-extensions/resolve-config.ts'
-import {resolveCompanionExtensionDirs} from '../folder-extensions/resolve-dirs.ts'
+import {resolveCompanionExtensionsConfig} from '../resolve-config.ts'
+import {resolveCompanionExtensionDirs} from '../resolve-dirs.ts'
 
 vi.mock('extension-from-store', () => ({
   fetchExtensionFromStore: vi.fn()

@@ -10,6 +10,7 @@ import * as nodePath from 'node:path'
 import type {Configuration, rspack as Rspack} from '@rspack/core'
 import {protectedFolderAt} from '../lib/build-output-guard'
 import {codedError} from '../lib/coded-error'
+import type {CompanionExtensionsConfig} from '../lib/companion-extensions/types'
 import {
   type ConfigEnvTarget,
   loadConfigResolvedHook,
@@ -21,7 +22,6 @@ import {CODES} from '../lib/messaging'
 import {applySplitChunksGuard} from '../lib/normalize-split-chunks'
 import type {NormalizedBrowser} from '../lib/paths'
 import type {ProjectStructure} from '../lib/project'
-import type {CompanionExtensionsConfig} from '../plugin-special-folders/folder-extensions/types'
 import type {
   BuildOptions,
   ConfigHookContext,
