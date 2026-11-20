@@ -44,6 +44,8 @@ export type PerfBudgetsConfig = Partial<Record<BudgetCategory, number>> & {
 }
 
 interface PerfBudgetsPluginOptions {
+  // The browser the session compiles for, whose env files the config reads.
+  browser?: string
   // Disable in dev: unminified bundles are 3-5x larger than prod and trip the
   // budgets even when the prod artifact is fine.
   enabled?: boolean
@@ -191,7 +193,10 @@ export class PerfBudgetsPlugin {
       if (!configPath || noticed.has(`dev:${configPath}`)) return
 
       try {
-        const dev = await loadCommandConfig(projectPath, 'dev')
+        const dev = await loadCommandConfig(projectPath, 'dev', {
+          mode: 'development',
+          browser: this.options.browser
+        })
 
         if (dev?.perfBudgets !== undefined) {
           noticeOnce(`dev:${configPath}`, perfBudgetsNoEffectInDev(configPath))
