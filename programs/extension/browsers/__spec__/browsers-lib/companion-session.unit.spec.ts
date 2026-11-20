@@ -12,6 +12,13 @@ import {
 import {browserConfig} from '../../run-chromium/chromium-launch/browser-config'
 import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
 
+type FirefoxOptions = Parameters<typeof resolveFirefoxLaunchConfig>[1]
+
+// The launch reads only the fields a row names, so the rest stay unset.
+function firefoxOptions(options: Partial<FirefoxOptions>): FirefoxOptions {
+  return options as FirefoxOptions
+}
+
 let root: string
 let companion: string
 let user: string
@@ -289,8 +296,8 @@ describe('the launch configs load the staged companion under --no-open', () => {
     const args = browserConfig(
       {
         options: {mode: 'development', context: root, output: {path: user}}
-      } as any,
-      {extension: [companion, user], browser: 'yandex', profile} as any,
+      },
+      {extension: [companion, user], browser: 'yandex', profile},
       {provision: false}
     )
     const flag = args.find((a) => a.startsWith('--load-extension='))
@@ -303,13 +310,13 @@ describe('the launch configs load the staged companion under --no-open', () => {
     const args = browserConfig(
       {
         options: {mode: 'development', context: root, output: {path: user}}
-      } as any,
+      },
       {
         extension: [companion, user],
         browser: 'chromium',
         profile,
         noOpen: true
-      } as any,
+      },
       {provision: false}
     )
     const flag = args.find((a) => a.startsWith('--load-extension='))
@@ -322,8 +329,8 @@ describe('the launch configs load the staged companion under --no-open', () => {
     const args = browserConfig(
       {
         options: {mode: 'development', context: root, output: {path: user}}
-      } as any,
-      {extension: [companion, user], browser: 'chromium', profile} as any,
+      },
+      {extension: [companion, user], browser: 'chromium', profile},
       {provision: false}
     )
     const flag = args.find((a) => a.startsWith('--load-extension='))
@@ -335,14 +342,14 @@ describe('the launch configs load the staged companion under --no-open', () => {
     const config = await resolveFirefoxLaunchConfig(
       {
         options: {mode: 'development', context: root, output: {path: user}}
-      } as any,
-      {
+      },
+      firefoxOptions({
         extension: [companion, user],
         browser: 'firefox',
         profile: firefoxProfile,
         noOpen: true,
         mode: 'development'
-      } as any,
+      }),
       {provision: false}
     )
     expect(config.profilePath).toBe(firefoxProfile)
@@ -357,14 +364,14 @@ describe('the launch configs load the staged companion under --no-open', () => {
     const config = await resolveFirefoxLaunchConfig(
       {
         options: {mode: 'development', context: root, output: {path: user}}
-      } as any,
-      {
+      },
+      firefoxOptions({
         extension: [companion, user],
         browser: 'firefox',
         profile: firefoxProfile,
         startingUrl: 'http://127.0.0.1:4330/',
         mode: 'development'
-      } as any,
+      }),
       {provision: false}
     )
     expect(config.extensionsToLoad).toEqual([
@@ -377,13 +384,13 @@ describe('the launch configs load the staged companion under --no-open', () => {
     const config = await resolveFirefoxLaunchConfig(
       {
         options: {mode: 'development', context: root, output: {path: user}}
-      } as any,
-      {
+      },
+      firefoxOptions({
         extension: [companion, user],
         browser: 'firefox',
         profile: path.join(root, 'profiles', 'firefox-profile', 'dev'),
         mode: 'development'
-      } as any,
+      }),
       {provision: false}
     )
     expect(config.extensionsToLoad).toEqual([companion, user])

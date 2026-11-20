@@ -8,12 +8,20 @@ import {
   resetExplicitProfileNotes,
   resolveProfileConfig
 } from '../../browsers-lib/resolve-profile'
+import type {CompilationLike} from '../../browsers-types'
 import {browserConfig as chromiumConfig} from '../../run-chromium/chromium-launch/browser-config'
 import {resolveFirefoxLaunchConfig} from '../../run-firefox/firefox-launch/browser-config'
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
   return value.replace(/\u001b\[[0-9;]*m/g, '')
+}
+
+type FirefoxOptions = Parameters<typeof resolveFirefoxLaunchConfig>[1]
+
+// The launch reads only the fields a row names, so the rest stay unset.
+function firefoxOptions(options: Partial<FirefoxOptions>): FirefoxOptions {
+  return options as FirefoxOptions
 }
 
 describe('a configured profile under the project', () => {
@@ -167,25 +175,27 @@ describe('a configured profile under the project', () => {
   })
 
   it('both launchers hand the project root through', async () => {
-    const compilation = (browser: string) =>
-      ({
-        options: {
-          context: project,
-          output: {path: path.join(project, 'dist', browser)}
-        }
-      }) as any
+    const compilation = (browser: string): CompilationLike => ({
+      options: {
+        context: project,
+        output: {path: path.join(project, 'dist', browser)}
+      }
+    })
 
     chromiumConfig(compilation('chrome'), {
       extension: '/ext',
       browser: 'chrome',
       profile: './dist/extension-profile-chrome'
-    } as any)
+    })
 
-    await resolveFirefoxLaunchConfig(compilation('firefox'), {
-      extension: '/ext',
-      browser: 'firefox',
-      profile: './dist/extension-profile-firefox'
-    } as any)
+    await resolveFirefoxLaunchConfig(
+      compilation('firefox'),
+      firefoxOptions({
+        extension: '/ext',
+        browser: 'firefox',
+        profile: './dist/extension-profile-firefox'
+      })
+    )
 
     for (const browser of ['chrome', 'firefox']) {
       const profile = path.join(project, 'dist', `extension-profile-${browser}`)
