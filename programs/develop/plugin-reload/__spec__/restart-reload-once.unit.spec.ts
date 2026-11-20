@@ -2,13 +2,13 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   fakeCompilation,
   fakeCompiler
-} from '../../plugin-browsers/__spec__/fake-compiler'
-import {BrowsersPlugin} from '../../plugin-browsers/index'
+} from '../../__spec__/helpers/fake-compiler'
 import {
   dispatchReload,
   dispatchRestartReload,
   fullReloadsDeliveredTo
 } from '../index'
+import {LAUNCHED_SESSION, launchedSession} from './helpers/launched-session'
 
 const CONTEXT = '/project'
 const OUTPUT = '/project/dist'
@@ -44,26 +44,18 @@ const build = (webResources: string[]) =>
     }
   })
 
-// A launched session after a dev server restart: the plugin that launched the
-// browser on the first compiler is the same one, applied to its successor.
+// A session after a dev server restart: the one that loaded the first
+// compiler's build is the same one, applied to its successor.
 async function restartedSession(loadedWebResources: string[]) {
-  const plugin = new BrowsersPlugin({
-    launcher: vi.fn().mockResolvedValue({
-      enableUnifiedLogging: vi.fn(),
-      getExtensionLoadRefusal: () => null
-    }),
-    browserOptions: {browser: 'chrome'}
-  })
   const broker = {broadcastReload: vi.fn((_instruction: object) => 1)}
+  const launched = launchedSession({browser: 'chrome', broker})
 
-  plugin.setReloadBroker(broker)
-
-  const first = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
-  plugin.apply(first.compiler)
+  const first = fakeCompiler({owner: LAUNCHED_SESSION, context: CONTEXT})
+  launched.apply(first.compiler)
   await first.done(build(loadedWebResources))
 
-  const next = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
-  plugin.apply(next.compiler)
+  const next = fakeCompiler({owner: LAUNCHED_SESSION, context: CONTEXT})
+  launched.apply(next.compiler)
 
   return {
     broker,

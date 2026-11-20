@@ -314,9 +314,10 @@ consumes that contract. It does not define it, and nothing in
   packaged browser
 - `renamed-content-scripts.unit.spec.ts`,
   `rewritten-content-script-styles.unit.spec.ts`,
-  `classifier-inputs.unit.spec.ts`, the reload a launched session gets for a
+  `classifier-inputs.unit.spec.ts`, the reload a session plans for a
   renamed bundle, a rewritten stylesheet or a copied page, driven through
-  `BrowsersPlugin`
+  `helpers/launched-session.ts`, which makes the calls a browser plugin
+  makes on a session with no browser under it
 - `restart-reload-once.unit.spec.ts`, the one reload a restarted session owes
 - `reload-frame-build.unit.spec.ts`, the build name a reload frame carries
 - `setup-reload-strategy.spec.ts`, `setup-background-entry.spec.ts`,
@@ -324,8 +325,10 @@ consumes that contract. It does not define it, and nothing in
   hot update names. The chunk loading specs live in
   `plugin-web-extension/feature-chunk-loading`.
 - `plugin-boundary.spec.ts`, that this folder installs no chunk loading code
-  and reaches the target only through its extension point, and what it may
-  import from the dev server and the browser plugins
+  and reaches the target only through its extension point, what it may
+  import from the dev server and the browser plugins, that it reaches the
+  pages only through their extension point, and that no spec here imports
+  a browser plugin
 - `dev-content-scripts.spec.ts`, the Chromium stub and registry runtime
 - `content-script-reinject.spec.ts`, `reinject-during-pending-await.spec.ts`,
   the reinject runtime in the wrapper output, its generations across

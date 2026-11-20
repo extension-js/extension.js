@@ -2,14 +2,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {fakeCompiler} from '../../__spec__/helpers/fake-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
-import {fakeCompiler} from '../../plugin-browsers/__spec__/fake-compiler'
-import {
-  type BrowserLaunchOptions,
-  BrowsersPlugin
-} from '../../plugin-browsers/index'
 import {type ReloadBroker, readDevBuild} from '../index'
 import {InjectBridgeProducer} from '../steps/inject-bridge-producer'
+import {LAUNCHED_SESSION, launchedSession} from './helpers/launched-session'
 
 const BACKGROUND = 'background/service_worker.js'
 const IDLE = 'console.log("nothing registered")\n'
@@ -29,36 +26,29 @@ afterEach(() => {
 })
 
 // A dev session where the step that reads the background and names the build
-// shares one compiler with the plugin that launches and reloads.
+// shares one compiler with the session that reloads.
 function session(background: string, broker?: Partial<ReloadBroker>) {
-  const root = makeTempFolder('extjs-browsers-producer-')
+  const root = makeTempFolder('extjs-reload-producer-')
   const authored = path.join(root, 'background.js')
-  const launcher = vi.fn(async (_options: BrowserLaunchOptions) => ({
-    enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-  }))
-  const plugin = new BrowsersPlugin({
-    launcher,
-    browserOptions: {browser: 'chrome'}
-  })
   const frames: Array<Record<string, unknown>> = []
-
-  fs.writeFileSync(authored, background)
-
-  if (broker) {
-    plugin.setReloadBroker({
+  const launched = launchedSession({
+    browser: 'chrome',
+    broker: broker && {
       broadcastReload: (frame) => {
         frames.push({...frame})
 
         return 1
       },
       ...broker
-    })
-  }
+    }
+  })
 
-  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: root})
+  fs.writeFileSync(authored, background)
+
+  const fake = fakeCompiler({owner: LAUNCHED_SESSION, context: root})
 
   new InjectBridgeProducer().apply(fake.compiler)
-  plugin.apply(fake.compiler)
+  launched.apply(fake.compiler)
 
   // One compile whose background bundle holds the given bytes, through the
   // asset stage the producer step runs in and then the done hook.
@@ -101,10 +91,10 @@ function session(background: string, broker?: Partial<ReloadBroker>) {
     return compilation
   }
 
-  return {launcher, frames, compile}
+  return {frames, compile}
 }
 
-describe('the build a launched session names on a reload', () => {
+describe('the build a reload session names on a reload', () => {
   // A worker that already names this build is not restarted for it again,
   // which the broker can only tell when the frame carries the name.
   it('sends the reload with the build the compile gave its background', async () => {

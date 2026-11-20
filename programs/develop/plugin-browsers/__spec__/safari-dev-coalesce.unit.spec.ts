@@ -2,6 +2,10 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  fakeCompilation,
+  fakeCompiler
+} from '../../__spec__/helpers/fake-compiler'
 import type {ReloadBroker} from '../../plugin-reload'
 import type {SafariPackagerFn} from '../../types'
 import {
@@ -9,7 +13,6 @@ import {
   SAFARI_RESYNC_TIMEOUT_MS,
   SafariDevPlugin
 } from '../safari-dev-plugin'
-import {fakeCompilation, fakeCompiler} from './fake-compiler'
 
 beforeEach(() => {
   expect.hasAssertions()

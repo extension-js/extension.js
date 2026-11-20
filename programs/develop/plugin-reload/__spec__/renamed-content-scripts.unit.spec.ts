@@ -2,10 +2,10 @@ import {beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   fakeCompilation,
   fakeCompiler
-} from '../../plugin-browsers/__spec__/fake-compiler'
-import {BrowsersPlugin} from '../../plugin-browsers/index'
+} from '../../__spec__/helpers/fake-compiler'
 import type {BrowserType} from '../../types'
 import type {ReloadInstruction} from '../index'
+import {LAUNCHED_SESSION, launchedSession} from './helpers/launched-session'
 
 const CONTEXT = '/tmp/ext'
 const OUTPUT = '/tmp/ext/dist/firefox'
@@ -18,23 +18,18 @@ beforeEach(() => {
 // compile hands the done hook the manifest with this compile's names.
 function createHarness(browser: BrowserType = 'firefox') {
   const reload = vi.fn<(instruction: ReloadInstruction) => void>()
-  const launcher = vi.fn().mockResolvedValue({
-    enableUnifiedLogging: vi.fn().mockResolvedValue(undefined)
-  })
-  const plugin = new BrowsersPlugin({launcher, browserOptions: {browser}})
-  plugin.extensionsToLoad = [OUTPUT]
-  plugin.emitter.on('compiled', (ev) => {
-    if (ev.reloadInstruction) reload(ev.reloadInstruction)
-  })
+  const session = launchedSession({browser})
+  const fake = fakeCompiler({owner: LAUNCHED_SESSION, context: CONTEXT})
 
-  const fake = fakeCompiler({owner: BrowsersPlugin.name, context: CONTEXT})
-  plugin.apply(fake.compiler)
+  session.apply(fake.compiler)
 
   return {
-    launcher,
+    compiled: session.compiled,
     reload,
     async compile(contentScript: string, modifiedFiles: string[] = []) {
       fake.watchRun(modifiedFiles)
+
+      const before = session.compiled.length
 
       await fake.done(
         fakeCompilation({
@@ -49,6 +44,10 @@ function createHarness(browser: BrowserType = 'firefox') {
           }
         })
       )
+
+      for (const build of session.compiled.slice(before)) {
+        if (build.reloadInstruction) reload(build.reloadInstruction)
+      }
     }
   }
 }
@@ -61,7 +60,7 @@ describe('the reload after a compile renames a content script bundle', () => {
     const h = createHarness()
 
     await h.compile('content_scripts/content-0.e5213110.js')
-    expect(h.launcher).toHaveBeenCalledTimes(1)
+    expect(h.compiled).toEqual([{isFirstCompile: true}])
 
     await h.compile('content_scripts/content-0.0b8b79c0.js')
 

@@ -2,11 +2,11 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {sources} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {fakeCompiler} from '../../__spec__/helpers/fake-compiler'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {ReloadBroker} from '../../plugin-reload'
 import {InjectBridgeProducer} from '../../plugin-reload/steps/inject-bridge-producer'
 import {type BrowserLaunchOptions, BrowsersPlugin} from '../index'
-import {fakeCompiler} from './fake-compiler'
 
 const BACKGROUND = 'background/service_worker.js'
 const REGISTERS =

@@ -120,6 +120,68 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
   })
 })
 
+// The pages belong to the HTML feature. Reload is told about them through
+// one extension point and reads no file of that feature.
+describe('what plugin-reload reaches in the HTML feature', () => {
+  const files = sourceFiles(FOLDER).map((file) => ({
+    file: path.relative(FOLDER, file).split(path.sep).join('/'),
+    text: fs.readFileSync(file, 'utf8')
+  }))
+
+  it('imports nothing from the HTML feature', () => {
+    expect(
+      files
+        .filter(({text}) => /["'][^"']*feature-html[^"']*["']/.test(text))
+        .map(({file}) => file)
+    ).toEqual([])
+  })
+
+  it('is told the pages through their extension point, in one step', () => {
+    expect(
+      files
+        .filter(({text}) =>
+          /["'][^"']*shared\/html-page-extensions["']/.test(text)
+        )
+        .map(({file}) => file)
+    ).toEqual(['steps/setup-page-reload.ts'])
+  })
+})
+
+// A reload spec drives the session itself. One that needs a browser plugin
+// to reach reload code is a spec of that plugin.
+describe('what the specs of plugin-reload reach', () => {
+  const specFolder = path.join(FOLDER, '__spec__')
+  const specs = fs
+    .readdirSync(specFolder, {recursive: true, encoding: 'utf8'})
+    .filter((file) => /\.ts$/.test(file))
+    .map((file) => ({
+      file: file.split(path.sep).join('/'),
+      text: fs.readFileSync(path.join(specFolder, file), 'utf8')
+    }))
+
+  it('reads its own spec files', () => {
+    expect(specs.map(({file}) => file)).toContain('helpers/launched-session.ts')
+  })
+
+  it('imports nothing from plugin-browsers, its specs included', () => {
+    expect(
+      specs
+        .filter(({text}) => /from\s+'[^']*plugin-browsers[^']*'/.test(text))
+        .map(({file}) => file)
+    ).toEqual([])
+  })
+
+  it('never builds a BrowsersPlugin or a SafariDevPlugin', () => {
+    expect(
+      specs
+        .filter(({text}) =>
+          /new (?:BrowsersPlugin|SafariDevPlugin)\(/.test(text)
+        )
+        .map(({file}) => file)
+    ).toEqual([])
+  })
+})
+
 // The dev server hands reload its broker and the restart hold, and asks for
 // the one reload a restart owes. It runs no reload sequence of its own.
 describe('what the dev server reaches in plugin-reload', () => {
