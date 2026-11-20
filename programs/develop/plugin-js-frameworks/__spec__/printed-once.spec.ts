@@ -1,12 +1,15 @@
+import {createRequire} from 'node:module'
+import * as path from 'node:path'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
-import {prefix} from '../../lib/messaging'
+import {takeCodedWarnings} from '../../lib/coded-warnings'
+import {prefix, stripChannelPrefix} from '../../lib/messaging'
 import * as messages from '../js-frameworks-lib/messages'
-import {fakePackage, makeProject} from './project-fixture'
+import {configure, fakePackage, MANIFEST, makeProject} from './project-fixture'
 
 type Notice = {delivered: boolean}
 
 // Each detector or step that prints a once-only line, the project that makes
-// it print, and the exact line. A fresh module stands for a fresh process.
+// it print, and the exact line.
 const cases: Array<{
   name: string
   files: Record<string, string | object>
@@ -80,7 +83,6 @@ describe('lines printed once', () => {
   let log: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
-    vi.resetModules()
     vi.stubEnv('EXTENSION_DEBUG', 'true')
     vi.stubEnv('EXTENSION_OUTPUT', undefined)
     log = vi.spyOn(console, 'log').mockImplementation(() => {})
@@ -112,14 +114,13 @@ describe('lines printed once', () => {
 
   it.each(
     cases
-  )('prints the $name line once per process by default, whatever the project', async ({
+  )('prints no $name line for a caller that keeps no record', async ({
     files,
-    line,
     run
   }) => {
     await run(makeProject(files))
     await run(makeProject(files))
-    expect(log.mock.calls).toEqual([[line]])
+    expect(log).not.toHaveBeenCalled()
   })
 
   it.each(cases)('prints no $name line outside debug', async ({files, run}) => {
@@ -131,30 +132,100 @@ describe('lines printed once', () => {
   })
 })
 
-describe('the Svelte compiler and runtime mismatch warning', () => {
+describe('two builds in one process', () => {
+  beforeEach(() => {
+    vi.stubEnv('EXTENSION_DEBUG', 'true')
+    vi.stubEnv('EXTENSION_OUTPUT', undefined)
+  })
+
   afterEach(() => {
+    vi.unstubAllEnvs()
+    vi.restoreAllMocks()
+  })
+
+  it('each print the line of the framework they found', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => {})
+    const line = `${prefix('debug')} ${messages.isUsingIntegration('Preact')}`
+    const files = {
+      'package.json': {dependencies: {preact: '10'}},
+      'manifest.json': MANIFEST
+    }
+
+    await configure(makeProject(files))
+    await configure(makeProject(files))
+
+    expect(log.mock.calls.filter(([text]) => text === line)).toHaveLength(2)
+  })
+})
+
+describe('the Svelte compiler and runtime mismatch warning', () => {
+  const compilerVersion = createRequire(
+    createRequire(path.join(__dirname, '..', '..', 'x.js')).resolve(
+      'svelte-loader'
+    )
+  )('svelte/package.json').version as string
+  const frame = messages.svelteCompilerRuntimeMismatch(compilerVersion, '5.0.0')
+
+  function olderSvelteProject() {
+    const root = makeProject({
+      'package.json': {dependencies: {svelte: '5'}},
+      'manifest.json': MANIFEST
+    })
+    fakePackage(root, 'svelte', {version: '5.0.0'})
+
+    return root
+  }
+
+  beforeEach(() => {
+    vi.stubEnv('EXTENSION_OUTPUT', undefined)
+    takeCodedWarnings()
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
     vi.restoreAllMocks()
   })
 
   it('warns once per record when the compiler is newer than the project svelte', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const {maybeUseSvelte} = await import('../js-tools/svelte')
-    const {createRequire} = await import('node:module')
-    const path = await import('node:path')
-    const compilerVersion = createRequire(
-      createRequire(path.join(__dirname, '..', '..', 'x.js')).resolve(
-        'svelte-loader'
-      )
-    )('svelte/package.json').version as string
-    const root = makeProject({'package.json': {dependencies: {svelte: '5'}}})
-    fakePackage(root, 'svelte', {version: '5.0.0'})
-    const record = {delivered: false}
+    const {createSessionNotices} = await import(
+      '../js-frameworks-lib/session-notices'
+    )
+    const root = olderSvelteProject()
+    const notices = createSessionNotices()
 
-    await maybeUseSvelte(root, 'development', {mismatchNotice: record})
-    await maybeUseSvelte(root, 'development', {mismatchNotice: record})
+    await maybeUseSvelte(root, 'development', {notices})
+    await maybeUseSvelte(root, 'development', {notices})
 
-    expect(warn.mock.calls).toEqual([
-      [messages.svelteCompilerRuntimeMismatch(compilerVersion, '5.0.0')]
+    expect(warn.mock.calls).toEqual([[frame]])
+  })
+
+  it('warns in each of two builds and hands each warning its code', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await configure(olderSvelteProject())
+    expect(takeCodedWarnings()).toEqual([
+      `W_MANAGED_DEP_CONFLICT: ${stripChannelPrefix(frame)}`
+    ])
+
+    await configure(olderSvelteProject())
+    expect(takeCodedWarnings()).toEqual([
+      `W_MANAGED_DEP_CONFLICT: ${stripChannelPrefix(frame)}`
+    ])
+
+    expect(warn.mock.calls).toEqual([[frame], [frame]])
+  })
+
+  it('keeps the frame off a machine reader and still hands it the code', async () => {
+    vi.stubEnv('EXTENSION_OUTPUT', 'json')
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    await configure(olderSvelteProject())
+
+    expect(warn).not.toHaveBeenCalled()
+    expect(takeCodedWarnings()).toEqual([
+      `W_MANAGED_DEP_CONFLICT: ${stripChannelPrefix(frame)}`
     ])
   })
 })

@@ -1,6 +1,6 @@
 import {createRequire} from 'node:module'
 import * as path from 'node:path'
-import {describe, expect, it} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {maybeUseSvelte} from '../../js-tools/svelte'
 import {fakePackage, makeProject} from '../project-fixture'
 
@@ -204,31 +204,31 @@ describe('maybeUseSvelte', () => {
     expect(unset.options.resolve.byDependency).toBeUndefined()
   })
 
-  it('reads svelte from the fallback folder only when the project has none', async () => {
+  it('never reads svelte from the folder the command runs in', async () => {
     const bare = makeProject({'package.json': {dependencies: {svelte: '5'}}})
-    const fallback = makeProject({'package.json': {}})
-    const fallbackDir = fakePackage(
-      fallback,
-      'svelte',
-      {version: '99.0.0'},
-      CLIENT_FILES
-    )
+    const elsewhere = makeProject({'package.json': {}})
+    fakePackage(elsewhere, 'svelte', {version: '99.0.0'}, CLIENT_FILES)
     const {root, dir} = svelteProject()
+    const cwd = vi.spyOn(process, 'cwd').mockReturnValue(elsewhere)
 
-    const fromFallback = await maybeUseSvelte(bare, 'development', {
-      cwd: fallback
-    })
-    const fromProject = await maybeUseSvelte(root, 'development', {
-      cwd: fallback
-    })
+    try {
+      const withoutItsOwn = await maybeUseSvelte(bare, 'development')
+      const withItsOwn = await maybeUseSvelte(root, 'development')
+      // With none of its own the project runs on the compiler's svelte.
+      const compilerRoot = path.dirname(
+        createRequire(svelteLoader).resolve('svelte/package.json')
+      )
 
-    expect(fromFallback?.alias?.svelte).toBe(
-      path.join(fallbackDir, 'src', 'index-client.js')
-    )
+      expect(withoutItsOwn?.alias?.svelte).toBe(
+        path.join(compilerRoot, 'src', 'index-client.js')
+      )
 
-    expect(fromProject?.alias?.svelte).toBe(
-      path.join(dir, 'src', 'index-client.js')
-    )
+      expect(withItsOwn?.alias?.svelte).toBe(
+        path.join(dir, 'src', 'index-client.js')
+      )
+    } finally {
+      cwd.mockRestore()
+    }
   })
 
   it('returns undefined when svelte is not a dependency', async () => {

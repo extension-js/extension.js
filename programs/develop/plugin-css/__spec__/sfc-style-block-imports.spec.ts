@@ -189,6 +189,32 @@ describe.skipIf(!VUE_PACKAGE || !VUE_SCOPE || process.platform === 'win32')(
       expect(scripts).not.toMatch(/@import\s*["']\.\/tokens\.css/)
     }, 120_000)
 
+    // A custom element component takes each block as text for its shadow
+    // root, where a relative @import has no base either.
+    it('ships the imported rules in the text a custom element component reads', async () => {
+      const scripts = await build({
+        'content/scripts.js': [
+          "import {defineCustomElement} from 'vue'",
+          "import Widget from './Widget.ce.vue'",
+          "customElements.define('ce-widget', defineCustomElement(Widget))",
+          "document.body.append(document.createElement('ce-widget'))",
+          ''
+        ].join('\n'),
+        'content/Widget.ce.vue':
+          '<template><p class="ce_probe">x</p></template>\n<style>\n@import "./tokens.css";\n.ce_probe{color:red}\n</style>\n',
+        'content/tokens.css':
+          '@import "./deep.css";\n.token_from_import{color:green}\n',
+        'content/deep.css': '.deep_from_import{color:blue}\n'
+      })
+
+      // The component's own `styles` list, in the order the sheets apply.
+      expect(scripts).toMatch(
+        /\["styles",\s*\["\\n\.deep_from_import\{color:blue\}\\n\.token_from_import\{color:green\}\\n\.ce_probe\{color:red\}\\n"\]\]/
+      )
+
+      expect(scripts).not.toContain('@import')
+    }, 120_000)
+
     // The sheet comes in ahead of PostCSS and of the scoping of the block.
     it('runs the imported rules through the PostCSS config and the scoping of the block', async () => {
       const scripts = await build({
