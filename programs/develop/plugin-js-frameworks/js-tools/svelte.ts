@@ -351,7 +351,12 @@ export async function maybeUseSvelte(
         ...(byDependency
           ? {byDependency: withSvelteConditionByDependency(byDependency)}
           : {}),
-        extensions: dedupe(['.svelte', ...existingExtensions]),
+        // With no list of its own the compiler keeps the bundler's defaults,
+        // which the three dots stand for, and .svelte comes after them.
+        extensions:
+          existingExtensions.length > 0
+            ? dedupe(['.svelte', ...existingExtensions])
+            : ['...', '.svelte'],
         // After the walk up from the importer, so a package keeps the copy
         // of a dependency installed inside it.
         modules: dedupe([

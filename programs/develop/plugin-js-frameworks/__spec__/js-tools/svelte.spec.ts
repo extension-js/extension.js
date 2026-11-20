@@ -242,6 +242,44 @@ describe('maybeUseSvelte', () => {
 
 // The project folder is a place to look after the walk up from the importer,
 // so a package keeps the version installed inside it.
+// A compiler with no extension list of its own still resolves by the
+// bundler's defaults, with .svelte added after them.
+describe('the Svelte resolver setup on a compiler with no extension list', () => {
+  it('keeps resolving a script by the default extensions', async () => {
+    const {root} = svelteProject({
+      'index.js': 'import "./dep"\n',
+      'dep.js': 'console.log("DEFAULT EXTENSION")\n'
+    })
+    const setup = await maybeUseSvelte(root, 'production')
+    const compiler = rspack({
+      context: root,
+      mode: 'none',
+      entry: './index.js',
+      output: {path: path.join(root, 'out'), filename: 'bundle.js'},
+      plugins: setup?.plugins as RspackPluginInstance[]
+    })
+
+    const stats = await new Promise<Stats>((resolve, reject) => {
+      compiler.run((error, result) =>
+        error || !result ? reject(error) : resolve(result)
+      )
+    })
+    await new Promise((done) => compiler.close(done))
+
+    expect(
+      stats
+        .toJson({all: false, errors: true})
+        .errors?.map(({message}) => message.split('\n')[0].trim())
+    ).toEqual([])
+
+    expect(
+      fs
+        .readFileSync(path.join(root, 'out', 'bundle.js'), 'utf8')
+        .includes('DEFAULT EXTENSION')
+    ).toBe(true)
+  })
+})
+
 describe('the Svelte resolver setup and a nested dependency', () => {
   it('lets a package resolve its own nested copy before the top-level one', async () => {
     const {root} = svelteProject({
