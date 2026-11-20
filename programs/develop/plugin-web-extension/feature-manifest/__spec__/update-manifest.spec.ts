@@ -1,6 +1,16 @@
 import {beforeEach, describe, expect, it, vi} from 'vitest'
+import {
+  asCompilation,
+  asCompiler,
+  type TapCallback
+} from '../../__spec__/helpers/rspack-fakes'
 import {setOriginalManifestContent} from '../manifest-lib/manifest'
 import {UpdateManifest} from '../steps/update-manifest'
+import {
+  asBrowser,
+  type FakeSource,
+  type StepDiagnostic
+} from './helpers/manifest-fakes'
 
 const overridesSpy = vi.hoisted(() => vi.fn(() => JSON.stringify({icons: {}})))
 
@@ -18,7 +28,7 @@ describe('UpdateManifest', () => {
     manifestSource = '{"name":"x"}',
     extraAssets: string[] = []
   ) => {
-    const assets: Record<string, any> = {
+    const assets: Record<string, FakeSource> = {
       'manifest.json': {source: () => manifestSource}
     }
 
@@ -27,7 +37,7 @@ describe('UpdateManifest', () => {
     }
 
     const updated: Record<string, string> = {}
-    const compilation: any = {
+    const compilation = asCompilation({
       errors: [],
       warnings: [],
       options: {mode},
@@ -37,17 +47,17 @@ describe('UpdateManifest', () => {
       getAssets: () =>
         Object.entries(assets).map(([name, src]) => ({name, source: src})),
       hooks: {
-        processAssets: {tap: (_opts: any, fn: any) => fn()}
+        processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
       },
-      updateAsset: (name: string, src: any) =>
+      updateAsset: (name: string, src: FakeSource) =>
         (updated[name] = src.source().toString())
-    }
-    const compiler: any = {
+    })
+    const compiler = asCompiler({
       options: {mode},
       hooks: {
-        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+        thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
       }
-    }
+    })
 
     return {compiler, updated, compilation}
   }
@@ -60,7 +70,7 @@ describe('UpdateManifest', () => {
         content_scripts: [{matches: ['*://*/*'], css: ['a.css']}]
       })
     )
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.icons).toBeDefined()
     expect(out.content_scripts?.[0]?.js).toEqual([
@@ -77,7 +87,7 @@ describe('UpdateManifest', () => {
       }),
       ['content_scripts/content-0.deadbeef.js']
     )
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.content_scripts?.[0]?.js).toEqual([
       'content_scripts/content-0.deadbeef.js'
@@ -95,7 +105,7 @@ describe('UpdateManifest', () => {
         ]
       })
     )
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.content_scripts?.[1]?.js).toEqual([
       'content_scripts/content-3.js'
@@ -104,7 +114,7 @@ describe('UpdateManifest', () => {
 
   it('updates asset in production as well', () => {
     const {compiler, updated} = make('production')
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.icons).toBeDefined()
   })
@@ -114,12 +124,12 @@ describe('UpdateManifest', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {
       order.push('print')
     })
-    const warnings: any[] = []
+    const warnings: StepDiagnostic[] = []
     const source = JSON.stringify({name: 'x', version: 1})
-    const assets: Record<string, any> = {
+    const assets: Record<string, FakeSource> = {
       'manifest.json': {source: () => source}
     }
-    const compilation: any = {
+    const compilation = asCompilation({
       errors: [],
       warnings,
       options: {mode: 'production'},
@@ -129,20 +139,20 @@ describe('UpdateManifest', () => {
       getAssets: () =>
         Object.entries(assets).map(([name, src]) => ({name, source: src})),
       hooks: {
-        processAssets: {tap: (_opts: any, fn: any) => fn()}
+        processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
       },
       updateAsset: () => {
         order.push('asset')
       }
-    }
-    const compiler: any = {
+    })
+    const compiler = asCompiler({
       options: {mode: 'production'},
       hooks: {
-        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+        thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
       }
-    }
+    })
 
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
 
     expect(warnings.length).toBe(1)
     expect(warnings[0].name).toBe('ManifestFatalShapeWarning')
@@ -157,28 +167,28 @@ describe('UpdateManifest', () => {
 
   it('prints a repeated fatal-shape repair only once per development session', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    let thisCompilationFn: ((compilation: any) => void) | undefined
-    const compiler: any = {
+    let thisCompilationFn: TapCallback | undefined
+    const compiler = asCompiler({
       options: {mode: 'development'},
       hooks: {
         thisCompilation: {
-          tap: (_n: string, fn: any) => {
+          tap: (_n: string, fn: TapCallback) => {
             thisCompilationFn = fn
           }
         }
       }
-    }
+    })
 
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
 
     const runCompilation = () => {
-      const warnings: any[] = []
+      const warnings: StepDiagnostic[] = []
       const updated: Record<string, string> = {}
       const source = JSON.stringify({name: 'x', version: 1})
-      const assets: Record<string, any> = {
+      const assets: Record<string, FakeSource> = {
         'manifest.json': {source: () => source}
       }
-      const compilation: any = {
+      const compilation = asCompilation({
         errors: [],
         warnings,
         options: {mode: 'development'},
@@ -188,12 +198,12 @@ describe('UpdateManifest', () => {
         getAssets: () =>
           Object.entries(assets).map(([name, src]) => ({name, source: src})),
         hooks: {
-          processAssets: {tap: (_opts: any, fn: any) => fn()}
+          processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
         },
-        updateAsset: (name: string, src: any) => {
+        updateAsset: (name: string, src: FakeSource) => {
           updated[name] = src.source().toString()
         }
-      }
+      })
       thisCompilationFn?.(compilation)
 
       return {warnings, updated}
@@ -216,27 +226,27 @@ describe('UpdateManifest', () => {
 
   it('still prints every fatal-shape repair on production builds', () => {
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
-    let thisCompilationFn: ((compilation: any) => void) | undefined
-    const compiler: any = {
+    let thisCompilationFn: TapCallback | undefined
+    const compiler = asCompiler({
       options: {mode: 'production'},
       hooks: {
         thisCompilation: {
-          tap: (_n: string, fn: any) => {
+          tap: (_n: string, fn: TapCallback) => {
             thisCompilationFn = fn
           }
         }
       }
-    }
+    })
 
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
 
     const runCompilation = () => {
-      const warnings: any[] = []
+      const warnings: StepDiagnostic[] = []
       const source = JSON.stringify({name: 'x', version: 1})
-      const assets: Record<string, any> = {
+      const assets: Record<string, FakeSource> = {
         'manifest.json': {source: () => source}
       }
-      const compilation: any = {
+      const compilation = asCompilation({
         errors: [],
         warnings,
         options: {mode: 'production'},
@@ -246,10 +256,10 @@ describe('UpdateManifest', () => {
         getAssets: () =>
           Object.entries(assets).map(([name, src]) => ({name, source: src})),
         hooks: {
-          processAssets: {tap: (_opts: any, fn: any) => fn()}
+          processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
         },
         updateAsset: () => {}
-      }
+      })
       thisCompilationFn?.(compilation)
 
       return warnings
@@ -271,8 +281,8 @@ describe('UpdateManifest', () => {
         content_security_policy: "script-src 'self'; object-src 'self'"
       })
     )
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
-    const named = compilation.warnings.filter((warning: any) =>
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
+    const named = compilation.warnings.filter((warning) =>
       String(warning.message).includes('content_security_policy')
     )
     expect(named).toHaveLength(1)
@@ -288,12 +298,12 @@ describe('UpdateManifest', () => {
         browser_action: {default_popup: 'popup.html'}
       })
     )
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
     const out = JSON.parse(updated['manifest.json'])
     expect(out.browser_action).toBeUndefined()
     expect(out.action).toEqual({default_popup: 'popup.html'})
     expect(
-      compilation.warnings.filter((warning: any) =>
+      compilation.warnings.filter((warning) =>
         String(warning.message).includes('browser_action')
       )
     ).toHaveLength(1)
@@ -308,13 +318,11 @@ describe('UpdateManifest', () => {
         background: {page: 'background.html'}
       })
     )
-    new UpdateManifest({manifestPath: '/m', browser: 'chrome'} as any).apply(
-      compiler
-    )
+    new UpdateManifest({manifestPath: '/m', browser: 'chrome'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(0)
     expect(
-      compilation.warnings.filter((warning: any) =>
+      compilation.warnings.filter((warning) =>
         String(warning.message).includes('background.page')
       )
     ).toHaveLength(1)
@@ -331,9 +339,7 @@ describe('UpdateManifest', () => {
         background: {page: 'background.html'}
       })
     )
-    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
-      compiler
-    )
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'}).apply(compiler)
 
     expect(compilation.errors).toHaveLength(0)
   })
@@ -355,7 +361,10 @@ describe('UpdateManifest', () => {
           }
         })
       )
-      new UpdateManifest({manifestPath: '/m', browser} as any).apply(compiler)
+      new UpdateManifest({
+        manifestPath: '/m',
+        browser: asBrowser(browser)
+      }).apply(compiler)
 
       const text = updated['manifest.json']
       const out = JSON.parse(text)
@@ -368,7 +377,7 @@ describe('UpdateManifest', () => {
 
       expect(compilation.errors).toHaveLength(0)
       expect(
-        compilation.warnings.filter((warning: any) =>
+        compilation.warnings.filter((warning) =>
           /trial_tokens|async_listener_registration/.test(
             String(warning.message)
           )
@@ -385,7 +394,7 @@ describe('UpdateManifest', () => {
       background: {scripts: []}
     })
     const firefox = make('production', source)
-    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'}).apply(
       firefox.compiler
     )
 
@@ -393,7 +402,7 @@ describe('UpdateManifest', () => {
       false
     )
 
-    const said = firefox.compilation.warnings.filter((warning: any) =>
+    const said = firefox.compilation.warnings.filter((warning) =>
       String(warning.message).includes('is an empty list')
     )
 
@@ -410,11 +419,11 @@ describe('UpdateManifest', () => {
         background: {scripts: [], service_worker: 'background/sw.js'}
       })
     )
-    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'}).apply(
       beside.compiler
     )
 
-    const kept = beside.compilation.warnings.filter((warning: any) =>
+    const kept = beside.compilation.warnings.filter((warning) =>
       String(warning.message).includes('is an empty list')
     )
 
@@ -427,12 +436,12 @@ describe('UpdateManifest', () => {
     expect(String(kept[0].message)).not.toContain('runs with no background')
 
     const chrome = make('production', source)
-    new UpdateManifest({manifestPath: '/m', browser: 'chrome'} as any).apply(
+    new UpdateManifest({manifestPath: '/m', browser: 'chrome'}).apply(
       chrome.compiler
     )
 
     expect(
-      chrome.compilation.warnings.filter((warning: any) =>
+      chrome.compilation.warnings.filter((warning) =>
         String(warning.message).includes('is an empty list')
       )
     ).toHaveLength(0)
@@ -449,13 +458,11 @@ describe('UpdateManifest', () => {
         action: {default_icon: {'016': 'a.png', '32': 'b.png'}}
       })
     )
-    new UpdateManifest({manifestPath: '/m', browser: 'firefox'} as any).apply(
-      compiler
-    )
+    new UpdateManifest({manifestPath: '/m', browser: 'firefox'}).apply(compiler)
 
     const out = JSON.parse(updated['manifest.json'])
     const repairs = compilation.warnings.filter(
-      (warning: any) => warning.name === 'ManifestFatalShapeWarning'
+      (warning) => warning.name === 'ManifestFatalShapeWarning'
     )
 
     expect(out.action.default_icon).toEqual({'32': 'b.png'})
@@ -468,37 +475,37 @@ describe('UpdateManifest', () => {
 
   it('computes the override tree once per compile', () => {
     const {compiler} = make('development', JSON.stringify({name: 'x'}))
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
     expect(overridesSpy).toHaveBeenCalledTimes(1)
   })
 
   it('emits manifest.json when no public asset exists yet', () => {
     const emitted: Record<string, string> = {}
-    const compilation: any = {
+    const compilation = asCompilation({
       errors: [],
       warnings: [],
       assets: {},
       getAsset: () => undefined,
       hooks: {
-        processAssets: {tap: (_opts: any, fn: any) => fn()}
+        processAssets: {tap: (_opts: unknown, fn: TapCallback) => fn()}
       },
       updateAsset: vi.fn(),
-      emitAsset: (name: string, src: any) => {
+      emitAsset: (name: string, src: FakeSource) => {
         emitted[name] = src.source().toString()
       }
-    }
-    const compiler: any = {
+    })
+    const compiler = asCompiler({
       options: {mode: 'production'},
       hooks: {
-        thisCompilation: {tap: (_n: string, fn: any) => fn(compilation)}
+        thisCompilation: {tap: (_n: string, fn: TapCallback) => fn(compilation)}
       }
-    }
+    })
     setOriginalManifestContent(
       compilation,
       JSON.stringify({name: 'x', content_scripts: [{js: [], css: ['a.css']}]})
     )
 
-    new UpdateManifest({manifestPath: '/m'} as any).apply(compiler)
+    new UpdateManifest({manifestPath: '/m'}).apply(compiler)
 
     expect(compilation.updateAsset).not.toHaveBeenCalled()
     expect(JSON.parse(emitted['manifest.json']).icons).toBeDefined()

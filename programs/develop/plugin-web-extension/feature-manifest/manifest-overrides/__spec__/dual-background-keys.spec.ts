@@ -1,4 +1,5 @@
 import {describe, expect, it} from 'vitest'
+import type {Manifest} from '../../../../types'
 import {getManifestOverrides} from '../../manifest-overrides'
 import {hasUnsupportedMv3BackgroundPage} from '../../steps/patch-chromium-background'
 
@@ -14,7 +15,7 @@ describe('getManifestOverrides, dual background keys (G14)', () => {
     }
 
     const parsed = JSON.parse(
-      getManifestOverrides('/m/manifest.json', manifest as any, {} as any)
+      getManifestOverrides('/m/manifest.json', manifest as Manifest)
     )
 
     expect(parsed.background.service_worker).toBe(
@@ -32,7 +33,7 @@ describe('getManifestOverrides, dual background keys (G14)', () => {
     }
 
     const parsed = JSON.parse(
-      getManifestOverrides('/m/manifest.json', manifest as any, {} as any)
+      getManifestOverrides('/m/manifest.json', manifest as Manifest)
     )
 
     expect(parsed.background.scripts).toEqual(['background/scripts.js'])
@@ -42,11 +43,10 @@ describe('getManifestOverrides, dual background keys (G14)', () => {
 
   it('still rewrites an MV3 background.page for the browsers that read it', () => {
     const parsed = JSON.parse(
-      getManifestOverrides(
-        '/m/manifest.json',
-        {manifest_version: 3, background: {page: 'bg/index.html'}} as any,
-        {} as any
-      )
+      getManifestOverrides('/m/manifest.json', {
+        manifest_version: 3,
+        background: {page: 'bg/index.html'}
+      } as Manifest)
     )
 
     expect(parsed.background.page).toBe('background/index.html')
@@ -57,25 +57,25 @@ describe('MV3 background.page by browser', () => {
   const withPage = {manifest_version: 3, background: {page: 'bg/index.html'}}
 
   it('is unsupported on chromium', () => {
-    expect(hasUnsupportedMv3BackgroundPage(withPage as any, 'chrome')).toBe(
-      true
-    )
+    expect(
+      hasUnsupportedMv3BackgroundPage(withPage as Manifest, 'chrome')
+    ).toBe(true)
   })
 
   it('is supported on gecko and webkit', () => {
-    expect(hasUnsupportedMv3BackgroundPage(withPage as any, 'firefox')).toBe(
-      false
-    )
+    expect(
+      hasUnsupportedMv3BackgroundPage(withPage as Manifest, 'firefox')
+    ).toBe(false)
 
-    expect(hasUnsupportedMv3BackgroundPage(withPage as any, 'safari')).toBe(
-      false
-    )
+    expect(
+      hasUnsupportedMv3BackgroundPage(withPage as Manifest, 'safari')
+    ).toBe(false)
   })
 
   it('is supported on MV2 and beside a runnable MV3 entry', () => {
     expect(
       hasUnsupportedMv3BackgroundPage(
-        {manifest_version: 2, background: {page: 'bg/index.html'}} as any,
+        {manifest_version: 2, background: {page: 'bg/index.html'}} as Manifest,
         'chrome'
       )
     ).toBe(false)
@@ -85,7 +85,7 @@ describe('MV3 background.page by browser', () => {
         {
           manifest_version: 3,
           background: {page: 'bg/index.html', service_worker: 'sw.js'}
-        } as any,
+        } as Manifest,
         'chrome'
       )
     ).toBe(false)
@@ -95,7 +95,7 @@ describe('MV3 background.page by browser', () => {
         {
           manifest_version: 3,
           background: {page: 'bg/index.html', scripts: ['bg.js']}
-        } as any,
+        } as Manifest,
         'chrome'
       )
     ).toBe(false)

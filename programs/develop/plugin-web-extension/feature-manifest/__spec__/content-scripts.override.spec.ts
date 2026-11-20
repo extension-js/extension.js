@@ -1,9 +1,10 @@
 import {describe, expect, it} from 'vitest'
 import {contentScripts} from '../manifest-overrides/common/content_scripts'
+import {asManifest} from './helpers/manifest-fakes'
 
 describe('manifest content_scripts override', () => {
   it('de-duplicates emitted js/css bundle paths per content script group', () => {
-    const manifest = {
+    const manifest = asManifest({
       content_scripts: [
         {
           matches: ['<all_urls>'],
@@ -15,7 +16,7 @@ describe('manifest content_scripts override', () => {
           css: ['src/content_scripts/a.css', 'src/content_scripts/b.css']
         }
       ]
-    } as any
+    })
 
     const patched = contentScripts(manifest)
     const first = patched?.content_scripts?.[0]
@@ -25,7 +26,7 @@ describe('manifest content_scripts override', () => {
   })
 
   it('is idempotent for already bundled MAIN-world content scripts', () => {
-    const oncePatched = {
+    const oncePatched = asManifest({
       content_scripts: [
         {
           matches: ['<all_urls>'],
@@ -44,7 +45,7 @@ describe('manifest content_scripts override', () => {
           css: []
         }
       ]
-    } as any
+    })
 
     const twicePatched = contentScripts(oncePatched)
 
