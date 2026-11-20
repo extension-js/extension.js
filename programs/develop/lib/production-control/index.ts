@@ -31,15 +31,11 @@ import {
 } from '../../dev-server/control-bridge/ws-control-server'
 import {RELAY_TARGETS} from '../../plugin-reload/steps/inject-bridge-relay'
 import {withAddedSources} from '../../plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/patch-csp'
+import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import {isGeckoBasedBrowser, isWebkitBasedBrowser} from '../constants'
 import {prependBehindTakeBlock} from '../extension-base-from-stack'
 import {isSameOrInsidePath} from '../real-path'
 import {actionsPath, browserArtifactsDir, logsPath} from '../session-paths'
-
-// Same background entries the dev-build injector prepends to: Chromium emits
-// background/service_worker.js, Firefox background/scripts.js, and a declared
-// background page compiles to background/index.js.
-const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
 
 export interface ProductionControlOptions {
   packageJsonDir: string
