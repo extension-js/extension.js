@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type {Compilation, Compiler} from '@rspack/core'
 import {describe, expect, it} from 'vitest'
+import {buildPages, writePageProject} from '../../__spec__/helpers/page-builds'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {resourcesKeptReachable} from '../../plugin-web-extension/shared/kept-resource-extensions'
 import {ReloadPlugin} from '../index'
@@ -134,4 +135,28 @@ describe('what the reload plugin keeps reachable for the manifest', () => {
       resourcesKeptReachable({options: {}} as unknown as Compilation)
     ).toEqual([])
   })
+})
+
+describe('a sheet an earlier compile left, through a real dev session build', () => {
+  it('is web accessible in the manifest the build emits', async () => {
+    const root = fs.realpathSync(makeTempFolder('extjs-open-tab-build-'))
+    const output = path.join(root, 'dist', 'chrome-development-session')
+    const left = 'content_scripts/content-0.aaaaaaaa.css'
+
+    writePageProject(root)
+    fs.mkdirSync(path.join(output, 'content_scripts'), {recursive: true})
+    fs.writeFileSync(path.join(output, left), 'body{color:red}')
+
+    const built = await buildPages(root, 'development session')
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(output, 'manifest.json'), 'utf8')
+    ) as {web_accessible_resources?: Array<{resources: string[]}>}
+
+    expect(built.errors).toEqual([])
+    expect(
+      (manifest.web_accessible_resources || []).flatMap(
+        (group) => group.resources
+      )
+    ).toContain(left)
+  }, 180_000)
 })
