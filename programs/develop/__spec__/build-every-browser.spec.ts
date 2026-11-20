@@ -105,7 +105,11 @@ describe('one project built for every browser name', () => {
 
     expect(emitted(worker)).toContain('built as a worker')
     expect(manifest.browser_specific_settings).toBeUndefined()
-    expect(manifest.minimum_chrome_version).toBe('120')
+    // Chrome's version floor reaches Safari with the family keys and is
+    // left out there, since it means nothing to Safari.
+    expect(manifest.minimum_chrome_version).toBe(
+      family === 'webkit' ? undefined : '120'
+    )
   })
 
   it('covers exactly the names a build accepts', async () => {
