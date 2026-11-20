@@ -11,6 +11,13 @@ import * as path from 'node:path'
 import {Compilation, type Compiler, rspack} from '@rspack/core'
 import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
+import {
+  findPublicEnvFiles,
+  findPublicLinksLeftOut,
+  literalPathGlob,
+  privateFileIgnoreGlobs
+} from '../lib/public-private-files'
+import {rememberPublicRoots} from '../lib/public-roots'
 import {isInsidePath} from '../lib/real-path'
 import {localeDirsWithoutMessages} from '../plugin-web-extension/feature-locales/get-locales'
 import {htmlPageEntries} from '../plugin-web-extension/shared/html-page-entries'
@@ -43,17 +50,7 @@ import {HintImportOnlyScripts} from './hint-import-only-scripts'
 import {IncludeFiles} from './include-files'
 import * as messages from './messages'
 import {PruneRemovedPublicFiles} from './prune-removed-public-files'
-import {
-  findPublicEnvFiles,
-  findPublicLinksLeftOut,
-  literalPathGlob,
-  privateFileIgnoreGlobs
-} from './public-private-files'
-import {
-  inspectPublicFolders,
-  publicFolderExists,
-  rememberPublicRoots
-} from './resolve-public-folder'
+import {inspectPublicFolders, publicFolderExists} from './resolve-public-folder'
 import {WarnUponFolderChanges} from './warn-upon-folder-changes'
 
 // The env files a watch session already named, by public folder. It

@@ -3,7 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type {Compilation} from '@rspack/core'
 import {afterEach, describe, expect, it} from 'vitest'
-import {rememberPublicRoots} from '../../../../plugin-special-folders/resolve-public-folder'
+import {rememberPublicRoots} from '../../../../lib/public-roots'
 import {patchHtml} from '../../html-lib/patch-html'
 
 const roots: string[] = []

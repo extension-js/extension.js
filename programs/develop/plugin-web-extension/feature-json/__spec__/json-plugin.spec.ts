@@ -8,10 +8,8 @@ vi.mock('fs', async (importOriginal) => ({
 
 // The paths here are imaginary, so a file may ship when the fake disk has
 // it. Whole builds in json-private-sources.spec.ts run the real answer.
-vi.mock('../../../plugin-special-folders/public-private-files', async () => ({
-  ...(await vi.importActual<object>(
-    '../../../plugin-special-folders/public-private-files'
-  )),
+vi.mock('../../../lib/public-private-files', async () => ({
+  ...(await vi.importActual<object>('../../../lib/public-private-files')),
   sourceFileMayShip: (file: string) => fs.existsSync(file)
 }))
 

@@ -14,14 +14,12 @@ import {
   resolveStockSocketClientPath
 } from '../../lib/dev-server-client-import'
 import {resolveDevelopDistFile} from '../../lib/develop-context'
+import {usesReact, usesSvelte, usesVue} from '../../lib/framework-detect'
 import {filterKeysForThisBrowser} from '../../lib/manifest-utils'
 import {debugLine} from '../../lib/messaging'
 import {parseJsonSafe} from '../../lib/parse-json-safe'
 import {toResourceKey} from '../../lib/resource-path'
 import {NOT_RAW_RESOURCE_QUERY} from '../../lib/resource-query'
-import {isUsingReact} from '../../plugin-js-frameworks/js-tools/react'
-import {isUsingSvelte} from '../../plugin-js-frameworks/js-tools/svelte'
-import {isUsingVue} from '../../plugin-js-frameworks/js-tools/vue'
 import {EXTENSIONJS_CONTENT_SCRIPT_LAYER} from '../../plugin-web-extension/feature-scripts/contracts'
 import {
   extendHtmlPages,
@@ -151,9 +149,9 @@ export class SetupPageReload {
     // page accept here would empty the container underneath it.
     const frameworkOwnsRefresh = Boolean(
       projectRoot &&
-        (isUsingReact(projectRoot) ||
-          isUsingVue(projectRoot) ||
-          isUsingSvelte(projectRoot))
+        (usesReact(projectRoot) ||
+          usesVue(projectRoot) ||
+          usesSvelte(projectRoot))
     )
 
     const debugHtmlHmr = process.env.EXTENSION_DEBUG_HTML_HMR_SKIP === '1'

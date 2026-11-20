@@ -9,7 +9,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import type * as parse5utilities from 'parse5-utilities'
-import {publicRootsFor} from '../../../plugin-special-folders/resolve-public-folder'
+import {publicRootsFor} from '../../../lib/public-roots'
 import type {AssetHashOptions} from '../../../plugin-static-assets/static-assets-lib/asset-output-name'
 import type {FilepathList} from '../../../types'
 import {isFromFilepathList} from '../../shared/paths'
