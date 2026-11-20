@@ -1,16 +1,12 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it, vi} from 'vitest'
+import {describe, expect, it, vi} from 'vitest'
 import {buildProject} from '../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // How many times the transpiler is in the loaders of a content script module,
 // read from whole builds through the module list a config hook writes.
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function write(root: string, rel: string, content: string) {
   const file = path.join(root, ...rel.split('/'))
@@ -107,10 +103,7 @@ interface Fixture {
 }
 
 function project({scripts, files = {}, world, tsconfig}: Fixture) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-compiled-once-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-compiled-once-'))
 
   const names = Object.keys({...scripts, ...files})
   const usesJsx = names.some((name) => /\.[jt]sx$/.test(name))
