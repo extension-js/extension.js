@@ -9,6 +9,7 @@ import {
 } from '../duplicate-output-files'
 import * as messages from '../messages'
 import {listOutputFiles} from '../output-files'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 const roots: string[] = []
 
@@ -151,23 +152,9 @@ describe('a production build with the same bytes under two names', () => {
     fs.writeFileSync(path.join(root, 'public', 'model.bin'), bytes)
     fs.writeFileSync(path.join(root, 'public', 'nested', 'model.bin'), bytes)
 
-    const {extensionBuild} = await import('../../command-build')
-    const env = {VITEST: process.env.VITEST}
-    process.env.VITEST = 'true'
     let summary: BuildSummary
 
-    try {
-      summary = await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as any)
-    } finally {
-      if (env.VITEST === undefined) delete process.env.VITEST
-      else process.env.VITEST = env.VITEST
-    }
+    summary = await buildProject(root, {mode: 'production', exitOnError: false})
 
     const warning = (summary.warnings || []).find((line) =>
       /byte for byte/.test(line)

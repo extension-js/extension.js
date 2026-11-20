@@ -10,6 +10,7 @@ import {
   loadCommandConfig,
   loadProjectConfigDefaults
 } from '../config-loader'
+import {buildProject} from '../../__spec__/helpers/build-project'
 
 // Env files reach the config in the usual layers: .env.defaults only fills
 // gaps, .env is the base, .env.local overrides it, and a value the shell
@@ -139,23 +140,11 @@ describe('env preload layering at config time', () => {
 
   it('ships the zip a config toggles from a .env value', async () => {
     const root = project({...ENV_FILES, 'extension.config.js': JS_CONFIG})
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      const summary = await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        mode: 'production',
-        exitOnError: false
-      } as any)
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    const summary = await buildProject(root, {
+      mode: 'production',
+      exitOnError: false
+    })
+    expect(summary.errors_count).toBe(0)
 
     const zips = fs
       .readdirSync(path.join(root, 'dist'), {recursive: true})
@@ -266,22 +255,8 @@ describe('env preload follows the running mode', () => {
       'console.log("stage", process.env.EXTENSION_PUBLIC_STAGE)\n'
     )
 
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      const summary = await extensionBuild(root, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        exitOnError: false
-      } as any)
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    const summary = await buildProject(root, {exitOnError: false})
+    expect(summary.errors_count).toBe(0)
 
     const bundle = fs.readFileSync(
       path.join(root, 'dist', 'chrome', 'background', 'service_worker.js'),
@@ -473,22 +448,8 @@ describe('env preload keeps two projects apart', () => {
 
     await seenBy(first)
 
-    const {extensionBuild} = await import('../../command-build')
-    const previous = process.env.VITEST
-    process.env.VITEST = 'true'
-
-    try {
-      const summary = await extensionBuild(second, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        exitOnError: false
-      } as any)
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previous === undefined) delete process.env.VITEST
-      else process.env.VITEST = previous
-    }
+    const summary = await buildProject(second, {exitOnError: false})
+    expect(summary.errors_count).toBe(0)
 
     const bundle = fs.readFileSync(
       path.join(second, 'dist', 'chrome', 'background', 'service_worker.js'),
@@ -655,22 +616,8 @@ require('node:fs').writeFileSync(require('node:path').join(__dirname, 'seen.txt'
 `
       })
 
-      const {extensionBuild} = await import('../../command-build')
-      const previous = process.env.VITEST
-      process.env.VITEST = 'true'
-
-      try {
-        const summary = await extensionBuild(dir, {
-          browser: 'chrome',
-          silent: true,
-          install: false,
-          exitOnError: false
-        } as any)
-        expect(summary.errors_count).toBe(0)
-      } finally {
-        if (previous === undefined) delete process.env.VITEST
-        else process.env.VITEST = previous
-      }
+      const summary = await buildProject(dir, {exitOnError: false})
+      expect(summary.errors_count).toBe(0)
 
       const bundle = fs.readFileSync(
         path.join(dir, 'dist', 'chrome', 'background', 'service_worker.js'),
