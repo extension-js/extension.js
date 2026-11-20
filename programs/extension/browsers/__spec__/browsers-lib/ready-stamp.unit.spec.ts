@@ -1543,14 +1543,26 @@ describe('every stamp keeps the writer process identity', () => {
   ]
 
   it.each(STAMPS)('after %s', (_title, stamp) => {
-    const writes = fs.statSync(readyPath).ino
+    const before = fs.readFileSync(readyPath, 'utf-8')
+    // Windows refuses a rename onto a file held open, so the hold is posix.
+    const held =
+      process.platform === 'win32' ? undefined : fs.openSync(readyPath, 'r')
 
-    stamp(outputPath)
+    try {
+      stamp(outputPath)
 
-    const after = fs.readFileSync(readyPath, 'utf-8')
+      const after = fs.readFileSync(readyPath, 'utf-8')
 
-    // An atomic write replaces the file, so a new inode is a real rewrite.
-    expect(fs.statSync(readyPath).ino).not.toBe(writes)
-    expect(JSON.parse(after)).toMatchObject(IDENTITY)
+      expect(after).not.toBe(before)
+      expect(JSON.parse(after)).toMatchObject(IDENTITY)
+
+      // A replaced file leaves the old one behind the open descriptor, which
+      // an inode number cannot prove: a freed number is handed out again.
+      if (held !== undefined) {
+        expect(fs.readFileSync(held, 'utf-8')).toBe(before)
+      }
+    } finally {
+      if (held !== undefined) fs.closeSync(held)
+    }
   })
 })
