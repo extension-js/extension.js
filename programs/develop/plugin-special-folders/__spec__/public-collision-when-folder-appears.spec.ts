@@ -54,6 +54,7 @@ type Compilation = {
   fileDependencies: Set<string>
   getAssets: () => unknown[]
   hooks: {
+    finishModules: {tap: () => void}
     processAssets: {
       tap: (options: unknown, fn: () => void) => void
       tapPromise: () => void
