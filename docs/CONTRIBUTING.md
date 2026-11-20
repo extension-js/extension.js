@@ -157,6 +157,7 @@ Run `pnpm test` locally on Windows (or rely on the two **Run test suite (Windows
 ## Debugging & troubleshooting
 
 - Extra logs: pass `--debug`, or set `EXTENSION_DEBUG=1` in `.env`.
+- Build without type declarations: set `EXTENSION_SKIP_DTS=1`. Without it, a compile whose declaration generator (`@ast-grep/napi`) cannot load stops with the reason, in every package.
 - Run another engine: outside this repo, set `EXTENSION_DEVELOP_ROOT` to a built `extension-develop` folder and the CLI loads it in place of the installed one. A folder that holds no `extension-develop` package is ignored with a warning, and inside this repo `programs/develop` always wins.
 - Force-clean the repo:
 

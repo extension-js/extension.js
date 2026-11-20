@@ -11,25 +11,12 @@ import * as path from 'node:path'
 import type {RslibConfig} from '@rslib/core'
 import {defineConfig} from '@rslib/core'
 import colors from 'pintor'
+import {resolveDtsGeneration} from '../../scripts/lib/dts-generation.mjs'
 // @ts-expect-error plain ESM script without types, shared with the README sync workflow
 import {syncNpmReadme} from '../../scripts/sync-npm-readme.mjs'
 
 const require = createRequire(import.meta.url)
-const shouldGenerateDts = (() => {
-  try {
-    require('@ast-grep/napi')
-
-    return true
-  } catch (_error) {
-    // If the native binding cannot load, skip d.ts generation and keep build working.
-    // eslint-disable-next-line no-console
-    console.warn(
-      '[Extension.js] Skipping d.ts generation: @ast-grep/napi failed to load.'
-    )
-
-    return false
-  }
-})()
+const shouldGenerateDts = resolveDtsGeneration(() => require('@ast-grep/napi'))
 
 function copyReadmePlugin() {
   return {
