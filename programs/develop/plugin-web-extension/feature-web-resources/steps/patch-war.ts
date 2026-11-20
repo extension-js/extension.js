@@ -8,14 +8,16 @@
 
 import {Compilation, type Compiler} from '@rspack/core'
 import type {DevOptions, PluginInterface} from '../../../types'
-import {generateManifestPatches} from '../../feature-web-resources/web-resources-lib/generate-manifest'
-import {validateUserDeclaredWAR} from '../../feature-web-resources/web-resources-lib/resolve-war'
-import {getSharedFor} from '../../feature-web-resources/web-resources-lib/shared'
 import {
   getManifestContent,
   isStaticThemeCompilation
-} from '../manifest-lib/manifest'
+} from '../../feature-manifest/manifest-lib/manifest'
+import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
+import {validateUserDeclaredWAR} from '../web-resources-lib/resolve-war'
+import {getSharedFor} from '../web-resources-lib/shared'
 
+// Placed by the manifest pipeline, between its update and its warnings, so
+// every later manifest step reads the patched web_accessible_resources.
 export class PatchWAR {
   public readonly manifestPath: string
   public readonly browser?: DevOptions['browser']

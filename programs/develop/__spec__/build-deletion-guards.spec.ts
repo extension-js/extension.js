@@ -207,7 +207,7 @@ describe('an --out-dir the build must not replace', () => {
     expect(fs.readFileSync(precious, 'utf8')).toBe('PRECIOUS')
   }, 120_000)
 
-  it('refuses the session state folder and keeps the ready contract', async () => {
+  it('refuses the session state folder and keeps the ready contract, marked failed', async () => {
     const {root} = project()
     const contract = path.join(
       root,
@@ -226,7 +226,11 @@ describe('an --out-dir the build must not replace', () => {
       `--out-dir got dist/extension-js, which resolves to ${path.join(root, 'dist', 'extension-js')}, where Extension.js keeps session state and browser profiles.\n${OUT_DIR_FIX}`
     )
 
-    expect(fs.readFileSync(contract, 'utf8')).toBe('{"status":"ready"}')
+    // The file stays where it was, and the refusal is this run's last word.
+    expect(JSON.parse(fs.readFileSync(contract, 'utf8'))).toMatchObject({
+      status: 'error',
+      code: 'build_failed'
+    })
   }, 120_000)
 
   it('refuses a folder outside the project that no build wrote', async () => {

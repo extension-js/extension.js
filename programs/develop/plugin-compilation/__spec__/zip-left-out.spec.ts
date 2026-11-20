@@ -410,6 +410,54 @@ describe('the source zip rules, read as paths', () => {
     expect(isOwnArchiveName('old\\my-app-1.0.0-chrome.zip')).toBe(true)
   })
 
+  it('matches a version that holds a dash', () => {
+    expect(isOwnArchiveName('my-app-1.0.0-beta.1-chrome.zip')).toBe(true)
+    expect(isOwnArchiveName('app-2.0.0-rc-1-chromium-based.zip')).toBe(true)
+    expect(isOwnArchiveName('app-beta-chrome.zip')).toBe(false)
+  })
+
+  it('matches every browser archive of an explicit zip name and no other', () => {
+    for (const name of [
+      'review-firefox.zip',
+      'Review-Edge.zip',
+      'review.zip'
+    ]) {
+      expect(isOwnArchiveName(name, 'review'), name).toBe(true)
+    }
+
+    for (const name of ['theme-chrome.zip', 'review-notes.zip']) {
+      expect(isOwnArchiveName(name, 'review'), name).toBe(false)
+    }
+  })
+
+  it('leaves out an archive an explicit zip name wrote for another browser', async () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'zip-explicit-'))
+
+    try {
+      writeProject(root)
+      const outPath = path.join(root, 'dist', 'chrome')
+      write(path.join(outPath, 'manifest.json'), BUILT_MANIFEST)
+      write(path.join(root, 'old', 'review-firefox.zip'), 'OLD-ARCHIVE')
+      write(path.join(root, 'assets', 'theme-chrome.zip'), 'FIXTURE')
+
+      const {warnings} = await zipProject(root, outPath, {
+        zipSource: true,
+        zipFilename: 'review'
+      })
+      const packed = readZip(path.join(root, 'dist', 'review-source.zip'))
+
+      expect(Object.keys(packed).sort()).toEqual([
+        'assets/theme-chrome.zip',
+        ...SOURCE
+      ])
+
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]).toMatch(/old\/review-firefox\.zip/)
+    } finally {
+      fs.rmSync(root, {recursive: true, force: true})
+    }
+  })
+
   it('names a browser folder only when it sits in dist or build with a manifest', () => {
     expect(
       findNestedBuildFolders([

@@ -41,6 +41,24 @@ describe('getBackgroundEntryName', () => {
     })
   })
 
+  // A leading slash names the extension root, which is the manifest folder
+  // in source space, as the manifest fields read it for the entry itself.
+  it.each([
+    ['service_worker', {service_worker: '/background/index.js'}],
+    ['scripts', {scripts: ['/background/index.js']}]
+  ])('names the worker entry for a root-relative background.%s', (key, background) => {
+    const projectPath = makeProject(['src/background/index.js'])
+    const manifestDir = path.join(projectPath, 'src')
+    const manifest = {manifest_version: 3, background} as Manifest
+
+    expect(
+      getBackgroundEntryName(manifest, 'chrome', {manifestDir, projectPath})
+    ).toEqual({
+      serviceWorkerEntry:
+        key === 'scripts' ? 'background/scripts' : 'background/service_worker'
+    })
+  })
+
   it('names background/scripts for a Firefox-style MV3 manifest on chromium', () => {
     const manifestDir = makeProject(['background.js'])
     const manifest = {

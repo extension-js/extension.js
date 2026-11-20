@@ -345,6 +345,10 @@ async function compileGroup(
     ) as typeof child.options.module.rules
   }
 
+  const parentAssets = new Set(
+    compilation.getAssets().map((asset) => asset.name)
+  )
+
   await new Promise<void>((resolve) => {
     child.runAsChild((error, _entries, childCompilation) => {
       if (error) {
@@ -363,6 +367,14 @@ async function compileGroup(
 
         for (const childWarning of childCompilation.warnings) {
           compilation.warnings.push(namedForParent(compiler, childWarning))
+        }
+
+        // The bundler hands a failed child's files to the parent all the same,
+        // so they are taken back: a broken bundle never ships.
+        if (childCompilation.errors.length > 0) {
+          for (const {name} of childCompilation.getAssets()) {
+            if (!parentAssets.has(name)) compilation.deleteAsset(name)
+          }
         }
 
         try {

@@ -431,6 +431,24 @@ async function runBuild(
         )
     const envTarget = {mode: resolvedMode, browser: String(browser)}
 
+    // A refusal before the compiler writes its receipt must not leave the last
+    // run's ready.json standing. A live dev session's own file is left alone.
+    recordBuildFailure = (error) => {
+      if (!fs.existsSync(readyContractPath(packageJsonDir, browser))) return
+      if (findLiveDevSession(packageJsonDir, browser)) return
+
+      writeFailedReceipt(
+        createPlaywrightMetadataWriter({
+          packageJsonDir,
+          browser: String(browser),
+          command: buildOptions?.metadataCommand || 'build',
+          distPath: distPath || getBuildDistPath(packageJsonDir, browser),
+          manifestPath: projectStructure.manifestPath
+        }),
+        error
+      )
+    }
+
     findingProject = false
 
     await ensureDevelopArtifacts()
@@ -790,12 +808,7 @@ async function runBuild(
     recordBuildFailure = (error) => {
       if (!heldReceipt()) return
 
-      openReceipt().writeError(
-        'build_failed',
-        stripChannelPrefix(
-          error instanceof Error ? error.message : String(error)
-        )
-      )
+      writeFailedReceipt(openReceipt(), error)
     }
 
     let summary: BuildSummary = {
@@ -1017,8 +1030,13 @@ async function runBuild(
               }
             }
           } catch (lintError) {
-            // A store check can never fail a green build.
-            const lint = failedAddonLint(lintError, distDisplay)
+            // A store check can never fail a green build, and the note of
+            // an earlier lint is retired here as on every other failed path.
+            const lint = failedAddonLint(
+              lintError,
+              distDisplay,
+              displayDistPath
+            )
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
             lintLines.push(lint.line)
             namesOversizeFiles = true
@@ -1390,6 +1408,23 @@ function fatalFailure(thrown: unknown, projectRoot: string): Error {
   return Object.assign(codedError(CODES.E_COMPILE_FATAL, failure.message), {
     cause: thrown
   })
+}
+
+// The id stays build_failed. A code the failure declared is stamped beside
+// it, which a reader takes before the id's E_COMPILE fallback.
+function writeFailedReceipt(
+  writer: ReturnType<typeof createPlaywrightMetadataWriter>,
+  error: unknown
+): void {
+  const message = stripChannelPrefix(
+    error instanceof Error ? error.message : String(error)
+  )
+
+  writer.writeError('build_failed', message)
+
+  if (hasDeclaredCode(error)) {
+    writer.writeEndedAsFailed(String((error as {code: string}).code), message)
+  }
 }
 
 function hasDeclaredCode(error: unknown): boolean {

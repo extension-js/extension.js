@@ -71,6 +71,52 @@ export function findMistypedManifestFields(
     mistyped.push({field, expected, received: describeValue(value)})
   }
 
+  // Each path the build resolves goes through a string replace, so a number,
+  // a nested array or an object in a path slot would throw a raw TypeError.
+  const expectPath = (field: string, value: unknown) => {
+    if (value === undefined || typeof value === 'string') return
+
+    mistyped.push({
+      field,
+      expected: 'a file path string',
+      received: describeValue(value)
+    })
+  }
+
+  const expectPathList = (field: string, value: unknown, expected: string) => {
+    expectArray(field, value, expected)
+
+    if (!Array.isArray(value)) return
+
+    value.forEach((entry, index) => {
+      expectPath(`${field}[${index}]`, entry)
+    })
+  }
+
+  const expectPathMap = (field: string, value: unknown) => {
+    if (!isPlainObject(value)) return
+
+    for (const [key, entry] of Object.entries(value)) {
+      expectPath(`${field}.${key}`, entry)
+    }
+  }
+
+  const expectIconSet = (field: string, value: unknown) => {
+    if (value === undefined || typeof value === 'string') return
+
+    if (isPlainObject(value)) {
+      expectPathMap(field, value)
+
+      return
+    }
+
+    mistyped.push({
+      field,
+      expected: 'a file path string or an object of sizes to paths',
+      received: describeValue(value)
+    })
+  }
+
   for (const field of OBJECT_FIELDS) {
     const value = source[field]
 
@@ -102,13 +148,13 @@ export function findMistypedManifestFields(
         return
       }
 
-      expectArray(
+      expectPathList(
         `content_scripts[${index}].js`,
         entry.js,
         'an array of script paths'
       )
 
-      expectArray(
+      expectPathList(
         `content_scripts[${index}].css`,
         entry.css,
         'an array of stylesheet paths'
@@ -117,15 +163,141 @@ export function findMistypedManifestFields(
   }
 
   if (isPlainObject(source.sandbox)) {
-    expectArray('sandbox.pages', source.sandbox.pages, 'an array of page paths')
+    expectPathList(
+      'sandbox.pages',
+      source.sandbox.pages,
+      'an array of page paths'
+    )
   }
 
   if (isPlainObject(source.background)) {
-    expectArray(
+    expectPathList(
       'background.scripts',
       source.background.scripts,
       'an array of script paths'
     )
+
+    expectPath('background.service_worker', source.background.service_worker)
+    expectPath('background.page', source.background.page)
+  }
+
+  expectPath('options_page', source.options_page)
+  expectPath('devtools_page', source.devtools_page)
+
+  if (source.icons !== undefined && !isPlainObject(source.icons)) {
+    mistyped.push({
+      field: 'icons',
+      expected: 'an object of sizes to paths',
+      received: describeValue(source.icons)
+    })
+  }
+
+  expectPathMap('icons', source.icons)
+
+  const pageSlots: Array<[string, string]> = [
+    ['action', 'default_popup'],
+    ['browser_action', 'default_popup'],
+    ['page_action', 'default_popup'],
+    ['options_ui', 'page'],
+    ['side_panel', 'default_path'],
+    ['sidebar_action', 'default_panel'],
+    ['storage', 'managed_schema'],
+    ['user_scripts', 'api_script']
+  ]
+
+  for (const [owner, key] of pageSlots) {
+    const value = source[owner]
+
+    if (isPlainObject(value)) expectPath(`${owner}.${key}`, value[key])
+  }
+
+  for (const owner of [
+    'action',
+    'browser_action',
+    'page_action',
+    'sidebar_action'
+  ]) {
+    const value = source[owner]
+
+    if (isPlainObject(value)) {
+      expectIconSet(`${owner}.default_icon`, value.default_icon)
+    }
+  }
+
+  expectPathMap('chrome_url_overrides', source.chrome_url_overrides)
+
+  if (
+    isPlainObject(source.browser_action) &&
+    Array.isArray(source.browser_action.theme_icons)
+  ) {
+    source.browser_action.theme_icons.forEach((icon, index) => {
+      const field = `browser_action.theme_icons[${index}]`
+
+      if (!isPlainObject(icon)) {
+        mistyped.push({
+          field,
+          expected: 'an object with light and dark icon paths',
+          received: describeValue(icon)
+        })
+
+        return
+      }
+
+      expectPath(`${field}.light`, icon.light)
+      expectPath(`${field}.dark`, icon.dark)
+    })
+  }
+
+  if (
+    isPlainObject(source.declarative_net_request) &&
+    Array.isArray(source.declarative_net_request.rule_resources)
+  ) {
+    source.declarative_net_request.rule_resources.forEach((rule, index) => {
+      const field = `declarative_net_request.rule_resources[${index}]`
+
+      if (!isPlainObject(rule)) {
+        mistyped.push({
+          field,
+          expected: 'a rule resource object',
+          received: describeValue(rule)
+        })
+
+        return
+      }
+
+      expectPath(`${field}.path`, rule.path)
+    })
+  }
+
+  const resources = source.web_accessible_resources
+  expectArray(
+    'web_accessible_resources',
+    resources,
+    'an array of resource entries'
+  )
+
+  if (Array.isArray(resources)) {
+    resources.forEach((entry, index) => {
+      const field = `web_accessible_resources[${index}]`
+
+      if (typeof entry === 'string') return
+
+      if (!isPlainObject(entry)) {
+        mistyped.push({
+          field,
+          expected: 'a path string or an object with a resources array',
+          received: describeValue(entry)
+        })
+
+        return
+      }
+
+      expectPathList(
+        `${field}.resources`,
+        entry.resources,
+        'an array of resource paths'
+      )
+    })
   }
 
   for (const field of STRING_LIST_FIELDS) {

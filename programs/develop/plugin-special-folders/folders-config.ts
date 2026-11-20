@@ -31,8 +31,8 @@ export function rememberedFolders(
   return foldersByProjectRoot.get(path.resolve(projectRoot)) || {}
 }
 
-// The file kinds the scan enrolls from scripts/; the watcher asks the same
-// question, so a data file dropped there never restarts a session.
+// The file kinds the scan enrolls from scripts/, spelled exactly: the loaders
+// compile these names. The watcher asks the same, so neither one guesses.
 const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
   '.js',
   '.mjs',
@@ -45,7 +45,7 @@ const SCRIPTS_FOLDER_EXTENSIONS: ReadonlySet<string> = new Set([
 ])
 
 export function isScriptsFolderEntry(filePath: string): boolean {
-  return SCRIPTS_FOLDER_EXTENSIONS.has(path.extname(filePath).toLowerCase())
+  return SCRIPTS_FOLDER_EXTENSIONS.has(path.extname(filePath))
 }
 
 // `pages/player.dev.html` and `scripts/bench.dev.ts` are development-only

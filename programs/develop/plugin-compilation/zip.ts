@@ -287,24 +287,38 @@ function isKeyFileName(basename: string): boolean {
 }
 
 // The two names this plugin writes: <name>-source.zip, and a name that ends
-// in a version and a browser. Any other zip can be a fixture or an asset.
-export function isOwnArchiveName(file: string): boolean {
+// in a version and a browser, or an explicit name with any browser after it.
+// Any other zip can be a fixture or an asset.
+export function isOwnArchiveName(file: string, explicitStem?: string): boolean {
   const basename = lowerBasename(file)
 
   if (!basename.endsWith('.zip')) return false
 
   if (basename.endsWith('-source.zip')) return true
 
-  const parts = basename.slice(0, -'.zip'.length).split('-')
+  const stem = basename.slice(0, -'.zip'.length)
+  const ownStem = explicitStem?.toLowerCase()
+
+  if (ownStem && stem === ownStem) return true
+
+  const parts = stem.split('-')
 
   // A browser name holds at most one dash, as in chromium-based.
   return [1, 2].some((taken) => {
-    const version = parts[parts.length - taken - 1]
+    if (parts.length <= taken) return false
+    if (!isKnownBrowserName(parts.slice(-taken).join('-'))) return false
 
-    return (
-      parts.length > taken + 1 &&
-      /^\d[\w.+]*$/.test(version) &&
-      isKnownBrowserName(parts.slice(-taken).join('-'))
+    const before = parts.slice(0, -taken)
+
+    if (ownStem && before.join('-') === ownStem) return true
+
+    // A version may hold dashes (1.0.0-beta.1), so it starts at any part
+    // after the name and runs to the browser.
+    return before.some(
+      (part, index) =>
+        index > 0 &&
+        /^\d[\w.+]*$/.test(part) &&
+        before.slice(index + 1).every((rest) => /^[\w.+]+$/.test(rest))
     )
   })
 }
@@ -340,7 +354,8 @@ const WEB_EXT_ARTIFACTS_DIR = 'web-ext-artifacts'
 
 export function leftOutOfSourceByName(
   listed: string,
-  buildFolders: string[]
+  buildFolders: string[],
+  explicitStem?: string
 ): LeftOut | undefined {
   const file = toPosix(listed)
   const segments = file.split('/')
@@ -360,7 +375,9 @@ export function leftOutOfSourceByName(
     }
   }
 
-  if (isOwnArchiveName(file)) return {reason: 'archive', path: file}
+  if (isOwnArchiveName(file, explicitStem)) {
+    return {reason: 'archive', path: file}
+  }
 
   const buildFolder = buildFolders.find((folder) => isUnder(file, folder))
 
@@ -425,7 +442,8 @@ function leftOutOfSourceByText(
 
 // The output folder takes whatever the public folder holds, dotfiles too.
 export function leftOutOfExtensionZip(
-  file: string
+  file: string,
+  explicitStem?: string
 ): LeftOut | 'silent' | undefined {
   const basename = lowerBasename(file)
 
@@ -433,7 +451,7 @@ export function leftOutOfExtensionZip(
 
   if (isDeniedEnvFile(basename)) return {reason: 'env', path: toPosix(file)}
 
-  return isOwnArchiveName(file)
+  return isOwnArchiveName(file, explicitStem)
     ? {reason: 'archive', path: toPosix(file)}
     : undefined
 }
@@ -552,6 +570,8 @@ export interface BuildOutput {
   archives: string[]
   // Where a project sends its archives, when not beside the build output.
   archiveDir?: string
+  // An explicit --zip-filename without .zip: its archives for every browser.
+  explicitStem?: string
 }
 
 // A user config may point the output anywhere in the project. The previous
@@ -680,7 +700,11 @@ export async function getFilesToZip(
   const leftOut: LeftOut[] = []
 
   for (const file of kept) {
-    const byName = leftOutOfSourceByName(file, buildFolders)
+    const byName = leftOutOfSourceByName(
+      file,
+      buildFolders,
+      output?.explicitStem
+    )
 
     if (byName) {
       addLeftOut(leftOut, byName)
@@ -765,6 +789,13 @@ export class ZipPlugin {
     compiler.hooks.done.tapPromise('plugin-zip', async (stats) => {
       if (!(this.zipData.zip || this.zipData.zipSource)) return
 
+      const outDir = compiler.options.output?.path as string
+      // Known once the names are worked out, for a failure before that.
+      const planned = {
+        source: path.dirname(outDir || '.'),
+        dist: path.dirname(outDir || '.')
+      }
+
       try {
         const created: Array<{kind: 'source' | 'dist'; path: string}> = []
         const outPath = compiler.options.output?.path as string
@@ -806,6 +837,7 @@ export class ZipPlugin {
         const explicitName = this.zipData.zipFilename
           ? explicitZipFilename(this.zipData.zipFilename)
           : undefined
+        const explicitStem = explicitName?.replace(/\.zip$/i, '')
         const zipName = explicitName
           ? withBrowserSuffix(explicitName, String(this.browser))
           : `${name}-${this.browser}.zip`
@@ -820,6 +852,8 @@ export class ZipPlugin {
         const archiveDir = this.zipData.zipDir || path.dirname(outPath)
         const sourcePath = path.join(archiveDir, sourceName)
         const distPath = path.join(archiveDir, zipName)
+        planned.source = sourcePath
+        planned.dist = distPath
 
         // One archive's failure is not the other's: the source zip used to
         // take the dist zip down with it, and neither was reported as missing.
@@ -831,7 +865,8 @@ export class ZipPlugin {
                 {
                   outPath,
                   archives: [sourcePath, distPath],
-                  archiveDir: this.zipData.zipDir
+                  archiveDir: this.zipData.zipDir,
+                  explicitStem
                 },
                 sourceManifestPath
               )
@@ -910,7 +945,7 @@ export class ZipPlugin {
             const shipped = built
               .filter((file) => !isUnderAny(file, sessionFolders))
               .filter((file) => {
-                const found = leftOutOfExtensionZip(file)
+                const found = leftOutOfExtensionZip(file, explicitStem)
 
                 if (found && found !== 'silent') leftOut.push(found)
 
@@ -1019,11 +1054,24 @@ export class ZipPlugin {
           }
         }
       } catch (error) {
-        // Surface error in build output but do not crash dev builds
-        if (stats?.compilation?.warnings) {
-          stats.compilation.warnings.push(
-            new Error(compilationMessages.zipCreationFailed(error))
-          )
+        // A step shared by both archives failed: each one asked for is
+        // missing, so the command fails instead of exiting 0 with no zip.
+        const reason = String((error as Error)?.message || error)
+
+        if (this.zipData.zipSource) {
+          recordZipFailure(stats?.compilation, {
+            kind: 'source',
+            path: planned.source,
+            reason
+          })
+        }
+
+        if (this.zipData.zip) {
+          recordZipFailure(stats?.compilation, {
+            kind: 'dist',
+            path: planned.dist,
+            reason
+          })
         }
       }
     })
