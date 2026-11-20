@@ -45,4 +45,14 @@ describe('where companion extensions are resolved', () => {
 
     expect(reaching).toEqual([])
   })
+
+  it('leaves the special folders plugin with no companion code', () => {
+    const plugin = path.join(developRoot, 'plugin-special-folders')
+    const naming = sources(plugin)
+      .filter((file) => !file.includes('__spec__'))
+      .filter((file) => /companion/i.test(fs.readFileSync(file, 'utf8')))
+      .map((file) => path.relative(developRoot, file))
+
+    expect(naming).toEqual([])
+  })
 })

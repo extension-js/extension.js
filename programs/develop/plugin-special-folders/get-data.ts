@@ -9,8 +9,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type {Compiler} from '@rspack/core'
-import type {CompanionExtensionsConfig} from '../lib/companion-extensions/types'
-import {STOCK_COMPANION_DIR} from '../lib/constants'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
 import type {FilepathList, SpecialFoldersConfig} from '../types'
@@ -562,7 +560,6 @@ export function getSpecialFoldersDataForProjectRoot(
 type SpecialFoldersData = {
   pages?: FilepathList
   scripts?: FilepathList
-  extensions?: CompanionExtensionsConfig
 }
 
 const reportedDevOnlyEntries = new Set<string>()
@@ -602,10 +599,7 @@ function finalizeSpecialFoldersData(
         projectRoot,
         publicDir
       )
-    ),
-    // Default behavior: auto-scan top-level ./extensions for companion unpacked
-    // extensions (one level deep), optional browser subfolders via the resolver.
-    extensions: {dir: STOCK_COMPANION_DIR}
+    )
   }
 
   if (dropped.length > 0 && isDebug()) {
