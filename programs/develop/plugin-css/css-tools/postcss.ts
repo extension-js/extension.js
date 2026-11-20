@@ -419,6 +419,22 @@ function isLikelyCjsTailwindConfig(tailwindConfigPath?: string): boolean {
   }
 }
 
+async function importEsmTailwindConfig(
+  configFile: string,
+  projectPath: string
+): Promise<AnyModule | undefined> {
+  if (!/\.m?js$/.test(configFile)) return undefined
+
+  try {
+    const loaded = await importFresh(configFile, projectPath)
+    const config = loaded?.default ?? loaded
+
+    return config && typeof config === 'object' ? config : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function userConfigMentionsTailwindPlugin(postCssConfigPath?: string): boolean {
   if (!postCssConfigPath) return false
 
@@ -1192,7 +1208,18 @@ export async function maybeUsePostCss(
                     instance = tailwindMod({config: configFile})
                   }
                 } else {
-                  instance = tailwindMod({config: configFile})
+                  // An ES module config is read here for the same reasons. One
+                  // Node cannot import is left for Tailwind to read itself.
+                  const loaded = await importEsmTailwindConfig(
+                    configFile,
+                    projectPath
+                  )
+
+                  instance = tailwindMod(
+                    loaded
+                      ? normalizeTailwindContentGlobs(loaded, projectPath)
+                      : {config: configFile}
+                  )
                 }
               } else {
                 instance = tailwindMod()

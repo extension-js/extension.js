@@ -183,6 +183,41 @@ const CONFIGS: Array<{
       'app/tokens/index.js': "export {word} from './deep.js'\n",
       'app/postcss.config.js': `import {word} from './tokens/index.js'\nexport default ${STAMP_PLUGIN}\n`
     }
+  },
+  // Tailwind 3 takes the config the build read, with globs made absolute.
+  {
+    name: 'an ES module tailwind.config.js that imports a helper',
+    helper: 'tokens/deep.js',
+    source: "export const word = 'WORD'\n",
+    files: {
+      'app/package.json': JSON.stringify({
+        private: true,
+        name: 'reread',
+        type: 'module',
+        devDependencies: {tailwindcss: '^3.4.0'}
+      }),
+      'app/node_modules/tailwindcss/package.json': JSON.stringify({
+        name: 'tailwindcss',
+        version: '3.4.0',
+        main: 'index.cjs'
+      }),
+      'app/node_modules/tailwindcss/index.cjs': [
+        "const path = require('node:path')",
+        'module.exports = (options) => ({',
+        "  postcssPlugin: 'tailwindcss',",
+        '  Rule(rule) {',
+        '    const globs = [options?.content ?? []].flat()',
+        '    const read = globs.length > 0 && globs.every((glob) => path.isAbsolute(glob))',
+        "    rule.append({prop: '--stamp', value: read ? options.theme.word : 'unread'})",
+        '  }',
+        '})',
+        'module.exports.postcss = true',
+        ''
+      ].join('\n'),
+      'app/tokens/index.js': "export {word} from './deep.js'\n",
+      'app/tailwind.config.js':
+        "import {word} from './tokens/index.js'\nexport default {content: ['./popup.html'], theme: {word}}\n"
+    }
   }
 ]
 
