@@ -75,9 +75,6 @@ test('biome reports explicit any outside the pinned spec folders', () => {
     'programs/develop/**/__spec__/**',
     'programs/develop/**/*.spec.ts',
     'programs/extension/**/__spec__/**',
-    'programs/extension/**/*.spec.ts',
-    'programs/create/__spec__/create-install-order.spec.ts',
-    'programs/create/__spec__/create-into-existing-repo.spec.ts',
-    'programs/create/steps/__spec__/write-deno-jsonc.spec.ts'
+    'programs/extension/**/*.spec.ts'
   ])
 })
