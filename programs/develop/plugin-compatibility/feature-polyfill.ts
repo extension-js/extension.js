@@ -28,6 +28,27 @@ const cjsRequire = createRequire(import.meta.url)
 const PAGE_BROWSER_GLOBAL =
   'data:application/node,module.exports%20%3D%20globalThis.browser'
 
+// The project's own copy first: a package manager may hoist it to the
+// project root and not under this package. Nothing when no copy exists.
+export function resolvePolyfillPath(context?: string): string | undefined {
+  try {
+    return cjsRequire.resolve(
+      'webextension-polyfill/dist/browser-polyfill.js',
+      {
+        paths: [context as string, __dirname].filter(Boolean)
+      }
+    )
+  } catch (error) {
+    // Only a missing package turns the polyfill off. Any other failure is
+    // not "not installed", so it surfaces as the error it is.
+    if ((error as NodeJS.ErrnoException)?.code !== 'MODULE_NOT_FOUND') {
+      throw error
+    }
+
+    return undefined
+  }
+}
+
 export class PolyfillPlugin {
   public static readonly name: string = 'compatibility:polyfill'
 
@@ -60,39 +81,12 @@ export class PolyfillPlugin {
   }
 
   apply(compiler: Compiler) {
-    let polyfillPath: string
+    const polyfillPath = resolvePolyfillPath(compiler.options.context)
 
-    try {
-      // Resolve the polyfill preferring the consumer project first: package
-      // managers may hoist it to the project root, not under extension-develop.
-      polyfillPath = cjsRequire.resolve(
-        'webextension-polyfill/dist/browser-polyfill.js',
-        {
-          paths: [compiler.options.context as string, __dirname].filter(Boolean)
-        }
-      )
-    } catch (error) {
-      // Only a missing package turns the polyfill off. Any other failure is
-      // not "not installed", so it surfaces as the error it is.
-      if ((error as NodeJS.ErrnoException)?.code !== 'MODULE_NOT_FOUND') {
-        throw error
-      }
-
+    if (!polyfillPath) {
       this.warnNotInstalled(compiler)
 
       return
-    }
-
-    const currentResolve = compiler.options.resolve || {}
-    const existingAlias = currentResolve.alias || {}
-
-    compiler.options.resolve = {
-      ...currentResolve,
-      alias: {
-        ...existingAlias,
-        // Use `$` to exactly match the package name
-        'webextension-polyfill$': polyfillPath
-      }
     }
 
     // The path, not the package name, so an import the author wrote stays as
