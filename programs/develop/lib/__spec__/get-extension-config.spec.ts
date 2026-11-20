@@ -45,8 +45,11 @@ describe('get-extension-config defaults', () => {
       obj
     )
 
-    expect(await loadCommandConfig(tmp, 'dev')).toEqual({})
-    const browser = await loadBrowserConfig(tmp, 'chrome')
+    expect(await loadCommandConfig(tmp, 'dev', {mode: 'development'})).toEqual(
+      {}
+    )
+
+    const browser = await loadBrowserConfig(tmp, 'chrome', {mode: 'production'})
     expect(browser.browser).toBe('chrome')
     expect(await hasConfigFile(tmp)).toBe(false)
   })

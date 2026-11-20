@@ -45,9 +45,23 @@ export function getPreloadedEnvKeys(): ReadonlySet<string> {
   return preloadedEnvKeys
 }
 
-// What a run is compiling for, as far as the caller knows it. The browser is
+// What a run is compiling for. The mode is always known. The browser is
 // often read from the config itself, so it can be absent on the first load.
-export type ConfigEnvTarget = {mode?: string; browser?: string}
+export type ConfigEnvTarget = {mode: string; browser?: string}
+
+// What a caller outside this package may leave unsaid.
+export type PublicConfigEnvTarget = Partial<ConfigEnvTarget>
+
+// Only dev compiles in development, so that is what an unnamed mode means.
+export function envTargetOf(
+  command: string | undefined,
+  target?: PublicConfigEnvTarget
+): ConfigEnvTarget {
+  return {
+    mode: target?.mode || (command === 'dev' ? 'development' : 'production'),
+    browser: target?.browser
+  }
+}
 
 // The files the compiled bundle picks from, strongest first, in the order the
 // env plugin uses. Without a browser only the files no browser owns apply.
@@ -72,12 +86,6 @@ export function envFileCandidates(mode: string, browser?: string): string[] {
   ]
 }
 
-// Only dev compiles in development. Every caller that loads the config with
-// no command named is a build, start or preview path, so that is the default.
-function envModeFor(command?: string, target?: ConfigEnvTarget): string {
-  return target?.mode || (command === 'dev' ? 'development' : 'production')
-}
-
 // Env files from weakest to strongest: defaults only fill gaps, then the
 // bundle's candidates from last to first, so the file the build picks wins.
 // A key the shell already owns is never touched by any of them.
@@ -85,16 +93,10 @@ function envPreloadOrder(mode: string, browser?: string): string[] {
   return ['.env.defaults', ...envFileCandidates(mode, browser).reverse()]
 }
 
-// A target that names nothing leaves the order to the run's last read.
-function namedEnvOrder(target?: ConfigEnvTarget): string[] | undefined {
-  return target?.mode || target?.browser
-    ? envPreloadOrder(envModeFor(undefined, target), target.browser)
-    : undefined
+// Every load names its run, so no load depends on the one before it.
+function namedEnvOrder(target: ConfigEnvTarget): string[] {
+  return envPreloadOrder(target.mode, target.browser)
 }
-
-// The file order each config was last read with. A loader that is told no
-// mode and no browser reads the config the way the run last did.
-const envOrderByConfigPath = new Map<string, string[]>()
 
 // What each preloaded key was set to, so a value something else wrote over
 // it since is recognized as not a file value and left where it is.
@@ -784,20 +786,14 @@ let configLoadQueue: Promise<unknown> = Promise.resolve()
 
 async function loadConfigFile(
   configPath: string,
-  envOrder?: string[]
+  envOrder: string[]
 ): Promise<FileConfig> {
   const absolutePath = path.resolve(configPath)
 
   const turn = configLoadQueue.then(() => {
-    const order =
-      envOrder ||
-      envOrderByConfigPath.get(absolutePath) ||
-      envPreloadOrder(envModeFor())
-
     // Every call gets its own files on process.env, so the answer never
     // depends on which loader, or which project, happened to run before it.
-    preloadEnvFiles(path.dirname(absolutePath), order)
-    envOrderByConfigPath.set(absolutePath, order)
+    preloadEnvFiles(path.dirname(absolutePath), envOrder)
 
     const earlier = configEvaluationsByPath.get(absolutePath) || []
     const reusable = earlier.find(stillHolds)
@@ -984,7 +980,7 @@ export async function loadCustomConfig(
 // before the first build. Absent when the config file has none.
 export async function loadConfigResolvedHook(
   projectPath: string,
-  envTarget?: ConfigEnvTarget
+  envTarget: ConfigEnvTarget
 ): Promise<FileConfig['configResolved'] | undefined> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return undefined
@@ -1037,7 +1033,7 @@ function collectDefineTypes(
 // each browser and command, with the type its values resolve to.
 export async function loadDefineTypes(
   projectPath: string,
-  envTarget?: ConfigEnvTarget
+  envTarget: ConfigEnvTarget
 ): Promise<Record<string, string>> {
   const configPath = findConfigFile(projectPath)
   if (!configPath) return {}
@@ -1091,15 +1087,13 @@ export type ProjectConfigDefaults = Pick<
 // project-wide default wearing command-layer specificity.
 export async function loadProjectConfigDefaults(
   projectPath: string,
-  envTarget?: ConfigEnvTarget
+  envTarget: ConfigEnvTarget
 ): Promise<ProjectConfigDefaults> {
   const configPath = findConfigFile(projectPath)
 
   if (configPath) {
     if (await hasConfigFile(projectPath)) {
       try {
-        // Told nothing about the run, this reads the config as the run last
-        // did, and never as a production build in the middle of a dev session.
         const userConfig = (await loadConfigFile(
           configPath,
           namedEnvOrder(envTarget)
@@ -1156,7 +1150,7 @@ export type CommandLayerConfig = Partial<
 export async function loadCommandConfig(
   projectPath: string,
   command: 'dev' | 'build' | 'start' | 'preview',
-  envTarget?: ConfigEnvTarget
+  envTarget: ConfigEnvTarget
 ): Promise<CommandLayerConfig> {
   const configPath = findConfigFile(projectPath)
 
@@ -1165,7 +1159,7 @@ export async function loadCommandConfig(
       try {
         const userConfig = await loadConfigFile(
           configPath,
-          envPreloadOrder(envModeFor(command, envTarget), envTarget?.browser)
+          namedEnvOrder(envTarget)
         )
 
         return (userConfig?.commands?.[command] || {}) as CommandLayerConfig
@@ -1184,7 +1178,7 @@ export async function loadCommandConfig(
 export async function loadBrowserConfig(
   projectPath: string,
   browser: DevOptions['browser'] = 'chrome',
-  envTarget?: ConfigEnvTarget
+  envTarget: ConfigEnvTarget
 ): Promise<BrowserConfig> {
   const configPath = findConfigFile(projectPath)
 

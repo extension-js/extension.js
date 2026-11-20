@@ -27,7 +27,7 @@ async function warningsFor(config: string): Promise<string[]> {
     printed.push(stripAnsi(args.join(' ')))
   })
 
-  await loadCommandConfig(dir, 'dev')
+  await loadCommandConfig(dir, 'dev', {mode: 'development'})
 
   return printed
 }
@@ -92,8 +92,8 @@ describe('keys nothing reads under commands and browser', () => {
       printed.push(stripAnsi(args.join(' ')))
     })
 
-    await loadCommandConfig(dir, 'dev')
-    await loadCommandConfig(dir, 'build')
+    await loadCommandConfig(dir, 'dev', {mode: 'development'})
+    await loadCommandConfig(dir, 'build', {mode: 'production'})
 
     expect(printed).toHaveLength(1)
     expect(printed[0]).toContain('commands.dev.startingUrll')
