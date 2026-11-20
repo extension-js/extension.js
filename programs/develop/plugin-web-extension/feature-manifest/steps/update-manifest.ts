@@ -113,6 +113,51 @@ export class UpdateManifest {
     })
   }
 
+  // Store-readiness hint for AMO submissions: production artifacts
+  // only, so dev recompiles don't repeat it on every save.
+  private warnMissingDataCollection(
+    compiler: Compiler,
+    compilation: Compilation,
+    manifest: Manifest
+  ) {
+    if (
+      compiler.options.mode !== 'production' ||
+      !isGeckoBasedBrowser(String(this.browser)) ||
+      !missingGeckoDataCollectionPermissions(manifest)
+    ) {
+      return
+    }
+
+    const warn = new WebpackError(
+      messages.missingGeckoDataCollectionPermissions()
+    ) as Error & {file?: string; name?: string}
+    warn.name = 'AmoDataCollectionWarning'
+    warn.file = 'manifest.json'
+    compilation.warnings.push(warn)
+  }
+
+  // A build that failed elsewhere still owes the store hint, read from the
+  // manifest as written. One that cannot be read has its own error.
+  private warnMissingDataCollectionOfAuthored(
+    compiler: Compiler,
+    compilation: Compilation
+  ) {
+    let authored: Manifest
+
+    try {
+      authored = filterKeysForThisBrowser(
+        getManifestContent(compilation, this.manifestPath),
+        this.browser
+      ) as Manifest
+    } catch {
+      return
+    }
+
+    if (!authored || typeof authored !== 'object') return
+
+    this.warnMissingDataCollection(compiler, compilation, authored)
+  }
+
   apply(compiler: Compiler) {
     compiler.hooks.thisCompilation.tap(
       'manifest:update-manifest',
@@ -125,7 +170,11 @@ export class UpdateManifest {
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE + 1
           },
           () => {
-            if (compilation.errors.length > 0) return
+            if (compilation.errors.length > 0) {
+              this.warnMissingDataCollectionOfAuthored(compiler, compilation)
+
+              return
+            }
 
             const manifest = getManifestContent(compilation, this.manifestPath)
             const forBrowser = filterKeysForThisBrowser(
@@ -148,6 +197,8 @@ export class UpdateManifest {
                   'manifest.json'
                 )
               }
+
+              this.warnMissingDataCollection(compiler, compilation, forBrowser)
 
               return
             }
@@ -506,20 +557,11 @@ export class UpdateManifest {
               compilation.warnings.push(warn)
             }
 
-            // Store-readiness hint for AMO submissions: production artifacts
-            // only, so dev recompiles don't repeat it on every save.
-            if (
-              compiler.options.mode === 'production' &&
-              isGeckoBasedBrowser(String(this.browser)) &&
-              missingGeckoDataCollectionPermissions(patchedManifest)
-            ) {
-              const warn = new WebpackError(
-                messages.missingGeckoDataCollectionPermissions()
-              ) as Error & {file?: string; name?: string}
-              warn.name = 'AmoDataCollectionWarning'
-              warn.file = 'manifest.json'
-              compilation.warnings.push(warn)
-            }
+            this.warnMissingDataCollection(
+              compiler,
+              compilation,
+              patchedManifest
+            )
 
             // Without an add-on ID Firefox mints a new one per temporary
             // install, so storage is lost on relaunch. Dev says it too.
