@@ -138,25 +138,14 @@ describe('manifest output contract (real rspack, golden fixture)', () => {
   it('emits the documented predictable paths for every manifest surface', async () => {
     const {extensionBuild} = await import('../command-build')
 
-    const previousVitest = process.env.VITEST
-    process.env.VITEST = 'true'
+    const summary = await extensionBuild(FIXTURE_ROOT, {
+      browser: 'chrome',
+      silent: true,
+      install: false,
+      exitOnError: false
+    } as any)
 
-    try {
-      const summary = await extensionBuild(FIXTURE_ROOT, {
-        browser: 'chrome',
-        silent: true,
-        install: false,
-        exitOnError: false
-      } as any)
-
-      expect(summary.errors_count).toBe(0)
-    } finally {
-      if (previousVitest === undefined) {
-        delete process.env.VITEST
-      } else {
-        process.env.VITEST = previousVitest
-      }
-    }
+    expect(summary.errors_count).toBe(0)
 
     const distDir = path.join(FIXTURE_ROOT, 'dist', 'chrome')
     const manifest = JSON.parse(

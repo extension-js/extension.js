@@ -49,22 +49,14 @@ function project(files: Record<string, string>, images: unknown) {
 
 async function build(root: string) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-    expect(summary.errors_count).toBe(0)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  const summary = await extensionBuild(root, {
+    browser: 'chrome',
+    silent: true,
+    install: false,
+    mode: 'production'
+  } as any)
+  expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', 'chrome')
   const manifest = JSON.parse(

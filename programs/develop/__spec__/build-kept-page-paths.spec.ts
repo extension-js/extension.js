@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {stripVTControlCharacters} from 'node:util'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -37,22 +38,10 @@ async function build(
   mode: 'production' | 'development' = 'production',
   browser: 'chrome' | 'firefox' = 'chrome'
 ) {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode,
-      exitOnError: false
-    } as never)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    browser,
+    mode
+  })
 }
 
 function dist(root: string, rel: string, browser = 'chrome') {
@@ -289,8 +278,7 @@ describe('a page whose authored path a script holds as a string', () => {
       await extensionBuild(root, {
         browser: 'chrome',
         install: false,
-        mode: 'production',
-        exitOnError: false
+        mode: 'production'
       } as never)
     } finally {
       console.log = log

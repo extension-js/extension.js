@@ -71,9 +71,7 @@ function managedPaths(ready: {managedExtensions?: {path?: string}[]}) {
 }
 
 async function runStart(opts?: {extensions?: string[]}) {
-  const previousVitest = process.env.VITEST
   const previousAuthor = process.env.EXTENSION_AUTHOR_MODE
-  process.env.VITEST = 'true'
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
@@ -122,12 +120,6 @@ async function runStart(opts?: {extensions?: string[]}) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
     } else {
       process.env.EXTENSION_AUTHOR_MODE = previousAuthor
-    }
-
-    if (previousVitest === undefined) {
-      delete process.env.VITEST
-    } else {
-      process.env.VITEST = previousVitest
     }
   }
 }

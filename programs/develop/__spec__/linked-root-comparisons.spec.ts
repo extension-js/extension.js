@@ -141,9 +141,6 @@ describe.skipIf(!canLink)(
         fs.writeFileSync(path.join(distDir, 'manifest.json'), '{"dev":true}')
 
         const {extensionBuild} = await import('../command-build')
-        const previous = process.env.VITEST
-
-        process.env.VITEST = 'true'
 
         let error: (Error & {code?: string}) | undefined
 
@@ -158,8 +155,6 @@ describe.skipIf(!canLink)(
         } catch (caught) {
           error = caught as Error & {code?: string}
         } finally {
-          if (previous === undefined) delete process.env.VITEST
-          else process.env.VITEST = previous
         }
 
         expect(error?.code).toBe('E_DEV_SESSION_DIST_SHARED')

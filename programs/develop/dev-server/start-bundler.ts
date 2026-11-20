@@ -11,6 +11,7 @@ import {type CodedError, codedError} from '../lib/coded-error'
 import {CODES, type ErrorCode, stripChannelPrefix} from '../lib/messaging'
 import {humanLine} from './lifecycle-stream'
 import * as messages from './messages'
+import type {DevSessionRestartRequest} from './session-restart'
 
 export const DEFAULT_START_TIMEOUT_MS = 30000
 
@@ -222,8 +223,9 @@ export interface RestartFailureTargets {
     failed: (message: string) => void
     restartFailed: (args: {code: ErrorCode; message: string}) => void
   }
-  // Puts the session back on the compiler that is still serving.
-  keepServing: () => void
+  // Puts the session back on the compiler that is still serving, which asks
+  // for the failed restart again on its next change.
+  keepServing: (retry?: DevSessionRestartRequest) => void
   // A queued restart supersedes the serving compiler, which stays quiet.
   hasQueuedRestart: () => boolean
   // Lets go of what a session with no server still holds open.
@@ -242,8 +244,11 @@ export function createRestartFailure(targets: RestartFailureTargets) {
   const exit = targets.exit ?? ((code: number) => process.exit(code))
   const exitOnError = targets.exitOnError ?? true
 
-  const previousBuildKeepsServing = (error: unknown) => {
-    if (!targets.hasQueuedRestart()) targets.keepServing()
+  const previousBuildKeepsServing = (
+    error: unknown,
+    retry?: DevSessionRestartRequest
+  ) => {
+    if (!targets.hasQueuedRestart()) targets.keepServing(retry)
 
     print(messages.devServerRestartFailed(error, 'previous-build'))
 
@@ -254,8 +259,8 @@ export function createRestartFailure(targets: RestartFailureTargets) {
   }
 
   return {
-    bundle(error: unknown): void {
-      previousBuildKeepsServing(error)
+    bundle(error: unknown, request?: DevSessionRestartRequest): void {
+      previousBuildKeepsServing(error, request)
     },
     stop(error: unknown): void {
       print(messages.devServerStopFailedOnRestart(error))
@@ -294,10 +299,12 @@ export function createRestartFailure(targets: RestartFailureTargets) {
     // An unexpected throw still gets its line, and a serving compiler is not
     // left restarting. The scheduler's request here says nothing of a server.
     unexpected(error: unknown, state?: object): void {
-      const serving = (state as {previousServing?: unknown} | undefined)
-        ?.previousServing
+      const {previousServing, request} = (state ?? {}) as {
+        previousServing?: unknown
+        request?: DevSessionRestartRequest
+      }
 
-      if (serving === true) previousBuildKeepsServing(error)
+      if (previousServing === true) previousBuildKeepsServing(error, request)
       else print(messages.devServerRestartFailed(error, 'unknown'))
     }
   }

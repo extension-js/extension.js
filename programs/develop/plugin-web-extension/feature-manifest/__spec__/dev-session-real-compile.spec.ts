@@ -4,7 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterAll, describe, expect, it} from 'vitest'
-import {devAdditionsOf} from '../../../lib/dev-additions'
+import {appendDevAdditions, devAdditionsOf} from '../../../lib/dev-additions'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
 import {writeOutputAsADevSessionDoes} from './helpers/dev-output-writes'
@@ -287,6 +287,40 @@ describe('the dev additions a dev session records', () => {
     try {
       expect(session.first.hasErrors()).toBe(false)
       expect(manifestChanges(session.first)).toEqual([
+        'background.service_worker background/service_worker.js'
+      ])
+    } finally {
+      await session.close()
+    }
+  }, 120_000)
+
+  it('keeps what an earlier step added next to the manifest patch', async () => {
+    const earlier = {
+      kind: 'manifest_change' as const,
+      value: 'content_scripts dev stubs',
+      reason: 'an earlier step of the same compile'
+    }
+    const session = await devSession(
+      project(
+        {manifest_version: 3, action: {default_popup: 'popup.html'}},
+        {'popup.html': '<!doctype html><html><body>popup</body></html>\n'}
+      ),
+      (compiler) => {
+        compiler.hooks.thisCompilation.tap('earlier-step', (compilation) => {
+          compilation.hooks.processAssets.tap(
+            {
+              name: 'earlier-step',
+              stage: rspack.Compilation.PROCESS_ASSETS_STAGE_ADDITIONS
+            },
+            () => appendDevAdditions(compilation, [earlier])
+          )
+        })
+      }
+    )
+
+    try {
+      expect(manifestChanges(session.first)).toEqual([
+        'content_scripts dev stubs',
         'background.service_worker background/service_worker.js'
       ])
     } finally {

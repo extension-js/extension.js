@@ -43,22 +43,14 @@ function project(config?: string) {
 
 async function build(root: string, options: Record<string, unknown> = {}) {
   const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
 
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false,
-      ...options
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return await extensionBuild(root, {
+    browser: 'chrome',
+    silent: true,
+    install: false,
+    mode: 'production',
+    ...options
+  } as any)
 }
 
 function liveProcess(): number {

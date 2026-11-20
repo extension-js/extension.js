@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const SUITE_ROOT = fs.mkdtempSync(
   path.join(os.tmpdir(), 'extjs-build-war-sibling-geturl-')
@@ -63,22 +64,9 @@ function writeFixture(name: string, declared = true): string {
 }
 
 async function buildFixture(root: string) {
-  const {extensionBuild} = await import('../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return buildProject(root, {
+    mode: 'production'
+  })
 }
 
 function declaredResources(distDir: string) {
