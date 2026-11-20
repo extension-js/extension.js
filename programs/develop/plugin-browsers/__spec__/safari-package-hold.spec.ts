@@ -58,14 +58,19 @@ function session(broker?: ReloadBroker) {
     return compiler.hooks.watchRun.promise(compiler)
   }
 
+  // A real compilation names what it read: here, the files it started for.
   const ends = (output: string, errors: unknown[] = []) =>
     compiler.hooks.done.promise({
-      compilation: fakeCompilation({
-        context: root,
-        output,
-        errors,
-        manifest: {content_scripts: [{js: ['content.js']}]}
-      })
+      compilation: {
+        ...fakeCompilation({
+          context: root,
+          output,
+          errors,
+          manifest: {content_scripts: [{js: ['content.js']}]}
+        }),
+        fileDependencies: new Set(compiler.modifiedFiles),
+        missingDependencies: new Set<string>()
+      }
     } as never)
 
   // The first package, then a resync the done hook stops waiting for.
