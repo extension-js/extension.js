@@ -33,7 +33,6 @@ export const LEGS = {
     {name: '@rspack/core', from: '@rspack-canary/core', tags: ['latest']},
     {name: '@rspack/dev-server', tags: ['rc', 'beta', 'canary']},
     {name: '@rspack/plugin-react-refresh', tags: ['rc', 'beta', 'canary']},
-    {name: '@rspack/plugin-preact-refresh', tags: ['rc', 'beta', 'canary']},
     {name: '@rslib/core', tags: ['rc', 'beta', 'canary', 'next']}
   ],
   'frameworks-next': [
