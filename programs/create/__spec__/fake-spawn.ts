@@ -19,6 +19,8 @@ export interface SpawnCall {
   options: SpawnOptions
   pid: number
   signals: string[]
+  // Which of the child's pipes the runner closed on its side.
+  destroyed: Array<'stdout' | 'stderr'>
 }
 
 // The error Node and cross-spawn both raise for a binary that is not on PATH.
@@ -45,18 +47,24 @@ export function fakeSpawn(
       args,
       options,
       pid: 4000 + calls.length,
-      signals: []
+      signals: [],
+      destroyed: []
     }
     calls.push(call)
 
     const piped = (index: number) =>
       options.stdio === 'pipe' ||
       (Array.isArray(options.stdio) && options.stdio[index] === 'pipe')
-    const pipe = () => Object.assign(new EventEmitter(), {destroy() {}})
+    const pipe = (name: 'stdout' | 'stderr') =>
+      Object.assign(new EventEmitter(), {
+        destroy() {
+          call.destroyed.push(name)
+        }
+      })
     const child = Object.assign(new EventEmitter(), {
       pid: call.pid,
-      stdout: piped(1) ? pipe() : null,
-      stderr: piped(2) ? pipe() : null,
+      stdout: piped(1) ? pipe('stdout') : null,
+      stderr: piped(2) ? pipe('stderr') : null,
       unref() {},
       kill(signal?: string) {
         call.signals.push(String(signal))

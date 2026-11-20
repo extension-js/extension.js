@@ -257,6 +257,16 @@ function stillRunning(child: ChildProcess): boolean {
   return child.exitCode === null && child.signalCode === null
 }
 
+// The system copy, so a taskkill earlier on PATH, such as one a project
+// folder ships, never runs.
+export function windowsTaskkillPath(
+  env: Record<string, string | undefined> = process.env
+) {
+  const root = env.SystemRoot || env.windir || 'C:\\Windows'
+
+  return path.win32.join(root, 'System32', 'taskkill.exe')
+}
+
 // A .cmd shim runs the manager as a grandchild of cmd.exe, which a plain kill
 // would orphan, so Windows ends the whole tree. On POSIX a child that leads
 // its own group is ended with everything it started, a postinstall included.
@@ -268,9 +278,11 @@ export function endProcessTree(
 ) {
   if (platform === 'win32' && child.pid !== undefined) {
     try {
-      spawnProcess('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
-        stdio: 'ignore'
-      }).on('error', () => {})
+      spawnProcess(
+        windowsTaskkillPath(),
+        ['/pid', String(child.pid), '/T', '/F'],
+        {stdio: 'ignore'}
+      ).on('error', () => {})
     } catch {
       // The child is already gone, and the timeout is still what gets reported.
     }
@@ -403,6 +415,11 @@ export async function runInstall(
     const timer = setTimeout(() => {
       release()
       endProcessTree(child, spawnProcess, platform, signalGroup)
+      // Neither the pipes a surviving grandchild holds nor the child itself
+      // may keep the create from ending, as the probe and the clone do.
+      child.stdout?.destroy()
+      child.stderr?.destroy()
+      child.unref()
       resolve({
         code: null,
         stderr,

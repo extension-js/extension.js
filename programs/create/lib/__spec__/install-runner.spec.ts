@@ -16,6 +16,7 @@ import {
   invokingNpmrcReleaseAge,
   KILL_GRACE_MS,
   runInstall,
+  windowsTaskkillPath,
   withoutInheritedReleaseAge
 } from '../install-runner'
 
@@ -255,12 +256,23 @@ describe('install-runner runInstall', () => {
 
       expect(calls.map((call) => [call.command, ...call.args])).toEqual([
         ['pnpm', 'install'],
-        ['taskkill', '/pid', String(calls[0].pid), '/T', '/F']
+        [windowsTaskkillPath(), '/pid', String(calls[0].pid), '/T', '/F']
       ])
 
       expect(calls[1].options).toEqual({stdio: 'ignore'})
+      // A grandchild that outlives the tree kill cannot keep this process up.
+      expect(calls[0].destroyed).toEqual(['stdout', 'stderr'])
       expect(calls[0].options).not.toHaveProperty('detached')
       expect(calls[0].signals).toEqual([])
+    })
+
+    // A taskkill earlier on PATH, such as one a project folder ships, never runs.
+    it.each([
+      [{SystemRoot: 'D:\\Windows'}, 'D:\\Windows\\System32\\taskkill.exe'],
+      [{windir: 'E:\\WINNT'}, 'E:\\WINNT\\System32\\taskkill.exe'],
+      [{}, 'C:\\Windows\\System32\\taskkill.exe']
+    ])('starts taskkill from the system folder for %o', (env, expected) => {
+      expect(windowsTaskkillPath(env)).toBe(expected)
     })
 
     it('ends the whole group on POSIX, then kills what is left after the grace', async () => {
