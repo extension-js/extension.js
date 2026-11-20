@@ -88,7 +88,9 @@ export default function webpackConfig(
     : (devOptions.mode || 'development') === 'development'
   // The record of the session that builds this config, when one does.
   const session = devOptions.session
-  const connectableHost = session?.connectableHost || devOptions.connectableHost
+  const connectableHost = session?.connectableHost
+  // A session listens on the port it was given, which may not be the asked one.
+  const port = session?.port ?? devOptions.port
 
   let rawManifest: unknown
 
@@ -231,10 +233,7 @@ export default function webpackConfig(
       zipSource: devOptions.zipSource === true,
       zipFilename: devOptions.zipFilename,
       zipDir: devOptions.zipDir,
-      port:
-        typeof devOptions.port === 'string'
-          ? parseInt(devOptions.port, 10)
-          : devOptions.port,
+      port: typeof port === 'string' ? parseInt(port, 10) : port,
       command: devOptions.metadataCommand,
       browserLaunchEnabled: session
         ? session.launchEnabled
@@ -271,7 +270,7 @@ export default function webpackConfig(
       browser: devOptions.browser,
       devSession,
       connectableHost,
-      port: session?.port ?? devOptions.port,
+      port,
       session
     }),
     new WebExtensionPlugin({
@@ -290,8 +289,8 @@ export default function webpackConfig(
       manifestPath,
       browser: devOptions.browser,
       devSession,
-      instanceId: session?.instanceId ?? devOptions.instanceId,
-      controlPort: session ? session.controlPort : devOptions.controlPort,
+      instanceId: session?.instanceId,
+      controlPort: session?.controlPort,
       connectableHost
     }),
     // rspack's own loader appends a <script> to the host page, which never
@@ -339,13 +338,13 @@ export default function webpackConfig(
       command: devOptions.metadataCommand,
       outputPath: publishedExtensionOutputDir,
       manifestPath,
-      port: devOptions.port,
+      port,
       // Connectable host clients dial (HMR + control bridge), resolved by
       // dev-server/index.ts for each session. The bind host is the fallback.
       host: connectableHost || (devOptions as {host?: string}).host,
-      instanceId: devOptions.instanceId,
+      instanceId: session?.instanceId,
       instanceExplicit: devOptions.instanceExplicit,
-      controlPort: devOptions.controlPort,
+      controlPort: session?.controlPort,
       controlPortUnavailableReason: devOptions.controlPortUnavailableReason,
       controlPath: devOptions.controlPath,
       logsPath: devOptions.logsPath,

@@ -5,6 +5,7 @@ import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {diagnosticCode} from '../../lib/diagnostic-code'
 import {getProjectStructure} from '../../lib/project'
 import webpackConfig from '../../rspack-config'
+import {sessionOf} from './dev-session'
 
 // One whole build of a project through the real config, minus the browser
 // plugins, read back as what a page ships and what its entry imports.
@@ -184,10 +185,11 @@ export async function buildPages(
     output: {clean: false, path: distPath},
     ...(session
       ? {
-          port: SESSION_PORT,
-          connectableHost: '127.0.0.1',
-          instanceId: 'page-builds-instance',
-          controlPort: SESSION_PORT + 1
+          session: sessionOf({
+            port: SESSION_PORT,
+            instanceId: 'page-builds-instance',
+            controlPort: SESSION_PORT + 1
+          })
         }
       : {})
   } as Parameters<typeof webpackConfig>[1])

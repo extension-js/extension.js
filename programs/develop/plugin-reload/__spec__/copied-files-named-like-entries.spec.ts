@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compiler, rspack, type Stats} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {sessionOf} from '../../__spec__/helpers/dev-session'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import {skipWithoutDevelopDist} from '../../dev-server/__spec__/helpers/develop-dist'
 import {getProjectStructure} from '../../lib/project'
@@ -64,8 +65,10 @@ async function devCompile(root: string) {
     mode: 'development',
     metadataCommand: 'dev',
     // The bridge steps only run for a session that has a control port.
-    instanceId: 'copied-like-entries',
-    controlPort: 45123,
+    session: sessionOf({
+      instanceId: 'copied-like-entries',
+      controlPort: 45123
+    }),
     silent: true,
     output: {clean: false, path: distPath}
   } as any)
