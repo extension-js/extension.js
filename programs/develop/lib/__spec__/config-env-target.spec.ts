@@ -1,20 +1,20 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
-import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {
   loadBrowserConfig,
   loadCommandConfig,
   loadConfigResolvedHook,
   loadProjectConfigDefaults
 } from '../config-loader'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // A config is read under the env files of the mode and browser that asked,
 // whichever loader ran first, and runs again only when those files differ.
 const KEY = 'EXTENSION_PUBLIC_STAGE'
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 let saved: string | undefined
 
 beforeEach(() => {
@@ -27,13 +27,8 @@ afterEach(() => {
   else process.env[KEY] = saved
 })
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(files: Record<string, string>, type?: 'module') {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-env-target-'))
-  roots.push(root)
+  const root = tempFolder('extjs-env-target-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({

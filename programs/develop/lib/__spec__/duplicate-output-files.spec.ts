@@ -1,7 +1,6 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, describe, expect, it} from 'vitest'
+import {describe, expect, it} from 'vitest'
 import type {BuildSummary} from '../build-summary'
 import {
   findDuplicateOutputFiles,
@@ -10,12 +9,9 @@ import {
 import * as messages from '../messages'
 import {listOutputFiles} from '../output-files'
 import {buildProject} from '../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 function stripAnsi(value: string): string {
   // eslint-disable-next-line no-control-regex
@@ -25,8 +21,7 @@ function stripAnsi(value: string): string {
 const BIG = 300 * 1024
 
 function folder(files: Record<string, Buffer | string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dupes-'))
-  roots.push(root)
+  const root = tempFolder('extjs-dupes-')
 
   for (const [name, content] of Object.entries(files)) {
     const target = path.join(root, name)
@@ -129,8 +124,7 @@ describe('the duplicate files warning', () => {
 
 describe('a production build with the same bytes under two names', () => {
   it('warns once with both paths and records it in the summary', async () => {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-dupes-build-'))
-    roots.push(root)
+    const root = tempFolder('extjs-dupes-build-')
     fs.writeFileSync(
       path.join(root, 'package.json'),
       JSON.stringify({private: true, name: 'dupes', version: '0.0.0'})

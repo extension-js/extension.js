@@ -1,15 +1,15 @@
 import {spawnSync} from 'node:child_process'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import {pathToFileURL} from 'node:url'
 import {rspack} from '@rspack/core'
-import {afterAll, afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {loadCommandConfig, loadCustomConfig} from '../config-loader'
 import {configLoadingError} from '../messages'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 const KEYS = ['MY_CFG_VALUE', 'EXTENSION_PUBLIC_A']
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const context = {
   browser: 'chrome',
   mode: 'production',
@@ -32,13 +32,8 @@ afterEach(() => {
   }
 })
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-cfg-identity-'))
-  roots.push(root)
+  const root = tempFolder('extjs-cfg-identity-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'cfg-identity', version: '0.0.0'})

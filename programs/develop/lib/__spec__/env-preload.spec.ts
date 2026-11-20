@@ -1,7 +1,6 @@
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, beforeEach, describe, expect, it} from 'vitest'
+import {afterEach, beforeEach, describe, expect, it} from 'vitest'
 import {getEnvFileCandidates} from '../../plugin-compilation/env'
 import {
   envFileCandidates,
@@ -11,6 +10,7 @@ import {
   loadProjectConfigDefaults
 } from '../config-loader'
 import {buildProject} from '../../__spec__/helpers/build-project'
+import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 
 // Env files reach the config in the usual layers: .env.defaults only fills
 // gaps, .env is the base, .env.local overrides it, and a value the shell
@@ -25,7 +25,7 @@ const KEYS = [
   'EXTENSION_PUBLIC_ONLY_FIRST',
   'EXTENSION_PUBLIC_BOTH'
 ]
-const roots: string[] = []
+const tempFolder = trackTempFolders()
 const saved: Record<string, string | undefined> = {}
 
 beforeEach(() => {
@@ -42,13 +42,8 @@ afterEach(() => {
   }
 })
 
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
-
 function project(files: Record<string, string>) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-env-preload-'))
-  roots.push(root)
+  const root = tempFolder('extjs-env-preload-')
   fs.writeFileSync(
     path.join(root, 'package.json'),
     JSON.stringify({private: true, name: 'env-preload', version: '0.0.0'})
@@ -490,10 +485,7 @@ function workspacePackage(
   rootFiles: Record<string, string>,
   packageFiles: Record<string, string>
 ) {
-  const root = fs.realpathSync(
-    fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-env-workspace-'))
-  )
-  roots.push(root)
+  const root = fs.realpathSync(tempFolder('extjs-env-workspace-'))
   fs.writeFileSync(
     path.join(root, 'pnpm-workspace.yaml'),
     "packages:\n  - 'packages/*'\n"
