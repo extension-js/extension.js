@@ -1,16 +1,32 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 
+// The page globals the shim reads. Node's typings carry none of them.
+interface PageLocation {
+  protocol: string
+  href: string
+  search: string
+}
+
+interface PageGlobals {
+  location?: PageLocation
+  history?: unknown
+  [key: string]: unknown
+}
+
+const page = globalThis as unknown as PageGlobals
+const pageLocation = () => page.location as PageLocation
+
 describe('minimum-script-file (dev page) query-param shim', () => {
   let storedPath = ''
-  let originalLocation: any
-  let originalHistory: any
+  let originalLocation: PageLocation | undefined
+  let originalHistory: unknown
 
   beforeEach(() => {
-    originalLocation = (globalThis as any).location
-    originalHistory = (globalThis as any).history
+    originalLocation = page.location
+    originalHistory = page.history
     storedPath = ''
 
-    const fakeWindow: any = {
+    const fakeWindow = {
       location: {
         protocol: 'chrome-extension:',
         href: 'chrome-extension://abc/sidebar/index.html',
@@ -43,7 +59,7 @@ describe('minimum-script-file (dev page) query-param shim', () => {
 
   afterEach(() => {
     if (originalLocation === undefined) {
-      delete (globalThis as any).location
+      delete page.location
     } else {
       Object.defineProperty(globalThis, 'location', {
         configurable: true,
@@ -53,7 +69,7 @@ describe('minimum-script-file (dev page) query-param shim', () => {
     }
 
     if (originalHistory === undefined) {
-      delete (globalThis as any).history
+      delete page.history
     } else {
       Object.defineProperty(globalThis, 'history', {
         configurable: true,
@@ -67,13 +83,14 @@ describe('minimum-script-file (dev page) query-param shim', () => {
     await import('../reload-lib/minimum-files/minimum-script-file.ts')
 
     expect(storedPath).toBe('')
-    expect((globalThis as any).location.search).toBe('')
+    expect(pageLocation().search).toBe('')
   })
 
   it('scrubs stale hot=false guards written by older dev sessions', async () => {
-    ;(globalThis as any).location.href =
+    pageLocation().href =
       'chrome-extension://abc/options/index.html?rspack-dev-server-hot=false&webpack-dev-server-hot=false'
-    ;(globalThis as any).location.search =
+
+    pageLocation().search =
       '?rspack-dev-server-hot=false&webpack-dev-server-hot=false'
 
     await import('../reload-lib/minimum-files/minimum-script-file.ts')
@@ -83,10 +100,10 @@ describe('minimum-script-file (dev page) query-param shim', () => {
   })
 
   it('keeps unrelated query params while scrubbing the guards', async () => {
-    ;(globalThis as any).location.href =
+    pageLocation().href =
       'chrome-extension://abc/options/index.html?tab=general&webpack-dev-server-hot=false'
-    ;(globalThis as any).location.search =
-      '?tab=general&webpack-dev-server-hot=false'
+
+    pageLocation().search = '?tab=general&webpack-dev-server-hot=false'
 
     await import('../reload-lib/minimum-files/minimum-script-file.ts')
 
@@ -102,7 +119,7 @@ describe('minimum-script-file (dev page) html-change reload', () => {
   const saved: Record<string, unknown> = {}
 
   function install(key: string, value: unknown) {
-    saved[key] = (globalThis as any)[key]
+    saved[key] = page[key]
     Object.defineProperty(globalThis, key, {
       configurable: true,
       writable: true,
@@ -124,9 +141,12 @@ describe('minimum-script-file (dev page) html-change reload', () => {
     })
 
     install('history', {replaceState() {}})
-    install('addEventListener', (type: string, fn: any) => {
-      if (type === 'message') listeners.push(fn)
-    })
+    install(
+      'addEventListener',
+      (type: string, fn: (event: {data?: unknown}) => void) => {
+        if (type === 'message') listeners.push(fn)
+      }
+    )
 
     install('fetch', async () => ({ok: true, text: async () => served}))
     vi.useFakeTimers()
@@ -137,7 +157,7 @@ describe('minimum-script-file (dev page) html-change reload', () => {
     vi.useRealTimers()
 
     for (const key of Object.keys(saved)) {
-      if (saved[key] === undefined) delete (globalThis as any)[key]
+      if (saved[key] === undefined) delete page[key]
       else {
         Object.defineProperty(globalThis, key, {
           configurable: true,
@@ -189,8 +209,8 @@ describe('minimum-script-file (dev page) html-change reload', () => {
   })
 
   it('does nothing on a plain web page', async () => {
-    ;(globalThis as any).location.protocol = 'https:'
-    ;(globalThis as any).location.href = 'https://example.com/'
+    pageLocation().protocol = 'https:'
+    pageLocation().href = 'https://example.com/'
     await import('../reload-lib/minimum-files/minimum-script-file.ts')
     await settle()
     expect(listeners).toHaveLength(0)

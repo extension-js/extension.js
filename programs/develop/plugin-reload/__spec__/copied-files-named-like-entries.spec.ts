@@ -68,7 +68,7 @@ async function devCompile(root: string) {
     controlPort: 45123,
     silent: true,
     output: {clean: false, path: distPath}
-  } as any)
+  } as Parameters<typeof webpackConfig>[1])
   config.plugins = (config.plugins || []).filter(
     (plugin) =>
       plugin?.constructor.name !== 'plugin-browsers' &&
