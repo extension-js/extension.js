@@ -434,6 +434,49 @@ describe('install-runner runInstall', () => {
       expect(invokingNpmrcReleaseAge({}, checkoutWithNpmrc(null))).toBeNull()
     })
 
+    // pnpm 10 reads its settings from pnpm-workspace.yaml as well, and a value
+    // there wins over .npmrc in the same folder, as pnpm config get answers.
+    it.each([
+      ['a bare number', 'minimumReleaseAge: 4320\n', '4320'],
+      ['a quoted number', "minimumReleaseAge: '4320'\n", '4320'],
+      ['a comment after it', 'minimumReleaseAge: 4320 # three days\n', '4320'],
+      [
+        'its exclusions beside it',
+        'minimumReleaseAge: 60\nminimumReleaseAgeExclude:\n  - image-size\n',
+        '60'
+      ]
+    ])('reads the rule from the pnpm-workspace.yaml above, with %s', (_label, yaml, expected) => {
+      const nested = checkoutWithNpmrc(null)
+      fs.writeFileSync(
+        path.join(nested, '..', '..', 'pnpm-workspace.yaml'),
+        `packages:\n  - './programs/*'\n${yaml}`
+      )
+
+      expect(invokingNpmrcReleaseAge({INIT_CWD: nested}, os.tmpdir())).toBe(
+        expected
+      )
+    })
+
+    it('takes the pnpm-workspace.yaml value over .npmrc in the same folder', () => {
+      const nested = checkoutWithNpmrc('10')
+      fs.writeFileSync(
+        path.join(nested, '..', '..', 'pnpm-workspace.yaml'),
+        'minimumReleaseAge: 4320\n'
+      )
+
+      expect(invokingNpmrcReleaseAge({}, nested)).toBe('4320')
+    })
+
+    it('reads no rule from a key nested under another setting', () => {
+      const nested = checkoutWithNpmrc(null)
+      fs.writeFileSync(
+        path.join(nested, '..', '..', 'pnpm-workspace.yaml'),
+        'catalog:\n  minimumReleaseAge: 4320\n'
+      )
+
+      expect(invokingNpmrcReleaseAge({}, nested)).toBeNull()
+    })
+
     it('drops the value the checkout .npmrc exported and its exclusions', () => {
       const env = withoutInheritedReleaseAge(
         {

@@ -17,7 +17,7 @@ import {formatDuration} from './format-duration'
 // so the invoking checkout's release-age rule would govern the new project's
 // install. The project never agreed to it, and its own .npmrc still wins here.
 // A rule the user exported on purpose is theirs and travels through: only a
-// value that matches the .npmrc the invoking package manager read is dropped.
+// value that matches the file the invoking package manager read is dropped.
 const INHERITED_RELEASE_AGE =
   /^(?:npm|pnpm)_config_minimum[-_]?release[-_]?age$/i
 const INHERITED_RELEASE_AGE_RULE =
@@ -39,8 +39,36 @@ function readNpmrcReleaseAge(dir: string): string | null {
   return null
 }
 
-// The release age the invoking package manager read from a .npmrc, walking
-// up from where it was started (INIT_CWD under npm, pnpm and yarn scripts).
+// pnpm 10 also reads a top-level minimumReleaseAge from pnpm-workspace.yaml.
+// Only an unindented key is a setting, one under another key is not.
+function readWorkspaceReleaseAge(dir: string): string | null {
+  try {
+    for (const line of fs
+      .readFileSync(path.join(dir, 'pnpm-workspace.yaml'), 'utf8')
+      .split(/\r?\n/)) {
+      if (!line.startsWith('minimumReleaseAge:')) continue
+
+      const hash = line.indexOf('#')
+      const value = (hash === -1 ? line : line.slice(0, hash))
+        .slice('minimumReleaseAge:'.length)
+        .trim()
+      const quoted =
+        value.length >= 2 &&
+        (value[0] === "'" || value[0] === '"') &&
+        value[value.length - 1] === value[0]
+
+      return quoted ? value.slice(1, -1).trim() : value
+    }
+  } catch {
+    // No pnpm-workspace.yaml here, keep walking.
+  }
+
+  return null
+}
+
+// The release age the invoking package manager read, walking up from where
+// it was started (INIT_CWD under npm, pnpm and yarn scripts). In one folder
+// pnpm-workspace.yaml wins over .npmrc, as it does for pnpm itself.
 export function invokingNpmrcReleaseAge(
   source: Record<string, string | undefined> = process.env,
   cwd: string = process.cwd()
@@ -53,7 +81,7 @@ export function invokingNpmrcReleaseAge(
     let dir = path.resolve(start)
 
     while (true) {
-      const found = readNpmrcReleaseAge(dir)
+      const found = readWorkspaceReleaseAge(dir) ?? readNpmrcReleaseAge(dir)
       if (found !== null) return found
 
       const parent = path.dirname(dir)
