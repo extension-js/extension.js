@@ -106,7 +106,6 @@
     "chrome-location2": "4.1.1",
     "chrome-types": ">=0.1.460",
     "chromium-location": "2.1.2",
-    "commander": "^15.0.0",
     "edge-location": "2.3.1",
     "extension-create": "workspace:*",
     "extension-develop": "workspace:*",
@@ -130,6 +129,7 @@
     "@rslib/core": "^1.0.6",
     "@types/semver": "^7.7.1",
     "@types/ws": "^8.18.1",
+    "commander": "^15.0.0",
     "typescript": "7.0.2",
     "vitest": "^5.0.5",
     "webextension-polyfill": "^0.12.0"
