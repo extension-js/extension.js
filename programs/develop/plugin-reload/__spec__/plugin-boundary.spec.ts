@@ -94,6 +94,19 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
     expect(reached.filter((from) => !allowed.has(from))).toEqual([])
   })
 
+  // Every step that prepends to the background, the reload runtime and the
+  // MAIN world wrappers alike, must find the same bundle.
+  it('names the compiled background bundle in one module', () => {
+    const pattern = /=\s*\/\^background\\\//
+    const root = path.resolve(FOLDER, '..')
+    const naming = ['plugin-reload', 'plugin-web-extension']
+      .flatMap((folder) => sourceFiles(path.join(root, folder)))
+      .filter((file) => pattern.test(fs.readFileSync(file, 'utf8')))
+      .map((file) => path.relative(root, file).split(path.sep).join('/'))
+
+    expect(naming).toEqual(['plugin-web-extension/shared/background-asset.ts'])
+  })
+
   it('takes the hold of a pending restart from its caller', () => {
     expect(
       files

@@ -9,8 +9,9 @@
 import * as fs from 'node:fs'
 import type {Compiler} from '@rspack/core'
 import {isChromiumBasedBrowser, isEmulatorBrowser} from '../lib/constants'
-import {isReloadSession} from '../lib/reload-session'
 import type {DevOptions, PluginInterface} from '../types'
+import {noteManifestPath} from './reload-dispatch'
+import {isReloadSession} from './reload-session'
 import {AddContentScriptReinject} from './steps/add-content-script-reinject'
 import {
   type BridgeCoordinates,
@@ -121,6 +122,8 @@ export class ReloadPlugin {
     if (!hasValidManifest) {
       return
     }
+
+    noteManifestPath(compiler, this.manifestPath)
 
     new StripContentScriptDevServerRuntime().apply(compiler)
     new StableContentScriptNames().apply(compiler)

@@ -21,8 +21,6 @@ export class PruneUnreachableChunks {
   public static readonly name = 'plugin-reload:prune-unreachable-chunks'
 
   public apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.done?.tap) return
-
     compiler.hooks.done.tap(PruneUnreachableChunks.name, (stats) => {
       try {
         const outputPath = compiler.options.output?.path

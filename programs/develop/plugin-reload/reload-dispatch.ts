@@ -17,6 +17,7 @@ import type {
 } from '../dev-server/control-bridge/contracts'
 import {humanLine} from '../dev-server/lifecycle-stream'
 import {prefix} from '../lib/messaging'
+import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import {
   filesBehindFolders,
   readsOfCompilation,
@@ -179,6 +180,16 @@ export function appliedReloadLine(
     return reloadMessages.ranInjectedFilesAgain(files, tabs)
   }
 
+  // Only a changed page markup or a page shipped as written reloads its tab.
+  // The dev client applies any other page edit where the page is open.
+  if (
+    instruction.type === 'page' &&
+    !instruction.standalonePages?.length &&
+    !instruction.changedAssets?.some((file) => /\.html?$/i.test(file))
+  ) {
+    return reloadMessages.updatedPage(label)
+  }
+
   return formatReloadingLine(label)
 }
 
@@ -257,94 +268,110 @@ export async function dispatchReload(
   if (workerAlreadyRuns(instruction, executor)) return true
 
   if (executor.broker) {
-    let notified = viaBroker(executor.broker, instruction, executor.build)
-
-    // Firefox suspends an idle event page and its producer with it, so an
-    // edit after a quiet spell finds nobody until the page is started again.
-    if (notified === 0 && (await wakeDelivered(executor.broker))) notified = 1
-
-    // Announce only when the extension confirmed it applied the edit. A
-    // producer that cannot ack resolves 'not-expected', so those sessions keep
-    // announcing on a confirmed send rather than warning on every save.
-    if (notified > 0) {
-      const ack = (await executor.broker.awaitReloadAck?.()) ?? 'not-expected'
-
-      if (ack === 'unacked') {
-        if (instruction.label) {
-          console.warn(formatUnappliedReloadLine(instruction.label))
-        }
-
-        return false
-      }
-
-      executor.broker.noteReloadApplied?.(
-        reloadKindFor(instruction.type),
-        instruction.label
-      )
-
-      if (instruction.type === 'full') {
-        fullReloadsDelivered.set(
-          executor.broker,
-          fullReloadsDeliveredTo(executor.broker) + 1
-        )
-      }
-
+    try {
+      return await dispatchViaBroker(instruction, executor, executor.broker)
+    } catch {
+      // A broker fault must not fail the compile that produced the edit.
       if (instruction.label) {
-        humanLine(appliedReloadLine(instruction, executor.broker))
+        console.warn(formatUnappliedReloadLine(instruction.label))
       }
 
-      // The restart outlives this dispatch, so its verdict is reported when it
-      // arrives and never holds the next compile.
-      const label = instruction.label
-      const restart = executor.broker.awaitReloadRestart?.()
-      const lateRestart = executor.broker.awaitLateReloadRestart?.()
-
-      if (restart && label) {
-        void restart.then(
-          (outcome) => {
-            if (outcome !== 'not-restarted') return
-
-            console.warn(formatNotRestartedLine(label))
-
-            void lateRestart?.then(
-              (late) => {
-                if (!late) return
-
-                if (late.runsBuild) {
-                  humanLine(formatLateRestartLine(label, late))
-                } else {
-                  console.warn(formatLateRestartLine(label, late))
-                }
-              },
-              () => undefined
-            )
-          },
-          () => undefined
-        )
-      }
-
-      return true
+      return false
     }
+  }
 
-    // Zero producers: the edit compiled but reached no page. Surface the broker's
-    // deduped hint past the grace window so the no-op is diagnosable.
-    const warning = executor.broker.undeliveredReloadWarning?.(
-      executor.producerRestartExpected
-        ? {producerRestartExpected: true}
-        : undefined
-    )
+  return false
+}
 
-    if (warning) {
-      console.warn(warning)
+async function dispatchViaBroker(
+  instruction: ReloadInstruction,
+  executor: ReloadExecutor,
+  broker: ReloadBroker
+): Promise<boolean> {
+  let notified = viaBroker(broker, instruction, executor.build)
+
+  // Firefox suspends an idle event page and its producer with it, so an
+  // edit after a quiet spell finds nobody until the page is started again.
+  if (notified === 0 && (await wakeDelivered(broker))) notified = 1
+
+  // Announce only when the extension confirmed it applied the edit. A
+  // producer that cannot ack resolves 'not-expected', so those sessions keep
+  // announcing on a confirmed send rather than warning on every save.
+  if (notified > 0) {
+    const ack = (await broker.awaitReloadAck?.()) ?? 'not-expected'
+
+    if (ack === 'unacked') {
+      if (instruction.label) {
+        console.warn(formatUnappliedReloadLine(instruction.label))
+      }
 
       return false
     }
 
-    // A restart the caller caused is not a failure, so name what happens to this
-    // edit rather than leaving the save loop with nothing to show.
-    if (executor.producerRestartExpected && instruction.label) {
-      humanLine(formatQueuedReloadLine(instruction.label))
+    broker.noteReloadApplied?.(
+      reloadKindFor(instruction.type),
+      instruction.label
+    )
+
+    if (instruction.type === 'full') {
+      fullReloadsDelivered.set(broker, fullReloadsDeliveredTo(broker) + 1)
     }
+
+    if (instruction.label) {
+      humanLine(appliedReloadLine(instruction, broker))
+    }
+
+    // The restart outlives this dispatch, so its verdict is reported when it
+    // arrives and never holds the next compile.
+    const label = instruction.label
+    const restart = broker.awaitReloadRestart?.()
+    const lateRestart = broker.awaitLateReloadRestart?.()
+
+    if (restart && label) {
+      void restart.then(
+        (outcome) => {
+          if (outcome !== 'not-restarted') return
+
+          console.warn(formatNotRestartedLine(label))
+
+          void lateRestart?.then(
+            (late) => {
+              if (!late) return
+
+              if (late.runsBuild) {
+                humanLine(formatLateRestartLine(label, late))
+              } else {
+                console.warn(formatLateRestartLine(label, late))
+              }
+            },
+            () => undefined
+          )
+        },
+        () => undefined
+      )
+    }
+
+    return true
+  }
+
+  // Zero producers: the edit compiled but reached no page. Surface the broker's
+  // deduped hint past the grace window so the no-op is diagnosable.
+  const warning = broker.undeliveredReloadWarning?.(
+    executor.producerRestartExpected
+      ? {producerRestartExpected: true}
+      : undefined
+  )
+
+  if (warning) {
+    console.warn(warning)
+
+    return false
+  }
+
+  // A restart the caller caused is not a failure, so name what happens to this
+  // edit rather than leaving the save loop with nothing to show.
+  if (executor.producerRestartExpected && instruction.label) {
+    humanLine(formatQueuedReloadLine(instruction.label))
   }
 
   return false
@@ -359,14 +386,32 @@ export interface ChangedSourcesTracker {
   snapshot(): ChangedSourcesSnapshot
 }
 
-function isForcedFullPath(normalized: string): boolean {
-  return (
-    normalized.includes('manifest.json') || normalized.includes('_locales/')
-  )
+// The manifest each compiler builds, as ReloadPlugin was given it.
+const manifestPaths = new WeakMap<object, string>()
+
+export function noteManifestPath(compiler: object, manifestPath: string) {
+  manifestPaths.set(compiler, manifestPath)
 }
 
-function isHotAsset(normalized: string): boolean {
-  return normalized.startsWith('hot/') || normalized.includes('.hot-update.')
+// The project-relative manifest a full reload is forced for. Without one
+// noted, the two places a project keeps it.
+function manifestSources(compiler: Compiler, contextDir: string): string[] {
+  const noted = manifestPaths.get(compiler)
+
+  if (noted) return [projectRelative(contextDir, noted)]
+
+  return ['manifest.json', 'src/manifest.json']
+}
+
+// Only the manifest itself and the _locales folder beside it are read once
+// at load, so only they need the whole extension reloaded.
+function isForcedFullPath(normalized: string, manifests: string[]): boolean {
+  return manifests.some((manifest) => {
+    const folder = path.posix.dirname(manifest)
+    const locales = folder === '.' ? '_locales/' : `${folder}/_locales/`
+
+    return normalized === manifest || normalized.startsWith(locales)
+  })
 }
 
 function isDirectory(absolute: string): boolean {
@@ -401,12 +446,13 @@ function pushChanged(
   into: string[],
   file: string,
   contextDir: string,
+  manifests: string[],
   markForced: () => void
 ): void {
   const normalized = normalizeChangedPath(file, contextDir)
   if (!normalized) return
   if (!into.includes(normalized)) into.push(normalized)
-  if (isForcedFullPath(normalized)) markForced()
+  if (isForcedFullPath(normalized, manifests)) markForced()
 }
 
 // Taps watchRun and records changed files for the next compile, shared by both
@@ -438,6 +484,7 @@ export function createChangedSourcesTracker(
     if (!files) return
 
     const ctx = contextDir()
+    const manifests = manifestSources(compiler, ctx)
 
     for (const file of files) {
       const raw = String(file || '')
@@ -445,7 +492,7 @@ export function createChangedSourcesTracker(
       if (path.isAbsolute(raw) && isDirectory(raw)) {
         if (!changedFolders.includes(raw)) changedFolders.push(raw)
       } else {
-        pushChanged(into, file, ctx, markForced)
+        pushChanged(into, file, ctx, manifests, markForced)
       }
     }
   }
@@ -462,6 +509,7 @@ export function createChangedSourcesTracker(
     if (!reads) return
 
     const ctx = contextDir()
+    const manifests = manifestSources(compiler, ctx)
     const named = filesBehindFolders({
       contextDir: ctx,
       folders: changedFolders,
@@ -469,13 +517,15 @@ export function createChangedSourcesTracker(
       readBefore
     })
 
-    for (const rel of named) pushChanged(changedSources, rel, ctx, markForced)
+    for (const rel of named) {
+      pushChanged(changedSources, rel, ctx, manifests, markForced)
+    }
 
     const publicRoots = relativePublicRootsOf(compiler, ctx)
 
     changedSources = changedSources.filter(
       (rel) =>
-        isForcedFullPath(rel) ||
+        isForcedFullPath(rel, manifests) ||
         wasReadByBuild(rel, {contextDir: ctx, reads, readBefore, publicRoots})
     )
 
@@ -502,7 +552,8 @@ export function createChangedSourcesTracker(
     forcedFull =
       forcedFull ||
       heldForcedFull ||
-      writtenAssets.some((file) => isForcedFullPath(file))
+      // Emitted names are relative to the output root.
+      writtenAssets.some((file) => isForcedFullPath(file, ['manifest.json']))
 
     heldSources = []
     heldForcedFull = false
@@ -512,21 +563,30 @@ export function createChangedSourcesTracker(
     forcedFull = true
   }
 
+  // A save during a compile starts the next one and the first never reaches
+  // done, so its files still wait for a reload.
+  let compileEnded = true
+
   compiler.hooks.watchRun.tap('extjs-reload-changed-sources', () => {
-    forcedFull = false
-    changedSources = []
-    writtenAssets = []
-    changedFolders = []
+    if (compileEnded) {
+      forcedFull = false
+      changedSources = []
+      writtenAssets = []
+      changedFolders = []
+    }
+
+    compileEnded = false
     ingest(changesOf(compiler), changedSources, markForced)
   })
 
-  compiler.hooks.done?.tap?.(
+  compiler.hooks.done.tap(
     'extjs-reload-changed-sources-done',
     (stats: {
       compilation?: {errors?: unknown[]; modifiedFiles?: Iterable<string>}
     }) => {
       const compilation = stats?.compilation
       const failed = Boolean(compilation?.errors?.length)
+      compileEnded = true
       ingest(compilation?.modifiedFiles, changedSources, markForced)
       ingest(changesOf(compiler), changedSources, markForced)
       keepFilesTheBuildRead(compilation, failed)
@@ -547,11 +607,11 @@ export function createChangedSourcesTracker(
     }
   )
 
-  compiler.hooks.assetEmitted?.tap?.(
+  compiler.hooks.assetEmitted.tap(
     'extjs-reload-changed-sources-emitted',
     (file: string) => {
       const normalized = normalizeChangedPath(file, contextDir())
-      if (!normalized || isHotAsset(normalized)) return
+      if (!normalized || isHotUpdateFile(normalized)) return
       if (!writtenAssets.includes(normalized)) writtenAssets.push(normalized)
     }
   )

@@ -12,6 +12,7 @@ import {prependToEmittedAsset} from '../../../lib/asset-source-maps'
 import {isGeckoBasedBrowser} from '../../../lib/constants'
 import {extensionSchemeFor} from '../../../lib/extension-base-from-stack'
 import type {DevOptions, FilepathList, PluginInterface} from '../../../types'
+import {isHotUpdateFile} from '../../shared/initial-files'
 import {getCanonicalContentScriptEntryName} from '../contracts'
 import {findRuntimeMainWorldEntries} from '../scripts-lib/runtime-main-world-scripts'
 import {
@@ -22,8 +23,6 @@ import {
   takesExtensionBase
 } from '../scripts-lib/taken-extension-base'
 import {getMainWorldBridgePairs} from './add-content-script-wrapper/get-bridge-scripts'
-
-const HOT_UPDATE = /\.hot-update\./i
 
 function parsesAsScript(text: string): boolean {
   try {
@@ -109,7 +108,7 @@ export class TakeExtensionBase {
           },
           () => {
             for (const asset of compilation.getAssets()) {
-              if (HOT_UPDATE.test(asset.name)) continue
+              if (isHotUpdateFile(asset.name)) continue
 
               if (!entries.some((entry) => isEntryFile(asset.name, entry))) {
                 continue

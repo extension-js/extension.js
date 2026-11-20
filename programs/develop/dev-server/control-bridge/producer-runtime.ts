@@ -750,7 +750,7 @@ const PRODUCER_HEAD = `;(function () {
           } else if (surface === "sidebar") {
             // The two member reads below are exactly what the Safari
             // unsupported-API scan looks for, and this runtime is prepended to
-            // the background asset at PROCESS_ASSETS_STAGE_REPORT + 101, after
+            // the background asset at PROCESS_ASSETS_STAGE_REPORT + 151, after
             // that scan runs at SUMMARIZE + 1. Move the injection earlier and
             // every Safari dev session warns about this line.
             if (chrome.sidePanel && chrome.sidePanel.open && chrome.windows) {

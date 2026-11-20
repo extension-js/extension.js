@@ -20,8 +20,6 @@ export class PruneStaleHotUpdates {
   private previousGeneration = new Set<string>()
 
   public apply(compiler: Compiler): void {
-    if (!compiler?.hooks?.done?.tap) return
-
     compiler.hooks.done.tap(PruneStaleHotUpdates.name, (stats) => {
       try {
         const outputPath = compiler.options.output?.path

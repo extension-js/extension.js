@@ -23,6 +23,19 @@ import {
   readDevBuild
 } from './steps/inject-bridge-producer'
 
+// Whether a build carries the reload pipeline at all.
+export function isReloadSession(
+  mode: string | undefined,
+  devSession: boolean | undefined
+): boolean {
+  return (
+    mode !== 'production' &&
+    // A shippable development build carries no reload client.
+    devSession !== false &&
+    process.env.EXTENSION_NO_RELOAD !== 'true'
+  )
+}
+
 // True for a build a pending restart replaces. The dev server owns restarts
 // and hands this in, so the session never asks it directly.
 export type BuildHold = (compiler: object, compilation?: object) => boolean

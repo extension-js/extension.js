@@ -15,6 +15,7 @@ import {
   setCurrentManifestContent
 } from '../../plugin-web-extension/feature-manifest/manifest-lib/manifest'
 import {isDevContentScriptStandInAsset} from '../../plugin-web-extension/feature-scripts/contracts'
+import {BACKGROUND_ASSET} from '../../plugin-web-extension/shared/background-asset'
 import type {Manifest} from '../../types'
 import {
   buildDevContentScriptMarkerPrelude,
@@ -23,10 +24,7 @@ import {
   DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE,
   planDevContentScripts
 } from '../reload-lib/dev-content-scripts'
-
-// The compiled background entry the runtime is prepended to; the same shapes
-// the bridge producer targets, since both must ride the one worker bundle.
-const BACKGROUND_ASSET = /^background\/(?:service_worker|scripts?|index)\.js$/i
+import {RELOAD_STAGE_AFTER_REPORT} from './stages'
 
 function putAsset(compilation: Compilation, name: string, text: string) {
   const source = new sources.RawSource(text)
@@ -92,7 +90,7 @@ function pruneOrphanDevContentScriptFiles(
 // still guards the stubs.
 export class SetupDevContentScripts {
   apply(compiler: Compiler) {
-    compiler.hooks.done?.tap(SetupDevContentScripts.name, (stats) => {
+    compiler.hooks.done.tap(SetupDevContentScripts.name, (stats) => {
       const outputPath = compiler.options.output?.path
       if (!outputPath || stats.compilation.errors.length > 0) return
 
@@ -112,7 +110,9 @@ export class SetupDevContentScripts {
         compilation.hooks.processAssets.tap(
           {
             name: SetupDevContentScripts.name,
-            stage: Compilation.PROCESS_ASSETS_STAGE_REPORT + 100
+            stage:
+              Compilation.PROCESS_ASSETS_STAGE_REPORT +
+              RELOAD_STAGE_AFTER_REPORT
           },
           () => {
             if (compilation.errors.length > 0) return
