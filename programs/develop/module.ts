@@ -7,6 +7,7 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import type {BuildSummary, SafariPackageSummary} from './lib/build-summary'
+import type {CompanionExtensionsConfig} from './lib/companion-extensions/types'
 import type {ErrorCode} from './lib/messaging'
 import {ensureRustMinStack} from './lib/rust-min-stack'
 import type {
@@ -18,7 +19,6 @@ import type {
   CompiledEvent
 } from './plugin-browsers'
 import type {ReloadInstruction, ReloadType} from './plugin-reload'
-import type {CompanionExtensionsConfig} from './plugin-special-folders/folder-extensions/types'
 // The option types a caller names are the public ones. The fields only the
 // CLI and the engine set stay on the types the command files read.
 import type {
