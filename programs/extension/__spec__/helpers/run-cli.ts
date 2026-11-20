@@ -1,9 +1,10 @@
-import {type ChildProcess, spawn, spawnSync} from 'node:child_process'
+import {type ChildProcess, spawn} from 'node:child_process'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {StringDecoder} from 'node:string_decoder'
 import {afterAll} from 'vitest'
+import {killProcessTree} from '../../browsers/browsers-lib/process-teardown'
 
 export const CLI_ROOT = path.resolve(__dirname, '../..')
 export const CLI_BIN = path.join(CLI_ROOT, 'dist', 'cli.cjs')
@@ -83,22 +84,37 @@ export function cliTempFolder(home: CliHome = cliHome()): string {
   return fs.mkdtempSync(path.join(home.home, 'tmp-'))
 }
 
-function killGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+export interface TreeKillDeps {
+  platform: NodeJS.Platform
+  killTree: (pid: number) => void
+}
+
+const treeKillDefaults: TreeKillDeps = {
+  platform: process.platform,
+  killTree: (pid) => killProcessTree(pid, {sync: true})
+}
+
+// Ends the CLI and what it started, by the pid this helper spawned. Windows
+// frees that pid at the exit, so a tree kill after it could reach a stranger.
+export function killCliTree(
+  child: Pick<ChildProcess, 'pid' | 'exitCode' | 'signalCode'>,
+  deps: TreeKillDeps = treeKillDefaults
+): void {
   if (!child.pid) return
 
-  try {
-    if (process.platform === 'win32') {
-      spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'])
-    } else {
-      process.kill(-child.pid, signal)
-    }
-  } catch {
-    // Already gone
-  }
+  const exited = child.exitCode !== null || child.signalCode !== null
+
+  if (deps.platform === 'win32' && exited) return
+
+  deps.killTree(child.pid)
+}
+
+function killGroup(child: ChildProcess): void {
+  killCliTree(child)
 }
 
 afterAll(() => {
-  for (const child of live) killGroup(child, 'SIGKILL')
+  for (const child of live) killGroup(child)
   live.clear()
 
   for (const home of homes.splice(0)) {
@@ -114,7 +130,7 @@ afterAll(() => {
 
 // The hook above is skipped when the worker dies, and a group outlives it.
 process.once('exit', () => {
-  for (const child of live) killGroup(child, 'SIGKILL')
+  for (const child of live) killGroup(child)
 })
 
 export interface CliEnvOptions {
@@ -355,10 +371,10 @@ export function startCli(
     async stop(signal = 'SIGTERM', graceMs = 5000) {
       // Windows has no polite signal: kill() ends the CLI alone and orphans
       // what it started, so the tree goes while the CLI still roots it.
-      if (!ended && process.platform === 'win32') killGroup(child, 'SIGKILL')
+      if (!ended && process.platform === 'win32') killGroup(child)
       else if (!ended) child.kill(signal)
 
-      const timer = setTimeout(() => killGroup(child, 'SIGKILL'), graceMs)
+      const timer = setTimeout(() => killGroup(child), graceMs)
 
       // No kill after the exit: the group id may by then name another process.
       try {
@@ -367,7 +383,7 @@ export function startCli(
         clearTimeout(timer)
       }
     },
-    killGroup: () => killGroup(child, 'SIGKILL')
+    killGroup: () => killGroup(child)
   }
 }
 
