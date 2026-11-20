@@ -36,6 +36,16 @@ const FUNCTIONAL_COMMENT = [
 const LICENSE_NOTICE =
   /\b(MIT|Apache|BSD|ISC|MPL|L?GPL)\b.*\bLicen[cs]e\b|\b(Licensed|Released) under\b|\bCopyright\b|\(c\)\s*\d{4}|SPDX-License-Identifier/i
 
+/** @typedef {import('estree').Comment} Comment */
+/** @typedef {import('estree').SourceLocation} SourceLocation */
+/** @typedef {Comment & {loc: SourceLocation, range: [number, number]}} LocatedComment */
+/** @typedef {import('eslint').SourceCode} SourceCode */
+/** @typedef {import('eslint').Rule.RuleFixer} RuleFixer */
+/** @typedef {import('eslint').Rule.RuleContext} RuleContext */
+/** @typedef {import('eslint').Rule.RuleModule} RuleModule */
+/** @typedef {{raw: string, text: string, isTag: boolean}} JsdocLine */
+
+/** @type {import('json-schema').JSONSchema4[]} */
 const bannerOption = [
   {
     type: 'object',
@@ -44,6 +54,25 @@ const bannerOption = [
   }
 ]
 
+// ESLint types loc and range as optional on a comment, and a comment without
+// both cannot be reported or fixed, so every rule reads only located ones.
+/**
+ * @param {Comment} comment
+ * @returns {comment is LocatedComment}
+ */
+function isLocated(comment) {
+  return Boolean(comment.loc && comment.range)
+}
+
+/**
+ * @param {SourceCode} sourceCode
+ * @returns {LocatedComment[]}
+ */
+function locatedComments(sourceCode) {
+  return sourceCode.getAllComments().filter(isLocated)
+}
+
+/** @param {Comment} comment */
 function isFunctionalComment(comment) {
   return (
     LICENSE_NOTICE.test(comment.value) ||
@@ -52,8 +81,14 @@ function isFunctionalComment(comment) {
 }
 
 // A license notice keeps the attribution lines written against it.
+/**
+ * @param {LocatedComment[]} comments
+ * @returns {Set<LocatedComment>}
+ */
 function licenseGroups(comments) {
+  /** @type {Set<LocatedComment>} */
   const kept = new Set()
+  /** @type {LocatedComment[]} */
   let group = []
 
   const flush = () => {
@@ -66,8 +101,10 @@ function licenseGroups(comments) {
 
   for (const comment of comments) {
     const previous = group.at(-1)
-    const adjacent = previous?.loc.end.line + 1 === comment.loc.start.line
-    if (previous && !adjacent) flush()
+
+    if (previous && previous.loc.end.line + 1 !== comment.loc.start.line) {
+      flush()
+    }
 
     group.push(comment)
   }
@@ -77,18 +114,28 @@ function licenseGroups(comments) {
   return kept
 }
 
+/**
+ * @param {SourceCode} sourceCode
+ * @param {LocatedComment} comment
+ */
 function ownsLines(sourceCode, comment) {
-  const before = sourceCode.lines[comment.loc.start.line - 1].slice(
+  const before = (sourceCode.lines[comment.loc.start.line - 1] ?? '').slice(
     0,
     comment.loc.start.column
   )
-  const after = sourceCode.lines[comment.loc.end.line - 1].slice(
+  const after = (sourceCode.lines[comment.loc.end.line - 1] ?? '').slice(
     comment.loc.end.column
   )
 
   return before.trim() === '' && after.trim() === ''
 }
 
+/**
+ * @param {SourceCode} sourceCode
+ * @param {number} startLine
+ * @param {number} endLine
+ * @returns {[number, number]}
+ */
 function lineRange(sourceCode, startLine, endLine) {
   const start = sourceCode.getIndexFromLoc({line: startLine, column: 0})
   const end =
@@ -99,14 +146,20 @@ function lineRange(sourceCode, startLine, endLine) {
   return [start, end]
 }
 
+/**
+ * @param {RuleFixer} fixer
+ * @param {SourceCode} sourceCode
+ * @param {LocatedComment} comment
+ */
 function removeComment(fixer, sourceCode, comment) {
-  if (!ownsLines(sourceCode, comment)) return fixer.remove(comment)
+  if (!ownsLines(sourceCode, comment)) return fixer.removeRange(comment.range)
 
   return fixer.removeRange(
     lineRange(sourceCode, comment.loc.start.line, comment.loc.end.line)
   )
 }
 
+/** @param {Comment} comment */
 function isTagOnlyJsdoc(comment) {
   return (
     comment.type === 'Block' &&
@@ -115,6 +168,10 @@ function isTagOnlyJsdoc(comment) {
   )
 }
 
+/**
+ * @param {Comment} comment
+ * @returns {JsdocLine[]}
+ */
 function jsdocLines(comment) {
   let inTags = false
 
@@ -129,6 +186,7 @@ function jsdocLines(comment) {
     })
 }
 
+/** @type {RuleModule} */
 const blankLineAfterShebang = {
   meta: {type: 'layout', fixable: 'whitespace', schema: []},
   create(context) {
@@ -136,7 +194,7 @@ const blankLineAfterShebang = {
       Program() {
         const lines = context.sourceCode.lines
         if (!lines[0]?.startsWith('#!') || lines.length < 2) return
-        if (lines[1].trim() === '') return
+        if ((lines[1] ?? '').trim() === '') return
 
         context.report({
           loc: {line: 1, column: 0},
@@ -148,6 +206,7 @@ const blankLineAfterShebang = {
   }
 }
 
+/** @type {RuleModule} */
 const noFileHeaderComment = {
   meta: {type: 'suggestion', fixable: 'code', schema: bannerOption},
   create(context) {
@@ -159,9 +218,9 @@ const noFileHeaderComment = {
         const first = sourceCode.getFirstToken(node)
         if (!first) return
 
-        const leading = sourceCode
-          .getAllComments()
-          .filter((comment) => comment.type !== 'Shebang')
+        // ESLint lists a shebang among the comments, typed or not.
+        const leading = locatedComments(sourceCode)
+          .filter((comment) => String(comment.type) !== 'Shebang')
           .filter((comment) => comment.range[0] < first.range[0])
         const licensed = licenseGroups(leading)
 
@@ -171,10 +230,12 @@ const noFileHeaderComment = {
           .filter((comment) => !isTagOnlyJsdoc(comment))
           .filter((comment) => !(allowBanner && BANNER_ART.test(comment.value)))
 
-        if (header.length === 0) return
+        const firstHeader = header[0]
+        const lastHeader = header.at(-1)
+        if (!firstHeader || !lastHeader) return
 
         context.report({
-          loc: {start: header[0].loc.start, end: header.at(-1).loc.end},
+          loc: {start: firstHeader.loc.start, end: lastHeader.loc.end},
           message: 'Remove the file header comment.',
           fix: (fixer) =>
             header.map((comment) => removeComment(fixer, sourceCode, comment))
@@ -184,6 +245,7 @@ const noFileHeaderComment = {
   }
 }
 
+/** @type {RuleModule} */
 const noDividerComment = {
   meta: {type: 'suggestion', fixable: 'code', schema: bannerOption},
   create(context) {
@@ -192,7 +254,7 @@ const noDividerComment = {
 
     return {
       Program() {
-        for (const comment of sourceCode.getAllComments()) {
+        for (const comment of locatedComments(sourceCode)) {
           if (comment.type !== 'Line') continue
           if (isFunctionalComment(comment)) continue
           if (allowBanner && BANNER_ART.test(comment.value)) continue
@@ -220,6 +282,7 @@ const noDividerComment = {
   }
 }
 
+/** @type {RuleModule} */
 const noJsdocDescription = {
   meta: {type: 'suggestion', fixable: 'code', schema: []},
   create(context) {
@@ -227,7 +290,7 @@ const noJsdocDescription = {
 
     return {
       Program() {
-        for (const comment of sourceCode.getAllComments()) {
+        for (const comment of locatedComments(sourceCode)) {
           if (comment.type !== 'Block' || !comment.value.startsWith('*')) {
             continue
           }
@@ -238,10 +301,9 @@ const noJsdocDescription = {
           if (lines.every((line) => line.text === '' || line.isTag)) continue
 
           const tags = lines.filter((line) => line.isTag)
-          const indent = sourceCode.lines[comment.loc.start.line - 1].slice(
-            0,
-            comment.loc.start.column
-          )
+          const indent = (
+            sourceCode.lines[comment.loc.start.line - 1] ?? ''
+          ).slice(0, comment.loc.start.column)
 
           context.report({
             loc: comment.loc,
@@ -265,16 +327,22 @@ const basePadding = stylistic.rules['padding-line-between-statements']
 // Prettier and Biome start a statement with `;(` or `;[` when semicolons are
 // off. That guard shares the line with the statement it protects, so padding
 // reports against it are skipped.
+/** @type {RuleModule} */
 const paddingLineBetweenStatements = {
   meta: basePadding.meta,
   create(context) {
     const {sourceCode} = context
 
+    /** @param {import('eslint').Rule.ReportDescriptor} descriptor */
     const report = (descriptor) => {
-      const before = sourceCode.getTokenBefore(descriptor.node)
+      // The padding rule reports against a node, which a descriptor may lack.
+      const node =
+        'node' in descriptor
+          ? /** @type {import('estree').Node} */ (descriptor.node)
+          : undefined
+      const before = node ? sourceCode.getTokenBefore(node) : null
       const asiGuard =
-        before?.value === ';' &&
-        before.loc.start.line === descriptor.node.loc.start.line
+        before?.value === ';' && before.loc.start.line === node?.loc?.start.line
 
       if (!asiGuard) context.report(descriptor)
     }
