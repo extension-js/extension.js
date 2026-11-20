@@ -36,10 +36,10 @@ function openWatchers() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-leave-watch-'))
   roots.push(root)
   const events: string[] = []
+  // Linux runs a recursive watch in JavaScript, with no native handle.
+  const recursive = process.platform !== 'linux'
   const watchers = [
-    fs.watch(root, {recursive: true}, (_type, name) =>
-      events.push(`r:${name}`)
-    ),
+    fs.watch(root, {recursive}, (_type, name) => events.push(`r:${name}`)),
     fs.watch(root, (_type, name) => events.push(`d:${name}`))
   ]
   const handles = watchers.map(
