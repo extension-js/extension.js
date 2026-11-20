@@ -6,7 +6,6 @@
 // ╚══════╝ ╚═════╝╚═╝  ╚═╝╚═╝╚═╝        ╚═╝   ╚══════╝
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
-
 import {spawnSync} from 'node:child_process'
 import {createRequire} from 'node:module'
 import path from 'node:path'

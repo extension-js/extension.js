@@ -23,12 +23,14 @@ function makePackage() {
     path.join(vitestDir, 'package.json'),
     JSON.stringify({name: 'vitest', bin: {vitest: './vitest.mjs'}})
   )
+
   fs.writeFileSync(
     path.join(vitestDir, 'vitest.mjs'),
     "import fs from 'node:fs'\n" +
       "fs.writeFileSync('argv.json', JSON.stringify(process.argv.slice(2)))\n" +
       'process.exit(7)\n'
   )
+
   fs.writeFileSync(path.join(base, 'package.json'), '{"name":"pkg"}')
 
   return base
@@ -42,6 +44,7 @@ test('drops the separator pnpm forwards and keeps the file filter', () => {
     '-t',
     'x'
   ])
+
   assert.deepEqual(vitestArgs([]), ['run'])
 })
 
