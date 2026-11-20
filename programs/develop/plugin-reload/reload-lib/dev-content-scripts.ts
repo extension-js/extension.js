@@ -233,6 +233,7 @@ export function buildDevContentScriptStubSource(entryName: string): string {
     ';(function(){try{var c=globalThis.chrome;' +
     'if(!c||!c.runtime||!c.runtime.sendMessage)return;' +
     `c.runtime.sendMessage({${DEV_CONTENT_SCRIPT_STUB_MESSAGE_KEY}:{entry:${JSON.stringify(entryName)}}},` +
+    // The stub stays silent in the page when the extension context is gone
     'function(){try{void c.runtime.lastError}catch(e){}})}catch(e){}})();\n'
   )
 }
@@ -245,6 +246,7 @@ export function buildDevContentScriptMarkerPrelude(
 ): string {
   return (
     `;(function(){try{var g=globalThis,k=${JSON.stringify(DEV_CONTENT_SCRIPT_MARKER_KEY)};` +
+    // A locked global only costs the marker, the page script still runs
     `(g[k]=g[k]||{})[${JSON.stringify(entryName)}]=${JSON.stringify(assetName)}}catch(e){}})();\n`
   )
 }
@@ -282,12 +284,12 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     var whenReady = [];
 
     function noop() { try { void chrome.runtime.lastError; } catch (e) {
-      // Ignore
+      // Reading lastError only marks it checked, nothing to report
     } }
     function isString(v) { return typeof v === "string"; }
     function injectableUrl(url) { return typeof url === "string" && /^(https?|file|ftp):/i.test(url); }
     function call(fn) { if (fn) { try { fn(); } catch (e) {
-      // Ignore
+      // One throwing callback must not stop the rest of the ready queue
     } } }
     function onReady(fn) { if (ready) call(fn); else whenReady.push(fn); }
     function markReady() {
@@ -398,7 +400,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     function insertSheets(tabId, frameIds, css) {
       if (!frameIds.length || !css.length || !chrome.scripting.insertCSS) return;
       try { chrome.scripting.insertCSS({target: {tabId: tabId, frameIds: frameIds}, files: css}, noop); } catch (x) {
-        // Ignore
+        // Best effort sheet top-up, the script injection still runs after it
       }
     }
 
@@ -419,18 +421,19 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
               var p = g.performance, nav = p.getEntriesByType("navigation")[0];
               committedAt = p.timeOrigin + (nav && nav.responseStart > 0 ? nav.responseStart : 0);
             } catch (x) {
-              // Ignore
+              // No navigation timing leaves committedAt null, the slack test decides
             }
             var sheetApplied = null;
             try {
               var root = sheetProperty ? g.document.documentElement : null;
               if (root) sheetApplied = g.getComputedStyle(root).getPropertyValue(sheetProperty).trim() === "1";
             } catch (x) {
-              // Ignore
+              // No root to probe leaves sheetApplied null, the timing test decides
             }
             gens[entry] = gen;
             sheets[entry] = true;
             return {covered: covered, sheetSeen: sheetSeen, committedAt: committedAt, sheetApplied: sheetApplied};
+          // A probe that throws answers null, which the caller reads as no result
           } catch (x) { return null; }
         }};
       try {
@@ -507,7 +510,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
         if (!reg) return finish();
         var same = false;
         try { same = !!registry && JSON.stringify(reg) === JSON.stringify(registry); } catch (e) {
-          // Ignore
+          // An unserializable registry counts as changed and gets a re-sync
         }
         registry = reg;
         if (same) return finish();
@@ -581,7 +584,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
             if (seen[id]) continue;
             seen[id] = true;
             try { chrome.tabs.reload(id, {}, noop); } catch (x) {
-              // Ignore
+              // One tab failing to reload must not skip the other matched tabs
             }
           }
           step();
@@ -602,16 +605,16 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
           chrome.storage.local.set(flags, noop);
         }
       } catch (e) {
-        // Ignore
+        // Without the flag the next generation heals by bundle names alone
       }
       // The producer's restart also brings the url-override tabs back.
       if (typeof g.__extjsDevRestartExtension === "function") {
         try { g.__extjsDevRestartExtension(150); return; } catch (e) {
-          // Ignore
+          // A failing producer restart falls through to chrome.runtime.reload
         }
       }
       setTimeout(function () { try { chrome.runtime.reload(); } catch (e) {
-        // Ignore
+        // No fallback is left here, the next static edit retries the reload
       } }, 150);
     }
 
@@ -631,7 +634,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
           var recorded = res && res[STATIC_BUNDLES_KEY];
           if (flag) {
             try { chrome.storage.local.remove(STATIC_RELOAD_KEY, noop); } catch (e) {
-              // Ignore
+              // A stale flag expires after 30 seconds, so a failed remove is safe
             }
           }
           var flagged = flag && typeof flag.at === "number" && Date.now() - flag.at <= 30000 && Array.isArray(flag.entries) ? flag.entries : [];
@@ -652,13 +655,13 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
               record[STATIC_BUNDLES_KEY] = current;
               chrome.storage.local.set(record, noop);
             } catch (e) {
-              // Ignore
+              // Without the record the next boot skips the bundle name compare
             }
             if (entries.length) reloadTabs(entries);
           });
         });
       } catch (e) {
-        // Ignore
+        // Without storage the static heal is skipped, registrations still run
       }
     }
 
@@ -692,7 +695,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
         onStub(msg[STUB], sender);
       });
     } catch (e) {
-      // Ignore
+      // Without the listener registered scripts still inject on navigation
     }
 
     g.__extjsDevContentScripts = {heal: heal, reload: reload, isReady: function () { return ready; }};
@@ -704,7 +707,7 @@ export const DEV_CONTENT_SCRIPTS_RUNTIME_SOURCE = `;(function () {
     });
     healStaticEntries();
   } catch (e) {
-    // Ignore
+    // The runtime must never break the background bundle it prefixes
   }
 })();
 `

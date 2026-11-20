@@ -23,7 +23,7 @@ It is responsible for:
   earlier injection left in the page
 - stripping the rspack-dev-server startup runtime from emitted content
   scripts so reinjection stays browser-owned
-- giving every page of a development build its hot update client (the
+- giving every page of a dev session its hot update client (the
   refresh shim, the dev server client and a minimum script, so a page with
   no script still updates), and letting the scripts a page names accept
   their own update in a dev session
@@ -87,13 +87,13 @@ names one, otherwise any mode but production), so it also runs under
 ## Important files
 
 - `steps/setup-page-reload.ts`
-  The page side. In a development build a page entry imports, in order,
+  The page side. In a dev session a page entry imports, in order,
   `reload-lib/preact-refresh-shim.ts`, the dev server client and hot
   runtime (when a session names a host and port), the page's own files and
   `reload-lib/minimum-files/minimum-script-file.ts`, which also reloads an
   open page whose served markup changed. With a client it points the dev
   server's stock socket file at `page-socket-client`, which names the page
-  to the server. In a dev session it adds one rule, the
+  to the server. It also adds one rule, the
   `steps/ensure-hmr-for-scripts.ts` loader, for the script files the pages
   name: not a module they import, not a content script, and not at all
   when React, Vue or Svelte owns refresh.

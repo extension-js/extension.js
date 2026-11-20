@@ -8,10 +8,10 @@
 
 import * as path from 'node:path'
 import {Compilation, type Compiler, WebpackError} from '@rspack/core'
+import {readProjectSource} from '../../../lib/emitted-evidence'
 import {classifyEntrySurface} from '../../../lib/split-chunks'
 import type {DevOptions, PluginInterface} from '../../../types'
 import {scannableSourcePath} from '../../feature-manifest/steps/apply-dev-defaults-lib/dev-injected-hosts'
-import {readProjectSource} from '../../feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence'
 import {classicConcatFiles} from '../../shared/classic-concat'
 import * as messages from '../messages'
 import {
