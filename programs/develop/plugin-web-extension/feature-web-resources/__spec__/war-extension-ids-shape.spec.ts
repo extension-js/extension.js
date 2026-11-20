@@ -1,8 +1,8 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import type {Compilation} from '@rspack/core'
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
+import {asCompilation} from '../../__spec__/helpers/rspack-fakes'
 import {generateManifestPatches} from '../web-resources-lib/generate-manifest'
 
 describe('web_accessible_resources: a group with no matches key', () => {
@@ -25,7 +25,7 @@ describe('web_accessible_resources: a group with no matches key', () => {
     const manifest = {manifest_version: 3, web_accessible_resources: groups}
     const manifestSource = {source: () => JSON.stringify(manifest)}
     const updateAsset = vi.fn()
-    const compilation: any = {
+    const compilation = {
       getAsset: vi.fn(() => ({name: 'manifest.json', source: manifestSource})),
       assets: {'manifest.json': manifestSource},
       updateAsset,
@@ -34,7 +34,7 @@ describe('web_accessible_resources: a group with no matches key', () => {
       options: {mode: 'development'}
     }
 
-    generateManifestPatches(compilation as Compilation, manifestPath, {})
+    generateManifestPatches(asCompilation(compilation), manifestPath, {})
 
     const source = updateAsset.mock.calls.at(-1)?.[1]
 
