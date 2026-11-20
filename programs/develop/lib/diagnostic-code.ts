@@ -150,7 +150,8 @@ export const NAMED_CODES: Record<string, ErrorCode> = {
   EnvDefinedNameWritten: CODES.W_ENV_DEFINE_WRITTEN,
   EnvPlaceholderNotUtf8: CODES.W_ENV_ASSET_NOT_UTF8,
   HtmlPageNotUtf8: CODES.W_HTML_NOT_UTF8,
-  UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN
+  UnknownRegistrationWorld: CODES.W_SCRIPT_WORLD_UNKNOWN,
+  CssSetupNotApplied: CODES.W_CSS_NOT_APPLIED
 }
 
 // The bundler wraps what a loader threw or emitted under one of these names

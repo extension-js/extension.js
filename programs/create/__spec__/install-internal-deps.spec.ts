@@ -551,6 +551,7 @@ describe('installInternalDependencies', () => {
     expect(frame.split('\n')[2]).toMatch(/^REASON .*JSON/)
     expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
     expect(error.cause).toBeInstanceOf(SyntaxError)
+    expect((error as {code?: unknown}).code).toBe('E_TEMPLATE_NOT_FOUND')
     expect(logs).toEqual([])
     expect(installCalls).toEqual([])
   })
@@ -594,6 +595,7 @@ describe('installInternalDependencies', () => {
     expect(frame.match(/⏵⏵⏵/g)).toHaveLength(1)
     expect(frame).not.toMatch(/^\s+at /m)
     expect(error.cause).toBe(spawnError)
+    expect((error as {code?: unknown}).code).toBe('E_DEPENDENCY_INSTALL')
     // Only the progress line, on the log channel: the failure is the throw.
     expect(logs.map((line) => line.split('\n')[0])).toEqual([
       expect.stringMatching(/ Installing the dependencies for Vue…$/)
@@ -840,6 +842,12 @@ describe('installInternalDependencies', () => {
 
     // React and Vue share the one run, so one failure is the whole story.
     expect(installCalls).toHaveLength(1)
+    expect((error as {code?: unknown}).code).toBe('E_DEPENDENCY_INSTALL')
+    expect((error as {cause?: unknown}).cause).toMatchObject({
+      name: 'InstallExitError',
+      command: 'npm',
+      exitCode: 1
+    })
   })
 
   it('shows the output live in development and still frames the reason', async () => {

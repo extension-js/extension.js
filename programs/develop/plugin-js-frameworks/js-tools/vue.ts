@@ -27,21 +27,16 @@ import {
   mergeLoaderOptions
 } from '../js-frameworks-lib/load-loader-options'
 import * as messages from '../js-frameworks-lib/messages'
+import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
 
 type VueLoaderPluginCtor = new (
   ...args: unknown[]
 ) => {apply(compiler: unknown): void}
 
-// Printed once per process. A caller that needs its own record passes one.
-const vueNotice = {delivered: false}
-
-export function isUsingVue(
-  projectPath: string,
-  notice: {delivered: boolean} = vueNotice
-) {
+export function isUsingVue(projectPath: string, notice?: Notice) {
   const using = hasDependency(projectPath, 'vue')
 
-  if (using && !notice.delivered) {
+  if (using && notice && !notice.delivered) {
     if (isDebug()) {
       debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Vue')}`)
     }
@@ -194,9 +189,10 @@ export class VueFeatureFlagsPlugin {
 export async function maybeUseVue(
   projectPath: string,
   mode: 'development' | 'production' | string = 'development',
-  projectDefine: Record<string, unknown> = {}
+  projectDefine: Record<string, unknown> = {},
+  notices?: SessionNotices
 ): Promise<JsFramework | undefined> {
-  if (!isUsingVue(projectPath)) return undefined
+  if (!isUsingVue(projectPath, notices?.vue)) return undefined
 
   const requireFromProject = createRequire(
     path.join(projectPath, 'package.json')
@@ -224,7 +220,11 @@ export async function maybeUseVue(
       }
     })
 
-  const customOptions = await loadLoaderOptions(projectPath, 'vue')
+  const customOptions = await loadLoaderOptions(
+    projectPath,
+    'vue',
+    notices?.customLoader
+  )
 
   const defaultLoaders: JsFramework['loaders'] = [
     {

@@ -12,17 +12,12 @@ import {debugLine, isDebug, prefix} from '../../lib/messaging'
 import type {JsFramework} from '../../types'
 import {hasDependency} from '../frameworks-lib/integrations'
 import * as messages from '../js-frameworks-lib/messages'
+import type {Notice, SessionNotices} from '../js-frameworks-lib/session-notices'
 import {isUsingReact} from './react'
 
-// Printed once per process. A caller that needs its own record passes one.
-const preactNotice = {delivered: false}
-
-export function isUsingPreact(
-  projectPath: string,
-  notice: {delivered: boolean} = preactNotice
-) {
+export function isUsingPreact(projectPath: string, notice?: Notice) {
   if (hasDependency(projectPath, 'preact')) {
-    if (!notice.delivered) {
+    if (notice && !notice.delivered) {
       if (isDebug()) {
         debugLine(`${prefix('debug')} ${messages.isUsingIntegration('Preact')}`)
       }
@@ -37,9 +32,10 @@ export function isUsingPreact(
 }
 
 export async function maybeUsePreact(
-  projectPath: string
+  projectPath: string,
+  notices?: SessionNotices
 ): Promise<JsFramework | undefined> {
-  if (!isUsingPreact(projectPath)) return undefined
+  if (!isUsingPreact(projectPath, notices?.preact)) return undefined
 
   // Preact fast-refresh is intentionally disabled (falls back to live-reload):
   // rspack 2.x renames the module arg out from under the plugin's vendored runtime.

@@ -7,7 +7,11 @@
 // MIT License (c) 2020–present Cezar Augusto & the Extension.js authors, presence implies inheritance
 
 import colors from 'pintor'
-import type {InstallBrowserTarget, UninstallResult} from './browser-target'
+import type {
+  InstallBrowserTarget,
+  UninstallFailureKind,
+  UninstallResult
+} from './browser-target'
 import {fmt, prefix} from './messaging'
 import type {CommandResult} from './runner'
 
@@ -155,6 +159,24 @@ export function installerNotFound(
     `The package runner ${runner} wasn't found on this machine. ` +
     `Install ${RUNNER_OWNERS[runner] || runner}, or run this command through ` +
     `a package manager that is installed.`
+  )
+}
+
+// The runner is there and the system refused to start it, so the code it
+// gave is the cause, and nothing was downloaded.
+export function installerDidNotStart(
+  browser: InstallBrowserTarget,
+  command: string,
+  cause: unknown
+): string {
+  const runner = command.replace(/\.cmd$/i, '')
+  const code = (cause as NodeJS.ErrnoException | null)?.code
+
+  return (
+    `Couldn't install ${titleCase(browser)}. ` +
+    `The package runner ${runner} didn't start` +
+    (code ? ` (${code})` : '') +
+    `, so nothing was downloaded.`
   )
 }
 
@@ -387,28 +409,32 @@ export function uninstallReasonInstalling(pid: number | null): string {
     : `an install of it is running, PID ${pid}`
 }
 
-export type UninstallFailureKind = 'removal' | 'foreign' | 'installing'
+export function uninstallAllWithBrowser(): string {
+  return (
+    `Pass --browser <name> to remove one browser, or --all to remove ` +
+    `every browser, not both.`
+  )
+}
 
 const UNINSTALL_REMEDIES: Record<UninstallFailureKind, string> = {
   removal:
     'Close any browser running from that folder, then run the uninstall again.',
+  permission:
+    'Give your user write access to that folder, or remove it yourself, then run the uninstall again.',
   foreign:
     'Extension.js removes only the folders it installed, so delete that one yourself if you mean to.',
   installing: 'Wait for the install to finish, then run the uninstall again.'
 }
 
-// kinds lines up with the failed results. Each kind is remedied once, and
-// only a removal that was tried says the folder is still there.
-export function uninstallFailed(
-  results: UninstallResult[],
-  kinds: UninstallFailureKind[] = []
-): string {
+// Each kind is remedied once, and only a removal that was tried says the
+// folder is still there.
+export function uninstallFailed(results: UninstallResult[]): string {
   const failed = results.filter((result) => result.outcome === 'failed')
-  const kindOf = (index: number) => kinds[index] ?? 'removal'
+  const kindOf = (index: number) => failed[index].kind ?? 'removal'
   const names = failed.map((result) => titleCase(result.browser)).join(', ')
   const evidence = failed
     .map((result, index) =>
-      kindOf(index) === 'removal'
+      kindOf(index) === 'removal' || kindOf(index) === 'permission'
         ? `${result.path} is still there (${result.reason}).`
         : `${result.path} was left untouched (${result.reason}).`
     )

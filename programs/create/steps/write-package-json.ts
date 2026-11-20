@@ -11,7 +11,7 @@ import * as fs from 'node:fs/promises'
 import * as path from 'node:path'
 import {readTemplatePackageJson} from '../lib/find-manifest-json'
 import * as messages from '../lib/messages'
-import {isDebug} from '../lib/messaging'
+import {CODES, isDebug} from '../lib/messaging'
 import {
   declarePackageManager,
   resolveProjectPackageManager,
@@ -275,7 +275,11 @@ export async function overridePackageJson(
       `${JSON.stringify(packageMetadata, null, 2)}\n`
     )
   } catch (error) {
-    throw failStep(messages.writingPackageJsonMetadataError(error), error)
+    throw failStep(
+      messages.writingPackageJsonMetadataError(error),
+      error,
+      CODES.E_DESTINATION_NOT_WRITABLE
+    )
   }
 
   // The field is left out only when no version could be learned, and the
