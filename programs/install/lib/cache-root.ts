@@ -19,16 +19,21 @@ export function resolveBrowsersCacheRoot(
   platform: NodeJS.Platform = process.platform,
   cwd?: string
 ): string {
+  // Joined by the rules of the platform asked about. A path that is already
+  // absolute here, or the folder this process runs in, keeps this host's rules.
   const p = platform === 'win32' ? path.win32 : path.posix
   const explicit = String(env.EXT_BROWSERS_CACHE_DIR || '').trim()
 
   if (explicit) {
-    return cwd === undefined ? p.resolve(explicit) : p.resolve(cwd, explicit)
+    return path.isAbsolute(explicit) || cwd === undefined
+      ? path.resolve(explicit)
+      : p.resolve(cwd, explicit)
   }
 
-  // Nothing to resolve against falls back to the folder the process runs in.
   const inWorkingDir = () =>
-    p.resolve(cwd ?? process.cwd(), '.cache', 'extension.js', 'browsers')
+    cwd === undefined
+      ? path.resolve(process.cwd(), '.cache', 'extension.js', 'browsers')
+      : p.resolve(cwd, '.cache', 'extension.js', 'browsers')
 
   if (platform === 'win32') {
     const local = String(env.LOCALAPPDATA || '').trim()
@@ -72,10 +77,57 @@ export function resolveBrowserInstallDir(
 // Windows answers EBUSY while a scanner or a closing browser still holds a
 // file, and lets go a moment later, so the removal waits and tries again.
 export function removeTree(dir: string): void {
-  fs.rmSync(dir, {
-    recursive: true,
-    force: true,
-    maxRetries: 4,
-    retryDelay: 100
-  })
+  try {
+    fs.rmSync(dir, {
+      recursive: true,
+      force: true,
+      maxRetries: 4,
+      retryDelay: 100
+    })
+  } catch (error) {
+    throw explainRemovalFailure(dir, error)
+  }
+}
+
+// A file this user may not delete surfaces as ENOTEMPTY on the folder above
+// it, which names the wrong cause. The folder that refused is the real one.
+function explainRemovalFailure(dir: string, error: unknown): unknown {
+  if ((error as NodeJS.ErrnoException | null)?.code !== 'ENOTEMPTY') {
+    return error
+  }
+
+  const blocked = firstUnwritableFolder(dir)
+  if (!blocked) return error
+
+  return Object.assign(
+    new Error(`EACCES: permission denied, no write access to '${blocked}'`),
+    {code: 'EACCES', path: blocked, cause: error}
+  )
+}
+
+// What is left after a failed removal is small, so a bounded walk finds the
+// folder whose entries this user cannot remove.
+function firstUnwritableFolder(dir: string): string | null {
+  const queue = [dir]
+
+  for (let seen = 0; queue.length > 0 && seen < 10_000; seen++) {
+    const current = queue.shift() as string
+
+    try {
+      fs.accessSync(current, fs.constants.W_OK)
+    } catch {
+      return current
+    }
+
+    try {
+      for (const entry of fs.readdirSync(current, {withFileTypes: true})) {
+        if (entry.isDirectory()) queue.push(path.join(current, entry.name))
+      }
+    } catch {
+      // A folder that cannot be listed is one more that cannot be emptied.
+      return current
+    }
+  }
+
+  return null
 }

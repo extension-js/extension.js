@@ -259,20 +259,27 @@ describe('extensionUninstall on a temp cache root', () => {
       expect(fs.readdirSync(cacheRoot).sort()).toEqual(['brave', 'notes.txt'])
     })
 
-    it('outranks a name passed beside it', async () => {
+    // One browser or every browser: a guess between the two could remove
+    // the ones the caller meant to keep, so nothing is removed.
+    it('refuses a name passed beside it and removes nothing', async () => {
       plantTree(cacheRoot, 'firefox')
 
-      const results = (await uninstall({
-        all: true,
-        browser: 'chrome'
-      })) as Array<{browser: string}>
+      const error = await uninstall({all: true, browser: 'chrome'})
 
-      expect(results.map((result) => result.browser)).toEqual([
-        'chrome',
-        'chromium',
-        'edge',
-        'firefox'
-      ])
+      expect(error).toBeInstanceOf(Error)
+      expect((error as Error).message).toBe(
+        'Pass --browser <name> to remove one browser, or --all to remove ' +
+          'every browser, not both.'
+      )
+
+      expect(fs.readdirSync(cacheRoot)).toEqual(['firefox'])
+      expect(logged).toEqual([])
+    })
+
+    it('still takes all beside a blank name', async () => {
+      plantTree(cacheRoot, 'firefox')
+
+      await uninstall({all: true, browser: '  '})
 
       expect(fs.readdirSync(cacheRoot)).toEqual([])
     })
@@ -311,6 +318,7 @@ describe('extensionUninstall on a temp cache root', () => {
           removed: false,
           path: at('chromium'),
           outcome: 'failed',
+          kind: 'removal',
           reason
         },
         row('edge', 'absent'),
@@ -354,9 +362,55 @@ describe('extensionUninstall on a temp cache root', () => {
       expect(cause).toBeInstanceOf(AggregateError)
       expect((cause as AggregateError).errors).toHaveLength(2)
       expect(
-        (error as BrowserUninstallError).results.map((result) => result.outcome)
-      ).toEqual(['failed', 'failed'])
+        (error as BrowserUninstallError).results.map((result) => [
+          result.outcome,
+          result.kind
+        ])
+      ).toEqual([
+        ['failed', 'removal'],
+        ['failed', 'removal']
+      ])
     })
+
+    // The real removal, on a real folder this user may not empty. Only a
+    // posix user who is not root can be denied this way.
+    it.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
+      'names the folder that refused for permissions, not a folder that is not empty',
+      async () => {
+        plantTree(cacheRoot, 'chrome')
+        const locked = path.join(at('chrome'), 'linux-152.0.9999.1')
+        fs.chmodSync(locked, 0o555)
+
+        try {
+          const error = await uninstall({browser: 'chrome'})
+          const reason = `EACCES: permission denied, no write access to '${locked}'`
+
+          expect(error).toBeInstanceOf(BrowserUninstallError)
+          expect((error as BrowserUninstallError).results).toEqual([
+            {
+              browser: 'chrome',
+              removed: false,
+              path: at('chrome'),
+              outcome: 'failed',
+              kind: 'permission',
+              reason
+            }
+          ])
+
+          expect((error as Error).message).toBe(
+            `Couldn't remove Chrome. ${at('chrome')} is still there (${reason}). ` +
+              'Give your user write access to that folder, or remove it ' +
+              'yourself, then run the uninstall again.'
+          )
+
+          expect(
+            (error as {cause?: {cause?: unknown}}).cause?.cause
+          ).toMatchObject({code: 'ENOTEMPTY'})
+        } finally {
+          fs.chmodSync(locked, 0o755)
+        }
+      }
+    )
   })
 
   describe('Edge, which its installer places system-wide', () => {

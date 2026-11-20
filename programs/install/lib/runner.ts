@@ -47,11 +47,15 @@ export function buildExecEnv(
 
   const nodeDir = path.win32.dirname(execPath)
   const pathSep = path.win32.delimiter
-  const existing = base.PATH || base.Path || ''
+  const existing = String(base.PATH || base.Path || '').trim()
+  // Windows compares folders without case and with or without the last slash,
+  // and a longer folder that starts with the same letters is another folder.
+  const same = (entry: string) =>
+    entry.trim().replace(/\\+$/, '').toLowerCase() === nodeDir.toLowerCase()
 
-  if (existing.includes(nodeDir)) return base
+  if (existing.split(pathSep).some(same)) return base
 
-  const updated = `${nodeDir}${pathSep}${existing}`.trim()
+  const updated = existing ? `${nodeDir}${pathSep}${existing}` : nodeDir
 
   return {
     ...base,

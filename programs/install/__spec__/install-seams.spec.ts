@@ -1087,17 +1087,35 @@ describe('buildExecEnv, the PATH a Windows child finds node on', () => {
     })
   })
 
-  it('leaves a trailing separator when neither is set', () => {
-    expect(execEnv({}, 'win32', NODE)).toEqual({
-      PATH: `${NODE_DIR};`,
-      Path: `${NODE_DIR};`
+  // An empty entry on a Windows PATH is the current folder, so none is added.
+  it.each([
+    ['neither is set', {}],
+    ['PATH is blank', {PATH: '  '}]
+  ])('names the node folder alone when %s', (_name, base) => {
+    expect(execEnv(base, 'win32', NODE)).toEqual({
+      ...base,
+      PATH: NODE_DIR,
+      Path: NODE_DIR
     })
   })
 
-  it('hands the environment back untouched when the folder is already named', () => {
-    const base = {PATH: `C:\\Windows;${NODE_DIR};C:\\tools`}
+  it.each([
+    ['as written', `C:\\Windows;${NODE_DIR};C:\\tools`],
+    ['in another case', 'C:\\Windows;c:\\program files\\NODEJS'],
+    ['with a last backslash', `${NODE_DIR}\\;C:\\Windows`]
+  ])('hands the environment back untouched when the folder is named %s', (_name, PATH) => {
+    const base = {PATH}
 
     expect(execEnv(base, 'win32', NODE)).toBe(base)
+  })
+
+  it('adds the node folder when only a longer folder starts with its name', () => {
+    expect(
+      execEnv({PATH: `${NODE_DIR}-old;C:\\Windows`}, 'win32', NODE)
+    ).toEqual({
+      PATH: `${NODE_DIR};${NODE_DIR}-old;C:\\Windows`,
+      Path: `${NODE_DIR};${NODE_DIR}-old;C:\\Windows`
+    })
   })
 
   it('reads the process for the platform and the node binary left out', () => {
