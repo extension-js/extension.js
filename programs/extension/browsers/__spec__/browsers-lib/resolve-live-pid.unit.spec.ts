@@ -163,7 +163,8 @@ describe('findLiveBrowserPid', () => {
         profilePath: winProfile,
         binary: winBin.toLowerCase(),
         launcherPid: winLauncher.pid,
-        rows: [winLauncher, winTwin, winContent]
+        rows: [winLauncher, winTwin, winContent],
+        platform: 'win32'
       })
     ).toBe(winTwin.pid)
 
@@ -175,6 +176,105 @@ describe('findLiveBrowserPid', () => {
         rows: [winTwin, winContent]
       })
     ).toBe(winTwin.pid)
+  })
+})
+
+// What Firefox on Linux shows for a moment while it starts: a fork that has
+// not exec'd yet, so it still carries the command line of what forked it.
+describe("findLiveBrowserPid and a fork that has not exec'd", () => {
+  const linuxBin = '/usr/bin/firefox-esr'
+  const linuxArgs = `--no-remote --new-instance -headless -profile ${PROFILE} -start-debugger-server 9255`
+  const main = row(1227, 1200, `${linuxBin} ${linuxArgs}`)
+  const socket = row(
+    1315,
+    1227,
+    `${linuxBin} -contentproc -parentBuildID 1 -prefsLen 1 -appDir /usr/lib/firefox-esr/browser 1227 socket`
+  )
+  const forkOfSocket = row(1316, 1315, `${linuxBin} ${linuxArgs}`)
+  const forkOfMain = row(1317, 1227, `${linuxBin} ${linuxArgs}`)
+  const relaunched = row(1400, 1227, `${linuxBin} XRE_PROFILE_PATH=${PROFILE}`)
+
+  const find = (
+    rows: ProcessRow[],
+    platform: NodeJS.Platform = 'linux',
+    launcherPid = main.pid
+  ) =>
+    findLiveBrowserPid({
+      profilePath: PROFILE,
+      binary: linuxBin,
+      launcherPid,
+      rows,
+      platform
+    })
+
+  it('keeps the launcher over a fork under its socket process that carries its command line', () => {
+    expect(find([main, socket, forkOfSocket])).toBe(main.pid)
+    expect(find([forkOfSocket, socket, main])).toBe(main.pid)
+  })
+
+  it('keeps the launcher over its own fork, which carries its command line', () => {
+    expect(find([main, forkOfMain])).toBe(main.pid)
+    expect(find([main, forkOfMain], 'darwin')).toBe(main.pid)
+  })
+
+  it('keeps the launcher over a copy of its command line that lost its parent', () => {
+    expect(find([main, row(1316, 1, forkOfSocket.command)])).toBe(main.pid)
+  })
+
+  it('still adopts the child the browser relaunched itself as, forks or not', () => {
+    expect(find([main, socket, forkOfSocket, forkOfMain, relaunched])).toBe(
+      relaunched.pid
+    )
+  })
+
+  it('adopts a sibling of the living launcher that runs under another command line', () => {
+    const sibling = row(1500, main.ppid, relaunched.command)
+
+    expect(find([main, sibling])).toBe(sibling.pid)
+  })
+
+  it('never adopts a process two generations below the launcher, on any platform', () => {
+    const deep = row(1600, socket.pid, relaunched.command)
+
+    for (const platform of ['linux', 'darwin', 'win32'] as const) {
+      expect(find([main, socket, deep], platform)).toBe(main.pid)
+    }
+  })
+
+  it('takes the root once the launcher is gone, not a fork under one of its helpers', () => {
+    const twin = row(1400, 1, relaunched.command)
+    const helper = row(1410, twin.pid, socket.command)
+    const forkBelow = row(1411, helper.pid, twin.command)
+
+    expect(find([forkBelow, helper, twin])).toBe(twin.pid)
+    expect(find([twin, helper, forkBelow])).toBe(twin.pid)
+  })
+
+  it('ends on a table whose parents loop', () => {
+    const a = row(10, 11, forkOfSocket.command)
+    const b = row(11, 10, socket.command)
+
+    expect(find([main, a, b])).toBe(main.pid)
+  })
+
+  it('polls past a fork and still answers the launcher', async () => {
+    const tables: ProcessRow[][] = [
+      [main, socket, forkOfSocket],
+      [main, socket],
+      [main, socket, forkOfMain]
+    ]
+
+    expect(
+      await resolveLiveBrowserPid({
+        profilePath: PROFILE,
+        binary: linuxBin,
+        launcherPid: main.pid,
+        platform: 'linux',
+        list: () => tables.shift() || [main, socket],
+        attempts: 4,
+        sleep: async () => {}
+      })
+    ).toBe(main.pid)
   })
 })
 
