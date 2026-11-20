@@ -10,6 +10,7 @@ import {
   notFoundPaths,
   project
 } from '../../../plugin-special-folders/__spec__/helpers/private-files-project'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 
 // Whole production builds: an entry the build copies nothing for is named
 // in a warning, and the manifest in the output folder does not list it.
@@ -208,7 +209,6 @@ describe.each([
 // A development build with no session: the manifest it writes, and whether
 // the build said the entry.
 async function developmentBuild(root: string) {
-  const {extensionBuild} = await import('../../../command-build')
   const lines: string[] = []
 
   const keep = (...parts: unknown[]) => {
@@ -231,13 +231,11 @@ async function developmentBuild(root: string) {
   ]
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'development',
       exitOnError: false
-    } as never)
+    })
 
     return {
       printed: [lines.join('\n'), JSON.stringify(summary)].join('\n'),

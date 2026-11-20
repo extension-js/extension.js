@@ -9,6 +9,7 @@ import {
   WASM_PAGES_POLICY,
   WarnWebAssembly
 } from '../steps/warn-webassembly'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 
 const roots: string[] = []
 
@@ -88,22 +89,11 @@ function project(options: {
 }
 
 async function build(root: string, browser = 'chrome') {
-  const {extensionBuild} = await import('../../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
-
-  try {
-    return await extensionBuild(root, {
-      browser,
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
-  } finally {
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
-  }
+  return await buildProject(root, {
+    browser,
+    mode: 'production',
+    exitOnError: false
+  })
 }
 
 const policyWarnings = (summary: {warnings?: string[]}) =>

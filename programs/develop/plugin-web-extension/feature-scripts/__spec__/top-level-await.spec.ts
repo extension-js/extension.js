@@ -6,6 +6,7 @@ import {rspack} from '@rspack/core'
 import {afterAll, describe, expect, it, vi} from 'vitest'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 
 // A content script that awaits at the top level, built whole the way
 // `extension build` and `extension dev` compile it.
@@ -72,30 +73,18 @@ interface Diagnostic {
 
 // `extension build`: the shipped bundle, read through the build summary.
 async function built(root: string): Promise<Diagnostic[]> {
-  const {extensionBuild} = await import('../../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const spies = (['log', 'warn', 'error'] as const).map((method) =>
     vi.spyOn(console, method).mockImplementation(() => {})
   )
 
   try {
-    await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode: 'production',
-      exitOnError: false
-    } as any)
+    await buildProject(root, {mode: 'production', exitOnError: false})
 
     return []
   } catch (error) {
     return (error as {diagnostics?: Diagnostic[]}).diagnostics || []
   } finally {
     for (const spy of spies) spy.mockRestore()
-
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 

@@ -6,6 +6,7 @@ import {rspack} from '@rspack/core'
 import {afterAll, describe, expect, it, vi} from 'vitest'
 import {getProjectStructure} from '../../../lib/project'
 import webpackConfig from '../../../rspack-config'
+import {buildProject} from '../../../__spec__/helpers/build-project'
 
 // What a loader added through the config hook of extension.config.js is
 // handed for a content script, read from whole builds with a recording loader.
@@ -227,26 +228,14 @@ interface BuildFailure extends Error {
 }
 
 async function build(root: string, mode: Mode) {
-  const {extensionBuild} = await import('../../../command-build')
-  const previous = process.env.VITEST
-  process.env.VITEST = 'true'
   const spies = (['log', 'warn', 'error'] as const).map((method) =>
     vi.spyOn(console, method).mockImplementation(() => {})
   )
 
   try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode,
-      exitOnError: false
-    } as any)
+    return await buildProject(root, {mode, exitOnError: false})
   } finally {
     for (const spy of spies) spy.mockRestore()
-
-    if (previous === undefined) delete process.env.VITEST
-    else process.env.VITEST = previous
   }
 }
 
