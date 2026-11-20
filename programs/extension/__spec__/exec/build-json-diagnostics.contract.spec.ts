@@ -1102,7 +1102,7 @@ const DIAGNOSTIC_ROWS: DiagnosticRow[] = [
         '⏵⏵⏵ Error: The distribution zip was requested and not created.',
         'PATH dist/zipped-1.0.0-chromium.zip',
         "EISDIR: illegal operation on a directory, open '<project>/dist/zipped-1.0.0-chromium.zip'",
-        '⏵⏵⏵ Error: Build failed with 1 error.',
+        '⏵⏵⏵ Error: Build failed with 1 error. The output folder dist/chromium is in place and loads as built.',
         ''
       ].join('\n')
     }
