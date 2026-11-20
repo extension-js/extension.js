@@ -80,9 +80,7 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
   it('reads the control bridge and nothing else of the dev server', () => {
     const allowed = new Set([
       'control-bridge/contracts',
-      'control-bridge/producer-runtime',
-      // humanLine, re-exported there. Its home is lib/messaging.
-      'lifecycle-stream'
+      'control-bridge/producer-runtime'
     ])
     const reached = files.flatMap(({text}) =>
       specifiers(text)
@@ -122,6 +120,41 @@ describe('what plugin-reload reaches in the dev server and the browsers', () => 
 
 // The pages belong to the HTML feature. Reload is told about them through
 // one extension point and reads no file of that feature.
+// Every file of another plugin this folder reads. A new row is a decision,
+// since each one is something reload knows about a neighbor.
+describe('what plugin-reload reaches in the other plugins', () => {
+  const reached = [
+    ...new Set(
+      sourceFiles(FOLDER).flatMap((file) =>
+        [...fs.readFileSync(file, 'utf8').matchAll(/from\s+'([^']+)'/g)]
+          .map((match) => match[1])
+          .filter((from) => /\/(?:plugin-[a-z-]+|dev-server)\//.test(from))
+          .map((from) => from.replace(/^(?:\.\.\/)+/, ''))
+      )
+    )
+  ].sort()
+
+  it('reads these files and no other', () => {
+    expect(reached).toEqual([
+      'dev-server/control-bridge/contracts',
+      'dev-server/control-bridge/producer-runtime',
+      'plugin-js-frameworks/js-tools/react',
+      'plugin-js-frameworks/js-tools/svelte',
+      'plugin-js-frameworks/js-tools/vue',
+      'plugin-special-folders/public-private-files',
+      'plugin-special-folders/resolve-public-folder',
+      'plugin-web-extension/feature-manifest/manifest-lib/manifest',
+      'plugin-web-extension/feature-manifest/steps/apply-dev-defaults-lib/emitted-evidence',
+      'plugin-web-extension/feature-scripts/contracts',
+      'plugin-web-extension/shared/background-asset',
+      'plugin-web-extension/shared/chunk-loading-target-extensions',
+      'plugin-web-extension/shared/content-script-wrapper-extensions',
+      'plugin-web-extension/shared/html-page-extensions',
+      'plugin-web-extension/shared/initial-files'
+    ])
+  })
+})
+
 describe('what plugin-reload reaches in the HTML feature', () => {
   const files = sourceFiles(FOLDER).map((file) => ({
     file: path.relative(FOLDER, file).split(path.sep).join('/'),

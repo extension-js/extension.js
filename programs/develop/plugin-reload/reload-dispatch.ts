@@ -15,8 +15,7 @@ import type {
   ReloadAckOutcome,
   ReloadRestartOutcome
 } from '../dev-server/control-bridge/contracts'
-import {humanLine} from '../dev-server/lifecycle-stream'
-import {prefix} from '../lib/messaging'
+import {humanLine, prefix} from '../lib/messaging'
 import {isHotUpdateFile} from '../plugin-web-extension/shared/initial-files'
 import {
   filesBehindFolders,
