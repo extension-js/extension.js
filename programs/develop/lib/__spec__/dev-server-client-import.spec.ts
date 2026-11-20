@@ -112,21 +112,13 @@ describe('dev-server-client-import', () => {
   })
 
   it('rewrites a wildcard bind host to a connectable loopback host', () => {
-    const prev = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
-    delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
-
-    try {
-      const fakeCompiler = {
-        options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
-      }
-      const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
-      expect(clientEntry).toContain('hostname=127.0.0.1')
-      expect(clientEntry).not.toContain('hostname=0.0.0.0')
-    } finally {
-      if (prev === undefined) {
-        delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
-      } else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
+    const fakeCompiler = {
+      options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
     }
+    const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
+
+    expect(clientEntry).toContain('hostname=127.0.0.1')
+    expect(clientEntry).not.toContain('hostname=0.0.0.0')
   })
 
   // Two sessions in one host: the environment holds what the newest wrote.
@@ -168,20 +160,34 @@ describe('dev-server-client-import', () => {
     }
   })
 
-  it('prefers the resolved connectable host env over the bind host', () => {
-    const prev = process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
-    process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = 'devbox.example.com'
+  it('prefers the connectable host of its session over the bind host', () => {
+    const fakeCompiler = {
+      options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
+    }
+    const [clientEntry] = getDevServerHmrImports(fakeCompiler as any, {
+      connectableHost: 'devbox.example.com'
+    })
+
+    expect(clientEntry).toContain('hostname=devbox.example.com')
+  })
+
+  it('gives no client to a compiler only the environment names a session for', () => {
+    const kept = [
+      process.env.EXTENSION_DEV_SERVER_HOST,
+      process.env.EXTENSION_DEV_SERVER_PORT
+    ]
+
+    process.env.EXTENSION_DEV_SERVER_HOST = '127.0.0.1'
+    process.env.EXTENSION_DEV_SERVER_PORT = '9090'
 
     try {
-      const fakeCompiler = {
-        options: {devServer: {host: '0.0.0.0', port: 8131, hot: 'only'}}
-      }
-      const [clientEntry] = getDevServerHmrImports(fakeCompiler as any)
-      expect(clientEntry).toContain('hostname=devbox.example.com')
+      expect(getDevServerHmrImports({options: {}} as any)).toEqual([])
     } finally {
-      if (prev === undefined) {
-        delete process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST
-      } else process.env.EXTENSION_DEV_SERVER_CONNECTABLE_HOST = prev
+      if (kept[0] === undefined) delete process.env.EXTENSION_DEV_SERVER_HOST
+      else process.env.EXTENSION_DEV_SERVER_HOST = kept[0]
+
+      if (kept[1] === undefined) delete process.env.EXTENSION_DEV_SERVER_PORT
+      else process.env.EXTENSION_DEV_SERVER_PORT = kept[1]
     }
   })
 })
