@@ -11,7 +11,7 @@ import * as path from 'node:path'
 import type {Duplex} from 'node:stream'
 import type {Compiler} from '@rspack/core'
 import type {Configuration} from '@rspack/dev-server'
-import {rootAbsolutePathIsWithheld} from '../plugin-special-folders/public-private-files'
+import {rootAbsolutePathIsWithheld} from '../lib/public-private-files'
 import {
   createSocketVerifier,
   devServerAccessConfig,

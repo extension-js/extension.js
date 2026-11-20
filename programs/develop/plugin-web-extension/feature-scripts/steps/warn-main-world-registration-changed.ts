@@ -10,8 +10,8 @@ import * as path from 'node:path'
 import {type Compiler, WebpackError} from '@rspack/core'
 import {
   type MainWorldScriptChange,
-  trackMainWorldRestart
-} from '../../../dev-server/main-world-restart'
+  trackMainWorldSet
+} from '../../../lib/session-restart-signal'
 import type {FilepathList, PluginInterface} from '../../../types'
 import {unixify} from '../../shared/paths'
 import * as messages from '../messages'
@@ -54,7 +54,7 @@ export class WarnMainWorldRegistrationChanged {
     const atStart = new Map(
       find().map((entry) => [entry.entryName, entry.files])
     )
-    const noteMainWorldSet = trackMainWorldRestart(compiler, {
+    const noteMainWorldSet = trackMainWorldSet(compiler, {
       name: WarnMainWorldRegistrationChanged.name,
       key: this.manifestPath,
       startSignature: signatureOf(atStart),

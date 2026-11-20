@@ -66,7 +66,7 @@ describe('what the HTML feature knows about reloading and browsers', () => {
     expect([...reached].sort()).toEqual([])
     expect(
       files
-        .filter(({text}) => text.includes('signalManifestChange('))
+        .filter(({text}) => text.includes('requestSessionRestart('))
         .map(({file}) => file)
     ).toEqual(['steps/throw-if-recompile-is-needed.ts'])
   })
@@ -93,10 +93,9 @@ describe('what the HTML feature knows about reloading and browsers', () => {
     ).toEqual([])
   })
 
-  // The socket class a dev session swaps into a page sits in this folder,
-  // and plugin-reload is the one that wires it in.
-  it('holds one dev client file, which nothing in the folder imports', () => {
-    expect(matching(/\bWebSocket\b/)).toEqual(['steps/page-socket-client.ts'])
+  // The socket class a dev session swaps into a page is plugin-reload's.
+  it('holds no dev client file and imports none', () => {
+    expect(matching(/\bWebSocket\b/)).toEqual([])
     expect(matching(/["'][^"']*page-socket-client["']/)).toEqual([])
   })
 

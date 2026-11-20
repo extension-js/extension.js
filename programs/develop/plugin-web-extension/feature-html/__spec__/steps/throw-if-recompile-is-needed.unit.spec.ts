@@ -5,10 +5,8 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest'
 import {
   bindDevSessionRestart,
   DevSessionRestartScheduler,
-  requestDevSessionRestart,
   unbindDevSessionRestart
 } from '../../../../dev-server/session-restart'
-import {listenForManifestChange} from '../../../shared/manifest-change-signal'
 import {getAssetsFromHtml} from '../../html-lib/utils'
 import {ThrowIfRecompileIsNeeded} from '../../steps/throw-if-recompile-is-needed'
 
@@ -48,11 +46,6 @@ function makeCompiler(modified: string[] = []): MakeCompiler {
     },
     _errors: errors
   }
-
-  // The config wires the session to the signal the same way.
-  listenForManifestChange(compiler as never, (change) =>
-    requestDevSessionRestart(compiler, change)
-  )
 
   return compiler
 }

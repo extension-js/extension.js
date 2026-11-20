@@ -9,9 +9,9 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import {type Compilation, type Compiler, WebpackError} from '@rspack/core'
-import {requestDevSessionRestart} from '../dev-server/session-restart'
 import {debugLine, isDebug} from '../lib/messaging'
 import {isInsidePath} from '../lib/real-path'
+import {requestSessionRestart} from '../lib/session-restart-signal'
 import {isEntryFolderFile, walkEntryFolder} from './entry-folders'
 import {
   foldersRoots,
@@ -53,7 +53,7 @@ export interface WarnUponFolderChangesOptions {
     projectPath: string
   ) => Set<string>
   // Asks the live session to restart. False means no session can.
-  requestRestart?: typeof requestDevSessionRestart
+  requestRestart?: typeof requestSessionRestart
 }
 
 export class WarnUponFolderChanges {
@@ -61,11 +61,11 @@ export class WarnUponFolderChanges {
     roots: SpecialFoldersRoots,
     projectPath: string
   ) => Set<string>
-  private readonly requestRestart: typeof requestDevSessionRestart
+  private readonly requestRestart: typeof requestSessionRestart
 
   constructor({
     readFolderFiles = readSpecialFolderFiles,
-    requestRestart = requestDevSessionRestart
+    requestRestart = requestSessionRestart
   }: WarnUponFolderChangesOptions = {}) {
     this.readFolderFiles = readFolderFiles
     this.requestRestart = requestRestart

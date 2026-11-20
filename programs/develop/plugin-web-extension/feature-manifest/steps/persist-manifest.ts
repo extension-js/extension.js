@@ -9,8 +9,8 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import rspack, {type Compilation, type Compiler} from '@rspack/core'
-import {isCompilerRestarting} from '../../../dev-server/session-restart'
 import {renameSyncWithRetry} from '../../../lib/rename-with-retry'
+import {isSessionRestarting} from '../../../lib/session-restart-signal'
 import {turnedOffPublicFolders} from '../../../plugin-special-folders/resolve-public-folder'
 import {isManifestAddress} from '../../shared/paths'
 import {pagesReportedMissing} from '../../shared/reported-missing-pages'
@@ -281,7 +281,7 @@ export class PersistManifestToDisk {
             : []
 
         if (strandedFiles.length > 0) {
-          if (isCompilerRestarting(compiler)) return
+          if (isSessionRestarting(compiler)) return
 
           const err = new rspack.WebpackError(
             messages.manifestFilesInTurnedOffPublic(strandedFiles)
@@ -304,7 +304,7 @@ export class PersistManifestToDisk {
         if (missingFiles.length > 0) {
           // The entries are missing because this compiler never included
           // them; the restart already scheduled emits them, so stay quiet.
-          if (isCompilerRestarting(compiler)) return
+          if (isSessionRestarting(compiler)) return
 
           const err = new rspack.WebpackError(
             messages.manifestFilesNotEmitted(missingFiles)

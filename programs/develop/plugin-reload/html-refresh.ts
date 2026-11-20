@@ -52,6 +52,7 @@ export function pageOfSocketRequest(
 
     return page ? toPageName(page) : undefined
   } catch {
+    // A request line that is no URL names no page, so nothing reloads for it
     return undefined
   }
 }

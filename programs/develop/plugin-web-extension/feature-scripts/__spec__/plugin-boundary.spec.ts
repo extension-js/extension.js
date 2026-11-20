@@ -64,7 +64,7 @@ describe('what the scripts feature knows about reloading', () => {
     ).toEqual([])
   })
 
-  it('reaches the dev server only through its restart API', () => {
+  it('reaches the dev server nowhere, and asks for a restart through lib', () => {
     const fromDevServer = /["']([^"']*dev-server\/[^"']*)["']/g
     const reached = new Set(
       files.flatMap(({text}) =>
@@ -74,7 +74,12 @@ describe('what the scripts feature knows about reloading', () => {
       )
     )
 
-    expect([...reached].sort()).toEqual(['main-world-restart'])
+    expect([...reached].sort()).toEqual([])
+    expect(
+      files
+        .filter(({text}) => text.includes("lib/session-restart-signal'"))
+        .map(({file}) => file)
+    ).toEqual(['steps/warn-main-world-registration-changed.ts'])
   })
 })
 

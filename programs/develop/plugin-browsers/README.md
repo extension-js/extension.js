@@ -59,7 +59,7 @@ session restart state.
 
 ## Tests
 
-`__spec__/` drives both plugins on `fake-compiler.ts`, a watching compiler
+`__spec__/` drives both plugins on `programs/develop/__spec__/helpers/fake-compiler.ts`, a watching compiler
 with no bundler under it, with stand-in launchers and packagers.
 `safari-package-hold.spec.ts` and `launch-holds-rebuild.spec.ts` also run
 the plugins under a real watching compiler. Nothing there launches a

@@ -280,23 +280,6 @@ export function devServerStartTimeout(ms: number) {
   ].join('\n')
 }
 
-export function manifestGoneDuringSession(
-  manifestPath: string,
-  projectDirGone: boolean
-) {
-  const what = projectDirGone
-    ? 'The project directory disappeared during the session.'
-    : 'The manifest.json file disappeared during the session.'
-  const where = projectDirGone ? path.dirname(manifestPath) : manifestPath
-
-  return (
-    `${getLoggingPrefix('error')} ${what}\n` +
-    `${colors.gray('NOT FOUND')} ${colors.underline(collapseHomeDir(where))}\n` +
-    `The last good build stays loaded. Restore it to keep working, or stop and run ` +
-    `${colors.blue('extension dev')} again with the right path.`
-  )
-}
-
 export function bundlerFatalError(error: unknown) {
   const text =
     error instanceof Error ? error.stack || error.message : String(error)
@@ -416,18 +399,6 @@ export function devServerStopFailedOnRestart(error: unknown) {
 
 export function bundlerRecompiling() {
   return `${getLoggingPrefix('info')} Recompiling due to file changes…`
-}
-
-export function noEntrypointsDetected(port: number) {
-  return [
-    `${getLoggingPrefix('warn')} The first compilation produced no entrypoints or assets.`,
-    `The dev server is running on 127.0.0.1:${port}, but nothing is being built.`,
-    `Possible causes:`,
-    `- Empty or missing entry configuration.`,
-    `- Extension plugins are disabled, so entries aren't derived from the manifest.`,
-    `- All sources are ignored or excluded.`,
-    `Set ${colors.blue('EXTENSION_VERBOSE=1')} to see verbose logs, or review your extension config.`
-  ].join('\n')
 }
 
 export function spacerLine() {

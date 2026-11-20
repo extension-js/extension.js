@@ -5,6 +5,7 @@ import {
   fakeCompilation,
   fakeCompiler
 } from '../../__spec__/helpers/fake-compiler'
+import {quietBroker} from '../../__spec__/helpers/quiet-broker'
 import {trackTempFolders} from '../../__spec__/helpers/temp-folders'
 import type {BrowserType} from '../../types'
 import {classifyReloadFromSources, type ReloadBroker} from '../index'
@@ -54,13 +55,13 @@ function session(
   const context = options.context ?? CONTEXT
   const output = options.output ?? OUTPUT
   const frames: Array<Record<string, unknown>> = []
-  const broker: ReloadBroker = {
+  const broker: ReloadBroker = quietBroker({
     broadcastReload: (frame) => {
       frames.push({...frame})
 
       return 1
     }
-  }
+  })
   const launched = launchedSession({
     browser: options.browser ?? 'firefox',
     broker

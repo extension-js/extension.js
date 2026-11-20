@@ -1,6 +1,6 @@
 import {afterEach, describe, expect, it, vi} from 'vitest'
-import {pageOfSocketRequest} from '../../../../dev-server/html-refresh'
-import PageSocketClient, {pageSocketUrl} from '../../steps/page-socket-client'
+import {pageOfSocketRequest} from '../html-refresh'
+import PageSocketClient, {pageSocketUrl} from '../reload-lib/page-socket-client'
 
 class FakeSocket {
   static opened: string[] = []
