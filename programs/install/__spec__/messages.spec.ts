@@ -222,6 +222,19 @@ const cases: Record<keyof typeof messages, MessageCase> = {
       '--browser=chromium'
     ]
   },
+  edgePasswordPromptTimedOut: {
+    thrown: true,
+    build: () => messages.edgePasswordPromptTimedOut('linux', 300_000),
+    carries: [
+      'Edge needs your password for sudo on Linux',
+      'within 5 minutes',
+      'the install was stopped',
+      'enter the password',
+      'sudo apt install microsoft-edge-stable',
+      '--browser=edge',
+      '--browser=chromium'
+    ]
+  },
   edgeInstallUsingSystemBinary: {
     thrown: false,
     build: () =>
@@ -330,9 +343,10 @@ describe('install messages', () => {
     expect(text).toBe(text.trim())
   })
 
-  it('names no Linux package manager in the macOS privilege message', () => {
-    const text = messages.edgeInstallNeedsAdministratorPassword()
-
+  it.each([
+    messages.edgeInstallNeedsAdministratorPassword(),
+    messages.edgePasswordPromptTimedOut('darwin', 300_000)
+  ])('names no Linux package manager in a macOS privilege message', (text) => {
     for (const linuxOnly of ['Linux', 'apt', 'dnf', 'package manager']) {
       expect(text).not.toContain(linuxOnly)
     }

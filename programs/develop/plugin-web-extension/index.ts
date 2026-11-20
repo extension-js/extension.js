@@ -35,7 +35,7 @@ import {
 } from './shared/manifest-path-assets'
 
 export class WebExtensionPlugin {
-  public static readonly name: string = 'plugin-extension'
+  public static readonly name: string = 'plugin-web-extension'
 
   public readonly manifestPath: string
   public readonly browser: DevOptions['browser']

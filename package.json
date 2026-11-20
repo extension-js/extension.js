@@ -78,6 +78,7 @@
     "cross-spawn": "^7.0.6",
     "dotenv-cli": "^11.0.0",
     "eslint": "^10.10.0",
+    "js-yaml": "^4.3.2",
     "lint-staged": "17.0.8",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",

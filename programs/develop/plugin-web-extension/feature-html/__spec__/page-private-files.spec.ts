@@ -13,7 +13,8 @@ import {
   notFoundCopies,
   notFoundPaths,
   PAGE,
-  PUBLIC_OUTPUT
+  PUBLIC_OUTPUT,
+  pageNotBundledRefs
 } from './helpers/private-files-project'
 
 // Whole builds of a fixture project whose page names files a build never
@@ -88,7 +89,7 @@ function page(parts: {head?: string; body?: string}) {
 
 describe('a page that names a file the build never copies', () => {
   it.each(ATTRIBUTES)(
-    'leaves it out and calls it missing, in %s',
+    'leaves it out and says it is not bundled, in %s',
     async (_label, write) => {
       const project = makeProject()
       const {root} = project
@@ -100,7 +101,15 @@ describe('a page that names a file the build never copies', () => {
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual(KEPT_OUTPUT)
-      expect(result.missing).toEqual([...WITHHELD, project.outsideFile].sort())
+      // Only a name with no file behind it is missing.
+      expect(result.missing).toEqual(['/%2Eenv'])
+      expect(pageNotBundledRefs(result.printed)).toEqual(
+        [
+          ...WITHHELD.filter((ref) => ref !== '/%2Eenv'),
+          project.outsideFile
+        ].sort()
+      )
+
       expect(result.errors).toBe(0)
       expectNothingPrivate(result)
     },
@@ -215,7 +224,12 @@ describe('a page that names a file the build never copies', () => {
 
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual(PUBLIC_OUTPUT)
-      expect(result.missing).toEqual(['/.env.png', '/sub/.env.png'])
+      expect(result.missing).toEqual([])
+      expect(pageNotBundledRefs(result.printed)).toEqual([
+        '/.env.png',
+        '/sub/.env.png'
+      ])
+
       expect(notFoundCopies(result.printed)).toEqual({
         terminal: [
           path.join(root, '.env.png'),
@@ -264,8 +278,12 @@ describe('a page that names a file the build never copies', () => {
       expect(result.marked).toEqual([])
       expect(result.shipped).toEqual(PUBLIC_OUTPUT)
 
-      expect(result.missing).toEqual(['/.env', '/public/.npmrc'])
-      expect(result.printed).toContain('Update the ./public/.env reference')
+      expect(result.missing).toEqual([])
+      expect(pageNotBundledRefs(result.printed)).toEqual([
+        './public/.env',
+        '/.env',
+        '/public/.npmrc'
+      ])
 
       expectNothingPrivate(result)
     },

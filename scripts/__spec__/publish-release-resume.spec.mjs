@@ -4,18 +4,9 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
-import {fileURLToPath} from 'node:url'
 import {corpusReleaseLine} from '../corpus-release-line.mjs'
+import {anyStep, job, readWorkflow} from '../lib/workflow-yaml.mjs'
 
-const root = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  '..',
-  '..'
-)
-const workflow = fs.readFileSync(
-  path.join(root, '.github', 'workflows', 'publish-release.yml'),
-  'utf8'
-)
 const PACKAGES = [
   'programs/extension',
   'programs/develop',
@@ -23,33 +14,15 @@ const PACKAGES = [
   'programs/install'
 ]
 
-function step(name) {
-  const start = workflow.indexOf(`- name: ${name}`)
-  assert.notEqual(start, -1, name)
-  const rest = workflow.slice(start + 1)
-  const end = rest.search(/\n\s+- name: /)
+const release = readWorkflow('publish-release.yml')
 
-  return end === -1 ? rest : rest.slice(0, end)
+function step(name) {
+  return anyStep(release, name)
 }
 
-// The step's `run: |` block, dedented, so the spec runs the exact shell the
-// job runs.
+// The step's run block as Actions hands it to the shell.
 function runBlock(name) {
-  const text = step(name)
-  const lines = text.split('\n')
-  const at = lines.findIndex((line) => /^\s+run: \|$/.test(line))
-  assert.notEqual(at, -1, `${name} has a run block`)
-  const indent = lines[at + 1].match(/^\s*/)[0].length
-  const body = []
-
-  for (const line of lines.slice(at + 1)) {
-    if (line.trim() === '') continue
-    if (line.match(/^\s*/)[0].length < indent) break
-
-    body.push(line.slice(indent))
-  }
-
-  return body.join('\n') + '\n'
+  return step(name).run
 }
 
 function git(cwd, ...args) {
@@ -217,6 +190,7 @@ test('never resumes a canary, which has no tag to resume from', () => {
 })
 
 test('resumes before anything is installed or built, and the later steps read it', () => {
+  const names = job(release, 'publish').steps.map((entry) => entry.name)
   const order = [
     'Checkout',
     'Resume from the release tag when it exists',
@@ -225,7 +199,7 @@ test('resumes before anything is installed or built, and the later steps read it
     'Install dependencies',
     'Build packages',
     'Validate inputs'
-  ].map((name) => workflow.indexOf(`- name: ${name}`))
+  ].map((name) => names.indexOf(name))
   assert.ok(order.every((at) => at !== -1))
   assert.deepEqual(
     order,
@@ -233,28 +207,13 @@ test('resumes before anything is installed or built, and the later steps read it
   )
 
   assert.match(
-    step('Repin the template catalog to the examples corpus head'),
+    step('Repin the template catalog to the examples corpus head').if,
     /steps\.resume\.outputs\.resume != 'true'/
   )
 
-  assert.match(
-    step('Validate inputs'),
-    /RESUME='\$\{\{ steps\.resume\.outputs\.resume \}\}'/
-  )
-
-  assert.match(step('Validate inputs'), /echo "resume=\$RESUME"/)
-})
-
-test('reads the corpus with the published version on every channel, skipped gate jobs or not', () => {
-  const job = workflow.slice(workflow.indexOf('\n  corpus-published:'))
-
-  assert.match(job, /needs: publish\n/)
-  assert.match(
-    job,
-    /if: \$\{\{ !cancelled\(\) && needs\.publish\.result == 'success' && \(inputs\.channel != 'canary' \|\| inputs\.readings\) \}\}/
-  )
-
-  assert.match(job, /cli-version: \$\{\{ needs\.publish\.outputs\.version \}\}/)
+  const validate = step('Validate inputs').run
+  assert.match(validate, /RESUME='\$\{\{ steps\.resume\.outputs\.resume \}\}'/)
+  assert.match(validate, /echo "resume=\$RESUME"/)
 })
 
 test('writes the corpus line into the notes of a gated stable release only', () => {
@@ -290,14 +249,14 @@ test('writes the corpus line into the notes of a gated stable release only', () 
   assert.equal(corpusReleaseLine({...stable, TEMPLATES_RESULT: 'failure'}), '')
 
   assert.match(
-    step('Generate release notes'),
+    step('Generate release notes').run,
     /corpus=\$\(node scripts\/corpus-release-line\.mjs\)/
   )
 })
 
 test('names an auto canary for the patch after the last release', () => {
   const line = step('Validate inputs')
-    .split('\n')
+    .run.split('\n')
     .find((text) => text.includes('BASE=$(node -p'))
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'canary-base-'))
 

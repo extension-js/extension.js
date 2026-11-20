@@ -47,17 +47,6 @@ export const SUPPORTED_BROWSER_TARGETS = [
 
 export const BROWSER_TARGETS_HELP = SUPPORTED_BROWSER_TARGETS.join(' | ')
 
-// The act verbs (logs, eval, reload, storage, inspect, open) and doctor attach
-// to a RUNNING dev session, and a session can be Safari since it grew a working
-// background. They name the canonical targets rather than every fork alias.
-export const SESSION_BROWSER_TARGETS_HELP = [
-  'chrome',
-  'chromium',
-  'edge',
-  'firefox',
-  'safari'
-].join(' | ')
-
 // start/preview refuse the webkit family and emulated Chromium on purpose
 // (the emulator needs the dev server), so their help lists every accepted
 // target except safari, webkit-based and chromium-emulator.

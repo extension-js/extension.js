@@ -22,11 +22,11 @@ export class CollectContentEntryImports {
 
   apply(compiler: Compiler): void {
     compiler.hooks.thisCompilation.tap(
-      'plugin-extension:feature-web-resources:collect-entry-imports',
+      'plugin-web-extension:feature-web-resources:collect-entry-imports',
       (compilation: Compilation) => {
         compilation.hooks.processAssets.tap(
           {
-            name: 'plugin-extension:feature-web-resources:collect-entry-imports',
+            name: 'plugin-web-extension:feature-web-resources:collect-entry-imports',
             stage: Compilation.PROCESS_ASSETS_STAGE_SUMMARIZE
           },
           () => {

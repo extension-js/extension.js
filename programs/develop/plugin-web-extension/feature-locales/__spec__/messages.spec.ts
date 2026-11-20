@@ -1,6 +1,9 @@
 import * as path from 'node:path'
 import {describe, expect, it, vi} from 'vitest'
-import {localesMustBeAtProjectRoot} from '../messages'
+import {
+  localesMustBeAtProjectRoot,
+  manifestNotFoundMessageOnly
+} from '../messages'
 
 const HOME = path.resolve(path.sep, 'Users', 'someone')
 const PROJECT = path.join(HOME, 'browser-extensions', 'locale-probe')
@@ -47,6 +50,21 @@ describe('legacy _locales folder warning', () => {
 
     expect(toPosix(message)).toContain(
       '\nEXPECTED ~/other/locale-probe/_locales\n'
+    )
+
+    expect(message).not.toContain(HOME)
+  })
+})
+
+describe('missing manifest error', () => {
+  it('names the manifest relative to the project', () => {
+    const message = manifestNotFoundMessageOnly(
+      path.join(PROJECT, 'src', 'manifest.json'),
+      PROJECT
+    )
+
+    expect(toPosix(message).split('\n')).toContain(
+      'NOT FOUND src/manifest.json'
     )
 
     expect(message).not.toContain(HOME)

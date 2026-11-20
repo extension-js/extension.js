@@ -8,12 +8,16 @@ import {
   vi
 } from 'vitest'
 import {isValidBundleId} from '../browsers/run-safari/safari-launch/safari-config'
+import {registerActCommands} from '../commands/act'
 import {registerBuildCommand} from '../commands/build'
 import {registerDevCommand} from '../commands/dev'
+import {registerDoctorCommand} from '../commands/doctor'
+import {registerLogsCommand} from '../commands/logs'
 import {registerPreviewCommand} from '../commands/preview'
 import {registerStartCommand} from '../commands/start'
 import {parseParentPid} from '../helpers/parent-watchdog'
 import {
+  BROWSER_TARGETS_HELP,
   classifyManagedInstallTarget,
   installTargets,
   isEmulatorVendor,
@@ -288,5 +292,101 @@ describe('a bundle id with no dot', () => {
         ([, options]) => (options as {bundleId: string}).bundleId
       )
     ).toEqual(['com.example.myapp'])
+  })
+})
+
+// A session is named by the browser dev was given, so the commands that attach
+// to one take and list the same names dev does.
+describe('--browser on the commands that attach to a session', () => {
+  const bridgeLoads = vi.fn(async () => {
+    throw new Error('this spec never reaches a session')
+  })
+
+  function runSession(argv: string[]) {
+    return runCli(
+      makeProgram((program) => {
+        registerLogsCommand(program, {loadBridge: bridgeLoads as never})
+        registerDoctorCommand(program, {loadBridge: bridgeLoads as never})
+        registerActCommands(program, {loadBridge: bridgeLoads as never})
+      }),
+      argv
+    )
+  }
+
+  const everyTarget = SUPPORTED_BROWSER_TARGETS.join(', ')
+  const SESSION_COMMANDS: Array<[string, string[]]> = [
+    ['logs', ['logs', '.']],
+    ['doctor', ['doctor', '.']],
+    ['eval', ['eval', '1', '.']],
+    ['reload', ['reload', '.']]
+  ]
+
+  describe.each(SESSION_COMMANDS)('on %s', (command, argv) => {
+    it('refuses a name no command takes on stderr and reads no session', async () => {
+      expect(await runSession([...argv, '--browser', 'netscape'])).toBe(1)
+      expect(bridgeLoads).not.toHaveBeenCalled()
+      expect(logSpy).not.toHaveBeenCalled()
+      expect(errorSpy.mock.calls.map((call) => String(call[0]))).toEqual([
+        `⏵⏵⏵ Error: Unsupported --browser value: netscape.\nChoose one of: ${everyTarget}.`
+      ])
+    })
+
+    it('frames the refusal as E_UNSUPPORTED_BROWSER usage under --output json', async () => {
+      expect(
+        await runSession([...argv, '--browser', 'netscape', '--output', 'json'])
+      ).toBe(1)
+
+      expect(bridgeLoads).not.toHaveBeenCalled()
+      expect(frames()).toEqual([
+        {
+          schema: 1,
+          ok: false,
+          command,
+          status: 'usage',
+          value: null,
+          error: {
+            code: 'E_UNSUPPORTED_BROWSER',
+            message: `Unsupported browser: netscape. Choose one of: ${everyTarget}.`
+          },
+          warnings: []
+        }
+      ])
+    })
+
+    it('refuses an empty value', async () => {
+      expect(await runSession([...argv, '--browser='])).toBe(1)
+      expect(bridgeLoads).not.toHaveBeenCalled()
+      expect(errorSpy.mock.calls.map((call) => String(call[0]))).toEqual([
+        `⏵⏵⏵ Error: --browser got an empty value.\nChoose one of: ${everyTarget}.`
+      ])
+    })
+
+    it.each([
+      'zen',
+      'Firefox'
+    ])('takes %s, a name dev takes, and goes on to the session', async (name) => {
+      // The fake bridge throws once reached, which is the point of the row.
+      await runSession([...argv, '--browser', name]).catch(() => undefined)
+
+      expect(bridgeLoads).toHaveBeenCalled()
+      expect(
+        errorSpy.mock.calls.some((call) =>
+          String(call[0]).includes('Unsupported --browser value')
+        )
+      ).toBe(false)
+    })
+
+    it('lists every name it takes in --help', () => {
+      const program = makeProgram((root) => {
+        registerLogsCommand(root)
+        registerDoctorCommand(root)
+        registerActCommands(root)
+      })
+      const help = program.commands
+        .find((sub) => sub.name() === command)
+        ?.helpInformation()
+
+      expect(help).toContain(`--browser <${BROWSER_TARGETS_HELP}>`)
+    })
   })
 })

@@ -68,6 +68,8 @@ type PreviewRunOptions = {
   profile?: string | false
   profileSource?: 'flag' | 'config'
   persistProfile?: boolean
+  keepProfileChanges?: boolean
+  copyFromProfile?: string
   preferences?: Record<string, unknown>
   browserFlags?: string[]
   excludeBrowserFlags?: string[]
@@ -136,6 +138,8 @@ function buildPreviewPluginOptions(opts: PreviewRunOptions): Pick<
   | 'logTab'
 > & {
   persistProfile?: boolean
+  keepProfileChanges?: boolean
+  copyFromProfile?: string
 } {
   return {
     extension: opts.extensionsToLoad,
@@ -143,6 +147,8 @@ function buildPreviewPluginOptions(opts: PreviewRunOptions): Pick<
     noOpen: opts.noOpen,
     profile: opts.profile,
     persistProfile: opts.persistProfile,
+    keepProfileChanges: opts.keepProfileChanges,
+    copyFromProfile: opts.copyFromProfile,
     preferences: opts.preferences,
     browserFlags: opts.browserFlags,
     excludeBrowserFlags: opts.excludeBrowserFlags,
@@ -173,6 +179,8 @@ function buildPreviewChromiumOptions(
     noOpen: pluginOptions.noOpen,
     profile: pluginOptions.profile,
     persistProfile: pluginOptions.persistProfile,
+    keepProfileChanges: pluginOptions.keepProfileChanges,
+    copyFromProfile: pluginOptions.copyFromProfile,
     preferences: pluginOptions.preferences,
     browserFlags: pluginOptions.browserFlags,
     excludeBrowserFlags: pluginOptions.excludeBrowserFlags,
@@ -202,6 +210,9 @@ function buildPreviewFirefoxOptions(
     browser: pluginOptions.browser,
     profile: pluginOptions.profile,
     profileSource: opts.profileSource,
+    persistProfile: pluginOptions.persistProfile,
+    keepProfileChanges: pluginOptions.keepProfileChanges,
+    copyFromProfile: pluginOptions.copyFromProfile,
     preferences: pluginOptions.preferences,
     browserFlags: pluginOptions.browserFlags,
     startingUrl: pluginOptions.startingUrl,

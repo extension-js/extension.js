@@ -279,7 +279,9 @@ What is stable and what is not:
   them, and do not match on the pretty output either.** If you need a signal that is not in
   `ok`, `status`, or `error.code`, open an issue and it will be added to the envelope.
 - `value` carries the payload on success. On a failure it is `null`, except on a session frame
-  of `dev`, where it still describes the session.
+  of `dev`, where it still describes the session, and on a `build` of several browsers that
+  stopped partway: there `value.browsers` lists the browsers already built and the frame's
+  `browser` names the one that failed.
 - `warnings` lists each coded warning the run carried on past, as `CODE: text`, once each. A
   `build` frame carries it on success and on failure alike, and it is `[]` when there is none.
 - `error.details` is present when a compile failed and lists each diagnostic behind it, errors

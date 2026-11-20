@@ -17,6 +17,7 @@ afterEach(() => {
 
   takeCodedWarnings()
   vi.restoreAllMocks()
+  vi.unstubAllEnvs()
 })
 
 function extensionAt(dir: string) {
@@ -131,6 +132,23 @@ describe('an entry of the scanned companion folder', () => {
       coded: []
     })
   })
+
+  // A machine owns stdout then, so the words travel only under the code.
+  it.skipIf(!canLink)(
+    'is said only under its code while a machine reads the output',
+    () => {
+      const {holder, root} = layout()
+
+      vi.stubEnv('EXTENSION_OUTPUT', 'json')
+      link(root, 'linked-out', path.join(holder, 'outside', 'out'))
+
+      const result = scan(root)
+
+      expect(result.said).toEqual([])
+      expect(result.coded).toHaveLength(1)
+      expect(result.coded[0]).toMatch(/^W_COMPANION_EXTENSION_PATH: /)
+    }
+  )
 
   // A named file may come from the workspace, a companion folder may not.
   it.skipIf(!canLink)(

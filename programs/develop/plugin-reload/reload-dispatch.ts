@@ -17,6 +17,12 @@ import type {
 } from '../dev-server/control-bridge/contracts'
 import {humanLine} from '../dev-server/lifecycle-stream'
 import {prefix} from '../lib/messaging'
+import {
+  filesBehindFolders,
+  readsOfCompilation,
+  relativePublicRootsOf,
+  wasReadByBuild
+} from './build-reads'
 import type {ReloadInstruction} from './classify-reload'
 import * as reloadMessages from './messages'
 import {projectRelative} from './project-relative'
@@ -409,6 +415,8 @@ function pushChanged(
 // pending until the next successful snapshot: a typo-fix must still reload
 // the permission change that rode along with it, and a recovery that reports
 // no modifiedFiles must still reload everything the success actually wrote.
+// Only files the build read count: a saved note nothing imports reloads
+// nothing, and a file a glob picks up or drops is named, not just its folder.
 export function createChangedSourcesTracker(
   compiler: Compiler
 ): ChangedSourcesTracker {
@@ -417,6 +425,8 @@ export function createChangedSourcesTracker(
   let heldForcedFull = false
   let heldSources: string[] = []
   let writtenAssets: string[] = []
+  let changedFolders: string[] = []
+  let readBefore: Set<string> | undefined
 
   const contextDir = () => compiler.options.context || ''
 
@@ -428,7 +438,53 @@ export function createChangedSourcesTracker(
     if (!files) return
 
     const ctx = contextDir()
-    for (const file of files) pushChanged(into, file, ctx, markForced)
+
+    for (const file of files) {
+      const raw = String(file || '')
+
+      if (path.isAbsolute(raw) && isDirectory(raw)) {
+        if (!changedFolders.includes(raw)) changedFolders.push(raw)
+      } else {
+        pushChanged(into, file, ctx, markForced)
+      }
+    }
+  }
+
+  const changesOf = (source: {
+    modifiedFiles?: Iterable<string>
+    removedFiles?: Iterable<string>
+  }) => [...(source.modifiedFiles || []), ...(source.removedFiles || [])]
+
+  // Names the files behind a reported folder, then keeps the files this
+  // compile or the one before it read. A compile that cannot say keeps all.
+  const keepFilesTheBuildRead = (compilation: unknown, failed: boolean) => {
+    const reads = readsOfCompilation(compilation)
+    if (!reads) return
+
+    const ctx = contextDir()
+    const named = filesBehindFolders({
+      contextDir: ctx,
+      folders: changedFolders,
+      reads,
+      readBefore
+    })
+
+    for (const rel of named) pushChanged(changedSources, rel, ctx, markForced)
+
+    const publicRoots = relativePublicRootsOf(compiler, ctx)
+
+    changedSources = changedSources.filter(
+      (rel) =>
+        isForcedFullPath(rel) ||
+        wasReadByBuild(rel, {contextDir: ctx, reads, readBefore, publicRoots})
+    )
+
+    // A failed compile can stop short of a file, so what it read adds to the
+    // compile before it rather than replacing it.
+    readBefore =
+      failed && readBefore
+        ? new Set([...readBefore, ...reads.files])
+        : reads.files
   }
 
   const foldRecoveryIntoCurrent = () => {
@@ -460,11 +516,8 @@ export function createChangedSourcesTracker(
     forcedFull = false
     changedSources = []
     writtenAssets = []
-    ingest(
-      compiler.modifiedFiles as Set<string> | undefined,
-      changedSources,
-      markForced
-    )
+    changedFolders = []
+    ingest(changesOf(compiler), changedSources, markForced)
   })
 
   compiler.hooks.done?.tap?.(
@@ -473,14 +526,12 @@ export function createChangedSourcesTracker(
       compilation?: {errors?: unknown[]; modifiedFiles?: Iterable<string>}
     }) => {
       const compilation = stats?.compilation
+      const failed = Boolean(compilation?.errors?.length)
       ingest(compilation?.modifiedFiles, changedSources, markForced)
-      ingest(
-        compiler.modifiedFiles as Set<string> | undefined,
-        changedSources,
-        markForced
-      )
+      ingest(changesOf(compiler), changedSources, markForced)
+      keepFilesTheBuildRead(compilation, failed)
 
-      if (compilation?.errors && compilation.errors.length > 0) {
+      if (failed) {
         heldForcedFull = heldForcedFull || forcedFull
 
         for (const file of changedSources) {

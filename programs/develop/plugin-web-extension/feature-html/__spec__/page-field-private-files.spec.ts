@@ -61,7 +61,7 @@ const CASES = FIELDS.flatMap(([label, stops, field, browser]) =>
 
 describe('a manifest page field that names a file the build never copies', () => {
   it.each(CASES)(
-    '%s: leaves %s out and calls the page missing',
+    '%s: leaves %s out and says it is not bundled',
     async (label, ref, stops, field, browser) => {
       const {root} = makeProject({'manifest.json': manifest(field(ref))})
       const result = await build(root, browser)
@@ -69,8 +69,10 @@ describe('a manifest page field that names a file the build never copies', () =>
       expect(result.marked).toEqual([])
       expectNothingPrivate(result)
       expect(result.printed).toContain(
-        `Can't find the page listed in ${label}.`
+        `is not bundled. Check the ${label} field in your manifest.json file.`
       )
+
+      expect(result.printed).not.toContain("Can't find the page")
 
       expect(result.errors).toBe(stops ? 1 : 0)
       expect(result.shipped.filter((name) => name.endsWith('.html'))).toEqual(

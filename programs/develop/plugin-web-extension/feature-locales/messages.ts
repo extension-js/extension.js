@@ -9,10 +9,13 @@
 import {prefix} from '../../lib/messaging'
 import {displayPath} from '../../lib/paths'
 
-export function manifestNotFoundMessageOnly(absPath: string) {
+export function manifestNotFoundMessageOnly(
+  manifestPath: string,
+  projectRoot: string
+) {
   return (
     `Can't find a manifest.json file.\n` +
-    `NOT FOUND ${absPath}\n` +
+    `NOT FOUND ${displayPath(manifestPath, projectRoot)}\n` +
     `Add a manifest.json file to your project root.`
   )
 }
