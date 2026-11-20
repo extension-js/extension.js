@@ -377,18 +377,6 @@ async function runPreview(
     assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
   }
 
-  // A browser passed in wins; with none, commands.<cmd>.browser from the
-  // project config decides which build is previewed.
-  const configBrowser = previewOptions.browser
-    ? undefined
-    : configBrowserOrThrow(
-        (
-          await loadCommandConfig(packageJsonDir, metadataCommand, {
-            mode: 'production'
-          })
-        ).browser,
-        metadataCommand
-      )
   const namesBinary = Boolean(
     previewOptions.chromiumBinary ||
       previewOptions.geckoBinary ||
@@ -396,13 +384,29 @@ async function runPreview(
   )
   // The same stock default as build, so a build made with no browser named
   // is the one previewed. A binary with no name picks its own family.
-  const browser = normalizeBrowser(
-    previewOptions.browser ||
-      configBrowser ||
-      (namesBinary ? undefined : 'chromium'),
-    previewOptions.chromiumBinary,
-    previewOptions.geckoBinary || previewOptions.firefoxBinary
-  )
+  const browserFor = (named: unknown) =>
+    normalizeBrowser(
+      (named as PreviewOptions['browser']) ||
+        (namesBinary ? undefined : 'chromium'),
+      previewOptions.chromiumBinary,
+      previewOptions.geckoBinary || previewOptions.firefoxBinary
+    )
+  // A browser passed in wins; with none, commands.<cmd>.browser from the
+  // project config decides which build is previewed. That read sees the env
+  // files of the browser that is previewed when the config names none.
+  const browser = previewOptions.browser
+    ? browserFor(previewOptions.browser)
+    : browserFor(
+        configBrowserOrThrow(
+          (
+            await loadCommandConfig(packageJsonDir, metadataCommand, {
+              mode: 'production',
+              browser: String(browserFor(undefined))
+            })
+          ).browser,
+          metadataCommand
+        )
+      )
   // A directory that holds a manifest but no package.json is an unpacked
   // extension (a build folder, a downloaded release): preview exactly that,
   // instead of walking up to an ancestor project and looking for its dist.

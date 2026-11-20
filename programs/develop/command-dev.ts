@@ -108,31 +108,35 @@ export async function extensionDev(
       assertNoManagedDependencyConflicts(userManifestPath, packageJsonDir)
     }
 
-    // commands.dev.browser is read before the target is picked, so the config
-    // can choose the browser when no --browser flag arrived. With a flag,
-    // the first load already knows the browser and reads its env files.
-    const configBrowser = askedBrowser
-      ? undefined
-      : configBrowserOrThrow(
-          (
-            (await loadCommandConfig(packageJsonDir, 'dev')) as {
-              browser?: unknown
-            }
-          ).browser,
-          'dev'
-        )
     const geckoBinary = devOptions.geckoBinary || devOptions.firefoxBinary
     const namesBinary = Boolean(
       devOptions.chromiumBinary || geckoBinary || devOptions.safariBinary
     )
     // The same stock default as build. A binary with no name picks its own
     // family, so the default only applies when neither was given.
-    const browser = normalizeBrowser(
-      askedBrowser || configBrowser || (namesBinary ? undefined : 'chromium'),
-      devOptions.chromiumBinary,
-      geckoBinary,
-      devOptions.safariBinary
-    )
+    const browserFor = (named: typeof askedBrowser) =>
+      normalizeBrowser(
+        named || (namesBinary ? undefined : 'chromium'),
+        devOptions.chromiumBinary,
+        geckoBinary,
+        devOptions.safariBinary
+      )
+    // commands.dev.browser is read before the target is picked, so the config
+    // can choose the browser when no --browser flag arrived. That read sees
+    // the env files of the browser that runs when the config names none.
+    const browser = askedBrowser
+      ? browserFor(askedBrowser)
+      : browserFor(
+          configBrowserOrThrow(
+            (
+              (await loadCommandConfig(packageJsonDir, 'dev', {
+                mode: 'development',
+                browser: String(browserFor(undefined))
+              })) as {browser?: unknown}
+            ).browser,
+            'dev'
+          )
+        )
 
     if (debug) {
       debugLine(messages.debugDirs(manifestDir, packageJsonDir))

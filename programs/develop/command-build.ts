@@ -429,14 +429,15 @@ async function runBuild(
         buildOptions?.safariBinary
       )
     // The config reads the env files the bundle will, so its first load is
-    // told the mode, and the browser whenever the config does not name it.
+    // told the mode and the browser that builds when the config names none.
     const browser = askedBrowser
       ? browserFor(askedBrowser)
       : browserFor(
           configBrowserOrThrow(
             (
               await loadCommandConfig(packageJsonDir, commandKey, {
-                mode: resolvedMode
+                mode: resolvedMode,
+                browser: String(browserFor(undefined))
               })
             ).browser,
             commandKey
