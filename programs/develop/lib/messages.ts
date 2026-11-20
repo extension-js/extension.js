@@ -452,6 +452,27 @@ export function anotherDevSessionActive(
   )
 }
 
+// A dev session owns its contract, so another command beside it leaves it be.
+export function liveDevSessionOwnsContract(
+  command: string,
+  pid: number,
+  readyPath: string
+) {
+  return (
+    `${getLoggingPrefix('warn')} A live dev session (PID ${pid}) owns ${colors.underline(asAskedPath(readyPath))}, so this ${command} run leaves its ready.json and events.ndjson as they are.\n` +
+    `The output folder is shared, so the dev browser may pick up the files this ${command} writes. Stop the dev session first for a clean ${command} receipt.`
+  )
+}
+
+// The session contract is the only way a tool learns the run's state, so a
+// write that failed is said once instead of leaving the tool to time out.
+export function sessionContractUnwritable(filePath: string, reason: string) {
+  return (
+    `${getLoggingPrefix('warn')} Could not write ${colors.underline(asAskedPath(filePath))} (${reason}).\n` +
+    `Tools that read the session contract, such as ${fmt.code('--wait')} and ${fmt.code('extension doctor')}, see no update until it can be written.`
+  )
+}
+
 const PROTECTED_FOLDER_NAMES = {
   project: 'the project root or a folder above it',
   cwd: 'the current folder or a folder above it',
