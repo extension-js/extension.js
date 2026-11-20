@@ -111,7 +111,8 @@ describe('the bridge coordinates a ReloadPlugin bakes', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
 
     expect(relayApplied({controlPort: null})).toBe(false)
-    expect(relayApplied({})).toBe(true)
+    expect(relayApplied({})).toBe(false)
+    expect(relayApplied({controlPort: 9001})).toBe(true)
   })
 
   it('bake nothing for a session with no bridge, whatever the environment', () => {

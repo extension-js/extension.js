@@ -62,10 +62,6 @@ function makeCompiler() {
   }
 }
 
-// The published ExtensionEnv augmentation makes the bundler-injected keys
-// required, and a unit env object carries none of them.
-const asEnv = (vars: Record<string, string> = {}) => vars as NodeJS.ProcessEnv
-
 const ENV_KEYS = [
   'EXTENSION_CONTROL_PORT',
   'EXTENSION_INSTANCE_ID',
@@ -421,12 +417,12 @@ describe('InjectBridgeProducer', () => {
 })
 
 describe('InjectBridgeRelay', () => {
-  const bridgeOn = asEnv({EXTENSION_CONTROL_PORT: '8123'})
+  const bridgeOn = {controlPort: 8123}
 
   it('prepends the relay to every surface with its own context baked in', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     const surfaces: Array<[string, string]> = [
       ['content_scripts/content-0.js', 'content'],
       ['action/index.js', 'popup'],
@@ -455,7 +451,7 @@ describe('InjectBridgeRelay', () => {
   it('makes a content script bundle name itself to its frame, and no other surface', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     setAsset('content_scripts/content-0.11111111.js', '/* content */')
     setAsset('options/index.js', '/* options */')
     runProcessAssets()
@@ -477,7 +473,7 @@ describe('InjectBridgeRelay', () => {
   it('excludes the background SW and HMR chunks from relay injection', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     setAsset('background/service_worker.js', '/* sw */')
     setAsset('hot/background.abc.hot-update.js', '/* hmr */')
     runProcessAssets()
@@ -488,7 +484,7 @@ describe('InjectBridgeRelay', () => {
   it('is idempotent when the relay marker is already present', () => {
     const {compiler, runProcessAssets, setAsset, getAssetSource} =
       makeCompiler()
-    new InjectBridgeRelay({env: bridgeOn}).apply(compiler)
+    new InjectBridgeRelay(bridgeOn).apply(compiler)
     const body = '/* __extjsBridgeRelayInstalled marker */ /* content */'
     setAsset('content_scripts/content-0.js', body)
     runProcessAssets()
@@ -497,19 +493,16 @@ describe('InjectBridgeRelay', () => {
 
   it('does nothing when the bridge is off', () => {
     const {compiler, taps} = makeCompiler()
-    new InjectBridgeRelay({env: asEnv()}).apply(compiler)
+    new InjectBridgeRelay().apply(compiler)
     expect(taps).toHaveLength(0)
   })
 
-  it('reads the control port from the given environment, not the process', () => {
+  it('stays off for a control port another session left in the environment', () => {
     vi.stubEnv('EXTENSION_CONTROL_PORT', '8123')
-    const off = makeCompiler()
-    new InjectBridgeRelay({env: asEnv()}).apply(off.compiler)
-    const byDefault = makeCompiler()
-    new InjectBridgeRelay().apply(byDefault.compiler)
+    const {compiler, taps} = makeCompiler()
+    new InjectBridgeRelay().apply(compiler)
 
-    expect(off.taps).toHaveLength(0)
-    expect(byDefault.taps).toHaveLength(1)
+    expect(taps).toHaveLength(0)
   })
 
   it('takes the control port it is given over the environment', () => {
@@ -517,9 +510,7 @@ describe('InjectBridgeRelay', () => {
     const none = makeCompiler()
     new InjectBridgeRelay({controlPort: null}).apply(none.compiler)
     const given = makeCompiler()
-    new InjectBridgeRelay({env: asEnv(), controlPort: 9001}).apply(
-      given.compiler
-    )
+    new InjectBridgeRelay({controlPort: 9001}).apply(given.compiler)
 
     expect(none.taps).toHaveLength(0)
     expect(given.taps).toHaveLength(1)

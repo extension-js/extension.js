@@ -11,6 +11,7 @@ import type {LogContext} from '../../dev-server/control-bridge/contracts'
 import {buildBridgeRelaySource} from '../../dev-server/control-bridge/producer-runtime'
 import {prependToEmittedAsset} from '../../lib/asset-source-maps'
 import {buildDeclaredSheetSignalSource} from '../reload-lib/producer-reload'
+import type {BridgeCoordinates} from './inject-bridge-producer'
 import {BRIDGE_STAGE_AFTER_REPORT} from './stages'
 
 // Map an output asset to its bridge context. The background SW and hot/* are
@@ -32,23 +33,15 @@ export const RELAY_TARGETS: ReadonlyArray<{
 ]
 
 export class InjectBridgeRelay {
-  private readonly env: NodeJS.ProcessEnv
   private readonly controlPort?: number | null
 
-  constructor(
-    options: {env?: NodeJS.ProcessEnv; controlPort?: number | null} = {}
-  ) {
-    this.env = options.env ?? process.env
+  constructor(options: Pick<BridgeCoordinates, 'controlPort'> = {}) {
     this.controlPort = options.controlPort
   }
 
   apply(compiler: Compiler) {
-    // The session's own port first, so another session's environment in the
-    // same host does not turn the relay on.
-    const controlPort =
-      this.controlPort !== undefined
-        ? Number(this.controlPort ?? Number.NaN)
-        : parseInt(String(this.env.EXTENSION_CONTROL_PORT || ''), 10)
+    // Only the session's own port turns the relay on.
+    const controlPort = Number(this.controlPort ?? Number.NaN)
     if (!Number.isFinite(controlPort) || controlPort < 1) return
 
     const sourceFor = new Map<string, string>()
