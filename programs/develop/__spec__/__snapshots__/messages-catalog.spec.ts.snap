@@ -70,6 +70,7 @@ exports[`develop message catalogs > matches the exported message surface 1`] = `
     "configLoadingError: function(2)",
     "configResolvedChangeIgnored: function(1)",
     "configUnknownKeys: function(3)",
+    "configUnknownNestedKey: function(3)",
     "configWrongShape: function(2)",
     "controlNeedsBrowser: function(1)",
     "creatingProjectPath: function(0)",

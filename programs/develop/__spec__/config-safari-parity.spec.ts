@@ -186,7 +186,6 @@ async function devPackagerInput(root: string) {
 
   await extensionDev(root, {
     browser: 'safari',
-    mode: 'development',
     install: false,
     safariPackager
   })
@@ -299,7 +298,6 @@ describe('safari identity, dev versus build', () => {
     await expect(
       extensionDev(root, {
         browser: 'safari',
-        mode: 'development',
         install: false,
         safariPackager: devPackager
       })

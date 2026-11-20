@@ -1030,8 +1030,13 @@ async function runBuild(
               }
             }
           } catch (lintError) {
-            // A store check can never fail a green build.
-            const lint = failedAddonLint(lintError, distDisplay)
+            // A store check can never fail a green build, and the note of
+            // an earlier lint is retired here as on every other failed path.
+            const lint = failedAddonLint(
+              lintError,
+              distDisplay,
+              displayDistPath
+            )
             summary = {...summary, addon_lint: summarizeAddonLint(lint)}
             lintLines.push(lint.line)
             namesOversizeFiles = true

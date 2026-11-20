@@ -55,7 +55,7 @@ export const keyed: FileConfig = {
 }
 
 // @ts-expect-error a dev call has no map key to name the target
-export const dev: DevOptions = {mode: 'development'}
+export const dev: DevOptions = {port: 8080}
 
 // @ts-expect-error a build call has no map key to name the target
 export const build: BuildOptions = {zip: true}
@@ -92,6 +92,22 @@ export const previewKeep: FileConfig = {
 export const startCopy: FileConfig = {
   // @ts-expect-error only dev hands copyFromProfile to the browser
   commands: {start: {copyFromProfile: '/tmp/profile'}}
+}
+
+// Preview serves a build that already exists, so it takes no build keys.
+export const previewPolyfill: FileConfig = {
+  // @ts-expect-error preview bundles nothing, so no polyfill applies
+  commands: {preview: {polyfill: true}}
+}
+
+export const previewInclude: FileConfig = {
+  // @ts-expect-error preview copies no files into a build
+  commands: {preview: {include: {'extra.js': 'src/extra.js'}}}
+}
+
+export const previewExclude: FileConfig = {
+  // @ts-expect-error preview leaves no files out of a build
+  commands: {preview: {exclude: ['src/skip.js']}}
 }
 `
 
@@ -340,10 +356,44 @@ export const start: unknown = extensionStart
 export const dev = () =>
   extensionDev(undefined, {
     browser: 'chrome',
-    mode: 'development',
     // @ts-expect-error open is not an option
     open: true
   } satisfies DevOptions)
+`
+    })
+
+    expect(result.errors).toEqual([])
+    expect(result.status).toBe(0)
+  }, 120_000)
+
+  it('refuse the build fields a dev session ignores', () => {
+    const ignored = [
+      'mode',
+      'zip',
+      'zipSource',
+      'zipFilename',
+      'zipDir',
+      'sourceMaps'
+    ]
+    const probes = ignored.map(
+      (field) => `export const ${field}: DevOptions = {
+  browser: 'chrome',
+  // @ts-expect-error dev ignores ${field}
+  ${field}: undefined
+}
+
+export const ${field}Call = () =>
+  extensionDev(undefined, {
+    browser: 'chrome',
+    // @ts-expect-error dev ignores ${field}
+    ${field}: undefined
+  })`
+    )
+
+    const result = typecheck({
+      'dev-ignored-fields.ts': `import {extensionDev, type DevOptions} from 'extension-develop'
+
+${probes.join('\n\n')}
 `
     })
 
