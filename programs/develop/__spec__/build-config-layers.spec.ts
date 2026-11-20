@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // One specificity ladder for every key that can live in more than one
 // place: a top-level value is the weakest layer, browser.<vendor> beats it,
@@ -41,7 +42,6 @@ function project(config: string) {
 }
 
 async function build(root: string, extra: Record<string, unknown> = {}) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalWarn = console.warn
   const originalLog = console.log
@@ -52,13 +52,11 @@ async function build(root: string, extra: Record<string, unknown> = {}) {
   let summary: {errors_count: number; warnings_count: number}
 
   try {
-    summary = await extensionBuild(root, {
-      browser: 'chrome',
+    summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'production',
       ...extra
-    } as any)
+    })
   } finally {
     console.warn = originalWarn
     console.log = originalLog

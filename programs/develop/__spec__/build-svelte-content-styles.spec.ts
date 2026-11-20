@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 import {workspacePackage} from './helpers/workspace-package'
 
 const SVELTE_PACKAGES = {
@@ -118,7 +119,6 @@ function project(options: {sideEffectsFree: boolean}) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   const originalError = console.error
@@ -127,12 +127,7 @@ async function build(root: string) {
   let summary: {errors_count: number}
 
   try {
-    summary = await extensionBuild(root, {
-      browser: 'chrome',
-      silent: false,
-      install: false,
-      mode: 'production'
-    } as any)
+    summary = await buildProject(root, {silent: false, mode: 'production'})
   } catch (error) {
     throw new Error(`build failed: ${String(error)}\n${lines.join('\n')}`)
   } finally {

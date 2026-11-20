@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A production Firefox build runs addons-linter over the emitted dist and
 // prints what addons.mozilla.org would flag, as warnings, never as errors.
@@ -231,7 +232,6 @@ async function build(
     addonLint?: boolean
   }
 ) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -246,13 +246,12 @@ async function build(
   }
 
   try {
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser: options.browser,
       silent: false,
-      install: false,
       mode: options.mode,
       addonLint: options.addonLint
-    } as any)
+    })
   } finally {
     console.log = originalLog
     console.warn = originalWarn

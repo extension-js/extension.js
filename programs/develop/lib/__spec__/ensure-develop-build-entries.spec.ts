@@ -24,14 +24,18 @@ import {
   developBuildEntryFile,
   developWatchLockDir
 } from '../develop-build-entries'
-import {ensureDevelopArtifacts} from '../ensure-develop-artifacts'
+import {
+  COMPILE_IN_TESTS_ENV,
+  ensureDevelopArtifacts
+} from '../ensure-develop-artifacts'
 
 const OLD_ALIASES = ['ensure-hmr-for-scripts.js', 'minimum-script-file.js']
 const LOADER = 'late-css-import-loader'
 const savedEnv = {
   EXTENSION_DEVELOP_ROOT: process.env.EXTENSION_DEVELOP_ROOT,
   EXTENSION_DEBUG: process.env.EXTENSION_DEBUG,
-  EXTENSION_AUTHOR_MODE: process.env.EXTENSION_AUTHOR_MODE
+  EXTENSION_AUTHOR_MODE: process.env.EXTENSION_AUTHOR_MODE,
+  [COMPILE_IN_TESTS_ENV]: process.env[COMPILE_IN_TESTS_ENV]
 }
 
 let root: string
@@ -101,6 +105,7 @@ beforeEach(() => {
   process.env.EXTENSION_DEVELOP_ROOT = root
   Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
+  process.env[COMPILE_IN_TESTS_ENV] = '1'
 })
 
 afterEach(() => {
@@ -260,6 +265,80 @@ describe('ensureDevelopArtifacts', () => {
       `  ${developBuildEntryFile(root, LOADER)}`,
       `Run pnpm run compile in ${root} to see the build error.`
     ])
+  })
+})
+
+describe('ensureDevelopArtifacts under a test runner', () => {
+  it.each([
+    undefined,
+    '',
+    '0',
+    'false'
+  ])('compiles nothing into the checkout and names the command when the opt-in is %j', async (value) => {
+    if (value === undefined) {
+      Reflect.deleteProperty(process.env, COMPILE_IN_TESTS_ENV)
+    } else {
+      process.env[COMPILE_IN_TESTS_ENV] = value
+    }
+
+    makeDevelopRoot({source: true, without: [LOADER]})
+
+    const {code, lines} = await refusal()
+
+    expect(execInstallCommand).not.toHaveBeenCalled()
+    expect(code).toBe('E_INTERNAL')
+    expect(lines).toEqual([
+      '⏵⏵⏵ Error: Extension.js is missing 1 of its own build files.',
+      `  ${developBuildEntryFile(root, LOADER)}`,
+      `A test run does not compile Extension.js into the checkout. Run pnpm run compile in ${root} first, or set EXTENSION_COMPILE_IN_TESTS=1 to let the run compile.`
+    ])
+  })
+
+  it.each([
+    '1',
+    'true',
+    ' TRUE '
+  ])('compiles when the opt-in is %j', async (value) => {
+    process.env[COMPILE_IN_TESTS_ENV] = value
+    makeDevelopRoot({source: true, without: [LOADER]})
+    execInstallCommand.mockImplementation(async () => writeEntry(LOADER))
+
+    await ensureDevelopArtifacts()
+
+    expect(execInstallCommand).toHaveBeenCalledTimes(1)
+  })
+
+  it('still compiles outside a test runner with no opt-in', async () => {
+    const runner = ['VITEST', 'VITEST_WORKER_ID', 'NODE_TEST_CONTEXT'].map(
+      (name) => [name, process.env[name]] as const
+    )
+
+    Reflect.deleteProperty(process.env, COMPILE_IN_TESTS_ENV)
+    for (const [name] of runner) Reflect.deleteProperty(process.env, name)
+
+    makeDevelopRoot({source: true, without: [LOADER]})
+    execInstallCommand.mockImplementation(async () => writeEntry(LOADER))
+
+    try {
+      await ensureDevelopArtifacts()
+    } finally {
+      for (const [name, value] of runner) {
+        if (value !== undefined) process.env[name] = value
+      }
+    }
+
+    expect(execInstallCommand).toHaveBeenCalledTimes(1)
+  })
+
+  it('still waits for a running watch, which writes the files itself', async () => {
+    Reflect.deleteProperty(process.env, COMPILE_IN_TESTS_ENV)
+    makeDevelopRoot({source: true, aliases: false, without: [LOADER]})
+    holdWatchLock(process.pid)
+    setTimeout(() => writeEntry(LOADER), 60)
+
+    await ensureDevelopArtifacts({watchWaitMs: 5000, watchPollMs: 10})
+
+    expect(execInstallCommand).not.toHaveBeenCalled()
   })
 })
 

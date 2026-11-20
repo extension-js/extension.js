@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A stylesheet the parser rejects ships as authored with one warning in
 // development. Production must keep every rule development keeps: the
@@ -84,13 +85,7 @@ function project(css: string, options: ProjectOptions = {}) {
 }
 
 async function build(root: string, mode: 'development' | 'production') {
-  const {extensionBuild} = await import('../command-build')
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode
-  } as any)
+  const summary = await buildProject(root, {mode})
 
   expect(summary.errors_count).toBe(0)
 

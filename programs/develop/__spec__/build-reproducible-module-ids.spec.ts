@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import {fileURLToPath} from 'node:url'
 import {afterAll, describe, expect, it} from 'vitest'
 import {stripAnsi} from '../dev-server/lifecycle-stream'
+import {buildProject} from './helpers/build-project'
 
 // A hashed module id follows where every loader sits. Here extension-develop
 // is a symlink (npm link, pnpm) and a configResolved rule names a loader
@@ -119,19 +120,16 @@ function project(...nested: string[]) {
 }
 
 async function build(root: string) {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   console.log = (...args: unknown[]) => lines.push(args.join(' '))
 
   try {
-    const summary = await extensionBuild(root, {
-      browser: 'chrome',
+    const summary = await buildProject(root, {
       silent: false,
-      install: false,
       mode: 'production',
       exitOnError: false
-    } as any)
+    })
     expect(summary.errors_count).toBe(0)
 
     return {summary, output: stripAnsi(lines.join('\n'))}

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const SUITE_ROOT = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-build-cs-war-'))
 
@@ -90,18 +91,11 @@ function writeFixture(name: string, manifestVersion: 2 | 3): string {
 }
 
 async function buildFixture(root: string, mode: 'production' | 'development') {
-  const {extensionBuild} = await import('../command-build')
-
   const previousAuthorMode = process.env.EXTENSION_AUTHOR_MODE
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
 
   try {
-    return await extensionBuild(root, {
-      browser: 'chrome',
-      silent: true,
-      install: false,
-      mode
-    } as any)
+    return await buildProject(root, {mode})
   } finally {
     if (previousAuthorMode === undefined) {
       Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')

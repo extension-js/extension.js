@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // One Chromium-first side panel project, built for each engine. The panel
 // page is written at the root and ships as sidebar/index.html, its script
@@ -89,7 +90,6 @@ function project(manifest: Record<string, unknown> = {}) {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox' | 'safari') {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const original = {
     log: console.log,
@@ -102,13 +102,12 @@ async function build(root: string, browser: 'chrome' | 'firefox' | 'safari') {
   let summary: {errors_count: number; warnings?: string[]}
 
   try {
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode: 'production',
       addonLint: false
-    } as never)
+    })
   } finally {
     Object.assign(console, original)
   }

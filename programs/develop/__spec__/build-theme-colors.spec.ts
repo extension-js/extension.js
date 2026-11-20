@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // Firefox reads theme colors as CSS strings and Chromium only as number
 // arrays, so a Chromium build ports the exact strings and refuses the rest.
@@ -53,7 +54,6 @@ function project(theme: Record<string, unknown>) {
 }
 
 async function build(root: string, browser: 'chrome' | 'edge' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
 
   const record = (...args: unknown[]) => {
@@ -72,12 +72,11 @@ async function build(root: string, browser: 'chrome' | 'edge' | 'firefox') {
   let failure: (Error & {code?: string; diagnostics?: Diagnostic[]}) | undefined
 
   try {
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode: 'production'
-    } as never)
+    })
   } catch (error) {
     failure = error as typeof failure
   } finally {

@@ -6,6 +6,7 @@ import {
   CHROMIUM_EXTENSION_ROOT,
   GECKO_EXTENSION_ROOT
 } from '../plugin-web-extension/feature-scripts/scripts-lib/injected-sheet-urls'
+import {buildProject} from './helpers/build-project'
 
 // Chromium resolves a url() in a sheet it injects against the visited page,
 // so the sheet a declared content script ships names its file by extension.
@@ -79,14 +80,7 @@ function project() {
 
 async function build(browser: 'chrome' | 'firefox') {
   const root = project()
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {browser, mode: 'production'})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)

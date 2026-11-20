@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A manifest that names one key of a cross-browser pair has to reach the
 // other vendor under the key that vendor reads, on the page the build emits.
@@ -44,7 +45,6 @@ function project(name: string, manifest: Record<string, unknown>) {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
   const lines: string[] = []
   const originalLog = console.log
   const originalWarn = console.warn
@@ -57,12 +57,11 @@ async function build(root: string, browser: 'chrome' | 'firefox') {
   }
 
   try {
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode: 'production'
-    } as never)
+    })
   } finally {
     console.log = originalLog
     console.warn = originalWarn

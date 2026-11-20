@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 // A chunk a content script loads through import() is fetched by the page
 // from the extension origin, so the built manifest must list it as web
@@ -53,14 +54,7 @@ async function build(
   browser: 'chrome' | 'firefox',
   mode: 'production' | 'development'
 ) {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode
-  } as any)
+  const summary = await buildProject(root, {browser, mode})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)

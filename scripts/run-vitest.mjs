@@ -10,11 +10,12 @@ import {spawnSync} from 'node:child_process'
 import {createRequire} from 'node:module'
 import path from 'node:path'
 import {fileURLToPath} from 'node:url'
+import {keepVitestFilters} from './lib/vitest-filter-args.mjs'
 
-// `pnpm test -- <file>` hands vitest a bare `--`, and vitest files everything
-// after it as unknown options, so the filter is dropped and the suite runs.
+// `pnpm test -- <file>` and `pnpm test -u <file>` both lose the filter in
+// vitest, which then runs the suite. Both are rewritten so the filter holds.
 export function vitestArgs(argv) {
-  return ['run', ...argv.filter((arg) => arg !== '--')]
+  return ['run', ...keepVitestFilters(argv)]
 }
 
 function resolveVitestPackage(cwd) {

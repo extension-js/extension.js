@@ -4,6 +4,7 @@ import * as path from 'node:path'
 import * as vm from 'node:vm'
 import {afterAll, describe, expect, it} from 'vitest'
 import {readTakeBlock} from '../lib/extension-base-from-stack'
+import {buildProject} from './helpers/build-project'
 
 // An injected MAIN world file reads the extension base off the page on
 // Gecko, so the caller's bundle runs the bridge ahead of the injection.
@@ -65,14 +66,7 @@ function project(files: Record<string, string>) {
 }
 
 async function build(root: string, browser: 'chrome' | 'firefox') {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser,
-    silent: true,
-    install: false,
-    mode: 'production'
-  } as any)
+  const summary = await buildProject(root, {browser, mode: 'production'})
   expect(summary.errors_count).toBe(0)
 
   const distDir = path.join(root, 'dist', browser)

@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import {afterAll, describe, expect, it} from 'vitest'
+import {buildProject} from './helpers/build-project'
 
 const roots: string[] = []
 
@@ -45,14 +46,7 @@ function project(files: Record<string, string>, script: boolean) {
 }
 
 async function build(root: string, mode: 'development' | 'production') {
-  const {extensionBuild} = await import('../command-build')
-
-  const summary = await extensionBuild(root, {
-    browser: 'chrome',
-    silent: true,
-    install: false,
-    mode
-  } as any)
+  const summary = await buildProject(root, {mode})
   const dir = path.join(root, 'dist', 'chrome', 'content_scripts')
   // A development build stamps the script name, so both are read by kind.
   const read = (extension: string) =>

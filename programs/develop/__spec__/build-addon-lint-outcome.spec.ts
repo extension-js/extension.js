@@ -1,8 +1,7 @@
 import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
-import {afterAll, afterEach, describe, expect, it, vi} from 'vitest'
+import {afterEach, describe, expect, it, vi} from 'vitest'
 import type {
   AddonLintOutput,
   LoadAddonLinter,
@@ -14,6 +13,9 @@ import {
 } from '../lib/addon-reviewer-note'
 import type {BuildSummary} from '../lib/build-summary'
 import {buildSummaryPath} from '../lib/session-paths'
+import {buildProject} from './helpers/build-project'
+import {writeExtensionProject} from './helpers/extension-project'
+import {trackTempFolders} from './helpers/temp-folders'
 
 const injected = vi.hoisted(() => ({
   override: {} as Partial<Pick<RunAddonLintInput, 'loadLinter' | 'timeoutMs'>>,
@@ -32,11 +34,7 @@ vi.mock('../lib/addon-lint', async (importActual) => {
   }
 })
 
-const roots: string[] = []
-
-afterAll(() => {
-  for (const root of roots) fs.rmSync(root, {recursive: true, force: true})
-})
+const tempFolder = trackTempFolders()
 
 afterEach(() => {
   injected.override = {}
@@ -49,26 +47,15 @@ function stripAnsi(value: string): string {
 }
 
 function project() {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'extjs-addon-lint-out-'))
-  roots.push(root)
-  fs.writeFileSync(
-    path.join(root, 'package.json'),
-    JSON.stringify({private: true, name: 'lintme', version: '0.0.0'})
-  )
-
-  fs.writeFileSync(path.join(root, 'background.js'), 'console.log("hi")\n')
-  fs.writeFileSync(
-    path.join(root, 'manifest.json'),
-    JSON.stringify({
-      name: 'lintme',
-      version: '1.0.0',
+  return writeExtensionProject(tempFolder('extjs-addon-lint-out-'), {
+    name: 'lintme',
+    manifest: {
       manifest_version: 2,
       browser_specific_settings: {gecko: {id: 'lintme@example.com'}},
       background: {scripts: ['background.js']}
-    })
-  )
-
-  return root
+    },
+    files: {'background.js': 'console.log("hi")\n'}
+  })
 }
 
 function linterReturning(output: AddonLintOutput): LoadAddonLinter {
@@ -98,13 +85,10 @@ async function build(
   options: {addonLint?: boolean; debug?: boolean; browser?: string} = {}
 ) {
   const browser = options.browser || 'firefox'
-  const {extensionBuild} = await import('../command-build')
   const env = {
-    VITEST: process.env.VITEST,
     EXTENSION_DEBUG: process.env.EXTENSION_DEBUG,
     EXTENSION_AUTHOR_MODE: process.env.EXTENSION_AUTHOR_MODE
   }
-  process.env.VITEST = 'true'
   Reflect.deleteProperty(process.env, 'EXTENSION_AUTHOR_MODE')
   if (options.debug) process.env.EXTENSION_DEBUG = '1'
   else Reflect.deleteProperty(process.env, 'EXTENSION_DEBUG')
@@ -119,14 +103,12 @@ async function build(
   let summary: BuildSummary
 
   try {
-    summary = await extensionBuild(root, {
+    summary = await buildProject(root, {
       browser,
       silent: false,
-      install: false,
       mode: 'production',
-      addonLint: options.addonLint,
-      exitOnError: false
-    } as any)
+      addonLint: options.addonLint
+    })
   } finally {
     console.log = originalLog
     console.warn = originalWarn
