@@ -13,6 +13,7 @@ import {readGeckoManifestId} from '../../../lib/extension-id'
 import type {DevOptions, Manifest, PluginInterface} from '../../../types'
 import {
   getCanonicalContentScriptJsAssetName,
+  isHollowContentScript,
   parseCanonicalContentScriptAsset
 } from '../../feature-scripts/contracts'
 import {missingGeckoDataCollectionPermissions} from '../manifest-lib/gecko-data-collection'
@@ -24,7 +25,6 @@ import {
   findMistypedManifestFields,
   sanitizeFatalManifestShapes
 } from '../manifest-lib/sanitize-fatal-shapes'
-import {isHollowContentScript} from '../manifest-overrides/common/content_scripts'
 import {hasMv3StringPolicy} from '../manifest-overrides/common/content_security_policy'
 import {hasMv2SandboxPolicy} from '../manifest-overrides/mv2/content_security_policy'
 
